@@ -5,12 +5,11 @@ namespace Tests\Feature\QaBlocker;
 use App\Livewire\Demo\Dashboard;
 use App\Livewire\Demo\Portfolio\AssetCreate;
 use App\Livewire\Demo\Portfolio\BrandCreate;
-use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Demo\Portfolio\BrandsIndex;
 use App\Livewire\Demo\Portfolio\CustomerCreate;
 use App\Livewire\Demo\Portfolio\CustomerDetail;
 use App\Livewire\Demo\Portfolio\CustomersIndex;
-use App\Livewire\Demo\Portfolio\PortfolioSetupWizard;
+use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
@@ -180,8 +179,7 @@ class CanonicalPortfolioRuntimeTest extends TestCase
         $this->assertStringNotContainsString('Ayşe Demir', implode(' ', $options));
         $this->assertStringNotContainsString('Mert', implode(' ', $options));
 
-        Livewire::test(PortfolioSetupWizard::class)
-            ->assertSee('Unassigned')
+        Livewire::test(CustomerCreate::class)
             ->assertSee('Office QA Admin')
             ->assertSee('Another Authorized User')
             ->assertDontSee('Ayşe Demir')
@@ -201,55 +199,26 @@ class CanonicalPortfolioRuntimeTest extends TestCase
         $this->assertTrue($customer->fresh()->responsibleUsers()->whereKey($other->id)->exists());
     }
 
-    public function test_wizard_commits_canonical_portfolio_and_survives_session_flush(): void
+    public function test_customer_and_brand_forms_commit_canonical_portfolio_and_survive_session_flush(): void
     {
-        Livewire::test(PortfolioSetupWizard::class)
-            ->set('customer_name', 'Wizard Customer')
-            ->set('account_owner', (string) $this->admin->id)
-            ->call('next')
-            ->assertSet('step', 2)
-            ->set('brand_name', 'Wizard Brand')
-            ->set('primary_country', 'TR')
-            ->set('primary_language', 'tr')
-            ->call('next')
-            ->assertSet('step', 3)
-            ->call('toggleAsset', 'website')
-            ->call('toggleAsset', 'gbp')
-            ->call('toggleAsset', 'google_ads')
-            ->call('toggleAsset', 'meta_ads')
-            ->call('toggleAsset', 'ga4')
-            ->call('toggleAsset', 'gsc')
-            ->call('next')
-            ->assertSet('step', 4)
-            ->assertDontSee('Atlas Dental Ankara')
-            ->assertDontSee('Panorama Dental')
-            ->assertDontSee('Atlas Dental Europe')
-            ->assertSee('Not configured')
-            ->assertSee('Configure integration first')
-            ->call('next')
-            ->assertSet('step', 5)
-            ->assertDontSee('Dental Implant')
-            ->assertDontSee('Smile Design')
-            ->assertDontSee('Çankaya')
-            ->call('next')
-            ->assertSet('step', 6)
-            ->assertSet('committed', true)
-            ->assertSee('Wizard Customer')
-            ->assertSee('Wizard Brand')
-            ->assertDontSee('✓ Configured');
+        Livewire::test(CustomerCreate::class)
+            ->set('name', 'Form Customer')
+            ->set('responsible_user_ids', [(string) $this->admin->id])
+            ->call('save')
+            ->assertHasNoErrors();
+        $customer = Customer::query()->where('name', 'Form Customer')->firstOrFail();
 
-        $customer = Customer::query()->where('name', 'Wizard Customer')->first();
-        $this->assertNotNull($customer);
-        $brand = Brand::query()->where('customer_id', $customer->id)->where('name', 'Wizard Brand')->first();
-        $this->assertNotNull($brand);
-        $this->assertSame(6, DigitalAsset::query()->where('brand_id', $brand->id)->count());
-        $this->assertTrue($customer->responsibleUsers()->whereKey($this->admin->id)->exists());
+        Livewire::test(BrandCreate::class, ['customerId' => (string) $customer->id])
+            ->set('name', 'Form Brand')
+            ->call('save')
+            ->assertHasNoErrors();
+        $brand = Brand::query()->where('customer_id', $customer->id)->where('name', 'Form Brand')->firstOrFail();
 
         session()->flush();
 
         $this->assertTrue(Customer::query()->whereKey($customer->id)->exists());
         $this->assertTrue(Brand::query()->whereKey($brand->id)->exists());
-        $this->assertSame(6, DigitalAsset::query()->where('brand_id', $brand->id)->count());
+        $this->assertTrue($customer->responsibleUsers()->whereKey($this->admin->id)->exists());
     }
 
     public function test_normal_app_never_auto_seeds_demo_business_state(): void

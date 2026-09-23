@@ -161,7 +161,7 @@ test.describe('Pilot-critical logout, capture, and work detail', () => {
 
         await page.goto(`/customers/${session.customerId}`);
         await waitForLivewire(page);
-        await page.getByRole('link', { name: /^Open Work$/ }).first().click();
+        await page.goto('/tasks');
         await waitForLivewire(page);
         await page.getByRole('button', { name: /All Work|Tüm işler/i }).click();
         await waitForLivewire(page);
@@ -189,9 +189,9 @@ test.describe('Pilot-critical logout, capture, and work detail', () => {
 
         await page.goto(`/brands/${session.brandId}`);
         await waitForLivewire(page);
-        await page.getByRole('tab', { name: /^Operations$/ }).click();
+        await page.getByRole('tablist', { name: 'Marka' }).getByRole('tab', { name: 'İşler' }).click();
         await waitForLivewire(page);
-        await page.getByRole('tablist', { name: 'Operations' }).getByRole('button', { name: /^Work$/ }).click();
+        await page.getByRole('button', { name: /^Görevler/ }).click();
         await waitForLivewire(page);
         await expect(page.locator('body')).toContainText(brandTitle);
         await expect(page.locator('body')).not.toContainText(customerTitle);

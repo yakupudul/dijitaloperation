@@ -118,6 +118,20 @@ final class BrandWorkspaceTest extends TestCase
         $this->get(route('operator.brand', ['brand' => $this->brand->id, 'tab' => 'operations']))->assertOk()->assertSee('Bulgular');
     }
 
+    /** Hooks the Playwright specs (tests/e2e/02, 09, 10) rely on. */
+    public function test_browser_test_hooks_are_present(): void
+    {
+        $this->get(route('operator.brand', ['brand' => $this->brand->id, 'tab' => 'assets']))
+            ->assertOk()
+            ->assertSee('role="tablist" aria-label="Marka"', false)
+            ->assertSee('data-asset-row="'.$this->website->id.'"', false);
+        $this->get(route('operator.customer', ['customerId' => $this->brand->customer_id]))
+            ->assertOk()
+            ->assertSee('aria-label="Diğer"', false)
+            ->assertSee('role="tab"', false);
+        $this->get('/setup')->assertNotFound();
+    }
+
     public function test_priority_star_and_business_context_edit(): void
     {
         $offering = app(BrandOfferingService::class)->resolveOrCreate($this->brand, 'Diş Beyazlatma', actor: $this->admin)['offering'];

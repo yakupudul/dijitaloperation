@@ -44,7 +44,6 @@ use App\Livewire\Demo\Portfolio\CustomerCreate;
 use App\Livewire\Demo\Portfolio\CustomerDetail;
 use App\Livewire\Demo\Portfolio\CustomerEdit;
 use App\Livewire\Demo\Portfolio\CustomersIndex;
-use App\Livewire\Demo\Portfolio\PortfolioSetupWizard;
 use App\Livewire\Demo\ProfilePage;
 use App\Livewire\Demo\Sales\IntentRadarIndex;
 use App\Livewire\Demo\Sales\IntentSignalShow;
@@ -118,7 +117,6 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/assets', AssetsIndex::class)->name('operator.assets');
         Route::livewire('/assets/create', AssetCreate::class)->name('operator.asset.create');
 
-        Route::livewire('/setup', PortfolioSetupWizard::class)->name('operator.setup');
 
         Route::livewire('/integrations', IntegrationsIndex::class)->name('operator.integrations');
         Route::livewire('/integrations/google', GoogleIntegrationPage::class)->name('operator.integrations.google');

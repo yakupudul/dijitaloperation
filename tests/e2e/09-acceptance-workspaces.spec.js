@@ -11,12 +11,10 @@ const UNAVAILABLE = /unavailable|not collected|not configured|has not run|no .+ 
 
 const CUSTOMER_TABS = [
     /^(Overview|Genel Bakış)$/,
-    /^(Brands|Markalar)$/,
-    /^(Relationship|Müşteri İlişkisi)$/,
-    /^(Requests|Talepler)$/,
+    /^(Requests|Talepler)/,
     /^(Reports|Raporlar)$/,
 ];
-const BRAND_TABS = ['Overview', 'Business', 'Digital Estate', 'Growth', 'Operations', 'Value'];
+const BRAND_TABS = ['Genel bakış', 'İşletme', 'Dijital varlıklar', 'İşler', 'Raporlar'];
 
 const WORKSPACES = [
     {
@@ -92,7 +90,7 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
         await expect(page.getByRole('heading', { name: session.customerName })).toBeVisible();
 
         for (const tab of CUSTOMER_TABS) {
-            await page.getByRole('button', { name: tab }).first().click();
+            await page.getByRole('tab', { name: tab }).first().click();
             await waitForLivewire(page);
             const result = await assertOperatorSurface(page, { route: page.url(), label: `Customer tab ${tab}`, watcher });
             expect.soft(result.ok, `Customer ${tab}`).toBeTruthy();
@@ -106,7 +104,7 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
             ? 'TRUTHFUL_EMPTY'
             : 'PASS', 'Customer Reports tab');
 
-        await page.locator('div.flex.gap-1.overflow-x-auto').getByRole('button', { name: /^(Requests|Talepler)$/ }).click();
+        await page.getByRole('tab', { name: /^(Requests|Talepler)/ }).click();
         await waitForLivewire(page);
         const requestBody = await page.locator('body').innerText();
         const hasCreateRequest = await page.getByRole('button', { name: /add request|new request|create request/i }).count();
@@ -153,32 +151,32 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
         }
 
         for (const tab of BRAND_TABS) {
-            await page.getByRole('tab', { name: tab }).click();
+            await page.getByRole('tablist', { name: 'Marka' }).getByRole('tab', { name: tab }).click();
             await waitForLivewire(page);
             const result = await assertOperatorSurface(page, { route: page.url(), label: `Brand ${tab}`, watcher });
             expect.soft(result.ok).toBeTruthy();
             expect.soft(await page.locator('body').innerText()).not.toMatch(/\bAtlas\b/);
         }
 
-        await page.getByRole('tab', { name: 'Business' }).click();
+        await page.getByRole('tab', { name: 'İşletme' }).click();
         await waitForLivewire(page);
         const marker = `E2E Acceptance summary ${Date.now()}`;
-        const edit = page.getByRole('button', { name: /Add business context|Edit business context/i });
+        const edit = page.getByRole('button', { name: 'Düzenle', exact: true });
         await expect(edit).toBeVisible();
         await edit.click();
         await waitForLivewire(page);
         await page.locator('textarea[wire\\:model="context_business_summary"]').fill(marker);
-        await page.locator('input[wire\\:model="context_business_model"]').fill('Clinic');
-        await page.locator('input[wire\\:model="context_positioning"]').fill('Local care');
-        await page.locator('input[wire\\:model="context_priority_offerings"]').fill('Checkup, Whitening');
-        await page.locator('input[wire\\:model="context_target_audiences"]').fill('Families');
-        await page.locator('input[wire\\:model="context_business_goals"]').fill('More bookings');
-        await page.locator('input[wire\\:model="context_constraints"]').fill('No paid social this quarter');
-        await page.getByRole('button', { name: /Save canonical context/i }).click();
+        await page.locator('textarea[wire\\:model="context_business_model"]').fill('Clinic');
+        await page.locator('textarea[wire\\:model="context_positioning"]').fill('Local care');
+        await page.locator('textarea[wire\\:model="context_priority_offerings"]').fill('Checkup, Whitening');
+        await page.locator('textarea[wire\\:model="context_target_audiences"]').fill('Families');
+        await page.locator('textarea[wire\\:model="context_business_goals"]').fill('More bookings');
+        await page.locator('textarea[wire\\:model="context_constraints"]').fill('No paid social this quarter');
+        await page.getByRole('button', { name: 'Kaydet', exact: true }).click();
         await waitForLivewire(page);
         await expect(page.getByText(marker)).toBeVisible({ timeout: 15_000 });
         await page.reload();
-        await page.getByRole('tab', { name: 'Business' }).click();
+        await page.getByRole('tab', { name: 'İşletme' }).click();
         await waitForLivewire(page);
         await expect(page.getByText(marker)).toBeVisible();
 
@@ -192,31 +190,12 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
             await expect(page.getByText(marker)).toBeVisible();
         }
 
-        await page.getByRole('tab', { name: 'Business' }).click();
+        // Public discovery lives on the website asset; the brand page only shows its results through setup.
+        await page.getByRole('tab', { name: 'Dijital varlıklar' }).click();
         await waitForLivewire(page);
-        await page.locator('[data-brand-business-subnav]').getByRole('button', { name: /Public Discovery|Kamusal keşif/i }).click();
-        await waitForLivewire(page);
-        const discovery = await page.locator('body').innerText();
-        if (!/has not run|çalışmadı|unavailable|canlı keşif yok/i.test(discovery)) {
-            recordFinding({
-                severity: 'MEDIUM',
-                surface: 'Public Discovery',
-                route: page.url(),
-                action: 'Open Brand Business Public Discovery',
-                observed: 'Public Discovery subsection did not show the truthful has-not-run copy in this pass.',
-                expected: 'Truthful unavailable/not run empty state (deferred live discovery)',
-                evidence: await screenshot(page, 'qa002-public-discovery'),
-                likelySource: 'BrandShow businessSection switch',
-                fixScope: 'small',
-            });
-        }
-        expect(discovery).not.toMatch(/Atlas|fixture candidate|demo listing/i);
-        const liveUnavailable = page.getByRole('button', { name: /Live discovery unavailable|Canlı keşif yok/i });
-        if (await liveUnavailable.count()) {
-            await expect(liveUnavailable).toBeVisible();
-        }
+        expect(await page.locator('body').innerText()).not.toMatch(/Atlas|fixture candidate|demo listing|Not configured|Never collected/i);
 
-        await page.getByRole('tab', { name: 'Value' }).click();
+        await page.getByRole('tab', { name: 'Raporlar' }).click();
         await waitForLivewire(page);
         const valueBody = await page.locator('body').innerText();
         expect(valueBody).not.toMatch(FAKE);

@@ -14,6 +14,8 @@ const legalName = `E2E Acceptance Legal ${stamp}`;
 const brandName = `E2E Acceptance Brand ${stamp}`;
 const editedLegal = `E2E Acceptance Legal Edited ${stamp}`;
 
+const BRAND_TABS = ['Genel bakış', 'İşletme', 'Dijital varlıklar', 'İşler', 'Raporlar'];
+
 const ASSET_TYPES = [
     { type: 'website', label: 'Website', name: `E2E Website ${stamp}`, specialist: '/assets/website' },
     { type: 'google_business_profile', label: 'Google Business Profile', name: `E2E GBP ${stamp}`, specialist: '/assets/gbp' },
@@ -26,11 +28,11 @@ const ASSET_TYPES = [
 test.describe('Customer / Brand / Asset golden path', () => {
     test.setTimeout(180_000);
 
-    test('create customer via Quick add and persist', async ({ page }) => {
+    test('create customer via Add customer and persist', async ({ page }) => {
         await page.goto('/customers');
         await screenshot(page, 'customers-index');
 
-        await page.getByRole('link', { name: 'Quick add' }).click();
+        await page.getByRole('link', { name: 'Add customer' }).first().click();
         await page.waitForURL(/\/customers\/create/);
         await screenshot(page, 'customer-create');
 
@@ -130,10 +132,10 @@ test.describe('Customer / Brand / Asset golden path', () => {
         await page.getByRole('link', { name: customerName }).first().click();
         await page.waitForURL(/\/customers\/\d+$/);
 
+        // Files and activity live in the header's "⋯" menu.
         const actions = [
             { name: 'Open Files', expectUrl: /\/files/ },
             { name: 'View Activity', expectUrl: /\/activity/ },
-            { name: 'Open Work', expectUrl: /\/tasks/ },
         ];
 
         for (const action of actions) {
@@ -143,6 +145,7 @@ test.describe('Customer / Brand / Asset golden path', () => {
                 await page.getByRole('link', { name: customerName }).first().click();
                 await page.waitForURL(/\/customers\/\d+$/);
             }
+            await page.getByRole('button', { name: 'Diğer' }).click();
             await page.getByRole('link', { name: action.name }).first().click();
             await page.waitForURL(action.expectUrl);
             const result = await assertOperatorSurface(page, { route: page.url(), label: action.name, watcher });
@@ -152,9 +155,9 @@ test.describe('Customer / Brand / Asset golden path', () => {
         }
 
         await page.getByRole('button', { name: 'Add contact' }).first().click();
-        await expect(page.getByRole('heading', { name: 'Add contact' })).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Kişi ekle' })).toBeVisible();
         await page.locator('input[wire\\:model="contact_name"]').fill(`E2E Acceptance Person ${stamp}`);
-        await page.getByRole('button', { name: 'Save contact' }).click();
+        await page.getByRole('button', { name: 'Kaydet', exact: true }).click();
         await expect(page.getByText(`E2E Acceptance Person ${stamp}`)).toBeVisible({ timeout: 15_000 });
 
         await page.getByRole('link', { name: 'Add brand' }).first().click();
@@ -183,40 +186,28 @@ test.describe('Customer / Brand / Asset golden path', () => {
         const session = readJson(SESSION_FILE, {});
         writeJson(SESSION_FILE, { ...session, brandName, brandId: brand.id });
 
-        const tablist = page.getByRole('tablist').filter({ has: page.getByRole('tab', { name: 'Overview' }) });
-        const topTabs = await tablist.getByRole('tab').allTextContents();
-        expect(topTabs.map((t) => t.trim())).toEqual(
-            expect.arrayContaining(['Overview', 'Business', 'Digital Estate', 'Growth', 'Operations', 'Value']),
-        );
+        const tablist = page.getByRole('tablist', { name: 'Marka' });
+        const topTabs = (await tablist.getByRole('tab').allTextContents()).map((t) => t.trim().replace(/\s+\d+$/, ''));
+        expect(topTabs).toEqual(BRAND_TABS);
         expect(topTabs.join(' ')).not.toMatch(/Atlas/i);
 
-        const contextVisibleAsTopTab = topTabs.some((t) => t.trim() === 'Context' || t.trim() === 'Public Discovery');
+        // New brand without setup: the checklist and "Otomatik kur" lead the overview.
+        await expect(page.getByRole('heading', { name: /^Kurulum \d+\/\d+$/ })).toBeVisible();
+        await expect(page.getByRole('link', { name: 'Otomatik kur' }).first()).toBeVisible();
 
-        await page.getByRole('tab', { name: 'Business' }).click();
+        await tablist.getByRole('tab', { name: 'İşletme' }).click();
         await waitForLivewire(page);
-        const businessNav = page.getByRole('tablist', { name: /Business subsections|İşletme alt bölümleri|Business sections/i });
-        await expect(businessNav.getByRole('button', { name: /Context|Bağlam/ }).first()).toBeVisible();
-        await expect(businessNav.getByRole('button', { name: /Public Discovery|Kamusal keşif/i }).first()).toBeVisible();
-        await expect(page.locator('[data-brand-business-subnav]')).toBeVisible();
-        expect(contextVisibleAsTopTab).toBeFalsy();
+        await expect(page.getByRole('heading', { name: 'İş bağlamı' })).toBeVisible();
         await screenshot(page, 'brand-business-context');
+        expect(await page.locator('body').innerText()).not.toMatch(/Atlas|fixture candidate|demo listing/i);
 
-        await businessNav.getByRole('button', { name: /Public Discovery|Kamusal keşif/i }).click();
-        await waitForLivewire(page);
-        await screenshot(page, 'brand-public-discovery');
-        const discoveryBody = await page.locator('body').innerText();
-        expect(discoveryBody).toMatch(/has not run|çalışmadı/i);
-        expect(discoveryBody).not.toMatch(/Atlas|fixture candidate|demo listing/i);
-        await expect(page.getByRole('button', { name: /Live discovery unavailable|Canlı keşif yok/i })).toBeVisible();
-        await expect(page.getByRole('button', { name: 'Refresh public observations' })).toHaveCount(0);
-
-        await page.getByRole('link', { name: 'Edit brand' }).click();
+        await page.getByRole('link', { name: 'Düzenle', exact: true }).click();
         await page.waitForURL(/\/edit/);
         await page.getByRole('button', { name: /Save/ }).click();
         await page.waitForURL(/\/brands\/\d+$/);
 
-        for (const tab of ['Overview', 'Digital Estate', 'Growth', 'Operations', 'Value']) {
-            await page.getByRole('tab', { name: tab }).click();
+        for (const tab of BRAND_TABS) {
+            await page.getByRole('tablist', { name: 'Marka' }).getByRole('tab', { name: tab }).click();
             await waitForLivewire(page);
             const result = await assertOperatorSurface(page, { route: page.url(), label: `Brand ${tab}`, watcher });
             expect.soft(result.ok).toBeTruthy();
@@ -265,7 +256,7 @@ test.describe('Customer / Brand / Asset golden path', () => {
         }
 
         await page.goto(`/brands/${brandId}`);
-        await page.getByRole('tab', { name: 'Digital Estate' }).click();
+        await page.getByRole('tab', { name: 'Dijital varlıklar' }).click();
         await waitForLivewire(page);
         await screenshot(page, 'brand-digital-estate');
 
@@ -303,13 +294,13 @@ test.describe('Customer / Brand / Asset golden path', () => {
             });
 
             await page.goto(`/brands/${brandId}`);
-            await page.getByRole('tab', { name: /Digital Estate|Dijital Ekosistem/ }).click();
+            await page.getByRole('tab', { name: 'Dijital varlıklar' }).click();
             await waitForLivewire(page);
-            const estateRow = page.locator('tr').filter({ hasText: asset.name });
+            const estateRow = page.locator('[data-asset-row]').filter({ hasText: asset.name });
             await expect(estateRow).toHaveCount(1);
-            const estateHref = await estateRow.getByRole('link', { name: /^(Open|Aç)$/ }).getAttribute('href');
+            const estateHref = await estateRow.getByRole('link', { name: /^(Open|Aç)/ }).getAttribute('href');
             expect(estateHref || '', `${asset.type} Brand Estate Open href`).toContain(String(record.id));
-            await estateRow.getByRole('link', { name: /^(Open|Aç)$/ }).click();
+            await estateRow.getByRole('link', { name: /^(Open|Aç)/ }).click();
             await page.waitForLoadState('domcontentloaded');
             const estateHints = await pageHttpHints(page);
             const estateEvidence = await screenshot(page, `asset-open-${asset.type}`);

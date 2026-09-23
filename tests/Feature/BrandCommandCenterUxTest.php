@@ -42,7 +42,7 @@ class BrandCommandCenterUxTest extends TestCase
             ->assertSee('dijital varlık')
             ->assertSee(__('operator.forms.add_brand'))
             ->assertSee(route('operator.brand.create', absolute: false))
-            ->assertDontSee(route('operator.setup', ['entry' => 'brand'], absolute: false))
+            ->assertDontSee('/setup?entry=', false)
             ->set('search', 'Atlas Dental')
             ->assertSee('Atlas Dental Ankara')
             ->set('search', 'NoSuchBrandXYZ')

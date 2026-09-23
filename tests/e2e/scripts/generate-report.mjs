@@ -162,7 +162,7 @@ Playwright product failures are treated as regressions. Prior baseline findings 
 ## Automated coverage
 
 - routes visited: Dashboard, Customers, Brands, Digital Assets, Files, Opportunities, Findings, Recommendations, Work, Activity, Integrations, Settings, plus create/edit/detail/specialist URLs
-- primary actions tested: customer Files / Activity / Open work / Add person / Edit / Add brand; brand Edit / Business tabs / Public Discovery (truthful empty; live refresh disabled)
+- primary actions tested: customer Files / Activity (⋯ menu) / Add person / Edit / Add brand; brand Otomatik kur / Düzenle / five tabs
 - CRUD workflows: Customer create/edit/reload; Brand create/edit; six Digital Asset types
 - asset types tested: Website, GBP, Google Ads, Meta Ads, GA4, GSC
 - integration workspaces: Google, Meta, DataForSEO, OpenAI, Anthropic, Gemini
@@ -250,7 +250,7 @@ Evidence lives in \`.qa-artifacts/screenshots/\` and findings above.
 ## WEBSITE 404
 
 - reproduced: ${websiteOpen.looks404 ? 'YES' : websiteOpen.finalUrl ? 'NO (Open did not 404 in this run)' : 'INCONCLUSIVE (Open result missing)'}
-- clicked from: Digital Assets index Open and Brand Digital Estate Open
+- clicked from: Digital Assets index Open and Brand \"Dijital varlıklar\" tab Open
 - generated target: \`${websiteOpen.href || '—'}\`
 - final URL: \`${websiteOpen.finalUrl || '—'}\`
 - HTTP / UI: ${websiteOpen.looks404 ? '404 Not Found UI' : websiteOpen.looks500 ? '500 UI' : websiteOpen.finalUrl ? 'page loaded' : 'not captured'}
@@ -291,24 +291,21 @@ ${(source.items || []).slice(0, 40).map((row) => `- \`${row.file}:${row.line}\` 
 
 CURRENT_STRUCTURE:
 
-- Top-level Brand tabs (role=tab): Overview, Business, Digital Estate, Growth, Operations, Value
-- When Business is selected, a **second** tablist labelled "Business sections" renders Context + Public Discovery as buttons (not top-level tabs)
-- Overview also exposes a "Business context" shortcut that jumps into the Business section
-- Public Discovery has its own inner section nav (Overview / Observed Facts / Candidates / Conflicts / Sources & History)
+- Top-level Brand tabs (role=tab, tablist "Marka"): Genel bakış, İşletme, Dijital varlıklar, İşler, Raporlar
+- Genel bakış opens with the setup checklist ("Kurulum x/y") while setup is incomplete, then attention items, assets with connected accounts, services
+- İşletme holds services (★ + matching expressions), scope and the editable business context; no sub-navigation
+- Public Discovery lives on the website asset, not on the brand page
 
 EXPECTED_STRUCTURE:
 
 - Brand
-  - Overview
-  - Business
-    - Context
-    - Public Discovery
-  - Digital Estate
-  - Growth
-  - Operations
-  - Value
+  - Genel bakış
+  - İşletme
+  - Dijital varlıklar
+  - İşler (Bulgular / Fırsatlar / Öneriler / Görevler / Talepler / Onaylar)
+  - Raporlar
 
-ROUTE_MODEL: single Livewire BrandShow URL \`/app/brands/{brand}\` with query/state \`tab=business\` + \`businessSection=context|discovery\`. No separate routes required.
+ROUTE_MODEL: single Livewire BrandShow URL \`/brands/{brand}\` with \`tab=overview|business|assets|work|reports\` (+ \`ops\` inside İşler). Old tab names redirect.
 
 Visual hierarchy: Context / Public Discovery render in a nested Business subsection after the main tablist (\`data-brand-business-subnav\`).
 

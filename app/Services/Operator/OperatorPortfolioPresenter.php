@@ -312,16 +312,6 @@ final class OperatorPortfolioPresenter
         };
     }
 
-    public static function canonicalAssetType(string $wizardType): string
-    {
-        return match ($wizardType) {
-            'gbp' => 'google_business_profile',
-            'analytics' => 'ga4',
-            'search_console' => 'gsc',
-            default => $wizardType,
-        };
-    }
-
     /**
      * @param  list<array<string, mixed>>  $assets
      * @return array{managed: int, needs_attention: int, data_issues: int, active_work: int}

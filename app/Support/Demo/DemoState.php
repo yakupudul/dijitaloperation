@@ -8,7 +8,7 @@ use App\Services\Operator\AgencySettingService;
 use App\Support\Options\CountryOptions;
 
 /**
- * Session helper for operator UI chrome (flash, filters, wizard draft, settings overrides).
+ * Session helper for operator UI chrome (flash, filters, settings overrides).
  *
  * Does NOT seed Atlas / DemoCatalog business truth. Reading an empty session
  * must not create customers, brands, assets, findings, or team members.
@@ -75,7 +75,6 @@ final class DemoState
             'discovery_history' => [],
             'discovery_conflict_resolutions' => [],
             'connector_bindings' => [],
-            'wizard_state' => null,
             'finding_statuses' => [],
             'settings_overrides' => [],
             'brand_business_context' => [],
@@ -430,33 +429,6 @@ final class DemoState
             'at' => now()->format('M j · H:i'),
         ];
         $state['connector_bindings'] = $bindings;
-        session()->put(self::SESSION_KEY, $state);
-    }
-
-    /**
-     * @param  array<string, mixed>  $wizard
-     */
-    public static function saveWizardState(array $wizard): void
-    {
-        $state = self::all();
-        $state['wizard_state'] = $wizard;
-        session()->put(self::SESSION_KEY, $state);
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    public static function wizardState(): ?array
-    {
-        $wizard = self::all()['wizard_state'] ?? null;
-
-        return is_array($wizard) ? $wizard : null;
-    }
-
-    public static function clearWizardState(): void
-    {
-        $state = self::all();
-        $state['wizard_state'] = null;
         session()->put(self::SESSION_KEY, $state);
     }
 

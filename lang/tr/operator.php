@@ -193,9 +193,6 @@ return [
     ],
 
     'portfolio' => [
-        'add_brand_wizard' => 'Marka ekle (sihirbaz)',
-        'quick_add' => 'Hızlı ekle',
-        'new_customer_setup' => 'Yeni müşteri kurulumu',
         'add_customer' => 'Müşteri ekle',
         'account_owner_responsible' => 'Müşteri Sorumlusu / Sorumlu Ekip',
     ],
@@ -263,14 +260,6 @@ return [
     ],
 
     'brand' => [
-        'tabs' => [
-            'overview' => 'Genel Bakış',
-            'business' => 'İşletme Bilgileri',
-            'estate' => 'Dijital Ekosistem',
-            'growth' => 'Büyüme',
-            'operations' => 'Operasyon',
-            'value' => 'Değer ve Sonuçlar',
-        ],
         'business_context_short' => 'İş bağlamı',
         'business_context' => 'Bağlam',
         'public_discovery' => 'Kamusal keşif',
@@ -307,8 +296,6 @@ return [
     'customer' => [
         'tabs' => [
             'overview' => 'Genel Bakış',
-            'brands' => 'Markalar',
-            'relationship' => 'Müşteri İlişkisi',
             'requests' => 'Talepler',
             'reports' => 'Raporlar',
         ],
@@ -2003,7 +1990,6 @@ return [
         'quick_views' => 'Dijital varlık hızlı görünümler',
         'view_mode' => 'Dizin görünümü',
         'subtitle' => 'Dijital ekosistem dizini — envanter, sahiplik, operasyon durumu ve veri tazeliği.',
-        'setup_wizard' => 'Kurulum sihirbazı',
         'quick_add_asset' => 'Hızlı varlık ekle',
         'no_match_assets' => 'Eşleşen dijital varlık yok',
         'no_match_assets_help' => 'Bu portföy için ilk dijital varlığı oluşturun veya filtreleri değiştirin.',

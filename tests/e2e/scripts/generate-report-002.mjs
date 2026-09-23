@@ -267,7 +267,7 @@ Hard-coded source copy candidates: ${source.hardCodedCount || 0}
 
 ## DEFERRED / NOT BLOCKING
 
-- Public Discovery: DEFERRED PRODUCT FEATURE (truthful unavailable / has not run; live refresh disabled)
+- Public Discovery: on the website asset only (not part of the brand page)
 - Website live analytics: deferred; unavailable shell acceptable
 - mobile push: deferred; notifications UI must not claim live push
 - SMTP UI: deferred

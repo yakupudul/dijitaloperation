@@ -209,7 +209,7 @@
                 </div>
             </div>
             @forelse ($assets as $asset)
-                <div wire:key="asset-{{ $asset['id'] }}" class="flex flex-wrap items-start gap-3 border-b border-gray-100 px-5 py-4 last:border-0 dark:border-gray-800">
+                <div wire:key="asset-{{ $asset['id'] }}" data-asset-row="{{ $asset['id'] }}" class="flex flex-wrap items-start gap-3 border-b border-gray-100 px-5 py-4 last:border-0 dark:border-gray-800">
                     <x-demo.digital-asset-mark :type="$asset['type']" size="md" />
                     <div class="min-w-0 flex-1">
                         <p class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ $asset['name'] }} <span class="font-normal text-gray-500">· {{ $asset['type_label'] }}</span></p>

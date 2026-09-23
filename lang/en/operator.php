@@ -192,9 +192,6 @@ return [
     ],
 
     'portfolio' => [
-        'add_brand_wizard' => 'Add Brand (wizard)',
-        'quick_add' => 'Quick add',
-        'new_customer_setup' => 'New Customer setup',
         'add_customer' => 'Add customer',
         'account_owner_responsible' => 'Account Owner / Responsible team',
     ],
@@ -262,14 +259,6 @@ return [
     ],
 
     'brand' => [
-        'tabs' => [
-            'overview' => 'Overview',
-            'business' => 'Business',
-            'estate' => 'Digital Estate',
-            'growth' => 'Growth',
-            'operations' => 'Operations',
-            'value' => 'Value',
-        ],
         'business_context_short' => 'Business context',
         'business_context' => 'Context',
         'public_discovery' => 'Public Discovery',
@@ -306,8 +295,6 @@ return [
     'customer' => [
         'tabs' => [
             'overview' => 'Overview',
-            'brands' => 'Brands',
-            'relationship' => 'Relationship',
             'requests' => 'Requests',
             'reports' => 'Reports',
         ],
@@ -2002,7 +1989,6 @@ return [
         'quick_views' => 'Digital Asset quick views',
         'view_mode' => 'Directory view',
         'subtitle' => 'Digital Estate Directory — inventory, ownership, operational state, and data freshness.',
-        'setup_wizard' => 'Setup wizard',
         'quick_add_asset' => 'Quick add asset',
         'no_match_assets' => 'No Digital Assets match',
         'no_match_assets_help' => 'Create or connect the first Digital Asset for this portfolio, or adjust filters.',

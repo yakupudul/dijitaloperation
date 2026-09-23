@@ -8,7 +8,6 @@ const SURFACES = [
     { name: 'Dashboard', path: '/' },
     { name: 'Customers', path: '/customers' },
     { name: 'Customer create', path: '/customers/create' },
-    { name: 'Customer setup', path: '/setup?entry=customer' },
     { name: 'Brands', path: '/brands' },
     { name: 'Digital Assets', path: '/assets' },
     { name: 'Files', path: '/files' },
@@ -25,7 +24,6 @@ const CORE_TR_SURFACES = new Set([
     'Dashboard',
     'Customers',
     'Customer create',
-    'Customer setup',
     'Brands',
     'Digital Assets',
     'Integrations',
@@ -79,9 +77,7 @@ test.describe('TR / EN localization audit', () => {
                         ? 'QA-MANUAL-001'
                         : surface.name === 'Customers' || surface.name === 'Customer create'
                             ? 'QA-MANUAL-002'
-                            : surface.name === 'Customer setup'
-                                ? 'QA-MANUAL-003'
-                                : '',
+                            : '',
                 });
             } else if (leaks.length) {
                 polish.push({

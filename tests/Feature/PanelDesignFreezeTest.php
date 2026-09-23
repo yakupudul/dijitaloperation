@@ -95,7 +95,7 @@ class PanelDesignFreezeTest extends TestCase
             ->assertSee(__('operator.customer.tabs.overview'))
             ->assertSee(__('operator.customer.tabs.requests'))
             ->assertSee(__('operator.customer.tabs.reports'))
-            ->assertDontSee(__('operator.customer.tabs.relationship'))
+            ->assertDontSee('Müşteri İlişkisi')
             ->assertSee(__('operator.customer.actions.add_brand'))
             ->assertSee(__('operator.customer.actions.open_files'))
             ->assertSee(__('operator.customer.actions.view_activity'));

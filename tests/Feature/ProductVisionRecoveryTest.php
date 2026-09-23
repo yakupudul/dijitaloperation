@@ -195,7 +195,7 @@ class ProductVisionRecoveryTest extends TestCase
         $this->get('/assets/analytics')->assertNotFound();
         $this->get('/assets/search-console')->assertNotFound();
         $this->get('/assets/gbp')->assertNotFound();
-        $this->get('/setup')->assertOk();
+        $this->get('/setup')->assertNotFound(); // setup happens through "Otomatik kur" on the brand
         $this->get('/integrations/connectors/ga4')->assertOk();
         $this->get('/integrations/connectors/gsc')->assertOk();
         $this->get('/settings?section=ai')->assertOk();

@@ -61,12 +61,12 @@ test.describe('Visual evidence and responsive QA', () => {
         if (session.brandId) {
             await page.goto(`/brands/${session.brandId}`);
             await screenshot(page, 'tr-desktop-brand-detail');
-            await page.getByRole('tab', { name: /Business|İş/ }).click();
+            await page.getByRole('tab', { name: 'İşletme' }).click();
             await waitForLivewire(page);
             await screenshot(page, 'tr-desktop-business-context');
-            await page.getByRole('button', { name: /Public Discovery|Kamusal keşif|Keşif/i }).click();
+            await page.getByRole('tab', { name: 'Dijital varlıklar' }).click();
             await waitForLivewire(page);
-            await screenshot(page, 'tr-desktop-public-discovery');
+            await screenshot(page, 'tr-desktop-brand-assets');
         }
         if (session.assets?.[0]) {
             const website = session.assets.find((row) => row.type === 'website');

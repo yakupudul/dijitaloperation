@@ -6,10 +6,7 @@ use App\Livewire\Demo\Integrations\ConnectorPage;
 use App\Livewire\Demo\Integrations\GoogleIntegrationPage;
 use App\Livewire\Demo\Portfolio\AssetCreate;
 use App\Livewire\Demo\Portfolio\AssetsIndex;
-use App\Livewire\Demo\Portfolio\PortfolioSetupWizard;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
-use App\Models\Brand;
-use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Support\Demo\ConnectorWorkspaceFixtures;
@@ -115,94 +112,6 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
             ->assertSee('Google Analytics Connector')
             ->assertSee('Search Console Connector')
             ->assertSee('Google Business Profile Connector');
-    }
-
-    public function test_portfolio_setup_wizard_entry_points_and_flow(): void
-    {
-        Livewire::test(PortfolioSetupWizard::class, ['entry' => 'customer'])
-            ->assertSee('Portfolio Setup Wizard')
-            ->assertSee('Customer')
-            ->set('customer_name', 'Northwind Clinics')
-            ->set('contact_name', 'Yakup')
-            ->call('next')
-            ->assertSet('step', 2)
-            ->set('brand_name', 'Northwind Brand')
-            ->set('website_url', 'https://northwind.example')
-            ->call('next')
-            ->assertSet('step', 3)
-            ->assertSee('Domain and Hosting are Website infrastructure')
-            ->assertSee('Google Analytics')
-            ->assertSee('Search Console')
-            ->call('toggleAsset', 'ga4')
-            ->call('toggleAsset', 'gsc')
-            ->call('toggleAsset', 'gbp')
-            ->call('next')
-            ->assertSet('step', 4)
-            ->assertSee('Connect & Match')
-            ->assertSee('Not configured')
-            ->assertSee('Configure integration first')
-            ->assertDontSee('Recommended')
-            ->assertDontSee('Atlas Dental Ankara')
-            ->assertDontSee('Panorama Dental')
-            ->call('next')
-            ->assertSet('step', 5)
-            ->assertSee('Discover & Review')
-            ->assertDontSee('Dental Implant')
-            ->assertDontSee('Smile Design')
-            ->assertDontSee('Çankaya')
-            ->call('next')
-            ->assertSet('step', 6)
-            ->assertSet('committed', true)
-            ->assertSee('Northwind Clinics')
-            ->assertSee('Northwind Brand')
-            ->assertDontSee('✓ Configured');
-
-        $this->assertSame(1, Customer::query()->where('name', 'Northwind Clinics')->count());
-        $this->assertSame(1, Brand::query()->where('name', 'Northwind Brand')->count());
-    }
-
-    public function test_wizard_add_brand_and_asset_entry_points(): void
-    {
-        $customer = Customer::factory()->create(['name' => 'Entry Customer']);
-        $brand = Brand::factory()->create([
-            'customer_id' => $customer->id,
-            'name' => 'Entry Brand',
-        ]);
-
-        Livewire::test(PortfolioSetupWizard::class, [
-            'entry' => 'brand',
-            'customerId' => (string) $customer->id,
-        ])
-            ->assertSet('step', 2)
-            ->assertSee('Brand')
-            ->assertSee('Entry Customer');
-
-        Livewire::test(PortfolioSetupWizard::class, [
-            'entry' => 'asset',
-            'brandId' => (string) $brand->id,
-        ])
-            ->assertSet('step', 3)
-            ->assertSee('Digital Assets')
-            ->assertSee('Entry Brand');
-    }
-
-    public function test_wizard_back_preserves_selections_and_skip_works(): void
-    {
-        $customer = Customer::factory()->create();
-        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
-
-        Livewire::test(PortfolioSetupWizard::class, [
-            'entry' => 'asset',
-            'brandId' => (string) $brand->id,
-        ])
-            ->call('toggleAsset', 'meta_ads')
-            ->call('next')
-            ->assertSet('step', 4)
-            ->call('skipProvider', 'meta_ads')
-            ->assertSee('Skipped')
-            ->call('back')
-            ->assertSet('step', 3)
-            ->assertSee('Meta Ads');
     }
 
     public function test_domain_hosting_not_selectable_and_hidden_from_directory(): void
