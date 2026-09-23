@@ -2,6 +2,7 @@
     $isTr = app()->getLocale() === 'tr';
     $navTabs = [
         ['key' => 'overview', 'label' => $isTr ? 'Genel Bakış' : 'Overview', 'wire' => true],
+        ['key' => 'advisor', 'label' => $isTr ? 'Danışman' : 'Advisor', 'wire' => true],
         ['key' => 'funnel', 'label' => $isTr ? 'Performans' : 'Performance', 'wire' => true],
         ['key' => 'campaigns', 'label' => $isTr ? 'Kampanyalar' : 'Campaigns', 'wire' => true],
         ['key' => 'creatives', 'label' => $isTr ? 'Kreatifler' : 'Creatives', 'wire' => true],
@@ -82,6 +83,12 @@
     @endif
 
     @if ($tab === 'overview') @include('livewire.demo.meta.tabs.overview')
+    @elseif ($tab === 'advisor')
+        @if (ctype_digit((string) $this->assetId))
+            <livewire:operator.advisor.advisor-panel :asset-id="(int) $this->assetId" :key="'meta-ads-advisor-'.$this->assetId" />
+        @else
+            <p class="rounded-xl border border-gray-200 p-5 text-sm text-gray-500 dark:border-gray-800">Danışman yalnızca bağlı gerçek hesaplarda çalışır.</p>
+        @endif
     @elseif ($tab === 'funnel') @include('livewire.demo.meta.tabs.funnel')
     @elseif ($tab === 'campaigns') @include('livewire.demo.meta.tabs.campaigns')
     @elseif ($tab === 'creatives') @include('livewire.demo.meta.tabs.creatives')

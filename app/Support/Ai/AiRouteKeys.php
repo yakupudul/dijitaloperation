@@ -45,4 +45,6 @@ final class AiRouteKeys
     public const string BRAND_SETUP = 'brand_setup.assistant';
 
     public const string GOOGLE_ADS_AD_COPY_DRAFT = 'google_ads.ad_copy_draft';
+
+    public const string META_ADS_CREATIVE_DRAFT = 'meta_ads.creative_draft';
 }

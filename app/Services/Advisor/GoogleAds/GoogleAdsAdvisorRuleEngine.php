@@ -3,6 +3,8 @@
 namespace App\Services\Advisor\GoogleAds;
 
 use App\Enums\AdvisorCategory;
+use App\Services\Advisor\Support\BuildsAdvisorItems;
+use App\Services\Advisor\Support\ChangeImpact;
 use App\Services\SeoTasks\SeoText;
 
 /**
@@ -13,7 +15,7 @@ use App\Services\SeoTasks\SeoText;
  */
 final class GoogleAdsAdvisorRuleEngine
 {
-    private const array SEVERITY_BASE = ['critical' => 1000, 'high' => 700, 'medium' => 400, 'low' => 100];
+    use BuildsAdvisorItems;
 
     /** @var array<string, mixed> */
     private array $cfg = [];
@@ -688,63 +690,8 @@ final class GoogleAdsAdvisorRuleEngine
         if (! $changes['available']) {
             return [];
         }
-        $cfg = (array) ($this->cfg['change'] ?? []);
-        $window = (int) ($cfg['window_days'] ?? 14);
-        $end = $input['period']['end'];
-        $byCampaignDate = [];
-        foreach ($changes['items'] as $change) {
-            if ($change['campaign_id'] === null) {
-                continue;
-            }
-            $byCampaignDate[$change['campaign_id']][$change['date']][] = $change;
-        }
-        $candidates = [];
-        foreach ($byCampaignDate as $campaignId => $dates) {
-            $daily = $input['campaign_daily'][$campaignId] ?? [];
-            $name = $input['campaigns'][$campaignId]['name'] ?? ('Kampanya '.$campaignId);
-            $best = null;
-            foreach ($dates as $date => $events) {
-                $daysAfter = (int) floor((strtotime($end) - strtotime($date)) / 86400);
-                if ($daysAfter < (int) ($cfg['min_days_after'] ?? 7)) {
-                    continue;
-                }
-                $before = $this->sumRange($daily, date('Y-m-d', strtotime($date.' -'.$window.' days')), date('Y-m-d', strtotime($date.' -1 day')));
-                $afterEnd = min(strtotime($date.' +'.$window.' days'), strtotime($end));
-                $after = $this->sumRange($daily, date('Y-m-d', strtotime($date.' +1 day')), date('Y-m-d', $afterEnd));
-                if ($before['days'] < $window / 2 || $after['days'] < 5 || $before['conversions'] < (float) ($cfg['min_conversions_before'] ?? 5) || $before['cost'] < (float) ($cfg['min_cost_before'] ?? 200)) {
-                    continue;
-                }
-                $cpaBefore = $before['cost'] / $before['conversions'];
-                $costPerDayAfter = $after['cost'] / $after['days'];
-                $costPerDayBefore = $before['cost'] / $before['days'];
-                if ($after['conversions'] <= 0) {
-                    if ($costPerDayAfter < $costPerDayBefore * 0.5) {
-                        continue;
-                    }
-                    $increase = 1.0;
-                    $cpaAfter = null;
-                } else {
-                    $cpaAfter = $after['cost'] / $after['conversions'];
-                    $increase = $cpaAfter / $cpaBefore - 1;
-                }
-                if ($increase < (float) ($cfg['cpa_increase'] ?? 0.3)) {
-                    continue;
-                }
-                if ($best === null || $increase > $best['increase']) {
-                    $best = [
-                        'campaign_id' => $campaignId, 'campaign' => $name, 'date' => $date, 'increase' => $increase,
-                        'cpa_before' => round($cpaBefore, 2), 'cpa_after' => $cpaAfter !== null ? round($cpaAfter, 2) : null,
-                        'before' => $before, 'after' => $after,
-                        'events' => array_map(static fn (array $e): array => ['type' => $e['resource_type'], 'operation' => $e['operation'], 'fields' => $e['changed_fields'], 'user' => $e['user'], 'client' => $e['client_type']], array_slice($events, 0, 8)),
-                        'extra_cost' => $cpaAfter !== null ? max(0.0, ($cpaAfter - $cpaBefore) * $after['conversions']) : $after['cost'],
-                    ];
-                }
-            }
-            if ($best !== null) {
-                $candidates[] = $best;
-            }
-        }
-        usort($candidates, static fn (array $a, array $b): int => $b['extra_cost'] <=> $a['extra_cost']);
+        $names = array_map(static fn (array $c): string => (string) $c['name'], $input['campaigns'] ?? []);
+        $candidates = ChangeImpact::candidates($changes['items'], $input['campaign_daily'] ?? [], $names, $input['period']['end'], (array) ($this->cfg['change'] ?? []));
 
         return array_map(fn (array $c): array => $this->item(
             input: $input,
@@ -761,28 +708,12 @@ final class GoogleAdsAdvisorRuleEngine
                 'Değişiklikten önceki %d günde CPA %s idi, sonraki %d günde %s. Aynı gün yapılan değişiklikler aşağıda. Zamanlama nedensellik kanıtı değildir; mevsim ve rakip etkisini de düşün.',
                 $c['before']['days'], $this->money($input, $c['cpa_before']), $c['after']['days'], $c['cpa_after'] !== null ? $this->money($input, $c['cpa_after']) : 'dönüşüm yok',
             ),
-            evidence: ['campaign' => $c['campaign'], 'date' => $c['date'], 'before' => $c['before'], 'after' => $c['after'], 'cpa_before' => $c['cpa_before'], 'cpa_after' => $c['cpa_after'], 'events' => $c['events']],
+            evidence: ['campaign' => $c['campaign'], 'date' => $c['date'], 'before' => $c['before'], 'after' => $c['after'], 'cpa_before' => $c['cpa_before'], 'cpa_after' => $c['cpa_after'],
+                'events' => array_map(static fn (array $e): array => ['type' => $e['resource_type'], 'operation' => $e['operation'], 'fields' => $e['changed_fields'], 'user' => $e['user']], $c['events'])],
             checklist: ['Google Ads → Değişiklik geçmişi\'nde o günkü değişikliği aç.', 'Değişiklik teklif/bütçe/hedefleme ise geri almayı veya kademeli uygulamayı değerlendir.', '7 gün sonra CPA\'yı tekrar kontrol et.'],
             copyText: null,
             baseline: ['cpa_before' => $c['cpa_before'], 'cpa_after' => $c['cpa_after']],
         ), array_slice($candidates, 0, 2));
-    }
-
-    /** @return array{cost: float, conversions: float, clicks: int, days: int} */
-    private function sumRange(array $daily, string $from, string $to): array
-    {
-        $sum = ['cost' => 0.0, 'conversions' => 0.0, 'clicks' => 0, 'days' => 0];
-        foreach ($daily as $date => $metrics) {
-            if ($date >= $from && $date <= $to) {
-                $sum['cost'] += $metrics['cost'];
-                $sum['conversions'] += $metrics['conversions'];
-                $sum['clicks'] += $metrics['clicks'];
-                $sum['days']++;
-            }
-        }
-        $sum['cost'] = round($sum['cost'], 2);
-
-        return $sum;
     }
 
     // ------------------------------------------------------------------ helpers
@@ -875,55 +806,8 @@ final class GoogleAdsAdvisorRuleEngine
         return false;
     }
 
-    private function money(array $input, float $amount): string
+    protected function channelKey(): string
     {
-        $symbol = match ($input['currency'] ?? null) {
-            'TRY' => '₺',
-            'USD' => '$',
-            'EUR' => '€',
-            default => (string) ($input['currency'] ?? '').' ',
-        };
-
-        return $symbol.number_format($amount, 0, ',', '.');
-    }
-
-    /**
-     * @param  list<string>  $keyParts
-     * @return array<string, mixed>
-     */
-    private function item(
-        array $input,
-        AdvisorCategory $category,
-        string $ruleId,
-        array $keyParts,
-        string $severity,
-        ?float $impact,
-        string $impactLabel,
-        string $title,
-        string $reason,
-        array $evidence,
-        array $checklist,
-        ?string $copyText,
-        ?array $baseline,
-    ): array {
-        $cost = max(1.0, (float) $input['account']['cost']);
-        $score = self::SEVERITY_BASE[$severity] + ($impact !== null ? min(300.0, $impact / $cost * 1000) : 0.0);
-
-        return [
-            'item_key' => hash('sha256', 'google_ads|'.$ruleId.'|'.implode('|', $keyParts)),
-            'category' => $category->value,
-            'rule_id' => $ruleId,
-            'severity' => $severity,
-            'priority_score' => round($score, 2),
-            'impact_amount' => $impact !== null ? round($impact, 2) : null,
-            'impact_label' => mb_substr($impactLabel, 0, 160),
-            'currency' => $input['currency'] ?? null,
-            'title' => mb_substr($title, 0, 255),
-            'reason' => $reason,
-            'evidence' => $evidence,
-            'checklist' => $checklist,
-            'copy_text' => $copyText,
-            'baseline' => $baseline !== null ? $baseline + ['period_end' => $input['period']['end']] : null,
-        ];
+        return 'google_ads';
     }
 }

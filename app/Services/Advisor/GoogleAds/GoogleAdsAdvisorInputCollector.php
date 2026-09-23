@@ -4,11 +4,10 @@ namespace App\Services\Advisor\GoogleAds;
 
 use App\Models\DigitalAsset;
 use App\Models\GoogleAdsBudgetPlan;
-use App\Models\IntelligenceProjection\WebsitePageProfile;
+use App\Services\Advisor\Support\AdvisorWebsiteReader;
 use App\Services\Ga4\Ga4SpecialistBindingResolver;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\SeoTasks\SeoPlanInputCollector;
-use App\Services\SeoTasks\SeoText;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -24,6 +23,7 @@ final class GoogleAdsAdvisorInputCollector
         private readonly GoogleAdsSpecialistBindingResolver $bindings,
         private readonly Ga4SpecialistBindingResolver $ga4Bindings,
         private readonly SeoPlanInputCollector $seoInputs,
+        private readonly AdvisorWebsiteReader $websiteReader,
     ) {}
 
     /** @return array<string, mixed> */
@@ -69,7 +69,7 @@ final class GoogleAdsAdvisorInputCollector
             'changes' => $this->changes($scope),
             'targets' => $this->targets($asset, $window),
             'offerings' => $asset->brand_id !== null ? $this->seoInputs->offerings($asset) : [],
-            'website' => $this->website($asset),
+            'website' => $this->websiteReader->forBrandOf($asset),
             'ga4' => $this->ga4($asset, $window),
         ];
     }
@@ -486,41 +486,6 @@ final class GoogleAdsAdvisorInputCollector
             'target_cpa' => $plan?->target_cpa !== null ? (float) $plan->target_cpa : null,
             'target_roas' => $plan?->target_roas !== null ? (float) $plan->target_roas : null,
         ];
-    }
-
-    /** The brand's website asset and its crawled pages (status, noindex, redirect) keyed by url key. */
-    private function website(DigitalAsset $asset): array
-    {
-        if ($asset->brand_id === null) {
-            return ['available' => false, 'asset_id' => null, 'pages' => []];
-        }
-        $site = DigitalAsset::query()->where('brand_id', $asset->brand_id)->where('type', 'website')->where('status', 'active')->orderBy('id')->first();
-        if ($site === null) {
-            return ['available' => false, 'asset_id' => null, 'pages' => []];
-        }
-        $pages = [];
-        WebsitePageProfile::query()->where('website_asset_id', $site->id)->orderBy('id')->chunk(500, function ($profiles) use (&$pages): void {
-            foreach ($profiles as $profile) {
-                $web = (array) data_get($profile->source_states, 'website', []);
-                $url = (string) ($web['url'] ?? $profile->preferred_url);
-                if ($url === '') {
-                    continue;
-                }
-                $robots = data_get($web, 'document_head.robots');
-                $robots = is_array($robots) ? implode(',', $robots) : (string) $robots;
-                $pages[SeoText::urlKey($url)] = [
-                    'url' => $url,
-                    'status_code' => is_numeric(data_get($web, 'http.status_code')) ? (int) data_get($web, 'http.status_code') : null,
-                    'final_url' => data_get($web, 'http.final_url'),
-                    'noindex' => str_contains(mb_strtolower($robots), 'noindex'),
-                    'title' => data_get($web, 'document_head.title'),
-                    'h1' => data_get($web, 'document_head.h1') ?? data_get($web, 'headings.h1.0'),
-                    'meta_description' => data_get($web, 'document_head.meta_description'),
-                ];
-            }
-        });
-
-        return ['available' => $pages !== [], 'asset_id' => $site->id, 'domain' => $site->domain, 'pages' => $pages];
     }
 
     /**

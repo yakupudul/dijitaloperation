@@ -447,6 +447,7 @@ class MetaAdsRealDataMigrationTest extends TestCase
         $component = new OverviewPage;
         $this->assertSame([
             'overview',
+            'advisor',
             'campaigns',
             'creatives',
             'audience',

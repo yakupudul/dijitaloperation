@@ -1,4 +1,4 @@
-# Reklam Danışmanı (Faz 3 — Google Ads)
+# Reklam Danışmanı (Faz 3 — Google Ads, Faz 4 — Meta Ads)
 
 Google Ads hesaplarında her hafta gerçekten yapılması gerekenleri gösterir. Toplanmış veriden çalışır; Google Ads'e hiçbir şey yazmaz (ADR-018). Liste kısa tutulur: hesap başına en fazla 6 açık öneri (kritikler hariç).
 
@@ -41,3 +41,22 @@ Yalnızca "Taslak hazırla" tıklanınca: reklam grubunun anahtar kelimeleri, t�
 - Öğe kitaplığı hesap düzeyinde; öğelerin hangi kampanyaya bağlı olduğu toplanmıyor.
 - Arama terimi eşleme türü ve RSA metinleri toplanmıyor.
 - Kalite puanı bir sonraki Google Ads toplamasından itibaren gelir.
+
+## Meta Ads (Faz 4)
+
+Aynı sayfa ve yaşam döngüsü; kanal seçiciyle yalnızca Meta gösterilebilir. Meta hesabında **Danışman** sekmesi. Eşikler `config/moxdop-advisor.php` → `meta_ads`.
+
+"Sonuç": kampanyanın reklam seti optimizasyon hedefi (yoksa kampanya hedefi) için `result_actions` listesindeki ilk dolu eylem türü (ör. `lead`, `offsite_conversion.fb_pixel_purchase`, mesaj başlatma).
+
+| Kural | Kategori | Veri | Ne zaman |
+|---|---|---|---|
+| `creative-fatigue` | Reklam | reklam günlük + kreatif | Son 7 gün günlük ort. sıklık ≥1,8 ve bağlantı TO önceki haftaya göre ≥%25 düştü (14 günde ≥200 harcama). AI kreatif taslağı. |
+| `audience-saturation` | Kitle & teslimat | kampanya günlük | Son 7 gün günlük ort. sıklık ≥2,5 ve ≥200 harcama. |
+| `learning-limited` | Kitle & teslimat | reklam seti + sonuçlar | Dönüşüm optimizasyonlu etkin sette haftalık sonuç <15 (Meta ~50 ister); gereken günlük bütçe = sonuç başı maliyet × 50 / 7. Öğrenme durumu toplanmadığı için tahmin. |
+| `spend-no-results` | İsraf | kampanya + sonuçlar | Hesap sonuç alırken dönüşüm kampanyası 30 günde 0 sonuç, harcama ≥ max(200, 2 × sonuç başı maliyet). |
+| `pixel-health` | Ölçüm | piksel / özel dönüşüm | Piksel kullanılamaz (kritik), dönüşüm kampanyası harcarken >3 gün sessiz, set bilinmeyen piksele optimize, arşivli özel dönüşüm. |
+| `delivery-outliers` | Kitle & teslimat | hesap düzeyi yerleşim/cihaz/saat kırılımı | Harcama payı ≥%10 (saatte ≥%5) ve tık maliyeti ≥2× ortalama ya da TO ≤0,4× ortalama. Tık bazlı; sonuç bu düzeyde yok. |
+| `landing-page-issues` | Açılış sayfası | kreatif bağlantısı + site taraması | ≥100 harcayan bağlantıda hata / yönlendirme / noindex. |
+| `change-impact` | Değişiklik etkisi | hesap geçmişi + kampanya günlük | Değişiklikten sonra sonuç başı maliyet ≥%30 arttı. |
+
+Bilinen boşluklar: öğrenme durumu, haftalık tekil erişim/sıklık, kitle büyüklüğü, kampanya düzeyinde kırılım ve yerleşim bazında sonuç toplanmıyor.

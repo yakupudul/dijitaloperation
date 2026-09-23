@@ -106,4 +106,71 @@ return [
             'CAMPAIGN_BUDGET' => null,
         ],
     ],
+
+    'meta_ads' => [
+        'window_days' => 30,
+        'max_open' => 6,
+        'min_account_spend' => 300,
+
+        // Dönüşüm hedefli sayılan kampanya hedefleri / optimizasyon hedefleri.
+        'conversion_objectives' => ['OUTCOME_LEADS', 'LEAD_GENERATION', 'OUTCOME_SALES', 'CONVERSIONS', 'MESSAGES'],
+        'conversion_goals' => ['LEAD_GENERATION', 'QUALITY_LEAD', 'OFFSITE_CONVERSIONS', 'CONVERSATIONS', 'VALUE', 'APP_INSTALLS'],
+        // Sonuç sayılan eylem türleri (sırayla ilk dolu olan kullanılır). Önce optimizasyon hedefi, yoksa kampanya hedefi.
+        'result_actions' => [
+            'LEAD_GENERATION' => ['lead', 'onsite_conversion.lead_grouped', 'offsite_conversion.fb_pixel_lead'],
+            'QUALITY_LEAD' => ['lead', 'onsite_conversion.lead_grouped'],
+            'OUTCOME_LEADS' => ['lead', 'onsite_conversion.lead_grouped', 'offsite_conversion.fb_pixel_lead'],
+            'OFFSITE_CONVERSIONS' => ['offsite_conversion.fb_pixel_lead', 'lead', 'offsite_conversion.fb_pixel_purchase', 'purchase', 'offsite_conversion.fb_pixel_complete_registration', 'complete_registration', 'offsite_conversion.fb_pixel_schedule', 'schedule', 'offsite_conversion.fb_pixel_custom'],
+            'OUTCOME_SALES' => ['purchase', 'omni_purchase', 'offsite_conversion.fb_pixel_purchase'],
+            'VALUE' => ['purchase', 'omni_purchase', 'offsite_conversion.fb_pixel_purchase'],
+            'CONVERSIONS' => ['purchase', 'omni_purchase', 'offsite_conversion.fb_pixel_purchase', 'offsite_conversion.fb_pixel_lead', 'complete_registration'],
+            'CONVERSATIONS' => ['onsite_conversion.messaging_conversation_started_7d', 'onsite_conversion.messaging_first_reply'],
+            'MESSAGES' => ['onsite_conversion.messaging_conversation_started_7d', 'onsite_conversion.messaging_first_reply'],
+            'APP_INSTALLS' => ['app_install', 'omni_app_install'],
+        ],
+
+        // Kreatif yorgunluğu: son 7 gün vs önceki 7 gün. Sıklık = günlük sıklıkların gösterim ağırlıklı
+        // ortalaması (haftalık tekil erişim toplanmıyor; haftalık sıklık bundan yüksektir).
+        'fatigue' => [
+            'min_spend_14d' => 200,
+            'frequency_min' => 1.8,
+            'ctr_drop' => 0.25,
+            'max_items' => 3,
+        ],
+        // Kitle doygunluğu: kampanyanın son 7 gündeki günlük ortalama sıklığı.
+        'saturation' => [
+            'frequency_min' => 2.5,
+            'min_spend_7d' => 200,
+        ],
+        // Öğrenme: Meta haftada ~50 optimizasyon olayı ister. Öğrenme durumu toplanmıyor; haftalık sonuç sayısından tahmin edilir.
+        'learning' => [
+            'weekly_results_target' => 50,
+            'low_weekly_results' => 15,
+            'min_spend_7d' => 150,
+        ],
+        'waste' => [
+            'min_spend' => 200,
+            'cpr_ratio' => 2.0,
+        ],
+        'pixel' => [
+            'stale_days' => 3,
+        ],
+        // Maliyet sapmaları (hesap düzeyi yerleşim / cihaz / saat kırılımı; sonuç yok, tık üzerinden).
+        'delivery' => [
+            'min_share' => 0.10,
+            'hour_min_share' => 0.05,
+            'cpc_ratio' => 2.0,
+            'ctr_ratio' => 0.4,
+        ],
+        'landing' => [
+            'min_spend' => 100,
+        ],
+        'change' => [
+            'window_days' => 14,
+            'min_days_after' => 7,
+            'cpa_increase' => 0.30,
+            'min_conversions_before' => 5,
+            'min_cost_before' => 200,
+        ],
+    ],
 ];

@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-24 (b) — Advisor Faz 4: Meta Ads danışmanı
+
+**State:** CODED + PHPUnit (`tests/Feature/Advisor/MetaAdsAdvisorRunTest`: collector result resolution, all rules end-to-end, self-closing, panel channel filter, draft queue/limits; Meta frozen tab list updated). Full Feature + Unit suites: no new failures. Live UAT not run.
+
+- Same `/ads-advisor` page (channel switch: Tüm kanallar / Google Ads / Meta Ads) and a "Danışman" tab on the Meta account; weekly run covers both channels.
+- Rules (config `moxdop-advisor.meta_ads`): creative fatigue (daily avg frequency ≥1.8 and link CTR −25% week over week), audience saturation (campaign daily avg frequency ≥2.5), low-result ad sets likely stuck in learning (<15 results/week, needed daily budget), conversion campaigns without results, pixel/conversion source health (unavailable, silent >3 days, ad set optimizing to unknown pixel, archived custom conversion), expensive placement/device/hour (account breakdown, click based), landing page crawl issues, cost-per-result jump after a change event.
+- AI: "Taslak hazırla" on creative-fatigue → 3 concepts, primary texts ≤250, headlines ≤40, descriptions ≤30; copy-paste only.
+- Known gaps: learning stage, weekly reach/frequency, audience size, per-campaign breakdowns and results by placement are not collected.
+
 ## 2026-09-24 — Advisor Faz 3: Google Ads danışmanı
 
 **State:** CODED + PHPUnit (`tests/Feature/Advisor/*`: rule engine, end-to-end run/resolve/panel, quality-score collection guard, ad-copy limits). Full Feature suite: no new failures. Live UAT not run; quality score appears only after the next Google Ads collection.

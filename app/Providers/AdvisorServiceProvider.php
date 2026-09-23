@@ -21,5 +21,13 @@ final class AdvisorServiceProvider extends ServiceProvider
             'description' => 'On operator click, drafts responsive search ad headlines and descriptions for one ad group from its keywords, converting search terms and landing page. Copy-paste only; nothing is written to Google Ads.',
             'default_steps' => AiDefaultSteps::analysis(),
         ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::META_ADS_CREATIVE_DRAFT,
+            'name' => 'Meta Ads Creative Draft',
+            'module' => 'advisor',
+            'description' => 'On operator click, proposes new creative ideas, primary texts, headlines and descriptions for one fatigued Meta ad from its current copy, numbers and landing page. Copy-paste only; nothing is written to Meta.',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
     }
 }

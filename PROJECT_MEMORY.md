@@ -1,5 +1,14 @@
 # PROJECT_MEMORY
 
+## 2026-09-24 (b) — Faz 4: Meta Ads advisor on the same advisor lifecycle
+
+Decision: channels plug into `AdvisorChannels` (interface `AdvisorChannel`: collect stored data, pure rules,
+draft rules, asset URL); runner, writer, panel and /ads-advisor are shared. Meta "results" are resolved per
+campaign from ad-set optimization goal (else objective) via `moxdop-advisor.meta_ads.result_actions` — the
+first listed action type with data. Learning phase and weekly frequency are not collected, so learning is a
+labelled proxy (weekly results vs ~50) and frequency is the impression-weighted daily average. AI only
+drafts new creative ideas/copy on click (route `meta_ads.creative_draft`); nothing is written to Meta.
+
 ## 2026-09-24 — Faz 3: channel advisor (Google Ads) on generic advisor tables
 
 Decision: channel advisors (Google Ads now; Meta Ads and Business Profile in Faz 4–5) share one lifecycle in

@@ -21,15 +21,19 @@
         'term' => ['Arama terimi', 'text'], 'word' => ['Kelime', 'text'], 'keyword' => ['Anahtar kelime', 'text'], 'name' => ['Kampanya', 'text'],
         'url' => ['Sayfa', 'url'], 'action' => ['Dönüşüm işlemi', 'text'], 'label' => ['Öneri', 'text'], 'campaign' => ['Kampanya', 'text'],
         'quality_score' => ['KP', 'num'], 'match_type' => ['Eşleme', 'text'], 'category' => ['Kategori', 'text'], 'status' => ['Durum', 'text'], 'primary' => ['Birincil', 'bool'],
-        'cost' => ['Harcama', 'money'], 'clicks' => ['Tık', 'num'], 'impressions' => ['Gösterim', 'num'], 'conversions' => ['Dönüşüm', 'num'],
-        'cpa' => ['CPA', 'money'], 'lost_is_budget' => ['Bütçe kaybı %', 'num'], 'extra_conversions' => ['Tahmini ek dönüşüm', 'num'], 'daily_budget' => ['Günlük bütçe', 'money'],
+        'cost' => ['Harcama', 'money'], 'clicks' => ['Tık', 'num'], 'impressions' => ['Gösterim', 'num'], 'conversions' => ['Dönüşüm / sonuç', 'num'],
+        'cpa' => ['Sonuç başı maliyet', 'money'], 'lost_is_budget' => ['Bütçe kaybı %', 'num'], 'extra_conversions' => ['Tahmini ek dönüşüm', 'num'], 'daily_budget' => ['Günlük bütçe', 'money'],
         'terms' => ['Terim sayısı', 'num'], 'examples' => ['Örnek terimler', 'list'], 'count' => ['Adet', 'num'], 'campaigns' => ['Kampanyalar', 'list'],
         'issues' => ['Sorun', 'list'], 'weak' => ['Zayıf bileşen', 'list'], 'issue' => ['Sorun', 'text'], 'fix' => ['Yapılacak', 'text'],
+        'period' => ['Dönem', 'text'], 'segment' => ['Bölüm', 'text'], 'objective' => ['Hedef', 'text'], 'frequency' => ['Sıklık (gün ort.)', 'num'],
+        'ctr' => ['TO %', 'num'], 'avg_ctr' => ['Ort. TO %', 'num'], 'cpm' => ['CPM', 'money'], 'cpc_value' => ['TBM', 'money'], 'avg_cpc' => ['Ort. TBM', 'money'],
+        'share' => ['Harcama payı %', 'num'], 'needed_daily' => ['Gereken günlük bütçe', 'money'],
         'type' => ['Değişen', 'text'], 'operation' => ['İşlem', 'text'], 'fields' => ['Alanlar', 'text'], 'user' => ['Kim', 'text'], 'low_intent' => ['Düşük niyet', 'bool'], 'pmax' => ['PMax', 'bool'],
     ];
     $sectionLabels = [
         'terms' => 'Arama terimleri', 'words' => 'Tek kelime negatifler (sıralı eşleme)', 'service_terms' => 'Hizmet adı geçen dönüşümsüz terimler (negatif ekleme, sayfayı kontrol et)',
         'campaigns' => 'Kampanyalar', 'waste_campaigns' => 'Bütçe kaydırılabilecek dönüşümsüz kampanyalar', 'actions' => 'Dönüşüm işlemleri', 'issues' => 'Sorunlar',
+        'weeks' => 'Haftalık karşılaştırma', 'adsets' => 'Reklam setleri', 'segments' => 'Pahalı bölümler',
         'pages' => 'Açılış sayfaları', 'keywords' => 'Anahtar kelimeler', 'recommendations' => 'Google önerileri', 'events' => 'O günkü değişiklikler',
     ];
     $weakLabels = ['ad_relevance' => 'reklam alaka', 'landing_page_experience' => 'açılış sayfası', 'expected_ctr' => 'beklenen TO'];
@@ -354,6 +358,14 @@
                             @endif
                             @if (isset($evidence['threshold']))
                                 <p class="mt-2 text-xs text-gray-400">Eşik: dönüşümsüz ve en az {{ $money($evidence['threshold'], $item->currency) }} harcama. Kaynak: son {{ config('moxdop-advisor.google_ads.window_days', 30) }} günün arama terimi raporu.</p>
+                            @endif
+                            @if (! empty($evidence['creative_title']) || ! empty($evidence['creative_body']))
+                                <div class="mt-3 rounded-md bg-white p-2 text-xs text-gray-700 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:text-gray-300 dark:ring-gray-700">
+                                    <p class="text-gray-400">Mevcut kreatif</p>
+                                    @if (! empty($evidence['creative_title']))<p class="font-medium">{{ $evidence['creative_title'] }}</p>@endif
+                                    @if (! empty($evidence['creative_body']))<p class="mt-0.5 whitespace-pre-line">{{ Str::limit($evidence['creative_body'], 400) }}</p>@endif
+                                    @if (! empty($evidence['creative_cta']))<p class="mt-0.5 text-gray-400">Buton: {{ $evidence['creative_cta'] }}</p>@endif
+                                </div>
                             @endif
                             @if (! empty($evidence['final_url']))
                                 <p class="mt-2 text-xs text-gray-500">Açılış sayfası: <span class="break-all">{{ $evidence['final_url'] }}</span></p>
