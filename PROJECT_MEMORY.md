@@ -1,5 +1,10 @@
 # PROJECT_MEMORY
 
+## 2026-09-27 (c) — Faz 2 decisions
+
+- Bulk portfolio creation reuses the "Otomatik kur" applier (one binding path); grouping is deterministic and never calls providers.
+- The competitor library (`search_demand_competitors`) is the only competitor record per brand; the brand text field, business context and DataForSEO domains only feed suggestions.
+
 ## 2026-09-27 (b) — Faz 1 decisions
 
 - Removed layers must not be reintroduced without a consumer (screen, rule or click AI). Filament `/admin` = technical tooling only (ADR-065); new operator features go to the operator product.

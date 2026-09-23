@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-27 (c) — Faz 2: portföy (aktif/pasif, Keşfet ve Grupla, tek rakip listesi)
+
+**State:** CODED + PHPUnit (`tests/Feature/PassiveCustomerGateTest` switch, `tests/Feature/Portfolio/DiscoverAndGroupTest`, `tests/Feature/Portfolio/BrandCompetitorsTest`). Full Feature + Unit suites compared with the baseline. No live UAT.
+
+- Customer list: active/passive switch per row (archived stays a badge). Passive stops all automatic flows (Faz 0 gate); reactivation makes accounts paused with `customer_passive` due immediately.
+- "Keşfet ve Grupla" (`/customers/discover`, admin only, button on the customer list): unbound, bindable Google/Meta accounts grouped by domain (Search Console, GA4 cached web stream, Business Profile website) and by name (Google Ads, Meta; name score ≥ 0.8), manager accounts excluded. Groups matching an existing website asset bind to that brand. One click creates customer (or picks an existing one) + brand and applies the accounts through the "Otomatik kur" applier (website asset, GA4/SC on the website, new Ads/Meta/GBP assets); a site crawl is queued so "Otomatik kur" can propose services. No provider calls while grouping.
+- One competitor list per brand: Brand › İşletme › Rakipler shows the competitor library (`search_demand_competitors`) with approve / "Rakip değil"; one-click suggestions from the brand card text, business-context known competitors and DataForSEO competitor domains; "Arama sonuçlarından bul" imports stored SERP results (no new provider call). Rejected competitors are never suggested again. Setup checklist gains an optional "Rakipler" item (≥ 3 approved).
+- Faz 1 follow-ups: legacy WordPress application-password probe removed; `sample-module` removed via composer (old registry rows stay hidden); cross-asset consistency checks noted for Faz 7.
+
 ## 2026-09-27 (b) — Faz 1: temizlik + veri saklama
 
 **State:** CODED + PHPUnit (`tests/Feature/Retention/DataRetentionTest`, `RecurringAutomationEngineProductionTest` retired kind, `MoxDopUiFoundationTest` admin resources; removed features' tests deleted). Full Feature + Unit suites compared with the baseline. No live UAT. About 67k lines removed.
