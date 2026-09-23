@@ -46,6 +46,54 @@ yönü kaydeder. Faz sırası sahibi onayıyla değişebilir; değişiklikler bu
 | 8 – Rakip/yorum istihbaratı + ajans satışı | Yorum kazıyıcı (iç kullanım, sahibi riski üstlendi), Meta Reklam Kütüphanesi, rakip izleme, harita grid sıralama takibi, backlink fırsat motoru, dış denetim/prospect raporu, ajans lead kutusu (yalnız ajansın kendi lead'leri) |
 | 9 – Rapor v2 + eklenti v2 | Looker yerine aylık rapor (kanal KPI, grafik, karşılaştırma, yapılanlar ve etkisi, AI yorumu), WordPress eklenti v2 (sağlık, tek tık panel girişi, onaylı güncelleme) |
 
+## Ek kararlar (2026-09-26, ikinci tur)
+
+### Sade menü (hedef)
+- **Bugün** (ana ekran: uyarılar, bu haftanın işleri, yenilemeler, cevap bekleyen mesajlar, "kime ne yazmalı")
+- **Portföy:** Müşteriler (aktif/pasif düğmesi) · Markalar · Varlıklar
+- **İşler:** tek iş listesi (Danışman + SEO Görevleri + kendi görevlerin) · Uyarılar
+- **Pazar:** Sorgular (kümeler sekme olarak) · Hizmetler · Rakipler · Harita sıralaması · Backlink fırsatları
+- **Satış (ajans):** Lead kutusu · Potansiyel müşteriler (+ dış denetim) · Niyet Radarı · WhatsApp
+- **Raporlar**
+- **Sistem:** Entegrasyonlar · Ayarlar (AI ve maliyet, Yöntem Kütüphanesi, sektör paketleri, arka plan işleri)
+
+Menüden çıkanlar: Fırsatlar, Bulgular, Öneriler (tek iş listesine), Açık Web Keşfi (marka kurulumu ve dış denetime),
+Dosyalar (marka sekmesine), Arka plan işlemleri (Ayarlar'a), ayrı Sorgu kümeleri (Sorgular'a).
+
+### Faz 2b – Talep hattı (ayrıntı)
+Bugünkü durum: sorgu içe aktarımı sektörü atıyor, hizmeti yalnız birebir kelime eşleşmesiyle atıyor; marka, hizmet
+bölgesi (şehir/ilçe metinden silinip atılıyor), küme ve markalı/markasız ayrımı atanmıyor; GBP otomasyonda yok;
+"sorgu → sayfa" için üç ayrı model var; SERP tek pazar kodu ile (bölgeye göre değil); hattın hiçbir adımı
+zamanlanmamış ve testsiz.
+Hedef haftalık marka işi: içe aktar (GSC + Ads + GBP) → markaya ve bölgeye otomatik ata (Türkçe ek toleranslı eşleşme,
+konum çıkarımı → BrandServiceArea) → hizmet sayfasına bağla (tek model: ServicePageAssignment + küme alt grupları) →
+her hizmet için en değerli N sorguyu bölge bazlı SERP'e sor (marka başına aylık USD tavanı, parmak izi tekrar kullanımı)
+→ ilk 10'da tekrar eden rakipleri öner/ekle → rakip sayfa HTML'ini çek → karşılaştırma (kural + tıkla AI) → SEO
+Görevleri'ne görev yaz. Önce eksik testler.
+
+### Harita sıralama takibi (Faz 8)
+DataForSEO `serp/google/maps` + `location_coordinate` ile N×N grid (7×7 önerilen), standart kuyruk; eşleşme GBP
+place_id → cid → alan adı+telefon. Metrikler: ARP, ATRP, SoLV; her noktada ilk 20 saklanır (rakip sıklığı ücretsiz).
+Görsel: Leaflet/OSM ısı haritası + rakip pinleri + GBP pin konumu kontrolü (düzeltme yazma değil, rapor).
+Maliyet (2026-09 fiyatları, doğrulanacak): 30 lokasyon × 5 kelime × haftalık ≈ 20–25 USD/ay.
+
+### Backlink fırsat motoru (Faz 8)
+DataForSEO Backlinks (aylık taahhüt yok, marka başına ≈ 0,3–0,5 USD/ay): özet, yönlendiren alan adları, rakip kesişimi
+(≥2 rakibe link veren ama bize vermeyen), yeni/kaybedilen. Kalite filtresi (alan puanı, spam puanı, dofollow, TR/sektör
+alakası). Türkiye rehber/atıf listesi (GBP, Yandex, Apple, Bing, Foursquare, Find.com.tr, Cylex, sektör: Doktortakvimi,
+Doktorsitesi, oda listeleri) + NAP tutarlılığı. Takip: yeni → iletişim → bekliyor → yayında → kaybedildi, link var mı
+kontrolü. Sağlıkta tanıtım yasağı nedeniyle içerik bilgilendirici kalır.
+
+### DataForSEO bütçe kademeleri (tahmini, +%20 pay dahil)
+Yalın (30 marka) 40–60 USD/ay · Standart (60) 100–150 · Tam (100) 200–300. Her ücretli çalıştırmadan önce maliyet
+tahmini ve tavan.
+
+### Gözden kaçmaması gerekenler
+Uptime izleme; alan adı/hosting/SSL + ücret ve tahsilat hatırlatması; grafik notları (algoritma güncellemesi,
+kampanya, site değişikliği); marka/marka dışı ayrımı; AI görünürlüğü (LLM'lerde marka geçişi); müşteri sağlığı puanı
+(düşen KPI, 30 gündür temas yok, yaklaşan yenileme); KVKK: müşterilerle veri işleme sözleşmesi, WhatsApp'taki sağlık
+verisi; sistem yedeği ve 2FA; algoritma/regülasyon değişikliklerinin Yöntem Kütüphanesine işlenmesi.
+
 ## Kaynak notları
 
 - Perfex `dijital_varliklar` modülü (sahibin eski sistemi): taşınacak bilgi — ~110 TR stopword, sektör istisnalı
