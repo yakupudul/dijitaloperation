@@ -1,5 +1,13 @@
 # PROJECT_MEMORY
 
+## 2026-09-27 — Faz 0 decisions
+
+- AI never runs from a schedule or bulk action: SEO plans pass `useAi` only from the explicit AI button; new AI features must follow the same opt-in pattern. AI output on a work item is not overwritten by rules-only runs.
+- "Passive" = customer status inactive/archived or asset not active; `DigitalAsset::operational()` is the one gate for automatic flows. Unbound provider accounts are collected only when they feed the query library (sector set).
+- GBP: provider content follows the 30-day retention; the business's performance and search-keyword metrics are kept (gold data rule).
+- Two-factor uses Filament's `AppAuthentication` for both logins (one secret); do not add a second TOTP implementation.
+- Map stacking (My Maps/KML pins) is recorded as a Faz 8 measured experiment only (weak evidence, spam risk); the maps grid tracker is its prerequisite.
+
 ## 2026-09-26 (b) — Strategy & roadmap agreed with the owner
 
 - Canonical roadmap: `docs/product/MOXDOP_STRATEGY_ROADMAP.md` (principles: algorithms run / AI on click, gold data kept forever, passive customer stops all flow, AI outputs archived, agency-internal cross-brand brain, health-sector compliance). Phases 0–9; read it before planning new work.

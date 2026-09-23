@@ -272,6 +272,23 @@ final class SeoTasksPanel extends Component
         $this->flash(sprintf('Plan #%d kuyruğa alındı. Sayfayı kapatabilirsiniz; sonuç Etkinlik ekranından da izlenir.', $plan->version));
     }
 
+    /** Rebuild the plan and let AI write content briefs (the only SEO path that spends tokens). */
+    public function refreshPlanWithAi(SeoPlanRunner $runner): void
+    {
+        if ($this->websiteId === null) {
+            return;
+        }
+        $site = DigitalAsset::query()->findOrFail($this->websiteId);
+        try {
+            $plan = $runner->queue($site, auth()->user(), 'manual_ai', useAi: true);
+        } catch (ValidationException $exception) {
+            $this->flash(implode(' ', $exception->validator->errors()->all()), 'error');
+
+            return;
+        }
+        $this->flash(sprintf('Plan #%d kuruluyor; içerik briefleri AI ile hazırlanacak (1–2 AI çağrısı).', $plan->version));
+    }
+
     public function refreshAll(SeoPlanRunner $runner): void
     {
         $plans = $runner->queueAll(auth()->user(), onlyConnected: false, trigger: 'bulk');

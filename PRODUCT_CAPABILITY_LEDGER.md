@@ -1,5 +1,18 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-27 — Faz 0: AI tıkla, pasif müşteri kapısı, GBP saklama, yetki, 2FA
+
+**State:** CODED + PHPUnit (`tests/Feature/SeoTasks/SeoPlanRunTest`, `tests/Feature/PassiveCustomerGateTest`, `tests/Feature/OperatorTwoFactorLoginTest`, `tests/Feature/OperatorAssetDataSourcesGuardsTest`). Full Feature + Unit suites compared with the baseline. No live UAT.
+
+- SEO plan AI is opt-in: scheduled, bulk, brand-setup and "Planı yenile" runs are rules-only (`llm_summary.skipped_reason = not_requested`); the new "✨ Briefleri AI ile hazırla" button (`SeoTasksPanel::refreshPlanWithAi`, trigger `manual_ai`) runs site understanding + brief enrichment. A rules-only run never overwrites an earlier AI brief/title/checklist (evidence and score still refresh).
+- WhatsApp automatic suggestions default off in the settings form (dispatcher already defaulted off); suggestions on click.
+- Passive gate: `DigitalAsset::operational()` / `isOperational()` = asset active and customer active. Applied to scheduled SEO plans, advisor plans, daily alert scan, WordPress reconcile, account collection (`ResourceAutomationService::portfolioGate`: `customer_passive` when every bound asset is passive, `unbound` when no binding and no query-library sector) and automatic query import (passive only). Manual clicks on a passive customer's pages are not blocked.
+- Scheduled SEO queue rotates least-recently-planned first (per-tick limit no longer always takes the first ids).
+- GBP retention scheduled daily 04:40 (`moxdop:gbp:purge-expired`): reviews/media/posts/profile snapshots older than 30 days are deleted; `gbp_performance_daily` and `gbp_search_keywords_monthly` are no longer purged (owner: keyword/query data kept).
+- Admin-only: AI route save, resource automation save/run/resume/close/recheck, Data Sources bind/unbind (controls hidden for team members).
+- 2FA (authenticator app, TOTP) for `/login` and Filament `/admin` with one secret (`users.app_authentication_secret` encrypted, hashed recovery codes; Filament `AppAuthentication`, no new dependency). Setup/turn off/regenerate codes on Profil; login challenge `/two-factor-challenge` (5-minute pending login, code reuse rejected, throttled). Optional per user, not enforced.
+- Not done: passive gate for report deliveries and recurring automations (`moxdop:dispatch-due-automations`), enforcing 2FA for admins.
+
 ## 2026-09-26 — Dijital varlık sayfaları Faz D: eksik analizler + uyarılar
 
 **State:** CODED + PHPUnit (`tests/Feature/Alerts/AssetAlertScannerTest`, `tests/Feature/GoogleAds/GoogleAdsCampaignAnalyticsTest`, `tests/Feature/MetaAds/MetaAdsCampaignExplorerTest`, `tests/Feature/Website/WebsiteHealthScoreTest`). Full Feature + Unit suites: no new failures vs baseline. No live UAT; everything reads collected tables (no provider calls on render).

@@ -83,6 +83,7 @@
                 </div>
                 <div class="flex flex-col items-end gap-1">
                     <button type="button" wire:click="refreshPlan" wire:loading.attr="disabled" @disabled($pendingPlan !== null) class="{{ $btnPrimary }}">{!! $refreshIcon !!} Planı yenile</button>
+                    <button type="button" wire:click="refreshPlanWithAi" wire:confirm="Plan yeniden kurulacak ve içerik briefleri AI ile yazılacak (1–2 AI çağrısı, bütçeden düşer). Devam edilsin mi?" wire:loading.attr="disabled" @disabled($pendingPlan !== null) class="{{ $btnSecondary }}" title="Yalnız bu buton AI kullanır">✨ Briefleri AI ile hazırla</button>
                     <span class="text-xs text-gray-400">Otomatik: her {{ $scheduleText }}</span>
                 </div>
             </div>

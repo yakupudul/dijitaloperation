@@ -36,7 +36,7 @@ final class AssetAlertScanner
     {
         $totals = ['assets' => 0, 'open' => 0, 'new' => 0, 'resolved' => 0];
         DigitalAsset::query()
-            ->where('status', 'active')
+            ->operational()
             ->whereIn('type', ['google_ads', 'meta_ads', 'website', 'google_business_profile', 'gbp'])
             ->orderBy('id')
             ->chunk(100, function (Collection $assets) use (&$totals): void {

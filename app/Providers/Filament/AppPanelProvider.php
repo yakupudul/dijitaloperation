@@ -6,6 +6,7 @@ use App\Filament\App\Widgets\OpsActionOverviewWidget;
 use App\Http\Middleware\SetOperatorLocale;
 use App\Http\Middleware\SetOperatorTimezone;
 use App\Support\MoxDopNavigation;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -38,6 +39,8 @@ class AppPanelProvider extends PanelProvider
             ->login()
             ->passwordReset()
             ->profile()
+            // Same authenticator-app secret as the operator /login (set up from Profil › İki adımlı doğrulama).
+            ->multiFactorAuthentication([AppAuthentication::make()->recoverable()])
             ->spa()
             // OAuth launch endpoints return redirect()->away() to Google and must use full browser navigation.
             ->spaUrlExceptions([

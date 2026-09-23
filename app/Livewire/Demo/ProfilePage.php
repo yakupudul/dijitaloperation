@@ -5,11 +5,14 @@ namespace App\Livewire\Demo;
 use App\Models\User;
 use App\Support\Demo\DemoState;
 use App\Support\Operator\AgencySettingCatalog;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -35,6 +38,16 @@ class ProfilePage extends Component
     public mixed $avatar = null;
 
     public bool $removeAvatar = false;
+
+    /** Secret being set up; only saved to the user after a valid code confirms it. */
+    #[Locked]
+    public ?string $twoFactorPendingSecret = null;
+
+    public string $twoFactorCode = '';
+
+    /** @var list<string> Plain recovery codes, shown once right after they are generated. */
+    #[Locked]
+    public array $twoFactorRecoveryCodes = [];
 
     public function mount(): void
     {
@@ -96,6 +109,73 @@ class ProfilePage extends Component
         DemoState::flash(__('operator.profile.saved'));
     }
 
+    public function startTwoFactorSetup(AppAuthentication $authenticator): void
+    {
+        $this->twoFactorPendingSecret = $authenticator->generateSecret();
+        $this->twoFactorCode = '';
+        $this->twoFactorRecoveryCodes = [];
+        $this->resetErrorBag('twoFactorCode');
+    }
+
+    public function cancelTwoFactorSetup(): void
+    {
+        $this->twoFactorPendingSecret = null;
+        $this->twoFactorCode = '';
+    }
+
+    public function confirmTwoFactor(AppAuthentication $authenticator): void
+    {
+        /** @var User $user */
+        $user = auth()->user();
+        if ($this->twoFactorPendingSecret === null) {
+            return;
+        }
+        $this->assertTwoFactorCode($authenticator, $this->twoFactorPendingSecret);
+
+        $user->saveAppAuthenticationSecret($this->twoFactorPendingSecret);
+        $this->twoFactorRecoveryCodes = $authenticator->generateRecoveryCodes();
+        $authenticator->saveRecoveryCodes($user, $this->twoFactorRecoveryCodes);
+        $this->twoFactorPendingSecret = null;
+        DemoState::flash(__('two_factor.enabled'));
+    }
+
+    public function regenerateRecoveryCodes(AppAuthentication $authenticator): void
+    {
+        /** @var User $user */
+        $user = auth()->user();
+        abort_unless($user->hasTwoFactorEnabled(), 403);
+        $this->assertTwoFactorCode($authenticator, (string) $user->getAppAuthenticationSecret());
+
+        $this->twoFactorRecoveryCodes = $authenticator->generateRecoveryCodes();
+        $authenticator->saveRecoveryCodes($user, $this->twoFactorRecoveryCodes);
+        DemoState::flash(__('two_factor.regenerated'));
+    }
+
+    public function disableTwoFactor(AppAuthentication $authenticator): void
+    {
+        /** @var User $user */
+        $user = auth()->user();
+        if (! $user->hasTwoFactorEnabled()) {
+            return;
+        }
+        $this->assertTwoFactorCode($authenticator, (string) $user->getAppAuthenticationSecret());
+
+        $user->saveAppAuthenticationSecret(null);
+        $user->saveAppAuthenticationRecoveryCodes(null);
+        $this->twoFactorRecoveryCodes = [];
+        DemoState::flash(__('two_factor.disabled'));
+    }
+
+    private function assertTwoFactorCode(AppAuthentication $authenticator, string $secret): void
+    {
+        $this->resetErrorBag('twoFactorCode');
+        $code = preg_replace('/\D/', '', $this->twoFactorCode) ?? '';
+        $this->twoFactorCode = '';
+        if (strlen($code) !== 6 || ! $authenticator->verifyCode($code, $secret, shouldPreventCodeReuse: true)) {
+            throw ValidationException::withMessages(['twoFactorCode' => __('two_factor.invalid_code')]);
+        }
+    }
+
     public function markAvatarForRemoval(): void
     {
         $this->removeAvatar = true;
@@ -114,6 +194,10 @@ class ProfilePage extends Component
                 : null,
             'flash' => DemoState::pullFlash(),
             'timezones' => timezone_identifiers_list(),
+            'twoFactorEnabled' => $user->hasTwoFactorEnabled(),
+            'twoFactorQr' => $this->twoFactorPendingSecret !== null
+                ? app(AppAuthentication::class)->generateQrCodeDataUri($this->twoFactorPendingSecret)
+                : null,
         ]);
     }
 }

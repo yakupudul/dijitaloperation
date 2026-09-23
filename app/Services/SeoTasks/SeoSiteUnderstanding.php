@@ -35,7 +35,7 @@ final class SeoSiteUnderstanding
     /**
      * @return array{offerings: list<array<string, mixed>>, understanding: array<string, mixed>|null, calls: int}
      */
-    public function resolve(SeoPlan $plan, array $input): array
+    public function resolve(SeoPlan $plan, array $input, bool $useAi = true): array
     {
         $reason = 'brand_has_no_services';
         if (($input['offerings'] ?? []) !== []) {
@@ -57,7 +57,7 @@ final class SeoSiteUnderstanding
 
         $calls = 0;
         $understanding = null;
-        if ((bool) config('moxdop-seo-tasks.llm.enabled', true)) {
+        if ($useAi && (bool) config('moxdop-seo-tasks.llm.enabled', true)) {
             [$understanding, $calls] = $this->fromAi($plan, $input);
         }
         if ($understanding === null || $understanding['services'] === []) {

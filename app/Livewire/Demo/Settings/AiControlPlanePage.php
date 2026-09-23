@@ -72,6 +72,7 @@ class AiControlPlanePage extends Component
 
     public function save(): void
     {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
         if ($this->selectedRoute === '') {
             return;
         }

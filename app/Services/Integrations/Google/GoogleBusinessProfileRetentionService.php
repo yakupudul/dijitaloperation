@@ -7,15 +7,16 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Enforces Google Business Profile API content-storage retention.
- * Provider content is refreshed on operator collection and never kept as an indefinite archive.
+ * Provider content (reviews, media, posts, profile snapshots) is refreshed on collection and never
+ * kept as an indefinite archive. The business's own metrics — daily performance and monthly search
+ * keywords — are the agency's long-term query/keyword record and are deliberately not purged here
+ * (owner decision 2026-09: keyword and query data is never deleted).
  */
 final class GoogleBusinessProfileRetentionService
 {
     /** @var array<string, string> */
     private const TABLE_TIMESTAMP = [
         'gbp_location_snapshots' => 'captured_at',
-        'gbp_performance_daily' => 'collected_at',
-        'gbp_search_keywords_monthly' => 'collected_at',
         'gbp_reviews' => 'collected_at',
         'gbp_media' => 'collected_at',
         'gbp_posts' => 'collected_at',

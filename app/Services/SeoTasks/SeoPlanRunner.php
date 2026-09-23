@@ -32,8 +32,12 @@ final class SeoPlanRunner
         private readonly AsyncOperationService $async,
     ) {}
 
-    /** Queue a plan for one website. Returns the existing queued/running plan if one is pending. */
-    public function queue(DigitalAsset $site, ?User $actor = null, string $trigger = 'manual'): SeoPlan
+    /**
+     * Queue a plan for one website. Returns the existing queued/running plan if one is pending.
+     * Plans are rule-based; AI (site understanding + content briefs) runs only when $useAi is true, i.e. the
+     * operator clicked "Briefleri AI ile hazırla". Scheduled and bulk plans never spend tokens.
+     */
+    public function queue(DigitalAsset $site, ?User $actor = null, string $trigger = 'manual', bool $useAi = false): SeoPlan
     {
         if ($site->type !== 'website') {
             throw ValidationException::withMessages(['asset' => 'SEO planı yalnızca web sitesi varlıkları için üretilir.']);
@@ -42,7 +46,7 @@ final class SeoPlanRunner
             throw ValidationException::withMessages(['asset' => 'SEO Görevleri devre dışı (SEO_TASKS_ENABLED).']);
         }
 
-        return Cache::lock('seo-plan:'.$site->id, 15)->block(5, function () use ($site, $actor, $trigger): SeoPlan {
+        return Cache::lock('seo-plan:'.$site->id, 15)->block(5, function () use ($site, $actor, $trigger, $useAi): SeoPlan {
             $pending = SeoPlan::query()
                 ->where('digital_asset_id', $site->id)
                 ->whereIn('status', [SeoPlan::STATUS_QUEUED, SeoPlan::STATUS_RUNNING])
@@ -56,7 +60,7 @@ final class SeoPlanRunner
             $site->loadMissing('brand');
             $version = (int) SeoPlan::query()->where('digital_asset_id', $site->id)->max('version') + 1;
 
-            return DB::transaction(function () use ($site, $actor, $trigger, $version): SeoPlan {
+            return DB::transaction(function () use ($site, $actor, $trigger, $version, $useAi): SeoPlan {
                 $activity = Run::query()->create([
                     'digital_asset_id' => $site->id,
                     'module_id' => 'website',
@@ -83,7 +87,7 @@ final class SeoPlanRunner
                     'trigger' => $trigger,
                     'version' => $version,
                     'requested_by' => $actor?->id,
-                    'input_summary' => ['activity_run_id' => $activity->id],
+                    'input_summary' => ['activity_run_id' => $activity->id, 'use_ai' => $useAi],
                 ]);
 
                 $connection = (string) config('moxdop-seo-tasks.queue_connection', config('queue.default'));
@@ -105,10 +109,13 @@ final class SeoPlanRunner
      */
     public function queueAll(?User $actor = null, bool $onlyConnected = false, string $trigger = 'bulk', ?int $limit = null): Collection
     {
+        // Only operational sites (asset + customer active), least recently planned first so a
+        // per-tick limit rotates through the whole portfolio instead of the first N ids.
         $query = DigitalAsset::query()
+            ->operational()
             ->where('type', 'website')
-            ->where('status', 'active')
             ->whereNotNull('brand_id')
+            ->orderBy(SeoPlan::query()->selectRaw('max(created_at)')->whereColumn('seo_plans.digital_asset_id', 'digital_assets.id'))
             ->orderBy('id');
 
         if ($onlyConnected) {
@@ -158,7 +165,8 @@ final class SeoPlanRunner
             if ($input['offerings'] === [] && $activity !== null) {
                 $this->async->setPhase($activity, 'understanding', 'Marka hizmetleri siteden çıkarılıyor');
             }
-            $resolved = $this->understanding->resolve($plan, $input);
+            $useAi = (bool) ($plan->input_summary['use_ai'] ?? false);
+            $resolved = $this->understanding->resolve($plan, $input, $useAi);
             $input['offerings'] = $resolved['offerings'];
             $input['understanding'] = $resolved['understanding'];
 
@@ -167,10 +175,10 @@ final class SeoPlanRunner
             }
             $result = $this->rules->evaluate($input);
 
-            if ($activity !== null) {
+            if ($activity !== null && $useAi) {
                 $this->async->setPhase($activity, 'llm', 'İçerik briefleri hazırlanıyor');
             }
-            $enriched = $this->enricher->enrich($plan, $input, $result['tasks']);
+            $enriched = $this->enricher->enrich($plan, $input, $result['tasks'], $useAi);
 
             if ($activity !== null) {
                 $this->async->setPhase($activity, 'writing', 'Görevler yazılıyor');

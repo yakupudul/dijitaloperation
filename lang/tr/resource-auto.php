@@ -74,6 +74,8 @@ return [
     'busy' => 'Bu hesap için bir işlem zaten devam ediyor.',
     'reconnect' => 'Hesap erişimi veya entegrasyon bağlantısı kontrol edilmeli.',
     'manager' => 'Yönetici hesabı. Veriler altındaki müşteri hesaplarından çekilir.',
+    'customer_passive' => 'Bağlı olduğu müşteri veya varlık pasif; veri çekimi durduruldu. Müşteriyi aktif yapınca kendiliğinden sürer.',
+    'unbound' => 'Bu hesap bir dijital varlığa bağlı değil ve sorgu kütüphanesi eşleştirmesi yok; gereksiz veri çekilmiyor. Varlığa bağlayın veya sektör seçin.',
     'binding' => 'Bu kaynağın mevcut çekicisi bir dijital varlık bağlantısı gerektiriyor. Entegrasyonlardan eşleştirin.',
     'collection_failed' => 'Güncelleme tamamlanamadı. Tekrar başarısız olursa müdahale beklenir; Şimdi güncelle ile yeniden deneyebilirsiniz.',
     'cancelled' => 'Önceki çekim iptal edildi. Devam etmek için Şimdi güncelle kullanın.',

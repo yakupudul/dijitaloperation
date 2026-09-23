@@ -81,6 +81,15 @@ final class SeoPlanWriter
                     continue;
                 }
 
+                // A rules-only run must not overwrite what an earlier AI run wrote (AI output is kept);
+                // evidence, severity and score still refresh.
+                $keepsAiOutput = ($row->content_brief['source'] ?? null) === 'llm'
+                    && ($attributes['content_brief']['source'] ?? null) !== 'llm';
+                if ($keepsAiOutput) {
+                    unset($attributes['content_brief'], $attributes['llm_payload'], $attributes['title'], $attributes['reason'], $attributes['checklist'], $attributes['target_url']);
+                } elseif ($attributes['content_brief'] === null && $row->content_brief !== null) {
+                    unset($attributes['content_brief'], $attributes['llm_payload']);
+                }
                 $row->fill($attributes + ['status' => SeoTaskStatus::Open->value, 'resolved_at' => null, 'resolved_by' => null]);
                 $row->save();
                 $updated++;

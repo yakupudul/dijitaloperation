@@ -241,7 +241,7 @@ class OperatorAssetDataSourcesGuardsTest extends TestCase
         Livewire::test(AssetDataSourcesPage::class, ['assetId' => (string) $website->id])
             ->set('selectedResource.ga4', (string) $resource->id)
             ->call('bind', 'ga4')
-            ->assertHasErrors(['selectedResource.ga4']);
+            ->assertForbidden();
 
         $this->assertSame(0, CoreAssetBinding::query()->count());
     }

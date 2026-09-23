@@ -79,7 +79,7 @@ final class SeoPlanRunTest extends TestCase
         $this->assertSame(SeoPlan::STATUS_COMPLETED, $done->status);
         $this->assertStringContainsString('görev', (string) $done->summary_text);
         $this->assertTrue((bool) data_get($done->input_summary, 'gsc.available'));
-        $this->assertSame('disabled', data_get($done->llm_summary, 'skipped_reason'));
+        $this->assertSame('not_requested', data_get($done->llm_summary, 'skipped_reason'), 'AI runs only on the operator click');
 
         $tasks = SeoTask::query()->where('digital_asset_id', $website->id)->get();
         $this->assertGreaterThanOrEqual(4, $tasks->where('type->value', 'create')->count() ?: $tasks->filter(fn (SeoTask $t): bool => $t->type->value === 'create')->count());
@@ -239,7 +239,7 @@ final class SeoPlanRunTest extends TestCase
             'prompt_version' => SeoTaskContentPlannerAgent::PROMPT_VERSION,
         ]])->preventStrayPrompts();
 
-        $done = $runner->queue($website, $this->admin)->fresh();
+        $done = $runner->queue($website, $this->admin, 'manual_ai', useAi: true)->fresh();
         $this->assertSame(SeoPlan::STATUS_COMPLETED, $done->status);
         $this->assertSame(1, data_get($done->llm_summary, 'applied'), json_encode($done->llm_summary));
         $this->assertSame('anthropic', data_get($done->llm_summary, 'provider'));
@@ -252,6 +252,12 @@ final class SeoPlanRunTest extends TestCase
         $this->assertSame(['https://example.test/implant/'], $task->content_brief['internal_links'], 'foreign hosts are dropped');
         $this->assertSame('llm', $task->content_brief['source']);
         $this->assertSame($create['priority_score'], (float) $task->priority_score, 'LLM never changes the score');
+
+        // A later plain (scheduled / "Planı yenile") run makes no AI call and keeps the stored brief.
+        $plain = $runner->run($runner->queue($website, $this->admin, 'schedule')->id);
+        $this->assertSame('not_requested', data_get($plain->llm_summary, 'skipped_reason'));
+        $this->assertSame(0, (int) data_get($plain->llm_summary, 'calls'));
+        $this->assertSame('llm', $task->fresh()->content_brief['source'], 'AI output is never overwritten by a rules-only run');
     }
 
     public function test_stored_html_drives_duplicate_h1_missing_alt_and_same_as_rules(): void
@@ -292,7 +298,7 @@ final class SeoPlanRunTest extends TestCase
         SeoTaskContentPlannerAgent::fake([['items' => [], 'prompt_version' => SeoTaskContentPlannerAgent::PROMPT_VERSION]]);
 
         $runner = app(SeoPlanRunner::class);
-        $plan = $runner->run($runner->queue($website, $this->admin)->id);
+        $plan = $runner->run($runner->queue($website, $this->admin, 'manual_ai', useAi: true)->id);
 
         $understanding = data_get($plan->input_summary, 'site_understanding');
         $this->assertSame('ai', $understanding['source']);

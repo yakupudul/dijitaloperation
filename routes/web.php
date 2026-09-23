@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\OperatorForgotPasswordController;
 use App\Http\Controllers\Auth\OperatorLoginController;
 use App\Http\Controllers\Auth\OperatorResetPasswordController;
+use App\Http\Controllers\Auth\OperatorTwoFactorChallengeController;
 use App\Http\Controllers\Integrations\GoogleOAuthController;
 use App\Http\Controllers\Integrations\MetaOAuthController;
 use App\Http\Controllers\LegacyRetiredPrefixController;
@@ -20,7 +21,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [OperatorLoginController::class, 'create'])->name('app.login');
-    Route::post('/login', [OperatorLoginController::class, 'store'])->name('app.login.store');
+    Route::post('/login', [OperatorLoginController::class, 'store'])->middleware('throttle:10,1')->name('app.login.store');
+    Route::get('/two-factor-challenge', [OperatorTwoFactorChallengeController::class, 'create'])->name('app.login.two-factor');
+    Route::post('/two-factor-challenge', [OperatorTwoFactorChallengeController::class, 'store'])->middleware('throttle:5,1')->name('app.login.two-factor.store');
     Route::get('/forgot-password', [OperatorForgotPasswordController::class, 'create'])->name('app.password.request');
     Route::post('/forgot-password', [OperatorForgotPasswordController::class, 'store'])->name('app.password.email');
     Route::get('/reset-password/{token}', [OperatorResetPasswordController::class, 'create'])->name('app.password.reset');

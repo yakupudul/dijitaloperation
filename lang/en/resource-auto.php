@@ -74,6 +74,8 @@ return [
     'busy' => 'An operation is already active for this account.',
     'reconnect' => 'Check account access and the integration connection.',
     'manager' => 'Manager account. Data is collected from its client accounts.',
+    'customer_passive' => 'Its customer or asset is passive; collection is paused. It resumes when the customer is active again.',
+    'unbound' => 'Not bound to a Digital Asset and no query-library mapping; nothing is collected. Bind it or choose a sector.',
     'binding' => 'The current collector needs a Digital Asset binding. Map this account in Integrations.',
     'collection_failed' => 'Refresh could not complete. Repeated failure requires attention; use Update now to retry.',
     'cancelled' => 'The previous collection was cancelled. Use Update now to continue.',

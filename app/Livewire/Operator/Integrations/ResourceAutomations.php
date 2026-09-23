@@ -7,6 +7,7 @@ use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\SearchDemand\AutomaticQueryImportService;
+use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Locked;
@@ -98,6 +99,7 @@ class ResourceAutomations extends Component
 
     public function save(ResourceAutomationService $service): void
     {
+        $this->authorizeAdmin();
         $a = $this->account($this->editingId ?? 0);
         $service->save($a->id, [
             'collection_enabled' => $this->collectionEnabled, 'interval_days' => $this->intervalDays,
@@ -109,26 +111,36 @@ class ResourceAutomations extends Component
 
     public function runNow(int $id, ResourceAutomationService $service): void
     {
+        $this->authorizeAdmin();
         $service->runNow($this->account($id)->id, auth()->user());
         $this->message = __('resource-auto.queued');
     }
 
     public function resume(int $id, AutomaticQueryImportService $service): void
     {
+        $this->authorizeAdmin();
         $service->resume($this->account($id)->id, auth()->user());
         $this->message = __('resource-auto.queued');
     }
 
     public function closeFailed(int $id, AutomaticQueryImportService $service): void
     {
+        $this->authorizeAdmin();
         $service->closeFailed($this->account($id)->id, auth()->user());
         $this->message = __('resource-auto.saved');
     }
 
     public function recheck(int $id, AutomaticQueryImportService $service): void
     {
+        $this->authorizeAdmin();
         $service->queueRecheck($this->account($id)->id, auth()->user());
         $this->message = __('resource-auto.queued');
+    }
+
+    /** Changing collection / import settings or starting work is an Admin action; team members read. */
+    private function authorizeAdmin(): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
     }
 
     public function details(int $id): void

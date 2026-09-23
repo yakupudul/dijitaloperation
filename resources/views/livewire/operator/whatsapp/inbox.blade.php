@@ -113,7 +113,7 @@
                 </label>
                 <div class="flex flex-wrap gap-5 text-sm">
                     <label class="flex items-center gap-2"><input type="checkbox" wire:model="enabled" /> Mesaj alımını etkinleştir</label>
-                    <label class="flex items-center gap-2"><input type="checkbox" wire:model="automatic_suggestions" /> Yeni mesajlarda otomatik AI önerisi hazırla</label>
+                    <label class="flex items-center gap-2"><input type="checkbox" wire:model="automatic_suggestions" /> Yeni mesajlarda otomatik AI önerisi hazırla (önerilmez)</label>
                 </div>
                 <p class="text-xs text-gray-500">Otomatik öneriler mevcut AI sağlayıcınızın API kullanımını oluşturur. Kapattığınızda görüşme içindeki düğmeyle öneri isteyebilirsiniz.</p>
                 <p x-cloak x-show="saveSuccess" x-text="saveSuccess" role="status" class="rounded-lg bg-green-50 p-3 text-sm font-medium text-green-800"></p>

@@ -108,7 +108,7 @@ final class AssetDataSourcesPage extends Component
         $this->assertCapability($asset, $capability);
 
         $actor = auth()->user();
-        abort_unless($actor instanceof User, 403);
+        abort_unless($actor instanceof User && $actor->hasRole(Roles::ADMIN), 403);
 
         $resourceId = (string) ($this->selectedResource[$capability] ?? '');
         if (! ctype_digit($resourceId)) {
@@ -152,7 +152,7 @@ final class AssetDataSourcesPage extends Component
         $this->assertCapability($asset, $capability);
 
         $actor = auth()->user();
-        abort_unless($actor instanceof User, 403);
+        abort_unless($actor instanceof User && $actor->hasRole(Roles::ADMIN), 403);
 
         $binding = CoreAssetBinding::query()
             ->where('digital_asset_id', $asset->id)

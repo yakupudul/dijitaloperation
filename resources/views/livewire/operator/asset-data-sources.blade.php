@@ -170,6 +170,7 @@
                             </div>
                         @endif
 
+                        @if ($canDiscover)
                         <div>
                             <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{{ $active ? __('operator_runtime.sources.change_resource') : __('operator_runtime.sources.select_resource_label') }}</label>
                             <select wire:model="selectedResource.{{ $capability }}"
@@ -199,6 +200,7 @@
                                 </button>
                             @endif
                         </div>
+                        @endif
                     </div>
                 </section>
             @endforeach

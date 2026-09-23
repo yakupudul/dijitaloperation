@@ -80,6 +80,60 @@
             <x-ta.button :href="route('operator.settings')" size="sm" variant="outline">{{ __('operator.actions.cancel') }}</x-ta.button>
         </div>
     </form>
+    <section class="space-y-3 border-t border-gray-100 pt-5 text-sm dark:border-gray-800">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+                <h2 class="font-semibold text-gray-800 dark:text-white/90">{{ __('two_factor.section_title') }}</h2>
+                <p class="mt-1 max-w-2xl text-gray-500 dark:text-gray-400">{{ __('two_factor.section_hint') }}</p>
+            </div>
+            <span @class(['rounded-full px-2.5 py-1 text-xs font-medium', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' => $twoFactorEnabled, 'bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-400' => ! $twoFactorEnabled])>
+                {{ $twoFactorEnabled ? __('two_factor.status_on') : __('two_factor.status_off') }}
+            </span>
+        </div>
+
+        @if ($twoFactorRecoveryCodes !== [])
+            <div class="rounded-lg bg-amber-50 p-3 dark:bg-amber-500/10">
+                <p class="font-medium text-amber-800 dark:text-amber-300">{{ __('two_factor.recovery_codes') }}</p>
+                <ul class="mt-2 grid gap-1 font-mono text-xs text-gray-800 sm:grid-cols-2 dark:text-gray-200">
+                    @foreach ($twoFactorRecoveryCodes as $recoveryCode)
+                        <li>{{ $recoveryCode }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
+        @if ($twoFactorPendingSecret !== null)
+            <div class="space-y-3 rounded-lg ring-1 ring-inset ring-gray-200 p-4 dark:ring-gray-800">
+                <p class="text-gray-600 dark:text-gray-300">{{ __('two_factor.scan') }}</p>
+                @if ($twoFactorQr)
+                    <img src="{{ $twoFactorQr }}" alt="QR" class="h-44 w-44 rounded bg-white p-2" />
+                @endif
+                <p class="text-gray-500 dark:text-gray-400">{{ __('two_factor.setup_key') }}: <span class="select-all font-mono text-gray-800 dark:text-gray-200">{{ $twoFactorPendingSecret }}</span></p>
+                <label class="block max-w-xs">
+                    <span class="text-gray-500 dark:text-gray-400">{{ __('two_factor.confirm_code') }}</span>
+                    <input wire:model="twoFactorCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 tracking-widest dark:border-gray-700 dark:text-white" />
+                    @error('twoFactorCode') <span class="mt-1 block text-red-600 dark:text-red-400">{{ $message }}</span> @enderror
+                </label>
+                <div class="flex flex-wrap gap-2">
+                    <x-ta.button type="button" size="sm" wire:click="confirmTwoFactor">{{ __('two_factor.confirm') }}</x-ta.button>
+                    <x-ta.button type="button" size="sm" variant="outline" wire:click="cancelTwoFactorSetup">{{ __('two_factor.cancel') }}</x-ta.button>
+                </div>
+            </div>
+        @elseif ($twoFactorEnabled)
+            <div class="flex flex-wrap items-end gap-2">
+                <label class="block max-w-xs">
+                    <span class="text-gray-500 dark:text-gray-400">{{ __('two_factor.disable_code') }}</span>
+                    <input wire:model="twoFactorCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 tracking-widest dark:border-gray-700 dark:text-white" />
+                </label>
+                <x-ta.button type="button" size="sm" variant="outline" wire:click="regenerateRecoveryCodes">{{ __('two_factor.regenerate') }}</x-ta.button>
+                <x-ta.button type="button" size="sm" variant="outline" wire:click="disableTwoFactor">{{ __('two_factor.disable') }}</x-ta.button>
+            </div>
+            @error('twoFactorCode') <p class="text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
+        @else
+            <x-ta.button type="button" size="sm" wire:click="startTwoFactorSetup">{{ __('two_factor.enable') }}</x-ta.button>
+        @endif
+    </section>
+
     <form method="POST" action="{{ route('app.logout') }}">
         @csrf
         <x-ta.button type="submit" size="sm" variant="outline">{{ __('operator.auth.logout') }}</x-ta.button>

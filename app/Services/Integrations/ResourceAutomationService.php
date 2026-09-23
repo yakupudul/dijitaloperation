@@ -6,6 +6,7 @@ use App\Jobs\Async\ResourceCollectionJob;
 use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreExternalResource;
+use App\Models\DigitalAsset;
 use App\Models\ResourceAutomation;
 use App\Models\User;
 use App\Services\SearchDemand\AutomaticQueryImportService;
@@ -210,7 +211,7 @@ final class ResourceAutomationService
             if ($slots <= 0) {
                 break;
             }
-            $error = $this->readiness($automation->resource);
+            $error = $this->readiness($automation->resource) ?? $this->portfolioGate($automation);
             if ($error !== null) {
                 $automation->update(['collection_status' => 'attention', 'collection_error' => $error,
                     'next_collection_at' => now()->addDays($automation->interval_days)]);
@@ -244,6 +245,20 @@ final class ResourceAutomationService
         return null;
     }
 
+    /**
+     * Lean-data gate: a resource bound only to passive assets (inactive asset or customer) is not
+     * collected, and an unbound resource is collected only when it feeds the query library (sector set).
+     */
+    public function portfolioGate(ResourceAutomation $automation): ?string
+    {
+        $assetIds = $automation->resource?->bindings()->where('status', 'active')->pluck('digital_asset_id') ?? collect();
+        if ($assetIds->isEmpty()) {
+            return filled($automation->sector) ? null : 'unbound';
+        }
+
+        return DigitalAsset::query()->operational()->whereIn('digital_assets.id', $assetIds)->exists() ? null : 'customer_passive';
+    }
+
     public function collect(int $id): void
     {
         $a = ResourceAutomation::query()->with('resource.integration')->findOrFail($id);
@@ -253,7 +268,7 @@ final class ResourceAutomationService
             }
             return;
         }
-        if ($error = $this->readiness($a->resource)) {
+        if ($error = $this->readiness($a->resource) ?? $this->portfolioGate($a)) {
             $a->update(['collection_status' => 'attention', 'collection_error' => $error, 'collection_queued_at' => null,
                 'next_collection_at' => now()->addDays($a->interval_days)]);
             return;

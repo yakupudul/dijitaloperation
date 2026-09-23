@@ -38,7 +38,7 @@ class Inbox extends Component
     public string $phone_number_id = '';
     public string $business_phone = '';
     public bool $enabled = true;
-    public bool $automatic_suggestions = true;
+    public bool $automatic_suggestions = false;
     public string $business_context = '';
 
     public function boot(WhatsAppConnection $connection): void
@@ -57,7 +57,7 @@ class Inbox extends Component
         $this->signup_config_id = (string) ($config['signup_config_id'] ?? '1757572378897162');
         $this->signup_mode = (string) ($config['signup_mode'] ?? 'coexistence');
         $this->enabled = $integration?->isActive() ?? true;
-        $this->automatic_suggestions = (bool) ($config['automatic_suggestions'] ?? true);
+        $this->automatic_suggestions = (bool) ($config['automatic_suggestions'] ?? false);
         $this->showSettings = $integration === null;
         if ($integration === null) {
             $this->business_context = 'Moximu — Yakup Udül. Kurumsal web sitesi: tek seferlik 14.000 TL. Mobil uyumlu, yönetim panelli, işletmeye özel tasarım ve 1 yıl destek. KDV, domain, hosting, teslim tarihi ve ödeme planı ayrıca netleştirilmeli; dahil olduğu varsayılmamalı. Diğer hizmetlerin fiyatını uydurma. Kısa, samimi, profesyonel ve baskısız Türkçe yaz. Sırf cevap vermiş olmak için takip mesajı önerme.';

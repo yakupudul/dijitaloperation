@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CustomerStatus;
 use App\Enums\DigitalAssetStatus;
 use App\Models\IntelligenceCore\IntelligencePageIdentity;
 use App\Models\IntelligenceProjection\WebsiteEntityProfile;
@@ -11,6 +12,7 @@ use App\Models\IntelligenceProjection\WebsitePageProfile;
 use App\Models\IntelligenceProjection\WebsiteSearchTermProfile;
 use Database\Factories\DigitalAssetFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -164,6 +166,29 @@ class DigitalAsset extends Model
             'target_countries' => 'array',
             'seo_market_location_code' => 'integer',
         ];
+    }
+
+    /**
+     * Assets whose flows may run: the asset and its customer are both active. A passive customer
+     * (inactive / archived) stops every collection, plan, scan and tick for all of its assets.
+     *
+     * @param  Builder<DigitalAsset>  $query
+     * @return Builder<DigitalAsset>
+     */
+    public function scopeOperational(Builder $query): Builder
+    {
+        return $query
+            ->where('digital_assets.status', DigitalAssetStatus::Active->value)
+            ->whereHas('brand.customer', fn (Builder $customer): Builder => $customer->where('status', CustomerStatus::Active->value));
+    }
+
+    public function isOperational(): bool
+    {
+        if ($this->status !== DigitalAssetStatus::Active) {
+            return false;
+        }
+
+        return $this->brand?->customer?->status === CustomerStatus::Active;
     }
 
     public function hasSeoMarketConfigured(): bool

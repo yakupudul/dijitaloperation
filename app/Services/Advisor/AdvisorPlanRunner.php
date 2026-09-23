@@ -99,7 +99,7 @@ final class AdvisorPlanRunner
      */
     public function queueAll(?User $actor = null, bool $onlyConnected = true, string $trigger = 'bulk'): Collection
     {
-        $query = DigitalAsset::query()->whereIn('type', $this->channels->assetTypes())->where('status', 'active')->orderBy('id');
+        $query = DigitalAsset::query()->operational()->whereIn('type', $this->channels->assetTypes())->orderBy('id');
         if ($onlyConnected) {
             $capabilities = array_values(array_map(static fn (AdvisorChannel $c): string => $c->bindingCapability(), $this->channels->all()));
             $query->whereIn('id', CoreAssetBinding::query()->whereIn('capability', $capabilities)->where('status', CoreAssetBinding::STATUS_ACTIVE)->select('digital_asset_id'));

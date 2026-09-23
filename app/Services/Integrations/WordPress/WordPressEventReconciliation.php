@@ -76,9 +76,10 @@ final class WordPressEventReconciliation
             if ($slots < 1) {
                 break;
             }
-            $connection = CoreConnection::query()->with(['digitalAsset', 'credential'])->find($state->connection_id);
+            $connection = CoreConnection::query()->with(['digitalAsset.brand.customer', 'credential'])->find($state->connection_id);
             if (! $connection?->enabled || data_get($connection->config, 'pairing_state') !== 'paired'
-                || ! $connection->digitalAsset || ! $connection->credential) {
+                || ! $connection->digitalAsset || ! $connection->credential || ! $connection->digitalAsset->isOperational()) {
+                // A passive customer (or asset) stops WordPress collection; it resumes on reactivation.
                 DB::table('website_connector_delivery')->where('connection_id', $state->connection_id)
                     ->update(['next_reconcile_at' => now()->addHour()]);
                 continue;

@@ -43,7 +43,7 @@ yönü kaydeder. Faz sırası sahibi onayıyla değişebilir; değişiklikler bu
 | 5 – Sağlık paketi + uyum + arşiv | Sektör paketleri (eklenti gibi); Sağlık: yasaklı ifade/zorunlu uyarı/hedefleme kuralları (RG 12.11.2025 / 33075 — hukuk görüşü alınacak); uyum denetçisi (AI taslakları, canlı reklamlar, site, GBP); Üretim Arşivi |
 | 6 – Asistan | Bugün ekranı, hatırlatıcı + telefon bildirimi (ntfy/Telegram) + Google Takvim, alan adı/hosting/SSL yenileme + ücret, uptime izleme, WhatsApp ↔ müşteri + satış asistanı |
 | 7 – Beyin | Yöntem Kütüphanesi (ekrandan düzenlenen yöntem/eşikler), sektör desenleri, sonuca dayalı önceliklendirme, "Yapıldı"da anında doğrulama + geri gelen sorunu yeniden açma, Perfex Ads analitiği (anomali dedektörleri, n-gram, negatif adaylar, QS geçmişi, sayfa↔kelime uyumu, öneri doğrulama/erteleme) |
-| 8 – Rakip/yorum istihbaratı + ajans satışı | Yorum kazıyıcı (iç kullanım, sahibi riski üstlendi), Meta Reklam Kütüphanesi, rakip izleme, harita grid sıralama takibi, backlink fırsat motoru, dış denetim/prospect raporu, ajans lead kutusu (yalnız ajansın kendi lead'leri) |
+| 8 – Rakip/yorum istihbaratı + ajans satışı | Yorum kazıyıcı (iç kullanım, sahibi riski üstlendi), Meta Reklam Kütüphanesi, rakip izleme, harita grid sıralama takibi, harita yığma (My Maps/KML) deneyi, backlink fırsat motoru, dış denetim/prospect raporu, ajans lead kutusu (yalnız ajansın kendi lead'leri) |
 | 9 – Rapor v2 + eklenti v2 | Looker yerine aylık rapor (kanal KPI, grafik, karşılaştırma, yapılanlar ve etkisi, AI yorumu), WordPress eklenti v2 (sağlık, tek tık panel girişi, onaylı güncelleme) |
 
 ## Ek kararlar (2026-09-26, ikinci tur)
@@ -76,6 +76,20 @@ DataForSEO `serp/google/maps` + `location_coordinate` ile N×N grid (7×7 öneri
 place_id → cid → alan adı+telefon. Metrikler: ARP, ATRP, SoLV; her noktada ilk 20 saklanır (rakip sıklığı ücretsiz).
 Görsel: Leaflet/OSM ısı haritası + rakip pinleri + GBP pin konumu kontrolü (düzeltme yazma değil, rapor).
 Maliyet (2026-09 fiyatları, doğrulanacak): 30 lokasyon × 5 kelime × haftalık ≈ 20–25 USD/ay.
+
+### Harita yığma / "map pinning" deneyi (Faz 8, ölçümlü deney)
+Ne: Google My Maps'te işletme için özel harita; katmanlarda çok sayıda pin (ör. hizmet bölgesindeki ilçe/mahalle
+merkezleri, en fazla ~2.000 öğe/katman), her pinde işletme adı, adres/telefon, hizmet + bölge ifadesi ve site/GBP
+linki. Harita KML olarak içe aktarılır, herkese açık paylaşılır, siteye (iletişim/hizmet bölgesi sayfası) iframe ile
+gömülür; bazen Drive/Sites/Blogger yığınıyla desteklenir.
+Kanıt durumu: Etkisi anekdot düzeyinde; Google temsilcileri My Maps'in sıralama faktörü olmadığını söylemiş, bağımsız
+testler karışık. Yerel sıralamada belirleyici olanlar alaka (GBP kategori/hizmet), mesafe ve bilinirlik (yorum,
+atıf, link) olmaya devam ediyor. Aşırı anahtar kelime doldurma spam sinyali; sağlık müşterilerinde tanıtım yasağı
+nedeniyle ifade bilgilendirici kalmalı.
+MoxDOP yaklaşımı: (1) KML üretici — marka + hizmet + BrandServiceArea'dan pin listesi, doğal açıklama şablonu,
+pin sayısı tavanı (varsayılan 50–150, 1000 değil), GBP NAP ile tutarlılık kontrolü; dosya indirilir, Google'a yazma
+yok (içe aktarma ve gömme elle yapılır). (2) Ölçüm — yalnız bir-iki markada, harita grid takibiyle önce/sonra ARP ve
+SoLV (en az 4–6 hafta); fark yoksa özellik "deney" olarak kalır, portföye yayılmaz. Grid takibi bu deneyin ön şartı.
 
 ### Backlink fırsat motoru (Faz 8)
 DataForSEO Backlinks (aylık taahhüt yok, marka başına ≈ 0,3–0,5 USD/ay): özet, yönlendiren alan adları, rakip kesişimi

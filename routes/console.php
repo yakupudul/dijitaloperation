@@ -8,6 +8,7 @@ use App\Services\Collection\CollectionErrorRecorder;
 use App\Services\Collection\Monitoring\CollectionAccountPresenter;
 use App\Services\Collection\RecoverInterruptedCollections;
 use App\Services\Collection\StartCollectionService;
+use App\Services\Integrations\Google\GoogleBusinessProfileRetentionService;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Integrations\WordPress\WordPressEventReconciliation;
 use App\Services\Sales\FreeIntentRadar;
@@ -397,3 +398,14 @@ Schedule::command('moxdop:alerts:scan')
     ->dailyAt((string) env('MOXDOP_ALERTS_TIME', '06:30'))
     ->withoutOverlapping(60)
     ->name('asset-alerts-daily');
+
+// Faz 0: GBP API içerik saklama (yorum, medya, gönderi, profil anlık görüntüleri) — 30 günden eskiler silinir.
+// Performans ve arama anahtar kelimeleri silinmez (altın veri).
+Artisan::command('moxdop:gbp:purge-expired', function (): void {
+    $this->info('Purged GBP content rows: '.app(GoogleBusinessProfileRetentionService::class)->purgeExpired());
+})->purpose('Delete Google Business Profile provider content older than the retention window.');
+
+Schedule::command('moxdop:gbp:purge-expired')
+    ->dailyAt('04:40')
+    ->withoutOverlapping(60)
+    ->name('gbp-content-retention');

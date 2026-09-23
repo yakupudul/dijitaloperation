@@ -25,10 +25,16 @@ final class SeoPlanAiEnricher
      * @param  list<array<string, mixed>>  $tasks
      * @return array{tasks: list<array<string, mixed>>, summary: array<string, mixed>}
      */
-    public function enrich(SeoPlan $plan, array $input, array $tasks): array
+    public function enrich(SeoPlan $plan, array $input, array $tasks, bool $useAi = true): array
     {
         $summary = ['enabled' => (bool) config('moxdop-seo-tasks.llm.enabled', true), 'calls' => 0, 'applied' => 0, 'skipped_reason' => null, 'provider' => null, 'model' => null, 'prompt_version' => SeoTaskContentPlannerAgent::PROMPT_VERSION];
 
+        if (! $useAi) {
+            $summary['enabled'] = false;
+            $summary['skipped_reason'] = 'not_requested';
+
+            return ['tasks' => $tasks, 'summary' => $summary];
+        }
         if (! $summary['enabled'] || $tasks === []) {
             $summary['skipped_reason'] = $tasks === [] ? 'no_tasks' : 'disabled';
 

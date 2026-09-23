@@ -32,7 +32,8 @@ final class AutomaticQueryImportService
             ->limit((int) config('moxdop-resource-automation.query_accounts_per_tick', 10))
             ->get()->each(function (ResourceAutomation $a): void {
                 $a->update(['query_checked_at' => now()]);
-                if ($a->query_error || app(ResourceAutomationService::class)->readiness($a->resource) !== null) {
+                $automation = app(ResourceAutomationService::class);
+                if ($a->query_error || $automation->readiness($a->resource) !== null || $automation->portfolioGate($a) === 'customer_passive') {
                     return;
                 }
                 try {
