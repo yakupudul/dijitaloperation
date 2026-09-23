@@ -8,8 +8,10 @@ use App\Models\AdvisorItem;
 use App\Models\AdvisorPlan;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Models\ExternalWriteAction;
 use App\Services\Advisor\AdvisorChannels;
 use App\Services\Advisor\AdvisorPlanRunner;
+use App\Services\ExternalWrites\ExternalWriteService;
 use App\Support\Permissions;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -46,6 +48,9 @@ final class AdvisorPanel extends Component
     public ?int $expandedId = null;
 
     public string $message = '';
+
+    /** @var array<int|string, string> advisor item id => editable negative list before sending (ADR-064) */
+    public array $writeLines = [];
 
     public string $messageTone = 'success';
 
@@ -90,6 +95,45 @@ final class AdvisorPanel extends Component
         $this->flash('Metin taslağı hazırlanıyor (1 AI çağrısı). Hazır olunca burada görünür.');
     }
 
+    /** ADR-064: open the editable list for an Admin before sending it to Google Ads. */
+    public function prepareNegativeWrite(int $id): void
+    {
+        $this->writeLines[$id] = (string) $this->item($id)->copy_text;
+        $this->expandedId = $id;
+    }
+
+    public function cancelNegativeWrite(int $id): void
+    {
+        unset($this->writeLines[$id]);
+    }
+
+    public function applyNegativeList(int $id, ExternalWriteService $writes): void
+    {
+        try {
+            $action = $writes->requestNegativeList(auth()->user(), $this->item($id), (string) ($this->writeLines[$id] ?? ''));
+        } catch (ValidationException $exception) {
+            $this->flash(implode(' ', $exception->validator->errors()->all()), 'error');
+
+            return;
+        }
+        unset($this->writeLines[$id]);
+        $this->flash(sprintf('%d terim Google Ads\'e gönderiliyor ("%s" listesi). Sonuç birkaç saniye içinde burada görünür.', count($action->request_payload['keywords']), config('moxdop-external-writes.google_ads.shared_set_name')));
+    }
+
+    public function undoWrite(int $actionId, ExternalWriteService $writes): void
+    {
+        $action = ExternalWriteAction::query()->whereNotNull('advisor_item_id')->findOrFail($actionId);
+        $this->item((int) $action->advisor_item_id);
+        try {
+            $writes->requestUndo(auth()->user(), $action);
+        } catch (ValidationException $exception) {
+            $this->flash(implode(' ', $exception->validator->errors()->all()), 'error');
+
+            return;
+        }
+        $this->flash('Geri alınıyor: bu gönderimle eklenen terimler listeden çıkarılacak.');
+    }
+
     public function refreshAsset(int $assetId, AdvisorPlanRunner $runner): void
     {
         $asset = DigitalAsset::query()->findOrFail($assetId);
@@ -128,13 +172,17 @@ final class AdvisorPanel extends Component
         $pending = $board->whereIn('plan_status', [AdvisorPlan::STATUS_QUEUED, AdvisorPlan::STATUS_RUNNING])->count();
         $draftsPending = $items->where('draft_status', 'queued')->count();
         $currency = $open->pluck('currency')->filter()->unique();
+        $writes = ExternalWriteAction::query()->whereIn('advisor_item_id', $items->pluck('id'))->orderByDesc('id')->get()->groupBy('advisor_item_id');
+        $writesPending = $writes->flatten()->whereIn('status', ['queued', 'running', 'undoing'])->count();
 
         return view('livewire.operator.advisor.advisor-panel', [
             'items' => $items,
             'counts' => $counts,
             'board' => $board,
             'asset' => $asset,
-            'polling' => $pending > 0 || $draftsPending > 0,
+            'polling' => $pending > 0 || $draftsPending > 0 || $writesPending > 0,
+            'writes' => $writes,
+            'canWriteAds' => ExternalWriteService::allowed(auth()->user(), ExternalWriteAction::CHANNEL_GOOGLE_ADS),
             'plansPending' => $pending,
             'kpis' => [
                 'open' => $open->count(),

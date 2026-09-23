@@ -89,6 +89,28 @@ class GoogleApiClient
     }
 
     /**
+     * The only Google Ads write MoxDOP performs (ADR-064): shared negative keyword list maintenance through
+     * sharedSets / sharedCriteria / campaignSharedSets :mutate. Callers are restricted to
+     * GoogleAdsNegativeListWriter; nothing else in the product may call this.
+     *
+     * @param  array<string, mixed>  $body
+     */
+    public function mutateAds(
+        CoreIntegration $integration,
+        string $customerId,
+        string $service,
+        array $body,
+        ?string $loginCustomerId = null,
+    ): Response {
+        $customerId = preg_replace('/\D+/', '', $customerId) ?? '';
+        if ($customerId === '' || ! in_array($service, ['sharedSets', 'sharedCriteria', 'campaignSharedSets'], true)) {
+            throw new RuntimeException('Google Ads mutate target is not allowed.');
+        }
+
+        return $this->adsRequest($integration, 'post', 'customers/'.$customerId.'/'.$service.':mutate', $body, $loginCustomerId ?? $customerId);
+    }
+
+    /**
      * Read-only Google Ads GAQL SearchStream (googleAds:searchStream).
      * Official REST returns the full result in one streamed response (no pageToken).
      * Callers must process rows in bounded application batches — do not treat this

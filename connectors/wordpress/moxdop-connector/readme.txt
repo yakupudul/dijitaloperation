@@ -3,10 +3,10 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 
-Read-only, signed Website inventory connector for MoxDOP.
+Signed Website inventory connector for MoxDOP. Reads inventory; can create drafts only (never publishes).
 
 == Description ==
 
@@ -38,9 +38,12 @@ deduplication and exponential retry. Low traffic can delay WP-Cron; configure a 
 for reliable timing. The local outbox retains up to 10,000 events and reports coverage gaps.
 No historical activity is invented. Existing pairing survives plugin updates.
 Incremental snapshot requests accept up to 50 object IDs and echo the accepted scope.
-Daily inventory reconciliation complements activity delivery. Remote management is disabled.
+Daily inventory reconciliation complements activity delivery. The only write is draft creation (post_status=draft) and trashing MoxDOP-created drafts; publishing and editing existing content are not possible. Disable with the option `moxdop_connector_allow_drafts` = 0 or the `moxdop_connector_allow_drafts` filter.
 
 == Changelog ==
+
+= 1.2.0 =
+* Added signed draft creation and removal of MoxDOP-created drafts (ADR-064). Never publishes.
 
 = 1.1.0 =
 * Added signed activity outbox, delivery status and bounded object snapshots.

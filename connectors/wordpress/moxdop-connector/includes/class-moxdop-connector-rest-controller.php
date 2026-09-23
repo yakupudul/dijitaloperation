@@ -37,6 +37,82 @@ final class MoxDOP_Connector_REST_Controller
                 'per_page' => ['type' => 'integer', 'default' => 50, 'minimum' => 1, 'maximum' => 100],
             ],
         ]);
+        // ADR-064: the only write. Creates drafts; never publishes, never edits existing content.
+        register_rest_route(self::NAMESPACE, '/drafts', [
+            'methods' => WP_REST_Server::CREATABLE,
+            'permission_callback' => [$this->auth, 'authorize'],
+            'callback' => [$this, 'create_draft'],
+        ]);
+        register_rest_route(self::NAMESPACE, '/drafts/(?P<id>[1-9][0-9]*)', [
+            'methods' => WP_REST_Server::DELETABLE,
+            'permission_callback' => [$this->auth, 'authorize'],
+            'callback' => [$this, 'trash_draft'],
+        ]);
+    }
+
+    public static function drafts_allowed()
+    {
+        return (bool) apply_filters('moxdop_connector_allow_drafts', get_option('moxdop_connector_allow_drafts', '1') === '1');
+    }
+
+    public function create_draft(WP_REST_Request $request)
+    {
+        if (! self::drafts_allowed()) {
+            return new WP_Error('moxdop_drafts_disabled', 'Draft creation is disabled on this site.', ['status' => 403]);
+        }
+        $body = json_decode((string) $request->get_body(), true);
+        if (! is_array($body)) {
+            return new WP_Error('moxdop_invalid_body', 'Invalid draft payload.', ['status' => 400]);
+        }
+        $title = sanitize_text_field((string) ($body['title'] ?? ''));
+        $content = wp_kses_post((string) ($body['content_html'] ?? ''));
+        $type = in_array((string) ($body['post_type'] ?? 'post'), ['post', 'page'], true) ? (string) $body['post_type'] : 'post';
+        $reference = sanitize_text_field((string) ($body['reference'] ?? ''));
+        if ($title === '' || $content === '' || $reference === '' || strlen($content) > 200000) {
+            return new WP_Error('moxdop_invalid_body', 'Draft title, content and reference are required.', ['status' => 400]);
+        }
+        $existing = get_posts(['post_type' => $type, 'post_status' => ['draft', 'pending', 'auto-draft'], 'meta_key' => '_moxdop_draft_reference', 'meta_value' => $reference, 'numberposts' => 1, 'fields' => 'ids']);
+        if (! empty($existing)) {
+            $post_id = (int) $existing[0];
+        } else {
+            $admins = get_users(['role' => 'administrator', 'number' => 1, 'fields' => 'ID']);
+            $post_id = wp_insert_post([
+                'post_type' => $type,
+                'post_status' => 'draft',
+                'post_title' => $title,
+                'post_content' => $content,
+                'post_excerpt' => sanitize_textarea_field((string) ($body['excerpt'] ?? '')),
+                'post_author' => ! empty($admins) ? (int) $admins[0] : 0,
+            ], true);
+            if (is_wp_error($post_id)) {
+                return new WP_Error('moxdop_draft_failed', $post_id->get_error_message(), ['status' => 500]);
+            }
+            update_post_meta($post_id, '_moxdop_draft_reference', $reference);
+            update_post_meta($post_id, '_moxdop_created', '1');
+        }
+
+        return $this->auth->envelope([
+            'schema_version' => 1,
+            'post_id' => (int) $post_id,
+            'status' => get_post_status($post_id),
+            'edit_url' => admin_url('post.php?post='.(int) $post_id.'&action=edit'),
+            'preview_url' => get_preview_post_link($post_id) ?: '',
+        ], $request);
+    }
+
+    public function trash_draft(WP_REST_Request $request)
+    {
+        $post_id = (int) $request->get_param('id');
+        $post = get_post($post_id);
+        if (! $post || get_post_meta($post_id, '_moxdop_created', true) !== '1') {
+            return new WP_Error('moxdop_not_found', 'No MoxDOP draft with this id.', ['status' => 404]);
+        }
+        if (! in_array($post->post_status, ['draft', 'pending', 'auto-draft'], true)) {
+            return new WP_Error('moxdop_not_draft', 'The post is no longer a draft; it was not removed.', ['status' => 409]);
+        }
+        wp_trash_post($post_id);
+
+        return $this->auth->envelope(['schema_version' => 1, 'post_id' => $post_id, 'status' => 'trash'], $request);
     }
 
     public function status(WP_REST_Request $request)
@@ -49,7 +125,8 @@ final class MoxDOP_Connector_REST_Controller
             'home_url' => home_url('/'),
             'wordpress_version' => get_bloginfo('version'),
             'php_version' => PHP_VERSION,
-            'read_only' => true,
+            'read_only' => ! self::drafts_allowed(),
+            'capabilities' => self::drafts_allowed() ? ['drafts'] : [],
             'sections' => ['site', 'extensions', 'content', 'media', 'taxonomies', 'seo'],
             'server_time' => time(),
             'event_delivery' => (new MoxDOP_Connector_Events())->status(),

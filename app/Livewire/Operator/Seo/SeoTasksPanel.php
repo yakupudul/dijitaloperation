@@ -6,10 +6,12 @@ use App\Enums\SeoTaskStatus;
 use App\Enums\SeoTaskType;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Models\ExternalWriteAction;
 use App\Models\SeoPlan;
 use App\Models\SeoTask;
 use App\Models\ServicePageAssignment;
 use App\Services\BrandIntelligence\BrandOfferingService;
+use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\SeoTasks\SeoPlanRunner;
 use App\Support\Permissions;
 use Illuminate\Contracts\View\View;
@@ -226,6 +228,34 @@ final class SeoTasksPanel extends Component
         $this->flash(sprintf('"%s" markaya hizmet olarak eklendi. Bir sonraki planda gerçek hizmet olarak kullanılır.', $service['name']));
     }
 
+    /** ADR-064: Admin sends the content brief to WordPress as a draft (never published). */
+    public function sendDraft(int $id, ExternalWriteService $writes): void
+    {
+        try {
+            $writes->requestDraft(auth()->user(), $this->task($id));
+        } catch (ValidationException $exception) {
+            $this->flash(implode(' ', $exception->validator->errors()->all()), 'error');
+
+            return;
+        }
+        $this->expandedId = $id;
+        $this->flash('Taslak WordPress\'e gönderiliyor. Hazır olunca "Taslağı aç" bağlantısı burada görünür.');
+    }
+
+    public function undoDraft(int $actionId, ExternalWriteService $writes): void
+    {
+        $action = ExternalWriteAction::query()->whereNotNull('seo_task_id')->findOrFail($actionId);
+        $this->task((int) $action->seo_task_id);
+        try {
+            $writes->requestUndo(auth()->user(), $action);
+        } catch (ValidationException $exception) {
+            $this->flash(implode(' ', $exception->validator->errors()->all()), 'error');
+
+            return;
+        }
+        $this->flash('Taslak çöpe taşınıyor (yalnız hâlâ taslaksa).');
+    }
+
     public function refreshPlan(SeoPlanRunner $runner): void
     {
         if ($this->websiteId === null) {
@@ -293,8 +323,13 @@ final class SeoTasksPanel extends Component
             'pending_mappings' => $pendingMappings,
         ];
 
+        $drafts = ExternalWriteAction::query()->whereIn('seo_task_id', $tasks->getCollection()->pluck('id'))->orderByDesc('id')->get()->groupBy('seo_task_id');
+
         return view('livewire.operator.seo.seo-tasks-panel', [
             'tasks' => $tasks,
+            'drafts' => $drafts,
+            'draftsPending' => $drafts->flatten()->whereIn('status', ['queued', 'running', 'undoing'])->count(),
+            'canWriteWordPress' => ExternalWriteService::allowed(auth()->user(), ExternalWriteAction::CHANNEL_WORDPRESS),
             'site' => $site,
             'latestPlan' => $latestPlan,
             'pendingPlan' => $pendingPlan,

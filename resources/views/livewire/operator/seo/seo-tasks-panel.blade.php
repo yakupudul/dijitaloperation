@@ -29,7 +29,7 @@
     $listTypes = array_values(array_filter($types, fn (SeoTaskType $type): bool => $type !== SeoTaskType::Question));
     $understanding = $latestPlan ? data_get($latestPlan->input_summary, 'site_understanding') : null;
     $plansPending = $plansPending ?? 0;
-    $polling = $pendingPlan !== null || $plansPending > 0;
+    $polling = $pendingPlan !== null || $plansPending > 0 || ($draftsPending ?? 0) > 0;
     $days = [1 => 'Pazartesi', 2 => 'Salı', 3 => 'Çarşamba', 4 => 'Perşembe', 5 => 'Cuma', 6 => 'Cumartesi', 0 => 'Pazar', 7 => 'Pazar'];
     $scheduleText = ($days[(int) config('moxdop-seo-tasks.schedule.weekly_day', 1)] ?? 'Pazartesi').' '.config('moxdop-seo-tasks.schedule.weekly_time', '06:30');
     $card = 'rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]';
@@ -506,7 +506,29 @@
                                         <p class="text-xs font-medium uppercase tracking-wide text-success-700 dark:text-success-400">İçerik briefi @if (($brief['source'] ?? '') === 'llm') · AI ile hazırlandı @endif</p>
                                         <button type="button" x-on:click="navigator.clipboard.writeText(@js($task->briefText())); copied = true; setTimeout(() => copied = false, 2000)" class="rounded-md bg-white px-2 py-1 text-xs font-medium text-success-700 ring-1 ring-inset ring-success-200 dark:bg-gray-900 dark:text-success-400"><span x-show="! copied">Briefi kopyala</span><span x-show="copied">Kopyalandı</span></button>
                                     </div>
-                                    <dl class="mt-2 grid gap-2 text-sm text-gray-700 dark:text-gray-300 sm:grid-cols-2">
+                                    @php $taskDrafts = $drafts[$task->id] ?? collect(); $lastDraft = $taskDrafts->first(); @endphp
+                                @if ($canWriteWordPress || $lastDraft)
+                                    <div class="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-white px-3 py-2 text-xs ring-1 ring-inset ring-success-200 dark:bg-gray-900 dark:ring-success-500/20">
+                                        @if ($lastDraft)
+                                            <span class="text-gray-700 dark:text-gray-300">
+                                                @if (in_array($lastDraft->status, ['queued', 'running', 'undoing'], true)){!! $spinner !!}@endif
+                                                WordPress taslağı: <strong>{{ $lastDraft->statusLabel() }}</strong> · {{ $lastDraft->created_at?->timezone($tz)->format('d.m.Y H:i') }}
+                                                @if ($lastDraft->error)<span class="block text-error-600">{{ $lastDraft->error }}</span>@endif
+                                            </span>
+                                            @if (in_array($lastDraft->status, ['succeeded', 'partial', 'undo_failed'], true) && ! empty($lastDraft->result['edit_url']))
+                                                <a href="{{ $lastDraft->result['edit_url'] }}" target="_blank" rel="noopener" class="font-medium text-brand-600 hover:underline">Taslağı aç ↗</a>
+                                            @endif
+                                            @if ($canWriteWordPress && $lastDraft->isUndoable())
+                                                <button type="button" wire:click="undoDraft({{ $lastDraft->id }})" wire:confirm="Taslak WordPress'te çöpe taşınacak (yalnız hâlâ taslaksa). Emin misin?" class="{{ $btnSecondary }}">Geri al</button>
+                                            @endif
+                                        @endif
+                                        @if ($canWriteWordPress && $isOpen && (! $lastDraft || in_array($lastDraft->status, ['failed', 'undone'], true)))
+                                            <button type="button" wire:click="sendDraft({{ $task->id }})" wire:confirm="Brief WordPress'e TASLAK olarak gönderilecek (yayınlanmaz). Onaylıyor musun?" class="rounded-md bg-success-600 px-2.5 py-1 font-semibold text-white hover:bg-success-700">WordPress'e taslak gönder</button>
+                                            <span class="text-gray-400">Başlık ve H2 iskeleti taslak olarak oluşur; yayınlanmaz.</span>
+                                        @endif
+                                    </div>
+                                @endif
+                                <dl class="mt-2 grid gap-2 text-sm text-gray-700 dark:text-gray-300 sm:grid-cols-2">
                                         <div><dt class="text-xs text-gray-500">Önerilen title / H1</dt><dd class="font-medium">{{ $brief['page_title'] ?? '—' }}</dd></div>
                                         <div><dt class="text-xs text-gray-500">Karar</dt><dd>{{ ($brief['decision'] ?? '') === 'existing_page_section' ? 'Mevcut sayfaya bölüm ekle' : 'Yeni sayfa aç' }} · {{ match ($brief['page_type'] ?? '') { 'service' => 'hizmet', 'guide' => 'rehber', 'faq' => 'SSS', 'location' => 'bölge', default => '—' } }} · ~{{ $brief['target_words'] ?? '—' }} kelime</dd></div>
                                         <div><dt class="text-xs text-gray-500">Hedef URL</dt><dd class="break-all">{{ $brief['target_url'] ?? '—' }}</dd></div>

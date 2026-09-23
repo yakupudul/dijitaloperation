@@ -115,6 +115,8 @@ Yasak örnekler:
 * Instagram veya diğer sosyal hesaplarda paylaşım yapmak
 * Her türlü harici **write action**
 
+İstisna (ADR-064, sahip kararı): yalnız Admin onayıyla, kayıtlı ve geri alınabilir şekilde (1) Google Ads'te "MoxDOP negatifleri" paylaşılan negatif listesine ekleme, (2) WordPress'te MoxDOP Connector ile **taslak** oluşturma. Başka hiçbir harici yazma yapılmaz.
+
 Harici entegrasyonlarda mümkün olan en düşük ve **salt okunur** yetkiler tercih edilir.
 
 DOP kendi iç verilerinde müşteri, marka, varlık, connection, bulgu, öneri, görev ve durum değişiklikleri yapabilir.

@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-25 — Faz 7: Admin onaylı harici yazma (ADR-064)
+
+**State:** CODED + PHPUnit (`tests/Feature/ExternalWrites/ExternalWritesTest`: paste parsing, Admin-only UI + 403 for team members, Google Ads mutate sequence limited to shared list services, undo removes exactly the added criteria, kill switch, WordPress signed draft create/trash, old plugin refused, plugin source never publishes). Full Feature + Unit suites: no new failures. Live UAT not run — needs a real Google Ads account with an approved developer token (≥ Basic access) and the connector plugin updated to 1.2.0 on each site.
+
+- Danışman → Google Ads "Negatif anahtar kelime listesi": Admin sees "Google Ads'e ekle…", edits the list, confirms; terms go to "MoxDOP negatifleri" shared list (existing ones skipped), list attached to enabled Search campaigns; item closes; status line + "Geri al".
+- SEO Görevleri → brief: Admin "WordPress'e taslak gönder" → title + H2 skeleton + queries/links as comments, `post` (guide/faq) or `page` (service/location), never published; "Taslağı aç" link + "Geri al" (trash, only while still a draft).
+- Connector plugin 1.2.0 (`connectors/wordpress/moxdop-connector`): draft endpoints; `status.capabilities = ['drafts']`; site owner can disable.
+- Known limits: undo does not detach the shared list from campaigns or delete the (empty) list; WordPress draft is a skeleton, the writer fills the text.
+
 ## 2026-09-24 (d) — Advisor Faz 6: tek iş listesi, kanallar arası, ölçülen etki
 
 **State:** CODED + PHPUnit (`tests/Feature/Advisor/AdvisorFaz6Test`: merged ranking + per-brand cap, dashboard card, brand block, cross-channel rules, SEO outcome measurement window + GSC clicks, report section text, unbound negative list, digest off/forced). Full Feature + Unit suites: no new failures. Live UAT not run.

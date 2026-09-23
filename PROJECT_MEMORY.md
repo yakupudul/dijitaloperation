@@ -1,5 +1,16 @@
 # PROJECT_MEMORY
 
+## 2026-09-25 — Faz 7: two narrow external writes (ADR-064)
+
+Owner decision ("Faz 7 yap"; both writes, shared list, Admin only): ADR-018 gets exactly two exceptions.
+(1) Google Ads: an advisor negative list is added to the account's "MoxDOP negatifleri" shared negative
+keyword list, attached to enabled Search campaigns — only sharedSets / sharedCriteria / campaignSharedSets
+mutates are allow-listed in `GoogleApiClient::mutateAds`. (2) WordPress: an SEO content brief becomes a
+draft through MoxDOP Connector ≥1.2.0 (`POST /moxdop/v1/drafts`, forced `draft`; `DELETE` trashes only
+MoxDOP-created drafts). Every write: Admin click + confirm, queued job, `external_write_actions` audit row
+(request + provider ids), one-click undo, kill switch `EXTERNAL_WRITES_ENABLED` (+ per channel), site-side
+opt-out `moxdop_connector_allow_drafts`. Nothing else may write externally.
+
 ## 2026-09-24 (d) — Faz 6: one work list, cross-channel advice, measured outcomes
 
 Decisions: SEO Görevleri and advisor items stay separate engines but share one ranked list

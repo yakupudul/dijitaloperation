@@ -272,6 +272,41 @@
                             </div>
                         @endif
 
+                        @if ($item->channel === 'google_ads' && $item->rule_id === 'negative-keywords' && ($canWriteAds || ($writes[$item->id] ?? collect())->isNotEmpty()))
+                            @php $itemWrites = $writes[$item->id] ?? collect(); $lastWrite = $itemWrites->first(); @endphp
+                            <div class="rounded-lg border border-brand-200 bg-brand-25 p-3 lg:col-span-2 dark:border-brand-500/20 dark:bg-brand-500/5">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <p class="text-xs font-medium uppercase tracking-wide text-brand-700 dark:text-brand-300">Google Ads'e uygula (Admin onayı)</p>
+                                    @if ($canWriteAds && $open && ! array_key_exists($item->id, $writeLines) && ! in_array($lastWrite?->status, ['queued', 'running', 'undoing'], true))
+                                        <button type="button" wire:click="prepareNegativeWrite({{ $item->id }})" class="rounded-md bg-brand-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-brand-600">Google Ads'e ekle…</button>
+                                    @endif
+                                </div>
+                                @if (array_key_exists($item->id, $writeLines))
+                                    <p class="mt-2 text-xs text-gray-600 dark:text-gray-300">Listeyi son kez kontrol et; istemediğin satırı sil. Terimler hesaptaki "{{ config('moxdop-external-writes.google_ads.shared_set_name') }}" paylaşılan negatif listesine eklenir ve liste etkin arama kampanyalarına bağlanır. Kampanya, bütçe ve teklif değişmez; tek tıkla geri alınır.</p>
+                                    <textarea wire:model="writeLines.{{ $item->id }}" rows="8" class="mt-2 w-full rounded-lg border border-gray-300 bg-white p-2 font-mono text-xs dark:border-gray-700 dark:bg-gray-900"></textarea>
+                                    <div class="mt-2 flex gap-2">
+                                        <button type="button" wire:click="applyNegativeList({{ $item->id }})" wire:confirm="Bu terimler Google Ads hesabına negatif olarak eklenecek. Onaylıyor musun?" class="rounded-md bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600">Onayla ve gönder</button>
+                                        <button type="button" wire:click="cancelNegativeWrite({{ $item->id }})" class="{{ $btnSecondary }}">Vazgeç</button>
+                                    </div>
+                                @endif
+                                @foreach ($itemWrites->take(3) as $write)
+                                    <div class="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md bg-white px-3 py-2 text-xs ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
+                                        <span class="text-gray-700 dark:text-gray-300">
+                                            @if (in_array($write->status, ['queued', 'running', 'undoing'], true)){!! $spinner !!}@endif
+                                            <strong>{{ $write->statusLabel() }}</strong> · {{ $write->created_at?->timezone($tz)->format('d.m.Y H:i') }} · {{ $write->requester?->name }}
+                                            @if (is_array($write->result))
+                                                · {{ count($write->result['added'] ?? []) }} eklendi@if (($write->result['skipped_existing'] ?? 0) > 0), {{ $write->result['skipped_existing'] }} zaten listedeydi@endif@if (count($write->result['failed'] ?? []) > 0), {{ count($write->result['failed']) }} eklenemedi@endif @if (count($write->result['campaigns_attached'] ?? []) > 0)· liste {{ count($write->result['campaigns_attached']) }} kampanyaya bağlandı @endif
+                                            @endif
+                                            @if ($write->error)<span class="block text-error-600">{{ $write->error }}</span>@endif
+                                        </span>
+                                        @if ($canWriteAds && $write->isUndoable())
+                                            <button type="button" wire:click="undoWrite({{ $write->id }})" wire:confirm="Bu gönderimle eklenen terimler Google Ads listesinden çıkarılacak. Emin misin?" class="{{ $btnSecondary }}">Geri al</button>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+
                         @if (in_array($item->rule_id, $draftRules, true))
                             @php
                                 $draftSections = [

@@ -279,7 +279,7 @@
   7. **Agency-scoped vs asset-scoped auth:**
      - Agency/provider: Google, Meta, DataForSEO, OpenAI → Integration.
      - Asset-scoped: WordPress application password, site-specific CMS credentials → mevcut `CoreConnection` (+ `core_connection_credentials`) kalır.
-  8. **External integrations remain READ-ONLY** (ADR-018). Campaign/site/account mutation yok.
+  8. **External integrations remain READ-ONLY** (ADR-018). Campaign/site/account mutation yok. Tek istisna ADR-064: Admin onaylı Google Ads paylaşılan negatif listesi ve WordPress taslağı.
   9. **Digital Asset hierarchy değişmez** (Customer → Brand → Digital Asset; ADR-017).
   10. **Resource discovery** provider Integration üzerinden, test edilebilir `DiscoversProviderResources` contract’ı ile yapılır. Bu foundation ADR’si live OAuth/discovery’yi zorunlu kılmaz.
   11. **Disabled Integration:** Yeni discovery/collection durur; mevcut External Resource ve Binding kayıtları otomatik silinmez; secret purge edilmez (ADR-014 ile uyumlu).
@@ -754,3 +754,14 @@
 - Country/city/district knowledge is one pinned, licensed, bundled catalog, with complete Turkey subdivisions. No Library Locations menu and no runtime remote lookup. Provider geotarget identifiers remain provider-specific.
 - Paste, file, stored-provider imports and bulk assignment run through persistent import jobs in bounded chunks. No provider calls, metric fabrication or causal claims.
 - Operator expressly forbade cloning and tests. Code review only; deployment, database/runtime and operator UAT are unverified. Full contract and limitations: docs/product/SEARCH_DEMAND_INTELLIGENCE.md.
+
+## ADR-064 — Sınırlı harici yazma: Google Ads paylaşılan negatif listesi ve WordPress taslağı
+
+- **Durum:** Accepted (sahip kararı, 2026-09-25: "Faz 7 yap" — kapsam "ikisi de", paylaşılan liste, yalnız Admin)
+- **Değiştirdiği:** ADR-018'e iki dar istisna. Başka her harici yazma yasağı aynen sürer.
+- **Karar:**
+  1. **Google Ads:** Danışmanın `negative-keywords` önerisindeki listeyi, Admin onayıyla hesapta "MoxDOP negatifleri" adlı paylaşılan negatif anahtar kelime listesine ekler ve listeyi etkin arama kampanyalarına bağlar. Kampanya, bütçe, teklif, reklam, hedefleme değiştirilmez. Yalnız bu listeye ekleme ve kendi eklediklerini silme yapılır.
+  2. **WordPress:** SEO Görevleri içerik briefinden MoxDOP Connector eklentisi (≥1.2.0) üzerinden **taslak** yazı/sayfa oluşturur. Asla yayınlamaz, mevcut içeriği değiştirmez. Geri alma yalnız hâlâ taslak olan ve MoxDOP'un oluşturduğu içeriği çöpe taşır.
+  3. Her yazma: yalnız Admin rolü, açık tıklama + onay, kuyrukta çalışır, `external_write_actions` tablosuna gönderilen istek ve dönen kimliklerle kaydedilir, tek tıkla geri alınır. `EXTERNAL_WRITES_ENABLED=false` (veya kanal bazında) tüm yazmayı kapatır. WordPress tarafında eklenti ayarı/filtresi site sahibinin kapatmasına izin verir.
+- **İlgili:** ADR-018, `MASTER_SPEC.md` (Kapsam dışı → istisna notu), `docs/product/ADVISOR_ROADMAP.md` Faz 7, `config/moxdop-external-writes.php`
+

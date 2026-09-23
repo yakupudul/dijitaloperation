@@ -61,6 +61,73 @@ final class WordPressConnectorClient
     }
 
     /**
+     * ADR-064 (2): create a WordPress draft through the connector (plugin ≥ 1.2.0). The plugin forces
+     * post_status=draft; MoxDOP never publishes or edits existing content.
+     *
+     * @param  array{title: string, content_html: string, post_type: string, excerpt?: string, reference: string}  $draft
+     * @return array<string, mixed> post_id, edit_url, preview_url, status
+     */
+    public function createDraft(CoreConnection $connection, array $draft): array
+    {
+        return $this->write($connection, 'POST', '/moxdop/v1/drafts', $draft);
+    }
+
+    /** Move a MoxDOP-created draft to the trash; the plugin refuses published or foreign posts. */
+    public function trashDraft(CoreConnection $connection, int $postId): array
+    {
+        return $this->write($connection, 'DELETE', '/moxdop/v1/drafts/'.$postId, null);
+    }
+
+    /**
+     * Signed write request. The URL is derived from the paired snapshot URL (same REST base).
+     *
+     * @param  array<string, mixed>|null  $body
+     * @return array<string, mixed>
+     */
+    private function write(CoreConnection $connection, string $method, string $route, ?array $body): array
+    {
+        $credentials = $connection->credential?->encrypted_payload;
+        $config = is_array($connection->config) ? $connection->config : [];
+        $snapshotUrl = trim((string) ($config['snapshot_url'] ?? ''));
+        $clientId = is_array($credentials) ? trim((string) ($credentials['client_id'] ?? '')) : '';
+        $secret = is_array($credentials) ? trim((string) ($credentials['shared_secret'] ?? '')) : '';
+        if (! $connection->enabled || $snapshotUrl === '' || $clientId === '' || $secret === '' || ! str_contains($snapshotUrl, '/moxdop/v1/snapshot')) {
+            throw new RuntimeException('WordPress Connector is not paired or enabled.');
+        }
+        $url = str_replace('/moxdop/v1/snapshot', $route, $snapshotUrl);
+        $this->urlSafety->assertSafePublicHttpUrl($url);
+
+        $payload = $body === null ? '' : json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        $timestamp = (string) CarbonImmutable::now('UTC')->getTimestamp();
+        $nonce = (string) Str::uuid();
+        $canonical = implode("\n", [$method, $route, '', $timestamp, $nonce, hash('sha256', $payload)]);
+        $signature = hash_hmac('sha256', $canonical, $secret);
+
+        try {
+            $request = Http::acceptJson()
+                ->withUserAgent('MoxDOP-WordPress-Connector/'.config('moxdop-wordpress.connector_version', '1.0.0'))
+                ->withHeaders([
+                    self::HEADER_CLIENT => $clientId,
+                    self::HEADER_TIMESTAMP => $timestamp,
+                    self::HEADER_NONCE => $nonce,
+                    self::HEADER_SIGNATURE => $signature,
+                ])
+                ->withOptions(['allow_redirects' => false])
+                ->timeout(max(5, (int) config('moxdop-wordpress.request_timeout_seconds', 30)));
+            $response = $method === 'POST'
+                ? $request->withBody($payload, 'application/json')->post($url)
+                : $request->delete($url);
+            $data = $this->verifiedData($response, $secret, $nonce);
+            $this->markHealthy($connection);
+
+            return $data;
+        } catch (Throwable $e) {
+            $this->markUnhealthy($connection, $e);
+            throw $e;
+        }
+    }
+
+    /**
      * @param  array<string, scalar>  $query
      * @return array<string, mixed>
      */

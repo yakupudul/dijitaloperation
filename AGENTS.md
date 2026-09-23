@@ -56,7 +56,7 @@ Laravel Boost guidelines ile çelişirse DOP belgeleri kazanır.
 ### Kilit kararlar
 
 - Moximu **iç** operasyon; SaaS / Workspace / müşteri girişi yok
-- Harici **write action yok**
+- Harici **write action yok** — tek istisna ADR-064: Admin onaylı Google Ads paylaşılan negatif listesi ve WordPress taslağı (kayıtlı, geri alınabilir). Başka yazma eklenmez.
 - Tek Filament panel: id `app`, path **`/admin`** (developer / technical tooling only — **not** the operator product; ADR-044)
 - Canonical operator product: **root routes** (`/`, `/login`, `/customers`, `/brands`, `/assets`, `/integrations`, `/tasks`, … — TailAdmin Livewire). One normal application. Do not duplicate Customers/Brands/Assets under Filament.
 - Legacy **`/app/*`** and **`/system/*`**: retired (HTTP 410). No parallel operator product.
@@ -92,7 +92,7 @@ Always-on GitHub trigger **PR review submitted** cannot be stored as `.cursor/ho
 
 ### Pratik
 
-- SaaS, Client Portal, harici write, marketplace/ZIP, custom migrator/FSM ekleme.
+- SaaS, Client Portal, harici write (ADR-064 dışı), marketplace/ZIP, custom migrator/FSM ekleme.
 - MVP Core listesi dışında Attachments/Tags/feature-flags/ağır health-audit zorunlu sayma.
 ===
 

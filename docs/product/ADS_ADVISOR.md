@@ -87,3 +87,12 @@ Aynı sayfa (kanal: İşletme Profili) ve profil sayfasında **Danışman** sekm
 - **Ölçüm** (`moxdop:advisor:measure`, Pazartesi 07:30): "Yapıldı" dan 28 gün sonra — negatif listeler (listedeki terimlere harcama önce/sonra), hedef sayfalı SEO görevleri (Search Console tıklaması önce/sonra, 3 gün gecikme payı). Diğerleri "yapıldı, ölçülebilir metrik yok".
 - **Müşteri raporu:** "Yapılanlar ve gözlenen etkisi" bölümü (önizleme, dondurulmuş rapor, PDF, paylaşım linki). Gözlenen değişimdir; nedensellik iddiası yok.
 - **Haftalık iç e-posta** (`moxdop:advisor:digest`, Pazartesi 08:00): aktif yöneticilere ilk 5 iş; `ADVISOR_DIGEST_ENABLED=true` ile açılır, e-posta ayarı gerekir.
+
+## Faz 7 — harici yazma (ADR-064)
+
+Yalnız iki yazma, yalnız Admin tıklaması + onayıyla, kuyrukta, `external_write_actions` kaydıyla ve tek tıkla geri alınabilir:
+
+1. **Google Ads negatifleri:** "Negatif anahtar kelime listesi" önerisinde "Google Ads'e ekle…" → liste düzenlenir → onay. Terimler hesaptaki **"MoxDOP negatifleri"** paylaşılan negatif listesine eklenir (yoksa oluşturulur), liste etkin arama kampanyalarına bağlanır. Listede zaten olanlar atlanır. Kampanya/bütçe/teklif/reklam değişmez. "Geri al" yalnız bu gönderimle eklenen terimleri siler.
+2. **WordPress taslağı:** SEO Görevleri'nde içerik briefi olan görevde "WordPress'e taslak gönder". Başlık + H2 iskeleti taslak olarak oluşur; asla yayınlanmaz. "Geri al" taslağı (hâlâ taslaksa) çöpe taşır. MoxDOP Connector eklentisi **1.2.0** gerekir (Entegrasyonlar → Site bağlayıcı paketinden güncelle).
+
+Kapatma: `.env` → `EXTERNAL_WRITES_ENABLED=false` (hepsi), `EXTERNAL_WRITES_GOOGLE_ADS=false`, `EXTERNAL_WRITES_WORDPRESS=false`. Site tarafında `moxdop_connector_allow_drafts` seçeneği/filtresi.
