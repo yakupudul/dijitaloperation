@@ -49,6 +49,8 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Services/SeoTasks/SeoStoredHtmlReader.php',
         // Demand pipeline: competitor comparison reuses the module's safe public HTTP fetcher.
         'app/Services/Demand/DemandPageFetcher.php',
+        // Faz 8: competitor watch and prospect audits reuse the same safe public HTTP fetcher.
+        'app/Services/Intel/PublicPageReader.php',
     ];
 
     /**
