@@ -18,6 +18,7 @@ use App\Services\Ai\AgentContextGateway;
 use App\Services\Ai\AiUsageRecorder;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Assistant\WhatsAppContactLinker;
+use App\Services\Brain\MethodLibrary;
 use App\Services\ClientValueStory\ClientValueStoryReadService;
 use App\Services\Collection\Contracts\NormalizedDatasetWriter;
 use App\Services\Collection\Contracts\RawPayloadWriter;
@@ -183,6 +184,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Event::listen(AgentPrompted::class, [AiUsageRecorder::class, 'handle']);
+        MethodLibrary::boot();
         ProductionArchive::boot();
         WhatsAppContactLinker::boot();
 

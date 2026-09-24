@@ -9,6 +9,8 @@ use App\Models\Run;
 use App\Models\SeoPlan;
 use App\Models\User;
 use App\Services\Async\AsyncOperationService;
+use App\Services\Brain\MethodLibrary;
+use App\Services\Brain\RuleEffectiveness;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -174,6 +176,13 @@ final class SeoPlanRunner
                 $this->async->setPhase($activity, 'rules', 'Kurallar değerlendiriliyor');
             }
             $result = $this->rules->evaluate($input);
+            // Yöntem Kütüphanesi: rules switched off by the owner produce no tasks.
+            $disabled = app(MethodLibrary::class)->disabledRules('seo');
+            if ($disabled !== []) {
+                $result['tasks'] = array_values(array_filter($result['tasks'], fn (array $task): bool => ! in_array($task['rule_id'] ?? '', $disabled, true)));
+            }
+            // Faz 7: rules whose done advice measurably helped rank a little higher (and vice versa).
+            $result['tasks'] = app(RuleEffectiveness::class)->reweigh($result['tasks']);
 
             if ($activity !== null && $useAi) {
                 $this->async->setPhase($activity, 'llm', 'İçerik briefleri hazırlanıyor');

@@ -13,6 +13,13 @@ return [
     'queue_connection' => env('ADVISOR_QUEUE_CONNECTION', env('QUEUE_CONNECTION', 'database')),
     'queue' => env('ADVISOR_QUEUE', 'default'),
 
+    // Faz 7 (Beyin): outcome-based weighting and done verification.
+    'brain' => [
+        'min_measured' => 5,          // measured outcomes of a rule before its weight changes
+        'weight_range' => 0.2,        // priority × (0.8 … 1.2) by the share of done items that improved
+        'verify_grace_days' => 7,     // a done item still detected after this many days is reopened
+    ],
+
     'schedule' => [
         'enabled' => env('ADVISOR_SCHEDULE_ENABLED', true),
         'weekly_day' => 1,          // Pazartesi
@@ -220,5 +227,6 @@ return [
         'after_days' => 28,
         'gsc_lag_days' => 3,
         'weekly_time' => '07:30',
+        'second_after_days' => 56,
     ],
 ];

@@ -9,6 +9,8 @@ use App\Models\DigitalAsset;
 use App\Models\Run;
 use App\Models\User;
 use App\Services\Async\AsyncOperationService;
+use App\Services\Brain\MethodLibrary;
+use App\Services\Brain\RuleEffectiveness;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -136,6 +138,13 @@ final class AdvisorPlanRunner
                 $this->async->setPhase($activity, 'rules', 'Kurallar değerlendiriliyor');
             }
             $result = $channel->evaluate($input);
+            // Yöntem Kütüphanesi: rules switched off by the owner produce no items.
+            $disabled = app(MethodLibrary::class)->disabledRules('advisor');
+            if ($disabled !== []) {
+                $result['items'] = array_values(array_filter($result['items'], fn (array $item): bool => ! in_array($item['rule_id'] ?? '', $disabled, true)));
+            }
+            // Faz 7: rules whose done advice measurably helped rank a little higher (and vice versa).
+            $result['items'] = app(RuleEffectiveness::class)->reweigh($result['items']);
             $written = $this->writer->write($plan, $result['items']);
             $summary = $this->summaryText($result, $input, $channel);
 

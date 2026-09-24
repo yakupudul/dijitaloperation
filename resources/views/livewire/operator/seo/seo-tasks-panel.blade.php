@@ -405,6 +405,16 @@
                                     <a href="{{ $task->target_url }}" target="_blank" rel="noopener" class="max-w-xs truncate text-brand-600 hover:underline">{{ Str::limit(parse_url($task->target_url, PHP_URL_PATH) ?: $task->target_url, 60) }} ↗</a>@if ($task->is_new_page)<x-ta.badge color="success" size="sm">yeni sayfa</x-ta.badge>@endif
                                 @endif
                                 <span>İlk görüldü {{ $task->created_at?->timezone($tz)->format('d.m.Y') }}</span>
+                                @php
+                                $verifyLabel = match ($task->verification) {
+                                    'verified' => ['Doğrulandı ✓', 'text-emerald-700 dark:text-emerald-300'],
+                                    'still_detected' => ['Veride hâlâ görünüyor — veriler yenilenince tekrar bakılır', 'text-amber-700 dark:text-amber-300'],
+                                    'recurred' => ['Sorun geri geldi ('.$task->reopened_count.'. kez)', 'text-rose-700 dark:text-rose-300'],
+                                    default => null,
+                                };
+                            @endphp
+                            @if ($verifyLabel)<span class="{{ $verifyLabel[1] }}">{{ $verifyLabel[0] }}</span>@endif
+                            @if ($task->snoozed_until && $task->snoozed_until->isFuture())<span>{{ $task->snoozed_until->timezone($tz)->format('d.m.Y') }} tarihine ertelendi</span>@endif
                                 <button type="button" wire:click="toggle({{ $task->id }})" class="font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $expanded ? 'Detayı gizle' : ($brief ? 'Brief ve adımlar' : 'Adımlar ve kanıt') }}</button>
                             </div>
                         </div>
@@ -412,6 +422,7 @@
                             @if ($isOpen)
                                 <button type="button" wire:click="markDone({{ $task->id }})" class="inline-flex items-center justify-center gap-1 rounded-lg bg-success-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-success-600">✓ Yapıldı</button>
                                 <button type="button" wire:click="skip({{ $task->id }})" wire:confirm="Bu görev atlansın mı? Sonraki planlarda tekrar gösterilmez." class="{{ $btnSecondary }}">Atla</button>
+                                <button type="button" wire:click="snooze({{ $task->id }}, 30)" class="{{ $btnSecondary }}">30 gün ertele</button>
                             @elseif ($task->status !== SeoTaskStatus::Stale)
                                 <button type="button" wire:click="reopen({{ $task->id }})" class="{{ $btnSecondary }}">Yeniden aç</button>
                             @endif

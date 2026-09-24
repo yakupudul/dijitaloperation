@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\DB;
  * Persists advisor items with a diff against the previous run of the same asset + channel.
  *
  * Same item_key → refreshed; new → inserted; open item not produced this run → resolved (the problem
- * went away). Done / skipped items are never reopened by a run; an operator draft is kept.
+ * went away). A done item still detected after the verification grace is reopened (Faz 7); a skipped one
+ * only when its snooze date passed; an operator draft is kept.
  */
 final class AdvisorPlanWriter
 {
@@ -68,12 +69,29 @@ final class AdvisorPlanWriter
 
                     continue;
                 }
-                if (in_array($row->status, [AdvisorItemStatus::Done, AdvisorItemStatus::Skipped], true)) {
+                // Faz 7: a snoozed item comes back when its date passes; a done item still detected after the
+                // grace period is reopened ("geri geldi"); before that it is only flagged "hâlâ görülüyor".
+                $snoozeOver = $row->status === AdvisorItemStatus::Skipped && $row->snoozed_until !== null && $row->snoozed_until->isPast();
+                $recurred = $row->status === AdvisorItemStatus::Done && $row->resolved_at !== null
+                    && $row->resolved_at->lt(now()->subDays((int) config('moxdop-advisor.brain.verify_grace_days', 7)));
+                if ($row->status === AdvisorItemStatus::Done && ! $recurred) {
+                    $row->forceFill(['verification' => 'still_detected', 'verified_at' => now(), 'last_seen_plan_id' => $plan->id])->save();
                     $keptResolved++;
 
                     continue;
                 }
-                $reopened = $row->status === AdvisorItemStatus::Resolved;
+                if ($row->status === AdvisorItemStatus::Skipped && ! $snoozeOver) {
+                    $keptResolved++;
+
+                    continue;
+                }
+                if ($recurred) {
+                    $row->forceFill(['verification' => 'recurred', 'verified_at' => now(), 'reopened_count' => (int) $row->reopened_count + 1]);
+                }
+                if ($snoozeOver) {
+                    $row->forceFill(['snoozed_until' => null]);
+                }
+                $reopened = in_array($row->status, [AdvisorItemStatus::Resolved, AdvisorItemStatus::Done, AdvisorItemStatus::Skipped], true);
                 $row->fill($attributes + [
                     'status' => AdvisorItemStatus::Open->value,
                     'resolved_at' => null,
@@ -82,6 +100,15 @@ final class AdvisorPlanWriter
                 ])->save();
                 $updated++;
             }
+
+            // Done items this run no longer detects are verified.
+            AdvisorItem::query()
+                ->where('digital_asset_id', $plan->digital_asset_id)
+                ->where('channel', $plan->channel)
+                ->where('status', AdvisorItemStatus::Done->value)
+                ->where('last_seen_plan_id', '!=', $plan->id)
+                ->where(fn ($q) => $q->whereNull('verification')->orWhereIn('verification', ['still_detected', 'recurred']))
+                ->update(['verification' => 'verified', 'verified_at' => now(), 'updated_at' => now()]);
 
             $resolved = AdvisorItem::query()
                 ->where('digital_asset_id', $plan->digital_asset_id)

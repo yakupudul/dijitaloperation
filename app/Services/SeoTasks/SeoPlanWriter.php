@@ -75,10 +75,26 @@ final class SeoPlanWriter
                     continue;
                 }
 
-                if (in_array($row->status, [SeoTaskStatus::Done, SeoTaskStatus::Skipped], true)) {
+                // Faz 7: same verification / recurrence / snooze handling as the advisor.
+                $snoozeOver = $row->status === SeoTaskStatus::Skipped && $row->snoozed_until !== null && $row->snoozed_until->isPast();
+                $recurred = $row->status === SeoTaskStatus::Done && $row->resolved_at !== null
+                    && $row->resolved_at->lt(now()->subDays((int) config('moxdop-advisor.brain.verify_grace_days', 7)));
+                if ($row->status === SeoTaskStatus::Done && ! $recurred) {
+                    $row->forceFill(['verification' => 'still_detected', 'verified_at' => now(), 'last_seen_plan_id' => $plan->id])->save();
                     $keptResolved++;
 
                     continue;
+                }
+                if ($row->status === SeoTaskStatus::Skipped && ! $snoozeOver) {
+                    $keptResolved++;
+
+                    continue;
+                }
+                if ($recurred) {
+                    $row->forceFill(['verification' => 'recurred', 'verified_at' => now(), 'reopened_count' => (int) $row->reopened_count + 1]);
+                }
+                if ($snoozeOver) {
+                    $row->forceFill(['snoozed_until' => null]);
                 }
 
                 // A rules-only run must not overwrite what an earlier AI run wrote (AI output is kept);
@@ -94,6 +110,13 @@ final class SeoPlanWriter
                 $row->save();
                 $updated++;
             }
+
+            SeoTask::query()
+                ->where('digital_asset_id', $plan->digital_asset_id)
+                ->where('status', SeoTaskStatus::Done->value)
+                ->where('last_seen_plan_id', '!=', $plan->id)
+                ->where(fn ($q) => $q->whereNull('verification')->orWhereIn('verification', ['still_detected', 'recurred']))
+                ->update(['verification' => 'verified', 'verified_at' => now(), 'updated_at' => now()]);
 
             $stale = SeoTask::query()
                 ->where('digital_asset_id', $plan->digital_asset_id)

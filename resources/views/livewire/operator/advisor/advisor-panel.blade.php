@@ -240,6 +240,16 @@
                         <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
                             @if ($item->impact_label)<span>Etki <strong class="text-gray-700 dark:text-gray-200">{{ $item->impact_label }}</strong></span>@endif
                             <span>İlk görüldü {{ $item->created_at?->timezone($tz)->format('d.m.Y') }}</span>
+                            @php
+                                $verifyLabel = match ($item->verification) {
+                                    'verified' => ['Doğrulandı ✓', 'text-emerald-700 dark:text-emerald-300'],
+                                    'still_detected' => ['Veride hâlâ görünüyor — veriler yenilenince tekrar bakılır', 'text-amber-700 dark:text-amber-300'],
+                                    'recurred' => ['Sorun geri geldi ('.$item->reopened_count.'. kez)', 'text-rose-700 dark:text-rose-300'],
+                                    default => null,
+                                };
+                            @endphp
+                            @if ($verifyLabel)<span class="{{ $verifyLabel[1] }}">{{ $verifyLabel[0] }}</span>@endif
+                            @if ($item->snoozed_until && $item->snoozed_until->isFuture())<span>{{ $item->snoozed_until->timezone($tz)->format('d.m.Y') }} tarihine ertelendi</span>@endif
                             <button type="button" wire:click="toggle({{ $item->id }})" class="font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $expanded ? 'Detayı gizle' : ($item->copy_text ? 'Liste ve adımlar' : 'Kanıt ve adımlar') }}</button>
                         </div>
                     </div>
@@ -247,6 +257,7 @@
                         @if ($open)
                             <button type="button" wire:click="markDone({{ $item->id }})" class="inline-flex items-center justify-center gap-1 rounded-lg bg-success-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-success-600">✓ Yapıldı</button>
                             <button type="button" wire:click="skip({{ $item->id }})" wire:confirm="Bu öneri atlansın mı? Tekrar gösterilmez." class="{{ $btnSecondary }}">Atla</button>
+                            <button type="button" wire:click="snooze({{ $item->id }}, 30)" class="{{ $btnSecondary }}">30 gün ertele</button>
                         @elseif ($item->status !== AdvisorItemStatus::Resolved)
                             <button type="button" wire:click="reopen({{ $item->id }})" class="{{ $btnSecondary }}">Yeniden aç</button>
                         @endif

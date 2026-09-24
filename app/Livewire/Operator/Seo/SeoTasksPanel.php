@@ -92,7 +92,15 @@ final class SeoTasksPanel extends Component
 
     public function markDone(int $id): void
     {
-        $this->resolve($id, SeoTaskStatus::Done, 'Görev "Yapıldı" olarak işaretlendi.');
+        $this->resolve($id, SeoTaskStatus::Done, 'Görev "Yapıldı" olarak işaretlendi. Sonraki plan doğrular; 7 günden sonra sorun hâlâ görünürse görev yeniden açılır.');
+    }
+
+    /** Faz 7: hide a task for N days; it comes back if the problem is still there. */
+    public function snooze(int $id, int $days = 30): void
+    {
+        $days = max(1, min(180, $days));
+        $this->task($id)->forceFill(['status' => SeoTaskStatus::Skipped->value, 'resolved_at' => now(), 'resolved_by' => auth()->id(), 'snoozed_until' => now()->addDays($days)])->save();
+        $this->flash($days.' gün ertelendi; sorun o zaman hâlâ varsa görev geri gelir.');
     }
 
     public function skip(int $id): void
@@ -488,7 +496,7 @@ final class SeoTasksPanel extends Component
     private function resolve(int $id, SeoTaskStatus $status, string $message): void
     {
         $task = $this->task($id);
-        $task->forceFill(['status' => $status->value, 'resolved_at' => now(), 'resolved_by' => auth()->id()])->save();
+        $task->forceFill(['status' => $status->value, 'resolved_at' => now(), 'resolved_by' => auth()->id(), 'verification' => null, 'verified_at' => null, 'snoozed_until' => null])->save();
         $this->flash($message);
     }
 

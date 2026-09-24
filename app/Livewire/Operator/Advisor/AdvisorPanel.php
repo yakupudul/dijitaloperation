@@ -71,7 +71,15 @@ final class AdvisorPanel extends Component
 
     public function markDone(int $id): void
     {
-        $this->resolve($id, AdvisorItemStatus::Done, 'Yapıldı olarak işaretlendi. Sonraki çalıştırmalar bu öneriyi tekrar açmaz; etkisi ölçüm için saklandı.');
+        $this->resolve($id, AdvisorItemStatus::Done, 'Yapıldı olarak işaretlendi. Sonraki çalıştırma doğrular: sorun görünmezse "Doğrulandı", 7 günden sonra hâlâ görünürse öneri yeniden açılır. Etkisi 28 ve 56 gün sonra ölçülür.');
+    }
+
+    /** Faz 7: hide an item for N days; it comes back if the problem is still there. */
+    public function snooze(int $id, int $days = 30): void
+    {
+        $days = max(1, min(180, $days));
+        $this->item($id)->forceFill(['status' => AdvisorItemStatus::Skipped->value, 'resolved_at' => now(), 'resolved_by' => auth()->id(), 'snoozed_until' => now()->addDays($days)])->save();
+        $this->flash($days.' gün ertelendi; sorun o zaman hâlâ varsa öneri geri gelir.');
     }
 
     public function skip(int $id): void
@@ -318,7 +326,7 @@ final class AdvisorPanel extends Component
 
     private function resolve(int $id, AdvisorItemStatus $status, string $message): void
     {
-        $this->item($id)->forceFill(['status' => $status->value, 'resolved_at' => now(), 'resolved_by' => auth()->id()])->save();
+        $this->item($id)->forceFill(['status' => $status->value, 'resolved_at' => now(), 'resolved_by' => auth()->id(), 'verification' => null, 'verified_at' => null, 'snoozed_until' => null])->save();
         $this->flash($message);
     }
 

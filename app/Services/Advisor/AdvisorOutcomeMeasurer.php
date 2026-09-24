@@ -17,8 +17,8 @@ use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
- * Measures "Yapıldı" work once, after the configured window (default 28 days), against the metric the
- * item was produced from. Observed change only — never presented as proof of causation.
+ * Measures "Yapıldı" work after the configured window (default 28 days) and again at 56 days, against the
+ * metric the item was produced from. Observed change only — never presented as proof of causation.
  *
  * Measured today: Google Ads negative keyword lists (spend on the listed terms before vs after) and SEO
  * tasks with a target page (Search Console clicks 28 days before vs after). Other items are recorded as
@@ -61,6 +61,20 @@ final class AdvisorOutcomeMeasurer
                 $task->forceFill(['outcome' => $this->safely(fn (): array => $this->seoOutcome($task, $days)), 'measured_at' => now()])->save();
                 $counts['seo']++;
             });
+
+        // Faz 7: a second look at 56 days for what was measured at 28 (stored under outcome.d56).
+        $late = (int) config('moxdop-advisor.measure.second_after_days', 56);
+        foreach ([[AdvisorItem::query(), AdvisorItemStatus::Done->value, 1, fn (AdvisorItem $i): array => $this->advisorOutcome($i, $late), 'advisor'],
+            [SeoTask::query(), SeoTaskStatus::Done->value, $lag, fn (SeoTask $t): array => $this->seoOutcome($t, $late), 'seo']] as [$query, $done, $wait, $measure, $bucket]) {
+            $query->where('status', $done)->whereNotNull('measured_at')->where('resolved_at', '<=', now()->subDays($late + $wait))
+                ->orderBy('id')->limit(2000)->get()
+                ->filter(fn ($row): bool => ($row->outcome['status'] ?? null) === 'measured' && ! isset($row->outcome['d56']))
+                ->take(500)
+                ->each(function ($row) use ($measure, $bucket, &$counts): void {
+                    $row->forceFill(['outcome' => array_merge((array) $row->outcome, ['d56' => $this->safely(fn (): array => $measure($row))])])->save();
+                    $counts[$bucket]++;
+                });
+        }
 
         return $counts;
     }

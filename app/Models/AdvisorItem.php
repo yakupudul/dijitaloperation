@@ -86,6 +86,8 @@ class AdvisorItem extends Model
             'baseline' => 'array',
             'draft' => 'array',
             'resolved_at' => 'datetime',
+            'verified_at' => 'datetime',
+            'snoozed_until' => 'datetime',
             'outcome' => 'array',
             'measured_at' => 'datetime',
         ];
