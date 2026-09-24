@@ -53,6 +53,21 @@ return [
         // Kalite filtresi: DataForSEO alan puanı (0–1000) ve spam puanı (0–100).
         'min_rank' => 50,
         'max_spam_score' => 30,
+        // Canlı link kontrolü (yayında / bekliyor fırsatlar): gün.
+        'check_every_days' => 7,
+        // Türkiye rehber / atıf listesi. sectors boş = her marka; aksi halde marka sektörü eşleşirse.
+        'citations' => [
+            ['name' => 'Google İşletme Profili', 'domain' => 'google.com', 'sectors' => [], 'skip_check' => true],
+            ['name' => 'Yandex Haritalar (Yandex Business)', 'domain' => 'yandex.com.tr', 'sectors' => [], 'skip_check' => true],
+            ['name' => 'Apple Business Connect', 'domain' => 'apple.com', 'sectors' => [], 'skip_check' => true],
+            ['name' => 'Bing Places', 'domain' => 'bing.com', 'sectors' => [], 'skip_check' => true],
+            ['name' => 'Foursquare', 'domain' => 'foursquare.com', 'sectors' => []],
+            ['name' => 'Find.com.tr', 'domain' => 'find.com.tr', 'sectors' => []],
+            ['name' => 'Cylex Türkiye', 'domain' => 'cylex-tr.com', 'sectors' => []],
+            ['name' => 'Doktortakvimi', 'domain' => 'doktortakvimi.com', 'sectors' => ['healthcare', 'dental', 'medical_aesthetics']],
+            ['name' => 'Doktorsitesi', 'domain' => 'doktorsitesi.com', 'sectors' => ['healthcare', 'dental', 'medical_aesthetics']],
+            ['name' => 'Oda / meslek birliği listesi', 'domain' => 'tobb.org.tr', 'sectors' => []],
+        ],
     ],
 
     'tasks' => [

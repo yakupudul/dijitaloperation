@@ -421,6 +421,11 @@ Schedule::command('moxdop:intel:grid')
     ->withoutOverlapping(30)
     ->name('intel-map-grid-daily');
 
+Schedule::command('moxdop:intel:backlinks')
+    ->dailyAt('04:50')
+    ->withoutOverlapping(60)
+    ->name('intel-backlinks-daily');
+
 Schedule::command('moxdop:advisor:digest')
     ->weeklyOn((int) config('moxdop-advisor.schedule.weekly_day', 1), (string) config('moxdop-advisor.digest.weekly_time', '08:00'))
     ->withoutOverlapping(30)
