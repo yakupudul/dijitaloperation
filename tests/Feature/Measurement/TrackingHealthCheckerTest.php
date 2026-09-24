@@ -60,10 +60,13 @@ final class TrackingHealthCheckerTest extends TestCase
         $this->assertSame(['tracking_tag_missing'], $this->kinds());
 
         $this->homepage('<html><head><script src="https://www.googletagmanager.com/gtag/js?id=G-OTHER9999"></script></head></html>');
-        $this->assertSame(['tracking_ga4_id_mismatch'], $this->kinds());
+        $this->assertSame(['consent_mode_not_seen', 'tracking_ga4_id_mismatch'], $this->kinds());
 
-        $this->homepage('<html><head><script src="https://www.googletagmanager.com/gtag/js?id=G-BOUND12345"></script></head></html>');
+        $this->homepage('<html><head><script>gtag("consent", "default", {ad_storage: "denied"});</script><script src="https://www.googletagmanager.com/gtag/js?id=G-BOUND12345"></script></head></html>');
         $this->assertSame([], $this->kinds());
+
+        $this->homepage('<html><head><script src="https://cdn-cookieyes.com/client_data/x/script.js"></script><script src="https://www.googletagmanager.com/gtag/js?id=G-BOUND12345"></script></head></html>');
+        $this->assertSame([], $this->kinds(), 'a known consent tool counts as Consent Mode being handled');
     }
 
     public function test_ga4_no_data_while_collection_runs(): void
@@ -95,6 +98,21 @@ final class TrackingHealthCheckerTest extends TestCase
         $kinds = $this->kinds();
         $this->assertContains('website_conversions_stopped', $kinds);
         $this->assertNotContains('conversions_not_defined', $kinds);
+    }
+
+    public function test_conversion_drop_and_double_counting(): void
+    {
+        for ($day = 1; $day <= 34; $day++) {
+            $this->sessions($day, 50);
+            $this->pool('ga4_key_event_daily', ['external_resource_id' => 1, 'property_id' => '111', 'reporting_date' => now()->subDays($day)->toDateString(), 'eventName' => 'generate_lead', 'keyEvents' => $day <= 7 ? 1 : 6]);
+        }
+        BrandConversionSource::query()->create(['brand_id' => $this->brand->id, 'source' => 'ga4_key_event', 'source_key' => 'generate_lead', 'label' => 'generate_lead', 'conversion_type' => 'form_submission', 'counts' => true]);
+        $this->assertContains('website_conversions_dropped', $this->kinds());
+        $this->assertNotContains('conversions_double_counted', $this->kinds());
+
+        BrandConversionSource::query()->create(['brand_id' => $this->brand->id, 'source' => 'google_ads_conversion_action', 'source_key' => '777', 'label' => 'Atlas Form (GA4)',
+            'conversion_type' => 'form_submission', 'counts' => true, 'metadata' => ['ga4_event' => 'generate_lead']]);
+        $this->assertContains('conversions_double_counted', $this->kinds());
     }
 
     public function test_only_the_first_website_gets_brand_level_alerts(): void

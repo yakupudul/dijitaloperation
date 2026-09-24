@@ -27,6 +27,8 @@ return [
         'conversions_stopped_days' => 3,         // days with sessions and zero counted GA4 conversions
         'conversions_min_daily' => 1.0,          // prior 14-day daily conversions that make zero suspicious
         'undefined_min_monthly_sessions' => 300, // traffic above which "no conversion defined" is worth saying
+        'conversions_drop_share' => 0.5,         // Faz 14: last 7 days vs prior 28 days daily average drop
+        'conversions_drop_min_daily' => 2.0,     // prior daily conversions below which a drop is noise
     ],
     'stale_data_hours' => 72,
     'bad_review' => [

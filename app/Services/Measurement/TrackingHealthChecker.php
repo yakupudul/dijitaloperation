@@ -44,6 +44,14 @@ final class TrackingHealthChecker
                     sprintf('Sitede %s var; bağlı GA4 mülkünün ölçüm kimliği %s. Veriler başka bir mülke gidiyor olabilir.', implode(', ', $tags['ga4']), implode(', ', $measurementIds)),
                     ['site' => $tags['ga4'], 'bound' => $measurementIds]);
             }
+            // Faz 14: Consent Mode. Only said when it is neither in the page nor a known CMP script is loaded; Tag
+            // Manager may still set it, so the wording asks to check instead of claiming it is missing.
+            $measured = $tags['gtm'] !== [] || $tags['ga4'] !== [] || $tags['google_ads'] !== [];
+            if ($measured && ! ($tags['consent_mode'] ?? false) && ($tags['cmp'] ?? []) === []) {
+                $alerts[] = $this->alert('consent_mode_not_seen', 'low', 'Onay modu (Consent Mode) görülmedi',
+                    'Ana sayfada Google etiketi var ama sayfada Consent Mode varsayılanı ya da bilinen bir çerez onay aracı (Cookiebot, CookieYes, Complianz…) görülmedi. Tag Manager içinde kurulu olabilir; değilse çerez izni verilmeyen ziyaretlerin ölçümü ve reklam kitleleri etkilenir.',
+                    ['tags' => array_intersect_key($tags, array_flip(['gtm', 'ga4', 'google_ads']))]);
+            }
         }
 
         if ($brand === null || ! $this->isPrimaryWebsite($website, $brand) || ! Schema::hasTable('ga4_acquisition_channel_daily')) {
@@ -93,13 +101,41 @@ final class TrackingHealthChecker
             }
         }
 
+        // Faz 14: counted conversions dropped by half (last 7 days vs the 28 days before), not only to zero.
+        if ($ga4Events !== [] && $latest !== null && ! in_array('website_conversions_stopped', array_column($alerts, 'kind'), true)) {
+            $end = CarbonImmutable::parse($latest);
+            $daily = $scope->apply(DB::table('ga4_key_event_daily'))->whereIn('eventName', $ga4Events)
+                ->whereBetween('reporting_date', [$end->subDays(34)->toDateString(), $end->toDateString()])
+                ->groupBy('reporting_date')->selectRaw('reporting_date, sum('.DB::getQueryGrammar()->wrap('keyEvents').') as n')->pluck('n', 'reporting_date')
+                ->mapWithKeys(fn ($n, $date): array => [substr((string) $date, 0, 10) => (float) $n])->all();
+            $recentFrom = $end->subDays(6)->toDateString();
+            $recentAvg = array_sum(array_filter($daily, fn (string $date): bool => $date >= $recentFrom, ARRAY_FILTER_USE_KEY)) / 7;
+            $beforeAvg = array_sum(array_filter($daily, fn (string $date): bool => $date < $recentFrom, ARRAY_FILTER_USE_KEY)) / 28;
+            $share = (float) ($cfg['conversions_drop_share'] ?? 0.5);
+            if ($beforeAvg >= (float) ($cfg['conversions_drop_min_daily'] ?? 2.0) && $recentAvg > 0 && $recentAvg <= $beforeAvg * (1 - $share)) {
+                $alerts[] = $this->alert('website_conversions_dropped', 'high', 'Web sitesi dönüşümleri yarıdan fazla düştü',
+                    sprintf('Son 7 günde günde ~%s dönüşüm var; önceki 28 günde ~%s idi (%%%d düşüş). Form, buton, etiket ya da trafik değişimini kontrol edin.',
+                        number_format($recentAvg, 1, ',', '.'), number_format($beforeAvg, 1, ',', '.'), (int) round((1 - $recentAvg / $beforeAvg) * 100)),
+                    ['recent_daily' => round($recentAvg, 2), 'prior_daily' => round($beforeAvg, 2)]);
+            }
+        }
+
+        // Faz 14: the same website conversion counted twice (a GA4 key event and the Google Ads action importing it).
+        $double = $counted->where('source', BrandConversionSource::SOURCE_GOOGLE_ADS)
+            ->filter(fn (BrandConversionSource $row): bool => filled(data_get($row->metadata, 'ga4_event')) && in_array(data_get($row->metadata, 'ga4_event'), $ga4Events, true));
+        if ($double->isNotEmpty()) {
+            $alerts[] = $this->alert('conversions_double_counted', 'medium', 'Aynı dönüşüm iki kez sayılıyor',
+                sprintf('%s hem GA4 anahtar olayı hem de onu içe aktaran Google Ads dönüşümü olarak toplama giriyor. Marka sayfasındaki Dönüşümler bölümünden birini "sayılmaz" yapın.', $double->pluck('label')->take(3)->implode(', ')),
+                ['actions' => $double->pluck('source_key')->values()->all()]);
+        }
+
         return $alerts;
     }
 
     /**
      * Tags found on the stored homepage, or null when no homepage HTML is stored.
      *
-     * @return array{gtm: list<string>, ga4: list<string>, google_ads: list<string>, meta_pixel: list<string>, url: string, observed_at: string}|null
+     * @return array{gtm: list<string>, ga4: list<string>, google_ads: list<string>, meta_pixel: list<string>, consent_mode: bool, cmp: list<string>, url: string, observed_at: string}|null
      */
     public function tags(DigitalAsset $website): ?array
     {
