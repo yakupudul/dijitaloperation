@@ -78,8 +78,10 @@ use App\Services\ServiceScope\CustomerServiceScopeReadService;
 use App\Services\ServiceScope\CustomerServiceScopeService;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteRegistry;
+use App\Support\Database\ViewAwarePostgresConnection;
 use App\Support\Roles;
 use App\Support\Skills\SkillRegistry;
+use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -95,6 +97,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        Connection::resolverFor('pgsql', static fn ($pdo, string $database, string $prefix, array $config): ViewAwarePostgresConnection => new ViewAwarePostgresConnection($pdo, $database, $prefix, $config));
+
         $this->app->singleton(AgencySettingService::class);
         $this->app->singleton(OperatorMailConfigService::class);
 

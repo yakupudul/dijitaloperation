@@ -2,6 +2,7 @@
 
 namespace App\Services\Retention;
 
+use App\Services\DataPool\Compact\CompactFactStore;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -145,7 +146,7 @@ final class DataRetentionService
             return ['rolled_rows' => $rows, 'rollup_rows' => $groups->count()];
         }
 
-        DB::transaction(function () use ($groups, $plan, $table, $from, $weight, $base): void {
+        DB::transaction(function () use ($groups, $plan, $table, $from, $to, $weight, $base): void {
             foreach ($groups as $group) {
                 $group = (array) $group;
                 $dimensions = [];
@@ -163,7 +164,13 @@ final class DataRetentionService
                 }
                 $this->storeRollup($table, $from, $dimensions, $metrics, (int) $group['d__days'], (int) $group['d__rows']);
             }
-            (clone $base)->delete();
+            // A compact table is a view; its rows live in the fact table (same reporting_date column).
+            $compact = app(CompactFactStore::class);
+            if ($compact->isCompact($table)) {
+                DB::table((string) $compact->spec($table)['fact'])->whereBetween('reporting_date', [$from, $to])->delete();
+            } else {
+                (clone $base)->delete();
+            }
         });
 
         return ['rolled_rows' => $rows, 'rollup_rows' => $groups->count()];
@@ -177,12 +184,16 @@ final class DataRetentionService
     public function dailyPerformanceTables(): array
     {
         $gold = (array) config('moxdop-retention.gold_daily_tables', []);
+        $compact = app(CompactFactStore::class);
+        $views = collect([...array_keys((array) config('moxdop-compact-facts.tables')), ...array_keys((array) config('moxdop-compact-facts.generic'))])
+            ->filter(fn (string $table): bool => $compact->isCompact($table));
 
         return collect(Schema::getTableListing(schemaQualified: false))
+            ->merge($views)
             ->map(fn (string $table): string => str_contains($table, '.') ? substr($table, strrpos($table, '.') + 1) : $table)
             ->filter(fn (string $table): bool => str_ends_with($table, '_daily') && ! in_array($table, $gold, true))
             ->filter(fn (string $table): bool => Schema::hasColumn($table, 'reporting_date'))
-            ->sort()->values()->all();
+            ->unique()->sort()->values()->all();
     }
 
     /**

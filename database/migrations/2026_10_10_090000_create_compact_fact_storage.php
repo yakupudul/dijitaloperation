@@ -24,6 +24,7 @@ return new class extends Migration
             UNIQUE (kind, value_hash)
         )');
 
+        // Only the Search Console layout here; generic tables (config `generic`) get their layout when converted.
         foreach ((array) config('moxdop-compact-facts.tables') as $spec) {
             $fact = (string) $spec['fact'];
             $dims = count((array) $spec['dims']);

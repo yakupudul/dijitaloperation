@@ -34,7 +34,7 @@ final class DatabaseCompactCommand extends Command
 
             return self::SUCCESS;
         }
-        $tables = array_keys((array) config('moxdop-compact-facts.tables'));
+        $tables = [...array_keys((array) config('moxdop-compact-facts.tables')), ...array_keys((array) config('moxdop-compact-facts.generic'))];
         if (filled($this->option('table'))) {
             $tables = array_values(array_intersect($tables, [(string) $this->option('table')]));
         }
@@ -49,7 +49,7 @@ final class DatabaseCompactCommand extends Command
         }
         asort($todo);
         foreach ($todo as $logical => $bytes) {
-            $this->line(sprintf('→ %s: %s (tahmini yeni boyut ~%s)', $logical, $this->gb($bytes), $this->gb($bytes / 9)));
+            $this->line(sprintf('→ %s: %s (tahmini yeni boyut ~%s)', $logical, $this->gb($bytes), $this->gb($bytes / ($store->spec($logical)['generic'] ? 3 : 9))));
         }
         if (! $this->option('execute') || $todo === []) {
             if ($todo !== []) {
@@ -79,6 +79,11 @@ final class DatabaseCompactCommand extends Command
     private function convert(CompactFactStore $store, PartitionManager $partitions, string $logical): void
     {
         $spec = $store->spec($logical);
+        if ($spec['generic']) {
+            $this->convertGeneric($store, $partitions, $logical, $spec['fact']);
+
+            return;
+        }
         $started = microtime(true);
         $since = (string) DB::selectOne('select now()::text as t')->t;
         $leaves = array_map(fn (object $r): string => (string) $r->name, DB::select(
@@ -120,6 +125,44 @@ final class DatabaseCompactCommand extends Command
             DB::statement(sprintf('DROP TABLE %s CASCADE', $this->q($logical.'__legacy')));
         }
         $this->info(sprintf('✓ %s sıkı depolamada: %s (%.0f sn)', $logical, $this->gb($this->bytes($spec['fact'])), microtime(true) - $started));
+    }
+
+    /** GA4 / Meta / Google Ads tables: layout from the live table, same copy → swap → verify steps. */
+    private function convertGeneric(CompactFactStore $store, PartitionManager $partitions, string $logical, string $fact): void
+    {
+        $generic = $store->generic();
+        $started = microtime(true);
+        $since = (string) DB::selectOne('select now()::text as t')->t;
+        $layout = $generic->prepare($logical, $fact);
+        $leaves = array_map(fn (object $r): string => (string) $r->name, DB::select(
+            'select c.relname as name from pg_inherits i join pg_class c on c.oid = i.inhrelid where i.inhparent = ?::regclass order by 1', [$this->q($logical)]));
+        foreach ($leaves === [] ? [$logical] : $leaves as $leaf) {
+            $generic->copy($layout, $leaf, null, false, $partitions);
+            $this->line(sprintf('   %s kopyalandı', $leaf));
+        }
+
+        DB::transaction(function () use ($store, $generic, $partitions, $layout, $logical, $since): void {
+            DB::statement('LOCK TABLE '.$this->q($logical).' IN ACCESS EXCLUSIVE MODE');
+            // Rows written while the copy ran.
+            $generic->copy($layout, $logical, $since, true, $partitions);
+            DB::statement(sprintf('ALTER TABLE %s RENAME TO %s', $this->q($logical), $this->q($logical.'__legacy')));
+            DB::statement($store->viewSql($logical));
+        });
+        $generic->syncSequence($layout);
+        CompactFactStore::forgetCache();
+
+        $sum = $layout['check'] !== null ? 'coalesce(sum('.$this->q($layout['check']).'), 0)' : '0';
+        $old = DB::selectOne(sprintf('select count(*) as n, %s as c from %s', $sum, $this->q($logical.'__legacy')));
+        $new = DB::selectOne(sprintf('select count(*) as n, %s as c from %s', $sum, $this->q($logical)));
+        $same = (int) $old->n === (int) $new->n && (string) $old->c === (string) $new->c;
+        $this->line(sprintf('   doğrulama: eski %s satır / %s=%s · yeni %s satır / %s', number_format((int) $old->n, 0, ',', '.'), $layout['check'] ?? '-', $old->c,
+            number_format((int) $new->n, 0, ',', '.'), $new->c));
+        if (! $same || $this->option('keep-legacy')) {
+            $this->warn(sprintf('   %s__legacy silinmedi%s. Kontrol sonrası: DROP TABLE "%s__legacy" CASCADE;', $logical, $same ? '' : ' (sayılar farklı)', $logical));
+        } else {
+            DB::statement(sprintf('DROP TABLE %s CASCADE', $this->q($logical.'__legacy')));
+        }
+        $this->info(sprintf('✓ %s sıkı depolamada: %s (%.0f sn)', $logical, $this->gb($this->bytes($fact)), microtime(true) - $started));
     }
 
     /**

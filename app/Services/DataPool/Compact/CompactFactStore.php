@@ -21,12 +21,20 @@ final class CompactFactStore
     /** @var array<string, int> "kind|value" => id, per process */
     private static array $dimCache = [];
 
-    /** @return array{fact: string, dims: list<string>}|null */
+    /** @return array{fact: string, dims: list<string>, generic: bool}|null */
     public function spec(string $logical): ?array
     {
-        $spec = config('moxdop-compact-facts.tables.'.$logical);
+        $spec = config('moxdop-compact-facts.tables.'.$logical) ?? config('moxdop-compact-facts.generic.'.$logical);
+        if (is_string($spec)) {
+            return ['fact' => $spec, 'dims' => [], 'generic' => true];
+        }
 
-        return is_array($spec) ? ['fact' => (string) $spec['fact'], 'dims' => array_values((array) $spec['dims'])] : null;
+        return is_array($spec) ? ['fact' => (string) $spec['fact'], 'dims' => array_values((array) $spec['dims']), 'generic' => false] : null;
+    }
+
+    public function generic(): GenericCompactStore
+    {
+        return new GenericCompactStore($this);
     }
 
     /** Whether writes to this logical table go to its compact fact table (it has been converted to a view). */
@@ -50,6 +58,7 @@ final class CompactFactStore
     {
         self::$compactCache = [];
         self::$dimCache = [];
+        GenericCompactStore::forgetCache();
     }
 
     /**
@@ -61,6 +70,9 @@ final class CompactFactStore
     public function upsert(string $logical, array $rows): array
     {
         $spec = $this->spec($logical) ?? throw new RuntimeException("No compact spec for [{$logical}]");
+        if ($spec['generic']) {
+            return $this->generic()->upsert($logical, $rows);
+        }
         if ($rows === []) {
             return ['inserted' => 0, 'updated' => 0, 'unchanged' => 0];
         }
@@ -215,6 +227,9 @@ final class CompactFactStore
     public function viewSql(string $logical): string
     {
         $spec = $this->spec($logical) ?? throw new RuntimeException("No compact spec for [{$logical}]");
+        if ($spec['generic']) {
+            return $this->generic()->viewSql($logical);
+        }
         $timezone = DB::getPdo()->quote((string) config('moxdop-compact-facts.source_timezone', 'America/Los_Angeles'));
         $dimSelect = '';
         $dimJoin = '';
@@ -248,6 +263,10 @@ final class CompactFactStore
             return false;
         }
         DB::transaction(function () use ($logical): void {
+            $spec = (array) $this->spec($logical);
+            if ($spec['generic']) {
+                $this->generic()->prepare($logical, $spec['fact']);
+            }
             DB::statement(sprintf('DROP TABLE "%s" CASCADE', $logical));
             DB::statement($this->viewSql($logical));
         });
