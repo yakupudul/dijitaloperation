@@ -290,6 +290,16 @@
                     <p class="text-sm text-gray-600 dark:text-gray-300">{{ __('operator.settings.operations.dashboard_mode_note') }}</p>
                     <x-ta.button :href="route('operator.dashboard')" size="sm" variant="outline">{{ __('operator.nav.dashboard') }}</x-ta.button>
                 </div>
+                <div class="mt-4 space-y-3 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                    <p class="text-sm text-gray-600 dark:text-gray-300">Zamanlayıcı ve işçiler, sistem uyarıları, bağlantı yetkileri, hesap bazında veri tazeliği ve harcamalar.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <x-ta.button :href="route('operator.settings.system-health')" size="sm" variant="outline">Sistem Sağlığı</x-ta.button>
+                        @if (auth()->user()?->hasRole(\App\Support\Roles::ADMIN))
+                            <x-ta.button :href="route('operator.settings.costs')" size="sm" variant="outline">Maliyetler</x-ta.button>
+                        @endif
+                        <x-ta.button :href="route('operator.settings.background-operations')" size="sm" variant="outline">Arka plan işleri</x-ta.button>
+                    </div>
+                </div>
             @elseif ($section === 'ai')
                 <div class="space-y-4">
                     <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">

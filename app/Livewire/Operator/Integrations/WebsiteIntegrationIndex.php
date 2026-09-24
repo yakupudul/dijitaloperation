@@ -13,6 +13,8 @@ use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\DataPool\DataPoolStorageRegistry;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
+use App\Services\Integrations\WordPress\WordPressEventReconciliation;
+use App\Services\Operations\SystemHealthReader;
 use App\Services\PageSpeedConnectionProbeService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
@@ -99,20 +101,21 @@ final class WebsiteIntegrationIndex extends Component
 
         abort_unless(in_array($this->collectionScope, ['full', 'public', 'wordpress', 'pagespeed'], true), 422);
         $asset->loadMissing('connections.credential');
-        $wordpressReady = $asset->connections->contains(fn (CoreConnection $connection): bool =>
-            $connection->type === WordPressConnectorPairingService::CONNECTION_TYPE
+        $wordpressReady = $asset->connections->contains(fn (CoreConnection $connection): bool => $connection->type === WordPressConnectorPairingService::CONNECTION_TYPE
             && $connection->enabled && data_get($connection->config, 'pairing_state') === 'paired'
             && $connection->credential !== null);
         if (($this->collectionScope === 'wordpress' && ! $wordpressReady)
             || ($this->collectionScope === 'pagespeed' && ! $this->pageSpeedReady($asset))) {
             $this->messageTone = 'warning';
             $this->message = $this->text('Seçilen kaynak için önce bağlantıyı tamamlayın.', 'Connect the selected source first.');
+
             return;
         }
         if (CollectionRun::query()->where('digital_asset_id', $assetId)
             ->whereIn('status', ['queued', 'running', 'retrying', 'cancellation_requested'])->exists()) {
             $this->messageTone = 'info';
             $this->message = $this->text('Bu web sitesi için bir çekim zaten sürüyor.', 'A collection is already active for this website.');
+
             return;
         }
         $publicFamilies = [WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL,
@@ -155,7 +158,7 @@ final class WebsiteIntegrationIndex extends Component
         $connection = CoreConnection::query()->where('digital_asset_id', $assetId)
             ->where('type', WordPressConnectorPairingService::CONNECTION_TYPE)
             ->where('enabled', true)->where('config->pairing_state', 'paired')->firstOrFail();
-        app(\App\Services\Integrations\WordPress\WordPressEventReconciliation::class)->initialize($connection);
+        app(WordPressEventReconciliation::class)->initialize($connection);
         $update = ['automation_enabled' => $mode !== 'paused'];
         if ($mode !== 'paused') {
             $update['inventory_interval_days'] = $mode === 'three_days' ? 3 : 1;
@@ -177,12 +180,14 @@ final class WebsiteIntegrationIndex extends Component
         if (! $state) {
             return ['ready' => false];
         }
+
         return [
             'ready' => $connection->enabled && $connection->credential !== null
                 && data_get($connection->config, 'pairing_state') === 'paired',
             'enabled' => (bool) $state->automation_enabled,
             'interval' => (int) $state->inventory_interval_days,
             'version' => $state->plugin_version,
+            'outdated' => SystemHealthReader::isOutdated($state->plugin_version, (string) config('moxdop-wordpress.connector_version', '')),
             'last_received' => $state->last_received_at,
             'last_reconciled' => $state->last_reconciled_at,
             'last_inventory' => $state->last_inventory_at,
@@ -208,6 +213,7 @@ final class WebsiteIntegrationIndex extends Component
         if (data_get($run->request_context, 'context.targeted_verification.urls', []) !== []) {
             $label .= $this->text(' + etkilenen URL’ler', ' + affected URLs');
         }
+
         return $label;
     }
 
@@ -371,8 +377,7 @@ final class WebsiteIntegrationIndex extends Component
         bool $wordpressDetected,
         bool $wordpressReady,
         Collection $latestSourceRuns,
-    ): array
-    {
+    ): array {
         $definitions = [
             ['key' => 'crawl', 'family' => WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL, 'optional' => false],
             ['key' => 'html', 'family' => WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS, 'optional' => false],
@@ -440,8 +445,7 @@ final class WebsiteIntegrationIndex extends Component
         bool $collectable,
         bool $pageSpeedReady,
         bool $wordpressReady,
-    ): string
-    {
+    ): string {
         if (! $collectable && $key !== 'pagespeed') {
             return 'needs_setup';
         }
@@ -670,7 +674,7 @@ final class WebsiteIntegrationIndex extends Component
     }
 
     /**
-     * @param Collection<int, array<string, mixed>> $datasets
+     * @param  Collection<int, array<string, mixed>>  $datasets
      * @return array<string, mixed>
      */
     private function sourceSummary(
@@ -860,7 +864,7 @@ final class WebsiteIntegrationIndex extends Component
     }
 
     /**
-     * @param array{table: ?string, fields: list<array<string, mixed>>, system_field_count: int} $schema
+     * @param  array{table: ?string, fields: list<array<string, mixed>>, system_field_count: int}  $schema
      * @return array<string, mixed>
      */
     private function datasetExplorer(int $assetId, string $datasetId, array $schema): array

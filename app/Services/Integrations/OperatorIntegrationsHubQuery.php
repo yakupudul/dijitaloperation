@@ -12,9 +12,13 @@ use App\Services\Integrations\Gemini\GeminiCredentialResolver;
 use App\Services\Integrations\Google\GoogleIntegrationReadModel;
 use App\Services\Integrations\Meta\MetaIntegrationReadModel;
 use App\Services\Integrations\OpenAi\OpenAiCredentialResolver;
+use App\Services\Operations\SystemHealthReader;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Demo\GlobalOperatingFixtures;
 use App\Support\Integrations\ProviderRegistry;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Operator integrations hub projection.
@@ -179,16 +183,31 @@ final class OperatorIntegrationsHubQuery
      */
     private function wordpressHubCard(array $shell): array
     {
-        $shell['state'] = 'not_configured';
-        $shell['state_label'] = __('operator.states.setup_required');
+        $sites = DB::table('core_connections')->where('type', 'wordpress_connector')->where('enabled', true)
+            ->get(['id', 'config'])->filter(fn (object $row): bool => data_get(json_decode((string) $row->config, true), 'pairing_state') === 'paired');
+        $delivery = Schema::hasTable('website_connector_delivery')
+            ? DB::table('website_connector_delivery')->whereIn('connection_id', $sites->pluck('id'))->get(['plugin_version', 'last_received_at'])
+            : collect();
+        $current = (string) config('moxdop-wordpress.connector_version', '');
+        $outdated = $delivery->filter(fn (object $row): bool => SystemHealthReader::isOutdated($row->plugin_version, $current))->count();
+        $silent = $delivery->filter(fn (object $row): bool => $row->last_received_at === null || strtotime((string) $row->last_received_at) < now()->subDay()->getTimestamp())->count();
+        $paired = $sites->count();
+
+        $shell['state'] = $paired === 0 ? 'not_configured' : ($outdated + $silent > 0 ? 'needs_attention' : 'connected');
+        $shell['state_label'] = $paired === 0 ? __('operator.states.setup_required') : ($outdated + $silent > 0 ? __('operator.states.needs_attention') : __('operator.states.connected'));
         $shell['resources_discovered'] = null;
-        $shell['bound'] = null;
+        $shell['bound'] = $paired;
         $shell['available'] = null;
-        $shell['discovery_not_run'] = true;
-        $shell['last_check'] = '—';
-        $shell['dependent_assets'] = 0;
+        $shell['discovery_not_run'] = $paired === 0;
+        $last = $delivery->max('last_received_at');
+        $shell['last_check'] = $last !== null ? CarbonImmutable::parse((string) $last)->diffForHumans() : '—';
+        $shell['dependent_assets'] = $paired;
         $shell['provenance'] = 'real';
-        $shell['note'] = __('operator.integrations_ui.wordpress_note');
+        $shell['note'] = $paired === 0
+            ? __('operator.integrations_ui.wordpress_note')
+            : (app()->getLocale() === 'tr'
+                ? sprintf('%d site eşleşmiş; %d sitede eklenti güncel değil, %d site 24 saattir sinyal göndermedi.', $paired, $outdated, $silent)
+                : sprintf('%d paired sites; %d with an outdated plugin, %d silent for 24 hours.', $paired, $outdated, $silent));
         $shell['manage_label'] = __('operator.integrations_ui.open_catalog');
 
         return $shell;

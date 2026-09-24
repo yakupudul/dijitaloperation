@@ -7,6 +7,7 @@ use App\Models\AgentExecutionRun;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
 use App\Models\Run;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Redis;
@@ -51,7 +52,7 @@ final class BackgroundOperationsService
         ];
     }
 
-    /** @return \Illuminate\Support\Collection<int,array<string,mixed>> */
+    /** @return Collection<int,array<string,mixed>> */
     private function collectionRuns(string $status, string $provider, string $search)
     {
         $query = CollectionRun::query()
@@ -152,15 +153,13 @@ final class BackgroundOperationsService
             $locked = collect($datasetRows)->where('locked', true)->count();
             $staleLocks = collect($datasetRows)->where('stale_lock', true)->count();
             $nonTerminal = $datasets->filter(fn (CollectionDatasetRun $dataset): bool => ! $dataset->status->isTerminal());
-            $futureRetries = $nonTerminal->filter(fn (CollectionDatasetRun $dataset): bool =>
-                $dataset->status === CollectionRunStatus::Retrying
+            $futureRetries = $nonTerminal->filter(fn (CollectionDatasetRun $dataset): bool => $dataset->status === CollectionRunStatus::Retrying
                 && $dataset->retry_at !== null
                 && $dataset->retry_at->isFuture()
             );
             $quotaWaiting = $nonTerminal->isNotEmpty()
                 && $futureRetries->count() === $nonTerminal->count()
-                && $nonTerminal->every(fn (CollectionDatasetRun $dataset): bool =>
-                    $dataset->error_category?->value === 'quota'
+                && $nonTerminal->every(fn (CollectionDatasetRun $dataset): bool => $dataset->error_category?->value === 'quota'
                     || strtoupper((string) $dataset->error_code) === 'GOOGLE_ADS_COOLDOWN'
                 );
 
@@ -362,7 +361,7 @@ final class BackgroundOperationsService
         })->all();
     }
 
-    /** @param \Illuminate\Support\Collection<int,array<string,mixed>> $runs */
+    /** @param Collection<int,array<string,mixed>> $runs */
     private function infrastructure($runs): array
     {
         $redisOk = false;

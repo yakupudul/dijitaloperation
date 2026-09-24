@@ -72,9 +72,11 @@ use App\Livewire\Operator\Library\ServiceCatalogPage;
 use App\Livewire\Operator\Library\WebsiteStandardsPage;
 use App\Livewire\Operator\Meta\OverviewPage as MetaOverviewPage;
 use App\Livewire\Operator\Portfolio\BrandSetupPage;
-use App\Livewire\Operator\Portfolio\DiscoverAndGroupPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
+use App\Livewire\Operator\Portfolio\DiscoverAndGroupPage;
 use App\Livewire\Operator\Seo\SeoTasksIndex;
+use App\Livewire\Operator\Settings\CostsPage;
+use App\Livewire\Operator\Settings\SystemHealthPage;
 use App\Support\Work\WorkUrl;
 use Illuminate\Support\Facades\Route;
 
@@ -186,6 +188,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
 
         Route::livewire('/settings', SettingsPage::class)->name('operator.settings');
         Route::livewire('/settings/background-operations', BackgroundOperationsPage::class)->name('operator.settings.background-operations');
+        Route::livewire('/settings/system-health', SystemHealthPage::class)->name('operator.settings.system-health');
+        Route::livewire('/settings/costs', CostsPage::class)->name('operator.settings.costs');
         Route::livewire('/settings/ai/control-plane', AiControlPlanePage::class)->name('operator.settings.ai.control-plane');
         Route::livewire('/settings/ai/agents', AiAgentsPage::class)->name('operator.settings.ai.agents');
         Route::livewire('/settings/ai/skills', AiSkillsPage::class)->name('operator.settings.ai.skills');

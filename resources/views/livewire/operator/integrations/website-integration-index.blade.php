@@ -174,6 +174,9 @@
                     @elseif ($deliveryState['stale'])
                         <p class="mt-3 text-xs text-amber-700 dark:text-amber-300">{{ $tr ? 'Son 24 saatte site bildirimi gelmedi. Connector bağlantısını ve WordPress zamanlanmış görevlerini kontrol edin.' : 'No site delivery in the last 24 hours. Check the Connector connection and WordPress scheduled tasks.' }}</p>
                     @endif
+                    @if ($deliveryState['outdated'] ?? false)
+                        <p class="mt-3 text-xs text-amber-700 dark:text-amber-300">{{ $tr ? 'Eklenti sürümü '.($deliveryState['version'] ?: 'bilinmiyor').'; güncel sürüm '.config('moxdop-wordpress.connector_version').'. Yeni sürümü indirip sitede güncelleyin.' : 'Plugin version '.($deliveryState['version'] ?: 'unknown').'; current is '.config('moxdop-wordpress.connector_version').'. Download and update it on the site.' }}</p>
+                    @endif
                     @if ($deliveryState['error'])
                         <p class="mt-3 text-xs text-red-700 dark:text-red-300">{{ $deliveryState['error'] }} @if ($deliveryState['enabled'] && $deliveryState['next_retry']) {{ $tr ? 'Yeniden deneme en erken:' : 'Retry no earlier than:' }} {{ $deliveryState['next_retry'] }} @endif</p>
                     @endif

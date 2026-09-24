@@ -7,6 +7,11 @@
         'subtitle' => __('operator.integrations_ui.subtitle'),
     ])
 
+    <p class="text-sm text-gray-500">
+        {{ app()->getLocale() === 'tr' ? 'Bağlantıların, hesap bazında veri tazeliğinin, işçilerin ve yetki bitiş tarihlerinin tek görünümü:' : 'One view of connections, per-account freshness, workers and authorization expiry:' }}
+        <a href="{{ route('operator.settings.system-health') }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ app()->getLocale() === 'tr' ? 'Sistem Sağlığı' : 'System health' }} →</a>
+    </p>
+
     <section id="discovered-profiles" class="space-y-4 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
         <h2 class="text-lg font-semibold">{{ __('public_discovery.profiles') }}</h2>
         <p class="text-sm text-gray-500">{{ __('public_discovery.profiles_help') }}</p>

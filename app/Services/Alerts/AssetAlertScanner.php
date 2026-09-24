@@ -9,6 +9,7 @@ use App\Services\Advisor\GoogleAds\GoogleAdsRowScope;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\Measurement\TrackingHealthChecker;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
+use App\Services\Operations\SystemHealthReader;
 use App\Services\Operator\AssetRuntimeStatusReader;
 use App\Services\SeoTasks\SeoPlanInputCollector;
 use Carbon\CarbonImmutable;
@@ -77,6 +78,7 @@ final class AssetAlertScanner
         if ((string) $asset->type === 'website') {
             try {
                 array_push($detected, ...$this->tracking->check($asset));
+                array_push($detected, ...$this->wordpressConnector($asset));
             } catch (Throwable $exception) {
                 report($exception);
             }
@@ -157,6 +159,29 @@ final class AssetAlertScanner
         return [$this->alert('search_traffic_drop', $drop >= 60 ? 'high' : 'medium', 'Google arama tıklamaları düştü',
             sprintf('Son 7 günde %s tık, önceki 7 günde %s (−%%%d). Search Console sekmesinde düşen sayfaları kontrol edin.', number_format($current, 0, ',', '.'), number_format($previous, 0, ',', '.'), $drop),
             ['current' => $current, 'previous' => $previous, 'drop_pct' => $drop, 'end' => $end->toDateString()])];
+    }
+
+    /**
+     * Paired WordPress connector: plugin older than the current release (drafts / delta updates may need it).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function wordpressConnector(DigitalAsset $asset): array
+    {
+        if (! Schema::hasTable('website_connector_delivery')) {
+            return [];
+        }
+        $installed = DB::table('website_connector_delivery as d')->join('core_connections as c', 'c.id', '=', 'd.connection_id')
+            ->where('c.digital_asset_id', $asset->id)->where('c.type', 'wordpress_connector')->where('c.enabled', true)
+            ->value('d.plugin_version');
+        $current = (string) config('moxdop-wordpress.connector_version', '');
+        if ($installed === null || ! SystemHealthReader::isOutdated((string) $installed, $current)) {
+            return [];
+        }
+
+        return [$this->alert('wordpress_plugin_outdated', 'low', 'WordPress eklentisi güncel değil',
+            sprintf('Sitede MoxDOP eklentisi %s kurulu; güncel sürüm %s. Entegrasyonlar › Site bağlayıcıları sayfasından yeni sürümü indirip yükleyin.', $installed, $current),
+            ['installed' => (string) $installed, 'current' => $current])];
     }
 
     /** @return list<array<string, mixed>> */
