@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-09-30 — Faz 4 decisions
+
+- Stopped collections heal themselves: OAuth success resumes "reconnect" stops; a daily retry covers repeated failures. Contract errors (`request_requires_fix`) are never retried automatically — they need a code fix.
+- Ayarlar › Sistem Sağlığı is the one operator view of machine health (heartbeats, alerts, authorization expiry, per-account freshness, plugin versions); new health signals go there, not into Filament.
+- Costs shown are the app's own records (AI usage, DataForSEO runs); any new paid call must record its cost so it appears on Maliyetler.
+- Logs pass through `RedactSecretsTap`; new log channels must add the tap.
+
 ## 2026-09-29 — Faz 3 decisions
 
 - `brand_conversion_sources` is the one per-brand answer to "what is a conversion"; totals, alerts and future reports read it. Defaults avoid double counting (GA4 = website; Ads/Meta only for what happens off the site); operator choices win.
