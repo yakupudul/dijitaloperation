@@ -6,6 +6,7 @@ use App\Enums\AdvisorCategory;
 use App\Services\Advisor\Support\BuildsAdvisorItems;
 use App\Services\Advisor\Support\ChangeImpact;
 use App\Services\SeoTasks\SeoText;
+use Carbon\CarbonImmutable;
 
 /**
  * Google Ads advisor rules over the collector package (pure: no database, no AI).
@@ -47,6 +48,10 @@ final class GoogleAdsAdvisorRuleEngine
             $this->ads($input),
             $this->qualityScore($input),
             $this->changeImpact($input),
+            $this->ngramWaste($input),
+            $this->qualityScoreDrop($input),
+            $this->performanceAnomaly($input),
+            $this->landingKeywordMismatch($input),
         );
 
         usort($items, static fn (array $a, array $b): int => $b['priority_score'] <=> $a['priority_score']);
@@ -719,6 +724,358 @@ final class GoogleAdsAdvisorRuleEngine
     // ------------------------------------------------------------------ helpers
 
     /** Does an existing negative (exact / phrase / broad semantics) already block this term? */
+    // ------------------------------------------------------------------ Faz 7: analytics
+
+    /**
+     * 2–3 word phrases that recur across many cheap non-converting search terms. Each term alone is below the
+     * negative-keywords threshold, together they add up. Phrases that appear in any converting term, name a
+     * service or the brand, or are already covered by a negative are skipped.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function ngramWaste(array $input): array
+    {
+        $terms = $input['search_terms'] ?? [];
+        if ($terms === []) {
+            return [];
+        }
+        $cfg = (array) ($this->cfg['ngrams'] ?? []);
+        $stop = array_map(static fn (string $w): string => SeoText::fold($w), (array) ($this->cfg['negatives']['stop_words'] ?? []));
+        $brandTokens = $this->brandTokens($input);
+        $serviceTexts = $this->serviceTexts($input);
+        $negatives = $input['negatives'] ?? [];
+        $converting = [];
+        $grams = [];
+        $display = [];
+        foreach ($terms as $term) {
+            if ($term['clicks'] <= 0 && $term['conversions'] <= 0) {
+                continue;
+            }
+            $words = [];
+            $shown = [];
+            foreach (preg_split('/\s+/u', trim($term['term'])) ?: [] as $word) {
+                $folded = SeoText::fold($word);
+                if ($folded !== '' && ! str_contains($folded, ' ')) {
+                    $words[] = $folded;
+                    $shown[] = mb_strtolower($word);
+                }
+            }
+            $seen = [];
+            for ($n = 2; $n <= 3; $n++) {
+                for ($i = 0; $i + $n <= count($words); $i++) {
+                    $slice = array_slice($words, $i, $n);
+                    if (in_array($slice[0], $stop, true) || in_array($slice[$n - 1], $stop, true)) {
+                        continue;
+                    }
+                    $gram = implode(' ', $slice);
+                    $seen[$gram] = true;
+                    $display[$gram] ??= implode(' ', array_slice($shown, $i, $n));
+                }
+            }
+            foreach (array_keys($seen) as $gram) {
+                if ($term['conversions'] > 0) {
+                    $converting[$gram] = true;
+
+                    continue;
+                }
+                $grams[$gram]['terms'][$term['term']] = (float) $term['cost'];
+            }
+        }
+        $minTerms = (int) ($cfg['min_terms'] ?? 3);
+        $minCost = (float) ($cfg['min_cost'] ?? 60);
+        $rows = [];
+        foreach ($grams as $gram => $data) {
+            $gram = (string) $gram;
+            $cost = array_sum($data['terms']);
+            if (isset($converting[$gram]) || count($data['terms']) < $minTerms || $cost < $minCost) {
+                continue;
+            }
+            if ($this->isBrandTerm($gram, $brandTokens) || $this->mentionsService($gram, $serviceTexts) || $this->coveredByNegative($gram, $negatives)) {
+                continue;
+            }
+            $termSet = array_keys($data['terms']);
+            sort($termSet);
+            $rows[] = ['phrase' => $display[$gram] ?? $gram, 'terms' => count($termSet), 'cost' => round($cost, 2), 'examples' => array_slice($termSet, 0, 4), 'term_set' => $termSet];
+        }
+        // A 3-word phrase that covers exactly the same terms as a 2-word one adds nothing: keep the shorter.
+        usort($rows, static fn (array $a, array $b): int => [substr_count($a['phrase'], ' '), -$a['cost']] <=> [substr_count($b['phrase'], ' '), -$b['cost']]);
+        $kept = [];
+        $sets = [];
+        foreach ($rows as $row) {
+            $signature = implode("\0", $row['term_set']);
+            if (isset($sets[$signature])) {
+                continue;
+            }
+            $sets[$signature] = true;
+            $kept[] = $row;
+        }
+        if ($kept === []) {
+            return [];
+        }
+        usort($kept, static fn (array $a, array $b): int => $b['cost'] <=> $a['cost']);
+        $kept = array_slice($kept, 0, (int) ($cfg['max'] ?? 10));
+        $covered = [];
+        foreach ($kept as $row) {
+            foreach ($row['term_set'] as $term) {
+                $covered[$term] = true;
+            }
+        }
+        $wasted = 0.0;
+        $termRows = [];
+        foreach (array_keys($covered) as $term) {
+            $data = $terms[mb_strtolower((string) $term)] ?? null;
+            if ($data !== null) {
+                $wasted += (float) $data['cost'];
+                $termRows[] = ['term' => $data['term'], 'cost' => round((float) $data['cost'], 2)];
+            }
+        }
+        $account = $input['account'];
+        $share = $account['cost'] > 0 ? $wasted / $account['cost'] : 0.0;
+
+        return [$this->item(
+            input: $input,
+            category: AdvisorCategory::Waste,
+            ruleId: 'ngram-waste',
+            keyParts: [],
+            severity: $share >= 0.10 ? 'high' : 'medium',
+            impact: $wasted,
+            impactLabel: sprintf('%s / %d gün, %d terime dağılmış', $this->money($input, $wasted), $input['period']['days'], count($covered)),
+            title: sprintf('Tekrar eden dönüşümsüz kalıplar (%d ifade)', count($kept)),
+            reason: sprintf('Tek tek küçük harcayan ama aynı ifadeyi taşıyan %d arama terimi toplam %s harcadı ve hiç dönüşüm getirmedi. Bu ifadeler dönüşüm getiren hiçbir terimde geçmiyor; marka ve hizmet adları hariç.', count($covered), $this->money($input, $wasted)),
+            evidence: ['phrases' => array_map(static fn (array $r): array => array_diff_key($r, ['term_set' => true]), $kept), 'terms' => array_slice($termRows, 0, 60)],
+            checklist: [
+                'İfadeleri gözden geçir; işine yarayabilecek olanı sil.',
+                'Kalanları sıralı eşleme ("…") negatif olarak paylaşılan listeye ekle.',
+            ],
+            copyText: implode("\n", array_map(static fn (array $r): string => '"'.$r['phrase'].'"', $kept)),
+            baseline: ['wasted_cost' => round($wasted, 2), 'terms' => count($covered)],
+        )];
+    }
+
+    /**
+     * Keywords whose Quality Score fell by `drop_points` or more against the daily copy from ≥ lookback days ago.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function qualityScoreDrop(array $input): array
+    {
+        $history = $input['quality_history'] ?? [];
+        if ($history === []) {
+            return [];
+        }
+        $cfg = (array) ($this->cfg['quality_history'] ?? []);
+        $labels = ['ad_relevance' => 'reklam alaka düzeyi', 'landing_page_experience' => 'açılış sayfası deneyimi', 'expected_ctr' => 'beklenen tık oranı'];
+        $rank = ['BELOW_AVERAGE' => 1, 'AVERAGE' => 2, 'ABOVE_AVERAGE' => 3];
+        $rows = [];
+        foreach ($input['keywords'] ?? [] as $keyword) {
+            $before = $history[$keyword['ad_group_id']."\0".$keyword['criterion_id']] ?? null;
+            if ($before === null || $keyword['quality_score'] === null || strtoupper((string) $keyword['status']) !== 'ENABLED' || $keyword['cost'] < (float) ($cfg['min_cost'] ?? 50)) {
+                continue;
+            }
+            if ((int) ($cfg['drop_points'] ?? 2) > $before['quality_score'] - $keyword['quality_score']) {
+                continue;
+            }
+            $worse = [];
+            foreach (array_keys($labels) as $component) {
+                $was = $rank[strtoupper((string) $before[$component])] ?? null;
+                $now = $rank[strtoupper((string) $keyword[$component])] ?? null;
+                if ($was !== null && $now !== null && $now < $was) {
+                    $worse[] = $labels[$component];
+                }
+            }
+            $rows[] = ['keyword' => $keyword['text'], 'before' => $before['quality_score'], 'before_on' => $before['observed_on'], 'now' => $keyword['quality_score'], 'cost' => round($keyword['cost'], 2), 'worse' => $worse];
+        }
+        if ($rows === []) {
+            return [];
+        }
+        usort($rows, static fn (array $a, array $b): int => $b['cost'] <=> $a['cost']);
+        $cost = array_sum(array_column($rows, 'cost'));
+        $worse = array_count_values(array_merge(...array_column($rows, 'worse')));
+        arsort($worse);
+
+        return [$this->item(
+            input: $input,
+            category: AdvisorCategory::Quality,
+            ruleId: 'quality-score-drop',
+            keyParts: [],
+            severity: 'medium',
+            impact: $cost,
+            impactLabel: sprintf('%s harcayan kelimelerde kalite puanı düştü', $this->money($input, $cost)),
+            title: sprintf('Kalite puanı düşen anahtar kelimeler (%d)', count($rows)),
+            reason: sprintf('Kalite puanı son %d günde en az %d puan geriledi; aynı sıra için tıklama pahalanır.%s', (int) ($cfg['lookback_days'] ?? 28), (int) ($cfg['drop_points'] ?? 2), $worse !== [] ? ' En çok kötüleşen bileşen: '.array_key_first($worse).'.' : ''),
+            evidence: ['keywords' => array_slice($rows, 0, 20), 'worse_components' => $worse],
+            checklist: [
+                'Bu tarihlerde reklam metni, açılış sayfası ya da site hızında değişiklik oldu mu kontrol et.',
+                'Açılış sayfası bileşeni kötüleştiyse sayfanın açıldığını ve kelimenin hizmetini anlattığını doğrula.',
+                'Reklam alaka düzeyi kötüleştiyse kelimeyi başlıklara geri ekle.',
+            ],
+            copyText: null,
+            baseline: ['cost' => $cost, 'avg_drop' => round(array_sum(array_map(static fn (array $r): int => $r['before'] - $r['now'], $rows)) / count($rows), 1)],
+        )];
+    }
+
+    /**
+     * Last `recent_days` against the `baseline_days` before them, per campaign: CPC up, CTR down or CVR down
+     * beyond the configured share, only with enough clicks on both sides.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function performanceAnomaly(array $input): array
+    {
+        $daily = $input['campaign_daily'] ?? [];
+        if ($daily === []) {
+            return [];
+        }
+        $cfg = (array) ($this->cfg['anomaly'] ?? []);
+        $end = CarbonImmutable::parse($input['period']['end']);
+        $recentDays = (int) ($cfg['recent_days'] ?? 7);
+        $recentFrom = $end->subDays($recentDays - 1)->toDateString();
+        $baseFrom = $end->subDays($recentDays + (int) ($cfg['baseline_days'] ?? 28) - 1)->toDateString();
+        $items = [];
+        foreach ($daily as $campaignId => $days) {
+            $empty = ['cost' => 0.0, 'clicks' => 0, 'impressions' => 0, 'conversions' => 0.0];
+            $sums = ['recent' => $empty, 'base' => $empty];
+            foreach ($days as $date => $m) {
+                $date = (string) $date;
+                if ($date > $end->toDateString() || $date < $baseFrom) {
+                    continue;
+                }
+                $bucket = $date >= $recentFrom ? 'recent' : 'base';
+                foreach (array_keys($empty) as $k) {
+                    $sums[$bucket][$k] += $m[$k] ?? 0;
+                }
+            }
+            ['recent' => $recent, 'base' => $base] = $sums;
+            if ($base['clicks'] < (int) ($cfg['min_baseline_clicks'] ?? 100) || $recent['clicks'] < (int) ($cfg['min_recent_clicks'] ?? 20)) {
+                continue;
+            }
+            $signals = [];
+            $cpcBase = $base['cost'] / $base['clicks'];
+            $cpcNow = $recent['cost'] / $recent['clicks'];
+            if ($cpcBase > 0 && $cpcNow / $cpcBase - 1 >= (float) ($cfg['cpc_increase'] ?? 0.30)) {
+                $signals[] = ['metric' => 'TBM', 'before' => round($cpcBase, 2), 'now' => round($cpcNow, 2), 'change_pct' => (int) round(($cpcNow / $cpcBase - 1) * 100)];
+            }
+            if ($base['impressions'] > 0 && $recent['impressions'] > 0) {
+                $ctrBase = $base['clicks'] / $base['impressions'];
+                $ctrNow = $recent['clicks'] / $recent['impressions'];
+                if ($ctrBase > 0 && 1 - $ctrNow / $ctrBase >= (float) ($cfg['ctr_drop'] ?? 0.30)) {
+                    $signals[] = ['metric' => 'TO', 'before' => round($ctrBase * 100, 2), 'now' => round($ctrNow * 100, 2), 'change_pct' => (int) round(($ctrNow / $ctrBase - 1) * 100)];
+                }
+            }
+            if ($base['conversions'] >= (float) ($cfg['min_baseline_conversions'] ?? 5)) {
+                $cvrBase = $base['conversions'] / $base['clicks'];
+                $cvrNow = $recent['conversions'] / $recent['clicks'];
+                if (1 - $cvrNow / $cvrBase >= (float) ($cfg['cvr_drop'] ?? 0.40)) {
+                    $signals[] = ['metric' => 'Dönüşüm oranı', 'before' => round($cvrBase * 100, 2), 'now' => round($cvrNow * 100, 2), 'change_pct' => (int) round(($cvrNow / $cvrBase - 1) * 100)];
+                }
+            }
+            if ($signals === []) {
+                continue;
+            }
+            $name = (string) ($input['campaigns'][$campaignId]['name'] ?? ('Kampanya '.$campaignId));
+            $cvrSignal = in_array('Dönüşüm oranı', array_column($signals, 'metric'), true);
+            $items[] = $this->item(
+                input: $input,
+                category: AdvisorCategory::Change,
+                ruleId: 'performance-anomaly',
+                keyParts: [(string) $campaignId],
+                severity: $cvrSignal ? 'high' : 'medium',
+                impact: $recent['cost'],
+                impactLabel: sprintf('Son %d günde %s harcandı', $recentDays, $this->money($input, $recent['cost'])),
+                title: 'Olağandışı değişim: '.$name,
+                reason: sprintf('Son %d gün, önceki %d günle karşılaştırıldı: %s. Dönüşüm gecikmesi son 1–2 günü düşük gösterebilir.', $recentDays, (int) ($cfg['baseline_days'] ?? 28), implode('; ', array_map(static fn (array $s): string => sprintf('%s %s → %s (%+d%%)', $s['metric'], $s['before'], $s['now'], $s['change_pct']), $signals))),
+                evidence: ['campaign' => $name, 'campaign_id' => (string) $campaignId, 'signals' => $signals, 'recent' => $recent, 'baseline' => $base],
+                checklist: array_values(array_filter([
+                    'Değişiklik geçmişine bak: teklif, bütçe, reklam ya da hedefleme değişti mi?',
+                    $cvrSignal ? 'Dönüşüm izlemesi çalışıyor mu (form, telefon, etiket) hemen kontrol et.' : null,
+                    'Açılış sayfası açılıyor mu ve hızlı mı kontrol et.',
+                    'Rakip yoğunluğu için Açık artırma istatistiklerine bak.',
+                ])),
+                copyText: null,
+                baseline: ['recent' => $recent, 'baseline' => $base],
+            );
+        }
+        usort($items, static fn (array $a, array $b): int => $b['impact_amount'] <=> $a['impact_amount']);
+
+        return array_slice($items, 0, (int) ($cfg['max'] ?? 3));
+    }
+
+    /**
+     * Keywords whose ad group's landing page title / H1 / description mentions none of the keyword's words
+     * (Turkish suffixes tolerated). Crawled pages only; uncrawled landing pages are not judged.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function landingKeywordMismatch(array $input): array
+    {
+        $pages = $input['website']['pages'] ?? [];
+        $ads = $input['ads'] ?? ['available' => false, 'items' => []];
+        if ($pages === [] || ! $ads['available']) {
+            return [];
+        }
+        $cfg = (array) ($this->cfg['landing_match'] ?? []);
+        $stop = array_map(static fn (string $w): string => SeoText::fold($w), (array) ($this->cfg['negatives']['stop_words'] ?? []));
+        $brandTokens = $this->brandTokens($input);
+        $urls = [];
+        foreach ($ads['items'] as $ad) {
+            if (strtoupper((string) $ad['status']) === 'ENABLED' && $ad['ad_group_id'] !== null && $ad['final_urls'] !== []) {
+                $urls[$ad['ad_group_id']][$ad['final_urls'][0]] = true;
+            }
+        }
+        $rows = [];
+        foreach ($input['keywords'] ?? [] as $keyword) {
+            if (strtoupper((string) $keyword['status']) !== 'ENABLED' || $keyword['cost'] < (float) ($cfg['min_cost'] ?? 50) || ! isset($urls[$keyword['ad_group_id']])) {
+                continue;
+            }
+            $words = array_values(array_filter(explode(' ', SeoText::fold(trim((string) $keyword['text'], '[]"+ '))), static fn (string $w): bool => mb_strlen($w) >= 3 && ! in_array($w, $stop, true) && ! in_array($w, $brandTokens, true)));
+            if ($words === []) {
+                continue;
+            }
+            foreach (array_keys($urls[$keyword['ad_group_id']]) as $url) {
+                $page = $pages[SeoText::urlKey((string) $url)] ?? null;
+                if ($page === null) {
+                    continue;
+                }
+                $text = implode(' ', array_filter([(string) $page['title'], (string) $page['h1'], (string) ($page['meta_description'] ?? ''), SeoText::slugText((string) $url)]));
+                $hit = false;
+                foreach ($words as $word) {
+                    if (SeoText::matchesPhrase($text, $word)) {
+                        $hit = true;
+                        break;
+                    }
+                }
+                if (! $hit) {
+                    $rows[] = ['keyword' => $keyword['text'], 'url' => $url, 'page_title' => $page['title'], 'cost' => round($keyword['cost'], 2), 'quality_score' => $keyword['quality_score']];
+                }
+            }
+        }
+        if ($rows === []) {
+            return [];
+        }
+        usort($rows, static fn (array $a, array $b): int => $b['cost'] <=> $a['cost']);
+        $cost = array_sum(array_column($rows, 'cost'));
+
+        return [$this->item(
+            input: $input,
+            category: AdvisorCategory::Landing,
+            ruleId: 'landing-keyword-mismatch',
+            keyParts: [],
+            severity: 'medium',
+            impact: $cost,
+            impactLabel: sprintf('%s harcayan kelime alakasız sayfaya iniyor', $this->money($input, $cost)),
+            title: sprintf('Anahtar kelime ile açılış sayfası uyuşmuyor (%d)', count($rows)),
+            reason: 'Kelimenin hiçbir sözcüğü açılış sayfasının başlığında, H1\'inde, açıklamasında ya da adresinde geçmiyor. Kullanıcı aradığını bulamaz; Google açılış sayfası deneyimini düşük puanlar.',
+            evidence: ['keywords' => array_slice($rows, 0, 20)],
+            checklist: [
+                'Kelimeyi anlatan bir sayfa varsa reklam grubunun nihai URL\'sini ona çevir.',
+                'Yoksa sayfa başlığı ve H1\'e hizmetin adını ekle ya da SEO Görevleri\'nden sayfa oluştur.',
+                'Farklı hizmetleri tek reklam grubunda topluyorsan grupları ayır.',
+            ],
+            copyText: null,
+            baseline: ['cost' => $cost, 'keywords' => count($rows)],
+        )];
+    }
+
     public function coveredByNegative(string $term, array $negatives): bool
     {
         $folded = SeoText::fold($term);

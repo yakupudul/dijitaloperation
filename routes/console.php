@@ -404,6 +404,12 @@ Schedule::command('moxdop:advisor:measure')
     ->withoutOverlapping(60)
     ->name('advisor-weekly-measure');
 
+// Faz 7: anahtar kelime kalite puanı günlük kopyası (düşüş kuralı için; snapshot yalnızca son değeri tutar).
+Schedule::command('moxdop:google-ads:record-quality-scores')
+    ->dailyAt('05:40')
+    ->withoutOverlapping(30)
+    ->name('google-ads-quality-score-history');
+
 Schedule::command('moxdop:advisor:digest')
     ->weeklyOn((int) config('moxdop-advisor.schedule.weekly_day', 1), (string) config('moxdop-advisor.digest.weekly_time', '08:00'))
     ->withoutOverlapping(30)

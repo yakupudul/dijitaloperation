@@ -4,6 +4,7 @@ namespace Tests\Feature\Advisor;
 
 use App\Services\Advisor\GoogleAds\GoogleAdsAdCopyDrafter;
 use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorRuleEngine;
+use App\Services\SeoTasks\SeoText;
 use Tests\TestCase;
 
 /**
@@ -108,6 +109,75 @@ final class GoogleAdsAdvisorRuleEngineTest extends TestCase
     }
 
     /** @return array<string, mixed> */
+    public function test_ngram_waste_finds_recurring_phrases_across_cheap_terms(): void
+    {
+        $input = $this->input();
+        $term = fn (string $text, float $cost, float $conv): array => ['term' => $text, 'cost' => $cost, 'clicks' => 3, 'impressions' => 30, 'conversions' => $conv, 'statuses' => ['NONE'], 'campaign_ids' => ['c1'], 'ad_group_ids' => ['ag1'], 'pmax' => false];
+        foreach ([$term('evde diş beyazlatma yöntemi', 30, 0), $term('evde diş beyazlatma karbonat', 25, 0), $term('evde diş beyazlatma doğal', 20, 0), $term('diş beyazlatma fiyat', 40, 2)] as $row) {
+            $input['search_terms'][$row['term']] = $row;
+        }
+        config(['moxdop-advisor.google_ads.max_open' => 50]);
+        $items = collect((new GoogleAdsAdvisorRuleEngine)->evaluate($input)['items'])->keyBy('rule_id');
+
+        $ngram = $items['ngram-waste'];
+        $this->assertSame(['evde diş'], array_column($ngram['evidence']['phrases'], 'phrase'), '"diş beyazlatma" converts elsewhere; the 3-word phrase covers the same terms');
+        $this->assertSame('"evde diş"', $ngram['copy_text']);
+        $this->assertEquals(75.0, $ngram['impact_amount']);
+        $this->assertCount(3, $ngram['evidence']['terms']);
+
+        $this->assertFalse(collect((new GoogleAdsAdvisorRuleEngine)->evaluate($this->input())['items'])->contains('rule_id', 'ngram-waste'), 'two terms are not a pattern');
+    }
+
+    public function test_quality_score_drop_against_history(): void
+    {
+        $input = $this->input();
+        $input['keywords'][1]['quality_score'] = 5;
+        $input['keywords'][1]['landing_page_experience'] = 'BELOW_AVERAGE';
+        $input['quality_history'] = [
+            "ag1\0k2" => ['quality_score' => 8, 'observed_on' => '2026-08-20', 'ad_relevance' => 'ABOVE_AVERAGE', 'landing_page_experience' => 'AVERAGE', 'expected_ctr' => 'AVERAGE'],
+            "ag1\0k1" => ['quality_score' => 4, 'observed_on' => '2026-08-20', 'ad_relevance' => 'AVERAGE', 'landing_page_experience' => 'AVERAGE', 'expected_ctr' => 'AVERAGE'],
+        ];
+        config(['moxdop-advisor.google_ads.max_open' => 50]);
+        $items = collect((new GoogleAdsAdvisorRuleEngine)->evaluate($input)['items'])->keyBy('rule_id');
+
+        $rows = $items['quality-score-drop']['evidence']['keywords'];
+        $this->assertCount(1, $rows, 'a one-point drop is noise');
+        $this->assertSame(['implant diş', 8, 5], [$rows[0]['keyword'], $rows[0]['before'], $rows[0]['now']]);
+        $this->assertSame(['açılış sayfası deneyimi'], $rows[0]['worse']);
+
+        $this->assertFalse(collect((new GoogleAdsAdvisorRuleEngine)->evaluate($this->input())['items'])->contains('rule_id', 'quality-score-drop'), 'no history yet → silent');
+    }
+
+    public function test_performance_anomaly_compares_last_week_with_the_four_before(): void
+    {
+        config(['moxdop-advisor.google_ads.max_open' => 50]);
+        $items = collect((new GoogleAdsAdvisorRuleEngine)->evaluate($this->input())['items'])->where('rule_id', 'performance-anomaly')->values();
+
+        $this->assertCount(1, $items);
+        $this->assertSame('c1', $items[0]['evidence']['campaign_id']);
+        $this->assertSame(['Dönüşüm oranı'], array_column($items[0]['evidence']['signals'], 'metric'), 'CPC and CTR are flat in the fixture');
+        $this->assertSame('high', $items[0]['severity']);
+
+        $steady = $this->input();
+        foreach ($steady['campaign_daily']['c1'] as $date => $row) {
+            $steady['campaign_daily']['c1'][$date]['conversions'] = 2.0;
+        }
+        $this->assertFalse(collect((new GoogleAdsAdvisorRuleEngine)->evaluate($steady)['items'])->contains('rule_id', 'performance-anomaly'));
+    }
+
+    public function test_landing_keyword_mismatch_uses_crawled_title_and_h1(): void
+    {
+        $input = $this->input();
+        $input['ads']['items'][0]['final_urls'] = ['https://ornek.test/hizmetler/'];
+        $input['website']['pages'][SeoText::urlKey('https://ornek.test/hizmetler/')] = ['url' => 'https://ornek.test/hizmetler/', 'status_code' => 200, 'final_url' => null, 'noindex' => false, 'title' => 'Zirkonyum Kaplama', 'h1' => 'Zirkonyum', 'meta_description' => null];
+        config(['moxdop-advisor.google_ads.max_open' => 50]);
+        $items = collect((new GoogleAdsAdvisorRuleEngine)->evaluate($input)['items'])->keyBy('rule_id');
+        $this->assertSame(['implant diş', 'implant fiyat'], array_column($items['landing-keyword-mismatch']['evidence']['keywords'], 'keyword'));
+
+        $input['website']['pages'][SeoText::urlKey('https://ornek.test/hizmetler/')]['h1'] = 'İmplantı Tedavisi Fiyatları';
+        $this->assertFalse(collect((new GoogleAdsAdvisorRuleEngine)->evaluate($input)['items'])->contains('rule_id', 'landing-keyword-mismatch'), 'Turkish suffixes are tolerated');
+    }
+
     private function input(): array
     {
         $term = fn (string $text, float $cost, int $clicks, float $conv, array $statuses = ['NONE'], array $adGroups = ['ag1']): array => [

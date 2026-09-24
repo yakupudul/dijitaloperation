@@ -18,6 +18,7 @@ use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Advisor\AdvisorPlanRunner;
 use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorInputCollector;
+use App\Services\Advisor\GoogleAds\QualityScoreHistoryRecorder;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsKeywordSnapshotGuard;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsNormalizer;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
@@ -150,6 +151,29 @@ final class GoogleAdsAdvisorRunTest extends TestCase
             ['digital_asset_id' => null, 'external_resource_id' => $this->resource->id, 'customer_id' => '1112223333', 'ad_group_id' => '9', 'criterion_id' => '56'],
         ];
         $this->assertSame(['56'], array_column(app(GoogleAdsKeywordSnapshotGuard::class)->onlyMissing($derived), 'criterion_id'));
+    }
+
+    public function test_quality_score_history_is_recorded_daily_and_read_as_the_earlier_value(): void
+    {
+        $this->seedAccount();
+        DB::table('google_ads_quality_score_history')->insert([
+            'digital_asset_id' => null, 'customer_id' => '1112223333', 'ad_group_id' => 'ag1', 'criterion_id' => 'k1', 'keyword_text' => 'implant fiyat',
+            'observed_on' => now('Europe/Istanbul')->subDays(35)->toDateString(), 'quality_score' => 7, 'ad_relevance' => 'AVERAGE', 'landing_page_experience' => 'AVERAGE', 'expected_ctr' => 'AVERAGE',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $recorder = app(QualityScoreHistoryRecorder::class);
+        $this->assertSame(1, $recorder->record());
+        $this->assertSame(1, $recorder->record(), 'same day → upsert, no duplicate');
+        $today = DB::table('google_ads_quality_score_history')->whereDate('observed_on', now()->toDateString())->first();
+        $this->assertSame(3, (int) $today->quality_score);
+        $this->assertSame('BELOW_AVERAGE', $today->landing_page_experience);
+        $this->assertSame(2, DB::table('google_ads_quality_score_history')->count());
+
+        $input = app(GoogleAdsAdvisorInputCollector::class)->collect($this->asset);
+        $this->assertSame(7, $input['quality_history']["ag1\0k1"]['quality_score'], 'today\'s copy is too recent to be the baseline');
+        $this->assertSame(1000, $input['campaign_daily']['c1'][now('Europe/Istanbul')->subDays(1)->toDateString()]['impressions']);
+        $this->assertSame(0, $this->artisan('moxdop:google-ads:record-quality-scores')->run());
     }
 
     private function seedAccount(): void

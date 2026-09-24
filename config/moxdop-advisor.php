@@ -85,6 +85,39 @@ return [
             'min_cost' => 50,
         ],
 
+        // Faz 7: 2–3 kelimelik tekrar eden dönüşümsüz ifadeler (tek tek eşiğin altında kalan terimler).
+        'ngrams' => [
+            'min_terms' => 3,
+            'min_cost' => 60,
+            'max' => 10,
+        ],
+
+        // Faz 7: kalite puanı geçmişi (günlük kopya) ve düşüş kuralı.
+        'quality_history' => [
+            'lookback_days' => 28,
+            'drop_points' => 2,
+            'min_cost' => 50,
+            'retention_days' => 400,
+        ],
+
+        // Faz 7: son 7 gün, önceki 28 günle (kampanya bazında).
+        'anomaly' => [
+            'recent_days' => 7,
+            'baseline_days' => 28,
+            'min_baseline_clicks' => 100,
+            'min_recent_clicks' => 20,
+            'min_baseline_conversions' => 5,
+            'cpc_increase' => 0.30,
+            'ctr_drop' => 0.30,
+            'cvr_drop' => 0.40,
+            'max' => 3,
+        ],
+
+        // Faz 7: anahtar kelime ↔ açılış sayfası başlık/H1 uyumu.
+        'landing_match' => [
+            'min_cost' => 50,
+        ],
+
         'change' => [
             'window_days' => 14,          // değişiklikten önce/sonra karşılaştırma
             'min_days_after' => 7,

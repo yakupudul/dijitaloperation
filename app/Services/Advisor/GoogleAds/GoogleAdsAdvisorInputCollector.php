@@ -61,6 +61,7 @@ final class GoogleAdsAdvisorInputCollector
             'search_terms' => $this->searchTerms($scope, $window),
             'negatives' => $this->negatives($scope),
             'keywords' => $this->keywords($scope, $window),
+            'quality_history' => $this->qualityHistory($scope, $end),
             'ads' => $this->ads($scope, $window),
             'landing_pages' => $this->landingPages($scope, $window),
             'conversion_actions' => $this->conversionActions($scope, $window),
@@ -94,19 +95,20 @@ final class GoogleAdsAdvisorInputCollector
         ];
     }
 
-    /** @return array<string, array<string, array{cost: float, clicks: int, conversions: float}>> campaign id => date => metrics */
+    /** @return array<string, array<string, array{cost: float, clicks: int, impressions: int, conversions: float}>> campaign id => date => metrics */
     private function campaignDaily(GoogleAdsRowScope $scope, string $from, string $to): array
     {
         $out = [];
         $scope->daily('google_ads_campaign_daily', $from, $to)
-            ->select(['campaign_id', 'reporting_date', 'cost_amount', 'clicks', 'conversions'])
+            ->select(['campaign_id', 'reporting_date', 'cost_amount', 'clicks', 'impressions', 'conversions'])
             ->orderBy('reporting_date')
             ->get()
             ->each(function (object $row) use (&$out): void {
                 $date = substr((string) $row->reporting_date, 0, 10);
-                $entry = $out[(string) $row->campaign_id][$date] ?? ['cost' => 0.0, 'clicks' => 0, 'conversions' => 0.0];
+                $entry = $out[(string) $row->campaign_id][$date] ?? ['cost' => 0.0, 'clicks' => 0, 'impressions' => 0, 'conversions' => 0.0];
                 $entry['cost'] += (float) $row->cost_amount;
                 $entry['clicks'] += (int) $row->clicks;
+                $entry['impressions'] += (int) $row->impressions;
                 $entry['conversions'] += (float) $row->conversions;
                 $out[(string) $row->campaign_id][$date] = $entry;
             });
@@ -288,6 +290,38 @@ final class GoogleAdsAdvisorInputCollector
                 'expected_ctr' => $meta['expected_ctr'] ?? null,
             ] + ($metrics[$key] ?? ['cost' => 0.0, 'clicks' => 0, 'impressions' => 0, 'conversions' => 0.0]);
         }
+
+        return $out;
+    }
+
+    /**
+     * Earlier Quality Score per keyword: the latest daily copy that is at least `lookback_days` old
+     * (within 60 days). Empty until the recorder has run long enough.
+     *
+     * @return array<string, array{quality_score: int, observed_on: string, ad_relevance: ?string, landing_page_experience: ?string, expected_ctr: ?string}> "ad_group\0criterion" => earlier value
+     */
+    private function qualityHistory(GoogleAdsRowScope $scope, CarbonImmutable $end): array
+    {
+        if (! Schema::hasTable('google_ads_quality_score_history')) {
+            return [];
+        }
+        $lookback = (int) config('moxdop-advisor.google_ads.quality_history.lookback_days', 28);
+        $out = [];
+        DB::table('google_ads_quality_score_history')
+            ->where('customer_id', $scope->customerId)
+            ->whereBetween('observed_on', [$end->subDays(60)->toDateString(), $end->subDays($lookback)->toDateString()])
+            ->whereNotNull('quality_score')
+            ->orderBy('observed_on')
+            ->get(['ad_group_id', 'criterion_id', 'observed_on', 'quality_score', 'ad_relevance', 'landing_page_experience', 'expected_ctr'])
+            ->each(function (object $row) use (&$out): void {
+                $out[$row->ad_group_id."\0".$row->criterion_id] = [
+                    'quality_score' => (int) $row->quality_score,
+                    'observed_on' => substr((string) $row->observed_on, 0, 10),
+                    'ad_relevance' => $row->ad_relevance,
+                    'landing_page_experience' => $row->landing_page_experience,
+                    'expected_ctr' => $row->expected_ctr,
+                ];
+            });
 
         return $out;
     }

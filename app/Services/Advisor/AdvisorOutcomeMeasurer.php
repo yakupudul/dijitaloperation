@@ -82,7 +82,7 @@ final class AdvisorOutcomeMeasurer
     /** @return array<string, mixed> */
     public function advisorOutcome(AdvisorItem $item, int $days): array
     {
-        if ($item->channel !== AdvisorPlan::CHANNEL_GOOGLE_ADS || $item->rule_id !== 'negative-keywords') {
+        if ($item->channel !== AdvisorPlan::CHANNEL_GOOGLE_ADS || ! in_array($item->rule_id, ['negative-keywords', 'ngram-waste'], true)) {
             return ['status' => 'not_measured'];
         }
         $terms = array_values(array_filter(array_map(static fn ($row): string => mb_strtolower(trim((string) ($row['term'] ?? ''))), (array) ($item->evidence['terms'] ?? []))));
