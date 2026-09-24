@@ -1,7 +1,8 @@
 <div class="space-y-5 dark:text-gray-200">
     <header class="flex flex-wrap items-center justify-between gap-4">
-        <div><p class="text-xs text-gray-500">Kütüphane</p><h1 class="mt-1 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Sorgular</h1><p class="mt-2 text-sm text-gray-500">Tüm kaynaklardaki sorguları bir araya getirin, sektör ve hizmetlere bağlayın.</p></div>
+        <div><p class="text-xs text-gray-500">Pazar</p><h1 class="mt-1 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Sorgular</h1><p class="mt-2 text-sm text-gray-500">Tüm kaynaklardaki sorguları bir araya getirin, sektör ve hizmetlere bağlayın.</p></div>
         <div class="flex flex-wrap items-center gap-2">
+        <a href="{{ route('operator.library.search-demand-clusters') }}" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium dark:border-gray-700">Sorgu kümeleri</a>
         <a href="{{ $exportUrl }}" wire:loading.class="pointer-events-none opacity-50" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium dark:border-gray-700">{{ __('query-list.download') }} ({{ $queries->total() }})</a>
         <button type="button" wire:click="$set('importOpen', true)" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50">+ Sorgu ekle / içe aktar</button></div>
     </header>

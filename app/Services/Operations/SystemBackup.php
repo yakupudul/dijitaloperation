@@ -32,6 +32,7 @@ final class SystemBackup
             }
             $path = $dir.'/moxdop-'.now()->format('Ymd-His').'-'.$driver.'.'.($driver === 'sqlite' ? 'sqlite.gz' : 'sql.gz');
             $this->dump($driver, $cfg, $path);
+            @chmod($path, 0600);
             $bytes = (int) filesize($path);
             if ($bytes < 20) {
                 throw new \RuntimeException('Yedek dosyası boş.');

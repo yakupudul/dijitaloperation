@@ -43,9 +43,9 @@ class CanonicalAppUrlIntegrityTest extends TestCase
             }
         }
 
-        $this->assertTrue(collect(DemoMenu::groups())->pluck('items')->flatten(1)->contains(
+        $this->assertFalse(collect(DemoMenu::groups())->pluck('items')->flatten(1)->contains(
             fn (array $item): bool => ($item['route'] ?? '') === 'operator.files'
-        ));
+        ), 'Faz 10e: Files left the sidebar; the route stays');
     }
 
     public function test_representative_app_surfaces_do_not_emit_system_links(): void

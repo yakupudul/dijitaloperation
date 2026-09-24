@@ -9,7 +9,7 @@ return [
             'sales' => 'Sales',
             'system' => 'System',
         ],
-        'dashboard' => 'Dashboard',
+        'dashboard' => 'Today',
         'customers' => 'Customers',
         'brands' => 'Brands',
         'digital_assets' => 'Digital Assets',

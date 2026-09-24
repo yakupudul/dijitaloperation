@@ -123,11 +123,11 @@ class FinalInterfaceCompletionTest extends TestCase
 
         $response->assertOk();
         $disposition = (string) $response->headers->get('content-disposition');
-        $this->assertStringContainsString('moxdop-wordpress-connector-1.0.0.zip', $disposition);
+        $this->assertStringContainsString('moxdop-wordpress-connector-'.config('moxdop-wordpress.connector_version').'.zip', $disposition);
         $this->assertSame('WORDPRESS CONNECTOR PRODUCTION PACKAGE', $response->headers->get('X-MoxDOP-Package'));
 
         Livewire::test(SiteConnectorShow::class, ['connector' => 'wordpress'])
-            ->assertSee('moxdop-wordpress-connector-1.0.0.zip')
+            ->assertSee('moxdop-wordpress-connector-'.config('moxdop-wordpress.connector_version').'.zip')
             ->assertDontSee('DEMO CONNECTOR PACKAGE');
 
         $zip = new ZipArchive;
@@ -151,14 +151,11 @@ class FinalInterfaceCompletionTest extends TestCase
             ->assertRedirect(route('operator.assets'));
     }
 
-    public function test_demo_menu_includes_files_item(): void
+    public function test_files_left_the_menu_but_stays_reachable(): void
     {
         $items = collect(DemoMenu::groups())->flatMap(fn (array $group): array => $group['items']);
-        $files = $items->firstWhere('route', 'operator.files');
 
-        $this->assertNotNull($files);
-        $this->assertSame('operator.files', $files['route']);
-        $this->assertSame(__('operator.nav.files'), $files['label']);
+        $this->assertNull($items->firstWhere('route', 'operator.files'), 'Faz 10e sade menü');
 
         $this->get(route('operator.files'))
             ->assertOk()

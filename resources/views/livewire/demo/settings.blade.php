@@ -308,6 +308,14 @@
                         @endif
                         <x-ta.button :href="route('operator.settings.background-operations')" size="sm" variant="outline">Arka plan işleri</x-ta.button>
                     </div>
+                    <p class="mt-4 text-xs text-gray-500">Menüden kaldırılan eski ekranlar</p>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        <x-ta.button :href="route('operator.opportunities')" size="sm" variant="outline">{{ __('operator.nav.opportunities') }}</x-ta.button>
+                        <x-ta.button :href="route('operator.findings')" size="sm" variant="outline">{{ __('operator.nav.findings') }}</x-ta.button>
+                        <x-ta.button :href="route('operator.recommendations')" size="sm" variant="outline">{{ __('operator.nav.recommendations') }}</x-ta.button>
+                        <x-ta.button :href="route('operator.public-discovery')" size="sm" variant="outline">Açık Web Keşfi</x-ta.button>
+                        <x-ta.button :href="route('operator.files')" size="sm" variant="outline">{{ __('operator.nav.files') }}</x-ta.button>
+                    </div>
                 </div>
             @elseif ($section === 'ai')
                 <div class="space-y-4">

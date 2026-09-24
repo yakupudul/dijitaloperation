@@ -9,7 +9,7 @@ return [
             'sales' => 'Satış',
             'system' => 'Sistem',
         ],
-        'dashboard' => 'Kontrol Paneli',
+        'dashboard' => 'Bugün',
         'customers' => 'Müşteriler',
         'brands' => 'Markalar',
         'digital_assets' => 'Dijital Varlıklar',

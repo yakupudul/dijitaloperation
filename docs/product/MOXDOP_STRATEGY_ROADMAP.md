@@ -45,6 +45,7 @@ yönü kaydeder. Faz sırası sahibi onayıyla değişebilir; değişiklikler bu
 | 7 – Beyin ✅ | Yöntem Kütüphanesi (ekrandan düzenlenen yöntem/eşikler), sektör desenleri, sonuca dayalı önceliklendirme, "Yapıldı"da anında doğrulama + geri gelen sorunu yeniden açma, varlıklar arası tutarlılık kontrollerinin (7 `Analyze*ConsistencyJob`; Faz 1'de tetikleyicisiz kaldı) haftalık Danışman'a bağlanması, Perfex Ads analitiği (anomali dedektörleri, n-gram, negatif adaylar, QS geçmişi, sayfa↔kelime uyumu, öneri doğrulama/erteleme) |
 | 8 – Rakip/yorum istihbaratı + ajans satışı ✅ | Yorum kazıyıcı (iç kullanım, sahibi riski üstlendi), Meta Reklam Kütüphanesi, rakip izleme, harita grid sıralama takibi, harita yığma (My Maps/KML) deneyi, backlink fırsat motoru, dış denetim/prospect raporu, ajans lead kutusu (yalnız ajansın kendi lead'leri) |
 | 9 – Rapor v2 + eklenti v2 ✅ | Looker yerine aylık rapor (kanal KPI, grafik, karşılaştırma, yapılanlar ve etkisi, AI yorumu), WordPress eklenti v2 (sağlık, tek tık panel girişi, onaylı güncelleme) |
+| 10 – Sade menü + gözden kaçanlar ✅ | Yol haritasındaki sade menü (Bugün · Portföy · İşler · Pazar · Satış · Raporlar · Sistem), grafik notları (algoritma/mevzuat/kampanya olayları rapor grafiklerinde), müşteri sağlığı puanı, AI görünürlüğü (tıkla, LLM cevabında marka geçişi), KVKK kayıtları + WhatsApp metin saklama süresi, gece veritabanı yedeği |
 
 ## Ek kararlar (2026-09-26, ikinci tur)
 

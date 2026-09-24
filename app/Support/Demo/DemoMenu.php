@@ -7,7 +7,10 @@ use App\Support\Roles;
 /**
  * Canonical operator navigation for the TailAdmin operator shell.
  *
- * The class name is legacy; navigation may point to real operator engine surfaces.
+ * The class name is legacy; navigation may point to real operator engine surfaces. Faz 10e "sade menü"
+ * (docs/product/MOXDOP_STRATEGY_ROADMAP.md): Opportunities, Findings, Recommendations, Public Discovery, Files,
+ * Query Clusters and Background Operations left the sidebar; their routes stay and are linked from their parent
+ * screens (Settings, Search Queries, brand setup).
  */
 final class DemoMenu
 {
@@ -16,6 +19,9 @@ final class DemoMenu
      */
     public static function groups(): array
     {
+        $tr = app()->getLocale() === 'tr';
+        $isAdmin = (bool) (auth()->user()?->is_active && auth()->user()?->hasRole(Roles::ADMIN));
+
         return [
             [
                 'label' => __('operator.nav.groups.menu'),
@@ -29,47 +35,47 @@ final class DemoMenu
                     ['label' => __('operator.nav.customers'), 'route' => 'operator.customers', 'icon' => 'customers'],
                     ['label' => __('operator.nav.brands'), 'route' => 'operator.brands', 'icon' => 'brands'],
                     ['label' => __('operator.nav.digital_assets'), 'route' => 'operator.assets', 'icon' => 'assets'],
-                    ['label' => app()->getLocale() === 'tr' ? 'Açık Web Keşfi' : 'Public Discovery', 'route' => 'operator.public-discovery', 'icon' => 'search'],
-                    ['label' => __('operator.nav.files'), 'route' => 'operator.files', 'icon' => 'files'],
+                ],
+            ],
+            [
+                'label' => __('operator.nav.work'),
+                'items' => [
+                    ['label' => $tr ? 'İş listesi' : 'Work List', 'route' => 'operator.tasks', 'icon' => 'tasks'],
+                    ['label' => __('operator.nav.ads_advisor'), 'route' => 'operator.ads_advisor', 'icon' => 'ads-advisor'],
+                    ['label' => __('operator.nav.seo_tasks'), 'route' => 'operator.seo_tasks', 'icon' => 'seo'],
+                    ['label' => __('operator.nav.renewals'), 'route' => 'operator.renewals', 'icon' => 'renewals'],
+                ],
+            ],
+            [
+                'label' => $tr ? 'Pazar' : 'Market',
+                'items' => [
+                    ['label' => $tr ? 'Sorgular' : 'Search Queries', 'route' => 'operator.library.search-queries', 'icon' => 'search'],
+                    ['label' => $tr ? 'Hizmetler' : 'Services', 'route' => 'operator.library.services', 'icon' => 'library'],
+                    ['label' => $tr ? 'Rakipler' : 'Competitors', 'route' => 'operator.library.search-demand-competitors', 'icon' => 'search'],
+                    ['label' => $tr ? 'Harita sıralaması' : 'Map Rankings', 'route' => 'operator.market.map-rankings', 'icon' => 'activity'],
+                    ['label' => $tr ? 'Backlink fırsatları' : 'Backlinks', 'route' => 'operator.market.backlinks', 'icon' => 'search'],
+                    ['label' => $tr ? 'Rakip izleme' : 'Competitor Watch', 'route' => 'operator.market.competitor-watch', 'icon' => 'activity'],
+                    ['label' => $tr ? 'AI görünürlüğü' : 'AI Visibility', 'route' => 'operator.market.ai-visibility', 'icon' => 'search'],
                 ],
             ],
             [
                 'label' => __('operator.nav.groups.sales'),
                 'items' => [
-                    ['label' => app()->getLocale() === 'tr' ? 'Lead kutusu' : 'Lead Inbox', 'route' => 'operator.leads', 'icon' => 'prospects'],
+                    ['label' => $tr ? 'Lead kutusu' : 'Lead Inbox', 'route' => 'operator.leads', 'icon' => 'prospects'],
                     ['label' => __('operator.nav.prospects'), 'route' => 'operator.prospects', 'icon' => 'prospects'],
                     ['label' => __('operator.nav.intent_radar'), 'route' => 'operator.intent-radar', 'icon' => 'activity'],
-                    ...((auth()->user()?->is_active && auth()->user()?->hasRole(Roles::ADMIN)) ? [
-                        ['label' => app()->getLocale() === 'tr' ? 'WhatsApp Asistanı' : 'WhatsApp Assistant', 'route' => 'operator.whatsapp', 'icon' => 'prospects'],
+                    ...($isAdmin ? [
+                        ['label' => $tr ? 'WhatsApp Asistanı' : 'WhatsApp Assistant', 'route' => 'operator.whatsapp', 'icon' => 'prospects'],
                     ] : []),
                 ],
             ],
             [
-                'label' => app()->getLocale() === 'tr' ? 'Kütüphane' : 'Library',
+                'label' => $tr ? 'Raporlar' : 'Reports',
                 'items' => [
-                    ['label' => app()->getLocale() === 'tr' ? 'Hizmetler' : 'Services', 'route' => 'operator.library.services', 'icon' => 'library'],
-                    ['label' => app()->getLocale() === 'tr' ? 'Sorgular' : 'Search Queries', 'route' => 'operator.library.search-queries', 'icon' => 'search'],
-                    ['label' => app()->getLocale() === 'tr' ? 'Sorgu kümeleri' : 'Query Clusters', 'route' => 'operator.library.search-demand-clusters', 'icon' => 'activity'],
-                    ['label' => app()->getLocale() === 'tr' ? 'Rakipler' : 'Competitors', 'route' => 'operator.library.search-demand-competitors', 'icon' => 'search'],
-                    ['label' => app()->getLocale() === 'tr' ? 'Harita sıralaması' : 'Map Rankings', 'route' => 'operator.market.map-rankings', 'icon' => 'activity'],
-                    ['label' => app()->getLocale() === 'tr' ? 'Backlink fırsatları' : 'Backlinks', 'route' => 'operator.market.backlinks', 'icon' => 'search'],
-                    ['label' => app()->getLocale() === 'tr' ? 'Rakip izleme' : 'Competitor Watch', 'route' => 'operator.market.competitor-watch', 'icon' => 'activity'],
-                    ['label' => app()->getLocale() === 'tr' ? 'AI görünürlüğü' : 'AI Visibility', 'route' => 'operator.market.ai-visibility', 'icon' => 'search'],
-                ],
-            ],
-            [
-                'label' => __('operator.nav.groups.operations'),
-                'items' => [
-                    ['label' => __('operator.nav.opportunities'), 'route' => 'operator.opportunities', 'icon' => 'recommendations'],
-                    ['label' => __('operator.nav.findings'), 'route' => 'operator.findings', 'icon' => 'findings'],
-                    ['label' => __('operator.nav.recommendations'), 'route' => 'operator.recommendations', 'icon' => 'recommendations'],
-                    ['label' => __('operator.nav.work'), 'route' => 'operator.tasks', 'icon' => 'tasks'],
-                    ['label' => app()->getLocale() === 'tr' ? 'Aylık rapor' : 'Monthly Report', 'route' => 'operator.reports.monthly', 'icon' => 'recommendations'],
-                    ['label' => __('operator.nav.seo_tasks'), 'route' => 'operator.seo_tasks', 'icon' => 'seo'],
-                    ['label' => __('operator.nav.ads_advisor'), 'route' => 'operator.ads_advisor', 'icon' => 'ads-advisor'],
+                    ['label' => $tr ? 'Aylık rapor' : 'Monthly Report', 'route' => 'operator.reports.monthly', 'icon' => 'recommendations'],
+                    ['label' => $tr ? 'Grafik notları' : 'Chart Notes', 'route' => 'operator.reports.annotations', 'icon' => 'activity'],
                     ['label' => __('operator.nav.archive'), 'route' => 'operator.archive', 'icon' => 'archive'],
                     ['label' => __('operator.nav.compliance'), 'route' => 'operator.compliance', 'icon' => 'compliance'],
-                    ['label' => __('operator.nav.renewals'), 'route' => 'operator.renewals', 'icon' => 'renewals'],
                     ['label' => __('operator.nav.activity'), 'route' => 'operator.activity', 'icon' => 'activity'],
                 ],
             ],
@@ -77,9 +83,8 @@ final class DemoMenu
                 'label' => __('operator.nav.groups.system'),
                 'items' => [
                     ['label' => __('operator.nav.integrations'), 'route' => 'operator.integrations', 'icon' => 'integrations'],
-                    ['label' => app()->getLocale() === 'tr' ? 'WordPress siteleri' : 'WordPress Sites', 'route' => 'operator.integrations.wordpress-sites', 'icon' => 'integrations'],
+                    ['label' => $tr ? 'WordPress siteleri' : 'WordPress Sites', 'route' => 'operator.integrations.wordpress-sites', 'icon' => 'integrations'],
                     ['label' => __('operator.nav.settings'), 'route' => 'operator.settings', 'icon' => 'settings'],
-                    ['label' => __('background_operations.title'), 'route' => 'operator.settings.background-operations', 'icon' => 'activity'],
                 ],
             ],
         ];

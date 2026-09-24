@@ -89,7 +89,7 @@ class OperatorSettingsLanguageAccessTest extends TestCase
 
         $this->get('/')
             ->assertOk()
-            ->assertSee('Kontrol Paneli')
+            ->assertSee('Bugün')
             ->assertSee('Müşteriler')
             ->assertSee('Ayarlar')
             ->assertDontSee('Needs Attention');
@@ -128,7 +128,7 @@ class OperatorSettingsLanguageAccessTest extends TestCase
 
         $this->get('/')
             ->assertOk()
-            ->assertSee('Dashboard')
+            ->assertSee('Today')
             ->assertSee('Customers')
             ->assertSee('Settings');
 

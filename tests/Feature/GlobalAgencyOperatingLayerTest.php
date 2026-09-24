@@ -47,13 +47,13 @@ class GlobalAgencyOperatingLayerTest extends TestCase
             ->flatMap(fn (array $group): array => array_column($group['items'], 'name'))
             ->all();
 
-        $this->assertContains('Dashboard', $labels);
+        $this->assertContains('Today', $labels);
         $this->assertContains('Customers', $labels);
         $this->assertContains('Digital Assets', $labels);
-        $this->assertContains('Findings', $labels);
-        $this->assertContains('Recommendations', $labels);
-        $this->assertContains('Work', $labels);
-        $this->assertContains('Opportunities', $labels);
+        $this->assertNotContains('Findings', $labels, 'Faz 10e sade menü');
+        $this->assertNotContains('Recommendations', $labels);
+        $this->assertContains('Work List', $labels);
+        $this->assertNotContains('Opportunities', $labels);
         $this->assertContains('Activity', $labels);
         $this->assertNotContains('Tasks', $labels);
         $this->assertContains('Integrations', $labels);

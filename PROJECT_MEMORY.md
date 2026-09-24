@@ -1,5 +1,13 @@
 # PROJECT_MEMORY
 
+## 2026-10-05 — Faz 10 decisions (sade menü + gözden kaçanlar)
+
+- Faz 10 was not in the original roadmap table; it was defined from the roadmap's remaining items (sade menü target, chart notes, customer health, AI visibility, KVKK, backup).
+- The sidebar follows the "Sade menü (hedef)" list in `docs/product/MOXDOP_STRATEGY_ROADMAP.md`; new screens go into an existing group instead of new groups, and screens removed from the menu keep their routes and get a link from their parent screen. `PanelDesignFreezeTest` locks the order.
+- Customer health is a rule score from stored data only (no AI); thresholds live in `moxdop-assistant.health`.
+- AI visibility checks run only on click through the `intel.ai_visibility_probe` route; only the question text is sent to the model.
+- Database backups are owned by the app (`moxdop:backup`); credentials only via environment variables; a missing or stale backup is a Sistem Sağlığı issue. WhatsApp text retention is opt-in and never shorter than 30 days.
+
 ## 2026-10-05 — Faz 9 decisions (rapor v2 + eklenti v2)
 
 - Monthly client numbers come from `MonthlyReportBuilder` (stored data only, brand scope, central rows win over legacy per-asset copies, missing ≠ zero); a report freezes its payload in `monthly_reports`. New channel KPIs are added there, not in blades.
