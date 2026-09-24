@@ -1,5 +1,13 @@
 # PROJECT_MEMORY
 
+## 2026-10-09 — Faz 14 decisions (strateji boşlukları)
+
+- Anomaly rules use robust statistics (`App\Services\Advisor\Anomaly\RobustAnomaly`: median / MAD z with a floor, EWMA). Do not add mean / standard-deviation thresholds for daily metrics.
+- Cross-channel CPA comparison counts only conversions in the brand's conversion dictionary. Meta has no CPA without a counted Meta conversion; the rule stays silent instead of guessing.
+- Auction insights come only from operator CSV uploads (the API has none). An upload for the same account and period replaces the earlier one.
+- A restore always verifies the file and takes a safety backup first. Backup file names include microseconds.
+- Review reply drafts are AI-on-click and never posted to Google by the app (outside ADR-064 / ADR-068).
+
 ## 2026-10-07 — Faz 12–13 decisions (entegrasyon denetimi kapanışı)
 
 - A brand is never pre-selected when binding a provider account. `BrandMatchSuggester` may only suggest one.

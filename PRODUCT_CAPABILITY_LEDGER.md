@@ -1,5 +1,47 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-09 — Faz 14: Strateji boşlukları
+
+**State:** CODED + PHPUnit (`TrackingHealthCheckerTest`, `ComplianceAuditTest`, `Gbp/ReviewReplyDraftTest`, `Sales/LeadSourcesTest`, `KvkkAndBackupTest`, `Integrations/IntegrationE2E3Test`, `Unit/RobustAnomalyTest`, `Advisor/GoogleAdsAdvisorRuleEngineTest`, `Brain/CrossBudgetSeasonRulesTest`, `GoogleAds/AuctionInsightsUploadTest`). Postgres: migrations and the backup → restore round trip pass. **No live UAT.** Meta Lead Ads needs the `MOXDOP_META_LEADGEN_*` env and a webhook subscription in the Meta app.
+
+- **Tracking:**
+  - `TrackingTagDetector` sees Consent Mode and common CMPs.
+  - `TrackingHealthChecker` adds three checks: `consent_mode_not_seen`, `website_conversions_dropped` (7 days vs 28 days) and `conversions_double_counted`.
+- **Google Ads ad text:**
+  - RSA headlines and descriptions are collected (`ad_group_ad.ad.responsive_search_ad.*` → metadata).
+  - `ComplianceAuditor` scans them as source `google_ads_ad`.
+  - New draft sector packs: legal, finance, real estate, education, food supplement.
+- **GBP review reply drafts:**
+  - Drafts are made only on click (`gbp.review_reply` route, `DraftReviewReplyJob`) and use liked examples from Üretim Arşivi.
+  - A cost estimate is shown before the draft (`AiCostEstimator`), along with the median reply time.
+  - Reviewer names are never sent.
+  - Nothing is posted to Google; the operator copies the text.
+- **Backups:** `moxdop:backup:restore {file?} --latest --force` verifies the file, takes a safety backup, then restores (sqlite / pgsql / mysql). pg_dump uses `--clean --if-exists`.
+- **Lead sources:**
+  - `/api/meta/leadgen` handles GET verify and signed POST requests. Leads land in the agency lead inbox as `meta_lead_ad`.
+  - A WhatsApp number that matches no customer or prospect lands there as `whatsapp`.
+- **Collection:**
+  - `resource_automations.preferred_hour` sets the preferred collection hour (the next run keeps the interval and moves to that hour).
+  - Sistem Sağlığı shows per-dataset coverage.
+  - The costs screen shows DataForSEO brand caps.
+  - Manual-only sources are labelled.
+- **Advisor:**
+  - `daily-anomaly` (Google Ads account totals): a spike is |robust z| ≥ 3.5 (median / MAD) and ≥ 50 % change against 28 days. A drift is the last 3 days all ≥ 1.4× the EWMA of the days before.
+  - Cross `budget-shift`: over 28 days, both Google Ads and Meta must have spend ≥ 1000 and ≥ 10 counted conversions (Meta only through the conversion dictionary). The rule fires when the cheaper channel's CPA ≤ 0.6× the other's, and suggests a 15 % shift test.
+  - Cross `season-ahead`: last year's GSC web clicks for the coming 60 days are ≥ 1.3× the 60 days before, with at least 200 clicks.
+  - All three rules are listed in Yöntem Kütüphanesi.
+- **Auction Insights:**
+  - The Google Ads API does not provide auction insights, so the operator uploads the CSV exported from Google Ads. The upload is available on the Google Ads account (tab "Açık artırma") and on Rakip izleme (tab "Google Ads açık artırma").
+  - Turkish and English headers are both read, as are comma, semicolon and tab separators and UTF-16 files.
+  - A value shown as "< 10%" is kept as "<%10".
+  - Re-uploading the same period replaces the earlier upload; the screen shows the change against the previous upload and marks new competitors.
+- **Still open:**
+  - date-range backfill (needs collection lifecycle planner changes);
+  - the Perfex lists and the 45 health rules (the Perfex files are not in the repo);
+  - Meta discovery still runs in the page request;
+  - bulk binding;
+  - about 110 older baseline test failures.
+
 ## 2026-10-07 — Faz 13: Entegrasyon denetimi E2/E3'te kalanlar
 
 **State:** CODED + PHPUnit (`tests/Feature/Integrations/IntegrationE2E3Test`; updated `GoogleResourceDiscoveryTest`, `IntegrationOnboardingInfrastructureTest`, `GlobalAgencyOperatingLayerTest`, `OperatorGoogleIntegrationConfigurationTest`, `GoogleInitialBackfillOrchestratorTest`). **No live UAT:** the watchdog cron line has not been installed on staging yet.
