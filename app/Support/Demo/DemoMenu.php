@@ -50,6 +50,7 @@ final class DemoMenu
                     ['label' => app()->getLocale() === 'tr' ? 'Sorgular' : 'Search Queries', 'route' => 'operator.library.search-queries', 'icon' => 'search'],
                     ['label' => app()->getLocale() === 'tr' ? 'Sorgu kümeleri' : 'Query Clusters', 'route' => 'operator.library.search-demand-clusters', 'icon' => 'activity'],
                     ['label' => app()->getLocale() === 'tr' ? 'Rakipler' : 'Competitors', 'route' => 'operator.library.search-demand-competitors', 'icon' => 'search'],
+                    ['label' => app()->getLocale() === 'tr' ? 'Harita sıralaması' : 'Map Rankings', 'route' => 'operator.market.map-rankings', 'icon' => 'activity'],
                 ],
             ],
             [

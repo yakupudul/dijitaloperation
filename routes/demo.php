@@ -73,6 +73,7 @@ use App\Livewire\Operator\Library\SearchDemandVisibilityMapPage;
 use App\Livewire\Operator\Library\SearchQueryLibraryPage;
 use App\Livewire\Operator\Library\ServiceCatalogPage;
 use App\Livewire\Operator\Library\WebsiteStandardsPage;
+use App\Livewire\Operator\Market\MapRankingsPage;
 use App\Livewire\Operator\Meta\OverviewPage as MetaOverviewPage;
 use App\Livewire\Operator\Portfolio\BrandSetupPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
@@ -203,6 +204,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/push', PushSettingsPage::class)->name('operator.settings.push');
         Route::livewire('/settings/methods', MethodLibraryPage::class)->name('operator.settings.methods');
         Route::livewire('/settings/sector-patterns', SectorPatternsPage::class)->name('operator.settings.sector-patterns');
+        Route::livewire('/market/map-rankings', MapRankingsPage::class)->name('operator.market.map-rankings');
         Route::livewire('/compliance', CompliancePage::class)->name('operator.compliance');
         Route::livewire('/settings/ai/control-plane', AiControlPlanePage::class)->name('operator.settings.ai.control-plane');
         Route::livewire('/settings/ai/agents', AiAgentsPage::class)->name('operator.settings.ai.agents');

@@ -410,6 +410,17 @@ Schedule::command('moxdop:google-ads:record-quality-scores')
     ->withoutOverlapping(30)
     ->name('google-ads-quality-score-history');
 
+// Faz 8: DataForSEO kuyruk sonuçları (ücretsiz okuma) ve zamanı gelen harita grid taramaları (isteğe bağlı, aylık tavan).
+Schedule::command('moxdop:intel:collect')
+    ->everyFiveMinutes()
+    ->withoutOverlapping(10)
+    ->name('intel-collect-dataforseo-tasks');
+
+Schedule::command('moxdop:intel:grid')
+    ->dailyAt('04:30')
+    ->withoutOverlapping(30)
+    ->name('intel-map-grid-daily');
+
 Schedule::command('moxdop:advisor:digest')
     ->weeklyOn((int) config('moxdop-advisor.schedule.weekly_day', 1), (string) config('moxdop-advisor.digest.weekly_time', '08:00'))
     ->withoutOverlapping(30)

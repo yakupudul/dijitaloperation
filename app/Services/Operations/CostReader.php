@@ -40,6 +40,7 @@ final class CostReader
             'DataForSEO · bölge SERP kontrolleri' => ['demand_serp_checks', 'checked_at', 'cost_usd'],
             'DataForSEO · talep zenginleştirme' => ['search_demand_enrichment_runs', 'created_at', 'coalesce(reported_cost_usd, estimated_cost_usd, 0)'],
             'DataForSEO · aday müşteri radarı' => ['sales_intent_radar_runs', 'created_at', 'coalesce(reported_cost_usd, 0)'],
+            'DataForSEO · pazar istihbaratı (harita, yorum, backlink)' => ['dataforseo_tasks', 'posted_at', 'cost_usd'],
         ];
         foreach ($dataForSeo as $label => [$table, $dateColumn, $expression]) {
             if (! Schema::hasTable($table)) {
