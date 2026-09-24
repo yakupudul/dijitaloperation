@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-10-01 — Faz 5 decisions
+
+- AI outputs are archived through model hooks in `ProductionArchive::boot()`; a new AI feature that stores its output must be added there (kind + subject) so nothing is lost when regenerating.
+- Sector knowledge goes into `SectorPack` classes (listed in `config/moxdop-sector-packs.php`), not into ad-hoc checks; pack rules are copied into `compliance_rules` and the owner's edits win.
+- Health compliance rules are a draft until legal review of RG 12.11.2025 / 33075; the UI says so. The auditor reads stored data only and never writes to providers.
+
 ## 2026-09-30 — Faz 4 decisions
 
 - Stopped collections heal themselves: OAuth success resumes "reconnect" stops; a daily retry covers repeated failures. Contract errors (`request_requires_fix`) are never retried automatically — they need a code fix.
