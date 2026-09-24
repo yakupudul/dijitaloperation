@@ -434,3 +434,9 @@ Schedule::command('moxdop:demand:compare')
     ->weeklyOn((int) config('moxdop-demand.schedule.weekly_day', 1), (string) config('moxdop-demand.compare.weekly_time', '06:00'))
     ->withoutOverlapping(120)
     ->name('brand-demand-compare-weekly');
+
+// Faz 3: marka dönüşüm sözlüğü (GA4 anahtar olay, Ads dönüşüm işlemi, Meta işlem, İşletme Profili) — uyarı taramasından önce.
+Schedule::command('moxdop:measurement:refresh')
+    ->dailyAt('06:15')
+    ->withoutOverlapping(60)
+    ->name('brand-measurement-daily');
