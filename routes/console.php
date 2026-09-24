@@ -442,6 +442,12 @@ Schedule::command('moxdop:wordpress:health')
     ->withoutOverlapping(60)
     ->name('wordpress-health-daily');
 
+// Faz 10b: müşteri sağlığı puanı (her sabah, veri toplamalarından sonra).
+Schedule::command('moxdop:customers:health')
+    ->dailyAt('07:10')
+    ->withoutOverlapping(30)
+    ->name('customer-health-daily');
+
 Schedule::command('moxdop:advisor:digest')
     ->weeklyOn((int) config('moxdop-advisor.schedule.weekly_day', 1), (string) config('moxdop-advisor.digest.weekly_time', '08:00'))
     ->withoutOverlapping(30)

@@ -141,7 +141,7 @@
                         <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]" wire:key="customer-{{ $customer['id'] }}">
                             <td class="px-4 py-3">
                                 <a href="{{ route('operator.customer', ['customerId' => $customer['id']]) }}" wire:navigate class="block">
-                                    <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $customer['name'] }}</p>
+                                    <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $customer['name'] }}@if (isset($health[$customer['id']])) <span title="{{ $health[$customer['id']]['reasons'] }}" @class(['ml-1 rounded-full px-1.5 py-0.5 text-[11px] font-semibold', 'bg-emerald-50 text-emerald-700' => $health[$customer['id']]['band'] === 'good', 'bg-amber-50 text-amber-800' => $health[$customer['id']]['band'] === 'watch', 'bg-rose-50 text-rose-700' => $health[$customer['id']]['band'] === 'risk'])>{{ $health[$customer['id']]['score'] }}</span>@endif</p>
                                     <p class="text-xs text-gray-500">
                                         {{ collect([($customer['legal_name'] ?? null), $customer['type_label'] ?? null])->filter()->implode(' · ') }}
                                     </p>

@@ -89,6 +89,14 @@ final class TodayReader
                     'reason' => 'Bilgilendir: '.$alerts->pluck('title')->unique()->take(2)->implode(', ')];
             }
         }
+        // Faz 10b: customers whose health score fell into the risk band come first with their main reason.
+        if (Schema::hasTable('customer_health')) {
+            foreach (DB::table('customer_health')->join('customers', 'customers.id', '=', 'customer_health.customer_id')->where('customers.status', 'active')
+                ->where('customer_health.band', 'risk')->orderBy('customer_health.score')->limit(10)->get(['customers.id', 'customers.name', 'customer_health.score', 'customer_health.reasons']) as $row) {
+                $reason = (array) (json_decode((string) $row->reasons, true)[0] ?? []);
+                $rows = [(int) $row->id => ['customer_id' => (int) $row->id, 'name' => (string) $row->name, 'reason' => 'Sağlık puanı '.$row->score.': '.($reason['text'] ?? '')]] + $rows;
+            }
+        }
         if (Schema::hasColumn('whatsapp_conversations', 'customer_id')) {
             $lastContact = DB::table('whatsapp_conversations')->whereNotNull('customer_id')->groupBy('customer_id')->selectRaw('customer_id, max(last_message_at) as last_at')->pluck('last_at', 'customer_id');
             $silent = $lastContact->filter(fn ($at): bool => $at === null || strtotime((string) $at) < now()->subDays(30)->getTimestamp());

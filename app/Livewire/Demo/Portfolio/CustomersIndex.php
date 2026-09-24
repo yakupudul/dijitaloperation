@@ -13,6 +13,8 @@ use App\Support\Options\AgencyServiceOptions;
 use App\Support\Options\CountryOptions;
 use App\Support\Options\IndustryOptions;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -190,6 +192,10 @@ class CustomersIndex extends Component
             'serviceOptions' => AgencyServiceOptions::options(),
             'teamOptions' => OperatorUserDirectory::options(),
             'flash' => DemoState::pullFlash(),
+            // Faz 10b: customer health score (daily), reasons as the badge tooltip.
+            'health' => Schema::hasTable('customer_health') ? DB::table('customer_health')->get(['customer_id', 'score', 'band', 'reasons'])
+                ->mapWithKeys(fn (object $r): array => [(int) $r->customer_id => ['score' => (int) $r->score, 'band' => (string) $r->band,
+                    'reasons' => collect((array) json_decode((string) $r->reasons, true))->map(fn (array $x): string => '−'.$x['points'].' '.$x['text'])->implode("\n") ?: 'Sorun görünmüyor.']])->all() : [],
         ]);
     }
 }

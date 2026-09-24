@@ -17,4 +17,18 @@ return [
     'reminders' => [
         'calendar_days_ahead' => 90,
     ],
+
+    // Faz 10b: müşteri sağlığı puanı (100'den düşülen puanlar).
+    'health' => [
+        'drop_share' => 0.2,             // son 28 gün, önceki 28 güne göre bu oranda düşüş
+        'min_conversions' => 5,
+        'conversion_drop_points' => 20,
+        'traffic_drop_points' => 10,
+        'silent_days' => 30,
+        'silence_points' => 15,
+        'renewal_points' => 10,
+        'unpaid_points' => 10,
+        'critical_alert_points' => 15,
+        'high_alert_points' => 5,
+    ],
 ];
