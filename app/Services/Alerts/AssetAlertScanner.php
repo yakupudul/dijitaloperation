@@ -25,7 +25,8 @@ use Throwable;
  * Daily scan that turns collected data into a few time-sensitive alerts per asset:
  * Google Ads / Meta spend spike and delivery stop, Google Ads conversions stopped, website search traffic
  * drop (Search Console), website tracking health (tags, GA4 data, website conversions), stale data on a bound
- * account, low-rated unanswered Business Profile reviews.
+ * account, low-rated unanswered Business Profile reviews, and (budget watch) ad budget / balance ran out,
+ * account blocked, campaign daily budget used up early, disapproved ads.
  * Alerts are upserted by a stable key and resolved when a scan no longer detects them.
  */
 final class AssetAlertScanner
@@ -151,6 +152,7 @@ final class AssetAlertScanner
         return array_values(array_filter([
             ...$this->spendAlerts($days, $currency, 'Google Ads'),
             $this->conversionsStopped($days),
+            ...$this->budgetAlerts($asset, $days, 'Google Ads'),
         ]));
     }
 
@@ -169,7 +171,95 @@ final class AssetAlertScanner
             ->groupBy('reporting_date')
             ->get());
 
-        return $this->spendAlerts($days, (string) ($binding->currency ?? ''), 'Meta');
+        return [...$this->spendAlerts($days, (string) ($binding->currency ?? ''), 'Meta'), ...$this->budgetAlerts($asset, $days, 'Meta')];
+    }
+
+    /**
+     * Budget watch: turns the latest ad_budget_status (checked every two hours) into "budget ran out" alerts.
+     * A state older than six hours is ignored, so a broken check never keeps an old alert open.
+     *
+     * @param  array<string, array{spend: float, conversions: float}>  $days
+     * @return list<array<string, mixed>>
+     */
+    private function budgetAlerts(DigitalAsset $asset, array $days, string $channel): array
+    {
+        if (! Schema::hasTable('ad_budget_status')) {
+            return [];
+        }
+        $row = DB::table('ad_budget_status')->where('digital_asset_id', $asset->id)->first();
+        if ($row === null || $row->checked_at === null || CarbonImmutable::parse((string) $row->checked_at)->lt(now()->subHours(6))) {
+            return [];
+        }
+        $state = json_decode((string) $row->data, true);
+        if (! is_array($state)) {
+            return [];
+        }
+        $cfg = (array) config('moxdop-alerts.budget');
+        $currency = (string) ($state['currency'] ?? '');
+        $money = fn (float $value): string => number_format($value, 0, ',', '.').($currency !== '' ? ' '.$currency : '');
+        $recent = array_slice($days, -7, 7, true);
+        $daily = $recent === [] ? 0.0 : array_sum(array_column($recent, 'spend')) / count($recent);
+        $alerts = [];
+
+        if (filled($state['blocked'] ?? null)) {
+            $alerts[] = $this->alert('budget_account_blocked', 'critical', $channel.' hesabı reklam yayınlayamıyor',
+                sprintf('%s. Reklamlar bu durumda yayınlanmaz; ödeme / hesap durumunu reklam panelinden kontrol edin.', (string) $state['blocked']),
+                ['reason' => (string) $state['blocked']]);
+        }
+
+        $limit = is_array($state['limit'] ?? null) ? $state['limit'] : null;
+        if ($limit !== null) {
+            $left = (float) $limit['cap'] - (float) $limit['spent'];
+            if ($left <= 0.0 || ($limit['ended'] ?? false)) {
+                $alerts[] = $this->alert('budget_exhausted', 'critical', $channel.' bütçesi bitti',
+                    ($limit['ended'] ?? false)
+                        ? sprintf('Hesap bütçesinin bitiş tarihi geçti (%s). Yeni bütçe tanımlanmadan reklamlar yayınlanmaz.', substr((string) $limit['ends_at'], 0, 10))
+                        : sprintf('Hesap harcama limiti (%s) doldu. Limit artırılmadan reklamlar yayınlanmaz.', $money((float) $limit['cap'])),
+                    ['cap' => (float) $limit['cap'], 'spent' => (float) $limit['spent']]);
+            } elseif ($daily > 0 && $left < $daily * (float) ($cfg['low_days'] ?? 3)) {
+                $alerts[] = $this->alert('budget_low', 'high', $channel.' bütçesi bitmek üzere',
+                    sprintf('Hesap harcama limitinden %s kaldı; günlük ortalama harcama %s (yaklaşık %.1f gün). Limiti artırın veya yeni bütçe tanımlayın.', $money($left), $money($daily), $left / $daily),
+                    ['left' => round($left, 2), 'daily' => round($daily, 2)]);
+            }
+        }
+
+        $balance = $state['balance'] ?? null;
+        if ($balance !== null) {
+            if ((float) $balance <= 0.0) {
+                $alerts[] = $this->alert('budget_exhausted', 'critical', $channel.' ön ödemeli bakiye bitti',
+                    'Ön ödemeli hesapta bakiye kalmadı. Bakiye yüklenmeden reklamlar yayınlanmaz.', ['balance' => (float) $balance]);
+            } elseif ($daily > 0 && (float) $balance < $daily * (float) ($cfg['low_days'] ?? 3)) {
+                $alerts[] = $this->alert('budget_low', 'high', $channel.' bakiyesi azaldı',
+                    sprintf('Ön ödemeli bakiye %s; günlük ortalama harcama %s (yaklaşık %.1f gün). Bakiye yükleyin.', $money((float) $balance), $money($daily), (float) $balance / $daily),
+                    ['balance' => (float) $balance, 'daily' => round($daily, 2)]);
+            }
+        }
+
+        $hour = (int) ($state['local_hour'] ?? 0);
+        if ((float) ($state['today_spend'] ?? 0) <= 0.0 && $hour >= (int) ($cfg['zero_spend_after_hour'] ?? 14)
+            && $daily >= (float) config('moxdop-alerts.delivery_stopped.min_baseline') && ! filled($state['blocked'] ?? null)) {
+            $alerts[] = $this->alert('budget_no_spend_today', 'critical', $channel.' bugün hiç harcama yapmadı',
+                sprintf('Saat %02d:00 oldu, bugün hiç harcama yok; son 7 günün ortalaması %s/gün. Bakiye, ödeme yöntemi veya bütçe bitmiş olabilir.', $hour, $money($daily)),
+                ['date' => (string) ($state['local_date'] ?? ''), 'daily' => round($daily, 2)]);
+        }
+
+        $capped = (array) ($state['capped_campaigns'] ?? []);
+        if ($capped !== [] && $hour < (int) ($cfg['capped_before_hour'] ?? 20)) {
+            $names = implode(', ', array_map(fn (array $c): string => (string) $c['name'], array_slice($capped, 0, 3)));
+            $alerts[] = $this->alert('budget_campaign_capped', 'high', $channel.' kampanya bütçesi gün bitmeden doldu',
+                sprintf('%d kampanyanın günlük bütçesi saat %02d:00 itibarıyla doldu (%s). Günün kalanında bu kampanyalar gösterilmez.', (int) ($state['capped_count'] ?? count($capped)), $hour, $names),
+                ['campaigns' => $capped]);
+        }
+
+        $disapproved = (int) ($state['disapproved_count'] ?? 0);
+        if ($disapproved > 0) {
+            $names = implode(', ', array_map(fn (array $ad): string => (string) $ad['name'], array_slice((array) ($state['disapproved'] ?? []), 0, 3)));
+            $alerts[] = $this->alert('ads_disapproved', 'high', $channel.' reklamları reddedildi / sorunlu',
+                sprintf('%d reklam reddedilmiş veya sorunlu (%s). Bu reklamlar yayınlanmıyor; reklam panelinden nedeni kontrol edin.', $disapproved, $names),
+                ['ads' => (array) ($state['disapproved'] ?? [])]);
+        }
+
+        return $alerts;
     }
 
     /** @return list<array<string, mixed>> */

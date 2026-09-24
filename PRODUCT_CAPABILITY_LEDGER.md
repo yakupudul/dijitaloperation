@@ -1,5 +1,36 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-12 — Reklam bütçesi bitti uyarıları + Meta ülke/şehir sonuçları + AI "hizmet × bölge × kitle"
+
+**State:** CODED + PHPUnit (SQLite and PostgreSQL).
+- Tests: `AdBudgetWatchTest` 4/4, `MetaGeoResultsTest` 3/3, `AssetAlertScannerTest`, `AiInsightsTest`.
+- Not deployed. Not tried against live Google Ads / Meta accounts: API answers are mocked in tests.
+
+**Budget watch**
+- `moxdop:ads:budget-watch` runs every 2 hours (`CheckAdBudgetJob` → `AdBudgetWatch`, read-only). The latest state goes to `ad_budget_status`, then the asset's alerts are rescanned at once.
+- Google Ads reads: customer status, today's cost against each enabled campaign's daily budget, and the approved account budget (spend limit, amount served, end date).
+- Meta reads: `account_status`, `spend_cap` / `amount_spent`, the prepaid balance (`funding_source_details`, best effort), today's spend, and ads that are `DISAPPROVED` / `WITH_ISSUES`.
+- Alerts (`AssetAlertScanner::budgetAlerts`):
+  - critical: `budget_account_blocked`, `budget_exhausted` (limit full, budget ended, or prepaid balance 0), and `budget_no_spend_today` (after 14:00 account time, when there is a spending baseline).
+  - high: `budget_low` (less than 3 days of average spend left), `budget_campaign_capped` (daily budget used up before 20:00), and `ads_disapproved`.
+- High and critical alerts send the existing push notification. A state older than 6 hours is ignored.
+- Known limits:
+  - Google Ads does not expose a card or prepaid balance. For those accounts only the zero-spend-today and account-status checks apply.
+  - The Meta prepaid balance is parsed from the display string.
+
+**Meta country + city results**
+- Table `meta_geo_results_daily` holds rows per ad × day × country and per ad × day × region. Each row has spend, impressions and clicks, plus leads, purchases, purchase value and messages (canonical action aliases, counted once).
+- Collection:
+  - `moxdop:meta:geo-results` runs daily at 05:41 and collects the last 3 days (30 days on the first run).
+  - "Veriyi getir" / "Yenile" on the Kitle & Dağıtım tab collects the last 90 days.
+- A region gets its country only when the ad delivered in a single country that day. Otherwise it is shown under "Birden fazla ülke".
+- On the Kitle & Dağıtım tab the new table lists countries; clicking a country opens its cities, each with cost per result.
+
+**AI insight `meta.geo_results`** (small "✨ AI" button on the same table)
+- Sends campaign / ad set / ad names × country × city with results for the last 90 days, plus ad set targeting (age, gender, interests, custom audiences, targeted cities).
+- Answers "hizmet · şehir · kitle — sonuç, sonuç başı maliyet" with the tags İyi çalışıyor / Boşa harcıyor / Denenmeli.
+- Runs on click only and is kept in the Üretim Arşivi.
+
 ## 2026-10-11 — Toplu ekle, menü ve bildirim düzeltmeleri
 
 **State:** CODED + PHPUnit (`DiscoverAndGroupTest` 7/7, `NotificationBellPresentationTest` 2/2). Not deployed.

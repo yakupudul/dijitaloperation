@@ -58,6 +58,8 @@ final class AiRouteKeys
 
     public const string INSIGHT_LEAD_SCORE = 'insights.lead_score';
 
+    public const string INSIGHT_META_GEO = 'insights.meta_geo';
+
     public const string INSIGHT_TECHNICAL_TASKS = 'insights.technical_tasks';
 
     public const string SITE_FIX_VALUES = 'site_fixes.values';

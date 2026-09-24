@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-10-12 — Ad budget watch, Meta geo results
+
+- "Budget ran out" alerts come from `ad_budget_status`, written by `AdBudgetWatch` every 2 hours (read-only API calls). The daily scanner only reads it and ignores states older than 6 h. Keep all budget API calls in `AdBudgetWatch`, not in the scanner.
+- Meta cannot combine the country and region breakdowns. `meta_geo_results_daily` stores both levels. A region row's `country` is set only when the ad was single-country that day; otherwise it is `''`. Do not "fix" this by guessing.
+- Result counts use the canonical alias priority (lead > onsite_conversion.lead_grouped > …; omni_purchase > purchase > …). Never sum aliases.
+
 ## 2026-10-11 — ADR-071: connector self-update, near-instant site changes
 
 - The connector updates itself only through `connector_update` (`WordPressManagementService::selfUpdate`). The ZIP is built once and served from a hash-named file behind a short-lived signed route, and the plugin checks the SHA-256. Never send a package URL that is not on the paired MoxDOP host.

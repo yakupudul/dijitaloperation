@@ -59,6 +59,7 @@ final class AiInsightsTest extends TestCase
             'advisor.explain' => $item, 'google_ads.search_term_triage' => $this->ads, 'google_ads.landing_fit' => $this->ads,
             'reviews.themes' => $this->brand, 'alerts.cause' => $alert, 'customer.brief' => $this->brand->customer,
             'sales.lead_score' => $lead, 'website.technical_tasks' => $this->site,
+            'meta.geo_results' => DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'meta_ads', 'status' => DigitalAssetStatus::Active, 'name' => 'Atlas Meta']),
         ];
         $insights = app(AiInsightService::class);
         $this->assertEqualsCanonicalizing(array_keys($subjects), array_keys($insights->definitions()));

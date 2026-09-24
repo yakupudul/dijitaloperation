@@ -2,13 +2,16 @@
 
 use App\Enums\Collection\CollectionRunStatus;
 use App\Jobs\Assistant\UptimeCheckJob;
+use App\Jobs\CheckAdBudgetJob;
 use App\Jobs\CheckSitemapChangesJob;
 use App\Jobs\Collection\ExecuteDatasetRunJob;
+use App\Jobs\CollectMetaGeoResultsJob;
 use App\Jobs\Ops\QueueHeartbeatProbeJob;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
+use App\Services\Alerts\AdBudgetWatch;
 use App\Services\Assistant\ReminderService;
 use App\Services\Assistant\WhatsAppContactLinker;
 use App\Services\Collection\CollectionErrorRecorder;
@@ -502,6 +505,27 @@ Schedule::command('moxdop:alerts:scan')
     ->dailyAt((string) env('MOXDOP_ALERTS_TIME', '06:30'))
     ->withoutOverlapping(60)
     ->name('asset-alerts-daily');
+
+// Bütçe izleme: Google Ads / Meta hesap durumu, harcama limiti, ön ödemeli bakiye, bugünkü harcama, bütçesi dolan
+// kampanya, reddedilen reklam — iki saatte bir (salt okunur), bitince hemen uyarı + telefona bildirim.
+Artisan::command('moxdop:ads:budget-watch', function (): void {
+    foreach (app(AdBudgetWatch::class)->eligibleAssetIds() as $assetId) {
+        CheckAdBudgetJob::dispatch($assetId);
+    }
+})->purpose('Queue the read-only budget / balance / delivery check of bound Google Ads and Meta accounts.');
+
+Schedule::command('moxdop:ads:budget-watch')
+    ->cron('23 */2 * * *')->withoutOverlapping(30)->name('ads-budget-watch');
+
+// Meta ülke + şehir performansı (reklam × ülke / il, sonuçlarla) — her gün son 3 gün, ilk seferde 30 gün (salt okunur).
+Artisan::command('moxdop:meta:geo-results', function (): void {
+    DigitalAsset::query()->operational()->where('type', 'meta_ads')
+        ->whereIn('id', CoreAssetBinding::query()->where('status', CoreAssetBinding::STATUS_ACTIVE)->select('digital_asset_id'))
+        ->orderBy('id')->pluck('id')->each(fn ($id) => CollectMetaGeoResultsJob::dispatch((int) $id));
+})->purpose('Queue the daily Meta country + city results collection of bound ad accounts.');
+
+Schedule::command('moxdop:meta:geo-results')
+    ->dailyAt('05:41')->withoutOverlapping(60)->name('meta-geo-results');
 
 // Faz 0: GBP API içerik saklama (yorum, medya, gönderi, profil anlık görüntüleri) — 30 günden eskiler silinir.
 // Performans ve arama anahtar kelimeleri silinmez (altın veri).

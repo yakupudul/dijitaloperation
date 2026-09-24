@@ -8,6 +8,7 @@ use App\Services\Insights\Definitions\AlertCauseInsight;
 use App\Services\Insights\Definitions\CustomerBriefInsight;
 use App\Services\Insights\Definitions\LandingFitInsight;
 use App\Services\Insights\Definitions\LeadScoreInsight;
+use App\Services\Insights\Definitions\MetaGeoInsight;
 use App\Services\Insights\Definitions\ReviewThemesInsight;
 use App\Services\Insights\Definitions\SearchTermTriageInsight;
 use App\Services\Insights\Definitions\TechnicalTasksInsight;
@@ -27,6 +28,7 @@ final class AiInsightServiceProvider extends ServiceProvider
         LandingFitInsight::class => ['Ad ↔ Landing Page Fit', 'advisor', 'analysis', 'Checks whether ads, keywords and crawled landing pages promise the same thing.'],
         CustomerBriefInsight::class => ['Customer Call Brief', 'portfolio', 'analysis', 'Short status brief of one customer (health, budget, open work, alerts) before a call.'],
         LeadScoreInsight::class => ['Agency Lead Score', 'sales', 'classification', 'Scores one incoming agency request and drafts the first reply. Contact details are not sent.'],
+        MetaGeoInsight::class => ['Meta Service × Area × Audience', 'advisor', 'analysis', 'Reads Meta campaign, ad set and ad names with country and city results and ad set targeting to say which service, area and audience brought conversions.'],
         TechnicalTasksInsight::class => ['Website Developer Task List', 'website', 'analysis', 'Turns the website technical observations into a prioritised developer task list.'],
     ];
 

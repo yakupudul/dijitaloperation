@@ -35,6 +35,11 @@ return [
         'conversions_drop_share' => 0.5,         // Faz 14: last 7 days vs prior 28 days daily average drop
         'conversions_drop_min_daily' => 2.0,     // prior daily conversions below which a drop is noise
     ],
+    'budget' => [
+        'low_days' => 3,               // spend limit / prepaid balance left for fewer days of average spend → high
+        'zero_spend_after_hour' => 14, // account-local hour after which "no spend today" is critical
+        'capped_before_hour' => 20,    // campaign daily budget used up before this hour → high
+    ],
     'stale_data_hours' => 72,
     'bad_review' => [
         'max_stars' => 2,

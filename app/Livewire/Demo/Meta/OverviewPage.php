@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Demo\Meta;
 
+use App\Jobs\CollectMetaGeoResultsJob;
+use App\Livewire\Concerns\WithAiInsights;
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
 use App\Models\DigitalAsset;
@@ -12,10 +14,13 @@ use App\Services\MetaAds\MetaAdsProfessionalWorkspaceEnhancer;
 use App\Services\MetaAds\MetaAdsProfessionalWorkspaceReadService;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaAdsSpecialistReadService;
+use App\Services\MetaAds\MetaGeoResultsReader;
 use App\Services\MetaAds\Support\MetaAdsBindingMode;
 use App\Support\Demo\DemoState;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -28,6 +33,7 @@ class OverviewPage extends Component
 {
     use InteractsWithDemoPeriod;
     use ResolvesCanonicalOperatorAsset;
+    use WithAiInsights;
 
     public string $assetId = '';
 
@@ -278,6 +284,46 @@ class OverviewPage extends Component
         $this->tab = 'operations';
     }
 
+    /** Country + city results: queue a collection now (daily run keeps it fresh afterwards). */
+    public function collectGeoResults(): void
+    {
+        $binding = app(MetaAdsSpecialistBindingResolver::class)->resolve($this->assetId);
+        if ($binding->mode !== MetaAdsBindingMode::RealBound || $binding->digitalAssetId === null) {
+            DemoState::flash('Meta reklam hesabı bağlı değil.', 'info');
+
+            return;
+        }
+        Cache::put(CollectMetaGeoResultsJob::stateKey($binding->digitalAssetId), ['state' => 'running', 'at' => now()->toIso8601String()], now()->addHour());
+        CollectMetaGeoResultsJob::dispatch($binding->digitalAssetId, 90);
+        DemoState::flash('Ülke ve şehir verisi Meta’dan çekiliyor; birkaç dakika sürebilir.', 'info');
+    }
+
+    protected function insightSubject(string $kind, int $subjectId): ?Model
+    {
+        return $kind === 'meta.geo_results' && (string) $subjectId === (string) $this->assetId
+            ? DigitalAsset::query()->where('type', 'meta_ads')->find($subjectId) : null;
+    }
+
+    /** @return array<string, mixed>|null */
+    private function geoView(array $professional): ?array
+    {
+        if ($this->tab !== 'audience' || ! ctype_digit((string) $this->assetId)) {
+            return null;
+        }
+        $asset = DigitalAsset::query()->find((int) $this->assetId);
+        if ($asset === null) {
+            return null;
+        }
+        $start = (string) ($professional['period_start'] ?? $this->periodStart ?? now()->subDays(28)->toDateString());
+        $end = (string) ($professional['period_end'] ?? $this->periodEnd ?? now()->toDateString());
+
+        return [
+            'summary' => app(MetaGeoResultsReader::class)->summary((int) $asset->id, $start, $end),
+            'state' => Cache::get(CollectMetaGeoResultsJob::stateKey((int) $asset->id)),
+            'insight' => $this->insightView('meta.geo_results', $asset),
+        ];
+    }
+
     protected function normalizeTab(): void
     {
         if (isset(self::LEGACY_TAB_MAP[$this->tab])) {
@@ -390,6 +436,7 @@ class OverviewPage extends Component
                     collect($professional['ads'] ?? [])->pluck('name', 'id')->map(static fn ($name): string => (string) $name)->all(),
                 )
                 : null,
+            'geo' => $this->geoView($professional),
             'showPeriodBar' => in_array($this->tab, ['overview', 'campaigns', 'creatives', 'audience', 'funnel', 'measurement'], true),
             'performanceChartOptions' => [
                 'chart' => ['type' => 'line', 'height' => 260, 'toolbar' => ['show' => false]],
