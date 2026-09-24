@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-09-28 — Faz 2b decisions
+
+- The brand demand table (`brand_demand_queries`) is the per-brand, automatic view of demand; the global query library and manual portfolio remain for catalog work. Weekly order: demand build 05:30 → area SERP 05:45 → comparison 06:00 → SEO plan 06:30.
+- Paid SERP checks are per-brand opt-in with a monthly USD cap and 28-day cross-brand reuse; everything else in the pipeline is free (stored data, public fetch, rules). AI stays on click.
+- Use `SeoText::fold` / `SeoText::matchesPhrase` for all Turkish text matching; do not add new fold copies.
+
 ## 2026-09-27 (c) — Faz 2 decisions
 
 - Bulk portfolio creation reuses the "Otomatik kur" applier (one binding path); grouping is deterministic and never calls providers.
