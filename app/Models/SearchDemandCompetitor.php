@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'uuid', 'brand_id', 'display_name', 'normalized_domain', 'normalized_domain_hash', 'status',
     'entity_kind', 'is_commercial_competitor', 'is_serp_competitor', 'is_content_competitor',
     'notes', 'first_observed_at', 'last_observed_at', 'reviewed_by', 'reviewed_at', 'created_by',
-    'updated_by',
+    'updated_by', 'facebook_page_id',
 ])]
 class SearchDemandCompetitor extends Model
 {

@@ -426,6 +426,16 @@ Schedule::command('moxdop:intel:backlinks')
     ->withoutOverlapping(60)
     ->name('intel-backlinks-daily');
 
+Schedule::command('moxdop:intel:reviews')
+    ->dailyAt('05:05')
+    ->withoutOverlapping(30)
+    ->name('intel-reviews-daily');
+
+Schedule::command('moxdop:intel:competitors')
+    ->weeklyOn(1, '05:25')
+    ->withoutOverlapping(120)
+    ->name('intel-competitor-watch-weekly');
+
 Schedule::command('moxdop:advisor:digest')
     ->weeklyOn((int) config('moxdop-advisor.schedule.weekly_day', 1), (string) config('moxdop-advisor.digest.weekly_time', '08:00'))
     ->withoutOverlapping(30)

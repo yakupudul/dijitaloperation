@@ -52,6 +52,7 @@ final class DemoMenu
                     ['label' => app()->getLocale() === 'tr' ? 'Rakipler' : 'Competitors', 'route' => 'operator.library.search-demand-competitors', 'icon' => 'search'],
                     ['label' => app()->getLocale() === 'tr' ? 'Harita sıralaması' : 'Map Rankings', 'route' => 'operator.market.map-rankings', 'icon' => 'activity'],
                     ['label' => app()->getLocale() === 'tr' ? 'Backlink fırsatları' : 'Backlinks', 'route' => 'operator.market.backlinks', 'icon' => 'search'],
+                    ['label' => app()->getLocale() === 'tr' ? 'Rakip izleme' : 'Competitor Watch', 'route' => 'operator.market.competitor-watch', 'icon' => 'activity'],
                 ],
             ],
             [

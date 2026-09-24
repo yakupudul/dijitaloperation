@@ -1,6 +1,7 @@
 <?php
 
 use App\Services\Intel\MapGridService;
+use App\Services\Intel\ReviewIntelService;
 
 /*
 | Faz 8 — Pazar istihbaratı (DataForSEO, marka bazında isteğe bağlı, aylık USD tavanı).
@@ -70,6 +71,11 @@ return [
         ],
     ],
 
+    // Faz 8e: rakip site izleme (ücretsiz, herkese açık okuma, haftalık).
+    'watch' => [
+        'max_competitors' => 10,
+    ],
+
     'tasks' => [
         'poll_after_seconds' => 60,
         'give_up_hours' => 24,
@@ -78,6 +84,7 @@ return [
         // Amaç → işleyici sınıfı (DataForSeoTaskHandler).
         'handlers' => [
             'map_grid' => MapGridService::class,
+            'reviews' => ReviewIntelService::class,
         ],
     ],
 ];

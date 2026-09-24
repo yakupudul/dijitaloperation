@@ -75,6 +75,7 @@ use App\Livewire\Operator\Library\SearchQueryLibraryPage;
 use App\Livewire\Operator\Library\ServiceCatalogPage;
 use App\Livewire\Operator\Library\WebsiteStandardsPage;
 use App\Livewire\Operator\Market\BacklinksPage;
+use App\Livewire\Operator\Market\CompetitorWatchPage;
 use App\Livewire\Operator\Market\MapRankingsPage;
 use App\Livewire\Operator\Meta\OverviewPage as MetaOverviewPage;
 use App\Livewire\Operator\Portfolio\BrandSetupPage;
@@ -209,6 +210,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/market/map-rankings', MapRankingsPage::class)->name('operator.market.map-rankings');
         Route::get('/market/kml/{brand}', KmlExportController::class)->name('operator.market.kml');
         Route::livewire('/market/backlinks', BacklinksPage::class)->name('operator.market.backlinks');
+        Route::livewire('/market/competitor-watch', CompetitorWatchPage::class)->name('operator.market.competitor-watch');
         Route::livewire('/compliance', CompliancePage::class)->name('operator.compliance');
         Route::livewire('/settings/ai/control-plane', AiControlPlanePage::class)->name('operator.settings.ai.control-plane');
         Route::livewire('/settings/ai/agents', AiAgentsPage::class)->name('operator.settings.ai.agents');
