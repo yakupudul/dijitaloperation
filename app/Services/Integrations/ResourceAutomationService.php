@@ -146,20 +146,22 @@ final class ResourceAutomationService
         }
     }
 
-    /** Explicit deployment repair for accounts stopped by the now-fixed empty landing-page key rejection. */
+    /**
+     * Explicit deployment repair for accounts stopped by the now-fixed empty-dimension rejection
+     * ("missing natural key [landingPage | country | region | city | itemCategory | …]"): the writer now stores an
+     * empty provider dimension as "(empty)", so these accounts can collect again.
+     */
     public function recoverGa4LandingFailures(): int
     {
         $recovered = 0;
         ResourceAutomation::query()->where('collection_enabled', true)
             ->whereIn('collection_status', ['attention', 'waiting'])->whereIn('collection_error', ['collection_failed', 'request_requires_fix'])
-            ->whereHas('resource', fn ($q) => $q->where('resource_type', 'ga4'))
             ->orderBy('id')->chunkById(100, function ($accounts) use (&$recovered): void {
                 foreach ($accounts as $automation) {
                     $knownFailure = CollectionDatasetRun::query()
                         ->where('collection_run_id', $automation->collection_run_id)->where('status', 'failed')
                         ->where('error_code', 'PERSISTENCE')
-                        ->where('error_message', 'like', '%missing natural key [landingPage]%')
-                        ->whereIn('dataset_contract_id', ['ga4_landing_page_daily', 'ga4_event_landing_daily'])
+                        ->where('error_message', 'like', '%missing natural key [%')
                         ->whereHas('resourceRun', fn ($q) => $q->where('external_resource_id', $automation->external_resource_id))
                         ->whereHas('collectionRun', fn ($q) => $q->whereIn('status', ['failed', 'partial']))->exists();
                     if (! $knownFailure) {

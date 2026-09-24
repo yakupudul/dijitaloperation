@@ -150,6 +150,7 @@ final class SystemAudit
         usort($files, fn (string $a, string $b): int => filemtime($b) <=> filemtime($a));
         $since = CarbonImmutable::now()->subDay();
         $counts = [];
+        $last = [];
         $total = 0;
         foreach (array_slice($files, 0, 2) as $file) {
             $size = (int) filesize($file);
@@ -172,13 +173,15 @@ final class SystemAudit
                 $total++;
                 $key = mb_substr((string) preg_replace(['/\{"(userId|exception)".*$/', '/\d{3,}/', '/\s+/'], ['', 'N', ' '], $m[3]), 0, 200);
                 $counts[$key] = ($counts[$key] ?? 0) + 1;
+                $last[$key] = max($last[$key] ?? '', $m[1]);
             }
             fclose($handle);
         }
         arsort($counts);
         $out = [[$total === 0 ? 'ok' : 'warn', 'Uygulama log hataları (24 saat)', $files === [] ? 'log dosyası yok' : $total.' hata']];
         foreach (array_slice($counts, 0, 12, true) as $message => $count) {
-            $out[] = ['warn', '  ×'.$count, $message];
+            // The last occurrence tells whether an error is still happening or was fixed by a later deploy.
+            $out[] = ['warn', '  ×'.$count.' (son '.$this->shortTime($last[$message] ?? null).')', $message];
         }
 
         return $out;
@@ -195,11 +198,21 @@ final class SystemAudit
         $since = now()->subDays(7);
         if (Schema::hasTable('collection_dataset_runs')) {
             $rows = DB::table('collection_dataset_runs')->where('updated_at', '>=', $since)->whereIn('status', ['failed', 'blocked', 'dead_lettered', 'exhausted'])
-                ->selectRaw('provider_or_source, error_code, error_message, count(*) as n')->groupBy('provider_or_source', 'error_code', 'error_message')
-                ->orderByDesc('n')->limit(15)->get();
-            $out[] = [$rows->isEmpty() ? 'ok' : 'warn', 'Veri seti hataları (7 gün)', $rows->isEmpty() ? 'yok' : (int) $rows->sum('n').' hatalı veri seti çalışması'];
+                ->selectRaw('provider_or_source, error_code, error_message, count(*) as n, max(updated_at) as last_at')->groupBy('provider_or_source', 'error_code', 'error_message')
+                ->orderByDesc('n')->limit(300)->get();
+            // Messages that differ only by a record number or id are one problem.
+            $groups = [];
             foreach ($rows as $row) {
-                $out[] = ['warn', '  ×'.$row->n.' '.$row->provider_or_source, trim(($row->error_code ?? '').' — '.mb_substr((string) $row->error_message, 0, 200), ' —')];
+                $message = trim(($row->error_code ?? '').' — '.mb_substr((string) preg_replace('/\d+/', 'N', (string) $row->error_message), 0, 200), ' —');
+                $key = $row->provider_or_source.'|'.$message;
+                $groups[$key] ??= ['source' => (string) $row->provider_or_source, 'message' => $message, 'n' => 0, 'last' => ''];
+                $groups[$key]['n'] += (int) $row->n;
+                $groups[$key]['last'] = max($groups[$key]['last'], (string) $row->last_at);
+            }
+            usort($groups, fn (array $a, array $b): int => $b['n'] <=> $a['n']);
+            $out[] = [$groups === [] ? 'ok' : 'warn', 'Veri seti hataları (7 gün)', $groups === [] ? 'yok' : array_sum(array_column($groups, 'n')).' hatalı veri seti çalışması'];
+            foreach (array_slice($groups, 0, 15) as $group) {
+                $out[] = ['warn', '  ×'.$group['n'].' '.$group['source'].' (son '.$this->shortTime($group['last']).')', $group['message']];
             }
         }
         if (Schema::hasTable('runs')) {
@@ -225,6 +238,18 @@ final class SystemAudit
         }
 
         return $out;
+    }
+
+    private function shortTime(?string $value): string
+    {
+        if (blank($value)) {
+            return '?';
+        }
+        try {
+            return CarbonImmutable::parse($value)->format('d.m H:i');
+        } catch (Throwable) {
+            return '?';
+        }
     }
 
     /**

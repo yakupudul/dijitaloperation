@@ -334,7 +334,7 @@ Schedule::command('horizon:snapshot')
 Artisan::command('moxdop:resources:automate {--recover-ga4-landing-pages} {--recover-gsc-appearance}', function (): void {
     $service = app(ResourceAutomationService::class);
     if ($this->option('recover-ga4-landing-pages')) {
-        $this->info('Recovered GA4 landing-page failures: '.$service->recoverGa4LandingFailures());
+        $this->info('Recovered empty-dimension write failures: '.$service->recoverGa4LandingFailures());
     }
     if ($this->option('recover-gsc-appearance')) {
         $this->info('Recovered GSC appearance failures: '.$service->recoverGscAppearanceFailures());

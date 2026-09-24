@@ -1,5 +1,15 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-10 — Staging sonucu ve durmuş hesapların geri alınması
+
+**State:** CODED + PHPUnit (`ResourceAutomationRecoveryTest`: a geo empty-dimension failure is re-armed; an unrelated error is not).
+
+- **Staging (7577ac6):**
+  - Database 60 GB → 11 GB; disk 52 GB free (65 %).
+  - `moxdop:db:compact` verified row counts and click totals for every table.
+- **Recovery at deploy:** accounts stopped by any "missing natural key […]" write failure are put back in the collection queue at deploy. This covers GA4 geo, page, ecommerce and technology, not only landing page. They stopped as `request_requires_fix` because of the empty-dimension rejection that is now fixed.
+- **Audit:** log and dataset error groups now show their last occurrence ("son dd.mm HH:MM"), so errors fixed by an earlier deploy can be told apart from live ones. Dataset messages that differ only by a record number are grouped together.
+
 ## 2026-10-10 — Sıkı veri depolama (Search Console), disk koruması, boş boyut değerleri
 
 **State:** CODED + PHPUnit.

@@ -4,13 +4,15 @@ namespace Tests\Feature;
 
 use App\Enums\Collection\CollectionRunStatus;
 use App\Jobs\Async\ResourceCollectionJob;
-use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionDatasetRun;
+use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\ResourceAutomation;
+use App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService;
+use App\Services\Collection\Providers\GoogleAds\GoogleAdsCentralRequestFamilyCatalog;
 use App\Services\Integrations\ResourceAutomationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -79,10 +81,10 @@ final class ResourceAutomationRecoveryTest extends TestCase
         $dataset = CollectionDatasetRun::factory()->create([
             'collection_run_id' => $parent->id, 'collection_resource_run_id' => $child->id,
             'provider_or_source' => 'GOOGLE_ADS', 'status' => CollectionRunStatus::Running,
-            'request_family_id' => \App\Services\Collection\Providers\GoogleAds\GoogleAdsCentralRequestFamilyCatalog::ENTITY_SNAPSHOT,
+            'request_family_id' => GoogleAdsCentralRequestFamilyCatalog::ENTITY_SNAPSHOT,
             'checkpoint' => ['step_index' => 2], 'metadata' => [],
         ]);
-        $reflection = new \ReflectionClass(\App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService::class);
+        $reflection = new \ReflectionClass(GoogleAdsCentralCollectionService::class);
         $plan = $reflection->getMethod('smartPlan')->invoke($reflection->newInstanceWithoutConstructor(), $resource);
         $this->assertSame('google_ads_central_repair', $plan['intent']);
         $this->assertSame($dataset->id, $plan['families'][0]['resumed_from_dataset_run_id']);
@@ -218,6 +220,30 @@ final class ResourceAutomationRecoveryTest extends TestCase
         $this->assertSame(0, $service->recoverGa4LandingFailures());
         $this->assertSame('attention', ResourceAutomation::query()->where('collection_enabled', false)->first()->collection_status);
         $this->assertSame('waiting', ResourceAutomation::query()->where('collection_enabled', true)->first()->collection_status);
+    }
+
+    public function test_deployment_recovery_rearms_geo_empty_dimension_failures_but_not_other_errors(): void
+    {
+        foreach (['CONTRACT_MISMATCH: missing natural key [region] at record 4 for [ga4_geo_city_daily]', 'Required GA4 metric [newUsers] unavailable'] as $message) {
+            $resource = CoreExternalResource::factory()->create(['resource_type' => 'ga4']);
+            $run = CollectionRun::factory()->create(['status' => CollectionRunStatus::Partial]);
+            $resourceRun = CollectionResourceRun::factory()->create([
+                'collection_run_id' => $run->id, 'external_resource_id' => $resource->id,
+                'status' => CollectionRunStatus::Partial,
+            ]);
+            CollectionDatasetRun::factory()->create([
+                'collection_run_id' => $run->id, 'collection_resource_run_id' => $resourceRun->id,
+                'status' => CollectionRunStatus::Failed, 'dataset_contract_id' => 'ga4_geo_city_daily',
+                'error_code' => 'PERSISTENCE', 'error_message' => $message,
+            ]);
+            ResourceAutomation::query()->create([
+                'external_resource_id' => $resource->id, 'collection_enabled' => true,
+                'collection_run_id' => $run->id, 'collection_status' => 'attention',
+                'collection_error' => 'request_requires_fix', 'collection_failures' => 3,
+            ]);
+        }
+        $this->assertSame(1, app(ResourceAutomationService::class)->recoverGa4LandingFailures());
+        $this->assertSame(['attention', 'waiting'], ResourceAutomation::query()->orderBy('collection_status')->pluck('collection_status')->all());
     }
 
     public function test_dispatch_sink_is_rejected_instead_of_silently_losing_planning_jobs(): void
