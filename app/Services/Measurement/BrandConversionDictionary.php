@@ -179,7 +179,9 @@ final class BrandConversionDictionary
                 $extra($query);
             }
 
-            return $query->groupBy($keyColumn)->selectRaw($keyColumn.' as k, sum('.$valueColumn.') as v')->pluck('v', 'k')
+            $grammar = DB::getQueryGrammar(); // GA4 columns are camelCase: quote them for Postgres
+
+            return $query->groupBy($keyColumn)->selectRaw($grammar->wrap($keyColumn).' as k, sum('.$grammar->wrap($valueColumn).') as v')->pluck('v', 'k')
                 ->map(fn ($v): float => (float) $v)->all();
         };
 

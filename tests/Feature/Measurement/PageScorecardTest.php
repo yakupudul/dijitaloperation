@@ -16,6 +16,7 @@ use Carbon\Carbon;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -97,7 +98,7 @@ final class PageScorecardTest extends TestCase
     /** @return array<string, mixed> */
     private function performanceRow(): array
     {
-        $columns = collect(DB::select('PRAGMA table_info(website_performance_measurement)'))->pluck('name')->all();
+        $columns = Schema::getColumnListing('website_performance_measurement');
         $row = ['digital_asset_id' => $this->site->id, 'url' => 'https://atlasdis.com/implant/', 'strategy' => 'mobile', 'observed_at' => now(), 'metadata' => json_encode(['lcp_ms' => 5200])];
         foreach (['contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => Str::random(20)] as $column => $value) {
             if (in_array($column, $columns, true)) {

@@ -80,7 +80,7 @@ final class TrackingHealthChecker
             $window = (int) $cfg['conversions_stopped_days'];
             $keyEvents = $scope->apply(DB::table('ga4_key_event_daily'))->whereIn('eventName', $ga4Events)
                 ->whereBetween('reporting_date', [$end->subDays($window + 13)->toDateString(), $end->toDateString()])
-                ->groupBy('reporting_date')->selectRaw('reporting_date, sum(keyEvents) as n')->pluck('n', 'reporting_date')
+                ->groupBy('reporting_date')->selectRaw('reporting_date, sum('.DB::getQueryGrammar()->wrap('keyEvents').') as n')->pluck('n', 'reporting_date')
                 ->mapWithKeys(fn ($n, $date): array => [substr((string) $date, 0, 10) => (float) $n])->all();
             $recentFrom = $end->subDays($window - 1)->toDateString();
             $recent = array_sum(array_filter($keyEvents, fn (string $date): bool => $date >= $recentFrom, ARRAY_FILTER_USE_KEY));

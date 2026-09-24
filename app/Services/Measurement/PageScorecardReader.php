@@ -127,7 +127,7 @@ final class PageScorecardReader
         $this->inputs->scopeGa4(DB::table('ga4_landing_channel_daily'), $site)
             ->whereBetween('reporting_date', [$start->toDateString(), $end->toDateString()])
             ->groupBy('landingPage', 'sessionDefaultChannelGroup')
-            ->selectRaw('landingPage as page, sessionDefaultChannelGroup as channel, sum(sessions) as sessions')
+            ->select(['landingPage as page', 'sessionDefaultChannelGroup as channel'])->selectRaw('sum(sessions) as sessions')
             ->get()
             ->each(function (object $row) use (&$out, $origin): void {
                 $path = trim((string) $row->page);
