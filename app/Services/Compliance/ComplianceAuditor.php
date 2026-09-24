@@ -139,6 +139,17 @@ final class ComplianceAuditor
                 }
             }
         }
+        // Faz 14: live Google Ads responsive search ad texts (headlines + descriptions from the last 30 days).
+        if (! $scope->isEmpty() && Schema::hasTable('google_ads_ad_daily')) {
+            foreach ($scope->apply(DB::table('google_ads_ad_daily'))->where('reporting_date', '>=', now()->subDays(30)->toDateString())
+                ->orderByDesc('reporting_date')->limit(5000)->get(['digital_asset_id', 'ad_id', 'metadata'])->unique('ad_id') as $row) {
+                $meta = (array) json_decode((string) $row->metadata, true);
+                $text = trim(implode(' . ', array_merge((array) ($meta['headlines'] ?? []), (array) ($meta['descriptions'] ?? []))));
+                if ($text !== '') {
+                    yield ['source' => 'google_ads_ad', 'ref' => 'google_ads_ad:'.$row->ad_id, 'label' => trim((string) ($meta['ad_group_name'] ?? '').' · reklam '.$row->ad_id, ' ·'), 'asset_id' => $row->digital_asset_id, 'text' => $text];
+                }
+            }
+        }
         if (! $scope->isEmpty() && Schema::hasTable('meta_adset_targeting_snapshot')) {
             foreach ($scope->apply(DB::table('meta_adset_targeting_snapshot'))->orderByDesc('last_collected_at')->limit(2000)->get()->unique('adset_id') as $row) {
                 $targeting = (array) json_decode((string) $row->targeting, true);

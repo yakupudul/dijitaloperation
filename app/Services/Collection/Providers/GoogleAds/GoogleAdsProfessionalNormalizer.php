@@ -134,8 +134,18 @@ final class GoogleAdsProfessionalNormalizer
                 'approval_status' => data_get($row, 'adGroupAd.policySummary.approvalStatus') ?? data_get($row, 'ad_group_ad.policy_summary.approval_status'),
                 'review_status' => data_get($row, 'adGroupAd.policySummary.reviewStatus') ?? data_get($row, 'ad_group_ad.policy_summary.review_status'),
                 'final_urls' => data_get($row, 'adGroupAd.ad.finalUrls') ?? data_get($row, 'ad_group_ad.ad.final_urls'),
+                // Faz 14: responsive search ad texts, so live ads can be checked against the sector compliance rules.
+                'headlines' => $this->assetTexts(data_get($row, 'adGroupAd.ad.responsiveSearchAd.headlines') ?? data_get($row, 'ad_group_ad.ad.responsive_search_ad.headlines')),
+                'descriptions' => $this->assetTexts(data_get($row, 'adGroupAd.ad.responsiveSearchAd.descriptions') ?? data_get($row, 'ad_group_ad.ad.responsive_search_ad.descriptions')),
             ],
         ]);
+    }
+
+    /** @return list<string> */
+    private function assetTexts(mixed $assets): array
+    {
+        return array_values(array_filter(array_map(fn (mixed $asset): string => trim((string) data_get($asset, 'text', '')), is_array($assets) ? $assets : []),
+            fn (string $text): bool => $text !== ''));
     }
 
     /** @return array<string, mixed>|null */

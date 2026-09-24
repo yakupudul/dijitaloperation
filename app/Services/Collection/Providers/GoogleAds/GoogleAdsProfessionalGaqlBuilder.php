@@ -107,6 +107,8 @@ SELECT
   ad_group_ad.policy_summary.approval_status,
   ad_group_ad.policy_summary.review_status,
   ad_group_ad.ad.final_urls,
+  ad_group_ad.ad.responsive_search_ad.headlines,
+  ad_group_ad.ad.responsive_search_ad.descriptions,
   metrics.impressions,
   metrics.clicks,
   metrics.interactions,

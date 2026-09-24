@@ -98,6 +98,34 @@ final class ComplianceAuditTest extends TestCase
         $this->assertSame('Hukuk onayladı', $gbp->fresh()->note);
     }
 
+    public function test_live_google_ads_texts_are_scanned(): void
+    {
+        $ads = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'google_ads', 'name' => 'Atlas Ads']);
+        DB::table('google_ads_ad_daily')->insert([
+            'digital_asset_id' => $ads->id, 'external_resource_id' => 1, 'customer_id' => '123', 'reporting_date' => now()->subDay()->toDateString(),
+            'campaign_id' => '1', 'ad_group_id' => '2', 'ad_id' => '99', 'currency' => 'TRY', 'contract_version' => 1,
+            'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => str_repeat('a', 64),
+            'metadata' => json_encode(['ad_group_name' => 'İmplant', 'headlines' => ['Kadıköy İmplant Kliniği', '%100 Garantili İmplant'], 'descriptions' => ['Randevu alın.']]),
+        ]);
+
+        app(ComplianceAuditor::class)->scan($this->brand);
+
+        $finding = ComplianceFinding::query()->where('source', 'google_ads_ad')->sole();
+        $this->assertSame('guarantees', $finding->rule->rule_key);
+        $this->assertStringContainsString('Garantili', (string) $finding->excerpt);
+    }
+
+    public function test_draft_packs_for_other_sectors(): void
+    {
+        app(SectorPackRegistry::class)->syncDefaults();
+        $checker = app(ComplianceChecker::class);
+        foreach (['legal' => 'Davanızı kazanma garantisi veriyoruz', 'finance' => 'Risksiz, garantili getiri', 'education' => '%100 başarı garantisi', 'food_beverage' => 'Şeker hastalığına iyi gelir, tansiyonu düşürür'] as $code => $text) {
+            $brand = Brand::factory()->create(['customer_id' => $this->brand->customer_id]);
+            $brand->sectors()->attach(ServiceCategory::query()->where('code', $code)->value('id'));
+            $this->assertNotSame([], $checker->checkText($text, app(SectorPackRegistry::class)->rulesForBrand($brand), 'website'), $code);
+        }
+    }
+
     public function test_disabled_pack_or_other_sector_makes_no_findings(): void
     {
         $other = Brand::factory()->create(['customer_id' => $this->brand->customer_id, 'sector' => null]);
