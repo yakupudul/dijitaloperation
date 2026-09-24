@@ -172,6 +172,10 @@ final class SystemAudit
                 }
                 $total++;
                 $key = mb_substr((string) preg_replace(['/\{"(userId|exception)".*$/', '/\d{3,}/', '/\s+/'], ['', 'N', ' '], $m[3]), 0, 200);
+                // Where it broke (first application frame), so a page error can be traced without the full log.
+                if (preg_match('#(?<=/)(?:app|app-modules|resources/views|routes|vendor)/[^\s:"()]+:\d+#', $m[3], $where) === 1) {
+                    $key .= ' @ '.$where[0];
+                }
                 $counts[$key] = ($counts[$key] ?? 0) + 1;
                 $last[$key] = max($last[$key] ?? '', $m[1]);
             }
@@ -179,7 +183,7 @@ final class SystemAudit
         }
         arsort($counts);
         $out = [[$total === 0 ? 'ok' : 'warn', 'Uygulama log hataları (24 saat)', $files === [] ? 'log dosyası yok' : $total.' hata']];
-        foreach (array_slice($counts, 0, 12, true) as $message => $count) {
+        foreach (array_slice($counts, 0, 25, true) as $message => $count) {
             // The last occurrence tells whether an error is still happening or was fixed by a later deploy.
             $out[] = ['warn', '  ×'.$count.' (son '.$this->shortTime($last[$message] ?? null).')', $message];
         }

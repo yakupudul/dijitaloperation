@@ -14,18 +14,20 @@ use Livewire\Component;
 use Throwable;
 
 /**
- * /customers/discover — "Keşfet ve Grupla": discovered Google / Meta accounts that are not yet in the
- * portfolio, grouped into proposed brands. The owner ticks accounts, names the customer and brand, and
- * creates everything in one click (bindings go through the same services as "Otomatik kur"). Admin only.
+ * /customers/discover — "Toplu ekle": discovered Google / Meta accounts that are not yet in the portfolio,
+ * grouped into proposed brands. The owner types the customer for the groups they work with (groups left
+ * blank are skipped), optionally the cities served, and creates all filled groups in one click. Bindings go
+ * through the same services as "Otomatik kur"; after the site crawl "Otomatik kur" proposes the brand's
+ * services from the shared service pool by itself. Admin only.
  */
 #[Layout('operator.layouts.app')]
-#[Title('Keşfet ve Grupla')]
+#[Title('Toplu ekle')]
 final class DiscoverAndGroupPage extends Component
 {
     /**
      * Form state per group, indexed by a hash of the group key (dots/colons break wire:model paths).
      *
-     * @var array<string, array{customer_id: string, customer_name: string, brand_name: string, website_url: string, resources: array<int|string, bool>}>
+     * @var array<string, array{customer_id: string, customer_name: string, brand_name: string, website_url: string, cities: string, resources: array<int|string, bool>}>
      */
     public array $forms = [];
 
@@ -34,6 +36,8 @@ final class DiscoverAndGroupPage extends Component
 
     /** @var array<string, array{name: string, url: string}> */
     public array $created = [];
+
+    public string $bulkMessage = '';
 
     public function mount(PortfolioDiscoveryGrouper $grouper): void
     {
@@ -45,9 +49,37 @@ final class DiscoverAndGroupPage extends Component
     {
         $this->authorizeAdmin();
         $group = collect($grouper->groups())->first(fn (array $g): bool => $this->formKey($g['key']) === $formKey);
+        if ($group !== null) {
+            $this->createGroup($group, $formKey, $creator);
+        }
+    }
+
+    /** Creates every group whose customer was filled in (or which belongs to an existing brand); the rest are skipped. */
+    public function createAll(PortfolioGroupCreator $creator, PortfolioDiscoveryGrouper $grouper): void
+    {
+        $this->authorizeAdmin();
+        $done = 0;
+        $failed = 0;
+        foreach ($grouper->groups() as $group) {
+            $formKey = $this->formKey($group['key']);
+            $form = $this->forms[$formKey] ?? null;
+            $filled = $form !== null && ($group['existing_brand_id'] !== null || $form['customer_id'] !== '' || trim($form['customer_name']) !== '');
+            if (! $filled || collect($form['resources'])->filter()->isEmpty()) {
+                continue;
+            }
+            $this->createGroup($group, $formKey, $creator) ? $done++ : $failed++;
+        }
+        $this->bulkMessage = $done === 0 && $failed === 0
+            ? 'Oluşturulacak grup yok: çalıştığın grupların müşteri adını yaz.'
+            : $done.' grup oluşturuldu'.($failed > 0 ? ', '.$failed.' grupta hata var (aşağıda)' : '').'.';
+    }
+
+    /** @param  array<string, mixed>  $group */
+    private function createGroup(array $group, string $formKey, PortfolioGroupCreator $creator): bool
+    {
         $form = $this->forms[$formKey] ?? null;
-        if ($group === null || $form === null) {
-            return;
+        if ($form === null) {
+            return false;
         }
         $allowed = array_column($group['resources'], 'id');
         $resourceIds = collect($form['resources'])->filter()->keys()->map(fn ($id): int => (int) $id)
@@ -60,18 +92,19 @@ final class DiscoverAndGroupPage extends Component
                 'customer_name' => $form['customer_name'],
                 'brand_name' => $form['brand_name'],
                 'website_url' => $form['website_url'],
+                'cities' => $form['cities'] ?? '',
             ], $resourceIds, auth()->user());
         } catch (ValidationException $exception) {
             foreach ($exception->errors() as $field => $messages) {
                 $this->addError('forms.'.$formKey.'.'.$field, $messages[0]);
             }
 
-            return;
+            return false;
         } catch (Throwable $exception) {
             report($exception);
             $this->addError('forms.'.$formKey.'.brand_name', 'Oluşturulamadı: '.$exception->getMessage());
 
-            return;
+            return false;
         }
 
         $this->results[$formKey] = $outcome['results'];
@@ -79,6 +112,8 @@ final class DiscoverAndGroupPage extends Component
             'name' => (string) $outcome['brand']->name,
             'url' => route('operator.brand', ['brand' => $outcome['brand']->id]),
         ];
+
+        return true;
     }
 
     public function render(PortfolioDiscoveryGrouper $grouper): View
@@ -102,9 +137,11 @@ final class DiscoverAndGroupPage extends Component
             }
             $this->forms[$key] = [
                 'customer_id' => $group['existing_customer_id'] !== null ? (string) $group['existing_customer_id'] : '',
-                'customer_name' => (string) $group['suggested_brand'],
+                // Left blank on purpose: only groups the owner works with get a customer, the rest are skipped.
+                'customer_name' => '',
                 'brand_name' => (string) $group['suggested_brand'],
                 'website_url' => $group['host'] !== null ? 'https://'.$group['host'].'/' : '',
+                'cities' => '',
                 'resources' => collect($group['resources'])->mapWithKeys(fn (array $r): array => [$r['id'] => (bool) $r['selected']])->all(),
             ];
         }

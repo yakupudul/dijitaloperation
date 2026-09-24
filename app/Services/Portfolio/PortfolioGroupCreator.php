@@ -12,6 +12,7 @@ use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\BrandSetup\BrandSetupApplier;
 use App\Services\BrandSetup\BrandSetupMatcher;
+use App\Services\SearchDemand\BrandCommercialContextService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -25,7 +26,7 @@ final class PortfolioGroupCreator
     public function __construct(private readonly BrandSetupApplier $applier) {}
 
     /**
-     * @param  array{customer_id?: ?int, customer_name?: ?string, brand_id?: ?int, brand_name?: ?string, website_url?: ?string}  $input
+     * @param  array{customer_id?: ?int, customer_name?: ?string, brand_id?: ?int, brand_name?: ?string, website_url?: ?string, cities?: ?string}  $input
      * @param  list<int>  $resourceIds
      * @return array{brand: Brand, results: list<array{key: string, label: string, ok: bool, message: string}>}
      */
@@ -72,8 +73,23 @@ final class PortfolioGroupCreator
         ]);
 
         $results = $this->applier->apply($proposal, $actor, array_column($items, 'key'), []);
+        foreach ($this->cities((string) ($input['cities'] ?? '')) as $city) {
+            try {
+                app(BrandCommercialContextService::class)->addServiceArea($brand, ['country_code' => 'TR', 'city_name' => $city, 'district_name' => '']);
+                $results[] = ['key' => 'area:'.$city, 'label' => 'Hizmet bölgesi: '.$city, 'ok' => true, 'message' => 'Eklendi.'];
+            } catch (ValidationException $exception) {
+                $results[] = ['key' => 'area:'.$city, 'label' => 'Hizmet bölgesi: '.$city, 'ok' => false, 'message' => collect($exception->errors())->flatten()->first() ?? 'Eklenemedi.'];
+            }
+        }
 
         return ['brand' => $brand->fresh(), 'results' => $results];
+    }
+
+    /** @return list<string> "Manisa, İzmir" → ["Manisa", "İzmir"] */
+    private function cities(string $value): array
+    {
+        return collect(preg_split('/[,;\n]+/u', $value) ?: [])->map(fn (string $city): string => trim($city))
+            ->filter(fn (string $city): bool => mb_strlen($city) >= 2)->unique()->take(20)->values()->all();
     }
 
     /** @param  array<string, mixed>  $input */

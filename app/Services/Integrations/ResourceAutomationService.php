@@ -6,6 +6,7 @@ use App\Enums\Observability\OperationalAlertRuleType;
 use App\Enums\Observability\OperationalAlertSeverity;
 use App\Enums\Observability\OperationalSignalFamily;
 use App\Jobs\Async\ResourceCollectionJob;
+use App\Models\AdvisorPlan;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
@@ -14,6 +15,7 @@ use App\Models\DigitalAsset;
 use App\Models\ResourceAutomation;
 use App\Models\Run;
 use App\Models\User;
+use App\Services\Advisor\AdvisorPlanRunner;
 use App\Services\Collection\Ga4\Ga4CentralCollectionService;
 use App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService;
 use App\Services\Collection\Meta\MetaSingleBindingCollectionOrchestrator;
@@ -29,6 +31,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 final class ResourceAutomationService
 {
@@ -123,6 +126,16 @@ final class ResourceAutomationService
                 })
                 ->orderBy('id')->limit(100)->get()->each(function ($automation): void {
                     if ($this->readiness($automation->resource) === null) {
+                        $automation->update(['collection_status' => 'waiting', 'collection_error' => null, 'next_collection_at' => now()]);
+                    }
+                });
+            // An account parked as unbound / passive starts on the next tick once it is bound to an active asset,
+            // instead of waiting a full collection interval.
+            ResourceAutomation::query()->where('collection_enabled', true)
+                ->where('collection_status', 'attention')->whereIn('collection_error', ['unbound', 'customer_passive'])
+                ->whereHas('resource.bindings', fn ($b) => $b->where('status', 'active'))
+                ->orderBy('id')->limit(200)->get()->each(function ($automation): void {
+                    if ($this->readiness($automation->resource) === null && $this->portfolioGate($automation) === null) {
                         $automation->update(['collection_status' => 'waiting', 'collection_error' => null, 'next_collection_at' => now()]);
                     }
                 });
@@ -242,7 +255,7 @@ final class ResourceAutomationService
             try {
                 ResourceCollectionJob::dispatch($automation->id)->onConnection($connection);
                 $slots--;
-            } catch (\Throwable $error) {
+            } catch (Throwable $error) {
                 $this->fail($automation->id);
                 report($error);
             }
@@ -264,6 +277,25 @@ final class ResourceAutomationService
         }
 
         return null;
+    }
+
+    /**
+     * The advisor runs weekly; an account whose last review found no data (collected later) is reviewed again as
+     * soon as its collection succeeds, so the Danışman page does not keep saying "no data".
+     */
+    private function refreshAdvisorWithoutData(ResourceAutomation $automation): void
+    {
+        try {
+            $assetIds = $automation->resource?->bindings()->where('status', 'active')->pluck('digital_asset_id') ?? collect();
+            foreach (DigitalAsset::query()->operational()->whereIn('digital_assets.id', $assetIds)->whereIn('type', ['google_ads', 'meta_ads', 'google_business_profile'])->get() as $asset) {
+                $last = AdvisorPlan::query()->where('digital_asset_id', $asset->id)->where('status', AdvisorPlan::STATUS_COMPLETED)->latest('id')->first();
+                if ($last === null || in_array(data_get($last->input_summary, 'rules.reason'), ['no_campaign_data', 'not_bound'], true)) {
+                    app(AdvisorPlanRunner::class)->queue($asset, null, 'after_collection');
+                }
+            }
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 
     /**
@@ -467,6 +499,7 @@ final class ResourceAutomationService
             $this->alert($a->id, 'collection', null);
             $a->update(['data_through' => $through ?: $a->data_through, 'collection_status' => 'current', 'collection_error' => null, 'collection_failures' => 0,
                 'last_collection_success_at' => now(), 'next_collection_at' => $this->nextAt($a)]);
+            $this->refreshAdvisorWithoutData($a);
 
             return;
         }
@@ -519,7 +552,7 @@ final class ResourceAutomationService
                 __('resource-auto.title').' · '.($a->resource?->display_name ?? '#'.$a->external_resource_id),
                 __('resource-auto.'.$reason), ['automation_id' => $a->id, 'phase' => $phase, 'reason' => $reason]
             );
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // A notification outage must not undo a durable collection/import result.
             Log::warning('resource-automation.alert-unavailable', ['automation_id' => $automationId]);
         }

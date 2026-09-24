@@ -246,6 +246,20 @@ final class ResourceAutomationRecoveryTest extends TestCase
         $this->assertSame(['attention', 'waiting'], ResourceAutomation::query()->orderBy('collection_status')->pluck('collection_status')->all());
     }
 
+    public function test_unbound_account_resumes_on_the_next_tick_once_bound(): void
+    {
+        $resource = CoreExternalResource::factory()->create(['resource_type' => 'ga4']);
+        $service = app(ResourceAutomationService::class);
+        $service->tick();
+        $automation = ResourceAutomation::query()->where('external_resource_id', $resource->id)->firstOrFail();
+        $this->assertSame('unbound', $automation->collection_error);
+        $this->assertTrue($automation->next_collection_at->isFuture());
+
+        CoreAssetBinding::factory()->create(['external_resource_id' => $resource->id, 'capability' => 'ga4']);
+        $service->tick();
+        $this->assertNull($automation->fresh()->collection_error);
+    }
+
     public function test_dispatch_sink_is_rejected_instead_of_silently_losing_planning_jobs(): void
     {
         config(['moxdop-resource-automation.queue_connection' => 'null']);

@@ -1,5 +1,24 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-10 — Toplu ekle, bağlanan hesabın hemen toplanması, Danışman veri penceresi
+
+**State:** CODED + PHPUnit.
+- `DiscoverAndGroupTest`: bulk create skips blank groups, adds cities as service areas, and the service proposal is queued after the crawl.
+- `ResourceAutomationRecoveryTest`: an unbound account resumes on the next tick after binding.
+- `GoogleAdsAdvisorRunTest`: old central rows do not hide recent per-asset rows.
+- `SystemAuditCommandTest`: every asset tab opens with bound accounts.
+
+- **Toplu ekle (`/customers/discover`, "Müşteriler › Toplu ekle"):**
+  - Unbound accounts are grouped by domain and name.
+  - The customer name starts blank, so only groups the owner fills are created, all with one "Doldurulanları oluştur" button.
+  - An optional "Hizmet verdiği şehirler" field adds TR service areas.
+  - When the site crawl finishes, "Otomatik kur" builds the service / sector proposal by itself from the shared service pool, so existing services are reused, not recreated. The owner approves it on the brand's setup page.
+- **Collection after binding:** an account parked as `unbound` or `customer_passive` starts on the next minute once it is bound to an active asset. Before, it waited a full interval (about a day).
+- **Danışman (Google Ads):**
+  - The "central vs per-asset rows" choice is now made within the review window, as on the asset pages. One old central row no longer makes the advisor read "no data".
+  - A Google Ads, Meta or Business Profile account whose last review said "no data" or "not bound" is reviewed again right after its collection succeeds.
+- **Audit:** each application error group shows where it broke (file:line) and the last time it happened; up to 25 groups are listed.
+
 ## 2026-10-10 — Staging sonucu ve durmuş hesapların geri alınması
 
 **State:** CODED + PHPUnit (`ResourceAutomationRecoveryTest`: a geo empty-dimension failure is re-armed; an unrelated error is not).

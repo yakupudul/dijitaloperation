@@ -2,12 +2,14 @@
 
 namespace App\Jobs\Async;
 
+use App\Models\BrandSetupProposal;
 use App\Models\Collection\CollectionRun;
 use App\Models\DigitalAsset;
 use App\Models\ModuleRegistry;
 use App\Models\Run;
 use App\Models\User;
 use App\Services\Async\AsyncOperationService;
+use App\Services\BrandSetup\BrandSetupAssistant;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\Website\PublicDiscovery\StoredDiscoverySource;
@@ -103,11 +105,33 @@ class PublicDiscoveryJob implements ShouldQueue
                     'retryable' => $status !== 'completed',
                     'failure_summary' => $status === 'failed' ? $result['message'] : null,
                 ]);
+                if ($status !== 'failed') {
+                    $this->proposeServices($asset, $actor);
+                }
             } catch (Throwable $exception) {
                 $async->markFailed($run->fresh() ?? $run, $exception);
             }
         } finally {
             $lock->release();
+        }
+    }
+
+    /**
+     * A brand created with its services still "waiting for the site" (Toplu ekle / Otomatik kur before the crawl)
+     * gets its "Otomatik kur" service proposal as soon as the crawl is done, instead of waiting for the owner.
+     */
+    private function proposeServices(DigitalAsset $asset, ?User $actor): void
+    {
+        try {
+            $brand = $asset->brand;
+            $waiting = $brand !== null && BrandSetupProposal::query()->where('brand_id', $brand->id)
+                ->where('services_status', 'waiting_for_site')->latest('id')->value('id');
+            if (! $waiting || BrandSetupProposal::query()->where('brand_id', $brand->id)->where('id', '>', $waiting)->exists()) {
+                return;
+            }
+            app(BrandSetupAssistant::class)->queue($brand, (string) ($asset->primary_url ?: 'https://'.$asset->domain.'/'), $actor);
+        } catch (Throwable $exception) {
+            report($exception);
         }
     }
 

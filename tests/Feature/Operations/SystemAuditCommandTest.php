@@ -3,6 +3,9 @@
 namespace Tests\Feature\Operations;
 
 use App\Models\Brand;
+use App\Models\CoreAssetBinding;
+use App\Models\CoreExternalResource;
+use App\Models\CoreIntegration;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\User;
@@ -70,6 +73,32 @@ final class SystemAuditCommandTest extends TestCase
 
         fwrite(STDERR, "\n".count($results)." pages; errors:\n".$errors->implode("\n")."\n");
         $this->assertNotEmpty($results);
+    }
+
+    public function test_every_asset_tab_opens_when_accounts_are_bound(): void
+    {
+        $asset = fn (string $type): DigitalAsset => DigitalAsset::query()->where('type', $type)->firstOrFail();
+        $website = $asset('website');
+        $website->update(['primary_url' => 'https://ornek.test/', 'domain' => 'ornek.test']);
+        $bind = function (DigitalAsset $to, string $provider, string $type, string $externalId, string $capability): void {
+            $integration = CoreIntegration::query()->firstOrCreate(['provider' => $provider], ['name' => ucfirst($provider), 'status' => 'active', 'config' => []]);
+            $resource = CoreExternalResource::factory()->create([
+                'integration_id' => $integration->id, 'provider' => $provider, 'resource_type' => $type, 'external_id' => $externalId,
+                'metadata' => ['timezone' => 'Turkey', 'currency_code' => 'TRY'],
+            ]);
+            CoreAssetBinding::factory()->create(['digital_asset_id' => $to->id, 'external_resource_id' => $resource->id, 'capability' => $capability]);
+        };
+        $bind($website, 'google', 'ga4', 'properties/123', 'ga4');
+        $bind($website, 'google', 'search_console', 'sc-domain:ornek.test', 'search_console');
+        $bind($asset('google_ads'), 'google', 'google_ads', '1234567890', 'google_ads');
+        $bind($asset('google_business_profile'), 'google', 'google_business_profile', 'locations/1', 'google_business_profile');
+        $bind($asset('meta_ads'), 'meta', 'meta_ads', 'act_1', 'meta_ads');
+
+        $results = app(PageSmokeAudit::class)->run($this->admin, 1, only: '/assets/');
+        $errors = collect($results)->whereIn('level', ['error', 'http'])->map(fn (array $r): string => $r['url'].' → '.$r['error'].' @ '.$r['where']);
+
+        $this->assertNotEmpty($results);
+        $this->assertSame([], $errors->values()->all());
     }
 
     public function test_brand_query_portfolio_page_opens_when_the_brand_has_legacy_offerings_text(): void

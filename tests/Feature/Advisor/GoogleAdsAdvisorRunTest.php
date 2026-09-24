@@ -18,6 +18,7 @@ use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Advisor\AdvisorPlanRunner;
 use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorInputCollector;
+use App\Services\Advisor\GoogleAds\GoogleAdsRowScope;
 use App\Services\Advisor\GoogleAds\QualityScoreHistoryRecorder;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsKeywordSnapshotGuard;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsNormalizer;
@@ -177,6 +178,26 @@ final class GoogleAdsAdvisorRunTest extends TestCase
         $this->assertSame(7, $input['quality_history']["ag1\0k1"]['quality_score'], 'today\'s copy is too recent to be the baseline');
         $this->assertSame(1000, $input['campaign_daily']['c1'][now('Europe/Istanbul')->subDays(1)->toDateString()]['impressions']);
         $this->assertSame(0, $this->artisan('moxdop:google-ads:record-quality-scores')->run());
+    }
+
+    public function test_old_central_rows_do_not_hide_recent_per_asset_rows(): void
+    {
+        $this->row('google_ads_campaign_daily', ['reporting_date' => '2025-01-10', 'campaign_id' => 'c0', 'impressions' => 10, 'clicks' => 1, 'cost_micros' => 1_000_000, 'cost_amount' => 1, 'conversions' => 0, 'currency' => 'TRY']);
+        for ($day = 1; $day <= 5; $day++) {
+            DB::table('google_ads_campaign_daily')->insert([
+                'digital_asset_id' => $this->asset->id, 'external_resource_id' => $this->resource->id, 'customer_id' => '1112223333',
+                'reporting_date' => now('Europe/Istanbul')->subDays($day)->toDateString(), 'campaign_id' => 'c1', 'impressions' => 500, 'clicks' => 20,
+                'cost_micros' => 100_000_000, 'cost_amount' => 100, 'conversions' => 1, 'currency' => 'TRY', 'contract_version' => 1,
+                'first_collected_at' => now(), 'last_collected_at' => now(), 'source_timezone' => 'Europe/Istanbul',
+                'record_fingerprint' => hash('sha256', 'asset-row'.$day), 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+        $scope = new GoogleAdsRowScope($this->asset->id, $this->resource->id, '1112223333');
+        $from = now('Europe/Istanbul')->subDays(30)->toDateString();
+        $to = now('Europe/Istanbul')->subDay()->toDateString();
+
+        $this->assertSame(5, $scope->daily('google_ads_campaign_daily', $from, $to)->count());
+        $this->assertSame(1, $scope->daily('google_ads_campaign_daily', '2025-01-01', '2025-01-31')->count());
     }
 
     private function seedAccount(): void

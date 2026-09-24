@@ -1,20 +1,36 @@
 <div class="space-y-6">
     <div>
         <a href="{{ route('operator.customers') }}" wire:navigate class="text-sm font-medium text-gray-500 hover:text-brand-600 dark:text-gray-400">← Müşteriler</a>
-        <h1 class="mt-3 text-2xl font-bold text-gray-800 dark:text-white/90">Keşfet ve Grupla</h1>
+        <h1 class="mt-3 text-2xl font-bold text-gray-800 dark:text-white/90">Toplu ekle</h1>
         <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">
-            Google ve Meta bağlantılarında bulunan ama henüz hiçbir markaya bağlı olmayan hesaplar, alan adına ve isme göre marka önerisi olarak gruplandı.
-            Hesapları seç, müşteri ve marka adını yaz, tek tıkla oluştur. Hesap listesi eskiyse önce
+            Entegrasyonlarda bulunan ama henüz hiçbir markaya bağlı olmayan hesaplar, alan adına ve isme göre gruplandı.
+            Çalıştığın grupların <strong>müşteri adını</strong> yaz (istersen hizmet verdiği şehirleri de); müşteri adı boş kalan gruplar atlanır.
+            Sonra "Doldurulanları oluştur"a bas. Site taraması bitince "Otomatik kur" markanın sektörünü ve hizmetlerini hizmet havuzundan kendisi önerir;
+            havuzda olan hizmet yeniden oluşturulmaz. Hesap listesi eskiyse önce
             <a href="{{ route('operator.integrations') }}" wire:navigate class="font-medium text-brand-600 underline">Entegrasyonlar</a>'dan hesapları yenile.
         </p>
     </div>
+
+    @if ($groups !== [])
+        <div class="flex flex-wrap items-center gap-3">
+            <button type="button" wire:click="createAll" wire:loading.attr="disabled"
+                class="inline-flex rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60">
+                <span wire:loading.remove wire:target="createAll">Doldurulanları oluştur</span>
+                <span wire:loading wire:target="createAll">Oluşturuluyor…</span>
+            </button>
+            <span class="text-sm text-gray-500">{{ count($groups) }} grup</span>
+            @if ($bulkMessage !== '')
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $bulkMessage }}</span>
+            @endif
+        </div>
+    @endif
 
     @foreach ($created as $formKey => $brand)
         <div wire:key="created-{{ $formKey }}" class="rounded-xl bg-emerald-50 p-4 text-sm ring-1 ring-inset ring-emerald-200 dark:bg-emerald-500/10 dark:ring-emerald-500/20">
             <p class="font-medium text-emerald-800 dark:text-emerald-300">
                 {{ $brand['name'] }} oluşturuldu —
                 <a href="{{ $brand['url'] }}" wire:navigate class="underline">markayı aç</a>
-                (hizmetler için orada "Otomatik kur"u kullanabilirsin).
+                (site taraması bitince hizmet önerisi markada hazır olur).
             </p>
             <ul class="mt-2 space-y-1">
                 @foreach ($results[$formKey] ?? [] as $row)
@@ -79,7 +95,7 @@
                         @if (($forms[$key]['customer_id'] ?? '') === '')
                             <label class="block">
                                 <span class="text-gray-500 dark:text-gray-400">Yeni müşteri adı</span>
-                                <input type="text" wire:model="forms.{{ $key }}.customer_name" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700 dark:text-white" />
+                                <input type="text" wire:model="forms.{{ $key }}.customer_name" placeholder="Boş bırakırsan bu grup atlanır" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700 dark:text-white" />
                                 @error('forms.'.$key.'.customer_name') <span class="mt-1 block text-xs text-rose-600">{{ $message }}</span> @enderror
                             </label>
                         @endif
@@ -91,6 +107,10 @@
                         <label class="block">
                             <span class="text-gray-500 dark:text-gray-400">Web sitesi (varsa)</span>
                             <input type="url" wire:model="forms.{{ $key }}.website_url" placeholder="https://" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700 dark:text-white" />
+                        </label>
+                        <label class="block sm:col-span-2">
+                            <span class="text-gray-500 dark:text-gray-400">Hizmet verdiği şehirler (isteğe bağlı)</span>
+                            <input type="text" wire:model="forms.{{ $key }}.cities" placeholder="Manisa, İzmir" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700 dark:text-white" />
                         </label>
                     </div>
                 @endif

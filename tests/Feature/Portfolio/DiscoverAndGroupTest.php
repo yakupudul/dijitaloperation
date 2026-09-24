@@ -2,8 +2,11 @@
 
 namespace Tests\Feature\Portfolio;
 
+use App\Jobs\Async\PublicDiscoveryJob;
+use App\Jobs\BuildBrandSetupProposalJob;
 use App\Livewire\Operator\Portfolio\DiscoverAndGroupPage;
 use App\Models\Brand;
+use App\Models\BrandSetupProposal;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
@@ -59,6 +62,37 @@ final class DiscoverAndGroupTest extends TestCase
         $this->assertArrayHasKey('name:yildizoptik', $groups->all(), 'accounts without a web address form name groups');
         $this->assertFalse($groups->flatMap(fn (array $g) => array_column($g['resources'], 'external_id'))->contains('999'), 'manager accounts are never offered');
         $this->assertFalse($groups->flatMap(fn (array $g) => array_column($g['resources'], 'external_id'))->contains('sc-domain:bagli.com'), 'bound accounts are not offered');
+    }
+
+    public function test_bulk_creates_only_groups_with_a_customer_and_adds_their_cities(): void
+    {
+        $this->resources();
+        $customersBefore = Customer::query()->count();
+        $page = Livewire::test(DiscoverAndGroupPage::class);
+        $forms = collect($page->get('forms'));
+        $this->assertTrue($forms->every(fn (array $form): bool => $form['customer_name'] === ''), 'customer names start blank');
+        $atlas = $forms->search(fn (array $form): bool => $form['brand_name'] === 'Atlas Dental Kliniği');
+
+        $page->set("forms.$atlas.customer_name", 'Atlas Sağlık A.Ş.')->set("forms.$atlas.cities", 'Manisa, İzmir')
+            ->call('createAll')->assertHasNoErrors()->assertSee('1 grup oluşturuldu');
+
+        $this->assertSame($customersBefore + 1, Customer::query()->count(), 'blank groups are skipped');
+        $brand = Brand::query()->where('name', 'Atlas Dental Kliniği')->firstOrFail();
+        $this->assertEqualsCanonicalizing(['Manisa', 'İzmir'], $brand->serviceAreas()->pluck('city_name')->all());
+    }
+
+    public function test_finished_site_crawl_queues_the_service_proposal_once(): void
+    {
+        $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create()->id]);
+        $website = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'website', 'primary_url' => 'https://ornek.com.tr/', 'domain' => 'ornek.com.tr']);
+        BrandSetupProposal::query()->create(['brand_id' => $brand->id, 'status' => 'applied', 'services_status' => 'waiting_for_site', 'items' => [], 'services' => []]);
+        $propose = new \ReflectionMethod(PublicDiscoveryJob::class, 'proposeServices');
+
+        $propose->invoke(new PublicDiscoveryJob(1), $website, $this->admin);
+        $propose->invoke(new PublicDiscoveryJob(1), $website, $this->admin);
+
+        $this->assertSame(2, BrandSetupProposal::query()->where('brand_id', $brand->id)->count());
+        Bus::assertDispatched(BuildBrandSetupProposalJob::class, 1);
     }
 
     public function test_one_click_creates_customer_brand_assets_and_bindings(): void
