@@ -82,6 +82,7 @@ use App\Livewire\Operator\Meta\OverviewPage as MetaOverviewPage;
 use App\Livewire\Operator\Portfolio\BrandSetupPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Operator\Portfolio\DiscoverAndGroupPage;
+use App\Livewire\Operator\Sales\LeadInboxPage;
 use App\Livewire\Operator\Seo\SeoTasksIndex;
 use App\Livewire\Operator\Settings\CostsPage;
 use App\Livewire\Operator\Settings\MethodLibraryPage;
@@ -213,6 +214,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::get('/market/kml/{brand}', KmlExportController::class)->name('operator.market.kml');
         Route::livewire('/market/backlinks', BacklinksPage::class)->name('operator.market.backlinks');
         Route::livewire('/market/competitor-watch', CompetitorWatchPage::class)->name('operator.market.competitor-watch');
+        Route::livewire('/leads', LeadInboxPage::class)->name('operator.leads');
         Route::livewire('/compliance', CompliancePage::class)->name('operator.compliance');
         Route::livewire('/settings/ai/control-plane', AiControlPlanePage::class)->name('operator.settings.ai.control-plane');
         Route::livewire('/settings/ai/agents', AiAgentsPage::class)->name('operator.settings.ai.agents');

@@ -36,6 +36,7 @@ final class DemoMenu
             [
                 'label' => __('operator.nav.groups.sales'),
                 'items' => [
+                    ['label' => app()->getLocale() === 'tr' ? 'Lead kutusu' : 'Lead Inbox', 'route' => 'operator.leads', 'icon' => 'prospects'],
                     ['label' => __('operator.nav.prospects'), 'route' => 'operator.prospects', 'icon' => 'prospects'],
                     ['label' => __('operator.nav.intent_radar'), 'route' => 'operator.intent-radar', 'icon' => 'activity'],
                     ...((auth()->user()?->is_active && auth()->user()?->hasRole(Roles::ADMIN)) ? [
