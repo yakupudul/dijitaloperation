@@ -10,6 +10,17 @@
         <button type="button" wire:click="refresh" wire:loading.attr="disabled" class="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Sinyalleri yenile</button>
     </div>
 
+    @if ($tags !== null)
+        <p class="text-xs text-gray-500">
+            Ana sayfadaki ölçüm etiketleri:
+            Tag Manager {{ $tags['gtm'] !== [] ? implode(', ', $tags['gtm']) : 'yok' }} ·
+            GA4 {{ $tags['ga4'] !== [] ? implode(', ', $tags['ga4']) : ($tags['gtm'] !== [] ? 'Tag Manager içinde olabilir' : 'yok') }} ·
+            Google Ads {{ $tags['google_ads'] !== [] ? implode(', ', $tags['google_ads']) : '—' }} ·
+            Meta piksel {{ $tags['meta_pixel'] !== [] ? 'var' : '—' }}
+            <span class="text-gray-400">({{ \Illuminate\Support\Carbon::parse($tags['observed_at'])->timezone('Europe/Istanbul')->format('d.m.Y') }} tarihli sayfa)</span>
+        </p>
+    @endif
+
     @if ($message !== '')
         <p class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{{ $message }}</p>
     @endif

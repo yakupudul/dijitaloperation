@@ -22,6 +22,12 @@ return [
         'drop_pct' => 40,        // last 7 days vs previous 7 days
         'min_previous_clicks' => 50,
     ],
+    'tracking' => [
+        'ga4_min_daily_sessions' => 20,          // prior daily sessions that make "no GA4 data" alarming
+        'conversions_stopped_days' => 3,         // days with sessions and zero counted GA4 conversions
+        'conversions_min_daily' => 1.0,          // prior 14-day daily conversions that make zero suspicious
+        'undefined_min_monthly_sessions' => 300, // traffic above which "no conversion defined" is worth saying
+    ],
     'stale_data_hours' => 72,
     'bad_review' => [
         'max_stars' => 2,

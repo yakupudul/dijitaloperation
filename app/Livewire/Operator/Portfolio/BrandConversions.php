@@ -5,6 +5,7 @@ namespace App\Livewire\Operator\Portfolio;
 use App\Models\Brand;
 use App\Models\BrandConversionSource;
 use App\Services\Measurement\BrandConversionDictionary;
+use App\Services\Measurement\TrackingHealthChecker;
 use App\Support\BrandIntelligence\ConversionGoalTypes;
 use App\Support\Permissions;
 use Illuminate\Contracts\View\View;
@@ -51,9 +52,10 @@ final class BrandConversions extends Component
         $dictionary->set($row, $row->conversion_type, ! $row->counts);
     }
 
-    public function render(BrandConversionDictionary $dictionary): View
+    public function render(BrandConversionDictionary $dictionary, TrackingHealthChecker $tracking): View
     {
         $brand = Brand::query()->findOrFail($this->brandId);
+        $website = $brand->digitalAssets()->where('type', 'website')->orderBy('id')->first();
         $summary = $dictionary->summary($brand);
         $rows = BrandConversionSource::query()->where('brand_id', $this->brandId)->orderByDesc('counts')->orderBy('source')->orderBy('label')->get();
 
@@ -62,6 +64,7 @@ final class BrandConversions extends Component
             'rows' => $rows,
             'types' => self::typeLabels(),
             'sources' => self::sourceLabels(),
+            'tags' => $website !== null ? $tracking->tags($website) : null,
         ]);
     }
 

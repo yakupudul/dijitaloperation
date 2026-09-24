@@ -7,6 +7,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Services\Advisor\GoogleAds\GoogleAdsRowScope;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
+use App\Services\Measurement\TrackingHealthChecker;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\Operator\AssetRuntimeStatusReader;
 use App\Services\SeoTasks\SeoPlanInputCollector;
@@ -19,7 +20,8 @@ use Throwable;
 /**
  * Daily scan that turns collected data into a few time-sensitive alerts per asset:
  * Google Ads / Meta spend spike and delivery stop, Google Ads conversions stopped, website search traffic
- * drop (Search Console), stale data on a bound account, low-rated unanswered Business Profile reviews.
+ * drop (Search Console), website tracking health (tags, GA4 data, website conversions), stale data on a bound
+ * account, low-rated unanswered Business Profile reviews.
  * Alerts are upserted by a stable key and resolved when a scan no longer detects them.
  */
 final class AssetAlertScanner
@@ -29,6 +31,7 @@ final class AssetAlertScanner
         private readonly MetaAdsSpecialistBindingResolver $metaBindings,
         private readonly SeoPlanInputCollector $seoInputs,
         private readonly AssetRuntimeStatusReader $runtime,
+        private readonly TrackingHealthChecker $tracking,
     ) {}
 
     /** @return array{assets: int, open: int, new: int, resolved: int} */
@@ -70,6 +73,13 @@ final class AssetAlertScanner
             };
         } catch (Throwable $exception) {
             report($exception);
+        }
+        if ((string) $asset->type === 'website') {
+            try {
+                array_push($detected, ...$this->tracking->check($asset));
+            } catch (Throwable $exception) {
+                report($exception);
+            }
         }
         if (($runtime['connected'] ?? false) && ($runtime['data_state'] ?? '') === 'stale') {
             $hours = (int) config('moxdop-alerts.stale_data_hours', 72);
