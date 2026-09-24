@@ -1,5 +1,17 @@
 # PROJECT_MEMORY
 
+## 2026-10-11 — Compact storage for all providers, Meta results, alerts
+
+- GA4, Meta and Google Ads daily facts use generic compact storage (`GenericCompactStore`). The layout is taken from the live table at conversion and stored in `compact_fact_layouts`.
+  - Adding a column to a converted table needs a new layout: convert the view back, or extend the layout. A plain `Schema::table` on the view fails.
+  - Writes skip unchanged rows, as for Search Console.
+- On PostgreSQL the connection is `ViewAwarePostgresConnection`, so `Schema::hasTable()` is true for views.
+- Meta results (leads, purchase value, ROAS, reach) are shown as Meta-reported attribution.
+  - Each is counted from one canonical action type: `lead` before the grouped variants, and `omni_purchase` before `purchase`, so the same event is never counted twice.
+  - Reach and frequency are shown as daily averages, never summed over the period.
+- Monthly reports are prepared automatically on the 1st. They are e-mailed only when the owner presses the button.
+- Application errors reach the owner's phone via `PushNotifier`, at most once per 6 hours per error place.
+
 ## 2026-10-10 — Compact fact storage
 
 - High-volume provider facts on PostgreSQL are dictionary-encoded: repeated texts go in `fact_dims` (id per kind + value), and facts go in narrow, monthly-partitioned tables holding integer ids and per-row values only.

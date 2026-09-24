@@ -63,6 +63,10 @@
         </div>
 
         <div class="flex flex-wrap gap-2">
+            @if (filled($identity['brand_id'] ?? null))
+                <a href="{{ route('operator.market.map-rankings', ['brand' => $identity['brand_id']]) }}" wire:navigate class="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5">Harita sıralaması</a>
+                <a href="{{ route('operator.market.competitor-watch', ['brand' => $identity['brand_id']]) }}" wire:navigate class="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5">Yorum ve rakip analizi</a>
+            @endif
             <button type="button" wire:click="refreshData" wire:loading.attr="disabled" @disabled(! $bound) class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">{{ __($g.'refresh') }}</button>
         </div>
     </div>

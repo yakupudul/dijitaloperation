@@ -286,6 +286,9 @@ final class MetaAdsProfessionalWorkspaceReadService
                 'period_end' => $rangeEnd,
                 'metric_source' => $metricSource,
                 'kpis' => $this->kpis($sums, $previousSums, $currency, $metricSource),
+                'outcomes' => $typedActionGate->isUsable() || $accountGate->isUsable()
+                    ? $this->outcomes($digitalAssetId, $externalResourceId, $accountId, $rangeStart, $rangeEnd, (float) ($sums['spend'] ?? 0), $currency)
+                    : null,
                 'trend' => $trend,
                 'campaigns' => $campaigns,
                 'adsets' => $adsets,
@@ -413,6 +416,51 @@ final class MetaAdsProfessionalWorkspaceReadService
     }
 
     /** @return array<string, mixed> */
+    /**
+     * Results Meta itself reports: leads (and cost per lead), purchase value (and ROAS), average daily reach and
+     * frequency. These are Meta's attribution numbers, not CRM-verified outcomes; the page says so.
+     *
+     * @return array{leads: ?float, cpl: ?float, purchases: ?float, purchase_value: ?float, roas: ?float, avg_daily_reach: ?float, avg_frequency: ?float, currency: string}
+     */
+    private function outcomes(int $digitalAssetId, int $externalResourceId, string $accountId, string $start, string $end, float $spend, string $currency): array
+    {
+        $actions = DB::table(self::TYPED_ACTION_DAILY)
+            ->where('digital_asset_id', $digitalAssetId)->where('external_resource_id', $externalResourceId)->where('account_id', $accountId)
+            ->where('entity_level', 'ad')->whereBetween('reporting_date', [$start, $end])
+            ->where(static fn ($query) => $query->where('action_type', 'like', '%lead%')->orWhere('action_type', 'like', '%purchase%'))
+            ->get(['action_type', 'action_value', 'metadata']);
+        $count = [];
+        $value = [];
+        foreach ($actions as $action) {
+            $type = (string) $action->action_type;
+            $count[$type] = ($count[$type] ?? 0) + (float) $action->action_value;
+            $metadata = is_string($action->metadata) ? json_decode($action->metadata, true) : (array) $action->metadata;
+            if (is_array($metadata) && is_numeric($metadata['action_value_amount'] ?? null)) {
+                $value[$type] = ($value[$type] ?? 0) + (float) $metadata['action_value_amount'];
+            }
+        }
+        // One canonical type each, so the same event is not counted twice under several names.
+        $leadType = collect(['lead', 'onsite_conversion.lead_grouped', 'leadgen_grouped'])->first(static fn (string $t): bool => isset($count[$t]));
+        $purchaseType = collect(['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase', 'onsite_web_purchase'])->first(static fn (string $t): bool => isset($count[$t]));
+        $leads = $leadType !== null ? $count[$leadType] : null;
+        $purchaseValue = $purchaseType !== null ? ($value[$purchaseType] ?? null) : null;
+
+        $reach = DB::table(self::ACCOUNT_DAILY)->where('external_resource_id', $externalResourceId)->where('account_id', $accountId)
+            ->whereBetween('reporting_date', [$start, $end])->whereNotNull('reach')
+            ->selectRaw('AVG(reach) as reach, AVG(frequency) as frequency')->first();
+
+        return [
+            'leads' => $leads,
+            'cpl' => $leads !== null && $leads > 0 && $spend > 0 ? round($spend / $leads, 2) : null,
+            'purchases' => $purchaseType !== null ? $count[$purchaseType] : null,
+            'purchase_value' => $purchaseValue,
+            'roas' => $purchaseValue !== null && $spend > 0 ? round($purchaseValue / $spend, 2) : null,
+            'avg_daily_reach' => is_numeric($reach->reach ?? null) ? round((float) $reach->reach) : null,
+            'avg_frequency' => is_numeric($reach->frequency ?? null) ? round((float) $reach->frequency, 2) : null,
+            'currency' => $currency,
+        ];
+    }
+
     private function kpis(?array $sums, ?array $previous, string $currency, ?string $source): array
     {
         if ($sums === null) {

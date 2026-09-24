@@ -29,6 +29,9 @@ final class GenericCompactStore
         'first_collected_at' => 'f.last_collected_at',
     ];
 
+    /** Columns refreshed with a changed row but not compared to decide whether it changed. */
+    private const array PROVENANCE = ['last_collected_at', 'last_dataset_run_id', 'last_collection_run_id', 'contract_version'];
+
     /** @var array<string, array<string, mixed>|null> */
     private static array $layouts = [];
 
@@ -141,7 +144,7 @@ final class GenericCompactStore
     }
 
     /**
-     * Upserts logical rows into the fact table. Every write refreshes the row (run id, collected at).
+     * Upserts logical rows into the fact table. Rows whose values did not change are left as they are.
      *
      * @param  list<array<string, mixed>>  $rows
      * @return array{inserted: int, updated: int, unchanged: int}
@@ -208,11 +211,19 @@ final class GenericCompactStore
                 $placeholders[] = '('.implode(', ', array_fill(0, count($names), '?')).')';
                 array_push($bindings, ...array_values($record));
             }
-            DB::statement(sprintf('INSERT INTO %s (%s) VALUES %s ON CONFLICT (%s) DO %s', $this->q($layout['fact']),
+            // Unchanged rows are not rewritten (an UPDATE writes a new row version on PostgreSQL).
+            $fact = $this->q($layout['fact']);
+            $compared = array_values(array_diff($update, self::PROVENANCE));
+            $changed = $compared === [] ? '' : sprintf(' WHERE (%s) IS DISTINCT FROM (%s)',
+                implode(', ', array_map(fn (string $c): string => $fact.'.'.$this->q($c), $compared)),
+                implode(', ', array_map(fn (string $c): string => 'EXCLUDED.'.$this->q($c), $compared)));
+            $written = count(DB::select(sprintf('INSERT INTO %s (%s) VALUES %s ON CONFLICT (%s) DO %s RETURNING 1 AS w', $fact,
                 implode(', ', array_map($this->q(...), $names)), implode(', ', $placeholders), implode(', ', array_map($this->q(...), $layout['key'])),
-                $update === [] ? 'NOTHING' : 'UPDATE SET '.implode(', ', array_map(fn (string $c): string => $this->q($c).' = EXCLUDED.'.$this->q($c), $update))), $bindings);
-            $stats['inserted'] += count($chunk) - $existing;
-            $stats['updated'] += $existing;
+                $update === [] ? 'NOTHING' : 'UPDATE SET '.implode(', ', array_map(fn (string $c): string => $this->q($c).' = EXCLUDED.'.$this->q($c), $update)).$changed), $bindings));
+            $inserted = count($chunk) - $existing;
+            $stats['inserted'] += $inserted;
+            $stats['updated'] += max(0, $written - $inserted);
+            $stats['unchanged'] += count($chunk) - $written;
         }
 
         return $stats;

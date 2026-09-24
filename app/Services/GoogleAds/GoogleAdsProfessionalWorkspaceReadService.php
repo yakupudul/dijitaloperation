@@ -58,6 +58,15 @@ final class GoogleAdsProfessionalWorkspaceReadService
             $pmax = $this->dailyBreakdown('google_ads_pmax_asset_daily', ['campaign_id', 'asset_group_id', 'asset_id', 'field_type'], $resourceId, $customerId, $rangeStart, $rangeEnd, 100);
             $shopping = $this->dailyBreakdown('google_ads_shopping_product_daily', ['product_key'], $resourceId, $customerId, $rangeStart, $rangeEnd, 100);
             $video = $this->videoBreakdown($resourceId, $customerId, $rangeStart, $rangeEnd);
+            // Names live in the rows' metadata; show them instead of provider ids.
+            $pmax = $this->withNames($pmax, 'google_ads_pmax_asset_daily', 'asset_id', $resourceId, $customerId, $rangeStart, $rangeEnd,
+                static fn (array $m): ?string => $m['asset_text'] ?? $m['asset_video_title'] ?? $m['asset_name'] ?? null,
+                static fn (array $m): array => ['campaign_name' => $m['campaign_name'] ?? null, 'asset_group_name' => $m['asset_group_name'] ?? null, 'asset_type' => $m['asset_type'] ?? null]);
+            $shopping = $this->withNames($shopping, 'google_ads_shopping_product_daily', 'product_key', $resourceId, $customerId, $rangeStart, $rangeEnd,
+                static fn (array $m): ?string => $m['title'] ?? null,
+                static fn (array $m): array => ['item_id' => $m['item_id'] ?? null, 'brand' => $m['brand'] ?? null, 'campaign_name' => $m['campaign_name'] ?? null]);
+            $video = $this->withNames($video, 'google_ads_video_daily', 'video_id', $resourceId, $customerId, $rangeStart, $rangeEnd,
+                static fn (array $m): ?string => $m['title'] ?? null, static fn (array $m): array => []);
 
             $negativeCampaign = $this->snapshotRows('google_ads_campaign_negative_keyword_snapshot', $resourceId, $customerId, 250);
             $negativeAdGroup = $this->snapshotRows('google_ads_ad_group_negative_keyword_snapshot', $resourceId, $customerId, 250);
@@ -236,6 +245,39 @@ final class GoogleAdsProfessionalWorkspaceReadService
 
             return $data;
         })->all();
+    }
+
+    /**
+     * Adds a readable `name` (and extra labels) from the latest row metadata of each key.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @param  callable(array<string, mixed>): ?string  $name
+     * @param  callable(array<string, mixed>): array<string, mixed>  $extra
+     * @return list<array<string, mixed>>
+     */
+    private function withNames(array $rows, string $table, string $key, int $resourceId, string $customerId, string $start, string $end, callable $name, callable $extra): array
+    {
+        $keys = array_values(array_unique(array_filter(array_map(static fn (array $row): string => (string) ($row[$key] ?? ''), $rows))));
+        if ($keys === [] || ! Schema::hasColumn($table, 'metadata')) {
+            return $rows;
+        }
+        $labels = [];
+        foreach (array_chunk($keys, 500) as $chunk) {
+            $found = $this->scopedTable($table, $resourceId, $customerId)->whereBetween('reporting_date', [$start, $end])
+                ->whereIn($key, $chunk)->orderByDesc('reporting_date')->get([$key, 'metadata']);
+            foreach ($found as $item) {
+                $id = (string) $item->{$key};
+                if (isset($labels[$id])) {
+                    continue;
+                }
+                $metadata = is_string($item->metadata) ? json_decode($item->metadata, true) : (array) $item->metadata;
+                if (is_array($metadata)) {
+                    $labels[$id] = ['name' => filled($name($metadata)) ? (string) $name($metadata) : null, ...$extra($metadata)];
+                }
+            }
+        }
+
+        return array_map(static fn (array $row): array => $row + ($labels[(string) ($row[$key] ?? '')] ?? ['name' => null]), $rows);
     }
 
     /** @return list<array<string,mixed>> */

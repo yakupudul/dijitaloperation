@@ -68,6 +68,27 @@
         @endforeach
     </div>
 
+    @php
+        $outcomes = $professional['outcomes'] ?? null;
+        $money = static fn ($v, $c) => $v === null ? '—' : number_format((float) $v, 2, ',', '.').' '.$c;
+    @endphp
+    @if (is_array($outcomes))
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 class="font-semibold text-gray-900 dark:text-white">{{ $isTr ? 'Sonuçlar (Meta bildirimi)' : 'Results (as reported by Meta)' }}</h3>
+                <p class="text-xs text-gray-400">{{ $isTr ? 'Meta’nın kendi ilişkilendirmesidir; CRM ile doğrulanmış satış değildir.' : 'Meta attribution; not CRM-verified.' }}</p>
+            </div>
+            <dl class="mt-4 grid gap-4 text-sm sm:grid-cols-3 xl:grid-cols-6">
+                <div><dt class="text-xs text-gray-500">{{ $isTr ? 'Potansiyel müşteri (form)' : 'Leads' }}</dt><dd class="mt-1 text-lg font-bold text-gray-900 dark:text-white">{{ $outcomes['leads'] === null ? '—' : number_format($outcomes['leads'], 0, ',', '.') }}</dd></div>
+                <div><dt class="text-xs text-gray-500">{{ $isTr ? 'Potansiyel müşteri başı maliyet' : 'Cost per lead' }}</dt><dd class="mt-1 text-lg font-bold text-gray-900 dark:text-white">{{ $money($outcomes['cpl'], $outcomes['currency']) }}</dd></div>
+                <div><dt class="text-xs text-gray-500">{{ $isTr ? 'Satın alma değeri' : 'Purchase value' }}</dt><dd class="mt-1 text-lg font-bold text-gray-900 dark:text-white">{{ $money($outcomes['purchase_value'], $outcomes['currency']) }}</dd>@if($outcomes['purchases'] !== null)<p class="text-[11px] text-gray-400">{{ number_format($outcomes['purchases'], 0, ',', '.') }} {{ $isTr ? 'satın alma' : 'purchases' }}</p>@endif</div>
+                <div><dt class="text-xs text-gray-500">ROAS</dt><dd class="mt-1 text-lg font-bold text-gray-900 dark:text-white">{{ $outcomes['roas'] === null ? '—' : number_format($outcomes['roas'], 2, ',', '.').'x' }}</dd></div>
+                <div><dt class="text-xs text-gray-500">{{ $isTr ? 'Günlük ortalama erişim' : 'Avg daily reach' }}</dt><dd class="mt-1 text-lg font-bold text-gray-900 dark:text-white">{{ $outcomes['avg_daily_reach'] === null ? '—' : number_format($outcomes['avg_daily_reach'], 0, ',', '.') }}</dd><p class="text-[11px] text-gray-400">{{ $isTr ? 'Dönem toplamı değildir' : 'Not a period total' }}</p></div>
+                <div><dt class="text-xs text-gray-500">{{ $isTr ? 'Günlük ortalama sıklık' : 'Avg daily frequency' }}</dt><dd class="mt-1 text-lg font-bold text-gray-900 dark:text-white">{{ $outcomes['avg_frequency'] === null ? '—' : number_format($outcomes['avg_frequency'], 2, ',', '.') }}</dd></div>
+            </dl>
+        </div>
+    @endif
+
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         @foreach ($secondaryMetrics as $card)
             @php $metric = $kpis[$card['key']] ?? []; $delta = ($compare ?? true) ? ($metric['delta_pct'] ?? null) : null; @endphp

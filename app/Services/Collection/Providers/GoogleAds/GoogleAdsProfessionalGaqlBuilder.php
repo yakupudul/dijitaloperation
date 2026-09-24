@@ -341,6 +341,10 @@ SELECT
   asset_group_asset.source,
   asset_group_asset.primary_status,
   asset_group_asset.primary_status_reasons,
+  asset.name,
+  asset.type,
+  asset.text_asset.text,
+  asset.youtube_video_asset.youtube_video_title,
 %s
 FROM asset_group_asset
 WHERE segments.date BETWEEN '%s' AND '%s'

@@ -57,6 +57,8 @@ class GenericCompactStorageTest extends TestCase
             $this->searchTerm('kanal tedavisi', '2026-09-12', 2, '4.250000', ['campaign_ids' => ['2']]),
         ]);
         $this->assertSame(['inserted' => 1, 'updated' => 1, 'unchanged' => 0], $stats);
+        $again = app(CompactFactStore::class)->upsert('google_ads_search_term_daily', [$this->searchTerm('implant fiyat', '2026-09-10', 5, '15.000000', null)]);
+        $this->assertSame(['inserted' => 0, 'updated' => 0, 'unchanged' => 1], $again, 'an unchanged row is not rewritten');
         $this->assertSame(4, DB::table('google_ads_search_term_daily')->count());
         $this->assertSame(5, (int) DB::table('google_ads_search_term_daily')->where('search_term', 'implant fiyat')->value('clicks'));
         $this->assertSame('4.250000', (string) DB::table('google_ads_search_term_daily')->where('search_term', 'kanal tedavisi')->value('cost_amount'));

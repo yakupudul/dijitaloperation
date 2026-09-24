@@ -1,5 +1,54 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-11 — Eksik özellik taraması: 9 madde
+
+**State:** CODED + PHPUnit. Not yet deployed or checked on staging.
+- Tests: `GbpPartialCollectionTest`, `GoogleAdsGeoTest`, `Ga4ConversionSourcesTest`, `GoogleAdsSegmentAndConflictRulesTest`, `MonthlyReportV2Test`, `CustomerCommercialCardTest`, `ErrorAlertReporterTest`, `AssetAlertScannerTest` (GA4 drop), `WebsiteProductionCollectorTest` (CrUX field data), `GenericCompactStorageTest` (PostgreSQL), `GoogleAdsReadableNamesTest`, `MetaOutcomesTest`.
+
+1. **İşletme Profili:**
+   - A run that delivered the location and daily performance counts as a success even if other datasets are missing.
+   - The missing datasets and Google's own error reason are shown, with a hint.
+2. **Local performance:**
+   - Google Ads province/district table: new `google_ads_geo_daily` family, with place names resolved through `google_ads_geo_names`.
+   - Meta province/region breakdown.
+   - GA4 regions, plus "Dönüşümler nereden geldi?" (key events by channel / campaign / landing page).
+3. **Danışman (Google Ads):**
+   - New rules: device / province / 3-hour block / age / gender waste (`segment-bid-adjustment`), and negative keyword conflicts (`negative-keyword-conflict`).
+   - Negative conflicts include shared lists written under ADR-064.
+   - The performance tab shows age and gender.
+4. **Monthly report:**
+   - Prepared on the 1st at 07:00 (Istanbul) for active brands, with AI commentary by default.
+   - A "Müşteriye e-postala" button sends it to the customer's e-mail and contacts. The send is recorded (`emailed_at`, `emailed_to`).
+5. **Customer card:**
+   - Monthly fee and Google / Meta budgets.
+   - Spend this month vs budget, with a month-end projection (over / under / on track).
+   - Daily health score history (`customer_health_history`).
+6. **Operations:**
+   - Admin 2FA is required (config `require_admin_2fa`).
+   - The audit warns when no remote backup disk is set.
+   - `deploy.sh` installs the watchdog cron when it can.
+   - Application errors are sent as push notifications, de-duplicated per 6 hours (`ErrorAlertReporter`).
+7. **Website:**
+   - Alerts for a week-over-week drop in GA4 sessions or conversions (`ga4_drop` thresholds).
+   - Real-user Core Web Vitals (CrUX LCP / INP / CLS from PageSpeed field data, page or site scope) in Teknik sağlık.
+8. **Compact storage for GA4, Meta and Google Ads:**
+   - `moxdop:db:compact` now also converts 23 daily fact tables (config `moxdop-compact-facts.generic`).
+   - The layout is read from the live table: text / json become dictionary ids, and only the natural-key primary key is kept.
+   - Row count and one metric total are verified before the old table is dropped.
+   - Unchanged rows are not rewritten.
+   - Retention rolls up compact views too.
+   - `Schema::hasTable` now sees views on PostgreSQL. Before, readers guarded by it skipped compact GSC tables.
+9. **Hidden data made visible:**
+   - Performance Max assets, Shopping products and videos are listed by text / title instead of ids. PMax asset text needs the next collection.
+   - The Meta overview has a "Sonuçlar (Meta bildirimi)" block: leads and cost per lead, purchase value and ROAS, average daily reach and frequency. These are Meta's attribution, not CRM-verified.
+   - The Business Profile page links to map rankings and review / competitor analysis.
+   - **Not done — GBP Q&A:** Google retired the Business Profile Q&A API, so there is no source.
+
+**Operator steps:**
+- Run `php artisan moxdop:db:compact` to see the plan, then run it with `--execute`.
+- Set `MOXDOP_BACKUP_REMOTE_DISK`.
+- Admins without 2FA are sent to their profile to set it up.
+
 ## 2026-10-10 — Toplu ekle, bağlanan hesabın hemen toplanması, Danışman veri penceresi
 
 **State:** CODED + PHPUnit.
