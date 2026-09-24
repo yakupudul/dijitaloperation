@@ -20,7 +20,7 @@
     <div>
         <a href="{{ route('operator.settings', ['section' => 'operations']) }}" wire:navigate class="text-sm text-gray-500 hover:text-brand-600">← Ayarlar</a>
         <h1 class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">Yöntem Kütüphanesi</h1>
-        <p class="mt-1 max-w-3xl text-sm text-gray-500">Danışman, SEO Görevleri, uyarılar ve talep hattının kuralları ve eşikleri. Değişiklik bir sonraki planda uygulanır; dosyadaki varsayılan her satırda görünür ve geri alınabilir. Kural etkinliği, "Yapıldı" işaretlenen önerilerin 28 gün sonra ölçülen sonucundan gelir ve önceliklendirmeyi etkiler.</p>
+        <p class="mt-1 max-w-3xl text-sm text-gray-500">Danışman, SEO Görevleri, uyarılar ve talep hattının kuralları ve eşikleri. Değişiklik bir sonraki planda uygulanır; dosyadaki varsayılan her satırda görünür ve geri alınabilir. Kural etkinliği, "Yapıldı" işaretlenen önerilerin 28 gün sonra ölçülen sonucundan gelir ve önceliklendirmeyi etkiler. Google algoritma ve mevzuat değişikliklerini <a href="{{ route('operator.reports.annotations') }}" wire:navigate class="text-brand-600 hover:underline">grafik notlarına</a> da ekleyin.</p>
     </div>
 
     @if ($message !== '')<p class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{{ $message }}</p>@endif

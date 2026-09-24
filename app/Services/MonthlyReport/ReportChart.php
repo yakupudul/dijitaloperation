@@ -11,8 +11,9 @@ final class ReportChart
     /**
      * @param  array<int|string, float|int>  $current  day => value
      * @param  array<int|string, float|int>  $previous  day => value
+     * @param  array<int, string>  $markers  day => short note (vertical dashed line)
      */
-    public static function line(array $current, array $previous, string $title, int $width = 640, int $height = 170): string
+    public static function line(array $current, array $previous, string $title, int $width = 640, int $height = 170, array $markers = []): string
     {
         $pad = ['l' => 44, 'r' => 10, 't' => 12, 'b' => 22];
         $plotW = $width - $pad['l'] - $pad['r'];
@@ -39,6 +40,11 @@ final class ReportChart
         }
         foreach ([1, 8, 15, 22, 29] as $day) {
             $grid .= sprintf('<text x="%.1f" y="%d" font-size="10" text-anchor="middle" fill="#6b7280">%d</text>', $x($day), $height - 6, $day);
+        }
+        foreach ($markers as $day => $label) {
+            $mx = $x(max(1, min(31, (int) $day)));
+            $grid .= sprintf('<line x1="%.1f" x2="%.1f" y1="%d" y2="%d" stroke="#d97706" stroke-width="1" stroke-dasharray="3 3"/>', $mx, $mx, $pad['t'], $pad['t'] + $plotH);
+            $grid .= sprintf('<text x="%.1f" y="%d" font-size="9" fill="#b45309" text-anchor="%s">%s</text>', $mx + 2, $pad['t'] + 8, $mx > $width - 120 ? 'end' : 'start', $e($label));
         }
         $lines = '';
         if (count($previous) > 1) {

@@ -59,6 +59,7 @@ final class MonthlyReportBuilder
     public function __construct(
         private readonly BrandConversionDictionary $conversions,
         private readonly ClientValueStoryReadService $stories,
+        private readonly ChartAnnotations $annotations,
     ) {}
 
     public static function defaultMonth(): string
@@ -111,6 +112,7 @@ final class MonthlyReportBuilder
             'measured_work' => $story['measured_work'],
             'next' => $this->next($brand),
             'highlights' => $this->highlights($channels),
+            'annotations' => $this->annotations->between((int) $brand->id, $start->toDateString(), $end->toDateString()),
             'built_at' => now()->toIso8601String(),
         ];
     }

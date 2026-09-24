@@ -5,7 +5,7 @@
 <div class="space-y-5" @if ($report?->commentary_status === 'queued') wire:poll.5s @endif>
     <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Aylık rapor</h1>
-        <p class="mt-1 max-w-3xl text-sm text-gray-500">Looker raporunun yerine: kanal rakamları (önceki ay ve geçen yılın aynı ayıyla), günlük grafikler, dönüşümler, yerel görünürlük, bu ay yapılanlar ve ölçülen etkileri, gelecek ay. AI yorumu yalnız tıklayınca yazılır ve yayımlamadan önce düzenlenir. Müşteriye imzalı bir bağlantı gönderilir; otomatik gönderim yok.</p>
+        <p class="mt-1 max-w-3xl text-sm text-gray-500">Looker raporunun yerine: kanal rakamları (önceki ay ve geçen yılın aynı ayıyla), günlük grafikler, dönüşümler, yerel görünürlük, bu ay yapılanlar ve ölçülen etkileri, gelecek ay. AI yorumu yalnız tıklayınca yazılır ve yayımlamadan önce düzenlenir. Müşteriye imzalı bir bağlantı gönderilir; otomatik gönderim yok. Algoritma güncellemesi, kampanya gibi olaylar için <a href="{{ route('operator.reports.annotations') }}" wire:navigate class="text-brand-600 hover:underline">grafik notları</a>.</p>
     </div>
 
     @if ($message !== '')<p class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{{ $message }}</p>@endif

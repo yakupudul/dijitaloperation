@@ -85,6 +85,7 @@ use App\Livewire\Operator\Meta\OverviewPage as MetaOverviewPage;
 use App\Livewire\Operator\Portfolio\BrandSetupPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Operator\Portfolio\DiscoverAndGroupPage;
+use App\Livewire\Operator\Reports\ChartAnnotationsPage;
 use App\Livewire\Operator\Reports\MonthlyReportsPage;
 use App\Livewire\Operator\Sales\LeadInboxPage;
 use App\Livewire\Operator\Seo\SeoTasksIndex;
@@ -220,6 +221,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/market/competitor-watch', CompetitorWatchPage::class)->name('operator.market.competitor-watch');
         Route::livewire('/leads', LeadInboxPage::class)->name('operator.leads');
         Route::livewire('/reports/monthly', MonthlyReportsPage::class)->name('operator.reports.monthly');
+        Route::livewire('/reports/annotations', ChartAnnotationsPage::class)->name('operator.reports.annotations');
         Route::livewire('/integrations/wordpress-sites', WordPressSitesPage::class)->name('operator.integrations.wordpress-sites');
         Route::post('/integrations/wordpress-sites/{site}/login', WordPressLoginController::class)->whereNumber('site')->middleware('throttle:10,1')->name('operator.integrations.wordpress-login');
         Route::get('/reports/monthly/{report}/preview', [MonthlyReportClientController::class, 'preview'])->whereNumber('report')->name('operator.reports.monthly.preview');
