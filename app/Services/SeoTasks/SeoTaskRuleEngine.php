@@ -42,6 +42,7 @@ final class SeoTaskRuleEngine
         array_push($tasks, ...$this->internalLinkTasks($input, $pages, $offerings, $assignmentsByOffering));
         array_push($tasks, ...$this->speedTasks($input, $pages, $assignmentsByOffering));
         array_push($tasks, ...$this->geoTasks($input, $pages, $offerings, $assignmentsByOffering));
+        array_push($tasks, ...$this->competitorGapTasks($input));
 
         $tasks = $this->applyQuotas($tasks);
 

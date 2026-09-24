@@ -505,6 +505,45 @@ trait DepthRules
     }
 
     /** Same business name, ignoring generic words ("klinik", "ltd", "merkezi") and word order. */
+    /**
+     * Faz 2b: the service page is behind the pages that outrank it in the brand's service areas
+     * (content depth, headings, FAQ, structured data, price or place mentions). One task per service.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function competitorGapTasks(array $input): array
+    {
+        $tasks = [];
+        foreach ($input['competitor_gaps'] ?? [] as $offeringId => $comparison) {
+            $gaps = $comparison['gaps'] ?? [];
+            if ($gaps === []) {
+                continue;
+            }
+            $rank = $comparison['our_rank'];
+            $outOfTop = $rank === null || $rank > 10;
+            $leaders = implode(', ', array_slice(array_column($comparison['competitors'] ?? [], 'domain'), 0, 3));
+            $tasks[] = $this->task(
+                type: SeoTaskType::Strengthen,
+                ruleId: 'competitor-gap',
+                keyParts: [(string) $offeringId],
+                severity: $outOfTop ? 'high' : 'medium',
+                score: 420 + 40 * count($gaps) + ($outOfTop ? 120 : 0),
+                title: sprintf('Hizmet sayfası bölgedeki rakiplerin gerisinde (%d eksik)', count($gaps)),
+                reason: sprintf(
+                    'Hizmet bölgesindeki Google aramalarında %s. Üstte çıkan sayfalar (%s) ile karşılaştırıldı.',
+                    $rank === null ? 'ilk 10\'da değiliz' : $rank.'. sıradayız',
+                    $leaders,
+                ),
+                evidence: ['comparison' => $comparison, 'source' => 'Bölge SERP kontrolü + sayfa karşılaştırması'],
+                checklist: array_column($gaps, 'text'),
+                targetUrl: $comparison['our_url'],
+                offeringId: (int) $offeringId,
+            );
+        }
+
+        return $tasks;
+    }
+
     private function sameEntityName(string $a, string $b): bool
     {
         $generic = array_flip(SeoTaskConfig::list('geo.generic_name_words'));

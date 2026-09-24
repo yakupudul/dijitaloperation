@@ -47,6 +47,8 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Services/Analysis/Adapters/WebsiteCollectedDocumentHeadAdapter.php',
         // SEO Tasks: read-only adapter over the module's verified stored-HTML reader.
         'app/Services/SeoTasks/SeoStoredHtmlReader.php',
+        // Demand pipeline: competitor comparison reuses the module's safe public HTTP fetcher.
+        'app/Services/Demand/DemandPageFetcher.php',
     ];
 
     /**

@@ -39,4 +39,11 @@ return [
         'competitor_min_keywords' => 2,
         'weekly_time' => '05:45',
     ],
+
+    /* Competitor page comparison (free: public fetch, rules only). Pages are reused for page_freshness_days. */
+    'compare' => [
+        'competitors_per_service' => 4,
+        'page_freshness_days' => 28,
+        'weekly_time' => '06:00',
+    ],
 ];

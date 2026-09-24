@@ -428,3 +428,9 @@ Schedule::command('moxdop:demand:serp')
     ->weeklyOn((int) config('moxdop-demand.schedule.weekly_day', 1), (string) config('moxdop-demand.serp.weekly_time', '05:45'))
     ->withoutOverlapping(120)
     ->name('brand-demand-serp-weekly');
+
+// Faz 2b: hizmet sayfası ↔ bölgede üstte çıkan rakip sayfaları karşılaştırması (ücretsiz), SEO planından önce.
+Schedule::command('moxdop:demand:compare')
+    ->weeklyOn((int) config('moxdop-demand.schedule.weekly_day', 1), (string) config('moxdop-demand.compare.weekly_time', '06:00'))
+    ->withoutOverlapping(120)
+    ->name('brand-demand-compare-weekly');

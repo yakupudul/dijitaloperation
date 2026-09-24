@@ -81,7 +81,37 @@ final class SeoPlanInputCollector
             'links' => $this->internalLinks($site),
             'performance' => $this->performance($site),
             'gbp' => $this->businessProfile($site),
+            // Faz 2b: latest our-page-vs-competitors comparison per service (area SERP + public fetch).
+            'competitor_gaps' => $this->competitorGaps($site),
         ];
+    }
+
+    /**
+     * @return array<int, array{our_url: string, our_rank: ?int, gaps: list<array{key: string, text: string}>, competitors: list<array<string, mixed>>, compared_at: string}>
+     */
+    public function competitorGaps(DigitalAsset $site): array
+    {
+        if ($site->brand_id === null || ! Schema::hasTable('demand_service_comparisons')) {
+            return [];
+        }
+        $host = mb_strtolower((string) parse_url(SeoText::origin((string) ($site->primary_url ?: 'https://'.$site->domain)), PHP_URL_HOST));
+        $host = preg_replace('/^www\./', '', $host) ?? $host;
+        $out = [];
+        foreach (DB::table('demand_service_comparisons')->where('brand_id', $site->brand_id)->where('compared_at', '>=', now()->subDays(60))->get() as $row) {
+            $rowHost = preg_replace('/^www\./', '', mb_strtolower((string) parse_url((string) $row->our_url, PHP_URL_HOST))) ?? '';
+            if ($host !== '' && $rowHost !== $host) {
+                continue;
+            }
+            $out[(int) $row->brand_offering_id] = [
+                'our_url' => (string) $row->our_url,
+                'our_rank' => $row->our_rank !== null ? (int) $row->our_rank : null,
+                'gaps' => (array) json_decode((string) $row->gaps, true),
+                'competitors' => (array) json_decode((string) $row->competitors, true),
+                'compared_at' => (string) $row->compared_at,
+            ];
+        }
+
+        return $out;
     }
 
     /**
