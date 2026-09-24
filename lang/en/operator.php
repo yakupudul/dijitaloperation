@@ -224,6 +224,7 @@ return [
             'due_today' => 'Due Today',
             'completed' => 'Completed',
             'unassigned' => 'Unassigned',
+            'advice' => 'Suggested (Advisor + SEO)',
         ],
         'glance' => [
             'due_today' => 'Due today',

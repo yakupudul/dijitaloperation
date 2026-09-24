@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Demo\Operations;
 
+use App\Services\Advisor\AdvisorWorkQueue;
 use App\Services\Operator\OperatorExecutionReadService;
 use App\Services\Work\WorkReadService;
 use App\Support\Demo\DemoState;
@@ -16,6 +17,9 @@ use Livewire\Component;
 #[Title('Work')]
 class TasksIndex extends Component
 {
+    /** Faz 11b: `advice` is the single work list's suggested part — SEO Görevleri and every advisor channel by priority. */
+    public const array VIEWS = ['my', 'all', 'tasks', 'completed', 'unassigned', 'overdue', 'due_today', 'advice'];
+
     #[Url(as: 'view', history: true)]
     public string $view = 'my';
 
@@ -29,7 +33,7 @@ class TasksIndex extends Component
 
     public function mount(): void
     {
-        $allowed = ['my', 'all', 'tasks', 'completed', 'unassigned', 'overdue', 'due_today'];
+        $allowed = self::VIEWS;
         if (! in_array($this->view, $allowed, true)) {
             $this->view = 'my';
         }
@@ -44,7 +48,7 @@ class TasksIndex extends Component
 
     public function setView(string $view): void
     {
-        $allowed = ['my', 'all', 'tasks', 'completed', 'unassigned', 'overdue', 'due_today'];
+        $allowed = self::VIEWS;
         if (in_array($view, $allowed, true)) {
             $this->view = $view;
         }
@@ -102,6 +106,7 @@ class TasksIndex extends Component
             'capacity' => $execution->teamCapacity($all->values()->all()),
             'viewMode' => $this->viewMode,
             'flash' => DemoState::pullFlash(),
+            'advice' => $this->view === 'advice' ? app(AdvisorWorkQueue::class)->top(60, null, 10) : [],
         ]);
     }
 }

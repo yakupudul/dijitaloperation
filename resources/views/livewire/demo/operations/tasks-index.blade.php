@@ -7,6 +7,7 @@
         'due_today' => __('operator.work.views.due_today'),
         'completed' => __('operator.work.views.completed'),
         'unassigned' => __('operator.work.views.unassigned'),
+        'advice' => __('operator.work.views.advice'),
     ];
 @endphp
 
@@ -47,7 +48,36 @@
         </div>
     </div>
 
-    @if (($viewMode ?? 'list') === 'board')
+    @if ($view === 'advice')
+        <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="text-sm text-gray-500">SEO Görevleri ve Danışman kanallarındaki açık işler, önem ve etkiye göre tek sırada (marka başına en çok 10).</p>
+                <div class="flex gap-3 text-xs font-medium">
+                    <a href="{{ route('operator.seo_tasks') }}" wire:navigate class="text-brand-600 hover:underline">{{ __('operator.nav.seo_tasks') }}</a>
+                    <a href="{{ route('operator.ads_advisor') }}" wire:navigate class="text-brand-600 hover:underline">{{ __('operator.nav.ads_advisor') }}</a>
+                </div>
+            </div>
+            @if ($advice === [])
+                <p class="mt-3 text-sm text-gray-500">{{ __('operator.dashboard_exec.weekly_top_empty') }}</p>
+            @else
+                <ol class="mt-3 space-y-2">
+                    @foreach ($advice as $row)
+                        <li wire:key="advice-{{ $row['source'] }}-{{ $row['id'] }}" class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $row['title'] }}</p>
+                                <p class="text-xs text-gray-500">{{ $row['brand'] ?? '—' }} · {{ $row['channel'] }}@if ($row['asset']) · {{ $row['asset'] }}@endif @if ($row['impact']) · {{ $row['impact'] }}@endif</p>
+                                @if ($row['reason'] !== '')<p class="mt-0.5 text-xs text-gray-600 dark:text-gray-400">{{ \Illuminate\Support\Str::limit($row['reason'], 180) }}</p>@endif
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <x-ta.badge :color="$row['severity_color']" size="sm">{{ $row['severity_label'] }}</x-ta.badge>
+                                @if ($row['url'])<a href="{{ $row['url'] }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a>@endif
+                            </div>
+                        </li>
+                    @endforeach
+                </ol>
+            @endif
+        </section>
+    @elseif (($viewMode ?? 'list') === 'board')
         @php
             $boardColumns = [
                 'open' => 'Open',

@@ -225,6 +225,7 @@ return [
             'due_today' => 'Bugün',
             'completed' => 'Tamamlanan',
             'unassigned' => 'Atanmamış',
+            'advice' => 'Önerilen (Danışman + SEO)',
         ],
         'glance' => [
             'due_today' => 'Bugün',
