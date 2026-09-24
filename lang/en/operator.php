@@ -21,6 +21,7 @@ return [
         'seo_tasks' => 'SEO Tasks',
         'archive' => 'Production Archive',
         'compliance' => 'Compliance',
+        'renewals' => 'Renewals',
         'ads_advisor' => 'Advisor',
         'work' => 'Work',
         'activity' => 'Activity',

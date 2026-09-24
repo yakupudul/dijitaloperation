@@ -3,6 +3,7 @@
 namespace App\Services\Alerts;
 
 use App\Models\AssetAlert;
+use App\Models\AssetRenewal;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Services\Advisor\GoogleAds\GoogleAdsRowScope;
@@ -80,6 +81,7 @@ final class AssetAlertScanner
             try {
                 array_push($detected, ...$this->tracking->check($asset));
                 array_push($detected, ...$this->wordpressConnector($asset));
+                array_push($detected, ...$this->renewals($asset));
                 // Faz 6: keep the uptime monitor's open site_down alert while the site is still down.
                 if (DB::table('uptime_states')->where('digital_asset_id', $asset->id)->value('state') === 'down') {
                     $open = AssetAlert::query()->open()->where('digital_asset_id', $asset->id)->where('kind', 'site_down')->first();
@@ -190,6 +192,34 @@ final class AssetAlertScanner
         return [$this->alert('wordpress_plugin_outdated', 'low', 'WordPress eklentisi güncel değil',
             sprintf('Sitede MoxDOP eklentisi %s kurulu; güncel sürüm %s. Entegrasyonlar › Site bağlayıcıları sayfasından yeni sürümü indirip yükleyin.', $installed, $current),
             ['installed' => (string) $installed, 'current' => $current])];
+    }
+
+    /**
+     * Renewals of this website (domain / SSL / hosting / other) that expire within 30 days or have expired;
+     * auto-renewing ones only from 7 days.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function renewals(DigitalAsset $asset): array
+    {
+        if (! Schema::hasTable('asset_renewals')) {
+            return [];
+        }
+        $alerts = [];
+        foreach (AssetRenewal::query()->where('digital_asset_id', $asset->id)->whereNotNull('expires_on')->where('expires_on', '<=', now()->addDays(30))->get() as $renewal) {
+            $days = (int) $renewal->daysLeft();
+            if ($renewal->auto_renew && $days > 7) {
+                continue;
+            }
+            $label = AssetRenewal::KINDS[$renewal->kind] ?? 'Yenileme';
+            $alerts[] = $this->alert('renewal_due_'.$renewal->kind, $days < 0 ? 'critical' : ($days <= 7 ? 'high' : 'medium'),
+                $label.' yenilemesi yaklaşıyor',
+                sprintf('%s: %s (%s).%s', $renewal->label, $days < 0 ? 'süresi '.abs($days).' gün önce doldu' : $days.' gün kaldı', $renewal->expires_on?->format('d.m.Y'),
+                    $renewal->charge_amount !== null ? ' Tahsilat: '.(AssetRenewal::COLLECTION[$renewal->collection_status] ?? $renewal->collection_status).'.' : ''),
+                ['renewal_id' => $renewal->id, 'days_left' => $days]);
+        }
+
+        return $alerts;
     }
 
     /** @return list<array<string, mixed>> */

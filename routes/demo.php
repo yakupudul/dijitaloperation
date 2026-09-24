@@ -54,6 +54,7 @@ use App\Livewire\Operator\Advisor\AdvisorIndex;
 use App\Livewire\Operator\Archive\ProductionArchivePage;
 use App\Livewire\Operator\Assets\AnalyticsPage;
 use App\Livewire\Operator\Assets\SearchConsolePage;
+use App\Livewire\Operator\Assistant\RenewalsPage;
 use App\Livewire\Operator\Compliance\CompliancePage;
 use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Operator\Integrations\SiteConnectorShow;
@@ -167,6 +168,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/seo-tasks', SeoTasksIndex::class)->name('operator.seo_tasks');
         Route::livewire('/ads-advisor', AdvisorIndex::class)->name('operator.ads_advisor');
         Route::livewire('/archive', ProductionArchivePage::class)->name('operator.archive');
+        Route::livewire('/renewals', RenewalsPage::class)->name('operator.renewals');
         Route::livewire('/brands/{brand}/setup', BrandSetupPage::class)->name('operator.brand.setup');
         Route::livewire('/tasks/{taskId}', TaskShow::class)->name('operator.task');
         Route::livewire('/work/{type}/{workId}', WorkShow::class)

@@ -21,6 +21,7 @@ return [
         'seo_tasks' => 'SEO Görevleri',
         'archive' => 'Üretim Arşivi',
         'compliance' => 'Uyum',
+        'renewals' => 'Yenilemeler',
         'ads_advisor' => 'Danışman',
         'work' => 'İşler',
         'activity' => 'Aktivite',

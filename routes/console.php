@@ -482,3 +482,9 @@ Schedule::call(function (): void {
     DigitalAsset::query()->operational()->where('type', 'website')->whereNotNull('primary_url')->pluck('digital_assets.id')
         ->each(fn ($id) => UptimeCheckJob::dispatch((int) $id));
 })->everyFiveMinutes()->name('uptime-checks')->withoutOverlapping(5);
+
+// Faz 6: yenilemeler — alan adı (RDAP) ve SSL bitiş tarihleri + 30/14/7/1 gün hatırlatması (uyarı taramasından önce).
+Schedule::command('moxdop:renewals:daily')
+    ->dailyAt('06:05')
+    ->withoutOverlapping(60)
+    ->name('renewals-daily');
