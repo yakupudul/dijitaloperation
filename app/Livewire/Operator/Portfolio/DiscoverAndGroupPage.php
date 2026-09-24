@@ -5,6 +5,7 @@ namespace App\Livewire\Operator\Portfolio;
 use App\Models\Customer;
 use App\Services\Portfolio\PortfolioDiscoveryGrouper;
 use App\Services\Portfolio\PortfolioGroupCreator;
+use App\Services\SeoTasks\SeoText;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\ValidationException;
@@ -38,6 +39,28 @@ final class DiscoverAndGroupPage extends Component
     public array $created = [];
 
     public string $bulkMessage = '';
+
+    /** Filters only what is shown; "Doldurulanları oluştur" still covers every filled group. */
+    public string $search = '';
+
+    public string $filter = 'all';
+
+    public int $limit = 20;
+
+    public function updatedSearch(): void
+    {
+        $this->limit = 20;
+    }
+
+    public function updatedFilter(): void
+    {
+        $this->limit = 20;
+    }
+
+    public function showMore(): void
+    {
+        $this->limit += 20;
+    }
 
     public function mount(PortfolioDiscoveryGrouper $grouper): void
     {
@@ -121,8 +144,25 @@ final class DiscoverAndGroupPage extends Component
         $groups = $grouper->groups();
         $this->syncForms($groups);
 
+        $needle = SeoText::fold($this->search);
+        $matching = collect($groups)
+            ->filter(fn (array $g): bool => match ($this->filter) {
+                'web' => $g['host'] !== null,
+                'noweb' => $g['host'] === null,
+                'existing' => $g['existing_brand_id'] !== null,
+                default => true,
+            })
+            ->filter(fn (array $g): bool => $needle === '' || str_contains(SeoText::fold($g['suggested_brand'].' '.$g['host'].' '
+                .collect($g['resources'])->map(fn (array $r): string => $r['label'].' '.$r['external_id'])->implode(' ')), $needle))
+            ->values();
+        $visible = $matching->take($this->limit)->map(fn (array $g): array => $g + ['form_key' => $this->formKey($g['key'])])->all();
+
         return view('livewire.operator.portfolio.discover-and-group', [
-            'groups' => collect($groups)->map(fn (array $g): array => $g + ['form_key' => $this->formKey($g['key'])])->all(),
+            'groups' => $groups,
+            'visible' => $visible,
+            'total' => count($groups),
+            'matching' => $matching->count(),
+            'shown' => count($visible),
             'customers' => Customer::query()->orderBy('name')->pluck('name', 'id')->all(),
         ]);
     }

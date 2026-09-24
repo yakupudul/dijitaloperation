@@ -125,7 +125,7 @@ final class DiscoverAndGroupTest extends TestCase
         $this->assertSame($brand->id, $group['existing_brand_id']);
 
         $brandsBefore = Brand::query()->count();
-        $page = Livewire::test(DiscoverAndGroupPage::class)->assertSee('Mevcut marka: Atlas');
+        $page = Livewire::test(DiscoverAndGroupPage::class)->assertSee('Bu site zaten “Atlas” markasında');
         $key = collect($page->get('forms'))->search(fn (array $form): bool => $form['brand_name'] === 'Atlas');
         $page->call('create', $key)->assertHasNoErrors();
 
@@ -141,6 +141,35 @@ final class DiscoverAndGroupTest extends TestCase
         $this->actingAs($member);
 
         Livewire::test(DiscoverAndGroupPage::class)->assertForbidden();
+    }
+
+    public function test_social_hosts_owner_names_and_account_titles_are_handled(): void
+    {
+        $make = fn (string $type, string $externalId, string $name, array $meta = []) => CoreExternalResource::factory()->create([
+            'integration_id' => $this->google->id, 'provider' => 'google', 'resource_type' => $type, 'external_id' => $externalId,
+            'display_name' => $name, 'metadata' => $meta + ['selectable' => true], 'status' => CoreExternalResource::STATUS_AVAILABLE,
+        ]);
+        $make('google_business_profile', 'locations/7', 'Alal', ['website_uri' => 'https://instagram.com/alal']);
+        $make('google_business_profile', 'locations/8', 'İzmir Hurdacı | Tevka Hurda Metal', ['website_uri' => 'https://tevkahurdametal.com/']);
+        $make('ga4', 'properties/9', 'Hospika - GA4', ['web_stream_uris' => ['https://hospika.com']]);
+        $make('google_ads', '777', 'Gediz Tıp Merkezi', ['descriptive_name' => 'Gediz Tıp Merkezi', 'business_name' => 'Tevka Hurda Metal']);
+        $make('google_ads', '778', 'Tevka Hurda Metal Reklam', ['descriptive_name' => 'Tevka Hurda Metal Reklam']);
+
+        $groups = collect(app(PortfolioDiscoveryGrouper::class)->groups())->keyBy('key');
+
+        $this->assertArrayNotHasKey('host:instagram.com', $groups->all(), 'a social profile link is not a brand website');
+        $this->assertArrayHasKey('name:alal', $groups->all());
+        $tevka = $groups['host:tevkahurdametal.com'];
+        $this->assertSame('Tevka Hurda Metal', $tevka['suggested_brand'], 'the "|" part matching the domain names the brand');
+        $this->assertSame('Hospika', $groups['host:hospika.com']['suggested_brand'], '"- GA4" is dropped');
+        $byId = collect($tevka['resources'])->keyBy('external_id');
+        $this->assertTrue($byId['778']['selected'], 'own account name matches: pre-selected');
+        $this->assertFalse($byId['777']['selected'], 'only the owning business matches: proposed, not pre-selected');
+        $this->assertStringContainsString('işletme', $byId['777']['reason']);
+
+        Livewire::test(DiscoverAndGroupPage::class)->assertSee('Tevka Hurda Metal')->assertSee('Hospika')
+            ->set('search', 'hospika')->assertSee('Hospika')->assertDontSee('Tevka Hurda Metal')
+            ->set('search', '')->set('filter', 'noweb')->assertSee('Alal')->assertDontSee('hospika.com');
     }
 
     private function resources(): void

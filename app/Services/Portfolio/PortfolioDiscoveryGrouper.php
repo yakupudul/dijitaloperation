@@ -30,6 +30,13 @@ final class PortfolioDiscoveryGrouper
 
     private const float NAME_MATCH = 0.8;
 
+    /** Social / link-in-bio / map hosts: a Business Profile "website" on these says nothing about the brand. */
+    private const array SHARED_HOSTS = [
+        'instagram.com', 'facebook.com', 'fb.com', 'm.facebook.com', 'business.facebook.com', 'twitter.com', 'x.com',
+        'youtube.com', 'tiktok.com', 'linkedin.com', 'linktr.ee', 'wa.me', 'api.whatsapp.com', 'whatsapp.com',
+        'maps.google.com', 'google.com', 'g.page', 'goo.gl', 'maps.app.goo.gl', 'sites.google.com', 'bit.ly',
+    ];
+
     /**
      * @return list<array{key: string, host: ?string, suggested_brand: string, existing_brand_id: ?int, existing_brand: ?string, existing_customer_id: ?int, resources: list<array{id: int, type: string, type_label: string, label: string, external_id: string, target: string, reason: string, selected: bool}>}>
      */
@@ -59,22 +66,30 @@ final class PortfolioDiscoveryGrouper
         unset($group);
 
         foreach ($nameOnly as $resource) {
-            $label = $this->nameOf($resource);
+            // The account's own name counts; the owning business / manager name only proposes (not pre-selected),
+            // because one business often owns accounts of several brands.
+            $own = $this->displayName($resource);
+            $parent = $this->parentName($resource);
             $best = null;
             $bestScore = 0.0;
+            $viaParent = false;
             foreach ($groups as $key => $group) {
-                $score = BrandSetupMatcher::nameScore($label, (string) $group['suggested_brand'], (string) ($group['host'] ?? ''));
+                $ownScore = BrandSetupMatcher::nameScore($own, (string) $group['suggested_brand'], (string) ($group['host'] ?? ''));
+                $parentScore = $parent !== '' ? BrandSetupMatcher::nameScore($parent, (string) $group['suggested_brand'], (string) ($group['host'] ?? '')) : 0.0;
+                $score = max($ownScore, $parentScore);
                 if ($score > $bestScore) {
-                    [$best, $bestScore] = [$key, $score];
+                    [$best, $bestScore, $viaParent] = [$key, $score, $ownScore < self::NAME_MATCH];
                 }
             }
             if ($best !== null && $bestScore >= self::NAME_MATCH) {
-                $groups[$best]['members'][] = [$resource, sprintf('Hesap adı markaya benziyor (%%%d).', (int) round($bestScore * 100))];
+                $groups[$best]['members'][] = $viaParent
+                    ? [$resource, 'Hesabın bağlı olduğu işletme ("'.$parent.'") markaya benziyor; hesap adı benzemiyor, kontrol et.', false]
+                    : [$resource, sprintf('Hesap adı markaya benziyor (%%%d).', (int) round($bestScore * 100))];
 
                 continue;
             }
             $key = 'name:'.str_replace(' ', '', SeoText::fold($this->displayName($resource)));
-            $groups[$key] ??= $this->emptyGroup($key, null, null) + ['suggested_brand' => $this->displayName($resource)];
+            $groups[$key] ??= $this->emptyGroup($key, null, null) + ['suggested_brand' => self::cleanName($this->displayName($resource), '')];
             $groups[$key]['members'][] = [$resource, 'Web adresi yok; hesap adına göre gruplandı.'];
         }
 
@@ -135,7 +150,7 @@ final class PortfolioDiscoveryGrouper
         };
         $host = BrandSetupMatcher::host($url);
 
-        return $host !== '' ? $host : null;
+        return $host !== '' && ! in_array($host, self::SHARED_HOSTS, true) ? $host : null;
     }
 
     private function searchConsoleUrl(string $siteUrl): string
@@ -143,11 +158,48 @@ final class PortfolioDiscoveryGrouper
         return str_starts_with($siteUrl, 'sc-domain:') ? substr($siteUrl, strlen('sc-domain:')) : $siteUrl;
     }
 
-    private function nameOf(CoreExternalResource $resource): string
+    /** Owning business / manager / property-account name (not the account's own name). */
+    private function parentName(CoreExternalResource $resource): string
     {
         $meta = is_array($resource->metadata) ? $resource->metadata : [];
+        $own = SeoText::fold($this->displayName($resource));
+        foreach (['business_name', 'account_display_name', 'descriptive_name'] as $key) {
+            $value = trim((string) ($meta[$key] ?? ''));
+            if ($value !== '' && SeoText::fold($value) !== $own) {
+                return $value;
+            }
+        }
 
-        return trim($resource->display_name.' '.($meta['descriptive_name'] ?? '').' '.($meta['business_name'] ?? '').' '.($meta['account_display_name'] ?? ''));
+        return '';
+    }
+
+    /**
+     * A readable brand name from an account title: drops "- GA4", "Reklam Hesabı", URLs and trailing dashes; of a
+     * "A | B | C" title keeps the part closest to the domain (else the first).
+     */
+    public static function cleanName(string $name, string $host): string
+    {
+        $name = trim(preg_replace('#https?://\S+#i', '', $name) ?? $name);
+        $name = trim(preg_replace('/\s*[-–]?\s*\bGA4\b\s*$/iu', '', $name) ?? $name);
+        $name = trim(preg_replace('/\s*(reklam\s+hesab[ıi]|ad\s+account)\s*$/iu', '', $name) ?? $name);
+        $name = trim($name, " \t-–|:");
+        $parts = array_values(array_filter(array_map('trim', preg_split('/\s+\|\s+/u', $name) ?: [$name])));
+        if (count($parts) > 1) {
+            $best = $parts[0];
+            $bestScore = 0.0;
+            foreach ($parts as $part) {
+                $score = $host !== '' ? BrandSetupMatcher::nameScore($part, '', $host) : 0.0;
+                if ($score > $bestScore) {
+                    [$best, $bestScore] = [$part, $score];
+                }
+            }
+            $name = $best;
+        }
+        if (mb_strlen($name) > 80) {
+            $name = rtrim(mb_substr($name, 0, 80));
+        }
+
+        return $name !== '' ? $name : ($host !== '' ? mb_convert_case(BrandSetupMatcher::domainRoot($host), MB_CASE_TITLE) : '');
     }
 
     private function displayName(CoreExternalResource $resource): string
@@ -175,7 +227,11 @@ final class PortfolioDiscoveryGrouper
         foreach (['google_business_profile', 'ga4', 'google_ads', 'meta_ads'] as $type) {
             foreach ($group['members'] as [$resource]) {
                 if ($resource->resource_type === $type && filled($resource->display_name)) {
-                    return $this->displayName($resource);
+                    $name = self::cleanName($this->displayName($resource), (string) $group['host']);
+                    // Numeric account names ("936764867674279") are not brand names.
+                    if ($name !== '' && ! ctype_digit(str_replace(['-', ' '], '', $name))) {
+                        return $name;
+                    }
                 }
             }
         }
@@ -198,6 +254,7 @@ final class PortfolioDiscoveryGrouper
             'existing_customer_id' => $existing instanceof DigitalAsset ? (int) $existing->brand?->customer_id : null,
             'resources' => collect($group['members'])->map(function (array $member) use (&$seen): array {
                 [$resource, $reason] = $member;
+                $confident = $member[2] ?? true;
                 $type = (string) $resource->resource_type;
                 // One Search Console / GA4 property per website: only the first is pre-selected.
                 $first = in_array($type, ['search_console', 'ga4'], true) ? ! isset($seen[$type]) : true;
@@ -211,7 +268,7 @@ final class PortfolioDiscoveryGrouper
                     'external_id' => (string) $resource->external_id,
                     'target' => in_array($type, ['search_console', 'ga4'], true) ? 'website' : 'new:'.$type,
                     'reason' => $reason,
-                    'selected' => $first,
+                    'selected' => $first && $confident,
                 ];
             })->values()->all(),
         ];

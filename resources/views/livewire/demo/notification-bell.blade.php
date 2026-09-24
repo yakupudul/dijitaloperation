@@ -30,8 +30,13 @@
             @if (count($items) > 0)
                 @foreach ($items as $item)
                     <li class="px-4 py-3 text-sm {{ ! empty($item['is_unread']) ? 'bg-brand-50/40 dark:bg-brand-500/5' : '' }}">
-                        <p class="font-medium text-gray-800 dark:text-white/90">{{ $item['title'] ?? __('operator.notifications.item') }}</p>
-                        <p class="mt-1 text-xs text-gray-500">{{ $item['subject_label'] ?? ($item['created_at'] ?? '') }}</p>
+                        @if (! empty($item['url']))
+                            <a href="{{ $item['url'] }}" wire:navigate class="font-medium text-gray-800 hover:text-brand-600 dark:text-white/90">{{ $item['title'] ?? __('operator.notifications.item') }}</a>
+                        @else
+                            <p class="font-medium text-gray-800 dark:text-white/90">{{ $item['title'] ?? __('operator.notifications.item') }}</p>
+                        @endif
+                        @if (($item['detail'] ?? '') !== '')<p class="mt-1 text-xs text-gray-600 dark:text-gray-400">{{ \Illuminate\Support\Str::limit($item['detail'], 160) }}</p>@endif
+                        <p class="mt-1 text-[11px] text-gray-400">{{ $item['when'] ?? '' }}</p>
                         @if (! empty($item['is_unread']))
                             <button type="button" wire:click="markRead('{{ $item['id'] }}')" class="mt-2 text-xs font-medium text-brand-600 hover:underline">{{ __('operator.notifications.mark_read') }}</button>
                         @endif

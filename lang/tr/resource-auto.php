@@ -25,6 +25,7 @@ return [
     'data_through' => 'Son başarılı bölümün veri tarihi',
     'close_failed' => 'Yarıda kalan aktarımı kapat',
     'close_failed_confirm' => 'Kaydedilmiş sorgular korunacak; bu aktarımın kalan satırları atlanacak. Sonraki veri bölümleri güncel hesap ayarlarıyla işlenecek. Devam edilsin mi?',
+    'alert_title' => 'Hesap güncellemesi durdu',
     'title' => 'Otomatik hesap güncellemeleri',
     'intro' => 'Hesapları düzenli güncelleyin; eşleştirdiğiniz hesapların sorgularını otomatik aktarın.',
     'search' => 'Hesap adı veya kimliği ara',
@@ -109,4 +110,3 @@ return [
     'state_partial' => 'Kısmen tamamlandı',
     'state_failed' => 'Başarısız',
 ];
-

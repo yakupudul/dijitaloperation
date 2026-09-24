@@ -18,7 +18,15 @@
                 <span wire:loading.remove wire:target="createAll">Doldurulanları oluştur</span>
                 <span wire:loading wire:target="createAll">Oluşturuluyor…</span>
             </button>
-            <span class="text-sm text-gray-500">{{ count($groups) }} grup</span>
+            <span class="text-sm text-gray-500">{{ $total }} grup{{ $shown < $matching ? ' · '.$shown.' / '.$matching.' gösteriliyor' : '' }}</span>
+            <input type="search" wire:model.live.debounce.300ms="search" placeholder="Grup, alan adı ya da hesap ara…"
+                class="h-10 w-64 rounded-lg border border-gray-200 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white">
+            <select wire:model.live="filter" class="h-10 rounded-lg border border-gray-200 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white">
+                <option value="all">Hepsi</option>
+                <option value="web">Web adresi olanlar</option>
+                <option value="noweb">Web adresi olmayanlar</option>
+                <option value="existing">Mevcut markaya ait</option>
+            </select>
             @if ($bulkMessage !== '')
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $bulkMessage }}</span>
             @endif
@@ -49,7 +57,7 @@
     @endif
 
     <div class="grid gap-4 xl:grid-cols-2">
-        @foreach ($groups as $group)
+        @foreach ($visible as $group)
             @php
                 $key = $group['form_key'];
                 $existing = $group['existing_brand_id'] !== null;
@@ -61,7 +69,7 @@
                         <p class="text-xs text-gray-500">{{ $group['host'] ?? 'Web adresi bulunamadı' }} · {{ count($group['resources']) }} hesap</p>
                     </div>
                     @if ($existing)
-                        <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">Mevcut marka: {{ $group['existing_brand'] }}</span>
+                        <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">Bu site zaten “{{ $group['existing_brand'] }}” markasında</span>
                     @endif
                 </div>
 
@@ -123,4 +131,9 @@
             </section>
         @endforeach
     </div>
+    @if ($shown < $matching)
+        <div class="text-center">
+            <button type="button" wire:click="showMore" class="rounded-lg px-4 py-2 text-sm font-medium text-brand-700 ring-1 ring-inset ring-brand-300">Daha fazla göster ({{ $matching - $shown }} grup kaldı)</button>
+        </div>
+    @endif
 </div>

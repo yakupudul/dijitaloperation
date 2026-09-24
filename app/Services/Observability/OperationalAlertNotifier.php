@@ -47,6 +47,7 @@ final class OperationalAlertNotifier
                     'rule_key' => $alert->rule_key,
                     'severity' => $alert->severity->value,
                     'title' => $alert->title,
+                    'summary' => $alert->summary,
                     'scope_type' => $alert->scope_type,
                     'scope_key' => $alert->scope_key,
                 ],

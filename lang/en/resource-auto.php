@@ -25,6 +25,7 @@ return [
     'data_through' => 'Data date of last successful batch',
     'close_failed' => 'Close interrupted import',
     'close_failed_confirm' => 'Keep saved queries and skip the remaining rows in this import? Later data batches will use current account settings.',
+    'alert_title' => 'Account updates stopped',
     'title' => 'Automatic account updates',
     'intro' => 'Refresh accounts regularly and automatically import queries from mapped accounts.',
     'search' => 'Search account name or ID',
@@ -109,4 +110,3 @@ return [
     'state_partial' => 'Partial',
     'state_failed' => 'Failed',
 ];
-

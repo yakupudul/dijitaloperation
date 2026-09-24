@@ -96,7 +96,7 @@ final class NotificationProjector
     }
 
     /**
-     * @return array{title_key: string, title: string, body_key: string, body_params: array<string, mixed>, subject_label: string}
+     * @return array{title_key: string, title: string, body_key: string, body_params: array<string, mixed>, subject_label: string, summary: ?string}
      */
     private function presentation(DomainEvent $event, DomainEventType $type, NotificationKind $kind): array
     {
@@ -114,6 +114,7 @@ final class NotificationProjector
             'body_key' => 'notifications.'.$kind->value.'.body',
             'body_params' => $bodyParams,
             'subject_label' => $subjectLabel,
+            'summary' => is_string($payload['summary'] ?? null) ? mb_substr(trim($payload['summary']), 0, 300) : null,
         ];
     }
 

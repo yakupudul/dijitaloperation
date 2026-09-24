@@ -1,5 +1,20 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-11 — Toplu ekle, menü ve bildirim düzeltmeleri
+
+**State:** CODED + PHPUnit (`DiscoverAndGroupTest` 7/7, `NotificationBellPresentationTest` 2/2). Not deployed.
+- **Toplu ekle:**
+  - Instagram / Facebook / linktr.ee / Google Maps gibi paylaşılan adresler artık "web sitesi" sayılmıyor.
+  - Bir reklam hesabı yalnız bağlı olduğu işletmenin adı markaya benziyorsa gruba öneriliyor ama işaretsiz geliyor, gerekçesiyle birlikte.
+  - Marka adı temizleniyor: "- GA4", "Reklam Hesabı", URL ve sondaki tire atılıyor. "A | B" başlığında alan adına en yakın parça seçiliyor. Yalnız rakamdan oluşan hesap adları marka adı olmuyor.
+  - Arama, filtre (web adresi olan / olmayan / mevcut markaya ait) ve 20'şer gösterim eklendi.
+  - Etiket "Bu site zaten “X” markasında" oldu.
+- **Menü:** Her maddenin kendi ikonu var; önceden 15 madde 5 ikonu paylaşıyordu.
+- **Bildirimler:**
+  - Sistem uyarıları Türkçe; aynı başlık iki kez yazılmıyor.
+  - Altta uyarı özeti ve saat var; başlığa tıklayınca Uyarılar sayfası açılıyor.
+  - "Prompt27" gibi iç adlar kaldırıldı.
+
 ## 2026-10-11 — Connector 1.4.1: tek tık eklenti güncelleme, siteden anında değişiklik (ADR-071)
 
 **State:** CODED + PHPUnit (SQLite and PostgreSQL).

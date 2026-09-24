@@ -554,8 +554,9 @@ final class ResourceAutomationService
                 OperationalSignalFamily::Collection,
                 OperationalAlertSeverity::Warning,
                 'external_resource', (string) $a->external_resource_id,
-                __('resource-auto.title').' · '.($a->resource?->display_name ?? '#'.$a->external_resource_id),
-                __('resource-auto.'.$reason), ['automation_id' => $a->id, 'phase' => $phase, 'reason' => $reason]
+                // Written by queue workers (English app locale); the operator product is Turkish.
+                __('resource-auto.alert_title', [], 'tr').' · '.($a->resource?->display_name ?? '#'.$a->external_resource_id),
+                __('resource-auto.'.$reason, [], 'tr'), ['automation_id' => $a->id, 'phase' => $phase, 'reason' => $reason]
             );
         } catch (Throwable $e) {
             // A notification outage must not undo a durable collection/import result.

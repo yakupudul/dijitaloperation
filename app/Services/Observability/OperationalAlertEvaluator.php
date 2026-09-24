@@ -71,7 +71,7 @@ final class OperationalAlertEvaluator
                 severity: OperationalAlertSeverity::Warning,
                 scopeType: 'QUEUE',
                 scopeKey: $scope,
-                title: 'Queue backlog: oldest waiting job exceeds policy',
+                title: 'Kuyrukta bekleyen iş birikti',
                 summary: $snap['message'],
                 observed: [
                     'pending_jobs' => $snap['pending_jobs'],
@@ -104,7 +104,7 @@ final class OperationalAlertEvaluator
                 severity: OperationalAlertSeverity::Critical,
                 scopeType: 'WORKER',
                 scopeKey: $scope,
-                title: 'Expected workers unavailable',
+                title: 'Arka plan işçileri çalışmıyor',
                 summary: $snap['message'],
                 observed: [
                     'expected_supervisors' => $expected,
@@ -137,7 +137,7 @@ final class OperationalAlertEvaluator
                 severity: OperationalAlertSeverity::Warning,
                 scopeType: 'SYSTEM',
                 scopeKey: $scope,
-                title: 'Stuck collection run(s) detected',
+                title: 'Takılı kalan veri çekimi var',
                 summary: count($candidates).' running collection(s) exceed workload-aware no-progress policy',
                 observed: [
                     'candidate_count' => count($candidates),
@@ -176,7 +176,7 @@ final class OperationalAlertEvaluator
                 severity: OperationalAlertSeverity::Warning,
                 scopeType: 'SYSTEM',
                 scopeKey: $scope,
-                title: 'Repeated collection failures',
+                title: 'Veri çekimleri tekrar tekrar başarısız',
                 summary: $failures->count().' failed CollectionRun(s) in the last '.$window.'s',
                 observed: [
                     'failure_count' => $failures->count(),
@@ -226,7 +226,7 @@ final class OperationalAlertEvaluator
                     severity: OperationalAlertSeverity::Warning,
                     scopeType: 'PROVIDER',
                     scopeKey: $scope,
-                    title: 'Provider rate limited',
+                    title: 'Sağlayıcı istek sınırına takıldı',
                     summary: strtoupper($provider).' rate_limit_rate='.$rlRate.' ('.$summary['rate_limits'].'/'.$attempts.')',
                     observed: $summary,
                 );
@@ -244,7 +244,7 @@ final class OperationalAlertEvaluator
                     severity: OperationalAlertSeverity::Warning,
                     scopeType: 'PROVIDER',
                     scopeKey: $scope,
-                    title: 'Provider error rate above policy',
+                    title: 'Sağlayıcıdan çok fazla hata dönüyor',
                     summary: strtoupper($provider).' error_rate='.$errorRate.' ('.$summary['numerator_errors'].'/'.$attempts.')',
                     observed: $summary,
                 );
@@ -293,7 +293,7 @@ final class OperationalAlertEvaluator
                     severity: OperationalAlertSeverity::Critical,
                     scopeType: 'INTEGRATION',
                     scopeKey: $scope,
-                    title: 'Integration reconnect required',
+                    title: 'Entegrasyon yeniden bağlanmalı',
                     summary: 'Provider '.$integration->provider.' integration #'.$integration->id.' status='.$status,
                     observed: [
                         'integration_id' => (int) $integration->id,
@@ -317,7 +317,7 @@ final class OperationalAlertEvaluator
                     severity: OperationalAlertSeverity::Warning,
                     scopeType: 'INTEGRATION',
                     scopeKey: $scope,
-                    title: 'Integration authorization expires soon',
+                    title: 'Entegrasyon yetkisi yakında bitiyor',
                     summary: 'Provider '.$integration->provider.' integration #'.$integration->id.' expires_at='.$expiresAt->toIso8601String(),
                     observed: [
                         'integration_id' => (int) $integration->id,
@@ -395,8 +395,8 @@ final class OperationalAlertEvaluator
                 severity: OperationalAlertSeverity::Warning,
                 scopeType: 'SYSTEM',
                 scopeKey: $scope,
-                title: 'Datasets reported STALE / BLOCKED by Prompt27',
-                summary: $staleCount.' Resource×Dataset row(s) require attention (hold_seconds='.$hold.')',
+                title: 'Bazı veriler güncel değil ya da çekilemiyor',
+                summary: $staleCount.' hesap × veri seti güncellenemiyor; Uyarılar sayfasından inceleyin.',
                 observed: [
                     'stale_or_blocked_count' => $staleCount,
                     'hold_seconds' => $hold,
