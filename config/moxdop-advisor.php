@@ -205,6 +205,8 @@ return [
 
     // Faz 6 — kanallar arası öneriler (web sitesi varlığında çalışır; Google Ads / İşletme Profili / GSC verisini birleştirir).
     'cross' => [
+        // Faz 7: destinations that are fine even though they are not the brand's website.
+        'offsite_allowed_hosts' => ['wa.me', 'whatsapp.com', 'm.me', 'messenger.com', 'instagram.com', 'facebook.com', 'fb.me', 'google.com', 'goo.gl', 'maps.app.goo.gl'],
         'gsc_days' => 90,
         'ads_term_min_conversions' => 2,
         'ads_term_max_items' => 20,

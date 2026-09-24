@@ -4,6 +4,7 @@ namespace App\Services\Advisor\Cross;
 
 use App\Enums\AdvisorCategory;
 use App\Services\Advisor\Support\BuildsAdvisorItems;
+use App\Services\Assistant\WhatsAppContactLinker;
 use App\Services\SeoTasks\SeoText;
 
 /**
@@ -11,6 +12,8 @@ use App\Services\SeoTasks\SeoText;
  *  - A search term converts in Google Ads but the site has no page for it and ranks poorly organically.
  *  - The brand pays for its own name while it already ranks first organically (a test, not a verdict).
  *  - People find the Business Profile with a search the website has no content for.
+ *  - Faz 7 consistency: Business Profile phone / website vs the site, Google Ads landing pages and Meta ad
+ *    destinations on hosts that are not the brand's website.
  */
 final class CrossChannelRuleEngine
 {
@@ -36,6 +39,7 @@ final class CrossChannelRuleEngine
             $this->adsTermsWithoutOrganicPage($input, $brandTokens),
             $this->paidBrandSearch($input, $brandTokens),
             $this->gbpSearchesWithoutContent($input, $brandTokens),
+            $this->consistencyRules($input),
         );
         usort($items, static fn (array $a, array $b): int => $b['priority_score'] <=> $a['priority_score']);
 
@@ -198,5 +202,83 @@ final class CrossChannelRuleEngine
         }
 
         return false;
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function consistencyRules(array $input): array
+    {
+        $c = $input['consistency'] ?? null;
+        if (! is_array($c) || ($c['site_hosts'] ?? []) === []) {
+            return [];
+        }
+        $siteHosts = (array) $c['site_hosts'];
+        $allowed = array_map('strtolower', (array) ($this->cfg['offsite_allowed_hosts'] ?? []));
+        $isSite = static function (string $host) use ($siteHosts): bool {
+            foreach ($siteHosts as $site) {
+                if ($host === $site || str_ends_with($host, '.'.$site) || str_ends_with($site, '.'.$host)) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+        $isAllowed = static fn (string $host): bool => collect($allowed)->contains(fn (string $a): bool => $host === $a || str_ends_with($host, '.'.$a));
+        $items = [];
+
+        foreach ((array) ($c['gbp_profiles'] ?? []) as $profile) {
+            $host = preg_replace('/^www\./', '', mb_strtolower((string) parse_url((string) ($profile['website_uri'] ?? ''), PHP_URL_HOST))) ?? '';
+            if ($host === '' || ! $isSite($host)) {
+                $items[] = $this->item(
+                    input: $input, category: AdvisorCategory::Measurement, ruleId: 'gbp-website-mismatch', keyParts: [(string) $profile['name']], severity: $host === '' ? 'medium' : 'high',
+                    impact: null, impactLabel: 'Profilden siteye giden ziyaretler',
+                    title: $host === '' ? 'İşletme Profili\'nde web sitesi yok: '.$profile['name'] : 'İşletme Profili başka bir siteye yönlendiriyor: '.$profile['name'],
+                    reason: $host === '' ? 'Profilde web sitesi alanı boş; haritadan gelen kişiler siteye ulaşamıyor.' : sprintf('Profildeki site %s, markanın sitesi %s. Profilden gelen ziyaretler ve dönüşümler yanlış yere gidiyor.', $host, implode(', ', $siteHosts)),
+                    evidence: ['profile' => $profile['name'], 'gbp_website' => $profile['website_uri'] ?? null, 'site_hosts' => $siteHosts],
+                    checklist: ['İşletme Profili → Bilgileri düzenle → Web sitesi alanına markanın sitesini (UTM ile) yaz.'],
+                    copyText: null, baseline: null,
+                );
+            }
+            $gbpKeys = array_values(array_filter(array_map(static fn ($p): ?string => WhatsAppContactLinker::key((string) $p), (array) ($profile['phones'] ?? []))));
+            if (($c['site_phones_read'] ?? false) && $gbpKeys !== [] && ($c['site_phones'] ?? []) !== [] && array_intersect($gbpKeys, (array) $c['site_phones']) === []) {
+                $items[] = $this->item(
+                    input: $input, category: AdvisorCategory::Measurement, ruleId: 'nap-phone-mismatch', keyParts: [(string) $profile['name']], severity: 'medium',
+                    impact: null, impactLabel: 'Tutarlı iletişim bilgisi (NAP) yerel sıralamayı destekler',
+                    title: 'Sitedeki telefon İşletme Profili ile uyuşmuyor: '.$profile['name'],
+                    reason: sprintf('Profildeki telefon (%s) ana sayfa / iletişim sayfasında geçmiyor; sitede %s var. Google ve kullanıcılar tutarsız numara görür.', implode(', ', (array) $profile['phones']), implode(', ', array_map(static fn (string $k): string => '…'.substr($k, -7), (array) $c['site_phones']))),
+                    evidence: ['gbp_phones' => $profile['phones'], 'site_phone_keys' => $c['site_phones']],
+                    checklist: ['Doğru numarayı belirle.', 'Site (üst bilgi, altbilgi, iletişim) ve profilde aynı numarayı kullan.'],
+                    copyText: null, baseline: null,
+                );
+            }
+        }
+
+        $adsOff = array_filter((array) ($c['ads_landing_hosts'] ?? []), static fn (float $cost, string $host): bool => $cost > 0 && ! $isSite($host) && ! $isAllowed($host), ARRAY_FILTER_USE_BOTH);
+        if ($adsOff !== []) {
+            arsort($adsOff);
+            $cost = array_sum($adsOff);
+            $items[] = $this->item(
+                input: $input, category: AdvisorCategory::Landing, ruleId: 'ads-landing-offsite', keyParts: [], severity: 'medium', impact: $cost,
+                impactLabel: sprintf('%s son 30 günde başka alan adına gitti', $this->money($input, $cost)),
+                title: 'Google Ads tıklamaları markanın sitesi dışındaki adreslere gidiyor',
+                reason: sprintf('Açılış sayfası %s olan reklamlar var; markanın sitesi %s. Eski alan adı, test sayfası ya da yanlış URL olabilir; ölçüm ve kalite puanı etkilenir.', implode(', ', array_keys($adsOff)), implode(', ', $siteHosts)),
+                evidence: ['hosts' => $adsOff, 'site_hosts' => $siteHosts],
+                checklist: ['Reklamların nihai URL\'lerini kontrol et.', 'Doğru sayfaya yönlendir ya da bilinçli bir kampanya sayfasıysa Yöntem Kütüphanesi\'nde izinli alan adlarına ekle.'],
+                copyText: null, baseline: null,
+            );
+        }
+        $metaOff = array_filter((array) ($c['meta_hosts'] ?? []), static fn (int $count, string $host): bool => ! $isSite($host) && ! $isAllowed($host), ARRAY_FILTER_USE_BOTH);
+        if ($metaOff !== []) {
+            $items[] = $this->item(
+                input: $input, category: AdvisorCategory::Landing, ruleId: 'meta-destination-offsite', keyParts: [], severity: 'low', impact: null,
+                impactLabel: count($metaOff).' farklı hedef alan adı',
+                title: 'Meta reklamları markanın sitesi dışındaki adreslere gidiyor',
+                reason: sprintf('Kreatiflerin hedef adresleri: %s. Markanın sitesi %s. Piksel ve dönüşüm ölçümü bu adreslerde çalışmayabilir.', implode(', ', array_keys($metaOff)), implode(', ', $siteHosts)),
+                evidence: ['hosts' => $metaOff, 'site_hosts' => $siteHosts],
+                checklist: ['Kreatiflerin bağlantılarını kontrol et.', 'Bilinçli bir hedefse izinli alan adlarına ekle.'],
+                copyText: null, baseline: null,
+            );
+        }
+
+        return $items;
     }
 }
