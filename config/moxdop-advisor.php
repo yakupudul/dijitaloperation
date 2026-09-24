@@ -121,6 +121,15 @@ return [
             'max' => 3,
         ],
 
+        // Faz 14: günlük sağlam (medyan / MAD) anomali + EWMA sürekli kayma; gürültü eşikleri.
+        'daily_anomaly' => [
+            'z' => 3.5,
+            'min_change' => 0.5,
+            'drift_share' => 0.4,
+            'min_median_cost' => 50,
+            'min_median_clicks' => 20,
+        ],
+
         // Faz 7: anahtar kelime ↔ açılış sayfası başlık/H1 uyumu.
         'landing_match' => [
             'min_cost' => 50,
@@ -258,6 +267,16 @@ return [
         'brand_organic_min_impressions' => 100,
         'gbp_keyword_min_impressions' => 40,
         'gbp_keyword_max_items' => 20,
+        // Faz 14: cross-channel budget shift (28 days; both channels need spend and counted conversions).
+        'budget_shift_days' => 28,
+        'budget_shift_min_cost' => 1000,
+        'budget_shift_min_conversions' => 10,
+        'budget_shift_cpa_ratio' => 0.6,
+        'budget_shift_test_share' => 0.15,
+        // Faz 14: last year's organic clicks, next window vs the window before.
+        'season_window_days' => 60,
+        'season_min_clicks' => 200,
+        'season_ratio' => 1.3,
     ],
 
     // Haftalık özet e-postası (varsayılan kapalı) ve "Yapıldı" sonrası ölçüm.

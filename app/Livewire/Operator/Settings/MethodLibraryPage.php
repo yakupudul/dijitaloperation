@@ -23,10 +23,10 @@ final class MethodLibraryPage extends Component
 {
     /** Known advisor rules per channel (SEO rules are listed from what the plans produced). */
     public const array ADVISOR_RULES = [
-        'google_ads' => ['negative-keywords', 'ngram-waste', 'service-terms-not-converting', 'keyword-opportunities', 'budget-limited-profitable', 'budget-waste', 'auto-tagging-off', 'no-primary-conversion', 'primary-no-signal', 'conversion-settings', 'ga4-mismatch', 'landing-page-issues', 'landing-keyword-mismatch', 'weak-ad-strength', 'missing-assets', 'google-recommendations', 'low-quality-score', 'quality-score-drop', 'performance-anomaly', 'change-impact'],
+        'google_ads' => ['negative-keywords', 'ngram-waste', 'service-terms-not-converting', 'keyword-opportunities', 'budget-limited-profitable', 'budget-waste', 'auto-tagging-off', 'no-primary-conversion', 'primary-no-signal', 'conversion-settings', 'ga4-mismatch', 'landing-page-issues', 'landing-keyword-mismatch', 'weak-ad-strength', 'missing-assets', 'google-recommendations', 'low-quality-score', 'quality-score-drop', 'performance-anomaly', 'daily-anomaly', 'change-impact'],
         'meta_ads' => ['creative-fatigue', 'audience-saturation', 'learning-limited', 'spend-no-results', 'pixel-health', 'delivery-outliers', 'landing-page-issues', 'change-impact'],
         'google_business_profile' => ['profile-closed', 'profile-gaps', 'keyword-service-gaps', 'site-profile-services', 'profile-actions-drop', 'rating-trend', 'photo-freshness', 'website-utm'],
-        'cross' => ['ads-term-no-organic-page', 'paid-brand-search', 'gbp-search-no-site-content', 'nap-phone-mismatch', 'gbp-website-mismatch', 'ads-landing-offsite', 'meta-destination-offsite'],
+        'cross' => ['ads-term-no-organic-page', 'paid-brand-search', 'gbp-search-no-site-content', 'nap-phone-mismatch', 'gbp-website-mismatch', 'ads-landing-offsite', 'meta-destination-offsite', 'budget-shift', 'season-ahead'],
     ];
 
     #[Url]

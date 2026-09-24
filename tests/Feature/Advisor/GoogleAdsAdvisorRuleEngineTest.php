@@ -165,6 +165,30 @@ final class GoogleAdsAdvisorRuleEngineTest extends TestCase
         $this->assertFalse(collect((new GoogleAdsAdvisorRuleEngine)->evaluate($steady)['items'])->contains('rule_id', 'performance-anomaly'));
     }
 
+    public function test_daily_anomaly_uses_median_and_mad_and_ignores_noise(): void
+    {
+        config(['moxdop-advisor.google_ads.max_open' => 50]);
+        $rules = fn (array $input): array => collect((new GoogleAdsAdvisorRuleEngine)->evaluate($input)['items'])->where('rule_id', 'daily-anomaly')->values()->all();
+        $this->assertSame([], $rules($this->input()), 'flat 100/day spend is not an anomaly');
+
+        $spike = $this->input();
+        $spike['campaign_daily']['c1']['2026-09-22']['cost'] = 400.0;
+        $items = $rules($spike);
+        $this->assertCount(1, $items);
+        $this->assertSame('cost', $items[0]['evidence']['metric']);
+        $this->assertSame('high', $items[0]['severity']);
+
+        $noise = $this->input();
+        $noise['campaign_daily']['c1']['2026-09-22']['cost'] = 130.0;
+        $this->assertSame([], $rules($noise), 'a 30% move is below the minimum change');
+
+        $drift = $this->input();
+        foreach (['2026-09-20', '2026-09-21', '2026-09-22'] as $date) {
+            $drift['campaign_daily']['c1'][$date]['cost'] = 145.0;
+        }
+        $this->assertStringContainsString('son 3 gündür', $rules($drift)[0]['title']);
+    }
+
     public function test_landing_keyword_mismatch_uses_crawled_title_and_h1(): void
     {
         $input = $this->input();

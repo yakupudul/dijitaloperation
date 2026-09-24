@@ -2,11 +2,13 @@
 
 namespace App\Services\Advisor\Cross;
 
+use App\Models\BrandConversionSource;
 use App\Models\DigitalAsset;
 use App\Services\Advisor\Gbp\GbpAdvisorInputCollector;
 use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorInputCollector;
 use App\Services\Advisor\Support\AdvisorWebsiteReader;
 use App\Services\Assistant\WhatsAppContactLinker;
+use App\Services\Measurement\BrandConversionDictionary;
 use App\Services\Measurement\BrandMeasurementScope;
 use App\Services\SeoTasks\SeoPlanInputCollector;
 use App\Services\SeoTasks\SeoText;
@@ -68,7 +70,9 @@ final class CrossChannelInputCollector
             }
         }
         $consistency = $this->consistency($site, $gbpProfiles);
-        if ($ads === [] && $gbpKeywords === [] && $gbpProfiles === [] && $consistency['ads_landing_hosts'] === [] && $consistency['meta_hosts'] === []) {
+        $channelSpend = $this->channelSpend($site);
+        $season = $this->season($site);
+        if ($ads === [] && $gbpKeywords === [] && $gbpProfiles === [] && $consistency['ads_landing_hosts'] === [] && $consistency['meta_hosts'] === [] && $season === null) {
             return $base + ['bound' => false, 'binding_reason' => 'no_partner_channels'];
         }
 
@@ -109,7 +113,77 @@ final class CrossChannelInputCollector
             'gsc_queries' => $queries,
             'pages' => $pages,
             'consistency' => $consistency,
+            'channel_spend' => $channelSpend,
+            'season' => $season,
         ];
+    }
+
+    /**
+     * Faz 14: last 28 days of spend and counted conversions per paid channel (Google Ads, Meta). Conversions
+     * come from the brand's conversion dictionary; without a counted Meta conversion Meta has no CPA.
+     *
+     * @return array{days: int, google_ads: array{cost: float, conversions: ?float}, meta: array{cost: float, conversions: ?float}}|null
+     */
+    private function channelSpend(DigitalAsset $site): ?array
+    {
+        $brand = $site->brand;
+        $scope = $brand !== null ? BrandMeasurementScope::for($brand) : null;
+        if ($scope === null || $scope->isEmpty()) {
+            return null;
+        }
+        $days = (int) config('moxdop-advisor.cross.budget_shift_days', 28);
+        $to = CarbonImmutable::now('UTC')->subDay()->startOfDay();
+        $from = $to->subDays($days - 1);
+        $sum = function (string $table, string $column) use ($scope, $from, $to): float {
+            if (! Schema::hasTable($table)) {
+                return 0.0;
+            }
+
+            return (float) $scope->apply(DB::table($table))->whereBetween('reporting_date', [$from->toDateString(), $to->toDateString()])->sum($column);
+        };
+        $googleCost = $sum('google_ads_campaign_daily', 'cost_amount');
+        $metaCost = $sum('meta_campaign_daily', 'spend');
+        if ($googleCost <= 0 && $metaCost <= 0) {
+            return null;
+        }
+        $bySource = app(BrandConversionDictionary::class)->totals($brand, $from, $to)['by_source'];
+        $googleConversions = $bySource[BrandConversionSource::SOURCE_GOOGLE_ADS] ?? null;
+        if ($googleConversions === null && $googleCost > 0) {
+            $googleConversions = $sum('google_ads_campaign_daily', 'conversions');
+        }
+
+        return [
+            'days' => $days,
+            'google_ads' => ['cost' => round($googleCost, 2), 'conversions' => $googleConversions !== null ? round((float) $googleConversions, 2) : null],
+            'meta' => ['cost' => round($metaCost, 2), 'conversions' => isset($bySource[BrandConversionSource::SOURCE_META]) ? round((float) $bySource[BrandConversionSource::SOURCE_META], 2) : null],
+        ];
+    }
+
+    /**
+     * Faz 14: last year's organic clicks for the coming weeks against the weeks before them (Search Console,
+     * web). A season that starts soon shows up here before it shows up in this year's data.
+     *
+     * @return array{window_days: int, ahead_clicks: int, before_clicks: int, ahead_from: string, ahead_to: string}|null
+     */
+    private function season(DigitalAsset $site): ?array
+    {
+        $brand = $site->brand;
+        $scope = $brand !== null ? BrandMeasurementScope::for($brand) : null;
+        if ($scope === null || $scope->isEmpty() || ! Schema::hasTable('gsc_property_daily')) {
+            return null;
+        }
+        $window = (int) config('moxdop-advisor.cross.season_window_days', 60);
+        $pivot = CarbonImmutable::now('UTC')->startOfDay()->subYear();
+        $clicks = fn (CarbonImmutable $from, CarbonImmutable $to): int => (int) $scope->apply(DB::table('gsc_property_daily'))
+            ->whereBetween('reporting_date', [$from->toDateString(), $to->toDateString()])
+            ->where(fn ($q) => $q->whereNull('search_type')->orWhere('search_type', 'web'))->sum('clicks');
+        $before = $clicks($pivot->subDays($window), $pivot->subDay());
+        $ahead = $clicks($pivot, $pivot->addDays($window - 1));
+        if ($before === 0 && $ahead === 0) {
+            return null;
+        }
+
+        return ['window_days' => $window, 'ahead_clicks' => $ahead, 'before_clicks' => $before, 'ahead_from' => $pivot->addYear()->toDateString(), 'ahead_to' => $pivot->addYear()->addDays($window - 1)->toDateString()];
     }
 
     /**

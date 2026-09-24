@@ -3,6 +3,7 @@
 namespace App\Services\Advisor\GoogleAds;
 
 use App\Enums\AdvisorCategory;
+use App\Services\Advisor\Anomaly\RobustAnomaly;
 use App\Services\Advisor\Support\BuildsAdvisorItems;
 use App\Services\Advisor\Support\ChangeImpact;
 use App\Services\SeoTasks\SeoText;
@@ -51,6 +52,7 @@ final class GoogleAdsAdvisorRuleEngine
             $this->ngramWaste($input),
             $this->qualityScoreDrop($input),
             $this->performanceAnomaly($input),
+            $this->dailyAnomaly($input),
             $this->landingKeywordMismatch($input),
         );
 
@@ -998,6 +1000,75 @@ final class GoogleAdsAdvisorRuleEngine
         usort($items, static fn (array $a, array $b): int => $b['impact_amount'] <=> $a['impact_amount']);
 
         return array_slice($items, 0, (int) ($cfg['max'] ?? 3));
+    }
+
+    /**
+     * Faz 14 — account-level daily anomalies with robust statistics: the last complete day's cost or clicks against
+     * the previous 28 days (median / MAD robust z-score, noise suppressed by minimum volume and minimum change), and
+     * a sustained drift where the last 3 days all sit well above the EWMA of the baseline.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function dailyAnomaly(array $input): array
+    {
+        $daily = $input['campaign_daily'] ?? [];
+        if ($daily === []) {
+            return [];
+        }
+        $cfg = (array) ($this->cfg['daily_anomaly'] ?? []);
+        $totals = [];
+        foreach ($daily as $days) {
+            foreach ($days as $date => $m) {
+                $totals[(string) $date]['cost'] = ($totals[(string) $date]['cost'] ?? 0.0) + (float) ($m['cost'] ?? 0);
+                $totals[(string) $date]['clicks'] = ($totals[(string) $date]['clicks'] ?? 0) + (int) ($m['clicks'] ?? 0);
+            }
+        }
+        $end = CarbonImmutable::parse($input['period']['end'])->toDateString();
+        ksort($totals);
+        $dates = array_values(array_filter(array_keys($totals), static fn (string $d): bool => $d <= $end));
+        if (count($dates) < 15) {
+            return [];
+        }
+        $last = end($dates);
+        $baselineDates = array_slice($dates, -29, 28);
+        $items = [];
+        foreach (['cost' => 'Harcama', 'clicks' => 'Tıklama'] as $metric => $label) {
+            $baseline = array_map(static fn (string $d): float => (float) $totals[$d][$metric], $baselineDates);
+            $median = RobustAnomaly::median($baseline);
+            if ($median < (float) ($metric === 'cost' ? ($cfg['min_median_cost'] ?? 50) : ($cfg['min_median_clicks'] ?? 20))) {
+                continue;
+            }
+            $value = (float) $totals[$last][$metric];
+            $z = RobustAnomaly::zScore($value, $baseline);
+            $change = $median > 0 ? $value / $median - 1 : 0.0;
+            $recent3 = array_map(static fn (string $d): float => (float) $totals[$d][$metric], array_slice($dates, -3));
+            // Drift is judged against the 28 days before the last three, so the drift itself does not raise the EWMA.
+            $ewma = RobustAnomaly::ewma(array_map(static fn (string $d): float => (float) $totals[$d][$metric], array_slice(array_slice($dates, 0, -3), -28)));
+            $drift = $ewma > 0 && min($recent3) >= $ewma * (1 + (float) ($cfg['drift_share'] ?? 0.4));
+            $spike = abs($z) >= (float) ($cfg['z'] ?? 3.5) && abs($change) >= (float) ($cfg['min_change'] ?? 0.5);
+            if (! $spike && ! $drift) {
+                continue;
+            }
+            $items[] = $this->item(
+                input: $input,
+                category: AdvisorCategory::Change,
+                ruleId: 'daily-anomaly',
+                keyParts: [$metric, $last],
+                severity: $metric === 'cost' && $change > 0 ? 'high' : 'medium',
+                impact: $metric === 'cost' ? max(0.0, $value - $median) : null,
+                impactLabel: $spike ? sprintf('%s: %s (olağan ~%s)', $label, $metric === 'cost' ? $this->money($input, $value) : (int) $value, $metric === 'cost' ? $this->money($input, $median) : (int) $median) : sprintf('%s son 3 gündür yüksek seyrediyor', $label),
+                title: $spike ? sprintf('%s %s günü olağan dışı %s', $label, $last, $change > 0 ? 'yüksek' : 'düşük') : sprintf('%s son 3 gündür sürekli yüksek', $label),
+                reason: $spike
+                    ? sprintf('%s günü %s, son 28 günün ortancasına (%s) göre %+d%% (sağlam z-skoru %.1f). Tek günlük sıçrama gürültü eşiğinin üstünde.', $last, $metric === 'cost' ? $this->money($input, $value) : (int) $value, $metric === 'cost' ? $this->money($input, $median) : (int) $median, (int) round($change * 100), $z)
+                    : sprintf('Son 3 gün (%s) üstel ağırlıklı ortalamanın (%s) en az %%%d üzerinde.', implode(', ', array_map(static fn (float $v): string => (string) round($v), $recent3)), (string) round($ewma), (int) round((float) ($cfg['drift_share'] ?? 0.4) * 100)),
+                evidence: ['metric' => $metric, 'date' => $last, 'value' => $value, 'median' => $median, 'z' => round($z, 2), 'ewma' => round($ewma, 2), 'recent3' => $recent3],
+                checklist: ['Değişiklik geçmişinde bütçe, teklif veya kampanya değişikliği var mı bak.', 'Arama terimlerinde yeni, alakasız trafik var mı kontrol et.', 'Rakip veya sezon etkisi için Açık artırma istatistiklerine bak.'],
+                copyText: null,
+                baseline: ['median' => $median, 'ewma' => $ewma],
+            );
+        }
+
+        return $items;
     }
 
     /**

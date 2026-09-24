@@ -14,6 +14,8 @@ use App\Services\SeoTasks\SeoText;
  *  - People find the Business Profile with a search the website has no content for.
  *  - Faz 7 consistency: Business Profile phone / website vs the site, Google Ads landing pages and Meta ad
  *    destinations on hosts that are not the brand's website.
+ *  - Faz 14: one paid channel brings conversions much cheaper than the other (budget shift test), and last
+ *    year's organic clicks show a season starting in the coming weeks.
  */
 final class CrossChannelRuleEngine
 {
@@ -40,6 +42,8 @@ final class CrossChannelRuleEngine
             $this->paidBrandSearch($input, $brandTokens),
             $this->gbpSearchesWithoutContent($input, $brandTokens),
             $this->consistencyRules($input),
+            $this->budgetShift($input),
+            $this->seasonAhead($input),
         );
         usort($items, static fn (array $a, array $b): int => $b['priority_score'] <=> $a['priority_score']);
 
@@ -280,5 +284,83 @@ final class CrossChannelRuleEngine
         }
 
         return $items;
+    }
+
+    /**
+     * Faz 14: Google Ads and Meta both spend and both have counted conversions; one channel's cost per
+     * conversion is far lower. A test suggestion, not a verdict: channels play different roles in the funnel.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function budgetShift(array $input): array
+    {
+        $spend = $input['channel_spend'] ?? null;
+        if (! is_array($spend)) {
+            return [];
+        }
+        $minCost = (float) ($this->cfg['budget_shift_min_cost'] ?? 1000);
+        $minConversions = (float) ($this->cfg['budget_shift_min_conversions'] ?? 10);
+        $channels = [];
+        foreach (['google_ads' => 'Google Ads', 'meta' => 'Meta'] as $key => $label) {
+            $row = $spend[$key] ?? null;
+            if (! is_array($row) || ($row['conversions'] ?? null) === null || $row['cost'] < $minCost || $row['conversions'] < $minConversions) {
+                return [];
+            }
+            $channels[$key] = ['label' => $label, 'cost' => (float) $row['cost'], 'conversions' => (float) $row['conversions'], 'cpa' => $row['cost'] / $row['conversions']];
+        }
+        uasort($channels, static fn (array $a, array $b): int => $a['cpa'] <=> $b['cpa']);
+        [$cheap, $dear] = array_values($channels);
+        $ratio = $cheap['cpa'] / $dear['cpa'];
+        if ($ratio > (float) ($this->cfg['budget_shift_cpa_ratio'] ?? 0.6)) {
+            return [];
+        }
+        $share = (float) ($this->cfg['budget_shift_test_share'] ?? 0.15);
+        $move = round($dear['cost'] * $share, 2);
+
+        return [$this->item(
+            input: $input, category: AdvisorCategory::Growth, ruleId: 'budget-shift', keyParts: [], severity: 'medium', impact: $move,
+            impactLabel: sprintf('%s / %d gün kaydırma testi', $this->money($input, $move), (int) $spend['days']),
+            title: sprintf('%s dönüşümü %s\'dan %%%d daha ucuza getiriyor', $cheap['label'], $dear['label'], (int) round((1 - $ratio) * 100)),
+            reason: sprintf(
+                'Son %d günde dönüşüm başına maliyet %s\'da %s, %s\'da %s (sayılan dönüşümler, Marka → Dönüşümler). Bütçenin küçük bir kısmını ucuz kanala kaydırıp 2-3 hafta izlemek toplam dönüşümü artırabilir. Kanallar huninin farklı yerlerinde çalışabilir; bu bir test önerisi.',
+                (int) $spend['days'], $cheap['label'], $this->money($input, $cheap['cpa']), $dear['label'], $this->money($input, $dear['cpa']),
+            ),
+            evidence: ['channels' => array_values(array_map(static fn (array $c): array => ['channel' => $c['label'], 'cost' => round($c['cost'], 2), 'conversions' => round($c['conversions'], 1), 'cpa' => round($c['cpa'], 2)], $channels))],
+            checklist: [sprintf('%s bütçesinden yaklaşık %s tutarı (%%%d) %s tarafına kaydır.', $dear['label'], $this->money($input, $move), (int) round($share * 100), $cheap['label']), 'Dönüşüm tanımlarının iki kanalda da aynı işi saydığını kontrol et (Marka → Dönüşümler).', '2-3 hafta sonra toplam dönüşüm ve dönüşüm başına maliyeti karşılaştır; düştüyse geri al.'],
+            copyText: null,
+            baseline: ['cheap_cpa' => round($cheap['cpa'], 2), 'dear_cpa' => round($dear['cpa'], 2)],
+        )];
+    }
+
+    /**
+     * Faz 14: last year the coming weeks brought clearly more organic clicks than the weeks before — prepare
+     * content, budget and offers before the season starts.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function seasonAhead(array $input): array
+    {
+        $season = $input['season'] ?? null;
+        if (! is_array($season) || $season['before_clicks'] < (int) ($this->cfg['season_min_clicks'] ?? 200)) {
+            return [];
+        }
+        $ratio = $season['ahead_clicks'] / max(1, $season['before_clicks']);
+        if ($ratio < (float) ($this->cfg['season_ratio'] ?? 1.3)) {
+            return [];
+        }
+
+        return [$this->item(
+            input: $input, category: AdvisorCategory::Growth, ruleId: 'season-ahead', keyParts: [substr((string) $season['ahead_from'], 0, 7)], severity: 'low', impact: null,
+            impactLabel: sprintf('Geçen yıl %%%d daha fazla organik tık', (int) round(($ratio - 1) * 100)),
+            title: 'Sezon yaklaşıyor: önümüzdeki haftalarda talep geçen yıl belirgin arttı',
+            reason: sprintf(
+                'Search Console\'a göre geçen yıl %s – %s arasına denk gelen %d günde %s organik tık geldi; önceki %d günde %s. Aynı dönem bu yıl da gelirse içerik, bütçe ve kampanyalar şimdiden hazır olmalı.',
+                $season['ahead_from'], $season['ahead_to'], (int) $season['window_days'], number_format((int) $season['ahead_clicks'], 0, ',', '.'), (int) $season['window_days'], number_format((int) $season['before_clicks'], 0, ',', '.'),
+            ),
+            evidence: $season,
+            checklist: ['Geçen yılın bu dönemde en çok tık alan sayfalarını güncelle.', 'Sezon kampanyaları ve bütçe artışını takvime koy.', 'İşletme Profili\'nde dönem gönderisi / teklif hazırla.'],
+            copyText: null,
+            baseline: ['ahead_clicks' => (int) $season['ahead_clicks'], 'before_clicks' => (int) $season['before_clicks']],
+        )];
     }
 }
