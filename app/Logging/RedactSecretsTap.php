@@ -17,6 +17,7 @@ final class RedactSecretsTap
         '/((?:access_token|refresh_token|client_secret|password|api_key|apikey)["\']?\s*[=:]\s*["\']?)[^"\'\s&,}]+/i' => '$1[REDACTED]',
         '/\bya29\.[A-Za-z0-9\-_\.]+/' => '[REDACTED]',
         '/\bEAA[A-Za-z0-9]{20,}/' => '[REDACTED]',
+        '/\bbot\d{5,}:[A-Za-z0-9_-]{20,}/' => 'bot[REDACTED]',
     ];
 
     public function __invoke(Logger $logger): void

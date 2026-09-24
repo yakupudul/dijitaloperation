@@ -50,5 +50,7 @@ return [
         'google_integration_discovery_attempts' => ['created_at', 90],
         'meta_integration_discovery_attempts' => ['created_at', 90],
         'search_demand_provider_payloads' => ['captured_at', 90],
+        'uptime_checks' => ['checked_at', 30],
+        'push_notifications' => ['created_at', 90],
     ],
 ];

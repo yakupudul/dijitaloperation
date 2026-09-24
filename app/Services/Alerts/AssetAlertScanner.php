@@ -6,6 +6,7 @@ use App\Models\AssetAlert;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Services\Advisor\GoogleAds\GoogleAdsRowScope;
+use App\Services\Assistant\PushNotifier;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\Measurement\TrackingHealthChecker;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
@@ -79,6 +80,13 @@ final class AssetAlertScanner
             try {
                 array_push($detected, ...$this->tracking->check($asset));
                 array_push($detected, ...$this->wordpressConnector($asset));
+                // Faz 6: keep the uptime monitor's open site_down alert while the site is still down.
+                if (DB::table('uptime_states')->where('digital_asset_id', $asset->id)->value('state') === 'down') {
+                    $open = AssetAlert::query()->open()->where('digital_asset_id', $asset->id)->where('kind', 'site_down')->first();
+                    if ($open !== null) {
+                        $detected[] = $this->alert('site_down', 'critical', (string) $open->title, (string) $open->message, (array) $open->data);
+                    }
+                }
             } catch (Throwable $exception) {
                 report($exception);
             }
@@ -300,7 +308,8 @@ final class AssetAlertScanner
             $key = hash('sha256', $alert['kind']);
             $keys[] = $key;
             $row = AssetAlert::query()->firstOrNew(['digital_asset_id' => $asset->id, 'alert_key' => $key]);
-            if (! $row->exists || $row->resolved_at !== null) {
+            $isNew = ! $row->exists || $row->resolved_at !== null;
+            if ($isNew) {
                 $row->first_detected_at = now();
                 $row->resolved_at = null;
                 $new++;
@@ -314,6 +323,15 @@ final class AssetAlertScanner
                 'data' => $alert['data'],
                 'last_detected_at' => now(),
             ])->save();
+            // Faz 6: a newly opened high / critical alert also goes to the phone (once per alert opening).
+            if ($isNew && in_array($alert['severity'], ['high', 'critical'], true) && $alert['kind'] !== 'site_down') {
+                try {
+                    app(PushNotifier::class)->send('alert:'.$asset->id.':'.$alert['kind'].':'.$row->first_detected_at?->format('Ymd'),
+                        $alert['title'].' — '.($asset->name ?? $asset->domain), $alert['message'], $alert['severity'], null, 24);
+                } catch (Throwable $exception) {
+                    report($exception);
+                }
+            }
         }
         $resolved = AssetAlert::query()->open()
             ->where('digital_asset_id', $asset->id)

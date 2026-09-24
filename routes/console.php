@@ -1,10 +1,12 @@
 <?php
 
 use App\Enums\Collection\CollectionRunStatus;
+use App\Jobs\Assistant\UptimeCheckJob;
 use App\Jobs\Collection\ExecuteDatasetRunJob;
 use App\Jobs\Ops\QueueHeartbeatProbeJob;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
+use App\Models\DigitalAsset;
 use App\Services\Collection\CollectionErrorRecorder;
 use App\Services\Collection\Monitoring\CollectionAccountPresenter;
 use App\Services\Collection\RecoverInterruptedCollections;
@@ -471,3 +473,12 @@ Schedule::command('moxdop:compliance:scan')
     ->dailyAt((string) config('moxdop-sector-packs.scan_time', '06:45'))
     ->withoutOverlapping(60)
     ->name('compliance-scan-daily');
+
+// Faz 6: site erişilebilirliği — her 5 dakikada site başına bir kuyruk işi (üst üste 2 hata = kesinti + telefon bildirimi).
+Schedule::call(function (): void {
+    if (! config('moxdop-assistant.uptime.enabled', true)) {
+        return;
+    }
+    DigitalAsset::query()->operational()->where('type', 'website')->whereNotNull('primary_url')->pluck('digital_assets.id')
+        ->each(fn ($id) => UptimeCheckJob::dispatch((int) $id));
+})->everyFiveMinutes()->name('uptime-checks')->withoutOverlapping(5);

@@ -24,9 +24,16 @@ use Illuminate\Database\Eloquent\Model;
     'mail_username',
     'mail_encryption',
     'mail_password',
+    'push_ntfy_url',
+    'push_ntfy_token',
+    'push_telegram_bot_token',
+    'push_telegram_chat_id',
+    'push_min_severity',
 ])]
 #[Hidden([
     'mail_password',
+    'push_ntfy_token',
+    'push_telegram_bot_token',
 ])]
 class AgencySetting extends Model
 {
@@ -46,6 +53,8 @@ class AgencySetting extends Model
             'mail_enabled' => 'boolean',
             'mail_port' => 'integer',
             'mail_password' => 'encrypted',
+            'push_ntfy_token' => 'encrypted',
+            'push_telegram_bot_token' => 'encrypted',
         ];
     }
 }
