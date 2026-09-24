@@ -297,7 +297,8 @@ class BrandQueryPortfolioPage extends Component
         }
 
         $serviceOptions = $brand instanceof Brand
-            ? $brand->offerings
+            // brands.offerings is also a text column, so the attribute would shadow the eager-loaded relation.
+            ? $brand->getRelation('offerings')
                 ->filter(fn ($offering): bool => $offering->status->value === 'active' && $offering->catalogItem !== null)
                 ->mapWithKeys(fn ($offering): array => [
                     (string) $offering->catalogItem->id => $offering->catalogItem->primaryName?->raw_label ?? 'İsimsiz hizmet',

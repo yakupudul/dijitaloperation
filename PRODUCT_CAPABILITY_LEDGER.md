@@ -1,5 +1,31 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-09 — Sunucu denetim komutu (`moxdop:audit`)
+
+**State:** CODED + PHPUnit (`tests/Feature/Operations/SystemAuditCommandTest`). It ran cleanly on local Postgres (163 pages, 0 errors). Not yet run on staging.
+
+- **System checks:** `moxdop:audit` checks:
+  - version and commit;
+  - APP_DEBUG;
+  - queue connection and backlog;
+  - pending migrations;
+  - failed jobs in the last 24 hours, grouped;
+  - the Sistem Sağlığı read (scheduler, watchdog, workers, operational alerts, integrations, stale accounts, plugins, backup, 2FA);
+  - disk;
+  - the most frequent errors in the last 24 hours of `laravel*.log`.
+- **Page sweep:** it then opens every operator GET page from inside the app as one user, with real data:
+  - pages without parameters, and every page tab;
+  - `--per-type` assets of every type on their asset pages;
+  - brand, customer and prospect detail pages.
+- **Read-only:**
+  - each request runs in a transaction that is rolled back;
+  - jobs, mail and notifications are faked;
+  - outside HTTP calls are blocked and reported (`--allow-http` lets them through);
+  - downloads, OAuth and connection routes are skipped;
+  - 2FA enforcement is off only inside the audit process.
+- **Report:** the same error on many pages prints once, with the source file and line (compiled Blade is mapped back to the template). The report is also saved to `storage/logs/audit-*.txt`.
+- **Bug found by the first run:** Kütüphane › Marka sorgu portföyü crashed when a brand was selected. The `brands.offerings` text column shadowed the `offerings` relation; the page now reads the relation explicitly.
+
 ## 2026-10-09 — Faz 14: Strateji boşlukları
 
 **State:** CODED + PHPUnit (`TrackingHealthCheckerTest`, `ComplianceAuditTest`, `Gbp/ReviewReplyDraftTest`, `Sales/LeadSourcesTest`, `KvkkAndBackupTest`, `Integrations/IntegrationE2E3Test`, `Unit/RobustAnomalyTest`, `Advisor/GoogleAdsAdvisorRuleEngineTest`, `Brain/CrossBudgetSeasonRulesTest`, `GoogleAds/AuctionInsightsUploadTest`). Postgres: migrations and the backup → restore round trip pass. **No live UAT.** Meta Lead Ads needs the `MOXDOP_META_LEADGEN_*` env and a webhook subscription in the Meta app.
