@@ -7,7 +7,6 @@ use App\Models\BrandDemandQuery;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
 use App\Models\CoreAssetBinding;
-use App\Services\BrandSetup\BrandSetupMatcher;
 use App\Services\SeoTasks\SeoText;
 use App\Support\Options\LocationOptions;
 use Illuminate\Support\Collection;
@@ -33,12 +32,12 @@ final class BrandDemandBuilder
         $phrases = $this->offeringPhrases($brand);
         $areas = BrandServiceArea::query()->where('brand_id', $brand->id)->where('status', 'active')->orderBy('priority_rank')->get();
         $areaRows = $areas->map(fn (BrandServiceArea $area): array => $area->only(['country_code', 'city_name', 'district_name']))->all();
-        $brandMarks = $this->brandMarks($brand);
+        $branded = BrandedQueryMatcher::for($brand);
         $existing = BrandDemandQuery::query()->where('brand_id', $brand->id)->get()->keyBy('query_key');
         $weights = (array) config('moxdop-demand.value_weights', []);
         $stats = ['queries' => 0, 'assigned' => 0, 'branded' => 0, 'in_area' => 0, 'out_of_area' => 0];
 
-        DB::transaction(function () use ($brand, $rows, $phrases, $areas, $areaRows, $brandMarks, $existing, $weights, $now, &$stats): void {
+        DB::transaction(function () use ($brand, $rows, $phrases, $areas, $areaRows, $branded, $existing, $weights, $now, &$stats): void {
             foreach ($rows as $key => $row) {
                 $row['value_score'] = round(array_sum(array_map(
                     fn (string $metric): float => (float) ($row[$metric] ?? 0) * (float) ($weights[$metric] ?? 0),
@@ -57,7 +56,7 @@ final class BrandDemandBuilder
                     'value_score' => $row['value_score'],
                     'locations' => $location['removed'] === [] ? null : $location['removed'],
                     'location_status' => $location['out_of_area'] !== [] && $location['in_area'] === [] ? 'out_of_area' : ($location['in_area'] !== [] ? 'in_area' : 'none'),
-                    'is_branded' => $this->isBranded($row['query'], $brandMarks),
+                    'is_branded' => $branded->isBranded($row['query']),
                     'last_seen_at' => $now,
                     'built_at' => $now,
                 ];
@@ -204,34 +203,5 @@ final class BrandDemandBuilder
         }
 
         return null;
-    }
-
-    /**
-     * Compact folded brand name and domain root (≥ 4 letters). Single words of the brand name are not used:
-     * "Atlas Dental Kliniği" must not make every "dental" query branded.
-     *
-     * @return list<string>
-     */
-    private function brandMarks(Brand $brand): array
-    {
-        $marks = [str_replace(' ', '', SeoText::fold((string) $brand->name))];
-        foreach ($brand->digitalAssets()->where('type', 'website')->get(['primary_url', 'domain']) as $site) {
-            $marks[] = SeoText::fold(BrandSetupMatcher::domainRoot(BrandSetupMatcher::host((string) ($site->primary_url ?: $site->domain))));
-        }
-
-        return array_values(array_unique(array_filter($marks, fn (string $mark): bool => mb_strlen($mark) >= 4)));
-    }
-
-    /** @param  list<string>  $marks */
-    private function isBranded(string $query, array $marks): bool
-    {
-        $compact = str_replace(' ', '', SeoText::fold($query));
-        foreach ($marks as $mark) {
-            if (str_contains($compact, $mark)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

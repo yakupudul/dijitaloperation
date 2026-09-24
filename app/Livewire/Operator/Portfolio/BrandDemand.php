@@ -9,6 +9,7 @@ use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
 use App\Services\Demand\AreaSerpChecker;
 use App\Services\Demand\BrandDemandBuilder;
+use App\Services\Demand\BrandedSplitReader;
 use App\Support\Permissions;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -130,6 +131,7 @@ final class BrandDemand extends Component
             'serpRows' => $this->serpRows($offerings->all()),
             'serpSpent' => app(AreaSerpChecker::class)->spentThisMonth(Brand::query()->findOrFail($this->brandId)),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
+            'split' => app(BrandedSplitReader::class)->monthly(Brand::query()->findOrFail($this->brandId)),
         ]);
     }
 }

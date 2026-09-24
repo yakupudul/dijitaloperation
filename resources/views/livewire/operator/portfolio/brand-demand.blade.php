@@ -59,6 +59,36 @@
         @endif
     @endif
 
+    @php
+        $splitHasData = collect($split)->contains(fn (array $m): bool => $m['gsc_branded'] + $m['gsc_non_branded'] > 0 || $m['ads_cost_branded'] + $m['ads_cost_non_branded'] > 0);
+        $share = fn (float|int $part, float|int $total): string => $total > 0 ? '%'.(int) round($part / $total * 100) : '—';
+    @endphp
+    @if ($splitHasData)
+        <div class="space-y-2 border-t border-gray-100 pt-4 dark:border-gray-800">
+            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Markalı / markasız talep (aylık)</h3>
+            <p class="text-xs text-gray-500">Markasız = markayı henüz bilmeyen, hizmeti arayan kişiler; SEO ve genel reklamların büyütmesi gereken kısım. Search Console nadir sorguları gizler; oranlar raporlanan sorgulardan.</p>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-left text-xs uppercase text-gray-400">
+                        <tr><th class="py-2 pr-3">Ay</th><th class="py-2 pr-3 text-right">Google markasız tık</th><th class="py-2 pr-3 text-right">Markalı tık</th><th class="py-2 pr-3 text-right">Ads markasız harcama</th><th class="py-2 pr-3 text-right">Markalı harcama</th><th class="py-2 text-right">Ads dönüşüm (markasız / markalı)</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @foreach ($split as $m)
+                            <tr wire:key="split-{{ $m['month'] }}">
+                                <td class="py-2 pr-3 text-gray-800 dark:text-gray-200">{{ \Illuminate\Support\Carbon::createFromFormat('Y-m-d', $m['month'].'-01')->locale('tr')->translatedFormat('M Y') }}</td>
+                                <td class="py-2 pr-3 text-right tabular-nums">{{ number_format($m['gsc_non_branded'], 0, ',', '.') }} <span class="text-xs text-gray-400">{{ $share($m['gsc_non_branded'], $m['gsc_branded'] + $m['gsc_non_branded']) }}</span></td>
+                                <td class="py-2 pr-3 text-right tabular-nums">{{ number_format($m['gsc_branded'], 0, ',', '.') }}</td>
+                                <td class="py-2 pr-3 text-right tabular-nums">{{ number_format($m['ads_cost_non_branded'], 0, ',', '.') }} <span class="text-xs text-gray-400">{{ $share($m['ads_cost_non_branded'], $m['ads_cost_branded'] + $m['ads_cost_non_branded']) }}</span></td>
+                                <td class="py-2 pr-3 text-right tabular-nums">{{ number_format($m['ads_cost_branded'], 0, ',', '.') }}</td>
+                                <td class="py-2 text-right tabular-nums">{{ number_format($m['ads_conv_non_branded'], 1, ',', '.') }} / {{ number_format($m['ads_conv_branded'], 1, ',', '.') }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
+
     <div class="space-y-3 border-t border-gray-100 pt-4 dark:border-gray-800">
         <div class="flex flex-wrap items-start justify-between gap-2">
             <div>
