@@ -6,6 +6,7 @@ use App\Enums\CustomerStatus;
 use App\Models\Brand;
 use App\Models\Intel\BrandIntelSetting;
 use App\Models\SearchDemandCompetitor;
+use App\Services\GoogleAds\AuctionInsightsImporter;
 use App\Services\Intel\CompetitorSiteWatch;
 use App\Services\Intel\DataForSeoTaskQueue;
 use App\Services\Intel\ReviewIntelService;
@@ -20,7 +21,7 @@ use Livewire\Component;
 
 /**
  * Pazar › Rakip izleme (Faz 8d/8e): Google reviews of the brand vs nearby competitors, weekly competitor site
- * changes and Meta Ad Library links. Internal agency view; paid review reads are admin-only.
+ * changes, Meta Ad Library links and uploaded Google Ads auction insights (Faz 14g). Internal agency view; paid review reads are admin-only.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Rakip izleme')]
@@ -146,6 +147,7 @@ final class CompetitorWatchPage extends Component
             'sites' => $sites,
             'competitors' => $competitors,
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
+            'auction' => $brand !== null && $this->tab === 'auction' ? app(AuctionInsightsImporter::class)->forBrand($brand) : [],
         ]);
     }
 

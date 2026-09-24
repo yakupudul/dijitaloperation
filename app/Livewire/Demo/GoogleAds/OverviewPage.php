@@ -72,6 +72,7 @@ class OverviewPage extends Component
         'budget_bidding',
         'measurement',
         'landing_pages',
+        'auction_insights',
         'changes',
         'data_connection',
         'pmax',

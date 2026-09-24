@@ -17,7 +17,7 @@
     </label>
 
     <nav class="flex gap-1 border-b border-gray-200 dark:border-gray-800">
-        @foreach (['reviews' => 'Yorumlar', 'sites' => 'Siteler', 'ads' => 'Meta reklamları'] as $key => $label)
+        @foreach (['reviews' => 'Yorumlar', 'sites' => 'Siteler', 'ads' => 'Meta reklamları', 'auction' => 'Google Ads açık artırma'] as $key => $label)
             <button type="button" wire:click="$set('tab', '{{ $key }}')" @class(['border-b-2 px-3 py-2 text-sm font-medium', 'border-brand-500 text-brand-600' => $tab === $key, 'border-transparent text-gray-500' => $tab !== $key])>{{ $label }}</button>
         @endforeach
     </nav>
@@ -140,5 +140,19 @@
             </table>
             <x-ta.button type="button" wire:click="savePageIds" size="sm" variant="outline" class="mt-3">Kimlikleri kaydet</x-ta.button>
         </section>
+    @endif
+
+    @if ($settings !== null && $tab === 'auction')
+        @forelse ($auction as $account)
+            <section class="{{ $card }}" wire:key="auction-{{ $account['asset_id'] }}">
+                <div class="flex items-center justify-between gap-2">
+                    <h2 class="font-semibold text-gray-900 dark:text-white">{{ $account['asset_name'] }}</h2>
+                    <a href="{{ route('operator.google-ads.overview', ['assetId' => $account['asset_id'], 'tab' => 'auction_insights']) }}" wire:navigate class="text-xs text-brand-600 hover:underline">Rapor yükle →</a>
+                </div>
+                <div class="mt-2">@include('livewire.operator.google-ads.partials.auction-insights-table', ['latest' => $account['latest']])</div>
+            </section>
+        @empty
+            <section class="{{ $card }} text-sm text-gray-500">Bu markada Google Ads hesabı yok.</section>
+        @endforelse
     @endif
 </div>

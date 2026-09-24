@@ -41,6 +41,7 @@
         ['key' => 'budget_bidding', 'label' => $isTr ? 'Bütçe & Teklif' : 'Budget & Bidding', 'wire' => true],
         ['key' => 'measurement', 'label' => $isTr ? 'Dönüşümler' : 'Conversions', 'wire' => true],
         ['key' => 'landing_pages', 'label' => $isTr ? 'Açılış Sayfaları' : 'Landing pages', 'wire' => true],
+        ['key' => 'auction_insights', 'label' => $isTr ? 'Açık artırma' : 'Auction insights', 'wire' => true],
         ['key' => 'changes', 'label' => $isTr ? 'Değişiklikler' : 'Changes', 'wire' => true],
         ['key' => 'data_connection', 'label' => $isTr ? 'Veri & Bağlantı' : 'Data & Connection', 'wire' => true],
     ];
@@ -142,6 +143,8 @@
         @include('livewire.demo.google-ads.tabs.measurement')
     @elseif ($effectiveTab === 'landing_pages')
         @include('livewire.demo.google-ads.tabs.landing-pages')
+    @elseif ($effectiveTab === 'auction_insights')
+        <livewire:operator.google-ads.auction-insights-panel :asset-id="(string) $this->assetId" :key="'google-ads-auction-'.$this->assetId" />
     @elseif ($effectiveTab === 'changes')
         @include('livewire.demo.google-ads.tabs.changes')
     @elseif ($effectiveTab === 'data_connection')
