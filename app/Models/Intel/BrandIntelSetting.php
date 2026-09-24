@@ -13,7 +13,7 @@ class BrandIntelSetting extends Model
 {
     protected $fillable = [
         'brand_id', 'monthly_usd', 'grid_enabled', 'grid_keywords', 'grid_center_lat', 'grid_center_lng', 'grid_size',
-        'grid_spacing_km', 'grid_every_days', 'gbp_place_id', 'gbp_cid', 'reviews_enabled', 'backlinks_enabled', 'kml_pin_limit', 'kml_experiment_started_on', 'backlinks_refreshed_at', 'reviews_refreshed_at', 'facebook_page_id', 'updated_by',
+        'grid_spacing_km', 'grid_every_days', 'gbp_place_id', 'gbp_cid', 'reviews_enabled', 'backlinks_enabled', 'kml_pin_limit', 'kml_experiment_started_on', 'backlinks_refreshed_at', 'reviews_refreshed_at', 'facebook_page_id', 'ai_visibility_prompts', 'updated_by',
     ];
 
     protected function casts(): array
@@ -33,6 +33,7 @@ class BrandIntelSetting extends Model
             'kml_experiment_started_on' => 'date',
             'backlinks_refreshed_at' => 'datetime',
             'reviews_refreshed_at' => 'datetime',
+            'ai_visibility_prompts' => 'array',
         ];
     }
 

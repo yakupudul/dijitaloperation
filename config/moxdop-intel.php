@@ -77,6 +77,11 @@ return [
         'monthly_usd' => 5,
     ],
 
+    // Faz 10c: AI görünürlüğü — tıklanınca sorulan soru sayısı (her soru bir AI çağrısı, AI bütçesinden).
+    'ai_visibility' => [
+        'max_prompts' => 6,
+    ],
+
     // Faz 8e: rakip site izleme (ücretsiz, herkese açık okuma, haftalık).
     'watch' => [
         'max_competitors' => 10,

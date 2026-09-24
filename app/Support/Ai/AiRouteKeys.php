@@ -39,4 +39,6 @@ final class AiRouteKeys
     public const string GBP_PROFILE_DRAFT = 'gbp.profile_draft';
 
     public const string MONTHLY_REPORT_COMMENTARY = 'reports.monthly_commentary';
+
+    public const string AI_VISIBILITY_PROBE = 'intel.ai_visibility_probe';
 }

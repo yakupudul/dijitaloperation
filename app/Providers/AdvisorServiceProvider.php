@@ -45,5 +45,13 @@ final class AdvisorServiceProvider extends ServiceProvider
             'description' => 'On operator click, writes the plain-language commentary (summary, wins, watch items, next month) of a monthly client report from its frozen numbers. The operator edits it before sharing.',
             'default_steps' => AiDefaultSteps::analysis(),
         ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::AI_VISIBILITY_PROBE,
+            'name' => 'AI Visibility Probe',
+            'module' => 'intel',
+            'description' => 'On operator click, asks customer-style questions about a brand\'s services and areas (without naming the brand) to see whether the AI assistant recommends the brand. Model knowledge only; not a live web search.',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
     }
 }

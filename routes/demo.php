@@ -78,6 +78,7 @@ use App\Livewire\Operator\Library\SearchDemandVisibilityMapPage;
 use App\Livewire\Operator\Library\SearchQueryLibraryPage;
 use App\Livewire\Operator\Library\ServiceCatalogPage;
 use App\Livewire\Operator\Library\WebsiteStandardsPage;
+use App\Livewire\Operator\Market\AiVisibilityPage;
 use App\Livewire\Operator\Market\BacklinksPage;
 use App\Livewire\Operator\Market\CompetitorWatchPage;
 use App\Livewire\Operator\Market\MapRankingsPage;
@@ -221,6 +222,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/market/competitor-watch', CompetitorWatchPage::class)->name('operator.market.competitor-watch');
         Route::livewire('/leads', LeadInboxPage::class)->name('operator.leads');
         Route::livewire('/reports/monthly', MonthlyReportsPage::class)->name('operator.reports.monthly');
+        Route::livewire('/market/ai-visibility', AiVisibilityPage::class)->name('operator.market.ai-visibility');
         Route::livewire('/reports/annotations', ChartAnnotationsPage::class)->name('operator.reports.annotations');
         Route::livewire('/integrations/wordpress-sites', WordPressSitesPage::class)->name('operator.integrations.wordpress-sites');
         Route::post('/integrations/wordpress-sites/{site}/login', WordPressLoginController::class)->whereNumber('site')->middleware('throttle:10,1')->name('operator.integrations.wordpress-login');

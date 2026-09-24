@@ -32,6 +32,7 @@ final class AiUsageRecorder
         'MetaAdsCreativeAgent' => AiRouteKeys::META_ADS_CREATIVE_DRAFT,
         'GbpProfileAgent' => AiRouteKeys::GBP_PROFILE_DRAFT,
         'MonthlyReportCommentaryAgent' => AiRouteKeys::MONTHLY_REPORT_COMMENTARY,
+        'AiVisibilityProbeAgent' => AiRouteKeys::AI_VISIBILITY_PROBE,
     ];
 
     public function __construct(private readonly AiPricing $pricing) {}
