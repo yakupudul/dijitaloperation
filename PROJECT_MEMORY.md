@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-10-05 — Faz 9 decisions (rapor v2 + eklenti v2)
+
+- Monthly client numbers come from `MonthlyReportBuilder` (stored data only, brand scope, central rows win over legacy per-asset copies, missing ≠ zero); a report freezes its payload in `monthly_reports`. New channel KPIs are added there, not in blades.
+- Report commentary is AI only on click and always editable before publishing; clients get a signed, time-limited link to published reports only.
+- WordPress Connector v2 features that act on a client site (login link, updates) are off in the plugin until the site admin enables them, admin-only in MoxDOP, recorded (security audit / external_write_actions), one item at a time; updates are not undoable (ADR-068). Server-side feature gate: `moxdop-wordpress.management_min_plugin_version`.
+
 ## 2026-10-04 — Faz 8 decisions (pazar istihbaratı + ajans satışı)
 
 - Every paid DataForSEO call of a market feature goes through `DataForSeoTaskQueue` (queued `post` or `recordLive`), so it lands in `dataforseo_tasks` with its cost and counts toward the brand's monthly cap; new queued purposes register a handler in `moxdop-intel.tasks.handlers`. New endpoints must be added to `DataForSeoEndpointAllowlist` (task_get reads are pattern-matched).
