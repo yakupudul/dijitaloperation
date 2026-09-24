@@ -22,6 +22,7 @@
         <a wire:navigate href="{{ route('operator.brand', ['brand' => $brand->id]) }}" class="text-sm text-gray-500 hover:text-brand-600">← {{ $brand->name }}</a>
         <h1 class="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90">Otomatik kur</h1>
         <p class="mt-1 max-w-3xl text-sm text-gray-500">Web sitesi adresinden yola çıkarak entegrasyonlardaki Search Console, GA4, İşletme Profili, Google Ads ve Meta hesaplarını bulur, sitedeki hizmetleri çıkarır. Hiçbir şey sen onaylamadan kaydedilmez.</p>
+        <p class="mt-1 text-xs text-gray-500">Sitenin dışındaki herkese açık izler (sosyal hesaplar, rehber kayıtları) için <a href="{{ route('operator.public-discovery', ['q' => $brand->name]) }}" wire:navigate class="font-medium text-brand-600 hover:underline">Açık Web Keşfi</a>.</p>
     </div>
 
     @if ($message !== '')

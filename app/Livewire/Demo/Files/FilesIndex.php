@@ -42,6 +42,16 @@ class FilesIndex extends Component
 
     public string $uploadScope = 'personal';
 
+    public function mount(): void
+    {
+        foreach (['brand' => $this->brand, 'customer' => $this->customer, 'digital_asset' => $this->asset] as $scope => $id) {
+            if (ctype_digit(trim($id))) {
+                $this->uploadScope = $scope;
+                break;
+            }
+        }
+    }
+
     public string $uploadDescription = '';
 
     public ?int $renamingId = null;
@@ -90,6 +100,7 @@ class FilesIndex extends Component
             'mime' => $file->getMimeType(),
             'size' => $file->getSize() ?: 0,
             'scope_type' => $this->uploadScope,
+            ...$this->uploadTarget(),
             'description' => $this->uploadDescription !== '' ? $this->uploadDescription : null,
             'tags' => [],
         ]);
@@ -162,6 +173,23 @@ class FilesIndex extends Component
 
         $this->confirmDeleteId = null;
         DemoState::flash(__('operator.files.deleted'));
+    }
+
+    /**
+     * Faz 11c: opened from a brand / customer / asset page (`?brand=`), the upload is attached to that record so the
+     * brand's Dosyalar tab lists it.
+     *
+     * @return array<string, string>
+     */
+    private function uploadTarget(): array
+    {
+        $map = ['brand' => ['brand_id', $this->brand], 'customer' => ['customer_id', $this->customer], 'digital_asset' => ['digital_asset_id', $this->asset]];
+        [$column, $id] = $map[$this->uploadScope] ?? [null, ''];
+        if ($column === null || ! ctype_digit(trim($id))) {
+            return [];
+        }
+
+        return [$column => trim($id), 'scope_id' => trim($id)];
     }
 
     public function render(): View

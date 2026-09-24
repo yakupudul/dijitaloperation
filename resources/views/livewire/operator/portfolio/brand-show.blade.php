@@ -1,6 +1,6 @@
 @php
     $card = 'rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
-    $tabLabels = ['overview' => 'Genel bakış', 'business' => 'İşletme', 'assets' => 'Dijital varlıklar', 'work' => 'İşler', 'reports' => 'Raporlar'];
+    $tabLabels = ['overview' => 'Genel bakış', 'business' => 'İşletme', 'assets' => 'Dijital varlıklar', 'work' => 'İşler', 'reports' => 'Raporlar', 'files' => 'Dosyalar'];
     $openWork = collect($work)->sum('count');
     $toneClass = fn (string $tone): string => match ($tone) {
         'error' => 'bg-error-500',
@@ -325,5 +325,31 @@
             @include('livewire.demo.partials._value-story', ['story' => $valueStory])
         @endif
         @include('livewire.demo.partials._report-composer')
+    @endif
+
+    {{-- ============================================================ FILES (Faz 11c) --}}
+    @if ($tab === 'files')
+        <section class="{{ $card }} p-5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Dosyalar</h2>
+                    <p class="text-xs text-gray-500">Sözleşme, teklif, logo, marka kılavuzu gibi bu markaya ait dosyalar.</p>
+                </div>
+                <a href="{{ route('operator.files', ['scope' => 'brand', 'brand' => $brandModel->id]) }}" wire:navigate class="inline-flex items-center rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">Dosya yükle</a>
+            </div>
+            <ul class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
+                @forelse ($brandFiles as $file)
+                    <li wire:key="brand-file-{{ $file->id }}" class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                        <div class="min-w-0">
+                            <p class="truncate font-medium text-gray-800 dark:text-white/90">{{ $file->original_name }}</p>
+                            <p class="text-xs text-gray-500">{{ $file->created_at?->format('d.m.Y') }} · {{ number_format(((int) $file->size) / 1024, 0, ',', '.') }} KB @if ($file->description) · {{ $file->description }}@endif</p>
+                        </div>
+                        <a href="{{ route('operator.files.download', $file) }}" class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.actions.download') }}</a>
+                    </li>
+                @empty
+                    <li class="py-6 text-center text-sm text-gray-500">Bu markaya bağlı dosya yok.</li>
+                @endforelse
+            </ul>
+        </section>
     @endif
 </div>

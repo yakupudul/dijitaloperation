@@ -112,18 +112,19 @@ class PanelDesignFreezeTest extends TestCase
             ->assertSee(__('operator.customer.actions.view_activity'));
     }
 
-    public function test_brand_primary_ia_exactly_five(): void
+    public function test_brand_primary_ia_is_locked(): void
     {
         $html = Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])->html();
 
-        foreach (['Genel bakış', 'İşletme', 'Dijital varlıklar', 'İşler', 'Raporlar'] as $tab) {
+        foreach (['Genel bakış', 'İşletme', 'Dijital varlıklar', 'İşler', 'Raporlar', 'Dosyalar'] as $tab) {
             $this->assertMatchesRegularExpression('/role="tab"[^>]*>'.preg_quote($tab, '/').'(<| )/u', $html);
         }
 
         preg_match_all('/role="tab"[^>]*wire:click="setTab\\(\'([^\']+)\'\\)"/', $html, $matches);
         $this->assertSame(
-            ['overview', 'business', 'assets', 'work', 'reports'],
-            $matches[1] ?? []
+            ['overview', 'business', 'assets', 'work', 'reports', 'files'],
+            $matches[1] ?? [],
+            'Faz 11c: Dosyalar moved from the menu to the brand page'
         );
         $this->assertStringNotContainsString('Domain (legacy)', $html);
         $this->assertStringNotContainsString('Hosting (legacy)', $html);

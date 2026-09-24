@@ -7,6 +7,7 @@ use App\Livewire\Operator\Portfolio\Concerns\InteractsWithBrandReports;
 use App\Models\Brand;
 use App\Models\BrandIntelligenceContext;
 use App\Models\BrandOffering;
+use App\Models\OperatorFile;
 use App\Models\Recommendation;
 use App\Services\Advisor\AdvisorWorkQueue;
 use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
@@ -21,7 +22,9 @@ use App\Services\Work\WorkReadService;
 use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\DemoState;
 use App\Support\Options\IndustryOptions;
+use App\Support\Roles;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -40,12 +43,12 @@ class BrandShow extends Component
     use InteractsWithBrandReports;
     use InteractsWithDemoPeriod;
 
-    public const array TABS = ['overview', 'business', 'assets', 'work', 'reports'];
+    public const array TABS = ['overview', 'business', 'assets', 'work', 'reports', 'files'];
 
     /** Old deep links keep working. */
     private const array LEGACY_TABS = [
         'estate' => 'assets', 'cross_channel' => 'assets', 'operations' => 'work', 'growth' => 'work', 'ai' => 'work',
-        'value' => 'reports', 'history' => 'reports', 'research' => 'business', 'discovery' => 'business', 'context' => 'business', 'files' => 'overview',
+        'value' => 'reports', 'history' => 'reports', 'research' => 'business', 'discovery' => 'business', 'context' => 'business',
     ];
 
     public const array WORK_SECTIONS = ['findings', 'opportunities', 'recommendations', 'tasks'];
@@ -191,6 +194,19 @@ class BrandShow extends Component
         }
     }
 
+    /**
+     * Faz 11c: files attached to the brand (uploaded from this tab's link or Dosyalar with the brand scope).
+     * Non-admins see only their own files, as on Dosyalar.
+     *
+     * @return Collection<int, OperatorFile>
+     */
+    private function brandFiles(Brand $brand): Collection
+    {
+        return OperatorFile::query()->where('brand_id', (string) $brand->id)
+            ->when(! auth()->user()?->hasRole(Roles::ADMIN), fn ($q) => $q->where('user_id', auth()->id()))
+            ->latest()->limit(100)->get();
+    }
+
     public function render(): View
     {
         $brand = $this->brandModel();
@@ -244,6 +260,7 @@ class BrandShow extends Component
             'reportPreview' => null,
             'flash' => DemoState::pullFlash(),
             'valueStory' => $this->tab === 'reports' ? $this->valueStory($brand) : null,
+            'brandFiles' => $this->tab === 'files' ? $this->brandFiles($brand) : collect(),
             ...($this->tab === 'reports' ? $this->brandReportData($brand) : ['reportSnapshots' => ['items' => [], 'empty' => true, 'demo' => false], 'reportSnapshotDetail' => null]),
         ]);
     }
