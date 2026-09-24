@@ -815,3 +815,11 @@
   3. **Onaylı güncelleme:** Yalnız site yöneticisi eklentide açarsa (varsayılan kapalı) ve yalnız WordPress'in kendisinin önerdiği güncelleme (eklenti, tema, çekirdek) — her istekte tek öğe, her birini Admin ayrı onaylar. `external_write_actions` kaydı (`update_apply`), kuyrukta çalışır, sonrası sağlık yeniden okunur. **Geri alınamaz**; ekran önce yedek önerir. `EXTERNAL_WRITES_ENABLED` / kanal anahtarı kapatır.
   4. Yeni eklenti/tema kurma, silme, ayar veya içerik değiştirme yoktur.
 - **İlgili:** ADR-018, ADR-064, `connectors/wordpress/moxdop-connector/includes/class-moxdop-connector-management.php`, `app/Services/Integrations/WordPress/WordPressManagementService.php`
+
+
+## ADR-069 — Aylık rapor v2 kendi tablosunda (`monthly_reports`)
+
+- **Durum:** Accepted (sahip kararı, Faz 9 – "Looker yerine aylık rapor"; "Karar vermem gereken her şeyi onaylıyorum")
+- **Değiştirdiği:** Demo döneminden kalan "değer/rapor varlıkları için üretim tablosu yok" korumasını yalnız `monthly_reports` için kaldırır (`ClientValueReportingKnowledgeTest`). `client_value_stories`, `reports`, `report_sections`, `knowledge_articles`, `decision_logs`, `narrative_snapshots` yasağı sürer.
+- **Karar:** Aylık rapor v2, marka + ay başına tek satırda dondurulmuş rakamları, düzenlenebilir AI yorumunu, operatör notunu ve yayın durumunu tutar. Değişmez `report_snapshots` (Client Value Story) ayrı kalır; v2 yorum düzenlemeyi gerektirdiği için değişmez anlık görüntüye yazılmaz. Müşteri yalnız yayımlanmış raporu, süreli imzalı bağlantıyla görür.
+- **İlgili:** ADR-068, `app/Services/MonthlyReport/*`, `database/migrations/2026_10_04_090000_create_monthly_reports_table.php`

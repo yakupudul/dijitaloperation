@@ -138,7 +138,6 @@ class ClientValueReportingKnowledgeTest extends TestCase
             'report_sections',
             'knowledge_articles',
             'decision_logs',
-            'monthly_reports',
             'narrative_snapshots',
         ] as $table) {
             $this->assertFalse(Schema::hasTable($table), "Unexpected table {$table}");
@@ -148,7 +147,8 @@ class ClientValueReportingKnowledgeTest extends TestCase
             ->map(fn ($f) => File::get($f->getPathname()))
             ->implode("\n");
 
-        foreach (['client_value_story', 'knowledge_articles', 'monthly_reports'] as $needle) {
+        // ADR-069: Faz 9 report v2 persists `monthly_reports` (frozen numbers + editable commentary) on purpose.
+        foreach (['client_value_story', 'knowledge_articles'] as $needle) {
             $this->assertStringNotContainsString($needle, $migrationText);
         }
     }
