@@ -24,6 +24,7 @@
             <x-ta.button type="button" wire:click="startEdit" size="sm" variant="outline">Yorumu düzenle</x-ta.button>
             <x-ta.button :href="route('operator.reports.monthly.preview', ['report' => $report->id])" target="_blank" size="sm" variant="outline">Önizle / yazdır</x-ta.button>
             <x-ta.button type="button" wire:click="publish" size="sm" variant="outline">{{ $report->status === 'published' ? 'Bağlantıyı yenile' : 'Yayımla ve bağlantı al' }}</x-ta.button>
+            <x-ta.button type="button" wire:click="email" wire:confirm="Rapor müşteriye e-postayla gönderilsin mi?" size="sm">{{ $report->emailed_at ? 'Tekrar e-postala' : 'Müşteriye e-postala' }}</x-ta.button>
         @endif
     </div>
 
@@ -52,7 +53,7 @@
     @endif
 
     @if ($report !== null)
-        <p class="text-xs text-gray-500">{{ $report->status === 'published' ? 'Yayımlandı '.$report->published_at?->format('d.m.Y H:i') : 'Taslak' }} · rakamlar {{ \Illuminate\Support\Carbon::parse($report->payload['built_at'] ?? $report->updated_at)->format('d.m.Y H:i') }} tarihinde hazırlandı{{ ($report->commentary['source'] ?? null) === 'llm' ? ' · yorum AI taslağı' : (($report->commentary['source'] ?? null) === 'operator' ? ' · yorum düzenlendi' : '') }}</p>
+        <p class="text-xs text-gray-500">{{ $report->status === 'published' ? 'Yayımlandı '.$report->published_at?->format('d.m.Y H:i') : 'Taslak' }}{{ $report->emailed_at ? ' · e-postalandı '.$report->emailed_at->format('d.m.Y H:i').' ('.$report->emailed_to.')' : '' }} · rakamlar {{ \Illuminate\Support\Carbon::parse($report->payload['built_at'] ?? $report->updated_at)->format('d.m.Y H:i') }} tarihinde hazırlandı{{ ($report->commentary['source'] ?? null) === 'llm' ? ' · yorum AI taslağı' : (($report->commentary['source'] ?? null) === 'operator' ? ' · yorum düzenlendi' : '') }}</p>
         @include('reports.monthly.styles')
         @include('reports.monthly.body', ['payload' => $report->payload, 'commentary' => $report->commentary_status === 'ready' ? $report->commentary : null, 'note' => $report->operator_note])
     @else

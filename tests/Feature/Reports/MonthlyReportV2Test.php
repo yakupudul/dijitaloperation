@@ -5,6 +5,7 @@ namespace Tests\Feature\Reports;
 use App\Ai\Agents\MonthlyReportCommentaryAgent;
 use App\Enums\CustomerStatus;
 use App\Livewire\Operator\Reports\MonthlyReportsPage;
+use App\Mail\MonthlyReportMail;
 use App\Models\AiProduction;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
@@ -21,7 +22,9 @@ use App\Support\Roles;
 use Carbon\Carbon;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -149,5 +152,32 @@ final class MonthlyReportV2Test extends TestCase
             'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
             'record_fingerprint' => hash('sha256', $table.$date.json_encode($values).$assetId), 'created_at' => now(), 'updated_at' => now(),
         ]);
+    }
+
+    public function test_day_one_prepares_drafts_for_active_brands_with_assets_only(): void
+    {
+        Bus::fake();
+        $this->site->update(['status' => 'active']);
+        Brand::factory()->create(['customer_id' => Customer::factory()->create(['status' => CustomerStatus::Active])->id]);
+
+        $this->artisan('moxdop:reports:prepare-monthly')->assertSuccessful();
+
+        $this->assertSame(['2026-09'], MonthlyReport::query()->where('brand_id', $this->brand->id)->pluck('month')->all());
+        $this->assertSame(1, MonthlyReport::query()->count(), 'a brand without an operational asset gets no draft');
+        $this->assertSame('draft', MonthlyReport::query()->value('status'));
+    }
+
+    public function test_report_is_emailed_to_the_customer_with_the_signed_link(): void
+    {
+        Mail::fake();
+        $this->brand->customer->update(['primary_email' => 'Musteri@Ornek.test']);
+        $report = app(MonthlyReportService::class)->prepare($this->brand, '2026-09');
+
+        Livewire::test(MonthlyReportsPage::class, ['brand' => $this->brand->id])->set('month', '2026-09')->call('email')
+            ->assertSee('musteri@ornek.test');
+
+        Mail::assertSent(MonthlyReportMail::class, fn ($mail): bool => $mail->hasTo('musteri@ornek.test') && str_contains($mail->url, 'signature='));
+        $this->assertSame('published', $report->fresh()->status);
+        $this->assertNotNull($report->fresh()->emailed_at);
     }
 }

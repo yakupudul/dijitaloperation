@@ -459,6 +459,13 @@ Schedule::command('moxdop:whatsapp:retention')
     ->withoutOverlapping(30)
     ->name('whatsapp-retention-daily');
 
+// Aylık rapor taslakları: her ayın 1'i, geçen ay için (yayımlama ve gönderim operatörde).
+Schedule::command('moxdop:reports:prepare-monthly')
+    ->monthlyOn(1, (string) env('MOXDOP_MONTHLY_REPORTS_TIME', '07:00'))
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(120)
+    ->name('monthly-reports-prepare');
+
 Schedule::command('moxdop:advisor:digest')
     ->weeklyOn((int) config('moxdop-advisor.schedule.weekly_day', 1), (string) config('moxdop-advisor.digest.weekly_time', '08:00'))
     ->withoutOverlapping(30)

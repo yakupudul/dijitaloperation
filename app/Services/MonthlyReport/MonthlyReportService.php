@@ -3,13 +3,18 @@
 namespace App\Services\MonthlyReport;
 
 use App\Ai\Agents\MonthlyReportCommentaryAgent;
+use App\Enums\CustomerStatus;
 use App\Jobs\WriteMonthlyReportCommentaryJob;
+use App\Mail\MonthlyReportMail;
 use App\Models\Brand;
 use App\Models\MonthlyReport;
 use App\Models\User;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\ReportDelivery\ReportMailConfigGuard;
 use App\Support\Ai\AiRouteKeys;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -93,6 +98,70 @@ final class MonthlyReportService
     public function publish(MonthlyReport $report): void
     {
         $report->forceFill(['status' => 'published', 'published_at' => now()])->save();
+    }
+
+    /**
+     * Where the report goes: the customer's primary e-mail plus contacts marked for reports.
+     *
+     * @return list<string>
+     */
+    public function recipients(MonthlyReport $report): array
+    {
+        $customer = $report->brand?->customer;
+        if ($customer === null) {
+            return [];
+        }
+        $emails = [(string) $customer->primary_email];
+        if (Schema::hasColumn('customer_contacts', 'email')) {
+            $emails = array_merge($emails, $customer->contacts()->whereNotNull('email')->pluck('email')->all());
+        }
+
+        return array_values(array_unique(array_filter(array_map(static fn ($e): string => mb_strtolower(trim((string) $e)), $emails),
+            static fn (string $e): bool => filter_var($e, FILTER_VALIDATE_EMAIL) !== false)));
+    }
+
+    /** Publish (if needed) and e-mail the signed client link. Returns the addresses it went to. */
+    public function email(MonthlyReport $report): array
+    {
+        app(ReportMailConfigGuard::class)->assertConfigured();
+        $to = $this->recipients($report);
+        if ($to === []) {
+            throw ValidationException::withMessages(['email' => 'Müşterinin e-posta adresi yok: müşteri kartına birincil e-posta ekleyin.']);
+        }
+        if ($report->status !== 'published') {
+            $this->publish($report);
+        }
+        Mail::to($to)->send(new MonthlyReportMail($report->loadMissing('brand'), $this->clientUrl($report)));
+        $report->forceFill(['emailed_at' => now(), 'emailed_to' => implode(', ', $to)])->save();
+
+        return $to;
+    }
+
+    /**
+     * Day 1 of each month: prepare last month's report for every active brand that has an operational asset, and
+     * queue the AI commentary. Nothing is published or sent without the owner.
+     *
+     * @return list<MonthlyReport>
+     */
+    public function prepareAll(?string $month = null): array
+    {
+        $month ??= now()->subMonthNoOverflow()->format('Y-m');
+        $reports = [];
+        Brand::query()->whereHas('customer', fn ($q) => $q->where('status', CustomerStatus::Active->value))
+            ->whereHas('digitalAssets', fn ($q) => $q->operational())->orderBy('id')
+            ->each(function (Brand $brand) use ($month, &$reports): void {
+                try {
+                    $report = $this->prepare($brand, $month);
+                    if ((bool) config('moxdop-reports.auto_commentary', true) && ($report->commentary_status === null || $report->commentary_status === 'failed')) {
+                        $this->requestCommentary($report);
+                    }
+                    $reports[] = $report;
+                } catch (Throwable $exception) {
+                    report($exception);
+                }
+            });
+
+        return $reports;
     }
 
     public function clientUrl(MonthlyReport $report): string

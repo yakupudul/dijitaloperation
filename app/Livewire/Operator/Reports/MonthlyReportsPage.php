@@ -94,6 +94,20 @@ final class MonthlyReportsPage extends Component
         $this->message = 'Rapor yayımlandı. Müşteri bağlantısı '.config('moxdop-reports.client_link_days').' gün geçerli.';
     }
 
+    public function email(MonthlyReportService $reports): void
+    {
+        try {
+            $to = $reports->email($this->report() ?? abort(404));
+            $this->error = '';
+            $this->message = 'Rapor e-postayla gönderildi: '.implode(', ', $to);
+        } catch (ValidationException $exception) {
+            $this->error = (string) collect($exception->errors())->flatten()->first();
+        } catch (\Throwable $exception) {
+            report($exception);
+            $this->error = 'E-posta gönderilemedi: '.mb_substr($exception->getMessage(), 0, 200);
+        }
+    }
+
     public function render(): View
     {
         $brands = Brand::query()->whereHas('customer', fn ($q) => $q->where('status', CustomerStatus::Active->value))->orderBy('name')->get(['id', 'name']);
