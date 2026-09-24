@@ -5,6 +5,7 @@ use App\Http\Controllers\Integrations\WordPressConnectorDownloadController;
 use App\Http\Controllers\Operator\KmlExportController;
 use App\Http\Controllers\Operator\LegacyWorkRedirectController;
 use App\Http\Controllers\Operator\MetaLegacyPageRedirectController;
+use App\Http\Controllers\Operator\ProspectAuditPrintController;
 use App\Http\Controllers\Operator\RetiredAssetTypeRedirectController;
 use App\Http\Controllers\Prospects\ProspectReportArtifactDownloadController;
 use App\Http\Middleware\EnsureDemoAppAccess;
@@ -198,6 +199,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
             ->whereNumber('artifactId')
             ->name('operator.prospect.report.pdf');
         Route::livewire('/prospects/{prospectId}', ProspectShow::class)->name('operator.prospect');
+        Route::get('/prospects/{prospectId}/audit/{auditId}', ProspectAuditPrintController::class)->whereNumber(['prospectId', 'auditId'])->name('operator.prospect.audit.print');
 
         Route::livewire('/settings', SettingsPage::class)->name('operator.settings');
         Route::livewire('/settings/background-operations', BackgroundOperationsPage::class)->name('operator.settings.background-operations');

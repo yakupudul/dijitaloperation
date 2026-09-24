@@ -43,6 +43,7 @@
                 'overview' => __('operator.prospects.tabs.overview'),
                 'research' => __('operator.prospects.tabs.research'),
                 'intelligence' => __('operator.prospects.tabs.intelligence'),
+                'audit' => __('operator.prospects.tabs.audit'),
                 'report' => __('operator.prospects.tabs.report'),
                 'activity' => __('operator.prospects.tabs.activity'),
             ] as $key => $label)
@@ -60,6 +61,8 @@
         @include('livewire.demo.sales.partials.prospect-research', ['detail' => $detail])
     @elseif ($tab === 'intelligence')
         @include('livewire.demo.sales.partials.prospect-sales-intelligence', ['intelligence' => $intelligence])
+    @elseif ($tab === 'audit')
+        @include('livewire.demo.sales.partials.prospect-audit', ['audits' => $audits, 'prospectId' => $prospectId])
     @elseif ($tab === 'report')
         @include('livewire.demo.sales.partials.prospect-report', ['detail' => $detail, 'shareUrl' => $shareUrl])
     @else

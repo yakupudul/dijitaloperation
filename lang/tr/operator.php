@@ -2346,6 +2346,7 @@ return [
             'overview' => 'Genel Bakış',
             'research' => 'Araştırma',
             'intelligence' => 'Satış Analizi',
+            'audit' => 'Dış denetim',
             'report' => 'Rapor',
             'activity' => 'Aktivite',
         ],

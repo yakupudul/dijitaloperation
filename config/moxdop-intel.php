@@ -1,6 +1,7 @@
 <?php
 
 use App\Services\Intel\MapGridService;
+use App\Services\Intel\ProspectAuditService;
 use App\Services\Intel\ReviewIntelService;
 
 /*
@@ -71,6 +72,11 @@ return [
         ],
     ],
 
+    // Faz 8f: dış denetim (potansiyel müşteri). Harita kontrolü ajans geneli aylık tavan içinde.
+    'prospect_audit' => [
+        'monthly_usd' => 5,
+    ],
+
     // Faz 8e: rakip site izleme (ücretsiz, herkese açık okuma, haftalık).
     'watch' => [
         'max_competitors' => 10,
@@ -85,6 +91,7 @@ return [
         'handlers' => [
             'map_grid' => MapGridService::class,
             'reviews' => ReviewIntelService::class,
+            'prospect_maps' => ProspectAuditService::class,
         ],
     ],
 ];

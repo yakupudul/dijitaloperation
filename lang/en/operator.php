@@ -2345,6 +2345,7 @@ return [
             'overview' => 'Overview',
             'research' => 'Research',
             'intelligence' => 'Sales Intelligence',
+            'audit' => 'External audit',
             'report' => 'Report',
             'activity' => 'Activity',
         ],

@@ -7,6 +7,7 @@ use App\Enums\ProspectReportProjection;
 use App\Enums\ProspectStatus;
 use App\Models\Prospect;
 use App\Models\ProspectReportSnapshot;
+use App\Services\Intel\ProspectAuditService;
 use App\Services\Prospects\CreateProspectReportSnapshotService;
 use App\Services\Prospects\ProspectReadService;
 use App\Services\Prospects\ProspectReportPdfRenderer;
@@ -15,7 +16,9 @@ use App\Services\Prospects\ProspectResearchService;
 use App\Services\Prospects\UpdateProspectService;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -42,6 +45,11 @@ class ProspectShow extends Component
 
     public ?string $shareUrl = null;
 
+    /** Faz 8f: optional Google Maps keyword for the external audit (e.g. "diş kliniği kadıköy"). */
+    public string $auditKeyword = '';
+
+    public string $auditError = '';
+
     public function mount(string $prospectId): void
     {
         abort_unless(ctype_digit($prospectId), 404);
@@ -64,7 +72,7 @@ class ProspectShow extends Component
 
     private function normalizeTab(): void
     {
-        if (! in_array($this->tab, ['overview', 'research', 'intelligence', 'report', 'activity'], true)) {
+        if (! in_array($this->tab, ['overview', 'research', 'intelligence', 'audit', 'report', 'activity'], true)) {
             $this->tab = 'overview';
         }
     }
@@ -167,12 +175,26 @@ class ProspectShow extends Component
         $this->tab = 'report';
     }
 
+    /** Faz 8f: public website checks now; the Maps check (paid, one task) arrives within minutes. */
+    public function runAudit(ProspectAuditService $audits): void
+    {
+        $this->auditError = '';
+        try {
+            $audits->run(Prospect::query()->findOrFail($this->prospectId), $this->auditKeyword, auth()->user());
+            DemoState::flash($this->auditKeyword !== '' ? 'Site kontrol edildi; harita sonucu birkaç dakikada gelir.' : 'Site kontrol edildi.');
+        } catch (ValidationException $exception) {
+            $this->auditError = (string) collect($exception->errors())->flatten()->first();
+        }
+        $this->tab = 'audit';
+    }
+
     public function render(): View
     {
         $prospect = Prospect::query()->findOrFail($this->prospectId);
         $detail = app(ProspectReadService::class)->detail($prospect);
 
         return view('livewire.demo.sales.prospect-show', [
+            'audits' => $this->tab === 'audit' ? DB::table('prospect_audits')->where('prospect_id', $prospect->id)->orderByDesc('id')->limit(5)->get() : collect(),
             'detail' => $detail,
             'statusOptions' => ProspectReadService::statusOptions(),
             'identityOptions' => ProspectReadService::identityOptions(),
