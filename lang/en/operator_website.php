@@ -7,6 +7,7 @@ return [
     'tabs' => [
         'overview' => 'Overview',
         'seo' => 'SEO Görevleri',
+        'scorecard' => 'Page Scorecard',
         'search_console' => 'Search Console',
         'ga4_analysis' => 'Google Analytics',
         'content' => 'Pages & Content',

@@ -9,6 +9,7 @@ use App\Models\Collection\CollectionRun;
 use App\Models\CoreIntegration;
 use App\Services\Collection\CancellationService;
 use App\Services\Collection\Ga4\Ga4CentralCollectionService;
+use App\Services\Collection\Monitoring\CollectionAccountPresenter;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -210,8 +211,8 @@ class Ga4CollectionMonitor extends Component
         return [
             'id' => (int) $run->id,
             'label' => (string) (data_get($run->metadata, 'collection_intent_label') ?: 'GA4 Merkezi Veri Toplama'),
-            'status' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->state($run),
-            'status_label' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($run),
+            'status' => app(CollectionAccountPresenter::class)->state($run),
+            'status_label' => app(CollectionAccountPresenter::class)->label($run),
             'progress_percent' => $progress,
             'properties_total' => count($resources),
             'properties_finished' => collect($resources)->where('terminal', true)->count(),
@@ -258,8 +259,8 @@ class Ga4CollectionMonitor extends Component
             'name' => (string) ($resource->externalResource?->display_name ?: 'GA4 Property'),
             'account_name' => $resourceMeta['account_display_name'] ?? $resourceMeta['account'] ?? 'Google Analytics',
             'property_id' => $resourceMeta['property_id'] ?? preg_replace('/^properties\//', '', (string) $resource->externalResource?->external_id),
-            'status' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->state($resource),
-            'status_label' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($resource),
+            'status' => app(CollectionAccountPresenter::class)->state($resource),
+            'status_label' => app(CollectionAccountPresenter::class)->label($resource),
             'terminal' => $resource->status->isTerminal(),
             'progress_percent' => $progress,
             'datasets_total' => $total,
@@ -298,7 +299,7 @@ class Ga4CollectionMonitor extends Component
             'name' => (string) ($resource->externalResource?->display_name ?: 'GA4 Property'),
             'account_name' => $meta['account_display_name'] ?? $meta['account'] ?? 'Google Analytics',
             'property_id' => $meta['property_id'] ?? preg_replace('/^properties\//', '', (string) $resource->externalResource?->external_id),
-            'status_label' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($resource),
+            'status_label' => app(CollectionAccountPresenter::class)->label($resource),
             'error_summary' => $resource->error_summary,
             'failed_count' => count($errors),
             'last_activity' => $resource->last_activity_at?->diffForHumans() ?? '—',
@@ -358,6 +359,7 @@ class Ga4CollectionMonitor extends Component
             'GA4_RF_PAGE_CONTENT_DAILY' => 'Sayfa ve içerik',
             'GA4_RF_EVENT_DAILY' => 'Event verileri',
             'GA4_RF_KEY_EVENT_DAILY' => 'Key Event verileri',
+            'GA4_RF_LANDING_CHANNEL_DAILY' => 'Açılış sayfası × kanal',
             'GA4_RF_DEVICE_DAILY' => 'Cihaz',
             'GA4_RF_TECHNOLOGY_DAILY' => 'Tarayıcı / işletim sistemi',
             'GA4_RF_COUNTRY_DAILY' => 'Ülke',
@@ -369,4 +371,3 @@ class Ga4CollectionMonitor extends Component
         };
     }
 }
-

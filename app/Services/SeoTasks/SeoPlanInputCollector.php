@@ -143,7 +143,7 @@ final class SeoPlanInputCollector
      *
      * @return array{available: bool, history_days: int, pages: array<string, array<string, mixed>>}
      */
-    private function pageTraffic(DigitalAsset $site, CarbonImmutable $end): array
+    public function pageTraffic(DigitalAsset $site, CarbonImmutable $end): array
     {
         if (! Schema::hasTable('gsc_page_daily')) {
             return ['available' => false, 'history_days' => 0, 'pages' => []];
@@ -186,7 +186,7 @@ final class SeoPlanInputCollector
      *
      * @return array<string, array{url: string, verdict: ?string, coverage_state: ?string, google_canonical: ?string, user_canonical: ?string, inspected_at: ?string}>
      */
-    private function inspections(DigitalAsset $site): array
+    public function inspections(DigitalAsset $site): array
     {
         if (! Schema::hasTable('gsc_url_inspection_snapshot')) {
             return [];
@@ -286,7 +286,7 @@ final class SeoPlanInputCollector
     }
 
     /** @return array<string, array{url: string, lcp_ms: ?int, strategy: ?string, observed_at: string}> latest lab measurement per page */
-    private function performance(DigitalAsset $site): array
+    public function performance(DigitalAsset $site): array
     {
         if (! Schema::hasTable('website_performance_measurement')) {
             return [];
@@ -702,22 +702,27 @@ final class SeoPlanInputCollector
         return array_values(array_unique($areas));
     }
 
+    /** Scope a GA4 data-pool query to the property bound to this website, or legacy per-asset rows. */
+    public function scopeGa4(Builder $query, DigitalAsset $site): Builder
+    {
+        $binding = $this->ga4Bindings->resolve((string) $site->id);
+        if ($binding->isReal() && $binding->externalResourceId !== null) {
+            return $query->where(function ($scope) use ($binding, $site): void {
+                $scope->where('external_resource_id', $binding->externalResourceId)->orWhere('digital_asset_id', $site->id);
+            });
+        }
+
+        return $query->where('digital_asset_id', $site->id);
+    }
+
     /** @return array{available: bool, landing: array<string, array<string, int>>} */
-    private function ga4(DigitalAsset $site, CarbonImmutable $start, CarbonImmutable $end): array
+    public function ga4(DigitalAsset $site, CarbonImmutable $start, CarbonImmutable $end): array
     {
         if (! Schema::hasTable('ga4_landing_page_daily')) {
             return ['available' => false, 'landing' => []];
         }
-        $binding = $this->ga4Bindings->resolve((string) $site->id);
-        $query = DB::table('ga4_landing_page_daily')
+        $query = $this->scopeGa4(DB::table('ga4_landing_page_daily'), $site)
             ->whereBetween('reporting_date', [$start->toDateString(), $end->toDateString()]);
-        if ($binding->isReal() && $binding->externalResourceId !== null) {
-            $query->where(function ($scope) use ($binding, $site): void {
-                $scope->where('external_resource_id', $binding->externalResourceId)->orWhere('digital_asset_id', $site->id);
-            });
-        } else {
-            $query->where('digital_asset_id', $site->id);
-        }
         $hasKeyEvents = Schema::hasColumn('ga4_landing_page_daily', 'keyEvents');
         $columns = ['landingPage', 'sessions', 'engagedSessions'];
         if ($hasKeyEvents) {

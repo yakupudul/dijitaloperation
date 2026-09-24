@@ -87,6 +87,7 @@ class OverviewPage extends Component
     public array $allowedTabs = [
         'overview',
         'seo',
+        'scorecard',
         'search_console',
         'ga4_analysis',
         'content',

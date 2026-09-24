@@ -10,23 +10,43 @@ use InvalidArgumentException;
 final class Ga4RequestFamilyCatalog
 {
     public const string FAMILY_PROPERTY_METADATA = 'GA4_RF_PROPERTY_METADATA';
+
     public const string FAMILY_PROPERTY_DAILY = 'GA4_RF_PROPERTY_DAILY';
+
     public const string FAMILY_CHANNEL_DAILY = 'GA4_RF_CHANNEL_DAILY';
+
     public const string FAMILY_SOURCE_MEDIUM_DAILY = 'GA4_RF_SOURCE_MEDIUM_DAILY';
+
     public const string FAMILY_CAMPAIGN_DAILY = 'GA4_RF_CAMPAIGN_DAILY';
+
     public const string FAMILY_FIRST_USER_DAILY = 'GA4_RF_FIRST_USER_DAILY';
+
     public const string FAMILY_LANDING_PAGE_DAILY = 'GA4_RF_LANDING_PAGE_DAILY';
+
+    public const string FAMILY_LANDING_CHANNEL_DAILY = 'GA4_RF_LANDING_CHANNEL_DAILY';
+
     public const string FAMILY_PAGE_CONTENT_DAILY = 'GA4_RF_PAGE_CONTENT_DAILY';
+
     public const string FAMILY_EVENT_DAILY = 'GA4_RF_EVENT_DAILY';
+
     public const string FAMILY_KEY_EVENT_DAILY = 'GA4_RF_KEY_EVENT_DAILY';
+
     public const string FAMILY_EVENT_BREAKDOWNS = 'GA4_RF_EVENT_BREAKDOWNS';
+
     public const string FAMILY_DEVICE_DAILY = 'GA4_RF_DEVICE_DAILY';
+
     public const string FAMILY_TECHNOLOGY_DAILY = 'GA4_RF_TECHNOLOGY_DAILY';
+
     public const string FAMILY_COUNTRY_DAILY = 'GA4_RF_COUNTRY_DAILY';
+
     public const string FAMILY_REGION_DAILY = 'GA4_RF_REGION_DAILY';
+
     public const string FAMILY_CITY_DAILY = 'GA4_RF_CITY_DAILY';
+
     public const string FAMILY_HOUR_DAILY = 'GA4_RF_HOUR_DAILY';
+
     public const string FAMILY_ECOMMERCE_ITEM_DAILY = 'GA4_RF_ECOMMERCE_ITEM_DAILY';
+
     public const string FAMILY_GENERIC_REPORT = 'GA4_RF_GENERIC_REPORT';
 
     /** @return list<string> */
@@ -56,6 +76,7 @@ final class Ga4RequestFamilyCatalog
             self::FAMILY_CAMPAIGN_DAILY,
             self::FAMILY_FIRST_USER_DAILY,
             self::FAMILY_LANDING_PAGE_DAILY,
+            self::FAMILY_LANDING_CHANNEL_DAILY,
             self::FAMILY_PAGE_CONTENT_DAILY,
             self::FAMILY_EVENT_DAILY,
             self::FAMILY_KEY_EVENT_DAILY,
@@ -191,6 +212,10 @@ final class Ga4RequestFamilyCatalog
             ),
             self::FAMILY_LANDING_PAGE_DAILY => $report(
                 'ga4_landing_page_daily', ['date', 'landingPage'], self::sessionRequiredMetrics(), self::sessionOptionalMetrics(), 'session_entry', true
+            ),
+            // Sayfa Karnesi: which channel brings each landing page its sessions and key events.
+            self::FAMILY_LANDING_CHANNEL_DAILY => $report(
+                'ga4_landing_channel_daily', ['date', 'landingPage', 'sessionDefaultChannelGroup'], self::sessionRequiredMetrics(), ['engagementRate', 'keyEvents', 'sessionKeyEventRate'], 'session_entry_channel', true
             ),
             self::FAMILY_PAGE_CONTENT_DAILY => $report(
                 'ga4_page_content_daily', ['date', 'pagePathPlusQueryString', 'pageTitle', 'hostName'], ['screenPageViews', 'activeUsers', 'eventCount'], ['totalUsers', 'userEngagementDuration', 'keyEvents', 'scrolledUsers'], 'content', true

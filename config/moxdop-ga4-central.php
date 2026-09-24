@@ -117,6 +117,15 @@ return [
             ],
             $metricColumns(['screenPageViews', 'activeUsers', 'totalUsers', 'eventCount', 'scrolledUsers', 'userEngagementDuration'], ['keyEvents']),
         ),
+        'ga4_landing_channel_daily' => $physical(
+            'ga4_landing_channel_daily',
+            ['external_resource_id', 'property_id', 'reporting_date', 'landingPage', 'sessionDefaultChannelGroup'],
+            [
+                array_merge($column('landingPage', 'text', false, 'dimension'), ['allow_empty_string' => true]),
+                $column('sessionDefaultChannelGroup', 'text', false, 'dimension'),
+            ],
+            $metricColumns(['sessions', 'engagedSessions', 'activeUsers'], ['engagementRate', 'keyEvents', 'sessionKeyEventRate']),
+        ),
         'ga4_key_event_daily' => $physical(
             'ga4_key_event_daily',
             ['external_resource_id', 'property_id', 'reporting_date', 'eventName'],

@@ -27,6 +27,7 @@ return [
         'GA4_RF_SOURCE_MEDIUM_DAILY' => 1,
         'GA4_RF_CAMPAIGN_DAILY' => 1,
         'GA4_RF_LANDING_PAGE_DAILY' => 1,
+        'GA4_RF_LANDING_CHANNEL_DAILY' => 1,
         'GA4_RF_EVENT_DAILY' => 1,
         'GA4_RF_EVENT_BREAKDOWNS' => 1,
         'GA4_RF_DEVICE_DAILY' => 28,
@@ -50,4 +51,3 @@ return [
 
     'raw_retention_class' => 'provider_raw_standard',
 ];
-

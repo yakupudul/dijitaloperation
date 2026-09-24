@@ -1,5 +1,5 @@
 @php
-    $tabs = collect(['overview', 'seo', 'search_console', 'ga4_analysis', 'content', 'health', 'standards', 'infrastructure', 'setup'])
+    $tabs = collect(['overview', 'seo', 'scorecard', 'search_console', 'ga4_analysis', 'content', 'health', 'standards', 'infrastructure', 'setup'])
         ->mapWithKeys(fn (string $key): array => [$key => __('operator_website.tabs.'.$key)])
         ->all();
     $enumLabel = static function (string $group, ?string $value): string {
@@ -79,6 +79,10 @@
 
     @if ($tab === 'standards')
         <livewire:operator.website.website-assessment-panel :website-id="$asset->id" :key="'website-standards-'.$asset->id" />
+    @endif
+
+    @if ($tab === 'scorecard')
+        <livewire:operator.website.page-scorecard :website-id="$asset->id" :key="'website-scorecard-'.$asset->id" />
     @endif
 
     @if ($tab === 'seo')

@@ -317,6 +317,31 @@ class Ga4ProductionCollectorTest extends TestCase
     }
 
     #[Test]
+    public function landing_page_by_channel_is_stored_per_page_and_channel(): void
+    {
+        $this->fakeGa4Http([
+            'runReport' => [
+                'dimensionHeaders' => [['name' => 'date'], ['name' => 'landingPage'], ['name' => 'sessionDefaultChannelGroup']],
+                'metricHeaders' => [['name' => 'sessions'], ['name' => 'engagedSessions'], ['name' => 'activeUsers']],
+                'rows' => [
+                    ['dimensionValues' => [['value' => '20260801'], ['value' => '/implant'], ['value' => 'Organic Search']], 'metricValues' => [['value' => '40'], ['value' => '30'], ['value' => '38']]],
+                    ['dimensionValues' => [['value' => '20260801'], ['value' => '/implant'], ['value' => 'Paid Search']], 'metricValues' => [['value' => '12'], ['value' => '6'], ['value' => '12']]],
+                ],
+                'rowCount' => 2,
+            ],
+        ]);
+
+        $result = $this->runFamily(Ga4RequestFamilyCatalog::FAMILY_LANDING_CHANNEL_DAILY, ['start' => '2026-08-01', 'end' => '2026-08-01']);
+
+        $this->assertSame(DatasetExecutionOutcome::Completed, $result->outcome);
+        $body = collect(Http::recorded())->first(fn ($p) => str_contains($p[0]->url(), 'runReport'))[0]->data();
+        $this->assertSame(['date', 'landingPage', 'sessionDefaultChannelGroup'], array_column($body['dimensions'], 'name'));
+        $this->assertSame(2, DB::table('ga4_landing_channel_daily')->count());
+        $this->assertSame(40, (int) DB::table('ga4_landing_channel_daily')->where('sessionDefaultChannelGroup', 'Organic Search')->value('sessions'));
+        $this->assertContains(Ga4RequestFamilyCatalog::FAMILY_LANDING_CHANNEL_DAILY, Ga4RequestFamilyCatalog::centralFamilies());
+    }
+
+    #[Test]
     public function empty_landing_page_is_preserved_separately_from_not_set_and_does_not_block_the_batch(): void
     {
         $this->fakeGa4Http([
