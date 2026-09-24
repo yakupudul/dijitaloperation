@@ -3,6 +3,7 @@
 namespace App\Livewire\Operator\Market;
 
 use App\Enums\CustomerStatus;
+use App\Livewire\Concerns\WithAiInsights;
 use App\Models\Brand;
 use App\Models\Intel\BrandIntelSetting;
 use App\Models\SearchDemandCompetitor;
@@ -12,6 +13,7 @@ use App\Services\Intel\DataForSeoTaskQueue;
 use App\Services\Intel\ReviewIntelService;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
@@ -27,6 +29,8 @@ use Livewire\Component;
 #[Title('Rakip izleme')]
 final class CompetitorWatchPage extends Component
 {
+    use WithAiInsights;
+
     #[Url]
     public ?int $brand = null;
 
@@ -121,6 +125,11 @@ final class CompetitorWatchPage extends Component
         $this->message = 'Sayfa kimlikleri kaydedildi.';
     }
 
+    protected function insightSubject(string $kind, int $subjectId): ?Model
+    {
+        return $kind === 'reviews.themes' && $subjectId === (int) $this->brand ? Brand::query()->find($subjectId) : null;
+    }
+
     public function render(ReviewIntelService $reviews, DataForSeoTaskQueue $queue): View
     {
         $brands = Brand::query()->whereHas('customer', fn ($q) => $q->where('status', CustomerStatus::Active->value))->orderBy('name')->get(['id', 'name']);
@@ -139,6 +148,7 @@ final class CompetitorWatchPage extends Component
             'brands' => $brands,
             'settings' => $settings,
             'comparison' => $comparison,
+            'themesInsight' => $brand !== null && $this->tab === 'reviews' && $comparison !== [] ? $this->insightView('reviews.themes', $brand) : null,
             'themes' => $this->profile !== null && collect($comparison)->contains('id', $this->profile) ? $reviews->negativeThemes($this->profile) : [],
             'selectedProfile' => collect($comparison)->firstWhere('id', $this->profile),
             'recentNegative' => $this->profile !== null ? DB::table('review_items')->where('review_profile_id', $this->profile)->where('rating', '<=', (int) config('moxdop-intel.reviews.negative_max_rating', 2))->whereNotNull('text')->orderByDesc('published_at')->limit(5)->get() : collect(),

@@ -3,6 +3,7 @@
 namespace App\Livewire\Demo\Portfolio;
 
 use App\Enums\CustomerStatus;
+use App\Livewire\Concerns\WithAiInsights;
 use App\Models\Customer;
 use App\Models\CustomerContact;
 use App\Services\Findings\FindingReadService;
@@ -21,6 +22,7 @@ use App\Support\Options\ContactRoleOptions;
 use App\Support\Options\CountryOptions;
 use App\Support\Options\IndustryOptions;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
@@ -32,6 +34,8 @@ use Livewire\Component;
 #[Title('Müşteri')]
 class CustomerDetail extends Component
 {
+    use WithAiInsights;
+
     public string $customerId = '';
 
     #[Url(history: true)]
@@ -222,6 +226,11 @@ class CustomerDetail extends Component
         DemoState::flash(__('operator.flash.customer_restored'));
     }
 
+    protected function insightSubject(string $kind, int $subjectId): ?Model
+    {
+        return $kind === 'customer.brief' && $subjectId === (int) $this->customerId ? Customer::query()->find($subjectId) : null;
+    }
+
     public function render(): View
     {
         $model = $this->canonicalCustomer();
@@ -289,6 +298,7 @@ class CustomerDetail extends Component
             'serviceScope' => app(CustomerServiceScopeReadService::class)->forCustomer($model, includeEnded: false),
             'customerReports' => app(ReportSnapshotReadService::class)->forCustomerReportsPresentation($model->id),
             'commercialSummary' => app(CustomerCommercialSummary::class)->for($model),
+            'briefInsight' => $this->tab === 'overview' ? $this->insightView('customer.brief', $model) : null,
             'flash' => DemoState::pullFlash(),
         ]);
     }

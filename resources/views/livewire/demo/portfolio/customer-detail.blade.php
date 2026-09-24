@@ -48,6 +48,7 @@
             $money = static fn (?float $v): string => $v !== null ? '₺'.number_format($v, 0, ',', '.') : '—';
             $stateLabel = ['over' => ['Bütçeyi aşacak', 'text-rose-700 bg-rose-50'], 'under' => ['Bütçenin altında', 'text-amber-700 bg-amber-50'], 'on_track' => ['Hedefte', 'text-emerald-700 bg-emerald-50'], 'no_budget' => ['Bütçe girilmemiş', 'text-gray-600 bg-gray-100']];
         @endphp
+        @if ($briefInsight)<x-operator.ai-insight :insight="$briefInsight" />@endif
         <section class="{{ $card }} p-5" data-customer-commercial>
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>

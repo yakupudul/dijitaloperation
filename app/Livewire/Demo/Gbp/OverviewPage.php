@@ -3,9 +3,11 @@
 namespace App\Livewire\Demo\Gbp;
 
 use App\Contracts\GbpOperatorWorkspace;
+use App\Livewire\Concerns\WithAiInsights;
 use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
 use App\Models\AdvisorItem;
 use App\Models\AiProduction;
+use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\GbpReview;
@@ -13,6 +15,7 @@ use App\Services\Async\AsyncOperationService;
 use App\Services\Gbp\ReviewReplyDrafter;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -28,6 +31,7 @@ use Livewire\Component;
 class OverviewPage extends Component
 {
     use ResolvesCanonicalOperatorAsset;
+    use WithAiInsights;
 
     public string $assetId = '';
 
@@ -113,6 +117,11 @@ class OverviewPage extends Component
         }
     }
 
+    protected function insightSubject(string $kind, int $subjectId): ?Model
+    {
+        return $kind === 'reviews.themes' && $subjectId === (int) $this->asset()->brand_id ? Brand::query()->find($subjectId) : null;
+    }
+
     public function render(GbpOperatorWorkspace $workspace): View
     {
         $this->normalizeTab();
@@ -127,6 +136,7 @@ class OverviewPage extends Component
             ->get();
 
         return view('livewire.demo.gbp.overview', [
+            'themesInsight' => $this->tab === 'reviews' && $asset->brand !== null ? $this->insightView('reviews.themes', $asset->brand) : null,
             'asset' => $this->presentCanonicalAsset(),
             'data' => $data,
             'identity' => $data['identity'],

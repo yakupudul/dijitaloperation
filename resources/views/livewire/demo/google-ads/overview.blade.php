@@ -134,6 +134,7 @@
     @elseif ($effectiveTab === 'campaigns')
         @include('livewire.demo.google-ads.tabs.campaigns')
     @elseif ($effectiveTab === 'search_demand')
+        @if ($adsInsight)<x-operator.ai-insight :insight="$adsInsight" class="mb-5" />@endif
         @include('livewire.demo.google-ads.tabs.search-expert-live')
     @elseif ($effectiveTab === 'performance')
         @include('livewire.demo.google-ads.tabs.performance')
@@ -142,6 +143,7 @@
     @elseif ($effectiveTab === 'measurement')
         @include('livewire.demo.google-ads.tabs.measurement')
     @elseif ($effectiveTab === 'landing_pages')
+        @if ($adsInsight)<x-operator.ai-insight :insight="$adsInsight" class="mb-5" />@endif
         @include('livewire.demo.google-ads.tabs.landing-pages')
     @elseif ($effectiveTab === 'auction_insights')
         <livewire:operator.google-ads.auction-insights-panel :asset-id="(string) $this->assetId" :key="'google-ads-auction-'.$this->assetId" />

@@ -43,4 +43,20 @@ final class AiRouteKeys
     public const string AI_VISIBILITY_PROBE = 'intel.ai_visibility_probe';
 
     public const string GBP_REVIEW_REPLY = 'gbp.review_reply';
+
+    public const string INSIGHT_ADVISOR_EXPLAIN = 'insights.advisor_explain';
+
+    public const string INSIGHT_SEARCH_TERM_TRIAGE = 'insights.search_term_triage';
+
+    public const string INSIGHT_REVIEW_THEMES = 'insights.review_themes';
+
+    public const string INSIGHT_ALERT_CAUSE = 'insights.alert_cause';
+
+    public const string INSIGHT_LANDING_FIT = 'insights.landing_fit';
+
+    public const string INSIGHT_CUSTOMER_BRIEF = 'insights.customer_brief';
+
+    public const string INSIGHT_LEAD_SCORE = 'insights.lead_score';
+
+    public const string INSIGHT_TECHNICAL_TASKS = 'insights.technical_tasks';
 }

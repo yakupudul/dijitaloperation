@@ -140,6 +140,8 @@
             </section>
         </div>
 
+        @if ($tasksInsight ?? null)<x-operator.ai-insight :insight="$tasksInsight" />@endif
+
         @if ($technicalHealth['page_data_available'])
             <section class="overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                 <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">

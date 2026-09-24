@@ -2,10 +2,13 @@
 
 namespace App\Livewire\Operator\Work;
 
+use App\Livewire\Concerns\WithAiInsights;
 use App\Models\AssetAlert;
 use App\Models\Brand;
+use App\Services\Ai\Insights\AiInsightService;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -21,6 +24,7 @@ use Livewire\WithPagination;
 #[Title('Uyarılar')]
 final class AlertsPage extends Component
 {
+    use WithAiInsights;
     use WithPagination;
 
     public const array SNOOZE_DAYS = [1, 7, 30];
@@ -35,6 +39,9 @@ final class AlertsPage extends Component
     public string $brand = '';
 
     public string $message = '';
+
+    /** Alert whose "Olası neden" block is open. */
+    public ?int $causeFor = null;
 
     public function updated(string $property): void
     {
@@ -58,6 +65,11 @@ final class AlertsPage extends Component
         $this->message = '"'.$alert->title.'" yeniden etkin.';
     }
 
+    protected function insightSubject(string $kind, int $subjectId): ?Model
+    {
+        return $kind === 'alerts.cause' ? AssetAlert::query()->open()->find($subjectId) : null;
+    }
+
     public function render(): View
     {
         $query = AssetAlert::query()->with(['digitalAsset', 'brand'])
@@ -72,8 +84,11 @@ final class AlertsPage extends Component
 
         $counts = AssetAlert::query()->active()->selectRaw('severity, count(*) as total')->groupBy('severity')->pluck('total', 'severity');
 
+        $alerts = $query->paginate(30);
+
         return view('livewire.operator.work.alerts', [
-            'alerts' => $query->paginate(30),
+            'alerts' => $alerts,
+            'causeInsights' => app(AiInsightService::class)->viewMany('alerts.cause', $alerts->getCollection()->whereNull('resolved_at')),
             'counts' => $counts,
             'snoozedCount' => AssetAlert::query()->open()->where('snoozed_until', '>', now())->count(),
             'brands' => Brand::query()->whereIn('id', AssetAlert::query()->open()->whereNotNull('brand_id')->select('brand_id'))->orderBy('name')->pluck('name', 'id'),

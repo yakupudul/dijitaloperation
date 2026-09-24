@@ -318,6 +318,10 @@
                             </div>
                         @endif
 
+                        @if ($expanded && $explainInsight !== null && $explainInsight['subject_id'] === $item->id)
+                            <x-operator.ai-insight :insight="$explainInsight" class="mt-4" />
+                        @endif
+
                         @if (in_array($item->rule_id, $draftRules, true))
                             @php
                                 $draftSections = [

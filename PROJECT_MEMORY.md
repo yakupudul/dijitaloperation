@@ -1,5 +1,13 @@
 # PROJECT_MEMORY
 
+## 2026-10-11 — On-click AI insights
+
+- A new AI helper on a page is an `InsightDefinition`: context builder + `InsightAgent` subclass. It is registered in `AiInsightServiceProvider` and shown with `<x-operator.ai-insight>`.
+  - Do not add a separate drafter / job / cache for every new AI button.
+  - The page's `insightSubject()` decides which record a click may act on.
+- Insights run only on click. They read collected data only, never a live provider call, and are archived in the production archive.
+- Personal contact details (lead name, phone, e-mail; reviewer names) are never part of an insight context.
+
 ## 2026-10-11 — Compact storage for all providers, Meta results, alerts
 
 - GA4, Meta and Google Ads daily facts use generic compact storage (`GenericCompactStore`). The layout is taken from the live table at conversion and stored in `compact_fact_layouts`.

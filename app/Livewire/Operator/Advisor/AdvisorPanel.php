@@ -4,6 +4,7 @@ namespace App\Livewire\Operator\Advisor;
 
 use App\Enums\AdvisorCategory;
 use App\Enums\AdvisorItemStatus;
+use App\Livewire\Concerns\WithAiInsights;
 use App\Models\AdvisorItem;
 use App\Models\AdvisorPlan;
 use App\Models\Brand;
@@ -19,6 +20,7 @@ use App\Services\ExternalWrites\ExternalWriteService;
 use App\Support\Permissions;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
@@ -31,6 +33,8 @@ use Livewire\Component;
  */
 final class AdvisorPanel extends Component
 {
+    use WithAiInsights;
+
     #[Locked]
     public ?int $assetId = null;
 
@@ -229,6 +233,7 @@ final class AdvisorPanel extends Component
 
         return view('livewire.operator.advisor.advisor-panel', [
             'items' => $items,
+            'explainInsight' => ($expanded = $this->expandedId !== null ? $items->firstWhere('id', $this->expandedId) : null) !== null ? $this->insightView('advisor.explain', $expanded) : null,
             'compliance' => $compliance,
             'counts' => $counts,
             'board' => $board,
@@ -249,6 +254,11 @@ final class AdvisorPanel extends Component
             'draftRules' => array_merge(...array_values(array_map(static fn ($c): array => $c->draftRules(), $channels->all()))),
             'customers' => $this->assetId === null ? Customer::query()->orderBy('name')->get(['id', 'name']) : collect(),
         ]);
+    }
+
+    protected function insightSubject(string $kind, int $subjectId): ?Model
+    {
+        return $kind === 'advisor.explain' ? $this->query(ignoreCategory: true, ignoreStatus: true)->whereKey($subjectId)->first() : null;
     }
 
     /** @return Builder<AdvisorItem> */

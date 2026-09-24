@@ -3,6 +3,7 @@
 namespace App\Livewire\Demo\Website;
 
 use App\Contracts\WebsiteOperatorWorkspace;
+use App\Livewire\Concerns\WithAiInsights;
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Models\DigitalAsset;
 use App\Services\Async\AsyncOperationService;
@@ -18,6 +19,7 @@ use App\Services\Website\WebsiteHealthScoreService;
 use App\Support\Reality\OperatorCanonicalAsset;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -34,6 +36,7 @@ use Throwable;
 class OverviewPage extends Component
 {
     use InteractsWithDemoPeriod;
+    use WithAiInsights;
 
     public string $assetId = '';
 
@@ -417,6 +420,7 @@ class OverviewPage extends Component
             'gscCharts' => $gscCharts,
             'pagesContent' => $pagesContent,
             'technicalHealth' => $technicalHealth,
+            'tasksInsight' => $this->tab === 'health' && ($technicalHealth['available'] ?? false) ? $this->insightView('website.technical_tasks', $asset) : null,
             'healthScore' => $healthScore,
             'infrastructure' => $infrastructure,
             'dataSources' => $dataSources,
@@ -440,6 +444,11 @@ class OverviewPage extends Component
     {
         $this->message = (string) ($result['message'] ?? __('operator_runtime.sources.collect_failed'));
         $this->messageTone = ($result['ok'] ?? false) ? 'success' : 'info';
+    }
+
+    protected function insightSubject(string $kind, int $subjectId): ?Model
+    {
+        return $kind === 'website.technical_tasks' && $subjectId === (int) $this->asset()->id ? $this->asset() : null;
     }
 
     private function asset(): DigitalAsset

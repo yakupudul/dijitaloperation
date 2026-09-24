@@ -37,9 +37,15 @@
                         <p class="text-xs text-gray-500">{{ $alert->brand?->name ?? '—' }} · {{ $alert->digitalAsset?->name ?? '—' }} · ilk görülme {{ $alert->first_detected_at?->format('d.m.Y') }}@if ($alert->resolved_at) · kapandı {{ $alert->resolved_at->format('d.m.Y') }}@endif</p>
                         <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $alert->message }}</p>
                         @if ($alert->isSnoozed())<p class="mt-1 text-xs text-amber-700">{{ $alert->snoozed_until->format('d.m.Y') }} tarihine kadar sessizde</p>@endif
+                        @if (isset($causeInsights[$alert->id]) && ($causeFor === $alert->id || $causeInsights[$alert->id]['production'] || $causeInsights[$alert->id]['state']))
+                            <x-operator.ai-insight :insight="$causeInsights[$alert->id]" :compact="true" class="mt-3" />
+                        @endif
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
                         <x-ta.badge :color="$alert->severityColor()" size="sm">{{ $alert->severityLabel() }}</x-ta.badge>
+                        @if ($alert->resolved_at === null && ! (isset($causeInsights[$alert->id]) && ($causeFor === $alert->id || $causeInsights[$alert->id]['production'])))
+                            <button type="button" wire:click="$set('causeFor', {{ $alert->id }})" class="rounded border border-violet-300 px-2 py-0.5 text-xs text-violet-700 hover:bg-violet-50 dark:border-violet-500/30 dark:text-violet-300">✨ Olası neden</button>
+                        @endif
                         @if ($url = $assetUrl($alert))<a href="{{ $url }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">Varlığı aç</a>@endif
                         @if ($alert->resolved_at === null)
                             @if ($alert->isSnoozed())

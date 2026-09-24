@@ -256,6 +256,7 @@
         </section>
 
     @elseif ($tab === 'reviews')
+        @if ($themesInsight)<x-operator.ai-insight :insight="$themesInsight" />@endif
         @if (! ($reviews['available'] ?? false))
             <section class="{{ $card }} text-sm text-gray-500">{{ __($g.'no_reviews') }}</section>
         @else

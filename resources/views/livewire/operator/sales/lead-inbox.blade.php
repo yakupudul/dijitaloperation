@@ -26,8 +26,15 @@
                     <p class="text-xs text-gray-500">{{ $sources[$lead->source] ?? $lead->source }} · {{ \Illuminate\Support\Carbon::parse($lead->received_at)->format('d.m.Y H:i') }}@if ($lead->phone) · <a href="tel:{{ preg_replace('/[^\d+]/', '', $lead->phone) }}" class="text-brand-600">{{ $lead->phone }}</a>@endif @if ($lead->email) · {{ $lead->email }}@endif</p>
                     @if ($lead->message)<p class="mt-1 whitespace-pre-line text-sm text-gray-700 dark:text-gray-300">{{ \Illuminate\Support\Str::limit($lead->message, 500) }}</p>@endif
                     @if ($lead->page_url || $lead->utm)<p class="mt-1 text-xs text-gray-400">{{ $lead->page_url }} {{ $lead->utm ? implode(' · ', array_map(fn ($k, $v) => $k.'='.$v, array_keys((array) json_decode($lead->utm, true)), (array) json_decode($lead->utm, true))) : '' }}</p>@endif
+                    @php $score = $scoreInsights[$lead->id] ?? null; @endphp
+                    @if ($score && ($scoreFor === $lead->id || $score['production'] || $score['state']))
+                        <x-operator.ai-insight :insight="$score" :compact="true" class="mt-3" />
+                    @endif
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
+                    @if (($scoreInsights[$lead->id] ?? null) && $scoreFor !== $lead->id && ! $scoreInsights[$lead->id]['production'])
+                        <button type="button" wire:click="$set('scoreFor', {{ $lead->id }})" class="rounded border border-violet-300 px-2 py-1 text-xs text-violet-700 hover:bg-violet-50 dark:border-violet-500/30 dark:text-violet-300">✨ Puanla</button>
+                    @endif
                     @if ($lead->status === 'converted' && $lead->prospect_id)
                         <a href="{{ route('operator.prospect', ['prospectId' => $lead->prospect_id]) }}" wire:navigate class="text-xs text-brand-600 hover:underline">Adayı aç →</a>
                     @else

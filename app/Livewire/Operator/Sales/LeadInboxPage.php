@@ -2,10 +2,14 @@
 
 namespace App\Livewire\Operator\Sales;
 
+use App\Livewire\Concerns\WithAiInsights;
+use App\Models\AgencyLead;
 use App\Models\AgencySetting;
+use App\Services\Ai\Insights\AiInsightService;
 use App\Services\Sales\AgencyLeadInbox;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -20,6 +24,8 @@ use Livewire\Component;
 #[Title('Lead kutusu')]
 final class LeadInboxPage extends Component
 {
+    use WithAiInsights;
+
     #[Url]
     public string $status = 'open';
 
@@ -31,6 +37,9 @@ final class LeadInboxPage extends Component
     public string $message = '';
 
     public string $error = '';
+
+    /** Lead whose AI score block is open. */
+    public ?int $scoreFor = null;
 
     public function setStatus(int $id, string $status): void
     {
@@ -66,6 +75,11 @@ final class LeadInboxPage extends Component
         $this->message = 'Yeni adres oluşturuldu; eski adres artık çalışmaz. Bu adresi yalnız şimdi tam görürsün.';
     }
 
+    protected function insightSubject(string $kind, int $subjectId): ?Model
+    {
+        return $kind === 'sales.lead_score' ? AgencyLead::query()->find($subjectId) : null;
+    }
+
     public function render(): View
     {
         $leads = DB::table('agency_leads')
@@ -75,6 +89,7 @@ final class LeadInboxPage extends Component
 
         return view('livewire.operator.sales.lead-inbox', [
             'leads' => $leads,
+            'scoreInsights' => app(AiInsightService::class)->viewMany('sales.lead_score', AgencyLead::query()->whereIn('id', $leads->pluck('id'))->get()),
             'counts' => DB::table('agency_leads')->selectRaw('status, count(*) as c')->groupBy('status')->pluck('c', 'status')->all(),
             'statuses' => AgencyLeadInbox::STATUSES,
             'hint' => AgencySetting::query()->value('lead_inbox_token_hint'),

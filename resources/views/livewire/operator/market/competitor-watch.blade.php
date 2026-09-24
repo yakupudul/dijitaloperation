@@ -22,6 +22,9 @@
         @endforeach
     </nav>
 
+    @if ($settings !== null && $tab === 'reviews' && ($themesInsight ?? null))
+        <x-operator.ai-insight :insight="$themesInsight" />
+    @endif
     @if ($settings !== null && $tab === 'reviews')
         <div class="flex flex-wrap items-center gap-2">
             @if ($isAdmin)

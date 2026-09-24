@@ -2,9 +2,11 @@
 
 namespace App\Livewire\Demo\GoogleAds;
 
+use App\Livewire\Concerns\WithAiInsights;
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
 use App\Models\CoreExternalResource;
+use App\Models\DigitalAsset;
 use App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService;
 use App\Services\GoogleAds\GoogleAdsProfessionalWorkspaceReadService;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
@@ -12,6 +14,7 @@ use App\Services\GoogleAds\GoogleAdsSpecialistReadService;
 use App\Services\GoogleAds\Support\GoogleAdsBindingMode;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -23,6 +26,7 @@ class OverviewPage extends Component
 {
     use InteractsWithDemoPeriod;
     use ResolvesCanonicalOperatorAsset;
+    use WithAiInsights;
 
     public string $assetId = '';
 
@@ -320,7 +324,23 @@ class OverviewPage extends Component
                     ['opposite' => true, 'title' => ['text' => $conversionSeriesName]],
                 ],
             ],
+            'adsInsight' => $this->adsInsight(),
             'flash' => DemoState::pullFlash(),
         ]);
+    }
+
+    protected function insightSubject(string $kind, int $subjectId): ?Model
+    {
+        return in_array($kind, ['google_ads.search_term_triage', 'google_ads.landing_fit'], true) && (string) $subjectId === (string) $this->assetId
+            ? DigitalAsset::query()->find($subjectId) : null;
+    }
+
+    /** @return array<string, mixed>|null AI block of the open tab (search terms / landing pages). */
+    private function adsInsight(): ?array
+    {
+        $kind = ['search_demand' => 'google_ads.search_term_triage', 'landing_pages' => 'google_ads.landing_fit'][$this->tab] ?? null;
+        $asset = $kind !== null && ctype_digit((string) $this->assetId) ? DigitalAsset::query()->find((int) $this->assetId) : null;
+
+        return $asset !== null ? $this->insightView($kind, $asset) : null;
     }
 }

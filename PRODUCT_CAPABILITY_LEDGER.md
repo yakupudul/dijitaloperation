@@ -1,5 +1,32 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-11 — Tıkla-çalıştır AI içgörüleri (8 yeni yer)
+
+**State:** CODED + PHPUnit. Not deployed; answer quality is not yet reviewed on real data.
+- `AiInsightsTest`, on SQLite and PostgreSQL:
+  - every context builds from local data;
+  - an alert cause is written on click and archived;
+  - a lead's name, phone and e-mail are never sent;
+  - a page can act only on its own subjects.
+
+- **Existing AI features:** every place that already used AI was checked, and each one has a button.
+- **Shared frame:**
+  - `AiInsightService` + `InsightDefinition` + one `InsightAgent` base, with output summary + items (title, detail, tag).
+  - `WriteAiInsightJob` and the `<x-operator.ai-insight>` block.
+  - Answers go to the production archive (versioned, 👍/👎).
+  - Each insight has its own AI route in the AI Control Plane, with budget and cost recording.
+  - Nothing runs without a click.
+- **New insights:**
+  1. **Danışman › open item › "Neden önemli, ne yapmalı?"** Steps are tagged now / this week / check later / risk.
+  2. **Google Ads › Arama talebi › "Alakasız arama terimlerini bul".** Negative candidates come from the brand's services and areas; converting terms and existing negatives are excluded.
+  3. **Rakip izleme › Yorumlar and İşletme Profili › Yorumlar › "Yorum temaları".** Complaint / competitor ahead / strength. The brand's own GBP reviews are used when review intel has none.
+  4. **Uyarılar › "Olası neden".** Uses 42 days of GA4, Search Console, Google Ads and Meta daily series, uptime failures, chart notes and other alerts.
+  5. **Google Ads › Açılış sayfaları › "Reklam ve açılış sayfası uyumu".** Uses landing page cost, crawled title / H1 / description, ad texts and keyword quality signals.
+  6. **Müşteri › Genel bakış › "Görüşme öncesi özet".** Uses health, budget, open work, alerts, the last report and renewals.
+  7. **Satış › Lead kutusu › "Puanla".** Hot / warm / cold, questions to ask and a first message. Contact details are not sent.
+  8. **Web sitesi › Teknik sağlık › "Geliştirici için iş listesi".** Findings are merged into prioritised tasks.
+- New model `AgencyLead`, for the existing `agency_leads` table.
+
 ## 2026-10-11 — Eksik özellik taraması: 9 madde
 
 **State:** CODED + PHPUnit. Not yet deployed or checked on staging.

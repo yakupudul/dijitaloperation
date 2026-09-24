@@ -34,6 +34,14 @@ final class AiUsageRecorder
         'MonthlyReportCommentaryAgent' => AiRouteKeys::MONTHLY_REPORT_COMMENTARY,
         'AiVisibilityProbeAgent' => AiRouteKeys::AI_VISIBILITY_PROBE,
         'ReviewReplyAgent' => AiRouteKeys::GBP_REVIEW_REPLY,
+        'AdvisorExplainAgent' => AiRouteKeys::INSIGHT_ADVISOR_EXPLAIN,
+        'SearchTermTriageAgent' => AiRouteKeys::INSIGHT_SEARCH_TERM_TRIAGE,
+        'ReviewThemesAgent' => AiRouteKeys::INSIGHT_REVIEW_THEMES,
+        'AlertCauseAgent' => AiRouteKeys::INSIGHT_ALERT_CAUSE,
+        'LandingFitAgent' => AiRouteKeys::INSIGHT_LANDING_FIT,
+        'CustomerBriefAgent' => AiRouteKeys::INSIGHT_CUSTOMER_BRIEF,
+        'LeadScoreAgent' => AiRouteKeys::INSIGHT_LEAD_SCORE,
+        'TechnicalTasksAgent' => AiRouteKeys::INSIGHT_TECHNICAL_TASKS,
     ];
 
     public function __construct(private readonly AiPricing $pricing) {}
