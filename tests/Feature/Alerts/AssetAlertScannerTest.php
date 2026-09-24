@@ -79,6 +79,24 @@ final class AssetAlertScannerTest extends TestCase
         $this->assertSame(0, AssetAlert::query()->open()->count());
     }
 
+    public function test_ga4_session_and_conversion_drops_are_alerted(): void
+    {
+        $site = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'website', 'status' => DigitalAssetStatus::Active, 'name' => 'Site']);
+        for ($day = 1; $day <= 14; $day++) {
+            DB::table('ga4_property_daily')->insert([
+                'digital_asset_id' => $site->id, 'external_resource_id' => 77, 'property_id' => '123',
+                'reporting_date' => now()->subDays($day)->toDateString(), 'sessions' => $day <= 7 ? 30 : 100, 'keyEvents' => $day <= 7 ? 3 : 4,
+                'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+                'record_fingerprint' => hash('sha256', 'ga'.$day), 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+        app(AssetAlertScanner::class)->scan($site);
+
+        $kinds = AssetAlert::query()->open()->where('digital_asset_id', $site->id)->pluck('kind')->all();
+        $this->assertContains('ga4_sessions_drop', $kinds);
+        $this->assertNotContains('ga4_conversions_drop', $kinds, '28 → 21 key events is a 25% dip, below the threshold');
+    }
+
     public function test_search_drop_bad_review_and_stale_data(): void
     {
         $site = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'website', 'status' => DigitalAssetStatus::Active, 'name' => 'Site']);

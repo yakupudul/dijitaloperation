@@ -672,6 +672,10 @@ return [
                 'coverage' => '/ :total gözlemlenen sayfa',
                 'lab_note' => 'LCP burada laboratuvar ölçümüdür; gerçek kullanıcı Core Web Vitals alan verisi değildir.',
                 'no_data' => 'Bu sayfa için PageSpeed ölçümü yok.',
+                'field_title' => 'Gerçek kullanıcı hızı (Chrome kullanıcı verisi)',
+                'field_scope_page' => 'Bu sayfanın son 28 günlük gerçek ziyaretçi ölçümü',
+                'field_scope_origin' => 'Sitenin geneli için son 28 günlük gerçek ziyaretçi ölçümü',
+                'field_empty' => 'Google henüz bu site için yeterli gerçek kullanıcı verisi yayınlamıyor ya da sonraki PageSpeed ölçümü bekleniyor.',
             ],
             'observations' => [
                 'title' => 'En sık teknik gözlemler',

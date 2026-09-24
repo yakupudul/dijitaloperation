@@ -411,6 +411,14 @@ class WebsiteProductionCollectorTest extends TestCase
                         'largest-contentful-paint' => ['numericValue' => 2400],
                     ],
                 ],
+                'originLoadingExperience' => [
+                    'overall_category' => 'AVERAGE',
+                    'metrics' => [
+                        'LARGEST_CONTENTFUL_PAINT_MS' => ['percentile' => 2900],
+                        'INTERACTION_TO_NEXT_PAINT' => ['percentile' => 210],
+                        'CUMULATIVE_LAYOUT_SHIFT_SCORE' => ['percentile' => 12],
+                    ],
+                ],
             ], 200),
         ]);
 
@@ -418,6 +426,9 @@ class WebsiteProductionCollectorTest extends TestCase
         $this->assertSame(DatasetExecutionOutcome::Completed, $result->outcome, (string) $result->errorMessage);
         $this->assertSame(1, DB::table('website_performance_measurement')->count());
         $this->assertSame(0, Evidence::query()->count());
+
+        $field = json_decode((string) DB::table('website_performance_measurement')->value('metadata'), true)['field'];
+        $this->assertSame(['scope' => 'origin', 'category' => 'AVERAGE', 'lcp_ms' => 2900, 'inp_ms' => 210, 'cls' => 0.12], $field);
     }
 
     #[Test]

@@ -71,7 +71,7 @@ final class AssetAlertScanner
             $detected = match ((string) $asset->type) {
                 'google_ads' => $this->googleAds($asset),
                 'meta_ads' => $this->metaAds($asset),
-                'website' => $this->website($asset),
+                'website' => [...$this->website($asset), ...$this->ga4Drops($asset)],
                 'google_business_profile', 'gbp' => $this->businessProfile($asset),
                 default => [],
             };
@@ -201,6 +201,47 @@ final class AssetAlertScanner
         return [$this->alert('search_traffic_drop', $drop >= 60 ? 'high' : 'medium', 'Google arama tıklamaları düştü',
             sprintf('Son 7 günde %s tık, önceki 7 günde %s (−%%%d). Search Console sekmesinde düşen sayfaları kontrol edin.', number_format($current, 0, ',', '.'), number_format($previous, 0, ',', '.'), $drop),
             ['current' => $current, 'previous' => $previous, 'drop_pct' => $drop, 'end' => $end->toDateString()])];
+    }
+
+    /**
+     * GA4: sessions or key events (conversions) of the last 7 days fell sharply against the 7 days before.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function ga4Drops(DigitalAsset $asset): array
+    {
+        if (! Schema::hasTable('ga4_property_daily')) {
+            return [];
+        }
+        $latest = $this->seoInputs->scopeGa4(DB::table('ga4_property_daily'), $asset)->max('reporting_date');
+        if ($latest === null) {
+            return [];
+        }
+        $end = CarbonImmutable::parse((string) $latest);
+        $sum = fn (string $column, CarbonImmutable $from, CarbonImmutable $to): float => (float) $this->seoInputs
+            ->scopeGa4(DB::table('ga4_property_daily'), $asset)
+            ->whereBetween('reporting_date', [$from->toDateString(), $to->toDateString()])->sum($column);
+        $cfg = (array) config('moxdop-alerts.ga4_drop');
+        $alerts = [];
+        foreach ([['sessions', 'min_previous_sessions', 'ga4_sessions_drop', 'Site ziyaretleri düştü', 'oturum'], ['keyEvents', 'min_previous_key_events', 'ga4_conversions_drop', 'Site dönüşümleri düştü', 'dönüşüm']] as [$column, $minKey, $kind, $title, $unit]) {
+            if (! Schema::hasColumn('ga4_property_daily', $column)) {
+                continue;
+            }
+            $current = $sum($column, $end->subDays(6), $end);
+            $previous = $sum($column, $end->subDays(13), $end->subDays(7));
+            if ($previous < (float) ($cfg[$minKey] ?? 50)) {
+                continue;
+            }
+            $drop = (int) round((1 - $current / $previous) * 100);
+            if ($drop < (int) ($cfg['drop_pct'] ?? 35)) {
+                continue;
+            }
+            $alerts[] = $this->alert($kind, $drop >= 60 ? 'high' : 'medium', $title,
+                sprintf('Son 7 günde %s %s, önceki 7 günde %s (−%%%d). Google Analytics sekmesinde kanalları ve giriş sayfalarını kontrol edin.', number_format($current, 0, ',', '.'), $unit, number_format($previous, 0, ',', '.'), $drop),
+                ['current' => $current, 'previous' => $previous, 'drop_pct' => $drop, 'end' => $end->toDateString()]);
+        }
+
+        return $alerts;
     }
 
     /**

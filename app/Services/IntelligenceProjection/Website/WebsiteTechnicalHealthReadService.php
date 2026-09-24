@@ -7,6 +7,7 @@ use App\Models\IntelligenceProjection\WebsiteEntityProfile;
 use App\Models\IntelligenceProjection\WebsitePageProfile;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 final class WebsiteTechnicalHealthReadService
@@ -74,6 +75,7 @@ final class WebsiteTechnicalHealthReadService
             'severity_counts' => $this->severityCounts($profiles, $pageDataAvailable),
             'issue_groups' => $this->issueGroups($profiles),
             'infrastructure' => $infrastructure,
+            'field_vitals' => $this->fieldVitals($asset),
             'rows' => $rows->all(),
             'selected' => $selected,
             'pagination' => [
@@ -278,6 +280,51 @@ final class WebsiteTechnicalHealthReadService
         }
 
         return $row;
+    }
+
+    /**
+     * Latest real-user (CrUX) Core Web Vitals delivered with a PageSpeed measurement, mobile first.
+     *
+     * @return array{category: ?string, lcp_ms: ?float, inp_ms: ?float, cls: ?float, scope: ?string, strategy: string, url: string, observed_at: string}|null
+     */
+    private function fieldVitals(DigitalAsset $asset): ?array
+    {
+        try {
+            $rows = DB::table('website_performance_measurement')
+                ->where('digital_asset_id', $asset->getKey())
+                ->orderByDesc('observed_at')
+                ->limit(40)
+                ->get(['url', 'strategy', 'observed_at', 'metadata']);
+        } catch (Throwable) {
+            return null;
+        }
+
+        $candidates = $rows
+            ->map(static function (object $row): ?array {
+                $metadata = is_string($row->metadata) ? json_decode($row->metadata, true) : (array) $row->metadata;
+                $field = is_array($metadata) ? ($metadata['field'] ?? null) : null;
+
+                return is_array($field) ? array_merge($field, [
+                    'strategy' => (string) $row->strategy,
+                    'url' => (string) $row->url,
+                    'observed_at' => (string) $row->observed_at,
+                ]) : null;
+            })
+            ->filter()
+            ->values();
+
+        $picked = $candidates->first(static fn (array $field): bool => $field['strategy'] === 'mobile') ?? $candidates->first();
+
+        return $picked === null ? null : [
+            'category' => is_string($picked['category'] ?? null) ? $picked['category'] : null,
+            'lcp_ms' => is_numeric($picked['lcp_ms'] ?? null) ? (float) $picked['lcp_ms'] : null,
+            'inp_ms' => is_numeric($picked['inp_ms'] ?? null) ? (float) $picked['inp_ms'] : null,
+            'cls' => is_numeric($picked['cls'] ?? null) ? (float) $picked['cls'] : null,
+            'scope' => is_string($picked['scope'] ?? null) ? $picked['scope'] : null,
+            'strategy' => $picked['strategy'],
+            'url' => $picked['url'],
+            'observed_at' => $picked['observed_at'],
+        ];
     }
 
     /** @param list<array<string, mixed>> $measurements @return array<string, mixed> */

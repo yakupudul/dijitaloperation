@@ -118,6 +118,25 @@
                     <p class="pb-1 text-sm text-gray-500">{{ __('operator.website.technical_health.pagespeed.coverage', ['total' => $summary['observed_pages'] === null ? '—' : number_format($summary['observed_pages'], 0, ',', '.')]) }}</p>
                 </div>
                 <p class="mt-4 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:bg-white/[0.03] dark:text-gray-400">{{ __('operator.website.technical_health.pagespeed.lab_note') }}</p>
+                @php($field = $technicalHealth['field_vitals'] ?? null)
+                <div class="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800">
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ __('operator.website.technical_health.pagespeed.field_title') }}</p>
+                    @if ($field)
+                        @php($category = ['FAST' => ['İyi', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'], 'AVERAGE' => ['Geliştirilmeli', 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'], 'SLOW' => ['Zayıf', 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300']][$field['category'] ?? ''] ?? null)
+                        <p class="mt-1 text-xs text-gray-500">
+                            {{ $field['scope'] === 'origin' ? __('operator.website.technical_health.pagespeed.field_scope_origin') : __('operator.website.technical_health.pagespeed.field_scope_page') }}
+                            · {{ $field['strategy'] === 'mobile' ? 'Mobil' : 'Masaüstü' }}
+                            @if ($category)<span class="ml-1 rounded-full px-2 py-0.5 text-[11px] font-medium {{ $category[1] }}">{{ $category[0] }}</span>@endif
+                        </p>
+                        <dl class="mt-3 grid grid-cols-3 gap-3 text-sm">
+                            <div><dt class="text-xs text-gray-400">LCP</dt><dd class="mt-1 font-medium text-gray-900 dark:text-white">{{ $field['lcp_ms'] !== null ? number_format($field['lcp_ms'] / 1000, 1, ',', '.').' sn' : '—' }}</dd></div>
+                            <div><dt class="text-xs text-gray-400">INP</dt><dd class="mt-1 font-medium text-gray-900 dark:text-white">{{ $field['inp_ms'] !== null ? number_format($field['inp_ms'], 0, ',', '.').' ms' : '—' }}</dd></div>
+                            <div><dt class="text-xs text-gray-400">CLS</dt><dd class="mt-1 font-medium text-gray-900 dark:text-white">{{ $field['cls'] !== null ? number_format($field['cls'], 2, ',', '.') : '—' }}</dd></div>
+                        </dl>
+                    @else
+                        <p class="mt-1 text-xs text-gray-500">{{ __('operator.website.technical_health.pagespeed.field_empty') }}</p>
+                    @endif
+                </div>
             </section>
         </div>
 

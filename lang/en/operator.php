@@ -670,6 +670,10 @@ return [
                 'hint' => 'URL measurements from the connected PageSpeed source',
                 'coverage' => '/ :total observed pages',
                 'lab_note' => 'LCP is a laboratory measurement here; it is not real-user Core Web Vitals field data.',
+                'field_title' => 'Real-user speed (Chrome user data)',
+                'field_scope_page' => 'Last 28 days of real visitors on this page',
+                'field_scope_origin' => 'Last 28 days of real visitors across the site',
+                'field_empty' => 'Google does not publish enough real-user data for this site yet, or the next PageSpeed measurement is pending.',
                 'no_data' => 'No PageSpeed measurement is available for this page.',
             ],
             'observations' => [

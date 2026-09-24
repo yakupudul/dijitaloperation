@@ -17,8 +17,8 @@ use App\Services\DataPool\Support\RawPayloadEnvelope;
 use App\Services\DataPool\Support\WriteReceipt;
 use App\Support\SslCertificateProbe;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use MoxDop\Website\Discovery\DiscoveryConfig;
 use MoxDop\Website\Discovery\PublicHttpFetcher;
@@ -361,11 +361,41 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             'lcp_ms' => isset($audits['largest-contentful-paint']['numericValue']) && is_numeric($audits['largest-contentful-paint']['numericValue'])
                 ? $audits['largest-contentful-paint']['numericValue'] : null,
             'lab_data' => $lighthouse !== [],
+            // Real-user Core Web Vitals (Chrome UX Report) that PageSpeed returns with the same call: the page's
+            // own data when it has enough traffic, otherwise the whole site's (origin).
+            'field' => $this->fieldVitals(is_array($body) ? $body : []),
         ];
         $record = $this->normalizer->performanceMeasurement((int) $scope['asset']->id, $url, $strategy, $lab, $observedAt);
         $this->writeOne($context, 'website_performance_measurement', 'psi', (int) $scope['asset']->id, [$record], is_array($body) ? [$body] : [], $url);
 
         return $this->completedCounted(1, 1, ['observed_at' => $observedAt, 'strategy' => $strategy], 1, 1);
+    }
+
+    /**
+     * @param  array<string, mixed>  $body
+     * @return array{scope: string, category: ?string, lcp_ms: ?int, inp_ms: ?int, cls: ?float}|null
+     */
+    private function fieldVitals(array $body): ?array
+    {
+        foreach (['loadingExperience' => 'page', 'originLoadingExperience' => 'origin'] as $key => $scope) {
+            $metrics = $body[$key]['metrics'] ?? null;
+            if (! is_array($metrics) || $metrics === []) {
+                continue;
+            }
+            $value = static fn (string $metric): ?float => is_numeric($metrics[$metric]['percentile'] ?? null) ? (float) $metrics[$metric]['percentile'] : null;
+            $cls = $value('CUMULATIVE_LAYOUT_SHIFT_SCORE');
+
+            return [
+                'scope' => $scope,
+                'category' => is_string($body[$key]['overall_category'] ?? null) ? $body[$key]['overall_category'] : null,
+                'lcp_ms' => ($lcp = $value('LARGEST_CONTENTFUL_PAINT_MS')) !== null ? (int) $lcp : null,
+                'inp_ms' => ($inp = $value('INTERACTION_TO_NEXT_PAINT')) !== null ? (int) $inp : null,
+                // CrUX reports CLS × 100 as the percentile.
+                'cls' => $cls !== null ? round($cls / 100, 2) : null,
+            ];
+        }
+
+        return null;
     }
 
     /** @param array<string, mixed> $fetch */
@@ -528,8 +558,8 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
     }
 
     /**
-     * @param list<array<string, mixed>> $records
-     * @param list<mixed> $rawRows
+     * @param  list<array<string, mixed>>  $records
+     * @param  list<mixed>  $rawRows
      */
     private function writeOne(
         DatasetExecutionContext $context,
@@ -710,8 +740,8 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
     }
 
     /**
-     * @param list<string> $queue
-     * @param list<string> $visited
+     * @param  list<string>  $queue
+     * @param  list<string>  $visited
      * @return array<string, mixed>
      */
     private function crawlCheckpoint(
@@ -722,8 +752,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         int $rowsWritten,
         int $bytesDownloaded,
         int $urlsPlanned,
-    ): array
-    {
+    ): array {
         return [
             'observed_at' => $observedAt,
             'queue' => array_values($queue),
@@ -798,7 +827,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
     }
 
     /**
-     * @param list<string> $candidates
+     * @param  list<string>  $candidates
      * @return array{pages: list<string>, documents: list<array{url: string, fetch: array<string, mixed>}>, bytes: int}
      */
     private function discoverSitemapInventory(string $seed, array $candidates): array

@@ -18,6 +18,11 @@ return [
         'days' => 3,                 // consecutive days with spend and 0 conversions
         'min_daily_conversions' => 1.0, // prior 14-day average that makes zero suspicious
     ],
+    'ga4_drop' => [
+        'drop_pct' => 35,               // last 7 days vs previous 7 days
+        'min_previous_sessions' => 100,
+        'min_previous_key_events' => 10,
+    ],
     'search_traffic_drop' => [
         'drop_pct' => 40,        // last 7 days vs previous 7 days
         'min_previous_clicks' => 50,
