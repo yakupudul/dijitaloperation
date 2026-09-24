@@ -165,6 +165,8 @@ final class WebsiteGa4AnalysisService
             'browsers' => $rangeIsUsable ? $this->browsers($resourceId, $propertyId, $rangeStart, $rangeEnd) : [],
             'countries' => $rangeIsUsable ? $this->countries($resourceId, $propertyId, $rangeStart, $rangeEnd) : [],
             'cities' => $rangeIsUsable ? $this->cities($resourceId, $propertyId, $rangeStart, $rangeEnd) : [],
+            'regions' => $rangeIsUsable ? $this->simpleSessionBreakdown('ga4_geo_region_daily', 'region', $resourceId, $propertyId, $rangeStart, $rangeEnd, 12) : [],
+            'conversion_sources' => $rangeIsUsable ? $this->conversionSources($resourceId, $propertyId, $rangeStart, $rangeEnd) : [],
             'busy_hours' => $rangeIsUsable ? $this->busyHours($resourceId, $propertyId, $rangeStart, $rangeEnd) : [],
             'ecommerce' => $rangeIsUsable
                 ? $this->ecommerce($resourceId, $propertyId, $rangeStart, $rangeEnd, $current)
@@ -417,6 +419,41 @@ final class WebsiteGa4AnalysisService
         )->map(static fn ($row): array => ['label' => (string) $row->label, 'events' => (float) $row->events])->all();
     }
 
+    /**
+     * Where the key events (conversions) came from: session channel, campaign and landing page. Only the events
+     * marked as key events in the period are counted.
+     *
+     * @return array{channel: list<array{label: string, events: float}>, campaign: list<array{label: string, events: float}>, landing: list<array{label: string, events: float}>}
+     */
+    private function conversionSources(int $resourceId, string $propertyId, string $start, string $end): array
+    {
+        $empty = ['channel' => [], 'campaign' => [], 'landing' => []];
+        if (! Schema::hasTable('ga4_key_event_daily')) {
+            return $empty;
+        }
+        $names = $this->baseQuery('ga4_key_event_daily', $resourceId, $propertyId, $start, $end)
+            ->where('keyEvents', '>', 0)->distinct()->pluck('eventName')->filter()->values()->all();
+        if ($names === []) {
+            return $empty;
+        }
+        $read = function (string $table, string $dimension) use ($resourceId, $propertyId, $start, $end, $names): array {
+            if (! Schema::hasTable($table)) {
+                return [];
+            }
+
+            return $this->baseQuery($table, $resourceId, $propertyId, $start, $end)->whereIn('eventName', $names)
+                ->groupBy($dimension)->orderByDesc(DB::raw('SUM("eventCount")'))->limit(8)
+                ->selectRaw($this->identifier($dimension).' as label, COALESCE(SUM("eventCount"), 0) as events')->get()
+                ->map(static fn ($row): array => ['label' => (string) $row->label, 'events' => (float) $row->events])->all();
+        };
+
+        return [
+            'channel' => $read('ga4_event_channel_daily', 'sessionDefaultChannelGroup'),
+            'campaign' => $read('ga4_event_campaign_daily', 'sessionCampaignName'),
+            'landing' => $read('ga4_event_landing_daily', 'landingPage'),
+        ];
+    }
+
     /** @return list<array<string, mixed>> */
     private function devices(int $resourceId, string $propertyId, string $start, string $end): array
     {
@@ -509,8 +546,8 @@ final class WebsiteGa4AnalysisService
     }
 
     /**
-     * @param array<string, string> $dimensions provider column => output alias
-     * @param array<string, string> $metrics provider metric => output alias
+     * @param  array<string, string>  $dimensions  provider column => output alias
+     * @param  array<string, string>  $metrics  provider metric => output alias
      * @return Collection<int, object>
      */
     private function grouped(

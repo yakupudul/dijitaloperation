@@ -14,7 +14,9 @@ use App\Services\DataPool\MaterializationService;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RawPayloadEnvelope;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -227,6 +229,10 @@ final class GoogleAdsProfessionalDatasetExecutor implements DatasetExecutor
             );
         }
 
+        if ($family === GoogleAdsProfessionalRequestFamilyCatalog::GEO_DAILY) {
+            $this->resolveGeoNames($scope, $records);
+        }
+
         $next = $sliceIndex + 1;
         $checkpoint = [
             'slice_index' => $next,
@@ -264,6 +270,44 @@ final class GoogleAdsProfessionalDatasetExecutor implements DatasetExecutor
             rowsWritten: count($records),
             checkpoint: $checkpoint,
         );
+    }
+
+    /**
+     * Google returns province / district ids ("geoTargetConstants/1012782"); their names are looked up once and
+     * kept in google_ads_geo_names. A failed lookup never fails the dataset — the page then shows the id.
+     *
+     * @param  array<string, mixed>  $scope
+     * @param  list<array<string, mixed>>  $records
+     */
+    private function resolveGeoNames(array $scope, array $records): void
+    {
+        try {
+            $ids = collect($records)->flatMap(fn (array $r): array => [$r['geo_target_region'] ?? '', $r['geo_target_city'] ?? ''])
+                ->filter(fn ($id): bool => is_string($id) && str_starts_with($id, 'geoTargetConstants/'))->unique()->values();
+            if ($ids->isEmpty() || ! Schema::hasTable('google_ads_geo_names')) {
+                return;
+            }
+            $missing = $ids->diff(DB::table('google_ads_geo_names')->whereIn('resource_name', $ids->all())->pluck('resource_name'))->values();
+            foreach ($missing->chunk(200) as $chunk) {
+                $fetched = $this->fetchPaged($scope, $this->gaql->geoTargetNames($chunk->values()->all()));
+                if ($fetched instanceof DatasetExecutionResult) {
+                    return;
+                }
+                $rows = collect($fetched[0])->map(fn (array $row): array => [
+                    'resource_name' => (string) (data_get($row, 'geoTargetConstant.resourceName') ?? data_get($row, 'geo_target_constant.resource_name')),
+                    'name' => (string) (data_get($row, 'geoTargetConstant.name') ?? data_get($row, 'geo_target_constant.name')),
+                    'canonical_name' => data_get($row, 'geoTargetConstant.canonicalName') ?? data_get($row, 'geo_target_constant.canonical_name'),
+                    'target_type' => data_get($row, 'geoTargetConstant.targetType') ?? data_get($row, 'geo_target_constant.target_type'),
+                    'country_code' => data_get($row, 'geoTargetConstant.countryCode') ?? data_get($row, 'geo_target_constant.country_code'),
+                    'created_at' => now(), 'updated_at' => now(),
+                ])->filter(fn (array $row): bool => $row['resource_name'] !== '' && $row['name'] !== '')->values()->all();
+                if ($rows !== []) {
+                    DB::table('google_ads_geo_names')->upsert($rows, ['resource_name'], ['name', 'canonical_name', 'target_type', 'country_code', 'updated_at']);
+                }
+            }
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 
     /**

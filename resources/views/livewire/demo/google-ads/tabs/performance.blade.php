@@ -302,6 +302,29 @@
         </div>
     </section>
 
+    @php
+        $geoTables = ['İller' => collect($perf['geo_regions'] ?? []), 'İlçeler' => collect($perf['geo_cities'] ?? [])];
+    @endphp
+    @if ($geoTables['İller']->isNotEmpty() || $geoTables['İlçeler']->isNotEmpty())
+        <div class="grid gap-4 xl:grid-cols-2" data-google-ads-geo>
+            @foreach ($geoTables as $geoTitle => $geoRows)
+                <section class="rounded-2xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                    <h3 class="font-semibold text-gray-900 dark:text-white">{{ $geoTitle }} <span class="text-xs font-normal text-gray-500">· kullanıcının fiziksel konumu</span></h3>
+                    @if ($geoRows->isEmpty())
+                        <p class="mt-3 text-sm text-gray-500">Bu dönem için veri yok.</p>
+                    @else
+                        <div class="mt-3 overflow-x-auto"><table class="min-w-full text-sm"><thead class="text-xs text-gray-500"><tr><th class="py-2 text-left">Konum</th><th class="py-2 text-right">Tıklama</th><th class="py-2 text-right">Harcama</th><th class="py-2 text-right">Dönüşüm</th><th class="py-2 text-right">CPA</th></tr></thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                @foreach ($geoRows->take(15) as $row)
+                                    <tr><td class="py-2 font-medium text-gray-800 dark:text-gray-200">{{ $row['label'] }}</td><td class="py-2 text-right tabular-nums">{{ $fmtNumber($row['clicks']) }}</td><td class="py-2 text-right tabular-nums">{{ $fmtMoney($row['cost_amount']) }}</td><td class="py-2 text-right tabular-nums">{{ $fmtNumber($row['conversions'], 1) }}</td><td class="py-2 text-right tabular-nums">{{ $fmtMoney($row['cpa']) }}</td></tr>
+                                @endforeach
+                            </tbody></table></div>
+                    @endif
+                </section>
+            @endforeach
+        </div>
+    @endif
+
     <div class="grid gap-4 xl:grid-cols-2">
         <section class="rounded-2xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <div class="flex items-start justify-between gap-3"><div><h3 class="font-semibold text-gray-900 dark:text-white">{{ $isTr ? 'Lokasyon performansı' : 'Location performance' }}</h3><p class="mt-1 text-xs leading-5 text-gray-500">{{ $isTr ? 'Fiziksel kullanıcı lokasyonu Google Ads user_location_view semantiğine dayanır.' : 'Physical user location follows Google Ads user_location_view semantics.' }}</p></div><span class="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold text-gray-600 dark:bg-white/5 dark:text-gray-300">{{ $locationRows->count() }} {{ $isTr ? 'segment' : 'segments' }}</span></div>

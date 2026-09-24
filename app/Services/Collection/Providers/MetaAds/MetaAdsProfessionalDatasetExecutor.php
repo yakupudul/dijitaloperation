@@ -78,6 +78,8 @@ final class MetaAdsProfessionalDatasetExecutor implements DatasetExecutor
         'demographic' => ['age', 'gender'],
         'placement' => ['publisher_platform', 'platform_position'],
         'device' => ['impression_device'],
+        // Appended last so saved checkpoints (group index) stay valid.
+        'region' => ['region'],
     ];
 
     public function __construct(
@@ -505,10 +507,10 @@ final class MetaAdsProfessionalDatasetExecutor implements DatasetExecutor
     }
 
     /**
-     * @param array<string,mixed> $scope
-     * @param list<string> $fields
-     * @param array<string,scalar|null> $extraQuery
-     * @param callable(list<array<string,mixed>>):list<array<string,mixed>> $normalizer
+     * @param  array<string,mixed>  $scope
+     * @param  list<string>  $fields
+     * @param  array<string,scalar|null>  $extraQuery
+     * @param  callable(list<array<string,mixed>>):list<array<string,mixed>>  $normalizer
      */
     private function executeSlicedInsights(
         DatasetExecutionContext $context,
@@ -562,7 +564,7 @@ final class MetaAdsProfessionalDatasetExecutor implements DatasetExecutor
     }
 
     /**
-     * @param array<string,mixed> $scope
+     * @param  array<string,mixed>  $scope
      * @return list<array<string,mixed>>
      */
     private function normalizeVideoRows(array $rows, array $scope): array
@@ -675,11 +677,11 @@ final class MetaAdsProfessionalDatasetExecutor implements DatasetExecutor
     }
 
     /**
-     * @param array<string,mixed> $scope
-     * @param list<array<string,mixed>> $records
-     * @param list<array<string,mixed>> $rawRows
-     * @param array{start:string,end:string}|null $slice
-     * @param array<string,mixed> $meta
+     * @param  array<string,mixed>  $scope
+     * @param  list<array<string,mixed>>  $records
+     * @param  list<array<string,mixed>>  $rawRows
+     * @param  array{start:string,end:string}|null  $slice
+     * @param  array<string,mixed>  $meta
      */
     private function writeRows(
         DatasetExecutionContext $context,
@@ -770,7 +772,7 @@ final class MetaAdsProfessionalDatasetExecutor implements DatasetExecutor
     }
 
     /**
-     * @param array<string,scalar|null> $query
+     * @param  array<string,scalar|null>  $query
      * @return array{0:list<array<string,mixed>>,1:?string}
      */
     private function paginateList(CoreIntegration $integration, string $path, array $query, int $maxPages): array

@@ -40,6 +40,7 @@ final class GoogleAdsProfessionalNormalizer
                 GoogleAdsProfessionalRequestFamilyCatalog::HOUR_DAILY => $this->hourDaily($row),
                 GoogleAdsProfessionalRequestFamilyCatalog::NETWORK_DAILY => $this->dimensionDaily($row, 'adNetworkType'),
                 GoogleAdsProfessionalRequestFamilyCatalog::USER_LOCATION_DAILY => $this->userLocationDaily($row),
+                GoogleAdsProfessionalRequestFamilyCatalog::GEO_DAILY => $this->geoDaily($row),
                 GoogleAdsProfessionalRequestFamilyCatalog::AGE_RANGE_DAILY => $this->demographicDaily($row, 'ageRangeView'),
                 GoogleAdsProfessionalRequestFamilyCatalog::GENDER_DAILY => $this->demographicDaily($row, 'genderView'),
                 GoogleAdsProfessionalRequestFamilyCatalog::CAMPAIGN_AUDIENCE_DAILY => $this->campaignAudienceDaily($row),
@@ -200,6 +201,23 @@ final class GoogleAdsProfessionalNormalizer
                 'actual_physical_user_location' => true,
                 'country_level_provider_aggregation' => true,
             ],
+        ]);
+    }
+
+    /** @return array<string, mixed>|null */
+    private function geoDaily(array $row): ?array
+    {
+        $base = $this->dated($row);
+        $type = data_get($row, 'geographicView.locationType') ?? data_get($row, 'geographic_view.location_type');
+        if ($base === null || ! is_string($type) || $type === '') {
+            return null;
+        }
+
+        return array_merge($base, [
+            'location_type' => $type,
+            // Empty when Google could not place the click in a province / district.
+            'geo_target_region' => $this->string(data_get($row, 'segments.geoTargetRegion') ?? data_get($row, 'segments.geo_target_region')),
+            'geo_target_city' => $this->string(data_get($row, 'segments.geoTargetCity') ?? data_get($row, 'segments.geo_target_city')),
         ]);
     }
 

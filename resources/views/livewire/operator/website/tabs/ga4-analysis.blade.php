@@ -93,6 +93,8 @@
     $deviceRows = $ga4Analysis['devices'] ?? [];
     $countryRows = $ga4Analysis['countries'] ?? [];
     $cityRows = $ga4Analysis['cities'] ?? [];
+    $regionRows = $ga4Analysis['regions'] ?? [];
+    $conversionSources = $ga4Analysis['conversion_sources'] ?? [];
     $maxFirstUsers = max(1, (int) collect($firstUserRows)->max('new_users'));
     $maxEvents = max(1, (float) collect($eventRows)->max('events'));
     $maxKeyEvents = max(1, (float) collect($keyEventRows)->max('events'));
@@ -365,6 +367,38 @@
                     @endif
                 </section>
             </div>
+
+            @if (! empty($regionRows))
+                <div class="mt-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                    <h4 class="text-sm font-semibold text-gray-900 dark:text-white">İller / bölgeler</h4>
+                    <div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                        @foreach (array_slice($regionRows, 0, 12) as $row)
+                            <div class="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2.5 dark:bg-white/[0.03]"><span class="truncate text-sm text-gray-600 dark:text-gray-300">{{ $row['label'] ?: '—' }}</span><strong class="ml-3 shrink-0 text-sm tabular-nums text-gray-900 dark:text-white">{{ number_format($row['sessions']) }}</strong></div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
+            @if (collect($conversionSources)->flatten(1)->isNotEmpty())
+                <div class="mt-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                    <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Dönüşümler nereden geldi?</h4>
+                    <p class="mt-1 text-xs text-gray-500">Anahtar etkinliklerin (dönüşümlerin) oturum kanalı, kampanyası ve giriş sayfasına göre dağılımı.</p>
+                    <div class="mt-3 grid gap-4 lg:grid-cols-3">
+                        @foreach (['channel' => 'Kanal', 'campaign' => 'Kampanya', 'landing' => 'Giriş sayfası'] as $key => $title)
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">{{ $title }}</p>
+                                <ul class="mt-2 space-y-1.5">
+                                    @forelse ($conversionSources[$key] ?? [] as $row)
+                                        <li class="flex items-center justify-between gap-3 text-sm"><span class="truncate text-gray-600 dark:text-gray-300" title="{{ $row['label'] }}">{{ $row['label'] !== '' && $row['label'] !== '(empty)' ? $row['label'] : '(belirsiz)' }}</span><strong class="shrink-0 tabular-nums text-gray-900 dark:text-white">{{ number_format($row['events'], 0, ',', '.') }}</strong></li>
+                                    @empty
+                                        <li class="text-sm text-gray-400">Veri yok</li>
+                                    @endforelse
+                                </ul>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
 
             @if (! empty($cityRows))
                 <div class="mt-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">

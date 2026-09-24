@@ -14,12 +14,19 @@ use InvalidArgumentException;
 final class GoogleAdsCentralRequestFamilyCatalog
 {
     public const string ACCOUNT_MONTHLY_HISTORY = 'GADS_CENTRAL_RF_ACCOUNT_MONTHLY_HISTORY';
+
     public const string ENTITY_SNAPSHOT = 'GADS_CENTRAL_RF_ENTITY_SNAPSHOT';
+
     public const string ACCOUNT_DAILY = 'GADS_CENTRAL_RF_ACCOUNT_DAILY';
+
     public const string CAMPAIGN_DAILY = 'GADS_CENTRAL_RF_CAMPAIGN_DAILY';
+
     public const string KEYWORD = 'GADS_CENTRAL_RF_KEYWORD';
+
     public const string SEARCH_TERM = 'GADS_CENTRAL_RF_SEARCH_TERM';
+
     public const string LANDING_PAGE = 'GADS_CENTRAL_RF_LANDING_PAGE';
+
     public const string CONVERSION_ACTION = 'GADS_CENTRAL_RF_CONVERSION_ACTION';
 
     /** @return list<string> */
@@ -203,6 +210,7 @@ final class GoogleAdsCentralRequestFamilyCatalog
             GoogleAdsProfessionalRequestFamilyCatalog::HOUR_DAILY => 'Gün ve saat performansı',
             GoogleAdsProfessionalRequestFamilyCatalog::NETWORK_DAILY => 'Reklam ağı performansı',
             GoogleAdsProfessionalRequestFamilyCatalog::USER_LOCATION_DAILY => 'Kullanıcı lokasyonu performansı',
+            GoogleAdsProfessionalRequestFamilyCatalog::GEO_DAILY => 'İl / ilçe performansı',
             GoogleAdsProfessionalRequestFamilyCatalog::AGE_RANGE_DAILY => 'Yaş aralığı performansı',
             GoogleAdsProfessionalRequestFamilyCatalog::GENDER_DAILY => 'Cinsiyet performansı',
             GoogleAdsProfessionalRequestFamilyCatalog::CAMPAIGN_AUDIENCE_DAILY => 'Kampanya kitle performansı',

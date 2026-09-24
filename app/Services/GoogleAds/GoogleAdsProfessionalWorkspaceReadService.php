@@ -44,6 +44,8 @@ final class GoogleAdsProfessionalWorkspaceReadService
             $hour = $this->dailyBreakdown('google_ads_hour_daily', ['day_of_week', 'hour'], $resourceId, $customerId, $rangeStart, $rangeEnd, 200);
             $network = $this->dailyBreakdown('google_ads_network_daily', ['ad_network_type'], $resourceId, $customerId, $rangeStart, $rangeEnd);
             $location = $this->dailyBreakdown('google_ads_user_location_daily', ['country_criterion_id', 'targeting_location'], $resourceId, $customerId, $rangeStart, $rangeEnd, 100);
+            $geoRegions = $this->geo('geo_target_region', $resourceId, $customerId, $rangeStart, $rangeEnd);
+            $geoCities = $this->geo('geo_target_city', $resourceId, $customerId, $rangeStart, $rangeEnd);
             $age = $this->dailyBreakdown('google_ads_age_range_daily', ['criterion_id'], $resourceId, $customerId, $rangeStart, $rangeEnd, 50);
             $gender = $this->dailyBreakdown('google_ads_gender_daily', ['criterion_id'], $resourceId, $customerId, $rangeStart, $rangeEnd, 50);
             $campaignAudience = $this->dailyBreakdown('google_ads_campaign_audience_daily', ['campaign_id', 'criterion_id'], $resourceId, $customerId, $rangeStart, $rangeEnd, 100);
@@ -75,6 +77,8 @@ final class GoogleAdsProfessionalWorkspaceReadService
                     'hour' => $hour,
                     'network' => $network,
                     'location' => $location,
+                    'geo_regions' => $geoRegions,
+                    'geo_cities' => $geoCities,
                     'age' => $age,
                     'gender' => $gender,
                     'campaign_audience' => $campaignAudience,
@@ -148,9 +152,43 @@ final class GoogleAdsProfessionalWorkspaceReadService
     }
 
     /**
-     * @param list<string> $dimensions
+     * @param  list<string>  $dimensions
      * @return list<array<string,mixed>>
      */
+    /**
+     * Province (region) or district (city) performance where people physically were, with Google's place names.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function geo(string $dimension, int $resourceId, string $customerId, string $start, string $end): array
+    {
+        if (! Schema::hasTable('google_ads_geo_daily')) {
+            return [];
+        }
+        $rows = $this->scopedTable('google_ads_geo_daily', $resourceId, $customerId)
+            ->whereBetween('reporting_date', [$start, $end])
+            ->where('location_type', 'LOCATION_OF_PRESENCE')
+            ->groupBy($dimension)
+            ->selectRaw($dimension.' as geo, SUM(impressions) as impressions, SUM(clicks) as clicks, SUM(cost_amount) as cost_amount, SUM(conversions) as conversions, SUM(conversions_value) as conversions_value')
+            ->orderByDesc('cost_amount')->limit(30)->get();
+        $names = Schema::hasTable('google_ads_geo_names')
+            ? DB::table('google_ads_geo_names')->whereIn('resource_name', $rows->pluck('geo')->all())->pluck('name', 'resource_name')->all() : [];
+
+        return $rows->map(function (object $row) use ($names): array {
+            $cost = (float) $row->cost_amount;
+            $conversions = (float) $row->conversions;
+
+            return [
+                'label' => $names[$row->geo] ?? (str_starts_with((string) $row->geo, 'geoTargetConstants/') ? 'Konum #'.substr((string) $row->geo, 19) : 'Belirsiz'),
+                'impressions' => (int) $row->impressions,
+                'clicks' => (int) $row->clicks,
+                'cost_amount' => $cost,
+                'conversions' => $conversions,
+                'cpa' => $conversions > 0 ? round($cost / $conversions, 2) : null,
+            ];
+        })->all();
+    }
+
     private function dailyBreakdown(
         string $table,
         array $dimensions,

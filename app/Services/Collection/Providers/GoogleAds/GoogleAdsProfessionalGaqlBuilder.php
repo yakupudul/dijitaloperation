@@ -21,6 +21,7 @@ final class GoogleAdsProfessionalGaqlBuilder
             GoogleAdsProfessionalRequestFamilyCatalog::HOUR_DAILY,
             GoogleAdsProfessionalRequestFamilyCatalog::NETWORK_DAILY,
             GoogleAdsProfessionalRequestFamilyCatalog::USER_LOCATION_DAILY,
+            GoogleAdsProfessionalRequestFamilyCatalog::GEO_DAILY,
             GoogleAdsProfessionalRequestFamilyCatalog::AGE_RANGE_DAILY,
             GoogleAdsProfessionalRequestFamilyCatalog::GENDER_DAILY,
             GoogleAdsProfessionalRequestFamilyCatalog::CAMPAIGN_AUDIENCE_DAILY,
@@ -46,6 +47,7 @@ final class GoogleAdsProfessionalGaqlBuilder
             GoogleAdsProfessionalRequestFamilyCatalog::HOUR_DAILY => $this->hourDaily($start, $end),
             GoogleAdsProfessionalRequestFamilyCatalog::NETWORK_DAILY => $this->networkDaily($start, $end),
             GoogleAdsProfessionalRequestFamilyCatalog::USER_LOCATION_DAILY => $this->userLocationDaily($start, $end),
+            GoogleAdsProfessionalRequestFamilyCatalog::GEO_DAILY => $this->geoDaily($start, $end),
             GoogleAdsProfessionalRequestFamilyCatalog::AGE_RANGE_DAILY => $this->ageRangeDaily($start, $end),
             GoogleAdsProfessionalRequestFamilyCatalog::GENDER_DAILY => $this->genderDaily($start, $end),
             GoogleAdsProfessionalRequestFamilyCatalog::CAMPAIGN_AUDIENCE_DAILY => $this->campaignAudienceDaily($start, $end),
@@ -158,6 +160,38 @@ SELECT
 FROM user_location_view
 WHERE segments.date BETWEEN '%s' AND '%s'
 GAQL, $this->commonMetrics(2), $start, $end);
+    }
+
+    /** Province / district performance: where the clicks physically came from or which place people showed interest in. */
+    private function geoDaily(string $start, string $end): string
+    {
+        return sprintf(<<<'GAQL'
+SELECT
+  segments.date,
+  geographic_view.location_type,
+  segments.geo_target_region,
+  segments.geo_target_city,
+%s
+FROM geographic_view
+WHERE segments.date BETWEEN '%s' AND '%s'
+GAQL, $this->commonMetrics(2), $start, $end);
+    }
+
+    /** @param  list<string>  $resourceNames  "geoTargetConstants/1012782" */
+    public function geoTargetNames(array $resourceNames): string
+    {
+        $safe = array_values(array_filter($resourceNames, static fn (string $name): bool => preg_match('#^geoTargetConstants/\d+$#', $name) === 1));
+
+        return sprintf(<<<'GAQL'
+SELECT
+  geo_target_constant.resource_name,
+  geo_target_constant.name,
+  geo_target_constant.canonical_name,
+  geo_target_constant.target_type,
+  geo_target_constant.country_code
+FROM geo_target_constant
+WHERE geo_target_constant.resource_name IN (%s)
+GAQL, implode(', ', array_map(static fn (string $name): string => "'".$name."'", $safe)));
     }
 
     private function ageRangeDaily(string $start, string $end): string

@@ -6,6 +6,7 @@
         ['key' => 'age', 'title' => $isTr ? 'Yaş Grupları' : 'Age Groups'],
         ['key' => 'gender', 'title' => $isTr ? 'Cinsiyet' : 'Gender'],
         ['key' => 'country', 'title' => $isTr ? 'Ülkeler' : 'Countries'],
+        ['key' => 'region', 'title' => $isTr ? 'İller / Bölgeler' : 'Regions'],
         ['key' => 'publisher_platform', 'title' => $isTr ? 'Facebook / Instagram Dağılımı' : 'Platform Distribution'],
         ['key' => 'platform_position', 'title' => $isTr ? 'Reklam Konumu' : 'Ad Placement'],
         ['key' => 'device', 'title' => $isTr ? 'Cihazlar' : 'Devices'],

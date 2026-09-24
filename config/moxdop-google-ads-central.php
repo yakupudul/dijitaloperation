@@ -10,7 +10,6 @@
  * Ratios (CTR, CPC, CPA, ROAS, CVR) are intentionally NOT stored here. They are
  * MOXDOP-derived from additive provider facts at read time.
  */
-
 $column = static fn (string $name, string $type, bool $nullable = true, string $role = 'dimension'): array => [
     'name' => $name,
     'type' => $type,
@@ -119,6 +118,10 @@ $families = [
         'dataset' => 'google_ads_user_location_daily', 'kind' => 'daily', 'resource' => 'user_location_view', 'volume' => 'LOW',
         'grain' => ['customer_id', 'date', 'country_criterion_id', 'targeting_location'], 'dimensions' => ['date', 'country_criterion_id', 'targeting_location'],
     ],
+    'GADS_V2_RF_GEO_DAILY' => [
+        'dataset' => 'google_ads_geo_daily', 'kind' => 'daily', 'resource' => 'geographic_view', 'volume' => 'MEDIUM',
+        'grain' => ['customer_id', 'date', 'location_type', 'geo_target_region', 'geo_target_city'], 'dimensions' => ['date', 'location_type', 'geo_target_region', 'geo_target_city'],
+    ],
     'GADS_V2_RF_AGE_RANGE_DAILY' => [
         'dataset' => 'google_ads_age_range_daily', 'kind' => 'daily', 'resource' => 'age_range_view', 'volume' => 'MEDIUM',
         'grain' => ['customer_id', 'date', 'ad_group_id', 'criterion_id'], 'dimensions' => ['date', 'campaign_id', 'ad_group_id', 'criterion_id'],
@@ -193,6 +196,9 @@ $physicalAdditions = [
     'google_ads_user_location_daily' => $dailyPhysical('google_ads_user_location_daily', [
         $column('country_criterion_id', 'text', false), $column('targeting_location', 'boolean', false),
     ], ['external_resource_id', 'customer_id', 'reporting_date', 'country_criterion_id', 'targeting_location']),
+    'google_ads_geo_daily' => $dailyPhysical('google_ads_geo_daily', [
+        $column('location_type', 'text', false), $column('geo_target_region', 'text', false), $column('geo_target_city', 'text', false),
+    ], ['external_resource_id', 'customer_id', 'reporting_date', 'location_type', 'geo_target_region', 'geo_target_city']),
     'google_ads_age_range_daily' => $dailyPhysical('google_ads_age_range_daily', [
         $column('campaign_id', 'text', true), $column('ad_group_id', 'text', false), $column('criterion_id', 'text', false),
     ], ['external_resource_id', 'customer_id', 'reporting_date', 'ad_group_id', 'criterion_id']),

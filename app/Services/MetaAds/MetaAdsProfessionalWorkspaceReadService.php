@@ -20,17 +20,29 @@ use Throwable;
 final class MetaAdsProfessionalWorkspaceReadService
 {
     private const string ACCOUNT_DAILY = 'meta_account_daily';
+
     private const string CAMPAIGN_DAILY = 'meta_campaign_daily';
+
     private const string ADSET_DAILY = 'meta_adset_daily';
+
     private const string AD_DAILY = 'meta_ad_daily';
+
     private const string TYPED_ACTION_DAILY = 'meta_typed_action_daily';
+
     private const string VIDEO_DAILY = 'meta_video_engagement_daily';
+
     private const string BREAKDOWN_DAILY = 'meta_analysis_breakdown_daily';
+
     private const string HOURLY_DAILY = 'meta_hourly_daily';
+
     private const string AD_SNAPSHOT = 'meta_ad_snapshot';
+
     private const string TARGETING_SNAPSHOT = 'meta_adset_targeting_snapshot';
+
     private const string CONVERSION_SOURCE_SNAPSHOT = 'meta_conversion_source_snapshot';
+
     private const string CHANGE_EVENT = 'meta_change_event';
+
     private const string CREATIVE_SNAPSHOT = 'meta_creative_snapshot';
 
     public function __construct(
@@ -751,6 +763,7 @@ final class MetaAdsProfessionalWorkspaceReadService
             'publisher_platform' => $this->aggregateDimension($decoded, 'placement', 'publisher_platform'),
             'platform_position' => $this->aggregateDimension($decoded, 'placement', 'platform_position'),
             'device' => $this->aggregateDimension($decoded, 'device', 'impression_device'),
+            'region' => $this->aggregateDimension($decoded, 'region', 'region'),
         ];
     }
 
@@ -1002,6 +1015,7 @@ final class MetaAdsProfessionalWorkspaceReadService
             'publisher_platform' => [],
             'platform_position' => [],
             'device' => [],
+            'region' => [],
         ];
     }
 
