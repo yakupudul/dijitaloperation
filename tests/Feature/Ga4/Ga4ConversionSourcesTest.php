@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Ga4;
 
+use App\Services\DataPool\PartitionManager;
 use App\Services\Ga4\WebsiteGa4AnalysisService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,9 @@ final class Ga4ConversionSourcesTest extends TestCase
     {
         $row = fn (array $values): array => $values + ['external_resource_id' => 7, 'property_id' => '123', 'reporting_date' => '2026-09-10',
             'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'created_at' => now(), 'updated_at' => now()];
+        foreach (['ga4_event_channel_daily'] as $table) {
+            app(PartitionManager::class)->ensureRange($table, '2026-09-10', '2026-09-10');
+        }
         DB::table('ga4_key_event_daily')->insert($row(['eventName' => 'form_submit', 'keyEvents' => 5, 'record_fingerprint' => str_repeat('a', 64)]));
         DB::table('ga4_event_channel_daily')->insert([
             $row(['eventName' => 'form_submit', 'sessionDefaultChannelGroup' => 'Organic Search', 'eventCount' => 4, 'record_fingerprint' => str_repeat('b', 64)]),
