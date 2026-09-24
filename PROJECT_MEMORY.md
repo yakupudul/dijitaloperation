@@ -1,5 +1,13 @@
 # PROJECT_MEMORY
 
+## 2026-10-04 — Faz 8 decisions (pazar istihbaratı + ajans satışı)
+
+- Every paid DataForSEO call of a market feature goes through `DataForSeoTaskQueue` (queued `post` or `recordLive`), so it lands in `dataforseo_tasks` with its cost and counts toward the brand's monthly cap; new queued purposes register a handler in `moxdop-intel.tasks.handlers`. New endpoints must be added to `DataForSeoEndpointAllowlist` (task_get reads are pattern-matched).
+- The brand's own business in Maps results is recognised only through `BrandGbpIdentity` (settings place id / CID → GBP snapshot → site host → phone).
+- Competitor reviews and site snapshots are agency-internal (ADR-067); reviewer names are never stored; nothing is written to Google / Meta / competitor sites. Public fetches use the Website module's safe fetcher via `PublicPageReader`.
+- The KML map-pin idea stays an experiment until grid scans show a before / after difference; do not roll it out across the portfolio.
+- `/api/leads/{token}` is only for the agency's own website form; client forms are not connected there.
+
 ## 2026-10-03 — Faz 7 decisions (Beyin)
 
 - Thresholds and word lists stay in config files as defaults; owner edits live in `method_settings` via `MethodLibrary` (applied at boot). New rule thresholds should be plain int/float/string-list config leaves so they appear in Yöntem Kütüphanesi automatically; new rule ids go into `MethodLibraryPage::ADVISOR_RULES`.

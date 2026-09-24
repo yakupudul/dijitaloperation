@@ -790,3 +790,16 @@
   4. **Önceliklendirme:** Kural etkinlik ağırlığı (`RuleEffectiveness`) markanın sektöründe yeterli ölçüm (`brain.min_measured`) varsa sektör sonucunu, yoksa ajans genelini kullanır.
   5. Pasif müşterinin markaları toplamlara girmez. Harici yazma yoktur; yalnız mevcut veriden okuma.
 - **İlgili:** ADR-018, ADR-064, `app/Services/Brain/SectorPatternReader.php`, `app/Services/Brain/RuleEffectiveness.php`, `docs/product/MOXDOP_STRATEGY_ROADMAP.md` Faz 7
+
+
+## ADR-067 — Pazar istihbaratı: rakip/yorum verisi yalnız okuma, iç kullanım; ajans lead webhook'u
+
+- **Durum:** Accepted (sahip kararı, Faz 8 – "Faz 8'e geç"; yol haritası: "Yorum kazıyıcı (iç kullanım, sahibi riski üstlendi)"; "Karar vermem gereken her şeyi onaylıyorum")
+- **Karar:**
+  1. **Kaynak:** Harita grid sıralaması, Google yorumları ve backlink verisi yalnız DataForSEO üzerinden okunur (standart kuyruk / live). Kendi tarayıcı (headless) ile Google kazıma yapılmaz. Rakip siteleri yalnız güvenli herkese açık okuyucuyla (SSRF korumalı, boyut/yönlendirme sınırı) haftada bir okunur. OpenStreetMap Nominatim yalnız hizmet bölgesi koordinatı için, saniyede bir istek ve kimlikli User-Agent ile.
+  2. **Maliyet:** Her ücretli çağrı `dataforseo_tasks` tablosuna maliyetiyle yazılır; marka bazında isteğe bağlı açılır ve tek aylık USD tavanı (harita + yorum + backlink) aşılamaz. Dış denetim harita sorgusu ajans geneli ayrı tavan içindedir. Pasif müşterinin markası için zamanlanmış hiçbir ücretli iş çalışmaz.
+  3. **Gizlilik:** Yorum yazanların adı/profili saklanmaz; yalnız puan, tarih, metin ve işletme yanıtı var/yok. Rakip yorum ve site verisi ajans içidir; müşteri raporlarına ve AI istemlerine otomatik girmez.
+  4. **Yazma yok:** Google, Meta veya rakip sitelere hiçbir şey yazılmaz. KML dosyası yalnız indirilir; My Maps'e içe aktarma ve siteye gömme sahibinin elle yaptığı iştir ve ölçümlü deney olarak işaretlenir. ADR-064 istisnaları değişmez.
+  5. **Meta Reklam Kütüphanesi:** API Türkiye'de ticari reklam vermediği için yalnız kütüphane bağlantısı (sayfa kimliği ya da ad araması) sunulur; kazıma yapılmaz.
+  6. **Lead kutusu:** `/api/leads/{token}` herkese açık tek giriş noktasıdır: yalnız ajansın kendi formu içindir, token veritabanında hash olarak tutulur ve yenilenebilir, istek hızı sınırlıdır, spam tuzağı vardır. Müşteri sitelerinin formları buraya bağlanmaz.
+- **İlgili:** ADR-018, ADR-064, ADR-066, `config/moxdop-intel.php`, `app/Services/Intel/*`, `app/Services/Sales/AgencyLeadInbox.php`
