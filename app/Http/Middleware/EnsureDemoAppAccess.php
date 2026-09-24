@@ -2,7 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\Demo\DemoState;
 use App\Support\Permissions;
+use App\Support\Roles;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -27,6 +29,13 @@ final class EnsureDemoAppAccess
 
         if (! $user->can(Permissions::ACCESS_APP)) {
             abort(403);
+        }
+
+        if (config('moxdop.security.require_admin_2fa') && $user->hasRole(Roles::ADMIN) && ! $user->hasTwoFactorEnabled()
+            && ! $request->routeIs('operator.profile')) {
+            DemoState::flash('Yönetici hesapları için iki adımlı doğrulama zorunlu. Profil sayfasından etkinleştirin.');
+
+            return redirect()->route('operator.profile');
         }
 
         return $next($request);

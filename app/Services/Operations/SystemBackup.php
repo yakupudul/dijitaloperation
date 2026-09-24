@@ -11,7 +11,8 @@ use Throwable;
 /**
  * Sistem yedeği (Faz 10d): nightly compressed database dump (pg_dump / mysqldump / SQLite copy) into
  * storage/app/backups, optional copy to a remote disk, the last `keep` files kept, every run recorded; a failed
- * backup pushes a phone notification. Credentials go through the environment, never the command line.
+ * backup pushes a phone notification. Credentials go through the environment, never the command line. Faz 11d: every
+ * file is read back before it counts as a success (complete gzip stream, SQLite header / dump footer).
  */
 final class SystemBackup
 {
@@ -33,6 +34,7 @@ final class SystemBackup
             $path = $dir.'/moxdop-'.now()->format('Ymd-His').'-'.$driver.'.'.($driver === 'sqlite' ? 'sqlite.gz' : 'sql.gz');
             $this->dump($driver, $cfg, $path);
             @chmod($path, 0600);
+            $this->verify($driver, $path);
             $bytes = (int) filesize($path);
             if ($bytes < 20) {
                 throw new \RuntimeException('Yedek dosyası boş.');
@@ -110,6 +112,38 @@ final class SystemBackup
         gzclose($out);
         if (! $process->isSuccessful()) {
             throw new \RuntimeException('Döküm başarısız: '.mb_substr(trim($process->getErrorOutput()), 0, 500));
+        }
+    }
+
+    /** Reads the whole gzip stream back and checks the dump is complete; throws when it is not. */
+    public function verify(string $driver, string $path): void
+    {
+        $in = @gzopen($path, 'rb');
+        if ($in === false) {
+            throw new \RuntimeException('Yedek dosyası açılamadı.');
+        }
+        $head = '';
+        $tail = '';
+        while (! gzeof($in)) {
+            $chunk = gzread($in, 1 << 20);
+            if ($chunk === false) {
+                gzclose($in);
+                throw new \RuntimeException('Yedek dosyası bozuk (gzip okunamadı).');
+            }
+            if (strlen($head) < 16) {
+                $head .= substr($chunk, 0, 16 - strlen($head));
+            }
+            $tail = substr($tail.$chunk, -4096);
+        }
+        gzclose($in);
+        $complete = match ($driver) {
+            'sqlite' => $head === "SQLite format 3\0",
+            'pgsql' => str_contains($tail, 'PostgreSQL database dump complete'),
+            'mysql', 'mariadb' => str_contains($tail, '-- Dump completed'),
+            default => false,
+        };
+        if (! $complete) {
+            throw new \RuntimeException('Yedek eksik görünüyor (dosya sonu / başlığı doğrulanamadı).');
         }
     }
 

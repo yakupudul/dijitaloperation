@@ -202,4 +202,9 @@ return [
     'search_demand_competitors' => [
         'max_import_candidates' => (int) env('MOXDOP_SEARCH_DEMAND_COMPETITOR_MAX_IMPORT', 100),
     ],
+
+    /* Faz 11d: when true, an admin without two-factor authentication can only open Profile until it is enabled. */
+    'security' => [
+        'require_admin_2fa' => (bool) env('MOXDOP_REQUIRE_ADMIN_2FA', false),
+    ],
 ];

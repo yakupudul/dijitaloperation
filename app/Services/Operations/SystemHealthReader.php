@@ -9,6 +9,8 @@ use App\Models\Observability\OperationalAlert;
 use App\Models\Observability\OpsDispatcherHeartbeat;
 use App\Models\Observability\WorkerHeartbeat;
 use App\Models\ResourceAutomation;
+use App\Models\User;
+use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -41,6 +43,7 @@ final class SystemHealthReader
             'plugins' => $this->plugins(),
             'plugin_current' => (string) config('moxdop-wordpress.connector_version', ''),
             'backup' => Schema::hasTable('system_backups') ? app(SystemBackup::class)->status() : null,
+            'two_factor' => $this->twoFactor(),
         ];
     }
 
@@ -164,5 +167,19 @@ final class SystemHealthReader
     public static function isOutdated(?string $installed, string $current): bool
     {
         return $current !== '' && ($installed === null || version_compare($installed, $current, '<'));
+    }
+
+    /**
+     * Faz 11d: active admins without two-factor authentication, and whether it is enforced.
+     *
+     * @return array{enforced: bool, admins_without: list<string>}
+     */
+    private function twoFactor(): array
+    {
+        $without = User::query()->where('is_active', true)->role(Roles::ADMIN)->get()
+            ->reject(fn (User $user): bool => $user->hasTwoFactorEnabled())
+            ->map(fn (User $user): string => (string) ($user->name ?: $user->email))->values()->all();
+
+        return ['enforced' => (bool) config('moxdop.security.require_admin_2fa'), 'admins_without' => $without];
     }
 }

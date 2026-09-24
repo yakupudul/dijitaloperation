@@ -34,7 +34,18 @@
                 {{ $health['backup']['last_success_at'] === null ? 'Hiç yedek alınmamış' : ($health['backup']['ok'] ? 'Güncel' : 'Son yedek eski') }}
             </p>
             <p class="text-xs text-gray-500">Son başarılı: {{ $when($health['backup']['last_success_at']) }}@if ($health['backup']['bytes']) · {{ number_format($health['backup']['bytes'] / 1048576, 1, ',', '.') }} MB @endif · {{ $health['backup']['remote'] ? 'uzak kopya var' : 'yalnız sunucuda (MOXDOP_BACKUP_REMOTE_DISK ile uzak kopya)' }}</p>
+            @if ($health['backup']['last_success_at'])<p class="text-xs text-gray-500">Her yedek alındıktan sonra baştan sona okunup doğrulanır.</p>@endif
             @if ($health['backup']['last_error'])<p class="mt-1 text-xs text-rose-700">Son hata: {{ \Illuminate\Support\Str::limit($health['backup']['last_error'], 200) }}</p>@endif
+        </section>
+    @endif
+    @if (isset($health['two_factor']))
+        <section class="{{ $card }}">
+            <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">İki adımlı doğrulama</h2>
+            <p class="mt-2 text-sm {{ $health['two_factor']['admins_without'] === [] ? 'text-emerald-600' : 'text-rose-600' }}">
+                {{ $health['two_factor']['admins_without'] === [] ? 'Tüm yöneticilerde açık' : count($health['two_factor']['admins_without']).' yöneticide kapalı' }}
+            </p>
+            @if ($health['two_factor']['admins_without'] !== [])<p class="text-xs text-gray-500">{{ implode(', ', $health['two_factor']['admins_without']) }}</p>@endif
+            <p class="text-xs text-gray-500">{{ $health['two_factor']['enforced'] ? 'Zorunlu: 2FA\'sız yönetici yalnız Profil sayfasını açabilir.' : 'Zorunlu değil (MOXDOP_REQUIRE_ADMIN_2FA=true ile zorunlu olur).' }}</p>
         </section>
     @endif
         <section class="{{ $card }}">
