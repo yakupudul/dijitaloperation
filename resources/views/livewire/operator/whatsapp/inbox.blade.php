@@ -180,8 +180,8 @@
                         @elseif($linkedProspect)
                             Aday: <a href="{{ route('operator.prospect', ['prospectId' => $linkedProspect->id]) }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ $linkedProspect->company_name }}</a> · {{ $linkedProspect->status?->value }}
                             <div class="mt-1 flex flex-wrap items-center gap-1">
-                                <input type="date" wire:model="followUpOn" value="{{ $linkedProspect->next_follow_up_on?->toDateString() }}" class="rounded border border-gray-200 bg-transparent px-1.5 py-0.5 dark:border-gray-700" />
-                                <input type="text" wire:model="nextStep" placeholder="{{ $linkedProspect->next_step ?? 'Sonraki adım' }}" class="w-40 rounded border border-gray-200 bg-transparent px-1.5 py-0.5 dark:border-gray-700" />
+                                <input type="date" wire:model="followUpOn" class="rounded border border-gray-200 bg-transparent px-1.5 py-0.5 dark:border-gray-700" />
+                                <input type="text" wire:model="nextStep" placeholder="Sonraki adım" class="w-40 rounded border border-gray-200 bg-transparent px-1.5 py-0.5 dark:border-gray-700" />
                                 <button type="button" wire:click="saveFollowUp" class="rounded px-2 py-0.5 ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Takip kaydet</button>
                                 @if($linkedProspect->next_follow_up_on)<span class="text-gray-500">Takip: {{ $linkedProspect->next_follow_up_on->format('d.m.Y') }}{{ $linkedProspect->next_step ? ' · '.$linkedProspect->next_step : '' }}</span>@endif
                             </div>

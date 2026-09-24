@@ -32,7 +32,8 @@ final class MetaLeadgenIntake
                     continue;
                 }
                 if ($lead !== null) {
-                    $this->inbox->receive($this->fields($lead) + ['utm_source' => 'meta_lead_ad', 'utm_campaign' => (string) ($lead['ad_name'] ?? $lead['campaign_name'] ?? '')], 'meta_lead_ad');
+                    // Meta delivers a leadgen webhook at-least-once; the leadgen_id keys the inbox row so redeliveries never duplicate a lead.
+                    $this->inbox->receive($this->fields($lead) + ['utm_source' => 'meta_lead_ad', 'utm_campaign' => (string) ($lead['ad_name'] ?? $lead['campaign_name'] ?? '')], 'meta_lead_ad', 'meta_leadgen:'.$leadId);
                     $received++;
                 }
             }

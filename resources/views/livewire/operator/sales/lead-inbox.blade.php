@@ -12,10 +12,12 @@
 
     @if ($message !== '')<p class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{{ $message }}</p>@endif
 
-    <div class="flex flex-wrap gap-2">
+    <div class="flex flex-wrap items-center gap-2">
         @foreach (['open' => 'Açık', 'new' => 'Yeni', 'contacted' => 'Arandı / yazıldı', 'converted' => 'Adaya dönüştü', 'lost' => 'Olmadı', 'spam' => 'Spam', 'all' => 'Hepsi'] as $key => $label)
             <button type="button" wire:click="$set('status', '{{ $key }}')" @class(['rounded-full px-3 py-1 text-xs ring-1 ring-inset', 'bg-brand-50 text-brand-700 ring-brand-300' => $status === $key, 'text-gray-600 ring-gray-300' => $status !== $key])>{{ $label }}@if (isset($counts[$key])) ({{ $counts[$key] }})@endif</button>
         @endforeach
+        <span class="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700"></span>
+        <button type="button" wire:click="$toggle('mine')" @class(['rounded-full px-3 py-1 text-xs ring-1 ring-inset', 'bg-amber-50 text-amber-700 ring-amber-300' => $mine, 'text-gray-600 ring-gray-300' => ! $mine])>Bana atananlar <span>@if ($mineCount)({{ $mineCount }})@endif</span></button>
     </div>
 
     <section class="{{ $card }}">
@@ -23,7 +25,16 @@
             <div wire:key="lead-{{ $lead->id }}" class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 py-3 last:border-0 dark:border-gray-800">
                 <div class="min-w-0 flex-1">
                     <p class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ $lead->company ?: ($lead->name ?: 'İsimsiz') }}@if ($lead->company && $lead->name) <span class="text-gray-500">· {{ $lead->name }}</span>@endif</p>
-                    <p class="text-xs text-gray-500">{{ $sources[$lead->source] ?? $lead->source }} · {{ \Illuminate\Support\Carbon::parse($lead->received_at)->format('d.m.Y H:i') }}@if ($lead->phone) · <a href="tel:{{ preg_replace('/[^\d+]/', '', $lead->phone) }}" class="text-brand-600">{{ $lead->phone }}</a>@endif @if ($lead->email) · {{ $lead->email }}@endif</p>
+                    <p class="text-xs text-gray-500">{{ $sources[$lead->source] ?? $lead->source }} · {{ \Illuminate\Support\Carbon::parse($lead->received_at)->timezone(config('app.timezone'))->format('d.m.Y H:i') }}@if ($lead->phone) · <a href="tel:{{ preg_replace('/[^\d+]/', '', $lead->phone) }}" class="text-brand-600">{{ $lead->phone }}</a>@endif @if ($lead->email) · {{ $lead->email }}@endif
+                        @if (in_array((string) $lead->status, ['new', 'contacted'], true))
+                            @if ($lead->first_response_at)
+                                · <span class="text-emerald-600">{{ (int) \Illuminate\Support\Carbon::parse($lead->received_at)->diffInHours($lead->first_response_at) }} sa içinde yanıtlandı</span>
+                            @else
+                                @php $hrs = (int) \Illuminate\Support\Carbon::parse($lead->received_at)->diffInHours(now()); @endphp
+                                · <span class="font-medium {{ $hrs >= 24 ? 'text-rose-600' : 'text-amber-600' }}">{{ $hrs }} saattir bekliyor</span>
+                            @endif
+                        @endif
+                        @if ($lead->assigned_to) · <span class="text-gray-600">👤 {{ $ownerNames[$lead->assigned_to] ?? 'atanmış' }}</span>@endif</p>
                     @if ($lead->message)<p class="mt-1 whitespace-pre-line text-sm text-gray-700 dark:text-gray-300">{{ \Illuminate\Support\Str::limit($lead->message, 500) }}</p>@endif
                     @if ($lead->page_url || $lead->utm)<p class="mt-1 text-xs text-gray-400">{{ $lead->page_url }} {{ $lead->utm ? implode(' · ', array_map(fn ($k, $v) => $k.'='.$v, array_keys((array) json_decode($lead->utm, true)), (array) json_decode($lead->utm, true))) : '' }}</p>@endif
                     @php $score = $scoreInsights[$lead->id] ?? null; @endphp
@@ -40,6 +51,10 @@
                     @else
                         <select wire:change="setStatus({{ $lead->id }}, $event.target.value)" class="rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-900">
                             @foreach ($statuses as $key => $label)@if ($key !== 'converted')<option value="{{ $key }}" @selected($lead->status === $key)>{{ $label }}</option>@endif @endforeach
+                        </select>
+                        <select wire:change="assign({{ $lead->id }}, $event.target.value ? Number($event.target.value) : null)" class="rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-900" title="Sorumlu ata">
+                            <option value="">Atanmadı</option>
+                            @foreach ($owners as $uid => $uname)<option value="{{ $uid }}" @selected((int) $lead->assigned_to === (int) $uid)>{{ $uname }}</option>@endforeach
                         </select>
                         <x-ta.button type="button" wire:click="convert({{ $lead->id }})" size="sm" variant="outline">Adaya dönüştür</x-ta.button>
                     @endif

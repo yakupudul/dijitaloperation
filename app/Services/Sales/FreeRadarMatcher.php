@@ -15,7 +15,9 @@ final class FreeRadarMatcher
 
     public static function hasDemand(string $text): bool
     {
-        return (bool) preg_match('/\b(araniyor|ariyorum|ariyoruz|yaptirilacak(?:tir)?|yapilacak|isi verilecektir|yaptirmak|yaptiracagim|yaptiracagiz|teklif talebi|teklif almak|tavsiye|onerisi|looking for|seeking|request for proposal|need a)\b/', self::fold($text));
+        // Buyer intent only. "tavsiye"/"öneri" are matched in their QUESTION form ("tavsiye eder misiniz", "öneriniz")
+        // so a seller's review post ("bu firmayı tavsiye ederim") no longer trips demand.
+        return (bool) preg_match('/\b(araniyor|ariyorum|ariyoruz|yaptirilacak(?:tir)?|yapilacak|isi verilecektir|yaptirmak|yaptiracagim|yaptiracagiz|teklif talebi|teklif almak|teklif verir misiniz|tavsiye eder misiniz|tavsiyeniz|onerir misiniz|oneriniz|firma onerisi|looking for|seeking|request for proposal|need a)\b/', self::fold($text));
     }
 
     /** @return list<string> */
@@ -40,6 +42,7 @@ final class FreeRadarMatcher
                 $terms = array_merge($terms, $aliases);
             }
         }
+
         return array_values(array_filter(array_unique(array_map(fn ($term) => trim(self::fold((string) $term)), $terms)), fn ($term) => strlen($term) >= 3));
     }
 
@@ -51,6 +54,7 @@ final class FreeRadarMatcher
                 return true;
             }
         }
+
         return false;
     }
 
@@ -59,7 +63,7 @@ final class FreeRadarMatcher
     {
         $text = self::fold($page->title.' '.($page->excerpt ?? ''));
         $negative = [];
-        if (preg_match('/\b(eleman|personel|maasli|tam zamanli|full time|is ariyorum|hizmet veriyoruz|hizmetlerimiz|musteri ariyorum|konu kapali|is verildi|is tamamlandi|anlasildi|alim kapanmistir)\b/', $text)) {
+        if (preg_match('/\b(eleman|personel|maasli|tam zamanli|full time|is ariyorum|hizmet veriyoruz|hizmetlerimiz|referanslarimiz|portfoyumuz|calismalarimiz|musteri ariyorum|konu kapali|is verildi|is tamamlandi|anlasildi|alim kapanmistir|tavsiye ederim|tavsiye ederiz|memnun kaldim)\b/', $text)) {
             $negative[] = 'seller_employee_or_closed';
         }
         if ($this->matches($text, array_map(fn ($s) => self::fold((string) $s), array_filter($profile->exclude_concepts ?? [])))) {
@@ -82,6 +86,7 @@ final class FreeRadarMatcher
             $reason = 'review_location';
         }
         $reject = array_diff($negative, ['location_unconfirmed']) !== [];
+
         return [
             'eligible' => $matched && $demand && ! $reject && $score >= $profile->minimum_intent_confidence,
             'score' => $score,

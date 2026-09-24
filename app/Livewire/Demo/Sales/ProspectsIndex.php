@@ -46,12 +46,21 @@ class ProspectsIndex extends Component
             || $this->owner !== '';
     }
 
+    /** @var list<array<string, mixed>>|null Memoized once per render; listRows() eager-loads the whole table. */
+    private ?array $allRowsCache = null;
+
+    /** @return list<array<string, mixed>> */
+    private function allRows(): array
+    {
+        return $this->allRowsCache ??= app(ProspectReadService::class)->listRows();
+    }
+
     /**
      * @return list<array<string, mixed>>
      */
     protected function filteredRows(): array
     {
-        $rows = app(ProspectReadService::class)->listRows();
+        $rows = $this->allRows();
         $needle = mb_strtolower(trim($this->search));
 
         return collect($rows)
@@ -92,7 +101,7 @@ class ProspectsIndex extends Component
     public function render(): View
     {
         $rows = $this->filteredRows();
-        $allRows = app(ProspectReadService::class)->listRows();
+        $allRows = $this->allRows();
 
         $ownerOptions = collect($allRows)
             ->pluck('owner_name')

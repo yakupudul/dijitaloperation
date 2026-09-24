@@ -1,5 +1,33 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-12 — Satış hattı sağlamlaştırma: Lead kutusu, Prospects, Niyet radarı, WhatsApp
+
+**State:** CODED + PHPUnit (SQLite). Reviewed by four focused read-only passes; the fixes below are the confirmed bugs.
+- Tests: `LeadInboxTest` 5/5, `ProspectConversionBatchBTest`, `FreeRadarMatcherTest`, `KvkkAndBackupTest`, `DataRetentionTest`, `WhatsAppContactLinkTest`.
+- Known pre-existing failure unrelated to this change: `IntentRadarBatchBTest::test_operator_pages_require_auth_and_list_search_profiles`.
+
+**Lead kutusu (agency lead inbox)**
+- Fixed: a genuine same-day lead no longer merges into (and hides inside) a spam row; the phone lookup excludes spam rows.
+- Fixed: a merge now backfills missing name/company/email/utm and sends the phone notification the UI promises (was silent).
+- Fixed: a malformed e-mail with no phone is treated as contactless → spam (was a contactless "new" lead).
+- Fixed: Meta Lead Ads redeliveries are idempotent via `external_id` (`meta_leadgen:<id>`); a status change can no longer move a `converted` lead backward and orphan its prospect link.
+- Added: owner assignment + "Bana atananlar" filter; a first-response time badge ("X saattir bekliyor" / "X sa içinde yanıtlandı"); the Açık/Hepsi tab counters; converting a lead links to an open prospect with the same phone/e-mail instead of duplicating.
+
+**Prospects**
+- Fixed: converting a prospect to a customer now sets status = Won (pipeline stage kept in step with conversion).
+- Fixed: the index no longer loads the whole prospect table twice per render (memoized).
+
+**Niyet radarı (free intent radar)**
+- Fixed: create-prospect-from-signal locks the signal row (no duplicate prospect under concurrent clicks).
+- Fixed: signal dedupe preloads existing signals once per run instead of a query per page (N+1).
+- Fixed: buyer-intent detector no longer trips on seller/review posts — "tavsiye"/"öneri" match only in question form; review phrases ("tavsiye ederim", "referanslarımız") are negative signals.
+
+**WhatsApp**
+- Fixed (data-corruption): KVKK retention wrote the plaintext redaction marker into the ENCRYPTED body column, which then threw on read and broke the inbox. It now writes the marker as ciphertext and flags rows with `redacted_at` (idempotent without comparing an encrypted column).
+- Fixed: the follow-up form is prefilled from the selected conversation's prospect, so saving no longer nulls the untouched date/step; link + follow-up fields reset on conversation switch (no stale value saved to the wrong conversation).
+
+**Deferred (noted, not done):** WhatsApp unread badge / 24h-window indicator / opt-out flag; intent-radar contact enrichment; a paid-DataForSEO spend cap (the paid adapter is currently unused/dead, so nothing runs away today).
+
 ## 2026-10-12 — Reklam bütçesi bitti uyarıları + Meta ülke/şehir sonuçları + AI "hizmet × bölge × kitle"
 
 **State:** CODED + PHPUnit (SQLite and PostgreSQL).

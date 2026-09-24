@@ -3,6 +3,7 @@
 namespace Tests\Feature\Sales;
 
 use App\Enums\ProspectSource;
+use App\Enums\ProspectStatus;
 use App\Livewire\Operator\Sales\LeadInboxPage;
 use App\Models\AgencySetting;
 use App\Models\Prospect;
@@ -55,7 +56,8 @@ final class LeadInboxTest extends TestCase
         $this->assertStringContainsString('SEO da olur', $leads[0]->message);
         $this->assertSame(['utm_source' => 'google'], json_decode($leads[0]->utm, true));
         $this->assertSame('spam', $leads[1]->status);
-        Http::assertSentCount(1);
+        // One push for the first insert, one for the same-day repeat (the UI promises a notification for every new inquiry); the spam row does not notify.
+        Http::assertSentCount(2);
         Http::assertSent(fn (Request $r): bool => str_contains($r->url(), 'ntfy.sh') && str_contains((string) base64_decode(substr((string) ($r->header('Title')[0] ?? ''), 10, -2)), 'Kaya Diş'));
 
         $this->actingAs($this->admin);
@@ -83,5 +85,54 @@ final class LeadInboxTest extends TestCase
         $old = app(AgencyLeadInbox::class)->rotateToken();
         app(AgencyLeadInbox::class)->rotateToken();
         $this->post('/api/leads/'.$old, ['telefon' => '05321112233'])->assertNotFound();
+    }
+
+    public function test_meta_leadgen_id_is_idempotent_and_invalid_email_only_is_spam(): void
+    {
+        $inbox = app(AgencyLeadInbox::class);
+        $first = $inbox->receive(['name' => 'Zeynep', 'email' => 'z@x.com'], 'meta_lead_ad', 'meta_leadgen:9001');
+        $again = $inbox->receive(['name' => 'Zeynep', 'email' => 'z@x.com'], 'meta_lead_ad', 'meta_leadgen:9001');
+        $this->assertSame($first['id'], $again['id']);
+        $this->assertTrue($again['duplicate']);
+        $this->assertSame(1, DB::table('agency_leads')->where('external_id', 'meta_leadgen:9001')->count());
+
+        // A malformed e-mail with no phone is contactless, so it is spam, not a "new" lead.
+        $spam = $inbox->receive(['name' => 'X', 'email' => 'not-an-email']);
+        $this->assertTrue($spam['spam']);
+        $this->assertSame('spam', DB::table('agency_leads')->where('id', $spam['id'])->value('status'));
+
+        // A genuine same-day lead from a phone that a spam row already used must not merge into (and hide inside) that spam row.
+        $inbox->receive(['phone' => '0532 900 00 00', 'website_hp' => 'x']);
+        $real = $inbox->receive(['name' => 'Gerçek', 'phone' => '0532 900 00 00', 'message' => 'teklif']);
+        $this->assertFalse($real['duplicate']);
+        $this->assertSame('new', DB::table('agency_leads')->where('id', $real['id'])->value('status'));
+    }
+
+    public function test_convert_links_to_existing_open_prospect_instead_of_duplicating(): void
+    {
+        $prospect = Prospect::query()->create(['company_name' => 'Var Olan', 'contact_phone' => '+90 532 111 22 33', 'source' => ProspectSource::Website, 'status' => ProspectStatus::Contacted]);
+        $lead = app(AgencyLeadInbox::class)->receive(['name' => 'Aynı Kişi', 'phone' => '0532 111 22 33', 'message' => 'tekrar']);
+
+        $result = app(AgencyLeadInbox::class)->convert($lead['id']);
+        $this->assertSame($prospect->id, $result->id, 'the same phone links to the open prospect, no duplicate');
+        $this->assertSame(1, Prospect::query()->count());
+    }
+
+    public function test_status_change_cannot_move_a_converted_lead_and_assign_and_sla(): void
+    {
+        $this->actingAs($this->admin);
+        $lead = app(AgencyLeadInbox::class)->receive(['name' => 'A', 'phone' => '0555 111 11 11']);
+        app(AgencyLeadInbox::class)->convert($lead['id'], $this->admin);
+
+        Livewire::test(LeadInboxPage::class)->call('setStatus', $lead['id'], 'lost')->assertStatus(422);
+        $this->assertSame('converted', DB::table('agency_leads')->where('id', $lead['id'])->value('status'));
+
+        $lead2 = app(AgencyLeadInbox::class)->receive(['name' => 'B', 'phone' => '0555 222 22 22']);
+        Livewire::test(LeadInboxPage::class)
+            ->call('assign', $lead2['id'], $this->admin->id)
+            ->call('setStatus', $lead2['id'], 'contacted');
+        $row = DB::table('agency_leads')->where('id', $lead2['id'])->first();
+        $this->assertSame($this->admin->id, $row->assigned_to);
+        $this->assertNotNull($row->first_response_at, 'first response time is stamped on first contact');
     }
 }

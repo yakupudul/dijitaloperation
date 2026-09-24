@@ -9,6 +9,7 @@ use App\Models\AgencySetting;
 use App\Models\CoreIntegration;
 use App\Models\Customer;
 use App\Models\User;
+use App\Models\WhatsAppMessage;
 use App\Services\Assistant\WhatsAppRetention;
 use App\Services\Operations\SystemBackup;
 use App\Support\Roles;
@@ -143,8 +144,9 @@ final class KvkkAndBackupTest extends TestCase
     {
         $conversation = DB::table('whatsapp_conversations')->insertGetId(['integration_id' => CoreIntegration::factory()->create(['provider' => 'whatsapp'])->id, 'phone_number_id' => '1', 'contact_id' => '905551112233',
             'last_message_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        // Write through the model so the body is encrypted, exactly as ingestion stores it.
         foreach (['old' => now()->subDays(100), 'new' => now()->subDays(5)] as $id => $sentAt) {
-            DB::table('whatsapp_messages')->insert(['conversation_id' => $conversation, 'message_id' => $id, 'direction' => 'incoming', 'message_type' => 'text', 'body' => 'Tedavi fiyatı nedir?', 'sent_at' => $sentAt, 'created_at' => now(), 'updated_at' => now()]);
+            WhatsAppMessage::query()->create(['conversation_id' => $conversation, 'message_id' => $id, 'direction' => 'incoming', 'message_type' => 'text', 'body' => 'Tedavi fiyatı nedir?', 'sent_at' => $sentAt]);
         }
 
         $this->assertSame(0, app(WhatsAppRetention::class)->run(), 'off by default');
@@ -152,8 +154,12 @@ final class KvkkAndBackupTest extends TestCase
 
         $this->assertSame(1, app(WhatsAppRetention::class)->run());
         $this->assertSame(0, app(WhatsAppRetention::class)->run());
-        $this->assertSame(WhatsAppRetention::REDACTED, DB::table('whatsapp_messages')->where('message_id', 'old')->value('body'));
-        $this->assertSame('Tedavi fiyatı nedir?', DB::table('whatsapp_messages')->where('message_id', 'new')->value('body'));
+        // The redacted body must still decrypt cleanly through the model (it is stored as ciphertext, not plaintext).
+        $old = WhatsAppMessage::query()->where('message_id', 'old')->firstOrFail();
+        $this->assertSame(WhatsAppRetention::REDACTED, $old->body);
+        $this->assertNotSame(WhatsAppRetention::REDACTED, DB::table('whatsapp_messages')->where('message_id', 'old')->value('body'), 'stored value is encrypted, not the plaintext marker');
+        $this->assertNotNull($old->redacted_at);
+        $this->assertSame('Tedavi fiyatı nedir?', WhatsAppMessage::query()->where('message_id', 'new')->value('body'));
     }
 
     public function test_kvkk_page_saves_agreements_and_retention_for_admins_only(): void

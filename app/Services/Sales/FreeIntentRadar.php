@@ -10,6 +10,7 @@ use App\Models\SalesRadarPage;
 use App\Models\SalesRadarSource;
 use App\Models\SalesSearchProfile;
 use App\Models\User;
+use App\Support\Permissions;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 use Throwable;
@@ -25,14 +26,14 @@ final class FreeIntentRadar
             ->whereHas('owner', fn ($q) => $q->where('is_active', true))
             ->where(fn ($q) => $q->whereNull('radar_next_at')->orWhere('radar_next_at', '<=', now()))
             ->orderByRaw('CASE WHEN radar_next_at IS NULL THEN 0 ELSE 1 END')->orderBy('radar_next_at')->orderBy('id')->first();
-        if ($profile && $profile->owner?->can(\App\Support\Permissions::ACCESS_APP)) {
+        if ($profile && $profile->owner?->can(Permissions::ACCESS_APP)) {
             $this->queue($profile, $profile->owner);
         }
     }
 
     public function queue(SalesSearchProfile $profile, User $actor): ?SalesIntentRadarRun
     {
-        abort_unless($actor->is_active && $actor->can(\App\Support\Permissions::ACCESS_APP), 403);
+        abort_unless($actor->is_active && $actor->can(Permissions::ACCESS_APP), 403);
         $lock = Cache::lock('free-radar:admission', 15);
         if (! $lock->get()) {
             return null;
@@ -60,6 +61,7 @@ final class FreeIntentRadar
                 throw $exception;
             }
             app(IntentActivityRecorder::class)->record('intent_run.queued', __('free_radar.queued'), $profile, $run, actor: $actor);
+
             return $run;
         } finally {
             $lock->release();
@@ -79,7 +81,7 @@ final class FreeIntentRadar
             }
             $profile = SalesSearchProfile::query()->with(['owner', 'catalogService.names', 'catalogService.matchingKeywords'])->findOrFail($run->sales_search_profile_id);
             if (! $profile->active || ! $profile->free_radar_enabled || ! $profile->owner?->is_active
-                || ! $profile->owner->can(\App\Support\Permissions::ACCESS_APP)) {
+                || ! $profile->owner->can(Permissions::ACCESS_APP)) {
                 throw new RuntimeException('profile_paused');
             }
             $run->update(['status' => 'running', 'started_at' => now()]);
@@ -136,6 +138,7 @@ final class FreeIntentRadar
                 }
                 if ($requests >= 2) {
                     $backlog = true;
+
                     continue;
                 }
                 $requests++;
@@ -157,19 +160,23 @@ final class FreeIntentRadar
 
             $created = 0;
             $profile->refresh();
+            // Preload every existing signal for this profile once (keyed by fingerprint) instead of a point query per page.
+            $fingerprints = collect($pages)->map(fn ($page) => hash('sha256', 'free-radar|'.$profile->id.'|'.$page->url_hash))->all();
+            $existingByFingerprint = SalesIntentSignal::query()->whereIn('fingerprint', $fingerprints)->get()->keyBy('fingerprint');
             foreach ($pages as $page) {
                 if (! $profile->free_radar_enabled || ! $profile->active) {
                     break;
                 }
                 $decision = $matcher->evaluate($profile, $page);
                 $fingerprint = hash('sha256', 'free-radar|'.$profile->id.'|'.$page->url_hash);
-                $existing = SalesIntentSignal::query()->where('fingerprint', $fingerprint)->first();
+                $existing = $existingByFingerprint->get($fingerprint);
                 if (! $decision['eligible'] && ! $existing) {
                     continue;
                 }
                 if (! $decision['eligible']) {
                     $existing->update(['last_seen_at' => $page->last_seen_at, 'negative_signals' => $decision['negatives'],
                         'purchase_stage' => 'unknown', 'classification_reason' => 'free_radar.no_longer_matches']);
+
                     continue;
                 }
                 $signal = $existing ?? new SalesIntentSignal;
@@ -183,7 +190,9 @@ final class FreeIntentRadar
                     'source_url' => $page->url, 'source_title' => $page->title,
                     'observed_snippet' => $page->title, 'fetched_source_excerpt' => $page->excerpt,
                     'published_at' => $page->published_at, 'last_seen_at' => $page->last_seen_at,
-                    'source_verification_state' => match ($page->state) { 'read' => 'verified', 'unreachable' => 'unreachable', default => 'unverified' },
+                    'source_verification_state' => match ($page->state) {
+                        'read' => 'verified', 'unreachable' => 'unreachable', default => 'unverified'
+                    },
                     'service_definition_code' => $profile->service_definition_code,
                     'intent_category' => $profile->service_definition_code,
                     'intent_confidence' => $decision['score'], 'purchase_stage' => $decision['stage'],
@@ -218,4 +227,3 @@ final class FreeIntentRadar
             ? substr($exception->getMessage(), 0, 150) : 'read_failed';
     }
 }
-

@@ -6,6 +6,7 @@ use App\Livewire\Concerns\WithAiInsights;
 use App\Models\AgencyLead;
 use App\Models\AgencySetting;
 use App\Services\Ai\Insights\AiInsightService;
+use App\Services\Operator\OperatorUserDirectory;
 use App\Services\Sales\AgencyLeadInbox;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -29,6 +30,10 @@ final class LeadInboxPage extends Component
     #[Url]
     public string $status = 'open';
 
+    /** "Only leads assigned to me" filter. */
+    #[Url]
+    public bool $mine = false;
+
     /** @var array{name: string, company: string, phone: string, email: string, message: string, source: string} */
     public array $manual = ['name' => '', 'company' => '', 'phone' => '', 'email' => '', 'message' => '', 'source' => 'phone'];
 
@@ -44,7 +49,23 @@ final class LeadInboxPage extends Component
     public function setStatus(int $id, string $status): void
     {
         abort_unless(array_key_exists($status, AgencyLeadInbox::STATUSES) && $status !== 'converted', 422);
-        DB::table('agency_leads')->where('id', $id)->update(['status' => $status, 'handled_by' => auth()->id(), 'updated_at' => now()]);
+        $lead = DB::table('agency_leads')->find($id);
+        // A converted lead is tied to a prospect; never let a status change orphan that link.
+        abort_if($lead === null || $lead->status === 'converted', 422);
+        $update = ['status' => $status, 'handled_by' => auth()->id(), 'updated_at' => now()];
+        // First real response (the operator reached out): stamp it once so the inbox can show a response SLA.
+        if ($status === 'contacted' && $lead->first_response_at === null) {
+            $update['first_response_at'] = now();
+        }
+        DB::table('agency_leads')->where('id', $id)->update($update);
+    }
+
+    /** Assign the lead to an operator (or to me when userId is null), so a multi-operator inbox has clear ownership. */
+    public function assign(int $id, ?int $userId = null): void
+    {
+        $target = $userId ?? (int) auth()->id();
+        abort_unless($target === (int) auth()->id() || in_array($target, OperatorUserDirectory::eligibleIds(), true), 422);
+        DB::table('agency_leads')->where('id', $id)->update(['assigned_to' => $target, 'updated_at' => now()]);
     }
 
     public function convert(int $id, AgencyLeadInbox $inbox): mixed
@@ -82,15 +103,26 @@ final class LeadInboxPage extends Component
 
     public function render(): View
     {
+        $mine = (int) auth()->id();
         $leads = DB::table('agency_leads')
             ->when($this->status === 'open', fn ($q) => $q->whereIn('status', ['new', 'contacted']))
             ->when(! in_array($this->status, ['open', 'all'], true), fn ($q) => $q->where('status', $this->status))
+            ->when($this->mine, fn ($q) => $q->where('assigned_to', $mine))
             ->orderByDesc('received_at')->limit(200)->get();
+
+        $statusCounts = DB::table('agency_leads')->selectRaw('status, count(*) as c')->groupBy('status')->pluck('c', 'status')->all();
+        $counts = $statusCounts + [
+            'open' => (int) (($statusCounts['new'] ?? 0) + ($statusCounts['contacted'] ?? 0)),
+            'all' => (int) array_sum($statusCounts),
+        ];
 
         return view('livewire.operator.sales.lead-inbox', [
             'leads' => $leads,
             'scoreInsights' => app(AiInsightService::class)->viewMany('sales.lead_score', AgencyLead::query()->whereIn('id', $leads->pluck('id'))->get()),
-            'counts' => DB::table('agency_leads')->selectRaw('status, count(*) as c')->groupBy('status')->pluck('c', 'status')->all(),
+            'counts' => $counts,
+            'mineCount' => (int) DB::table('agency_leads')->where('assigned_to', $mine)->whereIn('status', ['new', 'contacted'])->count(),
+            'owners' => OperatorUserDirectory::options(),
+            'ownerNames' => DB::table('users')->whereIn('id', $leads->pluck('assigned_to')->filter()->unique())->pluck('name', 'id')->all(),
             'statuses' => AgencyLeadInbox::STATUSES,
             'hint' => AgencySetting::query()->value('lead_inbox_token_hint'),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),

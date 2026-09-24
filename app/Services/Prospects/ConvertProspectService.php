@@ -5,6 +5,7 @@ namespace App\Services\Prospects;
 use App\Enums\CustomerStatus;
 use App\Enums\CustomerType;
 use App\Enums\DigitalAssetStatus;
+use App\Enums\ProspectStatus;
 use App\Models\Brand;
 use App\Models\BrandIntelligenceContext;
 use App\Models\Customer;
@@ -128,6 +129,8 @@ final class ConvertProspectService
             $prospect->converted_customer_id = $customer->id;
             $prospect->converted_brand_id = $brand->id;
             $prospect->converted_at = now();
+            // A prospect that became a paying customer is won; keep the pipeline stage in step with the conversion state.
+            $prospect->status = ProspectStatus::Won;
             $prospect->save();
 
             return $prospect->fresh(['convertedCustomer', 'convertedBrand']) ?? $prospect;

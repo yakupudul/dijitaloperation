@@ -126,9 +126,16 @@ class Inbox extends Component
 
     public function selectConversation(int $id, WhatsAppConnection $connection): void
     {
-        WhatsAppConversation::query()->where('integration_id', $connection->integration()?->id)->findOrFail($id);
+        $row = WhatsAppConversation::query()->where('integration_id', $connection->integration()?->id)->findOrFail($id);
         $this->conversation = $id;
         $this->resetPage('chatPage');
+        // Prefill the link + follow-up fields from THIS conversation so a stale value from another one is never saved,
+        // and so saving the follow-up keeps the prospect's existing date/step instead of nulling the untouched one.
+        $this->linkCustomer = $row->customer_id ? (string) $row->customer_id : '';
+        $this->linkProspect = $row->prospect_id ? (string) $row->prospect_id : '';
+        $prospect = $row->prospect_id ? Prospect::query()->find($row->prospect_id) : null;
+        $this->followUpOn = $prospect?->next_follow_up_on ? CarbonImmutable::parse($prospect->next_follow_up_on)->toDateString() : '';
+        $this->nextStep = (string) ($prospect?->next_step ?? '');
     }
 
     public function saveSettings(array $secrets, WhatsAppConnection $connection): bool

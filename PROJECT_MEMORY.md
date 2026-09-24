@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-10-12 — Sales pipeline + WhatsApp retention fixes
+
+- `whatsapp_messages.body` is ENCRYPTED (model cast). Never write a plaintext constant to it with raw `DB::update` — it breaks decryption. Redaction writes `Crypt::encryptString(REDACTED)` and marks `redacted_at`; that column, not a body comparison, drives idempotency.
+- Agency lead inbox: Meta Lead Ads are idempotent by `external_id`; spam rows keep their `phone_key` so the same-day merge lookup must exclude `status='spam'`.
+- Converting a prospect sets status = Won. Converting a lead links to an existing open prospect (same phone/e-mail) instead of creating a duplicate.
+- Intent radar: `CreateProspectFromIntentSignalService` locks the signal row before creating a prospect (idempotency is not just a null-check).
+
 ## 2026-10-12 — Ad budget watch, Meta geo results
 
 - "Budget ran out" alerts come from `ad_budget_status`, written by `AdBudgetWatch` every 2 hours (read-only API calls). The daily scanner only reads it and ignores states older than 6 h. Keep all budget API calls in `AdBudgetWatch`, not in the scanner.

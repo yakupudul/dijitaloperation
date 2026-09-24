@@ -11,6 +11,7 @@ use App\Models\SalesIntentSignal;
 use App\Models\User;
 use App\Services\Prospects\CreateProspectService;
 use App\Services\Prospects\ProspectActivityRecorder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class CreateProspectFromIntentSignalService
@@ -26,6 +27,12 @@ final class CreateProspectFromIntentSignalService
         if ($signal->prospect_id !== null) {
             return Prospect::query()->findOrFail($signal->prospect_id);
         }
+        // Lock the signal row so two concurrent conversions cannot both pass the null-check and spawn duplicate prospects.
+        $locked = DB::transaction(fn () => SalesIntentSignal::query()->whereKey($signal->getKey())->lockForUpdate()->first());
+        if ($locked?->prospect_id !== null) {
+            return Prospect::query()->findOrFail($locked->prospect_id);
+        }
+        $signal = $locked ?? $signal;
 
         if ($signal->status === IntentSignalStatus::Dismissed) {
             throw ValidationException::withMessages([

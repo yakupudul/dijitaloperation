@@ -72,6 +72,7 @@ class ProspectConversionBatchBTest extends TestCase
         $this->assertNotNull($converted->converted_customer_id);
         $this->assertNotNull($converted->converted_brand_id);
         $this->assertNotNull($converted->converted_at);
+        $this->assertSame(ProspectStatus::Won, $converted->status, 'a converted prospect moves to Won so the pipeline stage matches');
         $this->assertDatabaseHas('customers', ['id' => $converted->converted_customer_id, 'name' => 'ABC Dental']);
         $this->assertDatabaseHas('brands', ['id' => $converted->converted_brand_id, 'name' => 'ABC Dental']);
         $this->assertDatabaseHas('digital_assets', [
