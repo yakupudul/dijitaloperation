@@ -31,6 +31,7 @@ final class AiUsageRecorder
         'GoogleAdsAdCopyAgent' => AiRouteKeys::GOOGLE_ADS_AD_COPY_DRAFT,
         'MetaAdsCreativeAgent' => AiRouteKeys::META_ADS_CREATIVE_DRAFT,
         'GbpProfileAgent' => AiRouteKeys::GBP_PROFILE_DRAFT,
+        'MonthlyReportCommentaryAgent' => AiRouteKeys::MONTHLY_REPORT_COMMENTARY,
     ];
 
     public function __construct(private readonly AiPricing $pricing) {}

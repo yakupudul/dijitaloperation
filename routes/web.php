@@ -14,6 +14,7 @@ use App\Http\Controllers\Operator\SearchQueryExportController;
 use App\Http\Controllers\Operator\WebsiteHtmlSnapshotController;
 use App\Http\Controllers\Ops\OpsHealthController;
 use App\Http\Controllers\Prospects\ProspectReportShareController;
+use App\Http\Controllers\Reports\MonthlyReportClientController;
 use App\Http\Controllers\Reports\ReportArtifactDownloadController;
 use App\Http\Controllers\Reports\ReportShareController;
 use App\Http\Middleware\EnsureDemoAppAccess;
@@ -43,6 +44,10 @@ Route::get('/up/liveness', [OpsHealthController::class, 'liveness'])->name('ops.
 Route::get('/up/readiness', [OpsHealthController::class, 'readiness'])->name('ops.readiness');
 // Faz 6: read-only calendar feed addressed by a secret per-user token (Google Calendar "URL ile ekle").
 Route::get('/calendar/{token}.ics', CalendarFeedController::class)->where('token', '[A-Za-z0-9]{32,64}')->middleware('throttle:60,1')->name('calendar.feed');
+
+// Faz 9: monthly report v2 — client link (signed, published reports only).
+Route::get('/r/monthly/{report}', [MonthlyReportClientController::class, 'client'])
+    ->whereNumber('report')->middleware(['signed', 'throttle:60,1'])->name('monthly-report.client');
 
 Route::middleware(['web', 'auth'])->group(function (): void {
     Route::get('/integrations/google/callback', [GoogleOAuthController::class, 'callback'])

@@ -63,6 +63,7 @@ final class DemoMenu
                     ['label' => __('operator.nav.findings'), 'route' => 'operator.findings', 'icon' => 'findings'],
                     ['label' => __('operator.nav.recommendations'), 'route' => 'operator.recommendations', 'icon' => 'recommendations'],
                     ['label' => __('operator.nav.work'), 'route' => 'operator.tasks', 'icon' => 'tasks'],
+                    ['label' => app()->getLocale() === 'tr' ? 'Aylık rapor' : 'Monthly Report', 'route' => 'operator.reports.monthly', 'icon' => 'recommendations'],
                     ['label' => __('operator.nav.seo_tasks'), 'route' => 'operator.seo_tasks', 'icon' => 'seo'],
                     ['label' => __('operator.nav.ads_advisor'), 'route' => 'operator.ads_advisor', 'icon' => 'ads-advisor'],
                     ['label' => __('operator.nav.archive'), 'route' => 'operator.archive', 'icon' => 'archive'],

@@ -37,4 +37,6 @@ final class AiRouteKeys
     public const string META_ADS_CREATIVE_DRAFT = 'meta_ads.creative_draft';
 
     public const string GBP_PROFILE_DRAFT = 'gbp.profile_draft';
+
+    public const string MONTHLY_REPORT_COMMENTARY = 'reports.monthly_commentary';
 }

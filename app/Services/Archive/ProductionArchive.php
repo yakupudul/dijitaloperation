@@ -5,6 +5,7 @@ namespace App\Services\Archive;
 use App\Models\AdvisorItem;
 use App\Models\AiProduction;
 use App\Models\BrandSetupProposal;
+use App\Models\MonthlyReport;
 use App\Models\SeoTask;
 use App\Models\User;
 use App\Models\WhatsAppConversation;
@@ -27,6 +28,7 @@ final class ProductionArchive
         'seo.content_brief' => 'SEO içerik briefi',
         'whatsapp.reply' => 'WhatsApp yanıt önerisi',
         'brand_setup.proposal' => 'Marka kurulum önerisi',
+        'report.monthly_commentary' => 'Aylık rapor yorumu',
     ];
 
     /** Advisor draft rules → archive kind. */
@@ -60,6 +62,12 @@ final class ProductionArchive
                 self::safely(fn () => app(self::class)->record('whatsapp.reply', $conversation,
                     ['reply' => (string) $conversation->suggestion, 'action' => $conversation->suggestion_action, 'rationale' => $conversation->rationale],
                     ['title' => 'WhatsApp · '.($conversation->contact_name ?? $conversation->id), 'model' => null]));
+            }
+        });
+        MonthlyReport::saved(static function (MonthlyReport $report): void {
+            if ($report->wasChanged('commentary') && $report->commentary_status === 'ready' && is_array($report->commentary) && ($report->commentary['source'] ?? null) === 'llm') {
+                self::safely(fn () => app(self::class)->record('report.monthly_commentary', $report, $report->commentary,
+                    ['brand_id' => $report->brand_id, 'title' => 'Aylık rapor · '.$report->month, 'provider' => $report->commentary['provider'] ?? null, 'model' => $report->commentary['model'] ?? null, 'prompt_version' => $report->commentary['prompt_version'] ?? null]));
             }
         });
         BrandSetupProposal::saved(static function (BrandSetupProposal $proposal): void {

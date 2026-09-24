@@ -37,5 +37,13 @@ final class AdvisorServiceProvider extends ServiceProvider
             'description' => 'On operator click, drafts a Google Business Profile description and short service descriptions from the profile, brand services, service areas and search keywords. Copy-paste only; nothing is written to the profile.',
             'default_steps' => AiDefaultSteps::analysis(),
         ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::MONTHLY_REPORT_COMMENTARY,
+            'name' => 'Monthly Report Commentary',
+            'module' => 'reports',
+            'description' => 'On operator click, writes the plain-language commentary (summary, wins, watch items, next month) of a monthly client report from its frozen numbers. The operator edits it before sharing.',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
     }
 }
