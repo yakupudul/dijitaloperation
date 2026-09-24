@@ -24,6 +24,7 @@ use App\Services\Observability\OperationalAlertLifecycleService;
 use App\Services\SearchDemand\AutomaticQueryImportService;
 use App\Services\SearchDemand\LibraryImportWorkflow;
 use App\Support\Permissions;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -60,6 +61,7 @@ final class ResourceAutomationService
         $this->authorize($actor);
         validator($input, [
             'collection_enabled' => ['required', 'boolean'], 'interval_days' => ['required', 'in:1,3'],
+            'preferred_hour' => ['nullable', 'integer', 'between:0,23'],
             'query_enabled' => ['required', 'boolean'], 'sector' => ['nullable', 'string', 'max:255'],
             'service_ids' => ['array', 'max:200'], 'service_ids.*' => ['integer'],
         ])->validate();
@@ -80,6 +82,7 @@ final class ResourceAutomationService
             $a->fill([
                 'mapping_revision' => (int) $a->mapping_revision + ($mappingChanged ? 1 : 0),
                 'collection_enabled' => $input['collection_enabled'], 'interval_days' => (int) $input['interval_days'],
+                'preferred_hour' => isset($input['preferred_hour']) && $input['preferred_hour'] !== '' ? (int) $input['preferred_hour'] : null,
                 'query_enabled' => $input['query_enabled'], 'sector' => $input['sector'] ?: null,
                 'service_ids' => $ids, 'revision' => $a->revision + 1, 'updated_by' => $actor->id,
                 'query_error' => null, 'collection_error' => null, 'collection_failures' => 0,
@@ -229,7 +232,7 @@ final class ResourceAutomationService
             $error = $this->readiness($automation->resource) ?? $this->portfolioGate($automation);
             if ($error !== null) {
                 $automation->update(['collection_status' => 'attention', 'collection_error' => $error,
-                    'next_collection_at' => now()->addDays($automation->interval_days)]);
+                    'next_collection_at' => $this->nextAt($automation)]);
 
                 continue;
             }
@@ -339,7 +342,7 @@ final class ResourceAutomationService
         }
         if ($error = $this->readiness($a->resource) ?? $this->portfolioGate($a)) {
             $a->update(['collection_status' => 'attention', 'collection_error' => $error, 'collection_queued_at' => null,
-                'next_collection_at' => now()->addDays($a->interval_days)]);
+                'next_collection_at' => $this->nextAt($a)]);
 
             return;
         }
@@ -369,7 +372,7 @@ final class ResourceAutomationService
         $a->update([
             'collection_run_id' => $run?->id, 'collection_status' => $run ? 'collecting' : 'current',
             'collection_queued_at' => null, 'collection_error' => null,
-            'next_collection_at' => now()->addDays($a->interval_days),
+            'next_collection_at' => $this->nextAt($a),
         ]);
         if ($run) {
             $run->update(['metadata' => array_merge($run->metadata ?? [], ['automatic_collection' => true, 'resource_automation_id' => $a->id])]);
@@ -409,7 +412,7 @@ final class ResourceAutomationService
                 'collection_error' => $finished && ! $success ? 'collection_failed' : null,
                 'collection_failures' => 0,
                 'last_collection_success_at' => $success ? now() : $automation->last_collection_success_at,
-                'next_collection_at' => $finished ? now()->addDays($automation->interval_days)
+                'next_collection_at' => $finished ? $this->nextAt($automation)
                     : now()->addMinutes((int) data_get($run->metadata, 'retry_minutes', 0)),
             ]);
             if ($finished) {
@@ -461,7 +464,7 @@ final class ResourceAutomationService
                 ->map(fn ($group) => $group->max(fn ($d) => data_get($d->metadata, 'date_range.end')))->min();
             $this->alert($a->id, 'collection', null);
             $a->update(['data_through' => $through ?: $a->data_through, 'collection_status' => 'current', 'collection_error' => null, 'collection_failures' => 0,
-                'last_collection_success_at' => now(), 'next_collection_at' => now()->addDays($a->interval_days)]);
+                'last_collection_success_at' => now(), 'next_collection_at' => $this->nextAt($a)]);
 
             return;
         }
@@ -557,5 +560,19 @@ final class ResourceAutomationService
                 $lock->release();
             }
         }
+    }
+
+    /**
+     * Faz 14: next automatic collection — `interval_days` later, at the account's preferred hour (Europe/Istanbul)
+     * when one is set.
+     */
+    public function nextAt(ResourceAutomation $automation): CarbonInterface
+    {
+        $next = now()->addDays(max(1, (int) $automation->interval_days));
+        if ($automation->preferred_hour === null) {
+            return $next;
+        }
+
+        return $next->copy()->timezone('Europe/Istanbul')->startOfDay()->addHours((int) $automation->preferred_hour)->utc();
     }
 }

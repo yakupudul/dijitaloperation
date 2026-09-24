@@ -13,7 +13,7 @@ class ResourceAutomation extends Model
     {
         return [
             'collection_enabled' => 'boolean', 'query_enabled' => 'boolean',
-            'service_ids' => 'array', 'interval_days' => 'integer', 'revision' => 'integer',
+            'service_ids' => 'array', 'interval_days' => 'integer', 'preferred_hour' => 'integer', 'revision' => 'integer',
             'next_collection_at' => 'immutable_datetime', 'collection_queued_at' => 'immutable_datetime',
             'last_collection_success_at' => 'immutable_datetime', 'last_query_success_at' => 'immutable_datetime',
             'query_checked_at' => 'immutable_datetime',

@@ -142,6 +142,29 @@ final class SystemHealthReader
             ->values()->all();
     }
 
+    /**
+     * Faz 14: per-dataset coverage of one account — which data set has data up to which day, and its state.
+     *
+     * @return list<array{dataset: string, through: ?string, from: ?string, status: string, collected_at: ?string}>
+     */
+    public function datasets(int $automationId): array
+    {
+        $resourceId = ResourceAutomation::query()->whereKey($automationId)->value('external_resource_id');
+        if ($resourceId === null || ! Schema::hasTable('dataset_materializations')) {
+            return [];
+        }
+
+        return DB::table('dataset_materializations')->where('external_resource_id', $resourceId)->orderBy('dataset_id')
+            ->get(['dataset_id', 'coverage_start_date', 'coverage_end_date', 'status', 'last_collected_at'])
+            ->map(fn (object $row): array => [
+                'dataset' => (string) $row->dataset_id,
+                'through' => $row->coverage_end_date !== null ? substr((string) $row->coverage_end_date, 0, 10) : null,
+                'from' => $row->coverage_start_date !== null ? substr((string) $row->coverage_start_date, 0, 10) : null,
+                'status' => (string) $row->status,
+                'collected_at' => $row->last_collected_at !== null ? (string) $row->last_collected_at : null,
+            ])->values()->all();
+    }
+
     /** @return list<array{site: string, version: ?string, outdated: bool, last_received: ?string, silent: bool}> */
     private function plugins(): array
     {

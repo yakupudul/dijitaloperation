@@ -22,6 +22,9 @@ final class SystemHealthPage extends Component
 
     public bool $onlyProblems = true;
 
+    /** Faz 14: account whose per-dataset "data through" dates are shown. */
+    public ?int $datasetsFor = null;
+
     /** Admin: make stopped collections due again now (same rules as the daily retry). */
     public function retryStopped(ResourceAutomationService $automations): void
     {
@@ -38,6 +41,11 @@ final class SystemHealthPage extends Component
         $this->message = 'Hesap veri çekimi için sıraya alındı.';
     }
 
+    public function toggleDatasets(int $automationId): void
+    {
+        $this->datasetsFor = $this->datasetsFor === $automationId ? null : $automationId;
+    }
+
     public function render(SystemHealthReader $reader): View
     {
         $health = $reader->read();
@@ -48,6 +56,7 @@ final class SystemHealthPage extends Component
         return view('livewire.operator.settings.system-health', [
             'health' => $health,
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
+            'datasets' => $this->datasetsFor !== null ? $reader->datasets($this->datasetsFor) : [],
         ]);
     }
 }

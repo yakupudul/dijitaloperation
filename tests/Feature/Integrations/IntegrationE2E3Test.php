@@ -15,8 +15,10 @@ use App\Models\DigitalAsset;
 use App\Models\ResourceAutomation;
 use App\Models\User;
 use App\Services\Alerts\AssetAlertScanner;
+use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Observability\OperationalAlertEvaluator;
 use App\Services\Observability\WorkerHeartbeatService;
+use App\Services\Operations\CostReader;
 use App\Services\Operations\OpsWatchdog;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
@@ -111,5 +113,28 @@ final class IntegrationE2E3Test extends TestCase
         $this->actingAs($this->admin);
 
         $this->get(route('operator.integrations.connector', ['connector' => 'meta-ads']))->assertRedirect(route('operator.integrations.meta', ['tab' => 'resources']));
+    }
+
+    public function test_preferred_hour_dataset_coverage_and_brand_caps(): void
+    {
+        $this->travelTo(now()->setTimezone('Europe/Istanbul')->setTime(15, 0)->utc());
+        $google = CoreIntegration::factory()->google()->create();
+        $resource = CoreExternalResource::factory()->create(['integration_id' => $google->id, 'provider' => ProviderRegistry::GOOGLE, 'resource_type' => 'ga4', 'external_id' => 'properties/5', 'display_name' => 'Atlas GA4']);
+        $automation = ResourceAutomation::query()->create(['external_resource_id' => $resource->id, 'collection_enabled' => true, 'interval_days' => 1, 'next_collection_at' => now()]);
+
+        $service = app(ResourceAutomationService::class);
+        $this->assertSame(now()->addDay()->toDateTimeString(), $service->nextAt($automation)->toDateTimeString());
+        $automation->forceFill(['preferred_hour' => 4])->save();
+        $this->assertSame('04:00', $service->nextAt($automation->fresh())->timezone('Europe/Istanbul')->format('H:i'));
+
+        DB::table('dataset_materializations')->insert(['dataset_id' => 'GA4_RF_PROPERTY_DAILY', 'external_resource_id' => $resource->id, 'provider_or_source' => 'google',
+            'coverage_start_date' => '2025-06-01', 'coverage_end_date' => '2026-09-20', 'status' => 'AVAILABLE', 'last_collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        $automation->forceFill(['collection_status' => 'attention', 'collection_error' => 'collection_failed'])->save();
+        $this->actingAs($this->admin);
+        Livewire::test(SystemHealthPage::class)->call('toggleDatasets', $automation->id)->assertSee('GA4_RF_PROPERTY_DAILY')->assertSee('2026-09-20 tarihine kadar');
+
+        $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create()->id, 'name' => 'Atlas Dental']);
+        DB::table('brand_intel_settings')->insert(['brand_id' => $brand->id, 'monthly_usd' => 10, 'created_at' => now(), 'updated_at' => now()]);
+        $this->assertSame([['brand' => 'Atlas Dental', 'cap' => 10.0, 'spent' => 0.0, 'share' => 0]], app(CostReader::class)->read()['brand_caps']);
     }
 }

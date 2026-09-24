@@ -52,6 +52,8 @@ class ResourceAutomations extends Component
 
     public int $intervalDays = 1;
 
+    public string $preferredHour = '';
+
     public bool $queryEnabled = false;
 
     public string $sector = '';
@@ -110,6 +112,7 @@ class ResourceAutomations extends Component
         $this->revision = $a->revision;
         $this->collectionEnabled = $a->collection_enabled;
         $this->intervalDays = $a->interval_days;
+        $this->preferredHour = $a->preferred_hour !== null ? (string) $a->preferred_hour : '';
         $this->queryEnabled = $a->query_enabled;
         $this->sector = $a->sector ?? '';
         $this->serviceIds = array_map('strval', $a->service_ids ?? []);
@@ -142,7 +145,7 @@ class ResourceAutomations extends Component
         $this->authorizeAdmin();
         $a = $this->account($this->editingId ?? 0);
         $service->save($a->id, [
-            'collection_enabled' => $this->collectionEnabled, 'interval_days' => $this->intervalDays,
+            'collection_enabled' => $this->collectionEnabled, 'interval_days' => $this->intervalDays, 'preferred_hour' => $this->preferredHour,
             'query_enabled' => $this->queryEnabled, 'sector' => $this->sector, 'service_ids' => $this->serviceIds,
         ], $this->revision, auth()->user());
         $this->editingId = null;

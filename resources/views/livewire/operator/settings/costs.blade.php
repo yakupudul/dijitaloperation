@@ -19,6 +19,14 @@
             <p class="text-xs text-gray-500">Bu ay AI</p>
             <p class="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">{{ $usd(collect($costs['rows'])->where('group', 'ai')->sum(fn ($row) => $row['values'][$current])) }}</p>
             <p class="text-xs text-gray-500">Aylık AI bütçesi: {{ $costs['ai_budget'] !== null ? $usd($costs['ai_budget']) : 'tanımlı değil' }}</p>
+            @if (($costs['brand_caps'] ?? []) !== [])
+                <div class="mt-3">
+                    <p class="text-xs font-semibold text-gray-600 dark:text-gray-300">DataForSEO marka tavanları (bu ay)</p>
+                    @foreach ($costs['brand_caps'] as $cap)
+                        <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">{{ $cap['brand'] }}: {{ $usd($cap['spent']) }} / {{ $usd($cap['cap']) }} <span @class(['font-semibold', 'text-rose-600' => $cap['share'] >= 90, 'text-amber-600' => $cap['share'] >= 70 && $cap['share'] < 90])>(%{{ $cap['share'] }})</span></p>
+                    @endforeach
+                </div>
+            @endif
         </section>
         <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <p class="text-xs text-gray-500">Bu ay DataForSEO</p>

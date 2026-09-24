@@ -61,7 +61,7 @@
                             'domain_required' => app()->getLocale() === 'tr' ? 'Domain gerekli' : 'Domain required',
                             'connection_required' => app()->getLocale() === 'tr' ? 'Bağlantı gerekli' : 'Connection required',
                             'plugin_required' => app()->getLocale() === 'tr' ? 'WordPress · eklenti kurulmalı' : 'WordPress · plugin required',
-                            'not_wordpress' => app()->getLocale() === 'tr' ? 'WordPress değil · yalnız herkese açık tarama' : 'Not WordPress · public crawl only',
+                            'not_wordpress' => app()->getLocale() === 'tr' ? 'WordPress değil · yalnız elle / herkese açık tarama' : 'Not WordPress · manual public crawl only',
                             default => $sourceStatus,
                         };
                     @endphp

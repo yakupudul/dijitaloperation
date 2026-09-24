@@ -146,8 +146,20 @@
                                     @elseif ($isAdmin && $account['enabled'] && ($account['state'] === 'attention' || $account['stale']))
                                         <button type="button" wire:click="runNow({{ $account['id'] }})" wire:loading.attr="disabled" class="font-medium text-brand-600 hover:underline">Şimdi çek</button>
                                     @endif
+                                    <button type="button" wire:click="toggleDatasets({{ $account['id'] }})" class="ml-2 text-gray-500 hover:underline">Veri setleri</button>
                                 </td>
                             </tr>
+                            @if ($datasetsFor === $account['id'])
+                                <tr wire:key="acc-ds-{{ $account['id'] }}">
+                                    <td colspan="6" class="bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">
+                                        @forelse ($datasets as $ds)
+                                            <p class="text-xs text-gray-600 dark:text-gray-300"><span class="font-mono">{{ $ds['dataset'] }}</span> · veri {{ $ds['through'] ?? '—' }} tarihine kadar @if ($ds['from'])({{ $ds['from'] }}'den beri) @endif · {{ strtolower($ds['status']) }} · son çekim {{ $when($ds['collected_at']) }}</p>
+                                        @empty
+                                            <p class="text-xs text-gray-500">Bu hesap için veri seti kaydı yok (İşletme Profili ayrı toplayıcıyla çekilir).</p>
+                                        @endforelse
+                                    </td>
+                                </tr>
+                            @endif
                         @endforeach
                     </tbody>
                 </table>
