@@ -173,6 +173,29 @@
             <div class="border-b border-gray-200 p-4 dark:border-gray-800">
                 <h2 class="font-semibold dark:text-white">{{ $selected?->contact_name ?: ($selected?->contact_id ?: 'Mesajlar') }}</h2>
                 @if($selected)<p class="mt-1 text-xs text-gray-500">{{ $selected->contact_id }} · {{ $messages->total() }} kayıtlı mesaj</p>@endif
+                @if($selected)
+                    <div class="mt-2 rounded-lg bg-gray-50 p-2 text-xs dark:bg-white/[0.03]">
+                        @if($linkedCustomer)
+                            Müşteri: <a href="{{ route('operator.customer', ['customerId' => $linkedCustomer->id]) }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ $linkedCustomer->name }}</a> <span class="text-gray-400">({{ $selected->link_source === 'operator' ? 'elle' : 'telefon eşleşmesi' }})</span>
+                        @elseif($linkedProspect)
+                            Aday: <a href="{{ route('operator.prospect', ['prospectId' => $linkedProspect->id]) }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ $linkedProspect->company_name }}</a> · {{ $linkedProspect->status?->value }}
+                            <div class="mt-1 flex flex-wrap items-center gap-1">
+                                <input type="date" wire:model="followUpOn" value="{{ $linkedProspect->next_follow_up_on?->toDateString() }}" class="rounded border border-gray-200 bg-transparent px-1.5 py-0.5 dark:border-gray-700" />
+                                <input type="text" wire:model="nextStep" placeholder="{{ $linkedProspect->next_step ?? 'Sonraki adım' }}" class="w-40 rounded border border-gray-200 bg-transparent px-1.5 py-0.5 dark:border-gray-700" />
+                                <button type="button" wire:click="saveFollowUp" class="rounded px-2 py-0.5 ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Takip kaydet</button>
+                                @if($linkedProspect->next_follow_up_on)<span class="text-gray-500">Takip: {{ $linkedProspect->next_follow_up_on->format('d.m.Y') }}{{ $linkedProspect->next_step ? ' · '.$linkedProspect->next_step : '' }}</span>@endif
+                            </div>
+                        @else
+                            <span class="text-gray-500">Bu numara bir müşteri veya adayla eşleşmedi.</span>
+                        @endif
+                        <div class="mt-1 flex flex-wrap items-center gap-1">
+                            <select wire:model="linkCustomer" class="max-w-40 rounded border border-gray-200 bg-transparent px-1.5 py-0.5 dark:border-gray-700"><option value="">Müşteri seç…</option>@foreach($customerOptions as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
+                            <select wire:model="linkProspect" class="max-w-40 rounded border border-gray-200 bg-transparent px-1.5 py-0.5 dark:border-gray-700"><option value="">Aday seç…</option>@foreach($prospectOptions as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
+                            <button type="button" wire:click="saveLink" class="rounded px-2 py-0.5 ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Bağla</button>
+                            @if(! $linkedCustomer && ! $linkedProspect)<button type="button" wire:click="createProspect" class="rounded bg-brand-500 px-2 py-0.5 font-medium text-white">Aday oluştur</button>@endif
+                        </div>
+                    </div>
+                @endif
             </div>
             <div class="max-h-[650px] min-h-[350px] space-y-3 overflow-y-auto p-4">
                 @if($messages)

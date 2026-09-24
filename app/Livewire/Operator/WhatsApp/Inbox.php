@@ -4,9 +4,15 @@ namespace App\Livewire\Operator\WhatsApp;
 
 use App\Jobs\WhatsApp\CheckWhatsAppConnection;
 use App\Models\CoreIntegration;
+use App\Models\Customer;
+use App\Models\Prospect;
 use App\Models\WhatsAppConversation;
+use App\Models\WhatsAppSignupAttempt;
 use App\Models\WhatsAppWebhookReceipt;
+use App\Services\Assistant\WhatsAppContactLinker;
 use App\Services\WhatsApp\WhatsAppConnection;
+use App\Services\WhatsApp\WhatsAppSignup;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -28,17 +34,27 @@ class Inbox extends Component
     public ?int $conversation = null;
 
     public string $app_id = '';
+
     public string $signup_config_id = '1757572378897162';
+
     public string $signup_mode = 'coexistence';
 
     public string $q = '';
+
     public bool $showSettings = false;
+
     public string $notice = '';
+
     public string $waba_id = '';
+
     public string $phone_number_id = '';
+
     public string $business_phone = '';
+
     public bool $enabled = true;
+
     public bool $automatic_suggestions = false;
+
     public string $business_context = '';
 
     public function boot(WhatsAppConnection $connection): void
@@ -64,7 +80,7 @@ class Inbox extends Component
         }
     }
 
-    public function saveSignupSetup(array $secrets, \App\Services\WhatsApp\WhatsAppSignup $signup): bool
+    public function saveSignupSetup(array $secrets, WhatsAppSignup $signup): bool
     {
         $this->resetValidation();
         $this->notice = '';
@@ -86,13 +102,13 @@ class Inbox extends Component
         }
     }
 
-    public function beginSignup(\App\Services\WhatsApp\WhatsAppSignup $signup): void
+    public function beginSignup(WhatsAppSignup $signup): void
     {
         $attempt = $signup->begin(auth()->user(), session()->getId());
         $this->redirectRoute('operator.whatsapp.connect', ['attempt' => $attempt->id]);
     }
 
-    public function subscribeWebhook(\App\Services\WhatsApp\WhatsAppSignup $signup): void
+    public function subscribeWebhook(WhatsAppSignup $signup): void
     {
         $attempt = $signup->begin(auth()->user(), session()->getId(), true);
         $signup->dispatch($attempt);
@@ -151,6 +167,7 @@ class Inbox extends Component
         $integration = $connection->integration();
         if (! $integration?->isActive()) {
             $this->addError('connection', 'Önce bağlantı ayarlarını kaydedip mesaj alımını açın.');
+
             return;
         }
         $requestId = (string) Str::uuid();
@@ -158,10 +175,10 @@ class Inbox extends Component
             $queued = DB::transaction(function () use ($integration, $requestId): bool {
                 $current = CoreIntegration::query()->lockForUpdate()->findOrFail($integration->id);
                 $config = $current->config ?? [];
-                app(\App\Services\WhatsApp\WhatsAppSignup::class)->assertIdle($current);
+                app(WhatsAppSignup::class)->assertIdle($current);
                 if (($config['connection_check'] ?? '') === 'queued'
                     && ! empty($config['connection_check_requested_at'])
-                    && \Carbon\CarbonImmutable::parse($config['connection_check_requested_at'])->greaterThan(now()->subMinutes(2))) {
+                    && CarbonImmutable::parse($config['connection_check_requested_at'])->greaterThan(now()->subMinutes(2))) {
                     return false;
                 }
                 $config['connection_error'] = null;
@@ -175,6 +192,7 @@ class Inbox extends Component
             });
             if (! $queued) {
                 $this->notice = 'Kontrol zaten sırada. Sonuç otomatik yenilenecek.';
+
                 return;
             }
             CheckWhatsAppConnection::dispatch($integration->id, $requestId);
@@ -199,12 +217,14 @@ class Inbox extends Component
         $integration = $connection->integration();
         if (! $integration?->isActive()) {
             $this->notice = 'Öneri için bağlantı etkin olmalı.';
+
             return;
         }
         DB::transaction(function () use ($id, $integration): void {
             $row = WhatsAppConversation::query()->where('integration_id', $integration->id)->lockForUpdate()->findOrFail($id);
             if ($row->suggestion_status === 'running') {
                 $this->notice = 'Bu görüşme için öneri hazırlanıyor.';
+
                 return;
             }
             $row->update(['suggestion_status' => 'requested', 'error_code' => null]);
@@ -218,6 +238,46 @@ class Inbox extends Component
             ->whereKey($id)->where('status', 'failed')
             ->update(['status' => 'pending', 'error_code' => null, 'updated_at' => now()]);
         $this->notice = 'Mesaj aktarımı yeniden sıraya alındı.';
+    }
+
+    public string $linkCustomer = '';
+
+    public string $linkProspect = '';
+
+    public string $followUpOn = '';
+
+    public string $nextStep = '';
+
+    /** Faz 6: link the selected conversation to a customer or prospect by hand (kept by the automatic linker). */
+    public function saveLink(WhatsAppContactLinker $linker): void
+    {
+        $conversation = $this->selectedConversation();
+        $linker->setManual($conversation, $this->linkCustomer !== '' ? (int) $this->linkCustomer : null, $this->linkProspect !== '' ? (int) $this->linkProspect : null);
+        $this->notice = 'Görüşme bağlandı.';
+    }
+
+    public function createProspect(WhatsAppContactLinker $linker): void
+    {
+        $prospect = $linker->createProspect($this->selectedConversation(), auth()->id());
+        $this->notice = $prospect->company_name.' aday olarak eklendi; yarın için takip tarihi kondu.';
+    }
+
+    public function saveFollowUp(): void
+    {
+        $conversation = $this->selectedConversation();
+        abort_if($conversation->prospect_id === null, 422);
+        $this->validate(['followUpOn' => ['nullable', 'date'], 'nextStep' => ['nullable', 'string', 'max:255']]);
+        Prospect::query()->findOrFail($conversation->prospect_id)->forceFill([
+            'next_follow_up_on' => $this->followUpOn !== '' ? $this->followUpOn : null, 'next_step' => trim($this->nextStep) ?: null,
+        ])->save();
+        $this->notice = 'Aday takibi kaydedildi; Bugün ekranında görünür.';
+    }
+
+    private function selectedConversation(): WhatsAppConversation
+    {
+        abort_if($this->conversation === null, 404);
+
+        return WhatsAppConversation::query()->where('integration_id', app(WhatsAppConnection::class)->integration()?->id)->findOrFail($this->conversation);
     }
 
     public function render(WhatsAppConnection $connection): View
@@ -237,14 +297,16 @@ class Inbox extends Component
             'integration' => $integration, 'rows' => $rows, 'selected' => $selected, 'messages' => $messages,
             'config' => $integration?->config ?? [],
             'credentialStatus' => $connection->credentialStatus($integration),
-            'signupAttempt' => \App\Models\WhatsAppSignupAttempt::query()->where('integration_id', $integration?->id)
+            'signupAttempt' => WhatsAppSignupAttempt::query()->where('integration_id', $integration?->id)
                 ->select(['id', 'user_id', 'status', 'step', 'mode', 'details', 'updated_at', 'expires_at'])
                 ->orderByDesc('created_at')->first(),
+            'linkedCustomer' => $selected?->customer_id ? Customer::query()->find($selected->customer_id) : null,
+            'linkedProspect' => $selected?->prospect_id ? Prospect::query()->find($selected->prospect_id) : null,
+            'customerOptions' => $selected ? Customer::query()->orderBy('name')->pluck('name', 'id') : collect(),
+            'prospectOptions' => $selected ? Prospect::query()->whereNotIn('status', ['won', 'lost'])->orderBy('company_name')->pluck('company_name', 'id') : collect(),
             'receipts' => WhatsAppWebhookReceipt::query()->where('integration_id', $integration?->id)
                 ->select(['id', 'status', 'accepted_count', 'ignored_count', 'error_code', 'created_at'])
                 ->orderByDesc('id')->limit(10)->get(),
         ]);
     }
 }
-
-

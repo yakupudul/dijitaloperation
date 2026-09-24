@@ -17,6 +17,7 @@ use App\Policies\CollectionRunPolicy;
 use App\Services\Ai\AgentContextGateway;
 use App\Services\Ai\AiUsageRecorder;
 use App\Services\Archive\ProductionArchive;
+use App\Services\Assistant\WhatsAppContactLinker;
 use App\Services\ClientValueStory\ClientValueStoryReadService;
 use App\Services\Collection\Contracts\NormalizedDatasetWriter;
 use App\Services\Collection\Contracts\RawPayloadWriter;
@@ -183,6 +184,7 @@ class AppServiceProvider extends ServiceProvider
     {
         Event::listen(AgentPrompted::class, [AiUsageRecorder::class, 'handle']);
         ProductionArchive::boot();
+        WhatsAppContactLinker::boot();
 
         Gate::before(function ($user, string $ability): ?bool {
             return method_exists($user, 'hasRole') && $user->hasRole(Roles::ADMIN)
