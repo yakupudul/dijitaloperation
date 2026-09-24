@@ -416,3 +416,9 @@ Schedule::command('moxdop:data:retention')
     ->dailyAt('04:10')
     ->withoutOverlapping(120)
     ->name('data-retention');
+
+// Faz 2b: marka talep tablosu (sorgu → hizmet, bölge, markalı/markasız, değer) — SEO planından önce, haftalık.
+Schedule::command('moxdop:demand:build')
+    ->weeklyOn((int) config('moxdop-demand.schedule.weekly_day', 1), (string) config('moxdop-demand.schedule.weekly_time', '05:30'))
+    ->withoutOverlapping(120)
+    ->name('brand-demand-weekly');

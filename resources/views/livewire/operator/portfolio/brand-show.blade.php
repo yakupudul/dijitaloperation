@@ -245,6 +245,7 @@
                 @endif
             </section>
         </div>
+        <livewire:operator.portfolio.brand-demand :brand-id="(int) $brandModel->id" :key="'brand-demand-'.$brandModel->id" />
         <livewire:operator.portfolio.brand-competitors :brand-id="(int) $brandModel->id" :key="'brand-competitors-'.$brandModel->id" />
     @endif
 
