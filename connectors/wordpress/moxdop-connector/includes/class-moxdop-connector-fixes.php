@@ -134,6 +134,14 @@ final class MoxDOP_Connector_Fixes
         }
         $after = $this->read($type, $target);
         $id = $this->remember($type, $target, $before, $after, sanitize_text_field((string) ($change['reference'] ?? '')));
+        // 1.4.1: search engines hear about the changed page (IndexNow), sent right after this request.
+        if (isset($target['post_id']) && get_post_status($target['post_id']) === 'publish') {
+            MoxDOP_Connector_IndexNow::queue((string) get_permalink($target['post_id']));
+            (new MoxDOP_Connector_Events)->send_soon();
+        } elseif (isset($target['from'])) {
+            MoxDOP_Connector_IndexNow::queue(home_url($target['from']));
+            (new MoxDOP_Connector_Events)->send_soon();
+        }
 
         return ['ok' => true, 'type' => $type, 'change_id' => $id, 'before' => $this->summary($before), 'after' => $this->summary($after)];
     }

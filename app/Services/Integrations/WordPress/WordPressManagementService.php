@@ -101,6 +101,47 @@ final class WordPressManagementService
         return $url;
     }
 
+    /**
+     * Can the connector on this site update itself to the version MoxDOP ships?
+     *
+     * @return array{available: bool, current: string, latest: string, reason: string}
+     */
+    public function connectorUpdateState(int $siteId): array
+    {
+        $connection = CoreConnection::query()->where('digital_asset_id', $siteId)->where('type', 'wordpress_connector')->where('enabled', true)->first();
+        $current = (string) data_get($connection?->config, 'plugin_version', '');
+        $latest = (string) config('moxdop-wordpress.connector_version', '1.0.0');
+        $minimum = (string) config('moxdop-wordpress.self_update_min_plugin_version', '1.4.1');
+        $reason = match (true) {
+            $connection === null || data_get($connection->config, 'pairing_state') !== 'paired' => 'Bu sitede eşleştirilmiş WordPress Connector yok.',
+            $current === '' => 'Eklenti sürümü henüz okunmadı; önce bağlantıyı yenile.',
+            version_compare($current, $latest, '>=') => 'Eklenti güncel ('.$current.').',
+            version_compare($current, $minimum, '<') => 'Eklenti '.$current.'; tek tık güncelleme '.$minimum.' ile geldi. Bu siteye '.$latest.' paketini bir kez elle yükle, sonrakiler tek tık olur.',
+            default => '',
+        };
+
+        return ['available' => $reason === '', 'current' => $current, 'latest' => $latest, 'reason' => $reason];
+    }
+
+    /** Executor for an approved connector self-update (ExternalWriteAction connector_update). */
+    public function selfUpdate(ExternalWriteAction $action): array
+    {
+        $connection = $this->connection((int) $action->digital_asset_id);
+        $release = app(WordPressConnectorPackage::class)->release();
+        $result = $this->client->selfUpdate($connection, $release['version'], $release['url'], $release['sha256']);
+        $ok = (bool) ($result['ok'] ?? false);
+        if ($ok && is_string($result['to_version'] ?? null)) {
+            $connection->forceFill(['config' => array_merge((array) $connection->config, ['plugin_version' => $result['to_version']])])->save();
+            DB::table('website_connector_delivery')->where('connection_id', $connection->id)->update(['plugin_version' => $result['to_version']]);
+        }
+        $site = DigitalAsset::query()->find($action->digital_asset_id);
+        if ($site !== null) {
+            $this->refreshHealth($site);
+        }
+
+        return $result + ['sha256' => $release['sha256'], 'status' => $ok ? 'succeeded' : 'failed'];
+    }
+
     /** Executor for an approved update (ExternalWriteAction update_apply). */
     public function apply(ExternalWriteAction $action): array
     {

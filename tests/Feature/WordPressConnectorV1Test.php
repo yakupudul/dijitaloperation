@@ -256,6 +256,47 @@ final class WordPressConnectorV1Test extends TestCase
     }
 
     #[Test]
+    public function small_changes_are_refreshed_within_a_minute_even_while_full_inventories_hold_their_slots(): void
+    {
+        Queue::fake();
+        $pairing = app(WordPressConnectorPairingService::class);
+        $issued = $pairing->issue($this->asset, $this->admin);
+        $pairing->complete($this->pairingPayload($issued['code']));
+        $connectionId = $issued['connection']->id;
+        DB::table('website_connector_delivery')->where('connection_id', $connectionId)->update(['last_inventory_at' => now(), 'plugin_version' => '1.4.1']);
+
+        // Two other sites are running full inventories: both full slots are taken.
+        $other = DigitalAsset::factory()->create(['type' => 'website', 'domain' => 'other.example', 'primary_url' => 'https://other.example/']);
+        $busyRun = app(WebsiteCollectionOrchestrator::class)->start(asset: $other, requestFamilyIds: [WebsiteRequestFamilyCatalog::FAMILY_WP_REST], context: ['collection_scope' => 'wordpress']);
+        foreach ([1, 2] as $i) {
+            $busy = CoreConnection::factory()->create(['digital_asset_id' => $other->id, 'type' => 'wordpress_connector', 'enabled' => true, 'config' => ['pairing_state' => 'paired']]);
+            DB::table('website_connector_delivery')->insert(['connection_id' => $busy->id, 'collection_run_id' => $busyRun->id, 'collection_is_full' => true]);
+        }
+
+        $event = fn (): int => DB::table('website_connector_events')->insertGetId([
+            'connection_id' => $connectionId, 'digital_asset_id' => $this->asset->id,
+            'event_id' => (string) Str::uuid(), 'type' => 'content.updated', 'object_type' => 'page', 'object_id' => '42', 'origin' => 'wordpress_user',
+            'payload' => json_encode(['url' => 'https://example.com/hizmet/']), 'occurred_at' => now(), 'received_at' => now(),
+        ]);
+        DB::table('website_connector_delivery')->where('connection_id', $connectionId)->update(['latest_event_id' => $event()]);
+        app(WordPressEventReconciliation::class)->tick();
+
+        $state = DB::table('website_connector_delivery')->where('connection_id', $connectionId)->first();
+        $this->assertNotNull($state->collection_run_id, 'a changed-object refresh does not wait for a full slot');
+        $run = CollectionRun::query()->findOrFail($state->collection_run_id);
+        $this->assertSame('changes', data_get($run->request_context, 'context.collection_scope'));
+        $this->assertSame(['https://example.com/hizmet/'], data_get($run->request_context, 'context.targeted_verification.urls'));
+
+        // Finished: the next small batch is looked at a minute later (not ten).
+        $run->update(['status' => CollectionRunStatus::Completed, 'finished_at' => now()]);
+        app(WordPressEventReconciliation::class)->tick();
+        $state = DB::table('website_connector_delivery')->where('connection_id', $connectionId)->first();
+        $this->assertNull($state->collection_run_id);
+        $this->assertLessThanOrEqual(now()->addMinute()->getTimestamp(), strtotime((string) $state->next_reconcile_at));
+        $this->assertStringContainsString("everyMinute()->withoutOverlapping(10)->name('wordpress-event-reconciliation')", (string) preg_replace('/\s+/', '', (string) file_get_contents(base_path('routes/console.php'))));
+    }
+
+    #[Test]
     public function access_only_events_do_not_trigger_another_full_inventory(): void
     {
         Queue::fake();

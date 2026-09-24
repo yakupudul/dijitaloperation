@@ -11,6 +11,7 @@ use App\Models\SeoTask;
 use App\Models\SiteFixItem;
 use App\Models\User;
 use App\Services\Integrations\WordPress\WordPressManagementService;
+use App\Services\SiteFixes\SiteFixVerification;
 use App\Support\Roles;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -123,6 +124,39 @@ final class ExternalWriteService
     }
 
     /**
+     * 1.4.1: Admin-approved update of the MoxDOP Connector itself to the version this MoxDOP ships. The site must run
+     * ≥ self_update_min_plugin_version (older sites are updated by hand once). Not undoable.
+     */
+    public function requestConnectorUpdate(User $user, DigitalAsset $site): ExternalWriteAction
+    {
+        $this->guard($user, ExternalWriteAction::CHANNEL_WORDPRESS);
+        try {
+            $state = app(WordPressManagementService::class)->connectorUpdateState((int) $site->id);
+        } catch (Throwable $exception) {
+            throw ValidationException::withMessages(['write' => $exception->getMessage()]);
+        }
+        if (! $state['available']) {
+            throw ValidationException::withMessages(['write' => $state['reason']]);
+        }
+        $busy = ExternalWriteAction::query()->where('digital_asset_id', $site->id)
+            ->whereIn('action', [ExternalWriteAction::ACTION_CONNECTOR_UPDATE, ExternalWriteAction::ACTION_UPDATE_APPLY])
+            ->whereIn('status', ['queued', 'running'])->exists();
+        if ($busy) {
+            throw ValidationException::withMessages(['write' => 'Bu sitede bir güncelleme zaten sürüyor; bitmesini bekle.']);
+        }
+
+        return $this->queue(ExternalWriteAction::query()->create([
+            'channel' => ExternalWriteAction::CHANNEL_WORDPRESS,
+            'action' => ExternalWriteAction::ACTION_CONNECTOR_UPDATE,
+            'digital_asset_id' => $site->id,
+            'brand_id' => $site->brand_id,
+            'status' => 'queued',
+            'request_payload' => ['from' => $state['current'], 'to' => $state['latest'], 'label' => 'MoxDOP Connector'],
+            'requested_by' => $user->id,
+        ]));
+    }
+
+    /**
      * ADR-070: Admin-approved batch of site fixes (SEO title / description, alt text, schema, redirect, noindex,
      * canonical, internal link). Each item must have a proposed value; all go to one site in one request.
      *
@@ -208,10 +242,14 @@ final class ExternalWriteService
             $result = match (true) {
                 $action->channel === ExternalWriteAction::CHANNEL_GOOGLE_ADS => $this->negatives->apply($action),
                 $action->action === ExternalWriteAction::ACTION_UPDATE_APPLY => app(WordPressManagementService::class)->apply($action),
+                $action->action === ExternalWriteAction::ACTION_CONNECTOR_UPDATE => app(WordPressManagementService::class)->selfUpdate($action),
                 in_array($action->action, self::FIX_ACTIONS, true) => $this->fixes->apply($action),
                 default => $this->drafts->apply($action),
             };
             $action->forceFill(['status' => $result['status'] ?? 'succeeded', 'result' => $result, 'finished_at' => now(), 'error' => null])->save();
+            if (in_array($action->action, [ExternalWriteAction::ACTION_SITE_FIX, ExternalWriteAction::ACTION_CONTENT_APPLY], true)) {
+                app(SiteFixVerification::class)->start($action);
+            }
             if ($action->advisor_item_id !== null && in_array($action->status, ['succeeded', 'partial'], true)) {
                 AdvisorItem::query()->whereKey($action->advisor_item_id)->where('status', AdvisorItemStatus::Open->value)
                     ->update(['status' => AdvisorItemStatus::Done->value, 'resolved_at' => now(), 'resolved_by' => $action->requested_by, 'updated_at' => now()]);

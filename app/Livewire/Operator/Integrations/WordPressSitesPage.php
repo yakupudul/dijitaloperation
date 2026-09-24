@@ -54,7 +54,46 @@ final class WordPressSitesPage extends Component
         $this->open = $siteId;
     }
 
-    public function render(): View
+    /** 1.4.1: one click, the connector on this site updates itself to the version MoxDOP ships (Admin, not undoable). */
+    public function updateConnector(int $siteId, ExternalWriteService $writes): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        try {
+            $writes->requestConnectorUpdate(auth()->user(), DigitalAsset::query()->findOrFail($siteId));
+            $this->error = '';
+            $this->message = 'MoxDOP Connector '.config('moxdop-wordpress.connector_version').' güncellemesi kuyruğa alındı.';
+        } catch (ValidationException $exception) {
+            $this->message = '';
+            $this->error = (string) collect($exception->errors())->flatten()->first();
+        }
+        $this->open = $siteId;
+    }
+
+    /** Queues the connector update on every site that can take it; sites that cannot are counted, not failed. */
+    public function updateAllConnectors(ExternalWriteService $writes, WordPressManagementService $management): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $queued = 0;
+        $skipped = 0;
+        $siteIds = CoreConnection::query()->where('type', 'wordpress_connector')->where('enabled', true)->whereNotNull('digital_asset_id')->pluck('digital_asset_id');
+        foreach (DigitalAsset::query()->whereIn('id', $siteIds)->get() as $site) {
+            if (! $management->connectorUpdateState((int) $site->id)['available']) {
+                $skipped++;
+
+                continue;
+            }
+            try {
+                $writes->requestConnectorUpdate(auth()->user(), $site);
+                $queued++;
+            } catch (ValidationException) {
+                $skipped++;
+            }
+        }
+        $this->error = '';
+        $this->message = $queued.' sitede eklenti güncellemesi kuyruğa alındı'.($skipped > 0 ? '; '.$skipped.' site atlandı (güncel, eski sürüm ya da bağlı değil).' : '.');
+    }
+
+    public function render(WordPressManagementService $management): View
     {
         $connections = CoreConnection::query()->where('type', 'wordpress_connector')->where('enabled', true)->whereNotNull('digital_asset_id')->get();
         $sites = DigitalAsset::query()->with('brand')->whereIn('id', $connections->pluck('digital_asset_id'))->orderBy('name')->get();
@@ -62,7 +101,7 @@ final class WordPressSitesPage extends Component
         $minimum = (string) config('moxdop-wordpress.management_min_plugin_version', '1.3.0');
 
         return view('livewire.operator.integrations.wordpress-sites', [
-            'rows' => $sites->map(function (DigitalAsset $site) use ($connections, $health, $minimum): array {
+            'rows' => $sites->map(function (DigitalAsset $site) use ($connections, $health, $minimum, $management): array {
                 $connection = $connections->firstWhere('digital_asset_id', $site->id);
                 $version = (string) data_get($connection?->config, 'plugin_version', '');
                 $row = $health->get($site->id);
@@ -77,10 +116,12 @@ final class WordPressSitesPage extends Component
                     'critical' => (int) ($row->critical_issues ?? 0),
                     'error' => $row->error ?? null,
                     'checked_at' => $row->checked_at ?? null,
+                    'connector_update' => $management->connectorUpdateState((int) $site->id),
                 ];
             }),
-            'actions' => $this->open !== null ? ExternalWriteAction::query()->where('digital_asset_id', $this->open)->where('action', ExternalWriteAction::ACTION_UPDATE_APPLY)->latest('id')->limit(10)->get() : collect(),
+            'actions' => $this->open !== null ? ExternalWriteAction::query()->where('digital_asset_id', $this->open)->whereIn('action', [ExternalWriteAction::ACTION_UPDATE_APPLY, ExternalWriteAction::ACTION_CONNECTOR_UPDATE])->latest('id')->limit(10)->get() : collect(),
             'minimum' => $minimum,
+            'latestConnector' => (string) config('moxdop-wordpress.connector_version'),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'flashError' => session('wp_error'),
         ]);

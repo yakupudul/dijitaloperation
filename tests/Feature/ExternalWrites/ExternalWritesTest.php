@@ -200,7 +200,7 @@ final class ExternalWritesTest extends TestCase
         $this->assertStringNotContainsString('publish', $create, 'the write endpoint never publishes');
         $this->assertStringNotContainsString('wp_update_post', $controller);
         $this->assertStringContainsString("get_post_meta(\$post_id, '_moxdop_created', true) !== '1'", $controller);
-        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.4.0')", file_get_contents(base_path('connectors/wordpress/moxdop-connector/moxdop-connector.php')));
+        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.4.1')", file_get_contents(base_path('connectors/wordpress/moxdop-connector/moxdop-connector.php')));
     }
 
     private function googleAdsAsset(): DigitalAsset

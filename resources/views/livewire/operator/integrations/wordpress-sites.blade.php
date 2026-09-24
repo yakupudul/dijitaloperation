@@ -6,6 +6,15 @@
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">WordPress siteleri</h1>
         <p class="mt-1 max-w-3xl text-sm text-gray-500">MoxDOP Connector bağlı siteler: eklenti ve WordPress sürümü, bekleyen güncellemeler, WordPress Site Sağlığı sonucu. Eklenti {{ $minimum }} ve üstünde, site yöneticisi eklenti ayarlarından açtıysa: tek tık panel girişi (tek kullanımlık, 60 saniye) ve onaylı güncelleme. Her ikisi yalnız Admin içindir ve kayda geçer. Güncellemeler geri alınamaz; önemli sitelerde önce yedek alın.</p>
     </div>
+    @php
+        $updatable = $rows->filter(fn ($r) => $r['connector_update']['available'])->count();
+    @endphp
+    @if ($isAdmin && $updatable > 0)
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-800 ring-1 ring-inset ring-brand-200 dark:bg-brand-500/10 dark:text-brand-200">
+            <span>MoxDOP Connector {{ $latestConnector }} hazır: {{ $updatable }} sitede tek tıkla güncellenebilir.</span>
+            <x-ta.button type="button" wire:click="updateAllConnectors" wire:confirm="{{ $updatable }} sitede MoxDOP Connector {{ $latestConnector }} sürümüne güncellensin mi?" size="sm">Tümünü güncelle</x-ta.button>
+        </div>
+    @endif
     @if ($message !== '')<p class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{{ $message }}</p>@endif
     @if ($error !== '' || $flashError)<p class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800">{{ $error !== '' ? $error : $flashError }}</p>@endif
 
@@ -19,7 +28,7 @@
                 <div>
                     <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ $site->name }} <span class="font-normal text-gray-500">· {{ $site->domain }} · {{ $site->brand?->name }}</span></p>
                     <p class="text-xs text-gray-500">
-                        Eklenti {{ $row['plugin_version'] ?: '—' }}@unless ($row['managed']) <span class="text-amber-700">(yönetim için {{ $minimum }} gerekli)</span>@endunless
+                        Eklenti {{ $row['plugin_version'] ?: '—' }}@if ($row['connector_update']['available']) <span class="rounded-full bg-brand-50 px-2 py-0.5 text-brand-700">yeni: {{ $latestConnector }}</span>@elseif ($row['plugin_version'] !== '' && version_compare($row['plugin_version'], $latestConnector, '<')) <span class="text-amber-700" title="{{ $row['connector_update']['reason'] }}">(yeni: {{ $latestConnector }}, bir kez elle yükle)</span>@endif @unless ($row['managed']) <span class="text-amber-700">(yönetim için {{ $minimum }} gerekli)</span>@endunless
                         @if ($h) · WordPress {{ $h['wordpress_version'] ?? '—' }} · PHP {{ $h['php_version'] ?? '—' }}@endif
                         @if ($row['checked_at']) · {{ \Illuminate\Support\Carbon::parse($row['checked_at'])->format('d.m.Y H:i') }}@endif
                     </p>
@@ -30,6 +39,9 @@
                     </p>
                 </div>
                 <div class="flex flex-wrap gap-2">
+                    @if ($isAdmin && $row['connector_update']['available'])
+                        <x-ta.button type="button" wire:click="updateConnector({{ $site->id }})" wire:confirm="MoxDOP Connector {{ $row['plugin_version'] }} → {{ $latestConnector }} güncellensin mi?" size="sm">Eklentiyi güncelle</x-ta.button>
+                    @endif
                     @if ($row['managed'])
                         <x-ta.button type="button" wire:click="refreshHealth({{ $site->id }})" size="sm" variant="outline">Sağlığı yenile</x-ta.button>
                         @if ($isAdmin && ($h['login_enabled'] ?? false))

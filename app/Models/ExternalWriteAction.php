@@ -31,6 +31,9 @@ class ExternalWriteAction extends Model
     /** ADR-070: the approved draft copy replaces the live page (second approval). */
     public const string ACTION_CONTENT_APPLY = 'content_apply';
 
+    /** 1.4.1: the MoxDOP Connector updates itself from a hash-checked ZIP. Cannot be undone from MoxDOP. */
+    public const string ACTION_CONNECTOR_UPDATE = 'connector_update';
+
     protected $guarded = [];
 
     /** @return BelongsTo<DigitalAsset, $this> */
@@ -47,7 +50,7 @@ class ExternalWriteAction extends Model
 
     public function isUndoable(): bool
     {
-        return $this->action !== self::ACTION_UPDATE_APPLY && in_array($this->status, ['succeeded', 'partial', 'undo_failed'], true);
+        return ! in_array($this->action, [self::ACTION_UPDATE_APPLY, self::ACTION_CONNECTOR_UPDATE], true) && in_array($this->status, ['succeeded', 'partial', 'undo_failed'], true);
     }
 
     public function statusLabel(): string

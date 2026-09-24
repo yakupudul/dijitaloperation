@@ -6,14 +6,27 @@ use App\Models\Collection\CollectionRun;
 use App\Models\CoreConnection;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
+use App\Services\SiteFixes\SiteFixVerification;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
-/** Admits bounded work to the existing queue; never performs provider HTTP here. */
+/**
+ * Admits bounded work to the existing queue; never performs provider HTTP here.
+ *
+ * 1.4.1 fast path: runs every minute. A small batch of changed objects (the usual case: someone saved a page) is
+ * refreshed about a minute after the event arrives and has its own, wider concurrency; only full inventories share
+ * the two slots. Also settles site-fix verification crawls (ADR-070).
+ */
 final class WordPressEventReconciliation
 {
+    /** Concurrent full WordPress inventories across all sites. */
+    private const int FULL_SLOTS = 2;
+
+    /** Concurrent changed-object refreshes across all sites. */
+    private const int CHANGE_SLOTS = 8;
+
     public function tick(): void
     {
         $lock = Cache::lock('wordpress-event-reconciliation', 120);
@@ -22,6 +35,7 @@ final class WordPressEventReconciliation
         }
         try {
             $this->reconcile();
+            app(SiteFixVerification::class)->settle();
         } finally {
             $lock->release();
         }
@@ -44,7 +58,7 @@ final class WordPressEventReconciliation
             if (in_array($status, ['queued', 'running', 'retrying', 'cancellation_requested'], true)) {
                 continue;
             }
-            $update = ['collection_run_id' => null, 'next_reconcile_at' => now()->addMinutes(10)];
+            $update = ['collection_run_id' => null, 'next_reconcile_at' => $state->collection_is_full ? now()->addMinutes(10) : now()->addMinute()];
             if ($status === 'completed') {
                 $update += ['reconciled_event_id' => $state->collection_event_id, 'last_reconciled_at' => now(), 'last_error' => null];
                 if ($state->collection_is_full) {
@@ -56,8 +70,11 @@ final class WordPressEventReconciliation
             }
             DB::table('website_connector_delivery')->where('connection_id', $state->connection_id)->where('collection_run_id', $state->collection_run_id)->update($update);
         }
-        $slots = max(0, 2 - DB::table('website_connector_delivery')->whereNotNull('collection_run_id')->count());
-        if ($slots === 0) {
+        $busy = DB::table('website_connector_delivery')->whereNotNull('collection_run_id')->selectRaw('collection_is_full, count(*) as c')
+            ->groupBy('collection_is_full')->pluck('c', 'collection_is_full')->all();
+        $fullSlots = max(0, self::FULL_SLOTS - (int) ($busy[1] ?? $busy['1'] ?? 0));
+        $changeSlots = max(0, self::CHANGE_SLOTS - (int) ($busy[0] ?? $busy['0'] ?? 0));
+        if ($fullSlots === 0 && $changeSlots === 0) {
             return;
         }
         $states = DB::table('website_connector_delivery')
@@ -72,9 +89,9 @@ final class WordPressEventReconciliation
                 ->orWhere(fn ($q) => $q->where('inventory_interval_days', 1)->where('last_inventory_at', '<=', now()->subDay()))
                 ->orWhere(fn ($q) => $q->where('inventory_interval_days', 3)->where('last_inventory_at', '<=', now()->subDays(3)))
                 ->orWhereColumn('gap_at', '>', 'last_inventory_at'))
-            ->orderBy('next_reconcile_at')->limit(20)->get();
+            ->orderBy('next_reconcile_at')->limit(40)->get();
         foreach ($states as $state) {
-            if ($slots < 1) {
+            if ($fullSlots < 1 && $changeSlots < 1) {
                 break;
             }
             $connection = CoreConnection::query()->with(['digitalAsset.brand.customer', 'credential'])->find($state->connection_id);
@@ -89,7 +106,7 @@ final class WordPressEventReconciliation
             if (CollectionRun::query()->where('digital_asset_id', $connection->digital_asset_id)
                 ->whereIn('status', ['queued', 'running', 'retrying', 'cancellation_requested'])->exists()) {
                 DB::table('website_connector_delivery')->where('connection_id', $state->connection_id)
-                    ->update(['next_reconcile_at' => now()->addMinutes(5)]);
+                    ->update(['next_reconcile_at' => now()->addMinute()]);
 
                 continue;
             }
@@ -125,6 +142,9 @@ final class WordPressEventReconciliation
             // Global template/settings updates require a fresh inventory.
             $full = $full || version_compare((string) $state->plugin_version, '1.1.0', '<')
                 || $ids === [] || $events->contains(fn ($e) => $e->type === 'settings.updated' || $e->type === 'maintenance.theme_changed');
+            if ($full ? $fullSlots < 1 : $changeSlots < 1) {
+                continue;
+            }
             // A full CMS snapshot does not verify URLs outside this event batch.
             $watermark = (int) ($events->max('id') ?? $state->reconciled_event_id);
             $context = [
@@ -166,7 +186,7 @@ final class WordPressEventReconciliation
                     'collection_run_id' => $run->id, 'collection_event_id' => $watermark,
                     'collection_is_full' => $full, 'last_error' => null,
                 ]);
-                $slots--;
+                $full ? $fullSlots-- : $changeSlots--;
             } catch (Throwable $error) {
                 DB::table('website_connector_delivery')->where('connection_id', $connection->id)->update([
                     'last_error' => 'WordPress yenilemesi başlatılamadı: '.class_basename($error),

@@ -1,5 +1,14 @@
 # PROJECT_MEMORY
 
+## 2026-10-11 — ADR-071: connector self-update, near-instant site changes
+
+- The connector updates itself only through `connector_update` (`WordPressManagementService::selfUpdate`). The ZIP is built once and served from a hash-named file behind a short-lived signed route, and the plugin checks the SHA-256. Never send a package URL that is not on the paired MoxDOP host.
+- A site below `self_update_min_plugin_version` (1.4.1) is updated by hand once. The UI says so instead of failing.
+- IndexNow is sent by the WordPress site itself; MoxDOP does not ping search engines.
+- WordPress reconciliation runs every minute. Change batches have their own slots (8); only full inventories share 2. Do not put change refreshes back behind full inventories.
+- After an applied fix, `SiteFixVerification` recrawls the affected URLs and marks items `verified` / `still_present` in `current.verification`. It waits 3 minutes after the crawl for the projection rebuild.
+- Sites without the connector: `SitemapChangeWatcher` checks hourly. The first check is only a baseline, and the page map is rewritten only when it changed.
+
 ## 2026-10-11 — ADR-070: writing fixes to WordPress
 
 - New site writes go through `site_fix_items` + `ExternalWriteService` + `WordPressFixWriter` + the plugin's `/fixes` endpoints.

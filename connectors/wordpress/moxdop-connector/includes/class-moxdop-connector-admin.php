@@ -113,6 +113,14 @@ final class MoxDOP_Connector_Admin
                         <th scope="row">Content updates / İçerik güncelleme</th>
                         <td><label><input type="checkbox" name="moxdop_allow_content" value="1" <?php checked(MoxDOP_Connector_Fixes::content_allowed()); ?>> Allow MoxDOP to save a new version of a page as a draft copy, and to replace the live page with it only after a second approval. WordPress keeps the old version as a revision.</label></td>
                     </tr>
+                    <tr>
+                        <th scope="row">Connector updates / Eklenti güncellemesi</th>
+                        <td><label><input type="checkbox" name="moxdop_allow_self_update" value="1" <?php checked(MoxDOP_Connector_Updater::allowed()); ?>> Allow MoxDOP to update this connector plugin (only this plugin, only newer versions, only a package from the paired MoxDOP whose hash matches), after an admin approves it in MoxDOP.</label></td>
+                    </tr>
+                    <tr>
+                        <th scope="row">IndexNow</th>
+                        <td><label><input type="checkbox" name="moxdop_indexnow" value="1" <?php checked(get_option('moxdop_connector_indexnow', '1') === '1'); ?>> Tell Bing and Yandex (IndexNow) about published or changed pages right after a save. Off while "Discourage search engines" is on.</label></td>
+                    </tr>
                 </table>
                 <?php submit_button('Save'); ?>
             </form>
@@ -205,6 +213,8 @@ final class MoxDOP_Connector_Admin
         update_option('moxdop_connector_allow_updates', ! empty($_POST['moxdop_allow_updates']) ? '1' : '0', false);
         update_option('moxdop_connector_allow_fixes', ! empty($_POST['moxdop_allow_fixes']) ? '1' : '0', false);
         update_option('moxdop_connector_allow_content', ! empty($_POST['moxdop_allow_content']) ? '1' : '0', false);
+        update_option('moxdop_connector_allow_self_update', ! empty($_POST['moxdop_allow_self_update']) ? '1' : '0', false);
+        update_option('moxdop_connector_indexnow', ! empty($_POST['moxdop_indexnow']) ? '1' : '0', false);
         $this->redirect('saved');
     }
 

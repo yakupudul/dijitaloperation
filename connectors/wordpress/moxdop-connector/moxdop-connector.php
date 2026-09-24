@@ -2,8 +2,8 @@
 
 /**
  * Plugin Name: MoxDOP Website Connector
- * Description: Signed Website inventory connector for MoxDOP. Reads inventory and health; creates drafts; one-click login, approved updates, approved SEO fixes and approved content updates only when a site admin enables them.
- * Version: 1.4.0
+ * Description: Signed Website inventory connector for MoxDOP. Reads inventory and health; creates drafts; one-click login, approved updates, approved SEO fixes and approved content updates only when a site admin enables them; tells MoxDOP and IndexNow about changes right after a save.
+ * Version: 1.4.1
  * Requires at least: 6.2
  * Requires PHP: 7.4
  * Author: MoxDOP
@@ -11,7 +11,7 @@
  */
 defined('ABSPATH') || exit;
 
-define('MOXDOP_CONNECTOR_VERSION', '1.4.0');
+define('MOXDOP_CONNECTOR_VERSION', '1.4.1');
 define('MOXDOP_CONNECTOR_FILE', __FILE__);
 define('MOXDOP_CONNECTOR_DIR', plugin_dir_path(__FILE__));
 
@@ -24,9 +24,12 @@ require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-events.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-health.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-management.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-fixes.php';
+require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-indexnow.php';
+require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-updater.php';
 
 (new MoxDOP_Connector_Management)->register();
 (new MoxDOP_Connector_Fixes)->register();
+(new MoxDOP_Connector_IndexNow)->register();
 
 (new MoxDOP_Connector_Events)->register();
 register_deactivation_hook(__FILE__, ['MoxDOP_Connector_Events', 'deactivate']);

@@ -2,10 +2,12 @@
 
 use App\Enums\Collection\CollectionRunStatus;
 use App\Jobs\Assistant\UptimeCheckJob;
+use App\Jobs\CheckSitemapChangesJob;
 use App\Jobs\Collection\ExecuteDatasetRunJob;
 use App\Jobs\Ops\QueueHeartbeatProbeJob;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
+use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Services\Assistant\ReminderService;
 use App\Services\Assistant\WhatsAppContactLinker;
@@ -18,6 +20,8 @@ use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Integrations\WordPress\WordPressEventReconciliation;
 use App\Services\Observability\WorkerHeartbeatService;
 use App\Services\Sales\FreeIntentRadar;
+use App\Services\SeoTasks\SeoUrlInspectionQueue;
+use App\Services\Website\SitemapChangeWatcher;
 use App\Services\WhatsApp\WhatsAppDispatch;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -368,7 +372,29 @@ Artisan::command('moxdop:wordpress:reconcile', function (): void {
 })->purpose('Reconcile WordPress activity through bounded queued collections.');
 
 Schedule::command('moxdop:wordpress:reconcile')
-    ->everyFiveMinutes()->withoutOverlapping(10)->name('wordpress-event-reconciliation');
+    ->everyMinute()->withoutOverlapping(10)->name('wordpress-event-reconciliation');
+
+// 1.4.1: sites without the WordPress Connector — hourly sitemap lastmod check, targeted crawl of changed pages only.
+Artisan::command('moxdop:website:sitemap-watch', function (): void {
+    foreach (app(SitemapChangeWatcher::class)->eligibleSiteIds() as $siteId) {
+        CheckSitemapChangesJob::dispatch($siteId);
+    }
+})->purpose('Queue the hourly sitemap change check of websites without the WordPress Connector.');
+
+Schedule::command('moxdop:website:sitemap-watch')
+    ->hourlyAt(17)->withoutOverlapping(30)->name('website-sitemap-watch');
+
+// 1.4.1: pages that changed 1–3 days ago get a Search Console URL inspection (read-only).
+Artisan::command('moxdop:seo:inspect-changed', function (): void {
+    $siteIds = CoreAssetBinding::query()->where('capability', 'search_console')
+        ->where('status', CoreAssetBinding::STATUS_ACTIVE)->pluck('digital_asset_id');
+    foreach (DigitalAsset::query()->operational()->where('type', 'website')->whereIn('id', $siteIds)->get() as $site) {
+        app(SeoUrlInspectionQueue::class)->queueChanged($site);
+    }
+})->purpose('Inspect recently changed pages in Search Console.');
+
+Schedule::command('moxdop:seo:inspect-changed')
+    ->dailyAt('09:40')->withoutOverlapping(60)->name('seo-inspect-changed');
 
 Artisan::command('moxdop:whatsapp:dispatch', function (): void {
     app(WhatsAppDispatch::class)->tick();

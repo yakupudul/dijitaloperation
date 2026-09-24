@@ -5,8 +5,10 @@ namespace Tests\Feature\SiteFixes;
 use App\Ai\Agents\SiteFixes\InternalLinkAgent;
 use App\Ai\Agents\SiteFixes\PageWriterAgent;
 use App\Ai\Agents\SiteFixes\SiteFixValuesAgent;
+use App\Enums\Collection\CollectionRunStatus;
 use App\Livewire\Operator\Website\SiteFixesPanel;
 use App\Models\Brand;
+use App\Models\Collection\CollectionRun;
 use App\Models\CoreConnection;
 use App\Models\CoreConnectionCredential;
 use App\Models\CoreIntegration;
@@ -18,8 +20,10 @@ use App\Models\IntelligenceProjection\WebsiteIntelligenceProjectionRun;
 use App\Models\IntelligenceProjection\WebsitePageProfile;
 use App\Models\SiteFixItem;
 use App\Models\User;
+use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Services\SiteFixes\SiteFixFinder;
+use App\Services\SiteFixes\SiteFixVerification;
 use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -146,6 +150,38 @@ final class SiteFixesTest extends TestCase
         $this->assertSame('https://example.test/wp-json/moxdop/v1/fixes/undo', $this->sent[1][1]);
         $this->assertCount(2, $this->sent[1][2]['change_ids']);
         $this->assertSame('undone', $title->fresh()->status);
+    }
+
+    public function test_applied_fixes_are_recrawled_and_marked_verified_or_still_on_the_site(): void
+    {
+        $this->site->forceFill(['primary_url' => 'https://example.test/', 'domain' => 'example.test'])->save();
+        app(SiteFixFinder::class)->find($this->site);
+        $title = SiteFixItem::query()->where('type', 'seo_title')->where('object_id', '11')->firstOrFail();
+        $title->forceFill(['proposed' => ['value' => 'İzmir İmplant Tedavisi | Atlas Diş'], 'proposed_by' => 'operator'])->save();
+        $noindex = SiteFixItem::query()->where('type', 'noindex')->firstOrFail();
+        $this->fakeWordPress();
+
+        $this->actingAs($this->admin);
+        Livewire::test(SiteFixesPanel::class, ['websiteId' => $this->site->id])->set('selected', [$title->id => true, $noindex->id => true])->call('applySelected');
+        $action = ExternalWriteAction::query()->where('action', 'site_fix')->firstOrFail();
+        $this->assertSame('crawling', data_get($action->result, 'verification.state'), json_encode($action->result));
+        $run = CollectionRun::query()->findOrFail((int) data_get($action->result, 'verification.run_id'));
+        $this->assertEqualsCanonicalizing(['https://example.test/implant/', 'https://example.test/gizli/'], data_get($run->request_context, 'context.targeted_verification.urls'));
+        $this->assertSame([WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL], $run->datasetRuns()->pluck('request_family_id')->unique()->values()->all());
+
+        // The recrawl shows the new title; the noindex is still there (e.g. another plugin forces it).
+        WebsitePageProfile::query()->where('preferred_url', 'https://example.test/implant/')->get()->each(function (WebsitePageProfile $profile): void {
+            $profile->forceFill(['source_states' => array_replace_recursive($profile->source_states, ['website' => ['document_head' => ['title' => 'İzmir İmplant Tedavisi | Atlas Diş', 'meta_description' => str_repeat('İmplant ', 17)]]])])->save();
+        });
+        $run->forceFill(['status' => CollectionRunStatus::Completed, 'finished_at' => now()])->save();
+        $this->assertSame(0, app(SiteFixVerification::class)->settle(), 'waits for the projection');
+        $this->travel(4)->minutes();
+        $this->assertSame(1, app(SiteFixVerification::class)->settle());
+
+        $this->assertSame('verified', data_get($title->fresh()->current, 'verification.state'));
+        $this->assertSame('still_present', data_get($noindex->fresh()->current, 'verification.state'));
+        $this->assertSame(['done', 1, 1], [data_get($action->fresh()->result, 'verification.state'), data_get($action->fresh()->result, 'verification.verified'), data_get($action->fresh()->result, 'verification.still_present')]);
+        Livewire::test(SiteFixesPanel::class, ['websiteId' => $this->site->id])->set('status', 'applied')->set('phase', 'all')->assertSee('Sitede doğrulandı')->assertSee('Sitede hâlâ görünüyor');
     }
 
     public function test_page_text_goes_to_a_draft_copy_first_and_live_only_after_a_second_approval(): void

@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -53,10 +53,20 @@ Daily inventory reconciliation complements activity delivery.
 * Approved updates: apply one WordPress-offered core, plugin or theme update per request, after an admin approves it
   in MoxDOP. Off by default; enable with the option `moxdop_connector_allow_updates` = 1 or the
   `moxdop_connector_allow_updates` filter. Updates are not rolled back automatically.
+* Connector updates: MoxDOP can update this plugin only, only to a newer version, only from a ZIP on the paired
+  MoxDOP host whose SHA-256 matches, after an admin approves it. On by default; disable with the option
+  `moxdop_connector_allow_self_update` = 0 or the `moxdop_connector_allow_self_update` filter.
+* IndexNow: after a published page changes, the site tells Bing / Yandex (api.indexnow.org). The key file is served
+  at /{key}.txt. On by default, off while search engines are discouraged; option `moxdop_connector_indexnow`.
 
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.4.1 =
+* Activity is sent right after a save (one-off WP-Cron with a non-blocking loopback); the 5-minute schedule stays as the fallback.
+* One-click connector update from MoxDOP (hash-checked, newer versions only, can be switched off).
+* IndexNow notice for published / changed pages and for pages changed by approved fixes.
 
 = 1.4.0 =
 * Optional, admin-approved SEO fixes (ADR-070): SEO title and description (Yoast, Rank Math, SEOPress or the plugin's own fields), image alt text, JSON-LD schema, 301 redirects, noindex / canonical, one internal link per change. Off by default; every change is logged and can be undone while nobody changed it since.

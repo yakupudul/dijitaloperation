@@ -135,6 +135,16 @@ final class WordPressConnectorClient
     }
 
     /**
+     * 1.4.1: the plugin downloads the ZIP from the signed link, checks its SHA-256 and installs over itself.
+     *
+     * @return array<string, mixed>
+     */
+    public function selfUpdate(CoreConnection $connection, string $version, string $packageUrl, string $sha256): array
+    {
+        return $this->write($connection, 'POST', '/moxdop/v1/self-update', ['version' => $version, 'package_url' => $packageUrl, 'sha256' => $sha256], (int) config('moxdop-wordpress.update_timeout_seconds', 300));
+    }
+
+    /**
      * Signed write request. The URL is derived from the paired snapshot URL (same REST base).
      *
      * @param  array<string, mixed>|null  $body

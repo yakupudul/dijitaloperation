@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Insights\Definitions;
+namespace App\Services\Insights\Definitions;
 
 use App\Ai\Agents\Insights\InsightAgent;
 use App\Ai\Agents\Insights\TechnicalTasksAgent;

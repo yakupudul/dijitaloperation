@@ -51,6 +51,8 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Services/Demand/DemandPageFetcher.php',
         // Faz 8: competitor watch and prospect audits reuse the same safe public HTTP fetcher.
         'app/Services/Intel/PublicPageReader.php',
+        // 1.4.1: hourly sitemap watch reuses the same safe public HTTP fetcher.
+        'app/Services/Website/SitemapChangeWatcher.php',
     ];
 
     /**

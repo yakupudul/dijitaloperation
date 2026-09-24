@@ -1,5 +1,30 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-11 — Connector 1.4.1: tek tık eklenti güncelleme, siteden anında değişiklik (ADR-071)
+
+**State:** CODED + PHPUnit (SQLite and PostgreSQL).
+- Tests: `WordPressManagementTest` 6/6, `WordPressConnectorV1Test` 14/14, `SiteFixesTest` 7/7, `SiteChangePropagationTest` 4/4, `ExternalWritesTest`.
+- Not deployed. Not tried on a real WordPress site: plugin 1.4.1 PHP was reviewed only (php -l clean), with no WordPress runtime test.
+
+- **Tek tık eklenti güncelleme:** Entegrasyonlar › WordPress siteleri.
+  - A newer version shows a "yeni: 1.4.x" badge, an "Eklentiyi güncelle" button and a "Tümünü güncelle" banner (Admin only).
+  - The plugin downloads the ZIP from a 15-minute signed link, checks its SHA-256, installs over itself and stays active.
+  - Only newer versions are installed, and only from the paired MoxDOP host.
+  - Sites on 1.4.0 or older are shown "bir kez elle yükle"; later versions are one click.
+- **Anında değişiklik:**
+  - The plugin sends activity right after a save; the 5-minute cron is the fallback.
+  - Reconciliation runs every minute: a small change batch starts ~1 minute after the event and does not wait behind full inventories.
+- **Düzeltme sonrası doğrulama:**
+  - Applied fixes trigger a targeted recrawl of those pages only.
+  - Each applied item then shows "Sitede doğrulandı" or "Sitede hâlâ görünüyor" (a cache, the theme or another SEO plugin overriding it).
+- **Arama motorları:**
+  - The site sends IndexNow (Bing/Yandex) for changed published pages and fixed pages. It is on by default and off while search engines are discouraged.
+  - Changed pages go first in Search Console URL inspection, with a daily inspection of pages changed 1–3 days ago (read-only).
+- **Connector'ı olmayan siteler:** sitemap `lastmod` is checked hourly and only changed or new pages are crawled. The first check only records a baseline.
+- **Operator steps:**
+  1. Once per site: install the 1.4.1 ZIP by hand (Entegrasyonlar › WordPress › download).
+  2. From then on, use "Eklentiyi güncelle" / "Tümünü güncelle".
+
 ## 2026-10-11 — Web sitesi düzeltmeleri: siteye onaylı yazma (ADR-070, Faz 1–3)
 
 **State:** CODED + PHPUnit.

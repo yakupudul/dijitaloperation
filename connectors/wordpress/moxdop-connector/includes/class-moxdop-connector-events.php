@@ -2,11 +2,19 @@
 
 defined('ABSPATH') || exit;
 
-/** Small local outbox. No network requests run in content-save hooks. */
+/**
+ * Small local outbox. No network requests run in content-save hooks.
+ * 1.4.1: right after a save the outbox is sent by a one-off WP-Cron event started with a non-blocking loopback, so
+ * MoxDOP hears about the change within seconds; the 5-minute schedule stays as the fallback.
+ */
 final class MoxDOP_Connector_Events
 {
     const HOOK = 'moxdop_connector_send_events';
+
+    const NOW_HOOK = 'moxdop_connector_send_events_now';
+
     const LIMIT = 10000;
+
     private $pending = [];
 
     public function register()
@@ -14,6 +22,7 @@ final class MoxDOP_Connector_Events
         add_filter('cron_schedules', [$this, 'schedules']);
         add_action('init', [$this, 'install']);
         add_action(self::HOOK, [$this, 'send']);
+        add_action(self::NOW_HOOK, [$this, 'send']);
         add_action('wp_after_insert_post', [$this, 'post_saved'], 10, 4);
         add_action('before_delete_post', [$this, 'post_deleted'], 10, 2);
         add_action('added_post_meta', [$this, 'meta_changed'], 10, 4);
@@ -31,6 +40,7 @@ final class MoxDOP_Connector_Events
     public function schedules($schedules)
     {
         $schedules['moxdop_five_minutes'] = ['interval' => 300, 'display' => 'MoxDOP / 5 minutes'];
+
         return $schedules;
     }
 
@@ -47,7 +57,7 @@ final class MoxDOP_Connector_Events
                 created_at datetime NOT NULL,
                 PRIMARY KEY  (id),
                 UNIQUE KEY event_id (event_id)
-            ) ".$wpdb->get_charset_collate().";");
+            ) ".$wpdb->get_charset_collate().';');
             if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table))) === $table) {
                 update_option('moxdop_connector_outbox_version', '1', false);
             }
@@ -60,6 +70,7 @@ final class MoxDOP_Connector_Events
     public static function deactivate()
     {
         wp_clear_scheduled_hook(self::HOOK);
+        wp_clear_scheduled_hook(self::NOW_HOOK);
     }
 
     private function tracked($post)
@@ -71,6 +82,7 @@ final class MoxDOP_Connector_Events
             return false;
         }
         $type = get_post_type_object($post->post_type);
+
         return $post->post_type === 'attachment' || ($type && $type->public);
     }
 
@@ -97,6 +109,9 @@ final class MoxDOP_Connector_Events
             $action = 'unpublished';
         }
         $this->record('content.'.$action, $post->post_type, (string) $id, $fields, $post);
+        if ($post->post_status === 'publish' || ($before && $before->post_status === 'publish')) {
+            MoxDOP_Connector_IndexNow::queue((string) get_permalink($post));
+        }
     }
 
     public function post_deleted($id, $post)
@@ -122,6 +137,9 @@ final class MoxDOP_Connector_Events
         if (in_array($key, $allowed, true) && $this->tracked($post)) {
             $seo = strpos($key, 'seopress') !== false || strpos($key, 'yoast') !== false || strpos($key, 'rank_math') === 0;
             $this->record($seo ? 'seo.updated' : 'content.fields_updated', $post->post_type, (string) $id, [$key], $post);
+            if ($post->post_status === 'publish') {
+                MoxDOP_Connector_IndexNow::queue((string) get_permalink($post));
+            }
         }
     }
 
@@ -171,10 +189,12 @@ final class MoxDOP_Connector_Events
         $key = $type.'|'.$object_type.'|'.$object_id;
         if (isset($this->pending[$key])) {
             $this->pending[$key]['fields'] = array_values(array_unique(array_merge($this->pending[$key]['fields'], $fields)));
+
             return;
         }
         if (count($this->pending) >= 100) {
             update_option('moxdop_connector_events_gap_at', gmdate('c'), false);
+
             return;
         }
         $user = wp_get_current_user();
@@ -206,6 +226,7 @@ final class MoxDOP_Connector_Events
             }
         }
         $this->pending = [];
+        $this->send_soon();
         $cutoff = $wpdb->get_var("SELECT id FROM $table ORDER BY id DESC LIMIT 1 OFFSET ".self::LIMIT);
         if ($cutoff) {
             $wpdb->query($wpdb->prepare("DELETE FROM $table WHERE id <= %d", $cutoff));
@@ -213,10 +234,22 @@ final class MoxDOP_Connector_Events
         }
     }
 
+    /** One-off send a few seconds from now; the loopback does not wait for an answer. */
+    public function send_soon()
+    {
+        if (! wp_next_scheduled(self::NOW_HOOK)) {
+            wp_schedule_single_event(time(), self::NOW_HOOK);
+        }
+        if (! (defined('DISABLE_WP_CRON') && DISABLE_WP_CRON) && function_exists('spawn_cron')) {
+            spawn_cron();
+        }
+    }
+
     public function status()
     {
         global $wpdb;
         $ready = get_option('moxdop_connector_outbox_version') === '1';
+
         return [
             'supported' => true,
             'storage_ready' => $ready,
@@ -232,7 +265,8 @@ final class MoxDOP_Connector_Events
     public function send()
     {
         global $wpdb;
-        $credentials = (new MoxDOP_Connector_Secrets())->read();
+        MoxDOP_Connector_IndexNow::flush();
+        $credentials = (new MoxDOP_Connector_Secrets)->read();
         $app = (string) get_option('moxdop_connector_app_url');
         if (! is_array($credentials) || wp_parse_url($app, PHP_URL_SCHEME) !== 'https'
             || get_option('moxdop_connector_outbox_version') !== '1'
@@ -300,6 +334,7 @@ final class MoxDOP_Connector_Events
                 update_option('moxdop_connector_events_attempt', $attempt, false);
                 update_option('moxdop_connector_events_retry_at', time() + min(21600, 300 * (2 ** ($attempt - 1))), false);
                 update_option('moxdop_connector_events_error', $code ? 'HTTP '.$code.' / acknowledgement not verified' : 'Connection unavailable', false);
+
                 return;
             }
             $accepted = $data['accepted_event_ids'];

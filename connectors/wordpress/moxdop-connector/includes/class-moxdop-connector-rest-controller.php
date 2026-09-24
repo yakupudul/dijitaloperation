@@ -69,6 +69,14 @@ final class MoxDOP_Connector_REST_Controller
                 return $this->signed($management->update($request), $request);
             },
         ]);
+        // 1.4.1: one-click update of this plugin from the paired MoxDOP (ZIP hash checked).
+        register_rest_route(self::NAMESPACE, '/self-update', [
+            'methods' => WP_REST_Server::CREATABLE,
+            'permission_callback' => [$this->auth, 'authorize'],
+            'callback' => function (WP_REST_Request $request) {
+                return $this->signed((new MoxDOP_Connector_Updater)->update($request), $request);
+            },
+        ]);
         // 1.4.0 (ADR-070): approved SEO fixes and content updates, off until the site admin enables them.
         (new MoxDOP_Connector_Fixes($this->auth))->register_routes(self::NAMESPACE);
         register_rest_route(self::NAMESPACE, '/drafts/(?P<id>[1-9][0-9]*)', [
@@ -170,6 +178,8 @@ final class MoxDOP_Connector_REST_Controller
                 MoxDOP_Connector_Management::updates_allowed() ? 'updates' : null,
                 MoxDOP_Connector_Fixes::fixes_allowed() ? 'fixes' : null,
                 MoxDOP_Connector_Fixes::content_allowed() ? 'content' : null,
+                MoxDOP_Connector_Updater::allowed() ? 'self_update' : null,
+                MoxDOP_Connector_IndexNow::enabled() ? 'indexnow' : null,
             ])),
             'sections' => ['site', 'extensions', 'content', 'media', 'taxonomies', 'seo'],
             'server_time' => time(),

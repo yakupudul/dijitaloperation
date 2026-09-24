@@ -71,6 +71,11 @@
                     <div class="flex flex-wrap items-center gap-2">
                         <span class="rounded bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600 dark:bg-white/5 dark:text-gray-300">{{ $item->typeLabel() }}</span>
                         <span class="rounded px-2 py-0.5 text-[11px] font-medium {{ $statusClass }}">{{ $statusLabel }}</span>
+                        @if ($item->status === 'applied' && data_get($item->current, 'verification.state') === 'verified')
+                            <span class="rounded px-2 py-0.5 text-[11px] font-medium bg-emerald-50 text-emerald-700" title="Değişiklikten sonra sayfa yeniden tarandı; sorun görünmüyor.">Sitede doğrulandı</span>
+                        @elseif ($item->status === 'applied' && data_get($item->current, 'verification.state') === 'still_present')
+                            <span class="rounded px-2 py-0.5 text-[11px] font-medium bg-amber-50 text-amber-800" title="Yeniden taramada sorun hâlâ görünüyor: önbellek, tema ya da başka bir SEO eklentisi değeri eziyor olabilir.">Sitede hâlâ görünüyor</span>
+                        @endif
                         <p class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ $item->label }}</p>
                     </div>
                     @if ($item->url)<p class="mt-0.5 truncate text-xs text-gray-400">{{ $item->url }}</p>@endif
@@ -156,6 +161,7 @@
                         <span class="text-gray-700 dark:text-gray-300">
                             {{ ['site_fix' => 'Düzeltme', 'content_draft' => 'Taslak', 'content_apply' => 'Sayfa yayına alındı'][$action->action] ?? $action->action }}
                             @if ($action->action === 'site_fix') · {{ $action->result['applied'] ?? 0 }} uygulandı @if (($action->result['failed'] ?? 0) > 0)· {{ $action->result['failed'] }} hata @endif @endif
+                            @if (data_get($action->result, 'verification.state') === 'crawling') · sayfalar yeniden taranıyor @elseif (data_get($action->result, 'verification.state') === 'done') · doğrulama: {{ data_get($action->result, 'verification.verified', 0) }} tamam @if (data_get($action->result, 'verification.still_present', 0) > 0), {{ data_get($action->result, 'verification.still_present') }} hâlâ görünüyor @endif @endif
                             · {{ $action->created_at?->timezone('Europe/Istanbul')->format('d.m.Y H:i') }}
                         </span>
                         <span class="flex items-center gap-2">

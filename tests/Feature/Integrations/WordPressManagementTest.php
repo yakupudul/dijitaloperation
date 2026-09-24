@@ -75,6 +75,7 @@ final class WordPressManagementTest extends TestCase
                 str_ends_with($request->url(), '/login-link') => $this->loginEnabled
                     ? [201, ['url' => 'https://example.com/?moxdop_login=abc', 'expires_in' => 60, 'user' => 'ajans']]
                     : [403, ['code' => 'moxdop_login_disabled']],
+                str_ends_with($request->url(), '/self-update') => [200, ['ok' => true, 'from_version' => '1.4.1', 'to_version' => (string) config('moxdop-wordpress.connector_version'), 'message' => 'Plugin updated']],
                 default => [200, ['ok' => true, 'type' => 'plugin', 'item' => 'seo/seo.php', 'from_version' => '2.0', 'to_version' => '2.1', 'message' => 'Updated']],
             };
             if ($status >= 400) {
@@ -136,6 +137,54 @@ final class WordPressManagementTest extends TestCase
         Livewire::test(WordPressSitesPage::class)->call('applyUpdate', $this->site->id, 'core', '', 'WordPress')->assertSee('Harici yazma kapalı');
     }
 
+    public function test_connector_updates_itself_in_one_click_from_a_hash_checked_signed_link(): void
+    {
+        config(['moxdop-wordpress.connector_version' => '1.4.2']);
+        $this->connection->forceFill(['config' => array_merge($this->connection->config, ['plugin_version' => '1.4.1'])])->save();
+
+        $this->actingAs($this->member);
+        Livewire::test(WordPressSitesPage::class)->assertDontSee('Eklentiyi güncelle')->call('updateConnector', $this->site->id)->assertForbidden();
+
+        $this->actingAs($this->admin);
+        Livewire::test(WordPressSitesPage::class)->assertSee('yeni: 1.4.2')->assertSee('Tümünü güncelle')
+            ->call('updateConnector', $this->site->id)->assertSee('kuyruğa alındı');
+        $action = ExternalWriteAction::query()->where('action', ExternalWriteAction::ACTION_CONNECTOR_UPDATE)->firstOrFail();
+        $this->assertSame('succeeded', $action->status, (string) $action->error);
+        $this->assertFalse($action->isUndoable());
+        $this->assertSame('1.4.2', $this->connection->fresh()->config['plugin_version']);
+
+        $call = collect($this->sent)->first(fn (array $s): bool => str_ends_with($s[1], '/self-update'));
+        $this->assertSame('POST', $call[0]);
+        $this->assertSame('1.4.2', $call[2]['version']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $call[2]['sha256']);
+        $path = (string) parse_url($call[2]['package_url'], PHP_URL_PATH);
+        $file = storage_path('app/site-connectors/wordpress/releases/'.basename($path));
+        $this->assertSame($call[2]['sha256'], hash_file('sha256', $file), 'the link serves exactly the ZIP whose hash was sent');
+
+        // The signed link downloads; a tampered or unsigned one does not.
+        $this->get($call[2]['package_url'])->assertOk();
+        $this->get(str_replace('signature=', 'signature=0', $call[2]['package_url']))->assertForbidden();
+        $this->get($path)->assertForbidden();
+
+        // Up to date now: no button, a second request is refused.
+        Livewire::test(WordPressSitesPage::class)->assertDontSee('Eklentiyi güncelle')->call('updateConnector', $this->site->id)->assertSee('güncel');
+    }
+
+    public function test_sites_below_1_4_1_are_told_to_update_by_hand_once(): void
+    {
+        config(['moxdop-wordpress.connector_version' => '1.4.1']);
+        $this->actingAs($this->admin);
+        Livewire::test(WordPressSitesPage::class)->assertSee('bir kez elle yükle')->assertDontSee('Tümünü güncelle')
+            ->call('updateConnector', $this->site->id)->assertSee('bir kez elle yükle');
+        $this->assertSame(0, ExternalWriteAction::query()->count());
+        $this->assertFalse(collect($this->sent)->contains(fn (array $s): bool => str_ends_with($s[1], '/self-update')));
+
+        $updater = file_get_contents(base_path('connectors/wordpress/moxdop-connector/includes/class-moxdop-connector-updater.php'));
+        $this->assertStringContainsString("version_compare(\$version, MOXDOP_CONNECTOR_VERSION, '<=')", $updater, 'never a downgrade');
+        $this->assertStringContainsString("hash_equals(\$sha, (string) hash_file('sha256', \$file))", $updater, 'hash is checked');
+        $this->assertStringContainsString('wp_parse_url($app, PHP_URL_HOST)', $updater, 'only from the paired MoxDOP host');
+    }
+
     public function test_plugin_keeps_login_and_updates_off_by_default(): void
     {
         $management = file_get_contents(base_path('connectors/wordpress/moxdop-connector/includes/class-moxdop-connector-management.php'));
@@ -143,6 +192,6 @@ final class WordPressManagementTest extends TestCase
         $this->assertStringContainsString("get_option('moxdop_connector_login_user', 0)", $management);
         $this->assertStringContainsString('const LOGIN_TTL = 60;', $management);
         $this->assertStringContainsString('delete_transient($key);', $management, 'login links are single-use');
-        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.4.0')", file_get_contents(base_path('connectors/wordpress/moxdop-connector/moxdop-connector.php')));
+        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.4.1')", file_get_contents(base_path('connectors/wordpress/moxdop-connector/moxdop-connector.php')));
     }
 }

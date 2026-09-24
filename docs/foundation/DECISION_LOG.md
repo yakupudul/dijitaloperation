@@ -852,3 +852,26 @@
   6. **1.3.0 düzeltmesi:** `/health`, `/login-link` ve `/updates` imzasız yanıt döndürüyordu; MoxDOP bu yanıtları reddettiği için ADR-068 özellikleri gerçek sitede çalışamıyordu. 1.4.0 bu yanıtları da imzalar. `management_min_plugin_version` 1.4.0'dır.
 - **İlgili:** ADR-018, ADR-064, ADR-068, `connectors/wordpress/moxdop-connector/includes/class-moxdop-connector-fixes.php`, `app/Services/SiteFixes/*`, `app/Services/ExternalWrites/WordPressFixWriter.php`, `app/Livewire/Operator/Website/SiteFixesPanel.php`
 
+## ADR-071 — MoxDOP Connector kendini güncelleme ve IndexNow bildirimi
+
+- **Durum:** Accepted (sahip kararı, 2026-10-11: "sistemdeki eklentiyi güncellediğimizde eklenti yüklenmişse bir web sitesinde tek tuşla güncelleme yaptırabilmeliyim"; anında yayılım önerilerine "yap").
+- **Değiştirdiği:** ADR-068'e ek (onaylı güncelleme). Yeni bir harici yazma türü değil, WordPress Connector'ın **yalnız kendisini** güncellemesi.
+- **Karar:**
+  1. **Kendini güncelleme (Connector ≥ 1.4.1):**
+     - MoxDOP'ta Admin "Eklentiyi güncelle" ya da "Tümünü güncelle" der. Her site ayrı bir `external_write_actions` satırıdır (`connector_update`) ve geri alınamaz.
+     - MoxDOP paketi bir kez üretir, SHA-256'sını hesaplar ve 15 dakika geçerli, imzalı bir indirme bağlantısı verir.
+     - Eklenti yalnız şu koşullarda kurar: sürüm şu ankinden yeni; bağlantı eşleştiği MoxDOP adresinde; ZIP'in özeti tutuyor; eklenti beklenen klasörde. Kurulumdan sonra eklenti etkin kalır.
+     - Eklenti ayarında "Connector updates" seçeneği vardır (varsayılan açık). Site yöneticisi kapatabilir.
+     - 1.4.0 ve öncesi bu uç noktayı bilmez: bu siteler bir kez elle güncellenir. Sonraki sürümler tek tıktır.
+  2. **IndexNow (Connector ≥ 1.4.1):**
+     - Yayındaki bir sayfa değişince ya da onaylı bir düzeltme uygulanınca **sitenin kendisi** api.indexnow.org'a bildirim gönderir (Bing / Yandex), SEO eklentilerinin yaptığı gibi. MoxDOP arama motorlarına kendi adına bir şey göndermez.
+     - Anahtar dosyası `/{key}.txt` adresinde sunulur.
+     - Seçenek varsayılan açıktır. "Arama motorlarını engelle" açıkken çalışmaz.
+  3. **Anında yayılım (yazma değil, okuma):**
+     - Eklenti kayıttan hemen sonra olayı gönderir (tek seferlik WP-Cron ve beklemeyen loopback). 5 dakikalık zamanlama yedek olarak kalır.
+     - Mutabakat her dakika çalışır. Küçük değişiklik yenilemelerinin ayrı eşzamanlılık hakkı vardır (8). Tam envanter 2 hakkı paylaşır.
+     - Onaylı düzeltmeden sonra etkilenen sayfalar hedefli olarak yeniden taranır ve öneri "sitede doğrulandı" ya da "sitede hâlâ görünüyor" olarak işaretlenir.
+     - Değişen sayfalar Search Console URL denetiminde öne alınır. Değişiklikten 1–3 gün sonra günlük bir denetim yapılır (salt okuma).
+     - Connector'ı olmayan siteler için sitemap `lastmod` saatlik izlenir; yalnız değişen sayfalar taranır.
+- **İlgili:** ADR-064, ADR-068, ADR-070, `connectors/wordpress/moxdop-connector/includes/class-moxdop-connector-updater.php`, `class-moxdop-connector-indexnow.php`, `app/Services/Integrations/WordPress/WordPressManagementService.php`, `app/Services/SiteFixes/SiteFixVerification.php`, `app/Services/Website/SitemapChangeWatcher.php`
+

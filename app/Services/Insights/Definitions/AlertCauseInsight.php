@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Insights\Definitions;
+namespace App\Services\Insights\Definitions;
 
 use App\Ai\Agents\Insights\AlertCauseAgent;
 use App\Ai\Agents\Insights\InsightAgent;

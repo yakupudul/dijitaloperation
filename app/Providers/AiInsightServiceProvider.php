@@ -3,14 +3,14 @@
 namespace App\Providers;
 
 use App\Services\Ai\Insights\AiInsightService;
-use App\Services\Ai\Insights\Definitions\AdvisorExplainInsight;
-use App\Services\Ai\Insights\Definitions\AlertCauseInsight;
-use App\Services\Ai\Insights\Definitions\CustomerBriefInsight;
-use App\Services\Ai\Insights\Definitions\LandingFitInsight;
-use App\Services\Ai\Insights\Definitions\LeadScoreInsight;
-use App\Services\Ai\Insights\Definitions\ReviewThemesInsight;
-use App\Services\Ai\Insights\Definitions\SearchTermTriageInsight;
-use App\Services\Ai\Insights\Definitions\TechnicalTasksInsight;
+use App\Services\Insights\Definitions\AdvisorExplainInsight;
+use App\Services\Insights\Definitions\AlertCauseInsight;
+use App\Services\Insights\Definitions\CustomerBriefInsight;
+use App\Services\Insights\Definitions\LandingFitInsight;
+use App\Services\Insights\Definitions\LeadScoreInsight;
+use App\Services\Insights\Definitions\ReviewThemesInsight;
+use App\Services\Insights\Definitions\SearchTermTriageInsight;
+use App\Services\Insights\Definitions\TechnicalTasksInsight;
 use App\Support\Ai\AiDefaultSteps;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\AiRouteRegistry;

@@ -20,7 +20,7 @@ final class SiteFixFinder
     /** Pages that are normally kept out of Google. */
     private const string UTILITY_PATHS = '#/(tesekkur|thank|cart|sepet|checkout|odeme|my-account|hesabim|login|giris|wp-admin|feed|etiket|tag|author|yazar)(/|$)#i';
 
-    /** @return array{found: int, by_type: array<string, int>} */
+    /** @return array{found: int, by_type: array<string, int>, keys: list<string>} */
     public function find(DigitalAsset $site, int $phase = 3): array
     {
         $objects = $this->wordpressObjects($site);
@@ -94,7 +94,7 @@ final class SiteFixFinder
 
     /**
      * @param  list<array<string, mixed>>  $rows
-     * @return array{found: int, by_type: array<string, int>}
+     * @return array{found: int, by_type: array<string, int>, keys: list<string>}
      */
     private function store(DigitalAsset $site, array $rows): array
     {
@@ -116,7 +116,7 @@ final class SiteFixFinder
         // Problems that are gone are closed (never rows that were applied or are in flight).
         SiteFixItem::query()->where('digital_asset_id', $site->id)->where('status', 'open')->whereNotIn('item_key', $keys)->delete();
 
-        return ['found' => count($keys), 'by_type' => collect($rows)->countBy('type')->all()];
+        return ['found' => count($keys), 'by_type' => collect($rows)->countBy('type')->all(), 'keys' => $keys];
     }
 
     /**

@@ -56,7 +56,7 @@ Laravel Boost guidelines ile çelişirse DOP belgeleri kazanır.
 ### Kilit kararlar
 
 - Moximu **iç** operasyon; SaaS / Workspace / müşteri girişi yok
-- Harici **write action yok** — istisnalar: ADR-064 (Admin onaylı Google Ads paylaşılan negatif listesi, WordPress taslağı), ADR-068 (WordPress onaylı güncelleme, tek tık giriş), ADR-070 (WordPress onaylı SEO/teknik düzeltme ve sayfa metni güncellemesi). Hepsi kayıtlı; ADR-068 güncelleme hariç geri alınabilir. Başka yazma eklenmez.
+- Harici **write action yok** — istisnalar: ADR-064 (Admin onaylı Google Ads paylaşılan negatif listesi, WordPress taslağı), ADR-068 (WordPress onaylı güncelleme, tek tık giriş), ADR-070 (WordPress onaylı SEO/teknik düzeltme ve sayfa metni güncellemesi), ADR-071 (Connector'ın onaylı kendini güncellemesi). Hepsi kayıtlı; ADR-068 / ADR-071 güncellemeleri hariç geri alınabilir. Başka yazma eklenmez.
 - Tek Filament panel: id `app`, path **`/admin`** (developer / technical tooling only — **not** the operator product; ADR-044)
 - Canonical operator product: **root routes** (`/`, `/login`, `/customers`, `/brands`, `/assets`, `/integrations`, `/tasks`, … — TailAdmin Livewire). One normal application. Do not duplicate Customers/Brands/Assets under Filament.
 - Legacy **`/app/*`** and **`/system/*`**: retired (HTTP 410). No parallel operator product.
