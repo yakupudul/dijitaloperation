@@ -76,6 +76,7 @@ final class DemoMenu
                 'label' => __('operator.nav.groups.system'),
                 'items' => [
                     ['label' => __('operator.nav.integrations'), 'route' => 'operator.integrations', 'icon' => 'integrations'],
+                    ['label' => app()->getLocale() === 'tr' ? 'WordPress siteleri' : 'WordPress Sites', 'route' => 'operator.integrations.wordpress-sites', 'icon' => 'integrations'],
                     ['label' => __('operator.nav.settings'), 'route' => 'operator.settings', 'icon' => 'settings'],
                     ['label' => __('background_operations.title'), 'route' => 'operator.settings.background-operations', 'icon' => 'activity'],
                 ],

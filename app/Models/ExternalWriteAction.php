@@ -19,6 +19,9 @@ class ExternalWriteAction extends Model
 
     public const string ACTION_DRAFT_CREATE = 'draft_create';
 
+    /** ADR-068: install one WordPress-offered plugin / theme / core update. Cannot be undone from MoxDOP. */
+    public const string ACTION_UPDATE_APPLY = 'update_apply';
+
     protected $guarded = [];
 
     /** @return BelongsTo<DigitalAsset, $this> */
@@ -35,7 +38,7 @@ class ExternalWriteAction extends Model
 
     public function isUndoable(): bool
     {
-        return in_array($this->status, ['succeeded', 'partial', 'undo_failed'], true);
+        return $this->action !== self::ACTION_UPDATE_APPLY && in_array($this->status, ['succeeded', 'partial', 'undo_failed'], true);
     }
 
     public function statusLabel(): string

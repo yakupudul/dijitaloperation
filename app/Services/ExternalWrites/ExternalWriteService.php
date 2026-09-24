@@ -5,9 +5,11 @@ namespace App\Services\ExternalWrites;
 use App\Enums\AdvisorItemStatus;
 use App\Jobs\ExecuteExternalWriteJob;
 use App\Models\AdvisorItem;
+use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\SeoTask;
 use App\Models\User;
+use App\Services\Integrations\WordPress\WordPressManagementService;
 use App\Support\Roles;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -83,6 +85,38 @@ final class ExternalWriteService
         ]));
     }
 
+    /**
+     * ADR-068: Admin-approved install of one update WordPress offers (plugin file, theme stylesheet or core).
+     * Not undoable from MoxDOP; the plugin must have updates switched on by the site admin.
+     */
+    public function requestUpdate(User $user, DigitalAsset $site, string $type, string $item, ?string $label = null): ExternalWriteAction
+    {
+        $this->guard($user, ExternalWriteAction::CHANNEL_WORDPRESS);
+        if (! in_array($type, ['plugin', 'theme', 'core'], true) || ($type !== 'core' && (trim($item) === '' || strlen($item) > 200))) {
+            throw ValidationException::withMessages(['write' => 'Geçersiz güncelleme.']);
+        }
+        try {
+            app(WordPressManagementService::class)->connection((int) $site->id);
+        } catch (Throwable $exception) {
+            throw ValidationException::withMessages(['write' => $exception->getMessage()]);
+        }
+        $busy = ExternalWriteAction::query()->where('digital_asset_id', $site->id)->where('action', ExternalWriteAction::ACTION_UPDATE_APPLY)
+            ->whereIn('status', ['queued', 'running'])->exists();
+        if ($busy) {
+            throw ValidationException::withMessages(['write' => 'Bu sitede bir güncelleme zaten sürüyor; bitmesini bekle.']);
+        }
+
+        return $this->queue(ExternalWriteAction::query()->create([
+            'channel' => ExternalWriteAction::CHANNEL_WORDPRESS,
+            'action' => ExternalWriteAction::ACTION_UPDATE_APPLY,
+            'digital_asset_id' => $site->id,
+            'brand_id' => $site->brand_id,
+            'status' => 'queued',
+            'request_payload' => ['type' => $type, 'item' => $type === 'core' ? '' : $item, 'label' => $label],
+            'requested_by' => $user->id,
+        ]));
+    }
+
     public function requestUndo(User $user, ExternalWriteAction $action): ExternalWriteAction
     {
         $this->guard($user, $action->channel);
@@ -100,7 +134,11 @@ final class ExternalWriteService
     {
         $action->forceFill(['status' => 'running', 'started_at' => now()])->save();
         try {
-            $result = $action->channel === ExternalWriteAction::CHANNEL_GOOGLE_ADS ? $this->negatives->apply($action) : $this->drafts->apply($action);
+            $result = match (true) {
+                $action->channel === ExternalWriteAction::CHANNEL_GOOGLE_ADS => $this->negatives->apply($action),
+                $action->action === ExternalWriteAction::ACTION_UPDATE_APPLY => app(WordPressManagementService::class)->apply($action),
+                default => $this->drafts->apply($action),
+            };
             $action->forceFill(['status' => $result['status'] ?? 'succeeded', 'result' => $result, 'finished_at' => now(), 'error' => null])->save();
             if ($action->advisor_item_id !== null && in_array($action->status, ['succeeded', 'partial'], true)) {
                 AdvisorItem::query()->whereKey($action->advisor_item_id)->where('status', AdvisorItemStatus::Open->value)

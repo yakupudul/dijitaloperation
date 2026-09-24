@@ -803,3 +803,15 @@
   5. **Meta Reklam Kütüphanesi:** API Türkiye'de ticari reklam vermediği için yalnız kütüphane bağlantısı (sayfa kimliği ya da ad araması) sunulur; kazıma yapılmaz.
   6. **Lead kutusu:** `/api/leads/{token}` herkese açık tek giriş noktasıdır: yalnız ajansın kendi formu içindir, token veritabanında hash olarak tutulur ve yenilenebilir, istek hızı sınırlıdır, spam tuzağı vardır. Müşteri sitelerinin formları buraya bağlanmaz.
 - **İlgili:** ADR-018, ADR-064, ADR-066, `config/moxdop-intel.php`, `app/Services/Intel/*`, `app/Services/Sales/AgencyLeadInbox.php`
+
+
+## ADR-068 — WordPress Connector v2: sağlık, tek tık panel girişi, onaylı güncelleme
+
+- **Durum:** Accepted (sahip kararı, Faz 9 – "Faz 9'a geç"; yol haritası: "WordPress eklenti v2 (sağlık, tek tık panel girişi, onaylı güncelleme)"; "yeni istisnalar … ayrı ADR ile"; "Karar vermem gereken her şeyi onaylıyorum")
+- **Değiştirdiği:** ADR-018'e üçüncü dar istisna (ADR-064'ün yanına). İçerik düzenleme ve yayınlama yasağı aynen sürer.
+- **Karar:**
+  1. **Sağlık (okuma):** Eklenti 1.3.0 `GET /moxdop/v1/health` ile WordPress/PHP sürümü, bekleyen çekirdek/eklenti/tema güncellemeleri ve WordPress Site Sağlığı özetini verir; MoxDOP günde bir okur (`moxdop:wordpress:health` 06:20).
+  2. **Tek tık giriş:** Yalnız site yöneticisi eklenti ayarlarında bir kullanıcı seçerse açılır (varsayılan kapalı). MoxDOP'ta yalnız Admin, imzalı istekle tek kullanımlık, 60 saniyelik bir bağlantı alır; bağlantı yalnız sitenin kendi adresine yönlenebilir; her kullanım `security_audit_events` tablosuna `WORDPRESS_ADMIN_LOGIN` olarak yazılır; eklenti kendi kaydını tutar.
+  3. **Onaylı güncelleme:** Yalnız site yöneticisi eklentide açarsa (varsayılan kapalı) ve yalnız WordPress'in kendisinin önerdiği güncelleme (eklenti, tema, çekirdek) — her istekte tek öğe, her birini Admin ayrı onaylar. `external_write_actions` kaydı (`update_apply`), kuyrukta çalışır, sonrası sağlık yeniden okunur. **Geri alınamaz**; ekran önce yedek önerir. `EXTERNAL_WRITES_ENABLED` / kanal anahtarı kapatır.
+  4. Yeni eklenti/tema kurma, silme, ayar veya içerik değiştirme yoktur.
+- **İlgili:** ADR-018, ADR-064, `connectors/wordpress/moxdop-connector/includes/class-moxdop-connector-management.php`, `app/Services/Integrations/WordPress/WordPressManagementService.php`

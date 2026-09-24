@@ -17,4 +17,5 @@ enum SecurityAuditEventKind: string
     case ShareRevoked = 'SHARE_REVOKED';
     case SecuritySettingChanged = 'SECURITY_SETTING_CHANGED';
     case EncryptionReencryptBatch = 'ENCRYPTION_REENCRYPT_BATCH';
+    case WordPressAdminLogin = 'WORDPRESS_ADMIN_LOGIN';
 }

@@ -16,6 +16,7 @@ final class MoxDOP_Connector_Admin
         add_action('admin_menu', [$this, 'menu']);
         add_action('admin_post_moxdop_connector_pair', [$this, 'pair']);
         add_action('admin_post_moxdop_connector_disconnect', [$this, 'disconnect']);
+        add_action('admin_post_moxdop_connector_management', [$this, 'save_management']);
     }
 
     public function menu()
@@ -40,11 +41,13 @@ final class MoxDOP_Connector_Admin
         ?>
         <div class="wrap">
             <h1>MoxDOP Website Connector</h1>
-            <p>This read-only connector shares CMS inventory with MoxDOP. It sends content, SEO and maintenance activity with the acting user ID/name. It never sends passwords, comments, form submissions or media binaries. Remote site changes are disabled.</p>
+            <p>This connector shares CMS inventory and health with MoxDOP. It sends content, SEO and maintenance activity with the acting user ID/name. It never sends passwords, comments, form submissions or media binaries. It can create drafts (never publishes). One-click login and approved updates below are off unless you turn them on.</p>
             <?php if ($notice === 'paired') : ?>
                 <div class="notice notice-success"><p>Connector paired successfully.</p></div>
             <?php elseif ($notice === 'disconnected') : ?>
                 <div class="notice notice-success"><p>Connector disconnected and its local credential removed.</p></div>
+            <?php elseif ($notice === 'saved') : ?>
+                <div class="notice notice-success"><p>Settings saved.</p></div>
             <?php elseif ($notice === 'failed') : ?>
                 <div class="notice notice-error"><p>Pairing failed. Confirm the HTTPS MoxDOP URL and one-time code, then try again.</p></div>
             <?php endif; ?>
@@ -79,6 +82,31 @@ final class MoxDOP_Connector_Admin
                     </tr>
                 </table>
                 <?php submit_button($paired ? 'Rotate pairing' : 'Pair connector'); ?>
+            </form>
+
+            <h2>MoxDOP management / Yönetim</h2>
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="max-width: 760px;">
+                <input type="hidden" name="action" value="moxdop_connector_management">
+                <?php wp_nonce_field('moxdop_connector_management'); ?>
+                <table class="form-table" role="presentation">
+                    <tr>
+                        <th scope="row"><label for="moxdop_login_user">One-click login user / Tek tık giriş kullanıcısı</label></th>
+                        <td>
+                            <select id="moxdop_login_user" name="moxdop_login_user">
+                                <option value="0">Off / Kapalı</option>
+                                <?php foreach (get_users(['role__in' => ['administrator', 'editor'], 'fields' => ['ID', 'user_login']]) as $user) : ?>
+                                    <option value="<?php echo (int) $user->ID; ?>" <?php selected(MoxDOP_Connector_Management::login_user_id(), (int) $user->ID); ?>><?php echo esc_html($user->user_login); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="description">MoxDOP can open a single-use, 60-second login link as this user. Use a dedicated account for your agency.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Approved updates / Onaylı güncelleme</th>
+                        <td><label><input type="checkbox" name="moxdop_allow_updates" value="1" <?php checked(MoxDOP_Connector_Management::updates_allowed()); ?>> Allow MoxDOP to install plugin, theme and WordPress updates that WordPress offers, one at a time, after an admin approves each in MoxDOP.</label></td>
+                    </tr>
+                </table>
+                <?php submit_button('Save'); ?>
             </form>
 
             <?php if ($paired) : ?>
@@ -153,6 +181,21 @@ final class MoxDOP_Connector_Admin
         delete_option(MoxDOP_Connector_Secrets::OPTION);
         delete_option('moxdop_connector_app_url');
         $this->redirect('disconnected');
+    }
+
+    public function save_management()
+    {
+        if (! current_user_can('manage_options')) {
+            wp_die('Forbidden', '', ['response' => 403]);
+        }
+        check_admin_referer('moxdop_connector_management');
+        $user_id = isset($_POST['moxdop_login_user']) ? absint(wp_unslash($_POST['moxdop_login_user'])) : 0;
+        if ($user_id > 0 && ! user_can($user_id, 'edit_posts')) {
+            $user_id = 0;
+        }
+        update_option('moxdop_connector_login_user', $user_id, false);
+        update_option('moxdop_connector_allow_updates', ! empty($_POST['moxdop_allow_updates']) ? '1' : '0', false);
+        $this->redirect('saved');
     }
 
     private function redirect($notice)

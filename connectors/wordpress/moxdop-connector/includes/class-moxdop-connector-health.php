@@ -47,7 +47,7 @@ final class MoxDOP_Connector_Health
                 'acf' => defined('ACF_VERSION') ? ACF_VERSION : null,
                 'polylang' => defined('POLYLANG_VERSION') ? POLYLANG_VERSION : null,
             ],
-            'management_enabled' => false,
+            'management_enabled' => MoxDOP_Connector_Management::updates_allowed() || MoxDOP_Connector_Management::login_user_id() > 0,
         ];
     }
 }

@@ -436,6 +436,12 @@ Schedule::command('moxdop:intel:competitors')
     ->withoutOverlapping(120)
     ->name('intel-competitor-watch-weekly');
 
+// Faz 9: WordPress Connector v2 sağlık okuması (sürümler, bekleyen güncellemeler, Site Sağlığı).
+Schedule::command('moxdop:wordpress:health')
+    ->dailyAt('06:20')
+    ->withoutOverlapping(60)
+    ->name('wordpress-health-daily');
+
 Schedule::command('moxdop:advisor:digest')
     ->weeklyOn((int) config('moxdop-advisor.schedule.weekly_day', 1), (string) config('moxdop-advisor.digest.weekly_time', '08:00'))
     ->withoutOverlapping(30)

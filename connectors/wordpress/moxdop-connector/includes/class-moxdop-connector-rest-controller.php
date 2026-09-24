@@ -43,6 +43,25 @@ final class MoxDOP_Connector_REST_Controller
             'permission_callback' => [$this->auth, 'authorize'],
             'callback' => [$this, 'create_draft'],
         ]);
+        // Connector v2 (1.3.0). Login and updates stay disabled until a site admin turns them on.
+        $management = new MoxDOP_Connector_Management();
+        register_rest_route(self::NAMESPACE, '/health', [
+            'methods' => WP_REST_Server::READABLE,
+            'permission_callback' => [$this->auth, 'authorize'],
+            'callback' => static function () use ($management) {
+                return rest_ensure_response($management->health());
+            },
+        ]);
+        register_rest_route(self::NAMESPACE, '/login-link', [
+            'methods' => WP_REST_Server::CREATABLE,
+            'permission_callback' => [$this->auth, 'authorize'],
+            'callback' => [$management, 'login_link'],
+        ]);
+        register_rest_route(self::NAMESPACE, '/updates', [
+            'methods' => WP_REST_Server::CREATABLE,
+            'permission_callback' => [$this->auth, 'authorize'],
+            'callback' => [$management, 'update'],
+        ]);
         register_rest_route(self::NAMESPACE, '/drafts/(?P<id>[1-9][0-9]*)', [
             'methods' => WP_REST_Server::DELETABLE,
             'permission_callback' => [$this->auth, 'authorize'],

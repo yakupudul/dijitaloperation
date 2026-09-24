@@ -78,13 +78,35 @@ final class WordPressConnectorClient
         return $this->write($connection, 'DELETE', '/moxdop/v1/drafts/'.$postId, null);
     }
 
+    /** Connector v2 (≥ 1.3.0): versions, pending updates, Site Health result and basics. */
+    public function health(CoreConnection $connection): array
+    {
+        return $this->write($connection, 'GET', '/moxdop/v1/health', null);
+    }
+
+    /** Connector v2: a single-use, 60-second login URL for the user the site admin allowed (403 when off). */
+    public function loginLink(CoreConnection $connection): array
+    {
+        return $this->write($connection, 'POST', '/moxdop/v1/login-link', ['requested_at' => now()->toIso8601String()]);
+    }
+
+    /**
+     * Connector v2 (ADR-068): install the update WordPress offers for one plugin / theme / core (403 when off).
+     *
+     * @return array<string, mixed> ok, from_version, to_version, message
+     */
+    public function applyUpdate(CoreConnection $connection, string $type, string $item): array
+    {
+        return $this->write($connection, 'POST', '/moxdop/v1/updates', ['type' => $type, 'item' => $item], (int) config('moxdop-wordpress.update_timeout_seconds', 300));
+    }
+
     /**
      * Signed write request. The URL is derived from the paired snapshot URL (same REST base).
      *
      * @param  array<string, mixed>|null  $body
      * @return array<string, mixed>
      */
-    private function write(CoreConnection $connection, string $method, string $route, ?array $body): array
+    private function write(CoreConnection $connection, string $method, string $route, ?array $body, ?int $timeout = null): array
     {
         $credentials = $connection->credential?->encrypted_payload;
         $config = is_array($connection->config) ? $connection->config : [];
@@ -113,10 +135,12 @@ final class WordPressConnectorClient
                     self::HEADER_SIGNATURE => $signature,
                 ])
                 ->withOptions(['allow_redirects' => false])
-                ->timeout(max(5, (int) config('moxdop-wordpress.request_timeout_seconds', 30)));
-            $response = $method === 'POST'
-                ? $request->withBody($payload, 'application/json')->post($url)
-                : $request->delete($url);
+                ->timeout(max(5, $timeout ?? (int) config('moxdop-wordpress.request_timeout_seconds', 30)));
+            $response = match ($method) {
+                'POST' => $request->withBody($payload, 'application/json')->post($url),
+                'GET' => $request->get($url),
+                default => $request->delete($url),
+            };
             $data = $this->verifiedData($response, $secret, $nonce);
             $this->markHealthy($connection);
 
