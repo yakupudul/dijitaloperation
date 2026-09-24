@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-09-29 — Faz 3 decisions
+
+- `brand_conversion_sources` is the one per-brand answer to "what is a conversion"; totals, alerts and future reports read it. Defaults avoid double counting (GA4 = website; Ads/Meta only for what happens off the site); operator choices win.
+- Tracking checks read stored data only (homepage HTML snapshot, GA4 rows); "no data" is only claimed when collection demonstrably ran. The GTM API is not used.
+- Branded detection has one implementation (`BrandedQueryMatcher`); do not add another.
+- Raw SQL on GA4 tables must quote camelCase columns (`DB::getQueryGrammar()->wrap()`); Postgres folds unquoted identifiers.
+
 ## 2026-09-28 — Faz 2b decisions
 
 - The brand demand table (`brand_demand_queries`) is the per-brand, automatic view of demand; the global query library and manual portfolio remain for catalog work. Weekly order: demand build 05:30 → area SERP 05:45 → comparison 06:00 → SEO plan 06:30.
