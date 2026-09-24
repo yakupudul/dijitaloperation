@@ -58,4 +58,40 @@
             </div>
         @endif
     @endif
+
+    <div class="space-y-3 border-t border-gray-100 pt-4 dark:border-gray-800">
+        <div class="flex flex-wrap items-start justify-between gap-2">
+            <div>
+                <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Bölgede Google sıralaması</h3>
+                <p class="mt-1 text-xs text-gray-500">Her hizmetin en değerli sorguları hizmet bölgelerinde Google'da kontrol edilir (DataForSEO, ücretli). Aynı sonuç 28 gün tekrar kullanılır; aylık tavan aşılmaz. Bu ay: {{ number_format($serpSpent, 3) }} USD.</p>
+            </div>
+            @if ($isAdmin)
+                <div class="flex flex-wrap items-center gap-2 text-sm">
+                    <label class="flex items-center gap-1"><input type="checkbox" wire:model="serpEnabled" class="rounded border-gray-300" /> Açık</label>
+                    <label class="flex items-center gap-1">Aylık tavan <input type="text" wire:model="serpCap" class="w-16 rounded-lg border border-gray-200 bg-transparent px-2 py-1 dark:border-gray-700 dark:text-white" /> USD</label>
+                    <button type="button" wire:click="saveSerp" class="rounded-lg bg-brand-500 px-3 py-1.5 font-medium text-white hover:bg-brand-600">Kaydet</button>
+                    <button type="button" wire:click="runSerpNow" class="rounded-lg px-3 py-1.5 font-medium text-gray-700 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700">Şimdi kontrol et</button>
+                </div>
+            @endif
+        </div>
+        @error('serpCap') <p class="text-xs text-rose-600">{{ $message }}</p> @enderror
+        @if ($serpRows !== [])
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-left text-xs uppercase text-gray-400"><tr><th class="py-2 pr-3">Hizmet</th><th class="py-2 pr-3">Sorgu</th><th class="py-2 pr-3">Bölge</th><th class="py-2 pr-3">Sıramız</th><th class="py-2">İlk 3</th></tr></thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @foreach ($serpRows as $row)
+                            <tr>
+                                <td class="py-2 pr-3">{{ $row['service'] }}</td>
+                                <td class="py-2 pr-3">{{ $row['keyword'] }}</td>
+                                <td class="py-2 pr-3 text-xs text-gray-500">{{ $row['area'] }}</td>
+                                <td class="py-2 pr-3 font-medium {{ $row['rank'] === null ? 'text-rose-600' : ($row['rank'] <= 3 ? 'text-emerald-600' : 'text-gray-800 dark:text-gray-200') }}">{{ $row['rank'] ?? 'ilk 10 dışı' }}</td>
+                                <td class="py-2 text-xs text-gray-500">{{ implode(' · ', $row['top']) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </div>
 </section>

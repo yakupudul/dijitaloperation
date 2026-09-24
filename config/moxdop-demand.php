@@ -21,4 +21,22 @@ return [
         'weekly_day' => 1,          // Monday, before the SEO plan (06:30)
         'weekly_time' => '05:30',
     ],
+
+    /*
+     * Area SERP checks (paid, DataForSEO Live Regular). Per-brand opt-in on the brand page; never exceeds the
+     * brand's monthly USD cap. A result is reused (no new call) for the same keyword + location within
+     * freshness_days, for any brand.
+     */
+    'serp' => [
+        'monthly_usd_per_brand' => (float) env('MOXDOP_DEMAND_SERP_MONTHLY_USD', 2.0),
+        'cost_per_check_usd' => (float) env('MOXDOP_DEMAND_SERP_COST_USD', 0.002),
+        'freshness_days' => 28,
+        'queries_per_service' => 3,
+        'areas_per_query' => 2,
+        'max_services' => 10,
+        'language_code' => 'tr',
+        'fallback_location_code' => 2792, // Türkiye
+        'competitor_min_keywords' => 2,
+        'weekly_time' => '05:45',
+    ],
 ];

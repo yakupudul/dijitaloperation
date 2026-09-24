@@ -13,6 +13,9 @@ final class DataForSeoEndpointAllowlist
     /** Free Labs market directory (not charged). */
     public const string LABS_LOCATIONS_AND_LANGUAGES = 'dataforseo_labs/locations_and_languages';
 
+    /** Free SERP location directory for Türkiye (cities and districts for local SERP checks). */
+    public const string SERP_GOOGLE_LOCATIONS_TR = 'serp/google/locations/tr';
+
     /** Paid — Website ranked organic keywords. */
     public const string LABS_GOOGLE_RANKED_KEYWORDS_LIVE = 'dataforseo_labs/google/ranked_keywords/live';
 
@@ -39,6 +42,7 @@ final class DataForSeoEndpointAllowlist
         return [
             self::APPENDIX_USER_DATA,
             self::LABS_LOCATIONS_AND_LANGUAGES,
+            self::SERP_GOOGLE_LOCATIONS_TR,
             self::LABS_GOOGLE_RANKED_KEYWORDS_LIVE,
             self::LABS_GOOGLE_KEYWORDS_FOR_SITE_LIVE,
             self::LABS_GOOGLE_COMPETITORS_DOMAIN_LIVE,

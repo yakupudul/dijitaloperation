@@ -53,6 +53,19 @@ class DataForSeoApiClient
     }
 
     /**
+     * GET /v3/serp/google/locations/tr — free SERP location directory (cities, districts).
+     */
+    public function getSerpGoogleLocationsTr(CoreIntegration $integration): DataForSeoResponse
+    {
+        return $this->request(
+            $integration,
+            'GET',
+            DataForSeoEndpointAllowlist::SERP_GOOGLE_LOCATIONS_TR,
+            self::CHARGE_CLASS_SAFE_READ,
+        );
+    }
+
+    /**
      * POST /v3/dataforseo_labs/google/ranked_keywords/live — paid.
      *
      * @param  list<array<string, mixed>>  $tasks

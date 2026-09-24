@@ -422,3 +422,9 @@ Schedule::command('moxdop:demand:build')
     ->weeklyOn((int) config('moxdop-demand.schedule.weekly_day', 1), (string) config('moxdop-demand.schedule.weekly_time', '05:30'))
     ->withoutOverlapping(120)
     ->name('brand-demand-weekly');
+
+// Faz 2b: bölge bazlı SERP kontrolleri (ücretli, marka başına açılır, aylık USD tavanı, 28 gün tekrar kullanım).
+Schedule::command('moxdop:demand:serp')
+    ->weeklyOn((int) config('moxdop-demand.schedule.weekly_day', 1), (string) config('moxdop-demand.serp.weekly_time', '05:45'))
+    ->withoutOverlapping(120)
+    ->name('brand-demand-serp-weekly');
