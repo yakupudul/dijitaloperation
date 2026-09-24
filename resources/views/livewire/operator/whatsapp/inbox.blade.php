@@ -172,7 +172,24 @@
         <section class="min-w-0 rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 xl:col-span-5">
             <div class="border-b border-gray-200 p-4 dark:border-gray-800">
                 <h2 class="font-semibold dark:text-white">{{ $selected?->contact_name ?: ($selected?->contact_id ?: 'Mesajlar') }}</h2>
-                @if($selected)<p class="mt-1 text-xs text-gray-500">{{ $selected->contact_id }} · {{ $messages->total() }} kayıtlı mesaj</p>@endif
+                @if($selected)
+                    <p class="mt-1 text-xs text-gray-500">{{ $selected->contact_id }} · {{ $messages->total() }} kayıtlı mesaj</p>
+                    @php
+                        $lastIn = $selected->last_incoming_at;
+                        $windowOpen = $lastIn && $lastIn->greaterThan(now()->subHours(24));
+                        $hoursLeft = $windowOpen ? (int) ceil(now()->diffInHours($lastIn->copy()->addHours(24), false)) : 0;
+                    @endphp
+                    <div class="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
+                        @if($selected->opted_out_at)
+                            <span class="rounded-full bg-rose-100 px-2 py-0.5 font-medium text-rose-700 dark:bg-rose-500/15 dark:text-rose-300" title="Bu kişi mesaj almak istemediğini bildirdi ({{ $selected->opted_out_at->timezone('Europe/Istanbul')->format('d.m.Y') }}). KVKK gereği mesaj göndermeyin.">⛔ Mesaj istemiyor (opt-out)</span>
+                        @endif
+                        @if($windowOpen)
+                            <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" title="Son gelen mesajın üzerinden 24 saat geçmeden telefondan normal cevap verebilirsiniz.">🟢 Yanıt penceresi açık · ~{{ $hoursLeft }} sa</span>
+                        @elseif($lastIn)
+                            <span class="rounded-full bg-gray-100 px-2 py-0.5 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300" title="24 saatlik pencere kapandı; WhatsApp kuralları gereği yeni mesaj için onaylı şablon gerekir.">⚪ Yanıt penceresi kapalı (24 sa)</span>
+                        @endif
+                    </div>
+                @endif
                 @if($selected)
                     <div class="mt-2 rounded-lg bg-gray-50 p-2 text-xs dark:bg-white/[0.03]">
                         @if($linkedCustomer)

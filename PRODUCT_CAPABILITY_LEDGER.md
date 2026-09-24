@@ -26,7 +26,7 @@
 - Fixed (data-corruption): KVKK retention wrote the plaintext redaction marker into the ENCRYPTED body column, which then threw on read and broke the inbox. It now writes the marker as ciphertext and flags rows with `redacted_at` (idempotent without comparing an encrypted column).
 - Fixed: the follow-up form is prefilled from the selected conversation's prospect, so saving no longer nulls the untouched date/step; link + follow-up fields reset on conversation switch (no stale value saved to the wrong conversation).
 
-**Deferred (noted, not done):** WhatsApp unread badge / 24h-window indicator / opt-out flag; intent-radar contact enrichment; a paid-DataForSEO spend cap (the paid adapter is currently unused/dead, so nothing runs away today).
+**WhatsApp additions:** a 24-hour reply-window indicator (from the last inbound time) and a KVKK opt-out flag set when a contact sends a STOP/DUR-type message — both display-only (MoxDOP never sends). Still deferred: unread badge, intent-radar contact enrichment, a paid-DataForSEO spend cap (that adapter is unused/dead today).
 
 ## 2026-10-12 — Reklam bütçesi bitti uyarıları + Meta ülke/şehir sonuçları + AI "hizmet × bölge × kitle"
 

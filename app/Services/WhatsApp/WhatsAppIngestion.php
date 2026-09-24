@@ -30,6 +30,7 @@ final class WhatsAppIngestion
             foreach (($receipt->payload['entry'] ?? []) as $entry) {
                 if (! is_array($entry) || (string) ($entry['id'] ?? '') !== (string) ($config['waba_id'] ?? '')) {
                     $ignored++;
+
                     continue;
                 }
                 foreach (($entry['changes'] ?? []) as $change) {
@@ -37,6 +38,7 @@ final class WhatsAppIngestion
                     if (! is_array($value) || ($value['messaging_product'] ?? '') !== 'whatsapp'
                         || (string) data_get($value, 'metadata.phone_number_id', '') !== (string) ($config['phone_number_id'] ?? '')) {
                         $ignored++;
+
                         continue;
                     }
                     $names = [];
@@ -60,6 +62,7 @@ final class WhatsAppIngestion
                         foreach (($value['history'] ?? []) as $chunk) {
                             if (! is_array($chunk)) {
                                 $ignored++;
+
                                 continue;
                             }
                             $historyError = $historyError || ! empty($chunk['errors']);
@@ -68,16 +71,19 @@ final class WhatsAppIngestion
                                 foreach (($thread['messages'] ?? []) as $message) {
                                     if (! is_array($message)) {
                                         $ignored++;
+
                                         continue;
                                     }
                                     $from = (string) ($message['from'] ?? '');
                                     $outgoing = $from === (string) ($config['business_phone'] ?? '');
                                     if (! $outgoing && $from !== (string) $contactId) {
                                         $ignored++;
+
                                         continue;
                                     }
                                     if ($outgoing && (string) ($message['to'] ?? '') !== (string) $contactId) {
                                         $ignored++;
+
                                         continue;
                                     }
                                     $result = $this->message($integration, $config, $message, $names, $outgoing, true);
@@ -152,13 +158,28 @@ final class WhatsAppIngestion
         if (! $stored->wasRecentlyCreated) {
             return 0;
         }
-        $conversation->update([
+        $update = [
             'contact_name' => $names[$contact] ?? $conversation->contact_name,
             'last_message_at' => $conversation->last_message_at?->greaterThan($sentAt) ? $conversation->last_message_at : $sentAt,
             'revision' => $conversation->revision + 1, 'suggestion_status' => 'pending', 'error_code' => null,
-        ]);
+        ];
+        if (! $outgoing) {
+            // Track the last inbound time for the 24-hour reply-window indicator, and flag a KVKK opt-out (STOP/DUR).
+            $update['last_incoming_at'] = $conversation->last_incoming_at?->greaterThan($sentAt) ? $conversation->last_incoming_at : $sentAt;
+            if ($this->isOptOut($body)) {
+                $update['opted_out_at'] = $sentAt;
+            }
+        }
+        $conversation->update($update);
 
         return 1;
     }
-}
 
+    /** A KVKK opt-out: the contact asked to stop being messaged. Whole-message match only, so it never trips on prose. */
+    private function isOptOut(string $body): bool
+    {
+        $text = mb_strtolower(trim(str_replace(['İ', 'I', 'ı'], ['i', 'i', 'i'], $body)));
+
+        return in_array($text, ['dur', 'stop', 'iptal', 'çık', 'cik', 'çıkar', 'cikar', 'abonelikten çık', 'abonelikten cik', 'unsubscribe', 'listeden çık', 'listeden cik'], true);
+    }
+}
