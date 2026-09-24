@@ -123,6 +123,22 @@ final class KvkkAndBackupTest extends TestCase
         $this->actingAs($member)->get(route('operator.customers'))->assertOk();
     }
 
+    public function test_sqlite_backup_can_be_restored_after_a_safety_backup(): void
+    {
+        $database = $this->dir.'-live.sqlite';
+        File::ensureDirectoryExists($this->dir);
+        file_put_contents($database, "SQLite format 3\0".'version-one');
+        config(['database.connections.sqlite.database' => $database]);
+        $first = app(SystemBackup::class)->run();
+        file_put_contents($database, "SQLite format 3\0".'version-two');
+
+        $this->artisan('moxdop:backup:restore', ['file' => basename((string) $first['path']), '--force' => true])->assertSuccessful();
+
+        $this->assertSame("SQLite format 3\0".'version-one', file_get_contents($database));
+        $this->assertCount(2, glob($this->dir.'/moxdop-*.gz'), 'a safety backup of version two was taken first');
+        @unlink($database);
+    }
+
     public function test_whatsapp_retention_blanks_old_texts_only_when_set(): void
     {
         $conversation = DB::table('whatsapp_conversations')->insertGetId(['integration_id' => CoreIntegration::factory()->create(['provider' => 'whatsapp'])->id, 'phone_number_id' => '1', 'contact_id' => '905551112233',

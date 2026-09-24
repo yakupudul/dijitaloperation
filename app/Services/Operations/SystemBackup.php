@@ -31,7 +31,7 @@ final class SystemBackup
             if (! is_dir($dir) && ! mkdir($dir, 0700, true) && ! is_dir($dir)) {
                 throw new \RuntimeException('Yedek klasörü oluşturulamadı: '.$dir);
             }
-            $path = $dir.'/moxdop-'.now()->format('Ymd-His').'-'.$driver.'.'.($driver === 'sqlite' ? 'sqlite.gz' : 'sql.gz');
+            $path = $dir.'/moxdop-'.now()->format('Ymd-His-u').'-'.$driver.'.'.($driver === 'sqlite' ? 'sqlite.gz' : 'sql.gz');
             $this->dump($driver, $cfg, $path);
             @chmod($path, 0600);
             $this->verify($driver, $path);
@@ -98,7 +98,7 @@ final class SystemBackup
             return;
         }
         [$command, $env] = match ($driver) {
-            'pgsql' => [[(string) config('moxdop-backup.pg_dump'), '--no-owner', '--no-privileges', '-h', (string) ($cfg['host'] ?? '127.0.0.1'), '-p', (string) ($cfg['port'] ?? 5432), '-U', (string) ($cfg['username'] ?? ''), (string) ($cfg['database'] ?? '')], ['PGPASSWORD' => (string) ($cfg['password'] ?? '')]],
+            'pgsql' => [[(string) config('moxdop-backup.pg_dump'), '--no-owner', '--no-privileges', '--clean', '--if-exists', '-h', (string) ($cfg['host'] ?? '127.0.0.1'), '-p', (string) ($cfg['port'] ?? 5432), '-U', (string) ($cfg['username'] ?? ''), (string) ($cfg['database'] ?? '')], ['PGPASSWORD' => (string) ($cfg['password'] ?? '')]],
             'mysql', 'mariadb' => [[(string) config('moxdop-backup.mysqldump'), '--single-transaction', '--quick', '-h', (string) ($cfg['host'] ?? '127.0.0.1'), '-P', (string) ($cfg['port'] ?? 3306), '-u', (string) ($cfg['username'] ?? ''), (string) ($cfg['database'] ?? '')], ['MYSQL_PWD' => (string) ($cfg['password'] ?? '')]],
             default => throw new \RuntimeException('Bu veritabanı sürücüsü için yedek desteklenmiyor: '.$driver),
         };
@@ -145,6 +145,81 @@ final class SystemBackup
         if (! $complete) {
             throw new \RuntimeException('Yedek eksik görünüyor (dosya sonu / başlığı doğrulanamadı).');
         }
+    }
+
+    /**
+     * Faz 14: restore a backup file into the current database connection. The file is verified first and a
+     * fresh safety backup of the current state is taken before anything is overwritten.
+     *
+     * @return array{restored: string, safety_backup: ?string}
+     */
+    public function restore(string $path): array
+    {
+        $connection = (string) config('database.default');
+        $cfg = (array) config('database.connections.'.$connection, []);
+        $driver = (string) ($cfg['driver'] ?? $connection);
+        if (! is_file($path)) {
+            throw new \RuntimeException('Yedek dosyası bulunamadı: '.$path);
+        }
+        // Backup names end in -{driver}.sqlite.gz / .sql.gz; MySQL and MariaDB dumps are interchangeable.
+        $family = static fn (string $d): string => $d === 'mariadb' ? 'mysql' : $d;
+        $fileDriver = preg_match('/-(sqlite|pgsql|mysql|mariadb)\.(sqlite|sql)\.gz$/', basename($path), $m) === 1 ? $m[1] : $driver;
+        if ($family($fileDriver) !== $family($driver)) {
+            throw new \RuntimeException(sprintf('Bu yedek %s için; mevcut veritabanı %s.', $fileDriver, $driver));
+        }
+        $this->verify($driver, $path);
+        $safety = $this->run();
+        if ($safety['status'] !== 'succeeded') {
+            throw new \RuntimeException('Geri yüklemeden önce güvenlik yedeği alınamadı: '.$safety['error']);
+        }
+
+        if ($driver === 'sqlite') {
+            $database = (string) ($cfg['database'] ?? '');
+            if ($database === ':memory:' || $database === '') {
+                throw new \RuntimeException('SQLite dosyası yok.');
+            }
+            // The file is replaced atomically (rename); the command runs in its own process, which ends afterwards.
+            $in = gzopen($path, 'rb');
+            $out = fopen($database.'.restoring', 'wb');
+            while (! gzeof($in)) {
+                fwrite($out, (string) gzread($in, 1 << 20));
+            }
+            gzclose($in);
+            fclose($out);
+            rename($database.'.restoring', $database);
+
+            return ['restored' => $path, 'safety_backup' => $safety['path']];
+        }
+
+        [$command, $env] = match ($driver) {
+            'pgsql' => [[(string) config('moxdop-backup.psql', 'psql'), '-v', 'ON_ERROR_STOP=1', '-q', '-h', (string) ($cfg['host'] ?? '127.0.0.1'), '-p', (string) ($cfg['port'] ?? 5432), '-U', (string) ($cfg['username'] ?? ''), '-d', (string) ($cfg['database'] ?? '')], ['PGPASSWORD' => (string) ($cfg['password'] ?? '')]],
+            'mysql', 'mariadb' => [[(string) config('moxdop-backup.mysql', 'mysql'), '-h', (string) ($cfg['host'] ?? '127.0.0.1'), '-P', (string) ($cfg['port'] ?? 3306), '-u', (string) ($cfg['username'] ?? ''), (string) ($cfg['database'] ?? '')], ['MYSQL_PWD' => (string) ($cfg['password'] ?? '')]],
+            default => throw new \RuntimeException('Bu veritabanı sürücüsü için geri yükleme desteklenmiyor: '.$driver),
+        };
+        DB::disconnect($connection);
+        $process = new Process($command, null, $env, null, 3600);
+        $process->setInput((function () use ($path) {
+            $in = gzopen($path, 'rb');
+            while (! gzeof($in)) {
+                yield (string) gzread($in, 1 << 20);
+            }
+            gzclose($in);
+        })());
+        $process->run();
+        if (! $process->isSuccessful()) {
+            throw new \RuntimeException('Geri yükleme başarısız: '.mb_substr(trim($process->getErrorOutput()), 0, 500).' (güvenlik yedeği: '.$safety['path'].')');
+        }
+
+        return ['restored' => $path, 'safety_backup' => $safety['path']];
+    }
+
+    /** @return list<string> backup files, newest first */
+    public function files(): array
+    {
+        $files = glob((string) config('moxdop-backup.directory').'/moxdop-*.gz') ?: [];
+        rsort($files);
+
+        return $files;
     }
 
     private function prune(string $dir): void

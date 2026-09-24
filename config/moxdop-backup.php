@@ -13,4 +13,7 @@ return [
     'stale_hours' => 26,
     'pg_dump' => env('MOXDOP_PG_DUMP', 'pg_dump'),
     'mysqldump' => env('MOXDOP_MYSQLDUMP', 'mysqldump'),
+    // Faz 14: clients used by `moxdop:backup:restore`.
+    'psql' => env('MOXDOP_PSQL', 'psql'),
+    'mysql' => env('MOXDOP_MYSQL', 'mysql'),
 ];

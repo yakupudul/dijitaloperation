@@ -1,7 +1,7 @@
 @php
     $card = 'rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
     $input = 'mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900';
-    $sources = ['web_form' => 'Web formu', 'phone' => 'Telefon', 'whatsapp' => 'WhatsApp', 'manual' => 'Elle'];
+    $sources = ['web_form' => 'Web formu', 'phone' => 'Telefon', 'whatsapp' => 'WhatsApp', 'meta_lead_ad' => 'Meta form reklamı', 'manual' => 'Elle'];
     $endpoint = $newToken !== null ? route('api.leads.receive', ['token' => $newToken]) : null;
 @endphp
 <div class="space-y-5">

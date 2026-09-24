@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\CustomerContact;
 use App\Models\Prospect;
 use App\Models\WhatsAppConversation;
+use App\Services\Sales\AgencyLeadInbox;
 use Throwable;
 
 /**
@@ -20,7 +21,13 @@ final class WhatsAppContactLinker
     {
         WhatsAppConversation::created(static function (WhatsAppConversation $conversation): void {
             try {
-                app(self::class)->link($conversation);
+                // Faz 14: a new contact that matches no customer or prospect is a possible lead for the agency.
+                if (! app(self::class)->link($conversation) && config('moxdop-leads.whatsapp_unknown_contacts', true) && self::key((string) $conversation->contact_id) !== null) {
+                    app(AgencyLeadInbox::class)->receive([
+                        'name' => (string) ($conversation->contact_name ?? ''), 'phone' => '+'.ltrim((string) $conversation->contact_id, '+'),
+                        'message' => 'WhatsApp üzerinden yazdı.',
+                    ], 'whatsapp');
+                }
             } catch (Throwable $exception) {
                 report($exception);
             }
