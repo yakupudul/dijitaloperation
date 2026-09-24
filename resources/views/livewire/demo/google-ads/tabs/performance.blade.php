@@ -346,7 +346,17 @@
             @elseif (! $hasAgeLabels && ! $hasGenderLabels)
                 <div class="mt-4 rounded-xl bg-blue-50 p-4 ring-1 ring-inset ring-blue-200 dark:bg-blue-500/10 dark:ring-blue-500/20"><p class="text-sm font-semibold text-blue-900 dark:text-blue-100">{{ $isTr ? 'Kitle ölçütleri çekildi; okunabilir adları henüz çözülmedi' : 'Provider criteria collected; human-readable labels are unresolved' }}</p><p class="mt-1 text-xs leading-5 text-blue-800 dark:text-blue-200/90">{{ $isTr ? '“7 yaş kriteri / 3 cinsiyet kriteri” gibi sayılar performans içgörüsü değildir. Bu nedenle eski sayaçları kaldırdım. Etiket çözümlemesi tamamlanana kadar bu alan veri kalite durumu gösterir.' : 'Counts such as “7 age criteria / 3 gender criteria” are not performance insights. The old counters are removed; this section reports data quality until labels resolve.' }}</p><div class="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4"><div class="rounded-lg bg-white/60 p-2.5 dark:bg-black/10"><span class="text-gray-500">Age</span><strong class="ml-2">{{ $ageRows->count() }}</strong></div><div class="rounded-lg bg-white/60 p-2.5 dark:bg-black/10"><span class="text-gray-500">Gender</span><strong class="ml-2">{{ $genderRows->count() }}</strong></div><div class="rounded-lg bg-white/60 p-2.5 dark:bg-black/10"><span class="text-gray-500">Campaign audience</span><strong class="ml-2">{{ $campaignAudienceRows->count() }}</strong></div><div class="rounded-lg bg-white/60 p-2.5 dark:bg-black/10"><span class="text-gray-500">Ad group audience</span><strong class="ml-2">{{ $adGroupAudienceRows->count() }}</strong></div></div></div>
             @else
-                <div class="mt-4 grid gap-3 sm:grid-cols-2"><div class="rounded-xl bg-gray-50 p-3 dark:bg-white/[0.02]"><p class="text-xs text-gray-400">{{ $isTr ? 'Yaş segmenti' : 'Age segments' }}</p><p class="mt-1 text-xl font-semibold">{{ $ageRows->count() }}</p></div><div class="rounded-xl bg-gray-50 p-3 dark:bg-white/[0.02]"><p class="text-xs text-gray-400">{{ $isTr ? 'Cinsiyet segmenti' : 'Gender segments' }}</p><p class="mt-1 text-xl font-semibold">{{ $genderRows->count() }}</p></div></div>
+                <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                    @foreach ([$isTr ? 'Yaş' : 'Age' => $ageRows, $isTr ? 'Cinsiyet' : 'Gender' => $genderRows] as $demoTitle => $demoRows)
+                        <div><p class="text-xs font-semibold uppercase tracking-wide text-gray-400">{{ $demoTitle }}</p>
+                            <table class="mt-2 min-w-full text-sm"><thead class="text-xs text-gray-500"><tr><th class="py-1.5 text-left"></th><th class="py-1.5 text-right">{{ $isTr ? 'Harcama' : 'Spend' }}</th><th class="py-1.5 text-right">{{ $isTr ? 'Dön.' : 'Conv.' }}</th><th class="py-1.5 text-right">CPA</th></tr></thead>
+                                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                    @foreach ($demoRows->take(8) as $row)
+                                        <tr><td class="py-1.5 text-gray-800 dark:text-gray-200">{{ $row['label'] ?? '—' }}</td><td class="py-1.5 text-right tabular-nums">{{ $fmtMoney($row['cost'] ?? null) }}</td><td class="py-1.5 text-right tabular-nums">{{ $fmtNumber($row['conversions'] ?? 0, 1) }}</td><td class="py-1.5 text-right tabular-nums">{{ $fmtMoney($row['cpa'] ?? null) }}</td></tr>
+                                    @endforeach
+                                </tbody></table></div>
+                    @endforeach
+                </div>
             @endif
         </section>
     </div>

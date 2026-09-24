@@ -8,6 +8,7 @@ use App\Services\Advisor\Support\AdvisorWebsiteReader;
 use App\Services\Ga4\Ga4SpecialistBindingResolver;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\SeoTasks\SeoPlanInputCollector;
+use App\Support\GoogleAds\DemographicLabels;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -59,7 +60,8 @@ final class GoogleAdsAdvisorInputCollector
             'campaigns' => $campaigns,
             'campaign_daily' => $campaignDaily,
             'search_terms' => $this->searchTerms($scope, $window),
-            'negatives' => $this->negatives($scope),
+            'negatives' => array_merge($this->negatives($scope), $this->sharedNegatives($asset)),
+            'segments' => $this->segments($scope, $window),
             'keywords' => $this->keywords($scope, $window),
             'quality_history' => $this->qualityHistory($scope, $end),
             'ads' => $this->ads($scope, $window),
@@ -251,6 +253,60 @@ final class GoogleAdsAdvisorInputCollector
         }
 
         return $out;
+    }
+
+    /**
+     * Negatives MoxDOP added to the account's shared "MoxDOP negatifleri" list (ADR-064). The shared list itself is
+     * not collected, so the written terms are taken from the write log; undone writes are left out.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function sharedNegatives(DigitalAsset $asset): array
+    {
+        if (! Schema::hasTable('external_write_actions')) {
+            return [];
+        }
+        $out = [];
+        DB::table('external_write_actions')->where('digital_asset_id', $asset->id)->where('channel', 'google_ads')
+            ->where('action', 'negative_list_add')->whereIn('status', ['succeeded', 'partial'])->whereNull('undone_at')
+            ->orderBy('id')->pluck('result')->each(function ($result) use (&$out): void {
+                foreach ((array) (self::decode($result)['added'] ?? []) as $keyword) {
+                    if (is_array($keyword) && filled($keyword['text'] ?? null)) {
+                        $out[] = ['text' => (string) $keyword['text'], 'match_type' => $keyword['match_type'] ?? 'EXACT', 'level' => 'shared', 'campaign_id' => null, 'ad_group_id' => null];
+                    }
+                }
+            });
+
+        return $out;
+    }
+
+    /**
+     * Spend and conversions by device, province (physical presence), 3-hour block of the day, age and gender.
+     *
+     * @param  array{0: string, 1: string}  $window
+     * @return array<string, list<array<string, mixed>>> device, region, hour, age, gender
+     */
+    private function segments(GoogleAdsRowScope $scope, array $window): array
+    {
+        $sum = static fn ($rows): array => ['cost' => (float) $rows->sum('cost_amount'), 'clicks' => (int) $rows->sum('clicks'), 'conversions' => (float) $rows->sum('conversions')];
+        $device = $scope->daily('google_ads_device_daily', $window[0], $window[1])->get(['device', 'cost_amount', 'clicks', 'conversions'])
+            ->groupBy('device')->map(fn ($rows, $key): array => ['label' => (string) $key] + $sum($rows))->values()->all();
+        $hour = $scope->daily('google_ads_hour_daily', $window[0], $window[1])->get(['hour', 'cost_amount', 'clicks', 'conversions'])
+            ->groupBy(fn ($row): string => sprintf('%02d:00–%02d:00', intdiv((int) $row->hour, 3) * 3, intdiv((int) $row->hour, 3) * 3 + 3))
+            ->map(fn ($rows, $key): array => ['label' => (string) $key] + $sum($rows))->values()->all();
+        $regionRows = $scope->daily('google_ads_geo_daily', $window[0], $window[1])->where('location_type', 'LOCATION_OF_PRESENCE')
+            ->get(['geo_target_region', 'cost_amount', 'clicks', 'conversions'])->groupBy('geo_target_region');
+        $names = $regionRows->isNotEmpty() && Schema::hasTable('google_ads_geo_names')
+            ? DB::table('google_ads_geo_names')->whereIn('resource_name', $regionRows->keys()->all())->pluck('name', 'resource_name')->all() : [];
+        $region = $regionRows->reject(fn ($rows, $key): bool => ! isset($names[$key]))
+            ->map(fn ($rows, $key): array => ['label' => (string) $names[$key]] + $sum($rows))->values()->all();
+
+        $demographic = fn (string $table, callable $label): array => $scope->daily($table, $window[0], $window[1])->get(['criterion_id', 'cost_amount', 'clicks', 'conversions'])
+            ->groupBy('criterion_id')->map(fn ($rows, $key): array => ['label' => $label((string) $key)] + $sum($rows))->values()->all();
+
+        return ['device' => $device, 'region' => $region, 'hour' => $hour,
+            'age' => $demographic('google_ads_age_range_daily', DemographicLabels::age(...)),
+            'gender' => $demographic('google_ads_gender_daily', DemographicLabels::gender(...))];
     }
 
     /**

@@ -54,6 +54,8 @@ final class GoogleAdsAdvisorRuleEngine
             $this->performanceAnomaly($input),
             $this->dailyAnomaly($input),
             $this->landingKeywordMismatch($input),
+            $this->negativeConflicts($input),
+            $this->segmentWaste($input),
         );
 
         usort($items, static fn (array $a, array $b): int => $b['priority_score'] <=> $a['priority_score']);
@@ -1145,6 +1147,117 @@ final class GoogleAdsAdvisorRuleEngine
             copyText: null,
             baseline: ['cost' => $cost, 'keywords' => count($rows)],
         )];
+    }
+
+    // ------------------------------------------------------------------ negatives that block own keywords
+
+    /**
+     * An enabled keyword that one of the account's own negatives blocks never shows ads: usually a negative
+     * added too broadly (campaign, ad group or the shared MoxDOP list).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function negativeConflicts(array $input): array
+    {
+        $negatives = $input['negatives'] ?? [];
+        if ($negatives === []) {
+            return [];
+        }
+        $rows = [];
+        foreach ($input['keywords'] ?? [] as $keyword) {
+            if (strtoupper((string) ($keyword['status'] ?? '')) !== 'ENABLED' || trim((string) $keyword['text']) === '') {
+                continue;
+            }
+            foreach ($negatives as $negative) {
+                $inScope = match ($negative['level'] ?? 'campaign') {
+                    'shared' => true,
+                    'ad_group' => (string) $negative['ad_group_id'] === (string) $keyword['ad_group_id'],
+                    default => $keyword['campaign_id'] !== null && (string) $negative['campaign_id'] === (string) $keyword['campaign_id'],
+                };
+                if ($inScope && $this->coveredByNegative((string) $keyword['text'], [$negative])) {
+                    $rows[] = ['keyword' => $keyword['text'], 'negative' => $negative['text'], 'match_type' => $negative['match_type'], 'level' => $negative['level']];
+
+                    break;
+                }
+            }
+        }
+        if ($rows === []) {
+            return [];
+        }
+        $rows = array_slice($rows, 0, 15);
+        $levels = ['campaign' => 'kampanya', 'ad_group' => 'reklam grubu', 'shared' => 'paylaşılan liste'];
+
+        return [$this->item(
+            input: $input,
+            category: AdvisorCategory::Quality,
+            ruleId: 'negative-keyword-conflict',
+            keyParts: array_map(static fn (array $r): string => $r['keyword'].'|'.$r['negative'], $rows),
+            severity: 'high',
+            impact: null,
+            impactLabel: count($rows).' anahtar kelime reklam gösteremiyor',
+            title: count($rows).' anahtar kelimeyi kendi negatif kelimeniz engelliyor',
+            reason: 'Bu anahtar kelimeler etkin ama hesaptaki bir negatif kelime aynı aramayı engelliyor; reklam hiç çıkmaz. Negatifi daraltın (tam eşleme) ya da anahtar kelimeyi kaldırın.',
+            evidence: ['rows' => array_map(static fn (array $r): array => $r + ['level_label' => $levels[$r['level']] ?? $r['level']], $rows), 'source' => 'google_ads_keyword_snapshot + negatif listeleri'],
+            checklist: ['Engelleyen negatifi bulun (düzey sütunu)', 'Negatifi tam eşlemeye çevirin veya kaldırın', 'Anahtar kelimenin "Uygun" durumuna döndüğünü kontrol edin'],
+            copyText: implode("\n", array_map(static fn (array $r): string => $r['keyword'].' ← '.$r['negative'], $rows)),
+            baseline: null,
+        )];
+    }
+
+    // ------------------------------------------------------------------ device / province / hour waste
+
+    /**
+     * Segments (device, province, 3-hour block, age, gender) that spend a real share of the budget with no conversions, or at
+     * more than twice the account's cost per conversion: a bid adjustment or exclusion candidate.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function segmentWaste(array $input): array
+    {
+        $account = $input['account'];
+        $cfg = (array) ($this->cfg['segments'] ?? []);
+        if (($account['conversions'] ?? 0) < (float) ($cfg['min_account_conversions'] ?? 5) || $account['cpa'] === null) {
+            return [];
+        }
+        $minCost = max((float) ($cfg['min_cost'] ?? 150), $account['cost'] * (float) ($cfg['min_share'] ?? 0.08));
+        $labels = ['device' => 'Cihaz', 'region' => 'İl', 'hour' => 'Saat aralığı', 'age' => 'Yaş', 'gender' => 'Cinsiyet'];
+        $items = [];
+        foreach ($labels as $dimension => $dimensionLabel) {
+            $rows = [];
+            foreach ($input['segments'][$dimension] ?? [] as $segment) {
+                if ($segment['cost'] < $minCost) {
+                    continue;
+                }
+                $cpa = $segment['conversions'] > 0 ? $segment['cost'] / $segment['conversions'] : null;
+                if ($cpa === null || $cpa > $account['cpa'] * (float) ($cfg['cpa_ratio'] ?? 2.0)) {
+                    $excess = $cpa === null ? $segment['cost'] : $segment['cost'] - $segment['conversions'] * $account['cpa'];
+                    $rows[] = ['segment' => $segment['label'], 'cost' => round($segment['cost'], 2), 'conversions' => round($segment['conversions'], 1),
+                        'cpa' => $cpa !== null ? round($cpa, 2) : null, 'suggested' => $cpa === null ? '-50% veya hariç tut' : '-30%', 'excess' => round(max(0.0, $excess), 2)];
+                }
+            }
+            if ($rows === []) {
+                continue;
+            }
+            usort($rows, static fn (array $a, array $b): int => $b['excess'] <=> $a['excess']);
+            $excess = array_sum(array_column($rows, 'excess'));
+            $items[] = $this->item(
+                input: $input,
+                category: AdvisorCategory::Waste,
+                ruleId: 'segment-bid-adjustment',
+                keyParts: [$dimension, ...array_column($rows, 'segment')],
+                severity: $excess >= $account['cost'] * 0.15 ? 'high' : 'medium',
+                impact: $excess,
+                impactLabel: $this->money($input, $excess).' ortalamanın üstünde harcama (30 gün)',
+                title: $dimensionLabel.': '.implode(', ', array_slice(array_column($rows, 'segment'), 0, 3)).' pahalı çalışıyor',
+                reason: sprintf('Hesabın dönüşüm başı maliyeti %s. Bu %s kırılımları ya hiç dönüştürmüyor ya da iki katından pahalı. Teklif ayarı düşürülerek bütçe iyi çalışan kısma kayar.', $this->money($input, (float) $account['cpa']), mb_strtolower($dimensionLabel)),
+                evidence: ['dimension' => $dimension, 'rows' => $rows, 'account_cpa' => round((float) $account['cpa'], 2), 'source' => 'google_ads_'.(['region' => 'geo', 'age' => 'age_range'][$dimension] ?? $dimension).'_daily'],
+                checklist: ['Kampanya ayarlarında ilgili '.mb_strtolower($dimensionLabel).' için teklif ayarını önerilen oranda düşürün', 'Akıllı teklif kullanan kampanyalarda yalnızca hariç tutma etkilidir', '2 hafta sonra dönüşüm başı maliyeti tekrar kontrol edin'],
+                copyText: implode("\n", array_map(static fn (array $r): string => $r['segment'].': '.$r['suggested'], $rows)),
+                baseline: ['account_cpa' => round((float) $account['cpa'], 2)],
+            );
+        }
+
+        return $items;
     }
 
     public function coveredByNegative(string $term, array $negatives): bool

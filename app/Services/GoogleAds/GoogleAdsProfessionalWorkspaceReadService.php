@@ -5,6 +5,7 @@ namespace App\Services\GoogleAds;
 use App\Enums\DataPool\DataSourceState;
 use App\Models\DataPool\DatasetMaterialization;
 use App\Services\GoogleAds\Support\GoogleAdsBindingMode;
+use App\Support\GoogleAds\DemographicLabels;
 use App\Support\Operator\OperatorReportingPeriod;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -46,8 +47,10 @@ final class GoogleAdsProfessionalWorkspaceReadService
             $location = $this->dailyBreakdown('google_ads_user_location_daily', ['country_criterion_id', 'targeting_location'], $resourceId, $customerId, $rangeStart, $rangeEnd, 100);
             $geoRegions = $this->geo('geo_target_region', $resourceId, $customerId, $rangeStart, $rangeEnd);
             $geoCities = $this->geo('geo_target_city', $resourceId, $customerId, $rangeStart, $rangeEnd);
-            $age = $this->dailyBreakdown('google_ads_age_range_daily', ['criterion_id'], $resourceId, $customerId, $rangeStart, $rangeEnd, 50);
-            $gender = $this->dailyBreakdown('google_ads_gender_daily', ['criterion_id'], $resourceId, $customerId, $rangeStart, $rangeEnd, 50);
+            $age = array_map(fn (array $row): array => $row + ['label' => DemographicLabels::age((string) $row['criterion_id'])],
+                $this->dailyBreakdown('google_ads_age_range_daily', ['criterion_id'], $resourceId, $customerId, $rangeStart, $rangeEnd, 50));
+            $gender = array_map(fn (array $row): array => $row + ['label' => DemographicLabels::gender((string) $row['criterion_id'])],
+                $this->dailyBreakdown('google_ads_gender_daily', ['criterion_id'], $resourceId, $customerId, $rangeStart, $rangeEnd, 50));
             $campaignAudience = $this->dailyBreakdown('google_ads_campaign_audience_daily', ['campaign_id', 'criterion_id'], $resourceId, $customerId, $rangeStart, $rangeEnd, 100);
             $adGroupAudience = $this->dailyBreakdown('google_ads_ad_group_audience_daily', ['campaign_id', 'ad_group_id', 'criterion_id'], $resourceId, $customerId, $rangeStart, $rangeEnd, 100);
             $adGroups = $this->dailyBreakdown('google_ads_ad_group_daily', ['campaign_id', 'ad_group_id'], $resourceId, $customerId, $rangeStart, $rangeEnd, 100);
