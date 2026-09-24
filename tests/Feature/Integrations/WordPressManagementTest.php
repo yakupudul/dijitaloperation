@@ -56,7 +56,7 @@ final class WordPressManagementTest extends TestCase
         $this->site = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'website', 'status' => 'active', 'module_id' => 'website', 'name' => 'Atlas Site', 'domain' => 'example.com']);
         $this->connection = CoreConnection::factory()->create([
             'digital_asset_id' => $this->site->id, 'type' => 'wordpress_connector', 'enabled' => true,
-            'config' => ['pairing_state' => 'paired', 'snapshot_url' => 'https://example.com/wp-json/moxdop/v1/snapshot', 'plugin_version' => '1.3.0'],
+            'config' => ['pairing_state' => 'paired', 'snapshot_url' => 'https://example.com/wp-json/moxdop/v1/snapshot', 'plugin_version' => '1.4.0'],
         ]);
         $secret = str_repeat('s', 43);
         CoreConnectionCredential::factory()->create(['connection_id' => $this->connection->id, 'encrypted_payload' => ['client_id' => 'client-1', 'shared_secret' => $secret]]);
@@ -143,6 +143,6 @@ final class WordPressManagementTest extends TestCase
         $this->assertStringContainsString("get_option('moxdop_connector_login_user', 0)", $management);
         $this->assertStringContainsString('const LOGIN_TTL = 60;', $management);
         $this->assertStringContainsString('delete_transient($key);', $management, 'login links are single-use');
-        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.3.0')", file_get_contents(base_path('connectors/wordpress/moxdop-connector/moxdop-connector.php')));
+        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.4.0')", file_get_contents(base_path('connectors/wordpress/moxdop-connector/moxdop-connector.php')));
     }
 }

@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.3.0
+Stable tag: 1.4.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -57,6 +57,11 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.4.0 =
+* Optional, admin-approved SEO fixes (ADR-070): SEO title and description (Yoast, Rank Math, SEOPress or the plugin's own fields), image alt text, JSON-LD schema, 301 redirects, noindex / canonical, one internal link per change. Off by default; every change is logged and can be undone while nobody changed it since.
+* Optional content updates: a new page version is saved as a draft copy and replaces the live page only after a second approval; WordPress keeps the old version as a revision. Off by default.
+* Health, login-link and update responses are now signed like every other response.
 
 = 1.3.0 =
 * Added a health endpoint (WordPress / PHP versions, pending updates, Site Health counts).

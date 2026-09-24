@@ -115,7 +115,7 @@ Yasak örnekler:
 * Instagram veya diğer sosyal hesaplarda paylaşım yapmak
 * Her türlü harici **write action**
 
-İstisna (ADR-064, sahip kararı): yalnız Admin onayıyla, kayıtlı ve geri alınabilir şekilde (1) Google Ads'te "MoxDOP negatifleri" paylaşılan negatif listesine ekleme, (2) WordPress'te MoxDOP Connector ile **taslak** oluşturma. Başka hiçbir harici yazma yapılmaz.
+İstisna (ADR-064, sahip kararı): yalnız Admin onayıyla, kayıtlı ve geri alınabilir şekilde (1) Google Ads'te "MoxDOP negatifleri" paylaşılan negatif listesine ekleme, (2) WordPress'te MoxDOP Connector ile **taslak** oluşturma. ADR-068: onaylı WordPress güncellemesi ve tek tık giriş. ADR-070: WordPress'te onaylı SEO/teknik düzeltmeler (başlık, açıklama, alt metin, schema, 301, noindex/canonical, iç bağlantı) ve onaylı sayfa metni güncellemesi (önce taslak kopya, ikinci onayla yayına). Hepsi site yöneticisi eklentide açarsa çalışır. Başka hiçbir harici yazma yapılmaz.
 
 Harici entegrasyonlarda mümkün olan en düşük ve **salt okunur** yetkiler tercih edilir.
 

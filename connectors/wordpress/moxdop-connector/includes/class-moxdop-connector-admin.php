@@ -36,21 +36,21 @@ final class MoxDOP_Connector_Admin
             return;
         }
         $paired = is_array($this->secrets->read());
-        $delivery = (new MoxDOP_Connector_Events())->status();
+        $delivery = (new MoxDOP_Connector_Events)->status();
         $notice = isset($_GET['moxdop_notice']) ? sanitize_key(wp_unslash($_GET['moxdop_notice'])) : '';
         ?>
         <div class="wrap">
             <h1>MoxDOP Website Connector</h1>
             <p>This connector shares CMS inventory and health with MoxDOP. It sends content, SEO and maintenance activity with the acting user ID/name. It never sends passwords, comments, form submissions or media binaries. It can create drafts (never publishes). One-click login and approved updates below are off unless you turn them on.</p>
-            <?php if ($notice === 'paired') : ?>
+            <?php if ($notice === 'paired') { ?>
                 <div class="notice notice-success"><p>Connector paired successfully.</p></div>
-            <?php elseif ($notice === 'disconnected') : ?>
+            <?php } elseif ($notice === 'disconnected') { ?>
                 <div class="notice notice-success"><p>Connector disconnected and its local credential removed.</p></div>
-            <?php elseif ($notice === 'saved') : ?>
+            <?php } elseif ($notice === 'saved') { ?>
                 <div class="notice notice-success"><p>Settings saved.</p></div>
-            <?php elseif ($notice === 'failed') : ?>
+            <?php } elseif ($notice === 'failed') { ?>
                 <div class="notice notice-error"><p>Pairing failed. Confirm the HTTPS MoxDOP URL and one-time code, then try again.</p></div>
-            <?php endif; ?>
+            <?php } ?>
 
             <table class="widefat striped" style="max-width: 760px; margin: 18px 0;">
                 <tbody>
@@ -94,9 +94,9 @@ final class MoxDOP_Connector_Admin
                         <td>
                             <select id="moxdop_login_user" name="moxdop_login_user">
                                 <option value="0">Off / Kapalı</option>
-                                <?php foreach (get_users(['role__in' => ['administrator', 'editor'], 'fields' => ['ID', 'user_login']]) as $user) : ?>
+                                <?php foreach (get_users(['role__in' => ['administrator', 'editor'], 'fields' => ['ID', 'user_login']]) as $user) { ?>
                                     <option value="<?php echo (int) $user->ID; ?>" <?php selected(MoxDOP_Connector_Management::login_user_id(), (int) $user->ID); ?>><?php echo esc_html($user->user_login); ?></option>
-                                <?php endforeach; ?>
+                                <?php } ?>
                             </select>
                             <p class="description">MoxDOP can open a single-use, 60-second login link as this user. Use a dedicated account for your agency.</p>
                         </td>
@@ -105,18 +105,26 @@ final class MoxDOP_Connector_Admin
                         <th scope="row">Approved updates / Onaylı güncelleme</th>
                         <td><label><input type="checkbox" name="moxdop_allow_updates" value="1" <?php checked(MoxDOP_Connector_Management::updates_allowed()); ?>> Allow MoxDOP to install plugin, theme and WordPress updates that WordPress offers, one at a time, after an admin approves each in MoxDOP.</label></td>
                     </tr>
+                    <tr>
+                        <th scope="row">SEO fixes / SEO düzeltmeleri</th>
+                        <td><label><input type="checkbox" name="moxdop_allow_fixes" value="1" <?php checked(MoxDOP_Connector_Fixes::fixes_allowed()); ?>> Allow MoxDOP to change SEO titles and descriptions, image alt texts, schema, 301 redirects, noindex / canonical and to add internal links, after an admin approves each change in MoxDOP. Every change can be undone from MoxDOP.</label></td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Content updates / İçerik güncelleme</th>
+                        <td><label><input type="checkbox" name="moxdop_allow_content" value="1" <?php checked(MoxDOP_Connector_Fixes::content_allowed()); ?>> Allow MoxDOP to save a new version of a page as a draft copy, and to replace the live page with it only after a second approval. WordPress keeps the old version as a revision.</label></td>
+                    </tr>
                 </table>
                 <?php submit_button('Save'); ?>
             </form>
 
-            <?php if ($paired) : ?>
+            <?php if ($paired) { ?>
                 <hr>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <input type="hidden" name="action" value="moxdop_connector_disconnect">
                     <?php wp_nonce_field('moxdop_connector_disconnect'); ?>
                     <?php submit_button('Disconnect', 'delete', 'submit', false); ?>
                 </form>
-            <?php endif; ?>
+            <?php } ?>
         </div>
         <?php
     }
@@ -195,6 +203,8 @@ final class MoxDOP_Connector_Admin
         }
         update_option('moxdop_connector_login_user', $user_id, false);
         update_option('moxdop_connector_allow_updates', ! empty($_POST['moxdop_allow_updates']) ? '1' : '0', false);
+        update_option('moxdop_connector_allow_fixes', ! empty($_POST['moxdop_allow_fixes']) ? '1' : '0', false);
+        update_option('moxdop_connector_allow_content', ! empty($_POST['moxdop_allow_content']) ? '1' : '0', false);
         $this->redirect('saved');
     }
 

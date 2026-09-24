@@ -823,3 +823,32 @@
 - **Değiştirdiği:** Demo döneminden kalan "değer/rapor varlıkları için üretim tablosu yok" korumasını yalnız `monthly_reports` için kaldırır (`ClientValueReportingKnowledgeTest`). `client_value_stories`, `reports`, `report_sections`, `knowledge_articles`, `decision_logs`, `narrative_snapshots` yasağı sürer.
 - **Karar:** Aylık rapor v2, marka + ay başına tek satırda dondurulmuş rakamları, düzenlenebilir AI yorumunu, operatör notunu ve yayın durumunu tutar. Değişmez `report_snapshots` (Client Value Story) ayrı kalır; v2 yorum düzenlemeyi gerektirdiği için değişmez anlık görüntüye yazılmaz. Müşteri yalnız yayımlanmış raporu, süreli imzalı bağlantıyla görür.
 - **İlgili:** ADR-068, `app/Services/MonthlyReport/*`, `database/migrations/2026_10_04_090000_create_monthly_reports_table.php`
+
+
+## ADR-070 — WordPress'te onaylı SEO / teknik düzeltme ve sayfa metni güncellemesi
+
+- **Durum:** Accepted (sahip kararı, 2026-10-11: "Fazları sırayla yap". Önerilen üç faz: 1 başlık/açıklama/alt metin/schema; 2 yönlendirme/noindex/canonical/iç bağlantı; 3 sayfa metni ve yeni sayfa. Otomatik yayın yok.)
+- **Değiştirdiği:** ADR-018'e dördüncü dar istisna (ADR-064 ve ADR-068'in yanına). ADR-064'ün "mevcut içeriği değiştirmez" kısıtını yalnız aşağıdaki işlemler için kaldırır.
+- **Karar:**
+  1. **Kapsam (WordPress, MoxDOP Connector ≥ 1.4.0):**
+     - SEO başlığı ve meta açıklama: Yoast, Rank Math, SEOPress alanlarına; eklenti yoksa MoxDOP'un kendi alanlarına yazılır.
+     - Görsel alt metni.
+     - JSON-LD schema: sayfa ya da site geneli.
+     - 301 yönlendirme: eklentinin kendi tablosunda.
+     - noindex ve canonical.
+     - Bir sayfaya tek iç bağlantı eklemek: yalnız metinde zaten geçen ifadeye bağlantı verilir.
+     - Sayfa metni güncellemesi: yeni sürüm önce ayrı **taslak kopya** olarak yazılır. Canlı sayfayı ancak ikinci, ayrı onaylanan "Yayına al" isteği değiştirir. WordPress eski sürümü revizyon olarak saklar.
+     - Yeni sayfa: yalnız taslak (ADR-064 gibi).
+  2. **İki taraflı açma:** Eklentide "SEO fixes" ve "Content updates" ayrı ayrı ve varsayılan kapalıdır. Site yöneticisi açmadan hiçbir istek uygulanmaz. MoxDOP'ta yalnız Admin onaylar. `EXTERNAL_WRITES_ENABLED` / kanal anahtarı hepsini kapatır.
+  3. **Kayıt ve geri alma:**
+     - Her istek `external_write_actions` satırıdır (`site_fix`, `content_draft`, `content_apply`). Her öneri `site_fix_items` satırıdır.
+     - Eklenti her değişikliğin önceki değerini saklar. Geri alma yalnız değer o arada sitede değiştirilmediyse yazar. Değiştirilmişse üzerine yazmaz ve bunu raporlar.
+  4. **Öneri kaynağı:**
+     - Sorunları kurallar saklanan veriden bulur: genel tarama ve eklenti anlık görüntüsü.
+     - Değerleri AI yalnız tıklamayla önerir.
+     - Operatör her değeri görür ve düzenleyebilir. Uygulanan her değer "önce / sonra" olarak kalır.
+     - AI metni sektör uyum kurallarına göre yazılır. Fiyat, garanti ve yeni bilgi uydurmaz.
+  5. **Yapılmayanlar:** Tema/eklenti dosyası düzenleme, kod ekleme, silme, yayınlama (Yayına al dışında), WordPress dışı siteler.
+  6. **1.3.0 düzeltmesi:** `/health`, `/login-link` ve `/updates` imzasız yanıt döndürüyordu; MoxDOP bu yanıtları reddettiği için ADR-068 özellikleri gerçek sitede çalışamıyordu. 1.4.0 bu yanıtları da imzalar. `management_min_plugin_version` 1.4.0'dır.
+- **İlgili:** ADR-018, ADR-064, ADR-068, `connectors/wordpress/moxdop-connector/includes/class-moxdop-connector-fixes.php`, `app/Services/SiteFixes/*`, `app/Services/ExternalWrites/WordPressFixWriter.php`, `app/Livewire/Operator/Website/SiteFixesPanel.php`
+

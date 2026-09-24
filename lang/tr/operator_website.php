@@ -11,6 +11,7 @@ return [
         'search_console' => 'Search Console',
         'ga4_analysis' => 'Google Analytics',
         'content' => 'Sayfalar & İçerik',
+        'fixes' => 'Düzeltmeler',
         'health' => 'Site Sağlığı',
         'standards' => 'Standartlar',
         'infrastructure' => 'Altyapı & WordPress',

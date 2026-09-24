@@ -1,5 +1,42 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-11 — Web sitesi düzeltmeleri: siteye onaylı yazma (ADR-070, Faz 1–3)
+
+**State:** CODED + PHPUnit.
+- `SiteFixesTest` passes 6/6 on SQLite and PostgreSQL:
+  - rules find problems from stored data;
+  - AI values are accepted, and a redirect target that is not a real page is refused;
+  - Admin applies and undoes (a member gets 403);
+  - page text goes to a draft copy first and goes live only after a second approval (dangerous HTML removed);
+  - an internal-link anchor must already be in the page text;
+  - plugin 1.4 is required.
+- `ExternalWritesTest` and `WordPressManagementTest` still pass.
+- Not deployed. Not tried on a real WordPress site: plugin 1.4.0 PHP code was reviewed only (php -l clean), with no WordPress runtime test.
+
+- **Where:** Web sitesi › **Düzeltmeler** tab.
+  1. "Sorunları bul": rules read the latest crawl and connector snapshot.
+  2. "Değerleri AI ile öner" and "İç bağlantı öner".
+  3. The operator reviews and edits each value (before → after).
+  4. An Admin applies the selected fixes with "Seçilenleri siteye uygula".
+  5. "Siteye yapılan değişiklikler" lists each write with a "Geri al" button.
+- **Phase 1:** SEO title (empty, too long or short, duplicated), meta description (empty, too long or short), image alt text, LocalBusiness schema on the home page (from GBP facts only).
+- **Phase 2:**
+  - 301 redirect for 404/410 addresses (the target must be a published page);
+  - accidental noindex;
+  - canonical pointing elsewhere;
+  - internal link (the anchor is already in the text).
+- **Phase 3:**
+  - A thin page (<250 words): AI writes a new version, it is sent as a WordPress **draft copy** (the live page is unchanged), and a second approval ("Yayına al") replaces the live page. WordPress keeps the old version and the change can be undone.
+  - New page from an SEO brief: AI writes the full text and it is sent as a draft.
+- **WordPress Connector 1.4.0:**
+  - "SEO fixes" and "Content updates" options, off by default.
+  - A change log that stores previous values; undo does not overwrite a value changed after MoxDOP.
+  - The plugin's own title / description / canonical / noindex output when no SEO plugin is present, plus redirects and JSON-LD output.
+- **Fix:** 1.3.0 returned health, one-click login and update responses unsigned, and MoxDOP rejects those, so the ADR-068 features did not work on real sites. 1.4.0 signs them; the minimum version for management features is 1.4.0.
+- **Operator steps:**
+  1. Download the new plugin (1.4.0) from Entegrasyonlar › WordPress and update it on the sites.
+  2. In WordPress › Ayarlar › MoxDOP Connector, turn on "SEO fixes" / "Content updates".
+
 ## 2026-10-11 — Tıkla-çalıştır AI içgörüleri (8 yeni yer)
 
 **State:** CODED + PHPUnit. Not deployed; answer quality is not yet reviewed on real data.

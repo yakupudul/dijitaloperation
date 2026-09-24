@@ -1,5 +1,13 @@
 # PROJECT_MEMORY
 
+## 2026-10-11 — ADR-070: writing fixes to WordPress
+
+- New site writes go through `site_fix_items` + `ExternalWriteService` + `WordPressFixWriter` + the plugin's `/fixes` endpoints.
+  - Do not add a separate write path.
+  - Each change must be undoable. The plugin keeps the previous value and never overwrites a value changed after MoxDOP.
+- Page text never goes straight to the live page: first a draft copy, then a separate "Yayına al" approval.
+- Every connector response must use the signed envelope (`$this->auth->envelope` / `signed()`); MoxDOP rejects unsigned data.
+
 ## 2026-10-11 — On-click AI insights
 
 - A new AI helper on a page is an `InsightDefinition`: context builder + `InsightAgent` subclass. It is registered in `AiInsightServiceProvider` and shown with `<x-operator.ai-insight>`.

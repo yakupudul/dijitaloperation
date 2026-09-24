@@ -27,7 +27,9 @@ final class MoxDOP_Connector_REST_Controller
             'permission_callback' => [$this->auth, 'authorize'],
             'callback' => [$this, 'snapshot'],
             'args' => [
-                'object_ids' => ['type' => 'string', 'default' => '', 'validate_callback' => static function ($value) { return $value === '' || preg_match('/^[1-9][0-9]*(?:,[1-9][0-9]*){0,49}$/', $value); }],
+                'object_ids' => ['type' => 'string', 'default' => '', 'validate_callback' => static function ($value) {
+                    return $value === '' || preg_match('/^[1-9][0-9]*(?:,[1-9][0-9]*){0,49}$/', $value);
+                }],
                 'section' => [
                     'required' => true,
                     'type' => 'string',
@@ -37,36 +39,54 @@ final class MoxDOP_Connector_REST_Controller
                 'per_page' => ['type' => 'integer', 'default' => 50, 'minimum' => 1, 'maximum' => 100],
             ],
         ]);
-        // ADR-064: the only write. Creates drafts; never publishes, never edits existing content.
+        // ADR-064: creates drafts; never publishes.
         register_rest_route(self::NAMESPACE, '/drafts', [
             'methods' => WP_REST_Server::CREATABLE,
             'permission_callback' => [$this->auth, 'authorize'],
             'callback' => [$this, 'create_draft'],
         ]);
         // Connector v2 (1.3.0). Login and updates stay disabled until a site admin turns them on.
-        $management = new MoxDOP_Connector_Management();
+        $management = new MoxDOP_Connector_Management;
+        // 1.4.0: every management response is signed like the others (MoxDOP rejects unsigned responses).
         register_rest_route(self::NAMESPACE, '/health', [
             'methods' => WP_REST_Server::READABLE,
             'permission_callback' => [$this->auth, 'authorize'],
-            'callback' => static function () use ($management) {
-                return rest_ensure_response($management->health());
+            'callback' => function (WP_REST_Request $request) use ($management) {
+                return $this->signed($management->health(), $request);
             },
         ]);
         register_rest_route(self::NAMESPACE, '/login-link', [
             'methods' => WP_REST_Server::CREATABLE,
             'permission_callback' => [$this->auth, 'authorize'],
-            'callback' => [$management, 'login_link'],
+            'callback' => function (WP_REST_Request $request) use ($management) {
+                return $this->signed($management->login_link($request), $request);
+            },
         ]);
         register_rest_route(self::NAMESPACE, '/updates', [
             'methods' => WP_REST_Server::CREATABLE,
             'permission_callback' => [$this->auth, 'authorize'],
-            'callback' => [$management, 'update'],
+            'callback' => function (WP_REST_Request $request) use ($management) {
+                return $this->signed($management->update($request), $request);
+            },
         ]);
+        // 1.4.0 (ADR-070): approved SEO fixes and content updates, off until the site admin enables them.
+        (new MoxDOP_Connector_Fixes($this->auth))->register_routes(self::NAMESPACE);
         register_rest_route(self::NAMESPACE, '/drafts/(?P<id>[1-9][0-9]*)', [
             'methods' => WP_REST_Server::DELETABLE,
             'permission_callback' => [$this->auth, 'authorize'],
             'callback' => [$this, 'trash_draft'],
         ]);
+    }
+
+    /** Wraps a plain result in the signed envelope; errors pass through unchanged. */
+    private function signed($result, WP_REST_Request $request)
+    {
+        if (is_wp_error($result)) {
+            return $result;
+        }
+        $data = $result instanceof WP_REST_Response ? $result->get_data() : $result;
+
+        return $this->auth->envelope(is_array($data) ? $data : ['value' => $data], $request);
     }
 
     public static function drafts_allowed()
@@ -145,10 +165,15 @@ final class MoxDOP_Connector_REST_Controller
             'wordpress_version' => get_bloginfo('version'),
             'php_version' => PHP_VERSION,
             'read_only' => ! self::drafts_allowed(),
-            'capabilities' => self::drafts_allowed() ? ['drafts'] : [],
+            'capabilities' => array_values(array_filter([
+                self::drafts_allowed() ? 'drafts' : null,
+                MoxDOP_Connector_Management::updates_allowed() ? 'updates' : null,
+                MoxDOP_Connector_Fixes::fixes_allowed() ? 'fixes' : null,
+                MoxDOP_Connector_Fixes::content_allowed() ? 'content' : null,
+            ])),
             'sections' => ['site', 'extensions', 'content', 'media', 'taxonomies', 'seo'],
             'server_time' => time(),
-            'event_delivery' => (new MoxDOP_Connector_Events())->status(),
+            'event_delivery' => (new MoxDOP_Connector_Events)->status(),
             'management_enabled' => false,
         ], $request);
     }
@@ -241,7 +266,7 @@ final class MoxDOP_Connector_REST_Controller
                 'litespeed_cache' => defined('LSCWP_V'),
             ],
             'site_health_cached' => $health,
-            'health' => (new MoxDOP_Connector_Health())->snapshot(),
+            'health' => (new MoxDOP_Connector_Health)->snapshot(),
         ];
 
         return $this->page([$record], 1, 100, 1);
@@ -496,6 +521,7 @@ final class MoxDOP_Connector_REST_Controller
                 $values[$key] = mb_substr(sanitize_text_field((string) $value), 0, 500);
             }
         }
+
         return $values;
     }
 

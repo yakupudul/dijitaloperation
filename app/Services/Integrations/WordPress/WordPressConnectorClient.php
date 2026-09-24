@@ -101,6 +101,40 @@ final class WordPressConnectorClient
     }
 
     /**
+     * ADR-070 (plugin ≥ 1.4.0, "SEO fixes" enabled by the site admin): apply a batch of changes.
+     *
+     * @param  list<array<string, mixed>>  $changes
+     * @return array{results: list<array<string, mixed>>}
+     */
+    public function applyFixes(CoreConnection $connection, array $changes): array
+    {
+        return $this->write($connection, 'POST', '/moxdop/v1/fixes', ['changes' => $changes], 120);
+    }
+
+    /**
+     * Restore the previous values of earlier changes (only where nobody changed them since).
+     *
+     * @param  list<string>  $changeIds
+     * @return array{results: list<array<string, mixed>>}
+     */
+    public function undoFixes(CoreConnection $connection, array $changeIds): array
+    {
+        return $this->write($connection, 'POST', '/moxdop/v1/fixes/undo', ['change_ids' => array_values($changeIds)], 120);
+    }
+
+    /** ADR-070: save a new version of a page as a separate draft copy ("Content updates" enabled). */
+    public function createContentDraft(CoreConnection $connection, int $objectId, string $title, string $html, string $reference): array
+    {
+        return $this->write($connection, 'POST', '/moxdop/v1/content-drafts', ['object_id' => $objectId, 'title' => $title, 'content_html' => $html, 'reference' => $reference], 60);
+    }
+
+    /** ADR-070: second approval, the draft copy replaces the live page (undo = undoFixes([change_id])). */
+    public function applyContentDraft(CoreConnection $connection, int $draftId): array
+    {
+        return $this->write($connection, 'POST', '/moxdop/v1/content-drafts/apply', ['draft_id' => $draftId], 60);
+    }
+
+    /**
      * Signed write request. The URL is derived from the paired snapshot URL (same REST base).
      *
      * @param  array<string, mixed>|null  $body

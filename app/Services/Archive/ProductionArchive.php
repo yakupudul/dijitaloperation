@@ -38,6 +38,7 @@ final class ProductionArchive
         'customer.brief' => 'Müşteri görüşme özeti',
         'sales.lead_score' => 'Lead puanı',
         'website.technical_tasks' => 'Teknik iş listesi',
+        'website.page_draft' => 'Web sayfası metni',
     ];
 
     /** Advisor draft rules → archive kind. */

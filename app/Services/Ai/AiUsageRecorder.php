@@ -42,6 +42,9 @@ final class AiUsageRecorder
         'CustomerBriefAgent' => AiRouteKeys::INSIGHT_CUSTOMER_BRIEF,
         'LeadScoreAgent' => AiRouteKeys::INSIGHT_LEAD_SCORE,
         'TechnicalTasksAgent' => AiRouteKeys::INSIGHT_TECHNICAL_TASKS,
+        'SiteFixValuesAgent' => AiRouteKeys::SITE_FIX_VALUES,
+        'InternalLinkAgent' => AiRouteKeys::SITE_FIX_LINKS,
+        'PageWriterAgent' => AiRouteKeys::SITE_FIX_PAGE,
     ];
 
     public function __construct(private readonly AiPricing $pricing) {}

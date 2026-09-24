@@ -59,4 +59,10 @@ final class AiRouteKeys
     public const string INSIGHT_LEAD_SCORE = 'insights.lead_score';
 
     public const string INSIGHT_TECHNICAL_TASKS = 'insights.technical_tasks';
+
+    public const string SITE_FIX_VALUES = 'site_fixes.values';
+
+    public const string SITE_FIX_LINKS = 'site_fixes.internal_links';
+
+    public const string SITE_FIX_PAGE = 'site_fixes.page_writer';
 }

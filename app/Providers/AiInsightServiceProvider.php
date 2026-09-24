@@ -12,6 +12,7 @@ use App\Services\Ai\Insights\Definitions\ReviewThemesInsight;
 use App\Services\Ai\Insights\Definitions\SearchTermTriageInsight;
 use App\Services\Ai\Insights\Definitions\TechnicalTasksInsight;
 use App\Support\Ai\AiDefaultSteps;
+use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\AiRouteRegistry;
 use Illuminate\Support\ServiceProvider;
 
@@ -27,6 +28,13 @@ final class AiInsightServiceProvider extends ServiceProvider
         CustomerBriefInsight::class => ['Customer Call Brief', 'portfolio', 'analysis', 'Short status brief of one customer (health, budget, open work, alerts) before a call.'],
         LeadScoreInsight::class => ['Agency Lead Score', 'sales', 'classification', 'Scores one incoming agency request and drafts the first reply. Contact details are not sent.'],
         TechnicalTasksInsight::class => ['Website Developer Task List', 'website', 'analysis', 'Turns the website technical observations into a prioritised developer task list.'],
+    ];
+
+    /** ADR-070 site-fix routes. */
+    private const array SITE_FIX_ROUTES = [
+        AiRouteKeys::SITE_FIX_VALUES => ['Website Fix Values', 'classification', 'Proposes SEO titles, meta descriptions, image alt texts, LocalBusiness schema and redirect targets for detected website problems. The operator edits and an Admin approves before anything is written.'],
+        AiRouteKeys::SITE_FIX_LINKS => ['Website Internal Links', 'analysis', 'Suggests internal links between published pages with anchors that already appear in the text.'],
+        AiRouteKeys::SITE_FIX_PAGE => ['Website Page Writer', 'analysis', 'Writes the new version of a thin page or a new page from an SEO brief; it goes to WordPress only as a draft.'],
     ];
 
     public function register(): void
@@ -46,6 +54,12 @@ final class AiInsightServiceProvider extends ServiceProvider
                 'name' => $name,
                 'module' => $module,
                 'description' => 'On operator click: '.$description,
+                'default_steps' => $steps === 'classification' ? AiDefaultSteps::classification() : AiDefaultSteps::analysis(),
+            ]);
+        }
+        foreach (self::SITE_FIX_ROUTES as $key => [$name, $steps, $description]) {
+            $routes->register([
+                'key' => $key, 'name' => $name, 'module' => 'website', 'description' => 'On operator click: '.$description,
                 'default_steps' => $steps === 'classification' ? AiDefaultSteps::classification() : AiDefaultSteps::analysis(),
             ]);
         }

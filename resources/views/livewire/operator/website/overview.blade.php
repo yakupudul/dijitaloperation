@@ -85,6 +85,10 @@
         <livewire:operator.website.page-scorecard :website-id="$asset->id" :key="'website-scorecard-'.$asset->id" />
     @endif
 
+    @if ($tab === 'fixes')
+        <livewire:operator.website.site-fixes-panel :website-id="$asset->id" :key="'website-fixes-'.$asset->id" />
+    @endif
+
     @if ($tab === 'seo')
         <livewire:operator.seo.seo-tasks-panel :website-id="$asset->id" :key="'website-seo-'.$asset->id" />
     @endif

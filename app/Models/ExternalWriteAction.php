@@ -22,6 +22,15 @@ class ExternalWriteAction extends Model
     /** ADR-068: install one WordPress-offered plugin / theme / core update. Cannot be undone from MoxDOP. */
     public const string ACTION_UPDATE_APPLY = 'update_apply';
 
+    /** ADR-070: approved SEO / technical fixes (a batch of site_fix_items). */
+    public const string ACTION_SITE_FIX = 'site_fix';
+
+    /** ADR-070: a new version of an existing page saved as a WordPress draft copy. */
+    public const string ACTION_CONTENT_DRAFT = 'content_draft';
+
+    /** ADR-070: the approved draft copy replaces the live page (second approval). */
+    public const string ACTION_CONTENT_APPLY = 'content_apply';
+
     protected $guarded = [];
 
     /** @return BelongsTo<DigitalAsset, $this> */

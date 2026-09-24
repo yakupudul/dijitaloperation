@@ -95,6 +95,7 @@ class OverviewPage extends Component
         'ga4_analysis',
         'content',
         'health',
+        'fixes',
         'standards',
         'infrastructure',
         'setup',
