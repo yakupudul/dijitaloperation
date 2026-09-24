@@ -20,6 +20,7 @@ use App\Support\Integrations\AssetBindingCompatibility;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -332,12 +333,12 @@ final class AssetDataSourcesPage extends Component
                     'status' => $pageSpeedReady ? 'ready' : 'connection_required',
                 ],
                 [
-                    'key' => 'wordpress_rest',
-                    'name' => 'WordPress Public REST',
-                    'ready' => false,
-                    'status' => str_contains(strtolower((string) $asset->cms), 'wordpress')
-                        ? 'cms_detected_family_deferred'
-                        : 'family_deferred',
+                    // Faz 12: reflects the paired MoxDOP WordPress connector instead of a fixed "later" label.
+                    'key' => 'wordpress_connector',
+                    'name' => 'WordPress bağlayıcısı',
+                    'ready' => $wordpressPaired = $this->wordpressConnectorPaired((int) $asset->id),
+                    'status' => $wordpressPaired ? 'ready'
+                        : (str_contains(strtolower((string) $asset->cms), 'wordpress') ? 'plugin_required' : 'not_wordpress'),
                 ],
             ];
         }
@@ -376,5 +377,11 @@ final class AssetDataSourcesPage extends Component
             'meta_ads' => ProviderRegistry::META,
             default => null,
         };
+    }
+
+    private function wordpressConnectorPaired(int $assetId): bool
+    {
+        return DB::table('core_connections')->where('digital_asset_id', $assetId)->where('type', 'wordpress_connector')->where('enabled', true)
+            ->get(['config'])->contains(fn (object $row): bool => data_get(json_decode((string) $row->config, true), 'pairing_state') === 'paired');
     }
 }

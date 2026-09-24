@@ -2,7 +2,9 @@
 
 namespace App\Livewire\Operator\Integrations;
 
+use App\Models\Collection\CollectionResourceRun;
 use App\Models\ResourceAutomation;
+use App\Models\Run;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Services\Integrations\ResourceAutomationService;
@@ -20,28 +22,45 @@ class ResourceAutomations extends Component
 
     #[Locked]
     public string $provider = '';
+
     #[Locked]
     public string $resourceType = '';
+
     public string $stateFilter = '';
+
     #[Locked]
     public ?int $collectionViewId = null;
+
     #[Locked]
     public bool $queriesOnly = false;
+
     public bool $expanded = false;
+
     public string $search = '';
+
     public string $type = '';
+
     public string $message = '';
+
     #[Locked]
     public ?int $editingId = null;
+
     #[Locked]
     public int $revision = 0;
+
     public bool $collectionEnabled = true;
+
     public int $intervalDays = 1;
+
     public bool $queryEnabled = false;
+
     public string $sector = '';
+
     public array $serviceIds = [];
+
     #[Locked]
     public ?int $detailId = null;
+
     public string $decision = '';
 
     public function boot(ResourceAutomationService $service): void
@@ -49,15 +68,26 @@ class ResourceAutomations extends Component
         $service->authorize(auth()->user());
     }
 
-    public function mount(ResourceAutomationService $service): void
+    public function updatedSearch(): void
     {
-        $service->discover();
+        $this->resetPage('accountsPage');
     }
 
-    public function updatedSearch(): void { $this->resetPage('accountsPage'); }
-    public function updatedStateFilter(): void { $this->resetPage('accountsPage'); }
-    public function updatedType(): void { $this->resetPage('accountsPage'); }
-    public function updatedDecision(): void { $this->resetPage('observationsPage'); }
+    public function updatedStateFilter(): void
+    {
+        $this->resetPage('accountsPage');
+    }
+
+    public function updatedType(): void
+    {
+        $this->resetPage('accountsPage');
+    }
+
+    public function updatedDecision(): void
+    {
+        $this->resetPage('observationsPage');
+    }
+
     public function updatedSector(): void
     {
         $this->serviceIds = [];
@@ -92,10 +122,20 @@ class ResourceAutomations extends Component
         $this->collectionViewId = $id;
     }
 
-    public function closeCollection(): void { $this->collectionViewId = null; }
+    public function closeCollection(): void
+    {
+        $this->collectionViewId = null;
+    }
 
-    public function closeEditor(): void { $this->editingId = null; }
-    public function closeDetails(): void { $this->detailId = null; }
+    public function closeEditor(): void
+    {
+        $this->editingId = null;
+    }
+
+    public function closeDetails(): void
+    {
+        $this->detailId = null;
+    }
 
     public function save(ResourceAutomationService $service): void
     {
@@ -181,9 +221,9 @@ class ResourceAutomations extends Component
             ->join('search_query_library_imports as i', 'i.id', '=', 'b.import_id')->whereIn('a.id', $accounts->pluck('id'))
             ->select('a.id', 'i.status', 'i.accepted_rows', 'i.excluded_rows', 'b.unassigned_rows')->get()->keyBy('id') : collect();
         $resourceIds = $accounts?->pluck('external_resource_id') ?? collect();
-        $latestIds = \App\Models\Collection\CollectionResourceRun::query()->whereIn('external_resource_id', $resourceIds)
+        $latestIds = CollectionResourceRun::query()->whereIn('external_resource_id', $resourceIds)
             ->selectRaw('MAX(id)')->groupBy('external_resource_id');
-        $latestCollections = \App\Models\Collection\CollectionResourceRun::query()->whereIn('id', $latestIds)
+        $latestCollections = CollectionResourceRun::query()->whereIn('id', $latestIds)
             ->with(['datasetRuns', 'collectionRun'])->get()->keyBy('external_resource_id');
         $coverage = DB::table('collection_dataset_runs as d')
             ->join('collection_resource_runs as r', 'r.id', '=', 'd.collection_resource_run_id')
@@ -193,19 +233,20 @@ class ResourceAutomations extends Component
             ->selectRaw("MIN(d.metadata->'date_range'->>'start') as first_date, MAX(d.metadata->'date_range'->>'end') as last_date")
             ->groupBy('r.external_resource_id')->get()->keyBy('external_resource_id');
         $collectionAccount = $this->collectionViewId ? $this->account($this->collectionViewId) : null;
-        $collectionHistory = $collectionAccount ? \App\Models\Collection\CollectionResourceRun::query()
+        $collectionHistory = $collectionAccount ? CollectionResourceRun::query()
             ->where('external_resource_id', $collectionAccount->external_resource_id)
             ->with(['datasetRuns', 'collectionRun'])->latest('id')->limit(5)->get() : collect();
+
         return view('livewire.operator.integrations.resource-automations', compact('accounts', 'editor', 'detail', 'observations', 'history', 'stats') + [
             'sectors' => ServiceCategory::options(),
+            'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'latestCollections' => $latestCollections, 'coverage' => $coverage,
             'collectionAccount' => $collectionAccount, 'collectionHistory' => $collectionHistory,
             'gbpHistory' => $collectionAccount?->resource->resource_type === 'google_business_profile'
-                ? \App\Models\Run::query()->where('module_id', 'google-business-profile')
+                ? Run::query()->where('module_id', 'google-business-profile')
                     ->where('metadata->external_resource_id', $collectionAccount->external_resource_id)->latest('id')->limit(5)->get() : collect(),
             'showQueryColumns' => $this->queriesOnly,
             'services' => $editor ? ServiceCatalogItem::query()->with('primaryName')->where('status', 'active')->where('sector', $this->sector)->orderBy('id')->get() : collect(),
         ]);
     }
 }
-

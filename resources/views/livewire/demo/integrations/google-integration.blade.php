@@ -289,7 +289,7 @@
                                     </div>
                                 </div>
                                 @if ($integration['actions']['bind'] ?? false)
-                                    <x-ta.button wire:click="bindResource('{{ $resource['id'] }}')" size="sm">Select & bind…</x-ta.button>
+                                    @if (auth()->user()?->hasRole(\App\Support\Roles::ADMIN))<x-ta.button wire:click="bindResource('{{ $resource['id'] }}')" size="sm">Markaya bağla…</x-ta.button>@endif
                                 @else
                                     <x-ta.button size="sm" variant="outline" disabled>Connect Google first</x-ta.button>
                                 @endif
@@ -376,6 +376,9 @@
                                 <option value="{{ $brand['id'] }}">{{ $brand['label'] }}</option>
                             @endforeach
                         </select>
+                        @if ($suggestedBrandId && (int) $brandId !== (int) $suggestedBrandId)
+                            <p class="mt-1 text-xs text-gray-500">Öneri (isim / alan adı benzerliği): <strong>{{ $suggestedBrandName }}</strong> <button type="button" wire:click="useSuggestedBrand" class="font-medium text-brand-600 hover:underline">Bu markayı seç</button></p>
+                        @endif
                     </div>
 
                     <fieldset class="space-y-2">

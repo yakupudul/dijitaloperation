@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\CoreIntegration;
 use App\Models\User;
 use App\Services\Integrations\Meta\MetaOAuthService;
+use App\Support\Demo\DemoState;
 use App\Support\Roles;
-use Filament\Notifications\Notification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -26,11 +26,7 @@ class MetaOAuthController extends Controller
         );
 
         if (isset($result['error'])) {
-            Notification::make()
-                ->title('Meta authorization unavailable')
-                ->body($result['error'])
-                ->danger()
-                ->send();
+            DemoState::flash('Meta yetkilendirmesi başlatılamadı: '.$result['error'], 'error');
 
             return redirect()->route('operator.integrations.meta');
         }
@@ -62,20 +58,12 @@ class MetaOAuthController extends Controller
 
         // Never keep code/tokens/state secrets in the browser URL after handling.
         if (isset($result['error'])) {
-            Notification::make()
-                ->title('Meta authorization failed')
-                ->body($result['error'])
-                ->danger()
-                ->send();
+            DemoState::flash('Meta yetkilendirmesi başarısız: '.$result['error'], 'error');
 
             return redirect()->route($returnRoute);
         }
 
-        Notification::make()
-            ->title('Meta connected')
-            ->body('Agency Meta Integration authorized. Resource discovery is a separate step.')
-            ->success()
-            ->send();
+        DemoState::flash('Meta bağlandı. Hesapları bulmak için "Kaynakları keşfet" adımına geçin.', 'success');
 
         return redirect()->route('operator.integrations.meta');
     }

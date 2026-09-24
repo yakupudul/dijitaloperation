@@ -3,20 +3,23 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 License: GPLv2 or later
 
-Signed Website inventory connector for MoxDOP. Reads inventory; can create drafts only (never publishes).
+Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
 
 == Description ==
 
-The connector exposes authenticated, read-only snapshots of WordPress/PHP settings,
+The connector exposes authenticated snapshots of WordPress/PHP settings,
 themes, plugins, update availability, content and public custom post types, media
 metadata, taxonomies, Polylang language fields, and allowlisted SEO plugin fields.
 
 Activity records include the acting WordPress user ID/display name, event type and changed field names.
 It does not expose account lists, passwords, comments, form submissions, arbitrary options, or media
-file contents. It does not register create, update, or delete REST methods.
+file contents.
+
+It is not read-only. Its only changing operations are listed under "Remote actions" below; each
+one is signed, logged on the site, and can be switched off by the site admin.
 
 == Installation ==
 
@@ -38,9 +41,26 @@ deduplication and exponential retry. Low traffic can delay WP-Cron; configure a 
 for reliable timing. The local outbox retains up to 10,000 events and reports coverage gaps.
 No historical activity is invented. Existing pairing survives plugin updates.
 Incremental snapshot requests accept up to 50 object IDs and echo the accepted scope.
-Daily inventory reconciliation complements activity delivery. The only write is draft creation (post_status=draft) and trashing MoxDOP-created drafts; publishing and editing existing content are not possible. Disable with the option `moxdop_connector_allow_drafts` = 0 or the `moxdop_connector_allow_drafts` filter.
+Daily inventory reconciliation complements activity delivery.
+
+== Remote actions ==
+
+* Drafts: create a draft (post_status=draft) and trash drafts that MoxDOP created. Publishing and editing existing
+  content are not possible. On by default; disable with the option `moxdop_connector_allow_drafts` = 0 or the
+  `moxdop_connector_allow_drafts` filter.
+* One-click login: a single-use link valid for 60 seconds that signs in as the WordPress user the site admin chose
+  in Settings > MoxDOP Connector. Off until a user is chosen (`moxdop_connector_login_user`).
+* Approved updates: apply one WordPress-offered core, plugin or theme update per request, after an admin approves it
+  in MoxDOP. Off by default; enable with the option `moxdop_connector_allow_updates` = 1 or the
+  `moxdop_connector_allow_updates` filter. Updates are not rolled back automatically.
+
+Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.3.0 =
+* Added a health endpoint (WordPress / PHP versions, pending updates, Site Health counts).
+* Added optional single-use admin login links and admin-approved updates (ADR-068); both off by default.
 
 = 1.2.0 =
 * Added signed draft creation and removal of MoxDOP-created drafts (ADR-064). Never publishes.

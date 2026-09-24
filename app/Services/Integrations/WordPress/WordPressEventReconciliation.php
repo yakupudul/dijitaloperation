@@ -6,6 +6,7 @@ use App\Models\Collection\CollectionRun;
 use App\Models\CoreConnection;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -96,7 +97,9 @@ final class WordPressEventReconciliation
                 ->where('status', 'completed')->whereNotNull('finished_at')
                 ->whereIn('request_context->context->collection_scope', ['full', 'wordpress'])
                 ->when($state->last_inventory_at, fn ($q) => $q->where('finished_at', '>', $state->last_inventory_at))
-                ->when(data_get($connection->config, 'paired_at'), fn ($q, $pairedAt) => $q->where('started_at', '>=', $pairedAt))
+                // Faz 12: paired_at is stored as ISO-8601 ("…T…+00:00"); compare in the DB's own datetime format, otherwise a
+                // same-day inventory never matches as text and a needless full inventory is started.
+                ->when(data_get($connection->config, 'paired_at'), fn ($q, $pairedAt) => $q->where('started_at', '>=', Carbon::parse((string) $pairedAt)->utc()->toDateTimeString()))
                 ->whereHas('datasetRuns', fn ($q) => $q->where('request_family_id', WebsiteRequestFamilyCatalog::FAMILY_WP_REST)
                     ->where('status', 'completed'), '=', 5)
                 ->orderByDesc('finished_at')->first();

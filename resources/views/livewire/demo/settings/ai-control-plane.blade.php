@@ -44,6 +44,7 @@
                     <p class="mt-2 text-sm font-medium text-error-600">Bütçe doldu: ay sonuna kadar yalnızca ücretsiz modeller çalışır; planlar kural sonuçlarıyla devam eder.</p>
                 @endif
             </div>
+            @if ($isAdmin)
             <form wire:submit="saveBudget" class="flex items-end gap-2">
                 <label class="text-sm">
                     <span class="block text-xs text-gray-500">Aylık bütçe (USD, 0 = sınırsız)</span>
@@ -51,6 +52,7 @@
                 </label>
                 <x-ta.button type="submit" size="sm" variant="outline">Kaydet</x-ta.button>
             </form>
+            @endif
         </div>
         @error('monthlyBudget')<p class="mt-2 text-sm text-error-600">{{ $message }}</p>@enderror
     </section>
@@ -76,7 +78,8 @@
     </div>
 
     @if ($selectedRoute !== '')
-        <form wire:submit="save" class="space-y-4 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+        @if ($isAdmin)
+            <form wire:submit="save" class="space-y-4 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <div>
                 <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ $selectedDescriptor['name'] ?? $selectedRoute }} · {{ __('operator.settings.ai.provider_order') }}</h2>
                 <p class="mt-1 text-sm text-gray-500">{{ $selectedDescriptor['description'] ?? '' }}</p>
@@ -121,5 +124,6 @@
             </div>
             <p class="text-xs text-gray-400">Öneri: analiz ve brief işleri için Claude Sonnet 5, eşleştirme/sınıflandırma için Claude Haiku 4.5, herkese açık veri işleri için ücretsiz model; yedek olarak Gemini Flash.</p>
         </form>
+            @endif
     @endif
 </div>

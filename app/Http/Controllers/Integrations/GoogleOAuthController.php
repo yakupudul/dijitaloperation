@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\CoreIntegration;
 use App\Models\User;
 use App\Services\Integrations\Google\GoogleOAuthService;
+use App\Support\Demo\DemoState;
 use App\Support\Roles;
-use Filament\Notifications\Notification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -37,11 +37,7 @@ class GoogleOAuthController extends Controller
         );
 
         if (isset($result['error'])) {
-            Notification::make()
-                ->title('Google authorization unavailable')
-                ->body($result['error'])
-                ->danger()
-                ->send();
+            DemoState::flash('Google yetkilendirmesi başlatılamadı: '.$result['error'], 'error');
 
             return redirect()->route('operator.integrations.google');
         }
@@ -73,20 +69,12 @@ class GoogleOAuthController extends Controller
 
         // Never keep code/tokens/state secrets in the browser URL after handling.
         if (isset($result['error'])) {
-            Notification::make()
-                ->title('Google authorization failed')
-                ->body($result['error'])
-                ->danger()
-                ->send();
+            DemoState::flash('Google yetkilendirmesi başarısız: '.$result['error'], 'error');
 
             return redirect()->route($returnRoute);
         }
 
-        Notification::make()
-            ->title('Google connected')
-            ->body('Agency Google Integration authorized. Resource discovery is a separate step.')
-            ->success()
-            ->send();
+        DemoState::flash('Google bağlandı. Hesapları bulmak için "Kaynakları keşfet" adımına geçin.', 'success');
 
         return redirect()->route('operator.integrations.google');
     }

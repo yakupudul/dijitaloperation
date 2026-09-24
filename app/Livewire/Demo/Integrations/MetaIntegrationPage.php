@@ -10,6 +10,7 @@ use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
 use App\Services\Collection\Meta\MetaIncrementalCollectionOrchestrator;
 use App\Services\Collection\Meta\MetaInitialBackfillOrchestrator;
+use App\Services\Integrations\BrandMatchSuggester;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Services\Integrations\Meta\DiscoverMetaResourcesService;
 use App\Services\Integrations\Meta\MetaConnectionService;
@@ -49,6 +50,10 @@ class MetaIntegrationPage extends Component
     public string $bindMode = ResourceBindingPlan::MODE_CREATE_ASSET;
 
     public ?int $brandId = null;
+
+    public ?int $suggestedBrandId = null;
+
+    public ?string $suggestedBrandName = null;
 
     public ?int $digitalAssetId = null;
 
@@ -236,14 +241,20 @@ class MetaIntegrationPage extends Component
         $this->allowReplace = false;
         $this->compatibleAssets = [];
 
-        $firstBrand = Brand::query()->orderBy('name')->first();
-        $this->brandId = $firstBrand?->id;
-        if ($this->brandId !== null) {
-            $this->refreshCompatibleAssets();
-        }
+        // Faz 12: never pre-select a brand; only suggest one by name / domain similarity.
+        $this->brandId = null;
+        $suggested = app(BrandMatchSuggester::class)->suggest((string) $resource->display_name);
+        $this->suggestedBrandId = $suggested?->id;
+        $this->suggestedBrandName = $suggested?->name;
 
         $this->showBindModal = true;
         $this->tab = 'resources';
+    }
+
+    public function useSuggestedBrand(): void
+    {
+        $this->brandId = $this->suggestedBrandId;
+        $this->updatedBrandId();
     }
 
     public function updatedBrandId(): void

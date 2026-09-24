@@ -9,6 +9,7 @@ use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
 use App\Services\Collection\Google\GoogleIncrementalCollectionOrchestrator;
 use App\Services\Collection\Google\GoogleInitialBackfillOrchestrator;
+use App\Services\Integrations\BrandMatchSuggester;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\Google\DiscoverGoogleResourcesService;
 use App\Services\Integrations\Google\GoogleCredentialResolver;
@@ -47,6 +48,10 @@ class GoogleIntegrationPage extends Component
     public string $bindMode = ResourceBindingPlan::MODE_CREATE_ASSET;
 
     public ?int $brandId = null;
+
+    public ?int $suggestedBrandId = null;
+
+    public ?string $suggestedBrandName = null;
 
     public ?int $digitalAssetId = null;
 
@@ -115,14 +120,20 @@ class GoogleIntegrationPage extends Component
         $this->digitalAssetId = null;
         $this->compatibleAssets = [];
 
-        $firstBrand = Brand::query()->orderBy('name')->first();
-        $this->brandId = $firstBrand?->id;
-        if ($this->brandId !== null) {
-            $this->refreshCompatibleAssets();
-        }
+        // Faz 12: never pre-select a brand; only suggest one by name / domain similarity.
+        $this->brandId = null;
+        $suggested = app(BrandMatchSuggester::class)->suggest((string) $resource->display_name);
+        $this->suggestedBrandId = $suggested?->id;
+        $this->suggestedBrandName = $suggested?->name;
 
         $this->showBindModal = true;
         $this->tab = 'resources';
+    }
+
+    public function useSuggestedBrand(): void
+    {
+        $this->brandId = $this->suggestedBrandId;
+        $this->updatedBrandId();
     }
 
     public function updatedBrandId(): void

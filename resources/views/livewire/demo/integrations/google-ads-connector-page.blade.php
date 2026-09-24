@@ -6,7 +6,8 @@
                 <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Google Ads</h1>
                 <div class="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                     @if ($integration)
-                        <span class="inline-flex items-center gap-1.5 font-medium text-emerald-700 dark:text-emerald-400"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>Bağlı</span>
+                        <span @class(['inline-flex items-center gap-1.5 font-medium', 'text-emerald-700 dark:text-emerald-400' => $authState['tone'] === 'success', 'text-amber-700 dark:text-amber-400' => $authState['tone'] === 'warning', 'text-rose-700 dark:text-rose-400' => $authState['tone'] === 'error'])><span @class(['h-2 w-2 rounded-full', 'bg-emerald-500' => $authState['tone'] === 'success', 'bg-amber-500' => $authState['tone'] === 'warning', 'bg-rose-500' => $authState['tone'] === 'error'])></span>{{ $authState['label'] }}</span>
+                        @if ($authState['tone'] !== 'success')<a href="{{ route('operator.integrations.google') }}" wire:navigate class="font-medium text-brand-600 hover:underline">Google bağlantısı</a>@endif
                         <span class="text-gray-300 dark:text-gray-700">·</span>
                         <span>{{ $stats['accounts'] }} hesap bulundu</span>
                         <span class="text-gray-300 dark:text-gray-700">·</span>

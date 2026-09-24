@@ -551,9 +551,15 @@ final class MetaIntegrationReadModel
             return ['state' => 'not_run', 'label' => 'Collection not run'];
         }
 
+        $labels = [
+            'queued' => 'sırada', 'running' => 'çalışıyor', 'retrying' => 'yeniden deneniyor', 'partial' => 'kısmen tamamlandı',
+            'completed' => 'tamamlandı', 'failed' => 'başarısız', 'cancellation_requested' => 'iptal ediliyor', 'cancelled' => 'iptal edildi',
+            'skipped' => 'atlandı', 'not_eligible' => 'uygun değil',
+        ];
+
         return [
             'state' => $run->status->value,
-            'label' => 'Last collection · '.$run->status->value,
+            'label' => 'Son veri çekimi · '.($labels[$run->status->value] ?? $run->status->value),
         ];
     }
 
@@ -831,7 +837,13 @@ final class MetaIntegrationReadModel
                 'when' => '—',
                 'event' => $collection['label'],
                 'actor' => 'System',
-                'status' => $collection['state'] === 'not_run' ? 'info' : 'success',
+                // Faz 12: only a completed run is green; a failed / partial run is not shown as success.
+                'status' => match ($collection['state']) {
+                    'completed' => 'success',
+                    'failed', 'cancelled' => 'error',
+                    'partial', 'retrying' => 'warning',
+                    default => 'info',
+                },
             ],
         ];
     }

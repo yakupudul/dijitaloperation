@@ -1,5 +1,26 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-07 — Faz 12: Entegrasyon denetimi E1'de kalanlar
+
+**State:** CODED + PHPUnit (`tests/Feature/Integrations/IntegrationE1FixesTest`, `tests/Feature/WordPressConnectorV1Test`). A code check on 2026-10-07 found that several E1 items marked done under Faz 4 were still open. This phase closes them. **No live UAT.**
+
+- Google / Meta OAuth: the "connected" / "failed" result is now shown on the operator page (flash message). It used to be sent as a Filament notification the operator UI never displayed.
+- Bind modal (Google and Meta): the brand is no longer pre-selected (it used to be the alphabetically first brand). `BrandMatchSuggester` suggests the brand whose name or site domain shares the most words with the account name; the operator has to pick it.
+- Meta collection: a failed or partial run no longer counts as "completed". The step is done only when `collection_state = completed`. History shows failed runs as errors, and the labels are in Turkish.
+- Google Ads connector header: shows the real authorization state (connected / not authorized / reconnect needed / expired) instead of a fixed "Bağlı".
+- Asset › Veri Kaynakları: the WordPress row reflects the paired MoxDOP connector ("Hazır" / "eklenti kurulmalı" / "WordPress değil") instead of a fixed "sonraki aşamada".
+- Automation panel: opening it no longer inserts `resource_automations` rows (the every-minute tick already discovers accounts). Settings, run now, resume, close and recheck are hidden for non-admins.
+- Google "Markaya bağla…", Meta "Markaya Bağla" and the AI control plane (route and budget) forms are shown only to admins; the server-side 403 checks stay.
+- WordPress: `paired_at` (ISO-8601) is compared in the DB datetime format. Before this, a same-day inventory never matched and a needless full inventory was started. The connector signing test was also fixed (it re-registered `Http::fake`, which never took effect). `WordPressConnectorV1Test` is now fully green.
+- Plugin readme: now 1.3.0. It no longer claims to be read-only and lists the three remote actions (drafts, one-click login, approved updates) and their switches.
+- WhatsApp:
+  - The Embedded Signup config id moved to `WHATSAPP_SIGNUP_CONFIG_ID`; it stays stored per integration once saved.
+  - The default business context no longer contains a person's name or prices.
+  - The reply agent uses the agency name from settings.
+- Not done here:
+  - The test suite still has about 110 older failing tests, mostly Meta/GA4 collector, DataPool and report delivery tests written against retired data families. They are listed in the baseline and unchanged by this phase.
+  - The E2/E3/E4 remainder is Faz 13–14.
+
 ## 2026-10-06 — Faz 11: Sade menünün tamamlanması + güvenlik
 
 **State:** CODED + PHPUnit (`tests/Feature/Work/AlertsPageTest`, `tests/Feature/Portfolio/BrandFilesTabTest`, `tests/Feature/Operations/KvkkAndBackupTest`, `tests/Feature/Advisor/AdvisorFaz6Test`; menu and brand tabs locked in `PanelDesignFreezeTest`). Full Feature + Unit suites compared with the baseline. The migration runs on PostgreSQL 16, and a real pg_dump backup passed the new read-back check there. **No live UAT:** 2FA enforcement has not been switched on in staging, and alert snoozing has not been used on real alerts.

@@ -60,8 +60,8 @@
                             'url_required' => app()->getLocale() === 'tr' ? 'URL gerekli' : 'URL required',
                             'domain_required' => app()->getLocale() === 'tr' ? 'Domain gerekli' : 'Domain required',
                             'connection_required' => app()->getLocale() === 'tr' ? 'Bağlantı gerekli' : 'Connection required',
-                            'cms_detected_family_deferred' => app()->getLocale() === 'tr' ? 'CMS algılandı · sonraki aşamada' : 'CMS detected · later',
-                            'family_deferred' => app()->getLocale() === 'tr' ? 'Sonraki aşamada' : 'Later',
+                            'plugin_required' => app()->getLocale() === 'tr' ? 'WordPress · eklenti kurulmalı' : 'WordPress · plugin required',
+                            'not_wordpress' => app()->getLocale() === 'tr' ? 'WordPress değil · yalnız herkese açık tarama' : 'Not WordPress · public crawl only',
                             default => $sourceStatus,
                         };
                     @endphp

@@ -9,7 +9,9 @@ use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DataPool\DatasetMaterialization;
 use App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService;
+use App\Services\Collection\Monitoring\CollectionAccountPresenter;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsCentralRequestFamilyCatalog;
+use App\Support\Integrations\Google\GoogleAuthStatus;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
@@ -107,6 +109,7 @@ class GoogleAdsConnectorPage extends Component
 
         return view('livewire.demo.integrations.google-ads-connector-page', [
             'integration' => $integration,
+            'authState' => $this->authState($integration),
             'rows' => $rows,
             'selectedCount' => $selected,
             'stats' => [
@@ -131,6 +134,30 @@ class GoogleAdsConnectorPage extends Component
     }
 
     /** @return list<array<string,mixed>> */
+    /**
+     * Faz 12: the header reflects the real authorization (connected / reconnect needed / expired), not just that an
+     * integration row exists.
+     *
+     * @return array{tone: string, label: string}
+     */
+    private function authState(?CoreIntegration $integration): array
+    {
+        if (! $integration instanceof CoreIntegration) {
+            return ['tone' => 'warning', 'label' => 'Google entegrasyonu bulunamadı'];
+        }
+        $config = is_array($integration->config) ? $integration->config : [];
+        $expires = $config['refresh_token_expires_at'] ?? null;
+        if (filled($expires) && now()->greaterThan((string) $expires)) {
+            return ['tone' => 'error', 'label' => 'Yetki süresi doldu · yeniden bağlanın'];
+        }
+
+        return match ((string) ($config['auth_status'] ?? '')) {
+            GoogleAuthStatus::CONNECTED => ['tone' => 'success', 'label' => 'Bağlı'],
+            '', GoogleAuthStatus::NOT_CONFIGURED, GoogleAuthStatus::AUTHORIZATION_REQUIRED, GoogleAuthStatus::DISABLED => ['tone' => 'warning', 'label' => 'Yetki verilmedi'],
+            default => ['tone' => 'error', 'label' => 'Yeniden bağlanma gerekli'],
+        };
+    }
+
     private function resourceRows(?CoreIntegration $integration = null): array
     {
         $integration ??= $this->googleIntegration(false);
@@ -193,11 +220,11 @@ class GoogleAdsConnectorPage extends Component
 
             [$dataState, $stateLabel, $actionLabel] = match (true) {
                 $active instanceof CollectionResourceRun => [
-                    match (app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->state($active)) {
+                    match (app(CollectionAccountPresenter::class)->state($active)) {
                         'running' => 'collecting', 'delayed' => 'delayed', 'retrying' => 'retrying', default => 'queued',
                     },
-                    app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($active),
-                    app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($active),
+                    app(CollectionAccountPresenter::class)->label($active),
+                    app(CollectionAccountPresenter::class)->label($active),
                 ],
                 $attention && $latest?->status === CollectionRunStatus::Cancelled => ['resume', 'Aktarım durduruldu', 'Devam et'],
                 $attention => ['needs_repair', 'Eksik veri var', 'Eksikleri tamamla'],
@@ -316,4 +343,3 @@ class GoogleAdsConnectorPage extends Component
         }
     }
 }
-

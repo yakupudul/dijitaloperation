@@ -3,6 +3,7 @@
 namespace App\Livewire\Operator\WhatsApp;
 
 use App\Jobs\WhatsApp\CheckWhatsAppConnection;
+use App\Models\AgencySetting;
 use App\Models\CoreIntegration;
 use App\Models\Customer;
 use App\Models\Prospect;
@@ -35,7 +36,7 @@ class Inbox extends Component
 
     public string $app_id = '';
 
-    public string $signup_config_id = '1757572378897162';
+    public string $signup_config_id = '';
 
     public string $signup_mode = 'coexistence';
 
@@ -70,13 +71,15 @@ class Inbox extends Component
             $this->{$key} = (string) ($config[$key] ?? '');
         }
         $this->app_id = (string) ($config['app_id'] ?? '');
-        $this->signup_config_id = (string) ($config['signup_config_id'] ?? '1757572378897162');
+        $this->signup_config_id = (string) ($config['signup_config_id'] ?? config('whatsapp.signup_config_id', ''));
         $this->signup_mode = (string) ($config['signup_mode'] ?? 'coexistence');
         $this->enabled = $integration?->isActive() ?? true;
         $this->automatic_suggestions = (bool) ($config['automatic_suggestions'] ?? false);
         $this->showSettings = $integration === null;
         if ($integration === null) {
-            $this->business_context = 'Moximu — Yakup Udül. Kurumsal web sitesi: tek seferlik 14.000 TL. Mobil uyumlu, yönetim panelli, işletmeye özel tasarım ve 1 yıl destek. KDV, domain, hosting, teslim tarihi ve ödeme planı ayrıca netleştirilmeli; dahil olduğu varsayılmamalı. Diğer hizmetlerin fiyatını uydurma. Kısa, samimi, profesyonel ve baskısız Türkçe yaz. Sırf cevap vermiş olmak için takip mesajı önerme.';
+            // Faz 12: no built-in prices or names; the operator writes the agency's own terms here.
+            $agency = (string) (AgencySetting::query()->value('agency_name') ?? '');
+            $this->business_context = ($agency !== '' ? $agency.'. ' : '').'Hizmetler ve fiyatlar: (buraya yazın). KDV, domain, hosting, teslim tarihi ve ödeme planı ayrıca netleştirilmeli; dahil olduğu varsayılmamalı. Burada yazmayan fiyatı uydurma. Kısa, samimi, profesyonel ve baskısız Türkçe yaz.';
         }
     }
 

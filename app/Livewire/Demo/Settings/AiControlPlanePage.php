@@ -94,6 +94,7 @@ class AiControlPlanePage extends Component
         $routeSpend = collect($usage['by_route'])->keyBy('route_key');
 
         return view('livewire.demo.settings.ai-control-plane', [
+            'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'usage' => $usage,
             'routeSpend' => $routeSpend,
             'routes' => $routes,

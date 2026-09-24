@@ -2,28 +2,30 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Operator\Integrations\SiteConnectorShow;
-use App\Models\CoreConnection;
-use App\Models\DigitalAsset;
-use App\Models\User;
 use App\Enums\Collection\CollectionRunStatus;
+use App\Livewire\Operator\Integrations\SiteConnectorShow;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
+use App\Models\CoreConnection;
 use App\Models\CoreConnectionCredential;
+use App\Models\DigitalAsset;
+use App\Models\User;
 use App\Services\Analysis\Adapters\WordPressCollectedFactsEvaluator;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
+use App\Services\Integrations\WordPress\WordPressEventReconciliation;
 use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Livewire\Livewire;
 use MoxDop\Website\Discovery\PublicUrlSafety;
@@ -149,7 +151,11 @@ final class WordPressConnectorV1Test extends TestCase
         $connection = CoreConnection::query()->with('credential')->findOrFail($issued['connection']->id);
         $canonicalJson = new WordPressConnectorCanonicalJson;
 
-        Http::fake(function (Request $request) use ($credentials, $canonicalJson) {
+        $signResponses = true;
+        Http::fake(function (Request $request) use ($credentials, $canonicalJson, &$signResponses) {
+            if (! $signResponses) {
+                return Http::response(['data' => [], 'meta' => ['server_time' => now()->timestamp, 'request_nonce' => 'wrong', 'signature' => str_repeat('0', 64)]]);
+            }
             $nonce = $request->header(WordPressConnectorClient::HEADER_NONCE)[0] ?? '';
             $data = ['schema_version' => 1, 'plugin_version' => '1.1.0', 'wordpress_version' => '6.8', 'read_only' => true];
             $serverTime = now()->timestamp;
@@ -182,11 +188,8 @@ final class WordPressConnectorV1Test extends TestCase
                 && $request->url() === 'https://example.com/wp-json/moxdop/v1/status';
         });
 
-        Http::fake([ '*' => Http::response(['data' => [], 'meta' => [
-            'server_time' => now()->timestamp,
-            'request_nonce' => 'wrong',
-            'signature' => str_repeat('0', 64),
-        ]])]);
+        // Stubs accumulate, so the same fake switches to an unsigned response instead of registering a second one.
+        $signResponses = false;
         $this->expectException(\RuntimeException::class);
         $client->status($connection->fresh('credential'));
     }
@@ -200,7 +203,7 @@ final class WordPressConnectorV1Test extends TestCase
         $pairing->complete($this->pairingPayload($issued['code']));
         DB::table('website_connector_delivery')->where('connection_id', $issued['connection']->id)->delete();
 
-        app(\App\Services\Integrations\WordPress\WordPressEventReconciliation::class)->tick();
+        app(WordPressEventReconciliation::class)->tick();
 
         $state = DB::table('website_connector_delivery')->where('connection_id', $issued['connection']->id)->first();
         $this->assertNotNull($state);
@@ -228,7 +231,7 @@ final class WordPressConnectorV1Test extends TestCase
         $run->datasetRuns()->update(['status' => 'completed', 'finished_at' => now()]);
         $run->resourceRuns()->update(['status' => 'completed']);
         $run->update(['status' => CollectionRunStatus::Completed, 'started_at' => now(), 'finished_at' => now()]);
-        $service = app(\App\Services\Integrations\WordPress\WordPressEventReconciliation::class);
+        $service = app(WordPressEventReconciliation::class);
         $service->tick();
         $state = DB::table('website_connector_delivery')->where('connection_id', $connectionId)->first();
         $this->assertNotNull($state->last_inventory_at);
@@ -237,7 +240,7 @@ final class WordPressConnectorV1Test extends TestCase
 
         $eventId = DB::table('website_connector_events')->insertGetId([
             'connection_id' => $connectionId, 'digital_asset_id' => $this->asset->id,
-            'event_id' => (string) \Illuminate\Support\Str::uuid(), 'type' => 'content.updated',
+            'event_id' => (string) Str::uuid(), 'type' => 'content.updated',
             'object_type' => 'post', 'object_id' => '42', 'origin' => 'wordpress',
             'payload' => '{}', 'occurred_at' => now(), 'received_at' => now(),
         ]);
@@ -262,14 +265,14 @@ final class WordPressConnectorV1Test extends TestCase
         $connectionId = $issued['connection']->id;
         $eventId = DB::table('website_connector_events')->insertGetId([
             'connection_id' => $connectionId, 'digital_asset_id' => $this->asset->id,
-            'event_id' => (string) \Illuminate\Support\Str::uuid(), 'type' => 'access.role_changed',
+            'event_id' => (string) Str::uuid(), 'type' => 'access.role_changed',
             'object_type' => 'user', 'object_id' => '42', 'origin' => 'wordpress',
             'payload' => '{}', 'occurred_at' => now(), 'received_at' => now(),
         ]);
         DB::table('website_connector_delivery')->where('connection_id', $connectionId)->update([
             'last_inventory_at' => now(), 'latest_event_id' => $eventId, 'next_reconcile_at' => now(),
         ]);
-        app(\App\Services\Integrations\WordPress\WordPressEventReconciliation::class)->tick();
+        app(WordPressEventReconciliation::class)->tick();
         $this->assertDatabaseHas('website_connector_delivery', [
             'connection_id' => $connectionId, 'collection_run_id' => null, 'reconciled_event_id' => $eventId,
         ]);
@@ -285,7 +288,7 @@ final class WordPressConnectorV1Test extends TestCase
         DB::table('website_connector_delivery')->where('connection_id', $issued['connection']->id)->update([
             'automation_enabled' => false, 'inventory_interval_days' => 3, 'reconciled_event_id' => 50,
         ]);
-        $service = app(\App\Services\Integrations\WordPress\WordPressEventReconciliation::class);
+        $service = app(WordPressEventReconciliation::class);
         $service->initialize($issued['connection']->fresh('credential'));
         $service->tick();
         $this->assertDatabaseHas('website_connector_delivery', [

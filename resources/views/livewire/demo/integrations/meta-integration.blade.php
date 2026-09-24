@@ -6,10 +6,8 @@
     $bindingReady = (int) ($integration['bound'] ?? 0) > 0;
     $collectionLabel = (string) ($integration['collection_state_label'] ?? ($isTr ? 'Henüz çalıştırılmadı' : 'Not run yet'));
     $dataLabel = (string) ($integration['data_state_label'] ?? ($isTr ? 'Veri yok' : 'No data'));
-    $collectionReady = $bindingReady
-        && ! str_contains(strtolower($collectionLabel), 'not run')
-        && ! str_contains(strtolower($collectionLabel), 'not collected')
-        && ! str_contains(mb_strtolower($collectionLabel), 'çalıştırılmadı');
+    // Faz 12: the step is done only when the last run actually completed (not when a label merely exists).
+    $collectionReady = $bindingReady && ($integration['collection_state'] ?? '') === 'completed';
 
     $tabs = [
         'overview' => $isTr ? 'Genel Bakış' : 'Overview',
@@ -557,7 +555,7 @@
                                     </p>
                                 </div>
                                 @if ($integration['actions']['bind'] ?? false)
-                                    <button type="button" wire:click="bindResource('{{ $resource['id'] }}')" class="inline-flex shrink-0 items-center justify-center rounded-lg bg-brand-500 px-3.5 py-2.5 text-sm font-semibold text-white shadow-theme-xs hover:bg-brand-600">{{ $isTr ? 'Markaya Bağla' : 'Bind to Brand' }}</button>
+                                    @if (auth()->user()?->hasRole(\App\Support\Roles::ADMIN))<button type="button" wire:click="bindResource('{{ $resource['id'] }}')" class="inline-flex shrink-0 items-center justify-center rounded-lg bg-brand-500 px-3.5 py-2.5 text-sm font-semibold text-white shadow-theme-xs hover:bg-brand-600">{{ $isTr ? 'Markaya Bağla' : 'Bind to Brand' }}</button>@endif
                                 @endif
                             </div>
                         @endforeach
@@ -774,7 +772,7 @@
                                 $eventStatus = (string) ($event['status'] ?? 'info');
                                 $eventTone = in_array($eventStatus, ['success', 'completed'], true)
                                     ? 'success'
-                                    : (in_array($eventStatus, ['failed', 'needs_attention'], true) ? 'warning' : 'neutral');
+                                    : (in_array($eventStatus, ['failed', 'needs_attention', 'error', 'warning'], true) ? 'warning' : 'neutral');
                             @endphp
                             <div class="flex gap-4 px-5 py-4 md:px-6">
                                 <span @class([
@@ -863,6 +861,9 @@
                                 <option value="{{ $brand['id'] }}">{{ $brand['label'] }}</option>
                             @endforeach
                         </select>
+                        @if ($suggestedBrandId && (int) $brandId !== (int) $suggestedBrandId)
+                            <p class="mt-1 text-xs text-gray-500">Öneri (isim / alan adı benzerliği): <strong>{{ $suggestedBrandName }}</strong> <button type="button" wire:click="useSuggestedBrand" class="font-medium text-brand-600 hover:underline">Bu markayı seç</button></p>
+                        @endif
                     </div>
 
                     <fieldset>
