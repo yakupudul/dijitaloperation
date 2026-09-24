@@ -92,7 +92,17 @@ final class SeoTasksPanel extends Component
 
     public function markDone(int $id): void
     {
-        $this->resolve($id, SeoTaskStatus::Done, 'Görev "Yapıldı" olarak işaretlendi. Sonraki plan doğrular; 7 günden sonra sorun hâlâ görünürse görev yeniden açılır.');
+        $this->resolve($id, SeoTaskStatus::Done, 'Görev "Yapıldı" olarak işaretlendi. Kayıtlı veriyle yeniden kontrol ediliyor (AI yok); site taraması ve Search Console günlük yenilendiği için ilk gün "Hâlâ görünüyor" olabilir, 7 günden sonra sorun hâlâ görünürse görev yeniden açılır.');
+        if ((bool) config('moxdop-advisor.brain.verify_on_done', true)) {
+            $site = DigitalAsset::query()->find($this->task($id)->digital_asset_id);
+            try {
+                if ($site !== null) {
+                    app(SeoPlanRunner::class)->queue($site, auth()->user(), 'verify');
+                }
+            } catch (ValidationException) {
+                // SEO tasks disabled or not a website: the weekly plan verifies instead.
+            }
+        }
     }
 
     /** Faz 7: hide a task for N days; it comes back if the problem is still there. */

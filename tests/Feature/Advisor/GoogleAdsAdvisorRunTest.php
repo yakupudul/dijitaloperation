@@ -109,6 +109,9 @@ final class GoogleAdsAdvisorRunTest extends TestCase
             ->assertSee('Listeyi kopyala')
             ->call('markDone', $quality->id);
         $this->assertSame(AdvisorItemStatus::Done, $quality->fresh()->status);
+        // Faz 7: "Yapıldı" runs the rules again right away; the stored data still shows it (within the grace).
+        $this->assertSame(1, AdvisorPlan::query()->where('trigger', 'verify')->count());
+        $this->assertSame('still_detected', $quality->fresh()->verification);
 
         // Next run: the wasted term got excluded → the negatives item closes itself; done stays done.
         DB::table('google_ads_search_term_daily')->whereIn('search_term', ['ücretsiz diş tedavisi', 'ücretsiz implant', 'ücretsiz diş muayenesi', 'diş hekimi iş ilanları'])->delete();
@@ -123,7 +126,7 @@ final class GoogleAdsAdvisorRunTest extends TestCase
             Queue::assertPushed(DraftGoogleAdsAdCopyJob::class);
             $this->assertSame('queued', $weak->fresh()->draft_status);
         }
-        Livewire::test(AdvisorPanel::class, ['assetId' => $this->asset->id])->call('refreshAsset', $this->asset->id)->assertSee('danışman #3');
+        Livewire::test(AdvisorPanel::class, ['assetId' => $this->asset->id])->call('refreshAsset', $this->asset->id)->assertSee('danışman #4');
         $this->get(route('operator.google-ads.overview', ['assetId' => $this->asset->id, 'tab' => 'advisor']))->assertOk()->assertSee('Danışman');
     }
 

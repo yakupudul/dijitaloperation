@@ -1,5 +1,13 @@
 # PROJECT_MEMORY
 
+## 2026-10-03 — Faz 7 decisions (Beyin)
+
+- Thresholds and word lists stay in config files as defaults; owner edits live in `method_settings` via `MethodLibrary` (applied at boot). New rule thresholds should be plain int/float/string-list config leaves so they appear in Yöntem Kütüphanesi automatically; new rule ids go into `MethodLibraryPage::ADVISOR_RULES`.
+- Plan writers own verification: done + still detected → `still_detected` (grace `brain.verify_grace_days`) → reopened as `recurred`; skipped with `snoozed_until` comes back after the date. "Yapıldı" queues a rules-only plan (`trigger=verify`); never AI.
+- Rule priority weight = measured outcome success (28/56 days) per rule, sector-first when the sector has ≥ `brain.min_measured` outcomes (ADR-066). Cross-brand data only as aggregates over ≥ 2 active brands, agency-internal.
+- Cross-asset consistency lives in the cross-channel advisor rules (not the old `Analyze*ConsistencyJob`s).
+- Keyword Quality Score has no history in the snapshot; `google_ads_quality_score_history` is the only source for QS trends.
+
 ## 2026-10-02 — Faz 6 decisions
 
 - Phone notifications go only to the owner's own ntfy / Telegram (`PushNotifier`, dedupe window, send log); new notifiable events use `PushNotifier::send` with a stable dedupe key.

@@ -3,6 +3,8 @@
 namespace Tests\Feature\Brain;
 
 use App\Enums\CustomerStatus;
+use App\Jobs\RunAdvisorPlanJob;
+use App\Livewire\Operator\Advisor\AdvisorPanel;
 use App\Livewire\Operator\Settings\MethodLibraryPage;
 use App\Models\AdvisorItem;
 use App\Models\AdvisorPlan;
@@ -18,6 +20,7 @@ use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use InvalidArgumentException;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -130,6 +133,29 @@ final class MethodLibraryAndVerificationTest extends TestCase
         $this->assertSame(1.133, $effect->weight('negative-keywords'));
         $this->assertSame(1.0, $effect->weight('budget-waste'), 'not enough outcomes yet');
         $this->assertSame(453.2, $effect->reweigh([['rule_id' => 'negative-keywords', 'priority_score' => 400]])[0]['priority_score']);
+    }
+
+    public function test_done_queues_a_rules_only_verification_plan(): void
+    {
+        Queue::fake();
+        $plan = $this->plan();
+        $item = AdvisorItem::query()->create([
+            'channel' => 'google_ads', 'customer_id' => $this->brand->customer_id, 'brand_id' => $this->brand->id, 'digital_asset_id' => $this->ads->id,
+            'item_key' => 'v1', 'category' => 'waste', 'rule_id' => 'budget-waste', 'severity' => 'medium', 'priority_score' => 100,
+            'title' => 't', 'reason' => 'r', 'evidence' => [], 'checklist' => [], 'status' => 'open', 'first_seen_plan_id' => $plan->id, 'last_seen_plan_id' => $plan->id,
+        ]);
+
+        Livewire::test(AdvisorPanel::class)->call('markDone', $item->id)->assertSee('kontrol ediliyor');
+
+        $this->assertSame('done', $item->fresh()->status->value);
+        $this->assertSame(1, AdvisorPlan::query()->where('trigger', 'verify')->where('digital_asset_id', $this->ads->id)->count());
+        Queue::assertPushed(RunAdvisorPlanJob::class);
+
+        config(['moxdop-advisor.brain.verify_on_done' => false]);
+        $item->forceFill(['status' => 'open'])->save();
+        AdvisorPlan::query()->where('trigger', 'verify')->delete();
+        Livewire::test(AdvisorPanel::class)->call('markDone', $item->id);
+        $this->assertSame(0, AdvisorPlan::query()->where('trigger', 'verify')->count());
     }
 
     private function plan(): AdvisorPlan

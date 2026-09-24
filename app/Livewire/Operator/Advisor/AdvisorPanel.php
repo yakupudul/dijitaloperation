@@ -71,7 +71,26 @@ final class AdvisorPanel extends Component
 
     public function markDone(int $id): void
     {
-        $this->resolve($id, AdvisorItemStatus::Done, 'Yapıldı olarak işaretlendi. Sonraki çalıştırma doğrular: sorun görünmezse "Doğrulandı", 7 günden sonra hâlâ görünürse öneri yeniden açılır. Etkisi 28 ve 56 gün sonra ölçülür.');
+        $this->resolve($id, AdvisorItemStatus::Done, 'Yapıldı olarak işaretlendi. Şimdi kayıtlı veriyle kontrol ediliyor (AI yok): sorun görünmezse "Doğrulandı"; veri günlük toplandığı için ilk gün "Hâlâ görünüyor" olabilir, 7 günden sonra hâlâ görünürse öneri yeniden açılır. Etkisi 28 ve 56 gün sonra ölçülür.');
+        $this->verifyNow($id);
+    }
+
+    /** Faz 7: re-run the same channel's rules for this asset right away (rules only, no AI) to verify the item. */
+    private function verifyNow(int $id): void
+    {
+        if (! (bool) config('moxdop-advisor.brain.verify_on_done', true)) {
+            return;
+        }
+        $item = $this->item($id);
+        $asset = DigitalAsset::query()->find($item->digital_asset_id);
+        if ($asset === null || app(AdvisorChannels::class)->forAssetType((string) $asset->type)?->channel() !== $item->channel) {
+            return;
+        }
+        try {
+            app(AdvisorPlanRunner::class)->queue($asset, auth()->user(), 'verify');
+        } catch (ValidationException) {
+            // Advisor disabled or asset not eligible: the weekly plan verifies instead.
+        }
     }
 
     /** Faz 7: hide an item for N days; it comes back if the problem is still there. */

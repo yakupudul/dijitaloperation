@@ -18,6 +18,7 @@ return [
         'min_measured' => 5,          // measured outcomes of a rule before its weight changes
         'weight_range' => 0.2,        // priority × (0.8 … 1.2) by the share of done items that improved
         'verify_grace_days' => 7,     // a done item still detected after this many days is reopened
+        'verify_on_done' => true,     // "Yapıldı" queues a rules-only plan for that asset to verify right away
     ],
 
     // Faz 7 / ADR-066: sektör örüntüleri — ajans içi, yalnız toplamlar. Bir sektör ve bir örüntü en az bu kadar
