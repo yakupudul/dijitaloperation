@@ -91,6 +91,7 @@ use App\Livewire\Operator\Reports\MonthlyReportsPage;
 use App\Livewire\Operator\Sales\LeadInboxPage;
 use App\Livewire\Operator\Seo\SeoTasksIndex;
 use App\Livewire\Operator\Settings\CostsPage;
+use App\Livewire\Operator\Settings\KvkkPage;
 use App\Livewire\Operator\Settings\MethodLibraryPage;
 use App\Livewire\Operator\Settings\PushSettingsPage;
 use App\Livewire\Operator\Settings\SectorPacksPage;
@@ -215,6 +216,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/sector-packs', SectorPacksPage::class)->name('operator.settings.sector-packs');
         Route::livewire('/settings/push', PushSettingsPage::class)->name('operator.settings.push');
         Route::livewire('/settings/methods', MethodLibraryPage::class)->name('operator.settings.methods');
+        Route::livewire('/settings/kvkk', KvkkPage::class)->name('operator.settings.kvkk');
         Route::livewire('/settings/sector-patterns', SectorPatternsPage::class)->name('operator.settings.sector-patterns');
         Route::livewire('/market/map-rankings', MapRankingsPage::class)->name('operator.market.map-rankings');
         Route::get('/market/kml/{brand}', KmlExportController::class)->name('operator.market.kml');

@@ -448,6 +448,17 @@ Schedule::command('moxdop:customers:health')
     ->withoutOverlapping(30)
     ->name('customer-health-daily');
 
+// Faz 10d: gece veritabanı yedeği ve KVKK WhatsApp mesaj saklama süresi.
+Schedule::command('moxdop:backup')
+    ->dailyAt('03:30')
+    ->withoutOverlapping(120)
+    ->name('system-backup-nightly');
+
+Schedule::command('moxdop:whatsapp:retention')
+    ->dailyAt('03:50')
+    ->withoutOverlapping(30)
+    ->name('whatsapp-retention-daily');
+
 Schedule::command('moxdop:advisor:digest')
     ->weeklyOn((int) config('moxdop-advisor.schedule.weekly_day', 1), (string) config('moxdop-advisor.digest.weekly_time', '08:00'))
     ->withoutOverlapping(30)

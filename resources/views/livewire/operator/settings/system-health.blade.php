@@ -27,6 +27,16 @@
     @endif
 
     <div class="grid gap-4 lg:grid-cols-3">
+    @if ($health['backup'] !== null)
+        <section class="{{ $card }}">
+            <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Sistem yedeği</h2>
+            <p class="mt-2 text-sm {{ $health['backup']['ok'] ? 'text-emerald-600' : 'text-rose-600' }}">
+                {{ $health['backup']['last_success_at'] === null ? 'Hiç yedek alınmamış' : ($health['backup']['ok'] ? 'Güncel' : 'Son yedek eski') }}
+            </p>
+            <p class="text-xs text-gray-500">Son başarılı: {{ $when($health['backup']['last_success_at']) }}@if ($health['backup']['bytes']) · {{ number_format($health['backup']['bytes'] / 1048576, 1, ',', '.') }} MB @endif · {{ $health['backup']['remote'] ? 'uzak kopya var' : 'yalnız sunucuda (MOXDOP_BACKUP_REMOTE_DISK ile uzak kopya)' }}</p>
+            @if ($health['backup']['last_error'])<p class="mt-1 text-xs text-rose-700">Son hata: {{ \Illuminate\Support\Str::limit($health['backup']['last_error'], 200) }}</p>@endif
+        </section>
+    @endif
         <section class="{{ $card }}">
             <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Zamanlayıcı</h2>
             <p class="mt-2 text-sm {{ $health['scheduler']['ok'] ? 'text-emerald-600' : 'text-rose-600' }}">

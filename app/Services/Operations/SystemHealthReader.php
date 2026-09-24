@@ -40,6 +40,7 @@ final class SystemHealthReader
             ],
             'plugins' => $this->plugins(),
             'plugin_current' => (string) config('moxdop-wordpress.connector_version', ''),
+            'backup' => Schema::hasTable('system_backups') ? app(SystemBackup::class)->status() : null,
         ];
     }
 
