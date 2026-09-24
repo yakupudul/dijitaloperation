@@ -1,5 +1,10 @@
 # PROJECT_MEMORY
 
+## 2026-10-09 — Warehouse writes must not rewrite unchanged rows
+
+- On PostgreSQL an UPDATE writes a new row version. Re-collection upserts must skip rows whose values did not change; otherwise the warehouse bloats (it reached 56 GB on staging). Do not add `DO UPDATE` without the value-change `WHERE`.
+- Space already lost is given back with `moxdop:db:reclaim` (one partition at a time), not with a database-wide `VACUUM FULL`, which needs free disk equal to the whole database.
+
 ## 2026-10-09 — Faz 14 decisions (strateji boşlukları)
 
 - Anomaly rules use robust statistics (`App\Services\Advisor\Anomaly\RobustAnomaly`: median / MAD z with a floor, EWMA). Do not add mean / standard-deviation thresholds for daily metrics.

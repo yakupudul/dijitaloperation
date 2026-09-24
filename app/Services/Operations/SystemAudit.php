@@ -236,13 +236,28 @@ final class SystemAudit
     {
         $out = [];
         if (DB::getDriverName() === 'pgsql') {
-            $rows = DB::select("select coalesce(parent.relname, c.relname) as name, sum(pg_total_relation_size(c.oid)) as bytes
+            // Partitions are summed into their parent. Dead rows are old row versions left by updates/deletes:
+            // a high share means the table holds far more than its live data.
+            $rows = DB::select("select coalesce(parent.relname, c.relname) as name,
+                    sum(pg_total_relation_size(c.oid)) as total, sum(pg_indexes_size(c.oid)) as indexes,
+                    sum(coalesce(s.n_live_tup, 0)) as live, sum(coalesce(s.n_dead_tup, 0)) as dead,
+                    max(greatest(s.last_autovacuum, s.last_vacuum)) as vacuumed
                 from pg_class c join pg_namespace n on n.oid = c.relnamespace
                 left join pg_inherits i on i.inhrelid = c.oid left join pg_class parent on parent.oid = i.inhparent
+                left join pg_stat_user_tables s on s.relid = c.oid
                 where n.nspname = current_schema() and c.relkind in ('r', 'p', 'm')
-                group by 1 order by 2 desc limit 12");
+                group by 1 order by 2 desc limit 20");
             foreach ($rows as $row) {
-                $out[] = ['info', '  tablo '.$row->name, sprintf('%.2f GB', (float) $row->bytes / 1e9)];
+                $live = (int) $row->live;
+                $dead = (int) $row->dead;
+                $out[] = [$dead > $live && $dead > 100000 ? 'warn' : 'info', '  tablo '.$row->name, sprintf('%.2f GB (indeks %.2f GB) · %s satır · %s ölü satır%s', (float) $row->total / 1e9, (float) $row->indexes / 1e9,
+                    number_format($live, 0, ',', '.'), number_format($dead, 0, ',', '.'), $row->vacuumed ? ' · vacuum '.substr((string) $row->vacuumed, 0, 16) : ' · hiç vacuum yok')];
+            }
+            try {
+                $wal = DB::selectOne('select coalesce(sum(size), 0) as bytes from pg_ls_waldir()');
+                $out[] = ['info', '  WAL (pg_wal)', sprintf('%.2f GB', (float) $wal->bytes / 1e9)];
+            } catch (Throwable) {
+                // Needs pg_monitor; skipped when the app user lacks it.
             }
         }
         foreach (['app' => storage_path('app'), 'logs' => storage_path('logs')] as $label => $path) {

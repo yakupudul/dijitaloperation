@@ -1,5 +1,17 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-09 — Veritabanı şişkinliği (56 GB) — üretim durduruldu, geri kazanım komutu
+
+**State:** CODED + PHPUnit. `DataPool/PostgresNoopUpsertTest` runs on PostgreSQL only: it passes with the fix and fails without it. `moxdop:db:reclaim` was run on local Postgres against an artificially bloated table (153 MB → 40 MB). Not yet run on staging.
+
+- **Cause:** raw provider payloads are files on disk, not in the database. The database grew because `PostgresWarehouseWriter` rewrote every re-collected row with `ON CONFLICT DO UPDATE`, even when nothing had changed. Each rewrite leaves a dead row version; autovacuum makes that space reusable inside the file but never returns it to the disk.
+- **Fix:** the upsert now updates only when a value column changed: `WHERE (target values)::text IS DISTINCT FROM (EXCLUDED values)::text`. Provenance columns (`last_collected_at`, run ids, fingerprint, `updated_at`) alone do not count as a change. Unchanged rows keep their `last_collected_at`; newly inserted days keep the table-level `MAX(last_collected_at)` watermarks fresh.
+- **`moxdop:db:reclaim`** (plan by default; `--execute` applies it):
+  - It compares each leaf table or partition's file size with the size its live rows need (row count × average width from the planner statistics), then rebuilds the bloated ones with `VACUUM (FULL, ANALYZE)`, one partition at a time, largest gain first.
+  - It skips a table when free disk would drop below `--reserve-gb`.
+  - Each rebuild locks that one table while it runs.
+- **Audit:** `moxdop:audit` lists the 20 largest tables with index size, live and dead rows, the last vacuum, and the WAL size.
+
 ## 2026-10-09 — Staging denetimi (`moxdop:audit`) düzeltmeleri
 
 **State:** CODED + PHPUnit (`Unit/SafeTimezoneTest`, `Observability/ObservabilityOperationsTest`, `Operations/SystemAuditCommandTest`). These fixes come from the first staging audit.

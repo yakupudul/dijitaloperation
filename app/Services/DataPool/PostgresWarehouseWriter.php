@@ -377,13 +377,31 @@ final class PostgresWarehouseWriter implements WarehouseWriter
             $sets[] = '"first_collected_at" = '.$this->quoteIdent($table).'."first_collected_at"';
         }
 
+        // Re-collected windows mostly return identical rows. Updating them anyway leaves a dead row version per
+        // collection (PostgreSQL MVCC), which bloated the warehouse. Only rows whose values changed are updated;
+        // provenance columns alone never count as a change. Compared as text so json columns work too.
+        $valueColumns = array_values(array_diff(
+            array_intersect($updateColumns, $columns),
+            ['last_collected_at', 'last_collection_run_id', 'last_dataset_run_id', 'contract_version', 'record_fingerprint', 'updated_at', 'created_at', 'first_collected_at'],
+        ));
+        $where = '';
+        if ($valueColumns !== []) {
+            $target = implode(', ', array_map(fn ($c) => $this->quoteIdent($table).'."'.$c.'"::text', $valueColumns));
+            $incoming = implode(', ', array_map(fn ($c) => 'EXCLUDED."'.$c.'"::text', $valueColumns));
+            $where = ' WHERE ('.$target.') IS DISTINCT FROM ('.$incoming.')';
+            if (count($valueColumns) === 1) {
+                $where = ' WHERE '.$target.' IS DISTINCT FROM '.$incoming;
+            }
+        }
+
         $sql = sprintf(
-            'INSERT INTO %s (%s) VALUES %s ON CONFLICT (%s) DO UPDATE SET %s',
+            'INSERT INTO %s (%s) VALUES %s ON CONFLICT (%s) DO UPDATE SET %s%s',
             $this->quoteIdent($table),
             $colSql,
             implode(', ', $placeholders),
             $conflict,
             implode(', ', $sets),
+            $where,
         );
 
         DB::statement($sql, $bindings);
