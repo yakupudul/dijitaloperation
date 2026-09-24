@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Demo\OperatorFileDownloadController;
 use App\Http\Controllers\Integrations\WordPressConnectorDownloadController;
+use App\Http\Controllers\Operator\KmlExportController;
 use App\Http\Controllers\Operator\LegacyWorkRedirectController;
 use App\Http\Controllers\Operator\MetaLegacyPageRedirectController;
 use App\Http\Controllers\Operator\RetiredAssetTypeRedirectController;
@@ -205,6 +206,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/methods', MethodLibraryPage::class)->name('operator.settings.methods');
         Route::livewire('/settings/sector-patterns', SectorPatternsPage::class)->name('operator.settings.sector-patterns');
         Route::livewire('/market/map-rankings', MapRankingsPage::class)->name('operator.market.map-rankings');
+        Route::get('/market/kml/{brand}', KmlExportController::class)->name('operator.market.kml');
         Route::livewire('/compliance', CompliancePage::class)->name('operator.compliance');
         Route::livewire('/settings/ai/control-plane', AiControlPlanePage::class)->name('operator.settings.ai.control-plane');
         Route::livewire('/settings/ai/agents', AiAgentsPage::class)->name('operator.settings.ai.agents');

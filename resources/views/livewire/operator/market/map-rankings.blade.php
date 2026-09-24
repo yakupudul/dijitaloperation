@@ -125,6 +125,43 @@
             </section>
         @endif
 
+        @if ($kml !== null)
+            <section class="{{ $card }}">
+                <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Harita pinleri (KML) — deney</h2>
+                <p class="mt-1 max-w-3xl text-xs text-gray-500">Google My Maps'e içe aktarılacak dosya: işletme pini + her hizmet bölgesi için bir pin, bilgilendirici açıklama (adres, telefon, site). Sıralama etkisi kanıtlanmış değil; yalnız bir-iki markada, yayın tarihi kaydedilip grid taramalarıyla önce/sonra ölçülür. MoxDOP Google'a hiçbir şey yüklemez: içe aktarma ve siteye gömme elle yapılır.</p>
+                <p class="mt-2 text-sm">{{ $kml['pins'] }} pin hazır.</p>
+                @foreach ($kml['warnings'] as $warning)
+                    <p class="mt-1 text-xs text-amber-700">• {{ $warning }}</p>
+                @endforeach
+                <div class="mt-3 flex flex-wrap gap-2">
+                    @if ($kml['pins'] > 0)
+                        <x-ta.button :href="route('operator.market.kml', ['brand' => $brand])" size="sm" variant="outline">KML indir</x-ta.button>
+                    @endif
+                    @if ($isAdmin)
+                        @if ($kml['skipped_areas'] > 0)
+                            <x-ta.button type="button" wire:click="geocodeAreas" size="sm" variant="outline">Konumları bul</x-ta.button>
+                        @endif
+                        <x-ta.button type="button" wire:click="toggleExperiment" size="sm" variant="outline">{{ $settings->kml_experiment_started_on === null ? 'Haritayı yayınladım (deneyi başlat)' : 'Deney tarihini sil' }}</x-ta.button>
+                    @endif
+                </div>
+                @if ($settings->kml_experiment_started_on !== null)
+                    <p class="mt-3 text-xs text-gray-500">Yayın: {{ $settings->kml_experiment_started_on->format('d.m.Y') }}. Önce/sonra {{ config('moxdop-intel.kml.compare_days') }} gün; en az 4–6 hafta beklenmeli.</p>
+                    @if ($experiment === [])
+                        <p class="mt-1 text-sm text-gray-500">Bu aralıkta tamamlanmış tarama yok.</p>
+                    @else
+                        <table class="mt-2 w-full text-sm">
+                            <thead><tr class="text-left text-xs text-gray-500"><th class="py-1">Kelime</th><th>Önce (tarama · ATRP · SoLV)</th><th>Sonra (tarama · ATRP · SoLV)</th></tr></thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                @foreach ($experiment as $row)
+                                    <tr><td class="py-1.5">{{ $row['keyword'] }}</td><td>{{ $row['before']['runs'] }} · {{ $row['before']['atrp'] ?? '—' }} · {{ $row['before']['solv'] !== null ? '%'.$row['before']['solv'] : '—' }}</td><td>{{ $row['after']['runs'] }} · {{ $row['after']['atrp'] ?? '—' }} · {{ $row['after']['solv'] !== null ? '%'.$row['after']['solv'] : '—' }}</td></tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    @endif
+                @endif
+            </section>
+        @endif
+
         @if ($isAdmin)
             <section class="{{ $card }}">
                 <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Ayarlar</h2>

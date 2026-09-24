@@ -3,11 +3,13 @@
 namespace App\Livewire\Operator\Market;
 
 use App\Enums\CustomerStatus;
+use App\Jobs\GeocodeServiceAreasJob;
 use App\Models\Brand;
 use App\Models\Intel\BrandIntelSetting;
 use App\Models\Intel\MapGridRun;
 use App\Services\Intel\BrandGbpIdentity;
 use App\Services\Intel\DataForSeoTaskQueue;
+use App\Services\Intel\KmlBuilder;
 use App\Services\Intel\MapGridService;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -97,7 +99,27 @@ final class MapRankingsPage extends Component
         }
     }
 
-    public function render(BrandGbpIdentity $identity, DataForSeoTaskQueue $queue, MapGridService $grid): View
+    /** Faz 8b: find service-area coordinates in the background (OpenStreetMap, 1 request per second). */
+    public function geocodeAreas(): void
+    {
+        $this->admin();
+        $brand = $this->selectedBrand() ?? abort(404);
+        GeocodeServiceAreasJob::dispatch((int) $brand->id);
+        $this->error = '';
+        $this->message = 'Hizmet bölgelerinin konumu arka planda aranıyor (bölge başına ~1 sn).';
+    }
+
+    /** Faz 8b: mark the day the pinned map was published, or clear it. */
+    public function toggleExperiment(): void
+    {
+        $this->admin();
+        $settings = BrandIntelSetting::for($this->selectedBrand() ?? abort(404));
+        $settings->forceFill(['kml_experiment_started_on' => $settings->kml_experiment_started_on === null ? now()->toDateString() : null, 'updated_by' => auth()->id()])->save();
+        $this->error = '';
+        $this->message = $settings->kml_experiment_started_on !== null ? 'Deney başlangıcı bugün olarak kaydedildi; önce/sonra grid taramalarıyla karşılaştırılır.' : 'Deney tarihi silindi.';
+    }
+
+    public function render(BrandGbpIdentity $identity, DataForSeoTaskQueue $queue, MapGridService $grid, KmlBuilder $kml): View
     {
         $brands = Brand::query()->whereHas('customer', fn ($q) => $q->where('status', CustomerStatus::Active->value))->orderBy('name')->get(['id', 'name']);
         $this->brand ??= $brands->first()?->id;
@@ -129,6 +151,8 @@ final class MapRankingsPage extends Component
             'competitors' => $selected !== null ? MapGridService::competitors($selected) : [],
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'connected' => $queue->available(),
+            'kml' => $brand !== null ? $kml->build($brand) : null,
+            'experiment' => $brand !== null ? $kml->experiment($brand) : [],
         ]);
     }
 

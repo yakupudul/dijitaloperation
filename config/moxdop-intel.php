@@ -25,6 +25,15 @@ return [
         'solv_top' => 3,
     ],
 
+    // Faz 8b: harita pin (KML) deneyi. Konumlar OpenStreetMap Nominatim ile bulunur (herkese açık okuma, saniyede 1 istek).
+    'kml' => [
+        'max_pins' => 150,
+        'geocoder_url' => 'https://nominatim.openstreetmap.org/search',
+        'geocoder_delay_ms' => 1100,
+        // Deney ölçümü: yayın tarihinden önceki ve sonraki bu kadar gün karşılaştırılır.
+        'compare_days' => 42,
+    ],
+
     'reviews' => [
         'depth' => 50,
         'every_days' => 14,

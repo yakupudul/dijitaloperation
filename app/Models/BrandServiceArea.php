@@ -15,12 +15,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'normalized_key',
     'status',
     'priority_rank',
+    'lat',
+    'lng',
+    'geocode_status',
+    'geocoded_at',
 ])]
 class BrandServiceArea extends Model
 {
     protected function casts(): array
     {
-        return ['priority_rank' => 'integer'];
+        return ['priority_rank' => 'integer', 'lat' => 'float', 'lng' => 'float', 'geocoded_at' => 'datetime'];
     }
 
     public function brand(): BelongsTo

@@ -13,7 +13,7 @@ class BrandIntelSetting extends Model
 {
     protected $fillable = [
         'brand_id', 'monthly_usd', 'grid_enabled', 'grid_keywords', 'grid_center_lat', 'grid_center_lng', 'grid_size',
-        'grid_spacing_km', 'grid_every_days', 'gbp_place_id', 'gbp_cid', 'reviews_enabled', 'backlinks_enabled', 'updated_by',
+        'grid_spacing_km', 'grid_every_days', 'gbp_place_id', 'gbp_cid', 'reviews_enabled', 'backlinks_enabled', 'kml_pin_limit', 'kml_experiment_started_on', 'updated_by',
     ];
 
     protected function casts(): array
@@ -29,6 +29,8 @@ class BrandIntelSetting extends Model
             'grid_every_days' => 'integer',
             'reviews_enabled' => 'boolean',
             'backlinks_enabled' => 'boolean',
+            'kml_pin_limit' => 'integer',
+            'kml_experiment_started_on' => 'date',
         ];
     }
 
@@ -46,6 +48,7 @@ class BrandIntelSetting extends Model
             'grid_spacing_km' => (float) config('moxdop-intel.grid.default_spacing_km', 1),
             'grid_every_days' => (int) config('moxdop-intel.grid.default_every_days', 7),
             'grid_keywords' => [],
+            'kml_pin_limit' => 100,
         ]);
     }
 
