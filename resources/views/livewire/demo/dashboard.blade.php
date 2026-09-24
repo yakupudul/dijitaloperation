@@ -24,6 +24,8 @@
         </div>
     </div>
 
+    <livewire:operator.assistant.today-panel />
+
     <section aria-labelledby="today-heading">
         <h2 id="today-heading" class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('operator.dashboard_exec.today') }}</h2>
         <div class="mt-3 grid grid-cols-2 gap-3 xl:grid-cols-4">

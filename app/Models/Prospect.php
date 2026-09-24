@@ -29,6 +29,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'converted_customer_id',
     'converted_brand_id',
     'converted_at',
+    'next_follow_up_on',
+    'next_step',
 ])]
 class Prospect extends Model
 {
@@ -42,6 +44,7 @@ class Prospect extends Model
             'identity_status' => ProspectIdentityStatus::class,
             'source' => ProspectSource::class,
             'converted_at' => 'datetime',
+            'next_follow_up_on' => 'date',
         ];
     }
 

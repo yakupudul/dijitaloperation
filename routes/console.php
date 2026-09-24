@@ -7,6 +7,7 @@ use App\Jobs\Ops\QueueHeartbeatProbeJob;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
 use App\Models\DigitalAsset;
+use App\Services\Assistant\ReminderService;
 use App\Services\Collection\CollectionErrorRecorder;
 use App\Services\Collection\Monitoring\CollectionAccountPresenter;
 use App\Services\Collection\RecoverInterruptedCollections;
@@ -488,3 +489,7 @@ Schedule::command('moxdop:renewals:daily')
     ->dailyAt('06:05')
     ->withoutOverlapping(60)
     ->name('renewals-daily');
+
+// Faz 6: zamanı gelen hatırlatıcılar telefona (her dakika).
+Schedule::call(fn () => app(ReminderService::class)->dispatchDue())
+    ->everyMinute()->name('reminders-due')->withoutOverlapping(2);

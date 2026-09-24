@@ -6,9 +6,13 @@ use App\Http\Controllers\Auth\OperatorResetPasswordController;
 use App\Http\Controllers\Auth\OperatorTwoFactorChallengeController;
 use App\Http\Controllers\Integrations\GoogleOAuthController;
 use App\Http\Controllers\Integrations\MetaOAuthController;
+use App\Http\Controllers\Integrations\WhatsAppSignupController;
 use App\Http\Controllers\LegacyRetiredPrefixController;
-use App\Http\Controllers\Ops\OpsHealthController;
+use App\Http\Controllers\Operator\CalendarFeedController;
+use App\Http\Controllers\Operator\ManualClusterDownloadController;
+use App\Http\Controllers\Operator\SearchQueryExportController;
 use App\Http\Controllers\Operator\WebsiteHtmlSnapshotController;
+use App\Http\Controllers\Ops\OpsHealthController;
 use App\Http\Controllers\Prospects\ProspectReportShareController;
 use App\Http\Controllers\Reports\ReportArtifactDownloadController;
 use App\Http\Controllers\Reports\ReportShareController;
@@ -17,6 +21,7 @@ use App\Livewire\Operator\AssetDataSourcesPage;
 use App\Livewire\Operator\Integrations\WebsiteIntegrationIndex;
 use App\Livewire\Operator\PublicDiscoveryIndex;
 use App\Livewire\Operator\Website\PublicDiscoveryPage;
+use App\Livewire\Operator\WhatsApp\Inbox;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function (): void {
@@ -36,6 +41,8 @@ Route::post('/logout', [OperatorLoginController::class, 'destroy'])
 
 Route::get('/up/liveness', [OpsHealthController::class, 'liveness'])->name('ops.liveness');
 Route::get('/up/readiness', [OpsHealthController::class, 'readiness'])->name('ops.readiness');
+// Faz 6: read-only calendar feed addressed by a secret per-user token (Google Calendar "URL ile ekle").
+Route::get('/calendar/{token}.ics', CalendarFeedController::class)->where('token', '[A-Za-z0-9]{32,64}')->middleware('throttle:60,1')->name('calendar.feed');
 
 Route::middleware(['web', 'auth'])->group(function (): void {
     Route::get('/integrations/google/callback', [GoogleOAuthController::class, 'callback'])
@@ -95,13 +102,13 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (
 });
 
 Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (): void {
-    Route::get('/whatsapp/connect/{attempt}', [\App\Http\Controllers\Integrations\WhatsAppSignupController::class, 'show'])
+    Route::get('/whatsapp/connect/{attempt}', [WhatsAppSignupController::class, 'show'])
         ->whereUuid('attempt')->name('operator.whatsapp.connect');
-    Route::post('/whatsapp/connect/{attempt}', [\App\Http\Controllers\Integrations\WhatsAppSignupController::class, 'complete'])
+    Route::post('/whatsapp/connect/{attempt}', [WhatsAppSignupController::class, 'complete'])
         ->whereUuid('attempt')->middleware('throttle:10,1')->name('operator.whatsapp.complete');
-    Route::post('/whatsapp/connect/{attempt}/phone', [\App\Http\Controllers\Integrations\WhatsAppSignupController::class, 'selectPhone'])
+    Route::post('/whatsapp/connect/{attempt}/phone', [WhatsAppSignupController::class, 'selectPhone'])
         ->whereUuid('attempt')->middleware('throttle:10,1')->name('operator.whatsapp.select-phone');
-    Route::livewire('/whatsapp', \App\Livewire\Operator\WhatsApp\Inbox::class)
+    Route::livewire('/whatsapp', Inbox::class)
         ->name('operator.whatsapp');
 });
 
@@ -109,9 +116,9 @@ require __DIR__.'/demo.php';
 
 // Canonical production operator engine surfaces that are intentionally kept outside legacy demo.php.
 Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (): void {
-    Route::get('/library/query-cluster-exports/{operation}', \App\Http\Controllers\Operator\ManualClusterDownloadController::class)
+    Route::get('/library/query-cluster-exports/{operation}', ManualClusterDownloadController::class)
         ->whereNumber('operation')->name('operator.library.manual-clusters.download');
-    Route::get('/library/search-queries/export', \App\Http\Controllers\Operator\SearchQueryExportController::class)
+    Route::get('/library/search-queries/export', SearchQueryExportController::class)
         ->name('operator.library.search-queries.export');
 
     Route::livewire('/public-discovery', PublicDiscoveryIndex::class)
@@ -141,5 +148,3 @@ Route::any('/app/{path?}', [LegacyRetiredPrefixController::class, 'app'])
 
 Route::any('/system/{path?}', [LegacyRetiredPrefixController::class, 'system'])
     ->where('path', '.*');
-
-
