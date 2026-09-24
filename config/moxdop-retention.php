@@ -17,7 +17,7 @@ return [
 
     /* Daily tables that are gold and never rolled up or deleted. */
     'gold_daily_tables' => [
-        'gsc_query_daily', 'gsc_query_country_daily', 'gsc_query_device_daily', 'gsc_query_page_daily',
+        'gsc_query_daily', 'gsc_query_page_daily',
         'google_ads_search_term_daily', 'google_ads_keyword_daily',
     ],
 

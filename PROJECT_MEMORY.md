@@ -1,5 +1,10 @@
 # PROJECT_MEMORY
 
+## 2026-10-09 — Warehouse row size
+
+- Per-row metadata holds only values that differ per row and are read. Provenance constants belong on the dataset run, not on every fact row (Search Console rows once carried ~11 constant keys; the warehouse reached 60 GB).
+- A new high-cardinality family (dimension × dimension × day) needs a reader that justifies its volume. The four GSC cross families were turned off for this reason.
+
 ## 2026-10-09 — Warehouse writes must not rewrite unchanged rows
 
 - On PostgreSQL an UPDATE writes a new row version. Re-collection upserts must skip rows whose values did not change; otherwise the warehouse bloats (it reached 56 GB on staging). Do not add `DO UPDATE` without the value-change `WHERE`.

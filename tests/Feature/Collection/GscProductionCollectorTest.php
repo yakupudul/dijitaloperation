@@ -210,9 +210,8 @@ class GscProductionCollectorTest extends TestCase
         $this->assertSame(100, (int) $row->impressions);
         $meta = json_decode((string) $row->metadata, true);
         $this->assertSame(4.5, $meta['provider_average_position']);
-        $this->assertSame('provider_reported_not_canonical_formula', $meta['provider_ctr_semantic']);
-        $this->assertSame(SearchConsoleProviderCapabilities::PROVIDER_COMPLETENESS, $meta['provider_completeness']);
-        $this->assertArrayNotHasKey('rank', $meta);
+        // Row metadata holds only the row-specific value; provenance constants live on the dataset run.
+        $this->assertSame(['provider_average_position'], array_keys($meta));
 
         $request = Http::recorded()[0][0];
         $body = $request->data();

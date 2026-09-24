@@ -41,6 +41,15 @@ return [
     'default_date_slice_days' => 7,
 
     /**
+     * Families not collected. The four cross-dimension tables (page/query × device/country) held ~23 GB on staging
+     * and fed only a "top 30" block on the Search Console page; device and country alone are still collected.
+     *
+     * @var list<string>
+     */
+    'disabled_families' => array_values(array_filter(explode(',', (string) env('MOXDOP_GSC_DISABLED_FAMILIES',
+        'GSC_RF_PAGE_DEVICE_DAILY,GSC_RF_PAGE_COUNTRY_DAILY,GSC_RF_QUERY_DEVICE_DAILY,GSC_RF_QUERY_COUNTRY_DAILY')))),
+
+    /**
      * Search Analytics request defaults from SEARCH_CONSOLE_DATA_CONTRACT_V1.
      */
     'search_type' => 'web',
@@ -55,4 +64,3 @@ return [
 
     'raw_retention_class' => 'provider_raw_standard',
 ];
-

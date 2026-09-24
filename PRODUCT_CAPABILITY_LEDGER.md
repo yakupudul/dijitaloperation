@@ -1,5 +1,19 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-09 — Search Console ambarı küçültme (`moxdop:db:slim`)
+
+**State:** CODED + PHPUnit (`GscProductionCollectorTest` checks the compact row metadata). `moxdop:db:slim` was run on local Postgres: it emptied the 4 cross tables and compacted an old-format partition (0.15 GB → 0.08 GB, position kept). Not yet run on staging.
+
+- **Staging measurement:** 60 GB database, ~51 GB of it Search Console tables. `moxdop:db:reclaim` found only 1.7 GB of bloat, so the size is real data.
+- **Stopped collection:** the four cross-dimension families (page/query × device/country) are no longer collected (`moxdop-gsc-collector.disabled_families`, env `MOXDOP_GSC_DISABLED_FAMILIES`).
+  - They held 23.4 GB and fed only a "top 30" block on the Search Console page. That block is now hidden when empty.
+  - Device and country alone are still collected.
+  - They were removed from the retention gold list.
+- **Compact rows:** Search Analytics rows now store only `{"provider_average_position": …}` as metadata. The other ~10 keys (search type, data state, aggregation, completeness, collector version, CTR) were identical on every row. They are provenance of the dataset run, and CTR = clicks / impressions.
+- **`moxdop:db:slim`** (plan by default; `--execute` applies it):
+  - It empties the tables of disabled families (`TRUNCATE`) and removes their coverage records.
+  - It rewrites old-format rows to the compact metadata, one table or monthly partition at a time, then runs `VACUUM FULL` on it. Each step checks free disk first.
+
 ## 2026-10-09 — Veritabanı şişkinliği (56 GB) — üretim durduruldu, geri kazanım komutu
 
 **State:** CODED + PHPUnit. `DataPool/PostgresNoopUpsertTest` runs on PostgreSQL only: it passes with the fix and fails without it. `moxdop:db:reclaim` was run on local Postgres against an artificially bloated table (153 MB → 40 MB). Not yet run on staging.

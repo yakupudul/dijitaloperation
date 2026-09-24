@@ -41,18 +41,11 @@ final class SearchConsoleNormalizer
                 'clicks' => (int) round((float) ($row['clicks'] ?? 0)),
                 'impressions' => (int) round((float) ($row['impressions'] ?? 0)),
                 'source_timezone' => SearchConsoleProviderCapabilities::REPORTING_TIMEZONE,
+                // Only the row-specific value is stored per row. The provenance constants (search type, data
+                // state, aggregation, completeness, collector version) belong to the dataset run and were
+                // repeated on hundreds of millions of rows, roughly doubling the tables. CTR = clicks / impressions.
                 'metadata' => [
                     'provider_average_position' => isset($row['position']) ? (float) $row['position'] : null,
-                    'provider_ctr' => isset($row['ctr']) ? (float) $row['ctr'] : null,
-                    'provider_ctr_semantic' => 'provider_reported_not_canonical_formula',
-                    'search_type' => $searchType,
-                    'data_state' => $provenance['data_state'] ?? 'final',
-                    'aggregation_type' => $provenance['aggregation_type'] ?? null,
-                    'response_aggregation_type' => $provenance['response_aggregation_type'] ?? null,
-                    'request_family_id' => $provenance['request_family_id'] ?? null,
-                    'provider_completeness' => SearchConsoleProviderCapabilities::PROVIDER_COMPLETENESS,
-                    'execution_completeness' => SearchConsoleProviderCapabilities::EXECUTION_COMPLETENESS,
-                    'collector_version' => $provenance['collector_version'] ?? null,
                 ],
             ];
 
@@ -60,6 +53,7 @@ final class SearchConsoleNormalizer
                 $value = $keys[$index] ?? null;
                 if ($dimension === 'date') {
                     $record['reporting_date'] = is_string($value) ? $value : null;
+
                     continue;
                 }
 
@@ -181,7 +175,7 @@ final class SearchConsoleNormalizer
     }
 
     /** @param array<string, mixed> $inspectionResult
-     *  @return array<string, mixed>
+     * @return array<string, mixed>
      */
     public function normalizeUrlInspection(
         string $siteUrl,

@@ -19,6 +19,7 @@ use App\Services\Collection\Providers\SearchConsole\SearchConsoleCentralDatasetE
 use App\Services\Collection\Providers\SearchConsole\SearchConsoleProviderCapabilities;
 use App\Services\Collection\Providers\SearchConsole\SearchConsoleRequestFamilyCatalog;
 use App\Services\Collection\StartCollectionService;
+use App\Services\Integrations\ResourceAutomationService;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\ProviderRegistry;
 use Carbon\CarbonImmutable;
@@ -35,7 +36,9 @@ use Throwable;
 final class SearchConsoleCentralCollectionService
 {
     public const int INITIAL_DAYS = 486;
+
     public const int RESTATEMENT_DAYS = 7;
+
     public const int FINAL_LAG_DAYS = 3;
 
     public function __construct(
@@ -47,7 +50,7 @@ final class SearchConsoleCentralCollectionService
     /** @param list<int|string> $externalResourceIds */
     public function startSmartUpdate(CoreIntegration $integration, array $externalResourceIds, ?User $requestedBy = null): CollectionRun
     {
-        return app(\App\Services\Integrations\ResourceAutomationService::class)->withResourceLocks(
+        return app(ResourceAutomationService::class)->withResourceLocks(
             $externalResourceIds, fn (): CollectionRun => $this->startSmartUpdateLocked($integration, $externalResourceIds, $requestedBy)
         );
     }
@@ -61,7 +64,7 @@ final class SearchConsoleCentralCollectionService
     }
 
     /** @param list<int|string> $externalResourceIds
-     *  @return Collection<int, CoreExternalResource>
+     * @return Collection<int, CoreExternalResource>
      */
     private function resolveResources(CoreIntegration $integration, array $externalResourceIds): Collection
     {
@@ -199,7 +202,7 @@ final class SearchConsoleCentralCollectionService
             if (! is_array($datasetPlan['date_range'])) {
                 continue;
             }
-            $covered = app(\App\Services\Integrations\ResourceAutomationService::class)->coverageEnd(
+            $covered = app(ResourceAutomationService::class)->coverageEnd(
                 $resource->id, 'SEARCH_CONSOLE', $datasetPlan['request_family_id'], $datasetPlan['dataset_id'], $datasetPlan['search_type'] ?? ''
             );
             $datasetPlan['date_range']['start'] = $covered
@@ -207,6 +210,7 @@ final class SearchConsoleCentralCollectionService
                 : $end->subDays(self::INITIAL_DAYS - 1)->toDateString();
         }
         unset($datasetPlan);
+
         return [
             'resource' => $resource,
             'mode' => 'update',
@@ -262,7 +266,7 @@ final class SearchConsoleCentralCollectionService
     }
 
     /**
-     * @param list<string> $activeSearchTypes
+     * @param  list<string>  $activeSearchTypes
      * @return list<array<string, mixed>>
      */
     private function datasetPlans(array $activeSearchTypes, CarbonImmutable $start, CarbonImmutable $end): array
@@ -270,7 +274,11 @@ final class SearchConsoleCentralCollectionService
         $range = ['start' => $start->toDateString(), 'end' => $end->toDateString()];
         $plans = [];
 
+        $disabled = (array) config('moxdop-gsc-collector.disabled_families', []);
         foreach (SearchConsoleRequestFamilyCatalog::centralPerformanceFamilies() as $familyId) {
+            if (in_array($familyId, $disabled, true)) {
+                continue;
+            }
             $base = SearchConsoleRequestFamilyCatalog::definition($familyId);
             foreach (SearchConsoleRequestFamilyCatalog::compatibleSearchTypes($familyId, $activeSearchTypes) as $searchType) {
                 $definition = $base;
