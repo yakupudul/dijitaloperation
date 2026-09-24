@@ -14,7 +14,7 @@ use Illuminate\Support\Collection;
 final class SearchConsolePropertyGroupingService
 {
     /**
-     * @param list<array<string, mixed>> $resources
+     * @param  list<array<string, mixed>>  $resources
      * @return list<array<string, mixed>>
      */
     public function group(array $resources): array
@@ -107,7 +107,7 @@ final class SearchConsolePropertyGroupingService
     }
 
     /**
-     * @param Collection<int, array<string, mixed>> $members
+     * @param  Collection<int, array<string, mixed>>  $members
      * @return array<string, mixed>
      */
     private function collapseGroup(string $groupKey, Collection $members): array

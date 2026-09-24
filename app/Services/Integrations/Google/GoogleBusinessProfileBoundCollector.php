@@ -11,6 +11,7 @@ use App\Services\Integrations\BoundCollectionGuard;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use RuntimeException;
 use Throwable;
 
@@ -220,16 +221,19 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
                     'https://mybusinessbusinessinformation.googleapis.com/v1/'.$locationName.':getGoogleUpdated',
                     ['readMask' => self::LOCATION_READ_MASK], 'gbp_google_updated'));
                 $this->persistLocation($run, $resource, $locationName, $location, $updated['payload']);
+
                 return ['rows' => 1, 'partial' => $updated['error'] !== null, 'reason' => $updated['error']];
             }
             if ($next === 'gbp_services') {
                 $location = $this->request($integration,
                     'https://mybusinessbusinessinformation.googleapis.com/v1/'.$locationName,
                     ['readMask' => 'name,serviceItems'], $next);
+
                 return $this->collectServices($run, $resource, $locationName, $location);
             }
             $account = in_array($next, ['gbp_reviews', 'gbp_media', 'gbp_posts'], true)
                 ? $this->resolveAccountName($resource, $integration, $locationName) : null;
+
             return match ($next) {
                 'gbp_performance_daily' => $this->collectPerformance($run, $resource, $integration, $locationName),
                 'gbp_search_keywords_monthly' => $this->collectSearchKeywords($run, $resource, $integration, $locationName),
@@ -255,6 +259,7 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
             'metadata' => array_merge($run->metadata ?? [], ['datasets' => $datasets, 'active_dataset' => null,
                 'dataset_attempts' => $attempts, 'retry_minutes' => $retry ? (5 * $attempts[$next] + random_int(0, 3)) : 0]),
         ]);
+
         return $run->fresh();
     }
 
@@ -1034,11 +1039,11 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
             throw new RuntimeException('GBP dataset time budget reached; partial data retained. Retry this location.');
         }
         $quotaKey = 'gbp-read:'.$integration->id.':'.parse_url($url, PHP_URL_HOST);
-        if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($quotaKey, 120)) {
+        if (RateLimiter::tooManyAttempts($quotaKey, 120)) {
             $this->transientFailure = true;
             throw new RuntimeException('GBP request pacing limit reached; retry on the next collection.');
         }
-        \Illuminate\Support\Facades\RateLimiter::hit($quotaKey, 60);
+        RateLimiter::hit($quotaKey, 60);
         $response = $this->client->get($integration, $url, $query, GoogleScopeRegistry::CAPABILITY_GBP);
         if (! $response->successful()) {
             $this->transientFailure = $this->transientFailure || $response->status() === 429 || $response->status() >= 500;

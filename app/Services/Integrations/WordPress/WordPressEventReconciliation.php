@@ -82,12 +82,14 @@ final class WordPressEventReconciliation
                 // A passive customer (or asset) stops WordPress collection; it resumes on reactivation.
                 DB::table('website_connector_delivery')->where('connection_id', $state->connection_id)
                     ->update(['next_reconcile_at' => now()->addHour()]);
+
                 continue;
             }
             if (CollectionRun::query()->where('digital_asset_id', $connection->digital_asset_id)
                 ->whereIn('status', ['queued', 'running', 'retrying', 'cancellation_requested'])->exists()) {
                 DB::table('website_connector_delivery')->where('connection_id', $state->connection_id)
                     ->update(['next_reconcile_at' => now()->addMinutes(5)]);
+
                 continue;
             }
             $inventory = CollectionRun::query()->where('digital_asset_id', $connection->digital_asset_id)
@@ -112,6 +114,7 @@ final class WordPressEventReconciliation
                     'reconciled_event_id' => (int) ($events->max('id') ?? $state->reconciled_event_id),
                     'next_reconcile_at' => now()->addMinutes(10),
                 ]);
+
                 continue;
             }
             $ids = $events->filter(fn ($e) => str_starts_with($e->type, 'content.') || str_starts_with($e->type, 'seo.'))

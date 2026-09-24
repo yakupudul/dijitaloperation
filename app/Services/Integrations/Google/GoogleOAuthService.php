@@ -7,6 +7,7 @@ use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\GoogleOAuthAuthorizationAttempt;
 use App\Models\User;
+use App\Services\Integrations\IntegrationReconnectHandler;
 use App\Support\Integrations\Google\GoogleAuthStatus;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
@@ -244,7 +245,12 @@ class GoogleOAuthService
         /** @var array<string, mixed> $json */
         $json = $tokenResponse->json() ?? [];
 
-        return $this->persistTokenResponse($integration, $json, $requestedScopes, $returnRoute);
+        $result = $this->persistTokenResponse($integration, $json, $requestedScopes, $returnRoute);
+        if (! isset($result['error'])) {
+            app(IntegrationReconnectHandler::class)->handle($integration, $user);
+        }
+
+        return $result;
     }
 
     public function validAccessToken(CoreIntegration $integration): ?string

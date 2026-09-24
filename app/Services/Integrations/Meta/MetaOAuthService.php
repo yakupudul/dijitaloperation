@@ -6,6 +6,7 @@ use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\MetaOAuthAuthorizationAttempt;
 use App\Models\User;
+use App\Services\Integrations\IntegrationReconnectHandler;
 use App\Support\Integrations\Meta\MetaApiConfig;
 use App\Support\Integrations\Meta\MetaOAuthRedirectUriResolver;
 use App\Support\Integrations\Meta\MetaPermissionRegistry;
@@ -232,7 +233,12 @@ class MetaOAuthService
         /** @var array<string, mixed> $json */
         $json = $tokenResponse->json() ?? [];
 
-        return $this->persistTokenResponse($integration, $json, $requestedPermissions, $returnRoute);
+        $result = $this->persistTokenResponse($integration, $json, $requestedPermissions, $returnRoute);
+        if (! isset($result['error'])) {
+            app(IntegrationReconnectHandler::class)->handle($integration, $user);
+        }
+
+        return $result;
     }
 
     /**

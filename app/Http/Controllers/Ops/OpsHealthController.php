@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Ops;
 
 use App\Services\Observability\OperationalHealthSnapshot;
+use App\Support\Roles;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
@@ -46,10 +47,13 @@ final class OpsHealthController
     }
 
     /**
-     * Internal diagnostic snapshot — auth required by route middleware.
+     * Internal diagnostic snapshot — auth required by route middleware; admins only (it names workers,
+     * queues and integrations).
      */
     public function snapshot(OperationalHealthSnapshot $snapshot): JsonResponse
     {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+
         return response()->json($snapshot->snapshot());
     }
 

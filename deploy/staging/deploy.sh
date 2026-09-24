@@ -210,6 +210,15 @@ echo "connection={$connection} queue={$queue} depth=".Illuminate\Support\Facades
 php artisan up --no-interaction
 APP_DOWN=0
 
+# Faz 4: post-deploy checks. The release is already live, so failures are reported loudly but do not
+# roll back; read the FAIL lines and fix before the next deploy.
+echo "deploy/staging: post-deploy smoke (no provider calls)"
+if ! bash deploy/staging/smoke.sh; then
+  echo "deploy/staging: WARNING — smoke checks failed (see FAIL lines above)"
+fi
+echo "deploy/staging: scheduler registered jobs"
+php artisan schedule:list --no-interaction >/dev/null 2>&1 && echo "PASS  schedule:list" || echo "WARNING — schedule:list failed"
+
 echo "deploy/staging: done — SHA ${RELEASE_SHA}"
 php artisan about --only=environment 2>/dev/null || true
 

@@ -7,9 +7,11 @@ use App\Enums\Observability\OperationalAlertRuleType;
 use App\Enums\Observability\OperationalAlertSeverity;
 use App\Enums\Observability\OperationalSignalFamily;
 use App\Models\CoreIntegration;
+use App\Models\CoreIntegrationCredential;
 use App\Services\Async\AsyncWorkerHealth;
 use App\Services\DataPool\Freshness\DueCollectionQueryService;
 use App\Support\Integrations\ProviderRegistry;
+use Carbon\CarbonImmutable;
 use Throwable;
 
 /**
@@ -272,12 +274,15 @@ final class OperationalAlertEvaluator
             $status = strtoupper((string) ($config['auth_status'] ?? $config['status'] ?? ''));
             $scope = 'integration:'.(int) $integration->id;
 
+            // Google: refresh_required / revoked; Meta: reauth_required / permission_required or a dead token.
             $reconnect = in_array($status, [
                 'RECONNECT_REQUIRED',
                 'REFRESH_REQUIRED',
                 'REVOKED',
                 'EXPIRED',
-            ], true);
+                'REAUTH_REQUIRED',
+                'PERMISSION_REQUIRED',
+            ], true) || in_array(strtolower((string) ($config['credential_status'] ?? '')), ['expired', 'revoked', 'invalid', 'wrong_app'], true);
 
             if ($reconnect) {
                 $this->lifecycle->observeCondition(
@@ -300,9 +305,57 @@ final class OperationalAlertEvaluator
             } else {
                 $this->lifecycle->resolveIfActive('credential_reconnect_required', 'INTEGRATION', $scope);
             }
+
+            $expiresAt = $reconnect ? null : $this->credentialExpiry($integration, $config);
+            $warnDays = (int) config('moxdop-observability.credential_expiry_warning_days', 7);
+            if ($expiresAt !== null && $expiresAt->isFuture() && $expiresAt->lte(now()->addDays($warnDays))) {
+                $this->lifecycle->observeCondition(
+                    ruleKey: 'credential_expiring',
+                    ruleVersion: 1,
+                    ruleType: OperationalAlertRuleType::ProviderAuthFailure,
+                    family: OperationalSignalFamily::Credential,
+                    severity: OperationalAlertSeverity::Warning,
+                    scopeType: 'INTEGRATION',
+                    scopeKey: $scope,
+                    title: 'Integration authorization expires soon',
+                    summary: 'Provider '.$integration->provider.' integration #'.$integration->id.' expires_at='.$expiresAt->toIso8601String(),
+                    observed: [
+                        'integration_id' => (int) $integration->id,
+                        'provider' => (string) $integration->provider,
+                        'expires_at' => $expiresAt->toIso8601String(),
+                    ],
+                );
+                $opened++;
+            } else {
+                $this->lifecycle->resolveIfActive('credential_expiring', 'INTEGRATION', $scope);
+            }
         }
 
         return $opened;
+    }
+
+    /**
+     * When the stored authorization stops working without a reconnect: Google refresh tokens of apps in
+     * testing expire (refresh_token_expires_at); Meta long-lived user tokens expire (authorization credential
+     * expires_at). Google access-token expiry is not used: it is refreshed automatically.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    private function credentialExpiry(CoreIntegration $integration, array $config): ?CarbonImmutable
+    {
+        try {
+            if ($integration->provider === ProviderRegistry::GOOGLE) {
+                $value = $config['refresh_token_expires_at'] ?? null;
+
+                return is_string($value) && $value !== '' ? CarbonImmutable::parse($value) : null;
+            }
+            $expires = CoreIntegrationCredential::query()->where('integration_id', $integration->id)
+                ->where('credential_type', CoreIntegrationCredential::TYPE_AUTHORIZATION)->value('expires_at');
+
+            return $expires !== null ? CarbonImmutable::parse((string) $expires) : null;
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     private function evaluateStaleDatasets(): int

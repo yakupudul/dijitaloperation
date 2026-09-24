@@ -11,6 +11,12 @@ return [
 
     'enabled' => env('MOXDOP_OBSERVABILITY_ENABLED', true),
 
+    // Warn this many days before a Google (testing app) refresh token or Meta long-lived token expires.
+    'credential_expiry_warning_days' => (int) env('MOXDOP_OPS_CREDENTIAL_EXPIRY_WARNING_DAYS', 7),
+
+    // Queues that get a heartbeat probe job every 5 minutes (worker liveness per queue).
+    'probe_queues' => ['default', 'collection'],
+
     'liveness_path' => env('MOXDOP_OPS_LIVENESS_PATH', '/up/liveness'),
     'readiness_path' => env('MOXDOP_OPS_READINESS_PATH', '/up/readiness'),
 
@@ -141,6 +147,15 @@ return [
             'severity' => 'CRITICAL',
             'signal_family' => 'CREDENTIAL',
             'recovery' => 'credential_active',
+        ],
+        [
+            'key' => 'credential_expiring',
+            'version' => 1,
+            'type' => 'PROVIDER_AUTH_FAILURE',
+            'enabled' => true,
+            'severity' => 'WARNING',
+            'signal_family' => 'CREDENTIAL',
+            'recovery' => 'credential_renewed',
         ],
         [
             'key' => 'dataset_stale',

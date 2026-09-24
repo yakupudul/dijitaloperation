@@ -286,6 +286,47 @@ final class ResourceAutomationService
             ->update(['collection_status' => 'waiting', 'collection_error' => null, 'next_collection_at' => now()]);
     }
 
+    /**
+     * The integration was authorized again: accounts stopped for "reconnect" are due immediately.
+     * Only automations that are still enabled are resumed.
+     */
+    public function resumeAfterReconnect(int $integrationId): int
+    {
+        return ResourceAutomation::query()
+            ->where('collection_enabled', true)
+            ->where('collection_error', 'reconnect')
+            ->whereHas('resource', fn ($q) => $q->where('integration_id', $integrationId))
+            ->update(['collection_status' => 'waiting', 'collection_error' => null, 'collection_failures' => 0, 'next_collection_at' => now()]);
+    }
+
+    /**
+     * Daily second chance for stopped collections: repeated provider failures, and "reconnect" stops whose
+     * integration and resource are usable again (e.g. a token refreshed elsewhere). Contract errors,
+     * cancellations and portfolio gates are left alone; they need a code fix or an operator decision.
+     *
+     * @return array{retried: int, reconnected: int}
+     */
+    public function retryStopped(): array
+    {
+        $cutoff = now()->subHours((int) config('moxdop-collection.stopped_retry_after_hours', 20));
+        $retried = ResourceAutomation::query()
+            ->where('collection_enabled', true)->where('collection_status', 'attention')
+            ->where('collection_error', 'collection_failed')->where('updated_at', '<=', $cutoff)
+            ->update(['collection_status' => 'waiting', 'collection_error' => null, 'collection_failures' => 0, 'next_collection_at' => now()]);
+        $reconnected = 0;
+        ResourceAutomation::query()->with('resource.integration')
+            ->where('collection_enabled', true)->where('collection_status', 'attention')->where('collection_error', 'reconnect')
+            ->get()
+            ->each(function (ResourceAutomation $automation) use (&$reconnected): void {
+                if ($automation->resource !== null && $this->readiness($automation->resource) === null) {
+                    $automation->update(['collection_status' => 'waiting', 'collection_error' => null, 'collection_failures' => 0, 'next_collection_at' => now()]);
+                    $reconnected++;
+                }
+            });
+
+        return ['retried' => $retried, 'reconnected' => $reconnected];
+    }
+
     public function collect(int $id): void
     {
         $a = ResourceAutomation::query()->with('resource.integration')->findOrFail($id);

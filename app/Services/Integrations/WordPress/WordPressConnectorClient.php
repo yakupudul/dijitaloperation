@@ -6,12 +6,12 @@ use App\Models\CoreConnection;
 use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Response;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use MoxDop\Website\Discovery\PublicUrlSafety;
 use RuntimeException;
 use Throwable;
-use MoxDop\Website\Discovery\PublicUrlSafety;
 
 final class WordPressConnectorClient
 {

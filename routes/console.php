@@ -2,6 +2,7 @@
 
 use App\Enums\Collection\CollectionRunStatus;
 use App\Jobs\Collection\ExecuteDatasetRunJob;
+use App\Jobs\Ops\QueueHeartbeatProbeJob;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
 use App\Services\Collection\CollectionErrorRecorder;
@@ -11,6 +12,7 @@ use App\Services\Collection\StartCollectionService;
 use App\Services\Integrations\Google\GoogleBusinessProfileRetentionService;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Integrations\WordPress\WordPressEventReconciliation;
+use App\Services\Observability\WorkerHeartbeatService;
 use App\Services\Sales\FreeIntentRadar;
 use App\Services\WhatsApp\WhatsAppDispatch;
 use Illuminate\Foundation\Inspiring;
@@ -48,7 +50,17 @@ Artisan::command('moxdop:collection:work-db {--provider=} {--exclude-provider=} 
         $maxRuntime,
     ));
 
+    $lastBeat = 0.0;
     while ((microtime(true) - $startedAt) < $maxRuntime) {
+        // Faz 4: heartbeat at most once a minute so the system health page and alerts see this worker.
+        if (microtime(true) - $lastBeat >= 60) {
+            try {
+                app(WorkerHeartbeatService::class)->beat('db-collector:'.($scope === 'all' ? 'all' : strtolower($scope)), 'db-collector', 'COLLECTION', ['scope' => $scope]);
+            } catch (Throwable) {
+                // Heartbeats must never stop collection.
+            }
+            $lastBeat = microtime(true);
+        }
         $query = CollectionDatasetRun::query()
             ->whereHas('collectionRun', function ($run): void {
                 $run->whereIn('status', [
@@ -440,3 +452,16 @@ Schedule::command('moxdop:measurement:refresh')
     ->dailyAt('06:15')
     ->withoutOverlapping(60)
     ->name('brand-measurement-daily');
+
+// Faz 4: kuyruk işçisi yoklaması — her kuyruğa küçük bir iş; işlenince heartbeat yazar (Sistem Sağlığı ve uyarılar).
+Schedule::call(function (): void {
+    foreach ((array) config('moxdop-observability.probe_queues', ['default', 'collection']) as $queue) {
+        QueueHeartbeatProbeJob::dispatch((string) $queue)->onQueue((string) $queue);
+    }
+})->everyFiveMinutes()->name('queue-heartbeat-probe')->withoutOverlapping(5);
+
+// Faz 4: durmuş toplamalara günlük ikinci şans (tekrarlayan hata; yeniden kullanılabilir hale gelen bağlantılar).
+Schedule::command('moxdop:resources:retry-stopped')
+    ->dailyAt('05:10')
+    ->withoutOverlapping(30)
+    ->name('resource-automation-daily-retry');
