@@ -90,12 +90,19 @@
             @if (filled($connection['last_run_label'] ?? null))
                 <p class="mt-2 text-xs text-blue-800/70 dark:text-blue-300/70">{{ __($g.'last_run') }}: {{ $connection['last_run_label'] }} · {{ $connection['last_run_human'] ?? '—' }}</p>
             @endif
+            @if (filled($connection['last_error'] ?? null))
+                <p class="mt-2 text-xs text-rose-700 dark:text-rose-300">Eksik kalan veri: {{ $connection['last_error'] }}@if (filled($connection['last_error_hint'] ?? null)) — <strong>{{ $connection['last_error_hint'] }}</strong>@endif</p>
+            @endif
         </section>
     @elseif ($gaps !== [] && $tab !== 'advisor')
         <p class="rounded-lg bg-gray-50 px-4 py-2 text-xs text-gray-500 dark:bg-white/[0.03] dark:text-gray-400">
             {{ __($g.'data_gaps', ['items' => collect($gaps)->map(fn ($key) => __($g.'gap.'.$key))->implode(', ')]) }}
             @if (filled($connection['last_run_label'] ?? null)) · {{ __($g.'last_run') }}: {{ $connection['last_run_label'] }} @endif
         </p>
+        @if (filled($connection['last_error'] ?? null))
+                <p class="mt-2 text-xs text-rose-700 dark:text-rose-300">Eksik kalan veri: {{ $connection['last_error'] }}@if (filled($connection['last_error_hint'] ?? null)) — <strong>{{ $connection['last_error_hint'] }}</strong>@endif</p>
+            @endif
+
     @endif
 
     @if (in_array($tab, ['overview', 'performance'], true) && ($perf['available'] ?? false))

@@ -439,7 +439,12 @@ final class ResourceAutomationService
             $run = app(GoogleBusinessProfileBoundCollector::class)
                 ->collectResourceStep($automation->resource, $run);
             $finished = $run->status !== 'running';
-            $success = $run->status === 'completed';
+            // Partial = the location's core data arrived and some optional datasets did not (API not enabled,
+            // reviews access not approved). It stays current; the missing parts are shown on the profile page.
+            $datasets = (array) data_get($run->metadata, 'datasets', []);
+            $coreDelivered = collect(['gbp_location', 'gbp_performance_daily'])
+                ->every(fn (string $key): bool => in_array(data_get($datasets, $key.'.status'), ['available', 'partial'], true));
+            $success = $run->status === 'completed' || ($run->status === 'partial' && $coreDelivered);
             $automation->update([
                 'collection_status' => $finished ? ($success ? 'current' : 'attention') : 'waiting',
                 'collection_queued_at' => null,

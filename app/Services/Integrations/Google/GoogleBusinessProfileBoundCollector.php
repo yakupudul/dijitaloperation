@@ -252,12 +252,17 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
             $datasets[$next]['status'] = 'retrying';
         }
         $finished = count($datasets) === count($steps) && ! $retry;
-        $available = collect($datasets)->where('status', 'available')->count();
+        // A dataset with some rows missing (a metric a non-food business never has, months before the profile
+        // existed) still delivered data; only datasets that returned nothing count against the run.
+        $delivered = collect($datasets)->whereIn('status', ['available', 'partial'])->count();
+        $missing = collect($datasets)->reject(fn (array $d): bool => in_array($d['status'] ?? null, ['available', 'partial'], true))
+            ->map(fn (array $d, string $key): string => $key.': '.mb_substr((string) ($d['reason'] ?? 'veri yok'), 0, 200))->values()->all();
         $run->update([
-            'status' => $finished ? ($available === count($steps) ? 'completed' : ($available > 0 ? 'partial' : 'failed')) : 'running',
+            'status' => $finished ? ($delivered === count($steps) ? 'completed' : ($delivered > 0 ? 'partial' : 'failed')) : 'running',
             'finished_at' => $finished ? now() : null,
             'metadata' => array_merge($run->metadata ?? [], ['datasets' => $datasets, 'active_dataset' => null,
-                'dataset_attempts' => $attempts, 'retry_minutes' => $retry ? (5 * $attempts[$next] + random_int(0, 3)) : 0]),
+                'dataset_attempts' => $attempts, 'retry_minutes' => $retry ? (5 * $attempts[$next] + random_int(0, 3)) : 0,
+                'safe_error' => $finished && $missing !== [] ? implode(' · ', array_slice($missing, 0, 4)) : null]),
         ]);
 
         return $run->fresh();
@@ -1047,7 +1052,9 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
         $response = $this->client->get($integration, $url, $query, GoogleScopeRegistry::CAPABILITY_GBP);
         if (! $response->successful()) {
             $this->transientFailure = $this->transientFailure || $response->status() === 429 || $response->status() >= 500;
-            throw new RuntimeException(sprintf('%s provider request failed with HTTP %d.', $dataset, $response->status()));
+            // Google's own reason (SERVICE_DISABLED, PERMISSION_DENIED, …) tells the owner what to fix.
+            $reason = trim((string) $response->json('error.status').' '.mb_substr((string) $response->json('error.message'), 0, 160));
+            throw new RuntimeException(sprintf('%s provider request failed with HTTP %d.', $dataset, $response->status()).($reason !== '' ? ' '.$reason : ''));
         }
         $payload = $response->json();
 

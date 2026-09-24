@@ -141,6 +141,7 @@ final class OperatorGbpWorkspace implements GbpOperatorWorkspaceContract
             'last_run_label' => $this->runLabel($lastRun?->status),
             'last_run_human' => $lastRun?->finished_at?->diffForHumans() ?? $lastRun?->started_at?->diffForHumans(),
             'last_error' => data_get($lastRun?->metadata, 'safe_error'),
+            'last_error_hint' => self::errorHint((string) data_get($lastRun?->metadata, 'safe_error')),
         ];
 
         $data['unsupported_live_capabilities'] = array_values(array_filter([
@@ -539,5 +540,18 @@ final class OperatorGbpWorkspace implements GbpOperatorWorkspaceContract
     private function string(mixed $value): ?string
     {
         return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    /** What the owner should do for the usual Google errors (the raw reason is shown next to it). */
+    public static function errorHint(string $error): ?string
+    {
+        return match (true) {
+            $error === '' => null,
+            str_contains($error, 'SERVICE_DISABLED') || str_contains($error, 'has not been used') => 'Google Cloud projesinde ilgili Business Profile API kapalı; API Kitaplığı\'ndan etkinleştirin.',
+            str_contains($error, 'HTTP 403') => 'Yetki yok: hesabın bu konumda sahip/yönetici olması veya Google\'ın Business Profile API erişim onayı gerekiyor.',
+            str_contains($error, 'HTTP 429') || str_contains($error, 'pacing') => 'Google istek sınırı; bir sonraki toplamada kendiliğinden tekrar denenir.',
+            str_contains($error, 'HTTP 404') => 'Konum bulunamadı; konum silinmiş veya başka hesaba taşınmış olabilir.',
+            default => null,
+        };
     }
 }
