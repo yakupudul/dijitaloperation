@@ -9,6 +9,7 @@ use App\Services\Findings\FindingReadService;
 use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Operator\OperatorUserDirectory;
+use App\Services\Portfolio\CustomerCommercialSummary;
 use App\Services\Recommendations\RecommendationReadService;
 use App\Services\ReportSnapshots\ReportSnapshotReadService;
 use App\Services\ServiceScope\CustomerServiceScopeReadService;
@@ -52,6 +53,11 @@ class CustomerDetail extends Component
 
     public string $taskCreateNonce = '';
 
+    /** @var array{monthly_fee: string, ad_budget_google: string, ad_budget_meta: string} */
+    public array $commercial = ['monthly_fee' => '', 'ad_budget_google' => '', 'ad_budget_meta' => ''];
+
+    public bool $editingCommercial = false;
+
     public function mount(string $customerId): void
     {
         abort_unless(ctype_digit($customerId), 404);
@@ -77,6 +83,35 @@ class CustomerDetail extends Component
         if (! in_array($this->tab, ['overview', 'reports'], true)) {
             $this->tab = 'overview';
         }
+    }
+
+    public function editCommercial(): void
+    {
+        $customer = Customer::query()->findOrFail((int) $this->customerId);
+        $value = static fn ($v): string => $v !== null ? rtrim(rtrim(number_format((float) $v, 2, '.', ''), '0'), '.') : '';
+        $this->commercial = ['monthly_fee' => $value($customer->monthly_fee), 'ad_budget_google' => $value($customer->ad_budget_google), 'ad_budget_meta' => $value($customer->ad_budget_meta)];
+        $this->editingCommercial = true;
+    }
+
+    /** Monthly fee and the ad budgets agreed with the customer (TRY); empty = not agreed. */
+    public function saveCommercial(): void
+    {
+        // Turkish input: "15.000" or "15.000,50" means fifteen thousand; "2000,5" uses a decimal comma.
+        $this->commercial = array_map(static function ($v): string {
+            $v = str_replace([' ', '₺'], '', trim((string) $v));
+            if (preg_match('/^\d{1,3}(\.\d{3})+(,\d+)?$/', $v) === 1) {
+                $v = str_replace('.', '', $v);
+            }
+
+            return str_replace(',', '.', $v);
+        }, $this->commercial);
+        $this->validate([
+            'commercial.monthly_fee' => ['nullable', 'numeric', 'min:0', 'max:9999999999'],
+            'commercial.ad_budget_google' => ['nullable', 'numeric', 'min:0', 'max:9999999999'],
+            'commercial.ad_budget_meta' => ['nullable', 'numeric', 'min:0', 'max:9999999999'],
+        ]);
+        Customer::query()->whereKey((int) $this->customerId)->update(array_map(static fn (string $v): ?string => $v === '' ? null : $v, $this->commercial));
+        $this->editingCommercial = false;
     }
 
     public function openContactForm(?string $contactId = null): void
@@ -253,6 +288,7 @@ class CustomerDetail extends Component
             'team' => $team,
             'serviceScope' => app(CustomerServiceScopeReadService::class)->forCustomer($model, includeEnded: false),
             'customerReports' => app(ReportSnapshotReadService::class)->forCustomerReportsPresentation($model->id),
+            'commercialSummary' => app(CustomerCommercialSummary::class)->for($model),
             'flash' => DemoState::pullFlash(),
         ]);
     }

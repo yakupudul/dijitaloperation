@@ -44,6 +44,48 @@
 
     {{-- ============================================================ OVERVIEW --}}
     @if ($tab === 'overview')
+        @php
+            $money = static fn (?float $v): string => $v !== null ? '₺'.number_format($v, 0, ',', '.') : '—';
+            $stateLabel = ['over' => ['Bütçeyi aşacak', 'text-rose-700 bg-rose-50'], 'under' => ['Bütçenin altında', 'text-amber-700 bg-amber-50'], 'on_track' => ['Hedefte', 'text-emerald-700 bg-emerald-50'], 'no_budget' => ['Bütçe girilmemiş', 'text-gray-600 bg-gray-100']];
+        @endphp
+        <section class="{{ $card }} p-5" data-customer-commercial>
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Ücret ve reklam bütçesi</h2>
+                    <p class="mt-1 text-xs text-gray-500">Bu ay {{ $commercialSummary['days']['elapsed'] }}/{{ $commercialSummary['days']['total'] }} gün · ay sonu tahmini bugüne kadarki harcamanın doğrusal uzantısıdır.</p>
+                </div>
+                <button type="button" wire:click="editCommercial" class="text-xs font-medium text-brand-600 hover:underline">Düzenle</button>
+            </div>
+            @if ($editingCommercial)
+                <form wire:submit="saveCommercial" class="mt-4 grid gap-3 sm:grid-cols-4">
+                    @foreach (['monthly_fee' => 'Aylık ücret (₺)', 'ad_budget_google' => 'Google Ads aylık bütçe (₺)', 'ad_budget_meta' => 'Meta aylık bütçe (₺)'] as $field => $label)
+                        <label class="block text-sm"><span class="text-gray-500">{{ $label }}</span>
+                            <input type="text" inputmode="decimal" wire:model="commercial.{{ $field }}" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700 dark:text-white" />
+                            @error('commercial.'.$field) <span class="text-xs text-rose-600">{{ $message }}</span> @enderror
+                        </label>
+                    @endforeach
+                    <div class="flex items-end"><button type="submit" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white">Kaydet</button></div>
+                </form>
+            @endif
+            <div class="mt-4 grid gap-3 sm:grid-cols-3">
+                <div class="rounded-xl bg-gray-50 p-3 dark:bg-white/[0.03]"><p class="text-xs text-gray-500">Aylık ücret</p><p class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ $money($commercialSummary['fee']) }}</p></div>
+                @foreach ($commercialSummary['channels'] as $channel)
+                    <div class="rounded-xl bg-gray-50 p-3 dark:bg-white/[0.03]">
+                        <div class="flex items-center justify-between gap-2"><p class="text-xs text-gray-500">{{ $channel['label'] }}</p><span class="rounded-full px-2 py-0.5 text-[11px] {{ $stateLabel[$channel['state']][1] }}">{{ $stateLabel[$channel['state']][0] }}</span></div>
+                        <p class="mt-1 text-sm text-gray-800 dark:text-gray-200"><strong>{{ $money($channel['spent']) }}</strong> harcandı · ay sonu ~{{ $money($channel['projected']) }}</p>
+                        <p class="text-xs text-gray-500">Bütçe {{ $money($channel['budget']) }}@if ($channel['share'] !== null) · %{{ number_format($channel['share'] * 100, 0) }}@endif</p>
+                    </div>
+                @endforeach
+            </div>
+            @if (count($commercialSummary['health']) > 1)
+                <p class="mt-3 text-xs text-gray-500">Sağlık puanı geçmişi:
+                    @foreach ($commercialSummary['health'] as $point)
+                        <span class="ml-1 tabular-nums" title="{{ $point['date'] }}">{{ $point['score'] }}</span>@if (! $loop->last)<span class="text-gray-300">→</span>@endif
+                    @endforeach
+                </p>
+            @endif
+        </section>
+
         {{-- Brands first: this is where the work happens --}}
         <section class="{{ $card }}">
             <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3 dark:border-gray-800">

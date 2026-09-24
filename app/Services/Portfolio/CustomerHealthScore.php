@@ -118,6 +118,10 @@ final class CustomerHealthScore
             'score' => $result['score'], 'band' => $result['band'], 'reasons' => json_encode($result['reasons'], JSON_UNESCAPED_UNICODE),
             'computed_at' => now(), 'created_at' => now(), 'updated_at' => now(),
         ]);
+        if (Schema::hasTable('customer_health_history')) {
+            DB::table('customer_health_history')->updateOrInsert(['customer_id' => $customer->id, 'recorded_on' => now('Europe/Istanbul')->toDateString()],
+                ['score' => $result['score'], 'band' => $result['band'], 'created_at' => now(), 'updated_at' => now()]);
+        }
 
         return $result;
     }
