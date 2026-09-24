@@ -16,6 +16,7 @@ use App\Models\Collection\CollectionRun;
 use App\Policies\CollectionRunPolicy;
 use App\Services\Ai\AgentContextGateway;
 use App\Services\Ai\AiUsageRecorder;
+use App\Services\Archive\ProductionArchive;
 use App\Services\ClientValueStory\ClientValueStoryReadService;
 use App\Services\Collection\Contracts\NormalizedDatasetWriter;
 use App\Services\Collection\Contracts\RawPayloadWriter;
@@ -181,6 +182,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Event::listen(AgentPrompted::class, [AiUsageRecorder::class, 'handle']);
+        ProductionArchive::boot();
 
         Gate::before(function ($user, string $ability): ?bool {
             return method_exists($user, 'hasRole') && $user->hasRole(Roles::ADMIN)

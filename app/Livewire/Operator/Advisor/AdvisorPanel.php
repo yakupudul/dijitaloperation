@@ -11,6 +11,7 @@ use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Services\Advisor\AdvisorChannels;
 use App\Services\Advisor\AdvisorPlanRunner;
+use App\Services\Archive\ProductionArchive;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Support\Permissions;
 use Illuminate\Contracts\View\View;
@@ -87,6 +88,17 @@ final class AdvisorPanel extends Component
         $item = $this->item($id);
         $channel = $channels->get($item->channel);
         if (! in_array($item->rule_id, $channel->draftRules(), true) || $item->draft_status === 'queued') {
+            return;
+        }
+        // Üretim Arşivi: a fresh draft for this item (e.g. lost to a failed retry) is shown before a new AI call.
+        $hasDraft = is_array($item->draft) && ! isset($item->draft['error']) && $item->draft_status === 'ready';
+        $archive = app(ProductionArchive::class);
+        $fresh = $hasDraft ? null : $archive->fresh($archive->advisorKind($item), $item);
+        if ($fresh !== null) {
+            $item->forceFill(['draft_status' => 'ready', 'draft' => $fresh->content])->save();
+            $this->expandedId = $id;
+            $this->flash('Son 14 günde hazırlanmış taslak (sürüm '.$fresh->version.') arşivden geri yüklendi; AI çağrılmadı. Yeni taslak için "Yeniden hazırla".');
+
             return;
         }
         $item->forceFill(['draft_status' => 'queued', 'draft' => null])->save();

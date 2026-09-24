@@ -360,6 +360,7 @@
                                     @if (! empty($draft['path1']))<p class="mt-2 text-xs text-gray-500">Görünen yol: /{{ $draft['path1'] }}/{{ $draft['path2'] ?? '' }}</p>@endif
                                     @if (! empty($draft['notes']))<p class="mt-2 text-xs text-blue-800 dark:text-blue-300">{{ $draft['notes'] }}</p>@endif
                                     <button type="button" x-on:click="navigator.clipboard.writeText(@js(trim($draftText))); copied = true; setTimeout(() => copied = false, 2000)" class="mt-2 rounded-md bg-white px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-200 dark:bg-gray-900"><span x-show="! copied">Taslağı kopyala</span><span x-show="copied">Kopyalandı</span></button>
+                                    <a href="{{ route('operator.archive', ['subject' => 'AdvisorItem:'.$item->id]) }}" wire:navigate class="ml-2 text-xs font-medium text-blue-700 hover:underline dark:text-blue-300">Üretim Arşivi'nde sürümler →</a>
                                 @elseif ($item->draft_status === null)
                                     <p class="mt-1 text-xs text-blue-800 dark:text-blue-300">{{ $draftIntro }} Hesaba yazılmaz; kontrol edip kendin eklersin.</p>
                                 @endif
