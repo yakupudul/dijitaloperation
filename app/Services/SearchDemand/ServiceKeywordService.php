@@ -4,6 +4,7 @@ namespace App\Services\SearchDemand;
 
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceMatchingKeyword;
+use App\Services\SeoTasks\SeoText;
 use App\Support\Options\LocationOptions;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -77,10 +78,8 @@ final class ServiceKeywordService
 
     public function matches(string $text, array $ids, ?Collection $words = null): array
     {
-        $haystack = ' '.LocationOptions::fold($text).' ';
-
         return ($words ?? ServiceMatchingKeyword::query()->whereIn('service_catalog_item_id', $ids)->get())
-            ->filter(fn ($word): bool => str_contains($haystack, ' '.$word->normalized_key.' '))
+            ->filter(fn ($word): bool => SeoText::matchesPhrase($text, (string) $word->normalized_key))
             ->pluck('service_catalog_item_id')->unique()->values()->all();
     }
 }

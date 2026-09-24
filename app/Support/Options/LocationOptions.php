@@ -2,7 +2,7 @@
 
 namespace App\Support\Options;
 
-use Illuminate\Support\Str;
+use App\Services\SeoTasks\SeoText;
 use Illuminate\Validation\ValidationException;
 
 final class LocationOptions
@@ -34,11 +34,10 @@ final class LocationOptions
         return $province ? collect(self::data('districts'))->where('provinceId', $province['id'])->pluck('name', 'name')->sort()->all() : [];
     }
 
+    /** Same folding as the SEO engine (one implementation). */
     public static function fold(string $text): string
     {
-        $text = mb_strtolower(Str::ascii(strtr($text, ['I' => 'ı', 'İ' => 'i']), 'tr'), 'UTF-8');
-
-        return trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', $text) ?? '');
+        return SeoText::fold($text);
     }
 
     public static function normalizeArea(string $country, ?string $city, ?string $district, string $field = 'service_areas'): array

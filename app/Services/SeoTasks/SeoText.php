@@ -54,6 +54,84 @@ final class SeoText
         return str_contains(' '.self::fold($haystack).' ', ' '.$needle.' ');
     }
 
+    /** Folded Turkish suffixes a word may carry and still mean the same thing ("implantı", "dişçide"). */
+    private const array SUFFIXES = [
+        'i', 'u', 'a', 'e', 'in', 'un', 'an', 'en', 'ni', 'nu', 'na', 'ne', 'si', 'su', 'sa', 'se', 'ye', 'ya', 'yi', 'yu',
+        'de', 'da', 'te', 'ta', 'den', 'dan', 'ten', 'tan', 'nde', 'nda', 'nden', 'ndan', 'ler', 'lar', 'leri', 'lari',
+        'lerin', 'larin', 'lere', 'lara', 'lerde', 'larda', 'nin', 'nun', 'sin', 'sun', 'ci', 'cu', 'cisi', 'cusu',
+        'lik', 'luk', 'ligi', 'lugu', 'li', 'lu', 'm', 'mi', 'mu', 'n', 'niz', 'nuz', 'imiz', 'umuz', 'iniz', 'unuz',
+        'yla', 'yle', 'la', 'le', 'ki', 'deki', 'daki', 'teki', 'taki', 'dir', 'dur', 'tir', 'tur', 'yi', 'yu',
+    ];
+
+    /**
+     * Whole-phrase containment that tolerates Turkish suffixes and final-consonant softening on each word
+     * of the needle ("implant" ⊂ "implantı fiyatları", "estetik" ⊂ "burun estetiği"). Words shorter than
+     * four letters must match exactly so "kas" never matches "kasık".
+     */
+    public static function matchesPhrase(string $haystack, string $needle): bool
+    {
+        $needleTokens = array_values(array_filter(explode(' ', self::fold($needle)), static fn (string $t): bool => $t !== ''));
+        $haystackTokens = array_values(array_filter(explode(' ', self::fold($haystack)), static fn (string $t): bool => $t !== ''));
+        $count = count($needleTokens);
+        if ($count === 0 || $count > count($haystackTokens)) {
+            return false;
+        }
+        for ($start = 0; $start + $count <= count($haystackTokens); $start++) {
+            $all = true;
+            for ($i = 0; $i < $count; $i++) {
+                if (! self::wordMatches($haystackTokens[$start + $i], $needleTokens[$i])) {
+                    $all = false;
+                    break;
+                }
+            }
+            if ($all) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function wordMatches(string $word, string $stem): bool
+    {
+        if ($word === $stem) {
+            return true;
+        }
+        if (strlen($stem) < 4) {
+            return false;
+        }
+        $stems = [$stem];
+        $soft = ['k' => 'g', 't' => 'd', 'p' => 'b', 'c' => 'c'][substr($stem, -1)] ?? null;
+        if ($soft !== null) {
+            $stems[] = substr($stem, 0, -1).$soft;
+        }
+        foreach ($stems as $candidate) {
+            if (str_starts_with($word, $candidate) && self::isSuffixChain(substr($word, strlen($candidate)))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** One or two suffixes from the list ("lari", "leri"+"ni"). */
+    private static function isSuffixChain(string $rest): bool
+    {
+        if ($rest === '') {
+            return true;
+        }
+        if (in_array($rest, self::SUFFIXES, true)) {
+            return true;
+        }
+        for ($cut = 1; $cut < strlen($rest); $cut++) {
+            if (in_array(substr($rest, 0, $cut), self::SUFFIXES, true) && in_array(substr($rest, $cut), self::SUFFIXES, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** Fraction of $needle tokens present in $haystack tokens (0..1). */
     public static function tokenOverlap(string $haystack, string $needle): float
     {

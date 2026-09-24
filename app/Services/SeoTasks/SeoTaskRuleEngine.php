@@ -143,7 +143,7 @@ final class SeoTaskRuleEngine
                     continue;
                 }
                 foreach ($phrases as $phrase) {
-                    if (SeoText::containsPhrase($entry['query'], $phrase)) {
+                    if (SeoText::matchesPhrase($entry['query'], $phrase)) {
                         $matched[] = $key;
 
                         continue 2;
