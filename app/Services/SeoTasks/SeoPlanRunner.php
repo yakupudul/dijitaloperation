@@ -182,7 +182,7 @@ final class SeoPlanRunner
                 $result['tasks'] = array_values(array_filter($result['tasks'], fn (array $task): bool => ! in_array($task['rule_id'] ?? '', $disabled, true)));
             }
             // Faz 7: rules whose done advice measurably helped rank a little higher (and vice versa).
-            $result['tasks'] = app(RuleEffectiveness::class)->reweigh($result['tasks']);
+            $result['tasks'] = app(RuleEffectiveness::class)->reweigh($result['tasks'], $site->brand?->sector);
 
             if ($activity !== null && $useAi) {
                 $this->async->setPhase($activity, 'llm', 'İçerik briefleri hazırlanıyor');

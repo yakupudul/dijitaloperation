@@ -82,6 +82,7 @@ use App\Livewire\Operator\Settings\CostsPage;
 use App\Livewire\Operator\Settings\MethodLibraryPage;
 use App\Livewire\Operator\Settings\PushSettingsPage;
 use App\Livewire\Operator\Settings\SectorPacksPage;
+use App\Livewire\Operator\Settings\SectorPatternsPage;
 use App\Livewire\Operator\Settings\SystemHealthPage;
 use App\Support\Work\WorkUrl;
 use Illuminate\Support\Facades\Route;
@@ -201,6 +202,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/sector-packs', SectorPacksPage::class)->name('operator.settings.sector-packs');
         Route::livewire('/settings/push', PushSettingsPage::class)->name('operator.settings.push');
         Route::livewire('/settings/methods', MethodLibraryPage::class)->name('operator.settings.methods');
+        Route::livewire('/settings/sector-patterns', SectorPatternsPage::class)->name('operator.settings.sector-patterns');
         Route::livewire('/compliance', CompliancePage::class)->name('operator.compliance');
         Route::livewire('/settings/ai/control-plane', AiControlPlanePage::class)->name('operator.settings.ai.control-plane');
         Route::livewire('/settings/ai/agents', AiAgentsPage::class)->name('operator.settings.ai.agents');

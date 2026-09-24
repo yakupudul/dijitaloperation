@@ -777,3 +777,16 @@
   4. Geçmiş kayıtlar korunur: `runs`, `evidence`, `recommendations`, `agent_execution_runs`, `ai_usage_records` satırlarına dokunulmaz; tablo silinmez. `AsyncOperationTypes` içindeki eski rehberlik tip sabitleri yalnız etiket için `@deprecated` olarak kalır.
 - **Bilinen boşluk:** Çapraz varlık tutarlılık kontrollerinin (`AnalyzeWebsite*ConsistencyJob`, `AnalyzeInstagramMetaAdsDestinationConsistencyJob`) tek UI tetikleyicisi ViewDigitalAsset idi; servisler/işler kodda duruyor ama şu an UI'dan başlatılamıyor. WordPress uygulama şifresi bağlantısı (`WordPressConnectionProbeService`, eski `wordpress` bağlantı tipi) da yalnız Filament'teydi; operatör ürünü MoxDOP Connector eşleştirmesini (`wordpress_connector`) kullanır.
 - **İlgili:** ADR-044, ADR-023, ADR-064, `app/Providers/Filament/AppPanelProvider.php`, `app/Support/MoxDopNavigation.php`
+
+
+## ADR-066 — Sektör örüntüleri: markalar arası toplamlar yalnız ajans içi
+
+- **Durum:** Accepted (sahip kararı, Faz 7 – Beyin: "Faz 7'ye geç"; "Karar vermem gereken her şeyi onaylıyorum")
+- **Değiştirdiği:** Markalar arası veri kullanımı daha önce yalnız marka bazındaydı. Bu ADR dar bir toplam kullanımına izin verir; müşteri görünürlüğü kuralları aynen sürer.
+- **Karar:**
+  1. Aynı sektördeki (marka `sector` alanı) **aktif müşterilerin** markaları üzerinden şu toplamlar okunur: talep tablosunda tekrar eden markasız aramalar, danışmanın tekrar tekrar bulduğu sorunlar (kural bazında), "Yapıldı" önerilerin ölçülen sonucu (kural bazında başarı oranı).
+  2. **Eşik:** Bir sektör ve bir örüntü en az 2 farklı aktif marka ister (`moxdop-advisor.sector_patterns.min_brands`, 2'nin altına ayarlanamaz). Bir markanın kendi eksik listesi yalnız *diğer* markalardan (≥ 2) oluşur.
+  3. **Gizlilik:** Hiçbir örüntünün yanında başka markanın adı, ham metriği ya da kaynağı gösterilmez; yalnız marka sayısı ve toplam gösterim/tık/dönüşüm. Sayfa ajans içidir (`/settings/sector-patterns`); müşteri raporlarına, Değer Hikâyesi'ne, AI istemlerine ve dışa aktarmalara girmez.
+  4. **Önceliklendirme:** Kural etkinlik ağırlığı (`RuleEffectiveness`) markanın sektöründe yeterli ölçüm (`brain.min_measured`) varsa sektör sonucunu, yoksa ajans genelini kullanır.
+  5. Pasif müşterinin markaları toplamlara girmez. Harici yazma yoktur; yalnız mevcut veriden okuma.
+- **İlgili:** ADR-018, ADR-064, `app/Services/Brain/SectorPatternReader.php`, `app/Services/Brain/RuleEffectiveness.php`, `docs/product/MOXDOP_STRATEGY_ROADMAP.md` Faz 7

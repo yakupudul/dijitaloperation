@@ -20,6 +20,13 @@ return [
         'verify_grace_days' => 7,     // a done item still detected after this many days is reopened
     ],
 
+    // Faz 7 / ADR-066: sektör örüntüleri — ajans içi, yalnız toplamlar. Bir sektör ve bir örüntü en az bu kadar
+    // farklı aktif marka gerektirir (2'nin altına inmez).
+    'sector_patterns' => [
+        'min_brands' => 2,
+        'max_rows' => 30,
+    ],
+
     'schedule' => [
         'enabled' => env('ADVISOR_SCHEDULE_ENABLED', true),
         'weekly_day' => 1,          // Pazartesi

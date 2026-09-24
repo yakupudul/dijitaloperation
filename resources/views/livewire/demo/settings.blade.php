@@ -298,6 +298,7 @@
                             <x-ta.button :href="route('operator.settings.costs')" size="sm" variant="outline">Maliyetler</x-ta.button>
                         @endif
                         <x-ta.button :href="route('operator.settings.methods')" size="sm" variant="outline">Yöntem Kütüphanesi</x-ta.button>
+                        <x-ta.button :href="route('operator.settings.sector-patterns')" size="sm" variant="outline">Sektör örüntüleri</x-ta.button>
                         <x-ta.button :href="route('operator.settings.sector-packs')" size="sm" variant="outline">Sektör paketleri</x-ta.button>
                         @if (auth()->user()?->hasRole(\App\Support\Roles::ADMIN))
                             <x-ta.button :href="route('operator.settings.push')" size="sm" variant="outline">Telefon bildirimleri</x-ta.button>

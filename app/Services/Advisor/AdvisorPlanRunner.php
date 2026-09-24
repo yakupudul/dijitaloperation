@@ -144,7 +144,7 @@ final class AdvisorPlanRunner
                 $result['items'] = array_values(array_filter($result['items'], fn (array $item): bool => ! in_array($item['rule_id'] ?? '', $disabled, true)));
             }
             // Faz 7: rules whose done advice measurably helped rank a little higher (and vice versa).
-            $result['items'] = app(RuleEffectiveness::class)->reweigh($result['items']);
+            $result['items'] = app(RuleEffectiveness::class)->reweigh($result['items'], $plan->digitalAsset?->brand?->sector);
             $written = $this->writer->write($plan, $result['items']);
             $summary = $this->summaryText($result, $input, $channel);
 

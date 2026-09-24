@@ -11,18 +11,23 @@ use Illuminate\Support\Facades\DB;
  */
 final class RuleEffectiveness
 {
-    /** @var array<string, array{done: int, measured: int, improved: int, reopened: int}>|null */
-    private ?array $stats = null;
+    /** @var array<string, array<string, array{done: int, measured: int, improved: int, reopened: int}>> sector ('' = all) => rule => stats */
+    private array $stats = [];
 
-    /** @return array<string, array{done: int, measured: int, improved: int, reopened: int}> */
-    public function all(): array
+    /**
+     * @param  ?string  $sector  brand sector code; null = every brand
+     * @return array<string, array{done: int, measured: int, improved: int, reopened: int}>
+     */
+    public function all(?string $sector = null): array
     {
-        if ($this->stats !== null) {
-            return $this->stats;
+        $cacheKey = (string) $sector;
+        if (isset($this->stats[$cacheKey])) {
+            return $this->stats[$cacheKey];
         }
         $stats = [];
         foreach (['advisor_items', 'seo_tasks'] as $table) {
             DB::table($table)->where(fn ($q) => $q->where('status', 'done')->orWhere('reopened_count', '>', 0))
+                ->when($sector !== null, fn ($q) => $q->whereIn('brand_id', DB::table('brands')->where('sector', $sector)->select('id')))
                 ->select(['rule_id', 'status', 'outcome', 'reopened_count'])->orderBy('id')
                 ->chunk(1000, function ($rows) use (&$stats): void {
                     foreach ($rows as $row) {
@@ -39,15 +44,23 @@ final class RuleEffectiveness
                 });
         }
 
-        return $this->stats = $stats;
+        return $this->stats[$cacheKey] = $stats;
     }
 
-    /** Priority multiplier for a rule: 1.0 until enough measured outcomes, then 1 ± range by success rate. */
-    public function weight(string $ruleId): float
+    /**
+     * Priority multiplier for a rule: 1.0 until enough measured outcomes, then 1 ± range by success rate.
+     * With a sector, the brand's own sector is used once it has enough outcomes of its own (ADR-066).
+     */
+    public function weight(string $ruleId, ?string $sector = null): float
     {
         $min = max(1, (int) config('moxdop-advisor.brain.min_measured', 5));
         $range = max(0.0, min(0.5, (float) config('moxdop-advisor.brain.weight_range', 0.2)));
-        $row = $this->all()[$ruleId] ?? null;
+        $row = null;
+        if ($sector !== null && $sector !== '') {
+            $sectorRow = $this->all($sector)[$ruleId] ?? null;
+            $row = $sectorRow !== null && $sectorRow['measured'] >= $min ? $sectorRow : null;
+        }
+        $row ??= $this->all()[$ruleId] ?? null;
         if ($row === null || $row['measured'] < $min) {
             return 1.0;
         }
@@ -62,10 +75,10 @@ final class RuleEffectiveness
      * @param  list<array<string, mixed>>  $rows
      * @return list<array<string, mixed>>
      */
-    public function reweigh(array $rows): array
+    public function reweigh(array $rows, ?string $sector = null): array
     {
-        return array_map(function (array $row): array {
-            $weight = $this->weight((string) ($row['rule_id'] ?? ''));
+        return array_map(function (array $row) use ($sector): array {
+            $weight = $this->weight((string) ($row['rule_id'] ?? ''), $sector);
             if ($weight !== 1.0 && isset($row['priority_score'])) {
                 $row['priority_score'] = round((float) $row['priority_score'] * $weight, 2);
             }
