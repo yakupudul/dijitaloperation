@@ -4,6 +4,7 @@ namespace App\Livewire\Operator\Seo;
 
 use App\Enums\SeoTaskStatus;
 use App\Enums\SeoTaskType;
+use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
@@ -11,6 +12,8 @@ use App\Models\SeoPlan;
 use App\Models\SeoTask;
 use App\Models\ServicePageAssignment;
 use App\Services\BrandIntelligence\BrandOfferingService;
+use App\Services\Compliance\ComplianceAuditor;
+use App\Services\Compliance\SectorPackRegistry;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\SeoTasks\SeoPlanRunner;
 use App\Support\Permissions;
@@ -307,6 +310,22 @@ final class SeoTasksPanel extends Component
             return;
         }
         $this->flash(sprintf('%s için plan #%d kuruluyor.', $site->domain ?: $site->name, $plan->version));
+    }
+
+    /**
+     * Sector-pack check of an AI brief (shown in the expanded card); null when no pack applies to the brand.
+     *
+     * @return list<array{label: string, matched: string, message: string}>|null
+     */
+    public function complianceFor(SeoTask $task): ?array
+    {
+        $brand = $task->brand_id !== null ? Brand::query()->with('sectors')->find($task->brand_id) : null;
+        if ($brand === null || app(SectorPackRegistry::class)->forBrand($brand) === []) {
+            return null;
+        }
+
+        return array_map(static fn (array $hit): array => ['label' => $hit['rule']->label, 'matched' => $hit['matched'], 'message' => $hit['rule']->message],
+            app(ComplianceAuditor::class)->checkForBrand($brand, ComplianceAuditor::flatten((array) $task->content_brief), 'seo_brief'));
     }
 
     public function render(): View

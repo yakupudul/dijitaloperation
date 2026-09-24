@@ -507,6 +507,17 @@
                                         <p class="text-xs font-medium uppercase tracking-wide text-success-700 dark:text-success-400">İçerik briefi @if (($brief['source'] ?? '') === 'llm') · AI ile hazırlandı @endif</p>
                                         <button type="button" x-on:click="navigator.clipboard.writeText(@js($task->briefText())); copied = true; setTimeout(() => copied = false, 2000)" class="rounded-md bg-white px-2 py-1 text-xs font-medium text-success-700 ring-1 ring-inset ring-success-200 dark:bg-gray-900 dark:text-success-400"><span x-show="! copied">Briefi kopyala</span><span x-show="copied">Kopyalandı</span></button>
                                     </div>
+                                    @if (($brief['source'] ?? '') === 'llm')
+                                        @php $briefCompliance = $this->complianceFor($task); @endphp
+                                        @if ($briefCompliance)
+                                            <div class="mt-2 rounded-md bg-rose-50 p-2 text-xs text-rose-800 dark:bg-rose-500/10 dark:text-rose-300">
+                                                <p class="font-semibold">Uyum: {{ count($briefCompliance) }} sorun — yazara vermeden önce düzelt</p>
+                                                @foreach ($briefCompliance as $hit)<p>• {{ $hit['label'] }}: “{{ $hit['matched'] }}” — {{ $hit['message'] }}</p>@endforeach
+                                            </div>
+                                        @elseif ($briefCompliance === [])
+                                            <p class="mt-2 text-xs text-success-700 dark:text-success-400">Uyum: sektör kurallarına takılan ifade yok.</p>
+                                        @endif
+                                    @endif
                                     @php $taskDrafts = $drafts[$task->id] ?? collect(); $lastDraft = $taskDrafts->first(); @endphp
                                 @if ($canWriteWordPress || $lastDraft)
                                     <div class="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-white px-3 py-2 text-xs ring-1 ring-inset ring-success-200 dark:bg-gray-900 dark:ring-success-500/20">

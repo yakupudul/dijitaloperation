@@ -20,6 +20,7 @@ return [
         'tasks' => 'Görevler',
         'seo_tasks' => 'SEO Görevleri',
         'archive' => 'Üretim Arşivi',
+        'compliance' => 'Uyum',
         'ads_advisor' => 'Danışman',
         'work' => 'İşler',
         'activity' => 'Aktivite',

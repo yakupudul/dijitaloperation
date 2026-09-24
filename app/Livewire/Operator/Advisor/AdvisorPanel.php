@@ -6,12 +6,15 @@ use App\Enums\AdvisorCategory;
 use App\Enums\AdvisorItemStatus;
 use App\Models\AdvisorItem;
 use App\Models\AdvisorPlan;
+use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Services\Advisor\AdvisorChannels;
 use App\Services\Advisor\AdvisorPlanRunner;
 use App\Services\Archive\ProductionArchive;
+use App\Services\Compliance\ComplianceAuditor;
+use App\Services\Compliance\SectorPackRegistry;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Support\Permissions;
 use Illuminate\Contracts\View\View;
@@ -185,10 +188,21 @@ final class AdvisorPanel extends Component
         $draftsPending = $items->where('draft_status', 'queued')->count();
         $currency = $open->pluck('currency')->filter()->unique();
         $writes = ExternalWriteAction::query()->whereIn('advisor_item_id', $items->pluck('id'))->orderByDesc('id')->get()->groupBy('advisor_item_id');
+        // Faz 5: sector-pack check of ready AI drafts, shown next to the draft (nothing stored here).
+        $auditor = app(ComplianceAuditor::class);
+        $brands = Brand::query()->with('sectors')->whereIn('id', $items->pluck('brand_id')->filter()->unique())->get()->keyBy('id');
+        $packs = app(SectorPackRegistry::class);
+        $compliance = $items->filter(fn (AdvisorItem $i): bool => $i->draft_status === 'ready' && is_array($i->draft) && ! isset($i->draft['error'])
+            && $brands->has($i->brand_id) && $packs->forBrand($brands->get($i->brand_id)) !== [])
+            ->mapWithKeys(fn (AdvisorItem $i): array => [$i->id => array_map(
+                static fn (array $hit): array => ['label' => $hit['rule']->label, 'matched' => $hit['matched'], 'message' => $hit['rule']->message],
+                $auditor->checkForBrand($brands->get($i->brand_id), ComplianceAuditor::flatten($i->draft), 'ai_draft'),
+            )])->all();
         $writesPending = $writes->flatten()->whereIn('status', ['queued', 'running', 'undoing'])->count();
 
         return view('livewire.operator.advisor.advisor-panel', [
             'items' => $items,
+            'compliance' => $compliance,
             'counts' => $counts,
             'board' => $board,
             'asset' => $asset,

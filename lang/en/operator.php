@@ -20,6 +20,7 @@ return [
         'tasks' => 'Tasks',
         'seo_tasks' => 'SEO Tasks',
         'archive' => 'Production Archive',
+        'compliance' => 'Compliance',
         'ads_advisor' => 'Advisor',
         'work' => 'Work',
         'activity' => 'Activity',

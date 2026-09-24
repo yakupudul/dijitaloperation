@@ -44,7 +44,9 @@ final class PageContentMetrics
             $node->parentNode?->removeChild($node);
         }
 
-        $text = trim(preg_replace('/\s+/u', ' ', (string) ($document->getElementsByTagName('body')->item(0)?->textContent ?? '')) ?? '');
+        // Text nodes joined with spaces: textContent glues adjacent block elements into one word.
+        $bodyText = implode(' ', array_map(static fn ($node): string => (string) $node->nodeValue, iterator_to_array($xpath->query('//body//text()') ?: [])));
+        $text = trim(preg_replace('/\s+/u', ' ', $bodyText) ?? '');
         $headings = static fn (string $tag): array => array_values(array_filter(array_map(
             static fn ($node): string => mb_substr(trim(preg_replace('/\s+/u', ' ', (string) $node->textContent) ?? ''), 0, 160),
             iterator_to_array($xpath->query('//'.$tag) ?: []),

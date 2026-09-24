@@ -62,6 +62,7 @@ final class DemoMenu
                     ['label' => __('operator.nav.seo_tasks'), 'route' => 'operator.seo_tasks', 'icon' => 'seo'],
                     ['label' => __('operator.nav.ads_advisor'), 'route' => 'operator.ads_advisor', 'icon' => 'ads-advisor'],
                     ['label' => __('operator.nav.archive'), 'route' => 'operator.archive', 'icon' => 'archive'],
+                    ['label' => __('operator.nav.compliance'), 'route' => 'operator.compliance', 'icon' => 'compliance'],
                     ['label' => __('operator.nav.activity'), 'route' => 'operator.activity', 'icon' => 'activity'],
                 ],
             ],

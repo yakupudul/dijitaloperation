@@ -465,3 +465,9 @@ Schedule::command('moxdop:resources:retry-stopped')
     ->dailyAt('05:10')
     ->withoutOverlapping(30)
     ->name('resource-automation-daily-retry');
+
+// Faz 5: sektör paketi uyum denetimi (AI taslakları, Meta reklam metni/hedefleme, site sayfaları, İşletme Profili).
+Schedule::command('moxdop:compliance:scan')
+    ->dailyAt((string) config('moxdop-sector-packs.scan_time', '06:45'))
+    ->withoutOverlapping(60)
+    ->name('compliance-scan-daily');

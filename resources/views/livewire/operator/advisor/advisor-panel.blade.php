@@ -347,6 +347,14 @@
                                 @if ($item->draft_status === 'failed')
                                     <p class="mt-2 text-sm text-error-700 dark:text-error-300">{{ $draft['error'] ?? 'Taslak hazırlanamadı.' }}</p>
                                 @elseif ($item->draft_status === 'ready' && $draft)
+                                    @if (! empty($compliance[$item->id]))
+                                        <div class="mt-2 rounded-md bg-rose-50 p-2 text-xs text-rose-800 dark:bg-rose-500/10 dark:text-rose-300">
+                                            <p class="font-semibold">Uyum: {{ count($compliance[$item->id]) }} sorun — yayınlamadan önce düzelt</p>
+                                            @foreach ($compliance[$item->id] as $hit)<p>• {{ $hit['label'] }}: “{{ $hit['matched'] }}” — {{ $hit['message'] }}</p>@endforeach
+                                        </div>
+                                    @elseif (array_key_exists($item->id, $compliance))
+                                        <p class="mt-2 text-xs text-emerald-700 dark:text-emerald-300">Uyum: sektör kurallarına takılan ifade yok.</p>
+                                    @endif
                                     <div class="mt-2 grid gap-3 text-sm text-gray-800 sm:grid-cols-2 dark:text-gray-200">
                                         @foreach ($draftSections as $draftKey => $draftLabel)
                                             @if (! empty($draft[$draftKey]))
