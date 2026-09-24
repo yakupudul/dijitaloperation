@@ -74,7 +74,7 @@ class Dashboard extends Component
     private function openAlerts(): Collection
     {
         try {
-            return AssetAlert::query()->open()
+            return AssetAlert::query()->active()
                 ->with(['digitalAsset', 'brand'])
                 ->orderByRaw("case severity when 'critical' then 0 when 'high' then 1 when 'medium' then 2 else 3 end")
                 ->latest('first_detected_at')

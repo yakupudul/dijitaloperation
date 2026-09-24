@@ -47,7 +47,10 @@
 
     @if ($alerts->isNotEmpty())
         <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-rose-200 dark:bg-gray-900 dark:ring-rose-500/30" aria-labelledby="alerts-heading">
-            <h2 id="alerts-heading" class="text-sm font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-400">{{ __('operator_asset.alerts_title') }} ({{ $alerts->count() }})</h2>
+            <div class="flex items-center justify-between gap-2">
+                <h2 id="alerts-heading" class="text-sm font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-400">{{ __('operator_asset.alerts_title') }} ({{ $alerts->count() }})</h2>
+                <a href="{{ route('operator.alerts') }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">Tüm uyarılar</a>
+            </div>
             <ul class="mt-3 space-y-2">
                 @foreach ($alerts as $alert)
                     <li class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">

@@ -97,6 +97,7 @@ use App\Livewire\Operator\Settings\PushSettingsPage;
 use App\Livewire\Operator\Settings\SectorPacksPage;
 use App\Livewire\Operator\Settings\SectorPatternsPage;
 use App\Livewire\Operator\Settings\SystemHealthPage;
+use App\Livewire\Operator\Work\AlertsPage;
 use App\Support\Work\WorkUrl;
 use Illuminate\Support\Facades\Route;
 
@@ -181,6 +182,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/recommendations', RecommendationsIndex::class)->name('operator.recommendations');
         Route::livewire('/tasks', TasksIndex::class)->name('operator.tasks');
         Route::livewire('/seo-tasks', SeoTasksIndex::class)->name('operator.seo_tasks');
+        Route::livewire('/alerts', AlertsPage::class)->name('operator.alerts');
         Route::livewire('/ads-advisor', AdvisorIndex::class)->name('operator.ads_advisor');
         Route::livewire('/archive', ProductionArchivePage::class)->name('operator.archive');
         Route::livewire('/renewals', RenewalsPage::class)->name('operator.renewals');

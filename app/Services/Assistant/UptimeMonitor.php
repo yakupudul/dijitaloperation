@@ -70,6 +70,8 @@ final class UptimeMonitor
         if (! $alert->exists || $alert->resolved_at !== null) {
             $alert->first_detected_at = now();
             $alert->resolved_at = null;
+            $alert->snoozed_until = null;
+            $alert->snoozed_by = null;
         }
         $alert->fill([
             'brand_id' => $site->brand_id, 'kind' => 'site_down', 'severity' => 'critical', 'title' => 'Site erişilemiyor',

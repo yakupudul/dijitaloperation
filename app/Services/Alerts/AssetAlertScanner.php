@@ -342,6 +342,8 @@ final class AssetAlertScanner
             if ($isNew) {
                 $row->first_detected_at = now();
                 $row->resolved_at = null;
+                $row->snoozed_until = null;
+                $row->snoozed_by = null;
                 $new++;
             }
             $row->fill([

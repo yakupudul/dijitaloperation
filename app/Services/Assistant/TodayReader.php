@@ -80,7 +80,7 @@ final class TodayReader
     private function customersToContact(): array
     {
         $rows = [];
-        $critical = AssetAlert::query()->open()->whereIn('severity', ['critical', 'high'])->whereNotNull('brand_id')
+        $critical = AssetAlert::query()->active()->whereIn('severity', ['critical', 'high'])->whereNotNull('brand_id')
             ->with('brand:id,name,customer_id')->get()->groupBy(fn (AssetAlert $a) => $a->brand?->customer_id);
         $names = Customer::query()->whereIn('id', $critical->keys()->filter())->where('status', 'active')->pluck('name', 'id');
         foreach ($critical as $customerId => $alerts) {
