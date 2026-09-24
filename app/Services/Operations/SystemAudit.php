@@ -20,7 +20,7 @@ final class SystemAudit
     public function run(): array
     {
         $checks = [];
-        foreach (['environment', 'migrations', 'queue', 'health', 'disk', 'log'] as $section) {
+        foreach (['environment', 'migrations', 'queue', 'health', 'collection', 'disk', 'tables', 'log'] as $section) {
             try {
                 array_push($checks, ...$this->{$section}());
             } catch (Throwable $exception) {
@@ -98,8 +98,11 @@ final class SystemAudit
         $out[] = [($h['watchdog']['installed'] ?? false) ? 'ok' : 'warn', 'Watchdog cron', ($h['watchdog']['last_run_at'] ?? null) ?? 'hiç çalışmamış'];
         $bad = array_filter($h['workers'], fn (array $w): bool => ! $w['ok']);
         $out[] = [$h['workers'] === [] ? 'warn' : ($bad === [] ? 'ok' : 'fail'), 'İşçiler', count($h['workers']).' kayıtlı'.($bad !== [] ? ', sessiz: '.implode(', ', array_column($bad, 'name')) : '')];
-        foreach ($h['alerts'] as $alert) {
-            $out[] = [$alert['severity'] === 'critical' ? 'fail' : 'warn', 'Operasyon uyarısı', $alert['title'].($alert['summary'] ? ' — '.mb_substr((string) $alert['summary'], 0, 160) : '')];
+        // Many alerts share one rule ("Automatic account updates · <account>"): print each rule once with a count.
+        foreach (collect($h['alerts'])->groupBy(fn (array $a): string => $a['severity'].'|'.trim(explode(' · ', $a['title'])[0])) as $key => $group) {
+            [$severity, $title] = explode('|', $key, 2);
+            $names = $group->map(fn (array $a): string => trim(explode(' · ', $a['title'], 2)[1] ?? ''))->filter()->take(5)->implode(', ');
+            $out[] = [$severity === 'critical' ? 'fail' : 'warn', 'Operasyon uyarısı ×'.$group->count(), $title.' — '.mb_substr((string) $group->first()['summary'], 0, 160).($names !== '' ? ' ['.$names.($group->count() > 5 ? ', …' : '').']' : '')];
         }
         foreach ($h['integrations'] as $i) {
             $expiring = $i['expires_in_days'] !== null && $i['expires_in_days'] <= 7;
@@ -108,8 +111,11 @@ final class SystemAudit
         }
         $c = $h['account_counts'];
         $out[] = [$c['attention'] > 0 ? 'fail' : ($c['stale'] > 0 ? 'warn' : 'ok'), 'Hesap toplama', sprintf('%d hesap · %d dikkat · %d eski veri', $c['total'], $c['attention'], $c['stale'])];
-        foreach (array_slice(array_filter($h['accounts'], fn (array $a): bool => $a['state'] === 'attention' || $a['stale']), 0, 25) as $a) {
-            $out[] = [$a['state'] === 'attention' ? 'fail' : 'warn', '  '.$a['provider'].' '.$a['type'], $a['name'].' · '.$a['state'].' · veri '.($a['data_through'] ?? '—').($a['error'] ? ' · '.mb_substr((string) $a['error'], 0, 160) : '')];
+        // Grouped by account type and reason, with a few example names, instead of one line per account.
+        foreach (collect($h['accounts'])->filter(fn (array $a): bool => $a['state'] === 'attention' || $a['stale'])
+            ->groupBy(fn (array $a): string => $a['type'].' · '.($a['state'] === 'attention' ? ($a['error'] ?: 'attention') : 'eski veri'))
+            ->sortByDesc(fn ($group) => $group->count()) as $key => $group) {
+            $out[] = ['warn', '  ×'.$group->count().' '.$key, $group->pluck('name')->take(4)->implode(', ').($group->count() > 4 ? ', …' : '')];
         }
         foreach ($h['plugins'] as $p) {
             if ($p['outdated'] || $p['silent']) {
@@ -173,6 +179,77 @@ final class SystemAudit
         $out = [[$total === 0 ? 'ok' : 'warn', 'Uygulama log hataları (24 saat)', $files === [] ? 'log dosyası yok' : $total.' hata']];
         foreach (array_slice($counts, 0, 12, true) as $message => $count) {
             $out[] = ['warn', '  ×'.$count, $message];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Why collections fail: dataset run errors and Business Profile run errors of the last 7 days, grouped.
+     *
+     * @return list<array{0: string, 1: string, 2: string}>
+     */
+    private function collection(): array
+    {
+        $out = [];
+        $since = now()->subDays(7);
+        if (Schema::hasTable('collection_dataset_runs')) {
+            $rows = DB::table('collection_dataset_runs')->where('updated_at', '>=', $since)->whereIn('status', ['failed', 'blocked', 'dead_lettered', 'exhausted'])
+                ->selectRaw('provider_or_source, error_code, error_message, count(*) as n')->groupBy('provider_or_source', 'error_code', 'error_message')
+                ->orderByDesc('n')->limit(15)->get();
+            $out[] = [$rows->isEmpty() ? 'ok' : 'warn', 'Veri seti hataları (7 gün)', $rows->isEmpty() ? 'yok' : (int) $rows->sum('n').' hatalı veri seti çalışması'];
+            foreach ($rows as $row) {
+                $out[] = ['warn', '  ×'.$row->n.' '.$row->provider_or_source, trim(($row->error_code ?? '').' — '.mb_substr((string) $row->error_message, 0, 200), ' —')];
+            }
+        }
+        if (Schema::hasTable('runs')) {
+            $messages = DB::table('runs')->where('module_id', 'google-business-profile')->where('status', 'failed')->where('created_at', '>=', $since)
+                ->orderByDesc('id')->limit(500)->pluck('metadata')
+                ->map(function ($metadata): string {
+                    $meta = is_array($metadata) ? $metadata : (json_decode((string) $metadata, true) ?: []);
+                    foreach (['error', 'error_message', 'failure_reason', 'reason', 'message', 'last_error'] as $key) {
+                        $value = data_get($meta, $key);
+                        if (is_string($value) && $value !== '') {
+                            return mb_substr($value, 0, 200);
+                        }
+                    }
+
+                    return '(neden kaydedilmemiş) '.mb_substr(implode(',', array_keys($meta)), 0, 120);
+                })->countBy()->sortDesc()->take(8);
+            if ($messages->isNotEmpty()) {
+                $out[] = ['warn', 'İşletme Profili hataları (7 gün)', (int) $messages->sum().' başarısız çalışma'];
+                foreach ($messages as $message => $count) {
+                    $out[] = ['warn', '  ×'.$count, (string) $message];
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Largest tables (partitions summed into their parent) and storage folders — where the disk goes.
+     *
+     * @return list<array{0: string, 1: string, 2: string}>
+     */
+    private function tables(): array
+    {
+        $out = [];
+        if (DB::getDriverName() === 'pgsql') {
+            $rows = DB::select("select coalesce(parent.relname, c.relname) as name, sum(pg_total_relation_size(c.oid)) as bytes
+                from pg_class c join pg_namespace n on n.oid = c.relnamespace
+                left join pg_inherits i on i.inhrelid = c.oid left join pg_class parent on parent.oid = i.inhparent
+                where n.nspname = current_schema() and c.relkind in ('r', 'p', 'm')
+                group by 1 order by 2 desc limit 12");
+            foreach ($rows as $row) {
+                $out[] = ['info', '  tablo '.$row->name, sprintf('%.2f GB', (float) $row->bytes / 1e9)];
+            }
+        }
+        foreach (['app' => storage_path('app'), 'logs' => storage_path('logs')] as $label => $path) {
+            $size = @shell_exec('timeout 30 du -sb '.escapeshellarg($path).' 2>/dev/null');
+            if (is_string($size) && preg_match('/^(\d+)/', $size, $m) === 1) {
+                $out[] = ['info', '  storage/'.$label, sprintf('%.2f GB', (int) $m[1] / 1e9)];
+            }
         }
 
         return $out;

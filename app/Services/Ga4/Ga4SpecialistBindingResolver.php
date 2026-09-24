@@ -10,6 +10,7 @@ use App\Support\Integrations\Google\GoogleAuthStatus;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Reality\DemoCatalogAssetGuard;
+use App\Support\Time\SafeTimezone;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -142,6 +143,6 @@ final class Ga4SpecialistBindingResolver
 
         $resourceMetadata = is_array($resource->metadata) ? $resource->metadata : [];
 
-        return (string) ($resourceMetadata['timezone'] ?? $resourceMetadata['time_zone'] ?? 'UTC');
+        return SafeTimezone::normalize((string) ($resourceMetadata['timezone'] ?? $resourceMetadata['time_zone'] ?? 'UTC'));
     }
 }

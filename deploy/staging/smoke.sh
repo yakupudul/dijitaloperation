@@ -5,7 +5,20 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
-BASE_URL="${MOXDOP_STAGING_BASE_URL:-http://127.0.0.1}"
+# nginx serves the app under APP_URL's host name, so a bare http://127.0.0.1 hits the default site (404).
+# Use APP_URL and pin its host to this machine with --resolve, so the check stays local.
+APP_URL_ENV="$(grep -E '^APP_URL=' .env 2>/dev/null | tail -n 1 | cut -d= -f2- | tr -d '"'"'"' ' || true)"
+BASE_URL="${MOXDOP_STAGING_BASE_URL:-${APP_URL_ENV:-http://127.0.0.1}}"
+BASE_URL="${BASE_URL%/}"
+BASE_HOST="$(printf '%s' "$BASE_URL" | sed -E 's#^[a-zA-Z]+://([^/:]+).*#\1#')"
+BASE_PORT="$(printf '%s' "$BASE_URL" | sed -nE 's#^[a-zA-Z]+://[^/:]+:([0-9]+).*#\1#p')"
+if [[ -z "$BASE_PORT" ]]; then
+  [[ "$BASE_URL" == https://* ]] && BASE_PORT=443 || BASE_PORT=80
+fi
+RESOLVE_ARGS=()
+if [[ ! "$BASE_HOST" =~ ^[0-9.]+$ && "$BASE_HOST" != "localhost" ]]; then
+  RESOLVE_ARGS=(--resolve "${BASE_HOST}:${BASE_PORT}:127.0.0.1")
+fi
 fail=0
 
 say() { printf '%s\n' "$*"; }
@@ -52,7 +65,7 @@ check_http() {
   local path="$1"
   local expect="$2"
   local code
-  code="$(curl -k -s -o /tmp/moxdop-staging-http.out -w '%{http_code}' "${BASE_URL}${path}" || true)"
+  code="$(curl -k -s "${RESOLVE_ARGS[@]}" -o /tmp/moxdop-staging-http.out -w '%{http_code}' "${BASE_URL}${path}" || true)"
   if [[ "$code" == "$expect" ]]; then
     ok "${path} HTTP ${code}"
   else

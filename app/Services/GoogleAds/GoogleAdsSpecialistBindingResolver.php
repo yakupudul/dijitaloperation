@@ -9,6 +9,7 @@ use App\Services\GoogleAds\Support\GoogleAdsBindingContext;
 use App\Support\Integrations\Google\GoogleAuthStatus;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\ProviderRegistry;
+use App\Support\Time\SafeTimezone;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -192,6 +193,6 @@ final class GoogleAdsSpecialistBindingResolver
             }
         }
 
-        return [$timezone, $currency];
+        return [SafeTimezone::normalize($timezone), $currency];
     }
 }

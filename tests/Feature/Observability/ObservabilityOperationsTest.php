@@ -137,6 +137,24 @@ class ObservabilityOperationsTest extends TestCase
         $lifecycle->resolveIfActive('queue_interactive_backlog', 'QUEUE', 'queue:default');
         $this->assertSame(OperationalAlertState::Resolved, $a2->fresh()->state);
         $this->assertSame('RECOVERED', $a2->fresh()->resolution_kind);
+
+        // The condition comes back: the resolved row is reopened (semantic_key is unique), not duplicated.
+        $a3 = $lifecycle->observeCondition(
+            ruleKey: 'queue_interactive_backlog',
+            ruleVersion: 1,
+            ruleType: OperationalAlertRuleType::QueueBacklog,
+            family: OperationalSignalFamily::Queue,
+            severity: OperationalAlertSeverity::Warning,
+            scopeType: 'QUEUE',
+            scopeKey: 'queue:default',
+            title: 'Queue backlog',
+        );
+        $this->assertSame($a1->id, $a3->id);
+        $this->assertSame(1, OperationalAlert::query()->count());
+        $this->assertSame(OperationalAlertState::Open, $a3->fresh()->state);
+        $this->assertNull($a3->fresh()->resolved_at);
+        $this->assertNull($a3->fresh()->acknowledged_by_user_id);
+        $this->assertSame(1, (int) $a3->fresh()->observation_count);
     }
 
     #[Test]

@@ -7,6 +7,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\DataPool\DatasetMaterialization;
 use App\Services\Collection\DataContractRegistryLoader;
 use App\Services\DataPool\Freshness\Support\DueCollectionItem;
+use App\Support\Time\SafeTimezone;
 use Illuminate\Support\Collection;
 
 /**
@@ -298,7 +299,7 @@ final class DueCollectionQueryService
         $meta = is_array($binding->externalResource?->metadata) ? $binding->externalResource->metadata : [];
         foreach (['timezone', 'timezone_name', 'timeZone', 'time_zone'] as $key) {
             if (is_string($meta[$key] ?? null) && $meta[$key] !== '') {
-                return (string) $meta[$key];
+                return SafeTimezone::normalize((string) $meta[$key]);
             }
         }
 

@@ -1,5 +1,23 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-09 — Staging denetimi (`moxdop:audit`) düzeltmeleri
+
+**State:** CODED + PHPUnit (`Unit/SafeTimezoneTest`, `Observability/ObservabilityOperationsTest`, `Operations/SystemAuditCommandTest`). These fixes come from the first staging audit.
+
+- **Legacy time zone name:** some Meta ad accounts report `Turkey`, which PHP 8.5 rejects. This crashed Meta's Kreatifler tab and the advisor plan job.
+  - `App\Support\Time\SafeTimezone` maps legacy names to canonical ones (`Turkey` → `Europe/Istanbul`), and falls back to UTC for unknown names.
+  - It is applied in the Meta / Google Ads / GA4 binding resolvers, the collection planners, the Google Ads collectors and the Meta date slicer.
+- **Operational alert re-open:**
+  - `semantic_key` is unique across all states, so an alert whose condition came back failed on insert. `moxdop:ops:evaluate-alerts` crashed every 5 minutes (57 times a day), and stale alerts such as "Expected workers unavailable" never resolved.
+  - The resolved row is now reopened.
+- **WordPress sites page:** `/integrations/wordpress-sites` returned 404 because `/integrations/{provider}` caught it first. The provider parameter is now limited to the supported AI providers.
+- **Deploy smoke:** `smoke.sh` called `http://127.0.0.1`, which nginx answers with its default site (404). It now calls `APP_URL` and pins the host to 127.0.0.1 (`--resolve`). `storage:link` runs only when the link is missing.
+- **Audit report:**
+  - alerts and account problems are grouped with counts;
+  - dataset run errors and Business Profile run errors from the last 7 days are listed;
+  - the largest tables and storage folders are listed;
+  - asset URLs without an id are no longer opened.
+
 ## 2026-10-09 — Sunucu denetim komutu (`moxdop:audit`)
 
 **State:** CODED + PHPUnit (`tests/Feature/Operations/SystemAuditCommandTest`). It ran cleanly on local Postgres (163 pages, 0 errors). Not yet run on staging.

@@ -2,6 +2,7 @@
 
 namespace App\Services\Collection\Providers\MetaAds;
 
+use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 use InvalidArgumentException;
 
@@ -18,6 +19,7 @@ final class MetaAdsDateSlicer
         if ($sliceDays < 1) {
             throw new InvalidArgumentException('Date slice width must be >= 1 day.');
         }
+        $timezone = SafeTimezone::normalize($timezone);
 
         $start = CarbonImmutable::createFromFormat('Y-m-d', $startDate, $timezone);
         $end = CarbonImmutable::createFromFormat('Y-m-d', $endDate, $timezone);
@@ -58,6 +60,7 @@ final class MetaAdsDateSlicer
 
     public function inclusiveDayCount(string $startDate, string $endDate, string $timezone): int
     {
+        $timezone = SafeTimezone::normalize($timezone);
         $start = CarbonImmutable::createFromFormat('Y-m-d', $startDate, $timezone)?->startOfDay();
         $end = CarbonImmutable::createFromFormat('Y-m-d', $endDate, $timezone)?->startOfDay();
         if ($start === null || $end === null) {

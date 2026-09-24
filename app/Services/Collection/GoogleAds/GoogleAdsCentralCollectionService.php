@@ -16,8 +16,10 @@ use App\Services\Collection\CollectionQueueGate;
 use App\Services\Collection\DataContractRegistryLoader;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsCentralRequestFamilyCatalog;
 use App\Services\Collection\StartCollectionService;
+use App\Services\Integrations\ResourceAutomationService;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\ProviderRegistry;
+use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -33,7 +35,9 @@ use InvalidArgumentException;
 final class GoogleAdsCentralCollectionService
 {
     public const int HISTORY_POLICY_VERSION = 2;
+
     public const int RESTATEMENT_DAYS = 30;
+
     public const int CHANGE_EVENT_SAFE_DAYS = 29;
 
     private const array ACTIVE_STATUSES = [
@@ -50,7 +54,7 @@ final class GoogleAdsCentralCollectionService
     /** @param list<int|string> $externalResourceIds */
     public function startSmartUpdate(CoreIntegration $integration, array $externalResourceIds, ?User $requestedBy = null): CollectionRun
     {
-        return app(\App\Services\Integrations\ResourceAutomationService::class)->withResourceLocks(
+        return app(ResourceAutomationService::class)->withResourceLocks(
             $externalResourceIds, fn (): CollectionRun => $this->startSmartUpdateLocked($integration, $externalResourceIds, $requestedBy)
         );
     }
@@ -178,8 +182,7 @@ final class GoogleAdsCentralCollectionService
             }
         }
 
-        $historyBaseline = $history->first(fn (CollectionResourceRun $run): bool =>
-            $run->status === CollectionRunStatus::Completed
+        $historyBaseline = $history->first(fn (CollectionResourceRun $run): bool => $run->status === CollectionRunStatus::Completed
             && (int) data_get($run->metadata, 'history_policy_version', 0) >= self::HISTORY_POLICY_VERSION
         );
 
@@ -215,11 +218,13 @@ final class GoogleAdsCentralCollectionService
         foreach (GoogleAdsCentralRequestFamilyCatalog::supportedFamilies() as $family) {
             if (GoogleAdsCentralRequestFamilyCatalog::isHistoryFamily($family)) {
                 $out[] = ['family' => $family, 'date_range' => null, 'execution_variant' => 'lifetime'];
+
                 continue;
             }
 
             if (! GoogleAdsCentralRequestFamilyCatalog::isDated($family)) {
                 $out[] = ['family' => $family, 'date_range' => null, 'execution_variant' => ''];
+
                 continue;
             }
 
@@ -232,6 +237,7 @@ final class GoogleAdsCentralCollectionService
                     ],
                     'execution_variant' => 'recent',
                 ];
+
                 continue;
             }
 
@@ -268,6 +274,7 @@ final class GoogleAdsCentralCollectionService
 
             if (! GoogleAdsCentralRequestFamilyCatalog::isDated($family)) {
                 $out[] = ['family' => $family, 'date_range' => null, 'execution_variant' => ''];
+
                 continue;
             }
 
@@ -276,12 +283,11 @@ final class GoogleAdsCentralCollectionService
                 : self::RESTATEMENT_DAYS;
             $start = $closedEnd->subDays($window - 1);
             if (! GoogleAdsCentralRequestFamilyCatalog::isChangeEvent($family)) {
-                $covered = app(\App\Services\Integrations\ResourceAutomationService::class)->coverageEnd($resource->id, 'GOOGLE_ADS', $family);
+                $covered = app(ResourceAutomationService::class)->coverageEnd($resource->id, 'GOOGLE_ADS', $family);
                 if ($covered && $covered < $start->toDateString()) {
                     $start = CarbonImmutable::parse($covered, $timezone)->addDay()->startOfDay();
                 }
             }
-
 
             if (GoogleAdsCentralRequestFamilyCatalog::isChangeEvent($family)) {
                 $oldestSafeStart = $today->subDays(self::CHANGE_EVENT_SAFE_DAYS);
@@ -575,7 +581,7 @@ final class GoogleAdsCentralCollectionService
     private function timezone(CoreExternalResource $resource): string
     {
         $meta = is_array($resource->metadata) ? $resource->metadata : [];
-        $timezone = $meta['time_zone'] ?? $meta['timezone'] ?? 'UTC';
+        $timezone = SafeTimezone::normalize((string) ($meta['time_zone'] ?? $meta['timezone'] ?? 'UTC'));
 
         return is_string($timezone) && $timezone !== '' ? $timezone : 'UTC';
     }

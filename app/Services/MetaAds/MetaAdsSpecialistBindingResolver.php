@@ -11,6 +11,7 @@ use App\Support\Integrations\Meta\MetaAuthStatus;
 use App\Support\Integrations\Meta\MetaConnectorRegistry;
 use App\Support\Integrations\Meta\MetaResourceType;
 use App\Support\Integrations\ProviderRegistry;
+use App\Support\Time\SafeTimezone;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -190,6 +191,6 @@ final class MetaAdsSpecialistBindingResolver
             }
         }
 
-        return [$timezone, $currency];
+        return [SafeTimezone::normalize($timezone), $currency];
     }
 }

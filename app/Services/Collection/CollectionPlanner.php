@@ -17,6 +17,7 @@ use App\Services\Collection\Support\StartCollectionRequest;
 use App\Services\DataPool\Freshness\IncrementalCoveragePlanner;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Services\PageSpeedConnectionProbeService;
+use App\Support\Time\SafeTimezone;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
@@ -802,7 +803,7 @@ final class CollectionPlanner
         $meta = is_array($binding->externalResource?->metadata) ? $binding->externalResource->metadata : [];
         foreach (['timezone', 'timezone_name', 'timeZone', 'time_zone'] as $key) {
             if (is_string($meta[$key] ?? null) && $meta[$key] !== '') {
-                $reportingTimezone = (string) $meta[$key];
+                $reportingTimezone = SafeTimezone::normalize((string) $meta[$key]);
                 break;
             }
         }

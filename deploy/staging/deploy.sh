@@ -121,7 +121,7 @@ APP_DOWN=1
 
 echo "deploy/staging: migrate --force"
 php artisan migrate --force --no-interaction
-php artisan storage:link --no-interaction || true
+[[ -L public/storage ]] || php artisan storage:link --no-interaction || true
 
 echo "deploy/staging: optimize caches"
 php artisan config:cache

@@ -98,6 +98,7 @@ use App\Livewire\Operator\Settings\SectorPacksPage;
 use App\Livewire\Operator\Settings\SectorPatternsPage;
 use App\Livewire\Operator\Settings\SystemHealthPage;
 use App\Livewire\Operator\Work\AlertsPage;
+use App\Support\Ai\AiProviderCatalog;
 use App\Support\Work\WorkUrl;
 use Illuminate\Support\Facades\Route;
 
@@ -146,7 +147,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
             ->name('operator.integrations.site-connector.download');
         Route::livewire('/integrations/connectors/google-ads', GoogleAdsConnectorPage::class)->name('operator.integrations.google-ads.connector');
         Route::livewire('/integrations/connectors/{connector}', ConnectorPage::class)->name('operator.integrations.connector');
-        Route::livewire('/integrations/{provider}', AiProviderIntegrationPage::class)->name('operator.integrations.ai');
+        Route::livewire('/integrations/{provider}', AiProviderIntegrationPage::class)->where('provider', implode('|', AiProviderCatalog::supported()))->name('operator.integrations.ai');
 
         Route::livewire('/files', FilesIndex::class)->name('operator.files');
         Route::get('/files/{file}/download', OperatorFileDownloadController::class)->name('operator.files.download');

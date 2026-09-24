@@ -15,6 +15,7 @@ use App\Services\DataPool\DatasetWritePipeline;
 use App\Services\DataPool\MaterializationService;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RawPayloadEnvelope;
+use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -96,7 +97,7 @@ final class GoogleAdsDatasetExecutor implements DatasetExecutor
 
         $checkpoint = $context->checkpoint;
         $stepIndex = (int) ($checkpoint['step_index'] ?? 0);
-        $timezone = (string) ($checkpoint['timezone'] ?? $scope['time_zone'] ?? 'UTC');
+        $timezone = SafeTimezone::normalize((string) ($checkpoint['timezone'] ?? $scope['time_zone'] ?? 'UTC'));
         $currency = (string) ($checkpoint['currency'] ?? $scope['currency_code'] ?? 'XXX');
 
         if ($stepIndex >= count($steps)) {

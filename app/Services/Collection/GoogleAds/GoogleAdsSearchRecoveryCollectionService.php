@@ -17,6 +17,7 @@ use App\Services\Collection\Providers\GoogleAds\GoogleAdsCentralRequestFamilyCat
 use App\Services\Collection\StartCollectionService;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\ProviderRegistry;
+use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -261,6 +262,7 @@ final class GoogleAdsSearchRecoveryCollectionService
         $timezone = is_string($meta['time_zone'] ?? $meta['timezone'] ?? null) && ($meta['time_zone'] ?? $meta['timezone']) !== ''
             ? (string) ($meta['time_zone'] ?? $meta['timezone'])
             : 'UTC';
+        $timezone = SafeTimezone::normalize($timezone);
 
         try {
             $start = CarbonImmutable::createFromFormat('Y-m-d', $requestedStart, $timezone)->startOfDay();

@@ -63,7 +63,10 @@ final class OperationalAlertLifecycleService
             return $existing;
         }
 
-        $alert = OperationalAlert::query()->create([
+        // semantic_key is unique across all states: a condition that comes back reopens its resolved row
+        // instead of inserting a duplicate (which failed and stopped the whole evaluation run).
+        $alert = OperationalAlert::query()->where('semantic_key', $semanticKey)->first() ?? new OperationalAlert;
+        $alert->forceFill([
             'semantic_key' => $semanticKey,
             'rule_key' => $ruleKey,
             'rule_version' => $ruleVersion,
@@ -81,7 +84,12 @@ final class OperationalAlertLifecycleService
             'last_observed_at' => now(),
             'opened_at' => now(),
             'notification_emitted' => false,
-        ]);
+            'resolved_at' => null,
+            'resolution_kind' => null,
+            'acknowledged_at' => null,
+            'acknowledged_by_user_id' => null,
+            'ack_note' => null,
+        ])->save();
 
         $this->notifier->notifyOpened($alert);
         $this->telemetry->warning('alert.opened', [

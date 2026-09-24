@@ -130,9 +130,6 @@ final class PageSmokeAudit
                 if (str_starts_with($uri, 'integrations/website')) {
                     $types = ['website'];
                 }
-                if ($required === [] && $segment !== null && isset(self::ASSET_SEGMENTS[$segment])) {
-                    $this->push($urls, $name, url(preg_replace('#/\{assetId\?\}#', '', $uri)), []);
-                }
                 foreach ($types as $type) {
                     foreach ($assetsByType->get($type, []) as $assetId) {
                         $this->push($urls, $name, url(str_replace(['{assetId?}', '{assetId}'], $assetId, $uri)), $tabs);
