@@ -167,4 +167,11 @@ return [
             'recovery' => 'freshness_current',
         ],
     ],
+
+    /* Disk guard (StorageGuard): warn by phone below warn_share; collection waits below pause_share or pause_gb. */
+    'storage' => [
+        'warn_share' => (float) env('MOXDOP_DISK_WARN_SHARE', 0.15),
+        'pause_share' => (float) env('MOXDOP_DISK_PAUSE_SHARE', 0.06),
+        'pause_gb' => (float) env('MOXDOP_DISK_PAUSE_GB', 3),
+    ],
 ];

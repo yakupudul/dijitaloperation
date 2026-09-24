@@ -4,6 +4,7 @@ namespace App\Services\DataPool;
 
 use App\Enums\DataPool\WriteBatchStatus;
 use App\Models\DataPool\DatasetWriteBatch;
+use App\Services\DataPool\Compact\CompactFactStore;
 use App\Services\DataPool\Contracts\WarehouseWriter;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RecordFingerprint;
@@ -21,11 +22,15 @@ use Throwable;
  */
 final class PostgresWarehouseWriter implements WarehouseWriter
 {
+    /** Stored value of an empty provider dimension that is part of the natural key. */
+    public const EMPTY_DIMENSION = '(empty)';
+
     public function __construct(
         private readonly DataPoolStorageRegistry $registry,
         private readonly PartitionManager $partitions,
         private readonly MaterializationService $materializations,
         private readonly RecordFingerprint $fingerprints = new RecordFingerprint,
+        private readonly CompactFactStore $compact = new CompactFactStore,
     ) {}
 
     public function write(NormalizedDatasetBatch $batch): WriteReceipt
@@ -79,7 +84,9 @@ final class PostgresWarehouseWriter implements WarehouseWriter
                 throw new RuntimeException("Partitioned dataset [{$batch->datasetId}] requires reporting_date on records");
             }
             try {
-                $this->partitions->ensureRange($table, min($dates), max($dates));
+                // A converted table is a view; its rows live in the compact fact table.
+                $partitioned = $this->compact->isCompact($table) ? (string) $this->compact->spec($table)['fact'] : $table;
+                $this->partitions->ensureRange($partitioned, min($dates), max($dates));
             } catch (Throwable $e) {
                 $this->markFailed($batch, count($prepared), $e->getMessage());
 
@@ -167,9 +174,14 @@ final class PostgresWarehouseWriter implements WarehouseWriter
         mixed $now,
     ): array {
         foreach ($naturalKey as $key) {
-            $allowEmpty = ($columnMap[$key]['allow_empty_string'] ?? false) === true
-                && ($columnMap[$key]['type'] ?? null) === 'text'
-                && ($columnMap[$key]['role'] ?? null) === 'dimension';
+            $textDimension = ($columnMap[$key]['type'] ?? null) === 'text' && ($columnMap[$key]['role'] ?? null) === 'dimension';
+            $allowEmpty = $textDimension && ($columnMap[$key]['allow_empty_string'] ?? false) === true;
+            // Providers return an empty value for an unknown region / city / category (GA4, Meta breakdowns).
+            // Rejecting it failed the whole batch and lost all geo rows; store it under its own label instead,
+            // kept apart from the provider's "(not set)".
+            if ($textDimension && ! $allowEmpty && ($record[$key] ?? null) === '') {
+                $record[$key] = self::EMPTY_DIMENSION;
+            }
             if (! array_key_exists($key, $record) || $record[$key] === null || ($record[$key] === '' && ! $allowEmpty)) {
                 throw new InvalidArgumentException("CONTRACT_MISMATCH: missing natural key [{$key}] at record {$index} for [{$batch->datasetId}]");
             }
@@ -242,6 +254,9 @@ final class PostgresWarehouseWriter implements WarehouseWriter
      */
     private function bulkUpsert(string $table, array $rows, array $naturalKey, string $writeMode, array $columnNames): array
     {
+        if ($this->compact->isCompact($table)) {
+            return $this->compact->upsert($table, $rows);
+        }
         $driver = DB::connection()->getDriverName();
         $inserted = 0;
         $updated = 0;

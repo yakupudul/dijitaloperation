@@ -1,5 +1,13 @@
 # PROJECT_MEMORY
 
+## 2026-10-10 — Compact fact storage
+
+- High-volume provider facts on PostgreSQL are dictionary-encoded: repeated texts go in `fact_dims` (id per kind + value), and facts go in narrow, monthly-partitioned tables holding integer ids and per-row values only.
+- The logical table name stays readable as a view with the old columns. Readers keep querying the logical name; only the writer (`CompactFactStore`) knows the physical layout.
+- A new high-volume table should be added to `config/moxdop-compact-facts.php` rather than stored as wide text rows.
+- Collection pauses itself when disk runs low (`StorageGuard`), instead of letting PostgreSQL fill the disk and stop.
+- An empty text dimension that is part of a natural key is stored as `(empty)`, not rejected.
+
 ## 2026-10-09 — Warehouse row size
 
 - Per-row metadata holds only values that differ per row and are read. Provenance constants belong on the dataset run, not on every fact row (Search Console rows once carried ~11 constant keys; the warehouse reached 60 GB).

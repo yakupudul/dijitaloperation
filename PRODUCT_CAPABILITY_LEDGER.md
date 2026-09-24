@@ -1,5 +1,32 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-10 — Sıkı veri depolama (Search Console), disk koruması, boş boyut değerleri
+
+**State:** CODED + PHPUnit.
+- `GscProductionCollectorTest` passes 18/18 on local PostgreSQL through the compact path: write, idempotent replay, device and country grain.
+- `StorageGuardTest` and `EmptyDimensionNaturalKeyTest` pass.
+- `moxdop:db:compact --execute` was run on local Postgres: counts and click totals matched and the size dropped about 4× (0.08 → 0.02 GB).
+- Not yet run on staging.
+
+- **Cause of the size:** each Search Console row stored `site_url`, query and page as full text plus ~10 constant provenance columns, with 6 indexes (two of them unique on the same text). That is about 1 KB on disk for ~100 bytes of information.
+- **Compact storage (PostgreSQL):**
+  - Each distinct text (site, search type, query, page, country, device, appearance) is stored once in `fact_dims` and referenced by an integer id.
+  - Facts sit in narrow `gsc_f_*` tables, partitioned by month, with a single primary key and only the columns that vary per row: clicks, impressions, position, asset, run and collection time.
+  - The old table name is a view with the old columns, so reading code does not change.
+  - The writer detects the view and writes to the compact table instead (`CompactFactStore`). Mapping lives in `config/moxdop-compact-facts.php`.
+  - SQLite (tests) keeps the old tables.
+- **`moxdop:db:compact`** (plan by default; `--execute` converts):
+  - It converts one table at a time, smallest first. It copies partition by partition, then takes a short lock to copy the rows written meanwhile, rename the old table and create the view.
+  - It compares row counts and click totals, then drops the old table. If they differ, or with `--keep-legacy`, it keeps the old table as `<name>__legacy`.
+  - It checks free disk before each table.
+  - The migration converts empty tables at once.
+- **Country back:** the query × country and page × country families are collected again, since they are small in compact form. The device crosses stay off.
+- **Disk guard (`StorageGuard`):**
+  - Below 6% or 3 GB free, collection jobs wait 10 minutes without spending an attempt, so the database never fills and stops.
+  - Below 15% the watchdog sends a phone alert.
+  - Thresholds come from `MOXDOP_DISK_*`.
+- **Empty dimension values:** an empty text dimension in the natural key (GA4 unknown region / city / category, Meta breakdowns) is stored as `(empty)` instead of failing the whole batch. Previously GA4 geo, ecommerce and technology batches failed with "missing natural key". Landing page keeps its explicit empty-string allowance.
+
 ## 2026-10-09 — Search Console ambarı küçültme (`moxdop:db:slim`)
 
 **State:** CODED + PHPUnit (`GscProductionCollectorTest` checks the compact row metadata). `moxdop:db:slim` was run on local Postgres: it emptied the 4 cross tables and compacted an old-format partition (0.15 GB → 0.08 GB, position kept). Not yet run on staging.

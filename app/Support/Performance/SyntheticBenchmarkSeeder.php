@@ -5,6 +5,8 @@ namespace App\Support\Performance;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Services\DataPool\Compact\CompactFactStore;
+use App\Services\DataPool\PartitionManager;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -116,14 +118,14 @@ final class SyntheticBenchmarkSeeder
             ];
 
             if (count($batch) >= 500) {
-                DB::table('gsc_query_daily')->insert($batch);
+                $this->insertGscQueryRows($batch);
                 $inserted += count($batch);
                 $batch = [];
             }
         }
 
         if ($batch !== []) {
-            DB::table('gsc_query_daily')->insert($batch);
+            $this->insertGscQueryRows($batch);
             $inserted += count($batch);
         }
 
@@ -191,5 +193,23 @@ final class SyntheticBenchmarkSeeder
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    /**
+     * gsc_query_daily is a view over compact storage once converted; write through the compact store then.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     */
+    private function insertGscQueryRows(array $rows): void
+    {
+        $store = app(CompactFactStore::class);
+        if (! $store->isCompact('gsc_query_daily')) {
+            DB::table('gsc_query_daily')->insert($rows);
+
+            return;
+        }
+        $dates = array_column($rows, 'reporting_date');
+        app(PartitionManager::class)->ensureRange((string) $store->spec('gsc_query_daily')['fact'], min($dates), max($dates));
+        $store->upsert('gsc_query_daily', $rows);
     }
 }

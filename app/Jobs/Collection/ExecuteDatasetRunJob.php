@@ -22,6 +22,7 @@ use App\Services\Collection\ProgressReporter;
 use App\Services\Collection\StartCollectionService;
 use App\Services\Collection\Support\DatasetExecutionContext;
 use App\Services\Collection\UnimplementedDatasetExecutorException;
+use App\Services\Operations\StorageGuard;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
@@ -125,6 +126,14 @@ class ExecuteDatasetRunJob implements ShouldQueue
 
         if ($datasetRun->status === CollectionRunStatus::Retrying && $datasetRun->retry_at?->isFuture()) {
             $this->release(max(1, (int) now()->diffInSeconds($datasetRun->retry_at)));
+
+            return;
+        }
+
+        // Disk almost full: wait (without burning attempts) instead of filling it until the database stops.
+        if (app(StorageGuard::class)->collectionPaused()) {
+            $this->release(600);
+
             return;
         }
 

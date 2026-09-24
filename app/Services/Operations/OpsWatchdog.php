@@ -47,6 +47,10 @@ final class OpsWatchdog
             }
         }
 
+        if (($disk = app(StorageGuard::class)->warning()) !== null) {
+            $problems[] = $disk;
+        }
+
         if ($problems !== []) {
             $this->push->send('ops-watchdog:'.md5(implode('|', $problems)), 'Sistem izleme uyarısı', implode(' ', $problems), 'critical',
                 route('operator.settings.system-health'), 2);

@@ -56,7 +56,8 @@ final class DatabaseSlimCommand extends Command
         $disabled = (array) config('moxdop-gsc-collector.disabled_families', []);
         $truncate = [];
         foreach (self::FAMILY_TABLES as $family => $table) {
-            if (in_array($family, $disabled, true) && $this->exists($table)) {
+            // Only real tables: a converted (compact) table is a view and is already small.
+            if (in_array($family, $disabled, true) && $this->isBaseTable($table)) {
                 $truncate[$table] = $this->tableBytes($table);
             }
         }
@@ -146,6 +147,13 @@ final class DatabaseSlimCommand extends Command
         usort($out, fn (array $a, array $b): int => $b['bytes'] <=> $a['bytes']);
 
         return $out;
+    }
+
+    private function isBaseTable(string $table): bool
+    {
+        $kind = DB::selectOne('select c.relkind as k from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = current_schema() and c.relname = ?', [$table])->k ?? null;
+
+        return in_array($kind, ['r', 'p'], true);
     }
 
     private function exists(string $table): bool
