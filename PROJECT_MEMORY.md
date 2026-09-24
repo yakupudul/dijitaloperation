@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-10-02 — Faz 6 decisions
+
+- Phone notifications go only to the owner's own ntfy / Telegram (`PushNotifier`, dedupe window, send log); new notifiable events use `PushNotifier::send` with a stable dedupe key.
+- Google Calendar is served as a read-only ICS feed with a secret per-user token; writing to Google Calendar would need its own ADR (ADR-064 is unchanged).
+- Alerts owned by other monitors (uptime `site_down`, renewals) are re-detected inside `AssetAlertScanner` so the daily scan does not resolve them.
+- Renewal dates: manual > RDAP / certificate; RDAP and uptime are public reads, no provider accounts involved.
+
 ## 2026-10-01 — Faz 5 decisions
 
 - AI outputs are archived through model hooks in `ProductionArchive::boot()`; a new AI feature that stores its output must be added there (kind + subject) so nothing is lost when regenerating.

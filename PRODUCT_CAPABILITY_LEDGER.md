@@ -1,5 +1,18 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-02 — Faz 6: Asistan (Bugün, hatırlatıcı, telefon bildirimi, takvim, yenilemeler, uptime, WhatsApp ↔ müşteri)
+
+**State:** CODED + PHPUnit (`tests/Feature/Assistant/UptimeAndPushTest`, `RenewalsTest`, `TodayRemindersCalendarTest`, `WhatsAppContactLinkTest`). Full Feature + Unit suites compared with the baseline; the migration runs on PostgreSQL 16 and the new readers were exercised on PostgreSQL. No live UAT: no real ntfy / Telegram message, RDAP answer, site outage or Google Calendar subscription was observed.
+
+- Telefon bildirimleri (Ayarlar › Telefon bildirimleri, admin): ntfy topic (+ optional token) and/or Telegram bot + chat id (secrets encrypted), minimum severity, test button, send log (`push_notifications`, 90 days). Pushed: site down / back up, newly opened high/critical asset alerts, renewals at 30/14/7/1 days, due reminders (always). The owner's own channel — not a write to a client account.
+- Uptime: every 5 minutes one queued check per operational website (safe public fetcher); 2 consecutive failures → `site_down` critical alert + push; recovery resolves + push with outage length. `uptime_checks` kept 30 days; `uptime_states` holds the current state.
+- Yenilemeler (`/renewals`, İşler menüsü): domain and SSL rows are created for every active website; domain expiry + registrar from public RDAP (weekly), SSL expiry from the collected certificate (free auto-renew issuers marked); hosting / other added by hand; a manual date is never overwritten. Cost, customer charge, collection state (faturalanmadı / faturalandı / ödendi / ücret alınmıyor), "Yenilendi" (+1 year). Daily `moxdop:renewals:daily` (06:05) + website alerts `renewal_due_*` (≤30 days; auto-renewing ≤7).
+- Hatırlatıcılar: one-off / weekly / monthly / yearly, optional customer; pushed when due (every minute, once); repeating ones move forward when done.
+- Google Takvim: read-only iCalendar feed per user (`/calendar/{token}.ics`, secret token, regenerable) with reminders, renewals and assigned task due dates. No write to Google (no ADR needed).
+- Bugün panel (top of the home screen): sites down, today's reminders + quick add, "Kime ne yazmalı" (WhatsApp conversations whose last message is incoming, prospect follow-ups due, customers with critical/high alerts or 30+ days of WhatsApp silence), renewals within 30 days, calendar link.
+- WhatsApp ↔ müşteri/aday: conversations are linked by phone (customer primary phone, customer contacts, prospect phone; last 10 digits) on creation and hourly; operator links are kept. Inbox shows the link, links by hand, creates a prospect from an unknown contact (follow-up tomorrow) and saves `next_follow_up_on` / `next_step`.
+- Not done: messages are still never sent from MoxDOP (copy only); the reply AI does not yet receive the linked customer's context; no customer health score; no invoice / payment integration (collection state is manual); tasks still have no reminder time (only due date); uptime checks the home page only (no keyword / SSL handshake check).
+
 ## 2026-10-01 — Faz 5: sektör paketleri, sağlık kuralları, uyum denetçisi, Üretim Arşivi
 
 **State:** CODED + PHPUnit (`tests/Feature/Archive/ProductionArchiveTest`, `tests/Feature/Compliance/ComplianceAuditTest`). Full Feature + Unit suites compared with the baseline; new migrations run on PostgreSQL 16 and the audit / compliance page exercised on PostgreSQL. No live UAT. **The health rules are a draft starter set, not legal text** — the RG 12.11.2025 / 33075 change still needs a lawyer's review; rules are edited on screen.
