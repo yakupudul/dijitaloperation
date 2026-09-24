@@ -384,7 +384,7 @@ final class OperatorGbpWorkspace implements GbpOperatorWorkspaceContract
     /** @return array<string, mixed> */
     private function reviews(int $resourceId, ?object $snapshot): array
     {
-        $rows = DB::table('gbp_reviews')->where('external_resource_id', $resourceId)->orderByDesc('create_time')->get(['reviewer', 'star_rating', 'comment', 'create_time', 'review_reply']);
+        $rows = DB::table('gbp_reviews')->where('external_resource_id', $resourceId)->orderByDesc('create_time')->get(['id', 'reviewer', 'star_rating', 'comment', 'create_time', 'review_reply']);
         if ($rows->isEmpty()) {
             return ['available' => false];
         }
@@ -395,11 +395,17 @@ final class OperatorGbpWorkspace implements GbpOperatorWorkspaceContract
         $unansweredRecent = 0;
         $distribution = array_fill(1, 5, 0);
         $latest = [];
+        $replyHours = [];
         foreach ($rows as $row) {
             $rating = self::STARS[strtoupper((string) $row->star_rating)] ?? null;
             $date = substr((string) $row->create_time, 0, 10);
             $hasReply = $row->review_reply !== null && $row->review_reply !== 'null';
             $replied += $hasReply ? 1 : 0;
+            // Faz 14: response speed = hours between the review and the owner's reply (last 100 replied reviews).
+            $replyAt = $hasReply ? ($this->decode($row->review_reply)['updateTime'] ?? null) : null;
+            if (is_string($replyAt) && $row->create_time !== null && count($replyHours) < 100) {
+                $replyHours[] = max(0, (int) round((strtotime($replyAt) - strtotime((string) $row->create_time)) / 3600));
+            }
             if ($rating !== null) {
                 $ratings[] = $rating;
                 $distribution[$rating]++;
@@ -412,6 +418,7 @@ final class OperatorGbpWorkspace implements GbpOperatorWorkspaceContract
             }
             if (count($latest) < 25) {
                 $latest[] = [
+                    'id' => (int) $row->id,
                     'reviewer' => (string) ($this->decode($row->reviewer)['displayName'] ?? '—'),
                     'rating' => $rating,
                     'comment' => $this->string($row->comment) ?? '',
@@ -431,6 +438,11 @@ final class OperatorGbpWorkspace implements GbpOperatorWorkspaceContract
             'recent_average' => $avg($recent),
             'reply_rate' => $total > 0 ? (int) round($replied / $total * 100) : null,
             'unanswered_recent' => $unansweredRecent,
+            'reply_hours_median' => $replyHours === [] ? null : (function (array $hours): int {
+                sort($hours);
+
+                return $hours[intdiv(count($hours), 2)];
+            })($replyHours),
             'distribution' => array_reverse($distribution, true),
             'latest' => $latest,
         ];

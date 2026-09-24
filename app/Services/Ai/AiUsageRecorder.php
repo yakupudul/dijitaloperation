@@ -33,6 +33,7 @@ final class AiUsageRecorder
         'GbpProfileAgent' => AiRouteKeys::GBP_PROFILE_DRAFT,
         'MonthlyReportCommentaryAgent' => AiRouteKeys::MONTHLY_REPORT_COMMENTARY,
         'AiVisibilityProbeAgent' => AiRouteKeys::AI_VISIBILITY_PROBE,
+        'ReviewReplyAgent' => AiRouteKeys::GBP_REVIEW_REPLY,
     ];
 
     public function __construct(private readonly AiPricing $pricing) {}

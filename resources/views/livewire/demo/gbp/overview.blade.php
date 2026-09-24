@@ -255,6 +255,7 @@
                     <p class="mt-1 text-sm text-gray-500">{{ __($g.'kpi.reviews_total', ['count' => $num($reviews['total'])]) }}</p>
                     <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">{{ __($g.'reviews_recent', ['count' => $reviews['recent_count'], 'avg' => ($reviews['recent_average'] ?? null) !== null ? number_format((float) $reviews['recent_average'], 1, ',', '.') : '—']) }}</p>
                     <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ __($g.'reply_rate') }}: <span class="font-semibold">%{{ $reviews['reply_rate'] ?? 0 }}</span></p>
+                    @if (($reviews['reply_hours_median'] ?? null) !== null)<p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Ortalama yanıt süresi: <span class="font-semibold">{{ $reviews['reply_hours_median'] < 48 ? $reviews['reply_hours_median'].' saat' : round($reviews['reply_hours_median'] / 24).' gün' }}</span></p>@endif
                     <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ __($g.'kpi.unanswered') }}: <span @class(['font-semibold', 'text-rose-600' => ($reviews['unanswered_recent'] ?? 0) > 0])>{{ $reviews['unanswered_recent'] ?? 0 }}</span></p>
                 </section>
                 <section class="{{ $card }} xl:col-span-2">
@@ -293,6 +294,25 @@
                                 ])>{{ $review['replied'] ? __($g.'replied') : __($g.'not_replied') }}</span>
                             </div>
                             <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $review['comment'] !== '' ? \Illuminate\Support\Str::limit($review['comment'], 400) : __($g.'no_comment') }}</p>
+                            @if (! empty($review['id']))
+                                @php
+                                    $draft = $replyDrafts[$review['id']] ?? ['text' => null, 'state' => null];
+                                @endphp
+                                @if ($draft['text'])
+                                    <div class="mt-2 rounded-lg bg-brand-50 p-3 text-sm text-gray-800 dark:bg-brand-500/10 dark:text-gray-200" x-data>
+                                        <p class="text-xs font-semibold text-brand-700 dark:text-brand-300">Yanıt taslağı (İşletme Profili'nden siz gönderin)</p>
+                                        <p class="mt-1 whitespace-pre-line" x-ref="reply">{{ $draft['text'] }}</p>
+                                        <button type="button" x-on:click="navigator.clipboard.writeText($refs.reply.innerText)" class="mt-1 text-xs font-medium text-brand-600 hover:underline">Kopyala</button>
+                                    </div>
+                                @elseif ($draft['state'] === 'running')
+                                    <p class="mt-2 text-xs text-gray-500" wire:poll.5s>Yanıt taslağı hazırlanıyor…</p>
+                                @elseif (str_starts_with((string) $draft['state'], 'failed'))
+                                    <p class="mt-2 text-xs text-rose-600">{{ \Illuminate\Support\Str::after((string) $draft['state'], 'failed: ') }}</p>
+                                @endif
+                                @if (! $review['replied'] && $draft['state'] !== 'running')
+                                    <button type="button" wire:click="draftReply({{ $review['id'] }})" class="mt-2 text-xs font-medium text-brand-600 hover:underline">{{ $draft['text'] ? 'Yeni taslak' : 'AI ile yanıt taslağı' }}@if ($replyCost) <span class="text-gray-400">({{ $replyCost }})</span>@endif</button>
+                                @endif
+                            @endif
                         </div>
                     @endforeach
                 </div>

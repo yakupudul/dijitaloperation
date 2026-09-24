@@ -53,5 +53,13 @@ final class AdvisorServiceProvider extends ServiceProvider
             'description' => 'On operator click, asks customer-style questions about a brand\'s services and areas (without naming the brand) to see whether the AI assistant recommends the brand. Model knowledge only; not a live web search.',
             'default_steps' => AiDefaultSteps::analysis(),
         ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::GBP_REVIEW_REPLY,
+            'name' => 'Google Review Reply Draft',
+            'module' => 'advisor',
+            'description' => 'On operator click, drafts the owner\'s reply to one Google review of the brand (reviewer name not sent, sector compliance rules applied). Copy-paste only; nothing is posted.',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
     }
 }

@@ -29,6 +29,7 @@ final class ProductionArchive
         'whatsapp.reply' => 'WhatsApp yanıt önerisi',
         'brand_setup.proposal' => 'Marka kurulum önerisi',
         'report.monthly_commentary' => 'Aylık rapor yorumu',
+        'gbp.review_reply' => 'Yorum yanıt taslağı',
     ];
 
     /** Advisor draft rules → archive kind. */
@@ -109,6 +110,20 @@ final class ProductionArchive
                 'status' => AiProduction::STATUS_NEW,
             ]);
         });
+    }
+
+    /**
+     * Faz 14: the owner's liked (👍) outputs of a kind for the brand, newest first, as tone examples for the next
+     * generation. Only the given content field is returned.
+     *
+     * @return list<string>
+     */
+    public function likedExamples(string $kind, int $brandId, string $field, int $limit = 3): array
+    {
+        return AiProduction::query()->where('kind', $kind)->where('brand_id', $brandId)->where('rating', 1)
+            ->orderByDesc('id')->limit($limit)->get(['content'])
+            ->map(fn (AiProduction $row): string => mb_substr(trim((string) data_get($row->content, $field, '')), 0, 800))
+            ->filter()->values()->all();
     }
 
     /** Latest version for a subject created within $days (fresh output is shown before a new AI call). */
