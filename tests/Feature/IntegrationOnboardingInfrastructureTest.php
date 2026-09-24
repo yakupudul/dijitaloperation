@@ -104,13 +104,13 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
 
     public function test_google_integration_links_connectors_and_keeps_disconnect_impact(): void
     {
+        // Faz 13: the Connectors tab duplicated Overview; old links land on Overview, which links every connector.
         Livewire::test(GoogleIntegrationPage::class)
-            ->assertSee('Dependent Digital Assets')
+            ->assertSee('Bağlı dijital varlıklar')
             ->call('setTab', 'connectors')
-            ->assertSee('Google Ads Connector')
-            ->assertSee('Google Analytics Connector')
-            ->assertSee('Search Console Connector')
-            ->assertSee('Google Business Profile Connector');
+            ->assertSet('tab', 'overview')
+            ->assertSee('Genel Bakış')
+            ->assertDontSee('>Connectors<', false);
     }
 
     public function test_domain_hosting_not_selectable_and_hidden_from_directory(): void

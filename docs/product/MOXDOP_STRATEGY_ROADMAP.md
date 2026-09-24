@@ -48,6 +48,7 @@ yönü kaydeder. Faz sırası sahibi onayıyla değişebilir; değişiklikler bu
 | 10 – Sade menü + gözden kaçanlar ✅ | Yol haritasındaki sade menü (Bugün · Portföy · İşler · Pazar · Satış · Raporlar · Sistem), grafik notları (algoritma/mevzuat/kampanya olayları rapor grafiklerinde), müşteri sağlığı puanı, AI görünürlüğü (tıkla, LLM cevabında marka geçişi), KVKK kayıtları + WhatsApp metin saklama süresi, gece veritabanı yedeği |
 | 11 – Sade menünün tamamlanması + güvenlik ✅ | Uyarılar sayfası (sessize alma), İş listesinde Danışman + SEO önerileri tek sırada, marka sayfasında Dosyalar sekmesi, Otomatik kur → Açık Web Keşfi, yöneticilerde 2FA takibi ve isteğe bağlı zorunluluk, yedeklerin geri okunarak doğrulanması |
 | 12 – Entegrasyon E1 kalanları ✅ | OAuth sonuç mesajı operatör ekranında, marka önceden seçilmez (öneri), Meta başarısız çekim doğru durum, Google Ads gerçek yetki durumu, Veri Kaynakları'nda gerçek WordPress durumu, panel açılışında yazma yok, yetkisiz butonlar gizli, WordPress tarih hatası, eklenti readme, WhatsApp sabitleri |
+| 13 – Entegrasyon E2/E3 kalanları ✅ | Zamanlayıcı dışı izleme (watchdog cron), deploy kuyruk kontrolü, operasyon uyarıları ana ekranda, GA4/GSC hesap bazında eski veri uyarısı, keşif arka planda, Entegrasyonlar'da bağlantı sağlığı + satır başına tek işlem, Google/DataForSEO/AI sayfaları Türkçe + adım şeridi, ölü kod, hesap listelerinde arama |
 
 ## Ek kararlar (2026-09-26, ikinci tur)
 

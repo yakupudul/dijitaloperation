@@ -8,10 +8,11 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
-use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Collection\Ga4\Ga4CentralCollectionService;
+use App\Services\Collection\Monitoring\CollectionAccountPresenter;
 use App\Services\Collection\SearchConsole\SearchConsoleCentralCollectionService;
 use App\Services\Integrations\Google\GoogleIntegrationReadModel;
+use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Support\Demo\DemoState;
 use App\Support\Integrations\Google\GoogleConnectorRegistry;
 use App\Support\Integrations\ProviderRegistry;
@@ -46,9 +47,13 @@ class ConnectorPage extends Component
     public array $selectedResourceIds = [];
 
     public ?string $bindResourceId = null;
+
     public string $bindMode = 'existing';
+
     public string $selectedAssetId = '';
+
     public string $newAssetName = '';
+
     public bool $confirmBind = false;
 
     /** @var list<string> */
@@ -68,6 +73,12 @@ class ConnectorPage extends Component
 
     public function mount(string $connector): void
     {
+        // Faz 13: the generic Meta Ads connector page always said "not configured"; Meta is managed on its own page.
+        if ($connector === 'meta-ads') {
+            $this->redirectRoute('operator.integrations.meta', ['tab' => 'resources'], navigate: true);
+
+            return;
+        }
         $this->connector = $connector;
         if (GoogleConnectorRegistry::byUiSlug($connector) === null && ! isset(self::CONNECTORS[$connector])) {
             abort(404);
@@ -190,6 +201,7 @@ class ConnectorPage extends Component
             $integration = $googleReadModel->findIntegration();
             $count = $integration ? CoreExternalResource::query()->where('integration_id', $integration->id)
                 ->where('provider', 'google')->where('resource_type', 'google_business_profile')->count() : 0;
+
             return view('livewire.demo.integrations.gbp-connector', compact('integration', 'count'));
         }
         $googleConnector = GoogleConnectorRegistry::byUiSlug($this->connector);
@@ -296,11 +308,11 @@ class ConnectorPage extends Component
 
             [$dataState, $dataStateLabel, $collectionAction] = match (true) {
                 $active instanceof CollectionResourceRun => [
-                    match (app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->state($active)) {
+                    match (app(CollectionAccountPresenter::class)->state($active)) {
                         'running' => 'collecting', 'delayed' => 'delayed', 'retrying' => 'retrying', default => 'queued',
                     },
-                    app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($active),
-                    app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($active),
+                    app(CollectionAccountPresenter::class)->label($active),
+                    app(CollectionAccountPresenter::class)->label($active),
                 ],
                 $latestNeedsAttention && $run?->status === CollectionRunStatus::Cancelled => ['resume', 'Aktarım durduruldu', 'Devam et'],
                 $latestNeedsAttention => ['needs_repair', 'Eksik veri var', 'Eksikleri tamamla'],
@@ -515,4 +527,3 @@ class ConnectorPage extends Component
         return OperatorPortfolioPresenter::specialistRoute((string) $asset->type);
     }
 }
-

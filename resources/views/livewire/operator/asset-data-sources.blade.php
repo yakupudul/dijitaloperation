@@ -146,6 +146,16 @@
                                     <span>·</span>
                                     <span>{{ __('operator_runtime.sources.resource_status') }}: {{ $current->status }}</span>
                                 </div>
+                                @php
+                                    $automation = $automations->get($current->id);
+                                @endphp
+                                @if ($automation)
+                                    <p @class(['mt-3 text-xs', 'text-rose-700 dark:text-rose-300' => $automation->collection_status === 'attention', 'text-gray-500' => $automation->collection_status !== 'attention'])>
+                                        Otomatik veri çekimi: {{ $automation->collection_enabled ? ($automation->collection_status === 'attention' ? 'durdu' : 'açık') : 'kapalı' }}
+                                        · son başarılı: {{ $automation->last_collection_success_at?->timezone('Europe/Istanbul')->format('d.m.Y H:i') ?? 'henüz yok' }}
+                                        @if ($automation->collection_status === 'attention' && $automation->collection_error) · {{ __('resource-auto.'.$automation->collection_error) }} — <a href="{{ route('operator.settings.system-health') }}" wire:navigate class="underline">Sistem Sağlığı</a>@endif
+                                    </p>
+                                @endif
                             </div>
                         @endif
 

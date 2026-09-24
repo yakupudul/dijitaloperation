@@ -85,6 +85,20 @@ if ! grep -qE '^APP_KEY=base64:' .env; then
   exit 1
 fi
 
+# Faz 13: the default queue must be durable and actually worked. With QUEUE_CONNECTION=database and only
+# Horizon (redis) running, default-queue jobs pile up silently.
+QUEUE_DEFAULT="$(grep -E '^QUEUE_CONNECTION=' .env | tail -n1 | cut -d= -f2 | tr -d '"' | tr -d "'")"
+if [[ -z "${QUEUE_DEFAULT}" || "${QUEUE_DEFAULT}" == "sync" ]]; then
+  echo "deploy/staging: QUEUE_CONNECTION must be redis (or database with a database worker), got '${QUEUE_DEFAULT:-empty}'" >&2
+  exit 1
+fi
+if [[ "${QUEUE_DEFAULT}" != "redis" ]]; then
+  echo "deploy/staging: WARNING — QUEUE_CONNECTION=${QUEUE_DEFAULT}. Horizon only works redis; make sure a 'queue:work ${QUEUE_DEFAULT}' worker runs, or set QUEUE_CONNECTION=redis." >&2
+fi
+if ! grep -rqs "moxdop:ops:watchdog" /etc/cron.d /var/spool/cron 2>/dev/null; then
+  echo "deploy/staging: WARNING — outside watchdog cron is not installed (see deploy/staging/cron.example)." >&2
+fi
+
 RELEASE_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 echo "deploy/staging: release SHA ${RELEASE_SHA}"
 

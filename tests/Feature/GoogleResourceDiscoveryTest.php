@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\DiscoverProviderResourcesJob;
 use App\Livewire\Demo\Integrations\GoogleIntegrationPage;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -18,6 +19,7 @@ use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -522,8 +524,14 @@ class GoogleResourceDiscoveryTest extends TestCase
             ->call('discoverResources')
             ->assertOk();
 
+        // Faz 13: discovery no longer runs inside the page request; it is queued and runs in the background.
+        $this->assertSame(0, GoogleIntegrationDiscoveryAttempt::query()->count());
+        Queue::assertPushed(DiscoverProviderResourcesJob::class, fn (DiscoverProviderResourcesJob $job): bool => $job->provider === 'google');
+        Queue::assertPushed(DiscoverProviderResourcesJob::class, 1);
+
+        (new DiscoverProviderResourcesJob('google', (int) $this->admin->id))->handle();
         $this->assertGreaterThan(0, GoogleIntegrationDiscoveryAttempt::query()->count());
-        Queue::assertNothingPushed();
+        $this->assertTrue((bool) (Cache::get(DiscoverProviderResourcesJob::cacheKey('google'))['result']['ok'] ?? false));
     }
 
     public function test_unauthorized_user_cannot_discover(): void

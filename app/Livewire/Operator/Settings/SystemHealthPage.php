@@ -30,6 +30,14 @@ final class SystemHealthPage extends Component
         $this->message = sprintf('%d hesap tekrar denenecek, %d hesap yeniden bağlandığı için devam edecek.', $stats['retried'], $stats['reconnected']);
     }
 
+    /** Faz 13: per-row action of the accounts table (admin). */
+    public function runNow(int $id, ResourceAutomationService $automations): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $automations->runNow($id, auth()->user());
+        $this->message = 'Hesap veri çekimi için sıraya alındı.';
+    }
+
     public function render(SystemHealthReader $reader): View
     {
         $health = $reader->read();

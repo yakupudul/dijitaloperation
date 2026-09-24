@@ -537,9 +537,11 @@
                         <p class="mt-1 text-sm text-gray-500">{{ $isTr ? 'Yeni hesaplar için keşfi tekrar çalıştırabilirsiniz.' : 'Run discovery again to find new accounts.' }}</p>
                     </div>
                 @else
+                    <div x-data="{ q: '' }">
+                    <div class="px-5 pt-4 md:px-6"><input type="search" x-model="q" placeholder="{{ $isTr ? 'Hesap ara…' : 'Search accounts…' }}" aria-label="{{ $isTr ? 'Hesap ara' : 'Search accounts' }}" class="w-full max-w-sm rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900" /></div>
                     <div class="divide-y divide-gray-100 dark:divide-gray-800">
                         @foreach ($integration['unbound_resources'] as $resource)
-                            <div class="flex flex-col gap-4 px-5 py-4 lg:flex-row lg:items-center lg:justify-between md:px-6">
+                            <div x-show="q === '' || {{ \Illuminate\Support\Js::from(mb_strtolower((string) $resource['name'])) }}.includes(q.toLocaleLowerCase('tr'))" class="flex flex-col gap-4 px-5 py-4 lg:flex-row lg:items-center lg:justify-between md:px-6">
                                 <div class="min-w-0">
                                     <div class="flex flex-wrap items-center gap-2">
                                         <p class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $resource['name'] }}</p>
@@ -559,6 +561,7 @@
                                 @endif
                             </div>
                         @endforeach
+                    </div>
                     </div>
                 @endif
             </section>

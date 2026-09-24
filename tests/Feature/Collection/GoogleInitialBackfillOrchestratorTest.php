@@ -777,7 +777,7 @@ class GoogleInitialBackfillOrchestratorTest extends TestCase
         $this->actingAs($this->admin);
 
         Livewire::test(GoogleIntegrationPage::class)
-            ->assertSee('Collect Data')
+            ->assertSee('Tüm hesaplar için veri çek')
             ->call('collectData')
             ->assertHasNoErrors();
 

@@ -44,6 +44,7 @@ final class SystemHealthReader
             'plugin_current' => (string) config('moxdop-wordpress.connector_version', ''),
             'backup' => Schema::hasTable('system_backups') ? app(SystemBackup::class)->status() : null,
             'two_factor' => $this->twoFactor(),
+            'watchdog' => OpsWatchdog::status(),
         ];
     }
 

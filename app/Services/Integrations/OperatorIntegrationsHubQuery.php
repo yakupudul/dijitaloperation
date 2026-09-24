@@ -50,6 +50,7 @@ final class OperatorIntegrationsHubQuery
                 'site_connectors', 'Site Connectors' => __('operator.integrations_ui.groups.connectors'),
                 'Platforms & Data' => __('operator.integrations_ui.groups.platforms'),
                 'Intelligence Providers' => __('operator.integrations_ui.groups.intelligence'),
+                'Messaging' => app()->getLocale() === 'tr' ? 'Mesajlaşma' : 'Messaging',
                 default => (string) ($group['group'] ?? ''),
             };
             $providers = [];
@@ -65,6 +66,11 @@ final class OperatorIntegrationsHubQuery
                         'operator.integrations.dataforseo',
                     ),
                     'wordpress' => $this->wordpressHubCard($provider),
+                    'whatsapp' => $this->truthfulProviderCard(
+                        $provider,
+                        CoreIntegration::query()->where('provider', 'whatsapp')->where('status', CoreIntegration::STATUS_ACTIVE)->exists(),
+                        'operator.whatsapp',
+                    ),
                     ProviderRegistry::OPENAI, AiProviderCatalog::OPENAI => $this->truthfulProviderCard(
                         $provider,
                         $this->openAiConfigured(),
@@ -85,9 +91,9 @@ final class OperatorIntegrationsHubQuery
                     ),
                     ProviderRegistry::GROQ, ProviderRegistry::OPENROUTER => $this->truthfulProviderCard(
                         $provider,
-                        $this->apiKeyAiConfigured($provider),
+                        $this->apiKeyAiConfigured($id),
                         'operator.integrations.ai',
-                        ['provider' => $provider],
+                        ['provider' => $id],
                     ),
                     default => $this->truthfulProviderCard($provider, false, 'operator.integrations'),
                 };

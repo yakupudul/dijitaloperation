@@ -2,24 +2,25 @@
 
 namespace App\Livewire\Operator;
 
+use App\Jobs\DiscoverProviderResourcesJob;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreConnection;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
+use App\Models\ResourceAutomation;
 use App\Models\User;
 use App\Services\Async\AsyncOperationService;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
-use App\Services\Integrations\Google\DiscoverGoogleResourcesService;
-use App\Services\Integrations\Meta\DiscoverMetaResourcesService;
 use App\Services\PageSpeedConnectionProbeService;
 use App\Support\Integrations\AssetBindingCompatibility;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
@@ -66,16 +67,17 @@ final class AssetDataSourcesPage extends Component
         }
 
         try {
-            $result = match ($provider) {
-                ProviderRegistry::GOOGLE => app(DiscoverGoogleResourcesService::class)->discover(
-                    $integration->fresh(['authorizationCredential', 'providerCredential']) ?? $integration,
-                    $actor,
-                ),
-                ProviderRegistry::META => app(DiscoverMetaResourcesService::class)->refreshInventory(
-                    $integration->fresh(['providerCredential']) ?? $integration,
-                    $actor,
-                ),
-            };
+            // Faz 13: discovery runs in the background; with a sync queue the result is already here.
+            Cache::put(DiscoverProviderResourcesJob::cacheKey($provider), ['state' => 'running', 'started_at' => now()->toIso8601String()], now()->addHour());
+            DiscoverProviderResourcesJob::dispatch($provider, (int) $actor->id);
+            $state = Cache::get(DiscoverProviderResourcesJob::cacheKey($provider));
+            if (($state['state'] ?? '') !== 'done') {
+                $this->messageTone = 'info';
+                $this->message = 'Hesap keşfi arka planda başladı; birkaç dakika sonra bu sayfayı yenileyin.';
+
+                return;
+            }
+            $result = (array) $state['result'];
 
             if (! ($result['ok'] ?? false)) {
                 $this->messageTone = 'error';
@@ -349,6 +351,9 @@ final class AssetDataSourcesPage extends Component
             'customer' => $asset->brand?->customer,
             'capabilities' => $capabilities,
             'bindings' => $bindings,
+            // Faz 13: automatic collection state per bound account (last success, stopped / reconnect) on the asset.
+            'automations' => ResourceAutomation::query()->whereIn('external_resource_id', $bindings->pluck('external_resource_id')->filter()->all())
+                ->get()->keyBy('external_resource_id'),
             'resources' => $resources,
             'providers' => $providers,
             'canDiscover' => auth()->user() instanceof User && auth()->user()->hasRole(Roles::ADMIN),

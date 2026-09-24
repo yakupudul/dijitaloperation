@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Demo\Integrations;
 
+use App\Jobs\DiscoverProviderResourcesJob;
 use App\Livewire\Demo\Integrations\Concerns\ManagesOperatorCredentials;
 use App\Models\Brand;
 use App\Models\CoreExternalResource;
@@ -11,7 +12,6 @@ use App\Services\Collection\Google\GoogleIncrementalCollectionOrchestrator;
 use App\Services\Collection\Google\GoogleInitialBackfillOrchestrator;
 use App\Services\Integrations\BrandMatchSuggester;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
-use App\Services\Integrations\Google\DiscoverGoogleResourcesService;
 use App\Services\Integrations\Google\GoogleCredentialResolver;
 use App\Services\Integrations\Google\GoogleIntegrationReadModel;
 use App\Services\Integrations\Google\GoogleOAuthService;
@@ -24,6 +24,7 @@ use App\Support\Integrations\ProviderRegistry;
 use App\Support\Integrations\ResourceBindingPlan;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -74,7 +75,7 @@ class GoogleIntegrationPage extends Component
 
     public function mount(): void
     {
-        if (! in_array($this->tab, ['overview', 'connectors', 'configuration', 'resources', 'activity'], true)) {
+        if ($this->tab === 'connectors' || ! in_array($this->tab, ['overview', 'configuration', 'resources', 'activity'], true)) {
             $this->tab = 'overview';
         }
 
@@ -91,7 +92,9 @@ class GoogleIntegrationPage extends Component
 
     public function setTab(string $tab): void
     {
-        if (in_array($tab, ['overview', 'connectors', 'configuration', 'resources', 'activity'], true)) {
+        // Faz 13: the "Connectors" tab duplicated Overview; old links land on Overview.
+        $tab = $tab === 'connectors' ? 'overview' : $tab;
+        if (in_array($tab, ['overview', 'configuration', 'resources', 'activity'], true)) {
             $this->tab = $tab;
         }
     }
@@ -225,12 +228,13 @@ class GoogleIntegrationPage extends Component
             return;
         }
 
-        $result = app(DiscoverGoogleResourcesService::class)->discover(
-            $integration->fresh(['authorizationCredential', 'providerCredential']) ?? $integration,
-            $user,
-        );
-
-        DemoState::flash($result['message'], 'info');
+        // Faz 13: discovery runs in the background; with a sync queue the result is already here.
+        Cache::put(DiscoverProviderResourcesJob::cacheKey(ProviderRegistry::GOOGLE), ['state' => 'running', 'started_at' => now()->toIso8601String()], now()->addHour());
+        DiscoverProviderResourcesJob::dispatch(ProviderRegistry::GOOGLE, (int) $user->id);
+        $state = Cache::get(DiscoverProviderResourcesJob::cacheKey(ProviderRegistry::GOOGLE));
+        DemoState::flash(($state['state'] ?? '') === 'done'
+            ? (string) ($state['result']['message'] ?? '')
+            : 'Hesap keşfi arka planda başladı; birkaç dakika içinde hesaplar listelenir.', 'info');
     }
 
     public function bootstrapAndConnect(): void
@@ -441,7 +445,7 @@ class GoogleIntegrationPage extends Component
         $brands = Brand::query()
             ->with('customer:id,name')
             ->orderBy('name')
-            ->limit(100)
+            ->limit(1000)
             ->get()
             ->map(fn (Brand $brand): array => [
                 'id' => $brand->id,

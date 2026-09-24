@@ -2,7 +2,9 @@
 
 namespace App\Livewire\Demo;
 
+use App\Enums\Observability\OperationalAlertState;
 use App\Models\AssetAlert;
+use App\Models\Observability\OperationalAlert;
 use App\Services\Advisor\AdvisorWorkQueue;
 use App\Services\Operator\OperatorExecutionReadService;
 use App\Services\Opportunities\OpportunityReadService;
@@ -48,6 +50,7 @@ class Dashboard extends Component
             'recentValue' => [],
             'weeklyTop' => $this->weeklyTop(),
             'alerts' => $this->openAlerts(),
+            'systemAlerts' => $this->systemAlerts(),
             'flash' => DemoState::pullFlash(),
         ]);
     }
@@ -82,6 +85,28 @@ class Dashboard extends Component
                 ->get();
         } catch (Throwable) {
             return new Collection;
+        }
+    }
+
+    /**
+     * Faz 13: open operational alerts (collection failure, reconnect needed, quota, expiring token, stopped worker)
+     * reach the operator on the home screen, not only the admin's phone.
+     *
+     * @return array{critical: int, warning: int, top: ?string}
+     */
+    private function systemAlerts(): array
+    {
+        try {
+            $open = OperationalAlert::query()->whereIn('state', [OperationalAlertState::Open->value, OperationalAlertState::Acknowledged->value]);
+            $top = (clone $open)->orderByRaw("case severity when 'CRITICAL' then 0 when 'WARNING' then 1 else 2 end")->orderByDesc('last_observed_at')->value('title');
+
+            return [
+                'critical' => (clone $open)->where('severity', 'CRITICAL')->count(),
+                'warning' => (clone $open)->where('severity', 'WARNING')->count(),
+                'top' => $top !== null ? (string) $top : null,
+            ];
+        } catch (Throwable) {
+            return ['critical' => 0, 'warning' => 0, 'top' => null];
         }
     }
 }

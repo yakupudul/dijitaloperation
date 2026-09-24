@@ -6,6 +6,7 @@ use App\Models\AssetAlert;
 use App\Models\AssetRenewal;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
+use App\Models\ResourceAutomation;
 use App\Services\Advisor\GoogleAds\GoogleAdsRowScope;
 use App\Services\Assistant\PushNotifier;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
@@ -99,7 +100,38 @@ final class AssetAlertScanner
                 sprintf('Bağlı hesaptan son veri %s geldi (%d saatten eski). Veri Kaynakları sayfasından veri çekimini kontrol edin.', (string) ($runtime['last_update'] ?? '—'), $hours));
         }
 
+        // Faz 13: GA4 and Search Console are checked per account, so a fresh website crawl no longer hides a stale one.
+        foreach ($this->staleMeasurementAccounts($asset) as $alert) {
+            $detected[] = $alert;
+        }
+
         return $this->persist($asset, $detected);
+    }
+
+    /** @return list<array{kind: string, severity: string, title: string, message: string, data: array<string, mixed>}> */
+    private function staleMeasurementAccounts(DigitalAsset $asset): array
+    {
+        $labels = ['ga4' => 'GA4', 'search_console' => 'Search Console'];
+        $staleDays = (int) config('moxdop-observability.account_stale_days', 3);
+        $alerts = [];
+        $bindings = CoreAssetBinding::query()->where('digital_asset_id', $asset->id)->whereIn('capability', array_keys($labels))
+            ->where('status', CoreAssetBinding::STATUS_ACTIVE)->get(['capability', 'external_resource_id']);
+        foreach ($bindings as $binding) {
+            $automation = ResourceAutomation::query()->where('external_resource_id', $binding->external_resource_id)->first();
+            if ($automation === null || ! $automation->collection_enabled) {
+                continue;
+            }
+            $limit = now()->subDays(max(1, (int) $automation->interval_days) + $staleDays);
+            $last = $automation->last_collection_success_at;
+            if (($last !== null && $last->lt($limit)) || ($last === null && $automation->created_at !== null && $automation->created_at->lt($limit))) {
+                $label = $labels[$binding->capability];
+                $alerts[] = $this->alert($binding->capability === 'ga4' ? 'ga4_stale' : 'gsc_stale', 'medium', $label.' verisi güncel değil',
+                    sprintf('%s hesabından son başarılı veri çekimi %s. Sistem Sağlığı › Hesaplar tablosundan durumu kontrol edin.', $label, $last?->timezone('Europe/Istanbul')->format('d.m.Y') ?? 'hiç yapılmadı'),
+                    ['resource_id' => (int) $binding->external_resource_id]);
+            }
+        }
+
+        return $alerts;
     }
 
     /** @return list<array<string, mixed>> */

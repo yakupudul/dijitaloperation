@@ -3,3 +3,7 @@
 # Do not run a second scheduler (systemd timer + cron together).
 
 * * * * * www-data cd /var/www/moxdop && php artisan schedule:run >> /var/www/moxdop/storage/logs/scheduler.log 2>&1
+
+# Faz 13 — outside watchdog. Runs independently of schedule:run so a stopped scheduler or a stuck queue
+# still sends a phone notification (ntfy / Telegram from Ayarlar › Telefon bildirimleri).
+*/5 * * * * www-data cd /var/www/moxdop && php artisan moxdop:ops:watchdog >> /var/www/moxdop/storage/logs/watchdog.log 2>&1

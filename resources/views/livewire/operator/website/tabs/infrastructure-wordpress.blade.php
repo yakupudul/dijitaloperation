@@ -28,7 +28,7 @@
             </div>
             <div class="flex flex-wrap gap-2">
                 <a href="{{ route('operator.integrations.site-connector', ['connector' => 'wordpress', 'site' => $asset->id]) }}" wire:navigate class="rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.website.infrastructure_wordpress.manage_connector') }}</a>
-                <button type="button" wire:click="refreshData" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600">{{ __('operator.website.actions.refresh_data') }}</button>
+                {{-- Faz 13: data is refreshed from the website header button (one place). --}}
             </div>
         </div>
     </section>

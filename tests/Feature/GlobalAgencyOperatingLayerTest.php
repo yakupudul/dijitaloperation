@@ -102,7 +102,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
     public function test_google_integration_bind_and_disconnect_are_not_fake_real(): void
     {
         Livewire::test(GoogleIntegrationPage::class)
-            ->assertSee('Dependent Digital Assets')
+            ->assertSee('Bağlı dijital varlıklar')
             ->assertSee('Not configured')
             ->assertDontSee('Panorama Ankara GA4')
             ->call('setTab', 'resources')

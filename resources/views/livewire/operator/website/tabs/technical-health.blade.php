@@ -34,7 +34,7 @@
                 @if ($technicalHealth['coverage']['watermark'])
                     <p class="text-xs text-gray-500 dark:text-gray-400">{{ __('operator.website.technical_health.last_scan', ['when' => \Carbon\CarbonImmutable::parse($technicalHealth['coverage']['watermark'])->diffForHumans()]) }}</p>
                 @endif
-                <button type="button" wire:click="refreshData" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600">{{ __('operator.website.actions.refresh_data') }}</button>
+                {{-- Faz 13: data is refreshed from the website header button (one place). --}}
             </div>
         </div>
     </section>

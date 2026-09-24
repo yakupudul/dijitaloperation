@@ -534,7 +534,7 @@ class MetaIntegrationPage extends Component
         $brands = Brand::query()
             ->with('customer:id,name')
             ->orderBy('name')
-            ->limit(100)
+            ->limit(1000)
             ->get()
             ->map(fn (Brand $brand): array => [
                 'id' => $brand->id,

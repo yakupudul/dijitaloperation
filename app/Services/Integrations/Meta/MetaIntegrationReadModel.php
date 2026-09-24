@@ -450,7 +450,7 @@ final class MetaIntegrationReadModel
             ->where('status', CoreExternalResource::STATUS_AVAILABLE)
             ->when($boundIds !== [], fn ($q) => $q->whereNotIn('id', $boundIds))
             ->orderBy('display_name')
-            ->limit(100)
+            ->limit(1000)
             ->get()
             ->map(function (CoreExternalResource $resource): array {
                 $meta = is_array($resource->metadata) ? $resource->metadata : [];
@@ -777,7 +777,7 @@ final class MetaIntegrationReadModel
             ->where('provider', ProviderRegistry::META)
             ->where('resource_type', MetaResourceType::META_BUSINESS)
             ->orderBy('display_name')
-            ->limit(100)
+            ->limit(1000)
             ->get()
             ->map(fn (CoreExternalResource $resource): array => [
                 'id' => (string) $resource->id,

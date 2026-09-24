@@ -56,8 +56,8 @@ class OperatorGoogleIntegrationConfigurationTest extends TestCase
             ->assertSee('Google OAuth Client ID')
             ->assertSee('Google OAuth Client Secret')
             ->assertSee('Google Ads Developer Token')
-            ->assertSee('Save credentials')
-            ->assertSee('Test configuration')
+            ->assertSee('Kaydet')
+            ->assertSee('Ayarları test et')
             ->assertDontSee('Prompt 14')
             ->assertDontSee('productionization');
     }

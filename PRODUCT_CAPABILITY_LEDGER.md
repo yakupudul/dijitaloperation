@@ -1,5 +1,44 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-07 — Faz 13: Entegrasyon denetimi E2/E3'te kalanlar
+
+**State:** CODED + PHPUnit (`tests/Feature/Integrations/IntegrationE2E3Test`; updated `GoogleResourceDiscoveryTest`, `IntegrationOnboardingInfrastructureTest`, `GlobalAgencyOperatingLayerTest`, `OperatorGoogleIntegrationConfigurationTest`, `GoogleInitialBackfillOrchestratorTest`). **No live UAT:** the watchdog cron line has not been installed on staging yet.
+
+- Outside watchdog (`moxdop:ops:watchdog`): its own cron line (`deploy/staging/cron.example`), not the Laravel scheduler. It checks three things and pushes a critical phone notification when one fails:
+  - a stale or missing scheduler heartbeat (over 15 minutes),
+  - queue heartbeats older than 20 minutes,
+  - a `jobs` backlog older than 30 minutes when the default queue is the database.
+
+  Sistem Sağlığı shows whether the watchdog runs.
+- `deploy.sh`:
+  - stops when `QUEUE_CONNECTION` is empty or `sync`,
+  - warns when it is not `redis` (Horizon only works redis),
+  - warns when the watchdog cron line is missing.
+- Operational alerts reach the operator:
+  - the home screen shows a "Sistem uyarısı" banner with critical / warning counts and links to Sistem Sağlığı;
+  - Veri Kaynakları shows each bound account's automatic collection state (on / off / stopped, last success, reason).
+- GA4 and Search Console get their own `ga4_stale` / `gsc_stale` alerts per bound account (interval + 3 days). A fresh website crawl no longer hides them.
+- Google account discovery runs in the background (`DiscoverProviderResourcesJob`) from the Google page and Veri Kaynakları. Nothing runs inside the page request; the result is shown when ready.
+- Single hub:
+  - Entegrasyonlar opens with "Bağlantı sağlığı": reconnects needed, authorizations expiring within 7 days, stopped / stale accounts, silent / outdated WordPress plugins, critical system alerts. Problems are listed red-first, each with one action.
+  - Groq, OpenRouter and WhatsApp cards were added. The Groq/OpenRouter card path had never run and had a type bug, now fixed.
+  - Discovered public profiles moved to the bottom.
+  - The Sistem Sağlığı accounts table has Turkish states and types, the error explanation, and one action per row (Yeniden bağlan / Varlığa bağla / Şimdi çek).
+- Google page:
+  - Turkish, with the same four-step bar as Meta (Uygulama → Yetki → Hesaplar → Veri, shared partial `integrations/partials/setup-steps`).
+  - Tabs are Genel Bakış · Hesaplar · Ayarlar · Geçmiş. The duplicate "Connectors" tab was removed; old links land on Genel Bakış.
+- DataForSEO and AI provider pages are in Turkish.
+- Fewer duplicate buttons: the website Teknik sağlık and Altyapı tabs no longer have their own "refresh" (the website header button covers all tabs).
+- Account lists: Google and Meta unbound account lists and brand pickers show up to 1000 (was 100), with a search box.
+- Dead code:
+  - Removed `GoogleProviderResourceDiscovery` and `MetaProviderResourceDiscovery` (nothing resolved them).
+  - `/integrations/connectors/meta-ads` redirects to the Meta page instead of a permanent "not configured" page.
+- Not done:
+  - The collection lifecycle (`CollectionSchedule`, `ExecuteCollectionLifecycleService`) was kept: the audit called it unused, but `ResourceAutomationService` and `CollectLiveBoundDataService` still call the lifecycle service. `MetaResourceDiscoveryService` was kept too, because it has its own tests.
+  - Meta discovery (businesses / ad accounts) still runs in the page request.
+  - Bulk binding and server-side pagination are not built (the lists are filtered in the browser).
+  - Collect buttons still exist on the Google / Meta pages and the Google Ads connector: provider-wide initial backfill plus per-account buttons.
+
 ## 2026-10-07 — Faz 12: Entegrasyon denetimi E1'de kalanlar
 
 **State:** CODED + PHPUnit (`tests/Feature/Integrations/IntegrationE1FixesTest`, `tests/Feature/WordPressConnectorV1Test`). A code check on 2026-10-07 found that several E1 items marked done under Faz 4 were still open. This phase closes them. **No live UAT.**

@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-10-07 — Faz 12–13 decisions (entegrasyon denetimi kapanışı)
+
+- A brand is never pre-selected when binding a provider account. `BrandMatchSuggester` may only suggest one.
+- Watching the scheduler must not depend on the scheduler. `moxdop:ops:watchdog` has its own cron line and is required on every server.
+- Provider discovery that calls several APIs runs as a job (`DiscoverProviderResourcesJob`), never inside a Livewire request.
+- New provider pages follow the Google / Meta pattern: the `setup-steps` partial and Turkish tabs Genel Bakış · Hesaplar · Ayarlar · Geçmiş.
+
 ## 2026-10-06 — Faz 11 decisions (sade menünün tamamlanması + güvenlik)
 
 - Faz 11 was not in the roadmap table either. It was defined from the remaining items of the "Sade menü (hedef)" list (Uyarılar, the single work list, Dosyalar on the brand page, Açık Web Keşfi in brand setup) and the security principle (2FA, verified backups).

@@ -408,7 +408,7 @@ final class GoogleIntegrationReadModel
             ->when($boundIds !== [], fn ($q) => $q->whereNotIn('id', $boundIds))
             ->orderBy('resource_type')
             ->orderBy('display_name')
-            ->limit(100)
+            ->limit(1000)
             ->get()
             ->filter(function (CoreExternalResource $resource): bool {
                 // Ads managers are hierarchy context — not selectable bind targets.
