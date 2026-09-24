@@ -205,6 +205,6 @@ return [
 
     /* Faz 11d: when true, an admin without two-factor authentication can only open Profile until it is enabled. */
     'security' => [
-        'require_admin_2fa' => (bool) env('MOXDOP_REQUIRE_ADMIN_2FA', false),
+        'require_admin_2fa' => (bool) env('MOXDOP_REQUIRE_ADMIN_2FA', true),
     ],
 ];

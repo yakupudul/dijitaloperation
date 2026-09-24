@@ -47,5 +47,7 @@
         <env name="MOXDOP_DISK_WARN_SHARE" value="0"/>
         <env name="MOXDOP_DISK_PAUSE_SHARE" value="0"/>
         <env name="MOXDOP_DISK_PAUSE_GB" value="0"/>
+        <env name="MOXDOP_REQUIRE_ADMIN_2FA" value="false"/>
+        <env name="MOXDOP_ERROR_ALERTS" value="false"/>
     </php>
 </phpunit>

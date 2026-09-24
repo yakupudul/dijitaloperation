@@ -174,4 +174,7 @@ return [
         'pause_share' => (float) env('MOXDOP_DISK_PAUSE_SHARE', 0.06),
         'pause_gb' => (float) env('MOXDOP_DISK_PAUSE_GB', 3),
     ],
+
+    /* Phone notification for a new kind of application error (one per kind per 6 hours). */
+    'error_alerts' => (bool) env('MOXDOP_ERROR_ALERTS', true),
 ];

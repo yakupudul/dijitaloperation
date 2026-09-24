@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\SetOperatorLocale;
 use App\Http\Middleware\SetOperatorTimezone;
+use App\Services\Operations\ErrorAlertReporter;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -37,4 +38,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
         );
+        // Phone notification for new kinds of application errors (Ayarlar › Telefon bildirimleri).
+        $exceptions->report(function (Throwable $exception): void {
+            app(ErrorAlertReporter::class)->report($exception);
+        });
     })->create();
