@@ -1,5 +1,26 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-06 — Faz 11: Sade menünün tamamlanması + güvenlik
+
+**State:** CODED + PHPUnit (`tests/Feature/Work/AlertsPageTest`, `tests/Feature/Portfolio/BrandFilesTabTest`, `tests/Feature/Operations/KvkkAndBackupTest`, `tests/Feature/Advisor/AdvisorFaz6Test`; menu and brand tabs locked in `PanelDesignFreezeTest`). Full Feature + Unit suites compared with the baseline. The migration runs on PostgreSQL 16, and a real pg_dump backup passed the new read-back check there. **No live UAT:** 2FA enforcement has not been switched on in staging, and alert snoozing has not been used on real alerts.
+
+- Uyarılar (İşler menüsü, `/alerts`): every open asset alert in the portfolio, most severe first. Severity counts, filters by brand and severity, snoozed and closed-in-30-days views, and a link to each asset.
+  - An alert can be snoozed for 1, 7 or 30 days. Snoozed alerts are hidden on Bugün and the dashboard until the date.
+  - An alert that closes and is detected again starts unsnoozed. Closing stays automatic.
+- İş listesi › "Önerilen (Danışman + SEO)": open SEO Görevleri and advisor items from every channel in one priority order, at most 10 per brand. This is the roadmap's single work list next to the operator's own tasks.
+- Marka › Dosyalar sekmesi: files attached to the brand. The "Dosya yükle" button opens Dosyalar with the brand scope.
+  - Uploads made from a brand, customer or asset link are now attached to that record. Before this, uploads never set `brand_id`.
+  - Otomatik kur links to Açık Web Keşfi, filtered by the brand.
+- Güvenlik:
+  - Sistem Sağlığı lists active admins without two-factor authentication.
+  - `MOXDOP_REQUIRE_ADMIN_2FA=true` limits such admins to the Profile page until they enable 2FA. It is off by default.
+  - Every nightly backup is read back before it counts as a success: the whole gzip stream, the SQLite header, or the pg_dump / mysqldump completion footer. A file that fails the check is deleted and the run is recorded as failed, which sends a push notification.
+- Not done:
+  - The work list's suggested view is read-only. Done / skip still happen on SEO Görevleri and Danışman.
+  - Alerts cannot be closed by hand.
+  - Customer-level files have no tab of their own; the customer page link opens Dosyalar filtered.
+  - There is still no restore command.
+
 ## 2026-10-05 — Faz 10: Sade menü + gözden kaçanlar
 
 **State:** CODED + PHPUnit (`tests/Feature/Reports/ChartAnnotationsTest`, `tests/Feature/Portfolio/CustomerHealthScoreTest`, `tests/Feature/Intel/AiVisibilityTest`, `tests/Feature/Operations/KvkkAndBackupTest`; menu locks in `PanelDesignFreezeTest`, `GlobalAgencyOperatingLayerTest`). Full Feature + Unit suites compared with the baseline; the new migrations run on PostgreSQL 16. **No live UAT:** no real backup was restored, no AI visibility probe ran against a real model, health scores were not checked against the owner's view of the portfolio.

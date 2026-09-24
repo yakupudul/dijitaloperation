@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-10-06 — Faz 11 decisions (sade menünün tamamlanması + güvenlik)
+
+- Faz 11 was not in the roadmap table either. It was defined from the remaining items of the "Sade menü (hedef)" list (Uyarılar, the single work list, Dosyalar on the brand page, Açık Web Keşfi in brand setup) and the security principle (2FA, verified backups).
+- Asset alerts close only automatically. Operators can snooze them (`snoozed_until`). Operator-facing lists use `AssetAlert::active()`; `open()` stays for engines and scores, so customer health still counts snoozed alerts.
+- The single work list reuses `AdvisorWorkQueue`. Do not build a second merge of SEO and advisor items.
+- 2FA enforcement for admins is a config switch in `EnsureDemoAppAccess`, not a separate middleware. A backup counts only after `SystemBackup::verify()` passes.
+
 ## 2026-10-05 — Faz 10 decisions (sade menü + gözden kaçanlar)
 
 - Faz 10 was not in the original roadmap table; it was defined from the roadmap's remaining items (sade menü target, chart notes, customer health, AI visibility, KVKK, backup).

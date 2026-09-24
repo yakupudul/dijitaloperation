@@ -176,7 +176,7 @@ final class SystemHealthReader
      */
     private function twoFactor(): array
     {
-        $without = User::query()->where('is_active', true)->role(Roles::ADMIN)->get()
+        $without = User::query()->where('is_active', true)->whereHas('roles', fn ($q) => $q->where('name', Roles::ADMIN))->get()
             ->reject(fn (User $user): bool => $user->hasTwoFactorEnabled())
             ->map(fn (User $user): string => (string) ($user->name ?: $user->email))->values()->all();
 
