@@ -2,11 +2,14 @@
 
 namespace App\Livewire\Operator\Settings;
 
+use App\Models\Brand;
 use App\Models\ComplianceRule;
+use App\Services\Brain\ComplianceBrake;
 use App\Services\Compliance\ComplianceRuleKinds;
 use App\Services\Compliance\SectorPackRegistry;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -89,8 +92,24 @@ final class SectorPacksPage extends Component
         $this->message = 'Yeni yasaklı ifade kuralı eklendi.';
     }
 
+    /** Legal gate (Hizmet Beyni): record why a health brand may run paid ads (admin only). */
+    public function setEligibility(int $brandId, string $basis): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        abort_unless(in_array($basis, ['', 'first_month', 'health_tourism_abroad', 'legal_opinion'], true), 422);
+        Brand::query()->findOrFail($brandId);
+        DB::table('brain_legal_eligibility')->updateOrInsert(['brand_id' => $brandId], [
+            'paid_ads_allowed' => $basis !== '', 'basis' => $basis ?: null,
+            'valid_until' => $basis === 'first_month' ? now()->addMonth()->toDateString() : null,
+            'confirmed_by' => auth()->id(), 'confirmed_at' => now(), 'updated_at' => now(), 'created_at' => now(),
+        ]);
+        $this->message = $basis === '' ? 'Ücretli reklam uygunluğu kaldırıldı.' : 'Ücretli reklam uygunluğu kaydedildi.';
+    }
+
     public function render(SectorPackRegistry $packs): View
     {
+        $healthBrands = Brand::query()->orderBy('name')->get()->filter(fn (Brand $b): bool => collect($packs->forBrand($b))->contains(fn ($p): bool => $p->id() === 'health'))->values();
+
         return view('livewire.operator.settings.sector-packs', [
             'packs' => collect($packs->all())->map(fn ($pack): array => [
                 'id' => $pack->id(), 'label' => $pack->label(), 'description' => $pack->description(),
@@ -99,6 +118,10 @@ final class SectorPacksPage extends Component
             ])->values()->all(),
             'sources' => ComplianceRuleKinds::SOURCE_LABELS,
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
+            'gateOn' => (int) config('moxdop-brain.legal.health_paid_ads_gate', 0) === 1,
+            'healthBrands' => $healthBrands,
+            'eligibility' => DB::table('brain_legal_eligibility')->whereIn('brand_id', $healthBrands->pluck('id'))->get()->keyBy('brand_id'),
+            'blockedTypes' => ComplianceBrake::BLOCKED,
         ]);
     }
 

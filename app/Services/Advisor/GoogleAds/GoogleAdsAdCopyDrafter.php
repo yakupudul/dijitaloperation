@@ -7,6 +7,7 @@ use App\Models\AdvisorItem;
 use App\Models\DigitalAsset;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\Compliance\SectorPackRegistry;
 use App\Services\SeoTasks\SeoPlanInputCollector;
 use App\Services\SeoTasks\SeoText;
 use App\Support\Ai\AiRouteKeys;
@@ -101,6 +102,10 @@ final class GoogleAdsAdCopyDrafter
             'ad_group' => $item->evidence['ad_group'] ?? null,
             'keywords' => array_map(static fn (array $k): array => ['text' => $k['text'], 'match_type' => $k['match_type'], 'clicks' => $k['clicks'], 'conversions' => $k['conversions']], array_slice($keywords, 0, 20)),
             'search_terms' => array_map(static fn (array $t): array => ['term' => $t['term'], 'clicks' => $t['clicks'], 'conversions' => $t['conversions']], array_slice($terms, 0, 25)),
+            // Faz 6 (Hizmet Beyni): the brand's sector rules go INTO the prompt, so the draft is compliant from the start;
+            // the same rules still check the finished draft afterwards.
+            'compliance_rules' => $asset->brand !== null ? app(SectorPackRegistry::class)->rulesForBrand($asset->brand)
+                ->filter(fn ($rule): bool => $rule->appliesTo('google_ads_ad'))->map(fn ($rule): string => $rule->label.': '.$rule->message.' (yasak ifadeler: '.implode(', ', array_slice((array) $rule->patterns, 0, 12)).')')->values()->take(12)->all() : [],
             'landing_page' => ['url' => $finalUrl ?: null, 'title' => $page['title'] ?? null, 'h1' => $page['h1'] ?? null, 'meta_description' => $page['meta_description'] ?? null],
         ];
     }

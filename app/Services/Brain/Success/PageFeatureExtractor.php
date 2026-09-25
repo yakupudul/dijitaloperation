@@ -5,9 +5,9 @@ namespace App\Services\Brain\Success;
 use App\Models\DigitalAsset;
 use App\Models\IntelligenceProjection\WebsitePageProfile;
 use App\Services\Demand\PageContentMetrics;
+use App\Services\SeoTasks\SeoStoredHtmlReader;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Facades\DB;
-use MoxDop\Website\Standards\StoredPageReader;
 use Throwable;
 
 /**
@@ -17,7 +17,7 @@ use Throwable;
  */
 final class PageFeatureExtractor
 {
-    public function __construct(private readonly StoredPageReader $pages) {}
+    public function __construct(private readonly SeoStoredHtmlReader $pages) {}
 
     /** @var array<int, array<string, WebsitePageProfile>> */
     private array $profiles = [];

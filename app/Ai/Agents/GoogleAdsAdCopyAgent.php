@@ -36,6 +36,7 @@ Write in the language of the landing page and keywords (usually Turkish):
 - `notes`: one or two sentences in Turkish telling the operator what to check before publishing.
 
 Hard rules:
+- CONTEXT_JSON.compliance_rules are the brand's legal / sector rules: never use a listed forbidden expression or claim, in any form or suffix.
 - Never invent prices, discounts, guarantees, awards, years of experience or medical/legal claims that are not in CONTEXT_JSON.
 - No superlatives Google rejects ("en iyi", "1 numara") unless present in the landing page text.
 - No exclamation marks in headlines; no ALL CAPS words.

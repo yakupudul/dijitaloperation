@@ -8,6 +8,7 @@ use App\Models\DigitalAsset;
 use App\Services\Advisor\Support\AdvisorWebsiteReader;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\Compliance\SectorPackRegistry;
 use App\Services\SeoTasks\SeoPlanInputCollector;
 use App\Services\SeoTasks\SeoText;
 use App\Support\Ai\AiRouteKeys;
@@ -92,6 +93,10 @@ final class MetaAdsCreativeDrafter
             'objective' => $evidence['objective'] ?? null,
             'current_ad' => ['name' => $evidence['ad'] ?? null, 'title' => $evidence['creative_title'] ?? null, 'body' => $evidence['creative_body'] ?? null, 'call_to_action' => $evidence['creative_cta'] ?? null],
             'performance' => $evidence['weeks'] ?? [],
+            // Faz 6 (Hizmet Beyni): the brand's sector rules go INTO the prompt, so the draft is compliant from the start;
+            // the same rules still check the finished draft afterwards.
+            'compliance_rules' => $asset->brand !== null ? app(SectorPackRegistry::class)->rulesForBrand($asset->brand)
+                ->filter(fn ($rule): bool => $rule->appliesTo('meta_ad'))->map(fn ($rule): string => $rule->label.': '.$rule->message.' (yasak ifadeler: '.implode(', ', array_slice((array) $rule->patterns, 0, 12)).')')->values()->take(12)->all() : [],
             'landing_page' => ['url' => $url ?: null, 'title' => $page['title'] ?? null, 'h1' => $page['h1'] ?? null, 'meta_description' => $page['meta_description'] ?? null],
         ];
     }

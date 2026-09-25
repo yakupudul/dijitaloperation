@@ -63,6 +63,46 @@
         </section>
     @endforeach
 
+    <section class="space-y-3 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+        <h2 class="font-semibold text-gray-800 dark:text-white/90">Hizmet Beyni freni</h2>
+        <p class="text-sm text-gray-500">Sektör kuralları Beyin'in öğrenmesine katılmaz, önerilerini süzer: yukarıdaki yasaklı ifadeleri içeren öneriler ve aşağıdaki öneri türleri bu sektörlerin markalarına gösterilmez ("Frenlendi" olarak kayıtta kalır).</p>
+        <ul class="text-xs text-gray-600 dark:text-gray-400">
+            @foreach ($blockedTypes as $packId => $types)
+                <li><strong>{{ $packId }}</strong>: {{ implode(', ', $types) }}</li>
+            @endforeach
+        </ul>
+        <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-800">
+            <div class="text-sm font-medium text-gray-800 dark:text-gray-200">Yasal kapı — sağlıkta ücretli reklam: {{ $gateOn ? 'AÇIK' : 'kapalı' }}</div>
+            <p class="mt-1 text-xs text-gray-500">RG 12.11.2025 / 33075 sayılı Sağlık Hizmetlerinde Tanıtım ve Bilgilendirme Faaliyetleri Hakkında Yönetmelik'in (ikincil kaynaklara göre) Türkiye'ye yönelik ücretli sağlık tanıtımını kısıtladığı bildiriliyor; hukuk görüşü alınmadan açmayın. Açıldığında (Ayarlar → Yöntem Kütüphanesi → Hizmet Beyni → legal.health_paid_ads_gate = 1) sağlık markalarına yeni reklam grubu / yeni Meta açısı gibi ücretli reklam büyütme önerileri yalnız burada uygunluğu kaydedilmiş markalara gösterilir.</p>
+            @if ($healthBrands->isNotEmpty())
+                <table class="mt-3 w-full text-sm">
+                    <thead><tr class="text-left text-xs text-gray-500"><th class="py-1">Sağlık markası</th><th class="py-1">Ücretli reklam uygunluğu</th></tr></thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @foreach ($healthBrands as $brand)
+                            @php $row = $eligibility->get($brand->id); $basis = $row && $row->paid_ads_allowed ? $row->basis : ''; @endphp
+                            <tr>
+                                <td class="py-1.5">{{ $brand->name }}</td>
+                                <td class="py-1.5">
+                                    @if ($isAdmin)
+                                        <select wire:change="setEligibility({{ $brand->id }}, $event.target.value)" class="rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-900">
+                                            <option value="" @selected($basis === '')>Kayıtlı değil</option>
+                                            <option value="first_month" @selected($basis === 'first_month')>Açılışın ilk ayı (1 ay geçerli)</option>
+                                            <option value="health_tourism_abroad" @selected($basis === 'health_tourism_abroad')>Sağlık turizmi yetkisi, yurt dışına yabancı dilde</option>
+                                            <option value="legal_opinion" @selected($basis === 'legal_opinion')>Hukuk görüşüyle uygun</option>
+                                        </select>
+                                        @if ($row && $row->valid_until)<span class="text-xs text-gray-500">({{ $row->valid_until }} tarihine kadar)</span>@endif
+                                    @else
+                                        <span class="text-xs">{{ $basis ?: 'Kayıtlı değil' }}</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
+        </div>
+    </section>
+
     @if ($isAdmin && $packs !== [])
         <section class="space-y-2 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <h2 class="font-semibold text-gray-800 dark:text-white/90">Yeni yasaklı ifade kuralı</h2>

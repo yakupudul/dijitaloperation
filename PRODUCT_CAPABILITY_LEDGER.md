@@ -1,5 +1,19 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-14 — Hizmet Beyni Faz 6: uyum freni, taslak istemlerinde sektör kuralları, yasal kapı (ADR-072)
+
+**State:** CODED + PHPUnit. Test: `Brain/BrainBrakeTest` 3/3. The legal gate is off by default and waits for a legal opinion.
+- **`ComplianceBrake`:** every Brain recommendation passes through it before it reaches the operator.
+  - **Text rules:** the brand's sector-pack rules check the title and detail; high and medium severity hits block the recommendation.
+  - **Types never recommended to a sector:**
+    - health: showing prices, price / urgency / social-proof Meta angles
+    - finance: the urgency angle
+    - food supplement: the result / benefit angle
+  - **Legal gate** (`moxdop-brain.legal.health_paid_ads_gate`, default 0): when on, health brands get paid-ads growth recommendations (new ad group, new Meta angle) only if an operator recorded eligibility. Recorded under Ayarlar → Sektör paketleri; bases: first month (valid 1 month), health tourism abroad, legal opinion.
+  - A blocked recommendation stays with status **"Frenlendi"** and its reason; it is not silently lost.
+- **Google Ads and Meta AI copy drafts** now carry the brand's sector rules in `compliance_rules` (label, message, forbidden expressions), and the agents are told they are binding. Previously the rules only checked the finished draft; that check stays.
+- Sector packs screen: new "Hizmet Beyni freni" section (blocked types and legal gate status) plus the eligibility list for health brands.
+
 ## 2026-10-14 — Hizmet Beyni Faz 5: yöntem motoru (hipotez → kanıtlanmış), fark-içinde-fark ölçüm, boşluk önerileri
 
 **State:** CODED + PHPUnit. Test: `Brain/BrainMethodsTest` 2/2. Real portfolio: methods appear only once the thresholds are met.

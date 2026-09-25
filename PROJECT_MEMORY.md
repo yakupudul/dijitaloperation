@@ -1,5 +1,22 @@
 # PROJECT_MEMORY
 
+## 2026-10-14 — Hizmet Beyni (ADR-072)
+
+- The unit of learning is the **service** (cohort = service × page type × market tier). A sector does NOT learn. It only brakes (`ComplianceBrake`). Do not put sector-based learning back.
+- **AI prepares, the operator approves in bulk, the system applies.**
+  - Everything AI prepares goes through `brain_proposals` (`ProposalService` + `ProposalKind`).
+  - AI never writes directly. The one exception is the page checklist (`brain_page_features.ai_features`), which is measurement, not a change.
+  - Confidence is computed by the system: matching-expression coverage, vector margin, and AI ↔ vector agreement. AI self-confidence is never trusted.
+- **Clusters reuse the existing tables** (`library_query_clusters` + pivot `library_cluster_id` + `library_cluster_targets`). Do not create a parallel cluster table.
+  - The old AI clustering pipeline (`search_demand_clusters*`) is legacy and must not be extended.
+- **Recommendations:** all go to `brain_recommendations` through `RecommendationWriter::sync`, which applies the brake, closes stale items, never re-raises dismissed ones, and re-raises done ones only after 28 days.
+- **Methods:**
+  - A method starts as a hypothesis (observed) and becomes validated only by difference-in-differences against untreated pages; `MethodValidator` does this.
+  - A retired method is never recommended.
+  - Methods and recommendations never name another brand.
+- **Tests and PostgreSQL:** on PG, GSC facts are compact views plus partitions. Tests write them with `Tests\Feature\Brain\InsertsFacts::insertFact`.
+- **Weekly job:** `moxdop:brain:refresh`, stored data only, no AI. AI runs only on an "AI ile hazırla" click.
+
 ## 2026-10-13 — Portfolio delete = archive, data kept
 
 - Operator decision: deleting a customer or brand must NOT delete collected data. It only stops collection, and collection resumes when the account is bound again.

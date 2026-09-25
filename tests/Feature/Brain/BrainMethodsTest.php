@@ -27,6 +27,7 @@ use Tests\TestCase;
 /** Brain phase 5: method found from the cohort → gap recommendation → measured against controls → validated. */
 final class BrainMethodsTest extends TestCase
 {
+    use InsertsFacts;
     use RefreshDatabase;
 
     private User $admin;
@@ -162,7 +163,7 @@ final class BrainMethodsTest extends TestCase
 
     private function gsc(DigitalAsset $site, string $query, \DateTimeInterface $date, int $clicks): void
     {
-        DB::table('gsc_query_page_daily')->insert([
+        $this->insertFact('gsc_query_page_daily', [
             'digital_asset_id' => $site->id, 'external_resource_id' => null, 'site_url' => 'sc-domain:'.$site->domain, 'reporting_date' => $date->format('Y-m-d'),
             'query' => $query, 'page' => 'https://'.$site->domain.'/implant', 'clicks' => $clicks, 'impressions' => $clicks * 20, 'contract_version' => 1,
             'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', $site->id.$query.$date->format('Y-m-d')),

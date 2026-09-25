@@ -1,6 +1,6 @@
 # Hizmet Beyni (Service Brain) — Tasarım Planı
 
-**Durum:** ÖNERİ (onay bekliyor). Kod yok. Faz sırası sonda.
+**Durum:** UYGULANDI — Faz 1–6 kodlandı ve PHPUnit ile test edildi (ADR-072). Gerçek hesaplarla UAT yapılmadı; yasal kapı hukuk görüşüne kadar kapalı.
 **Amaç:** Bir hizmet için (ör. implant) portföydeki tüm markaların verisinden "ne işe yarıyor" bilgisini çıkarmak ve bunu tek bir markanın web sayfalarına, Google Ads'ine, Meta kreatiflerine ve İşletme Profili'ne **doğru** öneri olarak indirmek.
 
 ---

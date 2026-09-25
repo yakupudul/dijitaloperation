@@ -18,6 +18,16 @@ final class SeoStoredHtmlReader
 {
     public function __construct(private readonly StoredPageReader $reader) {}
 
+    /** Verified stored HTML of the page's latest crawl snapshot, or null (Hizmet Beyni page facts read it here). */
+    public function html(DigitalAsset $site, WebsitePageProfile $profile): ?string
+    {
+        try {
+            return $this->reader->html($site, $profile);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
     /**
      * @return array{title_count: int, description_count: int, h1_count: int, h1_texts: list<string>, images_total: int, images_missing_alt: int, jsonld_types: list<string>, same_as: list<string>, text_excerpt: string, lead_words: ?int, tel_numbers: list<string>}|null
      */

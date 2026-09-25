@@ -65,7 +65,7 @@ final class AccountMappingKind implements ProposalKind
         $automations = ResourceAutomation::query()->with('resource')
             ->whereHas('resource', fn ($q) => $q->whereIn('resource_type', self::QUERY_SOURCES))
             ->when(! empty($options['automation_ids']), fn ($q) => $q->whereIn('id', array_map('intval', (array) $options['automation_ids'])))
-            ->when(empty($options['automation_ids']) && empty($options['include_mapped']), fn ($q) => $q->where(fn ($w) => $w->whereNull('sector')->orWhere('service_ids', '[]')->orWhereNull('service_ids')))
+            ->when(empty($options['automation_ids']) && empty($options['include_mapped']), fn ($q) => $q->where(fn ($w) => $w->whereNull('sector')->orWhereNull('service_ids')->orWhereJsonLength('service_ids', 0)))
             ->orderBy('id')->limit(60)->get();
         if ($automations->isEmpty()) {
             return 0;

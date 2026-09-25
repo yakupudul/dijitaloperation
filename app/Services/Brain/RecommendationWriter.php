@@ -13,6 +13,8 @@ final class RecommendationWriter
 {
     private const int RECHECK_DAYS = 28;
 
+    public function __construct(private readonly ComplianceBrake $brake) {}
+
     /**
      * @param  array{source: string, digital_asset_id?: ?int, brand_id?: ?int, service_id?: ?int}  $scope
      * @param  list<array{channel: string, type: string, title: string, detail?: ?string, evidence?: array<string, mixed>, impact?: ?float, basis?: string, method_id?: ?int, service_id?: ?int, cluster_id?: ?int, brand_id?: ?int, digital_asset_id?: ?int, key: string}>  $items
@@ -31,14 +33,32 @@ final class RecommendationWriter
             $fingerprint = hash('sha256', $scope['source'].'|'.$item['type'].'|'.$item['key']);
             $seen[$fingerprint] = true;
             $rows = $existing->get($fingerprint, collect());
-            $open = $rows->firstWhere('status', 'open');
+            $blocked = $this->brake->reason($item, $item['brand_id'] ?? ($scope['brand_id'] ?? null));
+            if ($blocked !== null) {
+                $values = ['title' => mb_substr($item['title'], 0, 500), 'detail' => $blocked, 'status' => 'blocked', 'updated_at' => now()];
+                $current = $rows->whereIn('status', ['open', 'blocked'])->first();
+                if ($current !== null) {
+                    DB::table('brain_recommendations')->where('id', $current->id)->update($values);
+                } elseif (! $rows->contains('status', 'dismissed')) {
+                    DB::table('brain_recommendations')->insert($values + [
+                        'brand_id' => $item['brand_id'] ?? ($scope['brand_id'] ?? null), 'digital_asset_id' => $item['digital_asset_id'] ?? ($scope['digital_asset_id'] ?? null),
+                        'service_id' => $item['service_id'] ?? ($scope['service_id'] ?? null), 'cluster_id' => $item['cluster_id'] ?? null,
+                        'source' => $scope['source'], 'channel' => $item['channel'], 'type' => $item['type'], 'fingerprint' => $fingerprint,
+                        'evidence' => json_encode($item['evidence'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'basis' => $item['basis'] ?? 'rule',
+                        'method_id' => $item['method_id'] ?? null, 'created_at' => now(),
+                    ]);
+                }
+
+                continue;
+            }
+            $open = $rows->firstWhere('status', 'open') ?? $rows->firstWhere('status', 'blocked');
             $values = [
                 'title' => mb_substr($item['title'], 0, 500), 'detail' => $item['detail'] ?? null,
                 'evidence' => json_encode($item['evidence'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 'impact' => $item['impact'] ?? null, 'basis' => $item['basis'] ?? 'rule', 'method_id' => $item['method_id'] ?? null, 'updated_at' => now(),
             ];
             if ($open !== null) {
-                DB::table('brain_recommendations')->where('id', $open->id)->update($values);
+                DB::table('brain_recommendations')->where('id', $open->id)->update($values + ['status' => 'open']);
 
                 continue;
             }
@@ -60,7 +80,7 @@ final class RecommendationWriter
         $resolved = 0;
         foreach ($existing as $fingerprint => $rows) {
             if (! isset($seen[$fingerprint])) {
-                $resolved += DB::table('brain_recommendations')->whereIn('id', $rows->where('status', 'open')->pluck('id'))
+                $resolved += DB::table('brain_recommendations')->whereIn('id', $rows->whereIn('status', ['open', 'blocked'])->pluck('id'))
                     ->update(['status' => 'resolved', 'resolved_at' => now(), 'updated_at' => now()]);
             }
         }

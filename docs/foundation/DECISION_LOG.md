@@ -875,3 +875,31 @@
      - Connector'ı olmayan siteler için sitemap `lastmod` saatlik izlenir; yalnız değişen sayfalar taranır.
 - **İlgili:** ADR-064, ADR-068, ADR-070, `connectors/wordpress/moxdop-connector/includes/class-moxdop-connector-updater.php`, `class-moxdop-connector-indexnow.php`, `app/Services/Integrations/WordPress/WordPressManagementService.php`, `app/Services/SiteFixes/SiteFixVerification.php`, `app/Services/Website/SitemapChangeWatcher.php`
 
+
+## ADR-072 — Hizmet Beyni: hizmet bazlı öğrenme, AI hazırlar / insan onaylar, sektör yalnız fren
+
+- **Durum:** Kabul (operatör onayı 2026-10-14, "sırayla tüm fazları yap").
+- **Değiştirdiği:** ADR-066'yı genişletir. Sektör örüntüleri kalır; öğrenmenin birimi artık hizmettir.
+- **Karar:**
+  1. **Öğrenme birimi.** Birim **hizmet × sayfa türü × pazar tipi** kohortudur.
+     - Sektör öğrenmeye katılmaz. Yalnız öneriyi süzer ("fren"): uyum paketi metin kuralları, sektöre hiç önerilmeyecek öneri türleri ve isteğe bağlı yasal kapı.
+  2. **Kalıcı zincir.** Zincir şudur: hizmet → sayfa boyutunda konu kümesi → hedef URL → Google Ads reklam grubu → Meta reklamı (hizmet + mesaj açısı).
+     - Tablolar: mevcut `library_query_clusters` / `library_cluster_targets` genişletildi; yeni `brain_ad_group_clusters` ve `brain_meta_ads`.
+  3. **AI hazırlar, insan toplu onaylar, sistem uygular.**
+     - Tek kuyruk: `brain_proposals`. İçinde hesap eşleme, sorgu → hizmet, kümeler, küme → sayfa ve Meta sınıflaması var.
+     - İstatistik, ölçüm, fren ve uygulama deterministiktir.
+     - AI'ın kendi güven beyanı kullanılmaz. Güven sistemden gelir: eşleme ifadesi kapsaması, vektör marjı, AI ile vektörün uyumu.
+  4. **Başarı normalize edilir.**
+     - Talep payı ve sıraya göre beklenen tıklanma kullanılır.
+     - Az veri Bayes küçültmeyle ortalamaya çekilir.
+     - Puan kohort içi yüzdeliktir.
+  5. **Yöntem iki aşamalıdır:**
+     - **Hipotez:** kohortun üstü ile altı arasında belirgin fark olmalı; asgari marka ve sayfa eşiği var.
+     - **Kanıtlanmış:** uygulanan önerinin 28 / 56 gün sonraki etkisi, uygulanmayan benzer sayfalarla karşılaştırılır (fark-içinde-fark).
+     - Etkisiz yöntem kapatılır.
+  6. **Gizlilik.** Başka markanın adı bir yöntemin ya da önerinin yanında görünmez; yalnız sayılar (ADR-066 ile aynı).
+  7. **Harici yazma yok.**
+     - Beyin yalnız öneri üretir. Uygulama mevcut onaylı yazma yollarıyla yapılır (ADR-064 / 068 / 070).
+     - Embedding için `laravel/ai` Embeddings kullanılır (OpenAI → Gemini). Vektörler JSON olarak önbelleklenir; pgvector gerekmez.
+- **Açık risk:** RG 12.11.2025 / 33075 Sağlık Tanıtım Yönetmeliği'nin Türkiye'ye yönelik ücretli sağlık tanıtımını kısıtladığı ikincil kaynaklarda bildiriliyor. Hukuk görüşü gelene kadar yasal kapı kapalıdır (`moxdop-brain.legal.health_paid_ads_gate = 0`).
+- **İlgili:** `docs/product/SERVICE_BRAIN_BLUEPRINT.md`, `app/Services/Brain/*`, `config/moxdop-brain.php`, ADR-066.

@@ -32,4 +32,9 @@ return [
         // A cluster needs at least this many impressions on the site (or demand) before "create a page" is raised.
         'min_cluster_queries' => 3,
     ],
+    'legal' => [
+        // 1 = health brands get paid-ads growth recommendations (new ad groups, new Meta angles) only when an
+        // operator recorded their eligibility (Ayarlar → Sektör paketleri). Switch on after legal review of RG 12.11.2025 / 33075.
+        'health_paid_ads_gate' => (int) env('MOXDOP_BRAIN_HEALTH_PAID_ADS_GATE', 0),
+    ],
 ];

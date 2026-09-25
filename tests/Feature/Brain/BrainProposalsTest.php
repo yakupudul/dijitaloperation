@@ -22,7 +22,6 @@ use App\Services\SeoTasks\SeoText;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Laravel\Ai\Embeddings;
 use Laravel\Ai\Prompts\EmbeddingsPrompt;
@@ -32,6 +31,7 @@ use Tests\TestCase;
 /** Brain phase 1: the review queue, the four-tier query → service assignment, account mapping and learned expressions. */
 final class BrainProposalsTest extends TestCase
 {
+    use InsertsFacts;
     use RefreshDatabase;
 
     private User $admin;
@@ -129,7 +129,7 @@ final class BrainProposalsTest extends TestCase
         $resource = CoreExternalResource::factory()->create(['resource_type' => 'search_console', 'external_id' => 'sc-domain:klinik.test', 'display_name' => 'klinik.test']);
         $automation = ResourceAutomation::query()->create(['external_resource_id' => $resource->id]);
         foreach ([['implant fiyatları', 300], ['implant yapan yerler', 100], ['klinik adı', 100]] as $i => [$text, $impressions]) {
-            DB::table('gsc_query_daily')->insert([
+            $this->insertFact('gsc_query_daily', [
                 'digital_asset_id' => null, 'external_resource_id' => $resource->id, 'site_url' => 'sc-domain:klinik.test', 'reporting_date' => now()->subDays($i + 1)->toDateString(),
                 'query' => $text, 'clicks' => 5, 'impressions' => $impressions, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
                 'record_fingerprint' => hash('sha256', $text), 'created_at' => now(), 'updated_at' => now(),

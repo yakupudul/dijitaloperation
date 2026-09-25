@@ -24,6 +24,7 @@ use Tests\TestCase;
 /** Brain phase 4: comparable success scores inside a cohort, and measured page facts incl. cluster coverage. */
 final class BrainSuccessTest extends TestCase
 {
+    use InsertsFacts;
     use RefreshDatabase;
 
     private User $admin;
@@ -91,7 +92,7 @@ final class BrainSuccessTest extends TestCase
         DB::table('brand_offerings')->insert(['brand_id' => $brand->id, 'status' => 'active', 'service_catalog_item_id' => $this->implant->id, 'created_at' => now(), 'updated_at' => now()]);
         $domain = Str::slug($name).'.test';
         $site = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'website', 'status' => DigitalAssetStatus::Active, 'domain' => $domain, 'primary_url' => 'https://'.$domain]);
-        DB::table('gsc_query_page_daily')->insert([
+        $this->insertFact('gsc_query_page_daily', [
             'digital_asset_id' => $site->id, 'external_resource_id' => null, 'site_url' => 'sc-domain:'.$domain, 'reporting_date' => now()->subDays(10)->toDateString(),
             'query' => 'implant fiyatları', 'page' => 'https://'.$domain.'/implant', 'clicks' => $clicks, 'impressions' => $impressions, 'contract_version' => 1,
             'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', $domain),

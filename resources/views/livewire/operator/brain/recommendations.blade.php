@@ -2,7 +2,7 @@
     use App\Services\Brain\BrainLabels;
     $card = 'rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
     $basisTone = ['validated' => 'bg-success-50 text-success-700', 'observational' => 'bg-blue-50 text-blue-700', 'rule' => 'bg-gray-100 text-gray-600'];
-    $statusLabels = ['open' => 'Açık', 'done' => 'Yapıldı', 'dismissed' => 'Kapatıldı', 'resolved' => 'Kendiliğinden kapandı'];
+    $statusLabels = ['open' => 'Açık', 'done' => 'Yapıldı', 'dismissed' => 'Kapatıldı', 'resolved' => 'Kendiliğinden kapandı', 'blocked' => 'Frenlendi (uyum / yasal)'];
 @endphp
 <div class="space-y-5">
     @include('livewire.demo.partials.flash')

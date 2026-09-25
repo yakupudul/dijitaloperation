@@ -29,6 +29,7 @@ use Tests\TestCase;
 /** Brain phase 2: page-sized clusters, cluster → page targets and cannibalization, without any AI. */
 final class BrainClusteringTest extends TestCase
 {
+    use InsertsFacts;
     use RefreshDatabase;
 
     private User $admin;
@@ -142,7 +143,7 @@ final class BrainClusteringTest extends TestCase
 
     private function gsc(string $query, string $path, int $impressions, float $position): void
     {
-        DB::table('gsc_query_page_daily')->insert([
+        $this->insertFact('gsc_query_page_daily', [
             'digital_asset_id' => $this->site->id, 'external_resource_id' => null, 'site_url' => 'sc-domain:atlas.test', 'reporting_date' => now()->subDays(10)->toDateString(),
             'query' => $query, 'page' => 'https://atlas.test'.$path, 'clicks' => 3, 'impressions' => $impressions, 'contract_version' => 1,
             'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', $query.$path),
