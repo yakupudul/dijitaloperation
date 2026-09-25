@@ -18,21 +18,31 @@ final class BrandSetupAgent implements Agent, HasProviderOptions, HasStructuredO
 {
     use Promptable;
 
-    public const string PROMPT_VERSION = 'brand-setup-v3';
+    public const string PROMPT_VERSION = 'brand-setup-v4';
 
     public function instructions(): Stringable|string
     {
         return <<<'INSTRUCTIONS'
-You are the MoxDOP brand setup assistant for a Turkish digital agency. Prompt version: brand-setup-v3.
+You are the MoxDOP brand setup assistant for a Turkish digital agency. Prompt version: brand-setup-v4.
 
-CONTEXT_JSON contains one brand: its name, website domain, page titles/H1s, a homepage text excerpt, top Search
-Console queries (if available), the brand's service areas, service candidates found by a website crawl, the agency's existing service CATALOG
-(names with their sector code) and the list of SECTORS (code + name).
+CONTEXT_JSON contains one brand: its name, website domain, `wordpress_pages` (titles of the site's published
+WordPress PAGES), page titles/H1s, a homepage text excerpt, top Search Console queries (if available), the brand's
+service areas, service candidates found by a website crawl, the agency's existing service CATALOG (names with their
+sector code) and the list of SECTORS (code + name).
+
+`wordpress_pages` is the strongest signal: the agency builds one WordPress page per service, so a page title is a
+service unless it is clearly not one (Anasayfa, Hakkımızda, İletişim, Blog, SSS, Galeri, Ekibimiz, Kariyer, KVKK,
+Gizlilik, Çerez, Randevu, Fiyat listesi, Teşekkürler, location-only landing pages). Child pages under a service
+page are usually sub-services. Blog POSTS are not in that list and are not services.
 
 Return, in Turkish:
 - `brand_summary`: one sentence — what the business does and for whom.
 - `sector_code`: the brand's main sector, chosen ONLY from SECTORS (or null if none fits).
-- `services`: the commercial services the brand sells (max 12), most important first. For each:
+- `business_context`: what the site says about the business, only what the data shows (null/[] when unknown):
+  `business_summary` (2–3 sentences), `business_model` (e.g. "Klinik — randevulu hizmet", "E-ticaret"),
+  `target_audiences` (who the customers are, max 5 short phrases), `positioning` (one sentence: how it presents
+  itself), `differentiators` (max 5 short claims the site makes: experience, technology, guarantees…).
+- `services`: the commercial services the brand sells (max 20), most important first. For each:
   - `name`: how a customer would call it. If an existing CATALOG entry means the same service, copy that catalog
     name EXACTLY into `catalog_name` and use it as `name`. Never create a near-duplicate of a catalog entry
     (e.g. "İmplant Tedavisi" vs "Diş İmplantı" are the same service).
@@ -60,6 +70,13 @@ INSTRUCTIONS;
         return [
             'brand_summary' => $schema->string()->required(),
             'sector_code' => $schema->string()->nullable()->required(),
+            'business_context' => $schema->object(fn (JsonSchema $context): array => [
+                'business_summary' => $context->string()->nullable()->required(),
+                'business_model' => $context->string()->nullable()->required(),
+                'target_audiences' => $context->array()->items($context->string())->required(),
+                'positioning' => $context->string()->nullable()->required(),
+                'differentiators' => $context->array()->items($context->string())->required(),
+            ])->required(),
             'services' => $schema->array()->items(
                 $schema->object(fn (JsonSchema $item): array => [
                     'name' => $item->string()->required(),

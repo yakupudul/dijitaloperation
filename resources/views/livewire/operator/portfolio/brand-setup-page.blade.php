@@ -48,6 +48,22 @@
         @if (! empty(data_get($proposal->summary, 'brand_summary')))
             <p class="text-sm text-gray-700 dark:text-gray-300"><strong>AI özeti:</strong> {{ data_get($proposal->summary, 'brand_summary') }}@if (data_get($proposal->summary, 'sector_label')) · Sektör önerisi: <strong>{{ data_get($proposal->summary, 'sector_label') }}</strong>@endif</p>
         @endif
+        @php $businessContext = data_get($proposal->summary, 'business_context'); @endphp
+        @if (is_array($businessContext))
+            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <label class="flex items-center gap-2 text-base font-semibold text-gray-800 dark:text-white/90">
+                    <input type="checkbox" wire:model="applyContext" @disabled($proposal->status !== 'ready') class="rounded border-gray-300"> İş bağlamı (siteden)
+                </label>
+                <p class="mt-1 text-xs text-gray-500">Onaylarsanız markanın İş bağlamı sekmesindeki boş alanlar bununla doldurulur; sizin yazdığınız alanlara dokunulmaz.</p>
+                <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                    @foreach (['business_summary' => 'Özet', 'business_model' => 'İş modeli', 'positioning' => 'Konumlanma', 'target_audiences' => 'Hedef kitle', 'differentiators' => 'Farklılıklar'] as $field => $fieldLabel)
+                        @if (! empty($businessContext[$field]))
+                            <div><dt class="text-xs text-gray-500">{{ $fieldLabel }}</dt><dd class="text-gray-800 dark:text-gray-200">{{ is_array($businessContext[$field]) ? implode(' · ', $businessContext[$field]) : $businessContext[$field] }}</dd></div>
+                        @endif
+                    @endforeach
+                </dl>
+            </section>
+        @endif
 
         <section class="rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3 dark:border-gray-800">

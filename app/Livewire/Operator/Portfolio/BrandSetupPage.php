@@ -35,6 +35,9 @@ final class BrandSetupPage extends Component
     /** @var array<int, bool> */
     public array $selectedServices = [];
 
+    /** Fill the brand's İş bağlamı from the site (only empty fields). */
+    public bool $applyContext = true;
+
     public ?int $loadedProposalId = null;
 
     public string $message = '';
@@ -94,12 +97,12 @@ final class BrandSetupPage extends Component
         }
         $keys = array_keys(array_filter($this->selectedItems));
         $services = array_map('intval', array_keys(array_filter($this->selectedServices)));
-        if ($keys === [] && $services === []) {
+        if ($keys === [] && $services === [] && ! ($this->applyContext && is_array(data_get($proposal->summary, 'business_context')))) {
             $this->flash('Onaylanacak bir şey seçilmedi.', 'error');
 
             return;
         }
-        $results = $applier->apply($proposal, auth()->user(), $keys, $services);
+        $results = $applier->apply($proposal, auth()->user(), $keys, $services, $this->applyContext);
         $failed = count(array_filter($results, fn (array $r): bool => ! $r['ok']));
         $this->flash(sprintf('%d işlem uygulandı%s.', count($results) - $failed, $failed > 0 ? ', '.$failed.' işlem yapılamadı (ayrıntılar aşağıda)' : ''), $failed > 0 ? 'error' : 'success');
     }

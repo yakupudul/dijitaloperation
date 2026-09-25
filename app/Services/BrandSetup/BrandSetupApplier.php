@@ -2,6 +2,8 @@
 
 namespace App\Services\BrandSetup;
 
+use App\Models\Brand;
+use App\Models\BrandIntelligenceContext;
 use App\Models\BrandSetupProposal;
 use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
@@ -47,7 +49,7 @@ final class BrandSetupApplier
      * @param  list<int>  $serviceIndexes  selected service rows
      * @return list<array{key: string, label: string, ok: bool, message: string}>
      */
-    public function apply(BrandSetupProposal $proposal, User $actor, array $itemKeys, array $serviceIndexes): array
+    public function apply(BrandSetupProposal $proposal, User $actor, array $itemKeys, array $serviceIndexes, bool $applyContext = true): array
     {
         $brand = $proposal->brand()->firstOrFail();
         $selected = array_flip($itemKeys);
@@ -99,6 +101,11 @@ final class BrandSetupApplier
                 $brand->sectors()->syncWithoutDetaching([$category->id]);
                 $results[] = ['key' => 'sector', 'label' => 'Sektör: '.$category->name, 'ok' => true, 'message' => 'Markanın sektörü atandı.'];
             }
+        }
+
+        // 3b) İş bağlamı: fill the business context from the site, only fields the operator has not written.
+        if ($applyContext && is_array($context = data_get($proposal->summary, 'business_context'))) {
+            $results[] = $this->businessContext($brand, $context, $actor);
         }
 
         // 4) Follow-ups: crawl the site when services are still waiting; queue a first SEO plan.
@@ -246,5 +253,44 @@ final class BrandSetupApplier
         }
 
         return $stored;
+    }
+
+    /**
+     * @param  array<string, mixed>  $proposed
+     * @return array{key: string, label: string, ok: bool, message: string}
+     */
+    private function businessContext(Brand $brand, array $proposed, User $actor): array
+    {
+        $context = BrandIntelligenceContext::query()->firstOrNew(['brand_id' => $brand->id]);
+        $filled = [];
+        foreach (['business_summary', 'business_model', 'positioning'] as $field) {
+            if (trim((string) $context->{$field}) === '' && is_string($proposed[$field] ?? null) && trim($proposed[$field]) !== '') {
+                $context->{$field} = trim($proposed[$field]);
+                $filled[] = $field;
+            }
+        }
+        foreach (['target_audiences', 'differentiators'] as $field) {
+            if ((array) $context->{$field} === [] && is_array($proposed[$field] ?? null) && $proposed[$field] !== []) {
+                $context->{$field} = array_values($proposed[$field]);
+                $filled[] = $field;
+            }
+        }
+        if ($filled === []) {
+            return ['key' => 'context', 'label' => 'İş bağlamı', 'ok' => true, 'message' => 'İş bağlamı zaten doluydu; değiştirilmedi.'];
+        }
+        if (! $context->exists) {
+            $context->source = BrandIntelligenceContext::SOURCE_PUBLIC_DISCOVERY;
+            BrandIntelligenceContext::withLegacyIdentityProjection(function () use ($context): void {
+                $context->business_goals = [];
+                $context->conversion_goals = [];
+                $context->priority_offerings = [];
+                $context->save();
+            });
+        } else {
+            $context->save();
+        }
+        $context->forceFill(['updated_by' => $actor->id])->save();
+
+        return ['key' => 'context', 'label' => 'İş bağlamı', 'ok' => true, 'message' => sprintf('İş bağlamının %d alanı siteden dolduruldu (yazdığınız alanlara dokunulmadı).', count($filled))];
     }
 }

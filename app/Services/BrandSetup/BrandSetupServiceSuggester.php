@@ -14,6 +14,7 @@ use App\Models\ServiceCatalogName;
 use App\Models\ServiceCategory;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\Portfolio\UnassignedWebsites;
 use App\Services\SearchDemand\ServiceKeywordService;
 use App\Services\SeoTasks\SeoStoredHtmlReader;
 use App\Services\SeoTasks\SeoText;
@@ -33,6 +34,9 @@ use Throwable;
  */
 final class BrandSetupServiceSuggester
 {
+    /** Folded page titles that are never a service (used when AI is unavailable). */
+    private const NON_SERVICE_PAGE = '/^(ana ?sayfa|home|hakkimizda|hakkinda|iletisim|blog|sss|sikca sorulan|galeri|ekibimiz|ekip|kariyer|kvkk|gizlilik|cerez|randevu|tesekkur|fiyat|referans|basinda|haber|sepet|hesabim|odeme)/u';
+
     public function __construct(
         private readonly AiRouteResolver $routes,
         private readonly AiProviderRuntimeConfig $runtime,
@@ -48,12 +52,15 @@ final class BrandSetupServiceSuggester
     {
         $website = $brand->digitalAssets()->where('type', 'website')->get()
             ->first(fn (DigitalAsset $asset): bool => BrandSetupMatcher::host((string) ($asset->primary_url ?: $asset->domain)) === $host);
+        // A site added under Integrations (no brand yet) may already carry WordPress pages.
+        $website ??= ($unassigned = app(UnassignedWebsites::class)->findByHost($host)) !== null && $unassigned->brand_id === null ? $unassigned : null;
         $pages = $website !== null ? $this->pages($website) : [];
+        $wordpressPages = $website !== null ? $this->wordpressPages($website) : [];
         $queries = $this->queries($items);
         $areas = $brand->serviceAreas()->where('status', 'active')->get(['country_code', 'city_name', 'district_name'])->map(fn ($area): array => $area->only(['country_code', 'city_name', 'district_name']))->all();
         $candidates = $website !== null ? $this->crawlCandidates($website) : [];
 
-        if ($pages === [] && $queries === [] && $candidates === []) {
+        if ($pages === [] && $wordpressPages === [] && $queries === [] && $candidates === []) {
             return ['status' => 'waiting_for_site', 'services' => [], 'summary' => ['reason' => 'no_site_data']];
         }
 
@@ -71,6 +78,7 @@ final class BrandSetupServiceSuggester
                     "CONTEXT_JSON\n".json_encode([
                         'brand' => ['name' => $brand->name, 'domain' => $host],
                         'brand_service_areas' => array_map(static fn (array $a): string => implode(', ', array_filter([$a['district_name'], $a['city_name'], $a['country_code']])), $areas),
+                        'wordpress_pages' => $wordpressPages,
                         'pages' => array_slice($pages, 0, 60),
                         'search_console_queries' => array_slice($queries, 0, 150),
                         'crawl_service_candidates' => $candidates,
@@ -93,6 +101,11 @@ final class BrandSetupServiceSuggester
         if (! is_array($structured)) {
             // Without AI only the crawl's own service candidates are proposed, all unticked.
             $services = array_map(fn (string $name): array => $this->serviceRow($name, [], null, false, 'Site taramasında bulunan hizmet başlığı', $catalog, $sectors, $existing, 0.5), $candidates);
+            foreach ($wordpressPages as $page) {
+                if (preg_match(self::NON_SERVICE_PAGE, SeoText::fold($page['title'])) !== 1 && $page['path'] !== '/') {
+                    $services[] = $this->serviceRow($page['title'], [], null, false, 'WordPress sayfası', $catalog, $sectors, $existing, 0.5);
+                }
+            }
             $services = $this->withKeywords($this->dedupe($services), $queries, $brand, $host);
 
             return ['status' => $services === [] ? 'ai_unavailable' : 'ready', 'services' => $services, 'summary' => $summary + ['locations' => $this->locationReport($queries, $areas)]];
@@ -100,7 +113,7 @@ final class BrandSetupServiceSuggester
 
         $catalogNames = array_column($catalog, 'name');
         $services = [];
-        foreach (array_slice(is_array($structured['services'] ?? null) ? $structured['services'] : [], 0, 12) as $row) {
+        foreach (array_slice(is_array($structured['services'] ?? null) ? $structured['services'] : [], 0, 20) as $row) {
             if (! is_array($row) || ! is_string($row['name'] ?? null) || mb_strlen(trim($row['name'])) < 2 || mb_strlen($row['name']) > 80) {
                 continue;
             }
@@ -119,6 +132,7 @@ final class BrandSetupServiceSuggester
                 'brand_summary' => mb_substr(trim((string) ($structured['brand_summary'] ?? '')), 0, 400),
                 'sector_code' => $brandSector,
                 'sector_label' => $brandSector !== null ? $sectors[$brandSector] : null,
+                'business_context' => $this->businessContext($structured['business_context'] ?? null),
             ],
         ];
     }
@@ -336,6 +350,47 @@ final class BrandSetupServiceSuggester
             ->map(fn (ServiceCatalogItem $item): array => ['name' => (string) $item->primaryName->raw_label, 'sector' => $item->sector])
             ->values()
             ->all();
+    }
+
+    /**
+     * Published WordPress pages (from the connector): title, path and parent. The agency builds one page per service.
+     *
+     * @return list<array{title: string, path: string, parent: ?string}>
+     */
+    private function wordpressPages(DigitalAsset $website): array
+    {
+        if (! Schema::hasTable('website_cms_object_snapshot')) {
+            return [];
+        }
+        $rows = DB::table('website_cms_object_snapshot')->where('digital_asset_id', $website->id)->where('cms', 'wordpress')
+            ->where('object_type', 'page')->where('status', 'publish')->whereNotNull('title')
+            ->orderBy('permalink')->limit(150)->get(['object_id', 'title', 'permalink', 'parent_id']);
+        $titles = $rows->mapWithKeys(fn (object $row): array => [(string) $row->object_id => trim(html_entity_decode(strip_tags((string) $row->title), ENT_QUOTES | ENT_HTML5))]);
+
+        return $rows->map(fn (object $row): array => [
+            'title' => (string) $titles[(string) $row->object_id],
+            'path' => SeoText::urlPath((string) $row->permalink),
+            'parent' => $row->parent_id !== null && (string) $row->parent_id !== '0' ? ($titles[(string) $row->parent_id] ?? null) : null,
+        ])->filter(fn (array $page): bool => $page['title'] !== '')->values()->all();
+    }
+
+    /** @return array{business_summary: ?string, business_model: ?string, target_audiences: list<string>, positioning: ?string, differentiators: list<string>}|null */
+    private function businessContext(mixed $raw): ?array
+    {
+        if (! is_array($raw)) {
+            return null;
+        }
+        $text = fn (mixed $v, int $max): ?string => is_string($v) && trim($v) !== '' ? mb_substr(trim($v), 0, $max) : null;
+        $list = fn (mixed $v): array => array_values(array_slice(array_filter(array_map(fn ($i): ?string => is_string($i) && trim($i) !== '' ? mb_substr(trim($i), 0, 120) : null, (array) $v)), 0, 5));
+        $context = [
+            'business_summary' => $text($raw['business_summary'] ?? null, 600),
+            'business_model' => $text($raw['business_model'] ?? null, 160),
+            'target_audiences' => $list($raw['target_audiences'] ?? []),
+            'positioning' => $text($raw['positioning'] ?? null, 300),
+            'differentiators' => $list($raw['differentiators'] ?? []),
+        ];
+
+        return array_filter($context, fn ($v): bool => $v !== null && $v !== []) === [] ? null : $context;
     }
 
     /** @return list<array<string, mixed>> */

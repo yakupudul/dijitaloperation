@@ -22,6 +22,7 @@ use App\Models\User;
 use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\BrandSetup\BrandSetupAssistant;
 use App\Services\BrandSetup\BrandSetupMatcher;
+use App\Services\Portfolio\UnassignedWebsites;
 use App\Services\SearchDemand\ServiceCatalogService;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -146,6 +147,46 @@ final class BrandSetupAssistantTest extends TestCase
         $this->assertSame(1, ServiceCatalogItem::query()->whereHas('names', fn ($q) => $q->where('raw_label', 'İmplant Tedavisi'))->count(), 'catalog not duplicated');
         $this->assertSame([$category->id], $this->brand->sectors()->pluck('service_categories.id')->all());
         $this->assertTrue(collect($proposal->apply_result)->every(fn (array $r): bool => $r['ok']), json_encode($proposal->apply_result));
+    }
+
+    public function test_wordpress_page_titles_drive_services_and_business_context_fills_only_empty_fields(): void
+    {
+        ServiceCategory::query()->create(['code' => 'saglik', 'name' => 'Sağlık', 'normalized_key' => 'saglik']);
+        $site = DigitalAsset::query()->create(['brand_id' => null, 'name' => 'adadent.com.tr', 'type' => 'website', 'status' => 'active', 'module_id' => 'website', 'domain' => 'adadent.com.tr', 'primary_url' => 'https://adadent.com.tr']);
+        foreach ([[1, 'İmplant Tedavisi', null], [2, 'Zirkonyum Kaplama', null], [3, 'Hakkımızda', null], [4, 'All-on-4', 1]] as [$id, $title, $parent]) {
+            DB::table('website_cms_object_snapshot')->insert(['digital_asset_id' => $site->id, 'cms' => 'wordpress', 'object_type' => 'page', 'object_id' => (string) $id, 'status' => 'publish',
+                'title' => $title, 'permalink' => 'https://adadent.com.tr/p'.$id.'/', 'parent_id' => $parent, 'observed_at' => now(), 'contract_version' => 1,
+                'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', 'p'.$id), 'created_at' => now(), 'updated_at' => now()]);
+        }
+        app(UnassignedWebsites::class)->assign($site, $this->brand);
+        $this->brand->intelligenceContext()->create(['positioning' => 'Operatörün yazdığı konumlanma', 'business_goals' => [], 'conversion_goals' => [], 'priority_offerings' => []]);
+        $prompts = [];
+        BrandSetupAgent::fake(function (string $prompt) use (&$prompts): array {
+            $prompts[] = $prompt;
+
+            return [
+                'brand_summary' => 'Ankara diş kliniği.', 'sector_code' => 'saglik',
+                'business_context' => ['business_summary' => 'Ankara\'da implant ve estetik diş tedavisi yapan klinik.', 'business_model' => 'Klinik — randevulu hizmet',
+                    'target_audiences' => ['Eksik dişi olan yetişkinler'], 'positioning' => 'AI konumlanma', 'differentiators' => ['20 yıllık deneyim']],
+                'services' => [['name' => 'İmplant Tedavisi', 'catalog_name' => null, 'sector_code' => 'saglik', 'aliases' => [], 'matching_phrases' => ['implant'], 'is_core' => true, 'evidence' => 'WordPress sayfası']],
+                'prompt_version' => BrandSetupAgent::PROMPT_VERSION,
+            ];
+        });
+
+        $page = Livewire::test(BrandSetupPage::class, ['brand' => (string) $this->brand->id])->set('websiteUrl', 'adadent.com.tr')->call('start');
+
+        $this->assertStringContainsString('"wordpress_pages"', $prompts[0]);
+        $this->assertStringContainsString('"title":"All-on-4","path":"/p4/","parent":"İmplant Tedavisi"', $prompts[0]);
+        $proposal = BrandSetupProposal::query()->firstOrFail();
+        $this->assertSame('Klinik — randevulu hizmet', data_get($proposal->summary, 'business_context.business_model'));
+
+        $page->call('$refresh')->assertSee('İş bağlamı (siteden)')->call('approve');
+
+        $context = $this->brand->fresh()->intelligenceContext;
+        $this->assertSame('Ankara\'da implant ve estetik diş tedavisi yapan klinik.', $context->business_summary);
+        $this->assertSame(['Eksik dişi olan yetişkinler'], $context->target_audiences);
+        $this->assertSame('Operatörün yazdığı konumlanma', $context->positioning, 'what the operator wrote is never overwritten');
+        $this->assertSame(1, DigitalAsset::query()->where('type', 'website')->count(), 'the site added under Integrations is reused, not duplicated');
     }
 
     public function test_services_and_keywords_are_location_free_and_out_of_area_demand_is_reported(): void
