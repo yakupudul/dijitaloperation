@@ -177,7 +177,7 @@ final class OperationalAlertEvaluator
                 scopeType: 'SYSTEM',
                 scopeKey: $scope,
                 title: 'Veri çekimleri tekrar tekrar başarısız',
-                summary: $failures->count().' failed CollectionRun(s) in the last '.$window.'s',
+                summary: sprintf('Son %d dakikada %d veri çekimi başarısız oldu; Arka plan işleri sayfasından inceleyin.', intdiv($window, 60), $failures->count()),
                 observed: [
                     'failure_count' => $failures->count(),
                     'window_seconds' => $window,

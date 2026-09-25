@@ -224,10 +224,14 @@ final class DueCollectionQueryService
         if ($assetIds === []) {
             return collect();
         }
+        $assetIds = array_values(array_unique($assetIds));
+        $resourceIds = array_values(array_unique($resourceIds));
 
+        // Central (account-first) collection records coverage per account without an asset; it serves every asset bound to it.
         return DatasetMaterialization::query()
-            ->whereIn('digital_asset_id', array_values(array_unique($assetIds)))
-            ->when($resourceIds !== [], fn ($q) => $q->whereIn('external_resource_id', array_values(array_unique($resourceIds))))
+            ->where(fn ($q) => $q->whereIn('digital_asset_id', $assetIds)
+                ->when($resourceIds !== [], fn ($q) => $q->whereIn('external_resource_id', $resourceIds)))
+            ->when($resourceIds !== [], fn ($q) => $q->orWhere(fn ($q) => $q->whereNull('digital_asset_id')->whereIn('external_resource_id', $resourceIds)))
             ->get();
     }
 
@@ -282,7 +286,7 @@ final class DueCollectionQueryService
         int $digitalAssetId,
         ?int $externalResourceId,
     ): ?DatasetMaterialization {
-        return $materializations->first(function (DatasetMaterialization $row) use ($datasetId, $digitalAssetId, $externalResourceId): bool {
+        $own = $materializations->first(function (DatasetMaterialization $row) use ($datasetId, $digitalAssetId, $externalResourceId): bool {
             if ($row->dataset_id !== $datasetId || (int) $row->digital_asset_id !== $digitalAssetId) {
                 return false;
             }
@@ -292,6 +296,17 @@ final class DueCollectionQueryService
 
             return (int) $row->external_resource_id === $externalResourceId;
         });
+        if ($externalResourceId === null) {
+            return $own;
+        }
+        $central = $materializations->first(fn (DatasetMaterialization $row): bool => $row->dataset_id === $datasetId
+            && $row->digital_asset_id === null && (int) $row->external_resource_id === $externalResourceId);
+        if ($own === null || $central === null) {
+            return $own ?? $central;
+        }
+
+        // An old per-asset row must not hide the account's newer coverage.
+        return [(string) $central->coverage_end_date, (string) $central->last_collected_at] > [(string) $own->coverage_end_date, (string) $own->last_collected_at] ? $central : $own;
     }
 
     private function resourceTimezone(CoreAssetBinding $binding): ?string

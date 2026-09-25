@@ -604,6 +604,22 @@ class DataFreshnessIncrementalCollectionTest extends TestCase
     }
 
     #[Test]
+    public function due_query_counts_account_level_coverage_from_central_collection(): void
+    {
+        $stack = $this->freshnessStack();
+        $this->bindPlanner($stack['planner']);
+        $collectableEnd = $stack['collectableEnd']->resolve($stack['policies']->policy('ga4_property_daily'), 'UTC');
+        // An old per-asset row, and the account-level row central collection keeps current.
+        $this->materializationWithDates('ga4_property_daily', $this->contiguousDates('2026-08-01', 5));
+        $this->materializationWithDates('ga4_property_daily', $this->datesThrough($collectableEnd), ['last_reprocess_through' => $collectableEnd], asset: DigitalAsset::factory()->create())
+            ->forceFill(['digital_asset_id' => null])->save();
+
+        $items = app(DueCollectionQueryService::class)->query(['digital_asset_id' => $this->asset->id, 'provider_sources' => ['GA4']]);
+
+        $this->assertEmpty(array_filter($items, static fn ($item): bool => $item->datasetId === 'ga4_property_daily'), 'fresh account data is not reported as stale for the bound asset');
+    }
+
+    #[Test]
     public function start_incremental_collection_returns_data_current_when_nothing_due(): void
     {
         Queue::fake();
