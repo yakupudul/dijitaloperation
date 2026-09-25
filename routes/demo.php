@@ -60,6 +60,7 @@ use App\Livewire\Operator\Assets\AnalyticsPage;
 use App\Livewire\Operator\Assets\SearchConsolePage;
 use App\Livewire\Operator\Assistant\RenewalsPage;
 use App\Livewire\Operator\Brain\ProposalsPage as BrainProposalsPage;
+use App\Livewire\Operator\Brain\RecommendationsPage as BrainRecommendationsPage;
 use App\Livewire\Operator\Brain\ServiceMapPage as BrainServiceMapPage;
 use App\Livewire\Operator\Compliance\CompliancePage;
 use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
@@ -225,6 +226,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/sector-patterns', SectorPatternsPage::class)->name('operator.settings.sector-patterns');
         Route::livewire('/brain/proposals', BrainProposalsPage::class)->name('operator.brain.proposals');
         Route::livewire('/brain/services', BrainServiceMapPage::class)->name('operator.brain.services');
+        Route::livewire('/brain/recommendations', BrainRecommendationsPage::class)->name('operator.brain.recommendations');
         Route::livewire('/market/map-rankings', MapRankingsPage::class)->name('operator.market.map-rankings');
         Route::get('/market/kml/{brand}', KmlExportController::class)->name('operator.market.kml');
         Route::livewire('/market/backlinks', BacklinksPage::class)->name('operator.market.backlinks');

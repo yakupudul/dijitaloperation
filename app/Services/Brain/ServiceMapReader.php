@@ -46,7 +46,23 @@ final class ServiceMapReader
         $order = ['main' => 0, 'landing' => 1, 'support' => 2, 'faq' => 3];
         $clusters = collect($clusters)->sortBy(fn (array $c): string => ($order[$c['page_type']] ?? 4).'-'.str_pad((string) (100000 - $c['queries']), 6, '0', STR_PAD_LEFT))->values()->all();
 
+        $adGroups = DB::table('brain_ad_group_clusters as g')->leftJoin('brands as b', 'b.id', '=', 'g.brand_id')->where('g.service_id', $serviceId)
+            ->orderByDesc('g.cost')->get(['g.*', 'b.name as brand_name'])
+            ->map(fn ($g): array => ['cluster_id' => $g->cluster_id !== null ? (int) $g->cluster_id : null, 'brand_id' => (int) $g->brand_id, 'brand' => (string) $g->brand_name,
+                'name' => (string) $g->ad_group_name, 'share' => $g->cluster_share !== null ? (float) $g->cluster_share : null, 'final_url' => $g->final_url,
+                'url_matches' => $g->url_matches === null ? null : (bool) $g->url_matches, 'qs' => $g->quality_score !== null ? (float) $g->quality_score : null,
+                'cost' => (float) $g->cost, 'conversions' => (float) $g->conversions, 'clicks' => (int) $g->clicks])->all();
+        $meta = DB::table('brain_meta_ads as m')->leftJoin('brands as b', 'b.id', '=', 'm.brand_id')->where('m.service_id', $serviceId)
+            ->groupBy('m.brand_id', 'b.name', 'm.angle')->selectRaw('m.brand_id, b.name as brand_name, m.angle, count(*) as ads, sum(m.spend) as spend, sum(m.results) as results, sum(m.impressions) as impressions')
+            ->get()->map(fn ($r): array => ['brand' => (string) $r->brand_name, 'angle' => $r->angle, 'ads' => (int) $r->ads, 'spend' => (float) $r->spend,
+                'results' => (float) $r->results, 'impressions' => (int) $r->impressions, 'cpr' => (float) $r->results > 0 ? round((float) $r->spend / (float) $r->results, 2) : null])->all();
+        $recommendations = DB::table('brain_recommendations as r')->leftJoin('brands as b', 'b.id', '=', 'r.brand_id')->where('r.service_id', $serviceId)->where('r.status', 'open')
+            ->orderByRaw('coalesce(r.impact, 0) desc')->limit(50)->get(['r.id', 'r.channel', 'r.type', 'r.title', 'r.detail', 'r.basis', 'r.impact', 'b.name as brand_name'])->map(fn ($r): array => (array) $r)->all();
+
         return [
+            'ad_groups' => $adGroups,
+            'meta' => $meta,
+            'recommendations' => $recommendations,
             'clusters' => $clusters,
             'sites' => $sites->map(fn ($site): array => ['id' => (int) $site->id, 'name' => (string) $site->name, 'brand' => (string) ($site->brand?->name ?? '')])->values()->all(),
             'targets' => $targets->all(),

@@ -84,6 +84,75 @@
                 @endif
             </section>
 
+            @if ($map['ad_groups'] !== [])
+                <section class="{{ $card }} overflow-x-auto">
+                    <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Google Ads reklam grupları</h2>
+                    <p class="mt-1 text-xs text-gray-500">Her reklam grubunun anahtar kelimeleri ve eşleştiği arama terimleri hangi konuya düşüyor, reklam nereye gidiyor. İdeal: bir konu → bir reklam grubu → o konunun sayfası.</p>
+                    <table class="mt-3 w-full text-sm">
+                        <thead><tr class="text-left text-xs text-gray-500"><th class="py-1 pr-3">Marka · reklam grubu</th><th class="py-1 pr-3">Konu</th><th class="py-1 pr-3">Uyum</th><th class="py-1 pr-3">Açılış sayfası</th><th class="py-1 pr-3">Kalite puanı</th><th class="py-1 pr-3">Harcama</th><th class="py-1">Dönüşüm</th></tr></thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                            @foreach ($map['ad_groups'] as $group)
+                                @php $cluster = collect($map['clusters'])->firstWhere('id', $group['cluster_id']); @endphp
+                                <tr class="align-top">
+                                    <td class="py-2 pr-3"><span class="text-xs text-gray-500">{{ $group['brand'] }}</span><div class="text-gray-800 dark:text-gray-200">{{ $group['name'] }}</div></td>
+                                    <td class="py-2 pr-3 text-xs">{{ $cluster['name'] ?? '—' }}</td>
+                                    <td class="py-2 pr-3 text-xs {{ ($group['share'] ?? 0) >= 0.75 ? 'text-success-600' : 'text-warning-700' }}">{{ $group['share'] !== null ? '%'.(int) round($group['share'] * 100) : '—' }}</td>
+                                    <td class="py-2 pr-3 text-xs">
+                                        @if ($group['url_matches'] === true)<span class="text-success-600">konunun sayfası ✓</span>
+                                        @elseif ($group['url_matches'] === false)<span class="text-error-600">farklı sayfa</span>
+                                        @else<span class="text-gray-400">—</span>@endif
+                                        @if ($group['final_url'])<div class="break-all text-gray-500">{{ \Illuminate\Support\Str::after($group['final_url'], '://') }}</div>@endif
+                                    </td>
+                                    <td class="py-2 pr-3 text-xs">{{ $group['qs'] !== null ? number_format($group['qs'], 1, ',', '.') : '—' }}</td>
+                                    <td class="py-2 pr-3 text-xs">{{ number_format($group['cost'], 0, ',', '.') }}</td>
+                                    <td class="py-2 text-xs">{{ number_format($group['conversions'], 1, ',', '.') }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </section>
+            @endif
+
+            <section class="{{ $card }}">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Meta reklamları (son 30 gün)</h2>
+                    <livewire:operator.brain.prepare-button kind="meta_ad_services" :key="'brain-meta-'.$service" />
+                </div>
+                @if ($map['meta'] === [])
+                    <p class="mt-2 text-sm text-gray-500">Bu hizmete bağlanmış Meta reklamı yok. Reklam adlarında hizmet adı geçenler haftalık bağlanır; kalanları AI ile hazırlatın.</p>
+                @else
+                    <table class="mt-3 w-full text-sm">
+                        <thead><tr class="text-left text-xs text-gray-500"><th class="py-1 pr-3">Marka</th><th class="py-1 pr-3">Mesaj açısı</th><th class="py-1 pr-3">Reklam</th><th class="py-1 pr-3">Harcama</th><th class="py-1 pr-3">Sonuç</th><th class="py-1">Sonuç başı</th></tr></thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                            @foreach ($map['meta'] as $row)
+                                <tr>
+                                    <td class="py-1.5 pr-3">{{ $row['brand'] }}</td>
+                                    <td class="py-1.5 pr-3 text-xs">{{ \App\Services\Brain\Proposals\Kinds\MetaAdServicesKind::ANGLE_LABELS[$row['angle']] ?? 'Henüz sınıflanmadı' }}</td>
+                                    <td class="py-1.5 pr-3 text-xs">{{ $row['ads'] }}</td>
+                                    <td class="py-1.5 pr-3 text-xs">{{ number_format($row['spend'], 0, ',', '.') }}</td>
+                                    <td class="py-1.5 pr-3 text-xs">{{ number_format($row['results'], 0, ',', '.') }}</td>
+                                    <td class="py-1.5 text-xs">{{ $row['cpr'] !== null ? number_format($row['cpr'], 2, ',', '.') : '—' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                @endif
+            </section>
+
+            @if ($map['recommendations'] !== [])
+                <section class="{{ $card }}">
+                    <div class="flex items-center justify-between gap-2">
+                        <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Bu hizmet için öneriler ({{ count($map['recommendations']) }})</h2>
+                        <a href="{{ route('operator.brain.recommendations', ['service' => $service]) }}" wire:navigate class="text-xs text-brand-600 hover:underline">Tümü ve toplu işlem →</a>
+                    </div>
+                    <ul class="mt-3 divide-y divide-gray-100 text-sm dark:divide-gray-800">
+                        @foreach (array_slice($map['recommendations'], 0, 12) as $rec)
+                            <li class="py-2"><span class="text-xs text-gray-500">{{ $rec['brand_name'] }} · {{ \App\Services\Brain\BrainLabels::channel($rec['channel']) }} · {{ \App\Services\Brain\BrainLabels::basis($rec['basis']) }}</span><div class="text-gray-800 dark:text-gray-200">{{ $rec['title'] }}</div></li>
+                        @endforeach
+                    </ul>
+                </section>
+            @endif
+
             @if ($map['cannibalizations'] !== [])
                 <section class="{{ $card }}">
                     <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Aynı konuyu bölen sayfalar ({{ count($map['cannibalizations']) }})</h2>

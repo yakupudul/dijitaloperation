@@ -1,5 +1,26 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-14 — Hizmet Beyni Faz 3: kalıcı hizmet zinciri (küme ↔ reklam grubu ↔ sayfa, Meta reklamı ↔ hizmet), Beyin önerileri
+
+**State:** CODED + PHPUnit. Test: `Brain/BrainChainTest` 2/2. Real Ads/Meta account UAT: not done.
+- **Google Ads (`brain_ad_group_clusters`, weekly):** each ad group's cluster share is computed from its keywords and from the search terms it actually matched, weighted by impressions. Also stored: final URL, the page that owns the cluster, whether they match, weighted Quality Score, and cost and conversions.
+- Recommendations to `brain_recommendations` (Quality Score rule: one cluster → one ad group → one page):
+  - **split ad group:** two or more clusters each have ≥25% of the ad group's impressions.
+  - **final URL:** the ad goes to a page other than the one that owns its cluster.
+  - **paying for another topic:** the ad group pays for search terms of a cluster another ad group owns; negative keywords route them.
+  - **missing cluster:** a buying cluster of an advertised service has no ad group.
+- **Meta (`brain_meta_ads`):**
+  - Each ad's spend, results and format (video / image / carousel) are stored.
+  - An ad is filed under a service directly (rule) when a service name or matching expression appears exactly once in the ad name, ad set name, campaign name or creative text.
+  - The remaining ads, and every ad's message angle (price, trust, result, problem, social proof, education, urgency), are prepared by AI (`brain.creative_classifier`) as a proposal. Approval is required.
+  - An approved choice is not overwritten by a later rule run.
+- `RecommendationWriter`:
+  - A recommendation that is no longer detected closes as "resolved".
+  - A dismissed one is not raised again.
+  - One marked done is raised again only if it is still detected after 28 days.
+- **Beyin önerileri** screen (`/brain/recommendations`): filters; bulk "Yapıldı" and "Kapat"; evidence detail. Recommendations are ordered by basis (proven → observed → rule), then by impact.
+- **Hizmet haritası** now shows Google Ads ad groups (cluster fit, landing page, Quality Score) and, for the service, Meta ads broken down by message angle (spend, results, cost per result).
+
 ## 2026-10-14 — Hizmet Beyni Faz 2: sayfa boyutunda kümeler, küme → sayfa, yamyamlaşma
 
 **State:** CODED + PHPUnit. Test: `Brain/BrainClusteringTest` 3/3. Real portfolio UAT: not done.
