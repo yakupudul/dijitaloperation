@@ -3,16 +3,13 @@
         <div>
             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-brand-600">Kütüphane</p>
             <h1 class="mt-1 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Marka Sorgu Portföyü</h1>
-            <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">Global sorguları kopyalamadan markaya bağlar; marka override’larını, çoklu bölge kapsamını ve website etkinliğini ayrı tutar.</p>
+            <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">Markanın takip ettiği sorgular: global sorgu kütüphanesinden bu markaya bağlanan sorgular (kopya değil), markaya özel isim/öncelik değişiklikleri, hangi bölgelerde geçerli oldukları ve hangi web sitesinde izlendikleri. SEO planı bu listeyi kullanır; sorgu → hizmet ve sayfa eşleşmesinin geniş görünümü Hizmet haritasındadır.</p>
         </div>
         <div class="flex flex-wrap gap-2">
-            <a href="{{ route('operator.library.services') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Hizmetler</a>
+            <a href="{{ route('operator.brain.services') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Hizmet haritası</a>
             <a href="{{ route('operator.library.search-queries') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Global sorgular</a>
-            <a href="{{ route('operator.library.search-demand-clusters', ['brand' => $selectedBrandId]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Sorgu kümeleri</a>
-            <a href="{{ route('operator.library.search-demand-visibility') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Görünürlük haritası</a>
-            <a href="{{ route('operator.library.search-demand-enrichment') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">SERP zenginleştirme</a>
-            <a href="{{ route('operator.library.search-demand-ownership') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">URL sahipliği</a>
-            <a href="{{ route('operator.library.search-demand-competitors', ['brand' => $selectedBrandId]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Rakip kütüphanesi</a>
+            <a href="{{ route('operator.library.services') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Hizmetler</a>
+            <a href="{{ route('operator.library.search-demand-competitors', ['brand' => $selectedBrandId]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Rakipler</a>
         </div>
     </div>
 

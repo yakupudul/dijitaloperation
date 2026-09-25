@@ -71,15 +71,11 @@ use App\Livewire\Operator\Integrations\SiteConnectorsIndex;
 use App\Livewire\Operator\Integrations\WordPressSitesPage;
 use App\Livewire\Operator\Library\BrandQueryPortfolioPage;
 use App\Livewire\Operator\Library\ManualQueryClustersPage;
-use App\Livewire\Operator\Library\SearchDemandChangeTrackingPage;
-use App\Livewire\Operator\Library\SearchDemandClustersPage;
 use App\Livewire\Operator\Library\SearchDemandCompetitiveIntelligencePage;
 use App\Livewire\Operator\Library\SearchDemandCompetitorLibraryPage;
 use App\Livewire\Operator\Library\SearchDemandCompetitorPagesPage;
-use App\Livewire\Operator\Library\SearchDemandEnrichmentPage;
 use App\Livewire\Operator\Library\SearchDemandImprovementPage;
 use App\Livewire\Operator\Library\SearchDemandPageOwnershipPage;
-use App\Livewire\Operator\Library\SearchDemandVisibilityMapPage;
 use App\Livewire\Operator\Library\SearchQueryLibraryPage;
 use App\Livewire\Operator\Library\ServiceCatalogPage;
 use App\Livewire\Operator\Library\WebsiteStandardsPage;
@@ -128,15 +124,16 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/library/search-queries', SearchQueryLibraryPage::class)->name('operator.library.search-queries');
         Route::livewire('/library/brand-query-portfolios', BrandQueryPortfolioPage::class)->name('operator.library.brand-query-portfolios');
         Route::livewire('/library/search-demand-clusters', ManualQueryClustersPage::class)->name('operator.library.search-demand-clusters');
-        Route::livewire('/library/search-demand-clusters/legacy', SearchDemandClustersPage::class)->name('operator.library.search-demand-clusters.legacy');
-        Route::livewire('/library/search-demand-visibility', SearchDemandVisibilityMapPage::class)->name('operator.library.search-demand-visibility');
-        Route::livewire('/library/search-demand-enrichment', SearchDemandEnrichmentPage::class)->name('operator.library.search-demand-enrichment');
+        // Retired: superseded by the Service Brain (service map, recommendations, methods) and manual clusters.
+        Route::redirect('/library/search-demand-clusters/legacy', '/library/search-demand-clusters')->name('operator.library.search-demand-clusters.legacy');
+        Route::redirect('/library/search-demand-visibility', '/brain/services')->name('operator.library.search-demand-visibility');
+        Route::redirect('/library/search-demand-enrichment', '/market/map-rankings')->name('operator.library.search-demand-enrichment');
         Route::livewire('/library/search-demand-ownership', SearchDemandPageOwnershipPage::class)->name('operator.library.search-demand-ownership');
         Route::livewire('/library/search-demand-competitors', SearchDemandCompetitorLibraryPage::class)->name('operator.library.search-demand-competitors');
         Route::livewire('/library/search-demand-competitor-pages', SearchDemandCompetitorPagesPage::class)->name('operator.library.search-demand-competitor-pages');
         Route::livewire('/library/search-demand-competitive-intelligence', SearchDemandCompetitiveIntelligencePage::class)->name('operator.library.search-demand-competitive-intelligence');
         Route::livewire('/library/search-demand-improvements', SearchDemandImprovementPage::class)->name('operator.library.search-demand-improvements');
-        Route::livewire('/library/search-demand-changes', SearchDemandChangeTrackingPage::class)->name('operator.library.search-demand-changes');
+        Route::redirect('/library/search-demand-changes', '/brain/methods')->name('operator.library.search-demand-changes');
 
         Route::livewire('/assets', AssetsIndex::class)->name('operator.assets');
         Route::livewire('/assets/create', AssetCreate::class)->name('operator.asset.create');

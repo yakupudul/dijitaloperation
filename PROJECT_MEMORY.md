@@ -1,5 +1,31 @@
 # PROJECT_MEMORY
 
+## 2026-10-15 — Data center, lean incremental crawl, sites before brands
+
+- **Data deletion is explicit and per source.**
+  - Deleting a customer or brand still keeps its data (archive).
+  - Veri merkezi (`/data-center`, Admin) lists every source (account or website) with its stored data sets. The operator deletes selected data sets there; this runs in the background (`EraseSourceDataJob`).
+  - Protected data sets are never deleted: `config('moxdop-retention.protected_tables')` covers queries, search terms and keywords. Do not add a path that deletes them.
+- **Website crawl collects only SEO pages.**
+  - `SeoText::isCrawlablePage` / `isJunkSitemap` gate every queue entry point: the crawl seed, `<a>` links, sitemaps, targeted verification, `SitemapChangeWatcher` and WordPress events.
+  - Media files are never fetched. WordPress media is kept only as image alt-text metadata.
+  - Builder templates (`WebsiteDatasetExecutor::NON_PAGE_CMS_TYPES`) are not stored.
+- **A full crawl resumes instead of restarting.**
+  - A page whose WordPress `modified_at` or sitemap `lastmod` is not newer than its last stored fetch is not fetched again.
+  - Pages with an unknown modified date are re-fetched after 7 days; every page is re-fetched at least every 30 days. `force_refresh` fetches everything.
+  - Readers must take each page's own latest fetch, never "the latest crawl's timestamp".
+- **Websites can exist without a brand.**
+  - `digital_assets.brand_id` is nullable, but only for websites.
+  - They are added under Integrations › Website (`UnassignedWebsites`) so the WordPress connector can be paired first.
+  - When a brand is created, it picks the site (or the operator types its host) and the site moves to the brand.
+  - Brandless sites are outside `operational()` automation and the asset list.
+- **Otomatik kur.**
+  - Published WordPress page titles are the primary service signal (prompt `brand-setup-v4`).
+  - Approval fills only the empty fields of İş bağlamı and never overwrites what the operator wrote.
+- **Retired legacy search-demand pages.**
+  - The legacy clusters, visibility map, SERP enrichment and change tracking pages were removed. Their URLs redirect to the Service Brain / manual clusters / map rankings.
+  - The services behind them remain for the website assessment panel.
+
 ## 2026-10-14 — Hizmet Beyni (ADR-072)
 
 - The unit of learning is the **service** (cohort = service × page type × market tier). A sector does NOT learn. It only brakes (`ComplianceBrake`). Do not put sector-based learning back.

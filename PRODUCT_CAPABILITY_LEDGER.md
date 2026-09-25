@@ -1,5 +1,33 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-15 — Veri merkezi, yalın ve kaldığı yerden devam eden tarama, markasız site, Otomatik kur v4
+
+- **Veri merkezi** (`/data-center`, Sistem menüsü)
+  - Per source (account or website) it shows data sets, rows, date range, last collection, which brand the source feeds, and whether the source is unbound (collection stopped).
+  - Admin can pick data sets and delete them in the background. Queries, search terms and keywords are protected and cannot be deleted.
+  - Compact PostgreSQL facts are deleted from their fact tables. Raw payload files are deleted from disk.
+- **Website crawl**
+  - Media, feed, tag/author/pagination, embed, page-builder template, cart and tracking-parameter URLs never enter the crawl.
+  - Sitemap indexes skip media, tag and author sitemaps.
+  - The WordPress connector no longer stores builder templates or non-image media. Image alt text is kept for the alt-text fix.
+  - A full crawl skips pages unchanged since their last fetch (WordPress `modified_at` or sitemap `lastmod`). Unknown dates re-check weekly, and every page is re-checked at least monthly.
+  - Link counts use each page's own latest fetch.
+- **Sites before brands**
+  - Integrations › Website › "+ Web sitesi ekle" creates a website with no brand; the host cannot be added twice.
+  - Marka ekle lists unassigned sites. Picking one, or typing its host, moves it to the brand and opens Otomatik kur.
+- **Otomatik kur v4**
+  - Published WordPress page titles, with their parent pages, are the strongest service signal. Up to 20 services are returned.
+  - Without AI, page titles that are not generic pages are proposed.
+  - İş bağlamı is proposed, and approval fills only its empty fields.
+- **Alerts**
+  - Account-level coverage from central collection now counts for bound assets, so fresh accounts are no longer reported as "güncellenemiyor".
+  - The failed-collection alert text is Turkish.
+- **Cleanup:** the legacy clusters, visibility map, SERP enrichment and change tracking pages were removed; their URLs redirect.
+- **State:** CODED + PHPUnit.
+  - Tests: `DataCenter/DataCenterTest`, `Portfolio/UnassignedWebsiteTest`, `Collection/WebsiteProductionCollectorTest` (crawl filter plus unchanged skip), `BrandSetup/BrandSetupAssistantTest` (WordPress pages plus İş bağlamı) and `DataPool/DataFreshnessIncrementalCollectionTest` (account-level coverage).
+  - Also run on PostgreSQL: data center and unassigned site.
+  - **No live UAT.**
+
 ## 2026-10-14 — Hizmet Beyni Faz 6: uyum freni, taslak istemlerinde sektör kuralları, yasal kapı (ADR-072)
 
 **State:** CODED + PHPUnit. Test: `Brain/BrainBrakeTest` 3/3. The legal gate is off by default and waits for a legal opinion.
