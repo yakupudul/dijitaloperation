@@ -27,7 +27,15 @@
                 </x-ta.form.field>
                 @if ($mode === 'create')
                     <x-ta.form.field label="Web sitesi" :error="$errors->first('website_url')">
-                        <input aria-label="Web sitesi" wire:model="website_url" type="text" maxlength="255" placeholder="ornek.com.tr" class="w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
+                        @if (($unassignedWebsites ?? []) !== [])
+                            <select aria-label="Eklenmiş web sitesi" wire:model.live="existing_website_id" class="mb-2 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white">
+                                <option value="">Eklenmiş sitelerden seç (markaya bağlı olmayanlar)…</option>
+                                @foreach ($unassignedWebsites as $siteId => $siteDomain)<option value="{{ $siteId }}">{{ $siteDomain }}</option>@endforeach
+                            </select>
+                        @endif
+                        @if (($existing_website_id ?? null) === null)
+                            <input aria-label="Web sitesi" wire:model="website_url" type="text" maxlength="255" placeholder="ya da elle yaz: ornek.com.tr" class="w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
+                        @endif
                         <p class="mt-1 text-xs text-gray-500">Girersen kaydettikten sonra "Otomatik kur" Search Console, GA4, İşletme Profili, Ads ve Meta hesaplarını ve sitedeki hizmetleri bulur; sen onaylarsın. Hizmetleri aşağıda elle seçmen gerekmez.</p>
                     </x-ta.form.field>
                 @endif

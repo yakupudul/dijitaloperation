@@ -79,7 +79,8 @@ class AssetsIndex extends Component
         $showingLegacyInfrastructure = in_array($this->filterType, $legacyInfrastructureTypes, true)
             || $this->filterRole === 'infrastructure';
 
-        $query = DigitalAsset::query()->with(['brand.customer', 'findings', 'assetBindings' => fn ($q) => $q->where('status', 'active')]);
+        // Websites without a brand yet are managed under Integrations › Website.
+        $query = DigitalAsset::query()->whereNotNull('brand_id')->with(['brand.customer', 'findings', 'assetBindings' => fn ($q) => $q->where('status', 'active')]);
         if (! $showingLegacyInfrastructure) {
             $query->whereNotIn('type', $legacyInfrastructureTypes);
         }

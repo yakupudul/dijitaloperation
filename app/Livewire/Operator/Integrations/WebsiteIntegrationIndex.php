@@ -16,10 +16,13 @@ use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Services\Integrations\WordPress\WordPressEventReconciliation;
 use App\Services\Operations\SystemHealthReader;
 use App\Services\PageSpeedConnectionProbeService;
+use App\Services\Portfolio\UnassignedWebsites;
+use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use InvalidArgumentException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -58,6 +61,25 @@ final class WebsiteIntegrationIndex extends Component
 
     #[Url(as: 'data_page', history: true)]
     public int $dataPage = 1;
+
+    /** Domain of a website added here, before it belongs to a brand. */
+    public string $newWebsite = '';
+
+    public function addWebsite(UnassignedWebsites $websites): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        try {
+            $site = $websites->add($this->newWebsite);
+        } catch (InvalidArgumentException $error) {
+            $this->messageTone = 'warning';
+            $this->message = $error->getMessage();
+
+            return;
+        }
+        $this->newWebsite = '';
+        $this->messageTone = 'success';
+        $this->message = $site->domain.' eklendi. WordPress Connector ile bağlayabilir, marka eklerken bu siteyi seçebilirsiniz.';
+    }
 
     public function mount(?int $assetId = null): void
     {

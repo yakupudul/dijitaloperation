@@ -34,10 +34,17 @@
                     {{ $tr ? 'Web sitelerini, bağlantı durumlarını ve son veri çekimlerini tek yerden yönetin.' : 'Manage websites, connection states, and latest collection runs in one place.' }}
                 </p>
             </div>
-            <a href="{{ route('operator.integrations.site-connector', ['connector' => 'wordpress']) }}" wire:navigate class="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600">
-                WordPress Connector
-            </a>
+            <div class="flex flex-wrap items-center gap-2">
+                <form wire:submit="addWebsite" class="flex items-center gap-2">
+                    <input wire:model="newWebsite" type="text" aria-label="Web sitesi ekle" placeholder="ornek.com.tr" class="w-48 rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950">
+                    <button type="submit" class="rounded-lg px-3 py-2.5 text-sm font-medium text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50">+ Web sitesi ekle</button>
+                </form>
+                <a href="{{ route('operator.integrations.site-connector', ['connector' => 'wordpress']) }}" wire:navigate class="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600">
+                    WordPress Connector
+                </a>
+            </div>
         </div>
+        <p class="-mt-3 text-xs text-gray-500">Siteyi markadan önce ekleyip WordPress'e bağlayabilirsiniz; marka eklerken listeden seçtiğinizde site, bağlantısı ve verisi markaya geçer.</p>
 
         @if ($message !== '')
             <div class="rounded-lg border px-4 py-3 text-sm {{ $toneClasses($messageTone) }}">{{ $message }}</div>
@@ -85,7 +92,9 @@
                                 <td class="px-5 py-4">
                                     <a href="{{ route('operator.integrations.website', ['assetId' => $row['asset']->id]) }}" wire:navigate class="font-semibold text-gray-900 hover:text-brand-600 dark:text-white dark:hover:text-brand-400">{{ $row['asset']->name }}</a>
                                     <p class="mt-1 max-w-72 truncate text-xs text-gray-500">{{ $row['asset']->domain ?: $row['asset']->primary_url ?: '—' }}</p>
-                                    @if ($row['asset']->brand?->customer?->name)
+                                    @if ($row['asset']->brand_id === null)
+                                        <p class="mt-1 text-xs text-amber-700">Markaya bağlı değil</p>
+                                    @elseif ($row['asset']->brand?->customer?->name)
                                         <p class="mt-1 text-xs text-gray-400">{{ $row['asset']->brand->customer->name }}</p>
                                     @endif
                                 </td>
