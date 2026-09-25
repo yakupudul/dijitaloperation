@@ -6,10 +6,12 @@ use App\Models\Brand;
 use App\Models\Customer;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Operator\OperatorUserDirectory;
+use App\Services\Portfolio\PortfolioDeletionService;
 use App\Support\Demo\DemoState;
 use App\Support\DigitalAssetTypes;
 use App\Support\Options\CountryOptions;
 use App\Support\Options\IndustryOptions;
+use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -51,6 +53,30 @@ class BrandsIndex extends Component
     public string $dir = 'asc';
 
     public bool $showOptionalColumns = false;
+
+    /** @var list<int> selected brand ids for bulk actions */
+    public array $selected = [];
+
+    public function toggleAll(array $visibleIds): void
+    {
+        $visibleIds = array_map('intval', $visibleIds);
+        $this->selected = array_values(array_intersect($this->selected, $visibleIds)) === $visibleIds && $visibleIds !== []
+            ? []
+            : $visibleIds;
+    }
+
+    /** Admin-only hard delete of the selected brands and everything under them (assets, collected data). */
+    public function deleteSelected(PortfolioDeletionService $deletion): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $ids = array_values(array_filter(array_map('intval', $this->selected)));
+        if ($ids === []) {
+            return;
+        }
+        $result = $deletion->deleteBrands($ids, auth()->user());
+        $this->selected = [];
+        DemoState::flash($result['deleted'].' marka ve bağlı tüm kayıtları silindi.'.($result['skipped'] > 0 ? ' '.$result['skipped'].' kayıt silinemedi.' : ''), $result['skipped'] > 0 ? 'warning' : 'success');
+    }
 
     public function clearFilters(): void
     {
@@ -165,6 +191,8 @@ class BrandsIndex extends Component
         return view('livewire.demo.portfolio.brands-index', [
             'brands' => $rows->all(),
             'allCount' => $all->count(),
+            'visibleIds' => $rows->map(fn (array $b): int => (int) $b['id'])->values()->all(),
+            'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'summaryLine' => sprintf(
                 '%d marka · %d dijital varlık (%d bağlı) · %d marka dikkat istiyor',
                 $all->count(),

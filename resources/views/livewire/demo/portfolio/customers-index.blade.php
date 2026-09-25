@@ -117,10 +117,18 @@
             </div>
         </x-ta.card>
     @else
+        @if ($isAdmin && count($selected) > 0)
+            <div class="mb-3 flex flex-wrap items-center gap-3 rounded-xl bg-rose-50 px-4 py-2.5 text-sm ring-1 ring-inset ring-rose-200 dark:bg-rose-500/10 dark:ring-rose-500/20">
+                <span class="font-medium text-rose-800 dark:text-rose-200">{{ count($selected) }} müşteri seçildi</span>
+                <button type="button" wire:click="deleteSelected" wire:confirm="Seçili {{ count($selected) }} müşteri ve bağlı TÜM markaları, dijital varlıkları ve toplanan verileri kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam edilsin mi?" class="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700">Seçilenleri sil</button>
+                <button type="button" wire:click="$set('selected', [])" class="text-xs text-rose-700 hover:underline dark:text-rose-300">Seçimi temizle</button>
+            </div>
+        @endif
         <div class="overflow-x-auto rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
             <table class="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
                 <thead class="bg-gray-50 dark:bg-white/[0.02]">
                     <tr>
+                        @if ($isAdmin)<th class="px-3 py-3"><input type="checkbox" aria-label="Tümünü seç" wire:click="toggleAll({{ json_encode($visibleIds) }})" @checked(count($selected) > 0 && count(array_intersect($selected, $visibleIds)) === count($visibleIds)) class="rounded border-gray-300"></th>@endif
                         <th class="px-4 py-3 text-left"><button type="button" wire:click="sortBy('name')" class="text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.customer') }}</button></th>
                         <th class="hidden px-4 py-3 text-left md:table-cell"><button type="button" wire:click="sortBy('industry')" class="text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.industry') }}</button></th>
                         <th class="hidden px-4 py-3 text-left lg:table-cell"> <span class="text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.hq') }}</span></th>
@@ -139,6 +147,7 @@
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                     @foreach ($customers as $customer)
                         <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]" wire:key="customer-{{ $customer['id'] }}">
+                            @if ($isAdmin)<td class="px-3 py-3"><input type="checkbox" aria-label="Seç" value="{{ (int) $customer['id'] }}" wire:model.live="selected" class="rounded border-gray-300"></td>@endif
                             <td class="px-4 py-3">
                                 <a href="{{ route('operator.customer', ['customerId' => $customer['id']]) }}" wire:navigate class="block">
                                     <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $customer['name'] }}@if (isset($health[$customer['id']])) <span title="{{ $health[$customer['id']]['reasons'] }}" @class(['ml-1 rounded-full px-1.5 py-0.5 text-[11px] font-semibold', 'bg-emerald-50 text-emerald-700' => $health[$customer['id']]['band'] === 'good', 'bg-amber-50 text-amber-800' => $health[$customer['id']]['band'] === 'watch', 'bg-rose-50 text-rose-700' => $health[$customer['id']]['band'] === 'risk'])>{{ $health[$customer['id']]['score'] }}</span>@endif</p>

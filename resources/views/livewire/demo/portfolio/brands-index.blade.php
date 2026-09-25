@@ -96,10 +96,18 @@
             <button type="button" wire:click="clearFilters" class="mt-5 inline-flex rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">{{ __('operator.forms.clear_filters') }}</button>
         </div>
     @else
+        @if ($isAdmin && count($selected) > 0)
+            <div class="mb-3 flex flex-wrap items-center gap-3 rounded-xl bg-rose-50 px-4 py-2.5 text-sm ring-1 ring-inset ring-rose-200 dark:bg-rose-500/10 dark:ring-rose-500/20">
+                <span class="font-medium text-rose-800 dark:text-rose-200">{{ count($selected) }} marka seçildi</span>
+                <button type="button" wire:click="deleteSelected" wire:confirm="Seçili {{ count($selected) }} marka ve bağlı TÜM dijital varlıkları ve toplanan verileri kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam edilsin mi?" class="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700">Seçilenleri sil</button>
+                <button type="button" wire:click="$set('selected', [])" class="text-xs text-rose-700 hover:underline dark:text-rose-300">Seçimi temizle</button>
+            </div>
+        @endif
         <div class="overflow-x-auto rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
             <table class="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
                 <thead class="bg-gray-50 dark:bg-white/[0.02]">
                     <tr>
+                        @if ($isAdmin)<th class="px-3 py-3"><input type="checkbox" aria-label="Tümünü seç" wire:click="toggleAll({{ json_encode($visibleIds) }})" @checked(count($selected) > 0 && count(array_intersect($selected, $visibleIds)) === count($visibleIds)) class="rounded border-gray-300"></th>@endif
                         <th class="px-4 py-3 text-left"><button type="button" wire:click="sortBy('name')" class="text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.brand') }}</button></th>
                         <th class="hidden px-4 py-3 text-left md:table-cell"><button type="button" wire:click="sortBy('sector')" class="text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.sector') }}</button></th>
                         <th class="hidden px-4 py-3 text-left lg:table-cell"><span class="text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.primary_market') }}</span></th>
@@ -129,6 +137,7 @@
                             onclick="if (event.target.closest('a,button')) return; window.Livewire.navigate(this.dataset.href)"
                             onkeydown="if ((event.key === 'Enter' || event.key === ' ') && !event.target.closest('a,button')) { event.preventDefault(); window.Livewire.navigate(this.dataset.href); }"
                         >
+                            @if ($isAdmin)<td class="px-3 py-3" onclick="event.stopPropagation()"><input type="checkbox" aria-label="Seç" value="{{ (int) $brand['id'] }}" wire:model.live="selected" class="rounded border-gray-300"></td>@endif
                             <td class="px-4 py-3">
                                 <div class="flex items-center gap-3">
                                     <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-500/10 text-xs font-semibold text-brand-600 dark:text-brand-400" aria-hidden="true">{{ $brand['initials'] }}</span>

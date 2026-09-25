@@ -1,5 +1,10 @@
 # PROJECT_MEMORY
 
+## 2026-10-13 — Portfolio hard delete
+
+- Deleting a customer/brand is Admin-only and goes through `PortfolioDeletionService`. It is schema-driven: a recursive foreign-key-graph walk (Schema::getForeignKeys / getTables) deletes the whole subtree, then FK-less "data lake" tables are cleared by customer_id/brand_id/digital_asset_id. Do NOT replace it with a hand-maintained table list. Keyless pivots (no `id`) are deleted by their FK column; cycles are broken by nulling nullable back-references.
+- It is destructive and irreversible; each entity is deleted in its own transaction (skipped, not half-deleted, on failure).
+
 ## 2026-10-12 — Sales pipeline + WhatsApp retention fixes
 
 - `whatsapp_messages.body` is ENCRYPTED (model cast). Never write a plaintext constant to it with raw `DB::update` — it breaks decryption. Redaction writes `Crypt::encryptString(REDACTED)` and marks `redacted_at`; that column, not a body comparison, drives idempotency.

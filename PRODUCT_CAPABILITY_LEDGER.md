@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-13 — Müşteri / Marka toplu seç + kalıcı sil (Admin)
+
+**State:** CODED + PHPUnit (SQLite ve PostgreSQL). Test: `PortfolioBulkDeleteTest` 4/4.
+- Müşteriler ve Markalar listelerinde (Admin) satır seçme kutucukları, tümünü seç ve bir onay diyaloğuyla "Seçilenleri sil".
+- `PortfolioDeletionService`: seçilen müşteriyi/markayı ve altındaki HER ŞEYİ (markalar, dijital varlıklar, toplanan tüm veri) kalıcı siler. Geri alınamaz; her varlık tek transaction içinde, silinemeyen varlık "atlandı" olarak raporlanır (yarı silme yok).
+- Silme şemadan sürülür, elle tablo listesi yok: canlı foreign-key grafiği özyinelemeli gezilir (torunlar dahil her on-delete kuralı), döngü oluşturan nullable geri-referanslar null'lanır; anahtar sütunu (customer_id/brand_id/digital_asset_id) taşıyıp FK'si olmayan analitik "veri gölü" tabloları o sütundan temizlenir. `id`'siz pivot tablolar FK sütunundan doğrudan silinir. Hem PostgreSQL hem SQLite.
+- Yalnız Admin; her toplu silme güvenlik denetim günlüğüne (SecuritySettingChanged) silinen ad/id listesiyle yazılır.
+
 ## 2026-10-13 — Meta video kreatif kalitesi (hook / thruplay / completion)
 
 **State:** CODED + PHPUnit. Test: `MetaVideoQualityTest` 1/1.

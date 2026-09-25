@@ -8,10 +8,12 @@ use App\Models\Customer;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Operator\OperatorUserDirectory;
+use App\Services\Portfolio\PortfolioDeletionService;
 use App\Support\Demo\DemoState;
 use App\Support\Options\AgencyServiceOptions;
 use App\Support\Options\CountryOptions;
 use App\Support\Options\IndustryOptions;
+use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -55,6 +57,30 @@ class CustomersIndex extends Component
     public string $dir = 'asc';
 
     public bool $showOptionalColumns = false;
+
+    /** @var list<int> selected customer ids for bulk actions */
+    public array $selected = [];
+
+    public function toggleAll(array $visibleIds): void
+    {
+        $visibleIds = array_map('intval', $visibleIds);
+        $this->selected = array_values(array_intersect($this->selected, $visibleIds)) === $visibleIds && $visibleIds !== []
+            ? []
+            : $visibleIds;
+    }
+
+    /** Admin-only hard delete of the selected customers and everything under them (brands, assets, collected data). */
+    public function deleteSelected(PortfolioDeletionService $deletion): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $ids = array_values(array_filter(array_map('intval', $this->selected)));
+        if ($ids === []) {
+            return;
+        }
+        $result = $deletion->deleteCustomers($ids, auth()->user());
+        $this->selected = [];
+        DemoState::flash($result['deleted'].' müşteri ve bağlı tüm kayıtları silindi.'.($result['skipped'] > 0 ? ' '.$result['skipped'].' kayıt silinemedi.' : ''), $result['skipped'] > 0 ? 'warning' : 'success');
+    }
 
     public function clearFilters(): void
     {
@@ -184,6 +210,8 @@ class CustomersIndex extends Component
         return view('livewire.demo.portfolio.customers-index', [
             'customers' => $customers,
             'allCount' => $allCount,
+            'visibleIds' => array_values(array_map(fn (array $c): int => (int) $c['id'], $customers)),
+            'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'hasFilters' => $this->hasActiveFilters(),
             'typeOptions' => $typeOptions,
             'statusOptions' => $statusOptions,
