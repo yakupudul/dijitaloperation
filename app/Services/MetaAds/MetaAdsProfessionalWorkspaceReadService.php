@@ -741,8 +741,41 @@ final class MetaAdsProfessionalWorkspaceReadService
                 'cpc' => $clicks > 0 ? round($spend / $clicks, 2) : null,
                 'cpm' => $impressions > 0 ? round(($spend / $impressions) * 1000, 2) : null,
                 'video' => $videoTotals,
+                'video_quality' => $this->videoQuality($videoTotals, $impressions),
             ];
         })->sortByDesc('spend')->values()->all();
+    }
+
+    /**
+     * Video creative quality from the collected play/thruplay/percentile totals:
+     *  - hook_rate    : 3-second views ÷ impressions (did the first frames stop the scroll)
+     *  - thruplay_rate: thruplays ÷ 3-second views (of those who started, how many kept watching)
+     *  - completion   : 100% views ÷ 3-second views
+     * A weak-hook flag fires only with enough 3-second views to judge.
+     *
+     * @param  array<string,float>  $video
+     * @return array<string,mixed>|null null when this creative has no video data
+     */
+    private function videoQuality(array $video, int $impressions): ?array
+    {
+        $plays = (float) ($video['video_play_actions'] ?? 0);
+        $thruplays = (float) ($video['video_thruplay_watched_actions'] ?? 0);
+        $completes = (float) ($video['video_p100_watched_actions'] ?? 0);
+        if ($plays <= 0 && $thruplays <= 0) {
+            return null;
+        }
+        $hookRate = $impressions > 0 ? round($plays / $impressions * 100, 1) : null;
+        $thruplayRate = $plays > 0 ? round($thruplays / $plays * 100, 1) : null;
+        $completionRate = $plays > 0 ? round($completes / $plays * 100, 1) : null;
+
+        return [
+            'hook_rate' => $hookRate,
+            'thruplay_rate' => $thruplayRate,
+            'completion_rate' => $completionRate,
+            'plays' => (int) round($plays),
+            // Under ~15% of viewers watching 3s+ is a weak hook worth reworking; needs enough plays to be reliable.
+            'weak_hook' => $hookRate !== null && $plays >= 200 && $hookRate < 15.0,
+        ];
     }
 
     /** @return array<string,array<string,float>> */

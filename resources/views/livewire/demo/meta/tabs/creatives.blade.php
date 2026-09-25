@@ -128,7 +128,21 @@
                         @endif
 
                         @if (! empty($creative['video']))
-                            <div class="mt-4 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3 text-[10px] dark:border-gray-800">
+                            @php $vq = $creative['video_quality'] ?? null; @endphp
+                            @if ($vq)
+                                <div class="mt-4 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3 text-[10px] dark:border-gray-800">
+                                    <div class="rounded-lg px-2 py-2 text-center {{ ($vq['weak_hook'] ?? false) ? 'bg-rose-50 dark:bg-rose-500/10' : 'bg-gray-50 dark:bg-white/[0.03]' }}">
+                                        <p class="text-gray-400" title="{{ $isTr ? '3 saniye izleyenler ÷ gösterim: ilk saniyeler dikkat çekiyor mu?' : '3-sec views ÷ impressions' }}">{{ $isTr ? 'Hook (3sn)' : 'Hook (3s)' }}</p>
+                                        <p class="mt-1 font-bold {{ ($vq['weak_hook'] ?? false) ? 'text-rose-700 dark:text-rose-300' : 'text-gray-700 dark:text-gray-300' }}">{{ $vq['hook_rate'] !== null ? $vq['hook_rate'].'%' : '—' }}</p>
+                                    </div>
+                                    <div class="rounded-lg bg-gray-50 px-2 py-2 text-center dark:bg-white/[0.03]"><p class="text-gray-400" title="{{ $isTr ? 'ThruPlay ÷ 3sn izleyen: başlayanların ne kadarı izlemeyi sürdürdü?' : 'ThruPlay ÷ 3-sec views' }}">ThruPlay</p><p class="mt-1 font-bold text-gray-700 dark:text-gray-300">{{ $vq['thruplay_rate'] !== null ? $vq['thruplay_rate'].'%' : '—' }}</p></div>
+                                    <div class="rounded-lg bg-gray-50 px-2 py-2 text-center dark:bg-white/[0.03]"><p class="text-gray-400" title="{{ $isTr ? '%100 izleyen ÷ 3sn izleyen' : '100% ÷ 3-sec views' }}">{{ $isTr ? 'Tamamlama' : 'Completion' }}</p><p class="mt-1 font-bold text-gray-700 dark:text-gray-300">{{ $vq['completion_rate'] !== null ? $vq['completion_rate'].'%' : '—' }}</p></div>
+                                </div>
+                                @if ($vq['weak_hook'] ?? false)
+                                    <p class="mt-2 text-[11px] text-rose-600 dark:text-rose-300">{{ $isTr ? '⚠ Zayıf hook: ilk 3 saniye izleyicileri tutamıyor. Açılışı (ilk kare, metin, hareket) yenilemeyi deneyin.' : '⚠ Weak hook: the first 3 seconds are not holding viewers. Try a new opening.' }}</p>
+                                @endif
+                            @endif
+                            <div class="mt-3 grid grid-cols-3 gap-2 text-[10px]">
                                 @foreach (['video_p25_watched_actions' => '25%','video_p50_watched_actions' => '50%','video_p100_watched_actions' => '100%'] as $metricKey => $metricLabel)
                                     <div class="rounded-lg bg-gray-50 px-2 py-2 text-center dark:bg-white/[0.03]"><p class="text-gray-400">{{ $isTr ? 'Video '.$metricLabel : $metricLabel.' watched' }}</p><p class="mt-1 font-bold text-gray-700 dark:text-gray-300">{{ isset($creative['video'][$metricKey]) ? number_format($creative['video'][$metricKey]) : '—' }}</p></div>
                                 @endforeach

@@ -1,5 +1,11 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-13 — Meta video kreatif kalitesi (hook / thruplay / completion)
+
+**State:** CODED + PHPUnit. Test: `MetaVideoQualityTest` 1/1.
+- Kreatif sekmesinde her video kreatifi için, hâlihazırda toplanan `meta_video_engagement_daily` verisinden: **hook oranı** (3 sn izleme ÷ gösterim), **thruplay oranı** (thruplay ÷ 3 sn izleme), **tamamlama** (%100 ÷ 3 sn izleme).
+- 200+ 3-sn izlemesi olup hook < %15 olan kreatife **"zayıf hook"** uyarısı (açılışı yenile). Yeni API çağrısı yok; salt okunur.
+
 ## 2026-10-12 — Satış hattı sağlamlaştırma: Lead kutusu, Prospects, Niyet radarı, WhatsApp
 
 **State:** CODED + PHPUnit (SQLite). Reviewed by four focused read-only passes; the fixes below are the confirmed bugs.
