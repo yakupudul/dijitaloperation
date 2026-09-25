@@ -64,6 +64,7 @@ final class DemoMenu
                 'items' => [
                     ['label' => $tr ? 'Hizmet haritası' : 'Service Map', 'route' => 'operator.brain.services', 'icon' => 'library'],
                     ['label' => $tr ? 'Beyin önerileri' : 'Brain Recommendations', 'route' => 'operator.brain.recommendations', 'icon' => 'tasks'],
+                    ['label' => $tr ? 'Yöntemler' : 'Methods', 'route' => 'operator.brain.methods', 'icon' => 'notes'],
                     ['label' => $tr ? 'Onay kuyruğu' : 'Review Queue', 'route' => 'operator.brain.proposals', 'icon' => 'ai'],
                 ],
             ],

@@ -1,5 +1,32 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-14 — Hizmet Beyni Faz 5: yöntem motoru (hipotez → kanıtlanmış), fark-içinde-fark ölçüm, boşluk önerileri
+
+**State:** CODED + PHPUnit. Test: `Brain/BrainMethodsTest` 2/2. Real portfolio: methods appear only once the thresholds are met.
+- **`MethodEngine`:** inside a cohort (service × page type), compares the top pages (score ≥ 66th percentile) with the bottom pages (≤ 33rd).
+  - A feature becomes a **hypothesis** when all of these hold:
+    - at least `min_pages` pages (30) and `min_brands` brands (8) are in the cohort;
+    - at least 60% of the top pages have the feature;
+    - top minus bottom is at least 0.3;
+    - at least 3 different successful brands have it.
+  - The bar for a numeric feature is the median of the top pages.
+  - Only counts are stored, never another brand's name (ADR-066).
+- **`OutcomeMeasurer`:** a recommendation marked "Yapıldı" is measured at 28 and 56 days against **controls**: the same topic on other brands' sites that did not get the recommendation (difference in differences).
+  - Website metric: the cluster's Search Console clicks.
+  - Google Ads metric: the ad group's conversions, against the account's other ad groups.
+- **`MethodValidator`:**
+  - With at least `min_treated` (5) measured cases: mean effect > 0 and a positive share ≥ 60% → **validated**; mean effect ≤ 0 → **retired**.
+  - Retired methods are not recommended again.
+- **`GapRecommender` (website):** raises
+  - pages that do not exist (main / landing / support);
+  - merging pages that split a topic;
+  - method gaps (basis: observed or proven);
+  - sub-questions the AI checklist found unanswered.
+- **`MetaAngleRecommender`:** a message angle becomes a hypothesis when at least 3 brands ran it and its median cost per result is at least 20% lower than the service median. Brands running the service without that angle get "bu açıyı test edin".
+- Thresholds are in `config/moxdop-brain.php` and can be edited under Ayarlar → Yöntem Kütüphanesi ("Hizmet Beyni").
+- **Yöntemler** screen (`/brain/methods`): status, evidence and measured effect. The operator can close or reopen a method; closing also closes its open recommendations.
+- Weekly order: success → outcome measurement → method validation → method discovery → recommendations.
+
 ## 2026-10-14 — Hizmet Beyni Faz 4: sayfa özellikleri, normalize başarı puanı, kohortlar
 
 **State:** CODED + PHPUnit. Test: `Brain/BrainSuccessTest` 2/2. Not tested with real stored HTML/GA4 or the AI checklist (fixtures only).

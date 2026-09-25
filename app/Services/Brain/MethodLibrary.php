@@ -22,6 +22,7 @@ final class MethodLibrary
         'moxdop-seo-tasks' => ['SEO Görevleri', ['enabled', 'queue', 'queue_connection', 'schedule', 'llm', 'disabled_rules', 'understanding']],
         'moxdop-alerts' => ['Uyarılar', ['enabled']],
         'moxdop-demand' => ['Talep hattı', ['schedule', 'serp.language_code', 'serp.weekly_time', 'compare.weekly_time']],
+        'moxdop-brain' => ['Hizmet Beyni (yöntem motoru, ölçüm)', []],
     ];
 
     public const string CACHE_KEY = 'moxdop.method_settings.v1';

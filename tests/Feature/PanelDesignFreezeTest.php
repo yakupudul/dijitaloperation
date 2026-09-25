@@ -75,6 +75,7 @@ class PanelDesignFreezeTest extends TestCase
             'operator.market.ai-visibility',
             'operator.brain.services',
             'operator.brain.recommendations',
+            'operator.brain.methods',
             'operator.brain.proposals',
             'operator.leads',
             'operator.prospects',

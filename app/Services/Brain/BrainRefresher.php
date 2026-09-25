@@ -6,6 +6,11 @@ use App\Models\DigitalAsset;
 use App\Services\Brain\Chain\AdsChainBuilder;
 use App\Services\Brain\Chain\MetaChainBuilder;
 use App\Services\Brain\Clustering\CannibalizationDetector;
+use App\Services\Brain\Methods\GapRecommender;
+use App\Services\Brain\Methods\MetaAngleRecommender;
+use App\Services\Brain\Methods\MethodEngine;
+use App\Services\Brain\Methods\MethodValidator;
+use App\Services\Brain\Methods\OutcomeMeasurer;
 use App\Services\Brain\Success\SuccessScorer;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -21,6 +26,11 @@ final class BrainRefresher
         private readonly AdsChainBuilder $adsChain,
         private readonly MetaChainBuilder $metaChain,
         private readonly SuccessScorer $success,
+        private readonly OutcomeMeasurer $outcomes,
+        private readonly MethodValidator $validator,
+        private readonly MethodEngine $methods,
+        private readonly GapRecommender $gaps,
+        private readonly MetaAngleRecommender $metaAngles,
     ) {}
 
     /** @return array<string, int|string> step => count or error */
@@ -54,6 +64,14 @@ final class BrainRefresher
         });
         // Success needs the chain (targets) first; page facts are measured alongside.
         $report['success'] = $brandId === null ? $this->step(fn (): int => $this->success->run()) : 'skipped (brand filter)';
+        if ($brandId === null) {
+            // Measure applied recommendations → judge methods → find methods → recommend the gaps.
+            $report['outcomes'] = $this->step(fn (): int => $this->outcomes->measureDue());
+            $report['methods_judged'] = $this->step(fn (): int => $this->validator->run());
+            $report['methods_found'] = $this->step(fn (): int => $this->methods->discover());
+            $report['website_recommendations'] = $this->step(fn (): int => $this->gaps->run());
+            $report['meta_recommendations'] = $this->step(fn (): int => $this->metaAngles->run());
+        }
 
         return $report;
     }
