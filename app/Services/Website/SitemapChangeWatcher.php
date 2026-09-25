@@ -6,6 +6,7 @@ use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
+use App\Services\SeoTasks\SeoText;
 use Closure;
 use Illuminate\Support\Facades\DB;
 use MoxDop\Website\Discovery\DiscoveryConfig;
@@ -81,13 +82,15 @@ final class SitemapChangeWatcher
             $xml = (string) $response['body'];
             if (preg_match('/<sitemapindex\b/i', $xml) === 1) {
                 foreach ($this->entries($xml, 'sitemap') as [$loc, $mod]) {
-                    $queue[] = [$loc, $mod];
+                    if (! SeoText::isJunkSitemap($loc)) {
+                        $queue[] = [$loc, $mod];
+                    }
                 }
 
                 continue;
             }
             foreach ($this->entries($xml, 'url') as [$loc, $mod]) {
-                if (strtolower((string) parse_url($loc, PHP_URL_HOST)) === $host && count($pages) < self::MAX_PAGES) {
+                if (strtolower((string) parse_url($loc, PHP_URL_HOST)) === $host && count($pages) < self::MAX_PAGES && SeoText::isCrawlablePage($loc)) {
                     $pages[$loc] = ['m' => $mod, 's' => $url];
                 }
             }

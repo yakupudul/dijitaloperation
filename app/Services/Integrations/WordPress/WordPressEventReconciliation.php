@@ -4,8 +4,10 @@ namespace App\Services\Integrations\WordPress;
 
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreConnection;
+use App\Services\Collection\Providers\Website\WebsiteDatasetExecutor;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
+use App\Services\SeoTasks\SeoText;
 use App\Services\SiteFixes\SiteFixVerification;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -159,7 +161,7 @@ final class WordPressEventReconciliation
             $urls = [];
             if ($ids !== []) {
                 $urls = DB::table('website_cms_object_snapshot')->where('digital_asset_id', $connection->digital_asset_id)
-                    ->whereIn('object_id', array_map('strval', $ids))->pluck('permalink')->all();
+                    ->whereIn('object_id', array_map('strval', $ids))->whereNotIn('object_type', WebsiteDatasetExecutor::NON_PAGE_CMS_TYPES)->pluck('permalink')->all();
             }
             foreach ($events as $event) {
                 $url = data_get(json_decode($event->payload, true), 'url');
@@ -171,7 +173,8 @@ final class WordPressEventReconciliation
             $urls = array_values(array_unique(array_filter($urls, fn ($url) => is_string($url)
                 && in_array(parse_url($url, PHP_URL_SCHEME), ['http', 'https'], true)
                 && strtolower((string) parse_url($url, PHP_URL_HOST)) === $host
-                && parse_url($url, PHP_URL_USER) === null && parse_url($url, PHP_URL_PASS) === null)));
+                && parse_url($url, PHP_URL_USER) === null && parse_url($url, PHP_URL_PASS) === null
+                && SeoText::isCrawlablePage($url))));
             if ($urls !== []) {
                 $families[] = WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL;
                 $context['targeted_verification'] = ['version' => 1, 'urls' => array_slice($urls, 0, 100),

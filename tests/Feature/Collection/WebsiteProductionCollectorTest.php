@@ -581,6 +581,53 @@ class WebsiteProductionCollectorTest extends TestCase
     }
 
     #[Test]
+    public function public_crawl_skips_media_and_by_product_urls_and_pages_unchanged_since_the_last_fetch(): void
+    {
+        $this->travelTo('2026-08-20 10:00:00');
+        Http::fake(function ($request) {
+            $url = $request->url();
+            if (str_contains($url, 'robots.txt')) {
+                return Http::response("User-agent: *\n", 200, ['Content-Type' => 'text/plain']);
+            }
+            if (str_contains($url, 'sitemap')) {
+                return Http::response('<?xml version="1.0"?><urlset>'
+                    .'<url><loc>http://1.1.1.1/about</loc><lastmod>2026-08-01</lastmod></url>'
+                    .'<url><loc>http://1.1.1.1/implant</loc><lastmod>2026-08-19T12:00:00+00:00</lastmod><image:image><image:loc>http://1.1.1.1/wp-content/uploads/a.jpg</image:loc></image:image></url>'
+                    .'<url><loc>http://1.1.1.1/tag/dis/</loc></url><url><loc>http://1.1.1.1/feed/</loc></url>'
+                    .'<url><loc>http://1.1.1.1/elementor-123/</loc></url><url><loc>http://1.1.1.1/brosur.pdf</loc></url>'
+                    .'</urlset>', 200, ['Content-Type' => 'application/xml']);
+            }
+
+            return Http::response('<html><head><link rel="alternate" href="/feed/"><link rel="stylesheet" href="/wp-content/x.css"></head>'
+                .'<body><a href="/contact">İletişim</a><a href="/author/admin/">Yazar</a><a href="/wp-content/uploads/b.png">img</a></body></html>', 200, ['Content-Type' => 'text/html']);
+        });
+        foreach (['http://1.1.1.1/about', 'http://1.1.1.1/implant'] as $url) {
+            DB::table('website_html_snapshot')->insert([
+                'digital_asset_id' => $this->asset->id, 'url' => $url, 'html_hash' => str_repeat('a', 64), 'change_state' => 'new', 'html_bytes' => 10,
+                'observed_at' => '2026-08-18 10:00:00', 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+                'record_fingerprint' => hash('sha256', $url), 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $first = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, []));
+
+        $queue = array_values($first->checkpoint['queue'] ?? []);
+        $this->assertContains('http://1.1.1.1/implant', $queue, 'changed after the last fetch');
+        $this->assertContains('http://1.1.1.1/contact', $queue);
+        $this->assertNotContains('http://1.1.1.1/about', $queue, 'lastmod is older than the stored copy');
+        $this->assertContains('http://1.1.1.1/about', $first->checkpoint['visited'] ?? []);
+        $this->assertSame(1, $first->checkpoint['skipped_unchanged'] ?? null);
+        foreach ($queue as $url) {
+            $this->assertDoesNotMatchRegularExpression('#/(tag|feed|author|elementor-123|wp-content)/|\.pdf$#', $url);
+        }
+
+        $context->collectionRun->forceFill(['request_context' => ['force_refresh' => true]])->save();
+        $forced = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, []));
+        $this->assertContains('http://1.1.1.1/about', $forced->checkpoint['queue'] ?? [], 'a forced refresh fetches everything');
+    }
+
+    #[Test]
     public function public_crawl_resolves_relative_links_against_the_redirect_final_url(): void
     {
         Http::fake(function ($request) {

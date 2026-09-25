@@ -5,14 +5,14 @@ namespace App\Services\Collection\Providers\Website;
 use App\Enums\Collection\DatasetExecutionOutcome;
 use App\Enums\Collection\ProgressMode;
 use App\Models\CoreConnection;
-use App\Models\DataPool\DatasetWriteBatch;
 use App\Models\DataPool\DatasetMaterialization;
-use App\Services\Collection\Contracts\RawPayloadWriter;
+use App\Models\DataPool\DatasetWriteBatch;
 use App\Services\Collection\Contracts\DatasetExecutor;
+use App\Services\Collection\Contracts\RawPayloadWriter;
 use App\Services\Collection\Support\DatasetExecutionContext;
 use App\Services\Collection\Support\DatasetExecutionResult;
-use App\Services\DataPool\DatasetWritePipeline;
 use App\Services\DataPool\DataPoolStorageRegistry;
+use App\Services\DataPool\DatasetWritePipeline;
 use App\Services\DataPool\MaterializationService;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RawPayloadEnvelope;
@@ -174,6 +174,13 @@ final class WordPressConnectorDatasetExecutor implements DatasetExecutor
             'access_mode' => 'authenticated_read_only',
             'connector_version' => $record['connector_version'] ?? null,
         ];
+        // Builder templates are not pages; only images matter among media (alt text), never the files.
+        if ($section === 'content' && in_array((string) ($record['object_type'] ?? ''), WebsiteDatasetExecutor::NON_PAGE_CMS_TYPES, true)) {
+            return null;
+        }
+        if ($section === 'media' && ! str_starts_with(strtolower((string) ($record['mime_type'] ?? '')), 'image/')) {
+            return null;
+        }
 
         return match ($section) {
             'site' => ($record['site_key'] ?? '') === '' ? null : [
@@ -361,8 +368,7 @@ final class WordPressConnectorDatasetExecutor implements DatasetExecutor
         string $datasetId,
         int $assetId,
         string $observedAt,
-    ): void
-    {
+    ): void {
         DB::transaction(function () use ($context, $datasetId, $assetId, $observedAt): void {
             $table = (string) $this->storage->physicalDataset($datasetId)['table'];
             $objectIds = (array) data_get($context->collectionRun->request_context, 'context.wordpress_object_ids', []);

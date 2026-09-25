@@ -198,6 +198,34 @@ final class SeoText
     }
 
     /**
+     * True for URLs worth crawling for SEO: a document page that is not a WordPress/builder
+     * by-product (tag/author archives, pagination, embeds, page-builder templates, carts…).
+     * Media and feeds are already excluded by isDocumentUrl().
+     */
+    public static function isCrawlablePage(string $url): bool
+    {
+        if (! self::isDocumentUrl($url)) {
+            return false;
+        }
+        $path = mb_strtolower(self::urlPath($url));
+        $query = mb_strtolower((string) parse_url($url, PHP_URL_QUERY));
+
+        return preg_match('#(^|/)(tag|etiket|author|yazar|embed|trackback|amp|comment-page-\d+|page/\d+|sayfa/\d+)(/|$)#', $path) !== 1
+            && preg_match('#(^|/)(elementor[-_a-z0-9]*|elementor_library|e-landing-page|wp-login\.php|cart|sepet|checkout|odeme|my-account|hesabim)(/|$)#', $path) !== 1
+            && preg_match('#(^|&)(attachment_id|elementor[-_a-z0-9]*|add-to-cart|orderby|filter_[a-z_]+|min_price|max_price|share|utm_[a-z]+|fbclid|gclid|ver)=#', $query) !== 1;
+    }
+
+    /**
+     * True for a sitemap file that only lists by-products (media, tags, authors, builder templates).
+     */
+    public static function isJunkSitemap(string $url): bool
+    {
+        $path = mb_strtolower(self::urlPath($url));
+
+        return preg_match('#(attachment|image|video|post_tag|tag|author|elementor|e-landing|product_tag|format)[-_a-z0-9]*sitemap|sitemap[-_](attachment|image|video|tag|author|elementor)#', $path) === 1;
+    }
+
+    /**
      * An article/blog title ("Shopify mağaza nasıl kurulur?", "X nedir"), as opposed to a service or
      * product name. Narrower than looksLikeQuestion: price words do not make a title an article.
      */

@@ -15,6 +15,7 @@ use App\Services\DataPool\DatasetWritePipeline;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RawPayloadEnvelope;
 use App\Services\DataPool\Support\WriteReceipt;
+use App\Services\SeoTasks\SeoText;
 use App\Support\SslCertificateProbe;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +33,15 @@ use Throwable;
  */
 final class WebsiteDatasetExecutor implements DatasetExecutor
 {
+    /** WordPress object types that are not pages a visitor lands on. */
+    public const NON_PAGE_CMS_TYPES = ['attachment', 'elementor_library', 'e-landing-page', 'wp_block', 'wp_template', 'wp_template_part', 'wp_navigation', 'nav_menu_item', 'revision', 'custom_css', 'oembed_cache', 'wp_global_styles', 'elementor_snippet', 'elementor_font', 'elementor_icons', 'jet-theme-core', 'jet-engine', 'ct_template', 'fl-builder-template', 'et_pb_layout'];
+
+    /** Re-fetch pages without a modified date after this many days. */
+    private const UNKNOWN_RECHECK_DAYS = 7;
+
+    /** Re-fetch every page at least this often, whatever its modified date says. */
+    private const MAX_RECHECK_DAYS = 30;
+
     public function __construct(
         private readonly WebsiteEligibilityGuard $eligibility,
         private readonly WebsiteNormalizer $normalizer,
@@ -219,12 +229,22 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
                 'TARGETED_VERIFICATION_SCOPE_INVALID',
             );
         }
-        $queue = is_array($checkpoint['queue'] ?? null)
-            ? array_values(array_map('strval', $checkpoint['queue']))
-            : ($targeted ? $targetedUrls : $this->crawlSeedQueue((int) $scope['asset']->id, $seed));
-        $visited = is_array($checkpoint['visited'] ?? null) ? array_values(array_map('strval', $checkpoint['visited'])) : [];
+        $skippedUnchanged = (int) ($checkpoint['skipped_unchanged'] ?? 0);
+        if (is_array($checkpoint['queue'] ?? null)) {
+            $queue = array_values(array_map('strval', $checkpoint['queue']));
+            $visited = is_array($checkpoint['visited'] ?? null) ? array_values(array_map('strval', $checkpoint['visited'])) : [];
+        } elseif ($targeted) {
+            $queue = $targetedUrls;
+            $visited = [];
+        } else {
+            $seedQueue = $this->crawlSeedQueue((int) $scope['asset']->id, $seed, (bool) data_get($context->collectionRun->request_context, 'force_refresh', false));
+            $queue = $seedQueue['queue'];
+            // Pages whose modified date says they did not change since the last fetch keep their stored copy.
+            $visited = $seedQueue['unchanged'];
+            $skippedUnchanged = count($seedQueue['unchanged']);
+        }
         $pages = (int) ($checkpoint['pages'] ?? 0);
-        $urlsPlanned = max((int) ($checkpoint['urls_planned'] ?? 0), count($queue) + count($visited));
+        $urlsPlanned = max((int) ($checkpoint['urls_planned'] ?? 0), count($queue) + count($visited) - $skippedUnchanged);
         $rowsWritten = (int) ($checkpoint['rows_written_total'] ?? 0);
         $bytesDownloaded = (int) ($checkpoint['bytes_downloaded_total'] ?? 0);
         $assetId = (int) $scope['asset']->id;
@@ -232,7 +252,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
 
         if ($queue === [] || $pages >= $maxPages || $bytesDownloaded >= DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES) {
             return $this->completedCounted($pages, $maxPages, $this->crawlCheckpoint(
-                $observedAt, [], $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned,
+                $observedAt, [], $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged,
             ));
         }
 
@@ -243,7 +263,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
                 progressMode: ProgressMode::PageBased,
                 progressCurrent: $pages,
                 progressTotal: $maxPages,
-                checkpoint: $this->crawlCheckpoint($observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned),
+                checkpoint: $this->crawlCheckpoint($observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged),
             );
         }
 
@@ -253,7 +273,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
 
         if ($bytesDownloaded > DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES) {
             return $this->completedCounted($pages, $maxPages, $this->crawlCheckpoint(
-                $observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned,
+                $observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged,
             ));
         }
 
@@ -273,7 +293,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             $urlsPlanned = max($urlsPlanned, count($visited) + count($queue));
         }
 
-        $checkpointOut = $this->crawlCheckpoint($observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned);
+        $checkpointOut = $this->crawlCheckpoint($observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged);
 
         if ($queue === [] || $pages >= $maxPages || $bytesDownloaded >= DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES) {
             return $this->completedCounted($pages, $maxPages, $checkpointOut, $written, $written, 1);
@@ -659,24 +679,37 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         return 'website:'.$datasetId.':'.$batchSuffix.':url='.hash('sha256', $pageIdentity);
     }
 
-    /** @return list<string> */
-    private function crawlSeedQueue(int $assetId, string $seed): array
+    /**
+     * The crawl queue. Only SEO pages are queued (no media, feeds, tag/author archives or
+     * page-builder templates). A page that was fetched before and whose modified date
+     * (WordPress modified_at or sitemap lastmod) is not newer than that fetch is not fetched
+     * again; its stored copy stays current. Pages without a modified date are re-fetched
+     * after UNKNOWN_RECHECK_DAYS, and every page at least every MAX_RECHECK_DAYS.
+     *
+     * @return array{queue: list<string>, unchanged: list<string>}
+     */
+    private function crawlSeedQueue(int $assetId, string $seed, bool $forceRefresh = false): array
     {
-        $candidates = [$this->urls->normalizeAbsolute($seed) ?? $seed];
+        $home = $this->urls->normalizeAbsolute($seed) ?? $seed;
+        $candidates = [$home];
+        /** @var array<string, string> $modified */
+        $modified = [];
 
         if (Schema::hasTable('website_cms_object_snapshot')) {
-            $candidates = array_merge($candidates, DB::table('website_cms_object_snapshot')
+            foreach (DB::table('website_cms_object_snapshot')
                 ->where('digital_asset_id', $assetId)
                 ->where('status', 'publish')
-                ->where('object_type', '!=', 'attachment')
+                ->whereNotIn('object_type', self::NON_PAGE_CMS_TYPES)
                 ->whereNotNull('permalink')
-                ->select('permalink')
-                ->distinct()
                 ->orderBy('permalink')
                 ->limit(DiscoveryConfig::MAX_COLLECTION_PAGES)
-                ->pluck('permalink')
-                ->map('strval')
-                ->all());
+                ->get(['permalink', 'modified_at']) as $row) {
+                $candidates[] = (string) $row->permalink;
+                $key = $this->urls->normalizeAbsolute((string) $row->permalink);
+                if ($key !== null && $row->modified_at !== null) {
+                    $modified[$key] = (string) $row->modified_at;
+                }
+            }
         }
 
         if (Schema::hasTable('website_url')) {
@@ -698,11 +731,18 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         }
         $sitemapInventory = $this->discoverSitemapInventory($seed, $sitemapCandidates);
         $candidates = array_merge($candidates, $sitemapInventory['pages']);
+        foreach ($sitemapInventory['lastmods'] as $url => $lastmod) {
+            $current = isset($modified[$url]) ? $this->parseDate($modified[$url]) : null;
+            $candidate = $this->parseDate($lastmod);
+            if ($candidate !== null && ($current === null || $candidate->gt($current))) {
+                $modified[$url] = $candidate->toIso8601String();
+            }
+        }
 
         $queue = [];
         foreach ($candidates as $candidate) {
             $normalized = $this->urls->normalizeAbsolute((string) $candidate);
-            if ($normalized === null || ! $this->urls->sameSite($seed, $normalized)) {
+            if ($normalized === null || ! $this->urls->sameSite($seed, $normalized) || ($normalized !== $home && ! SeoText::isCrawlablePage($normalized))) {
                 continue;
             }
             $queue[$normalized] = true;
@@ -711,7 +751,85 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             }
         }
 
-        return array_keys($queue);
+        $unchanged = $forceRefresh ? [] : $this->unchangedSinceLastFetch($assetId, array_keys($queue), $modified, $home);
+
+        return [
+            'queue' => array_values(array_diff(array_keys($queue), $unchanged)),
+            'unchanged' => $unchanged,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $urls
+     * @param  array<string, string>  $modified
+     * @return list<string>
+     */
+    private function unchangedSinceLastFetch(int $assetId, array $urls, array $modified, string $home): array
+    {
+        if ($urls === [] || ! Schema::hasTable('website_html_snapshot')) {
+            return [];
+        }
+        $lastFetched = [];
+        foreach (array_chunk($urls, 500) as $chunk) {
+            foreach (DB::table('website_html_snapshot')->where('digital_asset_id', $assetId)->whereIn('url', $chunk)
+                ->groupBy('url')->selectRaw('url, MAX(observed_at) as fetched_at')->get() as $row) {
+                $lastFetched[(string) $row->url] = CarbonImmutable::parse((string) $row->fetched_at);
+            }
+        }
+
+        $now = CarbonImmutable::now('UTC');
+        $unchanged = [];
+        foreach ($urls as $url) {
+            $fetchedAt = $lastFetched[$url] ?? null;
+            // The homepage is always fetched: it carries the site-wide links and head.
+            if ($url === $home || $fetchedAt === null || $fetchedAt->lt($now->subDays(self::MAX_RECHECK_DAYS))) {
+                continue;
+            }
+            $modifiedAt = isset($modified[$url]) ? $this->parseDate($modified[$url]) : null;
+            $fresh = $modifiedAt !== null
+                ? $modifiedAt->lte($fetchedAt)
+                : $fetchedAt->gte($now->subDays(self::UNKNOWN_RECHECK_DAYS));
+            if ($fresh) {
+                $unchanged[] = $url;
+            }
+        }
+
+        return $unchanged;
+    }
+
+    private function parseDate(string $value): ?CarbonImmutable
+    {
+        try {
+            return CarbonImmutable::parse($value)->utc();
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * url → lastmod (or null) of a urlset sitemap. Image entries (<image:loc>) are ignored.
+     *
+     * @return array<string, ?string>
+     */
+    private function sitemapEntries(string $xml): array
+    {
+        $entries = [];
+        preg_match_all('/<url>(.*?)<\/url>/is', $xml, $blocks);
+        foreach ($blocks[1] ?? [] as $block) {
+            if (preg_match('/<loc>\s*([^<]+)\s*<\/loc>/i', (string) $block, $loc) !== 1) {
+                continue;
+            }
+            $url = trim(html_entity_decode($loc[1], ENT_QUOTES | ENT_HTML5));
+            if ($url === '') {
+                continue;
+            }
+            $entries[$url] = preg_match('/<lastmod>\s*([^<]+)\s*<\/lastmod>/i', (string) $block, $lastmod) === 1 ? trim($lastmod[1]) : null;
+            if (count($entries) >= DiscoveryConfig::MAX_SITEMAP_URLS) {
+                break;
+            }
+        }
+
+        return $entries;
     }
 
     /** @return list<string>|null */
@@ -729,7 +847,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             }
 
             $normalized = $this->urls->normalizeAbsolute($url);
-            if ($normalized === null || ! $this->urls->sameSite($seed, $normalized)) {
+            if ($normalized === null || ! $this->urls->sameSite($seed, $normalized) || ! SeoText::isCrawlablePage($normalized)) {
                 continue;
             }
 
@@ -752,13 +870,15 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         int $rowsWritten,
         int $bytesDownloaded,
         int $urlsPlanned,
+        int $skippedUnchanged = 0,
     ): array {
         return [
+            'skipped_unchanged' => $skippedUnchanged,
             'observed_at' => $observedAt,
             'queue' => array_values($queue),
             'visited' => array_values($visited),
             'pages' => $pages,
-            'urls_planned' => max($urlsPlanned, count($queue) + count($visited)),
+            'urls_planned' => max($urlsPlanned, count($queue) + count($visited) - $skippedUnchanged),
             'limit_reached' => ($pages >= DiscoveryConfig::MAX_COLLECTION_PAGES && $queue !== [])
                 || $bytesDownloaded >= DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES,
             'rows_written_total' => $rowsWritten,
@@ -793,12 +913,13 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
     /** @return list<string> */
     private function extractSameSiteHrefs(string $html, string $seed, string $resolutionBase): array
     {
-        preg_match_all('/href=["\']([^"\']+)["\']/i', $html, $matches);
+        // Only <a> links: <link href> points at stylesheets, feeds, oEmbed and REST alternates.
+        preg_match_all('/<a\b[^>]*?\shref=["\']([^"\']+)["\']/i', $html, $matches);
         $out = [];
         $base = trim($resolutionBase) !== '' ? $resolutionBase : $seed;
         foreach ($matches[1] ?? [] as $href) {
-            $resolved = $this->urls->resolve($base, (string) $href);
-            if ($resolved !== null && $this->urls->sameSite($seed, $resolved)) {
+            $resolved = $this->urls->resolve($base, html_entity_decode((string) $href, ENT_QUOTES | ENT_HTML5));
+            if ($resolved !== null && $this->urls->sameSite($seed, $resolved) && SeoText::isCrawlablePage($resolved)) {
                 $out[] = $resolved;
             }
         }
@@ -828,7 +949,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
 
     /**
      * @param  list<string>  $candidates
-     * @return array{pages: list<string>, documents: list<array{url: string, fetch: array<string, mixed>}>, bytes: int}
+     * @return array{pages: list<string>, lastmods: array<string, string>, documents: list<array{url: string, fetch: array<string, mixed>}>, bytes: int}
      */
     private function discoverSitemapInventory(string $seed, array $candidates): array
     {
@@ -842,6 +963,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
 
         $visited = [];
         $pages = [];
+        $lastmods = [];
         $documents = [];
         $bytes = 0;
 
@@ -876,7 +998,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
                 }
                 foreach ($parsed['locs'] as $child) {
                     $normalized = $this->urls->normalizeAbsolute($child);
-                    if ($normalized === null || ! $this->urls->sameSite($seed, $normalized) || isset($visited[$normalized])) {
+                    if ($normalized === null || ! $this->urls->sameSite($seed, $normalized) || isset($visited[$normalized]) || SeoText::isJunkSitemap($normalized)) {
                         continue;
                     }
                     $queue[] = ['url' => $normalized, 'depth' => $depth + 1];
@@ -889,12 +1011,19 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
                 continue;
             }
 
-            foreach ($parsed['locs'] as $pageUrl) {
+            $entries = $this->sitemapEntries((string) $fetch['body']);
+            if ($entries === []) {
+                $entries = array_fill_keys($parsed['locs'], null);
+            }
+            foreach ($entries as $pageUrl => $lastmod) {
                 $normalized = $this->urls->normalizeAbsolute($pageUrl);
-                if ($normalized === null || ! $this->urls->sameSite($seed, $normalized)) {
+                if ($normalized === null || ! $this->urls->sameSite($seed, $normalized) || ! SeoText::isCrawlablePage($normalized)) {
                     continue;
                 }
                 $pages[$normalized] = true;
+                if ($lastmod !== null) {
+                    $lastmods[$normalized] = $lastmod;
+                }
                 if (count($pages) >= DiscoveryConfig::MAX_SITEMAP_URLS) {
                     break;
                 }
@@ -903,6 +1032,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
 
         return [
             'pages' => array_keys($pages),
+            'lastmods' => $lastmods,
             'documents' => $documents,
             'bytes' => $bytes,
         ];

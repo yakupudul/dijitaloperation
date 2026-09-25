@@ -351,13 +351,21 @@ final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAda
             return [];
         }
 
-        $latestObservedAt = DB::table('website_link_edge')->where('digital_asset_id', $assetId)->max('observed_at');
-        if ($latestObservedAt === null) {
+        // Pages skipped as unchanged keep the links of their last fetch, so read each page's own latest fetch.
+        $currentFetches = [];
+        foreach (array_merge($http, $metadata) as $row) {
+            if (isset($row->observed_at)) {
+                $currentFetches[(string) $row->observed_at] = true;
+            }
+        }
+        if ($currentFetches === []) {
             return [];
         }
 
         $links = [];
-        foreach (DB::table('website_link_edge')->where('digital_asset_id', $assetId)->where('observed_at', $latestObservedAt)->get() as $row) {
+        $rows = collect(array_chunk(array_keys($currentFetches), 200))->flatMap(fn (array $chunk) => DB::table('website_link_edge')
+            ->where('digital_asset_id', $assetId)->whereIn('observed_at', $chunk)->get());
+        foreach ($rows as $row) {
             $url = (string) $row->source_url;
             $currentObservedAt = $metadata[$url]->observed_at ?? $http[$url]->observed_at ?? null;
             if ($currentObservedAt === null || (string) $row->observed_at !== (string) $currentObservedAt) {
