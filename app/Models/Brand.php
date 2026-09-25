@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\IntelligenceCore\IntelligenceBusinessActionIdentity;
 use App\Models\IntelligenceCore\IntelligenceEntityIdentity;
 use App\Models\IntelligenceCore\IntelligenceSearchTermIdentity;
+use App\Support\Options\IndustryOptions;
 use Database\Factories\BrandFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
     'customer_id',
@@ -30,7 +32,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Brand extends Model
 {
     /** @use HasFactory<BrandFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     /**
      * @return BelongsTo<Customer, $this>
@@ -92,7 +94,7 @@ class Brand extends Model
     public function sectorCodes(): array
     {
         $codes = $this->sectors->pluck('code')->all();
-        if ($codes === [] && \App\Support\Options\IndustryOptions::isValid($this->sector)) {
+        if ($codes === [] && IndustryOptions::isValid($this->sector)) {
             $codes = [$this->sector];
         }
         if ($this->sector !== null && in_array($this->sector, $codes, true)) {

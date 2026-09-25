@@ -65,7 +65,7 @@ class BrandsIndex extends Component
             : $visibleIds;
     }
 
-    /** Admin-only hard delete of the selected brands and everything under them (assets, collected data). */
+    /** Admin-only removal of the selected brands (and their assets): data is kept, collection stops. */
     public function deleteSelected(PortfolioDeletionService $deletion): void
     {
         abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
@@ -75,7 +75,7 @@ class BrandsIndex extends Component
         }
         $result = $deletion->deleteBrands($ids, auth()->user());
         $this->selected = [];
-        DemoState::flash($result['deleted'].' marka ve bağlı tüm kayıtları silindi.'.($result['skipped'] > 0 ? ' '.$result['skipped'].' kayıt silinemedi.' : ''), $result['skipped'] > 0 ? 'warning' : 'success');
+        DemoState::flash($result['deleted'].' marka silindi. Toplanan veriler korundu, veri çekimi durdu; hesap tekrar bir markaya bağlanırsa çekim devam eder.'.($result['skipped'] > 0 ? ' '.$result['skipped'].' kayıt silinemedi.' : ''), $result['skipped'] > 0 ? 'warning' : 'success');
     }
 
     public function clearFilters(): void

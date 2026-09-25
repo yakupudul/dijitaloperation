@@ -99,7 +99,7 @@
         @if ($isAdmin && count($selected) > 0)
             <div class="mb-3 flex flex-wrap items-center gap-3 rounded-xl bg-rose-50 px-4 py-2.5 text-sm ring-1 ring-inset ring-rose-200 dark:bg-rose-500/10 dark:ring-rose-500/20">
                 <span class="font-medium text-rose-800 dark:text-rose-200">{{ count($selected) }} marka seçildi</span>
-                <button type="button" wire:click="deleteSelected" wire:confirm="Seçili {{ count($selected) }} marka ve bağlı TÜM dijital varlıkları ve toplanan verileri kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam edilsin mi?" class="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700">Seçilenleri sil</button>
+                <button type="button" wire:click="deleteSelected" wire:confirm="Seçili {{ count($selected) }} marka, dijital varlıklarıyla birlikte listeden silinecek; müşteri kalır. Toplanan veriler silinmez; yalnızca veri çekimi durur. Hesap tekrar bir markaya bağlanırsa çekim kaldığı yerden devam eder. Devam edilsin mi?" class="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700">Seçilenleri sil</button>
                 <button type="button" wire:click="$set('selected', [])" class="text-xs text-rose-700 hover:underline dark:text-rose-300">Seçimi temizle</button>
             </div>
         @endif

@@ -3,39 +3,29 @@
 namespace App\Services\Portfolio;
 
 use App\Enums\Security\SecurityAuditEventKind;
+use App\Models\Brand;
+use App\Models\CoreAssetBinding;
+use App\Models\Customer;
+use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Security\SecurityAuditRecorder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
- * Hard-deletes customers or brands together with every row scoped to them (brands, digital assets and all collected
- * data). Admin-only, destructive, not reversible — the caller confirms first.
+ * Removes customers or brands from the portfolio WITHOUT deleting collected data. Admin-only; the caller confirms first.
  *
- * The delete is schema-driven, not a hand-maintained table list, so it does not rot as the schema grows:
- *  1. A recursive walk of the live foreign-key graph deletes the entire subtree under the customer / brand — every
- *     child, grandchild and so on, whatever the on-delete rule — ending with the root row. Nullable back-references
- *     that would form a cycle are set null instead of recursed into.
- *  2. Tables that carry a customer_id / brand_id / digital_asset_id column but no foreign key on it (the analytics
- *     data lake) are then cleared by that column, since the FK walk cannot reach them.
- * Everything runs in one transaction per entity, so a delete that cannot complete rolls back and the entity is
- * reported as skipped rather than half-deleted. Works on both PostgreSQL and SQLite.
+ * What happens, in one transaction per entity:
+ *  - The customer (with its brands) or the brand, and the digital assets under them, are archived (soft delete): they
+ *    disappear from every list and screen.
+ *  - The active account bindings of those assets are disabled. An unbound account is not collected any more
+ *    (ResourceAutomationService::portfolioGate), so collection stops.
+ *  - Nothing else is touched. Collected rows are keyed by the external account, so when that account is bound again to a
+ *    brand's asset, collection resumes on its own and the history is visible again.
  */
 final class PortfolioDeletionService
 {
-    private const array ROOTS = ['digital_assets', 'brands', 'customers'];
-
-    private const array KEYS = ['digital_asset_id', 'brand_id', 'customer_id'];
-
-    /** @var array<string, list<array{table: string, column: string, foreign: string}>>|null foreign table => referrers */
-    private ?array $referrers = null;
-
-    /** @var array<string, list<string>>|null nullable columns per table */
-    private ?array $nullable = null;
-
-    /** @var array<string, list<string>>|null lake tables => key columns with no FK */
-    private ?array $lake = null;
+    public const string CLOSED_REASON = 'portföyden silindi';
 
     public function __construct(private readonly SecurityAuditRecorder $audit) {}
 
@@ -45,16 +35,17 @@ final class PortfolioDeletionService
      */
     public function deleteCustomers(array $customerIds, ?User $actor = null): array
     {
-        $names = DB::table('customers')->whereIn('id', $customerIds)->pluck('name', 'id');
+        $customers = Customer::query()->whereIn('id', $customerIds)->get();
         $deleted = 0;
         $skipped = 0;
-        foreach ($customerIds as $id) {
-            if (! $names->has($id)) {
-                continue;
-            }
-            $this->purge('customers', (int) $id) ? $deleted++ : $skipped++;
+        foreach ($customers as $customer) {
+            $brandIds = Brand::query()->where('customer_id', $customer->id)->pluck('id')->map('intval')->all();
+            $this->archive($actor, $brandIds, static function () use ($customer): void {
+                Brand::query()->where('customer_id', $customer->id)->get()->each->delete();
+                $customer->delete();
+            }) ? $deleted++ : $skipped++;
         }
-        $this->log($actor, 'customer', $names->all());
+        $this->log($actor, 'customer', $customers->pluck('name', 'id')->all());
 
         return ['deleted' => $deleted, 'skipped' => $skipped];
     }
@@ -65,42 +56,32 @@ final class PortfolioDeletionService
      */
     public function deleteBrands(array $brandIds, ?User $actor = null): array
     {
-        $names = DB::table('brands')->whereIn('id', $brandIds)->pluck('name', 'id');
+        $brands = Brand::query()->whereIn('id', $brandIds)->get();
         $deleted = 0;
         $skipped = 0;
-        foreach ($brandIds as $id) {
-            if (! $names->has($id)) {
-                continue;
-            }
-            $this->purge('brands', (int) $id) ? $deleted++ : $skipped++;
+        foreach ($brands as $brand) {
+            $this->archive($actor, [(int) $brand->id], static function () use ($brand): void {
+                $brand->delete();
+            }) ? $deleted++ : $skipped++;
         }
-        $this->log($actor, 'brand', $names->all());
+        $this->log($actor, 'brand', $brands->pluck('name', 'id')->all());
 
         return ['deleted' => $deleted, 'skipped' => $skipped];
     }
 
-    /** Delete one root row (a customer or a brand) and everything under it, atomically. */
-    private function purge(string $root, int $id): bool
+    /**
+     * Disable the bindings of the brands' assets, archive the assets, then archive the root via $archiveRoot.
+     *
+     * @param  list<int>  $brandIds
+     */
+    private function archive(?User $actor, array $brandIds, callable $archiveRoot): bool
     {
-        // Capture the scoped id sets before anything is deleted, so the FK-less lake can be cleared by them afterwards.
-        $brandIds = $root === 'brands' ? [$id] : DB::table('brands')->where('customer_id', $id)->pluck('id')->map('intval')->all();
-        $assetIds = $brandIds === [] ? [] : DB::table('digital_assets')->whereIn('brand_id', $brandIds)->pluck('id')->map('intval')->all();
-        $lakeIds = array_filter([
-            'digital_asset_id' => $assetIds,
-            'brand_id' => $brandIds,
-            'customer_id' => $root === 'customers' ? [$id] : [],
-        ], static fn (array $ids): bool => $ids !== []);
-
         try {
-            DB::transaction(function () use ($root, $id, $lakeIds): void {
-                $this->deleteSubtree($root, [$id], []);
-                foreach ($this->lakeTables() as $table => $keys) {
-                    foreach ($keys as $key) {
-                        if (isset($lakeIds[$key])) {
-                            DB::table($table)->whereIn($key, $lakeIds[$key])->delete();
-                        }
-                    }
-                }
+            DB::transaction(function () use ($actor, $brandIds, $archiveRoot): void {
+                $assets = $brandIds === [] ? collect() : DigitalAsset::query()->whereIn('brand_id', $brandIds)->get();
+                $this->disableBindings($assets->pluck('id')->map('intval')->all(), $actor);
+                $assets->each->delete();
+                $archiveRoot();
             });
 
             return true;
@@ -111,113 +92,26 @@ final class PortfolioDeletionService
         }
     }
 
-    /**
-     * Delete the given rows of $table and, first, every row that references them (recursively).
-     *
-     * @param  list<int>  $ids
-     * @param  list<string>  $stack  tables currently being deleted, to break reference cycles
-     */
-    private function deleteSubtree(string $table, array $ids, array $stack): void
+    /** @param  list<int>  $assetIds */
+    private function disableBindings(array $assetIds, ?User $actor): void
     {
-        $ids = array_values(array_unique(array_filter($ids)));
-        if ($ids === []) {
+        if ($assetIds === []) {
             return;
         }
-        foreach ($this->referrersOf($table) as $ref) {
-            $parentValues = DB::table($table)->whereIn('id', $ids)->pluck($ref['foreign'])->all();
-            $parentValues = array_values(array_filter($parentValues, static fn ($v): bool => $v !== null));
-            if ($parentValues === []) {
-                continue;
-            }
-            if (in_array($ref['table'], $stack, true) || $ref['table'] === $table) {
-                // A cycle (e.g. a "current revision" back-reference): break it by nulling the column instead of recursing.
-                if (in_array($ref['column'], $this->nullableColumns($ref['table']), true)) {
-                    DB::table($ref['table'])->whereIn($ref['column'], $parentValues)->update([$ref['column'] => null]);
-                }
-
-                continue;
-            }
-            if (! $this->hasIdColumn($ref['table'])) {
-                // A keyless pivot cannot itself be an FK target, so nothing references it: delete its rows directly.
-                DB::table($ref['table'])->whereIn($ref['column'], $parentValues)->delete();
-
-                continue;
-            }
-            $childIds = DB::table($ref['table'])->whereIn($ref['column'], $parentValues)->pluck('id')->map('intval')->all();
-            $this->deleteSubtree($ref['table'], $childIds, [...$stack, $table]);
-        }
-        DB::table($table)->whereIn('id', $ids)->delete();
-    }
-
-    /**
-     * @return list<array{table: string, column: string, foreign: string}>
-     */
-    private function referrersOf(string $table): array
-    {
-        if ($this->referrers === null) {
-            $this->buildForeignKeyGraph();
-        }
-
-        return $this->referrers[$table] ?? [];
-    }
-
-    private function buildForeignKeyGraph(): void
-    {
-        $this->referrers = [];
-        $this->lake = [];
-        foreach (Schema::getTables() as $table) {
-            $name = is_array($table) ? ($table['name'] ?? '') : (string) $table;
-            if ($name === '') {
-                continue;
-            }
-            $fkColumns = [];
-            foreach (Schema::getForeignKeys($name) as $fk) {
-                $column = $fk['columns'][0] ?? null;
-                $foreignTable = $fk['foreign_table'] ?? null;
-                $foreignColumn = $fk['foreign_columns'][0] ?? 'id';
-                if ($column === null || $foreignTable === null) {
-                    continue;
-                }
-                $fkColumns[] = $column;
-                $this->referrers[$foreignTable][] = ['table' => $name, 'column' => $column, 'foreign' => $foreignColumn];
-            }
-            // Tables that carry a scope key with NO foreign key on it (the analytics data lake) are cleared by key.
-            if (! in_array($name, self::ROOTS, true)) {
-                $columns = Schema::getColumnListing($name);
-                $lakeKeys = array_values(array_diff(array_intersect(self::KEYS, $columns), $fkColumns));
-                if ($lakeKeys !== []) {
-                    $this->lake[$name] = $lakeKeys;
-                }
-            }
-        }
-    }
-
-    /** @return array<string, list<string>> */
-    private function lakeTables(): array
-    {
-        if ($this->lake === null) {
-            $this->buildForeignKeyGraph();
-        }
-
-        return $this->lake ?? [];
-    }
-
-    private function hasIdColumn(string $table): bool
-    {
-        return in_array('id', Schema::getColumnListing($table), true);
-    }
-
-    /** @return list<string> */
-    private function nullableColumns(string $table): array
-    {
-        if (! isset($this->nullable[$table])) {
-            $this->nullable[$table] = array_values(array_map(
-                static fn (array $c): string => (string) $c['name'],
-                array_filter(Schema::getColumns($table), static fn (array $c): bool => (bool) ($c['nullable'] ?? false)),
-            ));
-        }
-
-        return $this->nullable[$table];
+        CoreAssetBinding::query()
+            ->whereIn('digital_asset_id', $assetIds)
+            ->where('status', CoreAssetBinding::STATUS_ACTIVE)
+            ->get()
+            ->each(function (CoreAssetBinding $binding) use ($actor): void {
+                $binding->forceFill([
+                    'status' => CoreAssetBinding::STATUS_DISABLED,
+                    'configuration' => array_merge((array) $binding->configuration, [
+                        'closed_by_user_id' => $actor?->id,
+                        'closed_at' => now()->toIso8601String(),
+                        'closed_reason' => self::CLOSED_REASON,
+                    ]),
+                ])->save();
+            });
     }
 
     /** @param  array<int, string>  $names */
@@ -227,10 +121,9 @@ final class PortfolioDeletionService
             return;
         }
         try {
-            // customer_id / brand_id are left null: the referenced rows are gone, so the ids live in metadata instead.
             $this->audit->record(SecurityAuditEventKind::SecuritySettingChanged, $actor, null, null, null, null,
-                $type === 'customer' ? 'Müşteri(ler) kalıcı olarak silindi' : 'Marka(lar) kalıcı olarak silindi',
-                ['type' => $type, 'count' => count($names), 'deleted' => array_slice($names, 0, 200, true)]);
+                $type === 'customer' ? 'Müşteri(ler) portföyden silindi (veriler korundu, veri çekimi durdu)' : 'Marka(lar) portföyden silindi (veriler korundu, veri çekimi durdu)',
+                ['type' => $type, 'count' => count($names), 'archived' => array_slice($names, 0, 200, true)]);
         } catch (Throwable $exception) {
             report($exception);
         }

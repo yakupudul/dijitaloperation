@@ -91,7 +91,7 @@ final class TodayReader
         }
         // Faz 10b: customers whose health score fell into the risk band come first with their main reason.
         if (Schema::hasTable('customer_health')) {
-            foreach (DB::table('customer_health')->join('customers', 'customers.id', '=', 'customer_health.customer_id')->where('customers.status', 'active')
+            foreach (DB::table('customer_health')->join('customers', 'customers.id', '=', 'customer_health.customer_id')->where('customers.status', 'active')->whereNull('customers.deleted_at')
                 ->where('customer_health.band', 'risk')->orderBy('customer_health.score')->limit(10)->get(['customers.id', 'customers.name', 'customer_health.score', 'customer_health.reasons']) as $row) {
                 $reason = (array) (json_decode((string) $row->reasons, true)[0] ?? []);
                 $rows = [(int) $row->id => ['customer_id' => (int) $row->id, 'name' => (string) $row->name, 'reason' => 'Sağlık puanı '.$row->score.': '.($reason['text'] ?? '')]] + $rows;

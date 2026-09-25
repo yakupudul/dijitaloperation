@@ -155,7 +155,11 @@ class BrandIntelligenceContextTest extends TestCase
             'brand_id' => $this->brand->id,
         ]);
 
+        // Deleting a brand from the portfolio archives it and keeps its context; only a physical delete cascades.
         $this->brand->delete();
+        $this->assertDatabaseHas('brand_intelligence_contexts', ['id' => $context->id]);
+
+        $this->brand->forceDelete();
 
         $this->assertDatabaseMissing('brand_intelligence_contexts', [
             'id' => $context->id,

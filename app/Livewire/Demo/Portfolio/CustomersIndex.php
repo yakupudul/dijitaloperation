@@ -69,7 +69,7 @@ class CustomersIndex extends Component
             : $visibleIds;
     }
 
-    /** Admin-only hard delete of the selected customers and everything under them (brands, assets, collected data). */
+    /** Admin-only removal of the selected customers (and their brands/assets): data is kept, collection stops. */
     public function deleteSelected(PortfolioDeletionService $deletion): void
     {
         abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
@@ -79,7 +79,7 @@ class CustomersIndex extends Component
         }
         $result = $deletion->deleteCustomers($ids, auth()->user());
         $this->selected = [];
-        DemoState::flash($result['deleted'].' müşteri ve bağlı tüm kayıtları silindi.'.($result['skipped'] > 0 ? ' '.$result['skipped'].' kayıt silinemedi.' : ''), $result['skipped'] > 0 ? 'warning' : 'success');
+        DemoState::flash($result['deleted'].' müşteri silindi. Toplanan veriler korundu, veri çekimi durdu; hesap tekrar bir markaya bağlanırsa çekim devam eder.'.($result['skipped'] > 0 ? ' '.$result['skipped'].' kayıt silinemedi.' : ''), $result['skipped'] > 0 ? 'warning' : 'success');
     }
 
     public function clearFilters(): void

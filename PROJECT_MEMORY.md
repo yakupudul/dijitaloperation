@@ -1,9 +1,11 @@
 # PROJECT_MEMORY
 
-## 2026-10-13 — Portfolio hard delete
+## 2026-10-13 — Portfolio delete = archive, data kept
 
-- Deleting a customer/brand is Admin-only and goes through `PortfolioDeletionService`. It is schema-driven: a recursive foreign-key-graph walk (Schema::getForeignKeys / getTables) deletes the whole subtree, then FK-less "data lake" tables are cleared by customer_id/brand_id/digital_asset_id. Do NOT replace it with a hand-maintained table list. Keyless pivots (no `id`) are deleted by their FK column; cycles are broken by nulling nullable back-references.
-- It is destructive and irreversible; each entity is deleted in its own transaction (skipped, not half-deleted, on failure).
+- Operator decision: deleting a customer or brand must NOT delete collected data. It only stops collection, and collection resumes when the account is bound again.
+- `customers`, `brands` and `digital_assets` use SoftDeletes. `PortfolioDeletionService` (Admin-only) soft-deletes the tree and disables the assets' active `core_asset_bindings` (`closed_reason` = "portföyden silindi"). It deletes nothing else.
+- Deleting a brand keeps its customer.
+- Raw `DB::table('customers'|'brands'|'digital_assets')` reads that feed operator lists must add `whereNull('deleted_at')`. Eloquent queries exclude archived rows automatically.
 
 ## 2026-10-12 — Sales pipeline + WhatsApp retention fixes
 
