@@ -176,6 +176,16 @@ class DigitalAsset extends Model
      * @param  Builder<DigitalAsset>  $query
      * @return Builder<DigitalAsset>
      */
+    protected static function booted(): void
+    {
+        // Only a website may exist before its brand (added under Integrations, picked when the brand is created).
+        static::saving(function (DigitalAsset $asset): void {
+            if ($asset->brand_id === null && $asset->type !== 'website') {
+                throw new \LogicException('Only a website can exist without a brand.');
+            }
+        });
+    }
+
     public function scopeOperational(Builder $query): Builder
     {
         return $query

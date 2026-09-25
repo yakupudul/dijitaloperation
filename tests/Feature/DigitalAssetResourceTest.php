@@ -10,7 +10,6 @@ use App\Models\User;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Filament\Facades\Filament;
-use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -43,13 +42,16 @@ class DigitalAssetResourceTest extends TestCase
         ]);
     }
 
-    public function test_digital_asset_cannot_be_created_without_a_brand(): void
+    public function test_only_a_website_can_be_created_without_a_brand(): void
     {
-        $this->expectException(QueryException::class);
+        $website = DigitalAsset::query()->create(['name' => 'Unassigned site', 'type' => 'website', 'status' => DigitalAssetStatus::Active]);
+        $this->assertNull($website->brand_id, 'a website can wait for its brand');
+
+        $this->expectException(\LogicException::class);
 
         DigitalAsset::query()->create([
             'name' => 'Orphan Asset',
-            'type' => 'website',
+            'type' => 'google_ads',
             'status' => DigitalAssetStatus::Active,
         ]);
     }
