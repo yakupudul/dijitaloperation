@@ -46,6 +46,11 @@ final class ClusterTargetsKind implements ProposalKind
         return false;
     }
 
+    public function resultNoun(): string
+    {
+        return 'yeni öneri';
+    }
+
     public function prepare(array $options): int
     {
         $clusters = collect($this->clusters->all(! empty($options['service_id']) ? [(int) $options['service_id']] : null))

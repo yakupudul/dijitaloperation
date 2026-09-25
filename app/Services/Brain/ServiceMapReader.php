@@ -4,6 +4,7 @@ namespace App\Services\Brain;
 
 use App\Models\ServiceCatalogItem;
 use App\Services\Brain\Clustering\ServiceClusters;
+use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -59,7 +60,20 @@ final class ServiceMapReader
         $recommendations = DB::table('brain_recommendations as r')->leftJoin('brands as b', 'b.id', '=', 'r.brand_id')->where('r.service_id', $serviceId)->where('r.status', 'open')
             ->orderByRaw('coalesce(r.impact, 0) desc')->limit(50)->get(['r.id', 'r.channel', 'r.type', 'r.title', 'r.detail', 'r.basis', 'r.impact', 'b.name as brand_name'])->map(fn ($r): array => (array) $r)->all();
 
+        $period = DB::table('brain_success_snapshots')->where('service_id', $serviceId)->max('period');
+        $features = DB::table('brain_page_features')->whereIn('digital_asset_id', $sites->keys())->get()
+            ->mapWithKeys(fn ($f): array => [$f->digital_asset_id.'|'.$f->url_key => ['features' => (array) json_decode((string) $f->features, true), 'ai' => $f->ai_features !== null ? (array) json_decode((string) $f->ai_features, true) : null]]);
+        $success = $period === null ? [] : DB::table('brain_success_snapshots')->where('service_id', $serviceId)->where('period', $period)->get()
+            ->mapWithKeys(fn ($r): array => [$r->cluster_id.'|'.$r->digital_asset_id => [
+                'score' => $r->score !== null ? (float) $r->score : null, 'impressions' => (int) $r->impressions, 'clicks' => (int) $r->clicks,
+                'position' => $r->position !== null ? (float) $r->position : null, 'ctr_index' => $r->ctr_index !== null ? (float) $r->ctr_index : null,
+                'sessions' => (int) $r->sessions, 'conversions' => (float) $r->conversions, 'url' => $r->url, 'cohort' => (int) $r->cohort_size,
+                'page' => $r->url !== null ? ($features[$r->digital_asset_id.'|'.SeoText::urlKey((string) $r->url)] ?? null) : null,
+            ]])->all();
+
         return [
+            'success' => $success,
+            'period' => $period,
             'ad_groups' => $adGroups,
             'meta' => $meta,
             'recommendations' => $recommendations,

@@ -51,6 +51,11 @@ final class ServiceClustersKind implements ProposalKind
         return true;
     }
 
+    public function resultNoun(): string
+    {
+        return 'yeni öneri';
+    }
+
     public function prepare(array $options): int
     {
         $serviceIds = ! empty($options['service_id']) ? [(int) $options['service_id']] : DB::table('search_query_library_item_service as s')

@@ -6,6 +6,7 @@ use App\Models\DigitalAsset;
 use App\Services\Brain\Chain\AdsChainBuilder;
 use App\Services\Brain\Chain\MetaChainBuilder;
 use App\Services\Brain\Clustering\CannibalizationDetector;
+use App\Services\Brain\Success\SuccessScorer;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -19,6 +20,7 @@ final class BrainRefresher
         private readonly CannibalizationDetector $cannibalization,
         private readonly AdsChainBuilder $adsChain,
         private readonly MetaChainBuilder $metaChain,
+        private readonly SuccessScorer $success,
     ) {}
 
     /** @return array<string, int|string> step => count or error */
@@ -50,6 +52,8 @@ final class BrainRefresher
 
             return $count;
         });
+        // Success needs the chain (targets) first; page facts are measured alongside.
+        $report['success'] = $brandId === null ? $this->step(fn (): int => $this->success->run()) : 'skipped (brand filter)';
 
         return $report;
     }

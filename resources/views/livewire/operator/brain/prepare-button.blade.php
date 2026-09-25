@@ -7,7 +7,7 @@
     @if ($message || $state === 'running')
         <span class="text-gray-500">{{ $message ?? 'Hazırlanıyor…' }}</span>
     @elseif (str_starts_with((string) $state, 'done: '))
-        <span class="text-success-600">{{ substr($state, 6) }} yeni öneri</span>
+        <span class="text-success-600">{{ substr($state, 6) }} {{ $noun }}</span>
     @elseif (str_starts_with((string) $state, 'failed: '))
         <span class="text-error-600">Hata: {{ \Illuminate\Support\Str::limit(substr($state, 8), 80) }}</span>
     @endif

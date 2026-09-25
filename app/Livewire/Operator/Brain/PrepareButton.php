@@ -34,6 +34,7 @@ final class PrepareButton extends Component
         return view('livewire.operator.brain.prepare-button', [
             'label' => $kind->label(),
             'ai' => $kind->usesAi(),
+            'noun' => $kind->resultNoun(),
             'state' => $proposals->state($this->kind),
         ]);
     }

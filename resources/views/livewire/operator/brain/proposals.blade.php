@@ -27,7 +27,7 @@
                         @if ($info['state'] === 'running')
                             <span class="text-xs text-gray-500">Hazırlanıyor…</span>
                         @elseif (str_starts_with((string) $info['state'], 'done: '))
-                            <span class="text-xs text-success-600">{{ substr($info['state'], 6) }} yeni öneri</span>
+                            <span class="text-xs text-success-600">{{ substr($info['state'], 6) }} {{ $info['noun'] }}</span>
                         @elseif (str_starts_with((string) $info['state'], 'failed: '))
                             <span class="text-xs text-error-600" title="{{ substr($info['state'], 8) }}">Hata: {{ \Illuminate\Support\Str::limit(substr($info['state'], 8), 60) }}</span>
                         @endif

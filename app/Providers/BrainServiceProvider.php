@@ -6,6 +6,7 @@ use App\Services\Brain\Proposals\Kinds\AccountMappingKind;
 use App\Services\Brain\Proposals\Kinds\ClusterTargetsKind;
 use App\Services\Brain\Proposals\Kinds\MatchingKeywordKind;
 use App\Services\Brain\Proposals\Kinds\MetaAdServicesKind;
+use App\Services\Brain\Proposals\Kinds\PageFeaturesKind;
 use App\Services\Brain\Proposals\Kinds\QueryServiceKind;
 use App\Services\Brain\Proposals\Kinds\ServiceClustersKind;
 use App\Services\Brain\Proposals\ProposalKind;
@@ -27,6 +28,7 @@ final class BrainServiceProvider extends ServiceProvider
         ServiceClustersKind::class,
         ClusterTargetsKind::class,
         MetaAdServicesKind::class,
+        PageFeaturesKind::class,
     ];
 
     /** route key => [name, steps kind, description] */

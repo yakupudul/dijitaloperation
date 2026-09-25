@@ -107,7 +107,7 @@ final class ProposalsPage extends Component
             'rows' => $rows,
             'visibleIds' => $rows->getCollection()->where('status', BrainProposal::STATUS_PENDING)->pluck('id')->map('intval')->values()->all(),
             'kinds' => collect($proposals->kinds())->map(fn ($k): array => [
-                'label' => $k->label(), 'ai' => $k->usesAi(), 'state' => $proposals->state($k->kind()), 'pending' => (int) ($counts[$k->kind()] ?? 0),
+                'label' => $k->label(), 'ai' => $k->usesAi(), 'noun' => $k->resultNoun(), 'state' => $proposals->state($k->kind()), 'pending' => (int) ($counts[$k->kind()] ?? 0),
             ])->all(),
             'flash' => DemoState::pullFlash(),
         ]);

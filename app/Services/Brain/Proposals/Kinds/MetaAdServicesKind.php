@@ -43,6 +43,11 @@ final class MetaAdServicesKind implements ProposalKind
         return true;
     }
 
+    public function resultNoun(): string
+    {
+        return 'yeni öneri';
+    }
+
     public function prepare(array $options): int
     {
         $assetIds = DB::table('brain_meta_ads')->where(fn ($q) => $q->whereNull('angle')->orWhereNull('service_id'))

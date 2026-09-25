@@ -51,6 +51,11 @@ final class MatchingKeywordKind implements ProposalKind
         return false;
     }
 
+    public function resultNoun(): string
+    {
+        return 'yeni öneri';
+    }
+
     public function prepare(array $options): int
     {
         $rows = DB::table('search_query_library_item_service as s')

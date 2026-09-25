@@ -55,6 +55,11 @@ final class AccountMappingKind implements ProposalKind
         return true;
     }
 
+    public function resultNoun(): string
+    {
+        return 'yeni öneri';
+    }
+
     public function prepare(array $options): int
     {
         $automations = ResourceAutomation::query()->with('resource')

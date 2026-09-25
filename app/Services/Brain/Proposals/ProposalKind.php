@@ -19,6 +19,9 @@ interface ProposalKind
     /** Whether preparing this kind calls an AI provider (for the cost / budget note on the button). */
     public function usesAi(): bool;
 
+    /** What prepare()'s count means on the button ("yeni öneri", "sayfa okundu", …). */
+    public function resultNoun(): string;
+
     /**
      * Prepare proposals. Returns how many new proposals were queued.
      *

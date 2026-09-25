@@ -1,5 +1,22 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-14 — Hizmet Beyni Faz 4: sayfa özellikleri, normalize başarı puanı, kohortlar
+
+**State:** CODED + PHPUnit. Test: `Brain/BrainSuccessTest` 2/2. Not tested with real stored HTML/GA4 or the AI checklist (fixtures only).
+- **Başarı (`brain_success_snapshots`, monthly, weekly refresh):** covers each brand's page for each cluster over the last 90 days.
+  - Visibility is the share of search demand when volumes are known; otherwise it is impressions.
+  - **Click-through against expected:** CTR divided by the typical CTR at that position.
+  - Clicks and conversion rate use **empirical Bayes shrinkage** toward the cohort average: 200 impressions for CTR and 50 sessions for conversion rate. Thin-data pages are pulled toward the average.
+  - Visits and conversions come from the GA4 landing page.
+- **Score (0–100):** the average percentile on those measures within the cohort. The cohort is **service × page type × market tier** (metro / regional / unknown); a cohort smaller than 3 falls back to service × page type.
+- **Sayfa özellikleri (`brain_page_features`), measured from the stored crawl HTML:**
+  - word count, H2 count, FAQ, schema, medical schema, price and place mentions, internal links, images;
+  - **cluster coverage:** the share of the cluster's queries whose words appear on the page.
+- **AI checklist:** "Sayfa özellikleri (AI okur)", on click. It returns 11 fixed yes/no checks (answer first, question headings, process, duration/recovery, risks, candidacy, expert shown, date, sources, next step, location) and the missing subtopics.
+  - It only reads again when the content hash changes.
+  - It is measurement, so nothing needs approval.
+- The Hizmet haritası has a new "Sayfalar ve başarı" table. The cluster table shows a score badge per brand.
+
 ## 2026-10-14 — Hizmet Beyni Faz 3: kalıcı hizmet zinciri (küme ↔ reklam grubu ↔ sayfa, Meta reklamı ↔ hizmet), Beyin önerileri
 
 **State:** CODED + PHPUnit. Test: `Brain/BrainChainTest` 2/2. Real Ads/Meta account UAT: not done.

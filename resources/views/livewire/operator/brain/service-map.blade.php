@@ -72,6 +72,11 @@
                                             @else
                                                 <span class="text-warning-700">sayfa yok</span>
                                             @endif
+                                            @php $perf = $map['success'][$cluster['id'].'|'.$site['id']] ?? null; @endphp
+                                            @if ($perf && $perf['score'] !== null)
+                                                @php $tone = $perf['score'] >= 66 ? 'bg-success-50 text-success-700' : ($perf['score'] >= 33 ? 'bg-warning-50 text-warning-700' : 'bg-error-50 text-error-700'); @endphp
+                                                <div class="mt-1"><span class="rounded-full px-2 py-0.5 {{ $tone }}" title="Gösterim {{ $perf['impressions'] }} · sıra {{ $perf['position'] ?? '—' }} · ziyaret {{ $perf['sessions'] }} · dönüşüm {{ $perf['conversions'] }} · kohort {{ $perf['cohort'] }} sayfa">Başarı {{ (int) $perf['score'] }}</span></div>
+                                            @endif
                                             @if ($split)
                                                 <div class="mt-1 text-error-600">{{ count($split['pages']) }} sayfa bölüşüyor</div>
                                             @endif
@@ -83,6 +88,45 @@
                     </table>
                 @endif
             </section>
+
+            @if ($map['success'] !== [])
+                <section class="{{ $card }} overflow-x-auto">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Sayfalar ve başarı (son 90 gün)</h2>
+                        <livewire:operator.brain.prepare-button kind="page_features" :options="['service_id' => $service]" :key="'brain-features-'.$service" />
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">Başarı: aynı hizmet, aynı sayfa türü ve benzer pazardaki sayfalar arasında yüzdelik (0–100). Gösterim payı, sıraya göre beklenenin üstünde tıklanma, ziyaret ve dönüşüm oranı birlikte değerlendirilir; az verili sayfalar ortalamaya çekilir.</p>
+                    <table class="mt-3 w-full text-sm">
+                        <thead><tr class="text-left text-xs text-gray-500"><th class="py-1 pr-3">Konu · marka</th><th class="py-1 pr-3">Başarı</th><th class="py-1 pr-3">Gösterim</th><th class="py-1 pr-3">Sıra</th><th class="py-1 pr-3">Tıklanma / beklenen</th><th class="py-1 pr-3">Ziyaret</th><th class="py-1 pr-3">Kelime</th><th class="py-1 pr-3">Konu kapsaması</th><th class="py-1">Kontrol listesi</th></tr></thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                            @foreach ($map['clusters'] as $cluster)
+                                @foreach ($map['sites'] as $site)
+                                    @php $perf = $map['success'][$cluster['id'].'|'.$site['id']] ?? null; @endphp
+                                    @if ($perf)
+                                        <tr class="align-top">
+                                            <td class="py-1.5 pr-3"><span class="text-gray-800 dark:text-gray-200">{{ $cluster['name'] }}</span> <span class="text-xs text-gray-500">· {{ $site['brand'] }}</span></td>
+                                            <td class="py-1.5 pr-3 text-xs">{{ $perf['score'] !== null ? (int) $perf['score'] : '—' }}</td>
+                                            <td class="py-1.5 pr-3 text-xs">{{ number_format($perf['impressions'], 0, ',', '.') }}</td>
+                                            <td class="py-1.5 pr-3 text-xs">{{ $perf['position'] ?? '—' }}</td>
+                                            <td class="py-1.5 pr-3 text-xs">{{ $perf['ctr_index'] !== null ? '×'.number_format($perf['ctr_index'], 2, ',', '.') : '—' }}</td>
+                                            <td class="py-1.5 pr-3 text-xs">{{ $perf['sessions'] }}</td>
+                                            <td class="py-1.5 pr-3 text-xs">{{ $perf['page']['features']['words'] ?? '—' }}</td>
+                                            <td class="py-1.5 pr-3 text-xs">{{ isset($perf['page']['features']['coverage']) ? '%'.(int) round($perf['page']['features']['coverage'] * 100) : '—' }}</td>
+                                            <td class="py-1.5 text-xs">
+                                                @if ($perf['page']['ai'] ?? null)
+                                                    {{ count(array_filter(\Illuminate\Support\Arr::only($perf['page']['ai'], array_keys(\App\Ai\Agents\Brain\PageFeatureAgent::CHECKS)))) }} / {{ count(\App\Ai\Agents\Brain\PageFeatureAgent::CHECKS) }}
+                                                @else
+                                                    <span class="text-gray-400">okunmadı</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endif
+                                @endforeach
+                            @endforeach
+                        </tbody>
+                    </table>
+                </section>
+            @endif
 
             @if ($map['ad_groups'] !== [])
                 <section class="{{ $card }} overflow-x-auto">

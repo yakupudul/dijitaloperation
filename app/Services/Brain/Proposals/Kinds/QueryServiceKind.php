@@ -60,6 +60,11 @@ final class QueryServiceKind implements ProposalKind
         return true;
     }
 
+    public function resultNoun(): string
+    {
+        return 'yeni öneri';
+    }
+
     public function prepare(array $options): int
     {
         $sector = (string) ($options['sector'] ?? '');
