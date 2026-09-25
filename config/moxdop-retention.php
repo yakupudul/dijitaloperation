@@ -21,6 +21,14 @@ return [
         'google_ads_search_term_daily', 'google_ads_keyword_daily',
     ],
 
+    /* Veri merkezi: data sets holding queries / search terms / keywords. They feed the Service Brain and can
+       never be deleted from the data center, even when the operator deletes the rest of a source. */
+    'protected_tables' => [
+        'gsc_query_daily', 'gsc_query_page_daily', 'gsc_query_country_daily', 'gsc_query_device_daily',
+        'google_ads_search_term_daily', 'google_ads_keyword_daily', 'google_ads_keyword_snapshot',
+        'gbp_search_keywords_monthly', 'dataforseo_ranked_keyword_snapshot', 'dataforseo_keyword_site_snapshot',
+    ],
+
     /* Columns that are bookkeeping, never a dimension or a metric. */
     'ignored_columns' => [
         'id', 'reporting_date', 'contract_version', 'last_collection_run_id', 'last_dataset_run_id',

@@ -64,6 +64,7 @@ use App\Livewire\Operator\Brain\ProposalsPage as BrainProposalsPage;
 use App\Livewire\Operator\Brain\RecommendationsPage as BrainRecommendationsPage;
 use App\Livewire\Operator\Brain\ServiceMapPage as BrainServiceMapPage;
 use App\Livewire\Operator\Compliance\CompliancePage;
+use App\Livewire\Operator\DataCenterPage;
 use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Operator\Integrations\SiteConnectorShow;
 use App\Livewire\Operator\Integrations\SiteConnectorsIndex;
@@ -229,6 +230,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/brain/services', BrainServiceMapPage::class)->name('operator.brain.services');
         Route::livewire('/brain/recommendations', BrainRecommendationsPage::class)->name('operator.brain.recommendations');
         Route::livewire('/brain/methods', BrainMethodsPage::class)->name('operator.brain.methods');
+        Route::livewire('/data-center', DataCenterPage::class)->name('operator.data-center');
         Route::livewire('/market/map-rankings', MapRankingsPage::class)->name('operator.market.map-rankings');
         Route::get('/market/kml/{brand}', KmlExportController::class)->name('operator.market.kml');
         Route::livewire('/market/backlinks', BacklinksPage::class)->name('operator.market.backlinks');

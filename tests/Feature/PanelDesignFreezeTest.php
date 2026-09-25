@@ -88,6 +88,7 @@ class PanelDesignFreezeTest extends TestCase
             'operator.activity',
             'operator.integrations',
             'operator.integrations.wordpress-sites',
+            'operator.data-center',
             'operator.settings',
         ], $routes);
 

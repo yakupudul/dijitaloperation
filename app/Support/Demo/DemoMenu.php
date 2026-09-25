@@ -94,6 +94,7 @@ final class DemoMenu
                 'items' => [
                     ['label' => __('operator.nav.integrations'), 'route' => 'operator.integrations', 'icon' => 'integrations'],
                     ['label' => $tr ? 'WordPress siteleri' : 'WordPress Sites', 'route' => 'operator.integrations.wordpress-sites', 'icon' => 'wordpress'],
+                    ['label' => $tr ? 'Veri merkezi' : 'Data Center', 'route' => 'operator.data-center', 'icon' => 'data'],
                     ['label' => __('operator.nav.settings'), 'route' => 'operator.settings', 'icon' => 'settings'],
                 ],
             ],
