@@ -1,5 +1,28 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-14 — Hizmet Beyni Faz 2: sayfa boyutunda kümeler, küme → sayfa, yamyamlaşma
+
+**State:** CODED + PHPUnit. Test: `Brain/BrainClusteringTest` 3/3. Real portfolio UAT: not done.
+- `ClusterBuilder` splits a service's queries into page-sized clusters, where one cluster is what one page can answer. Place names are removed first.
+- Similarity combines the evidence that exists:
+  - SERP overlap from stored DataForSEO top-10 results: 4 or more shared URLs means the same page.
+  - Embeddings.
+  - Portfolio Search Console: our own site ranks the same URL for both queries.
+  - Word stems, which always work, including without AI.
+- Method:
+  - Leader clustering by demand, threshold 0.5.
+  - Existing clusters (manual or approved earlier) are kept as seeds; only queries without a cluster are placed.
+  - A merge pass joins new clusters that turn out to be one topic.
+- Page type: one **main page**, **landing** (a separate sales page), **support** (a separate article) or **FAQ** (small questions that go on the main page).
+- Intent uses Turkish rules. The question particle "mı" is informational; the "X mı Y mı" pattern is comparison.
+- AI (`brain.cluster_labels`) only names the clusters and cannot open a second main page.
+- **Küme → sayfa:** the URL that gets the most of the cluster's Search Console impressions. A proposal is made only when that URL has at least 40% of the impressions and the cluster has at least 20 impressions. No AI.
+- **Yamyamlaşma:** two of our own URLs split one cluster.
+  - Flagged when the second URL gets at least 25% of the impressions, both average positions are 20 or better, and the cluster has at least 50 impressions.
+  - Stored in `brain_cannibalizations`. The operator can mark a case "Bilinçli" and it is not raised again.
+- Screen: **Hizmet Beyni → Hizmet haritası** (`/brain/services`). It shows each cluster's type and intent, each brand's page per cluster (or "sayfa yok"), and pages that split a topic.
+- Weekly `moxdop:brain:refresh` (stored data, no AI).
+
 ## 2026-10-14 — Hizmet Beyni Faz 1: onay kuyruğu, hesap eşleme, sorgu ataması, eşleme ifadesi önerisi, toplu işlem
 
 **State:** CODED + PHPUnit. Tests: `Brain/BrainProposalsTest` 4/4, `Brain/BulkReviewTest` 1/1. Real AI/embedding UAT: not done (fakes only).

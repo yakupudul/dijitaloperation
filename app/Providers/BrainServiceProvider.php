@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use App\Services\Brain\Proposals\Kinds\AccountMappingKind;
+use App\Services\Brain\Proposals\Kinds\ClusterTargetsKind;
 use App\Services\Brain\Proposals\Kinds\MatchingKeywordKind;
 use App\Services\Brain\Proposals\Kinds\QueryServiceKind;
+use App\Services\Brain\Proposals\Kinds\ServiceClustersKind;
 use App\Services\Brain\Proposals\ProposalKind;
 use App\Services\Brain\Proposals\ProposalService;
 use App\Support\Ai\AiDefaultSteps;
@@ -21,6 +23,8 @@ final class BrainServiceProvider extends ServiceProvider
         AccountMappingKind::class,
         QueryServiceKind::class,
         MatchingKeywordKind::class,
+        ServiceClustersKind::class,
+        ClusterTargetsKind::class,
     ];
 
     /** route key => [name, steps kind, description] */

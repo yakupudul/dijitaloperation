@@ -73,6 +73,7 @@ class PanelDesignFreezeTest extends TestCase
             'operator.market.backlinks',
             'operator.market.competitor-watch',
             'operator.market.ai-visibility',
+            'operator.brain.services',
             'operator.brain.proposals',
             'operator.leads',
             'operator.prospects',
