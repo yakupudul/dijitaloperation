@@ -90,6 +90,56 @@ final class SeoTasksPanel extends Component
         $this->expandedId = $this->expandedId === $id ? null : $id;
     }
 
+    /** @var list<int> open tasks selected for a bulk action */
+    public array $bulkIds = [];
+
+    /** Bulk "Yapıldı": marks the selected open tasks done and re-checks each website once (rules only). */
+    public function bulkDone(): void
+    {
+        $tasks = $this->selectedOpenTasks();
+        foreach ($tasks as $task) {
+            $task->forceFill(['status' => SeoTaskStatus::Done->value, 'resolved_at' => now(), 'resolved_by' => auth()->id(), 'verification' => null, 'verified_at' => null, 'snoozed_until' => null])->save();
+        }
+        if ((bool) config('moxdop-advisor.brain.verify_on_done', true)) {
+            foreach ($tasks->pluck('digital_asset_id')->unique() as $siteId) {
+                $site = DigitalAsset::query()->find($siteId);
+                try {
+                    if ($site !== null) {
+                        app(SeoPlanRunner::class)->queue($site, auth()->user(), 'verify');
+                    }
+                } catch (ValidationException) {
+                    // The weekly plan verifies instead.
+                }
+            }
+        }
+        $this->bulkIds = [];
+        $this->flash($tasks->count().' görev yapıldı olarak işaretlendi; kayıtlı veriyle kontrol ediliyor.');
+    }
+
+    public function bulkSkip(): void
+    {
+        $tasks = $this->selectedOpenTasks();
+        $tasks->each(fn (SeoTask $task) => $task->forceFill(['status' => SeoTaskStatus::Skipped->value, 'resolved_at' => now(), 'resolved_by' => auth()->id(), 'snoozed_until' => null])->save());
+        $this->bulkIds = [];
+        $this->flash($tasks->count().' görev atlandı.');
+    }
+
+    public function bulkSnooze(int $days = 30): void
+    {
+        $days = max(1, min(180, $days));
+        $tasks = $this->selectedOpenTasks();
+        $tasks->each(fn (SeoTask $task) => $task->forceFill(['status' => SeoTaskStatus::Skipped->value, 'resolved_at' => now(), 'resolved_by' => auth()->id(), 'snoozed_until' => now()->addDays($days)])->save());
+        $this->bulkIds = [];
+        $this->flash($tasks->count().' görev '.$days.' gün ertelendi.');
+    }
+
+    /** @return SupportCollection<int, SeoTask> */
+    private function selectedOpenTasks(): SupportCollection
+    {
+        return SeoTask::query()->whereIn('id', array_map('intval', $this->bulkIds))->where('status', SeoTaskStatus::Open->value)
+            ->when($this->websiteId !== null, fn ($q) => $q->where('digital_asset_id', $this->websiteId))->get();
+    }
+
     public function markDone(int $id): void
     {
         $this->resolve($id, SeoTaskStatus::Done, 'Görev "Yapıldı" olarak işaretlendi. Kayıtlı veriyle yeniden kontrol ediliyor (AI yok); site taraması ve Search Console günlük yenilendiği için ilk gün "Hâlâ görünüyor" olabilir, 7 günden sonra sorun hâlâ görünürse görev yeniden açılır.');

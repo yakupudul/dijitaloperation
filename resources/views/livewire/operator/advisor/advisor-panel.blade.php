@@ -214,6 +214,16 @@
             </div>
         </div>
 
+        @if ($bulkIds !== [])
+            <div class="flex flex-wrap items-center gap-3 rounded-lg bg-brand-50 px-4 py-2 text-sm dark:bg-brand-500/10">
+                <span class="font-medium text-brand-700 dark:text-brand-300">{{ count($bulkIds) }} öneri seçili</span>
+                <button type="button" wire:click="bulkDone" class="rounded-lg bg-success-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-success-600">✓ Hepsi yapıldı</button>
+                <button type="button" wire:click="bulkSnooze(30)" class="{{ $btnSecondary }}">30 gün ertele</button>
+                <button type="button" wire:click="bulkSkip" wire:confirm="Seçili öneriler atlansın mı? Tekrar gösterilmez." class="{{ $btnSecondary }}">Atla</button>
+                <button type="button" wire:click="$set('bulkIds', [])" class="text-xs text-gray-500 hover:underline">Seçimi kaldır</button>
+            </div>
+        @endif
+
         @forelse ($items as $item)
             @php
                 $open = $item->status === AdvisorItemStatus::Open;
@@ -223,6 +233,9 @@
             @endphp
             <article wire:key="adv-item-{{ $item->id }}" @class([$card, 'border-l-4', $accent($item->category), 'opacity-70' => ! $open, 'shadow-theme-sm' => $expanded])>
                 <div class="flex flex-wrap items-start gap-4 p-4 sm:flex-nowrap">
+                    @if ($open)
+                        <input type="checkbox" value="{{ $item->id }}" wire:model.live="bulkIds" aria-label="Seç" class="mt-2 size-4 shrink-0 rounded border-gray-300">
+                    @endif
                     <span class="hidden size-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-sm font-semibold text-gray-500 sm:flex dark:bg-white/5 dark:text-gray-400">{{ $loop->iteration }}</span>
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-1.5">

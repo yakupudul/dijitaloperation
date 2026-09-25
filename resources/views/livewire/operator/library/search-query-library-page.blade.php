@@ -8,6 +8,10 @@
     </header>
     @if ($message)<div role="status" class="rounded-lg bg-blue-50 p-3 text-sm text-blue-800">{{ $message }} @if($undoQueryId)<button type="button" wire:click="restoreQuery({{ $undoQueryId }})" wire:loading.attr="disabled" class="ml-3 font-semibold underline">{{ __('query-list.undo') }}</button>@endif</div>@endif
     @if ($errors->any())<div role="alert" class="rounded-lg bg-red-50 p-3 text-sm text-red-700">{{ $errors->first() }}</div>@endif
+    <div class="flex flex-wrap items-center gap-3">
+        <livewire:operator.brain.prepare-button kind="query_service" :options="['sector' => $sectorFilter]" :key="'brain-query-service-'.$sectorFilter" />
+        <livewire:operator.brain.prepare-button kind="matching_keyword" :key="'brain-matching-keyword'" />
+    </div>
     <livewire:operator.integrations.resource-automations :queries-only="true" />
     <livewire:operator.library.query-exclusions />
     @if($status === 'deleted' || $undoQueryId)

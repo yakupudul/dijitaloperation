@@ -19,6 +19,9 @@
                 </select>
                 <a href="{{ route('operator.activity') }}" class="self-center text-xs text-brand-600 underline">{{ __('resource-auto.activity') }}</a>
             </div>
+            @if($showQueryColumns)
+                <div><livewire:operator.brain.prepare-button kind="account_mapping" :key="'brain-account-mapping'" /></div>
+            @endif
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
                     <thead class="border-b text-xs text-gray-500"><tr><th class="p-3">{{ __('resource-auto.account') }}</th><th class="p-3">{{ __('resource-auto.connection') }}</th><th class="p-3">{{ __('resource-auto.coverage') }}</th><th class="p-3">{{ __('resource-auto.collection') }}</th>@if($showQueryColumns)<th class="p-3">{{ __('resource-auto.queries') }}</th><th class="p-3">{{ __('resource-auto.mapping') }}</th>@endif<th class="p-3"></th></tr></thead>

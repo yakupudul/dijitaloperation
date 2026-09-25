@@ -3,6 +3,7 @@
 use App\Providers\AdvisorServiceProvider;
 use App\Providers\AiInsightServiceProvider;
 use App\Providers\AppServiceProvider;
+use App\Providers\BrainServiceProvider;
 use App\Providers\Filament\AppPanelProvider;
 use App\Providers\HorizonServiceProvider;
 use App\Providers\IntelligenceCoreServiceProvider;
@@ -30,4 +31,5 @@ return [
     SeoTasksServiceProvider::class,
     AdvisorServiceProvider::class,
     AiInsightServiceProvider::class,
+    BrainServiceProvider::class,
 ];

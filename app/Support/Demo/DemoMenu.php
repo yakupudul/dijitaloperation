@@ -60,6 +60,12 @@ final class DemoMenu
                 ],
             ],
             [
+                'label' => $tr ? 'Hizmet Beyni' : 'Service Brain',
+                'items' => [
+                    ['label' => $tr ? 'Onay kuyruğu' : 'Review Queue', 'route' => 'operator.brain.proposals', 'icon' => 'ai'],
+                ],
+            ],
+            [
                 'label' => __('operator.nav.groups.sales'),
                 'items' => [
                     ['label' => $tr ? 'Lead kutusu' : 'Lead Inbox', 'route' => 'operator.leads', 'icon' => 'inbox'],

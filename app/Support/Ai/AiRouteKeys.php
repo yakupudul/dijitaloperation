@@ -67,4 +67,16 @@ final class AiRouteKeys
     public const string SITE_FIX_LINKS = 'site_fixes.internal_links';
 
     public const string SITE_FIX_PAGE = 'site_fixes.page_writer';
+
+    public const string BRAIN_EMBEDDINGS = 'brain.embeddings';
+
+    public const string BRAIN_ACCOUNT_MAPPING = 'brain.account_mapping';
+
+    public const string BRAIN_QUERY_CLASSIFIER = 'brain.query_classifier';
+
+    public const string BRAIN_CLUSTER_LABELS = 'brain.cluster_labels';
+
+    public const string BRAIN_PAGE_FEATURES = 'brain.page_features';
+
+    public const string BRAIN_CREATIVE_CLASSIFIER = 'brain.creative_classifier';
 }

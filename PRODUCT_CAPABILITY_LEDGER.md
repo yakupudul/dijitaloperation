@@ -1,5 +1,24 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-14 — Hizmet Beyni Faz 1: onay kuyruğu, hesap eşleme, sorgu ataması, eşleme ifadesi önerisi, toplu işlem
+
+**State:** CODED + PHPUnit. Tests: `Brain/BrainProposalsTest` 4/4, `Brain/BulkReviewTest` 1/1. Real AI/embedding UAT: not done (fakes only).
+- `brain_proposals` holds one review queue for everything the system or AI prepares. Screen: **Hizmet Beyni → Onay kuyruğu** (`/brain/proposals`).
+  - The "AI ile hazırla" button starts a background job. Operators approve in bulk, including "güveni ≥ %X olanların hepsi". Rejected proposals are not offered again.
+  - Nothing changes without approval.
+- **Hesap eşleme:** AI reads each Google account's (Ads / Search Console / GBP) most frequent queries and proposes a sector and services.
+  - **Confidence is computed by the system:** the share of query impressions that the chosen services' matching expressions cover. The model's own opinion is not used.
+  - Approval goes through `ResourceAutomationService::save`, which turns on query intake.
+  - The button is in Veri kaynakları → Sorgular.
+- **Sorgu → hizmet** works in 4 tiers:
+  1. A single hit on a matching expression is filed directly.
+  2. Embeddings (`brain_embeddings` cache) compare the query with each service centroid; a clear winner is proposed with its margin as confidence.
+  3. AI handles the unclear queries and also labels intent. When AI and the similarity model disagree, confidence is 0.45.
+  4. The operator approves. Approved queries become examples for the service. When AI finds no service, the query is remembered and not asked again.
+- **Eşleme ifadesi önerisi (no AI):** a phrase found in ≥3 approved queries of a service, with precision ≥ 0.85 and catching ≥2 queries the current expressions miss.
+- **Danışman and SEO tasks:** bulk "Yapıldı" / "30 gün ertele" / "Atla".
+- New AI routes: `brain.embeddings` (OpenAI text-embedding-3-small → Gemini), `brain.account_mapping` and `brain.query_classifier` (classification chain). Embedding cost is recorded in `ai_usage_records`.
+
 ## 2026-10-13 — Müşteri / Marka toplu seç + sil (Admin; veriler korunur, veri çekimi durur)
 
 **State:** CODED + PHPUnit (SQLite ve PostgreSQL). Test: `PortfolioBulkDeleteTest` 4/4.

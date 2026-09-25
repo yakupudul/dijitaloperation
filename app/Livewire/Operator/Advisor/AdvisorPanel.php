@@ -68,6 +68,47 @@ final class AdvisorPanel extends Component
         $this->assetId = $assetId;
     }
 
+    /** @var list<int> open items selected for a bulk action */
+    public array $bulkIds = [];
+
+    /** Bulk "Yapıldı": marks the selected open items done and re-checks each asset once (rules only). */
+    public function bulkDone(): void
+    {
+        $items = $this->selectedOpenItems();
+        foreach ($items as $item) {
+            $item->forceFill(['status' => AdvisorItemStatus::Done->value, 'resolved_at' => now(), 'resolved_by' => auth()->id(), 'verification' => null, 'verified_at' => null, 'snoozed_until' => null])->save();
+        }
+        foreach ($items->unique('digital_asset_id') as $item) {
+            $this->verifyNow($item->id);
+        }
+        $this->bulkIds = [];
+        $this->flash($items->count().' öneri yapıldı olarak işaretlendi; kayıtlı veriyle kontrol ediliyor.');
+    }
+
+    public function bulkSkip(): void
+    {
+        $items = $this->selectedOpenItems();
+        $items->each(fn (AdvisorItem $item) => $item->forceFill(['status' => AdvisorItemStatus::Skipped->value, 'resolved_at' => now(), 'resolved_by' => auth()->id(), 'snoozed_until' => null])->save());
+        $this->bulkIds = [];
+        $this->flash($items->count().' öneri atlandı.');
+    }
+
+    public function bulkSnooze(int $days = 30): void
+    {
+        $days = max(1, min(180, $days));
+        $items = $this->selectedOpenItems();
+        $items->each(fn (AdvisorItem $item) => $item->forceFill(['status' => AdvisorItemStatus::Skipped->value, 'resolved_at' => now(), 'resolved_by' => auth()->id(), 'snoozed_until' => now()->addDays($days)])->save());
+        $this->bulkIds = [];
+        $this->flash($items->count().' öneri '.$days.' gün ertelendi.');
+    }
+
+    /** @return Collection<int, AdvisorItem> */
+    private function selectedOpenItems(): Collection
+    {
+        return AdvisorItem::query()->whereIn('id', array_map('intval', $this->bulkIds))->where('status', AdvisorItemStatus::Open->value)
+            ->when($this->assetId !== null, fn ($q) => $q->where('digital_asset_id', $this->assetId))->get();
+    }
+
     public function toggle(int $id): void
     {
         $this->expandedId = $this->expandedId === $id ? null : $id;
