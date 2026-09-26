@@ -195,14 +195,21 @@ class DataForSeoApiClient
             );
         }
 
+        $spend = app(DataForSeoSpendGuard::class);
+        if ($chargeClass === self::CHARGE_CLASS_PAID_CREATE) {
+            $spend->assertCanSpend();
+        }
+
         $maxAttempts = $chargeClass === self::CHARGE_CLASS_SAFE_READ ? 2 : 1;
         $lastException = null;
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             try {
                 $response = $this->send($login, $password, $method, $endpoint, $jsonBody);
+                $normalized = $this->normalizeOrThrow($response, $chargeClass, $attempt, $maxAttempts);
+                $spend->record($normalized->cost);
 
-                return $this->normalizeOrThrow($response, $chargeClass, $attempt, $maxAttempts);
+                return $normalized;
             } catch (ConnectionException $exception) {
                 $lastException = $exception;
 

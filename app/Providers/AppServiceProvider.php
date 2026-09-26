@@ -9,6 +9,17 @@ use App\Events\Collection\CollectionRunStarted;
 use App\Events\Collection\DatasetRunFailed;
 use App\Events\Collection\DatasetRunProgressed;
 use App\Events\EvidenceCanonicalized;
+use App\Jobs\Async\SearchDemandChangeVerificationJob;
+use App\Jobs\Async\SearchDemandCompetitiveIntelligenceJob;
+use App\Jobs\Async\SearchDemandCompetitorPageCollectionJob;
+use App\Jobs\Async\SearchDemandSerpEnrichmentJob;
+use App\Jobs\Async\SearchDemandWebsiteImprovementJob;
+use App\Jobs\CollectMetaGeoResultsJob;
+use App\Jobs\EraseSourceDataJob;
+use App\Jobs\PrepareBrainProposalsJob;
+use App\Jobs\RunAiVisibilityCheckJob;
+use App\Jobs\RunAreaSerpChecksJob;
+use App\Jobs\RunScheduledDiscoveryJob;
 use App\Listeners\Collection\BroadcastCollectionRunChanged;
 use App\Listeners\Collection\QueueWebsiteAnalysisAfterCollection;
 use App\Listeners\QueueFindingEvaluationAfterEvidenceCanonicalized;
@@ -85,6 +96,7 @@ use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -187,6 +199,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->routeHeavyJobs();
         Event::listen(AgentPrompted::class, [AiUsageRecorder::class, 'handle']);
         MethodLibrary::boot();
         ProductionArchive::boot();
@@ -232,5 +245,30 @@ class AppServiceProvider extends ServiceProvider
         $this->app->booted(function (): void {
             app(OperatorMailConfigService::class)->applyToRuntime();
         });
+    }
+
+    /**
+     * Long AI / analysis jobs run on the "heavy" Horizon supervisor so quick jobs on "default" never wait behind them.
+     * Only with the redis queue (Horizon); other drivers keep everything on "default" so nothing is left unworked.
+     */
+    private function routeHeavyJobs(): void
+    {
+        if (config('queue.default') !== 'redis') {
+            return;
+        }
+
+        Queue::route([
+            PrepareBrainProposalsJob::class,
+            RunAreaSerpChecksJob::class,
+            RunAiVisibilityCheckJob::class,
+            RunScheduledDiscoveryJob::class,
+            EraseSourceDataJob::class,
+            CollectMetaGeoResultsJob::class,
+            SearchDemandChangeVerificationJob::class,
+            SearchDemandCompetitorPageCollectionJob::class,
+            SearchDemandWebsiteImprovementJob::class,
+            SearchDemandSerpEnrichmentJob::class,
+            SearchDemandCompetitiveIntelligenceJob::class,
+        ], 'heavy');
     }
 }

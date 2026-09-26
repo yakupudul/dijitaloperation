@@ -10,6 +10,8 @@ class Invoice extends Model
 {
     public const array STATUSES = ['draft' => 'Taslak', 'issued' => 'Kesildi', 'paid' => 'Ödendi', 'cancelled' => 'İptal'];
 
+    protected $table = 'agency_invoices';
+
     protected $guarded = ['id'];
 
     /** @return array<string, string> */

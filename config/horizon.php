@@ -212,6 +212,20 @@ return [
             'timeout' => (int) env('HORIZON_COLLECTION_TIMEOUT', 300),
             'nice' => 0,
         ],
+        // Long AI / analysis jobs (advisor, SEO plans, brain, SERP, erase) so quick jobs on "default"
+        // (WhatsApp, uptime, writes, notifications) never wait behind them.
+        'supervisor-heavy' => [
+            'connection' => 'redis',
+            'queue' => ['heavy'],
+            'balance' => 'simple',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 512,
+            'tries' => 1,
+            'timeout' => (int) env('HORIZON_HEAVY_TIMEOUT', 900),
+            'nice' => 5,
+        ],
     ],
 
     'environments' => [
@@ -226,6 +240,10 @@ return [
                 'maxProcesses' => (int) env('HORIZON_COLLECTION_MAX_PROCESSES', 3),
                 'timeout' => (int) env('HORIZON_COLLECTION_TIMEOUT', 300),
             ],
+            'supervisor-heavy' => [
+                'maxProcesses' => (int) env('HORIZON_HEAVY_MAX_PROCESSES', 2),
+                'timeout' => (int) env('HORIZON_HEAVY_TIMEOUT', 900),
+            ],
         ],
 
         'local' => [
@@ -236,6 +254,10 @@ return [
             'supervisor-collection' => [
                 'maxProcesses' => 1,
                 'timeout' => (int) env('HORIZON_COLLECTION_TIMEOUT', 300),
+            ],
+            'supervisor-heavy' => [
+                'maxProcesses' => (int) env('HORIZON_HEAVY_MAX_PROCESSES', 1),
+                'timeout' => (int) env('HORIZON_HEAVY_TIMEOUT', 900),
             ],
         ],
 
@@ -257,6 +279,10 @@ return [
                 'maxProcesses' => (int) env('HORIZON_COLLECTION_MAX_PROCESSES', 3),
                 'timeout' => (int) env('HORIZON_COLLECTION_TIMEOUT', 300),
             ],
+            'supervisor-heavy' => [
+                'maxProcesses' => (int) env('HORIZON_HEAVY_MAX_PROCESSES', 2),
+                'timeout' => (int) env('HORIZON_HEAVY_TIMEOUT', 900),
+            ],
         ],
 
         'uat' => [
@@ -267,6 +293,10 @@ return [
             'supervisor-collection' => [
                 'maxProcesses' => (int) env('HORIZON_COLLECTION_MAX_PROCESSES', 1),
                 'timeout' => (int) env('HORIZON_COLLECTION_TIMEOUT', 300),
+            ],
+            'supervisor-heavy' => [
+                'maxProcesses' => (int) env('HORIZON_HEAVY_MAX_PROCESSES', 1),
+                'timeout' => (int) env('HORIZON_HEAVY_TIMEOUT', 900),
             ],
         ],
     ],

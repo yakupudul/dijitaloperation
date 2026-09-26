@@ -343,6 +343,7 @@ final class BackgroundOperationsService
             ['name' => $collectionQueue, 'connection' => $collectionConnection, 'queue' => $collectionQueue],
             ['name' => 'legacy redis:'.$collectionQueue, 'connection' => 'redis', 'queue' => $collectionQueue],
             ['name' => 'default', 'connection' => $defaultConnection, 'queue' => 'default'],
+            ['name' => 'heavy', 'connection' => $defaultConnection, 'queue' => 'heavy'],
             ['name' => 'async', 'connection' => $defaultConnection, 'queue' => 'async'],
             ['name' => 'ai', 'connection' => $defaultConnection, 'queue' => 'ai'],
             ['name' => 'notifications', 'connection' => $defaultConnection, 'queue' => 'notifications'],

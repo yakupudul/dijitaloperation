@@ -2,6 +2,7 @@
 
 namespace App\Services\Operations;
 
+use App\Services\Integrations\DataForSeo\DataForSeoSpendGuard;
 use App\Services\Intel\DataForSeoTaskQueue;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -62,7 +63,7 @@ final class CostReader
         $budget = Schema::hasTable('agency_settings') && Schema::hasColumn('agency_settings', 'ai_monthly_budget_usd')
             ? DB::table('agency_settings')->value('ai_monthly_budget_usd') : null;
 
-        return ['months' => $keys, 'rows' => $rows, 'totals' => $totals, 'ai_budget' => $budget !== null ? (float) $budget : null, 'brand_caps' => $this->brandCaps()];
+        return ['months' => $keys, 'rows' => $rows, 'totals' => $totals, 'ai_budget' => $budget !== null ? (float) $budget : null, 'brand_caps' => $this->brandCaps(), 'dataforseo_global' => ['cap' => app(DataForSeoSpendGuard::class)->cap(), 'spent' => app(DataForSeoSpendGuard::class)->spentThisMonth()]];
     }
 
     /**

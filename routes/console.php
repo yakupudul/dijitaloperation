@@ -315,11 +315,7 @@ Schedule::command('async:mark-stale-runs')
     ->withoutOverlapping(10)
     ->name('async-mark-stale-runs');
 
-Schedule::command('reports:dispatch-due-deliveries')
-    ->everyFiveMinutes()
-    ->withoutOverlapping(10)
-    ->name('reports-dispatch-due-deliveries');
-
+// reports:dispatch-due-deliveries stays as a manual command; the shared dispatcher below already covers report deliveries.
 Schedule::command('moxdop:dispatch-due-automations')
     ->everyFiveMinutes()
     ->withoutOverlapping(10)

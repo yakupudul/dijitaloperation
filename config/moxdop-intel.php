@@ -12,6 +12,9 @@ return [
     // Yeni marka ayarı için aylık tavan (USD). Harita grid + yorumlar + backlink aynı tavanı paylaşır.
     'default_monthly_usd' => 5,
 
+    // W5: tüm DataForSEO özellikleri için hesap geneli aylık tavan (USD). 0 = kapalı.
+    'global_monthly_usd' => (float) env('DATAFORSEO_GLOBAL_MONTHLY_USD', 100),
+
     'grid' => [
         'sizes' => [3, 5, 7, 9],
         'default_size' => 7,

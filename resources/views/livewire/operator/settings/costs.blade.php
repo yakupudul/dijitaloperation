@@ -31,6 +31,9 @@
         <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <p class="text-xs text-gray-500">Bu ay DataForSEO</p>
             <p class="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">{{ $usd(collect($costs['rows'])->where('group', 'dataforseo')->sum(fn ($row) => $row['values'][$current])) }}</p>
+            @if (($costs['dataforseo_global']['cap'] ?? 0) > 0)
+                <p class="mt-1 text-xs text-gray-500">Genel tavan: {{ $usd($costs['dataforseo_global']['spent']) }} / {{ $usd($costs['dataforseo_global']['cap']) }} (tüm çağrılar)</p>
+            @endif
         </section>
     </div>
 

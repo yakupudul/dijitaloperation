@@ -13,7 +13,7 @@ return [
 
     // Kuyruk: mevcut async iş kuyruğu ile aynı bağlantı.
     'queue_connection' => env('SEO_TASKS_QUEUE_CONNECTION', env('QUEUE_CONNECTION', 'database')),
-    'queue' => env('SEO_TASKS_QUEUE', 'default'),
+    'queue' => env('SEO_TASKS_QUEUE', env('QUEUE_CONNECTION') === 'redis' ? 'heavy' : 'default'),
 
     // Haftalık zamanlayıcı (pazartesi sabahı) — routes/console.php içinde kullanılır.
     'schedule' => [

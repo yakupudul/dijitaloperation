@@ -11,7 +11,7 @@
 return [
     'enabled' => env('ADVISOR_ENABLED', true),
     'queue_connection' => env('ADVISOR_QUEUE_CONNECTION', env('QUEUE_CONNECTION', 'database')),
-    'queue' => env('ADVISOR_QUEUE', 'default'),
+    'queue' => env('ADVISOR_QUEUE', env('QUEUE_CONNECTION') === 'redis' ? 'heavy' : 'default'),
 
     // Faz 7 (Beyin): outcome-based weighting and done verification.
     'brain' => [

@@ -232,7 +232,7 @@ final class CommandCenter
                     return $this->snooze($source.':'.$id, $until, $user);
                 }
 
-                return DB::table('invoices')->where('id', (int) $id)->where('status', 'issued')->update(['status' => 'paid', 'paid_on' => now()->toDateString(), 'updated_at' => now()]) > 0;
+                return DB::table('agency_invoices')->where('id', (int) $id)->where('status', 'issued')->update(['status' => 'paid', 'paid_on' => now()->toDateString(), 'updated_at' => now()]) > 0;
             case 'task':
                 if ($action === 'snooze') {
                     return DB::table('tasks')->where('id', (int) $id)->update(['due_date' => $until->toDateString(), 'updated_at' => now()]) > 0;
