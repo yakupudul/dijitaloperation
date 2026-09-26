@@ -23,6 +23,21 @@ class SiteFixItem extends Model
 
     protected $guarded = ['id'];
 
+    protected static function booted(): void
+    {
+        // A new-page fix written from an SEO task's brief closes that task, so it does not stay open elsewhere.
+        static::saved(function (SiteFixItem $item): void {
+            if ($item->type !== 'new_page' || ! $item->wasChanged('status') || ! in_array($item->status, ['applied', 'drafted'], true)) {
+                return;
+            }
+            $taskId = is_array($item->current) ? ($item->current['seo_task_id'] ?? null) : null;
+            if ($taskId !== null) {
+                SeoTask::query()->whereKey((int) $taskId)->where('status', 'open')
+                    ->update(['status' => 'done', 'resolved_at' => now(), 'resolution_note' => 'Site düzeltmesiyle taslak sayfa oluşturuldu.']);
+            }
+        });
+    }
+
     /** @return array<string, string> */
     protected function casts(): array
     {

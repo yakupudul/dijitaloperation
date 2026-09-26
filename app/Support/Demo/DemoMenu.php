@@ -27,6 +27,7 @@ final class DemoMenu
                 'label' => __('operator.nav.groups.menu'),
                 'items' => [
                     ['label' => __('operator.nav.dashboard'), 'route' => 'operator.dashboard', 'icon' => 'dashboard'],
+                    ['label' => $tr ? 'Komuta merkezi' : 'Command Center', 'route' => 'operator.command-center', 'icon' => 'command'],
                 ],
             ],
             [

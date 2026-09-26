@@ -99,6 +99,7 @@ use App\Livewire\Operator\Settings\SectorPacksPage;
 use App\Livewire\Operator\Settings\SectorPatternsPage;
 use App\Livewire\Operator\Settings\SystemHealthPage;
 use App\Livewire\Operator\Work\AlertsPage;
+use App\Livewire\Operator\Work\CommandCenterPage;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Work\WorkUrl;
 use Illuminate\Support\Facades\Route;
@@ -228,6 +229,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/brain/recommendations', BrainRecommendationsPage::class)->name('operator.brain.recommendations');
         Route::livewire('/brain/methods', BrainMethodsPage::class)->name('operator.brain.methods');
         Route::livewire('/data-center', DataCenterPage::class)->name('operator.data-center');
+        Route::livewire('/command-center', CommandCenterPage::class)->name('operator.command-center');
         Route::livewire('/market/map-rankings', MapRankingsPage::class)->name('operator.market.map-rankings');
         Route::get('/market/kml/{brand}', KmlExportController::class)->name('operator.market.kml');
         Route::livewire('/market/backlinks', BacklinksPage::class)->name('operator.market.backlinks');
