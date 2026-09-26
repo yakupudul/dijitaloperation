@@ -84,6 +84,8 @@ final class DemoMenu
             [
                 'label' => $tr ? 'Raporlar' : 'Reports',
                 'items' => [
+                    ['label' => $tr ? 'Rapor kuyruğu' : 'Report Queue', 'route' => 'operator.reports.queue', 'icon' => 'report'],
+                    ['label' => $tr ? 'Ajans karnesi' : 'Monthly Results', 'route' => 'operator.reports.scorecard', 'icon' => 'scorecard'],
                     ['label' => $tr ? 'Aylık rapor' : 'Monthly Report', 'route' => 'operator.reports.monthly', 'icon' => 'report'],
                     ['label' => $tr ? 'Grafik notları' : 'Chart Notes', 'route' => 'operator.reports.annotations', 'icon' => 'notes'],
                     ['label' => __('operator.nav.archive'), 'route' => 'operator.archive', 'icon' => 'archive'],

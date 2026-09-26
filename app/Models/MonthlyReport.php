@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /** One brand's monthly report (Faz 9): frozen numbers, optional AI commentary, operator note. */
 class MonthlyReport extends Model
 {
-    protected $fillable = ['brand_id', 'month', 'payload', 'operator_note', 'commentary', 'commentary_status', 'status', 'created_by', 'published_at', 'emailed_at', 'emailed_to'];
+    protected $fillable = ['brand_id', 'month', 'payload', 'operator_note', 'commentary', 'commentary_status', 'status', 'created_by', 'published_at', 'emailed_at', 'emailed_to', 'send_error'];
 
     protected function casts(): array
     {

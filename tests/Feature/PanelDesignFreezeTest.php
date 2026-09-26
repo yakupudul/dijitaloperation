@@ -83,6 +83,8 @@ class PanelDesignFreezeTest extends TestCase
             'operator.prospects',
             'operator.intent-radar',
             'operator.whatsapp',
+            'operator.reports.queue',
+            'operator.reports.scorecard',
             'operator.reports.monthly',
             'operator.reports.annotations',
             'operator.archive',
