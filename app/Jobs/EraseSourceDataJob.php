@@ -12,7 +12,8 @@ final class EraseSourceDataJob implements ShouldQueue
 {
     use Queueable;
 
-    public int $timeout = 1800;
+    /** Below the queue retry_after (900s) so a slow delete is never picked up twice. */
+    public int $timeout = 870;
 
     public int $tries = 1;
 
