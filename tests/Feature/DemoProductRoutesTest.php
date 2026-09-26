@@ -3,13 +3,13 @@
 namespace Tests\Feature;
 
 use App\Livewire\Demo\Gbp\OverviewPage as GbpOverviewPage;
-use App\Livewire\Operator\GoogleAds\OverviewPage;
 use App\Livewire\Demo\Integrations\MetaIntegrationPage;
 use App\Livewire\Demo\Operations\FindingsIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Operations\TaskShow;
 use App\Livewire\Demo\Operations\TasksIndex;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
+use App\Livewire\Operator\GoogleAds\OverviewPage;
 use App\Models\DigitalAsset;
 use App\Models\Finding;
 use App\Models\Recommendation;
@@ -58,10 +58,8 @@ class DemoProductRoutesTest extends TestCase
     {
         $this->get('/')
             ->assertOk()
-            ->assertSee(__('operator.dashboard_exec.needs_attention'))
-            ->assertSee('My Work')
-            ->assertSee('Agency')
-            ->assertSee('Recent Outcomes')
+            ->assertSee(__('operator.dashboard_exec.weekly_top'))
+            ->assertSee('Komuta merkezi')
             ->assertDontSee('Agency Health');
 
         $this->get(route('operator.customers'))->assertOk()->assertSee('Customers');

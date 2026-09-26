@@ -1,4 +1,4 @@
-<div class="space-y-6" wire:poll.5s.visible>
+<div class="space-y-6" wire:poll.15s.visible>
     @include('livewire.demo.partials.flash')
 
     @php

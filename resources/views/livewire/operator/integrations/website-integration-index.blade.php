@@ -24,7 +24,7 @@
     ];
 @endphp
 
-<div class="space-y-6" @if (($liveConsole['active'] ?? false) === true) wire:poll.2s @else wire:poll.30s @endif>
+<div class="space-y-6" @if (($liveConsole['active'] ?? false) === true) wire:poll.5s @else wire:poll.60s @endif>
     @if ($selectedRow === null)
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>

@@ -352,7 +352,10 @@ final class AdvisorPanel extends Component
             ->when($this->assetId === null && ctype_digit($this->customerFilter), fn (Builder $query) => $query->whereHas('brand', fn (Builder $brand) => $brand->where('customer_id', (int) $this->customerFilter)))
             ->orderBy('name')
             ->get();
-        $plans = AdvisorPlan::query()->whereIn('digital_asset_id', $assets->pluck('id'))->orderByDesc('id')->get();
+        $assetIds = $assets->pluck('id');
+        $latestIds = AdvisorPlan::query()->selectRaw('max(id)')->whereIn('digital_asset_id', $assetIds)->groupBy('digital_asset_id');
+        $completedIds = AdvisorPlan::query()->selectRaw('max(id)')->whereIn('digital_asset_id', $assetIds)->where('status', AdvisorPlan::STATUS_COMPLETED)->groupBy('digital_asset_id');
+        $plans = AdvisorPlan::query()->whereIn('id', $latestIds)->orWhereIn('id', $completedIds)->orderByDesc('id')->get();
         $latest = $plans->unique('digital_asset_id')->keyBy('digital_asset_id');
         $completed = $plans->where('status', AdvisorPlan::STATUS_COMPLETED)->unique('digital_asset_id')->keyBy('digital_asset_id');
         $byAsset = $open->groupBy('digital_asset_id');

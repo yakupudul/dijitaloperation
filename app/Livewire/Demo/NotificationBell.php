@@ -68,7 +68,7 @@ class NotificationBell extends Component
             'title' => $title !== '' ? $title : null,
             'detail' => $detail,
             'when' => $when,
-            'url' => ($item['subject_kind'] ?? null) === 'operational_alert' && Route::has('operator.alerts') ? route('operator.alerts') : null,
+            'url' => ($item['subject_kind'] ?? null) === 'operational_alert' && Route::has('operator.settings.system-health') ? route('operator.settings.system-health') : null,
         ]);
     }
 

@@ -67,21 +67,16 @@ class GlobalAgencyOperatingLayerTest extends TestCase
         $this->assertNotContains('Data', $groupTitles);
     }
 
-    public function test_dashboard_my_work_and_agency_modes(): void
+    public function test_dashboard_shows_the_command_center_top_list_not_demo_fixtures(): void
     {
-        // Prompt 67/68: Dashboard lists production WorkReadService rows (seeded canonical tasks here),
-        // not Demo Atlas portfolio/attention fixtures.
+        // W5: the dashboard shows the Command Center top list; no Demo Atlas portfolio/attention fixtures.
         Livewire::test(Dashboard::class)
             ->assertOk()
-            ->assertSee(__('operator.dashboard_exec.needs_attention'))
-            ->assertSee('Investigate lead measurement')
+            ->assertSee(__('operator.dashboard_exec.weekly_top'))
             ->assertDontSee('Lead measurement finding open on Google Ads')
             ->assertDontSee('1 overdue recurring review (Meta Creative)')
-            ->assertSee(__('operator.dashboard_exec.recent_outcomes'))
             ->assertDontSee('Agency Health')
             ->assertDontSee('total Website visitors')
-            ->call('setMode', 'agency')
-            ->assertSet('mode', 'agency')
             ->assertDontSee('Google Integration needs attention');
     }
 

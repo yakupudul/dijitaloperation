@@ -35,7 +35,7 @@ final class CommandCenter
     public const array SOURCES = [
         'alert' => 'Uyarı', 'advisor' => 'Danışman', 'seo' => 'SEO', 'site_fix' => 'Site düzeltmesi', 'brain' => 'Beyin önerisi',
         'compliance' => 'Uyum', 'lead' => 'Lead', 'system' => 'Sistem', 'approval' => 'Onay bekliyor', 'coverage' => 'Kurulum eksiği',
-        'calendar' => 'İçerik takvimi', 'followup' => 'Takip', 'invoice' => 'Tahsilat', 'commitment' => 'Taahhüt',
+        'calendar' => 'İçerik takvimi', 'followup' => 'Takip', 'invoice' => 'Tahsilat', 'commitment' => 'Taahhüt', 'task' => 'Görev',
     ];
 
     private const array SEVERITY_BASE = ['critical' => 1000, 'high' => 700, 'medium' => 400, 'low' => 150];
@@ -55,7 +55,7 @@ final class CommandCenter
     ];
 
     /** @var list<class-string<CommandCenterSource>> producers beyond the built-in readers */
-    public const array EXTRA_SOURCES = [CoverageSource::class, CalendarSource::class, AgencySource::class];
+    public const array EXTRA_SOURCES = [CoverageSource::class, CalendarSource::class, AgencySource::class, TaskSource::class];
 
     public function __construct(private readonly AdvisorChannels $channels) {}
 
@@ -233,6 +233,13 @@ final class CommandCenter
                 }
 
                 return DB::table('invoices')->where('id', (int) $id)->where('status', 'issued')->update(['status' => 'paid', 'paid_on' => now()->toDateString(), 'updated_at' => now()]) > 0;
+            case 'task':
+                if ($action === 'snooze') {
+                    return DB::table('tasks')->where('id', (int) $id)->update(['due_date' => $until->toDateString(), 'updated_at' => now()]) > 0;
+                }
+
+                return DB::table('tasks')->where('id', (int) $id)->whereNotIn('status', TaskSource::CLOSED)
+                    ->update(['status' => $action === 'done' ? 'completed' : 'cancelled', 'completed_at' => now(), 'updated_at' => now()]) > 0;
             case 'calendar':
                 if ($action === 'snooze') {
                     return $this->snooze($source.':'.$id, $until, $user);

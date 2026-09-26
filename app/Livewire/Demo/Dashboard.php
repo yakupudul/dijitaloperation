@@ -5,50 +5,26 @@ namespace App\Livewire\Demo;
 use App\Enums\Observability\OperationalAlertState;
 use App\Models\AssetAlert;
 use App\Models\Observability\OperationalAlert;
-use App\Services\Advisor\AdvisorWorkQueue;
+use App\Services\CommandCenter\CommandCenter;
 use App\Services\Operator\OperatorExecutionReadService;
-use App\Services\Opportunities\OpportunityReadService;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
-use Livewire\Attributes\Url;
 use Livewire\Component;
 use Throwable;
 
 #[Layout('operator.layouts.app')]
-#[Title('Dashboard')]
+#[Title('Ana sayfa')]
 class Dashboard extends Component
 {
-    #[Url(as: 'mode', history: true)]
-    public string $mode = 'my_work';
-
-    public function mount(): void
-    {
-        if (! in_array($this->mode, ['my_work', 'agency'], true)) {
-            $this->mode = 'my_work';
-        }
-    }
-
-    public function setMode(string $mode): void
-    {
-        if (in_array($mode, ['my_work', 'agency'], true)) {
-            $this->mode = $mode;
-        }
-    }
-
     public function render(): View
     {
         return view('livewire.demo.dashboard', [
-            'dashboard' => app(OperatorExecutionReadService::class)->dashboard($this->mode),
-            'growthOpportunities' => collect(app(OpportunityReadService::class)->forListPresentation())
-                ->whereIn('status', ['open', 'reviewing'])
-                ->take(3)
-                ->values()
-                ->all(),
-            'recentValue' => [],
+            'dashboard' => app(OperatorExecutionReadService::class)->dashboard('my_work'),
             'weeklyTop' => $this->weeklyTop(),
+            'commandSummary' => $this->commandSummary(),
             'alerts' => $this->openAlerts(),
             'systemAlerts' => $this->systemAlerts(),
             'flash' => DemoState::pullFlash(),
@@ -56,16 +32,28 @@ class Dashboard extends Component
     }
 
     /**
-     * "Bu haftanın en önemli 5 işi" across SEO Görevleri and every advisor channel (max 2 per brand).
+     * "Önce bunlar": the first command-center items across every source (max 2 per brand).
      *
      * @return list<array<string, mixed>>
      */
     private function weeklyTop(): array
     {
         try {
-            return app(AdvisorWorkQueue::class)->top(5);
-        } catch (Throwable) {
+            return app(CommandCenter::class)->top(8, 2);
+        } catch (Throwable $error) {
+            report($error);
+
             return [];
+        }
+    }
+
+    /** @return array{total: int, critical: int, money: float, clicks: float, brands: int} */
+    private function commandSummary(): array
+    {
+        try {
+            return app(CommandCenter::class)->summary();
+        } catch (Throwable) {
+            return ['total' => 0, 'critical' => 0, 'money' => 0.0, 'clicks' => 0.0, 'brands' => 0];
         }
     }
 

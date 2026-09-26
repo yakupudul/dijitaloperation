@@ -52,7 +52,7 @@
     };
 @endphp
 
-<div @if($active) wire:poll.2s @endif @class([
+<div @if($active) wire:poll.5s @endif @class([
     'rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900',
     'px-3 py-2.5' => $compact,
     'p-4' => !$compact,

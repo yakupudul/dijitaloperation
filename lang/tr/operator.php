@@ -1376,8 +1376,8 @@ return [
     ],
 
     'dashboard_exec' => [
-        'weekly_top' => 'Bu haftanın en önemli 5 işi',
-        'weekly_top_empty' => 'Açık iş yok. Planlar ve danışman her Pazartesi kendiliğinden çalışır.',
+        'weekly_top' => 'Önce bunlar',
+        'weekly_top_empty' => 'Açık iş yok. Tüm kaynaklar Komuta merkezinde toplanır.',
         'subtitle' => 'Bugün dikkat gerektiren işlere odaklı görünüm.',
         'mode_label' => 'Pano modu',
         'my_work' => 'Benim işlerim',

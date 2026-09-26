@@ -1375,7 +1375,7 @@ return [
     ],
 
     'dashboard_exec' => [
-        'weekly_top' => 'Top 5 jobs this week',
+        'weekly_top' => 'Do these first',
         'weekly_top_empty' => 'No open work. Plans and the advisor run every Monday.',
         'subtitle' => 'Execution-focused view of what needs attention today.',
         'mode_label' => 'Dashboard mode',

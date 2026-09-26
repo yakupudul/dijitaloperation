@@ -1,4 +1,4 @@
-<div wire:poll.2s.visible class="space-y-4">
+<div wire:poll.10s.visible class="space-y-4">
     @if ($actionMessage)
         <div class="rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-700 ring-1 ring-inset ring-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20">
             {{ $actionMessage }}
