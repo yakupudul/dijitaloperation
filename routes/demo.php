@@ -64,6 +64,7 @@ use App\Livewire\Operator\Brain\ProposalsPage as BrainProposalsPage;
 use App\Livewire\Operator\Brain\RecommendationsPage as BrainRecommendationsPage;
 use App\Livewire\Operator\Brain\ServiceMapPage as BrainServiceMapPage;
 use App\Livewire\Operator\Compliance\CompliancePage;
+use App\Livewire\Operator\Content\ContentCalendarPage;
 use App\Livewire\Operator\DataCenterPage;
 use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Operator\Integrations\SiteConnectorShow;
@@ -234,6 +235,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/data-center', DataCenterPage::class)->name('operator.data-center');
         Route::livewire('/command-center', CommandCenterPage::class)->name('operator.command-center');
         Route::livewire('/portfolio/health', PortfolioHealthPage::class)->name('operator.portfolio.health');
+        Route::livewire('/content', ContentCalendarPage::class)->name('operator.content.calendar');
         Route::livewire('/reports/queue', ReportQueuePage::class)->name('operator.reports.queue');
         Route::livewire('/reports/scorecard', AgencyScorecardPage::class)->name('operator.reports.scorecard');
         Route::livewire('/market/map-rankings', MapRankingsPage::class)->name('operator.market.map-rankings');

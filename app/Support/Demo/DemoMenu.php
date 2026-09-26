@@ -45,6 +45,7 @@ final class DemoMenu
                     ['label' => $tr ? 'İş listesi' : 'Work List', 'route' => 'operator.tasks', 'icon' => 'tasks'],
                     ['label' => __('operator.nav.ads_advisor'), 'route' => 'operator.ads_advisor', 'icon' => 'ads-advisor'],
                     ['label' => __('operator.nav.seo_tasks'), 'route' => 'operator.seo_tasks', 'icon' => 'seo'],
+                    ['label' => $tr ? 'İçerik takvimi' : 'Content Calendar', 'route' => 'operator.content.calendar', 'icon' => 'calendar'],
                     ['label' => $tr ? 'Uyarılar' : 'Alerts', 'route' => 'operator.alerts', 'icon' => 'alerts'],
                     ['label' => __('operator.nav.renewals'), 'route' => 'operator.renewals', 'icon' => 'renewals'],
                 ],

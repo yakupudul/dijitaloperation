@@ -15,6 +15,15 @@ class ExternalWriteAction extends Model
 
     public const string CHANNEL_WORDPRESS = 'wordpress';
 
+    /** ADR-073: Google Business Profile (review reply, local post). */
+    public const string CHANNEL_GBP = 'gbp';
+
+    /** ADR-073: reply to a Google review (undo restores the previous reply or deletes it). */
+    public const string ACTION_REVIEW_REPLY = 'review_reply';
+
+    /** ADR-073: publish a Business Profile local post (undo deletes it). */
+    public const string ACTION_LOCAL_POST = 'local_post';
+
     public const string ACTION_NEGATIVE_LIST_ADD = 'negative_list_add';
 
     public const string ACTION_DRAFT_CREATE = 'draft_create';

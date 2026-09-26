@@ -222,9 +222,7 @@ class GoogleApiClient
             $pending = Http::withToken($token)->timeout(45)->acceptJson();
 
             /** @var Response $response */
-            $response = $method === 'post'
-                ? $pending->asJson()->post($url, $payload)
-                : $pending->get($url, $payload);
+            $response = $this->send($pending, $method, $url, $payload);
         } catch (GoogleAuthenticationException|GoogleAuthorizationException $e) {
             throw $e;
         } catch (\Throwable $e) {
@@ -240,13 +238,38 @@ class GoogleApiClient
             $refreshed = $this->oauth->refreshAccessToken($integration, force: true);
             if ($refreshed !== null) {
                 $pending = Http::withToken($refreshed)->timeout(45)->acceptJson();
-                $response = $method === 'post'
-                    ? $pending->asJson()->post($url, $payload)
-                    : $pending->get($url, $payload);
+                $response = $this->send($pending, $method, $url, $payload);
             }
         }
 
         return $response;
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function send(PendingRequest $pending, string $method, string $url, array $payload): Response
+    {
+        return match ($method) {
+            'post' => $pending->asJson()->post($url, $payload),
+            'put' => $pending->asJson()->put($url, $payload),
+            'delete' => $pending->delete($url),
+            default => $pending->get($url, $payload),
+        };
+    }
+
+    /**
+     * ADR-073: the only Business Profile writes MoxDOP performs — reply to a review (PUT / DELETE …/reviews/{id}/reply)
+     * and a local post (POST / DELETE …/localPosts). Callers are restricted to GbpWriter.
+     *
+     * @param  array<string, mixed>  $body
+     */
+    public function writeBusinessProfile(CoreIntegration $integration, string $method, string $url, array $body = []): Response
+    {
+        $allowed = preg_match('#^https://mybusiness\.googleapis\.com/v4/accounts/[^/]+/locations/[^/]+/(reviews/[^/]+/reply|localPosts(/[^/]+)?)$#', $url) === 1;
+        if (! $allowed || ! in_array($method, ['put', 'post', 'delete'], true)) {
+            throw new RuntimeException('Business Profile write target is not allowed.');
+        }
+
+        return $this->request($integration, $method, $url, $body, 'google_business_profile');
     }
 
     private function resolveAccessToken(CoreIntegration $integration, ?string $capability): string

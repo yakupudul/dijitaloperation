@@ -311,10 +311,15 @@
                                     $draft = $replyDrafts[$review['id']] ?? ['text' => null, 'state' => null];
                                 @endphp
                                 @if ($draft['text'])
-                                    <div class="mt-2 rounded-lg bg-brand-50 p-3 text-sm text-gray-800 dark:bg-brand-500/10 dark:text-gray-200" x-data>
-                                        <p class="text-xs font-semibold text-brand-700 dark:text-brand-300">Yanıt taslağı (İşletme Profili'nden siz gönderin)</p>
-                                        <p class="mt-1 whitespace-pre-line" x-ref="reply">{{ $draft['text'] }}</p>
-                                        <button type="button" x-on:click="navigator.clipboard.writeText($refs.reply.innerText)" class="mt-1 text-xs font-medium text-brand-600 hover:underline">Kopyala</button>
+                                    <div class="mt-2 rounded-lg bg-brand-50 p-3 text-sm text-gray-800 dark:bg-brand-500/10 dark:text-gray-200" x-data="{ text: @js($draft['text']) }">
+                                        <p class="text-xs font-semibold text-brand-700 dark:text-brand-300">Yanıt taslağı — düzenleyip Google'a gönderebilirsiniz</p>
+                                        <textarea x-model="text" rows="4" aria-label="Yanıt" class="mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900"></textarea>
+                                        <div class="mt-1 flex gap-3">
+                                            <button type="button" x-on:click="navigator.clipboard.writeText(text)" class="text-xs font-medium text-brand-600 hover:underline">Kopyala</button>
+                                            @if ($canPublishReplies)
+                                                <button type="button" x-on:click="if (confirm('Yanıt Google’da yayınlansın mı? Sonradan geri alınabilir.')) $wire.publishReply({{ $review['id'] }}, text)" class="rounded bg-success-500 px-2 py-0.5 text-xs font-semibold text-white hover:bg-success-600">Google'a gönder</button>
+                                            @endif
+                                        </div>
                                     </div>
                                 @elseif ($draft['state'] === 'running')
                                     <p class="mt-2 text-xs text-gray-500" wire:poll.5s>Yanıt taslağı hazırlanıyor…</p>

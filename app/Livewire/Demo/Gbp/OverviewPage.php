@@ -10,8 +10,10 @@ use App\Models\AiProduction;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
+use App\Models\ExternalWriteAction;
 use App\Models\GbpReview;
 use App\Services\Async\AsyncOperationService;
+use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\ReviewReplyDrafter;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
@@ -117,6 +119,19 @@ class OverviewPage extends Component
         }
     }
 
+    /** ADR-073: the Admin-approved reply goes to Google (undo from the write log). */
+    public function publishReply(int $reviewId, string $text, ExternalWriteService $writes): void
+    {
+        $resourceIds = CoreAssetBinding::query()->where('digital_asset_id', $this->asset()->id)->where('status', CoreAssetBinding::STATUS_ACTIVE)->pluck('external_resource_id');
+        $review = GbpReview::query()->whereIn('external_resource_id', $resourceIds)->findOrFail($reviewId);
+        try {
+            $writes->requestReviewReply(auth()->user(), $review, $text);
+            DemoState::flash('Yanıt Google’a gönderiliyor; birkaç saniye içinde yayında olur.', 'info');
+        } catch (ValidationException $exception) {
+            DemoState::flash((string) collect($exception->errors())->flatten()->first(), 'error');
+        }
+    }
+
     protected function insightSubject(string $kind, int $subjectId): ?Model
     {
         return $kind === 'reviews.themes' && $subjectId === (int) $this->asset()->brand_id ? Brand::query()->find($subjectId) : null;
@@ -145,6 +160,7 @@ class OverviewPage extends Component
             'flash' => DemoState::pullFlash(),
             'replyDrafts' => $this->tab === 'reviews' ? $this->replyDrafts($data) : [],
             'replyCost' => $this->tab === 'reviews' ? app(ReviewReplyDrafter::class)->estimate() : null,
+            'canPublishReplies' => ExternalWriteService::allowed(auth()->user(), ExternalWriteAction::CHANNEL_GBP),
         ]);
     }
 

@@ -5,8 +5,10 @@ namespace App\Services\ExternalWrites;
 use App\Enums\AdvisorItemStatus;
 use App\Jobs\ExecuteExternalWriteJob;
 use App\Models\AdvisorItem;
+use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
+use App\Models\GbpReview;
 use App\Models\SeoTask;
 use App\Models\SiteFixItem;
 use App\Models\User;
@@ -29,6 +31,7 @@ final class ExternalWriteService
         private readonly GoogleAdsNegativeListWriter $negatives,
         private readonly WordPressDraftWriter $drafts,
         private readonly WordPressFixWriter $fixes,
+        private readonly GbpWriter $gbp,
     ) {}
 
     public static function allowed(?User $user, string $channel): bool
@@ -222,6 +225,71 @@ final class ExternalWriteService
         ]));
     }
 
+    /** ADR-073: Admin-approved reply to one Google review of a bound Business Profile location. */
+    public function requestReviewReply(User $user, GbpReview $review, string $comment): ExternalWriteAction
+    {
+        $this->guard($user, ExternalWriteAction::CHANNEL_GBP);
+        $comment = trim($comment);
+        if ($comment === '' || mb_strlen($comment) > (int) config('moxdop-external-writes.gbp.max_reply_length', 4000)) {
+            throw ValidationException::withMessages(['write' => 'Yanıt boş olamaz ve 4000 karakteri geçemez.']);
+        }
+        $assetId = CoreAssetBinding::query()->where('external_resource_id', $review->external_resource_id)->where('capability', 'google_business_profile')
+            ->where('status', CoreAssetBinding::STATUS_ACTIVE)->value('digital_asset_id');
+        $asset = $assetId !== null ? DigitalAsset::query()->find($assetId) : null;
+        if ($asset === null) {
+            throw ValidationException::withMessages(['write' => 'Bu yorumun konumu bir markaya bağlı değil.']);
+        }
+        $this->gbpLocation($asset);
+        $busy = ExternalWriteAction::query()->where('action', ExternalWriteAction::ACTION_REVIEW_REPLY)->whereIn('status', ['queued', 'running', 'undoing'])
+            ->where('request_payload->review_id', $review->id)->exists();
+        if ($busy) {
+            throw ValidationException::withMessages(['write' => 'Bu yoruma bir yanıt zaten gönderiliyor.']);
+        }
+
+        return $this->queue(ExternalWriteAction::query()->create([
+            'channel' => ExternalWriteAction::CHANNEL_GBP, 'action' => ExternalWriteAction::ACTION_REVIEW_REPLY,
+            'digital_asset_id' => $asset->id, 'brand_id' => $asset->brand_id, 'status' => 'queued',
+            'request_payload' => ['review_id' => $review->id, 'comment' => $comment, 'label' => 'Yorum yanıtı'],
+            'requested_by' => $user->id,
+        ]));
+    }
+
+    /**
+     * ADR-073: Admin-approved Business Profile local post (from the content calendar or written directly).
+     *
+     * @param  array{summary: string, url?: ?string, action_type?: ?string, calendar_id?: ?int}  $post
+     */
+    public function requestLocalPost(User $user, DigitalAsset $asset, array $post): ExternalWriteAction
+    {
+        $this->guard($user, ExternalWriteAction::CHANNEL_GBP);
+        $summary = trim((string) ($post['summary'] ?? ''));
+        if ($asset->type !== 'google_business_profile' || $summary === '' || mb_strlen($summary) > (int) config('moxdop-external-writes.gbp.max_post_length', 1500)) {
+            throw ValidationException::withMessages(['write' => 'Gönderi metni boş olamaz ve 1500 karakteri geçemez; hedef bir İşletme Profili olmalı.']);
+        }
+        $url = trim((string) ($post['url'] ?? ''));
+        if ($url !== '' && filter_var($url, FILTER_VALIDATE_URL) === false) {
+            throw ValidationException::withMessages(['write' => 'Bağlantı geçerli bir adres değil.']);
+        }
+        $this->gbpLocation($asset);
+
+        return $this->queue(ExternalWriteAction::query()->create([
+            'channel' => ExternalWriteAction::CHANNEL_GBP, 'action' => ExternalWriteAction::ACTION_LOCAL_POST,
+            'digital_asset_id' => $asset->id, 'brand_id' => $asset->brand_id, 'status' => 'queued',
+            'request_payload' => ['summary' => $summary, 'url' => $url !== '' ? $url : null, 'action_type' => in_array($post['action_type'] ?? null, ['LEARN_MORE', 'BOOK', 'CALL', 'ORDER', 'SIGN_UP'], true) ? $post['action_type'] : 'LEARN_MORE',
+                'calendar_id' => $post['calendar_id'] ?? null, 'label' => 'İşletme Profili gönderisi'],
+            'requested_by' => $user->id,
+        ]));
+    }
+
+    private function gbpLocation(DigitalAsset $asset): void
+    {
+        try {
+            $this->gbp->location((int) $asset->id);
+        } catch (Throwable $exception) {
+            throw ValidationException::withMessages(['write' => $exception->getMessage()]);
+        }
+    }
+
     public function requestUndo(User $user, ExternalWriteAction $action): ExternalWriteAction
     {
         $this->guard($user, $action->channel);
@@ -241,6 +309,7 @@ final class ExternalWriteService
         try {
             $result = match (true) {
                 $action->channel === ExternalWriteAction::CHANNEL_GOOGLE_ADS => $this->negatives->apply($action),
+                $action->channel === ExternalWriteAction::CHANNEL_GBP => $this->gbp->apply($action),
                 $action->action === ExternalWriteAction::ACTION_UPDATE_APPLY => app(WordPressManagementService::class)->apply($action),
                 $action->action === ExternalWriteAction::ACTION_CONNECTOR_UPDATE => app(WordPressManagementService::class)->selfUpdate($action),
                 in_array($action->action, self::FIX_ACTIONS, true) => $this->fixes->apply($action),
@@ -266,6 +335,7 @@ final class ExternalWriteService
         try {
             $undo = match (true) {
                 $action->channel === ExternalWriteAction::CHANNEL_GOOGLE_ADS => $this->negatives->undo($action),
+                $action->channel === ExternalWriteAction::CHANNEL_GBP => $this->gbp->undo($action),
                 in_array($action->action, self::FIX_ACTIONS, true) => $this->fixes->undo($action),
                 default => $this->drafts->undo($action),
             };

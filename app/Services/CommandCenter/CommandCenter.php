@@ -35,6 +35,7 @@ final class CommandCenter
     public const array SOURCES = [
         'alert' => 'Uyarı', 'advisor' => 'Danışman', 'seo' => 'SEO', 'site_fix' => 'Site düzeltmesi', 'brain' => 'Beyin önerisi',
         'compliance' => 'Uyum', 'lead' => 'Lead', 'system' => 'Sistem', 'approval' => 'Onay bekliyor', 'coverage' => 'Kurulum eksiği',
+        'calendar' => 'İçerik takvimi',
     ];
 
     private const array SEVERITY_BASE = ['critical' => 1000, 'high' => 700, 'medium' => 400, 'low' => 150];
@@ -54,7 +55,7 @@ final class CommandCenter
     ];
 
     /** @var list<class-string<CommandCenterSource>> producers beyond the built-in readers */
-    public const array EXTRA_SOURCES = [CoverageSource::class];
+    public const array EXTRA_SOURCES = [CoverageSource::class, CalendarSource::class];
 
     public function __construct(private readonly AdvisorChannels $channels) {}
 
@@ -220,6 +221,13 @@ final class CommandCenter
                 return DB::table('agency_leads')->where('id', (int) $id)->where('status', 'new')
                     ->update(['status' => $action === 'done' ? 'contacted' : 'lost', 'handled_by' => $user->id, 'updated_at' => now()]
                     + ($action === 'done' ? ['first_response_at' => now()] : [])) > 0;
+            case 'calendar':
+                if ($action === 'snooze') {
+                    return $this->snooze($source.':'.$id, $until, $user);
+                }
+
+                return DB::table('content_calendar_items')->where('id', (int) $id)->where('channel', '!=', 'gbp_post')->whereIn('status', ['draft', 'approved'])
+                    ->update(['status' => $action === 'done' ? 'published' : 'skipped', 'published_at' => $action === 'done' ? now() : null, 'updated_at' => now()]) > 0;
             default:
                 // Grouped / system items are resolved in their own screen; here they can only wait.
                 return $action === 'snooze' ? $this->snooze($source.':'.$id, $until, $user) : false;

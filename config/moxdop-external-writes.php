@@ -25,4 +25,11 @@ return [
         'enabled' => env('EXTERNAL_WRITES_WORDPRESS', true),
         'min_plugin_version' => '1.2.0',
     ],
+
+    /* ADR-073: Business Profile review replies and local posts (Admin-approved, undoable). */
+    'gbp' => [
+        'enabled' => env('EXTERNAL_WRITES_GBP', true),
+        'max_reply_length' => 4000,
+        'max_post_length' => 1500,
+    ],
 ];

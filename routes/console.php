@@ -551,6 +551,12 @@ Schedule::command('moxdop:demand:build')
     ->withoutOverlapping(120)
     ->name('brand-demand-weekly');
 
+// İçerik takvimi: onaylı ve zamanı gelen İşletme Profili gönderileri (ADR-073).
+Schedule::command('moxdop:content:publish-due')
+    ->everyTenMinutes()
+    ->withoutOverlapping(10)
+    ->name('content-publish-due');
+
 // Günlük hesap keşfi: yeni reklam hesabı / mülk ve kaybedilen erişim kendiliğinden fark edilir (Komuta merkezi + bildirim).
 Schedule::command('moxdop:integrations:discover')
     ->dailyAt('05:10')
