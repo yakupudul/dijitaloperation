@@ -17,7 +17,7 @@
         default => ['Öneri', 'info'],
     };
 @endphp
-<div class="space-y-6" @if($proposal?->isPending()) wire:poll.3s @endif>
+<div class="space-y-6" @if($proposal?->isPending() && ! $proposal->isStuck()) wire:poll.3s @endif>
     <div>
         <a wire:navigate href="{{ route('operator.brand', ['brand' => $brand->id]) }}" class="text-sm text-gray-500 hover:text-brand-600">← {{ $brand->name }}</a>
         <h1 class="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90">Otomatik kur</h1>
@@ -35,10 +35,12 @@
             <input wire:model="websiteUrl" type="text" placeholder="ornek.com.tr" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
             @error('websiteUrl')<span class="mt-1 block text-xs text-error-600">{{ $message }}</span>@enderror
         </label>
-        <button type="submit" wire:loading.attr="disabled" @disabled($proposal?->isPending()) class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50">{{ $proposal ? 'Yeniden tara' : 'Önerileri hazırla' }}</button>
+        <button type="submit" wire:loading.attr="disabled" @disabled($proposal?->isPending() && ! $proposal->isStuck()) class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50">{{ $proposal ? 'Yeniden tara' : 'Önerileri hazırla' }}</button>
     </form>
 
-    @if ($proposal?->isPending())
+    @if ($proposal?->isStuck())
+        <p class="rounded-lg bg-amber-50 p-4 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">Hazırlık 15 dakikadır ilerlemiyor (arka plan işi durmuş olabilir). "Yeniden tara" ile tekrar başlatın.</p>
+    @elseif ($proposal?->isPending())
         <p class="rounded-lg bg-blue-50 p-4 text-sm text-blue-800 dark:bg-blue-500/10 dark:text-blue-300">Hazırlanıyor… Hesaplar alan adıyla eşleştiriliyor, GA4 veri akışları okunuyor, hizmetler çıkarılıyor.</p>
     @elseif ($proposal?->status === 'failed')
         <p class="rounded-lg bg-red-50 p-4 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">Öneriler hazırlanamadı: {{ $proposal->error_summary }}</p>

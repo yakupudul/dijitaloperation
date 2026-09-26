@@ -140,7 +140,8 @@
                                 <td class="py-2 text-xs">
                                     {{-- Faz 13: one action per row. --}}
                                     @if ($account['error'] === 'reconnect')
-                                        <a href="{{ route($account['provider'] === 'meta' ? 'operator.integrations.meta' : 'operator.integrations.google') }}" wire:navigate class="font-medium text-brand-600 hover:underline">Yeniden bağlan</a>
+                                        {{-- One click: straight to the provider's consent screen, back here after. --}}
+                                        <a href="{{ route($account['provider'] === 'meta' ? 'integrations.meta.authorize' : 'integrations.google.authorize', ['integration' => $account['integration_id']]) }}" class="font-medium text-brand-600 hover:underline">Yeniden bağlan</a>
                                     @elseif (in_array($account['error'], ['binding', 'unbound'], true))
                                         <a href="{{ route($account['provider'] === 'meta' ? 'operator.integrations.meta' : 'operator.integrations.google', ['tab' => 'resources']) }}" wire:navigate class="font-medium text-brand-600 hover:underline">Varlığa bağla</a>
                                     @elseif ($isAdmin && $account['enabled'] && ($account['state'] === 'attention' || $account['stale']))

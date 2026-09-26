@@ -45,4 +45,10 @@ class BrandSetupProposal extends Model
             'applied_at' => 'datetime',
         ];
     }
+
+    /** Queued / building but untouched for 15 minutes: the worker died or the job was lost. */
+    public function isStuck(): bool
+    {
+        return $this->isPending() && $this->updated_at !== null && $this->updated_at->lt(now()->subMinutes(15));
+    }
 }

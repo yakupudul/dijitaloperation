@@ -31,6 +31,9 @@ final class BrandSetupAssistant
         if ($pending !== null) {
             return $pending;
         }
+        // An older run that never finished is closed so the new one is the only one the page follows.
+        BrandSetupProposal::query()->where('brand_id', $brand->id)->whereIn('status', [BrandSetupProposal::STATUS_QUEUED, BrandSetupProposal::STATUS_BUILDING])
+            ->update(['status' => BrandSetupProposal::STATUS_FAILED, 'error_summary' => 'Zaman aşımı: hazırlık yarım kaldı, yeniden tarandı.', 'updated_at' => now()]);
 
         $proposal = BrandSetupProposal::query()->create([
             'brand_id' => $brand->id,

@@ -551,6 +551,13 @@ Schedule::command('moxdop:demand:build')
     ->withoutOverlapping(120)
     ->name('brand-demand-weekly');
 
+// Günlük hesap keşfi: yeni reklam hesabı / mülk ve kaybedilen erişim kendiliğinden fark edilir (Komuta merkezi + bildirim).
+Schedule::command('moxdop:integrations:discover')
+    ->dailyAt('05:10')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(60)
+    ->name('integrations-discover-daily');
+
 // Hizmet Beyni: haftalık hesaplar (yamyamlaşma, hizmet zinciri, sayfa özellikleri, başarı puanları, yöntemler) —
 // kayıtlı veriyle, AI yok. Talep tablosundan sonra.
 Schedule::command('moxdop:brain:refresh')

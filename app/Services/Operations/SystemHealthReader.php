@@ -127,6 +127,7 @@ final class SystemHealthReader
                 return [
                     'id' => (int) $a->id,
                     'provider' => (string) $a->resource->provider,
+                    'integration_id' => (int) $a->resource->integration_id,
                     'type' => (string) $a->resource->resource_type,
                     'name' => (string) ($a->resource->display_name ?: $a->resource->external_id),
                     'enabled' => (bool) $a->collection_enabled,

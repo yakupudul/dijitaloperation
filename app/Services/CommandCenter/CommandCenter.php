@@ -53,16 +53,10 @@ final class CommandCenter
         'canonical' => ['canonical-conflict'], 'noindex' => ['site-noindex'],
     ];
 
-    /** @var list<CommandCenterSource> */
-    private array $extra = [];
+    /** @var list<class-string<CommandCenterSource>> producers beyond the built-in readers */
+    public const array EXTRA_SOURCES = [CoverageSource::class];
 
     public function __construct(private readonly AdvisorChannels $channels) {}
-
-    /** Extra producers (coverage gaps, deliverables, invoices…) register here. */
-    public function register(CommandCenterSource $source): void
-    {
-        $this->extra[] = $source;
-    }
 
     /**
      * @param  array{brand_id?: ?int, source?: ?string, severity?: ?string}  $filters
@@ -88,9 +82,9 @@ final class CommandCenter
                 report($error);
             }
         }
-        foreach ($this->extra as $source) {
+        foreach (self::EXTRA_SOURCES as $source) {
             try {
-                $items = $items->merge($source->items());
+                $items = $items->merge(app($source)->items());
             } catch (Throwable $error) {
                 report($error);
             }
@@ -479,7 +473,7 @@ final class CommandCenter
         }
         foreach (BrandSetupProposal::query()->with('brand')->whereIn('status', [BrandSetupProposal::STATUS_READY, BrandSetupProposal::STATUS_QUEUED, BrandSetupProposal::STATUS_BUILDING, BrandSetupProposal::STATUS_FAILED])
             ->where('updated_at', '>=', now()->subDays(30))->get() as $proposal) {
-            $stuck = $proposal->isPending() && $proposal->updated_at->lt(now()->subMinutes(20));
+            $stuck = $proposal->isStuck();
             if ($proposal->isPending() && ! $stuck) {
                 continue;
             }
