@@ -43,8 +43,8 @@
             @endforeach
         </div>
         <div class="flex gap-2" role="group" aria-label="Layout">
-            <button type="button" wire:click="setViewMode('list')" @class(['rounded-lg px-3 py-2 text-sm font-medium', 'bg-brand-500 text-white' => ($viewMode ?? 'list') === 'list', 'ring-1 ring-inset ring-gray-300 dark:ring-gray-700' => ($viewMode ?? 'list') !== 'list'])>List</button>
-            <button type="button" wire:click="setViewMode('board')" @class(['rounded-lg px-3 py-2 text-sm font-medium', 'bg-brand-500 text-white' => ($viewMode ?? 'list') === 'board', 'ring-1 ring-inset ring-gray-300 dark:ring-gray-700' => ($viewMode ?? 'list') !== 'board'])>Board</button>
+            <button type="button" wire:click="setViewMode('list')" @class(['rounded-lg px-3 py-2 text-sm font-medium', 'bg-brand-500 text-white' => ($viewMode ?? 'list') === 'list', 'ring-1 ring-inset ring-gray-300 dark:ring-gray-700' => ($viewMode ?? 'list') !== 'list'])>Liste</button>
+            <button type="button" wire:click="setViewMode('board')" @class(['rounded-lg px-3 py-2 text-sm font-medium', 'bg-brand-500 text-white' => ($viewMode ?? 'list') === 'board', 'ring-1 ring-inset ring-gray-300 dark:ring-gray-700' => ($viewMode ?? 'list') !== 'board'])>Pano</button>
         </div>
     </div>
 

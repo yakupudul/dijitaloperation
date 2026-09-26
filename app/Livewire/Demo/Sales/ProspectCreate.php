@@ -10,6 +10,7 @@ use App\Services\Prospects\CreateProspectService;
 use App\Services\Prospects\ProspectReadService;
 use App\Support\Demo\DemoState;
 use App\Support\Options\CountryOptions;
+use App\Support\Options\LocationOptions;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
@@ -17,7 +18,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('New Prospect')]
+#[Title('Yeni aday')]
 class ProspectCreate extends Component
 {
     public string $company_name = '';
@@ -38,7 +39,10 @@ class ProspectCreate extends Component
 
     public string $city = '';
 
-    public function updatedCountry(): void { $this->city = ''; }
+    public function updatedCountry(): void
+    {
+        $this->city = '';
+    }
 
     public string $owner_user_id = '';
 
@@ -56,7 +60,7 @@ class ProspectCreate extends Component
             $validated = $this->validate($this->rules(), [], $this->validationAttributes());
 
             if ($this->country !== '') {
-                $validated['city'] = \App\Support\Options\LocationOptions::normalizeArea($this->country, $this->city, null, 'city')['city_name'];
+                $validated['city'] = LocationOptions::normalizeArea($this->country, $this->city, null, 'city')['city_name'];
             }
 
             $prospect = app(CreateProspectService::class)->create([

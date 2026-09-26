@@ -14,7 +14,7 @@ use Livewire\Component;
 use Livewire\WithPagination;
 
 #[Layout('operator.layouts.app')]
-#[Title('Integrations')]
+#[Title('Bağlantılar')]
 class IntegrationsIndex extends Component
 {
     use WithPagination;

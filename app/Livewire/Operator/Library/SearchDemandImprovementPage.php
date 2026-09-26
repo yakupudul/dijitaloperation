@@ -18,7 +18,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Findings & Recommendations')]
+#[Title('Bulgular ve öneriler')]
 final class SearchDemandImprovementPage extends Component
 {
     #[Url(as: 'brand', history: true)]

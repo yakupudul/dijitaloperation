@@ -14,7 +14,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Intent Signal')]
+#[Title('Niyet sinyali')]
 class IntentSignalShow extends Component
 {
     public string $signalId = '';

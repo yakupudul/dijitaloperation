@@ -29,7 +29,7 @@ use Livewire\Component;
  * tables (see OperatorGbpWorkspace); tabs without a data source (local rank grid, competitors) are not shown.
  */
 #[Layout('operator.layouts.app')]
-#[Title('Google Business Profile')]
+#[Title('İşletme Profili')]
 class OverviewPage extends Component
 {
     use ResolvesCanonicalOperatorAsset;

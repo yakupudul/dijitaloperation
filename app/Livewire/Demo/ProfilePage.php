@@ -18,7 +18,7 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 
 #[Layout('operator.layouts.app')]
-#[Title('Profile')]
+#[Title('Profil')]
 class ProfilePage extends Component
 {
     use WithFileUploads;

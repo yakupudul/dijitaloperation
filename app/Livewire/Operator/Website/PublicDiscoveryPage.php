@@ -24,7 +24,7 @@ use Livewire\WithPagination;
 use Throwable;
 
 #[Layout('operator.layouts.app')]
-#[Title('Public Discovery')]
+#[Title('Açık web keşfi')]
 class PublicDiscoveryPage extends Component
 {
     use WithPagination;
@@ -56,8 +56,16 @@ class PublicDiscoveryPage extends Component
 
     public string $districtName = '';
 
-    public function updatedCountryCode(): void { $this->cityName = ''; $this->districtName = ''; }
-    public function updatedCityName(): void { $this->districtName = ''; }
+    public function updatedCountryCode(): void
+    {
+        $this->cityName = '';
+        $this->districtName = '';
+    }
+
+    public function updatedCityName(): void
+    {
+        $this->districtName = '';
+    }
 
     public bool $confirmServiceArea = false;
 

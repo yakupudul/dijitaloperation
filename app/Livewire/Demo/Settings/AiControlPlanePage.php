@@ -16,7 +16,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('AI Control Plane')]
+#[Title('AI ayarları')]
 class AiControlPlanePage extends Component
 {
     #[Url(as: 'route', history: true)]

@@ -25,7 +25,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Prospect')]
+#[Title('Aday müşteri')]
 class ProspectShow extends Component
 {
     public string $prospectId = '';

@@ -19,29 +19,43 @@ use Livewire\WithPagination;
 use MoxDop\Website\Discovery\PublicUrlSafety;
 
 #[Layout('operator.layouts.app')]
-#[Title('Intent Radar')]
+#[Title('Niyet radarı')]
 class IntentRadarIndex extends Component
 {
     use WithPagination;
 
     #[Url]
     public string $status = 'new';
+
     #[Url]
     public string $q = '';
+
     #[Url]
     public string $profileFilter = '';
+
     #[Url]
     public string $stage = '';
+
     public array $serviceIds = [];
+
     public string $serviceSearch = '';
+
     public string $market = '';
+
     public string $extraTerms = '';
+
     public string $excludedTerms = '';
+
     public int $interval = 60;
+
     public string $sourceName = '';
+
     public string $sourceUrl = '';
+
     public string $sourceFormat = 'html';
+
     public string $message = '';
+
     public bool $showSettings = false;
 
     public function mount(): void
@@ -134,12 +148,14 @@ class IntentRadarIndex extends Component
             'sourceFormat' => 'required|in:html,rss']);
         if (SalesRadarSource::query()->count() >= 20) {
             $this->addError('sourceUrl', __('free_radar.source_limit'));
+
             return;
         }
         try {
             app(PublicUrlSafety::class)->assertSafePublicHttpUrl($this->sourceUrl);
         } catch (\Throwable) {
             $this->addError('sourceUrl', __('free_radar.invalid_url'));
+
             return;
         }
         SalesRadarSource::query()->firstOrCreate(['url_hash' => hash('sha256', trim($this->sourceUrl))], [
@@ -169,6 +185,7 @@ class IntentRadarIndex extends Component
             }))
             ->orderByRaw("CASE WHEN purchase_stage = 'high_intent' THEN 0 ELSE 1 END")
             ->orderByDesc('published_at')->orderByDesc('id')->paginate(20);
+
         return view('livewire.demo.sales.intent-radar-index', [
             'signals' => $signals,
             'profiles' => SalesSearchProfile::query()->with('catalogService.primaryName')->whereNotNull('service_catalog_item_id')->orderByDesc('id')->get(),
@@ -186,4 +203,3 @@ class IntentRadarIndex extends Component
         ]);
     }
 }
-

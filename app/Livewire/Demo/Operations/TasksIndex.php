@@ -14,7 +14,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Work')]
+#[Title('İş listesi')]
 class TasksIndex extends Component
 {
     /** Faz 11b: `advice` is the single work list's suggested part — SEO Görevleri and every advisor channel by priority. */

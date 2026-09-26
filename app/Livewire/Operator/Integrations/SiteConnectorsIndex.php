@@ -10,7 +10,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Site Connectors')]
+#[Title('Site bağlayıcıları')]
 final class SiteConnectorsIndex extends Component
 {
     public function render(): View

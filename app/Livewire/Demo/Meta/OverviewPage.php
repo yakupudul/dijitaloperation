@@ -28,7 +28,7 @@ use Livewire\Component;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 #[Layout('operator.layouts.app')]
-#[Title('Meta Ads')]
+#[Title('Meta Reklamları')]
 class OverviewPage extends Component
 {
     use InteractsWithDemoPeriod;

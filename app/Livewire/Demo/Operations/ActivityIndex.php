@@ -11,7 +11,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Activity')]
+#[Title('Etkinlik')]
 class ActivityIndex extends Component
 {
     #[Url(as: 'brand', history: true)]

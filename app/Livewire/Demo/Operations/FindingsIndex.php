@@ -22,7 +22,7 @@ use Livewire\Component;
  * No Demo fixtures: empty result set means no Finding rows exist yet for the current filters.
  */
 #[Layout('operator.layouts.app')]
-#[Title('Findings')]
+#[Title('Bulgular')]
 class FindingsIndex extends Component
 {
     public string $severity = 'all';

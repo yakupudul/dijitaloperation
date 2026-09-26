@@ -13,7 +13,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Edit brand')]
+#[Title('Markayı düzenle')]
 class BrandEdit extends Component
 {
     use InteractsWithBrandForm;

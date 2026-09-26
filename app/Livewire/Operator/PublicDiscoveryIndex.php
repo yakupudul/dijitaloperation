@@ -16,7 +16,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Public Discovery')]
+#[Title('Açık web keşfi')]
 class PublicDiscoveryIndex extends Component
 {
     #[Url]

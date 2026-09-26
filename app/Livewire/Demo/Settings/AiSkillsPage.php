@@ -15,7 +15,7 @@ use Livewire\Component;
  * Operators must not need /admin for routine AI administration.
  */
 #[Layout('operator.layouts.app')]
-#[Title('Skill Library')]
+#[Title('Beceri kütüphanesi')]
 class AiSkillsPage extends Component
 {
     #[Url(as: 'skill', history: true)]

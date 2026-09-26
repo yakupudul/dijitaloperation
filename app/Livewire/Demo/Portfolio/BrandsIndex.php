@@ -19,7 +19,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Brands')]
+#[Title('Markalar')]
 class BrandsIndex extends Component
 {
     #[Url(as: 'q', history: true)]

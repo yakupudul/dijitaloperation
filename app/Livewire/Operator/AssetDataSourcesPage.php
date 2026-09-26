@@ -29,7 +29,7 @@ use Livewire\Component;
 use Throwable;
 
 #[Layout('operator.layouts.app')]
-#[Title('Data Sources')]
+#[Title('Veri kaynakları')]
 final class AssetDataSourcesPage extends Component
 {
     public int $assetId;

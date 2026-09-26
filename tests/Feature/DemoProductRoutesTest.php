@@ -265,7 +265,7 @@ class DemoProductRoutesTest extends TestCase
             ->call('setSeverity', 'all')
             ->call('setAssetType', 'all')
             ->call('expand', (string) Finding::query()->where('title', 'Meta CPL deteriorated')->value('id'))
-            ->assertSee('What happened');
+            ->assertSee('Ne oldu');
 
         $recommendation = Recommendation::factory()->create([
             'title' => 'Replace underperforming creative',

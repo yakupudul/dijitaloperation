@@ -12,7 +12,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Add customer')]
+#[Title('Müşteri ekle')]
 class CustomerCreate extends Component
 {
     use InteractsWithCustomerForm;

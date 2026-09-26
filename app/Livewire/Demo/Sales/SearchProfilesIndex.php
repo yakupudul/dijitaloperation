@@ -10,7 +10,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Search Profiles')]
+#[Title('Arama profilleri')]
 class SearchProfilesIndex extends Component
 {
     public string $search = '';

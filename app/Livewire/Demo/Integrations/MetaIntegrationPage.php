@@ -33,7 +33,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Meta Integration')]
+#[Title('Meta bağlantısı')]
 class MetaIntegrationPage extends Component
 {
     use ManagesOperatorCredentials;

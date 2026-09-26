@@ -26,7 +26,7 @@ use Livewire\Component;
 use Throwable;
 
 #[Layout('operator.layouts.app')]
-#[Title('Connector')]
+#[Title('Bağlayıcı')]
 class ConnectorPage extends Component
 {
     public string $connector = 'ga4';

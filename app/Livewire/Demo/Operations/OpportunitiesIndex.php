@@ -22,7 +22,7 @@ use Livewire\Component;
  * No Demo fixtures: empty result set means no rows exist yet for the current filters.
  */
 #[Layout('operator.layouts.app')]
-#[Title('Opportunities')]
+#[Title('Fırsatlar')]
 class OpportunitiesIndex extends Component
 {
     #[Url(history: true)]

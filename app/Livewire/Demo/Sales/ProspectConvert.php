@@ -12,7 +12,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Convert Prospect')]
+#[Title('Müşteriye dönüştür')]
 class ProspectConvert extends Component
 {
     public string $prospectId = '';

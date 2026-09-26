@@ -14,7 +14,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Search Profile')]
+#[Title('Arama profili')]
 class SearchProfileForm extends Component
 {
     public ?string $profileId = null;
@@ -29,7 +29,10 @@ class SearchProfileForm extends Component
 
     public string $location = '';
 
-    public function updatedCountry(): void { $this->location = ''; }
+    public function updatedCountry(): void
+    {
+        $this->location = '';
+    }
 
     public string $include_concepts = '';
 

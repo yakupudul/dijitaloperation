@@ -23,7 +23,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Customers')]
+#[Title('Müşteriler')]
 class CustomersIndex extends Component
 {
     #[Url(as: 'q', history: true)]

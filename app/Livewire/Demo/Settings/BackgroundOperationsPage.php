@@ -23,7 +23,7 @@ use Livewire\Component;
 use Throwable;
 
 #[Layout('operator.layouts.app')]
-#[Title('Background Operations')]
+#[Title('Arka plan işleri')]
 class BackgroundOperationsPage extends Component
 {
     #[Url(history: true)]
@@ -72,6 +72,7 @@ class BackgroundOperationsPage extends Component
 
         if ($run->status->isTerminal()) {
             DemoState::flash(__('background_operations.flash.terminal'));
+
             return;
         }
 
@@ -159,6 +160,7 @@ class BackgroundOperationsPage extends Component
 
         if (! $service->canRetry($run)) {
             DemoState::flash(__('background_operations.flash.async_not_retryable'));
+
             return;
         }
 
@@ -176,6 +178,7 @@ class BackgroundOperationsPage extends Component
         $job = DB::table('failed_jobs')->where('uuid', $uuid)->first();
         if ($job === null) {
             DemoState::flash(__('background_operations.flash.failed_job_missing'));
+
             return;
         }
 

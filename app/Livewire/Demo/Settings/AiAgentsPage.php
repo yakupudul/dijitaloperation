@@ -15,7 +15,7 @@ use Livewire\Component;
  * Operators must not need /admin for routine AI administration.
  */
 #[Layout('operator.layouts.app')]
-#[Title('Agent Profiles')]
+#[Title('AI ajanları')]
 class AiAgentsPage extends Component
 {
     #[Url(as: 'agent', history: true)]

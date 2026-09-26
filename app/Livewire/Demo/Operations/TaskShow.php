@@ -9,7 +9,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Task')]
+#[Title('Görev')]
 class TaskShow extends Component
 {
     public string $taskId = '';

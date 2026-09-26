@@ -19,7 +19,7 @@ use Livewire\Component;
  * RecommendationReadService. No Demo fixtures: empty means no Recommendation rows exist.
  */
 #[Layout('operator.layouts.app')]
-#[Title('Recommendations')]
+#[Title('Öneriler')]
 class RecommendationsIndex extends Component
 {
     public ?string $expandedId = null;

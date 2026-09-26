@@ -16,7 +16,7 @@ use Livewire\Component;
 use Throwable;
 
 #[Layout('operator.layouts.app')]
-#[Title('WordPress Connector')]
+#[Title('WordPress bağlayıcısı')]
 final class SiteConnectorShow extends Component
 {
     public string $connector = 'wordpress';

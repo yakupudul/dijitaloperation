@@ -32,7 +32,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Google Integration')]
+#[Title('Google bağlantısı')]
 class GoogleIntegrationPage extends Component
 {
     use ManagesOperatorCredentials;

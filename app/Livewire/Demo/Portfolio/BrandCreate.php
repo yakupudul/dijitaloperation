@@ -16,7 +16,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Add brand')]
+#[Title('Marka ekle')]
 class BrandCreate extends Component
 {
     use InteractsWithBrandForm;

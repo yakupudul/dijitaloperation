@@ -15,7 +15,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Work item')]
+#[Title('İş')]
 class WorkShow extends Component
 {
     public string $workId = '';

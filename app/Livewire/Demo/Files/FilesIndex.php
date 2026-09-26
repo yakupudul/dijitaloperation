@@ -17,7 +17,7 @@ use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 
 #[Layout('operator.layouts.app')]
-#[Title('Files')]
+#[Title('Dosyalar')]
 class FilesIndex extends Component
 {
     use WithFileUploads;
