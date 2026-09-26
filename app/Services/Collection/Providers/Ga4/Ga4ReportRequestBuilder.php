@@ -72,7 +72,7 @@ final class Ga4ReportRequestBuilder
     private function assertNoForbiddenMetrics(array $metrics): void
     {
         foreach ($metrics as $metric) {
-            if (str_starts_with($metric, 'customEvent:') || str_contains($metric, 'purchaseRevenue')) {
+            if (str_starts_with($metric, 'customEvent:')) {
                 throw new InvalidArgumentException('CONTRACT_MISMATCH: non-contract GA4 metric '.$metric);
             }
         }
