@@ -87,6 +87,7 @@ use App\Livewire\Operator\Meta\OverviewPage as MetaOverviewPage;
 use App\Livewire\Operator\Portfolio\BrandSetupPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Operator\Portfolio\DiscoverAndGroupPage;
+use App\Livewire\Operator\Portfolio\PortfolioHealthPage;
 use App\Livewire\Operator\Reports\ChartAnnotationsPage;
 use App\Livewire\Operator\Reports\MonthlyReportsPage;
 use App\Livewire\Operator\Sales\LeadInboxPage;
@@ -230,6 +231,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/brain/methods', BrainMethodsPage::class)->name('operator.brain.methods');
         Route::livewire('/data-center', DataCenterPage::class)->name('operator.data-center');
         Route::livewire('/command-center', CommandCenterPage::class)->name('operator.command-center');
+        Route::livewire('/portfolio/health', PortfolioHealthPage::class)->name('operator.portfolio.health');
         Route::livewire('/market/map-rankings', MapRankingsPage::class)->name('operator.market.map-rankings');
         Route::get('/market/kml/{brand}', KmlExportController::class)->name('operator.market.kml');
         Route::livewire('/market/backlinks', BacklinksPage::class)->name('operator.market.backlinks');

@@ -59,6 +59,7 @@ class PanelDesignFreezeTest extends TestCase
         $this->assertSame([
             'operator.dashboard',
             'operator.command-center',
+            'operator.portfolio.health',
             'operator.customers',
             'operator.brands',
             'operator.assets',

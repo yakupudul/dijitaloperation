@@ -33,6 +33,7 @@ final class DemoMenu
             [
                 'label' => __('operator.nav.groups.portfolio'),
                 'items' => [
+                    ['label' => $tr ? 'Portföy sağlığı' : 'Portfolio Health', 'route' => 'operator.portfolio.health', 'icon' => 'health'],
                     ['label' => __('operator.nav.customers'), 'route' => 'operator.customers', 'icon' => 'customers'],
                     ['label' => __('operator.nav.brands'), 'route' => 'operator.brands', 'icon' => 'brands'],
                     ['label' => __('operator.nav.digital_assets'), 'route' => 'operator.assets', 'icon' => 'assets'],
