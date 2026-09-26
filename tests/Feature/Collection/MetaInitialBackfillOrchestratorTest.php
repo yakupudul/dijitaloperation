@@ -222,9 +222,17 @@ class MetaInitialBackfillOrchestratorTest extends TestCase
 
         $queued = $run->datasetRuns()->where('status', CollectionRunStatus::Queued)->get();
         $this->assertNotEmpty($queued);
+        $readyFamilies = [
+            ...MetaAdsRequestFamilyCatalog::supportedFamilies(),
+            ...array_keys((array) config('moxdop-meta-ads-central.families', [])),
+        ];
+        $queuedFamilies = $queued->pluck('request_family_id')->all();
+        $this->assertContains('META_V2_RF_ACCOUNT_DAILY', $queuedFamilies);
+        $this->assertContains('META_V2_RF_CAMPAIGN_DAILY', $queuedFamilies);
+        $this->assertNotContains(MetaAdsRequestFamilyCatalog::FAMILY_INSIGHTS_DAILY, $queuedFamilies);
         foreach ($queued as $dataset) {
             $this->assertSame('META_ADS', $dataset->provider_or_source);
-            $this->assertContains($dataset->request_family_id, MetaAdsRequestFamilyCatalog::supportedFamilies());
+            $this->assertContains($dataset->request_family_id, $readyFamilies);
             $this->assertNotSame('RF_META_ASYNC_INSIGHTS', $dataset->request_family_id);
             $meta = $dataset->metadata ?? [];
             if ($dataset->request_family_id === MetaAdsRequestFamilyCatalog::FAMILY_ENTITY_SNAPSHOT
@@ -234,7 +242,7 @@ class MetaInitialBackfillOrchestratorTest extends TestCase
                     'Snapshot families must not receive fake historical date ranges'
                 );
             }
-            if ($dataset->request_family_id === MetaAdsRequestFamilyCatalog::FAMILY_INSIGHTS_DAILY) {
+            if ($dataset->request_family_id === 'META_V2_RF_CAMPAIGN_DAILY') {
                 $this->assertNotEmpty($meta['date_range']['start'] ?? null);
                 $this->assertNotEmpty($meta['date_range']['end'] ?? null);
             }
@@ -252,7 +260,7 @@ class MetaInitialBackfillOrchestratorTest extends TestCase
     }
 
     #[Test]
-    public function one_selected_ad_account_plans_bounded_180d_historical_range_with_exact_provenance(): void
+    public function one_selected_ad_account_plans_bounded_historical_ranges_with_exact_provenance(): void
     {
         $clock = new CollectionClock(CarbonImmutable::parse('2026-08-13 15:00:00', 'UTC'));
         $this->app->instance(CollectionClock::class, $clock);
@@ -297,21 +305,23 @@ class MetaInitialBackfillOrchestratorTest extends TestCase
         $this->assertNotContains($googleBinding->id, $run->resourceRuns()->pluck('core_asset_binding_id')->all());
         $this->assertNotContains($this->bindingB->id, $run->resourceRuns()->pluck('core_asset_binding_id')->all());
 
-        $daily = $run->datasetRuns()
-            ->where('request_family_id', MetaAdsRequestFamilyCatalog::FAMILY_INSIGHTS_DAILY)
-            ->first();
-        $this->assertNotNull($daily);
-        $range = $daily->metadata['date_range'] ?? [];
-        $this->assertSame('2026-02-14', $range['start'] ?? null);
-        $this->assertSame('2026-08-12', $range['end'] ?? null);
-
+        // Historical depth follows each Professional V2 family contract (campaign 1125d, ad 395d),
+        // bounded to the last complete day in the account timezone.
         $slicer = app(MetaAdsDateSlicer::class);
-        $sliceDays = $slicer->sliceDaysForFamily(MetaAdsRequestFamilyCatalog::FAMILY_INSIGHTS_DAILY);
-        $slices = $slicer->slices((string) $range['start'], (string) $range['end'], $sliceDays, 'UTC');
-        $this->assertSame($range['start'], $slices[0]['start']);
-        $this->assertSame($range['end'], $slices[array_key_last($slices)]['end']);
-        $this->assertSame(180, $slicer->inclusiveDayCount((string) $range['start'], (string) $range['end'], 'UTC'));
-        $this->assertLessThanOrEqual($sliceDays, $slicer->inclusiveDayCount($slices[0]['start'], $slices[0]['end'], 'UTC'));
+        foreach (['META_V2_RF_CAMPAIGN_DAILY' => ['2023-07-15', 1125], 'META_V2_RF_AD_DAILY' => ['2025-07-14', 395]] as $familyId => [$expectedStart, $expectedDays]) {
+            $daily = $run->datasetRuns()->where('request_family_id', $familyId)->first();
+            $this->assertNotNull($daily, $familyId);
+            $range = $daily->metadata['date_range'] ?? [];
+            $this->assertSame($expectedStart, $range['start'] ?? null, $familyId);
+            $this->assertSame('2026-08-12', $range['end'] ?? null, $familyId);
+            $this->assertSame($expectedDays, $slicer->inclusiveDayCount((string) $range['start'], (string) $range['end'], 'UTC'));
+
+            $sliceDays = $slicer->sliceDaysForFamily($familyId);
+            $slices = $slicer->slices((string) $range['start'], (string) $range['end'], $sliceDays, 'UTC');
+            $this->assertSame($range['start'], $slices[0]['start']);
+            $this->assertSame($range['end'], $slices[array_key_last($slices)]['end']);
+            $this->assertLessThanOrEqual($sliceDays, $slicer->inclusiveDayCount($slices[0]['start'], $slices[0]['end'], 'UTC'));
+        }
 
         foreach ($run->datasetRuns as $dataset) {
             $this->assertSame($this->assetA->id, $dataset->resourceRun?->digital_asset_id);
@@ -460,7 +470,7 @@ class MetaInitialBackfillOrchestratorTest extends TestCase
 
         $preflight = app(MetaInitialBackfillOrchestrator::class)->preflight($this->integration->fresh());
         $daily = collect($preflight->plannedDatasets)
-            ->where('request_family_id', MetaAdsRequestFamilyCatalog::FAMILY_INSIGHTS_DAILY)
+            ->where('request_family_id', 'META_V2_RF_CAMPAIGN_DAILY')
             ->first(fn (array $row): bool => (int) ($row['core_asset_binding_id'] ?? 0) === $this->bindingA->id);
         $this->assertNotNull($daily);
         $this->assertNotEmpty($daily['date_range']['start'] ?? null);
@@ -823,11 +833,17 @@ class MetaInitialBackfillOrchestratorTest extends TestCase
     public function collect_data_action_is_enabled_on_meta_integration_surface(): void
     {
         Queue::fake();
+        // The collect action is offered once the Meta app (App ID / Secret) is configured.
+        config([
+            'moxdop.meta.app_id' => '111222333',
+            'moxdop.meta.app_secret' => 'test-meta-app-secret',
+        ]);
         $this->actingAs($this->admin);
 
         Livewire::test(MetaIntegrationPage::class)
             ->assertSee('Collect Data')
-            ->assertSee('Meta initial collection')
+            ->call('setTab', 'connectors')
+            ->assertSee('Start Initial Collection')
             ->call('collectData')
             ->assertHasNoErrors();
 

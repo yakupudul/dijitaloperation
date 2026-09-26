@@ -213,9 +213,11 @@ class MetaIncrementalCollectionOrchestratorTest extends TestCase
             ->where('status', CollectionRunStatus::Queued)
             ->pluck('request_family_id')
             ->all();
-        $this->assertContains(MetaAdsRequestFamilyCatalog::FAMILY_INSIGHTS_DAILY, $queuedFamilies);
+        // Stale meta_campaign_daily is collected by the Professional V2 family; V1 insights are retired.
+        $this->assertContains('META_V2_RF_CAMPAIGN_DAILY', $queuedFamilies);
+        $this->assertNotContains(MetaAdsRequestFamilyCatalog::FAMILY_INSIGHTS_DAILY, $queuedFamilies);
         $this->assertTrue(collect($queuedFamilies)->every(
-            static fn (string $familyId): bool => str_starts_with($familyId, 'RF_META_'),
+            static fn (string $familyId): bool => str_starts_with($familyId, 'RF_META_') || str_starts_with($familyId, 'META_V2_RF_'),
         ));
 
         Http::assertNothingSent();
@@ -440,6 +442,10 @@ class MetaIncrementalCollectionOrchestratorTest extends TestCase
                     'last_collected_at' => $stale
                         ? CarbonImmutable::parse(self::FROZEN_AT, 'UTC')->subDays(30)
                         : CarbonImmutable::parse(self::FROZEN_AT, 'UTC')->subHours(2),
+                    // Some snapshot-refreshed datasets (e.g. meta_change_event) still have a
+                    // historical initial-backfill target, so initial coverage needs bounds.
+                    'coverage_start_date' => $widenInitialBounds ? '2023-01-01' : null,
+                    'coverage_end_date' => $widenInitialBounds ? '2026-12-31' : null,
                     'row_count_approx' => 1,
                     'row_count_semantics' => 'approximate_from_batches',
                     'partial' => false,
@@ -469,7 +475,7 @@ class MetaIncrementalCollectionOrchestratorTest extends TestCase
                 'contract_version' => 1,
                 'status' => MaterializationStatus::Available,
                 'last_collected_at' => CarbonImmutable::parse(self::FROZEN_AT, 'UTC')->subHour(),
-                'coverage_start_date' => $widenInitialBounds ? '2025-01-01' : $start,
+                'coverage_start_date' => $widenInitialBounds ? '2023-01-01' : $start,
                 'coverage_end_date' => $widenInitialBounds ? '2026-12-31' : $last,
                 'row_count_approx' => 0,
                 'row_count_semantics' => 'approximate_from_batches',
@@ -539,7 +545,7 @@ class MetaIncrementalCollectionOrchestratorTest extends TestCase
                 'contract_version' => 1,
                 'status' => MaterializationStatus::Available,
                 'last_collected_at' => CarbonImmutable::parse(self::FROZEN_AT, 'UTC')->subHours(2),
-                'coverage_start_date' => '2025-01-01',
+                'coverage_start_date' => '2023-01-01',
                 'coverage_end_date' => '2026-12-31',
                 'row_count_approx' => 1,
                 'row_count_semantics' => 'approximate_from_batches',
