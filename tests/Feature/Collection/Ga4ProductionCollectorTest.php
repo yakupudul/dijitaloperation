@@ -33,6 +33,7 @@ use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Factory;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -218,6 +219,11 @@ class Ga4ProductionCollectorTest extends TestCase
     public function property_daily_persists_optional_metrics_when_property_metadata_supports_them(): void
     {
         $allMetrics = Ga4RequestFamilyCatalog::propertyDailyAllMetrics();
+        $values = [
+            'sessions' => '10', 'engagedSessions' => '7', 'screenPageViews' => '20', 'userEngagementDuration' => '120',
+            'totalUsers' => '5', 'activeUsers' => '4', 'newUsers' => '3', 'conversions' => '2',
+            'keyEvents' => '2', 'totalRevenue' => '12.5',
+        ];
         $this->fakeGa4Http([
             'metadata' => [
                 'dimensions' => array_map(static fn (string $n): array => ['apiName' => $n], ['date']),
@@ -225,14 +231,10 @@ class Ga4ProductionCollectorTest extends TestCase
             ],
             'runReport' => [
                 'dimensionHeaders' => [['name' => 'date']],
-                'metricHeaders' => array_map(static fn (string $name): array => ['name' => $name], $allMetrics),
+                'metricHeaders' => array_map(static fn (string $name): array => ['name' => $name], array_keys($values)),
                 'rows' => [[
                     'dimensionValues' => [['value' => '20260801']],
-                    'metricValues' => [
-                        ['value' => '10'], ['value' => '7'], ['value' => '20'], ['value' => '120'],
-                        ['value' => '5'], ['value' => '4'], ['value' => '3'], ['value' => '2'],
-                        ['value' => '2'], ['value' => '12.5'],
-                    ],
+                    'metricValues' => array_map(static fn (string $value): array => ['value' => $value], array_values($values)),
                 ]],
                 'rowCount' => 1,
             ],
@@ -463,7 +465,7 @@ class Ga4ProductionCollectorTest extends TestCase
                 $data = $request->data() ?: (json_decode($request->body(), true) ?? []);
                 $offset = (int) ($data['offset'] ?? 0);
                 if ($offset === 0) {
-                    return Http::response([
+                    return Http::response($this->reportShapedToRequest([
                         'dimensionHeaders' => [['name' => 'date'], ['name' => 'eventName']],
                         'metricHeaders' => [['name' => 'eventCount']],
                         'rows' => [
@@ -471,25 +473,25 @@ class Ga4ProductionCollectorTest extends TestCase
                             ['dimensionValues' => [['value' => '20260801'], ['value' => 'b']], 'metricValues' => [['value' => '1']]],
                         ],
                         'rowCount' => 3,
-                    ], 200);
+                    ], $request), 200);
                 }
                 if ($offset === 2) {
-                    return Http::response([
+                    return Http::response($this->reportShapedToRequest([
                         'dimensionHeaders' => [['name' => 'date'], ['name' => 'eventName']],
                         'metricHeaders' => [['name' => 'eventCount']],
                         'rows' => [
                             ['dimensionValues' => [['value' => '20260801'], ['value' => 'c']], 'metricValues' => [['value' => '1']]],
                         ],
                         'rowCount' => 3,
-                    ], 200);
+                    ], $request), 200);
                 }
 
-                return Http::response([
+                return Http::response($this->reportShapedToRequest([
                     'dimensionHeaders' => [['name' => 'date'], ['name' => 'eventName']],
                     'metricHeaders' => [['name' => 'eventCount']],
                     'rows' => [],
                     'rowCount' => 3,
-                ], 200);
+                ], $request), 200);
             }
 
             return Http::response(['error' => ['message' => 'unexpected '.$url]], 500);
@@ -577,7 +579,7 @@ class Ga4ProductionCollectorTest extends TestCase
                 $data = $request->data() ?: (json_decode($request->body(), true) ?? []);
                 $offset = (int) ($data['offset'] ?? 0);
                 if ($offset === 0) {
-                    return Http::response([
+                    return Http::response($this->reportShapedToRequest([
                         'dimensionHeaders' => [['name' => 'date'], ['name' => 'deviceCategory']],
                         'metricHeaders' => [['name' => 'sessions'], ['name' => 'engagedSessions']],
                         'rows' => [[
@@ -585,10 +587,10 @@ class Ga4ProductionCollectorTest extends TestCase
                             'metricValues' => [['value' => '1'], ['value' => '1']],
                         ]],
                         'rowCount' => 2,
-                    ], 200);
+                    ], $request), 200);
                 }
 
-                return Http::response([
+                return Http::response($this->reportShapedToRequest([
                     'dimensionHeaders' => [['name' => 'date'], ['name' => 'deviceCategory']],
                     'metricHeaders' => [['name' => 'sessions'], ['name' => 'engagedSessions']],
                     'rows' => [[
@@ -596,7 +598,7 @@ class Ga4ProductionCollectorTest extends TestCase
                         'metricValues' => [['value' => '1'], ['value' => '1']],
                     ]],
                     'rowCount' => 2,
-                ], 200);
+                ], $request), 200);
             }
 
             return Http::response(['error' => ['message' => 'bad']], 500);
@@ -692,13 +694,11 @@ class Ga4ProductionCollectorTest extends TestCase
             ];
         };
 
-        // Single fake + sequence: Laravel Http::fake merges stubs; first match wins.
-        $runReportSequence = Http::sequence()
-            ->push($propertyDailyReport('1'))
-            ->push($propertyDailyReport('99'));
+        // Single fake: Laravel Http::fake merges stubs; first match wins.
+        $runReportSessions = ['1', '99'];
 
         Http::swap(new Factory);
-        Http::fake(function ($request) use ($runReportSequence) {
+        Http::fake(function ($request) use (&$runReportSessions, $propertyDailyReport) {
             $url = $request->url();
             if (str_contains($url, '/metadata')) {
                 return Http::response($this->metadataPayload(), 200);
@@ -723,7 +723,7 @@ class Ga4ProductionCollectorTest extends TestCase
                 return Http::response($this->adminPropertyPayload(), 200);
             }
             if (str_contains($url, 'runReport')) {
-                return $runReportSequence($request);
+                return Http::response($this->reportShapedToRequest($propertyDailyReport(array_shift($runReportSessions) ?? '99'), $request), 200);
             }
 
             return Http::response(['error' => ['message' => 'unexpected '.$url]], 500);
@@ -779,11 +779,13 @@ class Ga4ProductionCollectorTest extends TestCase
     }
 
     #[Test]
-    public function forbidden_first_user_dimensions_are_rejected_by_request_builder(): void
+    public function user_identifier_dimensions_are_rejected_by_request_builder(): void
     {
+        // Catalogued aggregate first-user acquisition dimensions are allowed (GA4_RF_FIRST_USER_DAILY);
+        // user / client identifiers remain forbidden.
         $this->expectException(\InvalidArgumentException::class);
         app(Ga4ReportRequestBuilder::class)->build(
-            ['date', 'firstUserSource'],
+            ['date', 'userPseudoId'],
             ['sessions'],
             '2026-08-01',
             '2026-08-01',
@@ -842,11 +844,45 @@ class Ga4ProductionCollectorTest extends TestCase
                 return Http::response($this->adminPropertyPayload(), 200);
             }
             if (str_contains($url, 'runReport')) {
-                return Http::response($runReport, 200);
+                return Http::response($this->reportShapedToRequest($runReport, $request), 200);
             }
 
             return Http::response(['error' => ['message' => 'unexpected '.$url]], 500);
         });
+    }
+
+    /**
+     * GA4 echoes the requested metrics as metric headers (in request order). Shape a canned
+     * report to the request so tests stay valid as optional metrics are added to a family;
+     * metrics the canned report does not name are returned as "0".
+     *
+     * @param  array<string, mixed>  $report
+     * @return array<string, mixed>
+     */
+    private function reportShapedToRequest(array $report, Request $request): array
+    {
+        $data = $request->data() ?: (json_decode($request->body(), true) ?? []);
+        $requested = array_values(array_filter(array_map(
+            static fn (mixed $metric): ?string => is_array($metric) ? ($metric['name'] ?? null) : null,
+            is_array($data['metrics'] ?? null) ? $data['metrics'] : [],
+        )));
+        if ($requested === []) {
+            return $report;
+        }
+
+        $cannedNames = array_map(static fn (array $header): string => (string) $header['name'], $report['metricHeaders'] ?? []);
+        $report['metricHeaders'] = array_map(static fn (string $name): array => ['name' => $name], $requested);
+        $report['rows'] = array_map(static function (array $row) use ($cannedNames, $requested): array {
+            $byName = [];
+            foreach ($cannedNames as $index => $name) {
+                $byName[$name] = $row['metricValues'][$index]['value'] ?? '0';
+            }
+            $row['metricValues'] = array_map(static fn (string $name): array => ['value' => $byName[$name] ?? '0'], $requested);
+
+            return $row;
+        }, $report['rows'] ?? []);
+
+        return $report;
     }
 
     /**
@@ -873,8 +909,8 @@ class Ga4ProductionCollectorTest extends TestCase
             'landingPage', 'eventName', 'deviceCategory',
         ];
         $metrics = [
-            'sessions', 'engagedSessions', 'screenPageViews', 'userEngagementDuration',
-            'totalUsers', 'activeUsers', 'eventCount',
+            ...Ga4RequestFamilyCatalog::propertyDailyRequiredMetrics(),
+            'eventCount',
         ];
 
         return [
