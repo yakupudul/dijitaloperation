@@ -55,6 +55,7 @@ use App\Livewire\Demo\Settings\BackgroundOperationsPage;
 use App\Livewire\Demo\SettingsPage;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
 use App\Livewire\Operator\Advisor\AdvisorIndex;
+use App\Livewire\Operator\Agency\AgencyPage;
 use App\Livewire\Operator\Archive\ProductionArchivePage;
 use App\Livewire\Operator\Assets\AnalyticsPage;
 use App\Livewire\Operator\Assets\SearchConsolePage;
@@ -236,6 +237,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/command-center', CommandCenterPage::class)->name('operator.command-center');
         Route::livewire('/portfolio/health', PortfolioHealthPage::class)->name('operator.portfolio.health');
         Route::livewire('/content', ContentCalendarPage::class)->name('operator.content.calendar');
+        Route::livewire('/agency', AgencyPage::class)->name('operator.agency');
         Route::livewire('/reports/queue', ReportQueuePage::class)->name('operator.reports.queue');
         Route::livewire('/reports/scorecard', AgencyScorecardPage::class)->name('operator.reports.scorecard');
         Route::livewire('/market/map-rankings', MapRankingsPage::class)->name('operator.market.map-rankings');

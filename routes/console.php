@@ -557,6 +557,12 @@ Schedule::command('moxdop:content:publish-due')
     ->withoutOverlapping(10)
     ->name('content-publish-due');
 
+// Ajans işletmesi: ayın 1'inde aylık ücretten taslak faturalar (iç kayıt; dışarı bir şey gönderilmez).
+Schedule::command('moxdop:invoices:draft-monthly')
+    ->monthlyOn(1, '07:30')
+    ->timezone('Europe/Istanbul')
+    ->name('invoices-draft-monthly');
+
 // Günlük hesap keşfi: yeni reklam hesabı / mülk ve kaybedilen erişim kendiliğinden fark edilir (Komuta merkezi + bildirim).
 Schedule::command('moxdop:integrations:discover')
     ->dailyAt('05:10')

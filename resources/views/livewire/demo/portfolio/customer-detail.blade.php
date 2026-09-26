@@ -149,6 +149,21 @@
                 @endforelse
             </section>
 
+            <section class="{{ $card }} p-5" data-customer-interactions>
+                <div class="flex items-center justify-between">
+                    <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">İletişim ve tahsilat</h2>
+                    <a href="{{ route('operator.agency', ['tab' => 'contacts']) }}" wire:navigate class="text-xs text-brand-600 hover:underline">Görüşme ekle</a>
+                </div>
+                @forelse ($interactions as $row)
+                    <p class="mt-2 text-sm"><span class="text-xs text-gray-500">{{ $row->occurred_at->format('d.m') }} · {{ \App\Models\CustomerInteraction::CHANNELS[$row->channel] ?? $row->channel }}</span> {{ \Illuminate\Support\Str::limit($row->summary, 120) }}@if ($row->next_action && ! $row->next_action_done_at)<span class="block text-xs text-brand-700">→ {{ $row->next_action }} ({{ $row->next_action_at?->format('d.m') }})</span>@endif</p>
+                @empty
+                    <p class="mt-2 text-sm text-gray-500">Kayıtlı görüşme yok.</p>
+                @endforelse
+                @foreach ($openInvoices as $invoice)
+                    <p class="mt-2 text-xs {{ $invoice->isOverdue() ? 'font-semibold text-error-600' : 'text-gray-500' }}">Fatura {{ $invoice->period }} · {{ number_format((float) $invoice->amount, 0, ',', '.') }} {{ $invoice->currency }} · {{ \App\Models\Invoice::STATUSES[$invoice->status] }}@if ($invoice->due_on) · vade {{ $invoice->due_on->format('d.m') }}@endif</p>
+                @endforeach
+            </section>
+
             <section class="{{ $card }} p-5">
                 <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('operator.portfolio.account_owner_responsible') }}</h2>
                 <dl class="mt-3 space-y-3 text-sm">

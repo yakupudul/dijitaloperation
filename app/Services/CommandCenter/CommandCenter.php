@@ -35,7 +35,7 @@ final class CommandCenter
     public const array SOURCES = [
         'alert' => 'Uyarı', 'advisor' => 'Danışman', 'seo' => 'SEO', 'site_fix' => 'Site düzeltmesi', 'brain' => 'Beyin önerisi',
         'compliance' => 'Uyum', 'lead' => 'Lead', 'system' => 'Sistem', 'approval' => 'Onay bekliyor', 'coverage' => 'Kurulum eksiği',
-        'calendar' => 'İçerik takvimi',
+        'calendar' => 'İçerik takvimi', 'followup' => 'Takip', 'invoice' => 'Tahsilat', 'commitment' => 'Taahhüt',
     ];
 
     private const array SEVERITY_BASE = ['critical' => 1000, 'high' => 700, 'medium' => 400, 'low' => 150];
@@ -55,7 +55,7 @@ final class CommandCenter
     ];
 
     /** @var list<class-string<CommandCenterSource>> producers beyond the built-in readers */
-    public const array EXTRA_SOURCES = [CoverageSource::class, CalendarSource::class];
+    public const array EXTRA_SOURCES = [CoverageSource::class, CalendarSource::class, AgencySource::class];
 
     public function __construct(private readonly AdvisorChannels $channels) {}
 
@@ -221,6 +221,18 @@ final class CommandCenter
                 return DB::table('agency_leads')->where('id', (int) $id)->where('status', 'new')
                     ->update(['status' => $action === 'done' ? 'contacted' : 'lost', 'handled_by' => $user->id, 'updated_at' => now()]
                     + ($action === 'done' ? ['first_response_at' => now()] : [])) > 0;
+            case 'followup':
+                if ($action === 'snooze') {
+                    return DB::table('customer_interactions')->where('id', (int) $id)->update(['next_action_at' => $until, 'updated_at' => now()]) > 0;
+                }
+
+                return DB::table('customer_interactions')->where('id', (int) $id)->whereNull('next_action_done_at')->update(['next_action_done_at' => now(), 'updated_at' => now()]) > 0;
+            case 'invoice':
+                if ($action === 'snooze' || ! ctype_digit($id)) {
+                    return $this->snooze($source.':'.$id, $until, $user);
+                }
+
+                return DB::table('invoices')->where('id', (int) $id)->where('status', 'issued')->update(['status' => 'paid', 'paid_on' => now()->toDateString(), 'updated_at' => now()]) > 0;
             case 'calendar':
                 if ($action === 'snooze') {
                     return $this->snooze($source.':'.$id, $until, $user);
