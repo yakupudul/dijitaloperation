@@ -10,6 +10,7 @@ use App\Models\IntelligenceProjection\WebsiteIntelligenceProjectionRun;
 use App\Models\IntelligenceProjection\WebsiteOutcomeProfile;
 use App\Models\IntelligenceProjection\WebsitePageProfile;
 use App\Models\IntelligenceProjection\WebsiteSearchTermProfile;
+use App\Services\Ownership\OwnershipGuard;
 use Database\Factories\DigitalAssetFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Validation\ValidationException;
 
 #[Fillable([
     'brand_id',
@@ -182,6 +184,16 @@ class DigitalAsset extends Model
         static::saving(function (DigitalAsset $asset): void {
             if ($asset->brand_id === null && $asset->type !== 'website') {
                 throw new \LogicException('Only a website can exist without a brand.');
+            }
+            // One website asset per domain, whatever path saves it (forms, Filament, imports).
+            if ($asset->type === 'website' && (! $asset->exists || $asset->isDirty(['domain', 'primary_url', 'type']))) {
+                $guard = app(OwnershipGuard::class);
+                $existing = $guard->duplicateWebsite($asset);
+                if ($existing !== null) {
+                    throw ValidationException::withMessages([
+                        'domain' => $guard->duplicateWebsiteMessage($existing, $asset->brand_id !== null ? (int) $asset->brand_id : null),
+                    ]);
+                }
             }
         });
     }

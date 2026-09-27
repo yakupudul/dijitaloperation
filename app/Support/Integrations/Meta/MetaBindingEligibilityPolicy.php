@@ -18,24 +18,24 @@ final class MetaBindingEligibilityPolicy
     public function assertEligibleResource(CoreExternalResource $resource, ?int $expectedIntegrationId = null): void
     {
         if ($resource->provider !== ProviderRegistry::META) {
-            throw new \InvalidArgumentException('Only Meta ExternalResources can be bound through Meta Binding.');
+            throw new \InvalidArgumentException('Bu işlemle yalnız Meta hesapları bağlanabilir.');
         }
 
         if ($resource->resource_type !== MetaResourceType::META_AD_ACCOUNT) {
             throw new \InvalidArgumentException(
-                'Only Meta Ad Accounts can be bound as Meta Ads assets. Meta Business is discovery context, not a Binding root.',
+                'Meta Ads varlığına yalnız bir reklam hesabı bağlanabilir. Meta Business (işletme) yalnız hesapları bulmak içindir; doğrudan bağlanamaz.',
             );
         }
 
         if ($resource->status !== CoreExternalResource::STATUS_AVAILABLE) {
             throw new \InvalidArgumentException(
-                'This Ad Account is not accessible for a new Binding. Refresh resources or resolve access, then try again.',
+                'Bu reklam hesabına şu an erişilemiyor. Hesap listesini yenileyin ya da erişim sorununu giderip tekrar deneyin.',
             );
         }
 
         if ($expectedIntegrationId !== null && (int) $resource->integration_id !== $expectedIntegrationId) {
             throw new \InvalidArgumentException(
-                'This Ad Account belongs to a different Meta Integration and cannot be bound here.',
+                'Bu reklam hesabı başka bir Meta entegrasyonuna ait; buradan bağlanamaz.',
             );
         }
 
@@ -44,21 +44,21 @@ final class MetaBindingEligibilityPolicy
             : $resource->integration()->first();
 
         if (! $integration instanceof CoreIntegration) {
-            throw new \InvalidArgumentException('ExternalResource is missing its Meta Integration.');
+            throw new \InvalidArgumentException('Bu hesabın Meta entegrasyonu bulunamadı.');
         }
 
         if ($integration->provider !== ProviderRegistry::META) {
-            throw new \InvalidArgumentException('ExternalResource must belong to the Meta Integration.');
+            throw new \InvalidArgumentException('Bu hesap Meta entegrasyonuna ait değil.');
         }
 
         if ($integration->status !== CoreIntegration::STATUS_ACTIVE) {
-            throw new \InvalidArgumentException('Meta Integration is not active.');
+            throw new \InvalidArgumentException('Meta entegrasyonu etkin değil. Önce Entegrasyonlar › Meta sayfasından bağlantıyı etkinleştirin.');
         }
 
         $selectable = $resource->metadata['selectable'] ?? true;
         $bindable = $resource->metadata['bindable'] ?? true;
         if ($selectable === false || $bindable === false) {
-            throw new \InvalidArgumentException('This Meta resource is not selectable for Binding.');
+            throw new \InvalidArgumentException('Bu Meta hesabı bağlanmaya uygun değil.');
         }
     }
 
@@ -66,7 +66,7 @@ final class MetaBindingEligibilityPolicy
     {
         if ((string) $asset->type !== 'meta_ads') {
             throw new \InvalidArgumentException(
-                'Only Meta Ads Digital Assets can receive a Meta Ad Account Binding.',
+                'Meta reklam hesabı yalnız Meta Ads türündeki bir varlığa bağlanabilir.',
             );
         }
     }

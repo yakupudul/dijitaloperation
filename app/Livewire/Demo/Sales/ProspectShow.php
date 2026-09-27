@@ -8,6 +8,7 @@ use App\Enums\ProspectStatus;
 use App\Models\Prospect;
 use App\Models\ProspectReportSnapshot;
 use App\Services\Intel\ProspectAuditService;
+use App\Services\Prospects\ConvertProspectService;
 use App\Services\Prospects\CreateProspectReportSnapshotService;
 use App\Services\Prospects\ProspectReadService;
 use App\Services\Prospects\ProspectReportPdfRenderer;
@@ -50,6 +51,13 @@ class ProspectShow extends Component
 
     public string $auditError = '';
 
+    /**
+     * What the conversion just skipped (e.g. a website owned by another brand), shown once after the redirect.
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $conversionNotices = [];
+
     public function mount(string $prospectId): void
     {
         abort_unless(ctype_digit($prospectId), 404);
@@ -61,6 +69,8 @@ class ProspectShow extends Component
         $prospect = Prospect::query()->findOrFail($prospectId);
         $this->status = $prospect->status->value;
         $this->identity_status = $prospect->identity_status->value;
+        $notices = session(ConvertProspectService::NOTICES_FLASH);
+        $this->conversionNotices = is_array($notices) ? array_values($notices) : [];
         $this->report_locale = in_array(app()->getLocale(), ['en', 'tr'], true) ? app()->getLocale() : 'en';
     }
 

@@ -59,7 +59,7 @@ class ProspectConvert extends Component
         $prospect = Prospect::query()->findOrFail($this->prospectId);
 
         try {
-            $converted = app(ConvertProspectService::class)->convert($prospect, [
+            $report = app(ConvertProspectService::class)->convertWithReport($prospect, [
                 'customer_name' => $this->customer_name,
                 'brand_name' => $this->brand_name,
                 'existing_customer_id' => $this->existing_customer_id !== '' ? $this->existing_customer_id : null,
@@ -68,12 +68,16 @@ class ProspectConvert extends Component
                 'promote_observed_summary' => $this->promote_observed_summary,
                 'selected_assets' => $this->selected_assets,
             ], auth()->user());
+            $converted = $report['prospect'];
         } catch (ValidationException $exception) {
             $this->preview = app(ConvertProspectService::class)->preview($prospect->fresh());
             throw $exception;
         }
 
         DemoState::flash(__('operator.prospects.conversion.completed', ['name' => $converted->company_name]));
+        if ($report['notices'] !== []) {
+            session()->flash(ConvertProspectService::NOTICES_FLASH, $report['notices']);
+        }
 
         return $this->redirect(route('operator.prospect', ['prospectId' => $converted->id]), navigate: true);
     }

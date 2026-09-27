@@ -5,6 +5,12 @@
 
 <div class="space-y-5">
     @include('livewire.demo.partials.flash')
+    @foreach ($conversionNotices as $notice)
+        <div class="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30" data-conversion-notice>
+            Web sitesi ({{ $notice['host'] ?? '' }}) zaten <strong>{{ $notice['customer'] ?? '—' }}</strong> müşterisinin <strong>{{ $notice['brand'] ?? '—' }}</strong> markasında kayıtlı; yeni markaya eklenmedi.
+            Gerekirse <a href="{{ $notice['asset_url'] ?? '#' }}" wire:navigate class="font-medium underline">varlık sayfasından</a> yetki devri yapabilirsiniz.
+        </div>
+    @endforeach
     @include('livewire.demo.sales.partials.sales-subnav', ['current' => 'prospects'])
 
     <div class="flex flex-wrap items-start justify-between gap-3">

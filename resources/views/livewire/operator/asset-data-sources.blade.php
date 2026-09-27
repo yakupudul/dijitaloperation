@@ -238,6 +238,7 @@
                         · {{ $transfer->summary() }}
                         @if ($transfer->transferredBy) <span class="text-xs text-gray-400">· {{ $transfer->transferredBy->name }}</span>@endif
                         @if ($transfer->note) <span class="block text-xs text-gray-500">Not: {{ $transfer->note }}</span>@endif
+                        @if ($transfer->mappingSummary()) <span class="block text-xs text-gray-500">{{ $transfer->mappingSummary() }}</span>@endif
                     </li>
                 @endforeach
             </ul>

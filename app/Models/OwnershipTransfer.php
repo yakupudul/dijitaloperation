@@ -63,4 +63,20 @@ class OwnershipTransfer extends Model
             $to !== '' ? $to : '—',
         );
     }
+
+    /** What happened to the account mapping (sector / services) on this transfer, in one Turkish line; null = nothing. */
+    public function mappingSummary(): ?string
+    {
+        $entries = collect(is_array($this->snapshot) ? ($this->snapshot['mapping'] ?? []) : []);
+        $reset = $entries->where('action', 'reset')->count();
+        $rescoped = $entries->where('action', 'rescoped')->count();
+        if ($reset > 0) {
+            return sprintf('%d hesabın sektör / hizmet eşlemesi sıfırlandı; yeni marka için yeniden eşlenecek (Hizmet Beyni › Hesap eşleme).', $reset);
+        }
+        if ($rescoped > 0) {
+            return 'Sektör / hizmet eşlemesi korundu (aynı müşteri); bekleyen eşleme önerileri yeni markaya taşındı.';
+        }
+
+        return null;
+    }
 }

@@ -22,19 +22,19 @@ final class BindingScopeGuard
         if ($resource->provider === ProviderRegistry::GOOGLE) {
             $connector = GoogleConnectorRegistry::byResourceType((string) $resource->resource_type);
             if ($connector === null) {
-                throw new \InvalidArgumentException('Unknown Google ExternalResource type.');
+                throw new \InvalidArgumentException('Bu Google hesap türü tanınmıyor; bağlanamaz.');
             }
         }
 
         if (! AssetBindingCompatibility::isCompatible($asset, $resource)) {
-            throw new \InvalidArgumentException('Digital Asset type is not compatible with this ExternalResource.');
+            throw new \InvalidArgumentException('Bu hesap bu dijital varlık türüne bağlanamaz.');
         }
 
         if (! ExternalResourceAssetCompatibility::canBindResourceToAssetType(
             (string) $resource->resource_type,
             (string) $asset->type,
         )) {
-            throw new \InvalidArgumentException('Digital Asset type is not compatible with this ExternalResource.');
+            throw new \InvalidArgumentException('Bu hesap bu dijital varlık türüne bağlanamaz.');
         }
     }
 

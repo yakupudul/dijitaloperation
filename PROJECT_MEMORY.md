@@ -6,6 +6,8 @@
   - Manual paths show the yetki devri panel (`ConfirmsOwnershipTransfer` + `x-operator.ownership-transfer-panel`) and transfer only through `OwnershipTransferService` with `confirmed = true` from an Admin.
   - Automatic paths (setup, bulk create, Brain, discovery) skip and report; they never pass `transferConfirmed`.
 - Transfers are recorded in `ownership_transfers`; old bindings stay disabled with reason `transferred`, collected data stays on the old asset.
+- **One website asset per domain is a model rule.** `DigitalAsset` refuses (ValidationException on `domain`) a website whose URL / domain host another website asset already uses, from any path (forms, Filament, imports). Tests that need a legacy duplicate create it with `DigitalAsset::withoutEvents()`.
+- **An account's sector / service mapping belongs to the owner.** A transfer to another customer (account or asset move) clears `ResourceAutomation` sector / services / query intake, keeps neutral settings, bumps `mapping_revision`, makes collection due and stales pending Brain `account_mapping` proposals; the reset is kept in `ownership_transfers.snapshot.mapping`. Same customer: the mapping stays, pending proposals move to the new brand.
 
 ## 2026-10-19 — Service scope
 
