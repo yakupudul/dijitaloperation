@@ -247,8 +247,8 @@ class MetaResourceBindingTest extends TestCase
         } catch (ValidationException $e) {
             $message = (string) (collect($e->errors())->flatten()->first() ?? '');
             $this->assertTrue(
-                str_contains($message, 'different Meta Integration')
-                || str_contains($message, 'Meta Integration'),
+                str_contains($message, 'başka bir Meta entegrasyonuna ait')
+                || str_contains($message, 'Meta entegrasyonu'),
                 $message,
             );
         }

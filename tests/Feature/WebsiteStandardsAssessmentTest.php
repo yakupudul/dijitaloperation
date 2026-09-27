@@ -152,7 +152,7 @@ final class WebsiteStandardsAssessmentTest extends TestCase
     public function test_disabled_module_and_cross_asset_candidate_are_rejected(): void
     {
         $website = $this->website();
-        $other = $this->website();
+        $other = $this->website('other.example.test');
         $profile = $this->page($other, '/service');
         $cluster = SearchDemandCluster::query()->create(['uuid' => (string) Str::uuid(), 'brand_id' => $website->brand_id,
             'cluster_key' => 'service', 'name' => 'Service', 'content_target_cluster' => 'Service', 'status' => 'active']);
@@ -379,10 +379,10 @@ final class WebsiteStandardsAssessmentTest extends TestCase
             'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', $key)]);
     }
 
-    private function website(): DigitalAsset
+    private function website(string $domain = 'example.test'): DigitalAsset
     {
-        return DigitalAsset::factory()->create(['type' => 'website', 'domain' => 'example.test',
-            'primary_url' => 'https://example.test/', 'seo_market_language_code' => 'tr']);
+        return DigitalAsset::factory()->create(['type' => 'website', 'domain' => $domain,
+            'primary_url' => 'https://'.$domain.'/', 'seo_market_language_code' => 'tr']);
     }
 
     private function page(DigitalAsset $website, string $path, array $facts = []): WebsitePageProfile

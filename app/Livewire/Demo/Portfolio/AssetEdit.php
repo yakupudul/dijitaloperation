@@ -70,6 +70,11 @@ class AssetEdit extends Component
             $this->type = (string) $asset->type;
             $this->validate($this->assetRules());
             $target = Brand::query()->findOrFail((int) $this->brand_id);
+            if ($this->type === 'website' && ($duplicate = $this->duplicateWebsiteMessage($asset, (int) $target->id)) !== null) {
+                $this->addError('domain', $duplicate);
+
+                return null;
+            }
 
             if ((int) $asset->brand_id !== (int) $target->id) {
                 $conflict = app(OwnershipGuard::class)->forAssetMove($asset, $target);
@@ -108,6 +113,19 @@ class AssetEdit extends Component
         DemoState::flash(__('operator.forms.asset_updated'));
 
         return $this->redirect(OperatorPortfolioPresenter::specialistUrl($asset), navigate: true);
+    }
+
+    /** Another website asset already uses the edited URL / domain (the asset itself excluded). */
+    private function duplicateWebsiteMessage(DigitalAsset $asset, int $targetBrandId): ?string
+    {
+        $guard = app(OwnershipGuard::class);
+        foreach ([$this->primary_url, $this->domain] as $url) {
+            if (trim($url) !== '' && ($existing = $guard->existingWebsite($url, (int) $asset->id)) !== null) {
+                return $guard->duplicateWebsiteMessage($existing, $targetBrandId);
+            }
+        }
+
+        return null;
     }
 
     public function render(): View

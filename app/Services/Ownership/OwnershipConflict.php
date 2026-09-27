@@ -97,6 +97,9 @@ final readonly class OwnershipConflict
                 'Daha önce toplanmış veriler eski varlıkta kalır; yeni varlık bundan sonraki çekimleri alır.',
                 'Eski varlıktaki açık işler, görevler ve öneriler eski varlıkta kalır.',
                 'Eski müşterinin raporları geçmiş aylarını korur.',
+                $this->sameCustomer
+                    ? 'Hesabın sektör / hizmet eşlemesi korunur (aynı müşteri).'
+                    : 'Hesabın sektör / hizmet eşlemesi sıfırlanır; yeni marka için yeniden eşlenir.',
             ];
         }
 
@@ -104,6 +107,7 @@ final readonly class OwnershipConflict
             sprintf('Varlık, bağlı hesapları ve toplanmış verisiyle birlikte %s markasına geçer.', $this->targetBrandName ?? 'yeni'),
             sprintf('%s müşterisi bu varlığı artık görmez; yeni çekimler %s adına yapılır.', $this->currentCustomerName ?? 'Eski müşteri', $this->targetCustomerName ?? 'yeni müşteri'),
             'Daha önce oluşturulmuş raporlar ve kapanmış işler değişmez.',
+            'Bağlı hesapların sektör / hizmet eşlemesi sıfırlanır; yeni marka için yeniden eşlenir.',
         ];
     }
 

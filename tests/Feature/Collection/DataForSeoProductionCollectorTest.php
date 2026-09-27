@@ -243,7 +243,8 @@ class DataForSeoProductionCollectorTest extends TestCase
         $this->assertSame(1, DatasetWriteBatch::query()->count());
         $this->assertSame(1, DB::table('dataforseo_ranked_keyword_snapshot')->where('digital_asset_id', $this->asset->id)->count());
 
-        $sibling = DigitalAsset::factory()->create([
+        // A legacy duplicate of the same domain (the one-website-per-domain guard now refuses new ones).
+        $sibling = DigitalAsset::withoutEvents(fn (): DigitalAsset => DigitalAsset::factory()->create([
             'brand_id' => $this->brand->id,
             'type' => 'website',
             'module_id' => 'website',
@@ -254,7 +255,7 @@ class DataForSeoProductionCollectorTest extends TestCase
             'seo_market_location_name' => 'Turkey',
             'seo_market_language_code' => 'tr',
             'seo_market_language_name' => 'Turkish',
-        ]);
+        ]));
         $this->travelTo('2026-08-20 10:01:00');
         [$contextB, $runB] = $this->makeContext(
             DataForSeoRequestFamilyCatalog::FAMILY_RANKED_KEYWORDS,

@@ -5,18 +5,19 @@
 - **One ownership rule (`App\Services\Ownership\OwnershipGuard`).** An external account (Google / Meta resource) or a digital asset belongs to one customer at a time.
   - `forResource()` / `forResourceInBrand()`: the account is actively bound to another asset. Another customer = yetki devri; same customer, other asset = move (`sameCustomer`), also confirmed.
   - `forAssetMove()`: the asset belongs to another customer's brand. A brandless asset has no owner.
-  - `existingWebsite()`: one website asset per domain (www. / scheme ignored).
+  - `existingWebsite()`: one website asset per domain (www. / scheme ignored). Enforced on every save of a website asset (`DigitalAsset` saving guard) and on the asset edit form: another brand / customer → "Bu adres zaten X müşterisinin Y varlığında kayıtlı." plus the move / merge suggestion; same brand → "Bu adres bu markada zaten kayıtlı".
 - **Transfer = explicit Admin confirmation, recorded.** `OwnershipTransferService` (`transferResource`, `moveAsset`) closes the old binding with `closed_reason = transferred` (kept disabled for history) and writes `ownership_transfers` (from / to customer, brand, asset, user, note, name snapshot).
   - The Google / Meta binding services refuse a foreign-owned account unless the plan carries `transferConfirmed`. The error names the owner: "Bu hesap (…) şu an X müşterisinin Y varlığına bağlı. Devretmek için onaylayın."
+  - **Mapping follows the owner.** Another customer: the account's sector / services / query intake are cleared (collection on/off, interval, hour kept), mapping revision + 1, collection due now, pending "Hesap eşleme" proposals stale; Hizmet Beyni proposes a new mapping for the new brand. Same customer: mapping kept, pending proposals re-scoped to the new brand. Logged in `snapshot.mapping` and shown in "Devir geçmişi".
 - **Manual flows ask inline** (panel: from → to, consequences, "Yetki devrini onaylıyorum", "Devret"; non-admins see the error only):
   - Veri kaynakları: accounts bound elsewhere are listed under "Başka varlığa bağlı" with their owner; picking one opens the panel. "Devir geçmişi" lists the asset's transfers.
   - Google / Meta integration bind modals.
   - Asset edit: Customer → Brand picker. Same customer's brand moves directly; another customer's brand needs the confirmation.
   - Asset create: a website domain that already exists is not duplicated. Brandless or same customer: "Mevcut siteyi bu markaya taşı". Another customer: yetki devri panel.
   - Entegrasyonlar › Web sitesi: "Markaya ata" on unassigned websites (customer → brand, no confirmation).
-- **Automatic flows never transfer.** Otomatik kur and Toplu ekle (`BrandSetupApplier`) skip accounts bound elsewhere and websites whose domain belongs to another brand, and report "N hesap başka bir varlığa bağlı olduğu için atlandı". Prospect conversion does not duplicate an existing website. Brain "Hesap eşleme" maps sector / services only and binds nothing.
-- Binding service messages are Turkish.
-- **State:** CODED + PHPUnit (SQLite, `OwnershipTransferTest`). **No live UAT.**
+- **Automatic flows never transfer.** Otomatik kur and Toplu ekle (`BrandSetupApplier`) skip accounts bound elsewhere and websites whose domain belongs to another brand, and report "N hesap başka bir varlığa bağlı olduğu için atlandı". Prospect conversion does not duplicate an existing website and reports it on the prospect page ("Web sitesi (domain) zaten X müşterisinin Y markasında kayıtlı; yeni markaya eklenmedi…" with a link to the asset) and in the conversion activity. Brain "Hesap eşleme" maps sector / services only and binds nothing.
+- Binding service messages are Turkish, including Meta eligibility (`MetaBindingEligibilityPolicy`) and `BindingScopeGuard` errors.
+- **State:** CODED + PHPUnit (SQLite, `OwnershipTransferTest`, `OwnershipFollowUpTest` incl. the Meta bind-modal transfer). **No live UAT.**
 
 ## 2026-10-19 — Hizmet kapsamı: markasız varlık ve pasif müşteri için iş, uyarı ve harcama yok
 

@@ -14,6 +14,7 @@ use App\Models\DigitalAsset;
 use App\Models\Prospect;
 use App\Models\ProspectDiscoveryCandidate;
 use App\Models\User;
+use App\Services\BrandSetup\BrandSetupMatcher;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Ownership\OwnershipGuard;
 use App\Services\Portfolio\UnassignedWebsites;
@@ -23,6 +24,12 @@ use Illuminate\Validation\ValidationException;
 
 final class ConvertProspectService
 {
+    /** Session flash key the prospect page reads to show what the conversion did not do. */
+    public const string NOTICES_FLASH = 'prospect_conversion_notices';
+
+    /** @var list<array{kind: string, message: string, host: string, customer: ?string, brand: ?string, asset_id: int, asset_name: string, asset_url: string}> */
+    private array $notices = [];
+
     public function __construct(
         private readonly ProspectDuplicateDetector $duplicates = new ProspectDuplicateDetector,
         private readonly ProspectActivityRecorder $activities = new ProspectActivityRecorder,
@@ -57,10 +64,25 @@ final class ConvertProspectService
     }
 
     /**
+     * Converts and reports what was skipped (e.g. a website that already belongs to another brand).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array{prospect: Prospect, notices: list<array{kind: string, message: string, host: string, customer: ?string, brand: ?string, asset_id: int, asset_name: string, asset_url: string}>}
+     */
+    public function convertWithReport(Prospect $prospect, array $input, User $actor): array
+    {
+        $converted = $this->convert($prospect, $input, $actor);
+
+        return ['prospect' => $converted, 'notices' => $this->notices];
+    }
+
+    /**
      * @param  array<string, mixed>  $input
      */
     public function convert(Prospect $prospect, array $input, User $actor): Prospect
     {
+        $this->notices = [];
+
         if ($prospect->converted_customer_id !== null && $prospect->converted_brand_id !== null) {
             return $prospect->fresh(['convertedCustomer', 'convertedBrand']) ?? $prospect;
         }
@@ -147,7 +169,7 @@ final class ConvertProspectService
             [
                 'customer_id' => $converted->converted_customer_id,
                 'brand_id' => $converted->converted_brand_id,
-            ],
+            ] + ($this->notices !== [] ? ['notices' => array_column($this->notices, 'message')] : []),
         );
 
         return $converted;
@@ -279,6 +301,8 @@ final class ConvertProspectService
                 // or moved here (moving it is a yetki devri on the asset edit page).
                 if ($site->brand_id === null) {
                     app(UnassignedWebsites::class)->assign($site, $brand);
+                } elseif ((int) $site->brand_id !== (int) $brand->id) {
+                    $this->notices[] = $this->websiteOwnedElsewhere($site, (string) $url);
                 }
 
                 continue;
@@ -294,6 +318,29 @@ final class ConvertProspectService
                 'primary_url' => $url,
             ]);
         }
+    }
+
+    /** @return array{kind: string, message: string, host: string, customer: ?string, brand: ?string, asset_id: int, asset_name: string, asset_url: string} */
+    private function websiteOwnedElsewhere(DigitalAsset $site, string $url): array
+    {
+        $site->loadMissing('brand.customer');
+        $host = BrandSetupMatcher::host($url);
+        $customer = $site->brand?->customer?->name;
+        $brandName = $site->brand?->name;
+
+        return [
+            'kind' => 'website_owned_elsewhere',
+            'message' => sprintf(
+                'Web sitesi (%s) zaten %s müşterisinin %s markasında kayıtlı; yeni markaya eklenmedi. Gerekirse varlık sayfasından yetki devri yapabilirsiniz.',
+                $host, (string) $customer, (string) $brandName,
+            ),
+            'host' => $host,
+            'customer' => $customer,
+            'brand' => $brandName,
+            'asset_id' => (int) $site->id,
+            'asset_name' => (string) $site->name,
+            'asset_url' => route('operator.asset.edit', ['assetId' => $site->id]),
+        ];
     }
 
     private function promoteObservedSummary(Prospect $prospect, Brand $brand, User $actor): void

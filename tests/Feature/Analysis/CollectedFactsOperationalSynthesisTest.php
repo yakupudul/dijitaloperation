@@ -172,7 +172,7 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
     {
         $this->travelTo('2026-08-20 10:00:00');
         $website = $this->makeWebsiteAsset('http://example.com');
-        $other = $this->makeWebsiteAsset('http://example.com');
+        $other = $this->makeWebsiteAsset('http://sibling.example.com');
         $collectionRun = $this->makeCollectionRun($website);
         $observedAt = '2026-08-20 09:00:00';
 
@@ -265,7 +265,7 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
     public function website_document_head_ignores_running_or_failed_crawl_snapshots(): void
     {
         $website = $this->makeWebsiteAsset('https://atlas.example/');
-        $other = $this->makeWebsiteAsset('https://atlas.example/');
+        $other = $this->makeWebsiteAsset('https://sibling.atlas.example/');
         $collectionRun = $this->makeCollectionRun($website);
         $failed = $this->makeDatasetRun(
             $website,
