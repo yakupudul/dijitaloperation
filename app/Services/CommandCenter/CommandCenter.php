@@ -36,6 +36,7 @@ final class CommandCenter
         'alert' => 'Uyarı', 'advisor' => 'Danışman', 'seo' => 'SEO', 'site_fix' => 'Site düzeltmesi', 'brain' => 'Beyin önerisi',
         'compliance' => 'Uyum', 'lead' => 'Lead', 'system' => 'Sistem', 'approval' => 'Onay bekliyor', 'coverage' => 'Kurulum eksiği',
         'calendar' => 'İçerik takvimi', 'followup' => 'Takip', 'invoice' => 'Tahsilat', 'commitment' => 'Taahhüt', 'task' => 'Görev',
+        'lead_outcome' => 'Lead sonucu',
     ];
 
     private const array SEVERITY_BASE = ['critical' => 1000, 'high' => 700, 'medium' => 400, 'low' => 150];
@@ -55,7 +56,7 @@ final class CommandCenter
     ];
 
     /** @var list<class-string<CommandCenterSource>> producers beyond the built-in readers */
-    public const array EXTRA_SOURCES = [CoverageSource::class, CalendarSource::class, AgencySource::class, TaskSource::class];
+    public const array EXTRA_SOURCES = [CoverageSource::class, CalendarSource::class, AgencySource::class, TaskSource::class, LeadOutcomeSource::class];
 
     public function __construct(private readonly AdvisorChannels $channels) {}
 

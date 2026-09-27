@@ -14,6 +14,7 @@ use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
 use App\Services\ClientValueStory\ClientValueStoryReadService;
 use App\Services\CreateTaskFromRecommendation;
 use App\Services\Findings\FindingReadService;
+use App\Services\LeadOutcomes\LeadQuality;
 use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Opportunities\OpportunityReadService;
 use App\Services\Recommendations\RecommendationReadService;
@@ -23,6 +24,7 @@ use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\DemoState;
 use App\Support\Options\IndustryOptions;
 use App\Support\Roles;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -254,6 +256,7 @@ class BrandShow extends Component
             'checklist' => $checklist,
             'attention' => $attention,
             'advisor' => $this->tab === 'overview' ? $this->advisorOverview($brand) : null,
+            'leadQuality' => $this->tab === 'business' ? app(LeadQuality::class)->forBrand($brand, CarbonImmutable::now(config('app.timezone'))->subDays(29), CarbonImmutable::now(config('app.timezone'))) : null,
             'work' => $work,
             'context' => $context instanceof BrandIntelligenceContext ? $this->contextRows($context) : [],
             'serviceScope' => app(CustomerServiceScopeReadService::class)->forBrand($brand, includeEnded: false),

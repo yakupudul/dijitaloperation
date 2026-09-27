@@ -86,6 +86,7 @@ use App\Livewire\Operator\Market\BacklinksPage;
 use App\Livewire\Operator\Market\CompetitorWatchPage;
 use App\Livewire\Operator\Market\MapRankingsPage;
 use App\Livewire\Operator\Meta\OverviewPage as MetaOverviewPage;
+use App\Livewire\Operator\Portfolio\BrandLeads;
 use App\Livewire\Operator\Portfolio\BrandSetupPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Operator\Portfolio\DiscoverAndGroupPage;
@@ -196,6 +197,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/archive', ProductionArchivePage::class)->name('operator.archive');
         Route::livewire('/renewals', RenewalsPage::class)->name('operator.renewals');
         Route::livewire('/brands/{brand}/setup', BrandSetupPage::class)->name('operator.brand.setup');
+        Route::livewire('/brands/{brand}/leads', BrandLeads::class)->whereNumber('brand')->name('operator.brand.leads');
         Route::livewire('/tasks/{taskId}', TaskShow::class)->name('operator.task');
         Route::livewire('/work/{type}/{workId}', WorkShow::class)
             ->whereIn('type', WorkUrl::types())

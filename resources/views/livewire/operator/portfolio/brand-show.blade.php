@@ -246,6 +246,21 @@
             </section>
         </div>
         <livewire:operator.portfolio.brand-conversions :brand-id="(int) $brandModel->id" :key="'brand-conversions-'.$brandModel->id" />
+        @if ($leadQuality !== null)
+            <section class="{{ $card }}" aria-labelledby="brand-lead-quality-heading">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-5 py-3 dark:border-gray-800">
+                    <h2 id="brand-lead-quality-heading" class="text-base font-semibold text-gray-800 dark:text-white/90">Lead kalitesi</h2>
+                    <a href="{{ route('operator.brand.leads', ['brand' => $brandModel->id]) }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">Leadler ve sonuçları →</a>
+                </div>
+                <div class="p-5">
+                    @if ($leadQuality['total'] > 0)
+                        <x-operator.lead-quality :quality="$leadQuality" :days="30" />
+                    @else
+                        <p class="text-sm text-gray-500">Son 30 günde kayıtlı lead yok. Form / Meta lead dosyasını yükleyip klinikten gelen sonucu (randevu, satış, geçersiz…) işaretleyin; nitelikli lead başı maliyet burada hesaplanır.</p>
+                    @endif
+                </div>
+            </section>
+        @endif
         <livewire:operator.portfolio.brand-demand :brand-id="(int) $brandModel->id" :key="'brand-demand-'.$brandModel->id" />
         <livewire:operator.portfolio.brand-competitors :brand-id="(int) $brandModel->id" :key="'brand-competitors-'.$brandModel->id" />
     @endif

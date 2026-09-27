@@ -6,6 +6,7 @@ use App\Models\AdvisorItem;
 use App\Models\Brand;
 use App\Models\Intel\MapGridRun;
 use App\Services\ClientValueStory\ClientValueStoryReadService;
+use App\Services\LeadOutcomes\LeadQuality;
 use App\Services\Measurement\BrandConversionDictionary;
 use App\Services\Measurement\BrandMeasurementScope;
 use Carbon\CarbonImmutable;
@@ -60,6 +61,7 @@ final class MonthlyReportBuilder
         private readonly BrandConversionDictionary $conversions,
         private readonly ClientValueStoryReadService $stories,
         private readonly ChartAnnotations $annotations,
+        private readonly LeadQuality $leadQuality,
     ) {}
 
     public static function defaultMonth(): string
@@ -108,6 +110,7 @@ final class MonthlyReportBuilder
             'channels' => $channels,
             'conversions' => $this->conversionBlock($brand, $periods),
             'local' => $this->local($brand, $start, $end),
+            'lead_quality' => $this->leadQuality($brand, $start, $end),
             'completed_work' => $story['completed_work'],
             'measured_work' => $story['measured_work'],
             'next' => $this->next($brand),
@@ -257,6 +260,24 @@ final class MonthlyReportBuilder
             'kpi' => $this->kpi('conversions', 'Toplam dönüşüm (form, arama, WhatsApp…)', 'decimal', 'up', (float) $totals['current']['total'], (float) $totals['previous']['total'], ($totals['last_year']['total'] ?? 0) > 0 ? (float) $totals['last_year']['total'] : null),
             'by_type' => $totals['current']['by_type'] ?? [],
         ];
+    }
+
+    /**
+     * Lead kalitesi section: only when the clinic's outcome was marked for at least one lead received in the month.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function leadQuality(Brand $brand, CarbonImmutable $start, CarbonImmutable $end): ?array
+    {
+        try {
+            $quality = $this->leadQuality->forBrand($brand, $start, $end);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return null;
+        }
+
+        return $quality['marked'] > 0 ? $quality : null;
     }
 
     /** @return array<string, mixed> */
