@@ -8,6 +8,8 @@
     ];
     $stateLabels = ['waiting' => 'Sırada', 'planning' => 'Planlanıyor', 'collecting' => 'Çekiliyor', 'current' => 'Güncel', 'attention' => 'Durdu'];
     $typeLabels = ['google_ads' => 'Google Ads', 'ga4' => 'GA4', 'search_console' => 'Search Console', 'google_business_profile' => 'İşletme Profili', 'meta_ads' => 'Meta Ads'];
+    $duration = fn (int $seconds): string => $seconds < 60 ? $seconds.' sn' : (int) ceil($seconds / 60).' dk';
+    $release = $health['release'] ?? ['sha' => null, 'deployed_at' => null];
 @endphp
 <div class="space-y-5">
     <div class="flex flex-wrap items-start justify-between gap-3">
@@ -15,6 +17,7 @@
             <a href="{{ route('operator.settings', ['section' => 'operations']) }}" wire:navigate class="text-sm text-gray-500 hover:text-brand-600">← Ayarlar</a>
             <h1 class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">Sistem Sağlığı</h1>
             <p class="mt-1 text-sm text-gray-500">Zamanlayıcı, işçiler, sistem uyarıları, bağlantı yetkileri, hesap bazında veri tazeliği ve WordPress eklenti sürümleri.</p>
+            <p class="mt-1 text-xs text-gray-500">Yayındaki sürüm: <span class="font-mono">{{ $release['sha'] !== null ? substr($release['sha'], 0, 12) : 'bilinmiyor' }}</span>@if ($release['deployed_at']) · {{ $when($release['deployed_at']) }}@endif</p>
         </div>
         <div class="flex gap-2">
             <a href="{{ route('operator.settings.background-operations') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700">Arka plan işleri</a>
@@ -85,6 +88,39 @@
             <p class="mt-2 text-sm text-emerald-600">Açık uyarı yok.</p>
         @endforelse
     </section>
+
+    <div class="grid gap-4 lg:grid-cols-3">
+        <section class="{{ $card }}">
+            <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Kuyruk bekleme süreleri</h2>
+            @if (($health['queue_waits'] ?? null) === null)
+                <p class="mt-2 text-sm text-gray-500">Ölçülmüyor: kuyruk sürücüsü redis değil ya da Horizon okunamadı.</p>
+            @else
+                @forelse ($health['queue_waits'] as $wait)
+                    <p class="mt-1 text-sm">
+                        <span class="{{ $wait['over'] ? 'text-rose-600' : 'text-emerald-600' }}">●</span>
+                        {{ $wait['queue'] }} — {{ $duration($wait['wait_seconds']) }}
+                        @if ($wait['threshold_seconds'] !== null)<span class="text-xs text-gray-500">(eşik {{ $duration($wait['threshold_seconds']) }})</span>@endif
+                    </p>
+                @empty
+                    <p class="mt-2 text-sm text-gray-500">Horizon çalışan kuyruk bildirmiyor.</p>
+                @endforelse
+            @endif
+        </section>
+        <section class="{{ $card }} lg:col-span-2">
+            <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Uygulama hataları (son 7 gün, en sık)</h2>
+            @forelse ($health['error_groups'] ?? [] as $group)
+                <div class="mt-2 border-t border-gray-100 pt-2 text-sm dark:border-gray-800">
+                    <span class="rounded bg-rose-50 px-1.5 py-0.5 text-xs font-semibold text-rose-700">{{ number_format($group['occurrences'], 0, ',', '.') }} kez</span>
+                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ class_basename($group['class']) }}</span>
+                    <span class="font-mono text-xs text-gray-500">{{ $group['location'] }}</span>
+                    <p class="text-xs text-gray-500">{{ $group['message'] }}</p>
+                    <p class="text-xs text-gray-400">İlk {{ $when($group['first_seen_at']) }} · son {{ $when($group['last_seen_at']) }}@if ($group['last_release']) · sürüm <span class="font-mono">{{ $group['last_release'] }}</span>@endif</p>
+                </div>
+            @empty
+                <p class="mt-2 text-sm text-emerald-600">Son 7 günde kaydedilmiş uygulama hatası yok.</p>
+            @endforelse
+        </section>
+    </div>
 
     <section class="{{ $card }}">
         <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Bağlantı yetkileri</h2>

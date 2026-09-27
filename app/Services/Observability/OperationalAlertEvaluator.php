@@ -27,6 +27,7 @@ final class OperationalAlertEvaluator
         private readonly ProviderApiTelemetryService $providerApi,
         private readonly AsyncWorkerHealth $queueHealth,
         private readonly DueCollectionQueryService $dueCollections,
+        private readonly QueueWaitMonitor $queueWaits,
     ) {}
 
     /**
@@ -39,6 +40,7 @@ final class OperationalAlertEvaluator
         $updated = 0;
 
         $opened += $this->evaluateQueueBacklog();
+        $opened += $this->queueWaits->evaluate($this->lifecycle);
         $opened += $this->evaluateWorkerHealth();
         $opened += $this->evaluateStuckCollections();
         $opened += $this->evaluateCollectionFailures();

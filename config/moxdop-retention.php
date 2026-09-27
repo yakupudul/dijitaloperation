@@ -60,5 +60,6 @@ return [
         'search_demand_provider_payloads' => ['captured_at', 90],
         'uptime_checks' => ['checked_at', 30],
         'push_notifications' => ['created_at', 90],
+        'app_error_groups' => ['last_seen_at', 90],
     ],
 ];
