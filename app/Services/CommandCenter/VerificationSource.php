@@ -37,6 +37,7 @@ final class VerificationSource implements CommandCenterSource
                 $check['capability'] === 'token' ? 'critical' : 'high',
                 'Canlı doğrulama başarısız: '.$check['label'], [
                     'detail' => $check['message'],
+                    'rule' => $check['capability'] === 'token' ? 'token' : 'check',
                     'channel' => 'Entegrasyon',
                     'url' => route('operator.settings.system-health'),
                     'age' => CarbonImmutable::parse($check['checked_at']),
@@ -60,6 +61,9 @@ final class VerificationSource implements CommandCenterSource
                 'brand_id' => $issue->brand_id !== null ? (int) $issue->brand_id : null,
                 'brand' => $issue->brand_name,
                 'asset' => $issue->asset_domain ?: $issue->asset_name,
+                'asset_id' => $issue->digital_asset_id !== null ? (int) $issue->digital_asset_id : null,
+                'asset_type' => $issue->asset_type,
+                'rule' => (string) $issue->kind,
                 'channel' => 'Veri şüpheli'.(isset(self::CHANNELS[$capability]) ? ' · '.self::CHANNELS[$capability] : ''),
                 'url' => route('operator.settings.system-health'),
                 'age' => $issue->first_detected_at !== null ? CarbonImmutable::parse((string) $issue->first_detected_at) : null,

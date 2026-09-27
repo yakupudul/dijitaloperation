@@ -38,7 +38,7 @@ final class CrossChannelAdvisorChannel implements AdvisorChannel
 
     public function assetUrl(int $assetId): string
     {
-        return route('operator.ads_advisor', ['adv_channel' => AdvisorPlan::CHANNEL_CROSS, 'adv_asset' => $assetId]);
+        return route('operator.ads_advisor.detailed', ['adv_channel' => AdvisorPlan::CHANNEL_CROSS, 'adv_asset' => $assetId]);
     }
 
     public function draftRules(): array

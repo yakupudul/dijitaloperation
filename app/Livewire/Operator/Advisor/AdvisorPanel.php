@@ -12,9 +12,9 @@ use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Services\Advisor\AdvisorChannels;
+use App\Services\Advisor\AdvisorItemActions;
 use App\Services\Advisor\AdvisorPlanRunner;
 use App\Services\Advisor\GoogleAds\GoogleAdsEditorExport;
-use App\Services\Archive\ProductionArchive;
 use App\Services\Compliance\ComplianceAuditor;
 use App\Services\Compliance\SectorPackRegistry;
 use App\Services\ExternalWrites\ExternalWriteService;
@@ -152,19 +152,7 @@ final class AdvisorPanel extends Component
     /** Faz 7: re-run the same channel's rules for this asset right away (rules only, no AI) to verify the item. */
     private function verifyNow(int $id): void
     {
-        if (! (bool) config('moxdop-advisor.brain.verify_on_done', true)) {
-            return;
-        }
-        $item = $this->item($id);
-        $asset = DigitalAsset::query()->find($item->digital_asset_id);
-        if ($asset === null || app(AdvisorChannels::class)->forAssetType((string) $asset->type)?->channel() !== $item->channel) {
-            return;
-        }
-        try {
-            app(AdvisorPlanRunner::class)->queue($asset, auth()->user(), 'verify');
-        } catch (ValidationException) {
-            // Advisor disabled or asset not eligible: the weekly plan verifies instead.
-        }
+        app(AdvisorItemActions::class)->verify($this->item($id), auth()->user());
     }
 
     /** Faz 7: hide an item for N days; it comes back if the problem is still there. */
@@ -187,28 +175,14 @@ final class AdvisorPanel extends Component
     }
 
     /** Operator-approved AI call: queue a copy draft for an item whose rule offers one. */
-    public function requestDraft(int $id, AdvisorChannels $channels): void
+    public function requestDraft(int $id): void
     {
-        $item = $this->item($id);
-        $channel = $channels->get($item->channel);
-        if (! in_array($item->rule_id, $channel->draftRules(), true) || $item->draft_status === 'queued') {
+        $message = app(AdvisorItemActions::class)->requestDraft($this->item($id));
+        if ($message === null) {
             return;
         }
-        // Üretim Arşivi: a fresh draft for this item (e.g. lost to a failed retry) is shown before a new AI call.
-        $hasDraft = is_array($item->draft) && ! isset($item->draft['error']) && $item->draft_status === 'ready';
-        $archive = app(ProductionArchive::class);
-        $fresh = $hasDraft ? null : $archive->fresh($archive->advisorKind($item), $item);
-        if ($fresh !== null) {
-            $item->forceFill(['draft_status' => 'ready', 'draft' => $fresh->content])->save();
-            $this->expandedId = $id;
-            $this->flash('Son 14 günde hazırlanmış taslak (sürüm '.$fresh->version.') arşivden geri yüklendi; AI çağrılmadı. Yeni taslak için "Yeniden hazırla".');
-
-            return;
-        }
-        $item->forceFill(['draft_status' => 'queued', 'draft' => null])->save();
-        $channel->dispatchDraft($item->id);
         $this->expandedId = $id;
-        $this->flash('Metin taslağı hazırlanıyor (1 AI çağrısı). Hazır olunca burada görünür.');
+        $this->flash($message);
     }
 
     /** ADR-064: open the editable list for an Admin before sending it to Google Ads. */

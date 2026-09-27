@@ -30,6 +30,7 @@ final class AgencySource implements CommandCenterSource
             $out->push(CommandCenter::item('invoice', $invoice->id, 'high', 'Vadesi geçen fatura: '.$invoice->customer?->name.' · '.number_format((float) $invoice->amount, 0, ',', '.').' '.$invoice->currency, [
                 'detail' => $invoice->period.' dönemi, vade '.$invoice->due_on->format('d.m.Y').'.',
                 'channel' => 'Tahsilat',
+                'rule' => 'overdue',
                 'money' => (float) $invoice->amount,
                 'url' => route('operator.agency', ['tab' => 'invoices']),
                 'actions' => ['done', 'snooze'],
@@ -39,7 +40,7 @@ final class AgencySource implements CommandCenterSource
         $drafts = Invoice::query()->where('status', 'draft')->where('period', '<=', now()->format('Y-m'))->count();
         if ($drafts > 0 && now()->day >= 3) {
             $out->push(CommandCenter::item('invoice', 'drafts', 'medium', $drafts.' taslak fatura kesilmeyi bekliyor', [
-                'channel' => 'Tahsilat', 'url' => route('operator.agency', ['tab' => 'invoices']),
+                'channel' => 'Tahsilat', 'rule' => 'drafts', 'url' => route('operator.agency', ['tab' => 'invoices']),
             ]));
         }
         foreach ($this->operations->commitments(now()->format('Y-m')) as $row) {

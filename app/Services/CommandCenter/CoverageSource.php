@@ -25,6 +25,7 @@ final class CoverageSource implements CommandCenterSource
             $integration = (int) $rows->first()->resource->integration_id;
             $out->push(CommandCenter::item('coverage', 'reconnect-'.$provider, 'critical', ($provider === 'meta' ? 'Meta' : 'Google').' bağlantısı yenilenmeli ('.$rows->count().' hesabın verisi çekilemiyor)', [
                 'detail' => 'Tek tıkla izin ekranına gidin; yeniden bağlanınca hesaplar kendiliğinden devam eder.',
+                'rule' => 'reconnect',
                 'channel' => 'Entegrasyon',
                 'url' => route($provider === 'meta' ? 'integrations.meta.authorize' : 'integrations.google.authorize', ['integration' => $integration]),
             ]));
@@ -35,6 +36,7 @@ final class CoverageSource implements CommandCenterSource
         foreach ($lost as $resource) {
             $out->push(CommandCenter::item('coverage', 'lost-'.$resource->id, 'critical', 'Erişim kaybedildi: '.($resource->display_name ?: $resource->external_id), [
                 'detail' => 'Bu hesap artık bağlı Google/Meta kullanıcısına görünmüyor; müşteriden erişimi yeniden isteyin ya da bağlantıyı kaldırın.',
+                'rule' => 'lost',
                 'channel' => 'Entegrasyon',
                 'url' => route($resource->provider === 'meta' ? 'operator.integrations.meta' : 'operator.integrations.google', ['tab' => 'resources']),
             ]));
@@ -46,6 +48,7 @@ final class CoverageSource implements CommandCenterSource
             $out->push(CommandCenter::item('coverage', 'unbound', 'medium', $unbound->count().' hesap hiçbir markaya bağlı değil', [
                 'detail' => $unbound->take(6)->map(fn (ResourceAutomation $a): string => (string) ($a->resource->display_name ?: $a->resource->external_id))->implode(', ').($unbound->count() > 6 ? '…' : '').' — veri çekilmiyor. Keşfet ve Grupla ile markalara dağıtın.',
                 'channel' => 'Entegrasyon',
+                'rule' => 'unbound',
                 'url' => route('operator.portfolio.discover'),
             ]));
         }
@@ -58,6 +61,7 @@ final class CoverageSource implements CommandCenterSource
             $out->push(CommandCenter::item('coverage', 'no-search-console', 'medium', $noConsole->count().' markanın sitesinde Search Console bağlı değil', [
                 'detail' => $noConsole->take(8)->implode(', ').($noConsole->count() > 8 ? '…' : '').' — sorgu ve SEO önerileri bu veri olmadan eksik kalır.',
                 'channel' => 'Kurulum',
+                'rule' => 'no-search-console',
                 'url' => route('operator.portfolio.health'),
             ]));
         }
