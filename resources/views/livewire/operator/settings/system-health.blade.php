@@ -8,6 +8,8 @@
     ];
     $stateLabels = ['waiting' => 'Sırada', 'planning' => 'Planlanıyor', 'collecting' => 'Çekiliyor', 'current' => 'Güncel', 'attention' => 'Durdu'];
     $typeLabels = ['google_ads' => 'Google Ads', 'ga4' => 'GA4', 'search_console' => 'Search Console', 'google_business_profile' => 'İşletme Profili', 'meta_ads' => 'Meta Ads'];
+    $runStatus = ['completed' => 'tamamlandı', 'failed' => 'başarısız', 'partial' => 'kısmen tamamlandı', 'running' => 'çekiliyor', 'queued' => 'sırada', 'retrying' => 'yeniden denenecek', 'cancelled' => 'durduruldu', 'skipped' => 'atlandı', 'cancellation_requested' => 'durduruluyor'];
+    $authLabels = ['active' => 'Açık', 'disabled' => 'Kapalı', 'REFRESH_REQUIRED' => 'izin yenilenmeli', 'REAUTH_REQUIRED' => 'yeniden bağlanmalı', 'REVOKED' => 'izin geri alındı', 'EXPIRED' => 'izin süresi doldu', 'PERMISSION_REQUIRED' => 'ek izin gerekli', 'CONNECTED' => 'bağlı', 'OK' => 'bağlı', 'ERROR' => 'hata'];
     $duration = fn (int $seconds): string => $seconds < 60 ? $seconds.' sn' : (int) ceil($seconds / 60).' dk';
     $release = $health['release'] ?? ['sha' => null, 'deployed_at' => null];
 @endphp
@@ -81,8 +83,16 @@
             <div class="mt-2 border-t border-gray-100 pt-2 text-sm dark:border-gray-800">
                 <span @class(['rounded px-1.5 py-0.5 text-xs font-semibold', 'bg-rose-50 text-rose-700' => $alert['severity'] === 'critical', 'bg-amber-50 text-amber-700' => $alert['severity'] !== 'critical'])>{{ $alert['severity'] === 'critical' ? 'Kritik' : 'Uyarı' }}</span>
                 <span class="font-medium text-gray-800 dark:text-gray-200">{{ $alert['title'] }}</span>
-                <span class="text-xs text-gray-500">· {{ $when($alert['since']) }} · {{ $alert['count'] }} kez</span>
-                @if ($alert['summary'])<p class="text-xs text-gray-500">{{ $alert['summary'] }}</p>@endif
+                <span class="text-xs text-gray-500">· {{ $when($alert['since']) }} · {{ $alert['count'] }} kez gözlendi</span>
+                @if (($alert['repeat_label'] ?? '') !== '')<span class="text-xs font-medium text-amber-600">· {{ $alert['repeat_label'] }}</span>@endif
+                @if ($alert['summary'])<p class="mt-1 text-xs text-gray-600 dark:text-gray-400"><span class="font-semibold">Ne oldu:</span> {{ $alert['summary'] }}</p>@endif
+                @if ($alert['why'] ?? null)<p class="text-xs text-gray-600 dark:text-gray-400"><span class="font-semibold">Neden önemli:</span> {{ $alert['why'] }}</p>@endif
+                @if ($alert['action'] ?? null)<p class="text-xs text-gray-600 dark:text-gray-400"><span class="font-semibold">Ne yapmalısın:</span> {{ $alert['action'] }}</p>@endif
+                <p class="mt-1 flex flex-wrap gap-3 text-xs">
+                    @if (! empty($alert['button']['url']))<a href="{{ $alert['button']['url'] }}" class="font-semibold text-brand-600 hover:underline">{{ $alert['button']['label'] }}</a>@endif
+                    @if (! empty($alert['button']['run_now']))<button type="button" wire:click="runNowAutomation({{ (int) $alert['button']['run_now'] }})" wire:loading.attr="disabled" class="font-semibold text-brand-600 hover:underline">{{ $alert['button']['label'] }}</button>@endif
+                    @if (! empty($alert['link_url']) && ! str_contains((string) $alert['link_url'], '/settings/system-health'))<a href="{{ $alert['link_url'] }}" wire:navigate class="text-brand-600 hover:underline">{{ $alert['link_label'] }} →</a>@endif
+                </p>
             </div>
         @empty
             <p class="mt-2 text-sm text-emerald-600">Açık uyarı yok.</p>
@@ -171,7 +181,7 @@
                     @foreach ($health['integrations'] as $integration)
                         <tr>
                             <td class="py-2 pr-3 font-medium text-gray-800 dark:text-gray-200">{{ $integration['name'] }} <span class="text-xs text-gray-400">{{ $integration['provider'] }}</span></td>
-                            <td class="py-2 pr-3">{{ $integration['status'] }}{{ $integration['auth_status'] !== '' ? ' · '.$integration['auth_status'] : '' }}</td>
+                            <td class="py-2 pr-3">{{ $authLabels[$integration['status']] ?? $integration['status'] }}{{ $integration['auth_status'] !== '' ? ' · '.($authLabels[strtoupper($integration['auth_status'])] ?? $integration['auth_status']) : '' }}</td>
                             <td @class(['py-2 pr-3', 'font-semibold text-rose-600' => $integration['expires_in_days'] !== null && $integration['expires_in_days'] <= 7])>
                                 {{ $integration['expires_at'] ?? '—' }}@if ($integration['expires_in_days'] !== null) ({{ $integration['expires_in_days'] }} gün)@endif
                             </td>
@@ -197,7 +207,7 @@
                     <thead class="text-left text-xs uppercase text-gray-400"><tr><th class="py-2 pr-3">Hesap</th><th class="py-2 pr-3">Durum</th><th class="py-2 pr-3">Veri tarihi</th><th class="py-2 pr-3">Son başarılı</th><th class="py-2 pr-3">Sonraki</th><th class="py-2">İşlem</th></tr></thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                         @foreach ($health['accounts'] as $account)
-                            <tr wire:key="acc-{{ $account['id'] }}">
+                            <tr wire:key="acc-{{ $account['id'] }}" id="hesap-{{ $account['id'] }}">
                                 <td class="py-2 pr-3 text-gray-800 dark:text-gray-200">{{ $account['name'] }} <span class="text-xs text-gray-400">{{ $typeLabels[$account['type']] ?? $account['type'] }}</span></td>
                                 <td class="py-2 pr-3 text-xs">
                                     @if (! $account['enabled'])
@@ -223,14 +233,14 @@
                                     @elseif ($isAdmin && $account['enabled'] && ($account['state'] === 'attention' || $account['stale']))
                                         <button type="button" wire:click="runNow({{ $account['id'] }})" wire:loading.attr="disabled" class="font-medium text-brand-600 hover:underline">Şimdi çek</button>
                                     @endif
-                                    <button type="button" wire:click="toggleDatasets({{ $account['id'] }})" class="ml-2 text-gray-500 hover:underline">Veri setleri</button>
+                                    <button type="button" wire:click="toggleDatasets({{ $account['id'] }})" class="ml-2 text-gray-500 hover:underline">Veri türleri</button>
                                 </td>
                             </tr>
                             @if ($datasetsFor === $account['id'])
                                 <tr wire:key="acc-ds-{{ $account['id'] }}">
                                     <td colspan="6" class="bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">
                                         @forelse ($datasets as $ds)
-                                            <p class="text-xs text-gray-600 dark:text-gray-300"><span class="font-mono">{{ $ds['dataset'] }}</span> · veri {{ $ds['through'] ?? '—' }} tarihine kadar @if ($ds['from'])({{ $ds['from'] }}'den beri) @endif · {{ strtolower($ds['status']) }} · son çekim {{ $when($ds['collected_at']) }}</p>
+                                            <p class="text-xs text-gray-600 dark:text-gray-300"><span title="{{ $ds['dataset'] }}">{{ \App\Support\Operator\DatasetLabels::dataset($ds['dataset']) }}</span> · veri {{ $ds['through'] ?? '—' }} tarihine kadar @if ($ds['from'])({{ $ds['from'] }}'den beri) @endif · {{ $runStatus[strtolower((string) $ds['status'])] ?? strtolower((string) $ds['status']) }} · son çekim {{ $when($ds['collected_at']) }}</p>
                                         @empty
                                             <p class="text-xs text-gray-500">Bu hesap için veri seti kaydı yok (İşletme Profili ayrı toplayıcıyla çekilir).</p>
                                         @endforelse

@@ -11,6 +11,7 @@ use App\Models\Observability\WorkerHeartbeat;
 use App\Models\ResourceAutomation;
 use App\Models\User;
 use App\Services\Collection\Activity\ActivityTierService;
+use App\Services\Observability\OperationalAlertExplainer;
 use App\Services\Observability\QueueWaitMonitor;
 use App\Services\Verification\LiveVerifier;
 use App\Support\Roles;
@@ -108,19 +109,35 @@ final class SystemHealthReader
             })->values()->all();
     }
 
-    /** @return list<array{severity: string, title: string, summary: ?string, since: string, count: int}> */
+    /**
+     * Open system alerts in plain Turkish (OperationalAlertExplainer): what, why, what to do and where.
+     *
+     * @return list<array{severity: string, title: string, summary: ?string, why: string, action: string, link_url: ?string, link_label: ?string, button: array<string, mixed>|null, repeat_label: string, since: string, count: int}>
+     */
     private function alerts(): array
     {
+        $explainer = app(OperationalAlertExplainer::class);
+
         return OperationalAlert::query()
             ->whereIn('state', [OperationalAlertState::Open->value, OperationalAlertState::Acknowledged->value])
             ->orderByRaw("case severity when 'CRITICAL' then 0 when 'WARNING' then 1 else 2 end")->orderByDesc('last_observed_at')->limit(50)->get()
-            ->map(fn (OperationalAlert $alert): array => [
-                'severity' => strtolower((string) ($alert->severity->value ?? $alert->severity)),
-                'title' => (string) $alert->title,
-                'summary' => $alert->summary,
-                'since' => (string) ($alert->opened_at ?? $alert->first_observed_at),
-                'count' => (int) $alert->observation_count,
-            ])->values()->all();
+            ->map(function (OperationalAlert $alert) use ($explainer): array {
+                $message = $explainer->explain($alert);
+
+                return [
+                    'severity' => strtolower((string) ($alert->severity->value ?? $alert->severity)),
+                    'title' => $message->title,
+                    'summary' => $message->what,
+                    'why' => $message->why,
+                    'action' => $message->action,
+                    'link_url' => $message->linkUrl,
+                    'link_label' => $message->linkLabel,
+                    'button' => $message->button,
+                    'repeat_label' => $message->repeatLabel(),
+                    'since' => (string) ($alert->opened_at ?? $alert->first_observed_at),
+                    'count' => (int) $alert->observation_count,
+                ];
+            })->values()->all();
     }
 
     /** @return list<array{provider: string, name: string, status: string, auth_status: string, expires_at: ?string, expires_in_days: ?int, last_error: ?string}> */

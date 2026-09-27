@@ -20,6 +20,7 @@ final class OperationalAlertLifecycleService
         private readonly SecurityRedactor $redactor,
         private readonly OperationalAlertNotifier $notifier,
         private readonly OperationalTelemetryRecorder $telemetry,
+        private readonly OperationalAlertExplainer $explainer,
     ) {}
 
     /**
@@ -52,8 +53,10 @@ final class OperationalAlertLifecycleService
             $existing->observation_count = (int) $existing->observation_count + 1;
             $existing->last_observed_at = now();
             $existing->observed = $safeObserved;
-            $existing->summary = $summary;
+            $existing->title = substr($title, 0, 255);
+            $existing->summary = $summary !== null ? substr($summary, 0, 500) : null;
             $existing->save();
+            $this->describe($existing);
             $this->telemetry->info('alert.observation', [
                 'operation' => 'update',
                 'status' => $existing->state->value,
@@ -65,8 +68,12 @@ final class OperationalAlertLifecycleService
 
         // semantic_key is unique across all states: a condition that comes back reopens its resolved row
         // instead of inserting a duplicate (which failed and stopped the whole evaluation run).
+        // It keeps counting: "3. kez · ilk 24 Eyl" on one row instead of a new notification each time.
         $alert = OperationalAlert::query()->where('semantic_key', $semanticKey)->first() ?? new OperationalAlert;
+        $reopened = $alert->exists;
         $alert->forceFill([
+            'occurrence_count' => $reopened ? (int) ($alert->occurrence_count ?? 1) + 1 : 1,
+            'first_opened_at' => $reopened ? ($alert->first_opened_at ?? $alert->first_observed_at ?? now()) : now(),
             'semantic_key' => $semanticKey,
             'rule_key' => $ruleKey,
             'rule_version' => $ruleVersion,
@@ -90,6 +97,7 @@ final class OperationalAlertLifecycleService
             'acknowledged_by_user_id' => null,
             'ack_note' => null,
         ])->save();
+        $this->describe($alert);
 
         $this->notifier->notifyOpened($alert);
         $this->telemetry->warning('alert.opened', [
@@ -144,6 +152,26 @@ final class OperationalAlertLifecycleService
 
         // Acknowledge does NOT resolve and does not mutate queue/credential/dataset state.
         return $alert;
+    }
+
+    /**
+     * Stores the plain-Turkish title and "Ne oldu · Neden önemli · Ne yapmalısın" text (OperationalAlertExplainer), so
+     * every reader of the row — home screen, push, exports — gets the specific wording, not the evaluator's shorthand.
+     */
+    private function describe(OperationalAlert $alert): void
+    {
+        try {
+            $message = $this->explainer->explain($alert);
+            $alert->forceFill([
+                'title' => mb_substr($message->title, 0, 255),
+                'summary' => mb_substr($message->plainText(), 0, 500),
+            ]);
+            if ($alert->isDirty()) {
+                $alert->save();
+            }
+        } catch (\Throwable $error) {
+            report($error);
+        }
     }
 
     public function semanticKey(string $ruleKey, string $scopeType, string $scopeKey): string

@@ -73,6 +73,8 @@ return [
     'alert' => [
         'notify_on_open' => (bool) env('MOXDOP_OPS_ALERT_NOTIFY_ON_OPEN', true),
         'notify_on_resolve' => (bool) env('MOXDOP_OPS_ALERT_NOTIFY_ON_RESOLVE', false),
+        // A condition that comes back updates its one bell row; within these hours of the last ping it stays read.
+        'reopen_quiet_hours' => (int) env('MOXDOP_OPS_ALERT_REOPEN_QUIET_HOURS', 24),
         // Explicit internal recipient user IDs. Empty = Admin role users only.
         // Zero recipients: Alert stays OPEN, no notify-all fallback.
         'recipient_user_ids' => array_values(array_filter(array_map(

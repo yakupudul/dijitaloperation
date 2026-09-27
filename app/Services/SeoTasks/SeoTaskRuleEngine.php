@@ -1293,7 +1293,18 @@ final class SeoTaskRuleEngine
             str_contains($ruleId, 'robots') => ['robots.txt\'nin 200 döndüğünü ve Googlebot\'u engellemediğini doğrula.'],
             str_contains($ruleId, 'sitemap') => ['sitemap.xml üret, robots.txt\'de belirt, Search Console\'a gönder.'],
             str_contains($ruleId, 'tls'), str_contains($ruleId, 'https') => ['TLS sertifikasını yenile; HTTP→HTTPS 301 yönlendirmesini doğrula.'],
-            default => ['Bulguyu incele ve düzelt; düzeltince görevi "Yapıldı" işaretle.'],
+            str_contains($ruleId, 'h1') => ['Sayfada tek bir H1 olsun: ana hizmeti / sorguyu içeren başlığı H1 yap, diğer H1\'leri H2\'ye çevir (tema veya sayfa oluşturucu ayarı).'],
+            str_contains($ruleId, 'alt_'), str_contains($ruleId, 'alt-'), str_contains($ruleId, 'image') => ['Hizmet sayfalarındaki görsellere görseli anlatan kısa alt metni ekle (Site düzeltmeleri sekmesinde hazır öneriler varsa tek tıkla uygula).'],
+            str_contains($ruleId, 'hreflang') => ['hreflang etiketlerinin her dil sürümünü karşılıklı gösterdiğini ve 200 dönen adreslere işaret ettiğini düzelt.'],
+            str_contains($ruleId, 'redirect') => ['İç linkleri yönlendirmenin son adresine çevir; zincirdeki ara yönlendirmeleri tek 301\'e indir.'],
+            str_contains($ruleId, 'broken'), str_contains($ruleId, '404'), str_contains($ruleId, 'link') => ['Kırık linkleri doğru sayfaya çevir ya da kaldır; silinen sayfa için en yakın sayfaya 301 yönlendirmesi ekle.'],
+            str_contains($ruleId, 'status'), str_contains($ruleId, '5xx'), str_contains($ruleId, 'http') => ['Hata veren adresi tarayıcıda aç; 5xx ise barındırma/sunucu kaydına bak, 4xx ise sayfayı geri getir veya 301 ile yönlendir.'],
+            str_contains($ruleId, 'mixed') => ['Sayfadaki http:// ile yüklenen görsel, script ve stil adreslerini https:// yap.'],
+            str_contains($ruleId, 'viewport'), str_contains($ruleId, 'mobile') => ['Temaya <meta name="viewport" content="width=device-width, initial-scale=1"> ekle; sayfayı telefonda kontrol et.'],
+            str_contains($ruleId, 'lcp'), str_contains($ruleId, 'speed'), str_contains($ruleId, 'performance') => ['Ana görseli sıkıştır ve WebP yap, önbellek eklentisini aç, kullanılmayan scriptleri kaldır; PageSpeed ile tekrar ölç.'],
+            str_contains($ruleId, 'schema'), str_contains($ruleId, 'structured') => ['Yapısal veriyi (JSON-LD) Google Zengin Sonuç Testi ile doğrula, hatalı alanları düzelt.'],
+            str_contains($ruleId, 'open_graph'), str_contains($ruleId, 'opengraph'), str_contains($ruleId, 'social') => ['Sayfaya og:title, og:description ve og:image etiketlerini ekle (SEO eklentisinin sosyal ayarları).'],
+            default => ['Kanıttaki sayfayı açıp bulgudaki sorunu düzelt (WordPress sayfa ayarı, tema veya barındırma paneli).', 'Site taramasını yeniden çalıştırıp bulgunun kapandığını doğrula; kapanınca görevi "Yapıldı" işaretle.'],
         };
     }
 

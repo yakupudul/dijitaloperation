@@ -5,6 +5,7 @@ namespace App\Services\Alerts;
 use App\Models\AssetAlert;
 use App\Models\AssetRenewal;
 use App\Models\CoreAssetBinding;
+use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
 use App\Models\ResourceAutomation;
 use App\Services\Advisor\GoogleAds\GoogleAdsRowScope;
@@ -12,9 +13,12 @@ use App\Services\Assistant\PushNotifier;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\Measurement\TrackingHealthChecker;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
+use App\Services\Observability\AlertSubjects;
 use App\Services\Operations\SystemHealthReader;
 use App\Services\Operator\AssetRuntimeStatusReader;
+use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\SeoTasks\SeoPlanInputCollector;
+use App\Support\Operator\CollectionErrorExplainer;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -98,7 +102,7 @@ final class AssetAlertScanner
         if (($runtime['connected'] ?? false) && ($runtime['data_state'] ?? '') === 'stale') {
             $hours = (int) config('moxdop-alerts.stale_data_hours', 72);
             $detected[] = $this->alert('stale_data', 'medium', 'Veri güncel değil',
-                sprintf('Bağlı hesaptan son veri %s geldi (%d saatten eski). Veri Kaynakları sayfasından veri çekimini kontrol edin.', (string) ($runtime['last_update'] ?? '—'), $hours));
+                sprintf('Bağlı hesaptan son veri %s geldi (%d saatten eski); bu varlığın raporları ve önerileri eski veriye dayanıyor. Varlığın Veri kaynakları sayfasında "Verileri yenile" ile çekimi başlatın; kaynakta "Erişim sorunu" yazıyorsa önce bağlantıyı yenileyin.', (string) ($runtime['last_update'] ?? '—'), $hours));
         }
 
         // Faz 13: GA4 and Search Console are checked per account, so a fresh website crawl no longer hides a stale one.
@@ -126,9 +130,14 @@ final class AssetAlertScanner
             $last = $automation->last_collection_success_at;
             if (($last !== null && $last->lt($limit)) || ($last === null && $automation->created_at !== null && $automation->created_at->lt($limit))) {
                 $label = $labels[$binding->capability];
+                $account = (string) (CoreExternalResource::query()->whereKey($binding->external_resource_id)->value('display_name') ?? '');
+                $category = app(AlertSubjects::class)->lastErrorCategory((int) $binding->external_resource_id);
+                $reason = $category !== null ? CollectionErrorExplainer::explain($category) : null;
                 $alerts[] = $this->alert($binding->capability === 'ga4' ? 'ga4_stale' : 'gsc_stale', 'medium', $label.' verisi güncel değil',
-                    sprintf('%s hesabından son başarılı veri çekimi %s. Sistem Sağlığı › Hesaplar tablosundan durumu kontrol edin.', $label, $last?->timezone('Europe/Istanbul')->format('d.m.Y') ?? 'hiç yapılmadı'),
-                    ['resource_id' => (int) $binding->external_resource_id]);
+                    sprintf('%s hesabından%s son başarılı veri çekimi %s; site raporları ve SEO önerileri eski veriye dayanıyor. %s',
+                        $label, $account !== '' ? ' ("'.$account.'")' : '', $last?->timezone('Europe/Istanbul')->format('d.m.Y') ?? 'hiç yapılmadı',
+                        $reason !== null ? 'Neden: '.$reason['problem'].'. '.$reason['fix'] : 'Varlığın Veri kaynakları sayfasında "Verileri yenile" ile çekimi başlatın.'),
+                    ['resource_id' => (int) $binding->external_resource_id, 'error_category' => $category]);
             }
         }
 
@@ -522,7 +531,7 @@ final class AssetAlertScanner
             if ($isNew && in_array($alert['severity'], ['high', 'critical'], true) && $alert['kind'] !== 'site_down') {
                 try {
                     app(PushNotifier::class)->send('alert:'.$asset->id.':'.$alert['kind'].':'.$row->first_detected_at?->format('Ymd'),
-                        $alert['title'].' — '.($asset->name ?? $asset->domain), $alert['message'], $alert['severity'], null, 24);
+                        $alert['title'].' — '.($asset->name ?? $asset->domain), $alert['message'], $alert['severity'], OperatorPortfolioPresenter::specialistUrl($asset), 24);
                 } catch (Throwable $exception) {
                     report($exception);
                 }

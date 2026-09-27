@@ -78,7 +78,7 @@ return [
     'customer_passive' => 'Its customer or asset is passive; collection is paused. It resumes when the customer is active again.',
     'unbound' => 'Not bound to a Digital Asset and no query-library mapping; nothing is collected. Bind it or choose a sector.',
     'binding' => 'The current collector needs a Digital Asset binding. Map this account in Integrations.',
-    'collection_failed' => 'Refresh could not complete. Repeated failure requires attention; use Update now to retry.',
+    'collection_failed' => 'The last refresh could not complete. It is retried automatically after 30 minutes and 3 hours; after three failures it stops and waits for you. See the collection details for the reason, or use Update now to retry immediately.',
     'cancelled' => 'The previous collection was cancelled. Use Update now to continue.',
     'import_failed' => 'Import interrupted. Saved rows are preserved; you can resume.',
     'mapping_invalid' => 'The selected sector or services are no longer valid. Edit the mapping.',

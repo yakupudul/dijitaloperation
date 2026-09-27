@@ -24,7 +24,7 @@ final class NotificationBellPresentationTest extends TestCase
         $this->assertSame(route('operator.settings.system-health'), $item['url']);
 
         $withSummary = NotificationBell::present(['title' => 'Datasets reported STALE / BLOCKED by Prompt27', 'presentation' => ['summary' => '3 hesap × veri seti güncellenemiyor.']]);
-        $this->assertSame('Bazı veriler güncel değil ya da çekilemiyor', $withSummary['title']);
+        $this->assertSame('Bazı hesapların verisi güncel değil', $withSummary['title']);
         $this->assertSame('3 hesap × veri seti güncellenemiyor.', $withSummary['detail']);
     }
 
