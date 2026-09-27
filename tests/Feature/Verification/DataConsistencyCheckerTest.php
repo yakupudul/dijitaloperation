@@ -163,6 +163,22 @@ final class DataConsistencyCheckerTest extends TestCase
         $this->assertSame(0, DB::table('data_consistency_issues')->count());
     }
 
+    public function test_a_brand_whose_ad_accounts_spend_in_different_currencies_is_flagged(): void
+    {
+        foreach ($this->window() as $day) {
+            $this->adsDay($day, 100.0, 1.0);
+            $this->metaDay($day, 40.0);
+        }
+        DB::table('agency_invoices')->update(['currency' => 'TRY']);
+        $this->metaResource->update(['metadata' => array_merge((array) $this->metaResource->metadata, ['currency' => 'USD'])]);
+
+        app(DataConsistencyChecker::class)->run();
+
+        $issue = DB::table('data_consistency_issues')->whereNull('resolved_at')->where('kind', 'mixed_currency')->sole();
+        $this->assertSame(['TRY', 'USD'], json_decode((string) $issue->data, true)['currencies']);
+        $this->assertStringContainsString('farklı para birimleri', (string) $issue->title);
+    }
+
     /** @return list<string> the 14 complete days before "today" (23 Sept, Istanbul) */
     private function window(): array
     {

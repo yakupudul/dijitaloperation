@@ -46,7 +46,7 @@
     @if ($tab === 'overview')
         @php
             $money = static fn (?float $v): string => $v !== null ? '₺'.number_format($v, 0, ',', '.') : '—';
-            $stateLabel = ['over' => ['Bütçeyi aşacak', 'text-rose-700 bg-rose-50'], 'under' => ['Bütçenin altında', 'text-amber-700 bg-amber-50'], 'on_track' => ['Hedefte', 'text-emerald-700 bg-emerald-50'], 'no_budget' => ['Bütçe girilmemiş', 'text-gray-600 bg-gray-100']];
+            $stateLabel = ['over' => ['Bütçeyi aşacak', 'text-rose-700 bg-rose-50'], 'under' => ['Bütçenin altında', 'text-amber-700 bg-amber-50'], 'on_track' => ['Hedefte', 'text-emerald-700 bg-emerald-50'], 'no_budget' => ['Bütçe girilmemiş', 'text-gray-600 bg-gray-100'], 'mixed_currency' => ['Farklı para birimleri', 'text-amber-700 bg-amber-50']];
         @endphp
         @if ($briefInsight)<x-operator.ai-insight :insight="$briefInsight" />@endif
         <section class="{{ $card }} p-5" data-customer-commercial>
@@ -75,6 +75,13 @@
                         <div class="flex items-center justify-between gap-2"><p class="text-xs text-gray-500">{{ $channel['label'] }}</p><span class="rounded-full px-2 py-0.5 text-[11px] {{ $stateLabel[$channel['state']][1] }}">{{ $stateLabel[$channel['state']][0] }}</span></div>
                         <p class="mt-1 text-sm text-gray-800 dark:text-gray-200"><strong>{{ $money($channel['spent']) }}</strong> harcandı · ay sonu ~{{ $money($channel['projected']) }}</p>
                         <p class="text-xs text-gray-500">Bütçe {{ $money($channel['budget']) }}@if ($channel['share'] !== null) · %{{ number_format($channel['share'] * 100, 0) }}@endif</p>
+                        @if (($channel['accounts'] ?? []) !== [])
+                            <ul class="mt-2 space-y-0.5 text-xs text-gray-500" data-channel-accounts="{{ $channel['key'] }}">
+                                @foreach ($channel['accounts'] as $account)
+                                    <li class="flex justify-between gap-2"><span class="truncate">{{ $account['name'] }}</span><span class="shrink-0 tabular-nums">{{ number_format($account['spent'], 0, ',', '.') }} {{ $account['currency'] ?? '' }}</span></li>
+                                @endforeach
+                            </ul>
+                        @endif
                     </div>
                 @endforeach
             </div>

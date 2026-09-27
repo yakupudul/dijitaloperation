@@ -300,7 +300,7 @@
                                     <div>
                                         <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $resource['type_label'] }}</p>
                                         <p class="text-sm text-gray-700 dark:text-gray-300">{{ $resource['name'] }}</p>
-                                        <p class="text-xs text-gray-500">Property ID · {{ $resource['external_id'] }}</p>
+                                        <p class="text-xs text-gray-500">Kimlik · {{ $resource['external_id'] }}@if (filled($resource['manager'] ?? null)) · MCC: {{ $resource['manager'] }}@endif</p>
                                         <p class="mt-1 text-xs text-warning-600 dark:text-warning-400">{{ $resource['status_label'] }}</p>
                                     </div>
                                 </div>
@@ -330,7 +330,7 @@
                                     <p class="text-xs text-gray-500">↓ {{ $binding['binding'] }} ↓</p>
                                     <p class="text-gray-600 dark:text-gray-300">{{ $binding['asset'] }}</p>
                                 </div>
-                                <x-ta.button :href="route($binding['route'])" size="sm" variant="outline">Varlığı aç</x-ta.button>
+                                <x-ta.button :href="$binding['asset_id'] && $binding['route'] !== 'operator.assets' ? route($binding['route'], ['assetId' => $binding['asset_id']]) : route($binding['route'])" size="sm" variant="outline">Varlığı aç</x-ta.button>
                             </li>
                         @endforeach
                     </ul>

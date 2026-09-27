@@ -134,29 +134,42 @@ final class PortfolioHealthReader
      */
     private function accountCell(Brand $brand, string $capability, array $statuses, Collection $alerts): array
     {
-        $found = null;
+        // A brand can have several accounts of one channel (one asset each): the cell shows the worst of them.
+        $found = [];
         foreach ($brand->digitalAssets as $asset) {
             foreach ($statuses[(int) $asset->id] ?? [] as $status) {
                 if ($status->capability === $capability && $status->isBound()) {
-                    $found = [$asset, $status];
-                    break 2;
+                    $found[] = [$asset, $status];
                 }
             }
         }
-        if ($found === null) {
+        if ($found === []) {
             return ['state' => 'missing', 'label' => __('data_status.states.not_bound', [], 'tr'), 'data_state' => DataStatus::NOT_BOUND, 'alert' => null, 'notes' => [],
                 'url' => route('operator.integrations')];
         }
-        [$asset, $status] = $found;
-        $state = self::CELL_STATES[$status->state] ?? 'warn';
-        $notes = array_values(array_filter([$status->detail()]));
-        [$alertState, $alertNote] = $this->alertState($alerts->get($asset->id, collect()));
-        if ($alertState !== null) {
-            $state = $this->worse($state, $alertState);
-            $notes[] = $alertNote;
+        $worst = null;
+        $notes = [];
+        foreach ($found as [$asset, $status]) {
+            $state = self::CELL_STATES[$status->state] ?? 'warn';
+            [$alertState, $alertNote] = $this->alertState($alerts->get($asset->id, collect()));
+            if ($alertState !== null) {
+                $state = $this->worse($state, $alertState);
+            }
+            $prefix = count($found) > 1 ? $asset->name.': ' : '';
+            foreach (array_filter([$status->detail(), $alertNote]) as $note) {
+                $notes[] = $prefix.$note;
+            }
+            if ($worst === null || self::rank($state) < self::rank($worst['state'])) {
+                $worst = ['state' => $state, 'asset' => $asset, 'status' => $status, 'alert' => $alertNote];
+            }
+        }
+        ['state' => $state, 'asset' => $asset, 'status' => $status] = $worst;
+        $label = $status->shortLabel();
+        if (count($found) > 1) {
+            $label = count($found).' hesap · '.($state === 'ok' ? $label : $asset->name.': '.$label);
         }
 
-        return ['state' => $state, 'label' => $status->shortLabel(), 'data_state' => $status->state, 'alert' => $alertNote, 'notes' => $notes,
+        return ['state' => $state, 'label' => $label, 'data_state' => $status->state, 'alert' => $worst['alert'], 'notes' => $notes, 'accounts' => count($found),
             'url' => $status->state === DataStatus::ACCESS_PROBLEM && $status->actionUrl !== null ? $status->actionUrl : route('operator.asset.sources', ['assetId' => $asset->id])];
     }
 

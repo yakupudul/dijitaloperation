@@ -295,7 +295,7 @@ final class CrossChannelRuleEngine
     private function budgetShift(array $input): array
     {
         $spend = $input['channel_spend'] ?? null;
-        if (! is_array($spend)) {
+        if (! is_array($spend) || ($spend['mixed_currency'] ?? false) === true) {
             return [];
         }
         $minCost = (float) ($this->cfg['budget_shift_min_cost'] ?? 1000);

@@ -25,7 +25,9 @@ use Throwable;
  *     have rows with real activity (a failed collection slice looks exactly like this);
  * (b) Google Ads spends but GA4 shows no google / cpc session on 3+ of those days (auto-tagging / GA4 link broken);
  * (c) Google Ads conversions vs GA4 key events of google / cpc sessions differ by more than 50% (both above a minimum);
- * (d) ad account currency differs from the currency the customer is invoiced in.
+ * (d) ad account currency differs from the currency the customer is invoiced in;
+ * (e) a brand's ad accounts (several Google Ads / Meta accounts, one asset each) spend in different currencies, so its
+ *     brand-level spend totals cannot be added up.
  *
  * Findings are upserted into data_consistency_issues by a stable key and resolved when a run no longer finds them.
  */
@@ -64,6 +66,8 @@ final class DataConsistencyChecker
 
         /** @var array<int, array{ads: list<array{asset: DigitalAsset, days: array<string, array{spend: float, conversions: float}>}>, sites: list<DigitalAsset>}> $brands */
         $brands = [];
+        /** @var array<int, array<string, list<DigitalAsset>>> $brandCurrencies */
+        $brandCurrencies = [];
         foreach ($bindings as $binding) {
             $asset = $binding->digitalAsset;
             try {
@@ -83,6 +87,9 @@ final class DataConsistencyChecker
                 }
                 if (in_array($binding->capability, ['google_ads', 'meta_ads'], true) && ($currency = $this->currencyMismatch($binding, $asset)) !== null) {
                     $issues[] = $currency;
+                }
+                if (in_array($binding->capability, ['google_ads', 'meta_ads'], true) && $brandId > 0 && ($code = $this->accountCurrency($binding)) !== null) {
+                    $brandCurrencies[$brandId][$code][] = $asset;
                 }
             } catch (Throwable $error) {
                 report($error);
@@ -104,7 +111,29 @@ final class DataConsistencyChecker
             }
         }
 
+        foreach ($brandCurrencies as $brandId => $byCurrency) {
+            if (count($byCurrency) > 1) {
+                ksort($byCurrency);
+                $anchor = collect($byCurrency)->flatten(1)->sortBy('id')->first();
+                $parts = collect($byCurrency)->map(fn (array $assets, string $code): string => $code.': '.collect($assets)->pluck('name')->unique()->implode(', '))->implode(' · ');
+                $issues[] = $this->issue('mixed_currency:'.$brandId, 'mixed_currency', 'low', $anchor,
+                    'Markanın reklam hesapları farklı para birimlerinde',
+                    sprintf('Markanın reklam hesapları farklı para birimleriyle harcıyor (%s). Aylık rapor, bütçe temposu ve lead maliyeti bu hesapların harcamasını toplamaz; hesap bazında bakın ya da hesabın doğru markaya bağlı olduğunu kontrol edin.', $parts),
+                    ['currencies' => array_keys($byCurrency)]);
+            }
+        }
+
         return $this->persist($issues, array_keys($failedAssets));
+    }
+
+    /** The ad account's currency as discovered (Google Ads currency_code, Meta currency). */
+    private function accountCurrency(CoreAssetBinding $binding): ?string
+    {
+        $binding->loadMissing('externalResource');
+        $metadata = (array) ($binding->externalResource?->metadata ?? []);
+        $code = strtoupper(trim((string) ($metadata['currency_code'] ?? $metadata['currency'] ?? '')));
+
+        return $code !== '' && $code !== 'XXX' ? $code : null;
     }
 
     /**

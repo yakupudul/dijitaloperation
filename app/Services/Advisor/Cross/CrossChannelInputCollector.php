@@ -42,14 +42,23 @@ final class CrossChannelInputCollector
             return $base + ['bound' => false, 'binding_reason' => 'no_brand'];
         }
 
+        // Every Google Ads account of the brand (one asset each) feeds the search terms; costs are added up only within
+        // one currency — accounts spending in another currency than the first one are left out of the term costs.
         $ads = [];
         $currency = null;
-        foreach (DigitalAsset::query()->where('brand_id', $site->brand_id)->where('type', 'google_ads')->where('status', 'active')->get() as $asset) {
+        $skippedCurrencies = [];
+        foreach (DigitalAsset::query()->where('brand_id', $site->brand_id)->where('type', 'google_ads')->where('status', 'active')->orderBy('id')->get() as $asset) {
             $input = $this->adsCollector->collect($asset);
             if (! ($input['bound'] ?? false)) {
                 continue;
             }
-            $currency ??= $input['currency'] ?? null;
+            $accountCurrency = filled($input['currency'] ?? null) ? strtoupper((string) $input['currency']) : null;
+            $currency ??= $accountCurrency;
+            if ($accountCurrency !== null && $currency !== null && $accountCurrency !== $currency) {
+                $skippedCurrencies[] = $accountCurrency;
+
+                continue;
+            }
             foreach ($input['search_terms'] as $key => $term) {
                 $entry = $ads[$key] ?? ['term' => $term['term'], 'cost' => 0.0, 'clicks' => 0, 'conversions' => 0.0];
                 $entry['cost'] += $term['cost'];
@@ -106,6 +115,7 @@ final class CrossChannelInputCollector
             'bound' => true,
             'binding_reason' => null,
             'currency' => $currency,
+            'skipped_currencies' => array_values(array_unique($skippedCurrencies)),
             'period' => ['end' => $end->toDateString(), 'days' => (int) config('moxdop-advisor.cross.gsc_days', 90)],
             'ads_terms' => $ads,
             'gbp_keywords' => $gbpKeywords,
@@ -122,7 +132,7 @@ final class CrossChannelInputCollector
      * Faz 14: last 28 days of spend and counted conversions per paid channel (Google Ads, Meta). Conversions
      * come from the brand's conversion dictionary; without a counted Meta conversion Meta has no CPA.
      *
-     * @return array{days: int, google_ads: array{cost: float, conversions: ?float}, meta: array{cost: float, conversions: ?float}}|null
+     * @return array{days: int, mixed_currency: bool, google_ads: array{cost: float, conversions: ?float}, meta: array{cost: float, conversions: ?float}}|null
      */
     private function channelSpend(DigitalAsset $site): ?array
     {
@@ -139,7 +149,7 @@ final class CrossChannelInputCollector
                 return 0.0;
             }
 
-            return (float) $scope->apply(DB::table($table))->whereBetween('reporting_date', [$from->toDateString(), $to->toDateString()])->sum($column);
+            return (float) $scope->rows($table, $from, $to)->sum($column);
         };
         $googleCost = $sum('google_ads_campaign_daily', 'cost_amount');
         $metaCost = $sum('meta_campaign_daily', 'spend');
@@ -152,8 +162,12 @@ final class CrossChannelInputCollector
             $googleConversions = $sum('google_ads_campaign_daily', 'conversions');
         }
 
+        $currencies = array_values(array_unique([...$scope->currencies('google_ads_campaign_daily', $from, $to), ...$scope->currencies('meta_campaign_daily', $from, $to)]));
+
         return [
             'days' => $days,
+            // Google Ads and Meta cost per conversion can only be compared in one currency.
+            'mixed_currency' => count($currencies) > 1,
             'google_ads' => ['cost' => round($googleCost, 2), 'conversions' => $googleConversions !== null ? round((float) $googleConversions, 2) : null],
             'meta' => ['cost' => round($metaCost, 2), 'conversions' => isset($bySource[BrandConversionSource::SOURCE_META]) ? round((float) $bySource[BrandConversionSource::SOURCE_META], 2) : null],
         ];
