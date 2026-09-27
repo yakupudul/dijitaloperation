@@ -13,6 +13,7 @@ use App\Services\SeoTasks\SeoText;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Tests\Feature\Brain\InsertsFacts;
 use Tests\TestCase;
 
 /**
@@ -21,6 +22,7 @@ use Tests\TestCase;
  */
 final class SeoDepthInputCollectorTest extends TestCase
 {
+    use InsertsFacts;
     use RefreshDatabase;
 
     public function test_depth_sources_are_read_from_stored_data(): void
@@ -37,7 +39,7 @@ final class SeoDepthInputCollectorTest extends TestCase
         $common = fn (array $row): array => $row + ['contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', json_encode($row)), 'created_at' => now(), 'updated_at' => now()];
 
         foreach ([['2026-09-10', 3], ['2026-08-10', 10], ['2026-06-01', 1]] as [$date, $clicks]) {
-            DB::table('gsc_page_daily')->insert($common(['digital_asset_id' => null, 'external_resource_id' => $gsc->id, 'site_url' => 'sc-domain:example.com', 'reporting_date' => $date, 'page' => 'https://example.com/implant/', 'clicks' => $clicks, 'impressions' => $clicks * 10, 'search_type' => 'web', 'metadata' => '{}']));
+            $this->insertFacts('gsc_page_daily', $common(['digital_asset_id' => null, 'external_resource_id' => $gsc->id, 'site_url' => 'sc-domain:example.com', 'reporting_date' => $date, 'page' => 'https://example.com/implant/', 'clicks' => $clicks, 'impressions' => $clicks * 10, 'search_type' => 'web', 'metadata' => '{}']));
         }
         foreach ([['2026-09-01 00:00:00', 'NEUTRAL'], ['2026-09-20 00:00:00', 'PASS']] as [$at, $verdict]) {
             DB::table('gsc_url_inspection_snapshot')->insert($common(['digital_asset_id' => $site->id, 'external_resource_id' => $gsc->id, 'site_url' => 'sc-domain:example.com', 'page' => 'https://example.com/implant/', 'inspected_at' => $at, 'metadata' => json_encode(['verdict' => $verdict, 'coverage_state' => 'x', 'google_canonical' => 'https://example.com/implant/', 'user_canonical' => 'https://example.com/implant/'])]));

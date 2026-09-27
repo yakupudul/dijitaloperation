@@ -30,6 +30,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
+use Tests\Feature\Brain\InsertsFacts;
 use Tests\TestCase;
 
 /**
@@ -38,6 +39,7 @@ use Tests\TestCase;
  */
 final class BrandSetupAssistantTest extends TestCase
 {
+    use InsertsFacts;
     use RefreshDatabase;
 
     private User $admin;
@@ -100,7 +102,7 @@ final class BrandSetupAssistantTest extends TestCase
         [$gscResource] = $this->resources();
         $category = ServiceCategory::query()->create(['code' => 'saglik', 'name' => 'Sağlık', 'normalized_key' => 'saglik']);
         app(ServiceCatalogService::class)->resolveOrCreate('İmplant Tedavisi', 'saglik', actor: $this->admin);
-        DB::table('gsc_query_page_daily')->insert([
+        $this->insertFacts('gsc_query_page_daily', [
             'digital_asset_id' => null, 'external_resource_id' => $gscResource->id, 'site_url' => 'sc-domain:adadent.com.tr',
             'reporting_date' => now()->subDays(5)->toDateString(), 'query' => 'ankara implant', 'page' => 'https://www.adadent.com.tr/implant/',
             'clicks' => 3, 'impressions' => 400, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
@@ -195,7 +197,7 @@ final class BrandSetupAssistantTest extends TestCase
         ServiceCategory::query()->create(['code' => 'saglik', 'name' => 'Sağlık', 'normalized_key' => 'saglik']);
         BrandServiceArea::query()->create(['brand_id' => $this->brand->id, 'country_code' => 'TR', 'country_name' => 'Türkiye', 'city_name' => 'İstanbul', 'normalized_key' => 'tr|istanbul', 'status' => 'active', 'priority_rank' => 1]);
         foreach (['uyluk germe ankara' => 300, 'uyluk germe istanbul' => 120, 'uyluk germe fiyatları' => 80, 'adadent uyluk germe' => 40] as $query => $impressions) {
-            DB::table('gsc_query_page_daily')->insert([
+            $this->insertFacts('gsc_query_page_daily', [
                 'digital_asset_id' => null, 'external_resource_id' => $gscResource->id, 'site_url' => 'sc-domain:adadent.com.tr',
                 'reporting_date' => now()->subDays(5)->toDateString(), 'query' => $query, 'page' => 'https://www.adadent.com.tr/uyluk-germe/',
                 'clicks' => 1, 'impressions' => $impressions, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
@@ -240,7 +242,7 @@ final class BrandSetupAssistantTest extends TestCase
         ServiceCategory::query()->create(['code' => 'saglik', 'name' => 'Sağlık', 'normalized_key' => 'saglik']);
         $item = app(ServiceCatalogService::class)->resolveOrCreate('İmplant Tedavisi', 'saglik', actor: $this->admin)['service'];
         $offering = app(BrandOfferingService::class)->resolveOrCreate($this->brand, 'İmplant Tedavisi', actor: $this->admin)['offering'];
-        DB::table('gsc_query_page_daily')->insert([
+        $this->insertFacts('gsc_query_page_daily', [
             'digital_asset_id' => null, 'external_resource_id' => $gscResource->id, 'site_url' => 'sc-domain:adadent.com.tr',
             'reporting_date' => now()->subDays(5)->toDateString(), 'query' => 'vidalı diş', 'page' => 'https://www.adadent.com.tr/implant/',
             'clicks' => 3, 'impressions' => 400, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
@@ -266,7 +268,7 @@ final class BrandSetupAssistantTest extends TestCase
     public function test_ai_failure_is_shown_to_the_operator_and_accounts_are_still_proposed(): void
     {
         $this->resources();
-        DB::table('gsc_query_page_daily')->insert([
+        $this->insertFacts('gsc_query_page_daily', [
             'digital_asset_id' => null, 'external_resource_id' => CoreExternalResource::query()->where('resource_type', 'search_console')->value('id'), 'site_url' => 'sc-domain:adadent.com.tr',
             'reporting_date' => now()->subDays(5)->toDateString(), 'query' => 'ankara implant', 'page' => 'https://www.adadent.com.tr/implant/',
             'clicks' => 3, 'impressions' => 400, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),

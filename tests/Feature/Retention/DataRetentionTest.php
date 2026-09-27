@@ -9,10 +9,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Tests\Feature\Brain\InsertsFacts;
 use Tests\TestCase;
 
 final class DataRetentionTest extends TestCase
 {
+    use InsertsFacts;
     use RefreshDatabase;
 
     public function test_old_daily_performance_rolls_into_monthly_rows_and_gold_tables_stay(): void
@@ -116,7 +118,7 @@ final class DataRetentionTest extends TestCase
 
     private function gscQueryDay(CarbonImmutable $day): void
     {
-        DB::table('gsc_query_daily')->insert([
+        $this->insertFacts('gsc_query_daily', [
             'digital_asset_id' => 1, 'site_url' => 'sc-domain:example.test', 'reporting_date' => $day->toDateString(), 'query' => 'diş implant',
             'clicks' => 3, 'impressions' => 40, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
             'record_fingerprint' => Str::random(20),

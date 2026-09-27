@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Operations;
 
+use App\Models\AgencySetting;
 use App\Services\Operator\AgencySettingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -10,6 +11,13 @@ use Tests\TestCase;
 final class TurkishDefaultLocaleTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // a fresh installation: no agency settings row yet
+        AgencySetting::query()->delete();
+    }
 
     public function test_configuration_defaults_to_turkish(): void
     {

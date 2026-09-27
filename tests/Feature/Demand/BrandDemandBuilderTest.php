@@ -19,10 +19,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
+use Tests\Feature\Brain\InsertsFacts;
 use Tests\TestCase;
 
 final class BrandDemandBuilderTest extends TestCase
 {
+    use InsertsFacts;
     use RefreshDatabase;
 
     private Brand $brand;
@@ -88,7 +90,12 @@ final class BrandDemandBuilderTest extends TestCase
         app(BrandDemandBuilder::class)->build($this->brand);
         BrandDemandQuery::query()->where('query', 'implant fiyatları')->update(['brand_offering_id' => $this->zirkonyum->id, 'assignment_source' => BrandDemandQuery::SOURCE_OPERATOR]);
 
-        DB::table('gsc_query_daily')->where('query', 'eski sorgu')->delete();
+        if (DB::getDriverName() === 'pgsql') {
+            // PostgreSQL keeps GSC facts in compact storage behind a read-only view: delete from the fact table.
+            DB::table('gsc_f_query')->whereIn('d1', DB::table('fact_dims')->where('value', 'eski sorgu')->select('id'))->delete();
+        } else {
+            DB::table('gsc_query_daily')->where('query', 'eski sorgu')->delete();
+        }
         $this->travel(1)->seconds();
         app(BrandDemandBuilder::class)->build($this->brand);
 
@@ -130,7 +137,7 @@ final class BrandDemandBuilderTest extends TestCase
 
     private function gsc(string $query, int $clicks, int $impressions): void
     {
-        DB::table('gsc_query_daily')->insert([
+        $this->insertFacts('gsc_query_daily', [
             'digital_asset_id' => $this->website->id, 'site_url' => 'sc-domain:atlasdis.com', 'reporting_date' => now()->subDays(5)->toDateString(),
             'query' => $query, 'clicks' => $clicks, 'impressions' => $impressions, 'contract_version' => 1,
             'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => Str::random(20),

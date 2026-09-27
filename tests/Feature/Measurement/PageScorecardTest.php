@@ -19,10 +19,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
+use Tests\Feature\Brain\InsertsFacts;
 use Tests\TestCase;
 
 final class PageScorecardTest extends TestCase
 {
+    use InsertsFacts;
     use RefreshDatabase;
 
     private Brand $brand;
@@ -112,7 +114,7 @@ final class PageScorecardTest extends TestCase
     /** @param  array<string, mixed>  $values */
     private function pool(string $table, array $values): void
     {
-        DB::table($table)->insert($values + [
+        $this->insertFact($table, $values + [
             'digital_asset_id' => $this->site->id, 'contract_version' => 1, 'first_collected_at' => now(),
             'last_collected_at' => now(), 'record_fingerprint' => Str::random(20),
         ]);

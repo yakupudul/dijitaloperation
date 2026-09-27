@@ -22,4 +22,16 @@ trait InsertsFacts
         }
         DB::table($table)->insert($row);
     }
+
+    /**
+     * Drop-in for DB::table($table)->insert($rows): one row or a list of rows.
+     *
+     * @param  array<string, mixed>|list<array<string, mixed>>  $rows
+     */
+    private function insertFacts(string $table, array $rows): void
+    {
+        foreach (array_is_list($rows) ? $rows : [$rows] as $row) {
+            $this->insertFact($table, $row);
+        }
+    }
 }

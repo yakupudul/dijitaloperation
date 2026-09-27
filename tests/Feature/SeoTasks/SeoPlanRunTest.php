@@ -39,6 +39,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
+use Tests\Feature\Brain\InsertsFacts;
 use Tests\TestCase;
 
 /**
@@ -47,6 +48,7 @@ use Tests\TestCase;
  */
 final class SeoPlanRunTest extends TestCase
 {
+    use InsertsFacts;
     use RefreshDatabase;
 
     private User $admin;
@@ -453,7 +455,7 @@ final class SeoPlanRunTest extends TestCase
         ];
         foreach ($rows as $i => [$query, $path, $impressions, $clicks, $position]) {
             foreach ([10, 40] as $daysAgo) {
-                DB::table('gsc_query_page_daily')->insert([
+                $this->insertFacts('gsc_query_page_daily', [
                     'digital_asset_id' => $website->id, 'external_resource_id' => null, 'site_url' => 'https://example.test/',
                     'reporting_date' => now()->subDays($daysAgo)->toDateString(), 'query' => $query, 'page' => 'https://example.test'.$path,
                     'clicks' => intdiv($clicks, 2), 'impressions' => intdiv($impressions, 2), 'contract_version' => 1,
