@@ -423,6 +423,7 @@ class ConnectorPage extends Component
             'integration_label' => 'Google',
             'integration_route' => 'operator.integrations.google',
             'connection' => $connection,
+            'integration_active' => $integration->isActive(),
             'freshness' => $freshness,
             'latest_collection' => $latestCollection,
             'resources_count' => (int) ($summary['discovered'] ?? $resourceModels->count()),
