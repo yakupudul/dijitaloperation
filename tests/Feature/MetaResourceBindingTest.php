@@ -279,7 +279,7 @@ class MetaResourceBindingTest extends TestCase
             ));
             $this->fail('Expected ValidationException');
         } catch (ValidationException $e) {
-            $this->assertStringContainsString('selected Brand', collect($e->errors())->flatten()->first() ?? '');
+            $this->assertStringContainsString('seçilen markaya ait olmalı', collect($e->errors())->flatten()->first() ?? '');
         }
     }
 
@@ -358,7 +358,7 @@ class MetaResourceBindingTest extends TestCase
             app(ConfirmMetaResourceBindingService::class)->bindExisting($asset, $b, $this->admin);
             $this->fail('Expected ValidationException');
         } catch (ValidationException $e) {
-            $this->assertStringContainsString('currently connected', collect($e->errors())->flatten()->first() ?? '');
+            $this->assertStringContainsString('şu an Account A hesabına bağlı', collect($e->errors())->flatten()->first() ?? '');
         }
 
         $this->assertSame(1, CoreAssetBinding::query()->where('status', CoreAssetBinding::STATUS_ACTIVE)->count());

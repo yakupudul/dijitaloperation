@@ -23,9 +23,35 @@
                     {{ __($f.'brand_prefix') }} <span class="font-medium text-gray-900 dark:text-white">{{ $brandName }}</span>
                 </div>
             @else
-                <x-ta.form.field :label="__($f.'brand')" :required="true" :error="$errors->first('brand_id')">
-                    <x-ta.form.select wire:model="brand_id" :options="$brandOptions" :placeholder="__($f.'select')" :nullable="false" />
-                </x-ta.form.field>
+                <div class="grid gap-4 md:grid-cols-2">
+                    <x-ta.form.field label="Müşteri" :error="$errors->first('customer_id')">
+                        <x-ta.form.select wire:model.live="customer_id" :options="$customerOptions" :placeholder="__($f.'select')" />
+                    </x-ta.form.field>
+                    <x-ta.form.field :label="__($f.'brand')" :required="true" :error="$errors->first('brand_id')">
+                        <x-ta.form.select wire:model.live="brand_id" :options="$brandOptions" :placeholder="__($f.'select')" :nullable="false" />
+                    </x-ta.form.field>
+                </div>
+                @if ($mode === 'edit')
+                    <p class="text-xs text-gray-500">Aynı müşterinin başka markasına taşımak onay gerektirmez. Başka müşterinin markasına taşımak yetki devridir; kaydederken onay istenir.</p>
+                @endif
+            @endif
+
+            @if ($ownershipConflict)
+                <x-operator.ownership-transfer-panel :conflict="$ownershipConflict" :action="$mode === 'edit' ? 'confirmAssetMove' : 'moveExistingSite'" :can-transfer="$canTransfer" />
+            @endif
+
+            @if (($existingSite ?? null) !== null && ! $ownershipConflict)
+                <div class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100" data-existing-site>
+                    <p class="font-semibold">Bu alan adı zaten kayıtlı</p>
+                    <p class="mt-1">{{ $existingSite['message'] }}</p>
+                    <p class="mt-1">İkinci bir web sitesi oluşturulmaz; mevcut siteyi (bağlantıları ve verisiyle) bu markaya taşıyabilirsiniz.</p>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        @if ($existingSite['movable'])
+                            <button type="button" wire:click="moveExistingSite" class="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700">Mevcut siteyi bu markaya taşı</button>
+                        @endif
+                        <button type="button" wire:click="dismissExistingSite" class="rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-amber-300">Vazgeç</button>
+                    </div>
+                </div>
             @endif
 
             <x-ta.form.field :label="__($f.'name')" :required="true" :error="$errors->first('name')">

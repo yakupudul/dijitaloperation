@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-10-20 — Ownership and yetki devri
+
+- **An account or asset has one owner customer.** Every new bind / assign path must call `OwnershipGuard` first.
+  - Manual paths show the yetki devri panel (`ConfirmsOwnershipTransfer` + `x-operator.ownership-transfer-panel`) and transfer only through `OwnershipTransferService` with `confirmed = true` from an Admin.
+  - Automatic paths (setup, bulk create, Brain, discovery) skip and report; they never pass `transferConfirmed`.
+- Transfers are recorded in `ownership_transfers`; old bindings stay disabled with reason `transferred`, collected data stays on the old asset.
+
 ## 2026-10-19 — Service scope
 
 - **Work exists only for operational assets and brands.** `App\Support\ServiceScope` (on top of `DigitalAsset::operational()` and `Brand::operational()`) is the one rule for collection, analysis, AI, paid providers, alerts, tasks and inbox items.

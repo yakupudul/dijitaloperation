@@ -94,6 +94,29 @@
                                     <p class="mt-1 max-w-72 truncate text-xs text-gray-500">{{ $row['asset']->domain ?: $row['asset']->primary_url ?: '—' }}</p>
                                     @if ($row['asset']->brand_id === null)
                                         <p class="mt-1 text-xs text-amber-700">Markaya bağlı değil</p>
+                                        @if ($canAssign && $assigningSiteId === $row['asset']->id)
+                                            <div class="mt-2 space-y-2" data-assign-website="{{ $row['asset']->id }}">
+                                                <select wire:model.live="assignCustomerId" aria-label="Müşteri" class="w-full rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-950">
+                                                    <option value="">Müşteri seçin…</option>
+                                                    @foreach ($assignCustomers as $customerId => $customerName)
+                                                        <option value="{{ $customerId }}">{{ $customerName }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <select wire:model="assignBrandId" aria-label="Marka" @disabled($assignBrands === []) class="w-full rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-950">
+                                                    <option value="">Marka seçin…</option>
+                                                    @foreach ($assignBrands as $brandId => $brandName)
+                                                        <option value="{{ $brandId }}">{{ $brandName }}</option>
+                                                    @endforeach
+                                                </select>
+                                                @error('assignBrandId')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+                                                <div class="flex gap-2">
+                                                    <button type="button" wire:click="assignWebsite" class="rounded-lg bg-brand-500 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-600">Ata</button>
+                                                    <button type="button" wire:click="cancelAssign" class="rounded-lg px-2.5 py-1.5 text-xs ring-1 ring-inset ring-gray-300">Vazgeç</button>
+                                                </div>
+                                            </div>
+                                        @elseif ($canAssign)
+                                            <button type="button" wire:click="startAssign({{ $row['asset']->id }})" class="mt-1 text-xs font-medium text-brand-600 hover:underline">Markaya ata</button>
+                                        @endif
                                     @elseif ($row['asset']->brand?->customer?->name)
                                         <p class="mt-1 text-xs text-gray-400">{{ $row['asset']->brand->customer->name }}</p>
                                     @endif

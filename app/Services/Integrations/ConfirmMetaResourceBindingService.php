@@ -8,6 +8,8 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
 use App\Models\User;
+use App\Services\Ownership\OwnershipGuard;
+use App\Services\Ownership\OwnershipTransferService;
 use App\Support\Integrations\BindingCardinalityRegistry;
 use App\Support\Integrations\BindingScopeGuard;
 use App\Support\Integrations\ExternalResourceAssetCompatibility;
@@ -59,7 +61,7 @@ final class ConfirmMetaResourceBindingService
 
         $brand = $plan->brand->fresh(['customer']) ?? $plan->brand;
         if (! $brand instanceof Brand) {
-            throw ValidationException::withMessages(['brand_id' => 'Select a valid Brand.']);
+            throw ValidationException::withMessages(['brand_id' => 'Geçerli bir marka seçin.']);
         }
 
         return DB::transaction(function () use ($plan, $resource, $brand): array {
@@ -86,17 +88,17 @@ final class ConfirmMetaResourceBindingService
                 $asset = $plan->existingAsset?->fresh(['brand']) ?? $plan->existingAsset;
                 if (! $asset instanceof DigitalAsset) {
                     throw ValidationException::withMessages([
-                        'digital_asset_id' => 'Select an existing Meta Ads Digital Asset.',
+                        'digital_asset_id' => 'Mevcut bir Meta Ads varlığı seçin.',
                     ]);
                 }
 
                 if ((int) $asset->brand_id !== (int) $brand->id) {
                     throw ValidationException::withMessages([
-                        'digital_asset_id' => 'Digital Asset must belong to the selected Brand.',
+                        'digital_asset_id' => 'Dijital varlık seçilen markaya ait olmalı.',
                     ]);
                 }
             } else {
-                throw ValidationException::withMessages(['mode' => 'Invalid binding mode.']);
+                throw ValidationException::withMessages(['mode' => 'Geçersiz bağlama türü.']);
             }
 
             try {
@@ -110,7 +112,7 @@ final class ConfirmMetaResourceBindingService
 
             if (! ExternalResourceAssetCompatibility::isCompatible($asset, $resource)) {
                 throw ValidationException::withMessages([
-                    'digital_asset_id' => 'Digital Asset type is not compatible with this ExternalResource.',
+                    'digital_asset_id' => 'Bu hesap bu dijital varlık türüne bağlanamaz.',
                 ]);
             }
 
@@ -126,7 +128,7 @@ final class ConfirmMetaResourceBindingService
             if ($exactActive instanceof CoreAssetBinding) {
                 return [
                     'ok' => true,
-                    'message' => 'Meta Ad Account is already connected to this Meta Ads asset. Collection was not started.',
+                    'message' => 'Meta reklam hesabı zaten bu Meta Ads varlığına bağlı. Veri çekimi başlatılmadı.',
                     'binding' => $exactActive->fresh(['digitalAsset', 'externalResource']) ?? $exactActive,
                     'asset' => $asset->fresh() ?? $asset,
                     'created_asset' => false,
@@ -159,9 +161,13 @@ final class ConfirmMetaResourceBindingService
 
             if ($activeOnResource instanceof CoreAssetBinding
                 && (int) $activeOnResource->digital_asset_id !== (int) $asset->id) {
-                throw ValidationException::withMessages([
-                    'resource_id' => 'This Meta Ad Account is already connected to another Meta Ads asset.',
-                ]);
+                $conflict = app(OwnershipGuard::class)->forResource($resource, $asset);
+                if ($conflict !== null && ! $plan->transferConfirmed) {
+                    throw ValidationException::withMessages(['resource_id' => $conflict->errorMessage()]);
+                }
+                if ($conflict !== null) {
+                    app(OwnershipTransferService::class)->releaseForTransfer($activeOnResource, $conflict, $asset, $plan->confirmedBy, $plan->transferNote);
+                }
             }
 
             if ($activeOnAsset instanceof CoreAssetBinding
@@ -169,10 +175,10 @@ final class ConfirmMetaResourceBindingService
                 if (! $plan->allowReplace) {
                     $currentName = $activeOnAsset->externalResource?->display_name
                         ?? $activeOnAsset->externalResource?->external_id
-                        ?? 'another Ad Account';
+                        ?? 'başka bir reklam hesabı';
 
                     throw ValidationException::withMessages([
-                        'resource_id' => "This Meta Ads asset is currently connected to {$currentName}. Confirm replacement to change the Ad Account — historical data from the previous account is preserved.",
+                        'resource_id' => "Bu Meta Ads varlığı şu an {$currentName} hesabına bağlı. Reklam hesabını değiştirmek için değiştirmeyi onaylayın — önceki hesabın geçmiş verisi korunur.",
                     ]);
                 }
 
@@ -205,8 +211,8 @@ final class ConfirmMetaResourceBindingService
                 return [
                     'ok' => true,
                     'message' => $replaced
-                        ? 'Meta Ad Account connection replaced. Historical data from the previous account is preserved. Collection was not started.'
-                        : 'Meta Ad Account reconnected to this Meta Ads asset. Collection was not started.',
+                        ? 'Meta reklam hesabı değiştirildi. Önceki hesabın geçmiş verisi korunuyor. Veri çekimi başlatılmadı.'
+                        : 'Meta reklam hesabı bu Meta Ads varlığına yeniden bağlandı. Veri çekimi başlatılmadı.',
                     'binding' => $exactDisabled->fresh(['digitalAsset', 'externalResource']) ?? $exactDisabled,
                     'asset' => $asset->fresh() ?? $asset,
                     'created_asset' => $createdAsset,
@@ -218,7 +224,7 @@ final class ConfirmMetaResourceBindingService
             $rules = BindingCardinalityRegistry::forResourceType(MetaResourceType::META_AD_ACCOUNT);
             if ($activeOnAsset instanceof CoreAssetBinding && ! $replaced && $rules['max_active_resources_per_asset'] <= 1) {
                 throw ValidationException::withMessages([
-                    'digital_asset_id' => 'This Meta Ads asset is currently connected to another Ad Account.',
+                    'digital_asset_id' => 'Bu Meta Ads varlığı şu an başka bir reklam hesabına bağlı.',
                 ]);
             }
 
@@ -249,7 +255,7 @@ final class ConfirmMetaResourceBindingService
                     if ($existing instanceof CoreAssetBinding) {
                         return [
                             'ok' => true,
-                            'message' => 'Meta Ad Account is already connected to this Meta Ads asset. Collection was not started.',
+                            'message' => 'Meta reklam hesabı zaten bu Meta Ads varlığına bağlı. Veri çekimi başlatılmadı.',
                             'binding' => $existing,
                             'asset' => $asset->fresh() ?? $asset,
                             'created_asset' => false,
@@ -259,7 +265,7 @@ final class ConfirmMetaResourceBindingService
                     }
 
                     throw ValidationException::withMessages([
-                        'resource_id' => 'This Binding already exists or conflicts with an existing Binding.',
+                        'resource_id' => 'Bu bağlantı zaten var ya da mevcut bir bağlantıyla çakışıyor.',
                     ]);
                 }
 
@@ -269,10 +275,10 @@ final class ConfirmMetaResourceBindingService
             return [
                 'ok' => true,
                 'message' => $createdAsset
-                    ? 'Meta Ads Digital Asset created and Ad Account connected. Collection was not started.'
+                    ? 'Meta Ads varlığı oluşturuldu ve reklam hesabı bağlandı. Veri çekimi başlatılmadı.'
                     : ($replaced
-                        ? 'Meta Ad Account connection replaced. Historical data from the previous account is preserved. Collection was not started.'
-                        : 'Meta Ad Account connected to Meta Ads Digital Asset. Collection was not started.'),
+                        ? 'Meta reklam hesabı değiştirildi. Önceki hesabın geçmiş verisi korunuyor. Veri çekimi başlatılmadı.'
+                        : 'Meta reklam hesabı Meta Ads varlığına bağlandı. Veri çekimi başlatılmadı.'),
                 'binding' => $binding->fresh(['digitalAsset', 'externalResource']) ?? $binding,
                 'asset' => $asset->fresh() ?? $asset,
                 'created_asset' => $createdAsset,
@@ -295,14 +301,14 @@ final class ConfirmMetaResourceBindingService
 
         if ($binding->capability !== MetaConnectorRegistry::META_ADS) {
             throw ValidationException::withMessages([
-                'binding_id' => 'Only Meta Ads Bindings can be disconnected through this action.',
+                'binding_id' => 'Bu işlemle yalnız Meta Ads bağlantıları kesilebilir.',
             ]);
         }
 
         if ($binding->status === CoreAssetBinding::STATUS_DISABLED) {
             return [
                 'ok' => true,
-                'message' => 'Ad Account is already disconnected from this Meta Ads asset.',
+                'message' => 'Reklam hesabının bu Meta Ads varlığıyla bağlantısı zaten kesik.',
                 'binding' => $binding,
             ];
         }
@@ -311,7 +317,7 @@ final class ConfirmMetaResourceBindingService
 
         return [
             'ok' => true,
-            'message' => 'Disconnected this Ad Account from this Meta Ads asset. Meta authorization and resource inventory are unchanged. Historical data is preserved.',
+            'message' => 'Reklam hesabının bu Meta Ads varlığıyla bağlantısı kesildi. Meta yetkilendirmesi ve hesap listesi değişmedi; geçmiş veri korunuyor.',
             'binding' => $binding->fresh() ?? $binding,
         ];
     }
@@ -325,13 +331,15 @@ final class ConfirmMetaResourceBindingService
         User $confirmedBy,
         bool $allowReplace = false,
         ?int $expectedIntegrationId = null,
+        bool $transferConfirmed = false,
+        ?string $transferNote = null,
     ): CoreAssetBinding {
         $this->assertOperator($confirmedBy);
         $resource = $resource->fresh(['integration']) ?? $resource;
 
         $brand = $asset->brand;
         if (! $brand instanceof Brand) {
-            throw new RuntimeException('Digital Asset Brand is missing.');
+            throw ValidationException::withMessages(['digital_asset_id' => 'Dijital varlık bir markaya bağlı değil; önce markaya atayın.']);
         }
 
         $result = $this->confirm(new ResourceBindingPlan(
@@ -343,11 +351,13 @@ final class ConfirmMetaResourceBindingService
             confirmedBy: $confirmedBy,
             allowReplace: $allowReplace,
             expectedIntegrationId: $expectedIntegrationId ?? (int) $resource->integration_id,
+            transferConfirmed: $transferConfirmed,
+            transferNote: $transferNote,
         ));
 
         $binding = $result['binding'] ?? null;
         if (! $binding instanceof CoreAssetBinding) {
-            throw new RuntimeException($result['message'] ?? 'Binding failed.');
+            throw new RuntimeException($result['message'] ?? 'Bağlantı kurulamadı.');
         }
 
         return $binding->fresh(['externalResource']) ?? $binding;
@@ -418,7 +428,7 @@ final class ConfirmMetaResourceBindingService
     {
         if (! $user->hasRole(Roles::ADMIN)) {
             throw ValidationException::withMessages([
-                'authorization' => 'Only authorized operators may confirm Meta resource bindings.',
+                'authorization' => 'Meta hesap bağlantısını yalnız Admin onaylayabilir.',
             ]);
         }
     }

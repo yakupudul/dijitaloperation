@@ -323,7 +323,7 @@ class GoogleResourceBindingTest extends TestCase
             ->set('assetName', 'Confirmed GA4')
             ->call('confirmBind')
             ->assertSet('showBindModal', false)
-            ->assertSee('Digital Asset created and Google resource bound');
+            ->assertSee('Dijital varlık oluşturuldu ve Google hesabı bağlandı');
 
         $this->assertDatabaseHas('digital_assets', [
             'name' => 'Confirmed GA4',

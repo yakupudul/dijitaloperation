@@ -3,18 +3,22 @@
 namespace App\Livewire\Operator;
 
 use App\Jobs\DiscoverProviderResourcesJob;
+use App\Livewire\Concerns\ConfirmsOwnershipTransfer;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreConnection;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
+use App\Models\OwnershipTransfer;
 use App\Models\ResourceAutomation;
 use App\Models\User;
 use App\Services\Async\AsyncOperationService;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
+use App\Services\Ownership\OwnershipGuard;
+use App\Services\Ownership\OwnershipTransferService;
 use App\Services\PageSpeedConnectionProbeService;
 use App\Support\Integrations\AssetBindingCompatibility;
 use App\Support\Integrations\ProviderRegistry;
@@ -32,6 +36,8 @@ use Throwable;
 #[Title('Veri kaynakları')]
 final class AssetDataSourcesPage extends Component
 {
+    use ConfirmsOwnershipTransfer;
+
     public int $assetId;
 
     /** @var array<string, string> */
@@ -127,6 +133,15 @@ final class AssetDataSourcesPage extends Component
             ]);
         }
 
+        // Yetki devri: an account already bound to another asset (another customer, or another asset of this customer)
+        // is never moved silently; the operator sees who owns it and confirms the transfer explicitly.
+        $conflict = app(OwnershipGuard::class)->forResource($resource, $asset);
+        if ($conflict !== null) {
+            $this->presentOwnershipConflict($conflict, ['capability' => $capability, 'resource_id' => (int) $resource->id]);
+
+            return;
+        }
+
         try {
             match ($this->providerForCapability($capability)) {
                 ProviderRegistry::META => app(ConfirmMetaResourceBindingService::class)
@@ -147,6 +162,41 @@ final class AssetDataSourcesPage extends Component
         $this->selectedResource[$capability] = '';
         $this->messageTone = 'success';
         $this->message = __('operator_runtime.sources.bound', ['capability' => ProviderRegistry::capabilityLabel($capability)]);
+    }
+
+    /** "Devret": binds the pending account here after the Admin ticked "Yetki devrini onaylıyorum". */
+    public function transferResource(OwnershipTransferService $transfers): void
+    {
+        $actor = $this->ownershipTransferActor();
+        if ($actor === null) {
+            return;
+        }
+        $asset = $this->asset();
+        $capability = (string) ($this->pendingTransfer['capability'] ?? '');
+        $this->assertCapability($asset, $capability);
+        $resource = CoreExternalResource::query()->with('integration')->find((int) ($this->pendingTransfer['resource_id'] ?? 0));
+        if (! $resource instanceof CoreExternalResource || $resource->resource_type !== $capability) {
+            $this->cancelOwnershipTransfer();
+            throw ValidationException::withMessages([
+                'selectedResource.'.$capability => __('operator_runtime.sources.resource_incompatible'),
+            ]);
+        }
+
+        try {
+            $transfers->transferResource($resource, $asset, $actor, confirmed: true, note: $this->transferNote);
+        } catch (ValidationException $e) {
+            $this->cancelOwnershipTransfer();
+            throw ValidationException::withMessages([
+                'selectedResource.'.$capability => collect($e->errors())->flatten()->first()
+                    ?: __('operator_runtime.sources.resource_incompatible'),
+            ]);
+        }
+
+        $label = (string) ($resource->display_name ?: $resource->external_id);
+        $this->cancelOwnershipTransfer();
+        $this->selectedResource[$capability] = '';
+        $this->messageTone = 'success';
+        $this->message = $label.' bu varlığa devredildi. Eski varlıktaki bağlantı kapatıldı (geçmişi korunuyor); devir kaydedildi.';
     }
 
     public function disable(string $capability): void
@@ -239,10 +289,20 @@ final class AssetDataSourcesPage extends Component
             ->unique(fn (CoreAssetBinding $binding): string => (string) $binding->capability)
             ->keyBy('capability');
 
-        $boundElsewhere = CoreAssetBinding::query()
+        $elsewhereBindings = CoreAssetBinding::query()
+            ->with('digitalAsset.brand.customer')
             ->where('digital_asset_id', '!=', $asset->id)
             ->where('status', CoreAssetBinding::STATUS_ACTIVE)
-            ->pluck('external_resource_id');
+            ->get(['id', 'digital_asset_id', 'external_resource_id']);
+        $boundElsewhere = $elsewhereBindings->pluck('external_resource_id');
+        // Owner of each account bound elsewhere ("Müşteri › Varlık"), so the operator can pick it and transfer it.
+        $owners = $elsewhereBindings->mapWithKeys(fn (CoreAssetBinding $binding): array => [
+            (int) $binding->external_resource_id => collect([
+                $binding->digitalAsset?->brand?->customer?->name,
+                $binding->digitalAsset?->name,
+            ])->filter()->implode(' › '),
+        ]);
+        $ownedElsewhere = [];
 
         $resources = [];
         foreach ($capabilities as $capability) {
@@ -260,6 +320,20 @@ final class AssetDataSourcesPage extends Component
                 })
                 ->orderBy('display_name')
                 ->get();
+            $ownedElsewhere[$capability] = CoreExternalResource::query()
+                ->where('resource_type', $capability)
+                ->where('status', CoreExternalResource::STATUS_AVAILABLE)
+                ->whereHas('integration', fn ($q) => $q->where('status', CoreIntegration::STATUS_ACTIVE))
+                ->whereIn('id', $boundElsewhere)
+                ->when($currentResourceId !== null, fn ($q) => $q->whereKeyNot($currentResourceId))
+                ->orderBy('display_name')
+                ->get()
+                ->map(fn (CoreExternalResource $resource): array => [
+                    'id' => (int) $resource->id,
+                    'label' => ($resource->display_name ?: $resource->external_id).' · '.$resource->external_id,
+                    'owner' => (string) ($owners[(int) $resource->id] ?? ''),
+                ])
+                ->all();
         }
 
         $providers = collect($resources)
@@ -355,6 +429,9 @@ final class AssetDataSourcesPage extends Component
             'automations' => ResourceAutomation::query()->whereIn('external_resource_id', $bindings->pluck('external_resource_id')->filter()->all())
                 ->get()->keyBy('external_resource_id'),
             'resources' => $resources,
+            'ownedElsewhere' => $ownedElsewhere,
+            'transfers' => OwnershipTransfer::query()->with('transferredBy:id,name')->touchingAsset((int) $asset->id)->latest('id')->limit(10)->get(),
+            'canTransfer' => $this->canTransferOwnership(),
             'providers' => $providers,
             'canDiscover' => auth()->user() instanceof User && auth()->user()->hasRole(Roles::ADMIN),
             'hasActiveBinding' => $hasActiveBinding,

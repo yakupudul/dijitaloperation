@@ -25,5 +25,8 @@ final readonly class ResourceBindingPlan
         public User $confirmedBy,
         public bool $allowReplace = false,
         public ?int $expectedIntegrationId = null,
+        /** Explicit Admin yetki devri confirmation: an account bound to another asset may be moved here. */
+        public bool $transferConfirmed = false,
+        public ?string $transferNote = null,
     ) {}
 }

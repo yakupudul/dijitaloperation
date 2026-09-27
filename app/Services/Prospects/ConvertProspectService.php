@@ -15,6 +15,8 @@ use App\Models\Prospect;
 use App\Models\ProspectDiscoveryCandidate;
 use App\Models\User;
 use App\Services\Operator\OperatorPortfolioPresenter;
+use App\Services\Ownership\OwnershipGuard;
+use App\Services\Portfolio\UnassignedWebsites;
 use App\Support\DigitalAssetTypes;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -269,6 +271,16 @@ final class ConvertProspectService
                 });
 
             if ($exists) {
+                continue;
+            }
+
+            if ($type === 'website' && ($site = app(OwnershipGuard::class)->existingWebsite((string) $url)) !== null) {
+                // One website per domain: an unassigned one joins this brand; another brand's site is never duplicated
+                // or moved here (moving it is a yetki devri on the asset edit page).
+                if ($site->brand_id === null) {
+                    app(UnassignedWebsites::class)->assign($site, $brand);
+                }
+
                 continue;
             }
 
