@@ -45,7 +45,7 @@
   - Known gaps recorded by tests:
     - The website link-edge / crawl-issue datasets have no freshness policy or data contract.
     - The planner creates only the Meta campaign snapshot (not adset / creative).
-    - The GA4 / GSC connector header always shows "Bağlı".
+    - Fixed: the GA4 / GSC connector header now shows "Bağlantı kapalı" when the Google integration is not active.
 
 ## 2026-10-15 — Veri merkezi, yalın ve kaldığı yerden devam eden tarama, markasız site, Otomatik kur v4
 
