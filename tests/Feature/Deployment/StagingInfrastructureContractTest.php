@@ -21,7 +21,8 @@ class StagingInfrastructureContractTest extends TestCase
         $this->assertArrayHasKey('supervisor-collection', $environments['staging']);
         $this->assertSame(['web', 'auth'], config('horizon.middleware'));
         $this->assertLessThanOrEqual(2, (int) $environments['staging']['supervisor-1']['maxProcesses']);
-        $this->assertLessThanOrEqual(2, (int) $environments['staging']['supervisor-collection']['maxProcesses']);
+        // Staging runs up to three collection workers (multi-property GA4 imports) — still quota-conservative.
+        $this->assertLessThanOrEqual(3, (int) $environments['staging']['supervisor-collection']['maxProcesses']);
     }
 
     public function test_sales_intent_paid_calls_default_off(): void
@@ -47,8 +48,10 @@ class StagingInfrastructureContractTest extends TestCase
 
         $this->assertStringContainsString('moxdop:dispatch-due-automations', $output);
         $this->assertStringContainsString('horizon:snapshot', $output);
-        $this->assertStringNotContainsString('intent-radar', $output);
+        // Only the free public-source intent radar is scheduled; paid intent discovery is never scheduled.
+        $this->assertStringContainsString('moxdop:intent-radar:tick', $output);
         $this->assertStringNotContainsString('sales:intent', $output);
+        $this->assertFalse(config('moxdop.sales_intent_discovery.paid_calls_enabled'));
     }
 
     public function test_staging_env_example_is_placeholders_only(): void
