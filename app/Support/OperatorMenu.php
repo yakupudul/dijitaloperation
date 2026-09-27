@@ -23,6 +23,7 @@ final class OperatorMenu
                     'name' => $item['label'],
                     'path' => route($item['route'], absolute: false),
                     'icon' => $item['icon'],
+                    'routes' => [$item['route'], ...array_column($item['children'] ?? [], 'route')],
                 ];
             }
             $groups[] = [
@@ -32,6 +33,37 @@ final class OperatorMenu
         }
 
         return $groups;
+    }
+
+    /**
+     * Tabs for the current screen when it belongs to a sidebar entry with children (W7): the entry itself first,
+     * then its children. Null when the screen has no siblings.
+     *
+     * @return list<array{label: string, url: string, active: bool}>|null
+     */
+    public static function sectionTabs(?string $routeName = null): ?array
+    {
+        $routeName ??= request()->route()?->getName();
+        if ($routeName === null) {
+            return null;
+        }
+        foreach (DemoMenu::groups() as $group) {
+            foreach ($group['items'] as $item) {
+                $children = $item['children'] ?? [];
+                $routes = [$item['route'], ...array_column($children, 'route')];
+                if ($children === [] || ! in_array($routeName, $routes, true)) {
+                    continue;
+                }
+
+                return array_map(fn (array $entry): array => [
+                    'label' => $entry['label'],
+                    'url' => route($entry['route'], absolute: false),
+                    'active' => $entry['route'] === $routeName,
+                ], [['label' => $item['label'], 'route' => $item['route']], ...$children]);
+            }
+        }
+
+        return null;
     }
 
     public static function icon(string $key): string

@@ -52,9 +52,9 @@ class GlobalAgencyOperatingLayerTest extends TestCase
         $this->assertContains('Digital Assets', $labels);
         $this->assertNotContains('Findings', $labels, 'Faz 10e sade menü');
         $this->assertNotContains('Recommendations', $labels);
-        $this->assertContains('Work List', $labels);
+        $this->assertContains('Command Center', $labels, 'W7: Work List, Alerts and Renewals are tabs of the Command Center');
         $this->assertNotContains('Opportunities', $labels);
-        $this->assertContains('Activity', $labels);
+        $this->assertNotContains('Activity', $labels, 'W7: Activity is a tab of Settings');
         $this->assertNotContains('Tasks', $labels);
         $this->assertContains('Integrations', $labels);
         $this->assertContains('Settings', $labels);

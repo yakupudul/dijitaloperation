@@ -124,6 +124,16 @@
                     </div>
                 @endif
 
+                @php($sectionTabs = \App\Support\OperatorMenu::sectionTabs())
+                @if ($sectionTabs)
+                    <nav class="mb-5 -mt-1 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Bölüm">
+                        @foreach ($sectionTabs as $tab)
+                            <a href="{{ $tab['url'] }}" wire:navigate @if ($tab['active']) aria-current="page" @endif
+                                @class(['whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium', 'border-brand-500 text-brand-600 dark:text-brand-400' => $tab['active'], 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' => ! $tab['active']])>{{ $tab['label'] }}</a>
+                        @endforeach
+                    </nav>
+                @endif
+
                 {{ $slot }}
             </div>
         </div>

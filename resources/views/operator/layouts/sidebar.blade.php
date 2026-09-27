@@ -50,7 +50,8 @@
                             @foreach ($menuGroup['items'] as $item)
                                 @php
                                     $isActive = $currentPath === $item['path']
-                                        || ($item['path'] !== '/' && str_starts_with($currentPath, $item['path']));
+                                        || ($item['path'] !== '/' && str_starts_with($currentPath, $item['path']))
+                                        || in_array(request()->route()?->getName(), $item['routes'] ?? [], true);
                                     $external = ! empty($item['external']);
                                 @endphp
                                 <li>

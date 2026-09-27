@@ -12,6 +12,7 @@ use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Support\Demo\DemoMenu;
 use App\Support\Demo\DemoState;
+use App\Support\OperatorMenu;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -63,38 +64,17 @@ class PanelDesignFreezeTest extends TestCase
             'operator.customers',
             'operator.brands',
             'operator.assets',
-            'operator.tasks',
             'operator.ads_advisor',
             'operator.seo_tasks',
             'operator.content.calendar',
-            'operator.alerts',
-            'operator.renewals',
             'operator.library.search-queries',
-            'operator.library.services',
             'operator.library.search-demand-competitors',
-            'operator.market.map-rankings',
-            'operator.market.backlinks',
-            'operator.market.competitor-watch',
-            'operator.market.ai-visibility',
             'operator.brain.services',
-            'operator.brain.recommendations',
-            'operator.brain.methods',
-            'operator.brain.proposals',
             'operator.leads',
             'operator.prospects',
-            'operator.intent-radar',
-            'operator.whatsapp',
-            'operator.agency',
-            'operator.reports.queue',
-            'operator.reports.scorecard',
             'operator.reports.monthly',
-            'operator.reports.annotations',
-            'operator.archive',
-            'operator.compliance',
-            'operator.activity',
+            'operator.agency',
             'operator.integrations',
-            'operator.integrations.wordpress-sites',
-            'operator.data-center',
             'operator.settings',
         ], $routes);
 
@@ -110,6 +90,16 @@ class PanelDesignFreezeTest extends TestCase
         $this->assertStringNotContainsString('href="/system', $html);
         $this->assertStringNotContainsString('href="/admin', $html);
         $this->assertStringNotContainsString('>Modules</', $html);
+    }
+
+    public function test_hidden_screens_are_tabs_of_their_sidebar_entry(): void
+    {
+        $tabs = OperatorMenu::sectionTabs('operator.alerts');
+        $this->assertSame(['/command-center', '/tasks', '/alerts', '/renewals'], array_column($tabs, 'url'));
+        $this->assertSame([false, false, true, false], array_column($tabs, 'active'));
+        $this->assertNull(OperatorMenu::sectionTabs('operator.customers'));
+
+        $this->get(route('operator.reports.queue'))->assertOk()->assertSee('aria-current="page"', false)->assertSee(route('operator.reports.scorecard', absolute: false), false);
     }
 
     public function test_customer_primary_ia(): void

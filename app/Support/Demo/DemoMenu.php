@@ -15,93 +15,99 @@ use App\Support\Roles;
 final class DemoMenu
 {
     /**
-     * @return list<array{label: string, items: list<array{label: string, route: string, icon: string}>}>
+     * The sidebar holds one entry per job; related screens are its children and show as tabs on each other (W7).
+     *
+     * @return list<array{label: string, items: list<array{label: string, route: string, icon: string, children: list<array{label: string, route: string}>}>}>
      */
     public static function groups(): array
     {
         $tr = app()->getLocale() === 'tr';
         $isAdmin = (bool) (auth()->user()?->is_active && auth()->user()?->hasRole(Roles::ADMIN));
 
+        $item = static fn (string $label, string $route, string $icon, array $children = []): array => ['label' => $label, 'route' => $route, 'icon' => $icon, 'children' => $children];
+        $child = static fn (string $label, string $route): array => ['label' => $label, 'route' => $route];
+
         return [
             [
                 'label' => __('operator.nav.groups.menu'),
                 'items' => [
-                    ['label' => __('operator.nav.dashboard'), 'route' => 'operator.dashboard', 'icon' => 'dashboard'],
-                    ['label' => $tr ? 'Komuta merkezi' : 'Command Center', 'route' => 'operator.command-center', 'icon' => 'command'],
+                    $item(__('operator.nav.dashboard'), 'operator.dashboard', 'dashboard'),
+                    $item($tr ? 'Komuta merkezi' : 'Command Center', 'operator.command-center', 'command', [
+                        $child($tr ? 'İş listesi' : 'Work List', 'operator.tasks'),
+                        $child($tr ? 'Uyarılar' : 'Alerts', 'operator.alerts'),
+                        $child(__('operator.nav.renewals'), 'operator.renewals'),
+                    ]),
                 ],
             ],
             [
                 'label' => __('operator.nav.groups.portfolio'),
                 'items' => [
-                    ['label' => $tr ? 'Portföy sağlığı' : 'Portfolio Health', 'route' => 'operator.portfolio.health', 'icon' => 'health'],
-                    ['label' => __('operator.nav.customers'), 'route' => 'operator.customers', 'icon' => 'customers'],
-                    ['label' => __('operator.nav.brands'), 'route' => 'operator.brands', 'icon' => 'brands'],
-                    ['label' => __('operator.nav.digital_assets'), 'route' => 'operator.assets', 'icon' => 'assets'],
+                    $item($tr ? 'Portföy sağlığı' : 'Portfolio Health', 'operator.portfolio.health', 'health'),
+                    $item(__('operator.nav.customers'), 'operator.customers', 'customers'),
+                    $item(__('operator.nav.brands'), 'operator.brands', 'brands'),
+                    $item(__('operator.nav.digital_assets'), 'operator.assets', 'assets'),
                 ],
             ],
             [
                 'label' => __('operator.nav.work'),
                 'items' => [
-                    ['label' => $tr ? 'İş listesi' : 'Work List', 'route' => 'operator.tasks', 'icon' => 'tasks'],
-                    ['label' => __('operator.nav.ads_advisor'), 'route' => 'operator.ads_advisor', 'icon' => 'ads-advisor'],
-                    ['label' => __('operator.nav.seo_tasks'), 'route' => 'operator.seo_tasks', 'icon' => 'seo'],
-                    ['label' => $tr ? 'İçerik takvimi' : 'Content Calendar', 'route' => 'operator.content.calendar', 'icon' => 'calendar'],
-                    ['label' => $tr ? 'Uyarılar' : 'Alerts', 'route' => 'operator.alerts', 'icon' => 'alerts'],
-                    ['label' => __('operator.nav.renewals'), 'route' => 'operator.renewals', 'icon' => 'renewals'],
+                    $item(__('operator.nav.ads_advisor'), 'operator.ads_advisor', 'ads-advisor'),
+                    $item(__('operator.nav.seo_tasks'), 'operator.seo_tasks', 'seo'),
+                    $item($tr ? 'İçerik takvimi' : 'Content Calendar', 'operator.content.calendar', 'calendar'),
                 ],
             ],
             [
                 'label' => $tr ? 'Pazar' : 'Market',
                 'items' => [
-                    ['label' => $tr ? 'Sorgular' : 'Search Queries', 'route' => 'operator.library.search-queries', 'icon' => 'search'],
-                    ['label' => $tr ? 'Hizmetler' : 'Services', 'route' => 'operator.library.services', 'icon' => 'library'],
-                    ['label' => $tr ? 'Rakipler' : 'Competitors', 'route' => 'operator.library.search-demand-competitors', 'icon' => 'competitors'],
-                    ['label' => $tr ? 'Harita sıralaması' : 'Map Rankings', 'route' => 'operator.market.map-rankings', 'icon' => 'map'],
-                    ['label' => $tr ? 'Backlink fırsatları' : 'Backlinks', 'route' => 'operator.market.backlinks', 'icon' => 'links'],
-                    ['label' => $tr ? 'Rakip izleme' : 'Competitor Watch', 'route' => 'operator.market.competitor-watch', 'icon' => 'watch'],
-                    ['label' => $tr ? 'AI görünürlüğü' : 'AI Visibility', 'route' => 'operator.market.ai-visibility', 'icon' => 'ai'],
-                ],
-            ],
-            [
-                'label' => $tr ? 'Hizmet Beyni' : 'Service Brain',
-                'items' => [
-                    ['label' => $tr ? 'Hizmet haritası' : 'Service Map', 'route' => 'operator.brain.services', 'icon' => 'brain-map'],
-                    ['label' => $tr ? 'Beyin önerileri' : 'Brain Recommendations', 'route' => 'operator.brain.recommendations', 'icon' => 'brain-recs'],
-                    ['label' => $tr ? 'Yöntemler' : 'Methods', 'route' => 'operator.brain.methods', 'icon' => 'brain-methods'],
-                    ['label' => $tr ? 'Onay kuyruğu' : 'Review Queue', 'route' => 'operator.brain.proposals', 'icon' => 'brain-queue'],
+                    $item($tr ? 'Sorgular' : 'Search Queries', 'operator.library.search-queries', 'search', [
+                        $child($tr ? 'Hizmetler' : 'Services', 'operator.library.services'),
+                    ]),
+                    $item($tr ? 'Rakipler' : 'Competitors', 'operator.library.search-demand-competitors', 'competitors', [
+                        $child($tr ? 'Harita sıralaması' : 'Map Rankings', 'operator.market.map-rankings'),
+                        $child($tr ? 'Rakip izleme' : 'Competitor Watch', 'operator.market.competitor-watch'),
+                        $child($tr ? 'Backlink fırsatları' : 'Backlinks', 'operator.market.backlinks'),
+                        $child($tr ? 'AI görünürlüğü' : 'AI Visibility', 'operator.market.ai-visibility'),
+                    ]),
+                    $item($tr ? 'Hizmet Beyni' : 'Service Brain', 'operator.brain.services', 'brain-map', [
+                        $child($tr ? 'Beyin önerileri' : 'Brain Recommendations', 'operator.brain.recommendations'),
+                        $child($tr ? 'Yöntemler' : 'Methods', 'operator.brain.methods'),
+                        $child($tr ? 'Onay kuyruğu' : 'Review Queue', 'operator.brain.proposals'),
+                    ]),
                 ],
             ],
             [
                 'label' => __('operator.nav.groups.sales'),
                 'items' => [
-                    ['label' => $tr ? 'Lead kutusu' : 'Lead Inbox', 'route' => 'operator.leads', 'icon' => 'inbox'],
-                    ['label' => __('operator.nav.prospects'), 'route' => 'operator.prospects', 'icon' => 'prospects'],
-                    ['label' => __('operator.nav.intent_radar'), 'route' => 'operator.intent-radar', 'icon' => 'radar'],
-                    ...($isAdmin ? [
-                        ['label' => $tr ? 'WhatsApp Asistanı' : 'WhatsApp Assistant', 'route' => 'operator.whatsapp', 'icon' => 'chat'],
-                    ] : []),
+                    $item($tr ? 'Lead kutusu' : 'Lead Inbox', 'operator.leads', 'inbox'),
+                    $item(__('operator.nav.prospects'), 'operator.prospects', 'prospects', [
+                        $child(__('operator.nav.intent_radar'), 'operator.intent-radar'),
+                        ...($isAdmin ? [$child($tr ? 'WhatsApp Asistanı' : 'WhatsApp Assistant', 'operator.whatsapp')] : []),
+                    ]),
                 ],
             ],
             [
                 'label' => $tr ? 'Raporlar' : 'Reports',
                 'items' => [
-                    ['label' => $tr ? 'Ajans işletmesi' : 'Agency Business', 'route' => 'operator.agency', 'icon' => 'finance'],
-                    ['label' => $tr ? 'Rapor kuyruğu' : 'Report Queue', 'route' => 'operator.reports.queue', 'icon' => 'queue'],
-                    ['label' => $tr ? 'Ajans karnesi' : 'Monthly Results', 'route' => 'operator.reports.scorecard', 'icon' => 'scorecard'],
-                    ['label' => $tr ? 'Aylık rapor' : 'Monthly Report', 'route' => 'operator.reports.monthly', 'icon' => 'report'],
-                    ['label' => $tr ? 'Grafik notları' : 'Chart Notes', 'route' => 'operator.reports.annotations', 'icon' => 'notes'],
-                    ['label' => __('operator.nav.archive'), 'route' => 'operator.archive', 'icon' => 'archive'],
-                    ['label' => __('operator.nav.compliance'), 'route' => 'operator.compliance', 'icon' => 'compliance'],
-                    ['label' => __('operator.nav.activity'), 'route' => 'operator.activity', 'icon' => 'activity'],
+                    $item($tr ? 'Aylık rapor' : 'Monthly Report', 'operator.reports.monthly', 'report', [
+                        $child($tr ? 'Rapor kuyruğu' : 'Report Queue', 'operator.reports.queue'),
+                        $child($tr ? 'Ajans karnesi' : 'Monthly Results', 'operator.reports.scorecard'),
+                        $child($tr ? 'Grafik notları' : 'Chart Notes', 'operator.reports.annotations'),
+                        $child(__('operator.nav.archive'), 'operator.archive'),
+                    ]),
+                    $item($tr ? 'Ajans işletmesi' : 'Agency Business', 'operator.agency', 'finance'),
                 ],
             ],
             [
                 'label' => __('operator.nav.groups.system'),
                 'items' => [
-                    ['label' => __('operator.nav.integrations'), 'route' => 'operator.integrations', 'icon' => 'integrations'],
-                    ['label' => $tr ? 'WordPress siteleri' : 'WordPress Sites', 'route' => 'operator.integrations.wordpress-sites', 'icon' => 'wordpress'],
-                    ['label' => $tr ? 'Veri merkezi' : 'Data Center', 'route' => 'operator.data-center', 'icon' => 'data'],
-                    ['label' => __('operator.nav.settings'), 'route' => 'operator.settings', 'icon' => 'settings'],
+                    $item(__('operator.nav.integrations'), 'operator.integrations', 'integrations', [
+                        $child($tr ? 'WordPress siteleri' : 'WordPress Sites', 'operator.integrations.wordpress-sites'),
+                        $child($tr ? 'Veri merkezi' : 'Data Center', 'operator.data-center'),
+                    ]),
+                    $item(__('operator.nav.settings'), 'operator.settings', 'settings', [
+                        $child(__('operator.nav.compliance'), 'operator.compliance'),
+                        $child(__('operator.nav.activity'), 'operator.activity'),
+                    ]),
                 ],
             ],
         ];
