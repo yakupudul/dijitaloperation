@@ -8,7 +8,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 /**
- * /seo-tasks — every brand's SEO tasks in one priority-ordered list.
+ * /seo-tasks/detayli — every brand's SEO tasks in one priority-ordered list (the detailed screen; /seo-tasks is the inbox).
  */
 #[Layout('operator.layouts.app')]
 #[Title('SEO Görevleri')]

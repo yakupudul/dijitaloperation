@@ -8,7 +8,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 /**
- * /ads-advisor — advisor items across every connected Google Ads, Meta Ads and Business Profile account.
+ * /ads-advisor/detayli (detailed screen; /ads-advisor is the inbox) — advisor items across every connected Google Ads, Meta Ads and Business Profile account.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Danışman')]

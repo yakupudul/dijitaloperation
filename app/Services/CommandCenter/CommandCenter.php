@@ -15,6 +15,7 @@ use App\Models\Observability\OperationalAlert;
 use App\Models\SeoTask;
 use App\Models\User;
 use App\Services\Advisor\AdvisorChannels;
+use App\Services\CommandCenter\Activity\ActivitySuppression;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -60,12 +61,54 @@ final class CommandCenter
 
     public function __construct(private readonly AdvisorChannels $channels) {}
 
+    /** @var array{items: Collection<int, array<string, mixed>>, suppressed: Collection<int, array<string, mixed>>}|null */
+    private ?array $evaluated = null;
+
     /**
-     * @param  array{brand_id?: ?int, source?: ?string, severity?: ?string}  $filters
+     * Open items across every producer. Each item carries its topic (TopicCatalog), `since` / `aged` (InboxAging);
+     * budget items of paused / dormant ad accounts are left out (see suppressed()).
+     *
+     * @param  array{brand_id?: ?int, source?: ?string, severity?: ?string, area?: ?string, asset_id?: ?int, topic?: ?string, aged?: ?bool}  $filters
      * @return Collection<int, array<string, mixed>>
      */
     public function items(array $filters = []): Collection
     {
+        $has = fn (string $name): bool => ($filters[$name] ?? null) !== null && $filters[$name] !== '';
+
+        return $this->evaluate()['items']
+            ->when($has('brand_id'), fn (Collection $c) => $c->where('brand_id', (int) $filters['brand_id']))
+            ->when($has('source'), fn (Collection $c) => $c->where('source', $filters['source']))
+            ->when($has('severity'), fn (Collection $c) => $c->where('severity', $filters['severity']))
+            ->when($has('area'), fn (Collection $c) => $c->where('area', $filters['area']))
+            ->when($has('asset_id'), fn (Collection $c) => $c->where('asset_id', (int) $filters['asset_id']))
+            ->when($has('topic'), fn (Collection $c) => $c->where('topic', $filters['topic']))
+            ->when(is_bool($filters['aged'] ?? null), fn (Collection $c) => $c->where('aged', $filters['aged']))
+            ->values();
+    }
+
+    /**
+     * Budget / spend items hidden because their ad account is dormant or paused on the client's decision.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function suppressed(): Collection
+    {
+        return $this->evaluate()['suppressed'];
+    }
+
+    /** Forgets the evaluated list (after an action changed the sources). */
+    public function refresh(): void
+    {
+        $this->evaluated = null;
+    }
+
+    /** @return array{items: Collection<int, array<string, mixed>>, suppressed: Collection<int, array<string, mixed>>} */
+    private function evaluate(): array
+    {
+        if ($this->evaluated !== null) {
+            return $this->evaluated;
+        }
+        $complete = true;
         $items = collect();
         foreach ([
             fn (): Collection => $this->alerts(),
@@ -82,6 +125,7 @@ final class CommandCenter
                 $items = $items->merge($reader());
             } catch (Throwable $error) {
                 report($error);
+                $complete = false;
             }
         }
         foreach (self::EXTRA_SOURCES as $source) {
@@ -89,19 +133,21 @@ final class CommandCenter
                 $items = $items->merge(app($source)->items());
             } catch (Throwable $error) {
                 report($error);
+                $complete = false;
             }
         }
 
         $items = $this->dedupe($items);
         $snoozed = $this->snoozedKeys();
+        $items = $items->reject(fn (array $item): bool => isset($snoozed[$item['key']]))->map(function (array $item): array {
+            $topic = TopicCatalog::forItem($item);
 
-        return $items
-            ->reject(fn (array $item): bool => isset($snoozed[$item['key']]))
-            ->when(($filters['brand_id'] ?? null) !== null, fn (Collection $c) => $c->where('brand_id', (int) $filters['brand_id']))
-            ->when(($filters['source'] ?? null) !== null && $filters['source'] !== '', fn (Collection $c) => $c->where('source', $filters['source']))
-            ->when(($filters['severity'] ?? null) !== null && $filters['severity'] !== '', fn (Collection $c) => $c->where('severity', $filters['severity']))
-            ->sortByDesc('score')
-            ->values();
+            return $item + ['topic' => $topic['key'], 'topic_label' => $topic['label'], 'group' => $topic['group'], 'area' => $topic['area']];
+        })->values();
+        $items = app(InboxAging::class)->track($items, $complete);
+        [$visible, $suppressed] = app(ActivitySuppression::class)->split($items);
+
+        return $this->evaluated = ['items' => $visible->sortByDesc('score')->values(), 'suppressed' => $suppressed];
     }
 
     /**
@@ -113,7 +159,7 @@ final class CommandCenter
     {
         $out = [];
         $count = [];
-        foreach ($this->items() as $item) {
+        foreach ($this->items(['aged' => false]) as $item) {
             $key = (string) ($item['brand_id'] ?? 0);
             if (($count[$key] ?? 0) >= $perBrand) {
                 continue;
@@ -128,10 +174,14 @@ final class CommandCenter
         return $out;
     }
 
-    /** @return array{total: int, critical: int, money: float, clicks: float, brands: int} */
+    /**
+     * Counts for badges: aged items ("Uzun süredir devam eden") are not counted.
+     *
+     * @return array{total: int, critical: int, money: float, clicks: float, brands: int}
+     */
     public function summary(?Collection $items = null): array
     {
-        $items ??= $this->items();
+        $items = ($items ?? $this->items())->where('aged', '!=', true);
 
         return [
             'total' => $items->count(),
@@ -159,6 +209,7 @@ final class CommandCenter
             }
             $count += $this->actOne($source, $id, $action, $user, $days) ? 1 : 0;
         }
+        $this->refresh();
 
         return $count;
     }
@@ -310,6 +361,9 @@ final class CommandCenter
             'brand_id' => null,
             'brand' => null,
             'asset' => null,
+            'asset_id' => null,
+            'asset_type' => null,
+            'rule' => null,
             'channel' => null,
             'impact' => null,
             'url' => null,
@@ -334,6 +388,9 @@ final class CommandCenter
                 'brand_id' => $alert->brand_id,
                 'brand' => $alert->brand?->name,
                 'asset' => $alert->digitalAsset?->domain ?: $alert->digitalAsset?->name,
+                'asset_id' => $alert->digital_asset_id,
+                'asset_type' => $alert->digitalAsset?->type,
+                'rule' => str_starts_with((string) $alert->kind, 'renewal_due_') ? 'renewal_due' : (string) $alert->kind,
                 'channel' => $this->channelOf((string) $alert->digitalAsset?->type),
                 'url' => route('operator.alerts'),
                 'actions' => ['done', 'snooze'],
@@ -358,6 +415,12 @@ final class CommandCenter
                 'brand_id' => $item->brand_id,
                 'brand' => $item->brand?->name,
                 'asset' => $item->digitalAsset?->name,
+                'asset_id' => $item->digital_asset_id,
+                'asset_type' => $item->digitalAsset?->type,
+                'rule' => (string) $item->rule_id,
+                'channel_key' => $item->channel,
+                'draftable' => isset($channels[$item->channel]) && in_array($item->rule_id, $channels[$item->channel]->draftRules(), true),
+                'draft_status' => $item->draft_status,
                 'channel' => ($channels[$item->channel] ?? null)?->label() ?? $item->channel,
                 'impact' => $item->impact_label,
                 'money' => (float) ($item->impact_amount ?? 0),
@@ -379,6 +442,9 @@ final class CommandCenter
                 'brand_id' => $task->brand_id,
                 'brand' => $task->brand?->name,
                 'asset' => $task->digitalAsset?->domain ?: $task->digitalAsset?->name,
+                'asset_id' => $task->digital_asset_id,
+                'asset_type' => $task->digitalAsset?->type,
+                'rule' => (string) $task->rule_id,
                 'channel' => 'Web / SEO · '.$task->type->label(),
                 'impact' => $task->estimated_extra_clicks ? '+'.number_format((float) $task->estimated_extra_clicks, 0, ',', '.').' tık / 90 gün' : null,
                 'clicks' => (float) ($task->estimated_extra_clicks ?? 0),
@@ -415,6 +481,9 @@ final class CommandCenter
                 'brand_id' => $row->brand_id !== null ? (int) $row->brand_id : null,
                 'brand' => $row->brand_name,
                 'asset' => $row->domain ?: $row->name,
+                'asset_id' => (int) $row->digital_asset_id,
+                'asset_type' => 'website',
+                'rule' => 'ready',
                 'channel' => 'Web sitesi',
                 'url' => route('operator.website', ['assetId' => $row->digital_asset_id, 'tab' => 'fixes']),
                 'covers' => $covers,
@@ -500,6 +569,7 @@ final class CommandCenter
         if ($pending > 0) {
             $out->push(self::item('approval', 'brain', 'medium', $pending.' AI önerisi onayınızı bekliyor', [
                 'detail' => 'Hesap eşleştirme, sorgu → hizmet ataması ve kümeler: onaylanınca uygulanır.',
+                'rule' => 'brain',
                 'channel' => 'Hizmet Beyni',
                 'url' => route('operator.brain.proposals'),
             ]));
@@ -522,6 +592,7 @@ final class CommandCenter
                 'detail' => $stuck || $proposal->status === BrandSetupProposal::STATUS_FAILED ? 'Yeniden taramak için kurulum sayfasını açın.' : 'Hesap bağlantıları ve hizmetler hazır.',
                 'brand_id' => $proposal->brand_id,
                 'brand' => $proposal->brand?->name,
+                'rule' => 'setup',
                 'channel' => 'Kurulum',
                 'url' => route('operator.brand.setup', ['brand' => $proposal->brand_id]),
                 'age' => $proposal->created_at,

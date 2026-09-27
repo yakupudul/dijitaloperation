@@ -67,7 +67,8 @@ final class CommandCenterTest extends TestCase
         $this->assertLessThan(array_search('seo:'.$meta->id, $keys) ?: PHP_INT_MAX, array_search('advisor:'.$waste->id, $keys));
         $this->assertEqualsWithDelta(4200.0, app(CommandCenter::class)->summary()['money'], 0.01);
 
-        $this->actingAs($this->admin)->get(route('operator.command-center'))->assertOk()->assertSee('Komuta merkezi')->assertSee('Dönüşüm gelmiyor')->assertSee('Boşa harcanan terimler');
+        $this->actingAs($this->admin)->get(route('operator.command-center'))->assertOk()->assertSee('Komuta merkezi')->assertSee('Dönüşüm gelmiyor')
+            ->assertSee('Negatif kelime önerisi', false)->assertSee('Uygulanmaya hazır site düzeltmeleri');
     }
 
     public function test_actions_close_items_at_their_source_and_snooze_hides_them(): void

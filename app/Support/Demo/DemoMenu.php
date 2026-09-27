@@ -51,8 +51,13 @@ final class DemoMenu
             [
                 'label' => __('operator.nav.work'),
                 'items' => [
-                    $item(__('operator.nav.ads_advisor'), 'operator.ads_advisor', 'ads-advisor'),
-                    $item(__('operator.nav.seo_tasks'), 'operator.seo_tasks', 'seo'),
+                    // Both open the Komuta merkezi inbox pre-filtered; the full panel is the "Ayrıntılı ekran" tab.
+                    $item(__('operator.nav.ads_advisor'), 'operator.ads_advisor', 'ads-advisor', [
+                        $child($tr ? 'Ayrıntılı ekran' : 'Detailed View', 'operator.ads_advisor.detailed'),
+                    ]),
+                    $item(__('operator.nav.seo_tasks'), 'operator.seo_tasks', 'seo', [
+                        $child($tr ? 'Ayrıntılı ekran' : 'Detailed View', 'operator.seo_tasks.detailed'),
+                    ]),
                     $item($tr ? 'İçerik takvimi' : 'Content Calendar', 'operator.content.calendar', 'calendar'),
                 ],
             ],

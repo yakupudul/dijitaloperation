@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Contracts\Ai\AgentContextGateway as AgentContextGatewayContract;
+use App\Contracts\Collection\ActivityTierReader;
 use App\Events\Collection\CollectionRunCancelled;
 use App\Events\Collection\CollectionRunCompleted;
 use App\Events\Collection\CollectionRunStarted;
@@ -45,6 +46,8 @@ use App\Services\Collection\Providers\GoogleAds\GoogleAdsDatasetExecutor;
 use App\Services\Collection\Providers\MetaAds\MetaAdsDatasetExecutor;
 use App\Services\Collection\Providers\SearchConsole\SearchConsoleDatasetExecutor;
 use App\Services\Collection\Providers\Website\WebsiteDatasetExecutor;
+use App\Services\CommandCenter\Activity\ActivityTierServiceReader;
+use App\Services\CommandCenter\Activity\NullActivityTierReader;
 use App\Services\DataPool\Contracts\WarehouseWriter;
 use App\Services\DataPool\DataPoolStorageRegistry;
 use App\Services\DataPool\FilesystemRawPayloadWriter;
@@ -126,6 +129,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AgentContextGatewayContract::class, AgentContextGateway::class);
 
         $this->app->singleton(ClientValueStoryReadService::class);
+
+        // Komuta merkezi: activity tiers hide budget items of paused / dormant ad accounts once the collection
+        // activity service exists; until then nothing is suppressed.
+        $this->app->singletonIf(ActivityTierReader::class, class_exists(ActivityTierServiceReader::SERVICE) ? ActivityTierServiceReader::class : NullActivityTierReader::class);
 
         $this->app->singleton(DataContractRegistryLoader::class);
         $this->app->singleton(RetryPolicy::class, DefaultRetryPolicy::class);
