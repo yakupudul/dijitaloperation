@@ -15,6 +15,9 @@ use Throwable;
  */
 final class ContentCalendarPublisher
 {
+    /** Approved posts older than this are not published late. */
+    public const int STALE_AFTER_HOURS = 48;
+
     public function __construct(private readonly ExternalWriteService $writes) {}
 
     public function publishDue(): int
@@ -25,6 +28,12 @@ final class ContentCalendarPublisher
             ->whereNull('write_action_id')->where('scheduled_for', '<=', now())->orderBy('scheduled_for')->limit(50)->get()
             ->each(function (ContentCalendarItem $item) use (&$count): void {
                 $approver = User::query()->find($item->approved_by);
+                // A post whose time passed long ago (e.g. while the customer was passive) is not published late.
+                if ($item->scheduled_for->lt(now()->subHours(self::STALE_AFTER_HOURS))) {
+                    $item->forceFill(['status' => 'failed', 'error' => 'Yayın zamanı geçti; yeni bir tarih verip yeniden onaylayın.'])->save();
+
+                    return;
+                }
                 try {
                     if ($approver === null || $item->digitalAsset === null) {
                         throw ValidationException::withMessages(['write' => 'Onaylayan kullanıcı ya da İşletme Profili bulunamadı.']);

@@ -107,4 +107,17 @@ final class GbpWritesTest extends TestCase
         $this->assertSame(0, DB::table('content_calendar_items')->whereNull('write_action_id')->count());
         $this->actingAs($this->admin)->get(route('operator.content.calendar', ['showDone' => 1]))->assertOk()->assertSee('Ekim kampanyası');
     }
+
+    public function test_an_approved_post_whose_time_passed_long_ago_is_not_published_late(): void
+    {
+        $item = ContentCalendarItem::query()->create([
+            'brand_id' => $this->profile->brand_id, 'digital_asset_id' => $this->profile->id, 'channel' => 'gbp_post', 'title' => 'Eylül kampanyası',
+            'status' => 'approved', 'approved_by' => $this->admin->id, 'scheduled_for' => now()->subHours(ContentCalendarPublisher::STALE_AFTER_HOURS + 1),
+        ]);
+
+        $this->assertSame(0, app(ContentCalendarPublisher::class)->publishDue());
+        $this->assertSame('failed', $item->refresh()->status);
+        $this->assertStringContainsString('zamanı geçti', (string) $item->error);
+        $this->assertSame(0, ExternalWriteAction::query()->count());
+    }
 }
