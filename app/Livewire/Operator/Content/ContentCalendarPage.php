@@ -3,6 +3,7 @@
 namespace App\Livewire\Operator\Content;
 
 use App\Models\Brand;
+use App\Models\ClientApproval;
 use App\Models\ContentCalendarItem;
 use App\Models\DigitalAsset;
 use App\Support\Demo\DemoState;
@@ -30,6 +31,10 @@ final class ContentCalendarPage extends Component
     public bool $showDone = false;
 
     public ?int $editingId = null;
+
+    public ?string $clientLink = null;
+
+    public ?int $clientLinkFor = null;
 
     /** @var array{brand_id: ?int, channel: string, digital_asset_id: ?int, title: string, body: string, url: string, action_type: string, scheduled_for: string} */
     public array $form = ['brand_id' => null, 'channel' => 'gbp_post', 'digital_asset_id' => null, 'title' => '', 'body' => '', 'url' => '', 'action_type' => 'LEARN_MORE', 'scheduled_for' => ''];
@@ -89,6 +94,16 @@ final class ContentCalendarPage extends Component
         DemoState::flash('Onaylandı.');
     }
 
+    /** ADR-075: create a signed, 14-day link the operator sends to the client (WhatsApp / e-mail). */
+    public function requestClientApproval(int $id): void
+    {
+        $item = ContentCalendarItem::query()->whereKey($id)->whereIn('status', ['draft', 'failed'])->firstOrFail();
+        $approval = ClientApproval::requestFor($item, auth()->user());
+        $this->clientLink = $approval->link();
+        $this->clientLinkFor = $item->id;
+        DemoState::flash('Müşteri onay bağlantısı hazır; kopyalayıp müşteriye gönderin.');
+    }
+
     public function markPublished(int $id): void
     {
         ContentCalendarItem::query()->whereKey($id)->where('channel', '!=', 'gbp_post')->whereNotIn('status', ['published'])
@@ -102,7 +117,7 @@ final class ContentCalendarPage extends Component
 
     public function render(): View
     {
-        $items = ContentCalendarItem::query()->with(['brand', 'digitalAsset'])
+        $items = ContentCalendarItem::query()->with(['brand', 'digitalAsset', 'clientApproval'])
             ->when($this->brand !== null, fn ($q) => $q->where('brand_id', $this->brand))
             ->when(! $this->showDone, fn ($q) => $q->whereNotIn('status', ['published', 'skipped']))
             ->where('scheduled_for', '>=', now()->subDays($this->showDone ? 60 : 30))->orderBy('scheduled_for')->limit(300)->get();

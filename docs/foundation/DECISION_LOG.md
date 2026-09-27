@@ -923,3 +923,17 @@
      - Denendi ama güvenlik denetimi bu yazmayı engelledi ("gerçek dünyada harcama etkisi olan işlem").
      - `mutateAds` izin listesi ADR-064'teki paylaşılan negatif listelerle sınırlı kalır. Bütçe temposu yalnız okunur ve Portföy sağlığı ekranında uyarı olarak gösterilir.
 - **İlgili:** ADR-064, `app/Services/ExternalWrites/GbpWriter.php`, `app/Services/Content/ContentCalendarPublisher.php`, `config/moxdop-external-writes.php` (`gbp`).
+
+
+## ADR-075 — Müşteri içerik onayı: imzalı, süreli bağlantı (müşteri girişi değil)
+
+- **Durum:** Kabul (operatör onayı 2026-10-17, "karar vermem gereken her şeyi onaylıyorum").
+- **Karar:**
+  1. Operatör İçerik takviminde bir taslak için **"Müşteri onayına gönder"** der. MoxDOP 14 gün geçerli, imzalı bir bağlantı üretir (`/onay/{id}`).
+     - Operatör bağlantıyı kendisi gönderir (WhatsApp / e-posta); MoxDOP otomatik göndermez.
+  2. Müşteri sayfada yalnız içeriği görür ve bir kez **Onaylıyorum** ya da **Değişiklik istiyorum** der. Değişiklik isteğinde not zorunludur.
+     - Hesap, oturum ve başka marka verisi yoktur.
+     - Yeni istek eskisini geçersiz kılar. Süresi dolan bağlantı çalışmaz.
+  3. **Müşteri yanıtı hiçbir şeyi yayınlamaz.** Yanıt Komuta merkezine düşer ("Müşteri onayladı / değişiklik istedi"). Yayın onayı yine Admin'dedir (ADR-073).
+  4. Bu bir müşteri portalı değildir. Müşteri girişi olmaması ilkesi korunur; aynı model yalnız imzalı aylık rapor bağlantısında zaten vardır.
+- **İlgili:** `app/Models/ClientApproval.php`, `app/Http/Controllers/Clients/ClientApprovalController.php`, `tests/Feature/Clients/ClientApprovalTest.php`, ADR-073.

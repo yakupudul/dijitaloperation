@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /** One planned piece of content for a brand (İçerik takvimi). */
 class ContentCalendarItem extends Model
@@ -30,5 +31,12 @@ class ContentCalendarItem extends Model
     public function digitalAsset(): BelongsTo
     {
         return $this->belongsTo(DigitalAsset::class);
+    }
+
+    /** ADR-075: the latest client approval request for this item. @return HasOne<ClientApproval, $this> */
+    public function clientApproval(): HasOne
+    {
+        return $this->hasOne(ClientApproval::class, 'subject_id')->where('subject_type', 'content_calendar_item')
+            ->where('status', '!=', 'superseded')->latestOfMany();
     }
 }

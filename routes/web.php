@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\OperatorForgotPasswordController;
 use App\Http\Controllers\Auth\OperatorLoginController;
 use App\Http\Controllers\Auth\OperatorResetPasswordController;
 use App\Http\Controllers\Auth\OperatorTwoFactorChallengeController;
+use App\Http\Controllers\Clients\ClientApprovalController;
 use App\Http\Controllers\Integrations\GoogleOAuthController;
 use App\Http\Controllers\Integrations\MetaOAuthController;
 use App\Http\Controllers\Integrations\WhatsAppSignupController;
@@ -44,6 +45,12 @@ Route::get('/up/liveness', [OpsHealthController::class, 'liveness'])->name('ops.
 Route::get('/up/readiness', [OpsHealthController::class, 'readiness'])->name('ops.readiness');
 // Faz 6: read-only calendar feed addressed by a secret per-user token (Google Calendar "URL ile ekle").
 Route::get('/calendar/{token}.ics', CalendarFeedController::class)->where('token', '[A-Za-z0-9]{32,64}')->middleware('throttle:60,1')->name('calendar.feed');
+
+// ADR-075: client approval of planned content (signed, expiring link; no login).
+Route::get('/onay/{approval}', [ClientApprovalController::class, 'show'])
+    ->whereNumber('approval')->middleware(['signed', 'throttle:30,1'])->name('client-approval.show');
+Route::post('/onay/{approval}', [ClientApprovalController::class, 'respond'])
+    ->whereNumber('approval')->middleware(['signed', 'throttle:10,1'])->name('client-approval.respond');
 
 // Faz 9: monthly report v2 — client link (signed, published reports only).
 Route::get('/r/monthly/{report}', [MonthlyReportClientController::class, 'client'])

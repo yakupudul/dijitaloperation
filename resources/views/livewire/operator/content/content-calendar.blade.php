@@ -70,10 +70,26 @@
                             <p class="mt-1 font-medium text-gray-800 dark:text-gray-200">{{ $item->title }}</p>
                             @if ($item->body)<p class="mt-1 line-clamp-2 text-sm text-gray-600 dark:text-gray-400">{{ $item->body }}</p>@endif
                             @if ($item->error)<p class="mt-1 text-xs text-error-600">{{ $item->error }}</p>@endif
+                            @if ($item->clientApproval)
+                                @php($ca = $item->clientApproval)
+                                <p @class(['mt-1 text-xs', 'text-success-700' => $ca->status === 'approved', 'text-warning-700' => $ca->status === 'changes_requested', 'text-gray-500' => $ca->status === 'pending'])>
+                                    {{ \App\Models\ClientApproval::STATUSES[$ca->status] ?? $ca->status }}@if ($ca->status === 'pending' && ! $ca->isOpen()) · süresi doldu @endif
+                                    @if ($ca->client_note) — “{{ $ca->client_note }}”@endif
+                                </p>
+                            @endif
+                            @if ($clientLinkFor === $item->id && $clientLink)
+                                <div class="mt-2 flex items-center gap-2" x-data="{ copied: false }">
+                                    <input type="text" readonly value="{{ $clientLink }}" class="w-full rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-900" x-ref="link">
+                                    <button type="button" class="shrink-0 rounded-lg bg-brand-500 px-2 py-1 text-xs font-semibold text-white" @click="navigator.clipboard.writeText($refs.link.value); copied = true" x-text="copied ? 'Kopyalandı' : 'Kopyala'"></button>
+                                </div>
+                            @endif
                         </div>
                         <div class="flex shrink-0 flex-col items-end gap-1 text-xs">
                             @if (in_array($item->status, ['draft', 'failed'], true) && $isAdmin)
                                 <button type="button" wire:click="approve({{ $item->id }})" class="rounded-lg bg-success-500 px-3 py-1 font-semibold text-white">Onayla</button>
+                            @endif
+                            @if (in_array($item->status, ['draft', 'failed'], true))
+                                <button type="button" wire:click="requestClientApproval({{ $item->id }})" class="text-brand-600 hover:underline">Müşteri onayına gönder</button>
                             @endif
                             @if ($item->channel !== 'gbp_post' && ! in_array($item->status, ['published', 'skipped'], true))
                                 <button type="button" wire:click="markPublished({{ $item->id }})" class="text-brand-600 hover:underline">Yayınlandı</button>

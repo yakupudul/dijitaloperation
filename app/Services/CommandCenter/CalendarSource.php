@@ -2,6 +2,7 @@
 
 namespace App\Services\CommandCenter;
 
+use App\Models\ClientApproval;
 use App\Models\ContentCalendarItem;
 use Illuminate\Support\Collection;
 
@@ -9,6 +10,28 @@ use Illuminate\Support\Collection;
 final class CalendarSource implements CommandCenterSource
 {
     public function items(): Collection
+    {
+        return $this->calendar()->concat($this->clientAnswers());
+    }
+
+    /** ADR-075: the client answered an approval link; the operator acts on it once. */
+    private function clientAnswers(): Collection
+    {
+        return ClientApproval::query()->with('brand')->whereIn('status', ['approved', 'changes_requested'])->whereNull('acknowledged_at')
+            ->orderBy('responded_at')->limit(100)->get()
+            ->map(fn (ClientApproval $approval): array => CommandCenter::item('client_approval', $approval->id, $approval->status === 'changes_requested' ? 'high' : 'medium',
+                ($approval->status === 'approved' ? 'Müşteri onayladı: ' : 'Müşteri değişiklik istedi: ').$approval->title, [
+                    'detail' => $approval->client_note,
+                    'brand_id' => $approval->brand_id,
+                    'brand' => $approval->brand?->name,
+                    'channel' => 'Müşteri onayı',
+                    'url' => route('operator.content.calendar', ['brand' => $approval->brand_id]),
+                    'age' => $approval->responded_at,
+                    'actions' => ['done'],
+                ]));
+    }
+
+    private function calendar(): Collection
     {
         return ContentCalendarItem::query()->with('brand')
             ->where(fn ($q) => $q->where(fn ($q) => $q->where('channel', '!=', 'gbp_post')->whereIn('status', ['draft', 'approved'])->where('scheduled_for', '<=', now()->endOfDay()))
