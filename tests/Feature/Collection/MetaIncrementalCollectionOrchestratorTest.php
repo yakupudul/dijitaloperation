@@ -79,6 +79,7 @@ class MetaIncrementalCollectionOrchestratorTest extends TestCase
             'moxdop.meta.access_token' => '',
         ]);
 
+        $this->travelTo(CarbonImmutable::parse(self::FROZEN_AT, 'UTC'));
         $clock = new CollectionClock(CarbonImmutable::parse(self::FROZEN_AT, 'UTC'));
         $this->app->instance(CollectionClock::class, $clock);
         $collectableEnd = new CollectableEndResolver($clock);
