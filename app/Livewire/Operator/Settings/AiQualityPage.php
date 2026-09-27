@@ -2,7 +2,7 @@
 
 namespace App\Livewire\Operator\Settings;
 
-use App\Services\Ai\AiQualityReport;
+use App\Services\Operations\AiQualityReport;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Operations;
 
 use App\Ai\Agents\WhatsAppReplyAgent;
 use App\Models\AiProduction;

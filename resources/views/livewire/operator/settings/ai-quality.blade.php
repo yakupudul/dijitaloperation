@@ -6,7 +6,7 @@
     <div>
         <a href="{{ route('operator.settings', ['section' => 'operations']) }}" wire:navigate class="text-sm text-gray-500 hover:text-brand-600">← Ayarlar</a>
         <h1 class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">AI kalitesi</h1>
-        <p class="mt-1 max-w-3xl text-sm text-gray-500">AI'ın ürettiklerinden ne kadarının kullanıldığı. Sonuç iş kaydındaki kararınızdan gelir (öneri yapıldı / atlandı, düzeltme uygulandı / reddedildi, yorum yanıtı yayınlandı, rapor yayınlandı…); Üretim Arşivi'ndeki işaret (kullanıldı / atıldı, 👍 / 👎) önceliklidir. Yenisi üretilen ve kullanılmayan sürüm reddedilmiş sayılır. Kabul oranı = kabul / (kabul + red); en az {{ \App\Services\Ai\AiQualityReport::MIN_DECIDED }} kararda %{{ (int) \App\Services\Ai\AiQualityReport::LOW_ACCEPTANCE }} altı işaretlenir.</p>
+        <p class="mt-1 max-w-3xl text-sm text-gray-500">AI'ın ürettiklerinden ne kadarının kullanıldığı. Sonuç iş kaydındaki kararınızdan gelir (öneri yapıldı / atlandı, düzeltme uygulandı / reddedildi, yorum yanıtı yayınlandı, rapor yayınlandı…); Üretim Arşivi'ndeki işaret (kullanıldı / atıldı, 👍 / 👎) önceliklidir. Yenisi üretilen ve kullanılmayan sürüm reddedilmiş sayılır. Kabul oranı = kabul / (kabul + red); en az {{ \App\Services\Operations\AiQualityReport::MIN_DECIDED }} kararda %{{ (int) \App\Services\Operations\AiQualityReport::LOW_ACCEPTANCE }} altı işaretlenir.</p>
     </div>
 
     <div class="flex flex-wrap items-center gap-3">

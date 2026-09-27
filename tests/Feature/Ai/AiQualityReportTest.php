@@ -10,7 +10,7 @@ use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\User;
-use App\Services\Ai\AiQualityReport;
+use App\Services\Operations\AiQualityReport;
 use App\Support\Roles;
 use Carbon\Carbon;
 use Database\Seeders\RoleAndPermissionSeeder;
