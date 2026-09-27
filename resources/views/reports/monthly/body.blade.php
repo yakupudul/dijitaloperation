@@ -59,6 +59,21 @@
                     @endforeach
                 </tbody>
             </table>
+            @if (($channel['mixed_currency'] ?? false) === true)
+                <p class="mr-muted">Reklam hesapları farklı para birimlerinde harcıyor; harcama toplanmadı, hesap bazında aşağıda.</p>
+            @elseif (filled($channel['currency'] ?? null))
+                <p class="mr-muted">Tutarlar {{ $channel['currency'] }} cinsinden.</p>
+            @endif
+            @if (($channel['accounts'] ?? []) !== [])
+                <table class="mr-table">
+                    <thead><tr><th>Reklam hesabı</th><th>Harcama</th><th>Tıklama</th></tr></thead>
+                    <tbody>
+                        @foreach ($channel['accounts'] as $account)
+                            <tr><td>{{ $account['name'] }}</td><td>{{ $fmt($account['spend'], 'money') }}@if ($account['currency']) {{ $account['currency'] }}@endif</td><td>{{ $fmt($account['clicks'], 'int') }}</td></tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
             @if (is_array($channel['series'] ?? null))
                 <div class="mr-chart">{!! \App\Services\MonthlyReport\ReportChart::line((array) $channel['series']['current'], (array) $channel['series']['previous'], $channel['series']['metric'].' (günlük)', 640, 170, $markers) !!}</div>
                 <p class="mr-muted mr-legend"><span class="mr-dot mr-dot-now"></span>{{ $payload['period']['label'] }} <span class="mr-dot mr-dot-prev"></span>{{ $payload['period']['previous_label'] }} — {{ $channel['series']['metric'] }}, günlük</p>

@@ -56,7 +56,7 @@ class DiscoverMetaResourcesService
 
         if (! $this->selection->hasSelection($integration)) {
             $message = $businessResult['ok']
-                ? $businessResult['message'].' Select a Meta Business to discover Ad Accounts.'
+                ? $businessResult['message'].' Reklam hesaplarını görmek için Meta sayfasında bir Business seçin.'
                 : $businessResult['message'];
 
             return [

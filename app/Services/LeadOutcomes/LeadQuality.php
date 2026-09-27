@@ -6,7 +6,6 @@ use App\Models\Brand;
 use App\Models\LeadOutcome;
 use App\Services\Measurement\BrandMeasurementScope;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -54,7 +53,7 @@ final class LeadQuality
         ];
     }
 
-    /** Google Ads + Meta spend of the brand in the period, or null when no paid channel has rows. */
+    /** Google Ads + Meta spend of all the brand's ad accounts in the period; null when no paid channel has rows or the accounts spend in different currencies. */
     public function spend(Brand $brand, CarbonImmutable $from, CarbonImmutable $to): ?float
     {
         $scope = BrandMeasurementScope::for($brand);
@@ -62,18 +61,21 @@ final class LeadQuality
             return null;
         }
         $total = null;
+        $currencies = [];
         foreach (self::SPEND_TABLES as $table => $column) {
             if (! Schema::hasTable($table)) {
                 continue;
             }
-            $query = $scope->apply(DB::table($table))->whereBetween('reporting_date', [$from->toDateString(), $to->toDateString()]);
+            $query = $scope->rows($table, $from, $to);
             if (! (clone $query)->exists()) {
                 continue;
             }
-            if ((clone $query)->whereNull('digital_asset_id')->exists()) {
-                $query->whereNull('digital_asset_id');
-            }
+            $currencies = [...$currencies, ...$scope->currencies($table, $from, $to)];
             $total = ($total ?? 0.0) + (float) $query->sum($column);
+        }
+        // Ad accounts in different currencies cannot be added up into one spend figure.
+        if (count(array_unique($currencies)) > 1) {
+            return null;
         }
 
         return $total !== null ? round($total, 2) : null;

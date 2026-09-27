@@ -18,7 +18,7 @@ return [
         'select_resource' => 'Listeden bir hesap seçin.',
         'resource_incompatible' => 'Bu hesap bu varlık türüne uymuyor veya bağlantısı aktif değil.',
         'resource_already_bound' => 'Bu hesap zaten başka bir varlığa bağlı.',
-        'bound' => ':capability bu varlığa bağlandı.', 'disabled' => ':capability bağlantısı devre dışı bırakıldı.',
+        'bound' => ':capability bu varlığa bağlandı. İlk veri çekimi (geçmiş veriler dahil) birkaç dakika içinde kendiliğinden başlar.', 'disabled' => ':capability bağlantısı devre dışı bırakıldı.',
         'collect_failed' => 'Veri çekimi başlatılamadı.',
     ],
     'discovery' => [

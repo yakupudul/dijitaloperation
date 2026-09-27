@@ -119,7 +119,7 @@ final class ConfirmGoogleResourceBindingService
             if ($exactActive instanceof CoreAssetBinding) {
                 return [
                     'ok' => true,
-                    'message' => 'Google hesabı zaten bu dijital varlığa bağlı. Veri çekimi başlatılmadı.',
+                    'message' => 'Google hesabı zaten bu dijital varlığa bağlı.',
                     'binding' => $exactActive->fresh(['digitalAsset', 'externalResource']) ?? $exactActive,
                     'asset' => $asset->fresh() ?? $asset,
                     'created_asset' => false,
@@ -186,8 +186,8 @@ final class ConfirmGoogleResourceBindingService
                 return [
                     'ok' => true,
                     'message' => $replaced
-                        ? 'Google hesabı değiştirildi. Önceki hesabın geçmiş verisi korunuyor. Veri çekimi başlatılmadı.'
-                        : 'Google hesabı bu dijital varlığa yeniden bağlandı. Veri çekimi başlatılmadı.',
+                        ? 'Google hesabı değiştirildi. Önceki hesabın geçmiş verisi korunuyor. İlk veri çekimi birkaç dakika içinde kendiliğinden başlar.'
+                        : 'Google hesabı bu dijital varlığa yeniden bağlandı. İlk veri çekimi birkaç dakika içinde kendiliğinden başlar.',
                     'binding' => $exactDisabled->fresh(['digitalAsset', 'externalResource']) ?? $exactDisabled,
                     'asset' => $asset->fresh() ?? $asset,
                     'created_asset' => $createdAsset,
@@ -232,10 +232,10 @@ final class ConfirmGoogleResourceBindingService
             return [
                 'ok' => true,
                 'message' => $createdAsset
-                    ? 'Dijital varlık oluşturuldu ve Google hesabı bağlandı. Veri çekimi başlatılmadı.'
+                    ? 'Dijital varlık oluşturuldu ve Google hesabı bağlandı. İlk veri çekimi birkaç dakika içinde kendiliğinden başlar.'
                     : ($replaced
-                        ? 'Google hesabı değiştirildi. Önceki hesabın geçmiş verisi korunuyor. Veri çekimi başlatılmadı.'
-                        : 'Google hesabı dijital varlığa bağlandı. Veri çekimi başlatılmadı.'),
+                        ? 'Google hesabı değiştirildi. Önceki hesabın geçmiş verisi korunuyor. İlk veri çekimi birkaç dakika içinde kendiliğinden başlar.'
+                        : 'Google hesabı dijital varlığa bağlandı. İlk veri çekimi birkaç dakika içinde kendiliğinden başlar.'),
                 'binding' => $binding->fresh(['digitalAsset', 'externalResource']) ?? $binding,
                 'asset' => $asset->fresh() ?? $asset,
                 'created_asset' => $createdAsset,

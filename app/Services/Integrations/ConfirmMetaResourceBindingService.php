@@ -128,7 +128,7 @@ final class ConfirmMetaResourceBindingService
             if ($exactActive instanceof CoreAssetBinding) {
                 return [
                     'ok' => true,
-                    'message' => 'Meta reklam hesabı zaten bu Meta Ads varlığına bağlı. Veri çekimi başlatılmadı.',
+                    'message' => 'Meta reklam hesabı zaten bu Meta Ads varlığına bağlı.',
                     'binding' => $exactActive->fresh(['digitalAsset', 'externalResource']) ?? $exactActive,
                     'asset' => $asset->fresh() ?? $asset,
                     'created_asset' => false,
@@ -211,8 +211,8 @@ final class ConfirmMetaResourceBindingService
                 return [
                     'ok' => true,
                     'message' => $replaced
-                        ? 'Meta reklam hesabı değiştirildi. Önceki hesabın geçmiş verisi korunuyor. Veri çekimi başlatılmadı.'
-                        : 'Meta reklam hesabı bu Meta Ads varlığına yeniden bağlandı. Veri çekimi başlatılmadı.',
+                        ? 'Meta reklam hesabı değiştirildi. Önceki hesabın geçmiş verisi korunuyor. İlk veri çekimi birkaç dakika içinde kendiliğinden başlar.'
+                        : 'Meta reklam hesabı bu Meta Ads varlığına yeniden bağlandı. İlk veri çekimi birkaç dakika içinde kendiliğinden başlar.',
                     'binding' => $exactDisabled->fresh(['digitalAsset', 'externalResource']) ?? $exactDisabled,
                     'asset' => $asset->fresh() ?? $asset,
                     'created_asset' => $createdAsset,
@@ -255,7 +255,7 @@ final class ConfirmMetaResourceBindingService
                     if ($existing instanceof CoreAssetBinding) {
                         return [
                             'ok' => true,
-                            'message' => 'Meta reklam hesabı zaten bu Meta Ads varlığına bağlı. Veri çekimi başlatılmadı.',
+                            'message' => 'Meta reklam hesabı zaten bu Meta Ads varlığına bağlı.',
                             'binding' => $existing,
                             'asset' => $asset->fresh() ?? $asset,
                             'created_asset' => false,
@@ -275,10 +275,10 @@ final class ConfirmMetaResourceBindingService
             return [
                 'ok' => true,
                 'message' => $createdAsset
-                    ? 'Meta Ads varlığı oluşturuldu ve reklam hesabı bağlandı. Veri çekimi başlatılmadı.'
+                    ? 'Meta Ads varlığı oluşturuldu ve reklam hesabı bağlandı. İlk veri çekimi birkaç dakika içinde kendiliğinden başlar.'
                     : ($replaced
-                        ? 'Meta reklam hesabı değiştirildi. Önceki hesabın geçmiş verisi korunuyor. Veri çekimi başlatılmadı.'
-                        : 'Meta reklam hesabı Meta Ads varlığına bağlandı. Veri çekimi başlatılmadı.'),
+                        ? 'Meta reklam hesabı değiştirildi. Önceki hesabın geçmiş verisi korunuyor. İlk veri çekimi birkaç dakika içinde kendiliğinden başlar.'
+                        : 'Meta reklam hesabı Meta Ads varlığına bağlandı. İlk veri çekimi birkaç dakika içinde kendiliğinden başlar.'),
                 'binding' => $binding->fresh(['digitalAsset', 'externalResource']) ?? $binding,
                 'asset' => $asset->fresh() ?? $asset,
                 'created_asset' => $createdAsset,

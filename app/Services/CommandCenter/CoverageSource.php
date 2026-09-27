@@ -6,8 +6,10 @@ use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\ResourceAutomation;
+use App\Services\Integrations\BrandAccountCandidates;
 use App\Support\ServiceScope;
 use Illuminate\Support\Collection;
+use Throwable;
 
 /**
  * Kurulum eksikleri in the command center: accounts to reconnect, accounts that lost access, accounts no brand uses,
@@ -52,6 +54,29 @@ final class CoverageSource implements CommandCenterSource
                 'channel' => 'Entegrasyon',
                 'rule' => 'unbound',
                 'url' => route('operator.portfolio.discover'),
+            ]));
+        }
+
+        // Accounts that most likely belong to a brand (its own MCC / Business, or the brand's name) but are bound to no
+        // asset: they are not collected and not in the brand's totals. One item per brand, bound with "Hesap ekle".
+        $brands = Brand::query()->operational()->orderBy('name')->get(['id', 'name', 'customer_id']);
+        try {
+            $strong = app(BrandAccountCandidates::class)->strongForBrands($brands);
+        } catch (Throwable $error) {
+            report($error);
+            $strong = [];
+        }
+        foreach ($strong as $brandId => $candidates) {
+            $brand = $brands->firstWhere('id', $brandId);
+            $count = count($candidates);
+            $out->push(CommandCenter::item('coverage', 'brand-unbound-'.$brandId, 'medium', $brand->name.': '.$count.' reklam hesabı bağlanmamış', [
+                'detail' => collect($candidates)->take(4)->map(fn (array $c): string => $c['type_label'].' · '.$c['name'].($c['container_label'] ? ' ('.$c['container_label'].')' : ''))->implode(', ')
+                    .($count > 4 ? '…' : '').' — veri çekilmiyor, marka toplamlarına girmiyor. Marka sayfasında "Hesap ekle" ile bağlayın.',
+                'channel' => 'Entegrasyon',
+                'rule' => 'brand-unbound',
+                'brand_id' => (int) $brandId,
+                'brand' => $brand->name,
+                'url' => route('operator.brand', ['brand' => $brandId, 'tab' => 'assets']).'#hesap-ekle',
             ]));
         }
 

@@ -466,7 +466,7 @@ final class MetaIntegrationReadModel
                     'currency' => $meta['currency'] ?? null,
                     'timezone' => $meta['timezone_name'] ?? null,
                     'access_label' => $this->accessContextLabel($meta),
-                    'status_label' => 'Discovered — not bound',
+                    'status_label' => 'Keşfedildi · henüz bir varlığa bağlı değil',
                     'bindable' => true,
                 ];
             })
@@ -488,7 +488,7 @@ final class MetaIntegrationReadModel
             ->where('capability', MetaConnectorRegistry::META_ADS)
             ->whereHas('externalResource', fn ($q) => $q->where('integration_id', $integration->id))
             ->orderBy('id')
-            ->limit(50)
+            ->limit(1000)
             ->get()
             ->map(function (CoreAssetBinding $binding): array {
                 $resource = $binding->externalResource;

@@ -3,13 +3,17 @@
 namespace App\Http\Controllers\Integrations;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\DiscoverProviderResourcesJob;
 use App\Models\CoreIntegration;
 use App\Models\User;
 use App\Services\Integrations\Meta\MetaOAuthService;
 use App\Support\Demo\DemoState;
+use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Throwable;
 
 class MetaOAuthController extends Controller
 {
@@ -63,7 +67,15 @@ class MetaOAuthController extends Controller
             return redirect()->route($returnRoute);
         }
 
-        DemoState::flash('Meta bağlandı. Hesapları bulmak için "Kaynakları keşfet" adımına geçin.', 'success');
+        // The next step is always account discovery: start it now (background job) instead of sending the operator
+        // to look for a button.
+        try {
+            Cache::put(DiscoverProviderResourcesJob::cacheKey(ProviderRegistry::META), ['state' => 'running', 'started_at' => now()->toIso8601String()], now()->addHour());
+            DiscoverProviderResourcesJob::dispatch(ProviderRegistry::META, (int) $user->id);
+        } catch (Throwable $error) {
+            report($error);
+        }
+        DemoState::flash('Meta bağlandı. Business listesi arka planda yenileniyor; Reklam Hesapları sekmesinde müşterinin Business\'ını seçin, reklam hesapları hemen listelenir.', 'success');
 
         return redirect()->route('operator.integrations.meta');
     }

@@ -40,7 +40,7 @@ final class PortfolioHealthPage extends Component
                 $pacing[] = ['customer_id' => $customer->id, 'customer' => $customer->name] + $channel;
             }
         }
-        usort($pacing, fn (array $a, array $b): int => [['over' => 0, 'under' => 1, 'on_track' => 2, 'no_budget' => 3][$a['state']] ?? 4, $a['customer']] <=> [['over' => 0, 'under' => 1, 'on_track' => 2, 'no_budget' => 3][$b['state']] ?? 4, $b['customer']]);
+        usort($pacing, fn (array $a, array $b): int => [['over' => 0, 'mixed_currency' => 1, 'under' => 1, 'on_track' => 2, 'no_budget' => 3][$a['state']] ?? 4, $a['customer']] <=> [['over' => 0, 'mixed_currency' => 1, 'under' => 1, 'on_track' => 2, 'no_budget' => 3][$b['state']] ?? 4, $b['customer']]);
 
         return view('livewire.operator.portfolio.portfolio-health', [
             'rows' => $rows,

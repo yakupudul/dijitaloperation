@@ -204,7 +204,12 @@ class MetaIntegrationPage extends Component
             DemoState::flash(__('operator.flash.meta_business_removed'), 'info');
         } else {
             $selection->select($integration, $resourceId, $user);
-            DemoState::flash(__('operator.flash.meta_business_selected'), 'info');
+            // The next step is always "discover this Business's ad accounts": run it now instead of leaving the
+            // operator to find a second button. Every owned and client ad account of the Business is listed.
+            $result = app(DiscoverMetaResourcesService::class)->discoverAdAccounts($integration, $user);
+            DemoState::flash(trim(__('operator.flash.meta_business_selected').' '.(($result['ok'] ?? false)
+                ? sprintf('%d reklam hesabı listelendi; aşağıdan markalara bağlayın.', (int) ($result['count'] ?? 0))
+                : (string) ($result['message'] ?? ''))), 'info');
         }
 
         $this->tab = 'resources';

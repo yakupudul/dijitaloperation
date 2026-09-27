@@ -2,32 +2,53 @@
 
 namespace App\Livewire\Operator\Portfolio;
 
+use App\Jobs\DiscoverProviderResourcesJob;
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Livewire\Operator\Portfolio\Concerns\InteractsWithBrandReports;
 use App\Models\Brand;
 use App\Models\BrandIntelligenceContext;
 use App\Models\BrandOffering;
+use App\Models\CoreAssetBinding;
+use App\Models\CoreExternalResource;
+use App\Models\CoreIntegration;
+use App\Models\DigitalAsset;
 use App\Models\OperatorFile;
 use App\Models\Recommendation;
+use App\Models\ResourceAutomation;
+use App\Models\User;
+use App\Services\Advisor\AdvisorPlanRunner;
 use App\Services\Advisor\AdvisorWorkQueue;
 use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
+use App\Services\BrandSetup\BrandSetupStatus;
 use App\Services\ClientValueStory\ClientValueStoryReadService;
+use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\CreateTaskFromRecommendation;
 use App\Services\Findings\FindingReadService;
+use App\Services\Integrations\BrandAccountCandidates;
+use App\Services\Integrations\ConfirmGoogleResourceBindingService;
+use App\Services\Integrations\ConfirmMetaResourceBindingService;
+use App\Services\Integrations\Meta\DiscoverMetaResourcesService;
+use App\Services\Integrations\ResourceAutomationService;
 use App\Services\LeadOutcomes\LeadQuality;
 use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Opportunities\OpportunityReadService;
+use App\Services\Ownership\OwnershipGuard;
 use App\Services\Recommendations\RecommendationReadService;
+use App\Services\SeoTasks\SeoPlanRunner;
 use App\Services\ServiceScope\CustomerServiceScopeReadService;
 use App\Services\Work\WorkReadService;
 use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\DemoState;
+use App\Support\Integrations\ProviderRegistry;
+use App\Support\Integrations\ResourceBindingPlan;
 use App\Support\Options\IndustryOptions;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -197,6 +218,189 @@ class BrandShow extends Component
     }
 
     /**
+     * "Hesap ekle": bind one unbound account of the brand's business (MCC / Meta Business) or one matching the brand's
+     * name. One account = one new asset of the brand. Only accounts listed for this brand are accepted, and the
+     * ownership guard is re-checked: an account bound elsewhere in the meantime is never moved from here.
+     */
+    public function addAccount(int $resourceId): void
+    {
+        $actor = $this->adminActor();
+        $brand = $this->brandModel();
+        if (! collect(app(BrandAccountCandidates::class)->forBrand($brand))->contains('resource_id', $resourceId)) {
+            DemoState::flash('Bu hesap artık bu marka için bağlanabilir listede değil; listeyi yenileyin.', 'info');
+
+            return;
+        }
+        DemoState::flash($this->bindCandidate($brand, CoreExternalResource::query()->findOrFail($resourceId), $actor), 'info');
+    }
+
+    /** Bind every suggested (strong) candidate of the brand at once. */
+    public function addSuggestedAccounts(): void
+    {
+        $actor = $this->adminActor();
+        $brand = $this->brandModel();
+        $messages = [];
+        foreach (array_filter(app(BrandAccountCandidates::class)->forBrand($brand), fn (array $c): bool => $c['strong']) as $candidate) {
+            $messages[] = $candidate['name'].': '.$this->bindCandidate($brand, CoreExternalResource::query()->findOrFail($candidate['resource_id']), $actor);
+        }
+        DemoState::flash($messages === [] ? 'Önerilen hesap yok.' : implode(' ', $messages), 'info');
+    }
+
+    private function bindCandidate(Brand $brand, CoreExternalResource $resource, User $actor): string
+    {
+        $conflict = app(OwnershipGuard::class)->forResourceInBrand($resource, $brand);
+        if ($conflict !== null) {
+            return $conflict->plainMessage().' Devretmek için varlığın Veri kaynakları sayfasını kullanın.';
+        }
+        $label = BrandAccountCandidates::TYPE_LABELS[$resource->resource_type] ?? (string) $resource->resource_type;
+        $plan = new ResourceBindingPlan($resource, $brand, ResourceBindingPlan::MODE_CREATE_ASSET, null, $label.' · '.$resource->display_name, $actor);
+        try {
+            $result = $resource->provider === ProviderRegistry::META
+                ? app(ConfirmMetaResourceBindingService::class)->confirm($plan)
+                : app(ConfirmGoogleResourceBindingService::class)->confirm($plan);
+        } catch (ValidationException $exception) {
+            return (string) (collect($exception->errors())->flatten()->first() ?? 'Hesap bağlanamadı.');
+        }
+
+        return (string) ($result['message'] ?? 'Hesap bağlandı.');
+    }
+
+    /** Kurulum durumu: list the accounts of the provider connection (Google in the background, Meta right away). */
+    public function setupDiscover(string $provider): void
+    {
+        $actor = $this->adminActor();
+        $integration = CoreIntegration::query()->where('provider', $provider)->first();
+        if (! in_array($provider, [ProviderRegistry::GOOGLE, ProviderRegistry::META], true) || $integration === null || ! $integration->isActive()) {
+            DemoState::flash('Önce Entegrasyonlar sayfasından '.($provider === ProviderRegistry::META ? 'Meta' : 'Google').' bağlantısını tamamlayın.', 'info');
+
+            return;
+        }
+        if ($provider === ProviderRegistry::META) {
+            $result = app(DiscoverMetaResourcesService::class)->discoverAdAccounts($integration, $actor);
+            DemoState::flash((string) ($result['message'] ?? ''), 'info');
+
+            return;
+        }
+        Cache::put(DiscoverProviderResourcesJob::cacheKey($provider), ['state' => 'running', 'started_at' => now()->toIso8601String()], now()->addHour());
+        DiscoverProviderResourcesJob::dispatch($provider, (int) $actor->id);
+        $state = Cache::get(DiscoverProviderResourcesJob::cacheKey($provider));
+        DemoState::flash(($state['state'] ?? '') === 'done'
+            ? (string) ($state['result']['message'] ?? 'Hesaplar listelendi.')
+            : 'Hesap listesi arka planda yenileniyor; birkaç dakika sonra sayfayı yenileyin.', 'info');
+    }
+
+    /** Kurulum durumu: first (or repeated) crawl of the brand's website. */
+    public function setupStartCrawl(): void
+    {
+        $actor = $this->operatorActor();
+        $site = $this->brandWebsite();
+        if ($site === null || (blank($site->primary_url) && blank($site->domain))) {
+            DemoState::flash('Önce markaya adresi olan bir web sitesi ekleyin.', 'info');
+
+            return;
+        }
+        try {
+            app(WebsiteCollectionOrchestrator::class)->start(asset: $site, requestedBy: $actor, context: ['trigger' => 'operator.brand.setup_status', 'force_refresh' => true]);
+            DemoState::flash('Site taraması kuyruğa alındı; birkaç dakika içinde sayfalar ve teknik bulgular site ekranında görünür.', 'info');
+        } catch (Throwable $exception) {
+            report($exception);
+            DemoState::flash('Site taraması başlatılamadı: '.$exception->getMessage(), 'info');
+        }
+    }
+
+    /** Kurulum durumu: queue an SEO plan for the brand's website now instead of waiting for Monday. */
+    public function setupQueueSeoPlan(): void
+    {
+        $actor = $this->operatorActor();
+        $site = $this->brandWebsite();
+        if ($site === null) {
+            DemoState::flash('Önce markaya bir web sitesi ekleyin.', 'info');
+
+            return;
+        }
+        try {
+            app(SeoPlanRunner::class)->queue($site, $actor, 'brand_setup_status');
+            DemoState::flash('SEO planı kuyruğa alındı; hazır olunca site ekranının SEO sekmesinde görünür.', 'info');
+        } catch (ValidationException $exception) {
+            DemoState::flash((string) (collect($exception->errors())->flatten()->first() ?? 'SEO planı başlatılamadı.'), 'info');
+        }
+    }
+
+    /** Kurulum durumu: collect the brand's accounts of one channel on the next automation tick. */
+    public function setupCollectNow(string $type): void
+    {
+        $actor = $this->operatorActor();
+        $resourceIds = $this->boundResourceIds($type);
+        if ($resourceIds === []) {
+            DemoState::flash('Bu kanalda markaya bağlı hesap yok; önce "Hesap ekle" ile bağlayın.', 'info');
+
+            return;
+        }
+        $automation = app(ResourceAutomationService::class);
+        $automation->discover();
+        $count = 0;
+        foreach (ResourceAutomation::query()->whereIn('external_resource_id', $resourceIds)->pluck('id') as $id) {
+            $automation->runNow((int) $id, $actor);
+            $count++;
+        }
+        DemoState::flash($count.' hesabın veri çekimi öne alındı; birkaç dakika içinde başlar.', 'info');
+    }
+
+    /** Kurulum durumu: run the advisor for every bound account of the channel. */
+    public function setupQueueAdvisor(string $type): void
+    {
+        $actor = $this->operatorActor();
+        $assets = DigitalAsset::query()->where('brand_id', (int) $this->brand)->where('type', $type)->where('status', 'active')
+            ->whereIn('id', CoreAssetBinding::query()->where('status', CoreAssetBinding::STATUS_ACTIVE)->where('capability', $type)->select('digital_asset_id'))->get();
+        if ($assets->isEmpty()) {
+            DemoState::flash('Bu kanalda markaya bağlı hesap yok; önce "Hesap ekle" ile bağlayın.', 'info');
+
+            return;
+        }
+        $queued = 0;
+        foreach ($assets as $asset) {
+            try {
+                app(AdvisorPlanRunner::class)->queue($asset, $actor, 'brand_setup_status');
+                $queued++;
+            } catch (ValidationException $exception) {
+                DemoState::flash((string) (collect($exception->errors())->flatten()->first() ?? 'Danışman başlatılamadı.'), 'info');
+
+                return;
+            }
+        }
+        DemoState::flash($queued.' hesap için Danışman incelemesi kuyruğa alındı.', 'info');
+    }
+
+    /** @return list<int> */
+    private function boundResourceIds(string $type): array
+    {
+        return CoreAssetBinding::query()->where('status', CoreAssetBinding::STATUS_ACTIVE)->where('capability', $type)
+            ->whereIn('digital_asset_id', DigitalAsset::query()->where('brand_id', (int) $this->brand)->select('id'))
+            ->pluck('external_resource_id')->map(fn ($id): int => (int) $id)->all();
+    }
+
+    private function brandWebsite(): ?DigitalAsset
+    {
+        return DigitalAsset::query()->where('brand_id', (int) $this->brand)->where('type', 'website')->where('status', 'active')->orderBy('id')->first();
+    }
+
+    private function adminActor(): User
+    {
+        $actor = auth()->user();
+        abort_unless($actor instanceof User && $actor->hasRole(Roles::ADMIN), 403);
+
+        return $actor;
+    }
+
+    private function operatorActor(): User
+    {
+        $actor = auth()->user();
+        abort_unless($actor instanceof User, 403);
+
+        return $actor;
+    }
+
+    /**
      * Faz 11c: files attached to the brand (uploaded from this tab's link or Dosyalar with the brand scope).
      * Non-admins see only their own files, as on Dosyalar.
      *
@@ -232,6 +436,7 @@ class BrandShow extends Component
             'tasks' => ['label' => 'Görevler', 'count' => $openTasks->count(), 'rows' => $tasks],
         ];
 
+        $setup = in_array($this->tab, ['overview', 'assets'], true) ? $this->setupStatus($brand) : null;
         $seo = $workspace->seo($assets);
         $attention = array_values(array_filter([
             $seo['critical'] > 0 ? ['tone' => 'error', 'text' => $seo['critical'].' kritik SEO düzeltmesi', 'url' => route('operator.website', ['assetId' => $seo['website_id'], 'tab' => 'seo'])] : null,
@@ -254,6 +459,8 @@ class BrandShow extends Component
             'assets' => $assets,
             'services' => $services,
             'checklist' => $checklist,
+            'setup' => $setup,
+            'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'attention' => $attention,
             'advisor' => $this->tab === 'overview' ? $this->advisorOverview($brand) : null,
             'leadQuality' => $this->tab === 'business' ? app(LeadQuality::class)->forBrand($brand, CarbonImmutable::now(config('app.timezone'))->subDays(29), CarbonImmutable::now(config('app.timezone'))) : null,
@@ -281,6 +488,18 @@ class BrandShow extends Component
             return ['channels' => $queue->brandChannels($brand), 'top' => $queue->top(5, $brand->id)];
         } catch (Throwable) {
             return ['channels' => [], 'top' => []];
+        }
+    }
+
+    /** @return array<string, mixed>|null */
+    private function setupStatus(Brand $brand): ?array
+    {
+        try {
+            return app(BrandSetupStatus::class)->for($brand);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return null;
         }
     }
 

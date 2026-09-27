@@ -82,16 +82,25 @@ final class MonthlyReportBuilder
         $scope = BrandMeasurementScope::for($brand);
 
         $channels = [];
+        $tables = [];
         foreach (self::CHANNELS as $key => [$label, $table, $primary, $metrics]) {
             $channels[$key] = $this->channel($scope, $label, $table, $primary, $metrics, $periods);
+            $tables[$key] = $table;
             if ($key === 'meta' && ! $channels[$key]['available']) {
                 $channels[$key] = $this->channel($scope, $label, 'meta_campaign_daily', $primary, $metrics, $periods);
+                $tables[$key] = 'meta_campaign_daily';
             }
         }
         $channels['gbp'] = $this->gbp($scope, $periods);
         foreach (['search' => ['ctr', 'Tıklama oranı', 'clicks', 'impressions', 'pct', 'up'], 'google_ads' => ['cpa', 'Dönüşüm başı maliyet', 'cost', 'conversions', 'money', 'down'], 'meta' => ['cpc', 'Tıklama başı maliyet', 'spend', 'clicks', 'money', 'down']] as $channel => [$metricKey, $metricLabel, $numerator, $denominator, $format, $good]) {
             if ($channels[$channel]['available']) {
                 $channels[$channel]['kpis'][] = $this->ratio($metricKey, $metricLabel, $channels[$channel]['kpis'], $numerator, $denominator, $format, $good);
+            }
+        }
+
+        foreach (['google_ads' => ['cost_amount', ['cost', 'cpa']], 'meta' => ['spend', ['spend', 'cpc']]] as $key => [$column, $moneyKeys]) {
+            if ($channels[$key]['available']) {
+                $channels[$key] = $this->accounts($channels[$key], $scope, $tables[$key], $column, $moneyKeys, $periods['current']);
             }
         }
 
@@ -194,15 +203,39 @@ final class MonthlyReportBuilder
         return ['label' => $base['label'], 'available' => true, 'kpis' => $kpis, 'series' => ['metric' => 'Görüntülenme', 'current' => $series['current'], 'previous' => $series['previous']]];
     }
 
-    /** Central rows (no asset id) win when a table has them for this brand, so legacy per-asset copies are not double counted. */
+    /** Every account of the brand, each counted once (central rows win over legacy per-asset copies per account). */
     private function scoped(BrandMeasurementScope $scope, string $table, CarbonImmutable $from, CarbonImmutable $to): Builder
     {
-        $query = $scope->apply(DB::table($table))->whereBetween('reporting_date', [$from->toDateString(), $to->toDateString()]);
-        if ((clone $query)->whereNull('digital_asset_id')->exists()) {
-            $query->whereNull('digital_asset_id');
+        return $scope->rows($table, $from, $to);
+    }
+
+    /**
+     * A brand can run several ad accounts in one channel: all of them are in the totals, the month's split per
+     * account is listed when there is more than one, and money is never added up across currencies — with mixed
+     * currencies the money KPIs are left empty and the per-account rows carry each account's own currency.
+     *
+     * @param  array<string, mixed>  $channel
+     * @param  list<string>  $moneyKeys
+     * @param  array{0: CarbonImmutable, 1: CarbonImmutable}  $period
+     * @return array<string, mixed>
+     */
+    private function accounts(array $channel, BrandMeasurementScope $scope, string $table, string $column, array $moneyKeys, array $period): array
+    {
+        [$from, $to] = $period;
+        $currencies = $scope->currencies($table, $from, $to);
+        $accounts = $scope->perAccount($table, $from, $to, ['spend' => $column, 'clicks' => 'clicks']);
+        $channel['currency'] = count($currencies) === 1 ? $currencies[0] : null;
+        $channel['mixed_currency'] = count($currencies) > 1;
+        $channel['accounts'] = count($accounts) > 1 ? $accounts : [];
+        if ($channel['mixed_currency']) {
+            foreach ($channel['kpis'] as $index => $kpi) {
+                if (in_array($kpi['key'], $moneyKeys, true)) {
+                    $channel['kpis'][$index] = array_merge($kpi, ['value' => null, 'previous' => null, 'last_year' => null, 'change_pct' => null, 'yoy_pct' => null]);
+                }
+            }
         }
 
-        return $query;
+        return $channel;
     }
 
     /** @return array<string, mixed> */

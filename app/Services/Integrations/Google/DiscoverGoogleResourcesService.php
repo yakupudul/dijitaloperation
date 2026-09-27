@@ -192,8 +192,8 @@ class DiscoverGoogleResourcesService
         )->count();
 
         $message = $okCapabilities > 0
-            ? "Resource discovery completed with {$okCapabilities} successful connector(s)."
-            : 'Resource discovery completed without successful inventories. Check connector discovery state.';
+            ? "Hesap keşfi tamamlandı ({$okCapabilities} veri türü okundu). Yeni hesaplar Hesaplar sekmesinde ve marka sayfasındaki \"Hesap ekle\" listesinde."
+            : 'Hesap keşfi hiçbir veri türünü okuyamadı. Bağlantı ve izinleri kontrol edin (Google sayfası › Genel bakış).';
 
         return [
             'ok' => $anySuccess,

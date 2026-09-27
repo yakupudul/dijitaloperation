@@ -401,6 +401,16 @@ final class GoogleIntegrationReadModel
             ->pluck('external_resource_id')
             ->all();
 
+        // Google Ads managers (MCC) are not bind targets but name the hierarchy an account sits under.
+        $managers = CoreExternalResource::query()
+            ->where('integration_id', $integration->id)
+            ->where('resource_type', 'google_ads')
+            ->get(['external_id', 'display_name', 'metadata'])
+            ->filter(fn (CoreExternalResource $resource): bool => ($resource->metadata['is_manager'] ?? false) === true)
+            ->pluck('display_name', 'external_id');
+
+        // Every discovered account is listed (the page has a search box): an MCC with many client accounts must not
+        // be cut off, or the accounts past the cut could never be bound here.
         return CoreExternalResource::query()
             ->where('integration_id', $integration->id)
             ->where('provider', ProviderRegistry::GOOGLE)
@@ -408,7 +418,7 @@ final class GoogleIntegrationReadModel
             ->when($boundIds !== [], fn ($q) => $q->whereNotIn('id', $boundIds))
             ->orderBy('resource_type')
             ->orderBy('display_name')
-            ->limit(1000)
+            ->limit(2000)
             ->get()
             ->filter(function (CoreExternalResource $resource): bool {
                 // Ads managers are hierarchy context — not selectable bind targets.
@@ -421,19 +431,20 @@ final class GoogleIntegrationReadModel
 
                 return true;
             })
-            ->take(50)
             ->values()
-            ->map(function (CoreExternalResource $resource): array {
+            ->map(function (CoreExternalResource $resource) use ($managers): array {
                 $type = (string) $resource->resource_type;
+                $manager = $type === 'google_ads' ? (string) ($resource->metadata['manager_customer_id'] ?? $resource->parent_external_id ?? '') : '';
 
                 return [
+                    'manager' => $manager !== '' && $manager !== $resource->external_id ? (string) ($managers[$manager] ?? $manager) : null,
                     'id' => (string) $resource->id,
                     'type' => GoogleResourceType::visualType($type),
                     'type_label' => GoogleResourceType::label($type),
                     'name' => $resource->display_name,
                     'external_id' => $resource->external_id,
                     'status' => 'available',
-                    'status_label' => 'Available · Not bound to a Digital Asset',
+                    'status_label' => 'Keşfedildi · henüz bir varlığa bağlı değil',
                     'resource_type' => $type,
                     'selectable' => true,
                 ];
@@ -454,20 +465,20 @@ final class GoogleIntegrationReadModel
                     ->where('provider', ProviderRegistry::GOOGLE);
             })
             ->orderBy('id')
-            ->limit(50)
+            ->limit(1000)
             ->get()
             ->map(function (CoreAssetBinding $binding): array {
                 $resource = $binding->externalResource;
                 $asset = $binding->digitalAsset;
                 $resourceLabel = $resource
                     ? trim($resource->display_name.' · '.$resource->external_id)
-                    : 'Unknown resource';
+                    : 'Bilinmeyen hesap';
                 $route = $this->assetRouteForType((string) ($asset?->type ?? ''));
 
                 return [
                     'resource' => $resourceLabel,
-                    'binding' => 'Google binding · '.$binding->capability,
-                    'asset' => $asset?->name ?? 'Unknown asset',
+                    'binding' => 'Google bağlantısı · '.ProviderRegistry::capabilityLabel((string) $binding->capability),
+                    'asset' => $asset?->name ?? 'Bilinmeyen varlık',
                     'asset_id' => $asset?->id,
                     'route' => $route,
                     'capability' => $binding->capability,

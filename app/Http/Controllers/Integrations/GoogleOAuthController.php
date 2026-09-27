@@ -3,13 +3,17 @@
 namespace App\Http\Controllers\Integrations;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\DiscoverProviderResourcesJob;
 use App\Models\CoreIntegration;
 use App\Models\User;
 use App\Services\Integrations\Google\GoogleOAuthService;
 use App\Support\Demo\DemoState;
+use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Throwable;
 
 class GoogleOAuthController extends Controller
 {
@@ -74,7 +78,15 @@ class GoogleOAuthController extends Controller
             return redirect()->route($returnRoute);
         }
 
-        DemoState::flash('Google bağlandı. Hesapları bulmak için "Kaynakları keşfet" adımına geçin.', 'success');
+        // The next step is always account discovery: start it now (background job) instead of sending the operator
+        // to look for a button.
+        try {
+            Cache::put(DiscoverProviderResourcesJob::cacheKey(ProviderRegistry::GOOGLE), ['state' => 'running', 'started_at' => now()->toIso8601String()], now()->addHour());
+            DiscoverProviderResourcesJob::dispatch(ProviderRegistry::GOOGLE, (int) $user->id);
+        } catch (Throwable $error) {
+            report($error);
+        }
+        DemoState::flash('Google bağlandı. Hesaplar arka planda listeleniyor; birkaç dakika sonra Hesaplar sekmesinde ve marka sayfalarındaki "Hesap ekle" listesinde görünür.', 'success');
 
         return redirect()->route('operator.integrations.google');
     }

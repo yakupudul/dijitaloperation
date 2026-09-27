@@ -157,6 +157,7 @@ final class TopicCatalog
         'coverage:reconnect' => ['Bağlantı yenilenmeli', 'urgent', 'Google veya Meta izni sona erdi; hesapların verisi çekilemiyor. Tek tıkla izin ekranına gidip yeniden bağlanın.'],
         'coverage:lost' => ['Erişim gitti', 'urgent', 'Bir hesap artık bağlı kullanıcıya görünmüyor; müşteri erişimi kaldırmış olabilir. Erişimi yeniden isteyin ya da bağlantıyı kaldırın.'],
         'coverage:unbound' => ['Markaya bağlı olmayan hesaplar', 'week', 'Bazı hesaplar hiçbir markaya bağlı değil; verileri çekilmiyor. Keşfet ve Grupla ile markalara dağıtın.'],
+        'coverage:brand-unbound' => ['Markanın bağlanmamış hesapları', 'week', 'Markanın işletmesinde (MCC / Business) ya da adıyla eşleşen, hiçbir varlığa bağlı olmayan reklam hesapları var; verileri çekilmiyor ve marka toplamlarına girmiyor. Marka sayfasındaki "Hesap ekle" ile tek tıkla bağlayın.'],
         'coverage:no-search-console' => ['Search Console bağlı değil', 'week', 'Bazı markaların sitesinde Search Console bağlı değil; sorgu ve SEO önerileri eksik kalır.'],
         'calendar:failed' => ['Gönderi yayınlanamadı', 'urgent', 'Planlanan bir gönderi yayınlanamadı. Hatayı okuyup yeniden deneyin.'],
         'calendar:gbp_post' => ['Onay bekleyen profil gönderisi', 'week', 'İşletme Profili gönderisi yayın için onay bekliyor. İçerik takviminde gözden geçirip onaylayın.'],
@@ -177,6 +178,7 @@ final class TopicCatalog
         'gbp:no_recent_post' => ['Profil gönderisi yok', 'opportunity', 'İki haftadır gönderi yayınlanmadı ve planlı gönderi de yok. Haftada 1 gönderi profili canlı tutar; Gönderiler sekmesinden AI taslağıyla planlayın.'],
         'gbp:reviews_access' => ['Yorumlar toplanamıyor', 'week', 'Google bu profilin yorumlarını vermiyor (çoğunlukla API erişim onayı ya da hesap yetkisi). Yorumlar sekmesindeki nedeni okuyup Google Cloud / hesap tarafında düzeltin.'],
         'gbp:profile_gaps' => ['Profil eksikleri', 'week', 'Toplanan profil verisinde eksikler var (kategori, açıklama, saatler, fotoğraf…). Profil sağlığı sekmesindeki listeyi Google İşletme Profili’nde tamamlayın.'],
+        'data:mixed_currency' => ['Reklam hesapları farklı para biriminde', 'week', 'Markanın reklam hesapları farklı para birimleriyle harcıyor; marka toplamları bu harcamayı toplamaz.'],
         'lead_outcome' => ['Lead sonucu girilmedi', 'week', 'Müşteri lead\'lerinin sonucu (randevu, satış, geçersiz) işaretlenmedi. Nitelikli lead başı maliyet buna göre hesaplanır.'],
     ];
 

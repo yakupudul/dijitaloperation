@@ -3,8 +3,8 @@
     $cellTone = ['ok' => 'bg-success-50 text-success-700', 'warn' => 'bg-warning-50 text-warning-700', 'bad' => 'bg-error-50 text-error-700', 'missing' => 'bg-gray-50 text-gray-400 dark:bg-white/5'];
     $dot = ['ok' => 'bg-success-500', 'warn' => 'bg-warning-500', 'bad' => 'bg-error-500'];
     $gapLabels = ['nothing_connected' => 'Hiç hesabı bağlı olmayan marka', 'no_website' => 'Web sitesi olmayan marka', 'no_search_console' => 'Search Console bağlı değil', 'no_ga4' => 'GA4 bağlı değil', 'no_wordpress' => 'WordPress eklentisi bağlı değil'];
-    $paceLabel = ['over' => 'Bütçeyi aşacak', 'under' => 'Bütçenin altında kalacak', 'on_track' => 'Yolunda', 'no_budget' => 'Bütçe girilmemiş'];
-    $paceTone = ['over' => 'text-error-600', 'under' => 'text-warning-600', 'on_track' => 'text-success-600', 'no_budget' => 'text-gray-500'];
+    $paceLabel = ['over' => 'Bütçeyi aşacak', 'under' => 'Bütçenin altında kalacak', 'on_track' => 'Yolunda', 'no_budget' => 'Bütçe girilmemiş', 'mixed_currency' => 'Hesaplar farklı para biriminde'];
+    $paceTone = ['over' => 'text-error-600', 'under' => 'text-warning-600', 'on_track' => 'text-success-600', 'no_budget' => 'text-gray-500', 'mixed_currency' => 'text-warning-600'];
     $money = fn (?float $n): string => $n === null ? '—' : number_format($n, 0, ',', '.').' TL';
 @endphp
 <div class="space-y-5">
@@ -98,7 +98,7 @@
                         @foreach ($pacing as $p)
                             <tr>
                                 <td class="py-1.5"><a href="{{ route('operator.customer', ['customerId' => $p['customer_id']]) }}" wire:navigate class="hover:text-brand-600">{{ $p['customer'] }}</a></td>
-                                <td class="py-1.5 text-gray-500">{{ $p['label'] }}</td>
+                                <td class="py-1.5 text-gray-500" @if (($p['accounts'] ?? []) !== []) title="{{ collect($p['accounts'])->map(fn ($a) => $a['name'].': '.number_format($a['spent'], 0, ',', '.').' '.($a['currency'] ?? ''))->implode(' · ') }}" @endif>{{ $p['label'] }}@if (($p['accounts'] ?? []) !== []) <span class="text-xs text-gray-400">· {{ count($p['accounts']) }} hesap</span>@endif</td>
                                 <td class="py-1.5 text-right tabular-nums">{{ $money($p['spent']) }}</td>
                                 <td class="py-1.5 text-right tabular-nums">{{ $money($p['projected']) }}</td>
                                 <td class="py-1.5 text-right tabular-nums">{{ $money($p['budget']) }}</td>
