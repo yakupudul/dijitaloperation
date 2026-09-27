@@ -8,6 +8,7 @@ use App\Models\SalesRadarSource;
 use App\Models\SalesSearchProfile;
 use App\Models\ServiceCatalogItem;
 use App\Services\Sales\FreeIntentRadar;
+use App\Services\Sales\FreeRadarReader;
 use App\Services\Sales\IntentActivityRecorder;
 use App\Support\Permissions;
 use Illuminate\Contracts\View\View;
@@ -16,7 +17,6 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
-use MoxDop\Website\Discovery\PublicUrlSafety;
 
 #[Layout('operator.layouts.app')]
 #[Title('Niyet radarı')]
@@ -152,7 +152,7 @@ class IntentRadarIndex extends Component
             return;
         }
         try {
-            app(PublicUrlSafety::class)->assertSafePublicHttpUrl($this->sourceUrl);
+            app(FreeRadarReader::class)->assertSafeSourceUrl($this->sourceUrl);
         } catch (\Throwable) {
             $this->addError('sourceUrl', __('free_radar.invalid_url'));
 

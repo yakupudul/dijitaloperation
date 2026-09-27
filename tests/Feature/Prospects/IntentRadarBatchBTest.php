@@ -7,8 +7,10 @@ use App\Enums\IntentPurchaseStage;
 use App\Enums\IntentSignalStatus;
 use App\Enums\IntentSourceVerificationState;
 use App\Enums\ProspectSource;
+use App\Livewire\Demo\Sales\IntentRadarIndex;
 use App\Models\Prospect;
 use App\Models\SalesIntentSignal;
+use App\Models\SalesRadarSource;
 use App\Models\SalesSearchProfile;
 use App\Models\User;
 use App\Services\Sales\CreateProspectFromIntentSignalService;
@@ -19,6 +21,7 @@ use App\Support\Sales\IntentSearchConfig;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class IntentRadarBatchBTest extends TestCase
@@ -131,5 +134,19 @@ class IntentRadarBatchBTest extends TestCase
             // Profiles use free public-source monitoring; the manual action is a free radar check.
             ->assertSee(__('free_radar.check'))
             ->assertDontSee(__('operator.sales_intent.run_search'));
+    }
+
+    public function test_radar_source_url_must_be_public(): void
+    {
+        $this->actingAs($this->admin);
+
+        Livewire::test(IntentRadarIndex::class)
+            ->set('sourceName', 'İç ağ')
+            ->set('sourceUrl', 'http://127.0.0.1/feed.xml')
+            ->set('sourceFormat', 'rss')
+            ->call('addSource')
+            ->assertHasErrors(['sourceUrl']);
+
+        $this->assertFalse(SalesRadarSource::query()->where('url', 'http://127.0.0.1/feed.xml')->exists());
     }
 }

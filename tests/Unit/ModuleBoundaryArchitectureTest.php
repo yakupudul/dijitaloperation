@@ -54,7 +54,6 @@ class ModuleBoundaryArchitectureTest extends TestCase
         // 1.4.1: hourly sitemap watch reuses the same safe public HTTP fetcher.
         'app/Services/Website/SitemapChangeWatcher.php',
         // Shared public-URL safety / normalization / fetch primitives (Discovery\PublicUrl*, PublicHttpFetcher).
-        'app/Livewire/Demo/Sales/IntentRadarIndex.php',
         'app/Services/Collection/Providers/Website/WebsitePageAnalyzer.php',
         'app/Services/Collection/Website/WebsiteIssueVerificationService.php',
         'app/Services/Integrations/WordPress/WordPressConnectorClient.php',
