@@ -236,12 +236,15 @@ class PublicDiscoveryStoredWorkflowTest extends TestCase
         $other = DigitalAsset::factory()->create();
         $offering = app(BrandOfferingService::class)->resolveOrCreate($other->brand, 'Repair')['offering'];
         $candidate = $this->candidate('products_services', 'Maintenance');
+        // The other brand's offering already links a global catalog item; the rejected mapping adds none.
+        $catalogItems = ServiceCatalogItem::query()->count();
         try {
             app(DiscoveryCandidateReviewService::class)->accept($candidate, $this->admin, options: ['offering_id' => $offering->id]);
             $this->fail('Cross-brand mapping must fail.');
         } catch (ValidationException) {
             $this->assertSame('pending', $candidate->fresh()->status);
-            $this->assertSame(0, ServiceCatalogItem::query()->count());
+            $this->assertSame($catalogItems, ServiceCatalogItem::query()->count());
+            $this->assertNull(ServiceCatalogItem::query()->whereHas('primaryName', fn ($q) => $q->where('raw_label', 'Maintenance'))->first());
         }
     }
 
