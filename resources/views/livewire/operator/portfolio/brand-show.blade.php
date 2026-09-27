@@ -39,17 +39,27 @@
 
     {{-- ============================================================ OVERVIEW --}}
     @if ($tab === 'overview')
-        @if (! $checklist['complete'])
+        @if ($setup !== null && ! $setup['complete'])
+            @include('livewire.operator.portfolio.partials.setup-status')
+        @endif
+        @php
+            // Channel accounts are in "Kurulum durumu" above; this block keeps the brand's own setup (services, areas…).
+            $brandItems = $setup !== null
+                ? collect($checklist['items'])->reject(fn (array $i): bool => $i['key'] === 'website' || array_key_exists($i['key'], \App\Services\Operator\BrandWorkspaceReadService::ACCOUNT_LABELS))->values()
+                : collect($checklist['items']);
+            $brandRequired = $brandItems->where('required', true);
+        @endphp
+        @if ($brandRequired->contains('done', false))
             <section class="{{ $card }} p-5">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Kurulum {{ $checklist['done'] }}/{{ $checklist['total'] }}</h2>
+                        <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ $setup !== null ? 'Marka bilgileri' : 'Kurulum' }} {{ $brandRequired->where('done', true)->count() }}/{{ $brandRequired->count() }}</h2>
                         <p class="mt-1 text-sm text-gray-500">Eksikler tamamlanınca SEO planı, sorgu eşleştirme ve raporlar tam veriyle çalışır. "Otomatik kur" hesapları ve hizmetleri bulur; sen onaylarsın.</p>
                     </div>
                     <a href="{{ route('operator.brand.setup', ['brand' => $brandModel->id]) }}" wire:navigate class="rounded-lg bg-success-500 px-4 py-2 text-sm font-medium text-white hover:bg-success-600">Otomatik kur</a>
                 </div>
                 <ul class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                    @foreach ($checklist['items'] as $item)
+                    @foreach ($brandItems as $item)
                         <li class="flex items-start gap-2 rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">
                             <span @class(['mt-0.5 text-sm', 'text-success-600' => $item['done'], 'text-error-500' => ! $item['done'] && $item['required'], 'text-gray-400' => ! $item['done'] && ! $item['required']])>{{ $item['done'] ? '✓' : '○' }}</span>
                             <span class="min-w-0">
@@ -298,9 +308,15 @@
                 <p class="px-5 py-4 text-sm text-gray-500">Henüz dijital varlık yok.</p>
             @endforelse
         </section>
+        @if ($setup !== null)
+            @include('livewire.operator.portfolio.partials.add-account', ['candidates' => $setup['candidates']])
+        @endif
         @php $missing = collect($checklist['items'])->whereIn('key', array_keys(\App\Services\Operator\BrandWorkspaceReadService::ACCOUNT_LABELS))->where('done', false); @endphp
         @if ($missing->isNotEmpty())
-            <p class="text-sm text-gray-500">Bağlı olmayan hesaplar: {{ $missing->pluck('label')->implode(', ') }}. "Otomatik kur" entegrasyonlardaki hesapları adres ve ada göre arar; bulamadığı hesabı "Varlık ekle" ile elle bağlayabilirsin.</p>
+            <p class="text-sm text-gray-500">Bağlı olmayan hesaplar: {{ $missing->pluck('label')->implode(', ') }}. "Otomatik kur" entegrasyonlardaki hesapları adres ve ada göre arar; bulamadığı hesabı yukarıdaki "Hesap ekle" listesinden ya da "Varlık ekle" ile bağlayabilirsin.</p>
+        @endif
+        @if ($setup !== null && $setup['complete'])
+            @include('livewire.operator.portfolio.partials.setup-status')
         @endif
     @endif
 

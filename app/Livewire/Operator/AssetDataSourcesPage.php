@@ -12,6 +12,7 @@ use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
 use App\Models\OwnershipTransfer;
 use App\Models\ResourceAutomation;
+use App\Models\SeoPlan;
 use App\Models\User;
 use App\Services\Async\AsyncOperationService;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
@@ -20,6 +21,7 @@ use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Services\Ownership\OwnershipGuard;
 use App\Services\Ownership\OwnershipTransferService;
 use App\Services\PageSpeedConnectionProbeService;
+use App\Services\SeoTasks\SeoPlanRunner;
 use App\Support\Integrations\AssetBindingCompatibility;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
@@ -161,7 +163,28 @@ final class AssetDataSourcesPage extends Component
 
         $this->selectedResource[$capability] = '';
         $this->messageTone = 'success';
-        $this->message = __('operator_runtime.sources.bound', ['capability' => ProviderRegistry::capabilityLabel($capability)]);
+        $this->message = __('operator_runtime.sources.bound', ['capability' => ProviderRegistry::capabilityLabel($capability)])
+            .$this->queueFirstSeoPlan($asset, $capability, $actor);
+    }
+
+    /**
+     * Search Console just bound to a website that has never had an SEO plan: queue the first one now instead of
+     * leaving the site to the weekly schedule (same as "Otomatik kur").
+     */
+    private function queueFirstSeoPlan(DigitalAsset $asset, string $capability, User $actor): string
+    {
+        if ($capability !== 'search_console' || (string) $asset->type !== 'website' || SeoPlan::query()->where('digital_asset_id', $asset->id)->exists()) {
+            return '';
+        }
+        try {
+            app(SeoPlanRunner::class)->queue($asset->fresh() ?? $asset, $actor, 'first_bind');
+
+            return ' İlk SEO planı kuyruğa alındı.';
+        } catch (Throwable $error) {
+            report($error);
+
+            return '';
+        }
     }
 
     /** "Devret": binds the pending account here after the Admin ticked "Yetki devrini onaylıyorum". */
@@ -254,13 +277,13 @@ final class AssetDataSourcesPage extends Component
 
                 $this->messageTone = 'success';
                 $this->message = app()->getLocale() === 'tr'
-                    ? "Website veri toplama kuyruğa alındı. Collection #{$run->id}."
+                    ? "Site taraması kuyruğa alındı (çalışma #{$run->id}). Birkaç dakika içinde sayfalar ve teknik bulgular site ekranında görünür."
                     : "Website collection queued. Collection #{$run->id}.";
             } catch (Throwable $e) {
                 report($e);
                 $this->messageTone = 'error';
                 $this->message = app()->getLocale() === 'tr'
-                    ? 'Website veri toplama başlatılamadı: '.$e->getMessage()
+                    ? 'Site taraması başlatılamadı: '.$e->getMessage()
                     : 'Website collection could not be started: '.$e->getMessage();
             }
 
@@ -319,7 +342,10 @@ final class AssetDataSourcesPage extends Component
                     }
                 })
                 ->orderBy('display_name')
-                ->get();
+                ->get()
+                // Google Ads managers (MCC) are hierarchy context, never a bind target: do not offer them.
+                ->reject(fn (CoreExternalResource $resource): bool => ($resource->metadata['is_manager'] ?? false) === true || ($resource->metadata['selectable'] ?? true) === false)
+                ->values();
             $ownedElsewhere[$capability] = CoreExternalResource::query()
                 ->where('resource_type', $capability)
                 ->where('status', CoreExternalResource::STATUS_AVAILABLE)
@@ -386,19 +412,19 @@ final class AssetDataSourcesPage extends Component
             $websiteSources = [
                 [
                     'key' => 'public_crawl',
-                    'name' => 'Public Website Crawl',
+                    'name' => app()->getLocale() === 'tr' ? 'Açık site taraması' : 'Public Website Crawl',
                     'ready' => $websiteCollectable,
                     'status' => $websiteCollectable ? 'ready' : 'url_required',
                 ],
                 [
                     'key' => 'http_html',
-                    'name' => 'HTTP / HTML Intelligence',
+                    'name' => app()->getLocale() === 'tr' ? 'HTTP / HTML analizi' : 'HTTP / HTML Intelligence',
                     'ready' => $websiteCollectable,
                     'status' => $websiteCollectable ? 'ready' : 'url_required',
                 ],
                 [
                     'key' => 'dns_tls',
-                    'name' => 'SSL / TLS Infrastructure',
+                    'name' => app()->getLocale() === 'tr' ? 'SSL / TLS altyapısı' : 'SSL / TLS Infrastructure',
                     'ready' => $websiteCollectable,
                     'status' => $websiteCollectable ? 'ready' : 'domain_required',
                 ],

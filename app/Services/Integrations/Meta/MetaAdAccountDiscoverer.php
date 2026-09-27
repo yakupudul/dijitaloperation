@@ -58,13 +58,13 @@ class MetaAdAccountDiscoverer
             return $this->result(
                 false,
                 'setup_required',
-                'Select at least one Meta Business before discovering Ad Accounts.',
+                'Reklam hesaplarını listelemek için önce en az bir Meta Business seçin.',
                 [],
             );
         }
 
         if (! $this->resolver->hasTenantAuthorization($integration)) {
-            return $this->result(false, 'authentication_required', 'Authorize Meta before discovering Ad Accounts.', []);
+            return $this->result(false, 'authentication_required', 'Reklam hesaplarını listelemek için önce Meta ile bağlanın.', []);
         }
 
         $missing = $this->coverage->missingForAdAccountDiscovery($integration);
@@ -72,7 +72,7 @@ class MetaAdAccountDiscoverer
             return $this->result(
                 false,
                 'permission_required',
-                'Missing Meta permissions for Ad Account discovery: '.implode(', ', $missing).'.',
+                'Reklam hesaplarını listelemek için eksik Meta izinleri: '.implode(', ', $missing).'.',
                 [],
             );
         }
@@ -159,13 +159,13 @@ class MetaAdAccountDiscoverer
         }
 
         if (! $anySuccess) {
-            return $this->result(false, 'failed', 'Meta Ad Account discovery failed for every selected Business.', []);
+            return $this->result(false, 'failed', 'Seçili Business\'ların hiçbirinden reklam hesabı okunamadı.', []);
         }
 
         $resources = array_values($allByExternalId);
         $status = $anyFailure ? 'partial' : 'completed';
-        $message = count($resources).' Meta Ad Account'.(count($resources) === 1 ? '' : 's').' discovered'
-            .($anyFailure ? ' (partial — at least one edge failed).' : '.');
+        $message = count($resources).' Meta reklam hesabı bulundu'
+            .($anyFailure ? ' (kısmi — en az bir Business listesi okunamadı).' : '.');
 
         $config = is_array($integration->config) ? $integration->config : [];
         $config['last_ad_account_discovery_at'] = now()->toIso8601String();

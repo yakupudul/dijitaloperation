@@ -185,6 +185,8 @@
                         <li @class(['text-success-700 dark:text-success-400' => $row['ok'], 'text-error-600' => ! $row['ok']])>{{ $row['ok'] ? '✓' : '✗' }} {{ $row['label'] }} — {{ $row['message'] }}</li>
                     @endforeach
                 </ul>
+                <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">Bağlanan hesapların verisi birkaç dakika içinde kendiliğinden çekilmeye başlar. Kalan adımlar (tarama, WordPress eklentisi, eksik reklam hesapları) marka sayfasındaki "Kurulum durumu"nda.</p>
+                <a wire:navigate href="{{ route('operator.brand', ['brand' => $brand->id]) }}" class="mt-2 inline-flex rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">Kurulum durumuna git →</a>
             </section>
         @endif
     @endif

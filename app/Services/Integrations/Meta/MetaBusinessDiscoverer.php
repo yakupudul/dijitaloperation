@@ -49,7 +49,7 @@ class MetaBusinessDiscoverer
         $startedAt = now();
 
         if (! $this->resolver->hasTenantAuthorization($integration)) {
-            $message = 'Authorize Meta before discovering Businesses.';
+            $message = 'Business listesi için önce Meta ile bağlanın.';
             $this->recordAttempt(
                 $integration,
                 MetaIntegrationDiscoveryAttempt::STATUS_AUTHENTICATION_REQUIRED,
@@ -64,7 +64,7 @@ class MetaBusinessDiscoverer
 
         $missing = $this->coverage->missingForBusinessDiscovery($integration);
         if ($missing !== []) {
-            $message = 'Missing Meta permissions for Business discovery: '.implode(', ', $missing).'.';
+            $message = 'Business listesi için eksik Meta izinleri: '.implode(', ', $missing).'.';
             $this->recordAttempt(
                 $integration,
                 MetaIntegrationDiscoveryAttempt::STATUS_PERMISSION_REQUIRED,
@@ -162,7 +162,7 @@ class MetaBusinessDiscoverer
         return $this->result(
             true,
             'completed',
-            count($resources).' Meta Business'.(count($resources) === 1 ? '' : 'es').' discovered.',
+            count($resources).' Meta Business bulundu.',
             $resources,
         );
     }
