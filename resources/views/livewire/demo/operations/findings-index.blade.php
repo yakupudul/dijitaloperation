@@ -100,19 +100,19 @@
                             </div>
                             <div class="mt-4 grid gap-3 sm:grid-cols-2">
                                 <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]">
-                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400">What happened</p>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Ne oldu</p>
                                     <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ $finding['observation'] ?? $finding['plain'] }}</p>
                                 </div>
                                 <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]">
-                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Why it matters</p>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Neden önemli</p>
                                     <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ $finding['why'] ?? '—' }}</p>
                                 </div>
                                 <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]">
-                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Evidence</p>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Kanıt</p>
                                     <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ $finding['evidence'] }}</p>
                                 </div>
                                 <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]">
-                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Source &amp; freshness</p>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Kaynak ve güncellik</p>
                                     <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ $finding['source_label'] ?? 'Observed' }} · {{ $finding['detected'] }}</p>
                                 </div>
                             </div>

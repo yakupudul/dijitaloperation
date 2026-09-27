@@ -36,6 +36,16 @@
 - **State:** CODED + PHPUnit.
   - Tests: `Work/CommandCenterTest`, `Work/CoverageSourceTest`, `Portfolio/PortfolioHealthTest`, `Reports/ReportQueueAndScorecardTest`, `ExternalWrites/GbpWritesTest`, `Agency/AgencyOperationsTest`, `DataForSeoCostGuardTest` (global cap).
   - **No live UAT.** The Business Profile writes need a real location and Admin approval on staging.
+- **Test suite repaired:** the full PHPUnit suite is green on SQLite (2207 tests, 0 failures; PostgreSQL-only tests skip).
+  - Bug fixes found while repairing it:
+    - GA4 `purchaseRevenue` is accepted in property-daily requests.
+    - The legacy Meta metadata collector no longer uses the blocked `id IN` filter.
+    - Migration rollbacks work on SQLite, and the brandless-website migration works on a populated SQLite database.
+  - Every feature test blocks stray HTTP calls.
+  - Known gaps recorded by tests:
+    - The website link-edge / crawl-issue datasets have no freshness policy or data contract.
+    - The planner creates only the Meta campaign snapshot (not adset / creative).
+    - The GA4 / GSC connector header always shows "Bağlı".
 
 ## 2026-10-15 — Veri merkezi, yalın ve kaldığı yerden devam eden tarama, markasız site, Otomatik kur v4
 
