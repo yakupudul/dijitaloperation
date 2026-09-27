@@ -14,6 +14,7 @@ use App\Models\DigitalAsset;
 use App\Services\Alerts\AdBudgetWatch;
 use App\Services\Assistant\ReminderService;
 use App\Services\Assistant\WhatsAppContactLinker;
+use App\Services\Collection\Activity\ActivityTierService;
 use App\Services\Collection\CollectionErrorRecorder;
 use App\Services\Collection\Monitoring\CollectionAccountPresenter;
 use App\Services\Collection\RecoverInterruptedCollections;
@@ -357,6 +358,26 @@ Schedule::command('moxdop:resources:automate')
     ->everyMinute()
     ->withoutOverlapping(2)
     ->name('moxdop-resource-automation');
+
+// Activity-aware collection: recompute every account's tier (active / idle / dormant) from stored facts nightly
+// (each successful collection also refreshes its own account). Idle / dormant accounts then get one light pass per week
+// through resource automation; an account whose activity resumed is made due immediately.
+Artisan::command('moxdop:collection:activity-refresh', function (): void {
+    $tiers = app(ActivityTierService::class);
+    $counts = $tiers->refresh();
+    $pruned = $tiers->pruneLog();
+    $health = $tiers->healthSummary();
+    $this->info(sprintf(
+        'Collection activity: active=%d idle=%d dormant=%d paused=%d · last 24h planned=%d skipped=%d datasets · pruned %d log rows.',
+        $counts['active'], $counts['idle'], $counts['dormant'], $counts['paused'],
+        $health['planned_datasets_24h'], $health['skipped_datasets_24h'], $pruned,
+    ));
+})->purpose('Recompute collection activity tiers from stored facts and report datasets avoided.');
+
+Schedule::command('moxdop:collection:activity-refresh')
+    ->dailyAt('03:35')
+    ->withoutOverlapping(60)
+    ->name('moxdop-collection-activity-refresh');
 
 // Meta Ads UI readiness is backed by the central integrity registry. Re-run a
 // local-only audit daily so newly collected Professional V2 datasets and any

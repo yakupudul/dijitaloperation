@@ -305,10 +305,10 @@ class MetaInitialBackfillOrchestratorTest extends TestCase
         $this->assertNotContains($googleBinding->id, $run->resourceRuns()->pluck('core_asset_binding_id')->all());
         $this->assertNotContains($this->bindingB->id, $run->resourceRuns()->pluck('core_asset_binding_id')->all());
 
-        // Historical depth follows each Professional V2 family contract (campaign 1125d, ad 395d),
+        // Historical depth follows each Professional V2 family contract (13-month initial load: campaign 395d, ad 395d),
         // bounded to the last complete day in the account timezone.
         $slicer = app(MetaAdsDateSlicer::class);
-        foreach (['META_V2_RF_CAMPAIGN_DAILY' => ['2023-07-15', 1125], 'META_V2_RF_AD_DAILY' => ['2025-07-14', 395]] as $familyId => [$expectedStart, $expectedDays]) {
+        foreach (['META_V2_RF_CAMPAIGN_DAILY' => ['2025-07-14', 395], 'META_V2_RF_AD_DAILY' => ['2025-07-14', 395]] as $familyId => [$expectedStart, $expectedDays]) {
             $daily = $run->datasetRuns()->where('request_family_id', $familyId)->first();
             $this->assertNotNull($daily, $familyId);
             $range = $daily->metadata['date_range'] ?? [];

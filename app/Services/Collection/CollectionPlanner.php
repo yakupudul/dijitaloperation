@@ -10,10 +10,12 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreConnection;
 use App\Models\DataPool\DatasetMaterialization;
 use App\Models\DigitalAsset;
+use App\Services\Collection\Activity\CollectionActivityGate;
 use App\Services\Collection\Providers\DataForSeo\DataForSeoRequestFamilyCatalog;
 use App\Services\Collection\Providers\MetaAds\MetaAdsRequestFamilyCatalog;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Support\StartCollectionRequest;
+use App\Services\DataPool\Freshness\DueCollectionQueryService;
 use App\Services\DataPool\Freshness\IncrementalCoveragePlanner;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Services\PageSpeedConnectionProbeService;
@@ -826,11 +828,20 @@ final class CollectionPlanner
             }
         }
 
-        $decision = $planner->planDataset($datasetId, $materialization, [
+        $context = [
             'authorization_ready' => $authMap[(int) $binding->id] ?? true,
             'integrity_blocked' => (bool) ($integrityMap[$integrityKey] ?? false),
             'reporting_timezone' => $reportingTimezone,
-        ]);
+        ];
+        // Same activity span bound as the due query: dormant check → last few days; resumed → whole gap.
+        if (($request->context['activity_gate'] ?? true) !== false && $binding->externalResource !== null) {
+            $span = DueCollectionQueryService::activitySpanOverride(app(CollectionActivityGate::class)->plan($binding->externalResource));
+            if ($span !== null) {
+                $context['max_span_days_override'] = $span;
+            }
+        }
+
+        $decision = $planner->planDataset($datasetId, $materialization, $context);
 
         return [
             'executable' => $decision->executable,

@@ -16,6 +16,8 @@ use App\Models\ResourceAutomation;
 use App\Models\Run;
 use App\Models\User;
 use App\Services\Advisor\AdvisorPlanRunner;
+use App\Services\Collection\Activity\ActivityTierService;
+use App\Services\Collection\Activity\CollectionActivityGate;
 use App\Services\Collection\Ga4\Ga4CentralCollectionService;
 use App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService;
 use App\Services\Collection\Meta\MetaSingleBindingCollectionOrchestrator;
@@ -27,6 +29,7 @@ use App\Services\SearchDemand\AutomaticQueryImportService;
 use App\Services\SearchDemand\LibraryImportWorkflow;
 use App\Support\Permissions;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -250,6 +253,15 @@ final class ResourceAutomationService
                     'next_collection_at' => $this->nextAt($automation)]);
 
                 continue;
+            }
+            // Idle / dormant accounts are collected once a week; wait for the weekly pass.
+            if ($automation->last_collection_success_at !== null && $resourceType !== 'google_business_profile') {
+                $activity = app(CollectionActivityGate::class)->plan($automation->resource);
+                if (! $activity->due && $activity->nextDueAt !== null) {
+                    $automation->update(['next_collection_at' => $activity->nextDueAt]);
+
+                    continue;
+                }
             }
             $automation->update(['collection_status' => 'planning', 'collection_queued_at' => now(), 'collection_run_id' => null]);
             try {
@@ -502,6 +514,7 @@ final class ResourceAutomationService
                 ->groupBy(fn ($d) => $d->dataset_contract_id.'|'.data_get($d->metadata, 'search_type', ''))
                 ->map(fn ($group) => $group->max(fn ($d) => data_get($d->metadata, 'date_range.end')))->min();
             $this->alert($a->id, 'collection', null);
+            $this->refreshActivity($a, $resources);
             $a->update(['data_through' => $through ?: $a->data_through, 'collection_status' => 'current', 'collection_error' => null, 'collection_failures' => 0,
                 'last_collection_success_at' => now(), 'next_collection_at' => $this->nextAt($a)]);
             $this->refreshAdvisorWithoutData($a);
@@ -514,6 +527,27 @@ final class ResourceAutomationService
             ->whereIn('error_category', ['invalid_request', 'persistence'])->exists();
         $this->fail($a->id, $authError ? 'reconnect' : ($run->status->value === 'cancelled' ? 'cancelled'
             : ($contractError ? 'request_requires_fix' : 'collection_failed')));
+    }
+
+    /**
+     * After a successful collection: a full pass (all datasets) moves the account's full-collection mark, and the
+     * activity tier is recomputed from the facts just written (resume / pause auto-clear happen here).
+     *
+     * @param  Collection<int, CollectionResourceRun>  $resources
+     */
+    private function refreshActivity(ResourceAutomation $automation, $resources): void
+    {
+        try {
+            $tiers = app(ActivityTierService::class);
+            $modes = $resources->map(fn (CollectionResourceRun $run): string => (string) data_get($run->metadata, 'activity.mode', 'full'));
+            if ($modes->contains('full')) {
+                $tiers->markFullCollection((int) $automation->external_resource_id);
+            }
+            $tiers->refreshResource((int) $automation->external_resource_id);
+        } catch (Throwable $exception) {
+            // Tiering must never undo a durable collection result.
+            report($exception);
+        }
     }
 
     public function fail(int $id, string $reason = 'collection_failed'): void
@@ -605,10 +639,22 @@ final class ResourceAutomationService
 
     /**
      * Faz 14: next automatic collection — `interval_days` later, at the account's preferred hour (Europe/Istanbul)
-     * when one is set.
+     * when one is set. Idle / dormant accounts (activity tier) are collected weekly; an account that just resumed
+     * activity is due immediately so its gap is backfilled.
      */
     public function nextAt(ResourceAutomation $automation): CarbonInterface
     {
+        $activity = app(ActivityTierService::class)->row((int) $automation->external_resource_id);
+        if ($activity !== null && (bool) config('moxdop-collection-activity.enabled', true)) {
+            if ($activity->effectiveTier()->value !== 'active') {
+                // Idle / dormant: one light pass per week.
+                return now()->addDays(max(1, (int) config('moxdop-collection-activity.light_interval_days', 7)));
+            }
+            if ($activity->backfill_from !== null) {
+                // Activity resumed: backfill the gap right away.
+                return now();
+            }
+        }
         $next = now()->addDays(max(1, (int) $automation->interval_days));
         if ($automation->preferred_hour === null) {
             return $next;

@@ -16,7 +16,6 @@
  * - Daily late-attribution reconciliation: last 7 days.
  * - Weekly reconciliation: last 35 days.
  */
-
 $column = static fn (string $name, string $type, bool $nullable = true, string $role = 'dimension', mixed $default = null): array => array_filter([
     'name' => $name,
     'type' => $type,
@@ -175,8 +174,8 @@ $physicalAdditions = [
 ];
 
 $families = [
-    'META_V2_RF_ACCOUNT_DAILY' => ['dataset' => 'meta_account_daily', 'kind' => 'insights', 'level' => 'account', 'history' => '1125d', 'volume' => 'LOW'],
-    'META_V2_RF_CAMPAIGN_DAILY' => ['dataset' => 'meta_campaign_daily', 'kind' => 'insights', 'level' => 'campaign', 'history' => '1125d', 'volume' => 'MEDIUM'],
+    'META_V2_RF_ACCOUNT_DAILY' => ['dataset' => 'meta_account_daily', 'kind' => 'insights', 'level' => 'account', 'history' => '395d', 'volume' => 'LOW'],
+    'META_V2_RF_CAMPAIGN_DAILY' => ['dataset' => 'meta_campaign_daily', 'kind' => 'insights', 'level' => 'campaign', 'history' => '395d', 'volume' => 'MEDIUM'],
     'META_V2_RF_ADSET_DAILY' => ['dataset' => 'meta_adset_daily', 'kind' => 'insights', 'level' => 'adset', 'history' => '395d', 'volume' => 'HIGH'],
     'META_V2_RF_AD_DAILY' => ['dataset' => 'meta_ad_daily', 'kind' => 'insights', 'level' => 'ad', 'history' => '395d', 'volume' => 'VERY_HIGH'],
     'META_V2_RF_TYPED_ACTIONS' => ['dataset' => 'meta_typed_action_daily', 'kind' => 'actions', 'level' => 'ad', 'history' => '395d', 'volume' => 'VERY_HIGH'],

@@ -13,10 +13,13 @@ use App\Models\Collection\CollectionRun;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\User;
+use App\Services\Collection\Activity\ActivityCollectionPlan;
+use App\Services\Collection\Activity\CollectionActivityGate;
 use App\Services\Collection\DataContractRegistryLoader;
 use App\Services\Collection\Providers\Ga4\Ga4MetadataCompatibilityService;
 use App\Services\Collection\Providers\Ga4\Ga4RequestFamilyCatalog;
 use App\Services\Collection\StartCollectionService;
+use App\Services\Integrations\ResourceAutomationService;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\ProviderRegistry;
 use Carbon\CarbonImmutable;
@@ -31,14 +34,17 @@ use InvalidArgumentException;
  */
 final class Ga4CentralCollectionService
 {
-    public const int INITIAL_DAYS = 486;
+    /** Initial load: the last 13 months. */
+    public const int INITIAL_DAYS = 395;
 
-    public const int RESTATEMENT_DAYS = 14;
+    /** Daily re-fetch window: GA4 restates the most recent days. */
+    public const int RESTATEMENT_DAYS = 3;
 
     public function __construct(
         private readonly DataContractRegistryLoader $registry,
         private readonly Ga4MetadataCompatibilityService $metadata,
         private readonly StartCollectionService $starter,
+        private readonly CollectionActivityGate $activity,
     ) {}
 
     /** @param list<int|string> $externalResourceIds */
@@ -71,15 +77,16 @@ final class Ga4CentralCollectionService
 
     /**
      * State-aware operator/scheduler entry point.
-     * - No successful central history: initial 486-day import.
+     * - No successful central history: initial 13-month import.
      * - Partial/failed/cancelled latest attempt: rerun only unfinished families over their original range.
-     * - Healthy history: start 13 days before the latest successful coverage end and fill through yesterday.
+     * - Healthy history: re-fetch the last 3 days (and any gap since each family's coverage end) through yesterday,
+     *   limited by the property's activity tier (idle / dormant: property daily totals only, weekly).
      *
-     * @param list<int|string> $externalResourceIds
+     * @param  list<int|string>  $externalResourceIds
      */
     public function startSmartUpdate(CoreIntegration $integration, array $externalResourceIds, ?User $requestedBy = null): CollectionRun
     {
-        return app(\App\Services\Integrations\ResourceAutomationService::class)->withResourceLocks(
+        return app(ResourceAutomationService::class)->withResourceLocks(
             $externalResourceIds, fn (): CollectionRun => $this->startSmartUpdateLocked($integration, $externalResourceIds, $requestedBy)
         );
     }
@@ -96,7 +103,7 @@ final class Ga4CentralCollectionService
     }
 
     /** @param list<int|string> $externalResourceIds
-     *  @return Collection<int, CoreExternalResource>
+     * @return Collection<int, CoreExternalResource>
      */
     private function resolveResources(CoreIntegration $integration, array $externalResourceIds): Collection
     {
@@ -239,22 +246,33 @@ final class Ga4CentralCollectionService
         $start = $anchor->subDays(self::RESTATEMENT_DAYS - 1);
         $days = $start->diffInDays($closedEnd) + 1;
 
+        $activity = $this->activity->plan($resource);
+        $families = array_values(array_filter(Ga4RequestFamilyCatalog::centralFamilies(), fn (string $family): bool => $activity->allowsFamily($family)));
         $familyRanges = [];
-        foreach (Ga4RequestFamilyCatalog::centralFamilies() as $family) {
-            $covered = app(\App\Services\Integrations\ResourceAutomationService::class)->coverageEnd($resource->id, 'GA4', $family);
+        foreach ($families as $family) {
+            if ($activity->mode === ActivityCollectionPlan::MODE_CHECK) {
+                // Dormant weekly check: property totals for the last few days only, no gap filling.
+                $familyRanges[$family] = ['start' => $closedEnd->subDays($activity->checkDays - 1)->toDateString(), 'end' => $closedEnd->toDateString()];
+
+                continue;
+            }
+            $covered = app(ResourceAutomationService::class)->coverageEnd($resource->id, 'GA4', $family);
             $familyRanges[$family] = [
                 'start' => $covered ? min($start->toDateString(), CarbonImmutable::parse($covered)->addDay()->toDateString()) : $closedEnd->subDays(self::INITIAL_DAYS - 1)->toDateString(),
                 'end' => $closedEnd->toDateString(),
             ];
         }
+        $this->activity->recordPass($activity, count($families), count(Ga4RequestFamilyCatalog::centralFamilies()) - count($families));
+
         return [
             'resource' => $resource,
             'mode' => 'update',
             'timezone' => $timezone,
-            'families' => Ga4RequestFamilyCatalog::centralFamilies(),
+            'families' => $families,
             'family_ranges' => $familyRanges,
             'default_range' => ['start' => $start->toDateString(), 'end' => $closedEnd->toDateString()],
             'days' => (int) $days,
+            'activity' => $activity->toArray(),
         ];
     }
 
@@ -280,7 +298,7 @@ final class Ga4CentralCollectionService
     }
 
     /**
-     * @param list<array<string, mixed>> $plans
+     * @param  list<array<string, mixed>>  $plans
      */
     private function startPlans(CoreIntegration $integration, array $plans, ?User $requestedBy): CollectionRun
     {
@@ -296,7 +314,7 @@ final class Ga4CentralCollectionService
             default => 'ga4_central_update',
         };
         $runLabel = match ($runIntent) {
-            'ga4_central_initial' => 'GA4 Central 486-Day Import',
+            'ga4_central_initial' => 'GA4 Central 13-Month Import',
             'ga4_central_repair' => 'GA4 Central Repair',
             'ga4_central_resume' => 'GA4 Central Resume',
             'ga4_central_update' => 'GA4 Central Smart Update',
@@ -427,6 +445,7 @@ final class Ga4CentralCollectionService
                         'collection_mode' => $plan['mode'],
                         'property_id' => preg_replace('/^properties\//', '', (string) $resource->external_id),
                         'property_timezone' => $plan['timezone'],
+                        'activity' => $plan['activity'] ?? null,
                     ],
                 ]);
 

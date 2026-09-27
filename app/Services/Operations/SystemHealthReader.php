@@ -10,6 +10,7 @@ use App\Models\Observability\OpsDispatcherHeartbeat;
 use App\Models\Observability\WorkerHeartbeat;
 use App\Models\ResourceAutomation;
 use App\Models\User;
+use App\Services\Collection\Activity\ActivityTierService;
 use App\Services\Observability\QueueWaitMonitor;
 use App\Services\Verification\LiveVerifier;
 use App\Support\Roles;
@@ -53,6 +54,7 @@ final class SystemHealthReader
             'release' => ReleaseInfo::current(),
             'queue_waits' => app(QueueWaitMonitor::class)->waits(),
             'error_groups' => $this->errorGroups(),
+            'collection_activity' => app(ActivityTierService::class)->healthSummary(),
         ];
     }
 

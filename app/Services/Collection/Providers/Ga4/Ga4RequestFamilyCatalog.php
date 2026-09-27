@@ -60,7 +60,7 @@ final class Ga4RequestFamilyCatalog
     }
 
     /**
-     * Families persisted by the user-selectable central 486-day collector.
+     * Families persisted by the user-selectable central 13-month collector.
      * Generic range users is intentionally excluded because it has no durable typed fact table.
      * Event breakdowns remain supported for legacy/bound flows but are not needed for the core central contract.
      *
