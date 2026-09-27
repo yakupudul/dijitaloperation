@@ -72,7 +72,9 @@ final class WebsiteStandardsAssessmentTest extends TestCase
     public function test_stored_technical_assessment_requires_no_queries_competitors_or_ai(): void
     {
         $website = $this->website();
-        $this->page($website, '/service', ['document_head' => ['title_present' => false, 'title' => null]]);
+        $profile = $this->page($website, '/service', ['document_head' => ['title_present' => false, 'title' => null]]);
+        // Every page has readable stored HTML, so the run is complete rather than coverage-limited (partial).
+        $this->htmlSnapshot($website, $profile, '<html><head></head><body><h1>Bakım</h1><p>Bakım adımları burada.</p></body></html>');
         $service = app(WebsiteAssessmentService::class);
         $run = $service->queue($website, $this->admin);
         Bus::assertDispatched(WebsiteStandardsAssessmentJob::class);
@@ -101,7 +103,7 @@ final class WebsiteStandardsAssessmentTest extends TestCase
         $second = $service->queue($website, $this->admin);
         $service->execute($second->run_id, app(AsyncOperationService::class));
         $this->assertSame($first->id, $second->fresh()->response_payload['cached_run_id']);
-        $profile->update(['source_states' => ['website' => ['http' => ['status_code' => 503]]]]);
+        $profile->update(['source_states' => ['website' => $this->dated(['http' => ['status_code' => 503]])]]);
         $third = $service->queue($website, $this->admin);
         $service->execute($third->run_id, app(AsyncOperationService::class));
         $this->assertArrayNotHasKey('cached_run_id', $third->fresh()->response_payload);
@@ -139,7 +141,7 @@ final class WebsiteStandardsAssessmentTest extends TestCase
     public function test_operator_pages_render_and_library_controls_are_admin_only(): void
     {
         $website = $this->website();
-        $this->get(route('operator.library.website-standards'))->assertOk()->assertSee('Web Sitesi Standartları');
+        $this->get(route('operator.library.website-standards'))->assertOk()->assertSee('Standards')->assertSee('Shared checks for every brand.');
         $this->get(route('operator.website', ['assetId' => $website->id, 'tab' => 'standards']))->assertOk()->assertSee('Web sitesini değerlendir');
         $member = User::factory()->create(['is_active' => true]);
         $member->assignRole(Roles::TEAM_MEMBER);
@@ -169,7 +171,7 @@ final class WebsiteStandardsAssessmentTest extends TestCase
         $run = $service->queue($website, $this->admin);
         $service->execute($run->run_id, app(AsyncOperationService::class));
         $proposal = $run->proposals()->where('stable_key', 'standard:reachability-http')->firstOrFail();
-        $profile->update(['source_states' => ['website' => ['http' => ['status_code' => 200]]]]);
+        $profile->update(['source_states' => ['website' => $this->dated(['http' => ['status_code' => 200]])]]);
         $this->expectException(ValidationException::class);
         app(SearchDemandWebsiteImprovementService::class)->review($proposal, 'approved', null, $this->admin);
     }
@@ -226,7 +228,7 @@ final class WebsiteStandardsAssessmentTest extends TestCase
             ->test(SearchDemandPageOwnershipPage::class)->assertSet('clusterId', (string) $cluster->id);
     }
 
-    public function test_semantic_review_works_without_competitors_and_rejects_unsupported_ai_output(): void
+    public function test_semantic_review_is_refused_while_expert_review_criteria_are_disabled(): void
     {
         $website = $this->website();
         $profile = $this->page($website, '/klima-bakim');
@@ -234,31 +236,19 @@ final class WebsiteStandardsAssessmentTest extends TestCase
         $this->htmlSnapshot($website, $profile, '<html><head><title>Klima bakım hizmeti</title></head><body><h1>Klima bakım hizmeti</h1><p>Bakım süreci ve kontrol adımları burada anlatılır.</p></body></html>');
         $integration = CoreIntegration::factory()->openai()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
         app(OpenAiProviderCredentialService::class)->save($integration, ['api_key' => 'sk-test-website-standards'], $this->admin);
-        $row = ['finding_key' => 'scope_detail', 'title' => 'Bakım kapsamını açıklayın',
-            'summary' => 'Kullanıcının bakım kapsamını anlaması için işlemler açıklanmalı.', 'rationale' => 'Gözlenen kapsam adları kullanıcıya uygulanacak adımları açıklamıyor.',
-            'standard_id' => 'website:review:questions', 'assessment_state' => 'partial',
-            'brand_evidence' => 'Bakım süreci ve kontrol adımları', 'action_type' => 'improve_existing',
-            'recommendation_title' => 'Kapsamı açıklayın', 'recommendation_action' => 'Bakımın kontrol adımlarını açıklayın.',
-            'analysis_ids' => [], 'observation_ids' => [], 'competitor_ids' => [],
-            'evidence_explanation' => ['Saklı sayfa kapsamın adını içeriyor; adımlar açıklanmıyor.'],
-            'verification_steps' => ['Yeni saklı içerikte açıklanmış adımları inceleyin.'], 'confidence' => 80, 'abstained' => false];
-        SearchDemandWebsiteImprovementAgent::fake([['abstained' => false, 'proposals' => [
-            $row, array_replace($row, ['finding_key' => 'invented', 'standard_id' => 'invented-standard']),
-            array_replace($row, ['finding_key' => 'no_change', 'action_type' => 'no_action']),
-        ]]])->preventStrayPrompts();
-        $service = app(SearchDemandWebsiteImprovementService::class);
-        $queued = $service->queue($website, $cluster, $this->admin);
-        $this->assertSame(0, $queued['approved_analysis_count']);
-        $this->assertNull($queued['run']->competitive_intelligence_run_id);
-        $service->execute($queued['run']->run_id, app(AsyncOperationService::class));
-        $this->assertSame(3, $queued['run']->proposals()->count());
-        $accepted = $queued['run']->proposals()->where('abstained', false)->sole();
-        $this->assertSame('website:review:questions', $accepted->evidence_refs['standard_id']);
-        $this->assertSame(2, $queued['run']->proposals()->where('abstained', true)->count());
-        $service->review($accepted, 'approved', null, $this->admin);
-        $this->assertSame(1, Finding::query()->count());
+        SearchDemandWebsiteImprovementAgent::fake()->preventStrayPrompts();
+
+        // Expert-review (AI semantic) criteria are disabled by policy; the catalog never enables them.
+        $this->assertSame([], app(WebsiteStandardCatalog::class)->expertCriteria());
+
+        try {
+            app(SearchDemandWebsiteImprovementService::class)->queue($website, $cluster, $this->admin);
+            $this->fail('Semantic website review must be refused without enabled expert criteria.');
+        } catch (ValidationException $exception) {
+            $this->assertSame('Etkin uzman değerlendirme kriteri bulunmuyor.', $exception->errors()['selectedClusterId'][0] ?? null);
+        }
+        $this->assertSame(0, Finding::query()->count());
         $this->assertSame(0, Task::query()->count());
-        $this->assertTrue($service->queue($website, $cluster, $this->admin)['cached']);
         Http::assertNothingSent();
     }
 
@@ -276,22 +266,26 @@ final class WebsiteStandardsAssessmentTest extends TestCase
         $this->assertTrue($second->proposals()->where('stable_key', 'standard:website:structure:internal-links')->exists());
     }
 
-    public function test_custom_criterion_has_bounded_metadata_and_can_be_disabled(): void
+    public function test_custom_criterion_has_bounded_metadata_and_stays_disabled(): void
     {
-        Livewire::test(WebsiteStandardsPage::class)->set('draft', [
+        $catalog = app(WebsiteStandardCatalog::class);
+        $catalog->addExpertCriterion([
             'title' => 'Bakım kapsamı açıklaması', 'group' => 'content',
             'criterion' => 'Bakımın içerdiği işlemler sayfada açık biçimde anlatılmalı.',
             'action' => 'Yapılan kontrolleri ve dahil olmayan işlemleri açıklayın.', 'source_url' => '',
-        ])->call('addCriterion')->assertHasNoErrors()->assertSee('Bakım kapsamı açıklaması');
-        $catalog = app(WebsiteStandardCatalog::class);
+        ], $this->admin);
         $custom = collect($catalog->all())->first(fn ($row) => str_starts_with($row['id'], 'website:custom:'));
+        $this->assertNotNull($custom);
         $this->assertSame('expert_review', $custom['method']);
-        $catalog->setEnabled($custom['id'], false, $this->admin);
+        $this->assertSame('agency_practice', $custom['classification']);
+        $this->assertSame('Bakım kapsamı açıklaması', $custom['title']);
+        // Expert-review criteria are kept for reference but never enabled for assessments.
+        $this->assertFalse($custom['enabled']);
         $this->assertArrayNotHasKey($custom['id'], $catalog->all(true));
-        $this->assertArrayHasKey($custom['id'], $catalog->all());
+        $this->assertSame([], $catalog->expertCriteria());
     }
 
-    public function test_shared_competitor_criteria_require_comparability_before_approval_and_enrich_own_page_review(): void
+    public function test_competitor_analyses_abstain_without_enabled_expert_criteria_and_block_non_comparable_pages(): void
     {
         $website = $this->website();
         $profile = $this->page($website, '/klima-bakim');
@@ -326,17 +320,12 @@ final class WebsiteStandardsAssessmentTest extends TestCase
         $service = app(SearchDemandCompetitiveIntelligenceService::class);
         $queued = $service->queue($website, $cluster, $this->admin);
         $service->execute($queued['run']->run_id, app(AsyncOperationService::class));
-        $accepted = $queued['run']->analyses()->where('comparability', 'comparable')->sole();
+        $comparable = $queued['run']->analyses()->where('comparability', 'comparable')->sole();
         $blocked = $queued['run']->analyses()->where('comparability', 'different_intent')->sole();
-        $this->assertFalse($accepted->abstained);
+        // Expert-review criteria are disabled, so an assessment citing one is unsupported: even the comparable
+        // page abstains, and the non-comparable page is blocked as before.
+        $this->assertTrue($comparable->abstained);
         $this->assertTrue($blocked->abstained);
-        $service->review($accepted, 'approved', null, $this->admin);
-        $improvement = app(SearchDemandWebsiteImprovementService::class)->queue($website, $cluster, $this->admin);
-        $this->assertSame(1, $improvement['approved_analysis_count']);
-        $this->assertSame($queued['run']->id, $improvement['run']->competitive_intelligence_run_id);
-        Livewire::withQueryParams(['brand' => (string) $website->brand_id, 'website' => (string) $website->id,
-            'cluster' => (string) $cluster->id, 'run' => (string) $queued['run']->id])
-            ->test(SearchDemandCompetitiveIntelligencePage::class)->assertSee('Bakım süreci ve kontrol adımları');
         $this->assertSame(0, Finding::query()->count());
         Http::assertNothingSent();
         $this->expectException(ValidationException::class);
@@ -413,9 +402,26 @@ final class WebsiteStandardsAssessmentTest extends TestCase
         return WebsitePageProfile::query()->create([
             'website_asset_id' => $website->id, 'page_identity_id' => $identity->id, 'projection_run_id' => $projection->id,
             'preferred_url' => $url, 'profile_version' => 1, 'projected_at' => now(), 'last_observed_at' => now(),
-            'source_states' => ['website' => array_replace(['url' => $url, 'http' => ['status_code' => 200],
+            'source_states' => ['website' => $this->dated(array_replace(['url' => $url, 'http' => ['status_code' => 200],
                 'document_head' => ['title_present' => true, 'title' => 'Klima bakım hizmeti', 'robots' => 'index, follow', 'canonical_hrefs' => [$url]],
-                'content' => ['language' => 'tr']], $facts)],
+                'content' => ['language' => 'tr']], $facts))],
         ]);
+    }
+
+    /**
+     * Standards are only evaluated against dated observations; stamp undated fact groups as observed now.
+     *
+     * @param  array<string, mixed>  $facts
+     * @return array<string, mixed>
+     */
+    private function dated(array $facts): array
+    {
+        foreach ($facts as $source => $group) {
+            if (is_array($group) && array_is_list($group) === false && ! array_key_exists('observed_at', $group)) {
+                $facts[$source]['observed_at'] = now()->toIso8601String();
+            }
+        }
+
+        return $facts;
     }
 }
