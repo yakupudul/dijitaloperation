@@ -4,6 +4,7 @@ namespace App\Livewire\Operator\Advisor;
 
 use App\Enums\AdvisorCategory;
 use App\Enums\AdvisorItemStatus;
+use App\Enums\CustomerStatus;
 use App\Livewire\Concerns\WithAiInsights;
 use App\Models\AdvisorItem;
 use App\Models\AdvisorPlan;
@@ -19,6 +20,7 @@ use App\Services\Compliance\ComplianceAuditor;
 use App\Services\Compliance\SectorPackRegistry;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Support\Permissions;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -296,7 +298,7 @@ final class AdvisorPanel extends Component
             'categories' => AdvisorCategory::cases(),
             'channels' => array_map(static fn ($c): string => $c->label(), $channels->all()),
             'draftRules' => array_merge(...array_values(array_map(static fn ($c): array => $c->draftRules(), $channels->all()))),
-            'customers' => $this->assetId === null ? Customer::query()->orderBy('name')->get(['id', 'name']) : collect(),
+            'customers' => $this->assetId === null ? Customer::query()->where('status', CustomerStatus::Active->value)->orderBy('name')->get(['id', 'name']) : collect(),
         ]);
     }
 
@@ -312,6 +314,8 @@ final class AdvisorPanel extends Component
         if ($this->assetId !== null) {
             $query->where('digital_asset_id', $this->assetId);
         } else {
+            // Portfolio view: only operational assets (a passive customer's account keeps its own tab).
+            app(ServiceScope::class)->constrain($query);
             if ($this->channelFilter !== '') {
                 $query->where('channel', $this->channelFilter);
             }

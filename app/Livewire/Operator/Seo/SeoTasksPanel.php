@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator\Seo;
 
+use App\Enums\CustomerStatus;
 use App\Enums\SeoTaskStatus;
 use App\Enums\SeoTaskType;
 use App\Models\Brand;
@@ -17,6 +18,7 @@ use App\Services\Compliance\SectorPackRegistry;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\SeoTasks\SeoPlanRunner;
 use App\Support\Permissions;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -443,7 +445,7 @@ final class SeoTasksPanel extends Component
             'siteOverview' => $board,
             'plansPending' => $board->whereIn('plan_status', [SeoPlan::STATUS_QUEUED, SeoPlan::STATUS_RUNNING])->count(),
             'lastPlanAt' => $board->pluck('last_plan_at')->filter()->max(),
-            'customers' => $this->websiteId === null ? Customer::query()->orderBy('name')->get(['id', 'name']) : collect(),
+            'customers' => $this->websiteId === null ? Customer::query()->where('status', CustomerStatus::Active->value)->orderBy('name')->get(['id', 'name']) : collect(),
             'sites' => $this->websiteId === null ? $this->siteOptions() : collect(),
             'types' => SeoTaskType::cases(),
             'statuses' => SeoTaskStatus::cases(),
@@ -458,6 +460,8 @@ final class SeoTasksPanel extends Component
         if ($this->websiteId !== null) {
             $query->where('digital_asset_id', $this->websiteId);
         } else {
+            // Portfolio view: only operational sites (a passive customer's site keeps its own tab).
+            app(ServiceScope::class)->constrain($query);
             if (ctype_digit($this->customerFilter)) {
                 $query->where('customer_id', (int) $this->customerFilter);
             }
@@ -535,7 +539,7 @@ final class SeoTasksPanel extends Component
     /** @return Collection<int, DigitalAsset> */
     private function siteOptions(): Collection
     {
-        return DigitalAsset::query()
+        return DigitalAsset::query()->operational()
             ->with('brand')
             ->where('type', 'website')
             ->whereIn('id', SeoTask::query()->select('digital_asset_id'))

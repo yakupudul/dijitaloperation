@@ -5,7 +5,6 @@ namespace App\Livewire\Demo\Portfolio;
 use App\Enums\CustomerStatus;
 use App\Enums\CustomerType;
 use App\Models\Customer;
-use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Operator\OperatorUserDirectory;
 use App\Services\Portfolio\PortfolioDeletionService;
@@ -115,10 +114,8 @@ class CustomersIndex extends Component
         abort_unless(ctype_digit($customerId), 404);
         $customer = Customer::query()->findOrFail((int) $customerId);
         $activate = $customer->status !== CustomerStatus::Active;
+        // Passive: every automatic flow, AI and paid call stops (service scope); active again: paused collection resumes.
         $customer->forceFill(['status' => $activate ? CustomerStatus::Active : CustomerStatus::Inactive])->save();
-        if ($activate) {
-            app(ResourceAutomationService::class)->resumeForCustomer((int) $customer->id);
-        }
 
         DemoState::flash(__($activate ? 'customer_status.activated' : 'customer_status.paused', ['name' => $customer->name]));
     }

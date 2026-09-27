@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Contracts\Ai\AgentContextGateway as AgentContextGatewayContract;
 use App\Contracts\Collection\ActivityTierReader;
+use App\Enums\CustomerStatus;
 use App\Events\Collection\CollectionRunCancelled;
 use App\Events\Collection\CollectionRunCompleted;
 use App\Events\Collection\CollectionRunStarted;
@@ -85,6 +86,7 @@ use App\Services\Gsc\GscSpecialistBindingResolver;
 use App\Services\Gsc\GscSpecialistReadService;
 use App\Services\Gsc\GscUiDatasetGate;
 use App\Services\Integrations\BoundCollectorRegistry;
+use App\Services\Integrations\ResourceAutomationService;
 use App\Services\MetaAds\MetaAdsPoolReadRepository;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaAdsSpecialistReadService;
@@ -224,6 +226,12 @@ class AppServiceProvider extends ServiceProvider
                 Event::listen('eloquent.'.$event.': '.$model, $flush);
             }
         }
+        // Whatever screen switched the customer back to active, its paused collection is due right away.
+        Event::listen('eloquent.updated: '.Customer::class, function (Customer $customer): void {
+            if ($customer->wasChanged('status') && $customer->status === CustomerStatus::Active) {
+                app(ResourceAutomationService::class)->resumeForCustomer((int) $customer->id);
+            }
+        });
     }
 
     public function boot(): void

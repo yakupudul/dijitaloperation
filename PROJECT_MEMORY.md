@@ -1,5 +1,13 @@
 # PROJECT_MEMORY
 
+## 2026-10-19 — Service scope
+
+- **Work exists only for operational assets and brands.** `App\Support\ServiceScope` (on top of `DigitalAsset::operational()` and `Brand::operational()`) is the one rule for collection, analysis, AI, paid providers, alerts, tasks and inbox items.
+  - A brandless asset or a passive customer costs nothing and shows nothing. Items are hidden, never deleted.
+  - New background, paid or AI paths must gate at selection time (`constrain()` / `assetIdQuery()`) and re-check at handle time (`isAssetOperational()`, `AsyncOperationService::skippedOutsideServiceScope()`).
+  - Manual AI / paid entry points refuse with `ServiceScope::NOT_SERVED` (`ensureAssetServed()` / `ensureBrandServed()`).
+- **Exceptions:** agency-level work (no brand / asset / customer), overdue invoices of passive customers, prospect / sales research, WhatsApp and the query library (sector-level, may collect unbound accounts with a sector).
+
 ## 2026-10-18 — Data status, activity tiers, inbox
 
 - **One data-status source.** Any screen that says whether data is connected, fresh or missing must use `App\Services\DataStatus\DataStatusReader`. Legacy Evidence summaries are not a freshness source.
