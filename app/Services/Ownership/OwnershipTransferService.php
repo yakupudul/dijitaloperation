@@ -125,7 +125,7 @@ final class OwnershipTransferService
      * @param  list<int>  $resourceIds
      * @return list<array<string, mixed>> what was reset, kept on the transfer record (snapshot.mapping)
      */
-    private function rescopeMappings(array $resourceIds, bool $sameCustomer, ?int $targetBrandId): array
+    public function rescopeMappings(array $resourceIds, bool $sameCustomer, ?int $targetBrandId): array
     {
         if ($resourceIds === []) {
             return [];

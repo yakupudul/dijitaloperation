@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-21 — Kopya web sitelerini birleştirme
+
+- **`App\Services\Ownership\WebsiteDuplicateMerger`.** `findGroups()` groups website assets sharing a normalized host (OwnershipGuard rule: www., scheme, path ignored; URL or domain column) with owner, age and data counts (active bindings, pages, collected facts, SEO tasks, site fixes, WordPress connector). Default keeper: active customer's brand → active bindings / paired connector → most data → oldest; the operator can pick another. `plan()` is a dry run; `merge()` runs in one transaction (Admin only).
+- **Schema-driven move.** Every table with a foreign key to `digital_assets` or a `digital_asset_id` / `website_asset_id` / `source_digital_asset_id` column moves in chunks. A row that would break a unique key: keeper's row stays, the duplicate's is dropped (rows pointing at it are re-pointed first, up to 3 levels); `ad_budget_status` / `website_sitemap_watch` keep the newer row; `wordpress_site_health` follows the winning connector. Bindings: one per capability (keeper's active wins; a duplicate's active binding replaces a keeper's inactive one; the loser stays on the duplicate, disabled, `closed_reason = merged`). Connectors: the paired, enabled one wins; the loser is disabled on the duplicate. Moved rows' `brand_id` / `customer_id` (FKs) follow the keeper; a brandless keeper takes the duplicate's brand.
+- **Duplicate archived, never deleted:** status archived + soft delete + `merged_into_asset_id`. Every merge is logged in `asset_merges` (moved / dropped counts per table, note "merged into #id"). Cross-customer merges need the Admin's confirmation ("Yetki devrini onaylıyorum") and write `ownership_transfers`; moved accounts' mapping is reset like a transfer.
+- **Operator UI:** Entegrasyonlar › Kopya web siteleri (`/integrations/website-duplicates`): groups, keeper radio, "Önizle" (what moves / collides), "Birleştir" (Admin; inline yetki devri panel for cross-customer groups), recent merges.
+- **CLI:** `moxdop:websites:merge-duplicates` (dry run by default; `--apply` merges same-customer groups only, cross-customer groups are listed for UI confirmation; `--by=` Admin).
+- **State:** CODED + PHPUnit (SQLite, `WebsiteDuplicateMergeTest`). PostgreSQL path not exercised by tests (compact fact views are skipped; their fact tables move). **No live UAT.**
+
 ## 2026-10-20 — Varlık sahipliği ve yetki devri
 
 - **One ownership rule (`App\Services\Ownership\OwnershipGuard`).** An external account (Google / Meta resource) or a digital asset belongs to one customer at a time.

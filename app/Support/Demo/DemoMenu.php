@@ -107,6 +107,7 @@ final class DemoMenu
                 'items' => [
                     $item(__('operator.nav.integrations'), 'operator.integrations', 'integrations', [
                         $child($tr ? 'WordPress siteleri' : 'WordPress Sites', 'operator.integrations.wordpress-sites'),
+                        $child($tr ? 'Kopya web siteleri' : 'Duplicate Websites', 'operator.integrations.website-duplicates'),
                         $child($tr ? 'Veri merkezi' : 'Data Center', 'operator.data-center'),
                     ]),
                     $item(__('operator.nav.settings'), 'operator.settings', 'settings', [
