@@ -42,40 +42,56 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
             ->assertSee('DataForSEO')
             ->assertSee('OpenAI');
 
+        // Faz 13: Google's overview links every connector (no separate Connectors tab).
         $this->get(route('operator.integrations.google'))
             ->assertOk()
-            ->assertSee('Connectors');
+            ->assertSee('Genel Bakış')
+            ->assertSee('Google Analytics')
+            ->assertSee('Search Console')
+            ->assertSee('Google Ads')
+            ->assertSee('Google Business Profile');
 
         $this->get(route('operator.integrations.meta'))
             ->assertOk()
-            ->assertSee('Meta Ads Connector');
+            ->assertSee('Meta Ads Integration')
+            ->assertSee('Ad Accounts')
+            ->assertSee('Data Collection');
 
-        foreach (['google-ads', 'ga4', 'gsc', 'gbp', 'meta-ads'] as $connector) {
+        // GA4, Search Console and Google Ads are central account-based connectors.
+        foreach (['ga4' => 'Geçmiş', 'gsc' => 'Geçmiş', 'google-ads' => 'Canlı Akış'] as $connector => $historyTab) {
             $this->get(route('operator.integrations.connector', ['connector' => $connector]))
                 ->assertOk()
-                ->assertSee('Overview')
-                ->assertSee('Resources')
-                ->assertSee('Bindings')
-                ->assertSee('Data')
-                ->assertSee('Sync')
-                ->assertSee('Activity');
+                ->assertSee('Hesaplar')
+                ->assertSee('Toplu işlemler')
+                ->assertSee('Veri')
+                ->assertSee($historyTab);
         }
+
+        $this->get(route('operator.integrations.connector', ['connector' => 'gbp']))
+            ->assertOk()
+            ->assertSee('Google Business Profile')
+            ->assertSee('Activate the Google connection first.');
+
+        // The generic Meta Ads connector page was folded into the Meta integration page.
+        $this->get(route('operator.integrations.connector', ['connector' => 'meta-ads']))
+            ->assertRedirect(route('operator.integrations.meta', ['tab' => 'resources']));
     }
 
     public function test_connector_resources_are_empty_until_configured(): void
     {
+        // GA4 is a central account-based connector: no fixtures, no properties and no history until configured.
         Livewire::test(ConnectorPage::class, ['connector' => 'ga4'])
             ->assertSee('Google Analytics')
-            ->assertSee('Not configured')
+            ->assertSee('0 mülk bulundu')
             ->call('setTab', 'resources')
             ->assertDontSee('Atlas Dental GA4')
             ->assertDontSee('Panorama Ankara GA4')
             ->assertDontSee('Recommended match')
+            ->assertSee('No discovered accounts yet.')
             ->call('setTab', 'data')
-            ->assertSee('No collection data')
-            ->call('setTab', 'sync')
-            ->assertSee('Last successful collection')
-            ->call('setTab', 'activity');
+            ->assertSee('Merkezi veri havuzu')
+            ->call('setTab', 'activity')
+            ->assertSee('Henüz GA4 aktarım geçmişi yok.');
     }
 
     public function test_binding_is_blocked_until_integration_is_configured(): void
@@ -134,13 +150,13 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
         $website = DigitalAsset::factory()->create(['type' => 'website', 'name' => 'Northwind Website']);
 
         Livewire::test(WebsiteOverviewPage::class, ['assetId' => (string) $website->id, 'tab' => 'infrastructure'])
-            ->assertSee('Infrastructure')
+            ->assertSee('Infrastructure and WordPress inventory')
             ->assertSee('Domain')
-            ->assertSee('DNS')
             ->assertSee('Hosting')
             ->assertSee('SSL / TLS')
-            ->assertSee('CMS')
-            ->assertSee('not standalone assets');
+            ->assertSee('WordPress connection')
+            // Domain / hosting / TLS stay Website facts, not standalone assets.
+            ->assertSee('separate source facts');
 
         $this->get(route('operator.domain'))
             ->assertRedirect(route('operator.assets'));

@@ -50,7 +50,7 @@ class OperatorMetaIntegrationConfigurationTest extends TestCase
             ->assertOk()
             ->assertSee('Meta App ID')
             ->assertSee('Meta App Secret')
-            ->assertSee('Save credentials')
+            ->assertSee('Save Credentials')
             ->assertDontSee('Prompt 22')
             ->assertDontSee('Prompt 24')
             ->assertDontSee('Milestone status')
