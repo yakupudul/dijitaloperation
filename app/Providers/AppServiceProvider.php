@@ -26,7 +26,10 @@ use App\Jobs\Verification\RunLiveVerificationJob;
 use App\Listeners\Collection\BroadcastCollectionRunChanged;
 use App\Listeners\Collection\QueueWebsiteAnalysisAfterCollection;
 use App\Listeners\QueueFindingEvaluationAfterEvidenceCanonicalized;
+use App\Models\Brand;
 use App\Models\Collection\CollectionRun;
+use App\Models\Customer;
+use App\Models\DigitalAsset;
 use App\Policies\CollectionRunPolicy;
 use App\Services\Ai\AgentContextGateway;
 use App\Services\Ai\AiUsageRecorder;
@@ -96,6 +99,7 @@ use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Database\ViewAwarePostgresConnection;
 use App\Support\Roles;
+use App\Support\ServiceScope;
 use App\Support\Skills\SkillRegistry;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Model;
@@ -116,6 +120,7 @@ class AppServiceProvider extends ServiceProvider
     {
         Connection::resolverFor('pgsql', static fn ($pdo, string $database, string $prefix, array $config): ViewAwarePostgresConnection => new ViewAwarePostgresConnection($pdo, $database, $prefix, $config));
 
+        $this->app->scoped(ServiceScope::class);
         $this->app->singleton(AgencySettingService::class);
         $this->app->singleton(OperatorMailConfigService::class);
 
@@ -206,9 +211,25 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Bootstrap any application services.
      */
+    /** A customer switched to passive / active, a brand or asset changed: the memoised service scope is recomputed. */
+    private function flushServiceScopeOnPortfolioChange(): void
+    {
+        $flush = function (): void {
+            if ($this->app->resolved(ServiceScope::class)) {
+                $this->app->make(ServiceScope::class)->flush();
+            }
+        };
+        foreach ([Customer::class, Brand::class, DigitalAsset::class] as $model) {
+            foreach (['saved', 'deleted', 'restored'] as $event) {
+                Event::listen('eloquent.'.$event.': '.$model, $flush);
+            }
+        }
+    }
+
     public function boot(): void
     {
         $this->routeHeavyJobs();
+        $this->flushServiceScopeOnPortfolioChange();
         Event::listen(AgentPrompted::class, [AiUsageRecorder::class, 'handle']);
         MethodLibrary::boot();
         ProductionArchive::boot();

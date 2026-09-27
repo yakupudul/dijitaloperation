@@ -8,6 +8,7 @@ use App\Services\Advisor\GoogleAds\GoogleAdsRowScope;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\SeoTasks\SeoPlanInputCollector;
+use App\Support\ServiceScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
@@ -365,7 +366,7 @@ final class DataConsistencyChecker
     /** @return Collection<int, object> open issues with brand and asset names, newest first */
     public static function open(): Collection
     {
-        return DB::table('data_consistency_issues as i')
+        return app(ServiceScope::class)->constrain(DB::table('data_consistency_issues as i'), 'i.digital_asset_id', 'i.brand_id')
             ->leftJoin('brands as b', 'b.id', '=', 'i.brand_id')
             ->leftJoin('digital_assets as a', 'a.id', '=', 'i.digital_asset_id')
             ->whereNull('i.resolved_at')

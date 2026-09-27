@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Enums\CustomerStatus;
 use App\Models\IntelligenceCore\IntelligenceBusinessActionIdentity;
 use App\Models\IntelligenceCore\IntelligenceEntityIdentity;
 use App\Models\IntelligenceCore\IntelligenceSearchTermIdentity;
 use App\Support\Options\IndustryOptions;
 use Database\Factories\BrandFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -33,6 +35,24 @@ class Brand extends Model
 {
     /** @use HasFactory<BrandFactory> */
     use HasFactory, SoftDeletes;
+
+    /**
+     * Service scope, the brand-level twin of DigitalAsset::operational(): a brand is served (collected, analysed,
+     * AI / paid providers called, work shown) only while its customer is active. Brands have no status of their
+     * own; a deleted brand is excluded by SoftDeletes.
+     *
+     * @param  Builder<Brand>  $query
+     * @return Builder<Brand>
+     */
+    public function scopeOperational(Builder $query): Builder
+    {
+        return $query->whereHas('customer', fn (Builder $customer): Builder => $customer->where('status', CustomerStatus::Active->value));
+    }
+
+    public function isOperational(): bool
+    {
+        return ! $this->trashed() && $this->customer?->status === CustomerStatus::Active;
+    }
 
     /**
      * @return BelongsTo<Customer, $this>
