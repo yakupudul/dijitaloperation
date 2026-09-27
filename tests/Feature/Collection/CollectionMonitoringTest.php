@@ -436,7 +436,8 @@ class CollectionMonitoringTest extends TestCase
 
         Livewire::actingAs($this->admin)
             ->test(MonitoringPanel::class)
-            ->assertSee(__('operator.collection.active_heading'))
+            ->assertSee('Data Collection Center')
+            ->assertSee('1 active run')
             ->assertSee(__('operator.collection.providers.ga4'))
             ->call('reloadStatus')
             ->assertSet('statusError', null);
