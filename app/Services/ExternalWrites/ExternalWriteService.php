@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\Integrations\WordPress\WordPressManagementService;
 use App\Services\SiteFixes\SiteFixVerification;
 use App\Support\Roles;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -327,6 +328,9 @@ final class ExternalWriteService
             $action->forceFill(['status' => 'failed', 'finished_at' => now(), 'error' => mb_substr($exception->getMessage(), 0, 500)])->save();
             SiteFixItem::query()->where('write_action_id', $action->id)->where('status', 'queued')
                 ->update(['status' => 'failed', 'error' => mb_substr($exception->getMessage(), 0, 500), 'updated_at' => now()]);
+            // A Business Profile post that Google refused shows as "Yayınlanamadı" in the calendar and on the profile page.
+            DB::table('content_calendar_items')->where('write_action_id', $action->id)->where('status', 'approved')
+                ->update(['status' => 'failed', 'error' => mb_substr($exception->getMessage(), 0, 300), 'updated_at' => now()]);
         }
     }
 

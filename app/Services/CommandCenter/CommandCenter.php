@@ -38,7 +38,7 @@ final class CommandCenter
         'alert' => 'Uyarı', 'advisor' => 'Danışman', 'seo' => 'SEO', 'site_fix' => 'Site düzeltmesi', 'brain' => 'Beyin önerisi',
         'compliance' => 'Uyum', 'lead' => 'Lead', 'system' => 'Sistem', 'approval' => 'Onay bekliyor', 'coverage' => 'Kurulum eksiği',
         'calendar' => 'İçerik takvimi', 'client_approval' => 'Müşteri onayı', 'followup' => 'Takip', 'invoice' => 'Tahsilat', 'commitment' => 'Taahhüt', 'task' => 'Görev',
-        'live' => 'Canlı doğrulama', 'data' => 'Veri şüpheli', 'lead_outcome' => 'Lead sonucu',
+        'live' => 'Canlı doğrulama', 'data' => 'Veri şüpheli', 'lead_outcome' => 'Lead sonucu', 'gbp' => 'İşletme Profili',
     ];
 
     private const array SEVERITY_BASE = ['critical' => 1000, 'high' => 700, 'medium' => 400, 'low' => 150];
@@ -49,6 +49,7 @@ final class CommandCenter
         'spend_spike' => ['performance-anomaly', 'daily-anomaly'],
         'delivery_stopped' => ['spend-no-results'],
         'search_traffic_drop' => ['change-impact'],
+        'bad_review_unanswered' => ['gbp-reviews-unanswered'],
     ];
 
     /** SEO rules a ready WordPress site fix of this type repairs. */
@@ -58,7 +59,7 @@ final class CommandCenter
     ];
 
     /** @var list<class-string<CommandCenterSource>> producers beyond the built-in readers */
-    public const array EXTRA_SOURCES = [CoverageSource::class, CalendarSource::class, AgencySource::class, TaskSource::class, VerificationSource::class, LeadOutcomeSource::class];
+    public const array EXTRA_SOURCES = [CoverageSource::class, CalendarSource::class, AgencySource::class, TaskSource::class, VerificationSource::class, LeadOutcomeSource::class, GbpSource::class];
 
     public function __construct(private readonly AdvisorChannels $channels) {}
 

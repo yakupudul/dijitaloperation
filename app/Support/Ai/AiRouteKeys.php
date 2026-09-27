@@ -44,6 +44,8 @@ final class AiRouteKeys
 
     public const string GBP_REVIEW_REPLY = 'gbp.review_reply';
 
+    public const string GBP_POST_DRAFT = 'gbp.post_draft';
+
     public const string INSIGHT_ADVISOR_EXPLAIN = 'insights.advisor_explain';
 
     public const string INSIGHT_SEARCH_TERM_TRIAGE = 'insights.search_term_triage';
