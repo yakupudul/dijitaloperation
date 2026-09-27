@@ -9,8 +9,8 @@
         'google_ads' => 'Google Ads',
         'meta_ads' => 'Meta Ads',
     ];
-    $items = collect($proposal?->items ?? []);
-    $services = $proposal?->services ?? [];
+    $items = collect($proposal?->itemRows() ?? []);
+    $services = $proposal?->serviceRows() ?? [];
     $statusBadge = fn (string $status): array => match ($status) {
         'already' => ['Zaten bağlı', 'success'],
         'bound_elsewhere' => ['Başka varlığa bağlı', 'warning'],
@@ -60,7 +60,7 @@
                 <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
                     @foreach (['business_summary' => 'Özet', 'business_model' => 'İş modeli', 'positioning' => 'Konumlanma', 'target_audiences' => 'Hedef kitle', 'differentiators' => 'Farklılıklar'] as $field => $fieldLabel)
                         @if (! empty($businessContext[$field]))
-                            <div><dt class="text-xs text-gray-500">{{ $fieldLabel }}</dt><dd class="text-gray-800 dark:text-gray-200">{{ is_array($businessContext[$field]) ? implode(' · ', $businessContext[$field]) : $businessContext[$field] }}</dd></div>
+                            <div><dt class="text-xs text-gray-500">{{ $fieldLabel }}</dt><dd class="text-gray-800 dark:text-gray-200">{{ is_array($businessContext[$field]) ? implode(' · ', array_filter(\Illuminate\Support\Arr::flatten($businessContext[$field]), 'is_scalar')) : (is_scalar($businessContext[$field]) ? $businessContext[$field] : '') }}</dd></div>
                         @endif
                     @endforeach
                 </dl>
@@ -97,7 +97,7 @@
         @php $locations = data_get($proposal->summary, 'locations'); @endphp
         @if (is_array($locations) && (! empty($locations['out_of_area']) || ! empty($locations['mentioned'])))
             <section class="rounded-xl border border-warning-200 bg-warning-50 p-5 dark:border-warning-500/20 dark:bg-warning-500/10">
-                @if ($locations['has_areas'])
+                @if (! empty($locations['has_areas']) && is_array($locations['areas'] ?? null) && is_array($locations['out_of_area'] ?? null))
                     <h2 class="text-sm font-semibold text-warning-900 dark:text-warning-200">Hizmet bölgesi dışındaki aramalar</h2>
                     <p class="mt-1 text-xs text-warning-800 dark:text-warning-300">Markanın hizmet verdiği yerler: <strong>{{ implode(' · ', $locations['areas']) }}</strong>. Site aşağıdaki konumlarla yapılan aramalarda da görünüyor. Hizmet ve anahtar kelimelere konum yazılmaz; SEO planı bu konumlar için içerik önermez.</p>
                     <ul class="mt-2 space-y-1 text-xs text-warning-900 dark:text-warning-200">
@@ -110,7 +110,7 @@
                     <h2 class="text-sm font-semibold text-warning-900 dark:text-warning-200">Markanın hizmet verdiği yerler tanımlı değil</h2>
                     <p class="mt-1 text-xs text-warning-800 dark:text-warning-300">Aramalarda en çok geçen konumlar aşağıda. Doğru olanları <a wire:navigate href="{{ route('operator.brand.edit', ['brandId' => $brandId]) }}" class="font-semibold underline">markanın hizmet verdiği yerlere</a> ekle; bölge dışı aramalar ancak o zaman ayrılabilir.</p>
                     <ul class="mt-2 space-y-1 text-xs text-warning-900 dark:text-warning-200">
-                        @foreach ($locations['mentioned'] as $row)
+                        @foreach ((array) ($locations['mentioned'] ?? []) as $row)
                             <li><strong>{{ $row['name'] }}</strong> · {{ number_format($row['impressions']) }} gösterim</li>
                         @endforeach
                     </ul>
