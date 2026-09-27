@@ -44,7 +44,6 @@
     $minDate = method_exists($this, 'periodPickerMinDate')
         ? $this->periodPickerMinDate()
         : \Carbon\Carbon::parse($maxDate)->subDays(89)->toDateString();
-    $isWebsiteWorkspace = $this instanceof \App\Livewire\Demo\Website\OverviewPage;
 @endphp
 
 <div class="space-y-3">
@@ -128,38 +127,4 @@
             </div>
         @endif
     </div>
-
-    @if($isWebsiteWorkspace && ctype_digit((string)($assetId ?? '')))
-        @if(($tab ?? 'overview') === 'ga4_analysis')
-            <livewire:demo.partials.data-sync-control
-                :asset-id="(int) $assetId"
-                :capabilities="['ga4']"
-                :providers="['GA4']"
-                :button-label="app()->getLocale() === 'tr' ? 'Analytics’i Güncelle' : 'Update Analytics'"
-                :title="'Google Analytics'"
-                :compact="true"
-                :key="'website-ga4-sync-'.$assetId"
-            />
-        @elseif(($tab ?? 'overview') === 'search_console')
-            <livewire:demo.partials.data-sync-control
-                :asset-id="(int) $assetId"
-                :capabilities="['search_console']"
-                :providers="['SEARCH_CONSOLE']"
-                :button-label="app()->getLocale() === 'tr' ? 'Search Console’u Güncelle' : 'Update Search Console'"
-                :title="'Search Console'"
-                :compact="true"
-                :key="'website-gsc-sync-'.$assetId"
-            />
-        @else
-            <livewire:demo.partials.data-sync-control
-                :asset-id="(int) $assetId"
-                :capabilities="['ga4', 'search_console']"
-                :providers="['GA4', 'SEARCH_CONSOLE']"
-                :button-label="app()->getLocale() === 'tr' ? 'Website Verilerini Güncelle' : 'Update Website Data'"
-                :title="app()->getLocale() === 'tr' ? 'Website Veri Güncelliği' : 'Website Data Freshness'"
-                :show-providers="true"
-                :key="'website-data-sync-'.$assetId"
-            />
-        @endif
-    @endif
 </div>

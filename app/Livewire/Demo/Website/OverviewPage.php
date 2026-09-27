@@ -9,6 +9,7 @@ use App\Models\DigitalAsset;
 use App\Services\Async\AsyncOperationService;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\Collection\Website\WebsiteIssueVerificationService;
+use App\Services\DataStatus\DataStatusReader;
 use App\Services\Ga4\WebsiteGa4AnalysisService;
 use App\Services\Gsc\WebsiteSearchConsoleAnalysisService;
 use App\Services\IntelligenceProjection\Website\WebsiteDataSourcesReadService;
@@ -325,6 +326,7 @@ class OverviewPage extends Component
         WebsiteInfrastructureReadService $infrastructureReadService,
         WebsiteDataSourcesReadService $dataSourcesReadService,
         WebsiteHealthScoreService $healthScoreService,
+        DataStatusReader $dataStatus,
     ): View {
         $this->normalizeTab();
 
@@ -415,6 +417,7 @@ class OverviewPage extends Component
             'brand' => $asset->brand,
             'customer' => $asset->brand?->customer,
             'data' => $data,
+            'dataStatuses' => $dataStatus->forAsset($asset),
             'ga4Analysis' => $ga4Analysis,
             'ga4Charts' => $ga4Charts,
             'gscAnalysis' => $gscAnalysis,

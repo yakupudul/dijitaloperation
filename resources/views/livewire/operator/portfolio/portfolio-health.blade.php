@@ -45,7 +45,7 @@
                             @php $cell = $row['cells'][$key]; @endphp
                             <td class="px-2 py-2">
                                 @if ($cell['url'])
-                                    <a href="{{ $cell['url'] }}" wire:navigate title="{{ implode(' · ', $cell['notes'] ?? []) }}" class="block max-w-40 truncate rounded-md px-2 py-1 text-xs {{ $cellTone[$cell['state']] ?? '' }}">{{ $cell['label'] }}</a>
+                                    <a href="{{ $cell['url'] }}" @if (($cell['data_state'] ?? null) !== 'access_problem') wire:navigate @endif title="{{ implode(' · ', $cell['notes'] ?? []) }}" class="block max-w-40 truncate rounded-md px-2 py-1 text-xs {{ $cellTone[$cell['state']] ?? '' }}" @isset($cell['data_state']) data-data-state="{{ $cell['data_state'] }}" @endisset>{{ $cell['label'] }}@if (filled($cell['alert'] ?? null))<span class="block truncate text-[11px] opacity-80">{{ $cell['alert'] }}</span>@endif</a>
                                 @else
                                     <span class="block rounded-md px-2 py-1 text-xs {{ $cellTone[$cell['state']] ?? '' }}">{{ $cell['label'] }}</span>
                                 @endif

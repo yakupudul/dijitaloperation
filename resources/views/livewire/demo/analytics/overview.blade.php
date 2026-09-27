@@ -29,19 +29,7 @@
                     <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="font-medium text-brand-600 hover:underline dark:text-brand-400">{{ __('operator.chrome.open_website') }}</a>
                     @endif
                 </p>
-                <p class="mt-2 text-xs text-gray-500">
-                    <span class="font-medium text-emerald-700 dark:text-emerald-400">{{ $identity['status'] ?? 'Defined' }}</span>
-                    · {{ $identity['freshness'] }}
-                </p>
                 @include('livewire.demo.partials._asset-scope-chip', ['assetType' => 'ga4'])
-                <div class="mt-2 flex flex-wrap gap-1.5">
-                    @foreach ($data['freshness'] ?? [] as $chip)
-                        <span class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600 dark:bg-white/5 dark:text-gray-300" title="{{ $chip['detail'] ?? '' }}">
-                            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                            {{ $chip['source'] }} · {{ $chip['age'] }}
-                        </span>
-                    @endforeach
-                </div>
             </div>
         </div>
         <div class="shrink-0">

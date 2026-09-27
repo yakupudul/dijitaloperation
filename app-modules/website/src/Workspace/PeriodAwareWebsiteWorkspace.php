@@ -5,11 +5,17 @@ namespace MoxDop\Website\Workspace;
 use App\Enums\DataPool\DataSourceState;
 use App\Models\DigitalAsset;
 use App\Services\Ga4\Ga4SpecialistReadService;
+use App\Services\Ga4\WebsiteGa4AnalysisService;
 use App\Services\Gsc\GscSpecialistReadService;
+use App\Services\Gsc\WebsiteSearchConsoleAnalysisService;
 
 /**
  * Composes Website operational data with period-aware reads from the canonical
  * GA4 and Search Console local data pools. Provider APIs are never called here.
+ *
+ * The overview KPI cards read the same resource-first Data Pool property totals as the website's
+ * Search Console and Google Analytics tabs (WebsiteSearchConsoleAnalysisService / WebsiteGa4AnalysisService),
+ * so a site whose facts are collected always shows its numbers for the selected period.
  */
 final class PeriodAwareWebsiteWorkspace
 {
@@ -17,6 +23,8 @@ final class PeriodAwareWebsiteWorkspace
         private readonly WebsiteWorkspaceData $base,
         private readonly Ga4SpecialistReadService $ga4,
         private readonly GscSpecialistReadService $gsc,
+        private readonly WebsiteSearchConsoleAnalysisService $gscPool,
+        private readonly WebsiteGa4AnalysisService $ga4Pool,
     ) {}
 
     /** @return array<string, mixed> */
@@ -43,7 +51,10 @@ final class PeriodAwareWebsiteWorkspace
         $data['period_label'] = $periodLabel;
         $data['period_is_live_query'] = true;
 
-        $poolKpis = $this->kpis($gsc, $ga4);
+        $gscHeadline = $this->gscPool->build($asset, $preset, $start, $end, true, 'previous', headlineOnly: true);
+        $ga4Headline = $this->ga4Pool->build($asset, $preset, $start, $end, true, 'previous', headlineOnly: true);
+        $factKpis = $this->factKpis($gscHeadline, $ga4Headline);
+        $poolKpis = $factKpis !== [] ? $factKpis : $this->kpis($gsc, $ga4);
         if ($poolKpis !== []) {
             $data['kpis'] = $poolKpis;
         } elseif (! $explicitPeriod) {
@@ -86,10 +97,16 @@ final class PeriodAwareWebsiteWorkspace
         } elseif (! $explicitPeriod) {
             $data['gsc_summary'] = null;
         }
-        if ($poolKpis !== []) {
+        $hasFacts = filled(data_get($gscHeadline, 'coverage.end')) || filled(data_get($ga4Headline, 'coverage.end'));
+        if ($poolKpis !== [] || $hasFacts) {
             $data['has_performance_data'] = true;
         } elseif (! $explicitPeriod) {
             $data['has_performance_data'] = $data['kpis'] !== [];
+        }
+        if ($factKpis !== []) {
+            $data['period_has_data'] = true;
+        } elseif ($hasFacts) {
+            $data['period_has_data'] = false;
         }
         $data['period_provenance'] = [
             'ga4' => $ga4['migration_mode'] ?? null,
@@ -97,6 +114,55 @@ final class PeriodAwareWebsiteWorkspace
         ];
 
         return $data;
+    }
+
+    /**
+     * KPI cards from the Data Pool property totals of the selected period (Search Console clicks, impressions,
+     * CTR; GA4 sessions), with the change against the previous period of the same length.
+     *
+     * @param  array<string, mixed>  $gsc  WebsiteSearchConsoleAnalysisService headline
+     * @param  array<string, mixed>  $ga4  WebsiteGa4AnalysisService headline
+     * @return list<array{label:string,value:mixed,delta_label:?string,source:string}>
+     */
+    private function factKpis(array $gsc, array $ga4): array
+    {
+        $metric = static fn (array $model, string $key): ?array => collect($model['metrics'] ?? [])->firstWhere('key', $key);
+        $rows = [];
+        if (($gsc['has_data'] ?? false) === true) {
+            foreach (['clicks' => 'organic_clicks', 'impressions' => 'impressions', 'ctr' => 'ctr'] as $key => $label) {
+                if (($m = $metric($gsc, $key)) !== null && $m['value'] !== null) {
+                    $rows[] = $this->kpi(__('operator_runtime.website.kpi.'.$label), $this->formatValue($m), $this->deltaLabel($m), 'gsc');
+                }
+            }
+        }
+        if (($ga4['has_data'] ?? false) === true && ($m = $metric($ga4, 'sessions')) !== null && $m['value'] !== null) {
+            $rows[] = $this->kpi(__('operator_runtime.website.kpi.sessions'), $this->formatValue($m), $this->deltaLabel($m), 'ga4');
+        }
+
+        return $rows;
+    }
+
+    /** @param  array<string, mixed>  $metric */
+    private function formatValue(array $metric): string
+    {
+        [$thousands, $decimal] = app()->getLocale() === 'tr' ? ['.', ','] : [',', '.'];
+
+        return ($metric['format'] ?? 'number') === 'percent'
+            ? number_format((float) $metric['value'], 1, $decimal, $thousands).'%'
+            : number_format((float) $metric['value'], 0, $decimal, $thousands);
+    }
+
+    /** @param  array<string, mixed>  $metric */
+    private function deltaLabel(array $metric): ?string
+    {
+        $delta = $metric['delta'] ?? null;
+        if ($delta === null) {
+            return null;
+        }
+        [$thousands, $decimal] = app()->getLocale() === 'tr' ? ['.', ','] : [',', '.'];
+        $unit = ($metric['delta_kind'] ?? 'percent') === 'pp' ? ' pp' : '%';
+
+        return ($delta > 0 ? '+' : '').number_format((float) $delta, 1, $decimal, $thousands).$unit.' '.__('operator.period.vs').' '.mb_strtolower(__('operator.period.compare_previous'));
     }
 
     /** @return list<array{label:string,value:mixed,delta_label:?string,source:string}> */
