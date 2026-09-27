@@ -115,6 +115,7 @@ final class GoogleAdsAdvisorRuleEngine
                 'impressions' => $term['impressions'],
                 'low_intent' => $this->containsAny($term['term'], $lowIntent),
                 'pmax' => $term['pmax'],
+                'campaigns' => $this->searchCampaignNames($input, $term['campaign_ids'] ?? []),
             ];
             // A term that names one of the brand's services is relevant traffic that does not convert:
             // the fix is usually the page or the ad, not a negative. Listed separately, never in the paste list.
@@ -128,7 +129,7 @@ final class GoogleAdsAdvisorRuleEngine
         usort($review, static fn (array $a, array $b): int => $b['cost'] <=> $a['cost']);
         $exact = array_slice($exact, 0, (int) ($cfg['max_terms'] ?? 40));
 
-        $words = $this->negativeWords($terms, $brandTokens, $serviceTexts, $negatives, $cfg);
+        $words = $this->negativeWords($input, $terms, $brandTokens, $serviceTexts, $negatives, $cfg);
         if ($exact === [] && $words === []) {
             return $review === [] ? [] : [$this->serviceTermsItem($input, $review)];
         }
@@ -169,7 +170,7 @@ final class GoogleAdsAdvisorRuleEngine
     }
 
     /** Single words that only ever appear in non-converting terms (e.g. "ücretsiz", "staj"). */
-    private function negativeWords(array $terms, array $brandTokens, array $serviceTexts, array $negatives, array $cfg): array
+    private function negativeWords(array $input, array $terms, array $brandTokens, array $serviceTexts, array $negatives, array $cfg): array
     {
         $stop = array_map(static fn (string $w): string => SeoText::fold($w), (array) ($cfg['stop_words'] ?? []));
         $serviceTokens = [];
@@ -196,6 +197,9 @@ final class GoogleAdsAdvisorRuleEngine
                 } elseif ($term['clicks'] > 0) {
                     $wasted[$token]['terms'][] = $term['term'];
                     $wasted[$token]['cost'] = ($wasted[$token]['cost'] ?? 0.0) + $term['cost'];
+                    foreach ($term['campaign_ids'] ?? [] as $campaignId) {
+                        $wasted[$token]['campaign_ids'][(string) $campaignId] = true;
+                    }
                 }
             }
         }
@@ -209,7 +213,7 @@ final class GoogleAdsAdvisorRuleEngine
             if (count($data['terms']) < $minTerms || $data['cost'] < $minCost || $this->coveredByNegative($token, $negatives)) {
                 continue;
             }
-            $out[] = ['word' => $display[$token] ?? $token, 'terms' => count($data['terms']), 'examples' => array_slice($data['terms'], 0, 4), 'cost' => round($data['cost'], 2), 'cost_only_here' => 0.0];
+            $out[] = ['word' => $display[$token] ?? $token, 'terms' => count($data['terms']), 'examples' => array_slice($data['terms'], 0, 4), 'cost' => round($data['cost'], 2), 'cost_only_here' => 0.0, 'campaigns' => $this->searchCampaignNames($input, array_keys($data['campaign_ids'] ?? []))];
         }
         usort($out, static fn (array $a, array $b): int => $b['cost'] <=> $a['cost']);
 
@@ -255,7 +259,7 @@ final class GoogleAdsAdvisorRuleEngine
             if (array_intersect($term['statuses'], ['ADDED', 'ADDED_EXCLUDED', 'EXCLUDED']) !== [] || isset($existing[SeoText::fold($term['term'])])) {
                 continue;
             }
-            $rows[] = ['term' => $term['term'], 'conversions' => round($term['conversions'], 1), 'cost' => round($term['cost'], 2), 'clicks' => $term['clicks'], 'cpa' => round($term['cost'] / max(0.01, $term['conversions']), 2), 'pmax' => $term['pmax']];
+            $rows[] = ['term' => $term['term'], 'conversions' => round($term['conversions'], 1), 'cost' => round($term['cost'], 2), 'clicks' => $term['clicks'], 'cpa' => round($term['cost'] / max(0.01, $term['conversions']), 2), 'pmax' => $term['pmax'], 'target' => $this->singleAdGroup($input, $term['ad_group_ids'] ?? [])];
         }
         if ($rows === []) {
             return [];
@@ -783,6 +787,9 @@ final class GoogleAdsAdvisorRuleEngine
                     continue;
                 }
                 $grams[$gram]['terms'][$term['term']] = (float) $term['cost'];
+                foreach ($term['campaign_ids'] ?? [] as $campaignId) {
+                    $grams[$gram]['campaign_ids'][(string) $campaignId] = true;
+                }
             }
         }
         $minTerms = (int) ($cfg['min_terms'] ?? 3);
@@ -799,7 +806,7 @@ final class GoogleAdsAdvisorRuleEngine
             }
             $termSet = array_keys($data['terms']);
             sort($termSet);
-            $rows[] = ['phrase' => $display[$gram] ?? $gram, 'terms' => count($termSet), 'cost' => round($cost, 2), 'examples' => array_slice($termSet, 0, 4), 'term_set' => $termSet];
+            $rows[] = ['phrase' => $display[$gram] ?? $gram, 'terms' => count($termSet), 'cost' => round($cost, 2), 'examples' => array_slice($termSet, 0, 4), 'term_set' => $termSet, 'campaigns' => $this->searchCampaignNames($input, array_keys($data['campaign_ids'] ?? []))];
         }
         // A 3-word phrase that covers exactly the same terms as a 2-word one adds nothing: keep the shorter.
         usort($rows, static fn (array $a, array $b): int => [substr_count($a['phrase'], ' '), -$a['cost']] <=> [substr_count($b['phrase'], ' '), -$b['cost']]);
@@ -1284,6 +1291,59 @@ final class GoogleAdsAdvisorRuleEngine
     }
 
     /** @return list<string> */
+    /**
+     * Names of the search campaigns a term ran in, for a Google Ads Editor campaign-negative row. Performance Max
+     * campaigns are left out (their negatives are managed at account level).
+     *
+     * @param  list<string|int>  $campaignIds
+     * @return list<string>
+     */
+    private function searchCampaignNames(array $input, array $campaignIds): array
+    {
+        $names = [];
+        foreach ($campaignIds as $campaignId) {
+            $campaign = $input['campaigns'][(string) $campaignId] ?? null;
+            if (! is_array($campaign) || blank($campaign['name'] ?? null) || strtoupper((string) ($campaign['channel'] ?? '')) === 'PERFORMANCE_MAX') {
+                continue;
+            }
+            $names[] = (string) $campaign['name'];
+        }
+        $names = array_values(array_unique($names));
+        sort($names);
+
+        return $names;
+    }
+
+    /**
+     * The one search ad group a term came from (names only), so an Editor file can add it there; null when the
+     * term came from several ad groups or the names are not known.
+     *
+     * @param  list<string|int>  $adGroupIds
+     * @return array{campaign: string, ad_group: string}|null
+     */
+    private function singleAdGroup(array $input, array $adGroupIds): ?array
+    {
+        if (count($adGroupIds) !== 1) {
+            return null;
+        }
+        $adGroupId = (string) $adGroupIds[0];
+        $adGroupName = $input['ads']['ad_groups'][$adGroupId] ?? null;
+        $campaignId = null;
+        foreach (array_merge($input['ads']['items'] ?? [], $input['keywords'] ?? []) as $row) {
+            if ((string) ($row['ad_group_id'] ?? '') === $adGroupId && filled($row['campaign_id'] ?? null)) {
+                $campaignId = (string) $row['campaign_id'];
+
+                break;
+            }
+        }
+        $campaign = $campaignId !== null ? ($input['campaigns'][$campaignId] ?? null) : null;
+        if (blank($adGroupName) || ! is_array($campaign) || blank($campaign['name'] ?? null) || strtoupper((string) ($campaign['channel'] ?? '')) === 'PERFORMANCE_MAX') {
+            return null;
+        }
+
+        return ['campaign' => (string) $campaign['name'], 'ad_group' => (string) $adGroupName];
+    }
+
     private function brandTokens(array $input): array
     {
         $name = (string) ($input['asset']['brand_name'] ?? '');

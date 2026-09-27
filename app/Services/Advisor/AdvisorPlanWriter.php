@@ -98,6 +98,10 @@ final class AdvisorPlanWriter
                     'resolved_by' => null,
                     'baseline' => $reopened ? $candidate['baseline'] : $row->baseline,
                 ])->save();
+                if ($reopened && $row->exported_at !== null) {
+                    // A reopened item needs a fresh decision; its old Editor export no longer counts.
+                    $row->forceFill(['exported_at' => null, 'exported_by' => null])->save();
+                }
                 $updated++;
             }
 

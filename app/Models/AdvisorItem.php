@@ -90,6 +90,7 @@ class AdvisorItem extends Model
             'snoozed_until' => 'datetime',
             'outcome' => 'array',
             'measured_at' => 'datetime',
+            'exported_at' => 'datetime',
         ];
     }
 }

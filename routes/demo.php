@@ -86,6 +86,7 @@ use App\Livewire\Operator\Market\BacklinksPage;
 use App\Livewire\Operator\Market\CompetitorWatchPage;
 use App\Livewire\Operator\Market\MapRankingsPage;
 use App\Livewire\Operator\Meta\OverviewPage as MetaOverviewPage;
+use App\Livewire\Operator\Portfolio\BrandLeads;
 use App\Livewire\Operator\Portfolio\BrandSetupPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Operator\Portfolio\DiscoverAndGroupPage;
@@ -96,6 +97,7 @@ use App\Livewire\Operator\Reports\MonthlyReportsPage;
 use App\Livewire\Operator\Reports\ReportQueuePage;
 use App\Livewire\Operator\Sales\LeadInboxPage;
 use App\Livewire\Operator\Seo\SeoTasksIndex;
+use App\Livewire\Operator\Settings\AiQualityPage;
 use App\Livewire\Operator\Settings\CostsPage;
 use App\Livewire\Operator\Settings\KvkkPage;
 use App\Livewire\Operator\Settings\MethodLibraryPage;
@@ -196,6 +198,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/archive', ProductionArchivePage::class)->name('operator.archive');
         Route::livewire('/renewals', RenewalsPage::class)->name('operator.renewals');
         Route::livewire('/brands/{brand}/setup', BrandSetupPage::class)->name('operator.brand.setup');
+        Route::livewire('/brands/{brand}/leads', BrandLeads::class)->whereNumber('brand')->name('operator.brand.leads');
         Route::livewire('/tasks/{taskId}', TaskShow::class)->name('operator.task');
         Route::livewire('/work/{type}/{workId}', WorkShow::class)
             ->whereIn('type', WorkUrl::types())
@@ -224,6 +227,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/background-operations', BackgroundOperationsPage::class)->name('operator.settings.background-operations');
         Route::livewire('/settings/system-health', SystemHealthPage::class)->name('operator.settings.system-health');
         Route::livewire('/settings/costs', CostsPage::class)->name('operator.settings.costs');
+        Route::livewire('/settings/ai-quality', AiQualityPage::class)->name('operator.settings.ai-quality');
         Route::livewire('/settings/sector-packs', SectorPacksPage::class)->name('operator.settings.sector-packs');
         Route::livewire('/settings/push', PushSettingsPage::class)->name('operator.settings.push');
         Route::livewire('/settings/methods', MethodLibraryPage::class)->name('operator.settings.methods');

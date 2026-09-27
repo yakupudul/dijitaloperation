@@ -36,7 +36,7 @@ final class CommandCenter
         'alert' => 'Uyarı', 'advisor' => 'Danışman', 'seo' => 'SEO', 'site_fix' => 'Site düzeltmesi', 'brain' => 'Beyin önerisi',
         'compliance' => 'Uyum', 'lead' => 'Lead', 'system' => 'Sistem', 'approval' => 'Onay bekliyor', 'coverage' => 'Kurulum eksiği',
         'calendar' => 'İçerik takvimi', 'client_approval' => 'Müşteri onayı', 'followup' => 'Takip', 'invoice' => 'Tahsilat', 'commitment' => 'Taahhüt', 'task' => 'Görev',
-        'live' => 'Canlı doğrulama', 'data' => 'Veri şüpheli',
+        'live' => 'Canlı doğrulama', 'data' => 'Veri şüpheli', 'lead_outcome' => 'Lead sonucu',
     ];
 
     private const array SEVERITY_BASE = ['critical' => 1000, 'high' => 700, 'medium' => 400, 'low' => 150];
@@ -56,7 +56,7 @@ final class CommandCenter
     ];
 
     /** @var list<class-string<CommandCenterSource>> producers beyond the built-in readers */
-    public const array EXTRA_SOURCES = [CoverageSource::class, CalendarSource::class, AgencySource::class, TaskSource::class, VerificationSource::class];
+    public const array EXTRA_SOURCES = [CoverageSource::class, CalendarSource::class, AgencySource::class, TaskSource::class, VerificationSource::class, LeadOutcomeSource::class];
 
     public function __construct(private readonly AdvisorChannels $channels) {}
 
@@ -351,7 +351,10 @@ final class CommandCenter
 
         return AdvisorItem::query()->open()->with(['brand', 'digitalAsset'])->orderByDesc('priority_score')->limit(800)->get()
             ->map(fn (AdvisorItem $item): array => self::item('advisor', $item->id, (string) $item->severity, (string) $item->title, [
-                'detail' => $item->reason,
+                'detail' => $item->exported_at !== null
+                    ? $item->exported_at->timezone(config('app.timezone'))->format('d.m').' tarihinde dışa aktarıldı, Editor\'da yüklenmeyi bekliyor. '.$item->reason
+                    : $item->reason,
+                'exported_at' => $item->exported_at,
                 'brand_id' => $item->brand_id,
                 'brand' => $item->brand?->name,
                 'asset' => $item->digitalAsset?->name,

@@ -81,6 +81,20 @@
         </section>
     @endif
 
+    @if (is_array($payload['lead_quality'] ?? null))
+        @php
+            $lq = $payload['lead_quality'];
+            $lqLabels = \App\Models\LeadOutcome::STATUSES;
+        @endphp
+        <section class="mr-section">
+            <h2>Lead kalitesi</h2>
+            <p>Bu ay <strong>{{ $fmt($lq['total'], 'int') }}</strong> lead geldi; sonucu bilinen {{ $fmt($lq['marked'], 'int') }} leadin <strong>{{ $fmt($lq['qualified'], 'int') }}</strong> tanesi randevu ya da satışa döndü@if ($lq['qualified_rate'] !== null) (nitelikli oran <strong>%{{ $fmt($lq['qualified_rate'], 'decimal') }}</strong>)@endif.</p>
+            @if ($lq['cost_per_qualified'] !== null)<p>Nitelikli lead başı reklam maliyeti: <strong>{{ $fmt($lq['cost_per_qualified'], 'money') }}</strong>@if ($lq['cost_per_lead'] !== null) <span class="mr-muted">(lead başı {{ $fmt($lq['cost_per_lead'], 'money') }})</span>@endif</p>@endif
+            @if ($lq['value'] > 0)<p>Bildirilen satış değeri: <strong>{{ $fmt($lq['value'], 'money') }} ₺</strong></p>@endif
+            <p class="mr-muted">@foreach (array_filter($lq['by_status']) as $key => $count){{ $lqLabels[$key] ?? $key }}: {{ $count }}@if (! $loop->last) · @endif @endforeach</p>
+        </section>
+    @endif
+
     @if (($payload['local']['grid'] ?? []) !== [] || ($payload['local']['reviews'] ?? null) !== null)
         <section class="mr-section">
             <h2>Yerel görünürlük</h2>
