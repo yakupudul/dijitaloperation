@@ -1,5 +1,23 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-21 — İşletme Profili günlük çalışma alanı, yorum toplama düzeltmesi
+
+- **Why reviews were missing (root causes).** Reviews, media and posts are read from the legacy v4 API (`mybusiness.googleapis.com/v4/accounts/{a}/locations/{l}/…`), which needs the account id. A location discovered through the wildcard route (`accounts/-`) is stored as `locations/{id}` without `parent_external_id`.
+  - The collector re-resolved the account on every run through the Account Management API and **never stored it**, so the ADR-073 writes (`GbpWriter::location`) kept failing with "Konumun hesap bilgisi yok" even after collection.
+  - In the "Verileri yenile" path (`GoogleBusinessProfileBoundCollector::collect`) a failing account lookup was **not caught** and failed the whole run.
+  - When Google refused reviews (v4 needs an approved Business Profile API access project + "Google My Business API" enabled; otherwise HTTP 403 `PERMISSION_DENIED` / `SERVICE_DISABLED`), the reason stayed in run metadata in English; the Yorumlar tab only said "Henüz yorum verisi toplanmadı".
+  - GBP content retention purges review rows 30 days after `collected_at`; a location whose collection stops loses its reviews.
+- **Fix.** The resolved account is saved on the location (`parent_external_id`); account-lookup failures no longer fail the run and are reported with the v4 datasets. Reviews are collected daily (resource automation, `interval_days` 1) and **incrementally** (`orderBy=updateTime desc`, stop at the newest stored review minus one day), with a full pass every `moxdop-gbp-collector.reviews_full_sync_days` (3) days that also refreshes `collected_at` against the 30-day purge and picks up replies written on Google. `GbpDailyWorkspace::reviewAccess()` turns the last `gbp_reviews` result into Turkish ("Google bu hesap için yorum erişimi vermedi (API onayı gerekli)…", account API off, 401, 404, 429, time budget), shown on Özet and Yorumlar with the raw Google message.
+- **Asset page tabs** (`/assets/gbp/{id}`): Özet · Yorumlar · Gönderiler · Performans · Profil sağlığı · Yorum toplama · Danışman.
+  - Yorumlar: unanswered first, rating filter (1–2 / 3 / 4–5), "yalnız yanıtsız", age and "48 saati geçti", AI reply draft (existing drafter), own reply, "Google'a gönder" (Admin, ADR-073 `requestReviewReply`), write status / error, "Geri al" (undo), median reply time, link to the open low-rating alert, competitor review comparison when DataForSEO review intel exists.
+  - Gönderiler: calendar posts of the profile + posts collected from Google, weekly rhythm hint ("Son gönderi N gün önce; haftada 1 önerilir"), "Yeni gönderi" form (title, text, button, URL, time), AI draft (`GbpPostDrafter` / `GbpPostAgent`, route `gbp.post_draft`, archived as `gbp.post`, queued job) → "Forma aktar"; "Takvime kaydet" (anyone), "Onayla ve zamanla" / "Şimdi yayınla" / "Onayla" (Admin), "Geri al" deletes the post and returns the calendar item to draft. A post Google refuses is marked failed with the reason (page, publisher, write service).
+  - Performans: existing metrics with period compare and search keywords.
+  - Profil sağlığı: read-only checklist (categories, description, hours, special hours, phone, website, photos + cover/logo, attributes, services) with Turkish to-dos and a link to business.google.com. Nothing is written to the profile.
+  - Yorum toplama: `https://search.google.com/local/writereview?placeid=…` with copy button and an inline SVG QR code (chillerlan/php-qrcode, already installed; skipped when absent).
+- **Komuta merkezi** (`GbpSource`, source `gbp`): reviews waiting > 48 h (hidden while the low-rating alert is open), no post for 14 days and none planned, reviews Google refuses, profile gaps when the advisor has no open "profile-gaps" item. TopicCatalog topics `gbp:*`.
+- **Google access the operator needs:** a Cloud project approved for the Business Profile APIs (access request form), with "Google My Business API" (v4: reviews, replies, posts, media), My Business Account Management, Business Information, Business Profile Performance enabled; the connected Google user must be owner/manager of the location.
+- **State:** CODED + PHPUnit (SQLite: `GbpReviewCollectionTest`, `GbpWorkspaceTabsTest`, `GbpCommandCenterTest`). **No live UAT** against a real approved GBP project.
+
 ## 2026-10-20 — Varlık sahipliği ve yetki devri
 
 - **One ownership rule (`App\Services\Ownership\OwnershipGuard`).** An external account (Google / Meta resource) or a digital asset belongs to one customer at a time.

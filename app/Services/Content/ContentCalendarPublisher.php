@@ -42,6 +42,10 @@ final class ContentCalendarPublisher
                         'summary' => trim($item->title."\n\n".$item->body), 'url' => $item->url, 'action_type' => $item->action_type, 'calendar_id' => $item->id,
                     ]);
                     $item->forceFill(['write_action_id' => $action->id, 'error' => null])->save();
+                    // A queue that runs the write at once can finish before write_action_id was set; keep the failure visible.
+                    if ($action->refresh()->status === 'failed') {
+                        $item->forceFill(['status' => 'failed', 'error' => mb_substr((string) $action->error, 0, 300)])->save();
+                    }
                     $count++;
                 } catch (Throwable $error) {
                     $message = $error instanceof ValidationException ? (string) collect($error->errors())->flatten()->first() : $error->getMessage();

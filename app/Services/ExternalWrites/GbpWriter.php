@@ -68,6 +68,9 @@ final class GbpWriter
         }
         $name = (string) ($result['post'] ?? '');
         $this->call($integration, 'delete', self::BASE.$name);
+        // The calendar item goes back to draft: it can be edited and approved again.
+        DB::table('content_calendar_items')->where('external_ref', $name)->update(['status' => 'draft', 'published_at' => null, 'external_ref' => null,
+            'write_action_id' => null, 'approved_by' => null, 'error' => 'Gönderi Google’dan geri alındı.', 'updated_at' => now()]);
 
         return ['deleted' => $name];
     }

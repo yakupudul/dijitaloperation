@@ -30,6 +30,7 @@ final class ProductionArchive
         'brand_setup.proposal' => 'Marka kurulum önerisi',
         'report.monthly_commentary' => 'Aylık rapor yorumu',
         'gbp.review_reply' => 'Yorum yanıt taslağı',
+        'gbp.post' => 'İşletme Profili gönderisi',
         'advisor.explain' => 'Danışman açıklaması',
         'google_ads.search_term_triage' => 'Arama terimi incelemesi',
         'meta.geo_results' => 'Meta hizmet × bölge × kitle',

@@ -25,6 +25,9 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
 
     private bool $transientFailure = false;
 
+    /** Why the v4 account context could not be resolved in this collection (shown with the v4 datasets). */
+    private ?string $accountError = null;
+
     private const string CAPABILITY = 'google_business_profile';
 
     private const string LOCATION_READ_MASK = 'name,languageCode,storeCode,title,phoneNumbers,categories,storefrontAddress,websiteUri,regularHours,specialHours,serviceArea,labels,adWordsLocationExtensions,latlng,openInfo,metadata,profile,relationshipData,moreHours,serviceItems';
@@ -62,6 +65,7 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
     public function collect(CoreAssetBinding $binding): Run
     {
         $this->stepDeadline = null;
+        $this->accountError = null;
         $scope = $this->guard->assertCollectable($binding, self::CAPABILITY);
         $asset = $scope['asset'];
         $resource = $scope['resource'];
@@ -119,7 +123,11 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
                 fn (): array => $this->collectSearchKeywords($run, $resource, $integration, $locationName)
             );
 
-            $accountName = $this->resolveAccountName($resource, $integration, $locationName);
+            // Account resolution failing (Account Management API off, no access) must not fail the run: only the
+            // v4 datasets (reviews, media, posts) need it, and they report the cause themselves.
+            $account = $this->captureOptional(fn (): array => ['name' => $this->resolveAccountName($resource, $integration, $locationName)]);
+            $accountName = $account['payload']['name'] ?? null;
+            $this->accountError = $account['error'];
 
             $reviewResult = $this->captureDataset(
                 'gbp_reviews',
@@ -202,6 +210,7 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
         }
         $this->stepDeadline = microtime(true) + 180;
         $this->transientFailure = false;
+        $this->accountError = null;
         $locationName = $this->locationName((string) $resource->external_id);
         $datasets = data_get($run->metadata, 'datasets', []);
         $steps = ['gbp_location', 'gbp_performance_daily', 'gbp_search_keywords_monthly',
@@ -461,9 +470,18 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
         $rows = 0;
         $averageRating = null;
         $totalReviewCount = null;
+        // Daily collection is incremental: Google lists reviews newest-updated first, so paging stops once a page
+        // reaches reviews older than the newest one already stored (one day of overlap). A full pass every few days
+        // also picks up replies written on Google to older reviews.
+        $storedUntil = DB::table('gbp_reviews')->where('external_resource_id', $resource->id)->max('update_time');
+        $lastFull = data_get($resource->metadata, 'gbp_reviews_full_sync_at');
+        $fullEvery = max(1, (int) config('moxdop-gbp-collector.reviews_full_sync_days', 3));
+        $incremental = $storedUntil !== null && is_string($lastFull) && CarbonImmutable::parse($lastFull)->gt(now()->subDays($fullEvery));
+        $stopBefore = $incremental ? CarbonImmutable::parse((string) $storedUntil)->subDay() : null;
+        $reachedStored = false;
 
         do {
-            $query = ['pageSize' => 50];
+            $query = ['pageSize' => 50, 'orderBy' => 'updateTime desc'];
             if ($pageToken !== null) {
                 $query['pageToken'] = $pageToken;
             }
@@ -513,15 +531,26 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
                     ]
                 );
                 $rows++;
+                $updated = $this->timestamp($review['updateTime'] ?? null);
+                if ($stopBefore !== null && $updated !== null && $updated->lt($stopBefore)) {
+                    $reachedStored = true;
+                }
             }
 
             $next = $payload['nextPageToken'] ?? null;
-            $pageToken = is_string($next) && $next !== '' ? $next : null;
+            $pageToken = is_string($next) && $next !== '' && ! $reachedStored ? $next : null;
         } while ($pageToken !== null && $page < 200);
+
+        if (! $incremental && $pageToken === null) {
+            $resource->forceFill(['metadata' => array_merge(is_array($resource->metadata) ? $resource->metadata : [], [
+                'gbp_reviews_full_sync_at' => now()->toIso8601String(),
+            ])])->save();
+        }
 
         return [
             'partial' => $pageToken !== null,
             'reason' => $pageToken !== null ? 'GBP pagination limit reached.' : null,
+            'mode' => $incremental ? 'incremental' : 'full',
             'rows' => $rows,
             'average_rating' => $averageRating,
             'total_review_count' => $totalReviewCount,
@@ -952,6 +981,17 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
         if (preg_match('#^(accounts/[^/]+)/locations/[^/]+$#', (string) $resource->external_id, $match) === 1) {
             return $match[1];
         }
+        $found = $this->findAccountName($integration, $locationName);
+        if ($found !== null) {
+            // Remembered on the location: the next collection and the ADR-073 writes (reply, post) need it.
+            $resource->forceFill(['parent_external_id' => $found])->save();
+        }
+
+        return $found;
+    }
+
+    private function findAccountName(CoreIntegration $integration, string $locationName): ?string
+    {
 
         $accountsPayload = $this->request(
             $integration,
@@ -1009,7 +1049,8 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
     private function v4Parent(?string $accountName, string $locationName): string
     {
         if ($accountName === null || ! str_starts_with($accountName, 'accounts/')) {
-            throw new RuntimeException('GBP account context could not be resolved for v4 reviews/media/posts.');
+            throw new RuntimeException('GBP account context could not be resolved for v4 reviews/media/posts.'
+                .($this->accountError !== null ? ' '.$this->accountError : ''));
         }
         $accountId = trim(substr($accountName, strlen('accounts/')));
         $locationId = $this->locationId($locationName);

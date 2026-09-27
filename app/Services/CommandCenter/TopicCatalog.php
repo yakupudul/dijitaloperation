@@ -26,7 +26,7 @@ final class TopicCatalog
         'brain' => ['seo', 'opportunity'], 'compliance' => ['site', 'urgent'], 'lead' => ['client', 'urgent'], 'system' => ['system', 'urgent'],
         'approval' => ['system', 'week'], 'coverage' => ['system', 'week'], 'calendar' => ['client', 'week'], 'client_approval' => ['client', 'week'],
         'followup' => ['client', 'urgent'], 'invoice' => ['client', 'urgent'], 'commitment' => ['client', 'week'], 'task' => ['client', 'week'],
-        'live' => ['system', 'urgent'], 'data' => ['system', 'week'], 'lead_outcome' => ['client', 'week'],
+        'live' => ['system', 'urgent'], 'data' => ['system', 'week'], 'lead_outcome' => ['client', 'week'], 'gbp' => ['seo', 'week'],
     ];
 
     /** Areas of alert kinds (alerts sit on every channel). */
@@ -173,6 +173,10 @@ final class TopicCatalog
         'data:conversion_divergence' => ['Ads ve GA4 dönüşümleri tutmuyor', 'week', 'Google Ads ve GA4 dönüşüm sayıları çok farklı. Dönüşüm işlemlerini ve sayım ayarını kontrol edin.'],
         'data:missing_days' => ['Eksik veri günleri', 'week', 'Bazı günlerin verisi eksik; raporlar eksik görünebilir. Veri merkezi\'nden yeniden toplayın.'],
         'data:currency_mismatch' => ['Para birimi uyuşmuyor', 'week', 'Hesabın para birimi beklenenden farklı; tutarlar yanlış görünebilir.'],
+        'gbp:reviews_unanswered' => ['Yanıt bekleyen yorumlar', 'week', 'İşletme Profili yorumları 48 saatten uzun süredir yanıtsız. Hızlı yanıt hem müşteri güvenini hem yerel sıralamayı destekler; profil sayfasının Yorumlar sekmesinde AI taslağıyla yanıtlayıp Admin onayıyla Google’a gönderin.'],
+        'gbp:no_recent_post' => ['Profil gönderisi yok', 'opportunity', 'İki haftadır gönderi yayınlanmadı ve planlı gönderi de yok. Haftada 1 gönderi profili canlı tutar; Gönderiler sekmesinden AI taslağıyla planlayın.'],
+        'gbp:reviews_access' => ['Yorumlar toplanamıyor', 'week', 'Google bu profilin yorumlarını vermiyor (çoğunlukla API erişim onayı ya da hesap yetkisi). Yorumlar sekmesindeki nedeni okuyup Google Cloud / hesap tarafında düzeltin.'],
+        'gbp:profile_gaps' => ['Profil eksikleri', 'week', 'Toplanan profil verisinde eksikler var (kategori, açıklama, saatler, fotoğraf…). Profil sağlığı sekmesindeki listeyi Google İşletme Profili’nde tamamlayın.'],
         'lead_outcome' => ['Lead sonucu girilmedi', 'week', 'Müşteri lead\'lerinin sonucu (randevu, satış, geçersiz) işaretlenmedi. Nitelikli lead başı maliyet buna göre hesaplanır.'],
     ];
 

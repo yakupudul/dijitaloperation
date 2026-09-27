@@ -34,6 +34,7 @@ final class AiUsageRecorder
         'MonthlyReportCommentaryAgent' => AiRouteKeys::MONTHLY_REPORT_COMMENTARY,
         'AiVisibilityProbeAgent' => AiRouteKeys::AI_VISIBILITY_PROBE,
         'ReviewReplyAgent' => AiRouteKeys::GBP_REVIEW_REPLY,
+        'GbpPostAgent' => AiRouteKeys::GBP_POST_DRAFT,
         'AdvisorExplainAgent' => AiRouteKeys::INSIGHT_ADVISOR_EXPLAIN,
         'SearchTermTriageAgent' => AiRouteKeys::INSIGHT_SEARCH_TERM_TRIAGE,
         'MetaGeoAgent' => AiRouteKeys::INSIGHT_META_GEO,
