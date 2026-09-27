@@ -97,6 +97,7 @@ use App\Livewire\Operator\Reports\MonthlyReportsPage;
 use App\Livewire\Operator\Reports\ReportQueuePage;
 use App\Livewire\Operator\Sales\LeadInboxPage;
 use App\Livewire\Operator\Seo\SeoTasksIndex;
+use App\Livewire\Operator\Settings\AiQualityPage;
 use App\Livewire\Operator\Settings\CostsPage;
 use App\Livewire\Operator\Settings\KvkkPage;
 use App\Livewire\Operator\Settings\MethodLibraryPage;
@@ -226,6 +227,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/background-operations', BackgroundOperationsPage::class)->name('operator.settings.background-operations');
         Route::livewire('/settings/system-health', SystemHealthPage::class)->name('operator.settings.system-health');
         Route::livewire('/settings/costs', CostsPage::class)->name('operator.settings.costs');
+        Route::livewire('/settings/ai-quality', AiQualityPage::class)->name('operator.settings.ai-quality');
         Route::livewire('/settings/sector-packs', SectorPacksPage::class)->name('operator.settings.sector-packs');
         Route::livewire('/settings/push', PushSettingsPage::class)->name('operator.settings.push');
         Route::livewire('/settings/methods', MethodLibraryPage::class)->name('operator.settings.methods');
