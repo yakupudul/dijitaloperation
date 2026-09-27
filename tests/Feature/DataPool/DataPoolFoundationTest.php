@@ -52,8 +52,8 @@ class DataPoolFoundationTest extends TestCase
 
         $registry = app(DataPoolStorageRegistry::class);
         $this->assertSame('MOXDOP_DATA_POOL_STORAGE', $registry->metadata()['storage_contract_id']);
-        $this->assertCount(66, $registry->dispositions());
-        $this->assertCount(54, $registry->physicalDatasets());
+        $this->assertCount(118, $registry->dispositions());
+        $this->assertCount(106, $registry->physicalDatasets());
         $this->assertFalse($registry->hasPhysicalTable('ga4_event_source_medium_daily'));
     }
 
@@ -169,6 +169,7 @@ class DataPoolFoundationTest extends TestCase
                 batchKey: $batchKey,
                 records: [[
                     'digital_asset_id' => 42,
+                    'external_resource_id' => 42,
                     'property_id' => 'properties/123',
                     'reporting_date' => '2026-08-01',
                     'sessions' => $sessions,
@@ -210,6 +211,7 @@ class DataPoolFoundationTest extends TestCase
             records: [
                 [
                     'digital_asset_id' => 7,
+                    'external_resource_id' => 7,
                     'account_id' => 'act_1',
                     'reporting_date' => '2026-08-02',
                     'entity_level' => 'ad',
@@ -220,6 +222,7 @@ class DataPoolFoundationTest extends TestCase
                 ],
                 [
                     'digital_asset_id' => 7,
+                    'external_resource_id' => 7,
                     'account_id' => 'act_1',
                     'reporting_date' => '2026-08-02',
                     'entity_level' => 'ad',
@@ -260,6 +263,7 @@ class DataPoolFoundationTest extends TestCase
             batchKey: 'money-1',
             records: [[
                 'digital_asset_id' => 1,
+                'external_resource_id' => 1,
                 'account_id' => 'act_1',
                 'reporting_date' => '2026-08-03',
                 'ad_id' => '999999999999999999', // large string ID
@@ -277,7 +281,7 @@ class DataPoolFoundationTest extends TestCase
         $this->assertSame('999999999999999999', (string) DB::table('meta_ad_daily')->value('ad_id'));
         $this->assertSame(0, (int) DB::table('meta_ad_daily')->value('clicks'));
         // Exact decimal semantics: no float drift when re-read as string decimal input.
-        $this->assertTrue(bccomp((string) DB::table('meta_ad_daily')->value('spend'), '10.50', 6) === 0);
+        $this->assertMatchesRegularExpression('/^10\.50*$/', (string) DB::table('meta_ad_daily')->value('spend'));
 
         $this->expectException(\InvalidArgumentException::class);
         $writer->write(new NormalizedDatasetBatch(
@@ -287,6 +291,7 @@ class DataPoolFoundationTest extends TestCase
             batchKey: 'money-float',
             records: [[
                 'digital_asset_id' => 1,
+                'external_resource_id' => 1,
                 'account_id' => 'act_1',
                 'reporting_date' => '2026-08-04',
                 'ad_id' => '1',
@@ -319,9 +324,11 @@ class DataPoolFoundationTest extends TestCase
             batchKey: 'q1',
             records: [[
                 'digital_asset_id' => 5,
+                'external_resource_id' => 5,
                 'site_url' => 'https://example.com/',
                 'reporting_date' => '2026-08-05',
                 'query' => 'moxdop',
+                'search_type' => 'web',
                 'clicks' => 0,
                 'impressions' => 4,
             ]],
@@ -358,6 +365,7 @@ class DataPoolFoundationTest extends TestCase
             batchKey: 'cp-1',
             records: [[
                 'digital_asset_id' => 3,
+                'external_resource_id' => 3,
                 'property_id' => 'properties/9',
                 'reporting_date' => '2026-08-06',
                 'sessions' => 1,
@@ -447,6 +455,7 @@ class DataPoolFoundationTest extends TestCase
             batchKey: 'retry-1',
             records: [[
                 'digital_asset_id' => 8,
+                'external_resource_id' => 8,
                 'property_id' => 'properties/8',
                 'reporting_date' => '2026-08-07',
                 'sessions' => 5,
@@ -502,6 +511,7 @@ class DataPoolFoundationTest extends TestCase
             batchKey: 'retry-after-failure',
             records: [[
                 'digital_asset_id' => 77,
+                'external_resource_id' => 77,
                 'property_id' => 'properties/retry',
                 'reporting_date' => '2026-08-08',
                 'sessions' => 5,
@@ -551,6 +561,7 @@ class DataPoolFoundationTest extends TestCase
             batchKey: 'retry-after-pending',
             records: [[
                 'digital_asset_id' => 78,
+                'external_resource_id' => 78,
                 'property_id' => 'properties/pending',
                 'reporting_date' => '2026-08-09',
                 'sessions' => 7,
@@ -587,6 +598,7 @@ class DataPoolFoundationTest extends TestCase
             records: [
                 [
                     'digital_asset_id' => 2,
+                    'external_resource_id' => 2,
                     'customer_id' => '1112223333',
                     'ad_group_id' => '1',
                     'criterion_id' => '999',
@@ -595,6 +607,7 @@ class DataPoolFoundationTest extends TestCase
                 ],
                 [
                     'digital_asset_id' => 2,
+                    'external_resource_id' => 2,
                     'customer_id' => '1112223333',
                     'ad_group_id' => '2',
                     'criterion_id' => '999',
@@ -631,6 +644,7 @@ class DataPoolFoundationTest extends TestCase
             records: [
                 [
                     'digital_asset_id' => 2,
+                    'external_resource_id' => 2,
                     'customer_id' => '1112223333',
                     'ad_group_id' => '2',
                     'criterion_id' => '999',
@@ -639,6 +653,7 @@ class DataPoolFoundationTest extends TestCase
                 ],
                 [
                     'digital_asset_id' => 2,
+                    'external_resource_id' => 2,
                     'customer_id' => '1112223333',
                     'ad_group_id' => '2',
                     'criterion_id' => '999',
@@ -687,6 +702,7 @@ class DataPoolFoundationTest extends TestCase
             records: [
                 [
                     'digital_asset_id' => 2,
+                    'external_resource_id' => 2,
                     'customer_id' => '1112223333',
                     'ad_group_id' => '2',
                     'criterion_id' => '999',
@@ -722,6 +738,7 @@ class DataPoolFoundationTest extends TestCase
             records: [
                 [
                     'digital_asset_id' => 2,
+                    'external_resource_id' => 2,
                     'customer_id' => '1112223333',
                     'ad_group_id' => '1',
                     'criterion_id' => '999',
@@ -730,6 +747,7 @@ class DataPoolFoundationTest extends TestCase
                 ],
                 [
                     'digital_asset_id' => 2,
+                    'external_resource_id' => 2,
                     'customer_id' => '1112223333',
                     'ad_group_id' => '2',
                     'criterion_id' => '999',
@@ -762,6 +780,7 @@ class DataPoolFoundationTest extends TestCase
                 records: [
                     [
                         'digital_asset_id' => 2,
+                        'external_resource_id' => 2,
                         'customer_id' => '1112223333',
                         'ad_group_id' => '2',
                         'criterion_id' => '999',
@@ -801,6 +820,7 @@ class DataPoolFoundationTest extends TestCase
         $writer = app(PostgresWarehouseWriter::class);
         $base = [
             'digital_asset_id' => 11,
+            'external_resource_id' => 11,
             'url' => 'https://example.com/',
             'metadata' => ['status_code' => 200],
         ];
@@ -849,9 +869,11 @@ class DataPoolFoundationTest extends TestCase
         for ($i = 0; $i < 200; $i++) {
             $records[] = [
                 'digital_asset_id' => 2,
+                'external_resource_id' => 2,
                 'site_url' => 'https://example.com/',
                 'reporting_date' => '2026-08-08',
                 'query' => 'q'.$i,
+                'search_type' => 'web',
                 'clicks' => $i,
                 'impressions' => $i + 1,
             ];

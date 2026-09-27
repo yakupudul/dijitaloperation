@@ -32,7 +32,9 @@ final class ResourceAutomationRecoveryTest extends TestCase
 
     public function test_new_accounts_start_without_id_based_delay_and_respect_capacity(): void
     {
-        CoreExternalResource::factory()->count(3)->create(['resource_type' => 'google_ads']);
+        // Only accounts bound to an operational asset pass the portfolio gate.
+        CoreExternalResource::factory()->count(3)->create(['resource_type' => 'google_ads'])
+            ->each(fn (CoreExternalResource $resource) => $this->bindToActiveAsset($resource));
         app(ResourceAutomationService::class)->tick();
         Queue::assertPushed(ResourceCollectionJob::class, 2);
         $this->assertSame(2, ResourceAutomation::query()->where('collection_status', 'planning')->count());
@@ -95,6 +97,7 @@ final class ResourceAutomationRecoveryTest extends TestCase
     {
         $resources = CoreExternalResource::factory()->count(2)->create(['resource_type' => 'google_ads']);
         foreach ($resources as $index => $resource) {
+            $this->bindToActiveAsset($resource);
             ResourceAutomation::query()->create([
                 'external_resource_id' => $resource->id, 'next_collection_at' => now()->addHours(20),
                 'collection_error' => $index === 0 ? null : 'collection_failed',
@@ -170,6 +173,7 @@ final class ResourceAutomationRecoveryTest extends TestCase
         // These older due rows must not hide the Ads candidates behind the per-tick limit.
         CoreExternalResource::factory()->count(12)->create(['resource_type' => 'ga4']);
         $ads = CoreExternalResource::factory()->count(3)->create(['resource_type' => 'google_ads']);
+        $ads->each(fn (CoreExternalResource $resource) => $this->bindToActiveAsset($resource));
         $service->tick();
         Queue::assertPushed(ResourceCollectionJob::class, 2);
         $plannedIds = ResourceAutomation::query()->where('collection_status', 'planning')->pluck('external_resource_id')->all();
@@ -189,6 +193,7 @@ final class ResourceAutomationRecoveryTest extends TestCase
             ]);
         }
         $ga4 = CoreExternalResource::factory()->create(['resource_type' => 'ga4']);
+        $this->bindToActiveAsset($ga4);
         app(ResourceAutomationService::class)->tick();
         Queue::assertPushed(ResourceCollectionJob::class, 1);
         $this->assertSame('planning', ResourceAutomation::query()->where('external_resource_id', $ga4->id)->first()->collection_status);

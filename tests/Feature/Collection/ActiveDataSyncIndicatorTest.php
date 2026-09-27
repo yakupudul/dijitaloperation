@@ -38,6 +38,9 @@ final class ActiveDataSyncIndicatorTest extends TestCase
         CollectionDatasetRun::factory()->create([
             'collection_run_id' => $running->collection_run_id,
             'collection_resource_run_id' => $running->collection_resource_run_id,
+            // A dependent dataset of the same resource run (dataset runs are unique per dataset/family).
+            'dataset_contract_id' => 'ga4_property_daily',
+            'request_family_id' => 'GA4_RF_PROPERTY_DAILY',
             'last_activity_at' => now()->subHours(3),
             'depends_on_dataset_run_ids' => [$running->id],
         ]);

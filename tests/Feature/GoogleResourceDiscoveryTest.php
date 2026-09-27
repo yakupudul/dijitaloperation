@@ -37,6 +37,8 @@ class GoogleResourceDiscoveryTest extends TestCase
     {
         parent::setUp();
         $this->seed(RoleAndPermissionSeeder::class);
+        // Discovery must never reach real Google endpoints from tests.
+        Http::preventStrayRequests();
 
         config([
             'app.url' => 'http://127.0.0.1:8000',
@@ -126,7 +128,7 @@ class GoogleResourceDiscoveryTest extends TestCase
                 ], 200),
             'https://www.googleapis.com/webmasters/v3/sites' => Http::response(['siteEntry' => []], 200),
             GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers') => Http::response(['resourceNames' => []], 200),
-            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts' => Http::response(['accounts' => []], 200),
+            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts*' => Http::response(['accounts' => []], 200),
             'https://mybusinessbusinessinformation.googleapis.com/v1/*' => Http::response(['locations' => []], 200),
         ]);
 
@@ -168,7 +170,7 @@ class GoogleResourceDiscoveryTest extends TestCase
                 ], 200),
             'https://www.googleapis.com/webmasters/v3/sites' => Http::response(['siteEntry' => []], 200),
             GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers') => Http::response(['resourceNames' => []], 200),
-            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts' => Http::response(['accounts' => []], 200),
+            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts*' => Http::response(['accounts' => []], 200),
             'https://mybusinessbusinessinformation.googleapis.com/v1/*' => Http::response(['locations' => []], 200),
         ]);
 
@@ -191,7 +193,7 @@ class GoogleResourceDiscoveryTest extends TestCase
             ], 200),
             'https://analyticsadmin.googleapis.com/v1beta/accountSummaries*' => Http::response(['accountSummaries' => []], 200),
             GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers') => Http::response(['resourceNames' => []], 200),
-            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts' => Http::response(['accounts' => []], 200),
+            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts*' => Http::response(['accounts' => []], 200),
             'https://mybusinessbusinessinformation.googleapis.com/v1/*' => Http::response(['locations' => []], 200),
         ]);
 
@@ -310,10 +312,12 @@ class GoogleResourceDiscoveryTest extends TestCase
                 ]],
             ], 200),
             GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers') => Http::response(['resourceNames' => []], 200),
-            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts' => Http::response([
+            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts*' => Http::response([
                 'accounts' => [['name' => 'accounts/gbp1', 'accountName' => 'GBP Acct']],
             ], 200),
-            'https://mybusinessbusinessinformation.googleapis.com/v1/accounts/-/locations*' => Http::sequence()
+            // Locations are listed per concrete account (paginated), then via the accounts/- wildcard.
+            'https://mybusinessbusinessinformation.googleapis.com/v1/accounts/-/locations*' => Http::response(['locations' => []], 200),
+            'https://mybusinessbusinessinformation.googleapis.com/v1/accounts/gbp1/locations*' => Http::sequence()
                 ->push([
                     'locations' => [[
                         'name' => 'locations/loc-1',
@@ -355,7 +359,7 @@ class GoogleResourceDiscoveryTest extends TestCase
                 ]],
             ], 200),
             GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers') => Http::response(['resourceNames' => []], 200),
-            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts' => Http::response([], 403),
+            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts*' => Http::response([], 403),
         ]);
 
         $result = app(DiscoverGoogleResourcesService::class)->discover($this->freshIntegration());
@@ -388,7 +392,7 @@ class GoogleResourceDiscoveryTest extends TestCase
             'https://www.googleapis.com/webmasters/v3/sites' => Http::response(['siteEntry' => []], 200),
             'https://analyticsadmin.googleapis.com/v1beta/accountSummaries*' => Http::response(['accountSummaries' => []], 200),
             GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers') => Http::response(['resourceNames' => []], 200),
-            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts' => Http::response(['accounts' => []], 200),
+            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts*' => Http::response(['accounts' => []], 200),
             'https://mybusinessbusinessinformation.googleapis.com/v1/*' => Http::response(['locations' => []], 200),
         ]);
 
@@ -425,7 +429,7 @@ class GoogleResourceDiscoveryTest extends TestCase
                 ->push(['error' => 'boom'], 500),
             'https://www.googleapis.com/webmasters/v3/sites' => Http::response([], 500),
             GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers') => Http::response(['resourceNames' => []], 200),
-            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts' => Http::response(['accounts' => []], 200),
+            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts*' => Http::response(['accounts' => []], 200),
             'https://mybusinessbusinessinformation.googleapis.com/v1/*' => Http::response(['locations' => []], 200),
         ]);
 
@@ -463,7 +467,7 @@ class GoogleResourceDiscoveryTest extends TestCase
             ], 200),
             'https://www.googleapis.com/webmasters/v3/sites' => Http::response(['siteEntry' => []], 200),
             GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers') => Http::response(['resourceNames' => []], 200),
-            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts' => Http::response(['accounts' => []], 200),
+            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts*' => Http::response(['accounts' => []], 200),
             'https://mybusinessbusinessinformation.googleapis.com/v1/*' => Http::response(['locations' => []], 200),
         ]);
 
@@ -489,7 +493,7 @@ class GoogleResourceDiscoveryTest extends TestCase
             'https://www.googleapis.com/webmasters/v3/sites' => Http::response([], 500),
             'https://analyticsadmin.googleapis.com/v1beta/accountSummaries*' => Http::response([], 500),
             GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers') => Http::response([], 500),
-            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts' => Http::response([], 500),
+            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts*' => Http::response([], 500),
         ]);
 
         $before = CoreExternalResource::query()->count();
@@ -513,7 +517,7 @@ class GoogleResourceDiscoveryTest extends TestCase
             'https://www.googleapis.com/webmasters/v3/sites' => Http::response(['siteEntry' => []], 200),
             'https://analyticsadmin.googleapis.com/v1beta/accountSummaries*' => Http::response(['accountSummaries' => []], 200),
             GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers') => Http::response(['resourceNames' => []], 200),
-            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts' => Http::response(['accounts' => []], 200),
+            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts*' => Http::response(['accounts' => []], 200),
             'https://mybusinessbusinessinformation.googleapis.com/v1/*' => Http::response(['locations' => []], 200),
         ]);
 
@@ -554,7 +558,7 @@ class GoogleResourceDiscoveryTest extends TestCase
 
         Http::fake([
             'https://analyticsadmin.googleapis.com/v1beta/accountSummaries*' => Http::response(['accountSummaries' => []], 200),
-            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts' => Http::response(['accounts' => []], 200),
+            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts*' => Http::response(['accounts' => []], 200),
             'https://mybusinessbusinessinformation.googleapis.com/v1/*' => Http::response(['locations' => []], 200),
             GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers') => Http::response(['resourceNames' => []], 200),
         ]);
@@ -570,7 +574,7 @@ class GoogleResourceDiscoveryTest extends TestCase
             'https://www.googleapis.com/webmasters/v3/sites' => Http::response(['siteEntry' => []], 200),
             'https://analyticsadmin.googleapis.com/v1beta/accountSummaries*' => Http::response(['accountSummaries' => []], 200),
             GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers') => Http::response(['resourceNames' => []], 200),
-            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts' => Http::response(['accounts' => []], 200),
+            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts*' => Http::response(['accounts' => []], 200),
             'https://mybusinessbusinessinformation.googleapis.com/v1/*' => Http::response(['locations' => []], 200),
         ]);
 

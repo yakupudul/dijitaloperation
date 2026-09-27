@@ -246,6 +246,11 @@ class DataFreshnessIncrementalCollectionTest extends TestCase
 
         $integrity = app(DataIntegrityRegistryLoader::class);
         foreach ($integrity->profiles() as $profile) {
+            // Website Intelligence (public crawl / WordPress connector) datasets carry integrity profiles
+            // but are refreshed by crawl/connector reconciliation, not by the freshness-policy scheduler.
+            if (($profile['metadata']['runtime_overlay'] ?? null) === 'WEBSITE_INTELLIGENCE_V1') {
+                continue;
+            }
             $datasetId = (string) $profile['dataset_id'];
             $policy = $loader->policy($datasetId);
             $this->assertNotNull($policy, "Missing freshness policy for [{$datasetId}]");
@@ -669,12 +674,16 @@ class DataFreshnessIncrementalCollectionTest extends TestCase
     }
 
     #[Test]
-    public function routes_console_does_not_schedule_daily_collection(): void
+    public function routes_console_schedules_collection_only_through_bounded_resource_automation(): void
     {
         $contents = file_get_contents(base_path('routes/console.php'));
         $this->assertIsString($contents);
+        // No blanket daily collection job: account collection cadence is owned by resource automation
+        // (bounded per account), plus recovery of interrupted work.
         $this->assertStringNotContainsString('Schedule::daily', $contents);
-        $this->assertStringNotContainsString('collection', strtolower($contents));
+        $this->assertStringContainsString("Schedule::command('moxdop:resources:automate')", $contents);
+        $this->assertStringContainsString("Schedule::command('moxdop:collection:redispatch-stale')", $contents);
+        $this->assertStringContainsString('no second daily restatement schedule', $contents);
     }
 
     #[Test]

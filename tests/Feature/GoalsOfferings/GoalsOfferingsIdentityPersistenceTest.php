@@ -118,8 +118,18 @@ class GoalsOfferingsIdentityPersistenceTest extends TestCase
     {
         $a = $this->offerings->resolveOrCreate($this->brand, 'Breast Lift')['offering'];
         $id = $a->id;
+        $this->assertNotNull($a->service_catalog_item_id);
 
-        $renamed = $this->offerings->rename($a, 'Breast Lift Surgery');
+        // Offerings share their name with the global service catalog; a brand cannot rename it alone.
+        try {
+            $this->offerings->rename($a, 'Breast Lift Surgery');
+            $this->fail('Catalog-linked offering must not be renamed per brand.');
+        } catch (ValidationException $exception) {
+            $this->assertStringContainsString('Kütüphane > Hizmetler', $exception->errors()['label'][0]);
+        }
+
+        // The catalog rename synchronizes the brand name in place, keeping identity.
+        $renamed = $this->offerings->renameLocal($a, 'Breast Lift Surgery');
         $this->assertSame($id, $renamed->id);
         $this->assertSame('Breast Lift Surgery', $this->offerings->primaryLabel($renamed));
 
@@ -177,9 +187,18 @@ class GoalsOfferingsIdentityPersistenceTest extends TestCase
         $this->offerings->addAlias($offering, 'Mastopexy');
         $this->offerings->addAlias($offering, 'Mastopexy'); // idempotent
 
-        $viaAlias = $this->offerings->resolveOrCreate($this->brand, 'Mastopexy');
-        $this->assertFalse($viaAlias['created']);
-        $this->assertSame($offering->id, $viaAlias['offering']->id);
+        $viaAlias = $this->offerings->findByLabel($this->brand, 'Mastopexy');
+        $this->assertNotNull($viaAlias);
+        $this->assertSame($offering->id, $viaAlias->id);
+
+        // Resolving the alias as a new service goes through the global catalog, which does not know the
+        // brand-local alias: the name is reported as bound to another global service instead of merging.
+        try {
+            $this->offerings->resolveOrCreate($this->brand, 'Mastopexy');
+            $this->fail('A brand alias must not silently resolve to a different global service.');
+        } catch (ValidationException $exception) {
+            $this->assertStringContainsString('başka bir global hizmete bağlı', $exception->errors()['label'][0]);
+        }
 
         $other = $this->offerings->resolveOrCreate($this->brand, 'Mommy Makeover')['offering'];
         $this->expectException(ValidationException::class);

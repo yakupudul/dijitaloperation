@@ -128,6 +128,8 @@ class IntentRadarBatchBTest extends TestCase
         $this->actingAs($this->admin)
             ->get('/prospects/search-profiles/'.$profile->id)
             ->assertOk()
-            ->assertSee(__('operator.sales_intent.run_search'));
+            // Profiles use free public-source monitoring; the manual action is a free radar check.
+            ->assertSee(__('free_radar.check'))
+            ->assertDontSee(__('operator.sales_intent.run_search'));
     }
 }

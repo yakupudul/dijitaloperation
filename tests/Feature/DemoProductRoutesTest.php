@@ -116,20 +116,22 @@ class DemoProductRoutesTest extends TestCase
         $this->get(route('operator.integrations.google'))
             ->assertOk()
             ->assertSee('Google')
-            ->assertSee('Resources & Bindings')
-            ->assertSee('Dependent Digital Assets')
+            ->assertSee('Hesaplar')
+            ->assertSee('Bağlı dijital varlıklar')
             ->assertSee('Not configured');
         $this->get(route('operator.integrations.google', ['tab' => 'resources']))
             ->assertOk()
-            ->assertSee('Available / unbound')
+            ->assertSee('Bağlanmamış hesaplar')
             ->assertSee('No resources discovered yet')
+            ->assertSee('Henüz bağlanmış hesap yok.')
             ->assertDontSee('Panorama Ankara GA4');
         $this->get(route('operator.integrations.meta'))
             ->assertOk()
             ->assertSee('Meta')
-            ->assertSee('Resources & Bindings')
+            ->assertSee('Ad Accounts')
             ->assertSee('Not configured')
-            ->assertSee('State separation')
+            // Business Portfolio (discovery) and Ad Account (analytics) stay separate.
+            ->assertSee('Collection and reporting operate at Ad Account level.')
             ->assertDontSee('Import all Meta data')
             ->assertDontSee('Meta data import');
         $this->get(route('operator.settings'))
@@ -297,13 +299,13 @@ class DemoProductRoutesTest extends TestCase
 
         Livewire::test(MetaIntegrationPage::class)
             ->assertSee('Not configured')
-            ->assertSee('Meta Businesses')
-            ->assertSee('Ad Accounts discovered')
-            ->assertSee('Authorization plane for Meta Ads')
+            ->assertSee('Businesses discovered')
+            ->assertSee('Ad accounts discovered')
+            ->assertSee('Connection Health')
             ->assertDontSee('Import all Meta data')
             ->call('setTab', 'resources')
-            ->assertSee('Ad Accounts')
-            ->assertSee('No unbound Ad Accounts in inventory')
+            ->assertSee('Available Ad Accounts')
+            ->assertSee('No unbound ad accounts')
             ->assertSee('Connected Ad Accounts');
     }
 

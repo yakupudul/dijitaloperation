@@ -175,11 +175,13 @@ class CustomerFoundationUxTest extends TestCase
 
         Livewire::test(BrandCreate::class, ['customerId' => (string) $customer->id])
             ->assertSee('Nova Health Group')
-            ->assertSee('Customer:')
+            ->assertSee('Brand details')
             ->set('name', 'Nova Implant EU')
-            ->set('sector', 'dental')
-            ->set('primary_country', 'DE')
-            ->set('target_markets', ['DE', 'NL'])
+            ->set('selected_sector_codes', ['dental'])
+            // Primary country and target markets are derived from the brand's service areas.
+            ->set('service_areas.0.country_code', 'DE')
+            ->call('addServiceArea')
+            ->set('service_areas.1.country_code', 'NL')
             ->set('languages', ['de', 'en'])
             ->set('responsible_user_ids', [(string) $this->user->id])
             ->call('save')
@@ -244,7 +246,7 @@ class CustomerFoundationUxTest extends TestCase
 
         $customer->responsibleUsers()->sync([$user->id]);
 
-        $this->assertSame('Healthcare', $customer->industryLabel());
+        $this->assertSame('Sağlık', $customer->industryLabel());
         $this->assertSame('Ankara, Türkiye', $customer->hqDisplay());
         $this->assertSame(['Meta Ads Management', 'SEO'], $customer->serviceLabels());
         $this->assertTrue($customer->responsibleUsers()->whereKey($user->id)->exists());
@@ -255,7 +257,7 @@ class CustomerFoundationUxTest extends TestCase
     {
         $this->assertSame('Türkiye', CountryOptions::label('TR'));
         $this->assertSame('Turkish', LanguageOptions::label('tr'));
-        $this->assertSame('Healthcare', IndustryOptions::label('healthcare'));
+        $this->assertSame('Sağlık', IndustryOptions::label('healthcare'));
         $this->assertSame('WordPress', CmsOptions::label('wordpress'));
         $this->assertArrayHasKey('google_ads', AgencyServiceOptions::options());
     }
@@ -291,9 +293,9 @@ class CustomerFoundationUxTest extends TestCase
     {
         Livewire::test(CustomerCreate::class)
             ->set('hq_country', 'TR')
-            ->set('hq_city', 'Istanbul')
+            ->set('hq_city', 'İstanbul')
             ->set('hq_country', 'TR')
-            ->assertSet('hq_city', 'Istanbul');
+            ->assertSet('hq_city', 'İstanbul');
     }
 
     public function test_hq_city_other_persists_manual_entry_not_other_token(): void
@@ -302,16 +304,17 @@ class CustomerFoundationUxTest extends TestCase
             ->set('name', 'City Other Client')
             ->set('type', 'company')
             ->set('status', 'active')
-            ->set('hq_country', 'TR')
+            // Türkiye uses the province catalog; the manual "other" city applies to other countries.
+            ->set('hq_country', 'DE')
             ->set('hq_city', CityOptions::OTHER)
-            ->set('hq_city_other', 'Canakkale')
+            ->set('hq_city_other', 'Heidelberg')
             ->call('save')
             ->assertHasNoErrors()
             ->assertRedirect();
 
         $created = Customer::query()->where('name', 'City Other Client')->first();
         $this->assertNotNull($created);
-        $this->assertSame('Canakkale', $created->hq_city);
+        $this->assertSame('Heidelberg', $created->hq_city);
         $this->assertNotSame(CityOptions::OTHER, $created->hq_city);
     }
 

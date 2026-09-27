@@ -97,7 +97,7 @@ class DataPoolIntegrityReconciliationTest extends TestCase
         $profiles = $loader->profiles();
         $this->assertGreaterThanOrEqual(40, count($profiles));
         $providers = collect($profiles)->pluck('provider_or_source')->unique()->sort()->values()->all();
-        $this->assertSame(['GA4', 'GOOGLE_ADS', 'META_ADS', 'SEARCH_CONSOLE'], $providers);
+        $this->assertSame(['GA4', 'GOOGLE_ADS', 'META_ADS', 'SEARCH_CONSOLE', 'WEBSITE_DIRECT', 'WORDPRESS_SITE_CONNECTOR'], $providers);
 
         foreach ($profiles as $profile) {
             $this->assertFalse($profile['collection_run_in_natural_key']);
@@ -313,8 +313,10 @@ class DataPoolIntegrityReconciliationTest extends TestCase
     #[Test]
     public function coverage_gap_detected_from_interval_evidence(): void
     {
+        // Professional V2 datasets (e.g. meta_campaign_daily) are gated by MetaAdsUiDatasetGate instead of
+        // coverage_intervals; the interval check still applies to profiles like meta_delivery_breakdown_daily.
         DatasetMaterialization::query()->create([
-            'dataset_id' => 'meta_campaign_daily',
+            'dataset_id' => 'meta_delivery_breakdown_daily',
             'digital_asset_id' => $this->asset->id,
             'external_resource_id' => $this->resource->id,
             'provider_or_source' => 'META_ADS',
@@ -331,7 +333,7 @@ class DataPoolIntegrityReconciliationTest extends TestCase
 
         $audit = app(DataPoolIntegrityAuditor::class)->run(new IntegrityAuditRequest(
             providers: ['META_ADS'],
-            datasetIds: ['meta_campaign_daily'],
+            datasetIds: ['meta_delivery_breakdown_daily'],
             digitalAssetIds: [$this->asset->id],
             externalResourceIds: [$this->resource->id],
         ));

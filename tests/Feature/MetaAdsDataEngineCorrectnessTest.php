@@ -112,12 +112,18 @@ class MetaAdsDataEngineCorrectnessTest extends TestCase
             }
 
             if (str_contains($url, '/campaigns')) {
-                // Metadata for a different id would be the old bug; only return the Insights id.
-                $filtering = (string) ($query['filtering'] ?? '');
-                $this->assertStringContainsString('camp-delivered', $filtering);
-                $this->assertStringNotContainsString('camp-unrelated', $filtering);
+                // The account edge is listed without id-IN filtering (unsupported by Graph); the collector
+                // joins by provider ID in-process, ignoring list order and names of unrelated campaigns.
+                $this->assertArrayNotHasKey('filtering', $query);
 
                 return Http::response(['data' => [[
+                    'id' => 'camp-unrelated',
+                    'name' => 'Delivered Campaign',
+                    'status' => 'ACTIVE',
+                    'effective_status' => 'ACTIVE',
+                    'objective' => 'OUTCOME_TRAFFIC',
+                    'buying_type' => 'AUCTION',
+                ], [
                     'id' => 'camp-delivered',
                     'name' => 'Delivered Campaign',
                     'status' => 'PAUSED',

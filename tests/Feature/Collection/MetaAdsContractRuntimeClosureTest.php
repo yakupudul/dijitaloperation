@@ -16,6 +16,7 @@ use App\Services\Collection\CollectionPlanner;
 use App\Services\Collection\DataContractRegistryLoader;
 use App\Services\Collection\DatasetExecutorResolver;
 use App\Services\Collection\Providers\MetaAds\MetaAdsDatasetExecutor;
+use App\Services\Collection\Providers\MetaAds\MetaAdsProfessionalDatasetExecutor;
 use App\Services\Collection\Providers\MetaAds\MetaAdsRequestFamilyCatalog;
 use App\Services\Collection\Support\StartCollectionRequest;
 use App\Services\DataPool\DataPoolStorageRegistry;
@@ -32,20 +33,6 @@ class MetaAdsContractRuntimeClosureTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * Executor match() arms in MetaAdsDatasetExecutor::execute — do not expand deferred families.
-     *
-     * @var list<string>
-     */
-    private const SUPPORTED_KINDS = [
-        'ad_account_meta',
-        'entity_snapshot',
-        'insights_sync',
-        'insights_daily',
-        'typed_actions',
-        'insights_breakdown',
-    ];
-
     #[Test]
     public function every_collection_ready_meta_family_is_wired_to_executor_storage_and_freshness(): void
     {
@@ -55,7 +42,8 @@ class MetaAdsContractRuntimeClosureTest extends TestCase
         $registry->load();
         $storage = app(DataPoolStorageRegistry::class);
         $freshness = app(DataFreshnessPolicyLoader::class);
-        $executor = app(MetaAdsDatasetExecutor::class);
+        $snapshotExecutor = app(MetaAdsDatasetExecutor::class);
+        $professionalExecutor = app(MetaAdsProfessionalDatasetExecutor::class);
         $resolver = app(DatasetExecutorResolver::class);
 
         $readyFamilies = collect($registry->requestFamilies())
@@ -63,36 +51,56 @@ class MetaAdsContractRuntimeClosureTest extends TestCase
                 && ! in_array((string) ($family['status'] ?? ''), ['DEFERRED', 'UNSUPPORTED', 'UNAVAILABLE', 'DEMO_ONLY'], true))
             ->values();
 
+        // V1 snapshot executor keeps account meta + entity inventory; Professional V2 owns the rest.
+        $professionalFamilies = array_keys((array) config('moxdop-meta-ads-central.families', []));
+        $this->assertNotEmpty($professionalFamilies);
         $readyIds = $readyFamilies->pluck('id')->all();
-        $this->assertEqualsCanonicalizing(MetaAdsRequestFamilyCatalog::supportedFamilies(), array_values($readyIds));
+        $this->assertEqualsCanonicalizing(
+            [...MetaAdsRequestFamilyCatalog::supportedFamilies(), ...$professionalFamilies],
+            array_values($readyIds),
+        );
         $this->assertNotContains('RF_META_ASYNC_INSIGHTS', $readyIds);
 
-        $deferred = collect($registry->requestFamilies())
-            ->first(static fn (array $family): bool => ($family['id'] ?? '') === 'RF_META_ASYNC_INSIGHTS');
-        $this->assertNotNull($deferred);
-        $this->assertSame('DEFERRED', $deferred['status'] ?? null);
-        $this->assertNotContains('RF_META_ASYNC_INSIGHTS', MetaAdsRequestFamilyCatalog::supportedFamilies());
+        foreach ([
+            MetaAdsRequestFamilyCatalog::FAMILY_INSIGHTS_SYNC,
+            MetaAdsRequestFamilyCatalog::FAMILY_INSIGHTS_DAILY,
+            MetaAdsRequestFamilyCatalog::FAMILY_TYPED_ACTIONS,
+            MetaAdsRequestFamilyCatalog::FAMILY_INSIGHTS_BREAKDOWN,
+            'RF_META_ASYNC_INSIGHTS',
+        ] as $retiredFamilyId) {
+            $retired = collect($registry->requestFamilies())
+                ->first(static fn (array $family): bool => ($family['id'] ?? '') === $retiredFamilyId);
+            $this->assertNotNull($retired, $retiredFamilyId.' must stay in the registry as a deferred family');
+            $this->assertSame('DEFERRED', $retired['status'] ?? null);
+            $this->assertNotContains($retiredFamilyId, MetaAdsRequestFamilyCatalog::supportedFamilies());
+            $this->assertNotContains($retiredFamilyId, $professionalFamilies);
+        }
 
-        $executorSource = file_get_contents(app_path('Services/Collection/Providers/MetaAds/MetaAdsDatasetExecutor.php'));
-        $this->assertIsString($executorSource);
+        $professionalSource = file_get_contents(app_path('Services/Collection/Providers/MetaAds/MetaAdsProfessionalDatasetExecutor.php'));
+        $this->assertIsString($professionalSource);
 
         foreach ($readyFamilies as $family) {
             $familyId = (string) $family['id'];
-            $this->assertContains($familyId, $executor->supportedRequestFamilies(), $familyId.' must be registered on MetaAdsDatasetExecutor');
-
             $resolved = $resolver->resolve(CollectionDatasetRun::factory()->make([
                 'request_family_id' => $familyId,
                 'provider_or_source' => 'META_ADS',
             ]));
-            $this->assertInstanceOf(MetaAdsDatasetExecutor::class, $resolved);
 
-            $definition = MetaAdsRequestFamilyCatalog::definition($familyId);
-            $this->assertContains($definition['kind'], self::SUPPORTED_KINDS, $familyId.' kind must have an executor arm');
-            $this->assertStringContainsString("'".$definition['kind']."' =>", $executorSource);
-            $this->assertNotSame('', $definition['kind']);
-            $this->assertNotEmpty($definition['dataset_ids']);
+            if (in_array($familyId, MetaAdsRequestFamilyCatalog::supportedFamilies(), true)) {
+                $this->assertContains($familyId, $snapshotExecutor->supportedRequestFamilies(), $familyId.' must be registered on MetaAdsDatasetExecutor');
+                $this->assertInstanceOf(MetaAdsDatasetExecutor::class, $resolved);
+                $datasetIds = MetaAdsRequestFamilyCatalog::definition($familyId)['dataset_ids'];
+            } else {
+                $this->assertContains($familyId, $professionalExecutor->supportedRequestFamilies(), $familyId.' must be registered on MetaAdsProfessionalDatasetExecutor');
+                $this->assertInstanceOf(MetaAdsProfessionalDatasetExecutor::class, $resolved);
+                $definition = (array) config('moxdop-meta-ads-central.families.'.$familyId);
+                $this->assertNotSame('', (string) ($definition['kind'] ?? ''));
+                $this->assertStringContainsString("'".$definition['kind']."' =>", $professionalSource, $familyId.' kind must have an executor arm');
+                $datasetIds = [(string) $definition['dataset']];
+            }
+            $this->assertNotEmpty($datasetIds);
 
-            foreach ($definition['dataset_ids'] as $datasetId) {
+            foreach ($datasetIds as $datasetId) {
                 $dataset = $registry->dataset($datasetId);
                 $this->assertNotNull($dataset, $datasetId.' must exist in the data contract registry');
                 $this->assertSame('META_ADS', $dataset['provider_or_source'] ?? null);
@@ -105,7 +113,10 @@ class MetaAdsContractRuntimeClosureTest extends TestCase
                 $this->assertNotNull($disposition, $datasetId.' must have a storage disposition');
                 $this->assertSame('PHYSICAL_TABLE', $disposition['disposition'] ?? null);
                 $this->assertNotEmpty($physical['natural_key']);
-                $this->assertContains('digital_asset_id', $physical['natural_key']);
+                $this->assertNotEmpty(
+                    array_intersect(['digital_asset_id', 'external_resource_id'], $physical['natural_key']),
+                    $datasetId.' natural key must be scoped to the asset or bound resource',
+                );
                 $this->assertContains('account_id', $physical['natural_key']);
 
                 $policy = $freshness->policy($datasetId);

@@ -53,6 +53,27 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Services/Intel/PublicPageReader.php',
         // 1.4.1: hourly sitemap watch reuses the same safe public HTTP fetcher.
         'app/Services/Website/SitemapChangeWatcher.php',
+        // Shared public-URL safety / normalization / fetch primitives (Discovery\PublicUrl*, PublicHttpFetcher).
+        'app/Livewire/Demo/Sales/IntentRadarIndex.php',
+        'app/Services/Collection/Providers/Website/WebsitePageAnalyzer.php',
+        'app/Services/Collection/Website/WebsiteIssueVerificationService.php',
+        'app/Services/Integrations/WordPress/WordPressConnectorClient.php',
+        'app/Services/Sales/FreeRadarReader.php',
+        'app/Support/IntelligenceProjection/Website/WebsitePageFamilyClassifier.php',
+        // Public discovery stored-source adapters reuse the module's page extractor.
+        'app/Services/Website/PublicDiscovery/DiscoveryCandidateApplicationService.php',
+        'app/Services/Website/PublicDiscovery/StoredDiscoverySource.php',
+        // Search Demand reuses the module's URL normalizer, head parser, fetcher and DataForSEO resolver.
+        'app/Services/SearchDemand/CompetitorPageContentExtractor.php',
+        'app/Services/SearchDemand/DataForSeoSearchDemandEnrichmentAdapter.php',
+        'app/Services/SearchDemand/SearchDemandChangeTrackingService.php',
+        'app/Services/SearchDemand/SearchDemandCompetitorPageCollectionService.php',
+        'app/Services/SearchDemand/SearchDemandPageOwnershipService.php',
+        // Website Standards: Core assessment / Search Demand / library UI reuse the module's standards catalog + evaluator.
+        'app/Livewire/Operator/Library/WebsiteStandardsPage.php',
+        'app/Services/Website/WebsiteAssessmentService.php',
+        'app/Services/SearchDemand/SearchDemandCompetitiveIntelligenceService.php',
+        'app/Services/SearchDemand/SearchDemandWebsiteImprovementService.php',
     ];
 
     /**

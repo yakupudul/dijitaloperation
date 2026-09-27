@@ -2,12 +2,19 @@
 
 namespace Tests\Feature\TrackA;
 
+use App\Enums\DataPool\IntegrityAuditMode;
+use App\Enums\DataPool\IntegrityAuditStatus;
+use App\Enums\DataPool\IntegrityCheckStatus;
+use App\Enums\DataPool\MaterializationStatus;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\Customer;
+use App\Models\DataPool\DataIntegrityAuditRun;
+use App\Models\DataPool\DataIntegrityCheckResult;
+use App\Models\DataPool\DatasetMaterialization;
 use App\Models\DigitalAsset;
 use App\Services\DataPool\Reconciliation\ClosedPeriodProviderReconciler;
 use App\Services\Ga4\Ga4SpecialistBindingResolver;
@@ -22,6 +29,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -149,6 +157,7 @@ class ClosedPeriodProviderReconciliationTest extends TestCase
                     ['name' => 'screenPageViews'],
                     ['name' => 'newUsers'],
                     ['name' => 'conversions'],
+                    ['name' => 'keyEvents'],
                     ['name' => 'totalRevenue'],
                 ],
                 'rows' => [[
@@ -157,6 +166,7 @@ class ClosedPeriodProviderReconciliationTest extends TestCase
                         ['value' => '217'],
                         ['value' => '620'],
                         ['value' => '93'],
+                        ['value' => '31'],
                         ['value' => '31'],
                         ['value' => '131.75'],
                     ],
@@ -295,6 +305,7 @@ class ClosedPeriodProviderReconciliationTest extends TestCase
                 'updated_at' => now(),
             ]);
         }
+        $this->recordSuccessfulCoverage('gsc_property_daily', 'SEARCH_CONSOLE', $assetId, $resourceId, $start, $days);
     }
 
     private function insertGa4Days(
@@ -336,5 +347,65 @@ class ClosedPeriodProviderReconciliationTest extends TestCase
                 'updated_at' => now(),
             ]);
         }
+        $this->recordSuccessfulCoverage('ga4_property_daily', 'GA4', $assetId, $resourceId, $start, $days);
+    }
+
+    /**
+     * Reconciliation only trusts warehouse sums for days the collector proved successful.
+     */
+    private function recordSuccessfulCoverage(string $datasetId, string $provider, int $assetId, int $resourceId, string $start, int $days): void
+    {
+        $dates = [];
+        for ($i = 0; $i < $days; $i++) {
+            $dates[] = CarbonImmutable::parse($start)->addDays($i)->toDateString();
+        }
+
+        DatasetMaterialization::query()->create([
+            'dataset_id' => $datasetId,
+            'digital_asset_id' => $assetId,
+            'external_resource_id' => $resourceId,
+            'provider_or_source' => $provider,
+            'contract_version' => 1,
+            'status' => MaterializationStatus::Available,
+            'partial' => false,
+            'last_collected_at' => now(),
+            'coverage_start_date' => $dates[0],
+            'coverage_end_date' => $dates[array_key_last($dates)],
+            'row_count_approx' => $days,
+            'row_count_semantics' => 'approximate_from_batches',
+            'freshness_metadata' => ['successful_coverage_dates' => $dates],
+        ]);
+
+        // ...and only once a local integrity audit passed for the dataset.
+        $run = DataIntegrityAuditRun::query()->create([
+            'uuid' => (string) Str::uuid(),
+            'status' => IntegrityAuditStatus::Completed,
+            'mode' => IntegrityAuditMode::LocalIntegrity,
+            'scope_type' => 'dataset',
+            'scope' => ['dataset_id' => $datasetId],
+            'contract_registry_version' => 1,
+            'storage_contract_version' => 1,
+            'formula_registry_version' => 1,
+            'integrity_registry_version' => 1,
+            'audit_rules_version' => 1,
+            'started_at' => now(),
+            'completed_at' => now(),
+            'checks_total' => 1,
+            'checks_pass' => 1,
+            'checks_fail' => 0,
+        ]);
+        DataIntegrityCheckResult::query()->create([
+            'audit_run_id' => $run->id,
+            'provider_or_source' => $provider,
+            'digital_asset_id' => $assetId,
+            'external_resource_id' => $resourceId,
+            'dataset_id' => $datasetId,
+            'check_id' => 'natural_key_uniqueness',
+            'category' => 'integrity',
+            'severity' => 'info',
+            'status' => IntegrityCheckStatus::Pass,
+            'message' => 'test check',
+            'blocks_migration' => false,
+        ]);
     }
 }

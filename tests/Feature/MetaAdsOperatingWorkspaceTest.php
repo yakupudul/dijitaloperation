@@ -60,7 +60,7 @@ class MetaAdsOperatingWorkspaceTest extends TestCase
             ->assertDontSee('Pause campaign')
             ->assertDontSee('Edit budget')
             ->assertDontSee('Upload creative')
-            ->assertSee('Refresh data')
+            ->assertSee('Update Now')
             ->assertSee('Run analysis');
     }
 

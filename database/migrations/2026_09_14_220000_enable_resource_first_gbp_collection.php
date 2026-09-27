@@ -22,6 +22,9 @@ return new class extends Migration
     {
         // Preserve resource-first data; null asset ownership cannot be safely reversed.
         Schema::table('resource_automations', function (Blueprint $table): void {
+            $table->dropIndex(['gbp_run_id']);
+        });
+        Schema::table('resource_automations', function (Blueprint $table): void {
             $table->dropColumn('gbp_run_id');
         });
     }

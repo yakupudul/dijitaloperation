@@ -150,8 +150,9 @@ class PhaseECanonicalJourneyTest extends TestCase
             'period' => 'last_7',
             'limit' => 50,
         ]);
+        // The operator's collection appears in Activity as the Collection Engine run.
         $this->assertTrue(collect($activity)->contains(
-            fn (array $row): bool => str_starts_with((string) ($row['id'] ?? ''), 'run:')
+            fn (array $row): bool => str_starts_with((string) ($row['id'] ?? ''), 'collection_run:')
         ));
 
         $this->assertSame(DigitalAssetStatus::Active, $website->fresh()->status);

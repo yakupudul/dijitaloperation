@@ -72,6 +72,9 @@ final class InterruptedCollectionRecoveryTest extends TestCase
         $child = CollectionDatasetRun::factory()->create([
             'collection_run_id' => $failed->collection_run_id,
             'collection_resource_run_id' => $failed->collection_resource_run_id,
+            // A dependent child is a different dataset of the same resource run (unique per dataset/family).
+            'dataset_contract_id' => 'ga4_property_daily',
+            'request_family_id' => 'GA4_RF_PROPERTY_DAILY',
             'depends_on_dataset_run_ids' => [$failed->id],
         ]);
         $completed = $this->interrupted();
