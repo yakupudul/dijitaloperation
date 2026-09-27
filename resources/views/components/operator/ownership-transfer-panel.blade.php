@@ -1,4 +1,4 @@
-@props(['conflict', 'action', 'canTransfer' => false, 'cancel' => 'cancelOwnershipTransfer'])
+@props(['conflict', 'action', 'canTransfer' => false, 'cancel' => 'cancelOwnershipTransfer', 'button' => 'Devret'])
 @php
     $bold = fn (string $text): string => preg_replace('/\*\*(.+?)\*\*/u', '<strong>$1</strong>', e($text)) ?? e($text);
     $isResource = ($conflict['subject_type'] ?? '') === 'resource';
@@ -37,7 +37,7 @@
             class="mt-2 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-gray-900 dark:border-amber-500/30 dark:bg-gray-900 dark:text-white">
 
         <div class="mt-3 flex flex-wrap gap-2">
-            <button type="button" wire:click="{{ $action }}" wire:loading.attr="disabled" class="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60">Devret</button>
+            <button type="button" wire:click="{{ $action }}" wire:loading.attr="disabled" class="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60">{{ $button }}</button>
             <button type="button" wire:click="{{ $cancel }}" class="rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-amber-300 hover:bg-amber-100 dark:ring-amber-500/40">Vazgeç</button>
         </div>
     @else

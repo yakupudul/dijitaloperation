@@ -70,6 +70,7 @@ use App\Livewire\Operator\DataCenterPage;
 use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Operator\Integrations\SiteConnectorShow;
 use App\Livewire\Operator\Integrations\SiteConnectorsIndex;
+use App\Livewire\Operator\Integrations\WebsiteDuplicatesPage;
 use App\Livewire\Operator\Integrations\WordPressSitesPage;
 use App\Livewire\Operator\Library\BrandQueryPortfolioPage;
 use App\Livewire\Operator\Library\ManualQueryClustersPage;
@@ -258,6 +259,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/market/ai-visibility', AiVisibilityPage::class)->name('operator.market.ai-visibility');
         Route::livewire('/reports/annotations', ChartAnnotationsPage::class)->name('operator.reports.annotations');
         Route::livewire('/integrations/wordpress-sites', WordPressSitesPage::class)->name('operator.integrations.wordpress-sites');
+        Route::livewire('/integrations/website-duplicates', WebsiteDuplicatesPage::class)->name('operator.integrations.website-duplicates');
         Route::post('/integrations/wordpress-sites/{site}/login', WordPressLoginController::class)->whereNumber('site')->middleware('throttle:10,1')->name('operator.integrations.wordpress-login');
         Route::get('/reports/monthly/{report}/preview', [MonthlyReportClientController::class, 'preview'])->whereNumber('report')->name('operator.reports.monthly.preview');
         Route::livewire('/compliance', CompliancePage::class)->name('operator.compliance');
