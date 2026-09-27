@@ -6,6 +6,7 @@ use App\Models\AdvisorItem;
 use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Archive\ProductionArchive;
+use App\Support\ServiceScope;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -25,6 +26,9 @@ final class AdvisorItemActions
         $channel = $this->channels->get($item->channel);
         if (! in_array($item->rule_id, $channel->draftRules(), true) || $item->draft_status === 'queued') {
             return null;
+        }
+        if (! app(ServiceScope::class)->isAssetOperational($item->digital_asset_id)) {
+            return ServiceScope::NOT_SERVED;
         }
         // Üretim Arşivi: a fresh draft for this item (e.g. lost to a failed retry) is shown before a new AI call.
         $hasDraft = is_array($item->draft) && ! isset($item->draft['error']) && $item->draft_status === 'ready';

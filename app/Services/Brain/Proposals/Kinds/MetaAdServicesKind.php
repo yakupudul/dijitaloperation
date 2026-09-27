@@ -10,6 +10,7 @@ use App\Services\Brain\BrainAi;
 use App\Services\Brain\Proposals\ProposalKind;
 use App\Services\Brain\Proposals\ProposalService;
 use App\Support\Ai\AiRouteKeys;
+use App\Support\ServiceScope;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -50,7 +51,8 @@ final class MetaAdServicesKind implements ProposalKind
 
     public function prepare(array $options): int
     {
-        $assetIds = DB::table('brain_meta_ads')->where(fn ($q) => $q->whereNull('angle')->orWhereNull('service_id'))
+        $assetIds = DB::table('brain_meta_ads')->whereIn('digital_asset_id', app(ServiceScope::class)->assetIdQuery())
+            ->where(fn ($q) => $q->whereNull('angle')->orWhereNull('service_id'))
             ->when(! empty($options['brand_id']), fn ($q) => $q->where('brand_id', (int) $options['brand_id']))
             ->distinct()->limit(20)->pluck('digital_asset_id');
         $created = 0;

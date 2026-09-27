@@ -8,6 +8,7 @@ use App\Services\Compliance\ComplianceAuditor;
 use App\Services\Compliance\ComplianceRuleKinds;
 use App\Services\Compliance\SectorPackRegistry;
 use App\Support\Permissions;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -63,7 +64,7 @@ final class CompliancePage extends Component
 
     public function scanNow(ComplianceAuditor $auditor, SectorPackRegistry $packs): void
     {
-        $brands = Brand::query()->when($this->brand !== '', fn ($q) => $q->whereKey((int) $this->brand))->get()
+        $brands = Brand::query()->operational()->when($this->brand !== '', fn ($q) => $q->whereKey((int) $this->brand))->get()
             ->filter(fn (Brand $b): bool => $packs->forBrand($b) !== []);
         $open = 0;
         foreach ($brands as $brand) {
@@ -75,12 +76,12 @@ final class CompliancePage extends Component
     public function render(SectorPackRegistry $packs): View
     {
         $findings = ComplianceFinding::query()->with(['rule', 'brand:id,name'])
-            ->when($this->brand !== '', fn ($q) => $q->where('brand_id', (int) $this->brand))
+            ->when($this->brand !== '', fn ($q) => $q->where('brand_id', (int) $this->brand), fn ($q) => app(ServiceScope::class)->constrain($q))
             ->when($this->source !== '', fn ($q) => $q->where('source', $this->source))
             ->when($this->status !== '', fn ($q) => $q->where('status', $this->status))
             ->orderByRaw("case (select severity from compliance_rules where compliance_rules.id = compliance_findings.compliance_rule_id) when 'high' then 0 when 'medium' then 1 else 2 end")
             ->orderByDesc('last_seen_at')->paginate(30);
-        $brandIds = Brand::query()->with('sectors')->orderBy('name')->get()
+        $brandIds = Brand::query()->operational()->with('sectors')->orderBy('name')->get()
             ->filter(fn (Brand $b): bool => $packs->forBrand($b) !== [])->pluck('name', 'id');
 
         return view('livewire.operator.compliance.compliance-page', [

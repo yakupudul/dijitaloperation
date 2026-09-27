@@ -6,6 +6,7 @@ use App\Models\DigitalAsset;
 use App\Services\Brain\Clustering\ServiceClusters;
 use App\Services\Brain\ServiceSites;
 use App\Services\SeoTasks\SeoPlanInputCollector;
+use App\Support\ServiceScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -30,7 +31,7 @@ final class OutcomeMeasurer
         $cfg = (array) config('moxdop-brain.measure');
         $lag = (int) $cfg['gsc_lag_days'];
         $count = 0;
-        $due = DB::table('brain_recommendations')->where('status', 'done')->whereNotNull('resolved_at')->whereIn('channel', ['website', 'google_ads'])
+        $due = app(ServiceScope::class)->constrain(DB::table('brain_recommendations'))->where('status', 'done')->whereNotNull('resolved_at')->whereIn('channel', ['website', 'google_ads'])
             ->where('resolved_at', '<=', now()->subDays((int) $cfg['after_days'] + $lag))->orderBy('id')->limit(500)->get();
         foreach ($due as $rec) {
             $outcome = $rec->outcome !== null ? (array) json_decode((string) $rec->outcome, true) : [];

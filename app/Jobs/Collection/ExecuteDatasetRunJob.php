@@ -23,6 +23,7 @@ use App\Services\Collection\StartCollectionService;
 use App\Services\Collection\Support\DatasetExecutionContext;
 use App\Services\Collection\UnimplementedDatasetExecutorException;
 use App\Services\Operations\StorageGuard;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
@@ -120,6 +121,16 @@ class ExecuteDatasetRunJob implements ShouldQueue
                 $errors->record($datasetRun, CollectionErrorCategory::Cancelled, 'Cancelled by operator/system');
                 $aggregator->refreshFromDataset($datasetRun);
             }
+
+            return;
+        }
+
+        // Service scope, re-checked at handle time: the asset's customer was switched to passive (or the asset left
+        // its brand) after the run was queued, so the provider is not called.
+        if ($collectionRun->digital_asset_id !== null && ! app(ServiceScope::class)->isAssetOperational($collectionRun->digital_asset_id)) {
+            $stateMachine->transition($datasetRun, CollectionRunStatus::Cancelled);
+            $errors->record($datasetRun, CollectionErrorCategory::Cancelled, ServiceScope::NOT_SERVED);
+            $aggregator->refreshFromDataset($datasetRun);
 
             return;
         }

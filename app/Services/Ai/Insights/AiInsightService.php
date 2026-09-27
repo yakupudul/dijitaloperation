@@ -4,10 +4,12 @@ namespace App\Services\Ai\Insights;
 
 use App\Jobs\WriteAiInsightJob;
 use App\Models\AiProduction;
+use App\Models\Customer;
 use App\Services\Ai\AiCostEstimator;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\Archive\ProductionArchive;
+use App\Support\ServiceScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
@@ -54,6 +56,9 @@ final class AiInsightService
         if (! $subject instanceof ($definition->subjectClass())) {
             throw new InvalidArgumentException('Wrong subject for '.$kind);
         }
+        if (! $this->inServiceScope($definition, $subject)) {
+            throw ValidationException::withMessages(['insight' => ServiceScope::NOT_SERVED]);
+        }
         if ($this->routes->resolve($definition->routeKey())->isEmpty()) {
             throw ValidationException::withMessages(['insight' => 'Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu (Ayarlar → AI).']);
         }
@@ -71,6 +76,9 @@ final class AiInsightService
             return;
         }
         try {
+            if (! $this->inServiceScope($definition, $subject)) {
+                throw ServiceScope::notServed();
+            }
             $route = $this->routes->resolve($definition->routeKey());
             if ($route->isEmpty()) {
                 throw new RuntimeException('Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.');
@@ -90,6 +98,21 @@ final class AiInsightService
         } catch (Throwable $exception) {
             Cache::put($this->stateKey($kind, $subjectId), 'failed: '.mb_substr($exception->getMessage(), 0, 200), now()->addHour());
         }
+    }
+
+    /** No AI call about a brandless asset or a passive customer (agency-level subjects are always served). */
+    private function inServiceScope(InsightDefinition $definition, Model $subject): bool
+    {
+        $scope = app(ServiceScope::class);
+        if ($subject instanceof Customer) {
+            return $scope->isCustomerActive((int) $subject->getKey());
+        }
+        $meta = $definition->meta($subject);
+        if (($meta['digital_asset_id'] ?? null) === null && ($meta['brand_id'] ?? null) === null && isset($subject->customer_id)) {
+            return $scope->isCustomerActive((int) $subject->customer_id);
+        }
+
+        return $scope->serves($meta['digital_asset_id'] ?? null, $meta['brand_id'] ?? null);
     }
 
     /**

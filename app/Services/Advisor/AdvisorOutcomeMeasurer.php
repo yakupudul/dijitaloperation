@@ -12,6 +12,7 @@ use App\Services\Advisor\GoogleAds\GoogleAdsRowScope;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\SeoTasks\SeoPlanInputCollector;
 use App\Services\SeoTasks\SeoText;
+use App\Support\ServiceScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -38,7 +39,9 @@ final class AdvisorOutcomeMeasurer
         $lag = (int) config('moxdop-advisor.measure.gsc_lag_days', 3);
         $counts = ['advisor' => 0, 'seo' => 0];
 
-        AdvisorItem::query()
+        // Service scope: items of a brandless asset or a passive customer wait; they are measured after reactivation.
+        $scope = app(ServiceScope::class);
+        $scope->constrain(AdvisorItem::query())
             ->where('status', AdvisorItemStatus::Done->value)
             ->whereNull('measured_at')
             ->where('resolved_at', '<=', now()->subDays($days + 1))
@@ -50,7 +53,7 @@ final class AdvisorOutcomeMeasurer
                 $counts['advisor']++;
             });
 
-        SeoTask::query()
+        $scope->constrain(SeoTask::query())
             ->where('status', SeoTaskStatus::Done->value)
             ->whereNull('measured_at')
             ->where('resolved_at', '<=', now()->subDays($days + $lag))
@@ -64,8 +67,8 @@ final class AdvisorOutcomeMeasurer
 
         // Faz 7: a second look at 56 days for what was measured at 28 (stored under outcome.d56).
         $late = (int) config('moxdop-advisor.measure.second_after_days', 56);
-        foreach ([[AdvisorItem::query(), AdvisorItemStatus::Done->value, 1, fn (AdvisorItem $i): array => $this->advisorOutcome($i, $late), 'advisor'],
-            [SeoTask::query(), SeoTaskStatus::Done->value, $lag, fn (SeoTask $t): array => $this->seoOutcome($t, $late), 'seo']] as [$query, $done, $wait, $measure, $bucket]) {
+        foreach ([[$scope->constrain(AdvisorItem::query()), AdvisorItemStatus::Done->value, 1, fn (AdvisorItem $i): array => $this->advisorOutcome($i, $late), 'advisor'],
+            [$scope->constrain(SeoTask::query()), SeoTaskStatus::Done->value, $lag, fn (SeoTask $t): array => $this->seoOutcome($t, $late), 'seo']] as [$query, $done, $wait, $measure, $bucket]) {
             $query->where('status', $done)->whereNotNull('measured_at')->where('resolved_at', '<=', now()->subDays($late + $wait))
                 ->orderBy('id')->limit(2000)->get()
                 ->filter(fn ($row): bool => ($row->outcome['status'] ?? null) === 'measured' && ! isset($row->outcome['d56']))

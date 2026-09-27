@@ -10,6 +10,7 @@ use App\Models\SearchDemandCompetitorPageObservation;
 use App\Services\Async\AsyncOperationService;
 use App\Services\SearchDemand\SearchDemandCompetitorPageCollectionService;
 use App\Support\Async\AsyncOperationTypes;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -38,7 +39,7 @@ class SearchDemandCompetitorPagesPage extends Component
     public function mount(): void
     {
         if ($this->selectedBrandId === '') {
-            $brandId = Brand::query()
+            $brandId = Brand::query()->operational()
                 ->whereHas('digitalAssets', fn ($query) => $query->where('type', 'website'))
                 ->orderBy('name')
                 ->value('id');
@@ -104,6 +105,7 @@ class SearchDemandCompetitorPagesPage extends Component
     {
         $brands = Brand::query()
             ->whereHas('digitalAssets', fn ($query) => $query->where('type', 'website'))
+            ->where(fn ($query) => $query->whereIn('id', app(ServiceScope::class)->brandIdQuery())->orWhere('id', (int) $this->selectedBrandId))
             ->orderBy('name')
             ->get();
         $brand = $this->selectedBrandId !== '' ? $brands->firstWhere('id', (int) $this->selectedBrandId) : null;

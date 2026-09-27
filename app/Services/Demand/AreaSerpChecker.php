@@ -9,6 +9,7 @@ use App\Models\SearchDemandCompetitor;
 use App\Models\SearchDemandCompetitorSource;
 use App\Services\BrandSetup\BrandSetupMatcher;
 use App\Services\Integrations\DataForSeo\DataForSeoApiClient;
+use App\Support\ServiceScope;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -36,7 +37,7 @@ final class AreaSerpChecker
     {
         $stats = ['planned' => 0, 'checked' => 0, 'reused' => 0, 'failed' => 0, 'skipped_budget' => 0, 'spent_usd' => 0.0, 'competitors' => 0];
         $integration = $this->integrations->active();
-        if (! $brand->demand_serp_enabled || $integration === null) {
+        if (! $brand->demand_serp_enabled || $integration === null || ! app(ServiceScope::class)->isBrandOperational($brand->id)) {
             return $stats;
         }
 

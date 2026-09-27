@@ -8,6 +8,7 @@ use App\Models\ContentCalendarItem;
 use App\Models\DigitalAsset;
 use App\Support\Demo\DemoState;
 use App\Support\Roles;
+use App\Support\ServiceScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\Rule;
@@ -118,15 +119,16 @@ final class ContentCalendarPage extends Component
     public function render(): View
     {
         $items = ContentCalendarItem::query()->with(['brand', 'digitalAsset', 'clientApproval'])
-            ->when($this->brand !== null, fn ($q) => $q->where('brand_id', $this->brand))
+            // Service scope: the full calendar lists operational brands; a passive brand stays reachable by ?brand=.
+            ->when($this->brand !== null, fn ($q) => $q->where('brand_id', $this->brand), fn ($q) => app(ServiceScope::class)->constrain($q, null))
             ->when(! $this->showDone, fn ($q) => $q->whereNotIn('status', ['published', 'skipped']))
             ->where('scheduled_for', '>=', now()->subDays($this->showDone ? 60 : 30))->orderBy('scheduled_for')->limit(300)->get();
 
         return view('livewire.operator.content.content-calendar', [
             'weeks' => $items->groupBy(fn (ContentCalendarItem $i): string => $i->scheduled_for->timezone('Europe/Istanbul')->startOfWeek()->format('Y-m-d')),
-            'brands' => Brand::query()->whereHas('customer', fn ($q) => $q->where('status', 'active'))->orderBy('name')->pluck('name', 'id'),
+            'brands' => Brand::query()->operational()->orderBy('name')->pluck('name', 'id'),
             'profiles' => ($this->form['brand_id'] ?? null) !== null
-                ? DigitalAsset::query()->where('brand_id', $this->form['brand_id'])->where('type', 'google_business_profile')->pluck('name', 'id') : collect(),
+                ? DigitalAsset::query()->operational()->where('brand_id', $this->form['brand_id'])->where('type', 'google_business_profile')->pluck('name', 'id') : collect(),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
         ]);
     }

@@ -11,6 +11,7 @@ use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
 use App\Services\Collection\Support\StartCollectionRequest;
+use App\Support\ServiceScope;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -25,6 +26,8 @@ final class StartCollectionService
     public function start(StartCollectionRequest $request): CollectionRun
     {
         $this->queueGate->assertReady();
+        // Service scope: an asset without a brand, or of a passive customer, is not collected.
+        app(ServiceScope::class)->ensureAssetServed($request->digitalAsset, 'collection');
 
         if ($request->idempotencyKey !== null) {
             $existing = CollectionRun::query()

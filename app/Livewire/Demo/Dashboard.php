@@ -8,6 +8,7 @@ use App\Models\Observability\OperationalAlert;
 use App\Services\CommandCenter\CommandCenter;
 use App\Services\Operator\OperatorExecutionReadService;
 use App\Support\Demo\DemoState;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Layout;
@@ -65,7 +66,7 @@ class Dashboard extends Component
     private function openAlerts(): Collection
     {
         try {
-            return AssetAlert::query()->active()
+            return app(ServiceScope::class)->constrain(AssetAlert::query()->active())
                 ->with(['digitalAsset', 'brand'])
                 ->orderByRaw("case severity when 'critical' then 0 when 'high' then 1 when 'medium' then 2 else 3 end")
                 ->latest('first_detected_at')

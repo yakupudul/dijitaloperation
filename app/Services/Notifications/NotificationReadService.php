@@ -4,6 +4,7 @@ namespace App\Services\Notifications;
 
 use App\Models\User;
 use App\Models\UserNotification;
+use App\Support\ServiceScope;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -36,7 +37,7 @@ final class NotificationReadService
 
     public function unreadCount(User $user): int
     {
-        return (int) UserNotification::query()
+        return (int) $this->inServiceScope(UserNotification::query())
             ->where('recipient_user_id', $user->id)
             ->whereNull('read_at')
             ->whereNull('archived_at')
@@ -61,9 +62,22 @@ final class NotificationReadService
      */
     private function baseQuery(User $user): Builder
     {
-        return UserNotification::query()
+        return $this->inServiceScope(UserNotification::query())
             ->where('recipient_user_id', $user->id)
             ->with(['domainEvent', 'brand:id,name', 'customer:id,name']);
+    }
+
+    /**
+     * Notifications about a passive customer's brand are hidden (not deleted); they come back on reactivation.
+     *
+     * @param  Builder<UserNotification>  $query
+     * @return Builder<UserNotification>
+     */
+    private function inServiceScope(Builder $query): Builder
+    {
+        $scope = app(ServiceScope::class);
+
+        return $scope->constrainCustomer($scope->constrain($query, null));
     }
 
     /**

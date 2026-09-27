@@ -18,6 +18,7 @@ use App\Services\RecurringAutomation\Concerns\DiscoversDueOccurrences;
 use App\Support\RecurringAutomation\RecurringOccurrenceCalculator;
 use App\Support\RecurringAutomation\RecurringScheduleAdapterResult;
 use App\Support\RecurringAutomation\RecurringScheduleSpec;
+use App\Support\ServiceScope;
 use Carbon\CarbonImmutable;
 
 /**
@@ -47,7 +48,10 @@ final class CollectionScheduleAdapter implements RecurringScheduleAdapter
         $nowUtc = $nowUtc ?? CarbonImmutable::now('UTC');
         $due = [];
 
-        foreach (CollectionSchedule::query()->where('status', CollectionScheduleStatus::Active)->cursor() as $schedule) {
+        // Service scope: schedules of a brandless asset or a passive customer produce no occurrence.
+        $schedules = CollectionSchedule::query()->where('status', CollectionScheduleStatus::Active)
+            ->whereIn('digital_asset_id', app(ServiceScope::class)->assetIdQuery());
+        foreach ($schedules->cursor() as $schedule) {
             $spec = $this->specFromSchedule($schedule);
             foreach ($this->dueFromSpec(
                 (int) $schedule->id,
@@ -81,6 +85,14 @@ final class CollectionScheduleAdapter implements RecurringScheduleAdapter
                 RecurringOccurrenceStatus::Failed,
                 failureCode: 'DIGITAL_ASSET_NOT_FOUND',
                 failureMessage: 'DigitalAsset missing',
+            );
+        }
+
+        if (! app(ServiceScope::class)->isAssetOperational($asset->id)) {
+            return new RecurringScheduleAdapterResult(
+                RecurringOccurrenceStatus::Skipped,
+                failureCode: 'SERVICE_SCOPE',
+                failureMessage: ServiceScope::NOT_SERVED,
             );
         }
 

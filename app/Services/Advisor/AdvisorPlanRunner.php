@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\Async\AsyncOperationService;
 use App\Services\Brain\MethodLibrary;
 use App\Services\Brain\RuleEffectiveness;
+use App\Support\ServiceScope;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -40,6 +41,7 @@ final class AdvisorPlanRunner
         if (! (bool) config('moxdop-advisor.enabled', true)) {
             throw ValidationException::withMessages(['asset' => 'Danışman devre dışı (ADVISOR_ENABLED).']);
         }
+        app(ServiceScope::class)->ensureAssetServed($asset, 'asset');
 
         return Cache::lock('advisor-plan:'.$asset->id, 15)->block(5, function () use ($asset, $actor, $trigger, $channel): AdvisorPlan {
             $pending = AdvisorPlan::query()
@@ -123,6 +125,12 @@ final class AdvisorPlanRunner
         /** @var AdvisorPlan $plan */
         $plan = AdvisorPlan::query()->with('digitalAsset.brand')->findOrFail($planId);
         if (in_array($plan->status, [AdvisorPlan::STATUS_COMPLETED, AdvisorPlan::STATUS_FAILED], true)) {
+            return $plan;
+        }
+        // Re-checked at handle time: the customer may have been switched to passive after the plan was queued.
+        if (! app(ServiceScope::class)->isAssetOperational($plan->digital_asset_id)) {
+            $this->markFailed($plan, ServiceScope::notServed());
+
             return $plan;
         }
         $activity = $this->activity($plan);

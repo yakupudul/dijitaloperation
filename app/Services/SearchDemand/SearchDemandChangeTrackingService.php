@@ -31,6 +31,7 @@ use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Async\AsyncOperationTypes;
 use App\Support\IntelligenceProjection\Website\WebsitePageFamilyClassifier;
+use App\Support\ServiceScope;
 use App\Support\Skills\SkillRegistry;
 use App\Support\Tasks\TaskOutcomeStatus;
 use Carbon\CarbonImmutable;
@@ -186,6 +187,7 @@ final class SearchDemandChangeTrackingService
     public function queueVerification(SearchDemandChangeTracking $tracking, ?User $actor = null): array
     {
         $tracking->loadMissing(['website', 'proposal.run', 'collectionRun']);
+        app(ServiceScope::class)->ensureAssetServed($tracking->website, 'tracking');
         $collection = $tracking->collectionRun;
         if (! $collection instanceof CollectionRun || ! in_array($collection->status, [CollectionRunStatus::Completed, CollectionRunStatus::Partial], true)) {
             throw ValidationException::withMessages(['tracking' => 'Önce hedefli Website taramasının tamamlanması gerekir.']);

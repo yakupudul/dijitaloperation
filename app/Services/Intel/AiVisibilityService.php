@@ -14,6 +14,7 @@ use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\SeoTasks\SeoText;
 use App\Support\Ai\AiRouteKeys;
+use App\Support\ServiceScope;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -58,6 +59,7 @@ final class AiVisibilityService
     /** Queue one check batch; returns the batch id. */
     public function run(Brand $brand, array $prompts, ?User $actor = null): string
     {
+        app(ServiceScope::class)->ensureBrandServed($brand, 'ai');
         $prompts = array_slice(array_values(array_unique(array_filter(array_map(static fn ($p): string => mb_substr(trim((string) $p), 0, 300), $prompts)))), 0, (int) config('moxdop-intel.ai_visibility.max_prompts', 6));
         if ($prompts === []) {
             throw ValidationException::withMessages(['ai' => 'Soru yok: markaya hizmet ve bölge ekleyin ya da soruları yazın.']);
@@ -88,6 +90,9 @@ final class AiVisibilityService
             return;
         }
         try {
+            if (! app(ServiceScope::class)->isBrandOperational($brand->id)) {
+                throw ServiceScope::notServed();
+            }
             $route = $this->routes->resolve(AiRouteKeys::AI_VISIBILITY_PROBE);
             if ($route->isEmpty()) {
                 throw new \RuntimeException('Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.');

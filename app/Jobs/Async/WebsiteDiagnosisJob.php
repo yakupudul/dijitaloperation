@@ -23,7 +23,7 @@ class WebsiteDiagnosisJob implements ShouldQueue
     public function handle(AsyncOperationService $async, WebsiteDiagnosisService $diagnosis): void
     {
         $run = Run::query()->find($this->runId);
-        if ($run === null) {
+        if ($run === null || $async->skippedOutsideServiceScope($run)) {
             return;
         }
 

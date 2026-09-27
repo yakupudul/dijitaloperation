@@ -5,6 +5,7 @@ namespace App\Livewire\Operator\Library;
 use App\Models\Brand;
 use App\Models\BrandQueryPortfolioItem;
 use App\Services\SearchDemand\BrandQueryPortfolioService;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -73,7 +74,7 @@ class BrandQueryPortfolioPage extends Component
     public function mount(): void
     {
         if ($this->selectedBrandId === '') {
-            $brandId = Brand::query()->orderBy('name')->value('id');
+            $brandId = Brand::query()->operational()->orderBy('name')->value('id');
             $this->selectedBrandId = $brandId !== null ? (string) $brandId : '';
         }
 
@@ -254,7 +255,7 @@ class BrandQueryPortfolioPage extends Component
 
     public function render(BrandQueryPortfolioService $portfolios): View
     {
-        $brands = Brand::query()->with('customer')->orderBy('name')->get();
+        $brands = Brand::query()->with('customer')->where(fn ($query) => $query->whereIn('id', app(ServiceScope::class)->brandIdQuery())->orWhere('id', (int) $this->selectedBrandId))->orderBy('name')->get();
         $brand = $this->selectedBrandId !== ''
             ? Brand::query()
                 ->with([

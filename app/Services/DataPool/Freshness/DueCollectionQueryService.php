@@ -9,6 +9,7 @@ use App\Services\Collection\Activity\ActivityCollectionPlan;
 use App\Services\Collection\Activity\CollectionActivityGate;
 use App\Services\Collection\DataContractRegistryLoader;
 use App\Services\DataPool\Freshness\Support\DueCollectionItem;
+use App\Support\ServiceScope;
 use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -199,7 +200,9 @@ final class DueCollectionQueryService
         $query = CoreAssetBinding::query()
             ->with(['digitalAsset.brand', 'externalResource'])
             ->where('status', CoreAssetBinding::STATUS_ACTIVE)
-            ->whereIn('capability', array_keys(self::CAPABILITY_PROVIDER));
+            ->whereIn('capability', array_keys(self::CAPABILITY_PROVIDER))
+            // Service scope: bindings of a brandless asset or a passive customer are never due.
+            ->whereIn('digital_asset_id', app(ServiceScope::class)->assetIdQuery());
 
         $bindingIds = $this->normalizedBindingIds($filters);
         if ($bindingIds !== null) {

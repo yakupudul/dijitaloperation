@@ -1,5 +1,19 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-19 — Hizmet kapsamı: markasız varlık ve pasif müşteri için iş, uyarı ve harcama yok
+
+- **One rule (`App\Support\ServiceScope`).** An asset is served only when `DigitalAsset::operational()` holds (active asset, attached to a brand, customer active); a brand only when `Brand::operational()` holds (customer active). Id lists are memoised per request / job and reset on every customer, brand or asset save.
+- **Background, paid and AI work is gated at selection time and re-checked at handle time.**
+  - Collection: `StartCollectionService` refuses non-operational assets; `ExecuteDatasetRunJob` cancels queued datasets of an asset that became passive; `DueCollectionQueryService` never lists their bindings; recurring collection / intelligence / report-delivery schedules produce no occurrence. Resource automation keeps its `customer_passive` / `unbound` gate.
+  - Async operations (`AsyncOperationService::queue`): no diagnosis, crawl, SEO intelligence (DataForSEO), public discovery or competitor page collection; queued runs end as "Hizmet kapsamı dışında".
+  - DataForSEO: `DataForSeoTaskQueue::post` posts nothing for a passive brand; map grid, reviews, backlinks, area SERP, competitor compare / watch and search-demand SERP enrichment refuse or skip.
+  - AI: SEO / advisor plans, advisor copy drafts, GBP review replies, site-fix AI, on-click insights, monthly report commentary, AI visibility, brand setup, search-demand AI analyses and Brain proposals about assets refuse or skip.
+  - Live verification checks only resources bound to operational assets (token checks always run); outcome measurement, quality-score history, content-calendar publishing and backlink checks skip them.
+- **Nothing is shown for them.** Komuta merkezi (every reader, extra source, dashboard `top()` / `summary()`), Uyarılar, notification bell, advisor weekly digest, SEO / Danışman portfolio panels, İçerik takvimi, Ajans karnesi, Hizmet Beyni öneri / onay lists, Uyum, rakip / sorgu brand pickers. Items are hidden, not deleted, and come back on reactivation. A passive brand stays reachable by direct link.
+- **Exceptions.** Agency-level items (system, integration token, agency leads) stay. An overdue invoice of a passive customer stays in the Komuta merkezi; drafts, follow-ups and commitments of passive customers raise no reminder. Invoices stay listed in Ajans işletmesi.
+- **Reactivation** from any screen makes paused collection due immediately (model listener); the activity tiers backfill the gap.
+- **State:** CODED + PHPUnit (SQLite, `ServiceScopeGateTest`, `PassiveCustomerGateTest`). **No live UAT.**
+
 ## 2026-10-18 — Tek veri durumu, etkinliğe göre veri çekimi, konu → varlık gelen kutusu
 
 - **One data-status language (`DataStatusReader`).** Every asset page (website, GA4, Search Console, Google Ads, Meta, Business Profile) and Portföy sağlığı read one reader and show one "Veri durumu" strip.

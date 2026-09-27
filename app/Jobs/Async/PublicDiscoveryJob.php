@@ -42,7 +42,8 @@ class PublicDiscoveryJob implements ShouldQueue
         try {
             $run = Run::query()->find($this->runId);
             if ($run === null || ! in_array($run->status, ['queued', 'running'], true)
-                || data_get($run->metadata, 'operation_type') !== AsyncOperationTypes::PUBLIC_DISCOVERY) {
+                || data_get($run->metadata, 'operation_type') !== AsyncOperationTypes::PUBLIC_DISCOVERY
+                || $async->skippedOutsideServiceScope($run)) {
                 return;
             }
             try {

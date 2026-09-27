@@ -5,6 +5,7 @@ namespace App\Services\Intel;
 use App\Models\Brand;
 use App\Services\BrandSetup\BrandSetupMatcher;
 use App\Services\Demand\DemandPageFetcher;
+use App\Support\ServiceScope;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -53,7 +54,8 @@ final class BacklinkLinkChecker
     public function runDue(): array
     {
         $stats = ['checked' => 0, 'live' => 0, 'lost' => 0];
-        $rows = DB::table('backlink_opportunities')->whereIn('status', ['waiting', 'live'])->whereNotNull('link_url')
+        $rows = DB::table('backlink_opportunities')->whereIn('brand_id', app(ServiceScope::class)->brandIdQuery())
+            ->whereIn('status', ['waiting', 'live'])->whereNotNull('link_url')
             ->where(fn ($q) => $q->whereNull('last_checked_at')->orWhere('last_checked_at', '<', now()->subDays((int) config('moxdop-intel.backlinks.check_every_days', 7))))
             ->orderBy('id')->limit(200)->get();
         foreach ($rows as $row) {

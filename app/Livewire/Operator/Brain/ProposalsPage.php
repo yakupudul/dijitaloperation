@@ -5,6 +5,7 @@ namespace App\Livewire\Operator\Brain;
 use App\Models\BrainProposal;
 use App\Services\Brain\Proposals\ProposalService;
 use App\Support\Demo\DemoState;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\ValidationException;
@@ -91,7 +92,8 @@ final class ProposalsPage extends Component
     /** @return Builder<BrainProposal> */
     private function query(): Builder
     {
-        return BrainProposal::query()
+        // Service scope: proposals about a passive customer's brand wait (library-level proposals have no brand).
+        return app(ServiceScope::class)->constrain(BrainProposal::query(), null)
             ->when($this->kind !== '', fn ($q) => $q->where('kind', $this->kind))
             ->when($this->status !== 'all', fn ($q) => $q->where('status', $this->status))
             ->when($this->min > 0, fn ($q) => $q->where('confidence', '>=', $this->min / 100))
@@ -101,7 +103,7 @@ final class ProposalsPage extends Component
     public function render(ProposalService $proposals): View
     {
         $rows = $this->query()->with('brand:id,name')->orderByDesc('confidence')->orderByDesc('id')->paginate(50);
-        $counts = BrainProposal::query()->where('status', BrainProposal::STATUS_PENDING)->groupBy('kind')->selectRaw('kind, count(*) as n')->pluck('n', 'kind');
+        $counts = app(ServiceScope::class)->constrain(BrainProposal::query(), null)->where('status', BrainProposal::STATUS_PENDING)->groupBy('kind')->selectRaw('kind, count(*) as n')->pluck('n', 'kind');
 
         return view('livewire.operator.brain.proposals', [
             'rows' => $rows,

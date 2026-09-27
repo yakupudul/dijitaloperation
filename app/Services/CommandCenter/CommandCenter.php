@@ -16,6 +16,7 @@ use App\Models\SeoTask;
 use App\Models\User;
 use App\Services\Advisor\AdvisorChannels;
 use App\Services\CommandCenter\Activity\ActivitySuppression;
+use App\Support\ServiceScope;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -137,6 +138,9 @@ final class CommandCenter
             }
         }
 
+        // Service scope: nothing about a brandless asset or a passive customer reaches the inbox (agency-level items stay).
+        $scope = app(ServiceScope::class);
+        $items = $items->filter(fn (array $item): bool => self::inServiceScope($item, $scope))->values();
         $items = $this->dedupe($items);
         $snoozed = $this->snoozedKeys();
         $items = $items->reject(fn (array $item): bool => isset($snoozed[$item['key']]))->map(function (array $item): array {
@@ -344,6 +348,25 @@ final class CommandCenter
         })->filter(fn (array $item): bool => $item['hidden_by'] === null)->values();
     }
 
+    /**
+     * An item is shown only when its asset is operational, or (no asset) its brand, or (neither) its customer is
+     * active. Items with none of the three are agency-level and always shown; an overdue invoice carries no customer
+     * on purpose, so money owed by a passive customer stays visible.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    public static function inServiceScope(array $item, ServiceScope $scope): bool
+    {
+        if (($item['asset_id'] ?? null) !== null || ($item['brand_id'] ?? null) !== null) {
+            return $scope->serves($item['asset_id'] ?? null, $item['brand_id'] ?? null);
+        }
+        if (($item['customer_id'] ?? null) !== null) {
+            return $scope->isCustomerActive($item['customer_id']);
+        }
+
+        return true;
+    }
+
     /** @return array<string, mixed> */
     public static function item(string $source, string|int $id, string $severity, string $title, array $extra = []): array
     {
@@ -382,7 +405,7 @@ final class CommandCenter
     /** @return Collection<int, array<string, mixed>> */
     private function alerts(): Collection
     {
-        return AssetAlert::query()->active()->with(['brand', 'digitalAsset'])->orderByDesc('last_detected_at')->limit(500)->get()
+        return app(ServiceScope::class)->constrain(AssetAlert::query()->active())->with(['brand', 'digitalAsset'])->orderByDesc('last_detected_at')->limit(500)->get()
             ->map(fn (AssetAlert $alert): array => self::item('alert', $alert->id, (string) $alert->severity, (string) $alert->title, [
                 'detail' => $alert->message,
                 'brand_id' => $alert->brand_id,
@@ -406,7 +429,7 @@ final class CommandCenter
     {
         $channels = $this->channels->all();
 
-        return AdvisorItem::query()->open()->with(['brand', 'digitalAsset'])->orderByDesc('priority_score')->limit(800)->get()
+        return app(ServiceScope::class)->constrain(AdvisorItem::query()->open())->with(['brand', 'digitalAsset'])->orderByDesc('priority_score')->limit(800)->get()
             ->map(fn (AdvisorItem $item): array => self::item('advisor', $item->id, (string) $item->severity, (string) $item->title, [
                 'detail' => $item->exported_at !== null
                     ? $item->exported_at->timezone(config('app.timezone'))->format('d.m').' tarihinde dışa aktarıldı, Editor\'da yüklenmeyi bekliyor. '.$item->reason
@@ -435,7 +458,7 @@ final class CommandCenter
     /** @return Collection<int, array<string, mixed>> */
     private function seo(): Collection
     {
-        return SeoTask::query()->open()->where('type', '!=', SeoTaskType::Question->value)->with(['brand', 'digitalAsset'])
+        return app(ServiceScope::class)->constrain(SeoTask::query()->open()->where('type', '!=', SeoTaskType::Question->value))->with(['brand', 'digitalAsset'])
             ->orderByDesc('priority_score')->limit(800)->get()
             ->map(fn (SeoTask $task): array => self::item('seo', $task->id, (string) $task->severity, (string) $task->title, [
                 'detail' => $task->reason,
@@ -463,7 +486,7 @@ final class CommandCenter
             return collect();
         }
         $rows = DB::table('site_fix_items as f')->join('digital_assets as a', 'a.id', '=', 'f.digital_asset_id')->leftJoin('brands as b', 'b.id', '=', 'a.brand_id')
-            ->where('f.status', 'open')->whereNull('a.deleted_at')
+            ->where('f.status', 'open')->whereNull('a.deleted_at')->whereIn('a.id', app(ServiceScope::class)->assetIdQuery())
             ->groupBy('f.digital_asset_id', 'a.domain', 'a.name', 'a.brand_id', 'b.name')
             ->selectRaw('f.digital_asset_id, a.domain, a.name, a.brand_id, b.name as brand_name, count(*) as n, min(f.created_at) as since')->get();
         $types = DB::table('site_fix_items')->where('status', 'open')->select('digital_asset_id', 'type')->distinct()->get()->groupBy('digital_asset_id');
@@ -499,7 +522,7 @@ final class CommandCenter
             return collect();
         }
 
-        return DB::table('brain_recommendations as r')->leftJoin('brands as b', 'b.id', '=', 'r.brand_id')->where('r.status', 'open')
+        return app(ServiceScope::class)->constrain(DB::table('brain_recommendations as r')->leftJoin('brands as b', 'b.id', '=', 'r.brand_id')->where('r.status', 'open'), 'r.digital_asset_id', 'r.brand_id')
             ->orderByDesc('r.impact')->limit(400)->get(['r.*', 'b.name as brand_name'])
             ->map(fn (object $row): array => self::item('brain', (int) $row->id, $row->basis === 'validated' ? 'high' : 'medium', (string) $row->title, [
                 'detail' => $row->detail,
@@ -517,7 +540,7 @@ final class CommandCenter
     /** @return Collection<int, array<string, mixed>> */
     private function compliance(): Collection
     {
-        return ComplianceFinding::query()->where('status', ComplianceFinding::STATUS_OPEN)->with(['brand', 'rule'])->latest('last_seen_at')->limit(300)->get()
+        return app(ServiceScope::class)->constrain(ComplianceFinding::query()->where('status', ComplianceFinding::STATUS_OPEN))->with(['brand', 'rule'])->latest('last_seen_at')->limit(300)->get()
             ->map(fn (ComplianceFinding $finding): array => self::item('compliance', $finding->id, (string) ($finding->rule?->severity ?? 'high'), 'Uyum: '.($finding->rule?->label ?? 'kural ihlali').' — '.$finding->subject_label, [
                 'detail' => $finding->excerpt,
                 'brand_id' => $finding->brand_id,
@@ -565,7 +588,7 @@ final class CommandCenter
     private function approvals(): Collection
     {
         $out = collect();
-        $pending = BrainProposal::query()->where('status', BrainProposal::STATUS_PENDING)->count();
+        $pending = app(ServiceScope::class)->constrain(BrainProposal::query()->where('status', BrainProposal::STATUS_PENDING), null)->count();
         if ($pending > 0) {
             $out->push(self::item('approval', 'brain', 'medium', $pending.' AI önerisi onayınızı bekliyor', [
                 'detail' => 'Hesap eşleştirme, sorgu → hizmet ataması ve kümeler: onaylanınca uygulanır.',
@@ -574,7 +597,7 @@ final class CommandCenter
                 'url' => route('operator.brain.proposals'),
             ]));
         }
-        foreach (BrandSetupProposal::query()->with('brand')->whereIn('status', [BrandSetupProposal::STATUS_READY, BrandSetupProposal::STATUS_QUEUED, BrandSetupProposal::STATUS_BUILDING, BrandSetupProposal::STATUS_FAILED])
+        foreach (BrandSetupProposal::query()->with('brand')->whereIn('brand_id', app(ServiceScope::class)->brandIdQuery())->whereIn('status', [BrandSetupProposal::STATUS_READY, BrandSetupProposal::STATUS_QUEUED, BrandSetupProposal::STATUS_BUILDING, BrandSetupProposal::STATUS_FAILED])
             ->where('updated_at', '>=', now()->subDays(30))->get() as $proposal) {
             $stuck = $proposal->isStuck();
             if ($proposal->isPending() && ! $stuck) {

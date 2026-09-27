@@ -5,6 +5,7 @@ namespace App\Jobs\Async;
 use App\Models\Run;
 use App\Services\Async\AsyncOperationService;
 use App\Services\SearchDemand\SearchDemandCompetitiveIntelligenceService;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
@@ -23,6 +24,11 @@ final class SearchDemandCompetitiveIntelligenceJob implements ShouldQueue
         SearchDemandCompetitiveIntelligenceService $intelligence,
         AsyncOperationService $async,
     ): void {
+        if ($async->skippedOutsideServiceScope(Run::query()->find($this->runId))) {
+            $intelligence->markFailed($this->runId, ServiceScope::notServed());
+
+            return;
+        }
         try {
             $intelligence->execute($this->runId, $async);
         } catch (Throwable $exception) {

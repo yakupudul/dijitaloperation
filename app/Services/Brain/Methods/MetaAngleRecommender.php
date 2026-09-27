@@ -4,6 +4,7 @@ namespace App\Services\Brain\Methods;
 
 use App\Services\Brain\Proposals\Kinds\MetaAdServicesKind;
 use App\Services\Brain\RecommendationWriter;
+use App\Support\ServiceScope;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -58,7 +59,8 @@ final class MetaAngleRecommender
                 }
             }
         }
-        $brands = DB::table('brain_meta_ads')->whereNotNull('brand_id')->distinct()->pluck('brand_id');
+        // Every brand's ads teach the methods; recommendations are written only for operational brands.
+        $brands = DB::table('brain_meta_ads')->whereIn('brand_id', app(ServiceScope::class)->brandIdQuery())->distinct()->pluck('brand_id');
         foreach ($brands as $brandId) {
             $added += $this->writer->sync(['source' => 'meta_angles', 'brand_id' => (int) $brandId], $items[(int) $brandId] ?? [])['added'];
         }

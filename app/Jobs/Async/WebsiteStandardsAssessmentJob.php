@@ -6,6 +6,7 @@ use App\Models\Run;
 use App\Services\Async\AsyncOperationService;
 use App\Services\SearchDemand\SearchDemandWebsiteImprovementService;
 use App\Services\Website\WebsiteAssessmentService;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
@@ -22,6 +23,11 @@ final class WebsiteStandardsAssessmentJob implements ShouldQueue
 
     public function handle(WebsiteAssessmentService $assessment, AsyncOperationService $async): void
     {
+        if ($async->skippedOutsideServiceScope(Run::query()->find($this->runId))) {
+            app(SearchDemandWebsiteImprovementService::class)->markFailed($this->runId, ServiceScope::notServed());
+
+            return;
+        }
         try {
             $assessment->execute($this->runId, $async);
         } catch (Throwable $exception) {

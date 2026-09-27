@@ -3,6 +3,7 @@
 namespace App\Services\CommandCenter;
 
 use App\Models\LeadOutcome;
+use App\Support\ServiceScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -21,7 +22,7 @@ final class LeadOutcomeSource implements CommandCenterSource
             return collect();
         }
 
-        return LeadOutcome::query()->with('brand')
+        return LeadOutcome::query()->with('brand')->whereIn('brand_id', app(ServiceScope::class)->brandIdQuery())
             ->where('status', LeadOutcome::STATUS_NEW)
             ->where('lead_received_at', '<', now()->subDays(self::WAIT_DAYS))
             ->selectRaw('brand_id, count(*) as waiting, min(lead_received_at) as oldest')

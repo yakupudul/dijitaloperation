@@ -19,6 +19,7 @@ use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Support\Integrations\Google\GoogleAuthStatus;
 use App\Support\Integrations\Meta\MetaAdAccountId;
 use App\Support\Integrations\ProviderRegistry;
+use App\Support\ServiceScope;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -112,7 +113,8 @@ final class LiveVerifier
     }
 
     /**
-     * Available external resources used by at least one active binding on an active asset, grouped by integration.
+     * Available external resources used by at least one active binding on an operational asset (service scope),
+     * grouped by integration. Token checks of the integrations themselves always run.
      *
      * @return Collection<int, Collection<int, array{resource: CoreExternalResource, capability: string}>>
      */
@@ -120,7 +122,7 @@ final class LiveVerifier
     {
         return CoreAssetBinding::query()->with('externalResource')
             ->where('status', CoreAssetBinding::STATUS_ACTIVE)
-            ->whereHas('digitalAsset', fn ($query) => $query->where('status', 'active'))
+            ->whereIn('digital_asset_id', app(ServiceScope::class)->assetIdQuery())
             ->get()
             ->filter(fn (CoreAssetBinding $binding): bool => $binding->externalResource !== null)
             ->unique(fn (CoreAssetBinding $binding): string => $binding->external_resource_id.'|'.$binding->capability)
@@ -279,7 +281,7 @@ final class LiveVerifier
     private function wordpressConnections(): Collection
     {
         return CoreConnection::query()->with(['credential', 'digitalAsset'])->where('type', 'wordpress_connector')->where('enabled', true)
-            ->whereNotNull('digital_asset_id')->orderBy('id')->get()
+            ->whereIn('digital_asset_id', app(ServiceScope::class)->assetIdQuery())->orderBy('id')->get()
             ->filter(fn (CoreConnection $connection): bool => data_get($connection->config, 'pairing_state') === 'paired'
                 && $connection->digitalAsset !== null && (string) $connection->digitalAsset->status?->value === 'active');
     }

@@ -18,6 +18,7 @@ use App\Services\RecurringAutomation\Concerns\DiscoversDueOccurrences;
 use App\Support\RecurringAutomation\RecurringOccurrenceCalculator;
 use App\Support\RecurringAutomation\RecurringScheduleAdapterResult;
 use App\Support\RecurringAutomation\RecurringScheduleSpec;
+use App\Support\ServiceScope;
 use Carbon\CarbonImmutable;
 
 /**
@@ -43,7 +44,8 @@ final class IntelligenceValidityRecheckScheduleAdapter implements RecurringSched
         $nowUtc = $nowUtc ?? CarbonImmutable::now('UTC');
         $due = [];
 
-        foreach (IntelligenceSchedule::query()->where('status', CollectionScheduleStatus::Active)->cursor() as $schedule) {
+        $schedules = app(ServiceScope::class)->constrain(IntelligenceSchedule::query()->where('status', CollectionScheduleStatus::Active));
+        foreach ($schedules->cursor() as $schedule) {
             $spec = $this->specFromSchedule($schedule);
             foreach ($this->dueFromSpec(
                 (int) $schedule->id,
@@ -85,6 +87,14 @@ final class IntelligenceValidityRecheckScheduleAdapter implements RecurringSched
                 RecurringOccurrenceStatus::Failed,
                 failureCode: 'DIGITAL_ASSET_NOT_FOUND',
                 failureMessage: 'DigitalAsset missing',
+            );
+        }
+
+        if (! app(ServiceScope::class)->isAssetOperational($asset->id)) {
+            return new RecurringScheduleAdapterResult(
+                RecurringOccurrenceStatus::Skipped,
+                failureCode: 'SERVICE_SCOPE',
+                failureMessage: ServiceScope::NOT_SERVED,
             );
         }
 

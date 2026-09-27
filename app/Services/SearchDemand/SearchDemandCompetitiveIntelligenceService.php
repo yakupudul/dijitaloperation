@@ -20,6 +20,7 @@ use App\Services\Async\AsyncOperationService;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Async\AsyncOperationTypes;
+use App\Support\ServiceScope;
 use App\Support\Skills\SkillRegistry;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
@@ -54,6 +55,7 @@ final class SearchDemandCompetitiveIntelligenceService
         SearchDemandCluster $cluster,
         ?User $actor = null,
     ): array {
+        app(ServiceScope::class)->ensureAssetServed($website, 'selectedClusterId');
         $this->assertScope($website, $cluster);
         $context = $this->buildContext($website, $cluster);
         $profile = $this->agents->get(CompetitiveIntelligenceAnalyst::SLUG);

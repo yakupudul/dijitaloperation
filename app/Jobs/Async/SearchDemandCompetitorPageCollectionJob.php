@@ -23,6 +23,9 @@ class SearchDemandCompetitorPageCollectionJob implements ShouldQueue
         SearchDemandCompetitorPageCollectionService $collection,
         AsyncOperationService $async,
     ): void {
+        if ($async->skippedOutsideServiceScope(Run::query()->find($this->runId))) {
+            return;
+        }
         try {
             $collection->execute($this->runId, $async);
         } catch (Throwable $exception) {

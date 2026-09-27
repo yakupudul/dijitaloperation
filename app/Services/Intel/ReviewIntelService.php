@@ -8,6 +8,7 @@ use App\Models\Intel\BrandIntelSetting;
 use App\Models\Intel\MapGridRun;
 use App\Services\Integrations\DataForSeo\DataForSeoEndpointAllowlist;
 use App\Services\SeoTasks\SeoText;
+use App\Support\ServiceScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -81,6 +82,7 @@ final class ReviewIntelService implements DataForSeoTaskHandler
 
     public function refresh(Brand $brand): int
     {
+        app(ServiceScope::class)->ensureBrandServed($brand, 'reviews');
         if (! $this->queue->available()) {
             throw ValidationException::withMessages(['reviews' => 'DataForSEO bağlantısı yok.']);
         }

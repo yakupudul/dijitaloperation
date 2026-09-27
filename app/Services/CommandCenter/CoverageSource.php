@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\ResourceAutomation;
+use App\Support\ServiceScope;
 use Illuminate\Support\Collection;
 
 /**
@@ -32,7 +33,8 @@ final class CoverageSource implements CommandCenterSource
         }
 
         $lost = CoreExternalResource::query()->where('status', CoreExternalResource::STATUS_UNAVAILABLE)
-            ->whereIn('id', CoreAssetBinding::query()->where('status', CoreAssetBinding::STATUS_ACTIVE)->select('external_resource_id'))->limit(50)->get();
+            ->whereIn('id', CoreAssetBinding::query()->where('status', CoreAssetBinding::STATUS_ACTIVE)
+                ->whereIn('digital_asset_id', app(ServiceScope::class)->assetIdQuery())->select('external_resource_id'))->limit(50)->get();
         foreach ($lost as $resource) {
             $out->push(CommandCenter::item('coverage', 'lost-'.$resource->id, 'critical', 'Erişim kaybedildi: '.($resource->display_name ?: $resource->external_id), [
                 'detail' => 'Bu hesap artık bağlı Google/Meta kullanıcısına görünmüyor; müşteriden erişimi yeniden isteyin ya da bağlantıyı kaldırın.',
@@ -53,7 +55,7 @@ final class CoverageSource implements CommandCenterSource
             ]));
         }
 
-        $noConsole = Brand::query()->whereHas('customer', fn ($q) => $q->where('status', 'active'))
+        $noConsole = Brand::query()->operational()
             ->whereHas('digitalAssets', fn ($q) => $q->where('type', 'website')->where('status', 'active'))
             ->whereDoesntHave('digitalAssets.assetBindings', fn ($q) => $q->where('capability', 'search_console')->where('status', CoreAssetBinding::STATUS_ACTIVE))
             ->orderBy('name')->pluck('name');

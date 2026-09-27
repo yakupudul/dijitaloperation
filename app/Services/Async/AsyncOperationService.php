@@ -21,6 +21,7 @@ use App\Services\SearchDemand\SearchDemandWebsiteImprovementService;
 use App\Support\Async\AsyncFailureClassifier;
 use App\Support\Async\AsyncOperationTypes;
 use App\Support\Permissions;
+use App\Support\ServiceScope;
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Cache;
@@ -166,6 +167,10 @@ final class AsyncOperationService
         callable $jobFactory,
         array $extraMetadata = [],
     ): array {
+        // Service scope: no collection, crawl, analysis or paid call for a brandless asset or a passive customer.
+        if (! app(ServiceScope::class)->isAssetOperational($asset->id)) {
+            return ['ok' => false, 'queued' => false, 'message' => ServiceScope::NOT_SERVED, 'run' => null, 'existing_run' => null];
+        }
         $lockKey = "async-op:{$operationType}:{$asset->id}";
 
         return Cache::lock($lockKey, 15)->block(5, function () use (
@@ -289,6 +294,25 @@ final class AsyncOperationService
         ]);
 
         $this->notifyTerminal($run->fresh() ?? $run);
+    }
+
+    /**
+     * Handle-time service scope check of a queued operation: when its asset stopped being operational (customer
+     * switched to passive, brand removed) the run ends without any provider call. Returns true when it was skipped.
+     */
+    public function skippedOutsideServiceScope(?Run $run): bool
+    {
+        if ($run === null || $run->digital_asset_id === null || app(ServiceScope::class)->isAssetOperational($run->digital_asset_id)) {
+            return false;
+        }
+        if (! in_array($run->status, ['completed', 'partial', 'failed'], true)) {
+            $this->markFinished($run, 'failed', 'Hizmet kapsamı dışında', [
+                'failure_category' => 'service_scope', 'failure_summary' => ServiceScope::NOT_SERVED,
+                'result_summary' => ServiceScope::NOT_SERVED, 'retryable' => false,
+            ]);
+        }
+
+        return true;
     }
 
     public function markFailed(Run $run, Throwable $exception): void

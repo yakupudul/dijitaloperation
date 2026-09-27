@@ -8,6 +8,7 @@ use App\Models\SearchDemandCompetitor;
 use App\Models\ServicePageAssignment;
 use App\Services\BrandSetup\BrandSetupMatcher;
 use App\Services\SeoTasks\SeoText;
+use App\Support\ServiceScope;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -25,6 +26,9 @@ final class CompetitorPageComparator
     public function run(Brand $brand): array
     {
         $stats = ['services' => 0, 'compared' => 0, 'gaps' => 0, 'fetched' => 0];
+        if (! app(ServiceScope::class)->isBrandOperational($brand->id)) {
+            return $stats;
+        }
         $maxCompetitors = (int) config('moxdop-demand.compare.competitors_per_service', 4);
         $ownDomains = $brand->digitalAssets()->where('type', 'website')->get(['primary_url', 'domain'])
             ->map(fn ($site): string => BrandSetupMatcher::host((string) ($site->primary_url ?: $site->domain)))->filter()->values()->all();

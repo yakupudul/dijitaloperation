@@ -11,6 +11,7 @@ use App\Services\Compliance\SectorPackRegistry;
 use App\Services\SeoTasks\SeoPlanInputCollector;
 use App\Services\SeoTasks\SeoText;
 use App\Support\Ai\AiRouteKeys;
+use App\Support\ServiceScope;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -29,6 +30,9 @@ final class GoogleAdsAdCopyDrafter
 
     public function draft(AdvisorItem $item): AdvisorItem
     {
+        if (! app(ServiceScope::class)->isAssetOperational($item->digital_asset_id)) {
+            return $this->fail($item, ServiceScope::NOT_SERVED);
+        }
         try {
             $route = $this->routes->resolve(AiRouteKeys::GOOGLE_ADS_AD_COPY_DRAFT);
             if ($route->isEmpty()) {

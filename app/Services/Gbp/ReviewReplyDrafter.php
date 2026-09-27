@@ -14,6 +14,7 @@ use App\Services\Ai\AiRouteResolver;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Compliance\SectorPackRegistry;
 use App\Support\Ai\AiRouteKeys;
+use App\Support\ServiceScope;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -55,6 +56,9 @@ final class ReviewReplyDrafter
             ->where('status', CoreAssetBinding::STATUS_ACTIVE)->where('capability', 'google_business_profile')->value('digital_asset_id'));
         $brand = $asset?->brand;
         try {
+            if (! app(ServiceScope::class)->isAssetOperational($asset?->id)) {
+                throw ServiceScope::notServed();
+            }
             $route = $this->routes->resolve(AiRouteKeys::GBP_REVIEW_REPLY);
             if ($route->isEmpty()) {
                 throw new \RuntimeException('Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.');

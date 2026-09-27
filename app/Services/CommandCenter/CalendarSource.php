@@ -4,6 +4,7 @@ namespace App\Services\CommandCenter;
 
 use App\Models\ClientApproval;
 use App\Models\ContentCalendarItem;
+use App\Support\ServiceScope;
 use Illuminate\Support\Collection;
 
 /** İçerik takvimi in the command center: content due today or late, and Business Profile posts that failed. */
@@ -17,7 +18,7 @@ final class CalendarSource implements CommandCenterSource
     /** ADR-075: the client answered an approval link; the operator acts on it once. */
     private function clientAnswers(): Collection
     {
-        return ClientApproval::query()->with('brand')->whereIn('status', ['approved', 'changes_requested'])->whereNull('acknowledged_at')
+        return app(ServiceScope::class)->constrain(ClientApproval::query(), null)->with('brand')->whereIn('status', ['approved', 'changes_requested'])->whereNull('acknowledged_at')
             ->orderBy('responded_at')->limit(100)->get()
             ->map(fn (ClientApproval $approval): array => CommandCenter::item('client_approval', $approval->id, $approval->status === 'changes_requested' ? 'high' : 'medium',
                 ($approval->status === 'approved' ? 'Müşteri onayladı: ' : 'Müşteri değişiklik istedi: ').$approval->title, [
@@ -34,7 +35,7 @@ final class CalendarSource implements CommandCenterSource
 
     private function calendar(): Collection
     {
-        return ContentCalendarItem::query()->with('brand')
+        return app(ServiceScope::class)->constrain(ContentCalendarItem::query(), null)->with('brand')
             ->where(fn ($q) => $q->where(fn ($q) => $q->where('channel', '!=', 'gbp_post')->whereIn('status', ['draft', 'approved'])->where('scheduled_for', '<=', now()->endOfDay()))
                 ->orWhere('status', 'failed')
                 ->orWhere(fn ($q) => $q->where('channel', 'gbp_post')->where('status', 'draft')->where('scheduled_for', '<=', now()->addDay())))

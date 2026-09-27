@@ -6,6 +6,7 @@ use App\Models\AdvisorItem;
 use App\Models\Brand;
 use App\Models\MonthlyReport;
 use App\Models\SeoTask;
+use App\Support\ServiceScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -26,15 +27,17 @@ final class AgencyScorecard
         $from = CarbonImmutable::createFromFormat('Y-m-d', $month.'-01')->startOfMonth();
         $to = $from->endOfMonth();
 
-        $seo = SeoTask::query()->where('status', 'done')->whereBetween('resolved_at', [$from, $to])->get(['id', 'brand_id']);
-        $advisor = AdvisorItem::query()->where('status', 'done')->whereBetween('resolved_at', [$from, $to])->get(['id', 'brand_id']);
+        // Service scope: brands of passive customers are left out of the scorecard (agency rows without a brand stay).
+        $scope = app(ServiceScope::class);
+        $seo = $scope->constrain(SeoTask::query(), null)->where('status', 'done')->whereBetween('resolved_at', [$from, $to])->get(['id', 'brand_id']);
+        $advisor = $scope->constrain(AdvisorItem::query(), null)->where('status', 'done')->whereBetween('resolved_at', [$from, $to])->get(['id', 'brand_id']);
         $brain = Schema::hasTable('brain_recommendations')
-            ? DB::table('brain_recommendations')->where('status', 'done')->whereBetween('resolved_at', [$from, $to])->get(['id', 'brand_id']) : collect();
+            ? $scope->constrain(DB::table('brain_recommendations'), null)->where('status', 'done')->whereBetween('resolved_at', [$from, $to])->get(['id', 'brand_id']) : collect();
         $writes = Schema::hasTable('external_write_actions')
-            ? DB::table('external_write_actions')->whereIn('status', ['succeeded', 'partial'])->whereBetween('finished_at', [$from, $to])->get(['id', 'brand_id', 'channel', 'action']) : collect();
-        $reports = MonthlyReport::query()->whereNotNull('emailed_at')->whereBetween('emailed_at', [$from, $to])->get(['id', 'brand_id']);
+            ? $scope->constrain(DB::table('external_write_actions'), null)->whereIn('status', ['succeeded', 'partial'])->whereBetween('finished_at', [$from, $to])->get(['id', 'brand_id', 'channel', 'action']) : collect();
+        $reports = $scope->constrain(MonthlyReport::query(), null)->whereNotNull('emailed_at')->whereBetween('emailed_at', [$from, $to])->get(['id', 'brand_id']);
         $hours = Schema::hasTable('time_entries')
-            ? DB::table('time_entries')->whereBetween('worked_on', [$from->toDateString(), $to->toDateString()])->selectRaw('brand_id, sum(minutes) as m')->groupBy('brand_id')->pluck('m', 'brand_id') : collect();
+            ? $scope->constrainCustomer($scope->constrain(DB::table('time_entries'), null))->whereBetween('worked_on', [$from->toDateString(), $to->toDateString()])->selectRaw('brand_id, sum(minutes) as m')->groupBy('brand_id')->pluck('m', 'brand_id') : collect();
 
         $brandIds = collect([$seo, $advisor, $brain, $writes, $reports])->flatMap(fn (Collection $c) => $c->pluck('brand_id'))->merge($hours->keys())->filter()->unique();
         $names = Brand::query()->whereIn('id', $brandIds)->pluck('name', 'id');
@@ -68,7 +71,7 @@ final class AgencyScorecard
     {
         $rows = collect();
         foreach ([SeoTask::class, AdvisorItem::class] as $model) {
-            $rows = $rows->merge($model::query()->with('brand')->whereNotNull('outcome')->whereBetween('measured_at', [$from, $to])->limit(300)->get()
+            $rows = $rows->merge(app(ServiceScope::class)->constrain($model::query(), null)->with('brand')->whereNotNull('outcome')->whereBetween('measured_at', [$from, $to])->limit(300)->get()
                 ->map(function ($item): ?array {
                     $outcome = (array) $item->outcome;
                     $outcome = isset($outcome['d56']) && ($outcome['d56']['status'] ?? null) === 'measured' ? $outcome['d56'] : $outcome;

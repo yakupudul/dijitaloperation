@@ -12,6 +12,7 @@ use App\Services\Brain\Proposals\ProposalKind;
 use App\Services\Brain\Success\PageFeatureExtractor;
 use App\Services\SeoTasks\SeoText;
 use App\Support\Ai\AiRouteKeys;
+use App\Support\ServiceScope;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Throwable;
@@ -55,7 +56,7 @@ final class PageFeaturesKind implements ProposalKind
 
     public function prepare(array $options): int
     {
-        $snapshots = DB::table('brain_success_snapshots')->whereNotNull('url')
+        $snapshots = DB::table('brain_success_snapshots')->whereNotNull('url')->whereIn('digital_asset_id', app(ServiceScope::class)->assetIdQuery())
             ->when(! empty($options['service_id']), fn ($q) => $q->where('service_id', (int) $options['service_id']))
             ->orderByDesc('period')->orderByDesc('impressions')->limit(400)->get(['digital_asset_id', 'cluster_id', 'url'])
             ->unique(fn ($s): string => $s->digital_asset_id.'|'.SeoText::urlKey((string) $s->url));

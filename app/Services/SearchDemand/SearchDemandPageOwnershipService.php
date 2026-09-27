@@ -22,6 +22,7 @@ use App\Services\Gsc\GscSpecialistBindingResolver;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\IntelligenceProjection\Website\WebsitePageFamilyClassifier;
+use App\Support\ServiceScope;
 use App\Support\Skills\SkillRegistry;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -61,6 +62,7 @@ final class SearchDemandPageOwnershipService
         CarbonImmutable $comparisonEnd,
         ?User $actor = null,
     ): array {
+        app(ServiceScope::class)->ensureAssetServed($website, 'clusterId');
         $this->assertScope($website, $cluster);
         $context = $this->buildContext(
             $website,

@@ -5,6 +5,7 @@ namespace App\Services\Intel;
 use App\Enums\CustomerStatus;
 use App\Models\Brand;
 use App\Models\SearchDemandCompetitor;
+use App\Support\ServiceScope;
 use DOMDocument;
 use DOMXPath;
 use Illuminate\Support\Facades\DB;
@@ -51,6 +52,9 @@ final class CompetitorSiteWatch
     public function watchBrand(Brand $brand, bool $force = false): array
     {
         $stats = ['watched' => 0, 'changed' => 0];
+        if (! app(ServiceScope::class)->isBrandOperational($brand->id)) {
+            return $stats;
+        }
         $competitors = SearchDemandCompetitor::query()->where('brand_id', $brand->id)->where('status', 'approved')
             ->whereNotNull('normalized_domain')->orderBy('id')->limit((int) config('moxdop-intel.watch.max_competitors', 10))->get();
         foreach ($competitors as $competitor) {

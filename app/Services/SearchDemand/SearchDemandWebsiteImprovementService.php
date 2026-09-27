@@ -36,6 +36,7 @@ use App\Services\Website\WebsiteAssessmentService;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Async\AsyncOperationTypes;
+use App\Support\ServiceScope;
 use App\Support\Skills\SkillRegistry;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Cache;
@@ -66,6 +67,7 @@ final class SearchDemandWebsiteImprovementService
     /** @return array{run:SearchDemandImprovementRun,queued:bool,cached:bool,approved_analysis_count:int} */
     public function queue(DigitalAsset $website, SearchDemandCluster $cluster, ?User $actor = null): array
     {
+        app(ServiceScope::class)->ensureAssetServed($website, 'selectedClusterId');
         $this->assertScope($website, $cluster);
         $context = $this->buildContext($website, $cluster);
         $profile = $this->agents->get(WebsiteImprovementAnalyst::SLUG);
