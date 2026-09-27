@@ -99,7 +99,7 @@ class DemoRealityFinalConvergenceTest extends TestCase
         Livewire::test(WebsiteOverviewPage::class, ['assetId' => (string) $asset->id])
             ->assertOk()
             ->assertSee('Production Website Asset')
-            ->assertSee('Needs attention')
+            ->assertSee('Veri durumu')
             ->assertSee(__('operator.website.actions.data_sources'))
             ->assertSee(__('operator.website.actions.public_discovery'))
             ->assertDontSee('Demo Mode · product vision fixtures')

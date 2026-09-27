@@ -46,7 +46,8 @@ final class PortfolioHealthTest extends TestCase
         $this->assertSame('bad', $atlas['status']);
         $this->assertSame('warn', $atlas['cells']['search_console']['state'], 'data is 12 days old');
         $this->assertSame('bad', $atlas['cells']['google_ads']['state']);
-        $this->assertSame('Google Ads bütçesi bitti', $atlas['cells']['google_ads']['label']);
+        $this->assertSame('Google Ads bütçesi bitti', $atlas['cells']['google_ads']['alert'], 'an open alert is shown on the cell');
+        $this->assertSame('İlk veri yükleniyor', $atlas['cells']['google_ads']['label'], 'the data status speaks the asset-page language');
         $this->assertSame('missing', $atlas['cells']['ga4']['state']);
         $this->assertSame('warn', $atlas['cells']['website']['state'], 'WordPress site without the connector');
         $this->assertContains('Atlas', array_column($health['gaps']['no_ga4'], 'brand'));

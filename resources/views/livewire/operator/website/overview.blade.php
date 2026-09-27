@@ -9,18 +9,7 @@
             ? __('operator_website.'.$group.'.'.$value)
             : ($value !== '' ? \Illuminate\Support\Str::headline($value) : '—');
     };
-    $projectionCompletedAt = match ($tab) {
-        'content' => data_get($pagesContent, 'projection.completed_at'),
-        'health' => data_get($technicalHealth, 'projection.completed_at'),
-        'search_console' => data_get($gscAnalysis, 'coverage.last_collected_at'),
-        'ga4_analysis' => data_get($ga4Analysis, 'coverage.last_collected_at'),
-        'infrastructure' => data_get($infrastructure, 'projection.completed_at'),
-        'setup' => data_get($dataSources, 'projection.completed_at'),
-        default => null,
-    };
-    $headerLastUpdatedHuman = $projectionCompletedAt
-        ? \Carbon\CarbonImmutable::parse($projectionCompletedAt)->diffForHumans()
-        : ($data['last_updated_human'] ?? null);
+    $bannerStatuses = collect($dataStatuses)->filter(fn ($status) => in_array($status->state, ['not_bound', 'first_load'], true))->groupBy('state');
 @endphp
 
 <div class="space-y-5">
@@ -36,8 +25,6 @@
                     @if ($asset->primary_url)
                         <a href="{{ $asset->primary_url }}" target="_blank" rel="noopener" class="font-medium text-brand-600 hover:underline">{{ __('operator.website.actions.open_site') }} ↗</a>
                     @endif
-                    <span>{{ $data['connection_health'] ?: __('operator.website.header.needs_attention_connect') }}</span>
-                    <span>{{ $headerLastUpdatedHuman ? __('operator.website.header.last_data', ['when' => $headerLastUpdatedHuman]) : __('operator.website.header.last_data_none') }}</span>
                 </div>
             </div>
         </div>
@@ -94,17 +81,21 @@
     @endif
 
     @if ($tab === 'overview')
-        @if (! $data['has_performance_data'])
-            <section class="rounded-xl bg-amber-50 p-5 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-500/20">
+        @foreach ($bannerStatuses as $bannerState => $group)
+            @php $sourceNames = $group->map(fn ($status) => $status->sourceLabel())->implode(' / '); @endphp
+            <section class="rounded-xl bg-amber-50 p-5 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-500/20" data-data-status-banner="{{ $bannerState }}">
                 <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <h2 class="font-semibold text-amber-900 dark:text-amber-200">{{ __('operator_website.overview.no_data_title') }}</h2>
-                        <p class="mt-1 text-sm text-amber-800/80 dark:text-amber-300/80">{{ __('operator_website.overview.no_data_body') }}</p>
+                        <h2 class="font-semibold text-amber-900 dark:text-amber-200">{{ __('data_status.banner.'.$bannerState.'_title', ['sources' => $sourceNames], 'tr') }}</h2>
+                        <p class="mt-1 text-sm text-amber-800/80 dark:text-amber-300/80">{{ __('data_status.banner.'.$bannerState.'_body', [], 'tr') }}</p>
                     </div>
-                    <a href="{{ route('operator.asset.sources', ['assetId' => $asset->id]) }}" wire:navigate class="shrink-0 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700">{{ __('operator.website.actions.bind_sources') }}</a>
+                    @if ($bannerState === 'not_bound')
+                        <a href="{{ route('operator.asset.sources', ['assetId' => $asset->id]) }}" wire:navigate class="shrink-0 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700">{{ __('data_status.actions.bind', [], 'tr') }}</a>
+                    @endif
                 </div>
             </section>
-        @elseif (! ($data['period_has_data'] ?? true))
+        @endforeach
+        @if ($data['has_performance_data'] && ! ($data['period_has_data'] ?? true))
             <section class="rounded-xl bg-amber-50 p-5 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-500/20" data-period-unavailable>
                 <h2 class="font-semibold text-amber-900 dark:text-amber-200">{{ __('operator.website.period.no_overlap_title') }}</h2>
                 <p class="mt-1 text-sm text-amber-800/80 dark:text-amber-300/80">{{ __('operator.website.period.no_overlap_body') }}</p>
@@ -119,47 +110,16 @@
                     @if ($kpi['delta_label'])<p class="mt-2 text-xs text-gray-400">{{ $kpi['delta_label'] }}</p>@endif
                 </section>
             @empty
-                @foreach (['organic_search', 'analytics', 'findings', 'recommendations'] as $fallbackKey)
-                    <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><p class="text-sm font-medium text-gray-500">{{ __('operator_website.kpi_fallback.'.$fallbackKey) }}</p><p class="mt-3 text-2xl font-bold text-gray-300 dark:text-gray-600">—</p><p class="mt-2 text-xs text-gray-400">{{ __('operator_website.overview.awaiting_data') }}</p></section>
+                @foreach ($dataStatuses as $fallbackStatus)
+                    <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><p class="text-sm font-medium text-gray-500">{{ $fallbackStatus->sourceLabel() }}</p><p class="mt-3 text-2xl font-bold text-gray-300 dark:text-gray-600">—</p><p class="mt-2 text-xs text-gray-400">{{ $fallbackStatus->hasData() ? __('operator.website.period.no_overlap_title') : $fallbackStatus->label() }}</p></section>
                 @endforeach
             @endforelse
         </div>
 
         <div class="grid gap-4 xl:grid-cols-3">
-            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ __('operator.website.cards.needs_attention') }}</h2><p class="mt-3 text-3xl font-bold text-gray-900 dark:text-white">{{ $data['findings']['counts']['high'] }}</p><p class="mt-1 text-sm text-gray-500">{{ __('operator.website.cards.needs_attention_hint') }}</p></section>
+            <x-operator.open-work :asset="$asset" />
             <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ __('operator.website.cards.opportunities') }}</h2><p class="mt-3 text-3xl font-bold text-gray-900 dark:text-white">{{ count($data['seo_opportunities'] ?? []) }}</p><p class="mt-1 text-sm text-gray-500">{{ __('operator.website.cards.opportunities_hint') }}</p></section>
             <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ __('operator.website.cards.inventory') }}</h2><p class="mt-3 text-sm text-gray-600 dark:text-gray-300">{{ __('operator_website.overview.inventory_body') }}</p><a href="{{ route('operator.integrations.site-connectors') }}" wire:navigate class="mt-3 inline-flex text-sm font-medium text-brand-600 hover:underline">{{ __('operator.website.setup_sections.connector') }} →</a></section>
-        </div>
-
-        <div class="grid gap-4 xl:grid-cols-2">
-            <section class="rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-                <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700"><div><h2 class="font-semibold text-gray-900 dark:text-white">{{ __('operator_website.overview.open_findings') }}</h2><p class="mt-1 text-xs text-gray-400">{{ __('operator_website.overview.open_findings_hint') }}</p></div><a href="{{ route('operator.findings', ['asset' => $asset->id]) }}" wire:navigate class="text-xs font-medium text-brand-600">{{ __('operator_website.overview.all') }}</a></div>
-                <div class="divide-y divide-gray-100 dark:divide-gray-700">
-                    @forelse ($data['findings']['open']->take(10) as $finding)
-                        <div class="px-5 py-4">
-                            <div class="flex justify-between gap-3"><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $finding->title }}</p><span class="shrink-0 text-xs font-semibold text-rose-600">{{ $enumLabel('severity', $finding->severity) }}</span></div>
-                            @if ($finding->summary)<p class="mt-1 text-sm text-gray-500">{{ $finding->summary }}</p>@endif
-                            <p class="mt-1 text-xs text-gray-400">{{ $enumLabel('finding_status', $finding->status) }}</p>
-                        </div>
-                    @empty
-                        <div class="px-5 py-8 text-sm text-gray-500">{{ __('operator_website.overview.no_open_findings') }}</div>
-                    @endforelse
-                </div>
-            </section>
-            <section class="rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-                <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700"><div><h2 class="font-semibold text-gray-900 dark:text-white">{{ __('operator_website.overview.recommendations') }}</h2><p class="mt-1 text-xs text-gray-400">{{ __('operator_website.overview.recommendations_hint') }}</p></div><a href="{{ route('operator.recommendations', ['asset' => $asset->id]) }}" wire:navigate class="text-xs font-medium text-brand-600">{{ __('operator_website.overview.all') }}</a></div>
-                <div class="divide-y divide-gray-100 dark:divide-gray-700">
-                    @forelse ($data['recommendations']->take(10) as $recommendation)
-                        <div class="px-5 py-4">
-                            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $recommendation->title }}</p>
-                            @if ($recommendation->action)<p class="mt-1 text-sm text-gray-500">{{ $recommendation->action }}</p>@endif
-                            <p class="mt-1 text-xs text-gray-400">{{ $enumLabel('priority', $recommendation->priority) }} · {{ $enumLabel('recommendation_status', $recommendation->status) }}</p>
-                        </div>
-                    @empty
-                        <div class="px-5 py-8 text-sm text-gray-500">{{ __('operator_website.overview.no_recommendations') }}</div>
-                    @endforelse
-                </div>
-            </section>
         </div>
     @elseif ($tab === 'content')
         @include('livewire.operator.website.tabs.pages-content')

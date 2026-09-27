@@ -9,7 +9,6 @@ use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Operator\OperatorReportingPeriod;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -25,7 +24,12 @@ final class WebsiteSearchConsoleAnalysisService
 {
     private const string DEFAULT_SEARCH_TYPE = 'web';
 
-    /** @return array<string, mixed> */
+    /**
+     * The full Search Console decision model; `$headlineOnly` stops after the property totals (coverage + the
+     * four headline metrics) for summary cards such as the website overview KPIs.
+     *
+     * @return array<string, mixed>
+     */
     public function build(
         DigitalAsset $asset,
         string $preset,
@@ -33,6 +37,7 @@ final class WebsiteSearchConsoleAnalysisService
         ?string $end,
         bool $compare,
         string $compareMode,
+        bool $headlineOnly = false,
     ): array {
         $bounds = OperatorReportingPeriod::queryBounds($preset, $start, $end);
         $comparison = OperatorReportingPeriod::comparisonQueryBounds($compareMode, $preset, $start, $end);
@@ -100,6 +105,32 @@ final class WebsiteSearchConsoleAnalysisService
         $previous = $compare && $rangeUsable
             ? $this->propertySums($resourceId, $siteUrl, $previousStart, $previousEnd, self::DEFAULT_SEARCH_TYPE)
             : null;
+
+        if ($headlineOnly) {
+            return array_merge($connected, [
+                'has_data' => (int) $current['rows'] > 0,
+                'period' => [
+                    'start' => $rangeUsable ? $rangeStart : $requestedStart,
+                    'end' => $rangeUsable ? $rangeEnd : $requestedEnd,
+                    'requested_start' => $requestedStart,
+                    'requested_end' => $requestedEnd,
+                    'label' => $bounds['label'],
+                    'comparison_label' => $compare ? $comparison['label'] : null,
+                    'truncated_to_available_data' => $rangeUsable && $rangeEnd !== $requestedEnd,
+                ],
+                'coverage' => [
+                    'start' => $coverageStart,
+                    'end' => $coverageEnd,
+                    'last_collected_at' => filled($coverage?->last_collected_at) ? (string) $coverage->last_collected_at : null,
+                ],
+                'metrics' => [
+                    $this->metric('clicks', $current['clicks'], $previous['clicks'] ?? null, 'number', $compare),
+                    $this->metric('impressions', $current['impressions'], $previous['impressions'] ?? null, 'number', $compare),
+                    $this->rateMetric('ctr', $current['ctr'], $previous['ctr'] ?? null, $compare),
+                    $this->positionMetric($current['position'], $previous['position'] ?? null, $compare),
+                ],
+            ]);
+        }
 
         $yoyStart = $rangeUsable ? CarbonImmutable::parse($rangeStart)->subYear()->toDateString() : null;
         $yoyEnd = $rangeUsable ? CarbonImmutable::parse($rangeEnd)->subYear()->toDateString() : null;
@@ -501,7 +532,7 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param list<string> $dimensions
-     *  @return list<array<string,mixed>>
+     * @return list<array<string,mixed>>
      */
     private function crossDimensionPerformance(string $table, array $dimensions, int $resourceId, string $siteUrl, string $start, string $end, int $limit): array
     {
@@ -531,8 +562,8 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param list<array<string,mixed>> $current
-     *  @param list<array<string,mixed>> $previous
-     *  @return array<string,list<array<string,mixed>>>
+     * @param  list<array<string,mixed>>  $previous
+     * @return array<string,list<array<string,mixed>>>
      */
     private function movements(array $current, array $previous, string $dimension): array
     {
@@ -549,6 +580,7 @@ final class WebsiteSearchConsoleAnalysisService
                 if ((int) ($row['impressions'] ?? 0) >= 10) {
                     $new[] = $row + ['click_delta' => (int) ($row['clicks'] ?? 0), 'impression_delta' => (int) ($row['impressions'] ?? 0)];
                 }
+
                 continue;
             }
 
@@ -598,7 +630,7 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param list<array<string,mixed>> $queries
-     *  @return array<string,mixed>
+     * @return array<string,mixed>
      */
     private function opportunities(array $queries): array
     {
@@ -652,7 +684,7 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param list<array<string,mixed>> $queries
-     *  @return array<string,int>
+     * @return array<string,int>
      */
     private function positionBands(array $queries): array
     {
@@ -678,7 +710,7 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param list<array<string,mixed>> $queries
-     *  @return array<string,mixed>
+     * @return array<string,mixed>
      */
     private function brandSplit(DigitalAsset $asset, array $queries): array
     {
@@ -726,11 +758,11 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param list<array<string,mixed>> $queries
-     *  @return list<array<string,mixed>>
+     * @return list<array<string,mixed>>
      */
     private function topicClusters(array $queries): array
     {
-        $stop = ['ve','ile','icin','bir','bu','mi','mu','mı','the','and','for','with','from','what','how','near','in','of','to','a','an'];
+        $stop = ['ve', 'ile', 'icin', 'bir', 'bu', 'mi', 'mu', 'mı', 'the', 'and', 'for', 'with', 'from', 'what', 'how', 'near', 'in', 'of', 'to', 'a', 'an'];
         $tokens = [];
         foreach (array_slice($queries, 0, 200) as $row) {
             $words = preg_split('/\s+/u', $this->normalizeText((string) ($row['query'] ?? ''))) ?: [];
@@ -767,8 +799,8 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param list<array<string,mixed>> $current
-     *  @param list<array<string,mixed>> $previous
-     *  @return list<array<string,mixed>>
+     * @param  list<array<string,mixed>>  $previous
+     * @return list<array<string,mixed>>
      */
     private function contentDecay(array $current, array $previous): array
     {
@@ -943,7 +975,7 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param list<array<string,mixed>> $samples
-     *  @return array<string,mixed>
+     * @return array<string,mixed>
      */
     private function indexHealth(array $samples): array
     {
@@ -979,11 +1011,11 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param array<string,mixed> $current
-     *  @param array<string,mixed>|null $previous
-     *  @param array<string,list<array<string,mixed>>> $pageMovements
-     *  @param list<array<string,mixed>> $sitemaps
-     *  @param list<array<string,mixed>> $inspection
-     *  @return list<array<string,mixed>>
+     * @param  array<string,mixed>|null  $previous
+     * @param  array<string,list<array<string,mixed>>>  $pageMovements
+     * @param  list<array<string,mixed>>  $sitemaps
+     * @param  list<array<string,mixed>>  $inspection
+     * @return list<array<string,mixed>>
      */
     private function riskSignals(array $current, ?array $previous, array $pageMovements, array $sitemaps, array $inspection, bool $compare): array
     {
@@ -1020,7 +1052,7 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param list<array<string,mixed>> $rows
-     *  @return list<array<string,mixed>>
+     * @return list<array<string,mixed>>
      */
     private function sortRows(array $rows, string $key): array
     {

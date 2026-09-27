@@ -1,13 +1,4 @@
 <div class="flex flex-wrap items-start gap-2">
-    <livewire:demo.partials.data-sync-control
-        :asset-id="(int) $assetId"
-        :capabilities="['meta_ads']"
-        :providers="['META_ADS']"
-        :button-label="app()->getLocale() === 'tr' ? 'Şimdi Güncelle' : 'Update Now'"
-        :title="app()->getLocale() === 'tr' ? 'Meta Ads Veri Güncelliği' : 'Meta Ads Data Freshness'"
-        :compact="true"
-        :key="'meta-data-sync-'.$assetId"
-    />
     <button type="button" wire:click="runAnalysis" wire:loading.attr="disabled"
         class="inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-60 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.03]">
         {{ app()->getLocale() === 'tr' ? 'Analizi çalıştır' : 'Run analysis' }}

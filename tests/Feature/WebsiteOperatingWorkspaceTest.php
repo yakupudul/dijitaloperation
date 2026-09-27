@@ -65,7 +65,8 @@ class WebsiteOperatingWorkspaceTest extends TestCase
 
         Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id])
             ->assertSee('Northwind Website')
-            ->assertSee('Needs attention')
+            ->assertSee('Veri durumu')
+            ->assertSee('Açık işler')
             ->assertSee('Opportunities')
             ->assertSee('Site inventory')
             ->assertDontSee('Website Health')
@@ -107,7 +108,7 @@ class WebsiteOperatingWorkspaceTest extends TestCase
             ->assertSet('tab', 'search_console');
     }
 
-    public function test_overview_lists_findings_and_recommendations_with_readable_labels(): void
+    public function test_overview_replaces_legacy_findings_and_recommendations_with_open_work(): void
     {
         $asset = $this->createPortfolioAsset('website', 'Northwind Website');
 
@@ -127,11 +128,14 @@ class WebsiteOperatingWorkspaceTest extends TestCase
             'status' => Recommendation::STATUS_OPEN,
         ]);
 
+        // Legacy Finding / Recommendation rows stay in their own pages; the overview shows the Turkish
+        // "Açık işler" card that opens the command center filtered to this asset.
         Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id])
-            ->assertSee(__('operator_website.severity.critical'))
-            ->assertSee(__('operator_website.finding_status.open'))
-            ->assertSee('Northwind canonical fix')
-            ->assertSee(__('operator_website.priority.high').' · '.__('operator_website.recommendation_status.open'))
+            ->assertSee('Açık işler')
+            ->assertSee(route('operator.command-center', ['asset' => $asset->id]), false)
+            ->assertDontSee('Northwind canonical fix')
+            ->assertDontSee(__('operator_website.overview.open_findings'))
+            ->assertDontSee(__('operator_website.overview.recommendations'))
             ->assertDontSee('>critical<', false)
             ->assertDontSee('high · open');
     }

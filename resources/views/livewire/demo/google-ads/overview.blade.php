@@ -9,20 +9,6 @@
     } else {
         $displayTitle = $rawTitle;
     }
-    $rawStatus = (string) ($identity['status'] ?? '');
-    $statusLabel = match ($rawStatus) {
-        'Connected' => $isTr ? 'Bağlı' : 'Connected',
-        'Error' => $providerConnected ? ($isTr ? 'Bağlı · veri okuma sorunu' : 'Connected · data read issue') : ($isTr ? 'Hata' : 'Error'),
-        'Action required' => $isTr ? 'İşlem gerekli' : 'Action required',
-        'Not connected' => $isTr ? 'Bağlı değil' : 'Not connected',
-        default => $rawStatus,
-    };
-    $rawFreshness = (string) ($identity['freshness'] ?? '');
-    $freshnessLabel = match ($rawFreshness) {
-        'Not collected' => $providerConnected ? ($isTr ? 'Ana görünüm yeniden okunuyor' : 'Main read pending') : ($isTr ? 'Henüz veri yok' : 'Not collected'),
-        'Read issue' => $isTr ? 'Veri okuma sorunu' : 'Read issue',
-        default => $rawFreshness,
-    };
     $strategyLine = (string) ($identity['strategy_line'] ?? '');
     if ($providerConnected && str_contains(strtolower($strategyLine), 'not connected')) {
         $strategyLine = $isTr
@@ -78,7 +64,6 @@
                     <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $strategyLine }}</p>
                 @endif
                 <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-                    <span><span class="font-medium {{ $providerConnected || $rawStatus === 'Connected' ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400' }}">{{ $statusLabel }}</span>@if($freshnessLabel !== '') · {{ $freshnessLabel }} @endif</span>
                     @if (! empty($identity['customer_id']))
                         <span>{{ $isTr ? 'Müşteri ID' : 'Customer ID' }} <strong class="font-medium text-gray-700 dark:text-gray-300">{{ $identity['customer_id'] }}</strong></span>
                     @endif

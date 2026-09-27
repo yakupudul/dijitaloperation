@@ -5,8 +5,8 @@ namespace App\View\Components\Operator;
 use App\Models\AssetAlert;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
-use App\Services\Operator\AssetRuntimeStatusReader;
-use App\Services\Operator\BrandWorkspaceReadService;
+use App\Services\DataStatus\DataStatus;
+use App\Services\DataStatus\DataStatusReader;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Support\DigitalAssetTypes;
 use App\Support\Integrations\AssetBindingCompatibility;
@@ -16,21 +16,15 @@ use Illuminate\View\Component;
 
 /**
  * The shared frame line above every digital asset page: Customer › Brand › Asset breadcrumb, a switcher
- * to the brand's other assets, and one status strip (connected accounts, last data, freshness) with the
- * "Veri Kaynakları" and "Düzenle" links. Channel pages keep their own tabs and actions below it.
+ * to the brand's other assets, the "Veri Kaynakları" and "Düzenle" links, and below it the one "Veri durumu" strip
+ * (DataStatusReader) — the only place an asset page says whether its sources are connected and current.
  */
 class AssetContext extends Component
 {
     public ?DigitalAsset $asset;
 
-    /** @var list<array{name: string, type_label: string, url: string, current: bool, data_state: string}> */
+    /** @var list<array{name: string, type_label: string, url: string, current: bool, tone: string}> */
     public array $siblings = [];
-
-    /** @var list<array{label: string, resource: string}> */
-    public array $accounts = [];
-
-    /** @var array<string, mixed> */
-    public array $status = [];
 
     public string $typeLabel = '';
 
@@ -62,14 +56,13 @@ class AssetContext extends Component
             ->orderBy('type')
             ->orderBy('name')
             ->get();
-        $runtime = app(AssetRuntimeStatusReader::class)->forAssets($brandAssets);
-        $this->status = $runtime[(int) $asset->id] ?? [];
+        $statuses = app(DataStatusReader::class)->forAssets($brandAssets);
         $this->siblings = $brandAssets->map(fn (DigitalAsset $sibling): array => [
             'name' => (string) $sibling->name,
             'type_label' => DigitalAssetTypes::options()[(string) $sibling->type] ?? (string) $sibling->type,
             'url' => OperatorPortfolioPresenter::specialistUrl($sibling),
             'current' => $sibling->is($asset),
-            'data_state' => (string) ($runtime[(int) $sibling->id]['data_state'] ?? 'unavailable'),
+            'tone' => self::worstTone($statuses[(int) $sibling->id] ?? []),
         ])->values()->all();
 
         $capability = ['ga4' => 'ga4', 'gsc' => 'search_console'][(string) $asset->type] ?? null;
@@ -78,21 +71,26 @@ class AssetContext extends Component
             $this->websiteHome = route('operator.website', ['assetId' => $website->id, 'tab' => $asset->type === 'ga4' ? 'ga4_analysis' : 'search_console']);
         }
 
-        $this->alerts = AssetAlert::query()->open()->where('digital_asset_id', $asset->id)
+        $this->alerts = AssetAlert::query()->open()->where('digital_asset_id', $asset->id)->whereNotIn('kind', DataStatusReader::FRESHNESS_ALERT_KINDS)
             ->orderByRaw("case severity when 'critical' then 0 when 'high' then 1 when 'medium' then 2 else 3 end")
             ->get();
+    }
 
-        $this->accounts = CoreAssetBinding::query()
-            ->with('externalResource')
-            ->where('digital_asset_id', $asset->id)
-            ->where('status', CoreAssetBinding::STATUS_ACTIVE)
-            ->get()
-            ->map(fn (CoreAssetBinding $binding): array => [
-                'label' => BrandWorkspaceReadService::ACCOUNT_LABELS[$binding->capability] ?? (string) $binding->capability,
-                'resource' => (string) ($binding->externalResource?->display_name ?: $binding->externalResource?->external_id ?: '—'),
-            ])
-            ->values()
-            ->all();
+    /**
+     * Switcher dot of a sibling asset: the worst tone of its sources (no sources → muted).
+     *
+     * @param  list<DataStatus>  $statuses
+     */
+    private static function worstTone(array $statuses): string
+    {
+        $tones = array_map(fn (DataStatus $status): string => $status->tone(), $statuses);
+        foreach (['bad', 'warn', 'ok'] as $tone) {
+            if (in_array($tone, $tones, true)) {
+                return $tone;
+            }
+        }
+
+        return 'muted';
     }
 
     public function shouldRender(): bool

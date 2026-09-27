@@ -51,13 +51,6 @@
                     @if (filled($identity['maps_uri'] ?? null))
                         <a href="{{ $identity['maps_uri'] }}" target="_blank" rel="noopener" class="font-medium text-brand-600 hover:underline dark:text-brand-400">{{ __($g.'open_on_maps') }} ↗</a>
                     @endif
-                    <span>·</span>
-                    <span>{{ __($g.'last_refresh') }}: {{ $identity['last_refresh'] ?: '—' }}</span>
-                    <span @class([
-                        'font-semibold text-emerald-600 dark:text-emerald-400' => $real,
-                        'font-semibold text-amber-600 dark:text-amber-400' => $bound && ! $real,
-                        'font-semibold text-gray-500' => ! $bound,
-                    ])>{{ $real ? __($g.'connected') : ($bound ? __($g.'needs_collection') : __($g.'not_connected')) }}</span>
                 </div>
             </div>
         </div>

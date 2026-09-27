@@ -4,21 +4,21 @@ namespace App\Services\Portfolio;
 
 use App\Models\AssetAlert;
 use App\Models\Brand;
-use App\Models\CoreAssetBinding;
 use App\Models\CoreConnection;
 use App\Models\ResourceAutomation;
 use App\Services\CommandCenter\CommandCenter;
+use App\Services\DataStatus\DataStatus;
+use App\Services\DataStatus\DataStatusReader;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
-use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
- * Portföy sağlığı: every brand × channel in one grid. A cell says whether the channel is connected, whether its data
- * is current and whether an alert is open on it; a missing connection is a coverage gap. The row adds the brand's
- * open work (from the command center) and the month's ad budget pace.
+ * Portföy sağlığı: every brand × channel in one grid. A data-source cell is the DataStatusReader status of that
+ * source (the same words and dates the asset pages show), worsened by an open alert; a missing connection is a
+ * coverage gap. The row adds the brand's open work (from the command center) and the month's ad budget pace.
  */
 final class PortfolioHealthReader
 {
@@ -27,10 +27,13 @@ final class PortfolioHealthReader
         'meta_ads' => 'Meta Ads', 'google_business_profile' => 'İşletme Profili',
     ];
 
-    /** Days without new data after which a connected account counts as stale. */
-    private const int STALE_DAYS = 4;
+    /** Grid state of each data status (ok / warn / bad / missing). */
+    private const array CELL_STATES = [
+        DataStatus::FRESH => 'ok', DataStatus::PAUSED => 'ok', DataStatus::FIRST_LOAD => 'warn', DataStatus::STALE => 'warn',
+        DataStatus::ACCESS_PROBLEM => 'bad', DataStatus::NOT_BOUND => 'missing',
+    ];
 
-    public function __construct(private readonly CommandCenter $center) {}
+    public function __construct(private readonly CommandCenter $center, private readonly DataStatusReader $dataStatus) {}
 
     /**
      * @return array{rows: list<array<string, mixed>>, gaps: array<string, list<array{brand_id: int, brand: string}>>, unbound: int, totals: array<string, int>}
@@ -40,9 +43,8 @@ final class PortfolioHealthReader
         $brands = Brand::query()->with(['customer', 'digitalAssets' => fn ($q) => $q->where('status', 'active')])
             ->whereHas('customer', fn ($q) => $q->where('status', 'active'))->orderBy('name')->get();
         $assetIds = $brands->flatMap(fn (Brand $b) => $b->digitalAssets->pluck('id'))->all();
-        $bindings = CoreAssetBinding::query()->with(['externalResource'])->whereIn('digital_asset_id', $assetIds)->where('status', CoreAssetBinding::STATUS_ACTIVE)->get()->groupBy('digital_asset_id');
-        $automations = ResourceAutomation::query()->whereIn('external_resource_id', $bindings->flatten()->pluck('external_resource_id')->filter()->unique())->get()->keyBy('external_resource_id');
-        $alerts = AssetAlert::query()->active()->whereIn('digital_asset_id', $assetIds)->get()->groupBy('digital_asset_id');
+        $statuses = $this->dataStatus->forAssets($brands->flatMap(fn (Brand $b) => $b->digitalAssets)->values());
+        $alerts = AssetAlert::query()->active()->whereIn('digital_asset_id', $assetIds)->whereNotIn('kind', DataStatusReader::FRESHNESS_ALERT_KINDS)->get()->groupBy('digital_asset_id');
         $paired = CoreConnection::query()->whereIn('digital_asset_id', $assetIds)->where('type', WordPressConnectorPairingService::CONNECTION_TYPE)
             ->where('config->pairing_state', WordPressConnectorPairingService::PAIRED)->where('enabled', true)->pluck('digital_asset_id')->flip();
         $uptime = Schema::hasTable('uptime_states') ? DB::table('uptime_states')->whereIn('digital_asset_id', $assetIds)->pluck('state', 'digital_asset_id') : collect();
@@ -55,7 +57,7 @@ final class PortfolioHealthReader
             foreach (array_keys(self::CHANNELS) as $channel) {
                 $cells[$channel] = $channel === 'website'
                     ? $this->websiteCell($brand, $alerts, $paired, $uptime)
-                    : $this->accountCell($brand, $channel, $bindings, $automations, $alerts);
+                    : $this->accountCell($brand, $channel, $statuses, $alerts);
             }
             $states = array_column($cells, 'state');
             $status = in_array('bad', $states, true) ? 'bad' : (in_array('warn', $states, true) ? 'warn' : 'ok');
@@ -126,43 +128,36 @@ final class PortfolioHealthReader
             'url' => route('operator.website', ['assetId' => $site->id])];
     }
 
-    /** @return array<string, mixed> */
-    private function accountCell(Brand $brand, string $capability, Collection $bindings, Collection $automations, Collection $alerts): array
+    /**
+     * @param  array<int, list<DataStatus>>  $statuses
+     * @return array<string, mixed>
+     */
+    private function accountCell(Brand $brand, string $capability, array $statuses, Collection $alerts): array
     {
         $found = null;
         foreach ($brand->digitalAssets as $asset) {
-            foreach ($bindings->get($asset->id, collect()) as $binding) {
-                if ($binding->capability === $capability) {
-                    $found = [$asset, $binding];
+            foreach ($statuses[(int) $asset->id] ?? [] as $status) {
+                if ($status->capability === $capability && $status->isBound()) {
+                    $found = [$asset, $status];
                     break 2;
                 }
             }
         }
         if ($found === null) {
-            return ['state' => 'missing', 'label' => 'Bağlı değil', 'url' => route('operator.integrations')];
+            return ['state' => 'missing', 'label' => __('data_status.states.not_bound', [], 'tr'), 'data_state' => DataStatus::NOT_BOUND, 'alert' => null, 'notes' => [],
+                'url' => route('operator.integrations')];
         }
-        [$asset, $binding] = $found;
-        $automation = $automations->get($binding->external_resource_id);
-        $notes = [];
-        $state = 'ok';
-        if ($automation !== null && $automation->collection_status === 'attention') {
-            [$state, $notes[]] = ['bad', match ((string) $automation->collection_error) {
-                'reconnect' => 'Yeniden bağlanmalı', 'request_requires_fix' => 'İstek düzeltilmeli', default => 'Veri çekilemiyor',
-            }];
-        }
-        $through = $automation?->data_through !== null ? CarbonImmutable::parse((string) $automation->data_through) : null;
-        if ($through !== null && $through->lt(now()->subDays(self::STALE_DAYS + 1)->startOfDay())) {
-            $state = $this->worse($state, 'warn');
-            $notes[] = 'Veri '.$through->format('d.m').' tarihine kadar';
-        }
+        [$asset, $status] = $found;
+        $state = self::CELL_STATES[$status->state] ?? 'warn';
+        $notes = array_values(array_filter([$status->detail()]));
         [$alertState, $alertNote] = $this->alertState($alerts->get($asset->id, collect()));
         if ($alertState !== null) {
             $state = $this->worse($state, $alertState);
             $notes[] = $alertNote;
         }
 
-        return ['state' => $state, 'label' => $notes[0] ?? ('Güncel'.($through !== null ? ' · '.$through->format('d.m') : '')), 'notes' => $notes,
-            'url' => route('operator.asset.sources', ['assetId' => $asset->id])];
+        return ['state' => $state, 'label' => $status->shortLabel(), 'data_state' => $status->state, 'alert' => $alertNote, 'notes' => $notes,
+            'url' => $status->state === DataStatus::ACCESS_PROBLEM && $status->actionUrl !== null ? $status->actionUrl : route('operator.asset.sources', ['assetId' => $asset->id])];
     }
 
     /** @return array{0: ?string, 1: ?string} */

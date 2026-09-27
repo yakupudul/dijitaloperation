@@ -20,7 +20,12 @@ use Illuminate\Support\Facades\Schema;
  */
 final class WebsiteGa4AnalysisService
 {
-    /** @return array<string, mixed> */
+    /**
+     * The full GA4 read model; `$headlineOnly` stops after the property totals (coverage + headline metrics)
+     * for summary cards such as the website overview KPIs.
+     *
+     * @return array<string, mixed>
+     */
     public function build(
         DigitalAsset $asset,
         string $preset,
@@ -28,6 +33,7 @@ final class WebsiteGa4AnalysisService
         ?string $end,
         bool $compare,
         string $compareMode,
+        bool $headlineOnly = false,
     ): array {
         $bounds = OperatorReportingPeriod::queryBounds($preset, $start, $end);
         $comparison = OperatorReportingPeriod::comparisonQueryBounds($compareMode, $preset, $start, $end);
@@ -99,6 +105,28 @@ final class WebsiteGa4AnalysisService
         $previousEngagementRate = $previous && (int) $previous['sessions'] > 0
             ? ((int) $previous['engagedSessions'] / (int) $previous['sessions']) * 100
             : null;
+
+        if ($headlineOnly) {
+            return array_merge($empty, [
+                'connected' => true,
+                'has_data' => $current['rows'] > 0,
+                'property_id' => $propertyId,
+                'property_name' => $resource->display_name ?: 'Google Analytics',
+                'external_resource_id' => $resourceId,
+                'coverage' => [
+                    'start' => filled($coverage?->min_date) ? (string) $coverage->min_date : null,
+                    'end' => $coverageEnd,
+                    'last_collected_at' => filled($coverage?->last_collected_at) ? (string) $coverage->last_collected_at : null,
+                ],
+                'metrics' => [
+                    $this->metric('sessions', $sessions, $previous['sessions'] ?? null, 'number', $compare),
+                    $this->metric('new_users', $current['newUsers'], $previous['newUsers'] ?? null, 'number', $compare),
+                    $this->rateMetric('engagement_rate', $engagementRate, $previousEngagementRate, $compare),
+                    $this->metric('views', $current['screenPageViews'], $previous['screenPageViews'] ?? null, 'number', $compare),
+                ],
+                'secondary_metrics' => ['key_events' => $current['keyEvents']],
+            ]);
+        }
 
         $trendRows = $rangeIsUsable
             ? $this->baseQuery('ga4_property_daily', $resourceId, $propertyId, $rangeStart, $rangeEnd)
