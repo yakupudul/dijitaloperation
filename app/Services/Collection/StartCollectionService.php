@@ -136,17 +136,18 @@ final class StartCollectionService
                         'freshness_state' => $dataset['plan_disposition_detail']['freshness_state'] ?? null,
                     ],
                 ]);
-                $datasetByFamily[$resourceRun->id.':'.$dataset['request_family_id']] = $datasetRun;
+                // A family can own several datasets (Meta entity snapshot, WordPress connector): keep them all.
+                $datasetByFamily[$resourceRun->id.':'.$dataset['request_family_id']][] = $datasetRun;
                 $resourceRun->increment('datasets_total');
             }
 
-            foreach ($datasetByFamily as $datasetRun) {
+            foreach (array_merge(...array_values($datasetByFamily)) as $datasetRun) {
                 $depFamilies = $datasetRun->metadata['depends_on_request_family_ids'] ?? [];
                 $depIds = [];
                 foreach ($depFamilies as $familyId) {
                     $key = $datasetRun->collection_resource_run_id.':'.$familyId;
-                    if (isset($datasetByFamily[$key])) {
-                        $depIds[] = $datasetByFamily[$key]->id;
+                    foreach ($datasetByFamily[$key] ?? [] as $dependency) {
+                        $depIds[] = $dependency->id;
                     }
                 }
                 if ($depIds !== []) {
@@ -270,4 +271,3 @@ final class StartCollectionService
         return ($timestamp + $leaseSeconds) > time();
     }
 }
-

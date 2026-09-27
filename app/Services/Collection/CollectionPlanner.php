@@ -187,69 +187,134 @@ final class CollectionPlanner
 
                 $level = $this->requirementLevelForFamily($familyId);
                 $eligibility = $this->eligibilityForFamily($family, $request);
-                $datasetId = $this->primaryDatasetForFamily($familyId) ?? $familyId;
-                $requirements = $this->requirementsForFamily($familyId);
-                $coverageTarget = $this->ranges->resolveForRequirements($requirements);
-                $catalogCoverage = $this->catalogCoverageTarget($familyId, $datasetId);
-                if ($catalogCoverage !== null && ($coverageTarget['kind'] ?? '') !== 'historical') {
-                    $coverageTarget = $catalogCoverage;
-                }
-                $requirementIds = array_values(array_filter(array_map(
-                    static fn (array $r): ?string => is_string($r['id'] ?? null) ? (string) $r['id'] : null,
-                    $requirements,
-                )));
+                // One family can own several datasets (Meta entity snapshot: campaigns, ad sets, creatives); each is
+                // its own dataset run so budget, retry and checkpoint governors apply per dataset.
+                foreach ($this->datasetIdsForFamily($familyId) as $datasetId) {
+                    $requirements = $this->requirementsForFamily($familyId);
+                    $coverageTarget = $this->ranges->resolveForRequirements($requirements);
+                    $catalogCoverage = $this->catalogCoverageTarget($familyId, $datasetId);
+                    if ($catalogCoverage !== null && ($coverageTarget['kind'] ?? '') !== 'historical') {
+                        $coverageTarget = $catalogCoverage;
+                    }
+                    $requirementIds = array_values(array_filter(array_map(
+                        static fn (array $r): ?string => is_string($r['id'] ?? null) ? (string) $r['id'] : null,
+                        $requirements,
+                    )));
 
-                if ($eligibility === CollectionRunStatus::NotEligible) {
-                    $datasets[] = [
-                        'resource_key' => $resourceKey,
-                        'provider_or_source' => $provider,
-                        'dataset_contract_id' => $datasetId,
-                        'request_family_id' => $familyId,
-                        'requirement_ids' => $requirementIds,
-                        'requirement_level' => $level->value,
-                        'planned_status' => CollectionRunStatus::NotEligible->value,
-                        'plan_disposition' => PlanDisposition::NotEligible->value,
-                        'date_range' => null,
-                        'coverage_target' => $coverageTarget,
-                        'depends_on_request_family_ids' => $this->familyDependencies($familyId),
-                        'core_asset_binding_id' => $binding->id,
-                        'digital_asset_id' => $binding->digital_asset_id ?? $asset->id,
-                        'external_resource_id' => $binding->external_resource_id,
-                        'plan_disposition_detail' => [
-                            'type' => PlanDisposition::NotEligible->value,
+                    if ($eligibility === CollectionRunStatus::NotEligible) {
+                        $datasets[] = [
+                            'resource_key' => $resourceKey,
+                            'provider_or_source' => $provider,
+                            'dataset_contract_id' => $datasetId,
                             'request_family_id' => $familyId,
-                            'binding_id' => $binding->id,
-                        ],
-                    ];
+                            'requirement_ids' => $requirementIds,
+                            'requirement_level' => $level->value,
+                            'planned_status' => CollectionRunStatus::NotEligible->value,
+                            'plan_disposition' => PlanDisposition::NotEligible->value,
+                            'date_range' => null,
+                            'coverage_target' => $coverageTarget,
+                            'depends_on_request_family_ids' => $this->familyDependencies($familyId),
+                            'core_asset_binding_id' => $binding->id,
+                            'digital_asset_id' => $binding->digital_asset_id ?? $asset->id,
+                            'external_resource_id' => $binding->external_resource_id,
+                            'plan_disposition_detail' => [
+                                'type' => PlanDisposition::NotEligible->value,
+                                'request_family_id' => $familyId,
+                                'binding_id' => $binding->id,
+                            ],
+                        ];
 
-                    continue;
-                }
+                        continue;
+                    }
 
-                $materialization = $this->findMaterialization(
-                    $materializations,
-                    $datasetId,
-                    (int) ($binding->digital_asset_id ?? $asset->id),
-                    $binding->external_resource_id !== null ? (int) $binding->external_resource_id : null,
-                );
-
-                if ($request->triggerType === CollectionTriggerType::Incremental) {
-                    $incremental = $this->planIncrementalDataset(
-                        $request,
-                        $binding,
+                    $materialization = $this->findMaterialization(
+                        $materializations,
                         $datasetId,
-                        $materialization,
+                        (int) ($binding->digital_asset_id ?? $asset->id),
+                        $binding->external_resource_id !== null ? (int) $binding->external_resource_id : null,
                     );
 
-                    $plannedStatus = $incremental['executable']
-                        ? CollectionRunStatus::Queued->value
-                        : match ($incremental['plan_disposition']) {
-                            PlanDisposition::AlreadySatisfied->value => CollectionRunStatus::Skipped->value,
-                            PlanDisposition::NotEligible->value => CollectionRunStatus::NotEligible->value,
-                            PlanDisposition::ActionRequired->value => CollectionRunStatus::NotEligible->value,
-                            PlanDisposition::IntegrityBlocked->value => CollectionRunStatus::NotEligible->value,
-                            PlanDisposition::ProviderLimited->value => CollectionRunStatus::NotEligible->value,
-                            default => CollectionRunStatus::Skipped->value,
-                        };
+                    if ($request->triggerType === CollectionTriggerType::Incremental) {
+                        $incremental = $this->planIncrementalDataset(
+                            $request,
+                            $binding,
+                            $datasetId,
+                            $materialization,
+                        );
+
+                        $plannedStatus = $incremental['executable']
+                            ? CollectionRunStatus::Queued->value
+                            : match ($incremental['plan_disposition']) {
+                                PlanDisposition::AlreadySatisfied->value => CollectionRunStatus::Skipped->value,
+                                PlanDisposition::NotEligible->value => CollectionRunStatus::NotEligible->value,
+                                PlanDisposition::ActionRequired->value => CollectionRunStatus::NotEligible->value,
+                                PlanDisposition::IntegrityBlocked->value => CollectionRunStatus::NotEligible->value,
+                                PlanDisposition::ProviderLimited->value => CollectionRunStatus::NotEligible->value,
+                                default => CollectionRunStatus::Skipped->value,
+                            };
+
+                        $datasets[] = [
+                            'resource_key' => $resourceKey,
+                            'provider_or_source' => $provider,
+                            'dataset_contract_id' => $datasetId,
+                            'request_family_id' => $familyId,
+                            'requirement_ids' => $requirementIds,
+                            'requirement_level' => $level->value,
+                            'planned_status' => $plannedStatus,
+                            'plan_disposition' => $incremental['plan_disposition'],
+                            'date_range' => $incremental['date_range'],
+                            'coverage_target' => $coverageTarget,
+                            'depends_on_request_family_ids' => $this->familyDependencies($familyId),
+                            'core_asset_binding_id' => $binding->id,
+                            'digital_asset_id' => $binding->digital_asset_id ?? $asset->id,
+                            'external_resource_id' => $binding->external_resource_id,
+                            'plan_disposition_detail' => $incremental['plan_disposition_detail'],
+                        ];
+
+                        continue;
+                    }
+
+                    $satisfaction = $this->coverage->evaluate(
+                        $materialization,
+                        $coverageTarget,
+                        $request->forceRefresh,
+                    );
+
+                    if ($satisfaction['disposition'] === PlanDisposition::AlreadySatisfied->value) {
+                        $datasets[] = [
+                            'resource_key' => $resourceKey,
+                            'provider_or_source' => $provider,
+                            'dataset_contract_id' => $datasetId,
+                            'request_family_id' => $familyId,
+                            'requirement_ids' => $requirementIds,
+                            'requirement_level' => $level->value,
+                            'planned_status' => CollectionRunStatus::Skipped->value,
+                            'plan_disposition' => PlanDisposition::AlreadySatisfied->value,
+                            'date_range' => null,
+                            'coverage_target' => $coverageTarget,
+                            'depends_on_request_family_ids' => $this->familyDependencies($familyId),
+                            'core_asset_binding_id' => $binding->id,
+                            'digital_asset_id' => $binding->digital_asset_id ?? $asset->id,
+                            'external_resource_id' => $binding->external_resource_id,
+                            'plan_disposition_detail' => [
+                                'type' => PlanDisposition::AlreadySatisfied->value,
+                                'request_family_id' => $familyId,
+                                'binding_id' => $binding->id,
+                                'reason' => $satisfaction['reason'],
+                                'existing_coverage' => $satisfaction['existing_coverage'],
+                            ],
+                        ];
+
+                        continue;
+                    }
+
+                    $dateRange = $satisfaction['date_range'];
+                    if ($dateRange === null && $coverageTarget['kind'] === 'historical') {
+                        $dateRange = [
+                            'start' => $coverageTarget['start'],
+                            'end' => $coverageTarget['end'],
+                        ];
+                    }
 
                     $datasets[] = [
                         'resource_key' => $resourceKey,
@@ -258,84 +323,22 @@ final class CollectionPlanner
                         'request_family_id' => $familyId,
                         'requirement_ids' => $requirementIds,
                         'requirement_level' => $level->value,
-                        'planned_status' => $plannedStatus,
-                        'plan_disposition' => $incremental['plan_disposition'],
-                        'date_range' => $incremental['date_range'],
-                        'coverage_target' => $coverageTarget,
-                        'depends_on_request_family_ids' => $this->familyDependencies($familyId),
-                        'core_asset_binding_id' => $binding->id,
-                        'digital_asset_id' => $binding->digital_asset_id ?? $asset->id,
-                        'external_resource_id' => $binding->external_resource_id,
-                        'plan_disposition_detail' => $incremental['plan_disposition_detail'],
-                    ];
-
-                    continue;
-                }
-
-                $satisfaction = $this->coverage->evaluate(
-                    $materialization,
-                    $coverageTarget,
-                    $request->forceRefresh,
-                );
-
-                if ($satisfaction['disposition'] === PlanDisposition::AlreadySatisfied->value) {
-                    $datasets[] = [
-                        'resource_key' => $resourceKey,
-                        'provider_or_source' => $provider,
-                        'dataset_contract_id' => $datasetId,
-                        'request_family_id' => $familyId,
-                        'requirement_ids' => $requirementIds,
-                        'requirement_level' => $level->value,
-                        'planned_status' => CollectionRunStatus::Skipped->value,
-                        'plan_disposition' => PlanDisposition::AlreadySatisfied->value,
-                        'date_range' => null,
+                        'planned_status' => CollectionRunStatus::Queued->value,
+                        'plan_disposition' => PlanDisposition::Eligible->value,
+                        'date_range' => $dateRange,
                         'coverage_target' => $coverageTarget,
                         'depends_on_request_family_ids' => $this->familyDependencies($familyId),
                         'core_asset_binding_id' => $binding->id,
                         'digital_asset_id' => $binding->digital_asset_id ?? $asset->id,
                         'external_resource_id' => $binding->external_resource_id,
                         'plan_disposition_detail' => [
-                            'type' => PlanDisposition::AlreadySatisfied->value,
+                            'type' => PlanDisposition::Eligible->value,
                             'request_family_id' => $familyId,
                             'binding_id' => $binding->id,
                             'reason' => $satisfaction['reason'],
-                            'existing_coverage' => $satisfaction['existing_coverage'],
                         ],
                     ];
-
-                    continue;
                 }
-
-                $dateRange = $satisfaction['date_range'];
-                if ($dateRange === null && $coverageTarget['kind'] === 'historical') {
-                    $dateRange = [
-                        'start' => $coverageTarget['start'],
-                        'end' => $coverageTarget['end'],
-                    ];
-                }
-
-                $datasets[] = [
-                    'resource_key' => $resourceKey,
-                    'provider_or_source' => $provider,
-                    'dataset_contract_id' => $datasetId,
-                    'request_family_id' => $familyId,
-                    'requirement_ids' => $requirementIds,
-                    'requirement_level' => $level->value,
-                    'planned_status' => CollectionRunStatus::Queued->value,
-                    'plan_disposition' => PlanDisposition::Eligible->value,
-                    'date_range' => $dateRange,
-                    'coverage_target' => $coverageTarget,
-                    'depends_on_request_family_ids' => $this->familyDependencies($familyId),
-                    'core_asset_binding_id' => $binding->id,
-                    'digital_asset_id' => $binding->digital_asset_id ?? $asset->id,
-                    'external_resource_id' => $binding->external_resource_id,
-                    'plan_disposition_detail' => [
-                        'type' => PlanDisposition::Eligible->value,
-                        'request_family_id' => $familyId,
-                        'binding_id' => $binding->id,
-                        'reason' => $satisfaction['reason'],
-                    ],
-                ];
             }
         }
 
@@ -693,6 +696,21 @@ final class CollectionPlanner
         }
 
         return null;
+    }
+
+    /**
+     * Datasets planned for one bound family: every dataset of the Meta entity snapshot family (the executor
+     * handles each separately), otherwise the family's primary dataset.
+     *
+     * @return list<string>
+     */
+    private function datasetIdsForFamily(string $familyId): array
+    {
+        if ($familyId === MetaAdsRequestFamilyCatalog::FAMILY_ENTITY_SNAPSHOT) {
+            return MetaAdsRequestFamilyCatalog::definition($familyId)['dataset_ids'];
+        }
+
+        return [$this->primaryDatasetForFamily($familyId) ?? $familyId];
     }
 
     private function primaryDatasetForFamily(string $familyId): ?string

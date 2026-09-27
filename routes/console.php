@@ -502,6 +502,22 @@ Schedule::command('moxdop:alerts:scan')
     ->withoutOverlapping(60)
     ->name('asset-alerts-daily');
 
+// Kanıt: her aktif bağlantı ve bağlı hesap için en ucuz salt okunur çağrı (heavy kuyruk); başarısız olan Komuta merkezinde.
+Schedule::command('moxdop:verify:live')
+    ->dailyAt((string) config('moxdop-verification.live.time', '06:20'))
+    ->timezone('Europe/Istanbul')
+    ->when(fn (): bool => (bool) config('moxdop-verification.live.enabled', true))
+    ->withoutOverlapping(60)
+    ->name('verify-live-daily');
+
+// Kanıt: toplanan veride eksik gün, etiketsiz reklam trafiği, dönüşüm farkı, para birimi uyuşmazlığı ("Veri şüpheli").
+Schedule::command('moxdop:verify:data')
+    ->dailyAt((string) config('moxdop-verification.consistency.time', '07:25'))
+    ->timezone('Europe/Istanbul')
+    ->when(fn (): bool => (bool) config('moxdop-verification.consistency.enabled', true))
+    ->withoutOverlapping(60)
+    ->name('verify-data-daily');
+
 // Bütçe izleme: Google Ads / Meta hesap durumu, harcama limiti, ön ödemeli bakiye, bugünkü harcama, bütçesi dolan
 // kampanya, reddedilen reklam — iki saatte bir (salt okunur), bitince hemen uyarı + telefona bildirim.
 Artisan::command('moxdop:ads:budget-watch', function (): void {
