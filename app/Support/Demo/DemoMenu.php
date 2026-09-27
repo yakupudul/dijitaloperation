@@ -107,6 +107,7 @@ final class DemoMenu
                     $item(__('operator.nav.settings'), 'operator.settings', 'settings', [
                         $child(__('operator.nav.compliance'), 'operator.compliance'),
                         $child(__('operator.nav.activity'), 'operator.activity'),
+                        ...($isAdmin ? [$child($tr ? 'AI kalitesi' : 'AI Quality', 'operator.settings.ai-quality')] : []),
                     ]),
                 ],
             ],

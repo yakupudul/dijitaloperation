@@ -925,6 +925,20 @@
 - **İlgili:** ADR-064, `app/Services/ExternalWrites/GbpWriter.php`, `app/Services/Content/ContentCalendarPublisher.php`, `config/moxdop-external-writes.php` (`gbp`).
 
 
+## ADR-074 — Lead sonucu işaretleme (CRM değil)
+
+- **Durum:** Kabul (operatör onayı 2026-10-17, "karar vermem gereken her şeyi onaylıyorum").
+- **Karar:**
+  1. `lead_outcomes` tek tablodur. Her satır (marka, lead_source, lead_ref) başına bir müşteri tarafı lead'dir ve kliniğin bildirdiği sonucu tutar: new | contacted | appointment | sale | junk | unreachable. Ayrıca isteğe bağlı TL değer, not, işaretleyen kişi ve zaman.
+  2. MoxDOP müşteri lead'i çekmez (`leads_retrieval` yasak; `/api/leads` yalnız ajansın kendi formu içindir).
+     - Lead'ler form aracının ya da Meta Lead Center'ın dışa aktarma dosyasından yüklenir, ya da elle eklenir.
+  3. Ad, telefon ve e-posta saklanmaz; yalnız eşleştirme ipucu tutulur (baş harfler ve telefonun son 4 hanesi).
+     - Dosyada kimlik sütunu yoksa satır, anahtarlı özetle (HMAC) tanınır.
+  4. Hasta, randevu takvimi, satış hattı ve fırsat yoktur.
+     - Ölçüler: nitelikli oran (randevu + satış / işaretli lead) ve reklam harcamasına göre nitelikli lead başı maliyet.
+  5. Komuta merkezi, 2 günden eski ve sonucu girilmemiş lead'leri marka başına tek öğe olarak gösterir. Aylık rapora, sonuç girilmişse "Lead kalitesi" bölümü eklenir.
+- **İlgili:** `app/Services/LeadOutcomes/*`, `app/Livewire/Operator/Portfolio/BrandLeads.php`, `CommercialGrowthIntelligenceTest` (ertelenen CRM tabloları).
+
 ## ADR-075 — Müşteri içerik onayı: imzalı, süreli bağlantı (müşteri girişi değil)
 
 - **Durum:** Kabul (operatör onayı 2026-10-17, "karar vermem gereken her şeyi onaylıyorum").
