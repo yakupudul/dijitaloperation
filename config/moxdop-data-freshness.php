@@ -16,6 +16,7 @@ return [
     /* Provider-specific runtime policy overlays. Later rows replace by dataset_id. */
     'policy_overlays' => [
         'moxdop-meta-ads-freshness',
+        'moxdop-website-intelligence.freshness_overlay',
     ],
 
     /*

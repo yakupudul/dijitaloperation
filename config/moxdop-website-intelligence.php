@@ -6,7 +6,6 @@
  * The public crawler is provider-neutral and represents what search engines/users can
  * observe. WordPress is an optional deep capability on the same Website Digital Asset.
  */
-
 $column = static fn (string $name, string $type, bool $nullable = true, string $role = 'dimension', mixed $default = null): array => array_filter([
     'name' => $name,
     'type' => $type,
@@ -25,6 +24,62 @@ $provenance = [
     $column('record_fingerprint', 'char(64)', false, 'provenance'),
     $column('metadata', 'json', true, 'extension'),
 ];
+
+/*
+ * Freshness policies for the datasets this overlay introduces. None of them is scheduled incrementally: the public
+ * crawl / HTTP diagnosis refresh the public datasets on demand, the WordPress Connector reconciliation refreshes
+ * the CMS datasets. Registered in moxdop-data-freshness.policy_overlays.
+ */
+$onDemand = static function (string $datasetId, string $source, array $grain, string $reason, int $slaHours = 168): array {
+    return [
+        'dataset_id' => $datasetId,
+        'provider_or_source' => $source,
+        'policy_version' => 1,
+        'collection_mode' => 'CONTROLLED_ON_DEMAND',
+        'incremental_applicable' => false,
+        'non_applicable_reason' => $reason,
+        'reporting_grain' => $grain,
+        'timezone_source' => 'observation_timestamp',
+        'current_period_collectable' => false,
+        'safe_collection_lag_days' => null,
+        'freshness_sla_hours' => $slaHours,
+        'expected_refresh_cadence' => 'on_demand',
+        'late_data_reprocessing' => [
+            'strategy' => 'none',
+            'window_days' => null,
+            'window_source' => 'not_applicable',
+            'overlap_existing_coverage_allowed' => false,
+        ],
+        'catch_up_policy' => 'not_applicable',
+        'max_bounded_incremental_span_days' => null,
+        'snapshot_policy' => [
+            'freshness_basis' => 'last_successful_collection_at',
+            'freshness_sla_hours' => $slaHours,
+            'historical_watermark_applicable' => false,
+            'reprocessing_applicable' => false,
+        ],
+        'provider_history_limitation_ref' => null,
+        'integrity_dependency' => [
+            'integrity_registry_id' => 'MOXDOP_DATA_INTEGRITY_REGISTRY',
+            'blocks_trusted_fresh_on_migration_blocking_fail' => true,
+        ],
+        'contract_refresh_policy' => ['type' => 'on_demand', 'cadence' => 'on_demand'],
+        'contract_history_policy' => ['minimum_required' => 'current', 'recommended_initial_backfill' => 'current', 'decision_required' => false],
+        'period_non_additive_notes' => null,
+        'policy_source' => [
+            'data_contract_dataset_id' => $datasetId,
+            'integrity_profile' => true,
+            'provider_documentation_verified_at' => '2026-09-27',
+            'provider_documentation' => [
+                'sources' => ['docs/data-contracts/WEBSITE_DATA_CONTRACT_V1.md'],
+                'notes' => 'Website Intelligence V1 runtime overlay. Missing remains missing.',
+            ],
+        ],
+    ];
+};
+
+$crawlReason = 'Public crawl / HTTP diagnosis observations; refreshed when the site is crawled, not routine incremental.';
+$connectorReason = 'WordPress Connector inventory; refreshed by connector sync and reconciliation, not routine incremental.';
 
 return [
     'registry_overlay' => [
@@ -75,6 +130,44 @@ return [
                 'cross_asset_keys' => ['website_url'],
                 'provenance' => 'PUBLIC_HTTP_HTML',
                 'completeness_limitations' => 'Only publicly reachable HTML is retained. Draft/private CMS content has no public final HTML.',
+                'status' => 'COLLECTION_READY',
+            ],
+            [
+                'id' => 'website_link_edge',
+                'provider_or_source' => 'WEBSITE_DIRECT',
+                'description' => 'Links found in public HTML (source page to target URL, anchor, rel, internal/external)',
+                'storage_class' => 'NORMALIZED_SNAPSHOT',
+                'grain' => ['digital_asset_id', 'edge_key', 'observed_at'],
+                'primary_dimensions' => ['source_url', 'target_url', 'normalized_target_url', 'is_internal', 'anchor_text', 'rel', 'nofollow'],
+                'base_metrics' => [],
+                'snapshot_or_timeseries' => 'snapshot',
+                'partition_candidate' => null,
+                'history_policy' => ['minimum_required' => 'current', 'recommended_initial_backfill' => 'current', 'decision_required' => false],
+                'refresh_policy' => ['type' => 'crawl', 'cadence' => 'on_sync'],
+                'estimated_volume_class' => 'HIGH',
+                'consumer_requirement_ids' => ['WEB_CONTENT_BODY'],
+                'cross_asset_keys' => ['website_url'],
+                'provenance' => 'PUBLIC_HTTP_HTML',
+                'completeness_limitations' => 'Only links present in crawled, publicly reachable HTML; JavaScript-injected links are not seen.',
+                'status' => 'COLLECTION_READY',
+            ],
+            [
+                'id' => 'website_crawl_issue_snapshot',
+                'provider_or_source' => 'WEBSITE_DIRECT',
+                'description' => 'Technical issues the public crawl found per URL (issue code, severity, message)',
+                'storage_class' => 'NORMALIZED_SNAPSHOT',
+                'grain' => ['digital_asset_id', 'url', 'issue_code', 'observed_at'],
+                'primary_dimensions' => ['url', 'issue_code', 'severity', 'message'],
+                'base_metrics' => [],
+                'snapshot_or_timeseries' => 'snapshot',
+                'partition_candidate' => null,
+                'history_policy' => ['minimum_required' => 'current', 'recommended_initial_backfill' => 'current', 'decision_required' => false],
+                'refresh_policy' => ['type' => 'crawl', 'cadence' => 'on_sync'],
+                'estimated_volume_class' => 'MEDIUM',
+                'consumer_requirement_ids' => ['WEB_CONTENT_BODY'],
+                'cross_asset_keys' => ['website_url'],
+                'provenance' => 'PUBLIC_HTTP_HTML',
+                'completeness_limitations' => 'Issues are observations of the last crawl; an issue absent from a partial crawl is not proof it is fixed.',
                 'status' => 'COLLECTION_READY',
             ],
             [
@@ -398,6 +491,20 @@ return [
                 $column('observed_at', 'timestamptz', false, 'identity'),
                 ...$provenance,
             ],
+        ],
+    ],
+    'freshness_overlay' => [
+        'overlay_id' => 'WEBSITE_INTELLIGENCE_FRESHNESS_V1',
+        'dataset_policies' => [
+            $onDemand('website_html_snapshot', 'WEBSITE_DIRECT', ['digital_asset_id', 'url', 'observed_at'], $crawlReason),
+            $onDemand('website_content_stats', 'WEBSITE_DIRECT', ['url', 'observed_at'], $crawlReason),
+            $onDemand('website_link_edge', 'WEBSITE_DIRECT', ['digital_asset_id', 'edge_key', 'observed_at'], $crawlReason),
+            $onDemand('website_crawl_issue_snapshot', 'WEBSITE_DIRECT', ['digital_asset_id', 'url', 'issue_code', 'observed_at'], $crawlReason),
+            $onDemand('website_cms_site_snapshot', 'WORDPRESS_SITE_CONNECTOR', ['digital_asset_id', 'cms', 'site_key', 'observed_at'], $connectorReason),
+            $onDemand('website_cms_object_snapshot', 'WORDPRESS_SITE_CONNECTOR', ['digital_asset_id', 'cms', 'object_type', 'object_id', 'observed_at'], $connectorReason),
+            $onDemand('website_cms_extension_snapshot', 'WORDPRESS_SITE_CONNECTOR', ['digital_asset_id', 'cms', 'extension_type', 'extension_id', 'observed_at'], $connectorReason),
+            $onDemand('website_cms_taxonomy_snapshot', 'WORDPRESS_SITE_CONNECTOR', ['digital_asset_id', 'cms', 'taxonomy', 'term_id', 'observed_at'], $connectorReason),
+            $onDemand('website_cms_seo_snapshot', 'WORDPRESS_SITE_CONNECTOR', ['digital_asset_id', 'cms', 'object_type', 'object_id', 'observed_at'], $connectorReason),
         ],
     ],
 ];

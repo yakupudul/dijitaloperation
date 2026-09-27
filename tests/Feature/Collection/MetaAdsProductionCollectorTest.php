@@ -176,6 +176,33 @@ class MetaAdsProductionCollectorTest extends TestCase
     }
 
     #[Test]
+    public function planner_plans_every_entity_snapshot_dataset_as_its_own_run(): void
+    {
+        $plan = app(CollectionPlanner::class)->plan(new StartCollectionRequest(
+            digitalAsset: $this->asset,
+            bindingIds: [$this->binding->id],
+            dateRange: ['start' => '2026-08-01', 'end' => '2026-08-02'],
+            requestFamilyIds: [MetaAdsRequestFamilyCatalog::FAMILY_ENTITY_SNAPSHOT],
+        ));
+
+        $planned = collect($plan['datasets'])->where('request_family_id', MetaAdsRequestFamilyCatalog::FAMILY_ENTITY_SNAPSHOT);
+        $this->assertEqualsCanonicalizing(self::ENTITY_SNAPSHOT_DATASETS, $planned->pluck('dataset_contract_id')->all());
+        $this->assertCount(1, $planned->pluck('core_asset_binding_id')->unique());
+
+        Queue::fake();
+        $run = app(StartCollectionService::class)->start(new StartCollectionRequest(
+            digitalAsset: $this->asset,
+            bindingIds: [$this->binding->id],
+            dateRange: ['start' => '2026-08-01', 'end' => '2026-08-02'],
+            requestFamilyIds: [MetaAdsRequestFamilyCatalog::FAMILY_ENTITY_SNAPSHOT],
+        ));
+        $this->assertEqualsCanonicalizing(
+            self::ENTITY_SNAPSHOT_DATASETS,
+            CollectionDatasetRun::query()->where('collection_run_id', $run->id)->pluck('dataset_contract_id')->all(),
+        );
+    }
+
+    #[Test]
     public function unbound_account_is_not_collectable_and_business_is_rejected(): void
     {
         $this->binding->forceFill(['status' => CoreAssetBinding::STATUS_DISABLED])->save();
