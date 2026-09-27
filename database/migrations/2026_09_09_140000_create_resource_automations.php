@@ -98,8 +98,12 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('gsc_query_daily', fn (Blueprint $t) => $t->dropIndex('gsc_auto_cursor_idx'));
-        Schema::table('google_ads_search_term_daily', fn (Blueprint $t) => $t->dropIndex('gads_auto_cursor_idx'));
+        // On PostgreSQL a later migration moves these tables into compact storage (the index goes with them).
+        foreach (['gsc_query_daily' => 'gsc_auto_cursor_idx', 'google_ads_search_term_daily' => 'gads_auto_cursor_idx'] as $table => $index) {
+            if (Schema::hasIndex($table, $index)) {
+                Schema::table($table, fn (Blueprint $t) => $t->dropIndex($index));
+            }
+        }
         foreach (['library_query_service_blocks', 'library_query_aliases', 'resource_query_observations', 'resource_query_batches', 'resource_automations'] as $table) {
             Schema::dropIfExists($table);
         }

@@ -38,6 +38,6 @@ final class SetOperatorLocale
             return $agencyLocale;
         }
 
-        return AgencySettingCatalog::LOCALE_EN;
+        return AgencySettingCatalog::appDefaultLocale();
     }
 }

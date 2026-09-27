@@ -51,17 +51,19 @@ bash deploy/staging/deploy.sh
 
 `deploy/staging/deploy.sh` order:
 
-1. Refuse sqlite / missing APP_KEY / `APP_DEBUG=true` / non-pgsql / non-staging env
+1. Refuse sqlite / missing APP_KEY / `APP_DEBUG=true` / non-pgsql / non-staging env; warn when `APP_LOCALE` is not `tr` (`.env` is never rewritten)
 2. Record SHA
 3. `composer install --no-dev --optimize-autoloader`
 4. `npm ci && npm run build`
-5. `php artisan down`
-6. `php artisan migrate --force`
-7. `php artisan storage:link`
-8. `config:cache` `route:cache` `view:cache`
-9. `php artisan horizon:terminate` (Supervisor restarts Horizon)
-10. `php artisan up`
-11. `php artisan about`
+5. `php artisan config:clear` + **`php artisan moxdop:preflight`** (read-only deploy gate: required settings, DB/Redis reachability, config/route/view cache compilation; pending migrations listed; `APP_DEBUG=true` / non-`tr` locale warn). A FAIL stops the deploy here — nothing is migrated, the app never enters maintenance mode.
+6. `php artisan down`
+7. `php artisan migrate --force`
+8. `php artisan storage:link`
+9. `config:cache` `route:cache` `view:cache`
+10. `php artisan horizon:terminate` (Supervisor restarts Horizon)
+11. Write `storage/app/release.json` (`sha`, `deployed_at`) — shown on Ayarlar › Sistem Sağlığı and stamped on grouped application errors
+12. `php artisan up`
+13. `php artisan about`
 
 Route caching is compatible with this app (no closure routes in HTTP that block `route:cache`). If `route:cache` ever fails, skip it and record the error; do not invent a workaround that weakens CSRF.
 

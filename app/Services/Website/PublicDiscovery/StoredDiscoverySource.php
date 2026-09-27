@@ -60,7 +60,7 @@ final class StoredDiscoverySource
 
             return $url;
         };
-        $inventory = DB::table('website_url')->where('digital_asset_id', $asset->id)->pluck('url')
+        $inventory = DB::table('website_url')->where('digital_asset_id', $asset->id)->pluck('normalized_url')
             ->merge($snapshots->keys())->push($seed)->map($resolve)
             ->filter(fn ($url) => is_string($url) && $this->eligibleUrl($seed, $url))->unique()->sort()->values();
         $snapshots = $snapshots->except($aliases->keys());

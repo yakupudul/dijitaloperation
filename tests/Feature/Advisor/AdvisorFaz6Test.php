@@ -21,9 +21,9 @@ use App\Support\Roles;
 use Carbon\Carbon;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Livewire;
+use Tests\Feature\Brain\InsertsFacts;
 use Tests\TestCase;
 
 /**
@@ -32,6 +32,7 @@ use Tests\TestCase;
  */
 final class AdvisorFaz6Test extends TestCase
 {
+    use InsertsFacts;
     use RefreshDatabase;
 
     private User $admin;
@@ -111,7 +112,7 @@ final class AdvisorFaz6Test extends TestCase
         $task = $this->seoTask($plan, 'İmplant sayfasını güçlendir', 'medium', 500);
         $task->forceFill(['status' => 'done', 'resolved_at' => '2026-08-01 10:00:00', 'resolved_by' => $this->admin->id, 'target_url' => 'https://ornekklinik.com/implant/'])->save();
         foreach (['2026-07-15' => 10, '2026-08-10' => 25] as $date => $clicks) {
-            DB::table('gsc_page_daily')->insert(['digital_asset_id' => $this->site->id, 'external_resource_id' => null, 'site_url' => 'sc-domain:ornekklinik.com', 'reporting_date' => $date, 'page' => 'https://ornekklinik.com/implant/', 'clicks' => $clicks, 'impressions' => $clicks * 20, 'search_type' => 'web', 'metadata' => '{}', 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', $date), 'created_at' => now(), 'updated_at' => now()]);
+            $this->insertFacts('gsc_page_daily', ['digital_asset_id' => $this->site->id, 'external_resource_id' => null, 'site_url' => 'sc-domain:ornekklinik.com', 'reporting_date' => $date, 'page' => 'https://ornekklinik.com/implant/', 'clicks' => $clicks, 'impressions' => $clicks * 20, 'search_type' => 'web', 'metadata' => '{}', 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', $date), 'created_at' => now(), 'updated_at' => now()]);
         }
         $fresh = $this->seoTask($plan, 'Yeni yapılan', 'low', 100);
         $fresh->forceFill(['status' => 'done', 'resolved_at' => '2026-09-15 10:00:00'])->save();

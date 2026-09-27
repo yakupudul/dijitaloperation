@@ -26,6 +26,7 @@
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_NAME" value="MoxDOP"/>
+        <env name="APP_LOCALE" value="en"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
@@ -50,5 +51,6 @@
         <env name="MOXDOP_DISK_PAUSE_GB" value="0"/>
         <env name="MOXDOP_REQUIRE_ADMIN_2FA" value="false"/>
         <env name="MOXDOP_ERROR_ALERTS" value="false"/>
+        <env name="MOXDOP_ERROR_GROUPS" value="false"/>
     </php>
 </phpunit>

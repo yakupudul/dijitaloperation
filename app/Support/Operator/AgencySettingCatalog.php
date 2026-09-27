@@ -46,6 +46,17 @@ final class AgencySettingCatalog
     }
 
     /**
+     * The installation's default language (config app.locale, Turkish unless APP_LOCALE says otherwise);
+     * English when the configured value is not a supported locale.
+     */
+    public static function appDefaultLocale(): string
+    {
+        $locale = (string) config('app.locale');
+
+        return self::isLocale($locale) ? $locale : self::LOCALE_EN;
+    }
+
+    /**
      * @return array<string, string>
      */
     public static function localeOptions(): array

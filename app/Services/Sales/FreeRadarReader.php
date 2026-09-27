@@ -7,9 +7,12 @@ use DOMDocument;
 use DOMElement;
 use DOMXPath;
 use Illuminate\Support\Facades\Cache;
+use MoxDop\Website\Discovery\DiscoveryConfig;
 use MoxDop\Website\Discovery\PublicHttpFetcher;
 use MoxDop\Website\Discovery\PublicUrlNormalizer;
+use MoxDop\Website\Discovery\PublicUrlSafety;
 use RuntimeException;
+use Throwable;
 
 final class FreeRadarReader
 {
@@ -18,11 +21,22 @@ final class FreeRadarReader
         private readonly PublicUrlNormalizer $urls = new PublicUrlNormalizer,
     ) {}
 
+    /**
+     * Operator-added radar source URLs must be public http(s) addresses (no private / internal hosts).
+     *
+     * @throws Throwable when the URL is not a safe public URL
+     */
+    public function assertSafeSourceUrl(string $url): void
+    {
+        app(PublicUrlSafety::class)->assertSafePublicHttpUrl($url);
+    }
+
     public function read(string $url): string
     {
         $origin = parse_url($url, PHP_URL_SCHEME).'://'.parse_url($url, PHP_URL_HOST);
         $robots = Cache::remember('free-radar:robots:'.hash('sha256', $origin), 3600, function () use ($origin): array {
             $r = $this->fetcher->fetch($origin.'/robots.txt', 65536);
+
             return ['status' => $r['status_code'] ?? 0, 'body' => $r['body'] ?? ''];
         });
         if (! in_array($robots['status'], [200, 404, 410], true)) {
@@ -45,6 +59,7 @@ final class FreeRadarReader
         if (preg_match('/<title[^>]*>[^<]*(just a moment|access denied|attention required)/iu', $body)) {
             throw new RuntimeException('source_access_blocked');
         }
+
         return $body;
     }
 
@@ -98,6 +113,7 @@ final class FreeRadarReader
         if ($format === 'html' && ($nodes === false || $nodes->length < 5 || (parse_url($base, PHP_URL_HOST) === 'wmaraci.com' && $topicLinks === 0))) {
             throw new RuntimeException('listing_unreadable');
         }
+
         return array_values($rows);
     }
 
@@ -157,6 +173,7 @@ final class FreeRadarReader
         if ($date === '') {
             $date = $xp->evaluate('string((//meta[@property="article:published_time"]/@content | //*[@itemprop="datePublished"]/@content | //*[@itemprop="datePublished"]/@datetime)[1])');
         }
+
         return [
             'excerpt' => $excerpt !== null && mb_strlen($excerpt) >= 20 ? $excerpt : null,
             'published_at' => $this->date($date),
@@ -176,6 +193,7 @@ final class FreeRadarReader
             if (! $ok) {
                 throw new RuntimeException('parse_failed');
             }
+
             return $dom;
         } finally {
             libxml_clear_errors();
@@ -195,8 +213,9 @@ final class FreeRadarReader
         }
         try {
             $date = CarbonImmutable::parse($value, 'UTC');
+
             return $date->greaterThan(now()->addDay()) ? null : $date;
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return null;
         }
     }
@@ -229,7 +248,7 @@ final class FreeRadarReader
             }
         }
         $flush();
-        $ua = strtolower(\MoxDop\Website\Discovery\DiscoveryConfig::USER_AGENT);
+        $ua = strtolower(DiscoveryConfig::USER_AGENT);
         $specific = array_filter($groups, fn ($g) => count(array_filter($g['agents'], fn ($a) => $a !== '*' && $a !== '' && str_contains($ua, $a))) > 0);
         $selected = $specific ?: array_filter($groups, fn ($g) => in_array('*', $g['agents'], true));
         $path = (parse_url($url, PHP_URL_PATH) ?: '/').(($q = parse_url($url, PHP_URL_QUERY)) ? '?'.$q : '');
@@ -250,7 +269,7 @@ final class FreeRadarReader
                 }
             }
         }
+
         return $allowed;
     }
 }
-

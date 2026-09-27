@@ -37,6 +37,12 @@ return [
         'interactive_oldest_age_alert_seconds' => (int) env('MOXDOP_OPS_QUEUE_INTERACTIVE_AGE_SECONDS', 300),
         'background_oldest_age_alert_seconds' => (int) env('MOXDOP_OPS_QUEUE_BACKGROUND_AGE_SECONDS', 3600),
         'hold_duration_seconds' => (int) env('MOXDOP_OPS_QUEUE_HOLD_SECONDS', 120),
+        // Horizon wait ("time to clear") per redis queue; above this an operational alert opens (redis driver only).
+        'wait_alert_seconds' => [
+            'default' => (int) env('MOXDOP_OPS_QUEUE_WAIT_DEFAULT_SECONDS', 300),
+            'heavy' => (int) env('MOXDOP_OPS_QUEUE_WAIT_HEAVY_SECONDS', 900),
+            'collection' => (int) env('MOXDOP_OPS_QUEUE_WAIT_COLLECTION_SECONDS', 1800),
+        ],
     ],
 
     'collection' => [
@@ -89,6 +95,16 @@ return [
             'signal_family' => 'QUEUE',
             'hold_seconds' => null, // uses queue.hold_duration_seconds
             'recovery' => 'oldest_age_below_threshold',
+        ],
+        [
+            'key' => 'queue_wait_high',
+            'version' => 1,
+            'type' => 'QUEUE_BACKLOG',
+            'enabled' => true,
+            'severity' => 'WARNING',
+            'signal_family' => 'QUEUE',
+            'hold_seconds' => 0, // Horizon wait is already a forecast; queue.wait_alert_seconds per queue
+            'recovery' => 'wait_below_threshold',
         ],
         [
             'key' => 'worker_heartbeat_missing',
@@ -177,4 +193,10 @@ return [
 
     /* Phone notification for a new kind of application error (one per kind per 6 hours). */
     'error_alerts' => (bool) env('MOXDOP_ERROR_ALERTS', true),
+
+    /* Error grouping (app_error_groups): one row per fingerprint, written at most once per group per throttle window. */
+    'error_groups' => [
+        'enabled' => (bool) env('MOXDOP_ERROR_GROUPS', true),
+        'throttle_seconds' => (int) env('MOXDOP_ERROR_GROUPS_THROTTLE_SECONDS', 60),
+    ],
 ];

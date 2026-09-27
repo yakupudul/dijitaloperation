@@ -85,6 +85,12 @@ if ! grep -qE '^APP_KEY=base64:' .env; then
   exit 1
 fi
 
+# The operator product is Turkish; config/app.php defaults to tr. Warn only — never rewrite .env.
+APP_LOCALE_VALUE="$(grep -E '^APP_LOCALE=' .env | tail -n1 | cut -d= -f2 | tr -d '"' | tr -d "'" || true)"
+if [[ -n "${APP_LOCALE_VALUE}" && "${APP_LOCALE_VALUE}" != "tr" ]]; then
+  echo "deploy/staging: WARNING — APP_LOCALE=${APP_LOCALE_VALUE}; the operator product default is tr (remove the line or set APP_LOCALE=tr)." >&2
+fi
+
 # Faz 13: the default queue must be durable and actually worked. With QUEUE_CONNECTION=database and only
 # Horizon (redis) running, default-queue jobs pile up silently.
 QUEUE_DEFAULT="$(grep -E '^QUEUE_CONNECTION=' .env | tail -n1 | cut -d= -f2 | tr -d '"' | tr -d "'")"
@@ -123,6 +129,16 @@ else
     echo "deploy/staging: missing public/build/manifest.json" >&2
     exit 1
   fi
+fi
+
+# Deploy gate (read-only): required settings, DB/Redis reachability, config/route/view cache compilation;
+# pending migrations are listed. A FAIL stops here, before maintenance mode and migrations. The config cache of
+# the previous release is cleared first so the gate reads this release's code and the current .env.
+echo "deploy/staging: preflight"
+php artisan config:clear --no-interaction >/dev/null
+if ! php artisan moxdop:preflight --no-interaction; then
+  echo "deploy/staging: ERROR — preflight failed (see FAIL lines above); nothing was migrated" >&2
+  exit 1
 fi
 
 php artisan down --retry=60 --no-interaction || true
@@ -229,6 +245,14 @@ $connection = (string) config("moxdop-collection.queue_connection", "null");
 $queue = (string) config("moxdop-collection.queue", "collection");
 echo "connection={$connection} queue={$queue} depth=".Illuminate\Support\Facades\Queue::connection($connection)->size($queue).PHP_EOL;
 ' || exit 1
+
+# Record the live release so errors and the system health page can name it (storage/app/release.json).
+echo "deploy/staging: record release ${RELEASE_SHA}"
+mkdir -p storage/app
+RELEASE_TMP="$(mktemp storage/app/.release.json.XXXXXX)"
+printf '{"sha":"%s","deployed_at":"%s"}\n' "${RELEASE_SHA}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${RELEASE_TMP}"
+chmod 0644 "${RELEASE_TMP}"
+mv -f "${RELEASE_TMP}" storage/app/release.json
 
 php artisan up --no-interaction
 APP_DOWN=0

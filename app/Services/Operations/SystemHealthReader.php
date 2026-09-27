@@ -10,6 +10,7 @@ use App\Models\Observability\OpsDispatcherHeartbeat;
 use App\Models\Observability\WorkerHeartbeat;
 use App\Models\ResourceAutomation;
 use App\Models\User;
+use App\Services\Observability\QueueWaitMonitor;
 use App\Services\Verification\LiveVerifier;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
@@ -19,7 +20,8 @@ use Illuminate\Support\Facades\Schema;
 /**
  * One read of "is the machine working": scheduler and worker heartbeats, open operational alerts, each
  * integration's authorization state and expiry, every account's collection state and data freshness, and
- * WordPress connector plugin versions. Stored state only; no provider calls.
+ * WordPress connector plugin versions, Horizon queue waits, top application error groups and the deployed release.
+ * Stored state only; no provider calls.
  */
 final class SystemHealthReader
 {
@@ -48,7 +50,35 @@ final class SystemHealthReader
             'watchdog' => OpsWatchdog::status(),
             'live_checks' => Schema::hasTable('live_checks') ? LiveVerifier::latest() : [],
             'suspicious_data' => Schema::hasTable('data_consistency_issues') ? DB::table('data_consistency_issues')->whereNull('resolved_at')->count() : 0,
+            'release' => ReleaseInfo::current(),
+            'queue_waits' => app(QueueWaitMonitor::class)->waits(),
+            'error_groups' => $this->errorGroups(),
         ];
+    }
+
+    /**
+     * Most frequent application error groups seen in the last 7 days.
+     *
+     * @return list<array{class: string, location: string, message: string, occurrences: int, first_seen_at: string, last_seen_at: string, last_release: ?string}>
+     */
+    private function errorGroups(): array
+    {
+        if (! Schema::hasTable('app_error_groups')) {
+            return [];
+        }
+
+        return DB::table('app_error_groups')->where('last_seen_at', '>=', now()->subDays(7))
+            ->orderByDesc('occurrences')->orderByDesc('last_seen_at')->limit(10)
+            ->get(['exception_class', 'location', 'message', 'occurrences', 'first_seen_at', 'last_seen_at', 'last_release'])
+            ->map(fn (object $row): array => [
+                'class' => (string) $row->exception_class,
+                'location' => (string) $row->location,
+                'message' => (string) $row->message,
+                'occurrences' => (int) $row->occurrences,
+                'first_seen_at' => (string) $row->first_seen_at,
+                'last_seen_at' => (string) $row->last_seen_at,
+                'last_release' => $row->last_release !== null ? substr((string) $row->last_release, 0, 12) : null,
+            ])->values()->all();
     }
 
     /** @return array{last_seen_at: ?string, minutes: ?int, ok: bool} */

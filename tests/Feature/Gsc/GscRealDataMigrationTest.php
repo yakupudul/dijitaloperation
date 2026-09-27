@@ -43,10 +43,12 @@ use Illuminate\Support\Str;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
+use Tests\Feature\Brain\InsertsFacts;
 use Tests\TestCase;
 
 class GscRealDataMigrationTest extends TestCase
 {
+    use InsertsFacts;
     use RefreshDatabase;
 
     private DigitalAsset $asset;
@@ -192,7 +194,7 @@ class GscRealDataMigrationTest extends TestCase
         $this->insertPropertyDailyRows($dates, clicks: 100, impressions: 1000, position: 5.0);
 
         foreach ($dates as $date) {
-            DB::table('gsc_query_daily')->insert([
+            $this->insertFacts('gsc_query_daily', [
                 'digital_asset_id' => $this->asset->id,
                 'external_resource_id' => $this->resource->id,
                 'site_url' => 'sc-domain:example.com',
@@ -569,7 +571,7 @@ class GscRealDataMigrationTest extends TestCase
         float $position = 8.0,
     ): void {
         foreach ($dates as $date) {
-            DB::table('gsc_property_daily')->insert([
+            $this->insertFacts('gsc_property_daily', [
                 'digital_asset_id' => $this->asset->id,
                 'external_resource_id' => $this->resource->id,
                 'site_url' => 'sc-domain:example.com',
@@ -598,7 +600,7 @@ class GscRealDataMigrationTest extends TestCase
         int $impressions,
     ): void {
         foreach ($dates as $date) {
-            DB::table('gsc_query_daily')->insert([
+            $this->insertFacts('gsc_query_daily', [
                 'digital_asset_id' => $this->asset->id,
                 'external_resource_id' => $this->resource->id,
                 'site_url' => 'sc-domain:example.com',
