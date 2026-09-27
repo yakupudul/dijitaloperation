@@ -9,6 +9,7 @@ use App\Services\Advisor\AdvisorWorkQueue;
 use App\Services\Operator\OperatorMailConfigService;
 use App\Services\ReportDelivery\ReportMailConfigGuard;
 use App\Support\Roles;
+use App\Support\ServiceScope;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Mail;
 
@@ -36,7 +37,7 @@ final class AdvisorDigestCommand extends Command
             return self::SUCCESS;
         }
         $items = $queue->top((int) config('moxdop-advisor.digest.items', 5));
-        $alerts = AssetAlert::query()->open()->with(['digitalAsset', 'brand'])->latest('first_detected_at')->limit(10)->get()
+        $alerts = app(ServiceScope::class)->constrain(AssetAlert::query()->open())->with(['digitalAsset', 'brand'])->latest('first_detected_at')->limit(10)->get()
             ->map(fn (AssetAlert $alert): array => ['title' => (string) $alert->title, 'asset' => (string) ($alert->digitalAsset?->name ?? '—'), 'brand' => (string) ($alert->brand?->name ?? '—'), 'message' => (string) $alert->message, 'severity' => $alert->severityLabel()])
             ->all();
         if ($items === [] && $alerts === []) {

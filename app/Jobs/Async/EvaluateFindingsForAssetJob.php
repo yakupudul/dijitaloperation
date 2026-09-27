@@ -7,6 +7,7 @@ use App\Models\Run;
 use App\Services\Analysis\CollectedFactsAnalysisService;
 use App\Services\Async\AsyncOperationService;
 use App\Services\Findings\FindingEvaluationService;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
@@ -47,6 +48,11 @@ class EvaluateFindingsForAssetJob implements ShouldQueue
     ): void {
         $async = $this->runId !== null ? app(AsyncOperationService::class) : null;
         $run = $this->runId !== null ? Run::query()->find($this->runId) : null;
+        if (! app(ServiceScope::class)->isAssetOperational($this->digitalAssetId)) {
+            $async?->skippedOutsideServiceScope($run);
+
+            return;
+        }
         if ($run !== null && $async !== null) {
             $async->markRunning($run, 'evaluating', 'Evaluating findings');
         }

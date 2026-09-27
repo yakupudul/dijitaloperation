@@ -5,6 +5,7 @@ namespace App\Jobs\Async;
 use App\Models\Run;
 use App\Services\Async\AsyncOperationService;
 use App\Services\SearchDemand\SearchDemandWebsiteImprovementService;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
@@ -23,6 +24,11 @@ final class SearchDemandWebsiteImprovementJob implements ShouldQueue
         SearchDemandWebsiteImprovementService $improvements,
         AsyncOperationService $async,
     ): void {
+        if ($async->skippedOutsideServiceScope(Run::query()->find($this->runId))) {
+            $improvements->markFailed($this->runId, ServiceScope::notServed());
+
+            return;
+        }
         try {
             $improvements->execute($this->runId, $async);
         } catch (Throwable $exception) {

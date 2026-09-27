@@ -522,7 +522,7 @@ final class CommandCenter
             return collect();
         }
 
-        return app(ServiceScope::class)->constrain(DB::table('brain_recommendations as r')->leftJoin('brands as b', 'b.id', '=', 'r.brand_id')->where('r.status', 'open'), null, 'r.brand_id')
+        return app(ServiceScope::class)->constrain(DB::table('brain_recommendations as r')->leftJoin('brands as b', 'b.id', '=', 'r.brand_id')->where('r.status', 'open'), 'r.digital_asset_id', 'r.brand_id')
             ->orderByDesc('r.impact')->limit(400)->get(['r.*', 'b.name as brand_name'])
             ->map(fn (object $row): array => self::item('brain', (int) $row->id, $row->basis === 'validated' ? 'high' : 'medium', (string) $row->title, [
                 'detail' => $row->detail,

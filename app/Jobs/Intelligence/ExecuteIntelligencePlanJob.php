@@ -2,9 +2,11 @@
 
 namespace App\Jobs\Intelligence;
 
+use App\Enums\Intelligence\IntelligencePlanStatus;
 use App\Models\IntelligenceExecutionPlan;
 use App\Models\User;
 use App\Services\IntelligenceScheduling\ExecuteIntelligencePlanService;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -26,6 +28,11 @@ final class ExecuteIntelligencePlanJob implements ShouldQueue
     {
         $plan = IntelligenceExecutionPlan::query()->find($this->planId);
         if ($plan === null || $plan->isTerminal()) {
+            return;
+        }
+        if (! app(ServiceScope::class)->serves($plan->digital_asset_id, $plan->brand_id)) {
+            $plan->forceFill(['status' => IntelligencePlanStatus::Blocked])->save();
+
             return;
         }
 

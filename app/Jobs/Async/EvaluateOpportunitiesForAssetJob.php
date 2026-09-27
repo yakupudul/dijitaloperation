@@ -4,6 +4,7 @@ namespace App\Jobs\Async;
 
 use App\Models\DigitalAsset;
 use App\Services\Opportunities\OpportunityEvaluationService;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
@@ -40,7 +41,7 @@ class EvaluateOpportunitiesForAssetJob implements ShouldQueue
     public function handle(OpportunityEvaluationService $evaluator): void
     {
         $asset = DigitalAsset::query()->find($this->digitalAssetId);
-        if ($asset === null) {
+        if ($asset === null || ! app(ServiceScope::class)->isAssetOperational($asset->id)) {
             return;
         }
 

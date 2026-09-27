@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Brand;
 use App\Services\Intel\ServiceAreaGeocoder;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -19,7 +20,7 @@ final class GeocodeServiceAreasJob implements ShouldQueue
     public function handle(ServiceAreaGeocoder $geocoder): void
     {
         $brand = Brand::query()->find($this->brandId);
-        if ($brand !== null) {
+        if ($brand !== null && app(ServiceScope::class)->isBrandOperational($brand->id)) {
             $geocoder->geocodeBrand($brand);
         }
     }

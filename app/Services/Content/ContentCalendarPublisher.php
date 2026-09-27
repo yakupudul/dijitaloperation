@@ -5,6 +5,7 @@ namespace App\Services\Content;
 use App\Models\ContentCalendarItem;
 use App\Models\User;
 use App\Services\ExternalWrites\ExternalWriteService;
+use App\Support\ServiceScope;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -19,7 +20,8 @@ final class ContentCalendarPublisher
     public function publishDue(): int
     {
         $count = 0;
-        ContentCalendarItem::query()->with('digitalAsset')->where('channel', 'gbp_post')->where('status', 'approved')
+        // Service scope: items of a passive customer's brand (or a brandless profile) are skipped, not failed.
+        app(ServiceScope::class)->constrain(ContentCalendarItem::query())->with('digitalAsset')->where('channel', 'gbp_post')->where('status', 'approved')
             ->whereNull('write_action_id')->where('scheduled_for', '<=', now())->orderBy('scheduled_for')->limit(50)->get()
             ->each(function (ContentCalendarItem $item) use (&$count): void {
                 $approver = User::query()->find($item->approved_by);

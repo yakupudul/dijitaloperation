@@ -7,6 +7,7 @@ use App\Models\DigitalAsset;
 use App\Models\SearchDemandCluster;
 use App\Models\SearchDemandCompetitor;
 use App\Services\SearchDemand\SearchDemandCompetitorLibraryService;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -91,7 +92,7 @@ class SearchDemandCompetitorLibraryPage extends Component
     public function mount(): void
     {
         if ($this->selectedBrandId === '') {
-            $brandId = Brand::query()->whereHas('digitalAssets', fn ($query) => $query->where('type', 'website'))
+            $brandId = Brand::query()->operational()->whereHas('digitalAssets', fn ($query) => $query->where('type', 'website'))
                 ->orderBy('name')->value('id');
             $this->selectedBrandId = $brandId !== null ? (string) $brandId : '';
         }
@@ -240,7 +241,9 @@ class SearchDemandCompetitorLibraryPage extends Component
 
     public function render(): View
     {
+        // Operational brands are listed; a passive brand opened by direct link stays selectable.
         $brands = Brand::query()->whereHas('digitalAssets', fn ($query) => $query->where('type', 'website'))
+            ->where(fn ($query) => $query->whereIn('id', app(ServiceScope::class)->brandIdQuery())->orWhere('id', (int) $this->selectedBrandId))
             ->orderBy('name')->get();
         $brand = $this->selectedBrandId !== '' ? $brands->firstWhere('id', (int) $this->selectedBrandId) : null;
         $websites = collect();

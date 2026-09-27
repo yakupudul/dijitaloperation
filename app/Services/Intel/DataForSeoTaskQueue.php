@@ -4,6 +4,7 @@ namespace App\Services\Intel;
 
 use App\Services\Demand\DataForSeoIntegrationLookup;
 use App\Services\Integrations\DataForSeo\DataForSeoApiClient;
+use App\Support\ServiceScope;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Throwable;
@@ -34,6 +35,10 @@ final class DataForSeoTaskQueue
      */
     public function post(string $postEndpoint, string $getPrefix, string $purpose, ?int $brandId, array $items): array
     {
+        // Service scope: nothing is paid for a passive customer's brand. Agency work (prospects) has no brand.
+        if ($brandId !== null && ! app(ServiceScope::class)->isBrandOperational($brandId)) {
+            return [];
+        }
         $integration = $this->integrations->active() ?? throw new RuntimeException('DataForSEO bağlantısı yok.');
         $ids = [];
         foreach (array_chunk($items, 100) as $chunk) {

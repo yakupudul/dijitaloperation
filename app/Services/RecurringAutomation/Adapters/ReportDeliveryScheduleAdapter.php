@@ -19,6 +19,7 @@ use App\Services\ReportDelivery\ReportDeliveryScheduleService;
 use App\Support\RecurringAutomation\RecurringOccurrenceCalculator;
 use App\Support\RecurringAutomation\RecurringScheduleAdapterResult;
 use App\Support\RecurringAutomation\RecurringScheduleSpec;
+use App\Support\ServiceScope;
 use Carbon\CarbonImmutable;
 
 /**
@@ -45,7 +46,8 @@ final class ReportDeliveryScheduleAdapter implements RecurringScheduleAdapter
         $nowUtc = $nowUtc ?? CarbonImmutable::now('UTC');
         $due = [];
 
-        $active = ReportDeliverySchedule::query()
+        $scope = app(ServiceScope::class);
+        $active = $scope->constrainCustomer($scope->constrain(ReportDeliverySchedule::query(), null))
             ->where('status', ReportDeliveryScheduleStatus::Active)
             ->get();
 
@@ -76,6 +78,16 @@ final class ReportDeliveryScheduleAdapter implements RecurringScheduleAdapter
                 RecurringOccurrenceStatus::Failed,
                 failureCode: 'DOMAIN_SCHEDULE_NOT_FOUND',
                 failureMessage: 'ReportDeliverySchedule missing',
+            );
+        }
+
+        $scope = app(ServiceScope::class);
+        if (($schedule->brand_id !== null && ! $scope->isBrandOperational($schedule->brand_id))
+            || ($schedule->customer_id !== null && ! $scope->isCustomerActive($schedule->customer_id))) {
+            return new RecurringScheduleAdapterResult(
+                RecurringOccurrenceStatus::Skipped,
+                failureCode: 'SERVICE_SCOPE',
+                failureMessage: ServiceScope::NOT_SERVED,
             );
         }
 

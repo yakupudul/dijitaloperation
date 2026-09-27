@@ -5,6 +5,7 @@ namespace App\Jobs\Async;
 use App\Models\Run;
 use App\Services\Async\AsyncOperationService;
 use App\Services\SearchDemand\SearchDemandChangeTrackingService;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
@@ -21,6 +22,11 @@ final class SearchDemandChangeVerificationJob implements ShouldQueue
 
     public function handle(SearchDemandChangeTrackingService $changes, AsyncOperationService $async): void
     {
+        if ($async->skippedOutsideServiceScope(Run::query()->find($this->runId))) {
+            $changes->markFailed($this->runId, ServiceScope::notServed());
+
+            return;
+        }
         try {
             $changes->execute($this->runId, $async);
         } catch (Throwable $exception) {

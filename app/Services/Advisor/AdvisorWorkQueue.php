@@ -9,6 +9,7 @@ use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Models\SeoPlan;
 use App\Models\SeoTask;
+use App\Support\ServiceScope;
 use Illuminate\Support\Collection;
 
 /**
@@ -105,7 +106,7 @@ final class AdvisorWorkQueue
             ->with(['brand', 'digitalAsset'])
             ->open()
             ->where('type', '!=', SeoTaskType::Question->value)
-            ->when($brandId !== null, fn ($query) => $query->where('brand_id', $brandId))
+            ->when($brandId !== null, fn ($query) => $query->where('brand_id', $brandId), fn ($query) => app(ServiceScope::class)->constrain($query))
             ->orderByDesc('priority_score')
             ->limit($limit)
             ->get()
@@ -135,7 +136,7 @@ final class AdvisorWorkQueue
         return AdvisorItem::query()
             ->with(['brand', 'digitalAsset'])
             ->open()
-            ->when($brandId !== null, fn ($query) => $query->where('brand_id', $brandId))
+            ->when($brandId !== null, fn ($query) => $query->where('brand_id', $brandId), fn ($query) => app(ServiceScope::class)->constrain($query))
             ->orderByDesc('priority_score')
             ->limit($limit)
             ->get()

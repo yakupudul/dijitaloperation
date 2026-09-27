@@ -135,7 +135,11 @@ final class MapGridTest extends TestCase
         $this->brand->customer->forceFill(['status' => CustomerStatus::Inactive])->save();
         $this->assertSame(['started' => 0, 'skipped' => 0], app(MapGridService::class)->runDue(), 'passive customer: nothing scheduled');
 
-        BrandIntelSetting::query()->update(['grid_center_lat' => null, 'grid_center_lng' => null, 'monthly_usd' => 5]);
+        BrandIntelSetting::query()->update(['monthly_usd' => 5]);
+        Livewire::test(MapRankingsPage::class, ['brand' => $this->brand->id])->set('scanKeyword', 'implant')->call('scan')->assertSee('müşteri pasif');
+
+        $this->brand->customer->forceFill(['status' => CustomerStatus::Active])->save();
+        BrandIntelSetting::query()->update(['grid_center_lat' => null, 'grid_center_lng' => null]);
         Livewire::test(MapRankingsPage::class, ['brand' => $this->brand->id])->set('scanKeyword', 'implant')->call('scan')->assertSee('Merkez konumu yok');
         $this->assertSame(0, MapGridRun::query()->count());
     }

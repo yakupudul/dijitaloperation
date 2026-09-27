@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Services\Integrations\DataForSeo\DataForSeoException;
 use App\Services\Integrations\PaidRequestFingerprint;
 use App\Support\Integrations\ProviderRegistry;
+use App\Support\ServiceScope;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -124,6 +125,7 @@ final class SearchDemandSerpEnrichmentService
         bool $includeExpansion = false,
         ?User $actor = null,
     ): array {
+        app(ServiceScope::class)->ensureAssetServed($website, 'paidConsent');
         if (! $paidConsent) {
             throw ValidationException::withMessages([
                 'paidConsent' => 'Ücretli DataForSEO çağrıları için açık onay vermelisiniz.',
@@ -473,35 +475,35 @@ final class SearchDemandSerpEnrichmentService
             }
             $retrievedAt = now();
 
-        DB::transaction(function () use ($run, $queries, $batch, $retrievedAt): void {
-            foreach ($queries as $query) {
-                $runItem = $run->items->firstWhere('brand_query_portfolio_item_id', $query['portfolio_item_id']);
-                if (! $runItem instanceof SearchDemandEnrichmentRunItem) {
-                    continue;
+            DB::transaction(function () use ($run, $queries, $batch, $retrievedAt): void {
+                foreach ($queries as $query) {
+                    $runItem = $run->items->firstWhere('brand_query_portfolio_item_id', $query['portfolio_item_id']);
+                    if (! $runItem instanceof SearchDemandEnrichmentRunItem) {
+                        continue;
+                    }
+                    $metric = $batch['metrics'][$query['portfolio_item_id']] ?? [];
+                    $snapshot = SearchDemandKeywordMetricSnapshot::query()->create([
+                        'search_demand_enrichment_run_id' => $run->id,
+                        'brand_query_portfolio_item_id' => $runItem->brand_query_portfolio_item_id,
+                        'digital_asset_id' => $run->digital_asset_id,
+                        'query_text' => $runItem->query_text,
+                        'provider' => $run->provider,
+                        'endpoint' => $batch['endpoint'],
+                        'request_fingerprint' => $runItem->metric_request_fingerprint,
+                        'provider_task_id' => $batch['provider_task_id'] ?? null,
+                        'location_code' => $run->location_code,
+                        'language_code' => $run->language_code,
+                        'search_volume' => $metric['search_volume'] ?? null,
+                        'cpc' => $metric['cpc'] ?? null,
+                        'competition' => $metric['competition'] ?? null,
+                        'competition_index' => $metric['competition_index'] ?? null,
+                        'monthly_searches' => $metric['monthly_searches'] ?? null,
+                        'measurement_type' => 'provider_estimate',
+                        'retrieved_at' => $retrievedAt,
+                    ]);
+                    $runItem->forceFill(['metric_status' => 'completed', 'keyword_metric_snapshot_id' => $snapshot->id])->save();
                 }
-                $metric = $batch['metrics'][$query['portfolio_item_id']] ?? [];
-                $snapshot = SearchDemandKeywordMetricSnapshot::query()->create([
-                    'search_demand_enrichment_run_id' => $run->id,
-                    'brand_query_portfolio_item_id' => $runItem->brand_query_portfolio_item_id,
-                    'digital_asset_id' => $run->digital_asset_id,
-                    'query_text' => $runItem->query_text,
-                    'provider' => $run->provider,
-                    'endpoint' => $batch['endpoint'],
-                    'request_fingerprint' => $runItem->metric_request_fingerprint,
-                    'provider_task_id' => $batch['provider_task_id'] ?? null,
-                    'location_code' => $run->location_code,
-                    'language_code' => $run->language_code,
-                    'search_volume' => $metric['search_volume'] ?? null,
-                    'cpc' => $metric['cpc'] ?? null,
-                    'competition' => $metric['competition'] ?? null,
-                    'competition_index' => $metric['competition_index'] ?? null,
-                    'monthly_searches' => $metric['monthly_searches'] ?? null,
-                    'measurement_type' => 'provider_estimate',
-                    'retrieved_at' => $retrievedAt,
-                ]);
-                $runItem->forceFill(['metric_status' => 'completed', 'keyword_metric_snapshot_id' => $snapshot->id])->save();
-            }
-        });
+            });
             $run->forceFill(['metric_committed_at' => now()])->save();
         } finally {
             $paidLock->release();
@@ -562,45 +564,45 @@ final class SearchDemandSerpEnrichmentService
             throw new \RuntimeException('An identical paid query-expansion request is already in progress; no duplicate request was sent.');
         }
         try {
-        $run->forceFill([
-            'expansion_batch_fingerprint' => $fingerprint,
-            'expansion_paid_attempt_started_at' => now(),
-            'provider_request_count' => $run->provider_request_count + 1,
-        ])->save();
-        $batch = $this->adapter->collectQueryExpansions($website, $queries);
-        $this->persistPayload($run, $fingerprint, $batch);
-        if (is_string($batch['task_error'] ?? null)) {
             $run->forceFill([
-                'expansion_committed_at' => now(),
-                'error_code' => 'PARTIAL_EXPANSION_TASK_ERROR',
-                'error_summary' => $batch['task_error'],
+                'expansion_batch_fingerprint' => $fingerprint,
+                'expansion_paid_attempt_started_at' => now(),
+                'provider_request_count' => $run->provider_request_count + 1,
             ])->save();
+            $batch = $this->adapter->collectQueryExpansions($website, $queries);
+            $this->persistPayload($run, $fingerprint, $batch);
+            if (is_string($batch['task_error'] ?? null)) {
+                $run->forceFill([
+                    'expansion_committed_at' => now(),
+                    'error_code' => 'PARTIAL_EXPANSION_TASK_ERROR',
+                    'error_summary' => $batch['task_error'],
+                ])->save();
 
-            return;
-        }
-        $seedFolds = collect($queries)->pluck('query_text')->map(fn (string $query): string => $this->fold($query))->flip();
-        foreach ($batch['candidates'] as $candidate) {
-            $keyword = trim((string) ($candidate['keyword'] ?? ''));
-            if ($keyword === '' || $seedFolds->has($this->fold($keyword))) {
-                continue;
+                return;
             }
-            $candidateFingerprint = hash('sha256', $run->brand_id.'|'.$run->language_code.'|'.$this->fold($keyword));
-            $run->expansionCandidates()->firstOrCreate(
-                ['candidate_fingerprint' => $candidateFingerprint],
-                [
-                    'source_request_fingerprint' => $fingerprint,
-                    'keyword' => $keyword,
-                    'search_volume' => $candidate['search_volume'] ?? null,
-                    'cpc' => $candidate['cpc'] ?? null,
-                    'competition' => $candidate['competition'] ?? null,
-                    'competition_index' => $candidate['competition_index'] ?? null,
-                    'monthly_searches' => $candidate['monthly_searches'] ?? null,
-                    'measurement_type' => 'provider_estimate',
-                    'status' => 'pending',
-                ],
-            );
-        }
-        $run->forceFill(['expansion_committed_at' => now()])->save();
+            $seedFolds = collect($queries)->pluck('query_text')->map(fn (string $query): string => $this->fold($query))->flip();
+            foreach ($batch['candidates'] as $candidate) {
+                $keyword = trim((string) ($candidate['keyword'] ?? ''));
+                if ($keyword === '' || $seedFolds->has($this->fold($keyword))) {
+                    continue;
+                }
+                $candidateFingerprint = hash('sha256', $run->brand_id.'|'.$run->language_code.'|'.$this->fold($keyword));
+                $run->expansionCandidates()->firstOrCreate(
+                    ['candidate_fingerprint' => $candidateFingerprint],
+                    [
+                        'source_request_fingerprint' => $fingerprint,
+                        'keyword' => $keyword,
+                        'search_volume' => $candidate['search_volume'] ?? null,
+                        'cpc' => $candidate['cpc'] ?? null,
+                        'competition' => $candidate['competition'] ?? null,
+                        'competition_index' => $candidate['competition_index'] ?? null,
+                        'monthly_searches' => $candidate['monthly_searches'] ?? null,
+                        'measurement_type' => 'provider_estimate',
+                        'status' => 'pending',
+                    ],
+                );
+            }
+            $run->forceFill(['expansion_committed_at' => now()])->save();
         } finally {
             $paidLock->release();
         }

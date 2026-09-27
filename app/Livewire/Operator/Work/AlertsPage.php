@@ -7,6 +7,7 @@ use App\Models\AssetAlert;
 use App\Models\Brand;
 use App\Services\Ai\Insights\AiInsightService;
 use App\Services\Operator\OperatorPortfolioPresenter;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Layout;
@@ -72,7 +73,9 @@ final class AlertsPage extends Component
 
     public function render(): View
     {
-        $query = AssetAlert::query()->with(['digitalAsset', 'brand'])
+        // Service scope: alerts of a brandless asset or a passive customer are not listed (kept, back on reactivation).
+        $alerts = fn () => app(ServiceScope::class)->constrain(AssetAlert::query());
+        $query = $alerts()->with(['digitalAsset', 'brand'])
             ->when($this->show === 'active', fn ($q) => $q->active())
             ->when($this->show === 'snoozed', fn ($q) => $q->open()->where('snoozed_until', '>', now()))
             ->when($this->show === 'resolved', fn ($q) => $q->whereNotNull('resolved_at')->where('resolved_at', '>=', now()->subDays(30)))
@@ -82,16 +85,16 @@ final class AlertsPage extends Component
             ? $query->orderByDesc('resolved_at')
             : $query->orderByRaw("case severity when 'critical' then 0 when 'high' then 1 when 'medium' then 2 else 3 end")->orderByDesc('first_detected_at');
 
-        $counts = AssetAlert::query()->active()->selectRaw('severity, count(*) as total')->groupBy('severity')->pluck('total', 'severity');
+        $counts = $alerts()->active()->selectRaw('severity, count(*) as total')->groupBy('severity')->pluck('total', 'severity');
 
-        $alerts = $query->paginate(30);
+        $page = $query->paginate(30);
 
         return view('livewire.operator.work.alerts', [
-            'alerts' => $alerts,
-            'causeInsights' => app(AiInsightService::class)->viewMany('alerts.cause', $alerts->getCollection()->whereNull('resolved_at')),
+            'alerts' => $page,
+            'causeInsights' => app(AiInsightService::class)->viewMany('alerts.cause', $page->getCollection()->whereNull('resolved_at')),
             'counts' => $counts,
-            'snoozedCount' => AssetAlert::query()->open()->where('snoozed_until', '>', now())->count(),
-            'brands' => Brand::query()->whereIn('id', AssetAlert::query()->open()->whereNotNull('brand_id')->select('brand_id'))->orderBy('name')->pluck('name', 'id'),
+            'snoozedCount' => $alerts()->open()->where('snoozed_until', '>', now())->count(),
+            'brands' => Brand::query()->operational()->whereIn('id', $alerts()->open()->whereNotNull('brand_id')->select('brand_id'))->orderBy('name')->pluck('name', 'id'),
             'assetUrl' => fn (AssetAlert $alert): ?string => $alert->digitalAsset ? OperatorPortfolioPresenter::specialistUrl($alert->digitalAsset) : null,
         ]);
     }

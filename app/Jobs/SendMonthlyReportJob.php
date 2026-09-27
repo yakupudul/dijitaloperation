@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\MonthlyReport;
 use App\Services\MonthlyReport\MonthlyReportService;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
@@ -23,6 +24,11 @@ final class SendMonthlyReportJob implements ShouldQueue
     {
         $report = MonthlyReport::query()->find($this->reportId);
         if ($report === null) {
+            return;
+        }
+        if (! app(ServiceScope::class)->isBrandOperational($report->brand_id)) {
+            $report->forceFill(['send_error' => ServiceScope::NOT_SERVED])->save();
+
             return;
         }
         try {

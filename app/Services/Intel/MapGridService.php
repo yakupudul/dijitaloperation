@@ -9,6 +9,7 @@ use App\Models\Intel\MapGridPoint;
 use App\Models\Intel\MapGridRun;
 use App\Models\User;
 use App\Services\Integrations\DataForSeo\DataForSeoEndpointAllowlist;
+use App\Support\ServiceScope;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -60,6 +61,7 @@ final class MapGridService implements DataForSeoTaskHandler
     /** Start one scan. Throws a validation error when setup, connection or budget is missing. */
     public function start(Brand $brand, string $keyword, ?User $actor = null, string $trigger = 'manual'): MapGridRun
     {
+        app(ServiceScope::class)->ensureBrandServed($brand, 'grid');
         $keyword = trim($keyword);
         $settings = BrandIntelSetting::for($brand);
         $identity = $this->identity->for($brand);

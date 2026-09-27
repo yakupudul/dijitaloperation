@@ -18,6 +18,7 @@ use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Services\SeoTasks\SeoText;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\ResolvedAiRoute;
+use App\Support\ServiceScope;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -67,6 +68,10 @@ final class SiteFixAi
     public function run(string $kind, int $id): void
     {
         try {
+            $assetId = in_array($kind, [self::KIND_VALUES, self::KIND_LINKS], true) ? $id : SiteFixItem::query()->whereKey($id)->value('digital_asset_id');
+            if (! app(ServiceScope::class)->isAssetOperational($assetId)) {
+                throw ServiceScope::notServed();
+            }
             match ($kind) {
                 self::KIND_VALUES => $this->values(DigitalAsset::query()->findOrFail($id)),
                 self::KIND_LINKS => $this->links(DigitalAsset::query()->findOrFail($id)),

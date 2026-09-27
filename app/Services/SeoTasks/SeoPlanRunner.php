@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\Async\AsyncOperationService;
 use App\Services\Brain\MethodLibrary;
 use App\Services\Brain\RuleEffectiveness;
+use App\Support\ServiceScope;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -47,6 +48,7 @@ final class SeoPlanRunner
         if (! (bool) config('moxdop-seo-tasks.enabled', true)) {
             throw ValidationException::withMessages(['asset' => 'SEO Görevleri devre dışı (SEO_TASKS_ENABLED).']);
         }
+        app(ServiceScope::class)->ensureAssetServed($site, 'asset');
 
         return Cache::lock('seo-plan:'.$site->id, 15)->block(5, function () use ($site, $actor, $trigger, $useAi): SeoPlan {
             $pending = SeoPlan::query()
@@ -148,6 +150,12 @@ final class SeoPlanRunner
         /** @var SeoPlan $plan */
         $plan = SeoPlan::query()->with('digitalAsset.brand')->findOrFail($planId);
         if ($plan->isTerminal()) {
+            return $plan;
+        }
+        // Re-checked at handle time: the customer may have been switched to passive after the plan was queued.
+        if (! app(ServiceScope::class)->isAssetOperational($plan->digital_asset_id)) {
+            $this->markFailed($plan, ServiceScope::notServed());
+
             return $plan;
         }
         $activity = $this->activity($plan);

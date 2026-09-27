@@ -122,6 +122,19 @@ final class ServiceScope
             ->orWhere(fn ($q) => $q->whereNull($assetColumn)->where(fn ($q) => $q->whereNull($brandColumn)->orWhereIn($brandColumn, $this->brandIdQuery()))));
     }
 
+    /**
+     * Rows with no customer (agency-level) or an active customer.
+     *
+     * @template TQuery of Builder|QueryBuilder
+     *
+     * @param  TQuery  $query
+     * @return TQuery
+     */
+    public function constrainCustomer(Builder|QueryBuilder $query, string $customerColumn = 'customer_id'): Builder|QueryBuilder
+    {
+        return $query->where(fn ($q) => $q->whereNull($customerColumn)->orWhereIn($customerColumn, $this->customerIdQuery()));
+    }
+
     /** Manual entry points of AI / paid work: refuse with an operator-readable message. */
     public function ensureAssetServed(DigitalAsset|int|null $asset, string $field = 'scope'): void
     {

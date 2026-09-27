@@ -5,6 +5,7 @@ namespace App\Livewire\Operator\Brain;
 use App\Models\Brand;
 use App\Services\Brain\BrainLabels;
 use App\Support\Demo\DemoState;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -84,7 +85,7 @@ final class RecommendationsPage extends Component
                 $join->on('n.service_catalog_item_id', '=', 'r.service_id')->where('n.is_primary', true);
             })
             ->when($this->channel !== '', fn ($q) => $q->where('r.channel', $this->channel))
-            ->when($this->brand !== null, fn ($q) => $q->where('r.brand_id', $this->brand))
+            ->when($this->brand !== null, fn ($q) => $q->where('r.brand_id', $this->brand), fn ($q) => app(ServiceScope::class)->constrain($q, 'r.digital_asset_id', 'r.brand_id'))
             ->when($this->service !== null, fn ($q) => $q->where('r.service_id', $this->service))
             ->when($this->status !== 'all', fn ($q) => $q->where('r.status', $this->status));
     }
@@ -98,7 +99,7 @@ final class RecommendationsPage extends Component
         return view('livewire.operator.brain.recommendations', [
             'rows' => $rows,
             'visibleIds' => collect($rows->items())->where('status', 'open')->pluck('id')->map('intval')->values()->all(),
-            'brands' => Brand::query()->whereIn('id', DB::table('brain_recommendations')->select('brand_id'))->orderBy('name')->pluck('name', 'id'),
+            'brands' => Brand::query()->operational()->whereIn('id', DB::table('brain_recommendations')->select('brand_id'))->orderBy('name')->pluck('name', 'id'),
             'channels' => BrainLabels::CHANNELS,
             'flash' => DemoState::pullFlash(),
         ]);

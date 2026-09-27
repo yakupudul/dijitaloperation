@@ -8,6 +8,7 @@ use App\Models\DigitalAsset;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Support\Ai\AiRouteKeys;
+use App\Support\ServiceScope;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -25,6 +26,9 @@ final class GbpProfileDrafter
 
     public function draft(AdvisorItem $item): AdvisorItem
     {
+        if (! app(ServiceScope::class)->isAssetOperational($item->digital_asset_id)) {
+            return $this->fail($item, ServiceScope::NOT_SERVED);
+        }
         try {
             $route = $this->routes->resolve(AiRouteKeys::GBP_PROFILE_DRAFT);
             if ($route->isEmpty()) {

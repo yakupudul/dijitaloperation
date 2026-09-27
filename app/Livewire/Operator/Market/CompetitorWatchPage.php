@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Operator\Market;
 
-use App\Enums\CustomerStatus;
 use App\Livewire\Concerns\WithAiInsights;
 use App\Models\Brand;
 use App\Models\Intel\BrandIntelSetting;
@@ -132,7 +131,7 @@ final class CompetitorWatchPage extends Component
 
     public function render(ReviewIntelService $reviews, DataForSeoTaskQueue $queue): View
     {
-        $brands = Brand::query()->whereHas('customer', fn ($q) => $q->where('status', CustomerStatus::Active->value))->orderBy('name')->get(['id', 'name']);
+        $brands = Brand::query()->operational()->orderBy('name')->get(['id', 'name']);
         $this->brand ??= $brands->first()?->id;
         $brand = $this->selectedBrand();
         $settings = $brand !== null ? BrandIntelSetting::for($brand) : null;

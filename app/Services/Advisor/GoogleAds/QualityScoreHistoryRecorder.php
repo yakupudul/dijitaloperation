@@ -2,6 +2,7 @@
 
 namespace App\Services\Advisor\GoogleAds;
 
+use App\Support\ServiceScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -19,7 +20,7 @@ final class QualityScoreHistoryRecorder
             return 0;
         }
         $written = 0;
-        DB::table('google_ads_keyword_snapshot')
+        app(ServiceScope::class)->constrain(DB::table('google_ads_keyword_snapshot'), 'digital_asset_id', null)
             ->select(['id', 'digital_asset_id', 'customer_id', 'ad_group_id', 'criterion_id', 'last_collected_at', 'metadata'])
             ->orderBy('id')
             ->chunk(1000, function ($rows) use (&$written): void {

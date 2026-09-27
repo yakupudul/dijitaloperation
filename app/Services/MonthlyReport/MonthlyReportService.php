@@ -13,6 +13,7 @@ use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\ReportDelivery\ReportMailConfigGuard;
 use App\Support\Ai\AiRouteKeys;
+use App\Support\ServiceScope;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
@@ -57,6 +58,9 @@ final class MonthlyReportService
     /** One AI call from the frozen payload. */
     public function writeCommentary(MonthlyReport $report): MonthlyReport
     {
+        if (! app(ServiceScope::class)->isBrandOperational($report->brand_id)) {
+            return $this->failCommentary($report, ServiceScope::NOT_SERVED);
+        }
         try {
             $route = $this->routes->resolve(AiRouteKeys::MONTHLY_REPORT_COMMENTARY);
             if ($route->isEmpty()) {

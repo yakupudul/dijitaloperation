@@ -6,6 +6,7 @@ use App\Jobs\BuildBrandSetupProposalJob;
 use App\Models\Brand;
 use App\Models\BrandSetupProposal;
 use App\Models\User;
+use App\Support\ServiceScope;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -21,6 +22,7 @@ final class BrandSetupAssistant
 
     public function queue(Brand $brand, string $websiteUrl, ?User $actor): BrandSetupProposal
     {
+        app(ServiceScope::class)->ensureBrandServed($brand, 'websiteUrl');
         $host = BrandSetupMatcher::host($websiteUrl);
         if ($host === '' || ! str_contains($host, '.')) {
             throw ValidationException::withMessages(['websiteUrl' => 'Geçerli bir web sitesi adresi girin (ör. ornek.com.tr).']);
@@ -49,6 +51,12 @@ final class BrandSetupAssistant
     public function build(int $proposalId): BrandSetupProposal
     {
         $proposal = BrandSetupProposal::query()->with('brand')->findOrFail($proposalId);
+        // Re-checked at handle time: no AI / discovery work for a passive customer's brand.
+        if (! app(ServiceScope::class)->isBrandOperational($proposal->brand_id)) {
+            $proposal->forceFill(['status' => BrandSetupProposal::STATUS_FAILED, 'error_summary' => ServiceScope::NOT_SERVED])->save();
+
+            return $proposal;
+        }
         $proposal->forceFill(['status' => BrandSetupProposal::STATUS_BUILDING])->save();
         try {
             $brand = $proposal->brand;

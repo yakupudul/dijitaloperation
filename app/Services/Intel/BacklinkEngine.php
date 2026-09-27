@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\Demand\DataForSeoIntegrationLookup;
 use App\Services\Integrations\DataForSeo\DataForSeoApiClient;
 use App\Services\Integrations\DataForSeo\DataForSeoEndpointAllowlist;
+use App\Support\ServiceScope;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -48,6 +49,7 @@ final class BacklinkEngine
     /** @return array{referring_domains: int, new: int, lost: int, opportunities: int, spent_usd: float} */
     public function refresh(Brand $brand, ?User $actor = null): array
     {
+        app(ServiceScope::class)->ensureBrandServed($brand, 'backlinks');
         $integration = $this->integrations->active();
         $settings = BrandIntelSetting::for($brand);
         $domain = app(BrandGbpIdentity::class)->for($brand)['hosts'][0] ?? null;

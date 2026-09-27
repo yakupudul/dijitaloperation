@@ -17,6 +17,7 @@ use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteKeys;
+use App\Support\ServiceScope;
 use App\Support\Skills\SkillRegistry;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -51,6 +52,7 @@ final class SearchDemandClusteringService
     /** @return array{run: SearchDemandClusteringRun, queued: bool, cached: bool, input_count: int} */
     public function queue(Brand $brand, string $mode, ?User $actor = null): array
     {
+        app(ServiceScope::class)->ensureBrandServed($brand, 'clusteringMode');
         if (! in_array($mode, [self::MODE_INCREMENTAL, self::MODE_REVIEW], true)) {
             throw ValidationException::withMessages(['clusteringMode' => 'Geçersiz kümeleme modu.']);
         }
@@ -510,10 +512,10 @@ final class SearchDemandClusteringService
     }
 
     /**
-     * @param array<string, mixed> $raw
-     * @param list<int> $sourceClusterIds
-     * @param list<int> $memberIds
-     * @param list<int> $allowedItemIds
+     * @param  array<string, mixed>  $raw
+     * @param  list<int>  $sourceClusterIds
+     * @param  list<int>  $memberIds
+     * @param  list<int>  $allowedItemIds
      * @return array<string, mixed>
      */
     private function normalizeCandidate(
@@ -775,7 +777,7 @@ final class SearchDemandClusteringService
     }
 
     /**
-     * @param Collection<int, SearchDemandCluster> $clusters
+     * @param  Collection<int, SearchDemandCluster>  $clusters
      */
     private function mergeClusterCollection(
         Collection $clusters,

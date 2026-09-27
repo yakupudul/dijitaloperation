@@ -10,6 +10,7 @@ use App\Models\SearchDemandImprovementProposal;
 use App\Models\SearchDemandImprovementRun;
 use App\Models\SearchDemandPageOwnership;
 use App\Services\SearchDemand\SearchDemandWebsiteImprovementService;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\Layout;
@@ -43,7 +44,7 @@ final class SearchDemandImprovementPage extends Component
     public function mount(): void
     {
         if ($this->selectedBrandId === '') {
-            $brandId = Brand::query()->whereHas('digitalAssets', fn ($query) => $query->where('type', 'website'))->orderBy('name')->value('id');
+            $brandId = Brand::query()->operational()->whereHas('digitalAssets', fn ($query) => $query->where('type', 'website'))->orderBy('name')->value('id');
             $this->selectedBrandId = $brandId !== null ? (string) $brandId : '';
         }
         $this->primeWebsite();
@@ -120,7 +121,7 @@ final class SearchDemandImprovementPage extends Component
 
     public function render(): View
     {
-        $brands = Brand::query()->whereHas('digitalAssets', fn ($query) => $query->where('type', 'website'))->orderBy('name')->get();
+        $brands = Brand::query()->whereHas('digitalAssets', fn ($query) => $query->where('type', 'website'))->where(fn ($query) => $query->whereIn('id', app(ServiceScope::class)->brandIdQuery())->orWhere('id', (int) $this->selectedBrandId))->orderBy('name')->get();
         $brand = $this->selectedBrandId !== '' ? $brands->firstWhere('id', (int) $this->selectedBrandId) : null;
         $websites = collect();
         $clusters = collect();
