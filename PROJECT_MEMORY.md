@@ -1,5 +1,17 @@
 # PROJECT_MEMORY
 
+## 2026-10-18 — Data status, activity tiers, inbox
+
+- **One data-status source.** Any screen that says whether data is connected, fresh or missing must use `App\Services\DataStatus\DataStatusReader`. Legacy Evidence summaries are not a freshness source.
+- **Collection follows activity.**
+  - `ActivityTierService` (table `resource_activity`) decides full / light / check per account. The gate lives in the planners, not in the executors.
+  - Structure snapshots are gated by provider change signals.
+  - Do not add a dataset that bypasses the gate.
+- **Work UI.**
+  - The Komuta merkezi is the single inbox, grouped by `TopicCatalog` (source:rule). A new work source adds a topic entry.
+  - Aging and never-age lists live in `config/moxdop-command-center.php`.
+  - Activity reaches the inbox through the `ActivityTierReader` contract.
+
 ## 2026-10-17 — Trust layer and value loop
 
 - **Proof, not assumption.**

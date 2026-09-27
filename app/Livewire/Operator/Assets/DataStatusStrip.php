@@ -68,6 +68,7 @@ final class DataStatusStrip extends Component
 
         return view('livewire.operator.assets.data-status-strip', [
             'statuses' => $statuses,
+            'asset' => $asset,
             'polling' => collect($statuses)->contains(fn (DataStatus $s): bool => $s->collecting || $s->state === DataStatus::FIRST_LOAD),
         ]);
     }

@@ -37,11 +37,10 @@ final class ActivityTierServiceReader implements ActivityTierReader
     public function pause(int $digitalAssetId, User $by): bool
     {
         $service = app(self::SERVICE);
-        if (! method_exists($service, 'pause')) {
+        if (! method_exists($service, 'pauseAsset')) {
             return false;
         }
-        $service->pause($digitalAssetId, $by);
 
-        return true;
+        return $service->pauseAsset($digitalAssetId, $by) > 0;
     }
 }

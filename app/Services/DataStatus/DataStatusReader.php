@@ -2,10 +2,12 @@
 
 namespace App\Services\DataStatus;
 
+use App\Enums\Collection\ActivityTier;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
+use App\Models\ResourceActivity;
 use App\Models\ResourceAutomation;
 use App\Support\Integrations\AssetBindingCompatibility;
 use Carbon\CarbonImmutable;
@@ -145,7 +147,12 @@ class DataStatusReader
      */
     public function activityFor(DigitalAsset $asset, string $capability, ?int $externalResourceId): ?string
     {
-        return null;
+        if ($externalResourceId === null || ! Schema::hasTable('resource_activity')) {
+            return null;
+        }
+        $row = ResourceActivity::query()->where('external_resource_id', $externalResourceId)->first();
+
+        return $row !== null && $row->effectiveTier() !== ActivityTier::Active ? self::ACTIVITY_INACTIVE : null;
     }
 
     /** Drops the per-request results (after a refresh was started, or between jobs). */

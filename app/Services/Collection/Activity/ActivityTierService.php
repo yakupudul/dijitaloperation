@@ -217,6 +217,25 @@ final class ActivityTierService
     }
 
     /**
+     * Command Center "Hesap duraklatıldı": pauses every tracked ad account bound to the asset. Returns how many.
+     */
+    public function pauseAsset(int $digitalAssetId, ?User $by = null): int
+    {
+        if (! $this->ready()) {
+            return 0;
+        }
+        $resourceIds = CoreAssetBinding::query()->where('digital_asset_id', $digitalAssetId)
+            ->where('status', CoreAssetBinding::STATUS_ACTIVE)->whereNotNull('external_resource_id')->pluck('external_resource_id');
+        $paused = 0;
+        foreach (ResourceActivity::query()->whereIn('external_resource_id', $resourceIds)->whereIn('provider', ['GOOGLE_ADS', 'META_ADS'])->pluck('external_resource_id') as $resourceId) {
+            $this->pause((int) $resourceId, $by);
+            $paused++;
+        }
+
+        return $paused;
+    }
+
+    /**
      * SystemHealthReader "collection_activity": accounts per tier and what activity-aware planning avoided in the last 24h.
      *
      * @return array{tiers: array{active: int, idle: int, dormant: int}, paused: int, passes_24h: int, planned_datasets_24h: int, skipped_datasets_24h: int, by_mode_24h: array<string, int>}

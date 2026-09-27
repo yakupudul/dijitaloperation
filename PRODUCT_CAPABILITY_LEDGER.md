@@ -1,5 +1,29 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-18 — Tek veri durumu, etkinliğe göre veri çekimi, konu → varlık gelen kutusu
+
+- **One data-status language (`DataStatusReader`).** Every asset page (website, GA4, Search Console, Google Ads, Meta, Business Profile) and Portföy sağlığı read one reader and show one "Veri durumu" strip.
+  - States: Bağlı değil / İlk veri yükleniyor / Güncel / Gecikmiş · N gün / Erişim sorunu / Pasif.
+  - The last data date comes from the fact tables, never from legacy Evidence.
+  - The website overview KPIs read Data Pool totals. The false "henüz GA4 / Search Console verisi yok" banner is gone.
+  - The legacy English Finding/Recommendation blocks on overviews were replaced by "Açık işler", which links to the Komuta merkezi `?asset=`.
+- **Activity-aware collection.** Each account has a tier computed from its stored facts: Ads spend, GA4 sessions or Search Console clicks.
+  - **active:** activity in the last 7 days. Collected daily in full.
+  - **idle:** no activity for 7–30 days. One light pass per week.
+  - **dormant:** no activity for 30+ days, or operator-paused. One cheap 7-day check per week.
+  - When activity resumes the account returns to active immediately and the gap is backfilled.
+  - Campaign / ad / creative structure is re-collected only when Google Ads `change_status` or Meta `updated_time` reports a change (weekly safety net).
+  - Initial load is 13 months. Daily re-fetch: 3 days (GA4, Google Ads, Meta), 4 days (Search Console); Google Ads also gets a 30-day restatement at most weekly.
+  - "Duraklatıldı (müşteri kararı)" toggle on Google Ads / Meta asset pages (and in the Komuta merkezi budget items). It clears itself when spend reappears.
+  - Savings are shown on Sistem sağlığı (`collection_activity`).
+- **Komuta merkezi as a topic → assets inbox.**
+  - Layout: topics on the left under Acil / Bu hafta / Fırsatlar / Uzun süredir devam eden; on the right the affected assets with bulk actions and a detail drawer.
+  - Filters: area (Reklam / SEO / Site / Müşteri & ajans / Sistem), brand and `?asset=`.
+  - Danışman and SEO görevleri open the same inbox pre-filtered. The old full screens are at `/ads-advisor/detayli` and `/seo-tasks/detayli`.
+  - **Alert aging:** an unchanged item moves to "Uzun süredir devam eden" after 10 days (`config/moxdop-command-center.php`). Critical topics never age. An item resurfaces when it changes or comes back.
+  - Budget and spend items of dormant or paused accounts are hidden.
+- **State:** CODED + PHPUnit (SQLite). The new tests were not run on PostgreSQL (server not reachable in this session). **No live UAT.**
+
 ## 2026-10-17 — Güven katmanı: CI, deploy kapısı, canlı doğrulama, veri tutarlılığı, sade menü, değer döngüsü
 
 - **CI on push** (`.github/workflows/moxdop-ci.yml`): the full PHPUnit suite runs on every push to `chatgpt/search-demand-foundation`.

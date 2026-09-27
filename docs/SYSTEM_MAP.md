@@ -22,8 +22,8 @@
   - Markalar (`operator.brands`)
   - Dijital Varlıklar (`operator.assets`)
 - **İşler**
-  - Danışman (`operator.ads_advisor`)
-  - SEO Görevleri (`operator.seo_tasks`)
+  - Danışman (`operator.ads_advisor`) — sekmeler: Ayrıntılı ekran (`operator.ads_advisor.detailed`)
+  - SEO Görevleri (`operator.seo_tasks`) — sekmeler: Ayrıntılı ekran (`operator.seo_tasks.detailed`)
   - İçerik takvimi (`operator.content.calendar`)
 - **Pazar**
   - Sorgular (`operator.library.search-queries`) — sekmeler: Hizmetler (`operator.library.services`)
@@ -94,6 +94,7 @@ Google Ads kampanya / bütçe / durum değişikliği **yoktur**; öneriler Googl
 | `30 6 * * * (UTC)` | `moxdop:alerts:scan` |
 | `30 3 * * * (UTC)` | `moxdop:backup` |
 | `20 6 * * 1 (UTC)` | `moxdop:brain:refresh` |
+| `35 3 * * * (UTC)` | `moxdop:collection:activity-refresh` |
 | `* * * * * (UTC)` | `moxdop:collection:redispatch-stale` |
 | `45 6 * * * (UTC)` | `moxdop:compliance:scan` |
 | `*/10 * * * * (UTC)` | `moxdop:content:publish-due` |

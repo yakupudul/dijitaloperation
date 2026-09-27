@@ -8,4 +8,7 @@
             ]) role="status">{{ $feedback }}</p>
         @endif
     </x-operator.data-status>
+    @if ($asset)
+        <div class="mt-2 flex justify-end"><x-operator.activity-pause :asset="$asset" /></div>
+    @endif
 </div>
