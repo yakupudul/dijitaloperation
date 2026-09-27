@@ -14,6 +14,8 @@ use App\Services\Async\AsyncOperationService;
 use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
+use App\Services\Ownership\OwnershipGuard;
+use App\Services\Portfolio\UnassignedWebsites;
 use App\Services\SearchDemand\BrandQueryPortfolioService;
 use App\Services\SearchDemand\SearchQueryLibraryService;
 use App\Services\SearchDemand\ServiceCatalogService;
@@ -26,6 +28,10 @@ use Throwable;
  * Applies the operator-approved part of a setup proposal through the existing, validated services
  * (binding confirmation, offerings, service catalog). Each item succeeds or fails on its own and the
  * outcome is recorded; nothing outside MoxDOP is written.
+ *
+ * Automatic flow: it never transfers ownership. An account already bound to another asset, or a website whose domain
+ * already belongs to another brand, is skipped and reported — the operator can transfer it by hand (Veri kaynakları /
+ * varlık düzenleme) with an explicit yetki devri confirmation.
  */
 final class BrandSetupApplier
 {
@@ -42,6 +48,7 @@ final class BrandSetupApplier
         private readonly ServiceCatalogService $catalog,
         private readonly SearchQueryLibraryService $library,
         private readonly BrandQueryPortfolioService $portfolio,
+        private readonly OwnershipGuard $ownership,
     ) {}
 
     /**
@@ -61,19 +68,43 @@ final class BrandSetupApplier
         $website = $websiteItem !== null && $websiteItem['asset_id'] ? DigitalAsset::query()->find($websiteItem['asset_id']) : null;
         if ($website === null && $websiteItem !== null && isset($selected['asset:website'])) {
             $host = BrandSetupMatcher::host((string) $websiteItem['url']);
-            $website = DigitalAsset::query()->create([
-                'brand_id' => $brand->id, 'name' => $host, 'type' => 'website', 'status' => 'active',
-                'module_id' => 'website', 'domain' => $host, 'primary_url' => $websiteItem['url'],
-            ]);
-            $results[] = ['key' => 'asset:website', 'label' => $websiteItem['label'], 'ok' => true, 'message' => 'Web sitesi varlığı oluşturuldu.'];
+            $existing = $this->ownership->existingWebsite($host);
+            if ($existing !== null && $existing->brand_id === null) {
+                // A website added under Integrations before its brand: it simply joins this brand (no owner yet).
+                app(UnassignedWebsites::class)->assign($existing, $brand);
+                $website = $existing->fresh();
+                $results[] = ['key' => 'asset:website', 'label' => $websiteItem['label'], 'ok' => true, 'message' => 'Markaya bağlı olmayan web sitesi bu markaya alındı.'];
+            } elseif ($existing !== null && (int) $existing->brand_id !== (int) $brand->id) {
+                $owner = collect([$existing->brand?->customer?->name, $existing->brand?->name, $existing->name])->filter()->implode(' › ');
+                $results[] = ['key' => 'asset:website', 'label' => $websiteItem['label'], 'ok' => false,
+                    'message' => sprintf('Bu alan adı zaten kayıtlı (%s); ikinci bir web sitesi oluşturulmadı. Siteyi bu markaya almak için varlığın düzenleme sayfasından müşteri ve markasını değiştirip yetki devrini onaylayın.', $owner)];
+            } elseif ($existing !== null) {
+                $website = $existing;
+            } else {
+                $website = DigitalAsset::query()->create([
+                    'brand_id' => $brand->id, 'name' => $host, 'type' => 'website', 'status' => 'active',
+                    'module_id' => 'website', 'domain' => $host, 'primary_url' => $websiteItem['url'],
+                ]);
+                $results[] = ['key' => 'asset:website', 'label' => $websiteItem['label'], 'ok' => true, 'message' => 'Web sitesi varlığı oluşturuldu.'];
+            }
         }
 
-        // 2) Bindings.
+        // 2) Bindings. Accounts owned by another asset are skipped and counted, never moved.
+        $skippedOwned = 0;
         foreach ($items as $item) {
             if (($item['kind'] ?? null) !== 'bind' || ! isset($selected[$item['key']]) || $item['status'] !== 'proposed') {
                 continue;
             }
-            $results[] = $this->bind($item, $brand, $website, $actor);
+            $outcome = $this->bind($item, $brand, $website, $actor);
+            if (($outcome['owned_elsewhere'] ?? false) === true) {
+                $skippedOwned++;
+            }
+            unset($outcome['owned_elsewhere']);
+            $results[] = $outcome;
+        }
+        if ($skippedOwned > 0) {
+            $results[] = ['key' => 'ownership', 'label' => 'Başka varlığa bağlı hesaplar', 'ok' => false,
+                'message' => sprintf('%d hesap başka bir varlığa bağlı olduğu için atlandı; hiçbiri taşınmadı. Gerekiyorsa Veri kaynaklarından yetki devriyle devredebilirsiniz.', $skippedOwned)];
         }
 
         // 3) Services and sector.
@@ -136,13 +167,18 @@ final class BrandSetupApplier
         return $results;
     }
 
-    /** @return array{key: string, label: string, ok: bool, message: string} */
+    /** @return array{key: string, label: string, ok: bool, message: string, owned_elsewhere?: bool} */
     private function bind(array $item, $brand, ?DigitalAsset $website, User $actor): array
     {
         $result = ['key' => $item['key'], 'label' => $item['label'], 'ok' => false, 'message' => ''];
         $resource = CoreExternalResource::query()->find($item['resource_id']);
         if ($resource === null) {
             return array_merge($result, ['message' => 'Hesap artık listede yok; entegrasyonu yenileyin.']);
+        }
+        $target = $item['target'] === 'website' ? $website : null;
+        $conflict = $target !== null ? $this->ownership->forResource($resource, $target) : $this->ownership->forResourceInBrand($resource, $brand);
+        if ($conflict !== null) {
+            return array_merge($result, ['message' => $conflict->skippedMessage(), 'owned_elsewhere' => true]);
         }
         try {
             if ($item['target'] === 'website') {

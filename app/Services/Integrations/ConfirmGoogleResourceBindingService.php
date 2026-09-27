@@ -9,6 +9,8 @@ use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
 use App\Models\User;
+use App\Services\Ownership\OwnershipGuard;
+use App\Services\Ownership\OwnershipTransferService;
 use App\Support\Integrations\BindingCardinalityRegistry;
 use App\Support\Integrations\BindingScopeGuard;
 use App\Support\Integrations\ExternalResourceAssetCompatibility;
@@ -49,7 +51,7 @@ final class ConfirmGoogleResourceBindingService
 
         $brand = $plan->brand->fresh(['customer']) ?? $plan->brand;
         if (! $brand instanceof Brand) {
-            throw ValidationException::withMessages(['brand_id' => 'Select a valid Brand.']);
+            throw ValidationException::withMessages(['brand_id' => 'Geçerli bir marka seçin.']);
         }
 
         return DB::transaction(function () use ($plan, $resource, $brand): array {
@@ -59,7 +61,7 @@ final class ConfirmGoogleResourceBindingService
                 $assetType = ExternalResourceAssetCompatibility::preferredAssetType((string) $resource->resource_type);
                 if ($assetType === null) {
                     throw ValidationException::withMessages([
-                        'resource_id' => 'This resource type cannot create a Digital Asset.',
+                        'resource_id' => 'Bu hesap türüyle dijital varlık oluşturulamaz.',
                     ]);
                 }
 
@@ -75,17 +77,17 @@ final class ConfirmGoogleResourceBindingService
                 $asset = $plan->existingAsset?->fresh(['brand']) ?? $plan->existingAsset;
                 if (! $asset instanceof DigitalAsset) {
                     throw ValidationException::withMessages([
-                        'digital_asset_id' => 'Select an existing Digital Asset.',
+                        'digital_asset_id' => 'Mevcut bir dijital varlık seçin.',
                     ]);
                 }
 
                 if ((int) $asset->brand_id !== (int) $brand->id) {
                     throw ValidationException::withMessages([
-                        'digital_asset_id' => 'Digital Asset must belong to the selected Brand.',
+                        'digital_asset_id' => 'Dijital varlık seçilen markaya ait olmalı.',
                     ]);
                 }
             } else {
-                throw ValidationException::withMessages(['mode' => 'Invalid binding mode.']);
+                throw ValidationException::withMessages(['mode' => 'Geçersiz bağlama türü.']);
             }
 
             try {
@@ -98,7 +100,7 @@ final class ConfirmGoogleResourceBindingService
 
             if (! ExternalResourceAssetCompatibility::isCompatible($asset, $resource)) {
                 throw ValidationException::withMessages([
-                    'digital_asset_id' => 'Digital Asset type is not compatible with this ExternalResource.',
+                    'digital_asset_id' => 'Bu hesap bu dijital varlık türüne bağlanamaz.',
                 ]);
             }
 
@@ -117,7 +119,7 @@ final class ConfirmGoogleResourceBindingService
             if ($exactActive instanceof CoreAssetBinding) {
                 return [
                     'ok' => true,
-                    'message' => 'Google resource is already bound to this Digital Asset. Collection was not started.',
+                    'message' => 'Google hesabı zaten bu dijital varlığa bağlı. Veri çekimi başlatılmadı.',
                     'binding' => $exactActive->fresh(['digitalAsset', 'externalResource']) ?? $exactActive,
                     'asset' => $asset->fresh() ?? $asset,
                     'created_asset' => false,
@@ -149,16 +151,14 @@ final class ConfirmGoogleResourceBindingService
 
             if ($activeOnResource instanceof CoreAssetBinding
                 && (int) $activeOnResource->digital_asset_id !== (int) $asset->id) {
-                throw ValidationException::withMessages([
-                    'resource_id' => 'This ExternalResource is already bound to a Digital Asset.',
-                ]);
+                $this->releaseOrRefuse($activeOnResource, $resource, $asset, $plan);
             }
 
             if ($activeOnAsset instanceof CoreAssetBinding
                 && (int) $activeOnAsset->external_resource_id !== (int) $resource->id) {
                 if (! $plan->allowReplace) {
                     throw ValidationException::withMessages([
-                        'digital_asset_id' => 'This Digital Asset already has an active Binding for this capability.',
+                        'digital_asset_id' => 'Bu dijital varlığın bu kaynak için zaten etkin bir bağlantısı var.',
                     ]);
                 }
 
@@ -186,8 +186,8 @@ final class ConfirmGoogleResourceBindingService
                 return [
                     'ok' => true,
                     'message' => $replaced
-                        ? 'Google resource connection replaced. Historical data from the previous resource is preserved. Collection was not started.'
-                        : 'Google resource reconnected to this Digital Asset. Collection was not started.',
+                        ? 'Google hesabı değiştirildi. Önceki hesabın geçmiş verisi korunuyor. Veri çekimi başlatılmadı.'
+                        : 'Google hesabı bu dijital varlığa yeniden bağlandı. Veri çekimi başlatılmadı.',
                     'binding' => $exactDisabled->fresh(['digitalAsset', 'externalResource']) ?? $exactDisabled,
                     'asset' => $asset->fresh() ?? $asset,
                     'created_asset' => $createdAsset,
@@ -199,7 +199,7 @@ final class ConfirmGoogleResourceBindingService
             $rules = BindingCardinalityRegistry::forResourceType($capability);
             if ($activeOnAsset instanceof CoreAssetBinding && ! $replaced && $rules['max_active_resources_per_asset'] <= 1) {
                 throw ValidationException::withMessages([
-                    'digital_asset_id' => 'This Digital Asset already has an active Binding for this capability.',
+                    'digital_asset_id' => 'Bu dijital varlığın bu kaynak için zaten etkin bir bağlantısı var.',
                 ]);
             }
 
@@ -222,7 +222,7 @@ final class ConfirmGoogleResourceBindingService
             } catch (QueryException $e) {
                 if ($this->isUniqueViolation($e)) {
                     throw ValidationException::withMessages([
-                        'resource_id' => 'This Binding already exists or conflicts with an existing Binding.',
+                        'resource_id' => 'Bu bağlantı zaten var ya da mevcut bir bağlantıyla çakışıyor.',
                     ]);
                 }
 
@@ -232,10 +232,10 @@ final class ConfirmGoogleResourceBindingService
             return [
                 'ok' => true,
                 'message' => $createdAsset
-                    ? 'Digital Asset created and Google resource bound. Collection was not started.'
+                    ? 'Dijital varlık oluşturuldu ve Google hesabı bağlandı. Veri çekimi başlatılmadı.'
                     : ($replaced
-                        ? 'Google resource connection replaced. Historical data from the previous resource is preserved. Collection was not started.'
-                        : 'Google resource bound to Digital Asset. Collection was not started.'),
+                        ? 'Google hesabı değiştirildi. Önceki hesabın geçmiş verisi korunuyor. Veri çekimi başlatılmadı.'
+                        : 'Google hesabı dijital varlığa bağlandı. Veri çekimi başlatılmadı.'),
                 'binding' => $binding->fresh(['digitalAsset', 'externalResource']) ?? $binding,
                 'asset' => $asset->fresh() ?? $asset,
                 'created_asset' => $createdAsset,
@@ -287,6 +287,8 @@ final class ConfirmGoogleResourceBindingService
         User $confirmedBy,
         bool $allowReplace = false,
         string $status = CoreAssetBinding::STATUS_ACTIVE,
+        bool $transferConfirmed = false,
+        ?string $transferNote = null,
     ): CoreAssetBinding {
         $this->assertOperator($confirmedBy);
         $resource = $resource->fresh(['integration']) ?? $resource;
@@ -294,7 +296,7 @@ final class ConfirmGoogleResourceBindingService
 
         $brand = $asset->brand;
         if (! $brand instanceof Brand) {
-            throw new RuntimeException('Digital Asset Brand is missing.');
+            throw ValidationException::withMessages(['digital_asset_id' => 'Dijital varlık bir markaya bağlı değil; önce markaya atayın.']);
         }
 
         $result = $this->confirm(new ResourceBindingPlan(
@@ -305,11 +307,13 @@ final class ConfirmGoogleResourceBindingService
             assetName: (string) $asset->name,
             confirmedBy: $confirmedBy,
             allowReplace: $allowReplace,
+            transferConfirmed: $transferConfirmed,
+            transferNote: $transferNote,
         ));
 
         $binding = $result['binding'] ?? null;
         if (! $binding instanceof CoreAssetBinding) {
-            throw new RuntimeException($result['message'] ?? 'Binding failed.');
+            throw new RuntimeException($result['message'] ?? 'Bağlantı kurulamadı.');
         }
 
         if ($status !== CoreAssetBinding::STATUS_ACTIVE) {
@@ -332,14 +336,14 @@ final class ConfirmGoogleResourceBindingService
 
         if (! GoogleResourceType::isValid((string) $binding->capability)) {
             throw ValidationException::withMessages([
-                'binding_id' => 'Only Google Bindings can be disconnected through this action.',
+                'binding_id' => 'Bu işlemle yalnız Google bağlantıları kesilebilir.',
             ]);
         }
 
         if ($binding->status === CoreAssetBinding::STATUS_DISABLED) {
             return [
                 'ok' => true,
-                'message' => 'Google resource is already disconnected from this Digital Asset.',
+                'message' => 'Google hesabının bu dijital varlıkla bağlantısı zaten kesik.',
                 'binding' => $binding,
             ];
         }
@@ -348,16 +352,32 @@ final class ConfirmGoogleResourceBindingService
 
         return [
             'ok' => true,
-            'message' => 'Disconnected this Google resource from this Digital Asset. Authorization and resource inventory are unchanged. Historical data is preserved.',
+            'message' => 'Google hesabının bu dijital varlıkla bağlantısı kesildi. Yetkilendirme ve hesap listesi değişmedi; geçmiş veri korunuyor.',
             'binding' => $binding->fresh() ?? $binding,
         ];
+    }
+
+    /**
+     * The account is actively bound to another asset: without an explicit Admin yetki devri confirmation this is an
+     * error naming the owner; with it, the old binding is closed ("transferred") and the transfer is recorded.
+     */
+    private function releaseOrRefuse(CoreAssetBinding $current, CoreExternalResource $resource, DigitalAsset $asset, ResourceBindingPlan $plan): void
+    {
+        $conflict = app(OwnershipGuard::class)->forResource($resource, $asset);
+        if ($conflict === null) {
+            return;
+        }
+        if (! $plan->transferConfirmed) {
+            throw ValidationException::withMessages(['resource_id' => $conflict->errorMessage()]);
+        }
+        app(OwnershipTransferService::class)->releaseForTransfer($current, $conflict, $asset, $plan->confirmedBy, $plan->transferNote);
     }
 
     private function assertOperator(User $user): void
     {
         if (! $user->hasRole(Roles::ADMIN)) {
             throw ValidationException::withMessages([
-                'authorization' => 'Only authorized operators may confirm Google resource bindings.',
+                'authorization' => 'Google hesap bağlantısını yalnız Admin onaylayabilir.',
             ]);
         }
     }
@@ -366,20 +386,20 @@ final class ConfirmGoogleResourceBindingService
     {
         if ($resource->provider !== ProviderRegistry::GOOGLE) {
             throw ValidationException::withMessages([
-                'resource_id' => 'Only Google ExternalResources can be bound through this service.',
+                'resource_id' => 'Bu işlemle yalnız Google hesapları bağlanabilir.',
             ]);
         }
 
         if ($resource->status !== CoreExternalResource::STATUS_AVAILABLE) {
             throw ValidationException::withMessages([
-                'resource_id' => 'ExternalResource is not available for binding.',
+                'resource_id' => 'Bu hesap bağlanmaya uygun değil (listede yok ya da kaldırılmış).',
             ]);
         }
 
         $integration = $resource->integration;
         if (! $integration instanceof CoreIntegration || $integration->status !== CoreIntegration::STATUS_ACTIVE) {
             throw ValidationException::withMessages([
-                'resource_id' => 'ExternalResource belongs to an inactive Integration.',
+                'resource_id' => 'Bu hesabın entegrasyonu etkin değil.',
             ]);
         }
 
@@ -387,13 +407,13 @@ final class ConfirmGoogleResourceBindingService
         $selectable = $resource->metadata['selectable'] ?? true;
         if ($rules['managers_selectable'] === false && $selectable === false) {
             throw ValidationException::withMessages([
-                'resource_id' => 'This Google Ads manager account is hierarchy context and cannot be bound as a performance Digital Asset.',
+                'resource_id' => 'Bu Google Ads yönetici hesabı yalnız hiyerarşi bilgisidir; performans varlığına bağlanamaz.',
             ]);
         }
 
         if (($resource->metadata['is_manager'] ?? false) === true && $resource->resource_type === 'google_ads') {
             throw ValidationException::withMessages([
-                'resource_id' => 'Google Ads manager accounts are not selectable performance bind targets.',
+                'resource_id' => 'Google Ads yönetici hesapları performans varlığına bağlanamaz.',
             ]);
         }
     }

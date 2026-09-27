@@ -3,6 +3,7 @@
 namespace App\Livewire\Demo\Integrations;
 
 use App\Jobs\DiscoverProviderResourcesJob;
+use App\Livewire\Concerns\ConfirmsOwnershipTransfer;
 use App\Livewire\Demo\Integrations\Concerns\ManagesOperatorCredentials;
 use App\Models\Brand;
 use App\Models\CoreExternalResource;
@@ -16,6 +17,7 @@ use App\Services\Integrations\Google\GoogleCredentialResolver;
 use App\Services\Integrations\Google\GoogleIntegrationReadModel;
 use App\Services\Integrations\Google\GoogleOAuthService;
 use App\Services\Integrations\Google\GoogleProviderCredentialService;
+use App\Services\Ownership\OwnershipGuard;
 use App\Support\Demo\DemoState;
 use App\Support\Integrations\ExternalResourceAssetCompatibility;
 use App\Support\Integrations\Google\GoogleAuthStatus;
@@ -35,6 +37,7 @@ use Livewire\Component;
 #[Title('Google bağlantısı')]
 class GoogleIntegrationPage extends Component
 {
+    use ConfirmsOwnershipTransfer;
     use ManagesOperatorCredentials;
 
     #[Url(as: 'tab', history: true)]
@@ -155,12 +158,26 @@ class GoogleIntegrationPage extends Component
 
     public function cancelBind(): void
     {
+        $this->cancelOwnershipTransfer();
         $this->showBindModal = false;
         $this->bindingResourceId = null;
         $this->compatibleAssets = [];
     }
 
     public function confirmBind(ConfirmGoogleResourceBindingService $binder): void
+    {
+        $this->runBind($binder, false);
+    }
+
+    /** "Devret" in the bind modal: the Admin confirmed moving an account that is bound to another asset. */
+    public function transferBind(ConfirmGoogleResourceBindingService $binder): void
+    {
+        if ($this->ownershipTransferActor() !== null) {
+            $this->runBind($binder, true);
+        }
+    }
+
+    private function runBind(ConfirmGoogleResourceBindingService $binder, bool $transfer): void
     {
         $user = auth()->user();
         if ($user === null || ! $user->hasRole(Roles::ADMIN)) {
@@ -190,6 +207,13 @@ class GoogleIntegrationPage extends Component
             }
         }
 
+        $conflict = app(OwnershipGuard::class)->forResourceInBrand($resource, $brand, $existing);
+        if ($conflict !== null && ! $transfer) {
+            $this->presentOwnershipConflict($conflict);
+
+            return;
+        }
+
         try {
             $result = $binder->confirm(new ResourceBindingPlan(
                 resource: $resource,
@@ -198,14 +222,17 @@ class GoogleIntegrationPage extends Component
                 existingAsset: $existing,
                 assetName: $this->assetName,
                 confirmedBy: $user,
+                transferConfirmed: $transfer,
+                transferNote: $this->transferNote,
             ));
         } catch (ValidationException $e) {
-            $message = collect($e->errors())->flatten()->first() ?? 'Binding could not be confirmed.';
+            $message = collect($e->errors())->flatten()->first() ?? 'Bağlantı onaylanamadı.';
             DemoState::flash((string) $message, 'info');
 
             return;
         }
 
+        $this->cancelOwnershipTransfer();
         $this->showBindModal = false;
         $this->bindingResourceId = null;
         DemoState::flash($result['message'], 'info');

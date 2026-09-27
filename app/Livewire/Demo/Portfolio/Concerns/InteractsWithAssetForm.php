@@ -5,6 +5,7 @@ namespace App\Livewire\Demo\Portfolio\Concerns;
 use App\Enums\DigitalAssetStatus;
 use App\Models\Brand;
 use App\Models\CoreIntegration;
+use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Services\Integrations\DataForSeo\DataForSeoLabsMarketDirectory;
 use App\Support\DigitalAssetTypes;
@@ -21,6 +22,9 @@ use Illuminate\Validation\Rule;
  */
 trait InteractsWithAssetForm
 {
+    /** First step of the Customer → Brand picker; narrows the brand list. */
+    public string $customer_id = '';
+
     public string $brand_id = '';
 
     public bool $brandLocked = false;
@@ -68,6 +72,22 @@ trait InteractsWithAssetForm
         }
     }
 
+    public function updatedCustomerId(): void
+    {
+        $brand = ctype_digit($this->brand_id) ? Brand::query()->find((int) $this->brand_id) : null;
+        if ($brand === null || (string) $brand->customer_id !== $this->customer_id) {
+            $this->brand_id = '';
+        }
+    }
+
+    public function updatedBrandId(): void
+    {
+        $brand = ctype_digit($this->brand_id) ? Brand::query()->find((int) $this->brand_id) : null;
+        if ($brand !== null) {
+            $this->customer_id = (string) $brand->customer_id;
+        }
+    }
+
     public function updatedSeoMarketCountry(): void
     {
         $this->seo_market_language = '';
@@ -76,6 +96,7 @@ trait InteractsWithAssetForm
     protected function fillAssetForm(DigitalAsset $asset): void
     {
         $this->brand_id = (string) $asset->brand_id;
+        $this->customer_id = (string) ($asset->brand?->customer_id ?? '');
         $this->name = (string) $asset->name;
         $this->type = (string) $asset->type;
         $this->status = $asset->status instanceof DigitalAssetStatus ? $asset->status->value : (string) $asset->status;
@@ -172,7 +193,12 @@ trait InteractsWithAssetForm
     /** @return array<string, mixed> */
     protected function assetFormViewData(): array
     {
-        $brandOptions = Brand::query()->with('customer')->orderBy('name')->get()->mapWithKeys(function (Brand $brand): array {
+        $allBrands = Brand::query()->with('customer')->orderBy('name')->get();
+        $brandName = null;
+        if (($current = $allBrands->firstWhere('id', (int) $this->brand_id)) !== null) {
+            $brandName = $current->name.($current->customer?->name ? ' — '.$current->customer->name : '');
+        }
+        $brandOptions = $allBrands->when(ctype_digit($this->customer_id), fn ($brands) => $brands->where('customer_id', (int) $this->customer_id))->mapWithKeys(function (Brand $brand): array {
             $label = $brand->name;
             if ($brand->customer?->name) {
                 $label .= ' — '.$brand->customer->name;
@@ -197,7 +223,8 @@ trait InteractsWithAssetForm
         return [
             'brandOptions' => $brandOptions,
             'brandLocked' => $this->brandLocked,
-            'brandName' => $brandOptions[$this->brand_id] ?? null,
+            'brandName' => $brandName,
+            'customerOptions' => Customer::query()->orderBy('name')->pluck('name', 'id')->mapWithKeys(fn ($name, $id): array => [(string) $id => (string) $name])->all(),
             'typeOptions' => $this->typeOptions(),
             'statusOptions' => collect(DigitalAssetStatus::cases())->mapWithKeys(fn ($case) => [$case->value => $case->name])->all(),
             'cmsOptions' => CmsOptions::options(),

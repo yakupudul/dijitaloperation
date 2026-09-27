@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Demo\Integrations;
 
+use App\Livewire\Concerns\ConfirmsOwnershipTransfer;
 use App\Livewire\Demo\Integrations\Concerns\ManagesOperatorCredentials;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
@@ -19,6 +20,7 @@ use App\Services\Integrations\Meta\MetaIntegrationReadModel;
 use App\Services\Integrations\Meta\MetaOAuthService;
 use App\Services\Integrations\Meta\MetaProviderCredentialService;
 use App\Services\Integrations\Meta\SelectMetaDiscoveryContextService;
+use App\Services\Ownership\OwnershipGuard;
 use App\Support\Demo\DemoState;
 use App\Support\Integrations\Meta\MetaResourceType;
 use App\Support\Integrations\Presentation\IntegrationWorkspaceCatalog;
@@ -36,6 +38,7 @@ use Livewire\Component;
 #[Title('Meta bağlantısı')]
 class MetaIntegrationPage extends Component
 {
+    use ConfirmsOwnershipTransfer;
     use ManagesOperatorCredentials;
 
     #[Url(as: 'tab', history: true)]
@@ -273,6 +276,7 @@ class MetaIntegrationPage extends Component
 
     public function cancelBind(): void
     {
+        $this->cancelOwnershipTransfer();
         $this->showBindModal = false;
         $this->bindingResourceId = null;
         $this->compatibleAssets = [];
@@ -280,6 +284,19 @@ class MetaIntegrationPage extends Component
     }
 
     public function confirmBind(ConfirmMetaResourceBindingService $binder): void
+    {
+        $this->runBind($binder, false);
+    }
+
+    /** "Devret" in the bind modal: the Admin confirmed moving an ad account that is bound to another asset. */
+    public function transferBind(ConfirmMetaResourceBindingService $binder): void
+    {
+        if ($this->ownershipTransferActor() !== null) {
+            $this->runBind($binder, true);
+        }
+    }
+
+    private function runBind(ConfirmMetaResourceBindingService $binder, bool $transfer): void
     {
         $user = auth()->user();
         if ($user === null || ! $user->hasRole(Roles::ADMIN)) {
@@ -312,6 +329,13 @@ class MetaIntegrationPage extends Component
             }
         }
 
+        $conflict = app(OwnershipGuard::class)->forResourceInBrand($resource, $brand, $existing);
+        if ($conflict !== null && ! $transfer) {
+            $this->presentOwnershipConflict($conflict);
+
+            return;
+        }
+
         try {
             $result = $binder->confirm(new ResourceBindingPlan(
                 resource: $resource,
@@ -322,14 +346,17 @@ class MetaIntegrationPage extends Component
                 confirmedBy: $user,
                 allowReplace: $this->allowReplace,
                 expectedIntegrationId: (int) $integration->id,
+                transferConfirmed: $transfer,
+                transferNote: $this->transferNote,
             ));
         } catch (ValidationException $e) {
-            $message = collect($e->errors())->flatten()->first() ?? 'Binding could not be confirmed.';
+            $message = collect($e->errors())->flatten()->first() ?? 'Bağlantı onaylanamadı.';
             DemoState::flash((string) $message, 'info');
 
             return;
         }
 
+        $this->cancelOwnershipTransfer();
         $this->showBindModal = false;
         $this->bindingResourceId = null;
         $this->allowReplace = false;

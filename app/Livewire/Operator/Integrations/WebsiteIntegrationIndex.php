@@ -2,9 +2,11 @@
 
 namespace App\Livewire\Operator\Integrations;
 
+use App\Models\Brand;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreConnection;
+use App\Models\Customer;
 use App\Models\DataPool\DatasetMaterialization;
 use App\Models\DataPool\DatasetWriteBatch;
 use App\Models\DigitalAsset;
@@ -79,6 +81,58 @@ final class WebsiteIntegrationIndex extends Component
         $this->newWebsite = '';
         $this->messageTone = 'success';
         $this->message = $site->domain.' eklendi. WordPress Connector ile bağlayabilir, marka eklerken bu siteyi seçebilirsiniz.';
+    }
+
+    /** "Markaya ata" on an unassigned website row: Customer → Brand picker state. */
+    public ?int $assigningSiteId = null;
+
+    public string $assignCustomerId = '';
+
+    public string $assignBrandId = '';
+
+    public function startAssign(int $siteId): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $this->assigningSiteId = $siteId;
+        $this->assignCustomerId = '';
+        $this->assignBrandId = '';
+        $this->resetErrorBag('assignBrandId');
+    }
+
+    public function cancelAssign(): void
+    {
+        $this->assigningSiteId = null;
+        $this->assignCustomerId = '';
+        $this->assignBrandId = '';
+    }
+
+    public function updatedAssignCustomerId(): void
+    {
+        $this->assignBrandId = '';
+    }
+
+    /** A brandless website has no owner yet, so assigning it needs no yetki devri. */
+    public function assignWebsite(UnassignedWebsites $websites): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $this->resetErrorBag('assignBrandId');
+        $site = $this->assigningSiteId !== null ? $websites->list()->firstWhere('id', $this->assigningSiteId) : null;
+        $brand = ctype_digit($this->assignBrandId) ? Brand::query()->find((int) $this->assignBrandId) : null;
+        if ($brand === null || (ctype_digit($this->assignCustomerId) && (int) $brand->customer_id !== (int) $this->assignCustomerId)) {
+            $this->addError('assignBrandId', 'Önce müşteri, sonra marka seçin.');
+
+            return;
+        }
+        if ($site === null || ! $websites->assign($site, $brand)) {
+            $this->cancelAssign();
+            $this->messageTone = 'warning';
+            $this->message = 'Bu site artık markasız değil; başka bir markaya taşımak için varlığın düzenleme sayfasını kullanın.';
+
+            return;
+        }
+        $this->cancelAssign();
+        $this->messageTone = 'success';
+        $this->message = $site->domain.' '.$brand->name.' markasına atandı; bağlantısı ve verisi markaya geçti.';
     }
 
     public function mount(?int $assetId = null): void
@@ -365,6 +419,10 @@ final class WebsiteIntegrationIndex extends Component
             : null;
 
         return view('livewire.operator.integrations.website-integration-index', [
+            'assignCustomers' => $this->assigningSiteId !== null ? Customer::query()->orderBy('name')->pluck('name', 'id')->all() : [],
+            'assignBrands' => $this->assigningSiteId !== null && ctype_digit($this->assignCustomerId)
+                ? Brand::query()->where('customer_id', (int) $this->assignCustomerId)->orderBy('name')->pluck('name', 'id')->all() : [],
+            'canAssign' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'rows' => $rows,
             'selectedRow' => $selectedRow,
             'history' => $history,

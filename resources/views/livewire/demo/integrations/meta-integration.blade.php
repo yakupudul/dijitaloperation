@@ -908,7 +908,12 @@
                     </label>
                 </div>
 
-                <div class="flex justify-end gap-2 border-t border-gray-100 px-6 py-4 dark:border-gray-800">
+                @if ($ownershipConflict)
+                    <div class="border-t border-gray-100 px-6 py-4 dark:border-gray-800">
+                        <x-operator.ownership-transfer-panel :conflict="$ownershipConflict" action="transferBind" :can-transfer="auth()->user()?->hasRole(\App\Support\Roles::ADMIN) ?? false" />
+                    </div>
+                @endif
+                <div @class(['flex justify-end gap-2 border-t border-gray-100 px-6 py-4 dark:border-gray-800', 'hidden' => $ownershipConflict !== null])>
                     <button type="button" wire:click="cancelBind" class="rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:ring-gray-700">{{ $isTr ? 'Vazgeç' : 'Cancel' }}</button>
                     <button type="button" wire:click="confirmBind" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs hover:bg-brand-600">{{ $isTr ? 'Bağlantıyı Onayla' : 'Confirm Connection' }}</button>
                 </div>

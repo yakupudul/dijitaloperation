@@ -30,6 +30,10 @@
         ])>{{ $message }}</div>
     @endif
 
+    @if ($ownershipConflict)
+        <x-operator.ownership-transfer-panel :conflict="$ownershipConflict" action="transferResource" :can-transfer="$canTransfer" />
+    @endif
+
     @if ($isWebsite)
         <section class="rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
             <div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-700 lg:flex-row lg:items-start lg:justify-between">
@@ -189,11 +193,18 @@
                                 @foreach ($available as $resource)
                                     <option value="{{ $resource->id }}">{{ $resource->display_name ?: $resource->external_id }} · {{ $resource->external_id }}</option>
                                 @endforeach
+                                @if (($ownedElsewhere[$capability] ?? []) !== [])
+                                    <optgroup label="Başka varlığa bağlı (seçerseniz yetki devri sorulur)">
+                                        @foreach ($ownedElsewhere[$capability] as $foreign)
+                                            <option value="{{ $foreign['id'] }}">{{ $foreign['label'] }} — {{ $foreign['owner'] }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
                             </select>
                             @error('selectedResource.'.$capability)
                                 <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
                             @enderror
-                            @if ($available->isEmpty())
+                            @if ($available->isEmpty() && ($ownedElsewhere[$capability] ?? []) === [])
                                 <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">{{ __('operator_runtime.sources.no_resources') }}</p>
                             @endif
                         </div>
@@ -215,6 +226,22 @@
                 </section>
             @endforeach
         </div>
+    @endif
+
+    @if ($transfers->isNotEmpty())
+        <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700" data-ownership-history>
+            <h2 class="font-semibold text-gray-900 dark:text-white">Devir geçmişi</h2>
+            <ul class="mt-3 space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                @foreach ($transfers as $transfer)
+                    <li>
+                        <span class="text-xs text-gray-400">{{ $transfer->created_at?->timezone('Europe/Istanbul')->format('d.m.Y H:i') }}</span>
+                        · {{ $transfer->summary() }}
+                        @if ($transfer->transferredBy) <span class="text-xs text-gray-400">· {{ $transfer->transferredBy->name }}</span>@endif
+                        @if ($transfer->note) <span class="block text-xs text-gray-500">Not: {{ $transfer->note }}</span>@endif
+                    </li>
+                @endforeach
+            </ul>
+        </section>
     @endif
 
     <section class="rounded-xl bg-gray-50 p-4 text-sm text-gray-600 ring-1 ring-inset ring-gray-200 dark:bg-white/[0.02] dark:text-gray-300 dark:ring-gray-800">

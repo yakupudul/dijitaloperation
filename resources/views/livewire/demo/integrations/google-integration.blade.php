@@ -433,10 +433,16 @@
                     @endif
                 </div>
 
+                @if ($ownershipConflict)
+                    <div class="mt-4">
+                        <x-operator.ownership-transfer-panel :conflict="$ownershipConflict" action="transferBind" :can-transfer="auth()->user()?->hasRole(\App\Support\Roles::ADMIN) ?? false" />
+                    </div>
+                @else
                 <div class="mt-5 flex flex-wrap justify-end gap-2">
                     <x-ta.button wire:click="cancelBind" size="sm" variant="outline">Vazgeç</x-ta.button>
                     <x-ta.button wire:click="confirmBind" size="sm">Bağla</x-ta.button>
                 </div>
+                @endif
             </div>
         </div>
     @endif
