@@ -86,6 +86,47 @@
         @endforelse
     </section>
 
+    @php
+        $live = $health['live_checks'] ?? [];
+        $liveFailed = count(array_filter($live, fn (array $c): bool => $c['status'] === 'fail'));
+        $liveStatus = ['ok' => ['Çalışıyor', 'text-emerald-600'], 'fail' => ['Başarısız', 'text-rose-600'], 'skipped' => ['Denenmedi', 'text-gray-400']];
+    @endphp
+    <section class="{{ $card }}" id="canli-dogrulama">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+                <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Canlı doğrulama</h2>
+                <p class="mt-1 text-xs text-gray-500">Her sabah her bağlantı ve bağlı hesap için en ucuz salt okunur çağrı yapılır (Google anahtar yenileme, GA4 1 günlük rapor, Search Console site okuma, Google Ads müşteri sorgusu, İşletme Profili konum okuma, Meta hesap durumu, DataForSEO ücretsiz hesap bilgisi, WordPress imzalı durum). Hiçbir şey yazılmaz.</p>
+                <p class="mt-1 text-xs text-gray-500">
+                    {{ count($live) }} kontrol · <span @class(['font-semibold text-rose-600' => $liveFailed > 0])>{{ $liveFailed }} başarısız</span>
+                    · <a href="{{ route('operator.command-center', ['source' => 'data']) }}" wire:navigate class="text-brand-600 hover:underline">{{ $health['suspicious_data'] ?? 0 }} veri şüphesi</a>
+                </p>
+            </div>
+            @if ($isAdmin)
+                <button type="button" wire:click="verifyNow" wire:loading.attr="disabled" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700">Şimdi doğrula</button>
+            @endif
+        </div>
+        @if ($live === [])
+            <p class="mt-2 text-sm text-gray-500">Henüz doğrulama yapılmadı (moxdop:verify:live her sabah çalışır).</p>
+        @else
+            <div class="mt-2 overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-left text-xs uppercase text-gray-400"><tr><th class="py-2 pr-3">Bağlantı / hesap</th><th class="py-2 pr-3">Sonuç</th><th class="py-2 pr-3">Süre</th><th class="py-2 pr-3">Zaman</th><th class="py-2">Ayrıntı</th></tr></thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @foreach ($live as $check)
+                            <tr wire:key="live-{{ md5($check['check_key']) }}">
+                                <td class="py-2 pr-3 text-gray-800 dark:text-gray-200">{{ $check['label'] }}</td>
+                                <td class="py-2 pr-3 text-xs {{ $liveStatus[$check['status']][1] ?? '' }}">{{ $liveStatus[$check['status']][0] ?? $check['status'] }}</td>
+                                <td class="py-2 pr-3 text-xs text-gray-500">{{ $check['latency_ms'] !== null ? number_format($check['latency_ms'], 0, ',', '.').' ms' : '—' }}</td>
+                                <td class="py-2 pr-3 text-xs text-gray-500">{{ $when($check['checked_at']) }}</td>
+                                <td class="py-2 text-xs text-gray-500">{{ $check['message'] ?? '—' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </section>
+
     <section class="{{ $card }}">
         <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Bağlantı yetkileri</h2>
         <div class="mt-2 overflow-x-auto">

@@ -20,6 +20,8 @@ use App\Jobs\PrepareBrainProposalsJob;
 use App\Jobs\RunAiVisibilityCheckJob;
 use App\Jobs\RunAreaSerpChecksJob;
 use App\Jobs\RunScheduledDiscoveryJob;
+use App\Jobs\Verification\RunDataConsistencyCheckJob;
+use App\Jobs\Verification\RunLiveVerificationJob;
 use App\Listeners\Collection\BroadcastCollectionRunChanged;
 use App\Listeners\Collection\QueueWebsiteAnalysisAfterCollection;
 use App\Listeners\QueueFindingEvaluationAfterEvidenceCanonicalized;
@@ -269,6 +271,8 @@ class AppServiceProvider extends ServiceProvider
             SearchDemandWebsiteImprovementJob::class,
             SearchDemandSerpEnrichmentJob::class,
             SearchDemandCompetitiveIntelligenceJob::class,
+            RunLiveVerificationJob::class,
+            RunDataConsistencyCheckJob::class,
         ], 'heavy');
     }
 }

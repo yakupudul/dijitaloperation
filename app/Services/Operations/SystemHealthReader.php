@@ -10,6 +10,7 @@ use App\Models\Observability\OpsDispatcherHeartbeat;
 use App\Models\Observability\WorkerHeartbeat;
 use App\Models\ResourceAutomation;
 use App\Models\User;
+use App\Services\Verification\LiveVerifier;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -45,6 +46,8 @@ final class SystemHealthReader
             'backup' => Schema::hasTable('system_backups') ? app(SystemBackup::class)->status() : null,
             'two_factor' => $this->twoFactor(),
             'watchdog' => OpsWatchdog::status(),
+            'live_checks' => Schema::hasTable('live_checks') ? LiveVerifier::latest() : [],
+            'suspicious_data' => Schema::hasTable('data_consistency_issues') ? DB::table('data_consistency_issues')->whereNull('resolved_at')->count() : 0,
         ];
     }
 

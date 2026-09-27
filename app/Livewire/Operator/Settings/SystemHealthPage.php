@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator\Settings;
 
+use App\Jobs\Verification\RunLiveVerificationJob;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Operations\SystemHealthReader;
 use App\Support\Roles;
@@ -39,6 +40,14 @@ final class SystemHealthPage extends Component
         abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
         $automations->runNow($id, auth()->user());
         $this->message = 'Hesap veri çekimi için sıraya alındı.';
+    }
+
+    /** Admin: queue the read-only live verification of every connection (moxdop:verify:live). */
+    public function verifyNow(): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        RunLiveVerificationJob::dispatch();
+        $this->message = 'Canlı doğrulama sıraya alındı; sonuçlar birkaç dakika içinde burada görünür.';
     }
 
     public function toggleDatasets(int $automationId): void
