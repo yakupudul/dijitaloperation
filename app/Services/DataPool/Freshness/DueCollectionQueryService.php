@@ -5,9 +5,12 @@ namespace App\Services\DataPool\Freshness;
 use App\Enums\DataPool\FreshnessState;
 use App\Models\CoreAssetBinding;
 use App\Models\DataPool\DatasetMaterialization;
+use App\Services\Collection\Activity\ActivityCollectionPlan;
+use App\Services\Collection\Activity\CollectionActivityGate;
 use App\Services\Collection\DataContractRegistryLoader;
 use App\Services\DataPool\Freshness\Support\DueCollectionItem;
 use App\Support\Time\SafeTimezone;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
 /**
@@ -43,7 +46,8 @@ final class DueCollectionQueryService
      *   provider_sources?: list<string>|null,
      *   include_action_required?: bool,
      *   authorization_ready_by_binding_id?: array<int, bool>,
-     *   integrity_blocked_by_dataset_resource?: array<string, bool>
+     *   integrity_blocked_by_dataset_resource?: array<string, bool>,
+     *   activity_gate?: bool
      * }  $filters
      * @return list<DueCollectionItem>
      */
@@ -64,6 +68,9 @@ final class DueCollectionQueryService
         $authByBinding = $filters['authorization_ready_by_binding_id'] ?? [];
         $integrityMap = $filters['integrity_blocked_by_dataset_resource'] ?? [];
 
+        // Activity gate (real collection starts only; status reads never make the provider change check).
+        $gate = ($filters['activity_gate'] ?? false) === true ? app(CollectionActivityGate::class) : null;
+
         $items = [];
         foreach ($bindings as $binding) {
             $capability = (string) $binding->capability;
@@ -74,7 +81,15 @@ final class DueCollectionQueryService
 
             $authReady = $authByBinding[(int) $binding->id] ?? true;
             $families = $familiesByProvider[$provider] ?? [];
+            $activity = $gate !== null && $binding->externalResource !== null ? $gate->plan($binding->externalResource) : null;
+            $gatedFamilies = [];
+            $plannedCount = 0;
             foreach ($families as $family) {
+                if ($activity !== null && ! $activity->allowsFamily((string) $family['id'])) {
+                    $gatedFamilies[] = (string) $family['id'];
+
+                    continue;
+                }
                 $datasetId = $this->primaryDatasetForFamily((string) $family['id']);
                 if ($datasetId === null) {
                     continue;
@@ -90,13 +105,23 @@ final class DueCollectionQueryService
                 $mat = $this->findMaterialization($materializations, $datasetId, $assetId, $resourceId);
 
                 $integrityKey = $datasetId.'|'.$assetId.'|'.($resourceId ?? 'null');
-                $decision = $this->planner->planDataset($datasetId, $mat, [
+                $decision = $this->planner->planDataset($datasetId, $mat, array_filter([
                     'authorization_ready' => $authReady,
                     'integrity_blocked' => (bool) ($integrityMap[$integrityKey] ?? false),
                     'reporting_timezone' => $this->resourceTimezone($binding),
-                ]);
+                    'max_span_days_override' => self::activitySpanOverride($activity),
+                ], static fn (mixed $value): bool => $value !== null));
+
+                if ($decision->executable && $activity !== null && $activity->isFull()
+                    && $gate->isStructureFamily($provider, (string) $family['id'])
+                    && ! $gate->structureDecision($binding->externalResource, $provider)['due']) {
+                    $gatedFamilies[] = (string) $family['id'];
+
+                    continue;
+                }
 
                 if ($decision->executable) {
+                    $plannedCount++;
                     $items[] = new DueCollectionItem(
                         digitalAssetId: $assetId,
                         brandId: $binding->digitalAsset?->brand_id,
@@ -138,9 +163,31 @@ final class DueCollectionQueryService
                     );
                 }
             }
+            if ($activity !== null) {
+                $gate->recordPass($activity, $plannedCount, count($gatedFamilies), ['skipped_families' => $gatedFamilies, 'binding_id' => (int) $binding->id]);
+            }
         }
 
         return $items;
+    }
+
+    /**
+     * Span bound the activity plan imposes on historical datasets: a dormant check reads only the last few days;
+     * an account that resumed activity backfills the whole gap since its last full collection.
+     */
+    public static function activitySpanOverride(?ActivityCollectionPlan $activity): ?int
+    {
+        if ($activity === null) {
+            return null;
+        }
+        if ($activity->mode === ActivityCollectionPlan::MODE_CHECK) {
+            return $activity->checkDays;
+        }
+        if ($activity->isFull() && $activity->backfillFrom !== null) {
+            return max(1, (int) CarbonImmutable::parse($activity->backfillFrom)->diffInDays(now()) + 2);
+        }
+
+        return null;
     }
 
     /**

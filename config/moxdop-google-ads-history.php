@@ -8,7 +8,6 @@
  * discovers lifetime activity at monthly grain and uses that result to bound the
  * expensive daily-detail backfill.
  */
-
 $column = static fn (string $name, string $type, bool $nullable = true, string $role = 'dimension'): array => [
     'name' => $name,
     'type' => $type,
@@ -28,7 +27,7 @@ return [
 
     // Provider-safe daily-detail boundary. Lifetime history older than this is
     // still retained monthly instead of being silently discarded.
-    'granular_lookback_months' => (int) env('MOXDOP_GOOGLE_ADS_GRANULAR_LOOKBACK_MONTHS', 37),
+    'granular_lookback_months' => (int) env('MOXDOP_GOOGLE_ADS_GRANULAR_LOOKBACK_MONTHS', 13),
 
     'natural_key_overrides' => [],
     'columns_add' => [],

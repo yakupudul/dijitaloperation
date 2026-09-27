@@ -12,6 +12,8 @@ use App\Models\Collection\CollectionRun;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\User;
+use App\Services\Collection\Activity\ActivityCollectionPlan;
+use App\Services\Collection\Activity\CollectionActivityGate;
 use App\Services\Collection\CollectionQueueGate;
 use App\Services\Collection\DataContractRegistryLoader;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsCentralRequestFamilyCatalog;
@@ -36,7 +38,8 @@ final class GoogleAdsCentralCollectionService
 {
     public const int HISTORY_POLICY_VERSION = 2;
 
-    public const int RESTATEMENT_DAYS = 30;
+    /** Daily re-fetch window: providers restate the most recent days. */
+    public const int RESTATEMENT_DAYS = 3;
 
     public const int CHANGE_EVENT_SAFE_DAYS = 29;
 
@@ -49,6 +52,7 @@ final class GoogleAdsCentralCollectionService
         private readonly CollectionQueueGate $queueGate,
         private readonly StartCollectionService $starter,
         private readonly GoogleAdsHistoricalActivityDiscoveryService $historyDiscovery,
+        private readonly CollectionActivityGate $activity,
     ) {}
 
     /** @param list<int|string> $externalResourceIds */
@@ -198,11 +202,14 @@ final class GoogleAdsCentralCollectionService
             ];
         }
 
+        $activity = $this->activity->plan($resource);
+
         return [
             'intent' => 'google_ads_central_update',
-            'families' => $this->updateFamilies($resource),
+            'families' => $this->updateFamilies($resource, $activity),
             'history_policy_version' => self::HISTORY_POLICY_VERSION,
             'activity_summary' => data_get($historyBaseline->metadata, 'activity_summary'),
+            'activity' => $activity->toArray(),
         ];
     }
 
@@ -259,17 +266,39 @@ final class GoogleAdsCentralCollectionService
         return $out;
     }
 
-    /** @return list<array<string,mixed>> */
-    private function updateFamilies(CoreExternalResource $resource): array
+    /**
+     * Update plan, shaped by the account's activity tier: full daily set for active accounts (structure snapshots only
+     * when Google Ads reports a change or weekly), account daily totals only for idle / dormant accounts.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function updateFamilies(CoreExternalResource $resource, ActivityCollectionPlan $activity): array
     {
         $timezone = $this->timezone($resource);
         $today = CarbonImmutable::now($timezone)->startOfDay();
         $closedEnd = $today->subDay();
+        $deep = $activity->isFull() && $this->activity->deepRestatementDue((int) $resource->id);
+        $restatementDays = $deep ? max(self::RESTATEMENT_DAYS, (int) config('moxdop-collection-activity.google_ads_deep_restatement_days', 30)) : self::RESTATEMENT_DAYS;
         $out = [];
+        $skipped = [];
+        $structure = null;
 
         foreach (GoogleAdsCentralRequestFamilyCatalog::supportedFamilies() as $family) {
             if (GoogleAdsCentralRequestFamilyCatalog::isHistoryFamily($family)) {
                 continue;
+            }
+            if (! $activity->allowsFamily($family)) {
+                $skipped[] = $family;
+
+                continue;
+            }
+            if ($activity->isFull() && $this->activity->isStructureFamily('GOOGLE_ADS', $family)) {
+                $structure ??= $this->activity->structureDecision($resource, 'GOOGLE_ADS');
+                if (! $structure['due']) {
+                    $skipped[] = $family;
+
+                    continue;
+                }
             }
 
             if (! GoogleAdsCentralRequestFamilyCatalog::isDated($family)) {
@@ -278,9 +307,20 @@ final class GoogleAdsCentralCollectionService
                 continue;
             }
 
+            if ($activity->mode === ActivityCollectionPlan::MODE_CHECK) {
+                // Dormant weekly check: account-level totals for the last few days only, no gap filling.
+                $out[] = [
+                    'family' => $family,
+                    'date_range' => ['start' => $closedEnd->subDays($activity->checkDays - 1)->toDateString(), 'end' => $closedEnd->toDateString()],
+                    'execution_variant' => 'recent',
+                ];
+
+                continue;
+            }
+
             $window = GoogleAdsCentralRequestFamilyCatalog::isChangeEvent($family)
                 ? self::CHANGE_EVENT_SAFE_DAYS
-                : self::RESTATEMENT_DAYS;
+                : $restatementDays;
             $start = $closedEnd->subDays($window - 1);
             if (! GoogleAdsCentralRequestFamilyCatalog::isChangeEvent($family)) {
                 $covered = app(ResourceAutomationService::class)->coverageEnd($resource->id, 'GOOGLE_ADS', $family);
@@ -302,6 +342,15 @@ final class GoogleAdsCentralCollectionService
                 'execution_variant' => 'recent',
             ];
         }
+
+        if ($deep) {
+            $this->activity->markDeepRestatement((int) $resource->id);
+        }
+        $this->activity->recordPass($activity, count($out), count($skipped), [
+            'skipped_families' => $skipped,
+            'structure' => $structure,
+            'restatement_days' => $restatementDays,
+        ]);
 
         return $out;
     }
@@ -485,7 +534,7 @@ final class GoogleAdsCentralCollectionService
                     'google_integration_id' => (int) $integration->id,
                     'plan_fingerprint' => $planFingerprint,
                     'history_policy_version' => self::HISTORY_POLICY_VERSION,
-                    'granular_lookback_months' => (int) config('moxdop-google-ads-history.granular_lookback_months', 37),
+                    'granular_lookback_months' => (int) config('moxdop-google-ads-history.granular_lookback_months', 13),
                     'restatement_days' => self::RESTATEMENT_DAYS,
                     'change_event_safe_days' => self::CHANGE_EVENT_SAFE_DAYS,
                 ],
@@ -518,6 +567,7 @@ final class GoogleAdsCentralCollectionService
                         'history_policy_upgrade' => (bool) ($resourcePlan['history_policy_upgrade'] ?? false),
                         'activity_summary' => $resourcePlan['activity_summary'] ?? null,
                         'resumed_from_resource_run_id' => $resourcePlan['resumed_from_resource_run_id'] ?? null,
+                        'activity' => $resourcePlan['activity'] ?? null,
                     ],
                 ]);
 

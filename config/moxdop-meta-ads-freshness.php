@@ -1,6 +1,6 @@
 <?php
 
-$historical = static function (string $datasetId, array $grain, int $maxSpanDays = 35, int $reprocessDays = 7, ?array $weekly = null): array {
+$historical = static function (string $datasetId, array $grain, int $maxSpanDays = 35, int $reprocessDays = 3, ?array $weekly = null): array {
     return [
         'dataset_id' => $datasetId,
         'provider_or_source' => 'META_ADS',
@@ -99,14 +99,14 @@ $snapshot = static function (string $datasetId, array $grain, int $slaHours = 30
 return [
     'overlay_id' => 'META_ADS_FRESHNESS_V2',
     'dataset_policies' => [
-        $historical('meta_account_daily', ['account_id', 'date'], 35, 7),
-        $historical('meta_campaign_daily', ['account_id', 'date', 'campaign_id'], 35, 7),
-        $historical('meta_adset_daily', ['account_id', 'date', 'adset_id'], 35, 7),
-        $historical('meta_ad_daily', ['account_id', 'date', 'ad_id'], 35, 7),
-        $historical('meta_typed_action_daily', ['account_id', 'date', 'entity_level', 'entity_id', 'action_type'], 35, 7),
-        $historical('meta_video_engagement_daily', ['account_id', 'date', 'ad_id', 'metric_type', 'action_type'], 35, 7),
-        $historical('meta_analysis_breakdown_daily', ['account_id', 'date', 'breakdown_type', 'breakdown_key'], 35, 7),
-        $historical('meta_hourly_daily', ['account_id', 'date', 'hour_bucket'], 14, 7, [
+        $historical('meta_account_daily', ['account_id', 'date'], 35, 3),
+        $historical('meta_campaign_daily', ['account_id', 'date', 'campaign_id'], 35, 3),
+        $historical('meta_adset_daily', ['account_id', 'date', 'adset_id'], 35, 3),
+        $historical('meta_ad_daily', ['account_id', 'date', 'ad_id'], 35, 3),
+        $historical('meta_typed_action_daily', ['account_id', 'date', 'entity_level', 'entity_id', 'action_type'], 35, 3),
+        $historical('meta_video_engagement_daily', ['account_id', 'date', 'ad_id', 'metric_type', 'action_type'], 35, 3),
+        $historical('meta_analysis_breakdown_daily', ['account_id', 'date', 'breakdown_type', 'breakdown_key'], 35, 3),
+        $historical('meta_hourly_daily', ['account_id', 'date', 'hour_bucket'], 14, 3, [
             'enabled' => false,
             'window_days' => 0,
             'iso_weekday' => 1,

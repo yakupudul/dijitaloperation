@@ -31,7 +31,8 @@ final class IncrementalCoveragePlanner
      *   integrity_blocked?: bool,
      *   provider_history_limited?: bool,
      *   provider_limitation_accepted?: bool,
-     *   reporting_timezone?: ?string
+     *   reporting_timezone?: ?string,
+     *   max_span_days_override?: ?int
      * }  $context
      */
     public function planDataset(
@@ -276,8 +277,11 @@ final class IncrementalCoveragePlanner
         $intervals = array_values($intervalMap);
         usort($intervals, static fn (array $a, array $b): int => strcmp($a['start'], $b['start']));
 
-        // Bound catch-up / incremental span.
-        $maxSpan = $policy['max_bounded_incremental_span_days'] ?? null;
+        // Bound catch-up / incremental span. Activity-aware planning overrides it: a dormant account's weekly check
+        // reads only the last few days, and an account that resumed activity backfills the whole gap.
+        $maxSpan = is_int($context['max_span_days_override'] ?? null) && (int) $context['max_span_days_override'] > 0
+            ? (int) $context['max_span_days_override']
+            : ($policy['max_bounded_incremental_span_days'] ?? null);
         $envelopeStart = $intervals[0]['start'];
         $envelopeEnd = $intervals[array_key_last($intervals)]['end'];
         if (is_int($maxSpan) && $maxSpan > 0) {

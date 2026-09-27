@@ -46,6 +46,8 @@ final class StartIncrementalCollectionService
             'include_action_required' => true,
             'authorization_ready_by_binding_id' => $context['authorization_ready_by_binding_id'] ?? [],
             'integrity_blocked_by_dataset_resource' => $context['integrity_blocked_by_dataset_resource'] ?? [],
+            // Real starts follow account activity (tier datasets, structure-change gate, savings log).
+            'activity_gate' => (bool) ($context['activity_gate'] ?? true),
         ];
         if ($requestedBindingIds !== []) {
             $filters['core_asset_binding_ids'] = $requestedBindingIds;

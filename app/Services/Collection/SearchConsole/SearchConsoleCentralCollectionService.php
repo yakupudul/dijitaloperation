@@ -13,6 +13,8 @@ use App\Models\Collection\CollectionRun;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\User;
+use App\Services\Collection\Activity\ActivityCollectionPlan;
+use App\Services\Collection\Activity\CollectionActivityGate;
 use App\Services\Collection\DataContractRegistryLoader;
 use App\Services\Collection\Providers\SearchConsole\SearchConsoleApiClient;
 use App\Services\Collection\Providers\SearchConsole\SearchConsoleCentralDatasetExecutor;
@@ -35,9 +37,11 @@ use Throwable;
  */
 final class SearchConsoleCentralCollectionService
 {
-    public const int INITIAL_DAYS = 486;
+    /** Initial load: the last 13 months (Search Console keeps 16). */
+    public const int INITIAL_DAYS = 395;
 
-    public const int RESTATEMENT_DAYS = 7;
+    /** Daily re-fetch window: Search Console lags ~2–3 days and restates the most recent days. */
+    public const int RESTATEMENT_DAYS = 4;
 
     public const int FINAL_LAG_DAYS = 3;
 
@@ -45,6 +49,7 @@ final class SearchConsoleCentralCollectionService
         private readonly DataContractRegistryLoader $registry,
         private readonly SearchConsoleApiClient $api,
         private readonly StartCollectionService $starter,
+        private readonly CollectionActivityGate $activity,
     ) {}
 
     /** @param list<int|string> $externalResourceIds */
@@ -186,20 +191,34 @@ final class SearchConsoleCentralCollectionService
         }
 
         $start = $anchor->subDays(self::RESTATEMENT_DAYS - 1);
-        $previousSearchTypes = $runs->flatMap(fn ($run) => $run->datasetRuns)
-            ->pluck('metadata.search_type')
-            ->filter(fn ($type): bool => is_string($type) && $type !== '')
-            ->unique()
-            ->values()
-            ->all();
-        $activeSearchTypes = array_values(array_unique([
-            ...$previousSearchTypes,
-            ...$this->detectActiveSearchTypes($integration, $resource, $end, $start),
-        ]));
+        $activity = $this->activity->plan($resource);
+        if ($activity->isFull()) {
+            $previousSearchTypes = $runs->flatMap(fn ($run) => $run->datasetRuns)
+                ->pluck('metadata.search_type')
+                ->filter(fn ($type): bool => is_string($type) && $type !== '')
+                ->unique()
+                ->values()
+                ->all();
+            $activeSearchTypes = array_values(array_unique([
+                ...$previousSearchTypes,
+                ...$this->detectActiveSearchTypes($integration, $resource, $end, $start),
+            ]));
+        } else {
+            // Idle / dormant: web property totals only, without the search-type probes.
+            $activeSearchTypes = ['web'];
+        }
 
-        $datasetPlans = $this->datasetPlans($activeSearchTypes, $start, $end);
+        $allPlans = $this->datasetPlans($activeSearchTypes, $start, $end);
+        $datasetPlans = array_values(array_filter($allPlans, fn (array $plan): bool => $activity->allowsFamily((string) $plan['source_family_id'])));
+        $this->activity->recordPass($activity, count($datasetPlans), count($allPlans) - count($datasetPlans));
         foreach ($datasetPlans as &$datasetPlan) {
             if (! is_array($datasetPlan['date_range'])) {
+                continue;
+            }
+            if ($activity->mode === ActivityCollectionPlan::MODE_CHECK) {
+                // Dormant weekly check: property totals for the last few final days only, no gap filling.
+                $datasetPlan['date_range']['start'] = $end->subDays($activity->checkDays - 1)->toDateString();
+
                 continue;
             }
             $covered = app(ResourceAutomationService::class)->coverageEnd(
@@ -215,8 +234,9 @@ final class SearchConsoleCentralCollectionService
             'resource' => $resource,
             'mode' => 'update',
             'dataset_plans' => $datasetPlans,
-            'days' => $start->diffInDays($end) + 1,
+            'days' => (int) $start->diffInDays($end) + 1,
             'active_search_types' => $activeSearchTypes,
+            'activity' => $activity->toArray(),
         ];
     }
 
@@ -233,7 +253,7 @@ final class SearchConsoleCentralCollectionService
     private function detectActiveSearchTypes(CoreIntegration $integration, CoreExternalResource $resource, CarbonImmutable $end, ?CarbonImmutable $probeStart = null): array
     {
         $active = ['web'];
-        // Probe the same 16-month window as the initial import so an optional surface
+        // Probe the same 13-month window as the initial import so an optional surface
         // is not missed merely because it had no traffic during the last few weeks.
         $start = ($probeStart ?? $end->subDays(self::INITIAL_DAYS - 1))->toDateString();
         $endDate = $end->toDateString();
@@ -349,7 +369,7 @@ final class SearchConsoleCentralCollectionService
             default => 'gsc_central_update',
         };
         $runLabel = match ($runIntent) {
-            'gsc_central_initial' => 'Search Console Merkezi 486 Günlük Aktarım',
+            'gsc_central_initial' => 'Search Console Merkezi 13 Aylık Aktarım',
             'gsc_central_repair' => 'Search Console Eksik Veri Onarımı',
             'gsc_central_resume' => 'Search Console Aktarıma Devam',
             'gsc_central_update' => 'Search Console Akıllı Güncelleme',
@@ -464,6 +484,7 @@ final class SearchConsoleCentralCollectionService
                         'site_url' => (string) $resource->external_id,
                         'active_search_types' => $plan['active_search_types'],
                         'reporting_timezone' => SearchConsoleProviderCapabilities::REPORTING_TIMEZONE,
+                        'activity' => $plan['activity'] ?? null,
                     ],
                 ]);
 
