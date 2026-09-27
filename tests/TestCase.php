@@ -4,6 +4,7 @@ namespace Tests;
 
 use App\Services\DataPool\Compact\CompactFactStore;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Support\Facades\Http;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -16,5 +17,8 @@ abstract class TestCase extends BaseTestCase
 
         // Compact fact storage caches dictionary ids per process; each test's rolled-back data must not leak.
         CompactFactStore::forgetCache();
+
+        // Tests never reach real providers: any HTTP call without a matching fake fails loudly.
+        Http::preventStrayRequests();
     }
 }
