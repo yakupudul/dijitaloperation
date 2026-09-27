@@ -31,7 +31,7 @@ class Ga4PoolReadRepository
             ->where('external_resource_id', $externalResourceId)
             ->where('property_id', $propertyId)
             ->whereBetween('reporting_date', [$start, $end])
-            ->selectRaw('COUNT(*) as rows_count, COALESCE(SUM(sessions), 0) as sessions_sum, COALESCE(SUM(engagedSessions), 0) as engaged_sum, COALESCE(SUM(screenPageViews), 0) as views_sum, COALESCE(SUM(userEngagementDuration), 0) as engagement_duration_sum, COALESCE(SUM(activeUsers), 0) as active_users_sum, SUM(newUsers) as new_users_sum, SUM(conversions) as conversions_sum, SUM(keyEvents) as key_events_sum, SUM(totalRevenue) as revenue_sum')
+            ->selectRaw('COUNT(*) as rows_count, COALESCE(SUM(sessions), 0) as sessions_sum, COALESCE(SUM("engagedSessions"), 0) as engaged_sum, COALESCE(SUM("screenPageViews"), 0) as views_sum, COALESCE(SUM("userEngagementDuration"), 0) as engagement_duration_sum, COALESCE(SUM("activeUsers"), 0) as active_users_sum, SUM("newUsers") as new_users_sum, SUM(conversions) as conversions_sum, SUM("keyEvents") as key_events_sum, SUM("totalRevenue") as revenue_sum')
             ->first();
 
         return [
@@ -93,7 +93,7 @@ class Ga4PoolReadRepository
             ->whereBetween('reporting_date', [$start, $end])
             ->groupBy('sessionDefaultChannelGroup')
             ->orderByDesc(DB::raw('SUM(sessions)'))
-            ->selectRaw('sessionDefaultChannelGroup as channel, COALESCE(SUM(sessions), 0) as sessions_sum, COALESCE(SUM(engagedSessions), 0) as engaged_sum')
+            ->selectRaw('"sessionDefaultChannelGroup" as channel, COALESCE(SUM(sessions), 0) as sessions_sum, COALESCE(SUM("engagedSessions"), 0) as engaged_sum')
             ->get()
             ->map(static fn ($row): array => [
                 'channel' => (string) $row->channel,
@@ -122,7 +122,7 @@ class Ga4PoolReadRepository
             ->groupBy('sessionSource', 'sessionMedium')
             ->orderByDesc(DB::raw('SUM(sessions)'))
             ->limit($limit)
-            ->selectRaw('sessionSource as source, sessionMedium as medium, COALESCE(SUM(sessions), 0) as sessions_sum, COALESCE(SUM(engagedSessions), 0) as engaged_sum')
+            ->selectRaw('"sessionSource" as source, "sessionMedium" as medium, COALESCE(SUM(sessions), 0) as sessions_sum, COALESCE(SUM("engagedSessions"), 0) as engaged_sum')
             ->get()
             ->map(static fn ($row): array => [
                 'source_medium' => $row->source.' / '.$row->medium,
@@ -151,7 +151,7 @@ class Ga4PoolReadRepository
             ->groupBy('sessionCampaignName')
             ->orderByDesc(DB::raw('SUM(sessions)'))
             ->limit($limit)
-            ->selectRaw('sessionCampaignName as campaign, COALESCE(SUM(sessions), 0) as sessions_sum, COALESCE(SUM(engagedSessions), 0) as engaged_sum')
+            ->selectRaw('"sessionCampaignName" as campaign, COALESCE(SUM(sessions), 0) as sessions_sum, COALESCE(SUM("engagedSessions"), 0) as engaged_sum')
             ->get()
             ->map(static fn ($row): array => [
                 'campaign' => (string) $row->campaign,
@@ -202,7 +202,7 @@ class Ga4PoolReadRepository
             ->groupBy('landingPage')
             ->orderByDesc(DB::raw('SUM(sessions)'))
             ->limit($limit)
-            ->selectRaw('landingPage as path, COALESCE(SUM(sessions), 0) as sessions_sum, COALESCE(SUM(engagedSessions), 0) as engaged_sum')
+            ->selectRaw('"landingPage" as path, COALESCE(SUM(sessions), 0) as sessions_sum, COALESCE(SUM("engagedSessions"), 0) as engaged_sum')
             ->get()
             ->map(static fn ($row): array => [
                 'path' => (string) $row->path,
@@ -229,9 +229,9 @@ class Ga4PoolReadRepository
             ->where('property_id', $propertyId)
             ->whereBetween('reporting_date', [$start, $end])
             ->groupBy('eventName')
-            ->orderByDesc(DB::raw('SUM(eventCount)'))
+            ->orderByDesc(DB::raw('SUM("eventCount")'))
             ->limit($limit)
-            ->selectRaw('eventName as event, COALESCE(SUM(eventCount), 0) as count_sum')
+            ->selectRaw('"eventName" as event, COALESCE(SUM("eventCount"), 0) as count_sum')
             ->get()
             ->map(static fn ($row): array => [
                 'event' => (string) $row->event,
@@ -257,7 +257,7 @@ class Ga4PoolReadRepository
             ->whereBetween('reporting_date', [$start, $end])
             ->groupBy('deviceCategory')
             ->orderByDesc(DB::raw('SUM(sessions)'))
-            ->selectRaw('deviceCategory as device, COALESCE(SUM(sessions), 0) as sessions_sum, COALESCE(SUM(engagedSessions), 0) as engaged_sum')
+            ->selectRaw('"deviceCategory" as device, COALESCE(SUM(sessions), 0) as sessions_sum, COALESCE(SUM("engagedSessions"), 0) as engaged_sum')
             ->get()
             ->map(static fn ($row): array => [
                 'device' => (string) $row->device,

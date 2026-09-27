@@ -214,7 +214,9 @@ final class CreateReportSnapshotService
     private function applyConsistentReadIsolation(): void
     {
         $driver = DB::connection()->getDriverName();
-        if ($driver === 'pgsql') {
+        // PostgreSQL only accepts this as the first statement of a top-level transaction; nested inside a caller's
+        // transaction (a savepoint) the caller's isolation level applies.
+        if ($driver === 'pgsql' && DB::transactionLevel() === 1) {
             DB::statement('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
         }
         // SQLite: single transaction provides a consistent snapshot for this create path.
