@@ -83,9 +83,12 @@ return new class extends Migration
     {
         Schema::dropIfExists('sector_learning_lineage_entries');
 
-        Schema::table('sector_learning_artifacts', function (Blueprint $table) {
-            $table->dropForeign(['current_revision_id']);
-        });
+        // The table may already be gone (2026_09_27_120000_drop_agency_brain_tables).
+        if (Schema::hasTable('sector_learning_artifacts')) {
+            Schema::table('sector_learning_artifacts', function (Blueprint $table) {
+                $table->dropForeign(['current_revision_id']);
+            });
+        }
 
         Schema::dropIfExists('sector_learning_revisions');
         Schema::dropIfExists('sector_learning_artifacts');

@@ -69,6 +69,9 @@ return new class extends Migration
         Schema::dropIfExists('sales_radar_pages');
         Schema::dropIfExists('sales_radar_sources');
         Schema::table('sales_search_profiles', function (Blueprint $table): void {
+            $table->dropIndex(['radar_next_at']);
+        });
+        Schema::table('sales_search_profiles', function (Blueprint $table): void {
             $table->dropConstrainedForeignId('service_catalog_item_id');
             $table->dropColumn(['free_radar_enabled', 'radar_interval_minutes', 'radar_next_at']);
         });

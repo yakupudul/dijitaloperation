@@ -458,7 +458,7 @@ class RecommendationSourceArchitectureTest extends TestCase
         // Later prompts added migrations after Prompt 41; roll back until the
         // Recommendation source_kind column is gone, then re-migrate.
         $guard = 0;
-        while (Schema::hasColumn('recommendations', 'source_kind') && $guard < 40) {
+        while (Schema::hasColumn('recommendations', 'source_kind') && $guard < 250) {
             $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 1]));
             $guard++;
         }

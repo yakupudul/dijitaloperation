@@ -226,6 +226,13 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('search_demand_enrichment_run_items', function (Blueprint $table): void {
+            // SQLite cannot drop a foreign key by name; it rebuilds the table from the column list.
+            if (Schema::getConnection()->getDriverName() === 'sqlite') {
+                $table->dropForeign(['serp_snapshot_id']);
+                $table->dropForeign(['keyword_metric_snapshot_id']);
+
+                return;
+            }
             $table->dropForeign('search_demand_enrichment_run_item_serp_fk');
             $table->dropForeign('search_demand_enrichment_run_item_metric_fk');
         });
