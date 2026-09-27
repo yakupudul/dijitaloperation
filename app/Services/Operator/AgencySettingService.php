@@ -35,7 +35,7 @@ final class AgencySettingService
             [
                 'agency_name' => 'MoxDOP',
                 'portal_name' => 'MoxDOP',
-                'locale' => AgencySettingCatalog::LOCALE_EN,
+                'locale' => AgencySettingCatalog::appDefaultLocale(),
                 'timezone' => 'Europe/Istanbul',
                 'display_currency' => AgencySettingCatalog::CURRENCY_TRY,
                 'week_starts_on' => AgencySettingCatalog::WEEK_MONDAY,
@@ -111,7 +111,7 @@ final class AgencySettingService
     {
         $locale = (string) $this->current()->locale;
 
-        return AgencySettingCatalog::isLocale($locale) ? $locale : AgencySettingCatalog::LOCALE_EN;
+        return AgencySettingCatalog::isLocale($locale) ? $locale : AgencySettingCatalog::appDefaultLocale();
     }
 
     public function defaultTimezone(): string
@@ -184,7 +184,7 @@ final class AgencySettingService
         $settings->forceFill([
             'agency_name' => 'MoxDOP',
             'portal_name' => 'MoxDOP',
-            'locale' => AgencySettingCatalog::LOCALE_EN,
+            'locale' => AgencySettingCatalog::appDefaultLocale(),
             'timezone' => 'Europe/Istanbul',
             'display_currency' => AgencySettingCatalog::CURRENCY_TRY,
             'week_starts_on' => AgencySettingCatalog::WEEK_MONDAY,
