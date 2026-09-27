@@ -11,6 +11,13 @@ final class WebsiteStandardEvaluatorTest extends TestCase
 {
     private function check(string $id, array $page): array
     {
+        // Page-level standards need a dated observation; give undated fact groups a recent one.
+        foreach ($page['facts'] ?? [] as $source => $facts) {
+            if (is_array($facts) && ! array_key_exists('observed_at', $facts)) {
+                $page['facts'][$source]['observed_at'] = '2026-09-01T00:00:00Z';
+            }
+        }
+
         return (new WebsiteStandardEvaluator)->evaluate((new WebsiteStandardCatalog)->definitions()[$id], $page + ['url' => 'https://example.test/service']);
     }
 
