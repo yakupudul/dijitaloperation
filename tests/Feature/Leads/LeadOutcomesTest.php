@@ -13,6 +13,7 @@ use App\Models\DigitalAsset;
 use App\Models\LeadOutcome;
 use App\Models\User;
 use App\Services\CommandCenter\CommandCenter;
+use App\Services\DataPool\PartitionManager;
 use App\Services\LeadOutcomes\LeadOutcomeRegistry;
 use App\Services\LeadOutcomes\LeadQuality;
 use App\Services\MonthlyReport\MonthlyReportBuilder;
@@ -26,6 +27,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+use Tests\Feature\Brain\InsertsFacts;
 use Tests\TestCase;
 
 /**
@@ -34,6 +36,7 @@ use Tests\TestCase;
  */
 final class LeadOutcomesTest extends TestCase
 {
+    use InsertsFacts;
     use RefreshDatabase;
 
     private User $admin;
@@ -205,7 +208,9 @@ final class LeadOutcomesTest extends TestCase
         $values = $table === 'google_ads_campaign_daily'
             ? ['customer_id' => '1', 'campaign_id' => 'c1', 'impressions' => 100, 'clicks' => 10, 'cost_micros' => (int) ($amount * 1_000_000), 'cost_amount' => $amount, 'conversions' => 1, 'currency' => 'TRY']
             : ['account_id' => 'act_1', 'campaign_id' => 'm1', 'impressions' => 100, 'clicks' => 10, 'spend' => $amount, 'currency' => 'TRY'];
-        DB::table($table)->insert($values + [
+        // Partitioned on PostgreSQL: the month partition is created the way the collectors do it.
+        app(PartitionManager::class)->ensureRange($table, $date, $date);
+        $this->insertFact($table, $values + [
             'digital_asset_id' => null, 'external_resource_id' => $this->resourceId, 'reporting_date' => $date,
             'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
             'record_fingerprint' => hash('sha256', $table.$date.$column), 'created_at' => now(), 'updated_at' => now(),
