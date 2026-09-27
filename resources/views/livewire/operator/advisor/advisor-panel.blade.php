@@ -220,7 +220,20 @@
                 <button type="button" wire:click="bulkDone" class="rounded-lg bg-success-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-success-600">✓ Hepsi yapıldı</button>
                 <button type="button" wire:click="bulkSnooze(30)" class="{{ $btnSecondary }}">30 gün ertele</button>
                 <button type="button" wire:click="bulkSkip" wire:confirm="Seçili öneriler atlansın mı? Tekrar gösterilmez." class="{{ $btnSecondary }}">Atla</button>
+                <button type="button" wire:click="exportEditor" class="{{ $btnSecondary }}" title="Google Ads'e hiçbir şey gönderilmez; dosyayı Google Ads Editor'da içe aktarırsın.">Google Ads Editor dosyası indir</button>
                 <button type="button" wire:click="$set('bulkIds', [])" class="text-xs text-gray-500 hover:underline">Seçimi kaldır</button>
+            </div>
+        @endif
+
+        @if ($manualItems !== [])
+            <div class="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30">
+                <div class="flex items-center justify-between gap-3">
+                    <p class="font-semibold">Elle yapılacak ({{ count($manualItems) }})</p>
+                    <button type="button" wire:click="$set('manualItems', [])" class="text-xs hover:underline">Kapat</button>
+                </div>
+                <ul class="mt-1 list-disc space-y-0.5 pl-5">
+                    @foreach ($manualItems as $row)<li><strong>{{ $row['title'] }}</strong> — {{ $row['reason'] }}</li>@endforeach
+                </ul>
             </div>
         @endif
 
@@ -262,6 +275,7 @@
                                 };
                             @endphp
                             @if ($verifyLabel)<span class="{{ $verifyLabel[1] }}">{{ $verifyLabel[0] }}</span>@endif
+                            @if ($open && $item->exported_at)<span class="font-medium text-brand-700 dark:text-brand-300">{{ $item->exported_at->timezone($tz)->format('d.m.Y') }} dışa aktarıldı, Editor'da yüklenmeyi bekliyor</span>@endif
                             @if ($item->snoozed_until && $item->snoozed_until->isFuture())<span>{{ $item->snoozed_until->timezone($tz)->format('d.m.Y') }} tarihine ertelendi</span>@endif
                             <button type="button" wire:click="toggle({{ $item->id }})" class="font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $expanded ? 'Detayı gizle' : ($item->copy_text ? 'Liste ve adımlar' : 'Kanıt ve adımlar') }}</button>
                         </div>

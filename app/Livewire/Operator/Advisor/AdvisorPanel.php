@@ -13,6 +13,7 @@ use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Services\Advisor\AdvisorChannels;
 use App\Services\Advisor\AdvisorPlanRunner;
+use App\Services\Advisor\GoogleAds\GoogleAdsEditorExport;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Compliance\ComplianceAuditor;
 use App\Services\Compliance\SectorPackRegistry;
@@ -26,6 +27,7 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * One list, several homes: /ads-advisor (every ad account, all channels) and each ad account's "Danışman" tab
@@ -102,6 +104,33 @@ final class AdvisorPanel extends Component
         $this->flash($items->count().' öneri '.$days.' gün ertelendi.');
     }
 
+    /** @var list<array{id: int, title: string, reason: string}> items of the last Editor export that stay manual */
+    public array $manualItems = [];
+
+    /**
+     * Value loop: the selected Google Ads items as a Google Ads Editor import file. Nothing is sent to Google Ads;
+     * exported items are marked "dışa aktarıldı" until the operator imports the file and marks them done.
+     */
+    public function exportEditor(GoogleAdsEditorExport $export): ?StreamedResponse
+    {
+        $items = $this->selectedOpenItems();
+        $result = $export->build($items);
+        $this->manualItems = $result['manual'];
+        if ($result['rows'] === []) {
+            $this->flash('Seçili önerilerden Editor dosyasına çevrilebilen satır çıkmadı; aşağıdaki öneriler elle yapılacak.', 'error');
+
+            return null;
+        }
+        AdvisorItem::query()->whereIn('id', $result['exported'])->update(['exported_at' => now(), 'exported_by' => auth()->id(), 'updated_at' => now()]);
+        $this->bulkIds = [];
+        $this->flash(sprintf('%d öneriden %d satırlık Google Ads Editor dosyası hazırlandı. Editor\'da Hesap → İçe aktar → Dosyadan ile yükle, değişiklikleri gözden geçirip gönder; sonra öneriyi "Yapıldı" olarak işaretle.', count($result['exported']), count($result['rows'])));
+        $body = $export->file($result['rows']);
+
+        return response()->streamDownload(static function () use ($body): void {
+            echo $body;
+        }, 'moxdop-google-ads-editor-'.now()->format('Ymd-His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-16LE']);
+    }
+
     /** @return Collection<int, AdvisorItem> */
     private function selectedOpenItems(): Collection
     {
@@ -153,7 +182,7 @@ final class AdvisorPanel extends Component
 
     public function reopen(int $id): void
     {
-        $this->item($id)->forceFill(['status' => AdvisorItemStatus::Open->value, 'resolved_at' => null, 'resolved_by' => null])->save();
+        $this->item($id)->forceFill(['status' => AdvisorItemStatus::Open->value, 'resolved_at' => null, 'resolved_by' => null, 'exported_at' => null, 'exported_by' => null])->save();
         $this->flash('Öneri yeniden açıldı.');
     }
 

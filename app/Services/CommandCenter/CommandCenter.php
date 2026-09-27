@@ -348,7 +348,10 @@ final class CommandCenter
 
         return AdvisorItem::query()->open()->with(['brand', 'digitalAsset'])->orderByDesc('priority_score')->limit(800)->get()
             ->map(fn (AdvisorItem $item): array => self::item('advisor', $item->id, (string) $item->severity, (string) $item->title, [
-                'detail' => $item->reason,
+                'detail' => $item->exported_at !== null
+                    ? $item->exported_at->timezone(config('app.timezone'))->format('d.m').' tarihinde dışa aktarıldı, Editor\'da yüklenmeyi bekliyor. '.$item->reason
+                    : $item->reason,
+                'exported_at' => $item->exported_at,
                 'brand_id' => $item->brand_id,
                 'brand' => $item->brand?->name,
                 'asset' => $item->digitalAsset?->name,
