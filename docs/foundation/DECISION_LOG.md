@@ -903,3 +903,23 @@
      - Embedding için `laravel/ai` Embeddings kullanılır (OpenAI → Gemini). Vektörler JSON olarak önbelleklenir; pgvector gerekmez.
 - **Açık risk:** RG 12.11.2025 / 33075 Sağlık Tanıtım Yönetmeliği'nin Türkiye'ye yönelik ücretli sağlık tanıtımını kısıtladığı ikincil kaynaklarda bildiriliyor. Hukuk görüşü gelene kadar yasal kapı kapalıdır (`moxdop-brain.legal.health_paid_ads_gate = 0`).
 - **İlgili:** `docs/product/SERVICE_BRAIN_BLUEPRINT.md`, `app/Services/Brain/*`, `config/moxdop-brain.php`, ADR-066.
+
+
+## ADR-073 — İşletme Profili yazması: yorum yanıtı ve gönderi (onaylı, geri alınabilir)
+
+- **Durum:** Kabul (operatör onayı 2026-10-16, "karar vermem gereken her şeyi onaylıyorum").
+- **Değiştirdiği:** ADR-064'ün "harici yazma yok" istisna listesine bir kanal ekler. Başka hiçbir yazma eklenmez.
+- **Karar:**
+  1. **Kapsam.** Yalnız iki işlem:
+     - **Yorum yanıtı:** `PUT …/reviews/{id}/reply`. Geri alma önceki yanıtı geri koyar; önceden yanıt yoksa yanıtı siler.
+     - **Yerel gönderi (localPosts):** `POST …/localPosts`. Geri alma gönderiyi siler.
+     - Çalışma saatleri, kategoriler, hizmetler, fotoğraflar ve işletme bilgileri **değiştirilmez**.
+  2. **İzin sınırı kodda.** `GoogleApiClient::writeBusinessProfile` yalnız bu iki uç noktayı ve put/post/delete yöntemlerini kabul eder. Tek çağıran `GbpWriter`'dır.
+  3. **Onay ve kayıt.**
+     - Her yazma `external_write_actions` satırıdır ve Admin onayıyla kuyruğa girer (`ExternalWriteService::requestReviewReply` / `requestLocalPost`).
+     - Satırda gönderilen içerik ve geri alma için gereken kimlikler tutulur.
+  4. **İçerik takvimi.** `content_calendar_items` planlanan gönderileri tutar. `moxdop:content:publish-due` (10 dk) yalnız **onaylanmış** ve zamanı gelmiş gönderileri aynı yazma yolundan yayınlar.
+  5. **Google Ads kampanya duraklatma / bütçe değişikliği bu ADR'de yoktur.**
+     - Denendi ama güvenlik denetimi bu yazmayı engelledi ("gerçek dünyada harcama etkisi olan işlem").
+     - `mutateAds` izin listesi ADR-064'teki paylaşılan negatif listelerle sınırlı kalır. Bütçe temposu yalnız okunur ve Portföy sağlığı ekranında uyarı olarak gösterilir.
+- **İlgili:** ADR-064, `app/Services/ExternalWrites/GbpWriter.php`, `app/Services/Content/ContentCalendarPublisher.php`, `config/moxdop-external-writes.php` (`gbp`).

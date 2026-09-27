@@ -1,5 +1,18 @@
 # PROJECT_MEMORY
 
+## 2026-10-16 — One operator runs the whole portfolio
+
+- **One work inbox.**
+  - Everything the operator must act on reaches `App\Services\CommandCenter\CommandCenter`: built-in readers plus `CommandCenterSource` classes (`EXTRA_SOURCES`).
+  - A new work-producing feature adds a source there; it does not add another list page.
+  - Actions go back to the item's own source. `inbox_snoozes` is only for sources without their own snooze.
+- **External writes.** ADR-073 adds Business Profile review reply and local post only. Google Ads campaign / budget writes were blocked and are **not** part of the product. Do not widen `mutateAds`.
+- **Queues.**
+  - Long AI / analysis jobs go to the `heavy` queue: `Queue::route` in `AppServiceProvider`, plus the advisor and SEO queue config.
+  - This applies only when the queue driver is redis (Horizon `supervisor-heavy`). Otherwise everything stays on `default`.
+- **Paid data.** Every paid DataForSEO call passes `DataForSeoSpendGuard`, the account-wide monthly cap. Per-brand and per-feature caps still apply.
+- **Agency billing** is `agency_invoices`. A clinic-side `invoices` (CRM) entity stays deferred.
+
 ## 2026-10-15 — Data center, lean incremental crawl, sites before brands
 
 - **Data deletion is explicit and per source.**

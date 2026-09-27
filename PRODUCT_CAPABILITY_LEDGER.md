@@ -1,5 +1,42 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-16 — Tek kişilik portföy işletimi: Komuta merkezi, Portföy sağlığı, otomatik keşif, rapor kuyruğu, İşletme Profili yazması (ADR-073), ajans işletmesi, sadeleştirme
+
+- **Komuta merkezi** (`/command-center`, İş menüsü, Ana sayfadan hemen sonra)
+  - One list for every source: alerts, advisor, SEO tasks, site fixes (one row per site), Beyin proposals, compliance, leads, system alerts, approvals, coverage gaps, content calendar, follow-ups, invoices, commitments and legacy tasks.
+  - Items are ranked by impact: severity base, plus money and clicks, or the source's own priority score.
+  - Duplicates are removed: an alert or site fix that covers an advisor or SEO rule hides that rule's row.
+  - Actions (done / snooze / dismiss) run on the item's own source. Sources without their own snooze use `inbox_snoozes`.
+  - Applying or drafting a new-page site fix closes its SEO task.
+  - The dashboard's "Önce bunlar" shows the top 8 (at most 2 per brand).
+- **Portföy sağlığı** (`/portfolio/health`)
+  - A brand × channel matrix: ok / warn / bad / missing, with stale data after 4 days.
+  - Also shows coverage gaps, unbound accounts, open work per brand, and a budget pacing table.
+- **Otomatik keşif ve kapsama**
+  - `moxdop:integrations:discover` runs every day at 05:10 (Istanbul).
+  - The Command Center lists reconnect needed (one click to the authorize route), lost access, unbound accounts and brands without Search Console.
+  - An Otomatik kur run that stays pending for more than 15 minutes is marked failed, and the button re-enables.
+- **Raporlar**
+  - Rapor kuyruğu (`/reports/queue`): prepare missing monthly reports, publish selected, and send selected in the background. A send error is shown on the row.
+  - Ajans karnesi (`/reports/scorecard`): what was achieved this month across all brands.
+- **İşletme Profili yazması (ADR-073)**
+  - Review reply and local post, each Admin-approved and undoable.
+  - İçerik takvimi (`/content`): planned posts. Approved posts whose time has come are published every 10 minutes.
+  - Google Ads campaign pause and budget changes are **not** built; a safety check blocked this write.
+- **Ajans işletmesi** (`/agency`)
+  - Tabs: Kârlılık (fee against logged time × hourly cost), Tahsilat (`agency_invoices`, monthly drafts on day 1), Taahhütler (monthly deliverables and marks), Zaman, İletişim (customer interactions and follow-ups).
+  - Customer detail shows interactions and open invoices.
+- **Sadeleştirme ve sağlamlık**
+  - The dashboard now has today, alerts and "Önce bunlar" only; the mode toggle and legacy blocks are gone.
+  - Page titles and the Search Console / Analytics / task list labels are Turkish.
+  - Slower polling on integration pages. The advisor board loads only the latest plan per asset.
+  - Long AI and analysis jobs run on the `heavy` Horizon queue (redis only).
+  - The duplicate report delivery schedule was removed.
+  - An account-wide DataForSEO monthly cap applies (`DATAFORSEO_GLOBAL_MONTHLY_USD`, default 100). It is shown on Maliyetler.
+- **State:** CODED + PHPUnit.
+  - Tests: `Work/CommandCenterTest`, `Work/CoverageSourceTest`, `Portfolio/PortfolioHealthTest`, `Reports/ReportQueueAndScorecardTest`, `ExternalWrites/GbpWritesTest`, `Agency/AgencyOperationsTest`, `DataForSeoCostGuardTest` (global cap).
+  - **No live UAT.** The Business Profile writes need a real location and Admin approval on staging.
+
 ## 2026-10-15 — Veri merkezi, yalın ve kaldığı yerden devam eden tarama, markasız site, Otomatik kur v4
 
 - **Veri merkezi** (`/data-center`, Sistem menüsü)
