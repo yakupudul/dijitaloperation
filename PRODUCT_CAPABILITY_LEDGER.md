@@ -1,5 +1,53 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-17 — Güven katmanı: CI, deploy kapısı, canlı doğrulama, veri tutarlılığı, sade menü, değer döngüsü
+
+- **CI on push** (`.github/workflows/moxdop-ci.yml`): the full PHPUnit suite runs on every push to `chatgpt/search-demand-foundation`.
+  - The SQLite job is the gate: 2236+ tests, 0 failures.
+  - A PostgreSQL 16 job also runs but does not block (`continue-on-error`). It went from 171 failures to 37 known PostgreSQL-only failures:
+    - rollback tests after the one-way compact-fact migration;
+    - tests that leak rows because they don't use RefreshDatabase;
+    - backup tests written for SQLite;
+    - a few not yet investigated.
+- **PostgreSQL bugs fixed in the app:**
+  - GA4 pool reads (unquoted camelCase columns);
+  - stored discovery inventory reading a column that doesn't exist;
+  - report snapshot `SET TRANSACTION` issued inside a transaction.
+- **Deploy gate:** `moxdop:preflight` stops `deploy/staging/deploy.sh` before maintenance mode and migrations. It checks env keys, the DB, Redis, and that config, routes and views compile.
+  - `storage/app/release.json` records the deployed SHA; Sistem sağlığı shows it and grouped errors carry it.
+- **Observability** (Sistem sağlığı):
+  - Horizon queue wait alarm `queue_wait_high` (300 / 900 / 1800 s; redis only).
+  - Grouped application errors (`app_error_groups`).
+  - Live verification results.
+- **Turkish by default:** `APP_LOCALE` defaults to `tr`; tests pin `en`.
+- **Live verification** (`moxdop:verify:live`, daily 06:20): one read-only call per integration and bound account (Google token plus GA4 / GSC / Ads / Business Profile, Meta, DataForSEO free endpoint, WordPress status).
+  - Results are kept in `live_checks` for 30 days. There is a "Şimdi doğrula" button, and failures appear in the Komuta merkezi as "Canlı doğrulama".
+- **Data consistency** (`moxdop:verify:data`, daily 07:25) flags four things:
+  - missing days;
+  - Google Ads spend while GA4 shows no google / cpc sessions (tagging broken);
+  - Ads vs GA4 paid key-event mismatch above 50%;
+  - account currency differing from the invoice currency.
+  - Findings appear in the Komuta merkezi as "Veri şüpheli" and close by themselves.
+  - Known limit: a campaign paused for a few days looks like a missing day.
+- **Collection gaps closed:**
+  - Website link-edge / crawl-issue / html / content-stats / cms datasets now have freshness and contract rows.
+  - The Meta planner plans campaign, ad set and creative snapshots as separate runs.
+  - Collection dependencies link to every run of a family.
+- **Simpler menu (W7):** the sidebar went from 42 entries to 18. Related screens are tabs on their parent entry (`OperatorMenu::sectionTabs`).
+- **Google Ads Editor export:** from the advisor's bulk bar. UTF-16 TSV covering negative keywords (phrase / exact), exact keywords, budget +20% and campaign pause.
+  - Items that cannot be mapped are listed as "Elle yapılacak". Exported items show "dışa aktarıldı".
+  - MoxDOP itself still makes no campaign, budget or status write.
+  - **One real Editor import is needed** to confirm the column names.
+- **Lead outcomes (ADR-074):** `/brands/{brand}/leads` takes a file import or manual entry and marks each lead's outcome.
+  - No contact PII is stored.
+  - A "Lead kalitesi" block shows qualified rate and cost per qualified lead.
+  - The Komuta merkezi lists unmarked leads once per brand, and the monthly report gets a lead quality section.
+- **Client approval link (ADR-075):** İçerik takvimi › "Müşteri onayına gönder" creates a signed 14-day `/onay/{id}` page.
+  - The client gives one answer; it never publishes anything. The answer appears in the Komuta merkezi.
+- **AI kalitesi** (`/settings/ai-quality`, Admin): produced / accepted / edited / rejected and cost for each AI source and prompt version. A source is flagged below 30% acceptance on 20 or more decided items.
+- **System map:** `php artisan moxdop:system-map` writes `docs/SYSTEM_MAP.md` from the code. **Live UAT checklist:** `docs/qa/LIVE_UAT_CHECKLIST.md`.
+- **State:** CODED + PHPUnit (SQLite; the new tests also pass on PostgreSQL). **No live UAT** — work through the checklist on staging.
+
 ## 2026-10-16 — Tek kişilik portföy işletimi: Komuta merkezi, Portföy sağlığı, otomatik keşif, rapor kuyruğu, İşletme Profili yazması (ADR-073), ajans işletmesi, sadeleştirme
 
 - **Komuta merkezi** (`/command-center`, İş menüsü, Ana sayfadan hemen sonra)

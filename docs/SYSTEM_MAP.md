@@ -57,10 +57,15 @@
 - `invoice` — Tahsilat
 - `commitment` — Taahhüt
 - `task` — Görev
+- `live` — Canlı doğrulama
+- `data` — Veri şüpheli
+- `lead_outcome` — Lead sonucu
 - `CoverageSource` (ek kaynak)
 - `CalendarSource` (ek kaynak)
 - `AgencySource` (ek kaynak)
 - `TaskSource` (ek kaynak)
+- `VerificationSource` (ek kaynak)
+- `LeadOutcomeSource` (ek kaynak)
 
 ## Onaylı dış yazmalar
 
@@ -118,6 +123,8 @@ Google Ads kampanya / bütçe / durum değişikliği **yoktur**; öneriler Googl
 | `10 5 * * * (UTC)` | `moxdop:resources:retry-stopped` |
 | `40 9 * * * (UTC)` | `moxdop:seo:inspect-changed` |
 | `30 6 * * 1 (UTC)` | `moxdop:seo:plan` |
+| `25 7 * * * (Europe/Istanbul)` | `moxdop:verify:data` |
+| `20 6 * * * (Europe/Istanbul)` | `moxdop:verify:live` |
 | `17 * * * * (UTC)` | `moxdop:website:sitemap-watch` |
 | `* * * * * (UTC)` | `moxdop:whatsapp:dispatch` |
 | `50 3 * * * (UTC)` | `moxdop:whatsapp:retention` |

@@ -1,5 +1,23 @@
 # PROJECT_MEMORY
 
+## 2026-10-17 — Trust layer and value loop
+
+- **Proof, not assumption.**
+  - Connections are proven daily by read-only live calls (`LiveVerifier`), and stored data by `DataConsistencyChecker`.
+  - Both report through `VerificationSource` into the Komuta merkezi and clear themselves.
+  - New providers must add a live check there.
+- **Delivery.**
+  - CI runs on every push to the working branch; SQLite is the gate. PostgreSQL runs too, with known failures tracked in the ledger; shrink that list, never grow it.
+  - `moxdop:preflight` gates deploys. Migrations past the PostgreSQL compact-fact migration (`2026_10_10`) are one-way.
+  - Tests that seed fact tables use `InsertsFacts`.
+- **Navigation.**
+  - The sidebar holds one entry per job. A new screen is added as a child (tab) of an existing entry in `DemoMenu`, not as a new sidebar item.
+- **No campaign writes, ever.** Google Ads changes leave MoxDOP only as a Google Ads Editor file the operator imports (`GoogleAdsEditorExport`).
+- **Client-side leads live only in `lead_outcomes` (ADR-074).**
+  - They come in by file import or manual entry, with no contact PII.
+  - This is not a CRM; patients, deals and pipelines stay deferred.
+- **Client interaction is through signed, expiring links only** (monthly report, `/onay/{id}` per ADR-075). There are no client accounts.
+
 ## 2026-10-16 — One operator runs the whole portfolio
 
 - **One work inbox.**
