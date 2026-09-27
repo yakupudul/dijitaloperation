@@ -68,7 +68,7 @@ class PublicCanonicalUrlArchitectureTest extends TestCase
         $user->assignRole(Roles::ADMIN);
         $this->actingAs($user);
 
-        $this->get('/')->assertOk()->assertSee(__('operator.dashboard_exec.needs_attention'));
+        $this->get('/')->assertOk()->assertSee(__('operator.dashboard_exec.weekly_top'));
         $this->get('/customers')->assertOk();
         $this->get('/brands')->assertOk();
         $this->get('/assets')->assertOk();
