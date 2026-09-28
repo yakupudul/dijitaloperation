@@ -45,6 +45,7 @@ class OverviewPage extends LegacyOverviewPage
             ->orderByDesc('priority_score')
             ->limit(20)
             ->get()
+            ->toBase()
             ->map(fn (AdvisorItem $item): array => ['id' => $item->id, 'title' => (string) $item->title, 'severity' => $item->severityLabel()])
             ->merge(Recommendation::query()
                 ->where('digital_asset_id', $assetId)
