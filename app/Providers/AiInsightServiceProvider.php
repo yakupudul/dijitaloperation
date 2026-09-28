@@ -38,6 +38,8 @@ final class AiInsightServiceProvider extends ServiceProvider
         AiRouteKeys::SITE_FIX_LINKS => ['Website Internal Links', 'analysis', 'Suggests internal links between published pages with anchors that already appear in the text.'],
         AiRouteKeys::SITE_FIX_PAGE => ['Website Page Writer', 'analysis', 'Writes the new version of a thin page or a new page from an SEO brief; it goes to WordPress only as a draft.'],
         AiRouteKeys::CONTENT_LOCALIZE => ['Content Localizer', 'analysis', 'Localizes an article into another language of the site (title, slug, SEO fields, body, internal links); the result passes the sector compliance check and goes to WordPress only as a draft.'],
+        AiRouteKeys::CONTENT_ARTICLE => ['Content Article Writer', 'analysis', 'Writes one article of the content studio from an idea (SEO title, meta description, HTML body with FAQ and real internal links); the result passes the sector compliance check and goes to WordPress only as a draft.'],
+        AiRouteKeys::CONTENT_IDEAS => ['Content Topic Ideas', 'analysis', 'Proposes a batch of new article topics for chosen services from the topic map, avoiding titles the site already has.'],
     ];
 
     public function register(): void

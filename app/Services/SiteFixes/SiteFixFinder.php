@@ -114,7 +114,10 @@ final class SiteFixFinder
             ] + ($existing === null && isset($row['proposed']) ? ['proposed' => $row['proposed'], 'proposed_by' => 'rule'] : []));
         }
         // Problems that are gone are closed (never rows that were applied or are in flight).
-        SiteFixItem::query()->where('digital_asset_id', $site->id)->where('status', 'open')->whereNotIn('item_key', $keys)->delete();
+        // Proposals prepared from İçerik Stüdyosu ("Güncelleme taslağı hazırla") are not the finder's and stay.
+        SiteFixItem::query()->where('digital_asset_id', $site->id)->where('status', 'open')->whereNotIn('item_key', $keys)->get()
+            ->reject(fn (SiteFixItem $item): bool => data_get($item->current, 'source') === 'studio')
+            ->each(fn (SiteFixItem $item) => $item->delete());
 
         return ['found' => count($keys), 'by_type' => collect($rows)->countBy('type')->all(), 'keys' => $keys];
     }

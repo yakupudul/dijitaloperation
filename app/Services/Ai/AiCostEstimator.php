@@ -10,6 +10,20 @@ final class AiCostEstimator
 {
     public function __construct(private readonly AiRouteResolver $routes, private readonly AiPricing $pricing) {}
 
+    /** USD of one call on the route's first provider / model (0 for free models, null when the price is unknown). */
+    public function cost(string $routeKey, int $inputTokens, int $outputTokens): ?float
+    {
+        $route = $this->routes->resolve($routeKey);
+        if ($route->isEmpty() || $route->primaryProvider() === null || $route->primaryModel() === null) {
+            return null;
+        }
+        if ($this->pricing->isFree((string) $route->primaryProvider(), (string) $route->primaryModel())) {
+            return 0.0;
+        }
+
+        return $this->pricing->cost((string) $route->primaryProvider(), (string) $route->primaryModel(), $inputTokens, $outputTokens);
+    }
+
     public function label(string $routeKey, int $inputTokens, int $outputTokens): ?string
     {
         $route = $this->routes->resolve($routeKey);

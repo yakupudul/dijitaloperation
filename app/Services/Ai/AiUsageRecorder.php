@@ -48,6 +48,8 @@ final class AiUsageRecorder
         'InternalLinkAgent' => AiRouteKeys::SITE_FIX_LINKS,
         'PageWriterAgent' => AiRouteKeys::SITE_FIX_PAGE,
         'ContentLocalizerAgent' => AiRouteKeys::CONTENT_LOCALIZE,
+        'ArticleWriterAgent' => AiRouteKeys::CONTENT_ARTICLE,
+        'ContentIdeaAgent' => AiRouteKeys::CONTENT_IDEAS,
     ];
 
     public function __construct(private readonly AiPricing $pricing) {}

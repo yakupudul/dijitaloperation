@@ -49,6 +49,8 @@ final class AiQualityReport
         'website.technical_tasks' => AiRouteKeys::INSIGHT_TECHNICAL_TASKS,
         'website.page_draft' => AiRouteKeys::SITE_FIX_PAGE,
         'content.localized' => AiRouteKeys::CONTENT_LOCALIZE,
+        'content.article' => AiRouteKeys::CONTENT_ARTICLE,
+        'content.ideas' => AiRouteKeys::CONTENT_IDEAS,
     ];
 
     /** Brain proposal kind → AI route key (rule / vector proposals cost nothing). */

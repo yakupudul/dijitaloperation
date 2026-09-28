@@ -600,6 +600,13 @@ Schedule::command('moxdop:demand:build')
     ->withoutOverlapping(120)
     ->name('brand-demand-weekly');
 
+// Faz 3: konu haritası (hub sorguları → hizmet → konu kümesi → sahip sayfa, kapsama, karar) — talep tablosundan sonra,
+// SEO planından önce; kayıtlı veriyle, AI yok.
+Schedule::command('moxdop:topics:build')
+    ->weeklyOn((int) config('moxdop-demand.schedule.weekly_day', 1), (string) config('moxdop-content.topic_map.weekly_time', '05:55'))
+    ->withoutOverlapping(120)
+    ->name('topic-map-weekly');
+
 // İçerik takvimi: onaylı ve zamanı gelen İşletme Profili gönderileri (ADR-073).
 Schedule::command('moxdop:content:publish-due')
     ->everyTenMinutes()

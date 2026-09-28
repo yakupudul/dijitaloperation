@@ -136,10 +136,10 @@ return [
         'generic_name_words' => ['klinik', 'klinigi', 'clinic', 'dis', 'hastane', 'hastanesi', 'merkez', 'merkezi', 'poliklinik', 'poliklinigi', 'ltd', 'sti', 'as', 'a', 's', 'tic', 'san', 've', 'dr', 'dt', 'uzm', 'op', 'estetik', 'guzellik', 'saglik', 'grup', 'group'],
     ],
 
-    // Markanın hizmet verdiği yerler dışındaki konumlu aramalar içerik önerisine girmez; toplam gösterimi
-    // bu eşiği geçen konumlar için site başına tek karar kartı açılır.
+    // Sorgular tek tiptir (bölgesiz). Konum sayfası önerileri yalnız markanın hizmet verdiği yerler × hizmetlerden
+    // gelir (hizmet × bölge başına en fazla bir sayfa, zaten karşılanıyorsa yok); plan başına en fazla bu kadar.
     'locations' => [
-        'out_of_area_min_impressions' => 50,
+        'create_per_plan' => 2,
     ],
 
     'quotas' => [
