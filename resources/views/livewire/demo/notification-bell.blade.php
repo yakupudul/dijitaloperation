@@ -18,7 +18,7 @@
     <div
         x-show="open"
         x-cloak
-        class="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700"
+        class="absolute right-0 z-50 mt-2 w-[22rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700"
     >
         <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
             <p class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.notifications.title') }}</p>
@@ -26,7 +26,10 @@
                 <button type="button" wire:click="markAllRead" class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.notifications.mark_all') }}</button>
             @endif
         </div>
-        <ul class="max-h-80 divide-y divide-gray-100 overflow-y-auto dark:divide-gray-800">
+        @if ($notice !== '')
+            <p class="border-b border-gray-100 bg-emerald-50 px-4 py-2 text-xs text-emerald-800 dark:border-gray-800 dark:bg-emerald-500/10 dark:text-emerald-300">{{ $notice }}</p>
+        @endif
+        <ul class="max-h-[28rem] divide-y divide-gray-100 overflow-y-auto dark:divide-gray-800">
             @if (count($items) > 0)
                 @foreach ($items as $item)
                     <li class="px-4 py-3 text-sm {{ ! empty($item['is_unread']) ? 'bg-brand-50/40 dark:bg-brand-500/5' : '' }}">
@@ -35,8 +38,22 @@
                         @else
                             <p class="font-medium text-gray-800 dark:text-white/90">{{ $item['title'] ?? __('operator.notifications.item') }}</p>
                         @endif
-                        @if (($item['detail'] ?? '') !== '')<p class="mt-1 text-xs text-gray-600 dark:text-gray-400">{{ \Illuminate\Support\Str::limit($item['detail'], 160) }}</p>@endif
-                        <p class="mt-1 text-[11px] text-gray-400">{{ $item['when'] ?? '' }}</p>
+                        @if (($item['detail'] ?? '') !== '')<p class="mt-1 text-xs text-gray-600 dark:text-gray-400">{{ \Illuminate\Support\Str::limit($item['detail'], 420) }}</p>@endif
+                        @if (($item['why'] ?? '') !== '')<p class="mt-1 text-xs text-gray-600 dark:text-gray-400"><span class="font-semibold text-gray-700 dark:text-gray-300">Neden önemli:</span> {{ $item['why'] }}</p>@endif
+                        @if (($item['action'] ?? '') !== '')<p class="mt-1 text-xs text-gray-600 dark:text-gray-400"><span class="font-semibold text-gray-700 dark:text-gray-300">Ne yapmalısın:</span> {{ $item['action'] }}</p>@endif
+                        @if (! empty($item['button']) || (! empty($item['url']) && ! empty($item['link_label'])))
+                            <div class="mt-2 flex flex-wrap items-center gap-2">
+                                @if (! empty($item['button']['run_now']))
+                                    <button type="button" wire:click="runNow({{ (int) $item['button']['run_now'] }})" wire:loading.attr="disabled" class="rounded-md bg-brand-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-brand-600">{{ $item['button']['label'] }}</button>
+                                @elseif (! empty($item['button']['url']))
+                                    <a href="{{ $item['button']['url'] }}" class="rounded-md bg-brand-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-brand-600">{{ $item['button']['label'] }}</a>
+                                @endif
+                                @if (! empty($item['url']) && ! empty($item['link_label']))
+                                    <a href="{{ $item['url'] }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ $item['link_label'] }} →</a>
+                                @endif
+                            </div>
+                        @endif
+                        <p class="mt-1 text-[11px] text-gray-400">{{ $item['when'] ?? '' }}@if (($item['repeat_label'] ?? '') !== '') · <span class="font-medium text-amber-600">{{ $item['repeat_label'] }}</span>@endif</p>
                         @if (! empty($item['is_unread']))
                             <button type="button" wire:click="markRead('{{ $item['id'] }}')" class="mt-2 text-xs font-medium text-brand-600 hover:underline">{{ __('operator.notifications.mark_read') }}</button>
                         @endif

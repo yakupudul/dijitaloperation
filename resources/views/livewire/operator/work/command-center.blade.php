@@ -248,7 +248,15 @@
                     @if ($open['clicks'] > 0)<dt class="text-gray-500">Tık</dt><dd class="col-span-2">+{{ $fmt($open['clicks']) }} / 90 gün</dd>@endif
                 </dl>
 
-                @if ($open['detail'])
+                @if (($open['why'] ?? null) || ($open['action'] ?? null))
+                    {{-- Ne oldu / Neden önemli / Ne yapmalısın (system alerts carry all three). --}}
+                    <dl class="mt-4 space-y-3 text-sm">
+                        @if ($open['detail'])<div><dt class="text-xs font-semibold uppercase tracking-wide text-gray-500">Ne oldu</dt><dd class="mt-0.5 whitespace-pre-line text-gray-700 dark:text-gray-300">{{ $open['detail'] }}</dd></div>@endif
+                        @if ($open['why'])<div><dt class="text-xs font-semibold uppercase tracking-wide text-gray-500">Neden önemli</dt><dd class="mt-0.5 text-gray-700 dark:text-gray-300">{{ $open['why'] }}</dd></div>@endif
+                        @if ($open['action'])<div><dt class="text-xs font-semibold uppercase tracking-wide text-gray-500">Ne yapmalısın</dt><dd class="mt-0.5 text-gray-700 dark:text-gray-300">{{ $open['action'] }}</dd></div>@endif
+                    </dl>
+                    @if (($open['repeat_label'] ?? '') !== '')<p class="mt-2 text-xs font-medium text-amber-600">{{ $open['repeat_label'] }}</p>@endif
+                @elseif ($open['detail'])
                     <p class="mt-4 whitespace-pre-line text-sm text-gray-700 dark:text-gray-300">{{ $open['detail'] }}</p>
                 @endif
                 @if ($open['aged'])
@@ -261,6 +269,11 @@
                 @endif
 
                 <div class="mt-6 flex flex-wrap gap-2">
+                    @if (! empty($open['button']['run_now']))
+                        <button type="button" wire:click="runNow({{ (int) $open['button']['run_now'] }})" wire:loading.attr="disabled" class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600">{{ $open['button']['label'] }}</button>
+                    @elseif (! empty($open['button']['url']))
+                        <a href="{{ $open['button']['url'] }}" class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600">{{ $open['button']['label'] }}</a>
+                    @endif
                     @if (in_array('done', $open['actions'], true))
                         <button type="button" wire:click="act('done', @js($open['key']))" class="rounded-lg bg-success-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-success-600">✓ Yaptım</button>
                     @endif
@@ -280,7 +293,7 @@
                     @endif
                 </div>
                 <div class="mt-4 flex flex-col gap-1 text-sm">
-                    @if ($open['url'])<a href="{{ $open['url'] }}" wire:navigate class="text-brand-600 hover:underline">Kaynağında aç →</a>@endif
+                    @if ($open['url'])<a href="{{ $open['url'] }}" wire:navigate class="text-brand-600 hover:underline">{{ $open['link_label'] ?? 'Kaynağında aç' }} →</a>@endif
                     @if ($detailed = $detailedUrl($open))<a href="{{ $detailed }}" wire:navigate class="text-brand-600 hover:underline">Ayrıntılı ekran (kanıt, adımlar, taslaklar) →</a>@endif
                 </div>
             </aside>

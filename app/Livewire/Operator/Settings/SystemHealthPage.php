@@ -42,6 +42,13 @@ final class SystemHealthPage extends Component
         $this->message = 'Hesap veri çekimi için sıraya alındı.';
     }
 
+    /** "Şimdi güncelle" on a stopped account's alert (any operator; same as the account list's button). */
+    public function runNowAutomation(int $id, ResourceAutomationService $automations): void
+    {
+        $automations->runNow($id, auth()->user());
+        $this->message = 'Güncelleme sıraya alındı; birkaç dakika içinde başlar. Başarılı olunca uyarı kendiliğinden kapanır.';
+    }
+
     /** Admin: queue the read-only live verification of every connection (moxdop:verify:live). */
     public function verifyNow(): void
     {

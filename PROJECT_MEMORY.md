@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-10-21 — Operator messages answer four questions
+
+- **Every operator-facing warning answers Ne oldu / Neden önemli / Ne yapmalısın / Nereden** with `App\Support\Operator\OperatorMessage` (title, what, why, action, link, one-click button, occurrence counter). System alerts get it from `OperationalAlertExplainer`; a new `OperationalAlert` rule adds a case there and a `system:<rule>` topic in `TopicCatalog`.
+  - Aggregated alerts must store the affected accounts in `observed.affected` (`AlertSubjects::describe`) and name them (5, then "+N"); never "veri seti", "dataset", run ids or English in operator text. Dataset ids go through `DatasetLabels`, error categories through `CollectionErrorExplainer`.
+  - Links point at the exact place (asset Veri kaynakları, reconnect route, Portföy sağlığı, Komuta merkezi topic), not the generic Sistem sağlığı page, except for system-internal alerts (queue, workers, provider rates).
+- **One alert row and one bell row per condition.** `semantic_key` reopens the same row; `occurrence_count` / `first_opened_at` keep the history; the notifier updates the existing notification (unread again only after `reopen_quiet_hours`) and the bell hides resolved conditions.
+
 ## 2026-10-20 — Ownership and yetki devri
 
 - **An account or asset has one owner customer.** Every new bind / assign path must call `OwnershipGuard` first.

@@ -16,6 +16,8 @@ use App\Models\SeoTask;
 use App\Models\User;
 use App\Services\Advisor\AdvisorChannels;
 use App\Services\CommandCenter\Activity\ActivitySuppression;
+use App\Services\Observability\OperationalAlertExplainer;
+use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Support\ServiceScope;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -395,6 +397,12 @@ final class CommandCenter
             'dedupe' => null,
             'covers' => [],
             'age' => null,
+            // Neden önemli / Ne yapmalısın and a one-click action, where the source can say them (system alerts).
+            'why' => null,
+            'action' => null,
+            'link_label' => null,
+            'button' => null,
+            'repeat_label' => '',
         ], $extra, [
             'money' => $money,
             'clicks' => $clicks,
@@ -416,7 +424,8 @@ final class CommandCenter
                 'asset_type' => $alert->digitalAsset?->type,
                 'rule' => str_starts_with((string) $alert->kind, 'renewal_due_') ? 'renewal_due' : (string) $alert->kind,
                 'channel' => $this->channelOf((string) $alert->digitalAsset?->type),
-                'url' => route('operator.alerts'),
+                // The asset's own page (where the problem is fixed); the Uyarılar list only when the asset is gone.
+                'url' => $alert->digitalAsset !== null ? OperatorPortfolioPresenter::specialistUrl($alert->digitalAsset) : route('operator.alerts'),
                 'actions' => ['done', 'snooze'],
                 'covers' => array_map(fn (string $rule): string => 'advisor-rule:'.$alert->digital_asset_id.':'.$rule, self::ALERT_COVERS_RULES[$alert->kind] ?? []),
                 'age' => $alert->first_detected_at,
@@ -570,19 +579,38 @@ final class CommandCenter
             ]));
     }
 
-    /** @return Collection<int, array<string, mixed>> */
+    /**
+     * System alerts, each with its plain-Turkish explanation (OperationalAlertExplainer): the affected brand / asset
+     * when there is one, Ne oldu / Neden önemli / Ne yapmalısın, the exact page and a one-click action.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
     private function system(): Collection
     {
+        $explainer = app(OperationalAlertExplainer::class);
+
         return OperationalAlert::query()->whereIn('state', [OperationalAlertState::Open->value, OperationalAlertState::Acknowledged->value])
             ->orderByDesc('last_observed_at')->limit(50)->get()
-            ->map(fn (OperationalAlert $alert): array => self::item('system', $alert->id, match ((string) ($alert->severity->value ?? $alert->severity)) {
-                'CRITICAL' => 'critical', 'WARNING' => 'high', default => 'medium',
-            }, (string) $alert->title, [
-                'detail' => $alert->summary,
-                'channel' => 'Sistem',
-                'url' => route('operator.settings.system-health'),
-                'age' => $alert->first_observed_at ?? $alert->created_at,
-            ]));
+            ->map(function (OperationalAlert $alert) use ($explainer): array {
+                $message = $explainer->explain($alert);
+
+                return self::item('system', $alert->id, match ((string) ($alert->severity->value ?? $alert->severity)) {
+                    'CRITICAL' => 'critical', 'WARNING' => 'high', default => 'medium',
+                }, $message->title, [
+                    'detail' => $message->what,
+                    'why' => $message->why,
+                    'action' => $message->action,
+                    'link_label' => $message->linkLabel,
+                    'button' => $message->button,
+                    'repeat_label' => $message->repeatLabel(),
+                    'rule' => OperationalAlertExplainer::topicRule((string) $alert->rule_key),
+                    'channel' => 'Sistem',
+                    'brand_id' => $message->brandId,
+                    'asset_id' => $message->assetId,
+                    'url' => $message->linkUrl ?? route('operator.settings.system-health'),
+                    'age' => $alert->first_opened_at ?? $alert->first_observed_at ?? $alert->created_at,
+                ]);
+            });
     }
 
     /** Waiting approvals: AI proposals and brand setups that are ready or stuck. */

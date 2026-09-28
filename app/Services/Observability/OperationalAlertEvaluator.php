@@ -6,6 +6,7 @@ use App\Enums\DataPool\FreshnessState;
 use App\Enums\Observability\OperationalAlertRuleType;
 use App\Enums\Observability\OperationalAlertSeverity;
 use App\Enums\Observability\OperationalSignalFamily;
+use App\Models\Collection\CollectionDatasetRun;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Services\Async\AsyncWorkerHealth;
@@ -28,6 +29,7 @@ final class OperationalAlertEvaluator
         private readonly AsyncWorkerHealth $queueHealth,
         private readonly DueCollectionQueryService $dueCollections,
         private readonly QueueWaitMonitor $queueWaits,
+        private readonly AlertSubjects $subjects,
     ) {}
 
     /**
@@ -140,11 +142,11 @@ final class OperationalAlertEvaluator
                 scopeType: 'SYSTEM',
                 scopeKey: $scope,
                 title: 'Takılı kalan veri çekimi var',
-                summary: count($candidates).' running collection(s) exceed workload-aware no-progress policy',
+                summary: count($candidates).' veri çekimi uzun süredir ilerlemiyor.',
                 observed: [
                     'candidate_count' => count($candidates),
                     'sample_run_ids' => array_slice(array_column($candidates, 'collection_run_id'), 0, 10),
-                ],
+                ] + $this->affectedOf($this->runRows(array_column($candidates, 'collection_run_id'), array_column($candidates, 'digital_asset_id', 'collection_run_id'), false)),
             );
 
             return 1;
@@ -185,7 +187,7 @@ final class OperationalAlertEvaluator
                     'window_seconds' => $window,
                     'min_failures' => $min,
                     'sample_uuids' => $failures->take(5)->pluck('uuid')->all(),
-                ],
+                ] + $this->affectedOf($this->runRows($failures->pluck('id')->all(), $failures->pluck('digital_asset_id', 'id')->all(), true)),
             );
 
             return 1;
@@ -229,7 +231,7 @@ final class OperationalAlertEvaluator
                     scopeType: 'PROVIDER',
                     scopeKey: $scope,
                     title: 'Sağlayıcı istek sınırına takıldı',
-                    summary: strtoupper($provider).' rate_limit_rate='.$rlRate.' ('.$summary['rate_limits'].'/'.$attempts.')',
+                    summary: sprintf('%s: %d isteğin %d tanesi istek sınırına takıldı.', $provider, $attempts, $summary['rate_limits']),
                     observed: $summary,
                 );
                 $opened++;
@@ -247,7 +249,7 @@ final class OperationalAlertEvaluator
                     scopeType: 'PROVIDER',
                     scopeKey: $scope,
                     title: 'Sağlayıcıdan çok fazla hata dönüyor',
-                    summary: strtoupper($provider).' error_rate='.$errorRate.' ('.$summary['numerator_errors'].'/'.$attempts.')',
+                    summary: sprintf('%s: %d isteğin %d tanesi hata döndü.', $provider, $attempts, $summary['numerator_errors']),
                     observed: $summary,
                 );
                 $opened++;
@@ -296,7 +298,7 @@ final class OperationalAlertEvaluator
                     scopeType: 'INTEGRATION',
                     scopeKey: $scope,
                     title: 'Entegrasyon yeniden bağlanmalı',
-                    summary: 'Provider '.$integration->provider.' integration #'.$integration->id.' status='.$status,
+                    summary: $integration->provider.' bağlantısı #'.$integration->id.' yeniden bağlanmalı.',
                     observed: [
                         'integration_id' => (int) $integration->id,
                         'provider' => (string) $integration->provider,
@@ -320,7 +322,7 @@ final class OperationalAlertEvaluator
                     scopeType: 'INTEGRATION',
                     scopeKey: $scope,
                     title: 'Entegrasyon yetkisi yakında bitiyor',
-                    summary: 'Provider '.$integration->provider.' integration #'.$integration->id.' expires_at='.$expiresAt->toIso8601String(),
+                    summary: $integration->provider.' bağlantısı #'.$integration->id.' izni '.$expiresAt->toDateString().' tarihinde bitiyor.',
                     observed: [
                         'integration_id' => (int) $integration->id,
                         'provider' => (string) $integration->provider,
@@ -398,12 +400,17 @@ final class OperationalAlertEvaluator
                 scopeType: 'SYSTEM',
                 scopeKey: $scope,
                 title: 'Bazı veriler güncel değil ya da çekilemiyor',
-                summary: $staleCount.' hesap × veri seti güncellenemiyor; Uyarılar sayfasından inceleyin.',
+                summary: $staleCount.' hesap / veri kaynağında veri güncel değil.',
                 observed: [
                     'stale_or_blocked_count' => $staleCount,
                     'hold_seconds' => $hold,
                     'freshness_source' => 'Prompt27 DueCollectionQueryService',
-                ],
+                ] + $this->affectedOf(array_map(fn ($item): array => [
+                    'asset_id' => $item->digitalAssetId,
+                    'resource_id' => $item->externalResourceId,
+                    'dataset' => $item->datasetId,
+                    'state' => $item->freshnessState->value,
+                ], $staleOrBlocked)),
             );
 
             return 1;
@@ -412,5 +419,70 @@ final class OperationalAlertEvaluator
         $this->lifecycle->resolveIfActive('dataset_stale', 'SYSTEM', $scope);
 
         return 0;
+    }
+
+    /**
+     * The named accounts / assets behind an aggregated alert (AlertSubjects), for "which accounts, which data, why".
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @return array{affected?: list<array<string, mixed>>, affected_total?: int}
+     */
+    private function affectedOf(array $rows): array
+    {
+        if ($rows === []) {
+            return [];
+        }
+        try {
+            $keys = array_unique(array_map(fn (array $row): string => ($row['resource_id'] ?? null) !== null ? 'r'.$row['resource_id'] : 'a'.($row['asset_id'] ?? 0), $rows));
+
+            return ['affected' => $this->subjects->describe($rows), 'affected_total' => count($keys)];
+        } catch (Throwable $error) {
+            report($error);
+
+            return [];
+        }
+    }
+
+    /**
+     * Rows (asset, account, dataset, error) of collection runs: from their dataset runs, or the run's asset when a run
+     * has none.
+     *
+     * @param  list<int>  $runIds
+     * @param  array<int, int|null>  $assetByRun
+     * @return list<array<string, mixed>>
+     */
+    private function runRows(array $runIds, array $assetByRun, bool $failedOnly): array
+    {
+        if ($runIds === []) {
+            return [];
+        }
+        $rows = [];
+        $seen = [];
+        try {
+            $datasets = CollectionDatasetRun::query()->with('resourceRun:id,external_resource_id,digital_asset_id')
+                ->whereIn('collection_run_id', $runIds)
+                ->when($failedOnly, fn ($q) => $q->whereNotNull('error_category'))
+                ->orderByDesc('id')->limit(200)
+                ->get(['id', 'collection_run_id', 'collection_resource_run_id', 'dataset_contract_id', 'error_category']);
+            foreach ($datasets as $dataset) {
+                $category = $dataset->error_category;
+                $rows[] = [
+                    'asset_id' => $dataset->resourceRun?->digital_asset_id ?? ($assetByRun[$dataset->collection_run_id] ?? null),
+                    'resource_id' => $dataset->resourceRun?->external_resource_id,
+                    'dataset' => $dataset->dataset_contract_id,
+                    'error_category' => $category instanceof \BackedEnum ? (string) $category->value : ($category !== null ? (string) $category : null),
+                ];
+                $seen[(int) $dataset->collection_run_id] = true;
+            }
+        } catch (Throwable $error) {
+            report($error);
+        }
+        foreach ($runIds as $runId) {
+            if (! isset($seen[(int) $runId]) && ($assetByRun[$runId] ?? null) !== null) {
+                $rows[] = ['asset_id' => (int) $assetByRun[$runId]];
+            }
+        }
+
+        return $rows;
     }
 }

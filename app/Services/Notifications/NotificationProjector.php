@@ -133,28 +133,28 @@ final class NotificationProjector
             ? $event->subject_kind->value
             : (string) $event->subject_kind;
 
-        return ucwords(str_replace('_', ' ', $kind)).' #'.$event->subject_id;
+        return 'Kayıt #'.$event->subject_id;
     }
 
     private function titleFor(DomainEventType $type, string $subjectLabel): string
     {
         return match ($type) {
-            DomainEventType::FindingCreated => 'New finding: '.$subjectLabel,
-            DomainEventType::RecommendationAccepted => 'Recommendation accepted: '.$subjectLabel,
-            DomainEventType::TaskCompleted => 'Task completed: '.$subjectLabel,
-            DomainEventType::TaskAssigned => 'Task assigned: '.$subjectLabel,
-            DomainEventType::QaPassed => 'QA passed: '.$subjectLabel,
-            DomainEventType::QaFailed => 'QA failed: '.$subjectLabel,
-            DomainEventType::QaNeedsChanges => 'QA needs changes: '.$subjectLabel,
-            DomainEventType::ApprovalApproved => 'Approval approved: '.$subjectLabel,
-            DomainEventType::ApprovalRejected => 'Approval rejected: '.$subjectLabel,
-            DomainEventType::ApprovalChangesRequested => 'Approval changes requested: '.$subjectLabel,
-            DomainEventType::RecurringReviewCompleted => 'Recurring review completed: '.$subjectLabel,
-            DomainEventType::ClientRequestCreated => 'Client request received: '.$subjectLabel,
-            DomainEventType::OpportunityCreated => 'New opportunity: '.$subjectLabel,
-            DomainEventType::ScheduledInternalNotification => $subjectLabel !== '' ? $subjectLabel : 'Scheduled notification',
-            DomainEventType::BusinessOutcomeRecheckAttention => $subjectLabel !== '' ? $subjectLabel : 'Business Outcome recheck attention',
-            DomainEventType::OperationalAlertOpened => $subjectLabel !== '' ? $subjectLabel : 'Operational alert',
+            DomainEventType::FindingCreated => 'Yeni bulgu: '.$subjectLabel,
+            DomainEventType::RecommendationAccepted => 'Öneri kabul edildi: '.$subjectLabel,
+            DomainEventType::TaskCompleted => 'Görev tamamlandı: '.$subjectLabel,
+            DomainEventType::TaskAssigned => 'Size görev atandı: '.$subjectLabel,
+            DomainEventType::QaPassed => 'Kontrol geçti: '.$subjectLabel,
+            DomainEventType::QaFailed => 'Kontrol başarısız: '.$subjectLabel,
+            DomainEventType::QaNeedsChanges => 'Kontrolde düzeltme istendi: '.$subjectLabel,
+            DomainEventType::ApprovalApproved => 'Onaylandı: '.$subjectLabel,
+            DomainEventType::ApprovalRejected => 'Reddedildi: '.$subjectLabel,
+            DomainEventType::ApprovalChangesRequested => 'Onayda değişiklik istendi: '.$subjectLabel,
+            DomainEventType::RecurringReviewCompleted => 'Düzenli gözden geçirme tamamlandı: '.$subjectLabel,
+            DomainEventType::ClientRequestCreated => 'Müşteri talebi geldi: '.$subjectLabel,
+            DomainEventType::OpportunityCreated => 'Yeni fırsat: '.$subjectLabel,
+            DomainEventType::ScheduledInternalNotification => $subjectLabel !== '' ? $subjectLabel : 'Planlı bildirim',
+            DomainEventType::BusinessOutcomeRecheckAttention => $subjectLabel !== '' ? $subjectLabel : 'İş sonucu yeniden kontrol edilmeli',
+            DomainEventType::OperationalAlertOpened => $subjectLabel !== '' ? $subjectLabel : 'Sistem uyarısı',
         };
     }
 }

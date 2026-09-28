@@ -13,9 +13,11 @@ use App\Services\CommandCenter\Activity\ActivitySuppression;
 use App\Services\CommandCenter\CommandCenter;
 use App\Services\CommandCenter\InboxAging;
 use App\Services\CommandCenter\TopicCatalog;
+use App\Services\Integrations\ResourceAutomationService;
 use App\Services\SeoTasks\SeoPlanRunner;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
@@ -176,6 +178,21 @@ class CommandCenterPage extends Component
             $this->center()->refresh();
             $this->openKey = $key;
             DemoState::flash($message);
+        }
+    }
+
+    /**
+     * "Şimdi güncelle" on a stopped account's system alert: the account is collected again right away (background).
+     */
+    public function runNow(int $automationId): void
+    {
+        $user = auth()->user();
+        abort_unless($user?->is_active, 403);
+        try {
+            app(ResourceAutomationService::class)->runNow($automationId, $user);
+            DemoState::flash('Güncelleme sıraya alındı; birkaç dakika içinde başlar. Başarılı olunca uyarı kendiliğinden kapanır.');
+        } catch (ModelNotFoundException) {
+            DemoState::flash('Bu hesap artık bulunamadı; Entegrasyonlar\'dan kontrol edin.', 'error');
         }
     }
 

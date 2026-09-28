@@ -2,6 +2,7 @@
 
 namespace App\Services\Notifications;
 
+use App\Enums\DomainEventSubjectKind;
 use App\Models\User;
 use App\Models\UserNotification;
 use Illuminate\Support\Carbon;
@@ -27,6 +28,13 @@ final class NotificationWriteService
 
         if ($row->read_at === null) {
             $row->forceFill(['read_at' => Carbon::now()])->save();
+        }
+        if ($row->subject_kind === DomainEventSubjectKind::OperationalAlert || $row->subject_kind === DomainEventSubjectKind::OperationalAlert->value) {
+            // The bell shows one row per system alert; older rows of the same alert are read with it.
+            UserNotification::query()->where('recipient_user_id', $user->id)
+                ->where('subject_kind', DomainEventSubjectKind::OperationalAlert->value)
+                ->where('subject_id', $row->subject_id)->whereNull('read_at')
+                ->update(['read_at' => Carbon::now()]);
         }
 
         return $row->fresh() ?? $row;

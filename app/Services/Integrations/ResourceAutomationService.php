@@ -24,6 +24,7 @@ use App\Services\Collection\Meta\MetaSingleBindingCollectionOrchestrator;
 use App\Services\Collection\SearchConsole\SearchConsoleCentralCollectionService;
 use App\Services\CollectionScheduler\ExecuteCollectionLifecycleService;
 use App\Services\Integrations\Google\GoogleBusinessProfileBoundCollector;
+use App\Services\Observability\AlertSubjects;
 use App\Services\Observability\OperationalAlertLifecycleService;
 use App\Services\SearchDemand\AutomaticQueryImportService;
 use App\Services\SearchDemand\LibraryImportWorkflow;
@@ -590,7 +591,11 @@ final class ResourceAutomationService
                 'external_resource', (string) $a->external_resource_id,
                 // Written by queue workers (English app locale); the operator product is Turkish.
                 __('resource-auto.alert_title', [], 'tr').' · '.($a->resource?->display_name ?? '#'.$a->external_resource_id),
-                __('resource-auto.'.$reason, [], 'tr'), ['automation_id' => $a->id, 'phase' => $phase, 'reason' => $reason]
+                __('resource-auto.'.$reason, [], 'tr'), [
+                    'automation_id' => $a->id, 'phase' => $phase, 'reason' => $reason,
+                    // Brand, asset, account and last error, so the alert names what stopped and why.
+                    'affected' => app(AlertSubjects::class)->describe([['resource_id' => (int) $a->external_resource_id]]),
+                ]
             );
         } catch (Throwable $e) {
             // A notification outage must not undo a durable collection/import result.
