@@ -71,7 +71,6 @@ final class DemoMenu
                         $child($tr ? 'Harita sıralaması' : 'Map Rankings', 'operator.market.map-rankings'),
                         $child($tr ? 'Rakip izleme' : 'Competitor Watch', 'operator.market.competitor-watch'),
                         $child($tr ? 'Backlink fırsatları' : 'Backlinks', 'operator.market.backlinks'),
-                        $child($tr ? 'AI görünürlüğü' : 'AI Visibility', 'operator.market.ai-visibility'),
                     ]),
                     $item($tr ? 'Hizmet Beyni' : 'Service Brain', 'operator.brain.services', 'brain-map', [
                         $child($tr ? 'Beyin önerileri' : 'Brain Recommendations', 'operator.brain.recommendations'),
