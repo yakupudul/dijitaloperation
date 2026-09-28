@@ -274,6 +274,22 @@
         @endif
         <livewire:operator.portfolio.brand-demand :brand-id="(int) $brandModel->id" :key="'brand-demand-'.$brandModel->id" />
         <livewire:operator.portfolio.brand-query-hub-panel :brand-id="(int) $brandModel->id" :key="'brand-query-hub-'.$brandModel->id" />
+        @php $studioSites = \App\Models\DigitalAsset::query()->where('brand_id', $brandModel->id)->where('type', 'website')->orderBy('id')->get(['id', 'name', 'domain']); @endphp
+        @if ($studioSites->isNotEmpty())
+            <section class="{{ $card }}" aria-labelledby="brand-content-studio-heading">
+                <div class="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
+                    <div>
+                        <h2 id="brand-content-studio-heading" class="text-base font-semibold text-gray-800 dark:text-white/90">İçerik Stüdyosu</h2>
+                        <p class="text-sm text-gray-500">Sorgular hizmetlerle birleşip konu kümelerine ayrılır; eksik konulardan yazı hazırlanır.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach ($studioSites as $studioSite)
+                            <a href="{{ route('operator.website', ['assetId' => $studioSite->id, 'tab' => 'studio']) }}" wire:navigate class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600">{{ $studioSite->domain ?: $studioSite->name }} → İçerik Stüdyosu</a>
+                        @endforeach
+                    </div>
+                </div>
+            </section>
+        @endif
         <livewire:operator.portfolio.brand-competitors :brand-id="(int) $brandModel->id" :key="'brand-competitors-'.$brandModel->id" />
     @endif
 

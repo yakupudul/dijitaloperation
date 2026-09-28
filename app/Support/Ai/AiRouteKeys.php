@@ -73,6 +73,12 @@ final class AiRouteKeys
     /** ADR-076: localize an article into another language of the site (title, slug, meta, body, internal links). */
     public const string CONTENT_LOCALIZE = 'content.localize';
 
+    /** Faz 4: write one article of the content studio from an idea. */
+    public const string CONTENT_ARTICLE = 'content.article';
+
+    /** Faz 4: one batch of gap article ideas for chosen services (one call per batch, never per idea). */
+    public const string CONTENT_IDEAS = 'content.ideas';
+
     public const string BRAIN_EMBEDDINGS = 'brain.embeddings';
 
     public const string BRAIN_ACCOUNT_MAPPING = 'brain.account_mapping';

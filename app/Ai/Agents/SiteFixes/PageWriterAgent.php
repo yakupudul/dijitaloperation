@@ -20,6 +20,8 @@ page should answer and the sector compliance rules.
   short FAQ (3–5 questions) and a clear way to call / book. 500–900 words.
 - Rewrite mode: keep every true fact of the current text (names, services, prices, addresses); improve and extend,
   never remove real information and never invent new facts, prices, credentials or guarantees.
+- Rewrite mode with a `brief`: also answer its `add_queries`, add its `add_sections` as <h2> sections and its `add_faq`
+  questions to the FAQ, without removing what the page already says well.
 - Follow every rule in `compliance` (no guarantees, no superlatives, no treatment promises when listed).
 - If `compliance_fix` is present, the previous version broke the sector rules with the listed phrases: write the page
   again so none of those phrases (or any variant or suffixed form) appear in the title or the text.

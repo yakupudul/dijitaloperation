@@ -113,7 +113,7 @@ final class SeoTaskRuleEngineTest extends TestCase
         $this->assertTrue($create->contains(fn (array $t): bool => ($t['evidence']['source'] ?? '') === 'fallback'));
     }
 
-    public function test_queries_for_places_outside_the_service_areas_are_not_content_targets_and_ask_once(): void
+    public function test_queries_for_places_outside_the_service_areas_are_not_content_targets_and_no_area_card(): void
     {
         $input = $this->input();
         $input['service_area_rows'] = [['country_code' => 'TR', 'city_name' => 'İstanbul', 'district_name' => 'Kadıköy']];
@@ -128,13 +128,11 @@ final class SeoTaskRuleEngineTest extends TestCase
         $this->assertNotContains('implant çankaya', $contentQueries);
         $this->assertContains('implant turkey', $contentQueries, 'country of the service area is not out of area');
 
-        $card = $tasks->firstWhere('rule_id', 'out-of-area-demand');
-        $this->assertNotNull($card);
-        $this->assertSame('question', $card['type']);
-        $this->assertSame(['Ankara', 'Çankaya'], array_column($card['evidence']['locations'], 'name'));
+        // Queries are single-type: no "out of area" decision card classifies queries by place any more.
+        $this->assertNull($tasks->firstWhere('rule_id', 'out-of-area-demand'));
 
         $input['service_area_rows'] = [];
-        $this->assertNull(collect((new SeoTaskRuleEngine)->evaluate($input)['tasks'])->firstWhere('rule_id', 'out-of-area-demand'), 'no areas → no judgement');
+        $this->assertNull(collect((new SeoTaskRuleEngine)->evaluate($input)['tasks'])->firstWhere('rule_id', 'out-of-area-demand'));
     }
 
     public function test_depth_rules_use_inspection_traffic_links_speed_and_business_profile(): void

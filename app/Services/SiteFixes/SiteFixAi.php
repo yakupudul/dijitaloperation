@@ -182,6 +182,10 @@ final class SiteFixAi
                 throw new RuntimeException('Sayfanın mevcut metni WordPress’ten okunamadı.');
             }
             $input['current_page'] = ['url' => $item->url, 'title' => $item->label, 'text' => mb_substr($current['text'], 0, 12000)];
+            if (is_array(data_get($item->current, 'brief'))) {
+                // İçerik Stüdyosu (Faz 4): the searches / sections / questions the rewritten page must also answer.
+                $input['brief'] = data_get($item->current, 'brief');
+            }
         }
         $previous = ContentComplianceGate::forPrompt((array) data_get($item->proposed, 'compliance', []));
         if ($previous !== []) {

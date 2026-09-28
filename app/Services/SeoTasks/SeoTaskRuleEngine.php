@@ -62,7 +62,6 @@ final class SeoTaskRuleEngine
             array_push($tasks, ...$this->createTasks($input, $pages, $offerings, $offeringQueries, $queryIndex, $assignmentsByOffering, $assignmentResult['pending']));
         }
         array_push($tasks, ...$this->aiVisibilityTasks($input, $pages, $offerings, $assignmentsByOffering));
-        array_push($tasks, ...$this->outOfAreaTasks($input, $queryIndex));
         array_push($tasks, ...$this->indexingTasks($input, $pages, $assignmentsByOffering));
         array_push($tasks, ...$this->pruneTasks($input, $pages, $assignmentsByOffering));
         array_push($tasks, ...$this->decayTasks($input, $pages));
@@ -664,7 +663,8 @@ final class SeoTaskRuleEngine
                     score: 100 + min(800, $bucket['gain'] * 10) + 50,
                     title: sprintf('"%s" için sayfayı güçlendir: %s', $offering['name'], SeoText::urlPath($url)),
                     reason: sprintf('%d sorgu 5–20. sırada, hiçbiri ilk 5\'te değil. %s gösterimde tahmini +%d tıklama/90 gün.', count($bucket['queries']), number_format($bucket['impressions']), (int) round($bucket['gain'])),
-                    evidence: ['queries' => $queries, 'impressions' => $bucket['impressions'], 'page' => $page ? ['title' => $page['title'], 'h1' => $page['h1'], 'word_count' => $page['word_count']] : null, 'competing' => array_values($bucket['competing'] ?? [])],
+                    evidence: array_filter(['queries' => $queries, 'impressions' => $bucket['impressions'], 'page' => $page ? ['title' => $page['title'], 'h1' => $page['h1'], 'word_count' => $page['word_count']] : null, 'competing' => array_values($bucket['competing'] ?? []),
+                        'studio' => ($clusterId = $this->clusterOwning($input, $urlKey)) !== null ? ['cluster' => $clusterId] : null], static fn (mixed $v): bool => $v !== null),
                     checklist: $checklist,
                     targetUrl: $url,
                     offeringId: $offering['id'],
@@ -695,9 +695,19 @@ final class SeoTaskRuleEngine
         $buckets = []; // key => bucket
         $usedQueries = [];
         $areaRows = $input['service_area_rows'] ?? [];
+        $topicMap = is_array($input['topic_clusters'] ?? null) ? $input['topic_clusters'] : null;
+
+        // Faz 3: with a topic map, create tasks come from its uncovered clusters (one clustering truth) and location
+        // pages from the brand's service areas × services — never from query records.
+        if ($topicMap !== null) {
+            $buckets = $this->clusterBuckets($topicMap, $offerings);
+            foreach ($this->locationBuckets($input, $offerings, $pageTexts) as $key => $bucket) {
+                $buckets[$key] = $bucket;
+            }
+        }
 
         // 1) GSC queries with demand but no page in the top N → grouped by offering × intent.
-        foreach ($offerings as $offering) {
+        foreach ($topicMap === null ? $offerings : [] as $offering) {
             foreach ($offeringQueries[$offering['id']] ?? [] as $queryKey) {
                 $entry = $queryIndex[$queryKey];
                 // A place outside the brand's service areas ("… ankara" for an Istanbul brand) is not a content target.
@@ -721,7 +731,7 @@ final class SeoTaskRuleEngine
         }
 
         // 2) Library / portfolio queries no page covers (title, H1 or slug) and GSC never saw.
-        foreach ($offerings as $offering) {
+        foreach ($topicMap === null ? $offerings : [] as $offering) {
             foreach ($offering['queries'] as $text) {
                 $key = mb_strtolower($text);
                 if (isset($usedQueries[$key]) || isset($queryIndex[$key])) {
@@ -768,7 +778,8 @@ final class SeoTaskRuleEngine
         $ranked = [];
         foreach ($buckets as $key => $bucket) {
             $expected = $bucket['impressions'] * $ctr5;
-            $score = 80 + min(700, $expected * 10) + ($bucket['offering']['is_priority'] ? 200 : 0) + (($bucket['missing_service_page'] ?? false) ? 150 : 0);
+            $score = 80 + min(700, $expected * 10) + ($bucket['offering']['is_priority'] ? 200 : 0) + (($bucket['missing_service_page'] ?? false) ? 150 : 0)
+                + min(150, (float) ($bucket['demand'] ?? 0) / 20) + ($bucket['source'] === 'service_area' ? 40 : 0);
             $bucket['expected_clicks'] = round($expected, 1);
             $bucket['score'] = $score;
             usort($bucket['queries'], static fn (array $a, array $b): int => ($b['impressions'] ?? 0) <=> ($a['impressions'] ?? 0));
@@ -830,15 +841,23 @@ final class SeoTaskRuleEngine
             if ($bucket['source'] === 'fallback') {
                 $reasonParts[] = 'Haftalık asgari içerik kotası için önerildi: bu hizmette veri az, konu boşluğu tahmini.';
             }
+            if ($bucket['source'] === 'topic_map') {
+                $reasonParts[] = sprintf('Konu haritası: “%s” kümesini (%d sorgu) sitede karşılayan sayfa yok.', $bucket['cluster']['label'], (int) $bucket['cluster']['query_count']);
+            }
+            if ($bucket['source'] === 'service_area') {
+                $reasonParts[] = sprintf('Marka %s bölgesine hizmet veriyor ama sitede bu hizmet için o bölgeyi anlatan sayfa yok (hizmet × bölge başına tek sayfa).', $bucket['intent']['location_label']);
+            }
             $tasks[] = $this->task(
                 type: SeoTaskType::Create,
                 ruleId: 'create-'.$bucket['intent']['type'],
-                keyParts: ['offering:'.$bucket['offering']['id'], 'loc:'.$bucket['intent']['location']],
+                keyParts: isset($bucket['cluster']) ? ['cluster:'.$bucket['cluster']['id']] : ['offering:'.$bucket['offering']['id'], 'loc:'.$bucket['intent']['location']],
                 severity: $bucket['offering']['is_priority'] ? 'high' : 'medium',
                 score: $bucket['score'],
                 title: $brief['task_title'],
                 reason: implode(' ', $reasonParts),
-                evidence: ['queries' => $bucket['queries'], 'impressions' => $bucket['impressions'], 'source' => $bucket['source']],
+                evidence: array_filter(['queries' => $bucket['queries'], 'impressions' => $bucket['impressions'], 'source' => $bucket['source'],
+                    'studio' => isset($bucket['cluster']) ? ['cluster' => $bucket['cluster']['id']] : ($bucket['source'] === 'service_area' ? ['offering' => $bucket['offering']['id'], 'area' => $bucket['intent']['location_label']] : null)],
+                    static fn (mixed $v): bool => $v !== null),
                 checklist: $brief['checklist'],
                 targetUrl: $brief['target_url'],
                 offeringId: $bucket['offering']['id'],
@@ -852,62 +871,104 @@ final class SeoTaskRuleEngine
     }
 
     /**
-     * One decision card per site when search demand arrives for places outside the brand's service
-     * areas: either the brand serves there too (add the area → location pages follow) or it does not
-     * (skip → these queries stay out of content suggestions). New places produce a new card.
+     * Create buckets from the topic map: active clusters nobody covers ("Yeni içerik"), biggest demand first.
      *
-     * @return list<array<string, mixed>>
+     * @param  list<array<string, mixed>>  $clusters
+     * @return array<string, array<string, mixed>>
      */
-    private function outOfAreaTasks(array $input, array $queryIndex): array
+    private function clusterBuckets(array $clusters, array $offerings): array
     {
-        $areaRows = $input['service_area_rows'] ?? [];
-        if ($areaRows === []) {
-            return [];
+        $byId = [];
+        foreach ($offerings as $offering) {
+            $byId[(string) $offering['id']] = $offering;
         }
-        $places = [];
-        foreach ($queryIndex as $entry) {
-            $result = LocationOptions::classify($entry['query'], $areaRows);
-            if ($result['out_of_area'] === [] || $result['in_area'] !== []) {
+        $buckets = [];
+        foreach ($clusters as $cluster) {
+            if (($cluster['verdict'] ?? null) !== 'new' || ($cluster['status'] ?? 'active') !== 'active') {
                 continue;
             }
-            foreach ($result['out_of_area'] as $name) {
-                $places[$name] ??= ['name' => $name, 'impressions' => 0, 'clicks' => 0, 'queries' => []];
-                $places[$name]['impressions'] += (int) $entry['impressions'];
-                $places[$name]['clicks'] += (int) $entry['clicks'];
-                $places[$name]['queries'][] = ['query' => $entry['query'], 'impressions' => (int) $entry['impressions']];
+            $offering = $byId[(string) ($cluster['offering_id'] ?? '')] ?? [
+                'id' => 'cluster-'.$cluster['id'], 'name' => (string) $cluster['label'], 'names' => [], 'keywords' => [], 'is_priority' => false, 'priority_rank' => null, 'queries' => [],
+            ];
+            $type = match ($cluster['page_type'] ?? 'guide') {
+                'service' => 'service', 'faq' => 'faq', 'location' => 'location', default => 'guide',
+            };
+            $bucket = $this->newBucket($offering, ['type' => $type, 'location' => ''], 'topic_map');
+            $bucket['cluster'] = $cluster;
+            $bucket['demand'] = (float) ($cluster['demand'] ?? 0);
+            $bucket['impressions'] = (int) ($cluster['impressions'] ?? 0);
+            $bucket['queries'] = array_map(static fn (array $q): array => ['query' => (string) $q['query'], 'impressions' => $q['impressions'] ?? null, 'clicks' => $q['clicks'] ?? null,
+                'position' => $q['position'] ?? null, 'source' => 'topic_map'], array_values((array) ($cluster['queries'] ?? [])));
+            if ($bucket['queries'] === []) {
+                continue;
+            }
+            $buckets['cluster|'.$cluster['id']] = $bucket;
+        }
+
+        return $buckets;
+    }
+
+    /**
+     * Location page candidates from the brand's service areas × services (priority services first). At most one per
+     * service × area, only for areas the brand serves and only when no page already names both — no doorway pages.
+     *
+     * @param  list<string>  $pageTexts
+     * @return array<string, array<string, mixed>>
+     */
+    private function locationBuckets(array $input, array $offerings, array $pageTexts): array
+    {
+        $areas = [];
+        foreach ($input['service_area_rows'] ?? [] as $row) {
+            $name = trim((string) (($row['district_name'] ?? null) ?: ($row['city_name'] ?? '')));
+            if ($name !== '') {
+                $areas[SeoText::fold($name)] = $name;
             }
         }
-        $minImpr = SeoTaskConfig::int('locations.out_of_area_min_impressions', 50);
-        $places = array_values(array_filter($places, static fn (array $p): bool => $p['impressions'] >= $minImpr));
-        if ($places === []) {
+        if ($areas === [] || $offerings === []) {
             return [];
         }
-        usort($places, static fn (array $a, array $b): int => $b['impressions'] <=> $a['impressions']);
-        $places = array_slice($places, 0, 8);
-        foreach ($places as &$place) {
-            usort($place['queries'], static fn (array $a, array $b): int => $b['impressions'] <=> $a['impressions']);
-            $place['queries'] = array_slice($place['queries'], 0, 5);
+        $priority = array_values(array_filter($offerings, static fn (array $o): bool => (bool) $o['is_priority'] && empty($o['inferred'])));
+        $services = $priority !== [] ? $priority : array_values(array_filter($offerings, static fn (array $o): bool => empty($o['inferred'])));
+        $max = SeoTaskConfig::int('locations.create_per_plan', 2);
+        $buckets = [];
+        foreach ($services as $offering) {
+            foreach ($areas as $folded => $area) {
+                if (count($buckets) >= $max) {
+                    return $buckets;
+                }
+                $covered = false;
+                foreach ($pageTexts as $text) {
+                    if (str_contains(' '.$text.' ', ' '.$folded.' ') && SeoText::tokenOverlap($text, (string) $offering['name']) >= 0.99) {
+                        $covered = true;
+                        break;
+                    }
+                }
+                if ($covered) {
+                    continue;
+                }
+                $bucket = $this->newBucket($offering, ['type' => 'location', 'location' => $folded, 'location_label' => $area], 'service_area');
+                $bucket['queries'] = array_map(static fn (string $q): array => ['query' => $q, 'impressions' => null, 'clicks' => null, 'position' => null, 'source' => 'suggested'],
+                    $this->seedQueries($offering, 'location', $area));
+                $buckets[$offering['id'].'|location|'.$folded] = $bucket;
+            }
         }
-        unset($place);
-        $names = array_column($places, 'name');
-        $keyNames = $names;
-        sort($keyNames);
-        $areaLabels = array_map(static fn (array $a): string => implode(', ', array_filter([$a['district_name'] ?? null, $a['city_name'] ?? null])) ?: (string) ($a['country_code'] ?? ''), $areaRows);
 
-        return [$this->task(
-            type: SeoTaskType::Question,
-            ruleId: 'out-of-area-demand',
-            keyParts: array_map(static fn (string $n): string => SeoText::fold($n), $keyNames),
-            severity: 'medium',
-            score: 900,
-            title: sprintf('Hizmet bölgesi dışındaki aramalar: %s', implode(', ', array_slice($names, 0, 3))),
-            reason: sprintf('Marka %s için tanımlı, ama site bu konumlarla yapılan aramalarda da görünüyor (%s gösterim/90 gün). Bu aramalar içerik önerilerine alınmadı.', implode(' · ', array_unique($areaLabels)), number_format(array_sum(array_column($places, 'impressions')))),
-            evidence: ['locations' => $places, 'areas' => array_values(array_unique($areaLabels)), 'brand_id' => $input['site']['brand_id'] ?? null],
-            checklist: [
-                'Bu konumlara da hizmet veriyorsan markanın "Hizmet verdiği yerler" alanına ekle; sonraki planda bölge sayfası önerileri bu aramalarla gelir.',
-                'Hizmet vermiyorsan "Hizmet vermiyorum" de; bu konumlar tekrar sorulmaz.',
-            ],
-        )];
+        return $buckets;
+    }
+
+    /** Topic cluster whose owner page is this URL (weak / strengthen first), for the "Stüdyoda hazırla" link. */
+    private function clusterOwning(array $input, string $urlKey): ?int
+    {
+        $best = null;
+        foreach (is_array($input['topic_clusters'] ?? null) ? $input['topic_clusters'] : [] as $cluster) {
+            if (filled($cluster['owner_url'] ?? null) && SeoText::urlKey((string) $cluster['owner_url']) === $urlKey) {
+                if ($best === null || (($cluster['verdict'] ?? '') === 'strengthen' && ($best['verdict'] ?? '') !== 'strengthen')) {
+                    $best = $cluster;
+                }
+            }
+        }
+
+        return $best !== null ? (int) $best['id'] : null;
     }
 
     /** @return array{type: string, location: string, location_label?: string} */

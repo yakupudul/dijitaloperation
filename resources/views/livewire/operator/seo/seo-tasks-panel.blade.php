@@ -183,24 +183,6 @@
                     </section>
                     @continue
                 @endif
-                @if ($setup->rule_id === 'out-of-area-demand')
-                    <section wire:key="setup-{{ $setup->id }}" class="rounded-xl border border-warning-200 bg-warning-50 p-5 dark:border-warning-500/20 dark:bg-warning-500/10">
-                        <h3 class="text-sm font-semibold text-warning-900 dark:text-warning-200">@if (! $site && $setup->digitalAsset){{ $setup->digitalAsset->domain }} · @endif{{ $setup->title }}</h3>
-                        <p class="mt-1 max-w-3xl text-xs text-warning-800 dark:text-warning-300">{{ $setup->reason }}</p>
-                        <ul class="mt-2 space-y-1 text-xs text-warning-900 dark:text-warning-200">
-                            @foreach ($setup->evidence['locations'] ?? [] as $place)
-                                <li><strong>{{ $place['name'] }}</strong> · {{ number_format($place['impressions']) }} gösterim · ör. {{ implode(', ', array_slice(array_column($place['queries'], 'query'), 0, 3)) }}</li>
-                            @endforeach
-                        </ul>
-                        <div class="mt-3 flex flex-wrap gap-2">
-                            @if ($setup->digitalAsset?->brand_id)
-                                <a wire:navigate href="{{ route('operator.brand.edit', ['brandId' => $setup->digitalAsset->brand_id]) }}" class="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-warning-800 ring-1 ring-inset ring-warning-300 hover:bg-warning-100 dark:bg-gray-900 dark:text-warning-300">Hizmet verdiği yerlere ekle →</a>
-                            @endif
-                            <button type="button" wire:click="skip({{ $setup->id }})" class="rounded-lg bg-white px-3 py-1.5 text-xs ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">Hizmet vermiyorum</button>
-                        </div>
-                    </section>
-                    @continue
-                @endif
                 @php
                     $services = $setup->evidence['services'] ?? null;
                     $legacy = $services === null;
@@ -452,6 +434,18 @@
                             </div>
                         </div>
                         <div class="flex shrink-0 gap-2 sm:flex-col">
+                            @if ($isOpen && is_array($evidence['studio'] ?? null))
+                                @php
+                                    $studioParams = ['assetId' => $task->digital_asset_id, 'tab' => 'studio'];
+                                    if (isset($evidence['studio']['cluster'])) {
+                                        $studioParams['studio_cluster'] = $evidence['studio']['cluster'];
+                                    } else {
+                                        $studioParams['studio_offering'] = $evidence['studio']['offering'] ?? null;
+                                        $studioParams['studio_area'] = $evidence['studio']['area'] ?? null;
+                                    }
+                                @endphp
+                                <a wire:navigate href="{{ route('operator.website', array_filter($studioParams, fn ($v) => $v !== null)) }}" class="inline-flex items-center justify-center gap-1 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600">Stüdyoda hazırla</a>
+                            @endif
                             @if ($isOpen)
                                 <button type="button" wire:click="markDone({{ $task->id }})" class="inline-flex items-center justify-center gap-1 rounded-lg bg-success-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-success-600">✓ Yapıldı</button>
                                 <button type="button" wire:click="skip({{ $task->id }})" wire:confirm="Bu görev atlansın mı? Sonraki planlarda tekrar gösterilmez." class="{{ $btnSecondary }}">Atla</button>

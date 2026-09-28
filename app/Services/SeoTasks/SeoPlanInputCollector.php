@@ -9,6 +9,7 @@ use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\IntelligenceProjection\WebsitePageProfile;
 use App\Models\ServicePageAssignment;
+use App\Models\TopicCluster;
 use App\Services\Compliance\SectorPackRegistry;
 use App\Services\Ga4\Ga4SpecialistBindingResolver;
 use App\Services\Gsc\GscSpecialistBindingResolver;
@@ -86,7 +87,30 @@ final class SeoPlanInputCollector
             'competitor_gaps' => $this->competitorGaps($site),
             // Sector pack rules (health: no price / before-after wording) that proposed titles and briefs must respect.
             'compliance_rules' => $site->brand !== null ? app(SectorPackRegistry::class)->rulesForBrand($site->brand)->all() : [],
+            // Faz 3: the site's topic map (null until it was built once); create tasks come from its uncovered clusters.
+            'topic_clusters' => $this->topicClusters($site),
         ];
+    }
+
+    /**
+     * Active clusters of the site's topic map with their strongest queries, or null when no map was built yet.
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    public function topicClusters(DigitalAsset $site): ?array
+    {
+        if (! Schema::hasTable('topic_clusters') || ! TopicCluster::query()->where('digital_asset_id', $site->id)->exists()) {
+            return null;
+        }
+
+        return TopicCluster::query()->where('digital_asset_id', $site->id)->whereIn('status', ['active', 'skipped'])->orderByDesc('demand_score')->limit(300)
+            ->with(['queries' => fn ($q) => $q->limit(12)])->get()
+            ->map(fn (TopicCluster $c): array => [
+                'id' => (int) $c->id, 'offering_id' => $c->brand_offering_id !== null ? (int) $c->brand_offering_id : null, 'label' => (string) $c->label,
+                'head' => $c->head_query, 'intent' => $c->intent, 'page_type' => $c->page_type, 'verdict' => $c->verdict, 'coverage' => $c->coverage, 'status' => $c->status,
+                'owner_url' => $c->owner_url, 'demand' => (float) $c->demand_score, 'impressions' => (int) $c->impressions, 'query_count' => (int) $c->query_count,
+                'queries' => $c->queries->map(fn ($q): array => ['query' => (string) $q->query, 'impressions' => (int) $q->impressions, 'clicks' => (int) $q->clicks, 'position' => $q->position])->all(),
+            ])->all();
     }
 
     /**
@@ -505,7 +529,7 @@ final class SeoPlanInputCollector
     }
 
     /** @return array<string, array<string, mixed>> keyed by url key */
-    private function pages(DigitalAsset $site): array
+    public function pages(DigitalAsset $site): array
     {
         $pages = [];
         WebsitePageProfile::query()

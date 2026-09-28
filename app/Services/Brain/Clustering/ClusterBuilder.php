@@ -2,6 +2,7 @@
 
 namespace App\Services\Brain\Clustering;
 
+use App\Models\DigitalAsset;
 use App\Services\Brain\EmbeddingService;
 use App\Services\Brain\ServiceSites;
 use App\Services\SeoTasks\SeoText;
@@ -73,9 +74,51 @@ final class ClusterBuilder
                 'cluster_name' => $member->cluster_name, 'head' => $member->head_query,
             ];
         }
+        $run = $this->run($queries, $this->sites->websites($serviceId), true);
+        $out = array_values(array_filter($run['clusters'], fn (array $c): bool => $c['new_query_ids'] !== []));
+
+        return ['clusters' => $this->pageTypes($out), 'signals' => $run['signals'], 'placed' => $run['placed']];
+    }
+
+    /**
+     * Clusters an arbitrary query set (e.g. one brand's hub queries of one service on one website) with the same
+     * signals: SERP overlap, embeddings, Search Console co-rank on the given sites and word stems. Queries with a
+     * `cluster_id` are seeds (operator-placed members keep their cluster). With $paidEmbeddings false only vectors
+     * already in the cache are used (no provider call, no cost).
+     *
+     * @param  list<array{id: int|string, text: string, weight: float, cluster_id?: int|null, cluster_name?: string|null, head?: string|null}>  $queries
+     * @param  iterable<DigitalAsset>  $sites
+     * @return array{clusters: list<array<string, mixed>>, signals: list<string>, placed: int}
+     */
+    public function clusterSet(array $queries, iterable $sites, bool $paidEmbeddings = false): array
+    {
+        $prepared = [];
+        foreach ($queries as $query) {
+            $key = $this->key((string) $query['text']);
+            if ($key === '') {
+                continue;
+            }
+            $prepared[$query['id']] = [
+                'id' => $query['id'], 'text' => (string) $query['text'], 'key' => $key, 'weight' => (float) $query['weight'],
+                'cluster_id' => isset($query['cluster_id']) ? (int) $query['cluster_id'] : null,
+                'cluster_name' => $query['cluster_name'] ?? null, 'head' => $query['head'] ?? null,
+            ];
+        }
+        $run = $this->run($prepared, $sites, $paidEmbeddings);
+
+        return ['clusters' => $this->pageTypes($run['clusters']), 'signals' => $run['signals'], 'placed' => $run['placed']];
+    }
+
+    /**
+     * @param  array<int|string, array<string, mixed>>  $queries
+     * @param  iterable<DigitalAsset>  $sites
+     * @return array{clusters: list<array<string, mixed>>, signals: list<string>, placed: int}
+     */
+    private function run(array $queries, iterable $sites, bool $paidEmbeddings): array
+    {
         uasort($queries, fn (array $a, array $b): int => $b['weight'] <=> $a['weight'] ?: $a['id'] <=> $b['id']);
         $queries = array_slice($queries, 0, self::MAX_QUERIES, true);
-        $signals = $this->loadSignals($serviceId, $queries);
+        $signals = $this->loadSignals($sites, $queries, $paidEmbeddings);
 
         // Seeds: clusters that already exist keep their members.
         $clusters = [];
@@ -113,23 +156,19 @@ final class ClusterBuilder
         $out = [];
         foreach ($clusters as $cluster) {
             $new = array_values(array_filter($cluster['members'], fn (array $q): bool => $q['cluster_id'] === null));
-            if ($new === []) {
-                continue;
-            }
             $demand = array_sum(array_map(fn (array $q): float => $q['weight'], $cluster['members']));
             $intent = QueryIntent::dominant(array_map(fn (array $q): array => ['text' => $q['text'], 'weight' => $q['weight']], $cluster['members']));
             $out[] = [
                 'key' => $cluster['key'], 'existing_id' => $cluster['existing_id'],
                 'name' => $cluster['name'] !== '' ? $cluster['name'] : mb_convert_case($cluster['head'], MB_CASE_TITLE),
                 'head' => $cluster['head'],
-                'query_ids' => array_map(fn (array $q): int => $q['id'], $cluster['members']),
-                'new_query_ids' => array_map(fn (array $q): int => $q['id'], $new),
+                'query_ids' => array_map(fn (array $q): int|string => $q['id'], $cluster['members']),
+                'new_query_ids' => array_map(fn (array $q): int|string => $q['id'], $new),
                 'texts' => array_map(fn (array $q): string => $q['text'], array_slice($cluster['members'], 0, 15)),
                 'demand' => round($demand, 2), 'share' => round($demand / $total, 4),
                 'intent' => $intent, 'page_type' => '', 'cohesion' => round($this->cohesion($cluster['members']), 3),
             ];
         }
-        $out = $this->pageTypes($out);
 
         return ['clusters' => $out, 'signals' => $signals, 'placed' => $placed];
     }
@@ -274,22 +313,24 @@ final class ClusterBuilder
     }
 
     /**
-     * @param  array<int, array<string, mixed>>  $queries
+     * @param  iterable<DigitalAsset>  $sites
+     * @param  array<int|string, array<string, mixed>>  $queries
      * @return list<string> the signals that were available
      */
-    private function loadSignals(int $serviceId, array $queries): array
+    private function loadSignals(iterable $sites, array $queries, bool $paidEmbeddings = true): array
     {
         $keys = array_values(array_unique(array_column($queries, 'key')));
         $used = ['lexical'];
         $this->vectors = [];
-        $vectors = $keys !== [] ? $this->embeddings->embed(array_combine($keys, $keys)) : null;
+        $vectors = $keys === [] ? null : ($paidEmbeddings ? $this->embeddings->embed(array_combine($keys, $keys)) : $this->embeddings->cached(array_combine($keys, $keys)));
+        $vectors = $vectors === [] ? null : $vectors;
         if ($vectors !== null) {
             $this->vectors = $vectors;
             $used[] = 'embeddings';
         }
         $wanted = array_fill_keys($keys, true);
         $this->pages = [];
-        foreach ($this->sites->websites($serviceId) as $site) {
+        foreach ($sites as $site) {
             foreach ($this->sites->gscRows($site) as $row) {
                 $key = $this->key((string) $row['query']);
                 if (isset($wanted[$key]) && (int) $row['impressions'] >= 3) {
