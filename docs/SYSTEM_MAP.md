@@ -73,7 +73,7 @@
 
 | Kanal | İşlem |
 | --- | --- |
-| google_ads, wordpress, gbp | review_reply, local_post, negative_list_add, draft_create, update_apply, site_fix, content_draft, content_apply, connector_update |
+| google_ads, wordpress, gbp | review_reply, local_post, negative_list_add, draft_create, article_drafts, update_apply, site_fix, content_draft, content_apply, connector_update |
 
 Google Ads kampanya / bütçe / durum değişikliği **yoktur**; öneriler Google Ads Editor dosyası olarak dışa aktarılır.
 
@@ -126,9 +126,11 @@ Google Ads kampanya / bütçe / durum değişikliği **yoktur**; öneriler Googl
 | `10 5 * * * (UTC)` | `moxdop:resources:retry-stopped` |
 | `40 9 * * * (UTC)` | `moxdop:seo:inspect-changed` |
 | `30 6 * * 1 (UTC)` | `moxdop:seo:plan` |
+| `55 5 * * 1 (UTC)` | `moxdop:topics:build` |
 | `25 7 * * * (Europe/Istanbul)` | `moxdop:verify:data` |
 | `20 6 * * * (Europe/Istanbul)` | `moxdop:verify:live` |
 | `17 * * * * (UTC)` | `moxdop:website:sitemap-watch` |
+| `10 7 * * 1 (UTC)` | `moxdop:website:url-verdicts` |
 | `* * * * * (UTC)` | `moxdop:whatsapp:dispatch` |
 | `50 3 * * * (UTC)` | `moxdop:whatsapp:retention` |
 | `20 6 * * * (UTC)` | `moxdop:wordpress:health` |
