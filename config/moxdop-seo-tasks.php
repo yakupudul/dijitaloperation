@@ -100,6 +100,11 @@ return [
         'blocked_bots' => ['OAI-SearchBot', 'ChatGPT-User', 'GPTBot', 'Claude-SearchBot', 'ClaudeBot', 'Googlebot', 'Google-Extended', 'PerplexityBot'],
     ],
 
+    // Faz 0 — sayfa envanteri güvencesi: envanter boşsa plan tarama (sitemap dahil) başlatır, yeni sayfa önermez.
+    'inventory' => [
+        'recollect_after_hours' => 12,  // bu süre içinde biten tarama varsa yeni tarama yerine projeksiyon yeniden kurulur
+    ],
+
     // Faz 2 — derinlik kuralları. Veri yoksa kural sessiz kalır (eksik ≠ sıfır).
     'indexing' => [
         'top_traffic_pages' => 10,      // hizmet sayfaları + ana sayfa + en çok tıklanan N sayfa "önemli"

@@ -4,6 +4,7 @@ namespace Tests\Feature\Ownership;
 
 use App\Enums\CustomerStatus;
 use App\Enums\DigitalAssetStatus;
+use App\Jobs\IntelligenceProjection\RebuildWebsiteProjectionJob;
 use App\Livewire\Operator\Integrations\WebsiteDuplicatesPage;
 use App\Models\AssetMerge;
 use App\Models\Brand;
@@ -19,6 +20,7 @@ use App\Services\Ownership\WebsiteDuplicateMerger;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -195,6 +197,17 @@ final class WebsiteDuplicateMergeTest extends TestCase
         $this->assertSame('ga4', $active->capability);
         $this->assertSame(CoreAssetBinding::STATUS_ACTIVE, $active->status);
         $this->assertSame($duplicate->id, $old->fresh()->digital_asset_id);
+    }
+
+    public function test_merge_queues_a_projection_rebuild_for_the_keeper(): void
+    {
+        Bus::fake([RebuildWebsiteProjectionJob::class]);
+        [$keeper, $duplicate] = $this->pair();
+
+        app(WebsiteDuplicateMerger::class)->merge($keeper, $duplicate, $this->admin);
+
+        Bus::assertDispatched(RebuildWebsiteProjectionJob::class, fn (RebuildWebsiteProjectionJob $job): bool => $job->websiteAssetId === $keeper->id && $job->trigger === 'asset_merge');
+        Bus::assertNotDispatched(RebuildWebsiteProjectionJob::class, fn (RebuildWebsiteProjectionJob $job): bool => $job->websiteAssetId === $duplicate->id);
     }
 
     public function test_single_state_rows_keep_the_newer_one(): void

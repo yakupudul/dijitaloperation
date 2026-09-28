@@ -53,6 +53,10 @@ final class HealthSectorPack implements SectorPack
             ['rule_key' => 'before_after', 'kind' => ComplianceRuleKinds::FORBIDDEN, 'label' => 'Öncesi / sonrası', 'severity' => 'high', 'applies_to' => $all,
                 'patterns' => ['oncesi sonrasi', 'oncesi ve sonrasi', 'once ve sonra', 'before after'],
                 'message' => 'Öncesi / sonrası görsel veya ifadesi kullanılmamalı.'],
+            // Content we propose (SEO briefs, AI drafts) must not lead with price; live site/ad texts are not scanned for it.
+            ['rule_key' => 'price_emphasis', 'kind' => ComplianceRuleKinds::FORBIDDEN, 'label' => 'Fiyat vurgusu', 'severity' => 'medium', 'applies_to' => ['ai_draft', 'seo_brief'],
+                'patterns' => ['fiyat', 'fiyatlari', 'fiyatlandirma', 'ucret', 'ucretleri', 'ne kadar tutar'],
+                'message' => 'Sağlık hizmeti içeriği fiyat/ücret üzerine kurulmamalı; bilgilendirme (süreç, kimlere uygun, riskler) öne çıkmalı.'],
             ['rule_key' => 'comparison', 'kind' => ComplianceRuleKinds::FORBIDDEN, 'label' => 'Kıyaslama', 'severity' => 'medium', 'applies_to' => $all,
                 'patterns' => ['diger kliniklerden', 'diger hastanelerden', 'rakiplerimizden', 'digerlerinden farkli olarak'],
                 'message' => 'Başka kurum veya hekimlerle kıyaslama yapılmamalı.'],

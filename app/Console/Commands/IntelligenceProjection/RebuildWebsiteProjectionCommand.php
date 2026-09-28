@@ -68,7 +68,7 @@ final class RebuildWebsiteProjectionCommand extends Command
                     periodStart: $start,
                     periodEnd: $end,
                 );
-                $this->line("asset={$asset->id} run={$run->id} status={$run->status}");
+                $this->line($run === null ? "asset={$asset->id} skipped=brandless" : "asset={$asset->id} run={$run->id} status={$run->status}");
 
                 continue;
             }

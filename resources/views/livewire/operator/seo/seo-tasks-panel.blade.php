@@ -148,8 +148,13 @@
         </button>
         <div class="{{ $card }} p-4">
             <p class="text-xs font-medium text-gray-500">Kurulum bekleyen</p>
-            <p @class(['mt-2 text-2xl font-bold', 'text-warning-600 dark:text-warning-400' => $kpis['pending_mappings'] > 0, 'text-gray-800 dark:text-white/90' => $kpis['pending_mappings'] === 0])>{{ $kpis['pending_mappings'] }}</p>
-            <p class="mt-2 text-xs text-gray-400">{{ $kpis['pending_mappings'] > 0 ? 'Sayfası eşleşmemiş öncelikli hizmet' : 'Hizmet ↔ sayfa eşleşmeleri tamam' }}</p>
+            @if (($kpis['inventory_missing'] ?? 0) > 0)
+                <p class="mt-2 text-2xl font-bold text-warning-600 dark:text-warning-400">Sayfa listesi yok</p>
+                <p class="mt-2 text-xs text-gray-400">{{ $site ? 'Tarama bitince hizmet ↔ sayfa eşleşmeleri kurulur' : $kpis['inventory_missing'].' sitede tarama bekleniyor' }}</p>
+            @else
+                <p @class(['mt-2 text-2xl font-bold', 'text-warning-600 dark:text-warning-400' => $kpis['pending_mappings'] > 0, 'text-gray-800 dark:text-white/90' => $kpis['pending_mappings'] === 0])>{{ $kpis['pending_mappings'] }}</p>
+                <p class="mt-2 text-xs text-gray-400">{{ $kpis['pending_mappings'] > 0 ? 'Sayfası eşleşmemiş öncelikli hizmet' : 'Hizmet ↔ sayfa eşleşmeleri tamam' }}</p>
+            @endif
         </div>
     </div>
 
@@ -162,6 +167,22 @@
                 <span class="text-xs text-gray-400">Cevaplar bir sonraki planı daha isabetli yapar.</span>
             </div>
             @foreach ($setupTasks as $setup)
+                @if ($setup->rule_id === \App\Services\SeoTasks\SeoTaskRuleEngine::INVENTORY_MISSING_RULE)
+                    <section wire:key="setup-{{ $setup->id }}" class="rounded-xl border border-warning-200 bg-warning-50 p-5 dark:border-warning-500/20 dark:bg-warning-500/10">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <h3 class="text-sm font-semibold text-warning-900 dark:text-warning-200">@if (! $site && $setup->digitalAsset){{ $setup->digitalAsset->domain }} · @endif{{ $setup->title }}</h3>
+                                <p class="mt-1 max-w-3xl text-xs text-warning-800 dark:text-warning-300">{{ $setup->reason }}</p>
+                            </div>
+                            @if (in_array($setup->evidence['collection'] ?? '', ['queued', 'running', 'rebuilding'], true))
+                                <span class="inline-flex items-center gap-2 text-xs font-medium text-warning-800 dark:text-warning-300">{!! $spinner !!} Tarama sürüyor</span>
+                            @else
+                                <a wire:navigate href="{{ route('operator.website', ['assetId' => $setup->digital_asset_id]) }}" class="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-warning-800 ring-1 ring-inset ring-warning-300 hover:bg-warning-100 dark:bg-gray-900 dark:text-warning-300">Site ekranı →</a>
+                            @endif
+                        </div>
+                    </section>
+                    @continue
+                @endif
                 @if ($setup->rule_id === 'out-of-area-demand')
                     <section wire:key="setup-{{ $setup->id }}" class="rounded-xl border border-warning-200 bg-warning-50 p-5 dark:border-warning-500/20 dark:bg-warning-500/10">
                         <h3 class="text-sm font-semibold text-warning-900 dark:text-warning-200">@if (! $site && $setup->digitalAsset){{ $setup->digitalAsset->domain }} · @endif{{ $setup->title }}</h3>

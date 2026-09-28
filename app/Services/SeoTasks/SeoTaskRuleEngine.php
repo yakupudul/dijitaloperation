@@ -3,7 +3,10 @@
 namespace App\Services\SeoTasks;
 
 use App\Enums\SeoTaskType;
+use App\Models\ComplianceRule;
 use App\Models\ServicePageAssignment;
+use App\Services\Compliance\ComplianceChecker;
+use App\Services\Compliance\ComplianceRuleKinds;
 use App\Services\SeoTasks\Concerns\DepthRules;
 use App\Support\Options\LocationOptions;
 
@@ -17,23 +20,47 @@ final class SeoTaskRuleEngine
 {
     use DepthRules;
 
+    /** Rule id of the setup card shown instead of content proposals while the site's page list is empty. */
+    public const string INVENTORY_MISSING_RULE = 'inventory-missing';
+
+    /** @var list<ComplianceRule> active sector-pack rules of the brand (plan input `compliance_rules`) */
+    private array $complianceRules = [];
+
+    private ?SiteUrlPattern $urlPattern = null;
+
     /** @return array{tasks: list<array<string, mixed>>, assignments: list<array<string, mixed>>, stats: array<string, mixed>} */
     public function evaluate(array $input): array
     {
         $pages = $input['pages'] ?? [];
         $gscRows = $input['gsc']['rows'] ?? [];
         $offerings = $input['offerings'] ?? [];
+        $this->complianceRules = array_values(array_filter(
+            is_iterable($input['compliance_rules'] ?? null) ? [...$input['compliance_rules']] : [],
+            static fn (mixed $rule): bool => $rule instanceof ComplianceRule,
+        ));
+        $this->urlPattern = new SiteUrlPattern($pages);
+        // No page list yet: coverage cannot be judged, so nothing is proposed as "new" and no mapping is touched.
+        $inventoryMissing = $pages === [];
 
         $queryIndex = $this->indexQueries($gscRows);
         $offeringQueries = $this->matchQueriesToOfferings($queryIndex, $offerings);
         $assignmentResult = $this->servicePages($input, $pages, $offerings, $offeringQueries, $queryIndex);
+        if ($inventoryMissing) {
+            $assignmentResult['assignments'] = [];
+            $assignmentResult['question_tasks'] = [];
+        }
         $assignmentsByOffering = $assignmentResult['by_offering'];
 
         $tasks = [];
+        if ($inventoryMissing) {
+            $tasks[] = $this->inventoryMissingTask($input);
+        }
         array_push($tasks, ...$assignmentResult['question_tasks']);
         array_push($tasks, ...$this->fixTasks($input, $pages, $assignmentsByOffering, $offerings));
         array_push($tasks, ...$this->strengthenTasks($input, $pages, $offerings, $offeringQueries, $queryIndex, $assignmentsByOffering));
-        array_push($tasks, ...$this->createTasks($input, $pages, $offerings, $offeringQueries, $queryIndex, $assignmentsByOffering, $assignmentResult['pending']));
+        if (! $inventoryMissing) {
+            array_push($tasks, ...$this->createTasks($input, $pages, $offerings, $offeringQueries, $queryIndex, $assignmentsByOffering, $assignmentResult['pending']));
+        }
         array_push($tasks, ...$this->aiVisibilityTasks($input, $pages, $offerings, $assignmentsByOffering));
         array_push($tasks, ...$this->outOfAreaTasks($input, $queryIndex));
         array_push($tasks, ...$this->indexingTasks($input, $pages, $assignmentsByOffering));
@@ -76,6 +103,7 @@ final class SeoTaskRuleEngine
                 'gsc_rows' => count($gscRows),
                 'gsc_queries' => $input['gsc']['query_count'] ?? 0,
                 'pages' => count($pages),
+                'inventory_missing' => $inventoryMissing,
                 'findings' => count($input['findings'] ?? []),
                 'offerings' => count($offerings),
                 'priority_offerings' => count(array_filter($offerings, static fn (array $o): bool => (bool) $o['is_priority'])),
@@ -597,16 +625,17 @@ final class SeoTaskRuleEngine
                 $queries = array_slice($bucket['queries'], 0, 8);
                 $page = $pages[$urlKey] ?? null;
                 $url = $page['url'] ?? ($queryIndex[mb_strtolower($queries[0]['query'])]['pages'][$urlKey]['url'] ?? $urlKey);
-                $top = $queries[0]['query'];
+                // Top query the sector rules allow in a title (health: not "… fiyatları").
+                $top = $this->firstCompliant(array_column($queries, 'query'));
                 $checklist = [];
                 if ($page !== null) {
-                    if ($page['title'] === null || ! SeoText::containsPhrase($page['title'], $top)) {
+                    if ($top !== null && ($page['title'] === null || ! SeoText::containsPhrase($page['title'], $top))) {
                         $checklist[] = sprintf('Title\'a "%s" ifadesini ekle (şu an: %s).', $top, $page['title'] ?: 'boş');
                     }
-                    if ($page['h1'] === null || ! SeoText::containsPhrase($page['h1'], $top)) {
+                    if ($top !== null && ($page['h1'] === null || ! SeoText::containsPhrase($page['h1'], $top))) {
                         $checklist[] = sprintf('H1\'e "%s" ifadesini ekle.', $top);
                     }
-                    if ($page['meta_description'] === null || ! SeoText::containsPhrase($page['meta_description'], $top)) {
+                    if ($top !== null && ($page['meta_description'] === null || ! SeoText::containsPhrase($page['meta_description'], $top))) {
                         $checklist[] = sprintf('Meta açıklamasında "%s" geçsin.', $top);
                     }
                     if ($page['word_count'] !== null && $page['word_count'] < $thinService) {
@@ -718,6 +747,10 @@ final class SeoTaskRuleEngine
         // 3) Priority offering without any service page → service page candidate.
         foreach ($offerings as $offering) {
             if (! $offering['is_priority'] || ($assignments[$offering['id']] ?? null) !== null || isset($pendingOfferings[$offering['id']])) {
+                continue;
+            }
+            // A page whose title/H1/slug already names the service (e.g. /tedavilerimiz/implant-tedavisi/) is not "missing".
+            if ($this->anyPageCovers($pageTexts, (string) $offering['name'])) {
                 continue;
             }
             $bucketKey = $offering['id'].'|service|';
@@ -908,14 +941,18 @@ final class SeoTaskRuleEngine
     private function seedQueries(array $offering, string $type, string $location): array
     {
         $name = $offering['name'];
-        $lower = mb_strtolower($name, 'UTF-8');
+        $lower = self::lowerTr($name);
 
-        return match ($type) {
+        $seeds = match ($type) {
             'guide' => [$lower.' nasıl yapılır', $lower.' fiyatları', $lower.' ne kadar sürer', $lower.' öncesi ve sonrası'],
             'faq' => [$lower.' hakkında sık sorulan sorular', $lower.' avantajları', $lower.' riskleri', $lower.' kimler için uygun'],
-            'location' => [mb_strtolower($location, 'UTF-8').' '.$lower, $lower.' '.mb_strtolower($location, 'UTF-8'), $lower.' '.mb_strtolower($location, 'UTF-8').' fiyat'],
+            'location' => [self::lowerTr($location).' '.$lower, $lower.' '.self::lowerTr($location), $lower.' '.self::lowerTr($location).' fiyat'],
             default => [$lower, $lower.' hizmeti', $lower.' fiyat'],
         };
+        // Sector pack (e.g. health: no price / before-after) decides which suggested phrasings are allowed.
+        $allowed = array_values(array_filter($seeds, fn (string $seed): bool => $this->isCompliant($seed)));
+
+        return $allowed !== [] ? $allowed : [$lower];
     }
 
     /** @return array<string, mixed> */
@@ -924,8 +961,13 @@ final class SeoTaskRuleEngine
         $offering = $bucket['offering'];
         $type = $bucket['intent']['type'];
         $location = $bucket['intent']['location_label'] ?? '';
-        $queries = array_column($bucket['queries'], 'query');
-        $topQuery = $queries[0] ?? $offering['name'];
+        $allQueries = array_column($bucket['queries'], 'query');
+        // Search queries stay as evidence; what the writer is asked to target is phrased within the sector rules.
+        $queries = array_values(array_filter($allQueries, fn (string $q): bool => $this->isCompliant($q)));
+        $topQuery = $this->compliantTopic($allQueries[0] ?? $offering['name'], (string) $offering['name'], $type);
+        if ($queries === []) {
+            $queries = [$topQuery];
+        }
         $targetWords = SeoTaskConfig::int('create.target_words.'.$type, 1200);
         $servicePageKey = $assignments[$offering['id']] ?? null;
         $servicePage = $servicePageKey !== null ? ($pages[$servicePageKey]['url'] ?? null) : null;
@@ -947,44 +989,47 @@ final class SeoTaskRuleEngine
                 'location' => SeoText::slugify($location.' '.$offering['name']),
                 default => SeoText::slugify($offering['name']),
             };
-            $targetUrl = rtrim($origin, '/').'/'.($type === 'guide' ? 'blog/' : '').$slug.'/';
+            // Follow the site's own URL structure (root post slugs, /bloglar/, /tedavilerimiz/…); never invent /blog/.
+            $targetUrl = ($this->urlPattern ?? new SiteUrlPattern($pages))->targetUrl($origin, $type, $slug, (string) $offering['name']);
         }
 
         // Suggested <title>/H1: query first, then the promise; brand name is added by the SEO plugin.
-        $pageTitle = match ($type) {
-            'guide' => mb_convert_case(mb_substr($topQuery, 0, 1), MB_CASE_UPPER).mb_substr($topQuery, 1).': Adım Adım Rehber',
-            'faq' => $offering['name'].' Hakkında Sık Sorulan Sorular',
-            'location' => $location.' '.$offering['name'].': Süreç ve Fiyatlar',
-            default => $offering['name'].': Süreç, Fiyat ve Sık Sorulanlar',
-        };
+        $pageTitle = (string) $this->firstCompliant(match ($type) {
+            'guide' => [mb_convert_case(mb_substr($topQuery, 0, 1), MB_CASE_UPPER).mb_substr($topQuery, 1).': Adım Adım Rehber'],
+            'faq' => [$offering['name'].' Hakkında Sık Sorulan Sorular'],
+            'location' => [$location.' '.$offering['name'].': Süreç ve Fiyatlar', $location.' '.$offering['name'].': Süreç ve Sık Sorulanlar'],
+            default => [$offering['name'].': Süreç, Fiyat ve Sık Sorulanlar', $offering['name'].': Süreç ve Sık Sorulanlar'],
+        }, $offering['name']);
 
+        // Each line: preferred wording first, then a sector-safe alternative; a line with no allowed wording is dropped.
         $outline = match ($type) {
             'guide' => [
-                $topQuery.' nedir?',
-                'Süreç adım adım',
-                'Süre, fiyat ve etkileyen faktörler',
-                'Kimler için uygun / uygun değil',
-                'Sık sorulan sorular',
-                'Randevu / teklif CTA',
+                [$topQuery.' nedir?'],
+                ['Süreç adım adım'],
+                ['Süre, fiyat ve etkileyen faktörler', 'Süre ve etkileyen faktörler'],
+                ['Kimler için uygun / uygun değil'],
+                ['Sık sorulan sorular'],
+                ['Randevu / teklif CTA', 'Randevu CTA'],
             ],
-            'faq' => array_merge(array_map(static fn (string $q): string => ucfirst($q).'?', array_slice($queries, 0, 6)), ['Uzmanla görüşün (CTA)']),
+            'faq' => array_merge(array_map(static fn (string $q): array => [ucfirst($q).'?'], array_slice($queries, 0, 6)), [['Uzmanla görüşün (CTA)']]),
             'location' => [
-                $location.' bölgesinde '.$offering['name'],
-                'Neden biz: deneyim, ekip, referans',
-                'Süreç ve fiyatlandırma',
-                'Ulaşım ve çalışma saatleri',
-                'Sık sorulan sorular',
-                'Randevu CTA',
+                [$location.' bölgesinde '.$offering['name']],
+                ['Neden biz: deneyim, ekip, referans', 'Ekip ve deneyim'],
+                ['Süreç ve fiyatlandırma', 'Süreç ve planlama'],
+                ['Ulaşım ve çalışma saatleri'],
+                ['Sık sorulan sorular'],
+                ['Randevu CTA'],
             ],
             default => [
-                $offering['name'].' nedir, kimler için?',
-                'Uygulama süreci',
-                'Fiyatlandırma ve seçenekler',
-                'Öncesi / sonrası, referanslar',
-                'Sık sorulan sorular',
-                'Randevu / teklif CTA',
+                [$offering['name'].' nedir, kimler için?'],
+                ['Uygulama süreci'],
+                ['Fiyatlandırma ve seçenekler', 'Seçenekler ve planlama'],
+                ['Öncesi / sonrası, referanslar', 'Riskler ve dikkat edilmesi gerekenler'],
+                ['Sık sorulan sorular'],
+                ['Randevu / teklif CTA', 'Randevu CTA'],
             ],
         };
+        $outline = array_values(array_filter(array_map(fn (array $options): ?string => $this->firstCompliant($options), $outline)));
 
         $taskTitle = match (true) {
             $decision === 'existing_page_section' => sprintf('%s sayfasına bölüm ekle (%d sorgu)', $offering['name'], count($queries)),
@@ -1026,10 +1071,12 @@ final class SeoTaskRuleEngine
     {
         $texts = [];
         foreach ($pages as $page) {
-            if (! $page['observed'] && $page['title'] === null) {
+            // Sitemap-only rows (no HTML read yet) still count through their URL slug.
+            $slug = SeoText::slugText($page['url']);
+            if (! $page['observed'] && $page['title'] === null && $slug === '') {
                 continue;
             }
-            $texts[] = SeoText::fold(implode(' ', array_filter([$page['title'], $page['h1'], SeoText::slugText($page['url'])])));
+            $texts[] = SeoText::fold(implode(' ', array_filter([$page['title'], $page['h1'] ?? null, $slug])));
         }
 
         return $texts;
@@ -1048,6 +1095,118 @@ final class SeoTaskRuleEngine
         }
 
         return false;
+    }
+
+    /**
+     * One setup card while the site has no page list: new-page proposals would duplicate existing pages.
+     *
+     * @return array<string, mixed>
+     */
+    private function inventoryMissingTask(array $input): array
+    {
+        $collection = (string) data_get($input, 'inventory.collection', 'unknown');
+        $reason = match ($collection) {
+            'queued', 'running' => 'Sitenin sayfa listesi henüz yok — tarama başlatıldı; tarama bitince plan kendiliğinden yenilenir.',
+            'rebuilding' => 'Sitenin sayfa listesi henüz yok — son taramanın verisinden sayfa listesi yeniden kuruluyor; bitince plan kendiliğinden yenilenir.',
+            'empty_after_crawl' => 'Sitenin sayfa listesi yok: son tarama hiçbir sayfa bulamadı. Sitemap ve robots.txt erişimini kontrol edip taramayı site ekranından yeniden başlat.',
+            'no_address' => 'Sitenin sayfa listesi yok ve varlıkta adres tanımlı değil; adresi girip taramayı başlat.',
+            default => 'Sitenin sayfa listesi henüz yok — tarama başlatılamadı. Site ekranından taramayı başlat; tarama bitince plan kendiliğinden yenilenir.',
+        };
+
+        return $this->task(
+            type: SeoTaskType::Question,
+            ruleId: self::INVENTORY_MISSING_RULE,
+            keyParts: [],
+            severity: 'high',
+            score: 1000,
+            title: 'Sitenin sayfa listesi henüz yok',
+            reason: $reason.' Mevcut sayfalarla çakışmasın diye bu planda yeni sayfa ve hizmet sayfası önerisi üretilmedi.',
+            evidence: array_filter([
+                'collection' => $collection,
+                'collection_run_id' => data_get($input, 'inventory.collection_run_id'),
+                'error' => data_get($input, 'inventory.error'),
+            ], static fn (mixed $value): bool => $value !== null),
+            checklist: [
+                'Tarama sitemap dahil sayfaları okur; bitince sayfa listesi ve plan kendiliğinden güncellenir.',
+                'Uzun sürerse site ekranındaki "Veri toplama" durumunu kontrol et.',
+            ],
+        );
+    }
+
+    /** True when no active sector-pack rule forbids the text (seo_brief scope). */
+    private function isCompliant(string $text): bool
+    {
+        return $this->forbiddenPatterns($text) === [];
+    }
+
+    /** @return list<string> matched forbidden patterns */
+    private function forbiddenPatterns(string $text): array
+    {
+        if ($this->complianceRules === [] || trim($text) === '') {
+            return [];
+        }
+        $hits = (new ComplianceChecker)->checkText($text, collect($this->complianceRules), 'seo_brief');
+
+        return array_values(array_map(
+            static fn (array $hit): string => (string) $hit['matched'],
+            array_filter($hits, static fn (array $hit): bool => $hit['rule']->kind === ComplianceRuleKinds::FORBIDDEN),
+        ));
+    }
+
+    /** @param list<string> $options */
+    private function firstCompliant(array $options, ?string $fallback = null): ?string
+    {
+        foreach ($options as $option) {
+            if ($this->isCompliant($option)) {
+                return $option;
+            }
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * The phrase a writer is asked to target. A search query with a forbidden word ("implant fiyatları") keeps its
+     * topic without that word ("implant süreci" for a guide); the service name is the last resort.
+     */
+    private function compliantTopic(string $query, string $serviceName, string $type): string
+    {
+        $patterns = $this->forbiddenPatterns($query);
+        if ($patterns === []) {
+            return $query;
+        }
+        $stems = [];
+        foreach ($patterns as $pattern) {
+            foreach (explode(' ', SeoText::fold($pattern)) as $token) {
+                if (mb_strlen($token) >= 3) {
+                    $stems[] = $token;
+                }
+            }
+        }
+        $words = array_filter(preg_split('/\s+/u', trim($query)) ?: [], static function (string $word) use ($stems): bool {
+            foreach ($stems as $stem) {
+                if (SeoText::matchesPhrase($word, $stem)) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+        $topic = trim(implode(' ', $words));
+        if ($topic === '' || ! $this->isCompliant($topic) || SeoText::tokens($topic) === []) {
+            $topic = self::lowerTr($serviceName);
+        }
+        if ($type === 'guide' && ! SeoText::looksLikeQuestion($topic) && ! str_contains(SeoText::fold($topic), 'surec')) {
+            $topic .= ' süreci';
+        }
+
+        return $topic;
+    }
+
+    /** Turkish lower case ("İmplant" → "implant", not "i̇mplant"). */
+    private static function lowerTr(string $text): string
+    {
+        return mb_strtolower(strtr($text, ['I' => 'ı', 'İ' => 'i']), 'UTF-8');
     }
 
     // ---------------------------------------------------------- ai visibility
