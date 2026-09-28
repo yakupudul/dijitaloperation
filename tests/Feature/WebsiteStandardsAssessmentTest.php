@@ -143,6 +143,12 @@ final class WebsiteStandardsAssessmentTest extends TestCase
         $website = $this->website();
         $this->get(route('operator.library.website-standards'))->assertOk()->assertSee('Standards')->assertSee('Shared checks for every brand.');
         $this->get(route('operator.website', ['assetId' => $website->id, 'tab' => 'standards']))->assertOk()->assertSee('Web sitesini değerlendir');
+        // Business Profile standards have their own tab, editable like website standards; website tab does not list them.
+        Livewire::test(WebsiteStandardsPage::class)->set('assetType', 'google_business_profile')->set('search', 'Birincil kategori')
+            ->assertSee('Birincil kategori')->assertSee('2026-09-28')
+            ->call('setSeverity', 'gbp:primary_category', 'medium')->assertHasNoErrors();
+        $this->assertSame('medium', app(WebsiteStandardCatalog::class)->all()['gbp:primary_category']['severity']);
+        Livewire::test(WebsiteStandardsPage::class)->set('search', 'Birincil kategori')->assertDontSee('Birincil kategori seç');
         $member = User::factory()->create(['is_active' => true]);
         $member->assignRole(Roles::TEAM_MEMBER);
         $this->actingAs($member);

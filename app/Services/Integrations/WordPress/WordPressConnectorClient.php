@@ -44,6 +44,12 @@ final class WordPressConnectorClient
                 $current->update(['config' => array_merge($current->config ?? [], ['plugin_version' => $version])]);
                 DB::table('website_connector_delivery')->where('connection_id', $current->id)->update(['plugin_version' => $version]);
             }
+            // Signed capability list (drafts, fixes, indexnow, …): the IndexNow standard reads it.
+            $capabilities = $data['capabilities'] ?? null;
+            if (is_array($capabilities)) {
+                $known = array_values(array_filter($capabilities, fn ($value): bool => is_string($value) && preg_match('/^[a-z_]{2,32}$/', $value) === 1));
+                $current->update(['config' => array_merge($current->config ?? [], ['capabilities' => array_slice($known, 0, 30)])]);
+            }
         });
 
         return $data;

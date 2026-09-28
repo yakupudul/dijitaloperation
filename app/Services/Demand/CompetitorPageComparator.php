@@ -20,6 +20,12 @@ use Throwable;
  */
 final class CompetitorPageComparator
 {
+    /**
+     * Schema types worth copying from competitors. Not suggested (standards 2026-09-28): FAQPage (no rich result since
+     * 2026-05-07), HowTo (removed 2023), AggregateRating / Review on the business itself (self-serving, no stars).
+     */
+    private const array SCHEMA_GAP_TYPES = ['Service', 'MedicalProcedure', 'MedicalBusiness', 'Dentist', 'Physician', 'LocalBusiness', 'Product', 'Offer', 'BreadcrumbList'];
+
     public function __construct(private readonly DemandPageFetcher $fetcher) {}
 
     /** @return array{services: int, compared: int, gaps: int, fetched: int} */
@@ -118,7 +124,7 @@ final class CompetitorPageComparator
             $gaps[] = ['key' => 'structure', 'text' => sprintf('Alt başlık az: bizde %d H2, rakiplerde ortanca %d. Kullanıcının aradığı alt konuları ayrı başlıklarla işle.', $ours['h2_count'], (int) $median['h2_count'])];
         }
         if (! $ours['faq'] && $count(fn (array $m): bool => $m['faq']) >= $half) {
-            $gaps[] = ['key' => 'faq', 'text' => 'Rakiplerin çoğunda Sık Sorulan Sorular bölümü var, bizde yok. Gerçek sorularla SSS ekle (FAQPage şeması ile).'];
+            $gaps[] = ['key' => 'faq', 'text' => 'Rakiplerin çoğunda Sık Sorulan Sorular bölümü var, bizde yok. Gerçek hasta sorularıyla SSS ekle (FAQPage işaretlemesi isteğe bağlı; zengin sonuç üretmez).'];
         }
         $theirTypes = [];
         foreach ($competitors as $m) {
@@ -127,7 +133,7 @@ final class CompetitorPageComparator
             }
         }
         $missing = array_keys(array_filter($theirTypes, fn (int $n, string $type): bool => $n >= $half && ! in_array($type, $ours['schema_types'], true)
-            && in_array($type, ['FAQPage', 'Service', 'MedicalProcedure', 'MedicalBusiness', 'Dentist', 'Physician', 'LocalBusiness', 'Product', 'Offer', 'AggregateRating', 'Review', 'BreadcrumbList', 'HowTo'], true), ARRAY_FILTER_USE_BOTH));
+            && in_array($type, self::SCHEMA_GAP_TYPES, true), ARRAY_FILTER_USE_BOTH));
         if ($missing !== []) {
             $gaps[] = ['key' => 'schema', 'text' => 'Rakiplerde olan yapısal veri bizde eksik: '.implode(', ', $missing).'.'];
         }

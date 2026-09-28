@@ -22,6 +22,9 @@ final class WebsiteStandardEvaluator
         if (str_starts_with($method, 'url_')) {
             return $this->out('not_applicable', 'Bu kriter Sayfa Karnesi’nde (URL bazında) değerlendirilir.');
         }
+        if (str_starts_with($method, 'gbp_')) {
+            return $this->out('not_applicable', 'Bu kriter İşletme Profili sağlığında değerlendirilir.');
+        }
         if ($method === 'expert_review') {
             return $this->out('unknown', 'Bu kriter, seçilen sayfa ve sorgu kümesi üzerinde uzman incelemesi gerektirir.');
         }

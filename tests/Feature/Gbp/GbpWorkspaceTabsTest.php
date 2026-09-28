@@ -205,8 +205,11 @@ final class GbpWorkspaceTabsTest extends TestCase
 
     public function test_profile_health_is_a_read_only_checklist_with_a_link_to_google(): void
     {
-        $this->page('profile')->assertSee('Profil sağlığı')->assertSee(__('operator_gbp.completeness_items.special_hours'))
-            ->assertSee('Yapılacak: Saatler bölümünden')->assertSee('https://business.google.com/locations')->assertSee('2/7 gün');
+        // Profile health is the Business Profile standards: upcoming Cumhuriyet Bayramı without special hours.
+        $this->travelTo(now()->setDate(2026, 10, 10));
+        $this->page('profile')->assertSee('Profil sağlığı')->assertSee('Çalışma ve özel gün saatleri')->assertSee('Cumhuriyet Bayramı')
+            ->assertSee('Yapılacak: Saatler bölümünden')->assertSee('https://business.google.com/locations')->assertSee('2/7 gün')
+            ->assertSee('Birincil kategori');
         Http::assertNothingSent();
     }
 

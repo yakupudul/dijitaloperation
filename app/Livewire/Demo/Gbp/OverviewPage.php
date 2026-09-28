@@ -367,7 +367,7 @@ class OverviewPage extends Component
             'postDraft' => $this->tab === 'posts' ? $postDrafter->latest($asset) : null,
             'postDraftState' => $this->tab === 'posts' ? $postDrafter->state((int) $asset->id) : null,
             'postCost' => $this->tab === 'posts' ? $postDrafter->estimate() : null,
-            'health' => $this->tab === 'profile' && $resourceId !== null ? $daily->health($resourceId) : null,
+            'health' => $this->tab === 'profile' && $resourceId !== null ? $daily->health($resourceId, $asset) : null,
             'managerUrl' => GbpDailyWorkspace::MANAGER_URL,
             'reviewLink' => $reviewLink,
             'reviewQr' => $this->tab === 'collect' && $reviewLink !== null ? $daily->qrSvg($reviewLink) : null,

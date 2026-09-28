@@ -97,7 +97,9 @@ return [
     ],
 
     'ai_visibility' => [
-        'blocked_bots' => ['OAI-SearchBot', 'ChatGPT-User', 'GPTBot', 'Claude-SearchBot', 'ClaudeBot', 'Googlebot', 'Google-Extended', 'PerplexityBot'],
+        // Search / user-fetch crawlers only. Training bots (GPTBot, ClaudeBot, Google-Extended, CCBot) do not decide
+        // search or AI Overviews visibility; blocking them is an owner's choice, never a task (standards 2026-09-28).
+        'blocked_bots' => ['Googlebot', 'Bingbot', 'OAI-SearchBot', 'ChatGPT-User', 'Claude-SearchBot', 'Claude-User', 'PerplexityBot'],
     ],
 
     // Faz 0 — sayfa envanteri güvencesi: envanter boşsa plan tarama (sitemap dahil) başlatır, yeni sayfa önermez.

@@ -65,6 +65,12 @@ final class SeoStoredHtmlReader
             }
         }
 
+        // Visible question headings (an FAQ section with or without FAQPage markup).
+        $questionHeadings = 0;
+        foreach ($xpath->query('//h2|//h3|//h4|//summary|//dt') ?: [] as $node) {
+            $questionHeadings += str_ends_with(trim((string) $node->textContent), '?') ? 1 : 0;
+        }
+
         $types = [];
         $sameAs = [];
         foreach ($xpath->query('//script[@type="application/ld+json"]') ?: [] as $node) {
@@ -111,6 +117,7 @@ final class SeoStoredHtmlReader
             'text_excerpt' => $excerpt,
             'lead_words' => $leadWords,
             'tel_numbers' => array_values(array_unique($tel)),
+            'question_headings' => $questionHeadings,
         ];
     }
 

@@ -7,6 +7,11 @@
         'assessment_url_index' => 'Saklı sayfalar arası karşılaştırma', 'website_http_snapshot' => 'HTTP gözlemi',
         'tls_info' => 'TLS sertifika gözlemi', 'document_head' => 'Sayfa başlık bilgileri',
         'cluster_context' => 'Sorgu kümesi bağlamı', 'connector_delivery' => 'Connector bildirim kaydı',
+        'page_inventory' => 'Sayfa envanteri', 'robots_txt' => 'robots.txt', 'sector_pack' => 'Sektör paketi kuralları',
+        'connector_status' => 'Connector durumu', 'ga4_source_medium' => 'GA4 kaynak / ortam', 'url_audit' => 'Sayfa Karnesi',
+        'gbp_location' => 'İşletme Profili bilgileri', 'gbp_services' => 'Profil hizmetleri', 'gbp_attributes' => 'Profil özellikleri',
+        'gbp_media' => 'Profil fotoğrafları', 'gbp_posts' => 'Profil gönderileri', 'gbp_reviews' => 'Profil yorumları',
+        'brand' => 'Marka', 'brand_offerings' => 'Marka hizmetleri',
     ];
 @endphp
 <div class="space-y-5">
@@ -17,11 +22,11 @@
     @if($message)<p role="status" class="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{{ $message }}</p>@endif
     @if($errors->any())<div role="alert" class="rounded-lg bg-red-50 p-3 text-sm text-red-700">@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>@endif
     <nav class="flex gap-6 border-b border-gray-200 dark:border-gray-800" aria-label="{{ $tr ? 'Dijital varlık türü' : 'Asset type' }}">
-        @foreach(['website' => $tr ? 'Web sitesi' : 'Website', 'google_ads' => 'Google Ads', 'meta_ads' => 'Meta Ads'] as $key => $label)
+        @foreach(['website' => $tr ? 'Web sitesi' : 'Website', 'google_business_profile' => $tr ? 'İşletme Profili' : 'Business Profile', 'google_ads' => 'Google Ads', 'meta_ads' => 'Meta Ads'] as $key => $label)
             <button type="button" wire:click="$set('assetType', '{{ $key }}')" @class(['border-b-2 px-1 pb-3 text-sm font-medium', 'border-brand-500 text-brand-600' => $assetType === $key, 'border-transparent text-gray-500' => $assetType !== $key])>{{ $label }}</button>
         @endforeach
     </nav>
-    @if($assetType !== 'website')
+    @if(! in_array($assetType, ['website', 'google_business_profile'], true))
         <section class="rounded-xl border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-gray-900">
             <h2 class="font-semibold text-gray-900 dark:text-white">{{ $assetType === 'google_ads' ? 'Google Ads' : 'Meta Ads' }}</h2>
             <p class="mt-2 text-sm text-gray-500">{{ $tr ? 'Bu kategori hazır. Reklam standartları henüz tanımlanmadı; şu an web sitesi standartlarını düzenliyoruz.' : 'This category is reserved. Advertising checks have not been defined yet.' }}</p>
@@ -53,7 +58,7 @@
                         <article wire:key="standard-{{ $standard['id'] }}" class="border-b border-gray-100 px-5 py-4 last:border-0 dark:border-gray-800">
                             <div class="flex flex-wrap items-start justify-between gap-3">
                                 <div class="min-w-0 flex-1">
-                                    <p class="text-xs text-gray-500">{{ ($standard['platform'] ?? 'general') === 'wordpress' ? 'WordPress' : ($tr ? 'Genel web sitesi' : 'General website') }} · {{ \MoxDop\Website\Standards\WebsiteStandardCatalog::GROUPS[$standard['group']] }}</p>
+                                    <p class="text-xs text-gray-500">{{ ($standard['asset_type'] ?? 'website') === 'google_business_profile' ? ($tr ? 'İşletme Profili' : 'Business Profile') : (($standard['platform'] ?? 'general') === 'wordpress' ? 'WordPress' : ($tr ? 'Genel web sitesi' : 'General website')) }} · {{ \MoxDop\Website\Standards\WebsiteStandardCatalog::GROUPS[$standard['group']] }}</p>
                                     <h2 class="mt-1 font-semibold text-gray-900 dark:text-white">{{ $standard['title'] }}</h2>
                                     <p class="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-400">{{ $standard['criterion'] }}</p>
                                 </div>
@@ -65,7 +70,7 @@
                                 <summary class="cursor-pointer text-xs font-medium text-brand-600">{{ $tr ? 'Kanıt, çözüm ve ayarlar' : 'Evidence, action and settings' }}</summary>
                                 <dl class="mt-3 grid gap-4 rounded-lg bg-gray-50 p-4 sm:grid-cols-2 dark:bg-gray-800">
                                     <div><dt class="text-xs font-semibold">{{ $tr ? 'Kaynak' : 'Source' }}</dt><dd class="mt-1 text-xs">{{ implode(', ', array_map(fn ($key) => $evidenceLabels[$key] ?? $key, $standard['required_evidence'])) }}</dd></div>
-                                    <div><dt class="text-xs font-semibold">{{ $tr ? 'Kontrol türü' : 'Check type' }}</dt><dd class="mt-1 text-xs">{{ $standard['classification'] === 'verified' ? ($tr ? 'Doğrudan gözlem' : 'Direct observation') : ($tr ? 'İnceleme tavsiyesi; sıralama garantisi değildir' : 'Advisory review; no ranking guarantee') }}</dd></div>
+                                    <div><dt class="text-xs font-semibold">{{ $tr ? 'Kontrol türü' : 'Check type' }}</dt><dd class="mt-1 text-xs">{{ ($standard['informational'] ?? false) ? ($tr ? 'Yalnız bilgi; sorun sayılmaz' : 'Informational; never a defect') : ($standard['classification'] === 'verified' ? ($tr ? 'Doğrudan gözlem' : 'Direct observation') : ($tr ? 'İnceleme tavsiyesi; sıralama garantisi değildir' : 'Advisory review; no ranking guarantee')) }}</dd></div>
                                     <div class="sm:col-span-2"><dt class="text-xs font-semibold">{{ $tr ? 'Yapılacak işlem' : 'Action' }}</dt><dd class="mt-1">{{ $standard['action'] }}</dd></div>
                                     <div class="sm:col-span-2"><dt class="text-xs font-semibold">{{ $tr ? 'Doğrulama' : 'Verification' }}</dt><dd class="mt-1 text-xs">{{ $standard['verification'] }}</dd></div>
                                 </dl>
@@ -75,7 +80,7 @@
                                         <select aria-label="{{ $tr ? 'Önem derecesi' : 'Severity' }}" wire:change="setSeverity('{{ $standard['id'] }}', $event.target.value)" wire:loading.attr="disabled" class="rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-900">@foreach($severityLabels as $key => $label)<option value="{{ $key }}" @selected($standard['severity'] === $key)>{{ $label }}</option>@endforeach</select>
                                         <button type="button" wire:click="resetStandard('{{ $standard['id'] }}')" wire:confirm="{{ $tr ? 'Bu standardın tüm markalarda geçerli etkinlik ve önem ayarları varsayılana döndürülsün mü?' : 'Restore this standard’s default settings for all brands?' }}" wire:loading.attr="disabled" class="text-gray-500 underline">{{ $tr ? 'Varsayılana dön' : 'Restore defaults' }}</button>
                                     @else<span>{{ $severityLabels[$standard['severity']] ?? $standard['severity'] }}</span>@endif
-                                    @if($standard['source_url'])<a href="{{ $standard['source_url'] }}" target="_blank" rel="noopener noreferrer" class="text-brand-600 underline">{{ $tr ? 'Referans kaynağı' : 'Reference' }}</a>@endif
+                                    @if($standard['source_url'])<a href="{{ $standard['source_url'] }}" target="_blank" rel="noopener noreferrer" class="text-brand-600 underline">{{ $tr ? 'Referans kaynağı' : 'Reference' }}</a>@if(! empty($standard['source_reviewed_at']))<span class="text-gray-400">{{ $tr ? 'kontrol:' : 'checked:' }} {{ $standard['source_reviewed_at'] }}</span>@endif @endif
                                 </div>
                             </details>
                         </article>

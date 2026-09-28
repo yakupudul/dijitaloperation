@@ -77,6 +77,11 @@ final class CompetitorPageComparatorTest extends TestCase
         $row = DB::table('demand_service_comparisons')->where('brand_offering_id', $this->implant->id)->sole();
         $gaps = array_column(json_decode($row->gaps, true), 'key');
         $this->assertEqualsCanonicalizing(['content_depth', 'structure', 'faq', 'schema', 'price', 'area'], $gaps);
+        // Standards 2026-09-28: FAQPage / HowTo are never suggested as schema to copy (no rich result).
+        $schemaGap = collect(json_decode($row->gaps, true))->firstWhere('key', 'schema')['text'];
+        $this->assertStringContainsString('MedicalProcedure', $schemaGap);
+        $this->assertStringNotContainsString('FAQPage', $schemaGap);
+        $this->assertStringNotContainsString('HowTo', $schemaGap);
         $this->assertSame(14, (int) $row->our_rank);
         $this->assertSame(['rakip1.com', 'rakip2.com'], array_column(json_decode($row->competitors, true), 'domain'), 'only top-5 pages that outrank us');
 
@@ -124,7 +129,7 @@ final class CompetitorPageComparatorTest extends TestCase
         if ($place !== null) {
             $body .= '<p>'.$place.' kliniğimiz</p>';
         }
-        $schema = $faq ? '<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[]}</script>' : '';
+        $schema = $faq ? '<script type="application/ld+json">[{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[]},{"@type":"MedicalProcedure"},{"@type":"HowTo"}]</script>' : '';
 
         return '<html><head><title>İmplant</title>'.$schema.'</head><body>'.$body.'<a href="/iletisim">İletişim</a></body></html>';
     }

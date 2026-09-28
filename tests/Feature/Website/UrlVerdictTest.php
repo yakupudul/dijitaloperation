@@ -64,7 +64,8 @@ final class UrlVerdictTest extends TestCase
 
         // Clean service page: indexable, in sitemap, linked, author, procedure and breadcrumb data.
         $clean = $this->page('/tedavilerimiz/kanal-tedavisi/', ['document_head' => ['title' => 'Kanal Tedavisi', 'canonical_hrefs' => ['https://'.self::HOST.'/tedavilerimiz/kanal-tedavisi/']], 'content' => ['word_count' => 900]]);
-        $this->html($clean, '<html lang="tr"><head><script type="application/ld+json">[{"@type":"MedicalProcedure","name":"Kanal tedavisi"},{"@type":"BreadcrumbList","itemListElement":[]}]</script></head><body><h1>Kanal Tedavisi</h1><p class="author">Dr. Ayşe Yılmaz</p><p>'.str_repeat('Kanal tedavisi süreci anlatılır. ', 80).'</p></body></html>');
+        $this->html($clean, '<html lang="tr"><head><script type="application/ld+json">[{"@type":"MedicalProcedure","name":"Kanal tedavisi"},{"@type":"BreadcrumbList","itemListElement":[]}]</script></head><body><h1>Kanal Tedavisi</h1><p class="author">Dr. Ayşe Yılmaz</p><p>'.str_repeat('Kanal tedavisi süreci anlatılır. ', 80).'</p>'
+            .'<h2>Tedavi süreci</h2><h2>Kaç seans sürer?</h2><h2>Kimlere uygulanır?</h2><h2>Riskler</h2><h2>Tedavi sonrası bakım</h2><h3>Ağrı olur mu?</h3></body></html>');
 
         // Doorway group: one service head ("implant") repeated with location / modifier words.
         foreach (['/ankara-implant-merkezi/', '/ankara-implant-klinigi/', '/ankara-implant-yapan-yerler/', '/ankara-dis-implanti/', '/cankaya-implant/'] as $path) {
@@ -72,7 +73,9 @@ final class UrlVerdictTest extends TestCase
         }
         // Distinct services are not grouped.
         $this->page('/zirkonyum-kaplama/', ['document_head' => ['title' => 'Zirkonyum kaplama']]);
-        $this->page('/dis-beyazlatma/', ['document_head' => ['title' => 'Diş beyazlatma']]);
+        $whitening = $this->page('/dis-beyazlatma/', ['document_head' => ['title' => 'Diş beyazlatma']]);
+        // Sağlık tanıtım yönetmeliği: discount wording on a live page of a dental brand.
+        $this->html($whitening, '<html lang="tr"><body><h1>Diş beyazlatma</h1><p>Bu ay diş beyazlatmada %30 indirim kampanyası! '.str_repeat('Beyazlatma bilgisi. ', 60).'</p></body></html>');
         // Failing standard: noindex page listed in the sitemap.
         $this->page('/eski-kampanya/', ['document_head' => ['title' => 'Eski kampanya', 'robots' => 'noindex,follow']]);
         // Junk page open to Google.
@@ -108,6 +111,9 @@ final class UrlVerdictTest extends TestCase
         $this->assertStringContainsString('Sorun yok — gerek yok', $clean->reason);
         $this->assertStringContainsString('HTTP 200', $clean->reason);
         $this->assertSame('Bir şey yapmanıza gerek yok.', $clean->solution);
+        // Questions without FAQPage markup are informational only (no FAQ rich result since 2026-05-07).
+        $this->assertSame('info', collect($clean->findings)->firstWhere('id', 'website:url:faq_schema')['state']);
+        $this->assertSame('pass', collect($clean->findings)->firstWhere('id', 'website:url:service_content_depth')['state']);
 
         // Doorway group: merge into the page with Google clicks, the group is listed.
         foreach (['/ankara-implant-klinigi/', '/ankara-implant-yapan-yerler/', '/ankara-dis-implanti/', '/cankaya-implant/'] as $path) {
@@ -120,6 +126,10 @@ final class UrlVerdictTest extends TestCase
         $this->assertNotSame(WebsiteUrlVerdict::MERGE, $verdicts['/ankara-implant-merkezi/']->verdict, 'the kept page is not merged');
         $this->assertNotSame(WebsiteUrlVerdict::MERGE, $verdicts['/zirkonyum-kaplama/']->verdict, 'distinct services are not grouped');
         $this->assertNotSame(WebsiteUrlVerdict::MERGE, $verdicts['/dis-beyazlatma/']->verdict);
+        $promotion = collect($verdicts['/dis-beyazlatma/']->findings)->firstWhere('id', 'website:url:tr_health_promotion');
+        $this->assertSame('review', $promotion['state']);
+        $this->assertStringContainsString('indirim', $promotion['finding']);
+        $this->assertSame(WebsiteUrlVerdict::FIX, $verdicts['/dis-beyazlatma/']->verdict);
 
         // Failing standard: Düzelt with the rule, finding and solution.
         $old = $verdicts['/eski-kampanya/'];
@@ -149,6 +159,12 @@ final class UrlVerdictTest extends TestCase
         $this->assertSame('pass', $audit->site_checks['website:url:medical_business_schema']['state']);
         $this->assertSame('pass', $audit->site_checks['website:url:organization_nap_schema']['state']);
         $this->assertSame('not_applicable', $audit->site_checks['website:url:gbp_nap_consistency']['state']);
+        // Research standards 2026-09: health site without update date / editor is "Öneri"; missing sources are never a failure.
+        $this->assertSame('review', $audit->site_checks['website:url:tr_health_disclosure']['state']);
+        $this->assertSame('not_applicable', $audit->site_checks['website:url:robots_search_engines']['state'], 'no robots.txt evidence');
+        $this->assertSame('unknown', $audit->site_checks['website:url:indexnow']['state'], 'no WordPress Connector');
+        $this->assertSame('not_applicable', $audit->site_checks['website:url:ai_referral_tracking']['state'], 'no GA4 data');
+        $this->assertSame('pass', $audit->site_checks['website:url:site_reputation_abuse']['state']);
         $this->assertNotEmpty($audit->groups);
     }
 

@@ -1295,7 +1295,7 @@ final class SeoTaskRuleEngine
                     severity: 'low',
                     score: 240,
                     title: 'Kuruluş şemasına sameAs bağlantılarını ekle',
-                    reason: 'Ana sayfada kuruluş şeması var ama sameAs listesi boş. AI arama motorları markayı sosyal profiller ve işletme profiliyle eşleştiremiyor.',
+                    reason: 'Ana sayfada kuruluş şeması var ama sameAs listesi boş. sameAs, markanın resmi profillerini (İşletme Profili, sosyal hesaplar) arama motorlarına bildirir.',
                     evidence: ['found_types' => $home['structured_types'], 'url' => $home['url']],
                     checklist: ['Organization/LocalBusiness JSON-LD içine sameAs dizisi ekle: Instagram, Facebook, LinkedIn, YouTube, Google İşletme Profili URL\'leri.', 'Aynı bağlantıları sitenin alt bilgisinde de göster.'],
                     targetUrl: $home['url'],
@@ -1330,7 +1330,7 @@ final class SeoTaskRuleEngine
                     severity: $googleBlocked ? 'critical' : 'medium',
                     score: $googleBlocked ? 950 : 320,
                     title: 'robots.txt şu botları engelliyor: '.implode(', ', $blocked),
-                    reason: $googleBlocked ? 'Googlebot engellenmiş; site dizinden düşer.' : 'AI arama botları engellenmiş; ChatGPT/Claude aramalarında site görünmez.',
+                    reason: $googleBlocked ? 'Googlebot engellenmiş; site dizinden düşer.' : 'Arama botları engellenmiş; Bing / ChatGPT / Claude / Perplexity aramalarında site görünmez. Eğitim botları (GPTBot, Google-Extended) bu kontrole dahil değildir.',
                     evidence: ['blocked' => $blocked, 'observed_at' => $robots['observed_at'] ?? null],
                     checklist: ['robots.txt içindeki ilgili Disallow satırlarını kaldır veya sadece özel dizinlerle sınırla.'],
                 );
@@ -1347,8 +1347,12 @@ final class SeoTaskRuleEngine
             if ($key === null || ! isset($pages[$key])) {
                 continue;
             }
+            // Only pages whose HTML was read; an FAQ section counts with or without (optional) FAQPage markup.
+            if (! ($pages[$key]['html_read'] ?? false)) {
+                continue;
+            }
             $types = array_map('mb_strtolower', $pages[$key]['structured_types']);
-            if (! in_array('faqpage', $types, true)) {
+            if (! in_array('faqpage', $types, true) && (int) ($pages[$key]['question_headings'] ?? 0) < 2) {
                 $missingFaq[] = ['offering' => $offering['name'], 'url' => $pages[$key]['url']];
             }
         }
@@ -1357,12 +1361,12 @@ final class SeoTaskRuleEngine
                 type: SeoTaskType::AiVisibility,
                 ruleId: 'faq-block',
                 keyParts: [],
-                severity: 'medium',
-                score: 280,
+                severity: 'low',
+                score: 200,
                 title: sprintf('%d öncelikli hizmet sayfasına soru-cevap bloğu ekle', count($missingFaq)),
-                reason: 'Öncelikli hizmet sayfalarında FAQPage şeması yok. Soru-cevap blokları AI cevaplarında alıntılanma şansını artırır.',
+                reason: 'Öncelikli hizmet sayfalarında soru-cevap bölümü görünmüyor. Gerçek hasta soruları ziyaretçiye yardımcı olur; FAQPage işaretlemesi isteğe bağlıdır ve 7 Mayıs 2026’dan beri zengin sonuç üretmez.',
                 evidence: ['pages' => $missingFaq],
-                checklist: ['Her sayfaya 4–6 gerçek müşteri sorusu ve kısa cevap ekle.', 'FAQPage JSON-LD ile işaretle.'],
+                checklist: ['Her sayfaya 4–6 gerçek müşteri sorusu ve kısa cevap ekle.', 'İşaretleme (FAQPage) eklemek zorunlu değil; eklersen cevaplar sayfadaki metinle aynı olsun.'],
             );
         }
 

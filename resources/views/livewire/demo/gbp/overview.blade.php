@@ -577,11 +577,13 @@
             @else
                 <ul class="mt-3 divide-y divide-gray-100 dark:divide-gray-700">
                     @foreach ($health['items'] as $item)
+                        @php($open = in_array($item['state'] ?? ($item['done'] ? 'pass' : 'fail'), ['fail', 'review'], true))
+                        @php($muted = in_array($item['state'] ?? '', ['unknown', 'not_applicable'], true))
                         <li class="flex items-start gap-3 py-2 text-sm">
-                            <span @class(['mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold', 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' => $item['done'], 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' => ! $item['done']])>{{ $item['done'] ? '✓' : '!' }}</span>
+                            <span @class(['mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold', 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' => $item['done'], 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' => $open, 'bg-gray-100 text-gray-400 dark:bg-white/5' => $muted])>{{ $item['done'] ? '✓' : ($muted ? '–' : '!') }}</span>
                             <div class="min-w-0 flex-1">
-                                <p><span @class(['font-medium text-gray-900 dark:text-white' => ! $item['done'], 'text-gray-700 dark:text-gray-300' => $item['done']])>{{ $item['label'] }}</span> <span class="text-xs text-gray-400">· {{ $item['value'] }}</span></p>
-                                @unless ($item['done'])<p class="mt-0.5 text-xs text-gray-600 dark:text-gray-400">Yapılacak: {{ $item['todo'] }}</p>@endunless
+                                <p><span @class(['font-medium text-gray-900 dark:text-white' => $open, 'text-gray-700 dark:text-gray-300' => ! $open])>{{ $item['label'] }}</span> <span class="text-xs text-gray-400">· {{ $item['value'] }}</span></p>
+                                @if ($open && $item['todo'] !== '')<p class="mt-0.5 text-xs text-gray-600 dark:text-gray-400">Yapılacak: {{ $item['todo'] }}</p>@endif
                             </div>
                         </li>
                     @endforeach

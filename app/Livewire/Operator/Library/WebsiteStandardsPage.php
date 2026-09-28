@@ -72,12 +72,11 @@ final class WebsiteStandardsPage extends Component
     public function render(WebsiteStandardCatalog $catalog): View
     {
         $all = collect($catalog->all())->filter(fn ($row) => $row['method'] !== 'expert_review');
-        $scope = $all->filter(fn ($row) => $this->assetType === 'website'
+        $scope = $all->filter(fn ($row) => ($row['asset_type'] ?? 'website') === $this->assetType
             && ($this->platform === '' || ($row['platform'] ?? 'general') === $this->platform));
         $groups = collect(WebsiteStandardCatalog::GROUPS)->filter(fn ($label, $key) => $scope->contains('group', $key));
         $counts = $scope->groupBy('group')->map->count();
-        $filtered = $scope->filter(fn ($row) =>
-            ($this->group === '' || $row['group'] === $this->group)
+        $filtered = $scope->filter(fn ($row) => ($this->group === '' || $row['group'] === $this->group)
             && ($this->status === '' || ($this->status === 'enabled' ? $row['enabled'] : ! $row['enabled']))
             && ($this->search === '' || mb_stripos($row['title'].' '.$row['criterion'].' '.$row['action'], trim($this->search)) !== false))
             ->sortBy('title', SORT_NATURAL | SORT_FLAG_CASE)->values();
