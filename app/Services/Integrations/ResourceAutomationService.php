@@ -6,6 +6,7 @@ use App\Enums\Observability\OperationalAlertRuleType;
 use App\Enums\Observability\OperationalAlertSeverity;
 use App\Enums\Observability\OperationalSignalFamily;
 use App\Jobs\Async\ResourceCollectionJob;
+use App\Jobs\Queries\RunQueryPipelineJob;
 use App\Models\AdvisorPlan;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
@@ -26,8 +27,7 @@ use App\Services\CollectionScheduler\ExecuteCollectionLifecycleService;
 use App\Services\Integrations\Google\GoogleBusinessProfileBoundCollector;
 use App\Services\Observability\AlertSubjects;
 use App\Services\Observability\OperationalAlertLifecycleService;
-use App\Services\SearchDemand\AutomaticQueryImportService;
-use App\Services\SearchDemand\LibraryImportWorkflow;
+use App\Services\Queries\QueryIngestor;
 use App\Support\Permissions;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -69,30 +69,19 @@ final class ResourceAutomationService
         validator($input, [
             'collection_enabled' => ['required', 'boolean'], 'interval_days' => ['required', 'in:1,3'],
             'preferred_hour' => ['nullable', 'integer', 'between:0,23'],
-            'query_enabled' => ['required', 'boolean'], 'sector' => ['nullable', 'string', 'max:255'],
-            'service_ids' => ['array', 'max:200'], 'service_ids.*' => ['integer'],
         ])->validate();
         DB::transaction(function () use ($id, $input, $revision, $actor): void {
             $a = ResourceAutomation::query()->lockForUpdate()->findOrFail($id);
             if ($a->revision !== $revision) {
                 throw ValidationException::withMessages(['automation' => __('resource-auto.conflict')]);
             }
-            $source = $a->resource->resource_type;
-            if ($input['query_enabled'] && ! in_array($source, ['google_ads', 'search_console'], true)) {
-                abort(422);
-            }
-            $ids = [];
-            if (filled($input['sector'] ?? null) || $input['query_enabled']) {
-                $ids = app(LibraryImportWorkflow::class)->validateScope($input);
-            }
-            $mappingChanged = $a->sector !== ($input['sector'] ?: null) || array_map('intval', $a->service_ids ?? []) !== $ids;
+            // Sector and query intake are no longer per-account settings: every query source feeds the query
+            // pipeline and the account's sector lives in asset_sectors (Keşfedilen varlıklar).
             $a->fill([
-                'mapping_revision' => (int) $a->mapping_revision + ($mappingChanged ? 1 : 0),
                 'collection_enabled' => $input['collection_enabled'], 'interval_days' => (int) $input['interval_days'],
                 'preferred_hour' => isset($input['preferred_hour']) && $input['preferred_hour'] !== '' ? (int) $input['preferred_hour'] : null,
-                'query_enabled' => $input['query_enabled'], 'sector' => $input['sector'] ?: null,
-                'service_ids' => $ids, 'revision' => $a->revision + 1, 'updated_by' => $actor->id,
-                'query_error' => null, 'collection_error' => null, 'collection_failures' => 0,
+                'revision' => $a->revision + 1, 'updated_by' => $actor->id,
+                'collection_error' => null, 'collection_failures' => 0,
                 'next_collection_at' => $a->next_collection_at?->isFuture() ? $a->next_collection_at : now(),
             ])->save();
         });
@@ -157,7 +146,6 @@ final class ResourceAutomationService
             foreach (self::TYPES as $resourceType) {
                 $this->admitCollections($resourceType, $connection);
             }
-            app(AutomaticQueryImportService::class)->dispatchDue();
         } finally {
             $lock->release();
         }
@@ -241,6 +229,8 @@ final class ResourceAutomationService
             ->whereHas('resource', $scope)
             ->where('collection_enabled', true)->whereNotIn('collection_status', ['planning', 'collecting'])
             ->whereNotNull('next_collection_at')->where('next_collection_at', '<=', now())
+            // An account whose collection is already running (e.g. started by hand) is not admitted a second time.
+            ->whereNotIn('external_resource_id', $activeIds->all() ?: [0])
             ->orderByRaw('CASE WHEN last_collection_success_at IS NULL THEN 0 ELSE 1 END')
             ->orderBy('next_collection_at')->orderBy('id')
             ->limit(max(0, (int) config('moxdop-resource-automation.accounts_per_tick', 10)))->get();
@@ -312,17 +302,33 @@ final class ResourceAutomationService
     }
 
     /**
-     * Lean-data gate: a resource bound only to passive assets (inactive asset or customer) is not
-     * collected, and an unbound resource is collected only when it feeds the query library (sector set).
+     * Lean-data gate: a resource bound only to passive assets (inactive asset or customer) is not collected — except
+     * the free query sources (Search Console, Google Ads, Business Profile): their queries are pulled from every
+     * discovered account without exception, bound or not (operator decision, sorgu hattı).
      */
     public function portfolioGate(ResourceAutomation $automation): ?string
     {
+        if (in_array($automation->resource?->resource_type, QueryIngestor::QUERY_SOURCES, true)) {
+            return null;
+        }
         $assetIds = $automation->resource?->bindings()->where('status', 'active')->pluck('digital_asset_id') ?? collect();
         if ($assetIds->isEmpty()) {
-            return filled($automation->sector) ? null : 'unbound';
+            return 'unbound';
         }
 
         return DigitalAsset::query()->operational()->whereIn('digital_assets.id', $assetIds)->exists() ? null : 'customer_passive';
+    }
+
+    /** After a successful pull the account's queries enter the query pipeline (normalize → core → service). */
+    private function queueQueryIngest(int $resourceId): void
+    {
+        try {
+            if (in_array(CoreExternalResource::query()->whereKey($resourceId)->value('resource_type'), QueryIngestor::QUERY_SOURCES, true)) {
+                RunQueryPipelineJob::dispatch($resourceId)->afterCommit();
+            }
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 
     /** A customer turned active again: its accounts paused by the portfolio gate are due immediately. */
@@ -470,6 +476,9 @@ final class ResourceAutomationService
             if ($finished) {
                 $this->alert($automation->id, 'collection', $success ? null : 'collection_failed');
             }
+            if ($finished && $success) {
+                $this->queueQueryIngest((int) $automation->external_resource_id);
+            }
         });
     }
 
@@ -519,6 +528,7 @@ final class ResourceAutomationService
             $a->update(['data_through' => $through ?: $a->data_through, 'collection_status' => 'current', 'collection_error' => null, 'collection_failures' => 0,
                 'last_collection_success_at' => now(), 'next_collection_at' => $this->nextAt($a)]);
             $this->refreshAdvisorWithoutData($a);
+            $this->queueQueryIngest((int) $a->external_resource_id);
 
             return;
         }

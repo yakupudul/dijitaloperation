@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Brain;
 
-use App\Ai\Agents\Brain\ClusterLabelAgent;
 use App\Enums\DigitalAssetStatus;
 use App\Models\BrainProposal;
 use App\Models\Brand;
@@ -15,8 +14,8 @@ use App\Models\User;
 use App\Services\Brain\BrainRefresher;
 use App\Services\Brain\Clustering\QueryIntent;
 use App\Services\Brain\Proposals\Kinds\ClusterTargetsKind;
-use App\Services\Brain\Proposals\Kinds\ServiceClustersKind;
 use App\Services\Brain\Proposals\ProposalService;
+use App\Services\Queries\QueryClusterer;
 use App\Services\SearchDemand\ServiceCatalogService;
 use App\Services\SeoTasks\SeoText;
 use App\Support\Roles;
@@ -71,19 +70,17 @@ final class BrainClusteringTest extends TestCase
         $this->gsc('implant fiyatları', '/implant', 300, 5);
         $this->gsc('implant fiyat', '/blog/implant-fiyat', 200, 8);
 
-        $this->assertSame(1, app(ServiceClustersKind::class)->prepare(['service_id' => $this->implant->id]));
-        $proposal = BrainProposal::query()->where('kind', 'service_clusters')->firstOrFail();
-        $clusters = collect($proposal->proposed['clusters']);
-        $clusterOf = fn (string $text): ?array => $clusters->first(fn (array $c): bool => in_array($this->id($text), $c['query_ids'], true));
+        // No AI configured: the query pipeline places the queries with the Brain's similarity algorithm.
+        $result = app(QueryClusterer::class)->clusterService($this->implant->id);
+        $this->assertSame('system', $result['source']);
+        $clusterOf = fn (string $text): ?int => ($id = DB::table('search_query_library_item_service')->where('search_query_library_item_id', $this->id($text))->value('library_cluster_id')) !== null ? (int) $id : null;
 
-        $this->assertSame($clusterOf('implant fiyatları')['key'], $clusterOf('kadıköy implant')['key'], 'place words are ignored');
-        $this->assertSame('main', $clusterOf('implant fiyatları')['page_type']);
-        $this->assertSame($clusterOf('implant ağrılı mı')['key'], $clusterOf('implant ağrısı')['key'], 'joined by the shared ranking URL');
-        $this->assertNotSame($clusterOf('implant ağrılı mı')['key'], $clusterOf('implant fiyatları')['key']);
-        $this->assertSame('informational', $clusterOf('implant ağrısı')['intent']);
-        $this->assertSame('system', $proposal->source, 'no AI configured: algorithm names stay');
-
-        app(ProposalService::class)->approve([$proposal->id], $this->admin);
+        $this->assertSame($clusterOf('implant fiyatları'), $clusterOf('kadıköy implant'), 'place words are ignored');
+        $this->assertSame('main', DB::table('library_query_clusters')->where('id', $clusterOf('implant fiyatları'))->value('page_type'));
+        $this->assertSame('hizmet', DB::table('library_query_clusters')->where('id', $clusterOf('implant fiyatları'))->value('page_decision'));
+        $this->assertSame($clusterOf('implant ağrılı mı'), $clusterOf('implant ağrısı'), 'joined by the shared ranking URL');
+        $this->assertNotSame($clusterOf('implant ağrılı mı'), $clusterOf('implant fiyatları'));
+        $this->assertSame('informational', DB::table('library_query_clusters')->where('id', $clusterOf('implant ağrısı'))->value('intent'));
 
         $this->assertSame(0, DB::table('search_query_library_item_service')->whereNull('library_cluster_id')->count());
         $main = DB::table('library_query_clusters')->where('page_type', 'main')->first();
@@ -104,28 +101,6 @@ final class BrainClusteringTest extends TestCase
 
         $this->actingAs($this->admin)->get(route('operator.brain.services', ['service' => $this->implant->id]))
             ->assertOk()->assertSee('Hizmet haritası')->assertSee('Ana hizmet sayfası')->assertSee('atlas.test/implant')->assertSee('sayfa bölüşüyor');
-    }
-
-    public function test_ai_names_clusters_but_cannot_add_a_second_main_page(): void
-    {
-        config(['moxdop.anthropic.api_key' => 'sk-ant-test']);
-        foreach (['implant fiyatları', 'implant fiyat', 'implant sonrası beslenme', 'implant sonrası yemek', 'implant sonrası bakım'] as $text) {
-            $this->attach($text);
-        }
-        ClusterLabelAgent::fake(function ($prompt): array {
-            $input = json_decode(Str::after((string) $prompt, "INPUT_JSON\n"), true);
-
-            return ['items' => array_map(fn (array $c): array => ['key' => $c['key'], 'name' => str_contains($c['head'], 'sonra') ? 'İmplant Sonrası Bakım' : 'İmplant Tedavisi',
-                'page_type' => 'main', 'intent' => $c['intent'], 'reason' => 'test'], $input['clusters'])];
-        });
-
-        app(ServiceClustersKind::class)->prepare(['service_id' => $this->implant->id]);
-
-        $proposal = BrainProposal::query()->where('kind', 'service_clusters')->firstOrFail();
-        $this->assertSame('ai', $proposal->source);
-        $clusters = collect($proposal->proposed['clusters'])->keyBy('name');
-        $this->assertSame('main', $clusters['İmplant Tedavisi']['page_type']);
-        $this->assertSame('support', $clusters['İmplant Sonrası Bakım']['page_type'], 'only one main page per service');
     }
 
     private function attach(string $text): void

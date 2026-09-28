@@ -21,7 +21,8 @@ use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
- * Faz 3 — the brand-level topic map of one website, the one clustering truth of the content pipeline.
+ * Faz 3 — the brand-level topic map of one website. Its clusters are the query pipeline's topic clusters (per sector ×
+ * service, QueryClusterer + ClusterPageResearch); only hub queries the pipeline has not clustered yet are grouped here.
  *
  * Hub queries (BrandQueryHub::rowsFor: relevant ones, and unclear ones that already have a service; branded and
  * irrelevant queries are left out) are grouped by service and clustered into page-sized topics with the Brain's
@@ -36,6 +37,9 @@ use Throwable;
  */
 final class TopicMapBuilder
 {
+    /** Query pipeline page decision → topic map page type. */
+    private const array DECISION_PAGE_TYPES = ['hizmet' => 'service', 'blog' => 'guide', 'sss' => 'faq', 'karsilastirma' => 'comparison'];
+
     /** Rows read from the hub per website. */
     private const int MAX_ROWS = 3000;
 
@@ -124,14 +128,19 @@ final class TopicMapBuilder
 
         $groups = [];
         $byId = [];
+        // The query pipeline's topic clusters (per sector × service, AI + SERP page type) are the one clustering truth;
+        // only queries it has not clustered yet are grouped here.
+        $global = $this->globalClusters($rows);
         foreach ($rows as $row) {
             $member = $this->member($row);
             $byId[$row['id']] = $member;
             $pin = $pinned->get($member['query_key']);
             // One page answers one intent: queries are clustered within service × intent class.
-            $group = $pin !== null
-                ? (int) ($live[$pin->topic_cluster_id]->brand_offering_id ?? 0).'|'.self::clusterClass($live[$pin->topic_cluster_id])
-                : (int) ($row['offering_id'] ?? 0).'|'.self::queryClass($member['query']);
+            $group = match (true) {
+                $pin !== null => (int) ($live[$pin->topic_cluster_id]->brand_offering_id ?? 0).'|'.self::clusterClass($live[$pin->topic_cluster_id]),
+                isset($global[$row['id']]) => (int) ($row['offering_id'] ?? 0).'|g'.$global[$row['id']]['id'],
+                default => (int) ($row['offering_id'] ?? 0).'|'.self::queryClass($member['query']),
+            };
             $groups[$group][] = [
                 'id' => $row['id'], 'text' => $member['query'], 'weight' => $member['demand'],
                 'cluster_id' => $pin?->topic_cluster_id, 'cluster_name' => $pin !== null ? $live[$pin->topic_cluster_id]->label : null,
@@ -142,7 +151,17 @@ final class TopicMapBuilder
         $signals = [];
         $built = [];
         foreach ($groups as $group => $queries) {
-            $offeringId = (int) explode('|', (string) $group)[0];
+            [$offeringId, $class] = array_pad(explode('|', (string) $group), 2, '');
+            $offeringId = (int) $offeringId;
+            if (str_starts_with($class, 'g')) {
+                $info = $global[$queries[0]['id']];
+                $members = array_values(array_filter(array_map(fn (array $q): ?array => $byId[$q['id']] ?? null, $queries)));
+                $built[] = ['offering_id' => $offeringId === 0 ? null : $offeringId, 'existing_id' => null, 'builder_page_type' => 'support',
+                    'cohesion' => 1.0, 'members' => $members, 'label' => $info['name'], 'decision' => $info['decision']];
+                $signals = array_values(array_unique([...$signals, 'query_pipeline']));
+
+                continue;
+            }
             $result = $this->clusters->clusterSet($queries, [$site], false);
             $signals = array_values(array_unique(array_merge($signals, $result['signals'])));
             foreach ($result['clusters'] as $cluster) {
@@ -168,7 +187,7 @@ final class TopicMapBuilder
                 $used[$id ?? 0] = true;
                 $cluster = $id !== null && $live->has($id) ? $live[$id] : new TopicCluster(['brand_id' => $brand->id, 'digital_asset_id' => $site->id, 'origin' => 'auto', 'label_source' => 'auto', 'status' => 'active']);
                 $cluster->brand_offering_id = $cluster->exists && $cluster->origin === 'operator' ? $cluster->brand_offering_id : $entry['offering_id'];
-                $this->fill($cluster, $entry['members'], $entry['builder_page_type'], $entry['cohesion'], $inventory);
+                $this->fill($cluster, $entry['members'], $entry['builder_page_type'], $entry['cohesion'], $inventory, $entry['decision'] ?? null, $entry['label'] ?? null);
                 $cluster->version = $version;
                 $cluster->save();
                 $keep[$cluster->id] = true;
@@ -233,13 +252,14 @@ final class TopicMapBuilder
      *
      * @param  list<array<string, mixed>>  $members
      */
-    private function fill(TopicCluster $cluster, array $members, string $builderPageType, float $cohesion, SiteContentInventory $inventory): void
+    private function fill(TopicCluster $cluster, array $members, string $builderPageType, float $cohesion, SiteContentInventory $inventory, ?string $decision = null, ?string $globalLabel = null): void
     {
         usort($members, fn (array $a, array $b): int => $b['demand'] <=> $a['demand']);
         $head = (string) $members[0]['query'];
         $intent = $this->intent($members);
-        $pageType = $this->pageType($members, $intent, $builderPageType, $head);
-        $label = $cluster->label_source === 'operator' && filled($cluster->label) ? (string) $cluster->label : TopicText::label($head);
+        // A pipeline cluster's page type was decided (AI guess, checked against Google's top 10 when researched).
+        $pageType = self::DECISION_PAGE_TYPES[$decision] ?? $this->pageType($members, $intent, $builderPageType, $head);
+        $label = $cluster->label_source === 'operator' && filled($cluster->label) ? (string) $cluster->label : ($globalLabel !== null && $globalLabel !== '' ? $globalLabel : TopicText::label($head));
         $assessment = $this->assess($members, $label, $head, $inventory);
 
         $cluster->fill([
@@ -484,6 +504,40 @@ final class TopicMapBuilder
         }
 
         return $bestScore >= self::MATCH_OVERLAP ? $best : null;
+    }
+
+    /**
+     * Pipeline cluster of each hub row: the core query's cluster under the row's catalog service.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @return array<int, array{id: int, name: string, decision: ?string}> hub row id => cluster
+     */
+    private function globalClusters(array $rows): array
+    {
+        $pairs = [];
+        foreach ($rows as $row) {
+            if (($row['library_item_id'] ?? null) !== null && ($row['catalog_service_id'] ?? null) !== null) {
+                $pairs[(int) $row['library_item_id'].'|'.(int) $row['catalog_service_id']] = (int) $row['id'];
+            }
+        }
+        if ($pairs === []) {
+            return [];
+        }
+        $out = [];
+        $itemIds = array_values(array_unique(array_map(fn (string $k): int => (int) explode('|', $k)[0], array_keys($pairs))));
+        foreach (array_chunk($itemIds, 500) as $chunk) {
+            DB::table('search_query_library_item_service as p')->join('library_query_clusters as c', 'c.id', '=', 'p.library_cluster_id')
+                ->whereIn('p.search_query_library_item_id', $chunk)->where('c.status', 'active')
+                ->get(['p.search_query_library_item_id', 'p.service_catalog_item_id', 'c.id', 'c.name', 'c.page_decision'])
+                ->each(function ($r) use ($pairs, &$out): void {
+                    $hubId = $pairs[(int) $r->search_query_library_item_id.'|'.(int) $r->service_catalog_item_id] ?? null;
+                    if ($hubId !== null) {
+                        $out[$hubId] = ['id' => (int) $r->id, 'name' => (string) $r->name, 'decision' => $r->page_decision];
+                    }
+                });
+        }
+
+        return $out;
     }
 
     private function loadGsc(DigitalAsset $site): void

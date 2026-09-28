@@ -12,6 +12,7 @@ use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
+use App\Models\User;
 use App\Services\Alerts\AdBudgetWatch;
 use App\Services\Assistant\ReminderService;
 use App\Services\Assistant\WhatsAppContactLinker;
@@ -24,10 +25,13 @@ use App\Services\Integrations\Google\GoogleBusinessProfileRetentionService;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Integrations\WordPress\WordPressEventReconciliation;
 use App\Services\Observability\WorkerHeartbeatService;
+use App\Services\Ownership\OwnershipIntegrity;
+use App\Services\Queries\QueryPipeline;
 use App\Services\Sales\FreeIntentRadar;
 use App\Services\SeoTasks\SeoUrlInspectionQueue;
 use App\Services\Website\SitemapChangeWatcher;
 use App\Services\WhatsApp\WhatsAppDispatch;
+use App\Support\Roles;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Bus;
@@ -593,6 +597,41 @@ Schedule::command('moxdop:data:retention')
     ->dailyAt('04:10')
     ->withoutOverlapping(120)
     ->name('data-retention');
+
+// Sorgu hattı: her keşfedilen hesaptan (markaya bağlı olsun olmasın) ücretsiz sorgu çekimi → çekirdek sorgu →
+// sektör → hizmet. Günlük; ayrıca her başarılı hesap çekiminden sonra o hesap için (ResourceAutomationService).
+Artisan::command('moxdop:queries:pipeline {--resource= : Only this external resource id} {--force}', function (): void {
+    $stats = app(QueryPipeline::class)->daily($this->option('resource') !== null ? (int) $this->option('resource') : null, (bool) $this->option('force'));
+    $this->line(json_encode($stats, JSON_UNESCAPED_UNICODE));
+})->purpose('Ingest queries of every discovered account into core queries, assign sectors and services.');
+
+Schedule::command('moxdop:queries:pipeline')
+    ->dailyAt('04:40')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(120)
+    ->name('queries-pipeline-daily');
+
+// Sorgu hattı: hizmet başına AI kümeleme + küme başına SERP sayfa türü araştırması (değişenler; 30 gün önbellek).
+Artisan::command('moxdop:queries:cluster {--service= : Only this service id}', function (): void {
+    $stats = app(QueryPipeline::class)->weekly($this->option('service') !== null ? (int) $this->option('service') : null);
+    $this->line(json_encode($stats, JSON_UNESCAPED_UNICODE));
+})->purpose('Cluster core queries per service (AI) and research each cluster page type on Google (SERP).');
+
+Schedule::command('moxdop:queries:cluster')
+    ->weeklyOn((int) config('moxdop-demand.schedule.weekly_day', 1), '05:05')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(180)
+    ->name('queries-cluster-weekly');
+
+Artisan::command('moxdop:ownership:integrity {--fix : Disable extra / orphan bindings}', function (): void {
+    $integrity = app(OwnershipIntegrity::class);
+    $problems = $integrity->problems();
+    $this->table(['Sorun', 'Varlık', 'Ayrıntı'], array_map(fn (array $p): array => [$p['label'], $p['subject'], $p['detail']], $problems));
+    if ($this->option('fix')) {
+        $admin = User::query()->where('is_active', true)->whereHas('roles', fn ($q) => $q->where('name', Roles::ADMIN))->orderBy('id')->firstOrFail();
+        $this->info('Kapatılan bağlantı: '.$integrity->fix($admin));
+    }
+})->purpose('List customer / brand / asset / account ownership violations (and fix the safe ones).');
 
 // Faz 2b: marka talep tablosu (sorgu → hizmet, bölge, markalı/markasız, değer) — SEO planından önce, haftalık.
 Schedule::command('moxdop:demand:build')

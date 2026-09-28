@@ -94,7 +94,11 @@ final class ServiceScopeGateTest extends TestCase
         $resource = CoreExternalResource::factory()->create(['resource_type' => 'search_console', 'external_id' => 'sc-domain:brandless.test']);
         CoreAssetBinding::factory()->create(['digital_asset_id' => $site->id, 'external_resource_id' => $resource->id, 'capability' => 'search_console']);
         $automation = ResourceAutomation::query()->create(['external_resource_id' => $resource->id]);
-        $this->assertSame('customer_passive', app(ResourceAutomationService::class)->portfolioGate($automation), 'bound only to a brandless site: not collected');
+        $this->assertNull(app(ResourceAutomationService::class)->portfolioGate($automation), 'free query source: pulled from every account (sorgu hattı)');
+        $ga4 = CoreExternalResource::factory()->create(['resource_type' => 'ga4']);
+        CoreAssetBinding::factory()->create(['digital_asset_id' => $site->id, 'external_resource_id' => $ga4->id, 'capability' => 'ga4']);
+        $ga4Automation = ResourceAutomation::query()->create(['external_resource_id' => $ga4->id]);
+        $this->assertSame('customer_passive', app(ResourceAutomationService::class)->portfolioGate($ga4Automation), 'bound only to a brandless site: not collected');
 
         Bus::assertNotDispatched(RunSeoPlanJob::class);
         Http::assertNothingSent();

@@ -68,15 +68,8 @@ class OwnershipTransfer extends Model
     public function mappingSummary(): ?string
     {
         $entries = collect(is_array($this->snapshot) ? ($this->snapshot['mapping'] ?? []) : []);
-        $reset = $entries->where('action', 'reset')->count();
-        $rescoped = $entries->where('action', 'rescoped')->count();
-        if ($reset > 0) {
-            return sprintf('%d hesabın sektör / hizmet eşlemesi sıfırlandı; yeni marka için yeniden eşlenecek (Hizmet Beyni › Hesap eşleme).', $reset);
-        }
-        if ($rescoped > 0) {
-            return 'Sektör / hizmet eşlemesi korundu (aynı müşteri); bekleyen eşleme önerileri yeni markaya taşındı.';
-        }
+        $reset = $entries->where('action', 'reset')->filter(fn (array $e): bool => isset($e['cleared']))->count();
 
-        return null;
+        return $reset > 0 ? sprintf('%d hesabın sektörü sıfırlandı; yeni sahibine göre yeniden atanacak.', $reset) : null;
     }
 }

@@ -2,787 +2,260 @@
 
 namespace App\Livewire\Operator\Library;
 
-use App\Models\SearchDemandAiRun;
-use App\Models\SearchQueryLibraryImport;
+use App\Jobs\Queries\ClusterQueriesJob;
+use App\Models\QueryVariant;
 use App\Models\SearchQueryLibraryItem;
-use App\Models\SearchQueryLibrarySourceRecord;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
-use App\Services\Integrations\ResourceAutomationService;
+use App\Services\Queries\QueryNormalization;
+use App\Services\Queries\QueryServiceMatcher;
 use App\Services\SearchDemand\LibraryImportWorkflow;
-use App\Services\SearchDemand\QueryExclusionService;
-use App\Services\SearchDemand\SearchDemandLibrarianService;
-use App\Services\SearchDemand\SearchQueryLibraryService;
-use App\Services\SearchDemand\ServiceCatalogService;
-use App\Services\SearchDemand\ServiceKeywordService;
-use App\Support\BrandIntelligence\IdentityLabelNormalizer;
-use App\Support\Options\IndustryOptions;
+use App\Services\SeoTasks\SeoText;
+use App\Support\Permissions;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Locked;
-use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 
+/**
+ * Pazar › Sorgular: the core queries of every account (one query truth). Tabs: Sorgular (service, cluster, demand,
+ * variants; bulk reassign / alakasız), Kümeler (page-type decision with SERP evidence), Rakip marka, Alakasız /
+ * yasaklı and Ürün markaları (per sector strip list).
+ */
 #[Layout('operator.layouts.app')]
-#[Title('Sorgu Kütüphanesi')]
+#[Title('Sorgular')]
 class SearchQueryLibraryPage extends Component
 {
-    use WithFileUploads;
     use WithPagination;
 
-    #[Locked]
-    public ?int $editingId = null;
+    public const array TABS = ['queries', 'clusters', 'competitor', 'irrelevant', 'products'];
 
-    #[Locked]
-    public string $editingOriginal = '';
+    public const array DECISIONS = ['hizmet' => 'Hizmet sayfası', 'blog' => 'Blog', 'sss' => 'SSS', 'karsilastirma' => 'Karşılaştırma'];
 
-    #[Locked]
-    public ?int $undoQueryId = null;
-
-    public string $editingText = '';
-
-    public bool $protectRestoredQueries = true;
+    public const array SOURCES = ['search_console' => 'Search Console', 'google_ads' => 'Google Ads', 'google_business_profile' => 'İşletme Profili'];
 
     #[Url]
-    public int $perPage = 50;
+    public string $tab = 'queries';
 
     #[Url]
-    public string $sort = 'newest';
-
-    public bool $importOpen = false;
-
-    public string $importSource = 'paste';
-
-    public string $importSector = '';
-
-    public array $importServiceIds = [];
-
-    public array $resourceIds = [];
-
-    public string $dateFrom = '';
-
-    public string $dateTo = '';
-
-    #[Url]
-    public string $sectorFilter = '';
-
-    #[Url]
-    public bool $unassigned = false;
-
-    public string $assignmentSector = '';
-
-    public array $assignmentServiceIds = [];
-
-    public string $newSectorName = '';
-
-    public string $newServiceName = '';
-
-    public string $newServiceWords = '';
-
-    #[Locked]
-    public ?int $sourceItemId = null;
-
-    public function mount(): void
-    {
-        $this->dateFrom = now()->subDays(90)->toDateString();
-        $this->dateTo = now()->toDateString();
-    }
-
-    public function updatedImportSector(): void
-    {
-        $this->importServiceIds = [];
-    }
-
-    public function updatedAssignmentSector(): void
-    {
-        $this->assignmentServiceIds = [];
-    }
-
-    public function updatedImportSource(): void
-    {
-        $this->resourceIds = [];
-    }
-
-    public function updatedSearch(): void
-    {
-        $this->resetPage();
-        $this->selectedQueryIds = [];
-    }
-
-    public function updatedSectorFilter(): void
-    {
-        $this->resetPage();
-        $this->selectedQueryIds = [];
-    }
-
-    public function updatedUnassigned(): void
-    {
-        $this->resetPage();
-        $this->selectedQueryIds = [];
-    }
-
-    public function updatedStatus(): void
-    {
-        $this->resetPage();
-        $this->selectedQueryIds = [];
-    }
-
-    public function updatedService(): void
-    {
-        $this->resetPage();
-        $this->selectedQueryIds = [];
-    }
-
-    public function updatedSource(): void
-    {
-        $this->resetPage();
-        $this->selectedQueryIds = [];
-    }
-
-    public function closeSources(): void
-    {
-        $this->sourceItemId = null;
-    }
-
-    public function showSources(int $id): void
-    {
-        SearchQueryLibraryItem::withTrashed()->findOrFail($id);
-        $this->sourceItemId = $id;
-    }
-
-    #[Url(as: 'q', history: true)]
     public string $search = '';
 
-    #[Url(history: true)]
-    public string $status = 'all';
+    #[Url]
+    public string $sector = '';
 
-    #[Url(history: true)]
-    public string $source = '';
-
-    #[Url(history: true)]
+    #[Url]
     public string $service = '';
 
-    public string $query_text = '';
+    #[Url]
+    public string $cluster = '';
 
-    public string $query_service_id = '';
-
-    public string $query_language = 'tr';
-
-    public string $query_market = 'TR';
-
-    public string $query_sector = '';
-
-    public string $query_demand_family = '';
-
-    public string $query_location_scope = 'none';
-
-    public string $query_location_value = '';
-
-    public bool $query_is_branded = false;
-
-    public string $paste_text = '';
-
-    public mixed $import_file = null;
-
-    public string $import_source_type = 'csv';
-
-    public string $import_service_id = '';
-
-    public string $import_language = 'tr';
-
-    public string $import_market = 'TR';
-
-    public string $ai_service_id = '';
-
-    public string $ai_language = 'tr';
-
-    public string $ai_market = 'TR';
-
-    public string $ai_sector = '';
-
-    public string $ai_location_context = '';
-
-    public int $ai_candidate_count = 20;
+    #[Url]
+    public string $source = '';
 
     /** @var list<int|string> */
-    public array $selectedQueryIds = [];
+    public array $selected = [];
 
-    /** @var list<int|string> */
-    public array $selectedAiCandidateIds = [];
+    public string $targetService = '';
 
-    /** @var array<int|string, array<string, mixed>> */
-    public array $candidateEdits = [];
+    public ?int $variantsOf = null;
 
-    public ?int $aiRunId = null;
+    public string $productSector = '';
+
+    public string $productList = '';
+
+    public string $pasteText = '';
 
     public string $message = '';
 
-    public string $message_tone = 'success';
-
-    public function startImport(LibraryImportWorkflow $workflow): void
+    public function mount(): void
     {
-        $this->validate([
-            'importSource' => ['required', 'in:paste,csv,xlsx,google_ads,search_console,google_business_profile'],
-            'importSector' => ['required', 'exists:service_categories,code'],
-            'importServiceIds' => ['array', 'max:200'], 'importServiceIds.*' => ['integer'],
-            'resourceIds' => ['array', 'max:20'], 'resourceIds.*' => ['integer'],
-        ]);
-        $payload = ['sector' => $this->importSector, 'service_ids' => $this->importServiceIds];
-        $workflow->validateScope($payload);
-        if ($this->importSource === 'paste') {
-            $this->validate(['paste_text' => ['required', 'string', 'max:500000']]);
-            $payload['text'] = $this->paste_text;
-        } elseif (in_array($this->importSource, ['csv', 'xlsx'], true)) {
-            $this->validate(['import_file' => ['required', 'file', 'max:10240', 'extensions:csv,tsv,txt,xlsx']]);
-            $payload['filename'] = $this->import_file->getClientOriginalName();
-            $payload['path'] = $this->import_file->store('library-imports', 'local');
-            $this->importSource = strtolower(pathinfo($payload['filename'], PATHINFO_EXTENSION)) === 'xlsx' ? 'xlsx' : 'csv';
-        } else {
-            $this->validate([
-                'resourceIds' => ['required', 'array', 'min:1', 'max:20'],
-                'dateFrom' => ['required', 'date_format:Y-m-d'],
-                'dateTo' => ['required', 'date_format:Y-m-d', 'after_or_equal:dateFrom'],
-            ]);
-            $payload += ['resource_ids' => $this->resourceIds, 'date_from' => $this->dateFrom, 'date_to' => $this->dateTo];
-        }
-        try {
-            $import = $workflow->queue($this->importSource, $payload, auth()->user());
-        } catch (\Throwable $exception) {
-            if (isset($payload['path'])) {
-                Storage::disk('local')->delete($payload['path']);
-            }
-            throw $exception;
-        }
-        $this->importOpen = false;
-        $this->paste_text = '';
-        $this->import_file = null;
-        $this->message = '#'.$import->id.' içe aktarması sıraya alındı. Sayfadan ayrılabilirsiniz.';
-        $this->message_tone = 'success';
-    }
-
-    public function createInlineSector(string $target): void
-    {
-        abort_unless(in_array($target, ['import', 'assignment'], true), 422);
-        $this->validate(['newSectorName' => ['required', 'string', 'max:120']]);
-        $label = trim($this->newSectorName);
-        $key = app(IdentityLabelNormalizer::class)->normalize($label);
-        if ($key === '') {
-            throw ValidationException::withMessages(['newSectorName' => 'Sektör adı gereklidir.']);
-        }
-        $category = ServiceCategory::query()->firstOrCreate(['normalized_key' => $key], [
-            'code' => 'sector_'.Str::uuid(), 'name' => $label,
-        ]);
-        if ($target === 'assignment') {
-            $this->assignmentSector = $category->code;
-            $this->assignmentServiceIds = [];
-        } else {
-            $this->importSector = $category->code;
-            $this->importServiceIds = [];
-        }
-        $this->newSectorName = '';
-    }
-
-    public function createInlineService(string $target): void
-    {
-        abort_unless(in_array($target, ['import', 'assignment'], true), 422);
-        $this->validate([
-            'newServiceName' => ['required', 'string', 'max:255'],
-            'newServiceWords' => ['nullable', 'string', 'max:50000'],
-        ]);
-        $sector = $target === 'assignment' ? $this->assignmentSector : $this->importSector;
-        app(LibraryImportWorkflow::class)->validateScope(['sector' => $sector]);
-        $service = DB::transaction(function () use ($sector) {
-            $result = app(ServiceCatalogService::class)->resolveOrCreate($this->newServiceName, $sector, actor: auth()->user());
-            if ($result['service']->sector !== $sector || $result['service']->status !== 'active') {
-                throw ValidationException::withMessages(['newServiceName' => 'Bu hizmet başka sektörde veya arşivde mevcut. Hizmetler ekranından düzenleyin.']);
-            }
-            if (trim($this->newServiceWords) !== '') {
-                $existing = $result['service']->matchingKeywords()->pluck('label')->implode("\n");
-                app(ServiceKeywordService::class)->replace($result['service'], $existing."\n".$this->newServiceWords);
-            }
-
-            return $result['service'];
-        });
-        if ($target === 'assignment') {
-            $this->assignmentServiceIds = array_values(array_unique([...$this->assignmentServiceIds, (string) $service->id]));
-        } else {
-            $this->importServiceIds = array_values(array_unique([...$this->importServiceIds, (string) $service->id]));
-        }
-        $this->newServiceName = '';
-        $this->newServiceWords = '';
-    }
-
-    public function selectPage(): void
-    {
-        $this->selectedQueryIds = array_values(array_unique(array_merge($this->selectedQueryIds,
-            $this->orderedQueries()->forPage($this->getPage(), $this->pageSize())->pluck('id')->all())));
-        if (count($this->selectedQueryIds) > 500) {
-            $this->selectedQueryIds = array_slice($this->selectedQueryIds, 0, 500);
-            $this->message = 'Bir işlemde en fazla 500 sorgu seçebilirsiniz.';
+        abort_unless(auth()->user()?->can(Permissions::ACCESS_APP), 403);
+        if (! in_array($this->tab, self::TABS, true)) {
+            $this->tab = 'queries';
         }
     }
 
-    public function assignSelected(): void
+    public function updated(string $property): void
     {
-        $this->validate([
-            'selectedQueryIds' => ['required', 'array', 'min:1', 'max:500'],
-            'selectedQueryIds.*' => ['integer', 'exists:search_query_library_items,id'],
-            'assignmentSector' => ['required', 'exists:service_categories,code'],
-            'assignmentServiceIds' => ['array', 'max:200'], 'assignmentServiceIds.*' => ['integer'],
-        ]);
-        $ids = app(LibraryImportWorkflow::class)->validateScope([
-            'sector' => $this->assignmentSector, 'service_ids' => $this->assignmentServiceIds,
-        ]);
-        app(LibraryImportWorkflow::class)->queue('assignment', [
-            'sector' => $this->assignmentSector, 'service_ids' => $ids, 'query_ids' => $this->selectedQueryIds,
-        ], auth()->user());
-        $this->selectedQueryIds = [];
-        $this->message = 'Toplu atama sıraya alındı. Sonucu içe aktarma geçmişinden takip edebilirsiniz.';
-        $this->resetPage();
-    }
-
-    /** @return array<string, mixed> */
-    public function queryFilters(): array
-    {
-        return [
-            'search' => $this->search, 'sector' => $this->sectorFilter,
-            'source' => $this->source, 'service' => $this->service,
-            'status' => $this->status, 'unassigned' => (int) $this->unassigned,
-            'sort' => $this->sort,
-        ];
-    }
-
-    private function filteredQueries(): Builder
-    {
-        return SearchQueryLibraryItem::query()->libraryFilters($this->queryFilters());
-    }
-
-    private function orderedQueries(): Builder
-    {
-        $query = $this->filteredQueries();
-        if (in_array($this->sort, ['az', 'za'], true)) {
-            return $query->orderBy('canonical_text', $this->sort === 'az' ? 'asc' : 'desc')->orderBy('id');
+        if (in_array($property, ['tab', 'search', 'sector', 'service', 'cluster', 'source'], true)) {
+            $this->resetPage();
+            $this->selected = [];
+            $this->variantsOf = null;
         }
-
-        return $query->orderByDesc('last_seen_at')->orderByDesc('id');
-    }
-
-    public function clearFilters(): void
-    {
-        $this->reset('search', 'sectorFilter', 'source', 'service', 'status', 'unassigned');
-        $this->selectedQueryIds = [];
-        $this->cancelQueryEdit();
-        $this->resetPage();
-    }
-
-    public function updatedPerPage(): void
-    {
-        if (! in_array($this->perPage, [25, 50, 100], true)) {
-            $this->perPage = 50;
+        if ($property === 'sector') {
+            $this->service = '';
+            $this->cluster = '';
         }
-        $this->selectedQueryIds = [];
-        $this->resetPage();
-    }
-
-    public function updatedSort(): void
-    {
-        $this->selectedQueryIds = [];
-        $this->resetPage();
-    }
-
-    public function editQuery(int $id): void
-    {
-        $item = SearchQueryLibraryItem::query()->findOrFail($id);
-        $this->editingId = $id;
-        $this->editingText = $item->canonical_text;
-        $this->editingOriginal = $item->canonical_text;
-        $this->resetValidation('editingText');
-    }
-
-    public function cancelQueryEdit(): void
-    {
-        $this->editingId = null;
-        $this->editingText = '';
-        $this->editingOriginal = '';
-        $this->resetValidation('editingText');
-    }
-
-    public function saveQueryEdit(SearchQueryLibraryService $library): void
-    {
-        $this->validate(['editingText' => ['required', 'string', 'max:1000']]);
-        abort_if($this->editingId === null, 422);
-        $item = $library->rename($this->editingId, $this->editingText, $this->editingOriginal, auth()->user());
-        $this->selectedQueryIds = array_values(array_diff($this->selectedQueryIds, [$item->id]));
-        $this->message = __('query-list.saved', ['text' => $item->canonical_text]);
-        $this->message_tone = 'success';
-        $this->cancelQueryEdit();
-        $this->repairPage();
-    }
-
-    public function removeServiceAssignment(int $queryId, int $serviceId): void
-    {
-        app(ResourceAutomationService::class)->authorize(auth()->user());
-        DB::transaction(function () use ($queryId, $serviceId): void {
-            $item = SearchQueryLibraryItem::query()->lockForUpdate()->findOrFail($queryId);
-            $item->services()->whereKey($serviceId)->firstOrFail();
-            DB::table('library_query_service_blocks')->updateOrInsert(
-                ['query_id' => $queryId, 'service_id' => $serviceId], ['created_at' => now(), 'updated_at' => now()]
-            );
-            $item->services()->detach($serviceId);
-        });
-    }
-
-    public function allowAutomaticMatching(int $queryId): void
-    {
-        app(ResourceAutomationService::class)->authorize(auth()->user());
-        SearchQueryLibraryItem::query()->findOrFail($queryId);
-        DB::table('library_query_service_blocks')->where('query_id', $queryId)->delete();
-        DB::table('resource_query_observations')->where('query_id', $queryId)->update(['matching_fingerprint' => null]);
-        $this->message = __('resource-auto.matching_allowed');
-    }
-
-    public function removeQuery(int $id): void
-    {
-        DB::transaction(function () use ($id): void {
-            $item = SearchQueryLibraryItem::query()->lockForUpdate()->findOrFail($id);
-            $item->forceFill(['updated_by' => auth()->id()])->save();
-            $item->delete();
-        });
-        $this->undoQueryId = $id;
-        $this->selectedQueryIds = array_values(array_diff($this->selectedQueryIds, [$id]));
-        if ($this->editingId === $id) {
-            $this->cancelQueryEdit();
-        }
-        if ($this->sourceItemId === $id) {
-            $this->sourceItemId = null;
-        }
-        $this->message = __('query-list.removed');
-        $this->repairPage();
-    }
-
-    public function restoreQuery(int $id): void
-    {
-        DB::transaction(function () use ($id): void {
-            $item = SearchQueryLibraryItem::onlyTrashed()->lockForUpdate()->findOrFail($id);
-            $item->updated_by = auth()->id();
-            $item->restore();
-            if ($this->protectRestoredQueries) {
-                app(QueryExclusionService::class)->protect($item, auth()->user());
-            }
-        });
-        $this->undoQueryId = null;
-        $this->selectedQueryIds = array_values(array_diff($this->selectedQueryIds, [$id]));
-        $this->message = __('query-list.restored');
-        $this->repairPage();
-    }
-
-    public function updateSelectedQueries(string $action): void
-    {
-        abort_unless(in_array($action, ['remove', 'restore', 'active', 'excluded'], true), 422);
-        $this->validate([
-            'selectedQueryIds' => ['required', 'array', 'min:1', 'max:500'],
-            'selectedQueryIds.*' => ['integer'],
-        ]);
-        $ids = array_values(array_unique(array_map('intval', $this->selectedQueryIds)));
-        $count = DB::transaction(function () use ($ids, $action): int {
-            $query = $action === 'restore' ? SearchQueryLibraryItem::onlyTrashed() : SearchQueryLibraryItem::query();
-            $items = $query->whereKey($ids)->lockForUpdate()->get();
-            foreach ($items as $item) {
-                $item->updated_by = auth()->id();
-                if ($action === 'restore') {
-                    $item->restore();
-                    if ($this->protectRestoredQueries) {
-                        app(QueryExclusionService::class)->protect($item, auth()->user());
-                    }
-                } elseif ($action === 'remove') {
-                    $item->save();
-                    $item->delete();
-                } else {
-                    $item->status = $action;
-                    $item->save();
-                }
-            }
-
-            return $items->count();
-        });
-        $this->selectedQueryIds = [];
-        $this->undoQueryId = null;
-        $this->sourceItemId = null;
-        $this->cancelQueryEdit();
-        $this->message = __('query-list.bulk_done', ['count' => $count]);
-        $this->repairPage();
-    }
-
-    private function repairPage(): void
-    {
-        $lastPage = max(1, (int) ceil($this->filteredQueries()->count() / $this->pageSize()));
-        if ($this->getPage() > $lastPage) {
-            $this->setPage($lastPage);
+        if ($property === 'productSector') {
+            $this->productList = $this->productSector === '' ? '' : DB::table('sector_product_brands')->where('service_category_id', (int) $this->productSector)
+                ->orderBy('label')->pluck('label')->implode("\n");
         }
     }
 
-    private function pageSize(): int
+    public function showVariants(int $id): void
     {
-        return in_array($this->perPage, [25, 50, 100], true) ? $this->perPage : 50;
+        $this->variantsOf = $this->variantsOf === $id ? null : $id;
     }
 
-    public function setQueryStatus(int $itemId, string $status): void
+    public function assignSelected(QueryServiceMatcher $matcher): void
     {
-        abort_unless(in_array($status, ['active', 'excluded', 'archived'], true), 422);
-        SearchQueryLibraryItem::query()->findOrFail($itemId)->forceFill([
-            'status' => $status,
-            'updated_by' => auth()->id(),
-        ])->save();
-        $this->message = $status === 'active' ? 'Sorgu etkinleştirildi.' : 'Sorgu değerlendirme dışına alındı.';
-        $this->message_tone = 'success';
-        $this->selectedQueryIds = array_values(array_diff($this->selectedQueryIds, [$itemId]));
-        $this->repairPage();
-    }
+        if ($this->targetService === '' || $this->selected === []) {
+            $this->message = 'Sorgu ve hizmet seç.';
 
-    public function queueAiGeneration(SearchDemandLibrarianService $librarian): void
-    {
-        $this->validate([
-            'ai_service_id' => ['required', 'integer', 'exists:service_catalog_items,id'],
-            'ai_language' => ['nullable', 'string', 'max:32'],
-            'ai_market' => ['nullable', 'string', 'max:32'],
-            'ai_sector' => ['required', 'exists:service_categories,code'],
-            'ai_location_context' => ['nullable', 'string', 'max:500'],
-            'ai_candidate_count' => ['required', 'integer', 'min:5', 'max:50'],
-        ]);
-
-        $result = $librarian->queueGeneration((int) $this->ai_service_id, [
-            'language_code' => $this->ai_language,
-            'market_code' => $this->ai_market,
-            'sector' => $this->ai_sector,
-            'location_context' => $this->ai_location_context,
-            'candidate_count' => $this->ai_candidate_count,
-        ], auth()->user());
-
-        $this->aiRunId = $result['run']->id;
-        $this->selectedAiCandidateIds = [];
-        $this->candidateEdits = [];
-        $this->primeCandidateEdits($result['run']->load('candidates'));
-        $this->message_tone = 'success';
-        $this->message = $result['cached']
-            ? 'Aynı model, skill ve girdi parmak izine ait tamamlanmış AI sonucu yeniden kullanıldı.'
-            : ($result['queued']
-                ? 'AI sorgu üretimi kuyruğa alındı. Bu sayfada çalışmaya devam edebilirsiniz.'
-                : 'Aynı AI çalışması zaten kuyrukta veya çalışıyor.');
-    }
-
-    public function queueAiClassification(SearchDemandLibrarianService $librarian): void
-    {
-        $this->validate([
-            'selectedQueryIds' => ['required', 'array', 'min:1', 'max:80'],
-            'selectedQueryIds.*' => ['integer', 'exists:search_query_library_items,id'],
-        ]);
-
-        $result = $librarian->queueClassification($this->selectedQueryIds, auth()->user());
-        $this->aiRunId = $result['run']->id;
-        $this->selectedQueryIds = [];
-        $this->selectedAiCandidateIds = [];
-        $this->candidateEdits = [];
-        $this->primeCandidateEdits($result['run']->load('candidates'));
-        $this->message_tone = 'success';
-        $this->message = $result['cached']
-            ? 'Aynı sorgular için tamamlanmış AI sınıflandırması yeniden kullanıldı.'
-            : ($result['queued']
-                ? 'Seçilen sorguların AI sınıflandırması kuyruğa alındı.'
-                : 'Aynı sınıflandırma zaten kuyrukta veya çalışıyor.');
-    }
-
-    public function openAiRun(int $runId): void
-    {
-        $run = SearchDemandAiRun::query()->with('candidates')->findOrFail($runId);
-        $this->aiRunId = $run->id;
-        $this->selectedAiCandidateIds = [];
-        $this->candidateEdits = [];
-        $this->primeCandidateEdits($run);
-    }
-
-    public function refreshAiRun(): void
-    {
-        if ($this->aiRunId === null) {
             return;
         }
-
-        $run = SearchDemandAiRun::query()->with('candidates')->find($this->aiRunId);
-        if ($run instanceof SearchDemandAiRun) {
-            $this->primeCandidateEdits($run);
-        }
+        $count = $matcher->assign(array_map('intval', $this->selected), (int) $this->targetService, auth()->user());
+        $this->selected = [];
+        $this->message = $count.' sorgu taşındı.';
     }
 
-    public function selectPendingAiCandidates(): void
+    public function irrelevantSelected(QueryServiceMatcher $matcher): void
     {
-        if ($this->aiRunId === null) {
+        $sector = $this->sector !== '' ? $this->sector : (string) ServiceCatalogItem::query()->whereKey((int) $this->targetService)->value('sector');
+        if ($sector === '' || $this->selected === []) {
+            $this->message = 'Sektör filtresi seç.';
+
             return;
         }
-
-        $this->selectedAiCandidateIds = SearchDemandAiRun::query()
-            ->findOrFail($this->aiRunId)
-            ->candidates()
-            ->where('status', 'pending')
-            ->where('abstained', false)
-            ->pluck('id')
-            ->all();
+        $count = $matcher->markIrrelevant(array_map('intval', $this->selected), $sector, auth()->user());
+        $this->selected = [];
+        $this->message = $count.' sorgu alakasız.';
     }
 
-    public function reviewAiCandidates(string $decision, SearchDemandLibrarianService $librarian): void
+    public function restoreIrrelevant(int $itemId, string $sector, QueryServiceMatcher $matcher): void
     {
-        abort_unless(in_array($decision, ['approve', 'reject'], true), 422);
+        $matcher->restore([$itemId], $sector, auth()->user());
+        $this->message = 'Geri alındı.';
+    }
 
-        if ($this->aiRunId === null) {
+    public function setDecision(int $clusterId, string $decision): void
+    {
+        if (! array_key_exists($decision, self::DECISIONS)) {
             return;
         }
+        DB::table('library_query_clusters')->where('id', $clusterId)->update(['page_decision' => $decision, 'decision_source' => 'manual', 'updated_at' => now()]);
+        $this->message = 'Karar kaydedildi.';
+    }
 
-        $counts = $librarian->reviewCandidates(
-            $this->aiRunId,
-            $this->selectedAiCandidateIds,
-            $decision,
-            $this->candidateEdits,
-            auth()->user(),
-        );
+    public function clusterNow(): void
+    {
+        $serviceId = $this->service !== '' && $this->service !== 'none' ? (int) $this->service : null;
+        Cache::put(ClusterQueriesJob::stateKey($serviceId), true, now()->addHour());
+        ClusterQueriesJob::dispatch($serviceId);
+        $this->message = 'Kümeleme sıraya alındı.';
+    }
 
-        $this->selectedAiCandidateIds = [];
-        $this->candidateEdits = [];
-        $run = SearchDemandAiRun::query()->with('candidates')->find($this->aiRunId);
-        if ($run instanceof SearchDemandAiRun) {
-            $this->primeCandidateEdits($run);
+    public function saveProducts(): void
+    {
+        $categoryId = (int) $this->productSector;
+        abort_unless(ServiceCategory::query()->whereKey($categoryId)->exists(), 422);
+        $labels = collect(preg_split('/[\r\n,]+/u', $this->productList) ?: [])->map(fn (string $l): string => trim($l))
+            ->filter(fn (string $l): bool => mb_strlen(SeoText::fold($l)) >= 3 && mb_strlen($l) <= 120)->unique(fn (string $l): string => SeoText::fold($l))->take(300);
+        DB::transaction(function () use ($categoryId, $labels): void {
+            DB::table('sector_product_brands')->where('service_category_id', $categoryId)->delete();
+            foreach ($labels as $label) {
+                DB::table('sector_product_brands')->insert(['service_category_id' => $categoryId, 'label' => $label, 'normalized_key' => SeoText::fold($label), 'created_at' => now(), 'updated_at' => now()]);
+            }
+        });
+        // Accounts of this sector are normalized again on the next pass.
+        DB::table('query_ingest_states')->update(['context_hash' => null]);
+        $this->message = $labels->count().' ürün markası kaydedildi.';
+    }
+
+    public function addQueries(LibraryImportWorkflow $workflow): void
+    {
+        if ($this->sector === '' || trim($this->pasteText) === '') {
+            throw ValidationException::withMessages(['pasteText' => 'Sektör seç, sorguları yapıştır.']);
         }
-        $this->message_tone = 'success';
-        $this->message = sprintf(
-            'AI adayları güncellendi: %d onaylı, %d reddedilmiş, %d bekleyen.',
-            $counts['approved'],
-            $counts['rejected'],
-            $counts['pending'],
-        );
+        $workflow->queue('paste', ['sector' => $this->sector, 'service_ids' => [], 'text' => $this->pasteText], auth()->user());
+        $this->pasteText = '';
+        $this->message = 'Sıraya alındı.';
     }
 
-    public function reviewAiCandidate(int $candidateId, string $decision, SearchDemandLibrarianService $librarian): void
+    /** @return Builder<SearchQueryLibraryItem> */
+    private function coreQuery(): Builder
     {
-        $this->selectedAiCandidateIds = [$candidateId];
-        $this->reviewAiCandidates($decision, $librarian);
-    }
+        $categoryId = $this->sector !== '' ? ServiceCategory::query()->where('code', $this->sector)->value('id') : null;
+        $folded = SeoText::fold($this->search);
 
-    #[On('query-exclusions-applied')]
-    public function refreshAfterExclusions(): void
-    {
-        $this->selectedQueryIds = [];
-        $this->cancelQueryEdit();
-        $this->repairPage();
+        return SearchQueryLibraryItem::query()->where('status', 'active')
+            // Irrelevant everywhere it was filed: not a core query of the list.
+            ->where(fn ($q) => $q->whereNotExists(fn ($s) => $s->selectRaw('1')->from('search_query_library_sectors as l')->whereColumn('l.search_query_library_item_id', 'search_query_library_items.id'))
+                ->orWhereExists(fn ($s) => $s->selectRaw('1')->from('search_query_library_sectors as l')->whereColumn('l.search_query_library_item_id', 'search_query_library_items.id')
+                    ->where('l.match_status', '!=', QueryServiceMatcher::IRRELEVANT)->when($categoryId !== null, fn ($w) => $w->where('l.service_category_id', $categoryId))))
+            ->when($categoryId !== null, fn ($q) => $q->whereExists(fn ($s) => $s->selectRaw('1')->from('search_query_library_sectors as l2')
+                ->whereColumn('l2.search_query_library_item_id', 'search_query_library_items.id')->where('l2.service_category_id', $categoryId)))
+            ->when($this->service === 'none', fn ($q) => $q->whereDoesntHave('services', fn ($s) => $s->when($this->sector !== '', fn ($w) => $w->where('sector', $this->sector))))
+            ->when($this->service !== '' && $this->service !== 'none', fn ($q) => $q->whereHas('services', fn ($s) => $s->whereKey((int) $this->service)))
+            ->when($this->cluster !== '', fn ($q) => $q->whereExists(fn ($s) => $s->selectRaw('1')->from('search_query_library_item_service as p')
+                ->whereColumn('p.search_query_library_item_id', 'search_query_library_items.id')->where('p.library_cluster_id', (int) $this->cluster)))
+            ->when($this->source !== '', fn ($q) => $q->whereExists(fn ($s) => $s->selectRaw('1')->from('query_variants as v')
+                ->whereColumn('v.search_query_library_item_id', 'search_query_library_items.id')->where('v.source', $this->source)))
+            ->when($folded !== '', fn ($q) => $q->where('folded_text', 'like', '%'.addcslashes($folded, '\\%_').'%'))
+            ->orderByRaw('(gsc_impressions + ads_impressions + gbp_impressions) desc')->orderBy('id');
     }
 
     public function render(): View
     {
-        $query = $this->orderedQueries()->with(['services.primaryName', 'sectors'])->withCount('sourceRecords');
-        $serviceOptions = ServiceCatalogItem::query()
-            ->with('primaryName')
-            ->where('status', 'active')
-            ->orderBy('id')
-            ->get()
-            ->mapWithKeys(fn (ServiceCatalogItem $item): array => [(string) $item->id => $item->primaryName?->raw_label ?? 'İsimsiz hizmet'])
-            ->all();
+        $sectors = ServiceCategory::query()->orderBy('name')->get(['id', 'code', 'name']);
+        $services = ServiceCatalogItem::query()->with('primaryName')->where('status', 'active')
+            ->when($this->sector !== '', fn ($q) => $q->where('sector', $this->sector))->orderBy('id')->limit(500)->get()
+            ->mapWithKeys(fn (ServiceCatalogItem $s): array => [(int) $s->id => (string) ($s->primaryName?->raw_label ?? '#'.$s->id)]);
+        $data = ['sectors' => $sectors, 'services' => $services, 'queries' => null, 'clusters' => null, 'competitors' => null,
+            'banned' => null, 'irrelevant' => null, 'clusterNames' => [], 'variants' => collect(), 'clusterOptions' => collect(),
+            'clusteringQueued' => Cache::has(ClusterQueriesJob::stateKey($this->service !== '' && $this->service !== 'none' ? (int) $this->service : null))];
 
-        $aiRun = $this->aiRunId !== null
-            ? SearchDemandAiRun::query()
-                ->with(['service.primaryName', 'candidates.service.primaryName', 'candidates.sourceItem'])
-                ->find($this->aiRunId)
-            : null;
-
-        if ($this->aiRunId !== null && $aiRun === null) {
-            $this->aiRunId = null;
+        if ($this->tab === 'queries') {
+            $data['queries'] = $this->coreQuery()->with('services.primaryName')->paginate(50);
+            $ids = $data['queries']->pluck('id')->all();
+            $data['clusterNames'] = DB::table('search_query_library_item_service as p')->join('library_query_clusters as c', 'c.id', '=', 'p.library_cluster_id')
+                ->whereIn('p.search_query_library_item_id', $ids ?: [0])->orderByDesc('p.is_primary')->get(['p.search_query_library_item_id', 'c.name'])
+                ->groupBy('search_query_library_item_id')->map(fn ($rows) => (string) $rows->first()->name)->all();
+            $data['variants'] = $this->variantsOf !== null ? QueryVariant::query()->with('resource:id,display_name,external_id')
+                ->where('search_query_library_item_id', $this->variantsOf)->orderByDesc('impressions')->limit(25)->get() : collect();
+            $data['clusterOptions'] = $this->service !== '' && $this->service !== 'none'
+                ? DB::table('library_query_clusters')->where('service_id', (int) $this->service)->where('status', 'active')->orderBy('name')->pluck('name', 'id') : collect();
+        } elseif ($this->tab === 'clusters') {
+            $data['clusters'] = DB::table('library_query_clusters as c')->join('service_catalog_items as s', 's.id', '=', 'c.service_id')
+                ->where('c.status', 'active')->when($this->sector !== '', fn ($q) => $q->where('s.sector', $this->sector))
+                ->when($this->service !== '' && $this->service !== 'none', fn ($q) => $q->where('c.service_id', (int) $this->service))
+                ->when(SeoText::fold($this->search) !== '', fn ($q) => $q->where('c.name_key', 'like', '%'.addcslashes(SeoText::fold($this->search), '\\%_').'%'))
+                ->select('c.*')
+                ->selectSub(fn ($q) => $q->from('search_query_library_item_service')->whereColumn('library_cluster_id', 'c.id')->selectRaw('count(*)'), 'query_count')
+                ->selectSub(fn ($q) => $q->from('search_query_library_item_service as p')->join('search_query_library_items as i', 'i.id', '=', 'p.search_query_library_item_id')
+                    ->whereColumn('p.library_cluster_id', 'c.id')->selectRaw('coalesce(sum(i.gsc_impressions + i.ads_impressions + i.gbp_impressions), 0)'), 'demand')
+                ->orderByDesc('demand')->orderBy('c.id')->paginate(50);
+        } elseif ($this->tab === 'competitor') {
+            $data['competitors'] = $this->variantList(QueryNormalization::COMPETITOR);
+        } elseif ($this->tab === 'irrelevant') {
+            $data['banned'] = $this->variantList(QueryNormalization::BANNED);
+            $data['irrelevant'] = DB::table('search_query_library_sectors as l')->join('search_query_library_items as q', 'q.id', '=', 'l.search_query_library_item_id')
+                ->join('service_categories as c', 'c.id', '=', 'l.service_category_id')->where('l.match_status', QueryServiceMatcher::IRRELEVANT)->whereNull('q.deleted_at')
+                ->when($this->sector !== '', fn ($q) => $q->where('c.code', $this->sector))
+                ->orderByRaw('(q.gsc_impressions + q.ads_impressions + q.gbp_impressions) desc')->limit(200)
+                ->get(['q.id', 'q.canonical_text', 'c.code', 'c.name as sector_name', 'l.match_method', DB::raw('(q.gsc_impressions + q.ads_impressions + q.gbp_impressions) as demand')]);
         }
 
-        $page = $query->paginate($this->pageSize());
-
-        return view('livewire.operator.library.search-query-library-page', [
-            'queries' => $page,
-            'blockedQueryIds' => DB::table('library_query_service_blocks')->whereIn('query_id', $page->pluck('id'))->pluck('query_id')->all(),
-            'importServices' => ServiceCatalogItem::query()->with('primaryName')->where('status', 'active')->where('sector', $this->importSector)->get(),
-            'assignmentServices' => ServiceCatalogItem::query()->with('primaryName')->where('status', 'active')->where('sector', $this->assignmentSector)->get(),
-            'resources' => in_array($this->importSource, LibraryImportWorkflow::ACCOUNT_SOURCES, true) ? app(LibraryImportWorkflow::class)->resources($this->importSource)->orderBy('display_name')->get(['id', 'display_name', 'external_id']) : collect(),
-            'sourceDetails' => $this->sourceItemId ? SearchQueryLibrarySourceRecord::query()->where('search_query_library_item_id', $this->sourceItemId)->latest('id')->limit(50)->get() : collect(),
-            'serviceOptions' => $serviceOptions,
-            'exportUrl' => route('operator.library.search-queries.export', $this->queryFilters()),
-            'sourceOptions' => SearchQueryLibraryService::sourceOptions(),
-            'sectorOptions' => IndustryOptions::options(),
-            'imports' => SearchQueryLibraryImport::query()->where('source_type', '!=', 'services')->latest('id')->limit(10)->get(),
-            'aiRun' => $aiRun,
-            'aiRuns' => SearchDemandAiRun::query()
-                ->with('service.primaryName')
-                ->latest('id')
-                ->limit(8)
-                ->get(),
-            'summary' => [
-                'total' => SearchQueryLibraryItem::query()->count(),
-                'active' => SearchQueryLibraryItem::query()->where('status', 'active')->count(),
-                'unassigned' => SearchQueryLibraryItem::query()->whereDoesntHave('services')->count(),
-                'branded' => SearchQueryLibraryItem::query()->where('is_branded', true)->count(),
-            ],
+        return view('livewire.operator.library.search-query-library-page', $data + [
+            'decisions' => self::DECISIONS, 'sources' => self::SOURCES,
+            'exportUrl' => route('operator.library.search-queries.export', array_filter(['search' => $this->search, 'sector' => $this->sector,
+                'service' => is_numeric($this->service) ? (int) $this->service : null, 'source' => $this->source !== '' ? $this->source : null, 'status' => 'active'])),
         ]);
     }
 
-    /** @return array<string, mixed> */
-    private function queryRules(bool $requiresQuery = true): array
+    private function variantList(string $kind)
     {
-        return [
-            'query_text' => [$requiresQuery ? 'required' : 'nullable', 'string', 'max:1000'],
-            'query_service_id' => ['nullable', 'integer', 'exists:service_catalog_items,id'],
-            'query_language' => ['nullable', 'string', 'max:32'],
-            'query_market' => ['nullable', 'string', 'max:32'],
-            'query_sector' => ['nullable', 'string', 'max:120'],
-            'query_demand_family' => ['nullable', 'string', 'max:255'],
-            'query_location_scope' => ['required', 'in:none,country,city,district,pattern'],
-            'query_location_value' => ['nullable', 'string', 'max:255'],
-            'query_is_branded' => ['boolean'],
-        ];
-    }
+        $folded = SeoText::fold($this->search);
 
-    /** @return array<string, mixed> */
-    private function queryAttributes(): array
-    {
-        return [
-            'service_catalog_item_id' => $this->query_service_id !== '' ? (int) $this->query_service_id : null,
-            'language_code' => $this->query_language,
-            'market_code' => $this->query_market,
-            'sector' => $this->query_sector,
-            'demand_family' => $this->query_demand_family,
-            'location_scope' => $this->query_location_scope,
-            'location_value' => $this->query_location_value,
-            'is_branded' => $this->query_is_branded,
-            'status' => 'active',
-        ];
-    }
-
-    private function primeCandidateEdits(SearchDemandAiRun $run): void
-    {
-        foreach ($run->candidates as $candidate) {
-            if ($candidate->status !== 'pending' || isset($this->candidateEdits[$candidate->id])) {
-                continue;
-            }
-
-            $this->candidateEdits[$candidate->id] = [
-                'proposed_text' => $candidate->proposed_text,
-                'service_alias' => $candidate->service_alias,
-                'demand_family' => $candidate->demand_family,
-                'search_intent' => $candidate->search_intent,
-                'user_problem' => $candidate->user_problem,
-                'decision_stage' => $candidate->decision_stage,
-                'serp_intent_group' => $candidate->serp_intent_group,
-                'content_target_cluster' => $candidate->content_target_cluster,
-                'location_scope' => $candidate->location_scope,
-                'location_value' => $candidate->location_value,
-                'is_branded_suspected' => $candidate->is_branded_suspected,
-            ];
-        }
+        return QueryVariant::query()->with('resource:id,display_name,external_id')->where('kind', $kind)
+            ->when($this->source !== '', fn ($q) => $q->where('source', $this->source))
+            ->when($folded !== '', fn ($q) => $q->where('raw_text', 'like', '%'.addcslashes($this->search, '\\%_').'%'))
+            ->orderByDesc('impressions')->orderBy('id')->paginate(50);
     }
 }

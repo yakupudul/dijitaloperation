@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use App\Services\IntelligenceCore\Identity\SearchTermNormalizer;
+use App\Services\Queries\QueryNormalizer;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
     'uuid',
@@ -41,10 +45,31 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class SearchQueryLibraryItem extends Model
 {
-    use \Illuminate\Database\Eloquent\SoftDeletes;
+    use SoftDeletes;
+
+    /** Every write path keeps the folded core identity (case / ı-i / diacritics insensitive) of the query pipeline. */
+    protected static function booted(): void
+    {
+        static::saving(function (SearchQueryLibraryItem $item): void {
+            if ($item->isDirty('canonical_text') || $item->core_key === null) {
+                $item->core_key = QueryNormalizer::coreKey((string) $item->canonical_text);
+            }
+        });
+    }
+
+    /** Aggregated demand of the core query across every account and source. */
+    public function demand(): int
+    {
+        return (int) $this->gsc_impressions + (int) $this->ads_impressions + (int) $this->gbp_impressions;
+    }
+
+    public function variants(): HasMany
+    {
+        return $this->hasMany(QueryVariant::class);
+    }
 
     /** @param array<string, mixed> $filters */
-    public function scopeLibraryFilters(\Illuminate\Database\Eloquent\Builder $query, array $filters): void
+    public function scopeLibraryFilters(Builder $query, array $filters): void
     {
         $status = $filters['status'] ?? 'all';
         if ($status === 'deleted') {
@@ -67,7 +92,7 @@ class SearchQueryLibraryItem extends Model
         }
         $text = trim((string) ($filters['search'] ?? ''));
         if ($text !== '') {
-            $text = app(\App\Services\IntelligenceCore\Identity\SearchTermNormalizer::class)->normalize($text, 'tr')->foldedText;
+            $text = app(SearchTermNormalizer::class)->normalize($text, 'tr')->foldedText;
             $query->where('folded_text', 'like', '%'.addcslashes($text, '\\%_').'%');
         }
     }
@@ -80,6 +105,9 @@ class SearchQueryLibraryItem extends Model
             'classified_at' => 'immutable_datetime',
             'first_seen_at' => 'immutable_datetime',
             'last_seen_at' => 'immutable_datetime',
+            'metrics_at' => 'immutable_datetime',
+            'ads_cost' => 'float',
+            'ads_conversions' => 'float',
         ];
     }
 

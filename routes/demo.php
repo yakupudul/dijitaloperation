@@ -69,6 +69,7 @@ use App\Livewire\Operator\Compliance\CompliancePage;
 use App\Livewire\Operator\Content\ContentCalendarPage;
 use App\Livewire\Operator\DataCenterPage;
 use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
+use App\Livewire\Operator\Integrations\DiscoveredAssetsPage;
 use App\Livewire\Operator\Integrations\SiteConnectorShow;
 use App\Livewire\Operator\Integrations\SiteConnectorsIndex;
 use App\Livewire\Operator\Integrations\WebsiteDuplicatesPage;
@@ -154,6 +155,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/integrations', IntegrationsIndex::class)->name('operator.integrations');
         Route::livewire('/integrations/google', GoogleIntegrationPage::class)->name('operator.integrations.google');
         Route::livewire('/integrations/meta', MetaIntegrationPage::class)->name('operator.integrations.meta');
+        Route::livewire('/integrations/discovered', DiscoveredAssetsPage::class)->name('operator.integrations.discovered');
         Route::livewire('/integrations/dataforseo', DataForSeoIntegrationPage::class)->name('operator.integrations.dataforseo');
         Route::livewire('/integrations/site-connectors', SiteConnectorsIndex::class)->name('operator.integrations.site-connectors');
         Route::livewire('/integrations/site-connectors/{connector}', SiteConnectorShow::class)->name('operator.integrations.site-connector');

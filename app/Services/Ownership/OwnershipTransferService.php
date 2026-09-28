@@ -2,7 +2,6 @@
 
 namespace App\Services\Ownership;
 
-use App\Models\BrainProposal;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -10,9 +9,9 @@ use App\Models\DigitalAsset;
 use App\Models\OwnershipTransfer;
 use App\Models\ResourceAutomation;
 use App\Models\User;
-use App\Services\Brain\Proposals\Kinds\AccountMappingKind;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
+use App\Services\Queries\AssetSectorService;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
 use Illuminate\Support\Facades\DB;
@@ -114,59 +113,42 @@ final class OwnershipTransferService
     }
 
     /**
-     * The account's sector / service mapping (resource automation) and its pending Brain "Hesap eşleme" proposals
-     * belong to the owner's business.
-     * - Another customer: the old-brand values (sector, services, query intake) are cleared, neutral settings
-     *   (collection on/off, interval, preferred hour) are kept, the automation is marked for re-evaluation
-     *   (mapping revision + 1, collection due now, query check reset) and pending mapping proposals go stale; the
-     *   Brain proposes a new mapping for the new brand on its next run.
-     * - Same customer: the mapping stays; pending mapping proposals are re-scoped to the new asset's brand.
+     * The account's sector belongs to the owner's business.
+     * - Another customer: an AI / brand-derived sector is cleared so the query pipeline assigns it again for the new
+     *   owner (an operator-set sector is kept: manual wins); the automation is due now and a parked portfolio gate
+     *   is lifted.
+     * - Same customer: nothing changes.
      *
      * @param  list<int>  $resourceIds
      * @return list<array<string, mixed>> what was reset, kept on the transfer record (snapshot.mapping)
      */
     public function rescopeMappings(array $resourceIds, bool $sameCustomer, ?int $targetBrandId): array
     {
-        if ($resourceIds === []) {
+        if ($resourceIds === [] || $sameCustomer) {
             return [];
         }
         $log = [];
-        $automations = ResourceAutomation::query()->whereIn('external_resource_id', $resourceIds)->orderBy('id')->get();
-        foreach ($automations as $automation) {
-            $pending = BrainProposal::query()->where('kind', AccountMappingKind::KIND)
-                ->where('subject_type', 'resource_automation')->where('subject_id', $automation->id)
-                ->where('status', BrainProposal::STATUS_PENDING);
-            $entry = ['automation_id' => (int) $automation->id, 'resource_id' => (int) $automation->external_resource_id];
-
-            if ($sameCustomer) {
-                $entry['action'] = 'rescoped';
-                $entry['proposals_rescoped'] = $targetBrandId !== null
-                    ? $pending->update(['brand_id' => $targetBrandId, 'updated_at' => now()])
-                    : 0;
-                $log[] = $entry;
-
-                continue;
+        foreach ($resourceIds as $resourceId) {
+            $sector = DB::table('asset_sectors')->where('subject_type', AssetSectorService::RESOURCE)->where('subject_id', $resourceId)->first();
+            $entry = ['resource_id' => $resourceId, 'action' => 'reset'];
+            if ($sector !== null && $sector->method !== AssetSectorService::MANUAL) {
+                $entry['cleared'] = ['sector_id' => $sector->service_category_id, 'method' => $sector->method];
+                DB::table('asset_sectors')->where('id', $sector->id)->update([
+                    'service_category_id' => null, 'method' => AssetSectorService::NONE, 'confidence' => null, 'signals_hash' => null, 'updated_at' => now(),
+                ]);
+            } elseif ($sector !== null) {
+                $entry['kept'] = ['sector_id' => $sector->service_category_id, 'method' => $sector->method];
             }
-
-            $serviceIds = array_values(array_map('intval', is_array($automation->service_ids) ? $automation->service_ids : []));
-            $entry += [
-                'action' => 'reset',
-                'cleared' => ['sector' => $automation->sector, 'service_ids' => $serviceIds, 'query_enabled' => (bool) $automation->query_enabled],
-                'kept' => ['collection_enabled' => (bool) $automation->collection_enabled, 'interval_days' => (int) $automation->interval_days, 'preferred_hour' => $automation->preferred_hour],
-            ];
-            $automation->forceFill([
-                'sector' => null,
-                'service_ids' => [],
-                'query_enabled' => false,
-                'query_error' => null,
-                'query_checked_at' => null,
-                'mapping_revision' => (int) $automation->mapping_revision + 1,
-                'revision' => (int) $automation->revision + 1,
-                'next_collection_at' => now(),
-                'collection_error' => in_array($automation->collection_error, ['unbound', 'customer_passive'], true) ? null : $automation->collection_error,
-                'collection_status' => in_array($automation->collection_error, ['unbound', 'customer_passive'], true) ? 'waiting' : $automation->collection_status,
-            ])->save();
-            $entry['proposals_stale'] = $pending->update(['status' => BrainProposal::STATUS_STALE, 'updated_at' => now()]);
+            $automation = ResourceAutomation::query()->where('external_resource_id', $resourceId)->first();
+            if ($automation !== null) {
+                $gated = in_array($automation->collection_error, ['unbound', 'customer_passive'], true);
+                $automation->forceFill([
+                    'revision' => (int) $automation->revision + 1,
+                    'next_collection_at' => now(),
+                    'collection_error' => $gated ? null : $automation->collection_error,
+                    'collection_status' => $gated ? 'waiting' : $automation->collection_status,
+                ])->save();
+            }
             $log[] = $entry;
         }
 
