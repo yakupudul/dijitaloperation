@@ -59,9 +59,10 @@ final class PageSmokeAudit
 
     /**
      * @param  callable(array<string, mixed>): void|null  $progress
+     * @param  list<array{0: string, 1: string}>|null  $urls  url + route name to open instead of urls($perType)
      * @return list<array{url: string, route: string, status: int, ms: int, level: string, error: ?string, where: ?string, writes: list<string>, http: list<string>}>
      */
-    public function run(User $user, int $perType = 3, bool $allowHttp = false, bool $useTransaction = true, ?string $only = null, ?callable $progress = null): array
+    public function run(User $user, int $perType = 3, bool $allowHttp = false, bool $useTransaction = true, ?string $only = null, ?callable $progress = null, ?array $urls = null): array
     {
         config(['moxdop.security.require_admin_2fa' => false]);
         Bus::fake();
@@ -83,7 +84,7 @@ final class PageSmokeAudit
 
         $this->redirector = app('redirect');
         $results = [];
-        foreach ($this->urls($perType) as [$url, $name]) {
+        foreach ($urls ?? $this->urls($perType) as [$url, $name]) {
             if ($only !== null && ! str_contains($url, $only) && ! str_contains($name, $only)) {
                 continue;
             }
@@ -145,6 +146,7 @@ final class PageSmokeAudit
                 ['profileId'] => $ids('sales_search_profiles', $perType),
                 ['signalId'] => $ids('sales_intent_signals', $perType),
                 ['report'] => $ids('monthly_reports', 1),
+                ['taskId'] => $ids('tasks', $perType),
                 ['provider'] => ['anthropic', 'openai', 'gemini', 'groq', 'openrouter'],
                 ['connector'] => str_contains($uri, 'site-connectors') ? ['wordpress'] : ['ga4', 'gsc', 'google-ads', 'gbp'],
                 default => [],

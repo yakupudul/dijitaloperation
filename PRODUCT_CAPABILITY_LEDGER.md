@@ -1,5 +1,15 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-21 — Sunucu hataları (500) taraması ve Otomatik kur kaydetme hatası
+
+- **Otomatik kur onayı artık 500 vermez.** Kök neden: AI'ın önerdiği `business_model` (160 karaktere kadar) `brand_intelligence_contexts.business_model` varchar(64) kolonuna yazılıyordu; PostgreSQL reddediyor ve bu adım try/catch dışında olduğu için tüm onay isteği 500 dönüyordu.
+  - `BrandSetupProposal::itemRows()` / `serviceRows()` saklanan öneriyi normalize eder (eksik anahtar, null, dizi olmayan değer, uzun ad, bozuk anahtar kelime).
+  - `BrandSetupApplier`: her adım kendi başına; hata "yapılamadı" satırı olur (Türkçe neden; veritabanı hatası ham gösterilmez, günlüğe yazılır). Değerler kolon boyuna kesilir, aynı hizmet iki kez uygulanmaz, katalogda olmayan sektör ve geçersiz web sitesi adresi raporlanır, öneri bir kez uygulanır (çift tık / ikinci sekme), sonuçlar her durumda kaydedilir. Hedef kitle operatör formunun biçiminde (`{name, note}`) yazılır.
+  - Sayfa: "Kısmen uygulandı: X uygulandı, Y yapılamadı" / "Hiçbir işlem uygulanamadı" mesajı.
+- **Operatör ekranları taraması (`tests/Feature/Smoke/OperatorRouteSmokeTest.php`).** Gerçekçi portföy (aktif/pasif/arşiv müşteri, her varlık tipi bağlı/bağsız, markasız site, toplanmış veri, Danışman, SEO görevleri, uyarılar, içerik takvimi, fatura, lead) üzerinde: her operatör sayfası ve sekmesi, her model parametreli rota çöp id'lerle, her sayfa çöp / dizi sorgu parametreleriyle, her Livewire sayfasının her eylemi eksik/boş id ve uzun metinle. PostgreSQL'in reddedeceği sorgular (id kolonunda sayı olmayan değer, varchar'dan uzun metin — `ColumnLengthGuard` migration'lardan okur) SQLite'ta da yakalanır.
+- **Bulunan ve düzeltilen hatalar:** çok büyük id'li rotalar (`/assets/9999…/sources` vb. TypeError) → rota id'leri `[0-9]{1,18}` (404); özel dönem bağlantısında çözülemeyen tarih (`?period=custom&from=…`) → varsayılan 28 gün; silinmiş kayda tıklanan eylemler (ModelNotFound → 404 penceresi) → Türkçe bildirim (`LivewireActionErrors`, düzen sayfasında bildirim kutusu); PostgreSQL'de sayısal olmayan id ile okuma → 404 / bildirim; Ajans taahhüt işaretleme (FK hatası), Beyin öneri türü, Meta işletme seçimi, arama profili sahibi (FK) ve alan uzunlukları, İş bağlamı formu uzunlukları (iş modeli 64, satırlar 255), AI kontrol paneli rota anahtarı; kimlik alanları (`brand`, `assetId`, `prospectId`, `profileId`, `connector`, `provider`, `bindingResourceId`) `#[Locked]`.
+- **State:** CODED + PHPUnit (SQLite). PostgreSQL bu oturumda erişilemedi; PG'ye özgü sorunlar `ColumnLengthGuard` ve sayısal olmayan id dedektörüyle SQLite'ta kontrol edildi. **No live UAT.**
+
 ## 2026-10-20 — Varlık sahipliği ve yetki devri
 
 - **One ownership rule (`App\Services\Ownership\OwnershipGuard`).** An external account (Google / Meta resource) or a digital asset belongs to one customer at a time.

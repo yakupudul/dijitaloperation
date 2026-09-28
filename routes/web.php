@@ -48,13 +48,13 @@ Route::get('/calendar/{token}.ics', CalendarFeedController::class)->where('token
 
 // ADR-075: client approval of planned content (signed, expiring link; no login).
 Route::get('/onay/{approval}', [ClientApprovalController::class, 'show'])
-    ->whereNumber('approval')->middleware(['signed', 'throttle:30,1'])->name('client-approval.show');
+    ->where('approval', '[0-9]{1,18}')->middleware(['signed', 'throttle:30,1'])->name('client-approval.show');
 Route::post('/onay/{approval}', [ClientApprovalController::class, 'respond'])
-    ->whereNumber('approval')->middleware(['signed', 'throttle:10,1'])->name('client-approval.respond');
+    ->where('approval', '[0-9]{1,18}')->middleware(['signed', 'throttle:10,1'])->name('client-approval.respond');
 
 // Faz 9: monthly report v2 — client link (signed, published reports only).
 Route::get('/r/monthly/{report}', [MonthlyReportClientController::class, 'client'])
-    ->whereNumber('report')->middleware(['signed', 'throttle:60,1'])->name('monthly-report.client');
+    ->where('report', '[0-9]{1,18}')->middleware(['signed', 'throttle:60,1'])->name('monthly-report.client');
 
 Route::middleware(['web', 'auth'])->group(function (): void {
     Route::get('/integrations/google/callback', [GoogleOAuthController::class, 'callback'])
@@ -70,11 +70,11 @@ Route::middleware(['web', 'auth'])->group(function (): void {
         ->name('integrations.meta.authorize');
 
     Route::get('/reports/artifacts/{artifactId}/download', [ReportArtifactDownloadController::class, 'download'])
-        ->whereNumber('artifactId')
+        ->where('artifactId', '[0-9]{1,18}')
         ->name('reports.artifacts.download');
 
     Route::post('/reports/snapshots/{snapshotId}/pdf', [ReportArtifactDownloadController::class, 'generateAndDownload'])
-        ->whereNumber('snapshotId')
+        ->where('snapshotId', '[0-9]{1,18}')
         ->name('reports.snapshots.pdf');
 
     Route::get('/ops/health-snapshot', [OpsHealthController::class, 'snapshot'])
@@ -109,7 +109,7 @@ Route::middleware(['web'])->prefix('reports/share')->name('reports.share.')->gro
 // Register the concrete Website integration route before demo.php's /integrations/{provider} catch-all.
 Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (): void {
     Route::livewire('/integrations/website/{assetId?}', WebsiteIntegrationIndex::class)
-        ->whereNumber('assetId')
+        ->where('assetId', '[0-9]{1,18}')
         ->name('operator.integrations.website');
 });
 
@@ -129,7 +129,7 @@ require __DIR__.'/demo.php';
 // Canonical production operator engine surfaces that are intentionally kept outside legacy demo.php.
 Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (): void {
     Route::get('/library/query-cluster-exports/{operation}', ManualClusterDownloadController::class)
-        ->whereNumber('operation')->name('operator.library.manual-clusters.download');
+        ->where('operation', '[0-9]{1,18}')->name('operator.library.manual-clusters.download');
     Route::get('/library/search-queries/export', SearchQueryExportController::class)
         ->name('operator.library.search-queries.export');
 
@@ -138,20 +138,20 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (
 
     // Canonical data-source management for every bindable Digital Asset type.
     Route::livewire('/assets/{assetId}/sources', AssetDataSourcesPage::class)
-        ->whereNumber('assetId')
+        ->where('assetId', '[0-9]{1,18}')
         ->name('operator.asset.sources');
 
     // Backward-compatible Website URL; same canonical component.
     Route::livewire('/assets/website/{assetId}/sources', AssetDataSourcesPage::class)
-        ->whereNumber('assetId')
+        ->where('assetId', '[0-9]{1,18}')
         ->name('operator.website.sources');
 
     Route::livewire('/assets/website/{assetId}/discovery', PublicDiscoveryPage::class)
-        ->whereNumber('assetId')
+        ->where('assetId', '[0-9]{1,18}')
         ->name('operator.website.discovery');
 
     Route::get('/assets/website/{assetId}/html/{rawObjectId}', [WebsiteHtmlSnapshotController::class, 'show'])
-        ->whereNumber(['assetId', 'rawObjectId'])
+        ->where(['assetId' => '[0-9]{1,18}', 'rawObjectId' => '[0-9]{1,18}'])
         ->name('operator.website.html.show');
 });
 

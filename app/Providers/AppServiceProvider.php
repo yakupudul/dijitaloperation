@@ -100,6 +100,7 @@ use App\Services\ServiceScope\CustomerServiceScopeService;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Database\ViewAwarePostgresConnection;
+use App\Support\Operator\LivewireActionErrors;
 use App\Support\Roles;
 use App\Support\ServiceScope;
 use App\Support\Skills\SkillRegistry;
@@ -108,6 +109,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -236,6 +238,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Integer record ids in operator URLs: anything else (text, a number past bigint) is a 404, never a
+        // TypeError on a typed Livewire property or a PostgreSQL "invalid input syntax for type bigint".
+        Route::patterns(array_fill_keys(['assetId', 'brandId', 'brand', 'customerId', 'prospectId', 'profileId', 'signalId', 'taskId', 'artifactId', 'auditId'], '[0-9]{1,18}'));
+        LivewireActionErrors::register();
         $this->routeHeavyJobs();
         $this->flushServiceScopeOnPortfolioChange();
         Event::listen(AgentPrompted::class, [AiUsageRecorder::class, 'handle']);

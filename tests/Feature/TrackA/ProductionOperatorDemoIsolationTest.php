@@ -69,8 +69,8 @@ class ProductionOperatorDemoIsolationTest extends TestCase
     {
         $gscRoute = app('router')->getRoutes()->getByName('operator.search-console');
         $ga4Route = app('router')->getRoutes()->getByName('operator.analytics');
-        $this->assertSame('[0-9]+', $gscRoute?->wheres['assetId'] ?? null);
-        $this->assertSame('[0-9]+', $ga4Route?->wheres['assetId'] ?? null);
+        $this->assertSame('[0-9]{1,18}', $gscRoute?->wheres['assetId'] ?? null);
+        $this->assertSame('[0-9]{1,18}', $ga4Route?->wheres['assetId'] ?? null);
 
         $this->get('/assets/search-console/'.DemoCatalog::GSC_ASSET_ID)->assertNotFound();
         $this->get('/assets/analytics/'.DemoCatalog::GA4_ASSET_ID)->assertNotFound();

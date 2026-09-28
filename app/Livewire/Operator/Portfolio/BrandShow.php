@@ -28,7 +28,9 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -55,6 +57,7 @@ class BrandShow extends Component
 
     public const array WORK_SECTIONS = ['findings', 'opportunities', 'recommendations', 'tasks'];
 
+    #[Locked]
     public string $brand = '';
 
     #[Url(as: 'tab', history: true)]
@@ -152,6 +155,16 @@ class BrandShow extends Component
         $brand = $this->brandModel();
         $context = $brand->intelligenceContext;
         $split = static fn (string $value): array => array_values(array_filter(array_map('trim', preg_split('/[,\n]+/', $value) ?: [])));
+        // Column sizes (PostgreSQL refuses longer values): business model 64, each goal / offering / audience line 255.
+        $this->validate(['context_business_model' => ['nullable', 'string', 'max:64']], [
+            'context_business_model.max' => 'İş modeli en fazla 64 karakter olabilir (ör. "Klinik — randevulu hizmet").',
+        ]);
+        foreach (['context_priority_offerings' => 'Öncelikli teklifler', 'context_target_audiences' => 'Hedef kitle', 'context_business_goals' => 'İş hedefleri',
+            'context_conversion_goals' => 'Dönüşüm hedefleri', 'context_differentiators' => 'Farklılaştırıcılar'] as $field => $label) {
+            if (collect($split((string) $this->{$field}))->contains(fn (string $line): bool => mb_strlen($line) > 255)) {
+                throw ValidationException::withMessages([$field => $label.': her satır en fazla 255 karakter olabilir.']);
+            }
+        }
 
         app(BrandIntelligenceContextWriteService::class)->saveFromForm($brand, [
             'business_summary' => $this->context_business_summary,

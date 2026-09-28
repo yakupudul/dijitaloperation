@@ -23,6 +23,7 @@ use App\Support\Integrations\ProviderRegistry;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
@@ -30,6 +31,7 @@ class AiProviderIntegrationPage extends Component
 {
     use ManagesOperatorCredentials;
 
+    #[Locked]
     public string $provider = '';
 
     public string $apiKey = '';

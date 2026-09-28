@@ -227,6 +227,7 @@
                             <label class="block text-sm">
                                 <span class="text-xs text-gray-500">{{ $label }}</span>
                                 <textarea wire:model="{{ $field }}" rows="2" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-700"></textarea>
+                                @error($field)<span class="mt-1 block text-xs text-error-600">{{ $message }}</span>@enderror
                             </label>
                         @endforeach
                         <div class="flex gap-2">

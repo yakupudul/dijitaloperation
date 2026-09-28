@@ -142,8 +142,8 @@ class PublicCanonicalUrlArchitectureTest extends TestCase
         $searchConsole = app('router')->getRoutes()->getByName('operator.search-console');
         $analytics = app('router')->getRoutes()->getByName('operator.analytics');
 
-        $this->assertSame('[0-9]+', $searchConsole?->wheres['assetId'] ?? null);
-        $this->assertSame('[0-9]+', $analytics?->wheres['assetId'] ?? null);
+        $this->assertSame('[0-9]{1,18}', $searchConsole?->wheres['assetId'] ?? null);
+        $this->assertSame('[0-9]{1,18}', $analytics?->wheres['assetId'] ?? null);
         $this->assertSame('assets/search-console/{assetId?}', $searchConsole?->uri());
         $this->assertSame('assets/analytics/{assetId?}', $analytics?->uri());
     }

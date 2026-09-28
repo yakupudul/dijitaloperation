@@ -1,5 +1,13 @@
 # PROJECT_MEMORY
 
+## 2026-10-21 — No server errors from operator input
+
+- **AI output is cut to the column before it is written.** Production is PostgreSQL: varchar lengths are enforced (SQLite ignores them). `brand_intelligence_contexts.business_model` is varchar(64).
+- **Multi-step "apply" flows report per step and never throw** (`BrandSetupApplier` is the pattern): each step in its own try, Turkish reason, raw database errors logged not shown, results always stored, the proposal claimed once.
+- **Record ids in operator URLs are `[0-9]{1,18}`** (global `Route::patterns` in `AppServiceProvider` + route `where`); use that instead of `whereNumber`. Identity properties of Livewire pages set from the route are `#[Locked]`.
+- **A Livewire action on a record that no longer exists shows a notice, not a 404 dialog** (`App\Support\Operator\LivewireActionErrors`, `operator-notice` browser event + toast in the operator layout). A PostgreSQL read by a non-numeric / out-of-range id is a 404 (`bootstrap/app.php` exception map).
+- `tests/Feature/Smoke/OperatorRouteSmokeTest.php` must stay green: new pages / actions are swept automatically, including PostgreSQL-only failures (`ColumnLengthGuard`, non-numeric id comparisons).
+
 ## 2026-10-20 — Ownership and yetki devri
 
 - **An account or asset has one owner customer.** Every new bind / assign path must call `OwnershipGuard` first.

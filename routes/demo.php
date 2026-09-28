@@ -147,7 +147,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
 
         Route::livewire('/assets', AssetsIndex::class)->name('operator.assets');
         Route::livewire('/assets/create', AssetCreate::class)->name('operator.asset.create');
-        Route::livewire('/assets/{assetId}/edit', AssetEdit::class)->whereNumber('assetId')->name('operator.asset.edit');
+        Route::livewire('/assets/{assetId}/edit', AssetEdit::class)->where('assetId', '[0-9]{1,18}')->name('operator.asset.edit');
 
         Route::livewire('/integrations', IntegrationsIndex::class)->name('operator.integrations');
         Route::livewire('/integrations/google', GoogleIntegrationPage::class)->name('operator.integrations.google');
@@ -181,10 +181,10 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/assets/website/{assetId?}', WebsiteOverviewPage::class)->name('operator.website');
         Route::livewire('/assets/gbp/{assetId?}', GbpOverviewPage::class)->name('operator.gbp');
         Route::livewire('/assets/analytics/{assetId?}', AnalyticsPage::class)
-            ->whereNumber('assetId')
+            ->where('assetId', '[0-9]{1,18}')
             ->name('operator.analytics');
         Route::livewire('/assets/search-console/{assetId?}', SearchConsolePage::class)
-            ->whereNumber('assetId')
+            ->where('assetId', '[0-9]{1,18}')
             ->name('operator.search-console');
         Route::get('/assets/domain/{assetId?}', RetiredAssetTypeRedirectController::class)->name('operator.domain');
         Route::get('/assets/hosting/{assetId?}', RetiredAssetTypeRedirectController::class)->name('operator.hosting');
@@ -203,7 +203,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/archive', ProductionArchivePage::class)->name('operator.archive');
         Route::livewire('/renewals', RenewalsPage::class)->name('operator.renewals');
         Route::livewire('/brands/{brand}/setup', BrandSetupPage::class)->name('operator.brand.setup');
-        Route::livewire('/brands/{brand}/leads', BrandLeads::class)->whereNumber('brand')->name('operator.brand.leads');
+        Route::livewire('/brands/{brand}/leads', BrandLeads::class)->where('brand', '[0-9]{1,18}')->name('operator.brand.leads');
         Route::livewire('/tasks/{taskId}', TaskShow::class)->name('operator.task');
         Route::livewire('/work/{type}/{workId}', WorkShow::class)
             ->whereIn('type', WorkUrl::types())
@@ -222,11 +222,11 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/prospects/intent-signals/{signalId}', IntentSignalShow::class)->name('operator.intent-signal');
         Route::livewire('/prospects/{prospectId}/convert', ProspectConvert::class)->name('operator.prospect.convert');
         Route::get('/prospects/{prospectId}/reports/{artifactId}/download', [ProspectReportArtifactDownloadController::class, 'download'])
-            ->whereNumber('prospectId')
-            ->whereNumber('artifactId')
+            ->where('prospectId', '[0-9]{1,18}')
+            ->where('artifactId', '[0-9]{1,18}')
             ->name('operator.prospect.report.pdf');
         Route::livewire('/prospects/{prospectId}', ProspectShow::class)->name('operator.prospect');
-        Route::get('/prospects/{prospectId}/audit/{auditId}', ProspectAuditPrintController::class)->whereNumber(['prospectId', 'auditId'])->name('operator.prospect.audit.print');
+        Route::get('/prospects/{prospectId}/audit/{auditId}', ProspectAuditPrintController::class)->where(['prospectId' => '[0-9]{1,18}', 'auditId' => '[0-9]{1,18}'])->name('operator.prospect.audit.print');
 
         Route::livewire('/settings', SettingsPage::class)->name('operator.settings');
         Route::livewire('/settings/background-operations', BackgroundOperationsPage::class)->name('operator.settings.background-operations');
@@ -258,8 +258,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/market/ai-visibility', AiVisibilityPage::class)->name('operator.market.ai-visibility');
         Route::livewire('/reports/annotations', ChartAnnotationsPage::class)->name('operator.reports.annotations');
         Route::livewire('/integrations/wordpress-sites', WordPressSitesPage::class)->name('operator.integrations.wordpress-sites');
-        Route::post('/integrations/wordpress-sites/{site}/login', WordPressLoginController::class)->whereNumber('site')->middleware('throttle:10,1')->name('operator.integrations.wordpress-login');
-        Route::get('/reports/monthly/{report}/preview', [MonthlyReportClientController::class, 'preview'])->whereNumber('report')->name('operator.reports.monthly.preview');
+        Route::post('/integrations/wordpress-sites/{site}/login', WordPressLoginController::class)->where('site', '[0-9]{1,18}')->middleware('throttle:10,1')->name('operator.integrations.wordpress-login');
+        Route::get('/reports/monthly/{report}/preview', [MonthlyReportClientController::class, 'preview'])->where('report', '[0-9]{1,18}')->name('operator.reports.monthly.preview');
         Route::livewire('/compliance', CompliancePage::class)->name('operator.compliance');
         Route::livewire('/settings/ai/control-plane', AiControlPlanePage::class)->name('operator.settings.ai.control-plane');
         Route::livewire('/settings/ai/agents', AiAgentsPage::class)->name('operator.settings.ai.agents');

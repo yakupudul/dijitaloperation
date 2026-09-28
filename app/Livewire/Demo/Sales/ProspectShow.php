@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -29,6 +30,7 @@ use Livewire\Component;
 #[Title('Aday müşteri')]
 class ProspectShow extends Component
 {
+    #[Locked]
     public string $prospectId = '';
 
     #[Url(history: true)]
@@ -165,7 +167,7 @@ class ProspectShow extends Component
     {
         $snapshot = ProspectReportSnapshot::query()
             ->where('prospect_id', $this->prospectId)
-            ->findOrFail($snapshotId);
+            ->findOrFail(ctype_digit($snapshotId) ? (int) $snapshotId : 0);
         $artifact = app(ProspectReportPdfRenderer::class)->generateArtifact($snapshot);
 
         return redirect()->route('operator.prospect.report.pdf', [
@@ -178,7 +180,7 @@ class ProspectShow extends Component
     {
         $snapshot = ProspectReportSnapshot::query()
             ->where('prospect_id', $this->prospectId)
-            ->findOrFail($snapshotId);
+            ->findOrFail(ctype_digit($snapshotId) ? (int) $snapshotId : 0);
         $result = app(ProspectReportShareService::class)->createGrant($snapshot, auth()->user());
         $this->shareUrl = $result['url'];
         DemoState::flash(__('operator.prospects.reports.share_created'));

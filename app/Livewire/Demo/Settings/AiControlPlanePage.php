@@ -37,6 +37,15 @@ class AiControlPlanePage extends Component
         $this->monthlyBudget = number_format(app(AiBudget::class)->monthlyBudget(), 2, '.', '');
     }
 
+    /** A route key set from the browser (query string / history) that is not a known AI route falls back to the first one. */
+    public function updatedSelectedRoute(): void
+    {
+        if (! app(AiRouteRegistry::class)->has($this->selectedRoute)) {
+            $this->selectedRoute = app(AiRouteRegistry::class)->keys()[0] ?? '';
+        }
+        $this->loadSteps();
+    }
+
     /** Monthly AI budget in USD (0 = no limit). Admin only. */
     public function saveBudget(): void
     {
