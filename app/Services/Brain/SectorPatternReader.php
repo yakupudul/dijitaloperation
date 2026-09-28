@@ -79,6 +79,9 @@ final class SectorPatternReader
         return DB::table('brand_demand_queries')
             ->whereIn('brand_id', $brandIds)
             ->where('is_branded', false)
+            // Not only inherited portfolio / SERP rows (own accounts = the first three source bits) and not alakasız.
+            ->whereRaw('(source_mask = 0 or (source_mask & 7) <> 0)')
+            ->where('relevance', '!=', 'irrelevant')
             ->when($exceptKeys !== null, fn ($q) => $q->whereNotIn('query_key', $exceptKeys))
             ->selectRaw('query_key, min(query) as query, count(distinct brand_id) as brands, sum(gsc_impressions) as impressions, sum(gsc_clicks) as clicks, sum(ads_conversions) as ads_conversions')
             ->groupBy('query_key')

@@ -106,6 +106,36 @@ final class EmbeddingService
         return $out;
     }
 
+    /**
+     * Vectors already in the cache for the given texts (no provider call, no cost), keyed like the input; texts
+     * without a cached vector are left out. Null when no embedding provider is configured.
+     *
+     * @param  array<array-key, string>  $texts
+     * @return array<array-key, list<float>>|null
+     */
+    public function cached(array $texts): ?array
+    {
+        $provider = $this->provider();
+        if ($provider === null) {
+            return null;
+        }
+        $hashes = array_map(static fn (string $t): string => hash('sha256', trim(SeoText::fold($t))), $texts);
+        $found = [];
+        foreach (array_chunk(array_values(array_unique($hashes)), 500) as $chunk) {
+            foreach (DB::table('brain_embeddings')->where('model', $provider[1])->whereIn('text_hash', $chunk)->get(['text_hash', 'vector']) as $row) {
+                $found[$row->text_hash] = array_map('floatval', (array) json_decode((string) $row->vector, true));
+            }
+        }
+        $out = [];
+        foreach ($hashes as $key => $hash) {
+            if (isset($found[$hash]) && $found[$hash] !== []) {
+                $out[$key] = $found[$hash];
+            }
+        }
+
+        return $out;
+    }
+
     /** Cosine similarity of two unit vectors. */
     public static function similarity(array $a, array $b): float
     {
