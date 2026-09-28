@@ -3,24 +3,43 @@
 namespace App\Livewire\Operator\Website;
 
 use App\Models\DigitalAsset;
-use App\Services\Measurement\PageScorecardReader;
+use App\Models\WebsiteUrlAudit;
+use App\Models\WebsiteUrlVerdict;
+use App\Services\Website\UrlAudit\UrlAuditService;
 use App\Support\Permissions;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Url;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 /**
- * Website › Sayfa Karnesi: every measured page with Google, GA4 (incl. channel mix), Google Ads, indexing,
- * speed and open SEO tasks side by side for the last 28 days.
+ * Website › Sayfa Karnesi (Faz 5 URL karnesi): every document URL of the site — crawled, sitemap-only, WordPress and
+ * measured pages — with one verdict (Düzelt / Birleştir / Güçlendir / Dizinden çıkar / Kontrol et / Sorun yok),
+ * its reason, solution and action, next to the 28-day Google, GA4 (channel mix), Google Ads, indexing and speed
+ * metrics. Rows are precomputed (website_url_verdicts); "Yenile" recomputes them in the queue.
  */
 final class PageScorecard extends Component
 {
+    use WithPagination;
+
+    public const int PER_PAGE = 50;
+
     #[Locked]
     public int $websiteId;
 
+    #[Url(as: 'url_q')]
     public string $search = '';
 
-    public ?string $openKey = null;
+    #[Url(as: 'karar')]
+    public string $verdict = '';
+
+    public ?int $openId = null;
+
+    public string $message = '';
+
+    public string $tone = 'success';
 
     public function mount(int $websiteId): void
     {
@@ -28,17 +47,58 @@ final class PageScorecard extends Component
         $this->websiteId = $websiteId;
     }
 
-    public function toggle(string $key): void
+    public function updated(string $property): void
     {
-        $this->openKey = $this->openKey === $key ? null : $key;
+        if (in_array($property, ['search', 'verdict'], true)) {
+            $this->resetPage('urls');
+            $this->openId = null;
+        }
     }
 
-    public function render(PageScorecardReader $reader): View
+    public function filter(string $verdict): void
     {
-        $site = DigitalAsset::query()->where('type', 'website')->findOrFail($this->websiteId);
+        $this->verdict = $verdict !== '' && isset(WebsiteUrlVerdict::VERDICTS[$verdict]) && $this->verdict !== $verdict ? $verdict : '';
+        $this->resetPage('urls');
+        $this->openId = null;
+    }
+
+    public function toggle(int $id): void
+    {
+        $this->openId = $this->openId === $id ? null : $id;
+    }
+
+    public function refresh(UrlAuditService $audit): void
+    {
+        abort_unless(auth()->user()?->is_active && auth()->user()?->can(Permissions::ACCESS_APP), 403);
+        $result = $audit->queue($this->site(), auth()->user());
+        $this->message = $result['message'];
+        $this->tone = $result['ok'] ? 'success' : 'error';
+    }
+
+    public function render(ServiceScope $scope): View
+    {
+        $site = $this->site();
+        $served = $scope->isAssetOperational($site->id);
+        $audit = WebsiteUrlAudit::query()->where('digital_asset_id', $site->id)->first();
+        $rows = null;
+        $open = null;
+        if ($served) {
+            $query = WebsiteUrlVerdict::query()->where('digital_asset_id', $site->id)
+                ->when($this->verdict !== '', fn ($q) => $q->where('verdict', $this->verdict))
+                ->when(trim($this->search) !== '', fn ($q) => $q->where('url', 'like', '%'.str_replace(['%', '_'], ['\%', '\_'], trim($this->search)).'%'))
+                ->orderByDesc('priority')->orderBy('path');
+            $rows = $query->paginate(self::PER_PAGE, pageName: 'urls');
+            $open = $this->openId !== null ? WebsiteUrlVerdict::query()->where('digital_asset_id', $site->id)->find($this->openId) : null;
+        }
 
         return view('livewire.operator.website.page-scorecard', [
-            'card' => $reader->read($site, trim($this->search)),
+            'site' => $site, 'served' => $served, 'audit' => $audit, 'rows' => $rows, 'open' => $open,
+            'verdicts' => WebsiteUrlVerdict::VERDICTS,
         ]);
+    }
+
+    private function site(): DigitalAsset
+    {
+        return DigitalAsset::query()->where('type', 'website')->findOrFail($this->websiteId);
     }
 }

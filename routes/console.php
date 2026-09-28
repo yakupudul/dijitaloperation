@@ -7,6 +7,7 @@ use App\Jobs\CheckSitemapChangesJob;
 use App\Jobs\Collection\ExecuteDatasetRunJob;
 use App\Jobs\CollectMetaGeoResultsJob;
 use App\Jobs\Ops\QueueHeartbeatProbeJob;
+use App\Jobs\RefreshUrlVerdictsJob;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
@@ -415,6 +416,21 @@ Artisan::command('moxdop:seo:inspect-changed', function (): void {
 
 Schedule::command('moxdop:seo:inspect-changed')
     ->dailyAt('09:40')->withoutOverlapping(60)->name('seo-inspect-changed');
+
+// Faz 5: Sayfa Karnesi (URL bazında karar) — haftalık yeniden hesaplama, SEO planından sonra. Kayıtlı veri; sağlayıcı / AI yok.
+Artisan::command('moxdop:website:url-verdicts {--website= : Only this website id}', function (): void {
+    $query = DigitalAsset::query()->operational()->where('type', 'website');
+    if ($this->option('website') !== null) {
+        $query->whereKey((int) $this->option('website'));
+    }
+    foreach ($query->pluck('digital_assets.id') as $siteId) {
+        RefreshUrlVerdictsJob::dispatch((int) $siteId, 'weekly');
+    }
+})->purpose('Queue the URL verdict (Sayfa Karnesi) refresh of operational websites.');
+
+Schedule::command('moxdop:website:url-verdicts')
+    ->weeklyOn((int) config('moxdop-url-audit.schedule.weekly_day', 1), (string) config('moxdop-url-audit.schedule.weekly_time', '07:10'))
+    ->withoutOverlapping(120)->name('website-url-verdicts-weekly');
 
 Artisan::command('moxdop:whatsapp:dispatch', function (): void {
     app(WhatsAppDispatch::class)->tick();

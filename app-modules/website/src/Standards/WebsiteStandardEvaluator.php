@@ -19,6 +19,9 @@ final class WebsiteStandardEvaluator
         if (! $site && ($page['excluded_kind'] ?? false)) {
             return $this->out('not_applicable', 'Sistem, medya veya sayfalama URL’si.');
         }
+        if (str_starts_with($method, 'url_')) {
+            return $this->out('not_applicable', 'Bu kriter Sayfa Karnesi’nde (URL bazında) değerlendirilir.');
+        }
         if ($method === 'expert_review') {
             return $this->out('unknown', 'Bu kriter, seçilen sayfa ve sorgu kümesi üzerinde uzman incelemesi gerektirir.');
         }
