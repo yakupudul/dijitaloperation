@@ -5,6 +5,7 @@ namespace App\Services\ExternalWrites;
 use App\Enums\AdvisorItemStatus;
 use App\Jobs\ExecuteExternalWriteJob;
 use App\Models\AdvisorItem;
+use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
@@ -12,6 +13,8 @@ use App\Models\GbpReview;
 use App\Models\SeoTask;
 use App\Models\SiteFixItem;
 use App\Models\User;
+use App\Services\ContentDelivery\ArticleDraft;
+use App\Services\ContentDelivery\ContentComplianceGate;
 use App\Services\Integrations\WordPress\WordPressManagementService;
 use App\Services\SiteFixes\SiteFixVerification;
 use App\Support\Roles;
@@ -199,6 +202,8 @@ final class ExternalWriteService
         if (! in_array($item->type, ['content_update', 'new_page'], true) || blank(data_get($item->proposed, 'value.html')) || ! in_array($item->status, ['open', 'failed', 'undone'], true)) {
             throw ValidationException::withMessages(['write' => 'Bu öneride gönderilecek metin yok.']);
         }
+        // ADR-076: AI page text passes the brand's sector rules before it can leave MoxDOP.
+        $this->assertArticleCompliant($item->brand_id, ArticleDraft::fromSiteFixItem($item));
         $this->fixConnection($item->digitalAsset);
 
         return $this->queue(ExternalWriteAction::query()->create([
@@ -207,6 +212,51 @@ final class ExternalWriteService
             'request_payload' => ['item_id' => $item->id, 'object_id' => $item->object_id, 'title' => data_get($item->proposed, 'value.title')],
             'requested_by' => $user->id,
         ]));
+    }
+
+    /**
+     * ADR-076: Admin-approved article drafts, the source language first and each translation linked to it (Polylang).
+     * Every version passes the compliance gate; the site must run the connector ≥ rich_drafts_min_plugin_version.
+     * Use ContentDraftPublisher::publish() rather than calling this directly.
+     *
+     * @param  list<ArticleDraft>  $translations  each with its own language, different from the source's
+     */
+    public function requestArticleDrafts(User $user, DigitalAsset $site, ArticleDraft $source, array $translations = []): ExternalWriteAction
+    {
+        $this->guard($user, ExternalWriteAction::CHANNEL_WORDPRESS);
+        foreach ([$source, ...$translations] as $article) {
+            $this->assertArticleCompliant($site->brand_id, $article, $article->language !== null ? 'Metin ('.$article->language.')' : 'Metin');
+        }
+        try {
+            $this->drafts->richConnection((int) $site->id);
+        } catch (Throwable $exception) {
+            throw ValidationException::withMessages(['write' => $exception->getMessage()]);
+        }
+        $busy = ExternalWriteAction::query()->where('digital_asset_id', $site->id)->where('action', ExternalWriteAction::ACTION_ARTICLE_DRAFTS)
+            ->whereIn('status', ['queued', 'running', 'undoing'])->where('request_payload->reference', $source->reference)->exists();
+        if ($busy) {
+            throw ValidationException::withMessages(['write' => 'Bu makale için bir gönderim zaten sürüyor.']);
+        }
+        $drafts = [['language' => $source->language, 'draft' => WordPressDraftWriter::payload($source)]];
+        foreach ($translations as $translation) {
+            $drafts[] = ['language' => $translation->language, 'draft' => WordPressDraftWriter::payload($translation)];
+        }
+
+        return $this->queue(ExternalWriteAction::query()->create([
+            'channel' => ExternalWriteAction::CHANNEL_WORDPRESS, 'action' => ExternalWriteAction::ACTION_ARTICLE_DRAFTS,
+            'digital_asset_id' => $site->id, 'brand_id' => $site->brand_id, 'status' => 'queued',
+            'request_payload' => ['reference' => $source->reference, 'label' => $source->title, 'languages' => array_column($drafts, 'language'), 'drafts' => $drafts],
+            'requested_by' => $user->id,
+        ]));
+    }
+
+    private function assertArticleCompliant(?int $brandId, ArticleDraft $article, string $what = 'Metin'): void
+    {
+        try {
+            app(ContentComplianceGate::class)->assertCompliant($brandId !== null ? Brand::query()->find($brandId) : null, $article, $what);
+        } catch (ValidationException $exception) {
+            throw ValidationException::withMessages(['write' => (string) collect($exception->errors())->flatten()->first()]);
+        }
     }
 
     /** ADR-070: second approval, the draft copy (possibly edited in WordPress) replaces the live page. */

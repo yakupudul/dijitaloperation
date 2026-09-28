@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.4.1
+Stable tag: 1.5.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -47,7 +47,15 @@ Daily inventory reconciliation complements activity delivery.
 
 * Drafts: create a draft (post_status=draft) and trash drafts that MoxDOP created. Publishing and editing existing
   content are not possible. On by default; disable with the option `moxdop_connector_allow_drafts` = 0 or the
-  `moxdop_connector_allow_drafts` filter.
+  `moxdop_connector_allow_drafts` filter. Since 1.5.0 a draft can carry slug, excerpt, date, categories and tags
+  (by name, created when missing), SEO title / description / focus keyword (Yoast, Rank Math, SEOPress or the
+  connector's own fields), a Polylang language and the post it translates (the translation group is merged, and
+  categories use or create the term of that language). Without Polylang the language fields are ignored.
+* Scheduled drafts: when the site admin enables "Scheduled drafts" (`moxdop_connector_allow_schedule`, off by default)
+  and the operator picked a future date, the draft is saved as scheduled. Otherwise it stays a draft.
+* Tools > MoxDOP Polylang: after importing a MoxDOP export (WXR) file, links the imported language versions as
+  Polylang translations using the `_moxdop_translation_key` / `_moxdop_language` fields. Shows a dry run first;
+  admin only; running it again changes nothing already linked.
 * One-click login: a single-use link valid for 60 seconds that signs in as the WordPress user the site admin chose
   in Settings > MoxDOP Connector. Off until a user is chosen (`moxdop_connector_login_user`).
 * Approved updates: apply one WordPress-offered core, plugin or theme update per request, after an admin approves it
@@ -62,6 +70,13 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.5.0 =
+* Rich drafts: slug, excerpt, date, categories and tags by name, SEO title / description / focus keyword, Polylang language and translation link (merged into the existing group; language-appropriate category terms).
+* The site snapshot and status list the Polylang languages (slug, name, locale, default, home URL).
+* Optional scheduled drafts (off by default); MoxDOP can trash a scheduled MoxDOP post like a draft.
+* Tools > MoxDOP Polylang: link translations after importing a MoxDOP WXR export (dry run, then apply).
+* Older MoxDOP payloads keep working unchanged.
 
 = 1.4.1 =
 * Activity is sent right after a save (one-off WP-Cron with a non-blocking loopback); the 5-minute schedule stays as the fallback.

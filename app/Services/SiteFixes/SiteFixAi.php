@@ -13,6 +13,8 @@ use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Compliance\SectorPackRegistry;
+use App\Services\ContentDelivery\ArticleDraft;
+use App\Services\ContentDelivery\ContentComplianceGate;
 use App\Services\ExternalWrites\WordPressDraftWriter;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Services\SeoTasks\SeoText;
@@ -163,7 +165,11 @@ final class SiteFixAi
         return $count;
     }
 
-    /** The new version of a thin page (rewrite) or a new page from an SEO brief. */
+    /**
+     * The new version of a thin page (rewrite) or a new page from an SEO brief. ADR-076: the result is checked against
+     * the brand's sector rules and the violations are kept on the proposal; when the previous proposal broke rules, the
+     * model is told which phrases to avoid ("Yeniden yaz (uyumlu)").
+     */
     public function page(SiteFixItem $item): void
     {
         $site = $item->digitalAsset()->firstOrFail();
@@ -177,15 +183,46 @@ final class SiteFixAi
             }
             $input['current_page'] = ['url' => $item->url, 'title' => $item->label, 'text' => mb_substr($current['text'], 0, 12000)];
         }
+        $previous = ContentComplianceGate::forPrompt((array) data_get($item->proposed, 'compliance', []));
+        if ($previous !== []) {
+            $input['compliance_fix'] = ['previous_title' => data_get($item->proposed, 'value.title'), 'violations' => $previous];
+        }
         $route = $this->route(AiRouteKeys::SITE_FIX_PAGE);
         $response = (array) (new PageWriterAgent)->prompt("INPUT_JSON\n".json_encode($input, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), provider: $route->providerModels, timeout: 240)->toArray();
         $html = trim((string) ($response['html'] ?? ''));
         if ($html === '') {
             throw new RuntimeException('AI boş sayfa döndürdü.');
         }
+        $html = self::cleanHtml($html);
+        $item->forceFill(['proposed' => ['value' => ['title' => mb_substr(trim(strip_tags((string) ($response['title'] ?? $item->label))), 0, 200), 'html' => $html],
+            'note' => mb_substr((string) ($response['summary'] ?? ''), 0, 500), 'provider' => $route->primaryModel(), 'prompt_version' => PageWriterAgent::PROMPT_VERSION], 'proposed_by' => 'ai'])->save();
+        $this->recheckCompliance($item);
+        app(ProductionArchive::class)->record('website.page_draft', $item, ['title' => data_get($item->proposed, 'value.title'), 'html' => $html, 'summary' => $response['summary'] ?? null],
+            ['brand_id' => $item->brand_id, 'digital_asset_id' => $item->digital_asset_id, 'title' => 'Sayfa metni · '.$item->label]);
+    }
+
+    /**
+     * Compliance of the current page proposal, kept on it (`proposed.compliance`) for the panel; sending re-checks anyway.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function recheckCompliance(SiteFixItem $item): array
+    {
+        if (blank(data_get($item->proposed, 'value.html')) || blank(data_get($item->proposed, 'value.title'))) {
+            return [];
+        }
+        $violations = app(ContentComplianceGate::class)->violations($item->brand_id !== null ? Brand::query()->find($item->brand_id) : null, ArticleDraft::fromSiteFixItem($item));
+        $item->forceFill(['proposed' => array_merge((array) $item->proposed, ['compliance' => $violations, 'compliance_checked_at' => now()->toIso8601String()])])->save();
+
+        return $violations;
+    }
+
+    /** Allowed tags only; links keep only an http(s) or root-relative href (on*, style, class… are dropped). */
+    public static function cleanHtml(string $html): string
+    {
         $html = strip_tags($html, '<h2><h3><h4><p><ul><ol><li><strong><em><a><br><blockquote>');
-        // Only href survives on links; every other attribute (on*, style, class…) is dropped.
-        $html = preg_replace_callback('/<(\/?)(h2|h3|h4|p|ul|ol|li|strong|em|a|br|blockquote)\b([^>]*)>/i', static function (array $m): string {
+
+        return preg_replace_callback('/<(\/?)(h2|h3|h4|p|ul|ol|li|strong|em|a|br|blockquote)\b([^>]*)>/i', static function (array $m): string {
             if ($m[1] === '/' || strtolower($m[2]) !== 'a') {
                 return '<'.$m[1].strtolower($m[2]).'>';
             }
@@ -194,10 +231,6 @@ final class SiteFixAi
 
             return preg_match('#^(https?://|/)#i', $url) ? '<a href="'.htmlspecialchars($url, ENT_QUOTES).'">' : '<a>';
         }, $html) ?? '';
-        $item->forceFill(['proposed' => ['value' => ['title' => mb_substr(trim(strip_tags((string) ($response['title'] ?? $item->label))), 0, 200), 'html' => $html],
-            'note' => mb_substr((string) ($response['summary'] ?? ''), 0, 500), 'provider' => $route->primaryModel(), 'prompt_version' => PageWriterAgent::PROMPT_VERSION], 'proposed_by' => 'ai'])->save();
-        app(ProductionArchive::class)->record('website.page_draft', $item, ['title' => data_get($item->proposed, 'value.title'), 'html' => $html, 'summary' => $response['summary'] ?? null],
-            ['brand_id' => $item->brand_id, 'digital_asset_id' => $item->digital_asset_id, 'title' => 'Sayfa metni · '.$item->label]);
     }
 
     /** @return array<string, mixed> */

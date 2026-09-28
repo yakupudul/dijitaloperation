@@ -48,6 +48,7 @@ final class AiQualityReport
         'sales.lead_score' => AiRouteKeys::INSIGHT_LEAD_SCORE,
         'website.technical_tasks' => AiRouteKeys::INSIGHT_TECHNICAL_TASKS,
         'website.page_draft' => AiRouteKeys::SITE_FIX_PAGE,
+        'content.localized' => AiRouteKeys::CONTENT_LOCALIZE,
     ];
 
     /** Brain proposal kind → AI route key (rule / vector proposals cost nothing). */

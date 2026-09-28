@@ -5,6 +5,7 @@ namespace App\Services\ExternalWrites;
 use App\Models\CoreConnection;
 use App\Models\ExternalWriteAction;
 use App\Models\SiteFixItem;
+use App\Services\ContentDelivery\ArticleDraft;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use RuntimeException;
 
@@ -114,10 +115,8 @@ final class WordPressFixWriter
     {
         $item = SiteFixItem::query()->findOrFail((int) $action->request_payload['item_id']);
         if ($item->type === 'new_page') {
-            $data = $this->client->createDraft($connection, [
-                'title' => (string) data_get($item->proposed, 'value.title'), 'content_html' => (string) data_get($item->proposed, 'value.html'),
-                'post_type' => 'page', 'excerpt' => '', 'reference' => 'site-fix-'.$item->id,
-            ]);
+            // ADR-076: the full page (slug, SEO title / description) — older plugins read only title, content and reference.
+            $data = $this->client->createDraft($connection, WordPressDraftWriter::payload(ArticleDraft::fromSiteFixItem($item)));
         } else {
             $data = $this->client->createContentDraft($connection, (int) $item->object_id, (string) data_get($item->proposed, 'value.title'),
                 (string) data_get($item->proposed, 'value.html'), 'site-fix-'.$item->id);

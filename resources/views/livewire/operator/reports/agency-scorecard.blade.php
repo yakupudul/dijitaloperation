@@ -1,7 +1,7 @@
 @php
     $card = 'rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
     $t = $data['totals'];
-    $writeLabels = ['google_ads|negative_list_add' => 'Google Ads negatif kelime eklendi', 'wordpress|draft_create' => 'WordPress taslak sayfa', 'wordpress|site_fix' => 'WordPress SEO/teknik düzeltme',
+    $writeLabels = ['google_ads|negative_list_add' => 'Google Ads negatif kelime eklendi', 'wordpress|draft_create' => 'WordPress taslak sayfa', 'wordpress|article_drafts' => 'WordPress makale taslağı', 'wordpress|site_fix' => 'WordPress SEO/teknik düzeltme',
         'gbp|review_reply' => 'İşletme Profili yorum yanıtı', 'gbp|local_post' => 'İşletme Profili gönderisi', 'google_ads|campaign_status' => 'Google Ads kampanya durdur/başlat', 'google_ads|campaign_budget' => 'Google Ads bütçe değişikliği'];
 @endphp
 <div class="space-y-5">

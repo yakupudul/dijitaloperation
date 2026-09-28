@@ -60,6 +60,13 @@ final class HealthSectorPack implements SectorPack
             ['rule_key' => 'comparison', 'kind' => ComplianceRuleKinds::FORBIDDEN, 'label' => 'Kıyaslama', 'severity' => 'medium', 'applies_to' => $all,
                 'patterns' => ['diger kliniklerden', 'diger hastanelerden', 'rakiplerimizden', 'digerlerinden farkli olarak'],
                 'message' => 'Başka kurum veya hekimlerle kıyaslama yapılmamalı.'],
+            // ADR-076: localized (English) drafts follow the same principles. Only content we produce is scanned:
+            // common words like "safe"/"fast" would flood live-site and ad audits with false positives.
+            ['rule_key' => 'claims_en', 'kind' => ComplianceRuleKinds::FORBIDDEN, 'label' => 'İngilizce üstünlük / garanti / fiyat ifadesi', 'severity' => 'high', 'applies_to' => ['ai_draft', 'seo_brief'],
+                'patterns' => ['best', 'the best', 'painless', 'pain free', 'pain-free', 'guarantee', 'guaranteed', 'guarantees', 'safe', 'safest', 'comfortable', 'fast', 'fastest',
+                    'price', 'prices', 'pricing', 'cheap', 'cheapest', 'affordable', 'discount', 'free consultation', 'expert', 'experts', 'number one', 'no. 1', 'market leader',
+                    'world class', 'world-class', '100%', 'miracle', 'risk free', 'risk-free', 'permanent solution', 'before and after', 'before & after'],
+                'message' => 'İngilizce sağlık metninde de üstünlük, garanti, ağrısızlık/rahatlık/hız vaadi ve fiyat ifadesi kullanılmamalı (best, painless, guarantee, safe, comfortable, fast, price, expert…). Bilgilendirici ifade kullan.'],
             ['rule_key' => 'minors_targeting', 'kind' => ComplianceRuleKinds::TARGETING, 'label' => '18 yaş altı hedefleme', 'severity' => 'high', 'applies_to' => ['meta_targeting'],
                 'patterns' => ['age_min<18'],
                 'message' => 'Sağlık reklamları 18 yaş altını hedeflememeli; reklam setinde en düşük yaşı 18 yap.'],

@@ -28,6 +28,9 @@ class ExternalWriteAction extends Model
 
     public const string ACTION_DRAFT_CREATE = 'draft_create';
 
+    /** ADR-076: an article and its language versions as WordPress drafts (source first, translations linked; undo trashes all). */
+    public const string ACTION_ARTICLE_DRAFTS = 'article_drafts';
+
     /** ADR-068: install one WordPress-offered plugin / theme / core update. Cannot be undone from MoxDOP. */
     public const string ACTION_UPDATE_APPLY = 'update_apply';
 

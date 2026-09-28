@@ -204,6 +204,8 @@ final class WordPressConnectorDatasetExecutor implements DatasetExecutor
                 'metadata' => array_merge($metadata, [
                     'settings' => $record['settings'] ?? [],
                     'features' => $record['features'] ?? [],
+                    // 1.5.0: Polylang languages of the site (slug, name, locale, default, home_url).
+                    'languages' => is_array($record['languages'] ?? null) ? array_values($record['languages']) : [],
                     'active_theme_name' => $record['active_theme_name'] ?? null,
                     'active_theme_version' => $record['active_theme_version'] ?? null,
                     'core_update_available' => (bool) ($record['core_update_available'] ?? false),

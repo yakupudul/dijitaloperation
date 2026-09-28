@@ -112,39 +112,49 @@ final class MoxDOP_Connector_REST_Controller
             return new WP_Error('moxdop_invalid_body', 'Invalid draft payload.', ['status' => 400]);
         }
         $title = sanitize_text_field((string) ($body['title'] ?? ''));
-        $content = wp_kses_post((string) ($body['content_html'] ?? ''));
-        $type = in_array((string) ($body['post_type'] ?? 'post'), ['post', 'page'], true) ? (string) $body['post_type'] : 'post';
+        // 1.5.0 accepts "content" too; older MoxDOP versions send "content_html".
+        $content = wp_kses_post((string) ($body['content_html'] ?? ($body['content'] ?? '')));
+        $types = (array) apply_filters('moxdop_connector_draft_post_types', ['post', 'page']);
+        $requested_type = (string) ($body['post_type'] ?? 'post');
+        $type = in_array($requested_type, $types, true) && post_type_exists($requested_type) ? $requested_type : 'post';
         $reference = sanitize_text_field((string) ($body['reference'] ?? ''));
         if ($title === '' || $content === '' || $reference === '' || strlen($content) > 200000) {
             return new WP_Error('moxdop_invalid_body', 'Draft title, content and reference are required.', ['status' => 400]);
         }
-        $existing = get_posts(['post_type' => $type, 'post_status' => ['draft', 'pending', 'auto-draft'], 'meta_key' => '_moxdop_draft_reference', 'meta_value' => $reference, 'numberposts' => 1, 'fields' => 'ids']);
+        $existing = get_posts(['post_type' => $type, 'post_status' => ['draft', 'pending', 'auto-draft', 'future'], 'meta_key' => '_moxdop_draft_reference', 'meta_value' => $reference, 'numberposts' => 1, 'fields' => 'ids', 'lang' => '']);
         if (! empty($existing)) {
             $post_id = (int) $existing[0];
+            // Same reference again: nothing is rewritten, only a missing language / translation link is added.
+            $decorated = MoxDOP_Connector_Drafts::decorate($post_id, $type, array_intersect_key($body, ['language' => 1, 'translation_of' => 1]));
         } else {
             $admins = get_users(['role' => 'administrator', 'number' => 1, 'fields' => 'ID']);
-            $post_id = wp_insert_post([
+            $post_id = wp_insert_post(array_merge([
                 'post_type' => $type,
                 'post_status' => 'draft',
                 'post_title' => $title,
                 'post_content' => $content,
                 'post_excerpt' => sanitize_textarea_field((string) ($body['excerpt'] ?? '')),
                 'post_author' => ! empty($admins) ? (int) $admins[0] : 0,
-            ], true);
+            ], MoxDOP_Connector_Drafts::post_fields($body)), true);
             if (is_wp_error($post_id)) {
                 return new WP_Error('moxdop_draft_failed', $post_id->get_error_message(), ['status' => 500]);
             }
             update_post_meta($post_id, '_moxdop_draft_reference', $reference);
             update_post_meta($post_id, '_moxdop_created', '1');
+            if (! empty($body['translation_key'])) {
+                update_post_meta($post_id, '_moxdop_translation_key', sanitize_text_field((string) $body['translation_key']));
+            }
+            $decorated = MoxDOP_Connector_Drafts::decorate($post_id, $type, $body);
         }
 
-        return $this->auth->envelope([
+        return $this->auth->envelope(array_merge([
             'schema_version' => 1,
             'post_id' => (int) $post_id,
             'status' => get_post_status($post_id),
+            'slug' => (string) get_post_field('post_name', $post_id),
             'edit_url' => admin_url('post.php?post='.(int) $post_id.'&action=edit'),
             'preview_url' => get_preview_post_link($post_id) ?: '',
-        ], $request);
+        ], $decorated), $request);
     }
 
     public function trash_draft(WP_REST_Request $request)
@@ -154,7 +164,7 @@ final class MoxDOP_Connector_REST_Controller
         if (! $post || get_post_meta($post_id, '_moxdop_created', true) !== '1') {
             return new WP_Error('moxdop_not_found', 'No MoxDOP draft with this id.', ['status' => 404]);
         }
-        if (! in_array($post->post_status, ['draft', 'pending', 'auto-draft'], true)) {
+        if (! in_array($post->post_status, ['draft', 'pending', 'auto-draft', 'future'], true)) {
             return new WP_Error('moxdop_not_draft', 'The post is no longer a draft; it was not removed.', ['status' => 409]);
         }
         wp_trash_post($post_id);
@@ -180,7 +190,11 @@ final class MoxDOP_Connector_REST_Controller
                 MoxDOP_Connector_Fixes::content_allowed() ? 'content' : null,
                 MoxDOP_Connector_Updater::allowed() ? 'self_update' : null,
                 MoxDOP_Connector_IndexNow::enabled() ? 'indexnow' : null,
+                self::drafts_allowed() ? 'rich_drafts' : null,
+                MoxDOP_Connector_Drafts::polylang_active() ? 'polylang' : null,
+                MoxDOP_Connector_Drafts::scheduling_allowed() ? 'schedule' : null,
             ])),
+            'languages' => MoxDOP_Connector_Drafts::languages(),
             'sections' => ['site', 'extensions', 'content', 'media', 'taxonomies', 'seo'],
             'server_time' => time(),
             'event_delivery' => (new MoxDOP_Connector_Events)->status(),
@@ -275,6 +289,8 @@ final class MoxDOP_Connector_REST_Controller
                 'polylang' => defined('POLYLANG_VERSION'),
                 'litespeed_cache' => defined('LSCWP_V'),
             ],
+            // 1.5.0: Polylang languages (slug, name, locale, default, home_url) so MoxDOP knows where drafts can go.
+            'languages' => MoxDOP_Connector_Drafts::languages(),
             'site_health_cached' => $health,
             'health' => (new MoxDOP_Connector_Health)->snapshot(),
         ];

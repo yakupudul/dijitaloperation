@@ -62,9 +62,12 @@ final class WordPressConnectorClient
 
     /**
      * ADR-064 (2): create a WordPress draft through the connector (plugin ≥ 1.2.0). The plugin forces
-     * post_status=draft; MoxDOP never publishes or edits existing content.
+     * post_status=draft; MoxDOP never publishes or edits existing content. ADR-076 (plugin ≥ 1.5.0) adds slug,
+     * post_date (+ schedule, only when the site allows it), categories / tags by name, seo {title, description,
+     * focus_keyword}, language (Polylang slug), translation_of (remote post id) and translation_key; older plugins
+     * ignore them. Build it with WordPressDraftWriter::payload().
      *
-     * @param  array{title: string, content_html: string, post_type: string, excerpt?: string, reference: string}  $draft
+     * @param  array{title: string, content_html: string, post_type: string, excerpt?: string, reference: string, slug?: string, post_date?: string, schedule?: bool, categories?: list<array{name: string, source?: string}>, tags?: list<array{name: string, source?: string}>, seo?: array<string, string>, language?: string, translation_of?: int, translation_key?: string}  $draft
      * @return array<string, mixed> post_id, edit_url, preview_url, status
      */
     public function createDraft(CoreConnection $connection, array $draft): array

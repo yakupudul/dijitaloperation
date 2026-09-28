@@ -1,5 +1,13 @@
 # PROJECT_MEMORY
 
+## 2026-09-28 — ADR-076: content delivery (compliance gate, languages, WXR)
+
+- **Nothing AI-written leaves MoxDOP without `ContentComplianceGate`.** WordPress drafts (`requestContentDraft`, `requestArticleDrafts`) and WXR exports re-check at send time; a stored `proposed.compliance` is only for display. New delivery paths must call the gate too.
+- **Articles go to WordPress only through `ContentDraftPublisher` → `ExternalWriteService::requestArticleDrafts` (`article_drafts`).** Source language first, translations with `translation_of`; one action, one undo. Do not add a second draft write path.
+- **Drafts stay drafts.** `future` only when the operator picked a date and the site admin turned on "Scheduled drafts" (plugin option, default off).
+- **Languages come from the connector** (site snapshot `metadata.languages`, Polylang). Without Polylang, translations are refused; use the WXR export + Tools › MoxDOP Polylang instead.
+- **Localization is AI route `content.localize`** (`ContentLocalizer`), synchronous — run it from a queued job.
+
 ## 2026-10-21 — Operator messages answer four questions
 
 - **Every operator-facing warning answers Ne oldu / Neden önemli / Ne yapmalısın / Nereden** with `App\Support\Operator\OperatorMessage` (title, what, why, action, link, one-click button, occurrence counter). System alerts get it from `OperationalAlertExplainer`; a new `OperationalAlert` rule adds a case there and a `system:<rule>` topic in `TopicCatalog`.
