@@ -106,14 +106,25 @@
                             </div>
                         </div>
                     @else
+                        @php
+                            $violations = (array) data_get($item->proposed, 'compliance', []);
+                            $blocking = \App\Services\ContentDelivery\ContentComplianceGate::blocking($violations);
+                            $editable = in_array($item->status, ['open', 'failed', 'undone'], true);
+                        @endphp
                         <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                            @if (in_array($item->status, ['open', 'failed', 'undone'], true))
-                                <button type="button" wire:click="writePage({{ $item->id }})" @disabled($pageState === 'running') class="rounded-lg bg-violet-600 px-3 py-1.5 font-semibold text-white disabled:opacity-50">{{ $pageState === 'running' ? 'AI yazıyor…' : ($proposed ? '✨ Yeniden yaz' : '✨ AI ile yaz') }}</button>
+                            @if ($editable)
+                                <button type="button" wire:click="writePage({{ $item->id }})" @disabled($pageState === 'running') class="rounded-lg bg-violet-600 px-3 py-1.5 font-semibold text-white disabled:opacity-50">{{ $pageState === 'running' ? 'AI yazıyor…' : ($blocking !== [] ? '✨ Yeniden yaz (uyumlu)' : ($proposed ? '✨ Yeniden yaz' : '✨ AI ile yaz')) }}</button>
                             @endif
                             @if ($proposed)
                                 <button type="button" wire:click="toggle({{ $item->id }})" class="font-medium text-brand-600">{{ $openItem === $item->id ? 'Metni gizle' : 'Metni gör' }}</button>
-                                @if ($canWrite && $connector['ready'] && in_array($item->status, ['open', 'failed', 'undone'], true))
-                                    <button type="button" wire:click="sendDraft({{ $item->id }})" wire:confirm="Metin WordPress’e taslak olarak gönderilsin mi? Yayındaki sayfa değişmez." class="rounded-lg border border-gray-300 px-3 py-1.5 font-medium text-gray-700 dark:border-gray-700 dark:text-gray-200">WordPress’e taslak gönder</button>
+                                @if ($editable && ! isset($pageEdits[$item->id]))
+                                    <button type="button" wire:click="editPage({{ $item->id }})" class="font-medium text-brand-600">Metni düzenle</button>
+                                @endif
+                                @if ($canWrite && $connector['ready'] && $editable)
+                                    <button type="button" wire:click="sendDraft({{ $item->id }})" @disabled($blocking !== []) wire:confirm="Metin WordPress’e taslak olarak gönderilsin mi? Yayındaki sayfa değişmez." class="rounded-lg border border-gray-300 px-3 py-1.5 font-medium text-gray-700 disabled:opacity-50 dark:border-gray-700 dark:text-gray-200" @if ($blocking !== []) title="Uyum kuralına takılan ifadeler giderilmeden gönderilemez." @endif>WordPress’e taslak gönder</button>
+                                @endif
+                                @if ($isAdmin && $item->type === 'new_page' && $editable && $blocking === [])
+                                    <a href="{{ route('operator.website.wxr-export', ['site' => $websiteId, 'items' => $item->id]) }}" class="font-medium text-brand-600">WXR olarak indir</a>
                                 @endif
                             @endif
                             @if ($item->status === 'drafted')
@@ -125,6 +136,31 @@
                             @endif
                             @if ($pageState && str_starts_with($pageState, 'failed'))<span class="text-rose-600">{{ \Illuminate\Support\Str::after($pageState, 'failed: ') }}</span>@endif
                         </div>
+                        @if ($proposed && $violations !== [])
+                            <div @class(['mt-2 rounded-lg px-3 py-2 text-xs', 'bg-rose-50 text-rose-800 dark:bg-rose-500/10 dark:text-rose-300' => $blocking !== [], 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300' => $blocking === []])>
+                                <p class="font-semibold">{{ $blocking !== [] ? 'Sektör uyum kuralına takılan ifadeler — giderilmeden WordPress’e gönderilemez ve dışa aktarılamaz' : 'Uyum notu (engellemiyor)' }}</p>
+                                <ul class="mt-1 list-disc space-y-0.5 pl-4">
+                                    @foreach ($violations as $v)
+                                        <li><strong>{{ $v['field_label'] ?? '' }}:</strong> «{{ $v['matched'] ?? '' }}» — {{ $v['label'] ?? '' }}. <span class="opacity-80">{{ $v['message'] ?? '' }}</span></li>
+                                    @endforeach
+                                </ul>
+                                @if ($blocking !== [])<p class="mt-1">“Yeniden yaz (uyumlu)” AI’a bu ifadeleri kullanmamasını söyleyerek yeniden yazdırır; ya da “Metni düzenle” ile kendin düzelt.</p>@endif
+                            </div>
+                        @endif
+                        @if (isset($pageEdits[$item->id]))
+                            <div class="mt-2 space-y-2 rounded-lg bg-gray-50 p-3 text-xs dark:bg-white/[0.03]">
+                                <label class="block font-medium text-gray-700 dark:text-gray-300">Başlık
+                                    <input type="text" wire:model="pageEdits.{{ $item->id }}.title" class="mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900">
+                                </label>
+                                <label class="block font-medium text-gray-700 dark:text-gray-300">Metin (HTML: h2, h3, p, ul, li, strong, a)
+                                    <textarea wire:model="pageEdits.{{ $item->id }}.html" rows="14" class="mt-1 w-full rounded-lg border-gray-300 font-mono text-xs dark:border-gray-700 dark:bg-gray-900"></textarea>
+                                </label>
+                                <div class="flex gap-2">
+                                    <button type="button" wire:click="savePage({{ $item->id }})" class="rounded-lg bg-brand-600 px-3 py-1.5 font-semibold text-white">Kaydet ve uyumu kontrol et</button>
+                                    <button type="button" wire:click="cancelPageEdit({{ $item->id }})" class="font-medium text-gray-500">Vazgeç</button>
+                                </div>
+                            </div>
+                        @endif
                         @if ($openItem === $item->id && $proposed)
                             <div class="mt-2 max-h-96 overflow-y-auto rounded-lg bg-gray-50 p-3 text-xs text-gray-700 dark:bg-white/[0.03] dark:text-gray-300">
                                 <p class="font-semibold">{{ data_get($item->proposed, 'value.title') }}</p>
@@ -159,7 +195,7 @@
                 @foreach ($actions as $action)
                     <li class="flex flex-wrap items-center justify-between gap-2 py-2">
                         <span class="text-gray-700 dark:text-gray-300">
-                            {{ ['site_fix' => 'Düzeltme', 'content_draft' => 'Taslak', 'content_apply' => 'Sayfa yayına alındı'][$action->action] ?? $action->action }}
+                            {{ ['site_fix' => 'Düzeltme', 'content_draft' => 'Taslak', 'content_apply' => 'Sayfa yayına alındı', 'article_drafts' => 'Makale taslakları'][$action->action] ?? $action->action }}
                             @if ($action->action === 'site_fix') · {{ $action->result['applied'] ?? 0 }} uygulandı @if (($action->result['failed'] ?? 0) > 0)· {{ $action->result['failed'] }} hata @endif @endif
                             @if (data_get($action->result, 'verification.state') === 'crawling') · sayfalar yeniden taranıyor @elseif (data_get($action->result, 'verification.state') === 'done') · doğrulama: {{ data_get($action->result, 'verification.verified', 0) }} tamam @if (data_get($action->result, 'verification.still_present', 0) > 0), {{ data_get($action->result, 'verification.still_present') }} hâlâ görünüyor @endif @endif
                             · {{ $action->created_at?->timezone('Europe/Istanbul')->format('d.m.Y H:i') }}

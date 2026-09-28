@@ -6,10 +6,12 @@ use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\SiteFixItem;
+use App\Services\ContentDelivery\ContentComplianceGate;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\SiteFixes\SiteFixAi;
 use App\Services\SiteFixes\SiteFixFinder;
 use App\Support\Permissions;
+use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
@@ -38,6 +40,9 @@ final class SiteFixesPanel extends Component
 
     /** @var array<int|string, string> item id => edited value */
     public array $edits = [];
+
+    /** @var array<int|string, array{title?: string, html?: string}> page item id => edited title / HTML (ADR-076) */
+    public array $pageEdits = [];
 
     public ?int $openItem = null;
 
@@ -78,6 +83,39 @@ final class SiteFixesPanel extends Component
         } catch (ValidationException $exception) {
             $this->say((string) collect($exception->errors())->flatten()->first(), 'error');
         }
+    }
+
+    /** ADR-076: the operator edits the AI page text (title + HTML) instead of re-prompting. */
+    public function editPage(int $itemId): void
+    {
+        $item = $this->item($itemId);
+        abort_unless(in_array($item->type, ['content_update', 'new_page'], true), 422);
+        $this->pageEdits[$itemId] = ['title' => (string) data_get($item->proposed, 'value.title', ''), 'html' => (string) data_get($item->proposed, 'value.html', '')];
+        $this->openItem = $itemId;
+    }
+
+    public function savePage(int $itemId, SiteFixAi $ai): void
+    {
+        $item = $this->item($itemId);
+        abort_unless(in_array($item->type, ['content_update', 'new_page'], true) && in_array($item->status, ['open', 'failed', 'undone'], true), 422);
+        $title = trim(strip_tags((string) ($this->pageEdits[$itemId]['title'] ?? '')));
+        $html = SiteFixAi::cleanHtml((string) ($this->pageEdits[$itemId]['html'] ?? ''));
+        if ($title === '' || trim(strip_tags($html)) === '') {
+            $this->say('Başlık ve metin boş olamaz.', 'error');
+
+            return;
+        }
+        $proposed = (array) $item->proposed;
+        $proposed['value'] = array_merge((array) ($proposed['value'] ?? []), ['title' => mb_substr($title, 0, 200), 'html' => $html]);
+        $item->forceFill(['proposed' => $proposed, 'proposed_by' => 'operator'])->save();
+        unset($this->pageEdits[$itemId]);
+        $blocking = ContentComplianceGate::blocking($ai->recheckCompliance($item));
+        $this->say($blocking === [] ? 'Metin kaydedildi; uyum kontrolünden geçti.' : 'Metin kaydedildi ama hâlâ uyum kuralına takılıyor: '.ContentComplianceGate::summary($blocking).'.', $blocking === [] ? 'success' : 'error');
+    }
+
+    public function cancelPageEdit(int $itemId): void
+    {
+        unset($this->pageEdits[$itemId]);
     }
 
     public function saveValue(int $itemId): void
@@ -182,6 +220,7 @@ final class SiteFixesPanel extends Component
             'actions' => $actions,
             'connector' => $this->connector($site),
             'canWrite' => ExternalWriteService::allowed(auth()->user(), ExternalWriteAction::CHANNEL_WORDPRESS),
+            'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'aiState' => ['values' => $ai->state(SiteFixAi::KIND_VALUES, $site->id), 'links' => $ai->state(SiteFixAi::KIND_LINKS, $site->id)],
             'pageStates' => $items->whereIn('type', ['content_update', 'new_page'])->mapWithKeys(fn (SiteFixItem $i): array => [$i->id => $ai->state(SiteFixAi::KIND_PAGE, $i->id)])->all(),
             'polling' => $running,

@@ -37,6 +37,7 @@ final class AiInsightServiceProvider extends ServiceProvider
         AiRouteKeys::SITE_FIX_VALUES => ['Website Fix Values', 'classification', 'Proposes SEO titles, meta descriptions, image alt texts, LocalBusiness schema and redirect targets for detected website problems. The operator edits and an Admin approves before anything is written.'],
         AiRouteKeys::SITE_FIX_LINKS => ['Website Internal Links', 'analysis', 'Suggests internal links between published pages with anchors that already appear in the text.'],
         AiRouteKeys::SITE_FIX_PAGE => ['Website Page Writer', 'analysis', 'Writes the new version of a thin page or a new page from an SEO brief; it goes to WordPress only as a draft.'],
+        AiRouteKeys::CONTENT_LOCALIZE => ['Content Localizer', 'analysis', 'Localizes an article into another language of the site (title, slug, SEO fields, body, internal links); the result passes the sector compliance check and goes to WordPress only as a draft.'],
     ];
 
     public function register(): void

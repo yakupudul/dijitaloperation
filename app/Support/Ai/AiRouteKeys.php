@@ -70,6 +70,9 @@ final class AiRouteKeys
 
     public const string SITE_FIX_PAGE = 'site_fixes.page_writer';
 
+    /** ADR-076: localize an article into another language of the site (title, slug, meta, body, internal links). */
+    public const string CONTENT_LOCALIZE = 'content.localize';
+
     public const string BRAIN_EMBEDDINGS = 'brain.embeddings';
 
     public const string BRAIN_ACCOUNT_MAPPING = 'brain.account_mapping';

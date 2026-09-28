@@ -8,6 +8,7 @@ use App\Http\Controllers\Operator\MetaLegacyPageRedirectController;
 use App\Http\Controllers\Operator\ProspectAuditPrintController;
 use App\Http\Controllers\Operator\RetiredAssetTypeRedirectController;
 use App\Http\Controllers\Operator\WordPressLoginController;
+use App\Http\Controllers\Operator\WxrExportController;
 use App\Http\Controllers\Prospects\ProspectReportArtifactDownloadController;
 use App\Http\Controllers\Reports\MonthlyReportClientController;
 use App\Http\Middleware\EnsureDemoAppAccess;
@@ -260,6 +261,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/reports/annotations', ChartAnnotationsPage::class)->name('operator.reports.annotations');
         Route::livewire('/integrations/wordpress-sites', WordPressSitesPage::class)->name('operator.integrations.wordpress-sites');
         Route::livewire('/integrations/website-duplicates', WebsiteDuplicatesPage::class)->name('operator.integrations.website-duplicates');
+        Route::get('/assets/website/{site}/wxr-export', WxrExportController::class)->where('site', '[0-9]{1,18}')->middleware('throttle:20,1')->name('operator.website.wxr-export');
         Route::post('/integrations/wordpress-sites/{site}/login', WordPressLoginController::class)->where('site', '[0-9]{1,18}')->middleware('throttle:10,1')->name('operator.integrations.wordpress-login');
         Route::get('/reports/monthly/{report}/preview', [MonthlyReportClientController::class, 'preview'])->where('report', '[0-9]{1,18}')->name('operator.reports.monthly.preview');
         Route::livewire('/compliance', CompliancePage::class)->name('operator.compliance');

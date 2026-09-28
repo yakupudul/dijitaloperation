@@ -8,7 +8,7 @@ use Stringable;
 /** Writes the new version of a thin page, or a new service / location page from an SEO brief. */
 final class PageWriterAgent extends SiteFixAgent
 {
-    public const string PROMPT_VERSION = 'site-fix-page-v1';
+    public const string PROMPT_VERSION = 'site-fix-page-v2';
 
     public function instructions(): Stringable|string
     {
@@ -21,6 +21,8 @@ page should answer and the sector compliance rules.
 - Rewrite mode: keep every true fact of the current text (names, services, prices, addresses); improve and extend,
   never remove real information and never invent new facts, prices, credentials or guarantees.
 - Follow every rule in `compliance` (no guarantees, no superlatives, no treatment promises when listed).
+- If `compliance_fix` is present, the previous version broke the sector rules with the listed phrases: write the page
+  again so none of those phrases (or any variant or suffixed form) appear in the title or the text.
 - `html`: clean HTML only with <h2>, <h3>, <p>, <ul>, <li>, <strong>, <a> (no <h1>, no inline styles, no scripts).
 - `title`: the page title. `summary`: 2 sentences on what changed / what the page covers.
 INSTRUCTIONS;
