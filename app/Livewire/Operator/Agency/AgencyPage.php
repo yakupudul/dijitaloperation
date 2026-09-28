@@ -100,7 +100,11 @@ final class AgencyPage extends Component
 
     public function markCommitment(int $id, int $delta, AgencyOperations $operations): void
     {
-        $operations->markCommitment($id, $this->month, $delta >= 0 ? 1 : -1);
+        $commitment = ServiceCommitment::query()->findOrFail($id); // a removed commitment: notice, not a foreign-key error
+        if (preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $this->month) !== 1) {
+            $this->month = now()->format('Y-m');
+        }
+        $operations->markCommitment((int) $commitment->id, $this->month, $delta >= 0 ? 1 : -1);
     }
 
     public function stopCommitment(int $id): void

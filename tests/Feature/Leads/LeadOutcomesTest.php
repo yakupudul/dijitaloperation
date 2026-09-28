@@ -21,7 +21,6 @@ use App\Support\Roles;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -156,8 +155,9 @@ final class LeadOutcomesTest extends TestCase
 
         $other = Brand::factory()->create();
         $foreign = LeadOutcome::factory()->for($other)->create();
-        $this->expectException(ModelNotFoundException::class);
-        $page->call('mark', $foreign->id, 'sale');
+        $before = $foreign->status;
+        $page->call('mark', $foreign->id, 'sale')->assertDispatched('operator-notice');
+        $this->assertSame($before, $foreign->fresh()->status, 'another brand\'s lead is never changed from this page');
     }
 
     public function test_brand_page_shows_lead_quality_block_and_route_is_reachable(): void

@@ -22,6 +22,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -39,6 +40,7 @@ class OverviewPage extends Component
     use InteractsWithDemoPeriod;
     use WithAiInsights;
 
+    #[Locked]
     public string $assetId = '';
 
     #[Url]

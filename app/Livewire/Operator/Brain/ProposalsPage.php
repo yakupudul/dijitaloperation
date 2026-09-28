@@ -51,6 +51,11 @@ final class ProposalsPage extends Component
 
     public function prepare(string $kind, ProposalService $proposals): void
     {
+        if (! array_key_exists($kind, $proposals->kinds())) {
+            DemoState::flash('Bilinmeyen öneri türü; sayfayı yenileyip yeniden deneyin.', 'warning');
+
+            return;
+        }
         try {
             $proposals->queue($kind, auth()->user());
             DemoState::flash($proposals->kind($kind)->label().' hazırlanıyor. Bitince bu listede görünür; sayfayı yenileyebilirsin.');

@@ -68,13 +68,21 @@ final class DemoPeriod
         [$anchor, $tz] = self::resolveAnchor($assetId, $anchorOverride, $timezone);
 
         if ($preset === 'custom' && filled($start) && filled($end)) {
-            $from = Carbon::parse($start, $tz)->startOfDay();
-            $to = Carbon::parse($end, $tz)->startOfDay();
-            if ($from->greaterThan($to)) {
-                [$from, $to] = [$to, $from];
+            try {
+                $from = Carbon::parse($start, $tz)->startOfDay();
+                $to = Carbon::parse($end, $tz)->startOfDay();
+            } catch (\Throwable) {
+                // A hand-edited or stale link (?period=custom&from=…) with dates that do not parse: default window.
+                $from = $to = null;
             }
+            if ($from !== null && $to !== null) {
+                if ($from->greaterThan($to)) {
+                    [$from, $to] = [$to, $from];
+                }
 
-            return self::pack($preset, $from, $to);
+                return self::pack($preset, $from, $to);
+            }
+            $preset = 'last_28';
         }
 
         return match ($preset) {

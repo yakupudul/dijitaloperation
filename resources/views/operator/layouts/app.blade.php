@@ -141,6 +141,15 @@
 
     <livewire:demo.capture-modal />
 
+    {{-- Action notices from any page (e.g. a record deleted in another tab): App\Support\Operator\LivewireActionErrors. --}}
+    <div x-data="{ notice: null, timer: null }" x-cloak
+        x-on:operator-notice.window="notice = $event.detail; clearTimeout(timer); timer = setTimeout(() => notice = null, 8000)"
+        class="pointer-events-none fixed inset-x-4 bottom-4 z-[100000] flex justify-center sm:inset-x-auto sm:right-6">
+        <p x-show="notice" x-transition role="alert" x-text="notice?.message" x-on:click="notice = null"
+            :class="notice?.tone === 'error' ? 'bg-red-600' : 'bg-gray-900'"
+            class="pointer-events-auto max-w-md cursor-pointer rounded-lg px-4 py-3 text-sm text-white shadow-lg"></p>
+    </div>
+
     @stack('scripts')
 </body>
 

@@ -15,6 +15,7 @@ use App\Support\Integrations\AssetBindingCompatibility;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -30,6 +31,7 @@ class AssetEdit extends Component
     use ConfirmsOwnershipTransfer;
     use InteractsWithAssetForm;
 
+    #[Locked]
     public string $assetId = '';
 
     public function mount(string $assetId): void

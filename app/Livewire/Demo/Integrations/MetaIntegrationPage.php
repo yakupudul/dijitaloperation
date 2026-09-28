@@ -30,6 +30,7 @@ use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -48,6 +49,7 @@ class MetaIntegrationPage extends Component
 
     public bool $showBindModal = false;
 
+    #[Locked]
     public ?string $bindingResourceId = null;
 
     public string $bindMode = ResourceBindingPlan::MODE_CREATE_ASSET;
@@ -199,17 +201,22 @@ class MetaIntegrationPage extends Component
         $selection = app(SelectMetaDiscoveryContextService::class);
         $activeIds = $selection->activeBusinessResourceIds($integration);
 
-        if (in_array((int) $resourceId, $activeIds, true)) {
-            $selection->deselect($integration, $resourceId, $user);
-            DemoState::flash(__('operator.flash.meta_business_removed'), 'info');
-        } else {
-            $selection->select($integration, $resourceId, $user);
-            // The next step is always "discover this Business's ad accounts": run it now instead of leaving the
-            // operator to find a second button. Every owned and client ad account of the Business is listed.
-            $result = app(DiscoverMetaResourcesService::class)->discoverAdAccounts($integration, $user);
-            DemoState::flash(trim(__('operator.flash.meta_business_selected').' '.(($result['ok'] ?? false)
-                ? sprintf('%d reklam hesabı listelendi; aşağıdan markalara bağlayın.', (int) ($result['count'] ?? 0))
-                : (string) ($result['message'] ?? ''))), 'info');
+        try {
+            if (in_array((int) $resourceId, $activeIds, true)) {
+                $selection->deselect($integration, $resourceId, $user);
+                DemoState::flash(__('operator.flash.meta_business_removed'), 'info');
+            } else {
+                $selection->select($integration, $resourceId, $user);
+                // The next step is always "discover this Business's ad accounts": run it now instead of leaving the
+                // operator to find a second button. Every owned and client ad account of the Business is listed.
+                $result = app(DiscoverMetaResourcesService::class)->discoverAdAccounts($integration, $user);
+                DemoState::flash(trim(__('operator.flash.meta_business_selected').' '.(($result['ok'] ?? false)
+                    ? sprintf('%d reklam hesabı listelendi; aşağıdan markalara bağlayın.', (int) ($result['count'] ?? 0))
+                    : (string) ($result['message'] ?? ''))), 'info');
+            }
+        } catch (\InvalidArgumentException) {
+            // The business left the list (rediscovery) while the page was open.
+            DemoState::flash('Bu Meta işletmesi artık listede yok; entegrasyonu yenileyip yeniden seçin.', 'info');
         }
 
         $this->tab = 'resources';
@@ -233,7 +240,7 @@ class MetaIntegrationPage extends Component
             ->where('provider', ProviderRegistry::META)
             ->where('resource_type', MetaResourceType::META_AD_ACCOUNT)
             ->where('integration_id', $integration->id)
-            ->whereKey($resourceId)
+            ->whereKey(ctype_digit($resourceId) ? (int) $resourceId : 0)
             ->first();
 
         if (! $resource instanceof CoreExternalResource) {
@@ -383,7 +390,7 @@ class MetaIntegrationPage extends Component
         }
 
         $binding = CoreAssetBinding::query()
-            ->whereKey($bindingId)
+            ->whereKey(ctype_digit($bindingId) ? (int) $bindingId : 0)
             ->where('capability', 'meta_ads')
             ->whereHas('externalResource', fn ($q) => $q->where('integration_id', $integration->id))
             ->first();

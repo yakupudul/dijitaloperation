@@ -8,6 +8,7 @@ use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -15,6 +16,7 @@ use Livewire\Component;
 #[Title('Müşteriye dönüştür')]
 class ProspectConvert extends Component
 {
+    #[Locked]
     public string $prospectId = '';
 
     public string $customer_name = '';

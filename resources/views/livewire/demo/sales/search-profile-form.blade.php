@@ -13,14 +13,14 @@
                 <x-ta.form.field :label="__('operator.sales_intent.fields.name')" :required="true" :error="$errors->first('name')" class="md:col-span-2">
                     <input wire:model="name" type="text" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                 </x-ta.form.field>
-                <x-ta.form.field :label="__('operator.sales_intent.fields.service')">
+                <x-ta.form.field :label="__('operator.sales_intent.fields.service')" :error="$errors->first('service_definition_code')">
                     <select wire:model="service_definition_code" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900">
                         @foreach ($serviceOptions as $code => $label)
                             <option value="{{ $code }}">{{ $label }}</option>
                         @endforeach
                     </select>
                 </x-ta.form.field>
-                <x-ta.form.field :label="__('operator.sales_intent.fields.country')">
+                <x-ta.form.field :label="__('operator.sales_intent.fields.country')" :error="$errors->first('country')">
                     <select wire:model.live="country" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900">
                         <option value="">—</option>
                         @foreach ($countryOptions as $code => $label)
@@ -28,10 +28,10 @@
                         @endforeach
                     </select>
                 </x-ta.form.field>
-                <x-ta.form.field :label="__('operator.sales_intent.fields.language')">
+                <x-ta.form.field :label="__('operator.sales_intent.fields.language')" :error="$errors->first('language')">
                     <input wire:model="language" type="text" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" />
                 </x-ta.form.field>
-                <x-ta.form.field :label="__('operator.sales_intent.fields.location')">
+                <x-ta.form.field :label="__('operator.sales_intent.fields.location')" :error="$errors->first('location')">
                     @if ($country === 'TR')
                         <datalist id="central-location-options">
                             @foreach(\App\Support\Options\LocationOptions::cities() as $name)<option value="{{ $name }}"></option>@endforeach
@@ -52,7 +52,7 @@
                 <x-ta.form.field :label="__('operator.sales_intent.fields.min_confidence')">
                     <input wire:model="minimum_intent_confidence" type="number" min="0" max="100" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" />
                 </x-ta.form.field>
-                <x-ta.form.field :label="__('operator.prospects.fields.owner')">
+                <x-ta.form.field :label="__('operator.prospects.fields.owner')" :error="$errors->first('owner_user_id')">
                     <select wire:model="owner_user_id" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900">
                         <option value="">{{ __('operator.forms.unassigned') }}</option>
                         @foreach ($ownerOptions as $id => $label)

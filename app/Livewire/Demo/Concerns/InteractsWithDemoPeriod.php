@@ -53,12 +53,47 @@ trait InteractsWithDemoPeriod
         }
 
         $this->compareMode = $this->effectiveCompareMode();
+        $this->dropInvalidPeriodDates();
 
         if ($this->period === 'custom' && filled($this->periodStart) && filled($this->periodEnd)) {
             $this->showCustomPicker = false;
         }
 
         $this->syncPeriodState();
+    }
+
+    /** Livewire trait hook: a period date changed from the browser is re-checked like the URL one. */
+    public function updatedInteractsWithDemoPeriod(string $name): void
+    {
+        if (in_array($name, ['periodStart', 'periodEnd', 'draftPeriodStart', 'draftPeriodEnd'], true)) {
+            $this->dropInvalidPeriodDates();
+        }
+    }
+
+    /**
+     * Dates come from the URL (?from=…&to=…) and the picker; anything that is not a real Y-m-d date is dropped, and a
+     * custom period left without both dates falls back to the default window instead of failing to parse later.
+     */
+    protected function dropInvalidPeriodDates(): void
+    {
+        $valid = static function (?string $date): ?string {
+            if ($date === null || preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) !== 1) {
+                return null;
+            }
+            [$year, $month, $day] = array_map('intval', explode('-', $date));
+
+            return checkdate($month, $day, $year) ? $date : null;
+        };
+        $this->periodStart = $valid($this->periodStart);
+        $this->periodEnd = $valid($this->periodEnd);
+        $this->draftPeriodStart = $valid($this->draftPeriodStart);
+        $this->draftPeriodEnd = $valid($this->draftPeriodEnd);
+        if ($this->period === 'custom' && ($this->periodStart === null || $this->periodEnd === null)) {
+            $this->period = 'last_28';
+            $bounds = $this->periodBounds('last_28');
+            $this->periodStart = $bounds['start']->toDateString();
+            $this->periodEnd = $bounds['end']->toDateString();
+        }
     }
 
     public function setPeriod(string $preset): void

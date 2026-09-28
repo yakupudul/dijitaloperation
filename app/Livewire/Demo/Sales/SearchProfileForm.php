@@ -10,6 +10,7 @@ use App\Support\Options\AgencyServiceOptions;
 use App\Support\Options\CountryOptions;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -17,6 +18,7 @@ use Livewire\Component;
 #[Title('Arama profili')]
 class SearchProfileForm extends Component
 {
+    #[Locked]
     public ?string $profileId = null;
 
     public string $name = '';

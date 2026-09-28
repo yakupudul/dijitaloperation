@@ -12,6 +12,7 @@ use App\Support\Permissions;
 use App\Support\Sales\IntentSearchConfig;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -19,6 +20,7 @@ use Livewire\Component;
 #[Title('Arama profili')]
 class SearchProfileShow extends Component
 {
+    #[Locked]
     public string $profileId = '';
 
     public bool $paid_consent = false;

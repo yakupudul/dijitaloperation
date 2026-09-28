@@ -186,7 +186,7 @@ final class BrandSetupAssistantTest extends TestCase
 
         $context = $this->brand->fresh()->intelligenceContext;
         $this->assertSame('Ankara\'da implant ve estetik diş tedavisi yapan klinik.', $context->business_summary);
-        $this->assertSame(['Eksik dişi olan yetişkinler'], $context->target_audiences);
+        $this->assertSame([['name' => 'Eksik dişi olan yetişkinler', 'note' => null]], $context->target_audiences, 'stored in the operator form shape');
         $this->assertSame('Operatörün yazdığı konumlanma', $context->positioning, 'what the operator wrote is never overwritten');
         $this->assertSame(1, DigitalAsset::query()->where('type', 'website')->count(), 'the site added under Integrations is reused, not duplicated');
     }

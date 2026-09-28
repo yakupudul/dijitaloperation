@@ -28,6 +28,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -45,6 +46,7 @@ class OverviewPage extends Component
     use ResolvesCanonicalOperatorAsset;
     use WithAiInsights;
 
+    #[Locked]
     public string $assetId = '';
 
     #[Url]

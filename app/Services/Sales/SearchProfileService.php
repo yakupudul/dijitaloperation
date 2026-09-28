@@ -62,6 +62,17 @@ final class SearchProfileService
 
         $min = (int) ($data['minimum_intent_confidence'] ?? 60);
 
+        // Column sizes (PostgreSQL refuses longer values) and an owner that still exists (foreign key).
+        foreach (['name' => 255, 'service_definition_code' => 255, 'language' => 16, 'country' => 8, 'location' => 255] as $field => $max) {
+            if (mb_strlen((string) ($data[$field] ?? '')) > $max) {
+                throw ValidationException::withMessages([$field => [sprintf('En fazla %d karakter olabilir.', $max)]]);
+            }
+        }
+        $owner = isset($data['owner_user_id']) && $data['owner_user_id'] !== '' ? $data['owner_user_id'] : null;
+        if ($owner !== null && (! ctype_digit((string) $owner) || ! User::query()->whereKey((int) $owner)->exists())) {
+            throw ValidationException::withMessages(['owner_user_id' => ['Seçilen sorumlu kullanıcı bulunamadı; listeden yeniden seçin.']]);
+        }
+
         return [
             'name' => $name,
             'service_definition_code' => isset($data['service_definition_code']) && $data['service_definition_code'] !== ''

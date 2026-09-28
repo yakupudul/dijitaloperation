@@ -29,6 +29,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -47,6 +48,7 @@ class GoogleIntegrationPage extends Component
 
     public bool $showBindModal = false;
 
+    #[Locked]
     public ?string $bindingResourceId = null;
 
     public string $bindMode = ResourceBindingPlan::MODE_CREATE_ASSET;
@@ -111,7 +113,7 @@ class GoogleIntegrationPage extends Component
 
         $resource = CoreExternalResource::query()
             ->where('provider', ProviderRegistry::GOOGLE)
-            ->whereKey($resourceId)
+            ->whereKey(ctype_digit($resourceId) ? (int) $resourceId : 0)
             ->first();
 
         if (! $resource instanceof CoreExternalResource) {

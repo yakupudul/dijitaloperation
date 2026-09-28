@@ -15,6 +15,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Throwable;
 
 /**
  * /brands/{brand}/setup — "Otomatik kur": propose website asset, account bindings and services;
@@ -53,7 +54,7 @@ final class BrandSetupPage extends Component
         $this->websiteUrl = (string) ($website?->primary_url ?: $website?->domain ?: '');
 
         // Coming from "new brand" with a website: start the proposal immediately.
-        $url = trim((string) request()->query('url', ''));
+        $url = is_string($raw = request()->query('url')) ? trim($raw) : '';
         if ($url !== '' && $this->latest() === null) {
             $this->websiteUrl = $url;
             $this->start(app(BrandSetupAssistant::class));
@@ -76,12 +77,12 @@ final class BrandSetupPage extends Component
     public function selectAll(bool $value = true): void
     {
         $proposal = $this->latest();
-        foreach ($proposal?->items ?? [] as $item) {
+        foreach ($proposal?->itemRows() ?? [] as $item) {
             if ($item['status'] === 'proposed') {
                 $this->selectedItems[$item['key']] = $value;
             }
         }
-        foreach ($proposal?->services ?? [] as $index => $service) {
+        foreach ($proposal?->serviceRows() ?? [] as $index => $service) {
             if (in_array($service['status'], ['proposed', 'already'], true)) {
                 $this->selectedServices[$index] = $value;
             }
@@ -93,18 +94,32 @@ final class BrandSetupPage extends Component
         abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
         $proposal = $this->latest();
         if ($proposal === null || $proposal->status !== BrandSetupProposal::STATUS_READY) {
+            $this->flash($proposal?->status === BrandSetupProposal::STATUS_APPLIED ? 'Bu öneri zaten uygulandı; sonuçlar aşağıda.' : 'Onaylanacak hazır bir öneri yok.', 'error');
+
             return;
         }
-        $keys = array_keys(array_filter($this->selectedItems));
+        $keys = array_map('strval', array_keys(array_filter($this->selectedItems)));
         $services = array_map('intval', array_keys(array_filter($this->selectedServices)));
         if ($keys === [] && $services === [] && ! ($this->applyContext && is_array(data_get($proposal->summary, 'business_context')))) {
             $this->flash('Onaylanacak bir şey seçilmedi.', 'error');
 
             return;
         }
-        $results = $applier->apply($proposal, auth()->user(), $keys, $services, $this->applyContext);
+        try {
+            $results = $applier->apply($proposal, auth()->user(), $keys, $services, $this->applyContext);
+        } catch (Throwable $exception) {
+            report($exception);
+            $this->flash('Öneri uygulanırken beklenmeyen bir hata oluştu; hiçbir dış platforma yazılmadı. Sayfayı yenileyip sonuçları kontrol edin.', 'error');
+
+            return;
+        }
         $failed = count(array_filter($results, fn (array $r): bool => ! $r['ok']));
-        $this->flash(sprintf('%d işlem uygulandı%s.', count($results) - $failed, $failed > 0 ? ', '.$failed.' işlem yapılamadı (ayrıntılar aşağıda)' : ''), $failed > 0 ? 'error' : 'success');
+        $applied = count($results) - $failed;
+        $this->flash(match (true) {
+            $failed === 0 => sprintf('%d işlem uygulandı.', $applied),
+            $applied === 0 => sprintf('Hiçbir işlem uygulanamadı (%d işlem yapılamadı); nedenleri aşağıda.', $failed),
+            default => sprintf('Kısmen uygulandı: %d işlem uygulandı, %d işlem yapılamadı (ayrıntılar aşağıda).', $applied, $failed),
+        }, $failed > 0 ? 'error' : 'success');
     }
 
     public function render(): View
@@ -114,11 +129,11 @@ final class BrandSetupPage extends Component
         if ($proposal !== null && $proposal->status === BrandSetupProposal::STATUS_READY && $this->loadedProposalId !== $proposal->id) {
             $this->loadedProposalId = $proposal->id;
             $this->selectedItems = [];
-            foreach ($proposal->items ?? [] as $item) {
+            foreach ($proposal->itemRows() as $item) {
                 $this->selectedItems[$item['key']] = (bool) ($item['selected'] ?? false);
             }
             $this->selectedServices = [];
-            foreach ($proposal->services ?? [] as $index => $service) {
+            foreach ($proposal->serviceRows() as $index => $service) {
                 $this->selectedServices[$index] = (bool) ($service['selected'] ?? false);
             }
         }

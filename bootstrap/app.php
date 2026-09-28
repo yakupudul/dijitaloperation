@@ -3,10 +3,13 @@
 use App\Http\Middleware\SetOperatorLocale;
 use App\Http\Middleware\SetOperatorTimezone;
 use App\Services\Operations\ErrorAlertReporter;
+use App\Support\Operator\LivewireActionErrors;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -38,6 +41,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
         );
+        // PostgreSQL: a read by a non-numeric / out-of-range id is a bad link (404), not a server error.
+        $exceptions->map(QueryException::class, fn (QueryException $exception): Throwable => LivewireActionErrors::isBadIdentifier($exception)
+            ? new NotFoundHttpException('Kayıt bulunamadı.', $exception) : $exception);
         // Phone notification for new kinds of application errors (Ayarlar › Telefon bildirimleri).
         $exceptions->report(function (Throwable $exception): void {
             app(ErrorAlertReporter::class)->report($exception);
