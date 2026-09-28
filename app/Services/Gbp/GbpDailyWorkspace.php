@@ -228,58 +228,54 @@ final class GbpDailyWorkspace
     }
 
     /**
-     * Profil sağlığı: read-only checklist from the last collected location data, with what to do on Google.
+     * Profil sağlığı: the Business Profile standards (standards.json, gbp_*) plus the plain completeness items they do
+     * not cover, read-only from the last collected data, each with one finding and one thing to do on Google. Missing
+     * data is "Veri yok", never a problem; the score counts only evaluated items.
      *
-     * @return array{available: bool, score: ?int, items: list<array{key: string, label: string, done: bool, value: string, todo: string}>}
+     * @return array{available: bool, score: ?int, items: list<array{key: string, label: string, done: bool, state: string, value: string, todo: string}>}
      */
-    public function health(int $resourceId): array
+    public function health(int $resourceId, ?DigitalAsset $asset = null): array
     {
         $snapshot = DB::table('gbp_location_snapshots')->where('external_resource_id', $resourceId)->orderByDesc('captured_at')->orderByDesc('id')->first();
         if ($snapshot === null) {
             return ['available' => false, 'score' => null, 'items' => []];
         }
-        $categories = $this->decode($snapshot->additional_categories);
-        $additional = count((array) ($categories['additionalCategories'] ?? []));
-        $description = trim((string) ($this->decode($snapshot->profile)['description'] ?? ''));
-        $days = collect((array) ($this->decode($snapshot->regular_hours)['periods'] ?? []))->pluck('openDay')->filter()->unique()->count();
-        $special = collect((array) ($this->decode($snapshot->special_hours)['specialHourPeriods'] ?? []))
-            ->filter(fn ($period): bool => is_array($period) && $this->googleDate($period['startDate'] ?? null) >= now()->subDays(30)->toDateString())->count();
+        $asset ??= DigitalAsset::query()->find(CoreAssetBinding::query()->where('external_resource_id', $resourceId)->where('capability', 'google_business_profile')
+            ->where('status', CoreAssetBinding::STATUS_ACTIVE)->orderByDesc('id')->value('digital_asset_id'));
+        $items = [];
+        if ($asset !== null) {
+            foreach (app(GbpStandardInput::class)->results($asset, $resourceId) as $id => $result) {
+                $items[] = ['key' => $id, 'label' => $result['title'], 'done' => $result['state'] === 'pass', 'state' => $result['state'],
+                    'value' => $result['finding'], 'todo' => (string) ($result['solution'] ?? '')];
+            }
+        }
+
+        $additional = count((array) ($this->decode($snapshot->additional_categories)['additionalCategories'] ?? []));
         $phone = trim((string) ($this->decode($snapshot->phone_numbers)['primaryPhone'] ?? ''));
         $website = trim((string) $snapshot->website_uri);
         $media = DB::table('gbp_media')->where('external_resource_id', $resourceId)->get(['media_format', 'category']);
         $photos = $media->filter(fn (object $row): bool => strtoupper((string) $row->media_format) !== 'VIDEO')->count();
         $mediaCategories = $media->pluck('category')->map(fn ($c): string => strtoupper((string) $c))->all();
-        $attributeRow = DB::table('gbp_attribute_snapshots')->where('external_resource_id', $resourceId)->orderByDesc('captured_at')->orderByDesc('id')->first();
-        $attributes = $attributeRow !== null ? count((array) ($this->decode($attributeRow->attributes)['attributes'] ?? [])) : null;
-        $serviceRow = DB::table('gbp_service_snapshots')->where('external_resource_id', $resourceId)->orderByDesc('captured_at')->orderByDesc('id')->first();
-        $services = $serviceRow !== null ? count($this->decode($serviceRow->service_items)) : null;
-
-        $items = [
-            ['key' => 'primary_category', 'label' => __('operator_gbp.completeness_items.primary_category'), 'done' => filled($snapshot->primary_category), 'value' => (string) ($snapshot->primary_category ?: '—'),
-                'todo' => 'Profili düzenle → İşletme kategorisi: işinizi en iyi anlatan ana kategoriyi seçin.'],
+        $plain = [
             ['key' => 'additional_categories', 'label' => __('operator_gbp.completeness_items.additional_categories'), 'done' => $additional >= 1, 'value' => (string) $additional,
-                'todo' => 'Sunduğunuz diğer hizmetlere uyan 2–4 ek kategori ekleyin.'],
-            ['key' => 'description', 'label' => __('operator_gbp.completeness_items.description'), 'done' => mb_strlen($description) >= 250, 'value' => mb_strlen($description).' karakter',
-                'todo' => 'Hizmetleri ve hizmet bölgesini anlatan 250–750 karakterlik açıklama yazın (bağlantı ve telefon yazmayın).'],
-            ['key' => 'hours', 'label' => __('operator_gbp.completeness_items.hours'), 'done' => $days >= 5, 'value' => $days.'/7 gün',
-                'todo' => 'Saatler bölümünden haftanın tüm açık günlerini girin; “şu an açık” aramalarında görünmek için gerekli.'],
-            ['key' => 'special_hours', 'label' => __('operator_gbp.completeness_items.special_hours'), 'done' => $special > 0, 'value' => $special > 0 ? $special.' tarih' : 'yok',
-                'todo' => 'Yaklaşan resmi tatil ve bayramlar için özel saat girin; Google aksi hâlde “saatler doğru olmayabilir” uyarısı gösterir.'],
+                'todo' => 'Sunduğunuz diğer hizmetlere uyan ek kategoriler ekleyin.'],
             ['key' => 'primary_phone', 'label' => __('operator_gbp.completeness_items.primary_phone'), 'done' => $phone !== '', 'value' => $phone !== '' ? $phone : '—',
-                'todo' => 'Birincil telefon numarasını ekleyin; arama tıklamaları buradan gelir.'],
+                'todo' => 'Birincil telefon numarasını ekleyin.'],
             ['key' => 'website', 'label' => __('operator_gbp.completeness_items.website'), 'done' => $website !== '', 'value' => $website !== '' ? $website : '—',
                 'todo' => 'Web sitesi adresini (UTM etiketli) ekleyin.'],
             ['key' => 'photos', 'label' => __('operator_gbp.completeness_items.photos'), 'done' => $photos >= 10 && in_array('COVER', $mediaCategories, true) && in_array('LOGO', $mediaCategories, true),
                 'value' => $photos.' fotoğraf'.(in_array('COVER', $mediaCategories, true) ? '' : ' · kapak yok').(in_array('LOGO', $mediaCategories, true) ? '' : ' · logo yok'),
-                'todo' => 'Kapak fotoğrafı, logo ve iç/dış mekân, ekip, iş örneği fotoğrafları yükleyin; ayda birkaç yeni fotoğraf ekleyin.'],
-            ['key' => 'attributes', 'label' => __('operator_gbp.completeness_items.attributes'), 'done' => ($attributes ?? 0) >= 3, 'value' => $attributes === null ? 'veri yok' : (string) $attributes,
-                'todo' => 'İşletmeye uyan özellikleri (erişilebilirlik, ödeme, hizmet seçenekleri) işaretleyin.'],
-            ['key' => 'services', 'label' => __('operator_gbp.completeness_items.services'), 'done' => ($services ?? 0) > 0, 'value' => $services === null ? 'veri yok' : (string) $services,
-                'todo' => 'Hizmetler bölümüne markanın hizmetlerini açıklamalarıyla ekleyin.'],
+                'todo' => 'Kapak fotoğrafı, logo ve iç/dış mekân, ekip fotoğrafları yükleyin.'],
         ];
-        $done = count(array_filter($items, fn (array $item): bool => $item['done']));
+        foreach ($plain as $item) {
+            $items[] = $item + ['state' => $item['done'] ? 'pass' : 'fail'];
+        }
+        $rank = ['fail' => 0, 'review' => 1, 'pass' => 2, 'unknown' => 3, 'not_applicable' => 4];
+        usort($items, fn (array $a, array $b): int => ($rank[$a['state']] ?? 5) <=> ($rank[$b['state']] ?? 5));
+        $evaluated = array_filter($items, fn (array $item): bool => in_array($item['state'], ['pass', 'fail', 'review'], true));
+        $done = count(array_filter($evaluated, fn (array $item): bool => $item['state'] === 'pass'));
 
-        return ['available' => true, 'score' => (int) round($done / count($items) * 100), 'items' => $items];
+        return ['available' => true, 'score' => $evaluated === [] ? null : (int) round($done / count($evaluated) * 100), 'items' => $items];
     }
 
     /** Google's "write a review" link for a place (null without a place id). */
@@ -326,15 +322,6 @@ final class GbpDailyWorkspace
             $hours < 60 * 24 => intdiv($hours, 24).' gün',
             default => intdiv($hours, 24 * 30).' ay',
         };
-    }
-
-    private function googleDate(mixed $date): string
-    {
-        if (! is_array($date) || ! isset($date['year'], $date['month'], $date['day'])) {
-            return '';
-        }
-
-        return sprintf('%04d-%02d-%02d', (int) $date['year'], (int) $date['month'], (int) $date['day']);
     }
 
     /** @return array<mixed> */

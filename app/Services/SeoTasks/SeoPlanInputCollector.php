@@ -780,7 +780,7 @@ final class SeoPlanInputCollector
     }
 
     /** @return array{available: bool, body: ?string, observed_at: ?string} */
-    private function robots(DigitalAsset $site): array
+    public function robots(DigitalAsset $site): array
     {
         $evidence = Evidence::query()
             ->where('digital_asset_id', $site->id)

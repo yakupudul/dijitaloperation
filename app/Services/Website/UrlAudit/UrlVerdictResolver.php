@@ -10,7 +10,8 @@ use App\Models\WebsiteUrlVerdict;
  * Birleştir / yönlendir (doorway group or cannibalization, not the kept page) → Dizinden çıkar (junk / test page) →
  * Düzelt (failing standard, open site fix, broken status, valuable page noindex) → Kontrol et (data missing) →
  * Dizinden çıkar (thin, no traffic, no links, not a service page) → Güçlendir (ranking 5–20, decay, thin but valuable,
- * missing FAQ / schema) → Sorun yok — gerek yok (with what was checked). Pure; no I/O.
+ * missing schema) → Sorun yok — gerek yok (with what was checked). Informational standards (FAQ markup, stock images,
+ * self-serving stars) are listed but never set the verdict. Pure; no I/O.
  */
 final class UrlVerdictResolver
 {
@@ -30,7 +31,8 @@ final class UrlVerdictResolver
         'eeat_medical_review' => ['strengthen', null, null, null],
         'eeat_updated_date' => ['strengthen', null, null, null],
         'medical_procedure_schema' => ['strengthen', 'fixes', 1, 'Yapılandırılmış veri düzeltmesine git'],
-        'faq_schema' => ['strengthen', 'fixes', 1, 'Yapılandırılmış veri düzeltmesine git'],
+        // FAQ markup is optional (no FAQ rich result since 2026-05-07): informational, never the page verdict.
+        'faq_schema' => ['info', null, null, null],
         'article_schema' => ['strengthen', 'fixes', 1, 'Yapılandırılmış veri düzeltmesine git'],
         'breadcrumb_schema' => ['strengthen', 'fixes', 1, 'Yapılandırılmış veri düzeltmesine git'],
         'hreflang_consistency' => ['fix', null, null, null],
@@ -41,6 +43,14 @@ final class UrlVerdictResolver
         'sitemap_hygiene' => ['fix', null, null, null],
         'sitemap_missing' => ['fix', null, null, null],
         'index_coverage' => ['fix', 'search_console', null, 'Search Console’u aç'],
+        'snippet_controls' => ['fix', null, null, null],
+        'main_content_raw_html' => ['fix', null, null, null],
+        'service_content_depth' => ['strengthen', 'fixes', 3, 'İçerik güncellemesini hazırla'],
+        'schema_visible_match' => ['strengthen', 'fixes', 1, 'Yapılandırılmış veri düzeltmesine git'],
+        'tr_health_promotion' => ['fix', 'fixes', 3, 'İçerik güncellemesini hazırla'],
+        // Low-confidence heuristics: shown on the page, never the page verdict.
+        'original_media' => ['info', null, null, null],
+        'self_serving_review_markup' => ['info', null, null, null],
     ];
 
     /**
@@ -302,7 +312,7 @@ final class UrlVerdictResolver
 
     private function stateRank(string $state): int
     {
-        return ['fail' => 4, 'review' => 3, 'unknown' => 2, 'pass' => 1, 'not_applicable' => 0][$state] ?? 0;
+        return ['fail' => 4, 'review' => 3, 'unknown' => 2, 'info' => 1, 'pass' => 1, 'not_applicable' => 0][$state] ?? 0;
     }
 
     /**

@@ -18,8 +18,30 @@ final class UrlStandardEvaluator
 
     private const array ARTICLE = ['Article', 'BlogPosting', 'NewsArticle', 'MedicalWebPage', 'MedicalScholarlyArticle'];
 
+    /** Search / user-fetch crawlers of AI answer engines (blocking removes the site from their answers). */
+    public const array AI_SEARCH_BOTS = ['OAI-SearchBot', 'ChatGPT-User', 'PerplexityBot', 'Claude-SearchBot', 'Claude-User'];
+
+    /** Training-only crawlers: blocking them does not affect Google Search, AI Overviews or AI Mode. Informational. */
+    public const array AI_TRAINING_BOTS = ['GPTBot', 'ClaudeBot', 'Google-Extended', 'CCBot', 'Applebot-Extended'];
+
+    public const array SEARCH_ENGINE_BOTS = ['Googlebot', 'Bingbot'];
+
+    /** Service page sections that make treatment content non-commodity (folded heading patterns). */
+    private const array SERVICE_SECTIONS = [
+        'süreç' => '/(nasil (yapilir|uygulanir)|surec|asama|adim|uygulama|prosedur|how it works|procedure|process)/',
+        'süre' => '/(sure[a-z]*\b|kac (seans|gun|saat)|seans|ne kadar surer|duration|how long)/',
+        'kimlere uygun' => '/(kimler|kimlere|uygun|aday|candidate|suitable|who is)/',
+        'riskler' => '/(risk|yan etki|komplikasyon|dezavantaj|side effect|complication)/',
+        'sonrası' => '/(sonrasi|bakim|iyilesme|dikkat edilmesi|aftercare|recovery)/',
+    ];
+
+    private const string OFF_TOPIC_PATH = '#/(casino|kumar|bahis|canli-bahis|bet|slot|escort|deneme-bonusu|sponsorlu|sponsored|advertorial|guest-post|misafir-yazar|tanitim-yazisi)(/|-|$)#';
+
     /** @var array<string, array<string, mixed>> */
     private array $standards = [];
+
+    /** @var array<string, array{key: string, similarity: float}> service page => most similar other service page */
+    private array $twins = [];
 
     /** @var array<string, array<string, mixed>> */
     private array $pages = [];
@@ -40,6 +62,7 @@ final class UrlStandardEvaluator
         $this->site = $site;
 
         $groups = $this->doorwayGroups();
+        $this->twins = isset($this->standards['website:url:service_content_depth']) ? $this->serviceTwins() : [];
         $membership = [];
         foreach ($groups as $group) {
             foreach ($group['members'] as $member) {
@@ -170,6 +193,7 @@ final class UrlStandardEvaluator
                     ? $this->pass('Sayfada tıbbi işlem verisi var.')
                     : $this->result($failState, $standard, 'Tedavi sayfasında MedicalProcedure / MedicalWebPage verisi yok (mevcut: '.($this->typeList($signals)).').');
             case 'faq_schema':
+                // Since 2026-05-07 Google shows no FAQ rich result; the markup is optional and never a defect on its own.
                 if ($signals === null) {
                     return $this->unknown('Sayfanın saklı HTML’i okunmadı.');
                 }
@@ -179,7 +203,110 @@ final class UrlStandardEvaluator
 
                 return in_array('FAQPage', $signals['jsonld_types'], true)
                     ? $this->pass('SSS bölümü FAQPage verisiyle işaretli.')
-                    : $this->result($failState, $standard, 'Sayfada '.$signals['question_count'].' soru var ama FAQPage verisi yok.');
+                    : $this->info('Sayfada '.$signals['question_count'].' soru var; FAQPage verisi yok (isteğe bağlı).', (string) $standard['action']);
+            case 'snippet_controls':
+                if ($page['indexable'] === false) {
+                    return $this->na('Dizine kapalı sayfa.');
+                }
+                if ($signals === null) {
+                    return $this->unknown('Sayfanın saklı HTML’i okunmadı.');
+                }
+                $robots = mb_strtolower((string) ($page['robots'] ?? ''));
+                if (($signals['nosnippet_meta'] ?? false) || preg_match('/(?:^|[\s,])(nosnippet|max-snippet\s*:\s*0)(?:$|[\s,])/', $robots) === 1) {
+                    return $this->result($failState, $standard, 'Sayfa "nosnippet" / max-snippet:0 ile arama ve AI Özetleri’nde alıntılanmıyor.');
+                }
+                $main = (int) ($signals['main_words'] ?? 0);
+                $hidden = (int) ($signals['nosnippet_words'] ?? 0);
+                if ($main >= 50 && $hidden >= 0.5 * $main) {
+                    return $this->result($failState, $standard, 'Ana metnin %'.min(100, (int) round(100 * $hidden / $main)).'’i data-nosnippet içinde; alıntılanamıyor.');
+                }
+
+                return $this->pass('Alıntı engeli (nosnippet) yok.');
+            case 'main_content_raw_html':
+                if (! in_array($page['kind'], ['home', 'service', 'post', 'page'], true) || $page['indexable'] === false) {
+                    return $this->na('İçerik sayfası değil veya dizine kapalı.');
+                }
+                if ($signals === null || ! array_key_exists('main_words', $signals)) {
+                    return $this->unknown('Sayfanın saklı HTML’i okunmadı.');
+                }
+                $words = (int) $signals['main_words'];
+                if ($words >= 80) {
+                    return $this->pass('Ana metin ham HTML’de ('.$words.' kelime).');
+                }
+                if ($signals['spa_root'] ?? false) {
+                    return $this->result($failState, $standard, 'Ham HTML’de ana metin yok ('.$words.' kelime); içerik JavaScript ile yükleniyor.');
+                }
+
+                return $this->na('Kısa sayfa; JavaScript bağımlılığı görülmedi (ince içerik ayrı kontrol edilir).');
+            case 'service_content_depth':
+                return $this->serviceDepth($standard, $page, $signals, $failState);
+            case 'original_media':
+                if (! in_array($page['kind'], ['home', 'service', 'about'], true)) {
+                    return $this->na('Ana sayfa, hizmet veya hakkımızda sayfası değil.');
+                }
+                if ($signals === null || ! is_array($signals['images'] ?? null)) {
+                    return $this->unknown('Sayfanın saklı HTML’i okunmadı.');
+                }
+                $images = $signals['images'];
+                if ((int) $images['original'] > 0) {
+                    return $this->pass((int) $images['original'].' özgün, alt metinli görsel var.');
+                }
+
+                return $this->result($failState, $standard, (int) $images['total'] === 0 ? 'Ana içerikte görsel yok.' : 'Görseller stok görünüyor veya alt metinsiz ('.(int) $images['total'].' görsel).');
+            case 'schema_visible_match':
+                if ($signals === null) {
+                    return $this->unknown('Sayfanın saklı HTML’i okunmadı.');
+                }
+                $problems = [];
+                $checked = false;
+                foreach ($signals['organizations'] as $organization) {
+                    foreach (['phone_visible' => 'telefon', 'name_visible' => 'ad', 'postal_visible' => 'posta kodu'] as $field => $label) {
+                        if (! array_key_exists($field, $organization) || $organization[$field] === null) {
+                            continue;
+                        }
+                        $checked = true;
+                        if ($organization[$field] === false) {
+                            $problems[$label] = $label;
+                        }
+                    }
+                }
+                if (! $checked) {
+                    return $this->na('Sayfada ad / telefon / adres taşıyan işletme verisi yok.');
+                }
+
+                return $problems === [] ? $this->pass('Şemadaki işletme bilgileri sayfada görünüyor.')
+                    : $this->result($failState, $standard, 'Şemadaki '.implode(', ', $problems).' sayfada görünmüyor.');
+            case 'self_serving_review_markup':
+                if ($signals === null) {
+                    return $this->unknown('Sayfanın saklı HTML’i okunmadı.');
+                }
+                if ($signals['organizations'] === []) {
+                    return $this->na('Sayfada işletme verisi yok.');
+                }
+                foreach ($signals['organizations'] as $organization) {
+                    if ($organization['self_rating'] ?? false) {
+                        return $this->result($failState, $standard, 'Kendi işletme verinizde yıldız (AggregateRating / Review) var; Google bunu göstermez.');
+                    }
+                }
+
+                return $this->pass('İşletme verisinde kendi kendine yıldız yok.');
+            case 'tr_health_promotion':
+                if (! ($this->site['health'] ?? false)) {
+                    return $this->na('Marka sağlık sektöründe değil.');
+                }
+                if ($page['kind'] === 'utility') {
+                    return $this->na('Yardımcı sayfa.');
+                }
+                if ($signals === null || ! array_key_exists('promotion_hits', $signals)) {
+                    return $this->unknown('Sayfanın saklı HTML’i okunmadı.');
+                }
+                $hits = (array) $signals['promotion_hits'];
+                if ($hits === []) {
+                    return $this->pass('Tanıtım yönetmeliğine aykırı olabilecek ifade bulunmadı.');
+                }
+
+                return $this->result($failState, $standard, 'Yönetmeliğe aykırı olabilecek ifade: '.implode(', ', array_map(fn (array $h): string => '"'.$h['matched'].'" ('.$h['label'].')', array_slice($hits, 0, 3))).'.',
+                    null, ['hits' => array_slice($hits, 0, 10)]);
             case 'article_schema':
                 if (! $isPost) {
                     return $this->na('Blog yazısı değil.');
@@ -329,7 +456,8 @@ final class UrlStandardEvaluator
         if ($entries === []) {
             $problems[] = 'Polylang çevirisi var ama sayfada hreflang etiketi yok';
         }
-        if ($entries !== [] && count(array_diff(array_keys($languages), ['x-default'])) >= 2 && ! isset($languages['x-default'])) {
+        // x-default is optional; Polylang writes it on the home page only, so only the home page is held to it.
+        if ($page['kind'] === 'home' && $entries !== [] && count(array_diff(array_keys($languages), ['x-default'])) >= 2 && ! isset($languages['x-default'])) {
             $problems[] = 'x-default yok';
         }
         if ($entries !== [] && $selfLanguage === null) {
@@ -376,7 +504,7 @@ final class UrlStandardEvaluator
         }
 
         return $problems === []
-            ? $this->pass('hreflang karşılıklı, x-default var, canonical ve dil tutarlı.')
+            ? $this->pass('hreflang karşılıklı, canonical ve dil tutarlı.')
             : $this->result($failState, $standard, $this->capitalize(implode('; ', $problems)).'.');
     }
 
@@ -503,9 +631,243 @@ final class UrlStandardEvaluator
 
                 return $problems === [] ? $this->pass('İşletme Profili ile '.implode(', ', $checked).' aynı.')
                     : $this->result($failState, $standard, $this->capitalize(implode('; ', $problems)).'.');
+            case 'robots_search_engines':
+            case 'robots_ai_search_bots':
+            case 'ai_training_bots':
+                return $this->robots($method, $standard, $failState);
+            case 'indexnow':
+                $wordpress = $this->site['wordpress'] ?? null;
+                if (! is_array($wordpress) || ! ($wordpress['paired'] ?? false)) {
+                    return $this->unknown('IndexNow durumu bilinmiyor (WordPress Connector bağlı değil).');
+                }
+                $capabilities = $wordpress['capabilities'] ?? null;
+                if (! is_array($capabilities)) {
+                    return version_compare((string) ($wordpress['plugin_version'] ?? '0.0.0'), '1.4.1', '<')
+                        ? $this->result($failState, $standard, 'Connector '.($wordpress['plugin_version'] ?? '?').' IndexNow bildirmiyor.', 'Connector’ı güncelleyin; IndexNow 1.4.1 ile gelir.')
+                        : $this->unknown('Connector durumu henüz okunmadı.');
+                }
+
+                return in_array('indexnow', $capabilities, true)
+                    ? $this->pass('Connector değişen sayfaları IndexNow ile bildiriyor.')
+                    : $this->result($failState, $standard, 'Connector’da IndexNow kapalı.');
+            case 'bing_webmaster':
+                if ($homeSignals === null) {
+                    return $this->unknown('Ana sayfanın saklı HTML’i okunmadı.');
+                }
+
+                return ($homeSignals['bing_verified'] ?? false)
+                    ? $this->pass('Ana sayfada Bing doğrulama etiketi var.')
+                    : ['state' => 'unknown', 'finding' => 'Bing doğrulama etiketi yok; DNS veya BingSiteAuth.xml ile doğrulanmış olabilir.', 'solution' => (string) $standard['action'], 'evidence' => null];
+            case 'site_reputation_abuse':
+                if ($this->pages === []) {
+                    return $this->unknown('Sayfa envanteri boş.');
+                }
+                $suspects = [];
+                foreach ($this->pages as $page) {
+                    $spam = is_array($page['signals'] ?? null) ? (array) ($page['signals']['spam_terms'] ?? []) : [];
+                    if (preg_match(self::OFF_TOPIC_PATH, mb_strtolower((string) $page['path'])) === 1 || $spam !== []) {
+                        $suspects[] = (string) $page['path'].($spam !== [] ? ' ('.implode(', ', array_slice($spam, 0, 2)).')' : '');
+                    }
+                }
+
+                return $suspects === [] ? $this->pass('Alakasız / sponsorlu bölüm görülmedi.')
+                    : $this->result('review', $standard, 'Alakasız veya sponsorlu olabilecek '.count($suspects).' sayfa: '.implode(', ', array_slice($suspects, 0, 4)).'.', null, ['pages' => array_slice($suspects, 0, 20)]);
+            case 'tr_health_disclosure':
+                return $this->healthDisclosure($standard);
+            case 'ai_referral_tracking':
+                $referrals = $this->site['ai_referrals'] ?? null;
+                if (! is_array($referrals) || ! ($referrals['available'] ?? false)) {
+                    return $this->na('GA4 kaynak / ortam verisi yok.');
+                }
+                $sources = array_map('intval', (array) ($referrals['sources'] ?? []));
+                arsort($sources);
+                $sessions = (int) array_sum($sources);
+                $top = [];
+                foreach (array_slice($sources, 0, 4, true) as $source => $count) {
+                    $top[] = $source.' '.$count;
+                }
+
+                return $sessions > 0
+                    ? $this->info('Son 90 günde AI kaynaklı '.$sessions.' oturum ('.implode(', ', $top).').', (string) $standard['action'], ['sources' => $sources])
+                    : $this->info('Son 90 günde AI kaynaklı oturum görülmedi.', (string) $standard['action']);
         }
 
         return $this->unknown('Bu kontrol için değerlendirici yok.');
+    }
+
+    /**
+     * @param  array<string, mixed>  $standard
+     * @return array<string, mixed>
+     */
+    private function robots(string $method, array $standard, string $failState): array
+    {
+        $robots = $this->site['robots'] ?? null;
+        if (! is_array($robots) || ! ($robots['available'] ?? false) || ! is_string($robots['body'] ?? null)) {
+            return $this->na('robots.txt içeriği yok; dosya yoksa tüm botlara açıktır.');
+        }
+        $rules = new RobotsTxtRules((string) $robots['body']);
+        $paths = ['/'];
+        foreach ($this->pages as $page) {
+            if ($page['kind'] === 'service' && count($paths) < 40) {
+                $paths[] = (string) (parse_url((string) $page['url'], PHP_URL_PATH) ?: $page['path']);
+            }
+        }
+        $paths = array_values(array_unique($paths));
+        $bots = match ($method) {
+            'robots_search_engines' => self::SEARCH_ENGINE_BOTS,
+            'robots_ai_search_bots' => self::AI_SEARCH_BOTS,
+            default => self::AI_TRAINING_BOTS,
+        };
+        $blocked = [];
+        foreach ($bots as $bot) {
+            $denied = array_values(array_filter($method === 'ai_training_bots' ? ['/'] : $paths, fn (string $path): bool => ! $rules->allowed($bot, $path)));
+            if ($denied !== []) {
+                $blocked[$bot] = $denied;
+            }
+        }
+        if ($method === 'ai_training_bots') {
+            return $this->info($blocked === [] ? 'Eğitim botları (GPTBot, ClaudeBot, Google-Extended) açık.' : 'Eğitim botlarından engelli: '.implode(', ', array_keys($blocked)).'.',
+                (string) $standard['action'], ['blocked' => array_keys($blocked)]);
+        }
+        if ($blocked === []) {
+            return $this->pass(implode(', ', $bots).' ana sayfa ve hizmet sayfalarına erişebiliyor.');
+        }
+        $first = (string) array_key_first($blocked);
+        $sample = implode(', ', array_slice($blocked[$first], 0, 3)).(count($blocked[$first]) > 3 ? ' …' : '');
+
+        return $this->result($failState, $standard, implode(', ', array_keys($blocked)).' robots.txt ile engelli ('.$sample.').', null, ['blocked' => $blocked]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $standard
+     * @param  array<string, mixed>  $page
+     * @param  array<string, mixed>|null  $signals
+     * @return array<string, mixed>
+     */
+    private function serviceDepth(array $standard, array $page, ?array $signals, string $failState): array
+    {
+        if ($page['kind'] !== 'service' || $page['indexable'] === false) {
+            return $this->na('Hizmet sayfası değil.');
+        }
+        if ($signals === null || ! array_key_exists('headings', $signals)) {
+            return $this->unknown('Sayfanın saklı HTML’i okunmadı.');
+        }
+        $problems = [];
+        if ($this->site['health'] ?? false) {
+            $headings = SeoText::fold(implode(' | ', (array) $signals['headings']));
+            $missing = array_keys(array_filter(self::SERVICE_SECTIONS, fn (string $pattern): bool => preg_match($pattern, $headings) !== 1));
+            if (count($missing) > 2) {
+                $problems[] = 'eksik bölüm: '.implode(', ', $missing);
+            }
+        }
+        $twin = $this->twins[$page['key']] ?? null;
+        if ($twin !== null) {
+            $problems[] = 'metnin ~%'.(int) round($twin['similarity'] * 100).'’i '.$this->pathOf($twin['key']).' ile aynı';
+        }
+
+        return $problems === [] ? $this->pass('Hizmete özgü bölümler var; metin diğer hizmet sayfalarından farklı.')
+            : $this->result($failState, $standard, 'Hizmet sayfası jenerik: '.implode('; ', $problems).'.', null, ['twin' => $twin]);
+    }
+
+    /**
+     * Sağlık tanıtım yönetmeliği (RG 12.11.2025/33075): visible last update date and editor, and for foreign-patient
+     * (English) pages the health tourism authorization certificate.
+     *
+     * @param  array<string, mixed>  $standard
+     * @return array<string, mixed>
+     */
+    private function healthDisclosure(array $standard): array
+    {
+        if (! ($this->site['health'] ?? false)) {
+            return $this->na('Marka sağlık sektöründe değil.');
+        }
+        $read = array_filter($this->pages, fn (array $page): bool => is_array($page['signals'] ?? null) && array_key_exists('editor', $page['signals']));
+        if ($read === []) {
+            return $this->unknown('Sayfaların saklı HTML’i okunmadı.');
+        }
+        $updated = false;
+        $editor = false;
+        $certificate = false;
+        $english = false;
+        foreach ($this->pages as $page) {
+            $signals = is_array($page['signals'] ?? null) ? $page['signals'] : [];
+            $updated = $updated || (bool) ($signals['visible_updated'] ?? false);
+            $editor = $editor || (bool) ($signals['editor'] ?? false);
+            $certificate = $certificate || (bool) ($signals['health_tourism_cert'] ?? false);
+            $english = $english || str_starts_with(mb_strtolower((string) ($page['wp_language'] ?? '')), 'en')
+                || preg_match('#^/en(/|$)#', (string) $page['path']) === 1 || str_starts_with(mb_strtolower((string) ($signals['lang'] ?? '')), 'en');
+        }
+        $missing = [];
+        if (! $updated) {
+            $missing[] = 'son güncelleme tarihi';
+        }
+        if (! $editor) {
+            $missing[] = 'sorumlu hekim / editör';
+        }
+        if ($english && ! $certificate) {
+            $missing[] = 'İngilizce sayfalarda sağlık turizmi yetki belgesi';
+        }
+
+        return $missing === [] ? $this->pass('Güncelleme tarihi ve sorumlu kişi görünüyor'.($english ? '; sağlık turizmi belgesi anılıyor.' : '.'))
+            : $this->result('review', $standard, 'Sitede görünmüyor: '.implode(', ', $missing).'.', null, ['missing' => $missing]);
+    }
+
+    /**
+     * Most similar other service page by main text (bottom-k MinHash of 5-word shingles).
+     *
+     * @return array<string, array{key: string, similarity: float}>
+     */
+    private function serviceTwins(): array
+    {
+        $sketches = [];
+        foreach ($this->pages as $key => $page) {
+            $shingles = is_array($page['signals'] ?? null) ? (array) ($page['signals']['shingles'] ?? []) : [];
+            if ($page['kind'] === 'service' && count($shingles) >= 20) {
+                $sketches[$key] = $shingles;
+            }
+        }
+        $keys = array_slice(array_keys($sketches), 0, 300);
+        $threshold = (float) ($this->site['service_similarity'] ?? 0.6);
+        $twins = [];
+        for ($i = 0, $n = count($keys); $i < $n; $i++) {
+            for ($j = $i + 1; $j < $n; $j++) {
+                $similarity = self::similarity($sketches[$keys[$i]], $sketches[$keys[$j]]);
+                if ($similarity < $threshold) {
+                    continue;
+                }
+                foreach ([[$keys[$i], $keys[$j]], [$keys[$j], $keys[$i]]] as [$a, $b]) {
+                    if (($twins[$a]['similarity'] ?? 0.0) < $similarity) {
+                        $twins[$a] = ['key' => $b, 'similarity' => round($similarity, 2)];
+                    }
+                }
+            }
+        }
+
+        return $twins;
+    }
+
+    /**
+     * Jaccard estimate of two bottom-k sketches.
+     *
+     * @param  list<int>  $a
+     * @param  list<int>  $b
+     */
+    public static function similarity(array $a, array $b): float
+    {
+        $k = min(count($a), count($b), PageSignalExtractor::SKETCH);
+        if ($k === 0) {
+            return 0.0;
+        }
+        $union = array_values(array_unique([...$a, ...$b]));
+        sort($union);
+        $inA = array_flip($a);
+        $inB = array_flip($b);
+        $shared = 0;
+        foreach (array_slice($union, 0, $k) as $hash) {
+            $shared += isset($inA[$hash], $inB[$hash]) ? 1 : 0;
+        }
+
+        return $shared / $k;
     }
 
     /** @return list<array<string, mixed>> */
@@ -591,6 +953,16 @@ final class UrlStandardEvaluator
     private function pass(string $finding, mixed $evidence = null): array
     {
         return ['state' => 'pass', 'finding' => $finding, 'solution' => null, 'evidence' => $evidence];
+    }
+
+    /**
+     * Informational standard: shown with its advice, never a defect and never the page verdict.
+     *
+     * @return array<string, mixed>
+     */
+    private function info(string $finding, ?string $solution = null, mixed $evidence = null): array
+    {
+        return ['state' => 'info', 'finding' => $finding, 'solution' => $solution, 'evidence' => $evidence];
     }
 
     /** @return array<string, mixed> */

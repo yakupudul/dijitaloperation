@@ -3,6 +3,7 @@
 namespace Tests\Feature\Website;
 
 use MoxDop\Website\Standards\PageSignalExtractor;
+use MoxDop\Website\Standards\RobotsTxtRules;
 use MoxDop\Website\Standards\UrlStandardEvaluator;
 use MoxDop\Website\Standards\WebsiteStandardCatalog;
 use MoxDop\Website\Standards\WebsiteStandardEvaluator;
@@ -18,7 +19,7 @@ final class UrlStandardEvaluatorTest extends TestCase
     {
         $catalog = (new WebsiteStandardCatalog)->definitions();
         $ids = array_keys(array_filter($catalog, fn (array $s): bool => str_starts_with($s['method'], 'url_')));
-        $this->assertCount(22, $ids);
+        $this->assertCount(37, $ids);
         foreach ($ids as $id) {
             $standard = $catalog[$id];
             $this->assertContains($standard['applies_to'], ['page', 'site'], $id);
@@ -51,7 +52,8 @@ final class UrlStandardEvaluatorTest extends TestCase
             'procedure fail' => ['medical_procedure_schema', $service + ['signals' => self::signals()], ['health' => true], 'review'],
             'procedure n/a' => ['medical_procedure_schema', $service + ['signals' => self::signals()], ['health' => false], 'not_applicable'],
             'faq pass' => ['faq_schema', ['signals' => self::signals(['faq_content' => true, 'jsonld_types' => ['FAQPage']])], [], 'pass'],
-            'faq fail' => ['faq_schema', ['signals' => self::signals(['faq_content' => true, 'question_count' => 4])], [], 'review'],
+            // FAQ markup is optional since Google dropped FAQ rich results (2026-05-07): information, never a defect.
+            'faq info' => ['faq_schema', ['signals' => self::signals(['faq_content' => true, 'question_count' => 4])], [], 'info'],
             'faq n/a' => ['faq_schema', ['signals' => self::signals()], [], 'not_applicable'],
             'article pass' => ['article_schema', $post + ['signals' => self::signals(['jsonld_types' => ['BlogPosting'], 'date_modified' => true])], [], 'pass'],
             'article fail' => ['article_schema', $post + ['signals' => self::signals(['jsonld_types' => ['BlogPosting']])], [], 'fail'],
@@ -87,6 +89,34 @@ final class UrlStandardEvaluatorTest extends TestCase
             'cannibal keeper pass' => ['cannibalization', ['cannibal' => ['subject' => 'implant', 'keeper' => self::HOST.'/sayfa', 'share' => 0.6]], ['cannibalization_known' => true], 'pass'],
             'cannibal pass' => ['cannibalization', [], ['cannibalization_known' => true], 'pass'],
             'cannibal n/a' => ['cannibalization', [], ['cannibalization_known' => false], 'not_applicable'],
+            'snippet pass' => ['snippet_controls', ['signals' => self::signals(['main_words' => 200])], [], 'pass'],
+            'snippet fail meta' => ['snippet_controls', ['signals' => self::signals(['nosnippet_meta' => true])], [], 'fail'],
+            'snippet fail robots' => ['snippet_controls', ['robots' => 'index, max-snippet:0', 'signals' => self::signals()], [], 'fail'],
+            'snippet fail data-nosnippet' => ['snippet_controls', ['signals' => self::signals(['main_words' => 100, 'nosnippet_words' => 80])], [], 'fail'],
+            'snippet n/a noindex' => ['snippet_controls', ['indexable' => false, 'signals' => self::signals(['nosnippet_meta' => true])], [], 'not_applicable'],
+            'snippet unknown' => ['snippet_controls', [], [], 'unknown'],
+            'raw html pass' => ['main_content_raw_html', $service + ['signals' => self::signals(['main_words' => 400])], [], 'pass'],
+            'raw html fail js' => ['main_content_raw_html', $service + ['signals' => self::signals(['main_words' => 4, 'spa_root' => true])], [], 'fail'],
+            'raw html n/a short' => ['main_content_raw_html', $service + ['signals' => self::signals(['main_words' => 4])], [], 'not_applicable'],
+            'raw html unknown' => ['main_content_raw_html', $service, [], 'unknown'],
+            'service depth pass' => ['service_content_depth', $service + ['signals' => self::signals(['headings' => ['İmplant tedavi süreci', 'Kaç seans sürer?', 'Kimler için uygun?', 'Riskler ve yan etkiler', 'Tedavi sonrası bakım']])], ['health' => true], 'pass'],
+            'service depth review' => ['service_content_depth', $service + ['signals' => self::signals(['headings' => ['İmplant nedir?', 'Fiyat']])], ['health' => true], 'review'],
+            'service depth pass not health' => ['service_content_depth', $service + ['signals' => self::signals(['headings' => []])], ['health' => false], 'pass'],
+            'service depth n/a' => ['service_content_depth', $post + ['signals' => self::signals()], ['health' => true], 'not_applicable'],
+            'service depth unknown' => ['service_content_depth', $service, ['health' => true], 'unknown'],
+            'media pass' => ['original_media', $service + ['signals' => self::signals(['images' => ['total' => 3, 'with_alt' => 2, 'original' => 2]])], [], 'pass'],
+            'media review' => ['original_media', $service + ['signals' => self::signals(['images' => ['total' => 3, 'with_alt' => 3, 'original' => 0]])], [], 'review'],
+            'media n/a' => ['original_media', $post + ['signals' => self::signals()], [], 'not_applicable'],
+            'schema match pass' => ['schema_visible_match', ['signals' => self::signals(['organizations' => [['phone_visible' => true, 'name_visible' => true, 'postal_visible' => null]]])], [], 'pass'],
+            'schema match review' => ['schema_visible_match', ['signals' => self::signals(['organizations' => [['phone_visible' => false, 'name_visible' => true, 'postal_visible' => null]]])], [], 'review'],
+            'schema match n/a' => ['schema_visible_match', ['signals' => self::signals()], [], 'not_applicable'],
+            'self stars review' => ['self_serving_review_markup', ['signals' => self::signals(['organizations' => [['self_rating' => true]]])], [], 'review'],
+            'self stars pass' => ['self_serving_review_markup', ['signals' => self::signals(['organizations' => [['self_rating' => false]]])], [], 'pass'],
+            'self stars n/a' => ['self_serving_review_markup', ['signals' => self::signals()], [], 'not_applicable'],
+            'promotion review' => ['tr_health_promotion', $service + ['signals' => self::signals(['promotion_hits' => [['label' => 'Kampanya / indirim / hediye', 'matched' => 'indirim']]])], ['health' => true], 'review'],
+            'promotion pass' => ['tr_health_promotion', $service + ['signals' => self::signals(['promotion_hits' => []])], ['health' => true], 'pass'],
+            'promotion n/a' => ['tr_health_promotion', $service + ['signals' => self::signals(['promotion_hits' => []])], ['health' => false], 'not_applicable'],
+            'promotion unknown' => ['tr_health_promotion', $service + ['signals' => self::signals()], ['health' => true], 'unknown'],
         ];
     }
 
@@ -162,9 +192,13 @@ final class UrlStandardEvaluatorTest extends TestCase
         // With the return link the TR page passes; without x-default it does not.
         $en['signals']['hreflang'][] = ['language' => 'tr', 'url' => 'https://'.self::HOST.'/implant/'];
         $this->assertSame('pass', $this->evaluate([$tr['key'] => $tr, $en['key'] => $en], [])['pages'][$tr['key']]['website:url:hreflang_consistency']['state']);
+        // x-default is optional: Polylang writes it on the home page only, so an inner page without it still passes.
         $tr['signals']['hreflang'] = [['language' => 'tr', 'url' => 'https://'.self::HOST.'/implant/'], ['language' => 'en', 'url' => 'https://'.self::HOST.'/en/implant/']];
         $again = $this->evaluate([$tr['key'] => $tr, $en['key'] => $en], []);
-        $this->assertStringContainsString('X-default yok', $again['pages'][$tr['key']]['website:url:hreflang_consistency']['finding']);
+        $this->assertSame('pass', $again['pages'][$tr['key']]['website:url:hreflang_consistency']['state']);
+        $tr['kind'] = 'home';
+        $home = $this->evaluate([$tr['key'] => $tr, $en['key'] => $en], []);
+        $this->assertStringContainsString('X-default yok', $home['pages'][$tr['key']]['website:url:hreflang_consistency']['finding']);
     }
 
     public function test_site_level_eeat_schema_and_gbp_nap_checks(): void
@@ -222,6 +256,123 @@ final class UrlStandardEvaluatorTest extends TestCase
         $this->assertFalse($empty['author']);
         $this->assertFalse($empty['visible_date']);
         $this->assertFalse($empty['faq_content']);
+    }
+
+    public function test_robots_checks_separate_search_bots_from_training_bots(): void
+    {
+        $home = self::record(['path' => '/', 'kind' => 'home']);
+        $home['key'] = self::HOST;
+        $service = self::record(['path' => '/tedavilerimiz/implant/', 'kind' => 'service']);
+        $pages = [$home['key'] => $home, $service['key'] => $service];
+        $robots = fn (string $body): array => ['robots' => ['available' => true, 'body' => $body]];
+
+        $open = $this->evaluate($pages, $robots("User-agent: *\nDisallow: /wp-admin/\n\nUser-agent: GPTBot\nUser-agent: Google-Extended\nDisallow: /\n"))['site'];
+        $this->assertSame('pass', $open['website:url:robots_search_engines']['state']);
+        $this->assertSame('pass', $open['website:url:robots_ai_search_bots']['state']);
+        // Blocking training bots is informational only and never a problem.
+        $this->assertSame('info', $open['website:url:ai_training_bots']['state']);
+        $this->assertStringContainsString('GPTBot, Google-Extended', $open['website:url:ai_training_bots']['finding']);
+
+        $blocked = $this->evaluate($pages, $robots("User-agent: Bingbot\nDisallow: /tedavilerimiz/\n\nUser-agent: OAI-SearchBot\nDisallow: /\n\nUser-agent: *\nAllow: /\n"))['site'];
+        $this->assertSame('fail', $blocked['website:url:robots_search_engines']['state']);
+        $this->assertStringContainsString('Bingbot', $blocked['website:url:robots_search_engines']['finding']);
+        $this->assertStringContainsString('/tedavilerimiz/implant/', $blocked['website:url:robots_search_engines']['finding']);
+        $this->assertSame('review', $blocked['website:url:robots_ai_search_bots']['state']);
+        $this->assertStringContainsString('OAI-SearchBot', $blocked['website:url:robots_ai_search_bots']['finding']);
+
+        $none = $this->evaluate($pages, ['robots' => ['available' => false, 'body' => null]])['site'];
+        foreach (['robots_search_engines', 'robots_ai_search_bots', 'ai_training_bots'] as $method) {
+            $this->assertSame('not_applicable', $none['website:url:'.$method]['state'], $method);
+        }
+    }
+
+    public function test_robots_rules_follow_rfc_9309_matching(): void
+    {
+        $rules = new RobotsTxtRules("User-agent: *\nDisallow: /private\nAllow: /private/public\nDisallow: /*.pdf$\n\nUser-agent: googlebot\nDisallow:\n");
+        $this->assertFalse($rules->allowed('Bingbot', '/private/x'));
+        $this->assertTrue($rules->allowed('Bingbot', '/private/public/a'), 'longest match wins');
+        $this->assertFalse($rules->allowed('Bingbot', '/files/a.pdf'));
+        $this->assertTrue($rules->allowed('Bingbot', '/files/a.pdf?x=1'), '$ anchors the end');
+        $this->assertTrue($rules->allowed('Googlebot', '/private/x'), 'its own group (empty Disallow) wins over *');
+        $this->assertTrue((new RobotsTxtRules(''))->allowed('Googlebot', '/'));
+    }
+
+    public function test_site_checks_for_indexnow_bing_reputation_health_disclosure_and_ai_referrals(): void
+    {
+        $home = self::record(['path' => '/', 'kind' => 'home', 'signals' => self::signals(['bing_verified' => true, 'editor' => true, 'visible_updated' => true])]);
+        $home['key'] = self::HOST;
+        $en = self::record(['path' => '/en/dental-implants/', 'kind' => 'service', 'wp_language' => 'en', 'signals' => self::signals(['editor' => false])]);
+        $pages = [$home['key'] => $home, $en['key'] => $en];
+        $site = ['health' => true, 'wordpress' => ['paired' => true, 'plugin_version' => '1.5.0', 'capabilities' => ['drafts', 'indexnow']],
+            'ai_referrals' => ['available' => true, 'sources' => ['chatgpt.com' => 30, 'perplexity.ai' => 12]]];
+
+        $ok = $this->evaluate($pages, $site)['site'];
+        $this->assertSame('pass', $ok['website:url:indexnow']['state']);
+        $this->assertSame('pass', $ok['website:url:bing_webmaster']['state']);
+        $this->assertSame('pass', $ok['website:url:site_reputation_abuse']['state']);
+        $this->assertSame('review', $ok['website:url:tr_health_disclosure']['state'], 'English pages need the health tourism certificate');
+        $this->assertStringContainsString('sağlık turizmi yetki belgesi', $ok['website:url:tr_health_disclosure']['finding']);
+        $this->assertSame('info', $ok['website:url:ai_referral_tracking']['state']);
+        $this->assertStringContainsString('42 oturum (chatgpt.com 30, perplexity.ai 12)', $ok['website:url:ai_referral_tracking']['finding']);
+
+        $pages[$en['key']]['signals']['health_tourism_cert'] = true;
+        $this->assertSame('pass', $this->evaluate($pages, $site)['site']['website:url:tr_health_disclosure']['state']);
+
+        $spam = self::record(['path' => '/deneme-bonusu-veren-siteler/']);
+        $pages[$spam['key']] = $spam;
+        $pages[$home['key']]['signals']['bing_verified'] = false;
+        $bad = $this->evaluate($pages, ['health' => false, 'wordpress' => ['paired' => true, 'plugin_version' => '1.5.0', 'capabilities' => ['drafts']],
+            'ai_referrals' => ['available' => true, 'sources' => []]])['site'];
+        $this->assertSame('review', $bad['website:url:indexnow']['state']);
+        $this->assertSame('unknown', $bad['website:url:bing_webmaster']['state'], 'DNS / XML verification cannot be seen');
+        $this->assertSame('review', $bad['website:url:site_reputation_abuse']['state']);
+        $this->assertSame('not_applicable', $bad['website:url:tr_health_disclosure']['state']);
+        $this->assertSame('info', $bad['website:url:ai_referral_tracking']['state']);
+
+        $none = $this->evaluate([$home['key'] => $home], ['wordpress' => null, 'ai_referrals' => null])['site'];
+        $this->assertSame('unknown', $none['website:url:indexnow']['state']);
+        $this->assertSame('not_applicable', $none['website:url:ai_referral_tracking']['state']);
+        $old = $this->evaluate([$home['key'] => $home], ['wordpress' => ['paired' => true, 'plugin_version' => '1.3.0', 'capabilities' => null]])['site'];
+        $this->assertSame('review', $old['website:url:indexnow']['state']);
+    }
+
+    public function test_near_duplicate_service_pages_are_flagged_by_text_sketch(): void
+    {
+        $extractor = new PageSignalExtractor;
+        $words = fn (int $seed): string => implode(' ', array_map(fn (int $i): string => 'kelime'.(($i * 7 + $seed) % 997), range(1, 400)));
+        $body = $words(1);
+        $a = self::record(['path' => '/tedavilerimiz/implant/', 'kind' => 'service', 'signals' => $extractor->extract('https://'.self::HOST.'/tedavilerimiz/implant/', '<html><body><main><p>İmplant '.$body.'</p></main></body></html>')]);
+        $b = self::record(['path' => '/tedavilerimiz/zirkonyum/', 'kind' => 'service', 'signals' => $extractor->extract('https://'.self::HOST.'/tedavilerimiz/zirkonyum/', '<html><body><main><p>Zirkonyum '.$body.'</p></main></body></html>')]);
+        $c = self::record(['path' => '/tedavilerimiz/kanal/', 'kind' => 'service', 'signals' => $extractor->extract('https://'.self::HOST.'/tedavilerimiz/kanal/', '<html><body><main><p>'.$words(500).'</p></main></body></html>')]);
+        $result = $this->evaluate([$a['key'] => $a, $b['key'] => $b, $c['key'] => $c], ['health' => false])['pages'];
+
+        $this->assertSame('review', $result[$a['key']]['website:url:service_content_depth']['state']);
+        $this->assertStringContainsString('/tedavilerimiz/zirkonyum/ ile aynı', $result[$a['key']]['website:url:service_content_depth']['finding']);
+        $this->assertSame('pass', $result[$c['key']]['website:url:service_content_depth']['state']);
+        $this->assertGreaterThan(0.9, UrlStandardEvaluator::similarity($a['signals']['shingles'], $b['signals']['shingles']));
+    }
+
+    public function test_signal_extractor_reads_snippet_js_bing_media_stars_and_spam(): void
+    {
+        $html = '<html><head><meta name="robots" content="index, max-snippet:0"><meta name="msvalidate.01" content="ABCDEF123"><script type="application/ld+json">{"@type":"Dentist","name":"Atlas Diş","telephone":"0312 555 11 22","aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9"}}</script></head>'
+            .'<body><header><nav>Menü</nav></header><main><h2>Tedavi süreci</h2><p data-nosnippet>Gizli metin burada.</p><img src="/uploads/ekip.jpg" alt="Ekibimiz"><img src="https://images.unsplash.com/x.jpg" alt="Gülümseme"><p>Sorumlu hekim: Dr. Ayşe Yılmaz. Atlas Diş 0312 555 11 22. Deneme bonusu</p></main></body></html>';
+        $signals = (new PageSignalExtractor)->extract('https://'.self::HOST.'/', $html);
+
+        $this->assertTrue($signals['nosnippet_meta']);
+        $this->assertTrue($signals['bing_verified']);
+        $this->assertSame(3, $signals['nosnippet_words']);
+        $this->assertSame(['total' => 2, 'with_alt' => 2, 'original' => 1], $signals['images']);
+        $this->assertTrue($signals['organizations'][0]['self_rating']);
+        $this->assertTrue($signals['organizations'][0]['phone_visible']);
+        $this->assertTrue($signals['organizations'][0]['name_visible']);
+        $this->assertSame(['Tedavi süreci'], $signals['headings']);
+        $this->assertTrue($signals['editor']);
+        $this->assertSame(['deneme bonusu'], $signals['spam_terms']);
+        $this->assertFalse($signals['spa_root']);
+
+        $spa = (new PageSignalExtractor)->extract('https://'.self::HOST.'/x/', '<html><body><div id="root"></div><script src="/app.js"></script></body></html>');
+        $this->assertTrue($spa['spa_root']);
+        $this->assertSame(0, $spa['main_words']);
     }
 
     /**

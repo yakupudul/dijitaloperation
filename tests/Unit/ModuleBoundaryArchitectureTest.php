@@ -75,6 +75,8 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Services/SearchDemand/SearchDemandWebsiteImprovementService.php',
         // Faz 5–6 URL karnesi: Core URL audit reuses the module's standards catalog, url_* evaluator and HTML signal parser.
         'app/Services/Website/UrlAudit/UrlAuditService.php',
+        // Business Profile standards live in the same standards catalog (asset_type google_business_profile).
+        'app/Services/Gbp/GbpStandardInput.php',
     ];
 
     /**

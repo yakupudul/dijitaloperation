@@ -34,6 +34,19 @@ return [
         'fiyatlar', 'yaptiran', 'yaptirma', 'yaptirmak', 'olan', 'bolgesi', 'semti', 'civari', 'ilcesi',
     ],
 
+    // Service pages sharing this much of their main text (MinHash estimate) are near-duplicates.
+    'service_similarity' => 0.6,
+
+    // GA4 session sources of AI answer engines (informational "AI kaynaklı ziyaret" standard). Measured from our own
+    // GA4 only; MoxDOP never queries LLMs to measure citations (operator decision 2026-09-28).
+    'ai_referrers' => [
+        'chatgpt.com' => '/(^|\.)(chatgpt\.com|chat\.openai\.com)$|^chatgpt/',
+        'perplexity.ai' => '/(^|\.)perplexity\.ai$|^perplexity/',
+        'copilot' => '/(^|\.)copilot\.microsoft\.com$|^copilot/',
+        'gemini' => '/(^|\.)gemini\.google\.com$|^gemini/',
+        'claude.ai' => '/(^|\.)claude\.ai$/',
+    ],
+
     // Junk/test URLs that should not be in Google.
     'junk_path_pattern' => '#(^|/)(test|deneme|sample-page|ornek-sayfa|hello-world|merhaba-dunya|taslak|draft|kopya|copy|eski|old|yedek|backup)(-\d+)?(/|$)#i',
 ];

@@ -157,7 +157,7 @@ final class WordPressConnectorV1Test extends TestCase
                 return Http::response(['data' => [], 'meta' => ['server_time' => now()->timestamp, 'request_nonce' => 'wrong', 'signature' => str_repeat('0', 64)]]);
             }
             $nonce = $request->header(WordPressConnectorClient::HEADER_NONCE)[0] ?? '';
-            $data = ['schema_version' => 1, 'plugin_version' => '1.1.0', 'wordpress_version' => '6.8', 'read_only' => true];
+            $data = ['schema_version' => 1, 'plugin_version' => '1.1.0', 'wordpress_version' => '6.8', 'read_only' => true, 'capabilities' => ['drafts', 'indexnow', 'Bad Value!']];
             $serverTime = now()->timestamp;
             $signature = hash_hmac('sha256', implode("\n", [
                 (string) $serverTime,
@@ -182,6 +182,8 @@ final class WordPressConnectorV1Test extends TestCase
             'last_received_at' => null, 'last_inventory_at' => null,
         ]);
         $this->assertSame('1.1.0', $connection->fresh()->config['plugin_version']);
+        // The IndexNow standard reads the signed capability list; malformed entries are dropped.
+        $this->assertSame(['drafts', 'indexnow'], $connection->fresh()->config['capabilities']);
         Http::assertSent(function (Request $request): bool {
             return $request->hasHeader(WordPressConnectorClient::HEADER_SIGNATURE)
                 && $request->hasHeader(WordPressConnectorClient::HEADER_CLIENT)

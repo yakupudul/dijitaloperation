@@ -141,7 +141,7 @@ final class TopicCatalog
         'seo:org-schema' => ['Kurum yapısal verisi eksik', 'opportunity', 'Organization yapısal verisi yok; AI arama ve Google markayı daha zor tanır.'],
         'seo:org-same-as' => ['Sosyal profil bağlantıları eksik', 'opportunity', 'Yapısal veride markanın resmi profilleri (sameAs) yok. Ekleyin.'],
         'seo:service-schema' => ['Hizmet yapısal verisi eksik', 'opportunity', 'Hizmet sayfalarında Service yapısal verisi yok. Ekleyin.'],
-        'seo:faq-block' => ['SSS bölümü önerisi', 'opportunity', 'Hizmet sayfalarına sık sorulan sorular eklemek AI aramada görünürlüğü artırır.'],
+        'seo:faq-block' => ['SSS bölümü önerisi', 'opportunity', 'Hizmet sayfasında gerçek hasta sorularına kısa cevaplar; FAQPage işaretlemesi isteğe bağlı.'],
         'seo:answer-block' => ['Kısa cevap bloğu önerisi', 'opportunity', 'Sayfaların başına soruyu doğrudan yanıtlayan kısa bir blok eklemek AI özetlerinde yer almayı kolaylaştırır.'],
         'seo:author-eeat' => ['Uzman / yazar bilgisi eksik', 'opportunity', 'İçeriklerde yazar veya uzman bilgisi yok. Güven sinyali için ekleyin.'],
         'seo:entity-consistency' => ['Marka bilgisi tutarsız', 'week', 'Site, profil ve yapısal verideki marka bilgileri (telefon, adres) farklı. Tek doğruda birleştirin.'],

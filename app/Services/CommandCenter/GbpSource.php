@@ -57,7 +57,7 @@ final class GbpSource implements CommandCenterSource
                     ]));
                 }
                 if (! $withAdvisorGaps->has($asset->id)) {
-                    $gaps = collect($daily->health((int) $resourceId)['items'])->reject(fn (array $item): bool => $item['done']);
+                    $gaps = collect($daily->health((int) $resourceId, $asset)['items'])->filter(fn (array $item): bool => in_array($item['state'], ['fail', 'review'], true));
                     if ($gaps->isNotEmpty()) {
                         $out->push(CommandCenter::item('gbp', 'profile-'.$asset->id, 'low', sprintf('Profil eksikleri (%d)', $gaps->count()), $base + [
                             'detail' => $gaps->take(4)->pluck('label')->implode(', ').($gaps->count() > 4 ? '…' : '').' — Google İşletme Profili’nde düzenleyin.',

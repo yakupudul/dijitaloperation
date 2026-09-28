@@ -12,7 +12,7 @@ use Illuminate\Validation\Rule;
 
 final class WebsiteStandardCatalog
 {
-    public const string VERSION = 'website-standards-v3';
+    public const string VERSION = 'website-standards-v4';
 
     public const array GROUPS = [
         'access' => 'Erişim ve indeksleme',
@@ -29,7 +29,25 @@ final class WebsiteStandardCatalog
         'security' => 'Güvenlik',
         'performance' => 'Hız ve kaynaklar',
         'media' => 'Görsel SEO',
+        'compliance' => 'Sağlık tanıtım mevzuatı',
+        'measurement' => 'Ölçüm',
+        'gbp_profile' => 'Profil bilgileri',
+        'gbp_activity' => 'Profil etkinliği',
+        'gbp_reviews' => 'Yorumlar',
     ];
+
+    /** Asset types with standards; each tab of /library/website-standards. */
+    public const array ASSET_TYPES = ['website' => 'Web sitesi', 'google_business_profile' => 'İşletme Profili'];
+
+    /**
+     * Enabled standards of one asset type (website standards have no asset_type on custom criteria).
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function forAssetType(string $assetType, bool $enabledOnly = true): array
+    {
+        return array_filter($this->all($enabledOnly), fn (array $definition): bool => ($definition['asset_type'] ?? 'website') === $assetType);
+    }
 
     /** @return array<string, array<string, mixed>> */
     public function definitions(): array

@@ -3,6 +3,7 @@
 namespace App\Services\Website;
 
 use App\Jobs\Async\WebsiteStandardsAssessmentJob;
+use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\IntelligenceProjection\WebsitePageProfile;
@@ -49,8 +50,8 @@ final class WebsiteAssessmentService
             if ($existing !== null) {
                 return $existing;
             }
-            // URL karnesi standards (url_*) are evaluated per URL by UrlAuditService, not in this run.
-            $standards = array_filter($this->catalog->all(true), fn (array $standard): bool => ! str_starts_with((string) $standard['method'], 'url_'));
+            // URL karnesi standards (url_*) are evaluated per URL by UrlAuditService; Business Profile standards on the profile.
+            $standards = array_filter($this->catalog->forAssetType('website'), fn (array $standard): bool => ! str_starts_with((string) $standard['method'], 'url_'));
             if ($standards === []) {
                 throw ValidationException::withMessages(['assessment' => 'Önce standartlar kütüphanesinde en az bir kriteri etkinleştirin.']);
             }
@@ -323,6 +324,7 @@ final class WebsiteAssessmentService
         $snapshots = DB::table('website_html_snapshot')->where('digital_asset_id', $website->id)
             ->whereIn('url', $profiles->pluck('preferred_url'))->select('url')
             ->selectRaw('MAX(id) AS latest_id')->groupBy('url')->orderBy('url')->get();
+
         return hash('sha256', json_encode([$profiles->toArray(), $snapshots->toArray()], JSON_THROW_ON_ERROR));
     }
 
@@ -337,6 +339,7 @@ final class WebsiteAssessmentService
     private function freshWithin(mixed $value, int $seconds): bool
     {
         $timestamp = is_string($value) ? strtotime($value) : false;
+
         return $timestamp !== false && $timestamp <= now()->getTimestamp() + 300
             && $timestamp >= now()->getTimestamp() - $seconds;
     }
@@ -385,7 +388,7 @@ final class WebsiteAssessmentService
                     'observed_at' => $document->observed_at, 'payload' => ['status_code' => $metadata['status_code'] ?? null]];
             }
         }
-        $connection = \App\Models\CoreConnection::query()->where('digital_asset_id', $website->id)
+        $connection = CoreConnection::query()->where('digital_asset_id', $website->id)
             ->where('type', 'wordpress_connector')->first();
         $result['wordpress_expected'] = $connection !== null || str_contains(strtolower((string) $website->cms), 'wordpress');
         if ($connection?->enabled && data_get($connection->config, 'pairing_state') === 'paired') {
@@ -408,6 +411,7 @@ final class WebsiteAssessmentService
                     'last_inventory_at' => $delivery?->last_inventory_at,
                     'extensions' => $extensions->map(function ($row): array {
                         $meta = is_string($row->metadata) ? json_decode($row->metadata, true) : (array) $row->metadata;
+
                         return ['id' => $row->extension_id, 'name' => $row->name,
                             'update_available' => (bool) $row->update_available,
                             'available_version' => $row->available_version,
@@ -426,6 +430,7 @@ final class WebsiteAssessmentService
                 ];
             }
         }
+
         return $result;
     }
 }

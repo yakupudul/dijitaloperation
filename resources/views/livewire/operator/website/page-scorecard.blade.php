@@ -9,13 +9,13 @@
         'blue' => 'bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20',
         'emerald' => 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20',
     ];
-    $stateLabels = ['fail' => 'Sorun', 'review' => 'Öneri', 'pass' => 'Geçti', 'unknown' => 'Veri yok', 'not_applicable' => 'Uygulanmaz'];
-    $stateTones = ['fail' => 'text-rose-600', 'review' => 'text-amber-600', 'pass' => 'text-emerald-600', 'unknown' => 'text-gray-400', 'not_applicable' => 'text-gray-400'];
+    $stateLabels = ['fail' => 'Sorun', 'review' => 'Öneri', 'info' => 'Bilgi', 'pass' => 'Geçti', 'unknown' => 'Veri yok', 'not_applicable' => 'Uygulanmaz'];
+    $stateTones = ['fail' => 'text-rose-600', 'review' => 'text-amber-600', 'info' => 'text-blue-600', 'pass' => 'text-emerald-600', 'unknown' => 'text-gray-400', 'not_applicable' => 'text-gray-400'];
     $severityLabels = ['high' => 'yüksek', 'medium' => 'orta', 'low' => 'düşük', 'none' => '—'];
     $sourceLabels = ['crawl' => 'tarama', 'inventory' => 'envanter', 'sitemap' => 'sitemap', 'wordpress' => 'WordPress', 'search_console' => 'Search Console', 'ga4' => 'GA4', 'google_ads' => 'Google Ads'];
     $counts = (array) ($audit?->counts ?? []);
     $period = (array) ($audit?->period ?? []);
-    $siteChecks = collect((array) ($audit?->site_checks ?? []))->sortBy(fn ($c) => ['fail' => 0, 'review' => 1, 'unknown' => 2, 'pass' => 3, 'not_applicable' => 4][$c['state']] ?? 5);
+    $siteChecks = collect((array) ($audit?->site_checks ?? []))->sortBy(fn ($c) => ['fail' => 0, 'review' => 1, 'info' => 2, 'unknown' => 3, 'pass' => 4, 'not_applicable' => 5][$c['state']] ?? 5);
 @endphp
 <section class="space-y-4 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
     <div class="flex flex-wrap items-start justify-between gap-3">
@@ -73,7 +73,7 @@
                         <li class="text-xs">
                             <span class="{{ $stateTones[$check['state']] ?? 'text-gray-500' }} font-medium">{{ $stateLabels[$check['state']] ?? $check['state'] }}</span>
                             · <span class="font-medium text-gray-700 dark:text-gray-300">{{ $check['title'] }}</span>: {{ $check['finding'] }}
-                            @if (! empty($check['solution']) && in_array($check['state'], ['fail', 'review'], true))
+                            @if (! empty($check['solution']) && in_array($check['state'], ['fail', 'review', 'info'], true))
                                 <span class="block pl-4 text-gray-600 dark:text-gray-400">Çözüm: {{ $check['solution'] }}</span>
                             @endif
                         </li>

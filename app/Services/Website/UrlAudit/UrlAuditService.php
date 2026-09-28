@@ -3,6 +3,7 @@
 namespace App\Services\Website\UrlAudit;
 
 use App\Jobs\RefreshUrlVerdictsJob;
+use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
 use App\Models\IntelligenceProjection\WebsitePageProfile;
 use App\Models\Run;
@@ -15,8 +16,11 @@ use App\Models\User;
 use App\Models\WebsiteUrlAudit;
 use App\Models\WebsiteUrlVerdict;
 use App\Services\Async\AsyncOperationService;
+use App\Services\Compliance\ComplianceChecker;
 use App\Services\Compliance\SectorPackRegistry;
+use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Services\Measurement\PageScorecardReader;
+use App\Services\SeoTasks\BrandLocationWords;
 use App\Services\SeoTasks\SeoPlanInputCollector;
 use App\Services\SeoTasks\SeoStoredHtmlReader;
 use App\Services\SeoTasks\SeoText;
@@ -252,9 +256,13 @@ final class UrlAuditService
             $records[$key]['kind'] = $this->kind($records[$key], $homeKey);
         }
 
-        $this->readSignals($site, $records, $homeKey);
+        $this->readSignals($site, $records, $homeKey, in_array('health', $ymylPacks, true));
 
         $siteContext = [
+            'robots' => $this->inputs->robots($site),
+            'wordpress' => $this->connectorState($site),
+            'ai_referrals' => $this->aiReferrals($site, $end),
+            'service_similarity' => (float) config('moxdop-url-audit.service_similarity', 0.6),
             'home_key' => $homeKey,
             'ymyl' => $ymylPacks !== [],
             'health' => in_array('health', $ymylPacks, true),
@@ -363,6 +371,7 @@ final class UrlAuditService
         $facts = collect($record)->except(['signals', 'fixes', 'tasks', 'stored_checks', 'profile_id'])->all();
         $facts['signals'] = $signals === null ? null : collect($signals)->only([
             'lang', 'hreflang', 'jsonld_types', 'date_modified', 'author', 'medical_review', 'visible_date', 'faq_content', 'question_count', 'phones',
+            'main_words', 'images', 'spam_terms', 'promotion_hits',
         ])->all();
         $facts['checked'] = $verdict['checked'];
         $facts['missing'] = $verdict['missing'];
@@ -621,8 +630,13 @@ final class UrlAuditService
      *
      * @param  array<string, array<string, mixed>>  $records
      */
-    private function readSignals(DigitalAsset $site, array &$records, string $homeKey): void
+    private function readSignals(DigitalAsset $site, array &$records, string $homeKey, bool $health = false): void
     {
+        // Sağlık tanıtım yönetmeliği: the health pack's website rules run on each read page's visible text.
+        $rules = $health && $site->brand !== null
+            ? app(SectorPackRegistry::class)->rulesForBrand($site->brand)->where('pack_id', 'health')->values()
+            : collect();
+        $checker = new ComplianceChecker;
         $candidates = array_filter($records, fn (array $r): bool => $r['profile_id'] !== null && $r['crawled'] && ($r['status_code'] === null || $r['status_code'] === 200));
         uasort($candidates, fn (array $a, array $b): int => [(int) ($b['key'] === $homeKey), (int) $b['is_service'], (int) ($b['clicks'] ?? 0), (int) ($b['impressions'] ?? 0), (int) ($b['kind'] === 'contact')]
             <=> [(int) ($a['key'] === $homeKey), (int) $a['is_service'], (int) ($a['clicks'] ?? 0), (int) ($a['impressions'] ?? 0), (int) ($a['kind'] === 'contact')]);
@@ -642,46 +656,68 @@ final class UrlAuditService
                     $records[$key]['signals'] = null;
                 }
                 if (is_array($records[$key]['signals'])) {
+                    if ($health) {
+                        $records[$key]['signals']['promotion_hits'] = array_map(fn (array $hit): array => ['label' => (string) $hit['rule']->label, 'matched' => $hit['matched']],
+                            $rules->isEmpty() ? [] : $checker->checkText((string) $records[$key]['signals']['text_folded'], $rules, 'website'));
+                    }
                     unset($records[$key]['signals']['text_folded'], $records[$key]['signals']['internal_urls']);
                 }
             }
         }
     }
 
-    /** @return list<string> folded provinces, the brand's service areas and their districts */
-    private function locationWords(DigitalAsset $site): array
+    /**
+     * WordPress Connector pairing, version and the capabilities its last signed status reported (IndexNow).
+     *
+     * @return array{paired: bool, plugin_version: ?string, capabilities: ?list<string>}|null
+     */
+    private function connectorState(DigitalAsset $site): ?array
     {
-        static $provinces = null;
-        static $districts = null;
-        $provinces ??= json_decode((string) @file_get_contents(resource_path('data/locations/provinces.json')), true) ?: [];
-        $districts ??= json_decode((string) @file_get_contents(resource_path('data/locations/districts.json')), true) ?: [];
-        $words = [];
-        $provinceIds = [];
-        $areaNames = [];
-        foreach ($site->brand?->serviceAreas()->where('status', 'active')->get(['city_name', 'district_name']) ?? [] as $area) {
-            foreach ([$area->city_name, $area->district_name] as $name) {
-                if (filled($name)) {
-                    $areaNames[] = SeoText::fold((string) $name);
+        $connection = CoreConnection::query()->where('digital_asset_id', $site->id)->where('type', WordPressConnectorPairingService::CONNECTION_TYPE)->first();
+        if ($connection === null) {
+            return null;
+        }
+        $capabilities = data_get($connection->config, 'capabilities');
+
+        return [
+            'paired' => $connection->enabled && data_get($connection->config, 'pairing_state') === WordPressConnectorPairingService::PAIRED,
+            'plugin_version' => is_string(data_get($connection->config, 'plugin_version')) ? (string) data_get($connection->config, 'plugin_version') : null,
+            'capabilities' => is_array($capabilities) ? array_values(array_filter($capabilities, 'is_string')) : null,
+        ];
+    }
+
+    /**
+     * GA4 sessions of the last 90 days from AI answer engines (session source), for the informational standard.
+     *
+     * @return array{available: bool, sources: array<string, int>}
+     */
+    private function aiReferrals(DigitalAsset $site, CarbonImmutable $end): array
+    {
+        if (! Schema::hasTable('ga4_source_medium_daily')) {
+            return ['available' => false, 'sources' => []];
+        }
+        $query = $this->inputs->scopeGa4(DB::table('ga4_source_medium_daily'), $site)->whereBetween('reporting_date', [$end->subDays(89)->toDateString(), $end->toDateString()]);
+        if (! (clone $query)->exists()) {
+            return ['available' => false, 'sources' => []];
+        }
+        $source = $query->getGrammar()->wrap('sessionSource');
+        $sources = [];
+        foreach ($query->selectRaw($source.' as source, sum(sessions) as sessions')->groupBy('sessionSource')->get() as $row) {
+            $name = mb_strtolower(trim((string) $row->source));
+            foreach ((array) config('moxdop-url-audit.ai_referrers', []) as $label => $pattern) {
+                if (preg_match((string) $pattern, $name) === 1) {
+                    $sources[(string) $label] = ($sources[(string) $label] ?? 0) + (int) $row->sessions;
                 }
             }
         }
-        foreach ($provinces as $province) {
-            $slug = SeoText::fold((string) ($province['name'] ?? ''));
-            array_push($words, ...explode(' ', $slug));
-            if (in_array($slug, $areaNames, true)) {
-                $provinceIds[] = $province['id'];
-            }
-        }
-        foreach ($districts as $district) {
-            if (in_array($district['provinceId'] ?? null, $provinceIds, true)) {
-                array_push($words, ...explode(' ', SeoText::fold((string) $district['name'])));
-            }
-        }
-        foreach ($areaNames as $name) {
-            array_push($words, ...explode(' ', $name));
-        }
 
-        return array_values(array_unique(array_filter($words, fn (string $w): bool => mb_strlen($w) >= 3)));
+        return ['available' => true, 'sources' => $sources];
+    }
+
+    /** @return list<string> folded provinces, the brand's service areas and their districts */
+    private function locationWords(DigitalAsset $site): array
+    {
+        return BrandLocationWords::for($site->brand);
     }
 
     private function absolute(string $origin, string $url, string $href): string

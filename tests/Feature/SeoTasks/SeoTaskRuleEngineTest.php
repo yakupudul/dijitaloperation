@@ -84,6 +84,17 @@ final class SeoTaskRuleEngineTest extends TestCase
         $this->assertSame($tasks->pluck('task_key')->sort()->values()->all(), collect($again['tasks'])->pluck('task_key')->sort()->values()->all(), 'keys are deterministic across runs');
     }
 
+    public function test_blocking_only_training_bots_is_not_a_task(): void
+    {
+        $input = $this->input();
+        $input['robots']['body'] = "User-agent: GPTBot\nDisallow: /\n\nUser-agent: Google-Extended\nDisallow: /\n\nUser-agent: ClaudeBot\nDisallow: /\n";
+
+        $tasks = collect((new SeoTaskRuleEngine)->evaluate($input)['tasks']);
+
+        // Google-Extended is not an AI Overviews opt-out; training bots are the owner's choice (standards 2026-09-28).
+        $this->assertFalse($tasks->contains(fn (array $t): bool => $t['rule_id'] === 'robots-bot-block'));
+    }
+
     public function test_operator_assignment_is_never_overridden_and_google_block_is_critical(): void
     {
         $input = $this->input();

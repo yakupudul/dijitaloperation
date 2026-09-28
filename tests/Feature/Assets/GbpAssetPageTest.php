@@ -104,7 +104,7 @@ final class GbpAssetPageTest extends TestCase
             ->assertSee('Harika hizmet')
             ->assertSee(__('operator_gbp.not_replied'))
             ->call('setTab', 'profile')
-            ->assertSee(__('operator_gbp.completeness_items.description'));
+            ->assertSee('Birincil kategori')->assertSee('Yorum yanıt oranı ve süresi');
     }
 
     public function test_retired_tabs_redirect_and_edit_link_is_present(): void
