@@ -27,7 +27,7 @@ return [
     'close_failed_confirm' => 'Keep saved queries and skip the remaining rows in this import? Later data batches will use current account settings.',
     'alert_title' => 'Account updates stopped',
     'title' => 'Automatic account updates',
-    'intro' => 'Refresh accounts regularly and automatically import queries from mapped accounts.',
+    'intro' => 'Pull cadence, pause, run now.',
     'search' => 'Search account name or ID',
     'source' => 'Source',
     'all' => 'All',

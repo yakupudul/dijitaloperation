@@ -25,7 +25,7 @@
 
         @if ($map !== null)
             <div class="flex flex-wrap items-center gap-3">
-                <livewire:operator.brain.prepare-button kind="service_clusters" :options="['service_id' => $service]" :key="'brain-clusters-'.$service" />
+                <a href="{{ route('operator.library.search-queries', ['tab' => 'clusters', 'service' => $service]) }}" class="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium dark:border-gray-700">Kümeler</a>
                 <livewire:operator.brain.prepare-button kind="cluster_targets" :options="['service_id' => $service]" :key="'brain-targets-'.$service" />
                 @if ($map['unclustered'] > 0)
                     <span class="text-xs text-warning-700">{{ $map['unclustered'] }} sorgu henüz bir kümede değil.</span>

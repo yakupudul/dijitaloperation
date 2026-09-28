@@ -106,6 +106,7 @@ final class DemoMenu
                 'label' => __('operator.nav.groups.system'),
                 'items' => [
                     $item(__('operator.nav.integrations'), 'operator.integrations', 'integrations', [
+                        $child($tr ? 'Keşfedilen varlıklar' : 'Discovered Assets', 'operator.integrations.discovered'),
                         $child($tr ? 'WordPress siteleri' : 'WordPress Sites', 'operator.integrations.wordpress-sites'),
                         $child($tr ? 'Kopya web siteleri' : 'Duplicate Websites', 'operator.integrations.website-duplicates'),
                         $child($tr ? 'Veri merkezi' : 'Data Center', 'operator.data-center'),

@@ -9,6 +9,8 @@ use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\IntelligenceCore\Identity\SearchTermNormalizer;
+use App\Services\Queries\QueryContext;
+use App\Services\Queries\QueryNormalizer;
 use App\Support\Options\LocationOptions;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -30,16 +32,21 @@ final class SearchQueryLibraryService
         $locale = $this->nullable($attributes['locale'] ?? null);
         $market = $this->nullable($attributes['market_code'] ?? null);
         app(QueryExclusionService::class)->checkImport($query, $language, $locale);
-        $cleaned = LocationOptions::strip($query);
-        $normalized = $this->normalizer->normalize($cleaned['text'], $language ?: 'tr', $locale);
-        $attributes['raw_payload'] = array_merge((array) ($attributes['raw_payload'] ?? []), [
-            'original_query' => $query, 'removed_locations' => $cleaned['removed'],
-        ]);
         $sector = trim((string) ($attributes['sector'] ?? $this->service($attributes['service_catalog_item_id'] ?? null)?->sector ?? ''));
         if (! ServiceCategory::query()->where('code', $sector)->exists()) {
             throw ValidationException::withMessages(['sector' => 'Sorgu kaydı için geçerli bir sektör seçin.']);
         }
         $attributes['sector'] = $sector;
+        // Same core normalization as the automatic pipeline (places, "yakın / nerede", the sector's product brands).
+        $core = app(QueryNormalizer::class)->normalize($query, new QueryContext(
+            productMarks: DB::table('sector_product_brands as p')->join('service_categories as c', 'c.id', '=', 'p.service_category_id')
+                ->where('c.code', $sector)->pluck('p.normalized_key')->map(fn ($key): string => (string) $key)->all(),
+        ));
+        $cleaned = ['text' => $core->core, 'removed' => $core->removed];
+        $normalized = $this->normalizer->normalize($cleaned['text'], $language ?: 'tr', $locale);
+        $attributes['raw_payload'] = array_merge((array) ($attributes['raw_payload'] ?? []), [
+            'original_query' => $query, 'removed_locations' => $cleaned['removed'],
+        ]);
 
         if (LocationOptions::fold($normalized->canonicalText) === '') {
             throw ValidationException::withMessages(['query_text' => 'Lokasyonlar çıkarıldıktan sonra sorgu metni kalmadı.']);
@@ -56,6 +63,7 @@ final class SearchQueryLibraryService
             $item = ($aliasId ? SearchQueryLibraryItem::withTrashed()->lockForUpdate()->find($aliasId) : null)
                 ?? SearchQueryLibraryItem::withTrashed()->where('identity_hash', $identityHash)->lockForUpdate()->first()
                 ?? SearchQueryLibraryItem::withTrashed()->where('canonical_text', $normalized->canonicalText)->orderBy('id')->lockForUpdate()->first()
+                ?? SearchQueryLibraryItem::withTrashed()->where('core_key', QueryNormalizer::coreKey($normalized->canonicalText))->orderBy('id')->lockForUpdate()->first()
                 ?? new SearchQueryLibraryItem(['identity_hash' => $identityHash]);
             if ($item->exists && $item->trashed()) {
                 throw ValidationException::withMessages(['query_text' => __('query-list.deleted_duplicate')]);

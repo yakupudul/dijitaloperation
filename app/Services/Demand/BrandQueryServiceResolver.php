@@ -87,11 +87,10 @@ final class BrandQueryServiceResolver
         }
 
         foreach ($pending as $key => $text) {
-            $sector = $library['sectors'][$queries[$key]['library_item_id'] ?? 0] ?? null;
-            if ($sector === null) {
-                $catalogIndex ??= $this->catalogIndex();
-                $sector = $this->catalogSector($text, $catalogIndex, $brandSectors);
-            }
+            // A catalog phrase names the sector best (a core query is filed under its account's sector even when it
+            // is about another trade); the library sector is the fallback.
+            $catalogIndex ??= $this->catalogIndex();
+            $sector = $this->catalogSector($text, $catalogIndex, $brandSectors) ?? $library['sectors'][$queries[$key]['library_item_id'] ?? 0] ?? null;
             $out[$key]['sector'] = $sector;
             $out[$key]['out_of_sector'] = $sector !== null && $brandSectors !== [] && ! in_array($sector, $brandSectors, true);
         }

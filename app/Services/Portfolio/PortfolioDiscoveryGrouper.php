@@ -139,7 +139,7 @@ final class PortfolioDiscoveryGrouper
         return $sites;
     }
 
-    private function hostOf(CoreExternalResource $resource): ?string
+    public function hostOf(CoreExternalResource $resource): ?string
     {
         $meta = is_array($resource->metadata) ? $resource->metadata : [];
         $url = match ($resource->resource_type) {

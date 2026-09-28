@@ -79,6 +79,12 @@ final class AiRouteKeys
     /** Faz 4: one batch of gap article ideas for chosen services (one call per batch, never per idea). */
     public const string CONTENT_IDEAS = 'content.ideas';
 
+    /** Sorgu hattı: sector of every discovered account / website (batched). */
+    public const string QUERIES_ASSET_SECTOR = 'queries.asset_sector';
+
+    /** Sorgu hattı: topic clusters of one service's core queries with a page-type guess. */
+    public const string QUERIES_CLUSTERING = 'queries.clustering';
+
     public const string BRAIN_EMBEDDINGS = 'brain.embeddings';
 
     public const string BRAIN_ACCOUNT_MAPPING = 'brain.account_mapping';

@@ -27,7 +27,7 @@ return [
     'close_failed_confirm' => 'Kaydedilmiş sorgular korunacak; bu aktarımın kalan satırları atlanacak. Sonraki veri bölümleri güncel hesap ayarlarıyla işlenecek. Devam edilsin mi?',
     'alert_title' => 'Hesap güncellemesi durdu',
     'title' => 'Otomatik hesap güncellemeleri',
-    'intro' => 'Hesapları düzenli güncelleyin; eşleştirdiğiniz hesapların sorgularını otomatik aktarın.',
+    'intro' => 'Çekim sıklığı, durdur, şimdi çek.',
     'search' => 'Hesap adı veya kimliği ara',
     'source' => 'Kaynak',
     'all' => 'Tümü',

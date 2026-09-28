@@ -6,7 +6,6 @@ use App\Livewire\Demo\Integrations\MetaIntegrationPage;
 use App\Livewire\Demo\Portfolio\AssetEdit;
 use App\Livewire\Demo\Sales\ProspectConvert;
 use App\Livewire\Demo\Sales\ProspectShow;
-use App\Models\BrainProposal;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -20,7 +19,6 @@ use App\Models\Prospect;
 use App\Models\ProspectActivity;
 use App\Models\ResourceAutomation;
 use App\Models\User;
-use App\Services\Brain\Proposals\Kinds\AccountMappingKind;
 use App\Services\Ownership\OwnershipTransferService;
 use App\Services\Prospects\ConvertProspectService;
 use App\Support\Integrations\Meta\MetaResourceType;
@@ -30,6 +28,7 @@ use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
@@ -135,68 +134,61 @@ final class OwnershipFollowUpTest extends TestCase
         DigitalAsset::factory()->create(['brand_id' => $this->atlas->id, 'type' => 'website', 'name' => 'Başka', 'domain' => 'atlas-ortodonti.com']);
     }
 
-    public function test_transfer_to_another_customer_resets_the_account_mapping_and_logs_it(): void
+    public function test_transfer_to_another_customer_resets_the_ai_sector_and_logs_it(): void
     {
-        $ads = $this->boundResource($this->adadentSite, 'search_console', 'sc-domain:adadent.com.tr', 'Adadent GSC');
+        $gsc = $this->boundResource($this->adadentSite, 'search_console', 'sc-domain:adadent.com.tr', 'Adadent GSC');
         $automation = ResourceAutomation::query()->create([
-            'external_resource_id' => $ads->id, 'collection_enabled' => false, 'interval_days' => 3, 'preferred_hour' => 5,
-            'query_enabled' => true, 'sector' => 'dental', 'service_ids' => [11, 12], 'revision' => 4, 'mapping_revision' => 2,
-            'next_collection_at' => now()->addDays(2), 'query_error' => 'mapping_invalid',
+            'external_resource_id' => $gsc->id, 'collection_enabled' => false, 'interval_days' => 3, 'preferred_hour' => 5,
+            'revision' => 4, 'next_collection_at' => now()->addDays(2),
         ]);
-        $proposal = $this->mappingProposal($automation, $this->adadent->id);
+        $dental = (int) DB::table('service_categories')->where('code', 'dental')->value('id');
+        $this->sector($gsc, $dental, 'ai');
 
-        app(OwnershipTransferService::class)->transferResource($ads, $this->atlasSite, $this->admin, confirmed: true, note: 'Atlas’a geçti');
+        app(OwnershipTransferService::class)->transferResource($gsc, $this->atlasSite, $this->admin, confirmed: true, note: 'Atlas’a geçti');
 
+        $row = DB::table('asset_sectors')->where('subject_type', 'resource')->where('subject_id', $gsc->id)->first();
+        $this->assertNull($row->service_category_id, 'the AI sector is decided again for the new owner');
+        $this->assertSame('none', $row->method);
         $automation->refresh();
-        $this->assertNull($automation->sector);
-        $this->assertSame([], $automation->service_ids);
-        $this->assertFalse($automation->query_enabled, 'query intake waits for a new mapping');
-        $this->assertNull($automation->query_error);
-        $this->assertSame(3, (int) $automation->mapping_revision);
         $this->assertSame(5, (int) $automation->revision);
         $this->assertTrue($automation->next_collection_at->lessThanOrEqualTo(now()), 're-evaluated for the new owner now');
         $this->assertFalse($automation->collection_enabled, 'neutral settings are kept');
         $this->assertSame(3, $automation->interval_days);
-        $this->assertSame(5, $automation->preferred_hour);
-        $this->assertSame(BrainProposal::STATUS_STALE, $proposal->fresh()->status, 'old-brand mapping proposal is not applied any more');
 
         $transfer = OwnershipTransfer::query()->sole();
         $mapping = $transfer->snapshot['mapping'][0];
         $this->assertSame('reset', $mapping['action']);
-        $this->assertSame(['sector' => 'dental', 'service_ids' => [11, 12], 'query_enabled' => true], $mapping['cleared']);
-        $this->assertSame(1, $mapping['proposals_stale']);
-        $this->assertStringContainsString('eşlemesi sıfırlandı', (string) $transfer->mappingSummary());
+        $this->assertSame(['sector_id' => $dental, 'method' => 'ai'], $mapping['cleared']);
+        $this->assertStringContainsString('sektörü sıfırlandı', (string) $transfer->mappingSummary());
     }
 
-    public function test_transfer_within_the_same_customer_keeps_the_mapping_and_rescopes_proposals(): void
+    public function test_transfer_keeps_a_manual_sector_and_same_customer_changes_nothing(): void
     {
         $ortodonti = Brand::factory()->create(['customer_id' => $this->adadent->customer_id, 'name' => 'Adadent Ortodonti']);
         $secondSite = DigitalAsset::factory()->create(['brand_id' => $ortodonti->id, 'type' => 'website', 'name' => 'Ortodonti Sitesi', 'domain' => 'ortodonti.adadent.com.tr']);
         $gsc = $this->boundResource($this->adadentSite, 'search_console', 'sc-domain:adadent.com.tr', 'Adadent GSC');
-        $automation = ResourceAutomation::query()->create([
-            'external_resource_id' => $gsc->id, 'query_enabled' => true, 'sector' => 'dental', 'service_ids' => [11],
-        ]);
-        $proposal = $this->mappingProposal($automation, $this->adadent->id);
+        $dental = (int) DB::table('service_categories')->where('code', 'dental')->value('id');
+        $this->sector($gsc, $dental, 'ai');
 
         app(OwnershipTransferService::class)->transferResource($gsc, $secondSite, $this->admin, confirmed: true);
 
-        $automation->refresh();
-        $this->assertSame('dental', $automation->sector);
-        $this->assertSame([11], $automation->service_ids);
-        $this->assertTrue($automation->query_enabled);
-        $this->assertSame(BrainProposal::STATUS_PENDING, $proposal->fresh()->status);
-        $this->assertSame($ortodonti->id, (int) $proposal->fresh()->brand_id);
-        $this->assertSame('rescoped', OwnershipTransfer::query()->sole()->snapshot['mapping'][0]['action']);
+        $this->assertSame($dental, (int) DB::table('asset_sectors')->where('subject_id', $gsc->id)->value('service_category_id'), 'same customer: kept');
+        $this->assertArrayNotHasKey('mapping', OwnershipTransfer::query()->sole()->snapshot);
+
+        $ads = $this->boundResource($this->adadentSite, 'search_console', 'sc-domain:adadent2.com.tr', 'Adadent GSC 2');
+        $this->sector($ads, $dental, 'manual');
+        app(OwnershipTransferService::class)->transferResource($ads, $this->atlasSite, $this->admin, confirmed: true);
+        $this->assertSame($dental, (int) DB::table('asset_sectors')->where('subject_id', $ads->id)->value('service_category_id'), 'manual wins forever');
     }
 
-    public function test_moving_an_asset_to_another_customer_resets_its_accounts_mapping(): void
+    public function test_moving_an_asset_to_another_customer_resets_its_accounts_sector(): void
     {
         $gsc = $this->boundResource($this->adadentSite, 'search_console', 'sc-domain:adadent.com.tr', 'Adadent GSC');
-        $automation = ResourceAutomation::query()->create(['external_resource_id' => $gsc->id, 'query_enabled' => true, 'sector' => 'dental', 'service_ids' => [11]]);
+        $this->sector($gsc, (int) DB::table('service_categories')->where('code', 'dental')->value('id'), 'brand');
 
         app(OwnershipTransferService::class)->moveAsset($this->adadentSite, $this->atlas, $this->admin, confirmed: true);
 
-        $this->assertNull($automation->fresh()->sector);
+        $this->assertNull(DB::table('asset_sectors')->where('subject_id', $gsc->id)->value('service_category_id'));
         $this->assertSame('reset', OwnershipTransfer::query()->sole()->snapshot['mapping'][0]['action']);
     }
 
@@ -317,12 +309,9 @@ final class OwnershipFollowUpTest extends TestCase
         return $resource;
     }
 
-    private function mappingProposal(ResourceAutomation $automation, int $brandId): BrainProposal
+    private function sector(CoreExternalResource $resource, int $categoryId, string $method): void
     {
-        return BrainProposal::query()->create([
-            'kind' => AccountMappingKind::KIND, 'subject_type' => 'resource_automation', 'subject_id' => $automation->id,
-            'brand_id' => $brandId, 'title' => 'Adadent GSC → Diş', 'current' => [], 'proposed' => ['sector' => 'dental', 'service_ids' => [11]],
-            'source' => 'ai', 'status' => BrainProposal::STATUS_PENDING, 'fingerprint' => str_repeat('a', 64), 'confidence' => 0.8,
-        ]);
+        DB::table('asset_sectors')->insert(['subject_type' => 'resource', 'subject_id' => $resource->id, 'service_category_id' => $categoryId,
+            'method' => $method, 'assigned_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
     }
 }

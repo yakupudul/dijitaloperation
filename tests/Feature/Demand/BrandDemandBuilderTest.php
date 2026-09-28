@@ -69,20 +69,21 @@ final class BrandDemandBuilderTest extends TestCase
         $this->assertSame(4, (int) $implant->ads_clicks);
         $this->assertEqualsWithDelta(10 + 200 * 0.05 + 4 * 0.5 + 2 * 20, $implant->value_score, 0.01);
 
-        // Queries are single-type: a place name does not split, classify or disqualify the query.
-        $kadikoy = $rows['kadıköy diş implantı'];
+        // Queries are single-type core queries: place names and the own brand are stripped before they are stored.
+        $kadikoy = $rows['diş implantı'];
         $this->assertSame($this->implant->id, $kadikoy->brand_offering_id);
         $this->assertSame('none', $kadikoy->location_status);
         $this->assertNull($kadikoy->brand_service_area_id);
+        $this->assertArrayNotHasKey('kadıköy diş implantı', $rows->all());
 
-        $this->assertTrue($rows['atlas dental yorumlar']->is_branded);
+        $this->assertTrue($rows['yorumlar']->is_branded, 'only seen with the own brand name: branded');
         $this->assertFalse($implant->is_branded);
-        $this->assertSame($this->implant->id, $rows['ankara implant']->brand_offering_id);
-        $this->assertSame(BrandDemandQuery::RELEVANT, $rows['ankara implant']->relevance);
+        $this->assertSame($this->implant->id, $rows['implant']->brand_offering_id);
+        $this->assertSame(BrandDemandQuery::RELEVANT, $rows['implant']->relevance);
         $this->assertSame($this->zirkonyum->id, $rows['zirkonyum kaplamalar']->brand_offering_id);
         $this->assertNull($rows['rastgele bir sorgu']->brand_offering_id);
-        $this->assertSame(['google_business_profile'], $rows['diş kliniği kadıköy']->sources);
-        $this->assertSame(120, (int) $rows['diş kliniği kadıköy']->gbp_impressions);
+        $this->assertSame(['google_business_profile'], $rows['diş kliniği']->sources);
+        $this->assertSame(120, (int) $rows['diş kliniği']->gbp_impressions);
     }
 
     public function test_operator_assignment_survives_and_unseen_queries_are_kept(): void

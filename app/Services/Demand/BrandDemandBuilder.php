@@ -9,6 +9,8 @@ use App\Models\BrandQueryPortfolioItem;
 use App\Models\CoreAssetBinding;
 use App\Services\Brain\Clustering\QueryIntent;
 use App\Services\IntelligenceCore\Identity\SearchTermNormalizer;
+use App\Services\Queries\QueryIngestor;
+use App\Services\Queries\QueryNormalization;
 use App\Services\SearchDemand\QueryExclusionService;
 use App\Services\SeoTasks\SeoText;
 use App\Support\Options\LocationOptions;
@@ -18,10 +20,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Builds the brand query hub (brand_demand_queries): every query the brand sees, from stored data only (no provider
- * call, no AI, no paid call) — Search Console queries per website, Google Ads search terms, Business Profile search
- * keywords over the window, plus the brand's query portfolio (library queries with stored DataForSEO volume),
- * competitor queries and area SERP keywords. Rows are merged by the folded query (SeoText::fold).
+ * Builds the brand query hub (brand_demand_queries): the brand's view of the ONE global query store — the core
+ * queries (query_variants → search_query_library_items) seen on the brand's accounts (Search Console per website,
+ * Google Ads search terms, Business Profile keywords; own-brand-only queries as branded rows), plus the brand's query
+ * portfolio (library queries with stored DataForSEO volume), competitor queries and area SERP keywords. No provider
+ * call, no AI, no paid call. Rows are merged by the folded core query (SeoText::fold).
  *
  * Each query is joined with the brand's service (BrandQueryServiceResolver: rules → portfolio / library mapping →
  * cached embeddings → "belirsiz"; place names are ignored for matching), branded flag (BrandedQueryMatcher), intent
@@ -60,10 +63,15 @@ final class BrandDemandBuilder
             ->mapWithKeys(fn (BrandOffering $o): array => [(int) $o->id => $o->catalogItem?->sector]);
         $branded = BrandedQueryMatcher::for($brand);
         $exclusionRules = $this->exclusions->rules();
+        // Core queries the pipeline / operator marked irrelevant for one of the brand's sectors.
+        $irrelevantCores = DB::table('search_query_library_sectors as l')->join('service_categories as c', 'c.id', '=', 'l.service_category_id')
+            ->whereIn('c.code', $brand->sectorCodes() ?: [''])->where('l.match_status', 'irrelevant')
+            ->whereIn('l.search_query_library_item_id', $rows->pluck('library_item_id')->filter()->values()->all() ?: [0])
+            ->pluck('l.search_query_library_item_id')->map('intval')->flip()->all();
         $existing = BrandDemandQuery::query()->where('brand_id', $brand->id)->get()->keyBy('query_key');
         $weights = (array) config('moxdop-demand.value_weights', []);
 
-        DB::transaction(function () use ($brand, $rows, $resolved, $offeringSectors, $branded, $exclusionRules, $existing, $weights, $now, &$stats): void {
+        DB::transaction(function () use ($brand, $rows, $resolved, $offeringSectors, $branded, $exclusionRules, $irrelevantCores, $existing, $weights, $now, &$stats): void {
             $assetRows = [];
             foreach ($rows as $key => $row) {
                 $value = round(array_sum(array_map(
@@ -72,7 +80,8 @@ final class BrandDemandBuilder
                 )), 2);
                 $model = $existing->get($key) ?? new BrandDemandQuery(['brand_id' => $brand->id, 'query_key' => $key, 'first_seen_at' => $now]);
                 $sources = array_keys(array_filter($row['sources']));
-                $isBranded = $branded->isBranded($row['query']);
+                // Only seen with the own brand name ("atlas yorumlar" → "yorumlar"): a branded row.
+                $isBranded = $branded->isBranded($row['query']) || ($row['variants'] > 0 && $row['own_brand_variants'] === $row['variants']);
                 $resolution = $resolved[$key];
                 $attributes = [
                     'query' => $row['query'],
@@ -107,7 +116,9 @@ final class BrandDemandBuilder
                 $offeringId = $operatorAssigned ? $model->brand_offering_id : $resolution['offering_id'];
                 $attributes['sector'] = $offeringId !== null ? ($offeringSectors[$offeringId] ?? $resolution['sector']) : $resolution['sector'];
                 if (! ($model->exists && $model->relevance_source === BrandDemandQuery::SOURCE_OPERATOR)) {
-                    $attributes['relevance'] = $this->relevance($offeringId, $isBranded, $resolution['out_of_sector'], $row['query'], $exclusionRules);
+                    $attributes['relevance'] = $row['library_item_id'] !== null && isset($irrelevantCores[$row['library_item_id']]) && ! ($operatorAssigned && $offeringId !== null)
+                        ? BrandDemandQuery::IRRELEVANT
+                        : $this->relevance($offeringId, $isBranded, $resolution['out_of_sector'], $row['query'], $exclusionRules);
                 }
                 $model->fill($attributes)->save();
 
@@ -163,10 +174,6 @@ final class BrandDemandBuilder
         $resourceAssets = CoreAssetBinding::query()->whereIn('digital_asset_id', $assetIds)->where('status', CoreAssetBinding::STATUS_ACTIVE)
             ->pluck('digital_asset_id', 'external_resource_id')->map('intval')->all();
         $resourceIds = array_keys($resourceAssets);
-        $windowDays = max(7, (int) config('moxdop-demand.window_days', 90));
-        $from = now()->subDays($windowDays)->toDateString();
-        $recentFrom = now()->subDays(28)->toDateString();
-        $previousFrom = now()->subDays(56)->toDateString();
         $limit = max(100, (int) config('moxdop-demand.max_queries_per_source', 5000));
         $rows = collect();
         $add = function (string $text, string $source, array $metrics = []) use (&$rows): ?string {
@@ -183,6 +190,7 @@ final class BrandDemandBuilder
                 'pos_weighted' => 0.0, 'pos_impressions' => 0, 'first_date' => null, 'last_date' => null,
                 'search_volume' => null, 'serp_rank' => null, 'competitor_count' => 0,
                 'library_item_id' => null, 'portfolio_item_id' => null, 'portfolio_services' => [], 'assets' => [],
+                'variants' => 0, 'own_brand_variants' => 0,
                 'sources' => array_fill_keys(self::SOURCES, false),
             ];
             foreach ($metrics as $metric => $value) {
@@ -201,75 +209,54 @@ final class BrandDemandBuilder
 
             return $key;
         };
-        $scope = function ($query) use ($assetIds, $resourceIds): void {
-            $query->whereIn('digital_asset_id', $assetIds)->orWhereIn('external_resource_id', $resourceIds);
-        };
-        $trend = 'sum(case when reporting_date >= ? then impressions else 0 end) as recent_impressions, '
-            .'sum(case when reporting_date >= ? and reporting_date < ? then impressions else 0 end) as previous_impressions, '
-            .'sum(case when reporting_date >= ? then clicks else 0 end) as recent_clicks, '
-            .'sum(case when reporting_date >= ? and reporting_date < ? then clicks else 0 end) as previous_clicks, '
-            .'min(reporting_date) as first_date, max(reporting_date) as last_date';
-        $trendBindings = [$recentFrom, $previousFrom, $recentFrom, $recentFrom, $previousFrom, $recentFrom];
-
-        if (Schema::hasTable('gsc_query_daily')) {
-            $position = DB::getDriverName() === 'pgsql'
-                ? "(nullif(metadata->>'provider_average_position', ''))::numeric"
-                : "json_extract(metadata, '$.provider_average_position')";
-            DB::table('gsc_query_daily')->where('reporting_date', '>=', $from)->where($scope)
-                ->groupBy('query', 'digital_asset_id', 'external_resource_id')
-                ->selectRaw('query, digital_asset_id, external_resource_id, sum(clicks) as clicks, sum(impressions) as impressions, '.$trend
-                    .", sum(case when {$position} is not null then {$position} * impressions else 0 end) as pos_weighted"
-                    .", sum(case when {$position} is not null then impressions else 0 end) as pos_impressions", $trendBindings)
-                ->orderByDesc('impressions')->limit($limit)->get()
-                ->each(function ($r) use ($add, &$rows, $resourceAssets): void {
-                    $metrics = [
-                        'gsc_clicks' => (int) $r->clicks, 'gsc_impressions' => (int) $r->impressions,
-                        'recent_impressions' => (int) $r->recent_impressions, 'previous_impressions' => (int) $r->previous_impressions,
-                        'recent_clicks' => (int) $r->recent_clicks, 'previous_clicks' => (int) $r->previous_clicks,
-                        'pos_weighted' => (float) $r->pos_weighted, 'pos_impressions' => (int) $r->pos_impressions,
-                        'first_date' => $r->first_date, 'last_date' => $r->last_date,
-                    ];
-                    $key = $add((string) $r->query, 'search_console', $metrics);
-                    $assetId = $r->digital_asset_id !== null ? (int) $r->digital_asset_id : ($resourceAssets[(int) $r->external_resource_id] ?? null);
-                    if ($key === null || $assetId === null) {
-                        return;
-                    }
-                    $row = $rows->get($key);
+        // The brand view of the global query store: its accounts' variants, keyed by their core query (own brand,
+        // places and product names already removed). Competitor, banned and place-only variants stay out.
+        app(QueryIngestor::class)->runForBrand($brand);
+        DB::table('query_variants as v')->leftJoin('search_query_library_items as q', 'q.id', '=', 'v.search_query_library_item_id')
+            ->where(fn ($query) => $query->whereIn('v.external_resource_id', $resourceIds ?: [0])->orWhereIn('v.digital_asset_id', $assetIds ?: [0]))
+            ->whereIn('v.kind', [QueryNormalization::CORE, QueryNormalization::BRAND])
+            ->where(fn ($query) => $query->where('v.impressions', '>', 0)->orWhere('v.clicks', '>', 0))
+            ->orderByDesc('v.impressions')->limit($limit * 3)
+            ->get(['v.*', 'q.canonical_text as core_text', 'q.deleted_at as core_deleted'])
+            ->each(function ($v) use ($add, &$rows, $resourceAssets): void {
+                $core = $v->kind === QueryNormalization::CORE && $v->core_text !== null && $v->core_deleted === null;
+                $text = $core ? (string) $v->core_text : (string) $v->raw_text;
+                $trend = [
+                    'recent_impressions' => (int) $v->recent_impressions, 'previous_impressions' => (int) $v->previous_impressions,
+                    'recent_clicks' => (int) $v->recent_clicks, 'previous_clicks' => (int) $v->previous_clicks,
+                    'first_date' => $v->first_seen_on, 'last_date' => $v->last_seen_on,
+                ];
+                $metrics = match ($v->source) {
+                    'search_console' => ['gsc_clicks' => (int) $v->clicks, 'gsc_impressions' => (int) $v->impressions,
+                        'pos_weighted' => (float) $v->position_weighted, 'pos_impressions' => (int) $v->position_impressions] + $trend,
+                    'google_ads' => ['ads_impressions' => (int) $v->impressions, 'ads_clicks' => (int) $v->clicks,
+                        'ads_cost' => round((float) $v->cost, 2), 'ads_conversions' => round((float) $v->conversions, 2)] + $trend,
+                    default => ['gbp_impressions' => (int) $v->impressions, 'first_date' => $v->first_seen_on, 'last_date' => $v->last_seen_on],
+                };
+                $key = $add($text, (string) $v->source, $metrics);
+                if ($key === null) {
+                    return;
+                }
+                $row = $rows->get($key);
+                if ($core) {
+                    $row['library_item_id'] ??= (int) $v->search_query_library_item_id;
+                }
+                $row['variants']++;
+                $row['own_brand_variants'] += $v->kind === QueryNormalization::BRAND || (bool) $v->had_own_brand ? 1 : 0;
+                $assetId = $v->digital_asset_id !== null ? (int) $v->digital_asset_id : ($resourceAssets[(int) $v->external_resource_id] ?? null);
+                if ($v->source === 'search_console' && $assetId !== null) {
                     $site = $row['assets'][$assetId] ?? ['clicks' => 0, 'impressions' => 0, 'recent_impressions' => 0, 'previous_impressions' => 0, 'pos_weighted' => 0.0, 'pos_impressions' => 0, 'first_date' => null, 'last_date' => null];
                     foreach (['clicks' => 'gsc_clicks', 'impressions' => 'gsc_impressions', 'recent_impressions' => 'recent_impressions', 'previous_impressions' => 'previous_impressions', 'pos_weighted' => 'pos_weighted', 'pos_impressions' => 'pos_impressions'] as $field => $metric) {
                         $site[$field] += $metrics[$metric];
                     }
-                    $first = substr((string) $r->first_date, 0, 10);
-                    $last = substr((string) $r->last_date, 0, 10);
-                    $site['first_date'] = $site['first_date'] === null || $first < $site['first_date'] ? $first : $site['first_date'];
-                    $site['last_date'] = $site['last_date'] === null || $last > $site['last_date'] ? $last : $site['last_date'];
+                    $first = $v->first_seen_on !== null ? substr((string) $v->first_seen_on, 0, 10) : null;
+                    $last = $v->last_seen_on !== null ? substr((string) $v->last_seen_on, 0, 10) : null;
+                    $site['first_date'] = $site['first_date'] === null || ($first !== null && $first < $site['first_date']) ? $first : $site['first_date'];
+                    $site['last_date'] = $site['last_date'] === null || ($last !== null && $last > $site['last_date']) ? $last : $site['last_date'];
                     $row['assets'][$assetId] = $site;
-                    $rows->put($key, $row);
-                });
-        }
-        if (Schema::hasTable('google_ads_search_term_daily')) {
-            DB::table('google_ads_search_term_daily')->where('reporting_date', '>=', $from)->where($scope)
-                ->groupBy('search_term')
-                ->selectRaw('search_term, sum(impressions) as impressions, sum(clicks) as clicks, sum(cost_amount) as cost, sum(conversions) as conversions, '.$trend, $trendBindings)
-                ->orderByDesc('impressions')->limit($limit)->get()
-                ->each(fn ($r) => $add((string) $r->search_term, 'google_ads', [
-                    'ads_impressions' => (int) $r->impressions, 'ads_clicks' => (int) $r->clicks,
-                    'ads_cost' => round((float) $r->cost, 2), 'ads_conversions' => round((float) $r->conversions, 2),
-                    'recent_impressions' => (int) $r->recent_impressions, 'previous_impressions' => (int) $r->previous_impressions,
-                    'recent_clicks' => (int) $r->recent_clicks, 'previous_clicks' => (int) $r->previous_clicks,
-                    'first_date' => $r->first_date, 'last_date' => $r->last_date,
-                ]));
-        }
-        if (Schema::hasTable('gbp_search_keywords_monthly')) {
-            $gbpFrom = now()->startOfMonth()->subMonths(max(1, (int) config('moxdop-demand.gbp_months', 3)))->toDateString();
-            DB::table('gbp_search_keywords_monthly')->where('month_start', '>=', $gbpFrom)->where($scope)
-                ->groupBy('search_keyword')
-                ->selectRaw('search_keyword, sum(coalesce(impressions, threshold, 0)) as impressions, min(month_start) as first_date, max(month_start) as last_date')
-                ->orderByDesc('impressions')->limit($limit)->get()
-                ->each(fn ($r) => $add((string) $r->search_keyword, 'google_business_profile', [
-                    'gbp_impressions' => (int) $r->impressions, 'first_date' => $r->first_date, 'last_date' => $r->last_date,
-                ]));
-        }
+                }
+                $rows->put($key, $row);
+            });
         $this->collectPortfolio($brand, $add, $rows, $limit);
         $this->collectAreaSerp($brand, $add, $rows);
 

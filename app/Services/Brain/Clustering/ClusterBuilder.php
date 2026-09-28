@@ -57,9 +57,11 @@ final class ClusterBuilder
                 $join->on('c.id', '=', 's.library_cluster_id')->where('c.status', 'active');
             })
             ->where('s.service_catalog_item_id', $serviceId)->where('q.status', 'active')->whereNull('q.deleted_at')->where('q.is_branded', false)
-            ->get(['q.id', 'q.canonical_text', 'c.id as cluster_id', 'c.name as cluster_name', 'c.head_query']);
-        $weights = DB::table('search_query_library_source_records')->whereIn('search_query_library_item_id', $members->pluck('id'))
-            ->groupBy('search_query_library_item_id')->selectRaw('search_query_library_item_id as id, sum(coalesce(impressions, 0)) + sum(coalesce(search_volume, 0)) as w')->pluck('w', 'id');
+            ->get(['q.id', 'q.canonical_text', 'c.id as cluster_id', 'c.name as cluster_name', 'c.head_query', DB::raw('(q.gsc_impressions + q.ads_impressions + q.gbp_impressions) as demand')]);
+        // Core-query demand (every account) plus stored search volume of manual / DataForSEO sources.
+        $volumes = DB::table('search_query_library_source_records')->whereIn('search_query_library_item_id', $members->pluck('id'))
+            ->groupBy('search_query_library_item_id')->selectRaw('search_query_library_item_id as id, sum(coalesce(search_volume, 0)) as w')->pluck('w', 'id');
+        $weights = $members->mapWithKeys(fn ($m): array => [(int) $m->id => (float) $m->demand + (float) ($volumes[$m->id] ?? 0)]);
 
         $queries = [];
         foreach ($members as $member) {

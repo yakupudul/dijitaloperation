@@ -158,7 +158,7 @@ final class BrandQueryHubTest extends TestCase
         app(BrandDemandBuilder::class)->build($this->brand);
         $rows = BrandDemandQuery::query()->where('brand_id', $this->brand->id)->get()->keyBy('query');
 
-        $this->assertSame([$this->implant->id, 'rule'], [$rows['ankara implant fiyatı']->brand_offering_id, $rows['ankara implant fiyatı']->assignment_method], 'the place name does not disqualify the query');
+        $this->assertSame([$this->implant->id, 'rule'], [$rows['implant fiyatı']->brand_offering_id, $rows['implant fiyatı']->assignment_method], 'the place name is stripped: core query');
         $this->assertSame([$this->whitening->id, 'library'], [$rows['gülüş estetiği']->brand_offering_id, $rows['gülüş estetiği']->assignment_method]);
         $this->assertSame(0.8, $rows['gülüş estetiği']->assignment_confidence);
         $this->assertSame([$this->ortho->id, 'portfolio'], [$rows['tel tedavisi']->brand_offering_id, $rows['tel tedavisi']->assignment_method]);
@@ -167,14 +167,15 @@ final class BrandQueryHubTest extends TestCase
         $this->assertSame(BrandDemandQuery::UNCLEAR, $rows['hava durumu yarın']->relevance, 'no service, no sector evidence: belirsiz');
         $this->assertSame(BrandDemandQuery::IRRELEVANT, $rows['boşanma avukatı ücreti']->relevance, 'another sector: alakasız');
         $this->assertSame('hukuk', $rows['boşanma avukatı ücreti']->sector);
-        $this->assertSame(BrandDemandQuery::IRRELEVANT, $rows['bedava diş muayenesi']->relevance, 'excluded expression: alakasız');
-        $this->assertTrue($rows['atlasdis yorumlar']->is_branded);
-        $this->assertSame(BrandDemandQuery::RELEVANT, $rows['atlasdis yorumlar']->relevance);
+        $this->assertArrayNotHasKey('bedava diş muayenesi', $rows->all(), 'excluded expression: banned list, not a hub query');
+        $this->assertSame('banned', DB::table('query_variants')->where('raw_text', 'bedava diş muayenesi')->value('kind'));
+        $this->assertTrue($rows['yorumlar']->is_branded, 'own domain stripped; only seen with the brand: branded');
+        $this->assertSame(BrandDemandQuery::RELEVANT, $rows['yorumlar']->relevance);
         $this->assertSame(BrandDemandQuery::RELEVANT, $rows['tel tedavisi']->relevance);
 
         $defaultRows = array_column(app(BrandQueryHub::class)->rowsFor($this->brand), 'query');
         $this->assertNotContains('boşanma avukatı ücreti', $defaultRows, 'alakasız rows are kept but not handed to the next phase by default');
-        $this->assertCount(8, app(BrandQueryHub::class)->rowsFor($this->brand, null, ['relevance' => 'all']));
+        $this->assertCount(7, app(BrandQueryHub::class)->rowsFor($this->brand, null, ['relevance' => 'all']));
     }
 
     public function test_manual_review_survives_rebuild(): void
