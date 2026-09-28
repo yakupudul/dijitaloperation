@@ -1413,3 +1413,15 @@ Verification: source/diff review only. Per owner no tests, build or live provide
 vendor/Pint are unavailable. Not deployed or runtime proven; actual persisted rows, API-specific
 403/429 errors, queue/scheduler operation and browser rendering require operator deployment/UAT.
 Official quota guidance: https://developers.google.com/my-business/content/limits
+
+## 2026-10-22 — SEO plan: no new-page proposals without a page inventory (Faz 0)
+
+- The SEO plan never proposes new pages or "missing service page" work when the site's page inventory is empty; it
+  queues a website collection (sitemap + crawl) or a projection rebuild and shows one setup card. The plan re-runs
+  once after the rebuilt projection has pages (`SeoInventoryGuard`).
+- A projection rebuild never mass-deletes a profile kind because one run produced none of it; brandless websites
+  are skipped, not failed.
+- Proposed URLs follow the site's own structure (`SiteUrlPattern`); /blog/ is never invented.
+- SEO rule output (seed queries, titles, outlines, checklists) respects the brand's sector pack through the
+  existing `ComplianceChecker`; the health pack forbids price emphasis in proposed content (`seo_brief`,
+  `ai_draft`). Search queries with such words remain evidence only.

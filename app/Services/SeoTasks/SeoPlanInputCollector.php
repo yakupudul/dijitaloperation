@@ -9,6 +9,7 @@ use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\IntelligenceProjection\WebsitePageProfile;
 use App\Models\ServicePageAssignment;
+use App\Services\Compliance\SectorPackRegistry;
 use App\Services\Ga4\Ga4SpecialistBindingResolver;
 use App\Services\Gsc\GscSpecialistBindingResolver;
 use Carbon\CarbonImmutable;
@@ -83,6 +84,8 @@ final class SeoPlanInputCollector
             'gbp' => $this->businessProfile($site),
             // Faz 2b: latest our-page-vs-competitors comparison per service (area SERP + public fetch).
             'competitor_gaps' => $this->competitorGaps($site),
+            // Sector pack rules (health: no price / before-after wording) that proposed titles and briefs must respect.
+            'compliance_rules' => $site->brand !== null ? app(SectorPackRegistry::class)->rulesForBrand($site->brand)->all() : [],
         ];
     }
 

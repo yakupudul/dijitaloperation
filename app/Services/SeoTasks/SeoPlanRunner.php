@@ -167,6 +167,10 @@ final class SeoPlanRunner
         try {
             $site = $plan->digitalAsset;
             $input = $this->collector->collect($site);
+            // Faz 0: no page list → queue a collection / projection rebuild; the rules emit a setup card, not new pages.
+            $input['inventory'] = $input['pages'] === []
+                ? app(SeoInventoryGuard::class)->ensure($site)
+                : ['empty' => false];
             $plan->forceFill([
                 'period_start' => $input['period']['start'],
                 'period_end' => $input['period']['end'],
@@ -215,6 +219,7 @@ final class SeoPlanRunner
                     'period' => $input['period'],
                     'gsc' => ['available' => $input['gsc']['available'], 'reason' => $input['gsc']['reason'], 'query_count' => $input['gsc']['query_count'], 'page_count' => $input['gsc']['page_count'], 'truncated' => $input['gsc']['truncated']],
                     'pages' => count($input['pages']),
+                    'inventory' => $input['inventory'],
                     'findings' => count($input['findings']),
                     'offerings' => $result['stats']['offerings'],
                     'priority_offerings' => $result['stats']['priority_offerings'],

@@ -16,8 +16,11 @@ use App\Services\IntelligenceCore\IntelligenceCoreRegistryLoader;
 use App\Support\IntelligenceProjection\WebsiteProjectionContext;
 use App\Support\IntelligenceProjection\WebsiteProjectionContribution;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
@@ -43,9 +46,16 @@ final class WebsiteProjectionRebuilder
         ?int $triggerCollectionRunId = null,
         ?CarbonImmutable $periodStart = null,
         ?CarbonImmutable $periodEnd = null,
-    ): WebsiteIntelligenceProjectionRun {
+    ): ?WebsiteIntelligenceProjectionRun {
         if ($asset->getKey() === null || $asset->type !== 'website') {
             throw new InvalidArgumentException('Website Projection can only rebuild a persisted Website Digital Asset.');
+        }
+        // A brandless (or soft-deleted-brand) website has no Brand scope for identities: skip, do not fail the queue.
+        $asset->loadMissing('brand');
+        if ($asset->brand === null) {
+            Log::info('website-projection.skipped-brandless', ['website_asset_id' => (int) $asset->getKey()]);
+
+            return null;
         }
 
         return Cache::lock('website-projection-rebuild:'.$asset->getKey(), 1200)->block(
@@ -130,7 +140,7 @@ final class WebsiteProjectionRebuilder
                 ];
 
                 if (! $isPartial) {
-                    $this->pruneAbsentProfiles($asset, $merged);
+                    $this->pruneAbsentProfiles($asset, $run, $merged);
                 }
 
                 return $counts;
@@ -186,7 +196,7 @@ final class WebsiteProjectionRebuilder
     }
 
     /**
-     * @param array<string, WebsiteProjectionContribution> $contributions
+     * @param  array<string, WebsiteProjectionContribution>  $contributions
      * @return array{pages:array<int,array<string,mixed>>,search_terms:array<int,array<string,mixed>>,entities:array<int,array<string,mixed>>,outcomes:array<int,array<string,mixed>>}
      */
     private function merge(array $contributions): array
@@ -356,20 +366,35 @@ final class WebsiteProjectionRebuilder
     }
 
     /** @param array<string,array<int,array<string,mixed>>> $merged */
-    private function pruneAbsentProfiles(DigitalAsset $asset, array $merged): void
+    private function pruneAbsentProfiles(DigitalAsset $asset, WebsiteIntelligenceProjectionRun $run, array $merged): void
     {
         $assetId = (int) $asset->getKey();
-        $this->prune(WebsitePageProfile::query()->where('website_asset_id', $assetId), 'page_identity_id', array_keys($merged['pages']));
-        $this->prune(WebsiteSearchTermProfile::query()->where('website_asset_id', $assetId), 'search_term_identity_id', array_keys($merged['search_terms']));
-        $this->prune(WebsiteEntityProfile::query()->where('website_asset_id', $assetId), 'entity_identity_id', array_keys($merged['entities']));
-        $this->prune(WebsiteOutcomeProfile::query()->where('website_asset_id', $assetId), 'business_action_identity_id', array_keys($merged['outcomes']));
+        $this->prune($run, 'pages', WebsitePageProfile::query()->where('website_asset_id', $assetId), 'page_identity_id', array_keys($merged['pages']));
+        $this->prune($run, 'search_terms', WebsiteSearchTermProfile::query()->where('website_asset_id', $assetId), 'search_term_identity_id', array_keys($merged['search_terms']));
+        $this->prune($run, 'entities', WebsiteEntityProfile::query()->where('website_asset_id', $assetId), 'entity_identity_id', array_keys($merged['entities']));
+        $this->prune($run, 'outcomes', WebsiteOutcomeProfile::query()->where('website_asset_id', $assetId), 'business_action_identity_id', array_keys($merged['outcomes']));
     }
 
-    /** @param \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model> $query @param list<int> $ids */
-    private function prune(\Illuminate\Database\Eloquent\Builder $query, string $column, array $ids): void
+    /**
+     * Drops profiles the sources no longer produce. A rebuild that produced none of a kind never wipes the
+     * existing set: an empty result means "source not read" far more often than "every page is gone", and an
+     * empty page inventory makes the SEO plan propose pages that already exist.
+     *
+     * @param  Builder<Model>  $query
+     * @param  list<int>  $ids
+     */
+    private function prune(WebsiteIntelligenceProjectionRun $run, string $kind, Builder $query, string $column, array $ids): void
     {
         if ($ids === []) {
-            $query->delete();
+            $existing = (clone $query)->count();
+            if ($existing > 0) {
+                Log::warning('website-projection.prune-skipped-empty-result', [
+                    'website_asset_id' => (int) $run->website_asset_id,
+                    'projection_run_id' => (int) $run->getKey(),
+                    'profile_kind' => $kind,
+                    'kept_profiles' => $existing,
+                ]);
+            }
 
             return;
         }

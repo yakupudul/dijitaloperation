@@ -17,6 +17,7 @@ use App\Services\Compliance\ComplianceAuditor;
 use App\Services\Compliance\SectorPackRegistry;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\SeoTasks\SeoPlanRunner;
+use App\Services\SeoTasks\SeoTaskRuleEngine;
 use App\Support\Permissions;
 use App\Support\ServiceScope;
 use Illuminate\Contracts\View\View;
@@ -416,6 +417,11 @@ final class SeoTasksPanel extends Component
         }
         $setupTasks = $openInScope->filter(fn (SeoTask $task): bool => $task->type === SeoTaskType::Question)->values();
         $pendingMappings = $setupTasks->where('rule_id', 'service-page-mapping')->sum(fn (SeoTask $task): int => max(1, count($task->evidence['services'] ?? [])));
+        // Empty page inventory: mappings cannot be judged, so the card must not say "tamam".
+        $inventoryMissing = $setupTasks->where('rule_id', SeoTaskRuleEngine::INVENTORY_MISSING_RULE)->count();
+        if ($inventoryMissing === 0 && $latestPlan !== null && (int) data_get($latestPlan->input_summary, 'pages', 0) === 0) {
+            $inventoryMissing = 1;
+        }
 
         $weeklyTarget = (int) config('moxdop-seo-tasks.create.min_per_site', 4);
         $board = $this->websiteId === null ? $this->siteBoard($openInScope, $weeklyTarget) : collect();
@@ -427,6 +433,7 @@ final class SeoTasksPanel extends Component
             'extra_clicks' => (int) round($openInScope->filter(fn (SeoTask $task): bool => in_array($task->type, [SeoTaskType::Create, SeoTaskType::Strengthen], true))->sum('estimated_extra_clicks')),
             'critical_fixes' => $openInScope->filter(fn (SeoTask $task): bool => $task->type === SeoTaskType::Fix && in_array($task->severity, ['critical', 'high'], true))->count(),
             'pending_mappings' => $pendingMappings,
+            'inventory_missing' => $inventoryMissing,
         ];
 
         $drafts = ExternalWriteAction::query()->whereIn('seo_task_id', $tasks->getCollection()->pluck('id'))->orderByDesc('id')->get()->groupBy('seo_task_id');

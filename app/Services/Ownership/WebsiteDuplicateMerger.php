@@ -4,6 +4,7 @@ namespace App\Services\Ownership;
 
 use App\Enums\CustomerStatus;
 use App\Enums\DigitalAssetStatus;
+use App\Jobs\IntelligenceProjection\RebuildWebsiteProjectionJob;
 use App\Models\AssetMerge;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreConnection;
@@ -22,6 +23,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Kopya web siteleri: website assets that share a normalized host (www., scheme, path ignored — OwnershipGuard rule)
@@ -265,7 +267,7 @@ final class WebsiteDuplicateMerger
         }
 
         try {
-            return DB::transaction(fn (): AssetMerge => $this->runMerge($keeper, $duplicate, $by, $crossCustomer, $note));
+            $merge = DB::transaction(fn (): AssetMerge => $this->runMerge($keeper, $duplicate, $by, $crossCustomer, $note));
         } catch (QueryException $exception) {
             Log::warning('ownership.website-merge-failed', ['keeper_id' => $keeper->id, 'duplicate_id' => $duplicate->id, 'table' => $this->currentTable, 'error' => $exception->getMessage()]);
 
@@ -273,6 +275,15 @@ final class WebsiteDuplicateMerger
                 'merge' => sprintf('Birleştirme tamamlanamadı (%s tablosu); hiçbir şey değişmedi.', $this->currentTable !== '' ? $this->currentTable : 'bilinmeyen'),
             ]);
         }
+
+        // Moved crawl/CMS/GSC rows only reach the page inventory (and the SEO plan) through a projection rebuild.
+        try {
+            RebuildWebsiteProjectionJob::dispatch(websiteAssetId: (int) $keeper->id, trigger: 'asset_merge');
+        } catch (Throwable $exception) {
+            report($exception); // the merge itself is committed; the next collection rebuilds the projection anyway
+        }
+
+        return $merge;
     }
 
     /** Same-host check shared by plan() and merge(). */
