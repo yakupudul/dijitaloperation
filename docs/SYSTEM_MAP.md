@@ -36,7 +36,7 @@
   - Aylık rapor (`operator.reports.monthly`) — sekmeler: Rapor kuyruğu (`operator.reports.queue`), Ajans karnesi (`operator.reports.scorecard`), Grafik notları (`operator.reports.annotations`), Üretim Arşivi (`operator.archive`)
   - Ajans işletmesi (`operator.agency`)
 - **Sistem**
-  - Entegrasyonlar (`operator.integrations`) — sekmeler: WordPress siteleri (`operator.integrations.wordpress-sites`), Veri merkezi (`operator.data-center`)
+  - Entegrasyonlar (`operator.integrations`) — sekmeler: WordPress siteleri (`operator.integrations.wordpress-sites`), Kopya web siteleri (`operator.integrations.website-duplicates`), Veri merkezi (`operator.data-center`)
   - Ayarlar (`operator.settings`) — sekmeler: Uyum (`operator.compliance`), Aktivite (`operator.activity`)
 
 ## Komuta merkezi kaynakları
@@ -60,12 +60,14 @@
 - `live` — Canlı doğrulama
 - `data` — Veri şüpheli
 - `lead_outcome` — Lead sonucu
+- `gbp` — İşletme Profili
 - `CoverageSource` (ek kaynak)
 - `CalendarSource` (ek kaynak)
 - `AgencySource` (ek kaynak)
 - `TaskSource` (ek kaynak)
 - `VerificationSource` (ek kaynak)
 - `LeadOutcomeSource` (ek kaynak)
+- `GbpSource` (ek kaynak)
 
 ## Onaylı dış yazmalar
 
