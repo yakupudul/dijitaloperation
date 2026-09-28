@@ -271,6 +271,13 @@
 - Branded detection has one implementation (`BrandedQueryMatcher`); do not add another.
 - Raw SQL on GA4 tables must quote camelCase columns (`DB::getQueryGrammar()->wrap()`); Postgres folds unquoted identifiers.
 
+## 2026-10-22 — SEO içerik hattı Faz 1–2 decisions (query hub)
+
+- **One query hub per brand:** `brand_demand_queries` (+ `brand_demand_query_assets` per website) is the single per-brand store of every query from every source (own accounts, portfolio / library, competitor, area SERP). Do not add a parallel per-brand query store; the clustering → content phase reads `BrandQueryHub::rowsFor()`.
+- Query → service is resolved **per brand** (`BrandQueryServiceResolver`): rules → portfolio / Brain library mapping restricted to the brand's offerings → cached embeddings → belirsiz. The hub never makes provider, AI or paid calls.
+- **Queries are single-type:** no per-query service area / region classification or split; place-named queries are ordinary rows and are never alakasız because of the place. Location-based content comes from the brand's configured service areas in the content phase.
+- "Alakasız" is a flag (other sector or excluded expression), never a delete. Operator decisions (assign / alakasız / confirm) always win over rebuilds.
+
 ## 2026-09-28 — Faz 2b decisions
 
 - The brand demand table (`brand_demand_queries`) is the per-brand, automatic view of demand; the global query library and manual portfolio remain for catalog work. Weekly order: demand build 05:30 → area SERP 05:45 → comparison 06:00 → SEO plan 06:30.

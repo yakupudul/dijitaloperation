@@ -9,6 +9,7 @@ use App\Models\SearchDemandCompetitor;
 use App\Models\SearchDemandCompetitorSource;
 use App\Services\BrandSetup\BrandSetupMatcher;
 use App\Services\Integrations\DataForSeo\DataForSeoApiClient;
+use App\Support\Options\LocationOptions;
 use App\Support\ServiceScope;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -105,8 +106,10 @@ final class AreaSerpChecker
         $fallback = $this->fallbackLocation($brand);
 
         $rows = BrandDemandQuery::query()->where('brand_id', $brand->id)->whereNotNull('brand_offering_id')
-            ->where('is_branded', false)->where('location_status', '!=', 'out_of_area')->where('value_score', '>', 0)
-            ->orderByDesc('value_score')->get();
+            ->where('is_branded', false)->where('relevance', '!=', BrandDemandQuery::IRRELEVANT)->where('value_score', '>', 0)
+            ->orderByDesc('value_score')->get()
+            // Queries are single-type (no per-query area): only place-free queries are checked in the brand's areas.
+            ->filter(fn (BrandDemandQuery $row): bool => LocationOptions::strip((string) $row->query)['removed'] === []);
         $services = $rows->groupBy('brand_offering_id')
             ->sortByDesc(fn (Collection $group): float => (float) $group->sum('value_score'))
             ->take((int) config('moxdop-demand.serp.max_services', 10));

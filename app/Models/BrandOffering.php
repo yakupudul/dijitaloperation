@@ -85,6 +85,12 @@ class BrandOffering extends Model
         return $this->hasMany(ServicePageAssignment::class, 'brand_offering_id');
     }
 
+    /** Operator-facing name: the brand's own primary name, else the catalog service's primary name. */
+    public function displayName(): string
+    {
+        return (string) ($this->primaryName?->raw_label ?? $this->catalogItem?->primaryName?->raw_label ?? 'Hizmet #'.$this->id);
+    }
+
     /**
      * @return array<string, string>
      */

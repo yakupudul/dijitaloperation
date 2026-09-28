@@ -3,7 +3,7 @@
         <div>
             <h2 class="font-semibold text-gray-800 dark:text-white/90">Talep (son 90 gün)</h2>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Search Console, Google Ads arama terimleri ve İşletme Profili aramaları; hizmete ve bölgeye otomatik atanır, her pazartesi yenilenir.
+                Search Console, Google Ads arama terimleri, İşletme Profili aramaları, sorgu portföyü ve rakip / bölge SERP sorguları; hizmete otomatik atanır, her pazartesi yenilenir.
                 @if ($builtAt) Son güncelleme: {{ \Illuminate\Support\Carbon::parse($builtAt)->timezone('Europe/Istanbul')->format('d.m.Y H:i') }}. @endif
             </p>
         </div>
@@ -17,7 +17,7 @@
     @if ($total === 0)
         <p class="text-sm text-gray-500">Henüz sorgu yok. Search Console / Google Ads / İşletme Profili bağlandıktan ve veri geldikten sonra dolar.</p>
     @else
-        <p class="text-xs text-gray-500">{{ $total }} sorgu · {{ $branded }} markalı · {{ $outOfArea }} hizmet bölgesi dışında</p>
+        <p class="text-xs text-gray-500">{{ $total }} sorgu · {{ $branded }} markalı</p>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="text-left text-xs uppercase text-gray-400">

@@ -273,6 +273,7 @@
             </section>
         @endif
         <livewire:operator.portfolio.brand-demand :brand-id="(int) $brandModel->id" :key="'brand-demand-'.$brandModel->id" />
+        <livewire:operator.portfolio.brand-query-hub-panel :brand-id="(int) $brandModel->id" :key="'brand-query-hub-'.$brandModel->id" />
         <livewire:operator.portfolio.brand-competitors :brand-id="(int) $brandModel->id" :key="'brand-competitors-'.$brandModel->id" />
     @endif
 

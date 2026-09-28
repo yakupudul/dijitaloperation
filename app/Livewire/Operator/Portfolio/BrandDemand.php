@@ -2,16 +2,18 @@
 
 namespace App\Livewire\Operator\Portfolio;
 
+use App\Jobs\BuildBrandDemandJob;
 use App\Jobs\RunAreaSerpChecksJob;
 use App\Models\Brand;
 use App\Models\BrandDemandQuery;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
 use App\Services\Demand\AreaSerpChecker;
-use App\Services\Demand\BrandDemandBuilder;
 use App\Services\Demand\BrandedSplitReader;
+use App\Services\Demand\BrandQueryHub;
 use App\Support\Permissions;
 use App\Support\Roles;
+use App\Support\ServiceScope;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -19,8 +21,9 @@ use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
- * Brand page › İşletme › Talep: the brand demand table per service (queries, clicks, impressions, top queries),
- * unassigned queries with a manual assignment (kept by the weekly rebuild), branded and out-of-area shares.
+ * Brand page › İşletme › Talep: the brand query hub summary per service (queries, clicks, impressions, top queries),
+ * unassigned queries with a manual assignment (kept by the weekly rebuild) and the branded share. The full hub review
+ * table (filters, bulk actions) is BrandQueryHubPanel.
  */
 final class BrandDemand extends Component
 {
@@ -66,17 +69,25 @@ final class BrandDemand extends Component
         $this->message = 'Kontrol arka planda başladı; birkaç dakika içinde sonuçlar burada görünür.';
     }
 
-    public function rebuild(BrandDemandBuilder $builder): void
+    /** On-demand rebuild in the background (stored data only); the weekly run keeps it fresh anyway. */
+    public function rebuild(ServiceScope $scope): void
     {
-        $stats = $builder->build(Brand::query()->findOrFail($this->brandId));
-        $this->message = sprintf('%d sorgu güncellendi; %d tanesi bir hizmete atandı.', $stats['queries'], $stats['assigned']);
+        if (! $scope->isBrandOperational($this->brandId)) {
+            $this->message = ServiceScope::NOT_SERVED;
+
+            return;
+        }
+        BuildBrandDemandJob::dispatch($this->brandId);
+        $this->message = 'Sorgular arka planda yenileniyor; birkaç dakika içinde burada görünür.';
+        $this->dispatch('brand-query-hub-updated');
     }
 
-    public function assign(int $queryId, string $offeringId): void
+    public function assign(int $queryId, string $offeringId, BrandQueryHub $hub): void
     {
+        $brand = Brand::query()->findOrFail($this->brandId);
         $query = BrandDemandQuery::query()->where('brand_id', $this->brandId)->findOrFail($queryId);
         $offering = $offeringId === '' ? null : BrandOffering::query()->where('brand_id', $this->brandId)->findOrFail((int) $offeringId);
-        $query->forceFill(['brand_offering_id' => $offering?->id, 'assignment_source' => BrandDemandQuery::SOURCE_OPERATOR])->save();
+        $hub->assign($brand, [$query->id], $offering, auth()->user());
         $this->message = '"'.$query->query.'" '.($offering !== null ? 'hizmete atandı.' : 'hizmetten çıkarıldı.');
     }
 
@@ -106,9 +117,10 @@ final class BrandDemand extends Component
 
     public function render(): View
     {
-        $rows = BrandDemandQuery::query()->where('brand_id', $this->brandId)->where('value_score', '>', 0)->get();
-        $offerings = BrandOffering::query()->with('primaryName')->where('brand_id', $this->brandId)->where('status', 'active')->get()
-            ->mapWithKeys(fn (BrandOffering $o): array => [$o->id => (string) ($o->primaryName?->raw_label ?? 'Hizmet #'.$o->id)]);
+        $rows = BrandDemandQuery::query()->where('brand_id', $this->brandId)->where('value_score', '>', 0)
+            ->where('relevance', '!=', BrandDemandQuery::IRRELEVANT)->get();
+        $offerings = BrandOffering::query()->with(['primaryName', 'catalogItem.primaryName'])->where('brand_id', $this->brandId)->where('status', 'active')->get()
+            ->mapWithKeys(fn (BrandOffering $o): array => [$o->id => $o->displayName()]);
         $services = $rows->whereNotNull('brand_offering_id')->groupBy('brand_offering_id')
             ->map(fn ($group, $id): array => [
                 'name' => $offerings[$id] ?? 'Hizmet #'.$id,
@@ -126,7 +138,6 @@ final class BrandDemand extends Component
             'offerings' => $offerings->all(),
             'total' => $rows->count(),
             'branded' => $rows->where('is_branded', true)->count(),
-            'outOfArea' => $rows->where('location_status', 'out_of_area')->count(),
             'builtAt' => BrandDemandQuery::query()->where('brand_id', $this->brandId)->max('built_at'),
             'serpRows' => $this->serpRows($offerings->all()),
             'serpSpent' => app(AreaSerpChecker::class)->spentThisMonth(Brand::query()->findOrFail($this->brandId)),
