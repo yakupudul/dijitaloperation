@@ -271,6 +271,13 @@
 - Branded detection has one implementation (`BrandedQueryMatcher`); do not add another.
 - Raw SQL on GA4 tables must quote camelCase columns (`DB::getQueryGrammar()->wrap()`); Postgres folds unquoted identifiers.
 
+## 2026-10-23 — SEO içerik hattı Faz 5–6 decisions (URL karnesi)
+
+- **One per-URL screen:** Website › Sayfa Karnesi (`PageScorecard`) is the URL karnesi — one precomputed verdict per document URL (`website_url_verdicts`, `UrlAuditService` + `UrlVerdictResolver`). Do not add a second per-URL audit table or tab; new per-URL checks become `url_*` standards or findings in the resolver.
+- **Exactly one primary verdict** in the fixed order Birleştir → Dizinden çıkar (junk) → Düzelt → Kontrol et → Dizinden çıkar (thin, no value) → Güçlendir → Sorun yok; "Sorun yok — gerek yok" is shown explicitly with what was checked; missing data is "Kontrol et" / not_applicable, never a failure.
+- **Faz 6 SEO essentials live in standards.json** as `method = url_*` (`evaluated_in = url_audit`), evaluated only by `UrlStandardEvaluator` over the joined URL records; the stored Standartlar run skips them. They stay editable in Kütüphane › Standartlar.
+- Recompute triggers: projection rebuild, completed SEO plan, weekly Mon 07:10, manual Yenile (queued Run). Stored data only; ServiceScope applies.
+
 ## 2026-10-22 — SEO içerik hattı Faz 1–2 decisions (query hub)
 
 - **One query hub per brand:** `brand_demand_queries` (+ `brand_demand_query_assets` per website) is the single per-brand store of every query from every source (own accounts, portfolio / library, competitor, area SERP). Do not add a parallel per-brand query store; the clustering → content phase reads `BrandQueryHub::rowsFor()`.

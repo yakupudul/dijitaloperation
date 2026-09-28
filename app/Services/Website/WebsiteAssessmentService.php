@@ -49,7 +49,8 @@ final class WebsiteAssessmentService
             if ($existing !== null) {
                 return $existing;
             }
-            $standards = $this->catalog->all(true);
+            // URL karnesi standards (url_*) are evaluated per URL by UrlAuditService, not in this run.
+            $standards = array_filter($this->catalog->all(true), fn (array $standard): bool => ! str_starts_with((string) $standard['method'], 'url_'));
             if ($standards === []) {
                 throw ValidationException::withMessages(['assessment' => 'Önce standartlar kütüphanesinde en az bir kriteri etkinleştirin.']);
             }

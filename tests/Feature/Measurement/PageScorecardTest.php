@@ -11,6 +11,7 @@ use App\Models\SeoPlan;
 use App\Models\SeoTask;
 use App\Models\User;
 use App\Services\Measurement\PageScorecardReader;
+use App\Services\Website\UrlAudit\UrlAuditService;
 use App\Support\Roles;
 use Carbon\Carbon;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -85,6 +86,7 @@ final class PageScorecardTest extends TestCase
         $user = User::factory()->create(['is_active' => true]);
         $user->assignRole(Roles::ADMIN);
         $this->actingAs($user);
+        app(UrlAuditService::class)->refresh($this->site);
 
         Livewire::test(PageScorecard::class, ['websiteId' => $this->site->id])
             ->assertSee('Sayfa Karnesi (son 28 gün)')

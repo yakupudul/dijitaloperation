@@ -2,7 +2,9 @@
 
 namespace App\Jobs;
 
+use App\Models\SeoPlan;
 use App\Services\SeoTasks\SeoPlanRunner;
+use App\Services\Website\UrlAudit\UrlAuditService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
@@ -25,6 +27,11 @@ final class RunSeoPlanJob implements ShouldQueue
     public function handle(SeoPlanRunner $runner): void
     {
         $runner->run($this->planId);
+        // Faz 5: refresh the URL karnesi with the plan's new SEO tasks.
+        $siteId = SeoPlan::query()->whereKey($this->planId)->where('status', SeoPlan::STATUS_COMPLETED)->value('digital_asset_id');
+        if ($siteId !== null) {
+            UrlAuditService::dispatchFor((int) $siteId, 'seo_plan');
+        }
     }
 
     public function failed(?Throwable $exception): void

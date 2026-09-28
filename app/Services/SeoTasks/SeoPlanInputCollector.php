@@ -252,7 +252,7 @@ final class SeoPlanInputCollector
      *
      * @return array{available: bool, inlinks: array<string, list<string>>, outlinks: array<string, list<string>>}
      */
-    private function internalLinks(DigitalAsset $site): array
+    public function internalLinks(DigitalAsset $site): array
     {
         if (! Schema::hasTable('website_link_edge')) {
             return ['available' => false, 'inlinks' => [], 'outlinks' => []];
@@ -321,9 +321,9 @@ final class SeoPlanInputCollector
      * Latest Business Profile snapshot of the brand's connected location (for site ↔ profile
      * consistency). Null when the brand has no connected profile or nothing was collected.
      *
-     * @return array{title: ?string, website_uri: ?string, phones: list<string>, captured_at: ?string}|null
+     * @return array{title: ?string, website_uri: ?string, phones: list<string>, captured_at: ?string, postal_code: ?string, locality: ?string}|null
      */
-    private function businessProfile(DigitalAsset $site): ?array
+    public function businessProfile(DigitalAsset $site): ?array
     {
         if (! Schema::hasTable('gbp_location_snapshots') || $site->brand_id === null) {
             return null;
@@ -343,6 +343,7 @@ final class SeoPlanInputCollector
             return null;
         }
         $phones = [];
+        $address = is_string($row->storefront_address ?? null) ? (json_decode($row->storefront_address, true) ?: []) : (array) ($row->storefront_address ?? []);
         $decoded = is_string($row->phone_numbers) ? (json_decode($row->phone_numbers, true) ?: []) : (array) $row->phone_numbers;
         array_walk_recursive($decoded, function ($value) use (&$phones): void {
             $digits = preg_replace('/\D+/', '', (string) $value) ?? '';
@@ -356,6 +357,8 @@ final class SeoPlanInputCollector
             'website_uri' => $row->website_uri !== null ? (string) $row->website_uri : null,
             'phones' => array_values(array_unique($phones)),
             'captured_at' => $row->captured_at !== null ? (string) $row->captured_at : null,
+            'postal_code' => is_scalar($address['postalCode'] ?? null) ? (string) $address['postalCode'] : null,
+            'locality' => is_string($address['locality'] ?? null) ? $address['locality'] : null,
         ];
     }
 
@@ -505,7 +508,7 @@ final class SeoPlanInputCollector
     }
 
     /** @return array<string, array<string, mixed>> keyed by url key */
-    private function pages(DigitalAsset $site): array
+    public function pages(DigitalAsset $site): array
     {
         $pages = [];
         WebsitePageProfile::query()
