@@ -2,16 +2,20 @@
 
 namespace App\Services\Ai;
 
+use App\Ai\Contracts\RegistryPrompted;
 use App\Support\Ai\AiRouteKeys;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Laravel\Ai\Events\AgentFailedOver;
 use Laravel\Ai\Events\AgentPrompted;
+use Laravel\Ai\Events\PromptingAgent;
 use Throwable;
 
 /**
- * Records token usage and cost of every laravel/ai agent call, whatever route made it.
+ * Records token usage, cost, duration, status and prompt version of every laravel/ai agent call, whatever route made
+ * it (failed-over attempts are recorded as failed).
  * Never throws: accounting must not break an AI workflow.
  */
 final class AiUsageRecorder
@@ -55,7 +59,40 @@ final class AiUsageRecorder
         'QueryClusterAgent' => AiRouteKeys::QUERIES_CLUSTERING,
     ];
 
+    /** @var array<int, float> agent object id => start time of its current attempt (hrtime ms) */
+    private static array $starts = [];
+
     public function __construct(private readonly AiPricing $pricing) {}
+
+    public function started(PromptingAgent $event): void
+    {
+        self::$starts[spl_object_id($event->prompt->agent)] = hrtime(true) / 1e6;
+    }
+
+    /** A provider attempt that failed over to the next provider: recorded as a failed run (no tokens, no cost). */
+    public function failed(AgentFailedOver $event): void
+    {
+        try {
+            if (! Schema::hasTable('ai_usage_records')) {
+                return;
+            }
+            $agent = class_basename($event->agent);
+            $routeKey = self::AGENT_ROUTES[$agent] ?? Context::getHidden('ai_route_key');
+            DB::table('ai_usage_records')->insert([
+                'route_key' => is_string($routeKey) ? $routeKey : null,
+                'prompt_version_id' => $this->promptVersionId($event->agent),
+                'agent' => mb_substr($agent, 0, 190),
+                'provider' => mb_substr($event->provider->name(), 0, 48),
+                'model' => mb_substr($event->model, 0, 190),
+                'cost_usd' => 0,
+                'duration_ms' => $this->duration($event->agent),
+                'status' => 'failed',
+                'created_at' => now(),
+            ]);
+        } catch (Throwable $exception) {
+            Log::warning('AI failover could not be recorded.', ['error' => $exception->getMessage()]);
+        }
+    }
 
     public function handle(AgentPrompted $event): void
     {
@@ -71,6 +108,7 @@ final class AiUsageRecorder
 
             DB::table('ai_usage_records')->insert([
                 'route_key' => is_string($routeKey) ? $routeKey : null,
+                'prompt_version_id' => $this->promptVersionId($event->prompt->agent),
                 'agent' => mb_substr($agent, 0, 190),
                 'provider' => mb_substr($provider, 0, 48),
                 'model' => mb_substr($model, 0, 190),
@@ -80,10 +118,29 @@ final class AiUsageRecorder
                 'cache_write_tokens' => max(0, $usage->cacheWriteInputTokens),
                 'cost_usd' => $this->pricing->cost($provider, $model, $usage->promptTokens, $usage->completionTokens, $usage->cacheReadInputTokens, $usage->cacheWriteInputTokens),
                 'invocation_id' => mb_substr($event->invocationId, 0, 64),
+                'duration_ms' => $this->duration($event->prompt->agent),
+                'status' => 'ok',
                 'created_at' => now(),
             ]);
         } catch (Throwable $exception) {
             Log::warning('AI usage could not be recorded.', ['error' => $exception->getMessage()]);
         }
+    }
+
+    private function promptVersionId(object $agent): ?int
+    {
+        try {
+            return $agent instanceof RegistryPrompted ? $agent->promptVersionId() : null;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    private function duration(object $agent): ?int
+    {
+        $start = self::$starts[spl_object_id($agent)] ?? null;
+        unset(self::$starts[spl_object_id($agent)]);
+
+        return $start === null ? null : max(0, (int) round(hrtime(true) / 1e6 - $start));
     }
 }

@@ -8,6 +8,7 @@ use App\Services\Integrations\Anthropic\AnthropicCredentialResolver;
 use App\Services\Integrations\ApiKeyAi\ApiKeyAiCredentialResolver;
 use App\Services\Integrations\Gemini\GeminiCredentialResolver;
 use App\Services\Integrations\OpenAi\OpenAiCredentialResolver;
+use App\Services\Prompts\PromptRegistry;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Ai\ResolvedAiRoute;
@@ -44,6 +45,14 @@ final class AiRouteResolver
                 'model' => $step->model,
             ])->all()
             : $descriptor['default_steps'];
+        // Faz 8: the model pinned on the operation's current prompt version becomes the primary step.
+        $pinned = app(PromptRegistry::class)->modelFor($routeKey);
+        if ($pinned !== null) {
+            $rawSteps = [
+                ['provider' => $pinned[0], 'model' => $pinned[1]],
+                ...array_filter(array_values($rawSteps), fn (array $step): bool => ($step['provider'] ?? '') !== $pinned[0]),
+            ];
+        }
 
         $steps = [];
         $providerModels = [];
@@ -173,6 +182,12 @@ final class AiRouteResolver
             AiRouteStep::query()->where('route_key', $routeKey)->delete();
             AiRouteStep::query()->insert($normalized);
         });
+    }
+
+    /** Whether the provider is configured, enabled and supported (model choices of the prompt screen). */
+    public function providerReady(string $provider): bool
+    {
+        return $this->eligibility($provider)['eligible'];
     }
 
     /**
