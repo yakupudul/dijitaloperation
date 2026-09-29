@@ -42,12 +42,16 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('brand_intel_settings', function (Blueprint $table): void {
-            $table->dropColumn('facebook_page_id');
-        });
-        Schema::table('search_demand_competitors', function (Blueprint $table): void {
-            $table->dropColumn('facebook_page_id');
-        });
+        if (Schema::hasTable('brand_intel_settings')) {
+            Schema::table('brand_intel_settings', function (Blueprint $table): void {
+                $table->dropColumn('facebook_page_id');
+            });
+        }
+        if (Schema::hasTable('search_demand_competitors')) {
+            Schema::table('search_demand_competitors', function (Blueprint $table): void {
+                $table->dropColumn('facebook_page_id');
+            });
+        }
         Schema::dropIfExists('competitor_site_snapshots');
     }
 };

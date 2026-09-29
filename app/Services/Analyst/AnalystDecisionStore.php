@@ -2,8 +2,8 @@
 
 namespace App\Services\Analyst;
 
-use App\Models\AnalystDecision;
 use App\Models\AnalystRun;
+use App\Models\Suggestion;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -31,38 +31,38 @@ final class AnalystDecisionStore
                 $seen[] = $fingerprint;
                 $fields = [
                     'analyst_run_id' => $run->id, 'decision_key' => mb_substr((string) $decision['key'], 0, 160), 'material_hash' => $material,
-                    'title' => mb_substr((string) $decision['title_tr'], 0, 160), 'why' => mb_substr((string) $decision['why_tr'], 0, 240),
+                    'title' => mb_substr((string) $decision['title_tr'], 0, 160), 'reason' => mb_substr((string) $decision['why_tr'], 0, 240),
                     'priority' => (int) $decision['priority'], 'impact' => $decision['impact'], 'effort' => $decision['effort'],
                     'evidence_refs' => $decision['evidence_refs'], 'evidence' => $this->evidence($decision['evidence_refs'], $pack),
-                    'action_type' => (string) $decision['action']['type'], 'action_params' => $this->params($decision['action']['params'], $pack), 'last_seen_at' => $now,
+                    'action_type' => (string) $decision['action']['type'], 'action' => $this->params($decision['action']['params'], $pack), 'last_seen_at' => $now,
                 ];
-                $existing = AnalystDecision::query()->where('brand_id', $run->brand_id)->where('channel', $run->channel)->where('fingerprint', $fingerprint)->first();
+                $existing = Suggestion::query()->where('brand_id', $run->brand_id)->where('fingerprint', $fingerprint)->first();
                 if ($existing === null) {
-                    AnalystDecision::query()->create($fields + [
-                        'brand_id' => $run->brand_id, 'channel' => $run->channel, 'fingerprint' => $fingerprint, 'status' => AnalystDecision::OPEN, 'first_seen_at' => $now,
+                    Suggestion::query()->create($fields + [
+                        'brand_id' => $run->brand_id, 'channel' => $run->channel, 'fingerprint' => $fingerprint, 'status' => Suggestion::OPEN, 'first_seen_at' => $now,
                     ]);
 
                     continue;
                 }
-                if (in_array($existing->status, [AnalystDecision::DONE, AnalystDecision::DISMISSED], true)) {
+                if (in_array($existing->status, [Suggestion::APPLIED, Suggestion::DISMISSED], true)) {
                     if ($existing->material_hash === $material) {
                         $existing->forceFill(['last_seen_at' => $now])->save();
 
                         continue;
                     }
-                    $fields += ['status' => AnalystDecision::OPEN, 'resolved_at' => null, 'resolved_by' => null];
-                } elseif ($existing->status === AnalystDecision::EXPIRED) {
-                    $fields['status'] = AnalystDecision::OPEN;
+                    $fields += ['status' => Suggestion::OPEN, 'resolved_at' => null, 'resolved_by' => null];
+                } elseif ($existing->status === Suggestion::RECHECK) {
+                    $fields['status'] = Suggestion::OPEN;
                 }
                 $existing->forceFill($fields)->save();
             }
-            AnalystDecision::query()->where('brand_id', $run->brand_id)->where('channel', $run->channel)
-                ->where('status', AnalystDecision::OPEN)->whereNotIn('fingerprint', $seen ?: [''])
-                ->update(['status' => AnalystDecision::EXPIRED, 'updated_at' => now()]);
+            Suggestion::query()->where('brand_id', $run->brand_id)->where('channel', $run->channel)
+                ->where('status', Suggestion::OPEN)->whereNotIn('fingerprint', $seen ?: [''])
+                ->update(['status' => Suggestion::RECHECK, 'updated_at' => now()]);
         });
     }
 
-    public function markDone(AnalystDecision $decision, ?User $user, ?string $note = null): void
+    public function markDone(Suggestion $decision, ?User $user, ?string $note = null): void
     {
         $baseline = ['at' => now()->toIso8601String(), 'facts' => $decision->evidence ?? []];
         try {
@@ -74,25 +74,25 @@ final class AnalystDecisionStore
             report($exception);
         }
         $decision->forceFill([
-            'status' => AnalystDecision::DONE, 'resolved_at' => now(), 'resolved_by' => $user?->id, 'baseline' => $baseline,
+            'status' => Suggestion::APPLIED, 'resolved_at' => now(), 'resolved_by' => $user?->id, 'applied_at' => now(), 'baseline' => $baseline,
             'operator_note' => $note !== null && trim($note) !== '' ? mb_substr(trim($note), 0, 2000) : $decision->operator_note,
         ])->save();
     }
 
-    public function dismiss(AnalystDecision $decision, ?User $user, ?string $note = null): void
+    public function dismiss(Suggestion $decision, ?User $user, ?string $note = null): void
     {
         $decision->forceFill([
-            'status' => AnalystDecision::DISMISSED, 'resolved_at' => now(), 'resolved_by' => $user?->id,
+            'status' => Suggestion::DISMISSED, 'resolved_at' => now(), 'resolved_by' => $user?->id,
             'operator_note' => $note !== null && trim($note) !== '' ? mb_substr(trim($note), 0, 2000) : $decision->operator_note,
         ])->save();
     }
 
-    public function snooze(AnalystDecision $decision, int $days): void
+    public function snooze(Suggestion $decision, int $days): void
     {
         if ($days < 1 || $days > 180) {
             throw ValidationException::withMessages(['analyst' => 'Erteleme 1–180 gün olabilir.']);
         }
-        $decision->forceFill(['status' => AnalystDecision::SNOOZED, 'snoozed_until' => now()->addDays($days)])->save();
+        $decision->forceFill(['status' => Suggestion::SNOOZED, 'snoozed_until' => now()->addDays($days)])->save();
     }
 
     public static function fingerprint(string $channel, string $key): string

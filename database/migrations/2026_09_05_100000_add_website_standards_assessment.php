@@ -35,9 +35,11 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('search_demand_competitive_page_analyses', function (Blueprint $table): void {
-            $table->dropColumn(['standard_assessments', 'comparability']);
-        });
+        if (Schema::hasTable('search_demand_competitive_page_analyses')) {
+            Schema::table('search_demand_competitive_page_analyses', function (Blueprint $table): void {
+                $table->dropColumn(['standard_assessments', 'comparability']);
+            });
+        }
         Schema::dropIfExists('website_standard_settings');
         // Nullable scope retains standalone assessment history when rolling code back.
     }

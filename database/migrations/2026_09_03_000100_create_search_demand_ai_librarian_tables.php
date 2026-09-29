@@ -105,20 +105,22 @@ return new class extends Migration
         Schema::dropIfExists('search_demand_ai_candidates');
         Schema::dropIfExists('search_demand_ai_runs');
 
-        Schema::table('search_query_library_items', function (Blueprint $table): void {
-            $table->dropIndex('query_library_intent_stage_idx');
-            $table->dropConstrainedForeignId('classified_by');
-            $table->dropColumn([
-                'search_intent',
-                'user_problem',
-                'decision_stage',
-                'serp_intent_group',
-                'content_target_cluster',
-                'classification_source',
-                'classification_confidence',
-                'classification_version',
-                'classified_at',
-            ]);
-        });
+        if (Schema::hasTable('search_query_library_items')) {
+            Schema::table('search_query_library_items', function (Blueprint $table): void {
+                $table->dropIndex('query_library_intent_stage_idx');
+                $table->dropConstrainedForeignId('classified_by');
+                $table->dropColumn([
+                    'search_intent',
+                    'user_problem',
+                    'decision_stage',
+                    'serp_intent_group',
+                    'content_target_cluster',
+                    'classification_source',
+                    'classification_confidence',
+                    'classification_version',
+                    'classified_at',
+                ]);
+            });
+        }
     }
 };

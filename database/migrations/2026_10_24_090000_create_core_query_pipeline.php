@@ -167,17 +167,23 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('library_query_clusters', function (Blueprint $t): void {
-            $t->dropColumn(['page_decision', 'decision_source', 'serp_evidence', 'research_query', 'research_fingerprint', 'researched_at']);
-        });
-        Schema::table('search_query_library_sectors', function (Blueprint $t): void {
-            $t->dropIndex('query_sector_match_idx');
-            $t->dropColumn(['match_status', 'match_method', 'matched_at', 'ai_checked_at']);
-        });
-        Schema::table('search_query_library_items', function (Blueprint $t): void {
-            $t->dropIndex(['core_key']);
-            $t->dropColumn(['core_key', 'gsc_impressions', 'gsc_clicks', 'ads_impressions', 'ads_clicks', 'ads_cost', 'ads_conversions', 'gbp_impressions', 'variant_count', 'metrics_at']);
-        });
+        if (Schema::hasTable('library_query_clusters')) {
+            Schema::table('library_query_clusters', function (Blueprint $t): void {
+                $t->dropColumn(['page_decision', 'decision_source', 'serp_evidence', 'research_query', 'research_fingerprint', 'researched_at']);
+            });
+        }
+        if (Schema::hasTable('search_query_library_sectors')) {
+            Schema::table('search_query_library_sectors', function (Blueprint $t): void {
+                $t->dropIndex('query_sector_match_idx');
+                $t->dropColumn(['match_status', 'match_method', 'matched_at', 'ai_checked_at']);
+            });
+        }
+        if (Schema::hasTable('search_query_library_items')) {
+            Schema::table('search_query_library_items', function (Blueprint $t): void {
+                $t->dropIndex(['core_key']);
+                $t->dropColumn(['core_key', 'gsc_impressions', 'gsc_clicks', 'ads_impressions', 'ads_clicks', 'ads_cost', 'ads_conversions', 'gbp_impressions', 'variant_count', 'metrics_at']);
+            });
+        }
         Schema::dropIfExists('sector_product_brands');
         Schema::dropIfExists('asset_sectors');
         Schema::dropIfExists('query_ingest_states');

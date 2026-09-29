@@ -2,10 +2,10 @@
 
 namespace App\Services\Analyst;
 
-use App\Models\AnalystDecision;
 use App\Models\Brand;
+use App\Models\Suggestion;
 use App\Services\Analyst\Contracts\ChannelAnalyst;
-use App\Services\ContentStudio\BriefCompliance;
+use App\Services\Compliance\BriefCompliance;
 
 /**
  * Shared validation of AI decisions. A decision is dropped (with its reason) when:
@@ -60,7 +60,7 @@ abstract class AbstractChannelAnalyst implements ChannelAnalyst
         return null;
     }
 
-    public function baseline(AnalystDecision $decision): array
+    public function baseline(Suggestion $decision): array
     {
         return [];
     }

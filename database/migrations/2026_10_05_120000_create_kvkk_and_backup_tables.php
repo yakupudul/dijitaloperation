@@ -37,11 +37,15 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('system_backups');
-        Schema::table('agency_settings', function (Blueprint $table): void {
-            $table->dropColumn('whatsapp_retention_days');
-        });
-        Schema::table('customers', function (Blueprint $table): void {
-            $table->dropColumn(['kvkk_dpa_signed_on', 'kvkk_dpa_note', 'kvkk_health_data']);
-        });
+        if (Schema::hasColumn('agency_settings', 'whatsapp_retention_days')) {
+            Schema::table('agency_settings', function (Blueprint $table): void {
+                $table->dropColumn('whatsapp_retention_days');
+            });
+        }
+        if (Schema::hasColumn('customers', 'kvkk_dpa_signed_on')) {
+            Schema::table('customers', function (Blueprint $table): void {
+                $table->dropColumn(['kvkk_dpa_signed_on', 'kvkk_dpa_note', 'kvkk_health_data']);
+            });
+        }
     }
 };

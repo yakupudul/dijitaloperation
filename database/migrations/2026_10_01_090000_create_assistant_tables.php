@@ -109,14 +109,18 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('whatsapp_conversations', function (Blueprint $table): void {
-            $table->dropIndex(['customer_id']);
-            $table->dropIndex(['prospect_id']);
-            $table->dropColumn(['customer_id', 'prospect_id', 'link_source']);
-        });
-        Schema::table('prospects', function (Blueprint $table): void {
-            $table->dropColumn(['next_follow_up_on', 'next_step']);
-        });
+        if (Schema::hasTable('whatsapp_conversations')) {
+            Schema::table('whatsapp_conversations', function (Blueprint $table): void {
+                $table->dropIndex(['customer_id']);
+                $table->dropIndex(['prospect_id']);
+                $table->dropColumn(['customer_id', 'prospect_id', 'link_source']);
+            });
+        }
+        if (Schema::hasTable('prospects')) {
+            Schema::table('prospects', function (Blueprint $table): void {
+                $table->dropColumn(['next_follow_up_on', 'next_step']);
+            });
+        }
         Schema::table('users', function (Blueprint $table): void {
             $table->dropUnique(['calendar_feed_token']);
             $table->dropColumn('calendar_feed_token');

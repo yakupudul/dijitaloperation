@@ -2,8 +2,8 @@
 
 namespace App\Services\Analyst\Contracts;
 
-use App\Models\AnalystDecision;
 use App\Models\Brand;
+use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\Analyst\AnalystPack;
 
@@ -47,11 +47,11 @@ interface ChannelAnalyst
      *
      * @return array{label: string, kind: string, url: string|null}|null
      */
-    public function presentAction(AnalystDecision $decision): ?array;
+    public function presentAction(Suggestion $decision): ?array;
 
     /** Run a `run` action (queue an article, prepare a page update, …). Returns the Turkish result line. */
-    public function perform(AnalystDecision $decision, User $user): string;
+    public function perform(Suggestion $decision, User $user): string;
 
     /** Headline number stored as baseline when a decision is marked done (outcome follow-up). */
-    public function baseline(AnalystDecision $decision): array;
+    public function baseline(Suggestion $decision): array;
 }

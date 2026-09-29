@@ -2,9 +2,9 @@
 
 namespace App\Services\Analyst;
 
-use App\Models\AnalystDecision;
 use App\Models\AnalystRun;
 use App\Models\Brand;
+use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\Analyst\Contracts\DownloadsDecision;
 use Illuminate\Validation\ValidationException;
@@ -41,17 +41,17 @@ final class AnalystWorkspace
      */
     public function top(Brand $brand, int $limit = 7): array
     {
-        return AnalystDecision::query()->with('brand')->where('brand_id', $brand->id)->whereIn('channel', $this->registry->liveChannels() ?: [''])->actionable()
+        return Suggestion::query()->with('brand')->where('brand_id', $brand->id)->whereIn('channel', $this->registry->liveChannels() ?: [''])->actionable()
             ->orderBy('priority')->orderByDesc('last_seen_at')->orderBy('id')->limit($limit)->get()
-            ->map(fn (AnalystDecision $d): array => $this->present($d))->all();
+            ->map(fn (Suggestion $d): array => $this->present($d))->all();
     }
 
     /** @return list<array<string, mixed>> */
     public function forChannel(Brand $brand, string $channel, int $limit = 20): array
     {
-        return AnalystDecision::query()->with('brand')->where('brand_id', $brand->id)->where('channel', $channel)->actionable()
+        return Suggestion::query()->with('brand')->where('brand_id', $brand->id)->where('channel', $channel)->actionable()
             ->orderBy('priority')->orderByDesc('last_seen_at')->orderBy('id')->limit($limit)->get()
-            ->map(fn (AnalystDecision $d): array => $this->present($d))->all();
+            ->map(fn (Suggestion $d): array => $this->present($d))->all();
     }
 
     /**
@@ -61,14 +61,14 @@ final class AnalystWorkspace
      */
     public function counts(Brand $brand): array
     {
-        return AnalystDecision::query()->where('brand_id', $brand->id)->actionable()->selectRaw('channel, count(*) as n')->groupBy('channel')
+        return Suggestion::query()->where('brand_id', $brand->id)->actionable()->selectRaw('channel, count(*) as n')->groupBy('channel')
             ->pluck('n', 'channel')->map(fn ($n): int => (int) $n)->all();
     }
 
     /**
      * @return array{id: int, channel: string, channel_label: string, title: string, why: string, priority: int, effort: ?string, impact: ?string, action: array{label: string, kind: string, url: string|null}|null, evidence: array{columns: array<string, string>, rows: list<array<string, mixed>>}}
      */
-    public function present(AnalystDecision $decision): array
+    public function present(Suggestion $decision): array
     {
         $action = null;
         try {
@@ -79,7 +79,7 @@ final class AnalystWorkspace
 
         return [
             'id' => (int) $decision->id, 'channel' => $decision->channel, 'channel_label' => $decision->channelLabel(),
-            'title' => (string) $decision->title, 'why' => (string) $decision->why, 'priority' => (int) $decision->priority,
+            'title' => (string) $decision->title, 'why' => (string) $decision->reason, 'priority' => (int) $decision->priority,
             'effort' => $decision->effort, 'impact' => filled($decision->impact['estimate'] ?? null) ? (string) $decision->impact['estimate'] : null,
             'action' => $action, 'evidence' => $this->evidenceTable((array) $decision->evidence),
         ];
@@ -109,9 +109,9 @@ final class AnalystWorkspace
         return ['columns' => $columns, 'rows' => array_map(fn (array $row): array => array_intersect_key($row, $columns), $rows)];
     }
 
-    public function find(Brand $brand, int $decisionId): AnalystDecision
+    public function find(Brand $brand, int $decisionId): Suggestion
     {
-        $decision = AnalystDecision::query()->where('brand_id', $brand->id)->find($decisionId);
+        $decision = Suggestion::query()->where('brand_id', $brand->id)->find($decisionId);
         if ($decision === null) {
             throw ValidationException::withMessages(['analyst' => 'Kart artık yok; sayfayı yenileyin.']);
         }

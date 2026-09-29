@@ -68,7 +68,9 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('search_query_library_imports', fn (Blueprint $table) => $table->dropColumn('excluded_rows'));
+        if (Schema::hasTable('search_query_library_imports')) {
+            Schema::table('search_query_library_imports', fn (Blueprint $table) => $table->dropColumn('excluded_rows'));
+        }
         Schema::dropIfExists('query_exclusion_import_rows');
         Schema::dropIfExists('query_exclusion_matches');
         Schema::dropIfExists('query_exclusion_runs');

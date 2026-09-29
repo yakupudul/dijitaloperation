@@ -44,11 +44,15 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('brain_cannibalizations');
-        Schema::table('library_cluster_targets', function (Blueprint $t): void {
-            $t->dropColumn(['source', 'score']);
-        });
-        Schema::table('library_query_clusters', function (Blueprint $t): void {
-            $t->dropColumn(['page_type', 'intent', 'head_query', 'source', 'signals']);
-        });
+        if (Schema::hasTable('library_cluster_targets')) {
+            Schema::table('library_cluster_targets', function (Blueprint $t): void {
+                $t->dropColumn(['source', 'score']);
+            });
+        }
+        if (Schema::hasTable('library_query_clusters')) {
+            Schema::table('library_query_clusters', function (Blueprint $t): void {
+                $t->dropColumn(['page_type', 'intent', 'head_query', 'source', 'signals']);
+            });
+        }
     }
 };

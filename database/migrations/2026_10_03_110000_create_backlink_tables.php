@@ -75,9 +75,11 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('brand_intel_settings', function (Blueprint $table): void {
-            $table->dropColumn(['backlinks_refreshed_at', 'reviews_refreshed_at']);
-        });
+        if (Schema::hasTable('brand_intel_settings')) {
+            Schema::table('brand_intel_settings', function (Blueprint $table): void {
+                $table->dropColumn(['backlinks_refreshed_at', 'reviews_refreshed_at']);
+            });
+        }
         Schema::dropIfExists('backlink_opportunities');
         Schema::dropIfExists('backlink_referring_domains');
         Schema::dropIfExists('backlink_snapshots');
