@@ -1576,8 +1576,8 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   atanmamış. Elle atama (`locked`) ve kilitli kümedeki sorgular hiçbir otomatik geçişte değişmez.
 - **Karar:** kümeler sektör + hizmete aittir (markalar arası ortak); düzenlenen veya onaylanan küme kilitlenir, AI yeniden
   kümelemede yalnız kilitsizleri değiştirir. AI'ın eklediği sorgu `is_suggested` ("önerilen"), metrik gösterilmez.
-- **Karar:** AI işlemleri `queries.filter_rules` ve `queries.cluster`; istem metni ajan sınıfında tek `TEMPLATE`
-  sabitinde (Faz 8 istem kaydına olduğu gibi taşınır). Sayfa tipi için SERP kanıtı bu fazda yok.
+- **Karar:** AI işlemleri `queries.filter_rules` ve `queries.cluster`; şablonlar Faz 8 istem kaydında
+  (`config/moxdop-prompts.php`, `PromptRegistry`). Sayfa tipi için SERP kanıtı bu fazda yok.
 
 ## 2026-10-28 — MoxDOP v2 Faz 1 (Toplama)
 
