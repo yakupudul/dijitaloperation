@@ -126,8 +126,9 @@ final class MetaScreenTest extends TestCase
         $utm->refresh();
         $this->assertSame(Suggestion::APPLIED, $utm->status);
         $this->assertNotNull($utm->applied_at);
-        $this->assertSame(4200, (int) $utm->baseline['metric']['spend']);
-        $this->assertSame(75, (int) $utm->baseline['metric']['cpr']);
+        $this->assertSame(4200, (int) $utm->baseline['spend']);
+        $this->assertSame(75, (int) $utm->baseline['cpr']);
+        $this->assertSame(['window_days' => 28, 'scope' => ['asset_id' => $this->asset->id]], array_intersect_key($utm->baseline, array_flip(['window_days', 'scope'])));
         $this->assertSame(0, ExternalWriteAction::query()->count(), 'nothing is written to Meta');
     }
 

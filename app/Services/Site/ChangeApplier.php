@@ -14,6 +14,7 @@ use App\Services\ExternalWrites\ContentComplianceGate;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\ExternalWrites\WordPressDraftWriter;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
+use App\Services\Outcomes\OutcomeTracker;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -31,7 +32,6 @@ final class ChangeApplier
 
     public function __construct(
         private readonly SiteAi $ai,
-        private readonly SiteMetrics $metrics,
         private readonly BrandMemoryService $memory,
     ) {}
 
@@ -185,9 +185,10 @@ final class ChangeApplier
         }
         $suggestion->forceFill([
             'status' => filled($new['html'] ?? null) ? Suggestion::APPROVED : Suggestion::APPLIED,
-            'applied_at' => now(), 'baseline' => $this->baseline($site, $page, $suggestion), 'resolved_by' => $user->id, 'resolved_at' => now(),
+            'applied_at' => now(), 'outcome' => null, 'measured_at' => null, 'resolved_by' => $user->id, 'resolved_at' => now(),
             'action' => array_merge((array) $suggestion->action, ['writes' => [...(array) data_get($suggestion->action, 'writes', []), ...$ids]]),
-        ])->save();
+        ]);
+        $suggestion->forceFill(['baseline' => app(OutcomeTracker::class)->baseline($suggestion)])->save();
         $this->memory->recordDecision($suggestion, 'onaylandı', 'AI ile yap → WordPress');
 
         return $ids;
@@ -203,21 +204,9 @@ final class ChangeApplier
             throw ValidationException::withMessages(['write' => 'WordPress taslak kopyası henüz hazır değil.']);
         }
         $action = app(ExternalWriteService::class)->requestContentApply($user, $site, (int) ($draft->result['post_id'] ?? 0), $suggestion);
-        $page = Page::query()->find($suggestion->page_id);
-        $suggestion->forceFill(['status' => Suggestion::APPLIED, 'applied_at' => now(), 'baseline' => $page !== null ? $this->baseline($site, $page, $suggestion) : $suggestion->baseline])->save();
+        app(OutcomeTracker::class)->apply($suggestion, $user);
 
         return (int) $action->id;
-    }
-
-    /** @return array<string, mixed> Search Console 28 days of the URL at apply time */
-    private function baseline(DigitalAsset $site, Page $page, Suggestion $suggestion): array
-    {
-        $brand = Brand::query()->find($suggestion->brand_id);
-        $totals = $brand !== null ? $this->metrics->pageTotal($brand, $site, (string) $page->url) : null;
-        $window = $brand !== null ? $this->metrics->window($brand) : null;
-
-        return ['url' => $page->url, 'clicks_28d' => $totals['clicks'] ?? null, 'impressions_28d' => $totals['impressions'] ?? null,
-            'position_28d' => $totals['position'] ?? null, 'window_end' => $window['end'] ?? null, 'at' => now()->toIso8601String()];
     }
 
     /** The live page HTML from the WordPress Connector (null when the site has none or it fails). */

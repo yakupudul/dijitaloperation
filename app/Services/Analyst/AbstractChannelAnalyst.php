@@ -3,7 +3,6 @@
 namespace App\Services\Analyst;
 
 use App\Models\Brand;
-use App\Models\Suggestion;
 use App\Services\Analyst\Contracts\ChannelAnalyst;
 use App\Services\Compliance\BriefCompliance;
 
@@ -58,11 +57,6 @@ abstract class AbstractChannelAnalyst implements ChannelAnalyst
     protected function extraCheck(array $decision, AnalystPack $pack): ?string
     {
         return null;
-    }
-
-    public function baseline(Suggestion $decision): array
-    {
-        return [];
     }
 
     /** The decision text checked against the sector rules (a channel may drop its own technical terms first). */

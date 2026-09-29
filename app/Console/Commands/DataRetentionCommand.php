@@ -8,13 +8,13 @@ use Illuminate\Console\Command;
 /**
  * moxdop:retention — monthly lean-data job (MoxDOP v2): daily facts 16 months (older rolled into monthly rows, then
  * deleted), query daily facts 16 months (monthly form = query_sources, kept 24 months), raw payloads 90 days (latest
- * HTML kept), telemetry windows. Dry run unless --apply.
+ * HTML kept), telemetry windows, closed suggestions 12 months. Dry run unless --apply.
  */
 final class DataRetentionCommand extends Command
 {
     protected $signature = 'moxdop:retention {--apply : Değişiklikleri uygula (varsayılan: yalnız sayar)}';
 
-    protected $description = 'Veri saklama: 16 aydan eski günlük verileri aylığa çevirip siler, sorgu kaynaklarını 24 ay tutar, ham kopyaları ve telemetriyi temizler.';
+    protected $description = 'Veri saklama: 16 aydan eski günlük verileri aylığa çevirip siler, sorgu kaynaklarını 24 ay tutar, ham kopyaları, telemetriyi ve 12 aydan eski kapalı önerileri temizler.';
 
     public function handle(DataRetentionService $retention): int
     {
@@ -26,7 +26,7 @@ final class DataRetentionCommand extends Command
         $dryRun = ! $this->option('apply');
         $result = $retention->run($dryRun);
         $this->info(sprintf(
-            '%sGünlük veri sınırı: %s · ham kopya: %d · telemetri: %d · aylığa çevrilen günlük satır: %d (%d aylık satır) · silinen sorgu günlük satırı: %d · silinen sorgu kaynağı: %d.',
+            '%sGünlük veri sınırı: %s · ham kopya: %d · telemetri: %d · aylığa çevrilen günlük satır: %d (%d aylık satır) · silinen sorgu günlük satırı: %d · silinen sorgu kaynağı: %d · silinen kapalı öneri: %d.',
             $dryRun ? '[deneme] ' : '',
             $retention->dailyCutoff()->toDateString(),
             $result['raw_objects'],
@@ -35,6 +35,7 @@ final class DataRetentionCommand extends Command
             $result['rollup_rows'],
             array_sum($result['query_daily_rows']),
             $result['query_source_rows'],
+            $result['closed_suggestions'],
         ));
         foreach (array_filter([...$result['telemetry'], ...$result['query_daily_rows']]) as $table => $count) {
             $this->line("  {$table}: {$count}");

@@ -7,6 +7,7 @@ use App\Models\ExternalWriteAction;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\Outcomes\OutcomeTracker;
 use App\Services\Suggestions\AssetSuggestions;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -17,7 +18,7 @@ use Illuminate\Validation\ValidationException;
  * `google_ads`). Groups: `check` (system checks, no AI), `negative` (search-term review), `structure` / `budget` /
  * `experiment` (campaign strategy), `rsa:<ad group>` (ad texts). Apply: shared-list negatives → Admin-approved
  * ADR-064 write (undo from the list); everything else → approved draft → Google Ads Editor file. Apply stores the
- * baseline (28-day account numbers + the suggestion's evidence) for the outcome follow-up.
+ * outcome baseline (OutcomeTracker: 28 days of the referenced campaign, else the account) + the evidence.
  */
 final class GoogleAdsSuggestions extends AssetSuggestions
 {
@@ -30,7 +31,6 @@ final class GoogleAdsSuggestions extends AssetSuggestions
 
     public function __construct(
         private readonly GoogleAdsChecks $checks,
-        private readonly GoogleAdsScreen $screen,
     ) {}
 
     /** System checks → suggestions (failing ones) and the state list of the overview. */
@@ -90,15 +90,15 @@ final class GoogleAdsSuggestions extends AssetSuggestions
         $this->markApplied($suggestion, $user);
     }
 
-    /** Outcome follow-up baseline: account numbers of the last 28 days and the suggestion's evidence at apply time. */
+    /**
+     * Applied: status applied with the outcome baseline (OutcomeTracker: 28 days of the referenced campaign, else the
+     * account) and the suggestion's evidence at apply time.
+     *
+     * @param  array<string, mixed>  $extra
+     */
     public function markApplied(Suggestion $suggestion, ?User $user, array $extra = []): void
     {
-        $asset = DigitalAsset::query()->find($suggestion->target_id);
-        $overview = $asset !== null ? $this->screen->overview($asset, 28) : null;
-        $suggestion->forceFill([
-            'status' => Suggestion::APPLIED, 'resolved_at' => now(), 'resolved_by' => $user?->id, 'applied_at' => now(),
-            'baseline' => ['at' => now()->toIso8601String(), 'window_days' => 28, 'metric' => $overview['current'] ?? null, 'facts' => $suggestion->evidence ?? []] + $extra,
-        ])->save();
+        app(OutcomeTracker::class)->apply($suggestion, $user, ['facts' => $suggestion->evidence ?? []] + $extra);
     }
 
     /**

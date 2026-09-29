@@ -26,8 +26,6 @@ final class MetaSuggestions
 
     public const array GROUP_LABELS = ['check' => 'Sistem kontrolü', 'creative' => 'Kreatif', 'structure' => 'Kampanya yapısı', 'landing' => 'Form / açılış sayfası'];
 
-    public function __construct(private readonly MetaScreen $screen) {}
-
     /**
      * Upserts one group's items and moves the group's open, unlocked rows that were not proposed again to `recheck`.
      *
@@ -115,19 +113,10 @@ final class MetaSuggestions
         $suggestion->forceFill(['status' => Suggestion::APPROVED, 'resolved_by' => $user?->id])->save();
     }
 
-    /** The operator applied it in Ads Manager: status applied, applied_at and the baseline (28-day account numbers). */
+    /** The operator applied it in Ads Manager: status applied with the outcome baseline (28-day account numbers). */
     public function markApplied(DigitalAsset $asset, Suggestion $suggestion, ?User $user): void
     {
         app(AnalystDecisionStore::class)->markDone($suggestion, $user);
-        $account = $this->screen->account($asset);
-        if ($account === null) {
-            return;
-        }
-        $w = $this->screen->window($account, 28);
-        $totals = MetaScreen::totals($this->screen->adPerformance($account, $w['from'], $w['to']));
-        $suggestion->forceFill(['baseline' => array_merge((array) $suggestion->baseline, ['metric' => [
-            'window' => $w['from'].'..'.$w['to'], 'spend' => $totals['spend'], 'results' => $totals['results'], 'cpr' => $totals['cpr'], 'ctr' => $totals['ctr'],
-        ]])])->save();
     }
 
     /** Operator edit of an item's text: stored and locked (AI never overwrites it). */

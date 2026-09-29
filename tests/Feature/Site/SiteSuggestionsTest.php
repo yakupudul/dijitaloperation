@@ -191,8 +191,9 @@ final class SiteSuggestionsTest extends SiteTestCase
         $fresh = $suggestion->fresh();
         $this->assertSame(Suggestion::APPLIED, $fresh->status);
         $this->assertNotNull($fresh->applied_at);
-        $this->assertSame(20, $fresh->baseline['clicks_28d']);
-        $this->assertSame(200, $fresh->baseline['impressions_28d']);
+        $this->assertSame(20, $fresh->baseline['clicks']);
+        $this->assertSame(200, $fresh->baseline['impressions']);
+        $this->assertSame($this->implantPage->url, $fresh->baseline['scope']['url']);
         $this->assertSame('onaylandı', BrandMemory::query()->where('kind', 'decision')->sole()->data['decision']);
     }
 

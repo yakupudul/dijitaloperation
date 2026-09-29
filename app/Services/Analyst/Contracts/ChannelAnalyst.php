@@ -51,7 +51,4 @@ interface ChannelAnalyst
 
     /** Run a `run` action (queue an article, prepare a page update, …). Returns the Turkish result line. */
     public function perform(Suggestion $decision, User $user): string;
-
-    /** Headline number stored as baseline when a decision is marked done (outcome follow-up). */
-    public function baseline(Suggestion $decision): array;
 }
