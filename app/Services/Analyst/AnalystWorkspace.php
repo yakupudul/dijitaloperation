@@ -20,7 +20,8 @@ final class AnalystWorkspace
     /** Evidence key => column label (Kanıt tables). Unknown keys are left out. */
     public const array EVIDENCE_COLUMNS = [
         'text' => 'Sorgu', 'label' => 'Konu', 'name' => 'Ad', 'title' => 'Başlık', 'rule' => 'Kural', 'path' => 'URL', 'owner' => 'Sayfa',
-        'service' => 'Hizmet', 'area' => 'Bölge', 'verdict' => 'Karar', 'status' => 'Durum', 'display' => 'Değer',
+        'service' => 'Hizmet', 'area' => 'Bölge', 'verdict' => 'Karar', 'status' => 'Durum', 'display' => 'Değer', 'issue' => 'Sorun',
+        'cost' => 'Harcama', 'conversions' => 'Dönüşüm', 'cpa' => 'CPA',
         'impressions' => 'Gösterim', 'clicks' => 'Tık', 'position' => 'Sıra', 'owner_position' => 'Sıra', 'key_events' => 'Dönüşüm',
         'urls' => 'URL', 'queries' => 'Sorgu', 'extra_clicks' => '+Tık', 'note' => 'Not',
     ];

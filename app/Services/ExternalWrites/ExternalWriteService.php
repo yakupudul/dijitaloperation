@@ -5,6 +5,7 @@ namespace App\Services\ExternalWrites;
 use App\Enums\AdvisorItemStatus;
 use App\Jobs\ExecuteExternalWriteJob;
 use App\Models\AdvisorItem;
+use App\Models\AnalystDecision;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
@@ -68,6 +69,39 @@ final class ExternalWriteService
             'advisor_item_id' => $item->id,
             'status' => 'queued',
             'request_payload' => ['keywords' => $parsed['keywords'], 'rejected' => $parsed['rejected'], 'shared_set_name' => config('moxdop-external-writes.google_ads.shared_set_name')],
+            'requested_by' => $user->id,
+        ]));
+    }
+
+    /**
+     * The same ADR-064 write from a brand workspace "add_negatives" card: the Admin reviewed (and may have edited) the
+     * list of the card's Google Ads account. Same writer, same shared list, same undo.
+     */
+    public function requestNegativeListForDecision(User $user, AnalystDecision $decision, DigitalAsset $asset, string $lines): ExternalWriteAction
+    {
+        $this->guard($user, ExternalWriteAction::CHANNEL_GOOGLE_ADS);
+        if ($decision->channel !== 'google_ads' || $decision->action_type !== 'add_negatives' || ! in_array($decision->status, [AnalystDecision::OPEN, AnalystDecision::SNOOZED], true)
+            || $asset->type !== 'google_ads' || (int) $asset->brand_id !== (int) $decision->brand_id) {
+            throw ValidationException::withMessages(['write' => 'Bu kart Google Ads\'e gönderilemez.']);
+        }
+        $parsed = GoogleAdsNegativeListWriter::parse($lines);
+        if ($parsed['keywords'] === []) {
+            throw ValidationException::withMessages(['write' => 'Gönderilecek geçerli terim yok.']);
+        }
+        $running = ExternalWriteAction::query()->where('digital_asset_id', $asset->id)->where('action', ExternalWriteAction::ACTION_NEGATIVE_LIST_ADD)
+            ->whereIn('status', ['queued', 'running', 'undoing'])->exists();
+        if ($running) {
+            throw ValidationException::withMessages(['write' => 'Bu hesap için bir negatif gönderimi zaten sürüyor.']);
+        }
+
+        return $this->queue(ExternalWriteAction::query()->create([
+            'channel' => ExternalWriteAction::CHANNEL_GOOGLE_ADS,
+            'action' => ExternalWriteAction::ACTION_NEGATIVE_LIST_ADD,
+            'digital_asset_id' => $asset->id,
+            'brand_id' => $decision->brand_id,
+            'status' => 'queued',
+            'request_payload' => ['keywords' => $parsed['keywords'], 'rejected' => $parsed['rejected'], 'shared_set_name' => config('moxdop-external-writes.google_ads.shared_set_name'),
+                'analyst_decision_id' => (int) $decision->id],
             'requested_by' => $user->id,
         ]));
     }
