@@ -6,6 +6,7 @@ use App\Jobs\CheckAdBudgetJob;
 use App\Jobs\CheckSitemapChangesJob;
 use App\Jobs\Collection\ExecuteDatasetRunJob;
 use App\Jobs\CollectMetaGeoResultsJob;
+use App\Jobs\Gbp\SyncGbpSuggestionsJob;
 use App\Jobs\Ops\QueueHeartbeatProbeJob;
 use App\Jobs\RefreshBrandCandidatesJob;
 use App\Models\Brand;
@@ -23,6 +24,7 @@ use App\Services\Collection\CollectionErrorRecorder;
 use App\Services\Collection\Monitoring\CollectionAccountPresenter;
 use App\Services\Collection\RecoverInterruptedCollections;
 use App\Services\Collection\StartCollectionService;
+use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Integrations\Google\GoogleBusinessProfileRetentionService;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Integrations\WordPress\WordPressEventReconciliation;
@@ -615,3 +617,26 @@ Schedule::command('moxdop:brand-candidates')
     ->dailyAt('06:47')
     ->withoutOverlapping(60)
     ->name('brand-candidates');
+
+// Faz 7: İşletme Profili — onaylı zamanlanmış gönderiler zamanı gelince Google'a gider (ADR-073).
+Artisan::command('moxdop:gbp:publish-scheduled', function (): void {
+    $this->info('Gönderilen: '.app(ExternalWriteService::class)->releaseScheduled());
+})->purpose('Send the Admin-approved scheduled Business Profile posts whose time has come.');
+
+Schedule::command('moxdop:gbp:publish-scheduled')
+    ->everyMinute()
+    ->withoutOverlapping(5)
+    ->name('gbp-publish-scheduled');
+
+// Faz 7: İşletme Profili sistem kontrolleri (profil standartları → öneriler; AI yok), operasyonel markalar.
+Artisan::command('moxdop:gbp:suggestions', function (): void {
+    $ids = DigitalAsset::query()->operational()->whereIn('type', ['google_business_profile', 'gbp'])->pluck('digital_assets.id');
+    $ids->each(fn ($id) => SyncGbpSuggestionsJob::dispatch((int) $id));
+    $this->info('Kuyruğa alınan profil: '.$ids->count());
+})->purpose('Refresh the Business Profile system-check suggestions (failing profile standards) of operational brands.');
+
+Schedule::command('moxdop:gbp:suggestions')
+    ->dailyAt('06:52')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(30)
+    ->name('gbp-suggestions-daily');

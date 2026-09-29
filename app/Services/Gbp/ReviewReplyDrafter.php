@@ -70,6 +70,10 @@ final class ReviewReplyDrafter
             if ($reply === '') {
                 throw new \RuntimeException('AI boş yanıt döndürdü.');
             }
+            $blocking = GbpAssistant::blockingHits($brand, $reply);
+            if ($blocking !== []) {
+                throw new \RuntimeException('Yanıt sektör uyum kuralına takıldı: '.implode(', ', $blocking).'. Yeni taslak isteyin.');
+            }
             $this->archive->record(self::KIND, $review, [
                 'reply' => $reply, 'tone' => (string) ($response['tone'] ?? 'neutral'),
                 'provider' => $route->primaryProvider(), 'model' => $route->primaryModel(), 'prompt_version' => ReviewReplyAgent::PROMPT_VERSION,

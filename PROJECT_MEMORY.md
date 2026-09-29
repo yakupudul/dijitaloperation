@@ -1595,6 +1595,18 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 - **DataForSEO** yalnız top-10 SERP (30 gün önbellek) ve arama hacmi (90 gün önbellek); diğer tüm uç noktalar izin
   listesinden çıkarıldı.
 
+## 2026-10-30 — MoxDOP v2 Faz 7 (İşletme Profili)
+
+- **Karar:** İşletme Profili ekranı altı sekme (Genel Bakış · Yapılacaklar · Yorumlar · Gönderiler · Analiz · Ayarlar); tüm
+  öneriler tek `suggestions` tablosunda (kanal `maps`, hedef `gbp` × varlık). Sistem kontrolleri = mevcut profil
+  standartları (en çok 10, AI yok); AI yalnız operasyonel markada ve operatör tıklamasıyla, kuyrukta.
+- **Karar:** Google'a yazma yalnız ADR-073 (yorum yanıtı, gönderi), Admin onaylı, kayıtlı, geri alınabilir. Kategori, hizmet
+  listesi ve açıklama API ile yazılmaz: öneri + "Kopyala", operatör Google'da uygular. Zamanlanmış gönderi MoxDOP'ta
+  bekler (Admin onayı zamanlarken verilir) ve zamanı gelince aynı yazıcıyla gider; zamanlanmış gönderi iptal edilebilir.
+- **Karar:** AI çıktısı gösterilmeden önce veriyle doğrulanır: eksik hizmet adı markanın onaylı hizmetlerinden birebir,
+  kategori notu mevcut kategoriye ait; işletme adına kelime önerisi atılır; açıklama ≤ 750, gönderi ≤ 1500, bağlantı /
+  telefon yok; sektör uyum kapısı (yüksek / orta ihlal) açıklama, gönderi ve yorum yanıtı taslaklarında zorunlu.
+
 ## 2026-10-29 — MoxDOP v2 Faz 8 (Promptlar): tek prompt kaynağı
 
 - **Karar:** her AI işleminin istemi `PromptRegistry`'den gelir; ajan sınıfında sabit talimat metni yazılmaz. İşlem

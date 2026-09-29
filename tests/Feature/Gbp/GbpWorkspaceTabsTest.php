@@ -2,9 +2,7 @@
 
 namespace Tests\Feature\Gbp;
 
-use App\Ai\Agents\GbpPostAgent;
 use App\Livewire\Demo\Gbp\OverviewPage;
-use App\Models\AiProduction;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -14,9 +12,13 @@ use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\Run;
+use App\Models\ServiceCategory;
+use App\Models\Suggestion;
 use App\Models\User;
-use App\Services\Gbp\GbpPostDrafter;
+use App\Services\Gbp\GbpScreen;
+use App\Services\Gbp\GbpSuggestions;
 use App\Support\Roles;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -26,7 +28,10 @@ use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-/** The Business Profile daily workspace: Yorumlar, Gönderiler, Performans, Profil sağlığı, Yorum toplama. */
+/**
+ * Faz 7 İşletme Profili screen: Genel Bakış numbers, Yapılacaklar (standards → suggestions), Yorumlar (reply + undo),
+ * Gönderiler (now / scheduled / cancel, compliance), Analiz, Ayarlar.
+ */
 final class GbpWorkspaceTabsTest extends TestCase
 {
     use RefreshDatabase;
@@ -40,8 +45,6 @@ final class GbpWorkspaceTabsTest extends TestCase
     private CoreExternalResource $resource;
 
     private int $runId;
-
-    private bool $googleRefuses = false;
 
     /** @var list<array{0: string, 1: string, 2: array<string, mixed>}> */
     private array $calls = [];
@@ -77,10 +80,6 @@ final class GbpWorkspaceTabsTest extends TestCase
         Http::fake(function (Request $request) {
             $this->calls[] = [$request->method(), $request->url(), $request->data()];
 
-            if ($this->googleRefuses) {
-                return Http::response(['error' => ['message' => 'Request contains an invalid argument.']], 400);
-            }
-
             return str_contains($request->url(), 'localPosts') && $request->method() === 'POST'
                 ? Http::response(['name' => 'accounts/11/locations/22/localPosts/555', 'searchUrl' => 'https://g.co/post'])
                 : Http::response(['comment' => 'ok']);
@@ -97,13 +96,12 @@ final class GbpWorkspaceTabsTest extends TestCase
         return (int) DB::table('gbp_reviews')->where('review_id', $googleId)->value('id');
     }
 
-    public function test_reviews_tab_lists_unanswered_first_filters_by_rating_and_flags_late_ones(): void
+    public function test_reviews_tab_lists_unanswered_first_filters_unanswered_and_flags_late_ones(): void
     {
         $page = $this->page('reviews')->assertSeeInOrder(['Müşteri r-new', 'Müşteri r-old-bad', 'Müşteri r-replied'])
-            ->assertSee('48 saati geçti')->assertSee('Teşekkürler');
+            ->assertSee('48 saati geçti')->assertSee('Teşekkürler')->assertSee('Yanıt taslağı');
 
-        $page->set('rating', 'low')->assertSee('Müşteri r-old-bad')->assertDontSee('Müşteri r-new')
-            ->set('rating', '')->set('unanswered', true)->assertDontSee('Müşteri r-replied');
+        $page->set('unanswered', true)->assertSee('Müşteri r-old-bad')->assertDontSee('Müşteri r-replied');
     }
 
     public function test_admin_sends_a_reply_to_google_and_can_undo_it(): void
@@ -113,6 +111,7 @@ final class GbpWorkspaceTabsTest extends TestCase
         $this->assertSame(['PUT', 'https://mybusiness.googleapis.com/v4/accounts/11/locations/22/reviews/r-old-bad/reply'], array_slice(end($this->calls), 0, 2));
         $action = ExternalWriteAction::query()->sole();
         $this->assertSame('succeeded', $action->status);
+        $this->assertSame($this->admin->id, (int) $action->requested_by, 'the write is recorded with its approver');
         $page->call('setTab', 'reviews')->assertSee('İşletme yanıtı')->assertSee('sizi arayacağız')->assertSee('Geri al');
 
         $page->call('undoWrite', $action->id);
@@ -123,9 +122,9 @@ final class GbpWorkspaceTabsTest extends TestCase
 
     public function test_team_member_cannot_send_replies_or_publish_posts(): void
     {
-        $this->page('reviews', $this->member)->assertDontSee('Google\'a gönder')
+        $this->page('reviews', $this->member)->assertDontSee('Kendim yazayım')
             ->call('publishReply', $this->reviewId('r-new'), 'Teşekkürler')->assertForbidden();
-        $this->page('posts', $this->member)->call('startPost')->set('post.title', 'Kış bakımı')->call('publishPost')->assertForbidden();
+        $this->page('posts', $this->member)->call('startPost')->set('post.body', 'Kış bakımı')->call('publishPost')->assertForbidden();
         $this->assertSame(0, ExternalWriteAction::query()->count());
         Http::assertNothingSent();
     }
@@ -139,43 +138,149 @@ final class GbpWorkspaceTabsTest extends TestCase
         $this->page('posts')->assertSee('Yaz kampanyası başladı')->assertSee('Google’da yayında')->assertSee('Son gönderi 23 gün önce; haftada 1 önerilir.');
     }
 
-    public function test_ai_post_draft_uses_the_brand_context_and_fills_the_form(): void
+    public function test_post_published_now_goes_to_google_and_can_be_undone(): void
     {
-        config(['moxdop.anthropic.api_key' => 'sk-ant-test']);
-        CoreIntegration::factory()->anthropic()->create();
-        GbpPostAgent::fake([['title' => 'Kışa hazır gülüşler', 'body' => 'Soğuk havalarda diş hassasiyeti artar. Çankaya kliniğimizde kontrol randevunuzu alın.', 'action_type' => 'BOOK', 'service' => 'Diş kontrolü']]);
+        $page = $this->page('posts')->call('startPost')->set('post.body', 'Kış aylarında diş hassasiyeti artabilir; kontrol için randevu alın.')
+            ->set('post.url', 'https://atlas.test/hassasiyet/')->set('post.action_type', 'BOOK')->call('publishPost')->assertHasNoErrors();
 
-        $page = $this->page('posts')->set('postTopic', 'diş hassasiyeti')->call('draftPostWithAi')->assertSee('Kışa hazır gülüşler');
-        $draft = AiProduction::query()->where('kind', GbpPostDrafter::KIND)->sole();
-        GbpPostAgent::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, 'diş hassasiyeti') && str_contains((string) $prompt->prompt, 'Diş kliniği'));
+        $action = ExternalWriteAction::query()->sole();
+        $this->assertSame('succeeded', $action->status);
+        [$method, $url, $body] = end($this->calls);
+        $this->assertSame(['POST', 'https://mybusiness.googleapis.com/v4/accounts/11/locations/22/localPosts'], [$method, $url]);
+        $this->assertSame(['actionType' => 'BOOK', 'url' => 'https://atlas.test/hassasiyet/'], $body['callToAction']);
+        $page->call('setTab', 'posts')->assertSee('Yayınlandı')->assertSee('Geri al');
 
-        $page->call('useAiDraft', $draft->id)->assertSet('editingPostId', 0)->assertSet('post.title', 'Kışa hazır gülüşler')->assertSet('post.action_type', 'BOOK');
-        $this->assertSame(AiProduction::STATUS_USED, $draft->fresh()->status);
-        Http::assertNothingSent();
+        $page->call('undoWrite', $action->id);
+        $this->assertSame('undone', $action->fresh()->status);
     }
 
-    public function test_profile_health_is_a_read_only_checklist_with_a_link_to_google(): void
+    public function test_scheduled_post_waits_is_sent_when_due_and_can_be_cancelled(): void
     {
-        // Profile health is the Business Profile standards: upcoming Cumhuriyet Bayramı without special hours.
+        $this->travelTo(CarbonImmutable::parse('2026-10-01 09:00', 'Europe/Istanbul'));
+        CoreIntegrationCredential::query()->whereNotNull('expires_at')->update(['expires_at' => now()->addYear()]);
+        $page = $this->page('posts')->call('startPost')->set('post.body', 'Hafta sonu da açığız; randevunuzu önceden planlayın.')
+            ->set('post.when', 'later')->set('post.publish_at', '2026-10-03T10:30')->call('publishPost')->assertHasNoErrors();
+
+        $action = ExternalWriteAction::query()->sole();
+        $this->assertSame('scheduled', $action->status);
+        $this->assertSame('2026-10-03T07:30:00+00:00', $action->request_payload['publish_at']);
+        Http::assertNothingSent();
+        $page->call('setTab', 'posts')->assertSee('Zamanlandı')->assertSee('03.10.2026 10:30')->assertSee('İptal et');
+
+        $this->artisan('moxdop:gbp:publish-scheduled')->assertSuccessful();
+        $this->assertSame('scheduled', $action->fresh()->status, 'not due yet');
+
+        $this->travelTo(CarbonImmutable::parse('2026-10-03 10:31', 'Europe/Istanbul'));
+        $this->artisan('moxdop:gbp:publish-scheduled')->assertSuccessful();
+        $this->assertSame('succeeded', $action->fresh()->status);
+        $this->assertSame('POST', end($this->calls)[0]);
+
+        $second = $this->page('posts')->call('startPost')->set('post.body', 'Bayramda kapalıyız; acil durumlar için bizi arayın.')
+            ->set('post.when', 'later')->set('post.publish_at', '2026-10-10T09:00')->call('publishPost');
+        $scheduled = ExternalWriteAction::query()->where('status', 'scheduled')->sole();
+        $second->call('cancelScheduled', $scheduled->id);
+        $this->assertSame('cancelled', $scheduled->fresh()->status);
+        $this->travelTo(CarbonImmutable::parse('2026-10-11 09:00', 'Europe/Istanbul'));
+        $this->artisan('moxdop:gbp:publish-scheduled')->assertSuccessful();
+        $this->assertSame('cancelled', $scheduled->fresh()->status);
+    }
+
+    public function test_post_text_breaking_sector_compliance_is_not_published(): void
+    {
+        $this->dentalSector();
+        $this->page('posts')->call('startPost')->set('post.body', 'Ağrısız implant tedavisinde garantili sonuç.')->call('publishPost')
+            ->assertHasErrors('post.body');
+        $this->assertSame(0, ExternalWriteAction::query()->count());
+    }
+
+    public function test_failing_profile_standards_become_suggestions_with_approve_reject_snooze(): void
+    {
+        // Upcoming Cumhuriyet Bayramı without special hours; two opening days only.
         $this->travelTo(now()->setDate(2026, 10, 10));
-        $this->page('profile')->assertSee('Profil sağlığı')->assertSee('Çalışma ve özel gün saatleri')->assertSee('Cumhuriyet Bayramı')
-            ->assertSee('Yapılacak: Saatler bölümünden')->assertSee('https://business.google.com/locations')->assertSee('2/7 gün')
-            ->assertSee('Birincil kategori');
+        $page = $this->page('todo');
+
+        $rows = Suggestion::query()->where('target_type', 'gbp')->where('target_id', $this->asset->id)->get();
+        $this->assertGreaterThanOrEqual(2, $rows->count());
+        $this->assertLessThanOrEqual(GbpSuggestions::MAX_STANDARDS, $rows->count());
+        $this->assertTrue($rows->every(fn (Suggestion $s): bool => $s->channel === 'maps' && $s->action_type === 'gbp_standard' && $s->brand_id === $this->asset->brand_id));
+        $hours = $rows->firstWhere('decision_key', 'gbp:'.$this->asset->id.':standard:gbp:hours');
+        $this->assertNotNull($hours);
+        $page->assertSee('Çalışma ve özel gün saatleri')->assertSee('Cumhuriyet Bayramı')->assertSee('Onayla')->assertSee('Reddet')->assertSee('Ertele');
+
+        $page->call('approveSuggestion', $hours->id);
+        $this->assertSame(Suggestion::APPLIED, $hours->fresh()->status);
+        $this->assertNotNull($hours->fresh()->baseline);
+        $other = $rows->where('id', '!=', $hours->id)->values();
+        $page->call('snoozeSuggestion', $other[0]->id);
+        $this->assertSame(Suggestion::SNOOZED, $other[0]->fresh()->status);
+        $page->call('dismissSuggestion', $other[0]->id);
+        $this->assertSame(Suggestion::DISMISSED, $other[0]->fresh()->status);
+        $page->call('setTab', 'todo')->assertDontSee('Çalışma ve özel gün saatleri');
+
+        // A re-check keeps closed ones closed (same action) and does not duplicate rows.
+        app(GbpSuggestions::class)->syncStandards($this->asset->fresh());
+        $this->assertSame(Suggestion::APPLIED, $hours->fresh()->status);
+        $this->assertSame($rows->count(), Suggestion::query()->where('target_id', $this->asset->id)->count());
         Http::assertNothingSent();
     }
 
-    public function test_review_collection_tab_gives_the_write_review_link_and_a_qr_code(): void
+    public function test_overview_shows_the_five_numbers_from_collected_data(): void
     {
-        $this->page('collect')->assertSee('https://search.google.com/local/writereview?placeid=ChIJ-atlas')->assertSee('<svg', false)->assertSee('Kopyala');
-    }
-
-    public function test_performance_tab_compares_periods(): void
-    {
-        foreach (range(1, 60) as $day) {
-            DB::table('gbp_performance_daily')->insert(['external_resource_id' => $this->resource->id, 'run_id' => $this->runId, 'location_name' => 'locations/22',
-                'reporting_date' => now()->subDays($day)->toDateString(), 'metric' => 'CALL_CLICKS', 'value' => $day <= 28 ? 3 : 1, 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        foreach (range(0, 55) as $day) {
+            $date = CarbonImmutable::parse('2026-09-20')->subDays($day)->toDateString();
+            foreach ([['BUSINESS_IMPRESSIONS_MOBILE_MAPS', $day < 28 ? 30 : 20], ['BUSINESS_IMPRESSIONS_DESKTOP_SEARCH', $day < 28 ? 10 : 20], ['CALL_CLICKS', 2], ['BUSINESS_DIRECTION_REQUESTS', 1], ['WEBSITE_CLICKS', 3]] as [$metric, $value]) {
+                DB::table('gbp_performance_daily')->insert(['external_resource_id' => $this->resource->id, 'digital_asset_id' => $this->asset->id, 'run_id' => $this->runId, 'location_name' => 'locations/22',
+                    'reporting_date' => $date, 'metric' => $metric, 'value' => $value, 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+            }
         }
 
-        $this->page('performance')->assertSee(__('operator_gbp.metrics.calls'))->assertSee('+200%');
+        $numbers = app(GbpScreen::class)->overview($this->asset, $this->resource->id);
+        $this->assertSame(['current' => 1120, 'previous' => 1120, 'change_pct' => 0], $numbers['views']);
+        $this->assertSame(['calls' => 56, 'directions' => 28, 'website_clicks' => 84], $numbers['actions']);
+        $this->assertSame(2, $numbers['unanswered']);
+        $this->assertSame(3, $numbers['review_count']);
+        $this->assertSame(3.3, $numbers['rating']);
+        $this->assertNotNull($numbers['standards']);
+        $this->assertLessThanOrEqual($numbers['standards']['total'], $numbers['standards']['passed']);
+
+        $this->page('overview')->assertSeeInOrder(['1.120', '0% önceki 28 güne göre', '168', 'Arama 56 · Yol 28 · Web 84', '3,3', '3 yorum', 'Yanıtsız yorum', '2', 'Profil standartları',
+            $numbers['standards']['passed'].' / '.$numbers['standards']['total']]);
+    }
+
+    public function test_analysis_tab_shows_daily_split_top_twenty_keywords_and_review_trend(): void
+    {
+        foreach (range(0, 9) as $day) {
+            DB::table('gbp_performance_daily')->insert(['external_resource_id' => $this->resource->id, 'digital_asset_id' => $this->asset->id, 'run_id' => $this->runId, 'location_name' => 'locations/22',
+                'reporting_date' => now()->subDays($day + 1)->toDateString(), 'metric' => 'BUSINESS_IMPRESSIONS_MOBILE_SEARCH', 'value' => 7, 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        }
+        foreach (range(1, 25) as $i) {
+            foreach (['2026-07-01', '2026-08-01'] as $month) {
+                DB::table('gbp_search_keywords_monthly')->insert(['external_resource_id' => $this->resource->id, 'digital_asset_id' => $this->asset->id, 'run_id' => $this->runId, 'location_name' => 'locations/22',
+                    'month_start' => $month, 'search_keyword' => 'ifade '.$i, 'search_keyword_hash' => hash('sha256', $month.$i), 'impressions' => $i === 25 ? null : 100 + $i, 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+            }
+        }
+
+        $analysis = app(GbpScreen::class)->analysis($this->resource->id, 28);
+        $this->assertCount(10, $analysis['daily']);
+        $this->assertSame(70, $analysis['totals']['search_views']);
+        $this->assertSame(['2026-07', '2026-08'], $analysis['keywords']['months']);
+        $this->assertCount(20, $analysis['keywords']['rows']);
+        $this->assertSame('ifade 24', $analysis['keywords']['rows'][0]['keyword']);
+        $this->assertSame(3, array_sum(array_column($analysis['reviews'], 'count')));
+
+        $this->page('analysis')->assertSee('Günlük performans')->assertSee('Arama görüntüleme')->assertSee('ifade 24')->assertDontSee('ifade 25')->assertSee('Yorum trendi');
+    }
+
+    public function test_settings_tab_is_read_only_brand_and_location_info(): void
+    {
+        $this->page('settings')->assertSee('Atlas')->assertSee('Diş kliniği')->assertSee('0312 000 00 00')->assertSee('https://atlas.test')
+            ->assertSee('Kısa açıklama')->assertSee('Google’da düzenle');
+        Http::assertNothingSent();
+    }
+
+    private function dentalSector(): void
+    {
+        $dental = ServiceCategory::query()->firstOrCreate(['code' => 'dental'], ['name' => 'Diş sağlığı', 'normalized_key' => 'dis sagligi']);
+        $this->asset->brand->forceFill(['sector_id' => $dental->id])->save();
     }
 }

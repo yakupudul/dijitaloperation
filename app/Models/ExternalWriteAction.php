@@ -68,6 +68,8 @@ class ExternalWriteAction extends Model
     public function statusLabel(): string
     {
         return match ($this->status) {
+            'scheduled' => 'Zamanlandı',
+            'cancelled' => 'İptal edildi',
             'queued' => 'Kuyrukta',
             'running' => 'Gönderiliyor',
             'succeeded' => 'Uygulandı',

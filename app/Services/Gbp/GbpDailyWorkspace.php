@@ -160,15 +160,19 @@ final class GbpDailyWorkspace
             ->where('created_at', '>=', now()->subDays(120))->orderByDesc('id')->limit(60)->get();
         $items = $actions->map(function (ExternalWriteAction $action): array {
             $summary = (string) data_get($action->request_payload, 'summary', '');
+            $publishAt = data_get($action->request_payload, 'publish_at');
+            $scheduledFor = is_string($publishAt) ? CarbonImmutable::parse($publishAt)->timezone('Europe/Istanbul') : null;
 
             return [
                 'kind' => 'moxdop', 'id' => (int) $action->id, 'title' => mb_strimwidth(trim(strtok($summary, "\n") ?: $summary), 0, 80, '…'), 'body' => $summary,
                 'url' => data_get($action->request_payload, 'url'), 'action_type' => data_get($action->request_payload, 'action_type'), 'status' => (string) $action->status,
                 'status_label' => match ((string) $action->status) {
-                    'succeeded' => 'Yayınlandı', 'queued', 'running' => 'Gönderiliyor', 'failed' => 'Yayınlanamadı', 'undone' => 'Geri alındı', 'undoing' => 'Geri alınıyor', default => (string) $action->status,
+                    'succeeded' => 'Yayınlandı', 'queued', 'running' => 'Gönderiliyor', 'failed' => 'Yayınlanamadı', 'undone' => 'Geri alındı', 'undoing' => 'Geri alınıyor',
+                    'scheduled' => 'Zamanlandı', 'cancelled' => 'İptal edildi', default => (string) $action->status,
                 },
-                'when' => ($action->finished_at ?? $action->created_at)?->timezone('Europe/Istanbul')->format('d.m.Y H:i'),
-                'sort' => ($action->finished_at ?? $action->created_at)?->timestamp ?? 0,
+                'when' => $action->status === 'scheduled' && $scheduledFor !== null ? $scheduledFor->format('d.m.Y H:i') : ($action->finished_at ?? $action->created_at)?->timezone('Europe/Istanbul')->format('d.m.Y H:i'),
+                'sort' => $action->status === 'scheduled' && $scheduledFor !== null ? $scheduledFor->timestamp : (($action->finished_at ?? $action->created_at)?->timestamp ?? 0),
+                'scheduled' => $action->status === 'scheduled',
                 'error' => $action->status === 'failed' ? $action->error : null,
                 'action_id' => $action->id, 'action_status' => $action->status,
                 'undoable' => $action->isUndoable(), 'editable' => false,
@@ -190,7 +194,7 @@ final class GbpDailyWorkspace
                     'LIVE', '' => 'Google’da yayında', 'PROCESSING' => 'Google işliyor', 'REJECTED' => 'Google reddetti', default => (string) $post->state,
                 },
                 'when' => $created?->timezone('Europe/Istanbul')->format('d.m.Y H:i'), 'sort' => $created?->timestamp ?? 0,
-                'error' => null, 'action_id' => null, 'action_status' => null, 'undoable' => false, 'editable' => false,
+                'error' => null, 'action_id' => null, 'action_status' => null, 'undoable' => false, 'editable' => false, 'scheduled' => false,
             ]);
         }
 
