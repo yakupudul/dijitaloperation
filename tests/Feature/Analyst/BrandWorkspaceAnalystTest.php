@@ -27,6 +27,7 @@ use App\Models\WebsiteUrlVerdict;
 use App\Services\Analyst\AnalystDecisionStore;
 use App\Services\Analyst\AnalystEngine;
 use App\Services\Analyst\AnalystPack;
+use App\Services\Analyst\AnalystRegistry;
 use App\Services\Analyst\Search\SearchAnalyst;
 use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\SearchDemand\ServiceCatalogService;
@@ -299,14 +300,17 @@ final class BrandWorkspaceAnalystTest extends TestCase
         $events = collect(app(Schedule::class)->events())->map(fn ($event): string => (string) $event->command);
         $this->assertTrue($events->contains(fn (string $c): bool => str_contains($c, 'moxdop:analyst:weekly')));
         $this->assertTrue(app(AiRouteRegistry::class)->has(AiRouteKeys::ANALYST_SEARCH));
-        $this->assertFalse(app(AiRouteRegistry::class)->has(AiRouteKeys::ANALYST_MAPS), 'reserved until the maps analyst exists');
+        $live = app(AnalystRegistry::class)->liveChannels();
+        foreach (['maps' => AiRouteKeys::ANALYST_MAPS, 'google_ads' => AiRouteKeys::ANALYST_GOOGLE_ADS, 'meta' => AiRouteKeys::ANALYST_META] as $channel => $route) {
+            $this->assertSame(in_array($channel, $live, true), app(AiRouteRegistry::class)->has($route), 'route registered only when the analyst exists: '.$channel);
+        }
 
         $passive = Brand::factory()->create(['customer_id' => Customer::factory()->create(['status' => CustomerStatus::Inactive])->id, 'name' => 'Pasif Klinik']);
         Queue::fake();
         $result = app(AnalystEngine::class)->queueWeekly();
 
-        $this->assertSame(['queued' => 1, 'channels' => ['search']], $result, 'only the operational brand, only live channels');
-        $this->assertSame([$this->brand->id], AnalystRun::query()->pluck('brand_id')->all());
+        $this->assertSame(['queued' => count($live), 'channels' => $live], $result, 'only the operational brand, only live channels');
+        $this->assertSame([$this->brand->id], AnalystRun::query()->distinct()->pluck('brand_id')->all());
         $this->assertSame('weekly', AnalystRun::query()->value('trigger'));
         try {
             app(AnalystEngine::class)->queue($passive, 'search', $this->admin);
