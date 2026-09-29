@@ -40,6 +40,15 @@ final class AiRouteKeys
 
     public const string GOOGLE_ADS_AD_COPY_DRAFT = 'google_ads.ad_copy_draft';
 
+    /** Faz 5: search terms → intent / service fit per term + negatives (match type, scope, useful queries it could block). */
+    public const string GOOGLE_ADS_SEARCH_TERMS = 'google_ads.search_terms';
+
+    /** Faz 5: campaign / ad group structure and budget split by the main services + experiment plan. */
+    public const string GOOGLE_ADS_STRUCTURE = 'google_ads.structure';
+
+    /** Faz 5: one responsive search ad (headlines ≤ 30, descriptions ≤ 90) + landing page for one ad group. */
+    public const string GOOGLE_ADS_AD_TEXTS = 'google_ads.ad_texts';
+
     public const string META_ADS_CREATIVE_DRAFT = 'meta_ads.creative_draft';
 
     public const string GBP_PROFILE_DRAFT = 'gbp.profile_draft';
@@ -61,13 +70,9 @@ final class AiRouteKeys
 
     public const string INSIGHT_ADVISOR_EXPLAIN = 'insights.advisor_explain';
 
-    public const string INSIGHT_SEARCH_TERM_TRIAGE = 'insights.search_term_triage';
-
     public const string INSIGHT_REVIEW_THEMES = 'insights.review_themes';
 
     public const string INSIGHT_ALERT_CAUSE = 'insights.alert_cause';
-
-    public const string INSIGHT_LANDING_FIT = 'insights.landing_fit';
 
     public const string INSIGHT_CUSTOMER_BRIEF = 'insights.customer_brief';
 

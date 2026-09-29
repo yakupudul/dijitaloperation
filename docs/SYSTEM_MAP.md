@@ -4,7 +4,7 @@
 
 ## Akış
 
-1. **Bağlantılar** (Google, Meta, DataForSEO, WordPress Connector, WhatsApp) hesapları keşfeder; her gün 05:10 otomatik keşif çalışır.
+1. **Bağlantılar** (Google, Meta, DataForSEO, WordPress Connector) hesapları keşfeder; her gün 05:10 otomatik keşif çalışır.
 2. Hesaplar **dijital varlıklara** bağlanır; bağlı varlıklar için **merkezi toplama** (`collection` kuyruğu) veriyi çeker.
 3. **Danışman, SEO görevleri, Hizmet Beyni, uyum denetimi, uyarılar** veriden iş üretir.
 4. Her iş **Komuta merkezine** düşer; operatör orada yapar / erteler / kapatır.
@@ -15,42 +15,11 @@
 
 - **Menü**
   - Bugün (`operator.dashboard`)
-  - Markalar (`operator.brands`)
   - Müşteriler (`operator.customers`)
-  - Sorgular (`operator.library.search-queries`) — sekmeler: Hizmetler (`operator.library.services`)
-- **Sistem**
-  - Entegrasyonlar (`operator.integrations`) — sekmeler: Keşfedilen varlıklar (`operator.integrations.discovered`), WordPress siteleri (`operator.integrations.wordpress-sites`), Kopya web siteleri (`operator.integrations.website-duplicates`), Veri merkezi (`operator.data-center`)
-  - Ayarlar (`operator.settings`) — sekmeler: Uyum (`operator.compliance`), Aktivite (`operator.activity`)
-
-## Komuta merkezi kaynakları
-
-- `alert` — Uyarı
-- `advisor` — Danışman
-- `seo` — SEO
-- `site_fix` — Site düzeltmesi
-- `brain` — Beyin önerisi
-- `compliance` — Uyum
-- `lead` — Lead
-- `system` — Sistem
-- `approval` — Onay bekliyor
-- `coverage` — Kurulum eksiği
-- `calendar` — İçerik takvimi
-- `client_approval` — Müşteri onayı
-- `followup` — Takip
-- `invoice` — Tahsilat
-- `commitment` — Taahhüt
-- `task` — Görev
-- `live` — Canlı doğrulama
-- `data` — Veri şüpheli
-- `lead_outcome` — Lead sonucu
-- `gbp` — İşletme Profili
-- `CoverageSource` (ek kaynak)
-- `CalendarSource` (ek kaynak)
-- `AgencySource` (ek kaynak)
-- `TaskSource` (ek kaynak)
-- `VerificationSource` (ek kaynak)
-- `LeadOutcomeSource` (ek kaynak)
-- `GbpSource` (ek kaynak)
+  - Markalar (`operator.brands`)
+  - Sorgular (`operator.library.queries`)
+  - Entegrasyonlar (`operator.integrations`) — sekmeler: Keşfedilen varlıklar (`operator.integrations.discovered`), WordPress siteleri (`operator.integrations.wordpress-sites`), Veri merkezi (`operator.data-center`)
+  - Ayarlar (`operator.settings`) — sekmeler: AI işlemleri ve promptlar (`operator.settings.ai-operations`), Standartlar (`operator.library.website-standards`), Sektör ve hizmet kataloğu (`operator.library.services`), Kullanıcılar (`operator.settings.users`), Sistem (`operator.settings.system-health`)
 
 ## Onaylı dış yazmalar
 
@@ -62,8 +31,8 @@ Google Ads kampanya / bütçe / durum değişikliği **yoktur**; öneriler Googl
 
 ## Kuyruklar
 
-- `default` — hızlı işler (WhatsApp, bildirim, dış yazmalar, uptime).
-- `heavy` — uzun AI / analiz işleri (danışman, SEO planı, Beyin, SERP, silme); yalnız redis kuyruğunda ayrılır.
+- `default` — hızlı işler (bildirim, dış yazmalar, uptime).
+- `heavy` — uzun AI / analiz işleri; yalnız redis kuyruğunda ayrılır.
 - `collection` — merkezi veri toplama.
 
 ## Zamanlanmış işler
@@ -73,55 +42,34 @@ Google Ads kampanya / bütçe / durum değişikliği **yoktur**; öneriler Googl
 | `*/5 * * * * (UTC)` | `async:mark-stale-runs` |
 | `*/5 * * * * (UTC)` | `horizon:snapshot` |
 | `23 */2 * * * (UTC)` | `moxdop:ads:budget-watch` |
-| `0 8 * * 1 (UTC)` | `moxdop:advisor:digest` |
-| `30 7 * * 1 (UTC)` | `moxdop:advisor:measure` |
-| `0 7 * * 1 (UTC)` | `moxdop:advisor:plan` |
 | `30 6 * * * (UTC)` | `moxdop:alerts:scan` |
 | `40 7 * * 1 (Europe/Istanbul)` | `moxdop:analyst:weekly` |
 | `30 3 * * * (UTC)` | `moxdop:backup` |
-| `20 6 * * 1 (UTC)` | `moxdop:brain:refresh` |
+| `47 6 * * * (UTC)` | `moxdop:brand-candidates` |
 | `35 3 * * * (UTC)` | `moxdop:collection:activity-refresh` |
 | `* * * * * (UTC)` | `moxdop:collection:redispatch-stale` |
 | `45 6 * * * (UTC)` | `moxdop:compliance:scan` |
-| `*/10 * * * * (UTC)` | `moxdop:content:publish-due` |
-| `10 7 * * * (UTC)` | `moxdop:customers:health` |
 | `10 5 * * * (UTC)` | `moxdop:data-pool-audit` |
-| `10 4 2 * * (UTC)` | `moxdop:retention --apply` |
-| `30 5 * * 1 (UTC)` | `moxdop:demand:build` |
-| `0 6 * * 1 (UTC)` | `moxdop:demand:compare` |
-| `45 5 * * 1 (UTC)` | `moxdop:demand:serp` |
+| `20 3 * * * (UTC)` | `moxdop:db:ensure-partitions` |
 | `*/5 * * * * (UTC)` | `moxdop:dispatch-due-automations` |
+| `* * * * * (UTC)` | `moxdop:gbp:publish-scheduled` |
 | `40 4 * * * (UTC)` | `moxdop:gbp:purge-expired` |
+| `52 6 * * * (Europe/Istanbul)` | `moxdop:gbp:suggestions` |
 | `40 5 * * * (UTC)` | `moxdop:google-ads:record-quality-scores` |
+| `7 7 * * * (Europe/Istanbul)` | `moxdop:google-ads:suggestions` |
 | `10 5 * * * (Europe/Istanbul)` | `moxdop:integrations:discover` |
-| `50 4 * * * (UTC)` | `moxdop:intel:backlinks` |
 | `*/5 * * * * (UTC)` | `moxdop:intel:collect` |
-| `25 5 * * 1 (UTC)` | `moxdop:intel:competitors` |
-| `30 4 * * * (UTC)` | `moxdop:intel:grid` |
-| `5 5 * * * (UTC)` | `moxdop:intel:reviews` |
-| `*/5 * * * * (UTC)` | `moxdop:intent-radar:tick` |
-| `30 7 1 * * (Europe/Istanbul)` | `moxdop:invoices:draft-monthly` |
 | `15 6 * * * (UTC)` | `moxdop:measurement:refresh` |
 | `41 5 * * * (UTC)` | `moxdop:meta:geo-results` |
 | `*/5 * * * * (UTC)` | `moxdop:ops:evaluate-alerts` |
-| `5 5 * * 1 (Europe/Istanbul)` | `moxdop:queries:cluster` |
-| `40 4 * * * (Europe/Istanbul)` | `moxdop:queries:pipeline` |
-| `5 6 * * * (UTC)` | `moxdop:renewals:daily` |
-| `0 7 1 * * (Europe/Istanbul)` | `moxdop:reports:prepare-monthly` |
 | `* * * * * (UTC)` | `moxdop:resources:automate` |
 | `10 5 * * * (UTC)` | `moxdop:resources:retry-stopped` |
-| `40 9 * * * (UTC)` | `moxdop:seo:inspect-changed` |
-| `30 6 * * 1 (UTC)` | `moxdop:seo:plan` |
-| `55 5 * * 1 (UTC)` | `moxdop:topics:build` |
+| `10 4 2 * * (UTC)` | `moxdop:retention` |
 | `25 7 * * * (Europe/Istanbul)` | `moxdop:verify:data` |
 | `20 6 * * * (Europe/Istanbul)` | `moxdop:verify:live` |
 | `17 * * * * (UTC)` | `moxdop:website:sitemap-watch` |
-| `10 7 * * 1 (UTC)` | `moxdop:website:url-verdicts` |
-| `* * * * * (UTC)` | `moxdop:whatsapp:dispatch` |
-| `50 3 * * * (UTC)` | `moxdop:whatsapp:retention` |
 | `20 6 * * * (UTC)` | `moxdop:wordpress:health` |
 | `* * * * * (UTC)` | `moxdop:wordpress:reconcile` |
 | `*/5 * * * * (UTC)` | queue-heartbeat-probe |
 | `* * * * * (UTC)` | reminders-due |
 | `*/5 * * * * (UTC)` | uptime-checks |
-| `0 * * * * (UTC)` | whatsapp-contact-link |

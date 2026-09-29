@@ -26,8 +26,6 @@ final class AiInsightsTest extends TestCase
 
     private DigitalAsset $site;
 
-    private DigitalAsset $ads;
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -36,14 +34,12 @@ final class AiInsightsTest extends TestCase
         CoreIntegration::factory()->anthropic()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
         $this->brand = Brand::factory()->create(['customer_id' => Customer::factory()->create()->id, 'name' => 'Atlas Diş']);
         $this->site = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'website', 'status' => DigitalAssetStatus::Active, 'name' => 'atlas.example']);
-        $this->ads = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'google_ads', 'status' => DigitalAssetStatus::Active, 'name' => 'Atlas Ads']);
     }
 
     public function test_every_insight_builds_its_context_from_local_data(): void
     {
         $alert = $this->alert();
         $subjects = [
-            'google_ads.search_term_triage' => $this->ads, 'google_ads.landing_fit' => $this->ads,
             'alerts.cause' => $alert, 'website.technical_tasks' => $this->site,
             'meta.geo_results' => DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'meta_ads', 'status' => DigitalAssetStatus::Active, 'name' => 'Atlas Meta']),
         ];

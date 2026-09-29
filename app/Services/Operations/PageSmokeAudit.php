@@ -167,7 +167,7 @@ final class PageSmokeAudit
         }
     }
 
-    /** @return list<string> the page's own tabs (public $allowedTabs), without the default first one */
+    /** @return list<string> the page's own tabs (public $allowedTabs, or the keys of a TABS constant), without the default first one */
     private function tabs(Route $route): array
     {
         $class = $route->getAction('livewire_component');
@@ -175,11 +175,12 @@ final class PageSmokeAudit
             return [];
         }
         try {
-            $defaults = (new \ReflectionClass($class))->getDefaultProperties();
+            $reflection = new \ReflectionClass($class);
+            $defaults = $reflection->getDefaultProperties();
         } catch (Throwable) {
             return [];
         }
-        $tabs = $defaults['allowedTabs'] ?? [];
+        $tabs = $defaults['allowedTabs'] ?? (is_array($reflection->getConstant('TABS')) ? array_keys($reflection->getConstant('TABS')) : []);
 
         return is_array($tabs) ? array_values(array_slice(array_filter($tabs, 'is_string'), 1)) : [];
     }

@@ -9,7 +9,6 @@ use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\SettingsPage;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
 use App\Livewire\Operator\Assets\AnalyticsPage;
-use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
@@ -100,18 +99,6 @@ class PhaseEOperatorUxRegressionTest extends TestCase
             ->set('captureType', 'opportunity_hypothesis')
             ->call('save')
             ->assertSet('open', true);
-    }
-
-    #[Test]
-    public function google_ads_create_recommendation_does_not_invent_rows(): void
-    {
-        $asset = $this->createPortfolioAsset('google_ads', 'Northwind Ads');
-
-        Livewire::test(GoogleAdsOverviewPage::class, ['assetId' => (string) $asset->id])
-            ->call('createRecommendation', 'brand query')
-            ->assertHasNoErrors();
-
-        $this->assertSame(0, Recommendation::query()->count());
     }
 
     #[Test]

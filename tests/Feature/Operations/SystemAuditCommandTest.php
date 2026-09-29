@@ -44,7 +44,7 @@ final class SystemAuditCommandTest extends TestCase
         $googleAds = DigitalAsset::query()->where('type', 'google_ads')->value('id');
 
         $this->assertContains('/customers', $urls->all());
-        $this->assertContains('/assets/google-ads/'.$googleAds.'?tab=auction_insights', $urls->all());
+        $this->assertContains('/assets/google-ads/'.$googleAds.'?tab=strategy', $urls->all());
         $this->assertTrue($urls->contains(fn (string $u): bool => str_starts_with($u, '/brands/')));
         $this->assertFalse($urls->contains(fn (string $u): bool => str_contains($u, '/download') || str_contains($u, 'authorize')));
     }

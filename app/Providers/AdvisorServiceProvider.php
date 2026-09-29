@@ -8,7 +8,8 @@ use App\Support\Ai\AiRouteRegistry;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * Registers the Business Profile AI routes (review reply, post draft, Faz 7 services compare, description, post from page). Rule engines run without AI.
+ * Registers the Business Profile AI routes (review reply, Faz 7 services compare, description, post from page) and the
+ * Faz 5 Google Ads AI routes (search terms, structure, ad texts). Rule engines and system checks run without AI.
  */
 final class AdvisorServiceProvider extends ServiceProvider
 {
@@ -45,5 +46,16 @@ final class AdvisorServiceProvider extends ServiceProvider
             'description' => 'İşletme Profili "Siteden paylaş": one post (≤ 1500 characters) from one page of the brand\'s site with a link to that page, sector compliance checked. Publishing needs Admin approval (ADR-073).',
             'default_steps' => AiDefaultSteps::analysis(),
         ]);
+
+        foreach ([
+            [AiRouteKeys::GOOGLE_ADS_SEARCH_TERMS, 'Google Ads Search Terms Review', 'Google Ads "Arama terimlerini incele": intent and service fit per search term, negatives with match type, scope and the useful queries each could block. Shared-list negatives go to Google after Admin approval (ADR-064); the rest to the Editor file.'],
+            [AiRouteKeys::GOOGLE_ADS_STRUCTURE, 'Google Ads Structure & Budget', 'Google Ads "Kampanya yapısı öner": campaign / ad group structure and daily budget split by the main services, plus an experiment plan. Draft + approval → Google Ads Editor file; nothing is written to Google.'],
+            [AiRouteKeys::GOOGLE_ADS_AD_TEXTS, 'Google Ads Ad Texts', 'Google Ads "Reklam metni yaz": one responsive search ad (headlines ≤ 30, descriptions ≤ 90 characters) and its landing page for one ad group, sector compliance checked. Draft + approval → Google Ads Editor file.'],
+        ] as [$key, $name, $description]) {
+            $this->app->make(AiRouteRegistry::class)->register([
+                'key' => $key, 'name' => $name, 'module' => 'google_ads', 'description' => $description,
+                'default_steps' => AiDefaultSteps::analysis(),
+            ]);
+        }
     }
 }
