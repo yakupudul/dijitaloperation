@@ -1517,3 +1517,34 @@ Official quota guidance: https://developers.google.com/my-business/content/limit
 - SEO rule output (seed queries, titles, outlines, checklists) respects the brand's sector pack through the
   existing `ComplianceChecker`; the health pack forbids price emphasis in proposed content (`seo_brief`,
   `ai_draft`). Search queries with such words remain evidence only.
+
+
+## 2026-10-27 — MoxDOP v2 reset (Faz 0: Temizlik)
+
+Operatör onaylı v2 spesifikasyonu (basit, hızlı, doğru; tek sorgu deposu, tek küme deposu, tek öneri tablosu, tek marka
+hafızası) uyarınca eski ürün katmanları koddan kaldırıldı; uygulama tek bir DROP migration'ı ve `moxdop:reset` ile
+sıfırlanır. Kaldırılanlar ve nedenleri:
+
+- **Hizmet Beyni, Arama Talebi, BrandDemand hub, eski sorgu hattı, konu haritası, sorgu kütüphanesi:** üç ayrı sorgu /
+  küme deposu ve onay kuyrukları birbirini çoğaltıyordu; Faz 3 tek katmanlı `query_sources → queries → brand_queries`
+  + `clusters` (sektör + hizmet paylaşımlı) ile yeniden kurulur.
+- **Eski danışman ekranları, SEO Görevleri, site düzeltmeleri, URL karnesi, İçerik Stüdyosu / takvimi, Komuta merkezi,
+  Portföy sağlığı:** hepsi kendi iş öğesi tablosuna yazıyordu (advisor_items, seo_tasks, site_fix_items, inbox_*);
+  v2'de tek `suggestions` tablosu (analyst_decisions'tan yeniden adlandırıldı) ve ekranlar yalnız okur. Kural motorları
+  (Google Ads / Meta / GBP) servis olarak korundu; Faz 5–7 girdileri.
+- **Lead kutusu, Potansiyel müşteriler, niyet radarı, ajans işletmesi, WhatsApp, müşteri sağlık puanı, KVKK takibi,
+  yenilemeler, aylık rapor / rapor v1, harita grid / KML / yorum istihbaratı / rakip izleme / backlink v1 / AI
+  görünürlüğü:** spesifikasyon dışı; "nice to have" katmanı. Rakipler ve Backlinkler Faz 4'te yeniden tasarlanır.
+- **Korunanlar:** Google / Meta / DataForSEO bağlayıcıları + OAuth, toplayıcılar, WordPress eklentisi 1.5.0 ve yazıcıları
+  (taslak, onaylı güncelleme, geri alma, Polylang), GBP gönderi / yanıt yazıcıları, Google Ads negatif liste yazıcısı,
+  standartlar kütüphanesi + değerlendiriciler, sektör uyum paketleri, AI altyapısı (rotalar, bütçe, fiyat, üretim
+  arşivi, analist motoru doğrulaması), sahiplik koruması / devri, `moxdop:diagnose`, yedek + kendini onarma, kuyruk
+  topolojisi, `ConsoleScope`, sektör / hizmet kataloğu (+ eşleştirme ifadeleri), marka kurulum yardımcısı.
+- **Yeni tablo aileleri** (yalnız şema): `pages`, `query_sources`, `queries`, `brand_queries`, `filter_terms`,
+  `clusters`, `cluster_queries`, `brand_cluster_pages`, `suggestions`, `brand_memory`, `prompt_versions`;
+  `brand_service_areas.physical_branch`, `brand_offerings.priority`.
+- **Menü:** Bugün · Müşteriler · Markalar · Sorgular · Entegrasyonlar · Ayarlar (AI işlemleri ve promptlar,
+  Standartlar, Sektör ve hizmet kataloğu, Kullanıcılar, Sistem).
+- **Karar:** kaldırılan modüllerin ADR'leri ve dokümanları tarih olarak kalır; yeni ürün davranışı yalnız v2
+  spesifikasyonundan gelir. `moxdop:reset` deploy öncesi çalışır; migration verisi geri getirmez (down yalnız v2
+  eklerini kaldırır).
