@@ -62,12 +62,22 @@ final class WebsiteStandardCatalog
     {
         $definitions = $this->definitions();
         foreach (DB::table('website_standard_settings')->orderBy('standard_id')->get() as $setting) {
-            if ($setting->custom_definition !== null && str_starts_with($setting->standard_id, 'website:custom:')) {
+            $stored = self::isStoredDefinition((string) $setting->standard_id);
+            if ($setting->custom_definition !== null && $stored) {
                 $definitions[$setting->standard_id] = json_decode($setting->custom_definition, true, 512, JSON_THROW_ON_ERROR);
+                if (str_starts_with((string) $setting->standard_id, self::DECISION_PREFIX)) {
+                    // Faz 4a: a standard proposed from a decision applies only where its scope matches.
+                    $definitions[$setting->standard_id] = array_merge($definitions[$setting->standard_id], [
+                        'scope_type' => $setting->scope_type ?? 'general',
+                        'scope_id' => $setting->scope_id !== null ? (int) $setting->scope_id : null,
+                        'version' => (int) ($setting->version ?? 1),
+                        'created_from_suggestion_id' => $setting->created_from_suggestion_id !== null ? (int) $setting->created_from_suggestion_id : null,
+                    ]);
+                }
             }
             if (isset($definitions[$setting->standard_id])) {
                 $definitions[$setting->standard_id]['enabled'] = (bool) $setting->enabled;
-                if (! str_starts_with($setting->standard_id, 'website:custom:') && $setting->custom_definition !== null) {
+                if (! $stored && $setting->custom_definition !== null) {
                     $overrides = json_decode($setting->custom_definition, true);
                     if (in_array($overrides['severity'] ?? null, ['low', 'medium', 'high'], true)) {
                         $definitions[$setting->standard_id]['severity'] = $overrides['severity'];
@@ -84,6 +94,32 @@ final class WebsiteStandardCatalog
         ksort($definitions);
 
         return array_filter($definitions, fn (array $definition): bool => ! $enabledOnly || $definition['enabled']);
+    }
+
+    /** Faz 4a: standards proposed from a decision ("Bu karardan standart öner"), stored with a scope. */
+    public const string DECISION_PREFIX = 'website:decision:';
+
+    public static function isStoredDefinition(string $id): bool
+    {
+        return str_starts_with($id, 'website:custom:') || str_starts_with($id, self::DECISION_PREFIX);
+    }
+
+    /**
+     * Keeps only the standards whose scope matches: unscoped / general ones always, sector ones for that sector, brand
+     * ones for that brand, URL ones for that page.
+     *
+     * @param  array<string, array<string, mixed>>  $definitions
+     * @param  list<int>  $pageIds
+     * @return array<string, array<string, mixed>>
+     */
+    public static function applicable(array $definitions, ?int $brandId, ?int $sectorId, array $pageIds = []): array
+    {
+        return array_filter($definitions, fn (array $d): bool => match ($d['scope_type'] ?? 'general') {
+            'sector' => $sectorId !== null && (int) ($d['scope_id'] ?? 0) === $sectorId,
+            'brand' => $brandId !== null && (int) ($d['scope_id'] ?? 0) === $brandId,
+            'url' => in_array((int) ($d['scope_id'] ?? 0), $pageIds, true),
+            default => true,
+        });
     }
 
     /** @return list<array<string, mixed>> */

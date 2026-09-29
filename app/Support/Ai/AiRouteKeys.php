@@ -91,6 +91,36 @@ final class AiRouteKeys
     /** Faz 3 "AI ile kümele": one service's queries → clusters (same user need on the same page type), one call. */
     public const string QUERIES_CLUSTER = 'queries.cluster';
 
+    /** Faz 4a Site: category of the pages the rules could not place (one batched call). */
+    public const string SITE_PAGE_CATEGORIES = 'site.page_categories';
+
+    /** Faz 4a Site AI adım 1: brand service ↔ hizmet / lokasyon page for pages the name rules could not match. */
+    public const string SITE_SERVICE_PAGES = 'site.service_pages';
+
+    /** Faz 4a Site AI adım 2: coverage / intent judgement of ambiguous cluster ↔ page mappings (one call per service). */
+    public const string SITE_CLUSTER_PAGES = 'site.cluster_pages';
+
+    /** Faz 4a brand memory: 2–4 sentence summary + key facts of pages used in analysis. */
+    public const string SITE_PAGE_SUMMARY = 'site.page_summary';
+
+    /** Faz 4a URL analizi: suggestions for one URL from its data pack. */
+    public const string SITE_URL_ANALYSIS = 'site.url_analysis';
+
+    /** Faz 4a "AI ile yap": the new version of the fields / HTML a suggestion changes. */
+    public const string SITE_APPLY_CHANGE = 'site.apply_change';
+
+    /** Faz 4a "Bu karardan standart öner": a scoped standard from an approved suggestion. */
+    public const string SITE_STANDARD_FROM_DECISION = 'site.standard_from_decision';
+
+    /** Faz 4a İçerik: weekly content plan (new pages / posts and updates). */
+    public const string SITE_WEEKLY_CONTENT = 'site.weekly_content';
+
+    /** Faz 4a İçerik: opportunities outside the approved clusters. */
+    public const string SITE_CONTENT_DISCOVERY = 'site.content_discovery';
+
+    /** Faz 4a İçerik "Taslak hazırla": full article HTML for a content suggestion. */
+    public const string SITE_WRITE_ARTICLE = 'site.write_article';
+
     /** Sorgu hattı: sector of every discovered account / website (batched). */
     public const string QUERIES_ASSET_SECTOR = 'queries.asset_sector';
 

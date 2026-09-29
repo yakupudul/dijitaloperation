@@ -29,6 +29,7 @@ use App\Services\Integrations\WordPress\WordPressEventReconciliation;
 use App\Services\Observability\WorkerHeartbeatService;
 use App\Services\Ownership\OwnershipIntegrity;
 use App\Services\Portfolio\BrandCandidateBuilder;
+use App\Services\Site\SiteOperations;
 use App\Services\Website\SitemapChangeWatcher;
 use App\Support\Console\ConsoleScope;
 use App\Support\Console\ConsoleScopeException;
@@ -615,3 +616,21 @@ Schedule::command('moxdop:brand-candidates')
     ->dailyAt('06:47')
     ->withoutOverlapping(60)
     ->name('brand-candidates');
+
+// Faz 4a: web sitesi haftalık yenileme — yeni sayfaların kategorisi, hizmet ↔ sayfa, küme ↔ sayfa, kullanılan ve
+// değişen sayfaların özetleri. Yalnız operasyonel markaların siteleri (pasif müşteride AI yok).
+Artisan::command('moxdop:site:weekly {--site= : One website asset id}', function (): void {
+    $sites = DigitalAsset::query()->where('type', 'website')->whereNotNull('brand_id')
+        ->whereIn('brand_id', Brand::query()->operational()->select('id'))
+        ->when($this->option('site'), fn ($q, $id) => $q->whereKey((int) $id))
+        ->orderBy('id')->pluck('id');
+    foreach ($sites as $siteId) {
+        SiteOperations::dispatch((int) $siteId, SiteOperations::WEEKLY_REFRESH);
+    }
+    $this->info('Kuyruğa alınan site: '.$sites->count());
+})->purpose('Queue the weekly website refresh (categories, service ↔ page, cluster ↔ page, summaries) of operational brands.');
+
+Schedule::command('moxdop:site:weekly')
+    ->weeklyOn(1, '05:52')
+    ->withoutOverlapping(60)
+    ->name('site-weekly');

@@ -56,7 +56,9 @@ final class SitemapChangeWatcher
         $knownFiles = $state !== null ? (array) json_decode((string) $state->sitemaps, true) : [];
         $knownPages = $state !== null ? (array) json_decode((string) $state->pages, true) : [];
 
-        $queue = $this->roots($base);
+        // Faz 4a Ayarlar: the operator's sitemap URL replaces robots.txt / fallback discovery.
+        $override = trim((string) ($site->sitemap_url ?? ''));
+        $queue = $override !== '' ? [[$override, null]] : $this->roots($base);
         $files = [];
         $pages = [];
         $seen = [];

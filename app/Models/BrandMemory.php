@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Site\BrandMemoryService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -34,6 +35,18 @@ class BrandMemory extends Model
             'ref_id' => 'integer',
             'updated_at' => 'immutable_datetime',
         ];
+    }
+
+    /**
+     * Only the memory relevant to these pages / clusters (see BrandMemoryService::contextFor()).
+     *
+     * @param  list<int>  $pageIds
+     * @param  list<int>  $clusterIds
+     * @return array<string, mixed>
+     */
+    public static function contextFor(Brand $brand, array $pageIds, array $clusterIds): array
+    {
+        return app(BrandMemoryService::class)->contextFor($brand, $pageIds, $clusterIds);
     }
 
     /** @return BelongsTo<Brand, $this> */
