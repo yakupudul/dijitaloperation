@@ -2,10 +2,14 @@
 
 namespace App\Livewire\Operator\Integrations;
 
+use App\Jobs\RefreshBrandCandidatesJob;
+use App\Models\BrandCandidate;
+use App\Models\BrandCandidateResource;
 use App\Models\Customer;
+use App\Models\ServiceCategory;
 use App\Services\Ownership\OwnershipIntegrity;
+use App\Services\Portfolio\BrandCandidateManager;
 use App\Services\Portfolio\PortfolioDiscoveryGrouper;
-use App\Services\Portfolio\PortfolioGroupCreator;
 use App\Services\SeoTasks\SeoText;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -19,9 +23,10 @@ use Livewire\WithPagination;
 use Throwable;
 
 /**
- * Entegrasyonlar › Keşfedilen varlıklar: every discovered account and website (bound or not), brand grouping
- * proposals with one-click approve (customer → brand → assets), and ownership problems with a safe fix. Sector lives
- * on the brand (Faz 2).
+ * Entegrasyonlar › Keşfedilen varlıklar: every discovered account and website (bound or not), brand candidates
+ * (BrandCandidateBuilder: deterministic grouping + one AI call per batch, sector proposal) with Onayla (customer →
+ * brand with sector → assets) · Düzenle (name, sector, move a member) · Yoksay, and ownership problems with a safe
+ * fix. Sector lives on the brand only.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Keşfedilen varlıklar')]
@@ -38,8 +43,22 @@ final class DiscoveredAssetsPage extends Component
     #[Url]
     public string $bound = '';
 
-    /** @var array<string, string> proposal form key => customer id ('' = new customer with the brand name) */
+    /** @var array<int|string, string> candidate id => customer id ('' = new customer) */
     public array $customerFor = [];
+
+    /** @var array<int|string, string> candidate id => new customer name ('' = the brand name) */
+    public array $customerName = [];
+
+    /** @var array<int|string, string> candidate id => edited name */
+    public array $names = [];
+
+    /** @var array<int|string, string> candidate id => sector id */
+    public array $sectorFor = [];
+
+    /** @var array<int|string, string> member id => target candidate id ('new' = own candidate) */
+    public array $moveTo = [];
+
+    public ?int $editing = null;
 
     public string $message = '';
 
@@ -50,25 +69,24 @@ final class DiscoveredAssetsPage extends Component
         }
     }
 
-    public function approve(string $groupKey, PortfolioDiscoveryGrouper $grouper, PortfolioGroupCreator $creator): void
+    public function regroup(): void
     {
         $this->authorizeAdmin();
-        $group = collect($grouper->groups())->firstWhere('key', $groupKey);
-        if ($group === null) {
-            $this->message = 'Öneri artık yok.';
+        RefreshBrandCandidatesJob::dispatch();
+        $this->message = 'Gruplama başladı.';
+    }
 
-            return;
-        }
-        $formKey = $this->formKey($groupKey);
-        $customerId = $this->customerFor[$formKey] ?? '';
+    public function approve(int $candidateId, BrandCandidateManager $manager): void
+    {
+        $this->authorizeAdmin();
+        $candidate = $this->candidate($candidateId);
+        $customerId = $this->customerFor[$candidateId] ?? '';
         try {
-            $outcome = $creator->create([
-                'brand_id' => $group['existing_brand_id'],
-                'customer_id' => $customerId !== '' ? (int) $customerId : $group['existing_customer_id'],
-                'customer_name' => $group['suggested_brand'],
-                'brand_name' => $group['suggested_brand'],
-                'website_url' => $group['host'] !== null ? 'https://'.$group['host'].'/' : '',
-            ], array_values(array_map(fn (array $r): int => $r['id'], array_filter($group['resources'], fn (array $r): bool => $r['selected']))), auth()->user());
+            $outcome = $manager->approve($candidate, [
+                'customer_id' => $customerId !== '' ? (int) $customerId : null,
+                'customer_name' => $this->customerName[$candidateId] ?? '',
+                'brand_name' => $this->names[$candidateId] ?? $candidate->name,
+            ], auth()->user());
         } catch (ValidationException $exception) {
             $this->message = (string) collect($exception->errors())->flatten()->first();
 
@@ -81,6 +99,59 @@ final class DiscoveredAssetsPage extends Component
         }
         $failed = collect($outcome['results'])->where('ok', false)->count();
         $this->message = $outcome['brand']->name.' hazır'.($failed > 0 ? ' · '.$failed.' hata' : '').'.';
+    }
+
+    public function edit(int $candidateId): void
+    {
+        $this->editing = $this->editing === $candidateId ? null : $candidateId;
+    }
+
+    public function saveEdit(int $candidateId, BrandCandidateManager $manager): void
+    {
+        $this->authorizeAdmin();
+        $candidate = $this->candidate($candidateId);
+        try {
+            $manager->rename($candidate, (string) ($this->names[$candidateId] ?? $candidate->name));
+            $sector = $this->sectorFor[$candidateId] ?? '';
+            if ($sector !== (string) $candidate->sector_id) {
+                $manager->setSector($candidate, $sector !== '' ? (int) $sector : null);
+            }
+            $this->message = 'Kaydedildi.';
+        } catch (ValidationException $exception) {
+            $this->message = (string) collect($exception->errors())->flatten()->first();
+        }
+    }
+
+    public function move(int $memberId, BrandCandidateManager $manager): void
+    {
+        $this->authorizeAdmin();
+        $member = BrandCandidateResource::query()->findOrFail($memberId);
+        $target = $this->moveTo[$memberId] ?? '';
+        if ($target === '') {
+            return;
+        }
+        try {
+            $manager->move($member, $target === 'new' ? null : $this->candidate((int) $target));
+            $this->message = 'Taşındı.';
+        } catch (ValidationException $exception) {
+            $this->message = (string) collect($exception->errors())->flatten()->first();
+        }
+    }
+
+    public function dismiss(int $candidateId, BrandCandidateManager $manager): void
+    {
+        $this->authorizeAdmin();
+        try {
+            $manager->dismiss($this->candidate($candidateId), auth()->user());
+            $this->message = 'Yoksayıldı.';
+        } catch (ValidationException $exception) {
+            $this->message = (string) collect($exception->errors())->flatten()->first();
+        }
+    }
+
+    private function candidate(int $id): BrandCandidate
+    {
+        return BrandCandidate::query()->findOrFail($id);
     }
 
     public function fixIntegrity(OwnershipIntegrity $integrity): void
@@ -99,24 +170,25 @@ final class DiscoveredAssetsPage extends Component
             ->sortBy([fn (array $a, array $b): int => $a['bound'] <=> $b['bound'], fn (array $a, array $b): int => strcmp($a['name'], $b['name'])])->values();
         $page = max(1, $this->getPage());
         $rows = new LengthAwarePaginator($filtered->forPage($page, 50)->values(), $filtered->count(), 50, $page, ['path' => request()->url()]);
-        $groups = collect($grouper->groups())->filter(fn (array $g): bool => collect($g['resources'])->where('selected', true)->isNotEmpty())->take(20)
-            ->map(fn (array $g): array => $g + ['form_key' => $this->formKey($g['key'])])->values();
+        $candidates = BrandCandidate::query()->where('status', BrandCandidate::PROPOSED)
+            ->with(['sector', 'members.resource', 'members.website'])->orderByDesc('confidence')->orderBy('name')->limit(100)->get();
+        foreach ($candidates as $candidate) {
+            $this->names[$candidate->id] ??= (string) $candidate->name;
+            $this->sectorFor[$candidate->id] ??= $candidate->sector_id !== null ? (string) $candidate->sector_id : '';
+        }
 
         return view('livewire.operator.integrations.discovered-assets-page', [
             'rows' => $rows,
             'total' => $all->count(),
             'unbound' => $all->where('bound', false)->count(),
-            'groups' => $groups,
+            'candidates' => $candidates,
+            'sectors' => ServiceCategory::query()->orderBy('name')->pluck('name', 'id')->all(),
+            'decided' => BrandCandidate::query()->where('status', '!=', BrandCandidate::PROPOSED)->count(),
             'problems' => $integrity->problems(),
             'customers' => Customer::query()->orderBy('name')->pluck('name', 'id')->all(),
             'kinds' => ['website' => 'Web sitesi', 'search_console' => 'Search Console', 'ga4' => 'GA4', 'google_business_profile' => 'İşletme Profili', 'google_ads' => 'Google Ads', 'meta_ads' => 'Meta'],
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
         ]);
-    }
-
-    private function formKey(string $groupKey): string
-    {
-        return 'g'.substr(md5($groupKey), 0, 12);
     }
 
     private function authorizeAdmin(): void

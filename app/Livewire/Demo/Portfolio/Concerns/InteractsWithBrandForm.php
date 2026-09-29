@@ -10,6 +10,7 @@ use App\Services\Operator\OperatorUserDirectory;
 use App\Support\Options\CountryOptions;
 use App\Support\Options\IndustryOptions;
 use App\Support\Options\LanguageOptions;
+use App\Support\Options\LocationOptions;
 use Illuminate\Validation\Rule;
 
 trait InteractsWithBrandForm
@@ -193,8 +194,9 @@ trait InteractsWithBrandForm
 
     protected function syncBrandSectors(Brand $brand): void
     {
-        $ids = ServiceCategory::query()->whereIn('code', $this->selected_sector_codes)->pluck('id');
-        $brand->sectors()->sync($ids->all());
+        // v2: one sector per brand, stored on brands.sector_id (the first selected code).
+        $id = ServiceCategory::query()->where('code', (string) ($this->selected_sector_codes[0] ?? ''))->value('id');
+        $brand->forceFill(['sector_id' => $id])->save();
     }
 
     public function updatedServiceAreas(mixed $value, string $key): void
@@ -262,11 +264,11 @@ trait InteractsWithBrandForm
 
         foreach ($areas as &$area) {
             if ($area['country_code'] === 'TR') {
-                $area['city_name'] = collect(\App\Support\Options\LocationOptions::cities())->first(
-                    fn (string $name): bool => \App\Support\Options\LocationOptions::fold($name) === \App\Support\Options\LocationOptions::fold($area['city_name'])
+                $area['city_name'] = collect(LocationOptions::cities())->first(
+                    fn (string $name): bool => LocationOptions::fold($name) === LocationOptions::fold($area['city_name'])
                 ) ?? $area['city_name'];
-                $area['district_name'] = collect(\App\Support\Options\LocationOptions::districts($area['city_name']))->first(
-                    fn (string $name): bool => \App\Support\Options\LocationOptions::fold($name) === \App\Support\Options\LocationOptions::fold($area['district_name'])
+                $area['district_name'] = collect(LocationOptions::districts($area['city_name']))->first(
+                    fn (string $name): bool => LocationOptions::fold($name) === LocationOptions::fold($area['district_name'])
                 ) ?? $area['district_name'];
             }
         }
@@ -312,18 +314,16 @@ trait InteractsWithBrandForm
                         && in_array($service->sector, $this->selected_sector_codes, true),
                 ],
             ]);
-        $outOfScope = $services->filter(fn (array $service, $id): bool =>
-            ! $service['available'] && in_array((string) $id, $this->selected_service_catalog_ids, true));
+        $outOfScope = $services->filter(fn (array $service, $id): bool => ! $service['available'] && in_array((string) $id, $this->selected_service_catalog_ids, true));
         foreach ($this->selected_service_catalog_ids as $id) {
             if (! $services->has($id)) {
                 $outOfScope->put($id, ['label' => __('brand-form.unavailable_service', ['id' => $id]), 'sector' => null, 'available' => false]);
             }
         }
-        $needle = \App\Support\Options\LocationOptions::fold($this->service_search);
-        $visible = $services->filter(fn (array $service, $id): bool =>
-            $service['available']
+        $needle = LocationOptions::fold($this->service_search);
+        $visible = $services->filter(fn (array $service, $id): bool => $service['available']
             && (! $this->only_selected_services || in_array((string) $id, $this->selected_service_catalog_ids, true))
-            && ($needle === '' || str_contains(\App\Support\Options\LocationOptions::fold($service['label']), $needle)));
+            && ($needle === '' || str_contains(LocationOptions::fold($service['label']), $needle)));
 
         return [
             'customerOptions' => $customers,

@@ -42,7 +42,7 @@ final class ComplianceAuditTest extends TestCase
         $admin->assignRole(Roles::ADMIN);
         $this->actingAs($admin);
         $this->brand = Brand::factory()->create(['customer_id' => Customer::factory()->create(['status' => CustomerStatus::Active])->id, 'name' => 'Atlas Dental']);
-        $this->brand->sectors()->attach(ServiceCategory::query()->where('code', 'dental')->value('id'));
+        $this->brand->update(['sector_id' => ServiceCategory::query()->where('code', 'dental')->value('id')]);
         $this->meta = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'meta_ads', 'name' => 'Atlas Meta']);
     }
 
@@ -106,7 +106,7 @@ final class ComplianceAuditTest extends TestCase
         $checker = app(ComplianceChecker::class);
         foreach (['legal' => 'Davanızı kazanma garantisi veriyoruz', 'finance' => 'Risksiz, garantili getiri', 'education' => '%100 başarı garantisi', 'food_beverage' => 'Şeker hastalığına iyi gelir, tansiyonu düşürür'] as $code => $text) {
             $brand = Brand::factory()->create(['customer_id' => $this->brand->customer_id]);
-            $brand->sectors()->attach(ServiceCategory::query()->where('code', $code)->value('id'));
+            $brand->update(['sector_id' => ServiceCategory::query()->where('code', $code)->value('id')]);
             $this->assertNotSame([], $checker->checkText($text, app(SectorPackRegistry::class)->rulesForBrand($brand), 'website'), $code);
         }
     }

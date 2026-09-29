@@ -31,7 +31,7 @@ final class PortfolioDiscoveryGrouper
     private const float NAME_MATCH = 0.8;
 
     /** Social / link-in-bio / map hosts: a Business Profile "website" on these says nothing about the brand. */
-    private const array SHARED_HOSTS = [
+    public const array SHARED_HOSTS = [
         'instagram.com', 'facebook.com', 'fb.com', 'm.facebook.com', 'business.facebook.com', 'twitter.com', 'x.com',
         'youtube.com', 'tiktok.com', 'linkedin.com', 'linktr.ee', 'wa.me', 'api.whatsapp.com', 'whatsapp.com',
         'maps.google.com', 'google.com', 'g.page', 'goo.gl', 'maps.app.goo.gl', 'sites.google.com', 'bit.ly',

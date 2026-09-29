@@ -7,6 +7,7 @@ use App\Jobs\CheckSitemapChangesJob;
 use App\Jobs\Collection\ExecuteDatasetRunJob;
 use App\Jobs\CollectMetaGeoResultsJob;
 use App\Jobs\Ops\QueueHeartbeatProbeJob;
+use App\Jobs\RefreshBrandCandidatesJob;
 use App\Models\Brand;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
@@ -27,6 +28,7 @@ use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Integrations\WordPress\WordPressEventReconciliation;
 use App\Services\Observability\WorkerHeartbeatService;
 use App\Services\Ownership\OwnershipIntegrity;
+use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Website\SitemapChangeWatcher;
 use App\Support\Console\ConsoleScope;
 use App\Support\Console\ConsoleScopeException;
@@ -596,3 +598,20 @@ Schedule::command('moxdop:analyst:weekly')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(60)
     ->name('analyst-weekly');
+
+// Faz 2: keşfedilen varlıklar → marka adayları (yeni kaynaklar her gün; onaylı gruplar değişmez).
+Artisan::command('moxdop:brand-candidates {--sync : Run now instead of queueing}', function (): void {
+    if ($this->option('sync')) {
+        $summary = app(BrandCandidateBuilder::class)->refresh();
+        $this->info(sprintf('Yeni kaynak %d · yeni aday %d · AI çağrısı %d (%s)', $summary['new_subjects'], $summary['candidates_created'], $summary['ai_calls'], $summary['ai_status']));
+
+        return;
+    }
+    RefreshBrandCandidatesJob::dispatch();
+    $this->info('Kuyruğa alındı.');
+})->purpose('Group discovered websites / accounts into brand candidates (deterministic + one AI call per batch).');
+
+Schedule::command('moxdop:brand-candidates')
+    ->dailyAt('06:47')
+    ->withoutOverlapping(60)
+    ->name('brand-candidates');

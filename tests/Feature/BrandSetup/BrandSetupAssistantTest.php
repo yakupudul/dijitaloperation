@@ -144,7 +144,7 @@ final class BrandSetupAssistantTest extends TestCase
         $this->assertArrayHasKey('Gülüş Tasarımı', $offerings->all());
         $this->assertSame('saglik', ServiceCatalogItem::query()->find($offerings['Gülüş Tasarımı']->service_catalog_item_id)->sector);
         $this->assertSame(1, ServiceCatalogItem::query()->whereHas('names', fn ($q) => $q->where('raw_label', 'İmplant Tedavisi'))->count(), 'catalog not duplicated');
-        $this->assertSame([$category->id], $this->brand->sectors()->pluck('service_categories.id')->all());
+        $this->assertSame($category->id, $this->brand->fresh()->sector_id);
         $this->assertTrue(collect($proposal->apply_result)->every(fn (array $r): bool => $r['ok']), json_encode($proposal->apply_result));
     }
 

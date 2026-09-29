@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'brand_id',
+    'name',
+    'physical_branch',
     'country_code',
     'country_name',
     'city_name',
@@ -24,12 +26,18 @@ class BrandServiceArea extends Model
 {
     protected function casts(): array
     {
-        return ['priority_rank' => 'integer', 'lat' => 'float', 'lng' => 'float', 'geocoded_at' => 'datetime'];
+        return ['physical_branch' => 'boolean', 'priority_rank' => 'integer', 'lat' => 'float', 'lng' => 'float', 'geocoded_at' => 'datetime'];
     }
 
     public function brand(): BelongsTo
     {
         return $this->belongsTo(Brand::class);
+    }
+
+    /** Operator name of the area ("Çankaya şubesi"), else its place label. */
+    public function displayName(): string
+    {
+        return filled($this->name) ? (string) $this->name : $this->label();
     }
 
     public function label(): string

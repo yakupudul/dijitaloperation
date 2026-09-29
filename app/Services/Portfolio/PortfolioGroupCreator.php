@@ -34,7 +34,7 @@ final class PortfolioGroupCreator
     {
         $resources = CoreExternalResource::query()->whereIn('id', $resourceIds)
             ->whereIn('resource_type', PortfolioDiscoveryGrouper::TYPES)->get();
-        if ($resources->isEmpty()) {
+        if ($resources->isEmpty() && BrandSetupMatcher::host((string) ($input['website_url'] ?? '')) === '') {
             throw ValidationException::withMessages(['resources' => 'En az bir hesap seçin.']);
         }
 

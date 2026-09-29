@@ -6,7 +6,6 @@ use App\Enums\CustomerStatus;
 use App\Models\IntelligenceCore\IntelligenceBusinessActionIdentity;
 use App\Models\IntelligenceCore\IntelligenceEntityIdentity;
 use App\Models\IntelligenceCore\IntelligenceSearchTermIdentity;
-use App\Support\Options\IndustryOptions;
 use Database\Factories\BrandFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -22,6 +21,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'customer_id',
     'name',
     'sector',
+    'sector_id',
     'primary_country',
     'target_markets',
     'languages',
@@ -104,24 +104,54 @@ class Brand extends Model
         return $this->hasMany(BrandOffering::class);
     }
 
-    /** @return BelongsToMany<ServiceCategory, $this> */
+    /**
+     * v2 (Faz 2): the brand's ONE sector — `brands.sector_id` is the only place a sector is stored; assets read it
+     * through their brand. The legacy code column `sector` is a mirror kept in sync on save (read-only for callers).
+     *
+     * @return BelongsTo<ServiceCategory, $this>
+     */
+    public function sectorCategory(): BelongsTo
+    {
+        return $this->belongsTo(ServiceCategory::class, 'sector_id');
+    }
+
+    /**
+     * Deprecated (v2): the former multi-sector pivot. Not read; kept only so old rows can be inspected.
+     *
+     * @return BelongsToMany<ServiceCategory, $this>
+     */
     public function sectors(): BelongsToMany
     {
         return $this->belongsToMany(ServiceCategory::class, 'brand_service_category')->withTimestamps();
     }
 
-    /** @return list<string> */
+    /** @return list<string> the sector code of `sector_id` (one sector per brand), or none */
     public function sectorCodes(): array
     {
-        $codes = $this->sectors->pluck('code')->all();
-        if ($codes === [] && IndustryOptions::isValid($this->sector)) {
-            $codes = [$this->sector];
-        }
-        if ($this->sector !== null && in_array($this->sector, $codes, true)) {
-            $codes = array_values(array_unique([$this->sector, ...$codes]));
-        }
+        $code = $this->sectorCategory?->code;
 
-        return $codes;
+        return $code !== null && $code !== '' ? [(string) $code] : [];
+    }
+
+    public function sectorLabel(): ?string
+    {
+        return $this->sectorCategory?->name;
+    }
+
+    protected static function booted(): void
+    {
+        // One truth: sector_id. A caller that still sets the legacy code gets the matching id; the code mirrors the id.
+        static::saving(function (Brand $brand): void {
+            if ($brand->isDirty('sector_id')) {
+                $brand->attributes['sector'] = $brand->sector_id !== null
+                    ? ServiceCategory::query()->whereKey($brand->sector_id)->value('code')
+                    : null;
+            } elseif ($brand->isDirty('sector')) {
+                $brand->attributes['sector_id'] = filled($brand->sector)
+                    ? ServiceCategory::query()->where('code', (string) $brand->sector)->value('id')
+                    : null;
+            }
+        });
     }
 
     /** @return HasMany<BrandServiceArea, $this> */

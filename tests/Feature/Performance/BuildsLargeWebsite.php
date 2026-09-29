@@ -45,7 +45,7 @@ trait BuildsLargeWebsite
         $customer = Customer::factory()->create(['status' => CustomerStatus::Active]);
         $brand = Brand::factory()->create(['customer_id' => $customer->id, 'name' => 'Panorama Ankara']);
         $category = ServiceCategory::query()->firstOrCreate(['code' => 'dental'], ['name' => 'Diş', 'normalized_key' => 'dental']);
-        $brand->sectors()->syncWithoutDetaching([$category->id]);
+        $brand->update(['sector_id' => $category->id]);
         $site = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'website', 'status' => 'active',
             'primary_url' => 'https://'.$host.'/', 'domain' => $host, 'seo_market_language_code' => 'tr']);
         $projection = WebsiteIntelligenceProjectionRun::query()->create([

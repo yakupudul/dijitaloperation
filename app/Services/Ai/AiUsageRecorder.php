@@ -21,6 +21,8 @@ final class AiUsageRecorder
         'SeoTaskContentPlannerAgent' => AiRouteKeys::SEO_TASKS_CONTENT_PLANNER,
         'SeoSiteUnderstandingAgent' => AiRouteKeys::SEO_TASKS_SITE_UNDERSTANDING,
         'BrandSetupAgent' => AiRouteKeys::BRAND_SETUP,
+        'BrandCandidateAgent' => AiRouteKeys::BRAND_CANDIDATES,
+        'BrandServiceAgent' => AiRouteKeys::BRAND_SERVICES,
         'SearchDemandLibrarianAgent' => AiRouteKeys::SEARCH_DEMAND_LIBRARIAN,
         'SearchDemandClusteringAgent' => AiRouteKeys::SEARCH_DEMAND_CLUSTERING,
         'SearchDemandPageRelevanceAgent' => AiRouteKeys::SEARCH_DEMAND_PAGE_RELEVANCE,

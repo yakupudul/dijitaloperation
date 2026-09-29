@@ -157,7 +157,7 @@ final class BrandSetupApplier
         $sectorCode = data_get($proposal->summary, 'sector_code');
         if (is_string($sectorCode) && trim($sectorCode) !== '') {
             $this->attempt($results, 'sector', 'Sektör', 'Sektör atanamadı', function () use ($brand, $sectorCode, &$results): void {
-                if ($brand->sectors()->count() > 0) {
+                if ($brand->sector_id !== null) {
                     return;
                 }
                 $category = ServiceCategory::query()->where('code', mb_substr(trim($sectorCode), 0, 120))->first();
@@ -166,7 +166,7 @@ final class BrandSetupApplier
 
                     return;
                 }
-                $brand->sectors()->syncWithoutDetaching([$category->id]);
+                $brand->forceFill(['sector_id' => $category->id])->save();
                 $results[] = ['key' => 'sector', 'label' => 'Sektör: '.$category->name, 'ok' => true, 'message' => 'Markanın sektörü atandı.'];
             });
         }
