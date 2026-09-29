@@ -91,6 +91,15 @@ final class AiRouteKeys
     /** Faz 3 "AI ile kümele": one service's queries → clusters (same user need on the same page type), one call. */
     public const string QUERIES_CLUSTER = 'queries.cluster';
 
+    /** Faz 4b Rakipler: SERP result domains the rules could not place → ticari / bilgi / dizin / haber (batched). */
+    public const string COMPETITORS_CLASSIFY = 'competitors.classify';
+
+    /** Faz 4b Rakipler "Analiz et": one cluster's competitor pages vs our page → need, page type, gaps, suggestions. */
+    public const string COMPETITORS_ANALYZE = 'competitors.analyze';
+
+    /** Faz 4b Backlinkler: potential link sources by sector + brand areas (fee only with an evidence URL). */
+    public const string BACKLINKS_SOURCES = 'backlinks.sources';
+
     /** Sorgu hattı: sector of every discovered account / website (batched). */
     public const string QUERIES_ASSET_SECTOR = 'queries.asset_sector';
 
