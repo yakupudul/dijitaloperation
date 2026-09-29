@@ -84,6 +84,7 @@ use App\Services\MetaAds\MetaAdsUiDatasetGate;
 use App\Services\Operator\AgencySettingService;
 use App\Services\Operator\OperatorMailConfigService;
 use App\Services\Opportunities\OpportunityRuleRegistry;
+use App\Services\Prompts\PromptRegistry;
 use App\Services\ServiceScope\CommercialServiceContextProvider;
 use App\Services\ServiceScope\CustomerServiceScopeReadService;
 use App\Services\ServiceScope\CustomerServiceScopeService;
@@ -103,7 +104,9 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Ai\Events\AgentFailedOver;
 use Laravel\Ai\Events\AgentPrompted;
+use Laravel\Ai\Events\PromptingAgent;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -123,6 +126,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(FindingRuleRegistry::class);
         $this->app->singleton(OpportunityRuleRegistry::class);
         $this->app->singleton(AiRouteRegistry::class);
+        $this->app->singleton(PromptRegistry::class);
         $this->app->singleton(AgentProfileRegistry::class);
         $this->app->singleton(SkillRegistry::class);
         $this->app->singleton(AgentContextGatewayContract::class, AgentContextGateway::class);
@@ -231,7 +235,9 @@ class AppServiceProvider extends ServiceProvider
         LivewireActionErrors::register();
         $this->routeHeavyJobs();
         $this->flushServiceScopeOnPortfolioChange();
+        Event::listen(PromptingAgent::class, [AiUsageRecorder::class, 'started']);
         Event::listen(AgentPrompted::class, [AiUsageRecorder::class, 'handle']);
+        Event::listen(AgentFailedOver::class, [AiUsageRecorder::class, 'failed']);
         ProductionArchive::boot();
 
         Gate::before(function ($user, string $ability): ?bool {
