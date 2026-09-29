@@ -109,7 +109,10 @@ return new class extends Migration
         if (! Schema::hasColumn('resource_automations', 'sector')) {
             Schema::table('resource_automations', fn (Blueprint $table) => $table->string('sector')->nullable());
         }
-        if (Schema::hasColumn('brands', 'sector_id')) {
+        // SQLite would rebuild `brands` to drop the foreign key, and inside a migration transaction the
+        // foreign-key pragma cannot be switched off, so the rebuild cascades into child rows. The column
+        // is harmless when left behind on SQLite (tests only).
+        if (Schema::hasColumn('brands', 'sector_id') && DB::getDriverName() !== 'sqlite') {
             Schema::table('brands', function (Blueprint $table): void {
                 $table->dropConstrainedForeignId('sector_id');
             });
