@@ -40,7 +40,6 @@ use App\Livewire\Demo\Settings\AiControlPlanePage;
 use App\Livewire\Demo\Settings\AiSkillsPage;
 use App\Livewire\Demo\Settings\BackgroundOperationsPage;
 use App\Livewire\Demo\SettingsPage;
-use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
 use App\Livewire\Operator\Archive\ProductionArchivePage;
 use App\Livewire\Operator\Assets\AnalyticsPage;
 use App\Livewire\Operator\Assets\SearchConsolePage;
@@ -66,6 +65,7 @@ use App\Livewire\Operator\Settings\PushSettingsPage;
 use App\Livewire\Operator\Settings\SectorPacksPage;
 use App\Livewire\Operator\Settings\SystemHealthPage;
 use App\Livewire\Operator\Settings\UsersPage;
+use App\Livewire\Operator\Website\V2\WebsiteScreen;
 use App\Livewire\Operator\Work\AlertsPage;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Work\WorkUrl;
@@ -125,7 +125,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::get('/assets/meta/{assetId}/insights', MetaLegacyPageRedirectController::class)->defaults('tab', 'overview')->name('operator.meta.insights');
 
         Route::livewire('/assets/google-ads/{assetId?}', GoogleAdsOverviewPage::class)->name('operator.google-ads.overview');
-        Route::livewire('/assets/website/{assetId?}', WebsiteOverviewPage::class)->name('operator.website');
+        Route::livewire('/assets/website/{assetId?}', WebsiteScreen::class)->name('operator.website');
         Route::livewire('/assets/gbp/{assetId?}', GbpOverviewPage::class)->name('operator.gbp');
         Route::livewire('/assets/analytics/{assetId?}', AnalyticsPage::class)
             ->where('assetId', '[0-9]{1,18}')

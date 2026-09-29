@@ -60,7 +60,7 @@ final class BacklinksTest extends TestCase
     {
         $file = UploadedFile::fake()->createWithContent('links.csv', "Linking page,Target page\nhttps://blog.example/yazi,https://panorama.example/\n");
 
-        Livewire::test(BacklinksTab::class, ['websiteId' => $this->site->id])
+        Livewire::test(BacklinksTab::class, ['assetId' => $this->site->id])
             ->set('export', $file)->call('importExport')->assertHasNoErrors()->assertSet('message', '1 yeni · 0 güncellendi · 0 atlandı')
             ->assertSee('https://blog.example/yazi')
             ->set('linkUrl', 'https://dernek.example/uyeler')->call('addBacklink')->assertHasNoErrors()->assertSee('dernek.example/uyeler')
@@ -107,7 +107,7 @@ final class BacklinksTest extends TestCase
         BacklinkSourcesAgent::fake(fn (): array => $this->fail('no AI call'));
 
         $this->assertSame('not_operational', app(BacklinkSourceProposer::class)->propose($this->brand->fresh())['status']);
-        Livewire::test(BacklinksTab::class, ['websiteId' => $this->site->id])->call('proposeSources')->assertSee('Hizmet kapsamı dışında');
+        Livewire::test(BacklinksTab::class, ['assetId' => $this->site->id])->call('proposeSources')->assertSee('Hizmet kapsamı dışında');
     }
 
     public function test_link_is_verified_found_missing_and_removed(): void
@@ -116,7 +116,7 @@ final class BacklinksTest extends TestCase
         $pages = ['https://rehber.example/panorama' => '<html><body><a href="https://www.panorama.example/?utm_source=rehber">Panorama</a></body></html>'];
         $this->fakePages($pages);
 
-        Livewire::test(BacklinksTab::class, ['websiteId' => $this->site->id])
+        Livewire::test(BacklinksTab::class, ['assetId' => $this->site->id])
             ->set('given.'.$source->id, 'https://rehber.example/panorama')->call('markGiven', $source->id)->assertHasNoErrors();
 
         $source->refresh();

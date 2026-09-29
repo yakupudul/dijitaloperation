@@ -8,6 +8,7 @@ use App\Livewire\Demo\Settings\AiAgentsPage;
 use App\Livewire\Demo\Settings\AiSkillsPage;
 use App\Livewire\Demo\SettingsPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
+use App\Livewire\Operator\Website\V2\WebsiteScreen;
 use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Support\Demo\DemoMenu;
@@ -128,15 +129,8 @@ class PanelDesignFreezeTest extends TestCase
         $byType = DigitalAsset::query()->where('brand_id', $this->portfolioBrand->id)->get()->keyBy('type');
 
         $cases = [
-            [route('operator.website', ['assetId' => $byType['website']->id]), [
-                __('operator_website.tabs.overview'),
-                __('operator_website.tabs.search_console'),
-                __('operator_website.tabs.ga4_analysis'),
-                __('operator_website.tabs.content'),
-                __('operator_website.tabs.health'),
-                __('operator_website.tabs.infrastructure'),
-                __('operator_website.tabs.setup'),
-            ]],
+            // v2 Faz 4a: website screen tabs.
+            [route('operator.website', ['assetId' => $byType['website']->id]), array_values(WebsiteScreen::TABS)],
             [route('operator.gbp', ['assetId' => $byType['google_business_profile']->id]), [
                 'Genel Bakış',
                 'Yapılacaklar',

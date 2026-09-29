@@ -83,7 +83,7 @@ final class AiUsageRecorder
                 return;
             }
             $agent = class_basename($event->agent);
-            $routeKey = self::AGENT_ROUTES[$agent] ?? Context::getHidden('ai_route_key');
+            $routeKey = self::AGENT_ROUTES[$agent] ?? $this->operation($event->agent) ?? Context::getHidden('ai_route_key');
             DB::table('ai_usage_records')->insert([
                 'route_key' => is_string($routeKey) ? $routeKey : null,
                 'prompt_version_id' => $this->promptVersionId($event->agent),
@@ -110,7 +110,7 @@ final class AiUsageRecorder
             $usage = $event->response->usage;
             $provider = (string) ($event->response->meta->provider ?? 'unknown');
             $model = (string) ($event->response->meta->model ?? 'unknown');
-            $routeKey = self::AGENT_ROUTES[$agent] ?? Context::getHidden('ai_route_key');
+            $routeKey = self::AGENT_ROUTES[$agent] ?? $this->operation($event->prompt->agent) ?? Context::getHidden('ai_route_key');
 
             DB::table('ai_usage_records')->insert([
                 'route_key' => is_string($routeKey) ? $routeKey : null,
@@ -131,6 +131,12 @@ final class AiUsageRecorder
         } catch (Throwable $exception) {
             Log::warning('AI usage could not be recorded.', ['error' => $exception->getMessage()]);
         }
+    }
+
+    /** Registry-prompted agents name their operation (= route key) themselves. */
+    private function operation(object $agent): ?string
+    {
+        return $agent instanceof RegistryPrompted ? $agent->promptOperation() : null;
     }
 
     private function promptVersionId(object $agent): ?int

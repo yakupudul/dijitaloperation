@@ -135,7 +135,7 @@ final class CompetitorsTest extends TestCase
 
         $this->assertSame('not_operational', app(CompetitorRefresher::class)->refresh($this->site->fresh())['status']);
         Http::assertNothingSent();
-        Livewire::test(CompetitorsTab::class, ['websiteId' => $this->site->id])
+        Livewire::test(CompetitorsTab::class, ['assetId' => $this->site->id])
             ->assertSee('Rakipleri güncelle')
             ->call('refreshCompetitors')->assertSet('message', ServiceScope::NOT_SERVED);
         $this->assertNull(Cache::get(CompetitorRefresher::statusKey($this->site->id)));
@@ -215,7 +215,7 @@ final class CompetitorsTest extends TestCase
             'material_hash' => str_repeat('b', 64), 'title' => 'Hekim özgeçmişi ekle', 'reason' => 'İki rakip hekim bilgisi veriyor.', 'action_type' => 'rakip', 'status' => 'open',
             'evidence' => ['competitor_urls' => ['https://rakip-a.example/implant/', 'https://rakip-c.example/implant'], 'website_asset_id' => $this->site->id]]);
 
-        Livewire::test(CompetitorsTab::class, ['websiteId' => $this->site->id])
+        Livewire::test(CompetitorsTab::class, ['assetId' => $this->site->id])
             ->assertSee('İmplant merkezi')->assertSee('ankara implant merkezi')
             ->assertSee('implant sonrası ağrı')->assertSee('Henüz SERP yok.')
             ->assertSee('rakip-a.example')->assertSee('ticari rakip')->assertSee('eksik')

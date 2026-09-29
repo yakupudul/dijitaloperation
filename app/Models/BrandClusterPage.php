@@ -24,6 +24,12 @@ class BrandClusterPage extends Model
         'state',
         'target_query',
         'language',
+        'clicks_28d',
+        'impressions_28d',
+        'position_28d',
+        'reason',
+        'decided_by',
+        'refreshed_at',
         'locked',
     ];
 
@@ -32,7 +38,16 @@ class BrandClusterPage extends Model
     {
         return [
             'locked' => 'boolean',
+            'clicks_28d' => 'integer',
+            'impressions_28d' => 'integer',
+            'position_28d' => 'float',
+            'refreshed_at' => 'immutable_datetime',
         ];
+    }
+
+    public function stateLabel(): string
+    {
+        return self::STATE_LABELS[$this->state] ?? $this->state;
     }
 
     /** @return BelongsTo<Brand, $this> */

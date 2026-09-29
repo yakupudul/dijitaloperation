@@ -14,10 +14,11 @@ trait WebsiteTab
 
     public string $message = '';
 
-    public function mount(int $websiteId): void
+    /** The website screen passes `assetId`, like every other tab of the screen. */
+    public function mount(int $assetId): void
     {
         $this->actor();
-        $site = DigitalAsset::query()->where('type', 'website')->findOrFail($websiteId);
+        $site = DigitalAsset::query()->where('type', 'website')->findOrFail($assetId);
         $this->websiteId = (int) $site->id;
     }
 

@@ -13,6 +13,7 @@ use App\Providers\SearchConsoleCentralServiceProvider;
 use App\Providers\SearchConsoleGroupingServiceProvider;
 use App\Providers\SeoTasksServiceProvider;
 use App\Providers\SiteScreenServiceProvider;
+use App\Providers\SiteServiceProvider;
 use App\Providers\WebsiteIntelligenceServiceProvider;
 
 return [
@@ -26,6 +27,7 @@ return [
     HorizonServiceProvider::class,
     RecurringAutomationServiceProvider::class,
     SeoTasksServiceProvider::class,
+    SiteServiceProvider::class,
     AdvisorServiceProvider::class,
     AiInsightServiceProvider::class,
     AnalystServiceProvider::class,

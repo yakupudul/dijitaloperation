@@ -68,7 +68,7 @@ final class HealthAndAssetsTest extends TestCase
         $this->assertFalse(app(SiteExpiryChecker::class)->check($this->site)['checked']);
         Http::assertSentCount(1);
 
-        Livewire::test(HealthTab::class, ['websiteId' => $this->site->id])
+        Livewire::test(HealthTab::class, ['assetId' => $this->site->id])
             ->assertSee('SSL sertifikası')->assertSee('20 gün kaldı · Test CA')
             ->assertSee('Alan adı')->assertSee('01.03.2027');
     }
@@ -108,7 +108,7 @@ final class HealthAndAssetsTest extends TestCase
         DB::table('uptime_states')->insert(['digital_asset_id' => $this->site->id, 'state' => 'down', 'consecutive_failures' => 3, 'down_since' => now()->subHour(),
             'last_checked_at' => now(), 'last_error' => 'HTTP 503', 'created_at' => now(), 'updated_at' => now()]);
 
-        Livewire::test(HealthTab::class, ['websiteId' => $this->site->id])
+        Livewire::test(HealthTab::class, ['assetId' => $this->site->id])
             ->assertSee('6.5.2 → 6.6.1')->assertSee('Eklenti: SEO Eklentisi')->assertSee('2.0 → 2.1')->assertDontSee('Eklenti: Güncel')
             ->assertSee('2 kritik sorun')->assertSee('Erişilemiyor')->assertSee('HTTP 503')
             ->assertSee('Bitiş tarihi girilmedi')->assertSee("WordPress'e giriş", false)
@@ -120,7 +120,7 @@ final class HealthAndAssetsTest extends TestCase
         $member = User::factory()->create(['is_active' => true]);
         $member->assignRole(Roles::TEAM_MEMBER);
         $this->actingAs($member);
-        Livewire::test(HealthTab::class, ['websiteId' => $this->site->id])->assertDontSee("WordPress'e giriş", false);
+        Livewire::test(HealthTab::class, ['assetId' => $this->site->id])->assertDontSee("WordPress'e giriş", false);
     }
 
     public function test_linked_assets_show_bindings_last_data_and_links(): void
@@ -131,7 +131,7 @@ final class HealthAndAssetsTest extends TestCase
             'reporting_date' => '2026-09-26', 'clicks' => 5, 'impressions' => 50, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => str_repeat('d', 64)]);
         $ads = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'google_ads', 'status' => 'active', 'name' => 'Panorama Ads']);
 
-        Livewire::test(LinkedAssetsTab::class, ['websiteId' => $this->site->id])
+        Livewire::test(LinkedAssetsTab::class, ['assetId' => $this->site->id])
             ->assertSee('26.09.2026')->assertSee('Panorama Ads')
             ->assertSeeHtml(route('operator.search-console', ['assetId' => $this->site->id]))
             ->assertSeeHtml(route('operator.google-ads.overview', ['assetId' => $ads->id]));
@@ -141,8 +141,8 @@ final class HealthAndAssetsTest extends TestCase
     {
         $this->customer->forceFill(['status' => CustomerStatus::Inactive])->save();
 
-        Livewire::test(HealthTab::class, ['websiteId' => $this->site->id])->assertOk()->assertSee('Henüz kontrol edilmedi');
-        Livewire::test(LinkedAssetsTab::class, ['websiteId' => $this->site->id])->assertOk();
+        Livewire::test(HealthTab::class, ['assetId' => $this->site->id])->assertOk()->assertSee('Henüz kontrol edilmedi');
+        Livewire::test(LinkedAssetsTab::class, ['assetId' => $this->site->id])->assertOk();
     }
 
     /** @return array<string, mixed> openssl_x509_parse() of a self-signed certificate valid for $days days */

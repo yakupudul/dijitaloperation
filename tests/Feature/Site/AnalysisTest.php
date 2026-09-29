@@ -117,7 +117,7 @@ final class AnalysisTest extends TestCase
 
     public function test_tab_renders_every_sub_tab_and_period(): void
     {
-        Livewire::test(AnalysisTab::class, ['websiteId' => $this->site->id])
+        Livewire::test(AnalysisTab::class, ['assetId' => $this->site->id])
             ->assertSee('İmplant merkezi')->assertSee('Çankaya şubesi')->assertSee('bölgesiz')->assertSee('+350%')
             ->call('setSub', 'pages')->assertSee('/implant')->assertSee('/blog/agri')
             ->call('setSub', 'queries')->assertSee('keçiören implant merkezi')->assertDontSee('çok eski sorgu')

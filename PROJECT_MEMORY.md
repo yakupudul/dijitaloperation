@@ -1629,3 +1629,23 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   `RegistryPrompted` arayüzü ve `UsesPromptRegistry` trait'i, `promptOperation()` rota anahtarını döner, değişkenler
   `promptVariables()`'tan.
 
+## 2026-10-30 — MoxDOP v2 Faz 4a (Web sitesi ekranı — SEO çekirdeği)
+
+- **Karar:** site ekranı tek kabuk (`Website\V2\WebsiteScreen`), sekme başına bir bileşen; Faz 4b sekmeleri (Rakipler,
+  Backlinkler, Site Sağlığı, Analiz, Bağlı Varlıklar) sınıf varsa gösterilir. Eski `Demo\Website\OverviewPage` rotasız.
+- **Karar:** önce kural, sonra parti başına tek AI çağrısı (kategori, hizmet ↔ sayfa, belirsiz küme ↔ sayfa); operatör
+  kararı (`category_locked`, `offering_pages.locked`, `brand_cluster_pages.locked`) hiçbir otomatik geçişte değişmez.
+- **Karar:** küme ↔ sayfa durumu önce belirleyici sinyallerden (GSC sorgu × sayfa gösterim payı, pozisyon, hizmet
+  sayfası bağı, alt konu kapsaması); AI yalnız kapsam / niyet belirsizliğinde, yalnız 4 durumdan birini seçer
+  (performans / çakışma / veri durumları koddadır). Hedef sorguya bölge yalnız ticari / yerel niyette eklenir.
+- **Karar:** AI çıktısı saklanmadan önce veri paketine karşı doğrulanır (`SiteEvidence`): sitede olmayan URL veya pakette
+  olmayan ≥ 2 haneli sayı içeren öneri / gerekçe atılır; kanıt yoksa "veri yok". Metin üreten işler (AI ile yap,
+  makale) sektör uyum kapısından geçmeden gösterilmez; dış yazma yalnız mevcut onaylı WordPress yolları (düzeltme,
+  içerik taslağı → canlıya al, makale taslağı), Admin, geri alınabilir.
+- **Karar:** tek marka hafızası `brand_memory`: profile / page (özet) / decision; AI'a yalnız ilgili parçalar gider
+  (`BrandMemory::contextFor`). Sayfa içerik hash'i değişince o sayfanın özeti düşer, açık önerileri `recheck` olur.
+- **Karar:** karardan üretilen standartlar mevcut standart deposunda (`website_standard_settings`, `website:decision:*`)
+  kapsam (url | brand | sector | general) + sürüm ile tutulur; yalnız kapsamı eşleşen yerde uygulanır.
+- **Sınır:** çeviri aracı Faz 0'da kaldırıldı; çok dilli sitede makale yalnız ana dilde taslak olur (not düşülür).
+  Küme ↔ sayfa yalnız sitenin ana dili için hesaplanır.
+
