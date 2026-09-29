@@ -1565,6 +1565,20 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 - **Değişmez:** kaynak ↔ tek varlık (OwnershipGuard), varlık ↔ tek marka, marka ↔ tek müşteri; AI / ücretli iş kapısı
   `Brand::operational()`.
 
+## 2026-10-29 — MoxDOP v2 Faz 3 (Sorgular)
+
+- **Karar:** tek sorgu deposu üç katman: `query_sources` (ham, hesap × ay) → `queries` (normalleşmiş metin başına tek satır,
+  sektör + hizmet + toplamlar) → `brand_queries` (bağlı hesapların marka görünümü, 28 gün). Hat tam ve idempotent geçiştir
+  (`ProcessQueriesJob`), her toplama ve kural değişikliği sonrası; ekran yalnız okur.
+- **Karar:** filtre sepeti yalnız silinecek kelime / ifade listesidir (genel ya da sektör); başka kural tipi, sürüm veya
+  önizleme sayısı yok. Silme tam kelime + Türkçe ek toleranslı. "Sil" butonu sorguyu gizler, sepete eklemez.
+- **Karar:** hizmet ataması yalnız sektörün eşleme kelimelerinden; kelime sektörde tekil; en uzun kelime kazanır, eşitlik
+  atanmamış. Elle atama (`locked`) ve kilitli kümedeki sorgular hiçbir otomatik geçişte değişmez.
+- **Karar:** kümeler sektör + hizmete aittir (markalar arası ortak); düzenlenen veya onaylanan küme kilitlenir, AI yeniden
+  kümelemede yalnız kilitsizleri değiştirir. AI'ın eklediği sorgu `is_suggested` ("önerilen"), metrik gösterilmez.
+- **Karar:** AI işlemleri `queries.filter_rules` ve `queries.cluster`; şablonlar Faz 8 istem kaydında
+  (`config/moxdop-prompts.php`, `PromptRegistry`). Sayfa tipi için SERP kanıtı bu fazda yok.
+
 ## 2026-10-28 — MoxDOP v2 Faz 1 (Toplama)
 
 - **Tek veri seti kataloğu:** `config('moxdop-collection.datasets')` toplanan her veri setinin tek doğrusudur

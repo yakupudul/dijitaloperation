@@ -56,7 +56,8 @@ final class AiUsageRecorder
         'ArticleWriterAgent' => AiRouteKeys::CONTENT_ARTICLE,
         'ContentIdeaAgent' => AiRouteKeys::CONTENT_IDEAS,
         'AssetSectorAgent' => AiRouteKeys::QUERIES_ASSET_SECTOR,
-        'QueryClusterAgent' => AiRouteKeys::QUERIES_CLUSTERING,
+        'QueryClusterAgent' => AiRouteKeys::QUERIES_CLUSTER,
+        'QueryRulesAgent' => AiRouteKeys::QUERIES_FILTER_RULES,
     ];
 
     /** @var array<int, float> agent object id => start time of its current attempt (hrtime ms) */

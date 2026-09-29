@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Normalized query layer: ONE row per normalized query text with its sector and service assignment (rule | ai | manual | none),
@@ -23,8 +24,13 @@ class Query extends Model
         'assignment',
         'locked',
         'is_suggested',
+        'hidden',
         'impressions',
         'clicks',
+        'ads_cost',
+        'ads_conversions',
+        'gbp_impressions',
+        'sources',
         'volume',
         'first_seen_on',
         'last_seen_on',
@@ -36,8 +42,12 @@ class Query extends Model
         return [
             'locked' => 'boolean',
             'is_suggested' => 'boolean',
+            'hidden' => 'boolean',
             'impressions' => 'integer',
             'clicks' => 'integer',
+            'ads_cost' => 'float',
+            'ads_conversions' => 'float',
+            'gbp_impressions' => 'integer',
             'volume' => 'integer',
             'first_seen_on' => 'immutable_date',
             'last_seen_on' => 'immutable_date',
@@ -66,5 +76,11 @@ class Query extends Model
     public function brandQueries(): HasMany
     {
         return $this->hasMany(BrandQuery::class);
+    }
+
+    /** @return HasOne<ClusterQuery, $this> */
+    public function clusterLink(): HasOne
+    {
+        return $this->hasOne(ClusterQuery::class, 'query_id');
     }
 }

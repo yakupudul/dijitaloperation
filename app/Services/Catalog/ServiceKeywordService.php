@@ -41,6 +41,9 @@ final class ServiceKeywordService
         }
         DB::transaction(function () use ($service, $keywords): void {
             ServiceCatalogItem::query()->lockForUpdate()->findOrFail($service->id);
+            foreach ($this->conflicts($service, array_keys($keywords)) as $key => $other) {
+                throw ValidationException::withMessages(['matching_words' => self::conflictMessage($keywords[$key], $other)]);
+            }
             $service->matchingKeywords()->delete();
             foreach ($keywords as $key => $label) {
                 ServiceMatchingKeyword::query()->create(['service_catalog_item_id' => $service->id, 'label' => $label, 'normalized_key' => $key]);
@@ -62,7 +65,8 @@ final class ServiceKeywordService
         foreach ($labels as $label) {
             $label = trim(LocationOptions::strip((string) $label)['text']);
             $key = LocationOptions::fold($label);
-            if (mb_strlen($key) < 3 || mb_strlen($label) > 255 || isset($existing[$key]) || in_array($key, self::GENERIC, true)) {
+            if (mb_strlen($key) < 3 || mb_strlen($label) > 255 || isset($existing[$key]) || in_array($key, self::GENERIC, true)
+                || $this->conflicts($service, [$key]) !== []) {
                 continue;
             }
             $existing[$key] = $label;
@@ -74,6 +78,61 @@ final class ServiceKeywordService
         $this->replace($service, implode("\n", $existing));
 
         return $added;
+    }
+
+    /**
+     * Adds one matching keyword (Sorgular › Eşleme kelimeleri). A keyword is unique within the sector.
+     *
+     * @throws ValidationException
+     */
+    public function add(ServiceCatalogItem $service, string $label): ServiceMatchingKeyword
+    {
+        $label = trim(preg_replace('/\s+/u', ' ', $label) ?? '');
+        $key = LocationOptions::fold($label);
+        if ($key === '' || mb_strlen($label) > 255) {
+            throw ValidationException::withMessages(['keyword' => 'Kelime 1–255 karakter olmalı.']);
+        }
+
+        return DB::transaction(function () use ($service, $label, $key): ServiceMatchingKeyword {
+            ServiceCatalogItem::query()->lockForUpdate()->findOrFail($service->id);
+            if ($service->matchingKeywords()->where('normalized_key', $key)->exists()) {
+                throw ValidationException::withMessages(['keyword' => 'Bu kelime bu hizmette zaten var.']);
+            }
+            foreach ($this->conflicts($service, [$key]) as $other) {
+                throw ValidationException::withMessages(['keyword' => self::conflictMessage($label, $other)]);
+            }
+            if ($service->matchingKeywords()->count() >= 200) {
+                throw ValidationException::withMessages(['keyword' => 'Bir hizmete en fazla 200 ifade ekleyebilirsiniz.']);
+            }
+
+            return ServiceMatchingKeyword::query()->create(['service_catalog_item_id' => $service->id, 'label' => $label, 'normalized_key' => $key]);
+        });
+    }
+
+    /**
+     * Keys already used by ANOTHER service of the same sector: key => that service's name. No sector = no check.
+     *
+     * @param  list<string>  $keys
+     * @return array<string, string>
+     */
+    public function conflicts(ServiceCatalogItem $service, array $keys): array
+    {
+        if ($keys === [] || blank($service->sector)) {
+            return [];
+        }
+
+        return ServiceMatchingKeyword::query()
+            ->join('service_catalog_items as s', 's.id', '=', 'service_matching_keywords.service_catalog_item_id')
+            ->whereNull('s.deleted_at')->where('s.sector', $service->sector)->where('s.id', '!=', $service->id)
+            ->whereIn('service_matching_keywords.normalized_key', $keys)
+            ->get(['service_matching_keywords.normalized_key', 's.id'])
+            ->mapWithKeys(fn ($row): array => [(string) $row->normalized_key => (string) (ServiceCatalogItem::query()->with('primaryName')->find($row->id)?->primaryName?->raw_label ?? '#'.$row->id)])
+            ->all();
+    }
+
+    private static function conflictMessage(string $label, string $service): string
+    {
+        return sprintf('"%s" bu sektörde zaten "%s" hizmetinin eşleme kelimesi. Bir kelime sektörde tek hizmete ait olabilir.', $label, $service);
     }
 
     public function matches(string $text, array $ids, ?Collection $words = null): array

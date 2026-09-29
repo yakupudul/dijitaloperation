@@ -37,5 +37,7 @@ final class AggregateQuerySourcesJob implements ShouldQueue
     {
         Cache::lock('query-sources:'.$this->externalResourceId, $this->timeout)
             ->block(60, fn () => $aggregator->aggregate($this->externalResourceId, $this->from, $this->to));
+        // Faz 3: the normalized query layer follows every aggregation (queued requests collapse into one pass).
+        ProcessQueriesJob::dispatch();
     }
 }

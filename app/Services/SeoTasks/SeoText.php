@@ -142,7 +142,8 @@ final class SeoText
         return false;
     }
 
-    private static function wordMatches(string $word, string $stem): bool
+    /** Folded word equals the folded stem or is the stem + one or two Turkish suffixes (soft consonant tolerant). */
+    public static function wordMatches(string $word, string $stem): bool
     {
         if ($word === $stem) {
             return true;

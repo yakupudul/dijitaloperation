@@ -85,11 +85,14 @@ final class AiRouteKeys
     /** Faz 4: one batch of gap article ideas for chosen services (one call per batch, never per idea). */
     public const string CONTENT_IDEAS = 'content.ideas';
 
+    /** Faz 3 "AI ile kural üret": selected queries → new filter basket terms + new matching keywords per service (one call). */
+    public const string QUERIES_FILTER_RULES = 'queries.filter_rules';
+
+    /** Faz 3 "AI ile kümele": one service's queries → clusters (same user need on the same page type), one call. */
+    public const string QUERIES_CLUSTER = 'queries.cluster';
+
     /** Sorgu hattı: sector of every discovered account / website (batched). */
     public const string QUERIES_ASSET_SECTOR = 'queries.asset_sector';
-
-    /** Sorgu hattı: topic clusters of one service's core queries with a page-type guess. */
-    public const string QUERIES_CLUSTERING = 'queries.clustering';
 
     /** Brand workspace analysts (Step 3): one weekly / on-demand AI analysis per brand × channel. */
     public const string ANALYST_SEARCH = 'analyst.search';

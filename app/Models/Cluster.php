@@ -16,6 +16,15 @@ class Cluster extends Model
 
     public const array PAGE_TYPES = ['service', 'guide', 'faq', 'comparison', 'location', 'other'];
 
+    /** Operator labels (Turkish). */
+    public const array INTENT_LABELS = [
+        'informational' => 'bilgi', 'commercial' => 'ticari', 'local' => 'yerel', 'comparison' => 'karşılaştırma', 'navigational' => 'marka',
+    ];
+
+    public const array PAGE_TYPE_LABELS = [
+        'service' => 'hizmet', 'guide' => 'rehber', 'faq' => 'sss', 'comparison' => 'karşılaştırma', 'location' => 'lokasyon', 'other' => 'diğer',
+    ];
+
     /** @var list<string> */
     protected $fillable = [
         'sector_id',
