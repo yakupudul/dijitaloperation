@@ -58,6 +58,8 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Services/Website/PublicDiscovery/StoredDiscoverySource.php',
         // Website Standards: the library UI reuses the module's standards catalog + evaluator.
         'app/Livewire/Operator/Library/WebsiteStandardsPage.php',
+        // Faz 4a: scoped decision standards + URL standard results of a page live in the same standards catalog.
+        'app/Services/Site/ScopedStandards.php',
         // Business Profile standards live in the same standards catalog (asset_type google_business_profile).
         'app/Services/Gbp/GbpStandardInput.php',
     ];

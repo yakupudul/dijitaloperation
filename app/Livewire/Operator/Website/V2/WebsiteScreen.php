@@ -91,6 +91,6 @@ final class WebsiteScreen extends Component
     {
         $site = DigitalAsset::query()->with('brand')->findOrFail($this->assetId);
 
-        return view('livewire.operator.website.v2.website-screen', ['site' => $site, 'component' => $this->component()]);
+        return view('livewire.operator.website.v2.website-screen', ['site' => $site, 'tabComponent' => $this->component()]);
     }
 }

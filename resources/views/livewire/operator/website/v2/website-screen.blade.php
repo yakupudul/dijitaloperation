@@ -17,6 +17,8 @@
         </nav>
     </header>
 
+    <x-operator.asset-context :asset-id="$site->id" />
+
     @if ($tab === 'seo')
         <nav class="flex flex-wrap gap-1" aria-label="SEO Yapılacaklar">
             @foreach (\App\Livewire\Operator\Website\V2\WebsiteScreen::SEO_TABS as $key => $label)
@@ -25,8 +27,8 @@
         </nav>
     @endif
 
-    @if ($component !== null)
-        @livewire($component, ['assetId' => $site->id], key($component.'-'.$site->id))
+    @if ($tabComponent !== null)
+        @livewire($tabComponent, ['assetId' => $site->id], key($tabComponent.'-'.$site->id))
     @else
         <p class="rounded-xl bg-white p-4 text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-placeholder>Hazırlanıyor</p>
     @endif

@@ -84,6 +84,16 @@ final class SiteMetrics
     /** @return array{clicks: int, prev: int, end: string}|null organic clicks of the site: 28 days and the 28 before */
     public function siteClicks(Brand $brand, DigitalAsset $site): ?array
     {
+        // Property totals first: they include the anonymized queries the query × page facts leave out.
+        $resources = SiteScope::resourceIds($brand, 'search_console');
+        $last = $resources === [] ? null : DB::table('gsc_property_daily')->whereIn('external_resource_id', $resources)->where('search_type', 'web')->max('reporting_date');
+        if ($last !== null) {
+            $end = CarbonImmutable::parse((string) $last);
+            $sum = fn (CarbonImmutable $from, CarbonImmutable $to): int => (int) DB::table('gsc_property_daily')->whereIn('external_resource_id', $resources)
+                ->where('search_type', 'web')->whereBetween('reporting_date', [$from->toDateString(), $to->toDateString()])->sum('clicks');
+
+            return ['clicks' => $sum($end->subDays(27), $end), 'prev' => $sum($end->subDays(55), $end->subDays(28)), 'end' => $end->toDateString()];
+        }
         $window = $this->window($brand);
         if ($window === null) {
             return null;

@@ -93,11 +93,9 @@ final class DataStatusTest extends TestCase
         $page->assertSee('Veri durumu')->assertSee('Güncel')->assertSee('son veri 26 Eyl');
         $page->assertDontSee('data-data-status-banner', false)->assertDontSee('İlk veri yükleniyor')->assertDontSee('Bağlı değil');
         $page->assertDontSee('henüz Google Analytics')->assertDontSee('Son veri: henüz yok');
-        // 26 days × 100 clicks, 26 days × 40 sessions inside the default last-28-days window.
-        $page->assertSee('Organik tıklamalar')->assertSee('2.600')->assertSee('1.040');
-        // Legacy Finding / Recommendation lists are gone; open work links to the command center for this asset.
-        $page->assertDontSee('Açık bulgular')->assertSee('Açık işler')
-            ->assertSee(route('operator.alerts', ['asset' => $site->id]), false);
+        // v2 Genel Bakış: 26 days × 100 clicks inside the last-28-days window (Search Console property totals).
+        $page->assertSee('Organik tıklama')->assertSee('2.600');
+        $page->assertDontSee('Açık bulgular');
 
     }
 

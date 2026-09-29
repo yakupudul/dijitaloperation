@@ -6,6 +6,7 @@ use App\Models\BrandClusterPage;
 use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Models\Suggestion;
+use App\Services\DataStatus\DataStatusReader;
 use App\Services\Site\SiteMetrics;
 use App\Services\Site\SiteScope;
 use Illuminate\Contracts\View\View;
@@ -51,6 +52,7 @@ final class OverviewTab extends Component
             'clicks' => $clicks,
             'lastContent' => $lastContent !== null ? substr((string) $lastContent, 0, 10) : null,
             'lastData' => $lastData,
+            'banners' => collect(app(DataStatusReader::class)->forAsset($site))->filter(fn ($status): bool => in_array($status->state, ['not_bound', 'first_load'], true))->groupBy('state'),
             'unassignedCount' => DB::table('pages')->where('website_asset_id', $site->id)->whereNull('category')->count(),
         ]);
     }

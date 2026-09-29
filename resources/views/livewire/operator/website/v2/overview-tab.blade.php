@@ -4,6 +4,14 @@
     $delta = $clicks !== null && $clicks['prev'] > 0 ? (int) round(($clicks['clicks'] - $clicks['prev']) / $clicks['prev'] * 100) : null;
 @endphp
 <div class="space-y-4" data-overview>
+    @foreach ($banners as $bannerState => $group)
+        <section class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200" data-data-status-banner="{{ $bannerState }}">
+            <span>{{ __('data_status.banner.'.$bannerState.'_title', ['sources' => $group->map(fn ($status) => $status->sourceLabel())->implode(' / ')], 'tr') }}</span>
+            @if ($bannerState === 'not_bound')
+                <a href="{{ route('operator.asset.sources', ['assetId' => $this->assetId]) }}" wire:navigate class="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white">{{ __('data_status.actions.bind', [], 'tr') }}</a>
+            @endif
+        </section>
+    @endforeach
     <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-numbers>
         <div class="{{ $card }}">
             <p class="text-xs text-gray-500">Sayfa</p>
