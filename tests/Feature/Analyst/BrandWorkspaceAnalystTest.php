@@ -309,6 +309,7 @@ final class BrandWorkspaceAnalystTest extends TestCase
         Queue::fake();
         $result = app(AnalystEngine::class)->queueWeekly();
 
+        $this->assertContains('search', $live);
         $this->assertSame(['queued' => count($live), 'channels' => $live], $result, 'only the operational brand, only live channels');
         $this->assertSame([$this->brand->id], AnalystRun::query()->distinct()->pluck('brand_id')->all());
         $this->assertSame('weekly', AnalystRun::query()->value('trigger'));

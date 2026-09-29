@@ -65,6 +65,12 @@ abstract class AbstractChannelAnalyst implements ChannelAnalyst
         return [];
     }
 
+    /** The decision text checked against the sector rules (a channel may drop its own technical terms first). */
+    protected function complianceText(array $decision): string
+    {
+        return $decision['title_tr'];
+    }
+
     /**
      * @param  array<string, mixed>  $raw
      * @return array{key: string, title_tr: string, why_tr: string, priority: int, impact: array{estimate: string, basis: string}, effort: string, evidence_refs: list<string>, action: array{type: string, params: array<string, mixed>}}
@@ -143,7 +149,7 @@ abstract class AbstractChannelAnalyst implements ChannelAnalyst
                 return 'aksiyon hedefi bu aksiyona uymuyor';
             }
         }
-        if (! $compliance->isCompliant($decision['title_tr'])) {
+        if (! $compliance->isCompliant($this->complianceText($decision))) {
             return 'sektör kuralına aykırı başlık';
         }
 
