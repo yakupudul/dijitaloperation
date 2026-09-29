@@ -190,7 +190,7 @@ class DemoProductRoutesTest extends TestCase
 
         $this->get(route('operator.meta.overview', ['assetId' => $meta->id]))
             ->assertOk()
-            ->assertSee('Overview')
+            ->assertSee('Genel Bakış')
             ->assertDontSee('Post Bariatric')
             ->assertDontSee('Atlas Health — Europe');
         $this->get(route('operator.google-ads.overview', ['assetId' => $gads->id]))

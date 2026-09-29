@@ -29,7 +29,6 @@ final class ProductionArchive
         'gbp.post' => 'İşletme Profili gönderisi',
         'advisor.explain' => 'Danışman açıklaması',
         'google_ads.search_term_triage' => 'Arama terimi incelemesi',
-        'meta.geo_results' => 'Meta hizmet × bölge × kitle',
         'reviews.themes' => 'Yorum temaları',
         'alerts.cause' => 'Uyarı nedeni',
         'google_ads.landing_fit' => 'Açılış sayfası uyumu',

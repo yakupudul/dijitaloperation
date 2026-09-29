@@ -43,7 +43,7 @@ class MetaAdsOperatingWorkspaceTest extends TestCase
     {
         $asset = $this->createPortfolioAsset('meta_ads', 'Northwind Meta', ['module_id' => 'meta-ads']);
 
-        foreach (['overview', 'campaigns', 'creatives', 'audience', 'funnel', 'measurement', 'operations'] as $tab) {
+        foreach (['overview', 'todo', 'creatives', 'strategy', 'measurement', 'analysis', 'settings'] as $tab) {
             $this->get(route('operator.meta.overview', ['assetId' => $asset->id, 'tab' => $tab]))
                 ->assertOk()
                 ->assertDontSee('Atlas Health — Europe')
@@ -62,7 +62,7 @@ class MetaAdsOperatingWorkspaceTest extends TestCase
             ->assertDontSee('Upload creative')
             ->assertSee('Veri durumu')
             ->assertDontSee('Update Now')
-            ->assertSee('Run analysis');
+            ->assertSee('Verileri yenile');
     }
 
     public function test_meta_workspace_fixtures_remain_deterministic_outside_http(): void

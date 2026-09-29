@@ -2,11 +2,9 @@
 
 namespace Tests\Feature\MetaAds;
 
-use App\Ai\Agents\Insights\MetaGeoAgent;
 use App\Enums\DigitalAssetStatus;
 use App\Jobs\CollectMetaGeoResultsJob;
 use App\Livewire\Demo\Meta\OverviewPage;
-use App\Models\AiProduction;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -16,9 +14,9 @@ use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Integrations\Meta\MetaApiClient;
+use App\Services\Meta\MetaScreen;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaGeoResults;
-use App\Services\MetaAds\MetaGeoResultsReader;
 use App\Support\Integrations\Meta\MetaResourceType;
 use App\Support\Roles;
 use Carbon\Carbon;
@@ -29,7 +27,7 @@ use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-/** Meta country + city results: collection, country → city summary, audience tab table and the AI geo insight. */
+/** Meta country + city results: collection, city rows with results, Analiz › Bölgeye göre. */
 final class MetaGeoResultsTest extends TestCase
 {
     use RefreshDatabase;
@@ -73,56 +71,26 @@ final class MetaGeoResultsTest extends TestCase
         $berlin = DB::table('meta_geo_results_daily')->where('level', 'region')->where('region', 'Berlin')->first();
         $this->assertSame('', $berlin->country, 'an ad in two countries cannot place its cities');
 
-        $summary = app(MetaGeoResultsReader::class)->summary($this->asset->id, '2026-09-01', '2026-09-30');
-        $this->assertTrue($summary['has_data']);
-        $this->assertSame('TR', $summary['countries'][0]['country']);
-        $this->assertSame(['Istanbul', 'Ankara'], array_column($summary['countries'][0]['regions'], 'region'));
-        $this->assertSame(50.0, $summary['countries'][0]['regions'][0]['cost_per_result']);
-        $this->assertSame('', end($summary['countries'])['country'], 'the unplaced cities come last');
+        $regions = app(MetaScreen::class)->regions(app(MetaScreen::class)->account($this->asset), '2026-09-01', '2026-09-30');
+        $this->assertSame(['Istanbul', 'Berlin', 'Ankara'], array_column($regions, 'region'), 'most spend first');
+        $this->assertSame(50.0, $regions[0]['cpr']);
+        $this->assertSame('TR', $regions[0]['country']);
 
         app(MetaGeoResults::class)->collect($this->asset, 3);
         $this->assertSame(6, DB::table('meta_geo_results_daily')->count(), 'a re-collection replaces the window');
     }
 
-    public function test_audience_tab_shows_country_city_table_ai_button_and_queues_collection(): void
+    public function test_analysis_tab_shows_regions_and_queues_collection(): void
     {
         $this->fakeInsights();
         app(MetaGeoResults::class)->collect($this->asset, 3);
 
-        $this->get(route('operator.meta.overview', ['assetId' => $this->asset->id, 'tab' => 'audience', 'period' => 'last_28']))
-            ->assertOk()->assertSee('Ülke ve şehir performansı')->assertSee('Türkiye')->assertSee('Istanbul')
-            ->assertSee('Birden fazla ülke')->assertSee('✨ AI');
+        $this->get(route('operator.meta.overview', ['assetId' => $this->asset->id, 'tab' => 'analysis']))
+            ->assertOk()->assertSee('Bölgeye göre')->assertSee('Istanbul · TR')->assertSee('Bölge verisini çek');
 
         Queue::fake();
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'audience'])->call('collectGeoResults');
+        Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'analysis'])->call('collectGeoResults');
         Queue::assertPushed(CollectMetaGeoResultsJob::class, fn ($job): bool => $job->assetId === $this->asset->id && $job->days === 90);
-    }
-
-    public function test_ai_geo_insight_reads_names_cities_and_targeting(): void
-    {
-        config(['moxdop.anthropic.api_key' => 'sk-ant-test']);
-        CoreIntegration::factory()->anthropic()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
-        $this->fakeInsights();
-        app(MetaGeoResults::class)->collect($this->asset, 3);
-        DB::table('meta_adset_targeting_snapshot')->insert([
-            'digital_asset_id' => $this->asset->id, 'external_resource_id' => 1, 'account_id' => '777', 'adset_id' => 'as1', 'adset_name' => 'Implant – İstanbul – 35+',
-            'optimization_goal' => 'LEAD_GENERATION', 'targeting' => json_encode(['age_min' => 35, 'age_max' => 55, 'genders' => [2], 'flexible_spec' => [['interests' => [['id' => '1', 'name' => 'Dental implant']]]]]),
-            'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', 'as1'), 'created_at' => now(), 'updated_at' => now(),
-        ]);
-        MetaGeoAgent::fake([['summary' => 'En iyi: implant, İstanbul, 35-55 kadın.', 'items' => [['title' => 'İmplant · İstanbul · 35-55 kadın — 6 lead, 50 TL/lead', 'detail' => 'Bütçe artırılabilir.', 'tag' => 'winner']]]]);
-
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'audience'])
-            ->call('runInsight', 'meta.geo_results', $this->asset->id)
-            ->assertSee('En iyi: implant, İstanbul, 35-55 kadın.')
-            ->assertSee('İyi çalışıyor');
-
-        $this->assertSame(1, AiProduction::query()->where('kind', 'meta.geo_results')->count());
-        MetaGeoAgent::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, 'Dental implant')
-            && str_contains((string) $prompt->prompt, 'Istanbul') && str_contains((string) $prompt->prompt, 'Implant'));
-
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'audience'])
-            ->call('runInsight', 'alerts.cause', $this->asset->id);
-        $this->assertSame(1, AiProduction::query()->count(), 'the page only allows its own insight kind');
     }
 
     private function fakeInsights(): void

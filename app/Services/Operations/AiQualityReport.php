@@ -37,7 +37,6 @@ final class AiQualityReport
         'gbp.review_reply' => AiRouteKeys::GBP_REVIEW_REPLY,
         'advisor.explain' => AiRouteKeys::INSIGHT_ADVISOR_EXPLAIN,
         'google_ads.search_term_triage' => AiRouteKeys::INSIGHT_SEARCH_TERM_TRIAGE,
-        'meta.geo_results' => AiRouteKeys::INSIGHT_META_GEO,
         'reviews.themes' => AiRouteKeys::INSIGHT_REVIEW_THEMES,
         'alerts.cause' => AiRouteKeys::INSIGHT_ALERT_CAUSE,
         'google_ads.landing_fit' => AiRouteKeys::INSIGHT_LANDING_FIT,

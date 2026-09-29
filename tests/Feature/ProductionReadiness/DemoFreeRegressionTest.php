@@ -9,7 +9,6 @@ use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Ga4\Ga4SpecialistReadService;
 use App\Services\Gsc\GscSpecialistReadService;
-use App\Services\MetaAds\MetaAdsSpecialistReadService;
 use App\Support\Reality\DemoCatalogAssetGuard;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -44,12 +43,10 @@ class DemoFreeRegressionTest extends TestCase
         $brand = Brand::factory()->create(['customer_id' => $customer->id]);
         $ga4 = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'ga4', 'module_id' => 'google_analytics']);
         $gsc = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'gsc', 'module_id' => 'search_console']);
-        $meta = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'meta_ads', 'module_id' => 'meta_ads']);
 
         foreach ([
             app(Ga4SpecialistReadService::class)->workspace((string) $ga4->id, 'last_28'),
             app(GscSpecialistReadService::class)->workspace((string) $gsc->id, 'last_28'),
-            app(MetaAdsSpecialistReadService::class)->workspace((string) $meta->id, 'last_28'),
         ] as $workspace) {
             $this->assertNotSame('demo_catalog', $workspace['migration_mode'] ?? null);
             $encoded = json_encode($workspace);

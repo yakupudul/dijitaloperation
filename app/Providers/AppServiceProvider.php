@@ -77,9 +77,7 @@ use App\Services\Gsc\GscSpecialistReadService;
 use App\Services\Gsc\GscUiDatasetGate;
 use App\Services\Integrations\BoundCollectorRegistry;
 use App\Services\Integrations\ResourceAutomationService;
-use App\Services\MetaAds\MetaAdsPoolReadRepository;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
-use App\Services\MetaAds\MetaAdsSpecialistReadService;
 use App\Services\MetaAds\MetaAdsUiDatasetGate;
 use App\Services\Operator\AgencySettingService;
 use App\Services\Operator\OperatorMailConfigService;
@@ -170,9 +168,7 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(MetaAdsFormulaCalculator::class);
         $this->app->singleton(MetaAdsSpecialistBindingResolver::class);
-        $this->app->singleton(MetaAdsPoolReadRepository::class);
         $this->app->singleton(MetaAdsUiDatasetGate::class);
-        $this->app->singleton(MetaAdsSpecialistReadService::class);
 
         $this->app->singleton(CustomerServiceScopeService::class);
         $this->app->singleton(CustomerServiceScopeReadService::class);

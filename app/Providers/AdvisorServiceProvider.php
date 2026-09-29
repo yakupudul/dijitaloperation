@@ -8,7 +8,8 @@ use App\Support\Ai\AiRouteRegistry;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * Registers the Business Profile AI routes (review reply, post draft, Faz 7 services compare, description, post from page). Rule engines run without AI.
+ * Registers the Business Profile AI routes (review reply, Faz 7 services compare, description, post from page) and the
+ * Faz 6 Meta AI routes (creatives, campaign structure, form / landing). System checks run without AI.
  */
 final class AdvisorServiceProvider extends ServiceProvider
 {
@@ -43,6 +44,30 @@ final class AdvisorServiceProvider extends ServiceProvider
             'name' => 'Business Profile Post From Page',
             'module' => 'gbp',
             'description' => 'İşletme Profili "Siteden paylaş": one post (≤ 1500 characters) from one page of the brand\'s site with a link to that page, sector compliance checked. Publishing needs Admin approval (ADR-073).',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::META_CREATIVES,
+            'name' => 'Meta Creatives',
+            'module' => 'meta',
+            'description' => 'Meta "Kreatif öner": per main service ad texts, headlines, video hooks and test variants from the account\'s own creatives and results, sector compliance checked. Copy / CSV only; nothing is written to Meta.',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::META_STRUCTURE,
+            'name' => 'Meta Campaign Structure',
+            'module' => 'meta',
+            'description' => 'Meta "Kampanya yapısı öner": campaign / ad set structure and remarketing proposals from campaigns, ad sets, services, areas and lead marks. Instructions only; nothing is written to Meta.',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::META_LANDING,
+            'name' => 'Meta Form / Landing',
+            'module' => 'meta',
+            'description' => 'Meta "Form / açılış sayfası öner": improvements for the lead forms and landing pages of the ads from page content, GA4 and lead marks. Instructions only; nothing is written.',
             'default_steps' => AiDefaultSteps::analysis(),
         ]);
     }

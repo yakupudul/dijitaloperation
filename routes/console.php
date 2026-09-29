@@ -7,6 +7,7 @@ use App\Jobs\CheckSitemapChangesJob;
 use App\Jobs\Collection\ExecuteDatasetRunJob;
 use App\Jobs\CollectMetaGeoResultsJob;
 use App\Jobs\Gbp\SyncGbpSuggestionsJob;
+use App\Jobs\Meta\SyncMetaSuggestionsJob;
 use App\Jobs\Ops\QueueHeartbeatProbeJob;
 use App\Jobs\RefreshBrandCandidatesJob;
 use App\Models\Brand;
@@ -640,3 +641,16 @@ Schedule::command('moxdop:gbp:suggestions')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(30)
     ->name('gbp-suggestions-daily');
+
+// Faz 6: Meta sistem kontrolleri (en çok 10 kontrol → öneriler; AI yok), operasyonel markalar.
+Artisan::command('moxdop:meta:suggestions', function (): void {
+    $ids = DigitalAsset::query()->operational()->where('type', 'meta_ads')->pluck('digital_assets.id');
+    $ids->each(fn ($id) => SyncMetaSuggestionsJob::dispatch((int) $id));
+    $this->info('Kuyruğa alınan Meta hesabı: '.$ids->count());
+})->purpose('Refresh the Meta system-check suggestions of operational brands.');
+
+Schedule::command('moxdop:meta:suggestions')
+    ->dailyAt('06:56')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(30)
+    ->name('meta-suggestions-daily');

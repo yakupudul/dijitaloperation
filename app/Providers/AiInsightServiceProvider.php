@@ -5,7 +5,6 @@ namespace App\Providers;
 use App\Services\Ai\Insights\AiInsightService;
 use App\Services\Insights\Definitions\AlertCauseInsight;
 use App\Services\Insights\Definitions\LandingFitInsight;
-use App\Services\Insights\Definitions\MetaGeoInsight;
 use App\Services\Insights\Definitions\SearchTermTriageInsight;
 use App\Services\Insights\Definitions\TechnicalTasksInsight;
 use App\Support\Ai\AiDefaultSteps;
@@ -19,7 +18,6 @@ final class AiInsightServiceProvider extends ServiceProvider
         SearchTermTriageInsight::class => ['Search Term Triage', 'advisor', 'classification', 'Sorts the last 30 days of Google Ads search terms into irrelevant (negative candidates), to review and fine, using the brand services and areas.'],
         AlertCauseInsight::class => ['Alert Root Cause', 'alerts', 'analysis', 'Compares the daily numbers of all channels around an alert to name its most likely cause.'],
         LandingFitInsight::class => ['Ad ↔ Landing Page Fit', 'advisor', 'analysis', 'Checks whether ads, keywords and crawled landing pages promise the same thing.'],
-        MetaGeoInsight::class => ['Meta Service × Area × Audience', 'advisor', 'analysis', 'Reads Meta campaign, ad set and ad names with country and city results and ad set targeting to say which service, area and audience brought conversions.'],
         TechnicalTasksInsight::class => ['Website Developer Task List', 'website', 'analysis', 'Turns the website technical observations into a prioritised developer task list.'],
     ];
 
