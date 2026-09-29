@@ -66,11 +66,6 @@ final class OperatorIntegrationsHubQuery
                         'operator.integrations.dataforseo',
                     ),
                     'wordpress' => $this->wordpressHubCard($provider),
-                    'whatsapp' => $this->truthfulProviderCard(
-                        $provider,
-                        CoreIntegration::query()->where('provider', 'whatsapp')->where('status', CoreIntegration::STATUS_ACTIVE)->exists(),
-                        'operator.whatsapp',
-                    ),
                     ProviderRegistry::OPENAI, AiProviderCatalog::OPENAI => $this->truthfulProviderCard(
                         $provider,
                         $this->openAiConfigured(),

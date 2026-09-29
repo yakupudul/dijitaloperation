@@ -3,8 +3,8 @@
 namespace App\Contracts\Collection;
 
 use App\Models\User;
-use App\Services\CommandCenter\Activity\ActivityTierServiceReader;
-use App\Services\CommandCenter\Activity\NullActivityTierReader;
+use App\Services\Collection\Activity\ActivityTierServiceReader;
+use App\Services\Collection\Activity\NullActivityTierReader;
 
 /**
  * How active an ad account is, for the Komuta merkezi.

@@ -2,14 +2,13 @@
 
 namespace Tests\Feature\Retention;
 
-use App\Models\CoreIntegration;
 use App\Services\Retention\DataRetentionService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Tests\Feature\Brain\InsertsFacts;
+use Tests\Support\InsertsFacts;
 use Tests\TestCase;
 
 final class DataRetentionTest extends TestCase
@@ -66,16 +65,10 @@ final class DataRetentionTest extends TestCase
             ['provider' => 'google', 'operation' => 'old', 'window_started_at' => now()->subDays(40)],
             ['provider' => 'google', 'operation' => 'new', 'window_started_at' => now()->subDays(2)],
         ]);
-        $integration = CoreIntegration::factory()->create()->id;
-        DB::table('whatsapp_webhook_receipts')->insert([
-            ['integration_id' => $integration, 'payload_hash' => 'a', 'status' => 'completed', 'created_at' => now()->subDays(40)],
-            ['integration_id' => $integration, 'payload_hash' => 'b', 'status' => 'pending', 'created_at' => now()->subDays(40)],
-        ]);
 
         app(DataRetentionService::class)->purgeTelemetry();
 
         $this->assertSame(['new'], DB::table('provider_api_counters')->pluck('operation')->all());
-        $this->assertSame(['b'], DB::table('whatsapp_webhook_receipts')->pluck('payload_hash')->all(), 'unprocessed receipts are never removed');
     }
 
     public function test_old_raw_payloads_are_deleted_but_each_pages_latest_html_is_kept(): void

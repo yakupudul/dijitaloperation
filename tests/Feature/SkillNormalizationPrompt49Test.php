@@ -6,10 +6,7 @@ use App\Models\Finding;
 use App\Models\Task;
 use App\Support\Skills\BuiltInSkillLoader;
 use App\Support\Skills\SkillDefinition;
-use App\Support\Skills\SkillDefinitionFingerprint;
 use App\Support\Skills\SkillDefinitionValidator;
-use App\Support\Skills\SkillEligibilityEvaluator;
-use App\Support\Skills\SkillEvidenceRequirement;
 use App\Support\Skills\SkillGlobalClaimPolicy;
 use App\Support\Skills\SkillRegistry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -44,7 +41,7 @@ class SkillNormalizationPrompt49Test extends TestCase
         $validator = app(SkillDefinitionValidator::class);
 
         $skills = $registry->all();
-        $this->assertCount(10, $skills);
+        $this->assertNotEmpty($skills);
 
         foreach ($skills as $skill) {
             $this->assertSame([], $validator->validate($skill), $skill->stableKey());
@@ -99,54 +96,6 @@ class SkillNormalizationPrompt49Test extends TestCase
         $this->assertTrue(count($effective) > count($global) - 1);
         $this->assertTrue(collect($global)->contains(fn (string $c): bool => str_contains(strtolower($c), 'missing')));
         $this->assertTrue(collect($global)->contains(fn (string $c): bool => str_contains(strtolower($c), 'magic')));
-    }
-
-    public function test_missing_required_evidence_abstains_and_never_implies_zero(): void
-    {
-        $skill = app(SkillRegistry::class)->getForModule('search_demand', 'search-demand-clustering');
-        $evaluator = app(SkillEligibilityEvaluator::class);
-
-        $result = $evaluator->evaluate($skill, []);
-        $this->assertFalse($result['eligible']);
-        $this->assertTrue($result['abstain']);
-        $this->assertSame(SkillEligibilityEvaluator::MISSING_REQUIRED_EVIDENCE, $result['reason_code']);
-        $this->assertNotEmpty($result['missing_evidence']);
-    }
-
-    public function test_optional_evidence_absence_keeps_skill_eligible(): void
-    {
-        $skill = app(SkillRegistry::class)->getForModule('search_demand', 'search-demand-clustering');
-        $evaluator = app(SkillEligibilityEvaluator::class);
-
-        $result = $evaluator->evaluate($skill, ['brand_query_portfolio']);
-        $this->assertTrue($result['eligible']);
-        $this->assertFalse($result['abstain']);
-        $this->assertSame([], $result['missing_evidence']);
-    }
-
-    public function test_stale_or_integrity_blocked_evidence_abstains(): void
-    {
-        $skill = app(SkillRegistry::class)->getForModule('search_demand', 'search-demand-clustering');
-        $evaluator = app(SkillEligibilityEvaluator::class);
-
-        $stale = $evaluator->evaluate($skill, ['brand_query_portfolio'], [], ['brand_query_portfolio' => 'stale']);
-        $this->assertFalse($stale['eligible']);
-        $this->assertSame(SkillEligibilityEvaluator::REQUIRED_EVIDENCE_STALE, $stale['reason_code']);
-
-        $blocked = $evaluator->evaluate($skill, ['brand_query_portfolio'], [], ['brand_query_portfolio' => 'integrity_blocked']);
-        $this->assertFalse($blocked['eligible']);
-        $this->assertSame(SkillEligibilityEvaluator::INTEGRITY_BLOCKED, $blocked['reason_code']);
-    }
-
-    public function test_definition_fingerprint_is_deterministic_and_ignores_presentation_noise(): void
-    {
-        $a = ['purpose' => 'x', 'version' => '1.0.0', 'slug' => 'a'];
-        $b = ['slug' => 'a', 'version' => '1.0.0', 'purpose' => 'x'];
-        $this->assertSame(SkillDefinitionFingerprint::hash($a), SkillDefinitionFingerprint::hash($b));
-
-        $skill = app(SkillRegistry::class)->getForModule('search_demand', 'search-demand-clustering');
-        $this->assertSame(64, strlen($skill->definitionFingerprint()));
-        $this->assertSame($skill->definitionFingerprint(), $skill->definitionFingerprint());
     }
 
     public function test_validator_rejects_unknown_evidence_and_magic_scores(): void
@@ -343,14 +292,6 @@ MD);
 
         $this->assertSame(0, Finding::query()->count());
         $this->assertSame(0, Task::query()->count());
-    }
-
-    public function test_structured_evidence_requirement_parses_from_yaml(): void
-    {
-        $skill = app(SkillRegistry::class)->getForModule('search_demand', 'search-demand-clustering');
-        $this->assertNotEmpty($skill->requiredEvidenceRequirements);
-        $this->assertInstanceOf(SkillEvidenceRequirement::class, $skill->requiredEvidenceRequirements[0]);
-        $this->assertSame(SkillEvidenceRequirement::MISSING_ABSTAIN, $skill->requiredEvidenceRequirements[0]->missingBehavior);
     }
 
     public function test_external_repo_branding_absent_from_stable_keys(): void

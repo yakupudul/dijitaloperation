@@ -2,7 +2,6 @@
 
 namespace App\Services\Operations\Diagnostics;
 
-use App\Models\BrandDemandQuery;
 use App\Models\DigitalAsset;
 use App\Services\BrandSetup\BrandSetupMatcher;
 use App\Services\Operations\OpsWatchdog;
@@ -21,7 +20,7 @@ use Throwable;
 
 /**
  * Read-only portfolio diagnosis behind `moxdop:diagnose`: environment, ownership, integrations, data collection,
- * websites, search queries, advisors, AI and application errors, as short lines the operator pastes to the developer.
+ * websites, alerts, AI and application errors, as short lines the operator pastes to the developer.
  *
  * Only SELECT queries (aggregates and limits), stored state only: no provider / API call, no job dispatch, no
  * cache or database write. Each section is independent: a missing table prints "yok", an exception prints its class
@@ -36,10 +35,9 @@ final class PortfolioDiagnostics
         'integrations' => '3. Entegrasyonlar',
         'collection' => '4. Veri toplama',
         'website' => '5. Web siteleri',
-        'queries' => '6. Arama sorguları',
-        'advisors' => '7. Danışmanlar, uyarılar, komuta merkezi',
-        'ai' => '8. Yapay zekâ',
-        'errors' => '9. Uygulama hataları',
+        'advisors' => '6. Uyarılar',
+        'ai' => '7. Yapay zekâ',
+        'errors' => '8. Uygulama hataları',
     ];
 
     /**
@@ -1081,15 +1079,12 @@ final class PortfolioDiagnostics
     {
         $projection = $this->hasTable('website_intelligence_projection_runs')
             ? DB::table('website_intelligence_projection_runs')->where('website_asset_id', $site->id)->orderByDesc('id')->first(['status', 'completed_at', 'created_at', 'error_code']) : null;
-        $plan = $this->hasTable('seo_plans') ? DB::table('seo_plans')->where('digital_asset_id', $site->id)->orderByDesc('id')->first(['status', 'completed_at', 'input_summary']) : null;
-        $inventory = $plan !== null ? data_get($this->decode($plan->input_summary), 'inventory.state', data_get($this->decode($plan->input_summary), 'inventory.status')) : null;
-        $line = sprintf('#%d %s (%s): sayfa profili %d · sitemap URL %d · projeksiyon %s %s · SEO planı %s %s%s', $site->id, $site->name, BrandSetupMatcher::host((string) ($site->primary_url ?: $site->domain)),
-            $profiles, $urls, $projection->status ?? 'yok', $this->ago($projection?->completed_at ?? $projection?->created_at), $plan->status ?? 'yok', $this->ago($plan?->completed_at),
-            is_string($inventory) ? ' · envanter '.$inventory : '');
-        $bad = ($profiles === 0 && $urls > 0) || ($projection !== null && in_array($projection->status, self::FAILED, true)) || ($plan !== null && $plan->status === 'failed');
+        $line = sprintf('#%d %s (%s): sayfa profili %d · sitemap URL %d · projeksiyon %s %s', $site->id, $site->name, BrandSetupMatcher::host((string) ($site->primary_url ?: $site->domain)),
+            $profiles, $urls, $projection->status ?? 'yok', $this->ago($projection?->completed_at ?? $projection?->created_at));
+        $bad = ($profiles === 0 && $urls > 0) || ($projection !== null && in_array($projection->status, self::FAILED, true));
         $bad ? $this->problem($line) : $this->info($line);
 
-        return ['asset_id' => (int) $site->id, 'page_profiles' => $profiles, 'sitemap_urls' => $urls, 'projection' => $projection->status ?? null, 'seo_plan' => $plan->status ?? null];
+        return ['asset_id' => (int) $site->id, 'page_profiles' => $profiles, 'sitemap_urls' => $urls, 'projection' => $projection->status ?? null];
     }
 
     /** @return array<string, mixed> */
@@ -1135,46 +1130,6 @@ final class PortfolioDiagnostics
 
         $this->websiteCollectionRun($site, $data);
         $this->websiteConnector($site, $data);
-
-        if ($this->hasTable('seo_plans')) {
-            $plan = DB::table('seo_plans')->where('digital_asset_id', $site->id)->orderByDesc('id')->first(['id', 'status', 'trigger', 'completed_at', 'failed_at', 'created_at', 'error_summary', 'input_summary', 'result_summary']);
-            if ($plan === null) {
-                $this->info('SEO planı: hiç çalışmamış');
-            } else {
-                $input = $this->decode($plan->input_summary);
-                $picked = array_intersect_key($input, array_flip(['pages', 'html', 'inventory', 'gsc', 'findings', 'offerings', 'matched_queries', 'ga4_available', 'depth', 'use_ai']));
-                $inventoryState = data_get($input, 'inventory.state', data_get($input, 'inventory.status'));
-                $line = sprintf('SEO planı #%d: %s · %s · tetik %s%s', $plan->id, $plan->status, $this->ago($plan->completed_at ?? $plan->failed_at ?? $plan->created_at), $plan->trigger ?? '—',
-                    filled($plan->error_summary) ? ' · hata: '.DiagnosticMasker::firstLine((string) $plan->error_summary, 200) : '');
-                ($plan->status === 'failed' || (int) ($input['pages'] ?? 1) === 0 || data_get($input, 'inventory.empty') === true) ? $this->problem($line) : $this->info($line);
-                $this->info('  input_summary: '.$this->json($picked, 700));
-                $this->info('  result_summary: '.$this->json($plan->result_summary, 300));
-                $data['seo_plan'] = ['status' => $plan->status, 'pages' => $input['pages'] ?? null, 'inventory' => $inventoryState];
-            }
-        }
-
-        if ($this->hasTable('topic_map_builds')) {
-            $build = DB::table('topic_map_builds')->where('digital_asset_id', $site->id)->orderByDesc('id')->first(['status', 'trigger', 'stats', 'error', 'finished_at', 'started_at']);
-            if ($build === null) {
-                $this->info('Konu haritası: hiç kurulmamış');
-            } else {
-                $line = sprintf('Konu haritası: %s · %s · %s%s', $build->status, $this->ago($build->finished_at ?? $build->started_at), $this->json($build->stats, 300),
-                    filled($build->error) ? ' · hata: '.DiagnosticMasker::firstLine((string) $build->error, 200) : '');
-                $build->status === 'failed' ? $this->problem($line) : $this->info($line);
-            }
-        }
-        if ($this->hasTable('website_url_verdicts')) {
-            $verdicts = DB::table('website_url_verdicts')->where('digital_asset_id', $site->id)->selectRaw('verdict, count(*) as n')->groupBy('verdict')->pluck('n', 'verdict');
-            $this->info('URL kararları: '.$this->counts($verdicts));
-            $data['url_verdicts'] = $verdicts->all();
-        }
-        foreach (['content_ideas' => 'İçerik fikirleri', 'content_articles' => 'İçerik yazıları'] as $table => $label) {
-            if ($this->hasTable($table)) {
-                $counts = DB::table($table)->where('digital_asset_id', $site->id)->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status');
-                $this->info($label.': '.$this->counts($counts));
-                $data[$table] = $counts->all();
-            }
-        }
 
         return $data;
     }
@@ -1245,110 +1200,11 @@ final class PortfolioDiagnostics
         }
     }
 
-    // ------------------------------------------------------------------ 6. queries
-
-    private function queries(): void
-    {
-        if (! $this->need('brand_demand_queries')) {
-            return;
-        }
-        if (! $this->deep()) {
-            $rows = DB::table('brand_demand_queries as q')->join('brands as b', 'b.id', '=', 'q.brand_id')->whereNull('b.deleted_at')
-                ->selectRaw("b.id, b.name, count(*) as total, sum(case when q.relevance = 'relevant' then 1 else 0 end) as relevant, sum(case when q.relevance = 'unclear' then 1 else 0 end) as unclear, sum(case when q.relevance = 'irrelevant' then 1 else 0 end) as irrelevant, sum(case when q.brand_offering_id is null and (q.relevance is null or q.relevance <> 'irrelevant') then 1 else 0 end) as unassigned")
-                ->groupBy('b.id', 'b.name')->orderByDesc('unclear')->limit(30)->get();
-            foreach ($rows as $row) {
-                $line = sprintf('#%d %s: %d sorgu · ilgili %d · belirsiz %d · alakasız %d · hizmetsiz %d', $row->id, $row->name, $row->total, $row->relevant, $row->unclear, $row->irrelevant, $row->unassigned);
-                ((int) $row->total > 0 && (int) $row->unclear / (int) $row->total > 0.3) ? $this->problem($line) : $this->info($line);
-            }
-            $this->data('brands', $rows->map(fn (object $r): array => (array) $r)->all());
-            $this->info('(ayrıntı için --brand=…)');
-
-            return;
-        }
-
-        foreach ($this->brands as $brand) {
-            $this->brandQueries($brand);
-        }
-    }
-
-    /** @param  array{id: int, name: string, customer_id: ?int}  $brand */
-    private function brandQueries(array $brand): void
-    {
-        $base = fn () => DB::table('brand_demand_queries')->where('brand_id', $brand['id']);
-        $total = $base()->count();
-        $this->info(sprintf('— #%d %s: %d sorgu', $brand['id'], $brand['name'], $total));
-        $relevance = $base()->selectRaw('relevance, count(*) as n')->groupBy('relevance')->pluck('n', 'relevance');
-        $method = $base()->selectRaw('assignment_method, count(*) as n')->groupBy('assignment_method')->pluck('n', 'assignment_method');
-        $source = $base()->selectRaw('assignment_source, count(*) as n')->groupBy('assignment_source')->pluck('n', 'assignment_source');
-        $bySource = [];
-        foreach (BrandDemandQuery::SOURCE_BITS as $name => $bit) {
-            $bySource[$name] = $base()->whereRaw('(source_mask & ?) > 0', [$bit])->count();
-        }
-        $unassigned = $base()->whereNull('brand_offering_id')->where(fn ($q) => $q->whereNull('relevance')->orWhere('relevance', '!=', BrandDemandQuery::IRRELEVANT))->count();
-        $unclear = (int) ($relevance[BrandDemandQuery::UNCLEAR] ?? 0);
-        $this->info('İlgi: '.$this->counts($relevance));
-        $this->info('Atama yöntemi: '.$this->counts($method).' · atama kaynağı: '.$this->counts($source));
-        $this->info('Kaynak: '.$this->counts($bySource));
-        $line = sprintf('Belirsiz %d · hizmete atanmamış (alakasız hariç) %d', $unclear, $unassigned);
-        ($total > 0 && ($unclear / $total > 0.3 || $unassigned / $total > 0.5)) ? $this->problem($line) : $this->info($line);
-        if ($total === 0) {
-            $this->problem('Markanın hiç arama sorgusu yok (talep haritası kurulmamış olabilir)');
-        }
-
-        $top = $base()->whereNull('brand_offering_id')->where(fn ($q) => $q->whereNull('relevance')->orWhere('relevance', '!=', BrandDemandQuery::IRRELEVANT))
-            ->orderByDesc('gsc_impressions')->limit(10)->get(['query', 'gsc_impressions', 'gsc_clicks', 'relevance', 'sources']);
-        foreach ($top as $q) {
-            $this->info(sprintf('  hizmetsiz: "%s" · gösterim %d · tık %d · %s · %s', DiagnosticMasker::text((string) $q->query, 80), (int) $q->gsc_impressions, (int) $q->gsc_clicks, $q->relevance ?? '—', filled($q->sources) ? $this->json($q->sources, 80) : '—'));
-        }
-        $offerings = $this->hasTable('brand_offerings') ? DB::table('brand_offerings')->where('brand_id', $brand['id'])->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status') : collect();
-        $areas = $this->hasTable('brand_service_areas') ? DB::table('brand_service_areas')->where('brand_id', $brand['id'])->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status') : collect();
-        $this->info('Hizmetler: '.$this->counts($offerings).' · hizmet bölgeleri: '.$this->counts($areas));
-        if ($offerings->sum() === 0) {
-            $this->problem('Markada hizmet (offering) tanımlı değil');
-        }
-        $this->data('brand_'.$brand['id'], ['total' => $total, 'relevance' => $relevance->all(), 'method' => $method->all(), 'source' => $bySource,
-            'unclear' => $unclear, 'unassigned' => $unassigned, 'offerings' => $offerings->all(), 'service_areas' => $areas->all()]);
-    }
-
-    // ------------------------------------------------------------------ 7. advisors
+    // ------------------------------------------------------------------ 6. advisors
 
     private function advisors(): void
     {
         $brandIds = $this->deep() ? ($this->brandIds() ?: [0]) : null;
-        foreach (['advisor_plans' => 'channel', 'seo_plans' => null] as $table => $channelColumn) {
-            if (! $this->hasTable($table)) {
-                $this->info($table.': yok');
-
-                continue;
-            }
-            $since = now()->subDays($this->days);
-            $query = DB::table($table)->when($brandIds !== null, fn ($q) => $q->whereIn('brand_id', $brandIds))
-                ->selectRaw("max(id) as id, sum(case when status = 'failed' and created_at >= ? then 1 else 0 end) as failed, sum(case when created_at >= ? then 1 else 0 end) as recent", [$since, $since]);
-            $latest = $channelColumn !== null
-                ? $query->addSelect($channelColumn.' as channel')->groupBy($channelColumn)->get()
-                : $query->get()->filter(fn (object $row): bool => $row->id !== null)->each(fn (object $row) => $row->channel = 'seo');
-            foreach ($latest as $row) {
-                $plan = DB::table($table)->where('id', $row->id)->first(['status', 'completed_at', 'failed_at', 'created_at', 'error_summary']);
-                $lastOk = DB::table($table)->when($brandIds !== null, fn ($q) => $q->whereIn('brand_id', $brandIds))
-                    ->when($channelColumn !== null, fn ($q) => $q->where($channelColumn, $row->channel))->where('status', 'completed')->max('completed_at');
-                $line = sprintf('Danışman %s: son plan %s (%s) · son başarılı %s · %d günde %d plan, %d hatalı%s', $row->channel, $plan->status ?? '?', $this->ago($plan->completed_at ?? $plan->failed_at ?? $plan->created_at ?? null),
-                    $this->ago($lastOk), $this->days, (int) $row->recent, (int) $row->failed, filled($plan->error_summary ?? null) ? ' · hata: '.DiagnosticMasker::firstLine((string) $plan->error_summary, 160) : '');
-                ((int) $row->failed > 0 || ($this->daysSince($lastOk) ?? 99) > 8) ? $this->problem($line) : $this->info($line);
-            }
-        }
-
-        if ($this->hasTable('advisor_items')) {
-            $items = DB::table('advisor_items')->where('status', 'open')->when($brandIds !== null, fn ($q) => $q->whereIn('brand_id', $brandIds))
-                ->selectRaw('channel, count(*) as n')->groupBy('channel')->pluck('n', 'channel');
-            $this->info('Açık danışman maddeleri: '.$this->counts($items));
-            $this->data('open_advisor_items', $items->all());
-        }
-        if ($this->hasTable('seo_tasks')) {
-            $tasks = DB::table('seo_tasks')->where('status', 'open')->when($brandIds !== null, fn ($q) => $q->whereIn('brand_id', $brandIds))
-                ->selectRaw('type, count(*) as n')->groupBy('type')->pluck('n', 'type');
-            $this->info('Açık SEO görevleri: '.$this->counts($tasks));
-            $this->data('open_seo_tasks', $tasks->all());
-        }
 
         if ($this->hasTable('operational_alerts')) {
             $alerts = DB::table('operational_alerts')->whereIn('state', ['OPEN', 'ACKNOWLEDGED'])
@@ -1369,22 +1225,9 @@ final class PortfolioDiagnostics
             $this->info('Açık varlık uyarıları: '.$this->counts($assetAlerts));
             $this->data('asset_alerts', $assetAlerts->all());
         }
-        if ($this->hasTable('inbox_item_states')) {
-            $topics = [];
-            DB::table('inbox_item_states')->whereNull('gone_at')->select(['id', 'item_key'])
-                ->chunkById(5000, function (Collection $chunk) use (&$topics): void {
-                    foreach ($chunk as $row) {
-                        $topic = explode(':', (string) $row->item_key)[0];
-                        $topics[$topic] = ($topics[$topic] ?? 0) + 1;
-                    }
-                });
-            arsort($topics);
-            $this->info('Komuta merkezi (son değerlendirmede görünen maddeler, kaynağa göre): '.$this->counts($topics));
-            $this->data('command_center', $topics);
-        }
     }
 
-    // ------------------------------------------------------------------ 8. ai
+    // ------------------------------------------------------------------ 7. ai
 
     private function ai(): void
     {
@@ -1444,7 +1287,7 @@ final class PortfolioDiagnostics
         }
     }
 
-    // ------------------------------------------------------------------ 9. errors
+    // ------------------------------------------------------------------ 8. errors
 
     private function errors(): void
     {

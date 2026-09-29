@@ -1,5 +1,5 @@
 @php
-    $tabs = collect(['overview', 'seo', 'studio', 'scorecard', 'search_console', 'ga4_analysis', 'content', 'health', 'standards', 'infrastructure', 'setup'])
+    $tabs = collect(['overview', 'search_console', 'ga4_analysis', 'content', 'health', 'infrastructure', 'setup'])
         ->mapWithKeys(fn (string $key): array => [$key => __('operator_website.tabs.'.$key)])
         ->all();
     $enumLabel = static function (string $group, ?string $value): string {
@@ -62,26 +62,6 @@
             'bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20' => $messageTone === 'success',
             'bg-blue-50 text-blue-800 ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20' => $messageTone !== 'success',
         ])>{{ $message }}</div>
-    @endif
-
-    @if ($tab === 'standards')
-        <livewire:operator.website.website-assessment-panel :website-id="$asset->id" :key="'website-standards-'.$asset->id" />
-    @endif
-
-    @if ($tab === 'scorecard')
-        <livewire:operator.website.page-scorecard :website-id="$asset->id" :key="'website-scorecard-'.$asset->id" />
-    @endif
-
-    @if ($tab === 'fixes')
-        <livewire:operator.website.site-fixes-panel :website-id="$asset->id" :key="'website-fixes-'.$asset->id" />
-    @endif
-
-    @if ($tab === 'seo')
-        <livewire:operator.seo.seo-tasks-panel :website-id="$asset->id" :key="'website-seo-'.$asset->id" />
-    @endif
-
-    @if ($tab === 'studio')
-        <livewire:operator.website.content-studio-panel :website-id="$asset->id" :key="'website-studio-'.$asset->id" />
     @endif
 
     @if ($tab === 'overview')

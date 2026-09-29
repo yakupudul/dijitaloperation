@@ -124,11 +124,4 @@ final class IntegrationE1FixesTest extends TestCase
         $this->actingAs($this->admin);
         Livewire::test(AiControlPlanePage::class)->assertSee('Aylık bütçe (USD');
     }
-
-    public function test_whatsapp_setup_has_no_built_in_prices_or_names(): void
-    {
-        $this->actingAs($this->admin);
-
-        $this->get(route('operator.whatsapp'))->assertOk()->assertDontSee('14.000 TL')->assertDontSee('1757572378897162');
-    }
 }

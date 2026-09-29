@@ -3,7 +3,6 @@
 namespace App\Services\Operations;
 
 use App\Services\Integrations\DataForSeo\DataForSeoSpendGuard;
-use App\Services\Intel\DataForSeoTaskQueue;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -39,10 +38,7 @@ final class CostReader
             }
         }
         $dataForSeo = [
-            'DataForSEO · bölge SERP kontrolleri' => ['demand_serp_checks', 'checked_at', 'cost_usd'],
-            'DataForSEO · talep zenginleştirme' => ['search_demand_enrichment_runs', 'created_at', 'coalesce(reported_cost_usd, estimated_cost_usd, 0)'],
-            'DataForSEO · aday müşteri radarı' => ['sales_intent_radar_runs', 'created_at', 'coalesce(reported_cost_usd, 0)'],
-            'DataForSEO · pazar istihbaratı (harita, yorum, backlink)' => ['dataforseo_tasks', 'posted_at', 'cost_usd'],
+            'DataForSEO · görev kuyruğu' => ['dataforseo_tasks', 'posted_at', 'cost_usd'],
         ];
         foreach ($dataForSeo as $label => [$table, $dateColumn, $expression]) {
             if (! Schema::hasTable($table)) {
@@ -63,29 +59,7 @@ final class CostReader
         $budget = Schema::hasTable('agency_settings') && Schema::hasColumn('agency_settings', 'ai_monthly_budget_usd')
             ? DB::table('agency_settings')->value('ai_monthly_budget_usd') : null;
 
-        return ['months' => $keys, 'rows' => $rows, 'totals' => $totals, 'ai_budget' => $budget !== null ? (float) $budget : null, 'brand_caps' => $this->brandCaps(), 'dataforseo_global' => ['cap' => app(DataForSeoSpendGuard::class)->cap(), 'spent' => app(DataForSeoSpendGuard::class)->spentThisMonth()]];
-    }
-
-    /**
-     * Faz 14: DataForSEO monthly cap per brand (map grid + reviews + backlinks) and this month's spend against it.
-     *
-     * @return list<array{brand: string, cap: float, spent: float, share: int}>
-     */
-    private function brandCaps(): array
-    {
-        if (! Schema::hasTable('brand_intel_settings') || ! Schema::hasTable('dataforseo_tasks')) {
-            return [];
-        }
-        $queue = app(DataForSeoTaskQueue::class);
-
-        return DB::table('brand_intel_settings')->join('brands', 'brands.id', '=', 'brand_intel_settings.brand_id')
-            ->orderBy('brands.name')->get(['brands.id', 'brands.name', 'brand_intel_settings.monthly_usd'])
-            ->map(function (object $row) use ($queue): array {
-                $cap = (float) $row->monthly_usd;
-                $spent = round($queue->spentThisMonth((int) $row->id), 3);
-
-                return ['brand' => (string) $row->name, 'cap' => $cap, 'spent' => $spent, 'share' => $cap > 0 ? (int) min(100, round($spent / $cap * 100)) : 0];
-            })->filter(fn (array $row): bool => $row['cap'] > 0 || $row['spent'] > 0)->values()->all();
+        return ['months' => $keys, 'rows' => $rows, 'totals' => $totals, 'ai_budget' => $budget !== null ? (float) $budget : null, 'brand_caps' => [], 'dataforseo_global' => ['cap' => app(DataForSeoSpendGuard::class)->cap(), 'spent' => app(DataForSeoSpendGuard::class)->spentThisMonth()]];
     }
 
     /**

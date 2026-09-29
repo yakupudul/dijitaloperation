@@ -21,14 +21,12 @@ use App\Models\DiscoveryCandidate;
 use App\Models\Evidence;
 use App\Models\ModuleRegistry;
 use App\Models\Run;
-use App\Models\SearchDemandCompetitor;
 use App\Models\ServiceCatalogItem;
 use App\Models\User;
 use App\Services\Async\AsyncOperationService;
 use App\Services\BrandIntelligence\BrandOfferingService;
+use App\Services\Catalog\BrandCommercialContextService;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
-use App\Services\SearchDemand\BrandCommercialContextService;
-use App\Services\SearchDemand\SearchDemandCompetitorLibraryService;
 use App\Services\Website\PublicDiscovery\StoredDiscoverySource;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -277,32 +275,6 @@ class PublicDiscoveryStoredWorkflowTest extends TestCase
         $this->expectException(ValidationException::class);
         app(DiscoveryCandidateReviewService::class)->accept($this->candidate('service_areas', 'Ankara'), $this->admin,
             options: ['confirm_service_area' => true, 'city_name' => 'Ankara']);
-    }
-
-    public function test_competitor_handoff_preserves_existing_roles_relations_and_notes(): void
-    {
-        $competitor = app(SearchDemandCompetitorLibraryService::class)->addManual($this->website->brand, [
-            'domain' => 'rival.test', 'display_name' => 'Reviewed rival', 'is_content_competitor' => true,
-            'entity_kind' => 'authority', 'notes' => 'Operator note',
-        ], $this->admin);
-        $area = app(BrandCommercialContextService::class)->addServiceArea($this->website->brand, ['country_code' => 'TR', 'city_name' => 'Ankara']);
-        $competitor->serviceAreas()->attach($area->id, ['provenance' => 'operator']);
-        $candidate = $this->candidate('known_competitors', 'rival.test');
-        $accepted = app(DiscoveryCandidateReviewService::class)->accept($candidate, $this->admin);
-        $this->assertSame($competitor->id, $accepted->support_json['application']['record_id']);
-        $this->assertSame('Operator note', $competitor->fresh()->notes);
-        $this->assertTrue($competitor->fresh()->is_content_competitor);
-        $this->assertSame('authority', $competitor->fresh()->entity_kind);
-        $this->assertSame([$area->id], $competitor->serviceAreas()->pluck('brand_service_areas.id')->all());
-        $this->assertTrue($competitor->sources()->where('source_type', 'public_discovery')->exists());
-    }
-
-    public function test_rejected_competitor_is_not_resurrected(): void
-    {
-        $competitor = SearchDemandCompetitor::query()->create(['uuid' => (string) Str::uuid(), 'brand_id' => $this->website->brand_id,
-            'display_name' => 'Rival', 'normalized_domain' => 'rival.test', 'normalized_domain_hash' => hash('sha256', 'rival.test'), 'status' => 'rejected']);
-        $this->expectException(ValidationException::class);
-        app(DiscoveryCandidateReviewService::class)->accept($this->candidate('known_competitors', $competitor->normalized_domain), $this->admin);
     }
 
     public function test_social_profile_is_visible_in_integrations_without_creating_an_asset_or_binding(): void

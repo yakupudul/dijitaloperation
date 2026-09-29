@@ -24,6 +24,8 @@ class ModuleBoundaryArchitectureTest extends TestCase
      * @var list<string>
      */
     private const CORE_WEBSITE_IMPORT_ALLOWLIST = [
+        // Uptime monitor wraps the module's public HTTP fetcher (no second fetch stack).
+        'app/Services/Website/PageFetcher.php',
         // Legacy Website Diagnosis orchestration still in Core; DocumentHead* lives in module.
         'app/Services/WebsiteDiagnosisService.php',
         // Core Filament technical surface that delegates to module presenters.
@@ -31,11 +33,6 @@ class ModuleBoundaryArchitectureTest extends TestCase
         // Async platform jobs: thin Core orchestration that dispatches module domain services.
         'app/Jobs/Async/PublicDiscoveryJob.php',
         'app/Jobs/Async/SeoIntelligenceRefreshJob.php',
-        // Sales Assistant prospect research reuses bounded public discovery crawl stack.
-        'app/Services/Prospects/ProspectResearchService.php',
-        'app/Services/Prospects/ProspectWebsiteValidator.php',
-        // Sales Intent Radar reuses the existing DataForSEO integration resolver.
-        'app/Services/Sales/DataForSeoIntentSearchAdapter.php',
         // Shared Collection Engine adapters: reuse Website public-HTTP / SEO normalizers, no second store.
         'app/Services/Collection/Providers/Website/WebsiteDatasetExecutor.php',
         'app/Services/Collection/Providers/Website/WebsiteEligibilityGuard.php',
@@ -47,8 +44,6 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Services/Analysis/Adapters/WebsiteCollectedDocumentHeadAdapter.php',
         // SEO Tasks: read-only adapter over the module's verified stored-HTML reader.
         'app/Services/SeoTasks/SeoStoredHtmlReader.php',
-        // Demand pipeline: competitor comparison reuses the module's safe public HTTP fetcher.
-        'app/Services/Demand/DemandPageFetcher.php',
         // Faz 8: competitor watch and prospect audits reuse the same safe public HTTP fetcher.
         'app/Services/Intel/PublicPageReader.php',
         // 1.4.1: hourly sitemap watch reuses the same safe public HTTP fetcher.
@@ -57,24 +52,12 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Services/Collection/Providers/Website/WebsitePageAnalyzer.php',
         'app/Services/Collection/Website/WebsiteIssueVerificationService.php',
         'app/Services/Integrations/WordPress/WordPressConnectorClient.php',
-        'app/Services/Sales/FreeRadarReader.php',
         'app/Support/IntelligenceProjection/Website/WebsitePageFamilyClassifier.php',
         // Public discovery stored-source adapters reuse the module's page extractor.
         'app/Services/Website/PublicDiscovery/DiscoveryCandidateApplicationService.php',
         'app/Services/Website/PublicDiscovery/StoredDiscoverySource.php',
-        // Search Demand reuses the module's URL normalizer, head parser, fetcher and DataForSEO resolver.
-        'app/Services/SearchDemand/CompetitorPageContentExtractor.php',
-        'app/Services/SearchDemand/DataForSeoSearchDemandEnrichmentAdapter.php',
-        'app/Services/SearchDemand/SearchDemandChangeTrackingService.php',
-        'app/Services/SearchDemand/SearchDemandCompetitorPageCollectionService.php',
-        'app/Services/SearchDemand/SearchDemandPageOwnershipService.php',
-        // Website Standards: Core assessment / Search Demand / library UI reuse the module's standards catalog + evaluator.
+        // Website Standards: the library UI reuses the module's standards catalog + evaluator.
         'app/Livewire/Operator/Library/WebsiteStandardsPage.php',
-        'app/Services/Website/WebsiteAssessmentService.php',
-        'app/Services/SearchDemand/SearchDemandCompetitiveIntelligenceService.php',
-        'app/Services/SearchDemand/SearchDemandWebsiteImprovementService.php',
-        // Faz 5–6 URL karnesi: Core URL audit reuses the module's standards catalog, url_* evaluator and HTML signal parser.
-        'app/Services/Website/UrlAudit/UrlAuditService.php',
         // Business Profile standards live in the same standards catalog (asset_type google_business_profile).
         'app/Services/Gbp/GbpStandardInput.php',
     ];

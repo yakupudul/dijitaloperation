@@ -3,8 +3,10 @@
 namespace App\Livewire\Operator\Library;
 
 use App\Models\ServiceCatalogItem;
+use App\Models\ServiceCatalogName;
 use App\Models\ServiceCategory;
-use App\Services\SearchDemand\ServiceCatalogService;
+use App\Services\Catalog\ServiceCatalogService;
+use App\Services\Catalog\ServiceKeywordService;
 use App\Support\BrandIntelligence\IdentityLabelNormalizer;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
@@ -37,15 +39,19 @@ class ServiceCatalogPage extends Component
     public ?int $editingId = null;
 
     public bool $editorOpen = false;
+
     public bool $categoriesOpen = false;
+
     public string $service_name = '';
+
     public string $service_sector = '';
+
     public string $service_description = '';
+
     public string $alias = '';
+
     public string $matching_words = '';
-    public bool $bulkOpen = false;
-    public string $bulk_text = '';
-    public string $bulk_sector = '';
+
     public string $message = '';
 
     #[Locked]
@@ -53,9 +59,20 @@ class ServiceCatalogPage extends Component
 
     public string $categoryName = '';
 
-    public function updatedSearch(): void { $this->resetPage(); }
-    public function updatedStatus(): void { $this->resetPage(); }
-    public function updatedSector(): void { $this->resetPage(); }
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedStatus(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSector(): void
+    {
+        $this->resetPage();
+    }
 
     public function createService(): void
     {
@@ -111,23 +128,11 @@ class ServiceCatalogPage extends Component
                 }
                 $service = $result['service'];
             }
-            app(\App\Services\SearchDemand\ServiceKeywordService::class)->replace($service, $this->matching_words);
+            app(ServiceKeywordService::class)->replace($service, $this->matching_words);
         });
         $this->message = 'Hizmet ve eşleştirme kelimeleri kaydedildi.';
         $this->closeEditor();
         $this->resetPage();
-    }
-
-    public function queueBulk(\App\Services\SearchDemand\LibraryImportWorkflow $workflow): void
-    {
-        $this->validate([
-            'bulk_sector' => ['required', Rule::exists('service_categories', 'code')],
-            'bulk_text' => ['required', 'string', 'max:500000'],
-        ]);
-        $workflow->queue('services', ['text' => $this->bulk_text, 'sector' => $this->bulk_sector], auth()->user());
-        $this->bulkOpen = false;
-        $this->bulk_text = '';
-        $this->message = 'Hizmetler sıraya alındı. Sonuçları bu ekrandan veya Aktivite ekranından takip edebilirsiniz.';
     }
 
     public function addAlias(ServiceCatalogService $catalog): void
@@ -217,7 +222,6 @@ class ServiceCatalogPage extends Component
             if ($this->sector === $category->code) {
                 $this->sector = '';
             }
-            \App\Models\SearchQueryLibraryItem::query()->where('sector', $category->code)->update(['sector' => null]);
             $category->delete();
         });
         $this->cancelCategoryEdit();
@@ -229,7 +233,7 @@ class ServiceCatalogPage extends Component
     {
         $query = ServiceCatalogItem::query()
             ->with(['primaryName'])->withCount('matchingKeywords')
-            ->withCount(['brandOfferings' => fn ($q) => $q->withoutGlobalScope('visible_catalog'), 'searchQueries']);
+            ->withCount(['brandOfferings' => fn ($q) => $q->withoutGlobalScope('visible_catalog')]);
         if ($this->status === 'deleted') {
             $query->onlyTrashed();
         } elseif (in_array($this->status, ['active', 'archived'], true)) {
@@ -245,18 +249,17 @@ class ServiceCatalogPage extends Component
             $query->whereHas('names', fn ($names) => $names->withoutGlobalScope('visible_service')->where('is_active', true)->where('normalized_key', 'like', $term));
         }
         $editing = $this->editorOpen && $this->editingId !== null
-            ? ServiceCatalogItem::query()->with(['names' => fn ($q) => $q->where('is_active', true)->orderBy('raw_label')])->withCount(['brandOfferings', 'searchQueries'])->find($this->editingId)
+            ? ServiceCatalogItem::query()->with(['names' => fn ($q) => $q->where('is_active', true)->orderBy('raw_label')])->withCount('brandOfferings')->find($this->editingId)
             : null;
 
         return view('livewire.operator.library.service-catalog-page', [
             'services' => $query->orderBy(
-                \App\Models\ServiceCatalogName::withoutGlobalScope('visible_service')->select('raw_label')->whereColumn('service_catalog_item_id', 'service_catalog_items.id')
+                ServiceCatalogName::withoutGlobalScope('visible_service')->select('raw_label')->whereColumn('service_catalog_item_id', 'service_catalog_items.id')
                     ->where('is_primary', true)->where('is_active', true)->limit(1)
             )->orderBy('id')->paginate(25),
             'sectorOptions' => ServiceCategory::options(),
             'categories' => $this->categoriesOpen ? ServiceCategory::query()->orderBy('name')->get() : collect(),
             'editing' => $editing,
-            'bulkImports' => \App\Models\SearchQueryLibraryImport::query()->where('source_type', 'services')->latest('id')->limit(5)->get(),
         ]);
     }
 }

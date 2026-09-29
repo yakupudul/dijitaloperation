@@ -127,14 +127,6 @@ class CommercialGrowthIntelligenceTest extends TestCase
             ->assertDontSee('High paid implant demand but weak organic coverage');
     }
 
-    public function test_brand_reports_never_show_zero_revenue_without_evidence(): void
-    {
-        Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
-            ->call('setTab', 'value')
-            ->assertSet('tab', 'reports')
-            ->assertDontSee('₺0');
-    }
-
     public function test_opportunity_persistence_exists_while_deferred_entities_remain_deferred(): void
     {
         $this->assertTrue(Schema::hasTable('opportunities'));

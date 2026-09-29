@@ -12,7 +12,7 @@ use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\BrandSetup\BrandSetupApplier;
 use App\Services\BrandSetup\BrandSetupMatcher;
-use App\Services\SearchDemand\BrandCommercialContextService;
+use App\Services\Catalog\BrandCommercialContextService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 

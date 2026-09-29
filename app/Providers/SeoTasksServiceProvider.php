@@ -8,7 +8,7 @@ use App\Support\Ai\AiRouteRegistry;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * Registers the SEO Tasks AI route. Engine services are plain container-resolved classes.
+ * Registers the brand setup AI route ("Otomatik kur").
  */
 final class SeoTasksServiceProvider extends ServiceProvider
 {
@@ -19,22 +19,6 @@ final class SeoTasksServiceProvider extends ServiceProvider
             'name' => 'Brand Setup Assistant',
             'module' => 'brand_setup',
             'description' => '"Otomatik kur": proposes a brand\'s services from its own website pages, Search Console queries and crawl candidates, matched to the service catalog. Review-only until the operator approves.',
-            'default_steps' => AiDefaultSteps::analysis(),
-        ]);
-
-        $this->app->make(AiRouteRegistry::class)->register([
-            'key' => AiRouteKeys::SEO_TASKS_SITE_UNDERSTANDING,
-            'name' => 'SEO Tasks Site Understanding',
-            'module' => 'seo_tasks',
-            'description' => 'When a Brand has no services defined, reads the stored website pages, Search Console queries and GA4 landing pages to infer what the business sells and to whom. Output is a review-only suggestion; nothing is written to the Brand automatically.',
-            'default_steps' => AiDefaultSteps::analysis(),
-        ]);
-
-        $this->app->make(AiRouteRegistry::class)->register([
-            'key' => AiRouteKeys::SEO_TASKS_CONTENT_PLANNER,
-            'name' => 'SEO Tasks Content Planner',
-            'module' => 'seo_tasks',
-            'description' => 'Rule-selected SEO task candidates get operator-ready Turkish titles, checklists and content briefs. One call per plan run; never adds or scores tasks.',
             'default_steps' => AiDefaultSteps::analysis(),
         ]);
     }

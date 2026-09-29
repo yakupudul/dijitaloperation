@@ -11,16 +11,8 @@ use App\Events\Collection\CollectionRunStarted;
 use App\Events\Collection\DatasetRunFailed;
 use App\Events\Collection\DatasetRunProgressed;
 use App\Events\EvidenceCanonicalized;
-use App\Jobs\Async\SearchDemandChangeVerificationJob;
-use App\Jobs\Async\SearchDemandCompetitiveIntelligenceJob;
-use App\Jobs\Async\SearchDemandCompetitorPageCollectionJob;
-use App\Jobs\Async\SearchDemandSerpEnrichmentJob;
-use App\Jobs\Async\SearchDemandWebsiteImprovementJob;
 use App\Jobs\CollectMetaGeoResultsJob;
 use App\Jobs\EraseSourceDataJob;
-use App\Jobs\PrepareBrainProposalsJob;
-use App\Jobs\RunAiVisibilityCheckJob;
-use App\Jobs\RunAreaSerpChecksJob;
 use App\Jobs\RunChannelAnalystJob;
 use App\Jobs\RunScheduledDiscoveryJob;
 use App\Jobs\Verification\RunDataConsistencyCheckJob;
@@ -36,9 +28,8 @@ use App\Policies\CollectionRunPolicy;
 use App\Services\Ai\AgentContextGateway;
 use App\Services\Ai\AiUsageRecorder;
 use App\Services\Archive\ProductionArchive;
-use App\Services\Assistant\WhatsAppContactLinker;
-use App\Services\Brain\MethodLibrary;
-use App\Services\ClientValueStory\ClientValueStoryReadService;
+use App\Services\Collection\Activity\ActivityTierServiceReader;
+use App\Services\Collection\Activity\NullActivityTierReader;
 use App\Services\Collection\Contracts\NormalizedDatasetWriter;
 use App\Services\Collection\Contracts\RawPayloadWriter;
 use App\Services\Collection\Contracts\RetryPolicy;
@@ -51,8 +42,6 @@ use App\Services\Collection\Providers\GoogleAds\GoogleAdsDatasetExecutor;
 use App\Services\Collection\Providers\MetaAds\MetaAdsDatasetExecutor;
 use App\Services\Collection\Providers\SearchConsole\SearchConsoleDatasetExecutor;
 use App\Services\Collection\Providers\Website\WebsiteDatasetExecutor;
-use App\Services\CommandCenter\Activity\ActivityTierServiceReader;
-use App\Services\CommandCenter\Activity\NullActivityTierReader;
 use App\Services\DataPool\Contracts\WarehouseWriter;
 use App\Services\DataPool\DataPoolStorageRegistry;
 use App\Services\DataPool\FilesystemRawPayloadWriter;
@@ -138,10 +127,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(SkillRegistry::class);
         $this->app->singleton(AgentContextGatewayContract::class, AgentContextGateway::class);
 
-        $this->app->singleton(ClientValueStoryReadService::class);
-
-        // Komuta merkezi: activity tiers hide budget items of paused / dormant ad accounts once the collection
-        // activity service exists; until then nothing is suppressed.
+        // Activity tiers of ad accounts (paused / dormant) once the collection activity service exists.
         $this->app->singletonIf(ActivityTierReader::class, class_exists(ActivityTierServiceReader::SERVICE) ? ActivityTierServiceReader::class : NullActivityTierReader::class);
 
         $this->app->singleton(DataContractRegistryLoader::class);
@@ -241,14 +227,12 @@ class AppServiceProvider extends ServiceProvider
     {
         // Integer record ids in operator URLs: anything else (text, a number past bigint) is a 404, never a
         // TypeError on a typed Livewire property or a PostgreSQL "invalid input syntax for type bigint".
-        Route::patterns(array_fill_keys(['assetId', 'brandId', 'brand', 'customerId', 'prospectId', 'profileId', 'signalId', 'taskId', 'artifactId', 'auditId'], '[0-9]{1,18}'));
+        Route::patterns(array_fill_keys(['assetId', 'brandId', 'brand', 'customerId', 'taskId'], '[0-9]{1,18}'));
         LivewireActionErrors::register();
         $this->routeHeavyJobs();
         $this->flushServiceScopeOnPortfolioChange();
         Event::listen(AgentPrompted::class, [AiUsageRecorder::class, 'handle']);
-        MethodLibrary::boot();
         ProductionArchive::boot();
-        WhatsAppContactLinker::boot();
 
         Gate::before(function ($user, string $ability): ?bool {
             return method_exists($user, 'hasRole') && $user->hasRole(Roles::ADMIN)
@@ -303,17 +287,9 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Queue::route([
-            PrepareBrainProposalsJob::class,
-            RunAreaSerpChecksJob::class,
-            RunAiVisibilityCheckJob::class,
             RunScheduledDiscoveryJob::class,
             EraseSourceDataJob::class,
             CollectMetaGeoResultsJob::class,
-            SearchDemandChangeVerificationJob::class,
-            SearchDemandCompetitorPageCollectionJob::class,
-            SearchDemandWebsiteImprovementJob::class,
-            SearchDemandSerpEnrichmentJob::class,
-            SearchDemandCompetitiveIntelligenceJob::class,
             RunLiveVerificationJob::class,
             RunDataConsistencyCheckJob::class,
             RunChannelAnalystJob::class,

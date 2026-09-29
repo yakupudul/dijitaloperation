@@ -95,9 +95,9 @@ final class OperationalAlertExplainer
                 'title' => 'Bazı hesapların verisi güncel değil',
                 'what' => ($count > 0 ? $count.' hesap / veri kaynağında' : 'Bazı hesaplarda').' veriler zamanında yenilenmedi ya da çekilemiyor. Etkilenen hesaplar bir sonraki kontrolde (birkaç dakika içinde) burada adıyla listelenir.',
                 'why' => 'Raporlar, uyarılar ve öneriler bu hesaplarda eski veriye dayanıyor.',
-                'action' => 'Portföy sağlığında sorunlu kaynakları açın; bağlantı sorunu olanı yeniden bağlayın, diğerlerinde "Verileri yenile" ile çekimi başlatın.',
-                'link_url' => $this->route('operator.portfolio.health', ['onlyProblems' => 1]),
-                'link_label' => 'Portföy sağlığında aç',
+                'action' => 'Keşfedilen varlıklarda sorunlu kaynakları açın; bağlantı sorunu olanı yeniden bağlayın, diğerlerinde "Verileri yenile" ile çekimi başlatın.',
+                'link_url' => $this->route('operator.integrations.discovered'),
+                'link_label' => 'Keşfedilen varlıklarda aç',
             ];
         }
 
@@ -193,8 +193,8 @@ final class OperationalAlertExplainer
                 'what' => $where.' için arama sorgularının kütüphaneye otomatik aktarımı durdu: '.$problem.'.',
                 'why' => 'Yeni arama sorguları hizmetlere atanmıyor; SEO ve talep önerileri eksik kalır.',
                 'action' => $fix,
-                'link_url' => $this->route('operator.library.search-queries'),
-                'link_label' => 'Sorgu kütüphanesinde aç',
+                'link_url' => $this->route('operator.library.queries'),
+                'link_label' => 'Sorgularda aç',
                 'asset_id' => $subject['asset_id'] ?? null,
                 'brand_id' => $subject['brand_id'] ?? null,
             ];
@@ -352,7 +352,7 @@ final class OperationalAlertExplainer
         $brands = array_values(array_unique(array_filter(array_column($affected, 'brand_id'))));
         $place = count($assets) === 1
             ? ['link_url' => $this->route('operator.asset.sources', ['assetId' => $assets[0]]), 'link_label' => 'Varlığın veri kaynaklarını aç', 'asset_id' => (int) $assets[0]]
-            : ['link_url' => $this->route('operator.portfolio.health', ['onlyProblems' => 1]), 'link_label' => 'Portföy sağlığında sorunlu kaynakları aç'];
+            : ['link_url' => $this->route('operator.integrations.discovered'), 'link_label' => 'Keşfedilen varlıklarda aç'];
         if (count($brands) === 1) {
             $place['brand_id'] = (int) $brands[0];
         }

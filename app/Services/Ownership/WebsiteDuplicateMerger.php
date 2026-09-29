@@ -149,8 +149,6 @@ final class WebsiteDuplicateMerger
             'bindings' => CoreAssetBinding::query()->where('digital_asset_id', $id)->where('status', CoreAssetBinding::STATUS_ACTIVE)->count(),
             'pages' => $this->countFor('website_url', 'digital_asset_id', $id),
             'facts' => array_sum(array_map(fn (string $table): int => $this->countFor($table, 'digital_asset_id', $id), self::FACT_TABLES)),
-            'seo_tasks' => $this->countFor('seo_tasks', 'digital_asset_id', $id),
-            'site_fixes' => $this->countFor('site_fix_items', 'digital_asset_id', $id),
         ];
         $customer = $asset->brand?->customer;
 
@@ -167,7 +165,7 @@ final class WebsiteDuplicateMerger
             'created_at' => $asset->created_at?->toIso8601String(),
             'counts' => $counts,
             'connector' => $connection === null ? null : ($this->isPaired($connection) ? 'paired' : 'pending'),
-            'data_total' => $counts['pages'] + $counts['facts'] + $counts['seo_tasks'] + $counts['site_fixes'],
+            'data_total' => $counts['pages'] + $counts['facts'],
         ];
     }
 

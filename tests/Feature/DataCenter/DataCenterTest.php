@@ -15,7 +15,7 @@ use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
-use Tests\Feature\Brain\InsertsFacts;
+use Tests\Support\InsertsFacts;
 use Tests\TestCase;
 
 /** Veri merkezi: every source with its stored data sets; selected data sets can be deleted, queries never. */

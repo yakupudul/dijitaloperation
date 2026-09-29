@@ -7,7 +7,6 @@
         </div>
         <div class="flex gap-2">
             <button type="button" wire:click="manageCategories" class="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">Sektörleri yönet</button>
-            <button type="button" wire:click="$set('bulkOpen', true)" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700 dark:text-gray-200">Toplu ekle</button>
             <button type="button" wire:click="createService" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600">+ Hizmet ekle</button>
         </div>
     </header>
@@ -52,7 +51,6 @@
                         <th scope="col" class="px-5 py-3 font-medium">Hizmet</th>
                         <th scope="col" class="px-5 py-3 font-medium">Sektör</th>
                         <th scope="col" class="px-5 py-3 text-right font-medium">Marka</th>
-                        <th scope="col" class="px-5 py-3 text-right font-medium">Sorgu</th>
                         <th scope="col" class="px-5 py-3 text-right font-medium">İşlemler</th>
                     </tr>
                 </thead>
@@ -71,7 +69,6 @@
                             </td>
                             <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $sectorOptions[$service->sector] ?? ($service->sector ?: 'Kategorisiz') }}</td>
                             <td class="px-5 py-4 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ $service->brand_offerings_count }}</td>
-                            <td class="px-5 py-4 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ $service->search_queries_count }}</td>
                             <td class="whitespace-nowrap px-5 py-3 text-right">
                                 @if ($service->trashed())
                                     <button type="button" wire:click="restoreService({{ $service->id }})" wire:loading.attr="disabled" class="rounded-lg px-3 py-2 text-xs font-medium text-brand-600 hover:bg-brand-50 disabled:opacity-50">Geri al</button>
@@ -93,35 +90,6 @@
         <div class="border-t border-gray-100 px-4 py-3 dark:border-gray-800">{{ $services->links() }}</div>
     </section>
 
-    @if ($bulkImports->isNotEmpty())
-        <details @if($bulkImports->whereIn('status', ['queued','running'])->isNotEmpty()) wire:poll.5s @endif class="rounded-xl border border-gray-200 p-4 text-sm dark:border-gray-800 dark:text-gray-200">
-            <summary class="cursor-pointer">Son toplu eklemeler</summary>
-            @foreach ($bulkImports as $import)
-                <p class="mt-2">#{{ $import->id }} · {{ ['queued'=>'Sırada','running'=>'İşleniyor','completed'=>'Tamamlandı','partial'=>'Kısmen tamamlandı','failed'=>'Başarısız'][$import->status] ?? $import->status }} · {{ $import->accepted_rows }} yeni · {{ $import->skipped_rows }} mevcut · {{ $import->failed_rows }} hata</p>
-                @if ($import->error_summary)<p class="mt-1 whitespace-pre-line text-xs text-red-600">{{ $import->error_summary }}</p>@endif
-            @endforeach
-        </details>
-    @endif
-    @if ($bulkOpen)
-        <div x-data @keydown.escape.window="$wire.set('bulkOpen', false)" class="fixed inset-0 z-[100000] flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-gray-950/40"></div>
-            <section role="dialog" aria-modal="true" aria-labelledby="bulk-services-title" x-trap.inert.noscroll="true" class="relative w-full max-w-xl rounded-xl bg-white p-6 dark:bg-gray-900 dark:text-white">
-                <h2 id="bulk-services-title" class="text-lg font-semibold">Toplu hizmet ekle</h2>
-                <form wire:submit="queueBulk" class="mt-4 space-y-4">
-                    <label class="block text-sm">Sektör *
-                        <select wire:model="bulk_sector" required class="mt-2 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-950"><option value="">Sektör seçin</option>@foreach ($sectorOptions as $code=>$label)<option value="{{ $code }}">{{ $label }}</option>@endforeach</select>
-                    </label>
-                    <label class="block text-sm">Her satıra bir hizmet
-                        <textarea wire:model="bulk_text" rows="9" required class="mt-2 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-950" placeholder="İmplant tedavisi | implant, tek diş, vidalı diş&#10;Diş beyazlatma | beyazlatma, bleaching"></textarea>
-                    </label>
-                    <p class="text-xs text-gray-500">Eşleştirme kelimelerini isteğe bağlı olarak | işaretinden sonra yazın. Mevcut hizmetler çoğaltılmaz; farklı sektördeki hizmetler hata olarak gösterilir. En fazla 2.000 satır.</p>
-                    @if ($errors->any())<p class="text-sm text-red-600">{{ $errors->first() }}</p>@endif
-                    <div class="flex justify-end gap-2"><button type="button" wire:click="$set('bulkOpen', false)" class="px-4 py-2 text-sm">Vazgeç</button><button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Hizmetleri ekle</button></div>
-                </form>
-            </section>
-        </div>
-    @endif
-
     @if ($editorOpen)
         <div x-data x-init="$nextTick(() => $refs.serviceName.focus())" @keydown.escape.window="$wire.closeEditor()" class="fixed inset-0 z-[100000]">
             <button type="button" wire:click="closeEditor" aria-label="Düzenleme panelini kapat" class="absolute inset-0 bg-gray-950/40"></button>
@@ -132,7 +100,7 @@
                 </div>
                 <div class="flex-1 overflow-y-auto p-5">
                     @if ($editing)
-                        <p class="mb-5 text-sm leading-6 text-gray-500 dark:text-gray-400">Bu hizmet {{ $editing->brand_offerings_count }} markada ve {{ $editing->search_queries_count }} sorguda kullanılıyor. Değişiklik tüm bağlı markalara yansır.</p>
+                        <p class="mb-5 text-sm leading-6 text-gray-500 dark:text-gray-400">Bu hizmet {{ $editing->brand_offerings_count }} markada kullanılıyor. Değişiklik tüm bağlı markalara yansır.</p>
                     @endif
                     <form id="service-editor-form" wire:submit="saveService" class="space-y-5">
                         <div>

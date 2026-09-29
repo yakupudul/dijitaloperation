@@ -8,7 +8,7 @@ use Illuminate\Console\Command;
 
 /**
  * moxdop:diagnose — read-only diagnosis the operator runs on the production server and pastes to the developer:
- * environment, ownership / bindings, integrations, data collection freshness, websites, search queries, advisors,
+ * environment, ownership / bindings, integrations, data collection freshness, websites, alerts,
  * AI and application errors. Only SELECT queries; no job, provider call, cache or database write. Secrets, e-mail
  * addresses and phone numbers are masked; account ids show only their last four characters.
  */
@@ -19,7 +19,7 @@ final class DiagnoseCommand extends Command
         {--asset= : Tek varlık id}
         {--days=14 : Hata / çalıştırma penceresi (gün)}
         {--format=text : text veya json}
-        {--section= : Yalnız bu bölümler (virgülle): environment,ownership,integrations,collection,website,queries,advisors,ai,errors}';
+        {--section= : Yalnız bu bölümler (virgülle): environment,ownership,integrations,collection,website,advisors,ai,errors}';
 
     protected $description = 'Salt okunur tanı raporu: veri toplama, bağlama, ekran hatalarını bulmak için yapıştırılacak çıktı.';
 

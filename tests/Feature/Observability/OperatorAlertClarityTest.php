@@ -12,7 +12,6 @@ use App\Enums\Observability\OperationalAlertSeverity;
 use App\Enums\Observability\OperationalAlertState;
 use App\Enums\Observability\OperationalSignalFamily;
 use App\Livewire\Demo\NotificationBell;
-use App\Livewire\Operator\Settings\SystemHealthPage;
 use App\Models\Brand;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
@@ -25,7 +24,6 @@ use App\Models\Observability\OperationalAlert;
 use App\Models\ResourceAutomation;
 use App\Models\User;
 use App\Models\UserNotification;
-use App\Services\CommandCenter\CommandCenter;
 use App\Services\DomainEvents\DomainEventEmitter;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Notifications\NotificationReadService;
@@ -130,7 +128,7 @@ final class OperatorAlertClarityTest extends TestCase
         $this->assertStringNotContainsString('Marka 6 ·', $message->what);
         $this->assertStringContainsString(' +2.', $message->what);
         $this->assertNotSame('', $message->why);
-        $this->assertSame(route('operator.portfolio.health', ['onlyProblems' => 1]), $message->linkUrl);
+        $this->assertSame(route('operator.integrations.discovered'), $message->linkUrl);
         $this->assertNoJargon($message->plainText().' '.$message->title);
     }
 
@@ -219,31 +217,6 @@ final class OperatorAlertClarityTest extends TestCase
 
         Livewire::actingAs($this->admin)->test(NotificationBell::class)->call('markRead', (string) $reads->forUser($this->admin)[0]['id']);
         $this->assertSame(0, $reads->unreadCount($this->admin));
-    }
-
-    public function test_command_center_and_system_health_carry_the_explanation_and_the_exact_link(): void
-    {
-        [$asset, $resource, $automation] = $this->searchConsoleAccount('Moximu', 'moximu.com');
-        $this->failedDataset($resource, $asset, CollectionErrorCategory::Provider5xx, 'gsc_property_daily');
-        app(ResourceAutomationService::class)->fail($automation->id, 'collection_failed');
-        app(ResourceAutomationService::class)->fail($automation->id, 'collection_failed');
-        app(ResourceAutomationService::class)->fail($automation->id, 'collection_failed');
-
-        $item = app(CommandCenter::class)->items(['source' => 'system'])->sole();
-        $this->assertSame('system:resource-automation.collection', $item['topic']);
-        $this->assertSame('Hesap güncellemesi durdu', $item['topic_label']);
-        $this->assertSame($asset->id, $item['asset_id']);
-        $this->assertSame(route('operator.asset.sources', ['assetId' => $asset->id]), $item['url']);
-        $this->assertStringContainsString('Google tarafında geçici bir hata oluştu', (string) $item['detail']);
-        $this->assertNotEmpty($item['why']);
-        $this->assertSame(['label' => 'Şimdi güncelle', 'run_now' => $automation->id], $item['button']);
-
-        Livewire::actingAs($this->admin)->test(SystemHealthPage::class)
-            ->assertSee('Ne oldu:')
-            ->assertSee('Ne yapmalısın:')
-            ->assertSee('Varlığın veri kaynaklarını aç')
-            ->call('runNowAutomation', $automation->id)
-            ->assertSee('Güncelleme sıraya alındı');
     }
 
     public function test_name_list_and_short_date_helpers(): void

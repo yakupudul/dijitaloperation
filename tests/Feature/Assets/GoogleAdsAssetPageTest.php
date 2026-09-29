@@ -49,7 +49,7 @@ final class GoogleAdsAssetPageTest extends TestCase
     {
         app()->setLocale('tr');
 
-        foreach (['overview', 'advisor', 'campaigns', 'search_demand', 'performance', 'budget_bidding', 'measurement', 'landing_pages', 'changes', 'data_connection', 'pmax', 'shopping', 'video'] as $tab) {
+        foreach (['overview', 'campaigns', 'search_demand', 'performance', 'budget_bidding', 'measurement', 'landing_pages', 'changes', 'data_connection', 'pmax', 'shopping', 'video'] as $tab) {
             Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => $tab])
                 ->assertOk()
                 ->assertDontSee('Optimizasyon')

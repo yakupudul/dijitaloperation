@@ -58,8 +58,6 @@ final class MergeDuplicateWebsitesCommand extends Command
                     $row['counts']['bindings'],
                     $row['counts']['pages'],
                     $row['counts']['facts'],
-                    $row['counts']['seo_tasks'],
-                    $row['counts']['site_fixes'],
                     $row['connector'] !== null ? ', WordPress bağlayıcı: '.$row['connector'] : '',
                 ));
             }

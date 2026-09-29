@@ -2,26 +2,16 @@
 
 namespace Tests\Feature\Smoke;
 
-use App\Livewire\Operator\Assistant\RenewalsPage;
-use App\Models\AdvisorItem;
-use App\Models\AdvisorPlan;
-use App\Models\AgencyLead;
+use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\AssetAlert;
-use App\Models\AssetRenewal;
 use App\Models\Brand;
 use App\Models\BrandSetupProposal;
-use App\Models\ContentCalendarItem;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
-use App\Models\Invoice;
 use App\Models\OperatorFile;
-use App\Models\Prospect;
-use App\Models\SalesSearchProfile;
-use App\Models\SeoPlan;
-use App\Models\SeoTask;
 use App\Models\Task;
 use App\Models\User;
 use App\Services\Operations\PageSmokeAudit;
@@ -46,13 +36,13 @@ use Livewire\Attributes\Locked;
 use Livewire\Livewire;
 use PHPUnit\Framework\ExpectationFailedException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
-use Tests\Feature\Brain\InsertsFacts;
+use Tests\Support\InsertsFacts;
 use Tests\TestCase;
 
 /**
  * Every operator page (root routes and operator.* names) opened as an Admin over a realistic portfolio — active and
- * passive customers, every asset type bound and unbound, a brandless website, collected facts, advisor items, SEO
- * tasks, alerts, content calendar, invoices and leads — must never answer with a server error. Also opens every
+ * passive customers, every asset type bound and unbound, a brandless website, collected facts, alerts and tasks — must
+ * never answer with a server error. Also opens every
  * model-bound route with junk ids and every page with junk query values, and flags queries that would compare an id
  * column with a non-numeric string (PostgreSQL rejects those; SQLite silently matches nothing).
  */
@@ -247,8 +237,6 @@ final class OperatorRouteSmokeTest extends TestCase
         $ids = [
             'brand' => (string) Brand::query()->where('name', 'Atlas Diş')->value('id'),
             'customerId' => (string) Customer::query()->where('name', 'Atlas Sağlık')->value('id'),
-            'prospectId' => (string) Prospect::query()->value('id'),
-            'profileId' => (string) SalesSearchProfile::query()->value('id'),
             'taskId' => (string) Task::query()->value('id'),
             'provider' => 'anthropic',
         ];
@@ -332,8 +320,7 @@ final class OperatorRouteSmokeTest extends TestCase
     {
         $this->actingAs($this->admin);
 
-        Livewire::test(RenewalsPage::class)->call('edit', 999999)->assertOk()
-            ->assertDispatched('operator-notice', message: LivewireActionErrors::MISSING_RECORD);
+        Livewire::test(BrandShow::class, ['brand' => 999999])->assertStatus(404);
         $this->get('/customers/999999')->assertNotFound();
         $this->get('/assets/99999999999999999999999/sources')->assertNotFound();
         $this->get('/brands/abc/setup')->assertNotFound();
@@ -493,39 +480,12 @@ final class OperatorRouteSmokeTest extends TestCase
             $this->insertFact('meta_account_daily', $provenance(['digital_asset_id' => null, 'external_resource_id' => $metaResource->id, 'account_id' => '555', 'reporting_date' => $day, 'spend' => 40, 'impressions' => 0, 'clicks' => 0, 'reach' => 0, 'currency' => 'TRY']));
         }
 
-        $plan = AdvisorPlan::query()->create(['channel' => 'google_ads', 'customer_id' => $active->id, 'brand_id' => $atlas->id, 'digital_asset_id' => $ads->id, 'status' => 'completed', 'completed_at' => now()]);
-        foreach ([['google_ads', $ads, 'waste', 'negative-keywords'], ['meta_ads', $metaAds, 'ads', 'creative-fatigue']] as $i => [$channel, $on, $category, $rule]) {
-            AdvisorItem::query()->create([
-                'channel' => $channel, 'customer_id' => $active->id, 'brand_id' => $atlas->id, 'digital_asset_id' => $on->id,
-                'item_key' => 'k'.$i, 'category' => $category, 'rule_id' => $rule, 'severity' => 'high', 'priority_score' => 300,
-                'title' => 'Öneri '.$i, 'reason' => 'Neden', 'evidence' => ['cpa' => 900, 'terms' => [['text' => 'bedava', 'cost' => 12.5]]], 'checklist' => ['Adım'],
-                'status' => 'open', 'currency' => 'TRY', 'first_seen_plan_id' => $plan->id, 'last_seen_plan_id' => $plan->id,
-            ]);
-        }
-        $seoPlan = SeoPlan::query()->create(['brand_id' => $atlas->id, 'customer_id' => $active->id, 'digital_asset_id' => $site->id, 'status' => 'completed', 'completed_at' => now()]);
-        foreach (['open', 'done', 'skipped'] as $i => $status) {
-            SeoTask::query()->create([
-                'customer_id' => $active->id, 'brand_id' => $atlas->id, 'digital_asset_id' => $site->id, 'task_key' => hash('sha256', 't'.$i),
-                'type' => ['fix', 'create', 'strengthen'][$i], 'rule_id' => 'missing-service-page', 'severity' => 'medium', 'priority_score' => 500 - $i, 'title' => 'SEO görevi '.$i,
-                'reason' => 'r', 'evidence' => [], 'checklist' => [], 'status' => $status, 'first_seen_plan_id' => $seoPlan->id, 'last_seen_plan_id' => $seoPlan->id,
-            ]);
-        }
         AssetAlert::query()->create([
             'digital_asset_id' => $site->id, 'brand_id' => $atlas->id, 'alert_key' => hash('sha256', 'a1'), 'kind' => 'ga4_conversions_drop',
             'severity' => 'high', 'title' => 'Site dönüşümleri düştü', 'message' => 'Son 7 günde 4 dönüşüm.', 'data' => [],
             'first_detected_at' => now()->subDay(), 'last_detected_at' => now(),
         ]);
-        foreach (['draft', 'approved', 'published', 'failed'] as $i => $status) {
-            ContentCalendarItem::query()->create(['brand_id' => $atlas->id, 'digital_asset_id' => $i === 0 ? $gbp->id : null, 'channel' => $i === 0 ? 'gbp_post' : 'blog',
-                'title' => 'İçerik '.$i, 'body' => 'Metin', 'scheduled_for' => now()->addDays($i - 1), 'status' => $status, 'published_at' => $status === 'published' ? now() : null]);
-        }
-        Invoice::query()->create(['customer_id' => $active->id, 'period' => now()->format('Y-m'), 'amount' => 10000, 'status' => 'draft']);
-        Invoice::query()->create(['customer_id' => $active->id, 'number' => 'F-1', 'period' => now()->subMonth()->format('Y-m'), 'amount' => 10000, 'status' => 'issued', 'issued_on' => now()->subMonth(), 'due_on' => now()->subDays(5)]);
-        AgencyLead::query()->create(['name' => 'Ali Veli', 'company' => 'Gülüş Kliniği', 'message' => 'Reklam', 'source' => 'meta_lead_ad', 'status' => 'new', 'received_at' => now()]);
-        AssetRenewal::query()->create(['brand_id' => $atlas->id, 'digital_asset_id' => $site->id, 'kind' => 'domain', 'label' => 'atlasdis.test', 'expires_on' => now()->addDays(5), 'expires_source' => 'manual']);
         Task::factory()->count(2)->create(['brand_id' => $atlas->id, 'customer_id' => $active->id, 'digital_asset_id' => $site->id]);
-        Prospect::factory()->count(2)->create();
-        SalesSearchProfile::factory()->create();
         OperatorFile::factory()->create();
         BrandSetupProposal::query()->create([
             'brand_id' => $atlas->id, 'status' => BrandSetupProposal::STATUS_READY, 'website_url' => 'https://atlasdis.test/',

@@ -4,8 +4,6 @@ namespace Tests\Feature\Ownership;
 
 use App\Livewire\Demo\Integrations\MetaIntegrationPage;
 use App\Livewire\Demo\Portfolio\AssetEdit;
-use App\Livewire\Demo\Sales\ProspectConvert;
-use App\Livewire\Demo\Sales\ProspectShow;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -15,12 +13,7 @@ use App\Models\CoreIntegrationDiscoveryContext;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\OwnershipTransfer;
-use App\Models\Prospect;
-use App\Models\ProspectActivity;
-use App\Models\ResourceAutomation;
 use App\Models\User;
-use App\Services\Ownership\OwnershipTransferService;
-use App\Services\Prospects\ConvertProspectService;
 use App\Support\Integrations\Meta\MetaResourceType;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Integrations\ResourceBindingPlan;
@@ -132,102 +125,6 @@ final class OwnershipFollowUpTest extends TestCase
         // Non-website assets and other hosts are not affected.
         DigitalAsset::factory()->create(['brand_id' => $this->atlas->id, 'type' => 'google_ads', 'name' => 'Ads', 'domain' => 'adadent.com.tr']);
         DigitalAsset::factory()->create(['brand_id' => $this->atlas->id, 'type' => 'website', 'name' => 'Başka', 'domain' => 'atlas-ortodonti.com']);
-    }
-
-    public function test_transfer_to_another_customer_resets_the_ai_sector_and_logs_it(): void
-    {
-        $gsc = $this->boundResource($this->adadentSite, 'search_console', 'sc-domain:adadent.com.tr', 'Adadent GSC');
-        $automation = ResourceAutomation::query()->create([
-            'external_resource_id' => $gsc->id, 'collection_enabled' => false, 'interval_days' => 3, 'preferred_hour' => 5,
-            'revision' => 4, 'next_collection_at' => now()->addDays(2),
-        ]);
-        $dental = (int) DB::table('service_categories')->where('code', 'dental')->value('id');
-        $this->sector($gsc, $dental, 'ai');
-
-        app(OwnershipTransferService::class)->transferResource($gsc, $this->atlasSite, $this->admin, confirmed: true, note: 'Atlas’a geçti');
-
-        $row = DB::table('asset_sectors')->where('subject_type', 'resource')->where('subject_id', $gsc->id)->first();
-        $this->assertNull($row->service_category_id, 'the AI sector is decided again for the new owner');
-        $this->assertSame('none', $row->method);
-        $automation->refresh();
-        $this->assertSame(5, (int) $automation->revision);
-        $this->assertTrue($automation->next_collection_at->lessThanOrEqualTo(now()), 're-evaluated for the new owner now');
-        $this->assertFalse($automation->collection_enabled, 'neutral settings are kept');
-        $this->assertSame(3, $automation->interval_days);
-
-        $transfer = OwnershipTransfer::query()->sole();
-        $mapping = $transfer->snapshot['mapping'][0];
-        $this->assertSame('reset', $mapping['action']);
-        $this->assertSame(['sector_id' => $dental, 'method' => 'ai'], $mapping['cleared']);
-        $this->assertStringContainsString('sektörü sıfırlandı', (string) $transfer->mappingSummary());
-    }
-
-    public function test_transfer_keeps_a_manual_sector_and_same_customer_changes_nothing(): void
-    {
-        $ortodonti = Brand::factory()->create(['customer_id' => $this->adadent->customer_id, 'name' => 'Adadent Ortodonti']);
-        $secondSite = DigitalAsset::factory()->create(['brand_id' => $ortodonti->id, 'type' => 'website', 'name' => 'Ortodonti Sitesi', 'domain' => 'ortodonti.adadent.com.tr']);
-        $gsc = $this->boundResource($this->adadentSite, 'search_console', 'sc-domain:adadent.com.tr', 'Adadent GSC');
-        $dental = (int) DB::table('service_categories')->where('code', 'dental')->value('id');
-        $this->sector($gsc, $dental, 'ai');
-
-        app(OwnershipTransferService::class)->transferResource($gsc, $secondSite, $this->admin, confirmed: true);
-
-        $this->assertSame($dental, (int) DB::table('asset_sectors')->where('subject_id', $gsc->id)->value('service_category_id'), 'same customer: kept');
-        $this->assertArrayNotHasKey('mapping', OwnershipTransfer::query()->sole()->snapshot);
-
-        $ads = $this->boundResource($this->adadentSite, 'search_console', 'sc-domain:adadent2.com.tr', 'Adadent GSC 2');
-        $this->sector($ads, $dental, 'manual');
-        app(OwnershipTransferService::class)->transferResource($ads, $this->atlasSite, $this->admin, confirmed: true);
-        $this->assertSame($dental, (int) DB::table('asset_sectors')->where('subject_id', $ads->id)->value('service_category_id'), 'manual wins forever');
-    }
-
-    public function test_moving_an_asset_to_another_customer_resets_its_accounts_sector(): void
-    {
-        $gsc = $this->boundResource($this->adadentSite, 'search_console', 'sc-domain:adadent.com.tr', 'Adadent GSC');
-        $this->sector($gsc, (int) DB::table('service_categories')->where('code', 'dental')->value('id'), 'brand');
-
-        app(OwnershipTransferService::class)->moveAsset($this->adadentSite, $this->atlas, $this->admin, confirmed: true);
-
-        $this->assertNull(DB::table('asset_sectors')->where('subject_id', $gsc->id)->value('service_category_id'));
-        $this->assertSame('reset', OwnershipTransfer::query()->sole()->snapshot['mapping'][0]['action']);
-    }
-
-    public function test_prospect_conversion_reports_a_website_owned_by_another_brand(): void
-    {
-        $prospect = Prospect::factory()->create(['company_name' => 'Yeni Klinik', 'website_url' => 'https://www.adadent.com.tr/', 'owner_user_id' => $this->admin->id]);
-
-        $report = app(ConvertProspectService::class)->convertWithReport($prospect, [
-            'customer_name' => 'Yeni Klinik', 'brand_name' => 'Yeni Klinik',
-            'confirm_create_despite_duplicates' => true,
-            'selected_assets' => ['website:https://www.adadent.com.tr/'],
-        ], $this->admin);
-
-        $this->assertSame(1, DigitalAsset::query()->where('type', 'website')->where('domain', 'like', '%adadent.com.tr')->count(), 'no duplicate');
-        $this->assertCount(1, $report['notices']);
-        $notice = $report['notices'][0];
-        $this->assertSame('Web sitesi (adadent.com.tr) zaten Adadent müşterisinin Adadent Marka markasında kayıtlı; yeni markaya eklenmedi. Gerekirse varlık sayfasından yetki devri yapabilirsiniz.', $notice['message']);
-        $this->assertSame($this->adadentSite->id, $notice['asset_id']);
-        $this->assertSame(route('operator.asset.edit', ['assetId' => $this->adadentSite->id]), $notice['asset_url']);
-        $this->assertSame([$notice['message']], ProspectActivity::query()->where('type', 'prospect.converted')->sole()->metadata['notices']);
-    }
-
-    public function test_prospect_convert_page_shows_the_notice_with_a_link_to_the_asset(): void
-    {
-        $prospect = Prospect::factory()->create(['company_name' => 'Yeni Klinik', 'website_url' => 'https://adadent.com.tr/', 'owner_user_id' => $this->admin->id]);
-
-        Livewire::test(ProspectConvert::class, ['prospectId' => (string) $prospect->id])
-            ->set('confirm_create_despite_duplicates', true)
-            ->call('convert')
-            ->assertHasNoErrors()
-            ->assertRedirect(route('operator.prospect', ['prospectId' => $prospect->id]));
-
-        $notices = session(ConvertProspectService::NOTICES_FLASH);
-        $this->assertIsArray($notices);
-
-        Livewire::test(ProspectShow::class, ['prospectId' => (string) $prospect->id])
-            ->assertSee('zaten')
-            ->assertSeeHtml('<strong>Adadent</strong> müşterisinin <strong>Adadent Marka</strong> markasında kayıtlı; yeni markaya eklenmedi.')
-            ->assertSeeHtml(route('operator.asset.edit', ['assetId' => $this->adadentSite->id]));
     }
 
     public function test_meta_integration_bind_modal_asks_for_the_transfer_before_moving(): void

@@ -3,7 +3,6 @@
 namespace App\Livewire\Operator\Meta;
 
 use App\Livewire\Demo\Meta\OverviewPage as LegacyOverviewPage;
-use App\Models\AdvisorItem;
 use App\Models\DigitalAsset;
 use App\Models\Finding;
 use App\Models\Recommendation;
@@ -40,21 +39,13 @@ class OverviewPage extends LegacyOverviewPage
             ->map(fn (Finding $finding): array => ['id' => $finding->id, 'title' => (string) $finding->title, 'severity' => $this->severityLabel((string) $finding->severity)])
             ->all();
 
-        $recommendations = AdvisorItem::query()->open()
+        $recommendations = Recommendation::query()
             ->where('digital_asset_id', $assetId)
-            ->orderByDesc('priority_score')
+            ->where('status', Recommendation::STATUS_OPEN)
+            ->latest('id')
             ->limit(20)
-            ->get()
-            ->toBase()
-            ->map(fn (AdvisorItem $item): array => ['id' => $item->id, 'title' => (string) $item->title, 'severity' => $item->severityLabel()])
-            ->merge(Recommendation::query()
-                ->where('digital_asset_id', $assetId)
-                ->where('status', Recommendation::STATUS_OPEN)
-                ->latest('id')
-                ->limit(20)
-                ->get(['id', 'title'])
-                ->map(fn (Recommendation $recommendation): array => ['id' => $recommendation->id, 'title' => (string) $recommendation->title]))
-            ->values()
+            ->get(['id', 'title'])
+            ->map(fn (Recommendation $recommendation): array => ['id' => $recommendation->id, 'title' => (string) $recommendation->title])
             ->all();
 
         $tasks = Task::query()
@@ -66,14 +57,7 @@ class OverviewPage extends LegacyOverviewPage
             ->map(fn (Task $task): array => ['id' => $task->id, 'title' => (string) $task->title])
             ->all();
 
-        $outcomes = AdvisorItem::query()
-            ->where('digital_asset_id', $assetId)
-            ->whereNotNull('measured_at')
-            ->latest('measured_at')
-            ->limit(20)
-            ->get(['id', 'title', 'outcome'])
-            ->map(fn (AdvisorItem $item): array => ['id' => $item->id, 'title' => (string) $item->title, 'outcome' => $item->outcome])
-            ->all();
+        $outcomes = [];
 
         return ['findings' => $findings, 'recommendations' => $recommendations, 'tasks' => $tasks, 'outcomes' => $outcomes];
     }

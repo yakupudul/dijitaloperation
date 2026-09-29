@@ -2,9 +2,6 @@
 
 namespace Tests\Feature\Performance;
 
-use App\Jobs\BuildTopicMapJob;
-use App\Jobs\Queries\IngestQuerySourcesJob;
-use App\Jobs\RefreshUrlVerdictsJob;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\File;
 use PHPUnit\Framework\Attributes\Group;
@@ -46,7 +43,7 @@ final class QueueTopologyContractTest extends TestCase
         $this->assertSame('heavy', $production['queue']['heavy_queue'], 'with Redis the long jobs go to the heavy queue');
 
         $jobs = $this->jobClasses();
-        $this->assertGreaterThan(50, count($jobs));
+        $this->assertGreaterThan(25, count($jobs));
         $queues = [];
         foreach ($jobs as $class) {
             $job = $this->instantiate($class);
@@ -71,9 +68,6 @@ final class QueueTopologyContractTest extends TestCase
             $this->assertArrayHasKey('redis:'.$queue, $consumed, 'queue "'.$queue.'" has no Horizon supervisor in production; used by '.implode(', ', array_unique($users)));
         }
         $this->assertArrayHasKey('heavy', $queues);
-        $this->assertContains(BuildTopicMapJob::class, $queues['heavy'], 'the topic map runs on the heavy queue');
-        $this->assertContains(RefreshUrlVerdictsJob::class, $queues['heavy']);
-        $this->assertContains(IngestQuerySourcesJob::class, $queues['heavy']);
     }
 
     public function test_deploy_runs_horizon_under_supervisor_with_a_stop_window_longer_than_any_job(): void

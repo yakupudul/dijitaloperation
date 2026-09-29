@@ -3,13 +3,10 @@
 namespace App\Services\SeoTasks;
 
 use App\Models\BrandOffering;
-use App\Models\BrandQueryPortfolioItem;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\IntelligenceProjection\WebsitePageProfile;
-use App\Models\ServicePageAssignment;
-use App\Models\TopicCluster;
 use App\Services\Compliance\SectorPackRegistry;
 use App\Services\Ga4\Ga4SpecialistBindingResolver;
 use App\Services\Gsc\GscSpecialistBindingResolver;
@@ -38,8 +35,8 @@ final class SeoPlanInputCollector
     {
         $site->loadMissing('brand.customer');
         $end = ($end ?? CarbonImmutable::now())->startOfDay();
-        $gscDays = SeoTaskConfig::int('window.gsc_days', 90);
-        $ga4Days = SeoTaskConfig::int('window.ga4_days', 90);
+        $gscDays = (int) config('moxdop-seo-tasks.window.gsc_days', 90);
+        $ga4Days = (int) config('moxdop-seo-tasks.window.ga4_days', 90);
         $primaryUrl = $site->primary_url ?: ('https://'.$site->domain);
 
         $this->excludedNonDocuments = 0;
@@ -88,29 +85,8 @@ final class SeoPlanInputCollector
             // Sector pack rules (health: no price / before-after wording) that proposed titles and briefs must respect.
             'compliance_rules' => $site->brand !== null ? app(SectorPackRegistry::class)->rulesForBrand($site->brand)->all() : [],
             // Faz 3: the site's topic map (null until it was built once); create tasks come from its uncovered clusters.
-            'topic_clusters' => $this->topicClusters($site),
+            'topic_clusters' => null,
         ];
-    }
-
-    /**
-     * Active clusters of the site's topic map with their strongest queries, or null when no map was built yet.
-     *
-     * @return list<array<string, mixed>>|null
-     */
-    public function topicClusters(DigitalAsset $site): ?array
-    {
-        if (! Schema::hasTable('topic_clusters') || ! TopicCluster::query()->where('digital_asset_id', $site->id)->exists()) {
-            return null;
-        }
-
-        return TopicCluster::query()->where('digital_asset_id', $site->id)->whereIn('status', ['active', 'skipped'])->orderByDesc('demand_score')->limit(300)
-            ->with(['queries' => fn ($q) => $q->limit(12)])->get()
-            ->map(fn (TopicCluster $c): array => [
-                'id' => (int) $c->id, 'offering_id' => $c->brand_offering_id !== null ? (int) $c->brand_offering_id : null, 'label' => (string) $c->label,
-                'head' => $c->head_query, 'intent' => $c->intent, 'page_type' => $c->page_type, 'verdict' => $c->verdict, 'coverage' => $c->coverage, 'status' => $c->status,
-                'owner_url' => $c->owner_url, 'demand' => (float) $c->demand_score, 'impressions' => (int) $c->impressions, 'query_count' => (int) $c->query_count,
-                'queries' => $c->queries->map(fn ($q): array => ['query' => (string) $q->query, 'impressions' => (int) $q->impressions, 'clicks' => (int) $q->clicks, 'position' => $q->position])->all(),
-            ])->all();
     }
 
     /**
@@ -175,7 +151,7 @@ final class SeoPlanInputCollector
         if (! Schema::hasTable('gsc_page_daily')) {
             return ['available' => false, 'history_days' => 0, 'pages' => []];
         }
-        $decay = SeoTaskConfig::int('decay.window_days', 28);
+        $decay = (int) config('moxdop-seo-tasks.decay.window_days', 28);
         $curStart = $end->subDays($decay)->toDateString();
         $prevStart = $end->subDays($decay * 2)->toDateString();
         $start90 = $end->subDays(90)->toDateString();
@@ -396,9 +372,9 @@ final class SeoPlanInputCollector
      */
     private function readStoredHtml(DigitalAsset $site, array &$pages, array $gscRows, string $homeKey): array
     {
-        $limit = SeoTaskConfig::int('html.max_pages', 150);
-        $excerptPages = SeoTaskConfig::int('html.excerpt_pages', 8);
-        $excerptChars = SeoTaskConfig::int('html.excerpt_chars', 1500);
+        $limit = (int) config('moxdop-seo-tasks.html.max_pages', 150);
+        $excerptPages = (int) config('moxdop-seo-tasks.html.excerpt_pages', 8);
+        $excerptChars = (int) config('moxdop-seo-tasks.html.excerpt_chars', 1500);
 
         $impressions = [];
         foreach ($gscRows as $row) {
@@ -656,28 +632,8 @@ final class SeoPlanInputCollector
             ->orderBy('id')
             ->get();
 
-        $catalogIds = $offerings->pluck('service_catalog_item_id')->filter()->unique()->values()->all();
+        // v2: brand queries per service come from the Faz 3 query layers; nothing is read here yet.
         $queriesByService = [];
-        if ($catalogIds !== []) {
-            BrandQueryPortfolioItem::query()
-                ->with(['libraryItem', 'services'])
-                ->where('brand_id', $site->brand_id)
-                ->where('status', 'active')
-                ->whereHas('services', fn ($q) => $q->whereIn('service_catalog_items.id', $catalogIds))
-                ->limit(3000)
-                ->get()
-                ->each(function (BrandQueryPortfolioItem $item) use (&$queriesByService, $catalogIds): void {
-                    $text = trim($item->effectiveQueryText());
-                    if ($text === '') {
-                        return;
-                    }
-                    foreach ($item->services as $service) {
-                        if (in_array($service->id, $catalogIds, true)) {
-                            $queriesByService[$service->id][mb_strtolower($text)] = $text;
-                        }
-                    }
-                });
-        }
 
         return $offerings->map(function (BrandOffering $offering) use ($queriesByService): array {
             $names = [];
@@ -800,20 +756,8 @@ final class SeoPlanInputCollector
     /** @return array<int, array<string, mixed>> keyed by brand_offering_id */
     private function assignments(DigitalAsset $site): array
     {
-        return ServicePageAssignment::query()
-            ->where('digital_asset_id', $site->id)
-            ->get()
-            ->mapWithKeys(static fn (ServicePageAssignment $assignment): array => [
-                (int) $assignment->brand_offering_id => [
-                    'id' => $assignment->id,
-                    'page_url' => $assignment->page_url,
-                    'url_key' => $assignment->page_url !== null ? SeoText::urlKey($assignment->page_url) : null,
-                    'status' => $assignment->status,
-                    'decision_source' => $assignment->decision_source,
-                    'score' => $assignment->score,
-                ],
-            ])
-            ->all();
+        // v2: service ↔ page mapping is rebuilt on brand_cluster_pages (Faz 4).
+        return [];
     }
 
     private function metadataFloat(mixed $metadata, string $key): ?float

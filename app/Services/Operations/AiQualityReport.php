@@ -2,7 +2,6 @@
 
 namespace App\Services\Operations;
 
-use App\Ai\Agents\WhatsAppReplyAgent;
 use App\Models\AiProduction;
 use App\Services\Archive\ProductionArchive;
 use App\Support\Ai\AiRouteKeys;
@@ -33,7 +32,6 @@ final class AiQualityReport
         'meta_ads.creative' => AiRouteKeys::META_ADS_CREATIVE_DRAFT,
         'gbp.profile' => AiRouteKeys::GBP_PROFILE_DRAFT,
         'seo.content_brief' => AiRouteKeys::SEO_TASKS_CONTENT_PLANNER,
-        'whatsapp.reply' => WhatsAppReplyAgent::ROUTE,
         'brand_setup.proposal' => AiRouteKeys::BRAND_SETUP,
         'report.monthly_commentary' => AiRouteKeys::MONTHLY_REPORT_COMMENTARY,
         'gbp.review_reply' => AiRouteKeys::GBP_REVIEW_REPLY,

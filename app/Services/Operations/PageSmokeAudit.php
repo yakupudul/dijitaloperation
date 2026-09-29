@@ -142,10 +142,6 @@ final class PageSmokeAudit
             $fill = match ($names) {
                 ['brand'], ['brandId'] => $ids('brands', $perType),
                 ['customerId'] => $ids('customers', $perType),
-                ['prospectId'] => $ids('prospects', $perType),
-                ['profileId'] => $ids('sales_search_profiles', $perType),
-                ['signalId'] => $ids('sales_intent_signals', $perType),
-                ['report'] => $ids('monthly_reports', 1),
                 ['taskId'] => $ids('tasks', $perType),
                 ['provider'] => ['anthropic', 'openai', 'gemini', 'groq', 'openrouter'],
                 ['connector'] => str_contains($uri, 'site-connectors') ? ['wordpress'] : ['ga4', 'gsc', 'google-ads', 'gbp'],

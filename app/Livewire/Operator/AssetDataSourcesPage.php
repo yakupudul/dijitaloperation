@@ -12,7 +12,6 @@ use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
 use App\Models\OwnershipTransfer;
 use App\Models\ResourceAutomation;
-use App\Models\SeoPlan;
 use App\Models\User;
 use App\Services\Async\AsyncOperationService;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
@@ -21,7 +20,6 @@ use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Services\Ownership\OwnershipGuard;
 use App\Services\Ownership\OwnershipTransferService;
 use App\Services\PageSpeedConnectionProbeService;
-use App\Services\SeoTasks\SeoPlanRunner;
 use App\Support\Integrations\AssetBindingCompatibility;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
@@ -163,28 +161,7 @@ final class AssetDataSourcesPage extends Component
 
         $this->selectedResource[$capability] = '';
         $this->messageTone = 'success';
-        $this->message = __('operator_runtime.sources.bound', ['capability' => ProviderRegistry::capabilityLabel($capability)])
-            .$this->queueFirstSeoPlan($asset, $capability, $actor);
-    }
-
-    /**
-     * Search Console just bound to a website that has never had an SEO plan: queue the first one now instead of
-     * leaving the site to the weekly schedule (same as "Otomatik kur").
-     */
-    private function queueFirstSeoPlan(DigitalAsset $asset, string $capability, User $actor): string
-    {
-        if ($capability !== 'search_console' || (string) $asset->type !== 'website' || SeoPlan::query()->where('digital_asset_id', $asset->id)->exists()) {
-            return '';
-        }
-        try {
-            app(SeoPlanRunner::class)->queue($asset->fresh() ?? $asset, $actor, 'first_bind');
-
-            return ' İlk SEO planı kuyruğa alındı.';
-        } catch (Throwable $error) {
-            report($error);
-
-            return '';
-        }
+        $this->message = __('operator_runtime.sources.bound', ['capability' => ProviderRegistry::capabilityLabel($capability)]);
     }
 
     /** "Devret": binds the pending account here after the Admin ticked "Yetki devrini onaylıyorum". */

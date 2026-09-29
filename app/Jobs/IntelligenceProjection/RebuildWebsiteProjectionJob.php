@@ -4,8 +4,6 @@ namespace App\Jobs\IntelligenceProjection;
 
 use App\Models\DigitalAsset;
 use App\Services\IntelligenceProjection\Website\WebsiteProjectionRebuilder;
-use App\Services\SeoTasks\SeoInventoryGuard;
-use App\Services\Website\UrlAudit\UrlAuditService;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -52,20 +50,13 @@ final class RebuildWebsiteProjectionJob implements ShouldBeUniqueUntilProcessing
             return;
         }
 
-        $run = $rebuilder->rebuild(
+        $rebuilder->rebuild(
             asset: $asset,
             trigger: $this->trigger,
             triggerCollectionRunId: $this->triggerCollectionRunId,
             periodStart: $this->periodStart !== null ? CarbonImmutable::parse($this->periodStart, 'UTC') : null,
             periodEnd: $this->periodEnd !== null ? CarbonImmutable::parse($this->periodEnd, 'UTC') : null,
         );
-
-        // An SEO plan blocked by an empty page inventory re-runs once the rebuilt projection has pages.
-        if ($run !== null) {
-            app(SeoInventoryGuard::class)->afterProjection($asset);
-            // Faz 5: the URL karnesi follows the rebuilt page inventory.
-            UrlAuditService::dispatchFor($asset->id, 'projection');
-        }
     }
 
     public function failed(Throwable $exception): void

@@ -4,7 +4,6 @@ namespace Tests\Feature\Integrations;
 
 use App\Enums\CustomerStatus;
 use App\Jobs\DiscoverProviderResourcesJob;
-use App\Livewire\Operator\AssetDataSourcesPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
@@ -12,17 +11,12 @@ use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
-use App\Models\SeoPlan;
 use App\Models\User;
-use App\Services\CommandCenter\CommandCenter;
 use App\Services\Integrations\BrandAccountCandidates;
 use App\Services\Integrations\Google\GoogleIntegrationReadModel;
 use App\Services\Integrations\Google\GoogleOAuthService;
-use App\Services\LeadOutcomes\LeadQuality;
 use App\Services\Measurement\BrandMeasurementScope;
-use App\Services\MonthlyReport\MonthlyReportBuilder;
 use App\Services\Portfolio\CustomerCommercialSummary;
-use App\Services\Portfolio\PortfolioHealthReader;
 use App\Support\Integrations\Meta\MetaResourceType;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
@@ -30,7 +24,6 @@ use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -83,15 +76,6 @@ final class MultiAccountBrandTest extends TestCase
         $this->assertSame(['TRY'], $scope->currencies('google_ads_campaign_daily', $from, $to));
         $this->assertEqualsCanonicalizing(['Atlas Implant' => 300.0, 'Atlas Ortodonti' => 200.0],
             collect($scope->perAccount('google_ads_campaign_daily', $from, $to, ['spend' => 'cost_amount']))->pluck('spend', 'name')->all());
-
-        $report = app(MonthlyReportBuilder::class)->build($this->brand, '2026-09');
-        $ads = $report['channels']['google_ads'];
-        $this->assertSame(500.0, collect($ads['kpis'])->firstWhere('key', 'cost')['value']);
-        $this->assertSame('TRY', $ads['currency']);
-        $this->assertFalse($ads['mixed_currency']);
-        $this->assertCount(2, $ads['accounts'], 'per-account split when the brand has more than one account');
-
-        $this->assertSame(500.0, app(LeadQuality::class)->spend($this->brand, $from, $to));
     }
 
     public function test_spend_in_different_currencies_is_never_added_up(): void
@@ -101,14 +85,8 @@ final class MultiAccountBrandTest extends TestCase
         $this->adsRow(null, $resourceA->id, '2026-09-10', 300, 'TRY');
         $this->adsRow(null, $resourceB->id, '2026-09-10', 50, 'EUR');
 
-        $ads = app(MonthlyReportBuilder::class)->build($this->brand, '2026-09')['channels']['google_ads'];
-        $this->assertTrue($ads['mixed_currency']);
-        $this->assertNull(collect($ads['kpis'])->firstWhere('key', 'cost')['value']);
-        $this->assertNull(collect($ads['kpis'])->firstWhere('key', 'cpa')['value']);
-        $this->assertSame(100.0, collect($ads['kpis'])->firstWhere('key', 'clicks')['value'], 'non-money KPIs still add up');
-        $this->assertEqualsCanonicalizing(['TRY', 'EUR'], array_column($ads['accounts'], 'currency'));
-
-        $this->assertNull(app(LeadQuality::class)->spend($this->brand, CarbonImmutable::parse('2026-09-01'), CarbonImmutable::parse('2026-09-30')));
+        $scope = BrandMeasurementScope::for($this->brand);
+        $this->assertEqualsCanonicalizing(['TRY', 'EUR'], $scope->currencies('google_ads_campaign_daily', CarbonImmutable::parse('2026-09-01'), CarbonImmutable::parse('2026-09-30')));
 
         $this->travelTo(Carbon::parse('2026-09-20 10:00:00'));
         $channel = collect(app(CustomerCommercialSummary::class)->for($this->customer->fresh('brands'), CarbonImmutable::parse('2026-09-20'))['channels'])->firstWhere('key', 'google');
@@ -129,36 +107,6 @@ final class MultiAccountBrandTest extends TestCase
         $this->assertSame(1500.0, $channel['spent']);
         $this->assertSame('TRY', $channel['currency']);
         $this->assertSame(['Atlas Implant' => 1000.0, 'Atlas Ortodonti' => 500.0], collect($channel['accounts'])->pluck('spent', 'name')->all());
-    }
-
-    public function test_unbound_accounts_of_the_brands_mcc_are_candidates_and_a_coverage_item(): void
-    {
-        $this->manager('9990000001', 'Atlas MCC');
-        $this->adsAccount('1110000001', 'Kampanya Hesabı 1', manager: '9990000001');
-        $sibling = $this->resource('1110000002', 'Kampanya Hesabı 2', manager: '9990000001');
-        // Agency MCC shared with another customer's brand: its other accounts are listed but not "suggested".
-        $this->manager('8880000001', 'Ajans MCC');
-        $this->adsAccount('1110000003', 'Kampanya Hesabı 3', manager: '8880000001');
-        $other = Brand::factory()->create(['customer_id' => Customer::factory()->create(['status' => CustomerStatus::Active])->id, 'name' => 'Başka Marka']);
-        $this->adsAccount('2220000001', 'Başka Hesap', manager: '8880000001', brand: $other);
-        $agencySibling = $this->resource('1110000004', 'Kampanya Hesabı 4', manager: '8880000001');
-        $byName = $this->resource('3330000001', 'Atlas Dental Yeni', manager: null);
-        $foreign = $this->resource('4440000001', 'Alakasız Hesap', manager: null);
-
-        $candidates = collect(app(BrandAccountCandidates::class)->forBrand($this->brand))->keyBy('resource_id');
-        $this->assertTrue($candidates[$sibling->id]['strong'], 'dedicated MCC → suggested');
-        $this->assertSame('MCC Atlas MCC', $candidates[$sibling->id]['container_label']);
-        $this->assertFalse($candidates[$agencySibling->id]['strong'], 'agency MCC → listed, not suggested');
-        $this->assertTrue($candidates[$byName->id]['strong']);
-        $this->assertSame('name_match', $candidates[$byName->id]['reason']);
-        $this->assertFalse($candidates->has($foreign->id));
-        $this->assertFalse($candidates->has(CoreExternalResource::query()->where('external_id', '9990000001')->value('id')), 'managers are never candidates');
-
-        $item = app(CommandCenter::class)->items(['source' => 'coverage'])->firstWhere('key', 'coverage:brand-unbound-'.$this->brand->id);
-        $this->assertNotNull($item);
-        $this->assertSame((int) $this->brand->id, $item['brand_id']);
-        $this->assertStringContainsString('2 reklam hesabı', $item['title']);
-        $this->assertStringContainsString('#hesap-ekle', $item['url']);
     }
 
     public function test_meta_accounts_of_the_brands_business_are_candidates(): void
@@ -224,8 +172,6 @@ final class MultiAccountBrandTest extends TestCase
         $this->assertTrue($channels['meta_ads']['unused'], 'no Meta account, no candidate → not counted');
         $this->assertSame(2, $setup['total']);
 
-        $page->call('setupQueueAdvisor', 'google_ads');
-        $this->assertDatabaseHas('advisor_plans', ['digital_asset_id' => $asset->id]);
     }
 
     public function test_google_page_lists_every_discovered_account_with_its_mcc(): void
@@ -238,36 +184,6 @@ final class MultiAccountBrandTest extends TestCase
         $rows = collect(app(GoogleIntegrationReadModel::class)->detail()['unbound_resources'])->where('resource_type', 'google_ads');
         $this->assertCount(60, $rows, 'no cut at 50 accounts');
         $this->assertSame('Atlas MCC', $rows->first()['manager']);
-    }
-
-    public function test_portfolio_health_cell_covers_every_account_of_the_channel(): void
-    {
-        $this->adsAccount('1110000001', 'Atlas Implant');
-        $this->adsAccount('1110000002', 'Atlas Ortodonti');
-
-        $row = collect(app(PortfolioHealthReader::class)->read()['rows'])->firstWhere('brand_id', $this->brand->id);
-        $this->assertSame(2, $row['cells']['google_ads']['accounts']);
-        $this->assertStringStartsWith('2 hesap', $row['cells']['google_ads']['label']);
-    }
-
-    public function test_data_sources_hide_mcc_managers_and_search_console_bind_queues_the_first_seo_plan(): void
-    {
-        Bus::fake();
-        $site = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'website', 'status' => 'active', 'domain' => 'atlasdental.test', 'primary_url' => 'https://atlasdental.test/']);
-        $property = CoreExternalResource::factory()->create(['integration_id' => $this->google->id, 'resource_type' => 'search_console', 'external_id' => 'sc-domain:atlasdental.test', 'display_name' => 'sc-domain:atlasdental.test']);
-
-        Livewire::test(AssetDataSourcesPage::class, ['assetId' => (string) $site->id])
-            ->set('selectedResource.search_console', (string) $property->id)
-            ->call('bind', 'search_console')
-            ->assertSet('messageTone', 'success')
-            ->assertSee('İlk SEO planı kuyruğa alındı');
-        $this->assertTrue(SeoPlan::query()->where('digital_asset_id', $site->id)->exists());
-
-        $this->manager('9990000001', 'Atlas MCC');
-        $client = $this->resource('1110000009', 'Atlas Müşteri Hesabı', manager: '9990000001');
-        $ads = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'google_ads', 'status' => 'active']);
-        $offered = Livewire::test(AssetDataSourcesPage::class, ['assetId' => (string) $ads->id])->viewData('resources')['google_ads']->pluck('id')->all();
-        $this->assertSame([(int) $client->id], array_map('intval', $offered), 'the MCC itself is not offered');
     }
 
     public function test_connecting_google_starts_account_discovery_right_away(): void

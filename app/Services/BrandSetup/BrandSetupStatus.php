@@ -2,7 +2,6 @@
 
 namespace App\Services\BrandSetup;
 
-use App\Models\AdvisorPlan;
 use App\Models\Brand;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
@@ -10,7 +9,6 @@ use App\Models\CoreConnection;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
-use App\Models\SeoPlan;
 use App\Services\DataStatus\DataStatus;
 use App\Services\DataStatus\DataStatusReader;
 use App\Services\Integrations\BrandAccountCandidates;
@@ -111,18 +109,8 @@ final class BrandSetupStatus
             },
             in_array($crawl, ['queued', 'running', 'retrying'], true) ? null : ['call', 'setupStartCrawl', null, 'Taramayı başlat']);
 
-        $plan = $site !== null ? SeoPlan::query()->where('digital_asset_id', $site->id)->latest('id')->value('status') : null;
-        $steps[] = $this->step('seo_plan', 'İlk SEO planı', $plan === SeoPlan::STATUS_COMPLETED,
-            match ($plan) {
-                SeoPlan::STATUS_COMPLETED => 'Hazır; her hafta pazartesi yenilenir.',
-                SeoPlan::STATUS_QUEUED, SeoPlan::STATUS_RUNNING => 'Hazırlanıyor.',
-                SeoPlan::STATUS_FAILED => 'Son plan üretilemedi; yeniden başlatın.',
-                default => 'Search Console ve tarama verisiyle SEO görevlerini üretir.',
-            },
-            in_array($plan, [SeoPlan::STATUS_QUEUED, SeoPlan::STATUS_RUNNING], true) ? null : ['call', 'setupQueueSeoPlan', null, 'SEO planını başlat']);
-
         return $this->channel('website', 'Web sitesi', $steps, false,
-            $site !== null ? ['label' => 'SEO görevleri ve site düzeltmeleri', 'url' => route('operator.website', ['assetId' => $site->id, 'tab' => 'seo'])] : null);
+            $site !== null ? ['label' => 'Web sitesi', 'url' => route('operator.website', ['assetId' => $site->id])] : null);
     }
 
     /**
@@ -167,11 +155,6 @@ final class BrandSetupStatus
                 default => 'Bağlanınca birkaç dakika içinde kendiliğinden başlar.',
             },
             $problem !== null && $problem->actionUrl !== null ? ['link', $problem->actionUrl, 'Yeniden bağlan'] : ['call', 'setupCollectNow', $type, 'Şimdi çek']);
-
-        $reviewed = $accounts->isNotEmpty() && AdvisorPlan::query()->whereIn('digital_asset_id', $accounts->pluck('id'))->where('status', AdvisorPlan::STATUS_COMPLETED)->exists();
-        $steps[] = $this->step('advisor', 'Danışman incelemesi', $reviewed,
-            $reviewed ? 'Öneriler hazır; her pazartesi yenilenir.' : 'Veri gelince hesap kendiliğinden incelenir; hemen başlatabilirsiniz.',
-            ['call', 'setupQueueAdvisor', $type, 'İncele']);
 
         $first = $accounts->first();
         $route = $type === 'meta_ads' ? 'operator.meta.overview' : 'operator.google-ads.overview';

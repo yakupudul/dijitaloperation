@@ -4,26 +4,16 @@ use App\Http\Controllers\Auth\OperatorForgotPasswordController;
 use App\Http\Controllers\Auth\OperatorLoginController;
 use App\Http\Controllers\Auth\OperatorResetPasswordController;
 use App\Http\Controllers\Auth\OperatorTwoFactorChallengeController;
-use App\Http\Controllers\Clients\ClientApprovalController;
 use App\Http\Controllers\Integrations\GoogleOAuthController;
 use App\Http\Controllers\Integrations\MetaOAuthController;
-use App\Http\Controllers\Integrations\WhatsAppSignupController;
 use App\Http\Controllers\LegacyRetiredPrefixController;
-use App\Http\Controllers\Operator\CalendarFeedController;
-use App\Http\Controllers\Operator\ManualClusterDownloadController;
-use App\Http\Controllers\Operator\SearchQueryExportController;
 use App\Http\Controllers\Operator\WebsiteHtmlSnapshotController;
 use App\Http\Controllers\Ops\OpsHealthController;
-use App\Http\Controllers\Prospects\ProspectReportShareController;
-use App\Http\Controllers\Reports\MonthlyReportClientController;
-use App\Http\Controllers\Reports\ReportArtifactDownloadController;
-use App\Http\Controllers\Reports\ReportShareController;
 use App\Http\Middleware\EnsureDemoAppAccess;
 use App\Livewire\Operator\AssetDataSourcesPage;
 use App\Livewire\Operator\Integrations\WebsiteIntegrationIndex;
 use App\Livewire\Operator\PublicDiscoveryIndex;
 use App\Livewire\Operator\Website\PublicDiscoveryPage;
-use App\Livewire\Operator\WhatsApp\Inbox;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function (): void {
@@ -43,19 +33,6 @@ Route::post('/logout', [OperatorLoginController::class, 'destroy'])
 
 Route::get('/up/liveness', [OpsHealthController::class, 'liveness'])->name('ops.liveness');
 Route::get('/up/readiness', [OpsHealthController::class, 'readiness'])->name('ops.readiness');
-// Faz 6: read-only calendar feed addressed by a secret per-user token (Google Calendar "URL ile ekle").
-Route::get('/calendar/{token}.ics', CalendarFeedController::class)->where('token', '[A-Za-z0-9]{32,64}')->middleware('throttle:60,1')->name('calendar.feed');
-
-// ADR-075: client approval of planned content (signed, expiring link; no login).
-Route::get('/onay/{approval}', [ClientApprovalController::class, 'show'])
-    ->where('approval', '[0-9]{1,18}')->middleware(['signed', 'throttle:30,1'])->name('client-approval.show');
-Route::post('/onay/{approval}', [ClientApprovalController::class, 'respond'])
-    ->where('approval', '[0-9]{1,18}')->middleware(['signed', 'throttle:10,1'])->name('client-approval.respond');
-
-// Faz 9: monthly report v2 — client link (signed, published reports only).
-Route::get('/r/monthly/{report}', [MonthlyReportClientController::class, 'client'])
-    ->where('report', '[0-9]{1,18}')->middleware(['signed', 'throttle:60,1'])->name('monthly-report.client');
-
 Route::middleware(['web', 'auth'])->group(function (): void {
     Route::get('/integrations/google/callback', [GoogleOAuthController::class, 'callback'])
         ->name('integrations.google.callback');
@@ -69,41 +46,8 @@ Route::middleware(['web', 'auth'])->group(function (): void {
     Route::get('/integrations/meta/{integration}/authorize', [MetaOAuthController::class, 'authorize'])
         ->name('integrations.meta.authorize');
 
-    Route::get('/reports/artifacts/{artifactId}/download', [ReportArtifactDownloadController::class, 'download'])
-        ->where('artifactId', '[0-9]{1,18}')
-        ->name('reports.artifacts.download');
-
-    Route::post('/reports/snapshots/{snapshotId}/pdf', [ReportArtifactDownloadController::class, 'generateAndDownload'])
-        ->where('snapshotId', '[0-9]{1,18}')
-        ->name('reports.snapshots.pdf');
-
     Route::get('/ops/health-snapshot', [OpsHealthController::class, 'snapshot'])
         ->name('ops.health.snapshot');
-});
-
-Route::middleware(['web'])->prefix('prospect-reports/share')->name('prospect-reports.share.')->group(function (): void {
-    Route::get('/{token}/pdf', [ProspectReportShareController::class, 'pdf'])
-        ->where('token', '[A-Za-z0-9\-_]+')
-        ->name('pdf');
-    Route::get('/{token}', [ProspectReportShareController::class, 'locator'])
-        ->where('token', '[A-Za-z0-9\-_]+')
-        ->name('locator');
-});
-
-Route::middleware(['web'])->prefix('reports/share')->name('reports.share.')->group(function (): void {
-    Route::get('/access/verify', [ReportShareController::class, 'verifyForm'])
-        ->name('verify.form');
-    Route::post('/access/verify/request', [ReportShareController::class, 'requestCode'])
-        ->name('verify.request');
-    Route::post('/access/verify', [ReportShareController::class, 'verify'])
-        ->name('verify.submit');
-    Route::get('/access/view', [ReportShareController::class, 'view'])
-        ->name('view');
-    Route::get('/access/pdf', [ReportShareController::class, 'downloadPdf'])
-        ->name('pdf');
-    Route::get('/{token}', [ReportShareController::class, 'locator'])
-        ->where('token', '[A-Za-z0-9\-_]+')
-        ->name('locator');
 });
 
 // Register the concrete Website integration route before demo.php's /integrations/{provider} catch-all.
@@ -113,26 +57,10 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (
         ->name('operator.integrations.website');
 });
 
-Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (): void {
-    Route::get('/whatsapp/connect/{attempt}', [WhatsAppSignupController::class, 'show'])
-        ->whereUuid('attempt')->name('operator.whatsapp.connect');
-    Route::post('/whatsapp/connect/{attempt}', [WhatsAppSignupController::class, 'complete'])
-        ->whereUuid('attempt')->middleware('throttle:10,1')->name('operator.whatsapp.complete');
-    Route::post('/whatsapp/connect/{attempt}/phone', [WhatsAppSignupController::class, 'selectPhone'])
-        ->whereUuid('attempt')->middleware('throttle:10,1')->name('operator.whatsapp.select-phone');
-    Route::livewire('/whatsapp', Inbox::class)
-        ->name('operator.whatsapp');
-});
-
 require __DIR__.'/demo.php';
 
 // Canonical production operator engine surfaces that are intentionally kept outside legacy demo.php.
 Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (): void {
-    Route::get('/library/query-cluster-exports/{operation}', ManualClusterDownloadController::class)
-        ->where('operation', '[0-9]{1,18}')->name('operator.library.manual-clusters.download');
-    Route::get('/library/search-queries/export', SearchQueryExportController::class)
-        ->name('operator.library.search-queries.export');
-
     Route::livewire('/public-discovery', PublicDiscoveryIndex::class)
         ->name('operator.public-discovery');
 

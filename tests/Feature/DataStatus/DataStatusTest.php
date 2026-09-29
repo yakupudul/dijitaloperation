@@ -19,7 +19,6 @@ use App\Models\ResourceAutomation;
 use App\Models\User;
 use App\Services\DataStatus\DataStatus;
 use App\Services\DataStatus\DataStatusReader;
-use App\Services\Portfolio\PortfolioHealthReader;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\Google\GoogleScopes;
 use App\Support\Integrations\Meta\MetaResourceType;
@@ -32,7 +31,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\DataProvider;
-use Tests\Feature\Brain\InsertsFacts;
+use Tests\Support\InsertsFacts;
 use Tests\TestCase;
 
 /**
@@ -98,10 +97,8 @@ final class DataStatusTest extends TestCase
         $page->assertSee('Organik tıklamalar')->assertSee('2.600')->assertSee('1.040');
         // Legacy Finding / Recommendation lists are gone; open work links to the command center for this asset.
         $page->assertDontSee('Açık bulgular')->assertSee('Açık işler')
-            ->assertSee(route('operator.command-center', ['asset' => $site->id]), false);
+            ->assertSee(route('operator.alerts', ['asset' => $site->id]), false);
 
-        $this->assertPortfolioAgrees($site, 'search_console');
-        $this->assertPortfolioAgrees($site, 'ga4');
     }
 
     public function test_bound_but_never_collected_website_says_first_load(): void
@@ -117,7 +114,6 @@ final class DataStatusTest extends TestCase
         $page->assertSee('İlk veri yükleniyor')->assertSee('data-data-status-banner="first_load"', false)
             ->assertSee('Search Console / Google Analytics için ilk veri yükleniyor')
             ->assertDontSee('data-data-status-banner="not_bound"', false);
-        $this->assertPortfolioAgrees($site, 'ga4');
     }
 
     public function test_running_first_collection_shows_progress(): void
@@ -150,7 +146,6 @@ final class DataStatusTest extends TestCase
         $page = $this->get(route('operator.website', ['assetId' => $site->id]))->assertOk();
         $page->assertSee('Erişim sorunu')->assertSee('Yeniden bağla')->assertSee($reconnect, false)
             ->assertDontSee('data-data-status-banner', false);
-        $this->assertPortfolioAgrees($site, 'search_console', 'bad');
     }
 
     public function test_old_facts_are_late_by_n_days_with_the_known_reason(): void
@@ -173,7 +168,6 @@ final class DataStatusTest extends TestCase
         $page = $this->get(route('operator.website', ['assetId' => $site->id]))->assertOk();
         $page->assertSee('Gecikmiş · 20 gün')->assertSee('Son toplama başarısız')->assertDontSee('data-data-status-banner', false)
             ->assertDontSee('Search Console verisi güncel değil');
-        $this->assertPortfolioAgrees($site, 'search_console', 'warn');
     }
 
     public function test_unbound_website_says_not_bound_with_a_bind_action(): void
@@ -186,7 +180,6 @@ final class DataStatusTest extends TestCase
         $page = $this->get(route('operator.website', ['assetId' => $site->id]))->assertOk();
         $page->assertSee('Bağlı değil')->assertSee('Kaynağı bağla')->assertSee('data-data-status-banner="not_bound"', false)
             ->assertSee('Bu web sitesine Search Console / Google Analytics bağlı değil');
-        $this->assertPortfolioAgrees($site, 'ga4', 'missing');
     }
 
     public function test_paused_accounts_come_from_the_activity_interface(): void
@@ -303,19 +296,6 @@ final class DataStatusTest extends TestCase
         $page->assertDontSee('Veri Güncelliği');
         if ($state === 'access_problem') {
             $page->assertSee($status->actionUrl, false);
-        }
-        $this->assertPortfolioAgrees($asset, $capability);
-    }
-
-    private function assertPortfolioAgrees(DigitalAsset $asset, string $capability, ?string $cellState = null): void
-    {
-        $status = app(DataStatusReader::class)->forAssetSource($asset, $capability);
-        $row = collect(app(PortfolioHealthReader::class)->read()['rows'])->firstWhere('brand_id', $this->brand->id);
-        $cell = $row['cells'][$capability];
-        $this->assertSame($status->shortLabel(), $cell['label'], 'Portföy sağlığı shows the asset page status');
-        $this->assertSame($status->state, $cell['data_state']);
-        if ($cellState !== null) {
-            $this->assertSame($cellState, $cell['state']);
         }
     }
 

@@ -80,12 +80,6 @@ final class DiagnoseCommandTest extends TestCase
             'message' => 'Undefined key while calling with secret='.self::LONG_SECRET.' user admin@example.test', 'occurrences' => 7,
             'first_seen_at' => now()->subDay(), 'last_seen_at' => now()->subMinutes(5),
         ]);
-        foreach (['implant fiyat' => 'unclear', 'panorama dental' => 'relevant', 'araba kiralama' => 'irrelevant'] as $query => $relevance) {
-            DB::table('brand_demand_queries')->insert([
-                'brand_id' => $this->panorama->id, 'query' => $query, 'query_key' => Str::slug($query), 'relevance' => $relevance,
-                'gsc_impressions' => 100, 'source_mask' => 1, 'created_at' => now(), 'updated_at' => now(),
-            ]);
-        }
         DB::table('website_url')->insert([
             'digital_asset_id' => $this->website->id, 'asset_id' => (string) $this->website->id, 'normalized_url' => 'https://panorama.example/tedaviler/',
             'contract_version' => '1', 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => 'u1',
@@ -98,7 +92,7 @@ final class DiagnoseCommandTest extends TestCase
         $output = Artisan::output();
 
         $this->assertSame(0, $exit);
-        foreach (['[environment]', '[ownership]', '[integrations]', '[collection]', '[website]', '[queries]', '[advisors]', '[ai]', '[errors]', '== ÖZET'] as $header) {
+        foreach (['[environment]', '[ownership]', '[integrations]', '[collection]', '[website]', '[advisors]', '[ai]', '[errors]', '== ÖZET'] as $header) {
             $this->assertStringContainsString($header, $output);
         }
         $this->assertStringContainsString('!! Başarısız işler: son 24 saat 1', $output);
@@ -121,31 +115,27 @@ final class DiagnoseCommandTest extends TestCase
         $this->assertStringContainsString('kapsam: marka #'.$this->panorama->id.' Panorama Dental', $output);
         $this->assertStringContainsString('#'.$this->website->id.' Panorama site (panorama.example', $output);
         $this->assertStringNotContainsString('Diğer site', $output);
-        $this->assertStringContainsString('Belirsiz 1', $output);
-        $this->assertStringContainsString('hizmetsiz: "implant fiyat"', $output);
-        $this->assertStringContainsString('Markada hizmet (offering) tanımlı değil', $output);
         $this->assertStringContainsString('gsc_query_daily=yok', $output);
         $this->assertSecretsMasked($output);
 
         Artisan::call('moxdop:diagnose', ['--brand' => (string) $this->other->id, '--section' => 'website']);
         $this->assertStringContainsString('Diğer site', Artisan::output());
 
-        Artisan::call('moxdop:diagnose', ['--brand' => 'yok-boyle-marka', '--section' => 'queries']);
+        Artisan::call('moxdop:diagnose', ['--brand' => 'yok-boyle-marka', '--section' => 'collection']);
         $this->assertStringContainsString('marka bulunamadı', Artisan::output());
     }
 
     public function test_json_format_returns_the_same_sections(): void
     {
-        $exit = Artisan::call('moxdop:diagnose', ['--format' => 'json', '--brand' => 'Panorama', '--section' => 'ownership,collection,queries']);
+        $exit = Artisan::call('moxdop:diagnose', ['--format' => 'json', '--brand' => 'Panorama', '--section' => 'ownership,collection']);
         $output = Artisan::output();
         $report = json_decode($output, true);
 
         $this->assertSame(0, $exit);
         $this->assertIsArray($report);
-        $this->assertSame(['ownership', 'collection', 'queries'], array_keys($report['sections']));
+        $this->assertSame(['ownership', 'collection'], array_keys($report['sections']));
         $this->assertSame('brand', $report['scope']['mode']);
         $this->assertNotEmpty($report['summary']);
-        $this->assertSame(3, $report['sections']['queries']['data']['brand_'.$this->panorama->id]['total']);
         $this->assertSecretsMasked($output);
     }
 

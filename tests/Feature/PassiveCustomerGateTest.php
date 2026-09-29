@@ -10,15 +10,12 @@ use App\Models\CoreExternalResource;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\ResourceAutomation;
-use App\Models\SeoPlan;
 use App\Models\User;
 use App\Services\Integrations\Google\GoogleBusinessProfileRetentionService;
 use App\Services\Integrations\ResourceAutomationService;
-use App\Services\SeoTasks\SeoPlanRunner;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -43,24 +40,6 @@ final class PassiveCustomerGateTest extends TestCase
         $this->assertTrue($active->fresh()->isOperational());
         $this->assertFalse($passiveCustomer->fresh()->isOperational());
         $this->assertFalse($inactiveAsset->fresh()->isOperational());
-    }
-
-    public function test_scheduled_seo_plans_skip_passive_customers_and_rotate_by_oldest_plan(): void
-    {
-        Bus::fake();
-        $first = $this->website(CustomerStatus::Active);
-        $second = $this->website(CustomerStatus::Active);
-        $this->website(CustomerStatus::Archived);
-
-        $this->completedPlan($first, now()->subDay());
-
-        $plans = app(SeoPlanRunner::class)->queueAll(null, trigger: 'scheduled', limit: 1);
-
-        $this->assertCount(1, $plans);
-        $this->assertSame($second->id, $plans->first()->digital_asset_id, 'never-planned site goes before the recently planned one');
-
-        $all = app(SeoPlanRunner::class)->queueAll(null, trigger: 'scheduled');
-        $this->assertEqualsCanonicalizing([$first->id, $second->id], $all->pluck('digital_asset_id')->all(), 'archived customer is skipped');
     }
 
     public function test_collection_gate_stops_passive_bindings_and_unmapped_unbound_resources(): void

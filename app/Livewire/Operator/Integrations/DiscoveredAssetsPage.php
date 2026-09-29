@@ -2,13 +2,10 @@
 
 namespace App\Livewire\Operator\Integrations;
 
-use App\Jobs\Queries\RunQueryPipelineJob;
 use App\Models\Customer;
-use App\Models\ServiceCategory;
 use App\Services\Ownership\OwnershipIntegrity;
 use App\Services\Portfolio\PortfolioDiscoveryGrouper;
 use App\Services\Portfolio\PortfolioGroupCreator;
-use App\Services\Queries\AssetSectorService;
 use App\Services\SeoTasks\SeoText;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -22,9 +19,9 @@ use Livewire\WithPagination;
 use Throwable;
 
 /**
- * Entegrasyonlar › Keşfedilen varlıklar: every discovered account and website (bound or not) with its sector (AI or
- * manual; editable), brand grouping proposals with one-click approve (customer → brand → assets), and ownership
- * problems with a safe fix.
+ * Entegrasyonlar › Keşfedilen varlıklar: every discovered account and website (bound or not), brand grouping
+ * proposals with one-click approve (customer → brand → assets), and ownership problems with a safe fix. Sector lives
+ * on the brand (Faz 2).
  */
 #[Layout('operator.layouts.app')]
 #[Title('Keşfedilen varlıklar')]
@@ -41,9 +38,6 @@ final class DiscoveredAssetsPage extends Component
     #[Url]
     public string $bound = '';
 
-    #[Url]
-    public string $sector = '';
-
     /** @var array<string, string> proposal form key => customer id ('' = new customer with the brand name) */
     public array $customerFor = [];
 
@@ -51,24 +45,9 @@ final class DiscoveredAssetsPage extends Component
 
     public function updated(string $property): void
     {
-        if (in_array($property, ['search', 'kind', 'bound', 'sector'], true)) {
+        if (in_array($property, ['search', 'kind', 'bound'], true)) {
             $this->resetPage();
         }
-    }
-
-    public function setSector(string $key, string $categoryId, AssetSectorService $sectors): void
-    {
-        $this->authorizeAdmin();
-        [$type, $id] = explode(':', $key) + [1 => '0'];
-        $sectors->set($type, (int) $id, $categoryId !== '' ? (int) $categoryId : null, auth()->user());
-        $this->message = 'Sektör kaydedildi.';
-    }
-
-    public function runPipeline(): void
-    {
-        $this->authorizeAdmin();
-        RunQueryPipelineJob::dispatch(null, true);
-        $this->message = 'Sıraya alındı.';
     }
 
     public function approve(string $groupKey, PortfolioDiscoveryGrouper $grouper, PortfolioGroupCreator $creator): void
@@ -110,13 +89,12 @@ final class DiscoveredAssetsPage extends Component
         $this->message = $integrity->fix(auth()->user()).' bağlantı kapatıldı.';
     }
 
-    public function render(AssetSectorService $sectors, PortfolioDiscoveryGrouper $grouper, OwnershipIntegrity $integrity): View
+    public function render(PortfolioDiscoveryGrouper $grouper, OwnershipIntegrity $integrity): View
     {
-        $all = $sectors->subjects();
+        $all = $grouper->subjects();
         $needle = SeoText::fold($this->search);
         $filtered = $all->filter(fn (array $s): bool => ($this->kind === '' || $s['kind'] === $this->kind)
             && ($this->bound === '' || ($this->bound === 'yes') === $s['bound'])
-            && ($this->sector === '' || ($this->sector === 'none' ? $s['sector_id'] === null : (string) $s['sector_id'] === $this->sector))
             && ($needle === '' || str_contains(SeoText::fold($s['name'].' '.$s['host'].' '.$s['brand']), $needle)))
             ->sortBy([fn (array $a, array $b): int => $a['bound'] <=> $b['bound'], fn (array $a, array $b): int => strcmp($a['name'], $b['name'])])->values();
         $page = max(1, $this->getPage());
@@ -128,10 +106,8 @@ final class DiscoveredAssetsPage extends Component
             'rows' => $rows,
             'total' => $all->count(),
             'unbound' => $all->where('bound', false)->count(),
-            'noSector' => $all->whereNull('sector_id')->count(),
             'groups' => $groups,
             'problems' => $integrity->problems(),
-            'categories' => ServiceCategory::query()->orderBy('name')->pluck('name', 'id')->all(),
             'customers' => Customer::query()->orderBy('name')->pluck('name', 'id')->all(),
             'kinds' => ['website' => 'Web sitesi', 'search_console' => 'Search Console', 'ga4' => 'GA4', 'google_business_profile' => 'İşletme Profili', 'google_ads' => 'Google Ads', 'meta_ads' => 'Meta'],
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),

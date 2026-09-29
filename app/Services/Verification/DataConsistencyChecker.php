@@ -333,27 +333,10 @@ final class DataConsistencyChecker
         return $seen ? $out : null;
     }
 
-    /** (d) The ad account's currency is not the currency the customer is invoiced in. */
+    /** (d) v2: the agency invoice currency is no longer stored; the check is a no-op until billing returns. */
     private function currencyMismatch(CoreAssetBinding $binding, DigitalAsset $asset): ?array
     {
-        $context = $binding->capability === 'google_ads' ? $this->adsBindings->resolve((string) $asset->id) : $this->metaBindings->resolve((string) $asset->id);
-        $accountCurrency = strtoupper(trim((string) ($context->currency ?? '')));
-        if (! $context->isReal() || $accountCurrency === '' || $accountCurrency === 'XXX' || ! Schema::hasTable('agency_invoices')) {
-            return null;
-        }
-        $customerId = DB::table('brands')->where('id', $asset->brand_id)->value('customer_id');
-        $billing = $customerId !== null
-            ? strtoupper(trim((string) DB::table('agency_invoices')->where('customer_id', $customerId)->whereNot('status', 'cancelled')->orderByDesc('period')->orderByDesc('id')->value('currency')))
-            : '';
-        if ($billing === '' || $billing === $accountCurrency) {
-            return null;
-        }
-        $label = self::LABELS[$binding->capability];
-
-        return $this->issue('currency_mismatch:'.$binding->capability.':'.$asset->id, 'currency_mismatch', 'low', $asset,
-            $label.' hesabının para birimi faturadan farklı',
-            sprintf('%s hesabı %s ile harcıyor, müşteri %s ile faturalanıyor. Raporlardaki harcama ve bütçe karşılaştırmalarında kur farkını hesaba katın ya da hesabın doğru müşteriye bağlı olduğunu kontrol edin.', $label, $accountCurrency, $billing),
-            ['account_currency' => $accountCurrency, 'billing_currency' => $billing]);
+        return null;
     }
 
     /** @return array<string, mixed> */

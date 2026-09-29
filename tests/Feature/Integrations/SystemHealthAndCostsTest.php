@@ -80,10 +80,6 @@ final class SystemHealthAndCostsTest extends TestCase
             ['route_key' => 'x', 'agent' => 'x', 'provider' => 'anthropic', 'model' => 'm', 'input_tokens' => 1, 'output_tokens' => 1, 'cost_usd' => 0.42, 'created_at' => now()],
             ['route_key' => 'x', 'agent' => 'x', 'provider' => 'anthropic', 'model' => 'm', 'input_tokens' => 1, 'output_tokens' => 1, 'cost_usd' => 1.00, 'created_at' => now()->subMonth()],
         ]);
-        DB::table('demand_serp_checks')->insert([
-            'brand_id' => $this->website->brand_id, 'keyword' => 'k', 'location_code' => 1, 'language_code' => 'tr', 'fingerprint' => str_repeat('a', 64),
-            'status' => 'completed', 'cost_usd' => 0.002, 'checked_at' => now(), 'created_at' => now(), 'updated_at' => now(),
-        ]);
 
         $costs = app(CostReader::class)->read();
 
@@ -92,10 +88,10 @@ final class SystemHealthAndCostsTest extends TestCase
         $ai = collect($costs['rows'])->firstWhere('label', 'AI · anthropic');
         $this->assertSame(0.42, $ai['values'][$month]);
         $this->assertSame(1.42, $ai['total']);
-        $this->assertSame(0.422, $costs['totals'][$month]);
+        $this->assertSame(0.42, $costs['totals'][$month]);
 
         $this->actingAs($this->admin);
-        Livewire::test(CostsPage::class)->assertSee('Maliyetler')->assertSee('AI · anthropic')->assertSee('$0,422');
+        Livewire::test(CostsPage::class)->assertSee('Maliyetler')->assertSee('AI · anthropic')->assertSee('$0,42');
 
         $member = User::factory()->create(['is_active' => true]);
         $member->assignRole(Roles::TEAM_MEMBER);

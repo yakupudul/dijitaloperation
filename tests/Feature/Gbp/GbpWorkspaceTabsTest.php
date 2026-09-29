@@ -6,7 +6,6 @@ use App\Ai\Agents\GbpPostAgent;
 use App\Livewire\Demo\Gbp\OverviewPage;
 use App\Models\AiProduction;
 use App\Models\Brand;
-use App\Models\ContentCalendarItem;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
@@ -126,57 +125,9 @@ final class GbpWorkspaceTabsTest extends TestCase
     {
         $this->page('reviews', $this->member)->assertDontSee('Google\'a gönder')
             ->call('publishReply', $this->reviewId('r-new'), 'Teşekkürler')->assertForbidden();
-        $this->page('posts', $this->member)->call('startPost')->set('post.title', 'Kış bakımı')->call('savePost', 'publish')->assertForbidden();
+        $this->page('posts', $this->member)->call('startPost')->set('post.title', 'Kış bakımı')->call('publishPost')->assertForbidden();
         $this->assertSame(0, ExternalWriteAction::query()->count());
         Http::assertNothingSent();
-    }
-
-    public function test_team_member_saves_a_post_draft_and_admin_approves_it_for_the_calendar(): void
-    {
-        $when = now('Europe/Istanbul')->addDays(2)->setTime(10, 0);
-        $this->page('posts', $this->member)->call('startPost')
-            ->set('post.title', 'Kış bakımı')->set('post.body', 'Kışa hazırlık için ağız bakımı önerileri.')->set('post.url', 'https://atlas.test/kis')
-            ->set('post.scheduled_for', $when->format('Y-m-d\TH:i'))->call('savePost', 'draft')->assertHasNoErrors();
-        $item = ContentCalendarItem::query()->sole();
-        $this->assertSame(['draft', 'gbp_post', $this->asset->id, $this->asset->brand_id], [$item->status, $item->channel, $item->digital_asset_id, $item->brand_id]);
-        $this->assertTrue($item->scheduled_for->equalTo($when->utc()));
-
-        $this->page('posts')->assertSee('Kış bakımı')->assertSee('Sıradaki')->call('approvePost', $item->id);
-        $this->assertSame('approved', $item->fresh()->status);
-        Http::assertNothingSent();
-    }
-
-    public function test_admin_publishes_a_post_now_and_undo_returns_it_to_draft(): void
-    {
-        $page = $this->page('posts')->call('startPost')->set('post.title', 'Ekim kampanyası')->set('post.body', 'Ücretsiz muayene günleri.')
-            ->set('post.url', 'https://atlas.test/ekim')->set('post.action_type', 'BOOK')->call('savePost', 'publish')->assertHasNoErrors();
-
-        $item = ContentCalendarItem::query()->sole();
-        $this->assertSame('published', $item->status);
-        $this->assertSame('accounts/11/locations/22/localPosts/555', $item->external_ref);
-        $post = collect($this->calls)->first(fn (array $c): bool => $c[0] === 'POST');
-        $this->assertSame('https://mybusiness.googleapis.com/v4/accounts/11/locations/22/localPosts', $post[1]);
-        $this->assertSame(['actionType' => 'BOOK', 'url' => 'https://atlas.test/ekim'], $post[2]['callToAction']);
-        $this->assertStringContainsString('Ücretsiz muayene', $post[2]['summary']);
-        $page->call('setTab', 'posts')->assertSee('Yayında')->assertSee('Son gönderi bugün');
-
-        $page->call('undoWrite', (int) $item->write_action_id);
-        $item->refresh();
-        $this->assertSame(['draft', null, null], [$item->status, $item->external_ref, $item->write_action_id]);
-        $this->assertSame('DELETE', end($this->calls)[0]);
-    }
-
-    public function test_a_post_google_refuses_is_marked_failed(): void
-    {
-        $this->googleRefuses = true;
-        $item = ContentCalendarItem::query()->create(['brand_id' => $this->asset->brand_id, 'digital_asset_id' => $this->asset->id, 'channel' => 'gbp_post',
-            'title' => 'Hatalı', 'status' => 'draft', 'scheduled_for' => now()->addDay()]);
-
-        $this->page('posts')->call('publishPostNow', $item->id);
-
-        $item->refresh();
-        $this->assertSame('failed', $item->status);
-        $this->assertStringContainsString('invalid argument', (string) $item->error);
     }
 
     public function test_posts_tab_shows_collected_google_posts_and_the_weekly_rhythm(): void

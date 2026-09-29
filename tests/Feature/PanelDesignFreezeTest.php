@@ -59,9 +59,9 @@ class PanelDesignFreezeTest extends TestCase
 
         $this->assertSame([
             'operator.dashboard',
-            'operator.brands',
             'operator.customers',
-            'operator.library.search-queries',
+            'operator.brands',
+            'operator.library.queries',
             'operator.integrations',
             'operator.settings',
         ], $routes);
@@ -83,20 +83,22 @@ class PanelDesignFreezeTest extends TestCase
     public function test_hidden_screens_are_tabs_of_their_sidebar_entry(): void
     {
         $tabs = OperatorMenu::sectionTabs('operator.integrations.discovered');
-        $this->assertSame(['/integrations', '/integrations/discovered', '/integrations/wordpress-sites', '/integrations/website-duplicates', '/data-center'], array_column($tabs, 'url'));
-        $this->assertSame([false, true, false, false, false], array_column($tabs, 'active'));
+        $this->assertSame(['/integrations', '/integrations/discovered', '/integrations/wordpress-sites', '/data-center'], array_column($tabs, 'url'));
+        $this->assertSame([false, true, false, false], array_column($tabs, 'active'));
+        $this->assertSame(['/settings', '/settings/ai-operations', '/library/website-standards', '/library/services', '/settings/users', '/settings/system-health'], array_column(OperatorMenu::sectionTabs('operator.settings.users'), 'url'), 'v2: Ayarlar carries AI işlemleri, Standartlar, Sektör ve hizmet kataloğu, Kullanıcılar, Sistem');
         $this->assertNull(OperatorMenu::sectionTabs('operator.customers'));
         $this->assertNull(OperatorMenu::sectionTabs('operator.alerts'), 'Step 3: out of the menu, route kept');
 
         $this->get(route('operator.integrations.discovered'))->assertOk()->assertSee('aria-current="page"', false)->assertSee(route('operator.data-center', absolute: false), false);
-        $this->get(route('operator.reports.queue'))->assertOk();
+        $this->get(route('operator.settings.users'))->assertOk();
+        $this->get(route('operator.settings.ai-operations'))->assertOk();
+        $this->get(route('operator.library.queries'))->assertOk();
     }
 
     public function test_customer_primary_ia(): void
     {
         Livewire::test(CustomerDetail::class, ['customerId' => (string) $this->portfolioCustomer->id])
             ->assertSee(__('operator.customer.tabs.overview'))
-            ->assertSee(__('operator.customer.tabs.reports'))
             ->assertDontSee('Müşteri İlişkisi')
             ->assertSee(__('operator.customer.actions.add_brand'))
             ->assertSee(__('operator.customer.actions.open_files'))
@@ -107,13 +109,13 @@ class PanelDesignFreezeTest extends TestCase
     {
         $html = Livewire::withQueryParams(['tab' => 'overview'])->test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])->html();
 
-        foreach (['Genel bakış', 'İşletme', 'Dijital varlıklar', 'İşler', 'Raporlar', 'Dosyalar'] as $tab) {
+        foreach (['Genel bakış', 'İşletme', 'Dijital varlıklar', 'İşler', 'Dosyalar'] as $tab) {
             $this->assertMatchesRegularExpression('/role="tab"[^>]*>'.preg_quote($tab, '/').'(<| )/u', $html);
         }
 
         preg_match_all('/role="tab"[^>]*wire:click="setTab\\(\'([^\']+)\'\\)"/', $html, $matches);
         $this->assertSame(
-            ['arama', 'harita', 'google_ads', 'meta', 'ayarlar', 'overview', 'business', 'assets', 'work', 'reports', 'files'],
+            ['arama', 'harita', 'google_ads', 'meta', 'ayarlar', 'overview', 'business', 'assets', 'work', 'files'],
             $matches[1] ?? [],
             'Faz 11c: Dosyalar moved from the menu to the brand page'
         );
@@ -128,12 +130,10 @@ class PanelDesignFreezeTest extends TestCase
         $cases = [
             [route('operator.website', ['assetId' => $byType['website']->id]), [
                 __('operator_website.tabs.overview'),
-                __('operator_website.tabs.seo'),
                 __('operator_website.tabs.search_console'),
                 __('operator_website.tabs.ga4_analysis'),
                 __('operator_website.tabs.content'),
                 __('operator_website.tabs.health'),
-                __('operator_website.tabs.standards'),
                 __('operator_website.tabs.infrastructure'),
                 __('operator_website.tabs.setup'),
             ]],
@@ -142,11 +142,9 @@ class PanelDesignFreezeTest extends TestCase
                 __('operator_gbp.page_tabs.performance'),
                 __('operator_gbp.page_tabs.reviews'),
                 __('operator_gbp.page_tabs.profile'),
-                __('operator_gbp.page_tabs.advisor'),
             ]],
             [route('operator.google-ads.overview', ['assetId' => $byType['google_ads']->id]), [
                 'Overview',
-                'Advisor',
                 'Campaigns',
                 'Search',
                 'Performance',
@@ -158,7 +156,6 @@ class PanelDesignFreezeTest extends TestCase
             ]],
             [route('operator.meta.overview', ['assetId' => $byType['meta_ads']->id]), [
                 'Overview',
-                'Advisor',
                 'Performance',
                 'Campaigns',
                 'Creatives',

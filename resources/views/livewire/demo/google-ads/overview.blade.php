@@ -20,7 +20,7 @@
     }
     $navTabs = [
         ['key' => 'overview', 'label' => $isTr ? 'Genel Bakış' : 'Overview', 'wire' => true],
-        ['key' => 'advisor', 'label' => $isTr ? 'Danışman' : 'Advisor', 'wire' => true],
+        ['key' => 'advisor', 'label' => $isTr ? 'Google önerileri' : 'Google recommendations', 'wire' => true],
         ['key' => 'campaigns', 'label' => $isTr ? 'Kampanyalar' : 'Campaigns', 'wire' => true],
         ['key' => 'search_demand', 'label' => $isTr ? 'Arama' : 'Search', 'wire' => true],
         ['key' => 'performance', 'label' => $isTr ? 'Performans' : 'Performance', 'wire' => true],
@@ -108,14 +108,7 @@
     @if ($effectiveTab === 'overview')
         @include('livewire.demo.google-ads.tabs.overview')
     @elseif ($effectiveTab === 'advisor')
-        @if (ctype_digit((string) $this->assetId))
-            <livewire:operator.advisor.advisor-panel :asset-id="(int) $this->assetId" :key="'google-ads-advisor-'.$this->assetId" />
-        @else
-            <p class="rounded-xl border border-gray-200 p-5 text-sm text-gray-500 dark:border-gray-800">{{ $isTr ? 'Danışman yalnızca bağlı gerçek hesaplarda çalışır.' : 'The Advisor only runs on connected real accounts.' }}</p>
-        @endif
-        <div class="mt-6">
-            @include('livewire.demo.google-ads.tabs.google-recommendations')
-        </div>
+        @include('livewire.demo.google-ads.tabs.google-recommendations')
     @elseif ($effectiveTab === 'campaigns')
         @include('livewire.demo.google-ads.tabs.campaigns')
     @elseif ($effectiveTab === 'search_demand')

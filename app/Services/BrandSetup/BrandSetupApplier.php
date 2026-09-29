@@ -12,15 +12,12 @@ use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\Async\AsyncOperationService;
 use App\Services\BrandIntelligence\BrandOfferingService;
+use App\Services\Catalog\ServiceCatalogService;
+use App\Services\Catalog\ServiceKeywordService;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Services\Ownership\OwnershipGuard;
 use App\Services\Portfolio\UnassignedWebsites;
-use App\Services\SearchDemand\BrandQueryPortfolioService;
-use App\Services\SearchDemand\SearchQueryLibraryService;
-use App\Services\SearchDemand\ServiceCatalogService;
-use App\Services\SearchDemand\ServiceKeywordService;
-use App\Services\SeoTasks\SeoPlanRunner;
 use App\Support\Integrations\ResourceBindingPlan;
 use Illuminate\Database\QueryException;
 use Illuminate\Validation\ValidationException;
@@ -55,8 +52,6 @@ final class BrandSetupApplier
         private readonly ConfirmMetaResourceBindingService $meta,
         private readonly BrandOfferingService $offerings,
         private readonly ServiceCatalogService $catalog,
-        private readonly SearchQueryLibraryService $library,
-        private readonly BrandQueryPortfolioService $portfolio,
         private readonly OwnershipGuard $ownership,
     ) {}
 
@@ -159,14 +154,6 @@ final class BrandSetupApplier
             $seenServices[$serviceKey] = true;
             $results[] = $this->service($service, $brand, $actor, $keywordCount);
         }
-        if ($keywordCount > 0) {
-            try {
-                $inherited = $this->portfolio->inheritForBrand($brand, $actor);
-                $results[] = ['key' => 'keywords', 'label' => 'Anahtar kelimeler', 'ok' => true, 'message' => sprintf('%d anahtar kelime sorgu kütüphanesine hizmetleriyle eklendi; markanın sorgu portföyüne %d yeni sorgu geçti.', $keywordCount, (int) ($inherited['created'] ?? 0))];
-            } catch (Throwable $exception) {
-                $results[] = $this->failed('keywords', 'Anahtar kelimeler', $this->reason($exception, 'Sorgular kütüphaneye eklendi ama marka portföyüne aktarılamadı'));
-            }
-        }
         $sectorCode = data_get($proposal->summary, 'sector_code');
         if (is_string($sectorCode) && trim($sectorCode) !== '') {
             $this->attempt($results, 'sector', 'Sektör', 'Sektör atanamadı', function () use ($brand, $sectorCode, &$results): void {
@@ -192,21 +179,13 @@ final class BrandSetupApplier
             }
         }
 
-        // 4) Follow-ups: crawl the site when services are still waiting; queue a first SEO plan.
+        // 4) Follow-up: crawl the site when services are still waiting.
         if ($website !== null && $proposal->services_status === 'waiting_for_site') {
             try {
                 app(AsyncOperationService::class)->queuePublicDiscovery($website, $actor);
                 $results[] = ['key' => 'discovery', 'label' => 'Site taraması', 'ok' => true, 'message' => 'Site taraması kuyruğa alındı; bitince "Otomatik kur" hizmetleri önerebilir.'];
             } catch (Throwable $exception) {
                 $results[] = $this->failed('discovery', 'Site taraması', $this->reason($exception, 'Site taraması başlatılamadı'));
-            }
-        }
-        if ($website !== null && collect($results)->contains(fn (array $r): bool => $r['ok'] && str_starts_with((string) $r['key'], 'search_console:'))) {
-            try {
-                app(SeoPlanRunner::class)->queue($website->fresh(), $actor);
-                $results[] = ['key' => 'seo_plan', 'label' => 'SEO planı', 'ok' => true, 'message' => 'İlk SEO planı kuyruğa alındı.'];
-            } catch (Throwable) {
-                // not critical
             }
         }
     }
@@ -377,21 +356,8 @@ final class BrandSetupApplier
         if ($catalogItem === null || ! is_string($sector)) {
             return 0;
         }
+        // v2: keywords are no longer written to a query library here; Faz 3 rebuilds queries from collected sources.
         $stored = 0;
-        foreach ($service['keywords'] as $keyword) {
-            try {
-                $this->library->store($keyword['query'], 'search_console', [
-                    'service_catalog_item_id' => $catalogItem->id,
-                    'sector' => $sector,
-                    'impressions' => $keyword['impressions'],
-                    'source_reference' => 'brand_setup:'.$brand->id,
-                    'classification_source' => 'brand_setup',
-                ], $actor);
-                $stored++;
-            } catch (Throwable) {
-                // excluded or invalid queries are skipped
-            }
-        }
 
         return $stored;
     }

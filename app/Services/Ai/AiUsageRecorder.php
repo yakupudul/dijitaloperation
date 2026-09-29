@@ -38,7 +38,6 @@ final class AiUsageRecorder
         'AdvisorExplainAgent' => AiRouteKeys::INSIGHT_ADVISOR_EXPLAIN,
         'SearchTermTriageAgent' => AiRouteKeys::INSIGHT_SEARCH_TERM_TRIAGE,
         'MetaGeoAgent' => AiRouteKeys::INSIGHT_META_GEO,
-        'ReviewThemesAgent' => AiRouteKeys::INSIGHT_REVIEW_THEMES,
         'AlertCauseAgent' => AiRouteKeys::INSIGHT_ALERT_CAUSE,
         'LandingFitAgent' => AiRouteKeys::INSIGHT_LANDING_FIT,
         'CustomerBriefAgent' => AiRouteKeys::INSIGHT_CUSTOMER_BRIEF,

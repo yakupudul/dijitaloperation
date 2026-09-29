@@ -48,11 +48,11 @@ final class ScheduledDiscovery
             $label = $provider === ProviderRegistry::GOOGLE ? 'Google' : 'Meta';
             if ($new->isNotEmpty()) {
                 $this->push->send('discovery-new:'.$provider.':'.now()->format('Ymd'), $label.': '.$new->count().' yeni hesap bulundu',
-                    $new->take(5)->map(fn ($r): string => (string) ($r->display_name ?: $r->external_id))->implode(', ').' — bir markaya bağlayın.', 'info', route('operator.command-center', ['source' => 'coverage']));
+                    $new->take(5)->map(fn ($r): string => (string) ($r->display_name ?: $r->external_id))->implode(', ').' — bir markaya bağlayın.', 'info', route('operator.integrations.discovered'));
             }
             if ($lost->isNotEmpty()) {
                 $this->push->send('discovery-lost:'.$provider.':'.now()->format('Ymd'), $label.': '.$lost->count().' hesaba erişim kaybedildi',
-                    $lost->take(5)->map(fn ($r): string => (string) ($r->display_name ?: $r->external_id))->implode(', '), 'critical', route('operator.command-center', ['source' => 'coverage']));
+                    $lost->take(5)->map(fn ($r): string => (string) ($r->display_name ?: $r->external_id))->implode(', '), 'critical', route('operator.integrations.discovered'));
             }
             $out[$provider] = ['new' => $new->count(), 'lost' => $lost->count(), 'ok' => $ok];
         }

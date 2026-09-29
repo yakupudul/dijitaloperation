@@ -1,6 +1,6 @@
 @php
     $card = 'rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
-    $tabLabels = ['overview' => 'Genel bakış', 'business' => 'İşletme', 'assets' => 'Dijital varlıklar', 'work' => 'İşler', 'reports' => 'Raporlar', 'files' => 'Dosyalar'];
+    $tabLabels = ['overview' => 'Genel bakış', 'business' => 'İşletme', 'assets' => 'Dijital varlıklar', 'work' => 'İşler', 'files' => 'Dosyalar'];
     $openWork = collect($work)->sum('count');
     $toneClass = fn (string $tone): string => match ($tone) {
         'error' => 'bg-error-500',
@@ -47,7 +47,6 @@
             @foreach ($tabLabels as $key => $label)
                 <button type="button" role="tab" wire:click="setTab('{{ $key }}')" aria-selected="{{ $tab === $key ? 'true' : 'false' }}" @class(['rounded-lg px-3 py-1.5 text-sm font-medium transition', 'bg-gray-100 text-gray-900 dark:bg-white/[0.06] dark:text-white' => $tab === $key, 'text-gray-600 hover:text-gray-900 dark:text-gray-400' => $tab !== $key])>{{ $label }}@if ($key === 'work' && $openWork > 0) <span class="ml-1 rounded-full bg-gray-100 px-1.5 text-xs dark:bg-gray-800">{{ $openWork }}</span>@endif</button>
             @endforeach
-            <a href="{{ route('operator.reports.monthly') }}" wire:navigate class="ml-2 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Aylık rapor</a>
             <a href="{{ route('operator.assets') }}" wire:navigate class="ml-2 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Tüm varlıklar</a>
         </div>
     </div>
@@ -102,54 +101,6 @@
                 <p class="px-5 py-4 text-sm text-gray-500">Şu an bekleyen iş yok.</p>
             @endforelse
         </section>
-
-        @if ($advisor && ($advisor['channels'] !== [] || $advisor['top'] !== []))
-            <section class="{{ $card }}" aria-labelledby="brand-advisor-heading">
-                <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-3 dark:border-gray-800">
-                    <h2 id="brand-advisor-heading" class="text-base font-semibold text-gray-800 dark:text-white/90">Danışman</h2>
-                    <span class="text-xs text-gray-400">Kanal başına durum ve bu markanın en önemli işleri</span>
-                </div>
-                <div class="divide-y divide-gray-100 dark:divide-gray-800">
-                    @foreach ($advisor['channels'] as $line)
-                        <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
-                            <div class="min-w-0">
-                                <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $line['channel'] }} <span class="font-normal text-gray-400">· {{ $line['asset'] }}</span></p>
-                                <p class="text-xs text-gray-500">
-                                    @if ($line['running']) İnceleniyor…
-                                    @elseif ($line['last_run_at']) {{ $line['summary'] }} · {{ $line['last_run_at']->locale('tr')->diffForHumans() }}
-                                    @else Henüz incelenmedi
-                                    @endif
-                                </p>
-                            </div>
-                            <div class="flex items-center gap-2 text-xs">
-                                @if ($line['urgent'] > 0)<x-ta.badge color="error" size="sm">{{ $line['urgent'] }} acil</x-ta.badge>@endif
-                                <span class="text-gray-500">{{ $line['open'] }} açık</span>
-                                @if ($line['url'])<a href="{{ $line['url'] }}" wire:navigate class="font-medium text-brand-600 hover:underline">Aç →</a>@endif
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-                @if ($advisor['top'] !== [])
-                    <div class="border-t border-gray-100 px-5 py-3 dark:border-gray-800">
-                        <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Önce bunlar</p>
-                        <ol class="mt-2 space-y-2">
-                            @foreach ($advisor['top'] as $row)
-                                <li class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">
-                                    <div class="min-w-0 flex-1">
-                                        <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $row['title'] }}</p>
-                                        <p class="text-xs text-gray-500">{{ $row['channel'] }}@if ($row['impact']) · {{ $row['impact'] }}@endif</p>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <x-ta.badge :color="$row['severity_color']" size="sm">{{ $row['severity_label'] }}</x-ta.badge>
-                                        @if ($row['url'])<a href="{{ $row['url'] }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">Aç →</a>@endif
-                                    </div>
-                                </li>
-                            @endforeach
-                        </ol>
-                    </div>
-                @endif
-            </section>
-        @endif
 
         <div class="grid gap-6 lg:grid-cols-2">
             <section class="{{ $card }}">
@@ -236,7 +187,6 @@
                         <dd class="mt-0.5 text-gray-800 dark:text-white/90">{{ collect($serviceScope)->where('status', 'active')->pluck('service_label')->implode(', ') ?: '—' }}</dd>
                     </div>
                 </dl>
-                <a href="{{ route('operator.library.brand-query-portfolios', ['brand' => $brandModel->id]) }}" wire:navigate class="mt-4 inline-block text-xs font-medium text-brand-600 hover:underline">Markanın sorgu portföyü →</a>
             </section>
 
             <section class="{{ $card }} p-5">
@@ -272,40 +222,6 @@
             </section>
         </div>
         <livewire:operator.portfolio.brand-conversions :brand-id="(int) $brandModel->id" :key="'brand-conversions-'.$brandModel->id" />
-        @if ($leadQuality !== null)
-            <section class="{{ $card }}" aria-labelledby="brand-lead-quality-heading">
-                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-5 py-3 dark:border-gray-800">
-                    <h2 id="brand-lead-quality-heading" class="text-base font-semibold text-gray-800 dark:text-white/90">Lead kalitesi</h2>
-                    <a href="{{ route('operator.brand.leads', ['brand' => $brandModel->id]) }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">Leadler ve sonuçları →</a>
-                </div>
-                <div class="p-5">
-                    @if ($leadQuality['total'] > 0)
-                        <x-operator.lead-quality :quality="$leadQuality" :days="30" />
-                    @else
-                        <p class="text-sm text-gray-500">Son 30 günde kayıtlı lead yok. Form / Meta lead dosyasını yükleyip klinikten gelen sonucu (randevu, satış, geçersiz…) işaretleyin; nitelikli lead başı maliyet burada hesaplanır.</p>
-                    @endif
-                </div>
-            </section>
-        @endif
-        <livewire:operator.portfolio.brand-demand :brand-id="(int) $brandModel->id" :key="'brand-demand-'.$brandModel->id" />
-        <livewire:operator.portfolio.brand-query-hub-panel :brand-id="(int) $brandModel->id" :key="'brand-query-hub-'.$brandModel->id" />
-        @php $studioSites = \App\Models\DigitalAsset::query()->where('brand_id', $brandModel->id)->where('type', 'website')->orderBy('id')->get(['id', 'name', 'domain']); @endphp
-        @if ($studioSites->isNotEmpty())
-            <section class="{{ $card }}" aria-labelledby="brand-content-studio-heading">
-                <div class="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
-                    <div>
-                        <h2 id="brand-content-studio-heading" class="text-base font-semibold text-gray-800 dark:text-white/90">İçerik Stüdyosu</h2>
-                        <p class="text-sm text-gray-500">Sorgular hizmetlerle birleşip konu kümelerine ayrılır; eksik konulardan yazı hazırlanır.</p>
-                    </div>
-                    <div class="flex flex-wrap gap-2">
-                        @foreach ($studioSites as $studioSite)
-                            <a href="{{ route('operator.website', ['assetId' => $studioSite->id, 'tab' => 'studio']) }}" wire:navigate class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600">{{ $studioSite->domain ?: $studioSite->name }} → İçerik Stüdyosu</a>
-                        @endforeach
-                    </div>
-                </div>
-            </section>
-        @endif
-        <livewire:operator.portfolio.brand-competitors :brand-id="(int) $brandModel->id" :key="'brand-competitors-'.$brandModel->id" />
     @endif
 
     {{-- ============================================================ ASSETS --}}
@@ -380,15 +296,6 @@
                 <p class="px-5 py-4 text-sm text-gray-500">Bu bölümde kayıt yok.</p>
             @endforelse
         </section>
-    @endif
-
-    {{-- ============================================================ REPORTS --}}
-    @if ($tab === 'reports')
-        @include('livewire.demo.partials.period-bar')
-        @if ($valueStory)
-            @include('livewire.demo.partials._value-story', ['story' => $valueStory])
-        @endif
-        @include('livewire.demo.partials._report-composer')
     @endif
 
     {{-- ============================================================ FILES (Faz 11c) --}}

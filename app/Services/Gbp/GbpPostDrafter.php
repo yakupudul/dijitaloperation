@@ -118,7 +118,7 @@ final class GbpPostDrafter
         $input = $this->collector->collect($asset);
         $resourceId = app(GbpDailyWorkspace::class)->resource($asset)?->id;
         $recent = $resourceId !== null ? DB::table('gbp_posts')->where('external_resource_id', $resourceId)->orderByDesc('create_time')->limit(5)->pluck('summary')->all() : [];
-        $calendar = DB::table('content_calendar_items')->where('digital_asset_id', $asset->id)->where('channel', 'gbp_post')->orderByDesc('scheduled_for')->limit(5)->pluck('title')->all();
+        $calendar = [];
 
         return [
             'business' => $input['location']['title'] ?? $asset->brand?->name,
