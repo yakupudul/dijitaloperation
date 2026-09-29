@@ -18,7 +18,15 @@ final class CoreQueryStore
 {
     public const string IDENTITY_PREFIX = 'library-location-free-v2|';
 
+    /** Core queries created by this instance (the pipeline reports "N yeni sorgu"). */
+    private int $created = 0;
+
     public function __construct(private readonly SearchTermNormalizer $normalizer) {}
+
+    public function createdCount(): int
+    {
+        return $this->created;
+    }
 
     /**
      * @param  array<string, string>  $cores  core key => canonical core text
@@ -63,6 +71,7 @@ final class CoreQueryStore
                     'normalization_version' => QueryNormalizer::VERSION, 'classification_source' => 'pipeline',
                     'first_seen_at' => $now, 'last_seen_at' => $now, 'created_at' => $now, 'updated_at' => $now,
                 ]);
+                $this->created++;
             } catch (UniqueConstraintViolationException) {
                 $id = (int) DB::table('search_query_library_items')->where('identity_hash', $identity)->value('id');
             }
@@ -126,9 +135,37 @@ final class CoreQueryStore
                 };
                 unset($t);
             }
-            foreach ($totals as $id => $values) {
-                DB::table('search_query_library_items')->where('id', $id)->update($values + ['metrics_at' => $now]);
-            }
+            $this->updateTotals($totals, $now);
         }
+    }
+
+    /**
+     * One UPDATE … SET col = CASE id … per chunk instead of one statement per core query (5 000 queries of a large
+     * account were 5 000 round trips).
+     *
+     * @param  array<int, array<string, int|float>>  $totals
+     */
+    private function updateTotals(array $totals, mixed $now): void
+    {
+        if ($totals === []) {
+            return;
+        }
+        $ids = array_keys($totals);
+        $columns = array_keys(reset($totals));
+        $sets = [];
+        $bindings = [];
+        foreach ($columns as $column) {
+            $case = 'CASE id';
+            foreach ($totals as $id => $values) {
+                $case .= ' WHEN ? THEN ?';
+                $bindings[] = (int) $id;
+                $bindings[] = $values[$column];
+            }
+            $sets[] = $column.' = '.$case.' ELSE '.$column.' END';
+        }
+        $sets[] = 'metrics_at = ?';
+        $bindings[] = $now;
+        $bindings = [...$bindings, ...$ids];
+        DB::update('UPDATE search_query_library_items SET '.implode(', ', $sets).' WHERE id IN ('.implode(', ', array_fill(0, count($ids), '?')).')', $bindings);
     }
 }

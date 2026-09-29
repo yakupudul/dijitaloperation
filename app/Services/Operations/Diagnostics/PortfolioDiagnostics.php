@@ -1421,7 +1421,7 @@ final class PortfolioDiagnostics
             }
             $this->data('usage_7d', $usage->map(fn (object $r): array => (array) $r)->all());
             $budget = $this->hasColumn('agency_settings', 'ai_monthly_budget_usd') ? DB::table('agency_settings')->value('ai_monthly_budget_usd') : null;
-            $budget = $budget !== null ? (float) $budget : (float) config('moxdop-ai-pricing.monthly_budget_usd', 25);
+            $budget = $budget !== null ? (float) $budget : (float) config('moxdop-ai-pricing.monthly_budget_usd', 100);
             $spend = (float) DB::table('ai_usage_records')->where('created_at', '>=', now()->startOfMonth())->sum('cost_usd');
             $line = sprintf('Bütçe: bu ay $%.2f / $%.2f', $spend, $budget);
             ($budget > 0 && $spend >= $budget) ? $this->problem($line.' — BİTTİ (yalnız ücretsiz modeller)') : $this->info($line);

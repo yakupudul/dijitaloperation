@@ -296,7 +296,9 @@ final class GbpStandardEvaluator
 
     private function googleDate(mixed $date): string
     {
-        if (! is_array($date) || ! isset($date['year'], $date['month'], $date['day'])) {
+        // Google sends year 0 / day 0 for "every year" or partial dates: not a calendar date.
+        if (! is_array($date) || ! isset($date['year'], $date['month'], $date['day'])
+            || ! checkdate((int) $date['month'], (int) $date['day'], (int) $date['year']) || (int) $date['year'] < 1900) {
             return '';
         }
 

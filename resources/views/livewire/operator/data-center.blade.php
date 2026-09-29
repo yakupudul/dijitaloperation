@@ -76,9 +76,10 @@
                             @if ($isAdmin)
                                 <div class="mt-3 flex flex-wrap items-center gap-3">
                                     <button type="button" wire:click="pickAll('{{ $source['key'] }}')" class="text-xs text-brand-600 hover:underline">Korunanlar dışındakilerin hepsini seç</button>
-                                    @if (($picked[$source['key']] ?? []) !== [])
-                                        <button type="button" wire:click="erase('{{ $source['key'] }}')" wire:confirm="Seçili {{ count($picked[$source['key']]) }} veri seti kalıcı olarak silinsin mi? Geri alınamaz. Kaynak hâlâ bir markaya bağlıysa yeni günler çekilmeye devam eder."
-                                            class="rounded-lg bg-error-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-error-600">Seçili {{ count($picked[$source['key']]) }} veri setini sil</button>
+                                    @php($pickedCount = count(\App\Livewire\Operator\DataCenterPage::selection($picked[$source['key']] ?? [])))
+                                    @if ($pickedCount > 0)
+                                        <button type="button" wire:click="erase('{{ $source['key'] }}')" wire:confirm="Seçili {{ $pickedCount }} veri seti kalıcı olarak silinsin mi? Geri alınamaz. Kaynak hâlâ bir markaya bağlıysa yeni günler çekilmeye devam eder."
+                                            class="rounded-lg bg-error-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-error-600">Seçili {{ $pickedCount }} veri setini sil</button>
                                     @endif
                                     @if ($source['bound'])
                                         <span class="text-xs text-gray-500">Bu kaynak bağlı: silinse de yeni günler çekilmeye devam eder. Durdurmak için bağlantıyı kaldırın.</span>

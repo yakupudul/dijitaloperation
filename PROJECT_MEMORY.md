@@ -7,6 +7,15 @@
 - **Provider time zones always go through `SafeTimezone`** before Carbon (legacy tzdata links such as "Turkey" are rejected by PHP 8.5).
 - **Provider rate limits are cooldowns, not failures**: Meta usage headers drive a shared back-off; rate-limited datasets / jobs wait instead of burning attempts.
 
+## 2026-10-27 — Queue topology: short bounded jobs, heavy queue, retry_after above every timeout
+
+- **Long analysis work runs on the heavy queue** (`queue.heavy_queue`: SEO plan, advisor, query pipeline steps, clustering, topic map, URL karnesi, brand demand, pilot chain); "default" stays for quick jobs. Every queue a job can use must have a production Horizon supervisor (contract test).
+- **No job may outlive the queue's retry_after** (1 800 s; every `$timeout` ≤ 1 740 s). Work that grows with data is split into chains of short idempotent jobs (per-account ingest chunks, capped AI batches that continue themselves) instead of one long job.
+- **Automatic refreshes are debounced, locks never block.** One pending automatic refresh per site; a busy lock means "skip + re-run once" (automatic) or "release and retry" (manual), never a blocking wait.
+- **Rule engines index, they do not compare everything with everything** (`TokenIndex`, memoised `SeoText`); performance tests use production-sized fixtures (5 000 pages / queries) and assert bounded work, not wall time.
+- **Console scope options** (`--brand`, `--asset`, `--site`, `--website`) accept an id or a partial name (`ConsoleScope`); ambiguity stops with the candidate list.
+- **Operator AI budget default is $100 / month** (operator approved); every model offered for a route must have a price.
+
 ## 2026-10-26 — Meta channel of the brand workspace
 
 - **Meta is analysed only through the workspace Meta tab** (`MetaAnalyst`, `MetaFacts`): the Meta Ads advisor collector + rule engine, 28-day windows, region results vs service areas, sector compliance of ad texts and lead outcomes (ADR-074) are facts of one pack; no new Meta screen. Priority order in the instructions: measurement → objective fit → waste → learning → creative → placements / audience.

@@ -690,6 +690,7 @@ final class SeoTaskRuleEngine
         $areas = array_map(static fn (string $a): string => SeoText::fold($a), $input['service_areas'] ?? []);
         $ctr5 = SeoTaskConfig::ctrAt(5.0);
         $pageTexts = $this->pageTextIndex($pages);
+        $coverIndex = new TokenIndex($pageTexts);
         $origin = $input['site']['origin'] ?? '';
 
         $buckets = []; // key => bucket
@@ -737,7 +738,7 @@ final class SeoTaskRuleEngine
                 if (isset($usedQueries[$key]) || isset($queryIndex[$key])) {
                     continue;
                 }
-                if ($this->anyPageCovers($pageTexts, $text)) {
+                if ($this->anyPageCovers($coverIndex, $text)) {
                     continue;
                 }
                 if ($areaRows !== [] && ($places = LocationOptions::classify($text, $areaRows))['out_of_area'] !== [] && $places['in_area'] === []) {
@@ -760,7 +761,7 @@ final class SeoTaskRuleEngine
                 continue;
             }
             // A page whose title/H1/slug already names the service (e.g. /tedavilerimiz/implant-tedavisi/) is not "missing".
-            if ($this->anyPageCovers($pageTexts, (string) $offering['name'])) {
+            if ($this->anyPageCovers($coverIndex, (string) $offering['name'])) {
                 continue;
             }
             $bucketKey = $offering['id'].'|service|';
@@ -811,7 +812,7 @@ final class SeoTaskRuleEngine
                         continue;
                     }
                     $seed = $this->seedQueries($offering, $fallbackType, $location);
-                    if ($this->anyPageCovers($pageTexts, $seed[0])) {
+                    if ($this->anyPageCovers($coverIndex, $seed[0])) {
                         continue;
                     }
                     $bucket = $this->newBucket($offering, ['type' => $fallbackType, 'location' => SeoText::fold($location), 'location_label' => $location], 'fallback');
@@ -1143,19 +1144,10 @@ final class SeoTaskRuleEngine
         return $texts;
     }
 
-    private function anyPageCovers(array $pageTexts, string $query): bool
+    /** Some page's title / H1 / slug holds every word of the query (inverted index, not a scan of every page). */
+    private function anyPageCovers(TokenIndex $index, string $query): bool
     {
-        $tokens = SeoText::tokens($query);
-        if ($tokens === []) {
-            return false;
-        }
-        foreach ($pageTexts as $text) {
-            if (SeoText::tokenOverlap($text, $query) >= 0.99) {
-                return true;
-            }
-        }
-
-        return false;
+        return $index->anyContainsAll($query);
     }
 
     /**

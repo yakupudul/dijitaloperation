@@ -19,7 +19,12 @@ final class PageFeatureExtractor
 {
     public function __construct(private readonly SeoStoredHtmlReader $pages) {}
 
-    /** @var array<int, array<string, WebsitePageProfile>> */
+    /**
+     * url key => profile id per website. Only ids are kept: holding every profile model (5 000 rows with their
+     * source_states JSON per site, for every site of a brain run) exhausted the worker's memory.
+     *
+     * @var array<int, array<string, int>>
+     */
     private array $profiles = [];
 
     /**
@@ -86,11 +91,18 @@ final class PageFeatureExtractor
     private function profile(DigitalAsset $site, string $url): ?WebsitePageProfile
     {
         if (! isset($this->profiles[$site->id])) {
-            $this->profiles[$site->id] = WebsitePageProfile::query()->where('website_asset_id', $site->id)->get()
-                ->keyBy(fn (WebsitePageProfile $p): string => SeoText::urlKey((string) $p->preferred_url))->all();
+            $ids = [];
+            WebsitePageProfile::query()->where('website_asset_id', $site->id)->select(['id', 'preferred_url'])
+                ->toBase()->orderBy('id')->chunk(2000, function ($rows) use (&$ids): void {
+                    foreach ($rows as $row) {
+                        $ids[SeoText::urlKey((string) $row->preferred_url)] = (int) $row->id;
+                    }
+                });
+            $this->profiles[$site->id] = $ids;
         }
+        $id = $this->profiles[$site->id][SeoText::urlKey($url)] ?? null;
 
-        return $this->profiles[$site->id][SeoText::urlKey($url)] ?? null;
+        return $id !== null ? WebsitePageProfile::query()->find($id) : null;
     }
 
     /** Places the brand serves, folded, for the "mentions place" fact. @return list<string> */

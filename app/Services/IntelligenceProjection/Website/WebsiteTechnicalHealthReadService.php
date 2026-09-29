@@ -38,10 +38,13 @@ final class WebsiteTechnicalHealthReadService
         $projection = $this->projection->summary($asset);
         $publicCoverage = data_get($projection, 'coverage_state.website', []);
         $infrastructure = $this->infrastructure($asset);
+        // Streamed: 5 000 profiles with their source_states JSON do not fit a web worker's memory as models at once.
         $profiles = $this->projection->pages($asset)
             ->orderByDesc('last_observed_at')
-            ->get(['id', 'preferred_url', 'source_states', 'last_observed_at'])
+            ->select(['id', 'preferred_url', 'source_states', 'last_observed_at'])
+            ->cursor()
             ->map(fn (WebsitePageProfile $profile): array => $this->present($profile))
+            ->collect()
             ->filter(static fn (array $row): bool => $row['available'])
             ->values();
         $pageDataAvailable = $profiles->isNotEmpty();

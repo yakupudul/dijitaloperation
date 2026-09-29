@@ -9,7 +9,6 @@ use App\Services\IntelligenceCore\IntelligenceMetricFactory;
 use App\Support\IntelligenceCore\IntelligenceSourceReference;
 use App\Support\IntelligenceCore\IntelligenceTimeContext;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Collection;
 
 final class WebsiteProjectionAdapterSupport
 {
@@ -36,10 +35,12 @@ final class WebsiteProjectionAdapterSupport
     }
 
     /**
-     * @param  Collection<int, object>  $rows
+     * Rows arrive newest first; streamed (cursor) so a long snapshot history never sits in PHP memory at once.
+     *
+     * @param  iterable<int, object>  $rows
      * @return array<string, object>
      */
-    public function latestBy(Collection $rows, callable $key): array
+    public function latestBy(iterable $rows, callable $key): array
     {
         $latest = [];
         foreach ($rows as $row) {

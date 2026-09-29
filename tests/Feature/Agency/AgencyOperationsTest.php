@@ -24,6 +24,28 @@ final class AgencyOperationsTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_time_tab_of_a_30_day_month_queries_real_month_bounds(): void
+    {
+        // Production (PostgreSQL): "Datetime field overflow: date/time field value out of range" — the time tab
+        // compared worked_on with "2026-09-31", a day that does not exist.
+        $this->travelTo('2026-09-29 10:00:00');
+        $this->seed(RoleAndPermissionSeeder::class);
+        $admin = User::factory()->create(['is_active' => true]);
+        $admin->assignRole(Roles::ADMIN);
+        $bindings = [];
+        DB::listen(function ($query) use (&$bindings): void {
+            if (str_contains($query->sql, 'worked_on')) {
+                $bindings = [...$bindings, ...$query->bindings];
+            }
+        });
+
+        Livewire::actingAs($admin)->test(AgencyPage::class)->set('tab', 'time')->set('month', '2026-09')->assertOk()
+            ->set('month', 'not-a-month')->assertOk();
+
+        $this->assertContains('2026-09-30', $bindings);
+        $this->assertNotContains('2026-09-31', $bindings);
+    }
+
     public function test_profitability_commitments_invoices_and_follow_ups(): void
     {
         $this->travelTo('2026-10-25 10:00:00');

@@ -11,6 +11,12 @@ return [
     // Most searched raw queries kept per account and source.
     'max_queries_per_source' => 5000,
 
+    // Queued pipeline (RunQueryPipelineJob chain): accounts ingested per job, AI sector checks per job, AI
+    // classifications per job. Each job stays far below the heavy queue timeout / retry_after.
+    'sources_per_job' => (int) env('MOXDOP_QUERIES_SOURCES_PER_JOB', 10),
+    'sectors_per_job' => 100,
+    'classify_per_job' => 120,
+
     // AI sector assignment: accounts per call.
     'sector_batch_size' => 25,
     // AI query → service fallback: queries per call and per run.
@@ -26,6 +32,7 @@ return [
         'enabled' => (bool) env('MOXDOP_QUERIES_SERP', true),
         'cache_days' => 30,
         'per_run' => 40,
+        'per_job' => 10,
         'location_code' => 2792,
         'language_code' => 'tr',
     ],

@@ -3,19 +3,27 @@
 namespace App\Console\Commands;
 
 use App\Services\DataPool\Reconciliation\ClosedPeriodProviderReconciler;
+use App\Support\Console\ConsoleScope;
+use App\Support\Console\ConsoleScopeException;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use InvalidArgumentException;
 
-#[Signature('moxdop:reconcile-provider-period {provider : SEARCH_CONSOLE or GA4} {--asset= : Digital asset id} {--from= : Closed period start Y-m-d} {--to= : Closed period end Y-m-d} {--tolerance=0.01 : Relative tolerance} {--json : Emit JSON}')]
+#[Signature('moxdop:reconcile-provider-period {provider : SEARCH_CONSOLE or GA4} {--asset= : Digital asset id or name / domain} {--from= : Closed period start Y-m-d} {--to= : Closed period end Y-m-d} {--tolerance=0.01 : Relative tolerance} {--json : Emit JSON}')]
 #[Description('Compare a closed calendar period of warehouse facts against provider totals. Never repairs facts. Never prints secrets.')]
 class MoxdopReconcileProviderPeriodCommand extends Command
 {
     public function handle(ClosedPeriodProviderReconciler $reconciler): int
     {
         $provider = strtoupper((string) $this->argument('provider'));
-        $asset = (int) $this->option('asset');
+        try {
+            $asset = $this->option('asset') !== null && $this->option('asset') !== '' ? ConsoleScope::asset((string) $this->option('asset'))->id : 0;
+        } catch (ConsoleScopeException $exception) {
+            $this->error($exception->getMessage());
+
+            return self::INVALID;
+        }
         $from = (string) $this->option('from');
         $to = (string) $this->option('to');
         $tolerance = (float) $this->option('tolerance');

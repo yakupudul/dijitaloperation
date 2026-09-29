@@ -4,6 +4,8 @@ namespace App\Console\Commands;
 
 use App\Models\Brand;
 use App\Services\Demand\BrandDemandBuilder;
+use App\Support\Console\ConsoleScope;
+use App\Support\Console\ConsoleScopeException;
 use App\Support\ServiceScope;
 use Illuminate\Console\Command;
 use Throwable;
@@ -14,15 +16,22 @@ use Throwable;
  */
 final class DemandBuildCommand extends Command
 {
-    protected $signature = 'moxdop:demand:build {--brand= : Only this brand id}';
+    protected $signature = 'moxdop:demand:build {--brand= : Marka id veya adının bir parçası (ör. Panorama)}';
 
     protected $description = 'Rebuild the brand query hub (queries → service, sector, branded, intent, relevance, value) from stored data.';
 
     public function handle(BrandDemandBuilder $builder, ServiceScope $scope): int
     {
+        try {
+            $brandId = $this->option('brand') !== null ? ConsoleScope::brand((string) $this->option('brand'))->id : null;
+        } catch (ConsoleScopeException $exception) {
+            $this->error($exception->getMessage());
+
+            return self::INVALID;
+        }
         $brands = Brand::query()
             ->whereIn('id', $scope->operationalBrandIds())
-            ->when($this->option('brand'), fn ($query, $id) => $query->whereKey((int) $id))
+            ->when($brandId, fn ($query, $id) => $query->whereKey($id))
             ->orderBy('id')
             ->get();
         foreach ($brands as $brand) {

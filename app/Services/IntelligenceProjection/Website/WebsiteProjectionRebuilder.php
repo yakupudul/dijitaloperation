@@ -91,6 +91,13 @@ final class WebsiteProjectionRebuilder
             throw new InvalidArgumentException('Website Projection period start must not be after period end.');
         }
 
+        // Under the rebuild lock nothing else runs for this site: a "running" row left behind is a worker that died
+        // (out of memory / killed) and would otherwise show as "running" forever.
+        WebsiteIntelligenceProjectionRun::query()->where('website_asset_id', (int) $asset->getKey())
+            ->where('status', WebsiteIntelligenceProjectionRun::STATUS_RUNNING)
+            ->update(['status' => WebsiteIntelligenceProjectionRun::STATUS_FAILED, 'completed_at' => now(), 'error_code' => 'ABANDONED',
+                'error_summary' => 'Önceki yeniden kurulum yarıda kaldı (işçi durdu); yeni kurulum başladı.', 'updated_at' => now()]);
+
         $run = WebsiteIntelligenceProjectionRun::query()->create([
             'uuid' => (string) Str::uuid(),
             'website_asset_id' => (int) $asset->getKey(),

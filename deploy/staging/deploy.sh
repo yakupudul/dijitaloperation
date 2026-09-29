@@ -148,11 +148,26 @@ echo "deploy/staging: migrate --force"
 php artisan migrate --force --no-interaction
 [[ -L public/storage ]] || php artisan storage:link --no-interaction || true
 
-echo "deploy/staging: optimize caches"
-php artisan config:cache
-php artisan route:cache
+echo "deploy/staging: optimize caches (atomic)"
+# `artisan route:cache` deletes bootstrap/cache/routes-v7.php first and writes the new file afterwards. Cron,
+# Horizon workers and PHP-FPM keep booting the app during `artisan down`, and a boot between the delete and the
+# write crashed with "require(bootstrap/cache/routes-v7.php): Failed to open stream". Each cache is built into a
+# temporary file (APP_*_CACHE) and moved over the live one with a single rename: there is never a moment without it.
+atomic_cache() {
+  local kind="$1" env_name="$2" file="$3"
+  local next="bootstrap/cache/.${file}.next"
+  rm -f "${next}"
+  env "${env_name}=${next}" php artisan "${kind}:cache" --no-interaction
+  if [[ ! -s "${next}" ]]; then
+    echo "deploy/staging: ERROR — ${kind}:cache produced no file" >&2
+    return 1
+  fi
+  mv -f "${next}" "bootstrap/cache/${file}"
+}
+atomic_cache config APP_CONFIG_CACHE config.php
+atomic_cache route APP_ROUTES_CACHE routes-v7.php
 php artisan view:cache
-php artisan event:cache || true
+atomic_cache event APP_EVENTS_CACHE events.php || true
 
 echo "deploy/staging: verify collection dispatch sink"
 php -r '

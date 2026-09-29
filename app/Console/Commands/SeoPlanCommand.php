@@ -2,8 +2,9 @@
 
 namespace App\Console\Commands;
 
-use App\Models\DigitalAsset;
 use App\Services\SeoTasks\SeoPlanRunner;
+use App\Support\Console\ConsoleScope;
+use App\Support\Console\ConsoleScopeException;
 use Illuminate\Console\Command;
 
 /**
@@ -29,7 +30,13 @@ final class SeoPlanCommand extends Command
 
         $assetId = $this->option('asset');
         if (is_string($assetId) && $assetId !== '') {
-            $site = DigitalAsset::query()->findOrFail((int) $assetId);
+            try {
+                $site = ConsoleScope::asset($assetId, 'website');
+            } catch (ConsoleScopeException $exception) {
+                $this->error($exception->getMessage());
+
+                return self::INVALID;
+            }
             $plan = $runner->queue($site, null, 'manual');
             $this->info(sprintf('Plan #%d kuyruğa alındı (site #%d, durum: %s).', $plan->id, $site->id, $plan->status));
             if ($this->option('sync')) {

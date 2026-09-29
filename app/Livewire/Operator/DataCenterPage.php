@@ -39,6 +39,26 @@ final class DataCenterPage extends Component
     public function toggle(string $key): void
     {
         $this->open = $this->open === $key ? null : $key;
+        // A checkbox bound to an unset key is a boolean in Livewire (true / false), not a list — start it as a list.
+        if ($this->open !== null && ! is_array($this->picked[$key] ?? null)) {
+            $this->picked[$key] = [];
+        }
+    }
+
+    /** Livewire hook: keep every picked.* entry a list of data set names (never true / false / a single string). */
+    public function updatedPicked(mixed $value, ?string $key = null): void
+    {
+        foreach ($this->picked as $source => $selected) {
+            $this->picked[$source] = self::selection($selected);
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function selection(mixed $selected): array
+    {
+        return is_array($selected) ? array_values(array_filter($selected, fn ($d): bool => is_string($d) && $d !== '')) : [];
     }
 
     public function pickAll(string $key): void
@@ -52,7 +72,7 @@ final class DataCenterPage extends Component
         abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
         [$kind, $id] = explode(':', $key) + [null, null];
         abort_unless(in_array($kind, ['resource', 'asset'], true) && is_numeric($id), 422);
-        $datasets = array_values(array_filter((array) ($this->picked[$key] ?? []), fn ($d): bool => is_string($d) && ! $catalog->isProtected($d)));
+        $datasets = array_values(array_filter(self::selection($this->picked[$key] ?? []), fn (string $d): bool => ! $catalog->isProtected($d)));
         if ($datasets === []) {
             DemoState::flash('Silinecek veri seti seçilmedi.');
 

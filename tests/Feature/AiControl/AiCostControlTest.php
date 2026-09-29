@@ -48,6 +48,36 @@ final class AiCostControlTest extends TestCase
         Http::preventStrayRequests();
     }
 
+    public function test_every_offered_openai_and_anthropic_model_has_a_price_and_the_default_budget_is_100(): void
+    {
+        $pricing = app(AiPricing::class);
+        $models = [
+            ['openai', AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI)],
+            ['anthropic', AiProviderCatalog::defaultModel(AiProviderCatalog::ANTHROPIC)],
+            ['openai', (string) config('moxdop.ai.defaults.embedding_model', 'text-embedding-3-small')],
+        ];
+        foreach (['gpt-5-mini', 'gpt-5', 'gpt-4.1-mini', 'gpt-4.1', 'gpt-4o', 'claude-sonnet-5', 'claude-opus-4-8', 'claude-haiku-4-5-20251001'] as $model) {
+            $models[] = [str_starts_with($model, 'claude') ? 'anthropic' : 'openai', $model];
+        }
+        foreach ($models as [$provider, $model]) {
+            $this->assertNotNull($pricing->price($provider, $model), $provider.' '.$model.' has no price: its calls would show $0.00 and never count against the budget');
+        }
+        $this->assertSame(100.0, app(AiBudget::class)->monthlyBudget(), 'operator approved ~$100 / month');
+    }
+
+    public function test_backfill_prices_usage_that_was_recorded_without_a_cost(): void
+    {
+        $row = ['route_key' => 'queries.asset_sector', 'agent' => 'AssetSectorAgent', 'input_tokens' => 1_000, 'output_tokens' => 1_000, 'cost_usd' => null, 'created_at' => now()];
+        $priced = DB::table('ai_usage_records')->insertGetId($row + ['provider' => 'openai', 'model' => 'gpt-5-mini']);
+        $unknown = DB::table('ai_usage_records')->insertGetId($row + ['provider' => 'openai', 'model' => 'some-future-model']);
+
+        (require database_path('migrations/2026_10_26_120000_backfill_unknown_ai_usage_costs.php'))->up();
+
+        $this->assertEqualsWithDelta(0.00225, (float) DB::table('ai_usage_records')->where('id', $priced)->value('cost_usd'), 0.000001);
+        $this->assertNull(DB::table('ai_usage_records')->where('id', $unknown)->value('cost_usd'));
+        $this->assertEqualsWithDelta(0.00225, app(AiBudget::class)->monthSpend(), 0.000001, 'the budget now counts OpenAI spend');
+    }
+
     public function test_pricing_computes_cost_and_recognises_free_models(): void
     {
         $pricing = app(AiPricing::class);
@@ -56,7 +86,10 @@ final class AiCostControlTest extends TestCase
         $this->assertEqualsWithDelta(0.0035, $pricing->cost('anthropic', 'claude-haiku-4-5-20251001', 1_000, 500), 0.000001);
         $this->assertTrue($pricing->isFree('openrouter', 'meta-llama/llama-3.3-70b-instruct:free'));
         $this->assertTrue($pricing->isFree('groq', 'llama-3.3-70b-versatile'));
-        $this->assertNull($pricing->cost('openai', 'gpt-5-mini', 1_000, 1_000), 'unknown price stays unknown, never zero');
+        // OpenAI models used by the routes are priced (production showed $0.00 for every OpenAI call before).
+        $this->assertEqualsWithDelta(0.00225, $pricing->cost('openai', 'gpt-5-mini', 1_000, 1_000), 0.000001);
+        $this->assertEqualsWithDelta(0.00225, $pricing->cost('openai', 'gpt-5-mini-2025-08-07', 1_000, 1_000), 0.000001, 'dated snapshot → alias price');
+        $this->assertNull($pricing->cost('openai', 'some-future-model', 1_000, 1_000), 'unknown price stays unknown, never zero');
     }
 
     public function test_every_agent_call_is_recorded_with_route_and_cost(): void

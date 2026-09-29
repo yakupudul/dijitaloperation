@@ -263,7 +263,7 @@ final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAda
         }
 
         return $this->support->latestBy(
-            DB::table('website_url')->where('digital_asset_id', $assetId)->orderByDesc('last_collected_at')->orderByDesc('id')->get(),
+            DB::table('website_url')->where('digital_asset_id', $assetId)->orderByDesc('last_collected_at')->orderByDesc('id')->cursor(),
             static fn (object $row): string => (string) $row->normalized_url,
         );
     }
@@ -276,7 +276,7 @@ final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAda
         }
 
         return $this->support->latestBy(
-            DB::table($table)->where('digital_asset_id', $assetId)->orderByDesc('observed_at')->orderByDesc('id')->get(),
+            DB::table($table)->where('digital_asset_id', $assetId)->orderByDesc('observed_at')->orderByDesc('id')->cursor(),
             static fn (object $row): string => (string) $row->url,
         );
     }
@@ -289,7 +289,7 @@ final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAda
         }
 
         $latest = $this->support->latestBy(
-            DB::table('website_performance_measurement')->where('digital_asset_id', $assetId)->orderByDesc('observed_at')->orderByDesc('id')->get(),
+            DB::table('website_performance_measurement')->where('digital_asset_id', $assetId)->orderByDesc('observed_at')->orderByDesc('id')->cursor(),
             static fn (object $row): string => $row->url.'|'.$row->strategy,
         );
         $grouped = [];
@@ -317,7 +317,7 @@ final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAda
         }
 
         $latest = $this->support->latestBy(
-            DB::table('website_crawl_issue_snapshot')->where('digital_asset_id', $assetId)->orderByDesc('observed_at')->orderByDesc('id')->get(),
+            DB::table('website_crawl_issue_snapshot')->where('digital_asset_id', $assetId)->orderByDesc('observed_at')->orderByDesc('id')->cursor(),
             static fn (object $row): string => $row->url.'|'.$row->issue_code,
         );
         $grouped = [];
@@ -363,8 +363,13 @@ final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAda
         }
 
         $links = [];
-        $rows = collect(array_chunk(array_keys($currentFetches), 200))->flatMap(fn (array $chunk) => DB::table('website_link_edge')
-            ->where('digital_asset_id', $assetId)->whereIn('observed_at', $chunk)->get());
+        // Streamed (cursor, only the three columns counted): a large site has hundreds of thousands of edges per crawl.
+        $rows = (function () use ($currentFetches, $assetId): \Generator {
+            foreach (array_chunk(array_keys($currentFetches), 200) as $chunk) {
+                yield from DB::table('website_link_edge')->where('digital_asset_id', $assetId)->whereIn('observed_at', $chunk)
+                    ->select(['source_url', 'observed_at', 'is_internal'])->cursor();
+            }
+        })();
         foreach ($rows as $row) {
             $url = (string) $row->source_url;
             $currentObservedAt = $metadata[$url]->observed_at ?? $http[$url]->observed_at ?? null;

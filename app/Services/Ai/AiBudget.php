@@ -20,7 +20,7 @@ final class AiBudget
             ? AgencySetting::query()->value('ai_monthly_budget_usd')
             : null;
 
-        return $stored !== null ? (float) $stored : (float) config('moxdop-ai-pricing.monthly_budget_usd', 25);
+        return $stored !== null ? (float) $stored : (float) config('moxdop-ai-pricing.monthly_budget_usd', 100);
     }
 
     public function monthSpend(): float
