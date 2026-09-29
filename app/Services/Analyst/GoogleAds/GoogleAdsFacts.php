@@ -14,6 +14,8 @@ use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\GoogleAds\Support\GoogleAdsBindingContext;
 use App\Services\Measurement\TrackingHealthChecker;
 use App\Services\SeoTasks\SeoText;
+use App\Support\Operator\DormantAccountHint;
+use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -68,7 +70,15 @@ final class GoogleAdsFacts
             return 'Veri yok: Google Ads hesabı bağlı değil.';
         }
 
-        return $this->accounts($brand) === [] ? 'Veri yok: son '.(2 * self::WINDOW_DAYS).' günde Google Ads verisi yok.' : null;
+        if ($this->accounts($brand) !== []) {
+            return null;
+        }
+        // Collection works but the account does not spend: point at a possibly wrong (old / secondary) binding.
+        $resourceIds = $assets->map(fn (DigitalAsset $asset): ?int => $this->bindings->resolve((string) $asset->id)->externalResourceId)
+            ->filter()->map(fn ($id): int => (int) $id)->values()->all();
+        $hint = DormantAccountHint::text(DormantAccountHint::lastGoogleAdsSpend($resourceIds));
+
+        return 'Veri yok: son '.(2 * self::WINDOW_DAYS).' günde Google Ads verisi yok'.($hint !== null ? ' — '.$hint : '.');
     }
 
     public function forget(Brand $brand): void
@@ -110,7 +120,7 @@ final class GoogleAdsFacts
     /** @return array<string, mixed>|null */
     private function account(Brand $brand, DigitalAsset $asset, GoogleAdsBindingContext $binding): ?array
     {
-        $tz = $binding->timezone ?: (string) config('app.timezone');
+        $tz = SafeTimezone::normalize($binding->timezone ?: (string) config('app.timezone'));
         $end = CarbonImmutable::now($tz)->subDay()->startOfDay();
         $start = $end->subDays(self::WINDOW_DAYS - 1);
         $prevEnd = $start->subDay();

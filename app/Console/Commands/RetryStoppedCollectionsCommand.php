@@ -18,7 +18,8 @@ final class RetryStoppedCollectionsCommand extends Command
     public function handle(ResourceAutomationService $automations): int
     {
         $stats = $automations->retryStopped();
-        $this->line(sprintf('%d tekrar eden hatadan, %d yeniden bağlanmış hesaptan toplama yeniden planlandı.', $stats['retried'], $stats['reconnected']));
+        $this->line(sprintf('%d tekrar eden hatadan, %d yeniden bağlanmış hesaptan, %d düzeltilmiş yazma hatasından toplama yeniden planlandı; bağlı olmayan hesapların %d uyarısı kapatıldı.',
+            $stats['retried'], $stats['reconnected'], $stats['recovered'], $stats['alerts_resolved']));
 
         return self::SUCCESS;
     }

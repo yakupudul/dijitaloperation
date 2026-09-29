@@ -26,6 +26,8 @@ return [
     */
     'worker' => [
         'heartbeat_stale_seconds' => (int) env('MOXDOP_OPS_WORKER_HEARTBEAT_STALE_SECONDS', 180),
+        // worker_heartbeat_missing opens only after every heartbeat has been silent this long (deploy restarts).
+        'alert_after_seconds' => (int) env('MOXDOP_OPS_WORKER_ALERT_AFTER_SECONDS', 600),
         'expected_supervisors' => array_values(array_filter(array_map(
             'trim',
             explode(',', (string) env('MOXDOP_OPS_EXPECTED_SUPERVISORS', '')),

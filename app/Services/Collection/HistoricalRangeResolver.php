@@ -3,6 +3,7 @@
 namespace App\Services\Collection;
 
 use App\Services\Collection\Support\CollectionClock;
+use App\Support\Time\SafeTimezone;
 
 /**
  * Provider-neutral initial coverage planner from Data Contract historical_depth.
@@ -33,7 +34,7 @@ final class HistoricalRangeResolver
      */
     public function resolve(?array $historicalDepth, ?string $timezone = null): array
     {
-        $tz = $timezone ?? 'UTC';
+        $tz = SafeTimezone::normalize($timezone, 'UTC');
         $today = $this->clock->today($tz);
 
         $minimum = $this->normalizeToken($historicalDepth['minimum_required'] ?? null);

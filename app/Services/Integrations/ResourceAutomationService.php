@@ -4,6 +4,7 @@ namespace App\Services\Integrations;
 
 use App\Enums\Observability\OperationalAlertRuleType;
 use App\Enums\Observability\OperationalAlertSeverity;
+use App\Enums\Observability\OperationalAlertState;
 use App\Enums\Observability\OperationalSignalFamily;
 use App\Jobs\Async\ResourceCollectionJob;
 use App\Jobs\Queries\RunQueryPipelineJob;
@@ -13,6 +14,7 @@ use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
+use App\Models\Observability\OperationalAlert;
 use App\Models\ResourceAutomation;
 use App\Models\Run;
 use App\Models\User;
@@ -152,9 +154,10 @@ final class ResourceAutomationService
     }
 
     /**
-     * Explicit deployment repair for accounts stopped by the now-fixed empty-dimension rejection
-     * ("missing natural key [landingPage | country | region | city | itemCategory | …]"): the writer now stores an
-     * empty provider dimension as "(empty)", so these accounts can collect again.
+     * Repair for accounts stopped by now-fixed write errors: the empty / missing-dimension rejection
+     * ("missing natural key [landingPage | pagePathPlusQueryString | country | …]" — the writer now stores "(empty)" /
+     * "(not set)") and missing month partitions of compact fact tables ("no partition of relation gsc_f_…"; now
+     * ensured before every write). Runs daily with retry-stopped and on demand (--recover-ga4-landing-pages).
      */
     public function recoverGa4LandingFailures(): int
     {
@@ -165,8 +168,9 @@ final class ResourceAutomationService
                 foreach ($accounts as $automation) {
                     $knownFailure = CollectionDatasetRun::query()
                         ->where('collection_run_id', $automation->collection_run_id)->where('status', 'failed')
-                        ->where('error_code', 'PERSISTENCE')
-                        ->where('error_message', 'like', '%missing natural key [%')
+                        ->where(fn ($q) => $q->where('error_message', 'like', '%missing natural key [%')
+                            // Compact gsc_f_* fact tables had no partition for the month (fixed: ensured before write).
+                            ->orWhere('error_message', 'like', '%no partition of relation%'))
                         ->whereHas('resourceRun', fn ($q) => $q->where('external_resource_id', $automation->external_resource_id))
                         ->whereHas('collectionRun', fn ($q) => $q->whereIn('status', ['failed', 'partial']))->exists();
                     if (! $knownFailure) {
@@ -360,7 +364,7 @@ final class ResourceAutomationService
      * integration and resource are usable again (e.g. a token refreshed elsewhere). Contract errors,
      * cancellations and portfolio gates are left alone; they need a code fix or an operator decision.
      *
-     * @return array{retried: int, reconnected: int}
+     * @return array{retried: int, reconnected: int, recovered: int, alerts_resolved: int}
      */
     public function retryStopped(): array
     {
@@ -380,7 +384,8 @@ final class ResourceAutomationService
                 }
             });
 
-        return ['retried' => $retried, 'reconnected' => $reconnected];
+        return ['retried' => $retried, 'reconnected' => $reconnected,
+            'recovered' => $this->recoverGa4LandingFailures(), 'alerts_resolved' => $this->resolveUnboundAlerts()];
     }
 
     public function collect(int $id): void
@@ -400,8 +405,11 @@ final class ResourceAutomationService
             return;
         }
         $r = $a->resource;
+        // Unbound / passive query-source accounts are admitted for their queries only (search terms, Search Console
+        // queries, Business Profile keywords) — never the full provider collection.
+        $queryOnly = $this->isQueryOnly($r);
         if ($r->resource_type === 'google_business_profile') {
-            $this->collectGbp($a);
+            $this->collectGbp($a, $queryOnly);
 
             return;
         }
@@ -417,8 +425,8 @@ final class ResourceAutomationService
             $actor = null;
         }
         $run = match ($r->resource_type) {
-            'google_ads' => app(GoogleAdsCentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor),
-            'search_console' => app(SearchConsoleCentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor),
+            'google_ads' => app(GoogleAdsCentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor, $queryOnly),
+            'search_console' => app(SearchConsoleCentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor, $queryOnly),
             'ga4' => app(Ga4CentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor),
             default => $this->collectBound($r, $actor),
         };
@@ -428,13 +436,13 @@ final class ResourceAutomationService
             'next_collection_at' => $this->nextAt($a),
         ]);
         if ($run) {
-            $run->update(['metadata' => array_merge($run->metadata ?? [], ['automatic_collection' => true, 'resource_automation_id' => $a->id])]);
+            $run->update(['metadata' => array_merge($run->metadata ?? [], ['automatic_collection' => true, 'resource_automation_id' => $a->id, 'query_only' => $queryOnly])]);
         }
     }
 
-    private function collectGbp(ResourceAutomation $automation): void
+    private function collectGbp(ResourceAutomation $automation, bool $queryOnly = false): void
     {
-        $this->withResourceLocks([$automation->external_resource_id], function () use ($automation): void {
+        $this->withResourceLocks([$automation->external_resource_id], function () use ($automation, $queryOnly): void {
             $run = $automation->gbp_run_id ? Run::query()->find($automation->gbp_run_id) : null;
             if (! $run || $run->status !== 'running') {
                 $bindings = $automation->resource->bindings()->where('status', 'active')
@@ -451,7 +459,8 @@ final class ResourceAutomationService
                     'metadata' => ['provider' => 'google', 'capability' => 'google_business_profile',
                         'external_resource_id' => $automation->external_resource_id,
                         'integration_id' => $automation->resource->integration_id,
-                        'collection_scope' => 'provider_resource_first', 'datasets' => []],
+                        'collection_scope' => 'provider_resource_first', 'datasets' => []]
+                        + ($queryOnly ? ['only_datasets' => GoogleBusinessProfileBoundCollector::QUERY_DATASETS, 'query_only' => true] : []),
                 ]);
                 $automation->update(['gbp_run_id' => $run->id]);
             }
@@ -461,7 +470,8 @@ final class ResourceAutomationService
             // Partial = the location's core data arrived and some optional datasets did not (API not enabled,
             // reviews access not approved). It stays current; the missing parts are shown on the profile page.
             $datasets = (array) data_get($run->metadata, 'datasets', []);
-            $coreDelivered = collect(['gbp_location', 'gbp_performance_daily'])
+            $core = (array) (data_get($run->metadata, 'only_datasets') ?: ['gbp_location', 'gbp_performance_daily']);
+            $coreDelivered = collect($core)
                 ->every(fn (string $key): bool => in_array(data_get($datasets, $key.'.status'), ['available', 'partial'], true));
             $success = $run->status === 'completed' || ($run->status === 'partial' && $coreDelivered);
             $automation->update([
@@ -588,7 +598,9 @@ final class ResourceAutomationService
             }
             $alerts = app(OperationalAlertLifecycleService::class);
             $rule = 'resource-automation.'.$phase;
-            if ($reason === null) {
+            // Operator alerts only for accounts that serve an operational asset; an unbound / passive account
+            // (admitted for its queries only) never pages the operator.
+            if ($reason === null || ! $this->isOperationallyBound($a->resource)) {
                 $alerts->resolveIfActive($rule, 'external_resource', (string) $a->external_resource_id);
 
                 return;
@@ -611,6 +623,46 @@ final class ResourceAutomationService
             // A notification outage must not undo a durable collection/import result.
             Log::warning('resource-automation.alert-unavailable', ['automation_id' => $automationId]);
         }
+    }
+
+    /** Whether the account is bound (active binding) to at least one operational Digital Asset. */
+    public function isOperationallyBound(?CoreExternalResource $resource): bool
+    {
+        if ($resource === null) {
+            return false;
+        }
+        $assetIds = $resource->bindings()->where('status', 'active')->pluck('digital_asset_id');
+
+        return $assetIds->isNotEmpty() && DigitalAsset::query()->operational()->whereIn('digital_assets.id', $assetIds)->exists();
+    }
+
+    /** A query source (Search Console, Google Ads, Business Profile) that serves no operational asset: queries only. */
+    public function isQueryOnly(?CoreExternalResource $resource): bool
+    {
+        return $resource !== null && in_array($resource->resource_type, QueryIngestor::QUERY_SOURCES, true)
+            && ! $this->isOperationallyBound($resource);
+    }
+
+    /**
+     * Cleanup: resolves open collection alerts of accounts that serve no operational asset (raised before only
+     * bound accounts could alert). Returns how many were resolved.
+     */
+    public function resolveUnboundAlerts(): int
+    {
+        $resolved = 0;
+        $alerts = app(OperationalAlertLifecycleService::class);
+        OperationalAlert::query()->where('rule_key', 'like', 'resource-automation.%')->where('scope_type', 'external_resource')
+            ->whereIn('state', [OperationalAlertState::Open->value, OperationalAlertState::Acknowledged->value])
+            ->orderBy('id')->chunkById(200, function ($chunk) use (&$resolved, $alerts): void {
+                $resources = CoreExternalResource::query()->whereIn('id', $chunk->pluck('scope_key')->map(fn ($id): int => (int) $id)->all())->get()->keyBy('id');
+                foreach ($chunk as $alert) {
+                    if (! $this->isOperationallyBound($resources->get((int) $alert->scope_key))) {
+                        $resolved += $alerts->resolveIfActive((string) $alert->rule_key, 'external_resource', (string) $alert->scope_key, 'NOT_OPERATIONAL') !== null ? 1 : 0;
+                    }
+                }
+            });
+
+        return $resolved;
     }
 
     public function coverageEnd(int $resourceId, string $provider, string $family, ?string $contract = null, ?string $variant = null): ?string

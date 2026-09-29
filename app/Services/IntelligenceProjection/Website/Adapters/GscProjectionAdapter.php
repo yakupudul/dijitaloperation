@@ -10,8 +10,10 @@ use App\Services\IntelligenceCore\Identity\PageIdentityResolver;
 use App\Services\IntelligenceCore\Identity\SearchTermIdentityResolver;
 use App\Services\IntelligenceProjection\Website\WebsiteProjectionAdapterSupport;
 use App\Support\IntelligenceCore\IntelligenceSourceReference;
+use App\Support\IntelligenceCore\IntelligenceTimeContext;
 use App\Support\IntelligenceProjection\WebsiteProjectionContext;
 use App\Support\IntelligenceProjection\WebsiteProjectionContribution;
+use App\Support\Time\SafeTimezone;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -69,7 +71,7 @@ final class GscProjectionAdapter implements WebsiteProjectionSourceAdapter
 
         $start = $context->periodStart->toDateString();
         $end = $context->periodEnd->toDateString();
-        $timezone = $binding->timezone ?: 'UTC';
+        $timezone = SafeTimezone::normalize($binding->timezone ?: 'UTC', 'UTC');
         $pages = $this->aggregateDimension('gsc_page_daily', 'page', $binding->externalResourceId, $binding->siteUrl, $start, $end);
         $terms = $this->aggregateDimension('gsc_query_daily', 'query', $binding->externalResourceId, $binding->siteUrl, $start, $end);
         $relations = Schema::hasTable('gsc_query_page_daily')
@@ -320,13 +322,13 @@ final class GscProjectionAdapter implements WebsiteProjectionSourceAdapter
     }
 
     /**
-     * @param list<array<string,mixed>> $relations
-     * @param list<array<string,mixed>> $pageContributions
-     * @param array<int,int> $pageIndexes
-     * @param array<string,int> $pageIdentityByUrl
-     * @param list<array<string,mixed>> $termContributions
-     * @param array<int,int> $termIndexes
-     * @param array<string,int> $termIdentityByText
+     * @param  list<array<string,mixed>>  $relations
+     * @param  list<array<string,mixed>>  $pageContributions
+     * @param  array<int,int>  $pageIndexes
+     * @param  array<string,int>  $pageIdentityByUrl
+     * @param  list<array<string,mixed>>  $termContributions
+     * @param  array<int,int>  $termIndexes
+     * @param  array<string,int>  $termIdentityByText
      */
     private function attachRelations(
         WebsiteProjectionContext $context,
@@ -383,7 +385,7 @@ final class GscProjectionAdapter implements WebsiteProjectionSourceAdapter
         array $dimensions,
         array $aggregate,
         IntelligenceSourceReference $source,
-        \App\Support\IntelligenceCore\IntelligenceTimeContext $time,
+        IntelligenceTimeContext $time,
     ): array {
         return [
             $this->support->metric('gsc.clicks', $aggregate['clicks'], $grain, $dimensions, $source, $time, metadata: $this->runProvenance($aggregate)),

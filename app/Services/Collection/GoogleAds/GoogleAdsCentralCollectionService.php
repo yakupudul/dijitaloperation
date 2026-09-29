@@ -56,14 +56,18 @@ final class GoogleAdsCentralCollectionService
     ) {}
 
     /** @param list<int|string> $externalResourceIds */
-    public function startSmartUpdate(CoreIntegration $integration, array $externalResourceIds, ?User $requestedBy = null): CollectionRun
+    /** Families collected for an account that serves no operational asset (query pipeline input only). */
+    public const array QUERY_FAMILIES = [GoogleAdsCentralRequestFamilyCatalog::SEARCH_TERM];
+
+    /** @param  bool  $queryOnly  unbound / passive account: search terms only, never the full collection */
+    public function startSmartUpdate(CoreIntegration $integration, array $externalResourceIds, ?User $requestedBy = null, bool $queryOnly = false): CollectionRun
     {
         return app(ResourceAutomationService::class)->withResourceLocks(
-            $externalResourceIds, fn (): CollectionRun => $this->startSmartUpdateLocked($integration, $externalResourceIds, $requestedBy)
+            $externalResourceIds, fn (): CollectionRun => $this->startSmartUpdateLocked($integration, $externalResourceIds, $requestedBy, $queryOnly)
         );
     }
 
-    private function startSmartUpdateLocked(CoreIntegration $integration, array $externalResourceIds, ?User $requestedBy = null): CollectionRun
+    private function startSmartUpdateLocked(CoreIntegration $integration, array $externalResourceIds, ?User $requestedBy = null, bool $queryOnly = false): CollectionRun
     {
         $this->queueGate->assertReady();
         $resources = $this->resolveResources($integration, $externalResourceIds);
@@ -73,7 +77,7 @@ final class GoogleAdsCentralCollectionService
 
         $plans = [];
         foreach ($resources as $resource) {
-            $plans[(int) $resource->id] = $this->smartPlan($resource);
+            $plans[(int) $resource->id] = $queryOnly ? $this->queryOnlyPlan($resource) : $this->smartPlan($resource);
         }
 
         $intents = collect($plans)->pluck('intent')->unique()->values();
@@ -121,6 +125,47 @@ final class GoogleAdsCentralCollectionService
         }
 
         return $resources;
+    }
+
+    /**
+     * Query-only plan: search terms from their own coverage (history periods the first time, then the restatement
+     * window). It never becomes the history baseline, so a later full collection (account bound to an operational
+     * asset) still starts with the complete initial import.
+     *
+     * @return array<string,mixed>
+     */
+    private function queryOnlyPlan(CoreExternalResource $resource): array
+    {
+        $timezone = $this->timezone($resource);
+        $closedEnd = CarbonImmutable::now($timezone)->startOfDay()->subDay();
+        $families = [];
+        $initial = false;
+        foreach (self::QUERY_FAMILIES as $family) {
+            $covered = app(ResourceAutomationService::class)->coverageEnd($resource->id, 'GOOGLE_ADS', $family);
+            if ($covered === null) {
+                $initial = true;
+                $activity = $this->historyDiscovery->discover($resource);
+                foreach ($this->initialFamilies($resource, $activity) as $entry) {
+                    if ($entry['family'] === $family) {
+                        $families[] = $entry;
+                    }
+                }
+
+                continue;
+            }
+            $start = $closedEnd->subDays(self::RESTATEMENT_DAYS - 1);
+            if ($covered < $start->toDateString()) {
+                $start = CarbonImmutable::parse($covered, $timezone)->addDay()->startOfDay();
+            }
+            $families[] = ['family' => $family, 'date_range' => ['start' => $start->toDateString(), 'end' => $closedEnd->toDateString()], 'execution_variant' => 'recent'];
+        }
+
+        return [
+            'intent' => $initial ? 'google_ads_central_initial' : 'google_ads_central_update',
+            'families' => $families,
+            'history_policy_version' => null,
+            'query_only' => true,
+        ];
     }
 
     /** @return array<string,mixed> */
@@ -568,6 +613,7 @@ final class GoogleAdsCentralCollectionService
                         'activity_summary' => $resourcePlan['activity_summary'] ?? null,
                         'resumed_from_resource_run_id' => $resourcePlan['resumed_from_resource_run_id'] ?? null,
                         'activity' => $resourcePlan['activity'] ?? null,
+                        'query_only' => (bool) ($resourcePlan['query_only'] ?? false),
                     ],
                 ]);
 

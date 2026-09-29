@@ -19,6 +19,7 @@ use App\Services\Gsc\GscUiDatasetGate;
 use App\Support\Evidence\EvidenceDefinition;
 use App\Support\Evidence\EvidenceEligibilityReport;
 use App\Support\Evidence\EvidencePeriod;
+use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 
 /**
@@ -73,7 +74,7 @@ final class EvidenceEligibilityService
         $spanStart = $period->previousStart;
         $spanEnd = $period->currentEnd;
         $timezone = is_string($scope['details']['reporting_timezone'] ?? null)
-            ? (string) $scope['details']['reporting_timezone']
+            ? SafeTimezone::normalizeNullable((string) $scope['details']['reporting_timezone'], 'UTC')
             : null;
 
         $readiness = $this->datasetReadiness($definition, $asset->id, $resourceId, $spanStart, $spanEnd, $timezone);

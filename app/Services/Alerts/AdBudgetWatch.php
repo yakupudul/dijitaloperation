@@ -11,6 +11,7 @@ use App\Services\Integrations\Google\GoogleApiClient;
 use App\Services\Integrations\Meta\MetaApiClient;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\Operator\AssetRuntimeStatusReader;
+use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -258,7 +259,7 @@ final class AdBudgetWatch
     private function localNow(string $timezone): CarbonImmutable
     {
         try {
-            return CarbonImmutable::now($timezone);
+            return CarbonImmutable::now(SafeTimezone::normalize($timezone));
         } catch (Throwable) {
             return CarbonImmutable::now();
         }

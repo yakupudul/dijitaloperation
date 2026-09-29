@@ -9,6 +9,7 @@ use App\Enums\Observability\OperationalSignalFamily;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
+use App\Models\Observability\WorkerHeartbeat;
 use App\Services\Async\AsyncWorkerHealth;
 use App\Services\DataPool\Freshness\DueCollectionQueryService;
 use App\Support\Integrations\ProviderRegistry;
@@ -98,8 +99,13 @@ final class OperationalAlertEvaluator
         $snap = $this->workers->snapshot();
         $scope = 'worker:system';
         $expected = $snap['expected_supervisors'];
+        // A deploy restarts every worker at once; a short gap is not an outage. Fire only when the newest heartbeat
+        // is older than the alert threshold (default 10 min), and resolve as soon as heartbeats resume.
+        $lastSeen = WorkerHeartbeat::query()->max('last_seen_at');
+        $silentFor = $lastSeen !== null ? (int) abs(now()->diffInSeconds(CarbonImmutable::parse((string) $lastSeen))) : PHP_INT_MAX;
+        $alertAfter = max((int) $snap['stale_seconds'], (int) config('moxdop-observability.worker.alert_after_seconds', 600));
 
-        if ($expected !== [] && $snap['status']->value === 'UNHEALTHY') {
+        if ($expected !== [] && $snap['status']->value === 'UNHEALTHY' && $silentFor >= $alertAfter) {
             $this->lifecycle->observeCondition(
                 ruleKey: 'worker_heartbeat_missing',
                 ruleVersion: 1,
@@ -120,7 +126,8 @@ final class OperationalAlertEvaluator
             return 1;
         }
 
-        if ($expected !== [] && $snap['status']->value === 'HEALTHY') {
+        // Heartbeats are back (all supervisors, or some of them — a partial gap is not "workers not running").
+        if ($expected !== [] && in_array($snap['status']->value, ['HEALTHY', 'DEGRADED'], true)) {
             $this->lifecycle->resolveIfActive('worker_heartbeat_missing', 'WORKER', $scope);
         }
 

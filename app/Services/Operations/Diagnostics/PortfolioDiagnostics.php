@@ -11,6 +11,7 @@ use App\Services\SeoTasks\SeoText;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Integrations\ExternalResourceAssetCompatibility;
+use App\Support\Operator\DormantAccountHint;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -880,7 +881,15 @@ final class PortfolioDiagnostics
         }
         $age = $this->daysSince($latest);
         $stale = $factTable !== null && ($age === null || $age > $lag + $interval + 1);
-        if ($factTable !== null && $latest === null) {
+        // An ads account that has not spent for months is not a broken collection: say so (and ask whether the right
+        // account is bound) instead of STALE.
+        $dormantHint = $type === 'google_ads' && ($stale || $latest === null)
+            ? DormantAccountHint::text(DormantAccountHint::lastGoogleAdsSpend([(int) $row->resource_id]) ?? $latest)
+            : null;
+        if ($dormantHint !== null) {
+            $issues[] = 'HARCAMASIZ: '.$dormantHint;
+            $score += 1;
+        } elseif ($factTable !== null && $latest === null) {
             $issues[] = 'VERİ YOK ('.$factTable.')';
             $score += 3;
         } elseif ($stale) {
@@ -957,7 +966,9 @@ final class PortfolioDiagnostics
             if (! $this->hasColumn($table, 'external_resource_id')) {
                 continue;
             }
-            $max = DB::table($table)->where('digital_asset_id', $row->digital_asset_id)->where('external_resource_id', $row->resource_id)->max('reporting_date');
+            // Resource-first collectors (Search Console, Google Ads, GA4, Meta) store digital_asset_id = null; the
+            // provider resource is the identity. Filtering by the asset reported "yok" although rows existed.
+            $max = DB::table($table)->where('external_resource_id', $row->resource_id)->max('reporting_date');
             $parts[] = $table.'='.($max !== null ? substr((string) $max, 0, 10) : 'yok');
         }
         if ($row->resource_type === 'google_business_profile' && $this->hasTable('gbp_reviews')) {

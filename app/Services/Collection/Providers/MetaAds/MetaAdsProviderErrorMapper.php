@@ -5,6 +5,7 @@ namespace App\Services\Collection\Providers\MetaAds;
 use App\Enums\Collection\CollectionErrorCategory;
 use App\Services\Collection\Support\DatasetExecutionResult;
 use App\Services\Integrations\Meta\MetaException;
+use App\Services\Integrations\Meta\MetaUsageGovernor;
 use Throwable;
 
 final class MetaAdsProviderErrorMapper
@@ -39,10 +40,12 @@ final class MetaAdsProviderErrorMapper
                     $message,
                     'META_PERMISSION'.$providerCode,
                 ),
+                // App-level limit (code 4) resets over the hour: wait what Meta asks (usage headers) instead of
+                // retrying after 60 s and burning the dataset's attempts.
                 MetaException::KIND_RATE_LIMIT => DatasetExecutionResult::retry(
                     CollectionErrorCategory::RateLimit,
                     $message,
-                    60,
+                    app(MetaUsageGovernor::class)->backoffForCode($e->providerCode),
                     'META_RATE_LIMIT'.$providerCode,
                 ),
                 MetaException::KIND_TRANSPORT => DatasetExecutionResult::retry(

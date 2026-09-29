@@ -5,6 +5,7 @@ namespace App\Services\GoogleAds;
 use App\Models\CoreExternalResource;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsClientFactory;
 use App\Services\GoogleAds\Support\GoogleAdsBindingMode;
+use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
@@ -58,7 +59,7 @@ final class GoogleAdsSearchLiveReadFallbackService
         }
 
         $metadata = is_array($resource->metadata) ? $resource->metadata : [];
-        $timezone = (string) ($binding->timezone ?: ($metadata['time_zone'] ?? $metadata['timezone'] ?? 'UTC'));
+        $timezone = SafeTimezone::normalize((string) ($binding->timezone ?: ($metadata['time_zone'] ?? $metadata['timezone'] ?? 'UTC')), 'UTC');
         $currency = strtoupper((string) ($binding->currency ?: ($metadata['currency_code'] ?? $metadata['currency'] ?? 'XXX')));
         [$start, $end] = $this->effectiveRange($requestedStart, $requestedEnd, $period, $timezone);
 
@@ -350,13 +351,25 @@ GAQL;
             $grouped[$key]['clicks'] += (int) ($metrics['clicks'] ?? 0);
             $grouped[$key]['spend'] += ((float) ($metrics['costMicros'] ?? $metrics['cost_micros'] ?? 0)) / 1_000_000;
             $grouped[$key]['leads'] += (float) ($metrics['conversions'] ?? 0);
-            if ($campaignId !== '') $grouped[$key]['campaign_ids'][] = $campaignId;
-            if ($campaignName !== '') $grouped[$key]['campaign_names'][] = $campaignName;
-            if ($adGroupId !== '') $grouped[$key]['ad_group_ids'][] = $adGroupId;
-            if ($adGroupName !== '') $grouped[$key]['ad_group_names'][] = $adGroupName;
+            if ($campaignId !== '') {
+                $grouped[$key]['campaign_ids'][] = $campaignId;
+            }
+            if ($campaignName !== '') {
+                $grouped[$key]['campaign_names'][] = $campaignName;
+            }
+            if ($adGroupId !== '') {
+                $grouped[$key]['ad_group_ids'][] = $adGroupId;
+            }
+            if ($adGroupName !== '') {
+                $grouped[$key]['ad_group_names'][] = $adGroupName;
+            }
             $grouped[$key]['sources'][] = $isPmax ? 'Performance Max' : 'Search';
-            if (filled($status)) $grouped[$key]['statuses'][] = (string) $status;
-            if (filled($match)) $grouped[$key]['match_types'][] = (string) $match;
+            if (filled($status)) {
+                $grouped[$key]['statuses'][] = (string) $status;
+            }
+            if (filled($match)) {
+                $grouped[$key]['match_types'][] = (string) $match;
+            }
         }
 
         $out = [];
@@ -392,15 +405,21 @@ GAQL;
     {
         $rows = [];
         foreach ($inventory as $row) {
-            if (! is_array($row)) continue;
+            if (! is_array($row)) {
+                continue;
+            }
             $key = (string) ($row['ad_group_id'] ?? '')."\0".(string) ($row['criterion_id'] ?? '');
-            if ($key !== "\0") $rows[$key] = $row;
+            if ($key !== "\0") {
+                $rows[$key] = $row;
+            }
         }
 
         foreach ($providerRows as $provider) {
             $criterionId = (string) (data_get($provider, 'adGroupCriterion.criterionId') ?? data_get($provider, 'ad_group_criterion.criterion_id') ?? '');
             $adGroupId = (string) (data_get($provider, 'adGroup.id') ?? data_get($provider, 'ad_group.id') ?? '');
-            if ($criterionId === '' || $adGroupId === '') continue;
+            if ($criterionId === '' || $adGroupId === '') {
+                continue;
+            }
 
             $key = $adGroupId."\0".$criterionId;
             $metrics = is_array($provider['metrics'] ?? null) ? $provider['metrics'] : [];
@@ -442,7 +461,10 @@ GAQL;
         usort($out, static function (array $a, array $b): int {
             $aActive = ($a['period_activity'] ?? false) === true;
             $bActive = ($b['period_activity'] ?? false) === true;
-            if ($aActive !== $bActive) return $aActive ? -1 : 1;
+            if ($aActive !== $bActive) {
+                return $aActive ? -1 : 1;
+            }
+
             return [(float) ($b['spend'] ?? -1), (int) ($b['clicks'] ?? -1)] <=> [(float) ($a['spend'] ?? -1), (int) ($a['clicks'] ?? -1)];
         });
 
@@ -486,10 +508,15 @@ GAQL;
             $categories[$intent]['conversions'] += (float) ($row['leads'] ?? 0);
 
             $decision = (string) ($row['decision'] ?? 'Monitor');
-            if ($decision === 'Keep / scale') $summary['keyword']++;
-            elseif ($decision === 'Review for negative') $summary['negative']++;
-            elseif ($decision === 'Content opportunity') $summary['content']++;
-            elseif ($decision !== 'Monitor') $summary['strategy']++;
+            if ($decision === 'Keep / scale') {
+                $summary['keyword']++;
+            } elseif ($decision === 'Review for negative') {
+                $summary['negative']++;
+            } elseif ($decision === 'Content opportunity') {
+                $summary['content']++;
+            } elseif ($decision !== 'Monitor') {
+                $summary['strategy']++;
+            }
 
             if ($decision !== 'Monitor') {
                 $decisions[] = [
@@ -510,6 +537,7 @@ GAQL;
         $totalSpend = array_sum(array_column($categories, 'spend'));
         $categoryRows = array_values(array_map(static function (array $row) use ($totalSpend): array {
             $row['pct'] = $totalSpend > 0 ? round(($row['spend'] / $totalSpend) * 100, 1) : 0.0;
+
             return $row;
         }, $categories));
         usort($categoryRows, static fn (array $a, array $b): int => [$b['spend'], $b['terms']] <=> [$a['spend'], $a['terms']]);
@@ -531,11 +559,17 @@ GAQL;
             foreach (($row['ad_group_ids'] ?? []) as $i => $id) {
                 $adGroups[(string) $id] = ['name' => $row['ad_group_names'][$i] ?? $row['ad_group'] ?? ('Ad group '.$id), 'campaign_id' => $row['campaign_ids'][0] ?? null];
             }
-            if (filled($row['source'] ?? null)) $sources[] = (string) $row['source'];
+            if (filled($row['source'] ?? null)) {
+                $sources[] = (string) $row['source'];
+            }
         }
         foreach ($keywords as $row) {
-            if (filled($row['campaign_id'] ?? null)) $campaigns[(string) $row['campaign_id']] = $row['campaign'] ?? ('Campaign '.$row['campaign_id']);
-            if (filled($row['ad_group_id'] ?? null)) $adGroups[(string) $row['ad_group_id']] = ['name' => $row['ad_group'] ?? ('Ad group '.$row['ad_group_id']), 'campaign_id' => $row['campaign_id'] ?? null];
+            if (filled($row['campaign_id'] ?? null)) {
+                $campaigns[(string) $row['campaign_id']] = $row['campaign'] ?? ('Campaign '.$row['campaign_id']);
+            }
+            if (filled($row['ad_group_id'] ?? null)) {
+                $adGroups[(string) $row['ad_group_id']] = ['name' => $row['ad_group'] ?? ('Ad group '.$row['ad_group_id']), 'campaign_id' => $row['campaign_id'] ?? null];
+            }
         }
 
         return [
@@ -558,10 +592,19 @@ GAQL;
     private function intent(string $term): string
     {
         $value = mb_strtolower($term);
-        if (preg_match('/\b(fiyat|fiyatı|fiyatları|kaç para|ne kadar|ucuz|ücret|price|cost)\b/u', $value)) return 'Price';
-        if (preg_match('/\b(yakın|yakınımda|nerede|bornova|izmir|manisa|karşıyaka|bayraklı|konak|buca|near me|nearby)\b/u', $value)) return 'Local';
-        if (preg_match('/\b(nedir|nasıl|neden|ne demek|kaç kg|kaç kilo|how|what|why|guide)\b/u', $value)) return 'Informational';
-        if (preg_match('/\b(alım|satım|satılık|alınır|alıcı|hurdacı|hurdacılık|teklif|ara|sat|buy|sell|quote)\b/u', $value)) return 'Transactional';
+        if (preg_match('/\b(fiyat|fiyatı|fiyatları|kaç para|ne kadar|ucuz|ücret|price|cost)\b/u', $value)) {
+            return 'Price';
+        }
+        if (preg_match('/\b(yakın|yakınımda|nerede|bornova|izmir|manisa|karşıyaka|bayraklı|konak|buca|near me|nearby)\b/u', $value)) {
+            return 'Local';
+        }
+        if (preg_match('/\b(nedir|nasıl|neden|ne demek|kaç kg|kaç kilo|how|what|why|guide)\b/u', $value)) {
+            return 'Informational';
+        }
+        if (preg_match('/\b(alım|satım|satılık|alınır|alıcı|hurdacı|hurdacılık|teklif|ara|sat|buy|sell|quote)\b/u', $value)) {
+            return 'Transactional';
+        }
+
         return 'Generic / other';
     }
 
@@ -573,10 +616,19 @@ GAQL;
         $clicks = (int) ($row['clicks'] ?? 0);
         $impressions = (int) ($row['impressions'] ?? 0);
         $intent = (string) ($row['intent'] ?? 'Generic / other');
-        if ($conversions > 0) return 'Keep / scale';
-        if ($spend > 0 && $clicks >= 2) return 'Review for negative';
-        if ($intent === 'Informational' && $clicks > 0) return 'Content opportunity';
-        if ($impressions >= 20 && $clicks === 0) return 'Low engagement';
+        if ($conversions > 0) {
+            return 'Keep / scale';
+        }
+        if ($spend > 0 && $clicks >= 2) {
+            return 'Review for negative';
+        }
+        if ($intent === 'Informational' && $clicks > 0) {
+            return 'Content opportunity';
+        }
+        if ($impressions >= 20 && $clicks === 0) {
+            return 'Low engagement';
+        }
+
         return 'Monitor';
     }
 

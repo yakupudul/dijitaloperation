@@ -21,11 +21,13 @@ use App\Services\Collection\Providers\SearchConsole\SearchConsoleCentralDatasetE
 use App\Services\Collection\Providers\SearchConsole\SearchConsoleProviderCapabilities;
 use App\Services\Collection\Providers\SearchConsole\SearchConsoleRequestFamilyCatalog;
 use App\Services\Collection\StartCollectionService;
+use App\Services\DataPool\DataPoolStorageRegistry;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\ProviderRegistry;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -45,6 +47,12 @@ final class SearchConsoleCentralCollectionService
 
     public const int FINAL_LAG_DAYS = 3;
 
+    /** Datasets that always hold rows when the property has search traffic (search appearance may be empty). */
+    public const array SELF_HEAL_DATASETS = [
+        'gsc_query_daily', 'gsc_page_daily', 'gsc_query_page_daily', 'gsc_device_daily', 'gsc_country_daily',
+        'gsc_page_device_daily', 'gsc_page_country_daily', 'gsc_query_device_daily', 'gsc_query_country_daily',
+    ];
+
     public function __construct(
         private readonly DataContractRegistryLoader $registry,
         private readonly SearchConsoleApiClient $api,
@@ -53,17 +61,106 @@ final class SearchConsoleCentralCollectionService
     ) {}
 
     /** @param list<int|string> $externalResourceIds */
-    public function startSmartUpdate(CoreIntegration $integration, array $externalResourceIds, ?User $requestedBy = null): CollectionRun
+    /** Datasets collected for a property that serves no operational asset (query pipeline input only). */
+    public const array QUERY_DATASETS = ['gsc_query_daily'];
+
+    /**
+     * @param  list<int|string>  $externalResourceIds
+     * @param  bool  $queryOnly  unbound / passive property: only the query dataset (QUERY_DATASETS), never the full set
+     */
+    public function startSmartUpdate(CoreIntegration $integration, array $externalResourceIds, ?User $requestedBy = null, bool $queryOnly = false): CollectionRun
     {
         return app(ResourceAutomationService::class)->withResourceLocks(
-            $externalResourceIds, fn (): CollectionRun => $this->startSmartUpdateLocked($integration, $externalResourceIds, $requestedBy)
+            $externalResourceIds, fn (): CollectionRun => $this->startSmartUpdateLocked($integration, $externalResourceIds, $requestedBy, $queryOnly)
         );
     }
 
-    private function startSmartUpdateLocked(CoreIntegration $integration, array $externalResourceIds, ?User $requestedBy = null): CollectionRun
+    /**
+     * Re-fetches the given Search Analytics datasets over the full history window (or `$days`), with fresh
+     * checkpoints — used when facts are missing although earlier runs reported them covered (e.g. writes that failed
+     * on a missing partition, or datasets completed with 0 rows). Bypasses the activity tier on purpose.
+     *
+     * @param  list<int|string>  $externalResourceIds
+     * @param  list<string>  $datasetIds
+     */
+    public function startRefetch(CoreIntegration $integration, array $externalResourceIds, array $datasetIds, ?int $days = null, ?User $requestedBy = null): CollectionRun
+    {
+        return app(ResourceAutomationService::class)->withResourceLocks(
+            $externalResourceIds, function () use ($integration, $externalResourceIds, $datasetIds, $days, $requestedBy): CollectionRun {
+                $end = $this->finalDataEnd();
+                $days = max(1, min((int) config('moxdop-gsc-central.initial_days', 486), $days ?? self::INITIAL_DAYS));
+                $start = $end->subDays($days - 1);
+                $plans = [];
+                foreach ($this->resolveResources($integration, $externalResourceIds) as $resource) {
+                    $searchTypes = CollectionResourceRun::query()->where('provider_or_source', 'SEARCH_CONSOLE')
+                        ->where('external_resource_id', $resource->id)->latest('id')->limit(5)->get()
+                        ->flatMap(fn (CollectionResourceRun $run): array => (array) data_get($run->metadata, 'active_search_types', []))
+                        ->push('web')->filter(fn ($type): bool => is_string($type) && $type !== '')->unique()->values()->all();
+                    $datasetPlans = array_values(array_filter(
+                        $this->datasetPlans($searchTypes, $start, $end),
+                        fn (array $plan): bool => in_array($plan['dataset_id'], $datasetIds, true),
+                    ));
+                    if ($datasetPlans === []) {
+                        continue;
+                    }
+                    $plans[] = [
+                        'resource' => $resource,
+                        'mode' => 'repair',
+                        'dataset_plans' => $datasetPlans,
+                        'days' => $days,
+                        'active_search_types' => $searchTypes,
+                    ];
+                }
+                if ($plans === []) {
+                    throw new InvalidArgumentException('Yeniden alınacak Search Console veri seti yok.');
+                }
+
+                return $this->startPlans($integration, $plans, $requestedBy);
+            }
+        );
+    }
+
+    /**
+     * Search Analytics datasets whose facts hold no row for the resource although the property totals show search
+     * traffic — their coverage marker is not trustworthy (writes failed / 0 rows) and they need the full window.
+     *
+     * @return list<string>
+     */
+    public function datasetsMissingFacts(CoreExternalResource $resource, ?int $minImpressions = null): array
+    {
+        $minImpressions ??= (int) config('moxdop-gsc-central.refetch_min_property_impressions', 50);
+        $impressions = (int) DB::table('gsc_property_daily')->where('external_resource_id', $resource->id)
+            ->where('reporting_date', '>=', $this->finalDataEnd()->subDays(self::INITIAL_DAYS - 1)->toDateString())
+            ->sum('impressions');
+        if ($impressions < $minImpressions) {
+            return [];
+        }
+        $storage = app(DataPoolStorageRegistry::class);
+        $missing = [];
+        foreach (SearchConsoleRequestFamilyCatalog::centralPerformanceFamilies() as $family) {
+            $datasetId = (string) (SearchConsoleRequestFamilyCatalog::definition($family)['dataset_id'] ?? '');
+            if (! in_array($datasetId, self::SELF_HEAL_DATASETS, true) || ! $storage->hasPhysicalTable($datasetId)) {
+                continue;
+            }
+            $table = $storage->tableName($datasetId);
+            try {
+                if (! DB::table($table)->where('external_resource_id', $resource->id)->exists()) {
+                    $missing[] = $datasetId;
+                }
+            } catch (Throwable) {
+                // Missing table on a partial install: nothing to heal here.
+            }
+        }
+
+        return array_values(array_unique($missing));
+    }
+
+    private function startSmartUpdateLocked(CoreIntegration $integration, array $externalResourceIds, ?User $requestedBy = null, bool $queryOnly = false): CollectionRun
     {
         $resources = $this->resolveResources($integration, $externalResourceIds);
-        $plans = $resources->map(fn (CoreExternalResource $resource): array => $this->smartPlan($integration, $resource))->all();
+        $plans = $resources->map(fn (CoreExternalResource $resource): array => $queryOnly
+            ? $this->queryOnlyPlan($resource)
+            : $this->smartPlan($integration, $resource))->all();
 
         return $this->startPlans($integration, $plans, $requestedBy);
     }
@@ -100,6 +197,41 @@ final class SearchConsoleCentralCollectionService
         }
 
         return $resources;
+    }
+
+    /**
+     * Query-only plan (property serves no operational asset): the query dataset from its own coverage — the whole
+     * history window the first time, then the restatement window — never the other Search Analytics datasets.
+     *
+     * @return array<string, mixed>
+     */
+    private function queryOnlyPlan(CoreExternalResource $resource): array
+    {
+        $end = $this->finalDataEnd();
+        $restatementStart = $end->subDays(self::RESTATEMENT_DAYS - 1)->toDateString();
+        $plans = [];
+        foreach ($this->datasetPlans(['web'], $end->subDays(self::INITIAL_DAYS - 1), $end) as $plan) {
+            if (! in_array($plan['dataset_id'], self::QUERY_DATASETS, true)) {
+                continue;
+            }
+            $covered = app(ResourceAutomationService::class)->coverageEnd(
+                $resource->id, 'SEARCH_CONSOLE', $plan['request_family_id'], $plan['dataset_id'], 'web'
+            );
+            if ($covered !== null) {
+                $plan['date_range']['start'] = min($restatementStart, CarbonImmutable::parse($covered)->addDay()->toDateString());
+            }
+            $plans[] = $plan;
+        }
+        $start = collect($plans)->pluck('date_range.start')->filter()->sort()->first() ?? $restatementStart;
+
+        return [
+            'resource' => $resource,
+            'mode' => $start < $restatementStart ? 'initial' : 'update',
+            'dataset_plans' => $plans,
+            'days' => (int) CarbonImmutable::parse($start)->diffInDays($end) + 1,
+            'active_search_types' => ['web'],
+            'query_only' => true,
+        ];
     }
 
     /** @return array<string, mixed> */
@@ -211,6 +343,13 @@ final class SearchConsoleCentralCollectionService
         $allPlans = $this->datasetPlans($activeSearchTypes, $start, $end);
         $datasetPlans = array_values(array_filter($allPlans, fn (array $plan): bool => $activity->allowsFamily((string) $plan['source_family_id'])));
         $this->activity->recordPass($activity, count($datasetPlans), count($allPlans) - count($datasetPlans));
+        // Self-heal: a dataset "covered" by earlier runs but with no stored fact at all (writes failed on a missing
+        // partition, or completed with 0 rows) is fetched over the whole window again instead of 4 days forever.
+        // At most once a week per dataset, so a property whose query rows are all anonymised is not refetched daily.
+        $uncovered = $activity->mode === ActivityCollectionPlan::MODE_CHECK ? [] : array_values(array_filter(
+            $this->datasetsMissingFacts($resource),
+            fn (string $datasetId): bool => Cache::add('gsc-central-refetch:'.$resource->id.':'.$datasetId, true, now()->addDays(7)),
+        ));
         foreach ($datasetPlans as &$datasetPlan) {
             if (! is_array($datasetPlan['date_range'])) {
                 continue;
@@ -224,6 +363,9 @@ final class SearchConsoleCentralCollectionService
             $covered = app(ResourceAutomationService::class)->coverageEnd(
                 $resource->id, 'SEARCH_CONSOLE', $datasetPlan['request_family_id'], $datasetPlan['dataset_id'], $datasetPlan['search_type'] ?? ''
             );
+            if (in_array($datasetPlan['dataset_id'], $uncovered, true)) {
+                $covered = null;
+            }
             $datasetPlan['date_range']['start'] = $covered
                 ? min($datasetPlan['date_range']['start'], CarbonImmutable::parse($covered)->addDay()->toDateString())
                 : $end->subDays(self::INITIAL_DAYS - 1)->toDateString();
@@ -485,6 +627,7 @@ final class SearchConsoleCentralCollectionService
                         'active_search_types' => $plan['active_search_types'],
                         'reporting_timezone' => SearchConsoleProviderCapabilities::REPORTING_TIMEZONE,
                         'activity' => $plan['activity'] ?? null,
+                        'query_only' => (bool) ($plan['query_only'] ?? false),
                     ],
                 ]);
 

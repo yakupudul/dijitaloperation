@@ -10,6 +10,7 @@ use App\Models\DataPool\DatasetMaterialization;
 use App\Services\Collection\Support\CollectionClock;
 use App\Services\DataPool\Freshness\Support\FreshnessEvaluation;
 use App\Services\DataPool\Freshness\Support\IncrementalDatasetDecision;
+use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 
 /**
@@ -158,7 +159,7 @@ final class IncrementalCoveragePlanner
         array $context,
     ): IncrementalDatasetDecision {
         $reportingTimezone = is_string($context['reporting_timezone'] ?? null)
-            ? (string) $context['reporting_timezone']
+            ? SafeTimezone::normalize((string) $context['reporting_timezone'], 'UTC')
             : 'UTC';
 
         $watermark = $this->watermarks->calculate(

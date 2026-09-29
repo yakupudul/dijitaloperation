@@ -9,6 +9,7 @@ use App\Services\Ga4\Ga4SpecialistBindingResolver;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\SeoTasks\SeoPlanInputCollector;
 use App\Support\GoogleAds\DemographicLabels;
+use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -42,7 +43,7 @@ final class GoogleAdsAdvisorInputCollector
         }
 
         $scope = new GoogleAdsRowScope((int) $asset->id, (int) $binding->externalResourceId, (string) $binding->customerId);
-        $tz = $binding->timezone ?: config('app.timezone');
+        $tz = SafeTimezone::normalize($binding->timezone ?: (string) config('app.timezone'));
         $days = (int) config('moxdop-advisor.google_ads.window_days', 30);
         $end = CarbonImmutable::now($tz)->subDay()->startOfDay();
         $start = $end->subDays($days - 1);

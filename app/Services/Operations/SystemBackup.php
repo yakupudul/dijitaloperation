@@ -26,19 +26,31 @@ final class SystemBackup
         $driver = (string) ($cfg['driver'] ?? $connection);
         $id = (int) DB::table('system_backups')->insertGetId(['status' => 'running', 'driver' => $driver, 'started_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
         $dir = (string) config('moxdop-backup.directory');
+        $tempDir = $this->tempDirectory();
+        $temp = null;
         $path = null;
         try {
-            if (! is_dir($dir) && ! mkdir($dir, 0700, true) && ! is_dir($dir)) {
-                throw new \RuntimeException('Yedek klasörü oluşturulamadı: '.$dir);
+            foreach ([$dir, $tempDir] as $folder) {
+                if (! is_dir($folder) && ! @mkdir($folder, 0700, true) && ! is_dir($folder)) {
+                    throw new \RuntimeException('Yedek klasörü oluşturulamadı: '.$folder);
+                }
             }
-            $path = $dir.'/moxdop-'.now()->format('Ymd-His-u').'-'.$driver.'.'.($driver === 'sqlite' ? 'sqlite.gz' : 'sql.gz');
-            $this->dump($driver, $cfg, $path);
-            @chmod($path, 0600);
-            $this->verify($driver, $path);
-            $bytes = (int) filesize($path);
+            $this->cleanTemp($tempDir);
+            $this->assertFreeSpace($driver, $cfg, $tempDir, $dir);
+            $name = 'moxdop-'.now()->format('Ymd-His-u').'-'.$driver.'.'.($driver === 'sqlite' ? 'sqlite.gz' : 'sql.gz');
+            // Written and verified in the temp folder first (BACKUP_TEMP_DIR, on the main disk by default), then
+            // moved next to the other backups — a failed / partial dump never lands among the kept files.
+            $temp = $tempDir.'/'.$name.'.part';
+            $this->dump($driver, $cfg, $temp);
+            @chmod($temp, 0600);
+            $this->verify($driver, $temp);
+            $bytes = (int) filesize($temp);
             if ($bytes < 20) {
                 throw new \RuntimeException('Yedek dosyası boş.');
             }
+            $path = $dir.'/'.$name;
+            $this->moveInto($temp, $path);
+            $temp = null;
             $remote = false;
             if (filled(config('moxdop-backup.remote_disk'))) {
                 $stream = fopen($path, 'rb');
@@ -50,10 +62,12 @@ final class SystemBackup
 
             return ['status' => 'succeeded', 'path' => $path, 'bytes' => $bytes, 'error' => null];
         } catch (Throwable $exception) {
-            if ($path !== null && is_file($path)) {
-                @unlink($path);
+            foreach ([$temp, $path] as $leftover) {
+                if ($leftover !== null && is_file($leftover)) {
+                    @unlink($leftover);
+                }
             }
-            $error = mb_substr($exception->getMessage(), 0, 1000);
+            $error = mb_substr($this->explain($exception, $tempDir), 0, 1000);
             DB::table('system_backups')->where('id', $id)->update(['status' => 'failed', 'error' => $error, 'finished_at' => now(), 'updated_at' => now()]);
             try {
                 $this->push->send('backup-failed:'.now()->toDateString(), 'Sistem yedeği alınamadı', mb_substr($error, 0, 180), 'high', route('operator.settings.system-health'), 12);
@@ -62,6 +76,108 @@ final class SystemBackup
 
             return ['status' => 'failed', 'path' => null, 'bytes' => null, 'error' => $error];
         }
+    }
+
+    public function tempDirectory(): string
+    {
+        $configured = trim((string) config('moxdop-backup.temp_directory', ''));
+
+        return rtrim($configured !== '' ? $configured : storage_path('app/backup-tmp'), '/');
+    }
+
+    /**
+     * Expected size of the compressed dump: database size × compression ratio, plus a safety margin.
+     *
+     * @param  array<string, mixed>  $cfg
+     */
+    public function estimatedBytes(string $driver, array $cfg): int
+    {
+        $raw = 0;
+        try {
+            $raw = match ($driver) {
+                'pgsql' => (int) (DB::selectOne('select pg_database_size(current_database()) as b')->b ?? 0),
+                'mysql', 'mariadb' => (int) (DB::selectOne('select coalesce(sum(data_length + index_length), 0) as b from information_schema.tables where table_schema = database()')->b ?? 0),
+                'sqlite' => is_file((string) ($cfg['database'] ?? '')) ? (int) filesize((string) $cfg['database']) : 0,
+                default => 0,
+            };
+        } catch (Throwable) {
+            $raw = 0;
+        }
+        $ratio = (float) config('moxdop-backup.compression_ratio', 0.35);
+
+        return (int) ceil($raw * $ratio) + (int) config('moxdop-backup.free_space_margin_mb', 200) * 1024 * 1024;
+    }
+
+    /**
+     * Fails before writing anything when the temp folder (or the backup folder on another disk) cannot hold the
+     * dump, with the required and the available space in the message.
+     *
+     * @param  array<string, mixed>  $cfg
+     * @param  (callable(string): (float|false))|null  $freeSpace
+     */
+    public function assertFreeSpace(string $driver, array $cfg, string $tempDir, string $dir, ?callable $freeSpace = null): void
+    {
+        $freeSpace ??= static fn (string $folder): float|false => @disk_free_space($folder);
+        $required = $this->estimatedBytes($driver, $cfg);
+        $folders = [$tempDir];
+        if ($this->device($tempDir) !== $this->device($dir)) {
+            $folders[] = $dir;
+        }
+        foreach ($folders as $folder) {
+            $free = $freeSpace($folder);
+            if ($free !== false && $free < $required) {
+                throw new \RuntimeException(sprintf(
+                    'Yedek için yeterli disk alanı yok: %s klasöründe gereken ~%s, boş %s. BACKUP_TEMP_DIR / MOXDOP_BACKUP_DIR ile daha büyük bir diske yönlendirin veya eski yedekleri silin.',
+                    $folder, $this->human($required), $this->human((int) $free)
+                ));
+            }
+        }
+    }
+
+    /** Leftover partial dumps of earlier crashed runs. */
+    private function cleanTemp(string $tempDir): void
+    {
+        foreach (glob($tempDir.'/moxdop-*.part') ?: [] as $file) {
+            @unlink($file);
+        }
+    }
+
+    private function moveInto(string $from, string $to): void
+    {
+        if ($this->device(dirname($from)) === $this->device(dirname($to)) && @rename($from, $to)) {
+            return;
+        }
+        if (! @copy($from, $to) || filesize($to) !== filesize($from)) {
+            @unlink($to);
+            throw new \RuntimeException('Yedek dosyası hedef klasöre taşınamadı: '.dirname($to));
+        }
+        @unlink($from);
+    }
+
+    private function device(string $folder): ?int
+    {
+        $stat = @stat($folder);
+
+        return is_array($stat) ? (int) $stat['dev'] : null;
+    }
+
+    /** A disk-full error names the folder and its free space in Turkish instead of the raw fwrite() warning. */
+    public function explain(Throwable $exception, string $tempDir): string
+    {
+        $message = $exception->getMessage();
+        if (preg_match('/errno=28|No space left on device|ENOSPC/i', $message) === 1) {
+            $free = @disk_free_space($tempDir);
+
+            return sprintf('Disk dolu: yedek yazılırken yer kalmadı (%s klasöründe boş %s). BACKUP_TEMP_DIR ile daha büyük bir diske yönlendirin. Ayrıntı: %s',
+                $tempDir, $free === false ? 'bilinmiyor' : $this->human((int) $free), mb_substr($message, 0, 300));
+        }
+
+        return $message;
+    }
+
+    private function human(int $bytes): string
+    {
+        return $bytes >= 1024 ** 3 ? number_format($bytes / 1024 ** 3, 1, ',', '.').' GB' : number_format($bytes / 1024 ** 2, 0, ',', '.').' MB';
     }
 
     /** @return array{last_success_at: ?string, hours: ?int, ok: bool, bytes: ?int, last_error: ?string, remote: bool} */
@@ -91,9 +207,14 @@ final class SystemBackup
             }
             $in = fopen($database, 'rb');
             $out = gzopen($path, 'wb6');
-            stream_copy_to_stream($in, $out);
-            fclose($in);
-            gzclose($out);
+            try {
+                while (! feof($in)) {
+                    $this->gzWrite($out, (string) fread($in, 1 << 20));
+                }
+            } finally {
+                fclose($in);
+                gzclose($out);
+            }
 
             return;
         }
@@ -104,14 +225,37 @@ final class SystemBackup
         };
         $out = gzopen($path, 'wb6');
         $process = new Process($command, null, $env, null, 3600);
-        $process->run(function (string $type, string $buffer) use ($out): void {
-            if ($type === Process::OUT) {
-                gzwrite($out, $buffer);
-            }
-        });
-        gzclose($out);
+        try {
+            // Streamed: dump output is compressed chunk by chunk, never held in memory or in another temp file.
+            $process->run(function (string $type, string $buffer) use ($out, $process): void {
+                if ($type === Process::OUT) {
+                    try {
+                        $this->gzWrite($out, $buffer);
+                    } catch (Throwable $error) {
+                        $process->stop(0);
+
+                        throw $error;
+                    }
+                }
+            });
+        } finally {
+            gzclose($out);
+        }
         if (! $process->isSuccessful()) {
             throw new \RuntimeException('Döküm başarısız: '.mb_substr(trim($process->getErrorOutput()), 0, 500));
+        }
+    }
+
+    /** @param  resource  $out */
+    private function gzWrite($out, string $buffer): void
+    {
+        if ($buffer === '') {
+            return;
+        }
+        $written = @gzwrite($out, $buffer);
+        if ($written === false || $written === 0) {
+            $error = error_get_last()['message'] ?? '';
+            throw new \RuntimeException('Yedek yazılamadı (No space left on device?): '.$error);
         }
     }
 

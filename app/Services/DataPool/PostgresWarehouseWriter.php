@@ -25,6 +25,9 @@ final class PostgresWarehouseWriter implements WarehouseWriter
     /** Stored value of an empty provider dimension that is part of the natural key. */
     public const EMPTY_DIMENSION = '(empty)';
 
+    /** Stored value of a natural-key dimension the provider did not return (GA4 semantics). */
+    public const NOT_SET_DIMENSION = '(not set)';
+
     public function __construct(
         private readonly DataPoolStorageRegistry $registry,
         private readonly PartitionManager $partitions,
@@ -79,14 +82,17 @@ final class PostgresWarehouseWriter implements WarehouseWriter
             }
         }
 
-        if (($physical['partition_strategy'] ?? 'NONE') === 'RANGE_MONTHLY') {
-            if ($dates === []) {
-                throw new RuntimeException("Partitioned dataset [{$batch->datasetId}] requires reporting_date on records");
-            }
+        $declaredPartitioned = ($physical['partition_strategy'] ?? 'NONE') === 'RANGE_MONTHLY';
+        // A converted table is a view; its rows live in the compact fact table, which is always monthly partitioned
+        // even when the logical dataset is declared NONE (all Search Console facts). Missing that made every write
+        // for a month without a partition fail with "no partition of relation gsc_f_… found for row".
+        $target = $this->compact->isCompact($table) ? (string) $this->compact->spec($table)['fact'] : $table;
+        if ($declaredPartitioned && $dates === []) {
+            throw new RuntimeException("Partitioned dataset [{$batch->datasetId}] requires reporting_date on records");
+        }
+        if ($dates !== []) {
             try {
-                // A converted table is a view; its rows live in the compact fact table.
-                $partitioned = $this->compact->isCompact($table) ? (string) $this->compact->spec($table)['fact'] : $table;
-                $this->partitions->ensureRange($partitioned, min($dates), max($dates));
+                $this->partitions->ensureForWrite($target, $declaredPartitioned, min($dates), max($dates));
             } catch (Throwable $e) {
                 $this->markFailed($batch, count($prepared), $e->getMessage());
 
@@ -181,6 +187,11 @@ final class PostgresWarehouseWriter implements WarehouseWriter
             // kept apart from the provider's "(not set)".
             if ($textDimension && ! $allowEmpty && ($record[$key] ?? null) === '') {
                 $record[$key] = self::EMPTY_DIMENSION;
+            }
+            // A dimension the provider did not return at all (GA4 row without a pagePathPlusQueryString value) is
+            // GA4's "(not set)"; one such row must not fail the whole write and stall the dataset.
+            if ($textDimension && ! $allowEmpty && ($record[$key] ?? null) === null) {
+                $record[$key] = self::NOT_SET_DIMENSION;
             }
             if (! array_key_exists($key, $record) || $record[$key] === null || ($record[$key] === '' && ! $allowEmpty)) {
                 throw new InvalidArgumentException("CONTRACT_MISMATCH: missing natural key [{$key}] at record {$index} for [{$batch->datasetId}]");

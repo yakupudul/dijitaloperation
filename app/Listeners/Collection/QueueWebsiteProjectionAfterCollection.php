@@ -18,8 +18,7 @@ final class QueueWebsiteProjectionAfterCollection
         }
 
         $datasetIds = $run->datasetRuns()->pluck('dataset_contract_id');
-        $isProjectionSource = $datasetIds->contains(static fn (mixed $datasetId): bool =>
-            str_starts_with((string) $datasetId, 'website_')
+        $isProjectionSource = $datasetIds->contains(static fn (mixed $datasetId): bool => str_starts_with((string) $datasetId, 'website_')
             || str_starts_with((string) $datasetId, 'gsc_')
             || str_starts_with((string) $datasetId, 'ga4_')
         );
@@ -52,6 +51,9 @@ final class QueueWebsiteProjectionAfterCollection
             $assetIds = $assetIds->merge($boundWebsiteIds);
         }
 
+        // Only websites attached to a Brand have a projection (unbound resources are collected for queries only).
+        $assetIds = DigitalAsset::query()->whereIn('id', $assetIds->map(static fn (mixed $id): int => (int) $id)->unique()->all())
+            ->whereNotNull('brand_id')->pluck('id');
         foreach ($assetIds->map(static fn (mixed $id): int => (int) $id)->unique()->values() as $assetId) {
             RebuildWebsiteProjectionJob::dispatch(
                 websiteAssetId: $assetId,

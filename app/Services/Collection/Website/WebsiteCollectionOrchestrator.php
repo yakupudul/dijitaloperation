@@ -78,13 +78,18 @@ final class WebsiteCollectionOrchestrator
 
         $lock = Cache::lock('website-collection-admission:'.$asset->id, 60);
         if (! $lock->get()) {
+            // A concurrent trigger (sitemap watch, WordPress event, operator) is admitting a run right now: that run
+            // does the work.
+            if (($active = $this->activeRun($asset)) instanceof CollectionRun) {
+                return $active;
+            }
             throw new RuntimeException('Website collection admission is already in progress.');
         }
 
         try {
-            if (CollectionRun::query()->where('digital_asset_id', $asset->id)
-                ->whereIn('status', ['queued', 'running', 'retrying', 'cancellation_requested'])->exists()) {
-                throw new RuntimeException('A collection is already active for this website.');
+            // Already collecting: a no-op that returns the active run instead of an exception thrown at jobs / users.
+            if (($active = $this->activeRun($asset)) instanceof CollectionRun) {
+                return $active;
             }
 
             return $this->starter->start(new StartCollectionRequest(
@@ -110,6 +115,12 @@ final class WebsiteCollectionOrchestrator
         } finally {
             $lock->release();
         }
+    }
+
+    public function activeRun(DigitalAsset $asset): ?CollectionRun
+    {
+        return CollectionRun::query()->where('digital_asset_id', $asset->id)
+            ->whereIn('status', ['queued', 'running', 'retrying', 'cancellation_requested'])->latest('id')->first();
     }
 
     private function hasPairedWordPressConnector(DigitalAsset $asset): bool

@@ -5,6 +5,7 @@ namespace App\Services\CollectionScheduler;
 use App\Services\DataPool\Freshness\CollectableEndResolver;
 use App\Services\DataPool\Freshness\DataFreshnessPolicyLoader;
 use App\Support\CollectionScheduler\LatestSafeReportingWindow;
+use App\Support\Time\SafeTimezone;
 use DateTimeInterface;
 
 /**
@@ -67,7 +68,7 @@ final class LatestSafeReportingWindowResolver
             }
         }
 
-        $tz = $reportingTimezone;
+        $tz = SafeTimezone::normalizeNullable($reportingTimezone, 'UTC');
         if ($tz === null || $tz === '') {
             $source = (string) ($policy['timezone_source'] ?? '');
             $tz = $source === 'gsc_reporting_date_semantics' ? 'America/Los_Angeles' : 'UTC';

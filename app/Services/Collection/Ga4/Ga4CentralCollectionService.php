@@ -22,6 +22,7 @@ use App\Services\Collection\StartCollectionService;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\ProviderRegistry;
+use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -205,6 +206,19 @@ final class Ga4CentralCollectionService
                     $familyCheckpoints[(string) $dataset->request_family_id] = $dataset->checkpoint ?? [];
                 }
 
+                // A dataset that keeps failing (e.g. ga4_page_content_daily) must not freeze the property totals:
+                // every repair also brings ga4_property_daily up to date from its own coverage.
+                $property = Ga4RequestFamilyCatalog::FAMILY_PROPERTY_DAILY;
+                if (! array_key_exists($property, $familyRanges)) {
+                    $covered = app(ResourceAutomationService::class)->coverageEnd($resource->id, 'GA4', $property);
+                    $restatementStart = $closedEnd->subDays(self::RESTATEMENT_DAYS - 1)->toDateString();
+                    $familyRanges[$property] = [
+                        'start' => $covered ? min($restatementStart, CarbonImmutable::parse($covered)->addDay()->toDateString()) : $closedEnd->subDays(self::INITIAL_DAYS - 1)->toDateString(),
+                        'end' => $closedEnd->toDateString(),
+                    ];
+                    $familyCheckpoints[$property] = [];
+                }
+
                 $dateRanges = collect($familyRanges)->filter(fn ($range): bool => is_array($range));
                 $start = $dateRanges->pluck('start')->filter()->sort()->first();
                 $end = $dateRanges->pluck('end')->filter()->sortDesc()->first();
@@ -216,7 +230,7 @@ final class Ga4CentralCollectionService
                     'resource' => $resource,
                     'mode' => $latest->status === CollectionRunStatus::Cancelled ? 'resume' : 'repair',
                     'timezone' => $timezone,
-                    'families' => $retryable->pluck('request_family_id')->map(fn ($id): string => (string) $id)->unique()->values()->all(),
+                    'families' => array_keys($familyRanges),
                     'family_ranges' => $familyRanges,
                     'family_checkpoints' => $familyCheckpoints,
                     'default_range' => $start && $end ? ['start' => $start, 'end' => $end] : null,
@@ -284,7 +298,7 @@ final class Ga4CentralCollectionService
         $propertyContext = $this->metadata->propertyContext($integration, $propertyResourceName);
 
         $timezone = is_array($propertyContext) && filled($propertyContext['timeZone'] ?? null)
-            ? (string) $propertyContext['timeZone']
+            ? SafeTimezone::normalize((string) $propertyContext['timeZone'], 'UTC')
             : 'UTC';
 
         try {

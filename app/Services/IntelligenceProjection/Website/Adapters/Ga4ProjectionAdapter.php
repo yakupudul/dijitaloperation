@@ -5,6 +5,7 @@ namespace App\Services\IntelligenceProjection\Website\Adapters;
 use App\Contracts\IntelligenceCore\WebsiteProjectionSourceAdapter;
 use App\Enums\IntelligenceCore\BusinessActionSignalClass;
 use App\Enums\IntelligenceCore\IntelligenceSourceClass;
+use App\Models\DigitalAsset;
 use App\Models\IntelligenceCore\IntelligenceBusinessActionAlias;
 use App\Services\Ga4\Ga4SpecialistBindingResolver;
 use App\Services\IntelligenceCore\Identity\PageIdentityResolver;
@@ -13,6 +14,7 @@ use App\Support\IntelligenceCore\IntelligenceSourceReference;
 use App\Support\IntelligenceCore\IntelligenceTimeContext;
 use App\Support\IntelligenceProjection\WebsiteProjectionContext;
 use App\Support\IntelligenceProjection\WebsiteProjectionContribution;
+use App\Support\Time\SafeTimezone;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -60,7 +62,7 @@ final class Ga4ProjectionAdapter implements WebsiteProjectionSourceAdapter
 
         $start = $context->periodStart->toDateString();
         $end = $context->periodEnd->toDateString();
-        $timezone = $binding->timezone ?: 'UTC';
+        $timezone = SafeTimezone::normalize($binding->timezone ?: 'UTC', 'UTC');
         $landing = Schema::hasTable('ga4_landing_page_daily')
             ? $this->landingAggregates($binding->externalResourceId, $binding->propertyId, $start, $end)
             : [];
@@ -460,7 +462,7 @@ final class Ga4ProjectionAdapter implements WebsiteProjectionSourceAdapter
     }
 
     /** @param array<string,mixed> $aggregate */
-    private function contentUrl(\App\Models\DigitalAsset $asset, array $aggregate, string $path): ?string
+    private function contentUrl(DigitalAsset $asset, array $aggregate, string $path): ?string
     {
         $host = trim((string) ($aggregate['host_name'] ?? ''));
         if ($host === '') {

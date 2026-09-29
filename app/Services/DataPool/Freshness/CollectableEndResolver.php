@@ -4,6 +4,7 @@ namespace App\Services\DataPool\Freshness;
 
 use App\Enums\DataPool\DatasetCollectionMode;
 use App\Services\Collection\Support\CollectionClock;
+use App\Support\Time\SafeTimezone;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 
@@ -76,7 +77,7 @@ final class CollectableEndResolver
     private function resolveTimezone(array $policy, ?string $reportingTimezone): string
     {
         if (is_string($reportingTimezone) && $reportingTimezone !== '') {
-            return $reportingTimezone;
+            return SafeTimezone::normalize($reportingTimezone, 'UTC');
         }
 
         $source = (string) ($policy['timezone_source'] ?? '');

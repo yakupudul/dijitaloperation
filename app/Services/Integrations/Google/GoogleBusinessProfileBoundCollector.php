@@ -52,6 +52,9 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
         private readonly GoogleApiClient $client,
     ) {}
 
+    /** Datasets pulled for a location that serves no operational asset (query pipeline input only). */
+    public const array QUERY_DATASETS = ['gbp_search_keywords_monthly'];
+
     public function capability(): string
     {
         return self::CAPABILITY;
@@ -216,6 +219,11 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
         $steps = ['gbp_location', 'gbp_performance_daily', 'gbp_search_keywords_monthly',
             'gbp_reviews', 'gbp_media', 'gbp_posts', 'gbp_attributes', 'gbp_services',
             'gbp_place_actions', 'gbp_verification'];
+        // A query-only run (location not bound to an operational asset) pulls just the search keywords.
+        $only = (array) data_get($run->metadata, 'only_datasets', []);
+        if ($only !== []) {
+            $steps = array_values(array_intersect($steps, $only));
+        }
         $next = collect($steps)->first(fn ($key) => ! array_key_exists($key, $datasets) || ($datasets[$key]['status'] ?? '') === 'retrying');
         if ($next === null) {
             return $run;
