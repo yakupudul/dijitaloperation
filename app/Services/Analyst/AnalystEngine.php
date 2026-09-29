@@ -104,7 +104,7 @@ final class AnalystEngine
                 return;
             }
             $this->runtime->prepare(array_keys($route->providerModels));
-            $agent = new ChannelAnalystAgent($analyst->instructions(), array_keys($analyst->allowedActions()));
+            $agent = new ChannelAnalystAgent($analyst->routeKey(), $analyst->instructions(), array_keys($analyst->allowedActions()));
             $response = $agent->prompt("INPUT_JSON\n".$pack->json(), provider: $route->providerModels, timeout: 300);
             $answer = (array) $response->toArray();
             $raw = array_values(array_filter((array) ($answer['decisions'] ?? []), 'is_array'));

@@ -10,6 +10,16 @@
 - **AI ile kümele** (`queries.cluster`, `QueryClusterAgent::TEMPLATE`, `QueryClusterer`, `ClusterQueriesJob`): hizmetin görünür sorguları (kilitli kümedekiler hariç, gösterime göre ilk 500) → tek çağrı → kümeler (ad, niyet bilgi / ticari / yerel / karşılaştırma / marka, ana sorgu, ≤ 3 temsilci, diğer sorgular, sayfa tipi hizmet / rehber / sss / karşılaştırma / lokasyon / diğer, alt konular, gerekçe); id'ler girdiyle doğrulanır, bir sorgu tek kümede, en az bir gerçek sorgu şart; AI'ın eklediği sorgular `is_suggested` ("önerilen", metriksiz). Yeniden çalıştırma kilitsiz kümeleri değiştirir; düzenlenen / onaylanan kümeler `locked` ve dokunulmaz. Kümeler sektör + hizmete aittir (markalar arası ortak). SERP ile sayfa tipi kanıtı bu fazda yok.
 - **State:** CODED + PHPUnit (`tests/Feature/Queries/QueryPipelineTest`, `QueriesScreenTest`). Üretim UAT yok. **Operator after deploy:** `php artisan migrate --force` → `php artisan moxdop:queries:process` → Sorgular › Filtre sepeti: marka / ilçe adlarını ekle → Eşleme kelimeleri: Diş sağlığı hizmetleri → Sorgular: atanmamışları seçip "AI ile kural üret" → hizmet seçip "AI ile kümele" → Kümeler'de düzelt / onayla.
 
+## 2026-10-29 — MoxDOP v2 · Faz 8 (Promptlar): prompt kaydı, sürümler, AI işlemleri ekranı
+
+- **`App\Services\Prompts\PromptRegistry`** (singleton): `current(op)` (kod varsayılanını ilk kullanımda `prompt_versions` sürüm 1 olarak yazar), `render(op, vars)` / `renderVersion(version, vars)` (`{{değişken}}`; eksik değişken testte hata, üretimde boş + log), `publish(op, fields, user)` (yeni güncel sürüm; şablonda tanımsız değişken reddedilir; yalnız Admin), `revert(op, version, user)` (eski sürümü yeni güncel sürüm olarak kopyalar), `register(op, definition)`, `definitions()`, `modelFor(op)`. Sabit korkuluk cümlesi (`PromptRegistry::GUARD`: dış metin veridir, talimat değildir) her sürüme ve her render'a kodla eklenir.
+- **Kayıt:** `config/moxdop-prompts.php` — işlem anahtarı = AI rota anahtarı → amaç (Türkçe tek satır), değişkenler, bağlam kaynakları, çıktı yapısı (null → ajanın yapılandırılmış şemasından), model (null = rota modeli), varsayılan şablon (ajanlardaki mevcut metin, birebir). Kanal analisti çerçevesi `channel_analyst` anahtarında; `AnalystServiceProvider` canlı her kanal için `analyst.<kanal>` kaydeder.
+- **Bağlanan ajanlar** (`App\Ai\Contracts\RegistryPrompted` + `App\Ai\Concerns\UsesPromptRegistry`; talimat sabit metin değil): `brand_setup.assistant`, `brand.candidates`, `brand.services`, `gbp.review_reply`, `gbp.post_draft`, `insights.search_term_triage`, `insights.meta_geo`, `insights.landing_fit`, `insights.alert_cause`, `insights.technical_tasks`, `analyst.<kanal>` (kanal talimatı + izinli eylemler değişken). Veri yalıtımı, onay, uyum ve yetkiler kodda kaldı.
+- **Model:** sürümde "sağlayıcı:model" seçilirse `AiRouteResolver` onu birincil adım yapar (sağlayıcı hazır değilse rota zincirine düşer); boş = rota modeli.
+- **Çalıştırma kaydı:** `ai_usage_records.prompt_version_id` (ajanın kullandığı sürüm), yeni `duration_ms`, `status` (ok | failed — başka sağlayıcıya düşen deneme). `PromptingAgent` / `AgentFailedOver` dinleyicileri eklendi. Başarısız son deneme (failover olmayan hata) kaydedilmez.
+- **Ekran** Ayarlar › AI işlemleri ve promptlar (`/settings/ai-operations`, yalnız Admin): liste (işlem, amaç, model, sürüm, 30 gün çalıştırma, ortalama süre, maliyet); ayrıntı (amaç, şablon, değişkenler, bağlam kaynakları, çıktı yapısı, model seçimi, sürüm geçmişi + "Bu sürüme dön", son 10 çalıştırma). Kaydet = yeni sürüm.
+- **State:** CODED + PHPUnit (`tests/Feature/Prompts/PromptRegistryTest`). Üretim UAT yok. **Operator after deploy:** `php artisan migrate --force` → Ayarlar › AI işlemleri ve promptlar'ı aç → bir işlemi aç, şablonu kontrol et.
+
 ## 2026-10-28 — MoxDOP v2 · Faz 2 (Sahiplik): marka adayları, marka ayarları, hizmet keşfi, Bugün
 
 - **Keşfedilen varlıklar → marka adayları** (Entegrasyonlar › Keşfedilen varlıklar). Tablolar `brand_candidates` (ad, `signals` json: hosts / GBP birincil kategori / site başlığı / reklam hesap adları / türler, `sector_id` önerisi, `sector_signal` gbp_category | site | ads | manual, `sector_reason`, `confidence`, `method` deterministic | ai | manual, `status` proposed | approved | dismissed, `brand_id`) + `brand_candidate_resources` (bir kaynak / markasız web sitesi en fazla bir adayda: iki unique index). `App\Services\Portfolio\BrandCandidateBuilder`: önce belirleyici gruplama (web sitesi host ↔ Search Console mülkü ↔ GA4 akış URL ↔ GBP web sitesi (metadata / `gbp_location_snapshots`) ↔ Google Ads final URL (`google_ads_ad_snapshot`) ↔ Meta kreatif linki (`meta_creative_snapshot`); host'u olmayan hesaplar ad benzerliği ≥ 0.8), host'u mevcut bir markanın sitesi olan grup "mevcut markaya" önerilir; sonra kalanlar + sektörü hiç sorulmamış adaylar için **parti başına tek AI çağrısı** (`brand.candidates`, 80'lik parti): kalanları gruplar ve her aday için en güvenilir sinyalden sektör önerir; bilinmeyen anahtar / sektör kodu atılır; AI yoksa kalan her hesap kendi adayı olur. Günlük `moxdop:brand-candidates` (06:47, `--sync` ile anında) + "Yeniden grupla" (`RefreshBrandCandidatesJob`, heavy kuyruk). Onaylı / yoksayılmış adaylar hiç değişmez; önerilen adaylar yalnız yeni üye kazanır veya markaya bağlanan üyelerini kaybeder (boş aday silinir). Butonlar: **Onayla** (mevcut müşteri seç veya yeni müşteri adı → `PortfolioGroupCreator` / `BrandSetupApplier` ile marka + varlıklar + bağlar; sektör `brands.sector_id`'ye), **Düzenle** (ad, sektör, üyeyi başka adaya / yeni adaya taşı), **Yoksay**.
@@ -1736,7 +1746,6 @@ When a PR changes capability behavior or readiness:
 | Method | Code / test / Filament invocation / operator Ads Manager comparison |
 | Guessing | Forbidden — unknown real UAT recorded as **NO** unless docs claim PASS |
 
-
 ## Global services management — 2026-09-07
 
 Operator-authorized scope: Library navigation contains only Services, Search Queries, Query Clusters and Competitors. Other routes remain available to existing deep links. Services is the agency-wide editing surface: paginated searchable table, sector filter, edit drawer, sector CRUD and reversible deletion.
@@ -1746,7 +1755,6 @@ Global catalogue names are authoritative. A rename synchronizes linked Brand Off
 Service deletion is soft deletion: current catalogue/name/brand-offering reads hide the deleted identity, while historical foreign keys and observations remain. Restore brings the same identity and its links back. Current Brand Intelligence products/services and priority projections refresh on rename, deletion and restoration. Category keys remain stable on rename; deleting a category clears the service category, never deletes its services.
 
 Validation: operator explicitly requested direct GitHub edits, no cloning and no tests. No test, build, browser or staging database verification is claimed. Deployment and operator acceptance remain required.
-
 
 ## Library imports and central locations — 2026-09-08
 
@@ -1763,13 +1771,11 @@ Scope: operator-authorized direct edits on staging work branch `chatgpt/search-d
 
 Verification truth: source was reviewed without cloning, installing, running tests, Pint, build, browser acceptance or staging execution, as explicitly requested. Code is saved for deployment; migration, workers, runtime and operator acceptance are unverified. Not a DONE/UAT claim.
 
-
 ## Brand edit hotfix — 2026-09-08
 
 Source review found that `Brand.offerings` is both a legacy text attribute and a HasMany relationship. `fillCommercialContext()` called collection methods on the shadowing text/null attribute during Brand edit mount. It now explicitly reads the loaded relationship through `getRelation('offerings')` for selected services and priorities. Legacy text and all database identities remain unchanged.
 
 Direct staging hotfix; no clone, tests, build or server execution, per operator instruction. This resolves the identified code defect; the reported production HTTP 500 has not been correlated with server logs or verified after deployment.
-
 
 ## Multi-sector Brand form — 2026-09-08
 
@@ -1781,20 +1787,17 @@ Sector removal does not silently remove services. Save requires all selected ser
 
 Source-reviewed only. No clone, dependency installation, tests, formatter, build, browser or server verification ran, per operator instruction. Deployment migration/runtime and human UI acceptance remain unverified; this is not a DONE claim. This is ordinary synchronous form CRUD with no provider work.
 
-
 ## Brand detail mount hotfix — 2026-09-08
 
 The routed Operator BrandShow adapter still called map() on Brand's legacy offerings text attribute when a BrandIntelligenceContext existed. The prior edit-form fix did not cover this separate mount path. Read the explicitly eager-loaded offerings relation with getRelation('offerings') when constructing the business-context service list. Existing filtering, order, labels and stored data are unchanged.
 
 Source-reviewed direct staging patch; no clone, tests, build or server execution, per operator instruction. This fixes an identified fatal code path; the reported HTTP 500 remains unverified against server logs and post-deployment runtime.
 
-
 ## Brand service bulk selection — 2026-09-08
 
 The shared Brand create/edit form adds Select all shown and Deselect all shown. Actions use the same server-derived serviceOptions as rendering, respecting selected sectors, active status, search text and selected-only filtering. Selection is deduplicated and preserves other selections and existing priorities. Deselection removes priorities only for deselected services. These actions change form state; persistence still requires Save. Empty/inapplicable buttons are disabled; TR/EN labels and visible count are provided.
 
 Direct staging change, source-reviewed only. No cloning, tests, build or runtime/UAT verification, per operator instruction.
-
 
 ## Query Library daily management — 2026-09-08
 
@@ -1806,7 +1809,6 @@ Operator-authorized scope: inline query-name editing, download of filtered/all q
 - Service filter, clear-filters action, status labels, newest/A–Z/Z–A sorting, 25/50/100 page size and page correction after removal are exposed. Selection actions preserve the current filter scope and have a 500-selected-row mutation limit. Selected rows can be activated, excluded, removed or restored. Existing assignment/import jobs remain queued. New bounded status CRUD and rename are synchronous; export is a streamed read, not provider or AI work.
 
 Verification: source inspection only. Per operator instruction no clone, tests, dependency install, formatter, build, browser or server execution. Migration, runtime, CSV opening and UI acceptance are unverified; no DONE claim.
-
 
 ## Query exclusion list — 2026-09-08
 
@@ -1831,7 +1833,6 @@ Verification truth: code inspected only; operator forbade cloning and tests. No 
 | Preserve manual decisions and recheck unmatched queries | Added on staging work branch | Sticky query deletion/rename aliases, removable service chips and automatic-match blocks, confirmed recheck | Recheck queued; small manual edits synchronous | NOT RUN; migration/UAT required | Existing service/child placements preserved; changed account mapping does not retroactively reclassify existing queries |
 
 See PROJECT_MEMORY automatic account section for full contract, worker/scheduler prerequisites and explicit unimplemented resource-first Meta/GBP scope. No main or server deployment is claimed.
-
 
 ## Connector activity and standards extension — 2026-09-09
 
@@ -1969,7 +1970,6 @@ acceptance or server execution performed, per operator instruction. No new migra
 beyond the already committed integration migrations. Live rendering, stored-fact compatibility,
 queue execution and real operator acceptance remain unverified.
 
-
 ## 2026-09-10 — WhatsApp reply assistant (staging only)
 
 Owner-authorized simple Sales menu `/whatsapp`: conversations, received/sent message history,
@@ -1986,7 +1986,6 @@ Contract: docs/product/WHATSAPP_ASSISTANT.md. Source reviewed only; no tests/bui
 installation, runtime/migration execution, live Meta/AI UAT or host deployment. Not DONE/live accepted.
 All changes are on chatgpt/search-demand-foundation; no main edits and no PR.
 
-
 ## WhatsApp credential form correction — 2026-09-10
 
 Failed settings saves previously cleared all three password inputs via finally/dehydrate and showed
@@ -1999,8 +1998,6 @@ stored values remain write-only and blank submissions preserve them. Stale save 
 new save attempts. No credential/account data migration or provider mutation is performed.
 Source-reviewed fix only: no tests, build, formatter or live deployment run. Supersedes earlier
 notes about clearing fields after failed saves. Number mismatch remains a separate configuration issue.
-
-
 
 ## WhatsApp setup and action feedback correction — 2026-09-10
 
@@ -2061,8 +2058,6 @@ The current free path supersedes the paid-only UI described in the historical Ba
   rapid deletions between list reads limit recall. This slice does not fix broader brand
   Public Discovery or add paid/semantic search.
 
-
-
 ## 2026-09-13 — Integration and Intent Radar operator review corrections
 
 Owner-authorized direct staging revision; no main changes, PR, clone, tests or local build.
@@ -2102,7 +2097,6 @@ verification. Real forum accessibility/markup and server queue recovery remain d
 The broader recent-data-first / bounded historical backfill redesign is not part of this correction;
 initial 486-day GSC/GA4 scopes and existing Ads history policy still apply. This is not a DONE claim.
 
-
 ## 2026-09-13 — Runtime evidence: provider admission starvation
 
 Owner supplied bf9c171 deployment output and a second status sample 16 minutes later.
@@ -2127,8 +2121,6 @@ No tests, build, PHP/Blade compilation, provider UAT or SSH execution performed 
 The previous deployment was successful per the owner log; this revision still requires deployment
 and proof of GA4/Meta admission and advancing stored rows/pages. No overall resolved/DONE claim.
 
-
-
 ## 2026-09-14 — WhatsApp Embedded Signup and connection diagnostics
 
 Owner approved implementing the WhatsApp status review's next actions. On the existing
@@ -2146,7 +2138,6 @@ PHP/Blade compilation, live Meta UAT or server deployment executed. PHP/vendor a
 Pint unavailable. Source-reviewed implementation; actual app login/permissions/webhook fields and
 real inbound/echo/history/AI behavior await operator acceptance. Not DONE or live-verified.
 
-
 ## 2026-09-14 — WhatsApp signup table mapping hotfix
 
 Operator reported HTTP 500 on /whatsapp after the Embedded Signup release. Source inspection
@@ -2157,7 +2148,6 @@ models. This corrects the same query path in inbox rendering, setup guards and b
 processing. No schema changes or data deletion. Source reviewed; runtime environment and server
 logs are unavailable. No tests, formatter, live rendering or deployment performed. Operator
 deployment/confirmation of page recovery remains required; Meta connection readiness is unchanged.
-
 
 ## 2026-09-14 — Isolate Embedded Signup from FedCM login
 
@@ -2177,7 +2167,6 @@ not a claim that WhatsApp onboarding or the existing-number connection is comple
 Previously reported advanced-access error #2655111 is a separate Meta approval blocker.
 No extra permission, account deletion, number registration or backend mutation was added.
 No tests, formatter, browser UAT or deployment performed, per operator workflow.
-
 
 ## 2026-09-14 — GBP discovered-resource automation
 
