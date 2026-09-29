@@ -7,6 +7,7 @@ use App\Jobs\CheckSitemapChangesJob;
 use App\Jobs\Collection\ExecuteDatasetRunJob;
 use App\Jobs\CollectMetaGeoResultsJob;
 use App\Jobs\Gbp\SyncGbpSuggestionsJob;
+use App\Jobs\GoogleAds\SyncGoogleAdsSuggestionsJob;
 use App\Jobs\Meta\SyncMetaSuggestionsJob;
 use App\Jobs\Ops\QueueHeartbeatProbeJob;
 use App\Jobs\RefreshBrandCandidatesJob;
@@ -691,3 +692,16 @@ Schedule::command('moxdop:meta:suggestions')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(30)
     ->name('meta-suggestions-daily');
+
+// Faz 5: Google Ads sistem kontrolleri (≤10 kontrol → öneriler; AI yok), operasyonel markalar.
+Artisan::command('moxdop:google-ads:suggestions', function (): void {
+    $ids = DigitalAsset::query()->operational()->where('type', 'google_ads')->whereNotNull('brand_id')->pluck('digital_assets.id');
+    $ids->each(fn ($id) => SyncGoogleAdsSuggestionsJob::dispatch((int) $id));
+    $this->info('Kuyruğa alınan Google Ads hesabı: '.$ids->count());
+})->purpose('Refresh the Google Ads system-check suggestions of operational brands.');
+
+Schedule::command('moxdop:google-ads:suggestions')
+    ->dailyAt('07:07')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(30)
+    ->name('google-ads-suggestions-daily');

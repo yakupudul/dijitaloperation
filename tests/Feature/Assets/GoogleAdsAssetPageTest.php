@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Assets;
 
-use App\Livewire\Operator\GoogleAds\LandingPageControlPanel;
 use App\Livewire\Operator\GoogleAds\OverviewPage;
 use App\Models\Brand;
 use App\Models\Customer;
@@ -16,8 +15,8 @@ use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
- * Google Ads asset page: the landing-page panel is reachable as its own tab and the Search tab never calls
- * Google Ads while rendering (live fallback is opt-in).
+ * Google Ads asset page (Faz 5 tabs): every tab renders for an unbound account, retired tab keys land on the new
+ * tabs, and the search-term tab never calls Google Ads while rendering.
  */
 final class GoogleAdsAssetPageTest extends TestCase
 {
@@ -37,41 +36,28 @@ final class GoogleAdsAssetPageTest extends TestCase
         $this->asset = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'google_ads', 'name' => 'Örnek Ads']);
     }
 
-    public function test_landing_pages_tab_renders_the_landing_panel(): void
-    {
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'landing_pages'])
-            ->assertSet('tab', 'landing_pages')
-            ->assertSeeLivewire(LandingPageControlPanel::class)
-            ->assertSee(app()->getLocale() === 'tr' ? 'Açılış Sayfaları' : 'Landing pages');
-    }
-
-    public function test_every_tab_renders_in_turkish_without_retired_tabs(): void
+    public function test_every_tab_renders_in_turkish_for_an_unbound_account_and_old_tab_keys_map_to_new_tabs(): void
     {
         app()->setLocale('tr');
 
-        foreach (['overview', 'campaigns', 'search_demand', 'performance', 'budget_bidding', 'measurement', 'landing_pages', 'changes', 'data_connection', 'pmax', 'shopping', 'video'] as $tab) {
+        foreach (['overview', 'todo', 'terms', 'strategy', 'measurement', 'analysis', 'settings'] as $tab) {
             Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => $tab])
                 ->assertOk()
-                ->assertDontSee('Optimizasyon')
-                ->assertDontSee('Senaryo Planlayıcı')
-                ->assertDontSee('Budget Opportunity Map');
+                ->assertSet('tab', $tab)
+                ->assertSee('Google Ads hesabı bağlı değil')
+                ->assertDontSee('Optimizasyon');
         }
-
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id])
-            ->assertSee('Dikkat gerektirenler')
-            ->assertSee('En çok harcayan kampanyalar')
-            ->assertDontSee('Veri sağlığı');
-
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'optimization'])
-            ->assertSet('tab', 'advisor')
-            ->assertSee('Google önerileri');
+        foreach (['landing_pages' => 'todo', 'optimization' => 'todo', 'search_demand' => 'terms', 'budget_bidding' => 'strategy', 'conversions' => 'measurement',
+            'campaigns' => 'analysis', 'auction_insights' => 'analysis', 'pmax' => 'analysis', 'data_connection' => 'settings', 'unknown' => 'overview'] as $old => $new) {
+            Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => $old])->assertOk()->assertSet('tab', $new);
+        }
     }
 
     public function test_search_tab_does_not_call_google_ads_while_rendering(): void
     {
         config(['moxdop-google-ads-collector.search_live_fallback' => false]);
 
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'search_demand'])
+        Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'terms'])
             ->assertOk();
 
         Http::assertNothingSent();

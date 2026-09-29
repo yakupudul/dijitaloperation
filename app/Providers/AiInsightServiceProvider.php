@@ -4,8 +4,6 @@ namespace App\Providers;
 
 use App\Services\Ai\Insights\AiInsightService;
 use App\Services\Insights\Definitions\AlertCauseInsight;
-use App\Services\Insights\Definitions\LandingFitInsight;
-use App\Services\Insights\Definitions\SearchTermTriageInsight;
 use App\Services\Insights\Definitions\TechnicalTasksInsight;
 use App\Support\Ai\AiDefaultSteps;
 use App\Support\Ai\AiRouteRegistry;
@@ -15,9 +13,7 @@ use Illuminate\Support\ServiceProvider;
 final class AiInsightServiceProvider extends ServiceProvider
 {
     private const array DEFINITIONS = [
-        SearchTermTriageInsight::class => ['Search Term Triage', 'advisor', 'classification', 'Sorts the last 30 days of Google Ads search terms into irrelevant (negative candidates), to review and fine, using the brand services and areas.'],
         AlertCauseInsight::class => ['Alert Root Cause', 'alerts', 'analysis', 'Compares the daily numbers of all channels around an alert to name its most likely cause.'],
-        LandingFitInsight::class => ['Ad ↔ Landing Page Fit', 'advisor', 'analysis', 'Checks whether ads, keywords and crawled landing pages promise the same thing.'],
         TechnicalTasksInsight::class => ['Website Developer Task List', 'website', 'analysis', 'Turns the website technical observations into a prioritised developer task list.'],
     ];
 

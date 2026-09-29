@@ -56,6 +56,7 @@ Google Ads kampanya / bütçe / durum değişikliği **yoktur**; öneriler Googl
 | `40 4 * * * (UTC)` | `moxdop:gbp:purge-expired` |
 | `52 6 * * * (Europe/Istanbul)` | `moxdop:gbp:suggestions` |
 | `40 5 * * * (UTC)` | `moxdop:google-ads:record-quality-scores` |
+| `7 7 * * * (Europe/Istanbul)` | `moxdop:google-ads:suggestions` |
 | `10 5 * * * (Europe/Istanbul)` | `moxdop:integrations:discover` |
 | `*/5 * * * * (UTC)` | `moxdop:intel:collect` |
 | `15 6 * * * (UTC)` | `moxdop:measurement:refresh` |

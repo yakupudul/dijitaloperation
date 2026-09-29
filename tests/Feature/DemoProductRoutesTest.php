@@ -232,7 +232,7 @@ class DemoProductRoutesTest extends TestCase
 
         Livewire::test(OverviewPage::class, ['assetId' => (string) $gads->id])
             ->set('tab', 'search_terms')
-            ->assertSet('tab', 'search_demand')
+            ->assertSet('tab', 'terms')
             ->assertDontSee('post bariatric dental turkey')
             ->assertDontSee('dental nurse jobs ankara');
     }

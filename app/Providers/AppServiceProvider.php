@@ -69,8 +69,6 @@ use App\Services\Ga4\Ga4SpecialistReadService;
 use App\Services\Ga4\Ga4UiDatasetGate;
 use App\Services\GoogleAds\GoogleAdsPoolReadRepository;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
-use App\Services\GoogleAds\GoogleAdsSpecialistReadService;
-use App\Services\GoogleAds\GoogleAdsUiDatasetGate;
 use App\Services\Gsc\GscPoolReadRepository;
 use App\Services\Gsc\GscSpecialistBindingResolver;
 use App\Services\Gsc\GscSpecialistReadService;
@@ -163,8 +161,6 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(GoogleAdsFormulaCalculator::class);
         $this->app->singleton(GoogleAdsSpecialistBindingResolver::class);
         $this->app->singleton(GoogleAdsPoolReadRepository::class);
-        $this->app->singleton(GoogleAdsUiDatasetGate::class);
-        $this->app->singleton(GoogleAdsSpecialistReadService::class);
 
         $this->app->singleton(MetaAdsFormulaCalculator::class);
         $this->app->singleton(MetaAdsSpecialistBindingResolver::class);

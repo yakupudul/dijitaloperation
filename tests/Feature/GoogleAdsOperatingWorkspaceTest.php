@@ -59,34 +59,17 @@ class GoogleAdsOperatingWorkspaceTest extends TestCase
 
         Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id])
             ->assertSee('Northwind Google Ads')
-            ->assertSee('Needs attention')
-            ->assertSee('Performance trend')
-            ->assertSee('Top campaigns')
+            ->assertSee('Sistem kontrolleri')
             ->assertDontSee('₺48,320')
-            ->assertDontSee('Ahead of plan')
             ->assertDontSee('PPC Score')
             ->assertDontSee('Optimization Score')
-            ->assertDontSee('Account Score')
             ->assertDontSee('Post Bariatric — UK Search')
             ->assertDontSee('breast lift cost uk');
 
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'search_terms'])
-            ->assertSet('tab', 'search_demand')
-            ->assertSet('search_sub', 'terms')
-            ->assertOk();
-
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'conversions'])
-            ->assertSet('tab', 'measurement')
-            ->assertOk();
-
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'insights'])
-            ->assertSet('tab', 'overview')
-            ->assertSee('Needs attention');
-
-        foreach (['optimization', 'operations'] as $legacyTab) {
+        foreach (['search_terms' => 'terms', 'conversions' => 'measurement', 'insights' => 'overview', 'optimization' => 'todo', 'operations' => 'todo'] as $legacyTab => $tab) {
             Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => $legacyTab])
-                ->assertSet('tab', 'advisor')
-                ->assertSee('Google recommendations');
+                ->assertSet('tab', $tab)
+                ->assertOk();
         }
     }
 

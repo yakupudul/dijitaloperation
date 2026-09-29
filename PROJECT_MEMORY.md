@@ -1613,6 +1613,18 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 - **DataForSEO** yalnız top-10 SERP (30 gün önbellek) ve arama hacmi (90 gün önbellek); diğer tüm uç noktalar izin
   listesinden çıkarıldı.
 
+## 2026-10-31 — MoxDOP v2 Faz 5 (Google Ads)
+
+- **Karar:** Google Ads ekranı yedi sekme (Genel Bakış · Yapılacaklar · Arama Terimleri · Kampanya Stratejisi · Ölçümleme ·
+  Analiz · Ayarlar); öneriler tek `suggestions` tablosunda (kanal ve hedef `google_ads`). Sistem kontrolleri ≤ 10,
+  deterministik, veri yoksa "veri yok"; performans yargısı yalnız yeterli veriyle; hiçbir öneri az veride kapat / durdur demez.
+- **Karar:** AI üç işlem (arama terimleri, kampanya yapısı + bütçe + deney, reklam metni + açılış sayfası); çıktı veriyle
+  doğrulanır (terim, ad, URL, sayı), RSA sınırları kodla uygulanır, sektör uyum kapısı. SEO kümeleri girdi, otomatik reklam
+  grubu değil. Eski arama terimi / açılış sayfası içgörüleri kaldırıldı.
+- **Karar:** Google'a yazma yalnız ADR-064 paylaşılan negatif listesi (Admin, geri alınabilir). Kampanya / reklam grubu
+  negatifi, yeni kampanya, reklam metni → onaylı taslak → Google Ads Editor CSV; operatör Editor'da uygular. Operatör
+  düzenlemesi kilitlidir; AI yalnız değişiklik önerisi bırakır. Uygulamada baseline saklanır (Faz 9).
+
 ## 2026-10-30 — MoxDOP v2 Faz 7 (İşletme Profili)
 
 - **Karar:** İşletme Profili ekranı altı sekme (Genel Bakış · Yapılacaklar · Yorumlar · Gönderiler · Analiz · Ayarlar); tüm
