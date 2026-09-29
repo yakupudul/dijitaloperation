@@ -3,6 +3,7 @@
 namespace App\Services\Collection\Providers\GoogleAds;
 
 use App\Enums\Collection\RequirementLevel;
+use App\Support\Collection\CollectionDatasetCatalog;
 use InvalidArgumentException;
 
 /**
@@ -123,7 +124,11 @@ final class GoogleAdsCentralRequestFamilyCatalog
             ];
         }
 
-        return [...$core, ...$professional];
+        // v2 dataset catalogue (config moxdop-collection.datasets.GOOGLE_ADS): only the kept datasets are collected.
+        return array_filter(
+            [...$core, ...$professional],
+            static fn (array $definition): bool => CollectionDatasetCatalog::keeps('GOOGLE_ADS', (string) $definition['dataset_id']),
+        );
     }
 
     public static function sourceFamily(string $centralFamily): string

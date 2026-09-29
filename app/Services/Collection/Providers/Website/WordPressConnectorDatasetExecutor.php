@@ -19,6 +19,7 @@ use App\Services\DataPool\Support\RawPayloadEnvelope;
 use App\Services\DataPool\Support\WriteReceipt;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
+use App\Services\Website\Pages\WordPressPageSync;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -49,6 +50,7 @@ final class WordPressConnectorDatasetExecutor implements DatasetExecutor
         private readonly RawPayloadWriter $rawWriter,
         private readonly MaterializationService $materializations,
         private readonly WordPressConnectorClient $client,
+        private readonly WordPressPageSync $pages,
     ) {}
 
     /** @return list<string> */
@@ -132,6 +134,7 @@ final class WordPressConnectorDatasetExecutor implements DatasetExecutor
             $section,
             $page,
         );
+        $this->syncPages((int) $asset->id, $section, $records, $scopeIds);
 
         $hasMore = ($payload['has_more'] ?? false) === true;
         $nextSectionIndex = $hasMore ? $sectionIndex : $sectionIndex + 1;
@@ -164,6 +167,27 @@ final class WordPressConnectorDatasetExecutor implements DatasetExecutor
             stage: $section,
             checkpoint: $checkpointOut,
         );
+    }
+
+    /**
+     * MoxDOP v2: the `pages` table follows the connector snapshot (content → page rows, seo → title / description /
+     * canonical / robots). A page-store problem never fails the collection itself.
+     *
+     * @param  list<array<string, mixed>>  $records
+     * @param  list<int>  $scopeIds
+     */
+    private function syncPages(int $assetId, string $section, array $records, array $scopeIds): void
+    {
+        if (! in_array($section, ['content', 'seo'], true)) {
+            return;
+        }
+        try {
+            $section === 'content'
+                ? $this->pages->syncContent($assetId, $records, $scopeIds)
+                : $this->pages->syncSeo($assetId, $records);
+        } catch (Throwable $error) {
+            report($error);
+        }
     }
 
     /** @param array<string, mixed> $record @return array<string, mixed>|null */
@@ -379,6 +403,10 @@ final class WordPressConnectorDatasetExecutor implements DatasetExecutor
                 $stale->whereIn('object_id', array_map('strval', $objectIds));
             }
             $stale->delete();
+            if ($objectIds === [] && $datasetId === 'website_cms_object_snapshot') {
+                // Full inventory finished: pages of posts that are gone (or never came from WordPress) are removed.
+                $this->pages->pruneAfterFullInventory($assetId);
+            }
 
             $this->materializations->recordSuccessfulCoverageDates(
                 datasetId: $datasetId,

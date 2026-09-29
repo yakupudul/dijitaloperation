@@ -275,15 +275,15 @@ final class ProductionHardeningTest extends TestCase
     public function test_diagnose_detail_dates_read_resource_first_rows(): void
     {
         [$asset, $resource] = $this->boundResource('search_console', 'sc-domain:detail.test', 'website');
-        $this->insertFact('gsc_query_daily', [
+        $this->insertFact('gsc_query_page_daily', [
             'digital_asset_id' => null, 'external_resource_id' => $resource->id, 'site_url' => 'sc-domain:detail.test', 'reporting_date' => now()->subDays(4)->toDateString(),
-            'search_type' => 'web', 'query' => 'panorama', 'clicks' => 1, 'impressions' => 5, 'contract_version' => 1, 'first_collected_at' => now(),
+            'search_type' => 'web', 'query' => 'panorama', 'page' => 'https://detail.test/', 'clicks' => 1, 'impressions' => 5, 'contract_version' => 1, 'first_collected_at' => now(),
             'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', 'q'), 'created_at' => now(), 'updated_at' => now(),
         ]);
 
         $report = app(PortfolioDiagnostics::class)->run(['asset' => (string) $asset->id, 'sections' => ['collection']]);
 
-        $this->assertStringContainsString('gsc_query_daily='.now()->subDays(4)->toDateString(), implode("\n", $report['sections']['collection']['lines']));
+        $this->assertStringContainsString('gsc_query_page_daily='.now()->subDays(4)->toDateString(), implode("\n", $report['sections']['collection']['lines']));
     }
 
     // ---------------------------------------------------------------- helpers

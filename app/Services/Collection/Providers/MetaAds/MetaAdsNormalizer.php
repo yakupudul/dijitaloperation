@@ -115,6 +115,8 @@ final class MetaAdsNormalizer
                     'effective_status' => $row['effective_status'] ?? null,
                     'daily_budget' => $this->budgetMajor($row['daily_budget'] ?? null),
                     'lifetime_budget' => $this->budgetMajor($row['lifetime_budget'] ?? null),
+                    // v2: the ad set's attribution setting (click / view windows) as read on each fetch (row last_collected_at).
+                    'attribution_spec' => is_array($row['attribution_spec'] ?? null) ? array_values($row['attribution_spec']) : null,
                     'objective_neq_optimization_goal' => true,
                     'budget_neq_spend' => true,
                     'destination_neq_business_outcome' => true,
@@ -160,6 +162,9 @@ final class MetaAdsNormalizer
                     'image_hash' => $row['image_hash'] ?? null,
                     'video_id' => $row['video_id'] ?? null,
                     'page_id' => data_get($row, 'object_story_spec.page_id') ?? $row['actor_id'] ?? null,
+                    // v2: lead form used by the creative (the account's lead forms list = distinct ids).
+                    'lead_gen_form_id' => data_get($row, 'object_story_spec.link_data.call_to_action.value.lead_gen_form_id')
+                        ?? data_get($row, 'object_story_spec.video_data.call_to_action.value.lead_gen_form_id'),
                     'instagram_actor_id' => $row['instagram_actor_id'] ?? data_get($row, 'instagram_user_id'),
                     'binary_media_downloaded' => false,
                     'instagram_digital_asset_created' => false,

@@ -46,9 +46,9 @@ class QuerySource extends Model
         return $this->belongsTo(CoreExternalResource::class, 'external_resource_id');
     }
 
-    /** @return BelongsTo<Query, $this> */
-    public function query(): BelongsTo
+    /** Normalized query (Faz 3). Not named query(): that is Eloquent's static builder. @return BelongsTo<Query, $this> */
+    public function normalizedQuery(): BelongsTo
     {
-        return $this->belongsTo(Query::class);
+        return $this->belongsTo(Query::class, 'query_id');
     }
 }

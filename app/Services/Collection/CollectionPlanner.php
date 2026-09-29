@@ -19,6 +19,7 @@ use App\Services\DataPool\Freshness\DueCollectionQueryService;
 use App\Services\DataPool\Freshness\IncrementalCoveragePlanner;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Services\PageSpeedConnectionProbeService;
+use App\Support\Collection\CollectionDatasetCatalog;
 use App\Support\Time\SafeTimezone;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
@@ -191,7 +192,14 @@ final class CollectionPlanner
                 $eligibility = $this->eligibilityForFamily($family, $request);
                 // One family can own several datasets (Meta entity snapshot: campaigns, ad sets, creatives); each is
                 // its own dataset run so budget, retry and checkpoint governors apply per dataset.
-                foreach ($this->datasetIdsForFamily($familyId) as $datasetId) {
+                // v2 dataset catalogue: datasets outside config moxdop-collection.datasets are never planned (on-demand
+                // ones, e.g. URL inspection, stay plannable; their own eligibility needs explicit targets).
+                $keptDatasetIds = array_values(array_filter(
+                    $this->datasetIdsForFamily($familyId),
+                    static fn (string $datasetId): bool => CollectionDatasetCatalog::keeps($provider, $datasetId)
+                        || CollectionDatasetCatalog::isOnDemand($provider, $datasetId),
+                ));
+                foreach ($keptDatasetIds as $datasetId) {
                     $requirements = $this->requirementsForFamily($familyId);
                     $coverageTarget = $this->ranges->resolveForRequirements($requirements);
                     $catalogCoverage = $this->catalogCoverageTarget($familyId, $datasetId);

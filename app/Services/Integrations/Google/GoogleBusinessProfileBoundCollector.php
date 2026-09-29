@@ -3,11 +3,13 @@
 namespace App\Services\Integrations\Google;
 
 use App\Contracts\Integrations\CollectsBoundProviderData;
+use App\Jobs\Queries\AggregateQuerySourcesJob;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\Run;
 use App\Services\Integrations\BoundCollectionGuard;
+use App\Support\Collection\CollectionDatasetCatalog;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -161,14 +163,19 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
                 'gbp_services',
                 fn (): array => $this->collectServices($run, $resource, $locationName, $location)
             );
-            $datasets['gbp_place_actions'] = $this->captureDataset(
-                'gbp_place_actions',
-                fn (): array => $this->collectPlaceActions($run, $resource, $integration, $locationName)
-            );
-            $datasets['gbp_verification'] = $this->captureDataset(
-                'gbp_verification',
-                fn (): array => $this->collectVerification($run, $resource, $integration, $locationName)
-            );
+            if (CollectionDatasetCatalog::keeps('GOOGLE_BUSINESS_PROFILE', 'gbp_place_actions')) {
+                $datasets['gbp_place_actions'] = $this->captureDataset(
+                    'gbp_place_actions',
+                    fn (): array => $this->collectPlaceActions($run, $resource, $integration, $locationName)
+                );
+            }
+            if (CollectionDatasetCatalog::keeps('GOOGLE_BUSINESS_PROFILE', 'gbp_verification')) {
+                $datasets['gbp_verification'] = $this->captureDataset(
+                    'gbp_verification',
+                    fn (): array => $this->collectVerification($run, $resource, $integration, $locationName)
+                );
+            }
+            $datasets = array_filter($datasets, static fn (string $key): bool => CollectionDatasetCatalog::keeps('GOOGLE_BUSINESS_PROFILE', $key), ARRAY_FILTER_USE_KEY);
 
             $hasGaps = collect($datasets)->contains(
                 fn (array $dataset): bool => ($dataset['status'] ?? 'unavailable') !== 'available'
@@ -219,6 +226,8 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
         $steps = ['gbp_location', 'gbp_performance_daily', 'gbp_search_keywords_monthly',
             'gbp_reviews', 'gbp_media', 'gbp_posts', 'gbp_attributes', 'gbp_services',
             'gbp_place_actions', 'gbp_verification'];
+        // v2 dataset catalogue (config moxdop-collection.datasets.GOOGLE_BUSINESS_PROFILE).
+        $steps = array_values(array_filter($steps, static fn (string $key): bool => CollectionDatasetCatalog::keeps('GOOGLE_BUSINESS_PROFILE', $key)));
         // A query-only run (location not bound to an operational asset) pulls just the search keywords.
         $only = (array) data_get($run->metadata, 'only_datasets', []);
         if ($only !== []) {
@@ -455,6 +464,8 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
         if ($rows === 0 && $errors !== []) {
             throw new RuntimeException('GBP Search Keywords could not be collected for any requested month.');
         }
+        // v2 raw query layer: the collected months are re-aggregated into query_sources (bound or not).
+        AggregateQuerySourcesJob::dispatch((int) $resource->id, $latest->subMonths($months - 1)->toDateString(), $latest->toDateString());
 
         return [
             'rows' => $rows,

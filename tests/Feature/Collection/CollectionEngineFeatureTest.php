@@ -126,7 +126,7 @@ class CollectionEngineFeatureTest extends TestCase
         Queue::fake();
 
         $ok = 'GA4_RF_PROPERTY_METADATA';
-        $bad = 'GA4_RF_CHANNEL_DAILY';
+        $bad = 'GA4_RF_PROPERTY_DAILY';
 
         $this->app->instance(
             DatasetExecutorResolver::class,

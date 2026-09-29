@@ -34,12 +34,11 @@ final class DataForSeoRequestFamilyCatalog
      */
     public static function supportedFamilies(): array
     {
+        // v2: the paid Labs families are retired (their endpoints are no longer allowlisted); SERP top-10 and search
+        // volume run through App\Services\Intel\SerpResults / QueryVolumes with their own caches.
         return [
             self::FAMILY_FREE_USER,
             self::FAMILY_FREE_MARKETS,
-            self::FAMILY_RANKED_KEYWORDS,
-            self::FAMILY_KEYWORDS_FOR_SITE,
-            self::FAMILY_COMPETITORS_DOMAIN,
         ];
     }
 
@@ -48,11 +47,7 @@ final class DataForSeoRequestFamilyCatalog
      */
     public static function paidFamilies(): array
     {
-        return [
-            self::FAMILY_RANKED_KEYWORDS,
-            self::FAMILY_KEYWORDS_FOR_SITE,
-            self::FAMILY_COMPETITORS_DOMAIN,
-        ];
+        return [];
     }
 
     /**

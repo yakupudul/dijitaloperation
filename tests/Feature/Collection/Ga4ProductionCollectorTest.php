@@ -146,7 +146,7 @@ class Ga4ProductionCollectorTest extends TestCase
         $this->assertSame('GA4', $plan['resources'][0]['provider_or_source']);
         $families = array_column($plan['datasets'], 'request_family_id');
         $this->assertContains(Ga4RequestFamilyCatalog::FAMILY_PROPERTY_DAILY, $families);
-        $this->assertContains(Ga4RequestFamilyCatalog::FAMILY_LANDING_PAGE_DAILY, $families);
+        $this->assertNotContains(Ga4RequestFamilyCatalog::FAMILY_LANDING_PAGE_DAILY, $families, 'v2 dataset catalogue');
 
         $this->binding->forceFill(['status' => CoreAssetBinding::STATUS_DISABLED])->save();
         $this->expectException(\InvalidArgumentException::class);
@@ -319,28 +319,29 @@ class Ga4ProductionCollectorTest extends TestCase
     }
 
     #[Test]
-    public function landing_page_by_channel_is_stored_per_page_and_channel(): void
+    public function landing_page_by_source_medium_is_stored_per_page_source_and_medium(): void
     {
         $this->fakeGa4Http([
             'runReport' => [
-                'dimensionHeaders' => [['name' => 'date'], ['name' => 'landingPage'], ['name' => 'sessionDefaultChannelGroup']],
-                'metricHeaders' => [['name' => 'sessions'], ['name' => 'engagedSessions'], ['name' => 'activeUsers']],
+                'dimensionHeaders' => [['name' => 'date'], ['name' => 'landingPage'], ['name' => 'sessionSource'], ['name' => 'sessionMedium']],
+                'metricHeaders' => [['name' => 'sessions'], ['name' => 'engagedSessions'], ['name' => 'activeUsers'], ['name' => 'keyEvents']],
                 'rows' => [
-                    ['dimensionValues' => [['value' => '20260801'], ['value' => '/implant'], ['value' => 'Organic Search']], 'metricValues' => [['value' => '40'], ['value' => '30'], ['value' => '38']]],
-                    ['dimensionValues' => [['value' => '20260801'], ['value' => '/implant'], ['value' => 'Paid Search']], 'metricValues' => [['value' => '12'], ['value' => '6'], ['value' => '12']]],
+                    ['dimensionValues' => [['value' => '20260801'], ['value' => '/implant'], ['value' => 'google'], ['value' => 'organic']], 'metricValues' => [['value' => '40'], ['value' => '30'], ['value' => '38'], ['value' => '3']]],
+                    ['dimensionValues' => [['value' => '20260801'], ['value' => '/implant'], ['value' => 'google'], ['value' => 'cpc']], 'metricValues' => [['value' => '12'], ['value' => '6'], ['value' => '12'], ['value' => '1']]],
                 ],
                 'rowCount' => 2,
             ],
         ]);
 
-        $result = $this->runFamily(Ga4RequestFamilyCatalog::FAMILY_LANDING_CHANNEL_DAILY, ['start' => '2026-08-01', 'end' => '2026-08-01']);
+        $result = $this->runFamily(Ga4RequestFamilyCatalog::FAMILY_LANDING_SOURCE_DAILY, ['start' => '2026-08-01', 'end' => '2026-08-01']);
 
-        $this->assertSame(DatasetExecutionOutcome::Completed, $result->outcome);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $result->outcome, (string) $result->errorMessage);
         $body = collect(Http::recorded())->first(fn ($p) => str_contains($p[0]->url(), 'runReport'))[0]->data();
-        $this->assertSame(['date', 'landingPage', 'sessionDefaultChannelGroup'], array_column($body['dimensions'], 'name'));
-        $this->assertSame(2, DB::table('ga4_landing_channel_daily')->count());
-        $this->assertSame(40, (int) DB::table('ga4_landing_channel_daily')->where('sessionDefaultChannelGroup', 'Organic Search')->value('sessions'));
-        $this->assertContains(Ga4RequestFamilyCatalog::FAMILY_LANDING_CHANNEL_DAILY, Ga4RequestFamilyCatalog::centralFamilies());
+        $this->assertSame(['date', 'landingPage', 'sessionSource', 'sessionMedium'], array_column($body['dimensions'], 'name'));
+        $this->assertSame(2, DB::table('ga4_landing_source_daily')->count());
+        $organic = DB::table('ga4_landing_source_daily')->where('sessionMedium', 'organic')->sole();
+        $this->assertSame([40, 'google'], [(int) $organic->sessions, $organic->sessionSource]);
+        $this->assertContains(Ga4RequestFamilyCatalog::FAMILY_LANDING_SOURCE_DAILY, Ga4RequestFamilyCatalog::centralFamilies());
     }
 
     #[Test]
@@ -905,7 +906,7 @@ class Ga4ProductionCollectorTest extends TestCase
     private function metadataPayload(): array
     {
         $dims = [
-            'date', 'sessionDefaultChannelGroup', 'sessionSourceMedium', 'sessionCampaignName',
+            'date', 'sessionDefaultChannelGroup', 'sessionSourceMedium', 'sessionSource', 'sessionMedium', 'sessionCampaignName',
             'landingPage', 'eventName', 'deviceCategory',
         ];
         $metrics = [

@@ -6,9 +6,9 @@ use App\Models\DigitalAsset;
 use App\Services\BrandSetup\BrandSetupMatcher;
 use App\Services\Operations\OpsWatchdog;
 use App\Services\Operations\ReleaseInfo;
-use App\Services\SeoTasks\SeoText;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiRouteRegistry;
+use App\Support\Collection\CollectionDatasetCatalog;
 use App\Support\Integrations\ExternalResourceAssetCompatibility;
 use App\Support\Operator\DormantAccountHint;
 use Carbon\CarbonImmutable;
@@ -56,9 +56,9 @@ final class PortfolioDiagnostics
 
     /** @var array<string, list<string>> detail fact tables checked for a --brand / --asset scope */
     private const array DETAIL_FACT_TABLES = [
-        'ga4' => ['ga4_landing_page_daily'],
-        'search_console' => ['gsc_query_daily', 'gsc_page_daily'],
-        'google_ads' => ['google_ads_campaign_daily'],
+        'ga4' => ['ga4_landing_source_daily', 'ga4_key_event_daily'],
+        'search_console' => ['gsc_query_page_daily'],
+        'google_ads' => ['google_ads_campaign_daily', 'google_ads_search_term_daily'],
         'meta_ads' => ['meta_campaign_daily'],
         'meta_ad_account' => ['meta_campaign_daily'],
     ];
@@ -862,6 +862,75 @@ final class PortfolioDiagnostics
         }
         $this->data('resources', $list->map(fn (array $i): array => array_diff_key($i, ['line' => 1, 'details' => 1]))->values()->all());
         $this->data('datasets', $datasets);
+        $this->collectionCatalogue();
+        $this->allAccounts();
+        $this->querySources();
+    }
+
+    /** v2 dataset catalogue: what is collected (config moxdop-collection.datasets). */
+    private function collectionCatalogue(): void
+    {
+        foreach (CollectionDatasetCatalog::all() as $provider => $datasets) {
+            $this->info(sprintf('Katalog %s (%d): %s', $provider, count($datasets), implode(', ', $datasets)));
+        }
+    }
+
+    /** v2: every discovered account is collected, bound or not — automation state of the whole pool. */
+    private function allAccounts(): void
+    {
+        if (! $this->hasTable('resource_automations')) {
+            return;
+        }
+        $bound = DB::table('core_asset_bindings')->where('status', 'active')->pluck('external_resource_id')->map(fn ($id): int => (int) $id)->flip();
+        $rows = DB::table('resource_automations as ra')->join('core_external_resources as r', 'r.id', '=', 'ra.external_resource_id')
+            ->get(['r.id', 'r.resource_type', 'ra.collection_status', 'ra.last_collection_success_at']);
+        $summary = [];
+        foreach ($rows as $row) {
+            $key = $row->resource_type.' '.($bound->has((int) $row->id) ? 'bağlı' : 'bağsız');
+            $status = (string) ($row->collection_status ?: 'bekliyor');
+            $summary[$key]['statuses'][$status] = ($summary[$key]['statuses'][$status] ?? 0) + 1;
+            $summary[$key]['last'] = max($summary[$key]['last'] ?? '', (string) $row->last_collection_success_at);
+        }
+        ksort($summary);
+        foreach ($summary as $key => $item) {
+            $parts = [];
+            foreach ($item['statuses'] as $status => $count) {
+                $parts[] = $status.'='.$count;
+            }
+            $this->info(sprintf('Hesaplar %s: %s · son başarı %s', $key, implode(', ', $parts), $this->ago($item['last'] ?: null)));
+        }
+        $this->data('accounts', $summary);
+    }
+
+    /** v2 raw query layer: rows, latest month, per source and per account (in scope: every account of the scope). */
+    private function querySources(): void
+    {
+        if (! $this->hasTable('query_sources')) {
+            return;
+        }
+        $totals = DB::table('query_sources')->selectRaw('source, count(*) as n, count(distinct external_resource_id) as accounts, max(month) as latest')
+            ->groupBy('source')->get();
+        if ($totals->isEmpty()) {
+            $this->problem('Sorgu kaynakları (query_sources): boş — `php artisan moxdop:queries:sources --all` ile doldurun');
+        }
+        foreach ($totals as $row) {
+            $this->info(sprintf('Sorgu kaynakları %s: %d satır · %d hesap · son ay %s', $row->source, (int) $row->n, (int) $row->accounts, substr((string) $row->latest, 0, 7)));
+        }
+        $resources = $this->scopeAssetIds !== null
+            ? DB::table('core_asset_bindings')->where('status', 'active')->whereIn('digital_asset_id', $this->scopeAssetIds ?: [0])->pluck('external_resource_id')->all()
+            : null;
+        $perResource = DB::table('query_sources as q')->join('core_external_resources as r', 'r.id', '=', 'q.external_resource_id')
+            ->leftJoin('resource_automations as ra', 'ra.external_resource_id', '=', 'r.id')
+            ->when($resources !== null, fn ($q) => $q->whereIn('q.external_resource_id', $resources ?: [0]))
+            ->groupBy('q.external_resource_id', 'r.display_name', 'r.resource_type', 'ra.last_collection_success_at')
+            ->selectRaw('q.external_resource_id, r.display_name, r.resource_type, ra.last_collection_success_at, count(*) as n, max(q.month) as latest')
+            ->orderByDesc('n')->limit($this->deep() ? 200 : 20)->get();
+        foreach ($perResource as $row) {
+            $this->info(sprintf('  #%d %s (%s): %d sorgu×ay · son ay %s · son toplama %s', $row->external_resource_id, $row->display_name, $row->resource_type,
+                (int) $row->n, substr((string) $row->latest, 0, 7), $this->ago($row->last_collection_success_at)));
+        }
+        $this->data('query_sources', ['totals' => $totals->map(fn (object $r): array => (array) $r)->all(),
+            'accounts' => $perResource->map(fn (object $r): array => (array) $r)->all()]);
     }
 
     /** @return array<string, mixed> */
@@ -1062,55 +1131,71 @@ final class PortfolioDiagnostics
             return;
         }
         $ids = $sites->pluck('id')->all();
-        $profiles = $this->hasTable('website_page_profiles')
-            ? DB::table('website_page_profiles')->whereIn('website_asset_id', $ids)->selectRaw('website_asset_id, count(*) as n')->groupBy('website_asset_id')->pluck('n', 'website_asset_id') : collect();
-        $urls = $this->hasTable('website_url')
-            ? DB::table('website_url')->whereIn('digital_asset_id', $ids)->selectRaw('digital_asset_id, count(*) as n')->groupBy('digital_asset_id')->pluck('n', 'digital_asset_id') : collect();
+        $pages = $this->hasTable('pages')
+            ? DB::table('pages')->whereIn('website_asset_id', $ids)->groupBy('website_asset_id')
+                ->selectRaw('website_asset_id, count(*) as n, sum(CASE WHEN wp_post_id IS NULL THEN 0 ELSE 1 END) as wp, sum(CASE WHEN is_indexable THEN 1 ELSE 0 END) as indexable,
+                    sum(CASE WHEN analyzed_at IS NULL THEN 1 ELSE 0 END) as pending, max(changed_at) as last_change, max(updated_at) as last_write')
+                ->get()->keyBy('website_asset_id') : collect();
         $out = [];
         foreach ($sites as $site) {
-            $out[] = $this->deep() ? $this->websiteDetail($site, (int) ($profiles[$site->id] ?? 0), (int) ($urls[$site->id] ?? 0))
-                : $this->websiteSummary($site, (int) ($profiles[$site->id] ?? 0), (int) ($urls[$site->id] ?? 0));
+            $row = $pages->get($site->id);
+            $stats = ['pages' => (int) ($row->n ?? 0), 'wordpress' => (int) ($row->wp ?? 0), 'indexable' => (int) ($row->indexable ?? 0),
+                'pending_analysis' => (int) ($row->pending ?? 0), 'last_change' => $row->last_change ?? null, 'last_write' => $row->last_write ?? null];
+            $out[] = $this->deep() ? $this->websiteDetail($site, $stats) : $this->websiteSummary($site, $stats);
         }
         $this->data('websites', $out);
     }
 
-    /** @return array<string, mixed> */
-    private function websiteSummary(object $site, int $profiles, int $urls): array
+    /** @param  array{pages: int, wordpress: int, indexable: int, pending_analysis: int, last_change: ?string, last_write: ?string}  $pages */
+    private function pagesLine(array $pages): string
     {
-        $projection = $this->hasTable('website_intelligence_projection_runs')
-            ? DB::table('website_intelligence_projection_runs')->where('website_asset_id', $site->id)->orderByDesc('id')->first(['status', 'completed_at', 'created_at', 'error_code']) : null;
-        $line = sprintf('#%d %s (%s): sayfa profili %d · sitemap URL %d · projeksiyon %s %s', $site->id, $site->name, BrandSetupMatcher::host((string) ($site->primary_url ?: $site->domain)),
-            $profiles, $urls, $projection->status ?? 'yok', $this->ago($projection?->completed_at ?? $projection?->created_at));
-        $bad = ($profiles === 0 && $urls > 0) || ($projection !== null && in_array($projection->status, self::FAILED, true));
-        $bad ? $this->problem($line) : $this->info($line);
-
-        return ['asset_id' => (int) $site->id, 'page_profiles' => $profiles, 'sitemap_urls' => $urls, 'projection' => $projection->status ?? null];
+        return sprintf('sayfa (pages) %d · WordPress %d · indekslenebilir %d · analiz bekleyen %d · son değişiklik %s · son yazım %s',
+            $pages['pages'], $pages['wordpress'], $pages['indexable'], $pages['pending_analysis'], $this->ago($pages['last_change']), $this->ago($pages['last_write']));
     }
 
-    /** @return array<string, mixed> */
-    private function websiteDetail(object $site, int $profiles, int $urls): array
+    /**
+     * @param  array{pages: int, wordpress: int, indexable: int, pending_analysis: int, last_change: ?string, last_write: ?string}  $pages
+     * @return array<string, mixed>
+     */
+    private function websiteSummary(object $site, array $pages): array
+    {
+        $line = sprintf('#%d %s (%s): %s', $site->id, $site->name, BrandSetupMatcher::host((string) ($site->primary_url ?: $site->domain)), $this->pagesLine($pages));
+        $pages['pages'] === 0 ? $this->problem($line) : $this->info($line);
+
+        return ['asset_id' => (int) $site->id] + $pages;
+    }
+
+    /**
+     * @param  array{pages: int, wordpress: int, indexable: int, pending_analysis: int, last_change: ?string, last_write: ?string}  $pages
+     * @return array<string, mixed>
+     */
+    private function websiteDetail(object $site, array $pages): array
     {
         $host = BrandSetupMatcher::host((string) ($site->primary_url ?: $site->domain));
         $this->info(sprintf('— #%d %s (%s, %s, cms %s)', $site->id, $site->name, $host, $site->status, $site->cms ?: '—'));
-        $data = ['asset_id' => (int) $site->id, 'host' => $host, 'page_profiles' => $profiles, 'sitemap_urls' => $urls];
-
-        $documents = 0;
-        if ($this->hasTable('website_page_profiles') && $profiles > 0) {
-            DB::table('website_page_profiles')->where('website_asset_id', $site->id)->select(['id', 'preferred_url'])
-                ->chunkById(2000, function (Collection $chunk) use (&$documents): void {
-                    foreach ($chunk as $row) {
-                        $documents += SeoText::isDocumentUrl((string) $row->preferred_url) ? 1 : 0;
-                    }
-                });
+        $data = ['asset_id' => (int) $site->id, 'host' => $host] + $pages;
+        $line = 'Sayfalar: '.$this->pagesLine($pages);
+        $pages['pages'] === 0 ? $this->problem($line) : $this->info($line);
+        if ($this->hasTable('pages') && $pages['pages'] > 0) {
+            $languages = DB::table('pages')->where('website_asset_id', $site->id)->selectRaw('language, count(*) as n')->groupBy('language')->pluck('n', 'language');
+            $this->info('  diller: '.$languages->map(fn ($n, $lang): string => ($lang ?: '—').'='.$n)->implode(', '));
+            $short = DB::table('pages')->where('website_asset_id', $site->id)->where('word_count', '<', 50)->count();
+            if ($short > 0) {
+                $this->info('  50 kelimeden kısa içerik: '.$short);
+            }
         }
-        $data['documents'] = $documents;
-        $line = sprintf('Sayfa profili: %d (belge %d · belge dışı %d) · sitemap/website_url: %d', $profiles, $documents, $profiles - $documents, $urls);
-        ($profiles === 0 || $documents === 0) ? $this->problem($line) : $this->info($line);
+        if ($this->hasTable('website_sitemap_watch')) {
+            $watch = DB::table('website_sitemap_watch')->where('digital_asset_id', $site->id)->first(['page_count', 'checked_at', 'error']);
+            if ($watch !== null) {
+                $line = sprintf('Sitemap izleme: %d URL · kontrol %s%s', (int) $watch->page_count, $this->ago($watch->checked_at), filled($watch->error) ? ' · hata: '.DiagnosticMasker::firstLine((string) $watch->error, 160) : '');
+                filled($watch->error) ? $this->problem($line) : $this->info($line);
+            }
+        }
 
         if ($this->hasTable('website_html_snapshot')) {
             $html = DB::table('website_html_snapshot')->where('digital_asset_id', $site->id)->selectRaw('count(distinct url) as pages, max(last_collected_at) as last')->first();
             $line = sprintf('HTML okunan sayfa: %d · son okuma %s', (int) ($html->pages ?? 0), $this->ago($html->last ?? null));
-            ((int) ($html->pages ?? 0) === 0 && $profiles > 0) ? $this->problem($line) : $this->info($line);
+            ((int) ($html->pages ?? 0) === 0 && $pages['pages'] > 0) ? $this->problem($line) : $this->info($line);
             $data['html_pages'] = (int) ($html->pages ?? 0);
         }
 

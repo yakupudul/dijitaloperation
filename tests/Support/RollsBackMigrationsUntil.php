@@ -15,7 +15,7 @@ trait RollsBackMigrationsUntil
      */
     protected function rollbackUntilTablesMissing(string ...$tables): void
     {
-        $guard = 200;
+        $guard = 300;
 
         while ($guard-- > 0) {
             $anyPresent = false;

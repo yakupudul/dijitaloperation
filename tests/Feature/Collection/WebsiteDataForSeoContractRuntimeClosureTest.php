@@ -142,7 +142,9 @@ class WebsiteDataForSeoContractRuntimeClosureTest extends TestCase
             ->values();
 
         $readyIds = $readyFamilies->pluck('id')->all();
-        $this->assertEqualsCanonicalizing(DataForSeoRequestFamilyCatalog::supportedFamilies(), array_values($readyIds));
+        // v2 (Faz 1): the paid Labs families stay in the frozen registry but are retired from the runtime.
+        $this->assertEqualsCanonicalizing(['DFS-FREE-USER', 'DFS-FREE-MARKETS'], DataForSeoRequestFamilyCatalog::supportedFamilies());
+        $this->assertEmpty(array_diff(DataForSeoRequestFamilyCatalog::supportedFamilies(), $readyIds));
         foreach (DataForSeoRequestFamilyCatalog::deferredFamilies() as $deferredId) {
             $this->assertNotContains($deferredId, $readyIds);
             $deferred = collect($registry->requestFamilies())
@@ -159,7 +161,7 @@ class WebsiteDataForSeoContractRuntimeClosureTest extends TestCase
         $this->assertSame('RAW_ONLY', $rawDisposition['disposition'] ?? null);
         $this->assertFalse($storage->hasPhysicalTable('dataforseo_raw_response'));
 
-        foreach ($readyFamilies as $family) {
+        foreach ($readyFamilies->filter(fn (array $family): bool => in_array($family['id'], DataForSeoRequestFamilyCatalog::supportedFamilies(), true)) as $family) {
             $familyId = (string) $family['id'];
             $this->assertContains($familyId, $executor->supportedRequestFamilies(), $familyId.' must be registered on DataForSeoDatasetExecutor');
 

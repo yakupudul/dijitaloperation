@@ -40,7 +40,7 @@ use Tests\TestCase;
  * Production collection repairs (2026-09-29 diagnose):
  *  - Search Console datasets "covered" by earlier runs but with no stored fact are refetched over the whole window
  *    (self-heal + moxdop:gsc:repair-facts), not 4 days forever;
- *  - unbound / passive query-source accounts collect their query dataset only and never page the operator;
+ *  - unbound / passive accounts collect the v2 dataset set like bound ones and never page the operator;
  *  - a GA4 repair keeps ga4_property_daily current; accounts stopped by now-fixed write errors are re-admitted.
  */
 final class ProductionCollectionRepairTest extends TestCase
@@ -82,20 +82,18 @@ final class ProductionCollectionRepairTest extends TestCase
     {
         $resource = $this->resource('search_console', 'sc-domain:heal.test');
         $this->gscProperty($resource, '2026-09-23', 30);
-        $this->gscFact('gsc_page_daily', $resource, '2026-09-23', ['page' => 'https://heal.test/']);
         $this->completedDatasets($resource, 'SEARCH_CONSOLE', SearchConsoleCentralDatasetExecutor::FAMILY_ANALYTICS,
-            ['gsc_property_daily', 'gsc_query_daily', 'gsc_page_daily'], '2026-09-24');
+            ['gsc_property_daily', 'gsc_query_page_daily'], '2026-09-24');
         Http::fake(['*' => Http::response(['rows' => []])]);
 
-        $this->assertContains('gsc_query_daily', app(SearchConsoleCentralCollectionService::class)->datasetsMissingFacts($resource));
-        $this->assertNotContains('gsc_page_daily', app(SearchConsoleCentralCollectionService::class)->datasetsMissingFacts($resource));
+        $this->assertSame(['gsc_query_page_daily'], app(SearchConsoleCentralCollectionService::class)->datasetsMissingFacts($resource));
 
         $plan = $this->plan(SearchConsoleCentralCollectionService::class, 'smartPlan', $resource);
-        $this->assertSame('2025-08-26', $this->gscStart($plan, 'gsc_query_daily'), 'no stored query row: whole 395-day window');
-        $this->assertSame('2026-09-21', $this->gscStart($plan, 'gsc_page_daily'), 'facts present: restatement window');
+        $this->assertSame('2025-08-26', $this->gscStart($plan, 'gsc_query_page_daily'), 'no stored query × page row: whole 395-day window');
+        $this->assertSame('2026-09-21', $this->gscStart($plan, 'gsc_property_daily'), 'facts present: restatement window');
 
         $again = $this->plan(SearchConsoleCentralCollectionService::class, 'smartPlan', $resource);
-        $this->assertSame('2026-09-21', $this->gscStart($again, 'gsc_query_daily'), 'self-heal at most once a week');
+        $this->assertSame('2026-09-21', $this->gscStart($again, 'gsc_query_page_daily'), 'self-heal at most once a week');
     }
 
     public function test_property_with_little_traffic_is_not_refetched(): void
@@ -111,10 +109,9 @@ final class ProductionCollectionRepairTest extends TestCase
         Queue::fake();
         [$asset, $resource] = $this->bound('search_console', 'sc-domain:repair.test', 'website');
         $this->gscProperty($resource, '2026-09-23', 30);
-        $this->gscFact('gsc_page_daily', $resource, '2026-09-23', ['page' => 'https://repair.test/']);
 
         $this->artisan('moxdop:gsc:repair-facts', ['--asset' => (string) $asset->id])
-            ->expectsOutputToContain('gsc_query_daily')
+            ->expectsOutputToContain('gsc_query_page_daily')
             ->expectsOutputToContain('Kuru çalıştırma')
             ->assertSuccessful();
         $this->assertSame(0, CollectionRun::query()->count());
@@ -124,17 +121,16 @@ final class ProductionCollectionRepairTest extends TestCase
             ->assertSuccessful();
         $run = CollectionRun::query()->latest('id')->firstOrFail();
         $datasets = $run->datasetRuns()->pluck('dataset_contract_id')->unique()->values()->all();
-        $this->assertContains('gsc_query_daily', $datasets);
-        $this->assertNotContains('gsc_page_daily', $datasets);
-        $this->assertNotContains('gsc_property_daily', $datasets);
-        $query = $run->datasetRuns()->where('dataset_contract_id', 'gsc_query_daily')->firstOrFail();
+        $this->assertSame(['gsc_query_page_daily'], $datasets);
+        $query = $run->datasetRuns()->where('dataset_contract_id', 'gsc_query_page_daily')->firstOrFail();
         $this->assertSame('2025-05-27', data_get($query->metadata, 'date_range.start'), '486-day window');
         $this->assertSame([], (array) $query->checkpoint);
     }
 
-    public function test_unbound_search_console_account_collects_queries_only(): void
+    public function test_unbound_search_console_account_collects_the_full_v2_dataset_set(): void
     {
         Queue::fake();
+        Http::fake(['*' => Http::response(['rows' => []])]);
         $unbound = $this->resource('search_console', 'sc-domain:unbound.test');
         $automation = ResourceAutomation::query()->where('external_resource_id', $unbound->id)->firstOrFail();
         $automation->update(['collection_status' => 'planning']);
@@ -142,31 +138,22 @@ final class ProductionCollectionRepairTest extends TestCase
         app(ResourceAutomationService::class)->collect($automation->id);
 
         $run = CollectionRun::query()->findOrFail($automation->fresh()->collection_run_id);
-        $this->assertSame(['gsc_query_daily'], $run->datasetRuns()->pluck('dataset_contract_id')->unique()->values()->all());
-        $this->assertTrue((bool) data_get($run->metadata, 'query_only'));
-        $this->assertSame('2025-08-26', data_get($run->datasetRuns()->first()->metadata, 'date_range.start'));
-
-        // Bound to an operational website: the full Search Analytics set.
-        Http::fake(['*' => Http::response(['rows' => []])]);
-        [, $bound] = $this->bound('search_console', 'sc-domain:bound.test', 'website');
-        $boundAutomation = ResourceAutomation::query()->where('external_resource_id', $bound->id)->firstOrFail();
-        $boundAutomation->update(['collection_status' => 'planning']);
-        app(ResourceAutomationService::class)->collect($boundAutomation->id);
-        $boundRun = CollectionRun::query()->findOrFail($boundAutomation->fresh()->collection_run_id);
-        $this->assertContains('gsc_page_daily', $boundRun->datasetRuns()->pluck('dataset_contract_id')->all());
+        $this->assertEqualsCanonicalizing(['gsc_property_daily', 'gsc_query_page_daily', 'gsc_sitemap_snapshot', 'gsc_site_metadata'],
+            $run->datasetRuns()->pluck('dataset_contract_id')->unique()->values()->all());
+        $this->assertFalse((bool) data_get($run->metadata, 'query_only'));
+        $this->assertSame('2025-08-26', data_get($run->datasetRuns()->where('dataset_contract_id', 'gsc_query_page_daily')->first()->metadata, 'date_range.start'));
     }
 
-    public function test_unbound_google_ads_account_plans_search_terms_only(): void
+    public function test_no_account_is_limited_to_its_queries_any_more(): void
     {
         $unbound = $this->resource('google_ads', '1234567890');
         $this->completedDatasets($unbound, 'GOOGLE_ADS', GoogleAdsCentralRequestFamilyCatalog::SEARCH_TERM, ['google_ads_search_term_daily'], '2026-09-20');
 
+        // The query-only plan still exists for an explicit call; automation never uses it (v2).
         $plan = $this->plan(GoogleAdsCentralCollectionService::class, 'queryOnlyPlan', $unbound);
-
         $this->assertSame([GoogleAdsCentralRequestFamilyCatalog::SEARCH_TERM], array_values(array_unique(array_column($plan['families'], 'family'))));
-        $this->assertSame(['start' => '2026-09-21', 'end' => '2026-09-26'], $plan['families'][0]['date_range']);
         $this->assertNull($plan['history_policy_version'], 'a query-only run never becomes the history baseline');
-        $this->assertTrue(app(ResourceAutomationService::class)->isQueryOnly($unbound));
+        $this->assertFalse(app(ResourceAutomationService::class)->isQueryOnly($unbound));
         $this->assertFalse(app(ResourceAutomationService::class)->isQueryOnly($this->resource('ga4', 'properties/77')));
     }
 
@@ -220,14 +207,14 @@ final class ProductionCollectionRepairTest extends TestCase
             'external_resource_id' => $resource->id, 'digital_asset_id' => null, 'status' => CollectionRunStatus::Partial,
             'metadata' => ['collection_scope' => 'provider_resource_first']]);
         CollectionDatasetRun::factory()->create(['collection_run_id' => $run->id, 'collection_resource_run_id' => $resourceRun->id,
-            'provider_or_source' => 'GA4', 'dataset_contract_id' => 'ga4_page_content_daily', 'request_family_id' => Ga4RequestFamilyCatalog::FAMILY_PAGE_CONTENT_DAILY,
+            'provider_or_source' => 'GA4', 'dataset_contract_id' => 'ga4_landing_source_daily', 'request_family_id' => Ga4RequestFamilyCatalog::FAMILY_LANDING_SOURCE_DAILY,
             'status' => CollectionRunStatus::Failed, 'metadata' => ['date_range' => ['start' => '2026-09-10', 'end' => '2026-09-12']]]);
 
         $plan = $this->plan(Ga4CentralCollectionService::class, 'smartPlan', $resource);
 
         $this->assertSame('repair', $plan['mode']);
         $this->assertSame('Europe/Istanbul', $plan['timezone']);
-        $this->assertSame([Ga4RequestFamilyCatalog::FAMILY_PAGE_CONTENT_DAILY, Ga4RequestFamilyCatalog::FAMILY_PROPERTY_DAILY], $plan['families']);
+        $this->assertSame([Ga4RequestFamilyCatalog::FAMILY_LANDING_SOURCE_DAILY, Ga4RequestFamilyCatalog::FAMILY_PROPERTY_DAILY], $plan['families']);
         $this->assertSame(['start' => '2026-09-13', 'end' => '2026-09-26'], $plan['family_ranges'][Ga4RequestFamilyCatalog::FAMILY_PROPERTY_DAILY]);
     }
 

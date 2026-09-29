@@ -200,9 +200,8 @@ final class GoogleAdsCentralCollectionService
                     CollectionRunStatus::Completed,
                     CollectionRunStatus::Skipped,
                     CollectionRunStatus::NotEligible,
-                ], true))
+                ], true) && in_array((string) $dataset->request_family_id, GoogleAdsCentralRequestFamilyCatalog::supportedFamilies(), true))
                 ->map(fn (CollectionDatasetRun $dataset): array => $this->repairFamilyEntry($resource, $dataset))
-                ->filter(fn (array $entry): bool => in_array($entry['family'], GoogleAdsCentralRequestFamilyCatalog::supportedFamilies(), true))
                 ->values()
                 ->all();
 

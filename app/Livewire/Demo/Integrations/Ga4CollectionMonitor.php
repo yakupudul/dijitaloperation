@@ -359,7 +359,7 @@ class Ga4CollectionMonitor extends Component
             'GA4_RF_PAGE_CONTENT_DAILY' => 'Sayfa ve içerik',
             'GA4_RF_EVENT_DAILY' => 'Event verileri',
             'GA4_RF_KEY_EVENT_DAILY' => 'Key Event verileri',
-            'GA4_RF_LANDING_CHANNEL_DAILY' => 'Açılış sayfası × kanal',
+            'GA4_RF_LANDING_SOURCE_DAILY' => 'Açılış sayfası × kaynak / ortam',
             'GA4_RF_DEVICE_DAILY' => 'Cihaz',
             'GA4_RF_TECHNOLOGY_DAILY' => 'Tarayıcı / işletim sistemi',
             'GA4_RF_COUNTRY_DAILY' => 'Ülke',

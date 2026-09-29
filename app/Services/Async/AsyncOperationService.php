@@ -12,6 +12,7 @@ use App\Models\DigitalAsset;
 use App\Models\ModuleRegistry;
 use App\Models\Run;
 use App\Models\User;
+use App\Services\Integrations\DataForSeo\DataForSeoEndpointAllowlist;
 use App\Support\Async\AsyncFailureClassifier;
 use App\Support\Async\AsyncOperationTypes;
 use App\Support\Permissions;
@@ -88,6 +89,11 @@ final class AsyncOperationService
      */
     public function queueSeoIntelligenceRefresh(DigitalAsset $asset, ?User $user = null): array
     {
+        // MoxDOP v2 (Faz 1): the paid DataForSEO Labs keyword refresh is retired (endpoints no longer allowlisted).
+        if (! DataForSeoEndpointAllowlist::isAllowed(DataForSeoEndpointAllowlist::LABS_GOOGLE_RANKED_KEYWORDS_LIVE)) {
+            return ['ok' => false, 'queued' => false, 'message' => 'DataForSEO anahtar kelime yenilemesi v2’de kaldırıldı.', 'run' => null, 'existing_run' => null];
+        }
+
         return $this->queue(
             asset: $asset,
             operationType: AsyncOperationTypes::SEO_INTELLIGENCE_REFRESH,

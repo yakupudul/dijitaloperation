@@ -86,7 +86,7 @@ Google Ads kampanya / bütçe / durum değişikliği **yoktur**; öneriler Googl
 | `*/10 * * * * (UTC)` | `moxdop:content:publish-due` |
 | `10 7 * * * (UTC)` | `moxdop:customers:health` |
 | `10 5 * * * (UTC)` | `moxdop:data-pool-audit` |
-| `10 4 * * * (UTC)` | `moxdop:data:retention` |
+| `10 4 2 * * (UTC)` | `moxdop:retention --apply` |
 | `30 5 * * 1 (UTC)` | `moxdop:demand:build` |
 | `0 6 * * 1 (UTC)` | `moxdop:demand:compare` |
 | `45 5 * * 1 (UTC)` | `moxdop:demand:serp` |

@@ -25,8 +25,11 @@ final class DataForSeoEndpointAllowlist
     /** Paid — organic competitor domains for a target domain (Labs Google). */
     public const string LABS_GOOGLE_COMPETITORS_DOMAIN_LIVE = 'dataforseo_labs/google/competitors_domain/live';
 
-    /** Paid — Sales Intent Radar V1 public SERP (explicit operator run only). */
+    /** Paid — Sales Intent Radar V1 public SERP (retired in v2; not allowlisted). */
     public const string SERP_GOOGLE_ORGANIC_LIVE_REGULAR = 'serp/google/organic/live/regular';
+
+    /** Paid — v2: top-10 organic SERP of a representative query (30-day cache in serp_results). */
+    public const string SERP_GOOGLE_ORGANIC_LIVE_ADVANCED = 'serp/google/organic/live/advanced';
 
     /** Paid — explicit keyword search-volume and monthly-trend observation. */
     public const string KEYWORDS_DATA_GOOGLE_ADS_SEARCH_VOLUME_LIVE = 'keywords_data/google_ads/search_volume/live';
@@ -53,12 +56,13 @@ final class DataForSeoEndpointAllowlist
      * Result reads of queued tasks posted above: the task id is part of the path, so these are matched by
      * pattern (free reads; only the post is charged).
      */
-    public const array TASK_GET_PATTERNS = [
-        '#^serp/google/maps/task_get/advanced/[A-Za-z0-9-]{8,64}$#',
-        '#^business_data/google/reviews/task_get/[A-Za-z0-9-]{8,64}$#',
-    ];
+    public const array TASK_GET_PATTERNS = [];
 
     /**
+     * MoxDOP v2 (Faz 1): only the free directory / account reads, the top-10 SERP and search volume. Every other
+     * DataForSEO task (Labs ranked keywords, keywords for site, competitor domains, keyword ideas, maps / reviews
+     * queues, backlinks) is retired; its constant stays for reference only and can never be called.
+     *
      * @return list<string>
      */
     public static function all(): array
@@ -67,17 +71,8 @@ final class DataForSeoEndpointAllowlist
             self::APPENDIX_USER_DATA,
             self::LABS_LOCATIONS_AND_LANGUAGES,
             self::SERP_GOOGLE_LOCATIONS_TR,
-            self::LABS_GOOGLE_RANKED_KEYWORDS_LIVE,
-            self::LABS_GOOGLE_KEYWORDS_FOR_SITE_LIVE,
-            self::LABS_GOOGLE_COMPETITORS_DOMAIN_LIVE,
-            self::SERP_GOOGLE_ORGANIC_LIVE_REGULAR,
+            self::SERP_GOOGLE_ORGANIC_LIVE_ADVANCED,
             self::KEYWORDS_DATA_GOOGLE_ADS_SEARCH_VOLUME_LIVE,
-            self::LABS_GOOGLE_KEYWORD_IDEAS_LIVE,
-            self::SERP_GOOGLE_MAPS_TASK_POST,
-            self::BUSINESS_DATA_GOOGLE_REVIEWS_TASK_POST,
-            self::BACKLINKS_SUMMARY_LIVE,
-            self::BACKLINKS_REFERRING_DOMAINS_LIVE,
-            self::BACKLINKS_DOMAIN_INTERSECTION_LIVE,
         ];
     }
 

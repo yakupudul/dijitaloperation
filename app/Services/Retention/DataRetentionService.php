@@ -11,11 +11,12 @@ use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 /**
- * Keeps stored data lean without losing what matters (roadmap principle 2):
+ * Keeps stored data lean (MoxDOP v2 Faz 1, `moxdop:retention`):
+ * - daily facts older than 16 months are rolled into performance_monthly_rollups, then deleted;
+ * - query daily facts (Search Console query × page, Google Ads search terms) older than 16 months are deleted —
+ *   their monthly form is `query_sources`, itself kept 24 months;
  * - raw provider payloads / HTML copies older than the window are deleted (each page's latest HTML is kept);
- * - telemetry tables are trimmed to their own windows;
- * - daily performance rows older than the daily window are rolled into performance_monthly_rollups, then deleted.
- * Gold daily tables (queries, search terms, keywords) are never touched.
+ * - telemetry tables are trimmed to their own windows.
  */
 final class DataRetentionService
 {
@@ -23,15 +24,76 @@ final class DataRetentionService
     private array $plans = [];
 
     /**
-     * @return array{raw_objects: int, telemetry: array<string, int>, rolled_rows: int, rollup_rows: int}
+     * @return array{raw_objects: int, telemetry: array<string, int>, rolled_rows: int, rollup_rows: int, query_daily_rows: array<string, int>, query_source_rows: int}
      */
     public function run(bool $dryRun = false): array
     {
         return [
-            'raw_objects' => $this->purgeRawPayloads($dryRun),
+            'raw_objects' => $this->purgeAllRawPayloads($dryRun),
             'telemetry' => $this->purgeTelemetry($dryRun),
             ...$this->rollupDailyPerformance($dryRun),
+            'query_daily_rows' => $this->purgeQueryDailyFacts($dryRun),
+            'query_source_rows' => $this->purgeQuerySources($dryRun),
         ];
+    }
+
+    /** First month that stays daily (older months are rolled / deleted). */
+    public function dailyCutoff(): CarbonImmutable
+    {
+        return CarbonImmutable::now()->startOfMonth()->subMonths(max(1, (int) config('moxdop-retention.daily_performance_months', 16)));
+    }
+
+    /** Raw payloads in batches until nothing is left over the window (bounded). */
+    public function purgeAllRawPayloads(bool $dryRun = false): int
+    {
+        if ($dryRun) {
+            return $this->purgeRawPayloads(true);
+        }
+        $total = 0;
+        for ($batch = 0; $batch < 500; $batch++) {
+            $deleted = $this->purgeRawPayloads();
+            $total += $deleted;
+            if ($deleted < max(1, (int) config('moxdop-retention.raw_payload_batch', 2000))) {
+                break;
+            }
+        }
+
+        return $total;
+    }
+
+    /**
+     * Search Console query × page and Google Ads search terms older than the daily window (their monthly aggregate is
+     * query_sources). Compact tables delete from their fact table.
+     *
+     * @return array<string, int>
+     */
+    public function purgeQueryDailyFacts(bool $dryRun = false): array
+    {
+        $cutoff = $this->dailyCutoff()->toDateString();
+        $compact = app(CompactFactStore::class);
+        $result = [];
+        foreach ((array) config('moxdop-retention.query_daily_tables', []) as $table) {
+            if (! Schema::hasTable($table) && ! $compact->isCompact($table)) {
+                continue;
+            }
+            $target = $compact->isCompact($table) ? (string) $compact->spec($table)['fact'] : $table;
+            $query = DB::table($target)->where('reporting_date', '<', $cutoff);
+            $result[$table] = $dryRun ? $query->count() : $query->delete();
+        }
+
+        return $result;
+    }
+
+    /** query_sources months older than the query window (24 months). */
+    public function purgeQuerySources(bool $dryRun = false): int
+    {
+        if (! Schema::hasTable('query_sources')) {
+            return 0;
+        }
+        $cutoff = CarbonImmutable::now()->startOfMonth()->subMonths(max(1, (int) config('moxdop-retention.query_sources_months', 24)));
+        $query = DB::table('query_sources')->where('month', '<', $cutoff->toDateString());
+
+        return $dryRun ? $query->count() : $query->delete();
     }
 
     public function purgeRawPayloads(bool $dryRun = false): int
@@ -91,7 +153,7 @@ final class DataRetentionService
      */
     public function rollupDailyPerformance(bool $dryRun = false): array
     {
-        $cutoff = CarbonImmutable::now()->startOfMonth()->subMonths(max(13, (int) config('moxdop-retention.daily_performance_months', 25)));
+        $cutoff = $this->dailyCutoff();
         $totals = ['rolled_rows' => 0, 'rollup_rows' => 0];
         if (! Schema::hasTable('performance_monthly_rollups')) {
             return $totals;
@@ -177,13 +239,13 @@ final class DataRetentionService
     }
 
     /**
-     * Daily performance tables: every `*_daily` table with a reporting_date column, minus gold tables.
+     * Daily performance tables: every `*_daily` table with a reporting_date column, minus the query daily facts.
      *
      * @return list<string>
      */
     public function dailyPerformanceTables(): array
     {
-        $gold = (array) config('moxdop-retention.gold_daily_tables', []);
+        $gold = (array) config('moxdop-retention.query_daily_tables', []);
         $compact = app(CompactFactStore::class);
         $views = collect([...array_keys((array) config('moxdop-compact-facts.tables')), ...array_keys((array) config('moxdop-compact-facts.generic'))])
             ->filter(fn (string $table): bool => $compact->isCompact($table));

@@ -18,8 +18,8 @@ use Throwable;
  * What happens, in one transaction per entity:
  *  - The customer (with its brands) or the brand, and the digital assets under them, are archived (soft delete): they
  *    disappear from every list and screen.
- *  - The active account bindings of those assets are disabled. An unbound account is not collected any more
- *    (ResourceAutomationService::portfolioGate), so collection stops.
+ *  - The active account bindings of those assets are disabled. MoxDOP v2 still collects every discovered account
+ *    (bound or not, free); the operator turns an account's collection off on Entegrasyonlar if it must stop.
  *  - Nothing else is touched. Collected rows are keyed by the external account, so when that account is bound again to a
  *    brand's asset, collection resumes on its own and the history is visible again.
  */

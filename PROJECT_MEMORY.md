@@ -1564,3 +1564,19 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   tek marka hafızasında (`brand_memory` profile) tutulur.
 - **Değişmez:** kaynak ↔ tek varlık (OwnershipGuard), varlık ↔ tek marka, marka ↔ tek müşteri; AI / ücretli iş kapısı
   `Brand::operational()`.
+
+## 2026-10-28 — MoxDOP v2 Faz 1 (Toplama)
+
+- **Tek veri seti kataloğu:** `config('moxdop-collection.datasets')` toplanan her veri setinin tek doğrusudur
+  (`CollectionDatasetCatalog`); toplayıcılar ve planlayıcılar bu listeyi süzer. Yeni veri seti yalnız bu listeye
+  eklenerek toplanır.
+- **Tüm keşfedilen hesaplar toplanır** (bağlı / bağsız, aktif / pasif müşteri); "yalnız sorgu" modu ve portföy kapısı
+  kalktı. Toplama ücretsizdir; pasif müşteride AI çalışmaz (sonraki fazlar uygular); operatör uyarısı yalnız operasyonel
+  varlığa bağlı hesaplar için. Meta motoru bağlama gerektirdiği için bağsız Meta hesabı bekler.
+- **`pages`** WordPress Connector'dan (birincil) ya da sitemap + ana içerik çıkarımından doldurulur; HTML saklanmaz; hash
+  değişmezse yazılmaz; kategori Faz 4'te. Tema değişimi sayfaları yeniden çekmeden "değişti" işaretler.
+- **`query_sources`** her toplama sonrası aylık yeniden hesaplanır (GSC sorgu × sayfa, Ads arama terimi, İşletme Profili
+  ifadesi); Faz 3 buradan normalleştirir.
+- **Saklama:** günlük veriler 16 ay (aylık özete çevrilip silinir), `query_sources` 24 ay; `moxdop:retention` aylık.
+- **DataForSEO** yalnız top-10 SERP (30 gün önbellek) ve arama hacmi (90 gün önbellek); diğer tüm uç noktalar izin
+  listesinden çıkarıldı.

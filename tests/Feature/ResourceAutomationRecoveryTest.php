@@ -10,6 +10,7 @@ use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
+use App\Models\Observability\OperationalAlert;
 use App\Models\ResourceAutomation;
 use App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsCentralRequestFamilyCatalog;
@@ -175,11 +176,12 @@ final class ResourceAutomationRecoveryTest extends TestCase
         $ads = CoreExternalResource::factory()->count(3)->create(['resource_type' => 'google_ads']);
         $ads->each(fn (CoreExternalResource $resource) => $this->bindToActiveAsset($resource));
         $service->tick();
-        Queue::assertPushed(ResourceCollectionJob::class, 2);
+        // v2: unbound GA4 properties are collected too — the GA4 lane fills its one free slot, Ads its two.
+        Queue::assertPushed(ResourceCollectionJob::class, 3);
         $plannedIds = ResourceAutomation::query()->where('collection_status', 'planning')->pluck('external_resource_id')->all();
-        $this->assertEqualsCanonicalizing($ads->take(2)->pluck('id')->all(), $plannedIds);
+        $this->assertEqualsCanonicalizing($ads->take(2)->pluck('id')->all(), array_values(array_intersect($plannedIds, $ads->pluck('id')->all())));
         $service->tick();
-        Queue::assertPushed(ResourceCollectionJob::class, 2);
+        Queue::assertPushed(ResourceCollectionJob::class, 3);
     }
 
     public function test_busy_ads_lane_does_not_starve_other_providers(): void
@@ -251,18 +253,23 @@ final class ResourceAutomationRecoveryTest extends TestCase
         $this->assertSame(['attention', 'waiting'], ResourceAutomation::query()->orderBy('collection_status')->pluck('collection_status')->all());
     }
 
-    public function test_unbound_account_resumes_on_the_next_tick_once_bound(): void
+    public function test_unbound_account_is_admitted_without_a_binding_and_never_alerts(): void
     {
         $resource = CoreExternalResource::factory()->create(['resource_type' => 'ga4']);
         $service = app(ResourceAutomationService::class);
         $service->tick();
         $automation = ResourceAutomation::query()->where('external_resource_id', $resource->id)->firstOrFail();
-        $this->assertSame('unbound', $automation->collection_error);
-        $this->assertTrue($automation->next_collection_at->isFuture());
+        $this->assertNull($automation->collection_error, 'v2: every discovered account is collected, bound or not');
+        $this->assertSame('planning', $automation->collection_status);
+        Queue::assertPushed(ResourceCollectionJob::class, 1);
 
-        CoreAssetBinding::factory()->create(['external_resource_id' => $resource->id, 'capability' => 'ga4']);
+        // An account parked as unbound before v2 is released on the next tick.
+        $automation->update(['collection_status' => 'attention', 'collection_error' => 'unbound', 'next_collection_at' => now()->addDay()]);
         $service->tick();
         $this->assertNull($automation->fresh()->collection_error);
+
+        $service->alert($automation->id, 'collection', 'collection_failed');
+        $this->assertSame(0, OperationalAlert::query()->where('rule_key', 'resource-automation.collection')->count(), 'no operator alert for an unbound account');
     }
 
     public function test_dispatch_sink_is_rejected_instead_of_silently_losing_planning_jobs(): void

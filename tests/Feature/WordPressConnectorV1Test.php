@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\Collection\CollectionRunStatus;
+use App\Enums\Collection\DatasetExecutionOutcome;
 use App\Livewire\Operator\Integrations\SiteConnectorShow;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
@@ -10,13 +11,17 @@ use App\Models\Collection\CollectionRun;
 use App\Models\CoreConnection;
 use App\Models\CoreConnectionCredential;
 use App\Models\DigitalAsset;
+use App\Models\Page;
 use App\Models\User;
 use App\Services\Analysis\Adapters\WordPressCollectedFactsEvaluator;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
+use App\Services\Collection\Providers\Website\WordPressConnectorDatasetExecutor;
+use App\Services\Collection\Support\DatasetExecutionContext;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Services\Integrations\WordPress\WordPressEventReconciliation;
+use App\Services\Website\Pages\PageStore;
 use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -320,6 +325,98 @@ final class WordPressConnectorV1Test extends TestCase
             'connection_id' => $connectionId, 'collection_run_id' => null, 'reconciled_event_id' => $eventId,
         ]);
         $this->assertSame(0, CollectionRun::query()->where('digital_asset_id', $this->asset->id)->count());
+    }
+
+    #[Test]
+    public function theme_change_marks_pages_changed_and_deleted_objects_leave_pages_without_a_full_inventory(): void
+    {
+        Queue::fake();
+        $pairing = app(WordPressConnectorPairingService::class);
+        $issued = $pairing->issue($this->asset, $this->admin);
+        $pairing->complete($this->pairingPayload($issued['code']));
+        $connectionId = $issued['connection']->id;
+        foreach ([['a', 5], ['b', 6]] as [$slug, $postId]) {
+            Page::query()->create(['website_asset_id' => $this->asset->id, 'url' => 'https://example.com/'.$slug.'/', 'url_hash' => PageStore::urlHash('https://example.com/'.$slug.'/'),
+                'path' => '/'.$slug.'/', 'wp_post_id' => $postId, 'changed_at' => now()->subYear()]);
+        }
+        $event = fn (string $type, string $objectType, string $objectId): int => DB::table('website_connector_events')->insertGetId([
+            'connection_id' => $connectionId, 'digital_asset_id' => $this->asset->id,
+            'event_id' => (string) Str::uuid(), 'type' => $type, 'object_type' => $objectType, 'object_id' => $objectId,
+            'origin' => 'wordpress_user', 'payload' => '{}', 'occurred_at' => now(), 'received_at' => now(),
+        ]);
+        $event('maintenance.theme_changed', 'theme', 'astra');
+        $last = $event('content.deleted', 'page', '6');
+        DB::table('website_connector_delivery')->where('connection_id', $connectionId)->update([
+            'last_inventory_at' => now(), 'latest_event_id' => $last, 'next_reconcile_at' => now(), 'plugin_version' => '1.5.0',
+        ]);
+
+        app(WordPressEventReconciliation::class)->tick();
+
+        $this->assertSame([5], Page::query()->pluck('wp_post_id')->all(), 'the deleted page left at once');
+        $this->assertTrue(Page::query()->sole()->changed_at->isToday(), 'theme change → every page marked changed');
+        $state = DB::table('website_connector_delivery')->where('connection_id', $connectionId)->first();
+        $run = CollectionRun::query()->findOrFail($state->collection_run_id);
+        $this->assertSame('changes', data_get($run->request_context, 'context.collection_scope'), 'no full inventory for a theme change');
+        $this->assertSame([6], data_get($run->request_context, 'context.wordpress_object_ids'));
+    }
+
+    #[Test]
+    public function connector_inventory_fills_pages_with_main_content_and_seo_fields(): void
+    {
+        Queue::fake();
+        $pairing = app(WordPressConnectorPairingService::class);
+        $issued = $pairing->issue($this->asset, $this->admin);
+        $credentials = $pairing->complete($this->pairingPayload($issued['code']));
+        $canonicalJson = new WordPressConnectorCanonicalJson;
+        $this->app->instance(WordPressConnectorClient::class, new WordPressConnectorClient($canonicalJson, new PublicUrlSafety(fn (string $host): array => ['93.184.216.34'])));
+        $records = [
+            'content' => [
+                ['object_type' => 'page', 'object_id' => '10', 'status' => 'publish', 'permalink' => 'https://example.com/implant/', 'title' => 'İmplant',
+                    'modified_at' => '2026-09-01T10:00:00+00:00', 'language' => 'tr', 'content_rendered' => '<h2>Nedir?</h2><p>Kayıp diş yerine yapay kök.</p>'],
+                ['object_type' => 'post', 'object_id' => '11', 'status' => 'draft', 'permalink' => 'https://example.com/?p=11', 'title' => 'Taslak', 'content_rendered' => '<p>x</p>'],
+            ],
+            'seo' => [
+                ['object_type' => 'page', 'object_id' => '10', 'permalink' => 'https://example.com/implant/', 'seo_provider' => 'yoast',
+                    'seo_title' => 'İmplant Tedavisi Ankara', 'meta_description' => 'Ankara implant.', 'canonical_url' => 'https://example.com/implant/', 'robots' => '', 'language' => 'tr'],
+            ],
+        ];
+        Http::fake(function (Request $request) use ($credentials, $canonicalJson, $records) {
+            parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+            $nonce = $request->header(WordPressConnectorClient::HEADER_NONCE)[0] ?? '';
+            $data = ['schema_version' => 1, 'plugin_version' => '1.5.0', 'section' => $query['section'] ?? '', 'object_ids' => [],
+                'records' => $records[$query['section'] ?? ''] ?? [], 'has_more' => false];
+            $time = now()->timestamp;
+
+            return Http::response(['data' => $data, 'meta' => ['server_time' => $time, 'request_nonce' => $nonce,
+                'signature' => hash_hmac('sha256', implode("\n", [(string) $time, $nonce, hash('sha256', $canonicalJson->encode($data))]), $credentials['shared_secret'])]]);
+        });
+
+        $run = app(WebsiteCollectionOrchestrator::class)->start(asset: $this->asset, requestFamilyIds: [WebsiteRequestFamilyCatalog::FAMILY_WP_REST], context: ['collection_scope' => 'wordpress']);
+        // SEO first (no page yet: nothing to update), then content (pages created with the stored SEO), then SEO again.
+        foreach (['website_cms_seo_snapshot', 'website_cms_object_snapshot', 'website_cms_seo_snapshot'] as $datasetId) {
+            $datasetRun = $run->datasetRuns()->where('dataset_contract_id', $datasetId)->firstOrFail();
+            $checkpoint = [];
+            for ($guard = 0; $guard < 10; $guard++) {
+                $result = app(WordPressConnectorDatasetExecutor::class)->execute(new DatasetExecutionContext(
+                    collectionRun: $run->fresh(), resourceRun: $datasetRun->resourceRun, datasetRun: $datasetRun->fresh(),
+                    checkpoint: $checkpoint, registryDataset: [], registryRequestFamily: [], attemptNumber: 1,
+                ));
+                $checkpoint = $result->checkpoint ?? [];
+                if ($result->outcome !== DatasetExecutionOutcome::Continue) {
+                    break;
+                }
+            }
+            $this->assertSame(DatasetExecutionOutcome::Completed, $result->outcome, $datasetId.': '.$result->errorMessage);
+        }
+
+        $page = Page::query()->where('website_asset_id', $this->asset->id)->sole();
+        $this->assertSame([10, 'https://example.com/implant/', 'tr'], [$page->wp_post_id, $page->url, $page->language]);
+        $this->assertSame('İmplant Tedavisi Ankara', $page->title);
+        $this->assertSame('Ankara implant.', $page->meta_description);
+        $this->assertSame('İmplant', $page->h1);
+        $this->assertSame([['level' => 2, 'text' => 'Nedir?']], $page->headings);
+        $this->assertStringContainsString('Kayıp diş yerine yapay kök.', $page->content_text);
+        $this->assertNull($page->category);
     }
 
     #[Test]

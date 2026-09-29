@@ -123,11 +123,9 @@ final class ResourceAutomationService
                         $automation->update(['collection_status' => 'waiting', 'collection_error' => null, 'next_collection_at' => now()]);
                     }
                 });
-            // An account parked as unbound / passive starts on the next tick once it is bound to an active asset,
-            // instead of waiting a full collection interval.
+            // v2: accounts parked earlier as unbound / passive are collected again (every discovered account is).
             ResourceAutomation::query()->where('collection_enabled', true)
                 ->where('collection_status', 'attention')->whereIn('collection_error', ['unbound', 'customer_passive'])
-                ->whereHas('resource.bindings', fn ($b) => $b->where('status', 'active'))
                 ->orderBy('id')->limit(200)->get()->each(function ($automation): void {
                     if ($this->readiness($automation->resource) === null && $this->portfolioGate($automation) === null) {
                         $automation->update(['collection_status' => 'waiting', 'collection_error' => null, 'next_collection_at' => now()]);
@@ -286,21 +284,14 @@ final class ResourceAutomationService
     }
 
     /**
-     * Lean-data gate: a resource bound only to passive assets (inactive asset or customer) is not collected — except
-     * the free query sources (Search Console, Google Ads, Business Profile): their queries are pulled from every
-     * discovered account without exception, bound or not (operator decision, sorgu hattı).
+     * MoxDOP v2 (Faz 1): every discovered account is collected automatically — bound or not, active or passive
+     * customer — for the datasets of the v2 catalogue (config moxdop-collection.datasets). Collection is free;
+     * passive customers never run AI (later phases enforce that). Operator alerts are raised only for accounts that
+     * serve an operational asset (see alert()). Kept as a hook so an operator gate can return here if ever needed.
      */
     public function portfolioGate(ResourceAutomation $automation): ?string
     {
-        if (in_array($automation->resource?->resource_type, self::QUERY_SOURCES, true)) {
-            return null;
-        }
-        $assetIds = $automation->resource?->bindings()->where('status', 'active')->pluck('digital_asset_id') ?? collect();
-        if ($assetIds->isEmpty()) {
-            return 'unbound';
-        }
-
-        return DigitalAsset::query()->operational()->whereIn('digital_assets.id', $assetIds)->exists() ? null : 'customer_passive';
+        return null;
     }
 
     /** A customer turned active again: its accounts paused by the portfolio gate are due immediately. */
@@ -373,8 +364,7 @@ final class ResourceAutomationService
             return;
         }
         $r = $a->resource;
-        // Unbound / passive query-source accounts are admitted for their queries only (search terms, Search Console
-        // queries, Business Profile keywords) — never the full provider collection.
+        // v2: every discovered account collects the full v2 dataset catalogue (never a query-only subset).
         $queryOnly = $this->isQueryOnly($r);
         if ($r->resource_type === 'google_business_profile') {
             $this->collectGbp($a, $queryOnly);
@@ -601,11 +591,13 @@ final class ResourceAutomationService
         return $assetIds->isNotEmpty() && DigitalAsset::query()->operational()->whereIn('digital_assets.id', $assetIds)->exists();
     }
 
-    /** A query source (Search Console, Google Ads, Business Profile) that serves no operational asset: queries only. */
+    /**
+     * MoxDOP v2: no account is limited to its queries any more — unbound accounts collect the full v2 dataset
+     * catalogue like bound ones (query sources included). Always false; kept for the collectors' signature.
+     */
     public function isQueryOnly(?CoreExternalResource $resource): bool
     {
-        return $resource !== null && in_array($resource->resource_type, self::QUERY_SOURCES, true)
-            && ! $this->isOperationallyBound($resource);
+        return false;
     }
 
     /**

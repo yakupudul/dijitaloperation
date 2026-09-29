@@ -39,7 +39,6 @@ return [
         'ga4_event_landing_daily' => 'ga4_f_event_landing',
         'ga4_event_daily' => 'ga4_f_event',
         'ga4_landing_page_daily' => 'ga4_f_landing_page',
-        'ga4_landing_channel_daily' => 'ga4_f_landing_channel',
         'ga4_source_medium_daily' => 'ga4_f_source_medium',
         'ga4_campaign_daily' => 'ga4_f_campaign',
         'ga4_page_content_daily' => 'ga4_f_page_content',

@@ -115,7 +115,10 @@ final class DiagnoseCommandTest extends TestCase
         $this->assertStringContainsString('kapsam: marka #'.$this->panorama->id.' Panorama Dental', $output);
         $this->assertStringContainsString('#'.$this->website->id.' Panorama site (panorama.example', $output);
         $this->assertStringNotContainsString('Diğer site', $output);
-        $this->assertStringContainsString('gsc_query_daily=yok', $output);
+        $this->assertStringContainsString('gsc_query_page_daily=yok', $output);
+        $this->assertStringContainsString('Katalog SEARCH_CONSOLE', $output);
+        $this->assertStringContainsString('Sorgu kaynakları (query_sources): boş', $output);
+        $this->assertStringContainsString('sayfa (pages) 0', $output);
         $this->assertSecretsMasked($output);
 
         Artisan::call('moxdop:diagnose', ['--brand' => (string) $this->other->id, '--section' => 'website']);

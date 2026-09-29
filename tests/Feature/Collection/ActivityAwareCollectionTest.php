@@ -251,12 +251,12 @@ class ActivityAwareCollectionTest extends TestCase
             && str_contains((string) ($request->data()['query'] ?? ''), "last_change_date_time >= '2026-09-25 04:00:00'")
             && ! str_contains(strtolower($request->url()), 'mutate'));
         $pass = DB::table('collection_activity_passes')->where('external_resource_id', $resource->id)->latest('id')->first();
-        $this->assertSame(5, (int) $pass->skipped_datasets);
+        $this->assertSame(4, (int) $pass->skipped_datasets, 'entity snapshot, two negative keyword snapshots, bidding strategies');
 
         $results = [['changeStatus' => ['resourceName' => 'customers/1112223333/changeStatus/1', 'lastChangeDateTime' => '2026-09-26 12:00:00']]];
         $changed = array_column($this->googleAdsPlan($resource)['families'], 'family');
         $this->assertContains(GoogleAdsCentralRequestFamilyCatalog::ENTITY_SNAPSHOT, $changed);
-        $this->assertContains('GADS_CENTRAL_RF_PMAX_ASSET_GROUPS', $changed);
+        $this->assertContains('GADS_CENTRAL_RF_BIDDING_STRATEGIES', $changed);
 
         // Weekly safety net: a week after the last structure collection they are planned without asking.
         $results = [];
@@ -349,7 +349,7 @@ class ActivityAwareCollectionTest extends TestCase
         Http::fake(['*' => Http::response(['rows' => []])]);
         $full = $this->privatePlan(SearchConsoleCentralCollectionService::class, $active);
         $this->assertSame('full', $full['activity']['mode']);
-        $this->assertContains('gsc_query_daily', array_column($full['dataset_plans'], 'dataset_id'));
+        $this->assertContains('gsc_query_page_daily', array_column($full['dataset_plans'], 'dataset_id'));
         $this->assertSame(4, $full['days'], 'Search Console re-fetches the last 4 final days');
     }
 
@@ -371,7 +371,7 @@ class ActivityAwareCollectionTest extends TestCase
         $this->centralBaseline($active, 'GA4', array_fill_keys(Ga4RequestFamilyCatalog::centralFamilies(), '2026-09-26'));
         $full = $this->privatePlan(Ga4CentralCollectionService::class, $active);
         $this->assertSame(Ga4RequestFamilyCatalog::centralFamilies(), $full['families']);
-        $this->assertSame(['start' => '2026-09-24', 'end' => '2026-09-26'], $full['family_ranges'][Ga4RequestFamilyCatalog::FAMILY_CITY_DAILY]);
+        $this->assertSame(['start' => '2026-09-24', 'end' => '2026-09-26'], $full['family_ranges'][Ga4RequestFamilyCatalog::FAMILY_LANDING_SOURCE_DAILY]);
         Http::assertNothingSent();
     }
 

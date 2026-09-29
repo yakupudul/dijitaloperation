@@ -2,6 +2,7 @@
 
 namespace App\Services\Collection\Providers\Ga4;
 
+use App\Support\Collection\CollectionDatasetCatalog;
 use InvalidArgumentException;
 
 /**
@@ -23,7 +24,7 @@ final class Ga4RequestFamilyCatalog
 
     public const string FAMILY_LANDING_PAGE_DAILY = 'GA4_RF_LANDING_PAGE_DAILY';
 
-    public const string FAMILY_LANDING_CHANNEL_DAILY = 'GA4_RF_LANDING_CHANNEL_DAILY';
+    public const string FAMILY_LANDING_SOURCE_DAILY = 'GA4_RF_LANDING_SOURCE_DAILY';
 
     public const string FAMILY_PAGE_CONTENT_DAILY = 'GA4_RF_PAGE_CONTENT_DAILY';
 
@@ -53,20 +54,33 @@ final class Ga4RequestFamilyCatalog
     public static function supportedFamilies(): array
     {
         return [
-            ...self::centralFamilies(),
+            ...self::allCentralFamilies(),
             self::FAMILY_EVENT_BREAKDOWNS,
             self::FAMILY_GENERIC_REPORT,
         ];
     }
 
     /**
-     * Families persisted by the user-selectable central 13-month collector.
-     * Generic range users is intentionally excluded because it has no durable typed fact table.
-     * Event breakdowns remain supported for legacy/bound flows but are not needed for the core central contract.
+     * Families persisted by the central resource-first collector: only those whose dataset is in the v2 dataset
+     * catalogue (config moxdop-collection.datasets.GA4).
      *
      * @return list<string>
      */
     public static function centralFamilies(): array
+    {
+        return array_values(array_filter(
+            self::allCentralFamilies(),
+            static fn (string $family): bool => CollectionDatasetCatalog::keeps('GA4', self::definition($family)['dataset_id']),
+        ));
+    }
+
+    /**
+     * Every central family the executor knows (before the v2 catalogue filter).
+     * Generic range users is intentionally excluded because it has no durable typed fact table.
+     *
+     * @return list<string>
+     */
+    public static function allCentralFamilies(): array
     {
         return [
             self::FAMILY_PROPERTY_METADATA,
@@ -76,7 +90,7 @@ final class Ga4RequestFamilyCatalog
             self::FAMILY_CAMPAIGN_DAILY,
             self::FAMILY_FIRST_USER_DAILY,
             self::FAMILY_LANDING_PAGE_DAILY,
-            self::FAMILY_LANDING_CHANNEL_DAILY,
+            self::FAMILY_LANDING_SOURCE_DAILY,
             self::FAMILY_PAGE_CONTENT_DAILY,
             self::FAMILY_EVENT_DAILY,
             self::FAMILY_KEY_EVENT_DAILY,
@@ -213,9 +227,9 @@ final class Ga4RequestFamilyCatalog
             self::FAMILY_LANDING_PAGE_DAILY => $report(
                 'ga4_landing_page_daily', ['date', 'landingPage'], self::sessionRequiredMetrics(), self::sessionOptionalMetrics(), 'session_entry', true
             ),
-            // Sayfa Karnesi: which channel brings each landing page its sessions and key events.
-            self::FAMILY_LANDING_CHANNEL_DAILY => $report(
-                'ga4_landing_channel_daily', ['date', 'landingPage', 'sessionDefaultChannelGroup'], self::sessionRequiredMetrics(), ['engagementRate', 'keyEvents', 'sessionKeyEventRate'], 'session_entry_channel', true
+            // v2: which source / medium brings each landing page its sessions and key events.
+            self::FAMILY_LANDING_SOURCE_DAILY => $report(
+                'ga4_landing_source_daily', ['date', 'landingPage', 'sessionSource', 'sessionMedium'], self::sessionRequiredMetrics(), ['engagementRate', 'keyEvents', 'sessionKeyEventRate'], 'session_entry_source', true
             ),
             self::FAMILY_PAGE_CONTENT_DAILY => $report(
                 'ga4_page_content_daily', ['date', 'pagePathPlusQueryString', 'pageTitle', 'hostName'], ['screenPageViews', 'activeUsers', 'eventCount'], ['totalUsers', 'userEngagementDuration', 'keyEvents', 'scrolledUsers'], 'content', true

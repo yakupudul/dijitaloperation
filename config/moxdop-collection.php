@@ -85,4 +85,84 @@ return [
 
     'require_queue_connection' => (bool) env('COLLECTION_REQUIRE_QUEUE', true),
 
+    /*
+    |--------------------------------------------------------------------------
+    | MoxDOP v2 dataset catalogue (Faz 1 — Toplama) — the single truth
+    |--------------------------------------------------------------------------
+    |
+    | Only these datasets are collected, for every discovered account (bound or
+    | not). Every collector filters its request families through this list
+    | (App\Support\Collection\CollectionDatasetCatalog); a dataset that is not
+    | listed is never planned. `on_demand` datasets are fetched only when the
+    | operator asks (never scheduled).
+    |
+    */
+
+    'datasets' => [
+        'SEARCH_CONSOLE' => [
+            'gsc_site_metadata',           // permission level / active search types (no fact table)
+            'gsc_property_daily',          // totals
+            'gsc_query_page_daily',        // query × page daily (16 months)
+            'gsc_sitemap_snapshot',        // sitemap status
+        ],
+        'GA4' => [
+            'ga4_property_metadata',       // time zone, currency, streams
+            'ga4_property_daily',          // totals
+            'ga4_landing_source_daily',    // landing page × session source / medium (+ key events)
+            'ga4_key_event_daily',         // key events
+        ],
+        'GOOGLE_BUSINESS_PROFILE' => [
+            'gbp_location',                // profile: NAP, categories, description, hours
+            'gbp_attributes',
+            'gbp_services',
+            'gbp_reviews',
+            'gbp_posts',
+            'gbp_performance_daily',
+            'gbp_search_keywords_monthly',
+            'gbp_media',                   // media dates
+        ],
+        'GOOGLE_ADS' => [
+            'google_ads_account_monthly_history',            // activity history (plans the initial import)
+            'google_ads_account_snapshot',                   // account + campaign (bidding strategy) + budget + ad group + ad (assets, policy)
+            'google_ads_bidding_strategy_snapshot',
+            'google_ads_campaign_negative_keyword_snapshot', // keyword snapshots (negatives; conflict check)
+            'google_ads_ad_group_negative_keyword_snapshot',
+            'google_ads_conversion_action_snapshot',
+            'google_ads_account_daily',
+            'google_ads_campaign_daily',
+            'google_ads_ad_group_daily',
+            'google_ads_keyword_daily',
+            'google_ads_search_term_daily',
+            'google_ads_ad_daily',
+            'google_ads_geo_daily',
+        ],
+        'META_ADS' => [
+            'meta_ad_account_snapshot',
+            'meta_campaign_snapshot',
+            'meta_adset_snapshot',                 // + attribution setting per fetch
+            'meta_adset_targeting_snapshot',       // ad set targeting (region / language)
+            'meta_ad_snapshot',
+            'meta_creative_snapshot',              // + lead form id per creative
+            'meta_account_daily',
+            'meta_campaign_daily',
+            'meta_adset_daily',
+            'meta_ad_daily',
+            'meta_typed_action_daily',             // results / conversions of the ad daily rows
+            'meta_video_engagement_daily',
+            'meta_analysis_breakdown_daily',       // region breakdown only
+            'meta_conversion_source_snapshot',     // pixel / dataset status
+        ],
+        'DATAFORSEO' => [
+            'serp_results',                // top-10, 30-day cache
+            'query_volumes',               // search volume, 90-day cache
+        ],
+    ],
+
+    'on_demand' => [
+        'SEARCH_CONSOLE' => ['gsc_url_inspection_snapshot'],
+    ],
+
+    /* Meta analysis breakdowns: region only. */
+    'meta_breakdowns' => ['region'],
+
 ];

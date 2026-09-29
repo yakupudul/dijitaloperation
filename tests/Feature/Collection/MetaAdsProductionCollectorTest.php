@@ -632,7 +632,7 @@ class MetaAdsProductionCollectorTest extends TestCase
     }
 
     #[Test]
-    public function breakdown_family_requests_only_contract_dimensions(): void
+    public function breakdown_family_requests_only_the_region_breakdown(): void
     {
         $seen = [];
         Http::fake(function ($request) use (&$seen) {
@@ -665,12 +665,8 @@ class MetaAdsProductionCollectorTest extends TestCase
 
         $result = $this->runFamily('META_V2_RF_BREAKDOWNS', ['start' => '2026-08-01', 'end' => '2026-08-01']);
         $this->assertSame(DatasetExecutionOutcome::Completed, $result->outcome, (string) $result->errorMessage);
-        $this->assertContains('country', $seen);
-        $this->assertContains('age,gender', $seen);
-        $this->assertContains('publisher_platform,platform_position', $seen);
-        $this->assertContains('impression_device', $seen);
-        $this->assertContains('region', $seen);
-        $this->assertSame(['country', 'age,gender', 'publisher_platform,platform_position', 'impression_device', 'region'], $seen);
+        // v2 dataset catalogue: the region breakdown only.
+        $this->assertSame(['region'], $seen);
         $this->assertNotContains('device_platform', $seen);
         $this->assertNotContains('dma', $seen);
     }

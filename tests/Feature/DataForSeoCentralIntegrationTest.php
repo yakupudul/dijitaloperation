@@ -302,7 +302,7 @@ class DataForSeoCentralIntegrationTest extends TestCase
     public function test_endpoint_allowlist_rejects_unknown_paths(): void
     {
         $this->expectException(DataForSeoException::class);
-        DataForSeoEndpointAllowlist::assertAllowed('serp/google/organic/live/advanced');
+        DataForSeoEndpointAllowlist::assertAllowed('serp/google/organic/task_post');
     }
 
     public function test_remove_provider_configuration_clears_credentials(): void

@@ -74,9 +74,9 @@ class DiscoveryIntelligenceV1Test extends TestCase
         $this->assertSame('website', $route['module'] ?? $route->module ?? 'website');
     }
 
-    public function test_competitors_domain_endpoint_is_allowlisted(): void
+    public function test_competitors_domain_endpoint_is_retired_in_v2(): void
     {
-        $this->assertTrue(DataForSeoEndpointAllowlist::isAllowed(
+        $this->assertFalse(DataForSeoEndpointAllowlist::isAllowed(
             DataForSeoEndpointAllowlist::LABS_GOOGLE_COMPETITORS_DOMAIN_LIVE
         ));
         $this->assertSame(
