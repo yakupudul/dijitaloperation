@@ -10,6 +10,12 @@ Operator decision (binding): "çok kapsamlı ama bana hizmette çöp" — too ma
 - **Menu = Bugün · Markalar · Müşteriler · Sorgular · Entegrasyonlar · Ayarlar.** Other screens keep their routes but leave the sidebar (supersedes the 2026-10-16 / 10-18 "Komuta merkezi is the single inbox" navigation: the inbox still exists, but daily work starts from Bugün → brand workspace). Bugün = operational brands with their top card and per-channel counts.
 - **AI search surfaces are covered through the same standards** (no LLM-querying measurement; unchanged from 2026-10-24).
 
+## 2026-10-25 — Google Ads workspace channel
+
+- **Per account, never mixed currencies.** The Google Ads pack and Durum treat every bound Ads account separately; money is summed only when all accounts share one currency (otherwise "₺… · $…"). Wasted spend = non-converting search terms on the query pipeline's competitor / banned lists or core queries marked irrelevant for the brand's sector.
+- **Tracking first (rule code, not only the prompt).** When conversion tracking is broken, `GoogleAdsAnalyst::validate` puts a `fix_tracking` card first (adds it itself if the AI did not) and pushes every other card to priority ≥ 2.
+- **Writes stay ADR-064.** Workspace negatives go through `ExternalWriteService::requestNegativeListForDecision` (same shared list writer, Admin approval, undo); new keywords / RSA drafts only as a Google Ads Editor file the operator imports. No campaign pause, budget or bid writes from the analyst.
+
 ## 2026-10-24 — Standards follow the AI-search research; myths we deliberately do not check
 
 - **AI search is still SEO.** Standards check crawl access, indexability, snippet controls, server-rendered content, non-commodity service content, E-E-A-T, matching structured data, local NAP and the Business Profile. MoxDOP **does not measure AI-answer citations by querying LLMs** (operator decision 2026-09-28); AI visibility is only read from our own GA4 referrers (informational).

@@ -27,6 +27,7 @@ use App\Models\WebsiteUrlVerdict;
 use App\Services\Analyst\AnalystDecisionStore;
 use App\Services\Analyst\AnalystEngine;
 use App\Services\Analyst\AnalystPack;
+use App\Services\Analyst\AnalystRegistry;
 use App\Services\Analyst\Search\SearchAnalyst;
 use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\SearchDemand\ServiceCatalogService;
@@ -305,8 +306,10 @@ final class BrandWorkspaceAnalystTest extends TestCase
         Queue::fake();
         $result = app(AnalystEngine::class)->queueWeekly();
 
-        $this->assertSame(['queued' => 1, 'channels' => ['search']], $result, 'only the operational brand, only live channels');
-        $this->assertSame([$this->brand->id], AnalystRun::query()->pluck('brand_id')->all());
+        $live = app(AnalystRegistry::class)->liveChannels();
+        $this->assertContains('search', $live);
+        $this->assertSame(['queued' => count($live), 'channels' => $live], $result, 'only the operational brand, only live channels');
+        $this->assertSame([$this->brand->id], AnalystRun::query()->distinct()->pluck('brand_id')->all());
         $this->assertSame('weekly', AnalystRun::query()->value('trigger'));
         try {
             app(AnalystEngine::class)->queue($passive, 'search', $this->admin);

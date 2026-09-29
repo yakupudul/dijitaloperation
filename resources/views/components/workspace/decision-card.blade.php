@@ -13,7 +13,7 @@
     <div class="mt-3 flex flex-wrap items-center gap-2">
         @if ($d['action'])
             @if ($d['action']['kind'] === 'link' && $d['action']['url'])
-                <a href="{{ $d['action']['url'] }}" wire:navigate class="{{ $btn }} bg-brand-500 text-white hover:bg-brand-600" data-decision-action>{{ $d['action']['label'] }}</a>
+                <a href="{{ $d['action']['url'] }}" @if ($d['action']['download'] ?? false) download @else wire:navigate @endif class="{{ $btn }} bg-brand-500 text-white hover:bg-brand-600" data-decision-action>{{ $d['action']['label'] }}</a>
             @elseif ($d['action']['kind'] === 'run')
                 <button type="button" wire:click="runDecisionAction({{ $d['id'] }})" wire:loading.attr="disabled" class="{{ $btn }} bg-brand-500 text-white hover:bg-brand-600" data-decision-action>{{ $d['action']['label'] }}</button>
             @endif

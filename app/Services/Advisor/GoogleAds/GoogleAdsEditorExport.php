@@ -19,6 +19,13 @@ final class GoogleAdsEditorExport
 {
     public const array COLUMNS = ['Campaign', 'Campaign Status', 'Budget', 'Ad group', 'Keyword', 'Criterion Type'];
 
+    /** Extra columns of a responsive search ad row (appended only when a row uses them). */
+    public const array RSA_COLUMNS = [
+        'Ad type', 'Headline 1', 'Headline 2', 'Headline 3', 'Headline 4', 'Headline 5', 'Headline 6', 'Headline 7', 'Headline 8', 'Headline 9',
+        'Headline 10', 'Headline 11', 'Headline 12', 'Headline 13', 'Headline 14', 'Headline 15',
+        'Description 1', 'Description 2', 'Description 3', 'Description 4', 'Final URL', 'Path 1', 'Path 2',
+    ];
+
     /** Rules this exporter can turn into Editor rows (when the evidence carries campaign names). */
     public const array SUPPORTED_RULES = ['negative-keywords', 'ngram-waste', 'keyword-opportunities', 'budget-limited-profitable', 'budget-waste'];
 
@@ -68,12 +75,47 @@ final class GoogleAdsEditorExport
      */
     public function file(array $rows): string
     {
-        $lines = [implode("\t", self::COLUMNS)];
+        $columns = self::COLUMNS;
+        foreach (self::RSA_COLUMNS as $column) {
+            foreach ($rows as $row) {
+                if (($row[$column] ?? '') !== '') {
+                    $columns[] = $column;
+
+                    break;
+                }
+            }
+        }
+        $lines = [implode("\t", $columns)];
         foreach ($rows as $row) {
-            $lines[] = implode("\t", array_map(fn (string $column): string => $this->cell($row[$column] ?? ''), self::COLUMNS));
+            $lines[] = implode("\t", array_map(fn (string $column): string => $this->cell($row[$column] ?? ''), $columns));
         }
 
         return "\xFF\xFE".mb_convert_encoding(implode("\r\n", $lines)."\r\n", 'UTF-16LE', 'UTF-8');
+    }
+
+    /**
+     * A new responsive search ad (paused by Editor until posted) from a validated AI draft (headlines ≤ 30,
+     * descriptions ≤ 90). Lines the optional filter refuses (e.g. sector rules) are left out.
+     *
+     * @param  array<string, mixed>  $draft  {headlines, descriptions, path1, path2}
+     * @param  (callable(string): bool)|null  $keep
+     * @return array<string, string>
+     */
+    public static function rsaRow(string $campaign, string $adGroup, array $draft, string $finalUrl, ?callable $keep = null): array
+    {
+        $keep ??= static fn (string $line): bool => true;
+        $headlines = array_slice(array_values(array_filter(array_map('strval', (array) ($draft['headlines'] ?? [])), static fn (string $h): bool => $h !== '' && mb_strlen($h) <= 30 && $keep($h))), 0, 15);
+        $descriptions = array_slice(array_values(array_filter(array_map('strval', (array) ($draft['descriptions'] ?? [])), static fn (string $d): bool => $d !== '' && mb_strlen($d) <= 90 && $keep($d))), 0, 4);
+        $row = ['Campaign' => $campaign, 'Ad group' => $adGroup, 'Ad type' => 'Responsive search ad', 'Final URL' => $finalUrl,
+            'Path 1' => (string) ($draft['path1'] ?? ''), 'Path 2' => (string) ($draft['path2'] ?? '')];
+        foreach ($headlines as $i => $headline) {
+            $row['Headline '.($i + 1)] = $headline;
+        }
+        foreach ($descriptions as $i => $description) {
+            $row['Description '.($i + 1)] = $description;
+        }
+
+        return $row;
     }
 
     /** @return array{0: list<array<string, string>>, 1: int} rows and how many evidence lines had no campaign */
@@ -148,12 +190,12 @@ final class GoogleAdsEditorExport
      * @param  list<array<string, string>>  $rows
      * @return list<array<string, string>>
      */
-    private function unique(array $rows): array
+    public function unique(array $rows): array
     {
         $seen = [];
         $out = [];
         foreach ($rows as $row) {
-            $key = implode("\0", array_map(static fn (string $c): string => mb_strtolower($row[$c] ?? ''), self::COLUMNS));
+            $key = implode("\0", array_map(static fn (string $c): string => mb_strtolower($row[$c] ?? ''), array_merge(self::COLUMNS, self::RSA_COLUMNS)));
             if (! isset($seen[$key])) {
                 $seen[$key] = true;
                 $out[] = $row;
