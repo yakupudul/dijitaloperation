@@ -35,7 +35,6 @@ final class AiQualityReport
         'brand_setup.proposal' => AiRouteKeys::BRAND_SETUP,
         'report.monthly_commentary' => AiRouteKeys::MONTHLY_REPORT_COMMENTARY,
         'gbp.review_reply' => AiRouteKeys::GBP_REVIEW_REPLY,
-        'gbp.post' => AiRouteKeys::GBP_POST_DRAFT,
         'advisor.explain' => AiRouteKeys::INSIGHT_ADVISOR_EXPLAIN,
         'google_ads.search_term_triage' => AiRouteKeys::INSIGHT_SEARCH_TERM_TRIAGE,
         'meta.geo_results' => AiRouteKeys::INSIGHT_META_GEO,

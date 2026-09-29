@@ -40,7 +40,6 @@ final class AiUsageRecorder
         'MonthlyReportCommentaryAgent' => AiRouteKeys::MONTHLY_REPORT_COMMENTARY,
         'AiVisibilityProbeAgent' => AiRouteKeys::AI_VISIBILITY_PROBE,
         'ReviewReplyAgent' => AiRouteKeys::GBP_REVIEW_REPLY,
-        'GbpPostAgent' => AiRouteKeys::GBP_POST_DRAFT,
         'GbpServicesCompareAgent' => AiRouteKeys::GBP_SERVICES_COMPARE,
         'GbpDescriptionAgent' => AiRouteKeys::GBP_DESCRIPTION,
         'GbpPostFromPageAgent' => AiRouteKeys::GBP_POST_FROM_PAGE,

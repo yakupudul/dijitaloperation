@@ -50,8 +50,6 @@ final class AiRouteKeys
 
     public const string GBP_REVIEW_REPLY = 'gbp.review_reply';
 
-    public const string GBP_POST_DRAFT = 'gbp.post_draft';
-
     /** Faz 7: brand offerings vs Business Profile categories / services → missing services + category notes (one call). */
     public const string GBP_SERVICES_COMPARE = 'gbp.services_compare';
 

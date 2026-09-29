@@ -5,7 +5,7 @@ namespace Tests\Feature\Prompts;
 use App\Ai\Agents\Analyst\ChannelAnalystAgent;
 use App\Ai\Agents\BrandCandidateAgent;
 use App\Ai\Agents\BrandServiceAgent;
-use App\Ai\Agents\GbpPostAgent;
+use App\Ai\Agents\GbpPostFromPageAgent;
 use App\Ai\Agents\Insights\MetaGeoAgent;
 use App\Livewire\Operator\Settings\AiOperationsPage;
 use App\Models\PromptVersion;
@@ -121,7 +121,7 @@ final class PromptRegistryTest extends TestCase
         $this->assertSame($default."\n\n".PromptRegistry::GUARD, (string) (new BrandCandidateAgent)->instructions(), 'default = current text + guard');
 
         foreach ([
-            AiRouteKeys::GBP_POST_DRAFT => GbpPostAgent::class,
+            AiRouteKeys::GBP_POST_FROM_PAGE => GbpPostFromPageAgent::class,
             AiRouteKeys::BRAND_SERVICES => BrandServiceAgent::class,
             AiRouteKeys::INSIGHT_META_GEO => MetaGeoAgent::class,
         ] as $operation => $agent) {
@@ -142,10 +142,10 @@ final class PromptRegistryTest extends TestCase
     public function test_usage_records_carry_the_prompt_version_and_duration(): void
     {
         config(['ai.providers.anthropic.key' => 'configured']);
-        GbpPostAgent::fake([['title' => 'Başlık', 'body' => 'Metin', 'action_type' => 'BOOK', 'service' => '']]);
-        $version = $this->registry->publish(AiRouteKeys::GBP_POST_DRAFT, ['template' => 'Gönderi yaz.'], $this->admin);
+        GbpPostFromPageAgent::fake([['text' => 'Metin', 'action_type' => 'BOOK']]);
+        $version = $this->registry->publish(AiRouteKeys::GBP_POST_FROM_PAGE, ['template' => 'Gönderi yaz.'], $this->admin);
 
-        (new GbpPostAgent)->prompt('CONTEXT_JSON {}', provider: 'anthropic');
+        (new GbpPostFromPageAgent)->prompt('CONTEXT_JSON {}', provider: 'anthropic');
 
         $row = DB::table('ai_usage_records')->first();
         $this->assertNotNull($row);

@@ -23,14 +23,6 @@ final class AdvisorServiceProvider extends ServiceProvider
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
-            'key' => AiRouteKeys::GBP_POST_DRAFT,
-            'name' => 'Business Profile Post Draft',
-            'module' => 'advisor',
-            'description' => 'On operator click, drafts the next Google Business Profile post from the brand\'s services, service areas, profile searches and recent posts. It fills the post form; publishing needs Admin approval (ADR-073).',
-            'default_steps' => AiDefaultSteps::analysis(),
-        ]);
-
-        $this->app->make(AiRouteRegistry::class)->register([
             'key' => AiRouteKeys::GBP_SERVICES_COMPARE,
             'name' => 'Business Profile Services Compare',
             'module' => 'gbp',
