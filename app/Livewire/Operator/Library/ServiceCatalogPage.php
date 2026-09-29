@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator\Library;
 
+use App\Jobs\Queries\ProcessQueriesJob;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCatalogName;
 use App\Models\ServiceCategory;
@@ -130,6 +131,7 @@ class ServiceCatalogPage extends Component
             }
             app(ServiceKeywordService::class)->replace($service, $this->matching_words);
         });
+        ProcessQueriesJob::dispatch();
         $this->message = 'Hizmet ve eşleştirme kelimeleri kaydedildi.';
         $this->closeEditor();
         $this->resetPage();

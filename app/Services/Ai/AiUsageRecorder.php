@@ -52,7 +52,8 @@ final class AiUsageRecorder
         'ArticleWriterAgent' => AiRouteKeys::CONTENT_ARTICLE,
         'ContentIdeaAgent' => AiRouteKeys::CONTENT_IDEAS,
         'AssetSectorAgent' => AiRouteKeys::QUERIES_ASSET_SECTOR,
-        'QueryClusterAgent' => AiRouteKeys::QUERIES_CLUSTERING,
+        'QueryClusterAgent' => AiRouteKeys::QUERIES_CLUSTER,
+        'QueryRulesAgent' => AiRouteKeys::QUERIES_FILTER_RULES,
     ];
 
     public function __construct(private readonly AiPricing $pricing) {}

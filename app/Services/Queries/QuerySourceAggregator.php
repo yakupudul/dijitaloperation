@@ -77,12 +77,24 @@ final class QuerySourceAggregator
         return [CarbonImmutable::parse($range->first_day)->startOfMonth(), CarbonImmutable::parse($range->last_day)->startOfMonth()];
     }
 
+    /** Raw query text as stored in `query_sources` (trimmed, single spaces, max 500 characters). */
+    public static function cleanRaw(string $query): string
+    {
+        return mb_substr(trim(preg_replace('/\s+/u', ' ', $query) ?? ''), 0, self::MAX_QUERY_LENGTH);
+    }
+
+    /** SQL expression of the provider average position stored in `gsc_query_page_daily.metadata`. */
+    public static function positionExpression(): string
+    {
+        return DB::getDriverName() === 'pgsql'
+            ? "(metadata->>'provider_average_position')::float"
+            : "CAST(json_extract(metadata, '$.provider_average_position') AS REAL)";
+    }
+
     /** @return list<array{raw_query: string, impressions: int, clicks: int, position: ?float, cost: ?float, conversions: ?float}> */
     private function searchConsole(int $resourceId, CarbonImmutable $month): array
     {
-        $position = DB::getDriverName() === 'pgsql'
-            ? "(metadata->>'provider_average_position')::float"
-            : "CAST(json_extract(metadata, '$.provider_average_position') AS REAL)";
+        $position = self::positionExpression();
 
         return DB::table('gsc_query_page_daily')
             ->where('external_resource_id', $resourceId)->where('search_type', 'web')
@@ -142,7 +154,7 @@ final class QuerySourceAggregator
         // Same query text after trimming / truncation is one row.
         $merged = [];
         foreach ($rows as $row) {
-            $query = mb_substr(trim(preg_replace('/\s+/u', ' ', $row['raw_query']) ?? ''), 0, self::MAX_QUERY_LENGTH);
+            $query = self::cleanRaw($row['raw_query']);
             if ($query === '') {
                 continue;
             }

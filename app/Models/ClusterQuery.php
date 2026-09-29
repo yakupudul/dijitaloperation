@@ -32,8 +32,8 @@ class ClusterQuery extends Model
     }
 
     /** @return BelongsTo<Query, $this> */
-    public function query(): BelongsTo
+    public function searchQuery(): BelongsTo
     {
-        return $this->belongsTo(Query::class);
+        return $this->belongsTo(Query::class, 'query_id');
     }
 }
