@@ -13,6 +13,8 @@ class BrandMemory extends Model
 {
     public const array KINDS = ['profile', 'page', 'decision'];
 
+    protected $table = 'brand_memory';
+
     /** @var list<string> */
     protected $fillable = [
         'brand_id',

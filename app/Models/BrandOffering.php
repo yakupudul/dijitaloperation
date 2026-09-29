@@ -30,7 +30,11 @@ class BrandOffering extends Model
         'status',
         'priority_rank',
         'is_priority',
+        'priority',
+        'locked',
     ];
+
+    public const array PRIORITIES = ['main' => 'Ana', 'secondary' => 'İkincil'];
 
     /**
      * @return BelongsTo<Brand, $this>
@@ -100,6 +104,7 @@ class BrandOffering extends Model
             'status' => OfferingStatus::class,
             'priority_rank' => 'integer',
             'is_priority' => 'boolean',
+            'locked' => 'boolean',
         ];
     }
 }

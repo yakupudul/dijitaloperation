@@ -32,6 +32,12 @@ final class AiRouteKeys
 
     public const string BRAND_SETUP = 'brand_setup.assistant';
 
+    /** Faz 2: group discovered accounts into brand candidates + propose each candidate's sector (one call per batch). */
+    public const string BRAND_CANDIDATES = 'brand.candidates';
+
+    /** Faz 2: propose a brand's services from its own pages, matched to the sector catalog (one call). */
+    public const string BRAND_SERVICES = 'brand.services';
+
     public const string GOOGLE_ADS_AD_COPY_DRAFT = 'google_ads.ad_copy_draft';
 
     public const string META_ADS_CREATIVE_DRAFT = 'meta_ads.creative_draft';

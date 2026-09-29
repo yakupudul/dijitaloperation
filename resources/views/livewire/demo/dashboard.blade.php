@@ -15,12 +15,22 @@
     @else
         <ul class="divide-y divide-gray-100 rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:divide-gray-800 dark:bg-gray-900 dark:ring-gray-800" data-portfolio-today>
             @foreach ($rows as $row)
-                <li class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between" wire:key="today-{{ $row['id'] }}">
-                    <div class="min-w-0">
+                <li class="flex flex-col gap-1 px-4 py-3" wire:key="today-{{ $row['id'] }}" data-today-brand="{{ $row['id'] }}">
+                    <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                         <a href="{{ route('operator.brand', ['brand' => $row['id']]) }}" wire:navigate class="text-sm font-semibold text-gray-800 hover:text-brand-600 dark:text-white/90">{{ $row['name'] }}</a>
-                        @if ($row['customer'])<p class="text-xs text-gray-500">{{ $row['customer'] }}</p>@endif
+                        @if ($row['customer'])<span class="text-xs text-gray-500">{{ $row['customer'] }}</span>@endif
+                        <span class="text-xs text-gray-500">{{ $row['sector'] ?? 'Sektör —' }}</span>
+                        <span class="text-xs text-gray-500">{{ $row['services'] }} hizmet</span>
+                        <span class="text-xs text-gray-500">{{ $row['areas'] }} bölge</span>
+                        <span class="ml-auto text-xs text-gray-400">Öneri {{ $row['suggestions'] ?? '—' }}</span>
                     </div>
-                    <span class="shrink-0 text-xs text-gray-500">{{ $row['assets'] }} varlık</span>
+                    @if ($row['assets'] !== [])
+                        <div class="flex flex-wrap gap-2 text-xs text-gray-500">
+                            @foreach ($row['assets'] as $asset)
+                                <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">{{ $asset['type'] }} · {{ $asset['last'] ?? '—' }}</span>
+                            @endforeach
+                        </div>
+                    @endif
                 </li>
             @endforeach
         </ul>

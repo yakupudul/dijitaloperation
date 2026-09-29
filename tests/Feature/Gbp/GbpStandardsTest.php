@@ -181,7 +181,7 @@ final class GbpStandardsTest extends TestCase
     {
         $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create()->id, 'name' => 'Atlas Diş']);
         $category = ServiceCategory::query()->firstOrCreate(['code' => 'dental'], ['name' => 'Diş', 'normalized_key' => 'dental']);
-        $brand->sectors()->attach($category->id);
+        $brand->update(['sector_id' => $category->id]);
         $asset = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'google_business_profile', 'status' => 'active']);
         $site = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'website', 'status' => 'active']);
         $integration = CoreIntegration::factory()->google()->create(['status' => CoreIntegration::STATUS_ACTIVE]);

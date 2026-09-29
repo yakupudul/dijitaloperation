@@ -1,6 +1,6 @@
 @php
     $card = 'rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
-    $tabLabels = ['overview' => 'Genel bakış', 'business' => 'İşletme', 'assets' => 'Dijital varlıklar', 'work' => 'İşler', 'files' => 'Dosyalar'];
+    $tabLabels = ['settings' => 'Marka', 'overview' => 'Genel bakış', 'business' => 'İşletme', 'assets' => 'Dijital varlıklar', 'work' => 'İşler', 'files' => 'Dosyalar'];
     $openWork = collect($work)->sum('count');
     $toneClass = fn (string $tone): string => match ($tone) {
         'error' => 'bg-error-500',
@@ -50,6 +50,10 @@
             <a href="{{ route('operator.assets') }}" wire:navigate class="ml-2 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Tüm varlıklar</a>
         </div>
     </div>
+
+    @if ($tab === 'settings')
+        <livewire:operator.portfolio.brand-settings :brand-id="$brandModel->id" :key="'brand-settings-'.$brandModel->id" />
+    @endif
 
     {{-- ============================================================ OVERVIEW --}}
     @if ($tab === 'overview')

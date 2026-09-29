@@ -52,6 +52,12 @@ class DigitalAsset extends Model
         return $this->belongsTo(Brand::class);
     }
 
+    /** v2: an asset has no sector of its own; it inherits its brand's (`brands.sector_id`). */
+    public function sector(): ?ServiceCategory
+    {
+        return $this->brand?->sectorCategory;
+    }
+
     /**
      * @return HasMany<CoreConnection, $this>
      */

@@ -61,7 +61,7 @@ class BrandShow extends Component
     use InteractsWithDemoPeriod;
 
     /** Settings sub-tabs (the former brand page). */
-    public const array TABS = ['overview', 'business', 'assets', 'work', 'files'];
+    public const array TABS = ['settings', 'overview', 'business', 'assets', 'work', 'files'];
 
     /** Workspace tab => [label, Livewire component class (rendered only when it exists)]. "ayarlar" opens TABS. */
     public const array WORKSPACE_TABS = [
@@ -131,7 +131,7 @@ class BrandShow extends Component
     private function normalizeTab(string $tab): string
     {
         if ($tab === 'ayarlar') {
-            return 'overview';
+            return 'settings';
         }
         $tab = self::LEGACY_TABS[$tab] ?? $tab;
 

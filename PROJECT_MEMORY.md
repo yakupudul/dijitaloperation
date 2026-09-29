@@ -1548,3 +1548,19 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 - **Karar:** kaldırılan modüllerin ADR'leri ve dokümanları tarih olarak kalır; yeni ürün davranışı yalnız v2
   spesifikasyonundan gelir. `moxdop:reset` deploy öncesi çalışır; migration verisi geri getirmez (down yalnız v2
   eklerini kaldırır).
+
+## 2026-10-28 — MoxDOP v2 Faz 2 (Sahiplik): sektör markada, varlıklar miras alır
+
+- **Karar:** sektör yalnız `brands.sector_id`'de (sektör kataloğu `service_categories`) tutulur; bir markanın tek sektörü
+  vardır. Varlıklar (web sitesi, GSC, GA4, GBP, Ads, Meta) kendi sektörünü tutmaz, markasından okur
+  (`DigitalAsset::sector()`). Hesap başına sektör (`resource_automations.sector`, eski `asset_sectors`) kaldırıldı;
+  `brand_service_category` pivotu okunmaz; eski `brands.sector` kodu `sector_id`'nin aynasıdır.
+- **Karar:** keşfedilen varlıklar önce belirleyici sinyallerle (ortak host, ad eşleşmesi), sonra parti başına tek AI
+  çağrısıyla marka adaylarına gruplanır; sektör en güvenilir sinyalden önerilir (GBP birincil kategori > site > reklam)
+  ve hangi sinyalin karar verdiği saklanır. Operatör onaylamadan marka / varlık oluşmaz; onaylı gruplar otomatik
+  değişmez.
+- **Karar:** hizmetler markanın kendi hizmet sayfalarından (ana sayfa / hakkımızda / blog / iletişim / yasal / kategori
+  hariç) tek AI çağrısıyla önerilir; operatör onaylı hizmet kilitlidir (AI yeniden adlandırmaz). Hedefler / kısıtlar
+  tek marka hafızasında (`brand_memory` profile) tutulur.
+- **Değişmez:** kaynak ↔ tek varlık (OwnershipGuard), varlık ↔ tek marka, marka ↔ tek müşteri; AI / ücretli iş kapısı
+  `Brand::operational()`.
