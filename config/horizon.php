@@ -241,7 +241,8 @@ return [
                 'timeout' => (int) env('HORIZON_COLLECTION_TIMEOUT', 300),
             ],
             'supervisor-heavy' => [
-                'maxProcesses' => (int) env('HORIZON_HEAVY_MAX_PROCESSES', 2),
+                // SEO plans, advisor, query pipeline steps, clustering, topic map and URL karnesi share this queue.
+                'maxProcesses' => (int) env('HORIZON_HEAVY_MAX_PROCESSES', 3),
                 'timeout' => (int) env('HORIZON_HEAVY_TIMEOUT', 900),
             ],
         ],

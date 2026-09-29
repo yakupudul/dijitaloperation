@@ -41,20 +41,48 @@ final class QueryClusterer
     public function clusterDue(?int $limit = null): array
     {
         $stats = ['services' => 0, 'clusters' => 0, 'placed' => 0];
-        foreach ($this->eligibleServices()->take($limit ?? (int) config('moxdop-queries.cluster_services_per_run', 25)) as $serviceId) {
-            $key = 'queries:clusters:'.$serviceId;
-            $fingerprint = $this->membershipFingerprint($serviceId);
-            if (Cache::get($key) === $fingerprint) {
-                continue;
-            }
-            $result = $this->clusterService($serviceId);
+        foreach ($this->dueServices($limit) as $serviceId) {
+            $result = $this->clusterDueService($serviceId);
             $stats['services']++;
             $stats['clusters'] += $result['clusters'];
             $stats['placed'] += $result['placed'];
-            Cache::forever($key, $this->membershipFingerprint($serviceId));
         }
 
         return $stats;
+    }
+
+    /**
+     * Services whose membership changed since their last clustering, most demand first (one queued job each).
+     *
+     * @return list<int>
+     */
+    public function dueServices(?int $limit = null): array
+    {
+        $due = [];
+        foreach ($this->eligibleServices()->take($limit ?? (int) config('moxdop-queries.cluster_services_per_run', 25)) as $serviceId) {
+            if (Cache::get('queries:clusters:'.$serviceId) !== $this->membershipFingerprint($serviceId)) {
+                $due[] = (int) $serviceId;
+            }
+        }
+
+        return $due;
+    }
+
+    /**
+     * Cluster one due service and remember its membership (skipped when nothing changed since).
+     *
+     * @return array{clusters: int, placed: int, source: string}
+     */
+    public function clusterDueService(int $serviceId): array
+    {
+        $key = 'queries:clusters:'.$serviceId;
+        if (Cache::get($key) === $this->membershipFingerprint($serviceId)) {
+            return ['clusters' => 0, 'placed' => 0, 'source' => 'unchanged'];
+        }
+        $result = $this->clusterService($serviceId);
+        Cache::forever($key, $this->membershipFingerprint($serviceId));
+
+        return $result;
     }
 
     /**

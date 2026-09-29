@@ -19,8 +19,8 @@ final class AiPricing
         }
         $row = $table[$model] ?? $table['*'] ?? null;
         if (! is_array($row)) {
-            // Dated snapshots like "claude-haiku-4-5-20251001" fall back to their alias.
-            $alias = preg_replace('/-\d{8}$/', '', $model);
+            // Dated snapshots ("claude-haiku-4-5-20251001", "gpt-5-mini-2025-08-07") fall back to their alias.
+            $alias = preg_replace('/-(\d{8}|\d{4}-\d{2}-\d{2})$/', '', $model);
             $row = is_string($alias) ? ($table[$alias] ?? null) : null;
         }
 

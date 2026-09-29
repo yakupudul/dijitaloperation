@@ -80,23 +80,42 @@ final class UrlAuditService
             : $result['message']];
     }
 
-    /** Automatic refresh (projection rebuilt, SEO plan finished, weekly). Only operational websites. */
-    public static function dispatchFor(int $websiteId, string $trigger): void
+    /**
+     * Automatic refresh (projection rebuilt, SEO plan finished, weekly, pilot chain). Only operational websites.
+     * Debounced: the job is unique per website until it starts and waits a short while, so a projection rebuild,
+     * an SEO plan and the weekly run arriving together queue ONE refresh, not a storm of them.
+     */
+    public static function dispatchFor(int $websiteId, string $trigger): bool
     {
         if (! app(ServiceScope::class)->isAssetOperational($websiteId)) {
-            return;
+            return false;
         }
-        RefreshUrlVerdictsJob::dispatch($websiteId, $trigger)->afterCommit();
+        RefreshUrlVerdictsJob::dispatch($websiteId, $trigger)
+            ->delay(now()->addSeconds(max(0, (int) config('moxdop-url-audit.debounce_seconds', 120))))
+            ->afterCommit();
+
+        return true;
     }
 
-    /** @return array{status: string, urls: int, counts: array<string, int>} */
+    public static function lockKey(int $websiteId): string
+    {
+        return 'website-url-verdicts:'.$websiteId;
+    }
+
+    /** @return array{status: 'completed'|'busy'|'not_served', urls: int, counts: array<string, int>} */
     public function refresh(DigitalAsset $site, string $trigger = 'manual'): array
     {
         if ($site->type !== 'website' || ! $this->scope->isAssetOperational($site->id)) {
             return ['status' => 'not_served', 'urls' => 0, 'counts' => []];
         }
 
-        return Cache::lock('website-url-verdicts:'.$site->id, 900)->block(30, function () use ($site, $trigger): array {
+        // Never wait for a lock: a refresh already running for this site answers "busy" and the caller decides
+        // (the job re-runs once afterwards / retries a manual click later). Blocking waits were LockTimeoutException.
+        $lock = Cache::lock(self::lockKey($site->id), 1200);
+        if (! $lock->get()) {
+            return ['status' => 'busy', 'urls' => 0, 'counts' => []];
+        }
+        try {
             $audit = WebsiteUrlAudit::query()->updateOrCreate(['digital_asset_id' => $site->id], ['brand_id' => $site->brand_id, 'status' => 'running', 'trigger' => $trigger]);
             try {
                 $built = $this->build($site);
@@ -108,7 +127,9 @@ final class UrlAuditService
             $this->store($site, $audit, $built, $trigger);
 
             return ['status' => 'completed', 'urls' => count($built['rows']), 'counts' => $built['counts']];
-        });
+        } finally {
+            $lock->release();
+        }
     }
 
     /**

@@ -18,7 +18,12 @@ final class RunSeoPlanJob implements ShouldQueue
 
     public int $tries = 1;
 
-    public int $timeout = 600;
+    /**
+     * Below the queue's retry_after (1 800 s) so a slow plan is never handed to a second worker. A 5 000-page site
+     * plans in seconds since the rule engine indexes page texts (TokenIndex) instead of comparing every query with
+     * every page; the margin is for the database reads of very large sites.
+     */
+    public int $timeout = 900;
 
     public bool $failOnTimeout = true;
 

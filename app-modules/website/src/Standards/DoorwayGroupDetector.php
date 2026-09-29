@@ -163,6 +163,12 @@ final class DoorwayGroupDetector
         if ($a === $b) {
             return true;
         }
+        // similar_text() is cubic; its percentage can never exceed 2·min/(la+lb), so clearly different lengths are skipped.
+        $la = strlen($a);
+        $lb = strlen($b);
+        if ($la + $lb === 0 || 2 * min($la, $lb) / ($la + $lb) < $this->titleSimilarity) {
+            return false;
+        }
         similar_text($a, $b, $percent);
 
         return $percent / 100 >= $this->titleSimilarity;

@@ -22,6 +22,18 @@ final class StagingDeployScriptTest extends TestCase
         return (int) $position;
     }
 
+    public function test_config_and_route_caches_are_replaced_atomically(): void
+    {
+        // Production: "require(bootstrap/cache/routes-v7.php): Failed to open stream" during a deploy — route:cache
+        // deletes the file before writing it, and cron / Horizon / FPM keep booting the app meanwhile.
+        $script = $this->script();
+        $this->assertStringContainsString('atomic_cache route APP_ROUTES_CACHE routes-v7.php', $script);
+        $this->assertStringContainsString('atomic_cache config APP_CONFIG_CACHE config.php', $script);
+        $this->assertStringContainsString('mv -f "${next}" "bootstrap/cache/${file}"', $script);
+        $this->assertDoesNotMatchRegularExpression('/^php artisan (route|config):cache/m', $script, 'no in-place cache rebuild');
+        $this->assertLessThan($this->position("php artisan up --no-interaction\nAPP_DOWN=0"), $this->position('atomic_cache route APP_ROUTES_CACHE'));
+    }
+
     public function test_preflight_runs_after_composer_install_and_before_maintenance_and_migrate(): void
     {
         $composer = $this->position('composer install --no-dev');

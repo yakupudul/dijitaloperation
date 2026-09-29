@@ -16,6 +16,13 @@ return [
     'default' => env('QUEUE_CONNECTION', 'database'),
 
     /*
+    | Long analysis work (SEO plans, advisor, query pipeline steps, clustering, topic map, URL karnesi) runs on the
+    | "heavy" queue (Horizon supervisor-heavy) so quick jobs on "default" never wait behind it. Without Redis /
+    | Horizon everything stays on "default" (one database worker).
+    */
+    'heavy_queue' => env('HEAVY_QUEUE', env('QUEUE_CONNECTION') === 'redis' ? 'heavy' : 'default'),
+
+    /*
     |--------------------------------------------------------------------------
     | Queue Connections
     |--------------------------------------------------------------------------
@@ -47,8 +54,9 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            // Long Meta/Google/Website collects can exceed 90s; avoid duplicate reclaim while worker runs.
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 900),
+            // Must stay above the longest job $timeout (QueueTopologyContractTest): a reserved job is handed to a second
+            // worker after retry_after seconds, which turns a slow job into a duplicate run and MaxAttemptsExceeded.
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 1800),
             'after_commit' => false,
         ],
 
@@ -76,7 +84,9 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 900),
+            // Must stay above the longest job $timeout (QueueTopologyContractTest; longest is 1500 s): a reserved job is
+            // handed to a second worker after retry_after seconds → duplicate run + MaxAttemptsExceededException.
+            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 1800),
             'block_for' => null,
             'after_commit' => true,
         ],

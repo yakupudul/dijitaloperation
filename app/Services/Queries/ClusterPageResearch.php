@@ -46,16 +46,18 @@ final class ClusterPageResearch
         if (! config('moxdop-queries.serp.enabled', true) || $this->integrations->active() === null) {
             return $stats;
         }
+        $limit ??= (int) config('moxdop-queries.serp.per_run', 40);
         $clusters = DB::table('library_query_clusters')->where('status', 'active')->whereNotNull('head_query')
             ->where(fn ($q) => $q->whereNull('decision_source')->orWhere('decision_source', '!=', 'manual'))
             ->whereIn('service_id', $this->relevantServiceIds())
             ->where(fn ($q) => $q->whereNull('researched_at')->orWhere('researched_at', '<', now()->subDays($this->cacheDays())))
-            ->orderBy('researched_at')->orderBy('id')->limit($limit ?? (int) config('moxdop-queries.serp.per_run', 40))->get();
+            ->orderBy('researched_at')->orderBy('id')->limit($limit)->get();
         $changed = DB::table('library_query_clusters')->where('status', 'active')->whereNotNull('head_query')->whereNotNull('researched_at')
             ->where(fn ($q) => $q->whereNull('decision_source')->orWhere('decision_source', '!=', 'manual'))
             ->whereIn('service_id', $this->relevantServiceIds())->get()
             ->filter(fn ($c): bool => $c->research_fingerprint !== $this->fingerprint((string) $c->head_query));
-        foreach ($clusters->merge($changed)->unique('id') as $cluster) {
+        // Bounded: at most $limit (paid) checks per call, due ones first; the rest wait for the next call.
+        foreach ($clusters->merge($changed)->unique('id')->take($limit) as $cluster) {
             $outcome = $this->research($cluster);
             $stats[$outcome]++;
         }

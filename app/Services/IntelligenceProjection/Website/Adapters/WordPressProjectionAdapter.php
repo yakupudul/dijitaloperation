@@ -59,15 +59,15 @@ final class WordPressProjectionAdapter implements WebsiteProjectionSourceAdapter
                 ->where('digital_asset_id', $assetId)
                 ->orderByDesc('observed_at')
                 ->orderByDesc('id')
-                ->get()
-            : collect();
+                ->cursor()
+            : [];
         $objects = $this->support->latestBy(
             $objectRows,
             static fn (object $row): string => $row->cms.'|'.$row->object_type.'|'.$row->object_id,
         );
         $seoRows = Schema::hasTable('website_cms_seo_snapshot')
-            ? DB::table('website_cms_seo_snapshot')->where('digital_asset_id', $assetId)->orderByDesc('observed_at')->orderByDesc('id')->get()
-            : collect();
+            ? DB::table('website_cms_seo_snapshot')->where('digital_asset_id', $assetId)->orderByDesc('observed_at')->orderByDesc('id')->cursor()
+            : [];
         $seo = $this->support->latestBy(
             $seoRows,
             static fn (object $row): string => $row->cms.'|'.$row->object_type.'|'.$row->object_id,

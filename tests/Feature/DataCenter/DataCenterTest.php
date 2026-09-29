@@ -88,6 +88,21 @@ final class DataCenterTest extends TestCase
         $this->assertSame(0, DB::table('website_cms_object_snapshot')->count());
     }
 
+    public function test_a_single_checkbox_value_true_or_false_never_breaks_the_page(): void
+    {
+        // Production: ViewException "count(): Argument #1 must be of type Countable|array, bool given" — a checkbox
+        // bound to picked.<key> before the key was a list makes Livewire store true / false.
+        $key = 'resource:'.$this->gsc->id;
+        Livewire::actingAs($this->admin)->test(DataCenterPage::class)
+            ->call('toggle', $key)
+            ->set('picked.'.$key, true)->assertOk()->assertSet('picked.'.$key, [])
+            ->set('picked.'.$key, false)->assertOk()
+            ->call('erase', $key)->assertOk();
+        $this->assertSame(1, DB::table('gsc_page_daily')->count(), 'nothing selected, nothing deleted');
+        $this->assertSame(['gsc_page_daily'], DataCenterPage::selection(['gsc_page_daily', true, '']));
+        $this->assertSame([], DataCenterPage::selection(true));
+    }
+
     public function test_only_admins_delete(): void
     {
         $viewer = User::factory()->create(['is_active' => true]);

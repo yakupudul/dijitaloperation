@@ -20,7 +20,10 @@ class BuildBrandDemandJob implements ShouldBeUnique, ShouldQueue
 
     public int $uniqueFor = 900;
 
-    public function __construct(public int $brandId) {}
+    public function __construct(public int $brandId)
+    {
+        $this->onQueue((string) config('queue.heavy_queue', 'default'));
+    }
 
     public function uniqueId(): string
     {

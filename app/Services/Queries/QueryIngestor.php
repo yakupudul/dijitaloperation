@@ -45,13 +45,63 @@ final class QueryIngestor
     /**
      * Every source account (bound or not), or only one resource.
      *
-     * @return array{sources: int, ingested: int, variants: int, failed: int}
+     * @return array{sources: int, ingested: int, variants: int, failed: int, new_queries: int}
      */
     public function run(?int $resourceId = null, bool $force = false): array
     {
-        $stats = ['sources' => 0, 'ingested' => 0, 'variants' => 0, 'failed' => 0];
+        return $this->ingestSources($this->sources($resourceId), $force);
+    }
+
+    /**
+     * Keys of the source accounts (and account-less websites) the pipeline reads — the unit the queued pipeline
+     * splits into bounded chunks (RunQueryPipelineJob → IngestQuerySourcesJob).
+     *
+     * @return list<string>
+     */
+    public function sourceKeys(?int $resourceId = null): array
+    {
+        return array_map(static fn (array $source): string => $source['key'], $this->sources($resourceId));
+    }
+
+    /**
+     * Ingest only these source keys ("google_ads:r12", "search_console:a24"); unknown or vanished keys are skipped.
+     *
+     * @param  list<string>  $keys
+     * @return array{sources: int, ingested: int, variants: int, failed: int, new_queries: int}
+     */
+    public function runKeys(array $keys, bool $force = false): array
+    {
+        $resourceIds = [];
+        $assetKeys = [];
+        foreach ($keys as $key) {
+            if (preg_match('/^([a-z_]+):(r|a)(\d+)$/', $key, $m) !== 1 || ! isset(self::TABLES[$m[1]])) {
+                continue;
+            }
+            $m[2] === 'r' ? $resourceIds[] = (int) $m[3] : $assetKeys[(int) $m[3]][] = $m[1];
+        }
+        $sources = [];
+        foreach (CoreExternalResource::query()->whereIn('resource_type', self::QUERY_SOURCES)->whereIn('id', $resourceIds ?: [0])->orderBy('id')->get() as $resource) {
+            $sources[] = ['key' => $resource->resource_type.':r'.$resource->id, 'source' => (string) $resource->resource_type, 'resource' => $resource, 'asset' => null];
+        }
+        foreach (DigitalAsset::query()->whereIn('id', array_keys($assetKeys) ?: [0])->orderBy('id')->get() as $asset) {
+            foreach ($assetKeys[$asset->id] as $source) {
+                $sources[] = ['key' => $source.':a'.$asset->id, 'source' => $source, 'resource' => null, 'asset' => $asset];
+            }
+        }
+
+        return $this->ingestSources($sources, $force);
+    }
+
+    /**
+     * @param  list<array{key: string, source: string, resource: ?CoreExternalResource, asset: ?DigitalAsset}>  $sources
+     * @return array{sources: int, ingested: int, variants: int, failed: int, new_queries: int}
+     */
+    private function ingestSources(array $sources, bool $force): array
+    {
+        $stats = ['sources' => 0, 'ingested' => 0, 'variants' => 0, 'failed' => 0, 'new_queries' => 0];
         $this->contexts->reset();
-        foreach ($this->sources($resourceId) as $source) {
+        $createdBefore = $this->store->createdCount();
+        foreach ($sources as $source) {
             $stats['sources']++;
             try {
                 $count = $this->ingest($source, $force);
@@ -68,17 +118,38 @@ final class QueryIngestor
                 ]);
             }
         }
+        $stats['new_queries'] = $this->store->createdCount() - $createdBefore;
 
         return $stats;
+    }
+
+    /**
+     * Source keys of one brand: its bound accounts and its websites' account-less facts (moxdop:pilot:refresh).
+     *
+     * @return list<string>
+     */
+    public function sourceKeysForBrand(Brand $brand): array
+    {
+        [$resourceIds, $assetIds] = $this->brandScope($brand);
+
+        return array_map(static fn (array $source): string => $source['key'], $this->sources(null, $resourceIds, $assetIds));
+    }
+
+    /** @return array{0: list<int>, 1: list<int>} bound resource ids, asset ids */
+    private function brandScope(Brand $brand): array
+    {
+        $assetIds = DigitalAsset::query()->where('brand_id', $brand->id)->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        $resourceIds = CoreAssetBinding::query()->whereIn('digital_asset_id', $assetIds ?: [0])->where('status', CoreAssetBinding::STATUS_ACTIVE)
+            ->pluck('external_resource_id')->map(fn ($id): int => (int) $id)->all();
+
+        return [$resourceIds, $assetIds];
     }
 
     /** The accounts and websites of one brand (the brand query hub reads from the same store). */
     public function runForBrand(Brand $brand, bool $force = false): void
     {
         $this->contexts->reset();
-        $assetIds = DigitalAsset::query()->where('brand_id', $brand->id)->pluck('id')->all();
-        $resourceIds = CoreAssetBinding::query()->whereIn('digital_asset_id', $assetIds)->where('status', CoreAssetBinding::STATUS_ACTIVE)
-            ->pluck('external_resource_id')->all();
+        [$resourceIds, $assetIds] = $this->brandScope($brand);
         foreach ($this->sources(null, $resourceIds, $assetIds) as $source) {
             try {
                 $this->ingest($source, $force);

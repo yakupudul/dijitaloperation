@@ -40,7 +40,7 @@ final class SeoPlanRunner
      * Plans are rule-based; AI (site understanding + content briefs) runs only when $useAi is true, i.e. the
      * operator clicked "Briefleri AI ile hazırla". Scheduled and bulk plans never spend tokens.
      */
-    public function queue(DigitalAsset $site, ?User $actor = null, string $trigger = 'manual', bool $useAi = false): SeoPlan
+    public function queue(DigitalAsset $site, ?User $actor = null, string $trigger = 'manual', bool $useAi = false, bool $dispatchJob = true): SeoPlan
     {
         if ($site->type !== 'website') {
             throw ValidationException::withMessages(['asset' => 'SEO planı yalnızca web sitesi varlıkları için üretilir.']);
@@ -50,7 +50,7 @@ final class SeoPlanRunner
         }
         app(ServiceScope::class)->ensureAssetServed($site, 'asset');
 
-        return Cache::lock('seo-plan:'.$site->id, 15)->block(5, function () use ($site, $actor, $trigger, $useAi): SeoPlan {
+        return Cache::lock('seo-plan:'.$site->id, 15)->block(5, function () use ($site, $actor, $trigger, $useAi, $dispatchJob): SeoPlan {
             $pending = SeoPlan::query()
                 ->where('digital_asset_id', $site->id)
                 ->whereIn('status', [SeoPlan::STATUS_QUEUED, SeoPlan::STATUS_RUNNING])
@@ -64,7 +64,7 @@ final class SeoPlanRunner
             $site->loadMissing('brand');
             $version = (int) SeoPlan::query()->where('digital_asset_id', $site->id)->max('version') + 1;
 
-            return DB::transaction(function () use ($site, $actor, $trigger, $version, $useAi): SeoPlan {
+            return DB::transaction(function () use ($site, $actor, $trigger, $version, $useAi, $dispatchJob): SeoPlan {
                 $activity = Run::query()->create([
                     'digital_asset_id' => $site->id,
                     'module_id' => 'website',
@@ -94,12 +94,15 @@ final class SeoPlanRunner
                     'input_summary' => ['activity_run_id' => $activity->id, 'use_ai' => $useAi],
                 ]);
 
-                $connection = (string) config('moxdop-seo-tasks.queue_connection', config('queue.default'));
-                $queue = (string) config('moxdop-seo-tasks.queue', 'default');
-                dispatch(new RunSeoPlanJob($plan->id))
-                    ->onConnection($connection)
-                    ->onQueue($queue)
-                    ->afterCommit();
+                // $dispatchJob false: the caller runs the plan itself as a step of its own chain (moxdop:pilot:refresh).
+                if ($dispatchJob) {
+                    $connection = (string) config('moxdop-seo-tasks.queue_connection', config('queue.default'));
+                    $queue = (string) config('moxdop-seo-tasks.queue', 'default');
+                    dispatch(new RunSeoPlanJob($plan->id))
+                        ->onConnection($connection)
+                        ->onQueue($queue)
+                        ->afterCommit();
+                }
 
                 return $plan;
             });

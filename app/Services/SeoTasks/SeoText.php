@@ -21,26 +21,76 @@ final class SeoText
         'fiyat', 'fiyatları', 'fiyatlari', 'ücret', 'ucret', 'maliyet', 'how', 'what', 'why', 'price', 'cost',
     ];
 
+    /**
+     * Memoized results of fold() / tokens(): the rule engine and the URL karnesi compare the same page titles and
+     * queries thousands of times (5 000 pages × 5 000 queries on a large site) and Str::ascii is the hot spot.
+     * Bounded: the memo is dropped when it reaches MEMO_LIMIT entries.
+     *
+     * @var array<string, string>
+     */
+    private static array $foldMemo = [];
+
+    /** @var array<string, list<string>> */
+    private static array $tokenMemo = [];
+
+    private const int MEMO_LIMIT = 50000;
+
+    /** fold() calls that had to compute (memo misses) — performance tests assert this stays linear in the input. */
+    private static int $foldComputed = 0;
+
+    /** tokenOverlap() calls — pairwise text comparisons; the rule engine must not compare every query with every page. */
+    private static int $overlapCalls = 0;
+
     public static function fold(string $text): string
     {
-        $text = mb_strtolower(Str::ascii(strtr($text, ['I' => 'ı', 'İ' => 'i']), 'tr'), 'UTF-8');
+        if (isset(self::$foldMemo[$text])) {
+            return self::$foldMemo[$text];
+        }
+        self::$foldComputed++;
+        $folded = mb_strtolower(Str::ascii(strtr($text, ['I' => 'ı', 'İ' => 'i']), 'tr'), 'UTF-8');
+        $folded = trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', $folded) ?? '');
+        if (count(self::$foldMemo) >= self::MEMO_LIMIT) {
+            self::$foldMemo = [];
+        }
 
-        return trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', $text) ?? '');
+        return self::$foldMemo[$text] = $folded;
     }
 
     /** @return list<string> */
     public static function tokens(string $text): array
     {
-        $folded = self::fold($text);
-        if ($folded === '') {
-            return [];
+        if (isset(self::$tokenMemo[$text])) {
+            return self::$tokenMemo[$text];
         }
-        $tokens = array_values(array_filter(
+        $folded = self::fold($text);
+        $tokens = $folded === '' ? [] : array_values(array_unique(array_values(array_filter(
             explode(' ', $folded),
             static fn (string $token): bool => $token !== '' && mb_strlen($token) > 1 && ! in_array($token, self::STOPWORDS, true),
-        ));
+        ))));
+        if (count(self::$tokenMemo) >= self::MEMO_LIMIT) {
+            self::$tokenMemo = [];
+        }
 
-        return array_values(array_unique($tokens));
+        return self::$tokenMemo[$text] = $tokens;
+    }
+
+    /** Drops the memo (long-running workers call it between sites). */
+    public static function forgetMemo(): void
+    {
+        self::$foldMemo = [];
+        self::$tokenMemo = [];
+        self::$foldComputed = 0;
+        self::$overlapCalls = 0;
+    }
+
+    public static function overlapComparisons(): int
+    {
+        return self::$overlapCalls;
+    }
+
+    public static function foldComputations(): int
+    {
+        return self::$foldComputed;
     }
 
     /** Whole-word containment on folded text. */
@@ -135,6 +185,7 @@ final class SeoText
     /** Fraction of $needle tokens present in $haystack tokens (0..1). */
     public static function tokenOverlap(string $haystack, string $needle): float
     {
+        self::$overlapCalls++;
         $needleTokens = self::tokens($needle);
         if ($needleTokens === []) {
             return 0.0;

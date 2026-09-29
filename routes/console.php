@@ -7,7 +7,8 @@ use App\Jobs\CheckSitemapChangesJob;
 use App\Jobs\Collection\ExecuteDatasetRunJob;
 use App\Jobs\CollectMetaGeoResultsJob;
 use App\Jobs\Ops\QueueHeartbeatProbeJob;
-use App\Jobs\RefreshUrlVerdictsJob;
+use App\Jobs\Queries\ClusterQueriesJob;
+use App\Jobs\Queries\RunQueryPipelineJob;
 use App\Models\Brand;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
@@ -33,7 +34,10 @@ use App\Services\Queries\QueryPipeline;
 use App\Services\Sales\FreeIntentRadar;
 use App\Services\SeoTasks\SeoUrlInspectionQueue;
 use App\Services\Website\SitemapChangeWatcher;
+use App\Services\Website\UrlAudit\UrlAuditService;
 use App\Services\WhatsApp\WhatsAppDispatch;
+use App\Support\Console\ConsoleScope;
+use App\Support\Console\ConsoleScopeException;
 use App\Support\Roles;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -425,14 +429,28 @@ Schedule::command('moxdop:seo:inspect-changed')
     ->dailyAt('09:40')->withoutOverlapping(60)->name('seo-inspect-changed');
 
 // Faz 5: Sayfa Karnesi (URL bazında karar) — haftalık yeniden hesaplama, SEO planından sonra. Kayıtlı veri; sağlayıcı / AI yok.
-Artisan::command('moxdop:website:url-verdicts {--website= : Only this website id}', function (): void {
+Artisan::command('moxdop:website:url-verdicts {--website= : Web sitesi id veya adının / alan adının bir parçası} {--brand= : Marka id veya adının bir parçası}', function (): int {
     $query = DigitalAsset::query()->operational()->where('type', 'website');
-    if ($this->option('website') !== null) {
-        $query->whereKey((int) $this->option('website'));
+    try {
+        if ($this->option('website') !== null) {
+            $query->whereKey(ConsoleScope::asset((string) $this->option('website'), 'website', '--website')->id);
+        }
+        if ($this->option('brand') !== null) {
+            $query->where('brand_id', ConsoleScope::brand((string) $this->option('brand'))->id);
+        }
+    } catch (ConsoleScopeException $exception) {
+        $this->error($exception->getMessage());
+
+        return 2;
     }
+    $queued = 0;
     foreach ($query->pluck('digital_assets.id') as $siteId) {
-        RefreshUrlVerdictsJob::dispatch((int) $siteId, 'weekly');
+        // Debounced: one pending refresh per website (UrlAuditService::dispatchFor).
+        $queued += UrlAuditService::dispatchFor((int) $siteId, 'weekly') ? 1 : 0;
     }
+    $this->line('Sayfa Karnesi kuyruğa alındı: '.$queued.' site.');
+
+    return 0;
 })->purpose('Queue the URL verdict (Sayfa Karnesi) refresh of operational websites.');
 
 Schedule::command('moxdop:website:url-verdicts')
@@ -603,24 +621,43 @@ Schedule::command('moxdop:data:retention')
 
 // Sorgu hattı: her keşfedilen hesaptan (markaya bağlı olsun olmasın) ücretsiz sorgu çekimi → çekirdek sorgu →
 // sektör → hizmet. Günlük; ayrıca her başarılı hesap çekiminden sonra o hesap için (ResourceAutomationService).
-Artisan::command('moxdop:queries:pipeline {--resource= : Only this external resource id} {--force}', function (): void {
-    $stats = app(QueryPipeline::class)->daily($this->option('resource') !== null ? (int) $this->option('resource') : null, (bool) $this->option('force'));
-    $this->line(json_encode($stats, JSON_UNESCAPED_UNICODE));
+Artisan::command('moxdop:queries:pipeline {--resource= : Only this external resource id} {--force} {--queue : Queue the pipeline as a chain of short jobs (heavy queue) instead of running it here} {--json : Full statistics as JSON}', function (): int {
+    $resource = $this->option('resource') !== null ? (int) $this->option('resource') : null;
+    if ($this->option('queue')) {
+        RunQueryPipelineJob::dispatch($resource, (bool) $this->option('force'));
+        $this->line('Sorgu hattı kuyruğa alındı (heavy kuyruğu). Son çalıştırma: '.(QueryPipeline::lastRun($resource)['summary'] ?? 'henüz yok'));
+
+        return 0;
+    }
+    $stats = app(QueryPipeline::class)->daily($resource, (bool) $this->option('force'));
+    $this->line((string) ($stats['summary'] ?? ''));
+    if ($this->option('json')) {
+        $this->line(json_encode($stats, JSON_UNESCAPED_UNICODE));
+    }
+
+    return 0;
 })->purpose('Ingest queries of every discovered account into core queries, assign sectors and services.');
 
-Schedule::command('moxdop:queries:pipeline')
+Schedule::command('moxdop:queries:pipeline --queue')
     ->dailyAt('04:40')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(120)
     ->name('queries-pipeline-daily');
 
 // Sorgu hattı: hizmet başına AI kümeleme + küme başına SERP sayfa türü araştırması (değişenler; 30 gün önbellek).
-Artisan::command('moxdop:queries:cluster {--service= : Only this service id}', function (): void {
-    $stats = app(QueryPipeline::class)->weekly($this->option('service') !== null ? (int) $this->option('service') : null);
+Artisan::command('moxdop:queries:cluster {--service= : Only this service id} {--queue : Queue as short jobs (heavy queue) instead of running here}', function (): void {
+    $service = $this->option('service') !== null ? (int) $this->option('service') : null;
+    if ($this->option('queue')) {
+        ClusterQueriesJob::dispatch($service);
+        $this->line('Sorgu kümeleme kuyruğa alındı (heavy kuyruğu).');
+
+        return;
+    }
+    $stats = app(QueryPipeline::class)->weekly($service);
     $this->line(json_encode($stats, JSON_UNESCAPED_UNICODE));
 })->purpose('Cluster core queries per service (AI) and research each cluster page type on Google (SERP).');
 
-Schedule::command('moxdop:queries:cluster')
+Schedule::command('moxdop:queries:cluster --queue')
     ->weeklyOn((int) config('moxdop-demand.schedule.weekly_day', 1), '05:05')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(180)
@@ -695,7 +732,9 @@ Schedule::command('moxdop:measurement:refresh')
 
 // Faz 4: kuyruk işçisi yoklaması — her kuyruğa küçük bir iş; işlenince heartbeat yazar (Sistem Sağlığı ve uyarılar).
 Schedule::call(function (): void {
-    foreach ((array) config('moxdop-observability.probe_queues', ['default', 'collection']) as $queue) {
+    // The heavy queue (Horizon supervisor-heavy) is probed too when it is a separate queue.
+    $queues = array_values(array_unique([...(array) config('moxdop-observability.probe_queues', ['default', 'collection']), (string) config('queue.heavy_queue', 'default')]));
+    foreach ($queues as $queue) {
         QueueHeartbeatProbeJob::dispatch((string) $queue)->onQueue((string) $queue);
     }
 })->everyFiveMinutes()->name('queue-heartbeat-probe')->withoutOverlapping(5);
@@ -737,18 +776,33 @@ Schedule::call(fn () => app(WhatsAppContactLinker::class)->linkAll())
 
 // Marka çalışma alanı: kanal başına AI analisti (Arama; Harita / Google Ads / Meta sınıfları eklenince) — her
 // operasyonel marka için haftalık, markalar kuyruğa aralıklı verilir. Tek marka / kanal: --brand / --channel.
-Artisan::command('moxdop:analyst:weekly {--brand= : Only this brand id} {--channel= : Only this channel}', function (): void {
+Artisan::command('moxdop:analyst:weekly {--brand= : Marka id veya adının bir parçası (ör. Panorama)} {--channel= : Only this channel}', function (): int {
     $engine = app(AnalystEngine::class);
     if ($this->option('brand') !== null) {
-        $brand = Brand::query()->findOrFail((int) $this->option('brand'));
-        foreach ($this->option('channel') !== null ? [(string) $this->option('channel')] : app(AnalystRegistry::class)->liveChannels() as $channel) {
+        try {
+            $brand = ConsoleScope::brand((string) $this->option('brand'));
+        } catch (ConsoleScopeException $exception) {
+            $this->error($exception->getMessage());
+
+            return 2;
+        }
+        $channels = app(AnalystRegistry::class)->liveChannels();
+        if ($this->option('channel') !== null && ! in_array((string) $this->option('channel'), $channels, true)) {
+            $this->error('Bilinmeyen kanal: '.$this->option('channel').'. Geçerli: '.implode(', ', $channels));
+
+            return 2;
+        }
+        $this->line('Marka #'.$brand->id.' '.$brand->name);
+        foreach ($this->option('channel') !== null ? [(string) $this->option('channel')] : $channels as $channel) {
             $run = $engine->queue($brand, $channel, null, 'manual');
             $this->line($channel.': run '.$run->id.' '.$run->status);
         }
 
-        return;
+        return 0;
     }
     $this->line(json_encode($engine->queueWeekly(), JSON_UNESCAPED_UNICODE));
+
+    return 0;
 })->purpose('Queue the brand workspace AI analysts (every live channel × operational brand, staggered).');
 
 Schedule::command('moxdop:analyst:weekly')

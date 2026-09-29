@@ -5,6 +5,8 @@ namespace App\Console\Commands;
 use App\Enums\DataPool\IntegrityAuditMode;
 use App\Services\DataPool\Integrity\DataPoolIntegrityAuditor;
 use App\Services\DataPool\Integrity\Support\IntegrityAuditRequest;
+use App\Support\Console\ConsoleScope;
+use App\Support\Console\ConsoleScopeException;
 use Illuminate\Console\Command;
 
 /**
@@ -33,7 +35,15 @@ class MoxdopDataPoolAuditCommand extends Command
         $providers = array_values(array_filter(array_map('strval', (array) $this->option('provider'))));
         $datasets = array_values(array_filter(array_map('strval', (array) $this->option('dataset'))));
         $resources = array_values(array_filter(array_map('intval', (array) $this->option('resource'))));
-        $assets = array_values(array_filter(array_map('intval', (array) $this->option('asset'))));
+        try {
+            // Id or (partial) name / domain; "Panorama" must not silently widen the audit to every asset.
+            $assets = array_values(array_unique(array_map(fn (string $value): int => ConsoleScope::asset($value)->id,
+                array_values(array_filter(array_map('strval', (array) $this->option('asset')), fn (string $v): bool => trim($v) !== '')))));
+        } catch (ConsoleScopeException $exception) {
+            $this->error($exception->getMessage());
+
+            return self::INVALID;
+        }
 
         try {
             $run = $auditor->run(new IntegrityAuditRequest(

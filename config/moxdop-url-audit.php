@@ -9,6 +9,10 @@ return [
     // Stored HTML pages read per refresh (highest traffic / service pages first). Others get "veri yok".
     'html_pages' => (int) env('MOXDOP_URL_AUDIT_HTML_PAGES', 400),
 
+    // Automatic refreshes (projection rebuilt, SEO plan, weekly) wait this long and are unique per website until
+    // they start, so triggers arriving together queue one refresh.
+    'debounce_seconds' => (int) env('MOXDOP_URL_AUDIT_DEBOUNCE_SECONDS', 120),
+
     // Weekly refresh (after the Monday SEO plan).
     'schedule' => [
         'weekly_day' => 1,

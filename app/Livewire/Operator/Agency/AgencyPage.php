@@ -12,6 +12,7 @@ use App\Models\TimeEntry;
 use App\Services\Agency\AgencyOperations;
 use App\Support\Demo\DemoState;
 use App\Support\Roles;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -159,6 +160,11 @@ final class AgencyPage extends Component
 
     public function render(AgencyOperations $operations): View
     {
+        if (preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $this->month) !== 1) {
+            $this->month = now()->format('Y-m');
+        }
+        // Real month bounds: "2026-09-31" does not exist and PostgreSQL rejects it ("date/time field value out of range").
+        $monthStart = CarbonImmutable::createFromFormat('!Y-m', $this->month)->startOfMonth();
         $customers = Customer::query()->where('status', CustomerStatus::Active->value)->orderBy('name')->pluck('name', 'id');
         $months = [];
         for ($i = -1; $i < 12; $i++) {
@@ -172,7 +178,7 @@ final class AgencyPage extends Component
             'profit' => $this->tab === 'profit' ? $operations->profitability($this->month) : [],
             'invoices' => $this->tab === 'invoices' ? Invoice::query()->with('customer')->where(fn ($q) => $q->where('period', $this->month)->orWhereIn('status', ['draft', 'issued']))->orderByRaw("case status when 'issued' then 0 when 'draft' then 1 else 2 end")->orderBy('due_on')->limit(300)->get() : collect(),
             'commitments' => $this->tab === 'commitments' ? $operations->commitments($this->month) : [],
-            'entries' => $this->tab === 'time' ? TimeEntry::query()->with(['customer', 'brand'])->where('worked_on', '>=', $this->month.'-01')->where('worked_on', '<=', $this->month.'-31')->orderByDesc('worked_on')->limit(300)->get() : collect(),
+            'entries' => $this->tab === 'time' ? TimeEntry::query()->with(['customer', 'brand'])->whereBetween('worked_on', [$monthStart->toDateString(), $monthStart->endOfMonth()->toDateString()])->orderByDesc('worked_on')->limit(300)->get() : collect(),
             'contacts' => $this->tab === 'contacts' ? CustomerInteraction::query()->with(['customer', 'user'])->latest('occurred_at')->limit(100)->get() : collect(),
             'upcoming' => $this->tab === 'contacts' ? CustomerInteraction::query()->with('customer')->whereNotNull('next_action_at')->whereNull('next_action_done_at')->orderBy('next_action_at')->limit(50)->get() : collect(),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),

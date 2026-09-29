@@ -2,8 +2,9 @@
 
 namespace App\Console\Commands;
 
-use App\Models\DigitalAsset;
 use App\Services\Advisor\AdvisorPlanRunner;
+use App\Support\Console\ConsoleScope;
+use App\Support\Console\ConsoleScopeException;
 use Illuminate\Console\Command;
 
 /**
@@ -28,7 +29,14 @@ final class AdvisorPlanCommand extends Command
         }
         $assetId = $this->option('asset');
         if (is_string($assetId) && $assetId !== '') {
-            $plan = $runner->queue(DigitalAsset::query()->findOrFail((int) $assetId), null, 'manual');
+            try {
+                $asset = ConsoleScope::asset($assetId);
+            } catch (ConsoleScopeException $exception) {
+                $this->error($exception->getMessage());
+
+                return self::INVALID;
+            }
+            $plan = $runner->queue($asset, null, 'manual');
             $this->info(sprintf('Danışman #%d kuyruğa alındı (varlık #%d).', $plan->id, $plan->digital_asset_id));
             if ($this->option('sync')) {
                 $this->info('Tamamlandı: '.($runner->run($plan->id)->summary_text ?? ''));

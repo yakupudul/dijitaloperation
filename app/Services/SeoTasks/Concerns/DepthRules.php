@@ -5,6 +5,7 @@ namespace App\Services\SeoTasks\Concerns;
 use App\Enums\SeoTaskType;
 use App\Services\SeoTasks\SeoTaskConfig;
 use App\Services\SeoTasks\SeoText;
+use App\Services\SeoTasks\TokenIndex;
 use App\Support\IntelligenceProjection\Website\WebsitePageFamilyClassifier;
 
 /**
@@ -177,6 +178,9 @@ trait DepthRules
                 $withTraffic[$key] = $page;
             }
         }
+        // Titles of pages with traffic, indexed once: overlap lookup per silent page instead of a scan of all of them.
+        $trafficTitles = new TokenIndex(array_map(static fn (array $other): string => (string) ($other['title'] ?? $other['h1'] ?? ''), $withTraffic));
+        $classifier = app(WebsitePageFamilyClassifier::class);
 
         $rows = [];
         foreach ($pages as $key => $page) {
@@ -184,18 +188,13 @@ trait DepthRules
                 || ($page['status_code'] !== null && $page['status_code'] !== 200) || ($trafficPages[$key]['impr_90'] ?? 0) > 0) {
                 continue;
             }
-            $family = app(WebsitePageFamilyClassifier::class)->classify($page['url'], is_string($page['cms_type']) ? $page['cms_type'] : null);
+            $family = $classifier->classify($page['url'], is_string($page['cms_type']) ? $page['cms_type'] : null);
             if (in_array($family['kind'] ?? '', ['pagination', 'archive', 'parameter', 'media'], true)) {
                 continue;
             }
             $label = (string) ($page['title'] ?? $page['h1'] ?? $page['path']);
-            $overlap = null;
-            foreach ($withTraffic as $otherKey => $other) {
-                if (SeoText::tokenOverlap($label, (string) ($other['title'] ?? $other['h1'] ?? '')) >= 0.6) {
-                    $overlap = $other;
-                    break;
-                }
-            }
+            $overlapKey = $trafficTitles->firstContainedIn($label, 0.6);
+            $overlap = $overlapKey !== null ? $withTraffic[$overlapKey] : null;
             $inlinkCount = $linksKnown ? count($inlinks[$key] ?? []) : null;
             $words = $page['word_count'];
             [$decision, $why] = match (true) {

@@ -17,6 +17,7 @@ use App\Services\SeoTasks\SeoText;
 use App\Support\ServiceScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -65,10 +66,21 @@ final class TopicMapBuilder
         if ($running !== null) {
             return $running;
         }
+        // A build still "queued" / "running" after 30 minutes was lost (worker died, job never picked up): close it
+        // so the screen stops showing "sıraya alındı" forever, then queue a fresh one.
+        TopicMapBuild::query()->where('digital_asset_id', $site->id)->whereIn('status', ['queued', 'running'])
+            ->update(['status' => 'failed', 'error' => 'Kuyrukta kaldı ya da yarıda kesildi; yeniden kuruldu.', 'finished_at' => now(), 'updated_at' => now()]);
         $build = TopicMapBuild::query()->create(['brand_id' => $site->brand_id, 'digital_asset_id' => $site->id, 'status' => 'queued', 'trigger' => $trigger]);
-        BuildTopicMapJob::dispatch($build->id);
+        BuildTopicMapJob::dispatch($build->id)->afterCommit();
 
         return $build->refresh();
+    }
+
+    /** Job failure (timeout, worker lost): the build row must not stay queued / running. */
+    public function markFailed(int $buildId, Throwable $exception): void
+    {
+        TopicMapBuild::query()->whereKey($buildId)->whereIn('status', ['queued', 'running'])
+            ->update(['status' => 'failed', 'error' => mb_substr($exception->getMessage(), 0, 500), 'finished_at' => now(), 'updated_at' => now()]);
     }
 
     /** Build now, recorded like a queued build (weekly command). */
@@ -87,6 +99,16 @@ final class TopicMapBuilder
         if ($build === null) {
             return;
         }
+        if (! in_array($build->status, ['queued', 'running'], true)) {
+            return; // closed meanwhile (superseded / marked lost)
+        }
+        // One build per website at a time; a second one ends instead of waiting on the first.
+        $lock = Cache::lock('topic-map-build:'.$build->digital_asset_id, 1200);
+        if (! $lock->get()) {
+            $build->forceFill(['status' => 'failed', 'error' => 'Aynı site için başka bir konu haritası kurulumu sürüyor.', 'finished_at' => now()])->save();
+
+            return;
+        }
         $build->forceFill(['status' => 'running', 'started_at' => now()])->save();
         try {
             $site = DigitalAsset::query()->where('type', 'website')->findOrFail($build->digital_asset_id);
@@ -95,6 +117,8 @@ final class TopicMapBuilder
         } catch (Throwable $exception) {
             report($exception);
             $build->forceFill(['status' => 'failed', 'error' => mb_substr($exception->getMessage(), 0, 500), 'finished_at' => now()])->save();
+        } finally {
+            $lock->release();
         }
     }
 
