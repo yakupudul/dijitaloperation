@@ -82,12 +82,13 @@ return new class extends Migration
         Schema::dropIfExists('library_cluster_targets');
         Schema::dropIfExists('library_cluster_operation_rows');
         Schema::dropIfExists('library_cluster_operations');
-        Schema::table('search_query_library_item_service', function (Blueprint $t): void {
-            $t->dropIndex('lqc_members_idx');
-            $t->dropConstrainedForeignId('library_cluster_id');
-            $t->dropColumn(['cluster_reviewed_at', 'cluster_revision']);
-        });
+        if (Schema::hasTable('search_query_library_item_service')) {
+            Schema::table('search_query_library_item_service', function (Blueprint $t): void {
+                $t->dropIndex('lqc_members_idx');
+                $t->dropConstrainedForeignId('library_cluster_id');
+                $t->dropColumn(['cluster_reviewed_at', 'cluster_revision']);
+            });
+        }
         Schema::dropIfExists('library_query_clusters');
     }
 };
-

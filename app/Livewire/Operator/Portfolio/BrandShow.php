@@ -4,9 +4,6 @@ namespace App\Livewire\Operator\Portfolio;
 
 use App\Jobs\DiscoverProviderResourcesJob;
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
-use App\Livewire\Operator\Portfolio\Concerns\InteractsWithBrandReports;
-use App\Livewire\Operator\Workspace\Concerns\HandlesAnalystDecisions;
-use App\Livewire\Operator\Workspace\SearchTab;
 use App\Models\Brand;
 use App\Models\BrandIntelligenceContext;
 use App\Models\BrandOffering;
@@ -18,12 +15,8 @@ use App\Models\OperatorFile;
 use App\Models\Recommendation;
 use App\Models\ResourceAutomation;
 use App\Models\User;
-use App\Services\Advisor\AdvisorPlanRunner;
-use App\Services\Advisor\AdvisorWorkQueue;
-use App\Services\Analyst\AnalystWorkspace;
 use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
 use App\Services\BrandSetup\BrandSetupStatus;
-use App\Services\ClientValueStory\ClientValueStoryReadService;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\CreateTaskFromRecommendation;
 use App\Services\Findings\FindingReadService;
@@ -32,22 +25,18 @@ use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Services\Integrations\Meta\DiscoverMetaResourcesService;
 use App\Services\Integrations\ResourceAutomationService;
-use App\Services\LeadOutcomes\LeadQuality;
 use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Opportunities\OpportunityReadService;
 use App\Services\Ownership\OwnershipGuard;
 use App\Services\Recommendations\RecommendationReadService;
-use App\Services\SeoTasks\SeoPlanRunner;
 use App\Services\ServiceScope\CustomerServiceScopeReadService;
 use App\Services\Work\WorkReadService;
-use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\DemoState;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Integrations\ResourceBindingPlan;
 use App\Support\Options\IndustryOptions;
 use App\Support\Roles;
 use App\Support\ServiceScope;
-use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -61,24 +50,22 @@ use Livewire\Component;
 use Throwable;
 
 /**
- * Brand workspace (the operator's daily screen): "Bu hafta yapılacaklar" across channels and one tab per goal —
- * Arama · Harita · Google Ads · Meta — each Durum · Yapılacaklar · Kanıt. The former brand page (setup, business,
- * assets, work, reports, files) lives under "Ayarlar". Everything shown comes from the database.
+ * Brand workspace: one tab per channel — Arama · Harita · Google Ads · Meta — rebuilt in Faz 4–7 on the v2 model
+ * (reserved until then), and "Ayarlar" with the brand page (setup, business, assets, work, files). Everything shown
+ * comes from the database.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Marka')]
 class BrandShow extends Component
 {
-    use HandlesAnalystDecisions;
-    use InteractsWithBrandReports;
     use InteractsWithDemoPeriod;
 
     /** Settings sub-tabs (the former brand page). */
-    public const array TABS = ['overview', 'business', 'assets', 'work', 'reports', 'files'];
+    public const array TABS = ['overview', 'business', 'assets', 'work', 'files'];
 
     /** Workspace tab => [label, Livewire component class (rendered only when it exists)]. "ayarlar" opens TABS. */
     public const array WORKSPACE_TABS = [
-        'arama' => ['Arama', SearchTab::class],
+        'arama' => ['Arama', 'App\\Livewire\\Operator\\Workspace\\SearchTab'],
         'harita' => ['Harita', 'App\\Livewire\\Operator\\Workspace\\MapsTab'],
         'google_ads' => ['Google Ads', 'App\\Livewire\\Operator\\Workspace\\GoogleAdsTab'],
         'meta' => ['Meta', 'App\\Livewire\\Operator\\Workspace\\MetaTab'],
@@ -87,7 +74,7 @@ class BrandShow extends Component
     /** Old deep links keep working. */
     private const array LEGACY_TABS = [
         'estate' => 'assets', 'cross_channel' => 'assets', 'operations' => 'work', 'growth' => 'work', 'ai' => 'work',
-        'value' => 'reports', 'history' => 'reports', 'research' => 'business', 'discovery' => 'business', 'context' => 'business',
+        'value' => 'overview', 'history' => 'overview', 'reports' => 'overview', 'research' => 'business', 'discovery' => 'business', 'context' => 'business',
     ];
 
     public const array WORK_SECTIONS = ['findings', 'opportunities', 'recommendations', 'tasks'];
@@ -134,7 +121,6 @@ class BrandShow extends Component
         }
         $this->taskCreateNonce = (string) Str::uuid();
         $this->mountPeriod();
-        $this->mountBrandReports();
     }
 
     public function setTab(string $tab): void
@@ -150,16 +136,6 @@ class BrandShow extends Component
         $tab = self::LEGACY_TABS[$tab] ?? $tab;
 
         return isset(self::WORKSPACE_TABS[$tab]) || in_array($tab, self::TABS, true) ? $tab : 'arama';
-    }
-
-    protected function analystBrandId(): int
-    {
-        return (int) $this->brand;
-    }
-
-    protected function analystNotice(string $message, string $tone = 'success'): void
-    {
-        DemoState::flash($message, $tone === 'error' ? 'info' : 'success');
     }
 
     public function setOps(string $section): void
@@ -351,24 +327,6 @@ class BrandShow extends Component
         }
     }
 
-    /** Kurulum durumu: queue an SEO plan for the brand's website now instead of waiting for Monday. */
-    public function setupQueueSeoPlan(): void
-    {
-        $actor = $this->operatorActor();
-        $site = $this->brandWebsite();
-        if ($site === null) {
-            DemoState::flash('Önce markaya bir web sitesi ekleyin.', 'info');
-
-            return;
-        }
-        try {
-            app(SeoPlanRunner::class)->queue($site, $actor, 'brand_setup_status');
-            DemoState::flash('SEO planı kuyruğa alındı; hazır olunca site ekranının SEO sekmesinde görünür.', 'info');
-        } catch (ValidationException $exception) {
-            DemoState::flash((string) (collect($exception->errors())->flatten()->first() ?? 'SEO planı başlatılamadı.'), 'info');
-        }
-    }
-
     /** Kurulum durumu: collect the brand's accounts of one channel on the next automation tick. */
     public function setupCollectNow(string $type): void
     {
@@ -387,31 +345,6 @@ class BrandShow extends Component
             $count++;
         }
         DemoState::flash($count.' hesabın veri çekimi öne alındı; birkaç dakika içinde başlar.', 'info');
-    }
-
-    /** Kurulum durumu: run the advisor for every bound account of the channel. */
-    public function setupQueueAdvisor(string $type): void
-    {
-        $actor = $this->operatorActor();
-        $assets = DigitalAsset::query()->where('brand_id', (int) $this->brand)->where('type', $type)->where('status', 'active')
-            ->whereIn('id', CoreAssetBinding::query()->where('status', CoreAssetBinding::STATUS_ACTIVE)->where('capability', $type)->select('digital_asset_id'))->get();
-        if ($assets->isEmpty()) {
-            DemoState::flash('Bu kanalda markaya bağlı hesap yok; önce "Hesap ekle" ile bağlayın.', 'info');
-
-            return;
-        }
-        $queued = 0;
-        foreach ($assets as $asset) {
-            try {
-                app(AdvisorPlanRunner::class)->queue($asset, $actor, 'brand_setup_status');
-                $queued++;
-            } catch (ValidationException $exception) {
-                DemoState::flash((string) (collect($exception->errors())->flatten()->first() ?? 'Danışman başlatılamadı.'), 'info');
-
-                return;
-            }
-        }
-        DemoState::flash($queued.' hesap için Danışman incelemesi kuyruğa alındı.', 'info');
     }
 
     /** @return list<int> */
@@ -509,16 +442,12 @@ class BrandShow extends Component
             'setup' => $setup,
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'attention' => $attention,
-            'advisor' => $this->tab === 'overview' ? $this->advisorOverview($brand) : null,
-            'leadQuality' => $this->tab === 'business' ? app(LeadQuality::class)->forBrand($brand, CarbonImmutable::now(config('app.timezone'))->subDays(29), CarbonImmutable::now(config('app.timezone'))) : null,
             'work' => $work,
             'context' => $context instanceof BrandIntelligenceContext ? $this->contextRows($context) : [],
             'serviceScope' => app(CustomerServiceScopeReadService::class)->forBrand($brand, includeEnded: false),
             'reportPreview' => null,
             'flash' => DemoState::pullFlash(),
-            'valueStory' => $this->tab === 'reports' ? $this->valueStory($brand) : null,
             'brandFiles' => $this->tab === 'files' ? $this->brandFiles($brand) : collect(),
-            ...($this->tab === 'reports' ? $this->brandReportData($brand) : ['reportSnapshots' => ['items' => [], 'empty' => true, 'demo' => false], 'reportSnapshotDetail' => null]),
         ]);
     }
 
@@ -527,14 +456,8 @@ class BrandShow extends Component
     {
         $class = self::WORKSPACE_TABS[$this->tab][1];
         $operational = app(ServiceScope::class)->isBrandOperational($brand->id);
+        // v2: the week's cards come from the suggestions table once Faz 4–7 fill it.
         $weekTop = [];
-        if ($operational) {
-            try {
-                $weekTop = app(AnalystWorkspace::class)->top($brand, 7);
-            } catch (Throwable $exception) {
-                report($exception);
-            }
-        }
         $sectors = collect($brand->sectorCodes())->map(fn (string $code): string => IndustryOptions::label($code))->filter()->values()->all();
 
         return view('livewire.operator.portfolio.brand-show', [
@@ -562,22 +485,6 @@ class BrandShow extends Component
         ];
     }
 
-    /**
-     * Danışman block: one status line per connected channel and the brand's top open items.
-     *
-     * @return array{channels: list<array<string, mixed>>, top: list<array<string, mixed>>}
-     */
-    private function advisorOverview(Brand $brand): array
-    {
-        try {
-            $queue = app(AdvisorWorkQueue::class);
-
-            return ['channels' => $queue->brandChannels($brand), 'top' => $queue->top(5, $brand->id)];
-        } catch (Throwable) {
-            return ['channels' => [], 'top' => []];
-        }
-    }
-
     /** @return array<string, mixed>|null */
     private function setupStatus(Brand $brand): ?array
     {
@@ -588,16 +495,6 @@ class BrandShow extends Component
 
             return null;
         }
-    }
-
-    /** @return array<string, mixed>|null "What we observed / what we did" for the selected period. */
-    private function valueStory(Brand $brand): ?array
-    {
-        $bounds = DemoPeriod::bounds((string) ($this->period ?: 'last_28'), $this->periodStart, $this->periodEnd);
-        $start = ($this->periodStart && $this->periodEnd) ? $this->periodStart : $bounds['start']->toDateString();
-        $end = ($this->periodStart && $this->periodEnd) ? $this->periodEnd : $bounds['end']->toDateString();
-
-        return app(ClientValueStoryReadService::class)->forBrand($brand, $start, $end)?->toPresentationArray();
     }
 
     private function brandModel(): Brand

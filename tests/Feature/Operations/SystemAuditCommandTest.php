@@ -100,11 +100,4 @@ final class SystemAuditCommandTest extends TestCase
         $this->assertNotEmpty($results);
         $this->assertSame([], $errors->values()->all());
     }
-
-    public function test_brand_query_portfolio_page_opens_when_the_brand_has_legacy_offerings_text(): void
-    {
-        Brand::query()->update(['offerings' => 'İmplant, zirkonyum']);
-
-        $this->actingAs($this->admin)->get(route('operator.library.brand-query-portfolios'))->assertOk();
-    }
 }

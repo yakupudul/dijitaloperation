@@ -15,8 +15,10 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('search_query_library_items', function (Blueprint $table): void {
-            $table->dropSoftDeletes();
-        });
+        if (Schema::hasTable('search_query_library_items')) {
+            Schema::table('search_query_library_items', function (Blueprint $table): void {
+                $table->dropSoftDeletes();
+            });
+        }
     }
 };

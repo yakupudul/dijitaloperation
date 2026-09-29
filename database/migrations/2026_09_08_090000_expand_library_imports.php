@@ -42,7 +42,9 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('search_query_library_imports', fn (Blueprint $table) => $table->dropColumn('input_payload'));
+        if (Schema::hasTable('search_query_library_imports')) {
+            Schema::table('search_query_library_imports', fn (Blueprint $table) => $table->dropColumn('input_payload'));
+        }
         Schema::dropIfExists('search_query_library_sectors');
         Schema::dropIfExists('service_matching_keywords');
     }

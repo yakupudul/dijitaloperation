@@ -16,7 +16,6 @@ use App\Models\Run;
 use App\Models\User;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
-use App\Support\Sales\IntentSearchConfig;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -277,33 +276,5 @@ class OperatorRealEngineWiringTest extends TestCase
         $this->assertSame('configured', $workspace['migration_mode']);
         $this->assertContains('reviews', $workspace['unsupported_live_capabilities']);
         $this->assertContains('performance', $workspace['unsupported_live_capabilities']);
-    }
-
-    public function test_sales_intent_paid_call_policy_can_be_enabled_from_dataforseo_integration_config(): void
-    {
-        config()->set('moxdop.sales_intent_discovery.paid_calls_enabled', false);
-
-        CoreIntegration::query()->create([
-            'provider' => ProviderRegistry::DATAFORSEO,
-            'name' => 'DataForSEO',
-            'status' => CoreIntegration::STATUS_ACTIVE,
-            'config' => [IntentSearchConfig::RUNTIME_PAID_CALLS_KEY => true],
-        ]);
-
-        $this->assertTrue(IntentSearchConfig::paidCallsEnabled());
-    }
-
-    public function test_sales_intent_runtime_policy_can_explicitly_disable_a_true_deployment_default(): void
-    {
-        config()->set('moxdop.sales_intent_discovery.paid_calls_enabled', true);
-
-        CoreIntegration::query()->create([
-            'provider' => ProviderRegistry::DATAFORSEO,
-            'name' => 'DataForSEO',
-            'status' => CoreIntegration::STATUS_ACTIVE,
-            'config' => [IntentSearchConfig::RUNTIME_PAID_CALLS_KEY => false],
-        ]);
-
-        $this->assertFalse(IntentSearchConfig::paidCallsEnabled());
     }
 }

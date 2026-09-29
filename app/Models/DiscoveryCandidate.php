@@ -90,7 +90,6 @@ class DiscoveryCandidate extends Model
 
         return match ($receipt['destination'] ?? '') {
             'integrations' => route('operator.integrations', ['discoveryBrand' => $this->brand_id]).'#discovered-profiles',
-            'known_competitors' => route('operator.library.search-demand-competitors', ['brand' => $this->brand_id, 'status' => 'approved']),
             'languages' => route('operator.website', ['assetId' => $this->digital_asset_id]),
             default => route('operator.brand', ['brand' => $this->brand_id]),
         };

@@ -7,9 +7,6 @@
     ];
     $tableLabels = [
         'website_url' => 'Sayfalar',
-        'seo_tasks' => 'SEO görevleri',
-        'seo_plans' => 'SEO planları',
-        'site_fix_items' => 'Site düzeltmeleri',
         'findings' => 'Bulgular',
         'evidence' => 'Kanıtlar',
         'runs' => 'Çalıştırmalar',
@@ -27,7 +24,7 @@
 <div class="space-y-5">
     <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Kopya web siteleri</h1>
-        <p class="mt-1 max-w-3xl text-sm text-gray-500">Aynı alan adına (www., http/https ve sondaki / fark etmez) sahip birden fazla web sitesi kaydı. Birleştirince kopyanın bağlı hesapları, toplanmış verisi, SEO görevleri, site düzeltmeleri ve WordPress bağlayıcısı tutulan kayda taşınır; aynı şey iki kayıtta da varsa tutulanınki kalır. Kopya kayıt arşivlenir, silinmez. Birleştirmeyi yalnız Admin yapar; farklı müşterilere ait kayıtlar yetki devri onayı ister.</p>
+        <p class="mt-1 max-w-3xl text-sm text-gray-500">Aynı alan adına (www., http/https ve sondaki / fark etmez) sahip birden fazla web sitesi kaydı. Birleştirince kopyanın bağlı hesapları, toplanmış verisi ve WordPress bağlayıcısı tutulan kayda taşınır; aynı şey iki kayıtta da varsa tutulanınki kalır. Kopya kayıt arşivlenir, silinmez. Birleştirmeyi yalnız Admin yapar; farklı müşterilere ait kayıtlar yetki devri onayı ister.</p>
     </div>
 
     @if ($message !== '')<p class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{{ $message }}</p>@endif
@@ -67,8 +64,6 @@
                             <th class="py-2 pr-3 text-right">Hesap</th>
                             <th class="py-2 pr-3 text-right">Sayfa</th>
                             <th class="py-2 pr-3 text-right">Veri</th>
-                            <th class="py-2 pr-3 text-right">SEO görevi</th>
-                            <th class="py-2 pr-3 text-right">Site düzeltmesi</th>
                             <th class="py-2 pr-3">WordPress</th>
                         </tr>
                     </thead>
@@ -90,8 +85,6 @@
                                 <td class="py-2 pr-3 text-right">{{ $row['counts']['bindings'] }}</td>
                                 <td class="py-2 pr-3 text-right">{{ $row['counts']['pages'] }}</td>
                                 <td class="py-2 pr-3 text-right">{{ $row['counts']['facts'] }}</td>
-                                <td class="py-2 pr-3 text-right">{{ $row['counts']['seo_tasks'] }}</td>
-                                <td class="py-2 pr-3 text-right">{{ $row['counts']['site_fixes'] }}</td>
                                 <td class="py-2 pr-3">{{ match ($row['connector']) { 'paired' => 'eşleşmiş', 'pending' => 'bekliyor', default => '—' } }}</td>
                             </tr>
                         @endforeach

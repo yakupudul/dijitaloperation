@@ -2,15 +2,8 @@
 
 namespace Tests\Feature\Operations;
 
-use App\Enums\CustomerStatus;
-use App\Livewire\Operator\Settings\KvkkPage;
 use App\Livewire\Operator\Settings\SystemHealthPage;
-use App\Models\AgencySetting;
-use App\Models\CoreIntegration;
-use App\Models\Customer;
 use App\Models\User;
-use App\Models\WhatsAppMessage;
-use App\Services\Assistant\WhatsAppRetention;
 use App\Services\Operations\SystemBackup;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -138,50 +131,5 @@ final class KvkkAndBackupTest extends TestCase
         $this->assertSame("SQLite format 3\0".'version-one', file_get_contents($database));
         $this->assertCount(2, glob($this->dir.'/moxdop-*.gz'), 'a safety backup of version two was taken first');
         @unlink($database);
-    }
-
-    public function test_whatsapp_retention_blanks_old_texts_only_when_set(): void
-    {
-        $conversation = DB::table('whatsapp_conversations')->insertGetId(['integration_id' => CoreIntegration::factory()->create(['provider' => 'whatsapp'])->id, 'phone_number_id' => '1', 'contact_id' => '905551112233',
-            'last_message_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
-        // Write through the model so the body is encrypted, exactly as ingestion stores it.
-        foreach (['old' => now()->subDays(100), 'new' => now()->subDays(5)] as $id => $sentAt) {
-            WhatsAppMessage::query()->create(['conversation_id' => $conversation, 'message_id' => $id, 'direction' => 'incoming', 'message_type' => 'text', 'body' => 'Tedavi fiyatı nedir?', 'sent_at' => $sentAt]);
-        }
-
-        $this->assertSame(0, app(WhatsAppRetention::class)->run(), 'off by default');
-        AgencySetting::query()->create(['agency_name' => 'Moximu'])->forceFill(['whatsapp_retention_days' => 90])->save();
-
-        $this->assertSame(1, app(WhatsAppRetention::class)->run());
-        $this->assertSame(0, app(WhatsAppRetention::class)->run());
-        // The redacted body must still decrypt cleanly through the model (it is stored as ciphertext, not plaintext).
-        $old = WhatsAppMessage::query()->where('message_id', 'old')->firstOrFail();
-        $this->assertSame(WhatsAppRetention::REDACTED, $old->body);
-        $this->assertNotSame(WhatsAppRetention::REDACTED, DB::table('whatsapp_messages')->where('message_id', 'old')->value('body'), 'stored value is encrypted, not the plaintext marker');
-        $this->assertNotNull($old->redacted_at);
-        $this->assertSame('Tedavi fiyatı nedir?', WhatsAppMessage::query()->where('message_id', 'new')->value('body'));
-    }
-
-    public function test_kvkk_page_saves_agreements_and_retention_for_admins_only(): void
-    {
-        $customer = Customer::factory()->create(['status' => CustomerStatus::Active, 'name' => 'Atlas Sağlık']);
-        $this->actingAs($this->admin);
-
-        Livewire::test(KvkkPage::class)->assertSee('Atlas Sağlık')
-            ->set('retention', '10')->call('save')->assertHasErrors('retention')
-            ->set('retention', '180')
-            ->set('rows.'.$customer->id.'.signed_on', '2026-09-01')->set('rows.'.$customer->id.'.note', 'Islak imzalı')->set('rows.'.$customer->id.'.health', true)
-            ->call('save')->assertHasNoErrors()->assertSee('Kaydedildi.');
-
-        $fresh = DB::table('customers')->where('id', $customer->id)->first();
-        $this->assertSame('2026-09-01', substr((string) $fresh->kvkk_dpa_signed_on, 0, 10));
-        $this->assertSame('Islak imzalı', $fresh->kvkk_dpa_note);
-        $this->assertTrue((bool) $fresh->kvkk_health_data);
-        $this->assertSame(180, (int) AgencySetting::query()->value('whatsapp_retention_days'));
-        $this->get(route('operator.settings.kvkk'))->assertOk();
-
-        $operator = User::factory()->create(['is_active' => true]);
-        $operator->assignRole(Roles::TEAM_MEMBER);
-        $this->actingAs($operator)->get(route('operator.settings.kvkk'))->assertForbidden();
     }
 }

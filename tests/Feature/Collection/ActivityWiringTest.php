@@ -6,7 +6,7 @@ use App\Contracts\Collection\ActivityTierReader;
 use App\Models\CoreAssetBinding;
 use App\Models\ResourceActivity;
 use App\Models\User;
-use App\Services\CommandCenter\Activity\ActivityTierServiceReader;
+use App\Services\Collection\Activity\ActivityTierServiceReader;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

@@ -3,10 +3,8 @@
 namespace App\Livewire\Demo;
 
 use App\Enums\Observability\OperationalAlertState;
-use App\Models\AnalystDecision;
 use App\Models\Brand;
 use App\Models\Observability\OperationalAlert;
-use App\Services\Analyst\AnalystRegistry;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -15,8 +13,8 @@ use Livewire\Component;
 use Throwable;
 
 /**
- * Bugün: the portfolio in one list — every operational brand with its most urgent open card and the open-card count
- * per channel (Arama · Harita · Google Ads · Meta). The work itself happens on the brand workspace.
+ * Bugün: every operational brand in one list. Faz 9 adds the applied-suggestion results (worked / not) per brand;
+ * until then the list is the entry point to each brand's workspace.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Bugün')]
@@ -26,34 +24,24 @@ class Dashboard extends Component
     {
         return view('livewire.demo.dashboard', [
             'rows' => $this->rows(),
-            'channels' => array_map(fn (array $c): string => $c[0], AnalystRegistry::CHANNELS),
             'systemAlerts' => $this->systemAlerts(),
             'flash' => DemoState::pullFlash(),
         ]);
     }
 
     /**
-     * @return list<array{id: int, name: string, top: array{title: string, why: string, channel: string}|null, counts: array<string, int>, total: int}>
+     * @return list<array{id: int, name: string, customer: ?string, assets: int}>
      */
     private function rows(): array
     {
         try {
-            $brands = Brand::query()->operational()->orderBy('name')->get(['id', 'name']);
-            $open = AnalystDecision::query()->whereIn('brand_id', $brands->pluck('id')->all() ?: [0])->actionable()
-                ->orderBy('priority')->orderByDesc('last_seen_at')->orderBy('id')->get(['id', 'brand_id', 'channel', 'title', 'why', 'priority'])->groupBy('brand_id');
-            $rows = $brands->map(function (Brand $brand) use ($open): array {
-                $decisions = $open->get($brand->id, collect());
-                $top = $decisions->first();
-
-                return [
-                    'id' => (int) $brand->id, 'name' => (string) $brand->name,
-                    'top' => $top === null ? null : ['title' => (string) $top->title, 'why' => (string) $top->why, 'channel' => $top->channel, 'priority' => (int) $top->priority],
-                    'counts' => $decisions->countBy('channel')->map(fn ($n): int => (int) $n)->all(), 'total' => $decisions->count(),
-                ];
-            })->all();
-            usort($rows, fn (array $a, array $b): int => [($a['top']['priority'] ?? 9), -$a['total'], $a['name']] <=> [($b['top']['priority'] ?? 9), -$b['total'], $b['name']]);
-
-            return $rows;
+            return Brand::query()->operational()->with('customer')->withCount('digitalAssets')->orderBy('name')->get()
+                ->map(fn (Brand $brand): array => [
+                    'id' => (int) $brand->id,
+                    'name' => (string) $brand->name,
+                    'customer' => $brand->customer?->name,
+                    'assets' => (int) ($brand->digital_assets_count ?? 0),
+                ])->all();
         } catch (Throwable $error) {
             report($error);
 

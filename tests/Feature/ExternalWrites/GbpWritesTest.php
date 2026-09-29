@@ -2,28 +2,21 @@
 
 namespace Tests\Feature\ExternalWrites;
 
-use App\Livewire\Operator\Content\ContentCalendarPage;
 use App\Models\Brand;
-use App\Models\ContentCalendarItem;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
-use App\Models\ExternalWriteAction;
 use App\Models\GbpReview;
 use App\Models\User;
-use App\Services\CommandCenter\CommandCenter;
-use App\Services\Content\ContentCalendarPublisher;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 /** ADR-073: Admin-approved review replies and Business Profile posts (content calendar), undoable. */
@@ -79,45 +72,5 @@ final class GbpWritesTest extends TestCase
         app(ExternalWriteService::class)->requestUndo($this->admin, $action->fresh());
         $this->assertSame('undone', $action->fresh()->status);
         $this->assertSame('DELETE', end($this->calls)[0], 'there was no reply before, so undo deletes it');
-    }
-
-    public function test_approved_calendar_post_is_published_when_due_and_team_members_cannot_publish(): void
-    {
-        $member = User::factory()->create(['is_active' => true]);
-        $member->assignRole(Roles::TEAM_MEMBER);
-        Livewire::actingAs($this->admin)->test(ContentCalendarPage::class)->call('startNew')
-            ->set('form.brand_id', $this->profile->brand_id)->set('form.channel', 'gbp_post')->set('form.digital_asset_id', $this->profile->id)
-            ->set('form.title', 'Ekim kampanyası')->set('form.body', 'İmplantta ücretsiz muayene.')->set('form.url', 'https://atlas.test/implant')
-            ->set('form.scheduled_for', now()->subMinute()->timezone('Europe/Istanbul')->format('Y-m-d\TH:i'))->call('save');
-        $item = ContentCalendarItem::query()->sole();
-        $this->assertSame('draft', $item->status);
-        $this->assertContains('calendar:'.$item->id, app(CommandCenter::class)->items()->pluck('key')->all(), 'a draft post due soon waits for approval in the command center');
-
-        $this->assertSame(0, app(ContentCalendarPublisher::class)->publishDue(), 'not approved yet');
-        Livewire::actingAs($member)->test(ContentCalendarPage::class)->call('approve', $item->id)->assertForbidden();
-        Livewire::actingAs($this->admin)->test(ContentCalendarPage::class)->call('approve', $item->id);
-
-        $this->assertSame(1, app(ContentCalendarPublisher::class)->publishDue());
-        $item->refresh();
-        $this->assertSame('published', $item->status);
-        $this->assertSame('accounts/11/locations/22/localPosts/555', $item->external_ref);
-        $post = collect($this->calls)->first(fn ($c) => $c[0] === 'POST');
-        $this->assertSame('https://atlas.test/implant', $post[2]['callToAction']['url']);
-        $this->assertSame(ExternalWriteAction::ACTION_LOCAL_POST, ExternalWriteAction::query()->value('action'));
-        $this->assertSame(0, DB::table('content_calendar_items')->whereNull('write_action_id')->count());
-        $this->actingAs($this->admin)->get(route('operator.content.calendar', ['showDone' => 1]))->assertOk()->assertSee('Ekim kampanyası');
-    }
-
-    public function test_an_approved_post_whose_time_passed_long_ago_is_not_published_late(): void
-    {
-        $item = ContentCalendarItem::query()->create([
-            'brand_id' => $this->profile->brand_id, 'digital_asset_id' => $this->profile->id, 'channel' => 'gbp_post', 'title' => 'Eylül kampanyası',
-            'status' => 'approved', 'approved_by' => $this->admin->id, 'scheduled_for' => now()->subHours(ContentCalendarPublisher::STALE_AFTER_HOURS + 1),
-        ]);
-
-        $this->assertSame(0, app(ContentCalendarPublisher::class)->publishDue());
-        $this->assertSame('failed', $item->refresh()->status);
-        $this->assertStringContainsString('zamanı geçti', (string) $item->error);
-        $this->assertSame(0, ExternalWriteAction::query()->count());
     }
 }

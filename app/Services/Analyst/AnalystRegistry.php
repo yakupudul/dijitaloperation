@@ -3,18 +3,17 @@
 namespace App\Services\Analyst;
 
 use App\Services\Analyst\Contracts\ChannelAnalyst;
-use App\Services\Analyst\Search\SearchAnalyst;
 
 /**
- * The workspace channels in tab order. A channel is live when its analyst class exists; the others are reserved
- * (route key, tab) and show "Hazırlanıyor". To add a channel: create the class below (extend AbstractChannelAnalyst),
- * its Livewire tab (App\Livewire\Operator\Workspace\<Tab>) and nothing else — route, schedule and top list follow.
+ * The analyst channels in tab order. A channel is live when its analyst class exists; v2 (Faz 4–7) rebuilds every
+ * channel on the pages / clusters / suggestions model, so all four are reserved until then. To add a channel: create
+ * the class below (extend AbstractChannelAnalyst) and nothing else — route and schedule follow.
  */
 final class AnalystRegistry
 {
     /** channel => [tab label, analyst class, AI route name, AI route description] */
     public const array CHANNELS = [
-        'search' => ['Arama', SearchAnalyst::class, 'Analyst: Search', 'Weekly per operational brand or on demand: decides the week\'s search (SEO / content / technical) work from the brand\'s queries, clusters, pages and standards.'],
+        'search' => ['Arama', 'App\\Services\\Analyst\\Search\\SearchAnalyst', 'Analyst: Search', 'Weekly per operational brand or on demand: decides the week\'s search (SEO / content / technical) work from the brand\'s queries, clusters, pages and standards.'],
         'maps' => ['Harita', 'App\\Services\\Analyst\\Maps\\MapsAnalyst', 'Analyst: Maps', 'Weekly per operational brand or on demand: decides the week\'s Business Profile work for local map rankings.'],
         'google_ads' => ['Google Ads', 'App\\Services\\Analyst\\GoogleAds\\GoogleAdsAnalyst', 'Analyst: Google Ads', 'Weekly per operational brand or on demand: decides the week\'s Google Ads work like a professional consultant.'],
         'meta' => ['Meta', 'App\\Services\\Analyst\\Meta\\MetaAnalyst', 'Analyst: Meta', 'Weekly per operational brand or on demand: decides the week\'s Meta ads work like a professional consultant.'],

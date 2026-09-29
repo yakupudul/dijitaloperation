@@ -2,7 +2,6 @@
 
 namespace App\Services\Intel;
 
-use App\Services\Demand\DataForSeoIntegrationLookup;
 use App\Services\Integrations\DataForSeo\DataForSeoApiClient;
 use App\Support\ServiceScope;
 use Illuminate\Support\Facades\DB;

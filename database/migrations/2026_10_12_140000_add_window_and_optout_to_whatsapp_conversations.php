@@ -20,8 +20,10 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('whatsapp_conversations', function (Blueprint $table): void {
-            $table->dropColumn(['last_incoming_at', 'opted_out_at']);
-        });
+        if (Schema::hasTable('whatsapp_conversations')) {
+            Schema::table('whatsapp_conversations', function (Blueprint $table): void {
+                $table->dropColumn(['last_incoming_at', 'opted_out_at']);
+            });
+        }
     }
 };

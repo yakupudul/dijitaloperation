@@ -7,8 +7,6 @@
         <div class="flex flex-wrap items-center gap-2 text-sm">
             <span class="rounded-lg bg-gray-100 px-3 py-1.5 dark:bg-gray-800">{{ $total }} varlık</span>
             <span class="rounded-lg bg-gray-100 px-3 py-1.5 dark:bg-gray-800">{{ $unbound }} markasız</span>
-            <span class="rounded-lg bg-gray-100 px-3 py-1.5 dark:bg-gray-800">{{ $noSector }} sektörsüz</span>
-            @if($isAdmin)<button type="button" wire:click="runPipeline" wire:loading.attr="disabled" class="rounded-lg bg-brand-500 px-3 py-1.5 font-semibold text-white">Şimdi çalıştır</button>@endif
         </div>
     </header>
     @if($message !== '')<p role="status" class="rounded-lg bg-blue-50 p-3 text-sm text-blue-800 dark:bg-blue-950 dark:text-blue-200">{{ $message }}</p>@endif
@@ -58,26 +56,17 @@
             <input type="search" wire:model.live.debounce.300ms="search" placeholder="Ara…" aria-label="Ara" class="min-w-40 flex-1 rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950">
             <select wire:model.live="kind" aria-label="Tür" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950"><option value="">Tüm türler</option>@foreach($kinds as $code => $label)<option value="{{ $code }}">{{ $label }}</option>@endforeach</select>
             <select wire:model.live="bound" aria-label="Bağlı" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950"><option value="">Hepsi</option><option value="yes">Markaya bağlı</option><option value="no">Markasız</option></select>
-            <select wire:model.live="sector" aria-label="Sektör" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950"><option value="">Tüm sektörler</option><option value="none">Sektörsüz</option>@foreach($categories as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-left text-sm">
-                <thead class="bg-gray-50 text-xs text-gray-500 dark:bg-gray-950"><tr><th class="px-3 py-2">Varlık</th><th class="px-3 py-2">Tür</th><th class="px-3 py-2">Marka</th><th class="px-3 py-2">Sektör</th></tr></thead>
+                <thead class="bg-gray-50 text-xs text-gray-500 dark:bg-gray-950"><tr><th class="px-3 py-2">Varlık</th><th class="px-3 py-2">Tür</th><th class="px-3 py-2">Marka</th><th class="px-3 py-2">Müşteri</th></tr></thead>
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                     @forelse($rows as $row)
                         <tr wire:key="asset-{{ $row['key'] }}">
                             <td class="px-3 py-2"><span class="font-medium">{{ $row['name'] }}</span>@if($row['host'] && $row['host'] !== $row['name'])<span class="ml-1 text-xs text-gray-500">{{ $row['host'] }}</span>@endif</td>
                             <td class="px-3 py-2 text-xs">{{ $kinds[$row['kind']] ?? $row['kind'] }}</td>
                             <td class="px-3 py-2 text-xs">{{ $row['brand'] ?? '—' }}</td>
-                            <td class="px-3 py-2">
-                                <div class="flex items-center gap-2">
-                                    <select wire:change="setSector(@js($row['key']), $event.target.value)" @disabled(! $isAdmin) aria-label="Sektör: {{ $row['name'] }}" class="rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-950">
-                                        <option value="">—</option>
-                                        @foreach($categories as $id => $name)<option value="{{ $id }}" @selected($row['sector_id'] === $id)>{{ $name }}</option>@endforeach
-                                    </select>
-                                    <span class="text-xs text-gray-500" title="{{ $row['reason'] }}">{{ match ($row['method']) { 'manual' => 'Manuel', 'ai' => 'AI'.($row['confidence'] !== null ? ' %'.(int) round($row['confidence'] * 100) : ''), 'brand' => 'Marka', default => '' } }}</span>
-                                </div>
-                            </td>
+                            <td class="px-3 py-2 text-xs">{{ $row['customer'] ?? '—' }}</td>
                         </tr>
                     @empty
                         <tr><td colspan="4" class="px-3 py-8 text-center text-gray-500">Varlık yok.</td></tr>

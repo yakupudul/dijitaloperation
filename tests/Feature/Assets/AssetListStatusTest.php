@@ -4,8 +4,6 @@ namespace Tests\Feature\Assets;
 
 use App\Livewire\Demo\Portfolio\AssetEdit;
 use App\Livewire\Demo\Portfolio\AssetsIndex;
-use App\Models\AdvisorItem;
-use App\Models\AdvisorPlan;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -52,13 +50,10 @@ final class AssetListStatusTest extends TestCase
         $unbound = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'meta_ads', 'name' => 'Bağsız Meta']);
         $instagram = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'instagram', 'name' => 'Insta']);
 
-        $plan = AdvisorPlan::query()->create(['channel' => 'google_business_profile', 'brand_id' => $this->brand->id, 'customer_id' => $this->brand->customer_id, 'digital_asset_id' => $fresh->id, 'status' => 'completed']);
-        AdvisorItem::query()->create(['channel' => 'google_business_profile', 'customer_id' => $this->brand->customer_id, 'brand_id' => $this->brand->id, 'digital_asset_id' => $fresh->id, 'item_key' => 'k1', 'category' => 'profile', 'rule_id' => 'x', 'severity' => 'high', 'priority_score' => 800, 'title' => 'Açıklama yaz', 'reason' => 'r', 'evidence' => [], 'checklist' => [], 'status' => 'open', 'first_seen_plan_id' => $plan->id, 'last_seen_plan_id' => $plan->id]);
-
         $status = app(AssetRuntimeStatusReader::class)->forAssets(DigitalAsset::query()->get());
 
         $this->assertSame('fresh', $status[$fresh->id]['data_state']);
-        $this->assertSame(1, $status[$fresh->id]['open_tasks']);
+        $this->assertSame(0, $status[$fresh->id]['open_tasks'], 'v2: open work returns with suggestions (Faz 4–7)');
         $this->assertSame('stale', $status[$stale->id]['data_state']);
         $this->assertSame('unavailable', $status[$boundEmpty->id]['data_state']);
         $this->assertTrue($status[$boundEmpty->id]['connected']);

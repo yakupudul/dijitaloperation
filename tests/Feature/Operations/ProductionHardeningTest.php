@@ -46,7 +46,7 @@ use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
 use ReflectionMethod;
 use RuntimeException;
-use Tests\Feature\Brain\InsertsFacts;
+use Tests\Support\InsertsFacts;
 use Tests\TestCase;
 
 /**

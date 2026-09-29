@@ -15,7 +15,6 @@ use App\Models\CoreIntegrationCredential;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\User;
-use App\Services\CommandCenter\CommandCenter;
 use App\Services\Integrations\DataForSeo\DataForSeoProviderCredentialService;
 use App\Services\Integrations\Meta\MetaProviderCredentialService;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
@@ -141,16 +140,12 @@ final class LiveVerificationTest extends TestCase
         // No secrets are stored in messages.
         $this->assertSame(0, DB::table('live_checks')->where('message', 'like', '%EAAG%')->orWhere('message', 'like', '%dfs-secret%')->orWhere('message', 'like', '%fresh-token%')->count());
 
-        $items = app(CommandCenter::class)->items(['source' => 'live']);
-        $this->assertCount(2, $items);
-        $this->assertTrue($items->contains(fn (array $i): bool => str_contains($i['title'], 'Google Ads')));
-        $this->assertTrue($items->contains(fn (array $i): bool => str_contains($i['title'], 'Meta Ads')));
+        $this->assertSame(2, DB::table('live_checks')->where('status', 'fail')->count());
 
         // Fixed on the provider side: the next run clears the items.
         $this->adsFails = false;
         $this->metaAccountStatus = 1;
         $this->artisan('moxdop:verify:live', ['--sync' => true])->assertSuccessful();
-        $this->assertCount(0, app(CommandCenter::class)->items(['source' => 'live']));
         $this->assertSame(18, DB::table('live_checks')->count(), 'two runs × 9 checks are kept');
     }
 
@@ -165,9 +160,6 @@ final class LiveVerificationTest extends TestCase
         $this->assertSame('fail', $latest->firstWhere('capability', 'token')['status']);
         $this->assertSame(['skipped'], $latest->where('capability', '!=', 'token')->pluck('status')->unique()->values()->all());
         $this->assertFalse(collect($this->sent)->contains(fn (array $s): bool => str_contains($s[1], 'googleapis.com')));
-        $critical = app(CommandCenter::class)->items(['source' => 'live'])->firstWhere('severity', 'critical');
-        $this->assertNotNull($critical);
-        $this->assertStringContainsString('Google', $critical['title']);
     }
 
     public function test_old_rows_are_pruned_and_system_health_shows_the_section_and_queues_a_run(): void

@@ -6,14 +6,10 @@ use App\Enums\CustomerStatus;
 use App\Enums\DigitalAssetStatus;
 use App\Jobs\IntelligenceProjection\RebuildWebsiteProjectionJob;
 use App\Livewire\Operator\Integrations\WebsiteDuplicatesPage;
-use App\Models\AssetMerge;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
-use App\Models\CoreConnection;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
-use App\Models\Finding;
-use App\Models\FindingEvaluation;
 use App\Models\OwnershipTransfer;
 use App\Models\User;
 use App\Services\Ownership\WebsiteDuplicateMerger;
@@ -70,120 +66,6 @@ final class WebsiteDuplicateMergeTest extends TestCase
         $this->assertFalse($groups[0]['cross_customer']);
     }
 
-    public function test_keeper_prefers_bindings_then_data_then_the_oldest(): void
-    {
-        $old = $this->site(['brand_id' => $this->adadent->id, 'name' => 'Eski', 'primary_url' => 'https://adadent.com.tr'], '-10 days');
-        $withData = $this->site(['brand_id' => $this->adadent->id, 'name' => 'Veri', 'primary_url' => 'https://www.adadent.com.tr'], '-5 days');
-        $this->siteFix($withData, 'k1');
-        $merger = app(WebsiteDuplicateMerger::class);
-
-        $this->assertSame($withData->id, $merger->findGroups()[0]['suggested_keeper_id']);
-
-        $bound = $this->site(['brand_id' => $this->adadent->id, 'name' => 'Bağlı', 'primary_url' => 'adadent.com.tr/iletisim'], '-1 day');
-        CoreAssetBinding::factory()->create(['digital_asset_id' => $bound->id, 'capability' => 'ga4']);
-        $this->assertSame($bound->id, $merger->findGroups()[0]['suggested_keeper_id']);
-
-        $this->assertSame($old->id, $merger->suggestKeeper([
-            ['id' => $old->id, 'customer_active' => true, 'counts' => ['bindings' => 0], 'connector' => null, 'data_total' => 0, 'created_at' => '2026-01-01T00:00:00+00:00'],
-            ['id' => $withData->id, 'customer_active' => true, 'counts' => ['bindings' => 0], 'connector' => null, 'data_total' => 0, 'created_at' => '2026-02-01T00:00:00+00:00'],
-        ]));
-    }
-
-    public function test_dry_run_plan_reports_moves_and_collisions_without_changing_anything(): void
-    {
-        [$keeper, $duplicate] = $this->pair();
-        $this->siteFix($keeper, 'same');
-        $this->siteFix($duplicate, 'same');
-        $this->siteFix($duplicate, 'only-dup');
-
-        $plan = app(WebsiteDuplicateMerger::class)->plan($keeper, $duplicate);
-
-        $fixes = collect($plan['tables'])->firstWhere('table', 'site_fix_items');
-        $this->assertSame(2, $fixes['rows']);
-        $this->assertSame(1, $fixes['collisions']);
-        $this->assertSame('keeper', $fixes['rule']);
-        $this->assertSame(2, DB::table('site_fix_items')->where('digital_asset_id', $duplicate->id)->count());
-        $this->assertNull($duplicate->fresh()->deleted_at);
-        $this->assertSame(0, AssetMerge::query()->count());
-    }
-
-    public function test_merge_moves_data_resolves_collisions_and_archives_the_duplicate(): void
-    {
-        [$keeper, $duplicate] = $this->pair();
-
-        // Bindings: ga4 only on the duplicate (moves); search_console on both (keeper's active one stays).
-        $ga4 = CoreAssetBinding::factory()->create(['digital_asset_id' => $duplicate->id, 'capability' => 'ga4']);
-        $keeperGsc = CoreAssetBinding::factory()->create(['digital_asset_id' => $keeper->id, 'capability' => 'search_console']);
-        $dupGsc = CoreAssetBinding::factory()->create(['digital_asset_id' => $duplicate->id, 'capability' => 'search_console']);
-
-        // SEO tasks: one shared task_key (keeper's wins), one only on the duplicate.
-        $keeperPlan = $this->seoPlan($keeper);
-        $dupPlan = $this->seoPlan($duplicate);
-        $this->seoTask($keeper, $keeperPlan, 'shared', 'Tutulan görev');
-        $this->seoTask($duplicate, $dupPlan, 'shared', 'Kopya görev');
-        $this->seoTask($duplicate, $dupPlan, 'dup-only', 'Yalnız kopyada');
-
-        // Site fixes and collected pages.
-        $this->siteFix($keeper, 'fix-shared');
-        $this->siteFix($duplicate, 'fix-shared');
-        $this->siteFix($duplicate, 'fix-dup');
-        $this->page($duplicate, 'https://adadent.com.tr/hizmetler');
-
-        // Findings: same fingerprint on both; the duplicate's evaluation (restrict-free child) follows the keeper's finding.
-        $keeperFinding = Finding::factory()->create(['digital_asset_id' => $keeper->id, 'fingerprint' => 'fp-shared']);
-        $dupFinding = Finding::factory()->create(['digital_asset_id' => $duplicate->id, 'fingerprint' => 'fp-shared']);
-        $evaluation = FindingEvaluation::factory()->create(['finding_id' => $dupFinding->id]);
-        Finding::factory()->create(['digital_asset_id' => $duplicate->id, 'fingerprint' => 'fp-dup']);
-
-        // WordPress connector paired on the duplicate only; its site health follows it.
-        $connector = CoreConnection::factory()->create(['digital_asset_id' => $duplicate->id, 'type' => 'wordpress_connector', 'enabled' => true, 'config' => ['pairing_state' => 'paired']]);
-        DB::table('wordpress_site_health')->insert(['digital_asset_id' => $keeper->id, 'checked_at' => now()->subDay(), 'error' => 'eski']);
-        DB::table('wordpress_site_health')->insert(['digital_asset_id' => $duplicate->id, 'checked_at' => now(), 'error' => null]);
-
-        $merge = app(WebsiteDuplicateMerger::class)->merge($keeper, $duplicate, $this->admin);
-
-        $this->assertSame($keeper->id, $ga4->fresh()->digital_asset_id);
-        $this->assertSame(CoreAssetBinding::STATUS_ACTIVE, $keeperGsc->fresh()->status);
-        $dupGsc->refresh();
-        $this->assertSame($duplicate->id, $dupGsc->digital_asset_id);
-        $this->assertSame(CoreAssetBinding::STATUS_DISABLED, $dupGsc->status);
-        $this->assertSame('merged', $dupGsc->configuration['closed_reason']);
-
-        $this->assertSame(['Tutulan görev', 'Yalnız kopyada'], DB::table('seo_tasks')->where('digital_asset_id', $keeper->id)->orderBy('title')->pluck('title')->sort()->values()->all());
-        $this->assertSame(0, DB::table('seo_tasks')->where('digital_asset_id', $duplicate->id)->count());
-        $this->assertSame(2, DB::table('seo_plans')->where('digital_asset_id', $keeper->id)->count());
-        $this->assertSame(2, DB::table('site_fix_items')->where('digital_asset_id', $keeper->id)->count());
-        $this->assertSame(1, DB::table('website_url')->where('digital_asset_id', $keeper->id)->count());
-
-        $this->assertSame(2, Finding::query()->where('digital_asset_id', $keeper->id)->count());
-        $this->assertNull(Finding::query()->find($dupFinding->id));
-        $this->assertSame($keeperFinding->id, $evaluation->fresh()->finding_id);
-
-        $this->assertSame($keeper->id, $connector->fresh()->digital_asset_id);
-        $health = DB::table('wordpress_site_health')->get();
-        $this->assertCount(1, $health);
-        $this->assertSame($keeper->id, (int) $health[0]->digital_asset_id);
-        $this->assertNull($health[0]->error, 'The health row of the connector that won is kept.');
-
-        $archived = DigitalAsset::withTrashed()->find($duplicate->id);
-        $this->assertTrue($archived->trashed());
-        $this->assertSame(DigitalAssetStatus::Archived, $archived->status);
-        $this->assertSame($keeper->id, (int) $archived->merged_into_asset_id);
-        $this->assertFalse($keeper->fresh()->trashed());
-
-        $this->assertSame($keeper->id, (int) $merge->keeper_id);
-        $this->assertSame($duplicate->id, (int) $merge->duplicate_id);
-        $this->assertSame(1, $merge->dropped['seo_tasks']);
-        $this->assertSame(1, $merge->dropped['site_fix_items']);
-        $this->assertSame(1, $merge->dropped['findings']);
-        $this->assertSame(1, $merge->dropped['core_asset_bindings']);
-        $this->assertSame(1, $merge->moved['seo_tasks']);
-        $this->assertStringContainsString('merged into #'.$keeper->id, (string) $merge->note);
-        $this->assertFalse($merge->cross_customer);
-        $this->assertSame(0, OwnershipTransfer::query()->count());
-        $this->assertSame([], app(WebsiteDuplicateMerger::class)->findGroups());
-    }
-
     public function test_an_active_duplicate_binding_replaces_the_keepers_inactive_one(): void
     {
         [$keeper, $duplicate] = $this->pair();
@@ -224,42 +106,6 @@ final class WebsiteDuplicateMergeTest extends TestCase
         $this->assertSame(42, (int) $rows[0]->page_count);
     }
 
-    public function test_cross_customer_merge_needs_confirmation_and_records_a_transfer(): void
-    {
-        $keeper = $this->site(['brand_id' => $this->adadent->id, 'name' => 'Adadent', 'primary_url' => 'https://adadent.com.tr'], '-5 days');
-        $duplicate = $this->site(['brand_id' => $this->atlas->id, 'name' => 'Atlas kopya', 'primary_url' => 'https://www.adadent.com.tr/'], '-1 day');
-        $plan = $this->seoPlan($duplicate);
-        $this->seoTask($duplicate, $plan, 'k', 'Görev');
-        $merger = app(WebsiteDuplicateMerger::class);
-
-        $this->assertTrue($merger->findGroups()[0]['cross_customer']);
-        try {
-            $merger->merge($keeper, $duplicate, $this->admin);
-            $this->fail('A cross-customer merge must be confirmed.');
-        } catch (ValidationException $exception) {
-            $this->assertArrayHasKey('confirmation', $exception->errors());
-        }
-        $this->assertFalse($duplicate->fresh()->trashed());
-        $this->assertSame(1, DB::table('seo_tasks')->where('digital_asset_id', $duplicate->id)->count());
-
-        $merge = $merger->merge($keeper, $duplicate, $this->admin, confirmedCrossCustomer: true, note: 'Aynı site');
-
-        $task = DB::table('seo_tasks')->first();
-        $this->assertSame($keeper->id, (int) $task->digital_asset_id);
-        $this->assertSame($this->adadent->id, (int) $task->brand_id, 'Moved rows follow the keeper\'s brand.');
-        $this->assertSame($this->adadent->customer_id, (int) $task->customer_id);
-
-        $transfer = OwnershipTransfer::query()->sole();
-        $this->assertSame(OwnershipTransfer::SUBJECT_ASSET, $transfer->subject_type);
-        $this->assertSame($duplicate->id, (int) $transfer->from_asset_id);
-        $this->assertSame($keeper->id, (int) $transfer->to_asset_id);
-        $this->assertSame($this->atlas->customer_id, (int) $transfer->from_customer_id);
-        $this->assertSame($this->adadent->customer_id, (int) $transfer->to_customer_id);
-        $this->assertSame('Aynı site', $transfer->note);
-        $this->assertTrue($merge->cross_customer);
-        $this->assertSame($transfer->id, (int) $merge->ownership_transfer_id);
-    }
-
     public function test_only_an_admin_merges_and_hosts_must_match(): void
     {
         [$keeper, $duplicate] = $this->pair();
@@ -276,53 +122,6 @@ final class WebsiteDuplicateMergeTest extends TestCase
         $other = $this->site(['brand_id' => $this->atlas->id, 'name' => 'Atlas', 'primary_url' => 'https://atlasdental.com']);
         $this->expectException(ValidationException::class);
         $merger->merge($keeper, $other, $this->admin);
-    }
-
-    public function test_command_dry_run_changes_nothing_and_apply_merges_only_same_customer_groups(): void
-    {
-        [$keeper, $duplicate] = $this->pair();
-        $this->siteFix($keeper, 'y');
-        $this->siteFix($duplicate, 'x');
-        $crossKeeper = $this->site(['brand_id' => $this->atlas->id, 'name' => 'Atlas', 'primary_url' => 'https://atlasdental.com'], '-5 days');
-        $crossDuplicate = $this->site(['brand_id' => $this->adadent->id, 'name' => 'Atlas kopya', 'primary_url' => 'http://www.atlasdental.com'], '-1 day');
-
-        $this->artisan('moxdop:websites:merge-duplicates')
-            ->expectsOutputToContain('adadent.com.tr')
-            ->expectsOutputToContain('Deneme (dry run)')
-            ->assertSuccessful();
-        $this->assertFalse($duplicate->fresh()->trashed());
-        $this->assertSame(0, AssetMerge::query()->count());
-
-        $this->artisan('moxdop:websites:merge-duplicates', ['--apply' => true])
-            ->expectsOutputToContain('yetki devri gerekir')
-            ->expectsOutputToContain('1 kopya birleştirildi')
-            ->assertSuccessful();
-
-        $this->assertNotNull(DigitalAsset::withTrashed()->find($duplicate->id)->deleted_at);
-        $this->assertSame($keeper->id, (int) DB::table('site_fix_items')->value('digital_asset_id'));
-        $this->assertFalse($crossDuplicate->fresh()->trashed());
-        $this->assertFalse($crossKeeper->fresh()->trashed());
-        $this->assertSame(1, AssetMerge::query()->count());
-    }
-
-    public function test_page_lists_groups_previews_and_merges(): void
-    {
-        [$keeper, $duplicate] = $this->pair();
-        $this->siteFix($duplicate, 'x');
-
-        $this->get(route('operator.integrations.website-duplicates'))->assertOk()->assertSee('Kopya web siteleri')->assertSee('adadent.com.tr');
-
-        Livewire::test(WebsiteDuplicatesPage::class)
-            ->set('keepers.'.$keeper->id, $keeper->id)
-            ->call('preview', $keeper->id)
-            ->assertSee('Önizleme')
-            ->assertSee('#'.$duplicate->id.' → #'.$keeper->id)
-            ->assertSee('Site düzeltmeleri')
-            ->call('mergeGroup', $keeper->id)
-            ->assertSet('error', '')
-            ->assertSee('1 kopya kayıt');
-
-        $this->assertTrue(DigitalAsset::withTrashed()->find($duplicate->id)->trashed());
     }
 
     public function test_page_asks_for_a_transfer_confirmation_on_a_cross_customer_group(): void

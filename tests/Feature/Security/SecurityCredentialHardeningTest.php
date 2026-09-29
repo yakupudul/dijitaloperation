@@ -17,7 +17,6 @@ use App\Services\Security\ConnectionCredentialAccessService;
 use App\Services\Security\IntegrationCredentialAccessService;
 use App\Services\Security\SecurityAuditRecorder;
 use App\Support\Integrations\ProviderRegistry;
-use App\Support\ReportDelivery\SecretHasher;
 use App\Support\Security\EphemeralSecret;
 use App\Support\Security\SecurityRedactor;
 use App\Support\Security\TenantScopeGuard;
@@ -189,20 +188,6 @@ class SecurityCredentialHardeningTest extends TestCase
         $this->assertSame((int) $customer->id, (int) $resolved['customer']->id);
         $this->assertSame((int) $brand->id, (int) $resolved['brand']->id);
         $this->assertSame((int) $asset->id, (int) $resolved['digital_asset']->id);
-    }
-
-    #[Test]
-    public function share_locator_and_otp_are_hashed_not_reversibly_encrypted(): void
-    {
-        $locator = SecretHasher::randomToken();
-        $otp = SecretHasher::otpCode();
-        $locatorHash = SecretHasher::hash($locator);
-        $otpHash = SecretHasher::hash($otp);
-        $this->assertNotSame($locator, $locatorHash);
-        $this->assertNotSame($otp, $otpHash);
-        $this->assertTrue(SecretHasher::equals($locator, $locatorHash));
-        $this->assertTrue(SecretHasher::equals($otp, $otpHash));
-        $this->assertFalse(str_starts_with($locatorHash, 'eyJ')); // not Laravel ciphertext
     }
 
     #[Test]

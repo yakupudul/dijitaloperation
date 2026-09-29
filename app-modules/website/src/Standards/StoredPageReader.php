@@ -5,7 +5,6 @@ namespace MoxDop\Website\Standards;
 use App\Models\DataPool\RawIngestionObject;
 use App\Models\DigitalAsset;
 use App\Models\IntelligenceProjection\WebsitePageProfile;
-use App\Services\SearchDemand\CompetitorPageContentExtractor;
 use App\Support\CanonicalLinkParser;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -17,7 +16,7 @@ final class StoredPageReader
     public function __construct(
         private readonly DocumentHeadParser $heads,
         private readonly CanonicalLinkParser $canonicals,
-        private readonly CompetitorPageContentExtractor $contents,
+        private readonly PageContentExtractor $contents,
     ) {}
 
     /** @return array<string, mixed>|null */

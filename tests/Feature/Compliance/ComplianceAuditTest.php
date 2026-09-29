@@ -3,11 +3,8 @@
 namespace Tests\Feature\Compliance;
 
 use App\Enums\CustomerStatus;
-use App\Livewire\Operator\Advisor\AdvisorPanel;
 use App\Livewire\Operator\Compliance\CompliancePage;
 use App\Livewire\Operator\Settings\SectorPacksPage;
-use App\Models\AdvisorItem;
-use App\Models\AdvisorPlan;
 use App\Models\Brand;
 use App\Models\Collection\CollectionResourceRun;
 use App\Models\ComplianceFinding;
@@ -37,8 +34,6 @@ final class ComplianceAuditTest extends TestCase
 
     private DigitalAsset $meta;
 
-    private AdvisorItem $item;
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -49,14 +44,6 @@ final class ComplianceAuditTest extends TestCase
         $this->brand = Brand::factory()->create(['customer_id' => Customer::factory()->create(['status' => CustomerStatus::Active])->id, 'name' => 'Atlas Dental']);
         $this->brand->sectors()->attach(ServiceCategory::query()->where('code', 'dental')->value('id'));
         $this->meta = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'meta_ads', 'name' => 'Atlas Meta']);
-        $plan = AdvisorPlan::query()->create(['channel' => 'meta_ads', 'brand_id' => $this->brand->id, 'customer_id' => $this->brand->customer_id, 'digital_asset_id' => $this->meta->id, 'status' => 'completed', 'completed_at' => now()]);
-        $this->item = AdvisorItem::query()->create([
-            'channel' => 'meta_ads', 'customer_id' => $this->brand->customer_id, 'brand_id' => $this->brand->id, 'digital_asset_id' => $this->meta->id,
-            'item_key' => 'k1', 'category' => 'ads', 'rule_id' => 'creative-fatigue', 'severity' => 'medium', 'priority_score' => 300,
-            'title' => 'Reklam yoruldu', 'reason' => 'r', 'evidence' => [], 'checklist' => [], 'status' => 'open', 'currency' => 'TRY',
-            'first_seen_plan_id' => $plan->id, 'last_seen_plan_id' => $plan->id,
-            'draft_status' => 'ready', 'draft' => ['primary_texts' => ['Garantili implant tedavisi Kadıköy’de.'], 'headlines' => ['İmplant hakkında bilgi alın']],
-        ]);
     }
 
     public function test_checker_matches_folded_suffixed_and_symbol_phrases(): void
@@ -82,18 +69,16 @@ final class ComplianceAuditTest extends TestCase
         $stats = app(ComplianceAuditor::class)->scan($this->brand);
 
         $sources = ComplianceFinding::query()->where('status', 'open')->get()->map(fn ($f) => $f->source.':'.$f->rule->rule_key)->sort()->values()->all();
-        $this->assertSame(['ai_draft:guarantees', 'gbp:guarantees', 'meta_ad:inducements', 'meta_targeting:minors_targeting'], $sources);
-        $this->assertSame(4, $stats['new']);
-        $this->assertStringContainsString('Garantili implant', ComplianceFinding::query()->where('source', 'ai_draft')->value('excerpt'));
+        $this->assertSame(['gbp:guarantees', 'meta_ad:inducements', 'meta_targeting:minors_targeting'], $sources);
+        $this->assertSame(3, $stats['new']);
 
         $this->assertSame(0, app(ComplianceAuditor::class)->scan($this->brand)['new'], 'same findings are updated, not duplicated');
 
         $gbp = ComplianceFinding::query()->where('source', 'gbp')->sole();
         Livewire::test(CompliancePage::class)->assertSee('Ağrısız implant')->call('dismiss', $gbp->id, 'Hukuk onayladı');
-        $this->item->forceFill(['draft' => ['primary_texts' => ['İmplant tedavisi hakkında bilgi alın.']]])->save();
+        DB::table('gbp_location_snapshots')->update(['profile' => json_encode(['description' => 'İmplant tedavisi hakkında bilgi alın.'])]);
         app(ComplianceAuditor::class)->scan($this->brand);
 
-        $this->assertSame('resolved', ComplianceFinding::query()->where('source', 'ai_draft')->value('status'));
         $this->assertSame('dismissed', $gbp->fresh()->status);
         $this->assertSame('Hukuk onayladı', $gbp->fresh()->note);
     }
@@ -134,14 +119,6 @@ final class ComplianceAuditTest extends TestCase
         app(SectorPackRegistry::class)->setEnabled('health', false, null);
         $this->assertSame(0, app(ComplianceAuditor::class)->scan($this->brand)['rules']);
         $this->assertSame(0, ComplianceFinding::query()->where('status', 'open')->count());
-    }
-
-    public function test_ai_draft_shows_a_compliance_badge(): void
-    {
-        Livewire::test(AdvisorPanel::class, ['assetId' => $this->meta->id])
-            ->set('expandedId', $this->item->id)
-            ->assertSee('Uyum: 1 sorun')
-            ->assertSee('Sonuç garantisi');
     }
 
     public function test_rules_are_edited_on_screen_and_edits_survive_sync(): void

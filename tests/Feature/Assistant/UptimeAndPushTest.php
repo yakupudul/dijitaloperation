@@ -13,7 +13,7 @@ use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Alerts\AssetAlertScanner;
 use App\Services\Assistant\PushNotifier;
-use App\Services\Demand\DemandPageFetcher;
+use App\Services\Website\PageFetcher;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -40,7 +40,7 @@ final class UptimeAndPushTest extends TestCase
         AgencySetting::query()->create(['agency_name' => 'Moximu', 'push_ntfy_url' => 'https://ntfy.sh/moxdop-test', 'push_telegram_bot_token' => '123456:ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'push_telegram_chat_id' => '42', 'push_min_severity' => 'high']);
         Http::fake(['ntfy.sh/*' => Http::response('{}'), 'api.telegram.org/*' => Http::response(['ok' => true])]);
         self::$statuses = [];
-        $this->app->instance(DemandPageFetcher::class, new class extends DemandPageFetcher
+        $this->app->instance(PageFetcher::class, new class extends PageFetcher
         {
             public function __construct() {}
 

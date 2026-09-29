@@ -22,14 +22,18 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('agency_leads', function (Blueprint $table): void {
-            $table->dropIndex(['assigned_to', 'status']);
-            $table->dropUnique(['external_id']);
-        });
+        if (Schema::hasTable('agency_leads')) {
+            Schema::table('agency_leads', function (Blueprint $table): void {
+                $table->dropIndex(['assigned_to', 'status']);
+                $table->dropUnique(['external_id']);
+            });
+        }
 
-        Schema::table('agency_leads', function (Blueprint $table): void {
-            $table->dropConstrainedForeignId('assigned_to');
-            $table->dropColumn(['external_id', 'first_response_at']);
-        });
+        if (Schema::hasTable('agency_leads')) {
+            Schema::table('agency_leads', function (Blueprint $table): void {
+                $table->dropConstrainedForeignId('assigned_to');
+                $table->dropColumn(['external_id', 'first_response_at']);
+            });
+        }
     }
 };

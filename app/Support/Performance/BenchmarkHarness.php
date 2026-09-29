@@ -7,7 +7,6 @@ use App\Models\Finding;
 use App\Models\Task;
 use App\Services\GoogleAds\GoogleAdsPoolReadRepository;
 use App\Services\Gsc\GscPoolReadRepository;
-use App\Services\ReportSnapshots\ReportSnapshotReadService;
 use App\Services\Tasks\TaskReadService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -91,15 +90,6 @@ final class BenchmarkHarness
         $paginator = $measurements['task_paginate_clamp']['result'];
         $measurements['task_paginate_clamp']['per_page'] = method_exists($paginator, 'perPage') ? $paginator->perPage() : null;
         unset($measurements['task_paginate_clamp']['result']);
-
-        $reportRead = app(ReportSnapshotReadService::class);
-        if ($fixture['customers'] !== []) {
-            $customer = $fixture['customers'][0];
-            $measurements['report_list'] = $this->probe->measure(function () use ($reportRead, $customer) {
-                return $reportRead->listForCustomer($customer, ['per_page' => 20], [(int) $customer->id], []);
-            });
-            unset($measurements['report_list']['result']);
-        }
 
         $tableCounts = [
             'customers' => Customer::query()->count(),

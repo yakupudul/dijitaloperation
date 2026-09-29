@@ -8,13 +8,11 @@ use App\Enums\RecurringFrequency;
 use App\Enums\RecurringMisfirePolicy;
 use App\Enums\RecurringOccurrenceStatus;
 use App\Enums\RecurringScheduleKind;
-use App\Enums\ReportDeliveryScheduleStatus;
 use App\Jobs\RecurringAutomation\ExecuteRecurringOccurrenceJob;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\RecurringOccurrence;
-use App\Models\ReportDeliverySchedule;
 use App\Models\User;
 use App\Models\UserNotification;
 use App\Services\Collection\CollectionScheduleService;
@@ -22,7 +20,6 @@ use App\Services\Notifications\InternalNotificationScheduleService;
 use App\Services\RecurringAutomation\ExecuteRecurringOccurrenceService;
 use App\Services\RecurringAutomation\RecurringAutomationDispatcher;
 use App\Services\RecurringAutomation\RecurringAutomationRegistry;
-use App\Services\ReportDelivery\ReportDeliveryScheduleService;
 use App\Support\RecurringAutomation\RecurringOccurrenceCalculator;
 use App\Support\RecurringAutomation\RecurringScheduleSpec;
 use Carbon\CarbonImmutable;
@@ -42,7 +39,6 @@ class RecurringAutomationEngineProductionTest extends TestCase
         $this->assertSame([
             'collection',
             'internal_notification',
-            'report_delivery',
             'intelligence_validity_recheck',
         ], $kinds);
 
@@ -163,30 +159,6 @@ class RecurringAutomationEngineProductionTest extends TestCase
         $this->assertSame(RecurringFrequency::Daily, $schedule->frequency);
         app(CollectionScheduleService::class)->pause($schedule);
         $this->assertSame(CollectionScheduleStatus::Paused, $schedule->fresh()->status);
-    }
-
-    public function test_report_delivery_adapter_registered_and_command_converges(): void
-    {
-        Queue::fake();
-        [$user, $brand] = $this->seedBrand();
-        app(ReportDeliveryScheduleService::class)->create($brand, [
-            'timezone' => 'UTC',
-            'day_of_month' => 5,
-            'delivery_time' => '09:00',
-            'recipients' => [['email' => 'a@client.com']],
-        ], $user);
-
-        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-05 09:10:00', 'UTC'));
-        $this->artisan('reports:dispatch-due-deliveries')->assertSuccessful();
-        CarbonImmutable::setTestNow();
-
-        $this->assertSame(1, RecurringOccurrence::query()
-            ->where('schedule_kind', RecurringScheduleKind::ReportDelivery)
-            ->count());
-        $this->assertSame(1, ReportDeliverySchedule::query()
-            ->where('status', ReportDeliveryScheduleStatus::Active)
-            ->count());
-        Queue::assertPushed(ExecuteRecurringOccurrenceJob::class, 1);
     }
 
     public function test_misfire_catch_up_bounded_and_skip_missed(): void

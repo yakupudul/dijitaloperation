@@ -22,6 +22,9 @@ return new class extends Migration
     public function down(): void
     {
         foreach (['advisor_items', 'seo_tasks'] as $table) {
+            if (! Schema::hasTable($table)) {
+                continue;
+            }
             Schema::table($table, function (Blueprint $blueprint): void {
                 $blueprint->dropColumn(['outcome', 'measured_at']);
             });

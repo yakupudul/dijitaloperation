@@ -2,10 +2,7 @@
 
 namespace App\Services\Gbp;
 
-use App\Models\ContentCalendarItem;
 use App\Models\DigitalAsset;
-use App\Models\ServicePageAssignment;
-use App\Models\WebsiteUrlAudit;
 use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorInputCollector;
 use App\Services\Compliance\ComplianceAuditor;
 use App\Services\SeoTasks\BrandLocationWords;
@@ -98,12 +95,8 @@ final class GbpStandardInput
      */
     private function siteServices(DigitalAsset $asset, array $offerings): array
     {
-        $withPage = $asset->brand_id === null ? [] : ServicePageAssignment::query()->where('status', 'assigned')->whereNotNull('page_url')
-            ->whereIn('brand_offering_id', array_column($offerings, 'id'))->pluck('brand_offering_id')->map(fn ($id): int => (int) $id)->all();
-        $pick = array_filter($offerings, fn (array $o): bool => in_array((int) $o['id'], $withPage, true));
-        if ($pick === []) {
-            $pick = array_filter($offerings, fn (array $o): bool => (bool) $o['is_priority']);
-        }
+        // v2: service ↔ page mapping returns with brand_cluster_pages (Faz 4); priority services first until then.
+        $pick = array_filter($offerings, fn (array $o): bool => (bool) $o['is_priority']);
         if ($pick === []) {
             $pick = $offerings;
         }
@@ -179,14 +172,8 @@ final class GbpStandardInput
         if ($asset->brand_id === null) {
             return null;
         }
-        $siteIds = DigitalAsset::query()->where('brand_id', $asset->brand_id)->where('type', 'website')->pluck('id');
-        foreach (WebsiteUrlAudit::query()->whereIn('digital_asset_id', $siteIds)->where('status', 'completed')->latest('computed_at')->get() as $audit) {
-            $check = ((array) $audit->site_checks)['website:url:gbp_nap_consistency'] ?? null;
-            if (is_array($check) && in_array($check['state'] ?? null, ['pass', 'fail', 'review'], true)) {
-                return ['state' => (string) $check['state'], 'finding' => (string) $check['finding']];
-            }
-        }
 
+        // v2: the site ↔ profile NAP check is re-evaluated on the new pages model (Faz 4 / Faz 7).
         return null;
     }
 
@@ -203,8 +190,8 @@ final class GbpStandardInput
     private function posts(DigitalAsset $asset, int $resourceId): array
     {
         $rows = DB::table('gbp_posts')->where('external_resource_id', $resourceId)->orderByDesc('create_time')->limit(50)->get(['summary', 'topic_type', 'create_time', 'offer']);
-        $published = ContentCalendarItem::query()->where('digital_asset_id', $asset->id)->where('channel', 'gbp_post')->where('status', 'published')->max('published_at');
-        if ($rows->isEmpty() && $published === null) {
+        $published = null;
+        if ($rows->isEmpty()) {
             return ['available' => false, 'last_post' => null, 'promotional' => []];
         }
         $last = collect([$rows->max('create_time'), $published])->filter()->map(fn ($value): string => substr((string) $value, 0, 10))->max();

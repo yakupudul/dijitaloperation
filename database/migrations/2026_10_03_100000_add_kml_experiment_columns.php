@@ -26,9 +26,11 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('brand_intel_settings', function (Blueprint $table): void {
-            $table->dropColumn(['kml_pin_limit', 'kml_experiment_started_on']);
-        });
+        if (Schema::hasTable('brand_intel_settings')) {
+            Schema::table('brand_intel_settings', function (Blueprint $table): void {
+                $table->dropColumn(['kml_pin_limit', 'kml_experiment_started_on']);
+            });
+        }
         Schema::table('brand_service_areas', function (Blueprint $table): void {
             $table->dropColumn(['lat', 'lng', 'geocode_status', 'geocoded_at']);
         });

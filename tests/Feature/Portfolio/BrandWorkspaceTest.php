@@ -16,10 +16,10 @@ use App\Models\DigitalAsset;
 use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\BrandIntelligence\BrandOfferingService;
+use App\Services\Catalog\ServiceCatalogService;
+use App\Services\Catalog\ServiceKeywordService;
 use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Operator\OperatorPortfolioPresenter;
-use App\Services\SearchDemand\ServiceCatalogService;
-use App\Services\SearchDemand\ServiceKeywordService;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -110,9 +110,8 @@ final class BrandWorkspaceTest extends TestCase
         $page->call('setTab', 'business')->assertSee('Hizmetler')->assertSee('İstanbul')->assertSee('İş bağlamı');
         $page->call('setTab', 'assets')->assertSee('Search Console')->assertSee('sc-domain:adadent.com.tr')->assertSee('henüz yok');
         $page->call('setTab', 'work')->assertSee('Bulgular')->assertSee('Bu bölümde kayıt yok.');
-        $page->call('setTab', 'reports')->assertSet('tab', 'reports');
         $page->call('setTab', 'estate')->assertSet('tab', 'assets');
-        $page->call('setTab', 'value')->assertSet('tab', 'reports');
+        $page->call('setTab', 'value')->assertSet('tab', 'overview');
         $page->call('setOps', 'work')->assertSet('ops', 'tasks')->assertSet('tab', 'work');
 
         $this->get(route('operator.brand', ['brand' => $this->brand->id, 'tab' => 'operations']))->assertOk()->assertSee('Bulgular');

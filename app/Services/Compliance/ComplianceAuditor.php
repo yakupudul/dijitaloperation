@@ -2,12 +2,10 @@
 
 namespace App\Services\Compliance;
 
-use App\Models\AdvisorItem;
 use App\Models\Brand;
 use App\Models\ComplianceFinding;
 use App\Models\ComplianceRule;
 use App\Models\DigitalAsset;
-use App\Models\SeoTask;
 use App\Services\Measurement\BrandMeasurementScope;
 use App\Services\Website\PublicDiscovery\StoredHtmlReader;
 use DOMDocument;
@@ -118,17 +116,6 @@ final class ComplianceAuditor
      */
     private function subjects(Brand $brand): iterable
     {
-        foreach (AdvisorItem::query()->where('brand_id', $brand->id)->where('draft_status', 'ready')->whereNotNull('draft')->get() as $item) {
-            if (is_array($item->draft) && ! isset($item->draft['error'])) {
-                yield ['source' => 'ai_draft', 'ref' => 'AdvisorItem:'.$item->id, 'label' => (string) $item->title, 'asset_id' => $item->digital_asset_id, 'text' => self::flatten($item->draft)];
-            }
-        }
-        foreach (SeoTask::query()->where('brand_id', $brand->id)->where('status', 'open')->whereNotNull('content_brief')->get() as $task) {
-            if (($task->content_brief['source'] ?? null) === 'llm') {
-                yield ['source' => 'seo_brief', 'ref' => 'SeoTask:'.$task->id, 'label' => (string) $task->title, 'asset_id' => $task->digital_asset_id, 'text' => self::flatten($task->content_brief)];
-            }
-        }
-
         $scope = BrandMeasurementScope::for($brand);
         if (! $scope->isEmpty() && Schema::hasTable('meta_creative_snapshot')) {
             foreach ($scope->apply(DB::table('meta_creative_snapshot'))->orderByDesc('last_collected_at')->limit(2000)->get()->unique('creative_id') as $row) {

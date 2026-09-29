@@ -4,16 +4,13 @@ namespace App\Services\ExternalWrites;
 
 use App\Models\CoreConnection;
 use App\Models\ExternalWriteAction;
-use App\Models\SeoTask;
-use App\Services\ContentDelivery\ArticleDraft;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use RuntimeException;
 use Throwable;
 
 /**
- * ADR-064 (2): turns an SEO Görevleri content brief into a WordPress draft skeleton (title, H2 outline,
- * queries to cover, internal links) via the MoxDOP Connector. The writer fills in the text; nothing is
- * published. Undo trashes the draft only while it is still a MoxDOP draft.
+ * ADR-064 (2): sends an operator-approved draft skeleton (title, outline, reference) to WordPress via the MoxDOP
+ * Connector. Nothing is published. Undo trashes the draft only while it is still a MoxDOP draft.
  *
  * ADR-076: `payload()` turns a full article (body, slug, excerpt, date, categories, tags, SEO fields, Polylang language,
  * translation_of) into the connector's /drafts payload; `article_drafts` actions send the source language first and
@@ -22,40 +19,6 @@ use Throwable;
 final class WordPressDraftWriter
 {
     public function __construct(private readonly WordPressConnectorClient $client) {}
-
-    /** @return array{title: string, content_html: string, post_type: string, excerpt: string, reference: string} */
-    public static function draftFromTask(SeoTask $task): array
-    {
-        $brief = is_array($task->content_brief) ? $task->content_brief : [];
-        if ($brief === [] || blank($brief['page_title'] ?? null)) {
-            throw new RuntimeException('Bu görevde içerik briefi yok.');
-        }
-        $e = static fn (mixed $text): string => htmlspecialchars((string) $text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $html = '<!-- MoxDOP taslağı: SEO görevi #'.$task->id.'. Yayınlamadan önce metni yaz ve kontrol et. -->'."\n";
-        $html .= '<p><em>Bu taslak MoxDOP tarafından içerik briefinden oluşturuldu. Aşağıdaki başlıkların altını doldur.</em></p>'."\n";
-        foreach ((array) ($brief['h2_outline'] ?? []) as $heading) {
-            $html .= '<h2>'.$e($heading).'</h2>'."\n".'<p></p>'."\n";
-        }
-        $queries = array_values(array_filter((array) ($brief['queries'] ?? [])));
-        if ($queries !== []) {
-            $html .= '<!-- Kapsanacak aramalar: '.$e(implode(', ', $queries)).' -->'."\n";
-        }
-        $links = array_values(array_filter((array) ($brief['internal_links'] ?? [])));
-        if ($links !== []) {
-            $html .= '<!-- İç link verilecek sayfalar: '.$e(implode(', ', $links)).' -->'."\n";
-        }
-        if (! empty($brief['target_words'])) {
-            $html .= '<!-- Hedef uzunluk: ~'.(int) $brief['target_words'].' kelime -->'."\n";
-        }
-
-        return [
-            'title' => mb_substr((string) $brief['page_title'], 0, 200),
-            'content_html' => $html,
-            'post_type' => in_array($brief['page_type'] ?? '', ['service', 'location'], true) ? 'page' : 'post',
-            'excerpt' => mb_substr((string) $task->reason, 0, 300),
-            'reference' => 'seo-task-'.$task->id,
-        ];
-    }
 
     /**
      * The connector /drafts payload of one article. Empty optional fields are left out; `content_html` keeps older

@@ -7,8 +7,6 @@ use App\Jobs\CheckSitemapChangesJob;
 use App\Jobs\Collection\ExecuteDatasetRunJob;
 use App\Jobs\CollectMetaGeoResultsJob;
 use App\Jobs\Ops\QueueHeartbeatProbeJob;
-use App\Jobs\Queries\ClusterQueriesJob;
-use App\Jobs\Queries\RunQueryPipelineJob;
 use App\Models\Brand;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
@@ -19,7 +17,6 @@ use App\Services\Alerts\AdBudgetWatch;
 use App\Services\Analyst\AnalystEngine;
 use App\Services\Analyst\AnalystRegistry;
 use App\Services\Assistant\ReminderService;
-use App\Services\Assistant\WhatsAppContactLinker;
 use App\Services\Collection\Activity\ActivityTierService;
 use App\Services\Collection\CollectionErrorRecorder;
 use App\Services\Collection\Monitoring\CollectionAccountPresenter;
@@ -30,12 +27,7 @@ use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Integrations\WordPress\WordPressEventReconciliation;
 use App\Services\Observability\WorkerHeartbeatService;
 use App\Services\Ownership\OwnershipIntegrity;
-use App\Services\Queries\QueryPipeline;
-use App\Services\Sales\FreeIntentRadar;
-use App\Services\SeoTasks\SeoUrlInspectionQueue;
 use App\Services\Website\SitemapChangeWatcher;
-use App\Services\Website\UrlAudit\UrlAuditService;
-use App\Services\WhatsApp\WhatsAppDispatch;
 use App\Support\Console\ConsoleScope;
 use App\Support\Console\ConsoleScopeException;
 use App\Support\Roles;
@@ -425,81 +417,6 @@ Artisan::command('moxdop:website:sitemap-watch', function (): void {
 Schedule::command('moxdop:website:sitemap-watch')
     ->hourlyAt(17)->withoutOverlapping(30)->name('website-sitemap-watch');
 
-// 1.4.1: pages that changed 1–3 days ago get a Search Console URL inspection (read-only).
-Artisan::command('moxdop:seo:inspect-changed', function (): void {
-    $siteIds = CoreAssetBinding::query()->where('capability', 'search_console')
-        ->where('status', CoreAssetBinding::STATUS_ACTIVE)->pluck('digital_asset_id');
-    foreach (DigitalAsset::query()->operational()->where('type', 'website')->whereIn('id', $siteIds)->get() as $site) {
-        app(SeoUrlInspectionQueue::class)->queueChanged($site);
-    }
-})->purpose('Inspect recently changed pages in Search Console.');
-
-Schedule::command('moxdop:seo:inspect-changed')
-    ->dailyAt('09:40')->withoutOverlapping(60)->name('seo-inspect-changed');
-
-// Faz 5: Sayfa Karnesi (URL bazında karar) — haftalık yeniden hesaplama, SEO planından sonra. Kayıtlı veri; sağlayıcı / AI yok.
-Artisan::command('moxdop:website:url-verdicts {--website= : Web sitesi id veya adının / alan adının bir parçası} {--brand= : Marka id veya adının bir parçası}', function (): int {
-    $query = DigitalAsset::query()->operational()->where('type', 'website');
-    try {
-        if ($this->option('website') !== null) {
-            $query->whereKey(ConsoleScope::asset((string) $this->option('website'), 'website', '--website')->id);
-        }
-        if ($this->option('brand') !== null) {
-            $query->where('brand_id', ConsoleScope::brand((string) $this->option('brand'))->id);
-        }
-    } catch (ConsoleScopeException $exception) {
-        $this->error($exception->getMessage());
-
-        return 2;
-    }
-    $queued = 0;
-    foreach ($query->pluck('digital_assets.id') as $siteId) {
-        // Debounced: one pending refresh per website (UrlAuditService::dispatchFor).
-        $queued += UrlAuditService::dispatchFor((int) $siteId, 'weekly') ? 1 : 0;
-    }
-    $this->line('Sayfa Karnesi kuyruğa alındı: '.$queued.' site.');
-
-    return 0;
-})->purpose('Queue the URL verdict (Sayfa Karnesi) refresh of operational websites.');
-
-Schedule::command('moxdop:website:url-verdicts')
-    ->weeklyOn((int) config('moxdop-url-audit.schedule.weekly_day', 1), (string) config('moxdop-url-audit.schedule.weekly_time', '07:10'))
-    ->withoutOverlapping(120)->name('website-url-verdicts-weekly');
-
-Artisan::command('moxdop:whatsapp:dispatch', function (): void {
-    app(WhatsAppDispatch::class)->tick();
-})->purpose('Process received WhatsApp events and prepare advisory reply drafts.');
-
-Schedule::command('moxdop:whatsapp:dispatch')
-    ->everyMinute()->withoutOverlapping(2)->name('whatsapp-assistant-dispatch');
-
-Artisan::command('moxdop:intent-radar:tick', function (): void {
-    app(FreeIntentRadar::class)->tick();
-})->purpose('Queue one bounded free public-source radar run.');
-
-Schedule::command('moxdop:intent-radar:tick')
-    ->everyFiveMinutes()->withoutOverlapping(5)->name('free-intent-radar');
-
-// SEO Tasks: weekly plan refresh for Search-Console-connected websites (Monday morning).
-// Thresholds, quotas and the CTR curve live in config/moxdop-seo-tasks.php.
-Schedule::command('moxdop:seo:plan --scheduled')
-    ->weeklyOn((int) config('moxdop-seo-tasks.schedule.weekly_day', 1), (string) config('moxdop-seo-tasks.schedule.weekly_time', '06:30'))
-    ->withoutOverlapping(120)
-    ->name('seo-tasks-weekly-plan');
-
-// Reklam danışmanı (Faz 3): haftalık Google Ads danışman çalıştırması, SEO planından sonra.
-// Eşikler config/moxdop-advisor.php içinde.
-Schedule::command('moxdop:advisor:plan --scheduled')
-    ->weeklyOn((int) config('moxdop-advisor.schedule.weekly_day', 1), (string) config('moxdop-advisor.schedule.weekly_time', '07:00'))
-    ->withoutOverlapping(120)
-    ->name('advisor-weekly-plan');
-
-// Faz 6: "Yapıldı" işlerin 28 gün sonra ölçülmesi ve (açıksa) haftalık iç özet e-postası.
-Schedule::command('moxdop:advisor:measure')
-    ->weeklyOn((int) config('moxdop-advisor.schedule.weekly_day', 1), (string) config('moxdop-advisor.measure.weekly_time', '07:30'))
-    ->withoutOverlapping(60)
-    ->name('advisor-weekly-measure');
-
 // Faz 7: anahtar kelime kalite puanı günlük kopyası (düşüş kuralı için; snapshot yalnızca son değeri tutar).
 Schedule::command('moxdop:google-ads:record-quality-scores')
     ->dailyAt('05:40')
@@ -512,60 +429,17 @@ Schedule::command('moxdop:intel:collect')
     ->withoutOverlapping(10)
     ->name('intel-collect-dataforseo-tasks');
 
-Schedule::command('moxdop:intel:grid')
-    ->dailyAt('04:30')
-    ->withoutOverlapping(30)
-    ->name('intel-map-grid-daily');
-
-Schedule::command('moxdop:intel:backlinks')
-    ->dailyAt('04:50')
-    ->withoutOverlapping(60)
-    ->name('intel-backlinks-daily');
-
-Schedule::command('moxdop:intel:reviews')
-    ->dailyAt('05:05')
-    ->withoutOverlapping(30)
-    ->name('intel-reviews-daily');
-
-Schedule::command('moxdop:intel:competitors')
-    ->weeklyOn(1, '05:25')
-    ->withoutOverlapping(120)
-    ->name('intel-competitor-watch-weekly');
-
 // Faz 9: WordPress Connector v2 sağlık okuması (sürümler, bekleyen güncellemeler, Site Sağlığı).
 Schedule::command('moxdop:wordpress:health')
     ->dailyAt('06:20')
     ->withoutOverlapping(60)
     ->name('wordpress-health-daily');
 
-// Faz 10b: müşteri sağlığı puanı (her sabah, veri toplamalarından sonra).
-Schedule::command('moxdop:customers:health')
-    ->dailyAt('07:10')
-    ->withoutOverlapping(30)
-    ->name('customer-health-daily');
-
-// Faz 10d: gece veritabanı yedeği ve KVKK WhatsApp mesaj saklama süresi.
+// Faz 10d: gece veritabanı yedeği.
 Schedule::command('moxdop:backup')
     ->dailyAt('03:30')
     ->withoutOverlapping(120)
     ->name('system-backup-nightly');
-
-Schedule::command('moxdop:whatsapp:retention')
-    ->dailyAt('03:50')
-    ->withoutOverlapping(30)
-    ->name('whatsapp-retention-daily');
-
-// Aylık rapor taslakları: her ayın 1'i, geçen ay için (yayımlama ve gönderim operatörde).
-Schedule::command('moxdop:reports:prepare-monthly')
-    ->monthlyOn(1, (string) env('MOXDOP_MONTHLY_REPORTS_TIME', '07:00'))
-    ->timezone('Europe/Istanbul')
-    ->withoutOverlapping(120)
-    ->name('monthly-reports-prepare');
-
-Schedule::command('moxdop:advisor:digest')
-    ->weeklyOn((int) config('moxdop-advisor.schedule.weekly_day', 1), (string) config('moxdop-advisor.digest.weekly_time', '08:00'))
-    ->withoutOverlapping(30)
-    ->name('advisor-weekly-digest');
 
 // Faz D: günlük varlık uyarıları (harcama sıçraması/durması, dönüşüm kesilmesi, arama trafiği düşüşü, eski veri, yanıtsız kötü yorum).
 Schedule::command('moxdop:alerts:scan')
@@ -629,50 +503,6 @@ Schedule::command('moxdop:data:retention')
     ->withoutOverlapping(120)
     ->name('data-retention');
 
-// Sorgu hattı: her keşfedilen hesaptan (markaya bağlı olsun olmasın) ücretsiz sorgu çekimi → çekirdek sorgu →
-// sektör → hizmet. Günlük; ayrıca her başarılı hesap çekiminden sonra o hesap için (ResourceAutomationService).
-Artisan::command('moxdop:queries:pipeline {--resource= : Only this external resource id} {--force} {--queue : Queue the pipeline as a chain of short jobs (heavy queue) instead of running it here} {--json : Full statistics as JSON}', function (): int {
-    $resource = $this->option('resource') !== null ? (int) $this->option('resource') : null;
-    if ($this->option('queue')) {
-        RunQueryPipelineJob::dispatch($resource, (bool) $this->option('force'));
-        $this->line('Sorgu hattı kuyruğa alındı (heavy kuyruğu). Son çalıştırma: '.(QueryPipeline::lastRun($resource)['summary'] ?? 'henüz yok'));
-
-        return 0;
-    }
-    $stats = app(QueryPipeline::class)->daily($resource, (bool) $this->option('force'));
-    $this->line((string) ($stats['summary'] ?? ''));
-    if ($this->option('json')) {
-        $this->line(json_encode($stats, JSON_UNESCAPED_UNICODE));
-    }
-
-    return 0;
-})->purpose('Ingest queries of every discovered account into core queries, assign sectors and services.');
-
-Schedule::command('moxdop:queries:pipeline --queue')
-    ->dailyAt('04:40')
-    ->timezone('Europe/Istanbul')
-    ->withoutOverlapping(120)
-    ->name('queries-pipeline-daily');
-
-// Sorgu hattı: hizmet başına AI kümeleme + küme başına SERP sayfa türü araştırması (değişenler; 30 gün önbellek).
-Artisan::command('moxdop:queries:cluster {--service= : Only this service id} {--queue : Queue as short jobs (heavy queue) instead of running here}', function (): void {
-    $service = $this->option('service') !== null ? (int) $this->option('service') : null;
-    if ($this->option('queue')) {
-        ClusterQueriesJob::dispatch($service);
-        $this->line('Sorgu kümeleme kuyruğa alındı (heavy kuyruğu).');
-
-        return;
-    }
-    $stats = app(QueryPipeline::class)->weekly($service);
-    $this->line(json_encode($stats, JSON_UNESCAPED_UNICODE));
-})->purpose('Cluster core queries per service (AI) and research each cluster page type on Google (SERP).');
-
-Schedule::command('moxdop:queries:cluster --queue')
-    ->weeklyOn((int) config('moxdop-demand.schedule.weekly_day', 1), '05:05')
-    ->timezone('Europe/Istanbul')
-    ->withoutOverlapping(180)
-    ->name('queries-cluster-weekly');
-
 Artisan::command('moxdop:ownership:integrity {--fix : Disable extra / orphan bindings}', function (): void {
     $integrity = app(OwnershipIntegrity::class);
     $problems = $integrity->problems();
@@ -683,56 +513,12 @@ Artisan::command('moxdop:ownership:integrity {--fix : Disable extra / orphan bin
     }
 })->purpose('List customer / brand / asset / account ownership violations (and fix the safe ones).');
 
-// Faz 2b: marka talep tablosu (sorgu → hizmet, bölge, markalı/markasız, değer) — SEO planından önce, haftalık.
-Schedule::command('moxdop:demand:build')
-    ->weeklyOn((int) config('moxdop-demand.schedule.weekly_day', 1), (string) config('moxdop-demand.schedule.weekly_time', '05:30'))
-    ->withoutOverlapping(120)
-    ->name('brand-demand-weekly');
-
-// Faz 3: konu haritası (hub sorguları → hizmet → konu kümesi → sahip sayfa, kapsama, karar) — talep tablosundan sonra,
-// SEO planından önce; kayıtlı veriyle, AI yok.
-Schedule::command('moxdop:topics:build')
-    ->weeklyOn((int) config('moxdop-demand.schedule.weekly_day', 1), (string) config('moxdop-content.topic_map.weekly_time', '05:55'))
-    ->withoutOverlapping(120)
-    ->name('topic-map-weekly');
-
-// İçerik takvimi: onaylı ve zamanı gelen İşletme Profili gönderileri (ADR-073).
-Schedule::command('moxdop:content:publish-due')
-    ->everyTenMinutes()
-    ->withoutOverlapping(10)
-    ->name('content-publish-due');
-
-// Ajans işletmesi: ayın 1'inde aylık ücretten taslak faturalar (iç kayıt; dışarı bir şey gönderilmez).
-Schedule::command('moxdop:invoices:draft-monthly')
-    ->monthlyOn(1, '07:30')
-    ->timezone('Europe/Istanbul')
-    ->name('invoices-draft-monthly');
-
-// Günlük hesap keşfi: yeni reklam hesabı / mülk ve kaybedilen erişim kendiliğinden fark edilir (Komuta merkezi + bildirim).
+// Günlük hesap keşfi: yeni reklam hesabı / mülk ve kaybedilen erişim kendiliğinden fark edilir (bildirim).
 Schedule::command('moxdop:integrations:discover')
     ->dailyAt('05:10')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(60)
     ->name('integrations-discover-daily');
-
-// Hizmet Beyni: haftalık hesaplar (yamyamlaşma, hizmet zinciri, sayfa özellikleri, başarı puanları, yöntemler) —
-// kayıtlı veriyle, AI yok. Talep tablosundan sonra.
-Schedule::command('moxdop:brain:refresh')
-    ->weeklyOn((int) config('moxdop-demand.schedule.weekly_day', 1), '06:20')
-    ->withoutOverlapping(180)
-    ->name('brain-refresh-weekly');
-
-// Faz 2b: bölge bazlı SERP kontrolleri (ücretli, marka başına açılır, aylık USD tavanı, 28 gün tekrar kullanım).
-Schedule::command('moxdop:demand:serp')
-    ->weeklyOn((int) config('moxdop-demand.schedule.weekly_day', 1), (string) config('moxdop-demand.serp.weekly_time', '05:45'))
-    ->withoutOverlapping(120)
-    ->name('brand-demand-serp-weekly');
-
-// Faz 2b: hizmet sayfası ↔ bölgede üstte çıkan rakip sayfaları karşılaştırması (ücretsiz), SEO planından önce.
-Schedule::command('moxdop:demand:compare')
-    ->weeklyOn((int) config('moxdop-demand.schedule.weekly_day', 1), (string) config('moxdop-demand.compare.weekly_time', '06:00'))
-    ->withoutOverlapping(120)
-    ->name('brand-demand-compare-weekly');
 
 // Faz 3: marka dönüşüm sözlüğü (GA4 anahtar olay, Ads dönüşüm işlemi, Meta işlem, İşletme Profili) — uyarı taramasından önce.
 Schedule::command('moxdop:measurement:refresh')
@@ -770,19 +556,9 @@ Schedule::call(function (): void {
         ->each(fn ($id) => UptimeCheckJob::dispatch((int) $id));
 })->everyFiveMinutes()->name('uptime-checks')->withoutOverlapping(5);
 
-// Faz 6: yenilemeler — alan adı (RDAP) ve SSL bitiş tarihleri + 30/14/7/1 gün hatırlatması (uyarı taramasından önce).
-Schedule::command('moxdop:renewals:daily')
-    ->dailyAt('06:05')
-    ->withoutOverlapping(60)
-    ->name('renewals-daily');
-
 // Faz 6: zamanı gelen hatırlatıcılar telefona (her dakika).
 Schedule::call(fn () => app(ReminderService::class)->dispatchDue())
     ->everyMinute()->name('reminders-due')->withoutOverlapping(2);
-
-// Faz 6: WhatsApp konuşmalarını telefon numarasından müşteri / adaylara bağla (yeni eklenen numaralar için).
-Schedule::call(fn () => app(WhatsAppContactLinker::class)->linkAll())
-    ->hourly()->name('whatsapp-contact-link')->withoutOverlapping(30);
 
 // Marka çalışma alanı: kanal başına AI analisti (Arama; Harita / Google Ads / Meta sınıfları eklenince) — her
 // operasyonel marka için haftalık, markalar kuyruğa aralıklı verilir. Tek marka / kanal: --brand / --channel.

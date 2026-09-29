@@ -12,6 +12,8 @@ use App\Services\Compliance\Packs\RealEstateSectorPack;
  * a class here. Packs can be switched off and their rules edited in Ayarlar › Sektör paketleri.
  */
 return [
+    // Yasal kapı (ADR-072): 1 = sağlık sektöründe ücretli reklam önerileri kapalı.
+
     'packs' => [
         HealthSectorPack::class,
         // Faz 14: draft starter packs — review with a lawyer before relying on them.

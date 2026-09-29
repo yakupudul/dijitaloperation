@@ -2,12 +2,7 @@
 
 namespace Tests\Feature\ExternalWrites;
 
-use App\Enums\AdvisorItemStatus;
 use App\Enums\DigitalAssetStatus;
-use App\Livewire\Operator\Advisor\AdvisorPanel;
-use App\Livewire\Operator\Seo\SeoTasksPanel;
-use App\Models\AdvisorItem;
-use App\Models\AdvisorPlan;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreConnection;
@@ -18,9 +13,8 @@ use App\Models\CoreIntegrationCredential;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
-use App\Models\SeoPlan;
-use App\Models\SeoTask;
 use App\Models\User;
+use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\ExternalWrites\GoogleAdsNegativeListWriter;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
@@ -32,13 +26,14 @@ use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
+use Illuminate\Validation\ValidationException;
 use MoxDop\Website\Discovery\PublicUrlSafety;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 /**
- * ADR-064: the only external writes — Admin-approved Google Ads shared negative list and WordPress draft —
- * recorded, executed on the queue and undoable. Everyone else sees no button and gets 403.
+ * ADR-064: Admin-approved Google Ads shared negative list and WordPress draft — recorded, executed on the queue and
+ * undoable. Everyone else gets 403. v2: payload-driven service API (the suggestion screens come with Faz 5–7).
  */
 final class ExternalWritesTest extends TestCase
 {
@@ -76,7 +71,6 @@ final class ExternalWritesTest extends TestCase
     public function test_admin_sends_negative_list_to_shared_set_and_undoes_it(): void
     {
         $asset = $this->googleAdsAsset();
-        $item = $this->negativeItem($asset);
         $mutations = [];
         Http::fake(function (Request $request) use (&$mutations) {
             $url = $request->url();
@@ -98,23 +92,21 @@ final class ExternalWritesTest extends TestCase
 
             return Http::response([], 404);
         });
+        $writes = app(ExternalWriteService::class);
+        $lines = "[ücretsiz diş tedavisi]\n\"staj\"";
 
-        // Team members see no button and cannot call the action.
-        $this->actingAs($this->member);
-        Livewire::test(AdvisorPanel::class, ['assetId' => $asset->id])->call('toggle', $item->id)->assertSee('Negatif liste n')->assertDontSeeHtml("Google Ads'e ekle");
-        Livewire::test(AdvisorPanel::class, ['assetId' => $asset->id])->set('writeLines.'.$item->id, '[ücretsiz]')->call('applyNegativeList', $item->id)->assertForbidden();
+        // Team members cannot request the write.
+        $this->assertFalse(ExternalWriteService::allowed($this->member, ExternalWriteAction::CHANNEL_GOOGLE_ADS));
+        try {
+            $writes->requestNegativeList($this->member, $asset, $lines);
+            $this->fail('team member must be refused');
+        } catch (HttpException $exception) {
+            $this->assertSame(403, $exception->getStatusCode());
+        }
         $this->assertSame(0, ExternalWriteAction::query()->count());
 
-        $this->actingAs($this->admin);
-        Livewire::test(AdvisorPanel::class, ['assetId' => $asset->id])
-            ->call('toggle', $item->id)
-            ->assertSeeHtml("Google Ads'e ekle")
-            ->call('prepareNegativeWrite', $item->id)
-            ->assertSet('writeLines.'.$item->id, "[ücretsiz diş tedavisi]\n\"staj\"")
-            ->call('applyNegativeList', $item->id)
-            ->assertSee('Google Ads\'e gönderiliyor');
-
-        $action = ExternalWriteAction::query()->firstOrFail();
+        $action = $writes->requestNegativeList($this->admin, $asset, $lines);
+        $action->refresh();
         $this->assertSame('succeeded', $action->status, (string) $action->error);
         $this->assertSame($this->admin->id, $action->requested_by);
         $this->assertSame(['sharedSets', 'sharedCriteria', 'campaignSharedSets'], array_column($mutations, 0));
@@ -122,21 +114,24 @@ final class ExternalWritesTest extends TestCase
         $this->assertSame(['text' => 'staj', 'matchType' => 'PHRASE'], $mutations[1][1]['operations'][1]['create']['keyword']);
         $this->assertSame('customers/1112223333/campaigns/77', $mutations[2][1]['operations'][0]['create']['campaign']);
         $this->assertCount(2, $action->result['added']);
-        $this->assertSame(AdvisorItemStatus::Done, $item->fresh()->status, 'applied list closes the item');
         foreach ($mutations as [$service]) {
             $this->assertContains($service, ['sharedSets', 'sharedCriteria', 'campaignSharedSets'], 'no campaign, budget or ad mutation');
         }
 
-        Livewire::test(AdvisorPanel::class, ['assetId' => $asset->id])->call('undoWrite', $action->id)->assertSee('Geri alınıyor');
+        $writes->requestUndo($this->admin, $action);
         $this->assertSame('undone', $action->fresh()->status);
         $this->assertSame(['remove' => 'customers/1112223333/sharedCriteria/9~0'], end($mutations)[1]['operations'][0]);
 
         config(['moxdop-external-writes.enabled' => false]);
-        $other = $this->negativeItem($asset, 'ikinci');
-        Livewire::test(AdvisorPanel::class, ['assetId' => $asset->id])->call('prepareNegativeWrite', $other->id)->call('applyNegativeList', $other->id)->assertSee('Harici yazma kapalı');
+        try {
+            $writes->requestNegativeList($this->admin, $asset, $lines);
+            $this->fail('kill switch must refuse');
+        } catch (ValidationException $exception) {
+            $this->assertStringContainsString('Harici yazma kapalı', (string) collect($exception->errors())->flatten()->first());
+        }
     }
 
-    public function test_admin_sends_seo_brief_as_wordpress_draft_and_undoes_it(): void
+    public function test_admin_sends_a_draft_skeleton_to_wordpress_and_undoes_it(): void
     {
         $site = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'website', 'status' => 'active', 'module_id' => 'website']);
         $connection = CoreConnection::factory()->create([
@@ -146,13 +141,6 @@ final class ExternalWritesTest extends TestCase
         $secret = str_repeat('s', 43);
         CoreConnectionCredential::factory()->create(['connection_id' => $connection->id, 'encrypted_payload' => ['client_id' => 'client-1', 'shared_secret' => $secret]]);
         $this->app->instance(WordPressConnectorClient::class, new WordPressConnectorClient(new WordPressConnectorCanonicalJson, new PublicUrlSafety(fn (string $host): array => ['93.184.216.34'])));
-        $plan = SeoPlan::query()->create(['brand_id' => $this->brand->id, 'customer_id' => $this->brand->customer_id, 'digital_asset_id' => $site->id, 'status' => 'completed', 'completed_at' => now()]);
-        $task = SeoTask::query()->create([
-            'customer_id' => $this->brand->customer_id, 'brand_id' => $this->brand->id, 'digital_asset_id' => $site->id, 'task_key' => hash('sha256', 'c'), 'type' => 'create', 'rule_id' => 'create-guide',
-            'severity' => 'medium', 'priority_score' => 400, 'title' => 'İmplant rehberi yaz', 'reason' => 'Talep var.', 'evidence' => [], 'checklist' => [], 'status' => 'open',
-            'content_brief' => ['page_title' => 'İmplant Tedavisi Rehberi', 'page_type' => 'guide', 'h2_outline' => ['İmplant nedir?', 'Süreç'], 'queries' => ['implant nasıl yapılır'], 'target_words' => 1200, 'internal_links' => ['/implant/']],
-            'first_seen_plan_id' => $plan->id, 'last_seen_plan_id' => $plan->id,
-        ]);
         $sent = [];
         Http::fake(function (Request $request) use (&$sent, $secret) {
             $sent[] = [$request->method(), $request->url(), json_decode($request->body(), true)];
@@ -165,31 +153,38 @@ final class ExternalWritesTest extends TestCase
 
             return Http::response(['data' => $data, 'meta' => ['server_time' => $time, 'request_nonce' => $nonce, 'signature' => $signature]]);
         });
+        $draft = ['title' => 'İmplant Tedavisi Rehberi', 'content_html' => '<h2>İmplant nedir?</h2><p></p>', 'post_type' => 'post', 'excerpt' => 'Talep var.', 'reference' => 'suggestion-1'];
+        $writes = app(ExternalWriteService::class);
 
-        $this->actingAs($this->member);
-        Livewire::test(SeoTasksPanel::class, ['websiteId' => $site->id])->call('sendDraft', $task->id)->assertForbidden();
+        try {
+            $writes->requestDraft($this->member, $site, $draft);
+            $this->fail('team member must be refused');
+        } catch (HttpException $exception) {
+            $this->assertSame(403, $exception->getStatusCode());
+        }
 
-        $this->actingAs($this->admin);
-        Livewire::test(SeoTasksPanel::class, ['websiteId' => $site->id])
-            ->call('toggle', $task->id)
-            ->assertSee('taslak gönder')
-            ->call('sendDraft', $task->id)
-            ->assertSee('Taslağı aç');
-        $action = ExternalWriteAction::query()->firstOrFail();
+        $action = $writes->requestDraft($this->admin, $site, $draft);
+        $action->refresh();
         $this->assertSame('succeeded', $action->status, (string) $action->error);
         $this->assertSame(['POST', 'https://example.com/wp-json/moxdop/v1/drafts'], [$sent[0][0], $sent[0][1]]);
         $this->assertSame('İmplant Tedavisi Rehberi', $sent[0][2]['title']);
         $this->assertSame('post', $sent[0][2]['post_type']);
         $this->assertStringContainsString('<h2>İmplant nedir?</h2>', $sent[0][2]['content_html']);
-        $this->assertSame('seo-task-'.$task->id, $sent[0][2]['reference']);
+        $this->assertSame('suggestion-1', $sent[0][2]['reference']);
+        $this->assertSame(42, $action->result['post_id']);
 
-        Livewire::test(SeoTasksPanel::class, ['websiteId' => $site->id])->call('undoDraft', $action->id);
+        $writes->requestUndo($this->admin, $action);
         $this->assertSame('undone', $action->fresh()->status);
         $this->assertSame(['DELETE', 'https://example.com/wp-json/moxdop/v1/drafts/42'], [$sent[1][0], $sent[1][1]]);
 
         // Old plugin: refused before anything is sent.
         $connection->forceFill(['config' => array_merge($connection->config, ['plugin_version' => '1.1.0'])])->save();
-        Livewire::test(SeoTasksPanel::class, ['websiteId' => $site->id])->call('sendDraft', $task->id)->assertSee('en az 1.2.0');
+        try {
+            $writes->requestDraft($this->admin, $site, $draft);
+            $this->fail('old plugin must be refused');
+        } catch (ValidationException $exception) {
+            $this->assertStringContainsString('en az 1.2.0', (string) collect($exception->errors())->flatten()->first());
+        }
     }
 
     public function test_plugin_forces_drafts_and_refuses_published_content(): void
@@ -216,17 +211,5 @@ final class ExternalWritesTest extends TestCase
         CoreAssetBinding::factory()->create(['digital_asset_id' => $asset->id, 'external_resource_id' => $resource->id, 'capability' => GoogleAdsSpecialistBindingResolver::CAPABILITY, 'status' => CoreAssetBinding::STATUS_ACTIVE]);
 
         return $asset;
-    }
-
-    private function negativeItem(DigitalAsset $asset, string $key = 'n'): AdvisorItem
-    {
-        $plan = AdvisorPlan::query()->create(['channel' => 'google_ads', 'brand_id' => $this->brand->id, 'customer_id' => $this->brand->customer_id, 'digital_asset_id' => $asset->id, 'status' => 'completed', 'completed_at' => now()]);
-
-        return AdvisorItem::query()->create([
-            'channel' => 'google_ads', 'customer_id' => $this->brand->customer_id, 'brand_id' => $this->brand->id, 'digital_asset_id' => $asset->id,
-            'item_key' => hash('sha256', $key), 'category' => 'waste', 'rule_id' => 'negative-keywords', 'severity' => 'high', 'priority_score' => 800,
-            'title' => 'Negatif liste '.$key, 'reason' => 'r', 'evidence' => ['terms' => []], 'checklist' => [], 'copy_text' => "[ücretsiz diş tedavisi]\n\"staj\"",
-            'status' => 'open', 'currency' => 'TRY', 'first_seen_plan_id' => $plan->id, 'last_seen_plan_id' => $plan->id,
-        ]);
     }
 }

@@ -37,10 +37,10 @@ class AnalystRun extends Model
         return $this->belongsTo(Brand::class);
     }
 
-    /** @return HasMany<AnalystDecision, $this> */
+    /** @return HasMany<Suggestion, $this> */
     public function decisions(): HasMany
     {
-        return $this->hasMany(AnalystDecision::class);
+        return $this->hasMany(Suggestion::class);
     }
 
     public function isActive(): bool

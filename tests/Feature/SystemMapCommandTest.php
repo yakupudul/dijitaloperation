@@ -15,7 +15,6 @@ final class SystemMapCommandTest extends TestCase
         @unlink($path);
 
         $this->assertStringContainsString('Entegrasyonlar (`operator.integrations`) — sekmeler: Keşfedilen varlıklar', $map);
-        $this->assertStringContainsString('`client_approval`', $map);
         $this->assertStringContainsString('review_reply', $map);
         $this->assertStringContainsString('`moxdop:integrations:discover`', $map);
         $this->assertStringNotContainsString('campaign_budget', $map);

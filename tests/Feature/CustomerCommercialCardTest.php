@@ -11,7 +11,6 @@ use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Portfolio\CustomerCommercialSummary;
-use App\Services\Portfolio\CustomerHealthScore;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -56,8 +55,5 @@ final class CustomerCommercialCardTest extends TestCase
         $this->assertSame(900.0, $google['spent']);
         $this->assertSame(3000.0, $google['projected'], '900 over 9 days × 30');
         $this->assertSame('over', $google['state']);
-
-        app(CustomerHealthScore::class)->store($customer);
-        $this->assertSame(1, DB::table('customer_health_history')->where('customer_id', $customer->id)->count());
     }
 }

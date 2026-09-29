@@ -12,8 +12,6 @@ use App\Services\Ai\AgentExecutionPlanner;
 use App\Services\Ai\AgentExecutionRecorder;
 use App\Services\Ai\StructuredAgentOutputValidator;
 use App\Services\Integrations\OpenAi\OpenAiProviderCredentialService;
-use App\Support\Agents\AgentProfileDefinition;
-use App\Support\Ai\AgentExecutionPlan;
 use App\Support\Ai\EvidencePack;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -48,33 +46,6 @@ class AiAgentProductionExecutionTest extends TestCase
         app(OpenAiProviderCredentialService::class)->save($integration, [
             'api_key' => 'sk-test-ai',
         ], $this->admin);
-    }
-
-    public function test_planner_abstains_when_all_skills_require_missing_evidence(): void
-    {
-        $profile = new AgentProfileDefinition(
-            slug: 'test-abstain-agent',
-            version: '1.0.0',
-            name: 'Test Abstain Agent',
-            module: 'search_demand',
-            purpose: 'test',
-            status: 'active',
-            aiRouteKey: 'search_demand.clustering',
-            skillSlugs: ['search-demand-clustering', 'search-query-classification'],
-            allowedDataScope: [],
-            allowedOperations: [],
-            forbiddenOperations: [],
-            outputContract: 'test',
-            successCriteria: [],
-        );
-
-        $plan = app(AgentExecutionPlanner::class)->plan($profile, []);
-
-        $this->assertSame(AgentExecutionPlan::ABSTAINED_PRE_INFERENCE, $plan->preInferenceStatus);
-        $this->assertFalse($plan->shouldCallInference());
-        $this->assertSame([], $plan->eligibleSkills);
-        $this->assertNotEmpty($plan->blockedSkills);
-        $this->assertNotNull($plan->blockReasonCode);
     }
 
     public function test_evidence_pack_manifest_and_contains_helpers(): void

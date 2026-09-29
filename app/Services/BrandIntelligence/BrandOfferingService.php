@@ -9,6 +9,7 @@ use App\Models\Brand;
 use App\Models\BrandOffering;
 use App\Models\BrandOfferingName;
 use App\Models\User;
+use App\Services\Catalog\ServiceCatalogService;
 use App\Support\BrandIntelligence\IdentityLabelNormalizer;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -40,7 +41,7 @@ final class BrandOfferingService
         ?User $actor = null,
         bool $recordActivity = true,
     ): array {
-        $catalog = app(\App\Services\SearchDemand\ServiceCatalogService::class)
+        $catalog = app(ServiceCatalogService::class)
             ->resolveOrCreate($label, $brand->sector, locale: $locale, actor: $actor)['service'];
         $linked = BrandOffering::query()->where('brand_id', $brand->id)
             ->where('service_catalog_item_id', $catalog->id)->first();

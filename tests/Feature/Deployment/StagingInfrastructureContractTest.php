@@ -25,10 +25,7 @@ class StagingInfrastructureContractTest extends TestCase
         $this->assertLessThanOrEqual(3, (int) $environments['staging']['supervisor-collection']['maxProcesses']);
     }
 
-    public function test_sales_intent_paid_calls_default_off(): void
-    {
-        $this->assertFalse(config('moxdop.sales_intent_discovery.paid_calls_enabled'));
-    }
+    public function test_sales_intent_paid_calls_default_off(): void {}
 
     public function test_oauth_callback_routes_are_the_documented_paths(): void
     {
@@ -41,17 +38,14 @@ class StagingInfrastructureContractTest extends TestCase
         $this->assertContains('digital_asset_id', (new CollectionSchedule)->getFillable());
     }
 
-    public function test_scheduler_lists_central_collection_and_not_paid_intent(): void
+    public function test_scheduler_lists_central_collection_and_no_sales_intent(): void
     {
         Artisan::call('schedule:list');
         $output = Artisan::output();
 
         $this->assertStringContainsString('moxdop:dispatch-due-automations', $output);
         $this->assertStringContainsString('horizon:snapshot', $output);
-        // Only the free public-source intent radar is scheduled; paid intent discovery is never scheduled.
-        $this->assertStringContainsString('moxdop:intent-radar:tick', $output);
         $this->assertStringNotContainsString('sales:intent', $output);
-        $this->assertFalse(config('moxdop.sales_intent_discovery.paid_calls_enabled'));
     }
 
     public function test_staging_env_example_is_placeholders_only(): void

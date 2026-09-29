@@ -7,7 +7,6 @@ use App\Livewire\Demo\SettingsPage;
 use App\Models\AgencySetting;
 use App\Models\Brand;
 use App\Models\Customer;
-use App\Models\ReportSnapshot;
 use App\Models\User;
 use App\Support\Demo\DemoState;
 use App\Support\Operator\AgencySettingCatalog;
@@ -215,33 +214,12 @@ class OperatorSettingsLanguageAccessTest extends TestCase
         $this->assertTrue($this->admin->is_active);
     }
 
-    public function test_white_label_branding_persists_rejects_invalid_files_and_does_not_rewrite_snapshots(): void
+    public function test_white_label_branding_persists_and_rejects_invalid_files(): void
     {
         Storage::fake('public');
 
         $customer = Customer::factory()->create();
         $brand = Brand::factory()->create(['customer_id' => $customer->id]);
-        $snapshot = ReportSnapshot::query()->create([
-            'customer_id' => $customer->id,
-            'brand_id' => $brand->id,
-            'report_type' => 'client_value_story',
-            'period_start' => now()->subDays(30)->toDateString(),
-            'period_end' => now()->toDateString(),
-            'title_snapshot' => 'Frozen Snapshot',
-            'customer_name_snapshot' => $customer->name,
-            'brand_name_snapshot' => $brand->name,
-            'locale' => 'en',
-            'reporting_timezone' => 'UTC',
-            'snapshot_schema_version' => 'client_value_story_v1',
-            'source_manifest_fingerprint' => hash('sha256', 'manifest'),
-            'content_checksum' => hash('sha256', 'frozen-content'),
-            'content_payload' => ['heading' => 'Historical value'],
-            'source_manifest_payload' => ['sources' => ['a']],
-            'generated_by' => $this->admin->id,
-            'generated_at' => now(),
-            'created_at' => now(),
-            'idempotency_key' => 'qa-002c-snapshot',
-        ]);
 
         Livewire::test(SettingsPage::class)
             ->set('agency_name', '<script>alert(1)</script>')
@@ -270,10 +248,6 @@ class OperatorSettingsLanguageAccessTest extends TestCase
         $this->assertStringNotContainsString('<script>alert(1)</script>', $html);
         $this->assertStringContainsString('Safe Portal', $html);
 
-        $snapshot->refresh();
-        $this->assertSame('Frozen Snapshot', $snapshot->title_snapshot);
-        $this->assertSame(hash('sha256', 'frozen-content'), $snapshot->content_checksum);
-        $this->assertSame(['heading' => 'Historical value'], $snapshot->content_payload);
     }
 
     public function test_settings_payload_does_not_expose_deployment_or_provider_secrets(): void

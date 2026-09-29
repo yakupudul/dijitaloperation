@@ -11,7 +11,6 @@ use App\Models\ResourceAutomation;
 use App\Models\User;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
-use App\Services\Queries\AssetSectorService;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
 use Illuminate\Support\Facades\DB;
@@ -129,16 +128,7 @@ final class OwnershipTransferService
         }
         $log = [];
         foreach ($resourceIds as $resourceId) {
-            $sector = DB::table('asset_sectors')->where('subject_type', AssetSectorService::RESOURCE)->where('subject_id', $resourceId)->first();
             $entry = ['resource_id' => $resourceId, 'action' => 'reset'];
-            if ($sector !== null && $sector->method !== AssetSectorService::MANUAL) {
-                $entry['cleared'] = ['sector_id' => $sector->service_category_id, 'method' => $sector->method];
-                DB::table('asset_sectors')->where('id', $sector->id)->update([
-                    'service_category_id' => null, 'method' => AssetSectorService::NONE, 'confidence' => null, 'signals_hash' => null, 'updated_at' => now(),
-                ]);
-            } elseif ($sector !== null) {
-                $entry['kept'] = ['sector_id' => $sector->service_category_id, 'method' => $sector->method];
-            }
             $automation = ResourceAutomation::query()->where('external_resource_id', $resourceId)->first();
             if ($automation !== null) {
                 $gated = in_array($automation->collection_error, ['unbound', 'customer_passive'], true);

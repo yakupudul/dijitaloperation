@@ -2,29 +2,21 @@
 
 namespace App\Services\ExternalWrites;
 
-use App\Enums\AdvisorItemStatus;
 use App\Jobs\ExecuteExternalWriteJob;
-use App\Models\AdvisorItem;
-use App\Models\AnalystDecision;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\GbpReview;
-use App\Models\SeoTask;
-use App\Models\SiteFixItem;
+use App\Models\Suggestion;
 use App\Models\User;
-use App\Services\ContentDelivery\ArticleDraft;
-use App\Services\ContentDelivery\ContentComplianceGate;
 use App\Services\Integrations\WordPress\WordPressManagementService;
-use App\Services\SiteFixes\SiteFixVerification;
 use App\Support\Roles;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * Entry point for the two ADR-064 writes. Checks: kill switch, Admin role, eligible source item. Every
+ * Entry point for every approved external write (ADR-064 / 068 / 070 / 071 / 073 / 076). Checks: kill switch, Admin role, eligible source item. Every
  * request becomes an ExternalWriteAction row and runs on the queue; undo is the same path in reverse.
  */
 final class ExternalWriteService
@@ -46,43 +38,15 @@ final class ExternalWriteService
             && $user !== null && $user->is_active && $user->hasRole(Roles::ADMIN);
     }
 
-    /** Admin-approved negative list for a Google Ads "negative-keywords" advisor item. */
-    public function requestNegativeList(User $user, AdvisorItem $item, string $lines): ExternalWriteAction
-    {
-        $this->guard($user, ExternalWriteAction::CHANNEL_GOOGLE_ADS);
-        if ($item->channel !== 'google_ads' || $item->rule_id !== 'negative-keywords' || $item->status !== AdvisorItemStatus::Open) {
-            throw ValidationException::withMessages(['write' => 'Bu öneri Google Ads\'e gönderilemez.']);
-        }
-        $parsed = GoogleAdsNegativeListWriter::parse($lines);
-        if ($parsed['keywords'] === []) {
-            throw ValidationException::withMessages(['write' => 'Gönderilecek geçerli terim yok.']);
-        }
-        if ($this->pending($item->id, null)) {
-            throw ValidationException::withMessages(['write' => 'Bu öneri için bir gönderim zaten sürüyor.']);
-        }
-
-        return $this->queue(ExternalWriteAction::query()->create([
-            'channel' => ExternalWriteAction::CHANNEL_GOOGLE_ADS,
-            'action' => ExternalWriteAction::ACTION_NEGATIVE_LIST_ADD,
-            'digital_asset_id' => $item->digital_asset_id,
-            'brand_id' => $item->brand_id,
-            'advisor_item_id' => $item->id,
-            'status' => 'queued',
-            'request_payload' => ['keywords' => $parsed['keywords'], 'rejected' => $parsed['rejected'], 'shared_set_name' => config('moxdop-external-writes.google_ads.shared_set_name')],
-            'requested_by' => $user->id,
-        ]));
-    }
-
     /**
-     * The same ADR-064 write from a brand workspace "add_negatives" card: the Admin reviewed (and may have edited) the
-     * list of the card's Google Ads account. Same writer, same shared list, same undo.
+     * ADR-064: Admin-approved (possibly edited) negative keyword list for one bound Google Ads account, sent to the
+     * shared negative list. Optionally linked to the suggestion that proposed it.
      */
-    public function requestNegativeListForDecision(User $user, AnalystDecision $decision, DigitalAsset $asset, string $lines): ExternalWriteAction
+    public function requestNegativeList(User $user, DigitalAsset $asset, string $lines, ?Suggestion $suggestion = null): ExternalWriteAction
     {
         $this->guard($user, ExternalWriteAction::CHANNEL_GOOGLE_ADS);
-        if ($decision->channel !== 'google_ads' || $decision->action_type !== 'add_negatives' || ! in_array($decision->status, [AnalystDecision::OPEN, AnalystDecision::SNOOZED], true)
-            || $asset->type !== 'google_ads' || (int) $asset->brand_id !== (int) $decision->brand_id) {
-            throw ValidationException::withMessages(['write' => 'Bu kart Google Ads\'e gönderilemez.']);
+        if ($asset->type !== 'google_ads' || ($suggestion !== null && (int) $asset->brand_id !== (int) $suggestion->brand_id)) {
+            throw ValidationException::withMessages(['write' => 'Bu liste Google Ads\'e gönderilemez.']);
         }
         $parsed = GoogleAdsNegativeListWriter::parse($lines);
         if ($parsed['keywords'] === []) {
@@ -98,36 +62,48 @@ final class ExternalWriteService
             'channel' => ExternalWriteAction::CHANNEL_GOOGLE_ADS,
             'action' => ExternalWriteAction::ACTION_NEGATIVE_LIST_ADD,
             'digital_asset_id' => $asset->id,
-            'brand_id' => $decision->brand_id,
+            'brand_id' => $asset->brand_id,
+            'suggestion_id' => $suggestion?->id,
             'status' => 'queued',
-            'request_payload' => ['keywords' => $parsed['keywords'], 'rejected' => $parsed['rejected'], 'shared_set_name' => config('moxdop-external-writes.google_ads.shared_set_name'),
-                'analyst_decision_id' => (int) $decision->id],
+            'request_payload' => ['keywords' => $parsed['keywords'], 'rejected' => $parsed['rejected'], 'shared_set_name' => config('moxdop-external-writes.google_ads.shared_set_name')],
             'requested_by' => $user->id,
         ]));
     }
 
-    /** Admin-approved WordPress draft for an SEO task with a content brief. */
-    public function requestDraft(User $user, SeoTask $task): ExternalWriteAction
+    /**
+     * ADR-064 (2): Admin-approved WordPress draft skeleton.
+     *
+     * @param  array{title: string, content_html: string, post_type?: string, excerpt?: string, reference: string}  $draft
+     */
+    public function requestDraft(User $user, DigitalAsset $site, array $draft, ?Suggestion $suggestion = null): ExternalWriteAction
     {
         $this->guard($user, ExternalWriteAction::CHANNEL_WORDPRESS);
+        if (blank($draft['title'] ?? null) || blank($draft['reference'] ?? null)) {
+            throw ValidationException::withMessages(['write' => 'Taslağın başlığı ve referansı olmalı.']);
+        }
         try {
-            $draft = WordPressDraftWriter::draftFromTask($task);
-            $this->drafts->connection((int) $task->digital_asset_id);
+            $this->drafts->connection((int) $site->id);
         } catch (Throwable $exception) {
             throw ValidationException::withMessages(['write' => $exception->getMessage()]);
         }
-        if ($this->pending(null, $task->id)) {
-            throw ValidationException::withMessages(['write' => 'Bu görev için bir gönderim zaten sürüyor.']);
+        $busy = ExternalWriteAction::query()->where('digital_asset_id', $site->id)->where('action', ExternalWriteAction::ACTION_DRAFT_CREATE)
+            ->whereIn('status', ['queued', 'running', 'undoing'])->where('request_payload->draft->reference', $draft['reference'])->exists();
+        if ($busy) {
+            throw ValidationException::withMessages(['write' => 'Bu taslak için bir gönderim zaten sürüyor.']);
         }
 
         return $this->queue(ExternalWriteAction::query()->create([
             'channel' => ExternalWriteAction::CHANNEL_WORDPRESS,
             'action' => ExternalWriteAction::ACTION_DRAFT_CREATE,
-            'digital_asset_id' => $task->digital_asset_id,
-            'brand_id' => $task->brand_id,
-            'seo_task_id' => $task->id,
+            'digital_asset_id' => $site->id,
+            'brand_id' => $site->brand_id,
+            'suggestion_id' => $suggestion?->id,
             'status' => 'queued',
-            'request_payload' => ['draft' => $draft],
+            'request_payload' => ['draft' => [
+                'title' => mb_substr((string) $draft['title'], 0, 200), 'content_html' => (string) ($draft['content_html'] ?? ''),
+                'post_type' => in_array($draft['post_type'] ?? 'post', ['post', 'page'], true) ? $draft['post_type'] : 'post',
+                'excerpt' => mb_substr((string) ($draft['excerpt'] ?? ''), 0, 300), 'reference' => (string) $draft['reference'],
+            ]],
             'requested_by' => $user->id,
         ]));
     }
@@ -199,51 +175,54 @@ final class ExternalWriteService
 
     /**
      * ADR-070: Admin-approved batch of site fixes (SEO title / description, alt text, schema, redirect, noindex,
-     * canonical, internal link). Each item must have a proposed value; all go to one site in one request.
+     * canonical, internal link) for one site in one request.
      *
-     * @param  list<int>  $itemIds
+     * @param  list<array{type: string, object_id?: int, reference: string, value?: mixed, from?: string}>  $changes
      */
-    public function requestSiteFixes(User $user, DigitalAsset $site, array $itemIds): ExternalWriteAction
+    public function requestSiteFixes(User $user, DigitalAsset $site, array $changes, ?Suggestion $suggestion = null): ExternalWriteAction
     {
         $this->guard($user, ExternalWriteAction::CHANNEL_WORDPRESS);
-        $items = SiteFixItem::query()->where('digital_asset_id', $site->id)->whereIn('id', $itemIds)
-            ->whereIn('status', ['open', 'failed', 'undone'])->whereNotIn('type', ['content_update', 'new_page'])->get();
-        // An empty value is a real fix only where it means "remove" (canonical override, schema, noindex off).
-        $items = $items->filter(fn (SiteFixItem $item): bool => is_array($item->proposed) && array_key_exists('value', $item->proposed)
-            && (in_array($item->type, ['noindex', 'canonical', 'schema'], true) || ($item->value() !== null && $item->value() !== '')))->values();
-        if ($items->isEmpty()) {
-            throw ValidationException::withMessages(['write' => 'Önerilen değeri olan seçili düzeltme yok.']);
+        $changes = array_values(array_filter($changes, fn (mixed $change): bool => is_array($change) && filled($change['type'] ?? null) && filled($change['reference'] ?? null)
+            && (in_array($change['type'], ['noindex', 'canonical', 'schema'], true) || (($change['value'] ?? null) !== null && ($change['value'] ?? null) !== ''))));
+        if ($changes === []) {
+            throw ValidationException::withMessages(['write' => 'Önerilen değeri olan düzeltme yok.']);
         }
-        if ($items->count() > 100) {
+        if (count($changes) > 100) {
             throw ValidationException::withMessages(['write' => 'Tek seferde en fazla 100 düzeltme gönderilebilir.']);
         }
         $this->fixConnection($site);
-        $action = ExternalWriteAction::query()->create([
-            'channel' => ExternalWriteAction::CHANNEL_WORDPRESS, 'action' => ExternalWriteAction::ACTION_SITE_FIX,
-            'digital_asset_id' => $site->id, 'brand_id' => $site->brand_id, 'status' => 'queued',
-            'request_payload' => ['item_ids' => $items->pluck('id')->all(), 'changes' => $items->map(fn (SiteFixItem $i): array => WordPressFixWriter::change($i))->all()],
-            'requested_by' => $user->id,
-        ]);
-        SiteFixItem::query()->whereIn('id', $items->pluck('id'))->update(['status' => 'queued', 'write_action_id' => $action->id, 'error' => null, 'updated_at' => now()]);
 
-        return $this->queue($action);
+        return $this->queue(ExternalWriteAction::query()->create([
+            'channel' => ExternalWriteAction::CHANNEL_WORDPRESS, 'action' => ExternalWriteAction::ACTION_SITE_FIX,
+            'digital_asset_id' => $site->id, 'brand_id' => $site->brand_id, 'suggestion_id' => $suggestion?->id, 'status' => 'queued',
+            'request_payload' => ['changes' => array_map(fn (array $change): array => WordPressFixWriter::change($change), $changes)],
+            'requested_by' => $user->id,
+        ]));
     }
 
-    /** ADR-070: the AI-written new version of a page (or a new page) goes to WordPress as a draft. */
-    public function requestContentDraft(User $user, SiteFixItem $item): ExternalWriteAction
+    /**
+     * ADR-070: the approved new version of a page goes to WordPress as a draft copy (object_id + title + html), or a
+     * whole new page as an ArticleDraft (ADR-076 fields). Every text passes the sector compliance gate first.
+     *
+     * @param  array{object_id?: int, title?: string, html?: string, reference: string, article?: array<string, mixed>}  $payload
+     */
+    public function requestContentDraft(User $user, DigitalAsset $site, array $payload, ?Suggestion $suggestion = null): ExternalWriteAction
     {
         $this->guard($user, ExternalWriteAction::CHANNEL_WORDPRESS);
-        if (! in_array($item->type, ['content_update', 'new_page'], true) || blank(data_get($item->proposed, 'value.html')) || ! in_array($item->status, ['open', 'failed', 'undone'], true)) {
+        $article = is_array($payload['article'] ?? null) ? ArticleDraft::fromArray($payload['article']) : null;
+        if ($article === null && (blank($payload['html'] ?? null) || (int) ($payload['object_id'] ?? 0) < 1)) {
             throw ValidationException::withMessages(['write' => 'Bu öneride gönderilecek metin yok.']);
         }
-        // ADR-076: AI page text passes the brand's sector rules before it can leave MoxDOP.
-        $this->assertArticleCompliant($item->brand_id, ArticleDraft::fromSiteFixItem($item));
-        $this->fixConnection($item->digitalAsset);
+        $this->assertArticleCompliant($site->brand_id, $article ?? ArticleDraft::fromArray(['title' => (string) ($payload['title'] ?? 'Sayfa'), 'html' => (string) $payload['html'], 'reference' => (string) ($payload['reference'] ?? 'content')]));
+        $this->fixConnection($site);
 
         return $this->queue(ExternalWriteAction::query()->create([
             'channel' => ExternalWriteAction::CHANNEL_WORDPRESS, 'action' => ExternalWriteAction::ACTION_CONTENT_DRAFT,
-            'digital_asset_id' => $item->digital_asset_id, 'brand_id' => $item->brand_id, 'status' => 'queued',
-            'request_payload' => ['item_id' => $item->id, 'object_id' => $item->object_id, 'title' => data_get($item->proposed, 'value.title')],
+            'digital_asset_id' => $site->id, 'brand_id' => $site->brand_id, 'suggestion_id' => $suggestion?->id, 'status' => 'queued',
+            'request_payload' => array_filter([
+                'object_id' => (int) ($payload['object_id'] ?? 0) ?: null, 'title' => $payload['title'] ?? null, 'html' => $article === null ? (string) $payload['html'] : null,
+                'reference' => (string) ($payload['reference'] ?? ($article?->reference ?? 'content')), 'article' => $article?->toArray(),
+            ], fn (mixed $v): bool => $v !== null),
             'requested_by' => $user->id,
         ]));
     }
@@ -294,18 +273,18 @@ final class ExternalWriteService
     }
 
     /** ADR-070: second approval, the draft copy (possibly edited in WordPress) replaces the live page. */
-    public function requestContentApply(User $user, SiteFixItem $item): ExternalWriteAction
+    public function requestContentApply(User $user, DigitalAsset $site, int $draftId, ?Suggestion $suggestion = null): ExternalWriteAction
     {
         $this->guard($user, ExternalWriteAction::CHANNEL_WORDPRESS);
-        if ($item->type !== 'content_update' || $item->status !== 'drafted' || (int) data_get($item->current, 'draft_id') < 1) {
+        if ($draftId < 1) {
             throw ValidationException::withMessages(['write' => 'Önce yeni sürümü WordPress’e taslak olarak gönder.']);
         }
-        $this->fixConnection($item->digitalAsset);
+        $this->fixConnection($site);
 
         return $this->queue(ExternalWriteAction::query()->create([
             'channel' => ExternalWriteAction::CHANNEL_WORDPRESS, 'action' => ExternalWriteAction::ACTION_CONTENT_APPLY,
-            'digital_asset_id' => $item->digital_asset_id, 'brand_id' => $item->brand_id, 'status' => 'queued',
-            'request_payload' => ['item_id' => $item->id, 'draft_id' => (int) data_get($item->current, 'draft_id')],
+            'digital_asset_id' => $site->id, 'brand_id' => $site->brand_id, 'suggestion_id' => $suggestion?->id, 'status' => 'queued',
+            'request_payload' => ['draft_id' => $draftId],
             'requested_by' => $user->id,
         ]));
     }
@@ -340,9 +319,9 @@ final class ExternalWriteService
     }
 
     /**
-     * ADR-073: Admin-approved Business Profile local post (from the content calendar or written directly).
+     * ADR-073: Admin-approved Business Profile local post.
      *
-     * @param  array{summary: string, url?: ?string, action_type?: ?string, calendar_id?: ?int}  $post
+     * @param  array{summary: string, url?: ?string, action_type?: ?string}  $post
      */
     public function requestLocalPost(User $user, DigitalAsset $asset, array $post): ExternalWriteAction
     {
@@ -361,7 +340,7 @@ final class ExternalWriteService
             'channel' => ExternalWriteAction::CHANNEL_GBP, 'action' => ExternalWriteAction::ACTION_LOCAL_POST,
             'digital_asset_id' => $asset->id, 'brand_id' => $asset->brand_id, 'status' => 'queued',
             'request_payload' => ['summary' => $summary, 'url' => $url !== '' ? $url : null, 'action_type' => in_array($post['action_type'] ?? null, ['LEARN_MORE', 'BOOK', 'CALL', 'ORDER', 'SIGN_UP'], true) ? $post['action_type'] : 'LEARN_MORE',
-                'calendar_id' => $post['calendar_id'] ?? null, 'label' => 'İşletme Profili gönderisi'],
+                'label' => 'İşletme Profili gönderisi'],
             'requested_by' => $user->id,
         ]));
     }
@@ -401,20 +380,8 @@ final class ExternalWriteService
                 default => $this->drafts->apply($action),
             };
             $action->forceFill(['status' => $result['status'] ?? 'succeeded', 'result' => $result, 'finished_at' => now(), 'error' => null])->save();
-            if (in_array($action->action, [ExternalWriteAction::ACTION_SITE_FIX, ExternalWriteAction::ACTION_CONTENT_APPLY], true)) {
-                app(SiteFixVerification::class)->start($action);
-            }
-            if ($action->advisor_item_id !== null && in_array($action->status, ['succeeded', 'partial'], true)) {
-                AdvisorItem::query()->whereKey($action->advisor_item_id)->where('status', AdvisorItemStatus::Open->value)
-                    ->update(['status' => AdvisorItemStatus::Done->value, 'resolved_at' => now(), 'resolved_by' => $action->requested_by, 'updated_at' => now()]);
-            }
         } catch (Throwable $exception) {
             $action->forceFill(['status' => 'failed', 'finished_at' => now(), 'error' => mb_substr($exception->getMessage(), 0, 500)])->save();
-            SiteFixItem::query()->where('write_action_id', $action->id)->where('status', 'queued')
-                ->update(['status' => 'failed', 'error' => mb_substr($exception->getMessage(), 0, 500), 'updated_at' => now()]);
-            // A Business Profile post that Google refused shows as "Yayınlanamadı" in the calendar and on the profile page.
-            DB::table('content_calendar_items')->where('write_action_id', $action->id)->where('status', 'approved')
-                ->update(['status' => 'failed', 'error' => mb_substr($exception->getMessage(), 0, 300), 'updated_at' => now()]);
         }
     }
 
@@ -454,15 +421,6 @@ final class ExternalWriteService
         if (! self::allowed($user, $channel)) {
             abort(403, 'Harici yazmayı yalnız Admin onaylayabilir.');
         }
-    }
-
-    private function pending(?int $itemId, ?int $taskId): bool
-    {
-        return ExternalWriteAction::query()
-            ->when($itemId !== null, fn ($q) => $q->where('advisor_item_id', $itemId))
-            ->when($taskId !== null, fn ($q) => $q->where('seo_task_id', $taskId))
-            ->whereIn('status', ['queued', 'running', 'undoing'])
-            ->exists();
     }
 
     private function queue(ExternalWriteAction $action): ExternalWriteAction

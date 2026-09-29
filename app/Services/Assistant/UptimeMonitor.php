@@ -4,7 +4,7 @@ namespace App\Services\Assistant;
 
 use App\Models\AssetAlert;
 use App\Models\DigitalAsset;
-use App\Services\Demand\DemandPageFetcher;
+use App\Services\Website\PageFetcher;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -16,7 +16,7 @@ use Throwable;
 final class UptimeMonitor
 {
     public function __construct(
-        private readonly DemandPageFetcher $fetcher,
+        private readonly PageFetcher $fetcher,
         private readonly PushNotifier $push,
     ) {}
 

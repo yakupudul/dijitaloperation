@@ -49,6 +49,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
 
         $this->assertContains('Today', $labels);
         $this->assertContains('Customers', $labels);
+        $this->assertContains('Queries', $labels, 'v2: Sorgular in the sidebar');
         $this->assertNotContains('Digital Assets', $labels, 'Step 3: assets are reached from Entegrasyonlar / brand Ayarlar');
         $this->assertNotContains('Findings', $labels, 'Faz 10e sade menü');
         $this->assertNotContains('Recommendations', $labels);
@@ -63,7 +64,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
         $this->assertNotContains('Run Registry', $labels);
 
         $groupTitles = array_column(OperatorMenu::groups(), 'title');
-        $this->assertContains('System', $groupTitles);
+        $this->assertCount(1, $groupTitles, 'v2: one sidebar group');
         $this->assertNotContains('Data', $groupTitles);
     }
 

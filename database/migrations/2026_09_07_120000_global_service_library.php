@@ -3,9 +3,9 @@
 use App\Models\BrandOffering;
 use App\Models\ServiceCatalogItem;
 use App\Services\BrandIntelligence\BrandOfferingService;
-use App\Services\SearchDemand\ServiceCatalogService;
-use App\Support\Options\IndustryOptions;
+use App\Services\Catalog\ServiceCatalogService;
 use App\Support\BrandIntelligence\IdentityLabelNormalizer;
+use App\Support\Options\IndustryOptions;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;

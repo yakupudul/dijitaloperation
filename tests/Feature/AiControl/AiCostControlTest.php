@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\AiControl;
 
-use App\Ai\Agents\SeoTaskContentPlannerAgent;
+use App\Ai\Agents\BrandSetupAgent;
 use App\Livewire\Demo\Integrations\AiProviderIntegrationPage;
 use App\Livewire\Demo\Settings\AiControlPlanePage;
 use App\Models\AgencySetting;
@@ -96,16 +96,16 @@ final class AiCostControlTest extends TestCase
     {
         config(['moxdop.anthropic.api_key' => 'sk-ant-test']);
         CoreIntegration::factory()->anthropic()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
-        SeoTaskContentPlannerAgent::fake([['items' => [], 'prompt_version' => 'x']]);
+        BrandSetupAgent::fake([['services' => [], 'prompt_version' => 'x']]);
 
-        $route = app(AiRouteResolver::class)->resolve(AiRouteKeys::SEO_TASKS_CONTENT_PLANNER);
+        $route = app(AiRouteResolver::class)->resolve(AiRouteKeys::BRAND_SETUP);
         $this->assertSame('anthropic', $route->primaryProvider());
-        (new SeoTaskContentPlannerAgent)->prompt('CONTEXT_JSON {}', provider: $route->providerModels);
+        (new BrandSetupAgent)->prompt('CONTEXT_JSON {}', provider: $route->providerModels);
 
         $row = DB::table('ai_usage_records')->first();
         $this->assertNotNull($row);
-        $this->assertSame(AiRouteKeys::SEO_TASKS_CONTENT_PLANNER, $row->route_key);
-        $this->assertSame('SeoTaskContentPlannerAgent', $row->agent);
+        $this->assertSame(AiRouteKeys::BRAND_SETUP, $row->route_key);
+        $this->assertSame('BrandSetupAgent', $row->agent);
     }
 
     public function test_budget_exhaustion_skips_paid_models_but_keeps_free_ones(): void
@@ -119,13 +119,9 @@ final class AiCostControlTest extends TestCase
         $this->assertTrue(app(AiBudget::class)->isExhausted());
 
         // Client-data route: only paid providers allowed → nothing can run, plans fall back to rules.
-        $analysis = app(AiRouteResolver::class)->resolve(AiRouteKeys::SEO_TASKS_CONTENT_PLANNER);
+        $analysis = app(AiRouteResolver::class)->resolve(AiRouteKeys::BRAND_SETUP);
         $this->assertTrue($analysis->isEmpty());
         $this->assertSame('budget_exhausted', $analysis->steps[0]['reason']);
-
-        // Public-data route: the free Groq step still runs.
-        $public = app(AiRouteResolver::class)->resolve(AiRouteKeys::SEARCH_DEMAND_LIBRARIAN);
-        $this->assertSame(['groq' => 'llama-3.3-70b-versatile'], $public->providerModels);
     }
 
     public function test_free_tier_providers_are_blocked_for_client_data_routes(): void
@@ -133,14 +129,11 @@ final class AiCostControlTest extends TestCase
         config(['ai.providers.groq.key' => 'gsk-test']);
 
         try {
-            app(AiRouteResolver::class)->saveSteps(AiRouteKeys::SEO_TASKS_SITE_UNDERSTANDING, [['provider' => AiProviderCatalog::GROQ, 'model' => 'llama-3.3-70b-versatile']]);
+            app(AiRouteResolver::class)->saveSteps(AiRouteKeys::BRAND_SETUP, [['provider' => AiProviderCatalog::GROQ, 'model' => 'llama-3.3-70b-versatile']]);
             $this->fail('client-data route accepted a free-tier provider');
         } catch (ValidationException $exception) {
             $this->assertStringContainsString('müşteri verisi', implode(' ', $exception->errors()['steps']));
         }
-
-        app(AiRouteResolver::class)->saveSteps(AiRouteKeys::SALES_INTENT_CLASSIFICATION, [['provider' => AiProviderCatalog::GROQ, 'model' => 'llama-3.3-70b-versatile']]);
-        $this->assertSame(['groq' => 'llama-3.3-70b-versatile'], app(AiRouteResolver::class)->resolve(AiRouteKeys::SALES_INTENT_CLASSIFICATION)->providerModels);
     }
 
     public function test_groq_key_can_be_saved_and_tested_from_the_integration_page(): void
@@ -156,22 +149,18 @@ final class AiCostControlTest extends TestCase
         $this->assertSame('connected', $integration->config['connection_status'] ?? null);
         $this->assertSame('gsk-live-test', $integration->providerCredential->encrypted_payload['api_key']);
         Http::assertSent(fn ($request): bool => $request->hasHeader('Authorization', 'Bearer gsk-live-test'));
-
-        $public = app(AiRouteResolver::class)->resolve(AiRouteKeys::SEARCH_DEMAND_LIBRARIAN);
-        $this->assertSame('groq', $public->primaryProvider());
     }
 
     public function test_control_plane_shows_spend_and_saves_budget(): void
     {
         DB::table('ai_usage_records')->insert([
-            'route_key' => AiRouteKeys::SEO_TASKS_CONTENT_PLANNER, 'agent' => 'SeoTaskContentPlannerAgent', 'provider' => 'anthropic',
+            'route_key' => AiRouteKeys::BRAND_SETUP, 'agent' => 'BrandSetupAgent', 'provider' => 'anthropic',
             'model' => 'claude-sonnet-5', 'input_tokens' => 20000, 'output_tokens' => 3000, 'cost_usd' => 0.07, 'created_at' => now(),
         ]);
 
         Livewire::test(AiControlPlanePage::class)
             ->assertSee('Bu ayki AI harcaması')
             ->assertSee('$0.07')
-            ->assertSee('Herkese açık veri')
             ->set('monthlyBudget', '40')
             ->call('saveBudget');
 

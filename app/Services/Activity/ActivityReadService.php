@@ -10,7 +10,6 @@ use App\Models\BrandContextActivity;
 use App\Models\Collection\CollectionRun;
 use App\Models\DomainEvent;
 use App\Models\Run;
-use App\Models\SearchQueryLibraryImport;
 use App\Models\User;
 use App\Support\Async\AsyncOperationTypes;
 use App\Support\Work\WorkUrl;
@@ -53,18 +52,6 @@ final class ActivityReadService
         $asyncRuns = $this->asyncRunQuery($filters, $since)->limit($sqlLimit)->get();
         $collectionRuns = $this->collectionRunQuery($filters, $since)->limit($sqlLimit)->get();
 
-        $libraryImports = empty($filters['brand_id']) && empty($filters['customer_id']) && empty($filters['digital_asset_id'])
-            ? SearchQueryLibraryImport::query()->with('createdBy')->whereNotNull('input_payload')
-                ->when($since !== null, fn ($q) => $q->where('created_at', '>=', $since))->latest('id')->limit($sqlLimit)->get()
-            : collect();
-
-        $clusterOperations = empty($filters['brand_id']) && empty($filters['customer_id']) && empty($filters['digital_asset_id'])
-            ? DB::table('library_cluster_operations as o')
-                ->leftJoin('users as u', 'u.id', '=', 'o.created_by')
-                ->when($since !== null, fn ($q) => $q->where('o.created_at', '>=', $since))
-                ->select('o.*', 'u.name as actor_name')->orderByDesc('o.id')->limit($sqlLimit)->get()
-            : collect();
-
         $websiteEvents = DB::table('website_connector_events as e')
             ->join('digital_assets as a', 'a.id', '=', 'e.digital_asset_id')
             ->join('brands as b', 'b.id', '=', 'a.brand_id')
@@ -95,42 +82,6 @@ final class ActivityReadService
                     'event' => 'website.wordpress-activity', 'event_label' => 'WordPress', 'domain_event_id' => null,
                 ];
             }))
-            ->concat($clusterOperations->map(function ($op): array {
-                $meta = json_decode($op->metadata, true);
-                $at = Carbon::parse($op->created_at);
-
-                return [
-                    'id' => 'query-cluster:'.$op->id, 'sort_id' => $op->id,
-                    'title' => __('manual-clusters.kind_'.$op->kind),
-                    'detail' => ($meta['main'] ?? '').' · '.__('manual-clusters.progress', [
-                        'processed' => $op->processed, 'total' => $op->total,
-                        'changed' => $op->changed, 'skipped' => $op->skipped,
-                    ]),
-                    'actor' => $op->actor_name ?? 'System', 'actor_kind' => 'human',
-                    'status' => match ($op->status) {
-                        'queued', 'running' => 'running', 'failed' => 'failed', 'partial' => 'partial', default => 'success'
-                    },
-                    'brand' => null, 'brand_id' => null, 'customer' => null, 'customer_id' => null,
-                    'created_at' => $at->toIso8601String(), 'occurred_at' => $at->toIso8601String(),
-                    'relative' => $at->diffForHumans(), 'route' => 'operator.library.search-demand-clusters',
-                    'route_params' => ['service' => $op->service_id], 'event' => 'library.query-cluster',
-                    'event_label' => __('manual-clusters.title'), 'domain_event_id' => null,
-                ];
-            }))
-            ->concat($libraryImports->map(fn ($import): array => [
-                'id' => 'library-import:'.$import->id, 'sort_id' => $import->id,
-                'title' => $import->source_type === 'services' ? 'Toplu hizmet ekleme' : ($import->source_type === 'assignment' ? 'Toplu sorgu atama' : 'Sorgu içe aktarma'),
-                'detail' => '#'.$import->id.' · '.$import->status.' · '.$import->accepted_rows.' yeni · '.$import->skipped_rows.' mevcut · '.$import->failed_rows.' hata',
-                'actor' => data_get($import->input_payload, 'automatic') ? 'System' : ($import->createdBy?->name ?? 'System'), 'actor_kind' => data_get($import->input_payload, 'automatic') ? 'system' : ($import->created_by ? 'human' : 'system'),
-                'status' => match ($import->status) {
-                    'queued', 'running' => 'running', 'failed' => 'failed', 'partial' => 'partial', default => 'success'
-                },
-                'brand' => null, 'brand_id' => null, 'customer' => null, 'customer_id' => null,
-                'created_at' => $import->created_at->toIso8601String(), 'occurred_at' => $import->created_at->toIso8601String(),
-                'relative' => $import->created_at->diffForHumans(),
-                'route' => $import->source_type === 'services' ? 'operator.library.services' : 'operator.library.search-queries',
-                'route_params' => [], 'event' => 'library.import', 'event_label' => 'Kütüphane içe aktarma', 'domain_event_id' => null,
-            ]))
             ->concat($activities->map(fn (BrandContextActivity $row): array => $this->fromActivity($row)))
             ->concat($orphanEvents->map(fn (DomainEvent $event): array => $this->fromDomainEvent($event)))
             ->concat($asyncRuns->map(fn (Run $run): array => $this->fromAsyncRun($run)))

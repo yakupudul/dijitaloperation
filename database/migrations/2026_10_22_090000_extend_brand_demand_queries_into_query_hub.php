@@ -84,17 +84,19 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('brand_demand_query_assets');
-        Schema::table('brand_demand_queries', function (Blueprint $table): void {
-            $table->dropIndex('brand_demand_queries_relevance_idx');
-            $table->dropIndex('brand_demand_queries_branded_idx');
-            $table->dropConstrainedForeignId('search_query_library_item_id');
-            $table->dropConstrainedForeignId('brand_query_portfolio_item_id');
-            $table->dropConstrainedForeignId('reviewed_by');
-            $table->dropColumn([
-                'source_mask', 'gsc_position', 'search_volume', 'serp_rank', 'competitor_count', 'recent_impressions',
-                'previous_impressions', 'recent_clicks', 'previous_clicks', 'first_observed_on', 'last_observed_on', 'sector',
-                'intent', 'relevance', 'relevance_source', 'assignment_method', 'assignment_confidence', 'reviewed_at',
-            ]);
-        });
+        if (Schema::hasTable('brand_demand_queries')) {
+            Schema::table('brand_demand_queries', function (Blueprint $table): void {
+                $table->dropIndex('brand_demand_queries_relevance_idx');
+                $table->dropIndex('brand_demand_queries_branded_idx');
+                $table->dropConstrainedForeignId('search_query_library_item_id');
+                $table->dropConstrainedForeignId('brand_query_portfolio_item_id');
+                $table->dropConstrainedForeignId('reviewed_by');
+                $table->dropColumn([
+                    'source_mask', 'gsc_position', 'search_volume', 'serp_rank', 'competitor_count', 'recent_impressions',
+                    'previous_impressions', 'recent_clicks', 'previous_clicks', 'first_observed_on', 'last_observed_on', 'sector',
+                    'intent', 'relevance', 'relevance_source', 'assignment_method', 'assignment_confidence', 'reviewed_at',
+                ]);
+            });
+        }
     }
 };

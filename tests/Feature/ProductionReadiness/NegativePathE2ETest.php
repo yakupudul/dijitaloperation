@@ -8,7 +8,6 @@ use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\User;
-use App\Services\ClientValueStory\ClientValueStoryReadService;
 use App\Services\Ga4\Ga4SpecialistReadService;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -59,22 +58,5 @@ class NegativePathE2ETest extends TestCase
             ->assertSee('No Findings yet')
             ->assertDontSee('Meta CPL deteriorated')
             ->assertDontSee('Atlas Dental — GA4');
-    }
-
-    public function test_empty_brand_value_story_is_truthful_without_demo_narrative(): void
-    {
-        Http::fake();
-        $this->seed(RoleAndPermissionSeeder::class);
-
-        $customer = Customer::factory()->create();
-        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
-        DigitalAsset::factory()->create(['brand_id' => $brand->id]);
-
-        $story = app(ClientValueStoryReadService::class)->forBrand($brand, '2026-07-01', '2026-07-31');
-        $presentation = $story->toPresentationArray();
-        $encoded = json_encode($presentation);
-        $this->assertStringNotContainsString('Atlas Dental', (string) $encoded);
-        $this->assertFalse($story->hasAnyOutcomeData());
-        $this->assertSame([], $story->findings);
     }
 }

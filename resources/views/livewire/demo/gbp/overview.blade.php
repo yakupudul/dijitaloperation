@@ -57,8 +57,6 @@
 
         <div class="flex flex-wrap gap-2">
             @if (filled($identity['brand_id'] ?? null))
-                <a href="{{ route('operator.market.map-rankings', ['brand' => $identity['brand_id']]) }}" wire:navigate class="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5">Harita sıralaması</a>
-                <a href="{{ route('operator.market.competitor-watch', ['brand' => $identity['brand_id']]) }}" wire:navigate class="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5">Yorum ve rakip analizi</a>
             @endif
             <button type="button" wire:click="refreshData" wire:loading.attr="disabled" @disabled(! $bound) class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">{{ __($g.'refresh') }}</button>
         </div>
@@ -91,7 +89,7 @@
                 <p class="mt-2 text-xs text-rose-700 dark:text-rose-300">Eksik kalan veri: {{ $connection['last_error'] }}@if (filled($connection['last_error_hint'] ?? null)) — <strong>{{ $connection['last_error_hint'] }}</strong>@endif</p>
             @endif
         </section>
-    @elseif ($gaps !== [] && $tab !== 'advisor')
+    @elseif ($gaps !== [])
         <p class="rounded-lg bg-gray-50 px-4 py-2 text-xs text-gray-500 dark:bg-white/[0.03] dark:text-gray-400">
             {{ __($g.'data_gaps', ['items' => collect($gaps)->map(fn ($key) => __($g.'gap.'.$key))->implode(', ')]) }}
             @if (filled($connection['last_run_label'] ?? null)) · {{ __($g.'last_run') }}: {{ $connection['last_run_label'] }} @endif
@@ -115,10 +113,7 @@
         </div>
     @endif
 
-    @if ($tab === 'advisor')
-        <livewire:operator.advisor.advisor-panel :asset-id="(int) $assetId" :key="'gbp-advisor-'.$assetId" />
-
-    @elseif ($tab === 'overview')
+    @if ($tab === 'overview')
         <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <section class="{{ $card }}">
                 <p class="text-xs text-gray-400">{{ __($g.'kpi.views') }}</p>
@@ -174,25 +169,6 @@
                     <section class="{{ $card }} text-sm text-gray-500">{{ __($g.'no_performance') }}</section>
                 @endif
             </div>
-            <section class="{{ $card }}">
-                <div class="flex items-center justify-between gap-2">
-                    <h2 class="font-semibold text-gray-900 dark:text-white">{{ __($g.'top_advice') }}</h2>
-                    <button type="button" wire:click="setTab('advisor')" class="text-xs font-semibold text-brand-600 hover:underline">{{ __($g.'see_advisor') }}</button>
-                </div>
-                <div class="mt-3 space-y-3">
-                    @forelse ($topAdvice as $item)
-                        <div class="rounded-lg border border-gray-100 p-3 dark:border-gray-700">
-                            <div class="flex items-center gap-2">
-                                <x-ta.badge :color="$item->severityColor()" size="sm">{{ $item->severityLabel() }}</x-ta.badge>
-                                @if ($item->impact_label)<span class="text-[11px] text-gray-500">{{ $item->impact_label }}</span>@endif
-                            </div>
-                            <p class="mt-1 text-sm font-medium text-gray-900 dark:text-white">{{ $item->title }}</p>
-                        </div>
-                    @empty
-                        <p class="text-sm text-gray-500">{{ __($g.'no_advice') }}</p>
-                    @endforelse
-                </div>
-            </section>
         </div>
 
         <section class="{{ $card }}">
@@ -260,7 +236,6 @@
         </section>
 
     @elseif ($tab === 'reviews')
-        @if ($themesInsight)<x-operator.ai-insight :insight="$themesInsight" />@endif
         @include('livewire.demo.gbp.partials.review-access')
         @if ($badReviewAlert)
             <p class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/20 dark:text-rose-200">
@@ -296,30 +271,6 @@
             </div>
         @endif
 
-        @if ($competitors !== [])
-            <section class="{{ $card }}">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <h2 class="font-semibold text-gray-900 dark:text-white">Rakiplerle yorum karşılaştırması</h2>
-                    <a href="{{ route('operator.market.competitor-watch', ['brand' => $identity['brand_id']]) }}" wire:navigate class="text-xs font-semibold text-brand-600 hover:underline">Yorum ve rakip analizi →</a>
-                </div>
-                <div class="mt-3 overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead><tr class="text-left text-xs text-gray-400"><th class="py-1 pr-3 font-medium">Profil</th><th class="py-1 pr-3 text-right font-medium">Puan</th><th class="py-1 pr-3 text-right font-medium">Yorum</th><th class="py-1 pr-3 text-right font-medium">Son 30 gün</th><th class="py-1 text-right font-medium">Yanıt oranı</th></tr></thead>
-                        <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                            @foreach ($competitors as $row)
-                                <tr @class(['font-semibold' => $row['is_own']])>
-                                    <td class="py-1.5 pr-3 text-gray-800 dark:text-gray-200">{{ $row['title'] }}@if ($row['is_own']) <span class="text-xs text-brand-600">(siz)</span>@endif</td>
-                                    <td class="py-1.5 pr-3 text-right tabular-nums">{{ number_format((float) $row['rating'], 1, ',', '.') }}</td>
-                                    <td class="py-1.5 pr-3 text-right tabular-nums">{{ $row['reviews_count'] ?? '—' }}</td>
-                                    <td class="py-1.5 pr-3 text-right tabular-nums">{{ $row['last30'] }}</td>
-                                    <td class="py-1.5 text-right tabular-nums">{{ $row['response_rate'] !== null ? '%'.$row['response_rate'] : '—' }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        @endif
 
         <section class="rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
             <div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-700 lg:flex-row lg:items-center lg:justify-between">
@@ -472,19 +423,14 @@
                                 @error('post.url')<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
                             </label>
                         </div>
-                        <label class="block text-sm"><span class="text-xs text-gray-500">Yayın zamanı (İstanbul)</span>
-                            <input type="datetime-local" wire:model="post.scheduled_for" class="mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900">
-                            @error('post.scheduled_for')<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
-                        </label>
                         <div class="flex flex-wrap gap-2">
-                            <button type="button" wire:click="savePost('draft')" class="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Takvime kaydet</button>
                             @if ($canPublishReplies)
-                                <button type="button" wire:click="savePost('approve')" class="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-600">Onayla ve zamanla</button>
-                                <button type="button" x-on:click="if (confirm('Gönderi şimdi Google’da yayınlansın mı? Sonradan geri alınabilir.')) $wire.savePost('publish')" class="rounded-lg bg-success-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-success-600">Şimdi yayınla</button>
+                                <button type="button" x-on:click="if (confirm('Gönderi şimdi Google’da yayınlansın mı? Sonradan geri alınabilir.')) $wire.publishPost()" class="rounded-lg bg-success-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-success-600">Şimdi yayınla</button>
+                            @else
+                                <span class="text-xs text-gray-500">Gönderiyi yalnız Admin yayınlayabilir.</span>
                             @endif
                             <button type="button" wire:click="cancelPost" class="px-2 text-sm text-gray-500 hover:underline">Vazgeç</button>
                         </div>
-                        @unless ($canPublishReplies)<p class="text-xs text-gray-500">Kaydedilen gönderiyi Admin onaylar; onaydan sonra zamanında yayınlanır.</p>@endunless
                     </div>
                 @endif
             </section>
@@ -493,7 +439,6 @@
                 <div class="flex items-center justify-between gap-2 border-b border-gray-100 px-5 py-4 dark:border-gray-700">
                     <h2 class="font-semibold text-gray-900 dark:text-white">Gönderiler</h2>
                     @if (filled($identity['brand_id'] ?? null))
-                        <a href="{{ route('operator.content.calendar', ['brand' => $identity['brand_id']]) }}" wire:navigate class="text-xs font-semibold text-brand-600 hover:underline">İçerik takvimi →</a>
                     @endif
                 </div>
                 <div class="divide-y divide-gray-100 dark:divide-gray-700">
@@ -509,31 +454,19 @@
                                     'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300' => ! in_array($item['status'], ['published', 'live', 'failed', 'rejected'], true),
                                 ])>{{ $item['status_label'] }}</span>
                             </div>
-                            @if ($item['kind'] === 'calendar' && filled($item['body']))<p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ \Illuminate\Support\Str::limit($item['body'], 220) }}</p>@endif
+                            @if ($item['kind'] === 'moxdop' && filled($item['body']))<p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ \Illuminate\Support\Str::limit($item['body'], 220) }}</p>@endif
                             @if (filled($item['error']))<p class="mt-1 text-xs text-rose-600">{{ $item['error'] }}</p>@endif
                             @if (in_array($item['action_status'], ['queued', 'running', 'undoing'], true))<p class="mt-1 text-xs text-gray-500" wire:poll.5s>Google’a gönderiliyor…</p>@endif
-                            @if ($item['kind'] === 'calendar')
-                                <div class="mt-1 flex flex-wrap gap-3 text-xs">
-                                    @if ($item['editable'])
-                                        <button type="button" wire:click="editPost({{ $item['id'] }})" class="font-medium text-brand-600 hover:underline">Düzenle</button>
-                                        @if ($canPublishReplies && in_array($item['status'], ['draft', 'failed'], true))
-                                            <button type="button" wire:click="approvePost({{ $item['id'] }})" class="font-medium text-brand-600 hover:underline">Onayla</button>
-                                        @endif
-                                        @if ($canPublishReplies)
-                                            <button type="button" x-on:click="if (confirm('Gönderi şimdi Google’da yayınlansın mı?')) $wire.publishPostNow({{ $item['id'] }})" class="font-medium text-success-600 hover:underline">Şimdi yayınla</button>
-                                        @endif
-                                        <button type="button" wire:click="skipPost({{ $item['id'] }})" class="text-gray-500 hover:underline">Vazgeç</button>
-                                    @endif
-                                    @if ($canPublishReplies && $item['undoable'])
-                                        <button type="button" x-on:click="if (confirm('Gönderi Google’dan silinsin mi?')) $wire.undoWrite({{ $item['action_id'] }})" class="font-medium text-rose-600 hover:underline">Geri al</button>
-                                    @endif
-                                </div>
+                            @if ($item['kind'] === 'moxdop')
+                                @if ($canPublishReplies && $item['undoable'])
+                                    <div class="mt-1 text-xs"><button type="button" x-on:click="if (confirm('Gönderi Google’dan silinsin mi?')) $wire.undoWrite({{ $item['action_id'] }})" class="font-medium text-rose-600 hover:underline">Geri al</button></div>
+                                @endif
                             @elseif (filled($item['url']))
                                 <a href="{{ $item['url'] }}" target="_blank" rel="noopener" class="mt-1 inline-block text-xs text-brand-600 hover:underline">Google’da gör ↗</a>
                             @endif
                         </div>
                     @empty
-                        <p class="px-5 py-6 text-sm text-gray-500">Henüz gönderi yok. “Yeni gönderi” ile ilkini planlayın.</p>
+                        <p class="px-5 py-6 text-sm text-gray-500">Henüz gönderi yok. “Yeni gönderi” ile ilkini yayınlayın.</p>
                     @endforelse
                 </div>
             </section>

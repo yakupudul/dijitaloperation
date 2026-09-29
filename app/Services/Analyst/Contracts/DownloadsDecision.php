@@ -2,7 +2,7 @@
 
 namespace App\Services\Analyst\Contracts;
 
-use App\Models\AnalystDecision;
+use App\Models\Suggestion;
 use App\Models\User;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -12,5 +12,5 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 interface DownloadsDecision
 {
-    public function download(AnalystDecision $decision, User $user): ?StreamedResponse;
+    public function download(Suggestion $decision, User $user): ?StreamedResponse;
 }

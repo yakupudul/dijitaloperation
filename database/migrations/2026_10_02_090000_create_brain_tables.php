@@ -51,6 +51,9 @@ return new class extends Migration
     {
         Schema::dropIfExists('google_ads_quality_score_history');
         foreach (['advisor_items', 'seo_tasks'] as $name) {
+            if (! Schema::hasTable($name)) {
+                continue;
+            }
             Schema::table($name, function (Blueprint $table): void {
                 $table->dropColumn(['verification', 'verified_at', 'reopened_count', 'snoozed_until']);
             });

@@ -66,7 +66,6 @@ class PhaseEOperatorUxRegressionTest extends TestCase
         $this->get('/tasks')->assertOk();
         $this->get('/settings')->assertOk();
         $this->get('/profile')->assertOk();
-        $this->get('/prospects')->assertOk();
 
         $html = $this->get('/')->assertOk()->getContent();
         $this->assertStringContainsString('Toggle Mobile Menu', $html);

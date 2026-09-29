@@ -11,9 +11,8 @@ use App\Models\DigitalAsset;
 use App\Models\DiscoveryCandidate;
 use App\Models\User;
 use App\Services\BrandIntelligence\BrandOfferingService;
-use App\Services\SearchDemand\BrandCommercialContextService;
-use App\Services\SearchDemand\SearchDemandCompetitorLibraryService;
-use App\Services\SearchDemand\ServiceCatalogService;
+use App\Services\Catalog\BrandCommercialContextService;
+use App\Services\Catalog\ServiceCatalogService;
 use Illuminate\Validation\ValidationException;
 use MoxDop\Website\Discovery\PublicPageExtractor;
 
@@ -23,7 +22,6 @@ final class DiscoveryCandidateApplicationService
         private readonly BrandOfferingService $offerings,
         private readonly ServiceCatalogService $catalog,
         private readonly BrandCommercialContextService $commercial,
-        private readonly SearchDemandCompetitorLibraryService $competitors,
         private readonly PublicPageExtractor $extractor,
     ) {}
 
@@ -70,8 +68,8 @@ final class DiscoveryCandidateApplicationService
             $this->appendNamed($context, 'target_markets', $area->label());
             $receipt = array_merge($receipt, ['destination' => 'service_areas', 'record_id' => $area->id, 'label' => $area->label()]);
         } elseif ($field === 'known_competitors') {
-            $competitor = $this->competitors->acceptDiscoveryCandidate($candidate, $value, $actor);
-            $this->appendNamed($context, 'known_competitors', $competitor->normalized_domain, ['url' => 'https://'.$competitor->normalized_domain]);
+            $domain = strtolower(trim((string) preg_replace('#^https?://(www\.)?#i', '', $value), ' /'));
+            $this->appendNamed($context, 'known_competitors', $domain, ['url' => 'https://'.$domain]);
             $receipt += ['record_id' => $competitor->id];
         } elseif ($field === 'social_links') {
             $url = trim(preg_replace('/^[a-z]+:\s+(?=https?:)/i', '', $value) ?? $value);

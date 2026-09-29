@@ -40,9 +40,11 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('brand_intel_settings', function (Blueprint $table): void {
-            $table->dropColumn('ai_visibility_prompts');
-        });
+        if (Schema::hasTable('brand_intel_settings')) {
+            Schema::table('brand_intel_settings', function (Blueprint $table): void {
+                $table->dropColumn('ai_visibility_prompts');
+            });
+        }
         Schema::dropIfExists('ai_visibility_checks');
     }
 };

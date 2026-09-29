@@ -1,6 +1,6 @@
 @php
     $card = 'rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
-    $tabs = ['overview' => __('operator.customer.tabs.overview'), 'reports' => __('operator.customer.tabs.reports')];
+    $tabs = ['overview' => __('operator.customer.tabs.overview')];
 @endphp
 <div class="space-y-6" x-data="{ moreOpen: false }">
     @include('livewire.demo.partials.flash')
@@ -48,7 +48,6 @@
             $money = static fn (?float $v): string => $v !== null ? '₺'.number_format($v, 0, ',', '.') : '—';
             $stateLabel = ['over' => ['Bütçeyi aşacak', 'text-rose-700 bg-rose-50'], 'under' => ['Bütçenin altında', 'text-amber-700 bg-amber-50'], 'on_track' => ['Hedefte', 'text-emerald-700 bg-emerald-50'], 'no_budget' => ['Bütçe girilmemiş', 'text-gray-600 bg-gray-100'], 'mixed_currency' => ['Farklı para birimleri', 'text-amber-700 bg-amber-50']];
         @endphp
-        @if ($briefInsight)<x-operator.ai-insight :insight="$briefInsight" />@endif
         <section class="{{ $card }} p-5" data-customer-commercial>
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -156,21 +155,6 @@
                 @endforelse
             </section>
 
-            <section class="{{ $card }} p-5" data-customer-interactions>
-                <div class="flex items-center justify-between">
-                    <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">İletişim ve tahsilat</h2>
-                    <a href="{{ route('operator.agency', ['tab' => 'contacts']) }}" wire:navigate class="text-xs text-brand-600 hover:underline">Görüşme ekle</a>
-                </div>
-                @forelse ($interactions as $row)
-                    <p class="mt-2 text-sm"><span class="text-xs text-gray-500">{{ $row->occurred_at->format('d.m') }} · {{ \App\Models\CustomerInteraction::CHANNELS[$row->channel] ?? $row->channel }}</span> {{ \Illuminate\Support\Str::limit($row->summary, 120) }}@if ($row->next_action && ! $row->next_action_done_at)<span class="block text-xs text-brand-700">→ {{ $row->next_action }} ({{ $row->next_action_at?->format('d.m') }})</span>@endif</p>
-                @empty
-                    <p class="mt-2 text-sm text-gray-500">Kayıtlı görüşme yok.</p>
-                @endforelse
-                @foreach ($openInvoices as $invoice)
-                    <p class="mt-2 text-xs {{ $invoice->isOverdue() ? 'font-semibold text-error-600' : 'text-gray-500' }}">Fatura {{ $invoice->period }} · {{ number_format((float) $invoice->amount, 0, ',', '.') }} {{ $invoice->currency }} · {{ \App\Models\Invoice::STATUSES[$invoice->status] }}@if ($invoice->due_on) · vade {{ $invoice->due_on->format('d.m') }}@endif</p>
-                @endforeach
-            </section>
-
             <section class="{{ $card }} p-5">
                 <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('operator.portfolio.account_owner_responsible') }}</h2>
                 <dl class="mt-3 space-y-3 text-sm">
@@ -197,36 +181,6 @@
         </div>
     @endif
 
-    {{-- ============================================================ REPORTS --}}
-    @if ($tab === 'reports')
-        <section class="{{ $card }} p-5">
-            <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('operator.reports.customer_title') }}</h2>
-            <p class="mt-1 text-sm text-gray-500">{{ __('operator.reports.customer_subtitle') }}</p>
-            <p class="mt-1 text-xs text-gray-400">{{ $customerReports['aggregation_note'] ?? '' }}</p>
-            <ul class="mt-4 divide-y divide-gray-100 dark:divide-gray-800">
-                @forelse ($customerReports['snapshots'] ?? [] as $snap)
-                    <li class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                        <div>
-                            <p class="font-medium text-gray-800 dark:text-white/90">{{ $snap['title'] }}</p>
-                            <p class="text-xs text-gray-500">{{ $snap['brand_name'] }} · {{ $snap['period_start'] }} → {{ $snap['period_end'] }} · {{ __('operator.reports.generated_at') }} {{ $snap['generated_at'] }}</p>
-                        </div>
-                        <a href="{{ $snap['view_url'] }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.reports.view_snapshot') }}</a>
-                    </li>
-                @empty
-                    <li class="py-4 text-sm text-gray-500">{{ __('operator.reports.empty_snapshots') }}</li>
-                @endforelse
-            </ul>
-        </section>
-        <div class="grid gap-3 sm:grid-cols-2">
-            @foreach ($customerReports['brands'] ?? [] as $reportCard)
-                <div class="{{ $card }} p-4">
-                    <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ $reportCard['brand_name'] }}</h3>
-                    <p class="mt-1 text-xs text-gray-400">{{ __('operator.reports.brand_scoped_note') }}</p>
-                    <a href="{{ $reportCard['report_url'] }}" wire:navigate class="mt-3 inline-block text-sm font-medium text-brand-600 hover:underline">{{ __('operator.reports.open_brand_report') }}</a>
-                </div>
-            @endforeach
-        </div>
-    @endif
 
     <div x-data="{ open: @entangle('showContactForm') }">
         <x-ta.modal>

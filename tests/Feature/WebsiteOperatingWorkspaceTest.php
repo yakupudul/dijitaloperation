@@ -49,7 +49,7 @@ class WebsiteOperatingWorkspaceTest extends TestCase
     {
         $asset = $this->createPortfolioAsset('website', 'Northwind Website');
 
-        foreach (['overview', 'seo', 'search_console', 'ga4_analysis', 'content', 'health', 'standards', 'infrastructure', 'setup'] as $tab) {
+        foreach (['overview', 'search_console', 'ga4_analysis', 'content', 'health', 'infrastructure', 'setup'] as $tab) {
             $this->get(route('operator.website', ['assetId' => $asset->id, 'tab' => $tab]))
                 ->assertOk()
                 ->assertSee('Northwind Website')
@@ -99,7 +99,6 @@ class WebsiteOperatingWorkspaceTest extends TestCase
 
         Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id])
             ->assertSee(__('operator_website.tabs.health'))
-            ->assertSee(__('operator_website.tabs.standards'))
             ->assertDontSee(__('operator.website.tabs.operations'))
             ->assertDontSee(__('operator.website.tabs.visibility'))
             ->assertDontSee(__('operator.website.tabs.performance'))
@@ -129,10 +128,10 @@ class WebsiteOperatingWorkspaceTest extends TestCase
         ]);
 
         // Legacy Finding / Recommendation rows stay in their own pages; the overview shows the Turkish
-        // "Açık işler" card that opens the command center filtered to this asset.
+        // "Açık işler" card that opens the alerts filtered to this asset.
         Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id])
             ->assertSee('Açık işler')
-            ->assertSee(route('operator.command-center', ['asset' => $asset->id]), false)
+            ->assertSee(route('operator.alerts', ['asset' => $asset->id]), false)
             ->assertDontSee('Northwind canonical fix')
             ->assertDontSee(__('operator_website.overview.open_findings'))
             ->assertDontSee(__('operator_website.overview.recommendations'))

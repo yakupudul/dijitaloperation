@@ -7,8 +7,6 @@ use App\Enums\Observability\OperationalAlertSeverity;
 use App\Enums\Observability\OperationalAlertState;
 use App\Enums\Observability\OperationalSignalFamily;
 use App\Jobs\Async\ResourceCollectionJob;
-use App\Jobs\Queries\RunQueryPipelineJob;
-use App\Models\AdvisorPlan;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
@@ -18,7 +16,6 @@ use App\Models\Observability\OperationalAlert;
 use App\Models\ResourceAutomation;
 use App\Models\Run;
 use App\Models\User;
-use App\Services\Advisor\AdvisorPlanRunner;
 use App\Services\Collection\Activity\ActivityTierService;
 use App\Services\Collection\Activity\CollectionActivityGate;
 use App\Services\Collection\Ga4\Ga4CentralCollectionService;
@@ -29,7 +26,6 @@ use App\Services\CollectionScheduler\ExecuteCollectionLifecycleService;
 use App\Services\Integrations\Google\GoogleBusinessProfileBoundCollector;
 use App\Services\Observability\AlertSubjects;
 use App\Services\Observability\OperationalAlertLifecycleService;
-use App\Services\Queries\QueryIngestor;
 use App\Support\Permissions;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -41,6 +37,9 @@ use Throwable;
 
 final class ResourceAutomationService
 {
+    /** Free query sources: their queries are pulled from every discovered account, bound or not. */
+    public const array QUERY_SOURCES = ['search_console', 'google_ads', 'google_business_profile'];
+
     public const TYPES = ['google_ads', 'search_console', 'ga4', 'meta_ads', 'google_business_profile'];
 
     public const ACTIVE = ['queued', 'running', 'retrying', 'cancellation_requested'];
@@ -287,32 +286,13 @@ final class ResourceAutomationService
     }
 
     /**
-     * The advisor runs weekly; an account whose last review found no data (collected later) is reviewed again as
-     * soon as its collection succeeds, so the Danışman page does not keep saying "no data".
-     */
-    private function refreshAdvisorWithoutData(ResourceAutomation $automation): void
-    {
-        try {
-            $assetIds = $automation->resource?->bindings()->where('status', 'active')->pluck('digital_asset_id') ?? collect();
-            foreach (DigitalAsset::query()->operational()->whereIn('digital_assets.id', $assetIds)->whereIn('type', ['google_ads', 'meta_ads', 'google_business_profile'])->get() as $asset) {
-                $last = AdvisorPlan::query()->where('digital_asset_id', $asset->id)->where('status', AdvisorPlan::STATUS_COMPLETED)->latest('id')->first();
-                if ($last === null || in_array(data_get($last->input_summary, 'rules.reason'), ['no_campaign_data', 'not_bound'], true)) {
-                    app(AdvisorPlanRunner::class)->queue($asset, null, 'after_collection');
-                }
-            }
-        } catch (Throwable $exception) {
-            report($exception);
-        }
-    }
-
-    /**
      * Lean-data gate: a resource bound only to passive assets (inactive asset or customer) is not collected — except
      * the free query sources (Search Console, Google Ads, Business Profile): their queries are pulled from every
      * discovered account without exception, bound or not (operator decision, sorgu hattı).
      */
     public function portfolioGate(ResourceAutomation $automation): ?string
     {
-        if (in_array($automation->resource?->resource_type, QueryIngestor::QUERY_SOURCES, true)) {
+        if (in_array($automation->resource?->resource_type, self::QUERY_SOURCES, true)) {
             return null;
         }
         $assetIds = $automation->resource?->bindings()->where('status', 'active')->pluck('digital_asset_id') ?? collect();
@@ -321,18 +301,6 @@ final class ResourceAutomationService
         }
 
         return DigitalAsset::query()->operational()->whereIn('digital_assets.id', $assetIds)->exists() ? null : 'customer_passive';
-    }
-
-    /** After a successful pull the account's queries enter the query pipeline (normalize → core → service). */
-    private function queueQueryIngest(int $resourceId): void
-    {
-        try {
-            if (in_array(CoreExternalResource::query()->whereKey($resourceId)->value('resource_type'), QueryIngestor::QUERY_SOURCES, true)) {
-                RunQueryPipelineJob::dispatch($resourceId)->afterCommit();
-            }
-        } catch (Throwable $exception) {
-            report($exception);
-        }
     }
 
     /** A customer turned active again: its accounts paused by the portfolio gate are due immediately. */
@@ -487,7 +455,6 @@ final class ResourceAutomationService
                 $this->alert($automation->id, 'collection', $success ? null : 'collection_failed');
             }
             if ($finished && $success) {
-                $this->queueQueryIngest((int) $automation->external_resource_id);
             }
         });
     }
@@ -537,8 +504,6 @@ final class ResourceAutomationService
             $this->refreshActivity($a, $resources);
             $a->update(['data_through' => $through ?: $a->data_through, 'collection_status' => 'current', 'collection_error' => null, 'collection_failures' => 0,
                 'last_collection_success_at' => now(), 'next_collection_at' => $this->nextAt($a)]);
-            $this->refreshAdvisorWithoutData($a);
-            $this->queueQueryIngest((int) $a->external_resource_id);
 
             return;
         }
@@ -639,7 +604,7 @@ final class ResourceAutomationService
     /** A query source (Search Console, Google Ads, Business Profile) that serves no operational asset: queries only. */
     public function isQueryOnly(?CoreExternalResource $resource): bool
     {
-        return $resource !== null && in_array($resource->resource_type, QueryIngestor::QUERY_SOURCES, true)
+        return $resource !== null && in_array($resource->resource_type, self::QUERY_SOURCES, true)
             && ! $this->isOperationallyBound($resource);
     }
 

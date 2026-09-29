@@ -20,9 +20,11 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('advisor_items', function (Blueprint $table): void {
-            $table->dropConstrainedForeignId('exported_by');
-            $table->dropColumn('exported_at');
-        });
+        if (Schema::hasTable('advisor_items')) {
+            Schema::table('advisor_items', function (Blueprint $table): void {
+                $table->dropConstrainedForeignId('exported_by');
+                $table->dropColumn('exported_at');
+            });
+        }
     }
 };

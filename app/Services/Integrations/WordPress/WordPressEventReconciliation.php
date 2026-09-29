@@ -8,7 +8,6 @@ use App\Services\Collection\Providers\Website\WebsiteDatasetExecutor;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\SeoTasks\SeoText;
-use App\Services\SiteFixes\SiteFixVerification;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -37,7 +36,6 @@ final class WordPressEventReconciliation
         }
         try {
             $this->reconcile();
-            app(SiteFixVerification::class)->settle();
         } finally {
             $lock->release();
         }

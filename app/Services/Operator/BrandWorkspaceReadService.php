@@ -2,14 +2,10 @@
 
 namespace App\Services\Operator;
 
-use App\Enums\SeoTaskStatus;
-use App\Enums\SeoTaskType;
 use App\Models\Brand;
 use App\Models\BrandOffering;
-use App\Models\SearchDemandCompetitor;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
-use App\Models\SeoTask;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -101,10 +97,6 @@ final class BrandWorkspaceReadService
             'detail' => $services === [] ? 'Önce hizmet ekle.' : ($withoutMatching === 0 ? 'Her hizmette var.' : $withoutMatching.' hizmette yok; sorgular bu hizmetlere otomatik atanmaz.')];
         $items[] = ['key' => 'areas', 'label' => 'Hizmet verdiği yerler', 'done' => $areas > 0, 'required' => true,
             'detail' => $areas > 0 ? $areas.' bölge' : 'Tanımlı değil; bölge dışı aramalar ayrılamaz.'];
-        $competitors = SearchDemandCompetitor::query()->where('brand_id', $brand->id)->where('status', 'approved')->count();
-        $items[] = ['key' => 'competitors', 'label' => 'Rakipler', 'done' => $competitors >= 3, 'required' => false,
-            'detail' => $competitors > 0 ? $competitors.' onaylı rakip (İşletme sekmesi)' : 'Rakip yok; İşletme sekmesinden öneriler eklenebilir.'];
-
         $required = array_filter($items, static fn (array $i): bool => $i['required']);
 
         return [
@@ -151,17 +143,12 @@ final class BrandWorkspaceReadService
     public function seo(array $assets): array
     {
         $websiteIds = collect($assets)->where('type', 'website')->pluck('id')->all();
-        if ($websiteIds === [] || ! Schema::hasTable('seo_tasks')) {
+        if ($websiteIds === []) {
             return ['content' => 0, 'critical' => 0, 'questions' => 0, 'website_id' => null];
         }
-        $open = SeoTask::query()->whereIn('digital_asset_id', $websiteIds)->where('status', SeoTaskStatus::Open->value)->get(['type', 'severity']);
 
-        return [
-            'content' => $open->where('type', SeoTaskType::Create)->count(),
-            'critical' => $open->filter(fn (SeoTask $t): bool => $t->type === SeoTaskType::Fix && in_array($t->severity, ['critical', 'high'], true))->count(),
-            'questions' => $open->where('type', SeoTaskType::Question)->count(),
-            'website_id' => (int) $websiteIds[0],
-        ];
+        // v2: SEO work items are rebuilt as suggestions in Faz 4; until then the counters are empty.
+        return ['content' => 0, 'critical' => 0, 'questions' => 0, 'website_id' => (int) $websiteIds[0]];
     }
 
     /**

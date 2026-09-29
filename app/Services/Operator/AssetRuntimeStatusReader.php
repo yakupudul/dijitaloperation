@@ -2,10 +2,8 @@
 
 namespace App\Services\Operator;
 
-use App\Models\AdvisorItem;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
-use App\Models\SeoTask;
 use App\Support\Integrations\AssetBindingCompatibility;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -143,24 +141,14 @@ final class AssetRuntimeStatusReader
     }
 
     /**
-     * Open advisor recommendations + open SEO tasks per asset.
+     * Open work items per asset.
      *
      * @param  list<int>  $assetIds
      * @return array<int, int>
      */
     private function openWork(array $assetIds): array
     {
-        $out = [];
-        foreach ([AdvisorItem::query()->open(), SeoTask::query()->open()] as $query) {
-            $query->whereIn('digital_asset_id', $assetIds)
-                ->groupBy('digital_asset_id')
-                ->selectRaw('digital_asset_id, count(*) as aggregate')
-                ->pluck('aggregate', 'digital_asset_id')
-                ->each(function ($count, $id) use (&$out): void {
-                    $out[(int) $id] = ($out[(int) $id] ?? 0) + (int) $count;
-                });
-        }
-
-        return $out;
+        // v2: open work per asset comes from the suggestions table once Faz 4–7 fill it.
+        return [];
     }
 }

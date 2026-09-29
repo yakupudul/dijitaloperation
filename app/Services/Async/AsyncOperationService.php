@@ -5,19 +5,13 @@ namespace App\Services\Async;
 use App\Jobs\Async\CollectLiveBoundDataJob;
 use App\Jobs\Async\EvaluateFindingsForAssetJob;
 use App\Jobs\Async\PublicDiscoveryJob;
-use App\Jobs\Async\SearchDemandCompetitorPageCollectionJob;
 use App\Jobs\Async\SeoIntelligenceRefreshJob;
 use App\Jobs\Async\WebsiteDiagnosisJob;
 use App\Models\Collection\CollectionRun;
 use App\Models\DigitalAsset;
 use App\Models\ModuleRegistry;
 use App\Models\Run;
-use App\Models\SearchDemandChangeTracking;
-use App\Models\SearchDemandCluster;
 use App\Models\User;
-use App\Services\SearchDemand\SearchDemandChangeTrackingService;
-use App\Services\SearchDemand\SearchDemandCompetitiveIntelligenceService;
-use App\Services\SearchDemand\SearchDemandWebsiteImprovementService;
 use App\Support\Async\AsyncFailureClassifier;
 use App\Support\Async\AsyncOperationTypes;
 use App\Support\Permissions;
@@ -86,40 +80,6 @@ final class AsyncOperationService
             humanTitle: 'Public discovery',
             user: $user,
             jobFactory: fn (Run $run): object => new PublicDiscoveryJob($run->id),
-        );
-    }
-
-    /**
-     * @return array{ok: bool, queued: bool, message: string, run: ?Run, existing_run: ?Run}
-     */
-    public function queueSearchDemandCompetitorPageCollection(
-        DigitalAsset $asset,
-        SearchDemandCluster $cluster,
-        int $maxUrls,
-        ?User $user = null,
-    ): array {
-        if ($asset->type !== 'website'
-            || (int) $asset->brand_id !== (int) $cluster->brand_id
-            || $cluster->status !== 'active'
-            || blank($cluster->content_target_cluster)) {
-            throw new InvalidArgumentException('Competitor page collection requires an active content-target cluster from the Website Brand.');
-        }
-        $maxUrls = max(1, min(20, $maxUrls));
-
-        return $this->queue(
-            asset: $asset,
-            operationType: AsyncOperationTypes::SEARCH_DEMAND_COMPETITOR_PAGE_COLLECTION,
-            moduleId: AsyncOperationTypes::MODULE_SEARCH_DEMAND_COMPETITOR_PAGE_COLLECTION,
-            humanTitle: 'Competitor page collection',
-            user: $user,
-            jobFactory: fn (Run $run): object => new SearchDemandCompetitorPageCollectionJob($run->id),
-            extraMetadata: [
-                'cluster_id' => $cluster->id,
-                'cluster_name' => $cluster->name,
-                'max_urls' => $maxUrls,
-                'collection_scope' => 'exact_selected_urls_only',
-                'follows_discovered_links' => false,
-            ],
         );
     }
 
@@ -372,11 +332,6 @@ final class AsyncOperationService
 
         $asset = $original->digitalAsset ?? DigitalAsset::query()->findOrFail($original->digital_asset_id);
         $type = (string) data_get($original->metadata, 'operation_type');
-        $clusterId = data_get($original->metadata, 'cluster_id');
-        $cluster = is_numeric($clusterId) ? SearchDemandCluster::query()->find((int) $clusterId) : null;
-        $maxUrls = (int) data_get($original->metadata, 'max_urls', 10);
-        $changeTrackingId = data_get($original->metadata, 'change_tracking_id');
-        $changeTracking = is_numeric($changeTrackingId) ? SearchDemandChangeTracking::query()->find((int) $changeTrackingId) : null;
 
         $result = match ($type) {
             AsyncOperationTypes::BOUND_COLLECT => $this->queueBoundCollect($asset, $user, [
@@ -384,42 +339,6 @@ final class AsyncOperationService
             ]),
             AsyncOperationTypes::WEBSITE_DIAGNOSIS => $this->queueWebsiteDiagnosis($asset, $user),
             AsyncOperationTypes::PUBLIC_DISCOVERY => $this->queuePublicDiscovery($asset, $user),
-            AsyncOperationTypes::SEARCH_DEMAND_COMPETITOR_PAGE_COLLECTION => $cluster instanceof SearchDemandCluster
-                ? $this->queueSearchDemandCompetitorPageCollection($asset, $cluster, $maxUrls, $user)
-                : [
-                    'ok' => false,
-                    'queued' => false,
-                    'message' => 'The original competitor page collection cluster is unavailable.',
-                    'run' => null,
-                    'existing_run' => null,
-                ],
-            AsyncOperationTypes::SEARCH_DEMAND_COMPETITIVE_INTELLIGENCE => $cluster instanceof SearchDemandCluster
-                ? $this->retryCompetitiveIntelligence($asset, $cluster, $user)
-                : [
-                    'ok' => false,
-                    'queued' => false,
-                    'message' => 'The original competitive intelligence cluster is unavailable.',
-                    'run' => null,
-                    'existing_run' => null,
-                ],
-            AsyncOperationTypes::SEARCH_DEMAND_WEBSITE_IMPROVEMENT => $cluster instanceof SearchDemandCluster
-                ? $this->retryWebsiteImprovement($asset, $cluster, $user)
-                : [
-                    'ok' => false,
-                    'queued' => false,
-                    'message' => 'The original Website Improvement cluster is unavailable.',
-                    'run' => null,
-                    'existing_run' => null,
-                ],
-            AsyncOperationTypes::SEARCH_DEMAND_CHANGE_VERIFICATION => $changeTracking instanceof SearchDemandChangeTracking
-                ? $this->retryChangeVerification($changeTracking, $user)
-                : [
-                    'ok' => false,
-                    'queued' => false,
-                    'message' => 'The original change-tracking record is unavailable.',
-                    'run' => null,
-                    'existing_run' => null,
-                ],
             AsyncOperationTypes::SEO_INTELLIGENCE_REFRESH => $this->queueSeoIntelligenceRefresh($asset, $user),
             AsyncOperationTypes::FINDING_EVALUATION => $this->queueFindingEvaluation($asset, $user),
             default => [
@@ -440,63 +359,6 @@ final class AsyncOperationService
         }
 
         return $result;
-    }
-
-    /** @return array{ok: bool, queued: bool, message: string, run: ?Run, existing_run: ?Run} */
-    private function retryCompetitiveIntelligence(
-        DigitalAsset $asset,
-        SearchDemandCluster $cluster,
-        ?User $user,
-    ): array {
-        $result = app(SearchDemandCompetitiveIntelligenceService::class)->queue($asset, $cluster, $user);
-        $activity = $result['run']->activityRun;
-
-        return [
-            'ok' => true,
-            'queued' => $result['queued'],
-            'message' => $result['cached']
-                ? 'An equivalent completed Competitive Intelligence run already exists.'
-                : ($result['queued'] ? 'Competitive Intelligence queued.' : 'Competitive Intelligence is already active.'),
-            'run' => $result['queued'] ? $activity : null,
-            'existing_run' => $result['queued'] ? null : $activity,
-        ];
-    }
-
-    /** @return array{ok: bool, queued: bool, message: string, run: ?Run, existing_run: ?Run} */
-    private function retryWebsiteImprovement(
-        DigitalAsset $asset,
-        SearchDemandCluster $cluster,
-        ?User $user,
-    ): array {
-        $result = app(SearchDemandWebsiteImprovementService::class)->queue($asset, $cluster, $user);
-        $activity = $result['run']->activityRun;
-
-        return [
-            'ok' => true,
-            'queued' => $result['queued'],
-            'message' => $result['cached']
-                ? 'An equivalent completed Website Improvement run already exists.'
-                : ($result['queued'] ? 'Website Improvement planning queued.' : 'Website Improvement planning is already active.'),
-            'run' => $result['queued'] ? $activity : null,
-            'existing_run' => $result['queued'] ? null : $activity,
-        ];
-    }
-
-    /** @return array{ok: bool, queued: bool, message: string, run: ?Run, existing_run: ?Run} */
-    private function retryChangeVerification(SearchDemandChangeTracking $tracking, ?User $user): array
-    {
-        $result = app(SearchDemandChangeTrackingService::class)->queueVerification($tracking, $user);
-        $activity = $result['run']->activityRun;
-
-        return [
-            'ok' => true,
-            'queued' => $result['queued'],
-            'message' => $result['cached']
-                ? 'An equivalent completed change verification already exists.'
-                : ($result['queued'] ? 'Change verification queued.' : 'Change verification is already active.'),
-            'run' => $result['queued'] ? $activity : null,
-            'existing_run' => $result['queued'] ? null : $activity,
-        ];
     }
 
     public function markStaleRuns(int $minutes = self::STALE_RUNNING_MINUTES): int

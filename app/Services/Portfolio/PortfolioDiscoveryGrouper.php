@@ -104,6 +104,40 @@ final class PortfolioDiscoveryGrouper
             ->all();
     }
 
+    /**
+     * Every discovered account (bound or not, managers excluded) and every website, for the Keşfedilen varlıklar list.
+     *
+     * @return Collection<string, array{key: string, type: string, id: int, kind: string, name: string, host: ?string, brand_id: ?int, brand: ?string, customer: ?string, bound: bool}>
+     */
+    public function subjects(): Collection
+    {
+        $bindings = CoreAssetBinding::query()->where('status', CoreAssetBinding::STATUS_ACTIVE)
+            ->with('digitalAsset.brand.customer')->get()->keyBy('external_resource_id');
+        $out = collect();
+        CoreExternalResource::query()->whereIn('resource_type', self::TYPES)->orderBy('id')->get()
+            ->reject(fn (CoreExternalResource $r): bool => (bool) data_get($r->metadata, 'is_manager', false))
+            ->each(function (CoreExternalResource $r) use (&$out, $bindings): void {
+                $asset = $bindings->get($r->id)?->digitalAsset;
+                $out->put('resource:'.$r->id, [
+                    'key' => 'resource:'.$r->id, 'type' => 'resource', 'id' => (int) $r->id, 'kind' => (string) $r->resource_type,
+                    'name' => trim((string) ($r->display_name ?: $r->external_id)), 'host' => $this->hostOf($r),
+                    'brand_id' => $asset?->brand_id !== null ? (int) $asset->brand_id : null, 'brand' => $asset?->brand?->name,
+                    'customer' => $asset?->brand?->customer?->name, 'bound' => $asset !== null,
+                ]);
+            });
+        DigitalAsset::query()->with('brand.customer')->where('type', 'website')->orderBy('id')->get()
+            ->each(function (DigitalAsset $site) use (&$out): void {
+                $out->put('asset:'.$site->id, [
+                    'key' => 'asset:'.$site->id, 'type' => 'asset', 'id' => (int) $site->id, 'kind' => 'website',
+                    'name' => (string) ($site->domain ?: $site->name), 'host' => BrandSetupMatcher::host((string) ($site->primary_url ?: $site->domain)) ?: null,
+                    'brand_id' => $site->brand_id !== null ? (int) $site->brand_id : null, 'brand' => $site->brand?->name,
+                    'customer' => $site->brand?->customer?->name, 'bound' => $site->brand_id !== null,
+                ]);
+            });
+
+        return $out;
+    }
+
     /** @return Collection<int, CoreExternalResource> */
     private function unboundResources(): Collection
     {

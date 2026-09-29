@@ -8,7 +8,6 @@ use App\Models\CoreIntegration;
 use App\Models\ExternalWriteAction;
 use App\Models\GbpReview;
 use App\Services\Integrations\Google\GoogleApiClient;
-use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
@@ -45,9 +44,6 @@ final class GbpWriter
         if ($name === '') {
             throw new RuntimeException('Gönderi oluşturuldu ama adı dönmedi.');
         }
-        if (isset($payload['calendar_id'])) {
-            DB::table('content_calendar_items')->where('id', (int) $payload['calendar_id'])->update(['status' => 'published', 'published_at' => now(), 'external_ref' => $name, 'updated_at' => now()]);
-        }
 
         return ['status' => 'succeeded', 'post' => $name, 'search_url' => $created['searchUrl'] ?? null];
     }
@@ -68,9 +64,6 @@ final class GbpWriter
         }
         $name = (string) ($result['post'] ?? '');
         $this->call($integration, 'delete', self::BASE.$name);
-        // The calendar item goes back to draft: it can be edited and approved again.
-        DB::table('content_calendar_items')->where('external_ref', $name)->update(['status' => 'draft', 'published_at' => null, 'external_ref' => null,
-            'write_action_id' => null, 'approved_by' => null, 'error' => 'Gönderi Google’dan geri alındı.', 'updated_at' => now()]);
 
         return ['deleted' => $name];
     }

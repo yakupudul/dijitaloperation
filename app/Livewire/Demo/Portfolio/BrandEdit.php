@@ -4,7 +4,7 @@ namespace App\Livewire\Demo\Portfolio;
 
 use App\Livewire\Demo\Portfolio\Concerns\InteractsWithBrandForm;
 use App\Models\Brand;
-use App\Services\SearchDemand\BrandCommercialContextService;
+use App\Services\Catalog\BrandCommercialContextService;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;

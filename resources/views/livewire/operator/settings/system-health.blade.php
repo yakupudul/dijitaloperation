@@ -111,7 +111,7 @@
                 <p class="mt-1 text-xs text-gray-500">Her sabah her bağlantı ve bağlı hesap için en ucuz salt okunur çağrı yapılır (Google anahtar yenileme, GA4 1 günlük rapor, Search Console site okuma, Google Ads müşteri sorgusu, İşletme Profili konum okuma, Meta hesap durumu, DataForSEO ücretsiz hesap bilgisi, WordPress imzalı durum). Hiçbir şey yazılmaz.</p>
                 <p class="mt-1 text-xs text-gray-500">
                     {{ count($live) }} kontrol · <span @class(['font-semibold text-rose-600' => $liveFailed > 0])>{{ $liveFailed }} başarısız</span>
-                    · <a href="{{ route('operator.command-center', ['source' => 'data']) }}" wire:navigate class="text-brand-600 hover:underline">{{ $health['suspicious_data'] ?? 0 }} veri şüphesi</a>
+                    · {{ $health['suspicious_data'] ?? 0 }} veri şüphesi
                 </p>
             </div>
             @if ($isAdmin)

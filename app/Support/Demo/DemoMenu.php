@@ -2,16 +2,12 @@
 
 namespace App\Support\Demo;
 
-use App\Support\Roles;
-
 /**
- * Canonical operator navigation for the TailAdmin operator shell.
+ * Canonical operator navigation for the TailAdmin operator shell (the class name is legacy).
  *
- * The class name is legacy. Step 3 (brand workspace): the daily work happens on the brand screen (Arama · Harita ·
- * Google Ads · Meta), so the sidebar is only Bugün · Markalar · Müşteriler · Sorgular · Entegrasyonlar · Ayarlar.
- * Every other screen (Komuta merkezi, Portföy sağlığı, Danışman, SEO görevleri, İçerik takvimi, Rakipler, Hizmet
- * Beyni, Lead kutusu, Potansiyel müşteriler, Aylık rapor, Ajans işletmesi, WhatsApp, Yenilemeler, Dijital varlıklar…)
- * keeps its route and is reached from the brand workspace / brand Ayarlar or a direct link — not from the menu.
+ * MoxDOP v2 (Faz 0): the sidebar is exactly Bugün · Müşteriler · Markalar · Sorgular · Entegrasyonlar · Ayarlar.
+ * Ayarlar carries the settings screens as tabs: AI işlemleri ve promptlar, Standartlar, Sektör ve hizmet kataloğu,
+ * Kullanıcılar, Sistem. Every other screen is reached from a brand / asset page or a direct link.
  */
 final class DemoMenu
 {
@@ -23,7 +19,6 @@ final class DemoMenu
     public static function groups(): array
     {
         $tr = app()->getLocale() === 'tr';
-        $isAdmin = (bool) (auth()->user()?->is_active && auth()->user()?->hasRole(Roles::ADMIN));
 
         $item = static fn (string $label, string $route, string $icon, array $children = []): array => ['label' => $label, 'route' => $route, 'icon' => $icon, 'children' => $children];
         $child = static fn (string $label, string $route): array => ['label' => $label, 'route' => $route];
@@ -33,26 +28,20 @@ final class DemoMenu
                 'label' => __('operator.nav.groups.menu'),
                 'items' => [
                     $item($tr ? 'Bugün' : 'Today', 'operator.dashboard', 'dashboard'),
-                    $item(__('operator.nav.brands'), 'operator.brands', 'brands'),
                     $item(__('operator.nav.customers'), 'operator.customers', 'customers'),
-                    $item($tr ? 'Sorgular' : 'Search Queries', 'operator.library.search-queries', 'search', [
-                        $child($tr ? 'Hizmetler' : 'Services', 'operator.library.services'),
-                    ]),
-                ],
-            ],
-            [
-                'label' => __('operator.nav.groups.system'),
-                'items' => [
+                    $item(__('operator.nav.brands'), 'operator.brands', 'brands'),
+                    $item($tr ? 'Sorgular' : 'Queries', 'operator.library.queries', 'search'),
                     $item(__('operator.nav.integrations'), 'operator.integrations', 'integrations', [
                         $child($tr ? 'Keşfedilen varlıklar' : 'Discovered Assets', 'operator.integrations.discovered'),
                         $child($tr ? 'WordPress siteleri' : 'WordPress Sites', 'operator.integrations.wordpress-sites'),
-                        $child($tr ? 'Kopya web siteleri' : 'Duplicate Websites', 'operator.integrations.website-duplicates'),
                         $child($tr ? 'Veri merkezi' : 'Data Center', 'operator.data-center'),
                     ]),
                     $item(__('operator.nav.settings'), 'operator.settings', 'settings', [
-                        $child(__('operator.nav.compliance'), 'operator.compliance'),
-                        $child(__('operator.nav.activity'), 'operator.activity'),
-                        ...($isAdmin ? [$child($tr ? 'AI kalitesi' : 'AI Quality', 'operator.settings.ai-quality')] : []),
+                        $child($tr ? 'AI işlemleri ve promptlar' : 'AI operations & prompts', 'operator.settings.ai-operations'),
+                        $child($tr ? 'Standartlar' : 'Standards', 'operator.library.website-standards'),
+                        $child($tr ? 'Sektör ve hizmet kataloğu' : 'Sector & service catalog', 'operator.library.services'),
+                        $child($tr ? 'Kullanıcılar' : 'Users', 'operator.settings.users'),
+                        $child($tr ? 'Sistem' : 'System', 'operator.settings.system-health'),
                     ]),
                 ],
             ],

@@ -5,13 +5,10 @@ namespace Tests\Feature\Website;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
-use App\Models\SiteFixItem;
-use App\Services\SeoTasks\SeoUrlInspectionQueue;
 use App\Services\Website\SitemapChangeWatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /** 1.4.1: site changes reach MoxDOP without waiting for a full crawl (sitemap watch, changed-page inspection, plugin). */
@@ -75,27 +72,6 @@ final class SiteChangePropagationTest extends TestCase
 
         $this->assertContains($this->site->id, $ids);
         $this->assertNotContains($wordpress->id, $ids);
-    }
-
-    public function test_changed_pages_go_first_in_search_console_inspection(): void
-    {
-        $connection = CoreConnection::factory()->create(['digital_asset_id' => $this->site->id, 'type' => 'wordpress_connector', 'enabled' => true, 'config' => ['pairing_state' => 'paired']]);
-        DB::table('website_connector_events')->insert([
-            ['connection_id' => $connection->id, 'digital_asset_id' => $this->site->id, 'event_id' => (string) Str::uuid(), 'type' => 'content.updated', 'object_type' => 'page', 'object_id' => '5',
-                'origin' => 'wordpress_user', 'payload' => json_encode(['url' => 'https://site.example/hizmet/']), 'occurred_at' => now()->subDays(2), 'received_at' => now()->subDays(2)],
-            ['connection_id' => $connection->id, 'digital_asset_id' => $this->site->id, 'event_id' => (string) Str::uuid(), 'type' => 'content.trashed', 'object_type' => 'page', 'object_id' => '6',
-                'origin' => 'wordpress_user', 'payload' => json_encode(['url' => 'https://site.example/silindi/']), 'occurred_at' => now()->subDays(2), 'received_at' => now()->subDays(2)],
-            ['connection_id' => $connection->id, 'digital_asset_id' => $this->site->id, 'event_id' => (string) Str::uuid(), 'type' => 'content.updated', 'object_type' => 'page', 'object_id' => '7',
-                'origin' => 'wordpress_user', 'payload' => json_encode(['url' => 'https://baska.example/x/']), 'occurred_at' => now()->subDays(2), 'received_at' => now()->subDays(2)],
-        ]);
-        SiteFixItem::query()->create(['digital_asset_id' => $this->site->id, 'type' => 'seo_title', 'phase' => 1, 'object_id' => '9', 'url' => 'https://site.example/iletisim/',
-            'label' => 'İletişim', 'status' => 'applied', 'item_key' => hash('sha256', 'x')]);
-        SiteFixItem::query()->whereKey(SiteFixItem::query()->value('id'))->update(['updated_at' => now()->subDays(2)]);
-
-        $queue = app(SeoUrlInspectionQueue::class);
-        $this->assertEqualsCanonicalizing(['https://site.example/hizmet/', 'https://site.example/iletisim/'], $queue->recentlyChanged($this->site, now()->subDays(3), now()->subDay()));
-        $this->assertSame([], $queue->recentlyChanged($this->site, now()->subHours(12), now()), 'outside the window');
-        $this->assertSame('not_bound', $queue->queueChanged($this->site)['status'], 'no Search Console binding, nothing is queued');
     }
 
     public function test_plugin_sends_right_after_a_save_and_serves_the_indexnow_key(): void

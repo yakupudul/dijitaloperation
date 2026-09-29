@@ -552,21 +552,6 @@ final class GlobalOperatingFixtures
                 'group' => 'Messaging',
                 'id' => 'messaging',
                 'providers' => [
-                    [
-                        'id' => 'whatsapp',
-                        'name' => 'WhatsApp',
-                        'logo_type' => 'website',
-                        'state' => 'not_configured',
-                        'state_label' => 'Not configured',
-                        'resources_discovered' => null,
-                        'bound' => null,
-                        'available' => null,
-                        'last_check' => '—',
-                        'dependent_assets' => 0,
-                        'note' => 'Ajansın WhatsApp Business numarası: gelen kutusu ve cevap taslakları.',
-                        'route' => 'operator.whatsapp',
-                        'manage_label' => 'Configure',
-                    ],
                 ],
             ],
         ];

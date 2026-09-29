@@ -30,12 +30,6 @@
                     <dd class="font-medium text-gray-800 dark:text-white/90">{{ $accountLogin }}</dd>
                 </div>
             @endif
-            <div>
-                <dt class="text-gray-400">Niyet Radarı modu</dt>
-                <dd class="font-medium {{ $fixturesEnabled ? 'text-amber-600' : ($salesIntentPaidCalls ? 'text-emerald-600' : 'text-gray-600') }}">
-                    {{ $fixturesEnabled ? 'Örnek veri' : ($salesIntentPaidCalls ? 'Canlı ücretli çağrılar açık' : 'Canlı ücretli çağrılar kapalı') }}
-                </dd>
-            </div>
         </dl>
     </div>
 
@@ -66,26 +60,6 @@
                 @endif
             </div>
         </form>
-
-        <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div class="max-w-3xl">
-                    <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Niyet Radarı canlı keşif</h3>
-                    <p class="mt-2 text-sm text-gray-500">Niyet Radarı'nın DataForSEO canlı Google arama sonucunu çağırıp çağıramayacağını belirler. Bu ücretlidir.</p>
-                    <p class="mt-2 text-xs text-gray-400">Açmak hiçbir şeyi kendiliğinden çalıştırmaz; her arama profili çalıştırması yine ücretli çağrı onayı ister.</p>
-                    @if ($fixturesEnabled)
-                        <p class="mt-3 text-sm font-medium text-amber-700">Sunucu ayarında örnek veri modu açık. Niyet Radarı sonuçlarını gerçek pazar verisi saymadan önce kapatın.</p>
-                    @endif
-                </div>
-                <form wire:submit.prevent="saveSalesIntentRuntime" class="shrink-0 rounded-xl bg-gray-50 p-4 dark:bg-white/[0.03]">
-                    <label class="flex items-center gap-3 text-sm font-medium text-gray-800 dark:text-gray-200">
-                        <input type="checkbox" wire:model="salesIntentPaidCalls" class="rounded border-gray-300" />
-                        Enable paid live calls
-                    </label>
-                    <button type="submit" class="mt-3 w-full rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-600">Ayarı kaydet</button>
-                </form>
-            </div>
-        </section>
 
         @if ($confirmRemove)
             <div class="rounded-xl bg-warning-50 p-4 ring-1 ring-inset ring-warning-200 dark:bg-warning-500/10 dark:ring-warning-500/30">

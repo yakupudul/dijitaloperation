@@ -12,7 +12,6 @@ use App\Models\CoreIntegrationCredential;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\User;
-use App\Services\CommandCenter\CommandCenter;
 use App\Services\Verification\DataConsistencyChecker;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\Google\GoogleScopes;
@@ -24,7 +23,7 @@ use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Tests\Feature\Brain\InsertsFacts;
+use Tests\Support\InsertsFacts;
 use Tests\TestCase;
 
 /**
@@ -89,7 +88,6 @@ final class DataConsistencyCheckerTest extends TestCase
             $this->artisan('moxdop:db:compact', ['--execute' => true, '--table' => 'ga4_source_medium_daily', '--reserve-gb' => 0])->assertSuccessful();
         }
 
-        DB::table('agency_invoices')->insert(['customer_id' => $this->customer->id, 'number' => 'F-1', 'period' => '2026-08', 'amount' => 1000, 'currency' => 'EUR', 'status' => 'issued', 'created_at' => now(), 'updated_at' => now()]);
     }
 
     public function test_suspicious_data_is_flagged_listed_and_cleared_when_fixed(): void
@@ -114,8 +112,8 @@ final class DataConsistencyCheckerTest extends TestCase
         $result = app(DataConsistencyChecker::class)->run();
 
         $open = DB::table('data_consistency_issues')->whereNull('resolved_at')->get()->keyBy('kind');
-        $this->assertEqualsCanonicalizing(['missing_days', 'ads_untagged', 'conversion_divergence', 'currency_mismatch'], $open->keys()->all());
-        $this->assertSame(5, $result['open'], 'Google Ads and Meta both differ from the EUR invoice');
+        $this->assertEqualsCanonicalizing(['missing_days', 'ads_untagged', 'conversion_divergence'], $open->keys()->all());
+        $this->assertSame(3, $result['open']);
         $gap = json_decode((string) $open['missing_days']->data, true);
         $this->assertSame('google_ads', $gap['capability']);
         $this->assertSame(['2026-09-15'], $gap['dates']);
@@ -124,14 +122,9 @@ final class DataConsistencyCheckerTest extends TestCase
         $this->assertEqualsWithDelta(65.0, $divergence['ads_conversions'], 0.01);
         $this->assertEqualsWithDelta(12.0, $divergence['ga4_key_events'], 0.01);
 
-        $items = app(CommandCenter::class)->items(['source' => 'data']);
-        $this->assertCount(5, $items);
-        $this->assertTrue($items->every(fn (array $item): bool => $item['brand'] === 'Örnek Klinik' && $item['source_label'] === 'Veri şüpheli'));
-        $this->assertTrue($items->contains(fn (array $item): bool => $item['title'] === 'Google Ads harcıyor ama GA4\'te reklam trafiği görünmüyor'));
-
         $again = app(DataConsistencyChecker::class)->run();
         $this->assertSame(0, $again['new'], 'the same findings are updated, not duplicated');
-        $this->assertSame(5, DB::table('data_consistency_issues')->count());
+        $this->assertSame(3, DB::table('data_consistency_issues')->count());
 
         // Fixed: the day is re-collected, tagging works again, conversions line up, invoices move to TRY.
         $this->adsDay('2026-09-15', 100.0, 0.0);
@@ -140,13 +133,11 @@ final class DataConsistencyCheckerTest extends TestCase
                 $this->sourceMedium($day, 'google', 'cpc', 20, 5);
             }
         }
-        DB::table('agency_invoices')->update(['currency' => 'TRY']);
         DB::table('google_ads_account_daily')->update(['conversions' => 3]);
 
         $fixed = app(DataConsistencyChecker::class)->run();
         $this->assertSame(0, $fixed['open']);
-        $this->assertSame(5, $fixed['resolved']);
-        $this->assertCount(0, app(CommandCenter::class)->items(['source' => 'data']));
+        $this->assertSame(3, $fixed['resolved']);
     }
 
     public function test_quiet_or_unbound_accounts_and_missing_source_medium_data_raise_nothing(): void
@@ -156,7 +147,6 @@ final class DataConsistencyCheckerTest extends TestCase
             $this->adsDay($day, 100.0, 20.0);
             $this->insertFact('ga4_property_daily', $this->pool($this->site, ['property_id' => '123', 'reporting_date' => $day, 'sessions' => 50, 'keyEvents' => 1]));
         }
-        DB::table('agency_invoices')->update(['currency' => 'TRY']);
         CoreAssetBinding::query()->where('capability', 'meta_ads')->update(['status' => CoreAssetBinding::STATUS_DISABLED]);
 
         $this->artisan('moxdop:verify:data', ['--sync' => true])->expectsOutputToContain('0 open')->assertSuccessful();
@@ -169,7 +159,6 @@ final class DataConsistencyCheckerTest extends TestCase
             $this->adsDay($day, 100.0, 1.0);
             $this->metaDay($day, 40.0);
         }
-        DB::table('agency_invoices')->update(['currency' => 'TRY']);
         $this->metaResource->update(['metadata' => array_merge((array) $this->metaResource->metadata, ['currency' => 'USD'])]);
 
         app(DataConsistencyChecker::class)->run();

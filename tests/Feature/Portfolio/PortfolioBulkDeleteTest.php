@@ -43,19 +43,6 @@ final class PortfolioBulkDeleteTest extends TestCase
         $offeringId = DB::table('brand_offerings')->insertGetId(['brand_id' => $brand->id, 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
         DB::table('brand_offering_names')->insert(['brand_id' => $brand->id, 'brand_offering_id' => $offeringId, 'raw_label' => 'İmplant', 'normalized_key' => 'implant', 'name_kind' => 'service', 'provenance' => 'manual', 'normalization_version' => 'v1', 'created_at' => now(), 'updated_at' => now()]);
 
-        // A report snapshot with a delivery child.
-        $author = User::factory()->create();
-        $snapshotId = DB::table('report_snapshots')->insertGetId([
-            'customer_id' => $customer->id, 'brand_id' => $brand->id, 'report_type' => 'monthly', 'period_start' => now()->toDateString(), 'period_end' => now()->toDateString(),
-            'title_snapshot' => 'Rapor', 'customer_name_snapshot' => 'M', 'brand_name_snapshot' => 'B', 'locale' => 'tr', 'reporting_timezone' => 'Europe/Istanbul',
-            'snapshot_schema_version' => 'v1', 'content_payload' => '{}', 'source_manifest_payload' => '{}', 'source_manifest_fingerprint' => str_repeat('a', 64),
-            'content_checksum' => str_repeat('b', 64), 'generated_by' => $author->id, 'generated_at' => now(), 'created_at' => now(),
-        ]);
-        DB::table('report_deliveries')->insert([
-            'report_snapshot_id' => $snapshotId, 'recipient_email_snapshot' => 'a@b.com', 'delivery_mode' => 'email', 'locale' => 'tr',
-            'subject_template_version' => 'v1', 'email_template_version' => 'v1', 'status' => 'pending', 'created_at' => now(),
-        ]);
-
         return [$customer, $brand, $asset];
     }
 
@@ -75,8 +62,6 @@ final class PortfolioBulkDeleteTest extends TestCase
         // Collected / scoped data is kept.
         $this->assertSame(1, DB::table('brand_goals')->where('brand_id', $brand->id)->count());
         $this->assertSame(1, DB::table('brand_offering_names')->where('brand_id', $brand->id)->count());
-        $this->assertSame(1, DB::table('report_snapshots')->where('customer_id', $customer->id)->count());
-        $this->assertSame(1, DB::table('report_deliveries')->count());
         $this->assertDatabaseHas('core_external_resources', ['id' => $binding->external_resource_id]);
 
         // Collection stops: the binding is disabled (unbound accounts are not collected), with the reason recorded.

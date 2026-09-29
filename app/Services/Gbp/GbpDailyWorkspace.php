@@ -2,7 +2,6 @@
 
 namespace App\Services\Gbp;
 
-use App\Models\ContentCalendarItem;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
@@ -151,32 +150,31 @@ final class GbpDailyWorkspace
     }
 
     /**
-     * Gönderiler tab: MoxDOP calendar posts of this profile and posts collected from Google, plus the weekly rhythm.
+     * Gönderiler tab: posts MoxDOP sent to this profile and posts collected from Google, plus the weekly rhythm.
      *
      * @return array{items: list<array<string, mixed>>, last_post: ?string, days_since: ?int, next: ?string, hint: string, late: bool}
      */
     public function posts(DigitalAsset $asset, ?int $resourceId): array
     {
-        $calendar = ContentCalendarItem::query()->where('digital_asset_id', $asset->id)->where('channel', 'gbp_post')
-            ->where(fn ($q) => $q->where('scheduled_for', '>=', now()->subDays(120))->orWhereIn('status', ['draft', 'approved', 'failed']))
-            ->orderByDesc('scheduled_for')->limit(60)->get();
-        $actions = ExternalWriteAction::query()->whereIn('id', $calendar->pluck('write_action_id')->filter())->get()->keyBy('id');
-        $items = $calendar->map(function (ContentCalendarItem $item) use ($actions): array {
-            $action = $item->write_action_id !== null ? $actions->get($item->write_action_id) : null;
+        $actions = ExternalWriteAction::query()->where('digital_asset_id', $asset->id)->where('action', ExternalWriteAction::ACTION_LOCAL_POST)
+            ->where('created_at', '>=', now()->subDays(120))->orderByDesc('id')->limit(60)->get();
+        $items = $actions->map(function (ExternalWriteAction $action): array {
+            $summary = (string) data_get($action->request_payload, 'summary', '');
 
             return [
-                'kind' => 'calendar', 'id' => (int) $item->id, 'title' => (string) $item->title, 'body' => (string) $item->body,
-                'url' => $item->url, 'action_type' => $item->action_type, 'status' => (string) $item->status,
-                'status_label' => ContentCalendarItem::STATUSES[$item->status] ?? $item->status,
-                'when' => ($item->published_at ?? $item->scheduled_for)?->timezone('Europe/Istanbul')->format('d.m.Y H:i'),
-                'sort' => ($item->published_at ?? $item->scheduled_for)?->timestamp ?? 0,
-                'error' => $item->error ?? ($action?->status === 'failed' ? $action->error : null),
-                'action_id' => $action?->id, 'action_status' => $action?->status,
-                'undoable' => $action !== null && $action->action === ExternalWriteAction::ACTION_LOCAL_POST && $action->isUndoable(),
-                'editable' => $item->write_action_id === null && in_array($item->status, ['draft', 'failed', 'approved'], true),
+                'kind' => 'moxdop', 'id' => (int) $action->id, 'title' => mb_strimwidth(trim(strtok($summary, "\n") ?: $summary), 0, 80, '…'), 'body' => $summary,
+                'url' => data_get($action->request_payload, 'url'), 'action_type' => data_get($action->request_payload, 'action_type'), 'status' => (string) $action->status,
+                'status_label' => match ((string) $action->status) {
+                    'succeeded' => 'Yayınlandı', 'queued', 'running' => 'Gönderiliyor', 'failed' => 'Yayınlanamadı', 'undone' => 'Geri alındı', 'undoing' => 'Geri alınıyor', default => (string) $action->status,
+                },
+                'when' => ($action->finished_at ?? $action->created_at)?->timezone('Europe/Istanbul')->format('d.m.Y H:i'),
+                'sort' => ($action->finished_at ?? $action->created_at)?->timestamp ?? 0,
+                'error' => $action->status === 'failed' ? $action->error : null,
+                'action_id' => $action->id, 'action_status' => $action->status,
+                'undoable' => $action->isUndoable(), 'editable' => false,
             ];
         });
-        $known = $calendar->pluck('external_ref')->filter()->all();
+        $known = $actions->map(fn (ExternalWriteAction $a): ?string => data_get($a->result, 'post_name'))->filter()->all();
         $collected = $resourceId !== null
             ? DB::table('gbp_posts')->where('external_resource_id', $resourceId)->orderByDesc('create_time')->limit(40)->get(['post_name', 'summary', 'state', 'create_time', 'topic_type', 'raw_payload'])
             : collect();
@@ -202,17 +200,16 @@ final class GbpDailyWorkspace
     }
 
     /**
-     * Last post (collected from Google or published from the calendar), days since, next planned post, and the hint.
+     * Last post (collected from Google or published from MoxDOP), days since, and the hint.
      *
      * @return array{last_post: ?string, days_since: ?int, next: ?string, hint: string, late: bool}
      */
     public function cadence(DigitalAsset $asset, ?int $resourceId): array
     {
         $collected = $resourceId !== null ? DB::table('gbp_posts')->where('external_resource_id', $resourceId)->max('create_time') : null;
-        $published = ContentCalendarItem::query()->where('digital_asset_id', $asset->id)->where('channel', 'gbp_post')->where('status', 'published')->max('published_at');
+        $published = ExternalWriteAction::query()->where('digital_asset_id', $asset->id)->where('action', ExternalWriteAction::ACTION_LOCAL_POST)->where('status', 'succeeded')->max('finished_at');
         $last = collect([$collected, $published])->filter()->map(fn ($value): CarbonImmutable => CarbonImmutable::parse((string) $value))->sortDesc()->first();
-        $next = ContentCalendarItem::query()->where('digital_asset_id', $asset->id)->where('channel', 'gbp_post')->whereIn('status', ['draft', 'approved'])
-            ->where('scheduled_for', '>=', now()->subHour())->orderBy('scheduled_for')->first();
+        $next = null;
         $days = $last !== null ? (int) $last->startOfDay()->diffInDays(now()->startOfDay(), true) : null;
         $late = $days === null || $days > self::POST_CADENCE_DAYS;
         $hint = match (true) {
@@ -220,11 +217,8 @@ final class GbpDailyWorkspace
             $days === 0 => 'Son gönderi bugün; haftada 1 gönderi önerilir.',
             default => sprintf('Son gönderi %d gün önce; haftada 1 önerilir.', $days),
         };
-        if ($next !== null) {
-            $hint .= ' Sıradaki: '.$next->scheduled_for->timezone('Europe/Istanbul')->format('d.m H:i').($next->status === 'draft' ? ' (onay bekliyor)' : '').'.';
-        }
 
-        return ['last_post' => $last?->toDateString(), 'days_since' => $days, 'next' => $next?->scheduled_for?->toIso8601String(), 'hint' => $hint, 'late' => $late && $next === null];
+        return ['last_post' => $last?->toDateString(), 'days_since' => $days, 'next' => $next, 'hint' => $hint, 'late' => $late];
     }
 
     /**

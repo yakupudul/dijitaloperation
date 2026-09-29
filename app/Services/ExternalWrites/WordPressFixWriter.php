@@ -4,14 +4,15 @@ namespace App\Services\ExternalWrites;
 
 use App\Models\CoreConnection;
 use App\Models\ExternalWriteAction;
-use App\Models\SiteFixItem;
-use App\Services\ContentDelivery\ArticleDraft;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use RuntimeException;
 
 /**
  * ADR-070: sends approved site fixes and content updates to the MoxDOP Connector (≥ 1.4.0) and undoes them. The plugin
  * keeps the previous value of every change; undo restores it only where nobody changed the value since.
+ *
+ * v2: the writer is payload-driven. The caller (a later phase's suggestion flow) puts the change list, the content
+ * draft or the draft id into `request_payload`; results live on the ExternalWriteAction row only.
  */
 final class WordPressFixWriter
 {
@@ -21,20 +22,23 @@ final class WordPressFixWriter
     ) {}
 
     /**
-     * The change sent to WordPress for one item.
+     * One change for the connector's /fixes endpoint.
      *
+     * @param  array{type: string, object_id?: int, reference: string, value?: mixed, from?: string}  $change
      * @return array<string, mixed>
      */
-    public static function change(SiteFixItem $item): array
+    public static function change(array $change): array
     {
-        $base = ['type' => $item->type, 'object_id' => (int) $item->object_id, 'reference' => 'site-fix-'.$item->id];
+        $type = (string) ($change['type'] ?? '');
+        $base = ['type' => $type, 'object_id' => (int) ($change['object_id'] ?? 0), 'reference' => (string) ($change['reference'] ?? '')];
+        $value = $change['value'] ?? null;
 
-        return match ($item->type) {
-            'redirect' => ['type' => 'redirect', 'from' => (string) $item->url, 'value' => (string) $item->value(), 'reference' => $base['reference']],
-            'schema' => $base + ['value' => is_array($item->value()) ? json_encode($item->value(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : (string) $item->value()],
-            'noindex' => $base + ['value' => (bool) $item->value()],
-            'internal_link' => $base + ['value' => ['anchor' => (string) data_get($item->proposed, 'value.anchor'), 'url' => (string) data_get($item->proposed, 'value.url')]],
-            default => $base + ['value' => (string) $item->value()],
+        return match ($type) {
+            'redirect' => ['type' => 'redirect', 'from' => (string) ($change['from'] ?? ''), 'value' => (string) $value, 'reference' => $base['reference']],
+            'schema' => $base + ['value' => is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : (string) $value],
+            'noindex' => $base + ['value' => (bool) $value],
+            'internal_link' => $base + ['value' => ['anchor' => (string) data_get($value, 'anchor'), 'url' => (string) data_get($value, 'url')]],
+            default => $base + ['value' => (string) $value],
         };
     }
 
@@ -59,7 +63,6 @@ final class WordPressFixWriter
             if ($postId > 0) {
                 $this->client->trashDraft($connection, $postId);
             }
-            SiteFixItem::query()->whereKey($action->request_payload['item_id'] ?? 0)->update(['status' => 'open', 'updated_at' => now()]);
 
             return ['removed' => $postId > 0 ? 1 : 0];
         }
@@ -71,11 +74,6 @@ final class WordPressFixWriter
         }
         $results = (array) ($this->client->undoFixes($connection, $changeIds)['results'] ?? []);
         $restored = array_values(array_filter($results, fn (array $r): bool => (bool) ($r['ok'] ?? false)));
-        $restoredIds = array_column($restored, 'change_id');
-        SiteFixItem::query()->where('write_action_id', $action->id)->whereIn('change_id', $restoredIds)->update(['status' => 'undone', 'updated_at' => now()]);
-        if ($action->action === ExternalWriteAction::ACTION_CONTENT_APPLY && $restored !== []) {
-            SiteFixItem::query()->whereKey($action->request_payload['item_id'] ?? 0)->update(['status' => 'undone', 'updated_at' => now()]);
-        }
         $conflicts = array_values(array_filter($results, fn (array $r): bool => ($r['error'] ?? null) === 'changed_since'));
         if ($restored === [] && $conflicts !== []) {
             throw new RuntimeException('Değerler MoxDOP’tan sonra sitede değiştirilmiş; üzerine yazılmadı ('.count($conflicts).' değişiklik).');
@@ -87,23 +85,17 @@ final class WordPressFixWriter
     /** @return array<string, mixed> */
     private function fixes(ExternalWriteAction $action, CoreConnection $connection): array
     {
-        $items = SiteFixItem::query()->whereIn('id', (array) ($action->request_payload['item_ids'] ?? []))->orderBy('id')->get();
-        $changes = $items->map(fn (SiteFixItem $item): array => self::change($item))->values()->all();
+        $changes = array_values(array_map(fn (array $change): array => self::change($change), (array) ($action->request_payload['changes'] ?? [])));
         if ($changes === []) {
             throw new RuntimeException('Gönderilecek düzeltme yok.');
         }
         $results = array_values((array) ($this->client->applyFixes($connection, $changes)['results'] ?? []));
         $out = [];
-        foreach ($items->values() as $i => $item) {
+        foreach ($changes as $i => $change) {
             $result = (array) ($results[$i] ?? ['ok' => false, 'error' => 'no result']);
             $ok = (bool) ($result['ok'] ?? false);
-            $item->forceFill([
-                'status' => $ok ? 'applied' : 'failed',
-                'change_id' => $result['change_id'] ?? null,
-                'error' => $ok ? null : mb_substr((string) ($result['error'] ?? 'bilinmeyen hata'), 0, 500),
-                'current' => $ok && array_key_exists('before', $result) ? ['value' => $result['before']] + (array) $item->current : $item->current,
-            ])->save();
-            $out[] = ['item_id' => $item->id, 'ok' => $ok, 'change_id' => $result['change_id'] ?? null, 'error' => $result['error'] ?? null];
+            $out[] = ['reference' => $change['reference'], 'ok' => $ok, 'change_id' => $result['change_id'] ?? null, 'before' => $result['before'] ?? null,
+                'error' => $ok ? null : mb_substr((string) ($result['error'] ?? 'bilinmeyen hata'), 0, 500)];
         }
         $okCount = count(array_filter($out, fn (array $r): bool => $r['ok']));
 
@@ -113,20 +105,16 @@ final class WordPressFixWriter
     /** @return array<string, mixed> */
     private function contentDraft(ExternalWriteAction $action, CoreConnection $connection): array
     {
-        $item = SiteFixItem::query()->findOrFail((int) $action->request_payload['item_id']);
-        if ($item->type === 'new_page') {
-            // ADR-076: the full page (slug, SEO title / description) — older plugins read only title, content and reference.
-            $data = $this->client->createDraft($connection, WordPressDraftWriter::payload(ArticleDraft::fromSiteFixItem($item)));
+        $payload = (array) $action->request_payload;
+        if (is_array($payload['article'] ?? null)) {
+            // ADR-076: a new page with slug and SEO fields — older plugins read only title, content and reference.
+            $data = $this->client->createDraft($connection, WordPressDraftWriter::payload(ArticleDraft::fromArray($payload['article'])));
         } else {
-            $data = $this->client->createContentDraft($connection, (int) $item->object_id, (string) data_get($item->proposed, 'value.title'),
-                (string) data_get($item->proposed, 'value.html'), 'site-fix-'.$item->id);
+            $data = $this->client->createContentDraft($connection, (int) ($payload['object_id'] ?? 0), (string) ($payload['title'] ?? ''),
+                (string) ($payload['html'] ?? ''), (string) ($payload['reference'] ?? ''));
         }
         if (! is_numeric($data['post_id'] ?? null)) {
             throw new RuntimeException('WordPress taslak kimliği dönmedi.');
-        }
-        $item->forceFill(['status' => 'drafted', 'error' => null, 'current' => array_merge((array) $item->current, ['draft_id' => (int) $data['post_id'], 'edit_url' => $data['edit_url'] ?? null, 'preview_url' => $data['preview_url'] ?? null])])->save();
-        if ($item->type === 'new_page') {
-            $item->forceFill(['status' => 'applied'])->save();
         }
 
         return ['post_id' => (int) $data['post_id'], 'edit_url' => (string) ($data['edit_url'] ?? ''), 'preview_url' => (string) ($data['preview_url'] ?? ''), 'status' => 'succeeded'];
@@ -135,13 +123,11 @@ final class WordPressFixWriter
     /** @return array<string, mixed> */
     private function contentApply(ExternalWriteAction $action, CoreConnection $connection): array
     {
-        $item = SiteFixItem::query()->findOrFail((int) $action->request_payload['item_id']);
-        $draftId = (int) data_get($item->current, 'draft_id');
+        $draftId = (int) ($action->request_payload['draft_id'] ?? 0);
         if ($draftId < 1) {
             throw new RuntimeException('Önce taslak kopyayı WordPress’e gönder.');
         }
         $data = $this->client->applyContentDraft($connection, $draftId);
-        $item->forceFill(['status' => 'applied', 'change_id' => $data['change_id'] ?? null, 'write_action_id' => $action->id, 'error' => null])->save();
 
         return ['change_id' => (string) ($data['change_id'] ?? ''), 'post_id' => (int) ($data['post_id'] ?? 0), 'url' => (string) ($data['url'] ?? ''), 'status' => 'succeeded'];
     }

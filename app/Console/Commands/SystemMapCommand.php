@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Models\ExternalWriteAction;
-use App\Services\CommandCenter\CommandCenter;
 use App\Support\Demo\DemoMenu;
 use Illuminate\Console\Command;
 use Illuminate\Console\Scheduling\Event;
@@ -39,7 +38,7 @@ final class SystemMapCommand extends Command
             '',
             '## Akış',
             '',
-            '1. **Bağlantılar** (Google, Meta, DataForSEO, WordPress Connector, WhatsApp) hesapları keşfeder; her gün 05:10 otomatik keşif çalışır.',
+            '1. **Bağlantılar** (Google, Meta, DataForSEO, WordPress Connector) hesapları keşfeder; her gün 05:10 otomatik keşif çalışır.',
             '2. Hesaplar **dijital varlıklara** bağlanır; bağlı varlıklar için **merkezi toplama** (`collection` kuyruğu) veriyi çeker.',
             '3. **Danışman, SEO görevleri, Hizmet Beyni, uyum denetimi, uyarılar** veriden iş üretir.',
             '4. Her iş **Komuta merkezine** düşer; operatör orada yapar / erteler / kapatır.',
@@ -57,14 +56,6 @@ final class SystemMapCommand extends Command
             }
         }
 
-        $lines = [...$lines, '', '## Komuta merkezi kaynakları', ''];
-        foreach (CommandCenter::SOURCES as $key => $label) {
-            $lines[] = '- `'.$key.'` — '.$label;
-        }
-        foreach (CommandCenter::EXTRA_SOURCES as $class) {
-            $lines[] = '- `'.class_basename($class).'` (ek kaynak)';
-        }
-
         $lines = [...$lines, '', '## Onaylı dış yazmalar', '', '| Kanal | İşlem |', '| --- | --- |'];
         $constants = (new ReflectionClass(ExternalWriteAction::class))->getConstants();
         $channels = array_values(array_filter($constants, fn ($v, $k): bool => str_starts_with($k, 'CHANNEL_'), ARRAY_FILTER_USE_BOTH));
@@ -73,7 +64,7 @@ final class SystemMapCommand extends Command
         $lines[] = '';
         $lines[] = 'Google Ads kampanya / bütçe / durum değişikliği **yoktur**; öneriler Google Ads Editor dosyası olarak dışa aktarılır.';
 
-        $lines = [...$lines, '', '## Kuyruklar', '', '- `default` — hızlı işler (WhatsApp, bildirim, dış yazmalar, uptime).', '- `heavy` — uzun AI / analiz işleri (danışman, SEO planı, Beyin, SERP, silme); yalnız redis kuyruğunda ayrılır.', '- `collection` — merkezi veri toplama.', '', '## Zamanlanmış işler', '', '| Ne zaman | İş |', '| --- | --- |'];
+        $lines = [...$lines, '', '## Kuyruklar', '', '- `default` — hızlı işler (bildirim, dış yazmalar, uptime).', '- `heavy` — uzun AI / analiz işleri; yalnız redis kuyruğunda ayrılır.', '- `collection` — merkezi veri toplama.', '', '## Zamanlanmış işler', '', '| Ne zaman | İş |', '| --- | --- |'];
         $events = collect($schedule->events())->map(fn (Event $event): array => [
             'when' => $event->expression.($event->timezone ? ' ('.(is_string($event->timezone) ? $event->timezone : $event->timezone->getName()).')' : ''),
             'what' => $this->describe($event),

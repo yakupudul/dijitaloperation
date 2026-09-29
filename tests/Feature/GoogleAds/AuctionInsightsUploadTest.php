@@ -4,12 +4,10 @@ namespace Tests\Feature\GoogleAds;
 
 use App\Enums\CustomerStatus;
 use App\Livewire\Operator\GoogleAds\AuctionInsightsPanel;
-use App\Livewire\Operator\Market\CompetitorWatchPage;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\GoogleAdsAuctionInsight;
-use App\Models\Intel\BrandIntelSetting;
 use App\Models\User;
 use App\Services\GoogleAds\AuctionInsightsImporter;
 use App\Support\Roles;
@@ -98,16 +96,5 @@ final class AuctionInsightsUploadTest extends TestCase
         Livewire::test(AuctionInsightsPanel::class, ['assetId' => (string) $this->asset->id])
             ->set('report', UploadedFile::fake()->createWithContent('bad.csv', "a,b\n1,2\n"))
             ->call('upload')->assertSee('başlığı bulunamadı');
-    }
-
-    public function test_tab_and_competitor_screen_show_the_upload(): void
-    {
-        app(AuctionInsightsImporter::class)->import($this->asset, self::EN_CSV, null, null, null);
-        BrandIntelSetting::for($this->brand)->save();
-
-        $this->get(route('operator.google-ads.overview', ['assetId' => $this->asset->id, 'tab' => 'auction_insights']))
-            ->assertOk()->assertSee('Açık artırma analizi')->assertSee('yeni-rakip.com');
-        Livewire::test(CompetitorWatchPage::class, ['brand' => $this->brand->id, 'tab' => 'auction'])
-            ->assertSee('Atlas Ads')->assertSee('yeni-rakip.com')->assertSee('Rapor yükle');
     }
 }

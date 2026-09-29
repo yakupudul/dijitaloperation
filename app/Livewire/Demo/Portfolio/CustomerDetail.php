@@ -6,15 +6,12 @@ use App\Enums\CustomerStatus;
 use App\Livewire\Concerns\WithAiInsights;
 use App\Models\Customer;
 use App\Models\CustomerContact;
-use App\Models\CustomerInteraction;
-use App\Models\Invoice;
 use App\Services\Findings\FindingReadService;
 use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Operator\OperatorUserDirectory;
 use App\Services\Portfolio\CustomerCommercialSummary;
 use App\Services\Recommendations\RecommendationReadService;
-use App\Services\ReportSnapshots\ReportSnapshotReadService;
 use App\Services\ServiceScope\CustomerServiceScopeReadService;
 use App\Services\Work\WorkReadService;
 use App\Support\Demo\DemoState;
@@ -86,7 +83,7 @@ class CustomerDetail extends Component
         if (in_array($this->tab, ['contacts', 'relationship', 'brands', 'files', 'operations', 'activity', 'requests'], true)) {
             $this->tab = 'overview';
         }
-        if (! in_array($this->tab, ['overview', 'reports'], true)) {
+        if (! in_array($this->tab, ['overview'], true)) {
             $this->tab = 'overview';
         }
     }
@@ -273,8 +270,6 @@ class CustomerDetail extends Component
         $digitalAssetsCount = (int) $brands->sum(fn (array $b): int => (int) ($b['assets_count'] ?? 0));
 
         return view('livewire.demo.portfolio.customer-detail', [
-            'interactions' => CustomerInteraction::query()->where('customer_id', $this->customerId)->latest('occurred_at')->limit(5)->get(),
-            'openInvoices' => Invoice::query()->where('customer_id', $this->customerId)->whereIn('status', ['draft', 'issued'])->orderBy('due_on')->get(),
             'customer' => $customer,
             'industryLabel' => $industryLabel,
             'hqDisplay' => CountryOptions::formatHq($customer['hq_city'] ?? null, $customer['hq_country'] ?? null),
@@ -300,9 +295,7 @@ class CustomerDetail extends Component
             'roleOptions' => ContactRoleOptions::options(),
             'team' => $team,
             'serviceScope' => app(CustomerServiceScopeReadService::class)->forCustomer($model, includeEnded: false),
-            'customerReports' => app(ReportSnapshotReadService::class)->forCustomerReportsPresentation($model->id),
             'commercialSummary' => app(CustomerCommercialSummary::class)->for($model),
-            'briefInsight' => $this->tab === 'overview' ? $this->insightView('customer.brief', $model) : null,
             'flash' => DemoState::pullFlash(),
         ]);
     }

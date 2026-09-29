@@ -10,7 +10,6 @@ use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\Run;
 use App\Models\ServiceCategory;
-use App\Models\WebsiteUrlAudit;
 use App\Services\Gbp\GbpStandardEvaluator;
 use App\Services\Gbp\GbpStandardInput;
 use App\Support\TurkishPublicHolidays;
@@ -200,21 +199,19 @@ final class GbpStandardsTest extends TestCase
                 'review_reply' => $replyHours !== null ? json_encode(['comment' => 'Teşekkürler', 'updateTime' => $created->addHours($replyHours)->toIso8601String()]) : null,
                 'raw_payload' => '{}', 'collected_at' => now()]);
         }
-        WebsiteUrlAudit::query()->create(['digital_asset_id' => $site->id, 'brand_id' => $brand->id, 'status' => 'completed', 'computed_at' => now(),
-            'site_checks' => ['website:url:gbp_nap_consistency' => ['state' => 'fail', 'finding' => 'Telefon farklı (Profil: 3125550000; site: 3125551122).']]]);
 
         $input = app(GbpStandardInput::class)->build($asset, $resource->id, $today);
         $this->assertSame(['dental'], $input['sector_codes']);
         $this->assertSame(3, $input['reviews']['reply']['considered']);
         $this->assertSame(2, $input['reviews']['reply']['replied']);
         $this->assertEqualsWithDelta(30.0, $input['reviews']['reply']['median_hours'], 0.01);
-        $this->assertSame('fail', $input['nap']['state']);
+        $this->assertNull($input['nap'], 'v2: the site ↔ profile NAP check returns with the pages model');
         $this->assertFalse($input['media']['available']);
         $this->assertSame(['Cumhuriyet Bayramı'], array_column($input['holidays'], 'name'));
 
         $results = app(GbpStandardInput::class)->results($asset, $resource->id, $today);
         $this->assertSame('pass', $results['gbp:primary_category']['state']);
-        $this->assertSame('fail', $results['gbp:nap_matches_site']['state']);
+        $this->assertSame('unknown', $results['gbp:nap_matches_site']['state']);
         $this->assertSame('fail', $results['gbp:hours']['state'], 'Cumhuriyet Bayramı has no special hours');
         $this->assertSame('review', $results['gbp:review_responses']['state'], '1 of 3 unanswered');
         $this->assertSame('unknown', $results['gbp:photos_recent']['state'], 'media not collected is never a failure');
