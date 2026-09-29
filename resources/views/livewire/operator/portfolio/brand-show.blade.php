@@ -22,18 +22,33 @@
                 @if ($areas !== []) · {{ implode(' · ', array_slice($areas, 0, 3)) }}@if (count($areas) > 3) +{{ count($areas) - 3 }}@endif @endif
             </p>
         </div>
-        <div class="flex shrink-0 flex-wrap gap-2">
-            <a href="{{ route('operator.brand.setup', ['brand' => $brandModel->id]) }}" wire:navigate @class(['inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium', 'bg-success-500 text-white hover:bg-success-600' => ! $checklist['complete'], 'text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700' => $checklist['complete']])>Otomatik kur</a>
-            <a href="{{ route('operator.asset.create', ['brandId' => $brandModel->id]) }}" wire:navigate class="inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Varlık ekle</a>
-            <a href="{{ route('operator.brand.edit', ['brandId' => $brandModel->id]) }}" wire:navigate class="inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Düzenle</a>
-        </div>
+        @if (! $workspaceTab)
+            <div class="flex shrink-0 flex-wrap gap-2">
+                <a href="{{ route('operator.brand.setup', ['brand' => $brandModel->id]) }}" wire:navigate @class(['inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium', 'bg-success-500 text-white hover:bg-success-600' => ! $checklist['complete'], 'text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700' => $checklist['complete']])>Otomatik kur</a>
+                <a href="{{ route('operator.asset.create', ['brandId' => $brandModel->id]) }}" wire:navigate class="inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Varlık ekle</a>
+                <a href="{{ route('operator.brand.edit', ['brandId' => $brandModel->id]) }}" wire:navigate class="inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Düzenle</a>
+            </div>
+        @endif
     </div>
 
     <div class="-mx-1 overflow-x-auto">
         <div class="flex min-w-max gap-1 border-b border-gray-200 px-1 dark:border-gray-800" role="tablist" aria-label="Marka">
-            @foreach ($tabLabels as $key => $label)
-                <button type="button" role="tab" wire:click="setTab('{{ $key }}')" aria-selected="{{ $tab === $key ? 'true' : 'false' }}" @class(['border-b-2 px-3 py-2 text-sm font-medium transition', 'border-brand-500 text-brand-600 dark:text-brand-400' => $tab === $key, 'border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-400' => $tab !== $key])>{{ $label }}@if ($key === 'work' && $openWork > 0) <span class="ml-1 rounded-full bg-gray-100 px-1.5 text-xs dark:bg-gray-800">{{ $openWork }}</span>@endif</button>
+            @foreach ($workspaceTabs as $key => $label)
+                <button type="button" role="tab" wire:click="setTab('{{ $key }}')" aria-selected="{{ $mainTab === $key ? 'true' : 'false' }}" @class(['border-b-2 px-3 py-2 text-sm font-medium transition', 'border-brand-500 text-brand-600 dark:text-brand-400' => $mainTab === $key, 'border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-400' => $mainTab !== $key, 'ml-auto' => $key === 'ayarlar'])>{{ $label }}</button>
             @endforeach
+        </div>
+    </div>
+
+    @if ($workspaceTab)
+        @include('livewire.operator.portfolio.partials.brand-workspace')
+    @else
+    <div class="-mx-1 overflow-x-auto">
+        <div class="flex min-w-max items-center gap-1 px-1" role="tablist" aria-label="Ayarlar">
+            @foreach ($tabLabels as $key => $label)
+                <button type="button" role="tab" wire:click="setTab('{{ $key }}')" aria-selected="{{ $tab === $key ? 'true' : 'false' }}" @class(['rounded-lg px-3 py-1.5 text-sm font-medium transition', 'bg-gray-100 text-gray-900 dark:bg-white/[0.06] dark:text-white' => $tab === $key, 'text-gray-600 hover:text-gray-900 dark:text-gray-400' => $tab !== $key])>{{ $label }}@if ($key === 'work' && $openWork > 0) <span class="ml-1 rounded-full bg-gray-100 px-1.5 text-xs dark:bg-gray-800">{{ $openWork }}</span>@endif</button>
+            @endforeach
+            <a href="{{ route('operator.reports.monthly') }}" wire:navigate class="ml-2 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Aylık rapor</a>
+            <a href="{{ route('operator.assets') }}" wire:navigate class="ml-2 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Tüm varlıklar</a>
         </div>
     </div>
 
@@ -400,5 +415,6 @@
                 @endforelse
             </ul>
         </section>
+    @endif
     @endif
 </div>

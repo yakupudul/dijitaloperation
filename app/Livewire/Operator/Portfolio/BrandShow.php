@@ -5,6 +5,8 @@ namespace App\Livewire\Operator\Portfolio;
 use App\Jobs\DiscoverProviderResourcesJob;
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Livewire\Operator\Portfolio\Concerns\InteractsWithBrandReports;
+use App\Livewire\Operator\Workspace\Concerns\HandlesAnalystDecisions;
+use App\Livewire\Operator\Workspace\SearchTab;
 use App\Models\Brand;
 use App\Models\BrandIntelligenceContext;
 use App\Models\BrandOffering;
@@ -18,6 +20,7 @@ use App\Models\ResourceAutomation;
 use App\Models\User;
 use App\Services\Advisor\AdvisorPlanRunner;
 use App\Services\Advisor\AdvisorWorkQueue;
+use App\Services\Analyst\AnalystWorkspace;
 use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
 use App\Services\BrandSetup\BrandSetupStatus;
 use App\Services\ClientValueStory\ClientValueStoryReadService;
@@ -43,6 +46,7 @@ use App\Support\Integrations\ProviderRegistry;
 use App\Support\Integrations\ResourceBindingPlan;
 use App\Support\Options\IndustryOptions;
 use App\Support\Roles;
+use App\Support\ServiceScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
@@ -57,17 +61,28 @@ use Livewire\Component;
 use Throwable;
 
 /**
- * Brand page: who the brand is, what is connected, what needs doing, and its reports.
- * Everything shown comes from the database; missing data is shown as missing.
+ * Brand workspace (the operator's daily screen): "Bu hafta yapılacaklar" across channels and one tab per goal —
+ * Arama · Harita · Google Ads · Meta — each Durum · Yapılacaklar · Kanıt. The former brand page (setup, business,
+ * assets, work, reports, files) lives under "Ayarlar". Everything shown comes from the database.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Marka')]
 class BrandShow extends Component
 {
+    use HandlesAnalystDecisions;
     use InteractsWithBrandReports;
     use InteractsWithDemoPeriod;
 
+    /** Settings sub-tabs (the former brand page). */
     public const array TABS = ['overview', 'business', 'assets', 'work', 'reports', 'files'];
+
+    /** Workspace tab => [label, Livewire component class (rendered only when it exists)]. "ayarlar" opens TABS. */
+    public const array WORKSPACE_TABS = [
+        'arama' => ['Arama', SearchTab::class],
+        'harita' => ['Harita', 'App\\Livewire\\Operator\\Workspace\\MapsTab'],
+        'google_ads' => ['Google Ads', 'App\\Livewire\\Operator\\Workspace\\GoogleAdsTab'],
+        'meta' => ['Meta', 'App\\Livewire\\Operator\\Workspace\\MetaTab'],
+    ];
 
     /** Old deep links keep working. */
     private const array LEGACY_TABS = [
@@ -81,7 +96,7 @@ class BrandShow extends Component
     public string $brand = '';
 
     #[Url(as: 'tab', history: true)]
-    public string $tab = 'overview';
+    public string $tab = 'arama';
 
     #[Url(as: 'ops', history: true)]
     public string $ops = 'findings';
@@ -113,10 +128,7 @@ class BrandShow extends Component
         abort_unless(ctype_digit($brand), 404);
         abort_if(Brand::query()->find($brand) === null, 404);
         $this->brand = $brand;
-        $this->tab = self::LEGACY_TABS[$this->tab] ?? $this->tab;
-        if (! in_array($this->tab, self::TABS, true)) {
-            $this->tab = 'overview';
-        }
+        $this->tab = $this->normalizeTab($this->tab);
         if (! in_array($this->ops, self::WORK_SECTIONS, true)) {
             $this->ops = 'findings';
         }
@@ -127,8 +139,27 @@ class BrandShow extends Component
 
     public function setTab(string $tab): void
     {
+        $this->tab = $this->normalizeTab($tab);
+    }
+
+    private function normalizeTab(string $tab): string
+    {
+        if ($tab === 'ayarlar') {
+            return 'overview';
+        }
         $tab = self::LEGACY_TABS[$tab] ?? $tab;
-        $this->tab = in_array($tab, self::TABS, true) ? $tab : 'overview';
+
+        return isset(self::WORKSPACE_TABS[$tab]) || in_array($tab, self::TABS, true) ? $tab : 'arama';
+    }
+
+    protected function analystBrandId(): int
+    {
+        return (int) $this->brand;
+    }
+
+    protected function analystNotice(string $message, string $tone = 'success'): void
+    {
+        DemoState::flash($message, $tone === 'error' ? 'info' : 'success');
     }
 
     public function setOps(string $section): void
@@ -428,6 +459,9 @@ class BrandShow extends Component
     public function render(): View
     {
         $brand = $this->brandModel();
+        if (isset(self::WORKSPACE_TABS[$this->tab])) {
+            return $this->renderWorkspace($brand);
+        }
         $workspace = app(BrandWorkspaceReadService::class);
         $assets = $workspace->assets($brand);
         $services = $workspace->services($brand);
@@ -463,6 +497,7 @@ class BrandShow extends Component
         $sectors = collect($brand->sectorCodes())->map(fn (string $code): string => IndustryOptions::label($code))->filter()->values()->all();
 
         return view('livewire.operator.portfolio.brand-show', [
+            ...$this->frame(false),
             'brandModel' => $brand,
             'customer' => $brand->customer,
             'sectors' => $sectors,
@@ -485,6 +520,46 @@ class BrandShow extends Component
             'brandFiles' => $this->tab === 'files' ? $this->brandFiles($brand) : collect(),
             ...($this->tab === 'reports' ? $this->brandReportData($brand) : ['reportSnapshots' => ['items' => [], 'empty' => true, 'demo' => false], 'reportSnapshotDetail' => null]),
         ]);
+    }
+
+    /** Workspace tabs: only the header, the week's top cards and the channel component. */
+    private function renderWorkspace(Brand $brand): View
+    {
+        $class = self::WORKSPACE_TABS[$this->tab][1];
+        $operational = app(ServiceScope::class)->isBrandOperational($brand->id);
+        $weekTop = [];
+        if ($operational) {
+            try {
+                $weekTop = app(AnalystWorkspace::class)->top($brand, 7);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
+        $sectors = collect($brand->sectorCodes())->map(fn (string $code): string => IndustryOptions::label($code))->filter()->values()->all();
+
+        return view('livewire.operator.portfolio.brand-show', [
+            ...$this->frame(true),
+            'brandModel' => $brand,
+            'customer' => $brand->customer,
+            'sectors' => $sectors,
+            'areas' => $brand->serviceAreas()->where('status', 'active')->orderBy('priority_rank')->get()->map->label()->values()->all(),
+            'operational' => $operational,
+            'weekTop' => $weekTop,
+            'channelComponent' => class_exists($class) ? $class : null,
+            'work' => [],
+            'checklist' => ['complete' => true, 'items' => []],
+            'flash' => DemoState::pullFlash(),
+        ]);
+    }
+
+    /** @return array{workspaceTab: bool, mainTab: string, workspaceTabs: array<string, string>} */
+    private function frame(bool $workspace): array
+    {
+        return [
+            'workspaceTab' => $workspace,
+            'mainTab' => $workspace ? $this->tab : 'ayarlar',
+            'workspaceTabs' => array_map(fn (array $t): string => $t[0], self::WORKSPACE_TABS) + ['ayarlar' => 'Ayarlar'],
+        ];
     }
 
     /**

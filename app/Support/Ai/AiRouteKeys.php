@@ -85,6 +85,18 @@ final class AiRouteKeys
     /** Sorgu hattı: topic clusters of one service's core queries with a page-type guess. */
     public const string QUERIES_CLUSTERING = 'queries.clustering';
 
+    /** Brand workspace analysts (Step 3): one weekly / on-demand AI analysis per brand × channel. */
+    public const string ANALYST_SEARCH = 'analyst.search';
+
+    /** Reserved: registered when App\Services\Analyst\Maps\MapsAnalyst exists. */
+    public const string ANALYST_MAPS = 'analyst.maps';
+
+    /** Reserved: registered when App\Services\Analyst\GoogleAds\GoogleAdsAnalyst exists. */
+    public const string ANALYST_GOOGLE_ADS = 'analyst.google_ads';
+
+    /** Reserved: registered when App\Services\Analyst\Meta\MetaAnalyst exists. */
+    public const string ANALYST_META = 'analyst.meta';
+
     public const string BRAIN_EMBEDDINGS = 'brain.embeddings';
 
     public const string BRAIN_ACCOUNT_MAPPING = 'brain.account_mapping';

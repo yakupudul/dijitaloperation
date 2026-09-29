@@ -8,7 +8,12 @@
         'bad' => 'bg-rose-500',
         default => 'bg-gray-300',
     };
+    // Step 3: analysis lives on the brand workspace; asset screens are data / connection status.
+    $workspaceTab = ['website' => 'arama', 'google_business_profile' => 'harita', 'gbp' => 'harita', 'google_ads' => 'google_ads', 'meta_ads' => 'meta'][$asset->type] ?? null;
 @endphp
+@if ($brand && $workspaceTab)
+    <p class="text-sm text-gray-600 dark:text-gray-400" data-workspace-link>Analiz marka ekranında → <a href="{{ route('operator.brand', ['brand' => $brand->id, 'tab' => $workspaceTab]) }}" wire:navigate class="font-semibold text-brand-600 hover:underline dark:text-brand-400">{{ $brand->name }}</a></p>
+@endif
 <div class="flex flex-col gap-2 rounded-xl bg-gray-50 px-4 py-2.5 text-sm ring-1 ring-inset ring-gray-200 dark:bg-white/[0.02] dark:ring-gray-800 lg:flex-row lg:items-center lg:justify-between" data-asset-context>
     <nav class="flex min-w-0 flex-wrap items-center gap-1.5 text-gray-500 dark:text-gray-400" aria-label="{{ __($a.'breadcrumb') }}">
         @if ($customer)

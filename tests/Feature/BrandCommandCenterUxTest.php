@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Demo\Portfolio\BrandsIndex;
+use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Models\User;
@@ -73,7 +73,7 @@ class BrandCommandCenterUxTest extends TestCase
 
     public function test_brand_overview_command_center(): void
     {
-        Livewire::test(BrandShow::class, ['brand' => (string) $this->workBrand->id])
+        Livewire::withQueryParams(['tab' => 'overview'])->test(BrandShow::class, ['brand' => (string) $this->workBrand->id])
             ->assertSee('Atlas Dental Ankara')
             ->assertSee('Atlas Health Group')
             ->assertSee('Dijital varlıklar')

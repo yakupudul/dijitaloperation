@@ -21,6 +21,7 @@ use App\Jobs\EraseSourceDataJob;
 use App\Jobs\PrepareBrainProposalsJob;
 use App\Jobs\RunAiVisibilityCheckJob;
 use App\Jobs\RunAreaSerpChecksJob;
+use App\Jobs\RunChannelAnalystJob;
 use App\Jobs\RunScheduledDiscoveryJob;
 use App\Jobs\Verification\RunDataConsistencyCheckJob;
 use App\Jobs\Verification\RunLiveVerificationJob;
@@ -315,6 +316,7 @@ class AppServiceProvider extends ServiceProvider
             SearchDemandCompetitiveIntelligenceJob::class,
             RunLiveVerificationJob::class,
             RunDataConsistencyCheckJob::class,
+            RunChannelAnalystJob::class,
         ], 'heavy');
     }
 }

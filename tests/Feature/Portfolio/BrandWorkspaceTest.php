@@ -98,7 +98,7 @@ final class BrandWorkspaceTest extends TestCase
     {
         BrandServiceArea::query()->create(['brand_id' => $this->brand->id, 'country_code' => 'TR', 'country_name' => 'Türkiye', 'city_name' => 'İstanbul', 'normalized_key' => 'tr|istanbul', 'status' => 'active', 'priority_rank' => 1]);
 
-        $page = Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])
+        $page = Livewire::withQueryParams(['tab' => 'overview'])->test(BrandShow::class, ['brand' => (string) $this->brand->id])
             ->assertSee('Adadent')
             ->assertSee('Klinik A.Ş.')
             ->assertSee('Kurulum')

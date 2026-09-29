@@ -208,7 +208,7 @@ final class MultiAccountBrandTest extends TestCase
         DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'website', 'status' => 'active', 'domain' => 'atlasdental.test', 'primary_url' => 'https://atlasdental.test/']);
         [$asset] = $this->adsAccount('1110000001', 'Atlas Implant');
 
-        $page = Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->assertSee('Kurulum durumu');
+        $page = Livewire::withQueryParams(['tab' => 'overview'])->test(BrandShow::class, ['brand' => (string) $this->brand->id])->assertSee('Kurulum durumu');
         $setup = $page->viewData('setup');
         $channels = collect($setup['channels'])->keyBy('key');
 

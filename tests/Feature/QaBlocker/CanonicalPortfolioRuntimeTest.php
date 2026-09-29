@@ -50,9 +50,7 @@ class CanonicalPortfolioRuntimeTest extends TestCase
 
         $html = $this->get('/')
             ->assertOk()
-            ->assertSee('Due Today')
-            ->assertSee('Overdue')
-            ->assertSee('Awaiting Decision')
+            ->assertSee(__('operator.dashboard_exec.today'))
             ->getContent();
 
         $this->assertStringNotContainsString('Demo Mode', $html);

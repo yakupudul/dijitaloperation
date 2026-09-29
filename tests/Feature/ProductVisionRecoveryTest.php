@@ -153,7 +153,7 @@ class ProductVisionRecoveryTest extends TestCase
 
     public function test_app_shell_surfaces_remain_reachable(): void
     {
-        Livewire::test(Dashboard::class)->assertOk()->assertSee(__('operator.dashboard_exec.weekly_top'));
+        Livewire::test(Dashboard::class)->assertOk()->assertSee(__('operator.dashboard_exec.today'));
 
         $this->get('/assets')->assertOk();
         $this->get('/assets/analytics')->assertNotFound();

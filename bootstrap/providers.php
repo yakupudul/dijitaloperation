@@ -2,6 +2,7 @@
 
 use App\Providers\AdvisorServiceProvider;
 use App\Providers\AiInsightServiceProvider;
+use App\Providers\AnalystServiceProvider;
 use App\Providers\AppServiceProvider;
 use App\Providers\BrainServiceProvider;
 use App\Providers\Filament\AppPanelProvider;
@@ -32,4 +33,5 @@ return [
     AdvisorServiceProvider::class,
     AiInsightServiceProvider::class,
     BrainServiceProvider::class,
+    AnalystServiceProvider::class,
 ];

@@ -51,6 +51,10 @@ final class AiQualityReport
         'content.localized' => AiRouteKeys::CONTENT_LOCALIZE,
         'content.article' => AiRouteKeys::CONTENT_ARTICLE,
         'content.ideas' => AiRouteKeys::CONTENT_IDEAS,
+        'analyst.search' => AiRouteKeys::ANALYST_SEARCH,
+        'analyst.maps' => AiRouteKeys::ANALYST_MAPS,
+        'analyst.google_ads' => AiRouteKeys::ANALYST_GOOGLE_ADS,
+        'analyst.meta' => AiRouteKeys::ANALYST_META,
     ];
 
     /** Brain proposal kind → AI route key (rule / vector proposals cost nothing). */

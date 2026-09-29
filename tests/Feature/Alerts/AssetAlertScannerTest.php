@@ -121,7 +121,8 @@ final class AssetAlertScannerTest extends TestCase
         $this->assertEqualsCanonicalizing(['bad_review_unanswered', 'stale_data'], AssetAlert::query()->open()->where('digital_asset_id', $gbp->id)->pluck('kind')->all());
 
         $this->get(route('operator.gbp', ['assetId' => $gbp->id]))->assertOk()->assertSee('Yanıtsız düşük puanlı yorum')->assertSee('data-asset-alerts', false);
-        $this->get(route('operator.dashboard'))->assertOk()->assertSee(__('operator_asset.alerts_title'))->assertSee('Google arama tıklamaları düştü');
+        // Step 3: asset alerts left the home screen (Bugün); they stay on the asset page.
+        $this->get(route('operator.website', ['assetId' => $site->id]))->assertOk()->assertSee('Google arama tıklamaları düştü');
     }
 
     /** @return array{0: DigitalAsset, 1: CoreExternalResource} */
