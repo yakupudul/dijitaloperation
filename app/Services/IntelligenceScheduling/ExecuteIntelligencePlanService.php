@@ -44,6 +44,13 @@ final class ExecuteIntelligencePlanService
         }
 
         $asset = DigitalAsset::query()->with('brand')->findOrFail($plan->digital_asset_id);
+        if ($asset->brand === null) {
+            // Brandless asset (e.g. unbound account admitted for queries only): findings / opportunities need a
+            // Brand; the plan is blocked instead of failing with "Digital Asset must belong to a Brand."
+            $plan->forceFill(['status' => IntelligencePlanStatus::Blocked])->save();
+
+            return $plan;
+        }
         $plan->status = IntelligencePlanStatus::Running;
         $plan->started_at = now();
         $plan->save();

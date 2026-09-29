@@ -180,6 +180,8 @@ class MetaApiClient
                 $response->status(),
                 (int) round((microtime(true) - $started) * 1000),
             );
+            // x-app-usage / x-ad-account-usage / x-business-use-case-usage → shared cooldown for heavy jobs.
+            app(MetaUsageGovernor::class)->observe($response);
 
             return $response;
         } catch (ConnectionException $exception) {
@@ -240,10 +242,14 @@ class MetaApiClient
         if (isset($payload['error']) && is_array($payload['error'])) {
             $error = $payload['error'];
             $code = is_numeric($error['code'] ?? null) ? (int) $error['code'] : null;
+            $kind = $this->graphErrorKind($code, $status);
+            if ($kind === MetaException::KIND_RATE_LIMIT) {
+                app(MetaUsageGovernor::class)->rateLimited($code);
+            }
 
             throw new MetaException(
                 $this->safeGraphErrorMessage($error),
-                kind: $this->graphErrorKind($code, $status),
+                kind: $kind,
                 httpStatus: $status,
                 providerCode: $code,
             );
@@ -266,6 +272,8 @@ class MetaApiClient
         }
 
         if ($status === 429) {
+            app(MetaUsageGovernor::class)->rateLimited(null);
+
             throw new MetaException(
                 'Rate limited.',
                 kind: MetaException::KIND_RATE_LIMIT,

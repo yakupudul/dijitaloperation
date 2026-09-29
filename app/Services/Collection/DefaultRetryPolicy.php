@@ -31,6 +31,12 @@ final class DefaultRetryPolicy implements RetryPolicy
             );
         }
 
+        // Provider rate limits are a cooldown, not a defect: they get a larger attempt budget (the backoff follows
+        // the provider's usage headers), so e.g. Meta's app-level limit no longer turns a dataset terminal.
+        if ($category === CollectionErrorCategory::RateLimit) {
+            $maxAttempts = max($maxAttempts, (int) config('moxdop-collection.rate_limit_max_attempts', 12));
+        }
+
         if ($attemptNumber >= $maxAttempts) {
             return false;
         }

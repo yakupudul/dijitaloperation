@@ -2,6 +2,8 @@
 
 namespace App\Services\MetaAds\Support;
 
+use App\Support\Time\SafeTimezone;
+
 /**
  * Resolved Meta Ads workspace binding. Analytical root is META_AD_ACCOUNT only —
  * never META_BUSINESS, never first-accessible account.
@@ -71,7 +73,7 @@ final class MetaAdsBindingContext
             coreAssetBindingId: $coreAssetBindingId,
             accountId: $accountId,
             actId: $actId,
-            timezone: $timezone,
+            timezone: SafeTimezone::normalizeNullable($timezone),
             currency: $currency,
         );
     }

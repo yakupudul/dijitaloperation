@@ -3,6 +3,7 @@
 namespace App\Services\GoogleAds;
 
 use App\Models\GoogleAdsBudgetPlan;
+use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -16,9 +17,9 @@ use Illuminate\Support\Facades\Schema;
 final class GoogleAdsBudgetBiddingControlService
 {
     /**
-     * @param list<array<string,mixed>> $campaigns
-     * @param array<string,mixed> $professional
-     * @param array<string,mixed> $data
+     * @param  list<array<string,mixed>>  $campaigns
+     * @param  array<string,mixed>  $professional
+     * @param  array<string,mixed>  $data
      * @return array<string,mixed>
      */
     public function workspace(
@@ -278,7 +279,7 @@ final class GoogleAdsBudgetBiddingControlService
             ];
         }
 
-        $timezone = (string) (data_get($data, 'identity.reporting_timezone') ?: config('app.timezone', 'UTC'));
+        $timezone = SafeTimezone::normalize((string) (data_get($data, 'identity.reporting_timezone') ?: config('app.timezone', 'UTC')), 'UTC');
         $from = CarbonImmutable::parse($start, $timezone)->startOfDay();
         $to = CarbonImmutable::parse($end, $timezone)->startOfDay();
         $today = CarbonImmutable::now($timezone)->startOfDay();

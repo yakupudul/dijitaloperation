@@ -2,6 +2,8 @@
 
 namespace App\Services\Ga4\Support;
 
+use App\Support\Time\SafeTimezone;
+
 /**
  * Resolved GA4 binding for a workspace request. Never picks an arbitrary
  * available property by name — only the human-confirmed active CoreAssetBinding.
@@ -66,7 +68,7 @@ final class Ga4BindingContext
             externalResourceId: $externalResourceId,
             coreAssetBindingId: $coreAssetBindingId,
             propertyId: $propertyId,
-            timezone: $timezone,
+            timezone: SafeTimezone::normalizeNullable($timezone),
         );
     }
 

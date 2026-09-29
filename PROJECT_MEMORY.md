@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-10-26 — Production data-collection fixes (refines Step 2 query rule)
+
+- **Unbound / passive query-source accounts collect their query dataset only** (`gsc_query_daily`, Google Ads search terms, `gbp_search_keywords_monthly`), never the full provider set; the 2026-10-24 "query pull for every account" rule stays, the full collection stays behind the operational gate. Resource-automation alerts exist only for accounts bound to an operational asset.
+- **Every partitioned fact write ensures its month partitions** (compact `gsc_f_*` included, whatever the logical dataset declares); a DEFAULT partition per parent is the safety net and `moxdop:db:ensure-partitions` runs daily.
+- **Provider time zones always go through `SafeTimezone`** before Carbon (legacy tzdata links such as "Turkey" are rejected by PHP 8.5).
+- **Provider rate limits are cooldowns, not failures**: Meta usage headers drive a shared back-off; rate-limited datasets / jobs wait instead of burning attempts.
+
 ## 2026-10-26 — Meta channel of the brand workspace
 
 - **Meta is analysed only through the workspace Meta tab** (`MetaAnalyst`, `MetaFacts`): the Meta Ads advisor collector + rule engine, 28-day windows, region results vs service areas, sector compliance of ad texts and lead outcomes (ADR-074) are facts of one pack; no new Meta screen. Priority order in the instructions: measurement → objective fit → waste → learning → creative → placements / audience.

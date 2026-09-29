@@ -116,6 +116,13 @@ final class WorkerHeartbeatService
                 $message = 'Missing supervisors: '.implode(', ', $missing);
                 $messageKey = 'supervisors_missing';
                 $messageReplace = ['supervisors' => implode(', ', $missing)];
+            } elseif ($fresh > 0) {
+                // Workers are beating, just under other supervisor names (renamed programs after a deploy /
+                // MOXDOP_OPS_EXPECTED_SUPERVISORS out of date): degraded configuration, not "workers not running".
+                $status = OperationalHealthStatus::Degraded;
+                $message = 'Missing supervisors: '.implode(', ', $missing);
+                $messageKey = 'supervisors_missing';
+                $messageReplace = ['supervisors' => implode(', ', $missing)];
             } else {
                 $status = OperationalHealthStatus::Unhealthy;
                 $message = 'No expected supervisors have fresh heartbeats.';

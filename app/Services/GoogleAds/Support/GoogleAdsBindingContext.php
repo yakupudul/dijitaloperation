@@ -2,6 +2,8 @@
 
 namespace App\Services\GoogleAds\Support;
 
+use App\Support\Time\SafeTimezone;
+
 /**
  * Resolved Google Ads workspace binding. Never picks an arbitrary accessible
  * Customer by name/domain — only the human-confirmed active CoreAssetBinding.
@@ -69,7 +71,7 @@ final class GoogleAdsBindingContext
             externalResourceId: $externalResourceId,
             coreAssetBindingId: $coreAssetBindingId,
             customerId: $customerId,
-            timezone: $timezone,
+            timezone: SafeTimezone::normalizeNullable($timezone),
             currency: $currency,
         );
     }

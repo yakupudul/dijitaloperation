@@ -7,6 +7,7 @@ use App\Models\CoreIntegration;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsClientFactory;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsHistoricalActivityGaqlBuilder;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsProviderErrorMapper;
+use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 use RuntimeException;
 
@@ -50,7 +51,7 @@ final class GoogleAdsHistoricalActivityDiscoveryService
         }
 
         $timezone = $metadata['time_zone'] ?? $metadata['timezone'] ?? 'UTC';
-        $timezone = is_string($timezone) && $timezone !== '' ? $timezone : 'UTC';
+        $timezone = is_string($timezone) && $timezone !== '' ? SafeTimezone::normalize($timezone, 'UTC') : 'UTC';
         $currency = isset($metadata['currency_code']) && is_string($metadata['currency_code'])
             ? strtoupper($metadata['currency_code'])
             : 'XXX';

@@ -7,6 +7,7 @@ use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorInputCollector;
 use App\Services\Advisor\Support\AdvisorWebsiteReader;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\SeoTasks\SeoPlanInputCollector;
+use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -48,7 +49,7 @@ final class MetaAdsAdvisorInputCollector
         $this->accountId = (string) $binding->accountId;
 
         $cfg = (array) config('moxdop-advisor.meta_ads', []);
-        $tz = $binding->timezone ?: config('app.timezone');
+        $tz = SafeTimezone::normalize($binding->timezone ?: (string) config('app.timezone'));
         $days = (int) ($cfg['window_days'] ?? 30);
         $end = CarbonImmutable::now($tz)->subDay()->startOfDay();
         $window = [$end->subDays($days - 1)->toDateString(), $end->toDateString()];

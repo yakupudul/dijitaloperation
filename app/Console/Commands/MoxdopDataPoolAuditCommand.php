@@ -6,6 +6,7 @@ use App\Enums\DataPool\IntegrityAuditMode;
 use App\Services\DataPool\Integrity\DataPoolIntegrityAuditor;
 use App\Services\DataPool\Integrity\Support\IntegrityAuditRequest;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Production-safe data-pool integrity audit (verification only; no repair).
@@ -20,6 +21,7 @@ class MoxdopDataPoolAuditCommand extends Command
         {--date-from= : Optional coverage from (Y-m-d)}
         {--date-to= : Optional coverage to (Y-m-d)}
         {--provider-reconcile : Explicit opt-in provider reconciliation (disabled unless config allows)}
+        {--strict : Exit non-zero when any check fails (CI); by default failed checks are findings, not a command failure}
         {--json : Emit JSON summary}';
 
     protected $description = 'Run a local (default) data-pool integrity audit. Never repairs facts. Never prints secrets.';
@@ -50,6 +52,13 @@ class MoxdopDataPoolAuditCommand extends Command
             $this->error($e->getMessage());
 
             return self::FAILURE;
+        } catch (\Throwable $e) {
+            // Expected runtime conditions (provider rate limit, missing optional tables / data) are logged; the
+            // scheduler is not failed for them unless --strict.
+            report($e);
+            $this->warn('Denetim tamamlanamadı: '.mb_substr($e->getMessage(), 0, 300));
+
+            return $this->option('strict') ? self::FAILURE : self::SUCCESS;
         }
 
         $payload = [
@@ -82,6 +91,17 @@ class MoxdopDataPoolAuditCommand extends Command
             }
         }
 
-        return ((int) $run->checks_fail) > 0 ? self::FAILURE : self::SUCCESS;
+        // Failed checks are the audit's findings (stored on the run and shown in Veri Havuzu), not a broken command:
+        // the nightly scheduled audit must not be reported as a failed scheduler task for them. --strict keeps the
+        // non-zero exit for CI gates.
+        if ((int) $run->checks_fail > 0) {
+            Log::warning('data-pool-audit.checks-failed', ['uuid' => $run->uuid, 'providers' => $providers, 'checks_fail' => (int) $run->checks_fail]);
+            if ($this->option('strict')) {
+                return self::FAILURE;
+            }
+            $this->warn(sprintf('%d kontrol başarısız (bulgu olarak kaydedildi; komut hatası değil).', (int) $run->checks_fail));
+        }
+
+        return self::SUCCESS;
     }
 }

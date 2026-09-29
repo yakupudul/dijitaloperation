@@ -2,6 +2,8 @@
 
 namespace App\Services\Gsc\Support;
 
+use App\Support\Time\SafeTimezone;
+
 /**
  * Resolved GSC workspace binding for a workspace request. Never picks an arbitrary
  * available property by name — only the human-confirmed active CoreAssetBinding.
@@ -66,7 +68,7 @@ final class GscBindingContext
             externalResourceId: $externalResourceId,
             coreAssetBindingId: $coreAssetBindingId,
             siteUrl: $siteUrl,
-            timezone: $timezone,
+            timezone: SafeTimezone::normalizeNullable($timezone),
         );
     }
 

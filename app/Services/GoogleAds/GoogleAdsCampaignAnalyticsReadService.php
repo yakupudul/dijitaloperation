@@ -4,6 +4,7 @@ namespace App\Services\GoogleAds;
 
 use App\Services\GoogleAds\Support\GoogleAdsBindingContext;
 use App\Services\GoogleAds\Support\GoogleAdsBindingMode;
+use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -426,11 +427,7 @@ final class GoogleAdsCampaignAnalyticsReadService
 
     private function validTimezone(?string $timezone): string
     {
-        $timezone = trim((string) $timezone);
-
-        return $timezone !== '' && in_array($timezone, timezone_identifiers_list(), true)
-            ? $timezone
-            : (string) config('app.timezone', 'UTC');
+        return SafeTimezone::normalize($timezone, (string) config('app.timezone', 'UTC'));
     }
 
     private function isDate(?string $value): bool

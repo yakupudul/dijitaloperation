@@ -46,7 +46,9 @@ final class RebuildWebsiteProjectionJob implements ShouldBeUniqueUntilProcessing
     public function handle(WebsiteProjectionRebuilder $rebuilder): void
     {
         $asset = DigitalAsset::query()->with('brand')->where('type', 'website')->find($this->websiteAssetId);
-        if (! $asset instanceof DigitalAsset) {
+        // A brandless website (unbound resource, merged away, detached) has no projection to build; its queries are
+        // still ingested through the query pipeline. Skip instead of failing the job three times.
+        if (! $asset instanceof DigitalAsset || $asset->brand === null) {
             return;
         }
 

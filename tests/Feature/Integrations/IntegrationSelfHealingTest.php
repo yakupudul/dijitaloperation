@@ -83,7 +83,7 @@ final class IntegrationSelfHealingTest extends TestCase
 
         $stats = app(ResourceAutomationService::class)->retryStopped();
 
-        $this->assertSame(['retried' => 1, 'reconnected' => 1], $stats);
+        $this->assertSame(['retried' => 1, 'reconnected' => 1, 'recovered' => 0, 'alerts_resolved' => 0], $stats);
         $this->assertSame('waiting', $failed->fresh()->collection_status);
         $this->assertSame(0, (int) $failed->fresh()->collection_failures);
         $this->assertSame('attention', $recentlyFailed->fresh()->collection_status, 'failed within the last 20 hours');

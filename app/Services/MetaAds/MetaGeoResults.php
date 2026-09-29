@@ -18,7 +18,7 @@ use RuntimeException;
  * so a region row gets the ad's country when that ad delivered in exactly one country that day. The table keeps
  * campaign / ad set / ad names so the AI can read "which service, which area, which audience converted".
  */
-final class MetaGeoResults
+class MetaGeoResults
 {
     public const string TABLE = 'meta_geo_results_daily';
 

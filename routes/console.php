@@ -343,8 +343,11 @@ Schedule::command('horizon:snapshot')
 // Properties explicitly selected for central GA4 collection are refreshed daily.
 // The command recalculates each property's last 14 closed reporting days in that property's timezone.
 // Resource automation now owns GA4 cadence too; no second daily restatement schedule.
-Artisan::command('moxdop:resources:automate {--recover-ga4-landing-pages} {--recover-gsc-appearance}', function (): void {
+Artisan::command('moxdop:resources:automate {--recover-ga4-landing-pages} {--recover-gsc-appearance} {--resolve-unbound-alerts}', function (): void {
     $service = app(ResourceAutomationService::class);
+    if ($this->option('resolve-unbound-alerts')) {
+        $this->info('Resolved alerts of accounts without an operational asset: '.$service->resolveUnboundAlerts());
+    }
     if ($this->option('recover-ga4-landing-pages')) {
         $this->info('Recovered empty-dimension write failures: '.$service->recoverGa4LandingFailures());
     }
@@ -381,6 +384,12 @@ Artisan::command('moxdop:collection:activity-refresh', function (): void {
         $health['planned_datasets_24h'], $health['skipped_datasets_24h'], $pruned,
     ));
 })->purpose('Recompute collection activity tiers from stored facts and report datasets avoided.');
+
+// Monthly fact partitions (incl. compact gsc_f_* tables) for the coming months + DEFAULT safety partition.
+Schedule::command('moxdop:db:ensure-partitions --months=3')
+    ->dailyAt('03:20')
+    ->withoutOverlapping(30)
+    ->name('moxdop-db-ensure-partitions');
 
 Schedule::command('moxdop:collection:activity-refresh')
     ->dailyAt('03:35')
@@ -577,7 +586,8 @@ Schedule::command('moxdop:ads:budget-watch')
 Artisan::command('moxdop:meta:geo-results', function (): void {
     DigitalAsset::query()->operational()->where('type', 'meta_ads')
         ->whereIn('id', CoreAssetBinding::query()->where('status', CoreAssetBinding::STATUS_ACTIVE)->select('digital_asset_id'))
-        ->orderBy('id')->pluck('id')->each(fn ($id) => CollectMetaGeoResultsJob::dispatch((int) $id));
+        // Spread over time: each account 3 minutes after the previous one (shared Meta app-level budget).
+        ->orderBy('id')->pluck('id')->values()->each(fn ($id, $index) => CollectMetaGeoResultsJob::dispatch((int) $id)->delay(now()->addMinutes(3 * $index)));
 })->purpose('Queue the daily Meta country + city results collection of bound ad accounts.');
 
 Schedule::command('moxdop:meta:geo-results')
