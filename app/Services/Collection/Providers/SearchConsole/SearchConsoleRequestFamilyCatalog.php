@@ -2,6 +2,7 @@
 
 namespace App\Services\Collection\Providers\SearchConsole;
 
+use App\Support\Collection\CollectionDatasetCatalog;
 use InvalidArgumentException;
 
 /**
@@ -10,26 +11,40 @@ use InvalidArgumentException;
 final class SearchConsoleRequestFamilyCatalog
 {
     public const string FAMILY_PROPERTY_DAILY = 'GSC_RF_PROPERTY_DAILY';
+
     public const string FAMILY_QUERY_DAILY = 'GSC_RF_QUERY_DAILY';
+
     public const string FAMILY_PAGE_DAILY = 'GSC_RF_PAGE_DAILY';
+
     public const string FAMILY_QUERY_PAGE_DAILY = 'GSC_RF_QUERY_PAGE_DAILY';
+
     public const string FAMILY_DEVICE_DAILY = 'GSC_RF_DEVICE_DAILY';
+
     public const string FAMILY_COUNTRY_DAILY = 'GSC_RF_COUNTRY_DAILY';
+
     public const string FAMILY_PAGE_DEVICE_DAILY = 'GSC_RF_PAGE_DEVICE_DAILY';
+
     public const string FAMILY_PAGE_COUNTRY_DAILY = 'GSC_RF_PAGE_COUNTRY_DAILY';
+
     public const string FAMILY_QUERY_DEVICE_DAILY = 'GSC_RF_QUERY_DEVICE_DAILY';
+
     public const string FAMILY_QUERY_COUNTRY_DAILY = 'GSC_RF_QUERY_COUNTRY_DAILY';
+
     public const string FAMILY_SEARCH_APPEARANCE_DAILY = 'GSC_RF_SEARCH_APPEARANCE_DAILY';
+
     public const string FAMILY_SEARCH_APPEARANCE_PAGE_DAILY = 'GSC_RF_SEARCH_APPEARANCE_PAGE_DAILY';
+
     public const string FAMILY_SITEMAPS = 'GSC_RF_SITEMAPS';
+
     public const string FAMILY_URL_INSPECTION = 'GSC_RF_URL_INSPECTION';
+
     public const string FAMILY_SEARCH_ANALYTICS = 'GSC_RF_SEARCH_ANALYTICS';
 
     /** @return list<string> */
     public static function supportedFamilies(): array
     {
         return [
-            ...self::centralPerformanceFamilies(),
+            ...self::allPerformanceFamilies(),
             self::FAMILY_SITEMAPS,
             self::FAMILY_URL_INSPECTION,
             self::FAMILY_SEARCH_ANALYTICS,
@@ -41,9 +56,20 @@ final class SearchConsoleRequestFamilyCatalog
      * URL Inspection is intentionally not part of bulk historical import because it is
      * a quota-limited current-state snapshot rather than a historical performance fact.
      *
+     * Only families whose dataset is in the v2 dataset catalogue (config moxdop-collection.datasets.SEARCH_CONSOLE).
+     *
      * @return list<string>
      */
     public static function centralPerformanceFamilies(): array
+    {
+        return array_values(array_filter(
+            self::allPerformanceFamilies(),
+            static fn (string $family): bool => CollectionDatasetCatalog::keeps('SEARCH_CONSOLE', self::definition($family)['dataset_id']),
+        ));
+    }
+
+    /** @return list<string> every Search Analytics family the executor knows (before the v2 catalogue filter) */
+    public static function allPerformanceFamilies(): array
     {
         return [
             self::FAMILY_PROPERTY_DAILY,
@@ -64,7 +90,10 @@ final class SearchConsoleRequestFamilyCatalog
     /** @return list<string> */
     public static function centralFamilies(): array
     {
-        return [...self::centralPerformanceFamilies(), self::FAMILY_SITEMAPS, self::FAMILY_SEARCH_ANALYTICS];
+        return array_values(array_filter(
+            [...self::centralPerformanceFamilies(), self::FAMILY_SITEMAPS, self::FAMILY_SEARCH_ANALYTICS],
+            static fn (string $family): bool => CollectionDatasetCatalog::keeps('SEARCH_CONSOLE', self::definition($family)['dataset_id']),
+        ));
     }
 
     /**
@@ -72,12 +101,12 @@ final class SearchConsoleRequestFamilyCatalog
      * do not expose a useful query dimension. Search Appearance is collected from
      * Web with Google's required two-step discover-then-filter flow.
      *
-     * @param list<string> $activeSearchTypes
+     * @param  list<string>  $activeSearchTypes
      * @return list<string>
      */
     public static function compatibleSearchTypes(string $familyId, array $activeSearchTypes): array
     {
-        if (! in_array($familyId, self::centralPerformanceFamilies(), true)) {
+        if (! in_array($familyId, self::allPerformanceFamilies(), true)) {
             return ['web'];
         }
 
@@ -185,4 +214,3 @@ final class SearchConsoleRequestFamilyCatalog
         };
     }
 }
-

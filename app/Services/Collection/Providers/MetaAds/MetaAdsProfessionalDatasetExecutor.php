@@ -93,6 +93,19 @@ final class MetaAdsProfessionalDatasetExecutor implements DatasetExecutor
         private readonly MaterializationService $materializations,
     ) {}
 
+    /**
+     * Breakdown groups collected (v2 dataset catalogue: region only, config moxdop-collection.meta_breakdowns).
+     *
+     * @return list<string>
+     */
+    private function breakdownGroupNames(): array
+    {
+        $wanted = (array) config('moxdop-collection.meta_breakdowns', array_keys(self::BREAKDOWN_GROUPS));
+        $names = array_values(array_filter(array_keys(self::BREAKDOWN_GROUPS), static fn (string $name): bool => in_array($name, $wanted, true)));
+
+        return $names === [] ? ['region'] : $names;
+    }
+
     /** @return list<string> */
     public function supportedRequestFamilies(): array
     {
@@ -232,7 +245,7 @@ final class MetaAdsProfessionalDatasetExecutor implements DatasetExecutor
         $checkpoint = $context->checkpoint;
         $sliceIndex = (int) ($checkpoint['slice_index'] ?? 0);
         $breakdownIndex = (int) ($checkpoint['breakdown_index'] ?? 0);
-        $groupNames = array_keys(self::BREAKDOWN_GROUPS);
+        $groupNames = $this->breakdownGroupNames();
 
         if ($sliceIndex >= count($slices)) {
             return $this->completed(count($slices), count($slices), $checkpoint);

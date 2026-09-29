@@ -131,6 +131,22 @@ class DataForSeoApiClient
     }
 
     /**
+     * POST /v3/serp/google/organic/live/advanced — paid. Top-10 SERP (v2 Rakipler; cached 30 days).
+     *
+     * @param  list<array<string, mixed>>  $tasks
+     */
+    public function postSerpGoogleOrganicLiveAdvanced(CoreIntegration $integration, array $tasks): DataForSeoResponse
+    {
+        return $this->request(
+            $integration,
+            'POST',
+            DataForSeoEndpointAllowlist::SERP_GOOGLE_ORGANIC_LIVE_ADVANCED,
+            self::CHARGE_CLASS_PAID_CREATE,
+            $tasks,
+        );
+    }
+
+    /**
      * POST /v3/keywords_data/google_ads/search_volume/live — paid.
      *
      * @param  list<array<string, mixed>>  $tasks

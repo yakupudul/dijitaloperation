@@ -178,7 +178,7 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
     /** @param array<string, mixed> $scope */
     private function executeAdSetSnapshot(DatasetExecutionContext $context, array $scope): DatasetExecutionResult
     {
-        $fields = 'id,name,campaign_id,optimization_goal,billing_event,destination_type,status,effective_status,daily_budget,lifetime_budget';
+        $fields = 'id,name,campaign_id,optimization_goal,billing_event,destination_type,status,effective_status,daily_budget,lifetime_budget,attribution_spec';
         $path = (string) $scope['act_id'].'/adsets';
         $query = ['fields' => $fields, 'limit' => 250];
         [$rows, $requestId] = $this->paginateList($scope['integration'], $path, $query);
@@ -207,8 +207,8 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
      * filter the returned rows in-process. No unsupported Graph id-IN filtering is
      * ever sent to Meta.
      *
-     * @param array<string, mixed> $scope
-     * @param array<string, mixed> $checkpoint
+     * @param  array<string, mixed>  $scope
+     * @param  array<string, mixed>  $checkpoint
      */
     private function executeCreativeSnapshot(DatasetExecutionContext $context, array $scope, array $checkpoint): DatasetExecutionResult
     {
@@ -356,7 +356,7 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
     }
 
     /**
-     * @param array<string, scalar|null> $query
+     * @param  array<string, scalar|null>  $query
      * @return array{0: list<array<string, mixed>>, 1: ?string}
      */
     private function paginateList(CoreIntegration $integration, string $path, array $query): array
@@ -402,10 +402,10 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
     }
 
     /**
-     * @param list<array<string, mixed>> $records
-     * @param list<array<string, mixed>> $rawRows
-     * @param array<string, mixed> $scope
-     * @param array<string, mixed> $extraMeta
+     * @param  list<array<string, mixed>>  $records
+     * @param  list<array<string, mixed>>  $rawRows
+     * @param  array<string, mixed>  $scope
+     * @param  array<string, mixed>  $extraMeta
      */
     private function writeRecords(
         DatasetExecutionContext $context,
@@ -476,9 +476,9 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
     }
 
     /**
-     * @param list<array<string, mixed>> $rows
-     * @param array<string, mixed> $scope
-     * @param array<string, mixed> $extraMeta
+     * @param  list<array<string, mixed>>  $rows
+     * @param  array<string, mixed>  $scope
+     * @param  array<string, mixed>  $extraMeta
      */
     private function rawEnvelope(
         DatasetExecutionContext $context,

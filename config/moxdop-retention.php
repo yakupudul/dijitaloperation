@@ -1,11 +1,13 @@
 <?php
 
 /*
- * Data retention (roadmap principle 2). Gold data is never deleted: GSC queries, Ads search terms and keywords,
- * GBP search keywords, DataForSEO keyword data, AI outputs, work items and measured outcomes.
- * Daily performance older than `daily_performance_months` is rolled into performance_monthly_rollups, then deleted.
- * Raw provider payloads / HTML copies are deleted after `raw_payload_days` (each page's latest HTML is kept).
- * Telemetry is deleted after its own window. GBP provider content has its own 30-day job (moxdop:gbp:purge-expired).
+ * Data retention (MoxDOP v2 Faz 1; `moxdop:retention`, monthly, dry-run unless --apply):
+ * - daily facts (every *_daily table with reporting_date) are kept `daily_performance_months` (16); older months are
+ *   rolled into performance_monthly_rollups, then deleted;
+ * - the query daily facts (Search Console query × page, Google Ads search terms) are not rolled up generically: their
+ *   monthly aggregate IS `query_sources`, kept `query_sources_months` (24);
+ * - raw provider payloads / HTML copies older than `raw_payload_days` are deleted (each page's latest HTML is kept);
+ * - telemetry is trimmed to its own window. GBP provider content has its own 30-day job (moxdop:gbp:purge-expired).
  */
 return [
     'enabled' => (bool) env('MOXDOP_RETENTION_ENABLED', true),
@@ -13,20 +15,22 @@ return [
     'raw_payload_days' => (int) env('MOXDOP_RETENTION_RAW_DAYS', 90),
     'raw_payload_batch' => 2000,
 
-    'daily_performance_months' => (int) env('MOXDOP_RETENTION_DAILY_MONTHS', 25),
+    'daily_performance_months' => (int) env('MOXDOP_RETENTION_DAILY_MONTHS', 16),
 
-    /* Daily tables that are gold and never rolled up or deleted. */
-    'gold_daily_tables' => [
-        'gsc_query_daily', 'gsc_query_page_daily',
-        'google_ads_search_term_daily', 'google_ads_keyword_daily',
+    /* Daily query facts whose monthly form is query_sources: deleted after the daily window without a generic rollup. */
+    'query_daily_tables' => [
+        'gsc_query_page_daily', 'google_ads_search_term_daily',
     ],
 
-    /* Veri merkezi: data sets holding queries / search terms / keywords. They feed the Service Brain and can
-       never be deleted from the data center, even when the operator deletes the rest of a source. */
+    /* Raw query layer (monthly): kept this many months. */
+    'query_sources_months' => (int) env('MOXDOP_RETENTION_QUERY_SOURCES_MONTHS', 24),
+
+    /* Veri merkezi: data sets holding queries / search terms / keywords; never deleted from the data center by hand. */
     'protected_tables' => [
-        'gsc_query_daily', 'gsc_query_page_daily', 'gsc_query_country_daily', 'gsc_query_device_daily',
-        'google_ads_search_term_daily', 'google_ads_keyword_daily', 'google_ads_keyword_snapshot',
-        'gbp_search_keywords_monthly', 'dataforseo_ranked_keyword_snapshot', 'dataforseo_keyword_site_snapshot',
+        'gsc_query_page_daily', 'google_ads_search_term_daily', 'google_ads_keyword_daily',
+        'gbp_search_keywords_monthly', 'query_sources',
+        // no longer collected (v2) but still query history until retention empties them
+        'gsc_query_daily', 'gsc_query_country_daily', 'gsc_query_device_daily', 'google_ads_keyword_snapshot',
     ],
 
     /* Columns that are bookkeeping, never a dimension or a metric. */

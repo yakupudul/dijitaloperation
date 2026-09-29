@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Retention;
 
+use App\Models\CoreExternalResource;
 use App\Services\Retention\DataRetentionService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -16,14 +17,14 @@ final class DataRetentionTest extends TestCase
     use InsertsFacts;
     use RefreshDatabase;
 
-    public function test_old_daily_performance_rolls_into_monthly_rows_and_gold_tables_stay(): void
+    public function test_old_daily_performance_rolls_into_monthly_rows_and_query_facts_are_not_rolled(): void
     {
         $old = CarbonImmutable::now()->startOfMonth()->subMonths(30);
         $recent = CarbonImmutable::now()->subDays(3);
         $this->adsDay($old->addDays(1), impressions: 100, clicks: 10, share: 0.5);
         $this->adsDay($old->addDays(2), impressions: 300, clicks: 20, share: 0.9);
         $this->adsDay($recent, impressions: 50, clicks: 5, share: 0.1);
-        $this->gscQueryDay($old->addDays(1));
+        $this->gscQueryPageDay($old->addDays(1));
 
         $result = app(DataRetentionService::class)->rollupDailyPerformance();
 
@@ -38,8 +39,8 @@ final class DataRetentionTest extends TestCase
         $this->assertEqualsWithDelta(0.8, $metrics['search_impression_share'], 0.0001, 'ratios are impression-weighted');
         $this->assertSame('cmp-1', $dimensions['campaign_id']);
         $this->assertSame(2, (int) $rollup->day_count);
-        $this->assertSame(1, DB::table('gsc_query_daily')->count(), 'query data is gold and never rolled up');
-        $this->assertNotContains('gsc_query_daily', app(DataRetentionService::class)->dailyPerformanceTables());
+        $this->assertSame(1, DB::table('gsc_query_page_daily')->count(), 'query facts are not rolled generically (query_sources is their monthly form)');
+        $this->assertNotContains('gsc_query_page_daily', app(DataRetentionService::class)->dailyPerformanceTables());
 
         $again = app(DataRetentionService::class)->rollupDailyPerformance();
         $this->assertSame(0, $again['rolled_rows'], 'second run is a no-op');
@@ -92,11 +93,48 @@ final class DataRetentionTest extends TestCase
         $this->assertNull(DB::table('website_html_snapshot')->where('observed_at', $old->copy()->subDays(10))->value('raw_ingestion_object_id'));
     }
 
-    public function test_command_reports_counts(): void
+    public function test_command_is_a_dry_run_unless_apply(): void
     {
-        $this->artisan('moxdop:data:retention', ['--dry-run' => true])
+        $this->adsDay(CarbonImmutable::now()->startOfMonth()->subMonths(17), impressions: 10, clicks: 1, share: 0.2);
+
+        $this->artisan('moxdop:retention')
             ->expectsOutputToContain('[deneme]')
+            ->expectsOutputToContain('moxdop:retention --apply')
             ->assertSuccessful();
+        $this->assertSame(1, DB::table('google_ads_campaign_daily')->count());
+
+        $this->artisan('moxdop:retention', ['--apply' => true])->assertSuccessful();
+        $this->assertSame(0, DB::table('google_ads_campaign_daily')->count());
+        $this->assertSame(1, DB::table('performance_monthly_rollups')->count());
+        $this->assertStringContainsString("Schedule::command('moxdop:retention--apply')->monthlyOn(", (string) preg_replace('/\s+/', '', (string) file_get_contents(base_path('routes/console.php'))));
+    }
+
+    public function test_daily_facts_keep_sixteen_months_and_query_sources_twenty_four(): void
+    {
+        $retention = app(DataRetentionService::class);
+        $cutoff = $retention->dailyCutoff();
+        $this->assertSame(CarbonImmutable::now()->startOfMonth()->subMonths(16)->toDateString(), $cutoff->toDateString());
+        $this->adsDay($cutoff->subDay(), impressions: 10, clicks: 1, share: 0.2);
+        $this->adsDay($cutoff, impressions: 20, clicks: 2, share: 0.3);
+        $this->gscQueryPageDay($cutoff->subDay());
+        $this->gscQueryPageDay($cutoff);
+        $resource = CoreExternalResource::factory()->searchConsole()->create();
+        foreach ([25, 23] as $monthsAgo) {
+            DB::table('query_sources')->insert(['external_resource_id' => $resource->id, 'source' => 'gsc', 'raw_query' => 'implant '.$monthsAgo,
+                'month' => CarbonImmutable::now()->startOfMonth()->subMonths($monthsAgo)->toDateString(), 'impressions' => 1, 'clicks' => 0]);
+        }
+
+        $dry = $retention->run(dryRun: true);
+        $this->assertSame(1, $dry['rolled_rows']);
+        $this->assertSame(['gsc_query_page_daily' => 1, 'google_ads_search_term_daily' => 0], $dry['query_daily_rows']);
+        $this->assertSame(1, $dry['query_source_rows']);
+        $this->assertSame(2, DB::table('gsc_query_page_daily')->count(), 'dry run deletes nothing');
+
+        $applied = $retention->run();
+        $this->assertSame(1, $applied['query_source_rows']);
+        $this->assertSame([$cutoff->toDateString()], DB::table('google_ads_campaign_daily')->pluck('reporting_date')->map(fn ($d): string => substr((string) $d, 0, 10))->all());
+        $this->assertSame([$cutoff->toDateString()], DB::table('gsc_query_page_daily')->pluck('reporting_date')->map(fn ($d): string => substr((string) $d, 0, 10))->all());
+        $this->assertSame(['implant 23'], DB::table('query_sources')->pluck('raw_query')->all());
     }
 
     private function adsDay(CarbonImmutable $day, int $impressions, int $clicks, float $share): void
@@ -109,10 +147,10 @@ final class DataRetentionTest extends TestCase
         ]);
     }
 
-    private function gscQueryDay(CarbonImmutable $day): void
+    private function gscQueryPageDay(CarbonImmutable $day): void
     {
-        $this->insertFacts('gsc_query_daily', [
-            'digital_asset_id' => 1, 'site_url' => 'sc-domain:example.test', 'reporting_date' => $day->toDateString(), 'query' => 'diş implant',
+        $this->insertFacts('gsc_query_page_daily', [
+            'digital_asset_id' => 1, 'site_url' => 'sc-domain:example.test', 'reporting_date' => $day->toDateString(), 'query' => 'diş implant', 'page' => 'https://example.test/',
             'clicks' => 3, 'impressions' => 40, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
             'record_fingerprint' => Str::random(20),
         ]);

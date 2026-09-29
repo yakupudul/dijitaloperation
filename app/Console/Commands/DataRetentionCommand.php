@@ -6,14 +6,15 @@ use App\Services\Retention\DataRetentionService;
 use Illuminate\Console\Command;
 
 /**
- * moxdop:data:retention — daily lean-data job: raw payloads (90 days, latest HTML kept), telemetry windows,
- * and daily performance older than 25 months rolled into monthly rows. Gold data is never touched.
+ * moxdop:retention — monthly lean-data job (MoxDOP v2): daily facts 16 months (older rolled into monthly rows, then
+ * deleted), query daily facts 16 months (monthly form = query_sources, kept 24 months), raw payloads 90 days (latest
+ * HTML kept), telemetry windows. Dry run unless --apply.
  */
 final class DataRetentionCommand extends Command
 {
-    protected $signature = 'moxdop:data:retention {--dry-run : Only count what would be removed or rolled up}';
+    protected $signature = 'moxdop:retention {--apply : Değişiklikleri uygula (varsayılan: yalnız sayar)}';
 
-    protected $description = 'Trim raw payloads and telemetry, roll old daily performance into monthly rows.';
+    protected $description = 'Veri saklama: 16 aydan eski günlük verileri aylığa çevirip siler, sorgu kaynaklarını 24 ay tutar, ham kopyaları ve telemetriyi temizler.';
 
     public function handle(DataRetentionService $retention): int
     {
@@ -22,18 +23,24 @@ final class DataRetentionCommand extends Command
 
             return self::SUCCESS;
         }
-        $dryRun = (bool) $this->option('dry-run');
+        $dryRun = ! $this->option('apply');
         $result = $retention->run($dryRun);
         $this->info(sprintf(
-            '%sHam kopya: %d · telemetri: %d · aylığa çevrilen günlük satır: %d (%d aylık satır).',
+            '%sGünlük veri sınırı: %s · ham kopya: %d · telemetri: %d · aylığa çevrilen günlük satır: %d (%d aylık satır) · silinen sorgu günlük satırı: %d · silinen sorgu kaynağı: %d.',
             $dryRun ? '[deneme] ' : '',
+            $retention->dailyCutoff()->toDateString(),
             $result['raw_objects'],
             array_sum($result['telemetry']),
             $result['rolled_rows'],
             $result['rollup_rows'],
+            array_sum($result['query_daily_rows']),
+            $result['query_source_rows'],
         ));
-        foreach (array_filter($result['telemetry']) as $table => $count) {
+        foreach (array_filter([...$result['telemetry'], ...$result['query_daily_rows']]) as $table => $count) {
             $this->line("  {$table}: {$count}");
+        }
+        if ($dryRun) {
+            $this->line('Uygulamak için: php artisan moxdop:retention --apply');
         }
 
         return self::SUCCESS;

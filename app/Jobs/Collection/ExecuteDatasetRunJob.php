@@ -10,6 +10,7 @@ use App\Events\Collection\DatasetRunFailed;
 use App\Events\Collection\DatasetRunStarted;
 use App\Models\Collection\CollectionDatasetAttempt;
 use App\Models\Collection\CollectionDatasetRun;
+use App\Models\DigitalAsset;
 use App\Services\Collection\CancellationService;
 use App\Services\Collection\CheckpointManager;
 use App\Services\Collection\CollectionErrorRecorder;
@@ -125,9 +126,9 @@ class ExecuteDatasetRunJob implements ShouldQueue
             return;
         }
 
-        // Service scope, re-checked at handle time: the asset's customer was switched to passive (or the asset left
-        // its brand) after the run was queued, so the provider is not called.
-        if ($collectionRun->digital_asset_id !== null && ! app(ServiceScope::class)->isAssetOperational($collectionRun->digital_asset_id)) {
+        // v2: collection is free and continues for passive customers and brandless assets (AI never runs for them);
+        // only an asset that was deleted after the run was queued stops the provider call.
+        if ($collectionRun->digital_asset_id !== null && ! DigitalAsset::query()->whereKey($collectionRun->digital_asset_id)->exists()) {
             $stateMachine->transition($datasetRun, CollectionRunStatus::Cancelled);
             $errors->record($datasetRun, CollectionErrorCategory::Cancelled, ServiceScope::NOT_SERVED);
             $aggregator->refreshFromDataset($datasetRun);

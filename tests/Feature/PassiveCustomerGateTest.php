@@ -21,8 +21,8 @@ use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
- * Faz 0: a passive customer stops every automatic flow, unbound resources are not collected
- * without a query-library mapping, scheduled SEO plans rotate, and GBP retention keeps keywords.
+ * A passive customer's assets are not operational (no AI, no operator alerts) while collection itself continues for
+ * every discovered account (v2 Faz 1); GBP retention keeps keywords.
  */
 final class PassiveCustomerGateTest extends TestCase
 {
@@ -42,29 +42,25 @@ final class PassiveCustomerGateTest extends TestCase
         $this->assertFalse($inactiveAsset->fresh()->isOperational());
     }
 
-    public function test_collection_gate_stops_passive_bindings_and_unmapped_unbound_resources(): void
+    public function test_collection_is_not_gated_by_binding_or_customer_status(): void
     {
+        // v2: every discovered account is collected (free), bound or not, active or passive customer; AI stays off
+        // for passive customers in later phases.
         $service = app(ResourceAutomationService::class);
         $gsc = CoreExternalResource::factory()->create(['resource_type' => 'search_console', 'external_id' => 'sc-domain:example.test']);
         $gscAutomation = ResourceAutomation::query()->create(['external_resource_id' => $gsc->id]);
-        $this->assertNull($service->portfolioGate($gscAutomation), 'free query sources are pulled from every account, bound or not');
-
         $resource = CoreExternalResource::factory()->create(['resource_type' => 'ga4']);
         $automation = ResourceAutomation::query()->create(['external_resource_id' => $resource->id]);
-        $this->assertSame('unbound', $service->portfolioGate($automation));
+        $this->assertNull($service->portfolioGate($gscAutomation));
+        $this->assertNull($service->portfolioGate($automation), 'unbound GA4 is collected');
 
         $site = $this->website(CustomerStatus::Active);
         CoreAssetBinding::factory()->create([
             'digital_asset_id' => $site->id, 'external_resource_id' => $resource->id, 'capability' => 'ga4',
         ]);
-        CoreAssetBinding::factory()->create([
-            'digital_asset_id' => $site->id, 'external_resource_id' => $gsc->id, 'capability' => 'search_console',
-        ]);
-        $this->assertNull($service->portfolioGate($automation->fresh()));
-
         $site->brand->customer->update(['status' => CustomerStatus::Inactive]);
-        $this->assertSame('customer_passive', $service->portfolioGate($automation->fresh()));
-        $this->assertNull($service->portfolioGate($gscAutomation->fresh()), 'queries even from a passive customer');
+        $this->assertNull($service->portfolioGate($automation->fresh()), 'passive customer: still collected');
+        $this->assertFalse($service->isOperationallyBound($resource->fresh()), 'but it never pages the operator');
     }
 
     public function test_gbp_retention_purges_provider_content_but_keeps_search_keywords(): void

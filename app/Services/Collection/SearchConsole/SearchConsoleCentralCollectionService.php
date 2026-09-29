@@ -23,6 +23,7 @@ use App\Services\Collection\Providers\SearchConsole\SearchConsoleRequestFamilyCa
 use App\Services\Collection\StartCollectionService;
 use App\Services\DataPool\DataPoolStorageRegistry;
 use App\Services\Integrations\ResourceAutomationService;
+use App\Support\Collection\CollectionDatasetCatalog;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\ProviderRegistry;
 use Carbon\CarbonImmutable;
@@ -62,7 +63,7 @@ final class SearchConsoleCentralCollectionService
 
     /** @param list<int|string> $externalResourceIds */
     /** Datasets collected for a property that serves no operational asset (query pipeline input only). */
-    public const array QUERY_DATASETS = ['gsc_query_daily'];
+    public const array QUERY_DATASETS = ['gsc_query_page_daily'];
 
     /**
      * @param  list<int|string>  $externalResourceIds
@@ -269,7 +270,7 @@ final class SearchConsoleCentralCollectionService
                     CollectionRunStatus::Completed,
                     CollectionRunStatus::Skipped,
                     CollectionRunStatus::NotEligible,
-                ], true))
+                ], true) && CollectionDatasetCatalog::keeps('SEARCH_CONSOLE', (string) $dataset->dataset_contract_id))
                 ->map(fn (CollectionDatasetRun $dataset): array => [
                     'request_family_id' => (string) $dataset->request_family_id,
                     'dataset_id' => (string) $dataset->dataset_contract_id,

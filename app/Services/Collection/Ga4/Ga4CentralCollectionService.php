@@ -20,6 +20,7 @@ use App\Services\Collection\Providers\Ga4\Ga4MetadataCompatibilityService;
 use App\Services\Collection\Providers\Ga4\Ga4RequestFamilyCatalog;
 use App\Services\Collection\StartCollectionService;
 use App\Services\Integrations\ResourceAutomationService;
+use App\Support\Collection\CollectionDatasetCatalog;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Time\SafeTimezone;
@@ -195,7 +196,7 @@ final class Ga4CentralCollectionService
                     CollectionRunStatus::Completed,
                     CollectionRunStatus::Skipped,
                     CollectionRunStatus::NotEligible,
-                ], true));
+                ], true) && CollectionDatasetCatalog::keeps('GA4', (string) $dataset->dataset_contract_id));
 
             if ($retryable->isNotEmpty()) {
                 $familyRanges = [];

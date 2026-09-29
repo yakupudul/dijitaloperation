@@ -8,6 +8,7 @@ use App\Services\Collection\Providers\Website\WebsiteDatasetExecutor;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\SeoTasks\SeoText;
+use App\Services\Website\Pages\WordPressPageSync;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -96,8 +97,8 @@ final class WordPressEventReconciliation
             }
             $connection = CoreConnection::query()->with(['digitalAsset.brand.customer', 'credential'])->find($state->connection_id);
             if (! $connection?->enabled || data_get($connection->config, 'pairing_state') !== 'paired'
-                || ! $connection->digitalAsset || ! $connection->credential || ! $connection->digitalAsset->isOperational()) {
-                // A passive customer (or asset) stops WordPress collection; it resumes on reactivation.
+                || ! $connection->digitalAsset || ! $connection->credential) {
+                // v2: passive customers keep collecting (free); only an unpaired / deleted site stops here.
                 DB::table('website_connector_delivery')->where('connection_id', $state->connection_id)
                     ->update(['next_reconcile_at' => now()->addHour()]);
 
@@ -129,9 +130,19 @@ final class WordPressEventReconciliation
                 || ($state->gap_at && strtotime($state->gap_at) > strtotime($state->last_inventory_at ?? '1970-01-01'));
             $events = DB::table('website_connector_events')->where('connection_id', $connection->id)
                 ->where('id', '>', $state->reconciled_event_id)->orderBy('id')->limit(50)->get();
+            // v2 pages: a deleted / trashed / unpublished object leaves `pages` now; a template (theme) change marks
+            // every page changed without refetching. Updated / new objects are refreshed below (changed-object run).
+            try {
+                app(WordPressPageSync::class)->applyEvents((int) $connection->digital_asset_id, $events);
+            } catch (Throwable $error) {
+                report($error);
+            }
+            $events = $events->reject(fn ($event): bool => WordPressPageSync::isTemplateChange($event))->values();
+            $watermarkId = (int) (DB::table('website_connector_events')->where('connection_id', $connection->id)
+                ->where('id', '>', $state->reconciled_event_id)->orderBy('id')->limit(50)->pluck('id')->max() ?? $state->reconciled_event_id);
             if (! $full && ($events->isEmpty() || $events->every(fn ($event) => $event->type === 'access.role_changed'))) {
                 DB::table('website_connector_delivery')->where('connection_id', $connection->id)->update([
-                    'reconciled_event_id' => (int) ($events->max('id') ?? $state->reconciled_event_id),
+                    'reconciled_event_id' => $watermarkId,
                     'next_reconcile_at' => now()->addMinutes(10),
                 ]);
 
@@ -139,14 +150,15 @@ final class WordPressEventReconciliation
             }
             $ids = $events->filter(fn ($e) => str_starts_with($e->type, 'content.') || str_starts_with($e->type, 'seo.'))
                 ->pluck('object_id')->filter(fn ($id) => ctype_digit($id) && (int) $id > 0)->map(fn ($id) => (int) $id)->unique()->values()->all();
-            // Global template/settings updates require a fresh inventory.
+            // Global settings updates (permalinks, front page) require a fresh inventory. A theme change does not (v2):
+            // its pages were only marked changed above.
             $full = $full || version_compare((string) $state->plugin_version, '1.1.0', '<')
-                || $ids === [] || $events->contains(fn ($e) => $e->type === 'settings.updated' || $e->type === 'maintenance.theme_changed');
+                || $ids === [] || $events->contains(fn ($e) => $e->type === 'settings.updated');
             if ($full ? $fullSlots < 1 : $changeSlots < 1) {
                 continue;
             }
             // A full CMS snapshot does not verify URLs outside this event batch.
-            $watermark = (int) ($events->max('id') ?? $state->reconciled_event_id);
+            $watermark = $watermarkId;
             $context = [
                 'force_refresh' => true,
                 'idempotency_key' => 'wp-events:'.$connection->id.':'.$watermark.':'.now()->format('YmdHi'),

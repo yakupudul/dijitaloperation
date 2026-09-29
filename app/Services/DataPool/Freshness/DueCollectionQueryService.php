@@ -9,6 +9,7 @@ use App\Services\Collection\Activity\ActivityCollectionPlan;
 use App\Services\Collection\Activity\CollectionActivityGate;
 use App\Services\Collection\DataContractRegistryLoader;
 use App\Services\DataPool\Freshness\Support\DueCollectionItem;
+use App\Support\Collection\CollectionDatasetCatalog;
 use App\Support\ServiceScope;
 use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
@@ -92,7 +93,7 @@ final class DueCollectionQueryService
                     continue;
                 }
                 $datasetId = $this->primaryDatasetForFamily((string) $family['id']);
-                if ($datasetId === null) {
+                if ($datasetId === null || ! CollectionDatasetCatalog::keeps($provider, $datasetId)) {
                     continue;
                 }
 

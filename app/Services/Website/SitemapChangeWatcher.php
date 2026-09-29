@@ -7,6 +7,9 @@ use App\Models\DigitalAsset;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\SeoTasks\SeoText;
+use App\Services\Website\Pages\MainContentExtractor;
+use App\Services\Website\Pages\PageStore;
+use App\Services\Website\Pages\SitemapPageSync;
 use Closure;
 use Illuminate\Support\Facades\DB;
 use MoxDop\Website\Discovery\DiscoveryConfig;
@@ -34,13 +37,13 @@ final class SitemapChangeWatcher
         $this->fetch = $fetch ?? fn (string $url): array => (new PublicHttpFetcher)->fetch($url, DiscoveryConfig::MAX_COLLECTION_RESPONSE_BYTES);
     }
 
-    /** Websites to watch: operational, no paired WordPress Connector (those send activity events instead). @return list<int> */
+    /** Websites to watch (v2: passive customers too — collection is free): no paired WordPress Connector (those send activity events instead). @return list<int> */
     public function eligibleSiteIds(): array
     {
         $withConnector = CoreConnection::query()->where('type', 'wordpress_connector')->where('enabled', true)
             ->where('config->pairing_state', 'paired')->whereNotNull('digital_asset_id')->pluck('digital_asset_id')->all();
 
-        return DigitalAsset::query()->operational()->where('type', 'website')->whereNotIn('id', $withConnector)
+        return DigitalAsset::query()->where('type', 'website')->whereNotIn('id', $withConnector)
             ->where(fn ($q) => $q->whereNotNull('primary_url')->orWhereNotNull('domain'))->orderBy('id')->pluck('id')->map(fn ($id) => (int) $id)->all();
     }
 
@@ -111,6 +114,20 @@ final class SitemapChangeWatcher
             }
         }
         $result = ['status' => $state === null ? 'baseline' : 'checked', 'changed' => count($changed), 'pages' => count($pages)];
+        // v2 `pages`: new / changed sitemap URLs → main content (bounded per pass; converges over the hourly passes).
+        try {
+            $pageSync = new SitemapPageSync(app(PageStore::class), app(MainContentExtractor::class), function (string $url): array {
+                $response = ($this->fetch)($url);
+                $html = ($response['ok'] ?? false) === true && is_string($response['body'] ?? null)
+                    && (! isset($response['content_type']) || str_contains(mb_strtolower((string) $response['content_type']), 'html'))
+                    ? $response['body'] : null;
+
+                return ['html' => $html, 'final_url' => $response['final_url'] ?? null, 'error' => $html === null ? 'fetch_failed' : null];
+            });
+            $result['page_store'] = $pageSync->sync((int) $site->id, $pages, $changed);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
         $update = ['sitemaps' => json_encode($files, JSON_UNESCAPED_SLASHES), 'pages' => json_encode($pages, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
             'page_count' => count($pages), 'error' => null, 'checked_at' => now(), 'updated_at' => now(), 'created_at' => $state->created_at ?? now()];
         // Rewrite the (large) page map only when it changed; otherwise just the check time.

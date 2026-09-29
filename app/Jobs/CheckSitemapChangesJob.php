@@ -29,7 +29,7 @@ final class CheckSitemapChangesJob implements ShouldBeUnique, ShouldQueue
     public function handle(SitemapChangeWatcher $watcher): void
     {
         $site = DigitalAsset::query()->find($this->siteId);
-        if ($site !== null && $site->isOperational()) {
+        if ($site !== null && $site->type === 'website') {
             $watcher->check($site);
         }
     }

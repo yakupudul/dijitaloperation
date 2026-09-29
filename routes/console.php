@@ -476,7 +476,7 @@ Schedule::command('moxdop:ads:budget-watch')
 
 // Meta ülke + şehir performansı (reklam × ülke / il, sonuçlarla) — her gün son 3 gün, ilk seferde 30 gün (salt okunur).
 Artisan::command('moxdop:meta:geo-results', function (): void {
-    DigitalAsset::query()->operational()->where('type', 'meta_ads')
+    DigitalAsset::query()->where('type', 'meta_ads') // v2: passive customers keep collecting (free)
         ->whereIn('id', CoreAssetBinding::query()->where('status', CoreAssetBinding::STATUS_ACTIVE)->select('digital_asset_id'))
         // Spread over time: each account 3 minutes after the previous one (shared Meta app-level budget).
         ->orderBy('id')->pluck('id')->values()->each(fn ($id, $index) => CollectMetaGeoResultsJob::dispatch((int) $id)->delay(now()->addMinutes(3 * $index)));
@@ -496,11 +496,11 @@ Schedule::command('moxdop:gbp:purge-expired')
     ->withoutOverlapping(60)
     ->name('gbp-content-retention');
 
-// Faz 1: veri saklama — ham kopyalar 90 gün (her sayfanın son HTML'i kalır), telemetri kendi süresi,
-// 25 aydan eski günlük performans aylık satıra çevrilir. Altın veri (sorgu/arama terimi/anahtar kelime) dokunulmaz.
-Schedule::command('moxdop:data:retention')
-    ->dailyAt('04:10')
-    ->withoutOverlapping(120)
+// v2 Faz 1: veri saklama (ayda bir) — günlük veriler 16 ay (eskisi aylığa çevrilip silinir), sorgu günlükleri 16 ay
+// (aylık hali query_sources, 24 ay), ham kopyalar 90 gün (her sayfanın son HTML'i kalır), telemetri kendi süresi.
+Schedule::command('moxdop:retention --apply')
+    ->monthlyOn(2, '04:10')
+    ->withoutOverlapping(720)
     ->name('data-retention');
 
 Artisan::command('moxdop:ownership:integrity {--fix : Disable extra / orphan bindings}', function (): void {

@@ -58,7 +58,8 @@ final class CollectMetaGeoResultsJob implements ShouldBeUnique, ShouldQueue
     public function handle(MetaGeoResults $results): void
     {
         $asset = DigitalAsset::query()->find($this->assetId);
-        if ($asset === null || ! $asset->isOperational()) {
+        // v2: collection is free and continues for passive customers (AI never runs for them).
+        if ($asset === null) {
             return;
         }
         $governor = app(MetaUsageGovernor::class);

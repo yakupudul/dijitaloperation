@@ -41,7 +41,8 @@ final class SiteChangePropagationTest extends TestCase
         ];
         $watcher = $this->watcher();
 
-        $this->assertSame(['status' => 'baseline', 'changed' => 0, 'pages' => 3], $watcher->check($this->site));
+        $baseline = $watcher->check($this->site);
+        $this->assertSame(['status' => 'baseline', 'changed' => 0, 'pages' => 3], array_intersect_key($baseline, array_flip(['status', 'changed', 'pages'])));
         $this->assertSame(0, CollectionRun::query()->count(), 'the first look only records a baseline');
 
         // One page changed, one was added; the post sitemap did not move and is not downloaded again.
