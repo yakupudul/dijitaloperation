@@ -67,7 +67,7 @@ final class GbpStandardInput
     }
 
     /** @return array<string, mixed>|null */
-    private function location(int $resourceId): ?array
+    public function location(int $resourceId): ?array
     {
         $row = DB::table('gbp_location_snapshots')->where('external_resource_id', $resourceId)->orderByDesc('captured_at')->orderByDesc('id')->first();
         if ($row === null) {
@@ -121,7 +121,7 @@ final class GbpStandardInput
     }
 
     /** @return array{available: bool, labels: list<string>} */
-    private function services(int $resourceId): array
+    public function services(int $resourceId): array
     {
         $row = DB::table('gbp_service_snapshots')->where('external_resource_id', $resourceId)->orderByDesc('captured_at')->orderByDesc('id')->first();
         if ($row === null) {

@@ -39,7 +39,7 @@ final class ReviewReplyDraftTest extends TestCase
         $admin = User::factory()->create(['is_active' => true]);
         $admin->assignRole(Roles::ADMIN);
         $this->actingAs($admin);
-        config(['moxdop.anthropic.api_key' => 'sk-ant-test']);
+        config(['moxdop.anthropic.api_key' => 'test-anthropic-value']);
         CoreIntegration::factory()->anthropic()->create();
         $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create()->id, 'name' => 'Örnek Klinik']);
         $this->asset = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'google_business_profile', 'status' => DigitalAssetStatus::Active, 'name' => 'Örnek Profil']);
@@ -61,8 +61,7 @@ final class ReviewReplyDraftTest extends TestCase
         $reviewId = (int) DB::table('gbp_reviews')->where('review_id', 'r1')->value('id');
 
         Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'reviews'])
-            ->assertSee('Ortalama yanıt süresi')->assertSee('24 saat')
-            ->assertSee('AI ile yanıt taslağı')
+            ->assertSee('Yanıt taslağı')
             ->call('draftReply', $reviewId)
             ->assertSee('sizinle iletişime geçmek isteriz');
 

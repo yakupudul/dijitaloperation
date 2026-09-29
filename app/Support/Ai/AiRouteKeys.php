@@ -52,6 +52,15 @@ final class AiRouteKeys
 
     public const string GBP_POST_DRAFT = 'gbp.post_draft';
 
+    /** Faz 7: brand offerings vs Business Profile categories / services → missing services + category notes (one call). */
+    public const string GBP_SERVICES_COMPARE = 'gbp.services_compare';
+
+    /** Faz 7: proposed Business Profile description (≤ 750 characters) from brand memory, offerings and areas. */
+    public const string GBP_DESCRIPTION = 'gbp.description';
+
+    /** Faz 7: one Business Profile post from one page of the brand's site (link to the page). */
+    public const string GBP_POST_FROM_PAGE = 'gbp.post_from_page';
+
     public const string INSIGHT_ADVISOR_EXPLAIN = 'insights.advisor_explain';
 
     public const string INSIGHT_SEARCH_TERM_TRIAGE = 'insights.search_term_triage';

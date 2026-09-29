@@ -59,7 +59,7 @@ final class GbpAssetPageTest extends TestCase
         $this->assertSame('configured', $data['migration_mode']);
         $this->assertFalse($data['performance_live']['available']);
         Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id])
-            ->assertSee(__('operator_gbp.collect_title'));
+            ->assertSee('Veri yok: profil henüz toplanmadı');
     }
 
     public function test_collected_rows_render_after_a_partial_run(): void
@@ -96,24 +96,29 @@ final class GbpAssetPageTest extends TestCase
 
         Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id])
             ->assertSee('Örnek Klinik Merkez')
-            ->assertDontSee(__('operator_gbp.collect_title'))
-            ->call('setTab', 'performance')
+            ->assertDontSee('Veri yok: profil henüz toplanmadı')
+            ->assertSeeInOrder(['Görüntüleme (harita + arama)', '2.800', '0% önceki 28 güne göre', 'Tıklama', '56', 'Arama 56', 'Puan', '4,6', '120 yorum', 'Yanıtsız yorum', '3'])
+            ->call('setTab', 'analysis')
             ->assertSee('implant fiyatları')
-            ->assertSee(__('operator_gbp.metrics.calls'))
+            ->assertSee('Harita görüntüleme')
             ->call('setTab', 'reviews')
             ->assertSee('Harika hizmet')
-            ->assertSee(__('operator_gbp.not_replied'))
-            ->call('setTab', 'profile')
-            ->assertSee('Birincil kategori')->assertSee('Yorum yanıt oranı ve süresi');
+            ->assertSee('Yanıtsız')
+            ->call('setTab', 'settings')
+            ->assertSee('Birincil kategori')->assertSee('Diş Kliniği')->assertSee('Ortodontist');
     }
 
     public function test_retired_tabs_redirect_and_edit_link_is_present(): void
     {
         Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'competitors'])
-            ->assertSet('tab', 'overview')
+            ->assertSet('tab', 'overview');
+        Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'setup'])
+            ->assertSet('tab', 'settings')
             ->assertSee(route('operator.asset.edit', ['assetId' => $this->asset->id]), false);
         Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'queries'])
-            ->assertSet('tab', 'performance');
+            ->assertSet('tab', 'analysis');
+        Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'profile'])
+            ->assertSet('tab', 'todo');
         Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'days' => 45])
             ->assertSet('days', 28);
     }

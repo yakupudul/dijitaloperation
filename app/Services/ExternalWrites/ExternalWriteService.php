@@ -12,6 +12,7 @@ use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\Integrations\WordPress\WordPressManagementService;
 use App\Support\Roles;
+use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -319,12 +320,30 @@ final class ExternalWriteService
     }
 
     /**
-     * ADR-073: Admin-approved Business Profile local post.
+     * ADR-073: Admin-approved Business Profile local post, now or at `publish_at` (Europe/Istanbul; the approved post
+     * waits as `scheduled` and `releaseScheduled()` sends it when due — Google has no scheduling of its own).
      *
-     * @param  array{summary: string, url?: ?string, action_type?: ?string}  $post
+     * @param  array{summary: string, url?: ?string, action_type?: ?string, publish_at?: ?string}  $post
      */
     public function requestLocalPost(User $user, DigitalAsset $asset, array $post): ExternalWriteAction
     {
+        $publishAt = null;
+        if (filled($post['publish_at'] ?? null)) {
+            try {
+                $publishAt = CarbonImmutable::parse((string) $post['publish_at'], 'Europe/Istanbul');
+            } catch (Throwable) {
+                throw ValidationException::withMessages(['write' => 'Yayın zamanı geçerli değil.']);
+            }
+            if ($publishAt->lessThan(now()->subMinute())) {
+                throw ValidationException::withMessages(['write' => 'Yayın zamanı geçmişte olamaz.']);
+            }
+            if ($publishAt->greaterThan(now()->addDays(90))) {
+                throw ValidationException::withMessages(['write' => 'Yayın zamanı en çok 90 gün sonrası olabilir.']);
+            }
+            if ($publishAt->lessThanOrEqualTo(now()->addMinutes(2))) {
+                $publishAt = null;
+            }
+        }
         $this->guard($user, ExternalWriteAction::CHANNEL_GBP);
         $summary = trim((string) ($post['summary'] ?? ''));
         if ($asset->type !== 'google_business_profile' || $summary === '' || mb_strlen($summary) > (int) config('moxdop-external-writes.gbp.max_post_length', 1500)) {
@@ -335,14 +354,43 @@ final class ExternalWriteService
             throw ValidationException::withMessages(['write' => 'Bağlantı geçerli bir adres değil.']);
         }
         $this->gbpLocation($asset);
-
-        return $this->queue(ExternalWriteAction::query()->create([
+        $action = ExternalWriteAction::query()->create([
             'channel' => ExternalWriteAction::CHANNEL_GBP, 'action' => ExternalWriteAction::ACTION_LOCAL_POST,
-            'digital_asset_id' => $asset->id, 'brand_id' => $asset->brand_id, 'status' => 'queued',
+            'digital_asset_id' => $asset->id, 'brand_id' => $asset->brand_id, 'status' => $publishAt !== null ? 'scheduled' : 'queued',
             'request_payload' => ['summary' => $summary, 'url' => $url !== '' ? $url : null, 'action_type' => in_array($post['action_type'] ?? null, ['LEARN_MORE', 'BOOK', 'CALL', 'ORDER', 'SIGN_UP'], true) ? $post['action_type'] : 'LEARN_MORE',
-                'label' => 'İşletme Profili gönderisi'],
+                'label' => 'İşletme Profili gönderisi', 'publish_at' => $publishAt?->utc()->toIso8601String()],
             'requested_by' => $user->id,
-        ]));
+        ]);
+
+        return $publishAt !== null ? $action : $this->queue($action);
+    }
+
+    /** Sends the scheduled (already Admin-approved) Business Profile posts whose time has come. */
+    public function releaseScheduled(): int
+    {
+        $released = 0;
+        ExternalWriteAction::query()->where('status', 'scheduled')->where('action', ExternalWriteAction::ACTION_LOCAL_POST)->orderBy('id')->limit(200)->get()
+            ->each(function (ExternalWriteAction $action) use (&$released): void {
+                $at = data_get($action->request_payload, 'publish_at');
+                if (is_string($at) && CarbonImmutable::parse($at)->greaterThan(now())) {
+                    return;
+                }
+                if (ExternalWriteAction::query()->whereKey($action->id)->where('status', 'scheduled')->update(['status' => 'queued', 'updated_at' => now()]) === 1) {
+                    $this->queue($action->refresh());
+                    $released++;
+                }
+            });
+
+        return $released;
+    }
+
+    /** Admin cancels a scheduled post before it is sent. */
+    public function cancelScheduled(User $user, ExternalWriteAction $action): void
+    {
+        $this->guard($user, $action->channel);
+        if (ExternalWriteAction::query()->whereKey($action->id)->where('status', 'scheduled')->update(['status' => 'cancelled', 'finished_at' => now(), 'updated_at' => now()]) !== 1) {
+            throw ValidationException::withMessages(['write' => 'Bu gönderi artık zamanlanmış değil.']);
+        }
     }
 
     private function gbpLocation(DigitalAsset $asset): void

@@ -138,10 +138,12 @@ class PanelDesignFreezeTest extends TestCase
                 __('operator_website.tabs.setup'),
             ]],
             [route('operator.gbp', ['assetId' => $byType['google_business_profile']->id]), [
-                __('operator_gbp.page_tabs.overview'),
-                __('operator_gbp.page_tabs.performance'),
-                __('operator_gbp.page_tabs.reviews'),
-                __('operator_gbp.page_tabs.profile'),
+                'Genel Bakış',
+                'Yapılacaklar',
+                'Yorumlar',
+                'Gönderiler',
+                'Analiz',
+                'Ayarlar',
             ]],
             [route('operator.google-ads.overview', ['assetId' => $byType['google_ads']->id]), [
                 'Overview',

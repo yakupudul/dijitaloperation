@@ -40,7 +40,7 @@ class GbpLocalIntelligenceWorkspaceTest extends TestCase
     {
         $asset = $this->createPortfolioAsset('google_business_profile', 'Northwind GBP');
 
-        foreach (['overview', 'performance', 'reviews', 'profile', 'advisor', 'visibility', 'competitors', 'operations'] as $tab) {
+        foreach (['overview', 'todo', 'reviews', 'posts', 'analysis', 'settings', 'performance', 'profile', 'advisor', 'visibility', 'competitors', 'operations'] as $tab) {
             $this->get(route('operator.gbp', ['assetId' => $asset->id, 'tab' => $tab]))
                 ->assertOk()
                 ->assertSee('Google Business Profile')
@@ -50,7 +50,7 @@ class GbpLocalIntelligenceWorkspaceTest extends TestCase
         }
 
         Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'queries'])
-            ->assertSet('tab', 'performance')
+            ->assertSet('tab', 'analysis')
             ->assertDontSee('acil dişçi çankaya')
             ->assertDontSee('Local SEO Score')
             ->assertDontSee('GBP Score');

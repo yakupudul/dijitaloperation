@@ -8,7 +8,7 @@ use App\Support\Ai\AiRouteRegistry;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * Registers the Business Profile AI routes (review reply, post draft). Rule engines run without AI.
+ * Registers the Business Profile AI routes (review reply, post draft, Faz 7 services compare, description, post from page). Rule engines run without AI.
  */
 final class AdvisorServiceProvider extends ServiceProvider
 {
@@ -27,6 +27,30 @@ final class AdvisorServiceProvider extends ServiceProvider
             'name' => 'Business Profile Post Draft',
             'module' => 'advisor',
             'description' => 'On operator click, drafts the next Google Business Profile post from the brand\'s services, service areas, profile searches and recent posts. It fills the post form; publishing needs Admin approval (ADR-073).',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::GBP_SERVICES_COMPARE,
+            'name' => 'Business Profile Services Compare',
+            'module' => 'gbp',
+            'description' => 'İşletme Profili "Hizmetleri karşılaştır": the brand\'s approved services vs the profile\'s categories and services list → missing services (exact names) and category notes. Suggestions only; the operator changes the profile on Google.',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::GBP_DESCRIPTION,
+            'name' => 'Business Profile Description',
+            'module' => 'gbp',
+            'description' => 'İşletme Profili "Açıklama öner": a proposed profile description (≤ 750 characters) from brand memory, services and areas, sector compliance checked. Copy only; nothing is written to Google.',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::GBP_POST_FROM_PAGE,
+            'name' => 'Business Profile Post From Page',
+            'module' => 'gbp',
+            'description' => 'İşletme Profili "Siteden paylaş": one post (≤ 1500 characters) from one page of the brand\'s site with a link to that page, sector compliance checked. Publishing needs Admin approval (ADR-073).',
             'default_steps' => AiDefaultSteps::analysis(),
         ]);
     }
