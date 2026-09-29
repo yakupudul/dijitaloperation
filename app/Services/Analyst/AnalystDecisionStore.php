@@ -5,6 +5,7 @@ namespace App\Services\Analyst;
 use App\Models\AnalystRun;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\Outcomes\OutcomeTracker;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -62,21 +63,13 @@ final class AnalystDecisionStore
         });
     }
 
+    /** Done: applied with the outcome baseline (OutcomeTracker) and the evidence the card showed. */
     public function markDone(Suggestion $decision, ?User $user, ?string $note = null): void
     {
-        $baseline = ['at' => now()->toIso8601String(), 'facts' => $decision->evidence ?? []];
-        try {
-            $registry = app(AnalystRegistry::class);
-            if ($registry->has($decision->channel)) {
-                $baseline['metric'] = $registry->get($decision->channel)->baseline($decision);
-            }
-        } catch (\Throwable $exception) {
-            report($exception);
+        if ($note !== null && trim($note) !== '') {
+            $decision->forceFill(['operator_note' => mb_substr(trim($note), 0, 2000)]);
         }
-        $decision->forceFill([
-            'status' => Suggestion::APPLIED, 'resolved_at' => now(), 'resolved_by' => $user?->id, 'applied_at' => now(), 'baseline' => $baseline,
-            'operator_note' => $note !== null && trim($note) !== '' ? mb_substr(trim($note), 0, 2000) : $decision->operator_note,
-        ])->save();
+        app(OutcomeTracker::class)->apply($decision, $user, ['facts' => $decision->evidence ?? []]);
     }
 
     public function dismiss(Suggestion $decision, ?User $user, ?string $note = null): void

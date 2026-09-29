@@ -278,7 +278,8 @@ final class GoogleAdsScreenTest extends TestCase
         $this->assertSame(Suggestion::APPLIED, $suggestion->status);
         $this->assertNotNull($suggestion->applied_at);
         $this->assertSame($action->id, $suggestion->baseline['write_action_id']);
-        $this->assertArrayHasKey('cost', $suggestion->baseline['metric']);
+        $this->assertArrayHasKey('cost', $suggestion->baseline);
+        $this->assertSame(28, $suggestion->baseline['window_days']);
 
         $page->call('setTab', 'todo')->assertSee('Gönderildi')->call('undoWrite', $action->id);
         $this->assertSame('undone', $action->fresh()->status);
@@ -401,7 +402,7 @@ final class GoogleAdsScreenTest extends TestCase
 
         $page->call('setTab', 'strategy')->assertSee('Onaylı taslaklar · 3')->call('downloadEditor')->assertFileDownloaded();
         $applied = Suggestion::query()->whereIn('action_type', ['ads_campaign', 'ads_rsa', 'ads_negative'])->get();
-        $this->assertTrue($applied->every(fn (Suggestion $s): bool => $s->status === Suggestion::APPLIED && $s->applied_at !== null && isset($s->baseline['metric']['cost'], $s->baseline['editor_file_at'])));
+        $this->assertTrue($applied->every(fn (Suggestion $s): bool => $s->status === Suggestion::APPLIED && $s->applied_at !== null && isset($s->baseline['window_days'], $s->baseline['editor_file_at'])));
     }
 
     public function test_every_tab_renders_and_old_tab_keys_still_work(): void

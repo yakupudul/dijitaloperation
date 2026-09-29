@@ -22,6 +22,9 @@ return [
         'gsc_query_page_daily', 'google_ads_search_term_daily',
     ],
 
+    /* Closed suggestions (applied / dismissed): deleted this many months after they were closed. */
+    'closed_suggestion_months' => (int) env('MOXDOP_RETENTION_CLOSED_SUGGESTION_MONTHS', 12),
+
     /* Raw query layer (monthly): kept this many months. */
     'query_sources_months' => (int) env('MOXDOP_RETENTION_QUERY_SOURCES_MONTHS', 24),
 

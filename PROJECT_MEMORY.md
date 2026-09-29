@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-11-01 — MoxDOP v2 Faz 9 (Sonuç takibi)
+
+- **Karar:** Sonuç takibi tek servistir (`OutcomeTracker`): uygulamada 28 günlük baseline (tek şekil), 28. ve 56. günde ölçüm, her nokta bir kez. Kanal yalnız bir metrik okuyucusu ekler; karar kuralı kanal başına tek ana metrik + %10 eşik + hacim alt sınırı, az / eksik veri = belirsiz (tahmin yok).
+- **Karar:** Google Ads ölçümü öneride kampanya varsa o kampanyadır, yoksa hesap; kampanya adı veride bulunamazsa "veri yok".
+- **Karar:** Kapalı öneriler 12 ay sonra `moxdop:retention` ile silinir.
+
 ## 2026-10-30 — MoxDOP v2 Faz 4b: site screen tabs (competitors, backlinks, health, analysis)
 
 - **Competitor suggestions need evidence:** a competitor suggestion is kept only when it cites ≥ 2 fetched competitor URLs from the input, or is a clear gap while the brand has no page for the cluster; not every competitor heading is a suggestion. Sector compliance drops offending suggestions before display.

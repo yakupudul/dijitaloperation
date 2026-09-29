@@ -705,3 +705,10 @@ Schedule::command('moxdop:google-ads:suggestions')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(30)
     ->name('google-ads-suggestions-daily');
+
+// Faz 9: sonuç takibi — uygulanan önerilerin 28. ve 56. gün ölçümü (her nokta bir kez).
+Schedule::command('moxdop:outcomes:measure')
+    ->dailyAt('07:13')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(60)
+    ->name('outcomes-measure');

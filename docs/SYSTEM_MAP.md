@@ -63,6 +63,7 @@ Google Ads kampanya / bütçe / durum değişikliği **yoktur**; öneriler Googl
 | `41 5 * * * (UTC)` | `moxdop:meta:geo-results` |
 | `56 6 * * * (Europe/Istanbul)` | `moxdop:meta:suggestions` |
 | `*/5 * * * * (UTC)` | `moxdop:ops:evaluate-alerts` |
+| `13 7 * * * (Europe/Istanbul)` | `moxdop:outcomes:measure` |
 | `* * * * * (UTC)` | `moxdop:resources:automate` |
 | `10 5 * * * (UTC)` | `moxdop:resources:retry-stopped` |
 | `10 4 2 * * (UTC)` | `moxdop:retention` |

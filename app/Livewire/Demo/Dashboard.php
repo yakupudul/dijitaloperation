@@ -9,6 +9,7 @@ use App\Models\DigitalAsset;
 use App\Models\Observability\OperationalAlert;
 use App\Services\DataStatus\DataStatus;
 use App\Services\DataStatus\DataStatusReader;
+use App\Services\Outcomes\OutcomeTracker;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
@@ -19,8 +20,8 @@ use Livewire\Component;
 use Throwable;
 
 /**
- * Bugün: every operational brand in one list (sector, services, areas, asset types, last data date). Faz 9 adds the applied-suggestion results (worked / not) per brand;
- * until then the list is the entry point to each brand's workspace.
+ * Bugün: every operational brand in one list (sector, services, areas, asset types, last data date) and "Sonuçlar" — the
+ * applied suggestions measured at 28 / 56 days (işe yaradı / yaramadı / belirsiz, Faz 9).
  */
 #[Layout('operator.layouts.app')]
 #[Title('Bugün')]
@@ -31,6 +32,7 @@ class Dashboard extends Component
         return view('livewire.demo.dashboard', [
             'rows' => $this->rows(),
             'systemAlerts' => $this->systemAlerts(),
+            'results' => $this->results(),
             'flash' => DemoState::pullFlash(),
         ]);
     }
@@ -96,6 +98,22 @@ class Dashboard extends Component
             report($error);
 
             return [];
+        }
+    }
+
+    /**
+     * Sonuçlar: the last measured suggestions and the verdict counts of the last 90 days.
+     *
+     * @return array{counts: array<string, int>, items: list<array<string, string>>}
+     */
+    private function results(): array
+    {
+        try {
+            return app(OutcomeTracker::class)->summary();
+        } catch (Throwable $error) {
+            report($error);
+
+            return ['counts' => [], 'items' => []];
         }
     }
 

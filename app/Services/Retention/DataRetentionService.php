@@ -16,7 +16,8 @@ use Throwable;
  * - query daily facts (Search Console query × page, Google Ads search terms) older than 16 months are deleted —
  *   their monthly form is `query_sources`, itself kept 24 months;
  * - raw provider payloads / HTML copies older than the window are deleted (each page's latest HTML is kept);
- * - telemetry tables are trimmed to their own windows.
+ * - telemetry tables are trimmed to their own windows;
+ * - closed suggestions (applied / dismissed) are deleted 12 months after they were closed.
  */
 final class DataRetentionService
 {
@@ -24,7 +25,7 @@ final class DataRetentionService
     private array $plans = [];
 
     /**
-     * @return array{raw_objects: int, telemetry: array<string, int>, rolled_rows: int, rollup_rows: int, query_daily_rows: array<string, int>, query_source_rows: int}
+     * @return array{raw_objects: int, telemetry: array<string, int>, rolled_rows: int, rollup_rows: int, query_daily_rows: array<string, int>, query_source_rows: int, closed_suggestions: int}
      */
     public function run(bool $dryRun = false): array
     {
@@ -34,6 +35,7 @@ final class DataRetentionService
             ...$this->rollupDailyPerformance($dryRun),
             'query_daily_rows' => $this->purgeQueryDailyFacts($dryRun),
             'query_source_rows' => $this->purgeQuerySources($dryRun),
+            'closed_suggestions' => $this->purgeClosedSuggestions($dryRun),
         ];
     }
 
@@ -92,6 +94,19 @@ final class DataRetentionService
         }
         $cutoff = CarbonImmutable::now()->startOfMonth()->subMonths(max(1, (int) config('moxdop-retention.query_sources_months', 24)));
         $query = DB::table('query_sources')->where('month', '<', $cutoff->toDateString());
+
+        return $dryRun ? $query->count() : $query->delete();
+    }
+
+    /** Closed suggestions (applied / dismissed) closed more than `closed_suggestion_months` (12) ago. */
+    public function purgeClosedSuggestions(bool $dryRun = false): int
+    {
+        if (! Schema::hasTable('suggestions')) {
+            return 0;
+        }
+        $cutoff = CarbonImmutable::now()->subMonths(max(1, (int) config('moxdop-retention.closed_suggestion_months', 12)));
+        $query = DB::table('suggestions')->whereIn('status', ['applied', 'dismissed'])
+            ->whereRaw('COALESCE(resolved_at, applied_at, updated_at) < ?', [$cutoff->toDateTimeString()]);
 
         return $dryRun ? $query->count() : $query->delete();
     }

@@ -39,13 +39,14 @@ final class SiteMetrics
     }
 
     /**
-     * Per page of this site: clicks, impressions, impression-weighted position (28 days).
+     * Per page of this site: clicks, impressions, impression-weighted position (28 days, or the given [from, to]).
      *
+     * @param  array{0: string, 1: string}|null  $range
      * @return array<string, array{url: string, clicks: int, impressions: int, position: ?float}>
      */
-    public function pageTotals(Brand $brand, DigitalAsset $site): array
+    public function pageTotals(Brand $brand, DigitalAsset $site, ?array $range = null): array
     {
-        $window = $this->window($brand);
+        $window = $range !== null ? ['start' => $range[0], 'end' => $range[1]] : $this->window($brand);
         if ($window === null) {
             return [];
         }
