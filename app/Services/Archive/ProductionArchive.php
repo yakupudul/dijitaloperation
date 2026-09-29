@@ -41,6 +41,10 @@ final class ProductionArchive
         'sales.lead_score' => 'Lead puanı',
         'website.technical_tasks' => 'Teknik iş listesi',
         'website.page_draft' => 'Web sayfası metni',
+        'analyst.search' => 'Arama analizi',
+        'analyst.maps' => 'Harita analizi',
+        'analyst.google_ads' => 'Google Ads analizi',
+        'analyst.meta' => 'Meta analizi',
     ];
 
     /** Advisor draft rules → archive kind. */

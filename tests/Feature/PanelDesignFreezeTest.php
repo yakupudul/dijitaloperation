@@ -59,21 +59,9 @@ class PanelDesignFreezeTest extends TestCase
 
         $this->assertSame([
             'operator.dashboard',
-            'operator.command-center',
-            'operator.portfolio.health',
-            'operator.customers',
             'operator.brands',
-            'operator.assets',
-            'operator.ads_advisor',
-            'operator.seo_tasks',
-            'operator.content.calendar',
+            'operator.customers',
             'operator.library.search-queries',
-            'operator.library.search-demand-competitors',
-            'operator.brain.services',
-            'operator.leads',
-            'operator.prospects',
-            'operator.reports.monthly',
-            'operator.agency',
             'operator.integrations',
             'operator.settings',
         ], $routes);
@@ -94,12 +82,14 @@ class PanelDesignFreezeTest extends TestCase
 
     public function test_hidden_screens_are_tabs_of_their_sidebar_entry(): void
     {
-        $tabs = OperatorMenu::sectionTabs('operator.alerts');
-        $this->assertSame(['/command-center', '/tasks', '/alerts', '/renewals'], array_column($tabs, 'url'));
-        $this->assertSame([false, false, true, false], array_column($tabs, 'active'));
+        $tabs = OperatorMenu::sectionTabs('operator.integrations.discovered');
+        $this->assertSame(['/integrations', '/integrations/discovered', '/integrations/wordpress-sites', '/integrations/website-duplicates', '/data-center'], array_column($tabs, 'url'));
+        $this->assertSame([false, true, false, false, false], array_column($tabs, 'active'));
         $this->assertNull(OperatorMenu::sectionTabs('operator.customers'));
+        $this->assertNull(OperatorMenu::sectionTabs('operator.alerts'), 'Step 3: out of the menu, route kept');
 
-        $this->get(route('operator.reports.queue'))->assertOk()->assertSee('aria-current="page"', false)->assertSee(route('operator.reports.scorecard', absolute: false), false);
+        $this->get(route('operator.integrations.discovered'))->assertOk()->assertSee('aria-current="page"', false)->assertSee(route('operator.data-center', absolute: false), false);
+        $this->get(route('operator.reports.queue'))->assertOk();
     }
 
     public function test_customer_primary_ia(): void
@@ -115,7 +105,7 @@ class PanelDesignFreezeTest extends TestCase
 
     public function test_brand_primary_ia_is_locked(): void
     {
-        $html = Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])->html();
+        $html = Livewire::withQueryParams(['tab' => 'overview'])->test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])->html();
 
         foreach (['Genel bakış', 'İşletme', 'Dijital varlıklar', 'İşler', 'Raporlar', 'Dosyalar'] as $tab) {
             $this->assertMatchesRegularExpression('/role="tab"[^>]*>'.preg_quote($tab, '/').'(<| )/u', $html);
@@ -123,7 +113,7 @@ class PanelDesignFreezeTest extends TestCase
 
         preg_match_all('/role="tab"[^>]*wire:click="setTab\\(\'([^\']+)\'\\)"/', $html, $matches);
         $this->assertSame(
-            ['overview', 'business', 'assets', 'work', 'reports', 'files'],
+            ['arama', 'harita', 'google_ads', 'meta', 'ayarlar', 'overview', 'business', 'assets', 'work', 'reports', 'files'],
             $matches[1] ?? [],
             'Faz 11c: Dosyalar moved from the menu to the brand page'
         );

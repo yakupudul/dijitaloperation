@@ -49,10 +49,10 @@ class GlobalAgencyOperatingLayerTest extends TestCase
 
         $this->assertContains('Today', $labels);
         $this->assertContains('Customers', $labels);
-        $this->assertContains('Digital Assets', $labels);
+        $this->assertNotContains('Digital Assets', $labels, 'Step 3: assets are reached from Entegrasyonlar / brand Ayarlar');
         $this->assertNotContains('Findings', $labels, 'Faz 10e sade menü');
         $this->assertNotContains('Recommendations', $labels);
-        $this->assertContains('Command Center', $labels, 'W7: Work List, Alerts and Renewals are tabs of the Command Center');
+        $this->assertNotContains('Command Center', $labels, 'Step 3: daily work starts from Bugün → brand workspace');
         $this->assertNotContains('Opportunities', $labels);
         $this->assertNotContains('Activity', $labels, 'W7: Activity is a tab of Settings');
         $this->assertNotContains('Tasks', $labels);
@@ -72,7 +72,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
         // W5: the dashboard shows the Command Center top list; no Demo Atlas portfolio/attention fixtures.
         Livewire::test(Dashboard::class)
             ->assertOk()
-            ->assertSee(__('operator.dashboard_exec.weekly_top'))
+            ->assertSee(__('operator.dashboard_exec.today'))
             ->assertDontSee('Lead measurement finding open on Google Ads')
             ->assertDontSee('1 overdue recurring review (Meta Creative)')
             ->assertDontSee('Agency Health')

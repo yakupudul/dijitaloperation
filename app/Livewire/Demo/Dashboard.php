@@ -3,44 +3,57 @@
 namespace App\Livewire\Demo;
 
 use App\Enums\Observability\OperationalAlertState;
-use App\Models\AssetAlert;
+use App\Models\AnalystDecision;
+use App\Models\Brand;
 use App\Models\Observability\OperationalAlert;
-use App\Services\CommandCenter\CommandCenter;
-use App\Services\Operator\OperatorExecutionReadService;
+use App\Services\Analyst\AnalystRegistry;
 use App\Support\Demo\DemoState;
-use App\Support\ServiceScope;
 use Illuminate\Contracts\View\View;
-use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Throwable;
 
+/**
+ * Bugün: the portfolio in one list — every operational brand with its most urgent open card and the open-card count
+ * per channel (Arama · Harita · Google Ads · Meta). The work itself happens on the brand workspace.
+ */
 #[Layout('operator.layouts.app')]
-#[Title('Ana sayfa')]
+#[Title('Bugün')]
 class Dashboard extends Component
 {
     public function render(): View
     {
         return view('livewire.demo.dashboard', [
-            'dashboard' => app(OperatorExecutionReadService::class)->dashboard('my_work'),
-            'weeklyTop' => $this->weeklyTop(),
-            'commandSummary' => $this->commandSummary(),
-            'alerts' => $this->openAlerts(),
+            'rows' => $this->rows(),
+            'channels' => array_map(fn (array $c): string => $c[0], AnalystRegistry::CHANNELS),
             'systemAlerts' => $this->systemAlerts(),
             'flash' => DemoState::pullFlash(),
         ]);
     }
 
     /**
-     * "Önce bunlar": the first command-center items across every source (max 2 per brand).
-     *
-     * @return list<array<string, mixed>>
+     * @return list<array{id: int, name: string, top: array{title: string, why: string, channel: string}|null, counts: array<string, int>, total: int}>
      */
-    private function weeklyTop(): array
+    private function rows(): array
     {
         try {
-            return app(CommandCenter::class)->top(8, 2);
+            $brands = Brand::query()->operational()->orderBy('name')->get(['id', 'name']);
+            $open = AnalystDecision::query()->whereIn('brand_id', $brands->pluck('id')->all() ?: [0])->actionable()
+                ->orderBy('priority')->orderByDesc('last_seen_at')->orderBy('id')->get(['id', 'brand_id', 'channel', 'title', 'why', 'priority'])->groupBy('brand_id');
+            $rows = $brands->map(function (Brand $brand) use ($open): array {
+                $decisions = $open->get($brand->id, collect());
+                $top = $decisions->first();
+
+                return [
+                    'id' => (int) $brand->id, 'name' => (string) $brand->name,
+                    'top' => $top === null ? null : ['title' => (string) $top->title, 'why' => (string) $top->why, 'channel' => $top->channel, 'priority' => (int) $top->priority],
+                    'counts' => $decisions->countBy('channel')->map(fn ($n): int => (int) $n)->all(), 'total' => $decisions->count(),
+                ];
+            })->all();
+            usort($rows, fn (array $a, array $b): int => [($a['top']['priority'] ?? 9), -$a['total'], $a['name']] <=> [($b['top']['priority'] ?? 9), -$b['total'], $b['name']]);
+
+            return $rows;
         } catch (Throwable $error) {
             report($error);
 
@@ -48,38 +61,8 @@ class Dashboard extends Component
         }
     }
 
-    /** @return array{total: int, critical: int, money: float, clicks: float, brands: int} */
-    private function commandSummary(): array
-    {
-        try {
-            return app(CommandCenter::class)->summary();
-        } catch (Throwable) {
-            return ['total' => 0, 'critical' => 0, 'money' => 0.0, 'clicks' => 0.0, 'brands' => 0];
-        }
-    }
-
     /**
-     * Open asset alerts, most severe first (critical → low), newest first within a severity.
-     *
-     * @return Collection<int, AssetAlert>
-     */
-    private function openAlerts(): Collection
-    {
-        try {
-            return app(ServiceScope::class)->constrain(AssetAlert::query()->active())
-                ->with(['digitalAsset', 'brand'])
-                ->orderByRaw("case severity when 'critical' then 0 when 'high' then 1 when 'medium' then 2 else 3 end")
-                ->latest('first_detected_at')
-                ->limit(8)
-                ->get();
-        } catch (Throwable) {
-            return new Collection;
-        }
-    }
-
-    /**
-     * Faz 13: open operational alerts (collection failure, reconnect needed, quota, expiring token, stopped worker)
-     * reach the operator on the home screen, not only the admin's phone.
+     * Open operational alerts (collection failure, reconnect needed, quota, stopped worker): one line on Bugün.
      *
      * @return array{critical: int, warning: int, top: ?string}
      */

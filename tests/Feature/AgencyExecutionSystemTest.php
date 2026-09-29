@@ -66,13 +66,11 @@ class AgencyExecutionSystemTest extends TestCase
 
     public function test_dashboard_execution_sections(): void
     {
-        // One-person operation: the dashboard shows today, "do these first" from the command center and links to
-        // the command center and portfolio health; team capacity and the always-empty legacy sections are gone.
+        // Step 3: Bugün = operational brands with their top card; Komuta merkezi / Portföy sağlığı left the home screen.
         Livewire::test(Dashboard::class)
             ->assertSee(__('operator.dashboard_exec.today'))
-            ->assertSee(__('operator.dashboard_exec.weekly_top'))
-            ->assertSee('Komuta merkezi')
-            ->assertSee('Portföy sağlığı')
+            ->assertDontSee(__('operator.dashboard_exec.weekly_top'))
+            ->assertDontSee('Portföy sağlığı')
             ->assertDontSee(__('operator.capacity.title'))
             ->assertDontSee(__('operator.dashboard_exec.portfolio_focus'));
     }

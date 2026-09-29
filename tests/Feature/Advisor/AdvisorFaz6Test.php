@@ -71,8 +71,9 @@ final class AdvisorFaz6Test extends TestCase
         $this->assertSame(2, $channels['Web / SEO']['open']);
         $this->assertSame(1, $channels['Google Ads']['urgent']);
 
-        $this->get(route('operator.dashboard'))->assertOk()->assertSee(__('operator.dashboard_exec.weekly_top'))->assertSee('Kritik SEO düzeltmesi');
-        Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->assertSee('Danışman')->assertSee('Önce bunlar')->assertSee('Negatif anahtar kelime listesi');
+        // Step 3: the home screen is the Bugün brand list; the advisor block stays on the brand's Ayarlar › Genel bakış.
+        $this->get(route('operator.dashboard'))->assertOk()->assertSee('Örnek Klinik');
+        Livewire::withQueryParams(['tab' => 'overview'])->test(BrandShow::class, ['brand' => (string) $this->brand->id])->assertSee('Danışman')->assertSee('Önce bunlar')->assertSee('Negatif anahtar kelime listesi');
         // Faz 11b: the work list's "Önerilen" view shows SEO and advisor items in one priority order.
         $this->get(route('operator.tasks', ['view' => 'advice']))->assertOk()
             ->assertSeeInOrder(['Kritik SEO düzeltmesi', 'Negatif anahtar kelime listesi', 'İçerik yaz']);

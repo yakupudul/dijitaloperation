@@ -15,26 +15,9 @@
 
 - **Menü**
   - Bugün (`operator.dashboard`)
-  - Komuta merkezi (`operator.command-center`) — sekmeler: İş listesi (`operator.tasks`), Uyarılar (`operator.alerts`), Yenilemeler (`operator.renewals`)
-- **Portföy**
-  - Portföy sağlığı (`operator.portfolio.health`)
-  - Müşteriler (`operator.customers`)
   - Markalar (`operator.brands`)
-  - Dijital Varlıklar (`operator.assets`)
-- **İşler**
-  - Danışman (`operator.ads_advisor`) — sekmeler: Ayrıntılı ekran (`operator.ads_advisor.detailed`)
-  - SEO Görevleri (`operator.seo_tasks`) — sekmeler: Ayrıntılı ekran (`operator.seo_tasks.detailed`)
-  - İçerik takvimi (`operator.content.calendar`)
-- **Pazar**
+  - Müşteriler (`operator.customers`)
   - Sorgular (`operator.library.search-queries`) — sekmeler: Hizmetler (`operator.library.services`)
-  - Rakipler (`operator.library.search-demand-competitors`) — sekmeler: Harita sıralaması (`operator.market.map-rankings`), Rakip izleme (`operator.market.competitor-watch`), Backlink fırsatları (`operator.market.backlinks`)
-  - Hizmet Beyni (`operator.brain.services`) — sekmeler: Beyin önerileri (`operator.brain.recommendations`), Yöntemler (`operator.brain.methods`), Onay kuyruğu (`operator.brain.proposals`)
-- **Satış**
-  - Lead kutusu (`operator.leads`)
-  - Potansiyel Müşteriler (`operator.prospects`) — sekmeler: Niyet Radarı (`operator.intent-radar`)
-- **Raporlar**
-  - Aylık rapor (`operator.reports.monthly`) — sekmeler: Rapor kuyruğu (`operator.reports.queue`), Ajans karnesi (`operator.reports.scorecard`), Grafik notları (`operator.reports.annotations`), Üretim Arşivi (`operator.archive`)
-  - Ajans işletmesi (`operator.agency`)
 - **Sistem**
   - Entegrasyonlar (`operator.integrations`) — sekmeler: Keşfedilen varlıklar (`operator.integrations.discovered`), WordPress siteleri (`operator.integrations.wordpress-sites`), Kopya web siteleri (`operator.integrations.website-duplicates`), Veri merkezi (`operator.data-center`)
   - Ayarlar (`operator.settings`) — sekmeler: Uyum (`operator.compliance`), Aktivite (`operator.activity`)
@@ -94,6 +77,7 @@ Google Ads kampanya / bütçe / durum değişikliği **yoktur**; öneriler Googl
 | `30 7 * * 1 (UTC)` | `moxdop:advisor:measure` |
 | `0 7 * * 1 (UTC)` | `moxdop:advisor:plan` |
 | `30 6 * * * (UTC)` | `moxdop:alerts:scan` |
+| `40 7 * * 1 (Europe/Istanbul)` | `moxdop:analyst:weekly` |
 | `30 3 * * * (UTC)` | `moxdop:backup` |
 | `20 6 * * 1 (UTC)` | `moxdop:brain:refresh` |
 | `35 3 * * * (UTC)` | `moxdop:collection:activity-refresh` |

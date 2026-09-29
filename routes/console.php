@@ -8,12 +8,15 @@ use App\Jobs\Collection\ExecuteDatasetRunJob;
 use App\Jobs\CollectMetaGeoResultsJob;
 use App\Jobs\Ops\QueueHeartbeatProbeJob;
 use App\Jobs\RefreshUrlVerdictsJob;
+use App\Models\Brand;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Alerts\AdBudgetWatch;
+use App\Services\Analyst\AnalystEngine;
+use App\Services\Analyst\AnalystRegistry;
 use App\Services\Assistant\ReminderService;
 use App\Services\Assistant\WhatsAppContactLinker;
 use App\Services\Collection\Activity\ActivityTierService;
@@ -731,3 +734,25 @@ Schedule::call(fn () => app(ReminderService::class)->dispatchDue())
 // Faz 6: WhatsApp konuşmalarını telefon numarasından müşteri / adaylara bağla (yeni eklenen numaralar için).
 Schedule::call(fn () => app(WhatsAppContactLinker::class)->linkAll())
     ->hourly()->name('whatsapp-contact-link')->withoutOverlapping(30);
+
+// Marka çalışma alanı: kanal başına AI analisti (Arama; Harita / Google Ads / Meta sınıfları eklenince) — her
+// operasyonel marka için haftalık, markalar kuyruğa aralıklı verilir. Tek marka / kanal: --brand / --channel.
+Artisan::command('moxdop:analyst:weekly {--brand= : Only this brand id} {--channel= : Only this channel}', function (): void {
+    $engine = app(AnalystEngine::class);
+    if ($this->option('brand') !== null) {
+        $brand = Brand::query()->findOrFail((int) $this->option('brand'));
+        foreach ($this->option('channel') !== null ? [(string) $this->option('channel')] : app(AnalystRegistry::class)->liveChannels() as $channel) {
+            $run = $engine->queue($brand, $channel, null, 'manual');
+            $this->line($channel.': run '.$run->id.' '.$run->status);
+        }
+
+        return;
+    }
+    $this->line(json_encode($engine->queueWeekly(), JSON_UNESCAPED_UNICODE));
+})->purpose('Queue the brand workspace AI analysts (every live channel × operational brand, staggered).');
+
+Schedule::command('moxdop:analyst:weekly')
+    ->weeklyOn(1, '07:40')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(60)
+    ->name('analyst-weekly');

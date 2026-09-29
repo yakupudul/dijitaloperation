@@ -14,7 +14,7 @@ final class SystemMapCommandTest extends TestCase
         $map = (string) file_get_contents($path);
         @unlink($path);
 
-        $this->assertStringContainsString('Komuta merkezi (`operator.command-center`) — sekmeler: İş listesi', $map);
+        $this->assertStringContainsString('Entegrasyonlar (`operator.integrations`) — sekmeler: Keşfedilen varlıklar', $map);
         $this->assertStringContainsString('`client_approval`', $map);
         $this->assertStringContainsString('review_reply', $map);
         $this->assertStringContainsString('`moxdop:integrations:discover`', $map);

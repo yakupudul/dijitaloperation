@@ -80,7 +80,7 @@ class OperatorExecutionReadServiceTest extends TestCase
 
         $this->assertIsString($dashboard);
         $this->assertIsString($tasks);
-        $this->assertStringContainsString('OperatorExecutionReadService', $dashboard);
+        $this->assertStringContainsString('AnalystDecision', $dashboard, 'Step 3: Bugün lists brands with their AI cards');
         $this->assertStringContainsString('OperatorExecutionReadService', $tasks);
         $this->assertStringNotContainsString('AgencyExecutionFixtures', $dashboard);
         $this->assertStringNotContainsString('OpportunityFixtures', $dashboard);

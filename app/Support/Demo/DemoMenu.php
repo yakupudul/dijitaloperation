@@ -7,10 +7,11 @@ use App\Support\Roles;
 /**
  * Canonical operator navigation for the TailAdmin operator shell.
  *
- * The class name is legacy; navigation may point to real operator engine surfaces. Faz 10e "sade menü"
- * (docs/product/MOXDOP_STRATEGY_ROADMAP.md): Opportunities, Findings, Recommendations, Public Discovery, Files,
- * Query Clusters and Background Operations left the sidebar; their routes stay and are linked from their parent
- * screens (Settings, Search Queries, brand setup).
+ * The class name is legacy. Step 3 (brand workspace): the daily work happens on the brand screen (Arama · Harita ·
+ * Google Ads · Meta), so the sidebar is only Bugün · Markalar · Müşteriler · Sorgular · Entegrasyonlar · Ayarlar.
+ * Every other screen (Komuta merkezi, Portföy sağlığı, Danışman, SEO görevleri, İçerik takvimi, Rakipler, Hizmet
+ * Beyni, Lead kutusu, Potansiyel müşteriler, Aylık rapor, Ajans işletmesi, WhatsApp, Yenilemeler, Dijital varlıklar…)
+ * keeps its route and is reached from the brand workspace / brand Ayarlar or a direct link — not from the menu.
  */
 final class DemoMenu
 {
@@ -31,74 +32,12 @@ final class DemoMenu
             [
                 'label' => __('operator.nav.groups.menu'),
                 'items' => [
-                    $item(__('operator.nav.dashboard'), 'operator.dashboard', 'dashboard'),
-                    $item($tr ? 'Komuta merkezi' : 'Command Center', 'operator.command-center', 'command', [
-                        $child($tr ? 'İş listesi' : 'Work List', 'operator.tasks'),
-                        $child($tr ? 'Uyarılar' : 'Alerts', 'operator.alerts'),
-                        $child(__('operator.nav.renewals'), 'operator.renewals'),
-                    ]),
-                ],
-            ],
-            [
-                'label' => __('operator.nav.groups.portfolio'),
-                'items' => [
-                    $item($tr ? 'Portföy sağlığı' : 'Portfolio Health', 'operator.portfolio.health', 'health'),
-                    $item(__('operator.nav.customers'), 'operator.customers', 'customers'),
+                    $item($tr ? 'Bugün' : 'Today', 'operator.dashboard', 'dashboard'),
                     $item(__('operator.nav.brands'), 'operator.brands', 'brands'),
-                    $item(__('operator.nav.digital_assets'), 'operator.assets', 'assets'),
-                ],
-            ],
-            [
-                'label' => __('operator.nav.work'),
-                'items' => [
-                    // Both open the Komuta merkezi inbox pre-filtered; the full panel is the "Ayrıntılı ekran" tab.
-                    $item(__('operator.nav.ads_advisor'), 'operator.ads_advisor', 'ads-advisor', [
-                        $child($tr ? 'Ayrıntılı ekran' : 'Detailed View', 'operator.ads_advisor.detailed'),
-                    ]),
-                    $item(__('operator.nav.seo_tasks'), 'operator.seo_tasks', 'seo', [
-                        $child($tr ? 'Ayrıntılı ekran' : 'Detailed View', 'operator.seo_tasks.detailed'),
-                    ]),
-                    $item($tr ? 'İçerik takvimi' : 'Content Calendar', 'operator.content.calendar', 'calendar'),
-                ],
-            ],
-            [
-                'label' => $tr ? 'Pazar' : 'Market',
-                'items' => [
+                    $item(__('operator.nav.customers'), 'operator.customers', 'customers'),
                     $item($tr ? 'Sorgular' : 'Search Queries', 'operator.library.search-queries', 'search', [
                         $child($tr ? 'Hizmetler' : 'Services', 'operator.library.services'),
                     ]),
-                    $item($tr ? 'Rakipler' : 'Competitors', 'operator.library.search-demand-competitors', 'competitors', [
-                        $child($tr ? 'Harita sıralaması' : 'Map Rankings', 'operator.market.map-rankings'),
-                        $child($tr ? 'Rakip izleme' : 'Competitor Watch', 'operator.market.competitor-watch'),
-                        $child($tr ? 'Backlink fırsatları' : 'Backlinks', 'operator.market.backlinks'),
-                    ]),
-                    $item($tr ? 'Hizmet Beyni' : 'Service Brain', 'operator.brain.services', 'brain-map', [
-                        $child($tr ? 'Beyin önerileri' : 'Brain Recommendations', 'operator.brain.recommendations'),
-                        $child($tr ? 'Yöntemler' : 'Methods', 'operator.brain.methods'),
-                        $child($tr ? 'Onay kuyruğu' : 'Review Queue', 'operator.brain.proposals'),
-                    ]),
-                ],
-            ],
-            [
-                'label' => __('operator.nav.groups.sales'),
-                'items' => [
-                    $item($tr ? 'Lead kutusu' : 'Lead Inbox', 'operator.leads', 'inbox'),
-                    $item(__('operator.nav.prospects'), 'operator.prospects', 'prospects', [
-                        $child(__('operator.nav.intent_radar'), 'operator.intent-radar'),
-                        ...($isAdmin ? [$child($tr ? 'WhatsApp Asistanı' : 'WhatsApp Assistant', 'operator.whatsapp')] : []),
-                    ]),
-                ],
-            ],
-            [
-                'label' => $tr ? 'Raporlar' : 'Reports',
-                'items' => [
-                    $item($tr ? 'Aylık rapor' : 'Monthly Report', 'operator.reports.monthly', 'report', [
-                        $child($tr ? 'Rapor kuyruğu' : 'Report Queue', 'operator.reports.queue'),
-                        $child($tr ? 'Ajans karnesi' : 'Monthly Results', 'operator.reports.scorecard'),
-                        $child($tr ? 'Grafik notları' : 'Chart Notes', 'operator.reports.annotations'),
-                        $child(__('operator.nav.archive'), 'operator.archive'),
-                    ]),
-                    $item($tr ? 'Ajans işletmesi' : 'Agency Business', 'operator.agency', 'finance'),
                 ],
             ],
             [

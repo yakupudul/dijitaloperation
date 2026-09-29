@@ -58,8 +58,7 @@ class DemoProductRoutesTest extends TestCase
     {
         $this->get('/')
             ->assertOk()
-            ->assertSee(__('operator.dashboard_exec.weekly_top'))
-            ->assertSee('Komuta merkezi')
+            ->assertSee(__('operator.dashboard_exec.today'))
             ->assertDontSee('Agency Health');
 
         $this->get(route('operator.customers'))->assertOk()->assertSee('Customers');
@@ -67,7 +66,9 @@ class DemoProductRoutesTest extends TestCase
         $this->get(route('operator.brand', ['brand' => $this->workBrand->id]))
             ->assertOk()
             ->assertSee('Atlas Dental Ankara')
-            ->assertSee('Dijital varlıklar');
+            ->assertSee('Bu hafta yapılacaklar')
+            ->assertSee('Ayarlar');
+        $this->get(route('operator.brand', ['brand' => $this->workBrand->id, 'tab' => 'ayarlar']))->assertOk()->assertSee('Dijital varlıklar');
         $this->get(route('operator.brand', ['brand' => $this->workBrand->id, 'tab' => 'discovery']))
             ->assertOk()
             ->assertSee('İş bağlamı');
