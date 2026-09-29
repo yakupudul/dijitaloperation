@@ -6,7 +6,9 @@ use App\Models\AnalystDecision;
 use App\Models\AnalystRun;
 use App\Models\Brand;
 use App\Models\User;
+use App\Services\Analyst\Contracts\DownloadsDecision;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 /**
@@ -124,6 +126,18 @@ final class AnalystWorkspace
         }
 
         return $this->registry->get($decision->channel)->perform($decision, $user);
+    }
+
+    /** The card's file (channels implementing DownloadsDecision), or null when its action is not a file. */
+    public function download(Brand $brand, int $decisionId, User $user): ?StreamedResponse
+    {
+        $decision = $this->find($brand, $decisionId);
+        if (! $this->registry->has($decision->channel)) {
+            return null;
+        }
+        $analyst = $this->registry->get($decision->channel);
+
+        return $analyst instanceof DownloadsDecision ? $analyst->download($decision, $user) : null;
     }
 
     public function done(Brand $brand, int $decisionId, ?User $user): void

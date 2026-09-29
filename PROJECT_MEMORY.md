@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-10-26 — Meta channel of the brand workspace
+
+- **Meta is analysed only through the workspace Meta tab** (`MetaAnalyst`, `MetaFacts`): the Meta Ads advisor collector + rule engine, 28-day windows, region results vs service areas, sector compliance of ad texts and lead outcomes (ADR-074) are facts of one pack; no new Meta screen. Priority order in the instructions: measurement → objective fit → waste → learning → creative → placements / audience.
+- **Still no Meta writes.** Changes leave MoxDOP only as a downloadable plan (`MetaPlanExport` CSV) the operator applies in Ads Manager; creative work goes through the existing advisor draft flow (AI copy on click).
+- **Several ad accounts per brand are separate facts; money is never summed across currencies.**
+- Engine additions (backward compatible): `Contracts\DownloadsDecision` for file actions, `AbstractChannelAnalyst::complianceText()` for channel-specific compliance text.
+
 ## 2026-10-25 — Step 3: the brand workspace is the daily screen; AI decides, rule code checks
 
 Operator decision (binding): "çok kapsamlı ama bana hizmette çöp" — too many screens, tabs and text. AI cost (~$100/month) is acceptable; the system must work. Four goals = four tabs.

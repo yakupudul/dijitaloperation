@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\User;
 use App\Services\Analyst\AnalystWorkspace;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 /**
@@ -18,9 +19,17 @@ trait HandlesAnalystDecisions
 
     abstract protected function analystNotice(string $message, string $tone = 'success'): void;
 
-    public function runDecisionAction(int $decisionId): void
+    /** A file action (DownloadsDecision, e.g. the Meta change plan) returns the download; others show a result line. */
+    public function runDecisionAction(int $decisionId): ?StreamedResponse
     {
-        $this->decisionCall(fn (AnalystWorkspace $ws, Brand $brand, User $user): string => $ws->perform($brand, $decisionId, $user));
+        $download = null;
+        $this->decisionCall(function (AnalystWorkspace $ws, Brand $brand, User $user) use ($decisionId, &$download): string {
+            $download = $ws->download($brand, $decisionId, $user);
+
+            return $download !== null ? 'Plan indiriliyor.' : $ws->perform($brand, $decisionId, $user);
+        });
+
+        return $download;
     }
 
     public function markDecisionDone(int $decisionId): void
