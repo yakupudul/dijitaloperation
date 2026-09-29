@@ -6,7 +6,7 @@ use App\Ai\Agents\Analyst\ChannelAnalystAgent;
 use App\Ai\Agents\BrandCandidateAgent;
 use App\Ai\Agents\BrandServiceAgent;
 use App\Ai\Agents\GbpPostFromPageAgent;
-use App\Ai\Agents\Insights\MetaGeoAgent;
+use App\Ai\Agents\MetaCreativesAgent;
 use App\Livewire\Operator\Settings\AiOperationsPage;
 use App\Models\PromptVersion;
 use App\Models\User;
@@ -123,7 +123,7 @@ final class PromptRegistryTest extends TestCase
         foreach ([
             AiRouteKeys::GBP_POST_FROM_PAGE => GbpPostFromPageAgent::class,
             AiRouteKeys::BRAND_SERVICES => BrandServiceAgent::class,
-            AiRouteKeys::INSIGHT_META_GEO => MetaGeoAgent::class,
+            AiRouteKeys::META_CREATIVES => MetaCreativesAgent::class,
         ] as $operation => $agent) {
             $version = $this->registry->publish($operation, ['template' => 'Operatör şablonu '.$operation], $this->admin);
             $instance = new $agent;

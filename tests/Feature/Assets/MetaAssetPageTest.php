@@ -15,8 +15,7 @@ use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
- * Meta Ads asset page: no auto-picked account without an id, recorded recommendations appear on the
- * insights tab and the header runs the analysis.
+ * Meta asset page: no auto-picked account without an id; old per-entity pages and old tab keys land on the new tabs.
  */
 final class MetaAssetPageTest extends TestCase
 {
@@ -72,14 +71,10 @@ final class MetaAssetPageTest extends TestCase
         $this->get(route('operator.meta.insights', ['assetId' => 'not-a-number']))->assertNotFound();
     }
 
-    public function test_campaigns_tab_has_budget_column_and_meta_offers_no_year_over_year(): void
+    public function test_old_tab_keys_open_the_matching_new_tab(): void
     {
-        $page = Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'campaigns']);
-
-        $page->assertSee('Budget')
-            ->assertDontSeeHtml("setCompareMode('yoy')");
-        $this->assertFalse($page->instance()->supportsYearOverYearComparison());
-
-        $page->call('setCompareMode', 'yoy')->assertSet('compareMode', 'previous');
+        foreach (['campaigns' => 'analysis', 'audience' => 'analysis', 'funnel' => 'analysis', 'creatives' => 'creatives', 'measurement' => 'measurement', 'operations' => 'todo', 'advisor' => 'todo'] as $old => $new) {
+            Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => $old])->assertSet('tab', $new);
+        }
     }
 }

@@ -13,7 +13,6 @@ use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\Ga4WorkspaceFixtures;
 use App\Support\Demo\GscWorkspaceFixtures;
-use App\Support\Demo\MetaAdsWorkspaceFixtures;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -57,60 +56,15 @@ class DemoSharedPeriodFilterTest extends TestCase
         $this->assertNull(DemoPeriod::validateCustom('2026-07-06', '2026-08-12'));
     }
 
-    public function test_meta_custom_apply_cancel_and_aggregation(): void
-    {
-        $baseline = MetaAdsWorkspaceFixtures::workspace('last_28');
-        $baselineSpend = (int) $baseline['glance']['spend']['raw'];
-        $asset = $this->createPortfolioAsset('meta_ads', 'Northwind Meta', ['module_id' => 'meta-ads']);
-
-        $component = Livewire::test(MetaOverviewPage::class, ['assetId' => (string) $asset->id])
-            ->assertSet('period', 'last_28')
-            ->call('openCustomPicker')
-            ->assertSet('showCustomPicker', true)
-            ->set('draftPeriodStart', '2026-08-10')
-            ->set('draftPeriodEnd', '2026-08-01')
-            ->call('applyCustomPeriod')
-            ->assertSet('showCustomPicker', true)
-            ->assertNotSet('customPeriodError', null);
-
-        $component
-            ->set('draftPeriodStart', '2026-08-01')
-            ->set('draftPeriodEnd', '2026-08-10')
-            ->call('applyCustomPeriod')
-            ->assertSet('period', 'custom')
-            ->assertSet('periodStart', '2026-08-01')
-            ->assertSet('periodEnd', '2026-08-10')
-            ->assertSet('showCustomPicker', false)
-            ->assertSee('Aug 1')
-            ->assertSee('10');
-
-        $custom = MetaAdsWorkspaceFixtures::workspace('custom', '2026-08-01', '2026-08-10');
-        $customSpend = (int) $custom['glance']['spend']['raw'];
-        $this->assertNotSame($baselineSpend, $customSpend);
-        $this->assertLessThan($baselineSpend, $customSpend);
-
-        $component
-            ->call('openCustomPicker')
-            ->set('draftPeriodStart', '2026-07-01')
-            ->set('draftPeriodEnd', '2026-07-15')
-            ->call('cancelCustomPeriod')
-            ->assertSet('period', 'custom')
-            ->assertSet('periodStart', '2026-08-01')
-            ->assertSet('periodEnd', '2026-08-10');
-    }
-
-    public function test_meta_period_persists_across_tabs_and_compare_label_renders(): void
+    public function test_meta_analysis_window_persists_across_tabs(): void
     {
         $asset = $this->createPortfolioAsset('meta_ads', 'Northwind Meta', ['module_id' => 'meta-ads']);
 
-        Livewire::test(MetaOverviewPage::class, ['assetId' => (string) $asset->id])
-            ->call('setPeriod', 'last_7')
-            ->assertSet('period', 'last_7')
+        Livewire::test(MetaOverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'analysis'])
+            ->call('setDays', 90)
             ->call('setTab', 'creatives')
-            ->assertSet('period', 'last_7')
-            ->assertSet('tab', 'creatives')
-            ->assertSet('compare', true)
-            ->assertSee('vs');
+            ->assertSet('days', 90)
+            ->assertSet('tab', 'creatives');
     }
 
     public function test_website_and_google_ads_still_accept_shared_period_presets(): void

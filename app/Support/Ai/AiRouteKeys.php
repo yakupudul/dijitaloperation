@@ -59,6 +59,15 @@ final class AiRouteKeys
     /** Faz 7: one Business Profile post from one page of the brand's site (link to the page). */
     public const string GBP_POST_FROM_PAGE = 'gbp.post_from_page';
 
+    /** Faz 6: Meta creative ideas / texts per main service, video hooks and test variants (one call). */
+    public const string META_CREATIVES = 'meta.creatives';
+
+    /** Faz 6: Meta campaign / ad set structure and remarketing proposals (one call). */
+    public const string META_STRUCTURE = 'meta.structure';
+
+    /** Faz 6: Meta lead form / landing page improvements (one call). */
+    public const string META_LANDING = 'meta.landing';
+
     public const string INSIGHT_ADVISOR_EXPLAIN = 'insights.advisor_explain';
 
     public const string INSIGHT_SEARCH_TERM_TRIAGE = 'insights.search_term_triage';
@@ -72,8 +81,6 @@ final class AiRouteKeys
     public const string INSIGHT_CUSTOMER_BRIEF = 'insights.customer_brief';
 
     public const string INSIGHT_LEAD_SCORE = 'insights.lead_score';
-
-    public const string INSIGHT_META_GEO = 'insights.meta_geo';
 
     public const string INSIGHT_TECHNICAL_TASKS = 'insights.technical_tasks';
 

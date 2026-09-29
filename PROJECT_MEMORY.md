@@ -7,6 +7,17 @@
 - **Backlink fees are never asserted without evidence:** ücretsiz / ücretli only with an evidence URL on the source's own site, otherwise "teyit gerekli". "Doğrulandı" is set only by the system finding a link to the brand domain on the page; a lost link returns the source to "yok" with a note.
 - **Analysis reads raw facts** (Search Console query × page, GA4 landing × source) of the site's bound properties; cluster performance is split by the brand area the raw query names (district / area name before city). No precompute table; per-period cache.
 
+## 2026-10-31 — MoxDOP v2 Faz 6 (Meta)
+
+- **Karar:** Meta'nın kendi ekranı var (yedi sekme: Genel Bakış · Yapılacaklar · Kreatifler · Kampanya Stratejisi · Ölçümleme ·
+  Analiz · Ayarlar); 2026-10-26 "Meta yalnız çalışma alanı sekmesinde" kararının yerini alır. Öneriler tek `suggestions`
+  tablosunda (kanal `meta`, hedef `meta` × varlık). Sistem kontrolü en çok 10, AI yok; AI işlemi yalnız üç
+  (`meta.creatives`, `meta.structure`, `meta.landing`), operatör tıklamasıyla, kuyrukta, operasyonel markada.
+- **Karar:** Meta'ya yazma yok. Onaylanan öğe kopyalanabilir talimat / CSV olur; operatör Reklam Yöneticisi'nde uygular ve
+  "Uygulandı" der — baseline o anda saklanır (Faz 9). Operatör düzenlemesi kilitlidir; AI yalnız "değişiklik önerisi" bırakır.
+- **Karar:** Meta, GA4 ve CRM (lead işaretleri) sonuçları ayrı gösterilir, asla toplanmaz. Lead kalitesi elle işaretlenir
+  (uygun / randevu / satış / uygunsuz); lead dışa aktarımından iletişim bilgisi saklanmaz. Az veride "kapat" önerisi yok.
+
 ## 2026-10-26 — Production data-collection fixes (refines Step 2 query rule)
 
 - **Unbound / passive query-source accounts collect their query dataset only** (`gsc_query_daily`, Google Ads search terms, `gbp_search_keywords_monthly`), never the full provider set; the 2026-10-24 "query pull for every account" rule stays, the full collection stays behind the operational gate. Resource-automation alerts exist only for accounts bound to an operational asset.
