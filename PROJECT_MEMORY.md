@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-10-30 — MoxDOP v2 Faz 4b: site screen tabs (competitors, backlinks, health, analysis)
+
+- **Competitor suggestions need evidence:** a competitor suggestion is kept only when it cites ≥ 2 fetched competitor URLs from the input, or is a clear gap while the brand has no page for the cluster; not every competitor heading is a suggestion. Sector compliance drops offending suggestions before display.
+- **Competitor domain class is stored once per domain** (`competitor_domains`); rules first (own site, config directory / news / info lists), AI only for the rest.
+- **Backlink fees are never asserted without evidence:** ücretsiz / ücretli only with an evidence URL on the source's own site, otherwise "teyit gerekli". "Doğrulandı" is set only by the system finding a link to the brand domain on the page; a lost link returns the source to "yok" with a note.
+- **Analysis reads raw facts** (Search Console query × page, GA4 landing × source) of the site's bound properties; cluster performance is split by the brand area the raw query names (district / area name before city). No precompute table; per-period cache.
+
 ## 2026-10-26 — Production data-collection fixes (refines Step 2 query rule)
 
 - **Unbound / passive query-source accounts collect their query dataset only** (`gsc_query_daily`, Google Ads search terms, `gbp_search_keywords_monthly`), never the full provider set; the 2026-10-24 "query pull for every account" rule stays, the full collection stays behind the operational gate. Resource-automation alerts exist only for accounts bound to an operational asset.

@@ -60,6 +60,9 @@ final class AiUsageRecorder
         'AssetSectorAgent' => AiRouteKeys::QUERIES_ASSET_SECTOR,
         'QueryClusterAgent' => AiRouteKeys::QUERIES_CLUSTER,
         'QueryRulesAgent' => AiRouteKeys::QUERIES_FILTER_RULES,
+        'CompetitorClassifyAgent' => AiRouteKeys::COMPETITORS_CLASSIFY,
+        'CompetitorAnalyzeAgent' => AiRouteKeys::COMPETITORS_ANALYZE,
+        'BacklinkSourcesAgent' => AiRouteKeys::BACKLINKS_SOURCES,
     ];
 
     /** @var array<int, float> agent object id => start time of its current attempt (hrtime ms) */

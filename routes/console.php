@@ -640,3 +640,22 @@ Schedule::command('moxdop:gbp:suggestions')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(30)
     ->name('gbp-suggestions-daily');
+
+// Faz 4b site ekranı: rakipler (ayda bir), backlink doğrulama (haftada bir), SSL / alan adı bitişi (her gün).
+Schedule::command('moxdop:site competitors')
+    ->monthlyOn(3, '05:13')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(120)
+    ->name('site-competitors');
+
+Schedule::command('moxdop:site backlinks')
+    ->weeklyOn(1, '05:43')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(120)
+    ->name('site-backlinks-verify');
+
+Schedule::command('moxdop:site expiry')
+    ->dailyAt('05:27')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(60)
+    ->name('site-expiry');

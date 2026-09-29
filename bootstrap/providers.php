@@ -12,6 +12,7 @@ use App\Providers\RecurringAutomationServiceProvider;
 use App\Providers\SearchConsoleCentralServiceProvider;
 use App\Providers\SearchConsoleGroupingServiceProvider;
 use App\Providers\SeoTasksServiceProvider;
+use App\Providers\SiteScreenServiceProvider;
 use App\Providers\WebsiteIntelligenceServiceProvider;
 
 return [
@@ -28,4 +29,5 @@ return [
     AdvisorServiceProvider::class,
     AiInsightServiceProvider::class,
     AnalystServiceProvider::class,
+    SiteScreenServiceProvider::class,
 ];
