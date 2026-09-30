@@ -61,7 +61,12 @@ final class QuerySourceAggregatorTest extends TestCase
         $aggregator->aggregate($gsc, '2026-08-01', '2026-08-31');
         $this->assertEquals($before, DB::table('query_sources')->orderBy('raw_query')->get(['id', 'raw_query', 'impressions', 'clicks', 'position'])->toArray(), 'same rows, same ids');
 
-        DB::table('gsc_query_page_daily')->where('query', 'zirkonyum')->delete();
+        if (DB::getDriverName() === 'pgsql') {
+            // On PostgreSQL gsc_query_page_daily is a view over the compact fact table.
+            DB::table('gsc_f_query_page')->whereIn('d1', DB::table('fact_dims')->where('value', 'zirkonyum')->select('id'))->delete();
+        } else {
+            DB::table('gsc_query_page_daily')->where('query', 'zirkonyum')->delete();
+        }
         $aggregator->aggregate($gsc, '2026-08-01', '2026-08-31');
         $this->assertSame(['kanal tedavisi'], DB::table('query_sources')->pluck('raw_query')->all());
     }
