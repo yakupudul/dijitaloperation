@@ -16,6 +16,11 @@
 - **Karar (operatör):** Web sitesi ekranı beş sekmedir: Özet · Sayfalar · Sorgular · Sağlık · Ayarlar. Ana çalışma görünümü Sayfalar'dır (URL başına envanter × Search Console × GA4 × Google Ads × sağlık × hizmet / küme; varsayılan filtre ana hizmet sayfaları). SEO işleri (Öneriler, İçerik, Rakipler, Backlinkler) Özet'in ikinci satırında, küme / sorgu görünümleri ve Kümeler & Sayfalar eşleştirmesi Sorgular'da; bağlı varlıklar Ayarlar'da. Eski sekme bağlantıları çalışmaya devam eder.
 - **Karar (operatör):** Web siteleri sol menüde ayrı giriştir (markaya atanmış siteler); marka sayfasında "Siteyi aç", üst aramada alan adı, entegrasyon satırında "Site ekranına git". Site ekranı veri toplamayı kendisi yapmaz; mevcut Entegrasyonlar › Web siteleri çekimine bağlanır.
 
+## 2026-11-06 — Web sitesi verisi: son durum, önce WordPress
+
+- **Karar (operatör):** Sayfa başına web sitesi tabloları son durumu tutar: değişmeyen sayfa her çekimde yeni satır eklemez, bağlantı kenarları sayfa başına değiştirilir; yalnız değişen sayfanın HTML geçmişi büyür.
+- **Karar (operatör):** WordPress bağlı sitede önce WordPress envanteri, ardından sayfa HTML taraması çalışır (genel çekim ve ilk eşleştirme). Web sitesi çekimi diğer sağlayıcılardan ayrı işçi hattında koşar.
+
 ## 2026-11-05 — Veri çekimi: yalnız markaya atanmış varlıklar, otomatik public tarama yok
 
 - **Karar (operatör):** Otomatik olarak yalnız markaya atanmış dijital varlıkların hesapları / siteleri çekilir (aktif veya pasif müşteri). Otomatik public site taraması yapılmaz; WordPress bağlı sitede sayfa listesi WordPress'ten gelir, yalnız değişen sayfaların HTML'i alınır. Önceki "keşfedilen her hesap çekilir" (v2 Faz 1) kararının yerini alır.

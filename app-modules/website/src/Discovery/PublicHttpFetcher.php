@@ -3,6 +3,9 @@
 namespace MoxDop\Website\Discovery;
 
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Pool;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;
 use Throwable;
@@ -40,7 +43,6 @@ final class PublicHttpFetcher
             return $this->failure($url, 'invalid_url');
         }
 
-        $bytes = 0;
         $redirects = 0;
 
         for ($hop = 0; $hop <= DiscoveryConfig::MAX_REDIRECTS; $hop++) {
@@ -51,94 +53,194 @@ final class PublicHttpFetcher
             }
 
             try {
-                $response = Http::timeout(DiscoveryConfig::TIMEOUT_SECONDS)
-                    ->connectTimeout(DiscoveryConfig::CONNECT_TIMEOUT_SECONDS)
-                    ->withOptions([
-                        'allow_redirects' => false,
-                        'http_errors' => false,
-                        'version' => 1.1,
-                    ])
-                    ->withHeaders([
-                        'User-Agent' => DiscoveryConfig::USER_AGENT,
-                        'Accept' => 'text/html,application/xhtml+xml,application/xml,text/xml,application/json;q=0.9,text/plain;q=0.5,*/*;q=0.1',
-                    ])
-                    ->get($current);
+                $response = $this->configure(Http::timeout(DiscoveryConfig::TIMEOUT_SECONDS))->get($current);
             } catch (ConnectionException $exception) {
                 return $this->failure($url, 'timeout_or_connection: '.$exception->getMessage(), $current, $redirects);
             } catch (Throwable $exception) {
                 return $this->failure($url, 'fetch_error: '.$exception->getMessage(), $current, $redirects);
             }
 
-            $status = $response->status();
-
-            if (in_array($status, [301, 302, 303, 307, 308], true)) {
-                $location = $response->header('Location');
-                if (! is_string($location) || trim($location) === '') {
-                    return $this->failure($url, 'redirect_missing_location', $current, $redirects);
-                }
-
-                $next = $this->normalizer->resolve($current, $location);
-                if ($next === null) {
-                    return $this->failure($url, 'redirect_invalid_location', $current, $redirects, $status);
-                }
-
-                $redirects++;
-                if ($redirects > DiscoveryConfig::MAX_REDIRECTS) {
-                    return $this->failure($url, 'redirect_limit_exceeded', $current, $redirects, $status);
-                }
-
-                $current = $next;
-
-                continue;
+            $outcome = $this->evaluate($url, $current, $redirects, $response, $maxResponseBytes);
+            if (isset($outcome['result'])) {
+                return $outcome['result'];
             }
-
-            $contentType = $response->header('Content-Type');
-            $contentType = is_string($contentType) ? strtolower(trim(explode(';', $contentType)[0])) : null;
-
-            if ($contentType !== null && ! $this->isAllowedContentType($contentType)) {
-                return $this->failure($url, 'unsupported_content_type: '.$contentType, $current, $redirects, $status, $contentType);
-            }
-
-            $contentLength = $response->header('Content-Length');
-            if (is_string($contentLength) && ctype_digit($contentLength) && (int) $contentLength > $maxResponseBytes) {
-                return $this->failure($url, 'response_too_large', $current, $redirects, $status, $contentType);
-            }
-
-            $body = $response->body();
-            $bytes = strlen($body);
-
-            if ($bytes > $maxResponseBytes) {
-                return $this->failure($url, 'response_too_large', $current, $redirects, $status, $contentType);
-            }
-
-            if ($status >= 400) {
-                return [
-                    'ok' => false,
-                    'requested_url' => $url,
-                    'final_url' => $current,
-                    'status_code' => $status,
-                    'content_type' => $contentType,
-                    'body' => null,
-                    'bytes' => $bytes,
-                    'redirect_count' => $redirects,
-                    'error' => 'http_'.$status,
-                ];
-            }
-
-            return [
-                'ok' => true,
-                'requested_url' => $url,
-                'final_url' => $current,
-                'status_code' => $status,
-                'content_type' => $contentType,
-                'body' => $body,
-                'bytes' => $bytes,
-                'redirect_count' => $redirects,
-                'error' => null,
-            ];
+            $current = $outcome['next'];
+            $redirects++;
         }
 
         return $this->failure($url, 'redirect_limit_exceeded', $current, $redirects);
+    }
+
+    /**
+     * Fetches several URLs concurrently with the same per-hop SSRF check, redirect and byte limits as fetch().
+     * Every hop of every URL is checked before it is requested. The result is keyed by the requested URL, in input order.
+     *
+     * @param  list<string>  $urls
+     * @return array<string, array{ok: bool, requested_url: string, final_url: ?string, status_code: ?int, content_type: ?string, body: ?string, bytes: int, redirect_count: int, error: ?string}>
+     */
+    public function fetchMany(array $urls, ?int $maxResponseBytes = null, int $concurrency = 15): array
+    {
+        $maxResponseBytes = max(1, $maxResponseBytes ?? DiscoveryConfig::MAX_RESPONSE_BYTES);
+        $urls = array_values(array_unique(array_map('strval', $urls)));
+        $results = [];
+        /** @var array<string, array{current: string, redirects: int}> $pending */
+        $pending = [];
+        foreach ($urls as $url) {
+            $current = $this->normalizer->normalizeAbsolute($url);
+            if ($current === null) {
+                $results[$url] = $this->failure($url, 'invalid_url');
+
+                continue;
+            }
+            $pending[$url] = ['current' => $current, 'redirects' => 0];
+        }
+
+        for ($hop = 0; $hop <= DiscoveryConfig::MAX_REDIRECTS && $pending !== []; $hop++) {
+            $batch = [];
+            foreach ($pending as $url => $state) {
+                try {
+                    $this->safety->assertSafePublicHttpUrl($state['current']);
+                    $batch[] = $url;
+                } catch (InvalidArgumentException $exception) {
+                    $results[$url] = $this->failure($url, $exception->getMessage(), $state['current'], $state['redirects']);
+                    unset($pending[$url]);
+                }
+            }
+            if ($batch === []) {
+                break;
+            }
+
+            try {
+                $responses = Http::pool(function (Pool $pool) use ($batch, $pending): array {
+                    $requests = [];
+                    foreach ($batch as $index => $url) {
+                        $requests[] = $this->configure($pool->as('u'.$index))->get($pending[$url]['current']);
+                    }
+
+                    return $requests;
+                }, max(1, $concurrency));
+            } catch (Throwable $exception) {
+                foreach ($batch as $url) {
+                    $results[$url] = $this->failure($url, 'fetch_error: '.$exception->getMessage(), $pending[$url]['current'], $pending[$url]['redirects']);
+                    unset($pending[$url]);
+                }
+
+                break;
+            }
+
+            foreach ($batch as $index => $url) {
+                $state = $pending[$url];
+                $response = $responses['u'.$index] ?? null;
+                if (! $response instanceof Response) {
+                    $results[$url] = $this->failure(
+                        $url,
+                        ($response instanceof ConnectionException ? 'timeout_or_connection: ' : 'fetch_error: ')
+                            .($response instanceof Throwable ? $response->getMessage() : 'no_response'),
+                        $state['current'],
+                        $state['redirects'],
+                    );
+                    unset($pending[$url]);
+
+                    continue;
+                }
+
+                $outcome = $this->evaluate($url, $state['current'], $state['redirects'], $response, $maxResponseBytes);
+                if (isset($outcome['result'])) {
+                    $results[$url] = $outcome['result'];
+                    unset($pending[$url]);
+
+                    continue;
+                }
+                $pending[$url] = ['current' => $outcome['next'], 'redirects' => $state['redirects'] + 1];
+            }
+        }
+
+        foreach ($pending as $url => $state) {
+            $results[$url] = $this->failure($url, 'redirect_limit_exceeded', $state['current'], $state['redirects']);
+        }
+
+        $ordered = [];
+        foreach ($urls as $url) {
+            $ordered[$url] = $results[$url];
+        }
+
+        return $ordered;
+    }
+
+    private function configure(PendingRequest $request): PendingRequest
+    {
+        return $request->timeout(DiscoveryConfig::TIMEOUT_SECONDS)
+            ->connectTimeout(DiscoveryConfig::CONNECT_TIMEOUT_SECONDS)
+            ->withOptions([
+                'allow_redirects' => false,
+                'http_errors' => false,
+                'version' => 1.1,
+            ])
+            ->withHeaders([
+                'User-Agent' => DiscoveryConfig::USER_AGENT,
+                'Accept' => 'text/html,application/xhtml+xml,application/xml,text/xml,application/json;q=0.9,text/plain;q=0.5,*/*;q=0.1',
+            ]);
+    }
+
+    /**
+     * One hop's response: the next redirect target, or the final result.
+     *
+     * @return array{next: string}|array{result: array{ok: bool, requested_url: string, final_url: ?string, status_code: ?int, content_type: ?string, body: ?string, bytes: int, redirect_count: int, error: ?string}}
+     */
+    private function evaluate(string $url, string $current, int $redirects, Response $response, int $maxResponseBytes): array
+    {
+        $status = $response->status();
+
+        if (in_array($status, [301, 302, 303, 307, 308], true)) {
+            $location = $response->header('Location');
+            if (! is_string($location) || trim($location) === '') {
+                return ['result' => $this->failure($url, 'redirect_missing_location', $current, $redirects)];
+            }
+
+            $next = $this->normalizer->resolve($current, $location);
+            if ($next === null) {
+                return ['result' => $this->failure($url, 'redirect_invalid_location', $current, $redirects, $status)];
+            }
+
+            if ($redirects + 1 > DiscoveryConfig::MAX_REDIRECTS) {
+                return ['result' => $this->failure($url, 'redirect_limit_exceeded', $current, $redirects + 1, $status)];
+            }
+
+            return ['next' => $next];
+        }
+
+        $contentType = $response->header('Content-Type');
+        $contentType = is_string($contentType) ? strtolower(trim(explode(';', $contentType)[0])) : null;
+
+        if ($contentType !== null && ! $this->isAllowedContentType($contentType)) {
+            return ['result' => $this->failure($url, 'unsupported_content_type: '.$contentType, $current, $redirects, $status, $contentType)];
+        }
+
+        $contentLength = $response->header('Content-Length');
+        if (is_string($contentLength) && ctype_digit($contentLength) && (int) $contentLength > $maxResponseBytes) {
+            return ['result' => $this->failure($url, 'response_too_large', $current, $redirects, $status, $contentType)];
+        }
+
+        $body = $response->body();
+        $bytes = strlen($body);
+
+        if ($bytes > $maxResponseBytes) {
+            return ['result' => $this->failure($url, 'response_too_large', $current, $redirects, $status, $contentType)];
+        }
+
+        $ok = $status < 400;
+
+        return ['result' => [
+            'ok' => $ok,
+            'requested_url' => $url,
+            'final_url' => $current,
+            'status_code' => $status,
+            'content_type' => $contentType,
+            'body' => $ok ? $body : null,
+            'bytes' => $bytes,
+            'redirect_count' => $redirects,
+            'error' => $ok ? null : 'http_'.$status,
+        ]];
     }
 
     private function isAllowedContentType(string $contentType): bool

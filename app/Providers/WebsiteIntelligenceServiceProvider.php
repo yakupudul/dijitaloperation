@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Events\Collection\CollectionRunCompleted;
 use App\Listeners\Collection\QueueWebsiteProjectionAfterCollection;
+use App\Listeners\Collection\StartWebsiteCrawlAfterWordPress;
 use App\Services\Collection\Providers\Website\WordPressConnectorDatasetExecutor;
 use App\Services\IntelligenceProjection\Website\Adapters\Ga4ProjectionAdapter;
 use App\Services\IntelligenceProjection\Website\Adapters\GscProjectionAdapter;
@@ -43,5 +44,6 @@ final class WebsiteIntelligenceServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Event::listen(CollectionRunCompleted::class, QueueWebsiteProjectionAfterCollection::class);
+        Event::listen(CollectionRunCompleted::class, StartWebsiteCrawlAfterWordPress::class);
     }
 }

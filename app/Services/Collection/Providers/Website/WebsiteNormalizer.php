@@ -68,6 +68,8 @@ final class WebsiteNormalizer
                 'redirect_count' => $fetch['redirect_count'] ?? null,
                 'ok' => (bool) ($fetch['ok'] ?? false),
                 'error' => $fetch['error'] ?? null,
+                // Lets the next crawl recognise an unchanged response without re-reading the stored HTML.
+                'body_sha256' => is_string($fetch['body'] ?? null) && $fetch['body'] !== '' ? hash('sha256', $fetch['body']) : null,
                 'http_200_neq_healthy' => true,
                 'collector_version' => WebsiteProviderCapabilities::COLLECTOR_VERSION,
             ],

@@ -51,8 +51,11 @@ Artisan::command('inspire', function () {
 Artisan::command('moxdop:collection:work-db {--provider=} {--exclude-provider=} {--sleep=1} {--max-runtime=3500}', function () {
     $sleep = max(1, (int) $this->option('sleep'));
     $maxRuntime = max(60, (int) $this->option('max-runtime'));
-    $provider = strtoupper(trim((string) $this->option('provider')));
-    $excludeProvider = strtoupper(trim((string) $this->option('exclude-provider')));
+    // Both options take one provider or a comma-separated list (e.g. the Website lane: WEBSITE_DIRECT,DOMAIN_DNS_TLS,…).
+    $provider = strtoupper(str_replace(' ', '', trim((string) $this->option('provider'))));
+    $excludeProvider = strtoupper(str_replace(' ', '', trim((string) $this->option('exclude-provider'))));
+    $providerList = array_values(array_filter(explode(',', $provider)));
+    $excludeProviderList = array_values(array_filter(explode(',', $excludeProvider)));
 
     if ($provider !== '' && $excludeProvider !== '') {
         $this->error('Use either --provider or --exclude-provider, not both.');
@@ -109,10 +112,10 @@ Artisan::command('moxdop:collection:work-db {--provider=} {--exclude-provider=} 
                     ->orWhere('dispatch_locked_at', '<', now()->subMinutes(15));
             });
 
-        if ($provider !== '') {
-            $query->where('provider_or_source', $provider);
-        } elseif ($excludeProvider !== '') {
-            $query->where('provider_or_source', '!=', $excludeProvider);
+        if ($providerList !== []) {
+            $query->whereIn('provider_or_source', $providerList);
+        } elseif ($excludeProviderList !== []) {
+            $query->whereNotIn('provider_or_source', $excludeProviderList);
         }
 
         $candidates = $query

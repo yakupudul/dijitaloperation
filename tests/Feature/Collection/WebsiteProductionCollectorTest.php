@@ -41,6 +41,7 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use MoxDop\Website\Discovery\DiscoveryConfig;
+use MoxDop\Website\Discovery\PublicHttpFetcher;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -470,48 +471,52 @@ class WebsiteProductionCollectorTest extends TestCase
         $executor = app(WebsiteDatasetExecutor::class);
         $home = 'http://1.1.1.1/';
         $about = 'http://1.1.1.1/about';
+        $pages = array_map(static fn (int $i): string => 'http://1.1.1.1/page-'.$i, range(1, 15));
+        $total = 2 + count($pages);
         $startCheckpoint = [
             'observed_at' => '2026-08-20 00:00:00',
-            'queue' => [$home, $about],
+            'queue' => [$home, $about, ...$pages],
             'visited' => [],
             'pages' => 0,
             'rows_written_total' => 0,
         ];
 
+        // One step fetches a batch of URLs in parallel.
         $first = $executor->execute($this->contextFrom($context, $datasetRun, $startCheckpoint));
         $this->assertSame(DatasetExecutionOutcome::Continue, $first->outcome, (string) $first->errorMessage);
-        $this->assertSame(1, $first->checkpoint['pages'] ?? null);
-        $this->assertSame([$about], $first->checkpoint['queue'] ?? null);
+        $this->assertSame(WebsiteDatasetExecutor::CRAWL_BATCH_SIZE, $first->checkpoint['pages'] ?? null);
+        $this->assertSame(WebsiteDatasetExecutor::CRAWL_BATCH_SIZE, $first->pagesCompleted);
+        $this->assertSame(array_slice($pages, WebsiteDatasetExecutor::CRAWL_BATCH_SIZE - 2), $first->checkpoint['queue'] ?? null);
         $this->assertContains($home, $first->checkpoint['visited'] ?? []);
+        $this->assertContains($about, $first->checkpoint['visited'] ?? []);
         $this->assertGreaterThan(0, (int) ($first->checkpoint['rows_written_total'] ?? 0));
         $this->assertSame($first->rowsWritten, (int) $first->checkpoint['rows_written_total']);
 
         $httpAfterFirst = DB::table('website_http_snapshot')->count();
         $urlsAfterFirst = DB::table('website_url')->count();
         $batchesAfterFirst = DatasetWriteBatch::query()->where('dataset_run_id', $datasetRun->id)->count();
-        $this->assertSame(1, $httpAfterFirst);
-        $this->assertSame(1, $urlsAfterFirst);
+        $this->assertSame(WebsiteDatasetExecutor::CRAWL_BATCH_SIZE, $httpAfterFirst);
+        $this->assertSame(WebsiteDatasetExecutor::CRAWL_BATCH_SIZE, $urlsAfterFirst);
         $this->assertGreaterThan(0, $batchesAfterFirst);
-        $this->assertSame(1, DB::table('website_http_snapshot')->where('digital_asset_id', $this->asset->id)->count());
 
-        $retrySamePage = $executor->execute($this->contextFrom($context, $datasetRun, $startCheckpoint));
-        $this->assertSame(DatasetExecutionOutcome::Continue, $retrySamePage->outcome, (string) $retrySamePage->errorMessage);
-        $this->assertSame(1, $retrySamePage->checkpoint['pages'] ?? null);
-        $this->assertSame($httpAfterFirst, DB::table('website_http_snapshot')->count(), 'retrying the same URL must not duplicate HTTP snapshots');
-        $this->assertSame($urlsAfterFirst, DB::table('website_url')->count(), 'retrying the same URL must not duplicate URL inventory');
+        $retrySameBatch = $executor->execute($this->contextFrom($context, $datasetRun, $startCheckpoint));
+        $this->assertSame(DatasetExecutionOutcome::Continue, $retrySameBatch->outcome, (string) $retrySameBatch->errorMessage);
+        $this->assertSame(WebsiteDatasetExecutor::CRAWL_BATCH_SIZE, $retrySameBatch->checkpoint['pages'] ?? null);
+        $this->assertSame($httpAfterFirst, DB::table('website_http_snapshot')->count(), 'retrying the same batch must not duplicate HTTP snapshots');
+        $this->assertSame($urlsAfterFirst, DB::table('website_url')->count(), 'retrying the same batch must not duplicate URL inventory');
         $this->assertSame($batchesAfterFirst, DatasetWriteBatch::query()->where('dataset_run_id', $datasetRun->id)->count());
 
         app(CheckpointManager::class)->advance($datasetRun, $first->checkpoint);
         $second = $executor->execute($this->contextFrom($context, $datasetRun, $first->checkpoint));
         $this->assertSame(DatasetExecutionOutcome::Completed, $second->outcome, (string) $second->errorMessage);
-        $this->assertSame(2, $second->checkpoint['pages'] ?? null);
+        $this->assertSame($total, $second->checkpoint['pages'] ?? null);
         $this->assertSame([], $second->checkpoint['queue'] ?? null);
-        $this->assertEqualsCanonicalizing([$home, $about], $second->checkpoint['visited'] ?? []);
+        $this->assertEqualsCanonicalizing([$home, $about, ...$pages], $second->checkpoint['visited'] ?? []);
 
         $httpUrls = DB::table('website_http_snapshot')->orderBy('id')->pluck('url')->all();
-        $normalizedUrls = DB::table('website_url')->orderBy('id')->pluck('normalized_url')->all();
-        $this->assertCount(2, $httpUrls);
-        $this->assertCount(2, $normalizedUrls);
+        $this->assertCount($total, $httpUrls);
+        $this->assertCount($total, array_unique($httpUrls));
+        $this->assertSame($total, DB::table('website_url')->count());
         $this->assertContains($home, $httpUrls);
         $this->assertContains($about, $httpUrls);
 
@@ -521,8 +526,8 @@ class WebsiteProductionCollectorTest extends TestCase
             ->orderBy('id')
             ->pluck('batch_key')
             ->all();
-        $this->assertCount(2, $httpBatchKeys);
-        $this->assertCount(2, array_unique($httpBatchKeys));
+        $this->assertCount($total, $httpBatchKeys);
+        $this->assertCount($total, array_unique($httpBatchKeys));
         foreach ($httpBatchKeys as $batchKey) {
             $this->assertMatchesRegularExpression('/^website:website_http_snapshot:public_crawl_http:url=[a-f0-9]{64}$/', (string) $batchKey);
         }
@@ -532,7 +537,6 @@ class WebsiteProductionCollectorTest extends TestCase
             ->where('status', 'committed')
             ->sum('rows_received');
         $this->assertSame($committedRows, (int) ($second->checkpoint['rows_written_total'] ?? 0));
-        $this->assertSame($first->rowsWritten, $second->rowsWritten);
         $this->assertSame(0, Evidence::query()->count());
 
         $resume = $this->runUntilComplete(
@@ -541,10 +545,10 @@ class WebsiteProductionCollectorTest extends TestCase
             $datasetRun,
         );
         $this->assertSame(DatasetExecutionOutcome::Completed, $resume->outcome, (string) $resume->errorMessage);
-        $this->assertSame(2, DB::table('website_http_snapshot')->count(), 'resume must not lose or duplicate crawled pages');
-        $this->assertSame(2, DB::table('website_url')->count());
+        $this->assertSame($total, DB::table('website_http_snapshot')->count(), 'resume must not lose or duplicate crawled pages');
+        $this->assertSame($total, DB::table('website_url')->count());
         $this->assertSame($committedRows, (int) DatasetWriteBatch::query()->where('dataset_run_id', $datasetRun->id)->sum('rows_received'));
-        $this->assertSame(2, (int) ($resume->checkpoint['pages'] ?? 0));
+        $this->assertSame($total, (int) ($resume->checkpoint['pages'] ?? 0));
     }
 
     #[Test]
@@ -613,19 +617,22 @@ class WebsiteProductionCollectorTest extends TestCase
         [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
         $first = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, []));
 
+        // One step fetches the whole (small) queue in parallel; the links it finds are queued for the next step.
         $queue = array_values($first->checkpoint['queue'] ?? []);
-        $this->assertContains('http://1.1.1.1/implant', $queue, 'changed after the last fetch');
+        $fetched = DB::table('website_http_snapshot')->pluck('url')->all();
+        $this->assertContains('http://1.1.1.1/implant', $fetched, 'changed after the last fetch');
         $this->assertContains('http://1.1.1.1/contact', $queue);
-        $this->assertNotContains('http://1.1.1.1/about', $queue, 'lastmod is older than the stored copy');
+        $this->assertNotContains('http://1.1.1.1/about', $fetched, 'lastmod is older than the stored copy');
         $this->assertContains('http://1.1.1.1/about', $first->checkpoint['visited'] ?? []);
         $this->assertSame(1, $first->checkpoint['skipped_unchanged'] ?? null);
-        foreach ($queue as $url) {
+        foreach ([...$queue, ...$fetched] as $url) {
             $this->assertDoesNotMatchRegularExpression('#/(tag|feed|author|elementor-123|wp-content)/|\.pdf$#', $url);
         }
 
         $context->collectionRun->forceFill(['request_context' => ['force_refresh' => true]])->save();
         $forced = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, []));
-        $this->assertContains('http://1.1.1.1/about', $forced->checkpoint['queue'] ?? [], 'a forced refresh fetches everything');
+        $this->assertSame(0, $forced->checkpoint['skipped_unchanged'] ?? null);
+        $this->assertContains('http://1.1.1.1/about', DB::table('website_http_snapshot')->pluck('url')->all(), 'a forced refresh fetches everything');
     }
 
     #[Test]
@@ -716,8 +723,9 @@ class WebsiteProductionCollectorTest extends TestCase
             'rows_written_total' => 0,
             'bytes_downloaded_total' => 0,
         ]));
-        $this->assertSame(DatasetExecutionOutcome::Continue, $first->outcome, (string) $first->errorMessage);
-        $this->assertSame(1, $first->checkpoint['pages'] ?? null);
+        // Both URLs fit in one parallel step.
+        $this->assertSame(DatasetExecutionOutcome::Completed, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame(2, $first->checkpoint['pages'] ?? null);
         $this->assertGreaterThan(0, (int) ($first->checkpoint['bytes_downloaded_total'] ?? 0));
         $httpAfterFirst = DB::table('website_http_snapshot')->count();
         $bytesAfterFirst = (int) ($first->checkpoint['bytes_downloaded_total'] ?? 0);
@@ -745,6 +753,100 @@ class WebsiteProductionCollectorTest extends TestCase
         $this->assertSame(1, $stopped->checkpoint['pages'] ?? null);
         $this->assertSame($httpAfterFirst, DB::table('website_http_snapshot')->count(), 'resume at the aggregate byte limit must not fetch further pages');
         $this->assertSame(DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES, (int) ($stopped->checkpoint['bytes_downloaded_total'] ?? 0));
+    }
+
+    #[Test]
+    public function a_recrawl_of_an_unchanged_page_moves_its_stored_rows_instead_of_appending_a_copy(): void
+    {
+        $this->fakePublicSite();
+        $home = 'http://1.1.1.1/';
+        $tables = ['website_http_snapshot', 'website_html_snapshot', 'website_metadata_snapshot', 'website_heading_snapshot',
+            'website_schema_snapshot', 'website_content_stats', 'website_link_edge'];
+
+        [$context] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $first = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $context->datasetRun, [
+            'observed_at' => '2026-08-20 00:00:00', 'queue' => [$home], 'visited' => [], 'pages' => 0,
+        ]));
+        $this->assertGreaterThan(0, $first->rowsWritten);
+        $counts = [];
+        foreach ($tables as $table) {
+            $counts[$table] = DB::table($table)->count();
+            $this->assertGreaterThan(0, $counts[$table], $table);
+        }
+        $batches = DatasetWriteBatch::query()->count();
+
+        [$second] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $again = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($second, $second->datasetRun, [
+            'observed_at' => '2026-08-21 00:00:00', 'queue' => [$home], 'visited' => [], 'pages' => 0,
+        ]));
+
+        $this->assertNull($again->errorMessage);
+        $this->assertSame(1, $again->checkpoint['pages'] ?? null);
+        $this->assertSame(0, $again->rowsWritten, 'an unchanged page writes nothing new');
+        $this->assertSame($batches, DatasetWriteBatch::query()->count());
+        foreach ($tables as $table) {
+            $this->assertSame($counts[$table], DB::table($table)->count(), $table.' must not grow for an unchanged page');
+            $this->assertSame(0, DB::table($table)->where('observed_at', '<', '2026-08-21 00:00:00')->count(), $table.' rows move to the new observation');
+            $this->assertSame($counts[$table], DB::table($table)->where('last_collection_run_id', $second->collectionRun->id)->count());
+        }
+        $html = DB::table('website_html_snapshot')->sole();
+        $this->assertSame('unchanged', $html->change_state);
+        $this->assertSame($html->html_hash, $html->previous_html_hash);
+    }
+
+    #[Test]
+    public function a_changed_page_replaces_its_link_edges_instead_of_appending_them(): void
+    {
+        $body = '<html><head><title>Klinik</title></head><body><h1>Klinik</h1><main><a href="/implant">İmplant</a><a href="/ortodonti">Ortodonti</a></main></body></html>';
+        Http::fake(function ($request) use (&$body) {
+            return Http::response($body, 200, ['Content-Type' => 'text/html']);
+        });
+        $home = 'http://1.1.1.1/';
+
+        [$context] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $context->datasetRun, [
+            'observed_at' => '2026-08-20 00:00:00', 'queue' => [$home], 'visited' => [], 'pages' => 0,
+        ]));
+        $this->assertSame(2, DB::table('website_link_edge')->where('source_url', $home)->count());
+
+        $body = '<html><head><title>Klinik</title></head><body><h1>Klinik</h1><main><a href="/iletisim">İletişim</a></main></body></html>';
+        [$second] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($second, $second->datasetRun, [
+            'observed_at' => '2026-08-21 00:00:00', 'queue' => [$home], 'visited' => [], 'pages' => 0,
+        ]));
+
+        $edges = DB::table('website_link_edge')->where('source_url', $home)->get();
+        $this->assertCount(1, $edges);
+        $this->assertSame('http://1.1.1.1/iletisim', $edges->first()->normalized_target_url);
+        $this->assertSame(2, DB::table('website_html_snapshot')->count(), 'a changed page keeps its HTML history');
+        $this->assertSame('changed', DB::table('website_html_snapshot')->orderByDesc('observed_at')->value('change_state'));
+    }
+
+    #[Test]
+    public function fetch_many_applies_the_same_safety_redirect_and_size_rules_as_a_single_fetch(): void
+    {
+        Http::fake(function ($request) {
+            return match (parse_url($request->url(), PHP_URL_PATH)) {
+                '/moved' => Http::response('', 301, ['Location' => '/final']),
+                '/private' => Http::response('', 302, ['Location' => 'http://127.0.0.1/admin']),
+                '/big' => Http::response(str_repeat('a', 2048), 200, ['Content-Type' => 'text/html']),
+                default => Http::response('<html>ok</html>', 200, ['Content-Type' => 'text/html']),
+            };
+        });
+
+        $results = (new PublicHttpFetcher)->fetchMany(
+            ['http://1.1.1.1/moved', 'http://1.1.1.1/private', 'http://1.1.1.1/big', 'http://1.1.1.1/ok'],
+            1024,
+        );
+
+        $this->assertSame(['http://1.1.1.1/moved', 'http://1.1.1.1/private', 'http://1.1.1.1/big', 'http://1.1.1.1/ok'], array_keys($results));
+        $this->assertTrue($results['http://1.1.1.1/moved']['ok']);
+        $this->assertSame('http://1.1.1.1/final', $results['http://1.1.1.1/moved']['final_url']);
+        $this->assertSame(1, $results['http://1.1.1.1/moved']['redirect_count']);
+        $this->assertFalse($results['http://1.1.1.1/private']['ok'], 'a redirect to a private address is blocked');
+        $this->assertSame('response_too_large', $results['http://1.1.1.1/big']['error']);
+        $this->assertSame('<html>ok</html>', $results['http://1.1.1.1/ok']['body']);
+        Http::assertNotSent(fn ($request): bool => str_contains($request->url(), '127.0.0.1'));
     }
 
     #[Test]

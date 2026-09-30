@@ -11,6 +11,7 @@ use App\Models\DataPool\DatasetMaterialization;
 use App\Models\DataPool\DatasetWriteBatch;
 use App\Models\DigitalAsset;
 use App\Models\User;
+use App\Services\Collection\Providers\Website\WebsiteDatasetExecutor;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\DataPool\DataPoolStorageRegistry;
@@ -21,6 +22,7 @@ use App\Services\PageSpeedConnectionProbeService;
 use App\Services\Portfolio\UnassignedWebsites;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -218,10 +220,15 @@ final class WebsiteIntegrationIndex extends Component
             );
 
             $this->messageTone = 'success';
-            $this->message = $this->text(
-                "{$asset->name} için veri çekimi kuyruğa alındı. Çekim #{$run->id}.",
-                "Website collection queued for {$asset->name}. Run #{$run->id}.",
-            );
+            $this->message = data_get($run->request_context, 'context.chain_after_wordpress', []) !== []
+                ? $this->text(
+                    "{$asset->name} için önce WordPress envanteri alınıyor; bitince sayfa HTML'leri çekilecek. Çekim #{$run->id}.",
+                    "WordPress inventory first for {$asset->name}; page HTML follows when it finishes. Run #{$run->id}.",
+                )
+                : $this->text(
+                    "{$asset->name} için veri çekimi kuyruğa alındı. Çekim #{$run->id}.",
+                    "Website collection queued for {$asset->name}. Run #{$run->id}.",
+                );
         } catch (Throwable $exception) {
             report($exception);
             $this->messageTone = 'error';
@@ -420,6 +427,8 @@ final class WebsiteIntegrationIndex extends Component
             )
             : null;
 
+        $deliveryState = $selectedRow !== null ? $this->deliveryState($selectedRow['wordpress_connection']) : null;
+
         return view('livewire.operator.integrations.website-integration-index', [
             'assignCustomers' => $this->assigningSiteId !== null ? Customer::query()->orderBy('name')->pluck('name', 'id')->all() : [],
             'assignBrands' => $this->assigningSiteId !== null && ctype_digit($this->assignCustomerId)
@@ -429,7 +438,8 @@ final class WebsiteIntegrationIndex extends Component
             'selectedRow' => $selectedRow,
             'history' => $history,
             'liveConsole' => $liveConsole,
-            'deliveryState' => $selectedRow !== null ? $this->deliveryState($selectedRow['wordpress_connection']) : null,
+            'deliveryState' => $deliveryState,
+            'overviewLines' => $selectedRow !== null ? $this->overviewLines($selectedRow, $liveConsole, $deliveryState) : [],
             'availableDatasets' => $availableDatasets,
             'selectedDataset' => $selectedDataset,
             'dataExplorer' => $dataExplorer,
@@ -656,12 +666,6 @@ final class WebsiteIntegrationIndex extends Component
             'html_changes' => $run?->datasetRuns?->contains('dataset_contract_id', 'website_html_snapshot') ? $htmlCoverage['changed'] : '—',
             'wordpress_objects' => (int) data_get($connectorDatasets->firstWhere('id', 'website_cms_object_snapshot'), 'current_rows', 0),
             'last_run_at' => $run?->updated_at,
-        ];
-        $row['last_run_changes'] = [
-            'inserted' => $sources->flatMap(fn (array $source): Collection => $source['datasets'])->sum('inserted_rows'),
-            'updated' => $sources->flatMap(fn (array $source): Collection => $source['datasets'])->sum('updated_rows'),
-            'unchanged' => $sources->flatMap(fn (array $source): Collection => $source['datasets'])->sum('unchanged_rows'),
-            'failed_batches' => $sources->flatMap(fn (array $source): Collection => $source['datasets'])->sum('failed_batches'),
         ];
 
         return $row;
@@ -1635,8 +1639,24 @@ final class WebsiteIntegrationIndex extends Component
         $datasetsCompleted = $requiredDatasetRuns->filter(
             fn (CollectionDatasetRun $datasetRun): bool => $datasetRun->status?->value === 'completed',
         )->count();
+        $pages = $this->crawlProgress($run);
+        $stages = $stages->map(function (array $stage) use ($pages): array {
+            $stage['summary'] = $stage['family'] === WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL && $pages !== null
+                ? $this->text(
+                    number_format($pages['done'], 0, ',', '.').' / '.number_format($pages['planned'], 0, ',', '.').' sayfa',
+                    number_format($pages['done']).' / '.number_format($pages['planned']).' pages',
+                )
+                : null;
+
+            return $stage;
+        });
+        $progressPercent = $datasetsTotal > 0 ? min(100, (int) round(($datasetsCompleted / $datasetsTotal) * 100)) : 0;
+        if ($active && $pages !== null && $pages['planned'] > 0) {
+            $progressPercent = min(100, (int) floor(($pages['done'] / $pages['planned']) * 100));
+        }
 
         return [
+            'pages' => $pages,
             'id' => $run->id,
             'active' => $active,
             'scope_label' => $this->scopeLabel($run),
@@ -1647,7 +1667,7 @@ final class WebsiteIntegrationIndex extends Component
             'datasets_failed' => $requiredDatasetRuns->filter(
                 fn (CollectionDatasetRun $datasetRun): bool => in_array($datasetRun->status?->value, ['failed', 'cancelled'], true),
             )->count(),
-            'progress_percent' => $datasetsTotal > 0 ? min(100, (int) round(($datasetsCompleted / $datasetsTotal) * 100)) : 0,
+            'progress_percent' => $progressPercent,
             'rows_received' => (int) $run->datasetRuns->sum('rows_received'),
             'rows_written' => (int) $run->datasetRuns->sum('rows_written'),
             'duration_label' => ($run->started_at ?? $run->created_at)?->diffForHumans($run->finished_at ?? now(), true),
@@ -1655,6 +1675,134 @@ final class WebsiteIntegrationIndex extends Component
             'stages' => $stages,
             'failure_summary' => $run->failure_summary,
         ];
+    }
+
+    /**
+     * Page HTML crawl progress of a run, from its checkpoint: pages fetched, pages planned (pages skipped as
+     * unchanged are not planned) and, while it runs, the minutes left at the rate so far.
+     *
+     * @return array{done: int, planned: int, skipped: int, active: bool, eta_minutes: ?int}|null
+     */
+    private function crawlProgress(CollectionRun $run): ?array
+    {
+        $crawls = $run->datasetRuns->where('request_family_id', WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        if ($crawls->isEmpty()) {
+            return null;
+        }
+
+        $done = 0;
+        $planned = 0;
+        $skipped = 0;
+        $etaSeconds = null;
+        $active = false;
+        foreach ($crawls as $crawl) {
+            /** @var CollectionDatasetRun $crawl */
+            $checkpoint = is_array($crawl->checkpoint) ? $crawl->checkpoint : [];
+            $pages = (int) ($checkpoint['pages'] ?? 0);
+            $total = max($pages, (int) ($checkpoint['urls_planned'] ?? 0));
+            $done += $pages;
+            $planned += $total;
+            $skipped += (int) ($checkpoint['skipped_unchanged'] ?? 0);
+            $running = in_array($crawl->status?->value, ['queued', 'running', 'retrying'], true);
+            $active = $active || $running;
+            $started = $crawl->started_at;
+            if ($running && $pages > 0 && $started !== null && $total > $pages) {
+                $elapsed = max(1, (int) $started->diffInSeconds(now(), true));
+                $etaSeconds = ($etaSeconds ?? 0) + (int) ceil(($total - $pages) * ($elapsed / $pages));
+            }
+        }
+
+        return [
+            'done' => $done,
+            'planned' => $planned,
+            'skipped' => $skipped,
+            'active' => $active,
+            'eta_minutes' => $etaSeconds !== null ? max(1, (int) ceil($etaSeconds / 60)) : null,
+            'eta_label' => $etaSeconds !== null ? $this->minutesLabel(max(1, (int) ceil($etaSeconds / 60))) : null,
+        ];
+    }
+
+    /**
+     * The three plain lines of the overview: pages, WordPress and the latest collection.
+     *
+     * @param  array<string, mixed>  $row
+     * @param  array<string, mixed>|null  $console
+     * @param  array<string, mixed>|null  $delivery
+     * @return list<array{label: string, value: string}>
+     */
+    private function overviewLines(array $row, ?array $console, ?array $delivery): array
+    {
+        $number = fn (int $value): string => number_format($value, 0, ',', '.');
+        $pages = $console['pages'] ?? null;
+        if (is_array($pages) && $pages['active']) {
+            $pageLine = $this->text($number($pages['done']).' / '.$number($pages['planned']).' alındı', $number($pages['done']).' / '.$number($pages['planned']).' fetched');
+            if ($pages['eta_label'] !== null) {
+                $pageLine .= $this->text(' · tahmini ', ' · about ').$pages['eta_label'];
+            }
+        } else {
+            $pageLine = $this->text($number((int) $row['headline_metrics']['html_pages']).' sayfa alındı', $number((int) $row['headline_metrics']['html_pages']).' pages collected');
+        }
+        if (is_array($pages) && $pages['skipped'] > 0) {
+            $pageLine .= $this->text(' · '.$number($pages['skipped']).' değişmediği için atlandı', ' · '.$number($pages['skipped']).' unchanged, skipped');
+        }
+
+        /** @var DigitalAsset $asset */
+        $asset = $row['asset'];
+        if (! (bool) $row['wordpress_detected']) {
+            $wordpressLine = $this->text('Bağlı değil', 'Not connected');
+        } else {
+            $inventoryAt = $this->lastWordPressInventory((int) $asset->id) ?? (filled($delivery['last_inventory'] ?? null) ? Carbon::parse((string) $delivery['last_inventory']) : null);
+            $wordpressLine = $this->text($number($this->wordpressPageCount((int) $asset->id)).' sayfa', $number($this->wordpressPageCount((int) $asset->id)).' pages')
+                .$this->text(' (son envanter ', ' (last inventory ').($inventoryAt?->diffForHumans() ?? '—').')';
+            if (! (bool) $row['wordpress_ready']) {
+                $wordpressLine .= $this->text(' · eşleştirme gerekli', ' · pairing required');
+            }
+        }
+
+        $lastRun = $row['run'] instanceof CollectionRun
+            ? $row['run_status_label'].' · '.($row['last_run_at']?->diffForHumans() ?? '—')
+            : $this->text('Henüz yok', 'None yet');
+
+        return [
+            ['label' => $this->text('Sayfalar', 'Pages'), 'value' => $pageLine],
+            ['label' => 'WordPress', 'value' => $wordpressLine],
+            ['label' => $this->text('Son çekim', 'Latest collection'), 'value' => $lastRun],
+        ];
+    }
+
+    private function minutesLabel(int $minutes): string
+    {
+        [$hour, $minute] = [$this->text('sa', 'h'), $this->text('dk', 'min')];
+        if ($minutes < 60) {
+            return $minutes.' '.$minute;
+        }
+
+        return intdiv($minutes, 60).' '.$hour.' '.($minutes % 60).' '.$minute;
+    }
+
+    /** Published WordPress pages a visitor can land on (latest inventory, one per address). */
+    private function wordpressPageCount(int $assetId): int
+    {
+        if (! Schema::hasTable('website_cms_object_snapshot')) {
+            return 0;
+        }
+
+        return (int) DB::table('website_cms_object_snapshot')->where('digital_asset_id', $assetId)
+            ->where('status', 'publish')->whereNotNull('permalink')
+            ->whereNotIn('object_type', WebsiteDatasetExecutor::NON_PAGE_CMS_TYPES)
+            ->distinct()->count('permalink');
+    }
+
+    private function lastWordPressInventory(int $assetId): ?Carbon
+    {
+        $finished = CollectionDatasetRun::query()
+            ->join('collection_runs as r', 'r.id', '=', 'collection_dataset_runs.collection_run_id')
+            ->where('r.digital_asset_id', $assetId)
+            ->where('collection_dataset_runs.request_family_id', WebsiteRequestFamilyCatalog::FAMILY_WP_REST)
+            ->where('collection_dataset_runs.status', 'completed')
+            ->max('collection_dataset_runs.finished_at');
+
+        return $finished !== null ? Carbon::parse((string) $finished) : null;
     }
 
     private function triggerLabel(?string $trigger): string

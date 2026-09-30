@@ -15,6 +15,7 @@ use App\Services\DataPool\DatasetWritePipeline;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RawPayloadEnvelope;
 use App\Services\DataPool\Support\WriteReceipt;
+use App\Services\DataPool\WebsitePageStateStore;
 use App\Services\SeoTasks\SeoText;
 use App\Support\SslCertificateProbe;
 use Carbon\CarbonImmutable;
@@ -42,6 +43,9 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
     /** Re-fetch every page at least this often, whatever its modified date says. */
     private const MAX_RECHECK_DAYS = 30;
 
+    /** URLs one crawl step fetches in parallel. */
+    public const CRAWL_BATCH_SIZE = 15;
+
     public function __construct(
         private readonly WebsiteEligibilityGuard $eligibility,
         private readonly WebsiteNormalizer $normalizer,
@@ -52,6 +56,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         private readonly PublicHttpFetcher $fetcher = new PublicHttpFetcher,
         private readonly PublicUrlNormalizer $urls = new PublicUrlNormalizer,
         private readonly SslCertificateProbe $tls = new SslCertificateProbe,
+        private readonly WebsitePageStateStore $pageState = new WebsitePageStateStore,
     ) {}
 
     public function supportedRequestFamilies(): array
@@ -258,48 +263,64 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             ));
         }
 
-        $url = array_shift($queue);
-        if ($url === null || in_array($url, $visited, true)) {
-            return new DatasetExecutionResult(
-                outcome: DatasetExecutionOutcome::Continue,
-                progressMode: ProgressMode::PageBased,
-                progressCurrent: $pages,
-                progressTotal: $maxPages,
-                checkpoint: $this->crawlCheckpoint($observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged),
-            );
+        // One step fetches up to CRAWL_BATCH_SIZE URLs in parallel. The checkpoint only advances after every page of
+        // the batch is stored; a retried step fetches the same batch again and its per-page batch keys are reused.
+        $batch = [];
+        while ($queue !== [] && count($batch) < min(self::CRAWL_BATCH_SIZE, $maxPages - $pages)) {
+            $candidate = (string) array_shift($queue);
+            if ($candidate !== '' && ! in_array($candidate, $visited, true) && ! in_array($candidate, $batch, true)) {
+                $batch[] = $candidate;
+            }
         }
-
-        $visited[] = $url;
-        $fetch = $this->fetchForCollection($url);
-        $bytesDownloaded += (int) ($fetch['bytes'] ?? 0);
-
-        if ($bytesDownloaded > DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES) {
+        if ($batch === []) {
             return $this->completedCounted($pages, $maxPages, $this->crawlCheckpoint(
                 $observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged,
             ));
         }
 
-        $written = $this->persistPage($context, $assetId, $fetch, $observedAt, 'public_crawl', $url, $seed);
-        $pages++;
-        $rowsWritten += $written;
-
+        $fetches = $this->fetcher->fetchMany($batch, DiscoveryConfig::MAX_COLLECTION_RESPONSE_BYTES, self::CRAWL_BATCH_SIZE);
         // A site with the WordPress Connector: its page list comes from WordPress (+ sitemap); links are not followed.
-        if (! $targeted && ! $this->hasCmsInventory($assetId) && $this->pageAnalyzer->isInventoryEligible($fetch) && $pages < $maxPages) {
-            $resolutionBase = is_string($fetch['final_url'] ?? null) && trim((string) $fetch['final_url']) !== ''
-                ? (string) $fetch['final_url']
-                : $url;
-            foreach ($this->extractSameSiteHrefs((string) $fetch['body'], $seed, $resolutionBase) as $href) {
-                if (! in_array($href, $visited, true) && ! in_array($href, $queue, true)) {
-                    $queue[] = $href;
-                }
+        $followLinks = ! $targeted && ! $this->hasCmsInventory($assetId);
+        $written = 0;
+        $pagesThisStep = 0;
+        $limitReached = false;
+
+        foreach ($batch as $index => $url) {
+            $fetch = $fetches[$url] ?? $this->fetchForCollection($url);
+            $visited[] = $url;
+            $bytesDownloaded += (int) ($fetch['bytes'] ?? 0);
+
+            if ($bytesDownloaded > DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES) {
+                // The page that crosses the aggregate byte limit is not stored; the rest of the batch is left unvisited.
+                $queue = array_values(array_merge(array_slice($batch, $index + 1), $queue));
+                $limitReached = true;
+
+                break;
             }
-            $urlsPlanned = max($urlsPlanned, count($visited) + count($queue));
+
+            $pageRows = $this->persistPage($context, $assetId, $fetch, $observedAt, 'public_crawl', $url, $seed);
+            $pages++;
+            $pagesThisStep++;
+            $written += $pageRows;
+            $rowsWritten += $pageRows;
+
+            if ($followLinks && $this->pageAnalyzer->isInventoryEligible($fetch) && $pages < $maxPages) {
+                $resolutionBase = is_string($fetch['final_url'] ?? null) && trim((string) $fetch['final_url']) !== ''
+                    ? (string) $fetch['final_url']
+                    : $url;
+                foreach ($this->extractSameSiteHrefs((string) $fetch['body'], $seed, $resolutionBase) as $href) {
+                    if (! in_array($href, $visited, true) && ! in_array($href, $queue, true) && ! in_array($href, $batch, true)) {
+                        $queue[] = $href;
+                    }
+                }
+                $urlsPlanned = max($urlsPlanned, count($visited) + count($queue));
+            }
         }
 
         $checkpointOut = $this->crawlCheckpoint($observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged);
 
-        if ($queue === [] || $pages >= $maxPages || $bytesDownloaded >= DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES) {
-            return $this->completedCounted($pages, $maxPages, $checkpointOut, $written, $written, 1);
+        if ($limitReached || $queue === [] || $pages >= $maxPages || $bytesDownloaded >= DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES) {
+            return $this->completedCounted($pages, $maxPages, $checkpointOut, $written, $written, $pagesThisStep);
         }
 
         return new DatasetExecutionResult(
@@ -309,7 +330,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             progressTotal: $maxPages,
             rowsReceived: $written,
             rowsWritten: $written,
-            pagesCompleted: 1,
+            pagesCompleted: $pagesThisStep,
             checkpoint: $checkpointOut,
         );
     }
@@ -431,6 +452,11 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         string $requestedUrl,
         string $siteSeed,
     ): int {
+        // Latest state: a page whose response did not change since its stored copy is not written again.
+        if ($this->keepUnchangedPage($context, $assetId, $fetch, $observedAt)) {
+            return 0;
+        }
+
         $pageIdentity = $this->stablePageIdentity($requestedUrl, $fetch);
         $rowsWritten = 0;
         $compactRaw = [$this->compactFetch($fetch)];
@@ -485,8 +511,60 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         if ($edges !== []) {
             $rowsWritten += $this->writeOne($context, 'website_link_edge', $source.'_links', $assetId, $edges, $compactRaw, $requestedUrl, $pageIdentity);
         }
+        // A page's links are replaced, not appended: the edges of its earlier fetches are removed once the current
+        // ones are stored (after the write, so a retried step never loses edges it already committed).
+        $this->pageState->dropEarlierLinkEdges($assetId, $this->urls->normalizeAbsolute($resolutionBase) ?? $resolutionBase, $observedAt);
 
         return $rowsWritten;
+    }
+
+    /**
+     * True when the page answered exactly as its latest stored copy (same status, final URL, error and body hash).
+     * Its stored rows in every per-page table are then moved to this observation (observed_at, last run), so
+     * readers that take each page's latest row stay current without a new copy being appended.
+     *
+     * @param  array<string, mixed>  $fetch
+     */
+    private function keepUnchangedPage(DatasetExecutionContext $context, int $assetId, array $fetch, string $observedAt): bool
+    {
+        $httpUrl = (string) ($fetch['requested_url'] ?? $fetch['final_url'] ?? '');
+        // Nothing stored yet, or this observation already wrote the page (a retried step): write it normally,
+        // the per-page batch keys keep that idempotent.
+        $stored = $this->pageState->latestResponse($assetId, $httpUrl, $observedAt);
+        if ($stored === null) {
+            return false;
+        }
+        foreach (['status_code', 'final_url', 'error'] as $key) {
+            if ((string) ($stored[$key] ?? '') !== (string) ($fetch[$key] ?? '')) {
+                return false;
+            }
+        }
+
+        $final = (string) ($fetch['final_url'] ?? $fetch['requested_url'] ?? '');
+        $body = is_string($fetch['body'] ?? null) && $fetch['body'] !== '' ? $fetch['body'] : null;
+        $bodyHash = $body !== null ? hash('sha256', $body) : null;
+        if (array_key_exists('body_sha256', $stored)) {
+            if ($stored['body_sha256'] !== $bodyHash) {
+                return false;
+            }
+        } elseif ($bodyHash !== null) {
+            // Rows stored before the body hash was recorded: compare with the stored HTML copy.
+            $htmlUrl = $this->normalizer->normalizeUrl($final);
+            $storedHash = $htmlUrl !== null ? $this->pageState->latestHtmlHash($assetId, $htmlUrl) : null;
+            if ($storedHash === null || ! hash_equals($storedHash, $bodyHash)) {
+                return false;
+            }
+        }
+
+        $urls = array_values(array_unique(array_filter([
+            $httpUrl,
+            $final,
+            $this->normalizer->normalizeUrl($final),
+            $this->urls->normalizeAbsolute($final),
+        ], static fn ($url): bool => is_string($url) && $url !== '')));
+        $this->pageState->touchUnchangedPage($assetId, $urls, $observedAt, (int) $context->collectionRun->id, (int) $context->datasetRun->id);
+
+        return true;
     }
 
     /** @param array<string, mixed> $fetch */

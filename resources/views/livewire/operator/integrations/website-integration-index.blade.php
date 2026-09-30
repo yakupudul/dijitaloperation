@@ -169,7 +169,7 @@
                 <span wire:loading.remove wire:target="collectNow">{{ ($liveConsole['active'] ?? false) ? ($tr ? 'Veri çekimi sürüyor' : 'Collection in progress') : ($tr ? 'Veri çekimini başlat' : 'Start collection') }}</span>
                 <span wire:loading wire:target="collectNow">{{ $tr ? 'Başlatılıyor…' : 'Starting…' }}</span>
             </button>
-                <p class="w-full text-xs text-gray-500 dark:text-gray-400">{{ $tr ? 'Genel çekim: WordPress envanteri + sayfaların HTML’i (yalnız değişenler) + TLS. Hız ölçümü için PageSpeed’i seçin.' : 'General collection: HTML, TLS and connected WordPress. Select PageSpeed for speed measurements.' }}</p>
+                <p class="w-full text-xs text-gray-500 dark:text-gray-400">{{ $tr ? 'Genel çekim: önce WordPress envanteri, ardından sayfaların HTML’i (yalnız değişenler) ve TLS. Hız ölçümü için PageSpeed’i seçin.' : 'General collection: HTML, TLS and connected WordPress. Select PageSpeed for speed measurements.' }}</p>
             </div>
         </div>
 
@@ -248,7 +248,11 @@
                     </div>
                     <div class="text-right">
                         <p class="text-xl font-semibold text-gray-900 dark:text-white">%{{ $liveConsole['progress_percent'] }}</p>
-                        <p class="text-xs text-gray-400">{{ $liveConsole['datasets_completed'] }}/{{ $liveConsole['datasets_total'] }} {{ $tr ? 'veri grubu başarılı · URL yüzdesi değil' : 'datasets successful · not URL progress' }}</p>
+                        @if ($liveConsole['active'] && ($liveConsole['pages']['planned'] ?? 0) > 0)
+                            <p class="text-xs text-gray-400">{{ number_format($liveConsole['pages']['done'], 0, ',', '.') }} / {{ number_format($liveConsole['pages']['planned'], 0, ',', '.') }} {{ $tr ? 'sayfa' : 'pages' }}@if ($liveConsole['pages']['eta_label'] !== null) · {{ $tr ? 'tahmini' : 'about' }} {{ $liveConsole['pages']['eta_label'] }}@endif</p>
+                        @else
+                            <p class="text-xs text-gray-400">{{ $liveConsole['datasets_completed'] }}/{{ $liveConsole['datasets_total'] }} {{ $tr ? 'adım tamamlandı' : 'steps done' }}</p>
+                        @endif
                     </div>
                 </div>
                 <div class="h-1 bg-gray-100 dark:bg-gray-800"><div class="h-full bg-brand-500 transition-all" style="width: {{ $liveConsole['progress_percent'] }}%"></div></div>
@@ -260,8 +264,7 @@
                                 @if ($stage['optional'])<span class="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.05]">{{ $tr ? 'İsteğe bağlı' : 'Optional' }}</span>@endif
                                 <span class="rounded-full border px-2 py-0.5 text-[11px] {{ $toneClasses($stateTone($stage['state'])) }}">{{ $stage['status_label'] }}</span>
                             </div>
-                            <p class="mt-2 text-xs text-gray-500">{{ $stage['datasets_completed'] }}/{{ $stage['datasets_total'] }} dataset · {{ number_format((int) $stage['rows_written'], 0, ',', '.') }} {{ $tr ? 'kayıt' : 'rows' }}</p>
-                            @if ($stage['stage'])<p class="mt-1 truncate font-mono text-[11px] text-gray-400">{{ $stage['stage'] }}</p>@endif
+                            @if ($stage['summary'])<p class="mt-2 text-xs text-gray-500">{{ $stage['summary'] }}</p>@endif
                             @if ($stage['error'])<p class="mt-2 line-clamp-2 text-xs text-red-600 dark:text-red-400">{{ $stage['error'] }}</p>@endif
                         </div>
                     @endforeach
@@ -277,59 +280,37 @@
         @endif
 
         @if ($activeTab === 'overview')
-            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-                @foreach ([
-                    [$tr ? 'Keşfedilen URL' : 'Discovered URLs', $selectedRow['headline_metrics']['urls']],
-                    [$tr ? 'HTML alınan URL' : 'URLs with HTML', $selectedRow['headline_metrics']['html_pages']],
-                    [$tr ? 'Son çekimde değişen HTML' : 'HTML changed in latest run', $selectedRow['headline_metrics']['html_changes']],
-                    [$tr ? 'WordPress nesnesi' : 'WordPress objects', $selectedRow['headline_metrics']['wordpress_objects']],
-                    [$tr ? 'Son çekim' : 'Latest collection', $selectedRow['headline_metrics']['last_run_at']?->diffForHumans() ?? '—'],
-                ] as [$label, $value])
-                    <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                        <p class="text-xs font-medium text-gray-500">{{ $label }}</p>
-                        <p class="mt-2 text-xl font-semibold text-gray-900 dark:text-white">{{ is_numeric($value) ? number_format((int) $value, 0, ',', '.') : $value }}</p>
-                    </div>
-                @endforeach
-            </div>
-
-            <div class="grid gap-5 xl:grid-cols-3">
-                <section class="xl:col-span-2 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                    <div class="flex items-center justify-between gap-3">
-                        <div>
-                            <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ $tr ? 'Kaynak durumu' : 'Source status' }}</h2>
-                            <p class="mt-1 text-sm text-gray-500">{{ $tr ? 'Durumlar her kaynağın son çekimini gösterir; tüm kaynakların aynı anda yenilendiği anlamına gelmez.' : 'Status reflects each source’s latest collection; sources may have been refreshed at different times.' }}</p>
+            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" aria-label="{{ $tr ? 'Özet' : 'Summary' }}">
+                <dl class="divide-y divide-gray-100 dark:divide-gray-800">
+                    @foreach ($overviewLines as $line)
+                        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-3 first:pt-0 last:pb-0">
+                            <dt class="w-28 shrink-0 text-sm font-medium text-gray-500 dark:text-gray-400">{{ $line['label'] }}</dt>
+                            <dd class="text-sm font-semibold text-gray-900 dark:text-white">{{ $line['value'] }}</dd>
                         </div>
-                        <button type="button" wire:click="setTab('sources')" class="text-sm font-medium text-brand-600 dark:text-brand-400">{{ $tr ? 'Tümünü aç' : 'View all' }} →</button>
-                    </div>
-                    <div class="mt-4 divide-y divide-gray-100 dark:divide-gray-800">
-                        @foreach ($selectedRow['data_sources'] as $source)
-                            <div class="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
-                                <div>
-                                    <div class="flex items-center gap-2"><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $source['label'] }}</p>@if ($source['optional'])<span class="rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.05]">{{ $tr ? 'İsteğe bağlı' : 'Optional' }}</span>@endif</div>
-                                    <p class="mt-1 text-xs text-gray-500">{{ $source['connection_label'] }} · {{ $source['completed'] }}/{{ $source['total'] }} dataset</p>
-                                    <p class="mt-1 text-xs text-gray-400">{{ $tr ? 'Son veri:' : 'Last data:' }} {{ $source['last_collected_at']?->diffForHumans() ?? '—' }}</p>
-                                </div>
-                                <span class="rounded-full border px-2.5 py-1 text-xs {{ $toneClasses($stateTone($source['state'])) }}">{{ $source['status_label'] }}</span>
-                            </div>
-                        @endforeach
-                    </div>
-                </section>
+                    @endforeach
+                </dl>
+            </section>
 
-                <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                    <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ $tr ? 'Son çekimde değişenler' : 'Latest run changes' }}</h2>
-                    <div class="mt-4 grid grid-cols-2 gap-3">
-                        @foreach ([
-                            [$tr ? 'Yeni' : 'Inserted', $selectedRow['last_run_changes']['inserted']],
-                            [$tr ? 'Güncellenen' : 'Updated', $selectedRow['last_run_changes']['updated']],
-                            [$tr ? 'Değişmeyen' : 'Unchanged', $selectedRow['last_run_changes']['unchanged']],
-                            [$tr ? 'Hatalı paket' : 'Failed batches', $selectedRow['last_run_changes']['failed_batches']],
-                        ] as [$label, $value])
-                            <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]"><p class="text-xs text-gray-500">{{ $label }}</p><p class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ number_format((int) $value, 0, ',', '.') }}</p></div>
-                        @endforeach
+            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ $tr ? 'Kaynak durumu' : 'Source status' }}</h2>
+                        <p class="mt-1 text-sm text-gray-500">{{ $tr ? 'Her kaynağın son çekimi. Ayrıntılar Çekimler ve Toplanan Veriler sekmelerinde.' : 'Each source’s latest collection. Details are in the Runs and Collected Data tabs.' }}</p>
                     </div>
-                    <p class="mt-4 text-xs leading-5 text-gray-400">{{ $tr ? 'Bu ekran yalnızca veri toplama ve ham kayıt durumunu gösterir. Tespitler Website dijital varlığında üretilir.' : 'This screen only shows collection and raw record state. Findings are produced in the Website Digital Asset.' }}</p>
-                </section>
-            </div>
+                    <button type="button" wire:click="setTab('sources')" class="text-sm font-medium text-brand-600 dark:text-brand-400">{{ $tr ? 'Tümünü aç' : 'View all' }} →</button>
+                </div>
+                <div class="mt-4 divide-y divide-gray-100 dark:divide-gray-800">
+                    @foreach ($selectedRow['data_sources'] as $source)
+                        <div class="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                            <div>
+                                <div class="flex items-center gap-2"><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $source['label'] }}</p>@if ($source['optional'])<span class="rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.05]">{{ $tr ? 'İsteğe bağlı' : 'Optional' }}</span>@endif</div>
+                                <p class="mt-1 text-xs text-gray-500">{{ $source['connection_label'] }} · {{ $tr ? 'Son veri:' : 'Last data:' }} {{ $source['last_collected_at']?->diffForHumans() ?? '—' }}</p>
+                            </div>
+                            <span class="rounded-full border px-2.5 py-1 text-xs {{ $toneClasses($stateTone($source['state'])) }}">{{ $source['status_label'] }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            </section>
         @elseif ($activeTab === 'sources')
             <div class="space-y-4">
                 @foreach ($selectedRow['data_sources'] as $source)
