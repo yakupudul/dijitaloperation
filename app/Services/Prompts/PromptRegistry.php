@@ -180,6 +180,29 @@ final class PromptRegistry
         return $this->store($operation, ['purpose' => $source->purpose, 'template' => $source->template, 'model' => $source->model], $by);
     }
 
+    /** "Varsayılana dön": stores the code default (template, model, purpose) as a new current version. */
+    public function resetToDefault(string $operation, User $by): PromptVersion
+    {
+        $this->authorize($by);
+        $definition = $this->definition($operation);
+
+        return $this->store($operation, ['purpose' => $definition['purpose'], 'template' => $definition['template'], 'model' => $definition['model']], $by);
+    }
+
+    /** Whether the version carries the operation's code default (template and model). */
+    public function isDefault(PromptVersion $version): bool
+    {
+        $definition = $this->definition((string) $version->operation);
+
+        return $version->template === self::withGuard($definition['template']) && ($version->model ?? null) === $definition['model'];
+    }
+
+    /** Only Admin publishes, reverts or resets prompts. */
+    public static function canEdit(?User $user): bool
+    {
+        return $user !== null && $user->hasRole(Roles::ADMIN);
+    }
+
     /**
      * The model the current version pins, if any (read only: never creates a version).
      *
@@ -251,7 +274,7 @@ final class PromptRegistry
 
     private function authorize(User $by): void
     {
-        if (! $by->hasRole(Roles::ADMIN)) {
+        if (! self::canEdit($by)) {
             throw new AuthorizationException('Promptları yalnız Admin değiştirebilir.');
         }
     }

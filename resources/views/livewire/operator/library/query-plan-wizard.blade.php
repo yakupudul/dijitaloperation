@@ -30,6 +30,7 @@
                 <span class="text-xs text-gray-500">{{ $brands->count() }} marka · {{ $brands->sum(fn ($b) => $b->digitalAssets->count()) }} varlık</span>
                 @if ($statusText)<span @class(['text-xs', 'text-gray-500' => in_array($status, ['running', 'nothing'], true), 'text-rose-600' => ! in_array($status, ['running', 'nothing'], true)])>{{ $statusText }}</span>@endif
                 <button type="button" wire:click="runAi" @disabled($running) class="{{ $btn }} ml-auto">AI ile sektör ata</button>
+                <x-operator.ai-prompt-info operation="queries.plan_sectors" />
             </div>
             <table class="w-full text-left text-xs">
                 <thead class="text-gray-500"><tr><th class="py-1">Marka / varlık</th><th>Hesap</th><th>Sektör</th><th></th></tr></thead>
@@ -74,6 +75,7 @@
                 <span class="text-xs text-gray-500">{{ $used->count() }} sektör</span>
                 @if ($statusText)<span class="text-xs text-gray-500">{{ $statusText }}</span>@endif
                 <button type="button" wire:click="runAi" @disabled($running || $used->isEmpty()) class="{{ $btn }} ml-auto">AI ile hizmet keşfet</button>
+                <x-operator.ai-prompt-info operation="queries.plan_services" />
             </div>
             @forelse ($used as $sector)
                 <div wire:key="s-{{ $sector->id }}" class="space-y-1 border-t border-gray-100 pt-2 dark:border-gray-800">
@@ -138,6 +140,7 @@
                 <span class="text-xs text-gray-500">İçeren sorgu silinir</span>
                 @if ($statusText)<span class="text-xs text-gray-500">{{ $statusText }}</span>@endif
                 <button type="button" wire:click="runAi" @disabled($running || $used->isEmpty()) class="{{ $btn }} ml-auto">AI ile oluştur</button>
+                <x-operator.ai-prompt-info operation="queries.plan_filters" />
             </div>
             <textarea wire:model="filterInstruction" rows="2" maxlength="1000" placeholder="AI talimatınız (isteğe bağlı) · örn. iş ilanı ve eğitim içerikli kelimeler üret" aria-label="AI talimatı" data-filter-instruction class="{{ $input }} w-full text-xs"></textarea>
             @foreach ($used as $sector)

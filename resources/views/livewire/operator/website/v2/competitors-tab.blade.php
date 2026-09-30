@@ -15,6 +15,7 @@
             @elseif (($refresh['status'] ?? null) === 'ready')<span class="text-xs text-gray-500">{{ $refresh['serps'] }} sorgu · {{ $refresh['pages'] }} sayfa{{ ($refresh['errors'] ?? 0) > 0 ? ' · '.$refresh['errors'].' hata' : '' }}</span>
             @elseif ($refresh !== null)<span class="text-xs text-rose-600">{{ ['not_operational' => 'marka hizmet dışı', 'no_clusters' => 'onaylı küme yok', 'error' => 'hata'][$refresh['status']] ?? $refresh['status'] }}</span>@endif
             <button type="button" wire:click="refreshCompetitors" @disabled(! $operational) class="{{ $btn }}" data-action="refresh" @if (! $operational) title="Müşteri pasif veya marka yok" @endif>Rakipleri güncelle</button>
+            <x-operator.ai-prompt-info operation="competitors.classify" />
         </div>
     </header>
 
@@ -38,6 +39,7 @@
                     @elseif (isset($analyzeErrors[$row['analyze']['status'] ?? '']))<span class="text-xs text-rose-600">{{ $analyzeErrors[$row['analyze']['status']] }}</span>@endif
                     @if ($serp && $serp->results)
                         <button type="button" wire:click="analyze({{ $serp->id }})" @disabled(! $operational) class="{{ $ghost }}" data-action="analyze">Analiz et</button>
+                        <x-operator.ai-prompt-info operation="competitors.analyze" />
                     @endif
                 </div>
             </div>
@@ -90,9 +92,10 @@
                                     <button type="button" wire:click="dismiss({{ $suggestion->id }})" class="{{ $ghost }}">Reddet</button>
                                 @endif
                                 @if ($suggestion->page_id !== null)
-                                    @if ($suggestion->applied_at === null)<button type="button" wire:click="aiDo({{ $suggestion->id }})" @disabled(! $operational) class="{{ $btn }}" data-action="ai-do">AI ile yap</button>@endif
+                                    @if ($suggestion->applied_at === null)<button type="button" wire:click="aiDo({{ $suggestion->id }})" @disabled(! $operational) class="{{ $btn }}" data-action="ai-do">AI ile yap</button><x-operator.ai-prompt-info operation="site.apply_change" />@endif
                                 @elseif (data_get($suggestion->action, 'content_suggestion_id'))
                                     <button type="button" wire:click="prepareDraft({{ $suggestion->id }})" @disabled(! $operational) class="{{ $btn }}" data-action="draft">Taslak hazırla</button>
+                                    <x-operator.ai-prompt-info operation="site.write_article" />
                                 @else
                                     <button type="button" wire:click="addContent({{ $suggestion->id }})" class="{{ $btn }}" data-action="add-content">Yeni içerik olarak ekle</button>
                                 @endif

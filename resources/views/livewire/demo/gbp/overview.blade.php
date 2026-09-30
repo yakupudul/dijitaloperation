@@ -98,7 +98,9 @@
         <div class="flex flex-wrap items-center gap-2">
             <button type="button" wire:click="recheck" class="{{ $btn }}">Standartları kontrol et</button>
             <button type="button" wire:click="compareServices" wire:loading.attr="disabled" @disabled(! $operational || ($servicesState['status'] ?? null) === 'running') class="{{ $btn }}">Hizmetleri karşılaştır</button>
+            <x-operator.ai-prompt-info operation="gbp.services_compare" />
             <button type="button" wire:click="proposeDescription" wire:loading.attr="disabled" @disabled(! $operational || ($descriptionState['status'] ?? null) === 'running') class="{{ $btn }}">Açıklama öner</button>
+            <x-operator.ai-prompt-info operation="gbp.description" />
             @unless ($operational)<span class="text-xs text-gray-500">Marka operasyonel değil; AI kapalı.</span>@endunless
         </div>
         @foreach (['Hizmetleri karşılaştır' => $servicesState, 'Açıklama öner' => $descriptionState] as $label => $state)
@@ -216,6 +218,7 @@
                                             <span class="text-xs text-gray-500">Göndermeyi Admin onaylar.</span>
                                         @endif
                                         <button type="button" wire:click="draftReply({{ $review['id'] }})" class="text-xs font-medium text-gray-600 hover:underline dark:text-gray-300">Yeni taslak</button>
+                                        <x-operator.ai-prompt-info operation="gbp.review_reply" />
                                     </div>
                                 </div>
                             @elseif ($draft['state'] === 'running')
@@ -226,6 +229,7 @@
                                 @endif
                                 <div class="mt-2 flex flex-wrap items-start gap-3" x-data="{ open: false, text: '' }">
                                     <button type="button" wire:click="draftReply({{ $review['id'] }})" @disabled(! $operational) class="text-xs font-semibold text-brand-600 hover:underline disabled:opacity-50">Yanıt taslağı</button>
+                                    <x-operator.ai-prompt-info operation="gbp.review_reply" />
                                     @if ($canWrite)
                                         <button type="button" x-on:click="open = ! open" class="text-xs font-medium text-gray-600 hover:underline dark:text-gray-300">Kendim yazayım</button>
                                         <span x-show="open" x-cloak class="block w-full">
@@ -260,6 +264,7 @@
                             @endforeach
                         </select>
                         <button type="button" wire:click="sharePage" wire:loading.attr="disabled" @disabled(! $operational || ($postState['status'] ?? null) === 'running') class="{{ $btn }}">Yaz</button>
+                        <x-operator.ai-prompt-info operation="gbp.post_from_page" />
                     </div>
                     @if ($pages === [])<p class="mt-1 text-xs text-gray-500">Markanın sitesinde sayfa yok.</p>@endif
                     @if ($pState)<p class="mt-1 text-xs {{ $pState[0] }}" @if ($pState[2]) wire:poll.5s @endif>{{ $pState[1] }}</p>@endif

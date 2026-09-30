@@ -16,8 +16,11 @@
 
     <section class="{{ $card }} flex flex-wrap items-center gap-2" data-steps>
         <button type="button" wire:click="run('categorize')" class="{{ $ghost }}">Sayfaları sınıflandır</button>
+        <x-operator.ai-prompt-info operation="site.page_categories" />
         <button type="button" wire:click="run('service_pages')" class="{{ $btn }}">AI adım 1 · Hizmet ↔ sayfa</button>
+        <x-operator.ai-prompt-info operation="site.service_pages" />
         <button type="button" wire:click="run('cluster_pages')" class="{{ $btn }}">AI adım 2 · Küme ↔ sayfa</button>
+        <x-operator.ai-prompt-info operation="site.cluster_pages" />
         @foreach ($statuses as $op => $line)
             <span class="text-xs text-gray-500">{{ \App\Services\Site\SiteOperations::LABELS[$op] }}: {{ $line }}</span>
         @endforeach
@@ -81,6 +84,7 @@
             <input type="search" wire:model.live.debounce.400ms="search" placeholder="Ara" aria-label="Ara" class="{{ $input }} w-48">
             <span class="text-xs text-gray-500">{{ $pages->total() }} sayfa · seçili {{ count($selected) }}</span>
             <button type="button" wire:click="analyzeSelected" @disabled($selected === []) class="{{ $btn }} ml-auto">Seçilenleri analiz et</button>
+            <x-operator.ai-prompt-info operation="site.url_analysis" />
         </div>
         @error('selected')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
         <div class="overflow-x-auto">
@@ -111,7 +115,7 @@
                                 @endif
                             </td>
                             <td class="text-right tabular-nums">{{ $total !== null ? $num($total['clicks']) : '—' }}</td>
-                            <td class="text-right"><button type="button" wire:click="analyze({{ $page->id }})" class="{{ $ghost }}">Analiz et</button></td>
+                            <td class="text-right"><button type="button" wire:click="analyze({{ $page->id }})" class="{{ $ghost }}">Analiz et</button> <x-operator.ai-prompt-info operation="site.url_analysis" /></td>
                         </tr>
                     @empty
                         <tr><td colspan="6" class="py-3 text-gray-500">Sayfa yok.</td></tr>

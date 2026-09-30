@@ -57,9 +57,11 @@
                             @endif
                             @if (\App\Services\Site\SiteSuggestionTypes::applicable((string) $s->action_type) && in_array($s->status, ['open', 'approved', 'recheck'], true) && $s->applied_at === null)
                                 <button type="button" wire:click="aiDo({{ $s->id }})" class="{{ $btn }}">AI ile yap</button>
+                                <x-operator.ai-prompt-info operation="site.apply_change" />
                             @endif
                             @if (in_array($s->status, ['approved', 'applied'], true))
                                 <button type="button" wire:click="proposeStandard({{ $s->id }})" class="{{ $ghost }}">Bu karardan standart öner</button>
+                                <x-operator.ai-prompt-info operation="site.standard_from_decision" />
                             @endif
                             <button type="button" wire:click="open({{ $s->id }})" class="{{ $ghost }}">{{ $opened?->id === $s->id ? 'Kapat' : 'Aç' }}</button>
                         </div>

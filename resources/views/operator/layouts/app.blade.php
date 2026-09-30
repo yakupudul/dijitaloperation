@@ -133,6 +133,7 @@
 
     @auth
         <livewire:operator.notification-toast />
+        <livewire:operator.ai-prompt-info />
     @endauth
 
     @stack('scripts')

@@ -23,6 +23,31 @@
             @error('budget')<span class="text-xs text-red-600">{{ $message }}</span>@enderror
         </form>
 
+        <section id="canli" class="{{ $card }} p-5" data-ai-live @if ($live['running']->isNotEmpty()) wire:poll.5s @endif>
+            <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Canlı</h2>
+            <p class="text-xs text-gray-500">Şu an çalışan AI işlemleri ve son bitenler (7 gün saklanır).</p>
+            <table class="mt-2 w-full text-sm">
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    @forelse ($live['running']->concat($live['finished']) as $item)
+                        <tr wire:key="live-{{ $item->id }}" @if ($item->isRunning()) data-ai-live-running @endif>
+                            <td class="py-2 pr-3">
+                                <span class="font-medium text-gray-800 dark:text-white/90">{{ $item->label }}</span>
+                                @if ($item->operation)<span class="ml-1 font-mono text-xs text-gray-400">{{ $item->operation }}</span>@endif
+                                @if ($item->subject)<p class="truncate text-xs text-gray-500">{{ $item->subject }}</p>@endif
+                                @if (! $item->isRunning() && $item->status !== 'done' && $item->error)<p class="text-xs text-rose-600">{{ $item->error }}</p>@endif
+                            </td>
+                            <td class="py-2 pr-3 text-xs text-gray-500">{{ $item->started_at?->timezone('Europe/Istanbul')->format('d.m H:i:s') }}@if ($item->user_id && isset($live['users'][$item->user_id])) · {{ $live['users'][$item->user_id] }}@endif</td>
+                            <td class="py-2 pr-3 text-right tabular-nums">{{ $item->durationLabel() }}</td>
+                            <td class="py-2 pr-3 text-right tabular-nums">{{ $item->cost_usd !== null ? $usd($item->cost_usd) : '—' }}</td>
+                            <td @class(['py-2 text-right text-xs font-medium', 'text-violet-700 dark:text-violet-300' => $item->isRunning(), 'text-emerald-600' => $item->status === 'done', 'text-rose-600' => $item->status === 'failed'])>{{ $item->statusLabel() }}</td>
+                        </tr>
+                    @empty
+                        <tr><td class="py-2 text-gray-500">Henüz AI işlemi yok.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </section>
+
         <section class="{{ $card }} overflow-x-auto" data-ai-operations>
             <table class="w-full text-sm">
                 <thead class="text-left text-xs uppercase text-gray-400">
@@ -99,7 +124,10 @@
                 <summary class="cursor-pointer text-xs font-semibold text-gray-600 dark:text-gray-300">Çıktı yapısı</summary>
                 <pre class="mt-1 max-h-80 overflow-auto rounded bg-gray-50 p-3 text-xs text-gray-700 dark:bg-gray-900 dark:text-gray-300">{{ json_encode($definition['output_schema'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
             </details>
-            <button type="submit" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">Yeni sürüm olarak kaydet</button>
+            <div class="flex flex-wrap items-center gap-2">
+                <button type="submit" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">Yeni sürüm olarak kaydet</button>
+                <button type="button" wire:click="resetDefault" wire:confirm="Kodun varsayılan promptu yeni sürüm olarak yayınlansın mı?" class="rounded-lg px-4 py-2 text-sm text-gray-700 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700">Varsayılana dön</button>
+            </div>
         </form>
 
         <section class="{{ $card }} space-y-3 p-5" data-prompt-trial @if (($detail['trial']['status'] ?? null) === 'running') wire:poll.3s @endif>

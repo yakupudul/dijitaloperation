@@ -47,6 +47,7 @@
         @endif
         @if ($tab === 'queries' || $tab === 'clusters')
             <button type="button" wire:click="clusterService" @disabled(! ctype_digit($service)) class="{{ $btn }} ml-auto" title="Hizmet seçin">AI ile kümele</button>
+            <x-operator.ai-prompt-info operation="queries.cluster" />
             @if (($clusterStatus['status'] ?? null) === 'running')<span class="text-xs text-gray-500">kümeleniyor…</span>
             @elseif (($clusterStatus['status'] ?? null) === 'ready')<span class="text-xs text-gray-500">{{ $clusterStatus['clusters'] }} küme · {{ $clusterStatus['suggested'] }} önerilen sorgu</span>
             @elseif ($clusterStatus !== null)<span class="text-xs text-rose-600">Kümeleme: {{ ['no_queries' => 'sorgu yok', 'no_sector' => 'hizmetin sektörü yok', 'no_provider' => 'AI bağlı değil', 'error' => 'hata'][$clusterStatus['status']] ?? $clusterStatus['status'] }}</span>@endif
@@ -66,6 +67,7 @@
             <div class="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-200" data-assign-queue>
                 <button type="button" wire:click="$set('service', '__none')" class="font-semibold hover:underline">Hizmet ataması kuyruğu · {{ $num($unassignedCount) }} atanmamış sorgu</button>
                 <button type="button" wire:click="suggestServices" @disabled($assignStatus === 'running' || $unassignedCount === 0) class="{{ $btn }} ml-auto">AI ile hizmet öner</button>
+                <x-operator.ai-prompt-info operation="queries.assign_services" />
             </div>
             @if ($assign !== null)
                 <div class="mb-3 space-y-2 rounded-lg p-3 ring-1 ring-inset ring-gray-200 dark:ring-gray-800" data-assign-proposal>
@@ -145,6 +147,7 @@
                 @endif
                 <button type="button" wire:click="openNegatives" @disabled(! $hasSelection) class="{{ $ghost }}">Filtreye ekle</button>
                 <button type="button" wire:click="proposeRules" @disabled(! $hasSelection) class="{{ $btn }}">AI ile filtre kural üret</button>
+                <x-operator.ai-prompt-info operation="queries.filter_rules" />
             </div>
             @if ($selectAll)
                 <p class="mb-2 rounded-lg bg-blue-50 p-2 text-xs text-blue-800 dark:bg-blue-950 dark:text-blue-200" data-select-all>Filtreye uyan {{ $num($matchingCount) }} sorgunun tümü seçili (tüm sayfalar)@if ($excludedIds !== []) · {{ count($excludedIds) }} hariç @endif.</p>
@@ -392,6 +395,7 @@
                 <div class="flex flex-wrap items-start gap-2">
                     <textarea wire:model="filterInstruction" rows="2" maxlength="1000" placeholder="AI talimatınız (isteğe bağlı) · örn. iş ilanı ve eğitim içerikli kelimeler üret" aria-label="AI talimatı" data-filter-instruction class="{{ $input }} min-w-0 flex-1 text-xs"></textarea>
                     <button type="button" wire:click="generateFilters" @disabled($filterStatus === 'running') class="{{ $btn }}">AI ile oluştur</button>
+                    <x-operator.ai-prompt-info operation="queries.plan_filters" />
                 </div>
                 <p class="text-xs text-gray-500">{{ ctype_digit($sector) ? 'Seçili sektör için' : 'Kullanılan her sektör için' }} ayrı çağrı · öneriler kaydedilmeden önce listelenir.</p>
                 @if ($filterStatus === 'running')
@@ -474,6 +478,7 @@
                         @foreach ($sectors as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
                     </select>
                     <button type="button" wire:click="aiNegatives" @disabled($negAwaiting) class="{{ $ghost }}">AI ile düzenle</button>
+                    <x-operator.ai-prompt-info operation="queries.filter_rules" />
                     @if ($negAwaiting)<span class="text-xs text-gray-500">AI çalışıyor…</span>@endif
                 </div>
                 <textarea wire:model.blur="negText" rows="6" aria-label="Terimler (satır başına bir)" class="{{ $input }} w-full text-xs"></textarea>

@@ -2,15 +2,16 @@
 
 namespace App\Livewire\Operator\Settings;
 
+use App\Livewire\Operator\AiLiveIndicator;
 use App\Models\AgencySetting;
 use App\Models\PromptVersion;
 use App\Services\Ai\AiBudget;
+use App\Services\Ai\AiLiveOperations;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\Prompts\PromptRegistry;
 use App\Services\Prompts\PromptRunStats;
 use App\Services\Prompts\PromptTrial;
 use App\Support\Ai\AiProviderCatalog;
-use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use InvalidArgumentException;
 use Livewire\Attributes\Layout;
@@ -127,7 +128,20 @@ final class AiOperationsPage extends Component
         }
     }
 
-    public function render(PromptRegistry $registry, PromptRunStats $stats, AiRouteResolver $routes, PromptTrial $trial, AiBudget $aiBudget): View
+    /** "Varsayılana dön": the code default becomes the new current version. */
+    public function resetDefault(PromptRegistry $registry): void
+    {
+        $this->authorizeAdmin();
+        if (! $registry->has($this->operation)) {
+            return;
+        }
+        $new = $registry->resetToDefault($this->operation, auth()->user());
+        $this->template = (string) $new->template;
+        $this->model = (string) ($new->model ?? '');
+        session()->flash('status', 'Varsayılan prompt geri yüklendi (yeni sürüm '.$new->version.').');
+    }
+
+    public function render(PromptRegistry $registry, PromptRunStats $stats, AiRouteResolver $routes, PromptTrial $trial, AiBudget $aiBudget, AiLiveOperations $live): View
     {
         $summary = $stats->summary();
         $current = PromptVersion::query()->where('is_current', true)->get(['operation', 'version', 'model'])->keyBy('operation');
@@ -159,7 +173,14 @@ final class AiOperationsPage extends Component
             ];
         }
 
-        return view('livewire.operator.settings.ai-operations', ['rows' => $rows, 'detail' => $detail, 'monthSpend' => $aiBudget->monthSpend(), 'remaining' => max(0.0, $aiBudget->monthlyBudget() - $aiBudget->monthSpend())]);
+        $liveRows = null;
+        if ($detail === null) {
+            $running = $live->running();
+            $finished = $live->finishedRecently(20);
+            $liveRows = ['running' => $running, 'finished' => $finished, 'users' => AiLiveIndicator::userNames($running->concat($finished))];
+        }
+
+        return view('livewire.operator.settings.ai-operations', ['rows' => $rows, 'detail' => $detail, 'live' => $liveRows, 'monthSpend' => $aiBudget->monthSpend(), 'remaining' => max(0.0, $aiBudget->monthlyBudget() - $aiBudget->monthSpend())]);
     }
 
     /** @return array<string, string> value ("provider:model", '' = route model) => label */
@@ -188,6 +209,6 @@ final class AiOperationsPage extends Component
 
     private function authorizeAdmin(): void
     {
-        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        abort_unless(PromptRegistry::canEdit(auth()->user()), 403);
     }
 }
