@@ -484,7 +484,7 @@ Schedule::command('moxdop:ads:budget-watch')
 
 // Meta ülke + şehir performansı (reklam × ülke / il, sonuçlarla) — her gün son 3 gün, ilk seferde 30 gün (salt okunur).
 Artisan::command('moxdop:meta:geo-results', function (): void {
-    DigitalAsset::query()->where('type', 'meta_ads') // v2: passive customers keep collecting (free)
+    DigitalAsset::query()->where('type', 'meta_ads')->whereNotNull('brand_id') // brand-assigned only; passive customers keep collecting
         ->whereIn('id', CoreAssetBinding::query()->where('status', CoreAssetBinding::STATUS_ACTIVE)->select('digital_asset_id'))
         // Spread over time: each account 3 minutes after the previous one (shared Meta app-level budget).
         ->orderBy('id')->pluck('id')->values()->each(fn ($id, $index) => CollectMetaGeoResultsJob::dispatch((int) $id)->delay(now()->addMinutes(3 * $index)));

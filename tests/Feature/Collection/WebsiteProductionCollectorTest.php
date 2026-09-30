@@ -38,6 +38,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use MoxDop\Website\Discovery\DiscoveryConfig;
 use PHPUnit\Framework\Attributes\Test;
@@ -625,6 +626,41 @@ class WebsiteProductionCollectorTest extends TestCase
         $context->collectionRun->forceFill(['request_context' => ['force_refresh' => true]])->save();
         $forced = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, []));
         $this->assertContains('http://1.1.1.1/about', $forced->checkpoint['queue'] ?? [], 'a forced refresh fetches everything');
+    }
+
+    #[Test]
+    public function public_crawl_of_a_manual_collection_skips_unchanged_pages_and_a_wordpress_site_does_not_follow_links(): void
+    {
+        $this->travelTo('2026-08-20 10:00:00');
+        Http::fake(function ($request) {
+            $url = $request->url();
+            if (str_contains($url, 'robots.txt') || str_contains($url, 'sitemap')) {
+                return Http::response('', 404);
+            }
+
+            return Http::response('<html><body><a href="/discovered-by-link">x</a></body></html>', 200, ['Content-Type' => 'text/html']);
+        });
+        DB::table('website_html_snapshot')->insert([
+            'digital_asset_id' => $this->asset->id, 'url' => 'http://1.1.1.1/about', 'html_hash' => str_repeat('a', 64), 'change_state' => 'new', 'html_bytes' => 10,
+            'observed_at' => '2026-08-18 10:00:00', 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+            'record_fingerprint' => hash('sha256', 'about'), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->assertTrue(Schema::hasTable('website_cms_object_snapshot'));
+
+        // Without WordPress: links found on the page are followed.
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $context->collectionRun->forceFill(['request_context' => ['force_refresh' => true, 'refetch_unchanged' => false]])->save();
+        $plain = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, []));
+        $this->assertContains('http://1.1.1.1/discovered-by-link', $plain->checkpoint['queue'] ?? []);
+
+        // With the WordPress inventory: the page list comes from WordPress; unchanged pages keep their copy.
+        DB::table('website_cms_object_snapshot')->insert(['digital_asset_id' => $this->asset->id, 'cms' => 'wordpress', 'object_type' => 'page', 'object_id' => '1', 'status' => 'publish',
+            'title' => 'Hakkımızda', 'permalink' => 'http://1.1.1.1/about', 'observed_at' => now(), 'contract_version' => 1,
+            'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', 'cms-about'), 'created_at' => now(), 'updated_at' => now()]);
+        $wordpress = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, []));
+        $this->assertNotContains('http://1.1.1.1/discovered-by-link', $wordpress->checkpoint['queue'] ?? [], 'links are not followed');
+        $this->assertNotContains('http://1.1.1.1/about', $wordpress->checkpoint['queue'] ?? [], 'fetched 2 days ago, no newer date: kept');
+        $this->assertContains('http://1.1.1.1/about', $wordpress->checkpoint['visited'] ?? []);
     }
 
     #[Test]

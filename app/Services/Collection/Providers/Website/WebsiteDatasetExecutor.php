@@ -237,7 +237,9 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             $queue = $targetedUrls;
             $visited = [];
         } else {
-            $seedQueue = $this->crawlSeedQueue((int) $scope['asset']->id, $seed, (bool) data_get($context->collectionRun->request_context, 'force_refresh', false));
+            // `refetch_unchanged` (default: force_refresh) — a manual collection re-fetches only changed pages.
+            $requestContext = (array) $context->collectionRun->request_context;
+            $seedQueue = $this->crawlSeedQueue((int) $scope['asset']->id, $seed, (bool) ($requestContext['refetch_unchanged'] ?? $requestContext['force_refresh'] ?? false));
             $queue = $seedQueue['queue'];
             // Pages whose modified date says they did not change since the last fetch keep their stored copy.
             $visited = $seedQueue['unchanged'];
@@ -281,7 +283,8 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         $pages++;
         $rowsWritten += $written;
 
-        if (! $targeted && $this->pageAnalyzer->isInventoryEligible($fetch) && $pages < $maxPages) {
+        // A site with the WordPress Connector: its page list comes from WordPress (+ sitemap); links are not followed.
+        if (! $targeted && ! $this->hasCmsInventory($assetId) && $this->pageAnalyzer->isInventoryEligible($fetch) && $pages < $maxPages) {
             $resolutionBase = is_string($fetch['final_url'] ?? null) && trim((string) $fetch['final_url']) !== ''
                 ? (string) $fetch['final_url']
                 : $url;
@@ -677,6 +680,12 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
     private function pageBatchKey(string $datasetId, string $batchSuffix, string $pageIdentity): string
     {
         return 'website:'.$datasetId.':'.$batchSuffix.':url='.hash('sha256', $pageIdentity);
+    }
+
+    private function hasCmsInventory(int $assetId): bool
+    {
+        return Schema::hasTable('website_cms_object_snapshot')
+            && DB::table('website_cms_object_snapshot')->where('digital_asset_id', $assetId)->whereNotNull('permalink')->exists();
     }
 
     /**

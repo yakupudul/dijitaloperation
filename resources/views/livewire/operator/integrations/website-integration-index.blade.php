@@ -159,7 +159,7 @@
                 <label for="website-collection-scope" class="sr-only">{{ $tr ? 'Çekim kapsamı' : 'Collection scope' }}</label>
                 <select id="website-collection-scope" wire:model="collectionScope" wire:loading.attr="disabled" class="rounded-lg border-gray-300 bg-white text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                     <option value="full">{{ $tr ? 'Genel çekim' : 'General collection' }}</option>
-                    <option value="public">{{ $tr ? 'Dışarıdan HTML ve TLS' : 'Public HTML and TLS' }}</option>
+                    <option value="public">{{ $tr ? 'Sayfa HTML ve TLS' : 'Page HTML and TLS' }}</option>
                     <option value="wordpress" @disabled(! $selectedRow['wordpress_ready'])>{{ $tr ? 'WordPress tam envanter' : 'WordPress full inventory' }}</option>
                     <option value="pagespeed" @disabled(! $selectedRow['page_speed_ready'])>PageSpeed</option>
                 </select>
@@ -167,7 +167,7 @@
                 <span wire:loading.remove wire:target="collectNow">{{ ($liveConsole['active'] ?? false) ? ($tr ? 'Veri çekimi sürüyor' : 'Collection in progress') : ($tr ? 'Veri çekimini başlat' : 'Start collection') }}</span>
                 <span wire:loading wire:target="collectNow">{{ $tr ? 'Başlatılıyor…' : 'Starting…' }}</span>
             </button>
-                <p class="w-full text-xs text-gray-500 dark:text-gray-400">{{ $tr ? 'Genel çekim: HTML, TLS ve bağlı WordPress. Hız ölçümü için PageSpeed’i seçin.' : 'General collection: HTML, TLS and connected WordPress. Select PageSpeed for speed measurements.' }}</p>
+                <p class="w-full text-xs text-gray-500 dark:text-gray-400">{{ $tr ? 'Genel çekim: WordPress envanteri + sayfaların HTML’i (yalnız değişenler) + TLS. Hız ölçümü için PageSpeed’i seçin.' : 'General collection: HTML, TLS and connected WordPress. Select PageSpeed for speed measurements.' }}</p>
             </div>
         </div>
 
@@ -180,7 +180,7 @@
                 <div class="flex flex-wrap items-start justify-between gap-4">
                     <div>
                         <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $tr ? 'Otomatik WordPress yenilemesi' : 'Automatic WordPress refresh' }}</h2>
-                        <p class="mt-1 max-w-2xl text-xs leading-5 text-gray-500 dark:text-gray-400">{{ $tr ? 'Değişiklikler küçük gruplar halinde alınır, etkilenen URL’ler kontrol edilir. Tam envanter aşağıdaki sıklıkta yenilenir. Dışarıdan genel tarama ve PageSpeed ayrıca başlatılır.' : 'Changes are collected in small batches and affected URLs are checked. Full inventory follows the selected cadence. General public crawl and PageSpeed are started separately.' }}</p>
+                        <p class="mt-1 max-w-2xl text-xs leading-5 text-gray-500 dark:text-gray-400">{{ $tr ? 'Değişiklikler küçük gruplar halinde alınır, etkilenen URL’ler kontrol edilir. Tam envanter aşağıdaki sıklıkta yenilenir. Otomatik genel tarama yapılmaz; PageSpeed elle başlatılır.' : 'Changes are collected in small batches and affected URLs are checked. Full inventory follows the selected cadence. General public crawl and PageSpeed are started separately.' }}</p>
                     </div>
                     @if ($deliveryState['ready'] ?? false)
                         <div class="flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800" aria-label="{{ $tr ? 'Otomatik çekim sıklığı' : 'Automatic collection cadence' }}">

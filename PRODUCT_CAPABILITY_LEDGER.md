@@ -1,5 +1,12 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-05 — Web sitesi çekimi sadeleşti; yalnız markaya atanmış varlıklar çekilir
+
+- **Otomatik public tarama yok.** Saatlik sitemap izleyicisi artık tarama başlatmaz; yalnız markaya atanmış, WordPress Connector'lı ve sitemap geçersiz kılması olan siteleri izler (ek URL listesi). Connector'sız site yalnız elle "Genel çekim" ile toplanır.
+- **WordPress bağlı sitede sayfa listesi WordPress'ten (+ sitemap) gelir;** sayfadaki bağlantılar izlenerek yeni URL keşfedilmez. Elle çekimde (`refetch_unchanged=false`) son alımdan beri değişmeyen sayfalar yeniden indirilmez / yazılmaz. Menü / header / footer bağlantıları yalnız ana sayfadan bir kez kaydedilir (iç sayfalarda yalnız içerik bağlantıları) — kayıt sayısını düşürür. Etiketler: "Public Site Taraması" → "Sayfa HTML taraması", "Dışarıdan HTML ve TLS" → "Sayfa HTML ve TLS".
+- **Yalnız markaya atanmış varlıklar çekilir.** `ResourceAutomationService::portfolioGate`: hesap, markası olan bir dijital varlığa aktif bağlı değilse `unbound` bekler (uyarı yok) ve atanınca kendiliğinden başlar (pasif müşteri çekmeye devam eder). WordPress uzlaştırması ve Meta ülke/şehir çekimi de yalnız markası olan varlıklar için.
+- **State:** CODED + PHPUnit (`WebsiteProductionCollectorTest`, `WebsitePageAnalyzerTest`, `ResourceAutomationRecoveryTest`, `PassiveCustomerGateTest`, `SiteChangePropagationTest`, `ProductionCollectionRepairTest`, `MetaCentralCollectionTest`), SQLite tam suite + PostgreSQL. Üretim UAT yok.
+
 ## 2026-11-05 — AI: kalan bakiye görünür, işlem sınırı yok; AI ile planla sektör başına kapsamlı
 
 - **İşlem başına sınır yok; aylık bütçe tek (son) sınır.** Aylık AI bütçesi Ayarlar › AI'da elle değiştirilir; aynı yerde "Bu ay harcanan" ve "Kalan bakiye". Bakiye bitince ay sonuna kadar yalnız ücretsiz modeller çalışır.

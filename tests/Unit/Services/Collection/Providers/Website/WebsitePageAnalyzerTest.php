@@ -51,6 +51,19 @@ HTML;
         self::assertTrue($edges[1]['nofollow']);
     }
 
+    public function test_site_wide_menu_header_and_footer_links_are_kept_only_from_the_homepage(): void
+    {
+        $analyzer = new WebsitePageAnalyzer;
+        $html = '<html><body><header><a href="/">Ana sayfa</a></header><nav><a href="/hizmetler/">Hizmetler</a></nav>'
+            .'<main><a href="/implant/">İmplant</a></main><footer><a href="/iletisim/">İletişim</a></footer></body></html>';
+
+        $page = $analyzer->linkEdges(7, $html, 'https://example.com/', 'https://example.com/blog/a/', '2026-08-29T09:00:00Z');
+        self::assertSame(['https://example.com/implant/'], array_column($page, 'normalized_target_url'), 'only the content link of an inner page');
+
+        $home = $analyzer->linkEdges(7, $html, 'https://example.com/', 'https://example.com/', '2026-08-29T09:00:00Z');
+        self::assertCount(4, $home, 'the homepage keeps the site-wide links once');
+    }
+
     public function test_it_emits_only_deterministic_issue_codes_supported_by_page_evidence(): void
     {
         $analyzer = new WebsitePageAnalyzer;

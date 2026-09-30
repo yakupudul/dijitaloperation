@@ -40,8 +40,9 @@ final class SitemapChangeWatcher
     }
 
     /**
-     * Websites to watch (v2: passive customers too — collection is free): no paired WordPress Connector (those send
-     * activity events instead), or a connector site with a sitemap override (extra URLs only).
+     * Websites to watch: only brand-assigned sites with a paired WordPress Connector AND a sitemap override (extra URLs
+     * for the page list). Operator decision: no automatic public crawl — sites without the connector are collected
+     * only when the operator starts a collection.
      *
      * @return list<int>
      */
@@ -49,8 +50,8 @@ final class SitemapChangeWatcher
     {
         $withConnector = $this->connectorSiteIds();
 
-        return DigitalAsset::query()->where('type', 'website')
-            ->where(fn ($q) => $q->whereNotIn('id', $withConnector ?: [0])->orWhere(fn ($o) => $o->whereNotNull('sitemap_url')->where('sitemap_url', '!=', '')))
+        return DigitalAsset::query()->where('type', 'website')->whereNotNull('brand_id')
+            ->whereIn('id', $withConnector ?: [0])->whereNotNull('sitemap_url')->where('sitemap_url', '!=', '')
             ->where(fn ($q) => $q->whereNotNull('primary_url')->orWhereNotNull('domain'))->orderBy('id')->pluck('id')->map(fn ($id) => (int) $id)->all();
     }
 

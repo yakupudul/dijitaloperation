@@ -127,11 +127,12 @@ final class ProductionCollectionRepairTest extends TestCase
         $this->assertSame([], (array) $query->checkpoint);
     }
 
-    public function test_unbound_search_console_account_collects_the_full_v2_dataset_set(): void
+    public function test_brand_assigned_search_console_account_collects_the_full_v2_dataset_set(): void
     {
         Queue::fake();
         Http::fake(['*' => Http::response(['rows' => []])]);
         $unbound = $this->resource('search_console', 'sc-domain:unbound.test');
+        CoreAssetBinding::factory()->create(['external_resource_id' => $unbound->id, 'capability' => 'search_console']);
         $automation = ResourceAutomation::query()->where('external_resource_id', $unbound->id)->firstOrFail();
         $automation->update(['collection_status' => 'planning']);
 

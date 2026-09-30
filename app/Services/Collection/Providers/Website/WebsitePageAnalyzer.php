@@ -70,6 +70,10 @@ final class WebsitePageAnalyzer
         string $observedAt,
     ): array {
         $sourceUrl = $this->urls->normalizeAbsolute($resolutionBase) ?? $resolutionBase;
+        // Site-wide menus / header / footer repeat on every page: kept once, from the homepage only.
+        if ($sourceUrl !== ($this->urls->normalizeAbsolute($siteSeed) ?? $siteSeed)) {
+            $html = preg_replace('/<(nav|header|footer)\b[^>]*>.*?<\/\1\s*>/is', ' ', $html) ?? $html;
+        }
         preg_match_all('/<a\b([^>]*)>(.*?)<\/a\s*>/is', $html, $anchors, PREG_SET_ORDER);
 
         /** @var array<string, array<string, mixed>> $edges */

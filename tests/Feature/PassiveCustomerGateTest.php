@@ -42,17 +42,16 @@ final class PassiveCustomerGateTest extends TestCase
         $this->assertFalse($inactiveAsset->fresh()->isOperational());
     }
 
-    public function test_collection_is_not_gated_by_binding_or_customer_status(): void
+    public function test_collection_needs_a_brand_assigned_asset_but_not_an_active_customer(): void
     {
-        // v2: every discovered account is collected (free), bound or not, active or passive customer; AI stays off
-        // for passive customers in later phases.
+        // Only accounts of brand-assigned assets are collected; passive customers keep collecting (AI stays off).
         $service = app(ResourceAutomationService::class);
         $gsc = CoreExternalResource::factory()->create(['resource_type' => 'search_console', 'external_id' => 'sc-domain:example.test']);
         $gscAutomation = ResourceAutomation::query()->create(['external_resource_id' => $gsc->id]);
         $resource = CoreExternalResource::factory()->create(['resource_type' => 'ga4']);
         $automation = ResourceAutomation::query()->create(['external_resource_id' => $resource->id]);
-        $this->assertNull($service->portfolioGate($gscAutomation));
-        $this->assertNull($service->portfolioGate($automation), 'unbound GA4 is collected');
+        $this->assertSame('unbound', $service->portfolioGate($gscAutomation));
+        $this->assertSame('unbound', $service->portfolioGate($automation), 'unassigned GA4 is not collected');
 
         $site = $this->website(CustomerStatus::Active);
         CoreAssetBinding::factory()->create([

@@ -4,12 +4,14 @@ namespace Tests\Feature;
 
 use App\Enums\Collection\CollectionRunStatus;
 use App\Jobs\Async\ResourceCollectionJob;
+use App\Models\Brand;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
+use App\Models\DigitalAsset;
 use App\Models\Observability\OperationalAlert;
 use App\Models\ResourceAutomation;
 use App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService;
@@ -109,7 +111,7 @@ final class ResourceAutomationRecoveryTest extends TestCase
         $this->assertSame('waiting', ResourceAutomation::query()->where('external_resource_id', $resources[1]->id)->first()->collection_status);
     }
 
-    public function test_unbound_meta_accounts_are_admitted_without_creating_bindings(): void
+    public function test_meta_accounts_not_assigned_to_a_brand_wait_until_assigned(): void
     {
         $integration = CoreIntegration::factory()->meta()->create();
         $resources = CoreExternalResource::factory()->count(2)->create([
@@ -118,12 +120,16 @@ final class ResourceAutomationRecoveryTest extends TestCase
         // An account parked as "binding" by the earlier rule is due again.
         ResourceAutomation::query()->create(['external_resource_id' => $resources[0]->id, 'collection_status' => 'attention',
             'collection_error' => 'binding', 'next_collection_at' => now()->addDay()]);
-        app(ResourceAutomationService::class)->tick();
-        foreach ($resources as $resource) {
-            $expected = ResourceAutomation::query()->where('external_resource_id', $resource->id)->first();
-            Queue::assertPushed(ResourceCollectionJob::class, fn ($job) => $job->automationId === $expected->id);
-        }
-        $this->assertSame(0, CoreAssetBinding::query()->count());
+        $service = app(ResourceAutomationService::class);
+        $service->tick();
+        Queue::assertNotPushed(ResourceCollectionJob::class);
+        $this->assertSame(['unbound', 'unbound'], ResourceAutomation::query()->orderBy('id')->pluck('collection_error')->all());
+
+        $this->bindToActiveAsset($resources[1]);
+        $service->tick();
+        $assigned = ResourceAutomation::query()->where('external_resource_id', $resources[1]->id)->first();
+        Queue::assertPushed(ResourceCollectionJob::class, fn ($job) => $job->automationId === $assigned->id);
+        Queue::assertPushed(ResourceCollectionJob::class, 1);
     }
 
     public function test_missing_collection_run_returns_to_bounded_retry(): void
@@ -173,12 +179,12 @@ final class ResourceAutomationRecoveryTest extends TestCase
         $ads = CoreExternalResource::factory()->count(3)->create(['resource_type' => 'google_ads']);
         $ads->each(fn (CoreExternalResource $resource) => $this->bindToActiveAsset($resource));
         $service->tick();
-        // v2: unbound GA4 properties are collected too — the GA4 lane fills its one free slot, Ads its two.
-        Queue::assertPushed(ResourceCollectionJob::class, 3);
+        // Unassigned GA4 properties are not collected; the Ads lane fills its two slots.
+        Queue::assertPushed(ResourceCollectionJob::class, 2);
         $plannedIds = ResourceAutomation::query()->where('collection_status', 'planning')->pluck('external_resource_id')->all();
         $this->assertEqualsCanonicalizing($ads->take(2)->pluck('id')->all(), array_values(array_intersect($plannedIds, $ads->pluck('id')->all())));
         $service->tick();
-        Queue::assertPushed(ResourceCollectionJob::class, 3);
+        Queue::assertPushed(ResourceCollectionJob::class, 2);
     }
 
     public function test_busy_ads_lane_does_not_starve_other_providers(): void
@@ -250,23 +256,28 @@ final class ResourceAutomationRecoveryTest extends TestCase
         $this->assertSame(['attention', 'waiting'], ResourceAutomation::query()->orderBy('collection_status')->pluck('collection_status')->all());
     }
 
-    public function test_unbound_account_is_admitted_without_a_binding_and_never_alerts(): void
+    public function test_unassigned_account_waits_resumes_once_assigned_and_never_alerts(): void
     {
         $resource = CoreExternalResource::factory()->create(['resource_type' => 'ga4']);
         $service = app(ResourceAutomationService::class);
         $service->tick();
         $automation = ResourceAutomation::query()->where('external_resource_id', $resource->id)->firstOrFail();
-        $this->assertNull($automation->collection_error, 'v2: every discovered account is collected, bound or not');
-        $this->assertSame('planning', $automation->collection_status);
+        $this->assertSame('unbound', $automation->collection_error, 'only accounts of brand-assigned assets are collected');
+        Queue::assertNotPushed(ResourceCollectionJob::class);
+
+        // Bound to an asset without a brand: still waits.
+        $site = DigitalAsset::factory()->create(['brand_id' => null, 'type' => 'website']);
+        CoreAssetBinding::factory()->create(['external_resource_id' => $resource->id, 'capability' => 'ga4', 'digital_asset_id' => $site->id]);
+        $this->assertSame('unbound', $service->portfolioGate($automation->fresh()));
+        $service->alert($automation->id, 'collection', 'collection_failed');
+        $this->assertSame(0, OperationalAlert::query()->where('rule_key', 'resource-automation.collection')->count(), 'no operator alert for an unassigned account');
+
+        // The asset is assigned to a brand: released on the next tick.
+        $site->update(['brand_id' => Brand::factory()->create()->id]);
+        $service->tick();
+        $this->assertNotSame('unbound', $automation->fresh()->collection_error);
         Queue::assertPushed(ResourceCollectionJob::class, 1);
 
-        // An account parked as unbound before v2 is released on the next tick.
-        $automation->update(['collection_status' => 'attention', 'collection_error' => 'unbound', 'next_collection_at' => now()->addDay()]);
-        $service->tick();
-        $this->assertNull($automation->fresh()->collection_error);
-
-        $service->alert($automation->id, 'collection', 'collection_failed');
-        $this->assertSame(0, OperationalAlert::query()->where('rule_key', 'resource-automation.collection')->count(), 'no operator alert for an unbound account');
     }
 
     public function test_dispatch_sink_is_rejected_instead_of_silently_losing_planning_jobs(): void

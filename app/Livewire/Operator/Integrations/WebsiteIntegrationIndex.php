@@ -212,6 +212,8 @@ final class WebsiteIntegrationIndex extends Component
                     'trigger' => 'operator.integrations.website.collect',
                     'collection_scope' => $this->collectionScope,
                     'force_refresh' => true,
+                    // Pages unchanged since their last fetch (WordPress modified date / sitemap lastmod) keep their copy.
+                    'refetch_unchanged' => false,
                 ],
             );
 
@@ -280,7 +282,7 @@ final class WebsiteIntegrationIndex extends Component
         $scope = (string) data_get($run->request_context, 'context.collection_scope', '');
         $label = match ($scope) {
             'full' => $this->text('Genel çekim · HTML, TLS ve bağlı WordPress', 'General · HTML, TLS and connected WordPress'),
-            'public' => $this->text('Dışarıdan HTML ve TLS', 'Public HTML and TLS'),
+            'public' => $this->text('Sayfa HTML ve TLS', 'Page HTML and TLS'),
             'wordpress' => $this->text('WordPress tam envanter', 'WordPress full inventory'),
             'changes' => $this->text('Değişen WordPress kayıtları', 'Changed WordPress records'),
             'pagespeed' => 'PageSpeed',
@@ -341,7 +343,7 @@ final class WebsiteIntegrationIndex extends Component
             $collectors = $this->collectorSummaries($run, $collectable, $pageSpeedReady, $wordpressDetected, $wordpressReady, $this->sourceRuns[$asset->id] ?? collect());
             $requiredCollectors = collect($collectors)->where('optional', false);
             $requiredCompleted = $requiredCollectors->where('state', 'completed')->count();
-            $sourceLabels = collect([$this->text('Public', 'Public')]);
+            $sourceLabels = collect([$this->text('Sayfa HTML', 'Page HTML')]);
             if ($wordpressDetected) {
                 $sourceLabels->push('WordPress');
             }
@@ -611,8 +613,8 @@ final class WebsiteIntegrationIndex extends Component
         $sources = collect([
             $this->sourceSummary(
                 key: 'public_web',
-                label: $this->text('Public Site Taraması', 'Public Site Crawl'),
-                description: $this->text('Yayınlanan HTTP, HTML, bağlantı ve SSL/TLS verilerini dışarıdan toplar.', 'Collects published HTTP, HTML, link, and SSL/TLS facts from outside the site.'),
+                label: $this->text('Sayfa HTML taraması', 'Page HTML scan'),
+                description: $this->text('Sitenin sayfalarının HTML, durum kodu, bağlantı ve SSL/TLS bilgisini alır; WordPress bağlıysa sayfa listesi WordPress\'ten gelir, yalnız değişen sayfalar yeniden alınır.', 'Fetches the site\'s page HTML, status, links and SSL/TLS; with WordPress connected the page list comes from WordPress and only changed pages are fetched again.'),
                 state: $publicState,
                 connectionLabel: $this->text('Bağlantı gerektirmez', 'No connection required'),
                 datasets: $publicDatasets,
@@ -1412,7 +1414,7 @@ final class WebsiteIntegrationIndex extends Component
     private function familyLabel(string $family): string
     {
         return match ($family) {
-            WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL => $this->text('Site Taraması', 'Site Crawl'),
+            WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL => $this->text('Sayfa HTML\'leri', 'Page HTML'),
             WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS => $this->text('Teknik HTML Kontrolü', 'Technical HTML Check'),
             WebsiteRequestFamilyCatalog::FAMILY_DNS_TLS => $this->text('SSL/TLS Kontrolü', 'SSL/TLS Check'),
             WebsiteRequestFamilyCatalog::FAMILY_PAGESPEED => 'PageSpeed',

@@ -64,15 +64,18 @@ final class SiteChangePropagationTest extends TestCase
         $this->assertSame(1, CollectionRun::query()->count());
     }
 
-    public function test_sites_with_the_wordpress_connector_are_not_watched(): void
+    public function test_no_automatic_public_crawl_only_connector_sites_with_a_sitemap_override_are_watched(): void
     {
         $wordpress = DigitalAsset::factory()->create(['type' => 'website', 'status' => 'active', 'module_id' => 'website', 'domain' => 'wp.example', 'primary_url' => 'https://wp.example/']);
         CoreConnection::factory()->create(['digital_asset_id' => $wordpress->id, 'type' => 'wordpress_connector', 'enabled' => true, 'config' => ['pairing_state' => 'paired']]);
+        $override = DigitalAsset::factory()->create(['type' => 'website', 'status' => 'active', 'module_id' => 'website', 'domain' => 'wp2.example', 'primary_url' => 'https://wp2.example/', 'sitemap_url' => 'https://wp2.example/extra.xml']);
+        CoreConnection::factory()->create(['digital_asset_id' => $override->id, 'type' => 'wordpress_connector', 'enabled' => true, 'config' => ['pairing_state' => 'paired']]);
 
         $ids = $this->watcher()->eligibleSiteIds();
 
-        $this->assertContains($this->site->id, $ids);
+        $this->assertNotContains($this->site->id, $ids, 'a site without the connector is collected only by hand');
         $this->assertNotContains($wordpress->id, $ids);
+        $this->assertSame([$override->id], $ids);
     }
 
     public function test_plugin_sends_right_after_a_save_and_serves_the_indexnow_key(): void

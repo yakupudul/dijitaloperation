@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-11-05 — Veri çekimi: yalnız markaya atanmış varlıklar, otomatik public tarama yok
+
+- **Karar (operatör):** Otomatik olarak yalnız markaya atanmış dijital varlıkların hesapları / siteleri çekilir (aktif veya pasif müşteri). Otomatik public site taraması yapılmaz; WordPress bağlı sitede sayfa listesi WordPress'ten gelir, yalnız değişen sayfaların HTML'i alınır. Önceki "keşfedilen her hesap çekilir" (v2 Faz 1) kararının yerini alır.
+
 ## 2026-11-05 — AI: işlem sınırı yok, aylık bütçe son sınır
 
 - **Karar (operatör):** AI işlemlerinde işlem başına çıktı / kapsam sınırı yoktur; tek sınır operatörün Ayarlar › AI'da değiştirdiği aylık bütçedir (kalan bakiye görünür). AI ile planla her sektör için ayrı ve kapsamlı üretir; verisi olmayan sektörde sektör bilgisinden hizmet / kelime önerir (yine operatör onayıyla).

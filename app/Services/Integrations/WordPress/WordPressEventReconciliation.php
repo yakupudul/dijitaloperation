@@ -97,8 +97,8 @@ final class WordPressEventReconciliation
             }
             $connection = CoreConnection::query()->with(['digitalAsset.brand.customer', 'credential'])->find($state->connection_id);
             if (! $connection?->enabled || data_get($connection->config, 'pairing_state') !== 'paired'
-                || ! $connection->digitalAsset || ! $connection->credential) {
-                // v2: passive customers keep collecting (free); only an unpaired / deleted site stops here.
+                || ! $connection->digitalAsset || ! $connection->credential || $connection->digitalAsset->brand_id === null) {
+                // Passive customers keep collecting; an unpaired / deleted site or one not assigned to a brand waits.
                 DB::table('website_connector_delivery')->where('connection_id', $state->connection_id)
                     ->update(['next_reconcile_at' => now()->addHour()]);
 

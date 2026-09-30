@@ -6,6 +6,7 @@ use App\Jobs\Async\ResourceCollectionJob;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
+use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\ResourceAutomation;
@@ -42,9 +43,10 @@ final class MetaCentralCollectionTest extends TestCase
         ]);
     }
 
-    public function test_unbound_meta_account_is_admitted_and_collected_from_the_resource(): void
+    public function test_brand_assigned_meta_account_is_admitted_and_collected_from_the_resource(): void
     {
         $resource = $this->account();
+        CoreAssetBinding::factory()->create(['external_resource_id' => $resource->id, 'capability' => 'meta_ads']);
         $service = app(ResourceAutomationService::class);
         $this->assertNull($service->readiness($resource));
 

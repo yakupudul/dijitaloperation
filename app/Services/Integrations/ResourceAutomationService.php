@@ -10,6 +10,7 @@ use App\Jobs\Async\ResourceCollectionJob;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
+use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
 use App\Models\Observability\OperationalAlert;
@@ -118,7 +119,7 @@ final class ResourceAutomationService
                         $automation->update(['collection_status' => 'waiting', 'collection_error' => null, 'next_collection_at' => now()]);
                     }
                 });
-            // v2: accounts parked earlier as unbound / passive are collected again (every discovered account is).
+            // Accounts parked as unbound / passive resume once assigned to a brand (portfolioGate).
             ResourceAutomation::query()->where('collection_enabled', true)
                 ->where('collection_status', 'attention')->whereIn('collection_error', ['unbound', 'customer_passive'])
                 ->orderBy('id')->limit(200)->get()->each(function ($automation): void {
@@ -275,14 +276,18 @@ final class ResourceAutomationService
     }
 
     /**
-     * MoxDOP v2 (Faz 1): every discovered account is collected automatically — bound or not, active or passive
-     * customer — for the datasets of the v2 catalogue (config moxdop-collection.datasets). Collection is free;
-     * passive customers never run AI (later phases enforce that). Operator alerts are raised only for accounts that
-     * serve an operational asset (see alert()). Kept as a hook so an operator gate can return here if ever needed.
+     * Operator decision (2026-11-05): only accounts bound (active binding) to a digital asset that is assigned to a
+     * brand are collected automatically — active or passive customer. Unassigned accounts wait as `unbound`; the tick
+     * resumes them as soon as they are assigned.
      */
     public function portfolioGate(ResourceAutomation $automation): ?string
     {
-        return null;
+        $assigned = CoreAssetBinding::query()->where('external_resource_id', $automation->external_resource_id)
+            ->where('status', CoreAssetBinding::STATUS_ACTIVE)
+            ->whereHas('digitalAsset', fn ($q) => $q->whereNotNull('brand_id'))
+            ->exists();
+
+        return $assigned ? null : 'unbound';
     }
 
     /** A customer turned active again: its accounts paused by the portfolio gate are due immediately. */
