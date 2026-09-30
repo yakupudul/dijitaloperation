@@ -139,6 +139,7 @@
                 @if ($statusText)<span class="text-xs text-gray-500">{{ $statusText }}</span>@endif
                 <button type="button" wire:click="runAi" @disabled($running || $used->isEmpty()) class="{{ $btn }} ml-auto">AI ile oluştur</button>
             </div>
+            <textarea wire:model="filterInstruction" rows="2" maxlength="1000" placeholder="AI talimatınız (isteğe bağlı) · örn. iş ilanı ve eğitim içerikli kelimeler üret" aria-label="AI talimatı" data-filter-instruction class="{{ $input }} w-full text-xs"></textarea>
             @foreach ($used as $sector)
                 <div wire:key="f-{{ $sector->id }}" class="space-y-1 border-t border-gray-100 pt-2 dark:border-gray-800">
                     <h2 class="font-semibold">{{ $sector->name }} <span class="font-normal text-gray-500">· {{ count($terms[$sector->id] ?? []) }} terim</span></h2>

@@ -38,6 +38,7 @@ final class QueryPipeline
     public function __construct(
         private readonly QueryNormalizer $normalizer,
         private readonly QueryServiceMatcher $matcher,
+        private readonly PendingQueries $pendingQueries,
     ) {}
 
     /** When the first (only automatic) bulk import into the library was approved; null = not yet. */
@@ -99,7 +100,9 @@ final class QueryPipeline
         $pending = [];
         [$stats['sources'], $stats['created']] = $this->linkSources($context, $import, $collectPending, $pending);
         [$stats['queries'], $stats['deleted'], $stats['assigned']] = $this->refreshQueries($context, $import);
-        $stats['pending'] = $this->writePending($context, $pending);
+        $this->writePending($context, $pending);
+        $this->pendingQueries->prune();
+        $stats['pending'] = DB::table('pending_queries')->where('status', PendingQuery::PENDING)->count();
         $stats['brand_queries'] = $this->brandQueries($context);
         if ($import) {
             self::markImported();
@@ -234,8 +237,9 @@ final class QueryPipeline
     }
 
     /**
-     * Bekleyenler: new / still pending texts with totals, main account, suggested service and filter result. Dismissed
-     * and deleted texts are never touched.
+     * Bekleyenler: new / still pending texts with totals, main account and suggested service. Texts a filter term would
+     * delete never enter (an existing pending row of such a text is removed); dismissed and deleted texts are never
+     * touched.
      *
      * @param  array<int, array{brand: ?int, asset: ?int, sector: ?int}>  $context
      * @param  array<string, array{text: string, impressions: int, clicks: int, resource: int, best: int}>  $pending
@@ -248,8 +252,14 @@ final class QueryPipeline
                 ->where('status', '!=', PendingQuery::PENDING)->pluck('text_hash')->all());
             $now = now();
             $rows = [];
+            $filtered = [];
             foreach ($chunk as $hash => $entry) {
                 if (isset($closed[$hash])) {
+                    continue;
+                }
+                if ($this->normalizer->matchingTerm($entry['text']) !== null) {
+                    $filtered[] = (string) $hash;
+
                     continue;
                 }
                 $account = $context[$entry['resource']] ?? ['brand' => null, 'asset' => null, 'sector' => null];
@@ -257,9 +267,12 @@ final class QueryPipeline
                     'text' => $entry['text'], 'text_hash' => $hash, 'status' => PendingQuery::PENDING,
                     'external_resource_id' => $entry['resource'], 'brand_id' => $account['brand'], 'digital_asset_id' => $account['asset'],
                     'sector_id' => $account['sector'], 'service_id' => $this->matcher->match($entry['text'], $account['sector']),
-                    'filter_term' => $this->normalizer->matchingTerm($entry['text']),
+                    'filter_term' => null,
                     'impressions' => $entry['impressions'], 'clicks' => $entry['clicks'], 'created_at' => $now, 'updated_at' => $now,
                 ];
+            }
+            if ($filtered !== []) {
+                DB::table('pending_queries')->whereIn('text_hash', $filtered)->where('status', PendingQuery::PENDING)->delete();
             }
             if ($rows !== []) {
                 DB::table('pending_queries')->upsert($rows, ['text_hash'], [

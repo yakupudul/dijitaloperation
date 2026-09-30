@@ -82,14 +82,24 @@ final class QueryPlanner
         Cache::forget(self::cacheKey($userId, $step));
     }
 
-    /** @return array<string, mixed> */
-    public function propose(string $step, array $sectorIds = []): array
+    /**
+     * @param  list<int>  $sectorIds
+     * @param  string  $instruction  the operator's own request (filters step only)
+     * @return array<string, mixed>
+     */
+    public function propose(string $step, array $sectorIds = [], string $instruction = ''): array
     {
         return match ($step) {
             'sectors' => $this->proposeSectors(),
             'services' => $this->proposeServices($sectorIds),
-            default => $this->proposeFilters($sectorIds),
+            default => $this->proposeFilters($sectorIds, $instruction),
         };
+    }
+
+    /** The operator's instruction as sent to AI: single spaces, at most 1000 characters; '' = none. */
+    public static function instruction(string $text): string
+    {
+        return mb_substr(trim(preg_replace('/\s+/u', ' ', $text) ?? ''), 0, 1000);
     }
 
     // ── Adım 1: sektörler ────────────────────────────────────────────────────
@@ -475,24 +485,31 @@ final class QueryPlanner
 
     /**
      * One call per used sector: negative terms that would not delete a query holding any sector's matching keyword.
+     * `$instruction` (the operator's own request, e.g. "iş ilanı ve eğitim içerikli kelimeler üret") goes to every call
+     * as `operator_instruction` next to the stored prompt.
      *
      * @param  list<int>  $sectorIds
      * @return array{status: string, items: list<array{sector_id: int, sector: string, term: string, reason: string}>, failed?: list<string>}
      */
-    public function proposeFilters(array $sectorIds): array
+    public function proposeFilters(array $sectorIds, string $instruction = ''): array
     {
+        $instruction = self::instruction($instruction);
         $sectors = ServiceCategory::query()->whereIn('id', $sectorIds)->orderBy('name')->get();
         $existing = array_flip(FilterTerm::query()->pluck('term')->map(fn ($t): string => SeoText::fold((string) $t))->all());
         $keywords = ServiceMatchingKeyword::query()->pluck('label')->map(fn ($l): string => QueryNormalizer::lower((string) $l))->all();
 
-        return $this->perSector($sectors, function (ServiceCategory $sector) use (&$existing, $keywords): array|string {
+        return $this->perSector($sectors, function (ServiceCategory $sector) use (&$existing, $keywords, $instruction): array|string {
             $services = self::sectorServices($sector);
-            $structured = $this->call(QueryPlanFiltersAgent::class, ['sectors' => [[
+            $data = ['sectors' => [[
                 'id' => (int) $sector->id, 'name' => (string) $sector->name,
                 'services' => $services->map(fn (ServiceCatalogItem $s): string => (string) $s->primaryName->raw_label)->values()->all(),
                 'terms' => FilterTerm::query()->where('sector_id', $sector->id)->orderBy('term')->pluck('term')->all(),
                 'samples' => $this->samples((int) $sector->id, $this->operationalBrandIds((int) $sector->id)),
-            ]]]);
+            ]]];
+            if ($instruction !== '') {
+                $data['operator_instruction'] = $instruction;
+            }
+            $structured = $this->call(QueryPlanFiltersAgent::class, $data);
             if (! is_array($structured)) {
                 return $structured;
             }

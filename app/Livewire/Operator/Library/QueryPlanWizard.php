@@ -59,6 +59,9 @@ final class QueryPlanWizard extends Component
 
     public string $message = '';
 
+    /** Filtre sepeti: the operator's own instruction for "AI ile oluştur" (sent with the stored prompt). */
+    public string $filterInstruction = '';
+
     public function mount(QueryPlanner $planner): void
     {
         $this->step = in_array($this->step, [1, 2, 3], true) ? $this->step : 1;
@@ -89,7 +92,7 @@ final class QueryPlanWizard extends Component
         QueryPlanner::markRunning((int) $actor->id, $key);
         $this->merged = '';
         $this->pick = [];
-        PlanQueriesJob::dispatch((int) $actor->id, $key, $this->step === 1 ? [] : $planner->usedSectorIds());
+        PlanQueriesJob::dispatch((int) $actor->id, $key, $this->step === 1 ? [] : $planner->usedSectorIds(), $key === 'filters' ? $this->filterInstruction : '');
         $this->syncProposal();
     }
 

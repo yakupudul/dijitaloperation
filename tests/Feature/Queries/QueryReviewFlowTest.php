@@ -81,40 +81,57 @@ final class QueryReviewFlowTest extends TestCase
         app(QueryPipeline::class)->run(import: true);
     }
 
-    public function test_pending_queue_holds_only_new_queries_once_keeps_metrics_of_library_queries_and_imports_or_dismisses(): void
+    public function test_pending_queue_holds_only_new_unfiltered_queries_once_keeps_metrics_of_library_queries_and_imports_or_dismisses(): void
     {
-        FilterTerm::query()->create(['sector_id' => null, 'term' => 'forum']);
+        $forum = FilterTerm::query()->create(['sector_id' => null, 'term' => 'forum']);
         $this->source('implant fiyatları', '2026-08-01', 40);
         $this->source('İmplant Fiyatı Yeni', '2026-08-01', 30);
         $this->source('implant fiyatı yeni?', '2026-08-01', 20, $this->ads);
         $this->source('implant forum', '2026-08-01', 10);
+        $this->source('implant kaplama', '2026-08-01', 8);
 
         app(QueryPipeline::class)->run();
 
         $this->assertSame(2, Query::query()->count(), 'new queries never enter the library on their own');
         $this->assertSame(140, Query::query()->where('text', 'implant fiyatları')->value('impressions'), 'library metrics keep updating');
         $pending = PendingQuery::query()->orderBy('text')->get()->keyBy('text');
-        $this->assertSame(['implant fiyatı yeni', 'implant forum'], $pending->keys()->all(), 'one row per normalized text, library texts excluded');
+        $this->assertSame(['implant fiyatı yeni', 'implant kaplama'], $pending->keys()->all(), 'one row per normalized text; library texts and filtered texts excluded');
         $this->assertSame(50, $pending['implant fiyatı yeni']->impressions);
         $this->assertSame($this->implant->id, $pending['implant fiyatı yeni']->service_id, 'suggested service from matching keywords');
-        $this->assertNull($pending['implant fiyatı yeni']->filter_term);
-        $this->assertSame('forum', $pending['implant forum']->filter_term);
-        $this->assertSame($this->brand->id, $pending['implant forum']->brand_id);
+        $this->assertSame($this->brand->id, $pending['implant kaplama']->brand_id);
+
+        // Filter basket changes are followed: a removed term lets the text in, a new term takes it out (rescan).
+        $forum->delete();
+        app(QueryPipeline::class)->run();
+        $this->assertTrue(PendingQuery::query()->where('text', 'implant forum')->where('status', PendingQuery::PENDING)->exists());
+        FilterTerm::query()->create(['sector_id' => null, 'term' => 'kaplama']);
+        FilterTerm::query()->create(['sector_id' => null, 'term' => 'forum']);
+        RescanQueriesJob::dispatch($this->admin->id);
+        $this->assertSame(['implant fiyatı yeni'], PendingQuery::query()->where('status', PendingQuery::PENDING)->pluck('text')->all());
+
+        // A pending text that reached the library some other way leaves the queue (also before the next prune).
+        DB::table('pending_queries')->insert(['text' => 'zirkonyum fiyatları', 'text_hash' => QueryNormalizer::hash('zirkonyum fiyatları'), 'status' => PendingQuery::PENDING, 'impressions' => 1, 'clicks' => 0, 'created_at' => now(), 'updated_at' => now()]);
 
         $page = Livewire::test(QueriesPage::class)->call('setTab', 'pending')
-            ->assertSee('panorama.com.tr')->assertSee('silinecek · forum')->assertSee('temiz')->assertSeeHtml('data-pending-count>2<')
-            ->call('importPending')->assertSee('1 sorgu içe aktarıldı');
+            ->assertSee('panorama.com.tr')->assertDontSee('silinecek')->assertDontSee('zirkonyum fiyatları')->assertSeeHtml('data-pending-count>1<');
+        app(QueryPipeline::class)->run();
+        $this->assertFalse(PendingQuery::query()->where('text', 'zirkonyum fiyatları')->exists(), 'pruned by the pipeline');
 
+        $page->call('importPending')->assertSee('1 sorgu içe aktarıldı');
         $imported = Query::query()->where('text', 'implant fiyatı yeni')->sole();
         $this->assertSame($this->implant->id, $imported->service_id);
         $this->assertSame(50, $imported->impressions, 'sources linked by the pipeline');
         $this->assertSame(2, DB::table('query_sources')->where('query_id', $imported->id)->count());
-        $this->assertSame(['implant forum'], PendingQuery::query()->pluck('text')->all(), 'the silinecek one is not selected by default');
+        $this->assertSame(0, PendingQuery::query()->where('status', PendingQuery::PENDING)->count());
 
-        $page->call('togglePending', $pending['implant forum']->id)->call('dismissPending')->assertSee('1 sorgu yoksayıldı');
+        // Dismissed texts never come back.
+        FilterTerm::query()->where('term', 'kaplama')->delete();
+        app(QueryPipeline::class)->run();
+        $kaplama = PendingQuery::query()->where('text', 'implant kaplama')->sole();
+        Livewire::test(QueriesPage::class)->call('setTab', 'pending')->call('dismissPending')->assertSee('1 sorgu yoksayıldı');
         app(QueryPipeline::class)->run();
         $this->assertSame(0, PendingQuery::query()->where('status', PendingQuery::PENDING)->count(), 'a dismissed query does not come back');
-        $this->assertSame(PendingQuery::DISMISSED, PendingQuery::query()->where('text', 'implant forum')->value('status'));
+        $this->assertSame(PendingQuery::DISMISSED, $kaplama->fresh()->status);
     }
 
     public function test_filtreye_ekle_rescans_notifies_and_the_review_applies_only_checked_lines(): void
