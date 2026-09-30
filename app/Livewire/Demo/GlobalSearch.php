@@ -73,6 +73,18 @@ class GlobalSearch extends Component
                     $name = (string) ($presented['name'] ?? '');
                     $type = (string) ($presented['type'] ?? '');
                     $typeLabel = (string) ($presented['type_label'] ?? '');
+                    if ($asset->type === 'website') {
+                        // Websites are found by domain / URL too and open the website screen.
+                        if (str_contains(mb_strtolower($name.' '.$asset->domain.' '.$asset->primary_url.' '.$type.' '.$typeLabel), $needle)) {
+                            $results[] = [
+                                'label' => $name !== '' ? $name : (string) $asset->domain,
+                                'meta' => 'Web sitesi · '.($asset->domain ?: $asset->primary_url ?: '—').' · '.($asset->brand?->name ?? 'markasız'),
+                                'url' => route('operator.website', ['assetId' => $asset->id]),
+                            ];
+                        }
+
+                        return;
+                    }
                     if (($name !== '' && str_contains(mb_strtolower($name), $needle))
                         || ($type !== '' && str_contains(mb_strtolower($type), $needle))
                         || ($typeLabel !== '' && str_contains(mb_strtolower($typeLabel), $needle))) {

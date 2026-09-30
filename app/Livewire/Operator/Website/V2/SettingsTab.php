@@ -3,6 +3,7 @@
 namespace App\Livewire\Operator\Website\V2;
 
 use App\Models\Brand;
+use App\Models\Collection\CollectionRun;
 use App\Models\DigitalAsset;
 use App\Models\Page;
 use Illuminate\Contracts\View\View;
@@ -11,7 +12,8 @@ use Livewire\Component;
 
 /**
  * Ayarlar: sitemap URL override, weekly content capacity (per brand, default 4) and the operator's category corrections
- * (locked categories; "Kilidi kaldır" gives the page back to the rules / AI).
+ * (locked categories; "Kilidi kaldır" gives the page back to the rules / AI), plus one line on the last website data
+ * collection with a link to the existing collection screen ("Şimdi güncelle").
  */
 final class SettingsTab extends Component
 {
@@ -55,9 +57,19 @@ final class SettingsTab extends Component
         $this->message = 'Kilit kaldırıldı; sonraki sınıflandırmada kurallar / AI karar verir.';
     }
 
+    private const array RUN_LABELS = [
+        'completed' => 'başarılı', 'partial' => 'kısmen tamamlandı', 'failed' => 'başarısız', 'cancelled' => 'iptal edildi',
+        'cancellation_requested' => 'iptal ediliyor', 'queued' => 'kuyrukta', 'running' => 'sürüyor', 'retrying' => 'yeniden deneniyor',
+        'skipped' => 'atlandı', 'not_eligible' => 'uygun değil',
+    ];
+
     public function render(): View
     {
+        $run = CollectionRun::query()->where('digital_asset_id', $this->assetId)->latest('id')->first(['id', 'status', 'updated_at']);
+        $status = $run === null ? '' : (string) ($run->status instanceof \BackedEnum ? $run->status->value : $run->status);
+
         return view('livewire.operator.website.v2.settings-tab', [
+            'collection' => $run === null ? null : ['status' => self::RUN_LABELS[$status] ?? $status, 'at' => $run->updated_at],
             'corrections' => Page::query()->where('website_asset_id', $this->assetId)->where('category_locked', true)->orderBy('path')->limit(200)->get(['id', 'url', 'path', 'category']),
         ]);
     }

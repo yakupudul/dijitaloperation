@@ -12,83 +12,121 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
- * Web sitesi varlık ekranı (v2): Genel Bakış | SEO Yapılacaklar (Kümeler & Sayfalar · Öneriler · İçerik · Rakipler ·
- * Backlinkler) | Site Sağlığı | Analiz | Bağlı Varlıklar | Ayarlar. Each tab is its own component that reads stored
- * results only; tabs built in a parallel phase render only when their class exists.
+ * Web sitesi ekranı: Özet (trafik, ana hizmet sayfaları, açık işler · Öneriler · İçerik · Rakipler · Backlinkler) |
+ * Sayfalar (URL başına envanter × Search Console × GA4 × Google Ads × sağlık) | Sorgular (Kümeler · Hedef sorgular ·
+ * Sorgular · Dönüşümler · Kümeler & Sayfalar) | Sağlık | Ayarlar (+ bağlı varlıklar, veri toplama durumu). Each view
+ * is its own component that reads stored results only. Old tab ids keep working through LEGACY_TABS.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Web Sitesi')]
 final class WebsiteScreen extends Component
 {
-    public const array TABS = ['genel' => 'Genel Bakış', 'seo' => 'SEO Yapılacaklar', 'saglik' => 'Site Sağlığı', 'analiz' => 'Analiz', 'varliklar' => 'Bağlı Varlıklar', 'ayarlar' => 'Ayarlar'];
+    public const array TABS = ['ozet' => 'Özet', 'sayfalar' => 'Sayfalar', 'sorgular' => 'Sorgular', 'saglik' => 'Sağlık', 'ayarlar' => 'Ayarlar'];
 
-    public const array SEO_TABS = ['kumeler' => 'Kümeler & Sayfalar', 'oneriler' => 'Öneriler', 'icerik' => 'İçerik', 'rakipler' => 'Rakipler', 'backlinkler' => 'Backlinkler'];
-
-    /** Tab → component. */
-    public const array COMPONENTS = [
-        'genel' => OverviewTab::class,
-        'saglik' => HealthTab::class,
-        'analiz' => AnalysisTab::class,
-        'varliklar' => LinkedAssetsTab::class,
-        'ayarlar' => SettingsTab::class,
-        'kumeler' => ClustersPagesTab::class,
-        'oneriler' => SuggestionsTab::class,
-        'icerik' => ContentTab::class,
-        'rakipler' => CompetitorsTab::class,
-        'backlinkler' => BacklinksTab::class,
+    /** Second row of a tab (first entry = default). */
+    public const array SUBS = [
+        'ozet' => ['ozet' => 'Özet', 'oneriler' => 'Öneriler', 'icerik' => 'İçerik', 'rakipler' => 'Rakipler', 'backlinkler' => 'Backlinkler'],
+        'sorgular' => ['kumeler' => 'Kümeler', 'hedef' => 'Hedef sorgular', 'sorgular' => 'Sorgular', 'donusumler' => 'Dönüşümler', 'eslestirme' => 'Kümeler & Sayfalar'],
     ];
 
-    /** Old tab ids of the previous website page → the tab that owns that content now. */
-    private const array LEGACY_TABS = [
-        'overview' => 'genel', 'operations' => 'genel', 'insights' => 'genel', 'activity' => 'genel',
+    /** tab or tab.sub → components (rendered in order) and their extra mount parameters. */
+    public const array COMPONENTS = [
+        'ozet.ozet' => [[OverviewTab::class, []]],
+        'ozet.oneriler' => [[SuggestionsTab::class, []]],
+        'ozet.icerik' => [[ContentTab::class, []]],
+        'ozet.rakipler' => [[CompetitorsTab::class, []]],
+        'ozet.backlinkler' => [[BacklinksTab::class, []]],
+        'sayfalar' => [[PagesTab::class, []]],
+        'sorgular.kumeler' => [[AnalysisTab::class, ['fixed' => 'clusters']]],
+        'sorgular.hedef' => [[AnalysisTab::class, ['fixed' => 'targets']]],
+        'sorgular.sorgular' => [[AnalysisTab::class, ['fixed' => 'queries']]],
+        'sorgular.donusumler' => [[AnalysisTab::class, ['fixed' => 'conversions']]],
+        'sorgular.eslestirme' => [[ClustersPagesTab::class, []]],
+        'saglik' => [[HealthTab::class, []]],
+        'ayarlar' => [[SettingsTab::class, []], [LinkedAssetsTab::class, []]],
+    ];
+
+    /** Old tab ids (previous website screens) → the tab (or tab.sub) that owns that content now. */
+    public const array LEGACY_TABS = [
+        'genel' => 'ozet', 'overview' => 'ozet', 'operations' => 'ozet', 'insights' => 'ozet', 'activity' => 'ozet',
+        'ga4_analysis' => 'ozet', 'analytics' => 'ozet', 'ga4' => 'ozet',
         'health' => 'saglik', 'technical' => 'saglik', 'fixes' => 'saglik', 'infrastructure' => 'saglik', 'domain' => 'saglik', 'hosting' => 'saglik',
-        'search_console' => 'analiz', 'ga4_analysis' => 'analiz', 'analytics' => 'analiz', 'ga4' => 'analiz', 'gsc' => 'analiz', 'search' => 'analiz', 'performance' => 'analiz', 'pages' => 'analiz', 'conversions' => 'analiz',
-        'content' => 'seo', 'scorecard' => 'seo', 'studio' => 'seo', 'standards' => 'seo',
-        'setup' => 'ayarlar', 'settings' => 'ayarlar', 'connections' => 'varliklar', 'lifecycle' => 'ayarlar',
+        'pages' => 'sayfalar',
+        'analiz' => 'sorgular.kumeler', 'search_console' => 'sorgular.sorgular', 'gsc' => 'sorgular.sorgular', 'search' => 'sorgular.sorgular',
+        'performance' => 'sorgular.kumeler', 'conversions' => 'sorgular.donusumler',
+        'content' => 'ozet.icerik', 'studio' => 'ozet.icerik', 'scorecard' => 'ozet.oneriler', 'standards' => 'ozet.oneriler',
+        'setup' => 'ayarlar', 'settings' => 'ayarlar', 'connections' => 'ayarlar', 'lifecycle' => 'ayarlar', 'varliklar' => 'ayarlar',
     ];
 
     #[Locked]
     public int $assetId = 0;
 
     #[Url]
-    public string $tab = 'genel';
+    public string $tab = 'ozet';
 
     #[Url]
-    public string $sub = 'kumeler';
+    public string $sub = '';
 
     public function mount(?string $assetId = null): void
     {
         $this->assetId = (int) OperatorCanonicalAsset::require($assetId, ['website'])->id;
-        $this->tab = self::LEGACY_TABS[$this->tab] ?? $this->tab;
-        if (! array_key_exists($this->tab, self::TABS)) {
-            $this->tab = 'genel';
+        [$this->tab, $this->sub] = self::resolve($this->tab, $this->sub);
+    }
+
+    /**
+     * Current or old (tab, sub) → a valid (tab, sub).
+     *
+     * @return array{0: string, 1: string}
+     */
+    public static function resolve(string $tab, string $sub): array
+    {
+        if ($tab === 'seo') {
+            // Old "SEO Yapılacaklar": Kümeler & Sayfalar moved under Sorgular, the rest under Özet.
+            return in_array($sub, ['', 'kumeler'], true) ? ['sorgular', 'eslestirme'] : self::resolve('ozet', $sub);
         }
-        if (! array_key_exists($this->sub, self::SEO_TABS)) {
-            $this->sub = 'kumeler';
+        $target = self::LEGACY_TABS[$tab] ?? $tab;
+        if (str_contains($target, '.')) {
+            [$target, $sub] = explode('.', $target, 2);
         }
+        if (! array_key_exists($target, self::TABS)) {
+            $target = 'ozet';
+        }
+        $subs = self::SUBS[$target] ?? [];
+        if ($subs === []) {
+            return [$target, ''];
+        }
+
+        return [$target, array_key_exists($sub, $subs) ? $sub : (string) array_key_first($subs)];
     }
 
     public function setTab(string $tab): void
     {
-        $this->tab = array_key_exists($tab, self::TABS) ? $tab : 'genel';
+        [$this->tab, $this->sub] = self::resolve(array_key_exists($tab, self::TABS) ? $tab : 'ozet', '');
     }
 
+    /** A sub view by id, wherever it lives (e.g. the Özet "Aç" buttons call setSub('oneriler')). */
     public function setSub(string $sub): void
     {
-        $this->tab = 'seo';
-        $this->sub = array_key_exists($sub, self::SEO_TABS) ? $sub : 'kumeler';
+        foreach (self::SUBS as $tab => $subs) {
+            if (array_key_exists($sub, $subs)) {
+                [$this->tab, $this->sub] = [$tab, $sub];
+
+                return;
+            }
+        }
+        [$this->tab, $this->sub] = self::resolve($sub, '');
     }
 
-    /** The component of the open tab. */
-    public function component(): ?string
+    /** @return list<array{0: class-string, 1: array<string, mixed>}> components of the open view */
+    public function components(): array
     {
-        return self::COMPONENTS[$this->tab === 'seo' ? $this->sub : $this->tab] ?? null;
+        return self::COMPONENTS[$this->sub !== '' ? $this->tab.'.'.$this->sub : $this->tab] ?? [];
     }
 
     public function render(): View
     {
         $site = DigitalAsset::query()->with('brand')->findOrFail($this->assetId);
 
-        return view('livewire.operator.website.v2.website-screen', ['site' => $site, 'tabComponent' => $this->component()]);
+        return view('livewire.operator.website.v2.website-screen', ['site' => $site, 'views' => $this->components()]);
     }
 }

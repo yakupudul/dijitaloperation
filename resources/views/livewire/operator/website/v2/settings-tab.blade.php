@@ -7,6 +7,10 @@
     @if ($message !== '')
         <p role="status" class="rounded-lg bg-blue-50 p-2 text-blue-800 dark:bg-blue-950 dark:text-blue-200">{{ $message }}</p>
     @endif
+    <section class="{{ $card }} flex flex-wrap items-center justify-between gap-2" data-collection-status>
+        <span><span class="font-semibold">Veri toplama</span> · {{ $collection === null ? 'henüz toplanmadı' : 'son toplama '.$collection['at']?->format('d.m.Y H:i').' ('.$collection['status'].')' }}</span>
+        <a href="{{ route('operator.integrations.website', ['assetId' => $assetId]) }}" wire:navigate class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600">Şimdi güncelle</a>
+    </section>
     <section class="{{ $card }} flex flex-wrap items-center gap-2">
         <label for="sitemap-url" class="font-semibold">Sitemap URL</label>
         <input id="sitemap-url" type="url" wire:model="sitemapUrl" placeholder="https://…/sitemap_index.xml (boş = otomatik)" class="{{ $input }} w-96 max-w-full">
