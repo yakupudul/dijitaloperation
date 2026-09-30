@@ -57,6 +57,7 @@ final class AiRouteResolver
         $steps = [];
         $providerModels = [];
         $clientData = self::containsClientData($descriptor);
+        $budget = app(AiBudget::class);
         // Lets the usage recorder attribute calls from agents without a static route mapping.
         Context::addHidden('ai_route_key', $routeKey);
 
@@ -68,6 +69,9 @@ final class AiRouteResolver
             $effectiveModel = $model !== '' ? $model : AiProviderCatalog::defaultModel($provider);
             if ($eligibility['eligible'] && $clientData && AiProviderCatalog::isFreeTierDataRisk($provider)) {
                 $eligibility = ['eligible' => false, 'reason' => 'client_data_not_allowed'];
+            }
+            if ($eligibility['eligible'] && ! $budget->allows($provider, $effectiveModel)) {
+                $eligibility = ['eligible' => false, 'reason' => 'budget_exhausted'];
             }
 
             $steps[] = [

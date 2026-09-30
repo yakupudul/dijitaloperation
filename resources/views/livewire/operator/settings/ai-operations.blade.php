@@ -11,7 +11,17 @@
     @endif
 
     @if ($detail === null)
-        <p class="{{ $card }} px-5 py-3 text-sm text-gray-600 dark:text-gray-300" data-ai-spend>AI harcaması bu ay: {{ $usd($monthSpend) }} · harcama sınırı yok</p>
+        <form wire:submit="saveBudget" class="{{ $card }} flex flex-wrap items-end gap-3 px-5 py-3 text-sm" data-ai-budget>
+            <label class="flex flex-col gap-1">
+                <span class="text-xs text-gray-500">Aylık AI bütçesi (USD)</span>
+                <input type="number" step="1" min="0" wire:model="budget" class="w-32 rounded-lg border border-gray-300 px-2 py-1 dark:border-gray-700 dark:bg-gray-900">
+            </label>
+            <span class="text-gray-600 dark:text-gray-300">Bu ay harcanan: {{ $usd($monthSpend) }}</span>
+            <span @class(['font-semibold', 'text-rose-600' => $remaining <= 0, 'text-emerald-700 dark:text-emerald-400' => $remaining > 0]) data-ai-remaining>Kalan bakiye: {{ $usd($remaining) }}</span>
+            <span class="w-full text-xs text-gray-500">İşlem başına sınır yok; bakiye bitince ay sonuna kadar yalnız ücretsiz modeller çalışır. Tutarı değiştirip kaydedebilirsiniz.</span>
+            <button type="submit" class="rounded-lg bg-brand-500 px-3 py-1.5 text-white">Kaydet</button>
+            @error('budget')<span class="text-xs text-red-600">{{ $message }}</span>@enderror
+        </form>
 
         <section class="{{ $card }} overflow-x-auto" data-ai-operations>
             <table class="w-full text-sm">

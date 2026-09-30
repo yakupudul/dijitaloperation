@@ -1,8 +1,8 @@
 # PROJECT_MEMORY
 
-## 2026-11-05 — AI harcama sınırı yok
+## 2026-11-05 — AI: işlem sınırı yok, aylık bütçe son sınır
 
-- **Karar (operatör):** AI için aylık harcama sınırı yoktur; maliyet yalnız raporlanır. AI ile planla her sektör için ayrı ve kapsamlı üretir; verisi olmayan sektörde sektör bilgisinden hizmet / kelime önerir (yine operatör onayıyla).
+- **Karar (operatör):** AI işlemlerinde işlem başına çıktı / kapsam sınırı yoktur; tek sınır operatörün Ayarlar › AI'da değiştirdiği aylık bütçedir (kalan bakiye görünür). AI ile planla her sektör için ayrı ve kapsamlı üretir; verisi olmayan sektörde sektör bilgisinden hizmet / kelime önerir (yine operatör onayıyla).
 
 ## 2026-11-04 — Sorgular: AI ile planla, negatif filtre, bekleyen sorgular, onaylı tarama
 

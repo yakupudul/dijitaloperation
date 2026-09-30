@@ -2,14 +2,27 @@
 
 namespace App\Services\Ai;
 
+use App\Models\AgencySetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Monthly AI spend report. There is no spending limit: every configured model always runs; spend is only shown.
+ * Monthly AI spend guard. When the month's recorded spend reaches the budget, only models with a
+ * known zero price stay eligible; everything else is skipped and plans continue on rules.
  */
 final class AiBudget
 {
+    public function __construct(private readonly AiPricing $pricing) {}
+
+    public function monthlyBudget(): float
+    {
+        $stored = Schema::hasColumn('agency_settings', 'ai_monthly_budget_usd')
+            ? AgencySetting::query()->value('ai_monthly_budget_usd')
+            : null;
+
+        return $stored !== null ? (float) $stored : (float) config('moxdop-ai-pricing.monthly_budget_usd', 100);
+    }
+
     public function monthSpend(): float
     {
         if (! Schema::hasTable('ai_usage_records')) {
@@ -21,12 +34,27 @@ final class AiBudget
             ->sum('cost_usd');
     }
 
+    public function isExhausted(): bool
+    {
+        $budget = $this->monthlyBudget();
+
+        return $budget > 0 && $this->monthSpend() >= $budget;
+    }
+
+    /** A step may run when budget remains, or when its model is known to be free. */
+    public function allows(string $provider, string $model): bool
+    {
+        return ! $this->isExhausted() || $this->pricing->isFree($provider, $model);
+    }
+
     /**
-     * @return array{spend: float, calls: int, unknown_cost_calls: int, by_route: list<array{route_key: ?string, calls: int, cost: float, input_tokens: int, output_tokens: int}>}
+     * @return array{budget: float, spend: float, remaining: float, exhausted: bool, calls: int, unknown_cost_calls: int, by_route: list<array{route_key: ?string, calls: int, cost: float, input_tokens: int, output_tokens: int}>}
      */
     public function monthSummary(): array
     {
-        $empty = ['spend' => $this->monthSpend(), 'calls' => 0, 'unknown_cost_calls' => 0, 'by_route' => []];
+        $budget = $this->monthlyBudget();
+        $spend = $this->monthSpend();
+        $empty = ['budget' => $budget, 'spend' => $spend, 'remaining' => max(0.0, $budget - $spend), 'exhausted' => $this->isExhausted(), 'calls' => 0, 'unknown_cost_calls' => 0, 'by_route' => []];
         if (! Schema::hasTable('ai_usage_records')) {
             return $empty;
         }

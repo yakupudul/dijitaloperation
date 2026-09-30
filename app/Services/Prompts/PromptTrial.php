@@ -5,6 +5,7 @@ namespace App\Services\Prompts;
 use App\Ai\Contracts\RegistryPrompted;
 use App\Jobs\Prompts\RunPromptTrialJob;
 use App\Models\User;
+use App\Services\Ai\AiBudget;
 use App\Services\Ai\AiPricing;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
@@ -124,6 +125,9 @@ final class PromptTrial
             [$provider, $name] = explode(':', $model, 2);
             if (! $this->routes->providerReady($provider)) {
                 throw new RuntimeException('Seçilen modelin sağlayıcısı bağlı değil.');
+            }
+            if (! app(AiBudget::class)->allows($provider, $name)) {
+                throw new RuntimeException('Aylık AI bütçesi doldu.');
             }
 
             return [$provider => $name];
