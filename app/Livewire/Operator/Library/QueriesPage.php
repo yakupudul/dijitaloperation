@@ -2,7 +2,9 @@
 
 namespace App\Livewire\Operator\Library;
 
+use App\Jobs\Queries\AssignQueryServicesJob;
 use App\Jobs\Queries\ClusterQueriesJob;
+use App\Jobs\Queries\PlanQueriesJob;
 use App\Jobs\Queries\ProposeQueryRulesJob;
 use App\Jobs\Queries\RescanQueriesJob;
 use App\Models\Brand;
@@ -23,7 +25,10 @@ use App\Services\Queries\ClusterEditor;
 use App\Services\Queries\PendingQueries;
 use App\Services\Queries\QueryClusterer;
 use App\Services\Queries\QueryNormalizer;
+use App\Services\Queries\QueryPipeline;
+use App\Services\Queries\QueryPlanner;
 use App\Services\Queries\QueryRuleProposer;
+use App\Services\Queries\QueryServiceAssigner;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -41,6 +46,9 @@ use Livewire\WithPagination;
  * Sorgular: the one query store (query_sources → queries → brand_queries) with tabs Sorgular · Bekleyenler · Kümeler ·
  * Filtre sepeti · Eşleme kelimeleri and "AI ile planla". Reads only; the pipeline, AI proposals, clustering and the
  * rescan (filter / matching keyword changes → a review the operator approves) run as queued jobs.
+ *
+ * Bulk selection: ticked ids (any page) or "filtreye uyan tümü" (`selectAll`: the current filter as a query, minus the
+ * unticked `excluded` ids) — bulk actions run as one query, never an id list of the whole library.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Sorgular')]
@@ -54,13 +62,18 @@ final class QueriesPage extends Component
 
     public const array SOURCE_LABELS = ['gsc' => 'GSC', 'google_ads' => 'Ads', 'gbp' => 'GBP'];
 
+    public const int PER_PAGE = 50;
+
+    /** Lines of the "AI ile hizmet öner" checklist per page. */
+    public const int ASSIGN_PER_PAGE = 100;
+
     #[Url(history: true)]
     public string $tab = 'queries';
 
     #[Url(history: true)]
     public string $sector = '';
 
-    /** '' all · '__none' unassigned · service id */
+    /** '' all · '__none' unassigned (Atanmamış) · '__any' assigned (Atanmış) · service id */
     #[Url(history: true)]
     public string $service = '';
 
@@ -77,6 +90,29 @@ final class QueriesPage extends Component
 
     /** @var list<int|string> */
     public array $selected = [];
+
+    /** "Filtreye uyan tümünü seç": every query of the current filter (across pages) minus `excluded`. */
+    public bool $selectAll = false;
+
+    /** @var list<int> unticked rows while `selectAll` is on */
+    public array $excluded = [];
+
+    /** "AI ile hizmet öner" checklist: lines are ticked unless flipped; `assignInvert` = start from none ticked. */
+    public bool $assignInvert = false;
+
+    /** @var list<int> */
+    public array $assignFlip = [];
+
+    /** @var list<int> unticked proposed matching keywords */
+    public array $assignKeywordSkip = [];
+
+    public int $assignPage = 0;
+
+    /** Filtre sepeti "AI ile oluştur": the operator's own instruction, sent with the stored prompt. */
+    public string $filterInstruction = '';
+
+    /** @var list<int> unticked lines of the filter proposal */
+    public array $filterSkip = [];
 
     public string $bulkService = '';
 
@@ -151,7 +187,7 @@ final class QueriesPage extends Component
     {
         if (in_array($property, ['sector', 'service', 'cluster', 'search', 'tab', 'hidden'], true)) {
             $this->resetPage();
-            $this->selected = [];
+            $this->clearSelection();
             $this->pendingFlip = [];
         }
         if ($property === 'sector') {
@@ -175,59 +211,169 @@ final class QueriesPage extends Component
         if (array_key_exists($tab, self::TABS)) {
             $this->tab = $tab;
             $this->resetPage();
-            $this->selected = [];
+            $this->clearSelection();
         }
     }
 
     // ── Sorgular ─────────────────────────────────────────────────────────────
 
+    public function selectPage(): void
+    {
+        $ids = $this->listQuery()->orderByDesc('impressions')->orderBy('id')->forPage($this->getPage(), self::PER_PAGE)->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        if ($this->selectAll) {
+            $this->excluded = array_values(array_diff(array_map('intval', $this->excluded), $ids));
+
+            return;
+        }
+        $this->selected = array_values(array_unique([...$this->selectedIds(), ...$ids]));
+    }
+
+    public function selectAllMatching(): void
+    {
+        $this->selectAll = true;
+        $this->excluded = [];
+        $this->selected = [];
+    }
+
+    public function clearSelection(): void
+    {
+        $this->selectAll = false;
+        $this->excluded = [];
+        $this->selected = [];
+    }
+
+    /** Row checkbox while every matching query is selected. */
+    public function toggleExcluded(int $id): void
+    {
+        $excluded = array_map('intval', $this->excluded);
+        $this->excluded = in_array($id, $excluded, true) ? array_values(array_diff($excluded, [$id])) : [...$excluded, $id];
+    }
+
     public function assignSelected(): void
     {
         $this->actor();
         $service = ctype_digit($this->bulkService) ? ServiceCatalogItem::query()->find((int) $this->bulkService) : null;
-        $ids = $this->selectedIds();
-        if ($service === null || $ids === []) {
+        if ($service === null || ! $this->hasSelection()) {
             $this->message = 'Sorgu ve hizmet seçin.';
 
             return;
         }
-        DB::transaction(function () use ($ids, $service): void {
-            Query::query()->whereIn('id', $ids)->update(['service_id' => $service->id, 'assignment' => 'manual', 'locked' => true, 'updated_at' => now()]);
-            ClusterQuery::query()->whereIn('query_id', $ids)
+        $count = DB::transaction(function () use ($service): int {
+            ClusterQuery::query()->whereIn('query_id', $this->targetQuery()->select('id'))
                 ->whereIn('cluster_id', Cluster::query()->where('service_id', '!=', $service->id)->select('id'))->delete();
+
+            return $this->targetQuery()->update(['service_id' => $service->id, 'assignment' => 'manual', 'locked' => true, 'updated_at' => now()]);
         });
-        $this->message = count($ids).' sorgu hizmete atandı (kilitli).';
-        $this->selected = [];
+        $this->message = $count.' sorgu hizmete atandı (kilitli).';
+        $this->clearSelection();
+    }
+
+    /** "Hizmeti kaldır": no service (locked, so a rescan does not reassign it) and out of its service's clusters. */
+    public function unassignSelected(): void
+    {
+        $this->actor();
+        if (! $this->hasSelection()) {
+            return;
+        }
+        $count = DB::transaction(function (): int {
+            ClusterQuery::query()->whereIn('query_id', $this->targetQuery()->select('id'))->delete();
+
+            return $this->targetQuery()->update(['service_id' => null, 'assignment' => 'manual', 'locked' => true, 'updated_at' => now()]);
+        });
+        $this->message = $count.' sorgunun hizmeti kaldırıldı (kilitli).';
+        $this->clearSelection();
     }
 
     public function hideSelected(): void
     {
         $this->actor();
-        $ids = $this->selectedIds();
-        if ($ids === []) {
+        if (! $this->hasSelection()) {
             return;
         }
-        Query::query()->whereIn('id', $ids)->update(['hidden' => true, 'updated_at' => now()]);
-        $this->message = count($ids).' sorgu gizlendi.';
-        $this->selected = [];
+        $count = $this->targetQuery()->update(['hidden' => true, 'updated_at' => now()]);
+        $this->message = $count.' sorgu gizlendi.';
+        $this->clearSelection();
     }
 
     public function unhideSelected(): void
     {
         $this->actor();
-        $ids = $this->selectedIds();
-        if ($ids === []) {
+        if (! $this->hasSelection()) {
             return;
         }
-        Query::query()->whereIn('id', $ids)->update(['hidden' => false, 'updated_at' => now()]);
-        $this->message = count($ids).' sorgu geri alındı.';
-        $this->selected = [];
+        $count = $this->targetQuery()->update(['hidden' => false, 'updated_at' => now()]);
+        $this->message = $count.' sorgu geri alındı.';
+        $this->clearSelection();
+    }
+
+    // ── AI ile hizmet öner ───────────────────────────────────────────────────
+
+    /** Queues the unassigned queries (the chosen sector, else all) for AI in batches; the checklist waits for approval. */
+    public function suggestServices(): void
+    {
+        $actor = $this->actor();
+        $sectorId = ctype_digit($this->sector) ? (int) $this->sector : null;
+        if (! QueryServiceAssigner::queue($sectorId)->exists()) {
+            $this->message = 'Hizmeti atanmamış (sektörü olan) sorgu yok.';
+
+            return;
+        }
+        QueryServiceAssigner::markRunning((int) $actor->id, $sectorId);
+        $this->reset(['assignInvert', 'assignFlip', 'assignKeywordSkip', 'assignPage']);
+        AssignQueryServicesJob::dispatch((int) $actor->id, $sectorId);
+    }
+
+    public function toggleAssign(int $index): void
+    {
+        $flip = array_map('intval', $this->assignFlip);
+        $this->assignFlip = in_array($index, $flip, true) ? array_values(array_diff($flip, [$index])) : [...$flip, $index];
+    }
+
+    public function setAssignAll(bool $ticked): void
+    {
+        $this->assignInvert = ! $ticked;
+        $this->assignFlip = [];
+    }
+
+    public function toggleAssignKeyword(int $index): void
+    {
+        $skip = array_map('intval', $this->assignKeywordSkip);
+        $this->assignKeywordSkip = in_array($index, $skip, true) ? array_values(array_diff($skip, [$index])) : [...$skip, $index];
+    }
+
+    public function assignPageTo(int $page): void
+    {
+        $this->assignPage = max(0, $page);
+    }
+
+    public function approveAssignments(QueryServiceAssigner $assigner): void
+    {
+        $actor = $this->actor();
+        $proposal = QueryServiceAssigner::current((int) $actor->id);
+        if (($proposal['status'] ?? null) !== 'ready') {
+            return;
+        }
+        $indexes = array_keys((array) $proposal['items']);
+        $flip = array_map('intval', $this->assignFlip);
+        $skip = $this->assignInvert ? array_values(array_diff($indexes, $flip)) : $flip;
+        $keywords = array_values(array_diff(array_keys((array) $proposal['keywords']), array_map('intval', $this->assignKeywordSkip)));
+        $saved = $assigner->approve($proposal, $skip, $keywords, $actor);
+        QueryServiceAssigner::discard((int) $actor->id);
+        $this->reset(['assignInvert', 'assignFlip', 'assignKeywordSkip', 'assignPage']);
+        $this->message = sprintf('%d sorguya hizmet atandı', $saved['assigned'])
+            .($saved['keywords'] > 0 ? sprintf(' · %d eşleme kelimesi eklendi, tarama başladı.', $saved['keywords']) : '.');
+    }
+
+    public function closeAssignments(): void
+    {
+        QueryServiceAssigner::discard((int) $this->actor()->id);
+        $this->reset(['assignInvert', 'assignFlip', 'assignKeywordSkip', 'assignPage']);
     }
 
     public function proposeRules(): void
     {
         $actor = $this->actor();
-        $ids = array_slice($this->selectedIds(), 0, QueryRuleProposer::MAX_QUERIES);
+        $ids = $this->targetIds(QueryRuleProposer::MAX_QUERIES);
         if ($ids === []) {
             $this->message = 'Önce sorgu seçin.';
 
@@ -418,6 +564,56 @@ final class QueriesPage extends Component
         $this->message = 'Terim silindi.';
     }
 
+    /**
+     * "AI ile oluştur": one call per sector (the chosen one, else every used sector) with the stored prompt plus the
+     * operator's instruction; the terms come back as a ticked checklist.
+     */
+    public function generateFilters(QueryPlanner $planner): void
+    {
+        $actor = $this->actor();
+        $sectorIds = ctype_digit($this->sector) ? [(int) $this->sector] : $planner->usedSectorIds();
+        if ($sectorIds === []) {
+            $this->message = 'Önce markalara sektör atayın.';
+
+            return;
+        }
+        QueryPlanner::markRunning((int) $actor->id, 'filters');
+        $this->filterSkip = [];
+        PlanQueriesJob::dispatch((int) $actor->id, 'filters', $sectorIds, $this->filterInstruction);
+    }
+
+    public function toggleFilterLine(int $index): void
+    {
+        $skip = array_map('intval', $this->filterSkip);
+        $this->filterSkip = in_array($index, $skip, true) ? array_values(array_diff($skip, [$index])) : [...$skip, $index];
+    }
+
+    public function approveFilterProposal(QueryPlanner $planner): void
+    {
+        $actor = $this->actor();
+        $proposal = QueryPlanner::current((int) $actor->id, 'filters');
+        if (($proposal['status'] ?? null) !== 'ready') {
+            return;
+        }
+        $indexes = array_values(array_diff(array_keys((array) $proposal['items']), array_map('intval', $this->filterSkip)));
+        $saved = $planner->applyFilters($proposal, $indexes, $actor);
+        QueryPlanner::discard((int) $actor->id, 'filters');
+        $this->filterSkip = [];
+        if ($saved > 0 && QueryPipeline::importedAt() !== null) {
+            RescanQueriesJob::dispatch((int) $actor->id);
+            $this->message = $saved.' filtre terimi kaydedildi · tarama başladı, hazır olunca bildirim gelir.';
+
+            return;
+        }
+        $this->message = $saved.' filtre terimi kaydedildi.';
+    }
+
+    public function closeFilterProposal(): void
+    {
+        QueryPlanner::discard((int) $this->actor()->id, 'filters');
+        $this->filterSkip = [];
+    }
+
     // ── Eşleme kelimeleri ────────────────────────────────────────────────────
 
     public function addKeyword(int $serviceId, ServiceKeywordService $keywords): void
@@ -448,7 +644,7 @@ final class QueriesPage extends Component
     public function openNegatives(): void
     {
         $this->actor();
-        $queries = Query::query()->whereIn('id', array_slice($this->selectedIds(), 0, QueryRuleProposer::MAX_QUERIES))->orderByDesc('impressions')->orderBy('id')->get(['id', 'text', 'sector_id']);
+        $queries = Query::query()->whereIn('id', $this->targetIds(QueryRuleProposer::MAX_QUERIES) ?: [0])->orderByDesc('impressions')->orderBy('id')->get(['id', 'text', 'sector_id']);
         if ($queries->isEmpty()) {
             $this->message = 'Önce sorgu seçin.';
 
@@ -500,7 +696,7 @@ final class QueriesPage extends Component
             $saved += $row->wasRecentlyCreated ? 1 : 0;
         }
         $this->negOpen = false;
-        $this->selected = [];
+        $this->clearSelection();
         if ($saved === 0) {
             $this->message = 'Yeni terim yok.';
 
@@ -553,28 +749,33 @@ final class QueriesPage extends Component
         $this->message = $count.' sorgu yoksayıldı.';
     }
 
-    /** @return list<int> selected pending ids: temiz ones unless unticked, silinecek ones only when ticked */
+    /** @return list<int> selected pending ids: every line unless unticked */
     private function pendingSelection(): array
     {
-        $flip = array_map('intval', $this->pendingFlip) ?: [0];
-
-        return $this->pendingQuery()
-            ->where(fn (Builder $q) => $q->where(fn (Builder $q) => $q->whereNull('filter_term')->whereNotIn('id', $flip))
-                ->orWhere(fn (Builder $q) => $q->whereNotNull('filter_term')->whereIn('id', $flip)))
+        return $this->pendingQuery()->whereNotIn('id', array_map('intval', $this->pendingFlip) ?: [0])
             ->pluck('id')->map(fn ($id): int => (int) $id)->all();
     }
 
-    /** @return Builder<PendingQuery> */
-    private function pendingQuery(): Builder
+    /**
+     * Bekleyenler: pending texts that are not in the library and that no filter term catches (the pipeline / rescan
+     * prune keeps the table so; the conditions here also hold between two runs).
+     *
+     * @return Builder<PendingQuery>
+     */
+    private function pendingQuery(bool $all = false): Builder
     {
-        return PendingQuery::query()->where('status', PendingQuery::PENDING)
-            ->when(ctype_digit($this->sector), fn (Builder $q) => $q->where('sector_id', (int) $this->sector));
+        return PendingQuery::query()->where('status', PendingQuery::PENDING)->whereNull('filter_term')
+            ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('queries')->whereColumn('queries.text_hash', 'pending_queries.text_hash'))
+            ->when(! $all && ctype_digit($this->sector), fn (Builder $q) => $q->where('sector_id', (int) $this->sector));
     }
 
     public function render(): View
     {
         $user = auth()->user();
         $proposal = $this->rulesOpen && $user instanceof User ? QueryRuleProposer::current((int) $user->id) : null;
+        $assign = $this->tab === 'queries' && $user instanceof User ? QueryServiceAssigner::current((int) $user->id) : null;
+        $filterProposal = $this->tab === 'filters' && $user instanceof User ? QueryPlanner::current((int) $user->id, 'filters') : null;
+        $queries = $this->tab === 'queries' ? $this->queryList() : null;
         $serviceId = ctype_digit($this->service) ? (int) $this->service : null;
         $clusterStatus = $serviceId !== null ? Cache::get(QueryClusterer::cacheKey($serviceId)) : null;
 
@@ -586,7 +787,12 @@ final class QueriesPage extends Component
             'sectors' => ServiceCategory::query()->orderBy('name')->pluck('name', 'id')->all(),
             'services' => $this->serviceOptions(),
             'clusterOptions' => $serviceId !== null ? Cluster::query()->where('service_id', $serviceId)->orderBy('name')->pluck('name', 'id')->all() : [],
-            'queries' => $this->tab === 'queries' ? $this->queryList() : null,
+            'queries' => $queries,
+            'matchingCount' => $this->selectAll ? $this->targetQuery()->count() : null,
+            'unassignedCount' => $this->tab === 'queries' ? QueryServiceAssigner::queue(ctype_digit($this->sector) ? (int) $this->sector : null)->count() : 0,
+            'assign' => $assign,
+            'assignRows' => ($assign['status'] ?? null) === 'ready' ? array_slice((array) $assign['items'], $this->assignPage * self::ASSIGN_PER_PAGE, self::ASSIGN_PER_PAGE, true) : [],
+            'filterProposal' => $filterProposal,
             'clusters' => $this->tab === 'clusters' && $serviceId !== null ? $this->clusterList($serviceId) : null,
             'openCluster' => $openCluster,
             'affectedBrands' => $affected,
@@ -596,29 +802,55 @@ final class QueriesPage extends Component
             'terms' => $this->tab === 'filters' ? FilterTerm::query()->with('sector')
                 ->when(ctype_digit($this->sector), fn ($q) => $q->where('sector_id', (int) $this->sector))
                 ->orderBy('term')->paginate(50) : null,
-            'pendingCount' => PendingQuery::query()->where('status', PendingQuery::PENDING)->count(),
+            'pendingCount' => $this->pendingQuery(all: true)->count(),
             'pending' => $this->tab === 'pending' ? $this->pendingQuery()->with(['brand:id,name', 'asset:id,name,type', 'service.primaryName'])
                 ->orderByDesc('impressions')->orderBy('id')->paginate(50) : null,
             'negCatches' => $this->negOpen ? collect($this->negativeLines())->mapWithKeys(fn (string $term): array => [$term => QueryRuleProposer::catches($term, $this->negIds)])->all() : [],
             'keywordServices' => $this->tab === 'keywords' ? $this->keywordServices() : null,
             'proposal' => $proposal,
             'clusterStatus' => is_array($clusterStatus) ? $clusterStatus : null,
-            'polling' => ($proposal['status'] ?? null) === 'running' || ($clusterStatus['status'] ?? null) === 'running' || $this->negAwaiting,
+            'polling' => ($proposal['status'] ?? null) === 'running' || ($clusterStatus['status'] ?? null) === 'running' || $this->negAwaiting
+                || ($assign['status'] ?? null) === 'running' || ($filterProposal['status'] ?? null) === 'running',
         ]);
     }
 
     private function queryList(): mixed
     {
+        return $this->listQuery()->with(['service.primaryName', 'clusterLink.cluster:id,name'])
+            ->orderByDesc('impressions')->orderBy('id')
+            ->paginate(self::PER_PAGE);
+    }
+
+    /** @return Builder<Query> the Sorgular tab's current filter (no order, no eager loads: also used for bulk updates) */
+    private function listQuery(): Builder
+    {
         return Query::query()->where('hidden', $this->hidden)
-            ->with(['service.primaryName', 'clusterLink.cluster:id,name'])
             ->when(ctype_digit($this->sector), fn (Builder $q) => $q->where('sector_id', (int) $this->sector))
             ->when($this->service === '__none', fn (Builder $q) => $q->whereNull('service_id'))
+            ->when($this->service === '__any', fn (Builder $q) => $q->whereNotNull('service_id'))
             ->when(ctype_digit($this->service), fn (Builder $q) => $q->where('service_id', (int) $this->service))
             ->when($this->cluster === '__none', fn (Builder $q) => $q->whereNotIn('id', ClusterQuery::query()->select('query_id')))
             ->when(ctype_digit($this->cluster), fn (Builder $q) => $q->whereIn('id', ClusterQuery::query()->where('cluster_id', (int) $this->cluster)->select('query_id')))
-            ->when(trim($this->search) !== '', fn (Builder $q) => $q->where('text', 'like', '%'.QueryNormalizer::lower(trim($this->search)).'%'))
-            ->orderByDesc('impressions')->orderBy('id')
-            ->paginate(50);
+            ->when(trim($this->search) !== '', fn (Builder $q) => $q->where('text', 'like', '%'.QueryNormalizer::lower(trim($this->search)).'%'));
+    }
+
+    /** @return Builder<Query> the bulk target: every matching query minus the unticked ones, or the ticked ids */
+    private function targetQuery(): Builder
+    {
+        return $this->selectAll
+            ? $this->listQuery()->whereNotIn('id', array_map('intval', $this->excluded) ?: [0])
+            : Query::query()->whereIn('id', $this->selectedIds() ?: [0]);
+    }
+
+    private function hasSelection(): bool
+    {
+        return $this->selectAll || $this->selectedIds() !== [];
+    }
+
+    /** @return list<int> up to $limit selected ids, most impressions first (AI calls that take a query list) */
+    private function targetIds(int $limit): array
+    {
+        return $this->targetQuery()->orderByDesc('impressions')->orderBy('id')->limit($limit)->pluck('id')->map(fn ($id): int => (int) $id)->all();
     }
 
     /** @return Collection<int, Cluster> */

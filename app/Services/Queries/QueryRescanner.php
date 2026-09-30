@@ -17,12 +17,15 @@ final class QueryRescanner
     public function __construct(
         private readonly QueryNormalizer $normalizer,
         private readonly QueryServiceMatcher $matcher,
+        private readonly PendingQueries $pending,
     ) {}
 
     public function scan(?int $userId): QueryReview
     {
         $this->normalizer->forget();
         $this->matcher->forget();
+        // Bekleyenler follows the current filter basket right away (no approval: nothing is in the library yet).
+        $this->pending->prune();
         // One open review at a time: an older unapplied one is replaced.
         QueryReview::query()->whereIn('status', [QueryReview::RUNNING, QueryReview::READY, QueryReview::FAILED])->delete();
         $review = QueryReview::query()->create(['status' => QueryReview::RUNNING, 'created_by' => $userId]);

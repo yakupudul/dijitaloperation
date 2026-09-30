@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-11-06 — Sorgular: hizmet ataması kuyruğu, temiz Bekleyenler
+
+- **Karar (operatör):** Bekleyenler yalnız kütüphanede olmayan ve güncel filtre terimlerinin silmeyeceği sorguları gösterir; filtre değişince bekleyenler onaysız yeniden süzülür (kütüphaneye henüz girmedikleri için). 2026-11-04 "Bekleyenler'de silinecek / temiz sonucu" kararının yerini alır.
+- **Karar (operatör):** Atanmamış sorgulara AI hizmet önerisi toplu (200'lük parti, tüm partiler, sektör bağlamıyla) çalışır; yalnız sorgunun sektöründeki mevcut hizmetler önerilir, operatör işaretli listeyi onaylar; onaylanan atama kilitlidir (tarama değiştirmez). Toplu işlemler "filtreye uyan tümü" için id listesi değil filtre sorgusu olarak uygulanır.
+- **Karar:** Filtre önerisinde operatörün yazdığı talimat kayıtlı prompta ek, ayrı `operator_instruction` alanıyla gider; DATA_JSON'un geri kalanı veridir.
+
 ## 2026-11-05 — Veri çekimi: yalnız markaya atanmış varlıklar, otomatik public tarama yok
 
 - **Karar (operatör):** Otomatik olarak yalnız markaya atanmış dijital varlıkların hesapları / siteleri çekilir (aktif veya pasif müşteri). Otomatik public site taraması yapılmaz; WordPress bağlı sitede sayfa listesi WordPress'ten gelir, yalnız değişen sayfaların HTML'i alınır. Önceki "keşfedilen her hesap çekilir" (v2 Faz 1) kararının yerini alır.

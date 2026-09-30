@@ -21,14 +21,14 @@ final class PlanQueriesJob implements ShouldQueue
     public int $tries = 1;
 
     /** @param list<int> $sectorIds */
-    public function __construct(public int $userId, public string $step, public array $sectorIds = [])
+    public function __construct(public int $userId, public string $step, public array $sectorIds = [], public string $instruction = '')
     {
         $this->onQueue((string) config('queue.heavy_queue', 'default'));
     }
 
     public function handle(QueryPlanner $planner, QueryNotifier $notifier): void
     {
-        $result = $planner->propose($this->step, $this->sectorIds);
+        $result = $planner->propose($this->step, $this->sectorIds, $this->instruction);
         Cache::put(QueryPlanner::cacheKey($this->userId, $this->step), $result, now()->addDay());
         if (($result['status'] ?? null) === 'error') {
             $this->notifyFailed($notifier);

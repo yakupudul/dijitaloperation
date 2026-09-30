@@ -72,6 +72,14 @@ final class SeoTasksServiceProvider extends ServiceProvider
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::QUERIES_ASSIGN_SERVICES,
+            'name' => 'Query Service Assignment',
+            'module' => 'queries',
+            'description' => 'Sorgular "AI ile hizmet öner": unassigned library queries go 200 per call (every batch, per sector with its services and matching keywords); each gets an existing service of its sector or none, plus optional new matching keywords. Checklist; the operator approves.',
+            'default_steps' => AiDefaultSteps::classification(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
             'key' => AiRouteKeys::QUERIES_CLUSTER,
             'name' => 'Query Clusters',
             'module' => 'queries',
