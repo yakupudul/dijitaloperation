@@ -211,7 +211,8 @@ final class PromptRegistry
         $definition = $this->definition($operation);
 
         return DB::transaction(function () use ($operation, $fields, $by, $definition): PromptVersion {
-            $next = (int) PromptVersion::query()->where('operation', $operation)->lockForUpdate()->max('version') + 1;
+            // PostgreSQL refuses FOR UPDATE with an aggregate (max): lock the latest row and read its version.
+            $next = (int) PromptVersion::query()->where('operation', $operation)->orderByDesc('version')->lockForUpdate()->value('version') + 1;
             PromptVersion::query()->where('operation', $operation)->where('is_current', true)->update(['is_current' => false]);
 
             return PromptVersion::query()->create([

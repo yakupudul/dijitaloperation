@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
-/** MoxDOP v2 Faz 0: `moxdop:reset` empties the portfolio / fact tables and keeps users, integrations, settings, catalog and standards. */
+/** MoxDOP v2 Faz 0: `moxdop:reset` empties the collected account data and what was derived from it; users, integrations, the portfolio, settings, catalog and standards stay. */
 final class MoxdopResetCommandTest extends TestCase
 {
     use RefreshDatabase;
@@ -57,29 +57,25 @@ final class MoxdopResetCommandTest extends TestCase
         $this->assertSame(1, DB::table('suggestions')->count());
     }
 
-    public function test_apply_refuses_without_a_recent_backup_and_a_matching_confirmation(): void
+    public function test_apply_needs_a_matching_confirmation_and_no_backup(): void
     {
-        $this->artisan('moxdop:reset', ['--apply' => true])->assertFailed();
-        $this->assertSame(1, Customer::query()->count());
-
-        DB::table('system_backups')->insert(['status' => 'succeeded', 'driver' => 'sqlite', 'started_at' => now()->subMinutes(5), 'finished_at' => now()->subMinutes(4), 'created_at' => now(), 'updated_at' => now()]);
         $this->artisan('moxdop:reset', ['--apply' => true])
             ->expectsQuestion('Onaylamak için uygulama adını yazın ('.config('app.name').')', 'yanlış')
             ->assertFailed();
-        $this->assertSame(1, Customer::query()->count());
+        $this->assertSame(1, DB::table('suggestions')->count());
     }
 
-    public function test_apply_empties_data_tables_and_keeps_users_integrations_settings_catalog_and_standards(): void
+    public function test_apply_empties_collected_data_and_keeps_the_portfolio_integrations_settings_catalog_and_standards(): void
     {
-        $this->artisan('moxdop:reset', ['--apply' => true, '--skip-backup-check' => true])
+        $this->artisan('moxdop:reset', ['--apply' => true])
             ->expectsQuestion('Onaylamak için uygulama adını yazın ('.config('app.name').')', (string) config('app.name'))
             ->expectsOutputToContain('Sıfırlandı')
             ->assertSuccessful();
 
-        foreach (['customers', 'brands', 'digital_assets', 'suggestions', 'ai_usage_records'] as $emptied) {
+        foreach (['suggestions', 'ai_usage_records'] as $emptied) {
             $this->assertSame(0, DB::table($emptied)->count(), $emptied.' must be empty');
         }
-        foreach (['users', 'roles', 'core_integrations', 'core_external_resources', 'service_categories', 'service_catalog_items', 'service_matching_keywords', 'website_standard_settings', 'prompt_versions', 'migrations'] as $kept) {
+        foreach (['users', 'roles', 'customers', 'brands', 'digital_assets', 'core_integrations', 'core_external_resources', 'service_categories', 'service_catalog_items', 'service_matching_keywords', 'website_standard_settings', 'prompt_versions', 'migrations'] as $kept) {
             $this->assertGreaterThan(0, DB::table($kept)->count(), $kept.' must be kept');
         }
         $this->assertTrue(User::query()->first()->hasRole(Roles::ADMIN));

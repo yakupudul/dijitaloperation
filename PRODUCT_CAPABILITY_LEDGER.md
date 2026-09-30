@@ -2,6 +2,8 @@
 
 ## 2026-11-02 — Üretim ilk deneme düzeltmeleri: yedek, marka adayı AI hatası
 
+- **`moxdop:reset` kapsamı daraltıldı (operatör kararı):** yalnız hesaplardan çekilmiş veri ve ondan türeyenler (toplama çalıştırmaları, sayfalar, sorgular, öneriler, eski modül tabloları) boşaltılır. Müşteriler, markalar, varlıklar, hesap bağlamaları, marka ayarları (hizmetler, bölgeler, hedefler), operatör girdileri (backlink, lead işaretleri, bütçe planı) ve denetim kayıtları kalır. **Yedek şartı kaldırıldı**; yalnız uygulama adı onayı var. PostgreSQL'de korunan bir tablo boşaltılan tabloya bağlıysa komut deneme aşamasında durur.
+- **PostgreSQL: prompt sürümü oluşmuyordu** (`FOR UPDATE is not allowed with aggregate functions`) → üretimde tüm AI işlemleri "Prompt version could not be created" ile düşüyordu. Son sürüm satırı kilitlenip okunuyor.
 - **Yedek:** `pg_dump` / `mysqldump` çıktısı artık yalnız gzip dosyasına akar (`Process::disableOutput()`); Symfony önceden tüm sıkıştırılmamış dökümü `php://temp` üzerinden sistem temp klasörüne (/tmp) kopyalıyordu → "No space left on device" (yedek klasöründe 43,9 GB boşken). Hata metni stderr'den okunur.
 - **Marka adayları:** AI çağrısı hata verirse eşleşmeyen hesaplar artık tek tek aday olmaz (önceki davranış: 148 gereksiz aday); bir sonraki çalıştırmada yeniden denenir. `moxdop:brand-candidates --sync` hata mesajını yazar. AI hiç yoksa (`no_provider`) hesap adına göre aday davranışı aynı.
 - **State:** CODED + PHPUnit (`KvkkAndBackupTest::test_pgsql_dump_is_streamed…`, `BrandCandidatesTest::test_failed_ai_call…`). Üretimde yeniden denenecek.
