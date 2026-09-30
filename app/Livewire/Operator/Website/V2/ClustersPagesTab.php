@@ -97,7 +97,7 @@ final class ClustersPagesTab extends Component
 
     public function analyzeSelected(): void
     {
-        $ids = Page::query()->where('website_asset_id', $this->assetId)->whereIn('id', array_map('intval', $this->selected))->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        $ids = Page::query()->where('website_asset_id', $this->assetId)->whereIn('id', array_map('intval', $this->selected))->orderBy('id')->pluck('id')->map(fn ($id): int => (int) $id)->all();
         if ($ids === []) {
             throw ValidationException::withMessages(['selected' => 'Sayfa seçin.']);
         }

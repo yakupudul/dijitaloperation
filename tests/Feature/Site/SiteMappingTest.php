@@ -52,7 +52,7 @@ final class SiteMappingTest extends SiteTestCase
         $this->assertStringContainsString('/kampanyalar/', $prompts[0]);
         $this->assertStringNotContainsString('/hakkimizda/', $prompts[0], 'rule-decided pages are not sent');
         $categories = Page::query()->pluck('category', 'path')->all();
-        $this->assertSame(['/' => 'kurumsal', '/hakkimizda/' => 'kurumsal', '/sikca-sorulan-sorular/' => 'sss', '/implant-mi-kopru-mu/' => 'blog', '/blog/implant-sonrasi-agri/' => 'blog',
+        $this->assertEquals(['/' => 'kurumsal', '/hakkimizda/' => 'kurumsal', '/sikca-sorulan-sorular/' => 'sss', '/implant-mi-kopru-mu/' => 'blog', '/blog/implant-sonrasi-agri/' => 'blog',
             '/implant/' => 'hizmet', '/cankaya-dis-klinigi/' => 'lokasyon', '/kampanyalar/' => 'diger', '/yeni-hizmet/' => 'blog'], $categories);
         $this->assertSame('ai', $pages['campaign']->fresh()->category_source);
 
