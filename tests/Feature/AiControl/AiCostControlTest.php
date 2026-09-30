@@ -110,7 +110,8 @@ final class AiCostControlTest extends TestCase
     public function test_budget_exhaustion_skips_paid_models_but_keeps_free_ones(): void
     {
         config(['moxdop.anthropic.api_key' => 'sk-ant-test', 'ai.providers.groq.key' => 'gsk-test']);
-        AgencySetting::query()->create(['agency_name' => 'MoxDOP', 'portal_name' => 'MoxDOP'])->forceFill(['ai_monthly_budget_usd' => 5])->save();
+        (AgencySetting::query()->orderBy('id')->first() ?? AgencySetting::query()->create(['agency_name' => 'MoxDOP', 'portal_name' => 'MoxDOP']))
+            ->forceFill(['ai_monthly_budget_usd' => 5])->save();
         DB::table('ai_usage_records')->insert([
             'route_key' => 'x', 'agent' => 'A', 'provider' => 'anthropic', 'model' => 'claude-sonnet-5',
             'input_tokens' => 1, 'output_tokens' => 1, 'cost_usd' => 5.10, 'created_at' => now(),

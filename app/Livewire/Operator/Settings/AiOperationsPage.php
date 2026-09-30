@@ -71,7 +71,7 @@ final class AiOperationsPage extends Component
     {
         $this->authorizeAdmin();
         $this->validate(['budget' => ['required', 'numeric', 'min:0', 'max:100000']], [], ['budget' => 'Aylık bütçe']);
-        $setting = AgencySetting::query()->first() ?? new AgencySetting;
+        $setting = AgencySetting::query()->orderBy('id')->first() ?? new AgencySetting;
         $setting->forceFill(['ai_monthly_budget_usd' => round((float) $this->budget, 2)])->save();
         session()->flash('status', 'Aylık AI bütçesi kaydedildi.');
     }

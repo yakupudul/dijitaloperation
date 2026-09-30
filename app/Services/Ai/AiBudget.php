@@ -17,7 +17,7 @@ final class AiBudget
     public function monthlyBudget(): float
     {
         $stored = Schema::hasColumn('agency_settings', 'ai_monthly_budget_usd')
-            ? AgencySetting::query()->value('ai_monthly_budget_usd')
+            ? AgencySetting::query()->orderBy('id')->value('ai_monthly_budget_usd')
             : null;
 
         return $stored !== null ? (float) $stored : (float) config('moxdop-ai-pricing.monthly_budget_usd', 100);
