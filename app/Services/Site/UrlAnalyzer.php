@@ -5,20 +5,25 @@ namespace App\Services\Site;
 use App\Ai\Agents\Site\UrlAnalysisAgent;
 use App\Models\Brand;
 use App\Models\BrandClusterPage;
+use App\Models\BrandClusterSerp;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
+use App\Models\CompetitorPage;
 use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Compliance\BriefCompliance;
 use App\Services\SeoTasks\SeoText;
+use App\Services\Site\Competitors\CompetitorPageStore;
+use App\Services\Site\Competitors\CompetitorRefresher;
 use Illuminate\Support\Facades\DB;
 
 /**
  * URL analizi: per URL one AI call (`site.url_analysis`) over a data pack — brand info + main services, areas /
- * language, the URL's clusters, page content + SEO fields, Search Console / GA4 28 days, related pages' summaries,
- * applicable standards and decisions. Output → `suggestions` (channel search, target page) after validation: every URL
- * must be a site page, every number must be in the pack, every quote must be in the page; no evidence → "veri yok".
+ * language, target audience / markets, the URL's clusters, page content + SEO fields, Search Console / GA4 28 days,
+ * related pages' summaries, applicable standards, decisions and selected competitor examples of the URL's clusters.
+ * Output → `suggestions` (channel search, target page) after validation: every URL must be a site page (or a cited
+ * competitor page), every number must be in the pack, every quote must be in the page; no evidence → "veri yok".
  */
 final class UrlAnalyzer
 {
@@ -27,6 +32,9 @@ final class UrlAnalyzer
     public const int MAX_CONTENT = 12000;
 
     public const int MAX_SUGGESTIONS = 12;
+
+    /** Competitor examples per cluster (top ranked, fetched pages). */
+    public const int COMPETITOR_EXAMPLES = 3;
 
     public function __construct(
         private readonly SiteAi $ai,
@@ -72,7 +80,8 @@ final class UrlAnalyzer
      */
     public function pack(Brand $brand, DigitalAsset $site, Page $page): array
     {
-        $clusters = BrandClusterPage::query()->with('cluster.mainQuery')->where('brand_id', $brand->id)->where('page_id', $page->id)->get();
+        $clusters = BrandClusterPage::query()->with('cluster.mainQuery')->where('brand_id', $brand->id)
+            ->where(fn ($q) => $q->where('page_id', $page->id)->orWhereJsonContains('extra_page_ids', (int) $page->id))->orderBy('id')->get();
         $clusterIds = $clusters->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all();
         $context = $this->memory->contextFor($brand, [(int) $page->id], $clusterIds);
         // Lazy summaries of the pages the pack refers to.
@@ -86,12 +95,15 @@ final class UrlAnalyzer
         $ga4 = $this->metrics->ga4Landing($brand, (string) $page->url);
         $sitePages = Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)->orderBy('path')->limit(300)->get(['id', 'url', 'title', 'category']);
         $content = mb_substr((string) $page->content_text, 0, self::MAX_CONTENT);
+        $competitors = $this->competitorExamples($brand, $site, $clusterIds);
         $pack = [
             'brand' => [
                 'name' => $brand->name, 'sector' => $brand->sectorCategory?->name,
                 'main_services' => SiteScope::offerings($brand)->map(fn (BrandOffering $o): array => ['name' => $o->displayName(), 'priority' => (string) ($o->priority ?? 'secondary')])->values()->all(),
                 'areas' => SiteScope::areas($brand)->map(fn (BrandServiceArea $a): array => ['name' => $a->displayName(), 'physical_branch' => (bool) $a->physical_branch])->values()->all(),
                 'languages' => SiteScope::languages($site),
+                'audience' => filled($brand->audience) ? mb_substr((string) $brand->audience, 0, 600) : null,
+                'target_markets' => array_values(array_filter((array) $brand->target_markets, fn ($m): bool => is_string($m) && trim($m) !== '')) ?: null,
                 'notes' => $context['notes'],
             ],
             'page' => [
@@ -111,11 +123,12 @@ final class UrlAnalyzer
             'page_summary' => $context['pages'][0]['summary'] ?? null,
             'standards' => ['checks' => $this->standards->pageChecks($site, $page, $brand), 'scoped' => $context['standards']],
             'decisions' => $context['decisions'],
+            'competitor_examples' => $competitors === [] ? 'veri yok' : $competitors,
             'site_pages' => $sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title, 'category' => $p->category])->values()->all(),
             'suggestion_types' => SiteSuggestionTypes::ANALYSIS,
         ];
         $evidence = new SiteEvidence(
-            $sitePages->pluck('url')->map(fn ($u): string => (string) $u)->push((string) $page->url)->all(),
+            [...$sitePages->pluck('url')->map(fn ($u): string => (string) $u)->push((string) $page->url)->all(), ...collect($competitors)->flatMap(fn (array $c): array => array_column($c['pages'], 'url'))->all()],
             [(int) $page->word_count],
             [(string) $page->title, (string) $page->meta_description, (string) $page->h1, $content, collect((array) $page->headings)->pluck('text')->implode(' '),
                 ...array_map(fn (array $q): string => $q['query'], $queries), ...array_map(fn (array $c): string => $c['main_query'].' '.implode(' ', $c['subtopics']), $pack['clusters'])],
@@ -123,6 +136,45 @@ final class UrlAnalyzer
         $evidence->addNumbersFrom(['gsc' => $gsc, 'queries' => $queries, 'ga4' => $ga4]);
 
         return [$pack, $evidence, $clusterIds];
+    }
+
+    /**
+     * Selected competitor examples of the URL's clusters: per cluster the need the analysis found and the top ranked
+     * fetched competitor pages (URL, title, H2 headings).
+     *
+     * @param  list<int>  $clusterIds
+     * @return list<array{cluster_id: int, query: string, need: ?string, pages: list<array{rank: int, url: string, title: ?string, headings: list<string>}>}>
+     */
+    public function competitorExamples(Brand $brand, DigitalAsset $site, array $clusterIds): array
+    {
+        if ($clusterIds === []) {
+            return [];
+        }
+        $out = [];
+        $serps = BrandClusterSerp::query()->where('brand_id', $brand->id)->where('website_asset_id', $site->id)->whereIn('cluster_id', $clusterIds)->orderBy('cluster_id')->get();
+        foreach ($serps as $serp) {
+            $results = array_values(array_filter((array) $serp->results, fn ($r): bool => is_array($r) && in_array($r['class'] ?? null, CompetitorRefresher::PAGE_CLASSES, true)));
+            usort($results, fn (array $a, array $b): int => (int) ($a['rank'] ?? 99) <=> (int) ($b['rank'] ?? 99));
+            $fetched = CompetitorPage::query()->whereIn('url_hash', array_map(fn (array $r): string => CompetitorPageStore::hash((string) $r['url']), $results))
+                ->where('status', CompetitorPage::OK)->get(['url_hash', 'title', 'headings'])->keyBy('url_hash');
+            $pages = [];
+            foreach ($results as $result) {
+                $competitor = $fetched->get(CompetitorPageStore::hash((string) $result['url']));
+                if ($competitor === null) {
+                    continue;
+                }
+                $pages[] = ['rank' => (int) $result['rank'], 'url' => (string) $result['url'], 'title' => $competitor->title,
+                    'headings' => collect((array) $competitor->headings)->filter(fn ($h): bool => is_array($h) && (int) ($h['level'] ?? 0) === 2)->pluck('text')->take(12)->values()->all()];
+                if (count($pages) >= self::COMPETITOR_EXAMPLES) {
+                    break;
+                }
+            }
+            if ($pages !== []) {
+                $out[] = ['cluster_id' => (int) $serp->cluster_id, 'query' => (string) $serp->query, 'need' => $serp->analysis['need'] ?? null, 'pages' => $pages];
+            }
+        }
+
+        return $out;
     }
 
     /**

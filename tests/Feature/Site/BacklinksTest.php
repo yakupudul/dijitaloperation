@@ -123,12 +123,14 @@ final class BacklinksTest extends TestCase
         $this->assertSame(['dogrulandi', 'https://rehber.example/panorama'], [$source->status, $source->link_url], 'queued check found the link');
         $this->assertNotNull($source->verified_at);
 
-        // Link gone on the weekly re-check → back to "yok" with the note.
+        // Link gone on the weekly re-check → "daha sonra kaldırıldı" (a real status); it stays so while missing.
         $this->fakePages(['https://rehber.example/panorama' => '<html><body><a href="/iletisim">İletişim</a><a href="https://baska.example/">x</a></body></html>']);
         Artisan::call('moxdop:site', ['task' => 'backlinks']);
         $source->refresh();
-        $this->assertSame('yok', $source->status);
-        $this->assertStringStartsWith('Bağlantı kaldırıldı', (string) $source->note);
+        $this->assertSame(BacklinkSource::REMOVED, $source->status);
+        $this->assertSame(BacklinkVerifier::MISSING, app(BacklinkVerifier::class)->verify($source->fresh()));
+        $this->assertSame(BacklinkSource::REMOVED, $source->fresh()->status);
+        Livewire::test(BacklinksTab::class, ['assetId' => $this->site->id])->assertSee('daha sonra kaldırıldı');
 
         // Marked "verildi" but the page has no link → stays verildi with a note; unreachable page changes only the note.
         $source->forceFill(['status' => 'verildi'])->save();
@@ -137,5 +139,33 @@ final class BacklinksTest extends TestCase
         $this->fakePages([]);
         $this->assertSame(BacklinkVerifier::UNREACHABLE, app(BacklinkVerifier::class)->verify($source->fresh()));
         $this->assertStringStartsWith('Sayfa açılamadı', (string) $source->fresh()->note);
+    }
+
+    public function test_five_statuses_and_the_operator_sets_basvuru_and_verildi(): void
+    {
+        $this->assertSame(['yok', 'basvuru', 'verildi', 'dogrulandi', 'kaldirildi'], BacklinkSource::STATUSES);
+        $this->assertSame(['henüz tespit edilmedi', 'başvuru / iletişim yapıldı', 'kullanıcı eklediğini bildirdi', 'sayfada doğrulandı', 'daha sonra kaldırıldı'], array_values(BacklinkSource::STATUS_LABELS));
+        $this->assertArrayNotHasKey('dataforseo', Backlink::SOURCES);
+        $source = BacklinkSource::query()->create(['brand_id' => $this->brand->id, 'name' => 'Dernek', 'url' => 'https://dernek.example/', 'domain' => 'dernek.example', 'status' => 'yok']);
+        $this->fakePages(['https://dernek.example/uyeler' => '<html><body>Üyeler</body></html>']);
+
+        $tab = Livewire::test(BacklinksTab::class, ['assetId' => $this->site->id])->assertSee('henüz tespit edilmedi')->call('markApplied', $source->id);
+        $this->assertSame(BacklinkSource::APPLIED, $source->fresh()->status);
+        $tab->assertSee('başvuru / iletişim yapıldı')
+            ->set('given.'.$source->id, 'https://dernek.example/uyeler')->call('markGiven', $source->id)->assertHasNoErrors();
+        // The page has no link yet: the operator's report stands (verildi), with a note.
+        $this->assertSame(BacklinkSource::GIVEN, $source->fresh()->status);
+        $this->assertStringStartsWith('Bağlantı bulunamadı', (string) $source->fresh()->note);
+    }
+
+    public function test_migration_maps_old_removed_rows_and_the_dataforseo_source(): void
+    {
+        $removed = BacklinkSource::query()->create(['brand_id' => $this->brand->id, 'name' => 'A', 'url' => 'https://a.example/', 'domain' => 'a.example', 'status' => 'yok', 'note' => 'Bağlantı kaldırıldı · 01.09.2026']);
+        $none = BacklinkSource::query()->create(['brand_id' => $this->brand->id, 'name' => 'B', 'url' => 'https://b.example/', 'domain' => 'b.example', 'status' => 'yok']);
+        $link = Backlink::query()->create(['brand_id' => $this->brand->id, 'source_domain' => 'c.example', 'link_hash' => hash('sha256', 'c'), 'source' => 'dataforseo', 'status' => 'aktif']);
+
+        (require database_path('migrations/2026_10_30_093000_moxdop_v2_site_screen_fixes.php'))->up();
+
+        $this->assertSame(['kaldirildi', 'yok', 'manual'], [$removed->fresh()->status, $none->fresh()->status, $link->fresh()->source]);
     }
 }

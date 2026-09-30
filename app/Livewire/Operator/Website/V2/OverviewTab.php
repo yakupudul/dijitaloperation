@@ -35,7 +35,7 @@ final class OverviewTab extends Component
         $categories = Page::query()->where('website_asset_id', $site->id)->groupBy('category')->selectRaw('category, count(*) as n')->pluck('n', 'category')->all();
         $coverage = BrandClusterPage::query()->where('website_asset_id', $site->id)->selectRaw("count(*) as total, sum(CASE WHEN state = 'sufficient' THEN 1 ELSE 0 END) as ok")->first();
         $open = $brand !== null ? Suggestion::query()->where('brand_id', $brand->id)->where('channel', 'search')->where('status', Suggestion::OPEN) : null;
-        $clicks = $brand !== null ? $metrics->siteClicks($brand, $site) : null;
+        $clicks = $brand !== null ? $metrics->cachedSiteClicks($brand, $site) : null;
         $lastContent = Page::query()->where('website_asset_id', $site->id)->where(fn ($q) => $q->where('category', 'blog')->orWhere('wp_post_type', 'post'))->max('changed_at');
         $lastData = max(array_filter([
             $clicks['end'] ?? null,

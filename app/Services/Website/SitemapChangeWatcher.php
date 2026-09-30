@@ -20,6 +20,8 @@ use Throwable;
  * 1.4.1: for websites WITHOUT the WordPress Connector, checks the sitemap hourly. Page URLs whose <lastmod> moved (or
  * that are new) get a targeted crawl of just those pages, so stored HTML follows site changes without a full crawl.
  * The first check only records a baseline. Sitemap files whose own <lastmod> did not move are not downloaded again.
+ * Connector sites with the operator's sitemap override are checked too: their sitemap only adds the URLs the WordPress
+ * inventory does not have to `pages` (no crawl run).
  */
 final class SitemapChangeWatcher
 {
@@ -37,14 +39,26 @@ final class SitemapChangeWatcher
         $this->fetch = $fetch ?? fn (string $url): array => (new PublicHttpFetcher)->fetch($url, DiscoveryConfig::MAX_COLLECTION_RESPONSE_BYTES);
     }
 
-    /** Websites to watch (v2: passive customers too — collection is free): no paired WordPress Connector (those send activity events instead). @return list<int> */
+    /**
+     * Websites to watch (v2: passive customers too — collection is free): no paired WordPress Connector (those send
+     * activity events instead), or a connector site with a sitemap override (extra URLs only).
+     *
+     * @return list<int>
+     */
     public function eligibleSiteIds(): array
     {
-        $withConnector = CoreConnection::query()->where('type', 'wordpress_connector')->where('enabled', true)
-            ->where('config->pairing_state', 'paired')->whereNotNull('digital_asset_id')->pluck('digital_asset_id')->all();
+        $withConnector = $this->connectorSiteIds();
 
-        return DigitalAsset::query()->where('type', 'website')->whereNotIn('id', $withConnector)
+        return DigitalAsset::query()->where('type', 'website')
+            ->where(fn ($q) => $q->whereNotIn('id', $withConnector ?: [0])->orWhere(fn ($o) => $o->whereNotNull('sitemap_url')->where('sitemap_url', '!=', '')))
             ->where(fn ($q) => $q->whereNotNull('primary_url')->orWhereNotNull('domain'))->orderBy('id')->pluck('id')->map(fn ($id) => (int) $id)->all();
+    }
+
+    /** @return list<int> */
+    private function connectorSiteIds(): array
+    {
+        return CoreConnection::query()->where('type', 'wordpress_connector')->where('enabled', true)
+            ->where('config->pairing_state', 'paired')->whereNotNull('digital_asset_id')->pluck('digital_asset_id')->map(fn ($id): int => (int) $id)->all();
     }
 
     /** @return array{status: string, changed: int, pages: int, run_id?: int} */
@@ -116,6 +130,7 @@ final class SitemapChangeWatcher
             }
         }
         $result = ['status' => $state === null ? 'baseline' : 'checked', 'changed' => count($changed), 'pages' => count($pages)];
+        $connector = in_array((int) $site->id, $this->connectorSiteIds(), true);
         // v2 `pages`: new / changed sitemap URLs → main content (bounded per pass; converges over the hourly passes).
         try {
             $pageSync = new SitemapPageSync(app(PageStore::class), app(MainContentExtractor::class), function (string $url): array {
@@ -126,7 +141,7 @@ final class SitemapChangeWatcher
 
                 return ['html' => $html, 'final_url' => $response['final_url'] ?? null, 'error' => $html === null ? 'fetch_failed' : null];
             });
-            $result['page_store'] = $pageSync->sync((int) $site->id, $pages, $changed);
+            $result['page_store'] = $pageSync->sync((int) $site->id, $pages, $changed, extraOnly: $connector);
         } catch (Throwable $exception) {
             report($exception);
         }
@@ -136,7 +151,7 @@ final class SitemapChangeWatcher
         if ($state !== null && $update['pages'] === (string) $state->pages && $update['sitemaps'] === (string) $state->sitemaps) {
             unset($update['pages'], $update['sitemaps']);
         }
-        if ($changed !== []) {
+        if ($changed !== [] && ! $connector) {
             try {
                 $run = app(WebsiteCollectionOrchestrator::class)->start(asset: $site, requestFamilyIds: [WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL], context: [
                     'force_refresh' => true,

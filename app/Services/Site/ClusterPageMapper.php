@@ -15,8 +15,8 @@ use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 /**
- * AI adım 2 — küme ↔ sayfa (`brand_cluster_pages`): every approved cluster of the brand's services gets a target URL
- * and one of 7 states. Deterministic signals first — Search Console query × page facts of the cluster's queries
+ * AI adım 2 — küme ↔ sayfa (`brand_cluster_pages`): every approved cluster of the brand's services gets, per site
+ * language, a target URL (the operator may add more) and one of 7 states. Deterministic signals first — Search Console query × page facts of the cluster's queries
  * (impressions share per page, position, ranking URLs), the service ↔ page links of adım 1 and the subtopic coverage of
  * the page text —, then ONE AI call per service (`site.cluster_pages`) judges coverage / intent of the ambiguous ones.
  * Target query = main query, with the brand's target area in front only for commercial / local intent. Operator rows
@@ -55,24 +55,61 @@ final class ClusterPageMapper
             ->mapWithKeys(fn (BrandOffering $o): array => [(int) $o->service_catalog_item_id => (int) $o->id]);
         $clusters = Cluster::query()->with(['mainQuery', 'clusterQueries'])->where('approved', true)->where('sector_id', $brand->sector_id)
             ->whereIn('service_id', $serviceOffering->keys())->orderBy('service_id')->orderBy('id')->get();
-        $keep = [];
+        SiteMetrics::forgetPageTotals((int) $site->id);
         if ($clusters->isEmpty()) {
             BrandClusterPage::query()->where('brand_id', $brand->id)->where('website_asset_id', $site->id)->where('locked', false)->delete();
 
             return ['status' => 'no_clusters', 'clusters' => 0, 'ai' => 0];
         }
-        $language = SiteScope::primaryLanguage($site);
         $area = SiteScope::targetArea($brand);
-        $pages = Page::query()->where('website_asset_id', $site->id)->when($language !== null, fn ($q) => $q->where(fn ($l) => $l->where('language', $language)->orWhereNull('language')))
-            ->get(['id', 'url', 'path', 'title', 'h1', 'category', 'language']);
-        $byKey = $pages->keyBy(fn (Page $p): string => SeoText::urlKey((string) $p->url));
-        $pagesByOffering = OfferingPage::query()->whereNotNull('brand_offering_id')->whereIn('page_id', $pages->pluck('id'))->get()
-            ->groupBy('brand_offering_id')->map(fn (Collection $links): array => $links->pluck('page_id')->map(fn ($id): int => (int) $id)->all());
         $hasGsc = $this->metrics->window($brand) !== null;
         $queryIds = $clusters->flatMap(fn (Cluster $c): Collection => $c->clusterQueries->where('is_suggested', false)->pluck('query_id'))->map(fn ($id): int => (int) $id)->unique()->values()->all();
         $facts = collect($this->metrics->queryPageFacts($brand, $site, $queryIds))->groupBy('query_id');
+
+        // Every site language gets its own rows (language versions are separate targets).
+        $keep = [];
+        $groups = [];
+        foreach (SiteScope::languages($site) ?: [null] as $language) {
+            foreach ($this->mapLanguage($brand, $site, $clusters, $serviceOffering, $facts, $area, $language, $hasGsc, $keep) as $group) {
+                $groups[] = $group;
+            }
+        }
+        BrandClusterPage::query()->where('brand_id', $brand->id)->where('website_asset_id', $site->id)->where('locked', false)->whereNotIn('id', $keep ?: [0])->delete();
+
+        $status = 'ready';
+        $aiCount = 0;
+        if ($groups !== [] && SiteScope::aiAllowed($brand)) {
+            foreach ($groups as $group) {
+                [$callStatus, $count] = $this->judge($brand, $group['items'], $group['byKey'], $hasGsc);
+                $aiCount += $count;
+                if ($callStatus !== 'ready') {
+                    $status = 'ai_'.$callStatus;
+                    break;
+                }
+            }
+        }
+
+        return ['status' => $status, 'clusters' => count($keep), 'ai' => $aiCount];
+    }
+
+    /**
+     * Rows of one language; returns the ambiguous clusters grouped per service for the AI.
+     *
+     * @param  Collection<int, Cluster>  $clusters
+     * @param  Collection<int, int>  $serviceOffering
+     * @param  Collection<int, Collection<int, array<string, mixed>>>  $facts
+     * @param  list<int>  $keep
+     * @return list<array{items: list<array<string, mixed>>, byKey: Collection<string, Page>}>
+     */
+    private function mapLanguage(Brand $brand, DigitalAsset $site, Collection $clusters, Collection $serviceOffering, Collection $facts, mixed $area, ?string $language, bool $hasGsc, array &$keep): array
+    {
+        $pages = Page::query()->where('website_asset_id', $site->id)->when($language !== null, fn ($q) => $q->where(fn ($l) => $l->where('language', $language)->orWhereNull('language')))
+            ->orderBy('id')->get(['id', 'url', 'path', 'title', 'h1', 'category', 'language']);
+        $byKey = $pages->keyBy(fn (Page $p): string => SeoText::urlKey((string) $p->url));
+        $pagesByOffering = OfferingPage::query()->whereNotNull('brand_offering_id')->whereIn('page_id', $pages->pluck('id'))->orderBy('id')->get()
+            ->groupBy('brand_offering_id')->map(fn (Collection $links): array => $links->pluck('page_id')->map(fn ($id): int => (int) $id)->all());
         $existing = BrandClusterPage::query()->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
-            ->where(fn ($q) => $language === null ? $q->whereNull('language') : $q->where('language', $language))->get()->keyBy('cluster_id');
+            ->where(fn ($q) => $language === null ? $q->whereNull('language') : $q->where('language', $language))->orderBy('id')->get()->keyBy('cluster_id');
 
         $ambiguous = [];
         foreach ($clusters as $cluster) {
@@ -101,22 +138,8 @@ final class ClusterPageMapper
                 $ambiguous[(int) $cluster->service_id][] = ['row' => $row, 'cluster' => $cluster, 'candidates' => $decision['candidates'], 'facts' => $clusterFacts];
             }
         }
-        BrandClusterPage::query()->where('brand_id', $brand->id)->where('website_asset_id', $site->id)->where('locked', false)->whereNotIn('id', $keep)->delete();
 
-        $status = 'ready';
-        $aiCount = 0;
-        if ($ambiguous !== [] && SiteScope::aiAllowed($brand)) {
-            foreach ($ambiguous as $items) {
-                [$callStatus, $count] = $this->judge($brand, $items, $byKey, $hasGsc);
-                $aiCount += $count;
-                if ($callStatus !== 'ready') {
-                    $status = 'ai_'.$callStatus;
-                    break;
-                }
-            }
-        }
-
-        return ['status' => $status, 'clusters' => count($keep), 'ai' => $aiCount];
+        return array_values(array_map(fn (array $items): array => ['items' => $items, 'byKey' => $byKey], $ambiguous));
     }
 
     /** "ankara implant merkezi": area first, only for commercial / local intent. */
@@ -223,16 +246,23 @@ final class ClusterPageMapper
             'reason' => 'Pozisyon '.($metrics['position'] !== null ? number_format($metrics['position'], 1, ',', '.') : '—').' · alt konuların '.$pct($coverage).'’i sayfada.'];
     }
 
-    /** Operator's target URL / state: stored and locked. */
-    public function setManual(BrandClusterPage $row, ?int $pageId, string $state): void
+    /**
+     * Operator's target URL / state (+ additional URLs of the same cluster): stored and locked.
+     *
+     * @param  list<int>|null  $extraPageIds  null = keep the stored ones
+     */
+    public function setManual(BrandClusterPage $row, ?int $pageId, string $state, ?array $extraPageIds = null): void
     {
         if (! in_array($state, BrandClusterPage::STATES, true)) {
             throw ValidationException::withMessages(['state' => 'Geçersiz durum.']);
         }
-        if ($pageId !== null && ! Page::query()->whereKey($pageId)->where('website_asset_id', $row->website_asset_id)->exists()) {
+        $extra = $extraPageIds === null ? array_map('intval', (array) $row->extra_page_ids)
+            : array_values(array_diff(array_unique(array_map('intval', $extraPageIds)), [(int) $pageId, 0]));
+        $wanted = array_values(array_filter([$pageId, ...$extra]));
+        if ($wanted !== [] && Page::query()->whereIn('id', $wanted)->where('website_asset_id', $row->website_asset_id)->count() !== count($wanted)) {
             throw ValidationException::withMessages(['page' => 'Sayfa bu sitede değil.']);
         }
-        $row->forceFill(['page_id' => $pageId, 'state' => $state, 'decided_by' => 'manual', 'locked' => true, 'reason' => 'Elle seçildi.'])->save();
+        $row->forceFill(['page_id' => $pageId, 'extra_page_ids' => $extra !== [] ? $extra : null, 'state' => $state, 'decided_by' => 'manual', 'locked' => true, 'reason' => 'Elle seçildi.'])->save();
     }
 
     private function coverage(int $pageId, Cluster $cluster, string $main): float

@@ -59,8 +59,30 @@
                             <div class="flex flex-wrap items-start justify-between gap-3">
                                 <div class="min-w-0 flex-1">
                                     <p class="text-xs text-gray-500">{{ ($standard['asset_type'] ?? 'website') === 'google_business_profile' ? ($tr ? 'İşletme Profili' : 'Business Profile') : (($standard['platform'] ?? 'general') === 'wordpress' ? 'WordPress' : ($tr ? 'Genel web sitesi' : 'General website')) }} · {{ \MoxDop\Website\Standards\WebsiteStandardCatalog::GROUPS[$standard['group']] }}</p>
-                                    <h2 class="mt-1 font-semibold text-gray-900 dark:text-white">{{ $standard['title'] }}</h2>
+                                    <h2 class="mt-1 font-semibold text-gray-900 dark:text-white">{{ $standard['title'] }}@if(str_starts_with($standard['id'], \MoxDop\Website\Standards\WebsiteStandardCatalog::DECISION_PREFIX))<span class="ml-2 text-xs font-normal text-gray-500" data-version>sürüm {{ $standard['version'] ?? 1 }} · {{ \App\Services\Site\ScopedStandards::SCOPE_LABELS[$standard['scope_type'] ?? 'general'] ?? 'genel' }}</span>@endif</h2>
                                     <p class="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-400">{{ $standard['criterion'] }}</p>
+                                    @if(str_starts_with($standard['id'], \MoxDop\Website\Standards\WebsiteStandardCatalog::DECISION_PREFIX))
+                                        <dl class="mt-2 grid gap-1 text-xs text-gray-600 dark:text-gray-400" data-decision-standard>
+                                            <div><dt class="inline font-semibold">Koşul:</dt> <dd class="inline">{{ ($standard['condition'] ?? '') !== '' ? $standard['condition'] : '—' }}</dd></div>
+                                            <div><dt class="inline font-semibold">İstisnalar:</dt> <dd class="inline">{{ ($standard['exceptions'] ?? '') !== '' ? $standard['exceptions'] : '—' }}</dd></div>
+                                        </dl>
+                                        @if($admin && $editingId === $standard['id'])
+                                            <form wire:submit="saveVersion" class="mt-3 grid gap-2 text-xs" data-edit-standard>
+                                                <input type="text" wire:model="draft.title" aria-label="Başlık" class="rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-900">
+                                                <textarea wire:model="draft.rule" rows="2" aria-label="Kural" class="rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-900"></textarea>
+                                                <input type="text" wire:model="draft.condition" placeholder="Koşul" aria-label="Koşul" class="rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-900">
+                                                <input type="text" wire:model="draft.exceptions" placeholder="İstisnalar" aria-label="İstisnalar" class="rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-900">
+                                                <div class="flex gap-2"><button type="submit" class="rounded-lg bg-brand-500 px-3 py-1.5 font-semibold text-white">Yeni sürüm kaydet</button><button type="button" wire:click="cancelEdit" class="px-2 text-gray-500">Vazgeç</button></div>
+                                            </form>
+                                        @elseif($admin)
+                                            <button type="button" wire:click="editStandard('{{ $standard['id'] }}')" class="mt-2 text-xs text-brand-600 underline">Düzenle</button>
+                                        @endif
+                                        @if(($standard['history'] ?? []) !== [])
+                                            <ul class="mt-2 space-y-0.5 text-xs text-gray-500" data-history>
+                                                @foreach($standard['history'] as $old)<li>sürüm {{ $old['version'] }} · {{ $old['title'] }} · {{ \Illuminate\Support\Str::limit($old['rule'], 90) }}</li>@endforeach
+                                            </ul>
+                                        @endif
+                                    @endif
                                 </div>
                                 @if($admin)
                                     <button type="button" role="switch" aria-checked="{{ $standard['enabled'] ? 'true' : 'false' }}" aria-label="{{ $standard['title'] }}" wire:click="setEnabled('{{ $standard['id'] }}', {{ $standard['enabled'] ? 'false' : 'true' }})" wire:loading.attr="disabled" class="rounded-full border px-3 py-1.5 text-xs font-medium {{ $standard['enabled'] ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300' : 'border-gray-300 text-gray-500 dark:border-gray-700' }}">{{ $standard['enabled'] ? ($tr ? 'Etkin' : 'Enabled') : ($tr ? 'Devre dışı' : 'Disabled') }}</button>

@@ -8,8 +8,8 @@ use App\Livewire\Demo\Operations\FindingsIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Operations\TaskShow;
 use App\Livewire\Demo\Operations\TasksIndex;
-use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
 use App\Livewire\Operator\GoogleAds\OverviewPage;
+use App\Livewire\Operator\Website\V2\WebsiteScreen;
 use App\Models\DigitalAsset;
 use App\Models\Finding;
 use App\Models\Recommendation;
@@ -312,11 +312,11 @@ class DemoProductRoutesTest extends TestCase
 
     public function test_website_severity_and_gbp_keyword_filters_work(): void
     {
-        Livewire::test(WebsiteOverviewPage::class)->assertStatus(404);
+        Livewire::test(WebsiteScreen::class)->assertStatus(404);
         Livewire::test(GbpOverviewPage::class)->assertStatus(404);
 
-        Livewire::test(WebsiteOverviewPage::class, ['assetId' => (string) $this->workAsset->id])
-            ->set('tab', 'health')
+        Livewire::test(WebsiteScreen::class, ['assetId' => (string) $this->workAsset->id])
+            ->call('setTab', 'saglik')
             ->assertDontSee('27 service pages have no self-referencing canonical');
 
         $gbp = DigitalAsset::factory()->create([

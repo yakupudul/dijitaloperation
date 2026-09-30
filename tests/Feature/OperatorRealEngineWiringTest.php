@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Contracts\GbpOperatorWorkspace;
-use App\Contracts\WebsiteOperatorWorkspace;
 use App\Livewire\Operator\AssetDataSourcesPage;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
@@ -25,21 +24,6 @@ use Tests\TestCase;
 class OperatorRealEngineWiringTest extends TestCase
 {
     use RefreshDatabase;
-
-    public function test_website_operator_component_cannot_fall_back_to_unavailable_demo_shell(): void
-    {
-        $source = file_get_contents(app_path('Livewire/Demo/Website/OverviewPage.php'));
-
-        $this->assertIsString($source);
-        $this->assertStringContainsString('WebsiteOperatorWorkspace', $source);
-        $this->assertStringContainsString('$this->period', $source);
-        $this->assertStringContainsString('$this->periodStart', $source);
-        $this->assertStringContainsString('$this->periodEnd', $source);
-        $this->assertStringNotContainsString('MoxDop\\Website', $source);
-        $this->assertStringNotContainsString('UnavailableWorkspaceShells', $source);
-        $this->assertStringNotContainsString('WebsiteWorkspaceFixtures', $source);
-        $this->assertInstanceOf(WebsiteOperatorWorkspace::class, app(WebsiteOperatorWorkspace::class));
-    }
 
     public function test_real_public_discovery_and_canonical_data_source_routes_are_registered(): void
     {

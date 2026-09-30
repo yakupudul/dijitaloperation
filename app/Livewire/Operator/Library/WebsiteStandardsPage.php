@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator\Library;
 
+use App\Services\Site\ScopedStandards;
 use Illuminate\Contracts\View\View;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Livewire\Attributes\Layout;
@@ -33,6 +34,12 @@ final class WebsiteStandardsPage extends Component
     public string $status = '';
 
     public string $message = '';
+
+    /** Decision standard being edited (a save creates a new version). */
+    public ?string $editingId = null;
+
+    /** @var array{title?: string, rule?: string, condition?: string, exceptions?: string} */
+    public array $draft = [];
 
     public function updated(string $property): void
     {
@@ -67,6 +74,30 @@ final class WebsiteStandardsPage extends Component
     {
         $catalog->resetStandard($id, auth()->user());
         $this->message = 'Standardın varsayılan etkinlik ve önem ayarları geri yüklendi.';
+    }
+
+    public function editStandard(string $id, WebsiteStandardCatalog $catalog): void
+    {
+        $standard = $catalog->all()[$id] ?? null;
+        abort_unless($standard !== null && str_starts_with($id, WebsiteStandardCatalog::DECISION_PREFIX), 404);
+        $this->editingId = $id;
+        $this->draft = ['title' => (string) $standard['title'], 'rule' => (string) ($standard['rule'] ?? ''),
+            'condition' => (string) ($standard['condition'] ?? ''), 'exceptions' => (string) ($standard['exceptions'] ?? '')];
+    }
+
+    public function cancelEdit(): void
+    {
+        $this->reset('editingId', 'draft');
+    }
+
+    public function saveVersion(ScopedStandards $standards): void
+    {
+        if ($this->editingId === null) {
+            return;
+        }
+        $version = $standards->update($this->editingId, $this->draft, auth()->user());
+        $this->reset('editingId', 'draft');
+        $this->message = 'Standart kaydedildi (sürüm '.$version.').';
     }
 
     public function render(WebsiteStandardCatalog $catalog): View

@@ -6,7 +6,7 @@ use App\Livewire\Demo\Integrations\ConnectorPage;
 use App\Livewire\Demo\Integrations\GoogleIntegrationPage;
 use App\Livewire\Demo\Portfolio\AssetCreate;
 use App\Livewire\Demo\Portfolio\AssetsIndex;
-use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
+use App\Livewire\Operator\Website\V2\WebsiteScreen;
 use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Support\Demo\DemoState;
@@ -149,14 +149,10 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
     {
         $website = DigitalAsset::factory()->create(['type' => 'website', 'name' => 'Northwind Website']);
 
-        Livewire::test(WebsiteOverviewPage::class, ['assetId' => (string) $website->id, 'tab' => 'infrastructure'])
-            ->assertSee('Infrastructure and WordPress inventory')
-            ->assertSee('Domain')
-            ->assertSee('Hosting')
-            ->assertSee('SSL / TLS')
-            ->assertSee('WordPress connection')
-            // Domain / hosting / TLS stay Website facts, not standalone assets.
-            ->assertSee('separate source facts');
+        // Domain / hosting / TLS stay Website facts (Site Sağlığı), not standalone assets.
+        Livewire::test(WebsiteScreen::class, ['assetId' => (string) $website->id, 'tab' => 'infrastructure'])
+            ->assertSet('tab', 'saglik')
+            ->assertSee('Northwind Website');
 
         $this->get(route('operator.domain'))
             ->assertRedirect(route('operator.assets'));

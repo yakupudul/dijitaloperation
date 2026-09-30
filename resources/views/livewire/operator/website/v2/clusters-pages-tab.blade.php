@@ -25,21 +25,27 @@
 
     {{-- Kümeler --}}
     <section class="{{ $card }}" data-section="clusters">
-        <h2 class="mb-2 text-sm font-semibold">Kümeler</h2>
+        <div class="mb-2 flex flex-wrap items-center gap-2">
+            <h2 class="text-sm font-semibold">Kümeler</h2>
+            <input type="search" wire:model.live.debounce.400ms="pageSearch" placeholder="URL ara" aria-label="URL ara" class="{{ $input }} w-48">
+        </div>
         @forelse ($services as $service => $rows)
             <h3 class="mt-3 text-xs font-semibold uppercase text-gray-500">{{ $service }}</h3>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs">
-                    <thead class="text-gray-500"><tr><th class="py-1">Küme</th><th>Durum</th><th>Hedef URL</th><th>Ana sorgu · hedef</th><th class="text-right">Tık 28g</th><th class="text-right">Poz.</th><th></th></tr></thead>
+                    <thead class="text-gray-500"><tr><th class="py-1">Küme</th><th>Durum</th><th>Hedef URL · ek URL</th><th>Ana sorgu · hedef</th><th class="text-right">Tık 28g</th><th class="text-right">Poz.</th><th></th></tr></thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                         @foreach ($rows as $row)
                             <tr wire:key="bcp-{{ $row->id }}" data-cluster-row="{{ $row->cluster_id }}">
-                                <td class="py-1 font-medium">{{ $row->cluster?->name }}@if ($row->locked)<span class="{{ $chip }} ml-1 bg-gray-100 text-gray-600">elle</span>@endif</td>
+                                <td class="py-1 font-medium">{{ $row->cluster?->name }}@if ($row->language)<span class="{{ $chip }} ml-1 bg-gray-100 text-gray-600">{{ $row->language }}</span>@endif @if ($row->locked)<span class="{{ $chip }} ml-1 bg-gray-100 text-gray-600">elle</span>@endif</td>
                                 <td><span class="{{ $chip }} {{ $stateTone[$row->state] ?? '' }}">{{ $row->stateLabel() }}</span><p class="text-gray-500">{{ $row->reason }}</p></td>
                                 <td>
                                     <select wire:model="edit.{{ $row->id }}.page" aria-label="Hedef URL" class="{{ $input }} max-w-[14rem]">
                                         <option value="">— sayfa yok</option>
                                         @foreach ($pageOptions as $id => $path)<option value="{{ $id }}" @selected((int) $row->page_id === (int) $id)>{{ $path }}</option>@endforeach
+                                    </select>
+                                    <select multiple wire:model="edit.{{ $row->id }}.extra" aria-label="Ek URL" class="{{ $input }} mt-1 block h-14 max-w-[14rem]">
+                                        @foreach ($pageOptions as $id => $path)<option value="{{ $id }}">{{ $path }}</option>@endforeach
                                     </select>
                                 </td>
                                 <td>{{ $row->cluster?->mainQuery?->text ?? '—' }}<p class="text-gray-500">{{ $row->target_query }}</p></td>
@@ -59,6 +65,7 @@
         @empty
             <p class="text-gray-500">Küme eşleşmesi yok · "AI adım 2".</p>
         @endforelse
+        <div class="mt-2">{{ $clusterRows->links() }}</div>
     </section>
 
     {{-- Sayfalar --}}

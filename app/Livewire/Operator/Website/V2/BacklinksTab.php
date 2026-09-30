@@ -23,7 +23,9 @@ use Throwable;
 
 /**
  * SEO Yapılacaklar › Backlinkler: "Bağlantı verenler" (Search Console Links export import, manual) and "Potansiyel
- * kaynaklar" (AI by sector + areas, manual) with status yok · verildi (operator enters the link URL) · doğrulandı.
+ * kaynaklar" (AI by sector + areas, manual) with five statuses: henüz tespit edilmedi · başvuru / iletişim yapıldı
+ * (operator) · kullanıcı eklediğini bildirdi (operator enters the link URL) · sayfada doğrulandı · daha sonra kaldırıldı
+ * (the last two by the verifier).
  */
 final class BacklinksTab extends Component
 {
@@ -106,6 +108,13 @@ final class BacklinksTab extends Component
         $this->reset(['sourceName', 'sourceUrl']);
     }
 
+    public function markApplied(int $id): void
+    {
+        $this->actor();
+        BacklinkSource::query()->where('brand_id', $this->brand()->id)->whereKey($id)->whereIn('status', [BacklinkSource::NONE, BacklinkSource::REMOVED])
+            ->update(['status' => BacklinkSource::APPLIED, 'note' => now()->format('d.m.Y'), 'updated_at' => now()]);
+    }
+
     public function markGiven(int $id): void
     {
         $this->actor();
@@ -142,7 +151,7 @@ final class BacklinksTab extends Component
             'backlinks' => Backlink::query()->where('brand_id', $brand?->id ?? 0)->orderByDesc('first_seen')->orderBy('source_domain')->paginate(50, pageName: 'links'),
             'domains' => Backlink::query()->where('brand_id', $brand?->id ?? 0)->distinct()->count('source_domain'),
             'sources' => BacklinkSource::query()->where('brand_id', $brand?->id ?? 0)
-                ->orderByRaw("CASE status WHEN 'dogrulandi' THEN 0 WHEN 'verildi' THEN 1 ELSE 2 END")->orderBy('name')->paginate(50, pageName: 'sources'),
+                ->orderByRaw("CASE status WHEN 'dogrulandi' THEN 0 WHEN 'verildi' THEN 1 WHEN 'basvuru' THEN 2 WHEN 'kaldirildi' THEN 3 ELSE 4 END")->orderBy('name')->paginate(50, pageName: 'sources'),
             'proposal' => $proposal,
             'polling' => ($proposal['status'] ?? null) === 'running',
         ]);

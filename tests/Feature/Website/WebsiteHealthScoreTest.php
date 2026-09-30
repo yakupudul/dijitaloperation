@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Website;
 
-use App\Livewire\Demo\Website\OverviewPage;
 use App\Models\DigitalAsset;
 use App\Models\IntelligenceCore\IntelligencePageIdentity;
 use App\Models\IntelligenceProjection\WebsiteIntelligenceProjectionRun;
@@ -14,7 +13,6 @@ use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\CreatesCanonicalPortfolio;
 use Tests\TestCase;
@@ -155,79 +153,6 @@ class WebsiteHealthScoreTest extends TestCase
         $this->assertNull($report['summary']['duplicates']);
         $this->assertFalse($report['availability']['orphans']);
         $this->assertNull($report['groups'][0]['new_count']);
-
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'health'])
-            ->assertSee(__('operator_website.health_score.title'))
-            ->assertSee(__('operator_website.health_score.trend_hidden'))
-            ->assertSee(__('operator_website.health_score.unavailable.links'))
-            ->assertSee(__('operator_website.health_score.grades.good'))
-            ->assertDontSee(__('operator.website.technical_health.empty.title'));
-    }
-
-    #[Test]
-    public function health_tab_renders_score_trend_and_expandable_groups(): void
-    {
-        $asset = $this->seedSite();
-
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'health'])
-            ->assertOk()
-            ->assertSee(__('operator_website.health_score.title'))
-            ->assertSeeHtml('data-health-score-value="87"')
-            ->assertSeeHtml('data-health-trend')
-            ->assertSee(__('operator_website.health_score.change', ['value' => '−11']))
-            ->assertSeeHtml('data-health-group="HTTP_4XX"')
-            ->assertSeeHtml('data-health-group="DUPLICATE_TITLE"')
-            ->assertSee(__('operator_website.health_score.codes.ORPHAN_PAGE'))
-            ->assertSee('https://example.com/c-old')
-            ->assertSee(__('operator_website.health_score.not_scored'));
-    }
-
-    #[Test]
-    public function health_tab_without_collected_data_shows_no_score(): void
-    {
-        $asset = $this->createPortfolioAsset('website', 'Empty Website');
-
-        $this->assertFalse(app(WebsiteHealthScoreService::class)->build($asset)['available']);
-
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'health'])
-            ->assertOk()
-            ->assertDontSeeHtml('data-website-health-score')
-            ->assertDontSee(__('operator_website.health_score.title'));
-    }
-
-    #[Test]
-    public function csv_export_streams_bom_semicolon_rows_for_every_affected_url(): void
-    {
-        $asset = $this->seedSite();
-
-        $component = Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'health'])
-            ->call('exportHealthCsv')
-            ->assertFileDownloaded(__('operator_website.health_score.csv.filename').'-'.$asset->id.'-'.now()->format('Y-m-d').'.csv');
-
-        $content = base64_decode((string) data_get($component->effects, 'download.content'));
-
-        $this->assertStringStartsWith("\xEF\xBB\xBF", $content);
-        $lines = array_values(array_filter(explode("\n", substr($content, 3))));
-        $this->assertSame([
-            __('operator_website.health_score.csv.code'),
-            __('operator_website.health_score.csv.issue'),
-            __('operator_website.health_score.csv.severity'),
-            __('operator_website.health_score.csv.scored'),
-            __('operator_website.health_score.csv.url_count'),
-            __('operator_website.health_score.csv.share'),
-            __('operator_website.health_score.csv.new_count'),
-            __('operator_website.health_score.csv.url'),
-            __('operator_website.health_score.csv.detail'),
-        ], str_getcsv($lines[0], ';', '"', ''));
-        $this->assertSame(
-            ['HTTP_4XX', __('operator.website.technical_health.issue_codes.HTTP_4XX'), __('operator_website.severity.high'), __('operator_website.health_score.csv.yes'), '1', '20,0', '1', 'https://example.com/d', 'HTTP 404'],
-            str_getcsv($lines[1], ';', '"', ''),
-        );
-        // 1 (4xx) + 1 (redirect) + 2 (meta description) + 1 (broken link) + 1 (orphan) + 2 (duplicate title)
-        $this->assertCount(1 + 8, $lines);
-        $this->assertStringContainsString('MISSING_META_DESCRIPTION;', $content);
-        $this->assertStringContainsString(';https://example.com/b;', $content);
-        $this->assertStringContainsString('HTTP_4XX;', $content);
     }
 
     #[Test]
@@ -266,10 +191,6 @@ class WebsiteHealthScoreTest extends TestCase
         $this->assertSame([], $report['trend']);
         $this->assertSame(['HTTP_5XX', 'DUPLICATE_TITLE'], array_column($report['groups'], 'code'));
         $this->assertNull($report['summary']['orphans']);
-
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'health'])
-            ->assertSee(__('operator_website.health_score.source_projection'))
-            ->assertSeeHtml('data-health-score-value="85"');
     }
 
     private function seedSite(): DigitalAsset

@@ -1,5 +1,19 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-03 — v2 düzeltmeleri: web sitesi ekranı
+
+- **Küme ↔ URL:** her site dili ayrı satır (yalnız ana dil değil); operatör kümeye ek URL ekler (`brand_cluster_pages.extra_page_ids`, kilitli). URL analizi ek URL'de de kümeyi görür.
+- **URL analizi paketi:** kümenin seçili rakip örnekleri (ilk 3 çekilmiş ticari / bilgi sayfası: URL, başlık, H2 + analizdeki ihtiyaç) ve markanın hedef kitlesi / pazarları; yoksa "veri yok".
+- **Standartlar:** kütüphanede karar standardı (koşul · istisnalar · kapsam · sürüm) gösterilir; Admin "Düzenle" → yeni sürüm, önceki sürümler geçmişte (en çok 20).
+- **Marka hafızası:** karar satırı uygulama tarihini ve 28 / 56 gün sonuçlarını da tutar (`OutcomeTracker` apply / measure); sayfa hafızası H2 bölümlerini tutar. AI'ya yalnız ilgili kısım gider.
+- **Yeniden kontrol:** içerik değişikliği, URL değişikliği, sayfa silinmesi (sayfa bağı düşmeden önce) ve ortak şablon değişikliği açık **ve onaylı-uygulanmamış** önerileri "yeniden kontrol gerekli" yapar; sayfası silinen öneri Öneriler'de kalır.
+- **Rakipler:** öneride Onayla / Reddet; sayfamız varsa "AI ile yap" (yeni sürüm Öneriler'de), yoksa "Yeni içerik olarak ekle" (İçerik planı) → "Taslak hazırla". Liste SQL'de siteye göre süzülür.
+- **Backlink durumları (tam beş):** henüz tespit edilmedi · başvuru / iletişim yapıldı · kullanıcı eklediğini bildirdi · sayfada doğrulandı · daha sonra kaldırıldı (gerçek durum). Operatör başvuru ve verildi'yi işaretler; eski "kaldırıldı" notlu satırlar taşındı. Kullanılmayan `dataforseo` backlink kaynağı kaldırıldı.
+- **Analiz › Hedef sorgular:** sorgu · bölge · tık · gösterim · sıra · URL; `brand_queries` doluysa oradan, değilse kümelerin hedef sorgusu + Search Console.
+- **Hız:** sayfa toplamları ve site tıkları 10 dk önbellek (eşleştirme / haftalık yenileme temizler); küme satırları sayfalı; hedef URL seçenekleri aramayla en çok 50.
+- **Sitemap:** WordPress Connector sitesinde Ayarlar'daki sitemap adresi, WordPress envanterinde olmayan yollar için ek kaynak (en çok 500 URL); tur başına çekim 200. Eski yönlendirilmeyen `Demo\Website\OverviewPage` ve görünümü silindi.
+- **State:** CODED + PHPUnit (`tests/Feature/Site/SiteScreenFixesTest`, `BacklinksTest`; eski sayfayı kullanan 9 test v2 ekranına uyarlandı). SQLite + PostgreSQL. Üretim UAT yok. **Operator after deploy:** `php artisan migrate --force`.
+
 ## 2026-11-02 — Üretim ilk deneme düzeltmeleri: yedek, marka adayı AI hatası
 
 - **`moxdop:reset` kapsamı daraltıldı (operatör kararı):** yalnız hesaplardan çekilmiş veri ve ondan türeyenler (toplama çalıştırmaları, sayfalar, sorgular, öneriler, eski modül tabloları) boşaltılır. Müşteriler, markalar, varlıklar, hesap bağlamaları, marka ayarları (hizmetler, bölgeler, hedefler), operatör girdileri (backlink, lead işaretleri, bütçe planı) ve denetim kayıtları kalır. **Yedek şartı kaldırıldı**; yalnız uygulama adı onayı var. PostgreSQL'de korunan bir tablo boşaltılan tabloya bağlıysa komut deneme aşamasında durur.

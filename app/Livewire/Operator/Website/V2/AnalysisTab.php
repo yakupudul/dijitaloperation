@@ -12,15 +12,15 @@ use Livewire\WithPagination;
 
 /**
  * Analiz: Search Console + GA4 of the website for a period (28 gün default) against the previous period. Sub-tabs:
- * Kümeler (per cluster, split by brand target area) · Sayfalar · Sorgular (raw) · Dönüşümler (GA4 key events by landing
- * page × source / medium). Read only; paginated.
+ * Kümeler (per cluster, split by brand target area) · Hedef sorgular (brand target queries) · Sayfalar · Sorgular (raw)
+ * · Dönüşümler (GA4 key events by landing page × source / medium). Read only; paginated.
  */
 final class AnalysisTab extends Component
 {
     use WebsiteTab;
     use WithPagination;
 
-    public const array SUBTABS = ['clusters' => 'Kümeler', 'pages' => 'Sayfalar', 'queries' => 'Sorgular', 'conversions' => 'Dönüşümler'];
+    public const array SUBTABS = ['clusters' => 'Kümeler', 'targets' => 'Hedef sorgular', 'pages' => 'Sayfalar', 'queries' => 'Sorgular', 'conversions' => 'Dönüşümler'];
 
     private const int PER_PAGE = 50;
 
@@ -47,6 +47,7 @@ final class AnalysisTab extends Component
         $period = array_key_exists($this->period, SiteAnalysisReader::PERIODS) ? $this->period : 28;
         $sub = array_key_exists($this->sub, self::SUBTABS) ? $this->sub : 'clusters';
         $rows = match ($sub) {
+            'targets' => $reader->targetQueries($site, $period),
             'pages' => $reader->pages($site, $period),
             'queries' => $reader->queries($site, $period),
             'conversions' => $reader->conversions($site, $period),

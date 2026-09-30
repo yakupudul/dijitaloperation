@@ -65,6 +65,20 @@
                         <tr><td colspan="7" class="py-2 text-gray-500">Onaylı küme yok.</td></tr>
                     @endforelse
                 </tbody>
+            @elseif ($activeSub === 'targets')
+                <thead class="text-gray-500"><tr><th class="py-1">Sorgu</th><th>Bölge</th><th class="text-right">Tıklama</th><th class="text-right">Gösterim</th><th class="text-right">Sıra</th><th>URL</th></tr></thead>
+                <tbody>
+                    @forelse ($rows as $row)
+                        <tr class="border-t border-gray-100 dark:border-gray-800" data-target-query>
+                            <td class="py-1 font-medium">{{ $row['query'] }}</td>
+                            <td>{{ $row['area'] === '—' ? 'bölgesiz' : $row['area'] }}</td>
+                            <td class="text-right">{{ $num($row['clicks']) }}</td><td class="text-right">{{ $num($row['impressions']) }}</td><td class="text-right">{{ $dec($row['position']) }}</td>
+                            <td class="text-gray-500">{{ $row['url'] ? \App\Services\Site\Analysis\SiteAnalysisReader::path($row['url']) : '—' }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="6" class="py-2 text-gray-500">Hedef sorgu yok.</td></tr>
+                    @endforelse
+                </tbody>
             @elseif ($activeSub === 'pages')
                 <thead class="text-gray-500"><tr><th class="py-1">Sayfa</th><th class="text-right">Tıklama</th><th class="text-right">Δ</th><th class="text-right">Gösterim</th><th class="text-right">Sıra</th><th class="text-right">Oturum</th><th class="text-right">Anahtar etk.</th></tr></thead>
                 <tbody>

@@ -3,13 +3,16 @@
 namespace App\Services\Website\Pages;
 
 use App\Models\Page;
+use App\Services\Site\BrandMemoryService;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Writes the `pages` table (one row per URL, latest version only). A row is rewritten only when its content hash
  * changes; then `changed_at` moves, `analyzed_at` and `content_summary` are cleared (Faz 4 re-analyses it). The
- * category is never set here (Faz 4 / operator decides). No HTML is stored.
+ * category is never set here (Faz 4 / operator decides). No HTML is stored. A URL change, a deletion and a shared
+ * template change flag the suggestions based on the old version "yeniden kontrol gerekli".
  */
 final class PageStore
 {
@@ -53,7 +56,8 @@ final class PageStore
             $urlChanged = $page->url_hash !== $urlHash;
             if ($urlChanged) {
                 // URL changed (slug / parent / permalink): the row keeps its id; another row already at the new URL goes.
-                Page::query()->where('website_asset_id', $siteId)->where('url_hash', $urlHash)->whereKeyNot($page->id)->delete();
+                self::deleteRows($siteId, Page::query()->where('website_asset_id', $siteId)->where('url_hash', $urlHash)->whereKeyNot($page->id));
+                BrandMemoryService::recheck($siteId, [(int) $page->id]);
             }
             if (! $urlChanged && $page->content_hash === $hash) {
                 if ($wpId !== null && ($page->wp_post_id !== $wpId || $page->wp_post_type !== ($fields['wp_post_type'] ?? null))) {
@@ -82,12 +86,31 @@ final class PageStore
     /** Removes the page of a WordPress object (deleted, trashed, unpublished). */
     public function deleteWordPressObject(int $siteId, int $wpPostId): int
     {
-        return Page::query()->where('website_asset_id', $siteId)->where('wp_post_id', $wpPostId)->delete();
+        return self::deleteRows($siteId, Page::query()->where('website_asset_id', $siteId)->where('wp_post_id', $wpPostId));
+    }
+
+    /**
+     * Deletes page rows; their open / approved-not-applied suggestions are flagged for a re-check first (the page id is
+     * nulled by the deletion).
+     *
+     * @param  Builder<Page>  $rows
+     */
+    public static function deleteRows(int $siteId, Builder $rows): int
+    {
+        $ids = (clone $rows)->orderBy('id')->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        if ($ids === []) {
+            return 0;
+        }
+        BrandMemoryService::recheck($siteId, $ids);
+
+        return Page::query()->whereIn('id', $ids)->delete();
     }
 
     /** A template / theme change: every page of the site is marked changed without refetching anything. */
     public function touchAll(int $siteId): int
     {
+        BrandMemoryService::recheck($siteId, null);
+
         return Page::query()->where('website_asset_id', $siteId)->update(['changed_at' => now(), 'updated_at' => now()]);
     }
 

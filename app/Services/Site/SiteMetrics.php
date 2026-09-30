@@ -7,6 +7,7 @@ use App\Models\DigitalAsset;
 use App\Services\Queries\QuerySourceAggregator;
 use App\Services\SeoTasks\SeoText;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -69,6 +70,27 @@ final class SiteMetrics
 
         return array_map(fn (array $r): array => ['url' => $r['url'], 'clicks' => $r['clicks'], 'impressions' => $r['impressions'],
             'position' => $r['weight'] > 0 ? round($r['weighted'] / $r['weight'], 1) : null], $out);
+    }
+
+    /** Screen cache (10 minutes) of the site's page totals and organic clicks; cleared by the mapper / weekly refresh. */
+    public const int SCREEN_CACHE_SECONDS = 600;
+
+    /** @return array<string, array{url: string, clicks: int, impressions: int, position: ?float}> */
+    public function cachedPageTotals(Brand $brand, DigitalAsset $site): array
+    {
+        return Cache::remember('site:page-totals:'.$site->id, self::SCREEN_CACHE_SECONDS, fn (): array => $this->pageTotals($brand, $site));
+    }
+
+    /** @return array{clicks: int, prev: int, end: string}|null */
+    public function cachedSiteClicks(Brand $brand, DigitalAsset $site): ?array
+    {
+        return Cache::remember('site:clicks:'.$site->id, self::SCREEN_CACHE_SECONDS, fn (): ?array => $this->siteClicks($brand, $site));
+    }
+
+    public static function forgetPageTotals(int $siteId): void
+    {
+        Cache::forget('site:page-totals:'.$siteId);
+        Cache::forget('site:clicks:'.$siteId);
     }
 
     /** @return array{clicks: int, impressions: int, position: ?float}|null one page's 28-day totals (null = no data) */

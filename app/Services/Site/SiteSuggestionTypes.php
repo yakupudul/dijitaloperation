@@ -22,12 +22,19 @@ final class SiteSuggestionTypes
     /** İçerik plan item (new page / post or update). */
     public const string CONTENT = 'content';
 
+    /** Rakipler suggestion (competitor analysis); on an existing page "AI ile yap" writes it like a missing topic. */
+    public const string COMPETITOR = 'rakip';
+
     /** Types "AI ile yap" can write: fields (title / description, links, schema) or page HTML (sections, FAQ). */
-    public const array APPLICABLE = ['title_description', 'missing_topic', 'internal_links', 'technical_seo', 'conversion', 'wrong_intent'];
+    public const array APPLICABLE = ['title_description', 'missing_topic', 'internal_links', 'technical_seo', 'conversion', 'wrong_intent', self::COMPETITOR];
 
     public static function label(string $type): string
     {
-        return $type === self::CONTENT ? 'içerik' : (self::ANALYSIS[$type] ?? $type);
+        return match ($type) {
+            self::CONTENT => 'içerik',
+            self::COMPETITOR => 'rakip',
+            default => self::ANALYSIS[$type] ?? $type,
+        };
     }
 
     public static function applicable(string $type): bool

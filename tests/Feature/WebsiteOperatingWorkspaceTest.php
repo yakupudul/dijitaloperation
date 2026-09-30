@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Demo\Website\OverviewPage;
+use App\Livewire\Operator\Website\V2\WebsiteScreen;
 use App\Models\Finding;
 use App\Models\Recommendation;
 use App\Models\User;
@@ -36,13 +36,12 @@ class WebsiteOperatingWorkspaceTest extends TestCase
     public function test_website_without_asset_id_is_not_found(): void
     {
         $this->get(route('operator.website'))->assertNotFound();
-        Livewire::test(OverviewPage::class)->assertStatus(404);
+        Livewire::test(WebsiteScreen::class)->assertStatus(404);
     }
 
     public function test_catalog_website_id_is_not_found_on_operator_routes(): void
     {
         $this->get(route('operator.website', ['assetId' => DemoCatalog::WEBSITE_ASSET_ID]))->assertNotFound();
-        Livewire::test(OverviewPage::class, ['assetId' => DemoCatalog::WEBSITE_ASSET_ID])->assertStatus(404);
     }
 
     public function test_real_website_asset_renders_tabs_without_atlas_fixtures(): void
@@ -63,48 +62,19 @@ class WebsiteOperatingWorkspaceTest extends TestCase
                 ->assertSee('Northwind Website');
         }
 
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id])
+        Livewire::test(WebsiteScreen::class, ['assetId' => (string) $asset->id])
             ->assertSee('Northwind Website')
-            ->assertSee('Veri durumu')
-            ->assertSee('Açık işler')
-            ->assertSee('Opportunities')
-            ->assertSee('Site inventory')
-            ->assertDontSee('Website Health')
+            ->assertSee('Genel Bakış')
+            ->assertSee('SEO Yapılacaklar')
             ->assertDontSee('SEO Score')
-            ->assertDontSee('27 service pages have no self-referencing canonical')
             ->assertDontSee('Atlas Dental Website')
-            ->call('setTab', 'health')
-            ->assertSee('Technical health observations')
-            ->assertSee('No technical Website data collected yet')
-            ->assertDontSee('88% Healthy')
-            ->call('setTab', 'infrastructure')
-            ->assertSee('WordPress inside state')
-            ->call('refreshData')
-            ->call('runDiagnosis')
-            ->assertSet('tab', 'health');
+            ->call('setTab', 'saglik')
+            ->assertSet('tab', 'saglik');
 
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'technical'])
-            ->assertSet('tab', 'health');
-
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'search'])
-            ->assertSet('tab', 'search_console');
-
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'conversions'])
-            ->assertSet('tab', 'ga4_analysis');
-
-        foreach (['visibility' => 'search_console', 'performance' => 'ga4_analysis', 'operations' => 'overview'] as $retired => $target) {
-            Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => $retired])
+        foreach (['technical' => 'saglik', 'health' => 'saglik', 'infrastructure' => 'saglik', 'search' => 'analiz', 'conversions' => 'analiz', 'search_console' => 'analiz', 'operations' => 'genel', 'setup' => 'ayarlar'] as $legacy => $target) {
+            Livewire::test(WebsiteScreen::class, ['assetId' => (string) $asset->id, 'tab' => $legacy])
                 ->assertSet('tab', $target);
         }
-
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id])
-            ->assertSee(__('operator_website.tabs.health'))
-            ->assertDontSee(__('operator.website.tabs.operations'))
-            ->assertDontSee(__('operator.website.tabs.visibility'))
-            ->assertDontSee(__('operator.website.tabs.performance'))
-            ->assertDontSee('Organic Search')
-            ->call('refreshSeoIntelligence')
-            ->assertSet('tab', 'search_console');
     }
 
     public function test_overview_replaces_legacy_findings_and_recommendations_with_open_work(): void
@@ -127,11 +97,8 @@ class WebsiteOperatingWorkspaceTest extends TestCase
             'status' => Recommendation::STATUS_OPEN,
         ]);
 
-        // Legacy Finding / Recommendation rows stay in their own pages; the overview shows the Turkish
-        // "Açık işler" card that opens the alerts filtered to this asset.
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id])
-            ->assertSee('Açık işler')
-            ->assertSee(route('operator.alerts', ['asset' => $asset->id]), false)
+        // Legacy Finding / Recommendation rows stay in their own pages; the website screen does not show them.
+        Livewire::test(WebsiteScreen::class, ['assetId' => (string) $asset->id])
             ->assertDontSee('Northwind canonical fix')
             ->assertDontSee(__('operator_website.overview.open_findings'))
             ->assertDontSee(__('operator_website.overview.recommendations'))

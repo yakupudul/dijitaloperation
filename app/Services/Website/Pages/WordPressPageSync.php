@@ -100,10 +100,12 @@ final class WordPressPageSync
 
     /**
      * After a completed full inventory: pages of posts no longer published, and URL rows that do not come from
-     * WordPress, are removed.
+     * WordPress, are removed — unless the operator set a sitemap override (Ayarlar): then the sitemap keeps the extra
+     * URLs (SitemapPageSync removes those that leave it).
      */
     public function pruneAfterFullInventory(int $siteId): int
     {
+        $sitemapOverride = trim((string) DB::table('digital_assets')->where('id', $siteId)->value('sitemap_url')) !== '';
         $published = DB::table('website_cms_object_snapshot')->where('digital_asset_id', $siteId)
             ->where('status', 'publish')->whereNotIn('object_type', ['attachment', ...WebsiteDatasetExecutor::NON_PAGE_CMS_TYPES])
             ->pluck('object_id')->map(fn ($id): int => (int) $id)->all();
@@ -112,9 +114,9 @@ final class WordPressPageSync
             return 0;
         }
 
-        return Page::query()->where('website_asset_id', $siteId)
-            ->where(fn ($q) => $q->whereNull('wp_post_id')->orWhereNotIn('wp_post_id', $published))
-            ->delete();
+        return PageStore::deleteRows($siteId, Page::query()->where('website_asset_id', $siteId)
+            ->where(fn ($q) => $sitemapOverride ? $q->whereNotNull('wp_post_id')->whereNotIn('wp_post_id', $published)
+                : $q->whereNull('wp_post_id')->orWhereNotIn('wp_post_id', $published)));
     }
 
     /**

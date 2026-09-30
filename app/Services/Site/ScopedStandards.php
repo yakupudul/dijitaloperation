@@ -29,6 +29,9 @@ final class ScopedStandards
 
     public const array SCOPE_LABELS = ['url' => 'URL', 'brand' => 'marka', 'sector' => 'sektör', 'general' => 'genel'];
 
+    /** Previous versions kept per decision standard. */
+    public const int HISTORY_LIMIT = 20;
+
     public function __construct(
         private readonly SiteAi $ai,
         private readonly WebsiteStandardCatalog $catalog,
@@ -102,7 +105,7 @@ final class ScopedStandards
     }
 
     /**
-     * New version of a decision standard (the scope stays).
+     * New version of a decision standard (the scope stays); the previous versions are kept in its history.
      *
      * @param  array{title: string, rule: string, condition?: string, exceptions?: string, scope?: string}  $fields
      */
@@ -113,10 +116,18 @@ final class ScopedStandards
         if ($row === null || ! str_starts_with($id, WebsiteStandardCatalog::DECISION_PREFIX)) {
             throw ValidationException::withMessages(['standard' => 'Standart bulunamadı.']);
         }
-        $fields = $this->validated($fields + ['scope' => (string) $row->scope_type]);
+        $fields = $this->validated(['scope' => (string) $row->scope_type] + $fields);
+        $fields['scope'] = (string) $row->scope_type;
+        $previous = (array) json_decode((string) $row->custom_definition, true);
+        $history = array_values((array) ($previous['history'] ?? []));
+        array_unshift($history, [
+            'version' => (int) $row->version, 'title' => (string) ($previous['title'] ?? ''), 'rule' => (string) ($previous['rule'] ?? ''),
+            'condition' => (string) ($previous['condition'] ?? ''), 'exceptions' => (string) ($previous['exceptions'] ?? ''),
+            'at' => (string) ($row->updated_at ?? ''),
+        ]);
         $version = (int) $row->version + 1;
         DB::table('website_standard_settings')->where('standard_id', $id)->update([
-            'custom_definition' => json_encode($this->definition($id, $fields, $version), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+            'custom_definition' => json_encode($this->definition($id, $fields, $version) + ['history' => array_slice($history, 0, self::HISTORY_LIMIT)], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
             'version' => $version, 'updated_by' => $user->id, 'updated_at' => now(),
         ]);
 
