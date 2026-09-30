@@ -36,7 +36,7 @@ final class DiscoveryConfig
 
     public const int CONNECT_TIMEOUT_SECONDS = 5;
 
-    public const int TIMEOUT_SECONDS = 12;
+    public const int TIMEOUT_SECONDS = 20;
 
     public const int MAX_RESPONSE_BYTES = 1_500_000;
 

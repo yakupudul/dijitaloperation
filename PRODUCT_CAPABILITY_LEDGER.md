@@ -24,6 +24,14 @@
 - **Sektör uyumu:** hizmeti sorgunun sektöründen başka sektöre ait sorgular (sorgu sektörü × hizmet sektörü, sayı, örnekler); "Hizmetin sektörüne taşı" veya "Hizmeti kaldır" (atanmamış, kilitsiz, kümelerden çıkar). Taramanın önerdiği kaldırma sektör uyuşmazlığından ise satırda "sektör uyuşmuyor" (`reason = sector`).
 - **State:** CODED + PHPUnit (`QueryServiceMatcherTest`, `KeywordInsightsTest`, güncellenen `QueryPipelineTest`; `tests/Feature/Queries` 60 test), SQLite + PostgreSQL. Üretim UAT yok. **Operator after deploy:** `php artisan migrate --force` (`2026_11_08_090000_query_keyword_insights`), ardından bir tarama (mevcut kural atamalarındaki çakışmalar Silinecekler'e düşer).
 
+## 2026-11-09 — Web sitesi çekimini durdur, gerçek hata ve erişim testi
+
+- **Çekimi durdur:** Website › çekim ekranında çekim sürerken "Çekimi durdur" (onaylı). Yalnız o sitenin aktif çekimleri normal iptal yoluyla durur (kuyruktaki / işçinin tutmadığı adım hemen, çalışan adım güvenli noktasında); bekleyen WordPress yenilemesi serbest kalır, sitenin bekleme (backoff) durumu silinir; ardından yeniden başlatılabilir. `WebsiteCollectionStopper` (aynı mantığı `moxdop:website:reset-collection` de kullanır).
+- **Gerçek hata:** "Çekim hızı" satırı beklemede / yavaş modda son somut hatayı da yazar ("son hata: cURL error 28: … timed out", "HTTP 503"); vazgeçme mesajı da hatayı içerir.
+- **Zaman aşımı:** sayfa okuma süre sınırı 12 → 20 sn (önbelleksiz yavaş paylaşımlı hosting sayfaları).
+- **Erişim testi:** `php artisan moxdop:website:probe https://site/` sunucunun dış IP'si, DNS, 443 bağlantısı, MoxDOP okuyucusu ve tarayıcı gibi okuma; sonuca göre "güvenlik duvarı IP'yi engelliyor" / "kullanıcı ajanı engelli" / "okunabiliyor" der.
+- **State:** CODED + PHPUnit (`WebsiteResetCollectionCommandTest`), SQLite. Üretim UAT yok.
+
 ## 2026-11-08 — Nazik mod: küçük paylaşımlı hostingte site çekimi ve WordPress Connector 1.5.1
 
 - **Neden:** Connector 1.5.0 kurulu bir müşteri sitesi (paylaşımlı hosting) tekrar tekrar "Error establishing a database connection" verdi, kaynak kullanımı arttı. Kaynaklar: sayfa taraması adım başına 15 sayfayı paralel çekiyordu (website işçi hattı numprocs=2 ile ~30 eşzamanlı sayfa); WordPress anlık görüntüsü 100 yazıyı bloklarıyla işliyordu; eklenti her kayıtta loopback (`spawn_cron`) açıyor, her 5 dk boş outbox için de istek atıyor, her kayıtta `OFFSET 10000` sorgusu çalıştırıyordu.

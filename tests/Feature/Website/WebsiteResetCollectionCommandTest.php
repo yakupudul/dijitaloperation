@@ -3,6 +3,7 @@
 namespace Tests\Feature\Website;
 
 use App\Enums\Collection\CollectionRunStatus;
+use App\Livewire\Operator\Integrations\WebsiteIntegrationIndex;
 use App\Models\Brand;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
@@ -10,10 +11,13 @@ use App\Models\Collection\CollectionRun;
 use App\Models\CoreConnection;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Models\User;
+use App\Services\Collection\Providers\Website\WebsiteCrawlPoliteness;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -68,6 +72,41 @@ final class WebsiteResetCollectionCommandTest extends TestCase
     }
 
     #[Test]
+    public function the_stop_button_cancels_only_this_sites_collection_so_it_can_be_restarted(): void
+    {
+        $run = $this->collectionRun('WEBSITE_DIRECT', 'running');
+        $otherSite = DigitalAsset::factory()->create(['brand_id' => $this->asset->brand_id, 'type' => 'website', 'domain' => 'baska.example']);
+        $otherRun = CollectionRun::factory()->create(['digital_asset_id' => $otherSite->id, 'brand_id' => $otherSite->brand_id, 'status' => CollectionRunStatus::Queued]);
+        CollectionDatasetRun::factory()->create(['collection_run_id' => $otherRun->id, 'provider_or_source' => 'WEBSITE_DIRECT', 'status' => CollectionRunStatus::Queued]);
+        $politeness = app(WebsiteCrawlPoliteness::class);
+        $politeness->backOff('klinik.example', 'timeout', 6, 'cURL error 28: Operation timed out');
+
+        Livewire::actingAs(User::factory()->create())->test(WebsiteIntegrationIndex::class, ['assetId' => $this->asset->id])
+            ->assertSeeHtml('data-collection-stop')
+            ->call('stopCollection', $this->asset->id)
+            ->assertSet('messageTone', 'success')
+            ->assertDontSeeHtml('data-collection-stop');
+
+        $this->assertSame(CollectionRunStatus::Cancelled, $run->fresh()->status);
+        $this->assertSame(CollectionRunStatus::Cancelled, $run->datasetRuns()->sole()->status);
+        $this->assertSame(CollectionRunStatus::Queued, $otherRun->fresh()->status, 'other sites keep collecting');
+        $this->assertSame('normal', $politeness->view('klinik.example')['mode'], 'a restart starts without the old wait');
+    }
+
+    #[Test]
+    public function the_crawl_pace_line_names_the_real_fetch_error(): void
+    {
+        $politeness = app(WebsiteCrawlPoliteness::class);
+        $this->assertSame('cURL error 28: Operation timed out after 20001 ms', $politeness->distressDetail([
+            'https://klinik.example/' => ['status_code' => 0, 'error' => 'timeout_or_connection: cURL error 28: Operation timed out after 20001 ms'],
+        ]));
+        $this->assertSame('HTTP 503', $politeness->distressDetail(['https://klinik.example/' => ['status_code' => 503, 'error' => null]]));
+
+        $politeness->backOff('klinik.example', 'timeout', 6, 'cURL error 28: Operation timed out after 20001 ms');
+        $this->assertSame('cURL error 28: Operation timed out after 20001 ms', $politeness->view('klinik.example')['detail']);
+    }
+
+    #[Test]
     public function it_keeps_only_the_latest_row_per_page_and_deletes_link_edges(): void
     {
         foreach (['2026-08-01 00:00:00', '2026-08-02 00:00:00', '2026-08-03 00:00:00'] as $observedAt) {
@@ -113,6 +152,7 @@ final class WebsiteResetCollectionCommandTest extends TestCase
             'digital_asset_id' => $this->asset->id,
             'brand_id' => $this->asset->brand_id,
             'status' => $status === 'queued' ? CollectionRunStatus::Queued : CollectionRunStatus::Running,
+            'request_context' => ['provider_sources' => [$provider]],
         ]);
         $resourceRun = CollectionResourceRun::factory()->create([
             'collection_run_id' => $run->id,

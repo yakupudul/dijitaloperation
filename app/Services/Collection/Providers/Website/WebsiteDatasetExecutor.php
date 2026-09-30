@@ -363,13 +363,14 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         $fetches = $this->fetcher->fetchMany($batch, DiscoveryConfig::MAX_COLLECTION_RESPONSE_BYTES, $this->politeness->concurrency($host, $crawlDelay, $hitRatio), $validators);
         $distress = $this->politeness->distress($fetches);
         if ($distress !== null) {
-            $backoff = $this->politeness->backOff($host, $distress, count($batch));
+            $detail = $this->politeness->distressDetail($fetches);
+            $backoff = $this->politeness->backOff($host, $distress, count($batch), $detail);
             if ($backoff['give_up']) {
                 $this->politeness->forget($host);
 
                 return DatasetExecutionResult::failed(
                     CollectionErrorCategory::Provider5xx,
-                    'Site uzun süredir yanıt veremiyor ('.self::distressLabel($distress).'); çekim durduruldu, site düzelince yeniden başlatın.',
+                    'Site uzun süredir yanıt veremiyor ('.self::distressLabel($distress).($detail !== null ? ': '.$detail : '').'); çekim durduruldu, site düzelince yeniden başlatın.',
                     'WEBSITE_HOST_STRUGGLING',
                 );
             }

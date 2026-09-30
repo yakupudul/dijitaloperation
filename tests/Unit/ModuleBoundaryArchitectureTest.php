@@ -38,6 +38,10 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Services/Collection/Providers/Website/WebsiteCrawlPoliteness.php',
         'app/Services/Collection/Providers/Website/WebsiteEligibilityGuard.php',
         'app/Services/Collection/Providers/Website/WebsiteNormalizer.php',
+        // Stop button: resolves the site host (WebsiteDomainTarget) to clear its crawl wait.
+        'app/Services/Collection/Website/WebsiteCollectionStopper.php',
+        // Server-side reachability probe through the module's public HTTP fetcher.
+        'app/Console/Commands/WebsiteProbeCommand.php',
         'app/Services/Collection/Providers/DataForSeo/DataForSeoDatasetExecutor.php',
         'app/Services/Collection/Providers/DataForSeo/DataForSeoEligibilityGuard.php',
         // Phase C.1: Core collected-facts adapters reuse existing Website Document Head evaluator.

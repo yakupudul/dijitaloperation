@@ -2,17 +2,11 @@
 
 namespace App\Console\Commands;
 
-use App\Enums\Collection\CollectionRunStatus;
-use App\Models\Collection\CollectionDatasetRun;
-use App\Models\Collection\CollectionRun;
-use App\Services\Collection\CancellationService;
-use App\Services\Collection\CollectionStateMachine;
-use App\Services\Collection\CollectionStatusAggregator;
+use App\Services\Collection\Website\WebsiteCollectionStopper;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
-use InvalidArgumentException;
 use Throwable;
 
 /**
@@ -29,7 +23,7 @@ use Throwable;
 final class WebsiteResetCollectionCommand extends Command
 {
     /** Dataset providers of a website collection run. */
-    public const WEBSITE_PROVIDERS = ['WEBSITE_DIRECT', 'DOMAIN_DNS_TLS', 'PAGESPEED_TECHNICAL', 'WORDPRESS_SITE_CONNECTOR'];
+    public const WEBSITE_PROVIDERS = WebsiteCollectionStopper::WEBSITE_PROVIDERS;
 
     /** table => columns that identify one page state (besides digital_asset_id). */
     private const SNAPSHOT_TABLES = [
@@ -42,21 +36,19 @@ final class WebsiteResetCollectionCommand extends Command
         'website_crawl_issue_snapshot' => ['url', 'issue_code'],
     ];
 
-    private const ACTIVE = ['queued', 'running', 'retrying', 'cancellation_requested'];
-
     protected $signature = 'moxdop:website:reset-collection
         {--force : Gerçekten uygula (yoksa yalnız ne yapılacağını yazar)}
         {--chunk=20000 : Bir silme adımındaki kimlik aralığı}';
 
     protected $description = 'Aktif web sitesi çekimlerini iptal eder, bağlantı kenarlarını siler ve sayfa tablolarında yalnız son kaydı bırakır.';
 
-    public function handle(CancellationService $cancellation, CollectionStateMachine $stateMachine, CollectionStatusAggregator $aggregator): int
+    public function handle(WebsiteCollectionStopper $stopper): int
     {
         $force = (bool) $this->option('force');
         $chunk = max(1000, (int) $this->option('chunk'));
         $this->info($force ? 'Web sitesi veri çekimi sıfırlanıyor.' : 'Deneme: hiçbir şey değişmez; uygulamak için --force verin.');
 
-        $this->cancelActiveRuns($force, $cancellation, $stateMachine, $aggregator);
+        $this->cancelActiveRuns($force, $stopper);
         $this->purgeLinkEdges($force);
         foreach (self::SNAPSHOT_TABLES as $table => $keyColumns) {
             $this->keepLatestRows($table, $keyColumns, $chunk, $force);
@@ -69,49 +61,16 @@ final class WebsiteResetCollectionCommand extends Command
         return self::SUCCESS;
     }
 
-    private function cancelActiveRuns(bool $force, CancellationService $cancellation, CollectionStateMachine $stateMachine, CollectionStatusAggregator $aggregator): void
+    private function cancelActiveRuns(bool $force, WebsiteCollectionStopper $stopper): void
     {
-        $runs = CollectionRun::query()->whereIn('status', self::ACTIVE)
-            ->whereHas('datasetRuns', fn ($query) => $query->whereIn('provider_or_source', self::WEBSITE_PROVIDERS))
-            ->orderBy('id')->get();
+        $runs = $stopper->activeRuns();
         $this->line(sprintf('Aktif web sitesi çekimi: %d%s', $runs->count(), $runs->isEmpty() ? '' : ' (#'.$runs->pluck('id')->implode(', #').')'));
         if (! $force || $runs->isEmpty()) {
             return;
         }
 
-        $stopped = 0;
-        $waiting = 0;
-        foreach ($runs as $run) {
-            try {
-                $run = $cancellation->requestCancellation($run);
-            } catch (InvalidArgumentException) {
-                continue;
-            }
-            // A dataset marked running that no worker holds right now (between steps, or its worker died) is
-            // cancelled here; one a worker is executing stops at its next safe boundary.
-            foreach ($run->datasetRuns()->whereIn('status', ['running', 'cancellation_requested'])->get() as $datasetRun) {
-                /** @var CollectionDatasetRun $datasetRun */
-                $held = $datasetRun->dispatch_lock_token !== null && $datasetRun->dispatch_locked_at?->greaterThan(now()->subMinutes(15));
-                if ($held) {
-                    $waiting++;
-
-                    continue;
-                }
-                $stateMachine->transition($datasetRun, CollectionRunStatus::Cancelled);
-                $aggregator->refreshFromDataset($datasetRun);
-            }
-            $stopped++;
-        }
-
-        // The WordPress refresh that waited for these runs may start right away.
-        if (Schema::hasTable('website_connector_delivery')) {
-            DB::table('website_connector_delivery')->whereIn('collection_run_id', $runs->pluck('id'))
-                ->update(['collection_run_id' => null, 'next_reconcile_at' => null, 'last_error' => null]);
-            DB::table('website_connector_delivery')->whereNull('collection_run_id')->where('next_reconcile_at', '>', now())
-                ->update(['next_reconcile_at' => null]);
-        }
-
-        $this->line(sprintf('  iptal edildi: %d çekim%s', $stopped, $waiting > 0 ? sprintf(' (%d adım şu an çalışıyor; bitince durur)', $waiting) : ''));
+        $result = $stopper->stop($runs);
+        $this->line(sprintf('  iptal edildi: %d çekim%s', $result['stopped'], $result['waiting'] > 0 ? sprintf(' (%d adım şu an çalışıyor; bitince durur)', $result['waiting']) : ''));
     }
 
     private function purgeLinkEdges(bool $force): void

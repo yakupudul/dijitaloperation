@@ -15,6 +15,7 @@ use App\Services\Collection\Providers\Website\WebsiteCrawlState;
 use App\Services\Collection\Providers\Website\WebsiteDatasetExecutor;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
+use App\Services\Collection\Website\WebsiteCollectionStopper;
 use App\Services\DataPool\DataPoolStorageRegistry;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Services\Integrations\WordPress\WordPressEventReconciliation;
@@ -237,6 +238,27 @@ final class WebsiteIntegrationIndex extends Component
             $this->messageTone = 'error';
             $this->message = $this->text('Web sitesi veri çekimi başlatılamadı.', 'Website collection could not be started.');
         }
+    }
+
+    /** "Çekimi durdur": cancels the site's active collection so it can be started again. */
+    public function stopCollection(int $assetId, WebsiteCollectionStopper $stopper): void
+    {
+        abort_unless(auth()->user() instanceof User, 403);
+        DigitalAsset::query()->where('type', 'website')->findOrFail($assetId);
+        $this->selectedAssetId = $assetId;
+
+        $runs = $stopper->activeRuns($assetId);
+        if ($runs->isEmpty()) {
+            $this->messageTone = 'info';
+            $this->message = $this->text('Bu web sitesi için süren bir çekim yok.', 'No collection is active for this website.');
+
+            return;
+        }
+        $result = $stopper->stop($runs);
+        $this->messageTone = 'success';
+        $this->message = $result['waiting'] > 0
+            ? $this->text('Çekim durduruluyor; o an çalışan adım bitince tamamen durur, ardından yeniden başlatabilirsiniz.', 'Stopping; the step that is running now finishes first, then you can start again.')
+            : $this->text('Çekim durduruldu. Yeniden başlatabilirsiniz.', 'Collection stopped. You can start it again.');
     }
 
     public function setAutomation(int $assetId, string $mode): void
@@ -1741,20 +1763,21 @@ final class WebsiteIntegrationIndex extends Component
         $concurrency = (int) ($politeness['concurrency'] ?? config('moxdop-website-intelligence.crawl.concurrency', 2));
         $reason = is_string($politeness['reason'] ?? null) ? WebsiteDatasetExecutor::distressLabel($politeness['reason']) : null;
         $next = filled($politeness['next_attempt_at'] ?? null) ? Carbon::parse((string) $politeness['next_attempt_at']) : null;
+        $detail = is_string($politeness['detail'] ?? null) && $politeness['detail'] !== '' ? ' · '.$this->text('son hata', 'last error').': '.$politeness['detail'] : '';
         if (($politeness['mode'] ?? null) === 'backoff' && $next !== null && $next->isFuture()) {
             $minutes = max(1, (int) ceil(now()->diffInSeconds($next, true) / 60));
 
             return $this->text(
                 'Site yavaş yanıt veriyor'.($reason ? ' ('.$reason.')' : '').'; çekim '.$minutes.' dk sonra ('.$next->copy()->setTimezone(config('app.timezone'))->format('H:i').') yavaşça sürecek · aynı anda 1 sayfa',
                 'The site is responding slowly'.($reason ? ' ('.$reason.')' : '').'; collection continues gently in '.$minutes.' min ('.$next->copy()->setTimezone(config('app.timezone'))->format('H:i').') · 1 page at a time',
-            );
+            ).$detail;
         }
         if (($politeness['mode'] ?? null) === 'slow') {
             $why = (int) ($politeness['crawl_delay'] ?? 0) > 0
                 ? $this->text('robots.txt bekleme süresi '.(int) $politeness['crawl_delay'].' sn', 'robots.txt crawl delay '.(int) $politeness['crawl_delay'].' s')
                 : $this->text('site yakın zamanda zorlandı'.($reason ? ': '.$reason : ''), 'the site struggled recently'.($reason ? ': '.$reason : ''));
 
-            return $this->text('Nazik mod: aynı anda '.$concurrency.' sayfa · '.$why, 'Gentle mode: '.$concurrency.' page(s) at a time · '.$why);
+            return $this->text('Nazik mod: aynı anda '.$concurrency.' sayfa · '.$why, 'Gentle mode: '.$concurrency.' page(s) at a time · '.$why).$detail;
         }
 
         return $this->text(

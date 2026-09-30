@@ -138,25 +138,47 @@ final class WebsiteCrawlPoliteness
     }
 
     /**
+     * The first concrete failure of a batch, for the operator ("cURL error 28: … timed out", "HTTP 503"), so a blocked
+     * server IP (every request timing out) is told apart from a slow site.
+     *
+     * @param  array<string, array<string, mixed>>  $fetches
+     */
+    public function distressDetail(array $fetches): ?string
+    {
+        foreach ($fetches as $fetch) {
+            $error = trim((string) ($fetch['error'] ?? ''));
+            $status = (int) ($fetch['status_code'] ?? 0);
+            if ($error !== '') {
+                return mb_substr((string) preg_replace('/^(timeout_or_connection|fetch_error): /', '', $error), 0, 240);
+            }
+            if ($status >= 429) {
+                return 'HTTP '.$status;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Records a struggling host: slow mode and the next wait (5 → 15 → 60 minutes, then 60 again).
      *
      * @return array{level: int, until: int, wait_seconds: int, reason: string, give_up: bool, skip_page: bool}
      */
-    public function backOff(string $host, string $reason, int $batchSize): array
+    public function backOff(string $host, string $reason, int $batchSize, ?string $detail = null): array
     {
         $state = $this->state($host);
         $steps = $this->backoffMinutes();
         $level = (int) ($state['level'] ?? 0);
         // A page-level problem (one slow or broken page) that survived every wait is recorded and skipped.
         if ($level >= count($steps) && $batchSize <= 2 && ! in_array($reason, self::HOST_REASONS, true)) {
-            $this->put($host, ['level' => 0, 'until' => 0, 'reason' => $reason, 'slow_until' => now()->getTimestamp() + self::SLOW_MODE_SECONDS]);
+            $this->put($host, ['level' => 0, 'until' => 0, 'reason' => $reason, 'detail' => $detail, 'slow_until' => now()->getTimestamp() + self::SLOW_MODE_SECONDS]);
 
             return ['level' => $level, 'until' => 0, 'wait_seconds' => 0, 'reason' => $reason, 'give_up' => false, 'skip_page' => true];
         }
         $level++;
         $minutes = $steps[min($level, count($steps)) - 1];
         $until = now()->getTimestamp() + $minutes * 60;
-        $this->put($host, ['level' => $level, 'until' => $until, 'reason' => $reason, 'slow_until' => now()->getTimestamp() + self::SLOW_MODE_SECONDS]);
+        $this->put($host, ['level' => $level, 'until' => $until, 'reason' => $reason, 'detail' => $detail, 'slow_until' => now()->getTimestamp() + self::SLOW_MODE_SECONDS]);
 
         return [
             'level' => $level,
@@ -186,7 +208,7 @@ final class WebsiteCrawlPoliteness
     /**
      * What the collection screen shows.
      *
-     * @return array{mode: string, concurrency: int, reason: ?string, next_attempt_at: ?string, crawl_delay: ?int, cache_hit_ratio: ?float}
+     * @return array{mode: string, concurrency: int, reason: ?string, detail: ?string, next_attempt_at: ?string, crawl_delay: ?int, cache_hit_ratio: ?float}
      */
     public function view(string $host, ?int $crawlDelay = null, ?float $cacheHitRatio = null): array
     {
@@ -198,6 +220,7 @@ final class WebsiteCrawlPoliteness
             'mode' => $backingOff ? 'backoff' : ($this->slow($host) || ($crawlDelay ?? 0) > 0 ? 'slow' : 'normal'),
             'concurrency' => $backingOff ? 1 : $this->concurrency($host, $crawlDelay, $cacheHitRatio),
             'reason' => $backingOff || $this->slow($host) ? ($state['reason'] ?? null) : null,
+            'detail' => $backingOff || $this->slow($host) ? ($state['detail'] ?? null) : null,
             'next_attempt_at' => $backingOff ? gmdate('c', $until) : null,
             'crawl_delay' => $crawlDelay,
             'cache_hit_ratio' => $cacheHitRatio,

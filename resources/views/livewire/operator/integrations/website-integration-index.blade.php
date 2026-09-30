@@ -170,6 +170,12 @@
                 <span wire:loading.remove wire:target="collectNow">{{ ($liveConsole['active'] ?? false) ? ($tr ? 'Veri çekimi sürüyor' : 'Collection in progress') : ($tr ? 'Veri çekimini başlat' : 'Start collection') }}</span>
                 <span wire:loading wire:target="collectNow">{{ $tr ? 'Başlatılıyor…' : 'Starting…' }}</span>
             </button>
+            @if (($liveConsole['active'] ?? false) === true)
+                <button type="button" data-collection-stop wire:click="stopCollection({{ $selectedRow['asset']->id }})" wire:confirm="{{ $tr ? 'Süren çekim durdurulsun mu?' : 'Stop the running collection?' }}" wire:loading.attr="disabled" class="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-error-600 ring-1 ring-inset ring-error-300 hover:bg-error-50 disabled:opacity-50 dark:text-error-400 dark:ring-error-500/40">
+                    <span wire:loading.remove wire:target="stopCollection">{{ $tr ? 'Çekimi durdur' : 'Stop collection' }}</span>
+                    <span wire:loading wire:target="stopCollection">{{ $tr ? 'Durduruluyor…' : 'Stopping…' }}</span>
+                </button>
+            @endif
                 <p class="w-full text-xs text-gray-500 dark:text-gray-400">{{ $tr ? 'Genel çekim: önce WordPress envanteri, ardından sayfaların HTML’i (yalnız değişenler) ve TLS. Tam yeniden okuma tüm sayfaları yeniden okur (nadiren gerekir; WordPress bağlı sitelerde ayda bir gece kendiliğinden yapılır). Hız ölçümü için PageSpeed’i seçin.' : 'General collection: HTML (changed pages only), TLS and connected WordPress. Full re-read reads every page (rarely needed; runs by itself once a month at night on WordPress-connected sites). Select PageSpeed for speed measurements.' }}</p>
             </div>
         </div>

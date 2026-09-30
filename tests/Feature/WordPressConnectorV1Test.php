@@ -50,6 +50,8 @@ final class WordPressConnectorV1Test extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Daytime in Europe/Istanbul: outside the night window of monthly full re-reads.
+        $this->travelTo(now('Europe/Istanbul')->setTime(14, 0)->utc());
         $this->seed(RoleAndPermissionSeeder::class);
         $this->admin = User::factory()->create();
         $this->admin->assignRole(Roles::ADMIN);
