@@ -5,6 +5,7 @@ namespace Tests\Feature\Queries;
 use App\Enums\Collection\CollectionRunStatus;
 use App\Events\Collection\CollectionRunCompleted;
 use App\Jobs\Queries\AggregateQuerySourcesJob;
+use App\Listeners\Collection\AggregateQuerySourcesAfterCollection;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
@@ -127,6 +128,29 @@ final class QuerySourceAggregatorTest extends TestCase
         Queue::assertPushed(AggregateQuerySourcesJob::class, 1);
         Queue::assertPushed(AggregateQuerySourcesJob::class, fn (AggregateQuerySourcesJob $job): bool => $job->externalResourceId === $gsc->id
             && $job->from === '2026-06-10' && $job->to === '2026-08-02');
+    }
+
+    public function test_business_profile_keywords_feed_query_sources_and_the_listener_is_registered_once(): void
+    {
+        $listeners = collect(app('events')->getRawListeners()[CollectionRunCompleted::class] ?? [])
+            ->filter(fn ($listener): bool => $listener === AggregateQuerySourcesAfterCollection::class);
+        $this->assertCount(1, $listeners, 'explicit registration only, no auto-discovery duplicate');
+        $this->assertSame(['product_brands'], array_keys((array) config('moxdop-queries')));
+
+        Queue::fake();
+        $gbp = CoreExternalResource::factory()->create(['resource_type' => 'google_business_profile', 'external_id' => 'locations/123']);
+        $run = CollectionRun::factory()->create(['status' => CollectionRunStatus::Completed]);
+        $resourceRun = CollectionResourceRun::factory()->create(['collection_run_id' => $run->id, 'provider_or_source' => 'GOOGLE_BUSINESS_PROFILE',
+            'external_resource_id' => $gbp->id, 'digital_asset_id' => null, 'status' => CollectionRunStatus::Completed]);
+        CollectionDatasetRun::factory()->create(['collection_run_id' => $run->id, 'collection_resource_run_id' => $resourceRun->id,
+            'provider_or_source' => 'GOOGLE_BUSINESS_PROFILE', 'dataset_contract_id' => 'gbp_search_keywords_monthly', 'request_family_id' => 'GBP_SEARCH_KEYWORDS',
+            'status' => CollectionRunStatus::Completed, 'metadata' => ['date_range' => ['start' => '2026-07-01', 'end' => '2026-08-31']]]);
+
+        CollectionRunCompleted::dispatch($run->fresh());
+
+        Queue::assertPushed(AggregateQuerySourcesJob::class, 1);
+        Queue::assertPushed(AggregateQuerySourcesJob::class, fn (AggregateQuerySourcesJob $job): bool => $job->externalResourceId === $gbp->id
+            && $job->from === '2026-07-01' && $job->to === '2026-08-31');
     }
 
     public function test_diagnose_reports_query_sources_and_every_discovered_account(): void

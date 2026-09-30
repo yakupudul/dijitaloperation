@@ -113,7 +113,7 @@ final class QueryRuleProposer
     }
 
     /**
-     * Saves the ticked items (indexes into the proposal), then reprocesses all queries.
+     * Saves the ticked items (indexes into the proposal), then reprocesses all queries (only when something was saved).
      *
      * @param  array<string, mixed>  $proposal
      * @param  list<int>  $termIndexes
@@ -147,7 +147,9 @@ final class QueryRuleProposer
                 // taken meanwhile (same sector) — skipped
             }
         }
-        ProcessQueriesJob::dispatch();
+        if ($saved['terms'] + $saved['keywords'] > 0) {
+            ProcessQueriesJob::dispatch();
+        }
 
         return $saved;
     }

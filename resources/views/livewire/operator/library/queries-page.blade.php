@@ -42,6 +42,7 @@
                 @foreach ($clusterOptions as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
             </select>
             <input type="search" wire:model.live.debounce.400ms="search" placeholder="Ara" aria-label="Ara" class="{{ $input }} w-48">
+            <label class="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300"><input type="checkbox" wire:model.live="hidden" data-hidden-filter> Gizlenenler</label>
         @endif
         @if ($tab === 'queries' || $tab === 'clusters')
             <button type="button" wire:click="clusterService" @disabled(! ctype_digit($service)) class="{{ $btn }} ml-auto" title="Hizmet seçin">AI ile kümele</button>
@@ -61,8 +62,12 @@
                     @foreach ($services as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
                 </select>
                 <button type="button" wire:click="assignSelected" @disabled($selected === []) class="{{ $ghost }}">Hizmete ata</button>
-                <button type="button" wire:click="hideSelected" wire:confirm="Seçili sorgular gizlensin mi?" @disabled($selected === []) class="{{ $ghost }}">Sil</button>
-                <button type="button" wire:click="proposeRules" @disabled($selected === []) class="{{ $btn }}">AI ile kural üret</button>
+                @if ($hidden)
+                    <button type="button" wire:click="unhideSelected" @disabled($selected === []) class="{{ $ghost }}">Geri al</button>
+                @else
+                    <button type="button" wire:click="hideSelected" wire:confirm="Seçili sorgular gizlensin mi?" @disabled($selected === []) class="{{ $ghost }}">Sil</button>
+                @endif
+                <button type="button" wire:click="proposeRules" @disabled($selected === []) class="{{ $btn }}">AI ile filtre kural üret</button>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs">
@@ -131,29 +136,70 @@
         </section>
 
         @if ($openCluster)
-            <aside class="fixed inset-y-0 right-0 z-40 w-full max-w-xl overflow-y-auto bg-white p-4 shadow-xl ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-cluster-drawer role="dialog" aria-label="Küme">
+            @php $members = $openCluster->clusterQueries->sortByDesc(fn ($link) => $link->searchQuery?->impressions ?? 0); $reps = array_map('intval', (array) $openCluster->representative_query_ids); @endphp
+            <aside class="fixed inset-y-0 right-0 z-40 w-full max-w-xl space-y-3 overflow-y-auto bg-white p-4 shadow-xl ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-cluster-drawer role="dialog" aria-label="Küme">
                 <div class="flex items-center gap-2">
-                    <input type="text" wire:model="clusterName" aria-label="Küme adı" class="{{ $input }} flex-1">
-                    <button type="button" wire:click="renameCluster" class="{{ $ghost }}">Kaydet</button>
+                    <input type="text" wire:model="clusterForm.name" aria-label="Küme adı" class="{{ $input }} flex-1">
+                    <span class="text-xs text-gray-500">sürüm {{ $openCluster->version }}</span>
                     <button type="button" wire:click="closeCluster" aria-label="Kapat" class="px-2 text-lg">×</button>
                 </div>
-                @error('clusterName')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
-                <p class="mt-2 text-xs text-gray-500">
-                    {{ \App\Models\Cluster::INTENT_LABELS[$openCluster->intent] ?? $openCluster->intent }} · {{ \App\Models\Cluster::PAGE_TYPE_LABELS[$openCluster->page_type] ?? $openCluster->page_type }}
-                    · ana sorgu: {{ $openCluster->mainQuery?->text ?? '—' }}
-                </p>
-                @if ($openCluster->reasoning)<p class="mt-1 text-xs text-gray-600 dark:text-gray-400">{{ $openCluster->reasoning }}</p>@endif
-                @if ($openCluster->subtopics)<p class="mt-1 text-xs"><span class="text-gray-500">Alt konular:</span> {{ implode(' · ', $openCluster->subtopics) }}</p>@endif
-                <div class="mt-3 flex flex-wrap gap-2">
+                @error('clusterForm.name')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+
+                @if ($affectedBrands->isNotEmpty())
+                    <label class="flex items-start gap-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-200" data-shared-confirm>
+                        <input type="checkbox" wire:model="confirmShared">
+                        <span>Ortak kütüphaneyi düzenle · etkilenen markalar: {{ $affectedBrands->pluck('name')->implode(', ') }}</span>
+                    </label>
+                    @error('confirmShared')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+                @endif
+
+                <div class="grid grid-cols-2 gap-2 text-xs" data-cluster-form>
+                    <label>Niyet
+                        <select wire:model="clusterForm.intent" class="{{ $input }} mt-1 w-full py-1 text-xs">
+                            @foreach (\App\Models\Cluster::INTENT_LABELS as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
+                        </select>
+                    </label>
+                    <label>Sayfa tipi
+                        <select wire:model="clusterForm.page_type" class="{{ $input }} mt-1 w-full py-1 text-xs">
+                            @foreach (\App\Models\Cluster::PAGE_TYPE_LABELS as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
+                        </select>
+                    </label>
+                    <label class="col-span-2">Kullanıcı ihtiyacı
+                        <input type="text" wire:model="clusterForm.user_need" class="{{ $input }} mt-1 w-full py-1 text-xs">
+                    </label>
+                    <label>Ana sorgu
+                        <select wire:model="clusterForm.main_query_id" class="{{ $input }} mt-1 w-full py-1 text-xs">
+                            <option value="">—</option>
+                            @foreach ($members as $link)<option value="{{ $link->query_id }}">{{ $link->searchQuery?->text }}</option>@endforeach
+                        </select>
+                    </label>
+                    <label>Temsil sorguları (en çok 3)
+                        <select wire:model="clusterForm.representative_query_ids" multiple class="{{ $input }} mt-1 w-full py-1 text-xs">
+                            @foreach ($members as $link)<option value="{{ $link->query_id }}">{{ $link->searchQuery?->text }}</option>@endforeach
+                        </select>
+                    </label>
+                    <label>Alt konular (satır başına bir)
+                        <textarea wire:model="clusterForm.subtopics" rows="3" class="{{ $input }} mt-1 w-full py-1 text-xs"></textarea>
+                    </label>
+                    <label>Dahil edilmeyecekler (satır başına bir)
+                        <textarea wire:model="clusterForm.exclusions" rows="3" class="{{ $input }} mt-1 w-full py-1 text-xs"></textarea>
+                    </label>
+                </div>
+                @foreach (['clusterForm.intent', 'clusterForm.page_type', 'clusterForm.user_need', 'clusterForm.main_query_id', 'clusterForm.representative_query_ids'] as $field)
+                    @error($field)<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+                @endforeach
+                @if ($openCluster->reasoning)<p class="text-xs text-gray-600 dark:text-gray-400">{{ $openCluster->reasoning }}</p>@endif
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" wire:click="saveCluster" class="{{ $btn }}">Kaydet</button>
                     @unless ($openCluster->approved)<button type="button" wire:click="approveCluster" class="{{ $btn }}">Onayla</button>@endunless
                     <button type="button" wire:click="deleteCluster" wire:confirm="Küme silinsin mi?" class="{{ $ghost }}">Sil</button>
                 </div>
 
-                <ul class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
-                    @foreach ($openCluster->clusterQueries->sortByDesc(fn ($link) => $link->searchQuery?->impressions ?? 0) as $link)
+                <ul class="divide-y divide-gray-100 border-t border-gray-100 dark:divide-gray-800 dark:border-gray-800">
+                    @foreach ($members as $link)
                         <li wire:key="cq-{{ $link->id }}" class="flex items-center gap-2 py-1 text-xs">
                             <input type="checkbox" wire:model="selectedClusterQueries" value="{{ $link->query_id }}" aria-label="Seç">
-                            <span class="flex-1">{{ $link->searchQuery?->text }}@if ($link->query_id === $openCluster->main_query_id)<span class="ml-1 text-gray-500">ana</span>@endif</span>
+                            <span class="flex-1">{{ $link->searchQuery?->text }}@if ($link->query_id === $openCluster->main_query_id)<span class="ml-1 text-gray-500">ana</span>@elseif (in_array($link->query_id, $reps, true))<span class="ml-1 text-gray-500">temsil</span>@endif</span>
                             @if ($link->is_suggested)<span class="{{ $chip }} bg-purple-50 text-purple-700 dark:bg-purple-500/10">önerilen</span>
                             @else<span class="tabular-nums text-gray-500">{{ $num($link->searchQuery?->impressions ?? 0) }}</span>@endif
                         </li>
@@ -161,7 +207,13 @@
                 </ul>
                 @error('selectedClusterQueries')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
 
-                <div class="mt-3 space-y-2 border-t border-gray-100 pt-3 dark:border-gray-800">
+                <div class="space-y-2 border-t border-gray-100 pt-3 dark:border-gray-800">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <input type="text" wire:model="addQueryText" wire:keydown.enter="addQueryToCluster" placeholder="Sorgu" aria-label="Eklenecek sorgu" class="{{ $input }} py-1 text-xs">
+                        <button type="button" wire:click="addQueryToCluster" class="{{ $ghost }}">Sorgu ekle</button>
+                        <button type="button" wire:click="removeClusterQueries" class="{{ $ghost }}">Seçilenleri çıkar</button>
+                        @error('addQueryText')<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
+                    </div>
                     <div class="flex flex-wrap items-center gap-2">
                         <select wire:model="moveTarget" aria-label="Hedef küme" class="{{ $input }} py-1 text-xs">
                             <option value="">Hedef küme…</option>
@@ -181,6 +233,33 @@
                         <button type="button" wire:click="mergeClusters" class="{{ $ghost }}">Bu kümeye birleştir</button>
                     </div>
                 </div>
+
+                @if ($affectedBrands->isNotEmpty())
+                    <div class="space-y-2 border-t border-gray-100 pt-3 text-xs dark:border-gray-800" data-brand-edit>
+                        <h3 class="font-semibold">Bu markaya özel düzenle</h3>
+                        @foreach ($openCluster->brandPages as $bp)
+                            <p wire:key="bp-{{ $bp->id }}" class="text-gray-600 dark:text-gray-400">{{ $bp->brand?->name }}@if ($bp->language) ({{ $bp->language }})@endif · {{ $bp->page?->path ?? 'sayfa yok' }} · {{ $bp->target_query ?? '—' }}@if ($bp->excluded) · <span class="text-rose-600">hariç</span>@endif</p>
+                        @endforeach
+                        <div class="flex flex-wrap items-center gap-2">
+                            <select wire:model.live="brandId" aria-label="Marka" class="{{ $input }} py-1 text-xs">
+                                <option value="">Marka…</option>
+                                @foreach ($affectedBrands as $brand)<option value="{{ $brand->id }}">{{ $brand->name }}</option>@endforeach
+                            </select>
+                            @if ($brandId !== '')
+                                <input type="text" wire:model="brandTarget" placeholder="Hedef sorgu (boş = otomatik)" aria-label="Hedef sorgu" class="{{ $input }} py-1 text-xs">
+                                <select wire:model="brandPage" aria-label="Hedef URL" class="{{ $input }} max-w-[12rem] py-1 text-xs">
+                                    <option value="">URL değişmesin</option>
+                                    @foreach ($brandPages as $id => $path)<option value="{{ $id }}">{{ $path }}</option>@endforeach
+                                </select>
+                                <label><input type="checkbox" wire:model="brandExcluded"> bu markada hariç</label>
+                                <button type="button" wire:click="saveBrandCluster" class="{{ $ghost }}">Kaydet</button>
+                            @endif
+                        </div>
+                        @foreach (['brandId', 'brandPage', 'target'] as $field)
+                            @error($field)<p class="text-rose-600">{{ $message }}</p>@enderror
+                        @endforeach
+                    </div>
+                @endif
             </aside>
         @endif
     @endif
@@ -245,7 +324,7 @@
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" data-rules-modal role="dialog" aria-label="AI kural önerisi">
             <div class="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-4 dark:bg-gray-900">
                 <div class="flex items-center justify-between">
-                    <h2 class="font-semibold">AI kural önerisi</h2>
+                    <h2 class="font-semibold">AI filtre kural önerisi</h2>
                     <button type="button" wire:click="closeRules" aria-label="Kapat" class="px-2 text-lg">×</button>
                 </div>
                 @php $status = $proposal['status'] ?? 'running'; @endphp

@@ -5,9 +5,13 @@ namespace App\Livewire\Operator\Library;
 use App\Jobs\Queries\ClusterQueriesJob;
 use App\Jobs\Queries\ProcessQueriesJob;
 use App\Jobs\Queries\ProposeQueryRulesJob;
+use App\Models\Brand;
+use App\Models\BrandClusterPage;
 use App\Models\Cluster;
 use App\Models\ClusterQuery;
+use App\Models\DigitalAsset;
 use App\Models\FilterTerm;
+use App\Models\Page;
 use App\Models\Query;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
@@ -62,6 +66,10 @@ final class QueriesPage extends Component
     #[Url(as: 'q', history: true)]
     public string $search = '';
 
+    /** "Gizlenenler": the hidden queries (with "Geri al"). */
+    #[Url(history: true)]
+    public bool $hidden = false;
+
     /** @var list<int|string> */
     public array $selected = [];
 
@@ -80,7 +88,21 @@ final class QueriesPage extends Component
     #[Locked]
     public ?int $openClusterId = null;
 
-    public string $clusterName = '';
+    /** @var array{name?: string, intent?: string, page_type?: string, user_need?: string, main_query_id?: string, representative_query_ids?: list<int|string>, subtopics?: string, exclusions?: string} */
+    public array $clusterForm = [];
+
+    /** "Ortak kütüphaneyi düzenle": shared cluster edits that affect brands. */
+    public bool $confirmShared = false;
+
+    public string $addQueryText = '';
+
+    public string $brandId = '';
+
+    public string $brandTarget = '';
+
+    public string $brandPage = '';
+
+    public bool $brandExcluded = false;
 
     /** @var list<int|string> */
     public array $selectedClusterQueries = [];
@@ -101,7 +123,7 @@ final class QueriesPage extends Component
 
     public function updated(string $property): void
     {
-        if (in_array($property, ['sector', 'service', 'cluster', 'search', 'tab'], true)) {
+        if (in_array($property, ['sector', 'service', 'cluster', 'search', 'tab', 'hidden'], true)) {
             $this->resetPage();
             $this->selected = [];
         }
@@ -112,6 +134,12 @@ final class QueriesPage extends Component
         if ($property === 'service') {
             $this->cluster = '';
             $this->openClusterId = null;
+        }
+        if ($property === 'brandId' && $this->openClusterId !== null) {
+            $row = ctype_digit($this->brandId) ? BrandClusterPage::query()->where('brand_id', (int) $this->brandId)->where('cluster_id', $this->openClusterId)->orderBy('id')->first() : null;
+            $this->brandTarget = (string) ($row?->target_query_override ?? '');
+            $this->brandPage = (string) ($row?->page_id ?? '');
+            $this->brandExcluded = (bool) ($row?->excluded ?? false);
         }
     }
 
@@ -157,6 +185,18 @@ final class QueriesPage extends Component
         $this->selected = [];
     }
 
+    public function unhideSelected(): void
+    {
+        $this->actor();
+        $ids = $this->selectedIds();
+        if ($ids === []) {
+            return;
+        }
+        Query::query()->whereIn('id', $ids)->update(['hidden' => false, 'updated_at' => now()]);
+        $this->message = count($ids).' sorgu geri alındı.';
+        $this->selected = [];
+    }
+
     public function proposeRules(): void
     {
         $actor = $this->actor();
@@ -180,15 +220,19 @@ final class QueriesPage extends Component
         if (($proposal['status'] ?? null) !== 'ready') {
             return;
         }
-        $saved = $proposer->approve(
-            $proposal,
-            array_map('intval', array_keys(array_filter($this->pickTerms))),
-            array_map('intval', array_keys(array_filter($this->pickKeywords))),
-            $actor,
-        );
+        $terms = array_map('intval', array_keys(array_filter($this->pickTerms)));
+        $keywords = array_map('intval', array_keys(array_filter($this->pickKeywords)));
+        if ($terms === [] && $keywords === []) {
+            $this->message = 'Hiçbir öneri seçilmedi.';
+
+            return;
+        }
+        $saved = $proposer->approve($proposal, $terms, $keywords, $actor);
         QueryRuleProposer::discard((int) $actor->id);
         $this->rulesOpen = false;
-        $this->message = sprintf('%d filtre terimi · %d eşleme kelimesi kaydedildi · sorgular yeniden işleniyor.', $saved['terms'], $saved['keywords']);
+        $this->message = $saved['terms'] + $saved['keywords'] > 0
+            ? sprintf('%d filtre terimi · %d eşleme kelimesi kaydedildi · sorgular yeniden işleniyor.', $saved['terms'], $saved['keywords'])
+            : 'Seçilen öneriler zaten kayıtlı · yeniden işleme yok.';
     }
 
     public function closeRules(): void
@@ -216,8 +260,8 @@ final class QueriesPage extends Component
     {
         $cluster = Cluster::query()->findOrFail($id);
         $this->openClusterId = $cluster->id;
-        $this->clusterName = (string) $cluster->name;
-        $this->reset(['selectedClusterQueries', 'moveTarget', 'splitName', 'mergeIds']);
+        $this->fillClusterForm($cluster);
+        $this->reset(['selectedClusterQueries', 'moveTarget', 'splitName', 'mergeIds', 'confirmShared', 'addQueryText', 'brandId', 'brandTarget', 'brandPage', 'brandExcluded']);
         $this->resetValidation();
     }
 
@@ -226,18 +270,41 @@ final class QueriesPage extends Component
         $this->openClusterId = null;
     }
 
-    public function renameCluster(ClusterEditor $editor): void
+    public function saveCluster(ClusterEditor $editor): void
     {
         $this->actor();
-        $editor->rename($this->openedCluster(), $this->clusterName);
-        $this->message = 'Küme adı kaydedildi.';
+        $form = $this->clusterForm;
+        $form['representative_query_ids'] = array_values((array) ($form['representative_query_ids'] ?? []));
+        if (($form['main_query_id'] ?? '') === '') {
+            unset($form['main_query_id']);
+        }
+        $this->fillClusterForm($editor->update($this->openedCluster(), $form, $this->confirmShared));
+        $this->message = 'Küme kaydedildi.';
     }
 
     public function approveCluster(ClusterEditor $editor): void
     {
         $this->actor();
-        $editor->approve($this->openedCluster());
+        $editor->approve($this->openedCluster(), $this->confirmShared);
         $this->message = 'Küme onaylandı.';
+    }
+
+    public function addQueryToCluster(ClusterEditor $editor): void
+    {
+        $this->actor();
+        $editor->addQuery($this->openedCluster(), $this->addQueryText, $this->confirmShared);
+        $this->addQueryText = '';
+        $this->fillClusterForm($this->openedCluster());
+        $this->message = 'Sorgu kümeye eklendi.';
+    }
+
+    public function removeClusterQueries(ClusterEditor $editor): void
+    {
+        $this->actor();
+        $removed = $editor->removeQueries($this->openedCluster(), $this->clusterQueryIds(), $this->confirmShared);
+        $this->selectedClusterQueries = [];
+        $this->fillClusterForm($this->openedCluster());
+        $this->message = $removed.' sorgu kümeden çıkarıldı.';
     }
 
     public function moveQueries(ClusterEditor $editor): void
@@ -247,34 +314,54 @@ final class QueriesPage extends Component
         if ($target === null) {
             throw ValidationException::withMessages(['moveTarget' => 'Hedef küme seçin.']);
         }
-        $moved = $editor->move($this->clusterQueryIds(), $target);
+        $moved = $editor->move($this->clusterQueryIds(), $target, $this->confirmShared);
         $this->selectedClusterQueries = [];
+        $this->fillClusterForm($this->openedCluster());
         $this->message = $moved.' sorgu taşındı.';
     }
 
     public function splitCluster(ClusterEditor $editor): void
     {
         $this->actor();
-        $new = $editor->split($this->openedCluster(), $this->clusterQueryIds(), $this->splitName);
+        $new = $editor->split($this->openedCluster(), $this->clusterQueryIds(), $this->splitName, $this->confirmShared);
         $this->selectedClusterQueries = [];
         $this->splitName = '';
+        $this->fillClusterForm($this->openedCluster());
         $this->message = '"'.$new->name.'" kümesi oluşturuldu.';
     }
 
     public function mergeClusters(ClusterEditor $editor): void
     {
         $this->actor();
-        $merged = $editor->merge($this->openedCluster(), array_map('intval', $this->mergeIds));
+        $merged = $editor->merge($this->openedCluster(), array_map('intval', $this->mergeIds), $this->confirmShared);
         $this->mergeIds = [];
+        $this->fillClusterForm($this->openedCluster());
         $this->message = $merged.' küme birleştirildi.';
     }
 
     public function deleteCluster(ClusterEditor $editor): void
     {
         $this->actor();
-        $editor->delete($this->openedCluster());
+        $editor->delete($this->openedCluster(), $this->confirmShared);
         $this->openClusterId = null;
         $this->message = 'Küme silindi.';
+    }
+
+    /** "Bu markaya özel düzenle": brand_cluster_pages only; the shared cluster does not change. */
+    public function saveBrandCluster(ClusterEditor $editor): void
+    {
+        $this->actor();
+        $cluster = $this->openedCluster();
+        $brand = ctype_digit($this->brandId) && $editor->affectedBrands($cluster)->contains('id', (int) $this->brandId)
+            ? Brand::query()->find((int) $this->brandId) : null;
+        if ($brand === null) {
+            throw ValidationException::withMessages(['brandId' => 'Marka seçin.']);
+        }
+        $editor->brandEdit($cluster, $brand, [
+            'target_query_override' => $this->brandTarget,
+            'excluded' => $this->brandExcluded,
+        ] + (ctype_digit($this->brandPage) ? ['page_id' => (int) $this->brandPage] : []));
+        $this->message = 'Bu markaya özel kaydedildi.';
     }
 
     // ── Filtre sepeti ────────────────────────────────────────────────────────
@@ -337,14 +424,21 @@ final class QueriesPage extends Component
         $serviceId = ctype_digit($this->service) ? (int) $this->service : null;
         $clusterStatus = $serviceId !== null ? Cache::get(QueryClusterer::cacheKey($serviceId)) : null;
 
+        $openCluster = $this->tab === 'clusters' && $this->openClusterId !== null
+            ? Cluster::query()->with(['mainQuery', 'clusterQueries.searchQuery', 'brandPages.brand:id,name', 'brandPages.page:id,url,path'])->find($this->openClusterId) : null;
+        $affected = $openCluster !== null ? app(ClusterEditor::class)->affectedBrands($openCluster) : collect();
+
         return view('livewire.operator.library.queries-page', [
             'sectors' => ServiceCategory::query()->orderBy('name')->pluck('name', 'id')->all(),
             'services' => $this->serviceOptions(),
             'clusterOptions' => $serviceId !== null ? Cluster::query()->where('service_id', $serviceId)->orderBy('name')->pluck('name', 'id')->all() : [],
             'queries' => $this->tab === 'queries' ? $this->queryList() : null,
             'clusters' => $this->tab === 'clusters' && $serviceId !== null ? $this->clusterList($serviceId) : null,
-            'openCluster' => $this->tab === 'clusters' && $this->openClusterId !== null
-                ? Cluster::query()->with(['mainQuery', 'clusterQueries.searchQuery'])->find($this->openClusterId) : null,
+            'openCluster' => $openCluster,
+            'affectedBrands' => $affected,
+            'brandPages' => $openCluster !== null && ctype_digit($this->brandId) && $affected->contains('id', (int) $this->brandId)
+                ? Page::query()->whereIn('website_asset_id', DigitalAsset::query()->where('brand_id', (int) $this->brandId)->select('id'))
+                    ->whereIn('category', ['hizmet', 'lokasyon', 'blog', 'sss'])->orderBy('path')->limit(500)->pluck('path', 'id')->all() : [],
             'terms' => $this->tab === 'filters' ? FilterTerm::query()->with('sector')
                 ->when(ctype_digit($this->sector), fn ($q) => $q->where(fn ($q) => $q->whereNull('sector_id')->orWhere('sector_id', (int) $this->sector)))
                 ->orderBy('term')->paginate(50) : null,
@@ -357,7 +451,7 @@ final class QueriesPage extends Component
 
     private function queryList(): mixed
     {
-        return Query::query()->where('hidden', false)
+        return Query::query()->where('hidden', $this->hidden)
             ->with(['service.primaryName', 'clusterLink.cluster:id,name'])
             ->when(ctype_digit($this->sector), fn (Builder $q) => $q->where('sector_id', (int) $this->sector))
             ->when($this->service === '__none', fn (Builder $q) => $q->whereNull('service_id'))
@@ -403,6 +497,16 @@ final class QueriesPage extends Component
             ->sortBy(fn (ServiceCatalogItem $item): string => (string) $item->primaryName->raw_label)->values();
     }
 
+    private function fillClusterForm(Cluster $cluster): void
+    {
+        $this->clusterForm = [
+            'name' => (string) $cluster->name, 'intent' => (string) $cluster->intent, 'page_type' => (string) $cluster->page_type,
+            'user_need' => (string) ($cluster->user_need ?? ''), 'main_query_id' => (string) ($cluster->main_query_id ?? ''),
+            'representative_query_ids' => array_map('strval', (array) $cluster->representative_query_ids),
+            'subtopics' => implode("\n", (array) $cluster->subtopics), 'exclusions' => implode("\n", (array) $cluster->exclusions),
+        ];
+    }
+
     private function openedCluster(): Cluster
     {
         abort_if($this->openClusterId === null, 404);
@@ -424,6 +528,7 @@ final class QueriesPage extends Component
 
     private function actor(): User
     {
+        $this->resetErrorBag();
         $actor = auth()->user();
         abort_unless($actor instanceof User && $actor->is_active, 403);
 

@@ -110,7 +110,7 @@ final class ContentPlanner
         $services = SiteScope::offerings($brand)->filter(fn (BrandOffering $o): bool => $o->service_catalog_item_id !== null)
             ->mapWithKeys(fn (BrandOffering $o): array => [(int) $o->service_catalog_item_id => $o->displayName()]);
         $queries = DB::table('brand_queries as bq')->join('queries as q', 'q.id', '=', 'bq.query_id')
-            ->where('bq.brand_id', $brand->id)->where('q.hidden', false)->whereNotIn('q.id', ClusterQuery::query()->select('query_id'))
+            ->where('bq.brand_id', $brand->id)->whereNull('bq.target_area_id')->where('q.hidden', false)->whereNotIn('q.id', ClusterQuery::query()->select('query_id'))
             ->orderByDesc('bq.impressions_28d')->limit(150)->get(['q.id', 'q.text', 'q.service_id', 'bq.impressions_28d', 'bq.clicks_28d']);
         if ($queries->isEmpty()) {
             return ['status' => 'no_queries', 'added' => 0];

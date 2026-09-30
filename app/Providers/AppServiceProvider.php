@@ -11,15 +11,19 @@ use App\Events\Collection\CollectionRunStarted;
 use App\Events\Collection\DatasetRunFailed;
 use App\Events\Collection\DatasetRunProgressed;
 use App\Events\EvidenceCanonicalized;
+use App\Events\FindingEvaluationCompleted;
 use App\Jobs\CollectMetaGeoResultsJob;
 use App\Jobs\EraseSourceDataJob;
 use App\Jobs\RunChannelAnalystJob;
 use App\Jobs\RunScheduledDiscoveryJob;
 use App\Jobs\Verification\RunDataConsistencyCheckJob;
 use App\Jobs\Verification\RunLiveVerificationJob;
+use App\Listeners\Collection\AggregateQuerySourcesAfterCollection;
 use App\Listeners\Collection\BroadcastCollectionRunChanged;
 use App\Listeners\Collection\QueueWebsiteAnalysisAfterCollection;
+use App\Listeners\EvaluateTaskOutcomesAfterFindingEvaluation;
 use App\Listeners\QueueFindingEvaluationAfterEvidenceCanonicalized;
+use App\Listeners\ResumePublicDiscoveryAfterCollection;
 use App\Models\Brand;
 use App\Models\Collection\CollectionRun;
 use App\Models\Customer;
@@ -254,10 +258,13 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(CollectionRunStarted::class, [$broadcast, 'handleStarted']);
         Event::listen(CollectionRunCompleted::class, [$broadcast, 'handleCompleted']);
         Event::listen(CollectionRunCompleted::class, QueueWebsiteAnalysisAfterCollection::class);
+        Event::listen(CollectionRunCompleted::class, AggregateQuerySourcesAfterCollection::class);
+        Event::listen(CollectionRunCompleted::class, ResumePublicDiscoveryAfterCollection::class);
         Event::listen(CollectionRunCancelled::class, [$broadcast, 'handleCancelled']);
         Event::listen(DatasetRunFailed::class, [$broadcast, 'handleDatasetFailed']);
         Event::listen(DatasetRunProgressed::class, [$broadcast, 'handleDatasetProgressed']);
         Event::listen(EvidenceCanonicalized::class, QueueFindingEvaluationAfterEvidenceCanonicalized::class);
+        Event::listen(FindingEvaluationCompleted::class, EvaluateTaskOutcomesAfterFindingEvaluation::class);
 
         View::composer([
             'operator.layouts.app',

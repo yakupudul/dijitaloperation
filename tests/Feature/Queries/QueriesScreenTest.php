@@ -4,6 +4,7 @@ namespace Tests\Feature\Queries;
 
 use App\Ai\Agents\QueryClusterAgent;
 use App\Ai\Agents\QueryRulesAgent;
+use App\Jobs\Queries\ProcessQueriesJob;
 use App\Livewire\Operator\Library\QueriesPage;
 use App\Models\Brand;
 use App\Models\Cluster;
@@ -23,11 +24,15 @@ use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Catalog\ServiceKeywordService;
 use App\Services\Queries\ClusterEditor;
 use App\Services\Queries\QueryPipeline;
+use App\Services\Queries\QueryRuleProposer;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -169,7 +174,8 @@ final class QueriesScreenTest extends TestCase
                 return ['clusters' => [
                     ['name' => 'İmplant fiyatı', 'intent' => 'commercial', 'page_type' => 'service', 'query_ids' => [...$ids('implant fiyatları', 'implant ücreti'), 999999],
                         'main_query_id' => 999999, 'representative_query_ids' => $ids('implant ücreti'), 'new_queries' => ['implant fiyatları 2026', 'İmplant Ücreti'],
-                        'subtopics' => ['Fiyatı etkileyen durumlar'], 'reasoning' => 'Aynı fiyat ihtiyacı.'],
+                        'subtopics' => ['Fiyatı etkileyen durumlar'], 'reasoning' => 'Aynı fiyat ihtiyacı.',
+                        'user_need' => '  İmplant tedavisinin fiyatını öğrenmek ', 'exclusions' => ['İmplant sonrası ağrı', '', 42, 'İmplant sonrası ağrı']],
                     ['name' => 'İmplant sonrası ağrı', 'intent' => 'informational', 'page_type' => 'guide', 'query_ids' => $ids('implant sonrası ağrı', 'implant fiyatları'),
                         'main_query_id' => null, 'representative_query_ids' => [], 'new_queries' => [], 'subtopics' => [], 'reasoning' => 'Bilgi.'],
                     ['name' => 'Uydurma', 'intent' => 'local', 'page_type' => 'location', 'query_ids' => [555555], 'main_query_id' => 555555,
@@ -189,6 +195,9 @@ final class QueriesScreenTest extends TestCase
         $this->assertSame($this->dental->id, $price->sector_id);
         $this->assertSame($this->queryId('implant fiyatları'), $price->main_query_id, 'invalid main id → top query');
         $this->assertSame($ids('implant ücreti'), $price->representative_query_ids);
+        $this->assertSame('İmplant tedavisinin fiyatını öğrenmek', $price->user_need);
+        $this->assertSame(['İmplant sonrası ağrı'], $price->exclusions, 'trimmed, strings only, unique');
+        $this->assertNull(Cluster::query()->where('name', 'İmplant sonrası ağrı')->value('user_need'), 'missing need → null');
         $suggested = Query::query()->where('text', 'implant fiyatları 2026')->sole();
         $this->assertTrue($suggested->is_suggested);
         $this->assertSame(0, $suggested->impressions);
@@ -239,7 +248,7 @@ final class QueriesScreenTest extends TestCase
         $this->assertFalse(Cluster::query()->whereKey($split->id)->exists());
         $this->assertSame([$this->queryId('a1'), $this->queryId('a2')], ClusterQuery::query()->where('cluster_id', $a->id)->orderBy('query_id')->pluck('query_id')->all());
 
-        $page->call('approveCluster')->set('clusterName', 'A son')->call('renameCluster');
+        $page->call('approveCluster')->set('clusterForm.name', 'A son')->call('saveCluster');
         $a->refresh();
         $this->assertTrue($a->approved);
         $this->assertSame('A son', $a->name);
@@ -273,6 +282,52 @@ final class QueriesScreenTest extends TestCase
 
         $page->call('deleteKeyword', ServiceMatchingKeyword::query()->where('normalized_key', 'implant')->value('id'));
         $this->assertNull(Query::query()->sole()->service_id, 'keyword removed → reprocessed, unassigned');
+    }
+
+    public function test_hidden_queries_are_listed_under_gizlenenler_and_can_be_restored(): void
+    {
+        $this->sources(['kötü sorgu' => 5, 'implant' => 10]);
+        $id = $this->queryId('kötü sorgu');
+
+        Livewire::test(QueriesPage::class)->assertSee('AI ile filtre kural üret')
+            ->set('selected', [$id])->call('hideSelected')->assertDontSee('kötü sorgu')
+            ->set('hidden', true)->assertSee('kötü sorgu')->assertDontSee('>implant<', false)->assertSee('Geri al')
+            ->set('selected', [$id])->call('unhideSelected')->assertSee('1 sorgu geri alındı')
+            ->set('hidden', false)->assertSee('kötü sorgu');
+        $this->assertFalse(Query::query()->find($id)->hidden);
+    }
+
+    public function test_rule_approval_without_ticks_does_not_queue_a_reprocess(): void
+    {
+        Queue::fake();
+        $this->admin->forceFill(['is_active' => true])->save();
+        Cache::put(QueryRuleProposer::cacheKey($this->admin->id), ['status' => 'ready', 'terms' => [['term' => 'etimesgut', 'sector_id' => null, 'sector' => null, 'reason' => 'x']], 'keywords' => []], now()->addHour());
+
+        Livewire::test(QueriesPage::class)->set('rulesOpen', true)->call('approveRules')->assertSee('Hiçbir öneri seçilmedi')->assertSet('rulesOpen', true);
+        Queue::assertNotPushed(ProcessQueriesJob::class);
+
+        FilterTerm::query()->create(['sector_id' => null, 'term' => 'etimesgut']);
+        Livewire::test(QueriesPage::class)->set('rulesOpen', true)->set('pickTerms', [0 => true])->call('approveRules')->assertSee('zaten kayıtlı');
+        Queue::assertNotPushed(ProcessQueriesJob::class);
+    }
+
+    public function test_keywords_of_services_without_a_sector_are_global(): void
+    {
+        $keywords = app(ServiceKeywordService::class);
+        $global = app(ServiceCatalogService::class)->resolveOrCreate('Genel Muayene', null, actor: $this->admin)['service'];
+        $this->assertTrue(blank($global->sector));
+        $keywords->add($global, 'muayene');
+        $keywords->replace($this->implant, 'implant');
+
+        foreach ([[$this->zirkonyum, 'Muayene', 'Genel Muayene'], [$global, 'implant', 'Diş İmplantı']] as [$service, $label, $owner]) {
+            try {
+                $keywords->add($service, $label);
+                $this->fail('keyword taken: '.$label);
+            } catch (ValidationException $exception) {
+                $this->assertStringContainsString($owner, $exception->errors()['keyword'][0]);
+            }
+        }
+        $this->assertSame(['muayene'], $global->matchingKeywords()->pluck('normalized_key')->all());
     }
 
     public function test_ai_buttons_need_a_selection_or_a_service_and_report_missing_provider(): void

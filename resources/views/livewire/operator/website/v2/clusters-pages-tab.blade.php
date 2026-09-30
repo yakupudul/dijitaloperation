@@ -30,11 +30,11 @@
             <h3 class="mt-3 text-xs font-semibold uppercase text-gray-500">{{ $service }}</h3>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs">
-                    <thead class="text-gray-500"><tr><th class="py-1">Küme</th><th>Durum</th><th>Hedef URL</th><th>Ana sorgu · hedef</th><th class="text-right">Tık 28g</th><th class="text-right">Poz.</th><th></th></tr></thead>
+                    <thead class="text-gray-500"><tr><th class="py-1">Küme</th><th>Durum</th><th>Hedef URL</th><th>Ana sorgu · hedef sorgu</th><th class="text-right">Tık 28g</th><th class="text-right">Poz.</th><th></th></tr></thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                         @foreach ($rows as $row)
                             <tr wire:key="bcp-{{ $row->id }}" data-cluster-row="{{ $row->cluster_id }}">
-                                <td class="py-1 font-medium">{{ $row->cluster?->name }}@if ($row->locked)<span class="{{ $chip }} ml-1 bg-gray-100 text-gray-600">elle</span>@endif</td>
+                                <td class="py-1 font-medium">{{ $row->cluster?->name }}@if ($row->locked)<span class="{{ $chip }} ml-1 bg-gray-100 text-gray-600">elle</span>@endif @if ($row->excluded)<span class="{{ $chip }} ml-1 bg-rose-50 text-rose-700">hariç</span>@endif</td>
                                 <td><span class="{{ $chip }} {{ $stateTone[$row->state] ?? '' }}">{{ $row->stateLabel() }}</span><p class="text-gray-500">{{ $row->reason }}</p></td>
                                 <td>
                                     <select wire:model="edit.{{ $row->id }}.page" aria-label="Hedef URL" class="{{ $input }} max-w-[14rem]">
@@ -42,13 +42,14 @@
                                         @foreach ($pageOptions as $id => $path)<option value="{{ $id }}" @selected((int) $row->page_id === (int) $id)>{{ $path }}</option>@endforeach
                                     </select>
                                 </td>
-                                <td>{{ $row->cluster?->mainQuery?->text ?? '—' }}<p class="text-gray-500">{{ $row->target_query }}</p></td>
+                                <td>{{ $row->cluster?->mainQuery?->text ?? '—' }}<input type="text" wire:model="edit.{{ $row->id }}.target" placeholder="{{ $row->target_query }}" aria-label="Hedef sorgu" class="{{ $input }} mt-1 block w-48"></td>
                                 <td class="text-right tabular-nums">{{ $num($row->clicks_28d) }}</td>
                                 <td class="text-right tabular-nums">{{ $row->position_28d !== null ? number_format($row->position_28d, 1, ',', '.') : '—' }}</td>
                                 <td class="whitespace-nowrap text-right">
                                     <select wire:model="edit.{{ $row->id }}.state" aria-label="Durum" class="{{ $input }}">
                                         @foreach (\App\Models\BrandClusterPage::STATE_LABELS as $key => $label)<option value="{{ $key }}" @selected($row->state === $key)>{{ $label }}</option>@endforeach
                                     </select>
+                                    <label class="text-gray-500"><input type="checkbox" wire:model="edit.{{ $row->id }}.excluded"> hariç</label>
                                     <button type="button" wire:click="saveCluster({{ $row->id }})" class="{{ $ghost }}">Kaydet</button>
                                 </td>
                             </tr>

@@ -20,7 +20,8 @@ use Throwable;
  * "AI ile kümele" for one service (clusters belong to SECTOR + SERVICE, shared by brands): the service's visible
  * queries outside locked clusters (top by impressions) go to ONE AI call; the result replaces the service's unlocked
  * clusters. Query ids are checked against the input (each in one cluster); AI-added queries are stored as suggested
- * (`is_suggested`, no metrics). Locked clusters and their queries are never touched.
+ * (`is_suggested`, no metrics); user need and exclusions (topics not to include) are trimmed / capped. Locked clusters
+ * and their queries are never touched.
  */
 final class QueryClusterer
 {
@@ -124,9 +125,11 @@ final class QueryClusterer
             $cluster = Cluster::query()->create([
                 'sector_id' => $sector->id, 'service_id' => $service->id, 'name' => mb_substr($name, 0, 200),
                 'intent' => in_array($row['intent'] ?? null, Cluster::INTENTS, true) ? $row['intent'] : 'commercial',
+                'user_need' => ($need = mb_substr(trim((string) ($row['user_need'] ?? '')), 0, 500)) !== '' ? $need : null,
                 'main_query_id' => $main, 'representative_query_ids' => $representatives,
                 'page_type' => in_array($row['page_type'] ?? null, Cluster::PAGE_TYPES, true) ? $row['page_type'] : 'other',
-                'subtopics' => array_values(array_slice(array_filter(array_map(fn ($t): string => mb_substr(trim((string) $t), 0, 160), (array) ($row['subtopics'] ?? [])), fn (string $t): bool => $t !== ''), 0, 12)),
+                'subtopics' => ClusterEditor::lines(array_filter((array) ($row['subtopics'] ?? []), 'is_string')),
+                'exclusions' => ClusterEditor::lines(array_filter((array) ($row['exclusions'] ?? []), 'is_string')),
                 'reasoning' => mb_substr(trim((string) ($row['reasoning'] ?? '')), 0, 1000),
             ]);
             $now = now();

@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * ONE clusters store: queries that satisfy the same user need on the same page type, per SECTOR + SERVICE (shared across
- * brands). Main query, optional representative queries, page type, subtopics to cover, reasoning, approved, locked (manual).
+ * brands). User need, main query, optional representative queries, page type, subtopics to cover, exclusions (topics not
+ * to include), reasoning, approved, locked (manual), version (+1 per saved edit).
  */
 class Cluster extends Model
 {
@@ -31,13 +32,16 @@ class Cluster extends Model
         'service_id',
         'name',
         'intent',
+        'user_need',
         'main_query_id',
         'representative_query_ids',
         'page_type',
         'subtopics',
+        'exclusions',
         'reasoning',
         'approved',
         'locked',
+        'version',
     ];
 
     /** @return array<string, string> */
@@ -46,8 +50,10 @@ class Cluster extends Model
         return [
             'representative_query_ids' => 'array',
             'subtopics' => 'array',
+            'exclusions' => 'array',
             'approved' => 'boolean',
             'locked' => 'boolean',
+            'version' => 'integer',
         ];
     }
 
