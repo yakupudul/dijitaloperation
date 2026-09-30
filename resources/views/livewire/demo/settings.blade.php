@@ -316,6 +316,7 @@
                             <x-ta.button href="{{ route('operator.integrations.ai', ['provider' => 'groq']) }}" size="sm" variant="outline">Groq</x-ta.button>
                             <x-ta.button href="{{ route('operator.integrations.ai', ['provider' => 'openrouter']) }}" size="sm" variant="outline">OpenRouter</x-ta.button>
                             <x-ta.button href="{{ route('operator.settings.ai-operations') }}" size="sm" variant="outline">AI işlemleri ve promptlar</x-ta.button>
+                            <x-ta.button href="{{ route('operator.ai-jobs') }}" size="sm" variant="outline">AI işleri</x-ta.button>
                         </div>
                     </div>
                 </div>

@@ -55,7 +55,8 @@ return [
     'telemetry' => [
         'provider_api_counters' => ['window_started_at', 30],
         'ai_provider_attempts' => ['created_at', 90],
-        'ai_live_operations' => ['started_at', 7],
+        // AI işleri history (calls + queued jobs, with input / output copies)
+        'ai_live_operations' => ['started_at', (int) env('MOXDOP_RETENTION_AI_JOBS_DAYS', 30)],
         'collection_dataset_attempts' => ['created_at', 90],
         'worker_heartbeats' => ['last_seen_at', 30],
         'ops_dispatcher_heartbeats' => ['last_seen_at', 30],

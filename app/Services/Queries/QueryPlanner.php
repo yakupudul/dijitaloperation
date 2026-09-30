@@ -13,6 +13,7 @@ use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Models\ServiceMatchingKeyword;
 use App\Models\User;
+use App\Services\Ai\AiCancellation;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\Catalog\ServiceCatalogService;
@@ -646,6 +647,7 @@ final class QueryPlanner
     /** @return array<string, mixed>|string structured output, or 'no_provider' / 'error' */
     private function call(string $agent, array $data): array|string
     {
+        AiCancellation::throwIfRequested();
         try {
             $route = $this->routes->resolve($agent::OPERATION);
             if ($route->isEmpty()) {

@@ -24,14 +24,17 @@
         </form>
 
         <section id="canli" class="{{ $card }} p-5" data-ai-live @if ($live['running']->isNotEmpty()) wire:poll.5s @endif>
-            <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Canlı</h2>
-            <p class="text-xs text-gray-500">Şu an çalışan AI işlemleri ve son bitenler (7 gün saklanır).</p>
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Canlı</h2>
+                <a href="{{ route('operator.ai-jobs') }}" wire:navigate class="text-xs font-semibold text-brand-600" data-ai-jobs-link>AI işleri: tümü, ayrıntı, durdur / sil →</a>
+            </div>
+            <p class="text-xs text-gray-500">Şu an çalışan AI işlemleri ve son bitenler (geçmiş {{ (int) (config('moxdop-retention.telemetry.ai_live_operations')[1] ?? 30) }} gün saklanır).</p>
             <table class="mt-2 w-full text-sm">
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                     @forelse ($live['running']->concat($live['finished']) as $item)
                         <tr wire:key="live-{{ $item->id }}" @if ($item->isRunning()) data-ai-live-running @endif>
                             <td class="py-2 pr-3">
-                                <span class="font-medium text-gray-800 dark:text-white/90">{{ $item->label }}</span>
+                                <a href="{{ route('operator.ai-jobs', ['is' => $item->id]) }}" wire:navigate class="font-medium text-gray-800 hover:text-brand-600 dark:text-white/90">{{ $item->label }}</a>
                                 @if ($item->operation)<span class="ml-1 font-mono text-xs text-gray-400">{{ $item->operation }}</span>@endif
                                 @if ($item->subject)<p class="truncate text-xs text-gray-500">{{ $item->subject }}</p>@endif
                                 @if (! $item->isRunning() && $item->status !== 'done' && $item->error)<p class="text-xs text-rose-600">{{ $item->error }}</p>@endif

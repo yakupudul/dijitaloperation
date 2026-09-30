@@ -8,6 +8,7 @@ use App\Models\Query;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Models\User;
+use App\Services\Ai\AiCancellation;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\Catalog\ServiceKeywordService;
@@ -210,6 +211,7 @@ final class QueryServiceAssigner
      */
     private function call(array $context, Collection $rows): array|string
     {
+        AiCancellation::throwIfRequested();
         try {
             $route = $this->routes->resolve(QueryAssignServicesAgent::OPERATION);
             if ($route->isEmpty()) {

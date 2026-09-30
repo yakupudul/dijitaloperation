@@ -3,6 +3,7 @@
 namespace App\Services\Site;
 
 use App\Ai\Agents\Site\SiteAgent;
+use App\Services\Ai\AiCancellation;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use Illuminate\Support\Facades\Log;
@@ -25,6 +26,7 @@ final class SiteAi
      */
     public function run(SiteAgent $agent, array $data, int $timeout = 180): array
     {
+        AiCancellation::throwIfRequested();
         try {
             $route = $this->routes->resolve($agent->promptOperation());
             if ($route->isEmpty()) {

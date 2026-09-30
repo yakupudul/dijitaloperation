@@ -12,6 +12,7 @@ use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Models\ServiceCategory;
+use App\Services\Ai\AiCancellation;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\BrandSetup\BrandSetupMatcher;
@@ -189,6 +190,7 @@ final class BrandCandidateBuilder
      */
     private function aiBatch(array $leftovers, array $candidates, array &$created): string
     {
+        AiCancellation::throwIfRequested();
         try {
             $route = $this->routes->resolve(AiRouteKeys::BRAND_CANDIDATES);
             if ($route->isEmpty()) {
