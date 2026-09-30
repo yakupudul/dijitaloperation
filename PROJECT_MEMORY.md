@@ -10,6 +10,11 @@
 
 - **Karar (operatör):** Marka sayfasının varsayılan sekmesi "Özet"tir: dönem KPI'ları (Search Console, GA4, Google Ads + Meta, İşletme Profili; önceki eşit döneme göre), dijital varlık kartları (veri durumu + ekran bağlantısı), açık öneriler ve hizmetler. Kaynağı olmayan rakam "veri yok" ve düzeltme bağlantısıyla gösterilir, 0 yazılmaz; farklı para birimindeki reklam harcamaları toplanmaz. Kanal sekmeleri kendi çalışma alanları gelene kadar eksik kaynağı ve açık önerileri gösterir; kanal işleri varlık ekranlarında yürür.
 
+## 2026-11-07 — AI işleri: çalışan / sıradaki / geçmiş AI işleri tek sayfada, durdur ve sil
+
+- **Karar (operatör):** Sistemdeki AI işleri tek yerde görünür: `/ai-jobs` "AI işleri" (Çalışıyor / Sırada / Bitti / Hata / Durduruldu, işlem, kullanıcı, tarih filtresi); satır ayrıntısında amaç, prompt sürümü, gönderilen girdi ve çıktı (64 KB'a kadar kopya; anahtar / başlık saklanmaz), sağlayıcı / model, token, maliyet, süre, kuyruk işi ve sonucun kullanıldığı sayfa. Üst çubuktaki her öğe ayrıntıyı açar, "Tümünü gör" sayfaya gider. Admin ve ekip görür; **durdurma ve silme yalnız Admin** (diğer yıkıcı işlemlerle aynı).
+- **Karar:** Durdurma iş birliğiyledir: sıradaki iş kuyruktan kaldırılır (veritabanı kuyruğundan silinir, değilse işçi aldığında çalıştırmadan atlar); çalışan iş AI çağrıları arasında durur (`AiCancellation::throwIfRequested()`), sürmekte olan tek çağrı biter ama sonucu kullanılmaz; iş "Durduruldu" olur, hata sayılmaz / tekrar denenmez. AI işleri geçmişi 30 gün saklanır (`MOXDOP_RETENTION_AI_JOBS_DAYS`); 2026-11-06 "7 gün" kararının yerini alır.
+
 ## 2026-11-06 — Sorgular: hizmet ataması kuyruğu, temiz Bekleyenler
 
 - **Karar (operatör):** Bekleyenler yalnız kütüphanede olmayan ve güncel filtre terimlerinin silmeyeceği sorguları gösterir; filtre değişince bekleyenler onaysız yeniden süzülür (kütüphaneye henüz girmedikleri için). 2026-11-04 "Bekleyenler'de silinecek / temiz sonucu" kararının yerini alır.

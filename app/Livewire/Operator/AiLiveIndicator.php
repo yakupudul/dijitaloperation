@@ -12,8 +12,9 @@ use Illuminate\Support\Collection;
 use Livewire\Component;
 
 /**
- * Header "AI · N": visible while an AI call runs or one finished in the last few minutes; polled every 5 s while
- * something runs, every 30 s otherwise. The dropdown lists running calls and the last 10 finished ones.
+ * Header "AI · N": visible while AI work runs or waits in the queue, or some finished in the last few minutes; polled
+ * every 5 s while something runs, every 30 s otherwise. The dropdown lists running work, queued jobs and the last 10
+ * finished; each item opens its detail in AI işleri, "Tümünü gör" opens the page.
  */
 final class AiLiveIndicator extends Component
 {
@@ -21,13 +22,15 @@ final class AiLiveIndicator extends Component
     {
         $running = auth()->check() ? $live->running() : new EloquentCollection;
         $visible = $running->isNotEmpty() || (auth()->check() && $live->hasRecent());
+        $queued = $visible ? $live->queued(10) : new EloquentCollection;
         $finished = $visible ? $live->finishedRecently(10) : new EloquentCollection;
 
         return view('livewire.operator.ai-live-indicator', [
             'running' => $running,
+            'queued' => $queued,
             'finished' => $finished,
             'visible' => $visible,
-            'users' => self::userNames($running->concat($finished)),
+            'users' => self::userNames($running->concat($queued)->concat($finished)),
             'canOpenSettings' => PromptRegistry::canEdit(auth()->user()),
         ]);
     }

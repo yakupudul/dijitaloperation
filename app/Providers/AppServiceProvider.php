@@ -30,8 +30,10 @@ use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Policies\CollectionRunPolicy;
 use App\Services\Ai\AgentContextGateway;
+use App\Services\Ai\AiCancelledException;
 use App\Services\Ai\AiLiveOperations;
 use App\Services\Ai\AiUsageRecorder;
+use App\Services\AiJobs\AiJobTracker;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Collection\Activity\ActivityTierServiceReader;
 use App\Services\Collection\Activity\NullActivityTierReader;
@@ -96,6 +98,7 @@ use App\Support\Operator\LivewireActionErrors;
 use App\Support\Roles;
 use App\Support\ServiceScope;
 use App\Support\Skills\SkillRegistry;
+use Closure;
 use Illuminate\Auth\Events\Authenticated;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Model;
@@ -103,6 +106,9 @@ use Illuminate\Http\Client\Events\ConnectionFailed;
 use Illuminate\Http\Client\Events\ResponseReceived;
 use Illuminate\Queue\Events\JobExceptionOccurred;
 use Illuminate\Queue\Events\JobProcessed;
+use Illuminate\Queue\Events\JobProcessing;
+use Illuminate\Queue\Events\JobQueued;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -128,6 +134,7 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->scoped(ServiceScope::class);
         $this->app->scoped(AiLiveOperations::class);
+        $this->app->singleton(AiJobTracker::class);
         $this->app->singleton(AgencySettingService::class);
         $this->app->singleton(OperatorMailConfigService::class);
 
@@ -250,6 +257,20 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(JobProcessed::class, fn () => app(AiLiveOperations::class)->closeOpen());
         Event::listen(Authenticated::class, fn (Authenticated $event) => Context::addHidden(AiLiveOperations::USER_CONTEXT, $event->user->getAuthIdentifier()));
         $this->app->terminating(fn () => app(AiLiveOperations::class)->closeOpen());
+
+        // AI işleri: queued AI jobs (Sırada → Çalışıyor → Bitti / Hata / Durduruldu); registered after the call listeners
+        // so a job closes after its open calls. A job the operator stopped ends quietly (AiCancelledException).
+        Event::listen(JobQueued::class, [AiJobTracker::class, 'queued']);
+        Event::listen(JobProcessing::class, [AiJobTracker::class, 'processing']);
+        Event::listen(JobProcessed::class, [AiJobTracker::class, 'processed']);
+        Event::listen(JobExceptionOccurred::class, [AiJobTracker::class, 'exceptionOccurred']);
+        Bus::pipeThrough([static function (mixed $command, Closure $next): mixed {
+            try {
+                return $next($command);
+            } catch (AiCancelledException) {
+                return null;
+            }
+        }]);
     }
 
     public function boot(): void

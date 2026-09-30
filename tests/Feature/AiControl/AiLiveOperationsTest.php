@@ -134,7 +134,8 @@ final class AiLiveOperationsTest extends TestCase
             ->assertSee('Rakip analizi')
             ->assertSee('Başarısız · 4,2 sn')
             ->assertSee('Sağlayıcı yanıtı: HTTP 529')
-            ->assertSee('Ayarlar › AI işlemleri · Canlı')
+            ->assertSee('Tümünü gör')
+            ->assertSee('Ayarlar › AI işlemleri')
             ->assertSeeHtml('wire:poll.5s');
     }
 
@@ -159,10 +160,10 @@ final class AiLiveOperationsTest extends TestCase
             ->assertSeeHtml('data-ai-prompt-info-modal');
     }
 
-    public function test_live_rows_are_kept_seven_days(): void
+    public function test_live_rows_are_kept_thirty_days_by_default(): void
     {
-        $old = $this->liveRow(['status' => AiLiveOperation::DONE, 'started_at' => now()->subDays(8), 'finished_at' => now()->subDays(8)]);
-        $kept = $this->liveRow(['status' => AiLiveOperation::DONE, 'started_at' => now()->subDays(6), 'finished_at' => now()->subDays(6)]);
+        $old = $this->liveRow(['status' => AiLiveOperation::DONE, 'started_at' => now()->subDays(31), 'finished_at' => now()->subDays(31)]);
+        $kept = $this->liveRow(['status' => AiLiveOperation::DONE, 'started_at' => now()->subDays(20), 'finished_at' => now()->subDays(20)]);
 
         $result = app(DataRetentionService::class)->purgeTelemetry();
 

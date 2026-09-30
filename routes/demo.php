@@ -28,6 +28,7 @@ use App\Livewire\Demo\Portfolio\CustomerEdit;
 use App\Livewire\Demo\Portfolio\CustomersIndex;
 use App\Livewire\Demo\ProfilePage;
 use App\Livewire\Demo\SettingsPage;
+use App\Livewire\Operator\AiJobsPage;
 use App\Livewire\Operator\Assets\AnalyticsPage;
 use App\Livewire\Operator\Assets\SearchConsolePage;
 use App\Livewire\Operator\DataCenterPage;
@@ -132,6 +133,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
 
         Route::livewire('/brands/{brand}/setup', BrandSetupPage::class)->name('operator.brand.setup');
 
+        Route::livewire('/ai-jobs', AiJobsPage::class)->name('operator.ai-jobs');
         Route::livewire('/settings', SettingsPage::class)->name('operator.settings');
         Route::livewire('/settings/system-health', SystemHealthPage::class)->name('operator.settings.system-health');
         Route::livewire('/settings/ai-operations', AiOperationsPage::class)->name('operator.settings.ai-operations');

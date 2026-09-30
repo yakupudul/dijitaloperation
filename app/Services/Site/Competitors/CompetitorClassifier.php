@@ -3,6 +3,7 @@
 namespace App\Services\Site\Competitors;
 
 use App\Ai\Agents\Site\CompetitorClassifyAgent;
+use App\Services\Ai\AiCancellation;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\Site\SiteDomains;
@@ -70,6 +71,7 @@ final class CompetitorClassifier
      */
     private function ask(array $batch, ?string $sector): array
     {
+        AiCancellation::throwIfRequested();
         try {
             $route = $this->routes->resolve(CompetitorClassifyAgent::OPERATION);
             if ($route->isEmpty()) {
