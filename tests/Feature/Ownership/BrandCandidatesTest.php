@@ -263,6 +263,25 @@ final class BrandCandidatesTest extends TestCase
         return BrandCandidateResource::query()->where('external_resource_id', $resource->id)->firstOrFail()->candidate;
     }
 
+    public function test_failed_ai_call_leaves_leftovers_unplaced_for_the_next_run(): void
+    {
+        $this->enableAi();
+        $r = $this->resources();
+        BrandCandidateAgent::fake(fn (): array => throw new \RuntimeException('Invalid schema for response_format'));
+
+        $summary = app(BrandCandidateBuilder::class)->refresh();
+
+        $this->assertSame('error', $summary['ai_status']);
+        $this->assertSame('Invalid schema for response_format', $summary['ai_error']);
+        $this->assertFalse(BrandCandidateResource::query()->where('external_resource_id', $r['leftover']->id)->exists(), 'no per-account candidate on an AI error');
+        $this->assertNotNull($this->candidateOf($r['gsc']), 'deterministic grouping still runs');
+
+        BrandCandidateAgent::fake([['groups' => [['candidate_key' => null, 'name' => 'Xyz Holding', 'account_keys' => ['r:'.$r['leftover']->id]]], 'sectors' => [], 'prompt_version' => BrandCandidateAgent::PROMPT_VERSION]]);
+        $retry = app(BrandCandidateBuilder::class)->refresh();
+        $this->assertSame('called', $retry['ai_status']);
+        $this->assertSame('Xyz Holding', $this->candidateOf($r['leftover'])->name, 'the next run retries the leftovers');
+    }
+
     private function enableAi(): void
     {
         config(['moxdop.anthropic.api_key' => 'test-anthropic-value']);

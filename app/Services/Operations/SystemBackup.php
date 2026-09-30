@@ -197,8 +197,12 @@ final class SystemBackup
         ];
     }
 
-    /** @param array<string, mixed> $cfg */
-    private function dump(string $driver, array $cfg, string $path): void
+    /**
+     * Writes the gzip'd dump to `$path`.
+     *
+     * @param  array<string, mixed>  $cfg
+     */
+    public function dump(string $driver, array $cfg, string $path): void
     {
         if ($driver === 'sqlite') {
             $database = (string) ($cfg['database'] ?? '');
@@ -225,24 +229,31 @@ final class SystemBackup
         };
         $out = gzopen($path, 'wb6');
         $process = new Process($command, null, $env, null, 3600);
+        // Streamed: dump output is compressed chunk by chunk. Process output is disabled, otherwise Symfony keeps a
+        // full copy of stdout in php://temp — which spills the whole uncompressed dump into the system temp folder
+        // (/tmp) and fails with "No space left on device" although the backup folder has room.
+        $process->disableOutput();
+        $errors = '';
         try {
-            // Streamed: dump output is compressed chunk by chunk, never held in memory or in another temp file.
-            $process->run(function (string $type, string $buffer) use ($out, $process): void {
-                if ($type === Process::OUT) {
-                    try {
-                        $this->gzWrite($out, $buffer);
-                    } catch (Throwable $error) {
-                        $process->stop(0);
+            $process->run(function (string $type, string $buffer) use ($out, $process, &$errors): void {
+                if ($type !== Process::OUT) {
+                    $errors = substr($errors.$buffer, -4000);
 
-                        throw $error;
-                    }
+                    return;
+                }
+                try {
+                    $this->gzWrite($out, $buffer);
+                } catch (Throwable $error) {
+                    $process->stop(0);
+
+                    throw $error;
                 }
             });
         } finally {
             gzclose($out);
         }
         if (! $process->isSuccessful()) {
-            throw new \RuntimeException('Döküm başarısız: '.mb_substr(trim($process->getErrorOutput()), 0, 500));
+            throw new \RuntimeException('Döküm başarısız: '.mb_substr(trim($errors), 0, 500));
         }
     }
 

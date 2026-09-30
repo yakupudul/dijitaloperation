@@ -1,5 +1,11 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-02 — Üretim ilk deneme düzeltmeleri: yedek, marka adayı AI hatası
+
+- **Yedek:** `pg_dump` / `mysqldump` çıktısı artık yalnız gzip dosyasına akar (`Process::disableOutput()`); Symfony önceden tüm sıkıştırılmamış dökümü `php://temp` üzerinden sistem temp klasörüne (/tmp) kopyalıyordu → "No space left on device" (yedek klasöründe 43,9 GB boşken). Hata metni stderr'den okunur.
+- **Marka adayları:** AI çağrısı hata verirse eşleşmeyen hesaplar artık tek tek aday olmaz (önceki davranış: 148 gereksiz aday); bir sonraki çalıştırmada yeniden denenir. `moxdop:brand-candidates --sync` hata mesajını yazar. AI hiç yoksa (`no_provider`) hesap adına göre aday davranışı aynı.
+- **State:** CODED + PHPUnit (`KvkkAndBackupTest::test_pgsql_dump_is_streamed…`, `BrandCandidatesTest::test_failed_ai_call…`). Üretimde yeniden denenecek.
+
 ## 2026-11-01 — MoxDOP v2 Faz 9 (Sonuç takibi): uygulamada baseline, 28 / 56. gün ölçümü, Bugün "Sonuçlar"
 
 - **Tek mekanizma** (`App\Services\Outcomes\OutcomeTracker`): her uygulama yolu (site `ChangeApplier` onay / canlıya al, `AnalystDecisionStore::markDone` → İşletme Profili Onayla + Meta Uygulandı, `GoogleAdsSuggestions::markApplied` → negatif gönderimi / Editor dosyası / operatör işi) `apply()` ya da `baseline()` çağırır. Baseline şekli tek: `{<metrik>: değer, …, window_days: 28, from, to, captured_at, scope: {…}}` (+ `facts`, `write_action_id`, `editor_file_at` gibi ekler); pencere uygulamadan önceki 28 gün, son toplanan günde biter. Eski kanal başına baseline kodu ve `ChannelAnalyst::baseline()` kaldırıldı.

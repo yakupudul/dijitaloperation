@@ -35,6 +35,9 @@ final class BrandCandidateBuilder
 {
     public const int BATCH = 80;
 
+    /** Message of the last failed AI call of this run (shown by the command). */
+    private ?string $lastAiError = null;
+
     private const array TYPE_LABELS = [
         'website' => 'Web sitesi', 'search_console' => 'Search Console', 'ga4' => 'GA4',
         'google_business_profile' => 'İşletme Profili', 'google_ads' => 'Google Ads', 'meta_ads' => 'Meta',
@@ -51,12 +54,13 @@ final class BrandCandidateBuilder
         return self::TYPE_LABELS[$type] ?? $type;
     }
 
-    /** @return array{new_subjects: int, candidates_created: int, ai_calls: int, ai_status: string} */
+    /** @return array{new_subjects: int, candidates_created: int, ai_calls: int, ai_status: string, ai_error: ?string} */
     public function refresh(): array
     {
         $this->prune();
         $subjects = $this->newSubjects();
-        $summary = ['new_subjects' => count($subjects), 'candidates_created' => 0, 'ai_calls' => 0, 'ai_status' => 'skipped'];
+        $summary = ['new_subjects' => count($subjects), 'candidates_created' => 0, 'ai_calls' => 0, 'ai_status' => 'skipped', 'ai_error' => null];
+        $this->lastAiError = null;
 
         /** @var array<string, array{candidate: ?BrandCandidate, existing_brand_id: ?int, hosts: array<string, true>, members: list<array{0: array<string, mixed>, 1: string}>}> $groups */
         $groups = [];
@@ -153,7 +157,13 @@ final class BrandCandidateBuilder
                 if ($status === 'called') {
                     $summary['ai_calls']++;
                 }
-                if (in_array($status, ['no_provider', 'error'], true)) {
+                if ($status === 'error') {
+                    // A failed call leaves the leftovers unplaced: the next run retries them instead of turning every
+                    // account into its own candidate.
+                    $summary['ai_error'] = $this->lastAiError;
+                    break;
+                }
+                if ($status === 'no_provider') {
                     // Without AI every leftover is its own candidate (by name); sectors stay for the operator.
                     foreach (array_slice($leftovers, $i * self::BATCH) as $subject) {
                         if (! $this->isPlaced($subject)) {
@@ -219,6 +229,7 @@ final class BrandCandidateBuilder
             )->toArray();
         } catch (Throwable $exception) {
             Log::warning('Brand candidate AI call failed.', ['error' => $exception->getMessage()]);
+            $this->lastAiError = mb_substr($exception->getMessage(), 0, 300);
 
             return 'error';
         }

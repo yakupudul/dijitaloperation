@@ -609,6 +609,9 @@ Artisan::command('moxdop:brand-candidates {--sync : Run now instead of queueing}
     if ($this->option('sync')) {
         $summary = app(BrandCandidateBuilder::class)->refresh();
         $this->info(sprintf('Yeni kaynak %d · yeni aday %d · AI çağrısı %d (%s)', $summary['new_subjects'], $summary['candidates_created'], $summary['ai_calls'], $summary['ai_status']));
+        if ($summary['ai_error'] !== null) {
+            $this->error('AI hatası: '.$summary['ai_error'].' — eşleşmeyen hesaplar bir sonraki çalıştırmada yeniden denenir.');
+        }
 
         return;
     }

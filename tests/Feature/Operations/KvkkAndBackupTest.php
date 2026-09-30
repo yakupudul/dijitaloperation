@@ -132,4 +132,36 @@ final class KvkkAndBackupTest extends TestCase
         $this->assertCount(2, glob($this->dir.'/moxdop-*.gz'), 'a safety backup of version two was taken first');
         @unlink($database);
     }
+
+    public function test_pgsql_dump_is_streamed_into_the_gzip_file_and_errors_come_from_stderr(): void
+    {
+        $dir = sys_get_temp_dir().'/moxdop-pgdump-'.uniqid();
+        File::ensureDirectoryExists($dir);
+        $script = $dir.'/pg_dump';
+        // ~24 MB of dump lines, then the pg_dump footer the verifier looks for.
+        file_put_contents($script, <<<'SH'
+            #!/bin/sh
+            for i in $(seq 1 300000); do echo "INSERT INTO t VALUES ($i, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');"; done
+            echo '-- PostgreSQL database dump complete'
+
+            SH);
+        chmod($script, 0755);
+        config(['moxdop-backup.pg_dump' => $script]);
+        $backup = app(SystemBackup::class);
+
+        $path = $dir.'/dump.sql.gz';
+        $backup->dump('pgsql', ['host' => '127.0.0.1', 'port' => 5432, 'username' => 'u', 'database' => 'd', 'password' => ''], $path);
+        $backup->verify('pgsql', $path);
+        $this->assertLessThan(5 * 1024 * 1024, filesize($path), 'written compressed, chunk by chunk');
+
+        file_put_contents($script, "#!/bin/sh\necho 'pg_dump: error: connection refused' >&2\nexit 1\n");
+        try {
+            $backup->dump('pgsql', ['database' => 'd'], $dir.'/failed.sql.gz');
+            $this->fail('A failed dump was accepted.');
+        } catch (\RuntimeException $error) {
+            $this->assertSame('Döküm başarısız: pg_dump: error: connection refused', $error->getMessage());
+        }
+
+        File::deleteDirectory($dir);
+    }
 }
