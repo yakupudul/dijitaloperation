@@ -3,8 +3,8 @@
 namespace App\Livewire\Operator\Library;
 
 use App\Jobs\Queries\ClusterQueriesJob;
-use App\Jobs\Queries\ProcessQueriesJob;
 use App\Jobs\Queries\ProposeQueryRulesJob;
+use App\Jobs\Queries\RescanQueriesJob;
 use App\Models\Brand;
 use App\Models\BrandClusterPage;
 use App\Models\Cluster;
@@ -12,6 +12,7 @@ use App\Models\ClusterQuery;
 use App\Models\DigitalAsset;
 use App\Models\FilterTerm;
 use App\Models\Page;
+use App\Models\PendingQuery;
 use App\Models\Query;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
@@ -19,6 +20,7 @@ use App\Models\ServiceMatchingKeyword;
 use App\Models\User;
 use App\Services\Catalog\ServiceKeywordService;
 use App\Services\Queries\ClusterEditor;
+use App\Services\Queries\PendingQueries;
 use App\Services\Queries\QueryClusterer;
 use App\Services\Queries\QueryNormalizer;
 use App\Services\Queries\QueryRuleProposer;
@@ -36,8 +38,9 @@ use Livewire\Component;
 use Livewire\WithPagination;
 
 /**
- * Sorgular: the one query store (query_sources → queries → brand_queries) with tabs Sorgular · Kümeler · Filtre sepeti ·
- * Eşleme kelimeleri. Reads only; the pipeline, AI rule proposals and clustering run as queued jobs.
+ * Sorgular: the one query store (query_sources → queries → brand_queries) with tabs Sorgular · Bekleyenler · Kümeler ·
+ * Filtre sepeti · Eşleme kelimeleri and "AI ile planla". Reads only; the pipeline, AI proposals, clustering and the
+ * rescan (filter / matching keyword changes → a review the operator approves) run as queued jobs.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Sorgular')]
@@ -45,7 +48,9 @@ final class QueriesPage extends Component
 {
     use WithPagination;
 
-    public const array TABS = ['queries' => 'Sorgular', 'clusters' => 'Kümeler', 'filters' => 'Filtre sepeti', 'keywords' => 'Eşleme kelimeleri'];
+    public const array TABS = ['queries' => 'Sorgular', 'pending' => 'Bekleyenler', 'clusters' => 'Kümeler', 'filters' => 'Filtre sepeti', 'keywords' => 'Eşleme kelimeleri'];
+
+    private const int NEGATIVE_LINES = 30;
 
     public const array SOURCE_LABELS = ['gsc' => 'GSC', 'google_ads' => 'Ads', 'gbp' => 'GBP'];
 
@@ -121,11 +126,33 @@ final class QueriesPage extends Component
     /** @var array<int|string, string> */
     public array $newKeyword = [];
 
+    /** "Filtreye ekle" popup: proposed terms (one per line), their sector and the selected queries. */
+    public bool $negOpen = false;
+
+    public string $negText = '';
+
+    public string $negSector = '';
+
+    /** @var list<int> */
+    #[Locked]
+    public array $negIds = [];
+
+    public bool $negAwaiting = false;
+
+    /** @var list<int> Bekleyenler lines flipped against the default selection (temiz = selected) */
+    public array $pendingFlip = [];
+
+    public function mount(): void
+    {
+        $this->message = (string) session('queries-message', '');
+    }
+
     public function updated(string $property): void
     {
         if (in_array($property, ['sector', 'service', 'cluster', 'search', 'tab', 'hidden'], true)) {
             $this->resetPage();
             $this->selected = [];
+            $this->pendingFlip = [];
         }
         if ($property === 'sector') {
             $this->service = '';
@@ -231,8 +258,8 @@ final class QueriesPage extends Component
         QueryRuleProposer::discard((int) $actor->id);
         $this->rulesOpen = false;
         $this->message = $saved['terms'] + $saved['keywords'] > 0
-            ? sprintf('%d filtre terimi · %d eşleme kelimesi kaydedildi · sorgular yeniden işleniyor.', $saved['terms'], $saved['keywords'])
-            : 'Seçilen öneriler zaten kayıtlı · yeniden işleme yok.';
+            ? sprintf('%d filtre terimi · %d eşleme kelimesi kaydedildi · tarama başladı, hazır olunca bildirim gelir.', $saved['terms'], $saved['keywords'])
+            : 'Seçilen öneriler zaten kayıtlı · tarama yok.';
     }
 
     public function closeRules(): void
@@ -380,16 +407,15 @@ final class QueriesPage extends Component
         }
         FilterTerm::query()->create(['sector_id' => $sectorId, 'term' => $term, 'source' => 'manual', 'created_by' => $actor->id]);
         $this->termText = '';
-        ProcessQueriesJob::dispatch();
-        $this->message = '"'.$term.'" eklendi · sorgular yeniden işleniyor.';
+        RescanQueriesJob::dispatch((int) $actor->id);
+        $this->message = '"'.$term.'" eklendi · tarama başladı, hazır olunca bildirim gelir.';
     }
 
     public function deleteTerm(int $id): void
     {
         $this->actor();
         FilterTerm::query()->whereKey($id)->delete();
-        ProcessQueriesJob::dispatch();
-        $this->message = 'Terim silindi · sorgular yeniden işleniyor.';
+        $this->message = 'Terim silindi.';
     }
 
     // ── Eşleme kelimeleri ────────────────────────────────────────────────────
@@ -405,16 +431,144 @@ final class QueriesPage extends Component
             throw ValidationException::withMessages(['newKeyword.'.$serviceId => collect($exception->errors())->flatten()->first()]);
         }
         $this->newKeyword[$serviceId] = '';
-        ProcessQueriesJob::dispatch();
-        $this->message = 'Kelime eklendi · sorgular yeniden işleniyor.';
+        RescanQueriesJob::dispatch((int) auth()->id());
+        $this->message = 'Kelime eklendi · tarama başladı, hazır olunca bildirim gelir.';
     }
 
     public function deleteKeyword(int $id): void
     {
-        $this->actor();
+        $actor = $this->actor();
         ServiceMatchingKeyword::query()->whereKey($id)->delete();
-        ProcessQueriesJob::dispatch();
-        $this->message = 'Kelime silindi · sorgular yeniden işleniyor.';
+        RescanQueriesJob::dispatch((int) $actor->id);
+        $this->message = 'Kelime silindi · tarama başladı, hazır olunca bildirim gelir.';
+    }
+
+    // ── Filtreye ekle ────────────────────────────────────────────────────────
+
+    public function openNegatives(): void
+    {
+        $this->actor();
+        $queries = Query::query()->whereIn('id', array_slice($this->selectedIds(), 0, QueryRuleProposer::MAX_QUERIES))->orderByDesc('impressions')->orderBy('id')->get(['id', 'text', 'sector_id']);
+        if ($queries->isEmpty()) {
+            $this->message = 'Önce sorgu seçin.';
+
+            return;
+        }
+        $this->negIds = $queries->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        $this->negText = $queries->pluck('text')->implode("\n");
+        $this->negSector = (string) ($queries->pluck('sector_id')->filter()->countBy()->sortDesc()->keys()->first() ?? '');
+        $this->negAwaiting = false;
+        $this->negOpen = true;
+    }
+
+    /** "AI ile düzenle": the minimal words that catch the selected queries (one queued call). */
+    public function aiNegatives(): void
+    {
+        $actor = $this->actor();
+        QueryRuleProposer::markRunning((int) $actor->id);
+        $this->negAwaiting = true;
+        ProposeQueryRulesJob::dispatch((int) $actor->id, $this->negIds);
+        $this->pollNegatives();
+    }
+
+    public function pollNegatives(): void
+    {
+        $user = auth()->user();
+        $proposal = $this->negAwaiting && $user instanceof User ? QueryRuleProposer::current((int) $user->id) : null;
+        if ($proposal === null || ($proposal['status'] ?? null) === 'running') {
+            return;
+        }
+        $this->negAwaiting = false;
+        QueryRuleProposer::discard((int) $user->id);
+        $terms = array_column((array) ($proposal['terms'] ?? []), 'term');
+        if (($proposal['status'] ?? null) !== 'ready') {
+            $this->message = ['no_provider' => 'AI bağlı değil.'][$proposal['status']] ?? 'AI önerisi alınamadı.';
+        } elseif ($terms === []) {
+            $this->message = 'AI daha kısa terim önermedi.';
+        } else {
+            $this->negText = implode("\n", $terms);
+        }
+    }
+
+    public function saveNegatives(): void
+    {
+        $actor = $this->actor();
+        $sectorId = ctype_digit($this->negSector) && ServiceCategory::query()->whereKey((int) $this->negSector)->exists() ? (int) $this->negSector : null;
+        $saved = 0;
+        foreach ($this->negativeLines() as $term) {
+            $row = FilterTerm::query()->firstOrCreate(['sector_id' => $sectorId, 'term' => $term], ['source' => 'manual', 'created_by' => $actor->id]);
+            $saved += $row->wasRecentlyCreated ? 1 : 0;
+        }
+        $this->negOpen = false;
+        $this->selected = [];
+        if ($saved === 0) {
+            $this->message = 'Yeni terim yok.';
+
+            return;
+        }
+        RescanQueriesJob::dispatch((int) $actor->id);
+        $this->message = $saved.' terim filtreye eklendi · tarama başladı, hazır olunca bildirim gelir.';
+    }
+
+    public function closeNegatives(): void
+    {
+        $this->negOpen = false;
+        $this->negAwaiting = false;
+    }
+
+    /** @return list<string> */
+    private function negativeLines(): array
+    {
+        $terms = [];
+        foreach (preg_split('/\R/u', $this->negText) ?: [] as $line) {
+            $term = trim(preg_replace('/\s+/u', ' ', QueryNormalizer::lower($line)) ?? '');
+            if (mb_strlen($term) >= 2 && mb_strlen($term) <= 200) {
+                $terms[$term] = true;
+            }
+        }
+
+        return array_slice(array_keys($terms), 0, self::NEGATIVE_LINES);
+    }
+
+    // ── Bekleyenler ──────────────────────────────────────────────────────────
+
+    public function togglePending(int $id): void
+    {
+        $this->pendingFlip = in_array($id, $this->pendingFlip, true) ? array_values(array_diff($this->pendingFlip, [$id])) : [...$this->pendingFlip, $id];
+    }
+
+    public function importPending(PendingQueries $pending): void
+    {
+        $this->actor();
+        $count = $pending->import($this->pendingSelection());
+        $this->pendingFlip = [];
+        $this->message = $count.' sorgu içe aktarıldı.';
+    }
+
+    public function dismissPending(PendingQueries $pending): void
+    {
+        $this->actor();
+        $count = $pending->dismiss($this->pendingSelection());
+        $this->pendingFlip = [];
+        $this->message = $count.' sorgu yoksayıldı.';
+    }
+
+    /** @return list<int> selected pending ids: temiz ones unless unticked, silinecek ones only when ticked */
+    private function pendingSelection(): array
+    {
+        $flip = array_map('intval', $this->pendingFlip) ?: [0];
+
+        return $this->pendingQuery()
+            ->where(fn (Builder $q) => $q->where(fn (Builder $q) => $q->whereNull('filter_term')->whereNotIn('id', $flip))
+                ->orWhere(fn (Builder $q) => $q->whereNotNull('filter_term')->whereIn('id', $flip)))
+            ->pluck('id')->map(fn ($id): int => (int) $id)->all();
+    }
+
+    /** @return Builder<PendingQuery> */
+    private function pendingQuery(): Builder
+    {
+        return PendingQuery::query()->where('status', PendingQuery::PENDING)
+            ->when(ctype_digit($this->sector), fn (Builder $q) => $q->where('sector_id', (int) $this->sector));
     }
 
     public function render(): View
@@ -440,12 +594,16 @@ final class QueriesPage extends Component
                 ? Page::query()->whereIn('website_asset_id', DigitalAsset::query()->where('brand_id', (int) $this->brandId)->select('id'))
                     ->whereIn('category', ['hizmet', 'lokasyon', 'blog', 'sss'])->orderBy('path')->limit(500)->pluck('path', 'id')->all() : [],
             'terms' => $this->tab === 'filters' ? FilterTerm::query()->with('sector')
-                ->when(ctype_digit($this->sector), fn ($q) => $q->where(fn ($q) => $q->whereNull('sector_id')->orWhere('sector_id', (int) $this->sector)))
+                ->when(ctype_digit($this->sector), fn ($q) => $q->where('sector_id', (int) $this->sector))
                 ->orderBy('term')->paginate(50) : null,
+            'pendingCount' => PendingQuery::query()->where('status', PendingQuery::PENDING)->count(),
+            'pending' => $this->tab === 'pending' ? $this->pendingQuery()->with(['brand:id,name', 'asset:id,name,type', 'service.primaryName'])
+                ->orderByDesc('impressions')->orderBy('id')->paginate(50) : null,
+            'negCatches' => $this->negOpen ? collect($this->negativeLines())->mapWithKeys(fn (string $term): array => [$term => QueryRuleProposer::catches($term, $this->negIds)])->all() : [],
             'keywordServices' => $this->tab === 'keywords' ? $this->keywordServices() : null,
             'proposal' => $proposal,
             'clusterStatus' => is_array($clusterStatus) ? $clusterStatus : null,
-            'polling' => ($proposal['status'] ?? null) === 'running' || ($clusterStatus['status'] ?? null) === 'running',
+            'polling' => ($proposal['status'] ?? null) === 'running' || ($clusterStatus['status'] ?? null) === 'running' || $this->negAwaiting,
         ]);
     }
 

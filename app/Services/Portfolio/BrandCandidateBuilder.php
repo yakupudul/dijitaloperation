@@ -520,7 +520,7 @@ final class BrandCandidateBuilder
         ];
     }
 
-    private function gbpCategory(CoreExternalResource $resource): ?string
+    public static function gbpCategory(CoreExternalResource $resource): ?string
     {
         $meta = is_array($resource->metadata) ? $resource->metadata : [];
         $category = $meta['primary_category'] ?? null;
@@ -531,7 +531,7 @@ final class BrandCandidateBuilder
         return is_string($category) && trim($category) !== '' ? mb_substr(trim($category), 0, 160) : null;
     }
 
-    private function siteTitle(DigitalAsset $site): ?string
+    public static function siteTitle(DigitalAsset $site): ?string
     {
         $title = Page::query()->where('website_asset_id', $site->id)->whereNotNull('title')
             ->orderByRaw("case when path = '/' then 0 else 1 end")->orderByRaw('length(path)')->value('title');

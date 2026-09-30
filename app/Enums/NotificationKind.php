@@ -29,4 +29,5 @@ enum NotificationKind: string
     /** @deprecated Faz 1: producer removed */
     case BusinessOutcomeRecheckAttention = 'business_outcome_recheck_attention';
     case OperationalAlertOpened = 'operational_alert_opened';
+    case QueriesNotice = 'queries_notice';
 }

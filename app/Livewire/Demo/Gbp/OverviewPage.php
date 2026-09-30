@@ -290,6 +290,7 @@ class OverviewPage extends Component
             'identity' => $data['identity'],
             'bound' => (bool) ($data['connection']['bound'] ?? false),
             'brand' => $asset->brand,
+            'sectorName' => $asset->sector()?->name,
             'operational' => (bool) $asset->brand?->isOperational(),
             'flash' => DemoState::pullFlash(),
             'canWrite' => ExternalWriteService::allowed(auth()->user(), ExternalWriteAction::CHANNEL_GBP),

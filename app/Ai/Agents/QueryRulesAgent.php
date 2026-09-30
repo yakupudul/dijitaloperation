@@ -14,7 +14,7 @@ use Laravel\Ai\Promptable;
 
 /**
  * Sorgular "AI ile kural üret" (operation `queries.filter_rules`): ONE call over the operator's selected queries
- * proposes (a) filter basket terms to delete from queries and (b) new matching keywords per service. Every proposal is
+ * proposes (a) negative filter terms (a query containing one is deleted) and (b) new matching keywords per service. Every proposal is
  * checked against the selected queries, the sectors and the services given before the operator sees it.
  */
 final class QueryRulesAgent implements Agent, HasProviderOptions, HasStructuredOutput, RegistryPrompted
@@ -24,7 +24,7 @@ final class QueryRulesAgent implements Agent, HasProviderOptions, HasStructuredO
 
     public const string OPERATION = AiRouteKeys::QUERIES_FILTER_RULES;
 
-    public const string PROMPT_VERSION = 'queries-filter-rules-v1';
+    public const string PROMPT_VERSION = 'queries-filter-rules-v2';
 
     public function promptOperation(): string
     {

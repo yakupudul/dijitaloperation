@@ -22,4 +22,5 @@ enum DomainEventSubjectKind: string
     case BusinessOutcomeRecheckRun = 'business_outcome_recheck_run';
     case InternalNotificationSchedule = 'internal_notification_schedule';
     case OperationalAlert = 'operational_alert';
+    case Queries = 'queries';
 }

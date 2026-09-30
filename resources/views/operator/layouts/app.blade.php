@@ -131,6 +131,10 @@
             class="pointer-events-auto max-w-md cursor-pointer rounded-lg px-4 py-3 text-sm text-white shadow-lg"></p>
     </div>
 
+    @auth
+        <livewire:operator.notification-toast />
+    @endauth
+
     @stack('scripts')
 </body>
 

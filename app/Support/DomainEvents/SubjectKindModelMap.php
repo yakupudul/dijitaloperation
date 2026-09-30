@@ -38,6 +38,7 @@ final class SubjectKindModelMap
             DomainEventSubjectKind::BusinessOutcomeRecheckRun => null,
             DomainEventSubjectKind::InternalNotificationSchedule => InternalNotificationSchedule::class,
             DomainEventSubjectKind::OperationalAlert => OperationalAlert::class,
+            DomainEventSubjectKind::Queries => null,
         };
     }
 }

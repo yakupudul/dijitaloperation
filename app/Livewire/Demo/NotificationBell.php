@@ -27,6 +27,24 @@ class NotificationBell extends Component
         app(NotificationUiActions::class)->markRead($user, $id);
     }
 
+    /** Opens the notification's target and marks it read. */
+    public function open(string $id): void
+    {
+        $user = Auth::user();
+        if ($user === null || ! ctype_digit($id)) {
+            return;
+        }
+        $item = app(NotificationReadService::class)->findForUser($user, (int) $id);
+        if ($item === null) {
+            return;
+        }
+        app(NotificationUiActions::class)->markRead($user, $id);
+        $url = self::present($item)['url'] ?? null;
+        if (is_string($url) && $url !== '') {
+            $this->redirect($url, navigate: true);
+        }
+    }
+
     /** Feedback of the last one-click action ("Şimdi güncelle"). */
     public string $notice = '';
 
@@ -112,7 +130,9 @@ class NotificationBell extends Component
             'button' => null,
             'repeat_label' => '',
             'when' => $when,
-            'url' => ($item['subject_kind'] ?? null) === 'operational_alert' && Route::has('operator.settings.system-health') ? route('operator.settings.system-health') : null,
+            'url' => ($item['subject_kind'] ?? null) === 'operational_alert' && Route::has('operator.settings.system-health')
+                ? route('operator.settings.system-health')
+                : (is_string(data_get($item, 'presentation.url')) ? data_get($item, 'presentation.url') : null),
         ]);
     }
 

@@ -32,6 +32,8 @@ enum DomainEventType: string
     /** @deprecated Faz 1: producer removed */
     case BusinessOutcomeRecheckAttention = 'BUSINESS_OUTCOME_RECHECK_ATTENTION';
     case OperationalAlertOpened = 'OPERATIONAL_ALERT_OPENED';
+    /** Sorgular: rescan review ready, first import done, AI step failed (important: also shown as a toast). */
+    case QueriesNotice = 'QUERIES_NOTICE';
 
     public function category(): string
     {
@@ -45,6 +47,7 @@ enum DomainEventType: string
             self::RecurringReviewCompleted => 'review',
             self::ScheduledInternalNotification, self::BusinessOutcomeRecheckAttention => 'automation',
             self::OperationalAlertOpened => 'operations',
+            self::QueriesNotice => 'automation',
         };
     }
 
@@ -61,6 +64,7 @@ enum DomainEventType: string
             self::ScheduledInternalNotification => 'scheduled_internal_notification',
             self::BusinessOutcomeRecheckAttention => 'business_outcome_recheck',
             self::OperationalAlertOpened => 'operation_failed',
+            self::QueriesNotice => 'scheduled_internal_notification',
         };
     }
 }

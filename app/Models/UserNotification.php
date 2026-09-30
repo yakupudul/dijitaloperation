@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'presentation',
     'read_at',
     'archived_at',
+    'toasted_at',
 ])]
 class UserNotification extends Model
 {
@@ -70,6 +71,7 @@ class UserNotification extends Model
             'presentation' => 'array',
             'read_at' => 'datetime',
             'archived_at' => 'datetime',
+            'toasted_at' => 'datetime',
         ];
     }
 }

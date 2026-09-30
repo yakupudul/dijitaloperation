@@ -1,5 +1,13 @@
 # PROJECT_MEMORY
 
+## 2026-11-04 — Sorgular: AI ile planla, negatif filtre, bekleyen sorgular, onaylı tarama
+
+- **Karar (operatör):** Sektör markada durur, varlıklar devralır; varlık kendi sektörünü seçebilir (marka sektörü seçilince geçersiz kılma silinir). Sektör ve hizmet kataloğu markalar, sorgular ve varlıklar arasında ortaktır.
+- **Karar (operatör):** Filtre sepeti negatif listedir: içeren sorgu silinir, terim sorgudan çıkarılmaz; tüm sektörlerin terimleri tüm sorgulara uygulanır. Önceki "terim sorgudan silinir" kararının yerini alır.
+- **Karar (operatör):** Kütüphaneye tek otomatik toplu giriş "AI ile planla" adım 3 onayıdır; sonrası yeni sorgular Bekleyenler'de operatör onayı bekler, reddedilen / silinen metin geri gelmez. Kütüphane sorgularının metrikleri her toplamada güncellenir.
+- **Karar (operatör):** Sorgu silme ve hizmet yeniden atama yalnız onaylı akışlarla olur (ilk içe aktarma, tarama incelemesi); filtre terimi veya eşleme kelimesi değişikliği önce kuyrukta taranır, sonuç bildirimle gelir, operatör işaretlileri onaylar. Elle atamalar ve kilitli kümeler taramada değişmez.
+- **Karar:** Önemli bildirimler (tarama hazır, ilk içe aktarma bitti, AI adımı başarısız) zilde ve solda bir kez toast olarak gösterilir.
+
 ## 2026-11-03 — v2 düzeltmeleri: web sitesi ekranı
 
 - **Karar:** Küme ↔ URL varsayılan tek hedef URL'dir ama katı değildir: operatör ek URL ekleyebilir; her site dili ayrı eşleşme satırıdır.

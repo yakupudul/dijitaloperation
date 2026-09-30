@@ -415,7 +415,7 @@
         @php
             $rows = [
                 'Marka' => $brand?->name ?? 'Bağlı değil',
-                'Sektör' => $brand?->sectorCategory?->name ?? '—',
+                'Sektör' => $sectorName ?? '—',
                 'İşletme adı' => $identity['title'] ?? '—',
                 'Adres' => $identity['location_line'] ?? '—',
                 'Telefon' => collect($profile['fields'] ?? [])->firstWhere('key', 'primary_phone')['value'] ?? '—',

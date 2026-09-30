@@ -115,7 +115,7 @@ final class NotificationProjector
             'body_params' => $bodyParams,
             'subject_label' => $subjectLabel,
             'summary' => is_string($payload['summary'] ?? null) ? mb_substr(trim($payload['summary']), 0, 300) : null,
-        ];
+        ] + ($type === DomainEventType::QueriesNotice ? ['url' => is_string($payload['url'] ?? null) ? $payload['url'] : null, 'important' => true] : []);
     }
 
     /**
@@ -155,6 +155,7 @@ final class NotificationProjector
             DomainEventType::ScheduledInternalNotification => $subjectLabel !== '' ? $subjectLabel : 'Planlı bildirim',
             DomainEventType::BusinessOutcomeRecheckAttention => $subjectLabel !== '' ? $subjectLabel : 'İş sonucu yeniden kontrol edilmeli',
             DomainEventType::OperationalAlertOpened => $subjectLabel !== '' ? $subjectLabel : 'Sistem uyarısı',
+            DomainEventType::QueriesNotice => $subjectLabel,
         };
     }
 }

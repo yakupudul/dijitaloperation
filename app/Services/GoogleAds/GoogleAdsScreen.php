@@ -161,7 +161,7 @@ final class GoogleAdsScreen
         }
         $normalized = [];
         foreach ($texts as $text) {
-            $normalized[QueryNormalizer::lower($text)] = $this->normalizer->normalize($text, $sectorId);
+            $normalized[QueryNormalizer::lower($text)] = $this->normalizer->normalize($text);
         }
         $assigned = Query::query()->where('sector_id', $sectorId)->whereNotNull('service_id')
             ->whereIn('text_hash', array_map(fn (string $n): string => QueryNormalizer::hash($n), array_values(array_filter($normalized))))
