@@ -20,6 +20,7 @@ use App\Models\Page;
 use App\Models\Query;
 use App\Models\Suggestion;
 use App\Services\Outcomes\OutcomeTracker;
+use App\Services\Queries\ClusterEditor;
 use App\Services\Queries\QueryNormalizer;
 use App\Services\Site\Analysis\SiteAnalysisReader;
 use App\Services\Site\BrandMemoryService;
@@ -89,7 +90,7 @@ final class SiteScreenFixesTest extends SiteTestCase
         $foreign = $this->page('/yabanci/', 'Yabancı');
         $foreign->forceFill(['website_asset_id' => DigitalAsset::factory()->create(['type' => 'website'])->id])->save();
         $this->expectException(ValidationException::class);
-        app(ClusterPageMapper::class)->setManual($tr->fresh(), $other->id, 'sufficient', [$foreign->id]);
+        app(ClusterEditor::class)->brandRow($tr->fresh(), ['page_id' => $other->id, 'state' => 'sufficient', 'extra_page_ids' => [$foreign->id]]);
     }
 
     public function test_url_pack_has_competitor_examples_and_the_target_audience(): void

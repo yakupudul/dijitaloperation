@@ -6,6 +6,7 @@ use App\Models\ServiceCatalogItem;
 use App\Models\ServiceMatchingKeyword;
 use App\Services\SeoTasks\SeoText;
 use App\Support\Options\LocationOptions;
+use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -40,7 +41,7 @@ final class ServiceKeywordService
             throw ValidationException::withMessages(['matching_words' => 'Bir hizmete en fazla 200 ifade ekleyebilirsiniz.']);
         }
         DB::transaction(function () use ($service, $keywords): void {
-            ServiceCatalogItem::query()->lockForUpdate()->findOrFail($service->id);
+            $this->lockScope($service);
             foreach ($this->conflicts($service, array_keys($keywords)) as $key => $other) {
                 throw ValidationException::withMessages(['matching_words' => self::conflictMessage($keywords[$key], $other)]);
             }
@@ -94,7 +95,7 @@ final class ServiceKeywordService
         }
 
         return DB::transaction(function () use ($service, $label, $key): ServiceMatchingKeyword {
-            ServiceCatalogItem::query()->lockForUpdate()->findOrFail($service->id);
+            $this->lockScope($service);
             if ($service->matchingKeywords()->where('normalized_key', $key)->exists()) {
                 throw ValidationException::withMessages(['keyword' => 'Bu kelime bu hizmette zaten var.']);
             }
@@ -110,24 +111,45 @@ final class ServiceKeywordService
     }
 
     /**
-     * Keys already used by ANOTHER service of the same sector: key => that service's name. No sector = no check.
+     * Keys already used by ANOTHER service of the same scope: key => that service's name. Scope = the sector plus the
+     * services without a sector (global); a service without a sector is global and checked against every service.
      *
      * @param  list<string>  $keys
      * @return array<string, string>
      */
     public function conflicts(ServiceCatalogItem $service, array $keys): array
     {
-        if ($keys === [] || blank($service->sector)) {
+        if ($keys === []) {
             return [];
         }
 
         return ServiceMatchingKeyword::query()
             ->join('service_catalog_items as s', 's.id', '=', 'service_matching_keywords.service_catalog_item_id')
-            ->whereNull('s.deleted_at')->where('s.sector', $service->sector)->where('s.id', '!=', $service->id)
+            ->whereNull('s.deleted_at')->where('s.id', '!=', $service->id)
+            ->where(fn (Builder $q): Builder => $this->inScope($q, $service, 's.sector'))
             ->whereIn('service_matching_keywords.normalized_key', $keys)
             ->get(['service_matching_keywords.normalized_key', 's.id'])
             ->mapWithKeys(fn ($row): array => [(string) $row->normalized_key => (string) (ServiceCatalogItem::query()->with('primaryName')->find($row->id)?->primaryName?->raw_label ?? '#'.$row->id)])
             ->all();
+    }
+
+    /**
+     * Race-safe uniqueness: every service of the scope is locked (id order, no deadlock) before the check, so two
+     * concurrent adds in one sector run one after the other.
+     */
+    private function lockScope(ServiceCatalogItem $service): void
+    {
+        ServiceCatalogItem::query()->withTrashed()->where(fn (Builder $q): Builder => $this->inScope($q->orWhere('id', $service->id), $service, 'sector'))
+            ->orderBy('id')->lockForUpdate()->pluck('id');
+    }
+
+    private function inScope(Builder $query, ServiceCatalogItem $service, string $column): Builder
+    {
+        if (blank($service->sector)) {
+            return $query->orWhereRaw('1 = 1');
+        }
+
+        return $query->orWhere($column, $service->sector)->orWhereNull($column)->orWhere($column, '');
     }
 
     private static function conflictMessage(string $label, string $service): string

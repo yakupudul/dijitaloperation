@@ -19,6 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
         channels: __DIR__.'/../routes/channels.php',
         health: '/up',
     )
+    // Listeners are registered explicitly (AppServiceProvider); discovery would register each one a second time.
+    ->withEvents(discover: false)
     ->withMiddleware(function (Middleware $middleware): void {
         // Canonical operator login is /login. Filament technical admin is /admin.
         $middleware->redirectGuestsTo(fn (): string => route('app.login'));

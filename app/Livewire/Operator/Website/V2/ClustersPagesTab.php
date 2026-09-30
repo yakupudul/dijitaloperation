@@ -6,7 +6,7 @@ use App\Models\BrandClusterPage;
 use App\Models\BrandOffering;
 use App\Models\DigitalAsset;
 use App\Models\Page;
-use App\Services\Site\ClusterPageMapper;
+use App\Services\Queries\ClusterEditor;
 use App\Services\Site\PageCategorizer;
 use App\Services\Site\ServicePageMapper;
 use App\Services\Site\SiteMetrics;
@@ -21,7 +21,8 @@ use Livewire\WithPagination;
 
 /**
  * SEO Yapılacaklar › Kümeler & Sayfalar: per service the approved clusters with state, target URL, main / target query
- * and 28-day clicks / position (operator can change URL / state → locked); the page list with category and service
+ * and 28-day clicks / position (operator can change URL / state → locked, target query, excluded for the brand — through
+ * ClusterEditor, so Sorgular shows the same record); the page list with category and service
  * (operator edits are locked), "Analiz et" per row and "Seçilenleri analiz et". AI steps run as queued jobs.
  */
 final class ClustersPagesTab extends Component
@@ -40,7 +41,7 @@ final class ClustersPagesTab extends Component
     /** @var list<int|string> */
     public array $selected = [];
 
-    /** @var array<int, array{page?: string, state?: string, extra?: list<string>}> */
+    /** @var array<int, array{page?: string, state?: string, extra?: list<string>, target?: string, excluded?: bool}> */
     public array $edit = [];
 
     /** Filters the target URL options (at most PAGE_OPTIONS are listed). */
@@ -83,15 +84,24 @@ final class ClustersPagesTab extends Component
         $this->message = 'Hizmet kaydedildi (kilitli).';
     }
 
-    public function saveCluster(int $rowId, ClusterPageMapper $mapper): void
+    /** Brand-only edit (same ClusterEditor as Sorgular): URL / state (locked), target query override, excluded. */
+    public function saveCluster(int $rowId, ClusterEditor $editor): void
     {
         $row = BrandClusterPage::query()->where('website_asset_id', $this->assetId)->findOrFail($rowId);
-        $page = (string) ($this->edit[$rowId]['page'] ?? ($row->page_id ?? ''));
-        $state = (string) ($this->edit[$rowId]['state'] ?? $row->state);
-        $extra = array_key_exists('extra', $this->edit[$rowId] ?? []) ? array_map('intval', array_filter((array) $this->edit[$rowId]['extra'], fn ($id): bool => ctype_digit((string) $id))) : null;
-        $mapper->setManual($row, ctype_digit($page) ? (int) $page : null, $state, $extra);
+        $edit = $this->edit[$rowId] ?? [];
+        $page = (string) ($edit['page'] ?? ($row->page_id ?? ''));
+        $values = ['target_query_override' => (string) ($edit['target'] ?? $row->target_query_override), 'excluded' => (bool) ($edit['excluded'] ?? $row->excluded)];
+        $pageId = ctype_digit($page) ? (int) $page : null;
+        $state = (string) ($edit['state'] ?? $row->state);
+        if ($pageId !== $row->page_id || $state !== $row->state) {
+            $values += ['page_id' => $pageId, 'state' => $state];
+        }
+        if (array_key_exists('extra', $edit)) {
+            $values['extra_page_ids'] = array_map('intval', array_filter((array) $edit['extra'], fn ($id): bool => ctype_digit((string) $id)));
+        }
+        $editor->brandRow($row, $values);
         unset($this->edit[$rowId]);
-        $this->message = 'Küme hedefi kaydedildi (kilitli).';
+        $this->message = 'Küme hedefi kaydedildi (bu markaya özel).';
     }
 
     public function analyze(int $pageId): void
@@ -124,7 +134,8 @@ final class ClustersPagesTab extends Component
         $rows = BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url,path'])->where('website_asset_id', $site->id)
             ->orderBy('cluster_id')->orderBy('language')->orderBy('id')->paginate(50, pageName: 'kume');
         foreach ($rows as $row) {
-            $this->edit[$row->id] ??= ['page' => (string) ($row->page_id ?? ''), 'state' => (string) $row->state, 'extra' => array_map('strval', (array) $row->extra_page_ids)];
+            $this->edit[$row->id] ??= ['page' => (string) ($row->page_id ?? ''), 'state' => (string) $row->state, 'extra' => array_map('strval', (array) $row->extra_page_ids),
+                'target' => (string) ($row->target_query_override ?? ''), 'excluded' => (bool) $row->excluded];
         }
         $term = trim($this->pageSearch);
         $chosen = $rows->getCollection()->flatMap(fn (BrandClusterPage $row): array => $row->pageIds())->unique()->values()->all();

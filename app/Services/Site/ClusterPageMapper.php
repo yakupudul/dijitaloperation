@@ -10,17 +10,18 @@ use App\Models\Cluster;
 use App\Models\DigitalAsset;
 use App\Models\OfferingPage;
 use App\Models\Page;
+use App\Services\Queries\QueryPipeline;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Collection;
-use Illuminate\Validation\ValidationException;
 
 /**
  * AI adım 2 — küme ↔ sayfa (`brand_cluster_pages`): every approved cluster of the brand's services gets, per site
  * language, a target URL (the operator may add more) and one of 7 states. Deterministic signals first — Search Console query × page facts of the cluster's queries
  * (impressions share per page, position, ranking URLs), the service ↔ page links of adım 1 and the subtopic coverage of
  * the page text —, then ONE AI call per service (`site.cluster_pages`) judges coverage / intent of the ambiguous ones.
- * Target query = main query, with the brand's target area in front only for commercial / local intent. Operator rows
- * are locked: only their numbers are refreshed.
+ * Target query = main query, with the brand's target area in front only for commercial / local intent (a brand-only
+ * override wins). Operator rows are locked: only their numbers are refreshed; rows excluded for the brand are skipped.
+ * Operator edits go through ClusterEditor.
  */
 final class ClusterPageMapper
 {
@@ -41,6 +42,7 @@ final class ClusterPageMapper
     public function __construct(
         private readonly SiteAi $ai,
         private readonly SiteMetrics $metrics,
+        private readonly QueryPipeline $queries,
     ) {}
 
     /** @return array{status: string, clusters: int, ai: int} status: ready | no_brand | no_clusters | ai_* */
@@ -57,7 +59,8 @@ final class ClusterPageMapper
             ->whereIn('service_id', $serviceOffering->keys())->orderBy('service_id')->orderBy('id')->get();
         SiteMetrics::forgetPageTotals((int) $site->id);
         if ($clusters->isEmpty()) {
-            BrandClusterPage::query()->where('brand_id', $brand->id)->where('website_asset_id', $site->id)->where('locked', false)->delete();
+            BrandClusterPage::query()->where('brand_id', $brand->id)->where('website_asset_id', $site->id)->where('locked', false)->where('excluded', false)->delete();
+            $this->queries->brandTargets((int) $brand->id);
 
             return ['status' => 'no_clusters', 'clusters' => 0, 'ai' => 0];
         }
@@ -89,6 +92,8 @@ final class ClusterPageMapper
             }
         }
 
+        $this->queries->brandTargets((int) $brand->id); // brand_queries URLs follow the mapping
+
         return ['status' => $status, 'clusters' => count($keep), 'ai' => $aiCount];
     }
 
@@ -118,8 +123,13 @@ final class ClusterPageMapper
                 ->flatMap(fn ($id): Collection => $facts->get((int) $id, collect()))->values();
             $decision = $this->decide($cluster, $pages, $byKey, $mapped, $clusterFacts, $hasGsc);
             $row = $existing->get($cluster->id);
+            if ($row !== null && $row->excluded) {
+                $keep[] = $row->id; // excluded for this brand: kept as the operator left it
+
+                continue;
+            }
             $values = [
-                'target_query' => self::targetQuery($cluster, $area),
+                'target_query' => filled($row?->target_query_override) ? (string) $row->target_query_override : self::targetQuery($cluster, $area),
                 'clicks_28d' => $decision['metrics']['clicks'], 'impressions_28d' => $decision['metrics']['impressions'], 'position_28d' => $decision['metrics']['position'],
                 'refreshed_at' => now(),
             ];
@@ -244,25 +254,6 @@ final class ClusterPageMapper
 
         return ['state' => 'sufficient', 'page_id' => $target, 'metrics' => $metrics, 'candidates' => [],
             'reason' => 'Pozisyon '.($metrics['position'] !== null ? number_format($metrics['position'], 1, ',', '.') : '—').' · alt konuların '.$pct($coverage).'’i sayfada.'];
-    }
-
-    /**
-     * Operator's target URL / state (+ additional URLs of the same cluster): stored and locked.
-     *
-     * @param  list<int>|null  $extraPageIds  null = keep the stored ones
-     */
-    public function setManual(BrandClusterPage $row, ?int $pageId, string $state, ?array $extraPageIds = null): void
-    {
-        if (! in_array($state, BrandClusterPage::STATES, true)) {
-            throw ValidationException::withMessages(['state' => 'Geçersiz durum.']);
-        }
-        $extra = $extraPageIds === null ? array_map('intval', (array) $row->extra_page_ids)
-            : array_values(array_diff(array_unique(array_map('intval', $extraPageIds)), [(int) $pageId, 0]));
-        $wanted = array_values(array_filter([$pageId, ...$extra]));
-        if ($wanted !== [] && Page::query()->whereIn('id', $wanted)->where('website_asset_id', $row->website_asset_id)->count() !== count($wanted)) {
-            throw ValidationException::withMessages(['page' => 'Sayfa bu sitede değil.']);
-        }
-        $row->forceFill(['page_id' => $pageId, 'extra_page_ids' => $extra !== [] ? $extra : null, 'state' => $state, 'decided_by' => 'manual', 'locked' => true, 'reason' => 'Elle seçildi.'])->save();
     }
 
     private function coverage(int $pageId, Cluster $cluster, string $main): float

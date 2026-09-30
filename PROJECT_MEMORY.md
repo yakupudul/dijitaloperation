@@ -7,6 +7,13 @@
 - **Karar:** Site değişince (içerik, URL, silme, ortak şablon) hem açık hem onaylı-uygulanmamış öneriler yeniden kontrole düşer; marka hafızası karar satırı uygulama ve sonucu da taşır.
 - **Karar:** Connector sitelerinde sitemap yalnız operatör sitemap adresi girdiyse ve yalnız WordPress'te olmayan yollar için kullanılır.
 
+## 2026-11-03 — v2 düzeltmeleri: sorgular ve kümeler
+
+- **Karar:** Marka hedef sorguları tek yerde (`QueryPipeline::brandTargets`): ticari / yerel küme ana sorgusu × hizmet bölgesi, bilgi kümesi bölgesiz; dil = marka dili, yoksa sitenin ana dili; URL = marka küme eşlemesi.
+- **Karar:** Ortak küme (sektör + hizmet) düzenlemesi, hizmeti kullanan marka varsa "Ortak kütüphaneyi düzenle" onayı ister ve sürümü +1 yapar. Markaya özel değişiklik yalnız `brand_cluster_pages` (hedef sorgu, URL, hariç); iki ekran da `ClusterEditor` kullanır.
+- **Karar:** Sektörsüz hizmetin eşleme kelimesi globaldir; kelime tekliği kapsamdaki hizmet satırları kilitlenerek korunur.
+- **Karar:** Laravel olay keşfi kapalı; dinleyiciler yalnız açık `Event::listen` ile kaydedilir.
+
 ## 2026-11-01 — MoxDOP v2 Faz 9 (Sonuç takibi)
 
 - **Karar:** Sonuç takibi tek servistir (`OutcomeTracker`): uygulamada 28 günlük baseline (tek şekil), 28. ve 56. günde ölçüm, her nokta bir kez. Kanal yalnız bir metrik okuyucusu ekler; karar kuralı kanal başına tek ana metrik + %10 eşik + hacim alt sınırı, az / eksik veri = belirsiz (tahmin yok).

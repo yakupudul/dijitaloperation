@@ -8,13 +8,14 @@ use App\Jobs\Queries\AggregateQuerySourcesJob;
 use App\Models\Collection\CollectionDatasetRun;
 
 /**
- * After a Search Console / Google Ads collection (any discovered account, bound or not): the months of the query
- * datasets that were written are re-aggregated into `query_sources`.
+ * After a Search Console / Google Ads / Business Profile collection (any discovered account, bound or not): the months
+ * of the query datasets that were written are re-aggregated into `query_sources`. Registered once in AppServiceProvider
+ * (event discovery is off).
  */
 final class AggregateQuerySourcesAfterCollection
 {
     /** Query datasets feeding the raw query layer. */
-    public const array QUERY_DATASETS = ['gsc_query_page_daily', 'google_ads_search_term_daily'];
+    public const array QUERY_DATASETS = ['gsc_query_page_daily', 'google_ads_search_term_daily', 'gbp_search_keywords_monthly'];
 
     public function handle(CollectionRunCompleted $event): void
     {

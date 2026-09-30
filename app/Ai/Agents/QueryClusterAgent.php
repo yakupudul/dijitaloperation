@@ -25,7 +25,7 @@ final class QueryClusterAgent implements Agent, HasProviderOptions, HasStructure
 
     public const string OPERATION = AiRouteKeys::QUERIES_CLUSTER;
 
-    public const string PROMPT_VERSION = 'queries-cluster-v1';
+    public const string PROMPT_VERSION = 'queries-cluster-v2';
 
     public function promptOperation(): string
     {
@@ -39,12 +39,14 @@ final class QueryClusterAgent implements Agent, HasProviderOptions, HasStructure
             'clusters' => $schema->array()->items($schema->object(fn (JsonSchema $row): array => [
                 'name' => $row->string()->required(),
                 'intent' => $row->string()->enum(Cluster::INTENTS)->required(),
+                'user_need' => $row->string()->required(),
                 'page_type' => $row->string()->enum(Cluster::PAGE_TYPES)->required(),
                 'query_ids' => $row->array()->items($row->integer())->required(),
                 'main_query_id' => $row->integer()->nullable()->required(),
                 'representative_query_ids' => $row->array()->items($row->integer())->required(),
                 'new_queries' => $row->array()->items($row->string())->required(),
                 'subtopics' => $row->array()->items($row->string())->required(),
+                'exclusions' => $row->array()->items($row->string())->required(),
                 'reasoning' => $row->string()->required(),
             ]))->required(),
             'prompt_version' => $schema->string()->required(),

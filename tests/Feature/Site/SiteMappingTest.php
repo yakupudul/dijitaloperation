@@ -10,6 +10,7 @@ use App\Models\BrandOffering;
 use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Services\Catalog\ServiceCatalogService;
+use App\Services\Queries\ClusterEditor;
 use App\Services\Site\ClusterPageMapper;
 use App\Services\Site\PageCategorizer;
 use App\Services\Site\ServicePageMapper;
@@ -141,7 +142,7 @@ final class SiteMappingTest extends SiteTestCase
         $this->assertNull($rows[$clusters['no_page']->id]->page_id);
 
         // Operator's URL / state is locked: a refresh only updates its numbers.
-        app(ClusterPageMapper::class)->setManual($rows[$clusters['possible_conflict']->id], $implantPage->id, 'sufficient');
+        app(ClusterEditor::class)->brandRow($rows[$clusters['possible_conflict']->id], ['page_id' => $implantPage->id, 'state' => 'sufficient']);
         app(ClusterPageMapper::class)->refresh($this->site);
         $locked = BrandClusterPage::query()->where('cluster_id', $clusters['possible_conflict']->id)->sole();
         $this->assertSame('sufficient', $locked->state);

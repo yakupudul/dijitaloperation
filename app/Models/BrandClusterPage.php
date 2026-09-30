@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Brand targeting of one cluster on one website and language: the page that should answer it (one target URL by
  * default; the operator may add more in extra_page_ids), and the state of that mapping (7 states). One row per site
- * language. locked = the operator chose the page(s).
+ * language. locked = the operator chose the page(s). Brand-only edits live here and never change the shared cluster:
+ * target query override, excluded for this brand.
  */
 class BrandClusterPage extends Model
 {
@@ -24,6 +25,7 @@ class BrandClusterPage extends Model
         'page_id',
         'state',
         'target_query',
+        'target_query_override',
         'language',
         'clicks_28d',
         'impressions_28d',
@@ -33,6 +35,7 @@ class BrandClusterPage extends Model
         'refreshed_at',
         'locked',
         'extra_page_ids',
+        'excluded',
     ];
 
     /** @return array<string, string> */
@@ -41,6 +44,7 @@ class BrandClusterPage extends Model
         return [
             'locked' => 'boolean',
             'extra_page_ids' => 'array',
+            'excluded' => 'boolean',
             'clicks_28d' => 'integer',
             'impressions_28d' => 'integer',
             'position_28d' => 'float',

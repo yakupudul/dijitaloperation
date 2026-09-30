@@ -2,6 +2,12 @@
 
 namespace App\Services\Queries;
 
+use App\Enums\OfferingStatus;
+use App\Models\Brand;
+use App\Models\BrandClusterPage;
+use App\Models\Cluster;
+use App\Models\DigitalAsset;
+use App\Services\Site\SiteScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -13,7 +19,8 @@ use Illuminate\Support\Facades\DB;
  *     Profile impressions, sources, first / last month), dominant sector, service from the sector's matching keywords.
  *     Locked (manual) queries and queries of locked clusters keep their service; queries left without a source are
  *     deleted unless AI-suggested.
- *  3. `brand_queries` of bound accounts: last 28 days of Search Console / Google Ads per brand × query.
+ *  3. `brand_queries`: last 28 days of Search Console / Google Ads per brand × query (bound accounts), then the brand's
+ *     target queries (per served area for commercial / local clusters), language and mapped URL (brandTargets).
  */
 final class QueryPipeline
 {
@@ -156,6 +163,7 @@ final class QueryPipeline
                     ->whereIn('cq.query_id', $ids)->where('c.locked', true)->pluck('cq.query_id')->map(fn ($id): int => (int) $id)->all());
 
                 $delete = [];
+                $real = [];
                 foreach ($rows as $row) {
                     $id = (int) $row->id;
                     $sources = $totals[$id] ?? [];
@@ -165,6 +173,9 @@ final class QueryPipeline
                         }
 
                         continue;
+                    }
+                    if ((bool) $row->is_suggested) {
+                        $real[] = $id;
                     }
                     $values = $this->totals($sources);
                     $values['is_suggested'] = false;
@@ -181,6 +192,10 @@ final class QueryPipeline
                         $assigned++;
                     }
                     $kept++;
+                }
+                if ($real !== []) {
+                    // A suggested query that got real data is no longer "önerilen" in its cluster either.
+                    DB::table('cluster_queries')->whereIn('query_id', $real)->where('is_suggested', true)->update(['is_suggested' => false, 'updated_at' => now()]);
                 }
                 foreach (array_chunk($delete, self::CHUNK) as $chunk) {
                     DB::table('queries')->whereIn('id', $chunk)->delete();
@@ -276,8 +291,8 @@ final class QueryPipeline
     }
 
     /**
-     * Brand view (bound accounts only): Search Console + Google Ads totals of the last 28 days of data per brand × query.
-     * Target area / URL are filled later (Faz 4); only the brand-level row (no target area) is written here.
+     * Brand layer: performance rows (bound accounts: Search Console + Google Ads totals of the last 28 days per
+     * brand × query, no target area), then the target rows, language and URL of every brand (brandTargets).
      *
      * @param  array<int, array{brand: ?int, sector: ?int}>  $context
      */
@@ -302,9 +317,146 @@ final class QueryPipeline
             }
             $written += $this->writeBrandQueries((int) $brandId, $metrics);
         }
-        DB::table('brand_queries')->whereNull('target_area_id')->whereNotIn('brand_id', array_keys($byBrand) ?: [0])->delete();
+        // Brands without a bound account keep no performance numbers.
+        DB::table('brand_queries')->whereNull('target_area_id')->whereNotIn('brand_id', array_keys($byBrand) ?: [0])
+            ->where(fn ($q) => $q->where('impressions_28d', '>', 0)->orWhere('clicks_28d', '>', 0))
+            ->update(['impressions_28d' => 0, 'clicks_28d' => 0, 'position_28d' => null, 'updated_at' => now()]);
+
+        $brands = DB::table('brand_offerings')->where('status', OfferingStatus::Active->value)->whereNotNull('service_catalog_item_id')
+            ->distinct()->pluck('brand_id')
+            ->merge(DB::table('brand_queries')->distinct()->pluck('brand_id'))
+            ->map(fn ($id): int => (int) $id)->unique()->sort()->values();
+        foreach ($brands as $brandId) {
+            $this->brandTargets($brandId);
+        }
 
         return $written;
+    }
+
+    /**
+     * Target rows of one brand (cheap; also run after cluster / brand edits and site mapping): for every approved
+     * cluster of the brand's active services (main services first), not excluded for the brand, its main query — one
+     * row per served area for commercial / local intent ("ankara implant merkezi"), one row without area otherwise.
+     * Every row of the brand gets the brand's language and the URL mapped to its cluster (brand_cluster_pages).
+     * Rows without area that are neither a target nor have numbers are removed.
+     *
+     * @return int target rows
+     */
+    public function brandTargets(int $brandId): int
+    {
+        $brand = Brand::query()->find($brandId);
+        $targets = [];
+        $urls = [];
+        $language = null;
+        if ($brand !== null && $brand->sector_id !== null) {
+            $services = SiteScope::offerings($brand)->pluck('service_catalog_item_id')->filter()->map(fn ($id): int => (int) $id)->unique()->values()->all();
+            $order = array_flip($services);
+            $excluded = BrandClusterPage::query()->where('brand_id', $brand->id)->where('excluded', true)->pluck('cluster_id')->all();
+            $clusters = Cluster::query()->where('approved', true)->where('sector_id', $brand->sector_id)->whereIn('service_id', $services)
+                ->whereNotNull('main_query_id')->whereNotIn('id', $excluded)->orderBy('id')->get(['id', 'service_id', 'intent', 'main_query_id'])
+                ->sortBy(fn (Cluster $c): array => [$order[(int) $c->service_id] ?? PHP_INT_MAX, (int) $c->id]);
+            $areas = SiteScope::areas($brand)->pluck('id')->map(fn ($id): int => (int) $id)->all();
+            foreach ($clusters as $cluster) {
+                $local = in_array($cluster->intent, ['commercial', 'local'], true) && $areas !== [];
+                foreach ($local ? $areas : [null] as $area) {
+                    $targets[(int) $cluster->main_query_id.'|'.($area ?? '')] = [(int) $cluster->main_query_id, $area];
+                }
+            }
+            $language = self::brandLanguage($brand);
+            $urls = self::clusterUrls((int) $brand->id, $language);
+        }
+
+        $existing = [];
+        DB::table('brand_queries')->where('brand_id', $brandId)->orderBy('id')
+            ->get(['id', 'query_id', 'target_area_id', 'impressions_28d', 'clicks_28d'])
+            ->each(function (object $row) use (&$existing): void {
+                $existing[(int) $row->query_id.'|'.($row->target_area_id ?? '')] = $row;
+            });
+        $delete = [];
+        foreach ($existing as $key => $row) {
+            if (! isset($targets[$key]) && ($row->target_area_id !== null || ((int) $row->impressions_28d === 0 && (int) $row->clicks_28d === 0))) {
+                $delete[] = (int) $row->id;
+                unset($existing[$key]);
+            }
+        }
+        foreach (array_chunk($delete, self::CHUNK) as $chunk) {
+            DB::table('brand_queries')->whereIn('id', $chunk)->delete();
+        }
+        $valid = $targets === [] ? [] : array_flip(DB::table('queries')->whereIn('id', array_values(array_unique(array_column($targets, 0))))
+            ->pluck('id')->map(fn ($id): int => (int) $id)->all());
+        $now = now();
+        $insert = [];
+        foreach ($targets as $key => [$queryId, $area]) {
+            if (! isset($existing[$key]) && isset($valid[$queryId])) {
+                $insert[] = ['brand_id' => $brandId, 'query_id' => $queryId, 'target_area_id' => $area, 'created_at' => $now, 'updated_at' => $now];
+            }
+        }
+        foreach (array_chunk($insert, 500) as $chunk) {
+            DB::table('brand_queries')->insert($chunk);
+        }
+
+        // Language + URL of every row of the brand (URL = the page mapped to the query's cluster).
+        $clusterOf = [];
+        $updates = [];
+        DB::table('brand_queries')->where('brand_id', $brandId)->select(['id', 'query_id', 'language', 'url'])
+            ->chunkById(self::CHUNK, function ($rows) use (&$clusterOf, &$updates, $urls, $language): void {
+                $missing = array_values(array_diff($rows->pluck('query_id')->map(fn ($id): int => (int) $id)->unique()->all(), array_keys($clusterOf)));
+                foreach ($missing as $queryId) {
+                    $clusterOf[$queryId] = null;
+                }
+                if ($missing !== []) {
+                    DB::table('cluster_queries')->whereIn('query_id', $missing)->get(['query_id', 'cluster_id'])
+                        ->each(function (object $link) use (&$clusterOf): void {
+                            $clusterOf[(int) $link->query_id] = (int) $link->cluster_id;
+                        });
+                }
+                foreach ($rows as $row) {
+                    $cluster = $clusterOf[(int) $row->query_id] ?? null;
+                    $url = $cluster !== null ? ($urls[$cluster] ?? null) : null;
+                    if ($row->language !== $language || $row->url !== $url) {
+                        $updates[(string) json_encode([$language, $url])][] = (int) $row->id;
+                    }
+                }
+            });
+        foreach ($updates as $values => $ids) {
+            [$lang, $url] = json_decode($values, true);
+            foreach (array_chunk($ids, self::CHUNK) as $chunk) {
+                DB::table('brand_queries')->whereIn('id', $chunk)->update(['language' => $lang, 'url' => $url, 'updated_at' => $now]);
+            }
+        }
+
+        return count($targets);
+    }
+
+    /** Brand's target language: the brand setting (first language), else the primary page language of its website. */
+    public static function brandLanguage(Brand $brand): ?string
+    {
+        $set = array_values(array_filter(array_map(fn ($l): string => mb_strtolower(trim((string) $l)), (array) ($brand->languages ?? []))));
+        if ($set !== []) {
+            return mb_substr($set[0], 0, 8);
+        }
+        $site = DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->orderBy('id')->first();
+
+        return $site !== null ? SiteScope::primaryLanguage($site) : null;
+    }
+
+    /**
+     * Mapped page URL per cluster of the brand (brand_cluster_pages, not excluded), the brand's language first.
+     *
+     * @return array<int, string>
+     */
+    private static function clusterUrls(int $brandId, ?string $language): array
+    {
+        $urls = [];
+        DB::table('brand_cluster_pages as b')->join('pages as p', 'p.id', '=', 'b.page_id')
+            ->where('b.brand_id', $brandId)->where('b.excluded', false)
+            ->orderBy('b.id')->get(['b.cluster_id', 'b.language', 'p.url'])
+            ->sortBy(fn (object $row): int => $row->language === $language ? 0 : 1)
+            ->each(function (object $row) use (&$urls): void {
+                $urls[(int) $row->cluster_id] ??= (string) $row->url;
+            });
+
+        return $urls;
     }
 
     /** @param array<int, array{clicks: int, impressions: int, weighted: float, weight: int}> $metrics */
@@ -375,8 +527,9 @@ final class QueryPipeline
         foreach (array_chunk($insert, 500) as $chunk) {
             DB::table('brand_queries')->insert($chunk);
         }
+        // No numbers in the window: zeroed (brandTargets removes it unless it is a target).
         foreach (array_chunk(array_values($existing), self::CHUNK) as $chunk) {
-            DB::table('brand_queries')->whereIn('id', $chunk)->delete();
+            DB::table('brand_queries')->whereIn('id', $chunk)->update(['clicks_28d' => 0, 'impressions_28d' => 0, 'position_28d' => null, 'updated_at' => $now]);
         }
 
         return count($valid === [] ? [] : array_intersect_key($metrics, $valid));
