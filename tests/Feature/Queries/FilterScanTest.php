@@ -9,12 +9,13 @@ use App\Models\CoreIntegration;
 use App\Models\Customer;
 use App\Models\FilterTerm;
 use App\Models\Query;
+use App\Models\QueryReviewItem;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Catalog\ServiceKeywordService;
-use App\Services\Queries\FilterScanner;
+use App\Services\Queries\QueryNormalizer;
 use App\Services\Queries\QueryPlanner;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -52,12 +53,13 @@ final class FilterScanTest extends TestCase
         foreach ([
             'ankarada implant fiyatları' => 500, 'implant ankara' => 300, 'dentgroup implant' => 200,
             'ayşe yılmaz implant' => 40, 'panorama implant yorumları' => 90, 'implant iş ilanı' => 10, 'implant 2024' => 5,
+            'implant nedir nasıl yapılır' => 70,
         ] as $text => $impressions) {
             Query::query()->create(['text' => $text, 'text_hash' => hash('sha256', $text), 'sector_id' => $this->dental->id, 'impressions' => $impressions]);
         }
     }
 
-    public function test_the_scan_lists_places_without_ai_and_the_words_ai_flags_and_saves_only_the_ticked_ones(): void
+    public function test_the_scan_sends_only_candidate_words_and_saves_only_the_ticked_ones(): void
     {
         $sent = [];
         QueryFilterScanAgent::fake(function (string $prompt) use (&$sent): array {
@@ -76,18 +78,20 @@ final class FilterScanTest extends TestCase
         $this->assertSame('ready', $scan['status']);
         $this->assertNotContains('implant', $sent, 'a matching keyword is never sent');
         $this->assertNotContains('panorama', $sent, 'the own brand name is never sent');
-        $this->assertNotContains('ankarada', $sent, 'place names are found without AI');
+        $this->assertNotContains('ankarada', $sent, 'province / district names are deleted by the place rule, never proposed');
+        $this->assertNotContains('nedir', $sent, 'question words are never proposed');
+        $this->assertNotContains('nasıl', $sent);
         $this->assertNotContains('2024', $sent);
         $this->assertNotContains('fiyatları', $sent, 'intent words are left out');
         $byTerm = collect($scan['items'])->keyBy('term');
-        $this->assertSame(['ankara', 'dentgroup', 'ayşe'], $byTerm->keys()->all(), 'places first, then brands, then persons; unknown words dropped');
-        $this->assertSame(['place', 2, 800], [$byTerm['ankara']['category'], $byTerm['ankara']['count'], $byTerm['ankara']['impressions']], '"ankarada" and "ankara" are one line');
+        $this->assertSame(['dentgroup', 'ayşe'], $byTerm->keys()->all(), 'brands, then persons; unknown words dropped');
+        $this->assertSame(['brand', 1, 200], [$byTerm['dentgroup']['category'], $byTerm['dentgroup']['count'], $byTerm['dentgroup']['impressions']]);
 
-        $page->assertSee('Yer adı')->assertSee('dentgroup')
-            ->call('toggleScanLine', 2)
+        $page->assertSee('Marka / firma')->assertSee('dentgroup')
+            ->call('toggleScanLine', 1)
             ->call('approveScan');
 
-        $this->assertEqualsCanonicalizing(['ankara', 'dentgroup'], FilterTerm::query()->pluck('term')->all());
+        $this->assertSame(['dentgroup'], FilterTerm::query()->pluck('term')->all());
         $this->assertNull(QueryPlanner::current($this->admin->id, 'scan'));
     }
 
@@ -101,17 +105,40 @@ final class FilterScanTest extends TestCase
             ->call('setScanCategory', 'person', false)
             ->call('approveScan');
 
-        $this->assertEqualsCanonicalizing(['dentgroup', 'ankara'], FilterTerm::query()->pluck('term')->all(), 'persons unticked; dentgroup not proposed twice');
+        $this->assertSame(['dentgroup'], FilterTerm::query()->pluck('term')->all(), 'persons unticked; dentgroup not proposed twice');
     }
 
-    public function test_without_ai_the_place_names_are_still_offered(): void
+    public function test_queries_naming_a_place_are_deleted_by_the_rule_and_question_queries_are_never_filtered(): void
     {
-        CoreIntegration::query()->delete();
-        config(['moxdop.anthropic.api_key' => null]);
+        $normalizer = new QueryNormalizer;
+        $this->assertSame('ankara', $normalizer->matchingTerm('ankarada implant fiyatları'));
+        $this->assertSame('çankaya', $normalizer->matchingTerm("implant çankaya'da"));
+        $this->assertSame('almanya', $normalizer->matchingTerm('almanyada diş tedavisi'));
+        $this->assertNull($normalizer->matchingTerm('bulanık görme tedavisi'), 'district names that are everyday words are no place');
+        $this->assertNull($normalizer->matchingTerm('kaş kaldırma orta fiyat'));
+        $this->assertNull($normalizer->matchingTerm('ortalama implant fiyatı'), 'only real suffixes: "ortalama" is not "orta"');
 
-        $items = app(FilterScanner::class)->scanSector($this->dental);
+        // A question term already in the basket is ignored; it cannot be added again.
+        FilterTerm::query()->create(['sector_id' => null, 'term' => 'nasıl', 'source' => 'manual', 'created_by' => $this->admin->id]);
+        $this->assertNull((new QueryNormalizer)->matchingTerm('implant nasıl yapılır'));
+        Livewire::test(QueriesPage::class)->call('setTab', 'filters')->set('termText', 'nedir')->call('addTerm')->assertHasErrors('termText');
+        $this->assertSame(['nasıl'], FilterTerm::query()->pluck('term')->all());
 
-        $this->assertIsArray($items);
-        $this->assertSame(['ankara'], array_column($items, 'term'));
+        // A rescan lists the place queries under Silinecekler with the place as the term.
+        Livewire::test(QueriesPage::class)->call('setTab', 'deletions')->call('rescanLibrary');
+        $terms = QueryReviewItem::query()->where('kind', QueryReviewItem::DELETE)->with('searchQuery')->get()
+            ->mapWithKeys(fn (QueryReviewItem $item): array => [$item->searchQuery->text => $item->term])->all();
+        $this->assertSame(['ankarada implant fiyatları' => 'ankara', 'implant ankara' => 'ankara'], collect($terms)->sortKeys()->all());
+    }
+
+    public function test_the_migration_drops_question_and_place_terms_from_the_basket(): void
+    {
+        foreach (['nedir', 'nasıl yapılır', 'istanbul', 'forum', 'kaş'] as $term) {
+            FilterTerm::query()->create(['sector_id' => null, 'term' => $term, 'source' => 'manual', 'created_by' => $this->admin->id]);
+        }
+
+        (require database_path('migrations/2026_11_10_090000_drop_question_filter_terms.php'))->up();
+
+        $this->assertEqualsCanonicalizing(['forum', 'kaş'], FilterTerm::query()->pluck('term')->all());
     }
 }

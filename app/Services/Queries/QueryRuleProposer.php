@@ -150,7 +150,7 @@ final class QueryRuleProposer
         $saved = ['terms' => 0, 'keywords' => 0];
         foreach ($termIndexes as $index) {
             $row = $proposal['terms'][$index] ?? null;
-            if (! is_array($row)) {
+            if (! is_array($row) || QueryNormalizer::isQuestionTerm((string) $row['term'])) {
                 continue;
             }
             $term = FilterTerm::query()->firstOrCreate(

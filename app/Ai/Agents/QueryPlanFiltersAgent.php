@@ -23,7 +23,7 @@ final class QueryPlanFiltersAgent implements Agent, HasProviderOptions, HasStruc
 
     public const string OPERATION = AiRouteKeys::QUERIES_PLAN_FILTERS;
 
-    public const string PROMPT_VERSION = 'queries-plan-filters-v3';
+    public const string PROMPT_VERSION = 'queries-plan-filters-v4';
 
     public function promptOperation(): string
     {

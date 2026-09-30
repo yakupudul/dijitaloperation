@@ -316,6 +316,9 @@ final class QueryPlanWizard extends Component
         if (mb_strlen($term) < 2 || mb_strlen($term) > 200) {
             throw ValidationException::withMessages(['newTerm.'.$sectorId => 'Terim 2–200 karakter olmalı.']);
         }
+        if (QueryNormalizer::isQuestionTerm($term)) {
+            throw ValidationException::withMessages(['newTerm.'.$sectorId => 'Soru / bilgi kelimesi (nedir, nasıl…) içeren sorgular içerik kümeleri için tutulur; filtreye eklenmez.']);
+        }
         FilterTerm::query()->firstOrCreate(['sector_id' => $sectorId, 'term' => $term], ['source' => 'manual', 'created_by' => $actor->id]);
         $this->newTerm[$sectorId] = '';
     }

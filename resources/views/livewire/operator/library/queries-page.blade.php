@@ -242,6 +242,7 @@
                     </select>
                 @endif
                 <label class="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300"><input type="checkbox" wire:model.live="reviewKept" data-review-kept> Tutulanlar ({{ $num($keptCount) }})</label>
+                @unless ($reviewRunning)<button type="button" wire:click="rescanLibrary" class="{{ $ghost }}" data-review-rescan>Kütüphaneyi yeniden tara</button>@endunless
                 @if ($reviewRunning)<span class="inline-flex items-center gap-1 text-xs text-gray-500" data-review-running><svg class="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"/><path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3"/></svg>Tarama sürüyor…</span>@endif
             </div>
             <p class="mb-2 text-xs text-gray-500">Her filtre / eşleme kelimesi değişikliğinin taraması buraya eklenir; bir sorgu için son öneri geçerlidir. Onaylanmadan hiçbir sorgu silinmez veya değişmez. "Tut": sorgu kalır, aynı öneri tekrar gelmez.</p>
@@ -472,7 +473,7 @@
                     <button type="button" wire:click="scanFilters" @disabled(($scan['status'] ?? null) === 'running') class="{{ $btn }}" data-scan-start>Sorgularda tara</button>
                     <x-operator.ai-prompt-info operation="queries.scan_filters" />
                 </div>
-                <p class="text-xs text-gray-500">{{ ctype_digit($sector) ? 'Seçili sektör için' : 'Kullanılan her sektör için' }} ayrı çağrı · öneriler kaydedilmeden önce listelenir. <span class="font-medium">Sorgularda tara:</span> kütüphanedeki sorguların kelimelerinden yer adı, marka / firma, kişi adı ve alakasız kelimeleri bulur (yer adları AI olmadan; hizmet kelimeleri ve kendi marka adlarınız hiç önerilmez).</p>
+                <p class="text-xs text-gray-500">{{ ctype_digit($sector) ? 'Seçili sektör için' : 'Kullanılan her sektör için' }} ayrı çağrı · öneriler kaydedilmeden önce listelenir. <span class="font-medium">Sorgularda tara:</span> kütüphanedeki sorguların kelimelerinden marka / firma, kişi adı, semt ve alakasız kelimeleri bulur (hizmet kelimeleri, kendi marka adlarınız ve soru kelimeleri hiç önerilmez). İl / ilçe / ülke adı içeren sorgular zaten otomatik silinir; nedir / nasıl gibi soru kelimeleri filtreye eklenemez.</p>
                 @php $scanStatus = $scan['status'] ?? null; @endphp
                 @if ($scanStatus === 'running')
                     <p class="flex items-center gap-2 text-xs text-gray-500" data-scan-progress>Sorgular taranıyor…@if (($scan['total'] ?? 0) > 0) {{ $scan['done'] }} / {{ $scan['total'] }} sektör tamamlandı @endif <button type="button" wire:click="stopScan" wire:confirm="Tarama durdurulsun mu?" class="rounded-lg px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700" data-scan-stop>Durdur</button></p>

@@ -24,7 +24,7 @@ final class QueryFilterScanAgent implements Agent, HasProviderOptions, HasStruct
 
     public const string OPERATION = AiRouteKeys::QUERIES_SCAN_FILTERS;
 
-    public const string PROMPT_VERSION = 'queries-scan-filters-v1';
+    public const string PROMPT_VERSION = 'queries-scan-filters-v2';
 
     public function promptOperation(): string
     {

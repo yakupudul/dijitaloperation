@@ -608,6 +608,9 @@ final class QueriesPage extends Component
         if (mb_strlen($term) < 2 || mb_strlen($term) > 200) {
             throw ValidationException::withMessages(['termText' => 'Terim 2–200 karakter olmalı.']);
         }
+        if (QueryNormalizer::isQuestionTerm($term)) {
+            throw ValidationException::withMessages(['termText' => 'Soru / bilgi kelimesi (nedir, nasıl…) içeren sorgular içerik kümeleri için tutulur; filtreye eklenmez.']);
+        }
         $sectorId = ctype_digit($this->termSector) && ServiceCategory::query()->whereKey((int) $this->termSector)->exists() ? (int) $this->termSector : null;
         if (FilterTerm::query()->where('term', $term)->where('sector_id', $sectorId)->exists()) {
             throw ValidationException::withMessages(['termText' => 'Bu terim sepette zaten var.']);
@@ -1012,6 +1015,9 @@ final class QueriesPage extends Component
         $sectorId = ctype_digit($this->negSector) && ServiceCategory::query()->whereKey((int) $this->negSector)->exists() ? (int) $this->negSector : null;
         $saved = 0;
         foreach ($this->negativeLines() as $term) {
+            if (QueryNormalizer::isQuestionTerm($term)) {
+                continue;
+            }
             $row = FilterTerm::query()->firstOrCreate(['sector_id' => $sectorId, 'term' => $term], ['source' => 'manual', 'created_by' => $actor->id]);
             $saved += $row->wasRecentlyCreated ? 1 : 0;
         }
@@ -1073,6 +1079,13 @@ final class QueriesPage extends Component
     // ── Silinecekler ─────────────────────────────────────────────────────────
 
     /** "Onayla ve sil" (service lines: "Onayla ve uygula"): the selected pool lines are applied. */
+    /** "Kütüphaneyi yeniden tara": every library query against the basket, the place rule and the matching keywords. */
+    public function rescanLibrary(): void
+    {
+        RescanQueriesJob::dispatch((int) $this->actor()->id);
+        $this->message = 'Tarama başladı; silinecek ve hizmeti değişecek sorgular burada listelenir.';
+    }
+
     public function approveReview(QueryRescanner $rescanner): void
     {
         $this->actor();

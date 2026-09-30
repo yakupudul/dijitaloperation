@@ -13,7 +13,6 @@ use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\Catalog\ServiceKeywordService;
 use App\Services\SeoTasks\SeoText;
-use App\Support\Options\LocationOptions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -23,15 +22,17 @@ use Throwable;
  * — place names, brand / company names, person names and other off-topic words — for the operator to approve.
  *
  * 1. Words of every sector query are counted in PHP (seconds even for 100k queries): service matching keywords, generic
- *    service words, intent / filler words, the sector's own brand names, digits and words already in the basket drop out.
- * 2. Place names (province / district / country, suffixes allowed) are found from the location list — no AI.
- * 3. The remaining words, most impressions first (at most AI_WORDS), go to a small AI classifier WORDS_PER_CALL per
- *    call with one example query each; only words it flags come back.
+ *    service words, intent / filler words, question / informational words (those queries feed the content clusters),
+ *    the sector's own brand names, digits, words already in the basket and province / district / country names (those
+ *    queries are deleted by the fixed place rule of QueryNormalizer) drop out.
+ * 2. The remaining words, most impressions first (at most AI_WORDS), go to a small AI classifier WORDS_PER_CALL per
+ *    call with one example query each; only words it flags come back (neighbourhoods and other places the list does not
+ *    know come back as "place").
  * Every item carries how many queries (and impressions) saving it would delete.
  */
 final class FilterScanner
 {
-    public const array CATEGORIES = ['place' => 'Yer adı', 'brand' => 'Marka / firma', 'person' => 'Kişi adı', 'other' => 'Alakasız'];
+    public const array CATEGORIES = ['brand' => 'Marka / firma', 'person' => 'Kişi adı', 'place' => 'Semt / yer', 'other' => 'Alakasız'];
 
     private const int AI_WORDS = 1200;
 
@@ -42,7 +43,6 @@ final class FilterScanner
     public function __construct(
         private readonly AiRouteResolver $routes,
         private readonly AiProviderRuntimeConfig $runtime,
-        private readonly KeywordInsights $insights,
     ) {}
 
     /**
@@ -52,18 +52,8 @@ final class FilterScanner
      */
     public function scanSector(ServiceCategory $sector, string $instruction = ''): array|string
     {
-        $words = $this->words((int) $sector->id);
+        $rest = $this->words((int) $sector->id);
         $items = [];
-        $rest = [];
-        foreach ($words as $fold => $word) {
-            if ($word['place'] !== null) {
-                $items[] = $this->item($sector, $word['place'], 'place', 'il / ilçe / ülke adı', $word);
-
-                continue;
-            }
-            $rest[$fold] = $word;
-        }
-        $items = $this->mergeSameTerm($items);
 
         uasort($rest, fn (array $a, array $b): int => [$b['impressions'], $b['count']] <=> [$a['impressions'], $a['count']]);
         $rest = array_slice($rest, 0, self::AI_WORDS, true);
@@ -93,19 +83,19 @@ final class FilterScanner
     }
 
     /**
-     * The sector's candidate words: folded word → surface label, query count, impressions, top examples, place name.
+     * The sector's candidate words: folded word → surface label, query count, impressions, top examples.
      *
-     * @return array<string, array{label: string, count: int, impressions: int, examples: list<string>, place: ?string, top: int}>
+     * @return array<string, array{label: string, count: int, impressions: int, examples: list<string>, top: int}>
      */
     public function words(int $sectorId): array
     {
-        $skip = array_fill_keys([...KeywordInsights::stopWords(), ...ServiceKeywordService::genericWords()], true);
+        $skip = array_fill_keys([...KeywordInsights::stopWords(), ...ServiceKeywordService::genericWords(), ...QueryNormalizer::QUESTION_WORDS], true);
         $protected = $this->protectedWords($sectorId);
         $basket = array_fill_keys(FilterTerm::query()->pluck('term')->map(fn ($t): string => SeoText::fold((string) $t))->all(), true);
-        $places = LocationOptions::expressions();
         $words = [];
+        $rejected = [];
         DB::table('queries')->where('sector_id', $sectorId)->select(['id', 'text', 'impressions'])
-            ->chunkById(self::CHUNK, function ($rows) use (&$words, $skip, $protected, $basket, $places): void {
+            ->chunkById(self::CHUNK, function ($rows) use (&$words, &$rejected, $skip, $protected, $basket): void {
                 foreach ($rows as $row) {
                     $text = (string) $row->text;
                     $tokens = QueryServiceMatcher::tokens($text);
@@ -113,17 +103,16 @@ final class FilterScanner
                     $surface = count($surface) === count($tokens) ? $surface : $tokens;
                     $impressions = (int) $row->impressions;
                     foreach (array_unique($tokens) as $i => $token) {
-                        if (strlen($token) < 3 || ctype_digit($token) || isset($skip[$token]) || isset($basket[$token]) || $this->isProtected($token, $protected)) {
+                        if (isset($rejected[$token])) {
                             continue;
                         }
-                        $word = $words[$token] ?? ['label' => (string) ($surface[$i] ?? $token), 'count' => 0, 'impressions' => 0, 'examples' => [], 'place' => null, 'top' => -1];
-                        if (! isset($words[$token])) {
-                            $base = $this->insights->locationBase($token);
-                            $word['place'] = $base !== null && ! isset($basket[$base]) ? QueryNormalizer::lower((string) $places[$base]) : null;
-                            if ($base !== null && $word['place'] === null) {
-                                continue;
-                            }
+                        if (! isset($words[$token]) && (strlen($token) < 3 || ctype_digit($token) || isset($skip[$token]) || isset($basket[$token])
+                            || $this->isProtected($token, $protected) || QueryNormalizer::placeBase($token) !== null)) {
+                            $rejected[$token] = true;
+
+                            continue;
                         }
+                        $word = $words[$token] ?? ['label' => (string) ($surface[$i] ?? $token), 'count' => 0, 'impressions' => 0, 'examples' => [], 'top' => -1];
                         $word['count']++;
                         $word['impressions'] += $impressions;
                         if (count($word['examples']) < 3 || $impressions > $word['top']) {
@@ -236,29 +225,5 @@ final class FilterScanner
     {
         return ['sector_id' => (int) $sector->id, 'sector' => (string) $sector->name, 'term' => $term, 'category' => $category,
             'reason' => $reason, 'count' => $word['count'], 'impressions' => $word['impressions'], 'examples' => array_slice($word['examples'], 0, 3)];
-    }
-
-    /**
-     * "ankara" and "ankarada" become one "ankara" line (counts added).
-     *
-     * @param  list<array<string, mixed>>  $items
-     * @return list<array<string, mixed>>
-     */
-    private function mergeSameTerm(array $items): array
-    {
-        $merged = [];
-        foreach ($items as $item) {
-            $key = $item['term'];
-            if (! isset($merged[$key])) {
-                $merged[$key] = $item;
-
-                continue;
-            }
-            $merged[$key]['count'] += $item['count'];
-            $merged[$key]['impressions'] += $item['impressions'];
-            $merged[$key]['examples'] = array_slice(array_values(array_unique([...$merged[$key]['examples'], ...$item['examples']])), 0, 3);
-        }
-
-        return array_values($merged);
     }
 }

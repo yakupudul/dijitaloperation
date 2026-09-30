@@ -735,7 +735,7 @@ final class QueryPlanner
         foreach (array_slice((array) ($structured['terms'] ?? []), 0, self::MAX_ITEMS) as $row) {
             $term = is_array($row) && is_string($row['term'] ?? null) ? trim(preg_replace('/\s+/u', ' ', QueryNormalizer::lower($row['term'])) ?? '') : '';
             $key = SeoText::fold($term);
-            if (mb_strlen($term) < 2 || mb_strlen($term) > 100 || $key === '' || isset($existing[$key])
+            if (mb_strlen($term) < 2 || mb_strlen($term) > 100 || $key === '' || isset($existing[$key]) || QueryNormalizer::isQuestionTerm($term)
                 || collect($keywords)->contains(fn (string $k): bool => QueryNormalizer::containsTerm($k, $term))) {
                 continue;
             }
@@ -755,7 +755,7 @@ final class QueryPlanner
         $saved = 0;
         foreach ($indexes as $index) {
             $item = $proposal['items'][$index] ?? null;
-            if (is_array($item)) {
+            if (is_array($item) && ! QueryNormalizer::isQuestionTerm((string) $item['term'])) {
                 $term = FilterTerm::query()->firstOrCreate(['sector_id' => $item['sector_id'], 'term' => $item['term']], ['source' => 'ai', 'created_by' => $actor->id]);
                 $saved += $term->wasRecentlyCreated ? 1 : 0;
             }

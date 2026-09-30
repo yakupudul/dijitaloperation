@@ -24,6 +24,14 @@
 - **Sektör uyumu:** hizmeti sorgunun sektöründen başka sektöre ait sorgular (sorgu sektörü × hizmet sektörü, sayı, örnekler); "Hizmetin sektörüne taşı" veya "Hizmeti kaldır" (atanmamış, kilitsiz, kümelerden çıkar). Taramanın önerdiği kaldırma sektör uyuşmazlığından ise satırda "sektör uyuşmuyor" (`reason = sector`).
 - **State:** CODED + PHPUnit (`QueryServiceMatcherTest`, `KeywordInsightsTest`, güncellenen `QueryPipelineTest`; `tests/Feature/Queries` 60 test), SQLite + PostgreSQL. Üretim UAT yok. **Operator after deploy:** `php artisan migrate --force` (`2026_11_08_090000_query_keyword_insights`), ardından bir tarama (mevcut kural atamalarındaki çakışmalar Silinecekler'e düşer).
 
+## 2026-11-10 — Sorgular: yer adı içeren sorgular silinir, soru sorguları korunur
+
+- **Yer adı kuralı:** il / ilçe / ülke adı (ekli hâlleri: "ankarada", "çankaya'da"; iki-üç kelimelik adlar) içeren sorgu sepette terim olmadan filtrelenir (`QueryNormalizer::matchingTerm` → `placeIn`): içe aktarma, Bekleyenler ve tarama aynı kuralı kullanır; kütüphanedekiler Silinecekler'e yer adıyla düşer. Gündelik kelimeyle aynı yazılan yer adları (orta, olur, bulanık, kaş, kemer, termal…) `NOT_LOCATION` ile yer sayılmaz; ek yalnız Türkçe ek listesinden ("ortalama" ≠ "orta").
+- **Soru sorguları korunur:** `QueryNormalizer::QUESTION_WORDS` içeren terim hiçbir sorguyu silmez, elle / AI ile eklenemez (Filtre sepeti, AI ile planla, AI ile kural üret, Sorgularda tara); göç `2026_11_10_090000_drop_question_filter_terms` sepetteki soru terimlerini ve tam yer adı terimlerini siler. Promptlar: `queries.filter_rules` v3, `queries.plan_filters` v4, `queries.scan_filters` v2.
+- **Sorgularda tara:** yer adları artık önerilmez (kural siler); AI kategorisi "Semt / yer" yalnız listede olmayan semt / cadde adları için.
+- **Silinecekler › "Kütüphaneyi yeniden tara":** tüm kütüphaneyi sepet, yer kuralı ve eşleme kelimeleriyle yeniden tarar.
+- **State:** CODED + PHPUnit (`FilterScanTest`, güncellenen `QueriesScreenTest`, `QueryPipelineTest`), SQLite. Üretim UAT yok. **Operator after deploy:** `migrate` (deploy.sh) → Sorgular › Silinecekler › "Kütüphaneyi yeniden tara" → yer adı satırlarını onayla.
+
 ## 2026-11-09 — Filtre sepeti: Sorgularda tara
 
 - **Ne yapar:** Filtre sepeti › "Sorgularda tara" (seçili sektör, yoksa kullanılan her sektör; sektör başına paralel iş, "3 / 7 sektör" ilerleme + Durdur). Kütüphane sorgularının kelimeleri PHP'de sayılır; eşleme kelimeleri (ek toleranslı), genel hizmet kelimeleri, niyet / dolgu kelimeleri, sektörün kendi marka adları, rakamlar ve sepette olanlar hiç önerilmez.

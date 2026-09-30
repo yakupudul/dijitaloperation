@@ -128,11 +128,11 @@ final class QueryPipelineTest extends TestCase
 
     public function test_routine_run_never_deletes_or_reassigns_library_queries(): void
     {
-        $this->source($this->gsc, 'implant etimesgut', '2026-08-01', impressions: 40, clicks: 4);
+        $this->source($this->gsc, 'implant forum', '2026-08-01', impressions: 40, clicks: 4);
         app(QueryPipeline::class)->run(import: true);
-        $id = Query::query()->where('text', 'implant etimesgut')->value('id');
+        $id = Query::query()->where('text', 'implant forum')->value('id');
 
-        FilterTerm::query()->create(['sector_id' => null, 'term' => 'etimesgut']);
+        FilterTerm::query()->create(['sector_id' => null, 'term' => 'forum']);
         app(ServiceKeywordService::class)->replace($this->implant, 'implant');
         app(QueryPipeline::class)->run();
 

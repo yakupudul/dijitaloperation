@@ -7,7 +7,6 @@ use App\Models\Query;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Services\Catalog\ServiceKeywordService;
-use App\Services\SeoTasks\SeoText;
 use App\Support\Options\LocationOptions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
@@ -45,14 +44,8 @@ final class KeywordInsights
         'iletisim', 'hakkinda', 'once', 'sonra', 'oncesi', 'sonrasi', 'forum', 'ekside', 'eksi', 'google', 'youtube', 'instagram',
         'the', 'and', 'for', 'of', 'to', 'in', 'a', 'an', 'is', 'on', 'or', 'near', 'me', 'best', 'how', 'what', 'price', 'prices', 'cost', 'cheap', 'review', 'reviews', 'top'];
 
-    /** Folded place names that are also everyday words (never treated as a location). */
-    private const array NOT_LOCATION = ['agri', 'yeni', 'kale', 'cay', 'pazar', 'saray', 'bahce', 'ilica', 'guney', 'kuzey', 'cinar', 'aksu', 'kas', 'derin', 'merkez', 'ulus', 'akdeniz'];
-
     /** @var array<string, array<string, list<int>>> */
     private array $indexes = [];
-
-    /** @var array<string, ?string> */
-    private array $locationMemo = [];
 
     // ── Kelime etkisi ────────────────────────────────────────────────────────
 
@@ -337,22 +330,7 @@ final class KeywordInsights
     /** The folded place name a folded word is (or carries a suffix of): "ankarada" → "ankara"; null when none. */
     public function locationBase(string $token): ?string
     {
-        if (array_key_exists($token, $this->locationMemo)) {
-            return $this->locationMemo[$token];
-        }
-        $locations = LocationOptions::expressions();
-        $found = null;
-        if (! in_array($token, self::NOT_LOCATION, true)) {
-            for ($length = strlen($token); $length >= 3 && $found === null; $length--) {
-                $prefix = substr($token, 0, $length);
-                if (isset($locations[$prefix]) && ! in_array($prefix, self::NOT_LOCATION, true)
-                    && ($length === strlen($token) || SeoText::wordMatches($token, $prefix))) {
-                    $found = $prefix;
-                }
-            }
-        }
-
-        return $this->locationMemo[$token] = $found;
+        return QueryNormalizer::placeBase($token);
     }
 
     /** @return list<string> folded intent / question / filler words */

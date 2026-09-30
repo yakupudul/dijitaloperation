@@ -24,7 +24,7 @@ final class QueryRulesAgent implements Agent, HasProviderOptions, HasStructuredO
 
     public const string OPERATION = AiRouteKeys::QUERIES_FILTER_RULES;
 
-    public const string PROMPT_VERSION = 'queries-filter-rules-v2';
+    public const string PROMPT_VERSION = 'queries-filter-rules-v3';
 
     public function promptOperation(): string
     {

@@ -117,7 +117,7 @@ final class QueriesScreenTest extends TestCase
     public function test_ai_rules_are_validated_approved_and_start_a_rescan_review(): void
     {
         $this->enableAi();
-        $this->sources(['implant etimesgut' => 40, 'implant' => 60, 'zirkonyum diş' => 10, 'implant ağrısı' => 5]);
+        $this->sources(['implant dentgroup' => 40, 'implant' => 60, 'zirkonyum diş' => 10, 'implant ağrısı' => 5]);
         $locked = $this->queryId('implant ağrısı');
         Query::query()->whereKey($locked)->update(['service_id' => $this->zirkonyum->id, 'assignment' => 'manual', 'locked' => true]);
         $prompts = [];
@@ -126,7 +126,8 @@ final class QueriesScreenTest extends TestCase
 
             return [
                 'filter_terms' => [
-                    ['term' => 'Etimesgut', 'sector_id' => null, 'reason' => 'İlçe adı'],
+                    ['term' => 'Dentgroup', 'sector_id' => null, 'reason' => 'Rakip adı'],
+                    ['term' => 'nedir', 'sector_id' => null, 'reason' => 'soru kelimesi'],
                     ['term' => 'kızılay', 'sector_id' => null, 'reason' => 'sorgularda yok'],
                     ['term' => 'implant', 'sector_id' => 987654, 'reason' => 'bilinmeyen sektör'],
                 ],
@@ -142,28 +143,28 @@ final class QueriesScreenTest extends TestCase
         });
 
         $page = Livewire::test(QueriesPage::class)
-            ->set('selected', [$this->queryId('implant etimesgut'), $this->queryId('zirkonyum diş')])
+            ->set('selected', [$this->queryId('implant dentgroup'), $this->queryId('zirkonyum diş')])
             ->call('proposeRules')
             ->assertSet('rulesOpen', true)
-            ->assertSee('etimesgut')->assertDontSee('kızılay')->assertSee('Zirkonyum Kaplama');
+            ->assertSee('dentgroup')->assertDontSee('kızılay')->assertSee('Zirkonyum Kaplama');
 
         $this->assertCount(1, $prompts);
-        $this->assertStringContainsString('implant etimesgut', $prompts[0]);
+        $this->assertStringContainsString('implant dentgroup', $prompts[0]);
         $data = json_decode(substr($prompts[0], strlen("DATA_JSON\n")), true);
-        $this->assertSame(['implant etimesgut', 'zirkonyum diş'], array_column($data['queries'], 'text'), 'only selected queries are sent');
+        $this->assertSame(['implant dentgroup', 'zirkonyum diş'], array_column($data['queries'], 'text'), 'only selected queries are sent');
         $this->assertContains('implant ağrısı', $data['library_sample'], 'the good library queries go as a sample');
 
         $page->set('pickTerms', [0 => true])->set('pickKeywords', [0 => true, 1 => true])->call('approveRules')
             ->assertSet('rulesOpen', false)->assertSee('1 filtre terimi · 2 eşleme kelimesi')->assertSee('tarama başladı');
 
-        $this->assertSame('ai', FilterTerm::query()->where('term', 'etimesgut')->value('source'));
+        $this->assertSame('ai', FilterTerm::query()->where('term', 'dentgroup')->value('source'));
         $this->assertSame(['implant'], $this->implant->matchingKeywords()->pluck('normalized_key')->all());
         $this->assertSame(['zirkonyum'], $this->zirkonyum->matchingKeywords()->pluck('normalized_key')->all());
-        $this->assertTrue(Query::query()->where('text', 'implant etimesgut')->exists(), 'nothing is deleted before the review is approved');
+        $this->assertTrue(Query::query()->where('text', 'implant dentgroup')->exists(), 'nothing is deleted before the review is approved');
         $this->assertNull(Query::query()->where('text', 'implant')->value('service_id'), 'nothing is reassigned before approval');
         $review = QueryReview::query()->sole();
         $this->assertSame([QueryReview::READY, 1, 2], [$review->status, $review->deletions, $review->changes]);
-        $this->assertSame('etimesgut', $review->items()->where('kind', QueryReviewItem::DELETE)->sole()->term);
+        $this->assertSame('dentgroup', $review->items()->where('kind', QueryReviewItem::DELETE)->sole()->term);
         $this->assertFalse($review->items()->where('query_id', $locked)->exists(), 'locked assignment is not proposed');
     }
 

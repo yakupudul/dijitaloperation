@@ -60,6 +60,11 @@
 
 - **Karar (operatör):** AI işlemlerinde işlem başına çıktı / kapsam sınırı yoktur; tek sınır operatörün Ayarlar › AI'da değiştirdiği aylık bütçedir (kalan bakiye görünür). AI ile planla her sektör için ayrı ve kapsamlı üretir; verisi olmayan sektörde sektör bilgisinden hizmet / kelime önerir (yine operatör onayıyla).
 
+## 2026-11-10 — Sorgular: yer adı kuralı, soru sorguları korunur
+
+- **Karar (operatör):** İl, ilçe veya ülke adı içeren sorgular istenmez ("ankara implant" dahil): sepette terim olmadan sabit kuralla silinir (`QueryNormalizer::placeIn`, ekli hâller dahil; gündelik kelimeyle aynı yazılan yer adları `NOT_LOCATION` ile hariç). Silme yine taramadan geçer (Silinecekler, terim = yer adı).
+- **Karar (operatör):** Soru / bilgi kelimeleri (nedir, nasıl, neden, kaç, yan etkileri, sonrası…) içeren sorgular silinmez; kümeler ve içerik bunlardan üretilir. Böyle bir kelime filtre terimi olamaz (eklenemez, sepetteki uygulanmaz, göç ile silinir); filtre AI promptları bunları önermez.
+
 ## 2026-11-04 — Sorgular: AI ile planla, negatif filtre, bekleyen sorgular, onaylı tarama
 
 - **Karar (operatör):** Sektör markada durur, varlıklar devralır; varlık kendi sektörünü seçebilir (marka sektörü seçilince geçersiz kılma silinir). Sektör ve hizmet kataloğu markalar, sorgular ve varlıklar arasında ortaktır.
