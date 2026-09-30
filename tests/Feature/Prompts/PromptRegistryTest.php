@@ -66,6 +66,22 @@ final class PromptRegistryTest extends TestCase
         $this->assertSame(1, PromptVersion::query()->count());
     }
 
+    public function test_changed_code_default_becomes_a_new_version_until_an_operator_publishes(): void
+    {
+        $first = $this->registry->current('test.op');
+        $this->registry->register('test.op', ['purpose' => 'Test işlemi.', 'variables' => ['brand', 'items'], 'template' => 'Yeni: {{brand}} {{items}}']);
+
+        $second = $this->registry->current('test.op');
+        $this->assertSame(2, $second->version, 'untouched default follows the code');
+        $this->assertStringStartsWith('Yeni:', $second->template);
+        $this->assertFalse($first->fresh()->is_current);
+        $this->assertSame($second->id, $this->registry->current('test.op')->id);
+
+        $published = $this->registry->publish('test.op', ['template' => 'Operatör: {{brand}}'], $this->admin);
+        $this->registry->register('test.op', ['purpose' => 'Test işlemi.', 'variables' => ['brand', 'items'], 'template' => 'Daha yeni: {{brand}}']);
+        $this->assertSame($published->id, $this->registry->current('test.op')->id, 'an operator version is never replaced by code');
+    }
+
     public function test_render_substitutes_variables_and_unknown_variables_fail_in_tests(): void
     {
         $text = $this->registry->render('test.op', ['brand' => 'Panorama', 'items' => ['a', 'b']]);

@@ -70,14 +70,17 @@ final class PromptRegistry
         return $this->normalize((array) $all[$operation], true);
     }
 
-    /** The version in use; the first use stores the code default as version 1. */
+    /**
+     * The version in use; the first use stores the code default as version 1. While no operator has published or
+     * reverted this operation (current version has no author), a changed code default becomes the next version.
+     */
     public function current(string $operation): PromptVersion
     {
         $row = $this->currentRow($operation);
-        if ($row !== null) {
+        $definition = $this->definition($operation);
+        if ($row !== null && ($row->created_by !== null || $row->template === self::withGuard($definition['template']))) {
             return $row;
         }
-        $definition = $this->definition($operation);
         try {
             return $this->store($operation, [
                 'purpose' => $definition['purpose'], 'template' => $definition['template'], 'model' => $definition['model'],
