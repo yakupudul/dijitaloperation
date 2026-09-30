@@ -47,6 +47,7 @@
         @endif
         @if ($tab === 'queries' || $tab === 'clusters')
             <button type="button" wire:click="clusterService" @disabled(! ctype_digit($service)) class="{{ $btn }} ml-auto" title="Hizmet seçin">AI ile kümele</button>
+            <x-operator.ai-prompt-info operation="queries.cluster" />
             @if (($clusterStatus['status'] ?? null) === 'running')<span class="text-xs text-gray-500">kümeleniyor…</span>
             @elseif (($clusterStatus['status'] ?? null) === 'ready')<span class="text-xs text-gray-500">{{ $clusterStatus['clusters'] }} küme · {{ $clusterStatus['suggested'] }} önerilen sorgu</span>
             @elseif ($clusterStatus !== null)<span class="text-xs text-rose-600">Kümeleme: {{ ['no_queries' => 'sorgu yok', 'no_sector' => 'hizmetin sektörü yok', 'no_provider' => 'AI bağlı değil', 'error' => 'hata'][$clusterStatus['status']] ?? $clusterStatus['status'] }}</span>@endif
@@ -70,6 +71,7 @@
                 @endif
                 <button type="button" wire:click="openNegatives" @disabled($selected === []) class="{{ $ghost }}">Filtreye ekle</button>
                 <button type="button" wire:click="proposeRules" @disabled($selected === []) class="{{ $btn }}">AI ile filtre kural üret</button>
+                <x-operator.ai-prompt-info operation="queries.filter_rules" />
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs">
@@ -366,6 +368,7 @@
                         @foreach ($sectors as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
                     </select>
                     <button type="button" wire:click="aiNegatives" @disabled($negAwaiting) class="{{ $ghost }}">AI ile düzenle</button>
+                    <x-operator.ai-prompt-info operation="queries.filter_rules" />
                     @if ($negAwaiting)<span class="text-xs text-gray-500">AI çalışıyor…</span>@endif
                 </div>
                 <textarea wire:model.blur="negText" rows="6" aria-label="Terimler (satır başına bir)" class="{{ $input }} w-full text-xs"></textarea>

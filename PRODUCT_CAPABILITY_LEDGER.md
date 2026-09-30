@@ -1,5 +1,12 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-06 — Canlı AI işlemleri ve prompt bilgi (ⓘ) butonu
+
+- **Canlı AI işlemleri:** her laravel/ai ajan çağrısı `PromptingAgent`/`StreamingAgent` ile "çalışıyor" satırı açar, `AgentPrompted`/`AgentStreamed` ile "bitti" (süre, maliyet), `AgentFailedOver` ile "başarısız" kapatır; hata fırlatan çağrılar istek / iş / komut bitince (son sağlayıcı HTTP hatası ya da iş istisnası metniyle) başarısız kapanır, 30 dk'dan eski açık satırlar zaman aşımıyla kapanır. Kullanıcı (kuyruğa da taşınır), kısa konu (düz metin prompt başı; veri paketlerinde yok) ve Türkçe işlem adı tutulur. `ai_live_operations` 7 gün (veri saklama, telemetri).
+- **Üst çubuk "AI · N":** yalnız çalışan ya da son 5 dakikada biten işlem varken görünür; çalışırken 5 sn, değilse 30 sn yoklama; açılır listede çalışanlar + son 10 biten, Admin için Ayarlar › AI işlemleri › Canlı bağlantısı. Ayarlar sayfasında "Canlı" bölümü (çalışan + son 20) ve detayda "Varsayılana dön".
+- **ⓘ prompt bilgisi:** tek modal (`AiPromptInfo`, düzende bir kez) + buton bileşeni; amaç, güncel şablon, sürüm, varsayılan / düzenlenmiş, model. Admin "Düzenle" → `PromptRegistry::publish` (yeni sürüm), "Varsayılana dön" → `PromptRegistry::resetToDefault`; Admin olmayan yalnız görür. Yerleşim: AI ile planla (3 adım), Sorgular (kümele, filtre kuralı, AI ile düzenle), Google Ads (arama terimleri ×2, kampanya yapısı, reklam metni), Meta (3 AI butonu), İşletme Profili (hizmet karşılaştır, açıklama, yorum yanıt taslağı ×2, sayfadan gönderi), marka ayarları (hizmet çıkar), marka adayları (yeniden grupla), web sitesi (sınıflandır, hizmet ↔ sayfa, küme ↔ sayfa, URL analizi ×2, AI ile yap ×2, standart öner, haftalık içerik, fırsat keşfi, taslak ×2, rakipleri güncelle, rakip analizi, backlink kaynak).
+- **State:** CODED + PHPUnit (`AiLiveOperationsTest`, `AiPromptInfoTest`), SQLite + PostgreSQL. Kuyruğa alınmış işlerin "Sırada" durumu yok (yalnız çalışıyor / bitti / başarısız). Üretim UAT yok. **Operator after deploy:** `php artisan migrate --force`.
+
 ## 2026-11-05 — Web sitesi çekimi sadeleşti; yalnız markaya atanmış varlıklar çekilir
 
 - **Otomatik public tarama yok.** Saatlik sitemap izleyicisi artık tarama başlatmaz; yalnız markaya atanmış, WordPress Connector'lı ve sitemap geçersiz kılması olan siteleri izler (ek URL listesi). Connector'sız site yalnız elle "Genel çekim" ile toplanır.

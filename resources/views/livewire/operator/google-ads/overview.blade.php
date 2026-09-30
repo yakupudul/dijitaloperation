@@ -97,6 +97,7 @@
         <div class="flex flex-wrap items-center gap-2">
             <button type="button" wire:click="recheck" @disabled(! $bound) class="{{ $btn }}">Kontrolleri çalıştır</button>
             <button type="button" wire:click="reviewTerms" wire:loading.attr="disabled" @disabled(! $operational || ! $bound || ($termsState['status'] ?? null) === 'running') class="{{ $btn }}">Arama terimlerini incele</button>
+            <x-operator.ai-prompt-info operation="google_ads.search_terms" />
             @if ($canWrite && $selectedNegatives !== [])
                 <button type="button" x-on:click="if (confirm('Seçilen negatifler Google Ads paylaşılan listesine eklensin mi? Sonradan geri alınabilir.')) $wire.sendNegatives()" class="{{ $primary }}">Seçilenleri gönder ({{ count($selectedNegatives) }})</button>
             @endif
@@ -141,6 +142,7 @@
             <input type="search" wire:model.live.debounce.400ms="termFilter" placeholder="Terim ara" aria-label="Terim ara" class="{{ $input }} w-56">
             <button type="button" wire:click="reviewTerms" wire:loading.attr="disabled" @disabled(! $operational || ! $bound || ($termsState['status'] ?? null) === 'running') class="{{ $btn }}">Tümünü incele</button>
             <button type="button" wire:click="proposeNegatives" wire:loading.attr="disabled" @disabled(! $operational || $selectedTerms === [] || ($termsState['status'] ?? null) === 'running') class="{{ $primary }}">Negatif öner{{ $selectedTerms !== [] ? ' ('.count($selectedTerms).')' : '' }}</button>
+            <x-operator.ai-prompt-info operation="google_ads.search_terms" />
         </div>
         @if ($line = $stateLine($termsState))
             <p class="text-xs {{ $line[0] }}" @if ($line[2]) wire:poll.5s @endif>Arama terimleri: {{ $line[1] }}@if (($termsState['status'] ?? null) === 'ready') · <button type="button" wire:click="setTab('todo')" class="font-semibold text-brand-600 hover:underline">Yapılacaklar</button>@endif</p>
@@ -183,6 +185,7 @@
     @elseif ($tab === 'strategy')
         <div class="flex flex-wrap items-center gap-2">
             <button type="button" wire:click="proposeStructure" wire:loading.attr="disabled" @disabled(! $operational || ! $bound || ($structureState['status'] ?? null) === 'running') class="{{ $btn }}">Kampanya yapısı öner</button>
+            <x-operator.ai-prompt-info operation="google_ads.structure" />
             <select wire:model="adGroupKey" aria-label="Reklam grubu" class="{{ $input }} max-w-xs">
                 <option value="">Reklam grubu seçin</option>
                 @foreach ($adGroups as $option)
@@ -190,6 +193,7 @@
                 @endforeach
             </select>
             <button type="button" wire:click="writeAds" wire:loading.attr="disabled" @disabled(! $operational || ! $bound || ($adsState['status'] ?? null) === 'running') class="{{ $btn }}">Reklam metni yaz</button>
+            <x-operator.ai-prompt-info operation="google_ads.ad_texts" />
         </div>
         @foreach (['Kampanya yapısı' => $structureState, 'Reklam metni' => $adsState] as $label => $state)
             @if ($line = $stateLine($state))

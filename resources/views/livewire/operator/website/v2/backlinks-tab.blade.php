@@ -56,6 +56,7 @@
                 @elseif (($proposal['status'] ?? null) === 'ready')<span class="text-xs text-gray-500">{{ $proposal['added'] }} yeni kaynak</span>
                 @elseif ($proposal !== null)<span class="text-xs text-rose-600">{{ ['not_operational' => 'marka hizmet dışı', 'no_provider' => 'AI bağlı değil', 'error' => 'hata'][$proposal['status']] ?? $proposal['status'] }}</span>@endif
                 <button type="button" wire:click="proposeSources" @disabled(! $operational) class="{{ $btn }}" data-action="propose">AI ile kaynak öner</button>
+                <x-operator.ai-prompt-info operation="backlinks.sources" />
             </div>
         </div>
         <form wire:submit="addSource" class="mt-2 flex flex-wrap items-center gap-2">

@@ -30,6 +30,7 @@ use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Policies\CollectionRunPolicy;
 use App\Services\Ai\AgentContextGateway;
+use App\Services\Ai\AiLiveOperations;
 use App\Services\Ai\AiUsageRecorder;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Collection\Activity\ActivityTierServiceReader;
@@ -95,8 +96,14 @@ use App\Support\Operator\LivewireActionErrors;
 use App\Support\Roles;
 use App\Support\ServiceScope;
 use App\Support\Skills\SkillRegistry;
+use Illuminate\Auth\Events\Authenticated;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Client\Events\ConnectionFailed;
+use Illuminate\Http\Client\Events\ResponseReceived;
+use Illuminate\Queue\Events\JobExceptionOccurred;
+use Illuminate\Queue\Events\JobProcessed;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Queue;
@@ -106,7 +113,9 @@ use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Ai\Events\AgentFailedOver;
 use Laravel\Ai\Events\AgentPrompted;
+use Laravel\Ai\Events\AgentStreamed;
 use Laravel\Ai\Events\PromptingAgent;
+use Laravel\Ai\Events\StreamingAgent;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -118,6 +127,7 @@ class AppServiceProvider extends ServiceProvider
         Connection::resolverFor('pgsql', static fn ($pdo, string $database, string $prefix, array $config): ViewAwarePostgresConnection => new ViewAwarePostgresConnection($pdo, $database, $prefix, $config));
 
         $this->app->scoped(ServiceScope::class);
+        $this->app->scoped(AiLiveOperations::class);
         $this->app->singleton(AgencySettingService::class);
         $this->app->singleton(OperatorMailConfigService::class);
 
@@ -223,6 +233,25 @@ class AppServiceProvider extends ServiceProvider
         });
     }
 
+    /**
+     * Canlı AI işlemleri: every agent call opens / closes a live row; calls that threw are closed when the request,
+     * job or command ends. The signed-in operator is carried into queued jobs (hidden context).
+     */
+    private function trackLiveAiOperations(): void
+    {
+        Event::listen(PromptingAgent::class, [AiLiveOperations::class, 'started']);
+        Event::listen(StreamingAgent::class, [AiLiveOperations::class, 'started']);
+        Event::listen(AgentPrompted::class, [AiLiveOperations::class, 'finished']);
+        Event::listen(AgentStreamed::class, [AiLiveOperations::class, 'finished']);
+        Event::listen(AgentFailedOver::class, [AiLiveOperations::class, 'failedOver']);
+        Event::listen(ResponseReceived::class, [AiLiveOperations::class, 'httpResponse']);
+        Event::listen(ConnectionFailed::class, [AiLiveOperations::class, 'httpResponse']);
+        Event::listen(JobExceptionOccurred::class, fn (JobExceptionOccurred $event) => app(AiLiveOperations::class)->closeOpen($event->exception->getMessage()));
+        Event::listen(JobProcessed::class, fn () => app(AiLiveOperations::class)->closeOpen());
+        Event::listen(Authenticated::class, fn (Authenticated $event) => Context::addHidden(AiLiveOperations::USER_CONTEXT, $event->user->getAuthIdentifier()));
+        $this->app->terminating(fn () => app(AiLiveOperations::class)->closeOpen());
+    }
+
     public function boot(): void
     {
         // Integer record ids in operator URLs: anything else (text, a number past bigint) is a 404, never a
@@ -234,6 +263,7 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(PromptingAgent::class, [AiUsageRecorder::class, 'started']);
         Event::listen(AgentPrompted::class, [AiUsageRecorder::class, 'handle']);
         Event::listen(AgentFailedOver::class, [AiUsageRecorder::class, 'failed']);
+        $this->trackLiveAiOperations();
         ProductionArchive::boot();
 
         Gate::before(function ($user, string $ability): ?bool {

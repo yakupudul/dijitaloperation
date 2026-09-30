@@ -13,7 +13,7 @@
     $aiButton = function (string $op) use ($aiStates, $aiLabels, $operational, $bound, $btn): string {
         $running = ($aiStates[$op]['status'] ?? null) === 'running';
 
-        return '<button type="button" wire:click="runAi(\''.$op.'\')" wire:loading.attr="disabled" '.(! $operational || ! $bound || $running ? 'disabled ' : '').'class="'.$btn.'">'.e($aiLabels[$op]).'</button>';
+        return '<button type="button" wire:click="runAi(\''.$op.'\')" wire:loading.attr="disabled" '.(! $operational || ! $bound || $running ? 'disabled ' : '').'class="'.$btn.'">'.e($aiLabels[$op]).'</button>'.\Illuminate\Support\Facades\Blade::render('<x-operator.ai-prompt-info :operation="$operation" />', ['operation' => 'meta.'.$op]);
     };
     $aiLine = function (string $op) use ($aiStates, $aiLabels): string {
         $state = $aiStates[$op] ?? null;

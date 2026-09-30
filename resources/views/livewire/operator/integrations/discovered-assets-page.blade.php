@@ -14,7 +14,7 @@
     <section class="space-y-2" data-brand-candidates>
         <div class="flex flex-wrap items-center justify-between gap-2">
             <h2 class="text-sm font-semibold">Marka adayları · {{ $candidates->count() }}</h2>
-            @if($isAdmin)<button type="button" wire:click="regroup" wire:loading.attr="disabled" class="rounded-lg px-3 py-1.5 text-xs font-semibold ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Yeniden grupla</button>@endif
+            @if($isAdmin)<span class="flex items-center gap-2"><button type="button" wire:click="regroup" wire:loading.attr="disabled" class="rounded-lg px-3 py-1.5 text-xs font-semibold ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Yeniden grupla</button><x-operator.ai-prompt-info operation="brand.candidates" /></span>@endif
         </div>
         @foreach($candidates as $candidate)
             @php($types = collect((array) data_get($candidate->signals, 'types', []))->map(fn ($n, $t) => \App\Services\Portfolio\BrandCandidateBuilder::typeLabel((string) $t).($n > 1 ? ' ×'.$n : ''))->implode(' · '))

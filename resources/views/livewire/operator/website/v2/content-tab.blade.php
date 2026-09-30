@@ -15,8 +15,10 @@
 
     <section class="{{ $card }} flex flex-wrap items-center gap-2">
         <button type="button" wire:click="run('weekly_content')" class="{{ $btn }}">Haftalık içerik öner</button>
+        <x-operator.ai-prompt-info operation="site.weekly_content" />
         <span class="text-xs text-gray-500">kapasite {{ $capacity }} / hafta</span>
         <button type="button" wire:click="run('content_discovery')" class="{{ $ghost }}">Kümeler dışında fırsat keşfet</button>
+        <x-operator.ai-prompt-info operation="site.content_discovery" />
         @foreach ($statuses as $op => $line)<span class="text-xs text-gray-500">{{ \App\Services\Site\SiteOperations::LABELS[$op] }}: {{ $line }}</span>@endforeach
         <select wire:model.live="status" aria-label="Durum" class="{{ $input }} ml-auto">
             <option value="">Tümü</option>
@@ -43,6 +45,7 @@
                             @endif
                             @if (in_array($item->status, ['open', 'recheck'], true))
                                 <button type="button" wire:click="prepareDraft({{ $item->id }})" class="{{ $btn }}">Taslak hazırla</button>
+                                <x-operator.ai-prompt-info operation="site.write_article" />
                                 <input type="text" wire:model="reasons.{{ $item->id }}" placeholder="Neden" aria-label="Reddetme nedeni" class="{{ $input }} w-28">
                                 <button type="button" wire:click="dismiss({{ $item->id }})" class="{{ $ghost }}">Reddet</button>
                             @endif

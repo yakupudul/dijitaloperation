@@ -31,6 +31,9 @@
 
         <div class="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
             <livewire:demo.partials.active-data-sync-indicator />
+            @auth
+                <livewire:operator.ai-live-indicator />
+            @endauth
             <livewire:demo.global-search />
 
             <livewire:demo.locale-switcher />

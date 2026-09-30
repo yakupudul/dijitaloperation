@@ -47,6 +47,7 @@
         <div class="flex flex-wrap items-center justify-between gap-2">
             <h2 class="font-semibold">Hizmetler · {{ $offerings->count() }}</h2>
             <button type="button" wire:click="extractServices" wire:loading.attr="disabled" class="{{ $btn }}">Sayfalardan hizmet çıkar</button>
+            <x-operator.ai-prompt-info operation="brand.services" />
         </div>
         <ul class="mt-2 divide-y divide-gray-100 dark:divide-gray-800">
             @forelse ($offerings as $offering)

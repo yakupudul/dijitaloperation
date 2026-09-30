@@ -1,5 +1,10 @@
 # PROJECT_MEMORY
 
+## 2026-11-06 — AI işlemleri canlı görünür; her AI butonunun yanında prompt (ⓘ)
+
+- **Karar (operatör):** Sistemde çalışan her AI işlemi canlı görünür: üst çubukta "AI · N" (çalışan varken veya son 5 dakikada biten varken), açılır listede çalışanlar + son 10 biten (süre, durum, hata); Ayarlar › AI işlemleri ve promptlar sayfasında "Canlı" bölümü. Kayıt merkezi olarak laravel/ai olaylarından alınır (`AiLiveOperations`, `ai_live_operations`, 7 gün); çağrı noktası değişmez.
+- **Karar (operatör):** Her AI eylem butonunun yanında ⓘ vardır (`<x-operator.ai-prompt-info operation="…" />`): işlemin amacı, güncel prompt (sürüm, kod varsayılanı mı), model. Herkes görür; yalnız Admin "Düzenle" (yeni sürüm) ve "Varsayılana dön" yapar — Ayarlar ekranıyla aynı `PromptRegistry` yolu.
+
 ## 2026-11-05 — Veri çekimi: yalnız markaya atanmış varlıklar, otomatik public tarama yok
 
 - **Karar (operatör):** Otomatik olarak yalnız markaya atanmış dijital varlıkların hesapları / siteleri çekilir (aktif veya pasif müşteri). Otomatik public site taraması yapılmaz; WordPress bağlı sitede sayfa listesi WordPress'ten gelir, yalnız değişen sayfaların HTML'i alınır. Önceki "keşfedilen her hesap çekilir" (v2 Faz 1) kararının yerini alır.

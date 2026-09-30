@@ -100,7 +100,7 @@ final class AiUsageRecorder
                 return;
             }
             $agent = class_basename($event->agent);
-            $routeKey = self::AGENT_ROUTES[$agent] ?? $this->operation($event->agent) ?? Context::getHidden('ai_route_key');
+            $routeKey = self::routeKeyFor($event->agent);
             DB::table('ai_usage_records')->insert([
                 'route_key' => is_string($routeKey) ? $routeKey : null,
                 'prompt_version_id' => $this->promptVersionId($event->agent),
@@ -127,7 +127,7 @@ final class AiUsageRecorder
             $usage = $event->response->usage;
             $provider = (string) ($event->response->meta->provider ?? 'unknown');
             $model = (string) ($event->response->meta->model ?? 'unknown');
-            $routeKey = self::AGENT_ROUTES[$agent] ?? $this->operation($event->prompt->agent) ?? Context::getHidden('ai_route_key');
+            $routeKey = self::routeKeyFor($event->prompt->agent);
             $trial = Context::getHidden(self::TRIAL_CONTEXT) === true;
             // A prompt trial ("Örnekte dene") costs like any run but is not a run of the operation.
             $routeKey = $trial ? self::TRIAL_ROUTE : $routeKey;
@@ -159,10 +159,17 @@ final class AiUsageRecorder
         return self::$keepsInput ??= Schema::hasColumn('ai_usage_records', 'input_text');
     }
 
-    /** Registry-prompted agents name their operation (= route key) themselves. */
-    private function operation(object $agent): ?string
+    /**
+     * The AI route key (= prompt operation) of an agent call: the fixed agent map, else the operation a
+     * registry-prompted agent names itself, else the route the caller resolved (hidden context).
+     */
+    public static function routeKeyFor(object $agent): ?string
     {
-        return $agent instanceof RegistryPrompted ? $agent->promptOperation() : null;
+        $routeKey = self::AGENT_ROUTES[class_basename($agent)]
+            ?? ($agent instanceof RegistryPrompted ? $agent->promptOperation() : null)
+            ?? Context::getHidden('ai_route_key');
+
+        return is_string($routeKey) && $routeKey !== '' ? $routeKey : null;
     }
 
     private function promptVersionId(object $agent): ?int
