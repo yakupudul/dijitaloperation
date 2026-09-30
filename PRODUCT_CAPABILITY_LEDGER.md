@@ -1,5 +1,9 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-06 — Takılı iptal kendiliğinden biter
+
+- Çalışan işçisi (deploy'da yeniden başlatma vb.) ölen bir çekimin iptali "Durduruluyor"da kalıyordu ve sitenin yeni çekimini (WordPress envanteri) engelliyordu. `RecoverInterruptedCollections` (her dakika) artık kilidi ve son hareketi 10 dakikadan eski olan, iptali istenmiş çekimin adımlarını iptal edip çekimi kapatır. **State:** CODED + PHPUnit (`InterruptedCollectionRecoveryTest`), SQLite + PostgreSQL.
+
 ## 2026-11-06 — Sorgular: hizmet ataması kuyruğu, toplu seçim, temiz Bekleyenler, filtre talimatı
 
 - **Hizmet ataması kuyruğu:** Sorgular sekmesinde "Hizmet ataması kuyruğu · N atanmamış sorgu" (tıklayınca Atanmamış filtresi) ve "AI ile hizmet öner": gizli olmayan, önerilmiş olmayan, sektörü olan atanmamış sorgular (seçili sektör, yoksa hepsi) kuyrukta 200'lük partilerle, sektör sektör (sektörün hizmetleri + eşleme kelimeleriyle) AI'a gider (`queries.assign_services`, prompt v1); tüm partiler işlenir (iş zaman bütçesinde kendini imleçten yeniden kuyruğa alır), ilerleme "x / y sorgu". Doğrulama: partide olmayan / bilinmeyen sorgu id'si, başka sektörün hizmeti, tekrar düşer; önerilen eşleme kelimeleri (genel değil, partide geçen, sektörde boşta) ayrıca işaretli satır. Bitince bildirim "Hizmet önerisi hazır: N sorgu". Liste (sorgu → önerilen hizmet · neden) 100'lük sayfalarda, varsayılan hepsi işaretli, "Tümünü seç / Hiçbirini seçme"; "Onayla" tek tıkla uygular (yalnız hâlâ atanmamış sorgular, `assignment=ai`, kilitli); kelime eklendiyse onaylı tarama başlar.

@@ -85,6 +85,25 @@ final class RecoverInterruptedCollections
                         app(CollectionStatusAggregator::class)->refreshFromDataset($dataset);
                     });
                 });
+            // A cancellation whose worker died never reaches a safe boundary: finish it once the lease is stale.
+            $staleCancel = now()->subMinutes(10);
+            CollectionDatasetRun::query()->whereIn('status', ['queued', 'running', 'retrying', 'cancellation_requested'])
+                ->whereHas('collectionRun', fn ($q) => $q->where('status', 'cancellation_requested'))
+                ->where(fn ($q) => $q->whereNull('dispatch_locked_at')->orWhere('dispatch_locked_at', '<', $staleCancel))
+                ->whereRaw('COALESCE(last_activity_at, started_at, created_at) < ?', [$staleCancel])
+                ->orderBy('id')->limit(100)->pluck('id')
+                ->each(function ($id) use ($staleCancel): void {
+                    DB::transaction(function () use ($id, $staleCancel): void {
+                        $dataset = CollectionDatasetRun::query()->lockForUpdate()->find($id);
+                        if (! $dataset || $dataset->status->isTerminal()
+                            || ($dataset->dispatch_locked_at && ! $dataset->dispatch_locked_at->lt($staleCancel))) {
+                            return;
+                        }
+                        $dataset->forceFill(['dispatch_lock_token' => null, 'dispatch_locked_at' => null])->save();
+                        app(CollectionStateMachine::class)->transition($dataset, CollectionRunStatus::Cancelled);
+                        app(CollectionStatusAggregator::class)->refreshFromDataset($dataset);
+                    });
+                });
             // A worker may have saved the final dataset but died before aggregating its parent.
             CollectionRun::query()->whereIn('status', ['queued', 'running', 'retrying', 'cancellation_requested'])
                 ->whereHas('datasetRuns')->whereDoesntHave('datasetRuns', fn ($q) => $q->whereIn('status', ['queued', 'running', 'retrying', 'cancellation_requested']))

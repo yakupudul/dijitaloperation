@@ -111,6 +111,23 @@ final class InterruptedCollectionRecoveryTest extends TestCase
         $this->assertSame($attempts, $dataset->fresh()->attempt_count);
     }
 
+    #[Test]
+    public function cancellation_left_by_a_dead_worker_is_finished_after_the_lease_expires(): void
+    {
+        $stale = $this->interrupted();
+        $stale->collectionRun->update(['status' => CollectionRunStatus::CancellationRequested]);
+        $stale->update(['last_activity_at' => now()->subMinutes(31), 'dispatch_locked_at' => now()->subMinutes(31)]);
+        $held = $this->interrupted();
+        $held->collectionRun->update(['status' => CollectionRunStatus::CancellationRequested]);
+        $held->update(['dispatch_locked_at' => now()->subMinutes(2)]);
+
+        app(RecoverInterruptedCollections::class)->tick();
+
+        $this->assertSame(CollectionRunStatus::Cancelled, $stale->fresh()->status);
+        $this->assertTrue($stale->collectionRun->fresh()->status->isTerminal(), 'the run no longer blocks its asset');
+        $this->assertSame(CollectionRunStatus::Running, $held->fresh()->status, 'a worker still holding it stops by itself');
+    }
+
     private function interrupted(): CollectionDatasetRun
     {
         $dataset = CollectionDatasetRun::factory()->create([
