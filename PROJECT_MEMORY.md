@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-11-09 — Sayfa HTML'i önbellekten; bir kez tam, sonra yalnız değişenler
+
+- **Karar (operatör):** Müşteri sitelerinin sayfa HTML'i paylaşımlı hostingi yormadan alınır: istekler sitenin sayfa önbelleğinden normal ziyaretçi gibi karşılanır (tarayıcı işaretli kimlikli User-Agent, çerez / önbellek kırıcı yok, gzip), ETag / Last-Modified ile koşullu istek (304 = değişmedi), önbellek isabeti yüksek sitede aynı anda 4 sayfa, ıskada 2.
+- **Karar (operatör):** WordPress Connector 1.6.0 önbellek eklentisinin diske yazdığı HTML'i (yalnız okuyarak, sayfa işlemeden) imzalı `/page-cache` ile verir; MoxDOP bunları taranmış sayfa gibi aynı hattan kaydeder, yalnız önbellekte olmayan sayfaları HTTP ile okur. Yeni yazma yok (ADR listesi değişmez).
+- **Karar (operatör):** Bir site bir kez tam okunur, sonra yalnız değişenler: "Genel çekim" varsayılan olarak değişen sayfaları okur, "Tam yeniden okuma" ayrı ve nadir seçenektir. Otomatik WordPress yenilemesi günlük tam HTML taraması yapmaz (envanter + değişen sayfalar); tam HTML yeniden okuma en çok 30 günde bir ve yalnız gece (Europe/Istanbul 01:00–06:00).
+
 ## 2026-11-08 — Eşleme kelimeleri: çakışma kuralı ve kelime araçları
 
 - **Karar (operatör):** Hizmet eşleştirmesi yalnız eşleme kelimesiyle kalır (ayrıştırma, etiket, embedding yok). Bir sorguda iki farklı hizmetin kelimesi geçer ve biri diğerini (kelime kelime) içermezse sorgu otomatik atanmaz (çakışma); iç içe ise uzun kelime kazanır. Eski "en uzun kelime her durumda kazanır" kuralının yerini alır.

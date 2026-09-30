@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.5.1
+Stable tag: 1.6.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -17,6 +17,9 @@ metadata, taxonomies, Polylang language fields, and allowlisted SEO plugin field
 Activity records include the acting WordPress user ID/display name, event type and changed field names.
 It does not expose account lists, passwords, comments, form submissions, arbitrary options, or media
 file contents.
+
+Since 1.6.0 it can also export the HTML of published public pages that a page-cache plugin already stored on disk,
+so MoxDOP reads the site without making WordPress render pages. It only reads existing cache files.
 
 It is not read-only. Its only changing operations are listed under "Remote actions" below; each
 one is signed, logged on the site, and can be switched off by the site admin.
@@ -71,6 +74,12 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.6.0 =
+* Page cache export: a new signed, read-only route `GET moxdop/v1/page-cache?page=&per_page=` (at most 50 per page) returns, for published public URLs, the HTML a page-cache plugin already stored on disk (WP Rocket, WP Super Cache, W3 Total Cache disk-enhanced, WP Fastest Cache, Cache Enabler). Files are only read, gzip-compressed and base64-encoded (about 4 MB per response at most); nothing is rendered. URLs without a cache file come back as `not_cached` and MoxDOP reads those over HTTP.
+* LiteSpeed Cache keeps pages in the web server's cache, which PHP cannot read: reported as unsupported.
+* The URL list is one paginated query of IDs and slugs (no post content loaded). The export shares the one-at-a-time snapshot lock (429 + Retry-After: 30).
+* `/status` reports the detected cache plugin and whether its files are readable (`cache`, capability `page_cache`).
 
 = 1.5.1 =
 * Gentle on small shared hosts. A save no longer starts a loopback request: one send is scheduled about a minute later and shared by the saves in that minute.

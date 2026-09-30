@@ -16,6 +16,9 @@ use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RawPayloadEnvelope;
 use App\Services\DataPool\Support\WriteReceipt;
 use App\Services\DataPool\WebsitePageStateStore;
+use App\Services\Integrations\WordPress\WordPressConnectorBusyException;
+use App\Services\Integrations\WordPress\WordPressConnectorClient;
+use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Services\SeoTasks\SeoText;
 use App\Support\SslCertificateProbe;
 use Carbon\CarbonImmutable;
@@ -58,7 +61,11 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         private readonly SslCertificateProbe $tls = new SslCertificateProbe,
         private readonly WebsitePageStateStore $pageState = new WebsitePageStateStore,
         private readonly WebsiteCrawlPoliteness $politeness = new WebsiteCrawlPoliteness,
+        private readonly WebsiteCrawlState $crawlState = new WebsiteCrawlState,
     ) {}
+
+    /** Whether the last persistPage() found the page unchanged (its stored rows moved, nothing written). */
+    private bool $lastPageUnchanged = false;
 
     public function supportedRequestFamilies(): array
     {
@@ -279,6 +286,9 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             );
         }
         $skippedUnchanged = (int) ($checkpoint['skipped_unchanged'] ?? 0);
+        $assetId = (int) $scope['asset']->id;
+        $fullRead = ($checkpoint['full_read'] ?? false) === true;
+        $pageCache = is_array($checkpoint['page_cache'] ?? null) ? $checkpoint['page_cache'] : null;
         if (is_array($checkpoint['queue'] ?? null)) {
             $queue = array_values(array_map('strval', $checkpoint['queue']));
             $visited = is_array($checkpoint['visited'] ?? null) ? array_values(array_map('strval', $checkpoint['visited'])) : [];
@@ -286,35 +296,52 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             $queue = $targetedUrls;
             $visited = [];
         } else {
-            // `refetch_unchanged` (default: force_refresh) — a manual collection re-fetches only changed pages.
-            $requestContext = (array) $context->collectionRun->request_context;
+            // Changed-only by default; `refetch_unchanged` = true ("Tam yeniden okuma", the monthly night read) reads every page.
+            $mode = $this->crawlMode((array) $context->collectionRun->request_context);
+            $fullRead = $mode === 'full';
             // robots.txt Crawl-delay slows this crawl down further (one page per step, that many seconds apart).
             $robots = $this->fetchForCollection(rtrim($this->origin($seed), '/').'/robots.txt');
             $crawlDelay = $this->politeness->robotsCrawlDelay(($robots['ok'] ?? false) && is_string($robots['body'] ?? null) ? $robots['body'] : null);
-            $seedQueue = $this->crawlSeedQueue((int) $scope['asset']->id, $seed, (bool) ($requestContext['refetch_unchanged'] ?? $requestContext['force_refresh'] ?? false));
+            $seedQueue = $this->crawlSeedQueue($assetId, $seed, $mode);
             $queue = $seedQueue['queue'];
             // Pages whose modified date says they did not change since the last fetch keep their stored copy.
             $visited = $seedQueue['unchanged'];
             $skippedUnchanged = count($seedQueue['unchanged']);
+            // WordPress Connector ≥ 1.6.0 with a readable page cache: HTML comes from the cache files first.
+            $pageCache = $this->pageCacheSource($assetId, count($queue));
         }
         $pages = (int) ($checkpoint['pages'] ?? 0);
         $urlsPlanned = max((int) ($checkpoint['urls_planned'] ?? 0), count($queue) + count($visited) - $skippedUnchanged);
         $rowsWritten = (int) ($checkpoint['rows_written_total'] ?? 0);
         $bytesDownloaded = (int) ($checkpoint['bytes_downloaded_total'] ?? 0);
-        $assetId = (int) $scope['asset']->id;
         $maxPages = $targeted ? count($targetedUrls) : DiscoveryConfig::MAX_COLLECTION_PAGES;
-        $politenessExtra = ['robots_crawl_delay' => $crawlDelay, 'politeness' => $this->politeness->view($host, $crawlDelay)];
+        $hitRatio = $this->crawlState->hitRatio($assetId);
+        $mix = $this->sourceMix($checkpoint);
+        $politenessExtra = array_filter([
+            'robots_crawl_delay' => $crawlDelay,
+            'politeness' => $this->politeness->view($host, $crawlDelay, $hitRatio),
+            'full_read' => $fullRead,
+            'page_cache' => $pageCache,
+            'source_mix' => $mix,
+        ], static fn ($value): bool => $value !== null) + ['robots_crawl_delay' => $crawlDelay];
+
+        if ($pageCache !== null && ! $targeted && $queue !== []) {
+            return $this->pageCacheStep($context, $assetId, $seed, $observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged, $politenessExtra);
+        }
 
         if ($queue === [] || $pages >= $maxPages || $bytesDownloaded >= DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES) {
-            return $this->completedCounted($pages, $maxPages, $this->crawlCheckpoint(
+            $checkpointOut = $this->crawlCheckpoint(
                 $observedAt, [], $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged, $politenessExtra,
-            ));
+            );
+            $this->recordCrawlRun($context, $assetId, $targeted, $checkpointOut, true);
+
+            return $this->completedCounted($pages, $maxPages, $checkpointOut);
         }
 
         // One step fetches a small batch, a few URLs at a time (WebsiteCrawlPoliteness). The checkpoint only advances
         // after every page of the batch is stored; a retried step fetches the same batch again and its per-page batch
         // keys are reused.
-        $batchSize = min(self::CRAWL_BATCH_SIZE, $this->politeness->batchSize($host, $crawlDelay));
+        $batchSize = min(self::CRAWL_BATCH_SIZE, $this->politeness->batchSize($host, $crawlDelay, $hitRatio));
         $batch = [];
         while ($queue !== [] && count($batch) < min($batchSize, $maxPages - $pages)) {
             $candidate = (string) array_shift($queue);
@@ -323,12 +350,17 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             }
         }
         if ($batch === []) {
-            return $this->completedCounted($pages, $maxPages, $this->crawlCheckpoint(
+            $checkpointOut = $this->crawlCheckpoint(
                 $observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged, $politenessExtra,
-            ));
+            );
+            $this->recordCrawlRun($context, $assetId, $targeted, $checkpointOut, true);
+
+            return $this->completedCounted($pages, $maxPages, $checkpointOut);
         }
 
-        $fetches = $this->fetcher->fetchMany($batch, DiscoveryConfig::MAX_COLLECTION_RESPONSE_BYTES, $this->politeness->concurrency($host, $crawlDelay));
+        // Conditional requests: a page unchanged since its stored copy answers 304 without a body (not on a full read).
+        $validators = $fullRead ? [] : $this->pageState->validators($assetId, $batch);
+        $fetches = $this->fetcher->fetchMany($batch, DiscoveryConfig::MAX_COLLECTION_RESPONSE_BYTES, $this->politeness->concurrency($host, $crawlDelay, $hitRatio), $validators);
         $distress = $this->politeness->distress($fetches);
         if ($distress !== null) {
             $backoff = $this->politeness->backOff($host, $distress, count($batch));
@@ -343,7 +375,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             }
             if (! $backoff['skip_page']) {
                 // Nothing of this batch is stored: the same pages are fetched again, one at a time, after the wait.
-                $politenessExtra['politeness'] = $this->politeness->view($host, $crawlDelay);
+                $politenessExtra['politeness'] = $this->politeness->view($host, $crawlDelay, $hitRatio);
 
                 return new DatasetExecutionResult(
                     outcome: DatasetExecutionOutcome::Continue,
@@ -359,8 +391,11 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             }
         } else {
             $this->politeness->recovered($host);
+            // Whether the site's page cache answered: a site that serves every page from its cache may be read faster.
+            $this->crawlState->recordFetches($assetId, $fetches);
+            $hitRatio = $this->crawlState->hitRatio($assetId);
         }
-        $politenessExtra['politeness'] = $this->politeness->view($host, $crawlDelay);
+        $politenessExtra['politeness'] = $this->politeness->view($host, $crawlDelay, $hitRatio);
         // A site with the WordPress Connector: its page list comes from WordPress (+ sitemap); links are not followed.
         $followLinks = ! $targeted && ! $this->hasCmsInventory($assetId);
         $written = 0;
@@ -380,7 +415,18 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
                 break;
             }
 
+            if (($fetch['not_modified'] ?? false) === true) {
+                // 304: unchanged since the stored copy — the same path as an unchanged page (rows move to this observation).
+                $this->keepNotModifiedPage($context, $assetId, $fetch, $observedAt);
+                $pages++;
+                $pagesThisStep++;
+                $mix['not_modified']++;
+
+                continue;
+            }
+
             $pageRows = $this->persistPage($context, $assetId, $fetch, $observedAt, 'public_crawl', $url, $seed);
+            $this->lastPageUnchanged ? $mix['same']++ : $mix['fetched']++;
             $pages++;
             $pagesThisStep++;
             $written += $pageRows;
@@ -399,11 +445,15 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             }
         }
 
+        $politenessExtra['source_mix'] = $mix;
         $checkpointOut = $this->crawlCheckpoint($observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged, $politenessExtra);
 
         if ($limitReached || $queue === [] || $pages >= $maxPages || $bytesDownloaded >= DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES) {
+            $this->recordCrawlRun($context, $assetId, $targeted, $checkpointOut, true);
+
             return $this->completedCounted($pages, $maxPages, $checkpointOut, $written, $written, $pagesThisStep);
         }
+        $this->recordCrawlRun($context, $assetId, $targeted, $checkpointOut, false);
 
         return new DatasetExecutionResult(
             outcome: DatasetExecutionOutcome::Continue,
@@ -417,6 +467,266 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             // A short pause before the next step of the same site.
             backoffSeconds: $this->politeness->stepDelay($crawlDelay),
         );
+    }
+
+    /**
+     * How much of the site a (non-targeted) crawl reads:
+     * - full: every page ("Tam yeniden okuma", the monthly night read; `refetch_unchanged` = true);
+     * - changed: pages whose WordPress modified date / sitemap lastmod is newer than their stored copy, plus pages
+     *   without a date after UNKNOWN_RECHECK_DAYS and every page after MAX_RECHECK_DAYS (operator "Genel çekim",
+     *   `crawl_mode` = recheck, and every trigger that does not say otherwise);
+     * - changed_strict: only pages whose date says they changed (automatic runs; `crawl_mode` = changed).
+     * The homepage is always read; a conditional request makes an unchanged page a cheap 304.
+     *
+     * @param  array<string, mixed>  $requestContext
+     */
+    private function crawlMode(array $requestContext): string
+    {
+        $nested = is_array($requestContext['context'] ?? null) ? $requestContext['context'] : [];
+        $mode = $nested['crawl_mode'] ?? null;
+        if (($nested['refetch_unchanged'] ?? $requestContext['refetch_unchanged'] ?? false) === true || $mode === 'full') {
+            return 'full';
+        }
+
+        return $mode === 'changed' ? 'changed_strict' : 'changed';
+    }
+
+    /**
+     * Where the pages of this crawl came from: page_cache (the connector read the cache plugin's file), fetched (read
+     * over HTTP), not_modified (304) and same (read, identical to the stored copy).
+     *
+     * @param  array<string, mixed>  $checkpoint
+     * @return array{page_cache: int, fetched: int, not_modified: int, same: int}
+     */
+    private function sourceMix(array $checkpoint): array
+    {
+        $mix = is_array($checkpoint['source_mix'] ?? null) ? $checkpoint['source_mix'] : [];
+
+        return [
+            'page_cache' => (int) ($mix['page_cache'] ?? 0),
+            'fetched' => (int) ($mix['fetched'] ?? 0),
+            'not_modified' => (int) ($mix['not_modified'] ?? 0),
+            'same' => (int) ($mix['same'] ?? 0),
+        ];
+    }
+
+    /**
+     * Site-level record of the latest crawl (source mix) and, when a crawl read every page, the full-read date.
+     *
+     * @param  array<string, mixed>  $checkpoint
+     */
+    private function recordCrawlRun(DatasetExecutionContext $context, int $assetId, bool $targeted, array $checkpoint, bool $finished): void
+    {
+        if ($targeted) {
+            return;
+        }
+        $skipped = (int) ($checkpoint['skipped_unchanged'] ?? 0);
+        $this->crawlState->recordRun($assetId, (int) $context->collectionRun->id, $this->sourceMix($checkpoint) + ['skipped' => $skipped], $finished);
+        if ($finished && $skipped === 0 && ($checkpoint['limit_reached'] ?? false) !== true && (int) ($checkpoint['pages'] ?? 0) > 0) {
+            $this->crawlState->markFullRead($assetId);
+        }
+    }
+
+    /**
+     * WordPress Connector ≥ 1.6.0 whose site runs a page-cache plugin with readable cache files, when enough pages
+     * are to be read (a few changed pages are simply read over HTTP — from the site's cache anyway).
+     *
+     * @return array{page: int, plugin: ?string}|null
+     */
+    private function pageCacheSource(int $assetId, int $queued): ?array
+    {
+        if ($queued < max(1, (int) config('moxdop-website-intelligence.crawl.page_cache_min_queue', 20))) {
+            return null;
+        }
+        $connection = $this->pairedConnection($assetId);
+        if ($connection === null || version_compare((string) data_get($connection->config, 'plugin_version', '0'), (string) config('moxdop-wordpress.page_cache_min_plugin_version', '1.6.0'), '<')) {
+            return null;
+        }
+        try {
+            // Refreshes the site's cache summary (plugin, readable) on the connection.
+            app(WordPressConnectorClient::class)->status($connection);
+            $connection->refresh();
+        } catch (Throwable) {
+            // The stored summary decides; the page reads fall back to HTTP when the cache cannot be read.
+        }
+        $summary = data_get($connection->config, 'page_cache');
+
+        return is_array($summary) && ($summary['readable'] ?? false) === true
+            ? ['page' => 1, 'plugin' => is_string($summary['plugin'] ?? null) ? $summary['plugin'] : null]
+            : null;
+    }
+
+    private function pairedConnection(int $assetId): ?CoreConnection
+    {
+        return CoreConnection::query()->with('credential')
+            ->where('digital_asset_id', $assetId)
+            ->where('type', WordPressConnectorPairingService::CONNECTION_TYPE)
+            ->where('config->pairing_state', WordPressConnectorPairingService::PAIRED)
+            ->where('enabled', true)
+            ->whereHas('credential')
+            ->first();
+    }
+
+    /**
+     * One page of the connector's page-cache export: HTML the cache plugin already stored on disk (the site reads
+     * files, it renders nothing). Each cached URL of the queue is persisted exactly like a crawled page (same
+     * persistPage pipeline, http snapshot status 200 with fetch_source wp_page_cache) and leaves the queue, so the
+     * public crawl reads only the pages that were not cached. Same HTML as the stored copy → unchanged path.
+     *
+     * @param  list<string>  $queue
+     * @param  list<string>  $visited
+     * @param  array<string, mixed>  $extra
+     */
+    private function pageCacheStep(
+        DatasetExecutionContext $context,
+        int $assetId,
+        string $seed,
+        string $observedAt,
+        array $queue,
+        array $visited,
+        int $pages,
+        int $rowsWritten,
+        int $bytesDownloaded,
+        int $urlsPlanned,
+        int $skippedUnchanged,
+        array $extra,
+    ): DatasetExecutionResult {
+        $phase = (array) $extra['page_cache'];
+        $page = max(1, (int) ($phase['page'] ?? 1));
+        $mix = $this->sourceMix($extra);
+        $written = 0;
+        $pagesThisStep = 0;
+        $done = true;
+        $connection = $this->pairedConnection($assetId);
+        if ($connection !== null) {
+            try {
+                $payload = app(WordPressConnectorClient::class)->pageCache($connection, $page, (int) config('moxdop-website-intelligence.crawl.page_cache_per_page', 25));
+                $done = ($payload['has_more'] ?? false) !== true || ! is_array($payload['records'] ?? null) || $payload['records'] === [];
+                $wanted = array_fill_keys($queue, true);
+                foreach ((array) ($payload['records'] ?? []) as $record) {
+                    $fetch = is_array($record) ? $this->pageCacheFetch($record, $seed) : null;
+                    $url = $fetch['requested_url'] ?? null;
+                    if ($fetch === null || ! is_string($url) || ! isset($wanted[$url])
+                        || $bytesDownloaded + (int) $fetch['bytes'] > DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES) {
+                        continue;
+                    }
+                    $bytesDownloaded += (int) $fetch['bytes'];
+                    $pageRows = $this->persistPage($context, $assetId, $fetch, $observedAt, 'public_crawl', $url, $seed);
+                    $this->lastPageUnchanged ? $mix['same']++ : $mix['page_cache']++;
+                    unset($wanted[$url]);
+                    $visited[] = $url;
+                    $pages++;
+                    $pagesThisStep++;
+                    $written += $pageRows;
+                    $rowsWritten += $pageRows;
+                }
+                $queue = array_keys($wanted);
+            } catch (WordPressConnectorBusyException $busy) {
+                // The site is building a snapshot right now: the same page is asked again after its Retry-After.
+                $extra['source_mix'] = $mix;
+
+                return new DatasetExecutionResult(
+                    outcome: DatasetExecutionOutcome::Continue,
+                    progressMode: ProgressMode::PageBased,
+                    progressCurrent: $pages,
+                    progressTotal: DiscoveryConfig::MAX_COLLECTION_PAGES,
+                    stage: 'page_cache_wait',
+                    checkpoint: $this->crawlCheckpoint($observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged, $extra),
+                    backoffSeconds: max(30, $busy->retryAfterSeconds),
+                );
+            } catch (Throwable $error) {
+                // The cache export failed: the remaining pages are read over HTTP.
+                report($error);
+                $extra['page_cache_error'] = class_basename($error);
+            }
+        }
+        if ($done) {
+            unset($extra['page_cache']);
+        } else {
+            $extra['page_cache'] = ['page' => $page + 1, 'plugin' => $phase['plugin'] ?? null];
+        }
+        $extra['source_mix'] = $mix;
+        $checkpointOut = $this->crawlCheckpoint($observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged, $extra);
+        $this->recordCrawlRun($context, $assetId, false, $checkpointOut, false);
+
+        return new DatasetExecutionResult(
+            outcome: DatasetExecutionOutcome::Continue,
+            progressMode: ProgressMode::PageBased,
+            progressCurrent: $pages,
+            progressTotal: DiscoveryConfig::MAX_COLLECTION_PAGES,
+            rowsReceived: $written,
+            rowsWritten: $written,
+            pagesCompleted: $pagesThisStep,
+            stage: 'page_cache',
+            checkpoint: $checkpointOut,
+            // A short pause between two export pages of the same site.
+            backoffSeconds: max(0, (int) config('moxdop-wordpress.page_delay_seconds', 2)),
+        );
+    }
+
+    /**
+     * A page-cache export record as a crawl fetch, or null when it is not a usable cached copy (not cached, other
+     * site, undecodable or its SHA-256 does not match).
+     *
+     * @param  array<string, mixed>  $record
+     * @return array<string, mixed>|null
+     */
+    private function pageCacheFetch(array $record, string $seed): ?array
+    {
+        if (($record['status'] ?? null) !== 'cached') {
+            return null;
+        }
+        $url = $this->urls->normalizeAbsolute((string) ($record['url'] ?? ''));
+        if ($url === null || ! $this->urls->sameSite($seed, $url)) {
+            return null;
+        }
+        $compressed = base64_decode((string) ($record['html_gz_b64'] ?? ''), true);
+        $html = is_string($compressed) && $compressed !== '' ? @gzdecode($compressed, DiscoveryConfig::MAX_COLLECTION_RESPONSE_BYTES) : false;
+        if (! is_string($html) || $html === '' || ! hash_equals(strtolower((string) ($record['sha256'] ?? '')), hash('sha256', $html))) {
+            return null;
+        }
+        $plugin = is_string($record['cache_plugin'] ?? null) ? $record['cache_plugin'] : null;
+
+        return [
+            'ok' => true,
+            'requested_url' => $url,
+            'final_url' => $url,
+            'status_code' => 200,
+            'content_type' => 'text/html',
+            'body' => $html,
+            'bytes' => strlen($html),
+            'redirect_count' => 0,
+            'error' => null,
+            'not_modified' => false,
+            'etag' => null,
+            'last_modified' => null,
+            'cache' => ['hit' => true, 'plugin' => $plugin],
+            'source' => 'wp_page_cache',
+            'cache_file_mtime' => is_string($record['file_mtime'] ?? null) ? $record['file_mtime'] : null,
+        ];
+    }
+
+    /**
+     * A 304 answer: the page did not change since its stored copy. Its stored rows move to this observation (the
+     * unchanged-page path); a retried step whose observation already holds the page leaves it as it is.
+     *
+     * @param  array<string, mixed>  $fetch
+     */
+    private function keepNotModifiedPage(DatasetExecutionContext $context, int $assetId, array $fetch, string $observedAt): void
+    {
+        $httpUrl = (string) ($fetch['requested_url'] ?? $fetch['final_url'] ?? '');
+        $stored = $this->pageState->latestResponse($assetId, $httpUrl, $observedAt);
+        if ($stored === null) {
+            return;
+        }
+        $final = (string) ($stored['final_url'] ?? $fetch['final_url'] ?? $httpUrl);
+        $urls = array_values(array_unique(array_filter([
+            $httpUrl,
+            $final,
+            $this->normalizer->normalizeUrl($final),
+            $this->urls->normalizeAbsolute($final),
+        ], static fn ($url): bool => is_string($url) && $url !== '')));
+        $this->pageState->touchUnchangedPage($assetId, $urls, $observedAt, (int) $context->collectionRun->id, (int) $context->datasetRun->id);
     }
 
     /** Operator wording of why the site is being given a break. */
@@ -551,7 +861,8 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         string $siteSeed,
     ): int {
         // Latest state: a page whose response did not change since its stored copy is not written again.
-        if ($this->keepUnchangedPage($context, $assetId, $fetch, $observedAt)) {
+        $this->lastPageUnchanged = $this->keepUnchangedPage($context, $assetId, $fetch, $observedAt);
+        if ($this->lastPageUnchanged) {
             return 0;
         }
 
@@ -869,12 +1180,14 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
      * page-builder templates). A page that was fetched before and whose modified date
      * (WordPress modified_at or sitemap lastmod) is not newer than that fetch is not fetched
      * again; its stored copy stays current. Pages without a modified date are re-fetched
-     * after UNKNOWN_RECHECK_DAYS, and every page at least every MAX_RECHECK_DAYS.
+     * after UNKNOWN_RECHECK_DAYS, and every page at least every MAX_RECHECK_DAYS ("changed"). "changed_strict"
+     * (automatic runs) skips those rechecks: the monthly night full read covers them. "full" reads every page.
      *
      * @return array{queue: list<string>, unchanged: list<string>}
      */
-    private function crawlSeedQueue(int $assetId, string $seed, bool $forceRefresh = false): array
+    private function crawlSeedQueue(int $assetId, string $seed, string $mode = 'changed'): array
     {
+        $forceRefresh = $mode === 'full';
         $home = $this->urls->normalizeAbsolute($seed) ?? $seed;
         $candidates = [$home];
         /** @var array<string, string> $modified */
@@ -936,7 +1249,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             }
         }
 
-        $unchanged = $forceRefresh ? [] : $this->unchangedSinceLastFetch($assetId, array_keys($queue), $modified, $home);
+        $unchanged = $forceRefresh ? [] : $this->unchangedSinceLastFetch($assetId, array_keys($queue), $modified, $home, $mode === 'changed_strict');
 
         return [
             'queue' => array_values(array_diff(array_keys($queue), $unchanged)),
@@ -949,7 +1262,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
      * @param  array<string, string>  $modified
      * @return list<string>
      */
-    private function unchangedSinceLastFetch(int $assetId, array $urls, array $modified, string $home): array
+    private function unchangedSinceLastFetch(int $assetId, array $urls, array $modified, string $home, bool $strict = false): array
     {
         if ($urls === [] || ! Schema::hasTable('website_html_snapshot')) {
             return [];
@@ -967,13 +1280,13 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         foreach ($urls as $url) {
             $fetchedAt = $lastFetched[$url] ?? null;
             // The homepage is always fetched: it carries the site-wide links and head.
-            if ($url === $home || $fetchedAt === null || $fetchedAt->lt($now->subDays(self::MAX_RECHECK_DAYS))) {
+            if ($url === $home || $fetchedAt === null || (! $strict && $fetchedAt->lt($now->subDays(self::MAX_RECHECK_DAYS)))) {
                 continue;
             }
             $modifiedAt = isset($modified[$url]) ? $this->parseDate($modified[$url]) : null;
             $fresh = $modifiedAt !== null
                 ? $modifiedAt->lte($fetchedAt)
-                : $fetchedAt->gte($now->subDays(self::UNKNOWN_RECHECK_DAYS));
+                : ($strict || $fetchedAt->gte($now->subDays(self::UNKNOWN_RECHECK_DAYS)));
             if ($fresh) {
                 $unchanged[] = $url;
             }

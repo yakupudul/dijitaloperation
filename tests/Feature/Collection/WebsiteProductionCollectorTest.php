@@ -633,8 +633,15 @@ class WebsiteProductionCollectorTest extends TestCase
             $this->assertDoesNotMatchRegularExpression('#/(tag|feed|author|elementor-123|wp-content)/|\.pdf$#', $url);
         }
 
-        $context->collectionRun->forceFill(['request_context' => ['force_refresh' => true]])->save();
+        // force_refresh alone (every manual trigger sets it) stays changed-only.
+        $context->collectionRun->forceFill(['request_context' => ['force_refresh' => true, 'context' => ['collection_scope' => 'full']]])->save();
+        $manual = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, []));
+        $this->assertSame(2, $manual->checkpoint['skipped_unchanged'] ?? null, 'Genel çekim reads only changed pages (implant was read above)');
+
+        // "Tam yeniden okuma": every page.
+        $context->collectionRun->forceFill(['request_context' => ['force_refresh' => true, 'context' => ['collection_scope' => 'full_reread', 'refetch_unchanged' => true]]])->save();
         $forced = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, []));
+        $this->assertTrue($forced->checkpoint['full_read'] ?? null);
         $this->assertSame(0, $forced->checkpoint['skipped_unchanged'] ?? null);
         $this->assertContains('http://1.1.1.1/about', DB::table('website_http_snapshot')->pluck('url')->all(), 'a forced refresh fetches everything');
     }

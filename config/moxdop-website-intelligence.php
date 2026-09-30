@@ -94,6 +94,17 @@ return [
         'min_delay_seconds' => (int) env('MOXDOP_CRAWL_MIN_DELAY_SECONDS', 2),
         'backoff_minutes' => [5, 15, 60],
         'max_backoffs' => 8,
+        // Page cache: a site whose page cache answers (almost) every read gets a few more pages at a time — a cached
+        // page costs the host next to nothing. Misses keep the normal pace (or less while backing off).
+        'cached_hit_ratio' => 0.8,
+        'cached_concurrency' => (int) env('MOXDOP_CRAWL_CACHED_CONCURRENCY', 4),
+        // WordPress Connector ≥ 1.6.0: read HTML from the cache plugin's files when this many pages are to be read.
+        'page_cache_min_queue' => 20,
+        'page_cache_per_page' => 25,
+        // Full HTML re-read of a WordPress site (every page, not only the changed ones): at most this often, only at
+        // night (Europe/Istanbul). Other automatic runs read only changed pages.
+        'full_read_interval_days' => (int) env('MOXDOP_FULL_READ_INTERVAL_DAYS', 30),
+        'full_read_window' => ['timezone' => 'Europe/Istanbul', 'start_hour' => 1, 'end_hour' => 6],
     ],
 
     'registry_overlay' => [

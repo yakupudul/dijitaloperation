@@ -161,6 +161,7 @@
                 <label for="website-collection-scope" class="sr-only">{{ $tr ? 'Çekim kapsamı' : 'Collection scope' }}</label>
                 <select id="website-collection-scope" wire:model="collectionScope" wire:loading.attr="disabled" class="rounded-lg border-gray-300 bg-white text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                     <option value="full">{{ $tr ? 'Genel çekim' : 'General collection' }}</option>
+                    <option value="full_reread">{{ $tr ? 'Tam yeniden okuma' : 'Full re-read' }}</option>
                     <option value="public">{{ $tr ? 'Sayfa HTML ve TLS' : 'Page HTML and TLS' }}</option>
                     <option value="wordpress" @disabled(! $selectedRow['wordpress_ready'])>{{ $tr ? 'WordPress tam envanter' : 'WordPress full inventory' }}</option>
                     <option value="pagespeed" @disabled(! $selectedRow['page_speed_ready'])>PageSpeed</option>
@@ -169,7 +170,7 @@
                 <span wire:loading.remove wire:target="collectNow">{{ ($liveConsole['active'] ?? false) ? ($tr ? 'Veri çekimi sürüyor' : 'Collection in progress') : ($tr ? 'Veri çekimini başlat' : 'Start collection') }}</span>
                 <span wire:loading wire:target="collectNow">{{ $tr ? 'Başlatılıyor…' : 'Starting…' }}</span>
             </button>
-                <p class="w-full text-xs text-gray-500 dark:text-gray-400">{{ $tr ? 'Genel çekim: önce WordPress envanteri, ardından sayfaların HTML’i (yalnız değişenler) ve TLS. Hız ölçümü için PageSpeed’i seçin.' : 'General collection: HTML, TLS and connected WordPress. Select PageSpeed for speed measurements.' }}</p>
+                <p class="w-full text-xs text-gray-500 dark:text-gray-400">{{ $tr ? 'Genel çekim: önce WordPress envanteri, ardından sayfaların HTML’i (yalnız değişenler) ve TLS. Tam yeniden okuma tüm sayfaları yeniden okur (nadiren gerekir; WordPress bağlı sitelerde ayda bir gece kendiliğinden yapılır). Hız ölçümü için PageSpeed’i seçin.' : 'General collection: HTML (changed pages only), TLS and connected WordPress. Full re-read reads every page (rarely needed; runs by itself once a month at night on WordPress-connected sites). Select PageSpeed for speed measurements.' }}</p>
             </div>
         </div>
 

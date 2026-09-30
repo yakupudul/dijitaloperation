@@ -35,18 +35,27 @@ final class WebsiteCrawlPoliteness
         return str_starts_with($host, 'www.') ? substr($host, 4) : $host;
     }
 
-    /** Pages fetched at the same time. */
-    public function concurrency(string $host, ?int $crawlDelay = null): int
+    /**
+     * Pages fetched at the same time. A site whose page cache answers (almost) every read ($cacheHitRatio ≥
+     * crawl.cached_hit_ratio) gets crawl.cached_concurrency (default 4); robots.txt Crawl-delay and slow mode win.
+     */
+    public function concurrency(string $host, ?int $crawlDelay = null, ?float $cacheHitRatio = null): int
     {
         if ($crawlDelay !== null && $crawlDelay > 0) {
             return 1;
         }
+        if ($this->slow($host)) {
+            return 1;
+        }
+        $normal = max(1, (int) config('moxdop-website-intelligence.crawl.concurrency', 2));
 
-        return $this->slow($host) ? 1 : max(1, (int) config('moxdop-website-intelligence.crawl.concurrency', 2));
+        return $this->cached($cacheHitRatio)
+            ? max($normal, (int) config('moxdop-website-intelligence.crawl.cached_concurrency', 4))
+            : $normal;
     }
 
     /** Pages fetched in one crawl step. */
-    public function batchSize(string $host, ?int $crawlDelay = null): int
+    public function batchSize(string $host, ?int $crawlDelay = null, ?float $cacheHitRatio = null): int
     {
         if ($crawlDelay !== null && $crawlDelay > 0) {
             return 1;
@@ -54,8 +63,14 @@ final class WebsiteCrawlPoliteness
         if ($this->slow($host)) {
             return 2;
         }
+        $concurrency = $this->concurrency($host, null, $cacheHitRatio);
 
-        return max($this->concurrency($host), (int) config('moxdop-website-intelligence.crawl.batch_size', 6));
+        return max($this->cached($cacheHitRatio) ? $concurrency * 2 : $concurrency, (int) config('moxdop-website-intelligence.crawl.batch_size', 6));
+    }
+
+    private function cached(?float $cacheHitRatio): bool
+    {
+        return $cacheHitRatio !== null && $cacheHitRatio >= (float) config('moxdop-website-intelligence.crawl.cached_hit_ratio', 0.8);
     }
 
     /** Seconds between two crawl steps of the same site. */
@@ -171,9 +186,9 @@ final class WebsiteCrawlPoliteness
     /**
      * What the collection screen shows.
      *
-     * @return array{mode: string, concurrency: int, reason: ?string, next_attempt_at: ?string, crawl_delay: ?int}
+     * @return array{mode: string, concurrency: int, reason: ?string, next_attempt_at: ?string, crawl_delay: ?int, cache_hit_ratio: ?float}
      */
-    public function view(string $host, ?int $crawlDelay = null): array
+    public function view(string $host, ?int $crawlDelay = null, ?float $cacheHitRatio = null): array
     {
         $state = $this->state($host);
         $until = (int) ($state['until'] ?? 0);
@@ -181,10 +196,11 @@ final class WebsiteCrawlPoliteness
 
         return [
             'mode' => $backingOff ? 'backoff' : ($this->slow($host) || ($crawlDelay ?? 0) > 0 ? 'slow' : 'normal'),
-            'concurrency' => $this->concurrency($host, $crawlDelay),
+            'concurrency' => $backingOff ? 1 : $this->concurrency($host, $crawlDelay, $cacheHitRatio),
             'reason' => $backingOff || $this->slow($host) ? ($state['reason'] ?? null) : null,
             'next_attempt_at' => $backingOff ? gmdate('c', $until) : null,
             'crawl_delay' => $crawlDelay,
+            'cache_hit_ratio' => $cacheHitRatio,
         ];
     }
 

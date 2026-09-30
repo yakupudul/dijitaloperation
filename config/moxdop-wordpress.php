@@ -1,7 +1,9 @@
 <?php
 
 return [
-    'connector_version' => '1.5.1',
+    'connector_version' => '1.6.0',
+    // 1.6.0: sayfa önbelleği dışa aktarımı (/page-cache) — önbellek eklentisinin diske yazdığı HTML okunur, sayfa işlenmez.
+    'page_cache_min_plugin_version' => '1.6.0',
     // Sağlık raporu, tek tık giriş ve onaylı güncelleme: 1.3.0 bu yanıtları imzasız döndürüyordu (MoxDOP reddeder); 1.4.0 imzalar.
     'management_min_plugin_version' => '1.4.0',
     // ADR-070: onaylı SEO düzeltmeleri ve içerik güncelleme.

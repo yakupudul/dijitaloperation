@@ -3,6 +3,7 @@
 namespace App\Services\Integrations\WordPress;
 
 use App\Models\CoreConnection;
+use App\Services\Collection\Providers\Website\WebsiteCrawlState;
 use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Response;
@@ -51,9 +52,43 @@ final class WordPressConnectorClient
                 $known = array_values(array_filter($capabilities, fn ($value): bool => is_string($value) && preg_match('/^[a-z_]{2,32}$/', $value) === 1));
                 $current->update(['config' => array_merge($current->config ?? [], ['capabilities' => array_slice($known, 0, 30)])]);
             }
+            // 1.6.0: the site's page-cache plugin and whether the connector can read its cache files.
+            $cache = $data['cache'] ?? null;
+            if (is_array($cache)) {
+                $pageCache = self::pageCacheSummary($cache);
+                $current->update(['config' => array_merge($current->config ?? [], ['page_cache' => $pageCache])]);
+                app(WebsiteCrawlState::class)->recordPageCache((int) $current->digital_asset_id, $pageCache);
+            }
         });
 
         return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $cache
+     * @return array{plugin: ?string, readable: bool, reason: ?string}
+     */
+    public static function pageCacheSummary(array $cache): array
+    {
+        $plugin = is_string($cache['plugin'] ?? null) && preg_match('/^[a-z0-9_]{2,40}$/', $cache['plugin']) === 1 ? $cache['plugin'] : null;
+        $reason = is_string($cache['reason'] ?? null) && preg_match('/^[a-z0-9_]{2,40}$/', $cache['reason']) === 1 ? $cache['reason'] : null;
+
+        return ['plugin' => $plugin, 'readable' => $plugin !== null && ($cache['readable'] ?? false) === true, 'reason' => $reason];
+    }
+
+    /**
+     * 1.6.0: HTML the site's cache plugin already stored on disk for published public URLs (the site reads files,
+     * never renders a page). Records: url, status (cached | not_cached | skipped_size), cache_plugin, file_mtime,
+     * sha256 and html_gz_b64 (gzip + base64). One request at a time on the site (429 + Retry-After otherwise).
+     *
+     * @return array<string, mixed>
+     */
+    public function pageCache(CoreConnection $connection, int $page = 1, int $perPage = 25): array
+    {
+        return $this->get($connection, null, '/moxdop/v1/page-cache', [
+            'page' => max(1, $page),
+            'per_page' => min(50, max(1, $perPage)),
+        ]);
     }
 
     /**
@@ -219,11 +254,15 @@ final class WordPressConnectorClient
      * @param  array<string, scalar>  $query
      * @return array<string, mixed>
      */
-    private function get(CoreConnection $connection, string $urlKey, string $route, array $query = []): array
+    private function get(CoreConnection $connection, ?string $urlKey, string $route, array $query = []): array
     {
         $credentials = $connection->credential?->encrypted_payload;
         $config = is_array($connection->config) ? $connection->config : [];
-        $url = trim((string) ($config[$urlKey] ?? ''));
+        $url = trim((string) ($config[$urlKey ?? 'snapshot_url'] ?? ''));
+        if ($urlKey === null) {
+            // A route without its own paired URL lives next to the snapshot route (same REST base).
+            $url = str_contains($url, '/moxdop/v1/snapshot') ? str_replace('/moxdop/v1/snapshot', $route, $url) : '';
+        }
         $clientId = is_array($credentials) ? trim((string) ($credentials['client_id'] ?? '')) : '';
         $secret = is_array($credentials) ? trim((string) ($credentials['shared_secret'] ?? '')) : '';
 
