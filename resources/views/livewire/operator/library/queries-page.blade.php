@@ -277,7 +277,7 @@
                                 @else
                                     <td>{{ $serviceName($item->fromService) }}</td>
                                     <td>{{ $serviceName($item->toService) }}</td>
-                                    <td class="text-gray-500" data-review-reason>{{ $item->from_service_id === null ? 'yeni atama' : ($item->to_service_id === null ? 'atama kalkıyor' : 'değişiyor') }} · {{ $item->term !== null ? 'eşleşen kelime: '.$item->term : 'hiçbir eşleme kelimesi eşleşmiyor' }}</td>
+                                    <td class="text-gray-500" data-review-reason>{{ $item->from_service_id === null ? 'yeni atama' : ($item->to_service_id === null ? 'atama kalkıyor' : 'değişiyor') }} · {{ $item->reason === \App\Models\QueryReviewItem::REASON_CONFLICT ? 'çakışma: '.$item->term : ($item->term !== null ? 'eşleşen kelime: '.$item->term : 'hiçbir eşleme kelimesi eşleşmiyor') }}{{ $item->reason === \App\Models\QueryReviewItem::REASON_SECTOR ? ' · sektör uyuşmuyor (mevcut hizmet başka sektörde)' : '' }}</td>
                                 @endif
                                 <td class="text-right tabular-nums">{{ $num($item->searchQuery?->impressions ?? 0) }}</td>
                             </tr>
@@ -513,26 +513,169 @@
     {{-- Eşleme kelimeleri --}}
     @if ($tab === 'keywords')
         <section class="{{ $card }}" data-section="keywords">
-            @if ($keywordServices === null)
-                <p class="text-gray-500">Sektör seçin.</p>
-            @else
-                <ul class="divide-y divide-gray-100 dark:divide-gray-800">
-                    @forelse ($keywordServices as $item)
-                        <li wire:key="ks-{{ $item->id }}" class="py-2">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <span class="w-48 font-medium">{{ $item->primaryName->raw_label }}</span>
-                                @foreach ($item->matchingKeywords as $keyword)
-                                    <span wire:key="kw-{{ $keyword->id }}" class="{{ $chip }} inline-flex items-center gap-1 bg-gray-100 dark:bg-gray-800">{{ $keyword->label }}<button type="button" wire:click="deleteKeyword({{ $keyword->id }})" aria-label="Sil" class="text-gray-500">×</button></span>
-                                @endforeach
-                                <input type="text" wire:model="newKeyword.{{ $item->id }}" wire:keydown.enter="addKeyword({{ $item->id }})" placeholder="Kelime" aria-label="Yeni kelime" class="{{ $input }} w-40 py-1 text-xs">
-                                <button type="button" wire:click="addKeyword({{ $item->id }})" class="{{ $ghost }}">Ekle</button>
-                            </div>
-                            @error('newKeyword.'.$item->id)<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
-                        </li>
-                    @empty
-                        <li class="py-2 text-gray-500">Bu sektörde hizmet yok.</li>
-                    @endforelse
-                </ul>
+            <div class="mb-3 flex flex-wrap items-center gap-2">
+                @foreach (\App\Livewire\Operator\Library\QueriesPage::KEYWORD_VIEWS as $view => $label)
+                    <button type="button" wire:click="setKeywordView('{{ $view }}')" data-keyword-view="{{ $view }}" @class(['rounded-lg px-3 py-1.5 text-xs font-semibold', 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $keywordView === $view, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $keywordView !== $view])>{{ $label.(($keywordCounts[$view] ?? 0) > 0 ? ' · '.$num($keywordCounts[$view]) : '') }}</button>
+                @endforeach
+            </div>
+
+            {{-- "Kelime ekle" panel: Kelime önerileri "Ekle" / Çakışmalar "Daha uzun kelime" --}}
+            @if ($draftOpen)
+                <div class="mb-3 space-y-2 rounded-lg p-3 ring-1 ring-inset ring-brand-200 dark:ring-brand-800" data-keyword-draft>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h2 class="text-xs font-semibold uppercase text-gray-500">Kelime ekle</h2>
+                        <input type="text" wire:model.live.debounce.400ms="draftKeyword" aria-label="Kelime" class="{{ $input }} w-60 py-1 text-xs">
+                        <select wire:model.live="draftService" aria-label="Hizmet" class="{{ $input }} py-1 text-xs">
+                            <option value="">Hizmet…</option>
+                            @foreach ($services as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
+                        </select>
+                        <button type="button" wire:click="saveDraft" @disabled(! ctype_digit($draftService) || ($impact['error'] ?? null)) class="{{ $btn }}">Kaydet</button>
+                        <button type="button" wire:click="closeDraft" class="{{ $ghost }}">Vazgeç</button>
+                    </div>
+                    @error('draftKeyword')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+                    @if (($impact['source'] ?? null) === 'draft')
+                        @include('livewire.operator.library.partials.keyword-impact', ['impact' => $impact])
+                    @elseif (! ctype_digit($draftService))
+                        <p class="text-xs text-gray-500">Etkisini görmek için hizmet seçin.</p>
+                    @endif
+                </div>
+            @endif
+
+            @if ($keywordView === 'words')
+                @if ($keywordServices === null)
+                    <p class="text-gray-500">Sektör seçin.</p>
+                @else
+                    <p class="mb-2 text-xs text-gray-500">Yazdığınız kelimenin etkisi kaydetmeden önce gösterilir. İki hizmetin kelimesi aynı sorguda geçer ve biri diğerini içermezse sorgu atanmaz (Çakışmalar); içeriyorsa uzun olan kazanır.</p>
+                    <ul class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @forelse ($keywordServices as $item)
+                            <li wire:key="ks-{{ $item->id }}" class="py-2">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="w-48 font-medium">{{ $item->primaryName->raw_label }}</span>
+                                    @foreach ($item->matchingKeywords as $keyword)
+                                        <span wire:key="kw-{{ $keyword->id }}" class="{{ $chip }} inline-flex items-center gap-1 bg-gray-100 dark:bg-gray-800">{{ $keyword->label }}<button type="button" wire:click="deleteKeyword({{ $keyword->id }})" aria-label="Sil" class="text-gray-500">×</button></span>
+                                    @endforeach
+                                    <input type="text" wire:model.live.debounce.500ms="newKeyword.{{ $item->id }}" wire:keydown.enter="addKeyword({{ $item->id }})" placeholder="Kelime" aria-label="Yeni kelime" class="{{ $input }} w-40 py-1 text-xs">
+                                    <button type="button" wire:click="addKeyword({{ $item->id }})" class="{{ $ghost }}">Ekle</button>
+                                </div>
+                                @error('newKeyword.'.$item->id)<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
+                                @if (($impact['source'] ?? null) === 'row' && ($impact['service'] ?? null) === $item->id && trim((string) ($newKeyword[$item->id] ?? '')) !== '')
+                                    @include('livewire.operator.library.partials.keyword-impact', ['impact' => $impact])
+                                @endif
+                            </li>
+                        @empty
+                            <li class="py-2 text-gray-500">Bu sektörde hizmet yok.</li>
+                        @endforelse
+                    </ul>
+                @endif
+            @endif
+
+            @if ($keywordView === 'suggestions')
+                @if ($suggestions === null)
+                    <p class="text-gray-500">Sektör seçin.</p>
+                @else
+                    <div class="mb-2 flex flex-wrap items-center gap-2">
+                        <p class="text-xs text-gray-500">Sektörün atanmamış sorgularında sık geçen 1–3 kelimelik ifadeler (gösterime göre) · niyet kelimeleri (fiyat, nedir, en iyi, yorum…) ve şehir / ilçe adları hariç, sektörde zaten kelime olanlar hariç.</p>
+                        <button type="button" wire:click="refreshSuggestions" class="{{ $ghost }} ml-auto">Yenile</button>
+                    </div>
+                    <table class="w-full text-left text-xs" data-suggestions>
+                        <thead class="text-gray-500"><tr><th class="py-1">İfade</th><th class="text-right">Sorgu</th><th class="text-right">Gösterim</th><th>Örnek sorgular</th><th></th></tr></thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                            @forelse ($suggestions as $row)
+                                @php $pickKey = str_replace(' ', '_', $row['ngram']); @endphp
+                                <tr wire:key="sg-{{ $pickKey }}" data-suggestion="{{ $row['ngram'] }}">
+                                    <td class="py-1 font-medium">{{ $row['label'] }}</td>
+                                    <td class="text-right tabular-nums">{{ $num($row['count']) }}</td>
+                                    <td class="text-right tabular-nums">{{ $num($row['impressions']) }}</td>
+                                    <td class="text-gray-500">{{ implode(' · ', $row['examples']) }}</td>
+                                    <td class="whitespace-nowrap text-right">
+                                        <select wire:model="suggestPick.{{ $pickKey }}" aria-label="Hizmet" class="{{ $input }} py-1 text-xs">
+                                            <option value="">Hizmet…</option>
+                                            @foreach ($services as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
+                                        </select>
+                                        <button type="button" wire:click="openSuggestion('{{ $row['ngram'] }}')" class="{{ $ghost }}">Ekle</button>
+                                        <button type="button" wire:click="dismissSuggestion('{{ $row['ngram'] }}')" class="{{ $ghost }}">Yok say</button>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="5" class="py-3 text-gray-500">Öneri yok.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                    @if ($suggestPages > 1)
+                        <div class="mt-2 flex items-center gap-2 text-xs">
+                            <button type="button" wire:click="suggestPageTo({{ $suggestPage - 1 }})" @disabled($suggestPage === 0) class="{{ $ghost }}">‹</button>
+                            <span class="text-gray-500">{{ min($suggestPage, $suggestPages - 1) + 1 }} / {{ $suggestPages }}</span>
+                            <button type="button" wire:click="suggestPageTo({{ $suggestPage + 1 }})" @disabled($suggestPage + 1 >= $suggestPages) class="{{ $ghost }}">›</button>
+                        </div>
+                    @endif
+                @endif
+            @endif
+
+            @if ($keywordView === 'conflicts')
+                @if ($conflictRows === null)
+                    <p class="text-gray-500">Sektör seçin.</p>
+                @else
+                    <p class="mb-2 text-xs text-gray-500">İki (veya daha çok) hizmetin kelimesi geçen ve biri diğerini içermeyen sorgular otomatik atanmaz. Satırda hizmet seçin (elle, kilitli) veya daha uzun bir kelime ekleyin.</p>
+                    <div class="mb-2 flex flex-wrap items-center gap-2">
+                        <span class="text-xs text-gray-500" data-selection-count>{{ $num($conflictRows->total()) }} çakışma · seçili {{ count($selected) }}</span>
+                        <button type="button" wire:click="selectPage" class="{{ $ghost }}">Sayfadaki tümünü seç</button>
+                        @if ($selected !== [])<button type="button" wire:click="clearSelection" class="{{ $ghost }}">Seçimi temizle</button>@endif
+                        <select wire:model="bulkService" aria-label="Atanacak hizmet" class="{{ $input }} ml-auto py-1 text-xs">
+                            <option value="">Hizmet…</option>
+                            @foreach ($services as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
+                        </select>
+                        <button type="button" wire:click="assignConflicts" @disabled($selected === []) class="{{ $ghost }}">Seçilenleri ata</button>
+                    </div>
+                    <table class="w-full text-left text-xs" data-conflicts>
+                        <thead class="text-gray-500"><tr><th class="w-6 py-1"></th><th>Sorgu</th><th>Çakışan kelimeler</th><th>Mevcut</th><th class="text-right">Gösterim</th><th></th></tr></thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                            @forelse ($conflictRows as $query)
+                                @php $hits = $conflictKeywords[$query->id] ?? []; @endphp
+                                <tr wire:key="cf-{{ $query->id }}">
+                                    <td class="py-1"><input type="checkbox" wire:model.live="selected" value="{{ $query->id }}" aria-label="Seç"></td>
+                                    <td class="font-medium">{{ $query->text }}</td>
+                                    <td data-conflict-keywords>@foreach ($hits as $hit)<span class="{{ $chip }} mr-1 bg-amber-50 text-amber-800 dark:bg-amber-500/10">{{ $hit['keyword'] }} → {{ $conflictNames[$hit['service']] ?? '#'.$hit['service'] }}</span>@endforeach</td>
+                                    <td>{{ $query->service?->primaryName?->raw_label ?? '—' }}</td>
+                                    <td class="text-right tabular-nums">{{ $num($query->impressions) }}</td>
+                                    <td class="whitespace-nowrap text-right">
+                                        <select wire:model="conflictPick.{{ $query->id }}" aria-label="Hizmet" class="{{ $input }} py-1 text-xs">
+                                            <option value="">Hizmet…</option>
+                                            @foreach (collect($hits)->pluck('service')->unique() as $serviceId)<option value="{{ $serviceId }}">{{ $conflictNames[$serviceId] ?? '#'.$serviceId }}</option>@endforeach
+                                        </select>
+                                        <button type="button" wire:click="resolveConflict({{ $query->id }})" class="{{ $ghost }}">Ata</button>
+                                        <button type="button" wire:click="openConflictKeyword({{ $query->id }})" class="{{ $ghost }}">Daha uzun kelime</button>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="6" class="py-3 text-gray-500">Çakışma yok.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                    <div class="mt-2">{{ $conflictRows->links() }}</div>
+                @endif
+            @endif
+
+            @if ($keywordView === 'sectors')
+                <p class="mb-2 text-xs text-gray-500">Hizmeti, sorgunun sektöründen farklı bir sektöre ait olan sorgular. "Taşı": sorgu hizmetin sektörüne geçer (kaynak hesaplar başka sektördeyse sonraki içe aktarma sektörü geri alabilir). "Hizmeti kaldır": sorgu atanmamış olur; sektörünün eşleme kelimeleri sonraki taramada yeniden atayabilir.</p>
+                <table class="w-full text-left text-xs" data-sector-mismatches>
+                    <thead class="text-gray-500"><tr><th class="py-1">Sorgu sektörü</th><th>Hizmetin sektörü</th><th class="text-right">Sorgu</th><th>Örnekler</th><th></th></tr></thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @forelse ($mismatches as $pair)
+                            <tr wire:key="sm-{{ $pair['sector_id'] }}-{{ $pair['code'] }}">
+                                <td class="py-1 font-medium">{{ $pair['sector'] }}</td>
+                                <td>{{ $pair['target'] }}</td>
+                                <td class="text-right tabular-nums">{{ $num($pair['total']) }}</td>
+                                <td class="text-gray-500">{{ implode(' · ', $pair['examples']) }}</td>
+                                <td class="whitespace-nowrap text-right">
+                                    <button type="button" wire:click="moveMismatch({{ $pair['sector_id'] }}, '{{ $pair['code'] }}')" wire:confirm="Sorgular hizmetin sektörüne taşınsın mı?" @disabled($pair['target_id'] === null) class="{{ $ghost }}">Hizmetin sektörüne taşı</button>
+                                    <button type="button" wire:click="clearMismatch({{ $pair['sector_id'] }}, '{{ $pair['code'] }}')" wire:confirm="Bu sorguların hizmeti kaldırılsın mı?" class="{{ $ghost }}">Hizmeti kaldır</button>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="5" class="py-3 text-gray-500">Sektör uyumsuzluğu yok.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
             @endif
         </section>
     @endif

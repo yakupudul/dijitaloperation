@@ -104,10 +104,13 @@
                                 @foreach ($item->matchingKeywords as $keyword)
                                     <span wire:key="kw-{{ $keyword->id }}" class="{{ $chip }} inline-flex items-center gap-1 bg-gray-100 dark:bg-gray-800">{{ $keyword->label }}<button type="button" wire:click="removeKeyword({{ $keyword->id }})" aria-label="Sil" class="text-gray-500">×</button></span>
                                 @endforeach
-                                <input type="text" wire:model="newKeyword.{{ $item->id }}" wire:keydown.enter="addKeyword({{ $item->id }})" placeholder="Kelime" aria-label="Yeni kelime" class="{{ $input }} w-36 py-1 text-xs">
+                                <input type="text" wire:model.live.debounce.500ms="newKeyword.{{ $item->id }}" wire:keydown.enter="addKeyword({{ $item->id }})" placeholder="Kelime" aria-label="Yeni kelime" class="{{ $input }} w-36 py-1 text-xs">
                                 <button type="button" wire:click="addKeyword({{ $item->id }})" class="{{ $ghost }}">Ekle</button>
                                 <button type="button" wire:click="removeService({{ $item->id }})" wire:confirm="Hizmet silinsin mi?" class="{{ $ghost }} ml-auto">Hizmeti sil</button>
                                 @error('newKeyword.'.$item->id)<p class="w-full text-xs text-rose-600">{{ $message }}</p>@enderror
+                                @if (($impact['service'] ?? null) === $item->id && trim((string) ($newKeyword[$item->id] ?? '')) !== '')
+                                    @include('livewire.operator.library.partials.keyword-impact', ['impact' => $impact, 'rescanNote' => false])
+                                @endif
                             </li>
                         @endforeach
                     </ul>

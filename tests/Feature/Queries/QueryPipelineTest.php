@@ -162,7 +162,7 @@ final class QueryPipelineTest extends TestCase
         $this->assertFalse(Query::query()->where('text', 'kaş ekimi')->exists(), 'only accounts bound to brands are imported');
     }
 
-    public function test_longest_matching_keyword_wins_ties_stay_unassigned_and_locked_queries_are_kept(): void
+    public function test_nested_longer_keyword_wins_conflicts_stay_unassigned_and_locked_queries_are_kept(): void
     {
         $keywords = app(ServiceKeywordService::class);
         $keywords->replace($this->implant, "implant\ntek diş implant");
@@ -175,9 +175,9 @@ final class QueryPipelineTest extends TestCase
 
         $this->assertSame($this->implant->id, $service('implant fiyatları'));
         $this->assertSame($this->implant->id, $service('tek diş implantı'), 'suffix tolerant');
-        $this->assertNull($service('implant kaplama'), 'two services tie (same words, same length)');
-        $this->assertSame($this->zirkonyum->id, $service('zirkonyum implant'), 'same word count: the longer keyword wins');
-        $this->assertSame($this->zirkonyum->id, $service('implant üstü zirkonyum fiyatı'), 'the longest keyword wins over "implant"');
+        $this->assertNull($service('implant kaplama'), 'two services, neither keyword contains the other: conflict');
+        $this->assertNull($service('zirkonyum implant'), 'not nested: a longer keyword of another service does not win, conflict');
+        $this->assertSame($this->zirkonyum->id, $service('implant üstü zirkonyum fiyatı'), 'nested: "implant" ⊂ "implant üstü zirkonyum", the longer keyword wins');
         $this->assertNull($service('diş beyazlatma'));
 
         Query::query()->where('text', 'implant ağrısı')->update(['service_id' => $this->zirkonyum->id, 'assignment' => 'manual', 'locked' => true]);

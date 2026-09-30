@@ -4,6 +4,7 @@ namespace App\Livewire\Operator\Library;
 
 use App\Jobs\Queries\ProcessQueriesJob;
 use App\Jobs\Queries\RescanQueriesJob;
+use App\Livewire\Concerns\PreviewsKeywordImpact;
 use App\Models\FilterTerm;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
@@ -31,6 +32,8 @@ use Livewire\Component;
 #[Title('AI ile planla')]
 final class QueryPlanWizard extends Component
 {
+    use PreviewsKeywordImpact;
+
     public const array STEP_KEYS = [1 => 'sectors', 2 => 'services', 3 => 'filters'];
 
     #[Url(history: true)]
@@ -271,6 +274,7 @@ final class QueryPlanWizard extends Component
             throw ValidationException::withMessages(['newKeyword.'.$serviceId => collect($exception->errors())->flatten()->first()]);
         }
         $this->newKeyword[$serviceId] = '';
+        $this->impact = [];
     }
 
     public function removeKeyword(int $id): void
