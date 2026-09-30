@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-11-07 — Marka sayfası Özet ile açılır
+
+- **Karar (operatör):** Marka sayfasının varsayılan sekmesi "Özet"tir: dönem KPI'ları (Search Console, GA4, Google Ads + Meta, İşletme Profili; önceki eşit döneme göre), dijital varlık kartları (veri durumu + ekran bağlantısı), açık öneriler ve hizmetler. Kaynağı olmayan rakam "veri yok" ve düzeltme bağlantısıyla gösterilir, 0 yazılmaz; farklı para birimindeki reklam harcamaları toplanmaz. Kanal sekmeleri kendi çalışma alanları gelene kadar eksik kaynağı ve açık önerileri gösterir; kanal işleri varlık ekranlarında yürür.
+
 ## 2026-11-06 — Sorgular: hizmet ataması kuyruğu, temiz Bekleyenler
 
 - **Karar (operatör):** Bekleyenler yalnız kütüphanede olmayan ve güncel filtre terimlerinin silmeyeceği sorguları gösterir; filtre değişince bekleyenler onaysız yeniden süzülür (kütüphaneye henüz girmedikleri için). 2026-11-04 "Bekleyenler'de silinecek / temiz sonucu" kararının yerini alır.
