@@ -40,8 +40,13 @@ final class ClustersPagesTab extends Component
     /** @var list<int|string> */
     public array $selected = [];
 
-    /** @var array<int, array{page?: string, state?: string}> */
+    /** @var array<int, array{page?: string, state?: string, extra?: list<string>}> */
     public array $edit = [];
+
+    /** Filters the target URL options (at most PAGE_OPTIONS are listed). */
+    public string $pageSearch = '';
+
+    private const int PAGE_OPTIONS = 50;
 
     public string $message = '';
 
@@ -83,7 +88,8 @@ final class ClustersPagesTab extends Component
         $row = BrandClusterPage::query()->where('website_asset_id', $this->assetId)->findOrFail($rowId);
         $page = (string) ($this->edit[$rowId]['page'] ?? ($row->page_id ?? ''));
         $state = (string) ($this->edit[$rowId]['state'] ?? $row->state);
-        $mapper->setManual($row, ctype_digit($page) ? (int) $page : null, $state);
+        $extra = array_key_exists('extra', $this->edit[$rowId] ?? []) ? array_map('intval', array_filter((array) $this->edit[$rowId]['extra'], fn ($id): bool => ctype_digit((string) $id))) : null;
+        $mapper->setManual($row, ctype_digit($page) ? (int) $page : null, $state, $extra);
         unset($this->edit[$rowId]);
         $this->message = 'Küme hedefi kaydedildi (kilitli).';
     }
@@ -116,18 +122,26 @@ final class ClustersPagesTab extends Component
             ->when(trim($this->search) !== '', fn ($q) => $q->where(fn ($s) => $s->where('url', 'like', '%'.trim($this->search).'%')->orWhere('title', 'like', '%'.trim($this->search).'%')))
             ->orderBy('path')->paginate(50, ['id', 'url', 'path', 'title', 'category', 'category_locked', 'category_source', 'language', 'analyzed_at']);
         $rows = BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url,path'])->where('website_asset_id', $site->id)
-            ->orderBy('cluster_id')->get();
+            ->orderBy('cluster_id')->orderBy('language')->orderBy('id')->paginate(50, pageName: 'kume');
         foreach ($rows as $row) {
-            $this->edit[$row->id] ??= ['page' => (string) ($row->page_id ?? ''), 'state' => (string) $row->state];
+            $this->edit[$row->id] ??= ['page' => (string) ($row->page_id ?? ''), 'state' => (string) $row->state, 'extra' => array_map('strval', (array) $row->extra_page_ids)];
         }
+        $term = trim($this->pageSearch);
+        $chosen = $rows->getCollection()->flatMap(fn (BrandClusterPage $row): array => $row->pageIds())->unique()->values()->all();
+        $pageOptions = Page::query()->where('website_asset_id', $site->id)->whereIn('category', ['hizmet', 'lokasyon', 'blog', 'sss'])
+            ->when($term !== '', fn ($q) => $q->where(fn ($s) => $s->where('path', 'like', '%'.$term.'%')->orWhere('title', 'like', '%'.$term.'%')))
+            ->orderBy('path')->limit(self::PAGE_OPTIONS)->pluck('path', 'id')->all()
+            + ($chosen === [] ? [] : Page::query()->whereIn('id', $chosen)->orderBy('path')->pluck('path', 'id')->all());
+        asort($pageOptions);
 
         return view('livewire.operator.website.v2.clusters-pages-tab', [
             'pages' => $pages,
             'links' => ServicePageMapper::links($pages->getCollection()->pluck('id')->map(fn ($id): int => (int) $id)->all()),
             'offerings' => $offerings->mapWithKeys(fn (BrandOffering $o): array => [(int) $o->id => $o->displayName()])->all(),
-            'totals' => $brand !== null ? $metrics->pageTotals($brand, $site) : [],
-            'services' => $rows->groupBy(fn (BrandClusterPage $row): string => (string) ($row->cluster?->service?->primaryName?->raw_label ?? '—')),
-            'pageOptions' => Page::query()->where('website_asset_id', $site->id)->whereIn('category', ['hizmet', 'lokasyon', 'blog', 'sss'])->orderBy('path')->limit(500)->pluck('path', 'id')->all(),
+            'totals' => $brand !== null ? $metrics->cachedPageTotals($brand, $site) : [],
+            'clusterRows' => $rows,
+            'services' => $rows->getCollection()->groupBy(fn (BrandClusterPage $row): string => (string) ($row->cluster?->service?->primaryName?->raw_label ?? '—')),
+            'pageOptions' => $pageOptions,
             'statuses' => collect([SiteOperations::CATEGORIZE, SiteOperations::SERVICE_PAGES, SiteOperations::CLUSTER_PAGES, SiteOperations::URL_ANALYSIS])
                 ->mapWithKeys(fn (string $op): array => [$op => SiteOperations::line(SiteOperations::status($site->id, $op))])->filter()->all(),
         ]);

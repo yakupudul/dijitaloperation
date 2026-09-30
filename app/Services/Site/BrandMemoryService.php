@@ -16,9 +16,11 @@ use Illuminate\Support\Collection;
 
 /**
  * ONE brand memory (`brand_memory`): profile (approved brand info, services with priority, areas, notes), page (AI
- * summary + key facts per page, generated lazily for pages used in analysis, also in `pages.content_summary`,
- * invalidated when the content hash changes) and decision (every approved / dismissed suggestion with its reason).
- * `contextFor()` returns only the parts relevant to the given pages / clusters.
+ * summary + key facts + H2 sections per page, generated lazily for pages used in analysis, also in
+ * `pages.content_summary`, invalidated when the content hash changes) and decision (every approved / dismissed
+ * suggestion with its reason, when it was applied and its measured outcomes). `contextFor()` returns only the parts
+ * relevant to the given pages / clusters. Site changes (content, URL, deletion, shared template) flag the suggestions
+ * based on the old version "yeniden kontrol gerekli".
  */
 final class BrandMemoryService
 {
@@ -65,13 +67,13 @@ final class BrandMemoryService
         // Related: pages of the same services, and the target pages of the given clusters.
         $offeringIds = OfferingPage::query()->whereIn('page_id', $pageIds)->whereNotNull('brand_offering_id')->pluck('brand_offering_id');
         $related = OfferingPage::query()->whereIn('brand_offering_id', $offeringIds)->pluck('page_id')
-            ->merge(BrandClusterPage::query()->where('brand_id', $brand->id)->whereIn('cluster_id', $clusterIds)->whereNotNull('page_id')->pluck('page_id'))
+            ->merge(BrandClusterPage::query()->where('brand_id', $brand->id)->whereIn('cluster_id', $clusterIds)->orderBy('id')->get(['page_id', 'extra_page_ids'])->flatMap(fn (BrandClusterPage $row): array => $row->pageIds()))
             ->map(fn ($id): int => (int) $id)->unique()->diff($pageIds)->take(self::RELATED_LIMIT)->values()->all();
         $related = Page::query()->whereIn('website_asset_id', $siteIds)->whereIn('id', $related)->pluck('id')->map(fn ($id): int => (int) $id)->all();
 
         $decisions = BrandMemory::query()->where('brand_id', $brand->id)->where('kind', 'decision')->orderByDesc('updated_at')->orderByDesc('id')->limit(200)->get()
             ->filter(fn (BrandMemory $m): bool => in_array((int) data_get($m->data, 'page_id'), $pageIds, true) || in_array((int) data_get($m->data, 'cluster_id'), $clusterIds, true))
-            ->take(self::DECISION_LIMIT)->map(fn (BrandMemory $m): array => array_intersect_key((array) $m->data, array_flip(['type', 'title', 'decision', 'reason', 'page_id', 'cluster_id', 'at'])))
+            ->take(self::DECISION_LIMIT)->map(fn (BrandMemory $m): array => array_intersect_key((array) $m->data, array_flip(['type', 'title', 'decision', 'reason', 'page_id', 'cluster_id', 'at', 'applied_at', 'outcome'])))
             ->values()->all();
 
         return [
@@ -88,7 +90,7 @@ final class BrandMemoryService
      * Stored summaries (no AI here) of the given pages.
      *
      * @param  list<int>  $pageIds
-     * @return list<array{id: int, url: string, title: ?string, summary: ?string, facts: list<string>}>
+     * @return list<array{id: int, url: string, title: ?string, summary: ?string, facts: list<string>, sections: list<string>}>
      */
     public function summaries(Brand $brand, array $pageIds): array
     {
@@ -97,9 +99,10 @@ final class BrandMemoryService
         }
         $memory = BrandMemory::query()->where('brand_id', $brand->id)->where('kind', 'page')->where('ref_type', 'page')->whereIn('ref_id', $pageIds)->get()->keyBy('ref_id');
 
-        return Page::query()->whereIn('id', $pageIds)->orderBy('id')->get(['id', 'url', 'title', 'content_summary'])
+        return Page::query()->whereIn('id', $pageIds)->orderBy('id')->get(['id', 'url', 'title', 'content_summary', 'headings'])
             ->map(fn (Page $p): array => ['id' => (int) $p->id, 'url' => (string) $p->url, 'title' => $p->title,
-                'summary' => $p->content_summary, 'facts' => array_values((array) data_get($memory->get($p->id)?->data, 'facts', []))])
+                'summary' => $p->content_summary, 'facts' => array_values((array) data_get($memory->get($p->id)?->data, 'facts', [])),
+                'sections' => array_values((array) (data_get($memory->get($p->id)?->data, 'sections') ?? self::sections($p)))])
             ->all();
     }
 
@@ -113,7 +116,7 @@ final class BrandMemoryService
     {
         $siteIds = DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->pluck('id');
         $pages = Page::query()->whereIn('website_asset_id', $siteIds)->whereIn('id', $pageIds)->whereNull('content_summary')
-            ->whereNotNull('content_text')->orderBy('id')->get(['id', 'url', 'title', 'h1', 'content_text', 'content_hash']);
+            ->whereNotNull('content_text')->orderBy('id')->get(['id', 'url', 'title', 'h1', 'headings', 'content_text', 'content_hash']);
         if ($pages->isEmpty()) {
             return ['status' => 'ready', 'written' => 0];
         }
@@ -164,7 +167,7 @@ final class BrandMemoryService
                 continue;
             }
             BrandMemory::query()->updateOrCreate(['brand_id' => $brand->id, 'kind' => 'page', 'ref_type' => 'page', 'ref_id' => $page->id],
-                ['summary' => mb_substr($summary, 0, 1200), 'data' => ['facts' => $facts, 'content_hash' => $page->content_hash, 'url' => $page->url]]);
+                ['summary' => mb_substr($summary, 0, 1200), 'data' => ['facts' => $facts, 'sections' => self::sections($page), 'content_hash' => $page->content_hash, 'url' => $page->url]]);
             $written++;
         }
 
@@ -174,30 +177,73 @@ final class BrandMemoryService
     /** Approved / dismissed suggestion → decision history (with the operator's reason). */
     public function recordDecision(Suggestion $suggestion, string $decision, ?string $reason = null): void
     {
-        BrandMemory::query()->updateOrCreate(
-            ['brand_id' => $suggestion->brand_id, 'kind' => 'decision', 'ref_type' => 'suggestion', 'ref_id' => $suggestion->id],
-            ['summary' => mb_substr($decision.': '.$suggestion->title, 0, 500), 'data' => [
-                'type' => $suggestion->action_type, 'title' => $suggestion->title, 'decision' => $decision, 'reason' => $reason,
-                'page_id' => $suggestion->page_id, 'cluster_id' => $suggestion->cluster_id, 'at' => now()->toDateString(),
-            ]],
-        );
+        $row = BrandMemory::query()->firstOrNew(['brand_id' => $suggestion->brand_id, 'kind' => 'decision', 'ref_type' => 'suggestion', 'ref_id' => $suggestion->id]);
+        $row->forceFill(['summary' => mb_substr($decision.': '.$suggestion->title, 0, 500), 'data' => array_merge((array) $row->data, [
+            'type' => $suggestion->action_type, 'title' => $suggestion->title, 'decision' => $decision, 'reason' => $reason,
+            'page_id' => $suggestion->page_id, 'cluster_id' => $suggestion->cluster_id, 'at' => now()->toDateString(),
+        ])])->save();
+        if ($suggestion->applied_at !== null) {
+            $this->recordOutcome($suggestion);
+        }
+    }
+
+    /** Application and measured outcomes (28 / 56 days) of a suggestion → its decision history row. */
+    public function recordOutcome(Suggestion $suggestion): void
+    {
+        if ($suggestion->applied_at === null) {
+            return;
+        }
+        $outcome = [];
+        foreach ((array) $suggestion->outcome as $point => $measured) {
+            if (is_array($measured) && isset($measured['verdict'])) {
+                $outcome[(string) $point] = ['verdict' => (string) $measured['verdict'], 'reason' => (string) ($measured['reason'] ?? '')];
+            }
+        }
+        $row = BrandMemory::query()->firstOrNew(['brand_id' => $suggestion->brand_id, 'kind' => 'decision', 'ref_type' => 'suggestion', 'ref_id' => $suggestion->id]);
+        $data = (array) $row->data + ['type' => $suggestion->action_type, 'title' => $suggestion->title, 'decision' => 'uygulandı',
+            'page_id' => $suggestion->page_id, 'cluster_id' => $suggestion->cluster_id, 'at' => $suggestion->applied_at->toDateString()];
+        $row->forceFill(['summary' => $row->summary ?? mb_substr('uygulandı: '.$suggestion->title, 0, 500),
+            'data' => array_merge($data, ['applied_at' => $suggestion->applied_at->toDateString(), 'outcome' => $outcome])])->save();
     }
 
     /**
      * A new content version of the page: its summary memory goes (the column is cleared by the page store) and every
-     * open suggestion based on the old version needs a re-check.
+     * suggestion based on the old version needs a re-check.
      */
     public function pageChanged(Page $page): void
     {
-        $brandId = DigitalAsset::query()->whereKey($page->website_asset_id)->value('brand_id');
         BrandMemory::query()->where('kind', 'page')->where('ref_type', 'page')->where('ref_id', $page->id)->delete();
         if ($page->content_summary !== null) {
             Page::query()->whereKey($page->id)->update(['content_summary' => null]);
         }
-        if ($brandId !== null) {
-            Suggestion::query()->where('brand_id', $brandId)->where('page_id', $page->id)->where('status', Suggestion::OPEN)
-                ->update(['status' => Suggestion::RECHECK, 'updated_at' => now()]);
+        self::recheck((int) $page->website_asset_id, [(int) $page->id]);
+    }
+
+    /**
+     * "Yeniden kontrol gerekli": open and approved-but-not-applied suggestions of these pages (every page of the site
+     * for null: shared template change). Called before a deletion nulls their page.
+     *
+     * @param  list<int>|null  $pageIds
+     */
+    public static function recheck(int $siteId, ?array $pageIds): int
+    {
+        $brandId = DigitalAsset::query()->whereKey($siteId)->value('brand_id');
+        if ($brandId === null || $pageIds === []) {
+            return 0;
         }
+
+        return Suggestion::query()->where('brand_id', $brandId)
+            ->when($pageIds === null, fn ($q) => $q->whereIn('page_id', Page::query()->where('website_asset_id', $siteId)->select('id')), fn ($q) => $q->whereIn('page_id', $pageIds))
+            ->where(fn ($q) => $q->where('status', Suggestion::OPEN)
+                ->orWhere(fn ($a) => $a->where('status', Suggestion::APPROVED)->whereNull('applied_at')->whereNull('action->article_write_id')))
+            ->update(['status' => Suggestion::RECHECK, 'updated_at' => now()]);
+    }
+
+    /** @return list<string> H2 sections of the page */
+    public static function sections(Page $page): array
+    {
+        return collect((array) $page->headings)->filter(fn ($h): bool => is_array($h) && (int) ($h['level'] ?? 0) === 2)
+            ->pluck('text')->map(fn ($t): string => mb_substr((string) $t, 0, 200))->take(20)->values()->all();
     }
 
     /** @return list<float> */

@@ -195,6 +195,51 @@ final class ContentPlanner
         });
     }
 
+    /**
+     * Rakipler "Yeni içerik olarak ekle": a competitor suggestion without a page of ours becomes an İçerik plan item
+     * (new page of the cluster's page type, target URL from the site's URL pattern); the competitor suggestion is
+     * approved and points to it. Idempotent.
+     */
+    public function fromCompetitor(Suggestion $competitor, User $user): Suggestion
+    {
+        if ($competitor->action_type !== SiteSuggestionTypes::COMPETITOR || $competitor->page_id !== null) {
+            throw ValidationException::withMessages(['content' => 'Yalnız sayfası olmayan rakip önerisi yeni içerik olur.']);
+        }
+        $existing = is_int(data_get($competitor->action, 'content_suggestion_id')) ? Suggestion::query()->find(data_get($competitor->action, 'content_suggestion_id')) : null;
+        if ($existing !== null) {
+            return $existing;
+        }
+        $site = DigitalAsset::query()->find((int) data_get($competitor->evidence, 'website_asset_id'));
+        $brand = Brand::query()->find($competitor->brand_id);
+        if ($site === null || $brand === null) {
+            throw ValidationException::withMessages(['content' => 'Site bulunamadı.']);
+        }
+        $cluster = $competitor->cluster_id !== null ? Cluster::query()->with('service.primaryName')->find($competitor->cluster_id) : null;
+        $pageType = array_search((string) $cluster?->page_type, self::CLUSTER_PAGE_TYPES, true) ?: 'blog';
+        $folded = SeoText::fold((string) $competitor->title);
+        $sitePages = $this->sitePages($site);
+        $pattern = new SiteUrlPattern($sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'path' => (string) $p->path, 'cms_type' => $p->wp_post_type])->all());
+        $target = $pattern->targetUrl(SiteScope::origin($site), self::URL_TYPES[$pageType], SeoText::slugify((string) $competitor->title), (string) ($cluster?->service?->primaryName?->raw_label ?? ''));
+
+        return DB::transaction(function () use ($competitor, $user, $brand, $site, $cluster, $pageType, $folded, $target): Suggestion {
+            $content = Suggestion::query()->firstOrCreate(['brand_id' => $brand->id, 'fingerprint' => hash('sha256', implode('|', [$brand->id, 'content', $folded]))], [
+                'channel' => 'search', 'decision_key' => 'site.content', 'material_hash' => hash('sha256', $folded),
+                'title' => $competitor->title, 'reason' => $competitor->reason, 'priority' => $competitor->priority ?? 3,
+                'evidence' => array_map(fn (string $url): array => ['kind' => 'url', 'value' => $url, 'source' => 'rakip'], array_slice((array) data_get($competitor->evidence, 'competitor_urls', []), 0, 5)),
+                'action_type' => SiteSuggestionTypes::CONTENT, 'target_type' => 'site', 'target_id' => $site->id, 'page_id' => null, 'cluster_id' => $cluster?->id,
+                'prompt_version_id' => $competitor->prompt_version_id, 'status' => Suggestion::OPEN, 'first_seen_at' => now(), 'last_seen_at' => now(),
+                'action' => ['site_id' => (int) $site->id, 'kind' => 'new', 'page_type' => $pageType, 'target_url' => $target,
+                    'outline' => array_values(array_filter((array) ($cluster?->subtopics ?? []), 'is_string')), 'questions' => [], 'out_of_cluster' => false,
+                    'from_suggestion_id' => (int) $competitor->id, 'week' => now()->format('o-\WW')],
+            ]);
+            $competitor->forceFill(['status' => Suggestion::APPROVED, 'resolved_by' => $user->id, 'resolved_at' => now(),
+                'action' => array_merge((array) $competitor->action, ['content_suggestion_id' => (int) $content->id])])->save();
+            $this->memory->recordDecision($competitor, 'onaylandı', 'yeni içerik');
+
+            return $content;
+        });
+    }
+
     /** "Taslak hazırla": the article (validated, compliance-checked) is stored on the suggestion for review. @return array{status: string, message?: string} */
     public function writeArticle(Suggestion $suggestion): array
     {

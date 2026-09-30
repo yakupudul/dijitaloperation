@@ -115,6 +115,7 @@ final class SiteOperations
             return ['status' => 'not_operational'];
         }
         $this->memory->refreshProfile($brand);
+        SiteMetrics::forgetPageTotals((int) $site->id);
 
         return [
             'status' => 'ready',

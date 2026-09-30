@@ -7,17 +7,28 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * A potential link source ("Potansiyel kaynaklar"): AI-proposed or manual. Fee is ücretsiz / ücretli only with an
- * evidence URL. Status: yok · verildi (operator entered the link URL) · doğrulandı (system found the link on the page).
+ * evidence URL. Status (exactly five): henüz tespit edilmedi · başvuru / iletişim yapıldı (operator) · kullanıcı
+ * eklediğini bildirdi (operator enters the link URL) · sayfada doğrulandı (system found the link) · daha sonra kaldırıldı
+ * (a verified link the system no longer finds).
  */
 class BacklinkSource extends Model
 {
     public const string NONE = 'yok';
 
+    public const string APPLIED = 'basvuru';
+
     public const string GIVEN = 'verildi';
 
     public const string VERIFIED = 'dogrulandi';
 
-    public const array STATUS_LABELS = [self::NONE => 'yok', self::GIVEN => 'verildi', self::VERIFIED => 'doğrulandı'];
+    public const string REMOVED = 'kaldirildi';
+
+    public const array STATUSES = [self::NONE, self::APPLIED, self::GIVEN, self::VERIFIED, self::REMOVED];
+
+    public const array STATUS_LABELS = [
+        self::NONE => 'henüz tespit edilmedi', self::APPLIED => 'başvuru / iletişim yapıldı', self::GIVEN => 'kullanıcı eklediğini bildirdi',
+        self::VERIFIED => 'sayfada doğrulandı', self::REMOVED => 'daha sonra kaldırıldı',
+    ];
 
     public const array FEE_LABELS = ['ucretsiz' => 'ücretsiz', 'ucretli' => 'ücretli', 'teyit' => 'teyit gerekli'];
 

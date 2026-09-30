@@ -7,15 +7,13 @@ use App\Livewire\Demo\Operations\ActivityIndex;
 use App\Livewire\Demo\Operations\FindingsIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\SettingsPage;
-use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
 use App\Livewire\Operator\Assets\AnalyticsPage;
+use App\Livewire\Operator\Website\V2\WebsiteScreen;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
-use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\Recommendation;
-use App\Models\Run;
 use App\Models\Task;
 use App\Models\User;
 use App\Services\Activity\ActivityReadService;
@@ -123,43 +121,6 @@ class PhaseEOperatorUxRegressionTest extends TestCase
     }
 
     #[Test]
-    public function website_custom_period_hides_non_overlapping_kpis_instead_of_stale_or_zero(): void
-    {
-        $asset = $this->createPortfolioAsset('website', 'Northwind Website');
-        $run = Run::factory()->create([
-            'digital_asset_id' => $asset->id,
-            'module_id' => 'website',
-            'status' => 'completed',
-            'finished_at' => now(),
-        ]);
-        Evidence::factory()->create([
-            'run_id' => $run->id,
-            'digital_asset_id' => $asset->id,
-            'source_module' => 'website',
-            'type' => 'gsc_performance_summary',
-            'observed_at' => now(),
-            'payload' => [
-                'response_ok' => true,
-                'requested_period' => ['start' => '2026-08-01', 'end' => '2026-08-10'],
-                'current' => ['clicks' => 4242, 'impressions' => 9000, 'ctr' => 0.1, 'position' => 4.2],
-                'previous' => ['clicks' => 4000, 'impressions' => 8000, 'ctr' => 0.1, 'position' => 4.4],
-                'deltas' => ['clicks' => ['percent' => 0.06]],
-            ],
-        ]);
-
-        Livewire::test(WebsiteOverviewPage::class, ['assetId' => (string) $asset->id])
-            ->set('draftPeriodStart', '2026-08-01')
-            ->set('draftPeriodEnd', '2026-08-10')
-            ->call('applyCustomPeriod')
-            ->assertSee('4,242');
-
-        Livewire::test(WebsiteOverviewPage::class, ['assetId' => (string) $asset->id])
-            ->call('setPeriod', 'last_7')
-            ->assertDontSee('4,242')
-            ->assertSee(__('operator.website.period.no_overlap_title'));
-    }
-
-    #[Test]
     public function findings_and_recommendations_honor_asset_query_filter(): void
     {
         $one = $this->createPortfolioAsset('website', 'Asset One');
@@ -252,7 +213,7 @@ class PhaseEOperatorUxRegressionTest extends TestCase
     {
         $asset = $this->createPortfolioAsset('website', 'Northwind Website');
 
-        Livewire::test(WebsiteOverviewPage::class, ['assetId' => (string) $asset->id])
+        Livewire::test(WebsiteScreen::class, ['assetId' => (string) $asset->id])
             ->assertSee('Northwind Website')
             ->assertDontSee('Atlas Dental Website')
             ->assertDontSee('Atlas Dental Ankara');

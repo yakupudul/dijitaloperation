@@ -5,7 +5,7 @@ namespace Tests\Feature\Reality;
 use App\Enums\DataPool\DataSourceState;
 use App\Livewire\Demo\Dashboard;
 use App\Livewire\Demo\Operations\FindingsIndex;
-use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
+use App\Livewire\Operator\Website\V2\WebsiteScreen;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
@@ -96,12 +96,9 @@ class DemoRealityFinalConvergenceTest extends TestCase
             'name' => 'Production Website Asset',
         ]);
 
-        Livewire::test(WebsiteOverviewPage::class, ['assetId' => (string) $asset->id])
+        Livewire::test(WebsiteScreen::class, ['assetId' => (string) $asset->id])
             ->assertOk()
             ->assertSee('Production Website Asset')
-            ->assertSee('Veri durumu')
-            ->assertSee(__('operator.website.actions.data_sources'))
-            ->assertSee(__('operator.website.actions.public_discovery'))
             ->assertDontSee('Demo Mode · product vision fixtures')
             ->assertDontSee('Atlas Dental Website')
             ->assertDontSee('not yet available');

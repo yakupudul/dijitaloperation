@@ -9,14 +9,18 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Non-WordPress sites → `pages`: the sitemap lists the URLs; each new or changed (lastmod moved) URL is fetched with
- * the safe public fetcher and its main content extracted (header / footer / nav / aside removed). A bounded number of
- * pages per pass, so the first import of a large site converges over a few hourly passes. URLs that left the sitemap
- * are removed.
+ * Sitemap → `pages`: the sitemap lists the URLs; each new or changed (lastmod moved) URL is fetched with the safe
+ * public fetcher and its main content extracted (header / footer / nav / aside removed). A bounded number of pages per
+ * pass, so the first import of a large site converges over a few hourly passes. URLs that left the sitemap are removed.
+ * WordPress Connector sites use it only with the operator's sitemap override, and only for URLs whose path is not a
+ * WordPress page (capped at MAX_EXTRA_URLS).
  */
 final class SitemapPageSync
 {
-    public const int MAX_FETCH_PER_PASS = 40;
+    public const int MAX_FETCH_PER_PASS = 200;
+
+    /** Connector sites: at most this many extra (non-WordPress) sitemap URLs. */
+    public const int MAX_EXTRA_URLS = 500;
 
     /** @var Closure(string): array{html: ?string, final_url: ?string, error: ?string} */
     private Closure $fetch;
@@ -32,15 +36,21 @@ final class SitemapPageSync
     /**
      * @param  array<string, array{m?: ?string}>  $sitemapPages  url => sitemap entry (lastmod)
      * @param  list<string>  $changed  URLs whose lastmod moved since the previous pass
+     * @param  bool  $extraOnly  connector site: only URLs whose path is not already a WordPress page
      * @return array{fetched: int, created: int, updated: int, unchanged: int, failed: int, removed: int}
      */
-    public function sync(int $siteId, array $sitemapPages, array $changed = []): array
+    public function sync(int $siteId, array $sitemapPages, array $changed = [], bool $extraOnly = false): array
     {
         $stats = ['fetched' => 0, 'created' => 0, 'updated' => 0, 'unchanged' => 0, 'failed' => 0, 'removed' => 0];
         if ($sitemapPages === []) {
             return $stats;
         }
-        $rows = Page::query()->where('website_asset_id', $siteId)->get(['id', 'url_hash', 'updated_at']);
+        if ($extraOnly) {
+            $wordpressPaths = Page::query()->where('website_asset_id', $siteId)->whereNotNull('wp_post_id')->pluck('path')
+                ->mapWithKeys(fn ($path): array => [self::pathKey((string) $path) => true])->all();
+            $sitemapPages = array_slice(array_filter($sitemapPages, fn (string $url): bool => ! isset($wordpressPaths[self::pathKey(PageStore::path($url))]), ARRAY_FILTER_USE_KEY), 0, self::MAX_EXTRA_URLS, true);
+        }
+        $rows = Page::query()->where('website_asset_id', $siteId)->when($extraOnly, fn ($q) => $q->whereNull('wp_post_id'))->get(['id', 'url_hash', 'updated_at']);
         $stored = $rows->pluck('url_hash', 'id')->all();
         $checkedAt = $rows->mapWithKeys(fn (Page $page): array => [$page->url_hash => $page->updated_at?->getTimestamp() ?? 0])->all();
         $wanted = [];
@@ -90,9 +100,15 @@ final class SitemapPageSync
         // Rows whose URL left the sitemap (not WordPress rows; those follow the connector).
         $gone = array_keys(array_filter($stored, fn (string $hash): bool => ! isset($wanted[$hash])));
         if ($gone !== []) {
-            $stats['removed'] = Page::query()->where('website_asset_id', $siteId)->whereNull('wp_post_id')->whereIn('id', $gone)->delete();
+            $stats['removed'] = PageStore::deleteRows($siteId, Page::query()->where('website_asset_id', $siteId)->whereNull('wp_post_id')->whereIn('id', $gone));
         }
 
         return $stats;
+    }
+
+    /** Path compared without the trailing slash and case ("/implant/" = "/implant"). */
+    public static function pathKey(string $path): string
+    {
+        return mb_strtolower(rtrim($path, '/')) ?: '/';
     }
 }

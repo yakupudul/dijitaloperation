@@ -8,6 +8,7 @@ use App\Services\Outcomes\Readers\GoogleAdsOutcomeReader;
 use App\Services\Outcomes\Readers\MapsOutcomeReader;
 use App\Services\Outcomes\Readers\MetaOutcomeReader;
 use App\Services\Outcomes\Readers\SearchOutcomeReader;
+use App\Services\Site\BrandMemoryService;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Throwable;
@@ -90,6 +91,7 @@ final class OutcomeTracker
         $suggestion->forceFill(['status' => Suggestion::APPLIED, 'applied_at' => now(), 'resolved_at' => now(), 'resolved_by' => $user?->id ?? $suggestion->resolved_by,
             'outcome' => null, 'measured_at' => null]);
         $suggestion->forceFill(['baseline' => $this->baseline($suggestion) + $extra])->save();
+        app(BrandMemoryService::class)->recordOutcome($suggestion);
     }
 
     /**
@@ -176,6 +178,7 @@ final class OutcomeTracker
         }
         if ($measured !== []) {
             $suggestion->forceFill(['baseline' => $baseline, 'outcome' => $outcome, 'measured_at' => now()])->save();
+            app(BrandMemoryService::class)->recordOutcome($suggestion);
         }
 
         return $measured;

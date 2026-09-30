@@ -3,7 +3,7 @@
     $input = 'rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-950 dark:text-white';
     $btn = 'rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50';
     $ghost = 'rounded-lg px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700';
-    $statusTone = ['yok' => 'bg-gray-100 text-gray-600', 'verildi' => 'bg-amber-50 text-amber-700', 'dogrulandi' => 'bg-emerald-50 text-emerald-700'];
+    $statusTone = ['yok' => 'bg-gray-100 text-gray-600', 'basvuru' => 'bg-blue-50 text-blue-700', 'verildi' => 'bg-amber-50 text-amber-700', 'dogrulandi' => 'bg-emerald-50 text-emerald-700', 'kaldirildi' => 'bg-rose-50 text-rose-700'];
 @endphp
 <div class="space-y-4 text-sm dark:text-gray-200" data-backlinks-tab @if ($polling) wire:poll.4s @endif>
     @if ($message !== '')
@@ -77,10 +77,11 @@
                         <td><span class="rounded-full px-2 py-0.5 {{ $statusTone[$source->status] ?? '' }}" data-status>{{ \App\Models\BacklinkSource::STATUS_LABELS[$source->status] ?? $source->status }}</span>
                             @if ($source->note)<p class="text-gray-500">{{ $source->note }}</p>@endif</td>
                         <td>
-                            @if ($source->status === 'yok')
+                            @if (in_array($source->status, ['yok', 'basvuru', 'kaldirildi'], true))
                                 <form wire:submit="markGiven({{ $source->id }})" class="flex items-center gap-1">
                                     <input type="url" wire:model="given.{{ $source->id }}" placeholder="Bağlantının olduğu sayfa" aria-label="Bağlantı adresi" class="{{ $input }} w-48 py-1">
-                                    <button type="submit" class="{{ $ghost }}">Verildi</button>
+                                    <button type="submit" class="{{ $ghost }}">Eklendi</button>
+                                    @if ($source->status !== 'basvuru')<button type="button" wire:click="markApplied({{ $source->id }})" class="{{ $ghost }}">Başvuru yapıldı</button>@endif
                                 </form>
                                 @error('given.'.$source->id)<span class="text-rose-600">{{ $message }}</span>@enderror
                             @else

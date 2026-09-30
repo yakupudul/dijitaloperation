@@ -21,6 +21,7 @@
     @if ($message !== '')
         <p role="status" class="rounded-lg bg-blue-50 p-2 text-blue-800 dark:bg-blue-950 dark:text-blue-200">{{ $message }}</p>
     @endif
+    @if ($errors->any())<p class="text-xs text-rose-600">{{ $errors->first() }}</p>@endif
 
     @forelse ($rows as $row)
         @php($serp = $row['serp'])
@@ -76,10 +77,26 @@
             @if ($row['suggestions']->isNotEmpty())
                 <ul class="mt-3 space-y-1" data-suggestions>
                     @foreach ($row['suggestions'] as $suggestion)
-                        <li class="rounded-lg bg-gray-50 p-2 text-xs dark:bg-gray-950">
-                            <span class="font-medium text-gray-900 dark:text-white">{{ $suggestion->title }}</span>
-                            <span class="text-gray-500">· {{ $suggestion->reason }}</span>
-                            <span class="text-gray-400">· {{ count((array) ($suggestion->evidence['competitor_urls'] ?? [])) }} rakip{{ ($suggestion->evidence['gap'] ?? false) ? ' · boşluk' : '' }}</span>
+                        <li class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 p-2 text-xs dark:bg-gray-950" data-suggestion="{{ $suggestion->id }}" wire:key="rs-{{ $suggestion->id }}">
+                            <div class="min-w-0">
+                                <span class="font-medium text-gray-900 dark:text-white">{{ $suggestion->title }}</span>
+                                <span class="text-gray-500">· {{ $suggestion->reason }}</span>
+                                <span class="text-gray-400">· {{ count((array) ($suggestion->evidence['competitor_urls'] ?? [])) }} rakip{{ ($suggestion->evidence['gap'] ?? false) ? ' · boşluk' : '' }} · {{ \App\Livewire\Operator\Website\V2\SuggestionsTab::STATUS_LABELS[$suggestion->status] ?? $suggestion->status }}</span>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-1">
+                                @if (in_array($suggestion->status, ['open', 'recheck'], true))
+                                    <button type="button" wire:click="approve({{ $suggestion->id }})" class="{{ $ghost }}">Onayla</button>
+                                    <input type="text" wire:model="reasons.{{ $suggestion->id }}" placeholder="Neden" aria-label="Reddetme nedeni" class="w-24 rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-950">
+                                    <button type="button" wire:click="dismiss({{ $suggestion->id }})" class="{{ $ghost }}">Reddet</button>
+                                @endif
+                                @if ($suggestion->page_id !== null)
+                                    @if ($suggestion->applied_at === null)<button type="button" wire:click="aiDo({{ $suggestion->id }})" @disabled(! $operational) class="{{ $btn }}" data-action="ai-do">AI ile yap</button>@endif
+                                @elseif (data_get($suggestion->action, 'content_suggestion_id'))
+                                    <button type="button" wire:click="prepareDraft({{ $suggestion->id }})" @disabled(! $operational) class="{{ $btn }}" data-action="draft">Taslak hazırla</button>
+                                @else
+                                    <button type="button" wire:click="addContent({{ $suggestion->id }})" class="{{ $btn }}" data-action="add-content">Yeni içerik olarak ekle</button>
+                                @endif
+                            </div>
                         </li>
                     @endforeach
                 </ul>

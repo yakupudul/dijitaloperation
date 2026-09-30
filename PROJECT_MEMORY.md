@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-11-03 — v2 düzeltmeleri: web sitesi ekranı
+
+- **Karar:** Küme ↔ URL varsayılan tek hedef URL'dir ama katı değildir: operatör ek URL ekleyebilir; her site dili ayrı eşleşme satırıdır.
+- **Karar:** Backlink kaynak durumu tam beş değerdir (yok · başvuru · verildi · doğrulandı · kaldırıldı); "doğrulandı" ve "kaldırıldı" yalnız sistem kontrolüyle, "başvuru" ve "verildi" operatörle. 2026-10-30 "kayıp bağlantı yok'a döner" kararının yerini alır.
+- **Karar:** Site değişince (içerik, URL, silme, ortak şablon) hem açık hem onaylı-uygulanmamış öneriler yeniden kontrole düşer; marka hafızası karar satırı uygulama ve sonucu da taşır.
+- **Karar:** Connector sitelerinde sitemap yalnız operatör sitemap adresi girdiyse ve yalnız WordPress'te olmayan yollar için kullanılır.
+
 ## 2026-11-01 — MoxDOP v2 Faz 9 (Sonuç takibi)
 
 - **Karar:** Sonuç takibi tek servistir (`OutcomeTracker`): uygulamada 28 günlük baseline (tek şekil), 28. ve 56. günde ölçüm, her nokta bir kez. Kanal yalnız bir metrik okuyucusu ekler; karar kuralı kanal başına tek ana metrik + %10 eşik + hacim alt sınırı, az / eksik veri = belirsiz (tahmin yok).

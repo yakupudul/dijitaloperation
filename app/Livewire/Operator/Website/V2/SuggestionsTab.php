@@ -137,7 +137,7 @@ final class SuggestionsTab extends Component
         $site = DigitalAsset::query()->findOrFail($this->assetId);
         $query = Suggestion::query()->with('page:id,url,path')->where('brand_id', (int) $site->brand_id)->where('channel', 'search')
             ->where('action_type', '!=', SiteSuggestionTypes::CONTENT)
-            ->whereIn('page_id', Page::query()->where('website_asset_id', $site->id)->select('id'))
+            ->where(fn (Builder $q) => $this->ofSite($q))
             ->when($this->pageFilter !== '' && ctype_digit($this->pageFilter), fn (Builder $q) => $q->where('page_id', (int) $this->pageFilter))
             ->when($this->type !== '', fn (Builder $q) => $q->where('action_type', $this->type))
             ->when($this->status !== '', fn (Builder $q) => $q->where('status', $this->status));
@@ -167,6 +167,18 @@ final class SuggestionsTab extends Component
 
     private function suggestion(int $id): Suggestion
     {
-        return Suggestion::query()->where('brand_id', $this->brandId())->whereIn('page_id', Page::query()->where('website_asset_id', $this->assetId)->select('id'))->findOrFail($id);
+        return Suggestion::query()->where('brand_id', $this->brandId())->where(fn (Builder $q) => $this->ofSite($q))->findOrFail($id);
+    }
+
+    /**
+     * Suggestions of this site's pages, and those whose page was deleted (kept for the re-check, site in the action).
+     *
+     * @param  Builder<Suggestion>  $query
+     * @return Builder<Suggestion>
+     */
+    private function ofSite(Builder $query): Builder
+    {
+        return $query->whereIn('page_id', Page::query()->where('website_asset_id', $this->assetId)->select('id'))
+            ->orWhere(fn (Builder $gone) => $gone->whereNull('page_id')->where('status', Suggestion::RECHECK)->where('action->site_id', $this->assetId));
     }
 }

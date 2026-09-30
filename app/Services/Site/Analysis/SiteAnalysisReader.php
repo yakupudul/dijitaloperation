@@ -18,8 +18,10 @@ use Illuminate\Support\Str;
  * Analiz (Search Console + GA4 of one website): the site's bound Search Console properties (`gsc_query_page_daily`,
  * raw queries) and GA4 properties (`ga4_landing_source_daily`) over a period ending on the last Search Console day,
  * compared with the previous period of the same length. Clusters use the raw Search Console queries linked to the
- * cluster's queries through `query_sources`, split by the brand's target areas the raw query names. Results are cached
- * per site × period × last data day (1 hour).
+ * cluster's queries through `query_sources`, split by the brand's target areas the raw query names. Hedef sorgular:
+ * the brand's target queries (`brand_queries`, 28 days) or, until those are filled, the clusters' target queries
+ * (`brand_cluster_pages.target_query`) with their Search Console numbers. Results are cached per site × period × last
+ * data day (1 hour).
  */
 final class SiteAnalysisReader
 {
@@ -218,6 +220,48 @@ final class SiteAnalysisReader
             usort($out, fn (array $a, array $b): int => [$b['clicks'], $b['impressions']] <=> [$a['clicks'], $a['impressions']]);
 
             return $out;
+        });
+    }
+
+    /**
+     * Hedef sorgular: query · area · clicks · impressions · position · URL.
+     *
+     * @return list<array{query: string, area: string, clicks: int, impressions: int, position: ?float, url: ?string}>
+     */
+    public function targetQueries(DigitalAsset $site, int $days): array
+    {
+        $brand = $site->brand;
+        if ($brand === null) {
+            return [];
+        }
+        $w = $this->window($site, $days);
+
+        return $this->cached($site, 'target_queries', $w, function () use ($site, $brand, $w): array {
+            $stored = DB::table('brand_queries as bq')->join('queries as q', 'q.id', '=', 'bq.query_id')
+                ->leftJoin('brand_service_areas as a', 'a.id', '=', 'bq.target_area_id')->where('bq.brand_id', $brand->id)
+                ->orderByDesc('bq.impressions_28d')->orderBy('q.text')->orderBy('bq.id')->limit(self::MAX_ROWS)
+                ->get(['q.text', 'a.name as area', 'bq.url', 'bq.clicks_28d', 'bq.impressions_28d', 'bq.position_28d']);
+            if ($stored->isNotEmpty()) {
+                return $stored->map(fn (object $r): array => ['query' => (string) $r->text, 'area' => (string) ($r->area ?? '—'), 'clicks' => (int) $r->clicks_28d,
+                    'impressions' => (int) $r->impressions_28d, 'position' => $r->position_28d !== null ? round((float) $r->position_28d, 1) : null, 'url' => $r->url !== null ? (string) $r->url : null])->all();
+            }
+            $targets = BrandClusterPage::query()->with('page:id,url')->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
+                ->whereNotNull('target_query')->orderBy('cluster_id')->orderBy('id')->get()
+                ->unique(fn (BrandClusterPage $row): string => mb_strtolower((string) $row->target_query).'|'.$row->language);
+            $texts = $targets->map(fn (BrandClusterPage $row): string => mb_strtolower(QuerySourceAggregator::cleanRaw((string) $row->target_query)))->unique()->values()->all();
+            $facts = $this->byRawQueries($w['gsc'], $texts, $w['start'], $w['end']);
+            $areas = $this->areaTerms((int) $brand->id);
+            $rows = $targets->map(function (BrandClusterPage $row) use ($facts, $areas): array {
+                $text = mb_strtolower(QuerySourceAggregator::cleanRaw((string) $row->target_query));
+                $m = $facts[$text] ?? null;
+
+                return ['query' => (string) $row->target_query, 'area' => self::areaOf($text, $areas), 'clicks' => (int) ($m['clicks'] ?? 0),
+                    'impressions' => (int) ($m['impressions'] ?? 0), 'position' => $m !== null && $m['weight'] > 0 ? round($m['weighted'] / $m['weight'], 1) : null,
+                    'url' => $row->page?->url];
+            })->values()->all();
+            usort($rows, fn (array $a, array $b): int => [$b['impressions'], $b['clicks'], $a['query']] <=> [$a['impressions'], $a['clicks'], $b['query']]);
+
+            return $rows;
         });
     }
 

@@ -10,10 +10,10 @@ use DOMDocument;
 use Throwable;
 
 /**
- * Link check of a potential source the operator marked "verildi": the link page (else the source URL) is fetched with the
- * safe public fetcher and searched for an <a href> to one of the brand's domains. Found → doğrulandı. Missing on a
- * doğrulandı source → back to "yok" with the note "kaldırıldı". Missing on a verildi source stays verildi with a note.
- * An unreachable page changes nothing but the note. Runs on marking and weekly.
+ * Link check of a potential source the operator marked "verildi" (and of verified / removed ones): the link page (else
+ * the source URL) is fetched with the safe public fetcher and searched for an <a href> to one of the brand's domains.
+ * Found → sayfada doğrulandı. Missing on a doğrulandı source → daha sonra kaldırıldı. Missing on a verildi source stays
+ * verildi with a note. An unreachable page changes nothing but the note. Runs on marking and weekly.
  */
 final class BacklinkVerifier
 {
@@ -25,12 +25,15 @@ final class BacklinkVerifier
 
     public const string UNREACHABLE = 'unreachable';
 
+    /** Statuses the verifier checks. */
+    public const array CHECKED = [BacklinkSource::GIVEN, BacklinkSource::VERIFIED, BacklinkSource::REMOVED];
+
     public function __construct(private readonly PageFetcher $fetcher) {}
 
     /** @return string found | missing | removed | unreachable | skipped */
     public function verify(BacklinkSource $source): string
     {
-        if (! in_array($source->status, [BacklinkSource::GIVEN, BacklinkSource::VERIFIED], true)) {
+        if (! in_array($source->status, self::CHECKED, true)) {
             return 'skipped';
         }
         $brand = $source->brand;
@@ -53,9 +56,14 @@ final class BacklinkVerifier
             return self::FOUND;
         }
         if ($source->status === BacklinkSource::VERIFIED) {
-            $source->forceFill(['status' => BacklinkSource::NONE, 'checked_at' => now(), 'note' => 'Bağlantı kaldırıldı · '.$today])->save();
+            $source->forceFill(['status' => BacklinkSource::REMOVED, 'checked_at' => now(), 'note' => $today])->save();
 
             return self::REMOVED;
+        }
+        if ($source->status === BacklinkSource::REMOVED) {
+            $source->forceFill(['checked_at' => now()])->save();
+
+            return self::MISSING;
         }
         $source->forceFill(['checked_at' => now(), 'note' => 'Bağlantı bulunamadı · '.$today])->save();
 
@@ -94,7 +102,7 @@ final class BacklinkVerifier
     public function verifyAll(): array
     {
         $stats = ['checked' => 0, 'found' => 0, 'removed' => 0];
-        BacklinkSource::query()->with('brand.customer')->whereIn('status', [BacklinkSource::GIVEN, BacklinkSource::VERIFIED])
+        BacklinkSource::query()->with('brand.customer')->whereIn('status', self::CHECKED)
             ->whereHas('brand', fn ($q) => $q->operational())->orderBy('id')
             ->each(function (BacklinkSource $source) use (&$stats): void {
                 $result = $this->verify($source);

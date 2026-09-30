@@ -72,7 +72,7 @@ return new class extends Migration
             $table->text('target_url')->nullable();
             $table->char('link_hash', 64);
             $table->date('first_seen')->nullable();
-            $table->string('source', 16); // gsc_import | manual | dataforseo
+            $table->string('source', 16); // gsc_import | manual
             $table->string('status', 16)->default('aktif'); // aktif | kaldirildi
             $table->timestampsTz();
 
@@ -91,7 +91,7 @@ return new class extends Migration
             $table->text('fee_evidence_url')->nullable();
             $table->string('reason', 240)->nullable();
             $table->string('origin', 8)->default('manual'); // ai | manual
-            $table->string('status', 16)->default('yok'); // yok | verildi | dogrulandi
+            $table->string('status', 16)->default('yok'); // yok | basvuru | verildi | dogrulandi | kaldirildi
             $table->text('link_url')->nullable();
             $table->string('note', 240)->nullable();
             $table->timestampTz('verified_at')->nullable();

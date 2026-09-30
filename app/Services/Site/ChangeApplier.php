@@ -47,11 +47,13 @@ final class ChangeApplier
         if (! SiteScope::aiAllowed($brand)) {
             return ['status' => 'not_operational'];
         }
-        $html = in_array($suggestion->action_type, ['missing_topic', 'conversion', 'wrong_intent'], true) ? $this->currentHtml($site, $page) : null;
+        // A competitor suggestion on an existing page is written like a missing topic (a section of the page).
+        $type = $suggestion->action_type === 'rakip' ? 'missing_topic' : (string) $suggestion->action_type;
+        $html = in_array($type, ['missing_topic', 'conversion', 'wrong_intent'], true) ? $this->currentHtml($site, $page) : null;
         $sitePages = Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)->whereKeyNot($page->id)->orderBy('path')->limit(300)->get(['url', 'title']);
         $context = $this->memory->contextFor($brand, [(int) $page->id], $suggestion->cluster_id !== null ? [(int) $suggestion->cluster_id] : []);
         $result = $this->ai->run(new ApplyChangeAgent, [
-            'suggestion' => ['type' => $suggestion->action_type, 'title' => $suggestion->title, 'reason' => $suggestion->reason, 'evidence' => $suggestion->evidence],
+            'suggestion' => ['type' => $type, 'title' => $suggestion->title, 'reason' => $suggestion->reason, 'evidence' => $suggestion->evidence],
             'page' => ['url' => $page->url, 'title' => $page->title, 'meta_description' => $page->meta_description, 'h1' => $page->h1,
                 'headings' => array_values((array) $page->headings), 'content' => mb_substr((string) $page->content_text, 0, 12000)],
             'current_html' => $html !== null ? mb_substr($html, 0, self::MAX_HTML) : null,
