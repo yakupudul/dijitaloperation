@@ -76,6 +76,14 @@ final class WebsiteCollectionOrchestrator
             $providers = array_values(array_unique($providers));
         }
 
+        // WordPress first: the page list of the HTML crawl comes from the WordPress inventory, so a general
+        // collection runs the inventory alone and the rest starts when it finishes (StartWebsiteCrawlAfterWordPress).
+        $afterWordPress = $this->familiesAfterWordPress($families, $context);
+        if ($afterWordPress !== []) {
+            $families = [WebsiteRequestFamilyCatalog::FAMILY_WP_REST];
+            $context['chain_after_wordpress'] = $afterWordPress;
+        }
+
         $lock = Cache::lock('website-collection-admission:'.$asset->id, 60);
         if (! $lock->get()) {
             // A concurrent trigger (sitemap watch, WordPress event, operator) is admitting a run right now: that run
@@ -94,8 +102,10 @@ final class WebsiteCollectionOrchestrator
 
             return $this->starter->start(new StartCollectionRequest(
                 digitalAsset: $asset,
+                // Automatic WordPress refreshes are System runs: an Incremental (freshness) trigger plans every
+                // Website / WordPress family as not eligible, so the refresh would collect nothing.
                 triggerType: ($context['collection_intent'] ?? null) === 'wordpress_event_reconciliation'
-                    ? CollectionTriggerType::Incremental : CollectionTriggerType::Manual,
+                    ? CollectionTriggerType::System : CollectionTriggerType::Manual,
                 requestedBy: $requestedBy,
                 bindingIds: [],
                 requestFamilyIds: $families,
@@ -121,6 +131,26 @@ final class WebsiteCollectionOrchestrator
     {
         return CollectionRun::query()->where('digital_asset_id', $asset->id)
             ->whereIn('status', ['queued', 'running', 'retrying', 'cancellation_requested'])->latest('id')->first();
+    }
+
+    /**
+     * Families that wait for the WordPress inventory: everything but WP_REST when a page crawl rides along with it.
+     * A targeted (changed-object) refresh and an already chained run are not split.
+     *
+     * @param  list<string>  $families
+     * @param  array<string, mixed>  $context
+     * @return list<string>
+     */
+    private function familiesAfterWordPress(array $families, array $context): array
+    {
+        if (! in_array(WebsiteRequestFamilyCatalog::FAMILY_WP_REST, $families, true)
+            || isset($context['chained_from_run_id'])
+            || data_get($context, 'targeted_verification.urls', []) !== []
+            || array_intersect($families, [WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL, WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS]) === []) {
+            return [];
+        }
+
+        return array_values(array_diff($families, [WebsiteRequestFamilyCatalog::FAMILY_WP_REST]));
     }
 
     private function hasPairedWordPressConnector(DigitalAsset $asset): bool

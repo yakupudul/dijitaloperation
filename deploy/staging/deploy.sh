@@ -202,16 +202,19 @@ php artisan horizon:terminate --no-interaction || true
 as_root supervisorctl restart moxdop-staging-horizon || true
 as_root supervisorctl restart moxdop-staging-collection || true
 as_root supervisorctl restart moxdop-staging-google-ads-collection || true
+as_root supervisorctl restart 'moxdop-staging-website-collection:*' || true
 
 sleep 3
 
 HORIZON_STATUS="$(as_root supervisorctl status moxdop-staging-horizon 2>/dev/null || true)"
 COLLECTION_STATUS="$(as_root supervisorctl status moxdop-staging-collection 2>/dev/null || true)"
 GOOGLE_ADS_COLLECTION_STATUS="$(as_root supervisorctl status moxdop-staging-google-ads-collection 2>/dev/null || true)"
+WEBSITE_COLLECTION_STATUS="$(as_root supervisorctl status 'moxdop-staging-website-collection:*' 2>/dev/null || true)"
 
 echo "$HORIZON_STATUS"
 echo "$COLLECTION_STATUS"
 echo "$GOOGLE_ADS_COLLECTION_STATUS"
+echo "$WEBSITE_COLLECTION_STATUS"
 
 if ! grep -q 'RUNNING' <<<"$HORIZON_STATUS"; then
   echo "deploy/staging: ERROR — Horizon is not RUNNING" >&2
@@ -231,6 +234,12 @@ if ! grep -q 'RUNNING' <<<"$GOOGLE_ADS_COLLECTION_STATUS"; then
   exit 1
 fi
 
+if ! grep -q 'RUNNING' <<<"$WEBSITE_COLLECTION_STATUS"; then
+  echo "deploy/staging: ERROR — Website collection worker is not RUNNING" >&2
+  as_root tail -n 80 /var/log/moxdop-staging-website-collection-00.log 2>/dev/null || true
+  exit 1
+fi
+
 echo "deploy/staging: restart cron scheduler"
 as_root systemctl restart cron 2>/dev/null || as_root service cron restart 2>/dev/null || true
 
@@ -246,6 +255,7 @@ sleep 3
 echo "deploy/staging: collection worker status"
 as_root supervisorctl status moxdop-staging-collection || exit 1
 as_root supervisorctl status moxdop-staging-google-ads-collection || exit 1
+as_root supervisorctl status 'moxdop-staging-website-collection:*' || exit 1
 
 echo "deploy/staging: collection state"
 php artisan moxdop:collection:status --no-interaction || true

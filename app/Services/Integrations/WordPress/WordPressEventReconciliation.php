@@ -191,6 +191,18 @@ final class WordPressEventReconciliation
                     'candidate_url_count' => count($urls), 'truncated' => count($urls) > 100,
                     'issue_code' => 'WORDPRESS_CHANGE', 'relation_key' => 'wordpress-events'];
             }
+            if ($full && $state->last_inventory_at === null) {
+                // First inventory after pairing: the page HTML crawl follows it (WordPress first, then the pages it
+                // lists). Pages unchanged since their last fetch keep their stored copy.
+                $families = [
+                    WebsiteRequestFamilyCatalog::FAMILY_WP_REST,
+                    WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL,
+                    WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS,
+                    WebsiteRequestFamilyCatalog::FAMILY_DNS_TLS,
+                ];
+                unset($context['targeted_verification']);
+                $context['refetch_unchanged'] = false;
+            }
             try {
                 $run = app(WebsiteCollectionOrchestrator::class)->start(
                     asset: $connection->digitalAsset, requestFamilyIds: $families, context: $context,

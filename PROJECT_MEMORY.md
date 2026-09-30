@@ -1,5 +1,10 @@
 # PROJECT_MEMORY
 
+## 2026-11-06 — Web sitesi verisi: son durum, önce WordPress
+
+- **Karar (operatör):** Sayfa başına web sitesi tabloları son durumu tutar: değişmeyen sayfa her çekimde yeni satır eklemez, bağlantı kenarları sayfa başına değiştirilir; yalnız değişen sayfanın HTML geçmişi büyür.
+- **Karar (operatör):** WordPress bağlı sitede önce WordPress envanteri, ardından sayfa HTML taraması çalışır (genel çekim ve ilk eşleştirme). Web sitesi çekimi diğer sağlayıcılardan ayrı işçi hattında koşar.
+
 ## 2026-11-05 — Veri çekimi: yalnız markaya atanmış varlıklar, otomatik public tarama yok
 
 - **Karar (operatör):** Otomatik olarak yalnız markaya atanmış dijital varlıkların hesapları / siteleri çekilir (aktif veya pasif müşteri). Otomatik public site taraması yapılmaz; WordPress bağlı sitede sayfa listesi WordPress'ten gelir, yalnız değişen sayfaların HTML'i alınır. Önceki "keşfedilen her hesap çekilir" (v2 Faz 1) kararının yerini alır.

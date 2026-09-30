@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\Collection\CollectionRunStatus;
 use App\Enums\Collection\DatasetExecutionOutcome;
+use App\Events\Collection\CollectionRunCompleted;
 use App\Livewire\Operator\Integrations\SiteConnectorShow;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
@@ -220,6 +221,10 @@ final class WordPressConnectorV1Test extends TestCase
         $this->assertSame('wordpress', data_get($run->request_context, 'context.collection_scope'));
         $this->assertSame([WebsiteRequestFamilyCatalog::FAMILY_WP_REST], $run->datasetRuns()->pluck('request_family_id')->unique()->values()->all());
         $this->assertSame(0, DB::table('website_connector_events')->count());
+        // The automatic inventory really collects (not planned as not eligible) and the first one brings the page crawl after it.
+        $this->assertSame(['queued'], $run->datasetRuns()->pluck('status')->map(fn ($status) => $status->value)->unique()->values()->all());
+        $this->assertContains(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL, data_get($run->request_context, 'context.chain_after_wordpress'));
+        $this->assertFalse(data_get($run->request_context, 'context.refetch_unchanged'));
     }
 
     #[Test]
@@ -474,9 +479,11 @@ final class WordPressConnectorV1Test extends TestCase
             ->values()
             ->all();
 
-        $this->assertContains(WebsiteRequestFamilyCatalog::FAMILY_WP_REST, $families);
-        $this->assertContains(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL, $families);
-        $this->assertContains(WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS, $families);
+        // WordPress first: the inventory runs alone, the page crawl waits for it.
+        $this->assertSame([WebsiteRequestFamilyCatalog::FAMILY_WP_REST], array_values(array_unique($families)));
+        $chained = data_get($run->request_context, 'context.chain_after_wordpress');
+        $this->assertContains(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL, $chained);
+        $this->assertContains(WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS, $chained);
         $this->assertSame([
             'website_cms_extension_snapshot',
             'website_cms_object_snapshot',
@@ -484,6 +491,44 @@ final class WordPressConnectorV1Test extends TestCase
             'website_cms_site_snapshot',
             'website_cms_taxonomy_snapshot',
         ], $wordpressDatasets);
+        $this->assertTrue($run->datasetRuns->every(fn (CollectionDatasetRun $dataset): bool => $dataset->status === CollectionRunStatus::Queued));
+
+        $run->update(['status' => CollectionRunStatus::Completed, 'finished_at' => now()]);
+        CollectionRunCompleted::dispatch($run->fresh());
+
+        $crawl = CollectionRun::query()->where('digital_asset_id', $this->asset->id)->whereKeyNot($run->id)->sole();
+        $crawlFamilies = $crawl->datasetRuns()->pluck('request_family_id')->unique()->values()->all();
+        $this->assertContains(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL, $crawlFamilies);
+        $this->assertContains(WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS, $crawlFamilies);
+        $this->assertNotContains(WebsiteRequestFamilyCatalog::FAMILY_WP_REST, $crawlFamilies);
+        $this->assertSame($run->id, data_get($crawl->request_context, 'context.chained_from_run_id'));
+
+        // The completion event is idempotent: a second delivery does not start another crawl.
+        CollectionRunCompleted::dispatch($run->fresh());
+        $this->assertSame(2, CollectionRun::query()->where('digital_asset_id', $this->asset->id)->count());
+    }
+
+    #[Test]
+    public function a_cancelled_wordpress_inventory_does_not_start_the_page_crawl(): void
+    {
+        Queue::fake();
+        $connection = CoreConnection::factory()->create([
+            'digital_asset_id' => $this->asset->id,
+            'type' => WordPressConnectorPairingService::CONNECTION_TYPE,
+            'enabled' => true,
+            'last_success_at' => now(),
+            'config' => ['pairing_state' => WordPressConnectorPairingService::PAIRED],
+        ]);
+        CoreConnectionCredential::factory()->create([
+            'connection_id' => $connection->id,
+            'encrypted_payload' => ['client_id' => fake()->uuid(), 'shared_secret' => str_repeat('a', 43)],
+        ]);
+        $run = app(WebsiteCollectionOrchestrator::class)->start($this->asset, $this->admin);
+
+        $run->update(['status' => CollectionRunStatus::Cancelled, 'finished_at' => now()]);
+        CollectionRunCompleted::dispatch($run->fresh());
+
+        $this->assertSame(1, CollectionRun::query()->where('digital_asset_id', $this->asset->id)->count());
     }
 
     #[Test]
