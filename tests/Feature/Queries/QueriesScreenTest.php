@@ -36,11 +36,13 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+use Tests\Support\InsertsFacts;
 use Tests\TestCase;
 
 /** MoxDOP v2 Faz 3: Sorgular screen, "AI ile kural üret", "AI ile kümele", cluster edits, filter basket, matching keywords. */
 final class QueriesScreenTest extends TestCase
 {
+    use InsertsFacts;
     use RefreshDatabase;
 
     private User $admin;
@@ -173,6 +175,12 @@ final class QueriesScreenTest extends TestCase
         $this->enableAi();
         app(ServiceKeywordService::class)->replace($this->implant, 'implant');
         $this->sources(['implant fiyatları' => 300, 'implant ücreti' => 100, 'implant sonrası ağrı' => 80, 'implant ağrısı ne kadar sürer' => 20]);
+        // Search Console: the page Google shows for a topic's queries on the sector's site.
+        foreach ([['İmplant Ücreti', 'https://klinik.test/implant', 50], ['implant fiyatları', 'https://klinik.test/implant', 90], ['implant fiyatları', 'https://klinik.test/blog', 10]] as [$query, $page, $impressions]) {
+            $this->insertFacts('gsc_query_page_daily', ['digital_asset_id' => null, 'external_resource_id' => $this->gsc->id, 'site_url' => 'sc-domain:klinik.test', 'reporting_date' => now()->subDays(3)->toDateString(),
+                'query' => $query, 'page' => $page, 'clicks' => 1, 'impressions' => $impressions, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+                'record_fingerprint' => hash('sha256', $query.$page), 'created_at' => now(), 'updated_at' => now()]);
+        }
         $ids = fn (string ...$texts): array => array_map(fn (string $t): int => $this->queryId($t), $texts);
         $prompts = [];
         QueryClusterAgent::fake(function (string $prompt) use (&$prompts, $ids): array {
@@ -201,7 +209,12 @@ final class QueriesScreenTest extends TestCase
         $price = Cluster::query()->where('name', 'İmplant fiyatı')->sole();
         $this->assertSame($this->dental->id, $price->sector_id);
         $this->assertSame($this->queryId('implant fiyatları'), $price->main_query_id, 'invalid main id → top query');
-        $this->assertSame($ids('implant ücreti'), $price->representative_query_ids);
+        $this->assertSame([], $price->representative_query_ids, '"implant ücreti" is a variant inside the "implant fiyatları" topic, not a topic of its own');
+        $topics = json_decode(substr($prompts[0], strlen("DATA_JSON\n")), true)['topics'];
+        $this->assertSame(['implant fiyatları', 'implant sonrası ağrı', 'implant ağrısı ne kadar sürer'], array_column($topics, 'topic'), 'topics go to AI, not raw queries');
+        $this->assertSame([['fiyat'], 2, 400, ['implant ücreti'], 'https://klinik.test/implant'],
+            [$topics[0]['facets'], $topics[0]['variants'], $topics[0]['impressions'], $topics[0]['examples'], $topics[0]['google_url']]);
+        $this->assertArrayNotHasKey('google_url', $topics[1]);
         $this->assertSame('İmplant tedavisinin fiyatını öğrenmek', $price->user_need);
         $this->assertSame(['İmplant sonrası ağrı'], $price->exclusions, 'trimmed, strings only, unique');
         $this->assertNull(Cluster::query()->where('name', 'İmplant sonrası ağrı')->value('user_need'), 'missing need → null');

@@ -44,6 +44,7 @@
             </select>
             <input type="search" wire:model.live.debounce.400ms="search" placeholder="Ara" aria-label="Ara" class="{{ $input }} w-48">
             <label class="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300"><input type="checkbox" wire:model.live="hidden" data-hidden-filter> Gizlenenler</label>
+            <label class="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300" title="Aynı anlamdaki sorgular (implant = diş implantı) tek satır; toplu işlemler tüm varyantlara uygulanır"><input type="checkbox" wire:model.live="variants" data-variants-toggle> Varyantları birleştir</label>
         @endif
         @if ($tab === 'deletions')
             <input type="search" wire:model.live.debounce.400ms="search" placeholder="Ara" aria-label="Ara" class="{{ $input }} w-48">
@@ -66,6 +67,13 @@
                 $excludedIds = array_map('intval', $excluded);
                 $assignStatus = $assign['status'] ?? null;
             @endphp
+            @if ($ruleStats !== null)
+                <div class="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-600 dark:text-gray-300" data-rule-stats>
+                    <span><span class="font-semibold">{{ $num($ruleStats['queries']) }}</span> sorgu → <span class="font-semibold">{{ $num($ruleStats['variants']) }}</span> varyant → <span class="font-semibold">{{ $num($ruleStats['topics']) }}</span> konu · kural v{{ $ruleVersion }}</span>
+                    <button type="button" wire:click="applyRules" class="{{ $ghost }}" data-apply-rules>Kuralları uygula</button>
+                    <a href="{{ route('operator.library.queries.export') }}" class="{{ $ghost }} ml-auto" data-export>CSV indir</a>
+                </div>
+            @endif
             {{-- Hizmet ataması kuyruğu --}}
             <div class="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-200" data-assign-queue>
                 <button type="button" wire:click="$set('service', '__none')" class="font-semibold hover:underline">Hizmet ataması kuyruğu · {{ $num($unassignedCount) }} atanmamış sorgu</button>
@@ -165,7 +173,8 @@
                         @forelse ($queries as $query)
                             <tr wire:key="q-{{ $query->id }}">
                                 <td class="py-1">@if ($selectAll)<input type="checkbox" wire:click="toggleExcluded({{ $query->id }})" @checked(! in_array((int) $query->id, $excludedIds, true)) aria-label="Seç">@else<input type="checkbox" wire:model.live="selected" value="{{ $query->id }}" aria-label="Seç">@endif</td>
-                                <td class="font-medium">{{ $query->text }}</td>
+                                @php $group = $variantGroups[(int) $query->sector_id.'|'.$query->variant_key] ?? null; @endphp
+                                <td class="font-medium">{{ $query->text }}@if ($group !== null && $group['count'] > 1) <span class="{{ $chip }} ml-1 bg-gray-100 font-normal text-gray-600 dark:bg-gray-800 dark:text-gray-300" title="Varyantlarla toplam {{ $num($group['impressions']) }} gösterim · {{ $num($group['clicks']) }} tıklama" data-variant-count>+{{ $group['count'] - 1 }} varyant</span>@endif @if ($query->facets)<span class="text-xs font-normal text-gray-400">· {{ str_replace(',', ', ', $query->facets) }}</span>@endif</td>
                                 <td>{{ $query->service?->primaryName?->raw_label ?? '—' }}@if ($query->locked)<span class="ml-1 text-gray-400">· elle</span>@endif</td>
                                 <td>{{ $query->clusterLink?->cluster?->name ?? '—' }}</td>
                                 @if ($query->is_suggested)
@@ -464,6 +473,13 @@
                 @error('termText')<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
                 <span class="ml-auto text-xs text-gray-500">{{ $num($terms->total()) }} terim</span>
             </div>
+            <details class="mt-2" data-bulk-terms>
+                <summary class="cursor-pointer text-xs font-medium text-brand-600">Toplu ekle</summary>
+                <div class="mt-2 space-y-2">
+                    <textarea wire:model="bulkTerms" rows="6" placeholder="Her satıra bir terim" aria-label="Toplu terimler" class="{{ $input }} w-full text-xs"></textarea>
+                    <div class="flex items-center gap-2 text-xs text-gray-500"><button type="button" wire:click="addBulkTerms" class="{{ $btn }}">Toplu ekle</button> Yukarıdaki kapsam (Genel / sektör) kullanılır; var olan ve soru kelimesi içeren satırlar atlanır.</div>
+                </div>
+            </details>
             @php $filterStatus = $filterProposal['status'] ?? null; @endphp
             <div class="mt-3 space-y-2 border-t border-gray-100 pt-3 dark:border-gray-800" data-filter-ai>
                 <div class="flex flex-wrap items-start gap-2">

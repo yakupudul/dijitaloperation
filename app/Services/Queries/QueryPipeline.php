@@ -104,6 +104,7 @@ final class QueryPipeline
         $this->pendingQueries->prune();
         $stats['pending'] = DB::table('pending_queries')->where('status', PendingQuery::PENDING)->count();
         $stats['brand_queries'] = $this->brandQueries($context);
+        app(QueryRuleEngine::class)->apply();
         if ($import) {
             self::markImported();
         }

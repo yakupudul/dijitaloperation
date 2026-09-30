@@ -3,6 +3,7 @@
 use App\Http\Controllers\Demo\OperatorFileDownloadController;
 use App\Http\Controllers\Integrations\WordPressConnectorDownloadController;
 use App\Http\Controllers\Operator\MetaLegacyPageRedirectController;
+use App\Http\Controllers\Operator\QueriesExportController;
 use App\Http\Controllers\Operator\RetiredAssetTypeRedirectController;
 use App\Http\Controllers\Operator\WordPressLoginController;
 use App\Http\Middleware\EnsureDemoAppAccess;
@@ -82,6 +83,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/library/services', ServiceCatalogPage::class)->name('operator.library.services');
         Route::livewire('/library/queries', QueriesPage::class)->name('operator.library.queries');
         Route::livewire('/library/queries/plan', QueryPlanWizard::class)->name('operator.library.queries.plan');
+        Route::get('/library/queries/export', QueriesExportController::class)->name('operator.library.queries.export');
         // Old per-rescan review links (notifications): every proposal now lives in the Sorgular › Silinecekler tab.
         Route::redirect('/library/queries/review/{review}', '/library/queries?tab=deletions')->where('review', '[0-9]{1,18}')->name('operator.library.queries.review');
 

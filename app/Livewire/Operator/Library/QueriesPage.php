@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator\Library;
 
+use App\Jobs\Queries\ApplyQueryRulesJob;
 use App\Jobs\Queries\AssignQueryServicesJob;
 use App\Jobs\Queries\ClusterQueriesJob;
 use App\Jobs\Queries\ProposeQueryRulesJob;
@@ -31,6 +32,7 @@ use App\Services\Queries\QueryNormalizer;
 use App\Services\Queries\QueryPipeline;
 use App\Services\Queries\QueryPlanner;
 use App\Services\Queries\QueryRescanner;
+use App\Services\Queries\QueryRuleEngine;
 use App\Services\Queries\QueryRuleProposer;
 use App\Services\Queries\QueryServiceAssigner;
 use Illuminate\Contracts\View\View;
@@ -98,6 +100,13 @@ final class QueriesPage extends Component
     /** "Gizlenenler": the hidden queries (with "Geri al"). */
     #[Url(history: true)]
     public bool $hidden = false;
+
+    /** "Varyantları birleştir": one row per variant group (the head, "+N varyant"); bulk actions reach the whole group. */
+    #[Url(history: true)]
+    public bool $variants = true;
+
+    /** Filtre sepeti "Toplu ekle": one term per line. */
+    public string $bulkTerms = '';
 
     /** @var list<int|string> */
     public array $selected = [];
@@ -238,7 +247,7 @@ final class QueriesPage extends Component
 
     public function updated(string $property): void
     {
-        if (in_array($property, ['sector', 'service', 'cluster', 'search', 'tab', 'hidden', 'reviewKind', 'reviewTerm', 'reviewKept', 'keywordView'], true)) {
+        if (in_array($property, ['sector', 'service', 'cluster', 'search', 'tab', 'hidden', 'variants', 'reviewKind', 'reviewTerm', 'reviewKept', 'keywordView'], true)) {
             $this->resetPage();
             $this->clearSelection();
             $this->pendingFlip = [];
@@ -620,6 +629,46 @@ final class QueriesPage extends Component
         $this->termText = '';
         RescanQueriesJob::dispatch((int) $actor->id);
         $this->message = '"'.$term.'" eklendi · tarama başladı, hazır olunca bildirim gelir.';
+    }
+
+    /**
+     * "Toplu ekle": one term per line (a file of terms pasted in); invalid, question and duplicate lines are skipped,
+     * then one rescan.
+     */
+    public function addBulkTerms(): void
+    {
+        $actor = $this->actor();
+        $sectorId = ctype_digit($this->termSector) && ServiceCategory::query()->whereKey((int) $this->termSector)->exists() ? (int) $this->termSector : null;
+        $lines = collect(preg_split('/\r\n|\r|\n/', $this->bulkTerms) ?: [])
+            ->map(fn (string $line): string => trim(preg_replace('/\s+/u', ' ', QueryNormalizer::lower(trim($line, " \t\"',;"))) ?? ''))
+            ->filter(fn (string $term): bool => mb_strlen($term) >= 2 && mb_strlen($term) <= 200)->unique()->values();
+        $existing = array_fill_keys(FilterTerm::query()->where('sector_id', $sectorId)->pluck('term')->all(), true);
+        $saved = 0;
+        $skipped = 0;
+        foreach ($lines as $term) {
+            if (isset($existing[$term]) || QueryNormalizer::isQuestionTerm($term)) {
+                $skipped++;
+
+                continue;
+            }
+            FilterTerm::query()->create(['sector_id' => $sectorId, 'term' => $term, 'source' => 'manual', 'created_by' => $actor->id]);
+            $existing[$term] = true;
+            $saved++;
+        }
+        $this->bulkTerms = '';
+        if ($saved > 0) {
+            app(PendingQueries::class)->prune();
+            RescanQueriesJob::dispatch((int) $actor->id);
+        }
+        $this->message = $saved.' terim eklendi'.($skipped > 0 ? ' · '.$skipped.' satır atlandı (zaten var / soru kelimesi)' : '').($saved > 0 ? ' · tarama başladı.' : '.');
+    }
+
+    /** "Kuralları uygula": recomputes the variant / topic keys with the current rules (queued). */
+    public function applyRules(): void
+    {
+        $this->actor();
+        ApplyQueryRulesJob::dispatch();
+        $this->message = 'Kurallar uygulanıyor (v'.QueryRuleEngine::version().'); birkaç saniye içinde liste güncellenir.';
     }
 
     public function deleteTerm(int $id): void
@@ -1064,6 +1113,9 @@ final class QueriesPage extends Component
     {
         $this->actor();
         $count = $pending->import($this->pendingSelection());
+        if ($count > 0) {
+            ApplyQueryRulesJob::dispatch();
+        }
         $this->pendingFlip = [];
         $this->message = $count.' sorgu içe aktarıldı.';
     }
@@ -1095,6 +1147,7 @@ final class QueriesPage extends Component
             return;
         }
         $done = $rescanner->apply($this->reviewTargetIds());
+        ApplyQueryRulesJob::dispatch();
         $this->clearSelection();
         $this->message = sprintf('%d sorgu silindi · %d sorgunun hizmeti değişti.', $done['deleted'], $done['changed']);
     }
@@ -1167,6 +1220,7 @@ final class QueriesPage extends Component
         $filterProposal = $this->tab === 'filters' && $user instanceof User ? QueryPlanner::current((int) $user->id, 'filters') : null;
         $scan = $this->tab === 'filters' && $user instanceof User ? QueryPlanner::current((int) $user->id, 'scan') : null;
         $queries = $this->tab === 'queries' ? $this->queryList() : null;
+        $variantGroups = $queries !== null && $this->variants && ! $this->hidden ? $this->variantGroups($queries->getCollection()) : [];
         $serviceId = ctype_digit($this->service) ? (int) $this->service : null;
         $clusterStatus = $serviceId !== null ? Cache::get(QueryClusterer::cacheKey($serviceId)) : null;
 
@@ -1182,6 +1236,9 @@ final class QueriesPage extends Component
             'services' => $this->serviceOptions(),
             'clusterOptions' => $serviceId !== null ? Cluster::query()->where('service_id', $serviceId)->orderBy('name')->pluck('name', 'id')->all() : [],
             'queries' => $queries,
+            'variantGroups' => $variantGroups,
+            'ruleStats' => $this->tab === 'queries' ? $this->ruleStats() : null,
+            'ruleVersion' => QueryRuleEngine::version(),
             'matchingCount' => $this->selectAll ? ($this->tab === 'deletions'
                 ? $this->reviewQuery()->whereNotIn('id', array_map('intval', $this->excluded) ?: [0])->count() : $this->targetQuery()->count()) : null,
             'unassignedCount' => $this->tab === 'queries' ? QueryServiceAssigner::queue(ctype_digit($this->sector) ? (int) $this->sector : null)->count() : 0,
@@ -1239,6 +1296,7 @@ final class QueriesPage extends Component
     private function listQuery(): Builder
     {
         return Query::query()->where('hidden', $this->hidden)
+            ->when($this->variants && ! $this->hidden, fn (Builder $q) => $q->where('variant_head', true))
             ->when(ctype_digit($this->sector), fn (Builder $q) => $q->where('sector_id', (int) $this->sector))
             ->when($this->service === '__none', fn (Builder $q) => $q->whereNull('service_id'))
             ->when($this->service === '__any', fn (Builder $q) => $q->whereNotNull('service_id'))
@@ -1248,8 +1306,26 @@ final class QueriesPage extends Component
             ->when(trim($this->search) !== '', fn (Builder $q) => $q->where('text', 'like', '%'.QueryNormalizer::lower(trim($this->search)).'%'));
     }
 
-    /** @return Builder<Query> the bulk target: every matching query minus the unticked ones, or the ticked ids */
+    /**
+     * The bulk target: every matching query minus the unticked ones, or the ticked ids; with "Varyantları birleştir"
+     * every variant of a targeted head too (hiding / assigning "implant" hides / assigns "diş implantı").
+     *
+     * @return Builder<Query>
+     */
     private function targetQuery(): Builder
+    {
+        $rows = $this->rowTargetQuery();
+        if (! $this->variants || $this->hidden) {
+            return $rows;
+        }
+
+        return Query::query()->where('hidden', false)->where(fn (Builder $q) => $q->whereIn('id', (clone $rows)->select('id'))
+            ->orWhereExists(fn ($sub) => $sub->selectRaw('1')->from('queries as t')->whereIn('t.id', (clone $rows)->select('id'))
+                ->whereRaw('COALESCE(t.sector_id, 0) = COALESCE(queries.sector_id, 0)')->whereColumn('t.variant_key', 'queries.variant_key')));
+    }
+
+    /** @return Builder<Query> the ticked / matching rows themselves (variant heads when merged) */
+    private function rowTargetQuery(): Builder
     {
         return $this->selectAll
             ? $this->listQuery()->whereNotIn('id', array_map('intval', $this->excluded) ?: [0])
@@ -1264,7 +1340,42 @@ final class QueriesPage extends Component
     /** @return list<int> up to $limit selected ids, most impressions first (AI calls that take a query list) */
     private function targetIds(int $limit): array
     {
-        return $this->targetQuery()->orderByDesc('impressions')->orderBy('id')->limit($limit)->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        return $this->rowTargetQuery()->orderByDesc('impressions')->orderBy('id')->limit($limit)->pluck('id')->map(fn ($id): int => (int) $id)->all();
+    }
+
+    /**
+     * Size and summed metrics of the variant groups of the listed heads ("sector|key" => …).
+     *
+     * @param  Collection<int, Query>  $heads
+     * @return array<string, array{count: int, impressions: int, clicks: int}>
+     */
+    private function variantGroups(Collection $heads): array
+    {
+        $keys = $heads->pluck('variant_key')->filter()->unique()->values()->all();
+        if ($keys === []) {
+            return [];
+        }
+
+        return Query::query()->where('hidden', false)->whereIn('variant_key', $keys)
+            ->groupBy('sector_id', 'variant_key')->selectRaw('sector_id, variant_key, count(*) as total, sum(impressions) as impressions, sum(clicks) as clicks')
+            ->get()->mapWithKeys(fn ($row): array => [(int) $row->sector_id.'|'.$row->variant_key => [
+                'count' => (int) $row->total, 'impressions' => (int) $row->impressions, 'clicks' => (int) $row->clicks,
+            ]])->all();
+    }
+
+    /** @return array{queries: int, variants: int, topics: int} "N sorgu → V varyant → K konu" of the chosen sector (1 min cache) */
+    private function ruleStats(): array
+    {
+        $sector = ctype_digit($this->sector) ? (int) $this->sector : null;
+
+        return Cache::remember('queries.rule-stats.'.($sector ?? 'all').'.'.QueryRuleEngine::version(), 60, function () use ($sector): array {
+            $row = DB::table('queries')->where('hidden', false)->where('is_suggested', false)
+                ->when($sector !== null, fn ($q) => $q->where('sector_id', $sector))
+                ->selectRaw("count(*) as total, count(distinct COALESCE(sector_id, 0) || ':' || variant_key) as variants, count(distinct COALESCE(sector_id, 0) || ':' || topic_key) as topics")
+                ->first();
+
+            return ['queries' => (int) $row->total, 'variants' => (int) $row->variants, 'topics' => (int) $row->topics];
+        });
     }
 
     /** @return Collection<int, Cluster> */

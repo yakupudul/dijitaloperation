@@ -25,7 +25,7 @@ final class QueryClusterAgent implements Agent, HasProviderOptions, HasStructure
 
     public const string OPERATION = AiRouteKeys::QUERIES_CLUSTER;
 
-    public const string PROMPT_VERSION = 'queries-cluster-v2';
+    public const string PROMPT_VERSION = 'queries-cluster-v3';
 
     public function promptOperation(): string
     {

@@ -60,6 +60,11 @@
 
 - **Karar (operatör):** AI işlemlerinde işlem başına çıktı / kapsam sınırı yoktur; tek sınır operatörün Ayarlar › AI'da değiştirdiği aylık bütçedir (kalan bakiye görünür). AI ile planla her sektör için ayrı ve kapsamlı üretir; verisi olmayan sektörde sektör bilgisinden hizmet / kelime önerir (yine operatör onayıyla).
 
+## 2026-11-10 — Sorgu kural motoru ve konu bazlı kümeleme
+
+- **Karar (operatör):** Aynı anlamdaki sorgular (implant = diş implantı) ve aynı içeriğin yönleri (fiyat, nedir, nasıl…) AI'sız, sürümlü kurallarla birleştirilir (`config/moxdop-query-rules.php`). Kurallar operatörün Sorgular › CSV indir dosyasından yazılır ve sorgular değiştikçe genişletilir; filtre terimleri de bu dosyadan üretilip Toplu ekle ile içe aktarılır.
+- **Karar (operatör):** Kümeleme AI'a konu başlıklarıyla gider; Google sinyali olarak ücretsiz Search Console (sorgu → gösterilen sayfa) kullanılır. DataForSEO SERP ile küme doğrulaması yapılmaz; birleştirme kararı AI'dadır.
+
 ## 2026-11-10 — Sorgular: yer adı kuralı, soru sorguları korunur
 
 - **Karar (operatör):** İl, ilçe veya ülke adı içeren sorgular istenmez ("ankara implant" dahil): sepette terim olmadan sabit kuralla silinir (`QueryNormalizer::placeIn`, ekli hâller dahil; gündelik kelimeyle aynı yazılan yer adları `NOT_LOCATION` ile hariç). Silme yine taramadan geçer (Silinecekler, terim = yer adı).
