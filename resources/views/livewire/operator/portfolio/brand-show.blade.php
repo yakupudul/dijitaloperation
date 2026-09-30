@@ -1,6 +1,6 @@
 @php
     $card = 'rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
-    $tabLabels = ['settings' => 'Marka', 'overview' => 'Genel bakış', 'business' => 'İşletme', 'assets' => 'Dijital varlıklar', 'files' => 'Dosyalar'];
+    $tabLabels = ['settings' => 'Marka', 'overview' => 'Kurulum', 'business' => 'İşletme', 'assets' => 'Dijital varlıklar', 'files' => 'Dosyalar'];
     $toneClass = fn (string $tone): string => match ($tone) {
         'error' => 'bg-error-500',
         'warning' => 'bg-warning-500',
@@ -10,22 +10,36 @@
 <div class="space-y-6">
     @include('livewire.demo.partials.flash')
 
-    {{-- Header: who the brand is --}}
+    {{-- Header: who the brand is, its state, the Özet period --}}
     <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div class="min-w-0">
             <a href="{{ route('operator.brands') }}" wire:navigate class="text-sm text-gray-500 hover:text-brand-600">← Markalar</a>
-            <h1 class="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90">{{ $brandModel->name }}</h1>
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+                <h1 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ $brandModel->name }}</h1>
+                @if ($operational)
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-success-50 px-2.5 py-0.5 text-xs font-medium text-success-700 dark:bg-success-500/10 dark:text-success-400" data-brand-state="active"><span class="h-1.5 w-1.5 rounded-full bg-success-500"></span>Aktif</span>
+                @else
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300" data-brand-state="passive" title="{{ \App\Support\ServiceScope::NOT_SERVED }}"><span class="h-1.5 w-1.5 rounded-full bg-gray-400"></span>Pasif</span>
+                @endif
+            </div>
             <p class="mt-1 text-sm text-gray-500">
                 @if ($customer)<a href="{{ route('operator.customer', ['customerId' => $customer->id]) }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ $customer->name }}</a>@endif
                 @if ($sectors !== []) · {{ implode(', ', $sectors) }}@endif
                 @if ($areas !== []) · {{ implode(' · ', array_slice($areas, 0, 3)) }}@if (count($areas) > 3) +{{ count($areas) - 3 }}@endif @endif
             </p>
         </div>
-        <div class="flex shrink-0 flex-wrap gap-2">
+        <div class="flex shrink-0 flex-wrap items-center gap-2">
+            @if ($mainTab === 'ozet')
+                <div class="inline-flex rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800" role="group" aria-label="Dönem" data-period-selector>
+                    @foreach (\App\Services\Operator\BrandOverviewReader::PERIODS as $periodDays => $periodLabel)
+                        <button type="button" wire:click="setPeriod('last_{{ $periodDays }}')" aria-pressed="{{ $days === $periodDays ? 'true' : 'false' }}" @class(['rounded-md px-3 py-1.5 text-xs font-medium transition', 'bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white' => $days === $periodDays, 'text-gray-600 hover:text-gray-900 dark:text-gray-400' => $days !== $periodDays])>{{ $periodLabel }}</button>
+                    @endforeach
+                </div>
+            @endif
             @foreach ($websites as $website)
                 <a href="{{ route('operator.website', ['assetId' => $website->id]) }}" wire:navigate data-open-website="{{ $website->id }}" title="{{ $website->domain ?: $website->primary_url }}" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">Siteyi aç @if ($websites->count() > 1)<span class="text-xs font-normal opacity-80">{{ $website->domain ?: $website->name }}</span>@endif</a>
             @endforeach
-        @if (! $workspaceTab)
+        @if ($mainTab === 'ayarlar')
                 <a href="{{ route('operator.brand.setup', ['brand' => $brandModel->id]) }}" wire:navigate @class(['inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium', 'bg-success-500 text-white hover:bg-success-600' => ! $checklist['complete'], 'text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700' => $checklist['complete']])>Otomatik kur</a>
                 <a href="{{ route('operator.asset.create', ['brandId' => $brandModel->id]) }}" wire:navigate class="inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Varlık ekle</a>
                 <a href="{{ route('operator.brand.edit', ['brandId' => $brandModel->id]) }}" wire:navigate class="inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Düzenle</a>
@@ -41,7 +55,9 @@
         </div>
     </div>
 
-    @if ($workspaceTab)
+    @if ($mainTab === 'ozet')
+        @include('livewire.operator.portfolio.partials.brand-overview')
+    @elseif ($workspaceTab)
         @include('livewire.operator.portfolio.partials.brand-workspace')
     @else
     <div class="-mx-1 overflow-x-auto">

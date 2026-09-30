@@ -22,6 +22,7 @@ use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Services\Integrations\Meta\DiscoverMetaResourcesService;
 use App\Services\Integrations\ResourceAutomationService;
+use App\Services\Operator\BrandOverviewReader;
 use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Ownership\OwnershipGuard;
 use App\Services\ServiceScope\CustomerServiceScopeReadService;
@@ -43,9 +44,10 @@ use Livewire\Component;
 use Throwable;
 
 /**
- * Brand workspace: one tab per channel — Arama · Harita · Google Ads · Meta — rebuilt in Faz 4–7 on the v2 model
- * (reserved until then), and "Ayarlar" with the brand page (setup, business, assets, files). Everything shown
- * comes from the database.
+ * Brand page: "Özet" (default — period KPIs, digital assets with data status, open work, services), one tab per
+ * channel — Arama · Harita · Google Ads · Meta — whose own workspace is rebuilt in Faz 4–7 (until then the tab says
+ * which sources feed it, what is missing and where the work happens), and "Ayarlar" with setup, business, assets and
+ * files. Everything shown comes from the database.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Marka')]
@@ -64,6 +66,9 @@ class BrandShow extends Component
         'meta' => ['Meta', 'App\\Livewire\\Operator\\Workspace\\MetaTab'],
     ];
 
+    /** The default tab. */
+    public const string OVERVIEW_TAB = 'ozet';
+
     /** Old deep links keep working. */
     private const array LEGACY_TABS = [
         'estate' => 'assets', 'cross_channel' => 'assets', 'operations' => 'overview', 'growth' => 'overview', 'ai' => 'overview', 'work' => 'overview',
@@ -74,7 +79,7 @@ class BrandShow extends Component
     public string $brand = '';
 
     #[Url(as: 'tab', history: true)]
-    public string $tab = 'arama';
+    public string $tab = self::OVERVIEW_TAB;
 
     public bool $editingContext = false;
 
@@ -117,7 +122,7 @@ class BrandShow extends Component
         }
         $tab = self::LEGACY_TABS[$tab] ?? $tab;
 
-        return isset(self::WORKSPACE_TABS[$tab]) || in_array($tab, self::TABS, true) ? $tab : 'arama';
+        return $tab === self::OVERVIEW_TAB || isset(self::WORKSPACE_TABS[$tab]) || in_array($tab, self::TABS, true) ? $tab : self::OVERVIEW_TAB;
     }
 
     /** Star / unstar a service: the SEO plan looks deeply only at starred services. */
@@ -343,6 +348,9 @@ class BrandShow extends Component
     public function render(): View
     {
         $brand = $this->brandModel();
+        if ($this->tab === self::OVERVIEW_TAB) {
+            return $this->renderOverview($brand);
+        }
         if (isset(self::WORKSPACE_TABS[$this->tab])) {
             return $this->renderWorkspace($brand);
         }
@@ -360,15 +368,10 @@ class BrandShow extends Component
         ]));
 
         $context = $brand->intelligenceContext;
-        $sectors = collect($brand->sectorCodes())->map(fn (string $code): string => IndustryOptions::label($code))->filter()->values()->all();
 
         return view('livewire.operator.portfolio.brand-show', [
-            ...$this->frame(false),
-            'websites' => $this->websites($brand),
-            'brandModel' => $brand,
-            'customer' => $brand->customer,
-            'sectors' => $sectors,
-            'areas' => $brand->serviceAreas()->where('status', 'active')->orderBy('priority_rank')->get()->map->label()->values()->all(),
+            ...$this->frame(),
+            ...$this->header($brand),
             'responsible' => $brand->responsibleUsers->pluck('name')->all(),
             'assets' => $assets,
             'services' => $services,
@@ -384,28 +387,63 @@ class BrandShow extends Component
         ]);
     }
 
-    /** Workspace tabs: only the header, the week's top cards and the channel component. */
+    /** Selected Özet period in days (28 / 90), from the shared period preset. */
+    public function overviewDays(): int
+    {
+        return $this->period === 'last_90' ? 90 : 28;
+    }
+
+    /** Özet: period KPIs, the brand's digital assets with their data status, open work and services. */
+    private function renderOverview(Brand $brand): View
+    {
+        $overview = app(BrandOverviewReader::class);
+        $workspace = app(BrandWorkspaceReadService::class);
+        $models = $overview->assetModels($brand);
+        $cards = $overview->assetCards($models);
+        $services = $workspace->services($brand);
+        $checklist = $workspace->checklist($brand, $workspace->assets($brand), $services);
+
+        return view('livewire.operator.portfolio.brand-show', [
+            ...$this->frame(),
+            ...$this->header($brand),
+            'days' => $this->overviewDays(),
+            'kpis' => $overview->kpis($brand, $models, $cards, $this->overviewDays()),
+            'assetCards' => $cards,
+            'work' => $overview->openWork($brand),
+            'serviceSummary' => $overview->services($services),
+            'checklist' => $checklist,
+            'flash' => DemoState::pullFlash(),
+        ]);
+    }
+
+    /** Channel tabs: the channel component once it exists; until then its sources, what is missing and its open work. */
     private function renderWorkspace(Brand $brand): View
     {
         $class = self::WORKSPACE_TABS[$this->tab][1];
-        $operational = app(ServiceScope::class)->isBrandOperational($brand->id);
-        // v2: the week's cards come from the suggestions table once Faz 4–7 fill it.
-        $weekTop = [];
-        $sectors = collect($brand->sectorCodes())->map(fn (string $code): string => IndustryOptions::label($code))->filter()->values()->all();
+        $component = class_exists($class) ? $class : null;
+        $overview = app(BrandOverviewReader::class);
 
         return view('livewire.operator.portfolio.brand-show', [
-            ...$this->frame(true),
-            'websites' => $this->websites($brand),
-            'brandModel' => $brand,
-            'customer' => $brand->customer,
-            'sectors' => $sectors,
-            'areas' => $brand->serviceAreas()->where('status', 'active')->orderBy('priority_rank')->get()->map->label()->values()->all(),
-            'operational' => $operational,
-            'weekTop' => $weekTop,
-            'channelComponent' => class_exists($class) ? $class : null,
+            ...$this->frame(),
+            ...$this->header($brand),
+            'channelComponent' => $component,
+            'channel' => $component === null ? $overview->channel($brand, $this->tab, $overview->assetCards($overview->assetModels($brand))) : null,
             'checklist' => ['complete' => true, 'items' => []],
             'flash' => DemoState::pullFlash(),
         ]);
+    }
+
+    /** @return array<string, mixed> header data shared by every tab */
+    private function header(Brand $brand): array
+    {
+        return [
+            'websites' => $this->websites($brand),
+            'brandModel' => $brand,
+            'customer' => $brand->customer,
+            'sectors' => collect($brand->sectorCodes())->map(fn (string $code): string => IndustryOptions::label($code))->filter()->values()->all(),
+            'areas' => $brand->serviceAreas()->where('status', 'active')->orderBy('priority_rank')->get()->map->label()->values()->all(),
+            'operational' => app(ServiceScope::class)->isBrandOperational($brand->id),
+        ];
     }
 
     /**
@@ -419,12 +457,14 @@ class BrandShow extends Component
     }
 
     /** @return array{workspaceTab: bool, mainTab: string, workspaceTabs: array<string, string>} */
-    private function frame(bool $workspace): array
+    private function frame(): array
     {
+        $workspace = isset(self::WORKSPACE_TABS[$this->tab]);
+
         return [
             'workspaceTab' => $workspace,
-            'mainTab' => $workspace ? $this->tab : 'ayarlar',
-            'workspaceTabs' => array_map(fn (array $t): string => $t[0], self::WORKSPACE_TABS) + ['ayarlar' => 'Ayarlar'],
+            'mainTab' => $workspace || $this->tab === self::OVERVIEW_TAB ? $this->tab : 'ayarlar',
+            'workspaceTabs' => [self::OVERVIEW_TAB => 'Özet'] + array_map(fn (array $t): string => $t[0], self::WORKSPACE_TABS) + ['ayarlar' => 'Ayarlar'],
         ];
     }
 
