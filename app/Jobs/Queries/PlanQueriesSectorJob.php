@@ -3,6 +3,7 @@
 namespace App\Jobs\Queries;
 
 use App\Models\ServiceCategory;
+use App\Services\Ai\AiCancelledException;
 use App\Services\Queries\QueryNotifier;
 use App\Services\Queries\QueryPlanner;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -30,7 +31,14 @@ final class PlanQueriesSectorJob implements ShouldQueue
     public function handle(QueryPlanner $planner, QueryNotifier $notifier): void
     {
         $sector = ServiceCategory::query()->find($this->sectorId);
-        $this->record($sector !== null ? $planner->proposeSector($this->step, $sector, $this->instruction) : 'error', $notifier);
+        try {
+            $this->record($sector !== null ? $planner->proposeSector($this->step, $sector, $this->instruction) : 'error', $notifier);
+        } catch (AiCancelledException $stopped) {
+            // Stopped from AI işleri: the sector counts as done (failed) so the step does not wait for it.
+            $this->record('cancelled', $notifier);
+
+            throw $stopped;
+        }
     }
 
     public function failed(?Throwable $exception): void

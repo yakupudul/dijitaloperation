@@ -71,17 +71,70 @@ final class QueryPlanner
         return 'queries:plan:'.$userId.':'.$step;
     }
 
+    /** A running step with no progress for this long is closed (a job was killed, stopped or timed out). */
+    public const int STALE_MINUTES = 20;
+
     /** @return array<string, mixed>|null */
     public static function current(int $userId, string $step): ?array
     {
         $value = Cache::get(self::cacheKey($userId, $step));
+        if (is_array($value) && ($value['status'] ?? null) === 'running' && self::isStale($value)) {
+            $value = self::closeStale($userId, $step) ?? $value;
+        }
 
         return is_array($value) ? $value : null;
     }
 
     public static function markRunning(int $userId, string $step): void
     {
-        Cache::put(self::cacheKey($userId, $step), ['status' => 'running'], now()->addDay());
+        Cache::put(self::cacheKey($userId, $step), ['status' => 'running', 'updated_at' => now()->getTimestamp()], now()->addDay());
+    }
+
+    /** Operator "Durdur / sıfırla": forgets a running step so it can be started again. */
+    public static function reset(int $userId, string $step): void
+    {
+        Cache::forget(self::cacheKey($userId, $step));
+    }
+
+    /** @param array<string, mixed> $state */
+    private static function isStale(array $state): bool
+    {
+        $at = (int) ($state['updated_at'] ?? 0);
+
+        // States written before this field existed count as stale once looked at.
+        return $at === 0 || $at < now()->subMinutes(self::STALE_MINUTES)->getTimestamp();
+    }
+
+    /**
+     * Closes a stuck step: per-sector runs finish with the sectors that never answered listed as failed ("zaman
+     * aşımı"); a single-job step becomes an error.
+     *
+     * @return array<string, mixed>|null
+     */
+    private static function closeStale(int $userId, string $step): ?array
+    {
+        $key = self::cacheKey($userId, $step);
+
+        return Cache::lock($key.':merge', 30)->get(function () use ($key, $step): ?array {
+            $state = Cache::get($key);
+            if (! is_array($state) || ($state['status'] ?? null) !== 'running' || ! self::isStale($state)) {
+                return is_array($state) ? $state : null;
+            }
+            if (isset($state['run'], $state['sectors'])) {
+                foreach (array_keys((array) $state['sectors']) as $sectorId) {
+                    if (! array_key_exists($sectorId, (array) $state['parts']) && ! array_key_exists($sectorId, (array) $state['errors'])) {
+                        $state['errors'][$sectorId] = 'timeout';
+                    }
+                }
+                $state['done'] = count($state['parts']) + count($state['errors']);
+                $state = self::completed($step, $state);
+            } else {
+                $state = ['status' => 'error', 'items' => []];
+            }
+            Cache::put($key, $state, now()->addDay());
+
+            return $state;
+        }) ?: null;
     }
 
     /**
@@ -106,7 +159,7 @@ final class QueryPlanner
         }
         $run = (string) Str::uuid();
         Cache::put(self::cacheKey($userId, $step), [
-            'status' => 'running', 'run' => $run, 'total' => $sectors->count(), 'done' => 0,
+            'status' => 'running', 'run' => $run, 'total' => $sectors->count(), 'done' => 0, 'updated_at' => now()->getTimestamp(),
             'sectors' => $sectors->mapWithKeys(fn (ServiceCategory $s): array => [(int) $s->id => (string) $s->name])->all(),
             'parts' => [], 'errors' => [],
         ], now()->addDay());
@@ -138,6 +191,7 @@ final class QueryPlanner
                 $state['errors'][$sectorId] = $result;
             }
             $state['done'] = count($state['parts']) + count($state['errors']);
+            $state['updated_at'] = now()->getTimestamp();
             if ($state['done'] >= $state['total']) {
                 $state = self::completed($step, $state);
             }

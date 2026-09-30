@@ -104,6 +104,16 @@ final class QueryPlanWizard extends Component
         $this->syncProposal();
     }
 
+    /** "Durdur": forgets the running step (late answers are ignored) so it can be started again. */
+    public function stopAi(): void
+    {
+        $actor = $this->actor();
+        QueryPlanner::reset((int) $actor->id, self::STEP_KEYS[$this->step]);
+        $this->merged = '';
+        $this->pick = [];
+        $this->message = 'AI adımı durduruldu; yeniden başlatabilirsiniz.';
+    }
+
     /** Polled while the AI step runs: a ready proposal is pre-selected once. */
     public function syncProposal(): void
     {

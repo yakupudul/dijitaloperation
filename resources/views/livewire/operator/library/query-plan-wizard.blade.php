@@ -35,6 +35,7 @@
             <div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
                 <svg class="h-4 w-4 animate-spin text-brand-500" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"/><path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3"/></svg>
                 <span>{{ $done }} / {{ $total }} sektör tamamlandı · sektörler paralel çalışıyor</span>
+                <button type="button" wire:click="stopAi" wire:confirm="AI adımı durdurulsun mu? Gelen sonuçlar silinir." class="ml-auto rounded-lg px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700" data-plan-stop>Durdur</button>
             </div>
             <div class="h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><div class="h-2 rounded-full bg-brand-500 transition-all" style="width: {{ $total > 0 ? max(4, (int) round($done * 100 / $total)) : 0 }}%"></div></div>
         </div>

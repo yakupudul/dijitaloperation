@@ -1,5 +1,9 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-09 — AI ile planla / Filtre sepeti takılı kalmaz
+
+- Sektör işlerinden biri cevapsız kalırsa (işçi yeniden başladı, AI işlerinden durduruldu, zaman aşımı) adım artık "5 / 7"de beklemez: 20 dakika ilerleme yoksa cevapsız sektörler "başarısız" sayılıp öneri kalanlarla tamamlanır; durdurulan sektör işi kendini başarısız olarak bildirir. Sihirbaz ve Filtre sepetinde "Durdur" butonu adımı hemen sıfırlar. **State:** CODED + PHPUnit (`QueryPlanWizardTest`), SQLite + PostgreSQL.
+
 ## 2026-11-09 — Önbellek dostu sayfa okuma, eklentiden önbellek dışa aktarımı (Connector 1.6.0), bir kez tam sonra yalnız değişenler
 
 - **İstekler ziyaretçi gibi (`PublicHttpFetcher`, `DiscoveryConfig`):** User-Agent `Mozilla/5.0 (compatible; MoxDOP-SiteReader/1.0; +https://moximu.com)` (tarayıcı işareti + kimlik; WP Super Cache'in varsayılan reddettiği bot / crawl / spider / slurp / Yandex kelimeleri yok; robots.txt "MoxDOP" kuralları geçerli), tarayıcı benzeri Accept / Accept-Language (tr) / Accept-Encoding (gzip), çerez yok, `Cache-Control` / `Pragma` istek başlığı yok, önbellek kıran sorgu parametresi yok. Sonuçta `cache` (hit, plugin): `x-litespeed-cache`, `cf-cache-status` (+ APO), `x-cache` / `x-proxy-cache`, `age > 0`, `x-wp-super-cache` ve WP Rocket / WP Super Cache / W3 Total Cache / WP Fastest Cache / Cache Enabler alt yorumları.

@@ -245,6 +245,28 @@ final class QueryPlanWizardTest extends TestCase
         $page->call('syncProposal')->assertDontSeeHtml('data-plan-progress')->assertSee('Yeni hizmet: FUE Saç Ekimi')->assertSet('pick', [0 => true, 1 => true]);
     }
 
+    public function test_a_step_with_a_sector_that_never_answers_is_closed_and_can_be_stopped(): void
+    {
+        Queue::fake();
+        Brand::factory()->create(['customer_id' => Customer::factory()->create()->id, 'sector_id' => $this->hair->id]);
+        QueryPlanServicesAgent::fake(fn (): array => ['new_services' => [], 'add_keywords' => [], 'remove_keywords' => [], 'move_keywords' => [],
+            'prompt_version' => QueryPlanServicesAgent::PROMPT_VERSION]);
+        $page = Livewire::test(QueryPlanWizard::class)->call('goTo', 2)->call('runAi')->assertSeeHtml('data-plan-stop');
+        $jobs = Queue::pushed(PlanQueriesSectorJob::class)->values();
+        app()->call([$jobs[0], 'handle']);
+        $this->assertSame('running', QueryPlanner::current($this->admin->id, 'services')['status']);
+
+        // The other sector's job died (worker restart / stopped): after the stale window the step closes.
+        $this->travel(QueryPlanner::STALE_MINUTES + 1)->minutes();
+        $closed = QueryPlanner::current($this->admin->id, 'services');
+        $this->assertSame('ready', $closed['status']);
+        $this->assertCount(1, $closed['failed'], 'the silent sector is listed as failed');
+
+        // "Durdur" forgets a running step at once.
+        $page->call('runAi')->call('stopAi')->assertSee('AI adımı durduruldu');
+        $this->assertNull(QueryPlanner::current($this->admin->id, 'services'));
+    }
+
     public function test_parallel_filter_step_deduplicates_terms_across_sectors_and_reports_a_failed_sector(): void
     {
         Brand::factory()->create(['customer_id' => Customer::factory()->create()->id, 'sector_id' => $this->hair->id]);

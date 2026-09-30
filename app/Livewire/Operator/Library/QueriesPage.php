@@ -640,6 +640,13 @@ final class QueriesPage extends Component
         QueryPlanner::start((int) $actor->id, 'filters', $sectorIds, $this->filterInstruction);
     }
 
+    /** "Durdur" on the running filter step: forgets it so it can be started again. */
+    public function stopFilters(): void
+    {
+        QueryPlanner::reset((int) $this->actor()->id, 'filters');
+        $this->message = 'AI adımı durduruldu; yeniden başlatabilirsiniz.';
+    }
+
     public function toggleFilterLine(int $index): void
     {
         $skip = array_map('intval', $this->filterSkip);

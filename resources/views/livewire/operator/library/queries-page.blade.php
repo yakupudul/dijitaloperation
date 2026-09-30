@@ -472,7 +472,7 @@
                 </div>
                 <p class="text-xs text-gray-500">{{ ctype_digit($sector) ? 'Seçili sektör için' : 'Kullanılan her sektör için' }} ayrı çağrı · öneriler kaydedilmeden önce listelenir.</p>
                 @if ($filterStatus === 'running')
-                    <p class="text-xs text-gray-500" data-filter-progress>AI çalışıyor…@if (($filterProposal['total'] ?? 0) > 0) {{ $filterProposal['done'] }} / {{ $filterProposal['total'] }} sektör tamamlandı @endif</p>
+                    <p class="flex items-center gap-2 text-xs text-gray-500" data-filter-progress>AI çalışıyor…@if (($filterProposal['total'] ?? 0) > 0) {{ $filterProposal['done'] }} / {{ $filterProposal['total'] }} sektör tamamlandı @endif <button type="button" wire:click="stopFilters" wire:confirm="AI adımı durdurulsun mu?" class="rounded-lg px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700" data-filter-stop>Durdur</button></p>
                 @elseif ($filterStatus === 'ready')
                     @php $skipLines = array_map('intval', $filterSkip); @endphp
                     <div data-filter-proposal>
