@@ -7,18 +7,23 @@ use App\Models\Brand;
 use App\Models\BrandClusterPage;
 use App\Models\Cluster;
 use App\Models\DigitalAsset;
+use App\Models\PendingQuery;
 use App\Services\Site\SiteScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Sorgular pipeline (idempotent, chunked by 1000, never all rows in memory):
- *  1. `query_sources` → normalized text per row (sector of the account's brand, else of its brand candidate) → ONE
- *     `queries` row per normalized text; rows that normalize to empty are unlinked.
+ *  1. `query_sources` → normalized text (lowercase, trimmed, single spaces; nothing stripped) → linked to the ONE
+ *     library `queries` row of that text. New texts never enter the library on their own:
+ *     - first import (`run(import: true)`, approved in "AI ile planla"): every text of the accounts bound to brands
+ *       that contains no filter term (all terms of all sectors) and was never deleted / dismissed becomes a library
+ *       query, assigned to a service by the matching keywords; library queries containing a filter term are deleted.
+ *     - after it: new texts of brand accounts wait in `pending_queries` (Bekleyenler) with the suggested service and
+ *       the filter result; the operator imports or dismisses them.
  *  2. `queries` totals across accounts / months (search impressions / clicks, Ads cost / conversions, Business
- *     Profile impressions, sources, first / last month), dominant sector, service from the sector's matching keywords.
- *     Locked (manual) queries and queries of locked clusters keep their service; queries left without a source are
- *     deleted unless AI-suggested.
+ *     Profile impressions, sources, first / last month) and dominant sector (asset's own sector, else its brand's) —
+ *     updated every run. Services are never reassigned here (only the approved rescan review does that).
  *  3. `brand_queries`: last 28 days of Search Console / Google Ads per brand × query (bound accounts), then the brand's
  *     target queries (per served area for commercial / local clusters), language and mapped URL (brandTargets).
  */
@@ -28,29 +33,86 @@ final class QueryPipeline
 
     private const int MEMO_LIMIT = 50000;
 
+    private const int PENDING_LIMIT = 50000;
+
     public function __construct(
         private readonly QueryNormalizer $normalizer,
         private readonly QueryServiceMatcher $matcher,
     ) {}
 
-    /** @return array{sources: int, queries: int, deleted: int, assigned: int, brand_queries: int} */
-    public function run(): array
+    /** When the first (only automatic) bulk import into the library was approved; null = not yet. */
+    public static function importedAt(): ?CarbonImmutable
+    {
+        $value = DB::table('agency_settings')->orderBy('id')->value('queries_imported_at');
+
+        return $value !== null ? CarbonImmutable::parse($value) : null;
+    }
+
+    public static function markImported(): void
+    {
+        $id = DB::table('agency_settings')->orderBy('id')->value('id');
+        $now = now();
+        $id !== null
+            ? DB::table('agency_settings')->where('id', $id)->update(['queries_imported_at' => $now, 'updated_at' => $now])
+            : DB::table('agency_settings')->insert(['queries_imported_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
+    }
+
+    /**
+     * Deletes library queries (approved flows only): cluster memberships and brand rows go, raw sources stay unlinked.
+     * `remember` keeps the text as deleted so it never comes back through Bekleyenler.
+     *
+     * @param  list<int>  $ids
+     */
+    public static function deleteQueries(array $ids, bool $remember): int
+    {
+        $deleted = 0;
+        foreach (array_chunk(array_values(array_unique($ids)), self::CHUNK) as $chunk) {
+            DB::transaction(function () use ($chunk, $remember, &$deleted): void {
+                if ($remember) {
+                    $now = now();
+                    $rows = DB::table('queries')->whereIn('id', $chunk)->orderBy('id')->get(['text', 'text_hash'])
+                        ->map(fn (object $q): array => ['text' => $q->text, 'text_hash' => $q->text_hash, 'status' => PendingQuery::DELETED, 'created_at' => $now, 'updated_at' => $now])->all();
+                    if ($rows !== []) {
+                        DB::table('pending_queries')->upsert($rows, ['text_hash'], ['status', 'updated_at']);
+                    }
+                }
+                DB::table('cluster_queries')->whereIn('query_id', $chunk)->delete();
+                DB::table('brand_queries')->whereIn('query_id', $chunk)->delete();
+                DB::table('query_review_items')->whereIn('query_id', $chunk)->delete();
+                DB::table('clusters')->whereIn('main_query_id', $chunk)->update(['main_query_id' => null]);
+                DB::table('query_sources')->whereIn('query_id', $chunk)->update(['query_id' => null]);
+                $deleted += DB::table('queries')->whereIn('id', $chunk)->delete();
+            });
+        }
+
+        return $deleted;
+    }
+
+    /** @return array{sources: int, queries: int, created: int, deleted: int, assigned: int, pending: int, brand_queries: int} */
+    public function run(bool $import = false): array
     {
         $this->normalizer->forget();
         $this->matcher->forget();
+        $collectPending = ! $import && self::importedAt() !== null;
         $context = $this->resourceContext();
-        $stats = ['sources' => 0, 'queries' => 0, 'deleted' => 0, 'assigned' => 0, 'brand_queries' => 0];
-        $stats['sources'] = $this->linkSources($context);
-        [$stats['queries'], $stats['deleted'], $stats['assigned']] = $this->refreshQueries($context);
+        $stats = ['sources' => 0, 'queries' => 0, 'created' => 0, 'deleted' => 0, 'assigned' => 0, 'pending' => 0, 'brand_queries' => 0];
+        $pending = [];
+        [$stats['sources'], $stats['created']] = $this->linkSources($context, $import, $collectPending, $pending);
+        [$stats['queries'], $stats['deleted'], $stats['assigned']] = $this->refreshQueries($context, $import);
+        $stats['pending'] = $this->writePending($context, $pending);
         $stats['brand_queries'] = $this->brandQueries($context);
+        if ($import) {
+            self::markImported();
+        }
 
         return $stats;
     }
 
     /**
-     * Account → brand (bound) and sector (brand's, else the brand candidate's proposal).
+     * Account → brand, asset (bound) and sector (the asset's own sector, else its brand's, else the brand candidate's
+     * proposal).
      *
-     * @return array<int, array{brand: ?int, sector: ?int}>
+     * @return array<int, array{brand: ?int, asset: ?int, sector: ?int}>
      */
     private function resourceContext(): array
     {
@@ -61,9 +123,11 @@ final class QueryPipeline
             ->where('b.status', 'active')->whereNull('a.deleted_at')->whereNull('br.deleted_at')
             ->whereIn('b.external_resource_id', DB::table('query_sources')->select('external_resource_id')->distinct())
             ->orderBy('b.id')
-            ->get(['b.external_resource_id', 'br.id as brand_id', 'br.sector_id'])
+            ->get(['b.external_resource_id', 'br.id as brand_id', 'a.id as asset_id', DB::raw('coalesce(a.sector_id, br.sector_id) as sector_id')])
             ->each(function (object $row) use (&$context): void {
-                $context[(int) $row->external_resource_id] ??= ['brand' => (int) $row->brand_id, 'sector' => $row->sector_id !== null ? (int) $row->sector_id : null];
+                $context[(int) $row->external_resource_id] ??= [
+                    'brand' => (int) $row->brand_id, 'asset' => (int) $row->asset_id, 'sector' => $row->sector_id !== null ? (int) $row->sector_id : null,
+                ];
             });
         DB::table('brand_candidate_resources as r')
             ->join('brand_candidates as c', 'c.id', '=', 'r.brand_candidate_id')
@@ -73,7 +137,7 @@ final class QueryPipeline
             ->each(function (object $row) use (&$context): void {
                 $id = (int) $row->external_resource_id;
                 if (! isset($context[$id])) {
-                    $context[$id] = ['brand' => null, 'sector' => (int) $row->sector_id];
+                    $context[$id] = ['brand' => null, 'asset' => null, 'sector' => (int) $row->sector_id];
                 } elseif ($context[$id]['sector'] === null) {
                     $context[$id]['sector'] = (int) $row->sector_id;
                 }
@@ -82,38 +146,76 @@ final class QueryPipeline
         return $context;
     }
 
-    /** @param array<int, array{brand: ?int, sector: ?int}> $context */
-    private function linkSources(array $context): int
+    /**
+     * Links every raw row to its library query. Import: new clean texts of brand accounts become library queries.
+     * Afterwards: new texts of brand accounts are collected for Bekleyenler (hash => text, totals, main account).
+     *
+     * @param  array<int, array{brand: ?int, asset: ?int, sector: ?int}>  $context
+     * @param  array<string, array{text: string, impressions: int, clicks: int, resource: int, best: int}>  $pending
+     * @return array{0: int, 1: int} sources, created queries
+     */
+    private function linkSources(array $context, bool $import, bool $collectPending, array &$pending): array
     {
         $memo = [];
         $count = 0;
-        DB::table('query_sources')->select(['id', 'external_resource_id', 'raw_query', 'query_id'])
-            ->chunkById(self::CHUNK, function ($rows) use ($context, &$memo, &$count): void {
+        $created = 0;
+        DB::table('query_sources')->select(['id', 'external_resource_id', 'raw_query', 'query_id', 'impressions', 'clicks'])
+            ->chunkById(self::CHUNK, function ($rows) use ($context, $import, $collectPending, &$pending, &$memo, &$count, &$created): void {
                 $targets = [];
                 $texts = [];
+                $branded = [];
                 foreach ($rows as $row) {
-                    $sector = $context[(int) $row->external_resource_id]['sector'] ?? null;
-                    $key = ($sector ?? 0).'|'.$row->raw_query;
-                    if (! isset($memo[$key])) {
+                    $raw = (string) $row->raw_query;
+                    if (! isset($memo[$raw])) {
                         if (count($memo) >= self::MEMO_LIMIT) {
                             $memo = [];
                         }
-                        $memo[$key] = $this->normalizer->normalize((string) $row->raw_query, $sector);
+                        $memo[$raw] = $this->normalizer->normalize($raw);
                     }
-                    $text = $memo[$key];
+                    $text = $memo[$raw];
                     $hash = $text === '' ? null : QueryNormalizer::hash($text);
                     if ($hash !== null) {
                         $texts[$hash] = $text;
+                        if (($context[(int) $row->external_resource_id]['brand'] ?? null) !== null) {
+                            $branded[$hash][] = $row;
+                        }
                     }
                     $targets[(int) $row->id] = [$hash, $row->query_id !== null ? (int) $row->query_id : null];
                 }
-                $ids = [];
-                if ($texts !== []) {
+                $ids = $texts === [] ? [] : DB::table('queries')->whereIn('text_hash', array_keys($texts))->pluck('id', 'text_hash')->all();
+                $new = array_diff_key($branded, $ids);
+                if ($new !== [] && ($import || $collectPending)) {
+                    $blocked = array_flip(DB::table('pending_queries')->whereIn('text_hash', array_keys($new))
+                        ->where('status', '!=', PendingQuery::PENDING)->pluck('text_hash')->all());
+                    $new = array_diff_key($new, $blocked);
+                }
+                if ($import && $new !== []) {
                     $now = now();
-                    DB::table('queries')->insertOrIgnore(array_map(fn (string $hash): array => [
-                        'text' => $texts[$hash], 'text_hash' => $hash, 'created_at' => $now, 'updated_at' => $now,
-                    ], array_keys($texts)));
-                    $ids = DB::table('queries')->whereIn('text_hash', array_keys($texts))->pluck('id', 'text_hash')->all();
+                    $insert = [];
+                    foreach (array_keys($new) as $hash) {
+                        if ($this->normalizer->matchingTerm($texts[$hash]) === null) {
+                            $insert[] = ['text' => $texts[$hash], 'text_hash' => $hash, 'created_at' => $now, 'updated_at' => $now];
+                        }
+                    }
+                    if ($insert !== []) {
+                        $created += DB::table('queries')->insertOrIgnore($insert);
+                        $ids = DB::table('queries')->whereIn('text_hash', array_keys($texts))->pluck('id', 'text_hash')->all();
+                    }
+                } elseif ($collectPending) {
+                    foreach ($new as $hash => $sourceRows) {
+                        if (! isset($pending[$hash]) && count($pending) >= self::PENDING_LIMIT) {
+                            continue;
+                        }
+                        $entry = $pending[$hash] ?? ['text' => $texts[$hash], 'impressions' => 0, 'clicks' => 0, 'resource' => 0, 'best' => -1];
+                        foreach ($sourceRows as $row) {
+                            $entry['impressions'] += (int) $row->impressions;
+                            $entry['clicks'] += (int) $row->clicks;
+                            if ((int) $row->impressions > $entry['best']) {
+                                [$entry['resource'], $entry['best']] = [(int) $row->external_resource_id, (int) $row->impressions];
+                            }
+                        }
+                        $pending[$hash] = $entry;
+                    }
                 }
                 $groups = [];
                 foreach ($targets as $sourceId => [$hash, $current]) {
@@ -128,21 +230,64 @@ final class QueryPipeline
                 $count += count($rows);
             });
 
-        return $count;
+        return [$count, $created];
     }
 
     /**
-     * @param  array<int, array{brand: ?int, sector: ?int}>  $context
+     * Bekleyenler: new / still pending texts with totals, main account, suggested service and filter result. Dismissed
+     * and deleted texts are never touched.
+     *
+     * @param  array<int, array{brand: ?int, asset: ?int, sector: ?int}>  $context
+     * @param  array<string, array{text: string, impressions: int, clicks: int, resource: int, best: int}>  $pending
+     */
+    private function writePending(array $context, array $pending): int
+    {
+        $written = 0;
+        foreach (array_chunk($pending, self::CHUNK, true) as $chunk) {
+            $closed = array_flip(DB::table('pending_queries')->whereIn('text_hash', array_keys($chunk))
+                ->where('status', '!=', PendingQuery::PENDING)->pluck('text_hash')->all());
+            $now = now();
+            $rows = [];
+            foreach ($chunk as $hash => $entry) {
+                if (isset($closed[$hash])) {
+                    continue;
+                }
+                $account = $context[$entry['resource']] ?? ['brand' => null, 'asset' => null, 'sector' => null];
+                $rows[] = [
+                    'text' => $entry['text'], 'text_hash' => $hash, 'status' => PendingQuery::PENDING,
+                    'external_resource_id' => $entry['resource'], 'brand_id' => $account['brand'], 'digital_asset_id' => $account['asset'],
+                    'sector_id' => $account['sector'], 'service_id' => $this->matcher->match($entry['text'], $account['sector']),
+                    'filter_term' => $this->normalizer->matchingTerm($entry['text']),
+                    'impressions' => $entry['impressions'], 'clicks' => $entry['clicks'], 'created_at' => $now, 'updated_at' => $now,
+                ];
+            }
+            if ($rows !== []) {
+                DB::table('pending_queries')->upsert($rows, ['text_hash'], [
+                    'external_resource_id', 'brand_id', 'digital_asset_id', 'sector_id', 'service_id', 'filter_term', 'impressions', 'clicks', 'updated_at',
+                ]);
+                $written += count($rows);
+            }
+        }
+
+        return $written;
+    }
+
+    /**
+     * Totals and sector of every library query. Import only: queries containing a filter term and queries left
+     * without a source (unless AI-suggested) are deleted, services are assigned from the matching keywords (manual /
+     * locked-cluster assignments kept).
+     *
+     * @param  array<int, array{brand: ?int, asset: ?int, sector: ?int}>  $context
      * @return array{0: int, 1: int, 2: int}
      */
-    private function refreshQueries(array $context): array
+    private function refreshQueries(array $context, bool $import): array
     {
         $kept = 0;
         $deleted = 0;
         $assigned = 0;
         DB::table('queries')
             ->select(['id', 'text', 'sector_id', 'service_id', 'assignment', 'locked', 'is_suggested', 'impressions', 'clicks', 'ads_cost', 'ads_conversions', 'gbp_impressions', 'sources', 'first_seen_on', 'last_seen_on'])
-            ->chunkById(self::CHUNK, function ($rows) use ($context, &$kept, &$deleted, &$assigned): void {
+            ->chunkById(self::CHUNK, function ($rows) use ($context, $import, &$kept, &$deleted, &$assigned): void {
                 $ids = $rows->pluck('id')->all();
                 $totals = [];
                 DB::table('query_sources')->whereIn('query_id', $ids)->groupBy('query_id', 'source')
@@ -159,7 +304,7 @@ final class QueryPipeline
                             $weights[(int) $row->query_id][$sector] = ($weights[(int) $row->query_id][$sector] ?? 0) + (int) $row->weight;
                         }
                     });
-                $inLockedCluster = array_flip(DB::table('cluster_queries as cq')->join('clusters as c', 'c.id', '=', 'cq.cluster_id')
+                $inLockedCluster = ! $import ? [] : array_flip(DB::table('cluster_queries as cq')->join('clusters as c', 'c.id', '=', 'cq.cluster_id')
                     ->whereIn('cq.query_id', $ids)->where('c.locked', true)->pluck('cq.query_id')->map(fn ($id): int => (int) $id)->all());
 
                 $delete = [];
@@ -167,10 +312,13 @@ final class QueryPipeline
                 foreach ($rows as $row) {
                     $id = (int) $row->id;
                     $sources = $totals[$id] ?? [];
+                    if ($import && ($this->normalizer->matchingTerm((string) $row->text) !== null || ($sources === [] && ! (bool) $row->is_suggested))) {
+                        $delete[] = $id;
+
+                        continue;
+                    }
                     if ($sources === []) {
-                        if (! (bool) $row->is_suggested) {
-                            $delete[] = $id;
-                        }
+                        $kept++;
 
                         continue;
                     }
@@ -179,8 +327,8 @@ final class QueryPipeline
                     }
                     $values = $this->totals($sources);
                     $values['is_suggested'] = false;
-                    $values['sector_id'] = $this->dominantSector($weights[$id] ?? []);
-                    if (! (bool) $row->locked && ! isset($inLockedCluster[$id])) {
+                    $values['sector_id'] = $this->dominantSector($weights[$id] ?? []) ?? ($row->sector_id !== null ? (int) $row->sector_id : null);
+                    if ($import && ! (bool) $row->locked && ! isset($inLockedCluster[$id])) {
                         $service = $this->matcher->match((string) $row->text, $values['sector_id']);
                         $values['service_id'] = $service;
                         $values['assignment'] = $service === null ? 'none' : 'rule';
@@ -197,11 +345,10 @@ final class QueryPipeline
                     // A suggested query that got real data is no longer "önerilen" in its cluster either.
                     DB::table('cluster_queries')->whereIn('query_id', $real)->where('is_suggested', true)->update(['is_suggested' => false, 'updated_at' => now()]);
                 }
-                foreach (array_chunk($delete, self::CHUNK) as $chunk) {
-                    DB::table('queries')->whereIn('id', $chunk)->delete();
+                $deleted += self::deleteQueries($delete, remember: false);
+                if ($import) {
+                    self::dropForeignMemberships(array_values(array_diff($ids, $delete)));
                 }
-                $deleted += count($delete);
-                $this->dropForeignMemberships(array_values(array_diff($ids, $delete)));
             });
 
         return [$kept, $deleted, $assigned];
@@ -274,19 +421,18 @@ final class QueryPipeline
      *
      * @param  list<int>  $ids
      */
-    private function dropForeignMemberships(array $ids): void
+    public static function dropForeignMemberships(array $ids): void
     {
-        if ($ids === []) {
-            return;
-        }
-        $stale = DB::table('cluster_queries as cq')
-            ->join('clusters as c', 'c.id', '=', 'cq.cluster_id')
-            ->join('queries as q', 'q.id', '=', 'cq.query_id')
-            ->whereIn('cq.query_id', $ids)->where('c.locked', false)
-            ->where(fn ($q) => $q->whereNull('q.service_id')->orWhereColumn('q.service_id', '!=', 'c.service_id'))
-            ->pluck('cq.id')->all();
-        if ($stale !== []) {
-            DB::table('cluster_queries')->whereIn('id', $stale)->delete();
+        foreach (array_chunk($ids, self::CHUNK) as $chunk) {
+            $stale = DB::table('cluster_queries as cq')
+                ->join('clusters as c', 'c.id', '=', 'cq.cluster_id')
+                ->join('queries as q', 'q.id', '=', 'cq.query_id')
+                ->whereIn('cq.query_id', $chunk)->where('c.locked', false)
+                ->where(fn ($q) => $q->whereNull('q.service_id')->orWhereColumn('q.service_id', '!=', 'c.service_id'))
+                ->pluck('cq.id')->all();
+            if ($stale !== []) {
+                DB::table('cluster_queries')->whereIn('id', $stale)->delete();
+            }
         }
     }
 

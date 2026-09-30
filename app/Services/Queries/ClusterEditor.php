@@ -130,9 +130,9 @@ final class ClusterEditor
      */
     public function addQuery(Cluster $cluster, string $text, bool $confirmed = false): int
     {
-        $normalized = $this->normalizer->normalize($text, (int) $cluster->sector_id);
+        $normalized = $this->normalizer->normalize($text);
         if (mb_strlen($normalized) < 2) {
-            throw ValidationException::withMessages(['addQueryText' => 'Sorgu yazın (filtre sepetinden sonra en az 2 karakter).']);
+            throw ValidationException::withMessages(['addQueryText' => 'Sorgu yazın (en az 2 karakter).']);
         }
         $this->guard($cluster, $confirmed);
 

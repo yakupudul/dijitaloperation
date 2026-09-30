@@ -180,7 +180,7 @@ final class ContentPlanner
             $members = array_map(fn (int $id): array => ['cluster_id' => $cluster->id, 'query_id' => $id, 'is_suggested' => false, 'created_at' => $now, 'updated_at' => $now], $free);
             $normalizer = app(QueryNormalizer::class);
             foreach ((array) ($action['new_queries'] ?? []) as $text) {
-                $normalized = $normalizer->normalize((string) $text, (int) $brand->sector_id);
+                $normalized = $normalizer->normalize((string) $text);
                 $hash = QueryNormalizer::hash($normalized);
                 if (mb_strlen($normalized) < 3 || Query::query()->where('text_hash', $hash)->exists()) {
                     continue;

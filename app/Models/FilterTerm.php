@@ -6,8 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Filter basket: a plain list of words / phrases removed from queries (brand names, locations, whatever the operator or AI
- * adds). sector_id null = global; otherwise the term applies to that sector only.
+ * Filter basket: a NEGATIVE list (like Google Ads negatives) — a query containing a term is deleted entirely, never
+ * stripped. Organised per sector (sector_id null = general) but every term applies to every query.
  */
 class FilterTerm extends Model
 {

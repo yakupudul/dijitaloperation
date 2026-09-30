@@ -46,7 +46,7 @@ class Dashboard extends Component
     private function rows(): array
     {
         try {
-            $brands = Brand::query()->operational()->with(['customer', 'sectorCategory', 'digitalAssets' => fn ($q) => $q->orderBy('type')->orderBy('name')])
+            $brands = Brand::query()->operational()->with(['customer', 'sectorCategory', 'digitalAssets' => fn ($q) => $q->orderBy('type')->orderBy('name'), 'digitalAssets.ownSector:id,name'])
                 ->withCount([
                     'offerings as services_count' => fn ($q) => $q->where('status', OfferingStatus::Active->value),
                     'serviceAreas as areas_count' => fn ($q) => $q->where('status', 'active'),
@@ -65,6 +65,7 @@ class Dashboard extends Component
                     'type' => BrandCandidateBuilder::typeLabel((string) $asset->type),
                     'name' => (string) $asset->name,
                     'last' => $statuses[(int) $asset->id] ?? null,
+                    'sector' => $asset->sector_id !== null ? $asset->ownSector?->name : null,
                 ])->all(),
                 'suggestions' => null,
             ])->all();

@@ -4,7 +4,7 @@ namespace Tests\Feature\Queries;
 
 use App\Ai\Agents\QueryClusterAgent;
 use App\Ai\Agents\QueryRulesAgent;
-use App\Jobs\Queries\ProcessQueriesJob;
+use App\Jobs\Queries\RescanQueriesJob;
 use App\Livewire\Operator\Library\QueriesPage;
 use App\Models\Brand;
 use App\Models\Cluster;
@@ -16,6 +16,8 @@ use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\FilterTerm;
 use App\Models\Query;
+use App\Models\QueryReview;
+use App\Models\QueryReviewItem;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Models\ServiceMatchingKeyword;
@@ -76,7 +78,8 @@ final class QueriesScreenTest extends TestCase
         $cluster = Cluster::query()->create(['sector_id' => $this->dental->id, 'service_id' => $this->implant->id, 'name' => 'İmplant fiyatı', 'intent' => 'commercial', 'page_type' => 'service']);
         ClusterQuery::query()->create(['cluster_id' => $cluster->id, 'query_id' => $this->queryId('implant fiyatları')]);
 
-        $this->get(route('operator.library.queries'))->assertOk()->assertSee('implant fiyatları')->assertSee('atanmamış');
+        $this->get(route('operator.library.queries'))->assertOk()->assertSee('implant fiyatları')->assertSee('atanmamış')
+            ->assertSee('AI ile planla')->assertSee('Bekleyenler')->assertSee('Filtreye ekle');
 
         Livewire::test(QueriesPage::class)
             ->set('service', '__none')->assertSee('diş taşı temizliği')->assertDontSee('implant fiyatları')
@@ -84,6 +87,7 @@ final class QueriesScreenTest extends TestCase
             ->set('cluster', '__none')->assertDontSee('implant fiyatları')
             ->set('cluster', '')->set('search', 'FİYAT')->assertSee('implant fiyatları')
             ->call('setTab', 'clusters')->assertSee('İmplant fiyatı')->assertSee('ticari')->assertSee('hizmet')
+            ->call('setTab', 'pending')->assertSee('Bekleyen sorgu yok')
             ->call('setTab', 'filters')->assertSee('Sepet boş')
             ->call('setTab', 'keywords')->assertSee('Sektör seçin')
             ->set('sector', (string) $this->dental->id)->assertSee('Zirkonyum Kaplama')->assertSee('implant');
@@ -110,7 +114,7 @@ final class QueriesScreenTest extends TestCase
         $this->assertSame($this->zirkonyum->id, Query::query()->find($ids[0])->service_id);
     }
 
-    public function test_ai_rules_are_validated_approved_and_all_queries_reprocessed(): void
+    public function test_ai_rules_are_validated_approved_and_start_a_rescan_review(): void
     {
         $this->enableAi();
         $this->sources(['implant etimesgut' => 40, 'implant' => 60, 'zirkonyum diş' => 10, 'implant ağrısı' => 5]);
@@ -145,20 +149,22 @@ final class QueriesScreenTest extends TestCase
 
         $this->assertCount(1, $prompts);
         $this->assertStringContainsString('implant etimesgut', $prompts[0]);
-        $this->assertStringNotContainsString('implant ağrısı', $prompts[0], 'only selected queries are sent');
+        $data = json_decode(substr($prompts[0], strlen("DATA_JSON\n")), true);
+        $this->assertSame(['implant etimesgut', 'zirkonyum diş'], array_column($data['queries'], 'text'), 'only selected queries are sent');
+        $this->assertContains('implant ağrısı', $data['library_sample'], 'the good library queries go as a sample');
 
         $page->set('pickTerms', [0 => true])->set('pickKeywords', [0 => true, 1 => true])->call('approveRules')
-            ->assertSet('rulesOpen', false)->assertSee('1 filtre terimi · 2 eşleme kelimesi');
+            ->assertSet('rulesOpen', false)->assertSee('1 filtre terimi · 2 eşleme kelimesi')->assertSee('tarama başladı');
 
         $this->assertSame('ai', FilterTerm::query()->where('term', 'etimesgut')->value('source'));
         $this->assertSame(['implant'], $this->implant->matchingKeywords()->pluck('normalized_key')->all());
         $this->assertSame(['zirkonyum'], $this->zirkonyum->matchingKeywords()->pluck('normalized_key')->all());
-        $this->assertFalse(Query::query()->where('text', 'implant etimesgut')->exists(), 'reprocessed: merged into "implant"');
-        $implant = Query::query()->where('text', 'implant')->sole();
-        $this->assertSame(100, $implant->impressions);
-        $this->assertSame($this->implant->id, $implant->service_id);
-        $this->assertSame($this->zirkonyum->id, Query::query()->where('text', 'zirkonyum diş')->value('service_id'));
-        $this->assertSame($this->zirkonyum->id, Query::query()->find($locked)->service_id, 'locked assignment kept');
+        $this->assertTrue(Query::query()->where('text', 'implant etimesgut')->exists(), 'nothing is deleted before the review is approved');
+        $this->assertNull(Query::query()->where('text', 'implant')->value('service_id'), 'nothing is reassigned before approval');
+        $review = QueryReview::query()->sole();
+        $this->assertSame([QueryReview::READY, 1, 2], [$review->status, $review->deletions, $review->changes]);
+        $this->assertSame('etimesgut', $review->items()->where('kind', QueryReviewItem::DELETE)->sole()->term);
+        $this->assertFalse($review->items()->where('query_id', $locked)->exists(), 'locked assignment is not proposed');
     }
 
     public function test_ai_clustering_creates_clusters_flags_suggested_queries_and_keeps_locked_clusters_on_rerun(): void
@@ -265,11 +271,13 @@ final class QueriesScreenTest extends TestCase
         $this->sources(['implant kızılay' => 10]);
 
         $page = Livewire::test(QueriesPage::class)->call('setTab', 'filters')
-            ->set('termText', 'Kızılay')->call('addTerm')->assertSee('kızılay')
+            ->set('termText', 'Kızılay')->call('addTerm')->assertSee('kızılay')->assertSee('tarama başladı')
             ->set('termText', 'Panorama')->set('termSector', (string) $this->dental->id)->call('addTerm')->assertSee('Diş sağlığı')
             ->set('termText', 'kızılay')->set('termSector', '')->call('addTerm')->assertHasErrors('termText');
-        $this->assertSame(['implant'], Query::query()->pluck('text')->all(), 'basket change reprocesses queries');
+        $this->assertSame(['implant kızılay'], Query::query()->pluck('text')->all(), 'a basket change never deletes before approval');
+        $this->assertSame('kızılay', QueryReview::query()->sole()->items()->where('kind', QueryReviewItem::DELETE)->sole()->term);
         $this->assertSame($this->dental->id, FilterTerm::query()->where('term', 'panorama')->value('sector_id'));
+        $page->set('sector', (string) $this->dental->id)->assertSee('panorama')->assertDontSee('kızılay', false);
 
         $page->call('deleteTerm', FilterTerm::query()->where('term', 'kızılay')->value('id'));
         $this->assertSame(['implant kızılay'], Query::query()->pluck('text')->all());
@@ -281,7 +289,9 @@ final class QueriesScreenTest extends TestCase
         $this->assertTrue($this->zirkonyum->matchingKeywords()->where('normalized_key', 'zirkonyum')->exists());
 
         $page->call('deleteKeyword', ServiceMatchingKeyword::query()->where('normalized_key', 'implant')->value('id'));
-        $this->assertNull(Query::query()->sole()->service_id, 'keyword removed → reprocessed, unassigned');
+        $this->assertSame($this->implant->id, Query::query()->sole()->service_id, 'keyword removed → review first, no silent reassignment');
+        $change = QueryReview::query()->sole()->items()->where('kind', QueryReviewItem::SERVICE)->sole();
+        $this->assertSame([$this->implant->id, null], [$change->from_service_id, $change->to_service_id]);
     }
 
     public function test_hidden_queries_are_listed_under_gizlenenler_and_can_be_restored(): void
@@ -304,11 +314,11 @@ final class QueriesScreenTest extends TestCase
         Cache::put(QueryRuleProposer::cacheKey($this->admin->id), ['status' => 'ready', 'terms' => [['term' => 'etimesgut', 'sector_id' => null, 'sector' => null, 'reason' => 'x']], 'keywords' => []], now()->addHour());
 
         Livewire::test(QueriesPage::class)->set('rulesOpen', true)->call('approveRules')->assertSee('Hiçbir öneri seçilmedi')->assertSet('rulesOpen', true);
-        Queue::assertNotPushed(ProcessQueriesJob::class);
+        Queue::assertNotPushed(RescanQueriesJob::class);
 
         FilterTerm::query()->create(['sector_id' => null, 'term' => 'etimesgut']);
         Livewire::test(QueriesPage::class)->set('rulesOpen', true)->set('pickTerms', [0 => true])->call('approveRules')->assertSee('zaten kayıtlı');
-        Queue::assertNotPushed(ProcessQueriesJob::class);
+        Queue::assertNotPushed(RescanQueriesJob::class);
     }
 
     public function test_keywords_of_services_without_a_sector_are_global(): void
@@ -354,7 +364,7 @@ final class QueriesScreenTest extends TestCase
                 'impressions' => $impressions, 'clicks' => 1, 'created_at' => now(), 'updated_at' => now(),
             ]);
         }
-        app(QueryPipeline::class)->run();
+        app(QueryPipeline::class)->run(import: true);
     }
 
     private function queryId(string $text): int

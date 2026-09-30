@@ -38,6 +38,7 @@ use Illuminate\Validation\ValidationException;
     'seo_market_language_name',
     'site_type',
     'hosting_context',
+    'sector_id',
 ])]
 class DigitalAsset extends Model
 {
@@ -52,10 +53,27 @@ class DigitalAsset extends Model
         return $this->belongsTo(Brand::class);
     }
 
-    /** v2: an asset has no sector of its own; it inherits its brand's (`brands.sector_id`). */
+    /**
+     * The asset's own sector override (`digital_assets.sector_id`); null = inherits the brand's.
+     *
+     * @return BelongsTo<ServiceCategory, $this>
+     */
+    public function ownSector(): BelongsTo
+    {
+        return $this->belongsTo(ServiceCategory::class, 'sector_id');
+    }
+
+    /** Effective sector: the asset's own override, else its brand's (`brands.sector_id`). */
     public function sector(): ?ServiceCategory
     {
-        return $this->brand?->sectorCategory;
+        return ($this->sector_id !== null ? $this->ownSector : null) ?? $this->brand?->sectorCategory;
+    }
+
+    public function sectorId(): ?int
+    {
+        $id = $this->sector()?->id;
+
+        return $id !== null ? (int) $id : null;
     }
 
     /**

@@ -6,16 +6,17 @@ use App\Models\FilterTerm;
 use App\Services\SeoTasks\SeoText;
 
 /**
- * Normalized query text: Turkish-aware lowercase, filter basket terms (global + the query's sector) removed as whole
- * words — Turkish suffixes on the removed word are tolerated ("çankayada", "ankara'da") — punctuation around words
- * dropped, single spaces. Empty result = the query is dropped.
+ * Normalized query text: Turkish-aware lowercase, punctuation around words dropped, single spaces (one library record
+ * per normalized text). The filter basket is a NEGATIVE list (like Google Ads negatives): a query that CONTAINS a
+ * filter term — whole words, Turkish suffixes tolerated ("çankayada", "ankara'da") — is deleted entirely; the term is
+ * never stripped out of the query. Every term of every sector applies to every query.
  */
 final class QueryNormalizer
 {
     public const int MAX_LENGTH = 500;
 
-    /** @var array<string, array<string, list<list<string>>>> sector key => first 3 folded chars => term token lists */
-    private array $terms = [];
+    /** @var array<string, list<array{term: string, tokens: list<string>}>>|null first 3 folded chars => terms */
+    private ?array $terms = null;
 
     public static function lower(string $text): string
     {
@@ -27,73 +28,62 @@ final class QueryNormalizer
         return hash('sha256', $normalized);
     }
 
-    public function normalize(string $raw, ?int $sectorId): string
+    public function normalize(string $raw): string
     {
-        $index = $this->terms($sectorId);
         $tokens = [];
-        $folded = [];
         foreach (preg_split('/\s+/u', self::lower($raw), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $token) {
             $token = preg_replace('/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/u', '', $token) ?? '';
-            if ($token === '') {
-                continue;
+            if ($token !== '') {
+                $tokens[] = $token;
             }
-            $tokens[] = $token;
-            $folded[] = str_replace(' ', '', SeoText::fold($token));
-        }
-        $kept = [];
-        for ($i = 0, $count = count($tokens); $i < $count;) {
-            $length = self::matchAt($folded, $i, $index);
-            if ($length > 0) {
-                $i += $length;
-
-                continue;
-            }
-            $kept[] = $tokens[$i];
-            $i++;
         }
 
-        return mb_substr(implode(' ', $kept), 0, self::MAX_LENGTH);
+        return mb_substr(implode(' ', $tokens), 0, self::MAX_LENGTH);
+    }
+
+    /** The first filter term (any sector) the text contains, or null (temiz). */
+    public function matchingTerm(string $text): ?string
+    {
+        $this->terms ??= self::index(FilterTerm::query()->orderBy('id')->pluck('term')->all());
+
+        return self::firstMatch($text, $this->terms);
     }
 
     /** Whether a filter term (whole words, suffix tolerant) occurs in the text. */
     public static function containsTerm(string $text, string $term): bool
     {
-        $index = self::index([$term]);
-        $folded = array_values(array_filter(array_map(
-            fn (string $token): string => str_replace(' ', '', SeoText::fold($token)),
-            preg_split('/\s+/u', self::lower($text), -1, PREG_SPLIT_NO_EMPTY) ?: [],
-        ), fn (string $token): bool => $token !== ''));
-        foreach (array_keys($folded) as $i) {
-            if (self::matchAt($folded, $i, $index) > 0) {
-                return true;
-            }
-        }
-
-        return false;
+        return self::firstMatch($text, self::index([$term])) !== null;
     }
 
     /** Filter terms changed: rebuild on next use. */
     public function forget(): void
     {
-        $this->terms = [];
+        $this->terms = null;
     }
 
-    /** @return array<string, list<list<string>>> */
-    private function terms(?int $sectorId): array
+    /** @param array<string, list<array{term: string, tokens: list<string>}>> $index */
+    private static function firstMatch(string $text, array $index): ?string
     {
-        $key = (string) ($sectorId ?? 0);
-        if (! isset($this->terms[$key])) {
-            $this->terms[$key] = self::index(FilterTerm::query()
-                ->where(fn ($q) => $sectorId === null ? $q->whereNull('sector_id') : $q->whereNull('sector_id')->orWhere('sector_id', $sectorId))
-                ->pluck('term')->all());
+        if ($index === []) {
+            return null;
+        }
+        $folded = array_values(array_filter(array_map(
+            fn (string $token): string => str_replace(' ', '', SeoText::fold($token)),
+            preg_split('/\s+/u', self::lower($text), -1, PREG_SPLIT_NO_EMPTY) ?: [],
+        ), fn (string $token): bool => $token !== ''));
+        foreach (array_keys($folded) as $i) {
+            $term = self::matchAt($folded, $i, $index);
+            if ($term !== null) {
+                return $term;
+            }
         }
 
-        return $this->terms[$key];
+        return null;
     }
 
     /**
      * @param  list<string>  $terms
-     * @return array<string, list<list<string>>>
+     * @return array<string, list<array{term: string, tokens: list<string>}>>
      */
     private static function index(array $terms): array
     {
@@ -101,41 +91,38 @@ final class QueryNormalizer
         foreach ($terms as $term) {
             $tokens = array_values(array_filter(explode(' ', SeoText::fold((string) $term)), fn (string $t): bool => $t !== ''));
             if ($tokens !== []) {
-                $index[substr($tokens[0], 0, 3)][] = $tokens;
+                $index[substr($tokens[0], 0, 3)][] = ['term' => (string) $term, 'tokens' => $tokens];
             }
-        }
-        foreach ($index as &$list) {
-            usort($list, fn (array $a, array $b): int => count($b) <=> count($a));
         }
 
         return $index;
     }
 
     /**
-     * Number of tokens a filter term covers at position $i (0 = none). Longest term first.
+     * The filter term that covers the tokens starting at position $i, or null.
      *
      * @param  list<string>  $folded
-     * @param  array<string, list<list<string>>>  $index
+     * @param  array<string, list<array{term: string, tokens: list<string>}>>  $index
      */
-    private static function matchAt(array $folded, int $i, array $index): int
+    private static function matchAt(array $folded, int $i, array $index): ?string
     {
-        foreach ($index[substr($folded[$i], 0, 3)] ?? [] as $term) {
-            $length = count($term);
+        foreach ($index[substr($folded[$i], 0, 3)] ?? [] as $entry) {
+            $length = count($entry['tokens']);
             if ($i + $length > count($folded)) {
                 continue;
             }
             $all = true;
-            foreach ($term as $j => $stem) {
+            foreach ($entry['tokens'] as $j => $stem) {
                 if (! SeoText::wordMatches($folded[$i + $j], $stem)) {
                     $all = false;
                     break;
                 }
             }
             if ($all) {
-                return $length;
+                return $entry['term'];
             }
         }
 
-        return 0;
+        return null;
     }
 }

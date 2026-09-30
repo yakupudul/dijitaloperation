@@ -3,7 +3,7 @@
 namespace App\Services\Queries;
 
 use App\Ai\Agents\QueryRulesAgent;
-use App\Jobs\Queries\ProcessQueriesJob;
+use App\Jobs\Queries\RescanQueriesJob;
 use App\Models\FilterTerm;
 use App\Models\Query;
 use App\Models\ServiceCatalogItem;
@@ -19,15 +19,19 @@ use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * "AI ile kural üret": selected queries → ONE AI call → proposed filter basket terms + matching keywords per service,
- * each checked against the selected queries (must occur), the given sectors / services and the existing rules. The
- * proposal waits (per operator) until approved; approval saves the ticked items and reprocesses ALL queries.
+ * "AI ile kural üret" / "Filtreye ekle › AI ile düzenle": selected queries → ONE AI call → proposed negative filter
+ * terms (a query containing one is deleted) + matching keywords per service, each checked against the selected
+ * queries (must occur), the given sectors / services and the existing rules. The proposal waits (per operator) until
+ * approved; approval saves the ticked items and starts a rescan whose result the operator approves (nothing is
+ * deleted or reassigned before that).
  */
 final class QueryRuleProposer
 {
     public const int MAX_QUERIES = 200;
 
     private const int MAX_ITEMS = 60;
+
+    private const int SAMPLE = 300;
 
     public function __construct(
         private readonly AiRouteResolver $routes,
@@ -46,6 +50,26 @@ final class QueryRuleProposer
         $value = Cache::get(self::cacheKey($userId));
 
         return is_array($value) ? $value : null;
+    }
+
+    /**
+     * Library queries (outside $excludeIds) a filter term would delete: count + the 3 with most impressions.
+     *
+     * @param  list<int>  $excludeIds
+     * @return array{count: int, examples: list<string>}
+     */
+    public static function catches(string $term, array $excludeIds): array
+    {
+        $first = (string) (explode(' ', trim(QueryNormalizer::lower($term)))[0] ?? '');
+        $needle = str_replace(['%', '_', '\\'], '', mb_substr($first, 0, 4));
+        if (mb_strlen($needle) < 2) {
+            return ['count' => 0, 'examples' => []];
+        }
+        $texts = Query::query()->where('text', 'like', '%'.$needle.'%')->whereNotIn('id', $excludeIds ?: [0])
+            ->orderByDesc('impressions')->orderBy('id')->limit(5000)->pluck('text')
+            ->filter(fn ($text): bool => QueryNormalizer::containsTerm((string) $text, $term))->values();
+
+        return ['count' => $texts->count(), 'examples' => $texts->take(3)->map(fn ($t): string => (string) $t)->all()];
     }
 
     public static function markRunning(int $userId): void
@@ -85,13 +109,14 @@ final class QueryRuleProposer
             $structured = (new QueryRulesAgent)->prompt(
                 "DATA_JSON\n".json_encode([
                     'queries' => $queries->map(fn (Query $q): array => ['id' => (int) $q->id, 'text' => (string) $q->text, 'sector_id' => $q->sector_id, 'service' => $q->service?->primaryName?->raw_label])->values()->all(),
+                    'library_sample' => Query::query()->whereNotIn('id', $queries->pluck('id'))->where('hidden', false)->where('is_suggested', false)
+                        ->orderByDesc('impressions')->orderBy('id')->limit(self::SAMPLE)->pluck('text')->all(),
                     'sectors' => $sectors->map(fn (ServiceCategory $s): array => ['id' => (int) $s->id, 'name' => (string) $s->name])->values()->all(),
                     'services' => $services->map(fn (ServiceCatalogItem $item): array => [
                         'id' => (int) $item->id, 'sector_id' => $sectorByCode[$item->sector] ?? null, 'name' => (string) $item->primaryName->raw_label,
                         'keywords' => $item->matchingKeywords->pluck('label')->take(30)->values()->all(),
                     ])->values()->all(),
-                    'filter_terms' => FilterTerm::query()->where(fn ($q) => $q->whereNull('sector_id')->orWhereIn('sector_id', $sectorIds))
-                        ->limit(500)->get(['term', 'sector_id'])->map(fn (FilterTerm $t): array => ['term' => $t->term, 'sector_id' => $t->sector_id])->all(),
+                    'filter_terms' => FilterTerm::query()->orderBy('id')->limit(500)->get(['term', 'sector_id'])->map(fn (FilterTerm $t): array => ['term' => $t->term, 'sector_id' => $t->sector_id])->all(),
                 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
                 provider: $route->providerModels,
                 timeout: 180,
@@ -148,7 +173,7 @@ final class QueryRuleProposer
             }
         }
         if ($saved['terms'] + $saved['keywords'] > 0) {
-            ProcessQueriesJob::dispatch();
+            RescanQueriesJob::dispatch((int) $actor->id);
         }
 
         return $saved;
@@ -170,11 +195,11 @@ final class QueryRuleProposer
             if (mb_strlen($term) < 2 || mb_strlen($term) > 100 || ($sectorId !== null && ! isset($sectorNames[$sectorId]))) {
                 continue;
             }
-            $key = ($sectorId ?? 0).'|'.SeoText::fold($term);
+            $key = SeoText::fold($term);
             if (isset($seen[$key]) || ! $this->occurs($texts, fn (string $text): bool => QueryNormalizer::containsTerm($text, $term))) {
                 continue;
             }
-            if (FilterTerm::query()->where('term', $term)->where(fn ($q) => $q->whereNull('sector_id')->when($sectorId !== null, fn ($q) => $q->orWhere('sector_id', $sectorId)))->exists()) {
+            if (FilterTerm::query()->where('term', $term)->exists()) {
                 continue;
             }
             $seen[$key] = true;

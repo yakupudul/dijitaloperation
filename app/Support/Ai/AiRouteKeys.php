@@ -110,6 +110,15 @@ final class AiRouteKeys
     /** Faz 3 "AI ile kümele": one service's queries → clusters (same user need on the same page type), one call. */
     public const string QUERIES_CLUSTER = 'queries.cluster';
 
+    /** "AI ile planla" adım 1: sectors of brands without one (+ clearly different asset sectors), one batched call. */
+    public const string QUERIES_PLAN_SECTORS = 'queries.plan_sectors';
+
+    /** "AI ile planla" adım 2: missing services + matching keyword fixes of the used sectors, one batched call. */
+    public const string QUERIES_PLAN_SERVICES = 'queries.plan_services';
+
+    /** "AI ile planla" adım 3: negative filter terms per used sector, one batched call. */
+    public const string QUERIES_PLAN_FILTERS = 'queries.plan_filters';
+
     /** Faz 4b Rakipler: SERP result domains the rules could not place → ticari / bilgi / dizin / haber (batched). */
     public const string COMPETITORS_CLASSIFY = 'competitors.classify';
 

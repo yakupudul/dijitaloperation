@@ -6,13 +6,14 @@
     $chip = 'rounded-full px-2 py-0.5 text-xs';
     $num = fn ($value) => number_format((float) $value, 0, ',', '.');
 @endphp
-<div class="space-y-4 text-sm dark:text-gray-200" data-queries-page @if ($polling) wire:poll.3s @endif>
+<div class="space-y-4 text-sm dark:text-gray-200" data-queries-page @if ($polling) wire:poll.3s="{{ $negAwaiting ? 'pollNegatives' : '$refresh' }}" @endif>
     <header class="flex flex-wrap items-center justify-between gap-3">
         <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Sorgular</h1>
-        <nav class="flex flex-wrap gap-1" aria-label="Sekmeler">
+        <nav class="flex flex-wrap items-center gap-1" aria-label="Sekmeler">
             @foreach (\App\Livewire\Operator\Library\QueriesPage::TABS as $key => $label)
-                <button type="button" wire:click="setTab('{{ $key }}')" data-tab="{{ $key }}" @class(['rounded-lg px-3 py-1.5 text-xs font-semibold', 'bg-brand-500 text-white' => $tab === $key, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $tab !== $key])>{{ $label }}</button>
+                <button type="button" wire:click="setTab('{{ $key }}')" data-tab="{{ $key }}" @class(['rounded-lg px-3 py-1.5 text-xs font-semibold', 'bg-brand-500 text-white' => $tab === $key, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $tab !== $key])>{{ $label }}@if ($key === 'pending' && $pendingCount > 0) <span class="ml-1 rounded-full bg-rose-500 px-1.5 text-[10px] text-white" data-pending-count>{{ $pendingCount }}</span>@endif</button>
             @endforeach
+            <a href="{{ route('operator.library.queries.plan') }}" wire:navigate class="{{ $btn }} ml-2">AI ile planla</a>
         </nav>
     </header>
 
@@ -28,7 +29,7 @@
             <option value="">Tüm sektörler</option>
             @foreach ($sectors as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
         </select>
-        @if ($tab !== 'filters' && $tab !== 'keywords')
+        @if (! in_array($tab, ['filters', 'keywords', 'pending'], true))
             <select wire:model.live="service" aria-label="Hizmet" class="{{ $input }}">
                 <option value="">Tüm hizmetler</option>
                 @if ($tab === 'queries')<option value="__none">Atanmamış</option>@endif
@@ -67,6 +68,7 @@
                 @else
                     <button type="button" wire:click="hideSelected" wire:confirm="Seçili sorgular gizlensin mi?" @disabled($selected === []) class="{{ $ghost }}">Sil</button>
                 @endif
+                <button type="button" wire:click="openNegatives" @disabled($selected === []) class="{{ $ghost }}">Filtreye ekle</button>
                 <button type="button" wire:click="proposeRules" @disabled($selected === []) class="{{ $btn }}">AI ile filtre kural üret</button>
             </div>
             <div class="overflow-x-auto">
@@ -102,6 +104,37 @@
                 </table>
             </div>
             <div class="mt-2">{{ $queries->links() }}</div>
+        </section>
+    @endif
+
+    {{-- Bekleyenler --}}
+    @if ($tab === 'pending')
+        <section class="{{ $card }}" data-section="pending">
+            <div class="mb-2 flex flex-wrap items-center gap-2">
+                <span class="text-xs text-gray-500">{{ $num($pending->total()) }} bekleyen sorgu</span>
+                <button type="button" wire:click="importPending" class="{{ $btn }} ml-auto">Seçilenleri içe aktar</button>
+                <button type="button" wire:click="dismissPending" wire:confirm="Seçilen sorgular yoksayılsın mı?" class="{{ $ghost }}">Yoksay</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead class="text-gray-500"><tr><th class="w-6 py-1"></th><th>Hesap</th><th>Sorgu</th><th>Önerilen hizmet</th><th>Filtre</th><th class="text-right">Gösterim</th></tr></thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @forelse ($pending as $row)
+                            <tr wire:key="p-{{ $row->id }}">
+                                <td class="py-1"><input type="checkbox" wire:click="togglePending({{ $row->id }})" @checked(($row->filter_term === null) !== in_array((int) $row->id, array_map('intval', $pendingFlip), true)) aria-label="Seç"></td>
+                                <td class="text-gray-600 dark:text-gray-400">{{ $row->brand?->name ?? '—' }} · {{ $row->asset?->name ?? '—' }}</td>
+                                <td class="font-medium">{{ $row->text }}</td>
+                                <td>{{ $row->service?->primaryName?->raw_label ?? '—' }}</td>
+                                <td>@if ($row->filter_term !== null)<span class="{{ $chip }} bg-rose-50 text-rose-700 dark:bg-rose-500/10">silinecek · {{ $row->filter_term }}</span>@else<span class="{{ $chip }} bg-success-50 text-success-700 dark:bg-success-500/10">temiz</span>@endif</td>
+                                <td class="text-right tabular-nums">{{ $num($row->impressions) }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="6" class="py-3 text-gray-500">Bekleyen sorgu yok.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-2">{{ $pending->links() }}</div>
         </section>
     @endif
 
@@ -319,6 +352,36 @@
         </section>
     @endif
 
+    {{-- Filtreye ekle --}}
+    @if ($negOpen)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" data-negative-modal role="dialog" aria-label="Filtreye ekle">
+            <div class="max-h-[85vh] w-full max-w-2xl space-y-3 overflow-y-auto rounded-xl bg-white p-4 dark:bg-gray-900">
+                <div class="flex items-center justify-between">
+                    <h2 class="font-semibold">Filtreye ekle <span class="font-normal text-gray-500">· içeren sorgu silinir</span></h2>
+                    <button type="button" wire:click="closeNegatives" aria-label="Kapat" class="px-2 text-lg">×</button>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <select wire:model="negSector" aria-label="Sektör" class="{{ $input }} py-1 text-xs">
+                        <option value="">Genel</option>
+                        @foreach ($sectors as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
+                    </select>
+                    <button type="button" wire:click="aiNegatives" @disabled($negAwaiting) class="{{ $ghost }}">AI ile düzenle</button>
+                    @if ($negAwaiting)<span class="text-xs text-gray-500">AI çalışıyor…</span>@endif
+                </div>
+                <textarea wire:model.blur="negText" rows="6" aria-label="Terimler (satır başına bir)" class="{{ $input }} w-full text-xs"></textarea>
+                <ul class="space-y-1 text-xs" data-negative-catches>
+                    @foreach ($negCatches as $term => $catch)
+                        <li><span class="font-medium">{{ $term }}</span> <span class="text-gray-500">· başka {{ $catch['count'] }} sorgu{{ $catch['examples'] !== [] ? ': '.implode(', ', $catch['examples']) : '' }}</span></li>
+                    @endforeach
+                </ul>
+                <div class="flex justify-end gap-2">
+                    <button type="button" wire:click="closeNegatives" class="{{ $ghost }}">Vazgeç</button>
+                    <button type="button" wire:click="saveNegatives" class="{{ $btn }}">Kaydet</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
     {{-- AI ile kural üret --}}
     @if ($rulesOpen)
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" data-rules-modal role="dialog" aria-label="AI kural önerisi">
@@ -353,7 +416,7 @@
                     </ul>
                     <div class="mt-4 flex justify-end gap-2">
                         <button type="button" wire:click="closeRules" class="{{ $ghost }}">Vazgeç</button>
-                        <button type="button" wire:click="approveRules" class="{{ $btn }}">Seçilenleri kaydet ve yeniden işle</button>
+                        <button type="button" wire:click="approveRules" class="{{ $btn }}">Seçilenleri kaydet ve tara</button>
                     </div>
                 @endif
             </div>

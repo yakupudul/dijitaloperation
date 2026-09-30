@@ -52,7 +52,7 @@
                     @if ($row['assets'] !== [])
                         <div class="flex flex-wrap gap-2 text-xs text-gray-500">
                             @foreach ($row['assets'] as $asset)
-                                <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">{{ $asset['type'] }} · {{ $asset['last'] ?? '—' }}</span>
+                                <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">{{ $asset['type'] }}{{ ($asset['sector'] ?? null) ? ' ('.$asset['sector'].')' : '' }} · {{ $asset['last'] ?? '—' }}</span>
                             @endforeach
                         </div>
                     @endif

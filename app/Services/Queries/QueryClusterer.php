@@ -5,6 +5,7 @@ namespace App\Services\Queries;
 use App\Ai\Agents\QueryClusterAgent;
 use App\Models\Cluster;
 use App\Models\ClusterQuery;
+use App\Models\PendingQuery;
 use App\Models\Query;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
@@ -162,7 +163,7 @@ final class QueryClusterer
      */
     private function suggestedQuery(string $text, ServiceCategory $sector, ServiceCatalogItem $service, array $byText, array $used): ?int
     {
-        $normalized = $this->normalizer->normalize($text, (int) $sector->id);
+        $normalized = $this->normalizer->normalize($text);
         if (mb_strlen($normalized) < 3) {
             return null;
         }
@@ -170,7 +171,8 @@ final class QueryClusterer
             return isset($used[$byText[$normalized]]) ? null : $byText[$normalized];
         }
         $hash = QueryNormalizer::hash($normalized);
-        if (Query::query()->where('text_hash', $hash)->exists()) {
+        if (Query::query()->where('text_hash', $hash)->exists() || $this->normalizer->matchingTerm($normalized) !== null
+            || PendingQuery::query()->where('text_hash', $hash)->where('status', '!=', PendingQuery::PENDING)->exists()) {
             return null;
         }
 

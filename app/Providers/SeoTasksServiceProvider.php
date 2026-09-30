@@ -43,7 +43,31 @@ final class SeoTasksServiceProvider extends ServiceProvider
             'key' => AiRouteKeys::QUERIES_FILTER_RULES,
             'name' => 'Query Filter Rules',
             'module' => 'queries',
-            'description' => 'Sorgular "AI ile kural üret": one call proposes filter basket terms and matching keywords per service from the selected queries. Proposal only; the operator ticks what to save.',
+            'description' => 'Sorgular "AI ile kural üret" / "Filtreye ekle › AI ile düzenle": one call proposes negative filter terms (a query containing one is deleted) and matching keywords per service from the selected queries. Proposal only; saving starts a rescan the operator approves.',
+            'default_steps' => AiDefaultSteps::classification(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::QUERIES_PLAN_SECTORS,
+            'name' => 'Query Plan Sectors',
+            'module' => 'queries',
+            'description' => 'Sorgular "AI ile planla" adım 1: one batched call assigns sectors to brands without one (Business Profile category > site title > ads) and proposes asset overrides only when an asset clearly differs. Nothing is saved before approval.',
+            'default_steps' => AiDefaultSteps::classification(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::QUERIES_PLAN_SERVICES,
+            'name' => 'Query Plan Services',
+            'module' => 'queries',
+            'description' => 'Sorgular "AI ile planla" adım 2: one batched call proposes missing services and matching keyword fixes (add / remove / move) per sector from brand services, site page names and query samples. Checklist; the operator approves.',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::QUERIES_PLAN_FILTERS,
+            'name' => 'Query Plan Filters',
+            'module' => 'queries',
+            'description' => 'Sorgular "AI ile planla" adım 3: one batched call proposes negative filter terms per sector (each must occur in the sector\'s query samples). Checklist; the operator approves.',
             'default_steps' => AiDefaultSteps::classification(),
         ]);
 

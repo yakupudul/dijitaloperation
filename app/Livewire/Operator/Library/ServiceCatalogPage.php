@@ -2,7 +2,8 @@
 
 namespace App\Livewire\Operator\Library;
 
-use App\Jobs\Queries\ProcessQueriesJob;
+use App\Jobs\Queries\RescanQueriesJob;
+use App\Models\DigitalAsset;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCatalogName;
 use App\Models\ServiceCategory;
@@ -131,7 +132,7 @@ class ServiceCatalogPage extends Component
             }
             app(ServiceKeywordService::class)->replace($service, $this->matching_words);
         });
-        ProcessQueriesJob::dispatch();
+        RescanQueriesJob::dispatch((int) auth()->id());
         $this->message = 'Hizmet ve eşleştirme kelimeleri kaydedildi.';
         $this->closeEditor();
         $this->resetPage();
@@ -221,6 +222,7 @@ class ServiceCatalogPage extends Component
         DB::transaction(function () use ($id): void {
             $category = ServiceCategory::query()->lockForUpdate()->findOrFail($id);
             ServiceCatalogItem::withTrashed()->where('sector', $category->code)->update(['sector' => null, 'updated_at' => now()]);
+            DigitalAsset::withTrashed()->where('sector_id', $category->id)->update(['sector_id' => null]);
             if ($this->sector === $category->code) {
                 $this->sector = '';
             }
