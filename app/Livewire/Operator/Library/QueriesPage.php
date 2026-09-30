@@ -6,6 +6,7 @@ use App\Jobs\Queries\AssignQueryServicesJob;
 use App\Jobs\Queries\ClusterQueriesJob;
 use App\Jobs\Queries\ProposeQueryRulesJob;
 use App\Jobs\Queries\RescanQueriesJob;
+use App\Livewire\Concerns\PreviewsKeywordImpact;
 use App\Models\Brand;
 use App\Models\BrandClusterPage;
 use App\Models\Cluster;
@@ -23,6 +24,7 @@ use App\Models\ServiceMatchingKeyword;
 use App\Models\User;
 use App\Services\Catalog\ServiceKeywordService;
 use App\Services\Queries\ClusterEditor;
+use App\Services\Queries\KeywordInsights;
 use App\Services\Queries\PendingQueries;
 use App\Services\Queries\QueryClusterer;
 use App\Services\Queries\QueryNormalizer;
@@ -48,7 +50,8 @@ use Livewire\WithPagination;
  * Sorgular: the one query store (query_sources → queries → brand_queries) with tabs Sorgular · Bekleyenler ·
  * Silinecekler · Kümeler · Filtre sepeti · Eşleme kelimeleri and "AI ile planla". Reads only; the pipeline, AI
  * proposals, clustering and the rescan (filter / matching keyword changes → proposals in the permanent Silinecekler
- * pool the operator approves or keeps) run as queued jobs.
+ * pool the operator approves or keeps) run as queued jobs. Eşleme kelimeleri has sub-views Kelimeler (keyword impact
+ * preview while typing) · Kelime önerileri · Çakışmalar · Sektör uyumu (KeywordInsights; keyword-only, no AI).
  *
  * Bulk selection: ticked ids (any page) or "filtreye uyan tümü" (`selectAll`: the current filter as a query, minus the
  * unticked `excluded` ids) — bulk actions run as one query, never an id list of the whole library. On Silinecekler the
@@ -58,11 +61,15 @@ use Livewire\WithPagination;
 #[Title('Sorgular')]
 final class QueriesPage extends Component
 {
+    use PreviewsKeywordImpact;
     use WithPagination;
 
     public const array TABS = ['queries' => 'Sorgular', 'pending' => 'Bekleyenler', 'deletions' => 'Silinecekler', 'clusters' => 'Kümeler', 'filters' => 'Filtre sepeti', 'keywords' => 'Eşleme kelimeleri'];
 
     private const int NEGATIVE_LINES = 30;
+
+    /** Eşleme kelimeleri sub-views. */
+    public const array KEYWORD_VIEWS = ['words' => 'Kelimeler', 'suggestions' => 'Kelime önerileri', 'conflicts' => 'Çakışmalar', 'sectors' => 'Sektör uyumu'];
 
     public const array SOURCE_LABELS = ['gsc' => 'GSC', 'google_ads' => 'Ads', 'gbp' => 'GBP'];
 
@@ -193,6 +200,25 @@ final class QueriesPage extends Component
     /** Silinecekler: "Tutulanlar" (kept lines, with "Geri al") */
     public bool $reviewKept = false;
 
+    /** Eşleme kelimeleri: words · suggestions · conflicts · sectors */
+    #[Url(history: true)]
+    public string $keywordView = 'words';
+
+    /** @var array<string, string> Kelime önerileri: service picked per n-gram (spaces as "_") */
+    public array $suggestPick = [];
+
+    public int $suggestPage = 0;
+
+    /** @var array<int|string, string> Çakışmalar: service picked per query */
+    public array $conflictPick = [];
+
+    /** "Kelime ekle" panel (Kelime önerileri "Ekle", Çakışmalar "Daha uzun kelime"): keyword + service, live impact. */
+    public bool $draftOpen = false;
+
+    public string $draftKeyword = '';
+
+    public string $draftService = '';
+
     public function mount(PendingQueries $pending): void
     {
         $this->message = (string) session('queries-message', '');
@@ -209,7 +235,7 @@ final class QueriesPage extends Component
 
     public function updated(string $property): void
     {
-        if (in_array($property, ['sector', 'service', 'cluster', 'search', 'tab', 'hidden', 'reviewKind', 'reviewTerm', 'reviewKept'], true)) {
+        if (in_array($property, ['sector', 'service', 'cluster', 'search', 'tab', 'hidden', 'reviewKind', 'reviewTerm', 'reviewKept', 'keywordView'], true)) {
             $this->resetPage();
             $this->clearSelection();
             $this->pendingFlip = [];
@@ -217,6 +243,11 @@ final class QueriesPage extends Component
         if ($property === 'sector') {
             $this->service = '';
             $this->cluster = '';
+            $this->suggestPage = 0;
+            $this->closeDraft();
+        }
+        if ($property === 'draftKeyword' || $property === 'draftService') {
+            $this->previewDraft();
         }
         if ($property === 'reviewKind') {
             $this->reviewTerm = '';
@@ -246,7 +277,8 @@ final class QueriesPage extends Component
 
     public function selectPage(): void
     {
-        $ids = ($this->tab === 'deletions' ? $this->orderedReviewQuery() : $this->listQuery()->orderByDesc('impressions')->orderBy('id'))
+        $ids = ($this->tab === 'deletions' ? $this->orderedReviewQuery()
+            : ($this->tab === 'keywords' ? $this->conflictQuery() : $this->listQuery())->orderByDesc('impressions')->orderBy('id'))
             ->forPage($this->getPage(), self::PER_PAGE)->pluck('id')->map(fn ($id): int => (int) $id)->all();
         if ($this->selectAll) {
             $this->excluded = array_values(array_diff(array_map('intval', $this->excluded), $ids));
@@ -286,12 +318,7 @@ final class QueriesPage extends Component
 
             return;
         }
-        $count = DB::transaction(function () use ($service): int {
-            ClusterQuery::query()->whereIn('query_id', $this->targetQuery()->select('id'))
-                ->whereIn('cluster_id', Cluster::query()->where('service_id', '!=', $service->id)->select('id'))->delete();
-
-            return $this->targetQuery()->update(['service_id' => $service->id, 'assignment' => 'manual', 'locked' => true, 'updated_at' => now()]);
-        });
+        $count = $this->assignQueries($this->targetQuery(), $service);
         $this->message = $count.' sorgu hizmete atandı (kilitli).';
         $this->clearSelection();
     }
@@ -661,8 +688,190 @@ final class QueriesPage extends Component
             throw ValidationException::withMessages(['newKeyword.'.$serviceId => collect($exception->errors())->flatten()->first()]);
         }
         $this->newKeyword[$serviceId] = '';
+        $this->impact = [];
         RescanQueriesJob::dispatch((int) auth()->id());
         $this->message = 'Kelime eklendi · tarama başladı, hazır olunca bildirim gelir.';
+    }
+
+    public function setKeywordView(string $view): void
+    {
+        if (array_key_exists($view, self::KEYWORD_VIEWS)) {
+            $this->keywordView = $view;
+            $this->resetPage();
+            $this->clearSelection();
+            $this->closeDraft();
+        }
+    }
+
+    /** "Kelime ekle" panel: saves the keyword as today (then the rescan proposes the changes in Silinecekler). */
+    public function saveDraft(ServiceKeywordService $keywords): void
+    {
+        $actor = $this->actor();
+        $service = ctype_digit($this->draftService) ? ServiceCatalogItem::query()->find((int) $this->draftService) : null;
+        if ($service === null) {
+            throw ValidationException::withMessages(['draftKeyword' => 'Hizmet seçin.']);
+        }
+        try {
+            $saved = $keywords->add($service, $this->draftKeyword);
+        } catch (ValidationException $exception) {
+            throw ValidationException::withMessages(['draftKeyword' => collect($exception->errors())->flatten()->first()]);
+        }
+        $this->closeDraft();
+        RescanQueriesJob::dispatch((int) $actor->id);
+        $this->message = '"'.$saved->label.'" eklendi · tarama başladı, hazır olunca bildirim gelir.';
+    }
+
+    public function closeDraft(): void
+    {
+        $this->draftOpen = false;
+        $this->draftKeyword = '';
+        $this->draftService = '';
+        $this->impact = [];
+    }
+
+    // ── Kelime önerileri ─────────────────────────────────────────────────────
+
+    /** "Ekle": the n-gram with the picked service goes to the "Kelime ekle" panel (impact preview, then save). */
+    public function openSuggestion(string $ngram): void
+    {
+        $this->actor();
+        $this->resetValidation();
+        $sectorId = $this->sectorId();
+        $row = collect($sectorId !== null ? app(KeywordInsights::class)->openSuggestions($sectorId) : [])->firstWhere('ngram', $ngram);
+        $this->draftKeyword = (string) ($row['label'] ?? $ngram);
+        $this->draftService = (string) ($this->suggestPick[str_replace(' ', '_', $ngram)] ?? '');
+        $this->draftOpen = true;
+        $this->previewDraft();
+    }
+
+    /** "Yok say": the n-gram is not suggested again in this sector. */
+    public function dismissSuggestion(string $ngram): void
+    {
+        $actor = $this->actor();
+        if ($this->sectorId() !== null) {
+            KeywordInsights::dismiss($this->sectorId(), $ngram, (int) $actor->id);
+        }
+    }
+
+    /** "Yenile": the n-grams are counted again from the current unassigned queries. */
+    public function refreshSuggestions(): void
+    {
+        $this->actor();
+        if ($this->sectorId() !== null) {
+            KeywordInsights::forgetSuggestions($this->sectorId());
+        }
+        $this->suggestPage = 0;
+    }
+
+    public function suggestPageTo(int $page): void
+    {
+        $this->suggestPage = max(0, $page);
+    }
+
+    // ── Çakışmalar ───────────────────────────────────────────────────────────
+
+    /** One conflict line: the picked service is assigned by hand (locked, like "Hizmete ata"). */
+    public function resolveConflict(int $queryId): void
+    {
+        $this->actor();
+        $service = $this->sectorService((string) ($this->conflictPick[$queryId] ?? ''));
+        if ($service === null) {
+            $this->message = 'Hizmet seçin.';
+
+            return;
+        }
+        $count = $this->assignQueries($this->conflictQuery()->whereKey($queryId), $service);
+        unset($this->conflictPick[$queryId]);
+        $this->message = $count.' sorgu hizmete atandı (kilitli).';
+    }
+
+    /** Ticked conflict lines → the bulk service (manual, locked). */
+    public function assignConflicts(): void
+    {
+        $this->actor();
+        $service = $this->sectorService($this->bulkService);
+        if ($service === null || $this->selectedIds() === []) {
+            $this->message = 'Sorgu ve hizmet seçin.';
+
+            return;
+        }
+        $count = $this->assignQueries($this->conflictQuery()->whereIn('id', $this->selectedIds()), $service);
+        $this->clearSelection();
+        $this->message = $count.' sorgu hizmete atandı (kilitli).';
+    }
+
+    /** "Daha uzun kelime": the query text goes to the "Kelime ekle" panel to be shortened / completed. */
+    public function openConflictKeyword(int $queryId): void
+    {
+        $this->actor();
+        $this->resetValidation();
+        $this->draftKeyword = (string) Query::query()->whereKey($queryId)->value('text');
+        $this->draftService = (string) ($this->conflictPick[$queryId] ?? '');
+        $this->draftOpen = true;
+        $this->previewDraft();
+    }
+
+    // ── Sektör uyumu ─────────────────────────────────────────────────────────
+
+    public function moveMismatch(int $sectorId, string $code): void
+    {
+        $this->actor();
+        $count = KeywordInsights::moveToServiceSector($sectorId, $code);
+        $this->message = $count.' sorgu hizmetin sektörüne taşındı.';
+    }
+
+    public function clearMismatch(int $sectorId, string $code): void
+    {
+        $this->actor();
+        $count = KeywordInsights::clearMismatchedService($sectorId, $code);
+        $this->message = $count.' sorgunun hizmeti kaldırıldı · sektörün eşleme kelimeleri sonraki taramada yeniden atayabilir.';
+    }
+
+    private function previewDraft(): void
+    {
+        if (! $this->draftOpen || ! ctype_digit($this->draftService) || trim($this->draftKeyword) === '') {
+            $this->impact = [];
+
+            return;
+        }
+        $this->previewKeyword((int) $this->draftService, $this->draftKeyword, 'draft');
+    }
+
+    /** @return Builder<Query> conflict lines of the chosen sector the keyword rules may still assign */
+    private function conflictQuery(): Builder
+    {
+        $sectorId = $this->sectorId();
+
+        return $sectorId === null ? Query::query()->whereRaw('1 = 0')
+            : KeywordInsights::ruleQueries(array_keys(app(KeywordInsights::class)->conflicts($sectorId)));
+    }
+
+    /** A service of the chosen sector. */
+    private function sectorService(string $id): ?ServiceCatalogItem
+    {
+        $code = $this->sectorId() !== null ? ServiceCategory::query()->whereKey($this->sectorId())->value('code') : null;
+
+        return ctype_digit($id) && $code !== null ? ServiceCatalogItem::query()->where('sector', $code)->find((int) $id) : null;
+    }
+
+    private function sectorId(): ?int
+    {
+        return ctype_digit($this->sector) ? (int) $this->sector : null;
+    }
+
+    /**
+     * Manual, locked assignment; the queries leave clusters of other services.
+     *
+     * @param  Builder<Query>  $target
+     */
+    private function assignQueries(Builder $target, ServiceCatalogItem $service): int
+    {
+        return DB::transaction(function () use ($target, $service): int {
+            ClusterQuery::query()->whereIn('query_id', (clone $target)->select('id'))
+                ->whereIn('cluster_id', Cluster::query()->where('service_id', '!=', $service->id)->select('id'))->delete();
+
+            return (clone $target)->update(['service_id' => $service->id, 'assignment' => 'manual', 'locked' => true, 'updated_at' => now()]);
+        });
     }
 
     public function deleteKeyword(int $id): void
@@ -909,6 +1118,7 @@ final class QueriesPage extends Component
             'keptCount' => $this->tab === 'deletions' ? QueryReviewItem::query()->where('kind', $this->reviewKind)->whereNotNull('kept_at')->count() : 0,
             'negCatches' => $this->negOpen ? collect($this->negativeLines())->mapWithKeys(fn (string $term): array => [$term => QueryRuleProposer::catches($term, $this->negIds)])->all() : [],
             'keywordServices' => $this->tab === 'keywords' ? $this->keywordServices() : null,
+            ...$this->keywordInsights(),
             'proposal' => $proposal,
             'clusterStatus' => is_array($clusterStatus) ? $clusterStatus : null,
             'polling' => ($proposal['status'] ?? null) === 'running' || ($clusterStatus['status'] ?? null) === 'running' || $this->negAwaiting
@@ -983,6 +1193,43 @@ final class QueriesPage extends Component
             ->filter(fn (ServiceCatalogItem $item): bool => $item->primaryName !== null)
             ->mapWithKeys(fn (ServiceCatalogItem $item): array => [(int) $item->id => (string) $item->primaryName->raw_label])
             ->sort()->all();
+    }
+
+    /**
+     * Eşleme kelimeleri sub-views: Kelime önerileri (one page), Çakışmalar (paginated lines + their keywords), Sektör
+     * uyumu (pairs), and the counts on the sub-view buttons.
+     *
+     * @return array<string, mixed>
+     */
+    private function keywordInsights(): array
+    {
+        $data = ['suggestions' => null, 'suggestPages' => 0, 'conflictRows' => null, 'conflictKeywords' => [], 'conflictNames' => [], 'mismatches' => null, 'keywordCounts' => []];
+        if ($this->tab !== 'keywords') {
+            return $data;
+        }
+        $insights = app(KeywordInsights::class);
+        $sectorId = $this->sectorId();
+        if ($sectorId !== null) {
+            $data['keywordCounts']['conflicts'] = $this->conflictQuery()->count();
+        }
+        if ($this->keywordView === 'suggestions' && $sectorId !== null) {
+            $open = $insights->openSuggestions($sectorId);
+            $data['suggestPages'] = (int) ceil(count($open) / KeywordInsights::SUGGESTIONS_PER_PAGE);
+            $page = min($this->suggestPage, max(0, $data['suggestPages'] - 1));
+            $data['suggestions'] = array_slice($open, $page * KeywordInsights::SUGGESTIONS_PER_PAGE, KeywordInsights::SUGGESTIONS_PER_PAGE);
+        }
+        if ($this->keywordView === 'conflicts' && $sectorId !== null) {
+            $rows = $this->conflictQuery()->with('service.primaryName')->orderByDesc('impressions')->orderBy('id')->paginate(self::PER_PAGE);
+            $keywords = array_intersect_key($insights->conflicts($sectorId), array_flip($rows->pluck('id')->map(fn ($id): int => (int) $id)->all()));
+            $data['conflictRows'] = $rows;
+            $data['conflictKeywords'] = $keywords;
+            $data['conflictNames'] = KeywordInsights::serviceNames(collect($keywords)->flatten(1)->pluck('service')->map(fn ($id): int => (int) $id)->unique()->values()->all());
+        }
+        $mismatches = $insights->sectorMismatches($sectorId);
+        $data['keywordCounts']['sectors'] = array_sum(array_column($mismatches, 'total'));
+        $data['mismatches'] = $this->keywordView === 'sectors' ? $mismatches : null;
+
+        return $data;
     }
 
     /** @return Collection<int, ServiceCatalogItem>|null */

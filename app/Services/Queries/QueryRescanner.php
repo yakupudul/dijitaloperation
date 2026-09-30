@@ -18,6 +18,12 @@ final class QueryRescanner
     /** Assignments the keyword rules never change (operator's choice, AI proposal the operator approved). */
     public const array KEPT_ASSIGNMENTS = ['manual', 'ai'];
 
+    /** @var array<int, string> sector id → code (during a scan) */
+    private array $sectorCodes = [];
+
+    /** @var array<int, string> service id → its sector code (during a scan) */
+    private array $serviceSectors = [];
+
     public function __construct(
         private readonly QueryNormalizer $normalizer,
         private readonly QueryServiceMatcher $matcher,
@@ -33,12 +39,14 @@ final class QueryRescanner
         $review = QueryReview::query()->create(['status' => QueryReview::RUNNING, 'created_by' => $userId]);
         $deletions = 0;
         $changes = 0;
+        $this->sectorCodes = DB::table('service_categories')->pluck('code', 'id')->mapWithKeys(fn ($code, $id): array => [(int) $id => (string) $code])->all();
+        $this->serviceSectors = DB::table('service_catalog_items')->pluck('sector', 'id')->mapWithKeys(fn ($code, $id): array => [(int) $id => (string) $code])->all();
         DB::table('queries')->select(['id', 'text', 'sector_id', 'service_id', 'locked', 'assignment'])
             ->chunkById(QueryPipeline::CHUNK, function ($rows) use ($review, &$deletions, &$changes): void {
                 $ids = $rows->pluck('id')->all();
                 $inLockedCluster = array_flip(DB::table('cluster_queries as cq')->join('clusters as c', 'c.id', '=', 'cq.cluster_id')
                     ->whereIn('cq.query_id', $ids)->where('c.locked', true)->pluck('cq.query_id')->map(fn ($id): int => (int) $id)->all());
-                $existing = DB::table('query_review_items')->whereIn('query_id', $ids)->get(['query_id', 'kind', 'term', 'to_service_id', 'kept_at'])
+                $existing = DB::table('query_review_items')->whereIn('query_id', $ids)->get(['query_id', 'kind', 'term', 'reason', 'to_service_id', 'kept_at'])
                     ->keyBy(fn (object $row): int => (int) $row->query_id);
                 $items = [];
                 foreach ($rows as $row) {
@@ -54,9 +62,11 @@ final class QueryRescanner
                     }
                 }
                 foreach (array_chunk($items, 500) as $chunk) {
-                    DB::table('query_review_items')->upsert($chunk, ['query_id'], ['query_review_id', 'kind', 'term', 'from_service_id', 'to_service_id', 'kept_at']);
+                    DB::table('query_review_items')->upsert($chunk, ['query_id'], ['query_review_id', 'kind', 'term', 'reason', 'from_service_id', 'to_service_id', 'kept_at']);
                 }
             });
+        // Kelime önerileri / Çakışmalar follow the new assignments.
+        KeywordInsights::forgetSuggestions();
         // Lines this (full) scan did not propose again are stale; emptied older scans go with them.
         DB::table('query_review_items')->where('query_review_id', '<', $review->id)->delete();
         QueryReview::query()->where('id', '<', $review->id)->whereNotIn('status', [QueryReview::RUNNING])->whereDoesntHave('items')->delete();
@@ -129,28 +139,42 @@ final class QueryRescanner
         return $count;
     }
 
-    /** @return array{kind: string, term: ?string, from_service_id: ?int, to_service_id: ?int}|null */
+    /** @return array{kind: string, term: ?string, reason: ?string, from_service_id: ?int, to_service_id: ?int}|null */
     private function proposal(object $row, bool $inLockedCluster): ?array
     {
         $term = $this->normalizer->matchingTerm((string) $row->text);
         if ($term !== null) {
-            return ['kind' => QueryReviewItem::DELETE, 'term' => mb_substr($term, 0, 200), 'from_service_id' => null, 'to_service_id' => null];
+            return ['kind' => QueryReviewItem::DELETE, 'term' => mb_substr($term, 0, 200), 'reason' => null, 'from_service_id' => null, 'to_service_id' => null];
         }
         // Only keyword-rule assignments follow the matching keywords; a service set by the operator or by AI stays.
         if ((bool) $row->locked || $inLockedCluster || in_array($row->assignment ?? null, self::KEPT_ASSIGNMENTS, true)) {
             return null;
         }
         $current = $row->service_id !== null ? (int) $row->service_id : null;
-        ['service' => $service, 'keyword' => $keyword] = $this->matcher->matchWithKeyword((string) $row->text, $row->sector_id !== null ? (int) $row->sector_id : null);
+        $sectorId = $row->sector_id !== null ? (int) $row->sector_id : null;
+        $match = $this->matcher->matchWithKeyword((string) $row->text, $sectorId);
+        if ($match['service'] === $current) {
+            return null;
+        }
+        // `term` of a service line = the matching keyword that decided it (null: no keyword matches any more), or the
+        // conflicting keywords ("a / b") when two services' keywords hit the query.
+        $term = $match['keyword'];
+        $reason = null;
+        if ($match['conflicts'] !== []) {
+            $term = implode(' / ', array_column($match['conflicts'], 'keyword'));
+            $reason = QueryReviewItem::REASON_CONFLICT;
+        } elseif ($current !== null && $sectorId !== null && ($this->serviceSectors[$current] ?? '') !== ''
+            && isset($this->sectorCodes[$sectorId]) && $this->serviceSectors[$current] !== $this->sectorCodes[$sectorId]) {
+            $reason = QueryReviewItem::REASON_SECTOR;
+        }
 
-        // `term` of a service line = the matching keyword that decided it (null: no keyword matches any more).
-        return $service !== $current ? ['kind' => QueryReviewItem::SERVICE, 'term' => $keyword !== null ? mb_substr($keyword, 0, 200) : null,
-            'from_service_id' => $current, 'to_service_id' => $service] : null;
+        return ['kind' => QueryReviewItem::SERVICE, 'term' => $term !== null ? mb_substr($term, 0, 200) : null, 'reason' => $reason,
+            'from_service_id' => $current, 'to_service_id' => $match['service']];
     }
 
     /** @param array<string, mixed> $item what "Tut" was decided on: the term to delete for, or the target service */
     private static function signature(array $item): string
     {
-        return $item['kind'] === QueryReviewItem::DELETE ? 'd:'.$item['term'] : 's:'.($item['to_service_id'] ?? '');
+        return $item['kind'] === QueryReviewItem::DELETE ? 'd:'.$item['term'] : 's:'.($item['to_service_id'] ?? '').($item['reason'] === QueryReviewItem::REASON_CONFLICT ? ':c' : '');
     }
 }

@@ -69,8 +69,12 @@ final class LocationOptions
         return ['country_code' => $country, 'city_name' => $city ?: null, 'district_name' => $district ?: null];
     }
 
-    /** Remove longest whole expressions; preserve source text separately. */
-    public static function strip(string $text): array
+    /**
+     * Folded country / province / district names (folded name → name).
+     *
+     * @return array<string, string>
+     */
+    public static function expressions(): array
     {
         if (! isset(self::$cache['expressions'])) {
             $names = array_merge(array_values(self::countries()), array_values(self::data('countries-en')),
@@ -81,6 +85,14 @@ final class LocationOptions
                 self::$cache['expressions'][self::fold($name)] = $name;
             }
         }
+
+        return self::$cache['expressions'];
+    }
+
+    /** Remove longest whole expressions; preserve source text separately. */
+    public static function strip(string $text): array
+    {
+        self::expressions();
         preg_match_all('/[\p{L}\p{N}\p{M}]+/u', $text, $matches, PREG_OFFSET_CAPTURE);
         $tokens = $matches[0];
         $removed = [];

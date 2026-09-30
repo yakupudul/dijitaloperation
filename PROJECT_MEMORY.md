@@ -1,5 +1,10 @@
 # PROJECT_MEMORY
 
+## 2026-11-08 — Eşleme kelimeleri: çakışma kuralı ve kelime araçları
+
+- **Karar (operatör):** Hizmet eşleştirmesi yalnız eşleme kelimesiyle kalır (ayrıştırma, etiket, embedding yok). Bir sorguda iki farklı hizmetin kelimesi geçer ve biri diğerini (kelime kelime) içermezse sorgu otomatik atanmaz (çakışma); iç içe ise uzun kelime kazanır. Eski "en uzun kelime her durumda kazanır" kuralının yerini alır.
+- **Karar:** Kelime eklenmeden önce etkisi (yakalanan / gelecek / değişmeyecek sorgular) aynı eşleştiriciyle gösterilir; atanmamış sorgulardan deterministik kelime önerileri, çakışmalar ve sektör uyumsuzlukları Eşleme kelimeleri sekmesinin alt görünümleridir; hiçbiri AI kullanmaz.
+
 ## 2026-11-07 — Sorgular: tek Silinecekler listesi, paralel planlama
 
 - **Karar (operatör):** Filtre / eşleme kelimesi taramalarının önerileri tarama başına ayrı inceleme değil, Sorgular'da kalıcı "Silinecekler" sekmesinde birikir: sorgu başına tek satır, son öneri geçerli, hiçbir şey onaysız silinmez / değişmez. "Tut" aynı öneriyi kalıcı olarak susturur (terim ya da hedef hizmet değişirse yeniden gelir). Bildirimler sekmeye gider; eski inceleme bağlantıları sekmeye yönlenir. 2026-11-04 "tarama başına onay ekranı" kararının yerini alır.

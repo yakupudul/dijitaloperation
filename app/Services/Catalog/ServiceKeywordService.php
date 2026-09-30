@@ -18,6 +18,12 @@ final class ServiceKeywordService
         'estetik', 'estetigi', 'cerrahi', 'klinik', 'klinigi', 'doktor', 'doktoru', 'uzman', 'uzmani', 'hastane', 'merkez', 'merkezi', 'hizmet', 'hizmeti',
         'nedir', 'nasil', 'yorum', 'yorumlar', 'oncesi sonrasi', 'en iyi', 'surgery', 'clinic', 'cost', 'price', 'doctor', 'treatment', 'hospital'];
 
+    /** @return list<string> folded generic words / phrases (also left out of the "Kelime önerileri") */
+    public static function genericWords(): array
+    {
+        return self::GENERIC;
+    }
+
     public static function isGeneric(string $label): bool
     {
         return in_array(LocationOptions::fold($label), self::GENERIC, true);
