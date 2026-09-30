@@ -12,25 +12,19 @@ use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
 use App\Models\OperatorFile;
-use App\Models\Recommendation;
 use App\Models\ResourceAutomation;
 use App\Models\User;
 use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
 use App\Services\BrandSetup\BrandSetupStatus;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
-use App\Services\CreateTaskFromRecommendation;
-use App\Services\Findings\FindingReadService;
 use App\Services\Integrations\BrandAccountCandidates;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Services\Integrations\Meta\DiscoverMetaResourcesService;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Operator\BrandWorkspaceReadService;
-use App\Services\Opportunities\OpportunityReadService;
 use App\Services\Ownership\OwnershipGuard;
-use App\Services\Recommendations\RecommendationReadService;
 use App\Services\ServiceScope\CustomerServiceScopeReadService;
-use App\Services\Work\WorkReadService;
 use App\Support\Demo\DemoState;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Integrations\ResourceBindingPlan;
@@ -40,7 +34,6 @@ use App\Support\ServiceScope;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -51,7 +44,7 @@ use Throwable;
 
 /**
  * Brand workspace: one tab per channel — Arama · Harita · Google Ads · Meta — rebuilt in Faz 4–7 on the v2 model
- * (reserved until then), and "Ayarlar" with the brand page (setup, business, assets, work, files). Everything shown
+ * (reserved until then), and "Ayarlar" with the brand page (setup, business, assets, files). Everything shown
  * comes from the database.
  */
 #[Layout('operator.layouts.app')]
@@ -61,7 +54,7 @@ class BrandShow extends Component
     use InteractsWithDemoPeriod;
 
     /** Settings sub-tabs (the former brand page). */
-    public const array TABS = ['settings', 'overview', 'business', 'assets', 'work', 'files'];
+    public const array TABS = ['settings', 'overview', 'business', 'assets', 'files'];
 
     /** Workspace tab => [label, Livewire component class (rendered only when it exists)]. "ayarlar" opens TABS. */
     public const array WORKSPACE_TABS = [
@@ -73,20 +66,15 @@ class BrandShow extends Component
 
     /** Old deep links keep working. */
     private const array LEGACY_TABS = [
-        'estate' => 'assets', 'cross_channel' => 'assets', 'operations' => 'work', 'growth' => 'work', 'ai' => 'work',
+        'estate' => 'assets', 'cross_channel' => 'assets', 'operations' => 'overview', 'growth' => 'overview', 'ai' => 'overview', 'work' => 'overview',
         'value' => 'overview', 'history' => 'overview', 'reports' => 'overview', 'research' => 'business', 'discovery' => 'business', 'context' => 'business',
     ];
-
-    public const array WORK_SECTIONS = ['findings', 'opportunities', 'recommendations', 'tasks'];
 
     #[Locked]
     public string $brand = '';
 
     #[Url(as: 'tab', history: true)]
     public string $tab = 'arama';
-
-    #[Url(as: 'ops', history: true)]
-    public string $ops = 'findings';
 
     public bool $editingContext = false;
 
@@ -108,18 +96,12 @@ class BrandShow extends Component
 
     public string $context_constraints = '';
 
-    public string $taskCreateNonce = '';
-
     public function mount(string $brand): void
     {
         abort_unless(ctype_digit($brand), 404);
         abort_if(Brand::query()->find($brand) === null, 404);
         $this->brand = $brand;
         $this->tab = $this->normalizeTab($this->tab);
-        if (! in_array($this->ops, self::WORK_SECTIONS, true)) {
-            $this->ops = 'findings';
-        }
-        $this->taskCreateNonce = (string) Str::uuid();
         $this->mountPeriod();
     }
 
@@ -136,13 +118,6 @@ class BrandShow extends Component
         $tab = self::LEGACY_TABS[$tab] ?? $tab;
 
         return isset(self::WORKSPACE_TABS[$tab]) || in_array($tab, self::TABS, true) ? $tab : 'arama';
-    }
-
-    public function setOps(string $section): void
-    {
-        $section = $section === 'work' ? 'tasks' : $section;
-        $this->ops = in_array($section, self::WORK_SECTIONS, true) ? $section : 'findings';
-        $this->tab = 'work';
     }
 
     /** Star / unstar a service: the SEO plan looks deeply only at starred services. */
@@ -210,30 +185,6 @@ class BrandShow extends Component
 
         $this->editingContext = false;
         DemoState::flash('İş bağlamı kaydedildi.');
-    }
-
-    public function createTaskFromRecommendation(string $recommendationId): void
-    {
-        $recommendation = ctype_digit($recommendationId) ? Recommendation::query()->find((int) $recommendationId) : null;
-        if ($recommendation === null) {
-            DemoState::flash(__('operator.flash.recommendation_not_found'), 'info');
-
-            return;
-        }
-        $service = app(CreateTaskFromRecommendation::class);
-        if (! $service->userCanConvert(auth()->user())) {
-            DemoState::flash(__('operator.flash.not_allowed_create_task'), 'info');
-
-            return;
-        }
-        try {
-            $task = $service->create($recommendation, [], auth()->user(), 'rec-task:'.$recommendation->id.':brand:'.$this->taskCreateNonce);
-            $this->taskCreateNonce = (string) Str::uuid();
-            DemoState::flash(__('operator.flash.task_created_from_recommendation', ['id' => $task->id]));
-            $this->setOps('tasks');
-        } catch (Throwable $exception) {
-            DemoState::flash($exception->getMessage(), 'info');
-        }
     }
 
     /**
@@ -400,30 +351,12 @@ class BrandShow extends Component
         $services = $workspace->services($brand);
         $checklist = $workspace->checklist($brand, $assets, $services);
 
-        $findings = collect(app(FindingReadService::class)->forBrand($brand))->map(fn ($dto): array => $dto->toArray())->values();
-        $recommendations = collect(app(RecommendationReadService::class)->forListPresentation(['brand_id' => $brand->id]));
-        $tasks = collect(app(WorkReadService::class)->workItems())->filter(fn (array $t): bool => (int) ($t['brand_id'] ?? 0) === $brand->id)->values();
-        $opportunities = collect(app(OpportunityReadService::class)->forListPresentation(['brand_id' => $brand->id]));
-
-        $openFindings = $findings->where('status', 'open');
-        $openRecommendations = $recommendations->whereIn('status', ['pending', 'approved']);
-        $openTasks = $tasks->whereIn('status', ['open', 'in_progress', 'blocked']);
-        $work = [
-            'findings' => ['label' => 'Bulgular', 'count' => $openFindings->count(), 'rows' => $findings],
-            'opportunities' => ['label' => 'Fırsatlar', 'count' => $opportunities->whereIn('status', ['open', 'reviewing'])->count(), 'rows' => $opportunities],
-            'recommendations' => ['label' => 'Öneriler', 'count' => $openRecommendations->count(), 'rows' => $recommendations],
-            'tasks' => ['label' => 'Görevler', 'count' => $openTasks->count(), 'rows' => $tasks],
-        ];
-
         $setup = in_array($this->tab, ['overview', 'assets'], true) ? $this->setupStatus($brand) : null;
         $seo = $workspace->seo($assets);
         $attention = array_values(array_filter([
             $seo['critical'] > 0 ? ['tone' => 'error', 'text' => $seo['critical'].' kritik SEO düzeltmesi', 'url' => route('operator.website', ['assetId' => $seo['website_id'], 'tab' => 'seo'])] : null,
             $seo['questions'] > 0 ? ['tone' => 'warning', 'text' => $seo['questions'].' SEO kararı seni bekliyor', 'url' => route('operator.website', ['assetId' => $seo['website_id'], 'tab' => 'seo'])] : null,
             $seo['content'] > 0 ? ['tone' => 'info', 'text' => $seo['content'].' içerik önerisi', 'url' => route('operator.website', ['assetId' => $seo['website_id'], 'tab' => 'seo'])] : null,
-            ($critical = $openFindings->whereIn('severity', ['critical', 'high'])->count()) > 0 ? ['tone' => 'error', 'text' => $critical.' kritik/yüksek bulgu', 'ops' => 'findings'] : null,
-            ($blocked = $tasks->where('status', 'blocked')->count()) > 0 ? ['tone' => 'warning', 'text' => $blocked.' görev engelli', 'ops' => 'tasks'] : null,
-            $work['recommendations']['count'] > 0 ? ['tone' => 'info', 'text' => $work['recommendations']['count'].' karar bekleyen öneri', 'ops' => 'recommendations'] : null,
         ]));
 
         $context = $brand->intelligenceContext;
@@ -442,7 +375,6 @@ class BrandShow extends Component
             'setup' => $setup,
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'attention' => $attention,
-            'work' => $work,
             'context' => $context instanceof BrandIntelligenceContext ? $this->contextRows($context) : [],
             'serviceScope' => app(CustomerServiceScopeReadService::class)->forBrand($brand, includeEnded: false),
             'reportPreview' => null,
@@ -469,7 +401,6 @@ class BrandShow extends Component
             'operational' => $operational,
             'weekTop' => $weekTop,
             'channelComponent' => class_exists($class) ? $class : null,
-            'work' => [],
             'checklist' => ['complete' => true, 'items' => []],
             'flash' => DemoState::pullFlash(),
         ]);

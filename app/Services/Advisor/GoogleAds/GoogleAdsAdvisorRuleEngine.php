@@ -1148,7 +1148,7 @@ final class GoogleAdsAdvisorRuleEngine
             evidence: ['keywords' => array_slice($rows, 0, 20)],
             checklist: [
                 'Kelimeyi anlatan bir sayfa varsa reklam grubunun nihai URL\'sini ona çevir.',
-                'Yoksa sayfa başlığı ve H1\'e hizmetin adını ekle ya da SEO Görevleri\'nden sayfa oluştur.',
+                'Yoksa sayfa başlığı ve H1\'e hizmetin adını ekle ya da Site ekranının SEO Yapılacaklar sekmesinden sayfa öner.',
                 'Farklı hizmetleri tek reklam grubunda topluyorsan grupları ayır.',
             ],
             copyText: null,

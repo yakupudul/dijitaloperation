@@ -130,7 +130,6 @@ class CustomerFoundationUxTest extends TestCase
             ->call('saveContact')
             ->assertSee('Yeni Kişi')
             ->assertSee(__('operator.customer.actions.open_files'))
-            ->assertSee(__('operator.customer.actions.view_activity'))
             ->assertSee(__('operator.customer.actions.add_brand'));
     }
 

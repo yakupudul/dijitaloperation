@@ -19,9 +19,6 @@ final class ScheduledInternalNotificationService
     /** @var list<string> */
     private const SAFE_ROUTES = [
         'operator.work',
-        'operator.work.show',
-        'operator.findings',
-        'operator.tasks',
         'operator.notifications',
         'operator.portfolio.brand',
         'operator.portfolio.customer',

@@ -100,7 +100,7 @@ class BrandCommandCenterUxTest extends TestCase
             ->assertSee('İş bağlamı')
             ->assertDontSee('Dental implants')
             ->call('setTab', 'operations')
-            ->assertSee('Bulgular')
+            ->assertSet('tab', 'overview')
             ->assertDontSee('Meta CPL deteriorated')
             ->assertDontSee('Replace underperforming Meta creative');
     }
@@ -119,7 +119,7 @@ class BrandCommandCenterUxTest extends TestCase
     {
         Livewire::test(BrandShow::class, ['brand' => (string) $this->workBrand->id])
             ->call('setTab', 'ai')
-            ->assertSet('tab', 'work')
+            ->assertSet('tab', 'overview')
             ->assertDontSee('Demo Mode')
             ->assertDontSee('Replace underperforming Meta creative');
     }

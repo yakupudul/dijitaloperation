@@ -66,7 +66,7 @@ class DemoSharedPeriodFilterTest extends TestCase
             ->assertSet('tab', 'creatives');
     }
 
-    public function test_google_ads_keeps_its_day_window(): void
+    public function test_google_ads_accepts_its_day_window(): void
     {
         $gads = $this->createPortfolioAsset('google_ads', 'Northwind Ads', ['module_id' => 'google-ads']);
 

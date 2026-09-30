@@ -57,6 +57,7 @@ class DemoPeriodAnchorContextTest extends TestCase
         $realBounds = DemoPeriod::bounds('last_28');
         $numericAsset = $this->createPortfolioAsset('gsc', 'Northwind GSC', ['module_id' => 'search-console']);
         $realWorkspace = app(GscSpecialistReadService::class)->workspace((string) $numericAsset->id, 'last_28');
+
         $this->assertSame('2026-09-01', $realBounds['end']->toDateString());
         $this->assertSame('2026-08-05', $realBounds['start']->toDateString());
         $this->assertSame('2026-09-01', $realWorkspace['period_end']);

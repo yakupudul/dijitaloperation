@@ -109,12 +109,11 @@ final class BrandWorkspaceTest extends TestCase
 
         $page->call('setTab', 'business')->assertSee('Hizmetler')->assertSee('İstanbul')->assertSee('İş bağlamı');
         $page->call('setTab', 'assets')->assertSee('Search Console')->assertSee('sc-domain:adadent.com.tr')->assertSee('henüz yok');
-        $page->call('setTab', 'work')->assertSee('Bulgular')->assertSee('Bu bölümde kayıt yok.');
+        $page->call('setTab', 'work')->assertSet('tab', 'overview');
         $page->call('setTab', 'estate')->assertSet('tab', 'assets');
         $page->call('setTab', 'value')->assertSet('tab', 'overview');
-        $page->call('setOps', 'work')->assertSet('ops', 'tasks')->assertSet('tab', 'work');
 
-        $this->get(route('operator.brand', ['brand' => $this->brand->id, 'tab' => 'operations']))->assertOk()->assertSee('Bulgular');
+        $this->get(route('operator.brand', ['brand' => $this->brand->id, 'tab' => 'operations']))->assertOk()->assertSee('Dikkat gerektirenler');
     }
 
     /** Hooks the Playwright specs (tests/e2e/02, 09, 10) rely on. */

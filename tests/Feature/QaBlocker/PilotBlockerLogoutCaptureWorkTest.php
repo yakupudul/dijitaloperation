@@ -2,18 +2,11 @@
 
 namespace Tests\Feature\QaBlocker;
 
-use App\Enums\TaskScopeKind;
-use App\Livewire\Demo\CaptureModal;
-use App\Livewire\Demo\Operations\WorkShow;
 use App\Livewire\Demo\ProfilePage;
 use App\Models\Brand;
 use App\Models\Customer;
-use App\Models\Task;
 use App\Models\User;
-use App\Services\Tasks\CreateDirectTask;
 use App\Support\Roles;
-use App\Support\Tasks\TaskStatus;
-use App\Support\Work\WorkUrl;
 use Database\Seeders\RoleAndPermissionSeeder;
 use DOMDocument;
 use DOMElement;
@@ -82,138 +75,5 @@ class PilotBlockerLogoutCaptureWorkTest extends TestCase
         $this->post('/logout')->assertRedirect('/login');
         $this->assertGuest();
         $this->get('/')->assertRedirect('/login');
-    }
-
-    public function test_global_capture_requires_customer_with_localized_validation(): void
-    {
-        Livewire::test(CaptureModal::class)
-            ->call('openCapture', 'task', null, null, '/')
-            ->assertSet('open', true)
-            ->assertSet('prefillCustomer', null)
-            ->set('title', 'E2E global capture task')
-            ->call('save')
-            ->assertHasErrors(['prefillCustomer'])
-            ->assertSee(__('operator.capture.validation.customer'))
-            ->assertSee(__('operator.forms.customer'));
-
-        $this->assertSame(0, Task::query()->count());
-    }
-
-    public function test_global_capture_persists_canonical_task_for_selected_customer(): void
-    {
-        $otherCustomer = Customer::factory()->create(['name' => 'Pilot Customer B']);
-        Brand::factory()->create([
-            'customer_id' => $otherCustomer->id,
-            'name' => 'Foreign Brand',
-        ]);
-
-        $component = Livewire::test(CaptureModal::class)
-            ->call('openCapture', 'task', null, null, '/')
-            ->set('prefillCustomer', (string) $this->customer->id)
-            ->set('prefillBrand', (string) $this->brand->id)
-            ->set('title', 'E2E global capture task')
-            ->call('save');
-
-        $task = Task::query()->where('title', 'E2E global capture task')->first();
-        $this->assertNotNull($task);
-        $this->assertSame($this->customer->id, $task->customer_id);
-        $this->assertSame($this->brand->id, $task->brand_id);
-        $this->assertSame(TaskScopeKind::Brand, $task->scope_kind);
-        $this->assertSame($this->admin->id, $task->assignee_id);
-
-        $component->assertRedirect(WorkUrl::show(WorkUrl::TYPE_TASK, $task->id));
-    }
-
-    public function test_capture_brand_options_are_limited_to_selected_customer(): void
-    {
-        $foreignBrand = Brand::factory()->create([
-            'customer_id' => Customer::factory()->create(['name' => 'Other Customer'])->id,
-            'name' => 'Must Not Appear',
-        ]);
-
-        Livewire::test(CaptureModal::class)
-            ->call('openCapture', 'task', null, null, '/')
-            ->set('prefillCustomer', (string) $this->customer->id)
-            ->assertSee('Pilot Brand A')
-            ->assertDontSee('Must Not Appear')
-            ->set('prefillBrand', (string) $foreignBrand->id)
-            ->assertSet('prefillBrand', null);
-    }
-
-    public function test_customer_and_brand_pages_prefill_capture_context(): void
-    {
-        Livewire::test(CaptureModal::class)
-            ->call('openCapture', 'task', null, null, '/customers/'.$this->customer->id)
-            ->assertSet('prefillCustomer', (string) $this->customer->id)
-            ->assertSet('prefillBrand', null);
-
-        Livewire::test(CaptureModal::class)
-            ->call('openCapture', 'task', null, null, '/brands/'.$this->brand->id)
-            ->assertSet('prefillCustomer', (string) $this->customer->id)
-            ->assertSet('prefillBrand', (string) $this->brand->id);
-    }
-
-    public function test_work_detail_uses_explicit_type_and_does_not_guess_from_id(): void
-    {
-        $task = app(CreateDirectTask::class)->create([
-            'title' => 'Typed Task Detail',
-            'customer_id' => $this->customer->id,
-            'brand_id' => $this->brand->id,
-            'scope_kind' => TaskScopeKind::Brand->value,
-        ], $this->admin, 'pilot-work:task:1');
-
-        $this->get(WorkUrl::show(WorkUrl::TYPE_TASK, $task->id))
-            ->assertOk()
-            ->assertSee('Typed Task Detail')
-            ->assertDontSee(__('operator.work.not_found'))
-            ->assertSee(__('operator.work.task_actions.start'));
-
-        $this->get('/work/client_request/'.$task->id)->assertNotFound();
-
-        $this->get('/work/'.$task->id)->assertNotFound();
-
-        $this->get('/work/'.$task->id.'?type=task')
-            ->assertRedirect(WorkUrl::show(WorkUrl::TYPE_TASK, $task->id));
-    }
-
-    public function test_task_status_transition_persists_through_work_show(): void
-    {
-        $task = app(CreateDirectTask::class)->create([
-            'title' => 'Lifecycle Task',
-            'customer_id' => $this->customer->id,
-            'scope_kind' => TaskScopeKind::Customer->value,
-        ], $this->admin, 'pilot-work:task:lifecycle');
-
-        $this->assertSame(TaskStatus::OPEN, $task->status);
-
-        Livewire::test(WorkShow::class, [
-            'workId' => (string) $task->id,
-            'type' => WorkUrl::TYPE_TASK,
-        ])
-            ->call('startTask')
-            ->assertSee(__('operator.work.statuses.in_progress'));
-
-        $this->assertSame(TaskStatus::IN_PROGRESS, $task->fresh()->status);
-
-        Livewire::test(WorkShow::class, [
-            'workId' => (string) $task->id,
-            'type' => WorkUrl::TYPE_TASK,
-        ])
-            ->call('completeTask')
-            ->assertSee(__('operator.work.statuses.completed'));
-
-        $this->assertSame(TaskStatus::COMPLETED, $task->fresh()->status);
-    }
-
-    public function test_numeric_task_show_redirects_to_typed_work_url(): void
-    {
-        $task = app(CreateDirectTask::class)->create([
-            'title' => 'Redirect Task',
-            'customer_id' => $this->customer->id,
-            'scope_kind' => TaskScopeKind::Customer->value,
-        ], $this->admin, 'pilot-work:task:redirect');
-
-        $this->get(route('operator.task', ['taskId' => $task->id]))
-            ->assertRedirect(WorkUrl::show(WorkUrl::TYPE_TASK, $task->id));
     }
 }

@@ -291,25 +291,10 @@
                     <x-ta.button :href="route('operator.dashboard')" size="sm" variant="outline">{{ __('operator.nav.dashboard') }}</x-ta.button>
                 </div>
                 <div class="mt-4 space-y-3 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                    <p class="text-sm text-gray-600 dark:text-gray-300">Zamanlayıcı ve işçiler, sistem uyarıları, bağlantı yetkileri, hesap bazında veri tazeliği ve harcamalar.</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">Zamanlayıcı ve işçiler, sistem uyarıları, bağlantı yetkileri ve hesap bazında veri tazeliği.</p>
                     <div class="flex flex-wrap gap-2">
                         <x-ta.button :href="route('operator.settings.system-health')" size="sm" variant="outline">Sistem Sağlığı</x-ta.button>
-                        @if (auth()->user()?->hasRole(\App\Support\Roles::ADMIN))
-                            <x-ta.button :href="route('operator.settings.costs')" size="sm" variant="outline">Maliyetler</x-ta.button>
-                        @endif
                         <x-ta.button :href="route('operator.settings.sector-packs')" size="sm" variant="outline">Sektör paketleri</x-ta.button>
-                        @if (auth()->user()?->hasRole(\App\Support\Roles::ADMIN))
-                            <x-ta.button :href="route('operator.settings.push')" size="sm" variant="outline">Telefon bildirimleri</x-ta.button>
-                        @endif
-                        <x-ta.button :href="route('operator.settings.background-operations')" size="sm" variant="outline">Arka plan işleri</x-ta.button>
-                    </div>
-                    <p class="mt-4 text-xs text-gray-500">Menüden kaldırılan eski ekranlar</p>
-                    <div class="mt-2 flex flex-wrap gap-2">
-                        <x-ta.button :href="route('operator.opportunities')" size="sm" variant="outline">{{ __('operator.nav.opportunities') }}</x-ta.button>
-                        <x-ta.button :href="route('operator.findings')" size="sm" variant="outline">{{ __('operator.nav.findings') }}</x-ta.button>
-                        <x-ta.button :href="route('operator.recommendations')" size="sm" variant="outline">{{ __('operator.nav.recommendations') }}</x-ta.button>
-                        <x-ta.button :href="route('operator.public-discovery')" size="sm" variant="outline">Açık Web Keşfi</x-ta.button>
-                        <x-ta.button :href="route('operator.files')" size="sm" variant="outline">{{ __('operator.nav.files') }}</x-ta.button>
                     </div>
                 </div>
             @elseif ($section === 'ai')
@@ -317,8 +302,6 @@
                     <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                         <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings.ai.overview') }}</h3>
                         <dl class="mt-3 grid gap-4 sm:grid-cols-3 text-sm">
-                            <div><dt class="text-gray-400">{{ __('operator.settings.ai.routes_count') }}</dt><dd class="mt-1 text-lg font-semibold text-gray-800 dark:text-white/90">{{ count($aiRoutes) }}</dd></div>
-                            <div><dt class="text-gray-400">{{ __('operator.settings.ai.agents') }}</dt><dd class="mt-1 text-lg font-semibold text-gray-800 dark:text-white/90">{{ count($aiAgents) }}</dd></div>
                             <div><dt class="text-gray-400">OpenAI</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['openai'] }}</dd></div>
                             <div><dt class="text-gray-400">Anthropic</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['anthropic'] }}</dd></div>
                             <div><dt class="text-gray-400">Gemini</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['gemini'] }}</dd></div>
@@ -332,61 +315,8 @@
                             <x-ta.button href="{{ route('operator.integrations.ai', ['provider' => 'gemini']) }}" size="sm" variant="outline">Gemini</x-ta.button>
                             <x-ta.button href="{{ route('operator.integrations.ai', ['provider' => 'groq']) }}" size="sm" variant="outline">Groq</x-ta.button>
                             <x-ta.button href="{{ route('operator.integrations.ai', ['provider' => 'openrouter']) }}" size="sm" variant="outline">OpenRouter</x-ta.button>
-                            <x-ta.button href="{{ route('operator.settings.ai.control-plane') }}" size="sm" variant="outline">{{ __('operator.settings.ai.control_plane') }}</x-ta.button>
-                            <x-ta.button href="{{ route('operator.settings.ai.agents') }}" size="sm" variant="outline">{{ __('operator.settings.ai.agents') }}</x-ta.button>
-                            <x-ta.button href="{{ route('operator.settings.ai.skills') }}" size="sm" variant="outline">{{ __('operator.settings.ai.skills') }}</x-ta.button>
+                            <x-ta.button href="{{ route('operator.settings.ai-operations') }}" size="sm" variant="outline">AI işlemleri ve promptlar</x-ta.button>
                         </div>
-                    </div>
-                    <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                        <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings.ai.routes_title') }}</h3>
-                        <ul class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
-                            @foreach ($aiRoutes as $route)
-                                <li class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                                    <div>
-                                        <p class="font-medium text-gray-800 dark:text-white/90">{{ $route['name'] }}</p>
-                                        <p class="text-xs text-gray-500">{{ $route['key'] }} · {{ $route['module'] }}</p>
-                                    </div>
-                                    <x-ta.button href="{{ route('operator.settings.ai.control-plane', ['route' => $route['key']]) }}" size="sm" variant="outline">{{ __('operator.settings.ai.configure') }}</x-ta.button>
-                                </li>
-                            @endforeach
-                        </ul>
-                    </div>
-                    <div id="agents" class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                        <div class="flex items-center justify-between gap-2">
-                            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings.ai.agents') }}</h3>
-                            <a href="{{ route('operator.settings.ai.agents') }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.settings.ai.open_catalog') }}</a>
-                        </div>
-                        <ul class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
-                            @foreach ($aiAgents as $agent)
-                                <li class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                                    <div>
-                                        <p class="font-medium text-gray-800 dark:text-white/90">{{ $agent['name'] }}</p>
-                                        <p class="text-xs text-gray-500">{{ $agent['slug'] }} · {{ $agent['module'] }} · {{ $agent['route'] }}</p>
-                                    </div>
-                                    <a href="{{ route('operator.settings.ai.agents', ['agent' => $agent['slug']]) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a>
-                                </li>
-                            @endforeach
-                        </ul>
-                    </div>
-                    <div id="skills" class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                        <div class="flex items-center justify-between gap-2">
-                            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings.ai.skills') }}</h3>
-                            <a href="{{ route('operator.settings.ai.skills') }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.settings.ai.open_catalog') }}</a>
-                        </div>
-                        <ul class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
-                            @forelse ($aiSkills as $skill)
-                                <li class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                                    <div>
-                                        <p class="font-medium text-gray-800 dark:text-white/90">{{ $skill['name'] }}</p>
-                                        <p class="text-xs text-gray-500">{{ $skill['slug'].'@'.$skill['version'] }} · {{ $skill['module'] }}</p>
-                                        <p class="mt-1 text-xs text-gray-500 line-clamp-2">{{ $skill['purpose'] }}</p>
-                                    </div>
-                                    <a href="{{ route('operator.settings.ai.skills', ['skill' => $skill['slug']]) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a>
-                                </li>
-                            @empty
-                                <li class="py-2 text-sm text-gray-500">{{ __('operator.settings.ai.no_skills') }}</li>
-                            @endforelse
-                        </ul>
                     </div>
                 </div>
             @elseif ($section === 'advanced')

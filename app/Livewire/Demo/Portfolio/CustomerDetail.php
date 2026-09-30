@@ -6,16 +6,12 @@ use App\Enums\CustomerStatus;
 use App\Livewire\Concerns\WithAiInsights;
 use App\Models\Customer;
 use App\Models\CustomerContact;
-use App\Services\Findings\FindingReadService;
 use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Operator\OperatorUserDirectory;
 use App\Services\Portfolio\CustomerCommercialSummary;
-use App\Services\Recommendations\RecommendationReadService;
 use App\Services\ServiceScope\CustomerServiceScopeReadService;
-use App\Services\Work\WorkReadService;
 use App\Support\Demo\DemoState;
-use App\Support\Findings\Dto\FindingReadDto;
 use App\Support\Options\AgencyServiceOptions;
 use App\Support\Options\ContactRoleOptions;
 use App\Support\Options\CountryOptions;
@@ -253,19 +249,6 @@ class CustomerDetail extends Component
             ->map(fn (CustomerContact $contact): array => OperatorPortfolioPresenter::contact($contact))
             ->values();
 
-        $findings = collect(app(FindingReadService::class)->forCustomer($model))
-            ->map(fn (FindingReadDto $dto): array => $dto->toArray())
-            ->values();
-
-        $recommendations = app(RecommendationReadService::class)->forListPresentation(['customer_id' => $model->id]);
-        $tasks = collect(app(WorkReadService::class)->workItems())
-            ->filter(fn (array $t): bool => (int) ($t['customer_id'] ?? 0) === $model->id)
-            ->values();
-
-        $openTasks = $tasks->filter(fn (array $t): bool => ! in_array($t['status'] ?? '', ['completed', 'cancelled', 'done', 'declined', 'skipped'], true));
-        $overdueTasks = $openTasks->filter(fn (array $t): bool => ($t['due_key'] ?? '') === 'overdue');
-        $attentionFindings = $findings->filter(fn (array $f): bool => in_array($f['severity'] ?? '', ['critical', 'high'], true))->take(3);
-
         $industryLabel = IndustryOptions::label($customer['industry'] ?? null);
         $digitalAssetsCount = (int) $brands->sum(fn (array $b): int => (int) ($b['assets_count'] ?? 0));
 
@@ -283,15 +266,7 @@ class CustomerDetail extends Component
                 ->all(),
             'brands' => $brands->all(),
             'contacts' => $contacts->all(),
-            'findings' => $findings->all(),
-            'recommendations' => $recommendations,
-            'tasks' => $tasks->all(),
-            'openTasks' => $openTasks->values()->all(),
-            'overdueTasks' => $overdueTasks->values()->all(),
-            'attentionFindings' => $attentionFindings->values()->all(),
             'digitalAssetsCount' => $digitalAssetsCount,
-            'openFindingsCount' => $findings->count(),
-            'openTasksCount' => $openTasks->count(),
             'roleOptions' => ContactRoleOptions::options(),
             'team' => $team,
             'serviceScope' => app(CustomerServiceScopeReadService::class)->forCustomer($model, includeEnded: false),

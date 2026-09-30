@@ -22,7 +22,6 @@
             <p class="mt-1 text-xs text-gray-500">Yayındaki sürüm: <span class="font-mono">{{ $release['sha'] !== null ? substr($release['sha'], 0, 12) : 'bilinmiyor' }}</span>@if ($release['deployed_at']) · {{ $when($release['deployed_at']) }}@endif</p>
         </div>
         <div class="flex gap-2">
-            <a href="{{ route('operator.settings.background-operations') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700">Arka plan işleri</a>
             @if ($isAdmin)
                 <button type="button" wire:click="retryStopped" class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-600">Durmuş toplamaları tekrar dene</button>
             @endif

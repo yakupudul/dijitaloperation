@@ -128,9 +128,9 @@ final class OperationalAlertExplainer
                 'title' => 'Veri çekimleri üst üste başarısız oluyor',
                 'what' => sprintf('%s %d veri çekimi başarısız oldu. Hangi hesaplar olduğu bir sonraki kontrolde (birkaç dakika içinde) burada listelenir.', $period, $count),
                 'why' => 'Başarısız çekimlerin hesaplarında raporlar ve öneriler eski veriyle kalır.',
-                'action' => 'Arka plan işleri sayfasında başarısız çekimlerin hata nedenini okuyun; bağlantı sorunuysa yeniden bağlayın.',
-                'link_url' => $this->route('operator.settings.background-operations'),
-                'link_label' => 'Arka plan işlerini aç',
+                'action' => 'Sistem sağlığı sayfasında başarısız çekimlerin hata nedenini okuyun; bağlantı sorunuysa yeniden bağlayın.',
+                'link_url' => $this->route('operator.settings.system-health'),
+                'link_label' => 'Sistem sağlığını aç',
             ];
         }
         $fix = $this->primaryFix($affected);
@@ -158,8 +158,8 @@ final class OperationalAlertExplainer
             'why' => 'Takılı çekim bitmeden aynı hesabın yeni verisi gelmez.',
             'action' => 'Sistem takılı çekimleri kendiliğinden kapatıp yeniden dener. Bir saatten uzun sürerse işçilerin çalıştığını Sistem sağlığı › İşçiler bölümünden kontrol edin.',
         ] + ($affected !== [] ? $this->placeFor($affected, null) : [
-            'link_url' => $this->route('operator.settings.background-operations'),
-            'link_label' => 'Arka plan işlerini aç',
+            'link_url' => $this->route('operator.settings.system-health'),
+            'link_label' => 'Sistem sağlığını aç',
         ]);
     }
 
@@ -305,8 +305,8 @@ final class OperationalAlertExplainer
                 : sprintf('%d iş sırada bekliyor; en eskisi %d dakikadır başlamadı.', (int) ($observed['pending_jobs'] ?? 0), (int) ceil($wait / 60)),
             'why' => 'Veri çekimleri, raporlar ve "Şimdi güncelle" gibi istekler geç tamamlanır.',
             'action' => 'Genellikle yoğunluk geçince kendiliğinden düzelir. Bir saatten uzun sürerse sunucu yöneticisine işçi sayısını artırmasını söyleyin.',
-            'link_url' => $this->route('operator.settings.background-operations'),
-            'link_label' => 'Arka plan işlerini aç',
+            'link_url' => $this->route('operator.settings.system-health'),
+            'link_label' => 'Sistem sağlığını aç',
         ];
     }
 

@@ -130,12 +130,6 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
         await page.goto(`/files?scope=customer&customer=${session.customerId}`);
         await waitForLivewire(page);
         expect((await assertOperatorSurface(page, { route: page.url(), label: 'Customer files', watcher })).ok).toBeTruthy();
-        await page.goto(`/activity?customer=${session.customerId}`);
-        await waitForLivewire(page);
-        expect((await assertOperatorSurface(page, { route: page.url(), label: 'Customer activity', watcher })).ok).toBeTruthy();
-        await page.goto('/tasks');
-        await waitForLivewire(page);
-        expect((await assertOperatorSurface(page, { route: page.url(), label: 'Customer work link', watcher })).ok).toBeTruthy();
     });
 
     test('brand workspace, business context CRUD, public discovery deferred', async ({ page }) => {
@@ -345,59 +339,11 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
         await screenshot(page, 'qa002-files');
     });
 
-    test('work capture requires a visible Customer picker', async ({ page }) => {
-        const session = sessionOrSkip();
-        expect(session).toBeTruthy();
 
-        await page.goto('/');
-        await waitForLivewire(page);
-        const localeEn = page.getByRole('group', { name: /locale|dil|language/i }).getByRole('button', { name: 'EN' });
-        if (await localeEn.count()) {
-            await localeEn.click();
-            await page.waitForTimeout(400);
-        }
-        await page.locator('header').getByRole('button', { name: /Capture|Hızlı kayıt/i }).click();
-        await expect(page.getByRole('heading', { name: /Quick capture/i })).toBeVisible();
-        await page.getByRole('button', { name: /^Task$/ }).click();
-        await expect(page.getByRole('dialog').locator('label').filter({ hasText: 'Customer' })).toBeVisible();
-        await page.locator('input[wire\\:model="title"]').fill(`E2E missing customer ${Date.now()}`);
-        await page.getByRole('button', { name: /^Save$/ }).click();
-        await expect(page.getByRole('dialog')).toContainText(/Select a customer|Müşteri seçin/);
-        await page.getByRole('button', { name: /Close|Kapat|Cancel|İptal/i }).first().click().catch(() => {});
-
-        await page.goto('/tasks');
-        await waitForLivewire(page);
-        const body = await page.locator('body').innerText();
-        expect(body).not.toMatch(/Work item not found/i);
-        setVerdict('Work', 'PASS', 'Capture shows Customer picker; Work list renders');
-        setVerdict('Requests', 'TRUTHFUL_EMPTY', 'No dedicated Requests create UI');
-    });
-
-    test('opportunities, findings, recommendations, activity empty or real', async ({ page }) => {
-        const watcher = attachHttpWatcher(page);
-        const surfaces = [
-            { name: 'Opportunities', path: '/opportunities', verdict: 'Opportunities', empty: /no opportunities|empty means empty|no matching/i },
-            { name: 'Findings', path: '/findings', verdict: 'Findings', empty: /no finding|empty means empty|no matching/i },
-            { name: 'Recommendations', path: '/recommendations', verdict: 'Recommendations', empty: /no recommendation|empty means empty|no matching/i },
-            { name: 'Activity', path: '/activity', verdict: 'Activity', empty: /no activity|empty|no events/i },
-        ];
-
-        for (const surface of surfaces) {
-            await page.goto(surface.path);
-            await waitForLivewire(page);
-            const result = await assertOperatorSurface(page, { route: surface.path, label: surface.name, watcher });
-            expect.soft(result.ok).toBeTruthy();
-            const body = await page.locator('body').innerText();
-            expect.soft(body).not.toMatch(/\bAtlas\b|demo finding|fixture recommendation/i);
-            const empty = surface.empty.test(body);
-            setVerdict(surface.verdict, result.ok ? (empty ? 'TRUTHFUL_EMPTY' : 'PASS') : 'FAIL', empty ? 'Truthful empty' : 'Rows present');
-            await screenshot(page, `qa002-${surface.name.toLowerCase()}`);
-        }
-    });
 
     test('bounded accessibility on primary workflows', async ({ page }) => {
         const session = sessionOrSkip();
-        const targets = ['/', '/customers', '/customers/create', '/files', '/tasks', '/settings'];
+        const targets = ['/', '/customers', '/customers/create', '/files', '/settings'];
         if (session?.customerId) {
             targets.push(`/customers/${session.customerId}`);
         }

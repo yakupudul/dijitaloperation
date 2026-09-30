@@ -4,7 +4,6 @@ namespace Tests\Feature\PhaseF;
 
 use App\Models\User;
 use App\Support\Roles;
-use App\Support\Work\WorkUrl;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
@@ -86,9 +85,8 @@ class PhaseFReleaseReadinessTest extends TestCase
 
         $this->get(route('operator.domain'))->assertRedirect(route('operator.assets'));
         $this->get(route('operator.hosting'))->assertRedirect(route('operator.assets'));
-        $this->get('/work/1?type='.WorkUrl::TYPE_TASK)
-            ->assertRedirect(route('operator.work.show', WorkUrl::parameters(WorkUrl::TYPE_TASK, '1')));
-        $this->get('/work/1')->assertNotFound();
+        $this->get('/work/1')->assertRedirect('/');
+        $this->get('/work/task/1')->assertRedirect('/');
     }
 
     public function test_production_check_does_not_print_app_key_or_fail_closed_https_in_testing(): void

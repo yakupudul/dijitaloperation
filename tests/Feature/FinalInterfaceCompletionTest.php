@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Livewire\Demo\Files\FilesIndex;
 use App\Livewire\Demo\ProfilePage;
-use App\Livewire\Demo\Settings\AiControlPlanePage;
 use App\Livewire\Demo\SettingsPage;
 use App\Livewire\Operator\Integrations\SiteConnectorShow;
 use App\Models\DigitalAsset;
@@ -169,7 +168,8 @@ class FinalInterfaceCompletionTest extends TestCase
 
         $this->assertStringNotContainsString('href="/system', $html);
         $this->assertStringNotContainsString("href='/system", $html);
-        $this->assertStringContainsString('/settings/ai/control-plane', $html);
+        $this->assertStringContainsString('/integrations/openai', $html);
+        $this->assertStringNotContainsString('/settings/ai/control-plane', $html);
 
         $advanced = Livewire::test(SettingsPage::class, ['section' => 'advanced'])->html();
         $this->assertStringNotContainsString('Open system panel', $advanced);
@@ -177,28 +177,12 @@ class FinalInterfaceCompletionTest extends TestCase
         $this->assertStringContainsString(__('operator.nav.dashboard'), $advanced);
     }
 
-    public function test_ai_control_plane_lists_registered_routes(): void
-    {
-        $this->get(route('operator.settings.ai.control-plane'))
-            ->assertOk()
-            ->assertSee('AI Control Plane')
-            ->assertDontSee('href="/system', false);
-
-        Livewire::test(AiControlPlanePage::class)
-            ->assertOk()
-            ->assertSee('website.discovery_context')
-            ->assertDontSee('website.ai_guidance')
-            ->assertDontSee('google_ads.ai_guidance')
-            ->assertDontSee('meta_ads.ai_guidance');
-    }
-
     public function test_profile_and_site_connectors_routes_are_reachable(): void
     {
         $this->get(route('operator.profile'))->assertOk()->assertSee(__('operator.profile.title'));
-        $this->get(route('operator.integrations.site-connectors'))
+        $this->get(route('operator.integrations.site-connector', ['connector' => 'wordpress']))
             ->assertOk()
-            ->assertSee('WordPress')
-            ->assertSee(__('operator.site_connectors.title'));
+            ->assertSee('WordPress');
         $this->get(route('operator.integrations'))
             ->assertOk()
             ->assertSee(__('operator.site_connectors.title'));

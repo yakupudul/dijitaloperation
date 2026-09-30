@@ -81,14 +81,6 @@ class BrandOffering extends Model
         )->withTimestamps();
     }
 
-    /**
-     * @return HasMany<ServicePageAssignment, $this>
-     */
-    public function pageAssignments(): HasMany
-    {
-        return $this->hasMany(ServicePageAssignment::class, 'brand_offering_id');
-    }
-
     /** Operator-facing name: the brand's own primary name, else the catalog service's primary name. */
     public function displayName(): string
     {

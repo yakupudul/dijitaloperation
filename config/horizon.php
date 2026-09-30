@@ -213,7 +213,7 @@ return [
             'nice' => 0,
         ],
         // Long AI / analysis jobs (advisor, SEO plans, brain, SERP, erase) so quick jobs on "default"
-        // (WhatsApp, uptime, writes, notifications) never wait behind them.
+        // (uptime, writes, notifications) never wait behind them.
         'supervisor-heavy' => [
             'connection' => 'redis',
             'queue' => ['heavy'],

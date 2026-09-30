@@ -87,7 +87,6 @@ test.describe('Visual evidence and responsive QA', () => {
             { name: 'customers', path: '/customers' },
             { name: 'brands', path: '/brands' },
             { name: 'digital-assets', path: '/assets' },
-            { name: 'work', path: '/tasks' },
             { name: 'integrations', path: '/integrations' },
             { name: 'settings', path: '/settings' },
         ];

@@ -3,7 +3,6 @@
 namespace Tests\Feature\Integrations;
 
 use App\Livewire\Demo\Integrations\GoogleIntegrationPage;
-use App\Livewire\Demo\Settings\AiControlPlanePage;
 use App\Livewire\Operator\Integrations\ResourceAutomations;
 use App\Models\Brand;
 use App\Models\CoreExternalResource;
@@ -114,14 +113,5 @@ final class IntegrationE1FixesTest extends TestCase
 
         $this->actingAs($this->admin);
         Livewire::test(ResourceAutomations::class, ['expanded' => true])->assertSee(__('resource-auto.run_now'));
-    }
-
-    public function test_ai_routing_forms_are_admin_only(): void
-    {
-        $this->actingAs($this->member);
-        Livewire::test(AiControlPlanePage::class)->assertDontSee('Aylık bütçe (USD')->call('saveBudget')->assertForbidden();
-
-        $this->actingAs($this->admin);
-        Livewire::test(AiControlPlanePage::class)->assertSee('Aylık bütçe (USD');
     }
 }

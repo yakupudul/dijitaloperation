@@ -4,7 +4,6 @@ namespace Tests\Feature\AiControl;
 
 use App\Ai\Agents\BrandSetupAgent;
 use App\Livewire\Demo\Integrations\AiProviderIntegrationPage;
-use App\Livewire\Demo\Settings\AiControlPlanePage;
 use App\Models\AgencySetting;
 use App\Models\CoreIntegration;
 use App\Models\User;
@@ -149,21 +148,5 @@ final class AiCostControlTest extends TestCase
         $this->assertSame('connected', $integration->config['connection_status'] ?? null);
         $this->assertSame('gsk-live-test', $integration->providerCredential->encrypted_payload['api_key']);
         Http::assertSent(fn ($request): bool => $request->hasHeader('Authorization', 'Bearer gsk-live-test'));
-    }
-
-    public function test_control_plane_shows_spend_and_saves_budget(): void
-    {
-        DB::table('ai_usage_records')->insert([
-            'route_key' => AiRouteKeys::BRAND_SETUP, 'agent' => 'BrandSetupAgent', 'provider' => 'anthropic',
-            'model' => 'claude-sonnet-5', 'input_tokens' => 20000, 'output_tokens' => 3000, 'cost_usd' => 0.07, 'created_at' => now(),
-        ]);
-
-        Livewire::test(AiControlPlanePage::class)
-            ->assertSee('Bu ayki AI harcaması')
-            ->assertSee('$0.07')
-            ->set('monthlyBudget', '40')
-            ->call('saveBudget');
-
-        $this->assertSame(40.0, app(AiBudget::class)->monthlyBudget());
     }
 }

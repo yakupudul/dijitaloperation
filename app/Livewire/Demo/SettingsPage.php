@@ -13,8 +13,6 @@ use App\Services\Operator\AgencySettingService;
 use App\Services\Operator\OperatorMailConfigService;
 use App\Services\Operator\OperatorTeamAccessService;
 use App\Services\Operator\OperatorUserDirectory;
-use App\Support\Agents\AgentProfileRegistry;
-use App\Support\Ai\AiRouteRegistry;
 use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\GlobalOperatingFixtures;
@@ -22,8 +20,6 @@ use App\Support\Integrations\ProviderRegistry;
 use App\Support\Operator\AgencySettingCatalog;
 use App\Support\Operator\OperatorMailStatus;
 use App\Support\Roles;
-use App\Support\Skills\SkillDefinition;
-use App\Support\Skills\SkillRegistry;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
@@ -340,42 +336,10 @@ class SettingsPage extends Component
     public function render(): View
     {
         $settings = $this->mergedSettings();
-        $routes = collect(app(AiRouteRegistry::class)->all())
-            ->map(fn (array $r): array => [
-                'key' => $r['key'],
-                'name' => $r['name'],
-                'module' => $r['module'],
-            ])
-            ->sortBy('key')
-            ->values()
-            ->all();
-        $agents = collect(app(AgentProfileRegistry::class)->all())
-            ->map(fn ($profile): array => [
-                'name' => $profile->name,
-                'slug' => $profile->slug,
-                'status' => $profile->status,
-                'module' => $profile->module,
-                'route' => $profile->aiRouteKey,
-            ])
-            ->values()
-            ->all();
-        $skills = collect(app(SkillRegistry::class)->all())
-            ->map(fn (SkillDefinition $skill): array => [
-                'name' => $skill->name,
-                'slug' => $skill->slug,
-                'module' => $skill->module,
-                'version' => $skill->version,
-                'purpose' => $skill->purpose,
-            ])
-            ->values()
-            ->all();
 
         return view('livewire.demo.settings', [
             'sections' => GlobalOperatingFixtures::settingsSections(),
             'settings' => $settings,
-            'aiRoutes' => $routes,
-            'aiAgents' => $agents,
-            'aiSkills' => $skills,
             'flash' => DemoState::pullFlash(),
             'isAdmin' => $this->actor()->hasRole(Roles::ADMIN),
             'localeOptions' => AgencySettingCatalog::localeOptions(),

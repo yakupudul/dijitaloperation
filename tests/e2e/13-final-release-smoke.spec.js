@@ -215,7 +215,6 @@ test.describe('Final autonomous release smoke', () => {
             '/customers',
             '/brands',
             '/assets',
-            '/tasks',
             '/prospects',
             '/prospects/intent-radar',
             '/prospects/search-profiles',

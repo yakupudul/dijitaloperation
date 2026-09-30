@@ -35,7 +35,7 @@ class IntegrationsIndex extends Component
     public function mount(): void
     {
         if ($this->section === 'site_connectors') {
-            $this->redirect(route('operator.integrations.site-connectors'), navigate: true);
+            $this->redirect(route('operator.integrations.site-connector', ['connector' => 'wordpress']), navigate: true);
         }
     }
 

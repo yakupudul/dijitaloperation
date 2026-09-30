@@ -67,7 +67,7 @@ class RecurringAutomationEngineProductionTest extends TestCase
             'local_time' => '09:00',
             'title' => 'Daily ops check',
             'message' => 'Review the Brand dashboard.',
-            'safe_route_name' => 'operator.activity',
+            'safe_route_name' => 'operator.work',
             'recipient_user_ids' => [(int) $user->id],
         ], $user);
 

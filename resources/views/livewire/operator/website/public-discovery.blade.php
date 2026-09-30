@@ -22,7 +22,6 @@
     @if($runtime['run'])
         <div class="flex flex-wrap justify-between gap-2 rounded-xl border border-gray-200 p-4 text-sm dark:border-gray-700">
             <p>{{ __('operator_runtime.discovery.latest_run') }} #{{ $runtime['run']->id }} · {{ $runtime['phase'] }}</p>
-            <a href="{{ route('operator.activity') }}" wire:navigate class="text-brand-600">{{ __('operator_runtime.discovery.open_activity') }} →</a>
             @if($runtime['failure'])<p class="w-full text-rose-600">{{ $runtime['failure'] }}</p>@endif
             @if(data_get($runtime['run']->metadata, 'source_collection_run_id'))
                 <a href="{{ route('operator.integrations.website', ['assetId' => $asset->id]) }}" wire:navigate class="text-brand-600">

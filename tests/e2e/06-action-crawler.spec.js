@@ -31,11 +31,6 @@ test.describe('Bounded safe action crawler', () => {
             '/brands',
             '/assets',
             '/files',
-            '/opportunities',
-            '/findings',
-            '/recommendations',
-            '/tasks',
-            '/activity',
             '/integrations',
             '/settings',
         ];

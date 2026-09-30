@@ -24,7 +24,7 @@ test.describe('Auth, session, and legacy routes', () => {
         expect(login.looks500).toBeFalsy();
         expect(login.exception).toBeFalsy();
 
-        await page.goto('/tasks');
+        await page.goto('/brands');
         await waitForLivewire(page);
         expect(page.url()).toMatch(/\/login/);
 

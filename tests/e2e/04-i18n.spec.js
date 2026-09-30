@@ -11,11 +11,6 @@ const SURFACES = [
     { name: 'Brands', path: '/brands' },
     { name: 'Digital Assets', path: '/assets' },
     { name: 'Files', path: '/files' },
-    { name: 'Opportunities', path: '/opportunities' },
-    { name: 'Findings', path: '/findings' },
-    { name: 'Recommendations', path: '/recommendations' },
-    { name: 'Work', path: '/tasks' },
-    { name: 'Activity', path: '/activity' },
     { name: 'Integrations', path: '/integrations' },
     { name: 'Settings', path: '/settings' },
 ];

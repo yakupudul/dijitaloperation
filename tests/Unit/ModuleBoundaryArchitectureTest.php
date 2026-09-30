@@ -49,7 +49,6 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Services/Website/SitemapChangeWatcher.php',
         // Shared public-URL safety / normalization / fetch primitives (Discovery\PublicUrl*, PublicHttpFetcher).
         'app/Services/Collection/Providers/Website/WebsitePageAnalyzer.php',
-        'app/Services/Collection/Website/WebsiteIssueVerificationService.php',
         'app/Services/Integrations/WordPress/WordPressConnectorClient.php',
         'app/Support/IntelligenceProjection/Website/WebsitePageFamilyClassifier.php',
         // Public discovery stored-source adapters reuse the module's page extractor.

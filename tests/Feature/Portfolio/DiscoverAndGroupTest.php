@@ -4,7 +4,6 @@ namespace Tests\Feature\Portfolio;
 
 use App\Jobs\Async\PublicDiscoveryJob;
 use App\Jobs\BuildBrandSetupProposalJob;
-use App\Livewire\Operator\Portfolio\DiscoverAndGroupPage;
 use App\Models\Brand;
 use App\Models\BrandSetupProposal;
 use App\Models\CoreAssetBinding;
@@ -20,7 +19,6 @@ use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 final class DiscoverAndGroupTest extends TestCase
@@ -64,23 +62,6 @@ final class DiscoverAndGroupTest extends TestCase
         $this->assertFalse($groups->flatMap(fn (array $g) => array_column($g['resources'], 'external_id'))->contains('sc-domain:bagli.com'), 'bound accounts are not offered');
     }
 
-    public function test_bulk_creates_only_groups_with_a_customer_and_adds_their_cities(): void
-    {
-        $this->resources();
-        $customersBefore = Customer::query()->count();
-        $page = Livewire::test(DiscoverAndGroupPage::class);
-        $forms = collect($page->get('forms'));
-        $this->assertTrue($forms->every(fn (array $form): bool => $form['customer_name'] === ''), 'customer names start blank');
-        $atlas = $forms->search(fn (array $form): bool => $form['brand_name'] === 'Atlas Dental Kliniği');
-
-        $page->set("forms.$atlas.customer_name", 'Atlas Sağlık A.Ş.')->set("forms.$atlas.cities", 'Manisa, İzmir')
-            ->call('createAll')->assertHasNoErrors()->assertSee('1 grup oluşturuldu');
-
-        $this->assertSame($customersBefore + 1, Customer::query()->count(), 'blank groups are skipped');
-        $brand = Brand::query()->where('name', 'Atlas Dental Kliniği')->firstOrFail();
-        $this->assertEqualsCanonicalizing(['Manisa', 'İzmir'], $brand->serviceAreas()->pluck('city_name')->all());
-    }
-
     public function test_finished_site_crawl_queues_the_service_proposal_once(): void
     {
         $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create()->id]);
@@ -95,27 +76,7 @@ final class DiscoverAndGroupTest extends TestCase
         Bus::assertDispatched(BuildBrandSetupProposalJob::class, 1);
     }
 
-    public function test_one_click_creates_customer_brand_assets_and_bindings(): void
-    {
-        $this->resources();
-        $page = Livewire::test(DiscoverAndGroupPage::class)->assertSee('Atlas Dental Kliniği');
-        $key = collect($page->get('forms'))->search(fn (array $form): bool => $form['brand_name'] === 'Atlas Dental Kliniği');
-
-        $page->set("forms.$key.customer_name", 'Atlas Sağlık A.Ş.')->call('create', $key)->assertHasNoErrors();
-
-        $customer = Customer::query()->where('name', 'Atlas Sağlık A.Ş.')->firstOrFail();
-        $brand = Brand::query()->where('customer_id', $customer->id)->where('name', 'Atlas Dental Kliniği')->firstOrFail();
-        $website = DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->firstOrFail();
-        $this->assertSame('https://atlasdental.com/', $website->primary_url);
-        $this->assertEqualsCanonicalizing(['ga4', 'search_console'], CoreAssetBinding::query()->where('digital_asset_id', $website->id)->pluck('capability')->all());
-        $this->assertTrue(DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'google_business_profile')->exists());
-        $this->assertTrue(DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'google_ads')->exists());
-
-        $page->assertSee('Atlas Dental Kliniği oluşturuldu');
-        $this->assertNotContains('host:atlasdental.com', array_column(app(PortfolioDiscoveryGrouper::class)->groups(), 'key'), 'created group leaves the list');
-    }
-
-    public function test_group_matching_an_existing_website_binds_to_that_brand(): void
+    public function test_group_matching_an_existing_website_points_to_that_brand(): void
     {
         $this->resources();
         $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create()->id, 'name' => 'Atlas']);
@@ -123,24 +84,6 @@ final class DiscoverAndGroupTest extends TestCase
 
         $group = collect(app(PortfolioDiscoveryGrouper::class)->groups())->firstWhere('key', 'host:atlasdental.com');
         $this->assertSame($brand->id, $group['existing_brand_id']);
-
-        $brandsBefore = Brand::query()->count();
-        $page = Livewire::test(DiscoverAndGroupPage::class)->assertSee('Bu site zaten “Atlas” markasında');
-        $key = collect($page->get('forms'))->search(fn (array $form): bool => $form['brand_name'] === 'Atlas');
-        $page->call('create', $key)->assertHasNoErrors();
-
-        $this->assertSame(1, DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->count(), 'no duplicate website');
-        $this->assertSame($brandsBefore, Brand::query()->count(), 'no new brand');
-        $this->assertTrue(CoreAssetBinding::query()->where('capability', 'search_console')->whereHas('digitalAsset', fn ($q) => $q->where('brand_id', $brand->id))->exists());
-    }
-
-    public function test_page_is_admin_only(): void
-    {
-        $member = User::factory()->create(['is_active' => true]);
-        $member->assignRole(Roles::TEAM_MEMBER);
-        $this->actingAs($member);
-
-        Livewire::test(DiscoverAndGroupPage::class)->assertForbidden();
     }
 
     public function test_social_hosts_owner_names_and_account_titles_are_handled(): void
@@ -166,10 +109,6 @@ final class DiscoverAndGroupTest extends TestCase
         $this->assertTrue($byId['778']['selected'], 'own account name matches: pre-selected');
         $this->assertFalse($byId['777']['selected'], 'only the owning business matches: proposed, not pre-selected');
         $this->assertStringContainsString('işletme', $byId['777']['reason']);
-
-        Livewire::test(DiscoverAndGroupPage::class)->assertSee('Tevka Hurda Metal')->assertSee('Hospika')
-            ->set('search', 'hospika')->assertSee('Hospika')->assertDontSee('Tevka Hurda Metal')
-            ->set('search', '')->set('filter', 'noweb')->assertSee('Alal')->assertDontSee('hospika.com');
     }
 
     private function resources(): void

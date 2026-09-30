@@ -3,17 +3,13 @@
 namespace Tests\Feature\ProductionReadiness;
 
 use App\Enums\DataPool\DataSourceState;
-use App\Livewire\Demo\Operations\FindingsIndex;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
-use App\Models\User;
 use App\Services\Ga4\Ga4SpecialistReadService;
-use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
@@ -43,20 +39,5 @@ class NegativePathE2ETest extends TestCase
         foreach ($workspace['data_provenance'] ?? [] as $state) {
             $this->assertNotSame(DataSourceState::Demo->value, $state);
         }
-    }
-
-    public function test_empty_findings_index_does_not_invent_sample_rows(): void
-    {
-        Http::fake();
-        $this->seed(RoleAndPermissionSeeder::class);
-        $user = User::factory()->create();
-        $user->assignRole(Roles::ADMIN);
-        $this->actingAs($user);
-
-        Livewire::test(FindingsIndex::class)
-            ->assertOk()
-            ->assertSee('No Findings yet')
-            ->assertDontSee('Meta CPL deteriorated')
-            ->assertDontSee('Atlas Dental — GA4');
     }
 }

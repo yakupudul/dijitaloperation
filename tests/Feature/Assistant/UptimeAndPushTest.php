@@ -4,23 +4,18 @@ namespace Tests\Feature\Assistant;
 
 use App\Enums\CustomerStatus;
 use App\Jobs\Assistant\UptimeCheckJob;
-use App\Livewire\Operator\Settings\PushSettingsPage;
 use App\Models\AgencySetting;
 use App\Models\AssetAlert;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
-use App\Models\User;
 use App\Services\Alerts\AssetAlertScanner;
 use App\Services\Assistant\PushNotifier;
 use App\Services\Website\PageFetcher;
-use App\Support\Roles;
-use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 final class UptimeAndPushTest extends TestCase
@@ -90,27 +85,5 @@ final class UptimeAndPushTest extends TestCase
         $this->assertFalse(AssetAlert::query()->open()->where('kind', 'site_down')->exists());
         $this->assertSame(2, DB::table('push_notifications')->where('title', 'like', 'Site yeniden açık%')->count());
         $this->assertSame(5, DB::table('uptime_checks')->count());
-    }
-
-    public function test_settings_page_saves_encrypted_secrets_and_sends_a_test(): void
-    {
-        $this->seed(RoleAndPermissionSeeder::class);
-        $admin = User::factory()->create(['is_active' => true]);
-        $admin->assignRole(Roles::ADMIN);
-        $this->actingAs($admin);
-
-        Livewire::test(PushSettingsPage::class)
-            ->set('ntfyUrl', 'https://ntfy.sh/yeni-konu')->set('ntfyToken', 'tk_secret')->set('minSeverity', 'critical')
-            ->call('save')->assertSee('Kaydedildi')->assertDontSee('tk_secret')
-            ->call('test')->assertSee('2 kanala gönderildi');
-
-        $raw = DB::table('agency_settings')->value('push_ntfy_token');
-        $this->assertNotSame('tk_secret', $raw);
-        $this->assertSame('tk_secret', AgencySetting::query()->first()->push_ntfy_token);
-        Http::assertSent(fn (Request $r): bool => str_contains($r->url(), 'yeni-konu') && $r->header('Authorization')[0] === 'Bearer tk_secret');
-
-        $member = User::factory()->create(['is_active' => true]);
-        $member->assignRole(Roles::TEAM_MEMBER);
-        $this->actingAs($member)->get(route('operator.settings.push'))->assertForbidden();
     }
 }

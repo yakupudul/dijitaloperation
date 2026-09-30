@@ -2,28 +2,15 @@
 
 namespace Tests\Feature\PhaseE;
 
-use App\Livewire\Demo\CaptureModal;
-use App\Livewire\Demo\Operations\ActivityIndex;
-use App\Livewire\Demo\Operations\FindingsIndex;
-use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\SettingsPage;
 use App\Livewire\Operator\Assets\AnalyticsPage;
-use App\Livewire\Operator\Website\V2\WebsiteScreen;
-use App\Models\Brand;
-use App\Models\Customer;
-use App\Models\DigitalAsset;
-use App\Models\Finding;
-use App\Models\Recommendation;
-use App\Models\Task;
 use App\Models\User;
-use App\Services\Activity\ActivityReadService;
 use App\Services\Async\AsyncOperationService;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\DemoState;
 use App\Support\Operator\OperatorPeriod;
 use App\Support\Roles;
-use App\Support\Tasks\TaskOutcomeStatus;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -57,11 +44,10 @@ class PhaseEOperatorUxRegressionTest extends TestCase
         $this->get('/brands')->assertOk();
         $this->get('/assets')->assertOk();
         $this->get('/integrations')->assertOk();
-        $this->get('/activity')->assertOk();
-        $this->get('/findings')->assertOk();
-        $this->get('/recommendations')->assertOk();
-        $this->get('/tasks')->assertOk();
         $this->get('/settings')->assertOk();
+        foreach (['/activity', '/findings', '/recommendations', '/tasks', '/opportunities', '/alerts', '/archive', '/compliance'] as $retired) {
+            $this->get($retired)->assertRedirect('/');
+        }
         $this->get('/profile')->assertOk();
 
         $html = $this->get('/')->assertOk()->getContent();
@@ -72,31 +58,6 @@ class PhaseEOperatorUxRegressionTest extends TestCase
         $this->get('/system/login')->assertStatus(410);
         $this->get(route('operator.website', ['assetId' => DemoCatalog::WEBSITE_ASSET_ID]))->assertNotFound();
         $this->get(route('operator.analytics', ['assetId' => DemoCatalog::GA4_ASSET_ID]))->assertNotFound();
-    }
-
-    #[Test]
-    public function capture_note_and_opportunity_do_not_persist(): void
-    {
-        $customer = Customer::factory()->create();
-        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
-
-        Livewire::test(CaptureModal::class)
-            ->call('openCapture', 'note', (string) $brand->id, (string) $customer->id)
-            ->set('title', 'Should not persist as a note')
-            ->set('captureType', 'note')
-            ->call('save')
-            ->assertSet('open', true);
-
-        $this->assertSame([], DemoState::all()['capture_notes'] ?? []);
-        $this->assertSame([], DemoState::captureDecisions());
-        $this->assertSame(0, Task::query()->count());
-
-        Livewire::test(CaptureModal::class)
-            ->call('openCapture', 'opportunity_hypothesis', (string) $brand->id, (string) $customer->id)
-            ->set('title', 'Should not persist as an opportunity')
-            ->set('captureType', 'opportunity_hypothesis')
-            ->call('save')
-            ->assertSet('open', true);
     }
 
     #[Test]
@@ -121,53 +82,11 @@ class PhaseEOperatorUxRegressionTest extends TestCase
     }
 
     #[Test]
-    public function findings_and_recommendations_honor_asset_query_filter(): void
-    {
-        $one = $this->createPortfolioAsset('website', 'Asset One');
-        $two = DigitalAsset::factory()->create([
-            'brand_id' => $one->brand_id,
-            'type' => 'website',
-            'name' => 'Asset Two',
-        ]);
-        $findingOne = Finding::factory()->create(['digital_asset_id' => $one->id, 'title' => 'Finding One Only']);
-        Finding::factory()->create(['digital_asset_id' => $two->id, 'title' => 'Finding Two Only']);
-        Recommendation::factory()->create([
-            'finding_id' => $findingOne->id,
-            'digital_asset_id' => $one->id,
-            'title' => 'Rec One Only',
-        ]);
-        Recommendation::factory()->create([
-            'digital_asset_id' => $two->id,
-            'title' => 'Rec Two Only',
-        ]);
-
-        Livewire::test(FindingsIndex::class, ['asset' => (string) $one->id])
-            ->assertSee('Finding One Only')
-            ->assertDontSee('Finding Two Only');
-
-        Livewire::test(RecommendationsIndex::class, ['asset' => (string) $one->id])
-            ->assertSee('Rec One Only')
-            ->assertDontSee('Rec Two Only');
-    }
-
-    #[Test]
-    public function activity_includes_async_runs_and_team_member_cannot_mutate_settings(): void
+    public function async_run_is_queued_and_team_member_cannot_mutate_settings(): void
     {
         $asset = $this->createPortfolioAsset('website', 'Activity Website');
         $queued = app(AsyncOperationService::class)->queueFindingEvaluation($asset, $this->admin);
         $this->assertTrue($queued['ok'] ?? false);
-
-        $rows = app(ActivityReadService::class)->forList([
-            'digital_asset_id' => $asset->id,
-            'period' => 'last_7',
-        ]);
-        $this->assertTrue(collect($rows)->contains(
-            fn (array $row): bool => str_contains((string) ($row['title'] ?? ''), 'Finding evaluation')
-                || ($row['event'] ?? '') === 'async.finding_evaluation'
-        ));
-
-        Livewire::test(ActivityIndex::class, ['asset' => (string) $asset->id])
-            ->assertSee(__('operator.activity.title'));
 
         $member = User::factory()->create(['locale' => 'en']);
         $member->assignRole(Roles::TEAM_MEMBER);
@@ -177,45 +96,5 @@ class PhaseEOperatorUxRegressionTest extends TestCase
             ->set('agency_name', 'Hijacked Phase E')
             ->call('saveGeneral')
             ->assertForbidden();
-
-        $finding = Finding::factory()->create(['digital_asset_id' => $asset->id]);
-        $recommendation = Recommendation::factory()->forFinding($finding)->create([
-            'title' => 'Member can convert',
-            'status' => 'open',
-        ]);
-        Livewire::test(RecommendationsIndex::class)
-            ->call('createTask', (string) $recommendation->id)
-            ->assertHasNoErrors();
-        $this->assertTrue(Task::query()->where('recommendation_id', $recommendation->id)->exists());
-        $task = Task::query()->where('recommendation_id', $recommendation->id)->firstOrFail();
-        $this->assertNull($task->assignee_id);
-        $this->assertNotSame(TaskOutcomeStatus::IMPROVEMENT_OBSERVED, $task->outcome_status);
-    }
-
-    #[Test]
-    public function turkish_locale_localizes_period_and_inbox_chrome(): void
-    {
-        $this->admin->forceFill(['locale' => 'tr'])->save();
-        $this->actingAs($this->admin->fresh());
-
-        $this->get('/recommendations')
-            ->assertOk()
-            ->assertSee(__('operator.inbox.recommendations_title', [], 'tr'))
-            ->assertDontSee('Decision inbox — what MoxDOP thinks is worth considering', false);
-
-        $this->get('/activity')
-            ->assertOk()
-            ->assertSee(__('operator.activity.title', [], 'tr'));
-    }
-
-    #[Test]
-    public function production_website_does_not_show_atlas_fixtures(): void
-    {
-        $asset = $this->createPortfolioAsset('website', 'Northwind Website');
-
-        Livewire::test(WebsiteScreen::class, ['assetId' => (string) $asset->id])
-            ->assertSee('Northwind Website')
-            ->assertDontSee('Atlas Dental Website')
-            ->assertDontSee('Atlas Dental Ankara');
     }
 }

@@ -9,7 +9,6 @@ use App\Livewire\Demo\Meta\OverviewPage as MetaOverviewPage;
 use App\Livewire\Demo\Portfolio\AssetsIndex;
 use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
-use App\Livewire\Operator\Website\V2\WebsiteScreen;
 use App\Models\User;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -113,9 +112,6 @@ class DigitalAssetVisualIdentityTest extends TestCase
         Livewire::test(GbpOverviewPage::class, ['assetId' => (string) $gbp->id])
             ->assertSee('data-asset-mark="gbp"', false)
             ->assertSee('images/digital-assets/gbp.svg', false);
-
-        Livewire::test(WebsiteScreen::class, ['assetId' => (string) $website->id])
-            ->assertSee('Northwind Website');
 
         Livewire::test(AssetsIndex::class)
             ->assertSee('data-asset-mark="ga4"', false)

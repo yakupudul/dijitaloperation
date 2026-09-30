@@ -4,7 +4,6 @@ namespace Tests\Feature\Analysis;
 
 use App\Enums\Collection\CollectionRunStatus;
 use App\Enums\DataPool\MaterializationStatus;
-use App\Enums\RecommendationOrigin;
 use App\Jobs\Async\EvaluateFindingsForAssetJob;
 use App\Models\Brand;
 use App\Models\Collection\CollectionDatasetRun;
@@ -18,21 +17,16 @@ use App\Models\DataPool\DatasetMaterialization;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
-use App\Models\Recommendation;
 use App\Models\Run;
 use App\Models\Task;
 use App\Models\User;
 use App\Services\Analysis\CollectedFactsAnalysisService;
-use App\Services\CreateTaskFromRecommendation;
 use App\Services\CrossAssetWebsiteGoogleAdsLandingConsistencyService;
 use App\Services\DataPool\Integrity\Support\CoverageIntervalSet;
 use App\Services\Findings\FindingEvaluationService;
 use App\Services\GoogleAdsLandingFinalUrlsCollectService;
-use App\Services\Recommendations\CreateRecommendationFromFinding;
-use App\Services\Tasks\TaskLifecycleService;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
-use App\Support\Tasks\TaskOutcomeStatus;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -59,93 +53,6 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
         $this->admin = User::factory()->create();
         $this->admin->assignRole(Roles::ADMIN);
         $this->actingAs($this->admin);
-    }
-
-    #[Test]
-    public function website_title_missing_vertical_is_idempotent_and_closes_outcome_loop(): void
-    {
-        $this->travelTo('2026-08-20 10:00:00');
-        $website = $this->makeWebsiteAsset('https://atlas.example/');
-        $collectionRun = $this->makeCollectionRun($website);
-        $this->insertWebsiteMetadata($website, $collectionRun->id, '2026-08-20 09:00:00', [
-            'title' => null,
-            'title_present' => false,
-            'meta_description' => 'Atlas Dental clinic in Istanbul offers implant and smile design services for visiting patients.',
-            'meta_description_present' => true,
-        ]);
-
-        $first = app(CollectedFactsAnalysisService::class)->analyze($website);
-        $this->assertTrue($first->evaluated);
-        $this->assertTrue($first->evaluationSuccessful);
-        $this->assertContains(DocumentHeadCatalog::RULE_TITLE_MISSING, $first->evaluatedRuleIds);
-        $this->assertNotContains(DocumentHeadCatalog::RULE_CHARSET_MISSING, $first->evaluatedRuleIds);
-        $this->assertSame(0, Task::query()->count());
-        Http::assertNothingSent();
-
-        $finding = Finding::query()
-            ->where('digital_asset_id', $website->id)
-            ->where('fingerprint', DocumentHeadCatalog::RULE_TITLE_MISSING)
-            ->firstOrFail();
-        $this->assertSame(DocumentHeadCatalog::RULE_TITLE_MISSING, $finding->fingerprint);
-        $this->assertSame('website-diagnosis', $finding->source_module);
-        $this->assertSame('open', $finding->status);
-        $this->assertSame($first->run?->id, $finding->last_run_id);
-        $this->assertSame($collectionRun->id, $first->provenance['collection_run_id']);
-
-        $recommendation = Recommendation::query()->where('finding_id', $finding->id)->firstOrFail();
-        $this->assertSame(RecommendationOrigin::DeterministicTemplate->value, $recommendation->origin);
-        $this->assertSame('open', $recommendation->status);
-
-        $second = app(CollectedFactsAnalysisService::class)->analyze($website);
-        $this->assertTrue($second->evaluationSuccessful);
-        $this->assertSame(1, Finding::query()
-            ->where('digital_asset_id', $website->id)
-            ->where('fingerprint', DocumentHeadCatalog::RULE_TITLE_MISSING)
-            ->count());
-        $this->assertSame($finding->id, Finding::query()
-            ->where('digital_asset_id', $website->id)
-            ->where('fingerprint', DocumentHeadCatalog::RULE_TITLE_MISSING)
-            ->value('id'));
-        $this->assertSame(1, Recommendation::query()->where('finding_id', $finding->id)->count());
-        $this->assertSame(0, Task::query()->count());
-
-        $task = app(CreateTaskFromRecommendation::class)->create($recommendation);
-        $this->assertNull($task->assignee_id);
-        $this->assertNull($task->due_date);
-        $this->assertSame($website->id, $task->digital_asset_id);
-        $this->assertSame($recommendation->id, $task->recommendation_id);
-        $snapshot = $task->snapshot_json;
-        $this->assertSame($finding->id, data_get($snapshot, 'finding.id'));
-        $this->assertSame($finding->fingerprint, data_get($snapshot, 'finding.fingerprint'));
-
-        $this->travelTo('2026-08-20 10:05:00');
-        $task = app(TaskLifecycleService::class)->complete($task, [
-            'completion_note' => 'Published a title outside MoxDOP.',
-        ], $this->admin);
-        $this->assertSame(TaskOutcomeStatus::AWAITING_FOLLOW_UP, $task->outcome_status);
-        $this->assertFalse(data_get($task->outcome_json, 'causal_attribution'));
-        $this->assertSame($snapshot, $task->fresh()->snapshot_json);
-        $this->assertSame('open', $finding->fresh()->status);
-
-        $this->travelTo('2026-08-20 11:00:00');
-        $this->insertWebsiteMetadata($website, $collectionRun->id, '2026-08-20 10:30:00', [
-            'title' => 'Atlas Dental',
-            'title_present' => true,
-            'meta_description' => 'Atlas Dental clinic in Istanbul offers implant and smile design services for visiting patients.',
-            'meta_description_present' => true,
-        ]);
-
-        $followUp = app(CollectedFactsAnalysisService::class)->analyze($website);
-        $this->assertTrue($followUp->evaluationSuccessful);
-        $this->assertSame('resolved', $finding->fresh()->status);
-        $task = $task->fresh();
-        $this->assertSame(TaskOutcomeStatus::IMPROVEMENT_OBSERVED, $task->outcome_status);
-        $this->assertSame($followUp->run?->id, $task->outcome_run_id);
-        $this->assertFalse(data_get($task->outcome_json, 'causal_attribution'));
-        $this->assertSame(0, Finding::query()->where('digital_asset_id', '!=', $website->id)->count());
-        $this->assertFalse(class_exists('App\\Models\\LearningCandidate'));
-        $this->assertFalse(class_exists('App\\Models\\AgencyKnowledge'));
-        $this->assertFalse(class_exists('App\\Services\\Findings\\FindingEngineV2'));
     }
 
     #[Test]
@@ -1237,53 +1144,6 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
             ->where('fingerprint', DocumentHeadCatalog::RULE_TITLE_MISSING)
             ->count());
         $this->assertSame(0, Task::query()->count());
-        Http::assertNothingSent();
-    }
-
-    #[Test]
-    public function canonical_finding_evaluation_emits_outcome_v1_on_later_clear(): void
-    {
-        $this->travelTo('2026-08-20 10:00:00');
-        $website = $this->makeWebsiteAsset('https://atlas.example/');
-        $evidence = $this->writeCanonicalGsc($website, 'ev-decline', 200, 50);
-
-        app(FindingEvaluationService::class)->evaluateAsset($website, ruleIds: ['website:gsc:clicks-decline']);
-        $finding = Finding::query()
-            ->where('digital_asset_id', $website->id)
-            ->where('fingerprint', 'website:gsc:clicks-decline')
-            ->firstOrFail();
-        $this->assertSame('website', $finding->source_module);
-        $this->assertSame(0, Recommendation::query()->count());
-        $this->assertSame(0, Task::query()->count());
-
-        $recommendation = app(CreateRecommendationFromFinding::class)->create(
-            $finding,
-            [
-                'title' => 'Investigate Search Console click decline',
-                'action' => 'Review cited Search Console Evidence before changing the site.',
-            ],
-            RecommendationOrigin::DeterministicTemplate,
-            $this->admin,
-        );
-        $task = app(CreateTaskFromRecommendation::class)->create($recommendation);
-        $this->assertNull($task->assignee_id);
-        $this->assertNull($task->due_date);
-
-        $task = app(TaskLifecycleService::class)->complete($task, [
-            'completion_note' => 'Published content outside MoxDOP.',
-        ], $this->admin);
-        $this->assertSame(TaskOutcomeStatus::AWAITING_FOLLOW_UP, $task->outcome_status);
-        $this->assertFalse(data_get($task->outcome_json, 'causal_attribution'));
-
-        $this->travelTo('2026-08-20 11:00:00');
-        $evidence->forceFill([
-            'payload' => $this->gscPeriodPayload(200, 190),
-        ])->save();
-        app(FindingEvaluationService::class)->evaluateAsset($website, ruleIds: ['website:gsc:clicks-decline']);
-
-        $this->assertSame('resolved', $finding->fresh()->status);
-        $this->assertSame(TaskOutcomeStatus::IMPROVEMENT_OBSERVED, $task->fresh()->outcome_status);
-        $this->assertFalse(data_get($task->fresh()->outcome_json, 'causal_attribution'));
         Http::assertNothingSent();
     }
 

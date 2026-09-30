@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\Demo\OperatorFileDownloadController;
 use App\Http\Controllers\Integrations\WordPressConnectorDownloadController;
-use App\Http\Controllers\Operator\LegacyWorkRedirectController;
 use App\Http\Controllers\Operator\MetaLegacyPageRedirectController;
 use App\Http\Controllers\Operator\RetiredAssetTypeRedirectController;
 use App\Http\Controllers\Operator\WordPressLoginController;
@@ -17,13 +16,6 @@ use App\Livewire\Demo\Integrations\GoogleAdsConnectorPage;
 use App\Livewire\Demo\Integrations\GoogleIntegrationPage;
 use App\Livewire\Demo\Integrations\IntegrationsIndex;
 use App\Livewire\Demo\Integrations\MetaIntegrationPage;
-use App\Livewire\Demo\Operations\ActivityIndex;
-use App\Livewire\Demo\Operations\FindingsIndex;
-use App\Livewire\Demo\Operations\OpportunitiesIndex;
-use App\Livewire\Demo\Operations\RecommendationsIndex;
-use App\Livewire\Demo\Operations\TaskShow;
-use App\Livewire\Demo\Operations\TasksIndex;
-use App\Livewire\Demo\Operations\WorkShow;
 use App\Livewire\Demo\Portfolio\AssetCreate;
 use App\Livewire\Demo\Portfolio\AssetEdit;
 use App\Livewire\Demo\Portfolio\AssetsIndex;
@@ -35,20 +27,13 @@ use App\Livewire\Demo\Portfolio\CustomerDetail;
 use App\Livewire\Demo\Portfolio\CustomerEdit;
 use App\Livewire\Demo\Portfolio\CustomersIndex;
 use App\Livewire\Demo\ProfilePage;
-use App\Livewire\Demo\Settings\AiAgentsPage;
-use App\Livewire\Demo\Settings\AiControlPlanePage;
-use App\Livewire\Demo\Settings\AiSkillsPage;
-use App\Livewire\Demo\Settings\BackgroundOperationsPage;
 use App\Livewire\Demo\SettingsPage;
-use App\Livewire\Operator\Archive\ProductionArchivePage;
 use App\Livewire\Operator\Assets\AnalyticsPage;
 use App\Livewire\Operator\Assets\SearchConsolePage;
-use App\Livewire\Operator\Compliance\CompliancePage;
 use App\Livewire\Operator\DataCenterPage;
 use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Operator\Integrations\DiscoveredAssetsPage;
 use App\Livewire\Operator\Integrations\SiteConnectorShow;
-use App\Livewire\Operator\Integrations\SiteConnectorsIndex;
 use App\Livewire\Operator\Integrations\WebsiteDuplicatesPage;
 use App\Livewire\Operator\Integrations\WordPressSitesPage;
 use App\Livewire\Operator\Library\QueriesPage;
@@ -57,19 +42,23 @@ use App\Livewire\Operator\Library\WebsiteStandardsPage;
 use App\Livewire\Operator\Meta\OverviewPage as MetaOverviewPage;
 use App\Livewire\Operator\Portfolio\BrandSetupPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
-use App\Livewire\Operator\Portfolio\DiscoverAndGroupPage;
 use App\Livewire\Operator\Settings\AiOperationsPage;
-use App\Livewire\Operator\Settings\AiQualityPage;
-use App\Livewire\Operator\Settings\CostsPage;
-use App\Livewire\Operator\Settings\PushSettingsPage;
 use App\Livewire\Operator\Settings\SectorPacksPage;
 use App\Livewire\Operator\Settings\SystemHealthPage;
 use App\Livewire\Operator\Settings\UsersPage;
 use App\Livewire\Operator\Website\V2\WebsiteScreen;
-use App\Livewire\Operator\Work\AlertsPage;
 use App\Support\Ai\AiProviderCatalog;
-use App\Support\Work\WorkUrl;
 use Illuminate\Support\Facades\Route;
+
+// MoxDOP v2 (Faz 0): retired operator screens. Old bookmarks land on Bugün instead of a 404.
+foreach ([
+    '/opportunities', '/findings', '/recommendations', '/tasks', '/tasks/{taskId}', '/work/{workId}', '/work/{type}/{workId}',
+    '/alerts', '/archive', '/activity', '/compliance', '/customers/discover',
+    '/settings/background-operations', '/settings/costs', '/settings/ai-quality', '/settings/push',
+    '/settings/ai/control-plane', '/settings/ai/agents', '/settings/ai/skills', '/integrations/site-connectors',
+] as $retiredUri) {
+    Route::redirect($retiredUri, '/');
+}
 
 Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
     ->group(function (): void {
@@ -77,7 +66,6 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
 
         Route::livewire('/customers', CustomersIndex::class)->name('operator.customers');
         Route::livewire('/customers/create', CustomerCreate::class)->name('operator.customer.create');
-        Route::livewire('/customers/discover', DiscoverAndGroupPage::class)->name('operator.portfolio.discover');
         Route::livewire('/customers/{customerId}/edit', CustomerEdit::class)->name('operator.customer.edit');
         Route::livewire('/customers/{customerId}', CustomerDetail::class)->name('operator.customer');
 
@@ -100,7 +88,6 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/integrations/meta', MetaIntegrationPage::class)->name('operator.integrations.meta');
         Route::livewire('/integrations/discovered', DiscoveredAssetsPage::class)->name('operator.integrations.discovered');
         Route::livewire('/integrations/dataforseo', DataForSeoIntegrationPage::class)->name('operator.integrations.dataforseo');
-        Route::livewire('/integrations/site-connectors', SiteConnectorsIndex::class)->name('operator.integrations.site-connectors');
         Route::livewire('/integrations/site-connectors/{connector}', SiteConnectorShow::class)->name('operator.integrations.site-connector');
         Route::get('/integrations/site-connectors/{connector}/download', WordPressConnectorDownloadController::class)
             ->name('operator.integrations.site-connector.download');
@@ -137,36 +124,15 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::get('/assets/hosting/{assetId?}', RetiredAssetTypeRedirectController::class)->name('operator.hosting');
         Route::get('/assets/instagram/{assetId?}', RetiredAssetTypeRedirectController::class)->name('operator.instagram');
 
-        Route::livewire('/opportunities', OpportunitiesIndex::class)->name('operator.opportunities');
-        Route::livewire('/findings', FindingsIndex::class)->name('operator.findings');
-        Route::livewire('/recommendations', RecommendationsIndex::class)->name('operator.recommendations');
-        Route::livewire('/tasks', TasksIndex::class)->name('operator.tasks');
-        Route::livewire('/alerts', AlertsPage::class)->name('operator.alerts');
-        Route::livewire('/archive', ProductionArchivePage::class)->name('operator.archive');
         Route::livewire('/brands/{brand}/setup', BrandSetupPage::class)->name('operator.brand.setup');
-        Route::livewire('/tasks/{taskId}', TaskShow::class)->name('operator.task');
-        Route::livewire('/work/{type}/{workId}', WorkShow::class)
-            ->whereIn('type', WorkUrl::types())
-            ->name('operator.work.show');
-        Route::get('/work/{workId}', LegacyWorkRedirectController::class)
-            ->name('operator.work.show.legacy');
-        Route::livewire('/activity', ActivityIndex::class)->name('operator.activity');
 
         Route::livewire('/settings', SettingsPage::class)->name('operator.settings');
-        Route::livewire('/settings/background-operations', BackgroundOperationsPage::class)->name('operator.settings.background-operations');
         Route::livewire('/settings/system-health', SystemHealthPage::class)->name('operator.settings.system-health');
         Route::livewire('/settings/ai-operations', AiOperationsPage::class)->name('operator.settings.ai-operations');
         Route::livewire('/settings/users', UsersPage::class)->name('operator.settings.users');
-        Route::livewire('/settings/costs', CostsPage::class)->name('operator.settings.costs');
-        Route::livewire('/settings/ai-quality', AiQualityPage::class)->name('operator.settings.ai-quality');
         Route::livewire('/settings/sector-packs', SectorPacksPage::class)->name('operator.settings.sector-packs');
-        Route::livewire('/settings/push', PushSettingsPage::class)->name('operator.settings.push');
         Route::livewire('/data-center', DataCenterPage::class)->name('operator.data-center');
         Route::livewire('/integrations/wordpress-sites', WordPressSitesPage::class)->name('operator.integrations.wordpress-sites');
         Route::livewire('/integrations/website-duplicates', WebsiteDuplicatesPage::class)->name('operator.integrations.website-duplicates');
         Route::post('/integrations/wordpress-sites/{site}/login', WordPressLoginController::class)->where('site', '[0-9]{1,18}')->middleware('throttle:10,1')->name('operator.integrations.wordpress-login');
-        Route::livewire('/compliance', CompliancePage::class)->name('operator.compliance');
-        Route::livewire('/settings/ai/control-plane', AiControlPlanePage::class)->name('operator.settings.ai.control-plane');
-        Route::livewire('/settings/ai/agents', AiAgentsPage::class)->name('operator.settings.ai.agents');
-        Route::livewire('/settings/ai/skills', AiSkillsPage::class)->name('operator.settings.ai.skills');
     });

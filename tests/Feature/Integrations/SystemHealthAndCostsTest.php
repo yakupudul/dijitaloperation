@@ -3,7 +3,6 @@
 namespace Tests\Feature\Integrations;
 
 use App\Enums\CustomerStatus;
-use App\Livewire\Operator\Settings\CostsPage;
 use App\Livewire\Operator\Settings\SystemHealthPage;
 use App\Models\AssetAlert;
 use App\Models\Brand;
@@ -15,7 +14,6 @@ use App\Models\ResourceAutomation;
 use App\Models\User;
 use App\Services\Alerts\AssetAlertScanner;
 use App\Services\Observability\WorkerHeartbeatService;
-use App\Services\Operations\CostReader;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -71,31 +69,6 @@ final class SystemHealthAndCostsTest extends TestCase
 
         $this->assertSame('waiting', $stopped->fresh()->collection_status);
         $this->get(route('operator.settings.system-health'))->assertOk();
-    }
-
-    public function test_costs_are_summed_per_month_and_admin_only(): void
-    {
-        $this->travelTo(now()->startOfMonth()->addDays(10));
-        DB::table('ai_usage_records')->insert([
-            ['route_key' => 'x', 'agent' => 'x', 'provider' => 'anthropic', 'model' => 'm', 'input_tokens' => 1, 'output_tokens' => 1, 'cost_usd' => 0.42, 'created_at' => now()],
-            ['route_key' => 'x', 'agent' => 'x', 'provider' => 'anthropic', 'model' => 'm', 'input_tokens' => 1, 'output_tokens' => 1, 'cost_usd' => 1.00, 'created_at' => now()->subMonth()],
-        ]);
-
-        $costs = app(CostReader::class)->read();
-
-        $this->assertCount(6, $costs['months']);
-        $month = now()->format('Y-m');
-        $ai = collect($costs['rows'])->firstWhere('label', 'AI · anthropic');
-        $this->assertSame(0.42, $ai['values'][$month]);
-        $this->assertSame(1.42, $ai['total']);
-        $this->assertSame(0.42, $costs['totals'][$month]);
-
-        $this->actingAs($this->admin);
-        Livewire::test(CostsPage::class)->assertSee('Maliyetler')->assertSee('AI · anthropic')->assertSee('$0,42');
-
-        $member = User::factory()->create(['is_active' => true]);
-        $member->assignRole(Roles::TEAM_MEMBER);
-        $this->actingAs($member)->get(route('operator.settings.costs'))->assertForbidden();
     }
 
     public function test_outdated_plugin_raises_a_low_alert_on_the_website(): void

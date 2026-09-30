@@ -23,7 +23,6 @@
                 <button type="button" @click="moreOpen = !moreOpen" class="inline-flex rounded-lg px-2.5 py-2 text-sm text-gray-500 ring-1 ring-inset ring-gray-300 dark:ring-gray-700" aria-label="Diğer">⋯</button>
                 <div x-show="moreOpen" @click.outside="moreOpen = false" x-cloak class="absolute right-0 z-20 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900">
                     <a href="{{ route('operator.files', ['scope' => 'customer', 'customer' => $customer['id']]) }}" wire:navigate class="block px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-white/5">{{ __('operator.customer.actions.open_files') }}</a>
-                    <a href="{{ route('operator.activity', ['customer' => $customer['id']]) }}" wire:navigate class="block px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-white/5">{{ __('operator.customer.actions.view_activity') }}</a>
                     @if (($customer['status'] ?? '') === 'archived')
                         <button type="button" wire:click="restoreCustomer" class="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-white/5">Müşteriyi geri al</button>
                     @else
@@ -117,18 +116,6 @@
                 </div>
             @endforelse
         </section>
-
-        @if ($overdueTasks !== [] || $attentionFindings !== [])
-            <section class="{{ $card }}">
-                <h2 class="border-b border-gray-100 px-5 py-3 text-base font-semibold text-gray-800 dark:border-gray-800 dark:text-white/90">Dikkat gerektirenler</h2>
-                @foreach ($overdueTasks as $task)
-                    <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-2.5 text-sm last:border-0 dark:border-gray-800"><span><span class="text-error-500">●</span> Geciken görev: {{ $task['title'] }}</span><a href="{{ route('operator.work.show', ['workId' => $task['id'], 'type' => 'task']) }}" wire:navigate class="text-xs text-brand-600 hover:underline">Aç →</a></div>
-                @endforeach
-                @foreach ($attentionFindings as $finding)
-                    <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-2.5 text-sm last:border-0 dark:border-gray-800"><span><span class="text-warning-500">●</span> {{ $finding['title'] }}</span><span class="text-xs text-gray-500">{{ $finding['brand'] ?? '' }}</span></div>
-                @endforeach
-            </section>
-        @endif
 
         <div class="grid gap-6 lg:grid-cols-2">
             <section class="{{ $card }}">
