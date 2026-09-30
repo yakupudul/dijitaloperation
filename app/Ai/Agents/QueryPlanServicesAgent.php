@@ -13,7 +13,7 @@ use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Promptable;
 
 /**
- * "AI ile planla" adım 2 (operation `queries.plan_services`): ONE batched call over the used sectors proposes missing
+ * "AI ile planla" adım 2 (operation `queries.plan_services`): one call per used sector proposes missing
  * services and matching keyword fixes (add / remove / move). Proposal only; the operator ticks what to apply.
  */
 final class QueryPlanServicesAgent implements Agent, HasProviderOptions, HasStructuredOutput, RegistryPrompted
@@ -23,7 +23,7 @@ final class QueryPlanServicesAgent implements Agent, HasProviderOptions, HasStru
 
     public const string OPERATION = AiRouteKeys::QUERIES_PLAN_SERVICES;
 
-    public const string PROMPT_VERSION = 'queries-plan-services-v1';
+    public const string PROMPT_VERSION = 'queries-plan-services-v2';
 
     public function promptOperation(): string
     {

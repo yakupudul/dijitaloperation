@@ -10,7 +10,6 @@ use App\Ai\Agents\MetaCreativesAgent;
 use App\Livewire\Operator\Settings\AiOperationsPage;
 use App\Models\PromptVersion;
 use App\Models\User;
-use App\Services\Ai\AiBudget;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\Prompts\PromptRegistry;
 use App\Services\Retention\DataRetentionService;
@@ -254,13 +253,10 @@ final class PromptRegistryTest extends TestCase
         $this->assertSame(2, DB::table('ai_usage_records')->count(), 'the run summary row stays');
     }
 
-    public function test_settings_screen_saves_the_monthly_ai_budget(): void
+    public function test_settings_screen_shows_month_spend_without_a_limit(): void
     {
         $this->actingAs($this->admin);
-        Livewire::test(AiOperationsPage::class)->assertSee('Aylık AI bütçesi')
-            ->set('budget', '120')->call('saveBudget')->assertHasNoErrors();
-        $this->assertSame(120.0, app(AiBudget::class)->monthlyBudget());
-        Livewire::test(AiOperationsPage::class)->set('budget', '-5')->call('saveBudget')->assertHasErrors('budget');
+        Livewire::test(AiOperationsPage::class)->assertSee('harcama sınırı yok')->assertDontSee('Aylık AI bütçesi');
     }
 
     public function test_non_admin_is_forbidden(): void

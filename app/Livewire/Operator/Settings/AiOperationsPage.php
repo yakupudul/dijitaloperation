@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Operator\Settings;
 
-use App\Models\AgencySetting;
 use App\Models\PromptVersion;
 use App\Services\Ai\AiBudget;
 use App\Services\Ai\AiRouteResolver;
@@ -38,13 +37,9 @@ final class AiOperationsPage extends Component
     /** "Örnekte dene": the input the draft runs on (a past run's input or a pasted sample). */
     public string $trialInput = '';
 
-    /** Monthly AI budget in USD (paid models stop when the month's spend reaches it; free models keep running). */
-    public string $budget = '';
-
-    public function mount(PromptRegistry $registry, AiBudget $aiBudget): void
+    public function mount(PromptRegistry $registry): void
     {
         $this->authorizeAdmin();
-        $this->budget = (string) round($aiBudget->monthlyBudget(), 2);
         if ($this->operation !== '') {
             $this->open($this->operation, $registry);
         }
@@ -64,15 +59,6 @@ final class AiOperationsPage extends Component
         $this->model = (string) ($current->model ?? '');
         $this->trialInput = '';
         $this->resetErrorBag();
-    }
-
-    public function saveBudget(): void
-    {
-        $this->authorizeAdmin();
-        $this->validate(['budget' => ['required', 'numeric', 'min:0', 'max:100000']], [], ['budget' => 'Aylık bütçe']);
-        $setting = AgencySetting::query()->first() ?? new AgencySetting;
-        $setting->forceFill(['ai_monthly_budget_usd' => round((float) $this->budget, 2)])->save();
-        session()->flash('status', 'Aylık AI bütçesi kaydedildi.');
     }
 
     public function close(): void

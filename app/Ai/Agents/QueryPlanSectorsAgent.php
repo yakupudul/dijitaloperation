@@ -13,7 +13,7 @@ use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Promptable;
 
 /**
- * "AI ile planla" adım 1 (operation `queries.plan_sectors`): ONE batched call assigns a sector to every brand without
+ * "AI ile planla" adım 1 (operation `queries.plan_sectors`): batched calls (25 brands each) assign a sector to every brand without
  * one and proposes asset overrides only when an asset's signal clearly differs. Proposal only.
  */
 final class QueryPlanSectorsAgent implements Agent, HasProviderOptions, HasStructuredOutput, RegistryPrompted
@@ -23,7 +23,7 @@ final class QueryPlanSectorsAgent implements Agent, HasProviderOptions, HasStruc
 
     public const string OPERATION = AiRouteKeys::QUERIES_PLAN_SECTORS;
 
-    public const string PROMPT_VERSION = 'queries-plan-sectors-v1';
+    public const string PROMPT_VERSION = 'queries-plan-sectors-v2';
 
     public function promptOperation(): string
     {

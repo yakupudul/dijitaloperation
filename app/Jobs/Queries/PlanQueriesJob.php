@@ -16,7 +16,7 @@ final class PlanQueriesJob implements ShouldQueue
 
     public const array LABELS = ['sectors' => 'Sektör ata', 'services' => 'Hizmet keşfet', 'filters' => 'Filtre oluştur'];
 
-    public int $timeout = 300;
+    public int $timeout = 900;
 
     public int $tries = 1;
 

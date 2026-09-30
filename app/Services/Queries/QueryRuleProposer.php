@@ -29,7 +29,7 @@ final class QueryRuleProposer
 {
     public const int MAX_QUERIES = 200;
 
-    private const int MAX_ITEMS = 60;
+    private const int MAX_ITEMS = 300;
 
     private const int SAMPLE = 300;
 

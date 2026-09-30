@@ -2,20 +2,16 @@
 
 /*
 |--------------------------------------------------------------------------
-| AI fiyatları (USD / 1 milyon token) ve aylık bütçe
+| AI fiyatları (USD / 1 milyon token)
 |--------------------------------------------------------------------------
 | Maliyet = girdi × input + çıktı × output (+ önbellek okuma/yazma). Listede olmayan
-| model için maliyet "bilinmiyor" kaydedilir ve bütçe dolduğunda o model çalıştırılmaz
-| (sıfır maliyetli olduğu kanıtlanamaz). Fiyatlar değişince yalnızca bu dosya güncellenir.
+| model için maliyet "bilinmiyor" kaydedilir. Harcama sınırı yoktur; maliyet yalnızca raporlanır. Fiyatlar değişince yalnızca bu dosya güncellenir.
 | Anthropic fiyatları: Anthropic API fiyat tablosu (2026-06). OpenAI: resmî API fiyat listesi
 | (standart katman); rotalarda kullanılan modellerin hepsi burada olmalı — yoksa kullanım $0.00
-| görünür ve bütçe işlemez (AiPricingCoverageTest). Gemini fiyatlarını hesabınızdaki tarifeden ekleyin.
+| görünür (AiPricingCoverageTest). Gemini fiyatlarını hesabınızdaki tarifeden ekleyin.
 */
 
 return [
-    // Operatör onayı: ayda ~100 USD. Ayarlar › AI ekranından kaydedilen değer bunu geçersiz kılar.
-    'monthly_budget_usd' => (float) env('AI_MONTHLY_BUDGET_USD', 100),
-
     'models' => [
         'anthropic' => [
             'claude-sonnet-5' => ['input' => 2.00, 'output' => 10.00],

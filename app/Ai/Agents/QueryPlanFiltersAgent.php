@@ -13,7 +13,7 @@ use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Promptable;
 
 /**
- * "AI ile planla" adım 3 (operation `queries.plan_filters`): ONE batched call proposes negative filter terms per used
+ * "AI ile planla" adım 3 (operation `queries.plan_filters`): one call per used sector proposes negative filter terms per used
  * sector (a query containing a term is deleted). Proposal only; every term must occur in the sector's samples.
  */
 final class QueryPlanFiltersAgent implements Agent, HasProviderOptions, HasStructuredOutput, RegistryPrompted
@@ -23,7 +23,7 @@ final class QueryPlanFiltersAgent implements Agent, HasProviderOptions, HasStruc
 
     public const string OPERATION = AiRouteKeys::QUERIES_PLAN_FILTERS;
 
-    public const string PROMPT_VERSION = 'queries-plan-filters-v1';
+    public const string PROMPT_VERSION = 'queries-plan-filters-v2';
 
     public function promptOperation(): string
     {

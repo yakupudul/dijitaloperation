@@ -105,6 +105,7 @@
             @if ($status === 'ready')
                 <div class="border-t border-gray-100 pt-2 dark:border-gray-800" data-proposal>
                     <h2 class="text-xs font-semibold uppercase text-gray-500">AI önerisi · {{ count($proposal['items']) }}</h2>
+                    @if (($proposal['failed'] ?? []) !== [])<p class="text-xs text-rose-600">Yanıt alınamayan sektörler: {{ implode(', ', $proposal['failed']) }} · tekrar çalıştırın.</p>@endif
                     <ul class="mt-1 space-y-1">
                         @forelse ($proposal['items'] as $i => $row)
                             <li class="flex items-start gap-2 text-xs"><input type="checkbox" wire:model="pick.{{ $i }}" aria-label="Seç">
@@ -155,6 +156,7 @@
             @if ($status === 'ready')
                 <div class="border-t border-gray-100 pt-2 dark:border-gray-800" data-proposal>
                     <h2 class="text-xs font-semibold uppercase text-gray-500">AI önerisi · {{ count($proposal['items']) }}</h2>
+                    @if (($proposal['failed'] ?? []) !== [])<p class="text-xs text-rose-600">Yanıt alınamayan sektörler: {{ implode(', ', $proposal['failed']) }} · tekrar çalıştırın.</p>@endif
                     <ul class="mt-1 space-y-1">
                         @forelse ($proposal['items'] as $i => $row)
                             <li class="flex items-start gap-2 text-xs"><input type="checkbox" wire:model="pick.{{ $i }}" aria-label="Seç">

@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-11-05 — AI harcama sınırı yok
+
+- **Karar (operatör):** AI için aylık harcama sınırı yoktur; maliyet yalnız raporlanır. AI ile planla her sektör için ayrı ve kapsamlı üretir; verisi olmayan sektörde sektör bilgisinden hizmet / kelime önerir (yine operatör onayıyla).
+
 ## 2026-11-04 — Sorgular: AI ile planla, negatif filtre, bekleyen sorgular, onaylı tarama
 
 - **Karar (operatör):** Sektör markada durur, varlıklar devralır; varlık kendi sektörünü seçebilir (marka sektörü seçilince geçersiz kılma silinir). Sektör ve hizmet kataloğu markalar, sorgular ve varlıklar arasında ortaktır.

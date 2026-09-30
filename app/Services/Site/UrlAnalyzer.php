@@ -31,7 +31,7 @@ final class UrlAnalyzer
 
     public const int MAX_CONTENT = 12000;
 
-    public const int MAX_SUGGESTIONS = 12;
+    public const int MAX_SUGGESTIONS = 30;
 
     /** Competitor examples per cluster (top ranked, fetched pages). */
     public const int COMPETITOR_EXAMPLES = 3;

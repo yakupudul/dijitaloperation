@@ -61,7 +61,6 @@ final class AiCostControlTest extends TestCase
         foreach ($models as [$provider, $model]) {
             $this->assertNotNull($pricing->price($provider, $model), $provider.' '.$model.' has no price: its calls would show $0.00 and never count against the budget');
         }
-        $this->assertSame(100.0, app(AiBudget::class)->monthlyBudget(), 'operator approved ~$100 / month');
     }
 
     public function test_backfill_prices_usage_that_was_recorded_without_a_cost(): void
@@ -107,20 +106,19 @@ final class AiCostControlTest extends TestCase
         $this->assertSame('BrandSetupAgent', $row->agent);
     }
 
-    public function test_budget_exhaustion_skips_paid_models_but_keeps_free_ones(): void
+    public function test_there_is_no_spending_limit_paid_models_keep_running(): void
     {
-        config(['moxdop.anthropic.api_key' => 'sk-ant-test', 'ai.providers.groq.key' => 'gsk-test']);
+        config(['moxdop.anthropic.api_key' => 'sk-ant-test']);
         AgencySetting::query()->create(['agency_name' => 'MoxDOP', 'portal_name' => 'MoxDOP'])->forceFill(['ai_monthly_budget_usd' => 5])->save();
         DB::table('ai_usage_records')->insert([
             'route_key' => 'x', 'agent' => 'A', 'provider' => 'anthropic', 'model' => 'claude-sonnet-5',
-            'input_tokens' => 1, 'output_tokens' => 1, 'cost_usd' => 5.10, 'created_at' => now(),
+            'input_tokens' => 1, 'output_tokens' => 1, 'cost_usd' => 500.10, 'created_at' => now(),
         ]);
-        $this->assertTrue(app(AiBudget::class)->isExhausted());
+        $this->assertEqualsWithDelta(500.10, app(AiBudget::class)->monthSpend(), 0.001);
 
-        // Client-data route: only paid providers allowed → nothing can run, plans fall back to rules.
         $analysis = app(AiRouteResolver::class)->resolve(AiRouteKeys::BRAND_SETUP);
-        $this->assertTrue($analysis->isEmpty());
-        $this->assertSame('budget_exhausted', $analysis->steps[0]['reason']);
+        $this->assertFalse($analysis->isEmpty(), 'spend is only reported, it never blocks a model');
+        $this->assertSame('anthropic', $analysis->primaryProvider());
     }
 
     public function test_free_tier_providers_are_blocked_for_client_data_routes(): void

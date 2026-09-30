@@ -144,7 +144,7 @@ final class QueryPlanWizardTest extends TestCase
         $kaplama = ServiceMatchingKeyword::query()->where('normalized_key', 'kaplama')->sole();
         QueryPlanServicesAgent::fake(fn (): array => [
             'new_services' => [
-                ['sector_id' => $this->dental->id, 'name' => 'Diş Beyazlatma', 'keywords' => ['beyazlatma', 'uçan halı'], 'reason' => 'Sorgularda var'],
+                ['sector_id' => $this->dental->id, 'name' => 'Diş Beyazlatma', 'keywords' => ['beyazlatma', 'bleaching', 'fiyat'], 'reason' => 'Sorgularda var'],
                 ['sector_id' => $this->dental->id, 'name' => 'Diş implantı', 'keywords' => [], 'reason' => 'zaten var'],
                 ['sector_id' => 424242, 'name' => 'Bilinmeyen', 'keywords' => [], 'reason' => '-'],
             ],
@@ -161,7 +161,7 @@ final class QueryPlanWizardTest extends TestCase
         $page = Livewire::test(QueryPlanWizard::class)->call('goTo', 2)
             ->assertSee('Diş İmplantı')->assertSee('Zirkonyum Kaplama')
             ->call('runAi')
-            ->assertSee('Yeni hizmet: Diş Beyazlatma')->assertSee('+ zirkonyum')->assertDontSee('uçan halı')->assertDontSee('Bilinmeyen')
+            ->assertSee('Yeni hizmet: Diş Beyazlatma')->assertSee('(beyazlatma, bleaching)')->assertSee('+ zirkonyum')->assertDontSee('Bilinmeyen')
             ->assertSet('pick', [0 => true, 1 => true, 2 => true]);
 
         $this->assertSame(['implant', 'kaplama'], $this->implant->matchingKeywords()->orderBy('normalized_key')->pluck('normalized_key')->all(), 'nothing applied yet');
@@ -170,7 +170,7 @@ final class QueryPlanWizardTest extends TestCase
 
         $whitening = ServiceCatalogName::query()->where('raw_label', 'Diş Beyazlatma')->sole()->service;
         $this->assertSame('dental', $whitening->sector);
-        $this->assertSame(['beyazlatma'], $whitening->matchingKeywords()->pluck('normalized_key')->all());
+        $this->assertSame(['beyazlatma', 'bleaching'], $whitening->matchingKeywords()->orderBy('normalized_key')->pluck('normalized_key')->all(), 'sector knowledge is kept, generic words dropped');
         $this->assertSame(['kaplama'], $this->zirkonyum->matchingKeywords()->pluck('normalized_key')->all(), 'unticked add skipped, move applied');
         $this->assertSame(['implant'], $this->implant->matchingKeywords()->pluck('normalized_key')->all());
 
@@ -179,6 +179,32 @@ final class QueryPlanWizardTest extends TestCase
             ->set('newKeyword.'.$this->implant->id, 'Kaplama')->call('addKeyword', $this->implant->id)->assertHasErrors('newKeyword.'.$this->implant->id)
             ->set('newKeyword.'.$this->implant->id, 'dental implant')->call('addKeyword', $this->implant->id)->assertHasNoErrors();
         $this->assertTrue($this->implant->matchingKeywords()->where('normalized_key', 'dental implant')->exists());
+    }
+
+    public function test_step_two_calls_ai_per_sector_and_fills_a_sector_without_services_or_data(): void
+    {
+        Brand::factory()->create(['customer_id' => Customer::factory()->create()->id, 'sector_id' => $this->hair->id]);
+        $prompts = [];
+        QueryPlanServicesAgent::fake(function (string $prompt) use (&$prompts): array {
+            $prompts[] = $prompt;
+            $sector = json_decode(substr($prompt, strlen("DATA_JSON\n")), true)['sectors'][0];
+            if ($sector['id'] === $this->dental->id) {
+                throw new RuntimeException('sağlayıcı hatası');
+            }
+
+            return ['new_services' => [
+                ['sector_id' => $sector['id'], 'name' => 'FUE Saç Ekimi', 'keywords' => ['fue', 'fue saç ekimi'], 'reason' => 'sektör bilgisi'],
+                ['sector_id' => $sector['id'], 'name' => 'DHI Saç Ekimi', 'keywords' => ['dhi', 'kalem tekniği'], 'reason' => 'sektör bilgisi'],
+            ], 'add_keywords' => [], 'remove_keywords' => [], 'move_keywords' => [], 'prompt_version' => QueryPlanServicesAgent::PROMPT_VERSION];
+        });
+
+        Livewire::test(QueryPlanWizard::class)->call('goTo', 2)->call('runAi')
+            ->assertSee('Yeni hizmet: FUE Saç Ekimi')->assertSee('(dhi, kalem tekniği)')
+            ->assertSee('Yanıt alınamayan sektörler: Diş sağlığı');
+
+        $this->assertCount(2, $prompts, 'one call per used sector');
+        $hairData = json_decode(substr($prompts[1], strlen("DATA_JSON\n")), true)['sectors'][0];
+        $this->assertSame([[], []], [$hairData['services'], $hairData['samples']], 'a sector without services or collected queries is still asked');
     }
 
     public function test_step_three_proposes_valid_terms_and_the_first_import_filters_across_sectors_and_notifies(): void
@@ -205,12 +231,12 @@ final class QueryPlanWizardTest extends TestCase
         });
 
         $page = Livewire::test(QueryPlanWizard::class)->call('goTo', 3)->call('runAi')
-            ->assertSee('iş ilanı')->assertSee('maaş')->assertSee('forum')->assertDontSee('uzay');
-        $this->assertCount(1, $prompts, 'one batched call for all used sectors');
+            ->assertSee('iş ilanı')->assertSee('maaş')->assertSee('forum')->assertSee('uzay');
+        $this->assertCount(2, $prompts, 'one call per used sector');
         $this->assertSame(0, FilterTerm::query()->count(), 'nothing saved before approval');
         $this->assertSame(0, Query::query()->count());
 
-        $page->set('pick.1', false)->call('approveFilters')->assertRedirect(route('operator.library.queries'));
+        $page->set('pick.1', false)->set('pick.2', false)->call('approveFilters')->assertRedirect(route('operator.library.queries'));
 
         $this->assertSame(['forum', 'iş ilanı'], FilterTerm::query()->orderBy('term')->pluck('term')->all());
         $this->assertNotNull(QueryPipeline::importedAt());

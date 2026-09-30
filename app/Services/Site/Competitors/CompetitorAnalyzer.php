@@ -34,7 +34,7 @@ final class CompetitorAnalyzer
 
     public const int MIN_CITATIONS = 2;
 
-    private const int MAX_SUGGESTIONS = 6;
+    private const int MAX_SUGGESTIONS = 15;
 
     public function __construct(
         private readonly AiRouteResolver $routes,

@@ -64,7 +64,7 @@ final class GoogleAdsAssistant
 
     public const int PATH_MAX = 15;
 
-    public const int MAX_NEGATIVES = 25;
+    public const int MAX_NEGATIVES = 100;
 
     private const string CONTACT_PATTERN = '~https?://|www\.|[\w.+-]+@[\w-]+\.[\w.]+|\+?\d[\d\s().-]{8,}\d~iu';
 

@@ -1348,12 +1348,9 @@ final class PortfolioDiagnostics
                 $this->info(sprintf('Kullanım 7g %s: %d çağrı · $%.2f', $row->route_key ?? '—', $row->calls, $row->cost));
             }
             $this->data('usage_7d', $usage->map(fn (object $r): array => (array) $r)->all());
-            $budget = $this->hasColumn('agency_settings', 'ai_monthly_budget_usd') ? DB::table('agency_settings')->value('ai_monthly_budget_usd') : null;
-            $budget = $budget !== null ? (float) $budget : (float) config('moxdop-ai-pricing.monthly_budget_usd', 100);
             $spend = (float) DB::table('ai_usage_records')->where('created_at', '>=', now()->startOfMonth())->sum('cost_usd');
-            $line = sprintf('Bütçe: bu ay $%.2f / $%.2f', $spend, $budget);
-            ($budget > 0 && $spend >= $budget) ? $this->problem($line.' — BİTTİ (yalnız ücretsiz modeller)') : $this->info($line);
-            $this->data('budget', ['budget' => $budget, 'spend' => $spend]);
+            $this->info(sprintf('AI harcaması bu ay: $%.2f (sınır yok)', $spend));
+            $this->data('ai_spend_month', $spend);
         }
         if ($this->hasTable('agent_execution_runs')) {
             $failures = DB::table('agent_execution_runs')->where('created_at', '>=', now()->subDays(7))->whereNotIn('status', ['completed', 'succeeded'])
