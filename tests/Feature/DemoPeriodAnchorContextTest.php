@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
 use App\Models\User;
 use App\Services\Gsc\GscSpecialistReadService;
 use App\Support\Demo\DemoCatalog;
@@ -13,7 +12,6 @@ use App\Support\Roles;
 use Carbon\Carbon;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Livewire\Livewire;
 use Tests\Support\CreatesCanonicalPortfolio;
 use Tests\TestCase;
 
@@ -59,7 +57,6 @@ class DemoPeriodAnchorContextTest extends TestCase
         $realBounds = DemoPeriod::bounds('last_28');
         $numericAsset = $this->createPortfolioAsset('gsc', 'Northwind GSC', ['module_id' => 'search-console']);
         $realWorkspace = app(GscSpecialistReadService::class)->workspace((string) $numericAsset->id, 'last_28');
-        $website = $this->createPortfolioAsset('website', 'Northwind Website');
 
         $this->assertSame('2026-09-01', $realBounds['end']->toDateString());
         $this->assertSame('2026-08-05', $realBounds['start']->toDateString());
@@ -68,11 +65,5 @@ class DemoPeriodAnchorContextTest extends TestCase
 
         $this->assertNotNull(DemoPeriod::validateCustom('2026-09-02', '2026-09-03'));
         $this->assertNull(DemoPeriod::validateCustom('2026-08-20', '2026-09-01'));
-
-        Livewire::test(WebsiteOverviewPage::class, ['assetId' => (string) $website->id])
-            ->call('setPeriod', 'last_7')
-            ->assertSet('period', 'last_7')
-            ->assertSet('periodStart', '2026-08-26')
-            ->assertSet('periodEnd', '2026-09-01');
     }
 }

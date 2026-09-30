@@ -102,8 +102,7 @@ class OpsActionOverviewWidget extends StatsOverviewWidget
                             ? $recentlyResolvedImportantFindings.' important findings resolved in the last 7 days'
                             : 'No issues currently require attention'
                     )
-                    ->color('success')
-                    ->url(route('operator.findings')),
+                    ->color('success'),
             ];
         }
 
@@ -112,29 +111,25 @@ class OpsActionOverviewWidget extends StatsOverviewWidget
         if ($criticalFindings > 0) {
             $stats[] = Stat::make('Critical open Findings', (string) $criticalFindings)
                 ->description('Open findings with critical or high severity')
-                ->color('danger')
-                ->url(route('operator.findings'));
+                ->color('danger');
         }
 
         if ($openWebsiteTechnicalFindings > 0) {
             $stats[] = Stat::make('Website technical Findings', (string) $openWebsiteTechnicalFindings)
                 ->description('Open critical/high findings from website checks')
-                ->color('danger')
-                ->url(route('operator.findings'));
+                ->color('danger');
         }
 
         if ($openCrossChannelFindings > 0) {
             $stats[] = Stat::make('Open cross-channel Findings', (string) $openCrossChannelFindings)
                 ->description('Cross-channel findings still open')
-                ->color('warning')
-                ->url(route('operator.findings'));
+                ->color('warning');
         }
 
         if ($openRecommendations > 0) {
             $stats[] = Stat::make('Open Recommendations', (string) $openRecommendations)
                 ->description('Recommendations waiting for action')
-                ->color('warning')
-                ->url(route('operator.recommendations'));
+                ->color('warning');
         }
 
         if ($failedConnections > 0) {
@@ -148,36 +143,31 @@ class OpsActionOverviewWidget extends StatsOverviewWidget
                 ->description($overdueTasks > 0
                     ? $overdueTasks.' overdue'
                     : 'Open, in progress, or blocked')
-                ->color($overdueTasks > 0 ? 'danger' : 'warning')
-                ->url(route('operator.tasks'));
+                ->color($overdueTasks > 0 ? 'danger' : 'warning');
         }
 
         if ($regressionObserved > 0) {
             $stats[] = Stat::make('Regression observed', (string) $regressionObserved)
                 ->description('Linked Finding reappeared after earlier improvement')
-                ->color('danger')
-                ->url(route('operator.tasks'));
+                ->color('danger');
         }
 
         if ($awaitingFollowUp > 0) {
             $stats[] = Stat::make('Awaiting follow-up', (string) $awaitingFollowUp)
                 ->description('Completed Tasks waiting for comparable Finding evaluation')
-                ->color('warning')
-                ->url(route('operator.tasks'));
+                ->color('warning');
         }
 
         if ($improvementObserved > 0) {
             $stats[] = Stat::make('Improvement observed', (string) $improvementObserved)
                 ->description('Linked Finding resolved in a later successful evaluation')
-                ->color('success')
-                ->url(route('operator.tasks'));
+                ->color('success');
         }
 
         if ($recentlyResolvedImportantFindings > 0) {
             $stats[] = Stat::make('Recently resolved important', (string) $recentlyResolvedImportantFindings)
                 ->description('Critical/high findings resolved in the last 7 days')
-                ->color('success')
-                ->url(route('operator.findings'));
+                ->color('success');
         }
 
         return $stats;

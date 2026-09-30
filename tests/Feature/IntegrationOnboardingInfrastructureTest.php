@@ -6,8 +6,6 @@ use App\Livewire\Demo\Integrations\ConnectorPage;
 use App\Livewire\Demo\Integrations\GoogleIntegrationPage;
 use App\Livewire\Demo\Portfolio\AssetCreate;
 use App\Livewire\Demo\Portfolio\AssetsIndex;
-use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
-use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Support\Demo\DemoState;
 use App\Support\Roles;
@@ -145,19 +143,8 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
             ->assertDontSee('DemoHost · Atlas Dental');
     }
 
-    public function test_website_infrastructure_tab_and_legacy_routes_preserved(): void
+    public function test_legacy_domain_and_hosting_routes_redirect(): void
     {
-        $website = DigitalAsset::factory()->create(['type' => 'website', 'name' => 'Northwind Website']);
-
-        Livewire::test(WebsiteOverviewPage::class, ['assetId' => (string) $website->id, 'tab' => 'infrastructure'])
-            ->assertSee('Infrastructure and WordPress inventory')
-            ->assertSee('Domain')
-            ->assertSee('Hosting')
-            ->assertSee('SSL / TLS')
-            ->assertSee('WordPress connection')
-            // Domain / hosting / TLS stay Website facts, not standalone assets.
-            ->assertSee('separate source facts');
-
         $this->get(route('operator.domain'))
             ->assertRedirect(route('operator.assets'));
 

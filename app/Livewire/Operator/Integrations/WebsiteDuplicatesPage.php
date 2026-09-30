@@ -55,7 +55,7 @@ final class WebsiteDuplicatesPage extends Component
             if ($conflict !== null) {
                 $this->presentOwnershipConflict($conflict, ['group' => $groupKey, 'keeper' => (int) $keeper->id]);
                 $this->ownershipConflict['consequences'] = [
-                    sprintf('%s kaydının bağlı hesapları, toplanmış verisi, SEO görevleri ve site düzeltmeleri %s kaydına taşınır.', (string) $crossDuplicate->name, (string) $keeper->name),
+                    sprintf('%s kaydının bağlı hesapları, toplanmış verisi ve site düzeltmeleri %s kaydına taşınır.', (string) $crossDuplicate->name, (string) $keeper->name),
                     sprintf('%s müşterisi bu siteyi artık görmez; site %s adına izlenir.', (string) $crossDuplicate->brand?->customer?->name, (string) $keeper->brand->customer?->name),
                     'Aynı işe iki kez sahip olan satırlarda tutulan kaydınki kalır; kopya kayıt arşivlenir, silinmez.',
                     'Taşınan hesapların sektör / hizmet eşlemesi sıfırlanır; yeni marka için yeniden eşlenir.',

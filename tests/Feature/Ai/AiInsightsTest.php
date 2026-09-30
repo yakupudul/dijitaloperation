@@ -2,10 +2,7 @@
 
 namespace Tests\Feature\Ai;
 
-use App\Ai\Agents\Insights\AlertCauseAgent;
 use App\Enums\DigitalAssetStatus;
-use App\Livewire\Operator\Work\AlertsPage;
-use App\Models\AiProduction;
 use App\Models\AssetAlert;
 use App\Models\Brand;
 use App\Models\CoreIntegration;
@@ -14,7 +11,6 @@ use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Ai\Insights\AiInsightService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 /** On-click AI insights: every context builds from local data, answers are archived, subjects are checked. */
@@ -51,37 +47,6 @@ final class AiInsightsTest extends TestCase
             $this->assertNotFalse(json_encode($context), $kind);
         }
         $this->assertArrayHasKey('daily', $insights->definition('alerts.cause')->context($alert));
-    }
-
-    public function test_alert_cause_runs_on_click_and_is_archived(): void
-    {
-        AlertCauseAgent::fake([['summary' => 'Düşüş reklam bütçesinin kesildiği gün başlıyor.', 'items' => [
-            ['title' => 'Google Ads bütçesi durduruldu', 'detail' => 'Harcama 12 Eylül’de sıfıra indi.', 'tag' => 'likely'],
-        ]]]);
-        $alert = $this->alert();
-
-        Livewire::test(AlertsPage::class)
-            ->assertSee('Olası neden')
-            ->set('causeFor', $alert->id)
-            ->call('runInsight', 'alerts.cause', $alert->id)
-            ->assertSee('Düşüş reklam bütçesinin kesildiği gün başlıyor.')
-            ->assertSee('Büyük ihtimalle');
-
-        $this->assertSame(1, AiProduction::query()->where('kind', 'alerts.cause')->where('subject_id', $alert->id)->count());
-        AlertCauseAgent::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, 'Site dönüşümleri düştü'));
-    }
-
-    public function test_a_page_only_runs_insights_on_its_own_subjects(): void
-    {
-        AlertCauseAgent::fake();
-        $alert = $this->alert();
-        $alert->forceFill(['resolved_at' => now()])->save();
-
-        Livewire::test(AlertsPage::class)->call('runInsight', 'alerts.cause', $alert->id);
-        Livewire::test(AlertsPage::class)->call('runInsight', 'alerts.cause', 999999);
-
-        AlertCauseAgent::assertNeverPrompted();
-        $this->assertSame(0, AiProduction::query()->count());
     }
 
     private function alert(): AssetAlert

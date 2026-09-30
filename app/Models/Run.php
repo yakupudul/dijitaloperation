@@ -59,24 +59,6 @@ class Run extends Model
     }
 
     /**
-     * @return HasMany<SearchDemandCompetitorPageRunItem, $this>
-     */
-    public function competitorPageRunItems(): HasMany
-    {
-        return $this->hasMany(SearchDemandCompetitorPageRunItem::class);
-    }
-
-    public function competitiveIntelligenceRuns(): HasMany
-    {
-        return $this->hasMany(SearchDemandCompetitiveIntelligenceRun::class);
-    }
-
-    public function searchDemandImprovementRuns(): HasMany
-    {
-        return $this->hasMany(SearchDemandImprovementRun::class);
-    }
-
-    /**
      * @return array<string, string>
      */
     protected function casts(): array

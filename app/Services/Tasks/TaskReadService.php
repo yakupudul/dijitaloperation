@@ -235,8 +235,6 @@ final class TaskReadService
             'goal_title' => null,
             'offering' => null,
             'in_scope' => true,
-            'route' => 'operator.task',
-            'route_params' => ['taskId' => $task->id],
             'created_at' => $task->created_at?->toIso8601String(),
             'updated_at' => $task->updated_at?->toIso8601String(),
             'source_state' => 'REAL',

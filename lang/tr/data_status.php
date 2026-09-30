@@ -66,13 +66,4 @@ return [
         'first_load_body' => 'Bağlantı hazır; ilk toplama bitince rakamlar burada görünür.',
     ],
 
-    'open_work' => [
-        'title' => 'Açık işler',
-        'hint' => 'Bu varlık için bekleyen öneriler, SEO görevleri ve uyarılar.',
-        'advisor' => 'Danışman önerisi',
-        'seo' => 'SEO görevi',
-        'alerts' => 'Açık uyarı',
-        'none' => 'Bu varlık için açık iş yok.',
-        'open' => 'Komuta merkezinde aç',
-    ],
 ];

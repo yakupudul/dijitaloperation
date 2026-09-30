@@ -4,12 +4,7 @@ namespace Tests\Feature\Reality;
 
 use App\Enums\DataPool\DataSourceState;
 use App\Livewire\Demo\Dashboard;
-use App\Livewire\Demo\Operations\FindingsIndex;
-use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
-use App\Models\Brand;
 use App\Models\Customer;
-use App\Models\DigitalAsset;
-use App\Models\Finding;
 use App\Models\User;
 use App\Services\Ga4\Ga4SpecialistReadService;
 use App\Services\Integrations\OperatorIntegrationsHubQuery;
@@ -39,29 +34,6 @@ class DemoRealityFinalConvergenceTest extends TestCase
         $this->actingAs($user);
     }
 
-    public function test_production_findings_index_is_empty_without_demo_fixtures(): void
-    {
-        Livewire::test(FindingsIndex::class)
-            ->assertOk()
-            ->assertSee('No Findings yet')
-            ->assertDontSee('Meta CPL deteriorated');
-    }
-
-    public function test_production_findings_index_shows_persisted_findings_only(): void
-    {
-        $asset = DigitalAsset::factory()->create(['name' => 'Real GA4 Property']);
-        Finding::factory()->create([
-            'digital_asset_id' => $asset->id,
-            'title' => 'Canonical persisted Finding',
-            'status' => Finding::STATUS_OPEN,
-            'severity' => 'high',
-        ]);
-
-        Livewire::test(FindingsIndex::class)
-            ->assertSee('Canonical persisted Finding')
-            ->assertDontSee('Meta CPL deteriorated');
-    }
-
     public function test_dashboard_does_not_inject_demo_recent_value_narrative(): void
     {
         Livewire::test(Dashboard::class)
@@ -84,27 +56,6 @@ class DemoRealityFinalConvergenceTest extends TestCase
             $this->assertSame('—', $provider['last_check'] ?? null, "Provider {$id} must not fake last_check");
             $this->assertSame('real', $provider['provenance'] ?? null);
         }
-    }
-
-    public function test_website_production_asset_uses_real_workspace_without_demo_fixtures(): void
-    {
-        $customer = Customer::factory()->create();
-        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
-        $asset = DigitalAsset::factory()->create([
-            'brand_id' => $brand->id,
-            'type' => 'website',
-            'name' => 'Production Website Asset',
-        ]);
-
-        Livewire::test(WebsiteOverviewPage::class, ['assetId' => (string) $asset->id])
-            ->assertOk()
-            ->assertSee('Production Website Asset')
-            ->assertSee('Veri durumu')
-            ->assertSee(__('operator.website.actions.data_sources'))
-            ->assertSee(__('operator.website.actions.public_discovery'))
-            ->assertDontSee('Demo Mode · product vision fixtures')
-            ->assertDontSee('Atlas Dental Website')
-            ->assertDontSee('not yet available');
     }
 
     public function test_explicit_demo_catalog_ga4_asset_does_not_use_demo_fixtures_via_specialist_read(): void

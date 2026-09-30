@@ -30,7 +30,7 @@ use Throwable;
 final class PageSmokeAudit
 {
     /** Routes that download files, print, start OAuth or change state even on GET. */
-    private const SKIP_NAME = '/(\.download|\.pdf|\.export|\.kml|\.print|html\.show|whatsapp\.connect|\.convert|work\.show|\.authorize|\.callback|calendar\.feed|logout)$/';
+    private const SKIP_NAME = '/(\.download|\.pdf|\.export|\.kml|\.print|html\.show|\.convert|\.authorize|\.callback|calendar\.feed|logout)$/';
 
     /** Asset page URI segment → asset types it shows. */
     private const ASSET_SEGMENTS = [

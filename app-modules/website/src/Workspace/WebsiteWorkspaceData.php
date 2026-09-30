@@ -272,7 +272,7 @@ final class WebsiteWorkspaceData
                 'source' => $label,
                 'status' => $finding->status,
                 'recommendation' => $recommendation?->action,
-                'url' => route('operator.findings', ['asset' => $finding->digital_asset_id]),
+                'url' => route('operator.website', ['assetId' => $finding->digital_asset_id]),
             ];
         }
 

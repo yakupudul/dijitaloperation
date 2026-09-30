@@ -200,29 +200,6 @@ class CanonicalOperationalDocsRouteTest extends TestCase
         }
     }
 
-    public function test_operator_activity_center_is_the_root_activity_route(): void
-    {
-        $async = (string) file_get_contents(base_path('OPERATOR_ASYNC_EXECUTION.md'));
-
-        $this->assertStringContainsString('/activity', $async);
-        $this->assertStringContainsString('operator.activity', $async);
-        $this->assertMatchesRegularExpression('/Legacy `\/app\/runs` returns HTTP 410/', $async);
-
-        $ledger = (string) file_get_contents(base_path('PRODUCT_CAPABILITY_LEDGER.md'));
-        $this->assertMatchesRegularExpression(
-            '/Operator Activity Center is the root Livewire surface `\/activity` \(`operator\.activity`\)/',
-            $ledger,
-        );
-        $this->assertMatchesRegularExpression(
-            '/Filament `RunResource` at `\/admin\/runs` remains technical\/admin tooling only/',
-            $ledger,
-        );
-        $this->assertDoesNotMatchRegularExpression(
-            '/Activity Center is Filament `RunResource` \(`\/admin\/runs`\)/',
-            $ledger,
-        );
-    }
-
     public function test_retired_paths_inside_absolute_urls_are_detected(): void
     {
         $this->assertTrue($this->lineTeachesRetiredLiveRoute('Open https://host/app/login'));

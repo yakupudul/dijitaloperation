@@ -222,7 +222,7 @@ final class GbpAdvisorRuleEngine
                 title: sprintf('İnsanlar seni bu aramalarla buluyor ama profilde karşılığı yok (%d)', count($rows)),
                 reason: 'Google\'ın aylık arama kelimesi raporuna göre profil bu aramalarda gösteriliyor. Eşleşen hizmet profilde yoksa Google profili bu aramalar için daha az alakalı bulur; markada hiç yoksa yeni bir hizmet fırsatı olabilir.',
                 evidence: ['keywords' => $rows, 'months' => $keywords['months']],
-                checklist: ['"Profilde hizmet olarak yok" satırlarındaki hizmetleri İşletme Profili → Hizmetler\'e ekle (kısa açıklamayla).', 'Markada tanımlı olmayan aramalar için: bu hizmeti gerçekten sunuyorsan markaya ve web sitesine de ekle.', 'Aynı hizmetleri web sitesinde ayrı sayfa/başlık olarak anlat (SEO Görevleri ile uyumlu).'],
+                checklist: ['"Profilde hizmet olarak yok" satırlarındaki hizmetleri İşletme Profili → Hizmetler\'e ekle (kısa açıklamayla).', 'Markada tanımlı olmayan aramalar için: bu hizmeti gerçekten sunuyorsan markaya ve web sitesine de ekle.', 'Aynı hizmetleri web sitesinde ayrı sayfa/başlık olarak anlat (Site ekranındaki SEO Yapılacaklar ile uyumlu).'],
                 copyText: $missingOfferings !== [] ? implode("\n", array_keys($missingOfferings)) : null,
                 baseline: ['keywords' => count($rows)],
             );

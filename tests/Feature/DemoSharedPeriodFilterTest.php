@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Livewire\Demo\Assets\AnalyticsPage;
 use App\Livewire\Demo\Assets\SearchConsolePage;
 use App\Livewire\Demo\Meta\OverviewPage as MetaOverviewPage;
-use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
 use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Models\User;
 use App\Support\Demo\DemoCatalog;
@@ -67,15 +66,9 @@ class DemoSharedPeriodFilterTest extends TestCase
             ->assertSet('tab', 'creatives');
     }
 
-    public function test_website_accepts_shared_period_presets_and_google_ads_its_day_window(): void
+    public function test_google_ads_accepts_its_day_window(): void
     {
-        $website = $this->createPortfolioAsset('website', 'Northwind Website');
         $gads = $this->createPortfolioAsset('google_ads', 'Northwind Ads', ['module_id' => 'google-ads']);
-
-        Livewire::test(WebsiteOverviewPage::class, ['assetId' => (string) $website->id])
-            ->call('setPeriod', 'last_14')
-            ->assertSet('period', 'last_14')
-            ->assertOk();
 
         Livewire::test(GoogleAdsOverviewPage::class, ['assetId' => (string) $gads->id])
             ->call('setDays', 90)

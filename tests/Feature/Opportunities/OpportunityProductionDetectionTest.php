@@ -7,7 +7,6 @@ use App\Enums\OpportunityDetectionState;
 use App\Enums\OpportunityOrigin;
 use App\Enums\ServiceBrandApplicabilityMode;
 use App\Enums\ServiceScopeStatus;
-use App\Livewire\Demo\Operations\OpportunitiesIndex;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\CustomerServiceScope;
@@ -22,17 +21,13 @@ use App\Models\ServiceDefinition;
 use App\Models\Task;
 use App\Models\User;
 use App\Services\Findings\FindingEvaluationService;
-use App\Services\Opportunities\OpportunityDispositionService;
 use App\Services\Opportunities\OpportunityEvaluationService;
-use App\Services\Opportunities\OpportunityReadService;
 use App\Services\Opportunities\OpportunityRuleRegistry;
 use App\Services\ServiceScope\CustomerServiceScopeService;
-use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 class OpportunityProductionDetectionTest extends TestCase
@@ -249,25 +244,6 @@ class OpportunityProductionDetectionTest extends TestCase
         $this->assertSame(OpportunityDetectionState::Detected->value, Opportunity::query()->value('detection_state'));
     }
 
-    public function test_dismissed_opportunity_is_not_duplicated_or_reopened(): void
-    {
-        $this->seedClicksDeclineFinding();
-        app(OpportunityEvaluationService::class)->evaluateAsset($this->asset);
-        $opportunity = Opportunity::query()->firstOrFail();
-        app(OpportunityDispositionService::class)->dismiss($opportunity);
-
-        Finding::query()->update(['status' => Finding::STATUS_RESOLVED, 'resolved_at' => now()]);
-        app(OpportunityEvaluationService::class)->evaluateAsset($this->asset);
-
-        Finding::query()->update(['status' => Finding::STATUS_OPEN, 'resolved_at' => null]);
-        Evidence::query()->delete();
-        $this->writeCanonical($this->asset, 'gsc.property.period_comparison', $this->gscClicksDeclinePayload(30), 'dismiss-ev');
-        app(OpportunityEvaluationService::class)->evaluateAsset($this->asset);
-
-        $this->assertSame(1, Opportunity::query()->count());
-        $this->assertSame(Opportunity::STATUS_DISMISSED, Opportunity::query()->value('status'));
-    }
-
     public function test_outside_service_scope_still_creates_opportunity_without_creating_scope(): void
     {
         $scopesBefore = CustomerServiceScope::query()->count();
@@ -326,52 +302,6 @@ class OpportunityProductionDetectionTest extends TestCase
         }
         app(OpportunityEvaluationService::class)->evaluateAsset($this->asset);
         $this->assertSame(0, Opportunity::query()->count());
-    }
-
-    public function test_operations_index_is_db_backed_without_demo_fallback_or_score(): void
-    {
-        $user = User::factory()->create();
-        $user->assignRole(Roles::ADMIN);
-        $this->actingAs($user);
-
-        Livewire::test(OpportunitiesIndex::class)
-            ->assertDontSee('High paid implant demand but weak organic coverage')
-            ->assertDontSee('Opportunity score');
-
-        $this->seedClicksDeclineFinding();
-        app(OpportunityEvaluationService::class)->evaluateAsset($this->asset);
-
-        Livewire::test(OpportunitiesIndex::class)
-            ->assertSee('Organic click recovery potential')
-            ->assertDontSee('Opportunity score')
-            ->assertDontSee('High paid implant demand but weak organic coverage');
-
-        $id = (string) Opportunity::query()->value('id');
-        Livewire::test(OpportunitiesIndex::class)
-            ->call('review', $id)
-            ->call('createRecommendation', $id);
-
-        $this->assertSame(Opportunity::STATUS_CONVERTED, Opportunity::query()->value('status'));
-
-        // Recommendation creation from a converted Opportunity is owned by the Recommendation
-        // source architecture (Prompt 41); conversion still creates no Task.
-        $this->assertSame(1, Recommendation::query()->where('source_kind', 'opportunity')->count());
-        $this->assertSame(0, Task::query()->count());
-    }
-
-    public function test_read_service_exposes_context_without_raw_payload_or_score(): void
-    {
-        $this->seedClicksDeclineFinding();
-        app(OpportunityEvaluationService::class)->evaluateAsset($this->asset);
-        $rows = app(OpportunityReadService::class)->forListPresentation();
-        $this->assertCount(1, $rows);
-        $this->assertArrayNotHasKey('opportunity_score', $rows[0]);
-        $this->assertArrayNotHasKey('score', $rows[0]);
-        $this->assertSame('Organic click recovery potential', $rows[0]['title']);
-        $this->assertIsArray($rows[0]['evidence']);
-        foreach ($rows[0]['evidence'] as $item) {
-            $this->assertArrayNotHasKey('payload', $item);
-        }
     }
 
     public function test_ctr_and_ga4_rules_are_bounded(): void

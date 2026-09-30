@@ -3,7 +3,6 @@
 namespace App\Services\Work;
 
 use App\Services\Tasks\TaskReadService;
-use App\Support\Work\WorkUrl;
 
 /**
  * Work aggregate read model over canonical Tasks.
@@ -70,9 +69,6 @@ final class WorkReadService
             'source_kind' => $task['source_kind'],
             'scope_kind' => $task['scope_kind'],
             'in_scope' => true,
-            'route' => 'operator.work.show',
-            'route_params' => WorkUrl::parameters(WorkUrl::TYPE_TASK, $task['id']),
-            'detail_url' => WorkUrl::show(WorkUrl::TYPE_TASK, $task['id']),
             'recommendation_id' => $task['recommendation_id'],
             'client_request_id' => $task['client_request_id'],
         ];

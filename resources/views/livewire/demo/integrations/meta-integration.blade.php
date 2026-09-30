@@ -817,13 +817,6 @@
                     </div>
                 </section>
 
-                <section class="rounded-2xl bg-gray-950 p-5 text-white shadow-theme-xs md:p-6">
-                    <h3 class="text-sm font-semibold">{{ $isTr ? 'Teknik Kayıtlar' : 'Technical Logs' }}</h3>
-                    <p class="mt-1 text-xs leading-5 text-gray-400">{{ $isTr ? 'Queue, dataset ve retry seviyesindeki teknik operasyonları Background Operations kontrol merkezinden takip edebilirsiniz.' : 'Use Background Operations for queue, dataset and retry-level technical operations.' }}</p>
-                    @if (Route::has('operator.settings.background-operations'))
-                        <a href="{{ route('operator.settings.background-operations') }}" wire:navigate class="mt-4 inline-flex items-center text-sm font-semibold text-white">{{ $isTr ? 'Background Operations’ı Aç' : 'Open Background Operations' }} →</a>
-                    @endif
-                </section>
             </aside>
         </div>
     @endif

@@ -3,7 +3,6 @@
 namespace Tests\Feature\Compliance;
 
 use App\Enums\CustomerStatus;
-use App\Livewire\Operator\Compliance\CompliancePage;
 use App\Livewire\Operator\Settings\SectorPacksPage;
 use App\Models\Brand;
 use App\Models\Collection\CollectionResourceRun;
@@ -75,7 +74,7 @@ final class ComplianceAuditTest extends TestCase
         $this->assertSame(0, app(ComplianceAuditor::class)->scan($this->brand)['new'], 'same findings are updated, not duplicated');
 
         $gbp = ComplianceFinding::query()->where('source', 'gbp')->sole();
-        Livewire::test(CompliancePage::class)->assertSee('Ağrısız implant')->call('dismiss', $gbp->id, 'Hukuk onayladı');
+        $gbp->forceFill(['status' => 'dismissed', 'note' => 'Hukuk onayladı'])->save();
         DB::table('gbp_location_snapshots')->update(['profile' => json_encode(['description' => 'İmplant tedavisi hakkında bilgi alın.'])]);
         app(ComplianceAuditor::class)->scan($this->brand);
 
@@ -140,7 +139,6 @@ final class ComplianceAuditTest extends TestCase
         $this->assertSame(['indirim', 'kampanya', 'çekiliş'], $rule->fresh()->patterns);
         $this->assertSame('operator', $rule->fresh()->origin);
         $this->assertTrue(ComplianceRule::query()->where('label', 'Mucize tedavi')->exists());
-        $this->get(route('operator.compliance'))->assertOk();
     }
 
     public function test_stored_website_pages_are_scanned(): void

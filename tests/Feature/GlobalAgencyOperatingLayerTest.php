@@ -4,12 +4,8 @@ namespace Tests\Feature;
 
 use App\Livewire\Demo\Dashboard;
 use App\Livewire\Demo\Integrations\GoogleIntegrationPage;
-use App\Livewire\Demo\Operations\RecommendationsIndex;
-use App\Livewire\Demo\Operations\TasksIndex;
 use App\Livewire\Demo\Portfolio\AssetsIndex;
 use App\Livewire\Demo\SettingsPage;
-use App\Models\Recommendation;
-use App\Models\Task;
 use App\Models\User;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -106,39 +102,6 @@ class GlobalAgencyOperatingLayerTest extends TestCase
             ->call('bindResource', '1')
             ->assertSee('Select a discovered Google resource to bind.')
             ->assertDontSee('Revoke Google access…');
-    }
-
-    public function test_recommendation_accept_and_create_task_remain_internal(): void
-    {
-        $recommendation = Recommendation::factory()->create([
-            'title' => 'Review conversion mapping for primary lead signal',
-            'status' => Recommendation::STATUS_OPEN,
-            'digital_asset_id' => $this->workAsset->id,
-        ]);
-        $id = (string) $recommendation->id;
-
-        Livewire::test(RecommendationsIndex::class)
-            ->assertSee('Review conversion mapping for primary lead signal')
-            ->call('approve', $id)
-            ->assertSee('accepted')
-            ->call('createTask', $id)
-            ->assertSee('created from Recommendation');
-
-        $this->assertSame(Recommendation::STATUS_ACCEPTED, $recommendation->fresh()->status);
-        $this->assertSame(1, Task::query()->where('recommendation_id', $recommendation->id)->count());
-    }
-
-    public function test_tasks_default_to_my_tasks_view(): void
-    {
-        Task::query()
-            ->where('title', 'Investigate lead measurement')
-            ->update(['assignee_id' => auth()->id()]);
-
-        Livewire::test(TasksIndex::class)
-            ->assertSet('view', 'my')
-            ->assertSee('Investigate lead measurement')
-            ->call('setView', 'all')
-            ->assertSee('Update positioning language');
     }
 
     public function test_settings_sections_exclude_integrations_and_modules_dump(): void

@@ -6,10 +6,9 @@
 
 1. **Bağlantılar** (Google, Meta, DataForSEO, WordPress Connector) hesapları keşfeder; her gün 05:10 otomatik keşif çalışır.
 2. Hesaplar **dijital varlıklara** bağlanır; bağlı varlıklar için **merkezi toplama** (`collection` kuyruğu) veriyi çeker.
-3. **Danışman, SEO görevleri, Hizmet Beyni, uyum denetimi, uyarılar** veriden iş üretir.
-4. Her iş **Komuta merkezine** düşer; operatör orada yapar / erteler / kapatır.
+3. **Sorgular, kümeler ve kanal ekranları** (Site, Google Ads, Meta, İşletme Profili) veriden öneri üretir; AI çıktısı gerçek veriyle ve sektör uyum kapısıyla doğrulanır.
+4. Öneriler **Bugün** ve marka / varlık ekranlarında görünür; operatör onaylar veya kapatır.
 5. Dış sistemlere yalnız aşağıdaki **onaylı yazmalar** gider; geri kalan her şey okumadır.
-6. Sonuçlar **aylık rapora**, **Ajans karnesine** ve **ajans işletmesine** (kârlılık, tahsilat) yansır.
 
 ## Menü
 

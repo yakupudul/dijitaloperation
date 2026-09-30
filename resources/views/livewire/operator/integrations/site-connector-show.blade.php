@@ -7,7 +7,7 @@
         </div>
         <div class="flex flex-wrap gap-2">
             <a href="{{ route('operator.integrations.site-connector.download', ['connector' => 'wordpress']) }}" class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">{{ $packageFilename }}</a>
-            <a href="{{ route('operator.integrations.site-connectors') }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.site_connectors.catalog') }}</a>
+            <a href="{{ route('operator.integrations') }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.nav.integrations') }}</a>
         </div>
     </div>
 

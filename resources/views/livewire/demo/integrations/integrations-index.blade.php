@@ -33,7 +33,7 @@
                 <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ __('operator.site_connectors.title') }}</h2>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('operator.site_connectors.subtitle') }}</p>
             </div>
-            <x-ta.button :href="route('operator.integrations.site-connectors')" size="sm">
+            <x-ta.button :href="route('operator.integrations.site-connector', ['connector' => 'wordpress'])" size="sm">
                 {{ __('operator.site_connectors.catalog') }}
             </x-ta.button>
         </div>

@@ -1,7 +1,6 @@
 @php
     $card = 'rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
-    $tabLabels = ['settings' => 'Marka', 'overview' => 'Genel bakış', 'business' => 'İşletme', 'assets' => 'Dijital varlıklar', 'work' => 'İşler', 'files' => 'Dosyalar'];
-    $openWork = collect($work)->sum('count');
+    $tabLabels = ['settings' => 'Marka', 'overview' => 'Genel bakış', 'business' => 'İşletme', 'assets' => 'Dijital varlıklar', 'files' => 'Dosyalar'];
     $toneClass = fn (string $tone): string => match ($tone) {
         'error' => 'bg-error-500',
         'warning' => 'bg-warning-500',
@@ -45,7 +44,7 @@
     <div class="-mx-1 overflow-x-auto">
         <div class="flex min-w-max items-center gap-1 px-1" role="tablist" aria-label="Ayarlar">
             @foreach ($tabLabels as $key => $label)
-                <button type="button" role="tab" wire:click="setTab('{{ $key }}')" aria-selected="{{ $tab === $key ? 'true' : 'false' }}" @class(['rounded-lg px-3 py-1.5 text-sm font-medium transition', 'bg-gray-100 text-gray-900 dark:bg-white/[0.06] dark:text-white' => $tab === $key, 'text-gray-600 hover:text-gray-900 dark:text-gray-400' => $tab !== $key])>{{ $label }}@if ($key === 'work' && $openWork > 0) <span class="ml-1 rounded-full bg-gray-100 px-1.5 text-xs dark:bg-gray-800">{{ $openWork }}</span>@endif</button>
+                <button type="button" role="tab" wire:click="setTab('{{ $key }}')" aria-selected="{{ $tab === $key ? 'true' : 'false' }}" @class(['rounded-lg px-3 py-1.5 text-sm font-medium transition', 'bg-gray-100 text-gray-900 dark:bg-white/[0.06] dark:text-white' => $tab === $key, 'text-gray-600 hover:text-gray-900 dark:text-gray-400' => $tab !== $key])>{{ $label }}</button>
             @endforeach
             <a href="{{ route('operator.assets') }}" wire:navigate class="ml-2 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Tüm varlıklar</a>
         </div>
@@ -95,11 +94,7 @@
             @forelse ($attention as $row)
                 <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-3 last:border-0 dark:border-gray-800">
                     <span class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><span class="h-2 w-2 rounded-full {{ $toneClass($row['tone']) }}"></span>{{ $row['text'] }}</span>
-                    @if (isset($row['url']))
-                        <a href="{{ $row['url'] }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">Aç →</a>
-                    @else
-                        <button type="button" wire:click="setOps('{{ $row['ops'] }}')" class="text-xs font-medium text-brand-600 hover:underline">Aç →</button>
-                    @endif
+                    <a href="{{ $row['url'] }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">Aç →</a>
                 </div>
             @empty
                 <p class="px-5 py-4 text-sm text-gray-500">Şu an bekleyen iş yok.</p>
@@ -271,35 +266,6 @@
         @if ($setup !== null && $setup['complete'])
             @include('livewire.operator.portfolio.partials.setup-status')
         @endif
-    @endif
-
-    {{-- ============================================================ WORK --}}
-    @if ($tab === 'work')
-        <div class="flex flex-wrap gap-2">
-            @foreach ($work as $key => $section)
-                <button type="button" wire:click="setOps('{{ $key }}')" @class(['rounded-full px-3 py-1.5 text-sm', 'bg-brand-500 text-white' => $ops === $key, 'bg-white text-gray-700 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:text-gray-300 dark:ring-gray-700' => $ops !== $key])>{{ $section['label'] }} · {{ $section['count'] }}</button>
-            @endforeach
-        </div>
-        <section class="{{ $card }}">
-            @forelse ($work[$ops]['rows'] as $row)
-                <div class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 px-5 py-3 last:border-0 dark:border-gray-800">
-                    <div class="min-w-0">
-                        <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $row['title'] ?? ($row['playbook_name'] ?? '—') }}</p>
-                        <p class="mt-0.5 text-xs text-gray-500">{{ collect([$row['severity'] ?? null, $row['asset'] ?? null, $row['owner'] ?? null, $row['due'] ?? null, $row['detected'] ?? null])->filter(fn ($v) => is_string($v) && $v !== '')->implode(' · ') }}</p>
-                    </div>
-                    <div class="flex shrink-0 items-center gap-2">
-                        <x-ta.badge color="light" size="sm">{{ $row['status'] ?? '—' }}</x-ta.badge>
-                        @if ($ops === 'recommendations' && in_array($row['status'] ?? '', ['pending', 'approved'], true))
-                            <button type="button" wire:click="createTaskFromRecommendation('{{ $row['id'] }}')" class="text-xs font-medium text-brand-600 hover:underline">Göreve çevir</button>
-                        @elseif ($ops === 'tasks' && isset($row['id']))
-                            <a href="{{ route('operator.work.show', ['workId' => $row['id'], 'type' => 'task']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">Aç</a>
-                        @endif
-                    </div>
-                </div>
-            @empty
-                <p class="px-5 py-4 text-sm text-gray-500">Bu bölümde kayıt yok.</p>
-            @endforelse
-        </section>
     @endif
 
     {{-- ============================================================ FILES (Faz 11c) --}}

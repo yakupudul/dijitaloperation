@@ -4,9 +4,6 @@ namespace Tests\Feature;
 
 use App\Livewire\Demo\NotificationBell;
 use App\Livewire\Demo\Portfolio\CustomerDetail;
-use App\Livewire\Demo\Settings\AiAgentsPage;
-use App\Livewire\Demo\Settings\AiSkillsPage;
-use App\Livewire\Demo\SettingsPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Operator\Website\V2\WebsiteScreen;
 use App\Models\DigitalAsset;
@@ -88,7 +85,6 @@ class PanelDesignFreezeTest extends TestCase
         $this->assertSame([false, true, false, false], array_column($tabs, 'active'));
         $this->assertSame(['/settings', '/settings/ai-operations', '/library/website-standards', '/library/services', '/settings/users', '/settings/system-health'], array_column(OperatorMenu::sectionTabs('operator.settings.users'), 'url'), 'v2: Ayarlar carries AI işlemleri, Standartlar, Sektör ve hizmet kataloğu, Kullanıcılar, Sistem');
         $this->assertNull(OperatorMenu::sectionTabs('operator.customers'));
-        $this->assertNull(OperatorMenu::sectionTabs('operator.alerts'), 'Step 3: out of the menu, route kept');
 
         $this->get(route('operator.integrations.discovered'))->assertOk()->assertSee('aria-current="page"', false)->assertSee(route('operator.data-center', absolute: false), false);
         $this->get(route('operator.settings.users'))->assertOk();
@@ -103,20 +99,20 @@ class PanelDesignFreezeTest extends TestCase
             ->assertDontSee('Müşteri İlişkisi')
             ->assertSee(__('operator.customer.actions.add_brand'))
             ->assertSee(__('operator.customer.actions.open_files'))
-            ->assertSee(__('operator.customer.actions.view_activity'));
+            ->assertDontSee(__('operator.customer.actions.view_activity'));
     }
 
     public function test_brand_primary_ia_is_locked(): void
     {
         $html = Livewire::withQueryParams(['tab' => 'overview'])->test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])->html();
 
-        foreach (['Genel bakış', 'İşletme', 'Dijital varlıklar', 'İşler', 'Dosyalar'] as $tab) {
+        foreach (['Genel bakış', 'İşletme', 'Dijital varlıklar', 'Dosyalar'] as $tab) {
             $this->assertMatchesRegularExpression('/role="tab"[^>]*>'.preg_quote($tab, '/').'(<| )/u', $html);
         }
 
         preg_match_all('/role="tab"[^>]*wire:click="setTab\\(\'([^\']+)\'\\)"/', $html, $matches);
         $this->assertSame(
-            ['arama', 'harita', 'google_ads', 'meta', 'ayarlar', 'settings', 'overview', 'business', 'assets', 'work', 'files'],
+            ['arama', 'harita', 'google_ads', 'meta', 'ayarlar', 'settings', 'overview', 'business', 'assets', 'files'],
             $matches[1] ?? [],
             'Faz 11c: Dosyalar moved from the menu to the brand page'
         );
@@ -183,29 +179,6 @@ class PanelDesignFreezeTest extends TestCase
         }
     }
 
-    public function test_ai_administration_is_self_sufficient_inside_app(): void
-    {
-        $this->get(route('operator.settings.ai.agents'))
-            ->assertOk()
-            ->assertSee(__('operator.settings.ai.agents_title'));
-
-        $this->get(route('operator.settings.ai.skills'))
-            ->assertOk()
-            ->assertSee(__('operator.settings.ai.skills_title'));
-
-        $agentsHtml = Livewire::test(AiAgentsPage::class)->html();
-        $skillsHtml = Livewire::test(AiSkillsPage::class)->html();
-        $settingsHtml = Livewire::test(SettingsPage::class, ['section' => 'ai'])->html();
-
-        foreach ([$agentsHtml, $skillsHtml, $settingsHtml] as $html) {
-            $this->assertStringNotContainsString('href="/system', $html);
-            $this->assertStringNotContainsString('href="/admin', $html);
-        }
-
-        $this->assertStringContainsString('allowed', strtolower($agentsHtml));
-        $this->assertStringContainsString('forbidden', strtolower($skillsHtml));
-    }
-
     public function test_notification_bell_has_empty_production_state_without_demo_fallback(): void
     {
         Livewire::test(NotificationBell::class)
@@ -222,8 +195,6 @@ class PanelDesignFreezeTest extends TestCase
             '/',
             route('operator.brand', ['brand' => $this->portfolioBrand->id]),
             route('operator.website', ['assetId' => DigitalAsset::query()->where('type', 'website')->value('id')]),
-            route('operator.opportunities'),
-            route('operator.tasks'),
         ];
 
         $forbidden = [
@@ -270,8 +241,6 @@ class PanelDesignFreezeTest extends TestCase
             ->assertOk()
             ->assertSee(__('operator_gbp.page_tabs.reviews', [], 'tr'));
 
-        $this->get(route('operator.settings.ai.agents'))
-            ->assertOk()
-            ->assertSee(__('operator.settings.ai.agents_title', [], 'tr'));
+        $this->get(route('operator.settings.ai-operations'))->assertOk();
     }
 }

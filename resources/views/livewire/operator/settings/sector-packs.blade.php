@@ -6,7 +6,7 @@
     <div>
         <a href="{{ route('operator.settings', ['section' => 'operations']) }}" wire:navigate class="text-sm text-gray-500 hover:text-brand-600">← Ayarlar</a>
         <h1 class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">Sektör paketleri</h1>
-        <p class="mt-1 max-w-3xl text-sm text-gray-500">Bir paket, sektörü eşleşen markalara uygulanır. Kurallar AI taslaklarında (anında), yayındaki Meta reklamlarında, site sayfalarında ve İşletme Profili içeriğinde her gün aranır; bulgular <a href="{{ route('operator.compliance') }}" wire:navigate class="text-brand-600 hover:underline">Uyum</a> sayfasında.</p>
+        <p class="mt-1 max-w-3xl text-sm text-gray-500">Bir paket, sektörü eşleşen markalara uygulanır. Kurallar AI taslaklarında (anında), yayındaki Meta reklamlarında, site sayfalarında ve İşletme Profili içeriğinde her gün aranır.</p>
     </div>
 
     @if ($message !== '')

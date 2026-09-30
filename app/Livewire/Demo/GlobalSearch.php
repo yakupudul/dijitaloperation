@@ -5,9 +5,7 @@ namespace App\Livewire\Demo;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
-use App\Services\Findings\FindingReadService;
 use App\Services\Operator\OperatorPortfolioPresenter;
-use App\Services\Work\WorkReadService;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
 
@@ -85,30 +83,6 @@ class GlobalSearch extends Component
                         ];
                     }
                 });
-
-            foreach (app(FindingReadService::class)->query([], 200) as $findingDto) {
-                $title = (string) $findingDto->title;
-                if ($title !== '' && str_contains(mb_strtolower($title), $needle)) {
-                    $results[] = [
-                        'label' => $title,
-                        'meta' => __('operator.nav.findings'),
-                        'url' => route('operator.findings'),
-                    ];
-                }
-            }
-
-            foreach (app(WorkReadService::class)->workItems() as $task) {
-                $title = (string) ($task['title'] ?? '');
-                if ($title !== '' && str_contains(mb_strtolower($title), $needle)) {
-                    $results[] = [
-                        'label' => $title,
-                        'meta' => __('operator.nav.tasks').' · '.($task['brand'] ?? ''),
-                        'url' => isset($task['id'], $task['type'])
-                            ? route('operator.work.show', ['workId' => $task['id'], 'type' => $task['type']])
-                            : route('operator.tasks'),
-                    ];
-                }
-            }
         }
 
         return view('livewire.demo.global-search', [

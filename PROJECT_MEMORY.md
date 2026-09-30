@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-11-03 — v2 temizlik: eski sayfalar kaldırıldı
+
+- **Karar (operatör):** Ürün yalnız v2 menüsü (Bugün · Müşteriler · Markalar · Sorgular · Entegrasyonlar · Ayarlar), varlık ekranları, müşteri / marka ekranları, marka adayı onayı, entegrasyon sayfaları ve Ayarlar sekmeleridir (AI işlemleri ve promptlar, standartlar, sektör / hizmet kataloğu, kullanıcılar, sistem). Başka operatör sayfası eklenmez.
+- **Kaldırıldı:** Fırsatlar, Bulgular, Öneriler, Görevler / İş detayı, Uyarılar, Üretim arşivi, Etkinlik, Uyum, Toplu ekle (keşfet ve grupla), Arka plan işleri, Maliyetler, AI kalitesi, Telefon bildirimleri, AI kontrol paneli / ajanlar / beceriler, site bağlayıcı listesi, Hızlı kayıt, marka "İşler" sekmesi, rotasız eski site sayfası; çağıranı kalmayan servisleri (görev / öneri / fırsat oluşturma ve yaşam döngüsü, etkinlik okuyucu, maliyet / AI kalite raporu) ile birlikte. Eski URL'ler `/`'e yönlenir. Tablolar duruyor.
+- **Karar:** Sektör uyum paketleri ekranı (`/settings/sector-packs`) kalır — uyum kurallarının tek düzenleme yeri; AI çıktısı kapısı bu kuralları kullanır. AI sağlayıcı anahtarları `/integrations/{provider}` sayfalarında kalır.
+
 ## 2026-11-01 — MoxDOP v2 Faz 9 (Sonuç takibi)
 
 - **Karar:** Sonuç takibi tek servistir (`OutcomeTracker`): uygulamada 28 günlük baseline (tek şekil), 28. ve 56. günde ölçüm, her nokta bir kez. Kanal yalnız bir metrik okuyucusu ekler; karar kuralı kanal başına tek ana metrik + %10 eşik + hacim alt sınırı, az / eksik veri = belirsiz (tahmin yok).

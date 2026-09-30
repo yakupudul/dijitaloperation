@@ -4,16 +4,8 @@ namespace Tests\Feature;
 
 use App\Livewire\Demo\Gbp\OverviewPage as GbpOverviewPage;
 use App\Livewire\Demo\Integrations\MetaIntegrationPage;
-use App\Livewire\Demo\Operations\FindingsIndex;
-use App\Livewire\Demo\Operations\RecommendationsIndex;
-use App\Livewire\Demo\Operations\TaskShow;
-use App\Livewire\Demo\Operations\TasksIndex;
-use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
 use App\Livewire\Operator\GoogleAds\OverviewPage;
 use App\Models\DigitalAsset;
-use App\Models\Finding;
-use App\Models\Recommendation;
-use App\Models\Task;
 use App\Models\User;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -85,28 +77,6 @@ class DemoProductRoutesTest extends TestCase
 
     public function test_operations_and_integrations_routes_smoke(): void
     {
-        $this->get(route('operator.findings'))
-            ->assertOk()
-            ->assertSee('Findings')
-            ->assertSee('Critical')
-            ->assertSee('No Findings yet')
-            ->assertDontSee('Meta CPL deteriorated');
-        $this->get(route('operator.recommendations'))
-            ->assertOk()
-            ->assertSee('Recommendations')
-            ->assertSee('Awaiting Decision')
-            ->assertDontSee('Review conversion mapping');
-        $this->get(route('operator.tasks'))
-            ->assertOk()
-            ->assertSee(__('operator.work.title'))
-            ->assertSee(__('operator.work.views.my'))
-            ->assertSee(__('operator.work.views.tasks'));
-        $this->get(route('operator.task', ['taskId' => 't-replace-creative']))
-            ->assertNotFound();
-        $this->get(route('operator.activity'))
-            ->assertOk()
-            ->assertSee('Activity')
-            ->assertSee('No activity matches this view');
         $this->get(route('operator.integrations'))
             ->assertOk()
             ->assertSee('Integrations')
@@ -237,66 +207,9 @@ class DemoProductRoutesTest extends TestCase
             ->assertDontSee('dental nurse jobs ankara');
     }
 
-    public function test_operations_filters_actions_and_meta_import_groups_work(): void
+    public function test_meta_import_groups_work(): void
     {
         DemoState::reset();
-
-        $asset = DigitalAsset::factory()->create(['type' => 'meta_ads', 'name' => 'Meta Ads Account']);
-        Finding::factory()->create([
-            'digital_asset_id' => $asset->id,
-            'severity' => 'critical',
-            'status' => Finding::STATUS_OPEN,
-            'title' => 'Meta CPL deteriorated',
-            'category' => 'performance',
-        ]);
-        Finding::factory()->create([
-            'digital_asset_id' => $asset->id,
-            'severity' => 'medium',
-            'status' => Finding::STATUS_OPEN,
-            'title' => 'Creative frequency elevated',
-            'category' => 'creative',
-        ]);
-
-        Livewire::test(FindingsIndex::class)
-            ->assertSee('Critical')
-            ->assertSee('Meta CPL deteriorated')
-            ->call('setSeverity', 'critical')
-            ->assertSee('Meta CPL deteriorated')
-            ->assertDontSee('Creative frequency elevated')
-            ->call('setAssetType', 'google_ads')
-            ->assertDontSee('Meta CPL deteriorated')
-            ->call('setSeverity', 'all')
-            ->call('setAssetType', 'all')
-            ->call('expand', (string) Finding::query()->where('title', 'Meta CPL deteriorated')->value('id'))
-            ->assertSee('Ne oldu');
-
-        $recommendation = Recommendation::factory()->create([
-            'title' => 'Replace underperforming creative',
-            'status' => Recommendation::STATUS_OPEN,
-            'digital_asset_id' => $this->workAsset->id,
-        ]);
-
-        Livewire::test(RecommendationsIndex::class)
-            ->call('approve', (string) $recommendation->id)
-            ->assertSee('accepted')
-            ->call('createTask', (string) $recommendation->id)
-            ->assertSee('created from Recommendation');
-
-        $this->assertSame(1, Task::query()->where('recommendation_id', $recommendation->id)->count());
-
-        Livewire::test(TasksIndex::class)
-            ->call('setView', 'all')
-            ->assertSee('Replace PB-Video-03 creative')
-            ->call('setStatus', 'blocked')
-            ->assertSee('Clear unanswered GBP review backlog')
-            ->assertDontSee('Replace PB-Video-03 creative')
-            ->call('setStatus', 'all')
-            ->call('setViewMode', 'board')
-            ->assertSee('In progress')
-            ->assertSee('Blocked');
-
-        Livewire::test(TaskShow::class, ['taskId' => 't-replace-creative'])
-            ->assertStatus(404);
 
         Livewire::test(MetaIntegrationPage::class)
             ->assertSee('Not configured')
@@ -310,14 +223,9 @@ class DemoProductRoutesTest extends TestCase
             ->assertSee('Connected Ad Accounts');
     }
 
-    public function test_website_severity_and_gbp_keyword_filters_work(): void
+    public function test_gbp_keyword_filters_work(): void
     {
-        Livewire::test(WebsiteOverviewPage::class)->assertStatus(404);
         Livewire::test(GbpOverviewPage::class)->assertStatus(404);
-
-        Livewire::test(WebsiteOverviewPage::class, ['assetId' => (string) $this->workAsset->id])
-            ->set('tab', 'health')
-            ->assertDontSee('27 service pages have no self-referencing canonical');
 
         $gbp = DigitalAsset::factory()->create([
             'brand_id' => $this->workBrand->id,

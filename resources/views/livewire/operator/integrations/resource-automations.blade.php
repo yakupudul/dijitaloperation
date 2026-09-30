@@ -17,7 +17,6 @@
                         <option value="{{ $value }}">{{ __('resource-auto.'.$label) }}</option>
                     @endforeach
                 </select>
-                <a href="{{ route('operator.activity') }}" class="self-center text-xs text-brand-600 underline">{{ __('resource-auto.activity') }}</a>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">

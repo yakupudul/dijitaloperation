@@ -22,7 +22,6 @@ final class ProductionArchive
         'meta_ads.creative' => 'Meta reklam metni',
         'gbp.profile' => 'İşletme Profili metni',
         'seo.content_brief' => 'SEO içerik briefi',
-        'whatsapp.reply' => 'WhatsApp yanıt önerisi',
         'brand_setup.proposal' => 'Marka kurulum önerisi',
         'report.monthly_commentary' => 'Aylık rapor yorumu',
         'gbp.review_reply' => 'Yorum yanıt taslağı',

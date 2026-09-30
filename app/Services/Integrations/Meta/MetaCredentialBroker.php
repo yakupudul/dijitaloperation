@@ -2,7 +2,6 @@
 
 namespace App\Services\Integrations\Meta;
 
-use App\Exceptions\Integrations\MetaException;
 use App\Models\CoreIntegration;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Security\EphemeralSecret;

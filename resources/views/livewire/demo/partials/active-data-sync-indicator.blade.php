@@ -19,7 +19,7 @@
                         </div>
                     @endforeach
                 </div>
-                <a href="{{ route('operator.settings.background-operations') }}" wire:navigate class="mt-3 block text-xs font-semibold text-brand-600">{{ $tr ? 'Tüm işleri ve ayrıntıları aç' : 'Open all jobs and details' }}</a>
+                <a href="{{ route('operator.settings.system-health') }}" wire:navigate class="mt-3 block text-xs font-semibold text-brand-600">{{ $tr ? 'Sistem sağlığını aç' : 'Open system health' }}</a>
             </div>
         </details>
     @endif

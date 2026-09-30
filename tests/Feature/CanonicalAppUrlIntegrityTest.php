@@ -6,7 +6,6 @@ use App\Livewire\Demo\Dashboard;
 use App\Livewire\Demo\Files\FilesIndex;
 use App\Livewire\Demo\LocaleSwitcher;
 use App\Livewire\Demo\ProfilePage;
-use App\Livewire\Operator\Integrations\SiteConnectorsIndex;
 use App\Models\User;
 use App\Support\Demo\DemoMenu;
 use App\Support\Roles;
@@ -56,7 +55,6 @@ class CanonicalAppUrlIntegrityTest extends TestCase
             ->assertDontSee('/admin');
 
         Livewire::test(FilesIndex::class)->assertOk()->assertDontSee('/system');
-        Livewire::test(SiteConnectorsIndex::class)->assertOk()->assertDontSee('/system');
         Livewire::test(ProfilePage::class)->assertOk()->assertDontSee('/system');
 
         $this->get('/settings?section=ai')->assertOk()
@@ -94,7 +92,7 @@ class CanonicalAppUrlIntegrityTest extends TestCase
         $this->get('/assets/instagram')->assertRedirect(route('operator.assets'));
         $this->get('/profile')->assertOk();
         $this->get('/files')->assertOk();
-        $this->get('/integrations/site-connectors')->assertOk();
+        $this->get('/integrations/site-connectors')->assertRedirect('/');
         $this->get('/integrations/site-connectors/wordpress')->assertOk();
     }
 }
