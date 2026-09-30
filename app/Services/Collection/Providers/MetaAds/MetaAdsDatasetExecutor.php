@@ -99,7 +99,7 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
         $records = $this->normalizer->normalizeAdAccountSnapshot(
             (string) $scope['account_id'],
             $payload,
-            (int) $scope['asset']->id,
+            $scope['asset']?->id,
             (int) $scope['resource']->id,
             $timezone,
         );
@@ -161,7 +161,7 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
             (string) $scope['account_id'],
             (string) ($scope['time_zone'] ?? 'UTC'),
             $rows,
-            (int) $scope['asset']->id,
+            $scope['asset']?->id,
             (int) $scope['resource']->id,
         );
 
@@ -187,7 +187,7 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
             (string) $scope['account_id'],
             (string) ($scope['time_zone'] ?? 'UTC'),
             $rows,
-            (int) $scope['asset']->id,
+            $scope['asset']?->id,
             (int) $scope['resource']->id,
         );
 
@@ -293,7 +293,7 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
             (string) $scope['account_id'],
             $timezone,
             $rows,
-            (int) $scope['asset']->id,
+            $scope['asset']?->id,
             (int) $scope['resource']->id,
         );
 
@@ -460,7 +460,7 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
                     contractVersion: (int) $context->datasetRun->contract_registry_version,
                     batchKey: $batchKey,
                     records: $chunk,
-                    digitalAssetId: (int) $scope['asset']->id,
+                    digitalAssetId: $scope['asset']?->id,
                     externalResourceId: (int) $scope['resource']->id,
                     collectionRunId: (int) $context->collectionRun->id,
                     resourceRunId: (int) $context->resourceRun->id,

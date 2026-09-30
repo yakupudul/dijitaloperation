@@ -3,7 +3,11 @@
 namespace App\Services\Gbp;
 
 use App\Models\DigitalAsset;
+use App\Models\Suggestion;
+use App\Models\User;
+use App\Services\Analyst\AnalystDecisionStore;
 use App\Services\Suggestions\AssetSuggestions;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -11,6 +15,7 @@ use Illuminate\Support\Facades\DB;
  * target gbp × asset), persisted by fingerprint. Groups: `standard` (system checks, no AI), `service` / `category`
  * (Hizmetleri karşılaştır), `description` (Açıklama öner). A new pass of a group refreshes its open rows, reopens a
  * closed row only when its action materially changed, and moves open rows it no longer proposes to `recheck`.
+ * Onayla → approved (the operator changes it on Google) → Uygulandı stores the outcome baseline.
  */
 final class GbpSuggestions extends AssetSuggestions
 {
@@ -51,6 +56,27 @@ final class GbpSuggestions extends AssetSuggestions
         ])->values()->all();
 
         return $this->replaceGroup($asset, 'standard', $items);
+    }
+
+    /**
+     * Onayla: the operator agrees and will do it on Google (profile standards, services / categories, description are
+     * never written by MoxDOP). It waits in "Uygulanacaklar" until "Uygulandı".
+     */
+    public function approve(Suggestion $suggestion, ?User $user): void
+    {
+        $suggestion->forceFill(['status' => Suggestion::APPROVED, 'resolved_by' => $user?->id, 'resolved_at' => now()])->save();
+    }
+
+    /** @return Collection<int, Suggestion> approved, waiting for the operator's change on Google */
+    public function approved(DigitalAsset $asset): Collection
+    {
+        return $this->query($asset)->where('status', Suggestion::APPROVED)->orderBy('priority')->orderBy('id')->get();
+    }
+
+    /** Uygulandı: done on Google — applied with the outcome baseline from today. */
+    public function markApplied(Suggestion $suggestion, ?User $user): void
+    {
+        app(AnalystDecisionStore::class)->markDone($suggestion, $user);
     }
 
     protected function channel(): string

@@ -16,6 +16,8 @@ use App\Models\Run;
 use App\Models\User;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Gbp\ReviewReplyDrafter;
+use App\Services\Prompts\PromptRegistry;
+use App\Support\Ai\AiRouteKeys;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -73,6 +75,8 @@ final class ReviewReplyDraftTest extends TestCase
         $this->assertStringNotContainsString('Ayşe', implode(' ', $prompts), 'reviewer name is never sent');
         $this->assertStringContainsString('Çok bekledim', implode(' ', $prompts));
         $this->assertSame(1, AiProduction::query()->where('kind', ReviewReplyDrafter::KIND)->count());
+        $this->assertSame((string) app(PromptRegistry::class)->current(AiRouteKeys::GBP_REVIEW_REPLY)->id,
+            AiProduction::query()->where('kind', ReviewReplyDrafter::KIND)->value('prompt_version'), 'the registry prompt version is archived');
     }
 
     public function test_liked_replies_become_examples_for_the_brand(): void

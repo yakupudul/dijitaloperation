@@ -24,6 +24,7 @@ use App\Models\ServiceMatchingKeyword;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\Catalog\ServiceCatalogService;
+use App\Services\Collection\Providers\GoogleAds\GoogleAdsCampaignLanguages;
 use App\Services\GoogleAds\GoogleAdsAssistant;
 use App\Services\GoogleAds\GoogleAdsChecks;
 use App\Services\GoogleAds\GoogleAdsEditorCsv;
@@ -193,6 +194,73 @@ final class GoogleAdsScreenTest extends TestCase
         $this->page('overview')->assertSee('Sistem kontrolleri')->assertSee('Negatif çakışması')->assertSee('Veri yok')->assertSee('Maliyet');
     }
 
+    public function test_campaign_language_targeting_is_collected_and_compared_with_the_brand_languages(): void
+    {
+        $this->seedAccount();
+        GoogleAdsCampaignLanguages::store($this->resourceId, '1112223333', [
+            ['campaign' => ['id' => '101'], 'campaignCriterion' => ['language' => ['languageConstant' => 'languageConstants/1001']]],
+        ]);
+        $this->assertSame(['101' => 'de', '102' => 'all'], DB::table('google_ads_campaign_snapshot')->orderBy('campaign_id')->pluck('language_codes', 'campaign_id')->all());
+
+        $targeting = $this->checks()['targeting'];
+        $this->assertSame('fail', $targeting['state']);
+        $this->assertStringContainsString('İmplant Ankara', $targeting['reason']);
+        $this->assertSame(['kampanya' => 'İmplant Ankara', 'dil_hedeflemesi' => 'de', 'marka_dilleri' => 'tr, en'], $targeting['evidence'][0]);
+
+        GoogleAdsCampaignLanguages::store($this->resourceId, '1112223333', [
+            ['campaign' => ['id' => '101'], 'campaignCriterion' => ['language' => ['languageConstant' => 'languageConstants/1037']]],
+            ['campaign' => ['id' => '101'], 'campaignCriterion' => ['language' => ['languageConstant' => 'languageConstants/1000']]],
+        ]);
+        $targeting = $this->checks()['targeting'];
+        $this->assertSame('pass', $targeting['state'], 'language fits; region has no data');
+        $this->assertStringContainsString('Bölge verisi yok', $targeting['reason']);
+
+        DB::table('google_ads_campaign_snapshot')->update(['language_codes' => null]);
+        $this->assertSame('nodata', $this->checks()['targeting']['state'], 'veri yok only when neither region nor language is known');
+    }
+
+    public function test_anomaly_leaves_out_the_conversion_lag_window(): void
+    {
+        $this->row('google_ads_campaign_snapshot', ['campaign_id' => '101', 'metadata' => ['name' => 'İmplant Ankara', 'status' => 'ENABLED', 'advertising_channel_type' => 'SEARCH']]);
+        $this->row('google_ads_conversion_action_snapshot', ['conversion_action_id' => '601', 'metadata' => ['name' => 'Form', 'status' => 'ENABLED', 'category' => 'SUBMIT_LEAD_FORM',
+            'primary_for_goal' => true, 'click_through_lookback_window_days' => 7]]);
+        for ($day = 1; $day <= 49; $day++) {
+            // The last 7 days: costly and without conversions yet (they are still arriving).
+            [$cost, $conversions] = $day <= 7 ? [50, 0] : [20, 1];
+            $this->row('google_ads_campaign_daily', ['campaign_id' => '101', 'reporting_date' => $this->day($day), 'impressions' => 100, 'clicks' => 10, 'cost_micros' => 0,
+                'cost_amount' => $cost, 'conversions' => $conversions, 'currency' => 'TRY', 'metadata' => []]);
+        }
+
+        $anomaly = $this->checks()['anomaly'];
+        $this->assertSame('pass', $anomaly['state'], 'the lag window would otherwise read as a cost spike');
+        $this->assertStringContainsString('son 7 gün hariç', $anomaly['reason']);
+
+        DB::table('google_ads_campaign_daily')->where('reporting_date', '>=', $this->day(20))->where('reporting_date', '<=', $this->day(8))->update(['conversions' => 0, 'cost_amount' => 60]);
+        $anomaly = $this->checks()['anomaly'];
+        $this->assertSame('fail', $anomaly['state']);
+        $this->assertSame(['dönüşüm_gecikmesi' => 'son 7 gün hariç (dönüşüm penceresi)'], end($anomaly['evidence']));
+    }
+
+    public function test_lead_quality_is_entered_monthly_per_campaign_and_feeds_the_structure_pack(): void
+    {
+        $this->seedAccount();
+        $month = substr($this->day(2), 0, 7);
+        $page = $this->page('measurement')->call('setLeadMonth', $month)->assertSee('Lead kalitesi')->assertSee('İmplant Ankara');
+
+        $page->set('leadRows.101', ['leads' => 5, 'qualified' => 2, 'appointments' => 1, 'sales' => 9])->call('saveLeadQuality', '101');
+        $this->assertSame(0, DB::table('google_ads_lead_quality')->count(), 'sales cannot exceed the forms');
+
+        $page->set('leadRows.101', ['leads' => 12, 'qualified' => 5, 'appointments' => 3, 'sales' => 1])->call('saveLeadQuality', '101');
+        $row = DB::table('google_ads_lead_quality')->sole();
+        $this->assertSame([12, 5, 3, 1, 'İmplant Ankara', $month.'-01'], [(int) $row->leads, (int) $row->qualified, (int) $row->appointments, (int) $row->sales, $row->campaign_name, substr((string) $row->month, 0, 10)]);
+        $this->page('measurement')->call('setLeadMonth', $month)->assertSet('leadRows.101.leads', 12)->assertSee('Google Ads dönüşüm');
+
+        GoogleAdsStructureAgent::fake([['campaigns' => [], 'budget_split' => [], 'experiments' => []]]);
+        $this->page('strategy')->call('proposeStructure');
+        GoogleAdsStructureAgent::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, '"leads":12') && str_contains((string) $prompt->prompt, '"sales":1')
+            && str_contains((string) $prompt->prompt, '"excluded_recent_days":7'));
+    }
+
     public function test_search_term_review_keeps_only_what_the_data_supports(): void
     {
         $this->seedAccount();
@@ -283,6 +351,23 @@ final class GoogleAdsScreenTest extends TestCase
 
         $page->call('setTab', 'todo')->assertSee('Gönderildi')->call('undoWrite', $action->id);
         $this->assertSame('undone', $action->fresh()->status);
+    }
+
+    public function test_shared_negative_is_not_applied_when_the_write_fails(): void
+    {
+        $this->seedAccount();
+        GoogleAdsSearchTermsAgent::fake([['terms' => [], 'negatives' => [['text' => 'ücretsiz', 'match_type' => 'BROAD', 'scope' => 'shared', 'campaign' => '', 'ad_group' => '', 'reason' => 'Ücretsiz.']]]]);
+        Http::fake(fn (Request $request) => str_contains($request->url(), 'googleAds:search') ? Http::response(['results' => []]) : Http::response(['error' => ['message' => 'denied']], 403));
+        $page = $this->page('todo')->call('reviewTerms');
+        $suggestion = Suggestion::query()->where('action_type', 'ads_negative')->sole();
+
+        $page->call('approveSuggestion', $suggestion->id);
+
+        $this->assertSame('failed', ExternalWriteAction::query()->sole()->status);
+        $suggestion->refresh();
+        $this->assertSame(Suggestion::APPROVED, $suggestion->status, 'not applied: Google did not take it');
+        $this->assertNull($suggestion->applied_at);
+        $this->assertArrayNotHasKey('sending_write_id', $suggestion->action, 'can be sent again');
     }
 
     public function test_ad_texts_enforce_limits_numbers_urls_and_compliance(): void
@@ -401,6 +486,15 @@ final class GoogleAdsScreenTest extends TestCase
         $this->assertSame(['Genel', '', 'iş ilanı', 'Campaign Negative Phrase'], [$rows[4]['Campaign'], $rows[4]['Ad Group'], $rows[4]['Keyword'], $rows[4]['Criterion Type']]);
 
         $page->call('setTab', 'strategy')->assertSee('Onaylı taslaklar · 3')->call('downloadEditor')->assertFileDownloaded();
+        $drafts = Suggestion::query()->whereIn('action_type', ['ads_campaign', 'ads_rsa', 'ads_negative'])->get();
+        $this->assertTrue($drafts->every(fn (Suggestion $s): bool => $s->status === Suggestion::APPROVED && $s->applied_at === null && filled($s->action['editor_batch'] ?? null)),
+            'downloading the file changes nothing on Google: still approved');
+        $batch = (string) $drafts->first()->action['editor_batch'];
+        $page->call('setTab', 'strategy')->assertSee('Onaylı taslaklar · 0')->assertSee('aktardım')
+            ->call('downloadEditor', $batch)->assertFileDownloaded();
+        $this->assertSame(3, Suggestion::query()->where('status', Suggestion::APPROVED)->count(), 'downloading a batch again applies nothing');
+
+        $page->call('confirmEditorBatch', $batch);
         $applied = Suggestion::query()->whereIn('action_type', ['ads_campaign', 'ads_rsa', 'ads_negative'])->get();
         $this->assertTrue($applied->every(fn (Suggestion $s): bool => $s->status === Suggestion::APPLIED && $s->applied_at !== null && isset($s->baseline['window_days'], $s->baseline['editor_file_at'])));
     }

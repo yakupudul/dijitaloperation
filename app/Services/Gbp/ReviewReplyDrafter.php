@@ -64,7 +64,8 @@ final class ReviewReplyDrafter
                 throw new \RuntimeException('Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.');
             }
             $this->runtime->prepare(array_keys($route->providerModels));
-            $response = (array) (new ReviewReplyAgent)->prompt('REVIEW_JSON'."\n".json_encode($this->context($review, $brand), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+            $agent = new ReviewReplyAgent;
+            $response = (array) $agent->prompt('REVIEW_JSON'."\n".json_encode($this->context($review, $brand), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
                 provider: $route->providerModels, timeout: 90)->toArray();
             $reply = mb_substr(trim(strip_tags((string) ($response['reply'] ?? ''))), 0, 1500);
             if ($reply === '') {
@@ -76,7 +77,7 @@ final class ReviewReplyDrafter
             }
             $this->archive->record(self::KIND, $review, [
                 'reply' => $reply, 'tone' => (string) ($response['tone'] ?? 'neutral'),
-                'provider' => $route->primaryProvider(), 'model' => $route->primaryModel(), 'prompt_version' => ReviewReplyAgent::PROMPT_VERSION,
+                'provider' => $route->primaryProvider(), 'model' => $route->primaryModel(), 'prompt_version' => (string) $agent->promptVersionId(),
             ], ['brand_id' => $brand?->id, 'digital_asset_id' => $asset?->id, 'title' => 'Yorum yanıtı · '.mb_substr((string) $review->comment, 0, 60)]);
             Cache::forget($this->stateKey($reviewId));
         } catch (Throwable $exception) {

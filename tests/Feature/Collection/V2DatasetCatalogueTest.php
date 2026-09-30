@@ -10,6 +10,7 @@ use App\Services\Collection\Providers\MetaAds\MetaAdsRequestFamilyCatalog;
 use App\Services\Collection\Providers\SearchConsole\SearchConsoleRequestFamilyCatalog;
 use App\Services\Integrations\DataForSeo\DataForSeoEndpointAllowlist;
 use App\Support\Collection\CollectionDatasetCatalog;
+use Illuminate\Support\Facades\Artisan;
 use ReflectionMethod;
 use Tests\TestCase;
 
@@ -94,7 +95,9 @@ final class V2DatasetCatalogueTest extends TestCase
         ], DataForSeoEndpointAllowlist::all());
         $this->assertFalse(DataForSeoEndpointAllowlist::isAllowed(DataForSeoEndpointAllowlist::LABS_GOOGLE_RANKED_KEYWORDS_LIVE));
         $this->assertFalse(DataForSeoEndpointAllowlist::isAllowed('serp/google/maps/task_get/advanced/12345678-aaaa'));
-        $this->assertSame([], DataForSeoRequestFamilyCatalog::paidFamilies());
+        $this->assertSame(['DFS-FREE-USER', 'DFS-FREE-MARKETS'], DataForSeoRequestFamilyCatalog::supportedFamilies(), 'no paid collection-engine family');
+        $this->assertFileDoesNotExist(app_path('Services/Collection/DataForSeo/DataForSeoEnrichmentOrchestrator.php'));
+        $this->assertArrayNotHasKey('moxdop:intel:collect', Artisan::all(), 'no DataForSEO task queue is polled');
         $this->assertEqualsCanonicalizing(['serp_results', 'query_volumes'], CollectionDatasetCatalog::kept('DATAFORSEO'));
     }
 }

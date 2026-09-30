@@ -23,7 +23,7 @@ final class MetaChecks
         'objective' => 'Hedef ↔ optimizasyon olayı',
         'utm' => 'UTM parametreleri',
         'landing' => 'Açılış sayfası',
-        'region' => 'Bölge uyumu',
+        'region' => 'Bölge ve dil uyumu',
         'service' => 'Hizmet uyumu',
         'change' => 'Harcama / sonuç değişimi',
         'fatigue' => 'Kreatif yorgunluğu',
@@ -37,6 +37,11 @@ final class MetaChecks
     private const array NON_RESULT_GOALS = ['LINK_CLICKS', 'LANDING_PAGE_VIEWS', 'IMPRESSIONS', 'REACH', 'POST_ENGAGEMENT', 'THRUPLAY', 'AD_RECALL_LIFT', 'PROFILE_VISIT'];
 
     private const array DELIVERY_ISSUES = ['DISAPPROVED' => 'reddedildi', 'WITH_ISSUES' => 'sorunlu', 'PENDING_BILLING_INFO' => 'ödeme bilgisi bekliyor', 'ACCOUNT_DISABLED' => 'hesap kapalı'];
+
+    /** Meta ad targeting locale ids (numeric) => ISO language; ids outside the map are unknown ("veri yok"). */
+    public const array LOCALES = [
+        6 => 'en', 24 => 'en', 1001 => 'en', 19 => 'tr', 5 => 'de', 28 => 'ar', 17 => 'ru', 9 => 'fr', 44 => 'fr', 1012 => 'fr',
+    ];
 
     /** Change check: enough data = at least this many results in the previous window. */
     public const int MIN_PREVIOUS_RESULTS = 10;
@@ -228,7 +233,68 @@ final class MetaChecks
             'Bu reklamların bağlantısını markanın sitesindeki ilgili hizmet sayfasına çevirin.');
     }
 
+    /** Region (service areas / branch cities) and language (ad set locales vs the brand's languages) of spending ad sets. */
     private function checkRegion(array $ctx): array
+    {
+        $region = $this->regionFit($ctx);
+        $language = $this->languageFit($ctx);
+        if ($region['state'] === 'issue' || $language['state'] === 'issue') {
+            $rows = [...($region['rows'] ?? []), ...($language['rows'] ?? [])];
+            $title = $region['state'] === 'issue' && $language['state'] === 'issue' ? 'Bölge ve dil uyumsuz: '.count($rows)
+                : ($region['state'] === 'issue' ? $region['title'] : $language['title']);
+            $detail = implode(' ', array_filter([$region['state'] === 'issue' ? $region['detail'] : null, $language['state'] === 'issue' ? $language['detail'] : null]));
+
+            return $this->issue($title, $detail, 2, $rows, trim(($region['todo'] ?? '').' '.($language['todo'] ?? '')));
+        }
+        if ($region['state'] === 'no_data' && $language['state'] === 'no_data') {
+            return ['state' => 'no_data', 'detail' => $region['detail'].' '.$language['detail']];
+        }
+
+        return ['state' => 'ok', 'detail' => $region['detail'].' '.$language['detail']];
+    }
+
+    /** @return array{state: string, detail: string, title?: string, priority?: int, rows?: list<array<string, mixed>>, todo?: string} */
+    private function languageFit(array $ctx): array
+    {
+        $languages = array_values(array_filter(array_map(fn ($l): string => mb_strtolower(substr((string) $l, 0, 2)), (array) ($ctx['asset']->brand?->languages ?? []))));
+        if ($languages === []) {
+            return ['state' => 'no_data', 'detail' => 'Markanın dili girilmemiş.'];
+        }
+        $spend = MetaScreen::rollup($ctx['ads'], 'adset_id');
+        $known = 0;
+        $rows = [];
+        foreach ($ctx['e']['adsets'] as $id => $adset) {
+            if (($spend[$id]['spend'] ?? 0) <= 0 || ! is_array($adset['targeting'] ?? null) || $adset['targeting'] === []) {
+                continue;
+            }
+            $locales = array_map('intval', (array) ($adset['targeting']['locales'] ?? []));
+            if ($locales === []) {
+                $known++; // no locale = every language
+
+                continue;
+            }
+            $codes = array_values(array_unique(array_filter(array_map(fn (int $l): ?string => self::LOCALES[$l] ?? null, $locales))));
+            if (count($codes) < count(array_unique($locales)) && array_intersect($codes, $languages) === []) {
+                continue; // an unknown locale may be the brand's language: veri yok
+            }
+            $known++;
+            if (array_intersect($codes, $languages) === []) {
+                $rows[] = ['reklam_seti' => $adset['name'], 'dil' => implode(', ', $codes), 'marka_dilleri' => implode(', ', $languages), 'sorun' => 'markanın dili hedeflenmiyor'];
+            }
+        }
+        if ($known === 0) {
+            return ['state' => 'no_data', 'detail' => 'Dil hedefi verisi yok.'];
+        }
+        if ($rows === []) {
+            return ['state' => 'ok', 'detail' => 'Dil hedefi markanın dilleriyle uyumlu.'];
+        }
+
+        return $this->issue('Dil uyumsuz: '.count($rows), count($rows).' reklam seti markanın dillerini hedeflemiyor.', 2, $rows,
+            'Reklam setlerinin dil hedefine markanın dillerini ekleyin ya da dil hedefini kaldırın.');
+    }
+
+    /** @return array{state: string, detail: string, title?: string, priority?: int, rows?: list<array<string, mixed>>, todo?: string} */
+    private function regionFit(array $ctx): array
     {
         $areas = BrandServiceArea::query()->where('brand_id', $ctx['asset']->brand_id)->get();
         if ($areas->isEmpty()) {

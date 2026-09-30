@@ -107,6 +107,18 @@
             @endif
         @endforeach
 
+        @if ($approved->isNotEmpty())
+            <section class="{{ $panel }} divide-y divide-gray-100 dark:divide-gray-700" data-testid="gbp-approved">
+                <h2 class="px-4 py-3 font-semibold text-gray-900 dark:text-white">Uygulanacaklar · {{ $approved->count() }}</h2>
+                @foreach ($approved as $s)
+                    <div class="flex flex-wrap items-center gap-2 px-4 py-2" wire:key="approved-{{ $s->id }}">
+                        <span class="min-w-0 flex-1 text-sm text-gray-800 dark:text-gray-200">{{ $s->title }}</span>
+                        <button type="button" wire:click="markApplied({{ $s->id }})" class="rounded bg-success-500 px-2 py-1 text-xs font-semibold text-white hover:bg-success-600">Uygulandı</button>
+                    </div>
+                @endforeach
+            </section>
+        @endif
+
         <section class="{{ $panel }} divide-y divide-gray-100 dark:divide-gray-700" data-testid="gbp-suggestions">
             @forelse ($suggestions as $s)
                 <div class="px-4 py-3" wire:key="sug-{{ $s->id }}">

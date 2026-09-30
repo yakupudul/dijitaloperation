@@ -20,9 +20,8 @@ use App\Services\Collection\Activity\ActivityTierService;
 use App\Services\Collection\Activity\CollectionActivityGate;
 use App\Services\Collection\Ga4\Ga4CentralCollectionService;
 use App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService;
-use App\Services\Collection\Meta\MetaSingleBindingCollectionOrchestrator;
+use App\Services\Collection\Meta\MetaCentralCollectionService;
 use App\Services\Collection\SearchConsole\SearchConsoleCentralCollectionService;
-use App\Services\CollectionScheduler\ExecuteCollectionLifecycleService;
 use App\Services\Integrations\Google\GoogleBusinessProfileBoundCollector;
 use App\Services\Observability\AlertSubjects;
 use App\Services\Observability\OperationalAlertLifecycleService;
@@ -114,10 +113,6 @@ final class ResourceAutomationService
             $this->discover();
             ResourceAutomation::query()->where('collection_enabled', true)
                 ->where('collection_status', 'attention')->where('collection_error', 'binding')
-                ->where(function ($q): void {
-                    $q->whereHas('resource', fn ($r) => $r->where('resource_type', 'google_business_profile'))
-                        ->orWhereHas('resource.bindings', fn ($b) => $b->where('status', 'active')->where('capability', 'meta_ads'));
-                })
                 ->orderBy('id')->limit(100)->get()->each(function ($automation): void {
                     if ($this->readiness($automation->resource) === null) {
                         $automation->update(['collection_status' => 'waiting', 'collection_error' => null, 'next_collection_at' => now()]);
@@ -275,10 +270,6 @@ final class ResourceAutomationService
             || ! (bool) data_get($resource->metadata, 'selectable', true))) {
             return 'manager';
         }
-        if ($resource->resource_type === 'meta_ads'
-            && ! $resource->bindings()->where('status', 'active')->where('capability', $resource->resource_type)->exists()) {
-            return 'binding';
-        }
 
         return null;
     }
@@ -386,7 +377,8 @@ final class ResourceAutomationService
             'google_ads' => app(GoogleAdsCentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor, $queryOnly),
             'search_console' => app(SearchConsoleCentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor, $queryOnly),
             'ga4' => app(Ga4CentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor),
-            default => $this->collectBound($r, $actor),
+            'meta_ads' => app(MetaCentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor),
+            default => throw new \RuntimeException('Unsupported resource type ['.$r->resource_type.'].'),
         };
         $a->update([
             'collection_run_id' => $run?->id, 'collection_status' => $run ? 'collecting' : 'current',
@@ -447,27 +439,6 @@ final class ResourceAutomationService
             if ($finished && $success) {
             }
         });
-    }
-
-    private function collectBound(CoreExternalResource $r, ?User $actor): ?CollectionRun
-    {
-        $binding = $r->bindings()->with('digitalAsset')->where('status', 'active')->where('capability', $r->resource_type)->orderBy('id')->firstOrFail();
-        if ($r->resource_type === 'meta_ads') {
-            $result = app(MetaSingleBindingCollectionOrchestrator::class)->start($r->integration, $binding, $actor);
-            if (! $result['collection_run'] && ! in_array($result['outcome'], ['data_current', 'no_work'], true)) {
-                throw new \RuntimeException('Account requires attention.');
-            }
-
-            return $result['collection_run'];
-        }
-        $result = app(ExecuteCollectionLifecycleService::class)->executeForDigitalAsset(
-            $binding->digitalAsset, $actor, context: ['manual' => true, 'binding_ids' => [$binding->id]]
-        );
-        if ($result->outcome === 'blocked') {
-            throw new \RuntimeException('Account requires attention.');
-        }
-
-        return $result->collectionRun;
     }
 
     private function reconcile(ResourceAutomation $a): void

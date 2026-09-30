@@ -101,7 +101,8 @@ final class GoogleAdsCentralDatasetExecutor implements DatasetExecutor
     /** @param array<string,mixed> $scope */
     private function executeEntitySnapshot(DatasetExecutionContext $context, array $scope): DatasetExecutionResult
     {
-        $steps = ['customer_meta', 'campaign_snapshot', 'ad_group_snapshot', 'ad_snapshot', 'keyword_snapshot', 'asset_coverage', 'conversion_action_meta'];
+        // campaign_languages is last so saved step indexes of running collections stay valid.
+        $steps = ['customer_meta', 'campaign_snapshot', 'ad_group_snapshot', 'ad_snapshot', 'keyword_snapshot', 'asset_coverage', 'conversion_action_meta', 'campaign_languages'];
         $index = (int) ($context->checkpoint['step_index'] ?? 0);
         if ($index >= count($steps)) {
             return $this->completed(count($steps), count($steps), $context->checkpoint);
@@ -116,6 +117,7 @@ final class GoogleAdsCentralDatasetExecutor implements DatasetExecutor
             'keyword_snapshot' => $this->coreGaql->keywordSnapshot(),
             'asset_coverage' => $this->coreGaql->assetCoverage(),
             'conversion_action_meta' => $this->coreGaql->conversionActionMeta(),
+            'campaign_languages' => $this->coreGaql->campaignLanguages(),
         };
         $fetched = $this->fetchPaged($scope, $query);
         if ($fetched instanceof DatasetExecutionResult) {
@@ -146,6 +148,8 @@ final class GoogleAdsCentralDatasetExecutor implements DatasetExecutor
         } elseif ($step === 'asset_coverage') {
             $records = $this->coreNormalizer->normalizeAssetCoverage($customer, $timezone, $rows, null, $resourceId);
             $written += $this->write($context, $scope, 'google_ads_asset_coverage_snapshot', $step, $query, $rows, $records, $requestId);
+        } elseif ($step === 'campaign_languages') {
+            $written += GoogleAdsCampaignLanguages::store($resourceId, $customer, $rows);
         } else {
             $records = $this->coreNormalizer->normalizeConversionActionSnapshots($customer, $timezone, $rows, null, $resourceId);
             $written += $this->write($context, $scope, 'google_ads_conversion_action_snapshot', $step, $query, $rows, $records, $requestId);

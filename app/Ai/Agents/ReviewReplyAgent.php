@@ -21,8 +21,6 @@ final class ReviewReplyAgent implements Agent, HasProviderOptions, HasStructured
     use Promptable;
     use UsesPromptRegistry;
 
-    public const string PROMPT_VERSION = 'review-reply-v1';
-
     public function promptOperation(): string
     {
         return AiRouteKeys::GBP_REVIEW_REPLY;

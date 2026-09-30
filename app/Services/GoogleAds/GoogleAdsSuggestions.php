@@ -17,8 +17,9 @@ use Illuminate\Validation\ValidationException;
  * Google Ads Yapılacaklar (Faz 5): every suggestion of one account in the ONE `suggestions` table (channel and target
  * `google_ads`). Groups: `check` (system checks, no AI), `negative` (search-term review), `structure` / `budget` /
  * `experiment` (campaign strategy), `rsa:<ad group>` (ad texts). Apply: shared-list negatives → Admin-approved
- * ADR-064 write (undo from the list); everything else → approved draft → Google Ads Editor file. Apply stores the
- * outcome baseline (OutcomeTracker: 28 days of the referenced campaign, else the account) + the evidence.
+ * ADR-064 write (undo from the list), applied when the write succeeded; everything else → approved draft → Google Ads
+ * Editor file (a downloaded batch) → applied when the operator confirms "Editor'a aktardım". Apply stores the outcome
+ * baseline (OutcomeTracker: 28 days of the referenced campaign, else the account) + the evidence.
  */
 final class GoogleAdsSuggestions extends AssetSuggestions
 {
@@ -70,10 +71,49 @@ final class GoogleAdsSuggestions extends AssetSuggestions
         return $this->query($asset)->where('status', Suggestion::APPROVED)->orderBy('priority')->orderBy('id')->get();
     }
 
-    /** @return Collection<int, Suggestion> approved drafts that become rows of the Editor file (not shared-list negatives) */
+    /** @return Collection<int, Suggestion> approved drafts not yet in a downloaded Editor file (not shared-list negatives) */
     public function editorDrafts(DigitalAsset $asset): Collection
     {
-        return $this->approved($asset)->reject(fn (Suggestion $s): bool => $s->action_type === 'ads_negative' && ($s->action['scope'] ?? '') === 'shared')->values();
+        return $this->approved($asset)->reject(fn (Suggestion $s): bool => self::isSharedNegative($s) || filled($s->action['editor_batch'] ?? null))->values();
+    }
+
+    /** @return Collection<string, Collection<int, Suggestion>> downloaded Editor batches waiting for "Editor'a aktardım", by batch id */
+    public function editorBatches(DigitalAsset $asset): Collection
+    {
+        return $this->approved($asset)->filter(fn (Suggestion $s): bool => ! self::isSharedNegative($s) && filled($s->action['editor_batch'] ?? null))
+            ->groupBy(fn (Suggestion $s): string => (string) $s->action['editor_batch']);
+    }
+
+    /**
+     * The drafts went into a downloaded Editor file: they stay approved (nothing changed on Google yet) and wait for the
+     * operator's "Editor'a aktardım".
+     *
+     * @param  Collection<int, Suggestion>  $drafts
+     */
+    public function markDownloaded(Collection $drafts): string
+    {
+        $batch = now()->format('Y-m-d H:i:s');
+        foreach ($drafts as $draft) {
+            $draft->forceFill(['action' => array_merge((array) $draft->action, ['editor_batch' => $batch])])->save();
+        }
+
+        return $batch;
+    }
+
+    /** "Editor'a aktardım": the batch's drafts are applied now (baseline from today). */
+    public function confirmEditorBatch(DigitalAsset $asset, string $batch, ?User $user): int
+    {
+        $drafts = $this->editorBatches($asset)->get($batch, collect());
+        foreach ($drafts as $draft) {
+            $this->markApplied($draft, $user, ['editor_file_at' => $batch]);
+        }
+
+        return $drafts->count();
+    }
+
+    public static function isSharedNegative(Suggestion $suggestion): bool
+    {
+        return $suggestion->action_type === 'ads_negative' && ($suggestion->action['scope'] ?? '') === 'shared';
     }
 
     /**
@@ -103,7 +143,8 @@ final class GoogleAdsSuggestions extends AssetSuggestions
 
     /**
      * ADR-064: the selected open / approved shared-list negatives go to the account's shared negative list in one
-     * Admin-approved write (undo from the list); each suggestion is applied with the write in its baseline.
+     * Admin-approved write (undo from the list). They wait as "gönderiliyor"; writeFinished() applies them (baseline)
+     * once the write succeeded.
      *
      * @param  list<int>  $ids
      */
@@ -116,12 +157,52 @@ final class GoogleAdsSuggestions extends AssetSuggestions
             throw ValidationException::withMessages(['write' => 'Paylaşılan listeye gidecek negatif seçin.']);
         }
         $lines = $rows->map(fn (Suggestion $s): string => self::line((string) $s->action['text'], (string) $s->action['match_type']))->implode("\n");
-        $action = $writes->requestNegativeList($user, $asset, $lines, $rows->first());
+        // Waiting as "gönderiliyor" before the write is queued: a synchronous write finishes inside the request.
+        $before = $rows->mapWithKeys(fn (Suggestion $row): array => [$row->id => [$row->status, $row->action]]);
         foreach ($rows as $row) {
-            $this->markApplied($row, $user, ['write_action_id' => $action->id]);
+            $row->forceFill(['status' => Suggestion::APPROVED, 'resolved_by' => $user->id, 'resolved_at' => now(),
+                'action' => array_merge((array) $row->action, ['sending_write_id' => 'queued'])])->save();
+        }
+        try {
+            $action = $writes->requestNegativeList($user, $asset, $lines, $rows->first(), $rows->pluck('id')->map(fn ($id): int => (int) $id)->all());
+        } catch (\Throwable $error) {
+            foreach ($rows as $row) {
+                $row->forceFill(['status' => $before[$row->id][0], 'action' => $before[$row->id][1]])->save();
+            }
+
+            throw $error;
+        }
+        foreach ($rows as $row) {
+            $row->refresh();
+            if (($row->action['sending_write_id'] ?? null) === 'queued') {
+                $row->forceFill(['action' => array_merge((array) $row->action, ['sending_write_id' => $action->id])])->save();
+            }
         }
 
         return $action;
+    }
+
+    /**
+     * Success path of a shared-list write (ExternalWriteService::execute): the negatives Google accepted (added or
+     * already in the list) are applied with the write in their baseline; the others can be sent again.
+     */
+    public function writeFinished(ExternalWriteAction $action): void
+    {
+        $ids = array_map('intval', (array) ($action->request_payload['suggestion_ids'] ?? []));
+        if ($ids === []) {
+            return;
+        }
+        $failed = collect((array) ($action->result['failed'] ?? []))->map(fn ($k): string => mb_strtolower((string) ($k['text'] ?? '')).'|'.strtoupper((string) ($k['match_type'] ?? '')))->all();
+        $user = $action->requested_by !== null ? User::query()->find($action->requested_by) : null;
+        $rows = Suggestion::query()->whereIn('id', $ids)->where('status', Suggestion::APPROVED)->get();
+        foreach ($rows as $row) {
+            // Sent as parse(line()) sends it: lower-case, and anything but EXACT as PHRASE.
+            $key = trim((string) preg_replace('/\s+/u', ' ', mb_strtolower((string) ($row->action['text'] ?? '')))).'|'
+                .(strtoupper((string) ($row->action['match_type'] ?? '')) === 'EXACT' ? 'EXACT' : 'PHRASE');
+            $action->status === 'failed' || in_array($key, $failed, true)
+                ? $row->forceFill(['action' => array_diff_key((array) $row->action, ['sending_write_id' => true])])->save()
+                : $this->markApplied($row, $user, ['write_action_id' => $action->id]);
+        }
     }
 
     /** Paste line of the shared-list writer: [x] exact, "x" phrase (a single-word broad negative is sent as phrase). */

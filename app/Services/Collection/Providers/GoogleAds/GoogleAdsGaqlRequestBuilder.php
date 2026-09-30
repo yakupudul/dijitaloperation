@@ -45,6 +45,20 @@ WHERE campaign.status != 'REMOVED'
 GAQL;
     }
 
+    /** Positive LANGUAGE criteria of the campaigns (a campaign without one targets all languages). */
+    public function campaignLanguages(): string
+    {
+        return <<<'GAQL'
+SELECT
+  campaign.id,
+  campaign_criterion.language.language_constant
+FROM campaign_criterion
+WHERE campaign_criterion.type = 'LANGUAGE'
+  AND campaign_criterion.negative = FALSE
+  AND campaign.status != 'REMOVED'
+GAQL;
+    }
+
     public function adGroupSnapshot(): string
     {
         return <<<'GAQL'
@@ -119,7 +133,8 @@ SELECT
   conversion_action.origin,
   conversion_action.primary_for_goal,
   conversion_action.include_in_conversions_metric,
-  conversion_action.counting_type
+  conversion_action.counting_type,
+  conversion_action.click_through_lookback_window_days
 FROM conversion_action
 WHERE conversion_action.status != 'REMOVED'
 GAQL;

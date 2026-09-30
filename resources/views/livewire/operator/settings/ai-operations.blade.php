@@ -90,6 +90,33 @@
             <button type="submit" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">Yeni sürüm olarak kaydet</button>
         </form>
 
+        <section class="{{ $card }} space-y-3 p-5" data-prompt-trial @if (($detail['trial']['status'] ?? null) === 'running') wire:poll.3s @endif>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Örnekte dene</h3>
+                <div class="flex flex-wrap gap-1">
+                    @foreach ($detail['samples'] as $sample)
+                        <button type="button" wire:click="useSample({{ $sample['id'] }})" wire:key="sample-{{ $sample['id'] }}" class="rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300">{{ \Illuminate\Support\Carbon::parse($sample['at'])->format('d.m H:i') }}{{ $sample['version'] !== null ? ' · v'.$sample['version'] : '' }}</button>
+                    @endforeach
+                </div>
+            </div>
+            <textarea wire:model="trialInput" rows="5" placeholder="Son çalıştırmalardan birini seçin ya da örnek girdi yapıştırın." class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 font-mono text-xs text-gray-800 dark:border-gray-700 dark:text-white/90"></textarea>
+            @error('trial')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+            <div class="flex items-center gap-3">
+                <button type="button" wire:click="runTrial" wire:loading.attr="disabled" @disabled(($detail['trial']['status'] ?? null) === 'running') class="rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50 dark:bg-white dark:text-gray-900">Taslağı dene</button>
+                <span class="text-xs text-gray-500">Yayınlanmamış şablon · öneri kaydedilmez</span>
+            </div>
+            @if ($detail['trial'] !== null)
+                @if ($detail['trial']['status'] === 'running')
+                    <p class="text-sm text-gray-500">Çalışıyor…</p>
+                @elseif ($detail['trial']['status'] === 'failed')
+                    <p class="text-sm text-rose-600">{{ $detail['trial']['message'] }}</p>
+                @else
+                    <p class="text-xs text-gray-500">{{ $detail['trial']['model'] }} · {{ $sec($detail['trial']['duration_ms']) }} · {{ $usd($detail['trial']['cost']) }}</p>
+                    <pre class="max-h-96 overflow-auto rounded bg-gray-50 p-3 text-xs text-gray-700 dark:bg-gray-900 dark:text-gray-300">{{ $detail['trial']['output'] }}</pre>
+                @endif
+            @endif
+        </section>
+
         <div class="grid gap-4 lg:grid-cols-2">
             <section class="{{ $card }} p-5" data-prompt-versions>
                 <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Sürüm geçmişi</h3>

@@ -382,6 +382,7 @@ final class GoogleAdsNormalizer
                     'primary_for_goal' => $action['primaryForGoal'] ?? $action['primary_for_goal'] ?? null,
                     'include_in_conversions_metric' => $action['includeInConversionsMetric'] ?? $action['include_in_conversions_metric'] ?? null,
                     'counting_type' => $action['countingType'] ?? $action['counting_type'] ?? null,
+                    'click_through_lookback_window_days' => $action['clickThroughLookbackWindowDays'] ?? $action['click_through_lookback_window_days'] ?? null,
                     'conversion_action_neq_business_outcome' => true,
                     'conversion_action_neq_qualified_lead' => true,
                     'business_action_mapping_applied' => false,

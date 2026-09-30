@@ -12,6 +12,7 @@ use App\Models\PromptVersion;
 use App\Models\User;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\Prompts\PromptRegistry;
+use App\Services\Retention\DataRetentionService;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Roles;
@@ -213,6 +214,43 @@ final class PromptRegistryTest extends TestCase
 
         Livewire::test(AiOperationsPage::class)->call('open', AiRouteKeys::GBP_REVIEW_REPLY)
             ->set('template', 'X {{bilinmeyen}}')->call('save')->assertHasErrors('template');
+    }
+
+    public function test_draft_prompt_is_tried_on_a_past_input_without_publishing(): void
+    {
+        config(['ai.providers.anthropic.key' => 'configured', 'moxdop.anthropic.api_key' => 'configured']);
+        GbpPostFromPageAgent::fake([['text' => 'İlk metin', 'action_type' => 'BOOK'], ['text' => 'Deneme çıktısı', 'action_type' => 'CALL']]);
+        $version = $this->registry->current(AiRouteKeys::GBP_POST_FROM_PAGE);
+        (new GbpPostFromPageAgent)->prompt('CONTEXT_JSON {"page":"implant"}', provider: 'anthropic');
+        $record = DB::table('ai_usage_records')->sole();
+        $this->assertSame('CONTEXT_JSON {"page":"implant"}', $record->input_text, 'the rendered input of a run is kept');
+        $this->actingAs($this->admin);
+
+        Livewire::test(AiOperationsPage::class)->call('open', AiRouteKeys::GBP_POST_FROM_PAGE)->assertSee('Örnekte dene')
+            ->call('useSample', $record->id)->assertSet('trialInput', 'CONTEXT_JSON {"page":"implant"}')
+            ->set('template', 'Taslak şablon.')->call('runTrial')->assertHasNoErrors()
+            ->assertSee('Deneme çıktısı');
+
+        $this->assertSame($version->id, $this->registry->current(AiRouteKeys::GBP_POST_FROM_PAGE)->id, 'the draft is not published');
+        $this->assertSame(1, PromptVersion::query()->where('operation', AiRouteKeys::GBP_POST_FROM_PAGE)->count());
+        $trial = DB::table('ai_usage_records')->where('id', '>', $record->id)->sole();
+        $this->assertSame('prompt_trial', $trial->route_key, 'costed, but not a run of the operation');
+        $this->assertNull($trial->input_text);
+        $this->assertSame(0, DB::table('suggestions')->count());
+
+        Livewire::test(AiOperationsPage::class)->call('open', AiRouteKeys::GBP_POST_FROM_PAGE)->set('trialInput', '')->call('runTrial')->assertHasErrors('trial');
+    }
+
+    public function test_run_inputs_are_cleared_after_ninety_days(): void
+    {
+        DB::table('ai_usage_records')->insert([
+            ['agent' => 'A', 'provider' => 'anthropic', 'model' => 'm', 'input_text' => 'eski', 'created_at' => now()->subDays(91)],
+            ['agent' => 'A', 'provider' => 'anthropic', 'model' => 'm', 'input_text' => 'yeni', 'created_at' => now()->subDays(10)],
+        ]);
+
+        $this->assertSame(1, app(DataRetentionService::class)->purgeAiRunInputs());
+        $this->assertSame(['yeni'], DB::table('ai_usage_records')->whereNotNull('input_text')->pluck('input_text')->all());
+        $this->assertSame(2, DB::table('ai_usage_records')->count(), 'the run summary row stays');
     }
 
     public function test_non_admin_is_forbidden(): void

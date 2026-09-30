@@ -68,6 +68,17 @@ final class AiUsageRecorder
         'BacklinkSourcesAgent' => AiRouteKeys::BACKLINKS_SOURCES,
     ];
 
+    /** Hidden context flag of a prompt trial run (PromptTrial). */
+    public const string TRIAL_CONTEXT = 'ai_prompt_trial';
+
+    /** Route key the usage record of a prompt trial carries. */
+    public const string TRIAL_ROUTE = 'prompt_trial';
+
+    /** Longest stored run input (characters). */
+    public const int INPUT_MAX = 200000;
+
+    private static ?bool $keepsInput = null;
+
     /** @var array<int, float> agent object id => start time of its current attempt (hrtime ms) */
     private static array $starts = [];
 
@@ -114,6 +125,9 @@ final class AiUsageRecorder
             $provider = (string) ($event->response->meta->provider ?? 'unknown');
             $model = (string) ($event->response->meta->model ?? 'unknown');
             $routeKey = self::AGENT_ROUTES[$agent] ?? $this->operation($event->prompt->agent) ?? Context::getHidden('ai_route_key');
+            $trial = Context::getHidden(self::TRIAL_CONTEXT) === true;
+            // A prompt trial ("Örnekte dene") costs like any run but is not a run of the operation.
+            $routeKey = $trial ? self::TRIAL_ROUTE : $routeKey;
 
             DB::table('ai_usage_records')->insert([
                 'route_key' => is_string($routeKey) ? $routeKey : null,
@@ -130,10 +144,16 @@ final class AiUsageRecorder
                 'duration_ms' => $this->duration($event->prompt->agent),
                 'status' => 'ok',
                 'created_at' => now(),
-            ]);
+            ] + (! $trial && $event->prompt->agent instanceof RegistryPrompted && self::keepsInput()
+                ? ['input_text' => mb_substr($event->prompt->prompt, 0, self::INPUT_MAX)] : []));
         } catch (Throwable $exception) {
             Log::warning('AI usage could not be recorded.', ['error' => $exception->getMessage()]);
         }
+    }
+
+    private static function keepsInput(): bool
+    {
+        return self::$keepsInput ??= Schema::hasColumn('ai_usage_records', 'input_text');
     }
 
     /** Registry-prompted agents name their operation (= route key) themselves. */

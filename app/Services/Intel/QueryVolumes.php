@@ -27,6 +27,40 @@ final class QueryVolumes
     ) {}
 
     /**
+     * Monthly refresh (moxdop:intel:query-volumes): volume only for what the product plans with — the main query of
+     * each cluster used by an operational brand (queries.volume) and the brands' target queries (query_volumes only).
+     * AI-suggested main queries get no volume: nothing unmeasured is shown as measured. The 90-day cache means a
+     * month re-sends only expired queries; the DataForSEO spend guard stops the run at the monthly cap.
+     *
+     * @return array{main_queries: int, target_queries: int}
+     */
+    public function refreshPlanned(): array
+    {
+        $brandIds = app(ServiceScope::class)->operationalBrandIds();
+        $rows = $brandIds === [] ? collect() : DB::table('brand_cluster_pages')->whereIn('brand_id', $brandIds)->get(['cluster_id', 'target_query', 'language']);
+        $location = (int) config('moxdop-intel.query_volumes.location_code', 2792);
+        $default = (string) config('moxdop-intel.query_volumes.default_language', 'tr');
+
+        $main = $rows->isEmpty() ? collect() : DB::table('clusters')->join('queries', 'queries.id', '=', 'clusters.main_query_id')
+            ->whereIn('clusters.id', $rows->pluck('cluster_id')->unique()->values()->all())->where('queries.is_suggested', false)
+            ->distinct()->get(['queries.id', 'queries.text']);
+        if ($main->isNotEmpty()) {
+            $volumes = $this->volumes($main->pluck('text')->all(), $location, $default);
+            foreach ($main as $query) {
+                $volume = $volumes[SerpResults::normalize((string) $query->text)] ?? null;
+                DB::table('queries')->where('id', $query->id)->update(['volume' => $volume, 'updated_at' => now()]);
+            }
+        }
+
+        $targets = 0;
+        foreach ($rows->filter(fn (object $row): bool => filled($row->target_query))->groupBy(fn (object $row): string => mb_strtolower((string) ($row->language ?: $default))) as $language => $group) {
+            $targets += count($this->volumes($group->pluck('target_query')->unique()->values()->all(), $location, $language));
+        }
+
+        return ['main_queries' => $main->count(), 'target_queries' => $targets];
+    }
+
+    /**
      * @param  list<string>  $queries
      * @return array<string, ?int> normalized query => monthly search volume (null = unknown)
      */

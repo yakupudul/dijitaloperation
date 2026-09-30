@@ -26,6 +26,7 @@ use App\Services\Compliance\ComplianceAuditor;
 use App\Services\Compliance\SectorPackRegistry;
 use App\Services\ExternalWrites\GoogleAdsNegativeListWriter;
 use App\Services\SeoTasks\SeoText;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -337,10 +338,22 @@ final class GoogleAdsAssistant
             throw new RuntimeException('Günlük bütçe verisi yok; önce Google Ads verisini çekin.');
         }
         $pages = $this->pages($brand);
+        // Performance of the 30 days before the conversion-lag window (its conversions are still arriving).
+        $lag = (int) ($input['conversion_lag_days']['days'] ?? GoogleAdsAdvisorInputCollector::DEFAULT_CONVERSION_LAG_DAYS);
+        $periodEnd = isset($input['period']['end']) ? CarbonImmutable::parse($input['period']['end'])->subDays($lag) : null;
         $campaigns = [];
         foreach ($input['campaigns'] ?? [] as $id => $c) {
-            $campaigns[] = ['name' => $c['name'], 'status' => $c['status'], 'daily_budget' => $c['budget_amount'], 'cost' => round($c['cost'], 2), 'clicks' => $c['clicks'],
-                'conversions' => round($c['conversions'], 2), 'enough_data' => $c['conversions'] >= GoogleAdsChecks::MIN_CONVERSIONS && $c['clicks'] >= GoogleAdsChecks::MIN_CLICKS,
+            $t = ['cost' => 0.0, 'clicks' => 0, 'conversions' => 0.0];
+            foreach ($input['campaign_daily'][$id] ?? [] as $date => $m) {
+                $age = $periodEnd === null ? -1 : (int) ((strtotime($periodEnd->toDateString()) - strtotime((string) $date)) / 86400);
+                if ($age >= 0 && $age < 30) {
+                    $t['cost'] += $m['cost'];
+                    $t['clicks'] += $m['clicks'];
+                    $t['conversions'] += $m['conversions'];
+                }
+            }
+            $campaigns[] = ['name' => $c['name'], 'status' => $c['status'], 'daily_budget' => $c['budget_amount'], 'cost' => round($t['cost'], 2), 'clicks' => $t['clicks'],
+                'conversions' => round($t['conversions'], 2), 'enough_data' => $t['conversions'] >= GoogleAdsChecks::MIN_CONVERSIONS && $t['clicks'] >= GoogleAdsChecks::MIN_CLICKS,
                 'ad_groups' => array_values(array_unique(array_map(fn (array $k): string => (string) ($input['ads']['ad_groups'][$k['ad_group_id']] ?? $k['ad_group_id']),
                     array_filter($input['keywords'] ?? [], fn (array $k): bool => $k['campaign_id'] === (string) $id))))];
         }
@@ -348,6 +361,9 @@ final class GoogleAdsAssistant
             'offerings' => $offerings, 'areas' => $this->areas($brand), 'languages' => array_values((array) ($brand->languages ?? [])),
             'clusters' => $this->clusters($brand), 'campaigns' => $campaigns, 'total_daily_budget' => round($budget, 2),
             'currency' => $input['currency'] ?? null, 'pages' => array_map(fn (array $p): array => ['url' => $p['url'], 'title' => $p['title'], 'category' => $p['category']], $pages),
+            'performance_period' => $periodEnd === null ? null : ['start' => $periodEnd->subDays(29)->toDateString(), 'end' => $periodEnd->toDateString(), 'excluded_recent_days' => $lag],
+            // The operator's CRM numbers (form / uygun / randevu / satış), separate from Google Ads conversions.
+            'lead_quality' => app(GoogleAdsLeadQuality::class)->recent($asset),
         ];
         [$raw, $versionId] = $this->call(self::OP_STRUCTURE, $pack);
         $valid = self::validateStructure($raw, $pack);

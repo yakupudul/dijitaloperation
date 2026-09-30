@@ -26,7 +26,7 @@ final class DataRetentionCommand extends Command
         $dryRun = ! $this->option('apply');
         $result = $retention->run($dryRun);
         $this->info(sprintf(
-            '%sGünlük veri sınırı: %s · ham kopya: %d · telemetri: %d · aylığa çevrilen günlük satır: %d (%d aylık satır) · silinen sorgu günlük satırı: %d · silinen sorgu kaynağı: %d · silinen kapalı öneri: %d.',
+            '%sGünlük veri sınırı: %s · ham kopya: %d · telemetri: %d · aylığa çevrilen günlük satır: %d (%d aylık satır) · silinen sorgu günlük satırı: %d · silinen sorgu kaynağı: %d · silinen kapalı öneri: %d · silinen AI girdi metni: %d.',
             $dryRun ? '[deneme] ' : '',
             $retention->dailyCutoff()->toDateString(),
             $result['raw_objects'],
@@ -36,6 +36,7 @@ final class DataRetentionCommand extends Command
             array_sum($result['query_daily_rows']),
             $result['query_source_rows'],
             $result['closed_suggestions'],
+            $result['ai_run_inputs'],
         ));
         foreach (array_filter([...$result['telemetry'], ...$result['query_daily_rows']]) as $table => $count) {
             $this->line("  {$table}: {$count}");

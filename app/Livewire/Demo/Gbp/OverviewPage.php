@@ -124,10 +124,19 @@ class OverviewPage extends Component
         $this->queueAssistant($assistant, GbpAssistant::OP_DESCRIPTION);
     }
 
-    public function approveSuggestion(int $id, GbpSuggestions $suggestions, AnalystDecisionStore $store): void
+    public function approveSuggestion(int $id, GbpSuggestions $suggestions): void
     {
-        $store->markDone($suggestions->find($this->asset(), $id), auth()->user());
-        DemoState::flash('Onaylandı.', 'success');
+        $suggestions->approve($suggestions->find($this->asset(), $id), auth()->user());
+        DemoState::flash('Onaylandı; Google’da yapınca “Uygulandı” deyin.', 'success');
+    }
+
+    /** The operator made the change on Google: applied with the outcome baseline. */
+    public function markApplied(int $id, GbpSuggestions $suggestions): void
+    {
+        $suggestion = $suggestions->find($this->asset(), $id);
+        abort_unless($suggestion->status === Suggestion::APPROVED, 404);
+        $suggestions->markApplied($suggestion, auth()->user());
+        DemoState::flash('Uygulandı olarak işaretlendi.', 'success');
     }
 
     public function dismissSuggestion(int $id, GbpSuggestions $suggestions, AnalystDecisionStore $store): void
@@ -287,6 +296,7 @@ class OverviewPage extends Component
             'numbers' => $this->tab === 'overview' ? $screen->overview($asset, $resourceId) : null,
             'openCount' => $asset->brand_id !== null ? $suggestions->open($asset)->count() : 0,
             'suggestions' => $this->tab === 'todo' ? $suggestions->open($asset) : collect(),
+            'approved' => $this->tab === 'todo' && $asset->brand_id !== null ? $suggestions->approved($asset) : collect(),
             'servicesState' => $this->tab === 'todo' ? $assistant->state($assetId, GbpAssistant::OP_SERVICES) : null,
             'descriptionState' => $this->tab === 'todo' ? $assistant->state($assetId, GbpAssistant::OP_DESCRIPTION) : null,
             'reviewAccess' => $this->tab === 'reviews' && $resourceId !== null ? $daily->reviewAccess($asset) : null,

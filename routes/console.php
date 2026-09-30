@@ -430,11 +430,12 @@ Schedule::command('moxdop:google-ads:record-quality-scores')
     ->withoutOverlapping(30)
     ->name('google-ads-quality-score-history');
 
-// Faz 8: DataForSEO kuyruk sonuçları (ücretsiz okuma) ve zamanı gelen harita grid taramaları (isteğe bağlı, aylık tavan).
-Schedule::command('moxdop:intel:collect')
-    ->everyFiveMinutes()
-    ->withoutOverlapping(10)
-    ->name('intel-collect-dataforseo-tasks');
+// v2 Faz 3: küme ana sorguları + marka hedef sorguları için DataForSEO arama hacmi (ayda bir, harcama tavanı geçerli).
+Schedule::command('moxdop:intel:query-volumes')
+    ->monthlyOn(4, '05:37')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(120)
+    ->name('intel-query-volumes');
 
 // Faz 9: WordPress Connector v2 sağlık okuması (sürümler, bekleyen güncellemeler, Site Sağlığı).
 Schedule::command('moxdop:wordpress:health')
