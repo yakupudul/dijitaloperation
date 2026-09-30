@@ -4,7 +4,6 @@ namespace App\Livewire\Operator\Library;
 
 use App\Jobs\Queries\AssignQueryServicesJob;
 use App\Jobs\Queries\ClusterQueriesJob;
-use App\Jobs\Queries\PlanQueriesJob;
 use App\Jobs\Queries\ProposeQueryRulesJob;
 use App\Jobs\Queries\RescanQueriesJob;
 use App\Models\Brand;
@@ -16,6 +15,8 @@ use App\Models\FilterTerm;
 use App\Models\Page;
 use App\Models\PendingQuery;
 use App\Models\Query;
+use App\Models\QueryReview;
+use App\Models\QueryReviewItem;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Models\ServiceMatchingKeyword;
@@ -27,6 +28,7 @@ use App\Services\Queries\QueryClusterer;
 use App\Services\Queries\QueryNormalizer;
 use App\Services\Queries\QueryPipeline;
 use App\Services\Queries\QueryPlanner;
+use App\Services\Queries\QueryRescanner;
 use App\Services\Queries\QueryRuleProposer;
 use App\Services\Queries\QueryServiceAssigner;
 use Illuminate\Contracts\View\View;
@@ -43,12 +45,14 @@ use Livewire\Component;
 use Livewire\WithPagination;
 
 /**
- * Sorgular: the one query store (query_sources → queries → brand_queries) with tabs Sorgular · Bekleyenler · Kümeler ·
- * Filtre sepeti · Eşleme kelimeleri and "AI ile planla". Reads only; the pipeline, AI proposals, clustering and the
- * rescan (filter / matching keyword changes → a review the operator approves) run as queued jobs.
+ * Sorgular: the one query store (query_sources → queries → brand_queries) with tabs Sorgular · Bekleyenler ·
+ * Silinecekler · Kümeler · Filtre sepeti · Eşleme kelimeleri and "AI ile planla". Reads only; the pipeline, AI
+ * proposals, clustering and the rescan (filter / matching keyword changes → proposals in the permanent Silinecekler
+ * pool the operator approves or keeps) run as queued jobs.
  *
  * Bulk selection: ticked ids (any page) or "filtreye uyan tümü" (`selectAll`: the current filter as a query, minus the
- * unticked `excluded` ids) — bulk actions run as one query, never an id list of the whole library.
+ * unticked `excluded` ids) — bulk actions run as one query, never an id list of the whole library. On Silinecekler the
+ * same selection holds pool line ids.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Sorgular')]
@@ -56,7 +60,7 @@ final class QueriesPage extends Component
 {
     use WithPagination;
 
-    public const array TABS = ['queries' => 'Sorgular', 'pending' => 'Bekleyenler', 'clusters' => 'Kümeler', 'filters' => 'Filtre sepeti', 'keywords' => 'Eşleme kelimeleri'];
+    public const array TABS = ['queries' => 'Sorgular', 'pending' => 'Bekleyenler', 'deletions' => 'Silinecekler', 'clusters' => 'Kümeler', 'filters' => 'Filtre sepeti', 'keywords' => 'Eşleme kelimeleri'];
 
     private const int NEGATIVE_LINES = 30;
 
@@ -178,14 +182,34 @@ final class QueriesPage extends Component
     /** @var list<int> Bekleyenler lines flipped against the default selection (temiz = selected) */
     public array $pendingFlip = [];
 
-    public function mount(): void
+    /** Silinecekler: 'delete' (silinecek sorgular) · 'service' (hizmet değişikliği) */
+    #[Url(history: true)]
+    public string $reviewKind = QueryReviewItem::DELETE;
+
+    /** Silinecekler: only the lines of one filter term ('' = all) */
+    #[Url(history: true)]
+    public string $reviewTerm = '';
+
+    /** Silinecekler: "Tutulanlar" (kept lines, with "Geri al") */
+    public bool $reviewKept = false;
+
+    public function mount(PendingQueries $pending): void
     {
         $this->message = (string) session('queries-message', '');
+        $this->reviewKind = in_array($this->reviewKind, [QueryReviewItem::DELETE, QueryReviewItem::SERVICE], true) ? $this->reviewKind : QueryReviewItem::DELETE;
+        // Bekleyenler must never list a text a current filter term catches or that is already in the library.
+        $pending->pruneIfChanged();
+    }
+
+    /** The Silinecekler tab (notifications link here). */
+    public static function deletionsUrl(): string
+    {
+        return route('operator.library.queries', ['tab' => 'deletions'], false);
     }
 
     public function updated(string $property): void
     {
-        if (in_array($property, ['sector', 'service', 'cluster', 'search', 'tab', 'hidden'], true)) {
+        if (in_array($property, ['sector', 'service', 'cluster', 'search', 'tab', 'hidden', 'reviewKind', 'reviewTerm', 'reviewKept'], true)) {
             $this->resetPage();
             $this->clearSelection();
             $this->pendingFlip = [];
@@ -193,6 +217,9 @@ final class QueriesPage extends Component
         if ($property === 'sector') {
             $this->service = '';
             $this->cluster = '';
+        }
+        if ($property === 'reviewKind') {
+            $this->reviewTerm = '';
         }
         if ($property === 'service') {
             $this->cluster = '';
@@ -219,7 +246,8 @@ final class QueriesPage extends Component
 
     public function selectPage(): void
     {
-        $ids = $this->listQuery()->orderByDesc('impressions')->orderBy('id')->forPage($this->getPage(), self::PER_PAGE)->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        $ids = ($this->tab === 'deletions' ? $this->orderedReviewQuery() : $this->listQuery()->orderByDesc('impressions')->orderBy('id'))
+            ->forPage($this->getPage(), self::PER_PAGE)->pluck('id')->map(fn ($id): int => (int) $id)->all();
         if ($this->selectAll) {
             $this->excluded = array_values(array_diff(array_map('intval', $this->excluded), $ids));
 
@@ -402,6 +430,9 @@ final class QueriesPage extends Component
         }
         $saved = $proposer->approve($proposal, $terms, $keywords, $actor);
         QueryRuleProposer::discard((int) $actor->id);
+        if ($saved['terms'] > 0) {
+            app(PendingQueries::class)->prune();
+        }
         $this->rulesOpen = false;
         $this->message = $saved['terms'] + $saved['keywords'] > 0
             ? sprintf('%d filtre terimi · %d eşleme kelimesi kaydedildi · tarama başladı, hazır olunca bildirim gelir.', $saved['terms'], $saved['keywords'])
@@ -552,6 +583,7 @@ final class QueriesPage extends Component
             throw ValidationException::withMessages(['termText' => 'Bu terim sepette zaten var.']);
         }
         FilterTerm::query()->create(['sector_id' => $sectorId, 'term' => $term, 'source' => 'manual', 'created_by' => $actor->id]);
+        app(PendingQueries::class)->prune();
         $this->termText = '';
         RescanQueriesJob::dispatch((int) $actor->id);
         $this->message = '"'.$term.'" eklendi · tarama başladı, hazır olunca bildirim gelir.';
@@ -577,9 +609,8 @@ final class QueriesPage extends Component
 
             return;
         }
-        QueryPlanner::markRunning((int) $actor->id, 'filters');
         $this->filterSkip = [];
-        PlanQueriesJob::dispatch((int) $actor->id, 'filters', $sectorIds, $this->filterInstruction);
+        QueryPlanner::start((int) $actor->id, 'filters', $sectorIds, $this->filterInstruction);
     }
 
     public function toggleFilterLine(int $index): void
@@ -599,6 +630,9 @@ final class QueriesPage extends Component
         $saved = $planner->applyFilters($proposal, $indexes, $actor);
         QueryPlanner::discard((int) $actor->id, 'filters');
         $this->filterSkip = [];
+        if ($saved > 0) {
+            app(PendingQueries::class)->prune();
+        }
         if ($saved > 0 && QueryPipeline::importedAt() !== null) {
             RescanQueriesJob::dispatch((int) $actor->id);
             $this->message = $saved.' filtre terimi kaydedildi · tarama başladı, hazır olunca bildirim gelir.';
@@ -702,6 +736,7 @@ final class QueriesPage extends Component
 
             return;
         }
+        app(PendingQueries::class)->prune();
         RescanQueriesJob::dispatch((int) $actor->id);
         $this->message = $saved.' terim filtreye eklendi · tarama başladı, hazır olunca bildirim gelir.';
     }
@@ -749,6 +784,62 @@ final class QueriesPage extends Component
         $this->message = $count.' sorgu yoksayıldı.';
     }
 
+    // ── Silinecekler ─────────────────────────────────────────────────────────
+
+    /** "Onayla ve sil" (service lines: "Onayla ve uygula"): the selected pool lines are applied. */
+    public function approveReview(QueryRescanner $rescanner): void
+    {
+        $this->actor();
+        if (! $this->hasSelection() || $this->reviewKept) {
+            $this->message = 'Önce satır seçin.';
+
+            return;
+        }
+        $done = $rescanner->apply($this->reviewTargetIds());
+        $this->clearSelection();
+        $this->message = sprintf('%d sorgu silindi · %d sorgunun hizmeti değişti.', $done['deleted'], $done['changed']);
+    }
+
+    /** "Tut": the selected lines leave the list; the same proposal is not offered again (another term / service is). */
+    public function keepReview(QueryRescanner $rescanner): void
+    {
+        $this->actor();
+        if (! $this->hasSelection()) {
+            $this->message = 'Önce satır seçin.';
+
+            return;
+        }
+        $count = $rescanner->keep($this->reviewTargetIds(), ! $this->reviewKept);
+        $this->clearSelection();
+        $this->message = $this->reviewKept ? $count.' satır geri alındı.' : $count.' sorgu tutuldu · aynı öneri tekrar gelmez.';
+    }
+
+    /** @return list<int> selected pool line ids (ticked, or every matching line minus the unticked ones) */
+    private function reviewTargetIds(): array
+    {
+        return ($this->selectAll ? $this->reviewQuery()->whereNotIn('id', array_map('intval', $this->excluded) ?: [0])
+            : $this->reviewQuery()->whereIn('id', $this->selectedIds() ?: [0]))
+            ->orderBy('id')->pluck('id')->map(fn ($id): int => (int) $id)->all();
+    }
+
+    /** @return Builder<QueryReviewItem> the Silinecekler list of the current kind / term / sector / search */
+    private function reviewQuery(): Builder
+    {
+        return QueryReviewItem::query()->where('kind', $this->reviewKind)
+            ->when($this->reviewKept, fn (Builder $q) => $q->whereNotNull('kept_at'), fn (Builder $q) => $q->whereNull('kept_at'))
+            ->when($this->reviewKind === QueryReviewItem::DELETE && $this->reviewTerm !== '', fn (Builder $q) => $q->where('term', $this->reviewTerm))
+            ->when(ctype_digit($this->sector) || trim($this->search) !== '', fn (Builder $q) => $q->whereIn('query_id', Query::query()->select('id')
+                ->when(ctype_digit($this->sector), fn (Builder $w) => $w->where('sector_id', (int) $this->sector))
+                ->when(trim($this->search) !== '', fn (Builder $w) => $w->where('text', 'like', '%'.QueryNormalizer::lower(trim($this->search)).'%'))));
+    }
+
+    /** @return Builder<QueryReviewItem> most impressions first */
+    private function orderedReviewQuery(): Builder
+    {
+        return $this->reviewQuery()
+            ->orderByDesc(Query::query()->select('impressions')->whereColumn('queries.id', 'query_review_items.query_id'))->orderBy('id');
+    }
+
     /** @return list<int> selected pending ids: every line unless unticked */
     private function pendingSelection(): array
     {
@@ -782,13 +873,17 @@ final class QueriesPage extends Component
         $openCluster = $this->tab === 'clusters' && $this->openClusterId !== null
             ? Cluster::query()->with(['mainQuery', 'clusterQueries.searchQuery', 'brandPages.brand:id,name', 'brandPages.page:id,url,path'])->find($this->openClusterId) : null;
         $affected = $openCluster !== null ? app(ClusterEditor::class)->affectedBrands($openCluster) : collect();
+        $pending = $this->tab === 'pending' ? $this->pendingList() : null;
+        $reviewCounts = QueryRescanner::openCounts();
+        $reviewRunning = QueryReview::query()->where('status', QueryReview::RUNNING)->where('created_at', '>', now()->subHour())->exists();
 
         return view('livewire.operator.library.queries-page', [
             'sectors' => ServiceCategory::query()->orderBy('name')->pluck('name', 'id')->all(),
             'services' => $this->serviceOptions(),
             'clusterOptions' => $serviceId !== null ? Cluster::query()->where('service_id', $serviceId)->orderBy('name')->pluck('name', 'id')->all() : [],
             'queries' => $queries,
-            'matchingCount' => $this->selectAll ? $this->targetQuery()->count() : null,
+            'matchingCount' => $this->selectAll ? ($this->tab === 'deletions'
+                ? $this->reviewQuery()->whereNotIn('id', array_map('intval', $this->excluded) ?: [0])->count() : $this->targetQuery()->count()) : null,
             'unassignedCount' => $this->tab === 'queries' ? QueryServiceAssigner::queue(ctype_digit($this->sector) ? (int) $this->sector : null)->count() : 0,
             'assign' => $assign,
             'assignRows' => ($assign['status'] ?? null) === 'ready' ? array_slice((array) $assign['items'], $this->assignPage * self::ASSIGN_PER_PAGE, self::ASSIGN_PER_PAGE, true) : [],
@@ -803,15 +898,32 @@ final class QueriesPage extends Component
                 ->when(ctype_digit($this->sector), fn ($q) => $q->where('sector_id', (int) $this->sector))
                 ->orderBy('term')->paginate(50) : null,
             'pendingCount' => $this->pendingQuery(all: true)->count(),
-            'pending' => $this->tab === 'pending' ? $this->pendingQuery()->with(['brand:id,name', 'asset:id,name,type', 'service.primaryName'])
-                ->orderByDesc('impressions')->orderBy('id')->paginate(50) : null,
+            'pending' => $pending,
+            'reviewCounts' => $reviewCounts,
+            'reviewRunning' => $reviewRunning,
+            'reviewItems' => $this->tab === 'deletions' ? $this->orderedReviewQuery()
+                ->with(['searchQuery:id,text,impressions,sector_id', 'fromService.primaryName', 'toService.primaryName'])->paginate(self::PER_PAGE) : null,
+            'reviewTerms' => $this->tab === 'deletions' && $this->reviewKind === QueryReviewItem::DELETE
+                ? QueryReviewItem::query()->where('kind', QueryReviewItem::DELETE)->whereNull('kept_at')->whereNotNull('term')
+                    ->groupBy('term')->selectRaw('term, count(*) as total')->orderBy('term')->pluck('total', 'term')->all() : [],
+            'keptCount' => $this->tab === 'deletions' ? QueryReviewItem::query()->where('kind', $this->reviewKind)->whereNotNull('kept_at')->count() : 0,
             'negCatches' => $this->negOpen ? collect($this->negativeLines())->mapWithKeys(fn (string $term): array => [$term => QueryRuleProposer::catches($term, $this->negIds)])->all() : [],
             'keywordServices' => $this->tab === 'keywords' ? $this->keywordServices() : null,
             'proposal' => $proposal,
             'clusterStatus' => is_array($clusterStatus) ? $clusterStatus : null,
             'polling' => ($proposal['status'] ?? null) === 'running' || ($clusterStatus['status'] ?? null) === 'running' || $this->negAwaiting
-                || ($assign['status'] ?? null) === 'running' || ($filterProposal['status'] ?? null) === 'running',
+                || ($assign['status'] ?? null) === 'running' || ($filterProposal['status'] ?? null) === 'running' || ($this->tab === 'deletions' && $reviewRunning),
         ]);
+    }
+
+    /** Bekleyenler page; its rows are checked against the filter basket and the library first (never listed if caught). */
+    private function pendingList(): mixed
+    {
+        $page = fn () => $this->pendingQuery()->with(['brand:id,name', 'asset:id,name,type', 'service.primaryName'])
+            ->orderByDesc('impressions')->orderBy('id')->paginate(50);
+        $rows = $page();
+
+        return app(PendingQueries::class)->prune($rows->pluck('id')->map(fn ($id): int => (int) $id)->all()) > 0 ? $page() : $rows;
     }
 
     private function queryList(): mixed

@@ -38,7 +38,6 @@ use App\Livewire\Operator\Integrations\WebsiteDuplicatesPage;
 use App\Livewire\Operator\Integrations\WordPressSitesPage;
 use App\Livewire\Operator\Library\QueriesPage;
 use App\Livewire\Operator\Library\QueryPlanWizard;
-use App\Livewire\Operator\Library\QueryReviewPage;
 use App\Livewire\Operator\Library\ServiceCatalogPage;
 use App\Livewire\Operator\Library\WebsiteStandardsPage;
 use App\Livewire\Operator\Meta\OverviewPage as MetaOverviewPage;
@@ -82,7 +81,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/library/services', ServiceCatalogPage::class)->name('operator.library.services');
         Route::livewire('/library/queries', QueriesPage::class)->name('operator.library.queries');
         Route::livewire('/library/queries/plan', QueryPlanWizard::class)->name('operator.library.queries.plan');
-        Route::livewire('/library/queries/review/{review}', QueryReviewPage::class)->where('review', '[0-9]{1,18}')->name('operator.library.queries.review');
+        // Old per-rescan review links (notifications): every proposal now lives in the Sorgular › Silinecekler tab.
+        Route::redirect('/library/queries/review/{review}', '/library/queries?tab=deletions')->where('review', '[0-9]{1,18}')->name('operator.library.queries.review');
 
         Route::livewire('/assets', AssetsIndex::class)->name('operator.assets');
         Route::livewire('/assets/create', AssetCreate::class)->name('operator.asset.create');

@@ -200,7 +200,7 @@ final class QueryPipelineTest extends TestCase
         $rescanner = app(QueryRescanner::class);
         $review = $rescanner->scan(null);
         $this->assertSame(1, $review->changes, 'the locked cluster query is not proposed');
-        $rescanner->apply($review, $review->items()->pluck('id')->all());
+        $rescanner->apply($review->items()->pluck('id')->all());
 
         $this->assertSame(0, $open->clusterQueries()->count());
         $this->assertSame(1, $locked->clusterQueries()->count());

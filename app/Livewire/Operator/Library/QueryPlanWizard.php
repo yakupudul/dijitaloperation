@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Operator\Library;
 
-use App\Jobs\Queries\PlanQueriesJob;
 use App\Jobs\Queries\ProcessQueriesJob;
 use App\Jobs\Queries\RescanQueriesJob;
 use App\Models\FilterTerm;
@@ -16,6 +15,7 @@ use App\Services\Queries\QueryNormalizer;
 use App\Services\Queries\QueryPipeline;
 use App\Services\Queries\QueryPlanner;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -54,6 +54,9 @@ final class QueryPlanWizard extends Component
     /** @var array<int|string, string> */
     public array $newKeyword = [];
 
+    /** @var array<int|string, string> sector id => "Toplu hizmet ekle" lines ("Hizmet" or "Hizmet: kelime1, kelime2") */
+    public array $bulkServices = [];
+
     /** @var array<int|string, string> */
     public array $newTerm = [];
 
@@ -84,15 +87,17 @@ final class QueryPlanWizard extends Component
         }
     }
 
-    /** "AI ile sektör ata" / "AI ile hizmet keşfet" / "AI ile oluştur": one queued AI call for this step. */
+    /**
+     * "AI ile sektör ata" / "AI ile hizmet keşfet" / "AI ile oluştur": queued AI calls for this step (steps 2 and 3: one
+     * job per sector in parallel, progress shown while they run).
+     */
     public function runAi(QueryPlanner $planner): void
     {
         $actor = $this->actor();
         $key = self::STEP_KEYS[$this->step];
-        QueryPlanner::markRunning((int) $actor->id, $key);
         $this->merged = '';
         $this->pick = [];
-        PlanQueriesJob::dispatch((int) $actor->id, $key, $this->step === 1 ? [] : $planner->usedSectorIds(), $key === 'filters' ? $this->filterInstruction : '');
+        QueryPlanner::start((int) $actor->id, $key, $this->step === 1 ? [] : $planner->usedSectorIds(), $key === 'filters' ? $this->filterInstruction : '');
         $this->syncProposal();
     }
 
@@ -136,6 +141,105 @@ final class QueryPlanWizard extends Component
     }
 
     // ── Adım 2 ───────────────────────────────────────────────────────────────
+
+    /** "Tümünü seç" / "Hiçbirini": every line of the current AI proposal. */
+    public function pickAll(bool $ticked): void
+    {
+        $user = auth()->user();
+        $proposal = $user instanceof User ? QueryPlanner::current((int) $user->id, self::STEP_KEYS[$this->step]) : null;
+        if (($proposal['status'] ?? null) === 'ready') {
+            $this->pick = array_fill_keys(array_keys((array) $proposal['items']), $ticked);
+        }
+    }
+
+    /**
+     * "Seçilenleri ekle": every ticked proposal line at once (new services with all their keywords, keyword adds /
+     * removes / moves); the applied lines leave the proposal, the step stays open for the rest.
+     */
+    public function applyPicked(QueryPlanner $planner): void
+    {
+        $actor = $this->actor();
+        $proposal = QueryPlanner::current((int) $actor->id, 'services');
+        $picked = $this->picked();
+        if (($proposal['status'] ?? null) !== 'ready' || $picked === []) {
+            $this->message = 'Önce öneri seçin.';
+
+            return;
+        }
+        $types = array_count_values(array_map(fn (int $i): string => (string) ($proposal['items'][$i]['type'] ?? ''), $picked));
+        $applied = $planner->applyServices($proposal, $picked, $actor);
+        foreach ($picked as $index) {
+            unset($proposal['items'][$index], $this->pick[$index]);
+        }
+        Cache::put(QueryPlanner::cacheKey((int) $actor->id, 'services'), $proposal, now()->addDay());
+        if ($applied > 0 && QueryPipeline::importedAt() !== null) {
+            RescanQueriesJob::dispatch((int) $actor->id);
+        }
+        $this->message = sprintf('%d öneri eklendi (%d yeni hizmet · %d kelime değişikliği).', $applied, $types['new_service'] ?? 0, count($picked) - ($types['new_service'] ?? 0));
+    }
+
+    /**
+     * "Toplu hizmet ekle": one service per line, optional matching keywords after ":" ("Diş Beyazlatma: beyazlatma,
+     * bleaching"). An existing service of the sector only gets the keywords; a name owned by another sector is skipped.
+     */
+    public function addServicesBulk(int $sectorId, ServiceCatalogService $catalog, ServiceKeywordService $keywords): void
+    {
+        $actor = $this->actor();
+        $sector = ServiceCategory::query()->findOrFail($sectorId);
+        $counts = ['created' => 0, 'existing' => 0, 'keywords' => 0];
+        $skipped = [];
+        foreach (self::serviceLines((string) ($this->bulkServices[$sectorId] ?? '')) as [$name, $words]) {
+            try {
+                $result = $catalog->resolveOrCreate($name, (string) $sector->code, actor: $actor);
+            } catch (ValidationException) {
+                $skipped[] = $name;
+
+                continue;
+            }
+            if (! $result['created'] && $result['service']->sector !== $sector->code) {
+                $skipped[] = $name;
+
+                continue;
+            }
+            $counts[$result['created'] ? 'created' : 'existing']++;
+            foreach ($words as $word) {
+                try {
+                    $keywords->add($result['service'], $word);
+                    $counts['keywords']++;
+                } catch (ValidationException) {
+                    $skipped[] = $name.': '.$word;
+                }
+            }
+        }
+        if ($counts === ['created' => 0, 'existing' => 0, 'keywords' => 0] && $skipped === []) {
+            throw ValidationException::withMessages(['bulkServices.'.$sectorId => 'Her satıra bir hizmet yazın.']);
+        }
+        $this->bulkServices[$sectorId] = '';
+        if ($counts['keywords'] > 0 && QueryPipeline::importedAt() !== null) {
+            RescanQueriesJob::dispatch((int) $actor->id);
+        }
+        $this->message = sprintf('%s: %d hizmet eklendi · %d mevcut · %d eşleme kelimesi', $sector->name, $counts['created'], $counts['existing'], $counts['keywords'])
+            .($skipped !== [] ? ' · atlanan: '.implode(', ', array_slice($skipped, 0, 10)).(count($skipped) > 10 ? '…' : '') : '').'.';
+    }
+
+    /**
+     * @return list<array{0: string, 1: list<string>}> [service name, keywords] per non-empty line (at most 200)
+     */
+    public static function serviceLines(string $text): array
+    {
+        $lines = [];
+        foreach (preg_split('/\R/u', $text) ?: [] as $line) {
+            [$name, $words] = array_pad(explode(':', $line, 2), 2, '');
+            $name = mb_substr(trim(preg_replace('/\s+/u', ' ', $name) ?? ''), 0, 120);
+            if ($name === '') {
+                continue;
+            }
+            $words = array_values(array_unique(array_filter(array_map(fn (string $w): string => trim(preg_replace('/\s+/u', ' ', $w) ?? ''), preg_split('/[,;]/u', $words) ?: []))));
+            $lines[] = [$name, array_slice($words, 0, 40)];
+        }
+
+        return array_slice($lines, 0, 200);
+    }
 
     public function addService(int $sectorId, ServiceCatalogService $catalog): void
     {

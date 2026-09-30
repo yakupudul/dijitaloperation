@@ -6,8 +6,15 @@
     $chip = 'rounded-full px-2 py-0.5 text-xs';
     $status = $proposal['status'] ?? null;
     $statusText = ['running' => 'AI çalışıyor…', 'no_provider' => 'AI bağlı değil.', 'error' => 'AI adımı başarısız.', 'nothing' => 'Boş alan yok.'][$status] ?? null;
+    $total = (int) ($proposal['total'] ?? 0);
+    $done = (int) ($proposal['done'] ?? 0);
+    $progress = $running && $total > 0;
+    if ($progress) {
+        $statusText = null;
+    }
+    $pickedCount = count(array_filter($pick));
 @endphp
-<div class="space-y-4 text-sm dark:text-gray-200" data-query-plan @if ($running) wire:poll.3s="syncProposal" @endif>
+<div class="space-y-4 text-sm dark:text-gray-200" data-query-plan @if ($running) wire:poll.2s="syncProposal" @endif>
     <header class="flex flex-wrap items-center justify-between gap-3">
         <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">AI ile planla</h1>
         <nav class="flex flex-wrap gap-1" aria-label="Adımlar">
@@ -21,6 +28,16 @@
         <p role="status" class="flex items-center justify-between rounded-lg bg-blue-50 p-2 text-blue-800 dark:bg-blue-950 dark:text-blue-200">
             <span>{{ $message }}</span><button type="button" wire:click="$set('message', '')" aria-label="Kapat" class="px-2">×</button>
         </p>
+    @endif
+
+    @if ($progress && $step !== 1)
+        <div class="{{ $card }} space-y-2" data-plan-progress role="status" aria-live="polite">
+            <div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                <svg class="h-4 w-4 animate-spin text-brand-500" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"/><path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3"/></svg>
+                <span>{{ $done }} / {{ $total }} sektör tamamlandı · sektörler paralel çalışıyor</span>
+            </div>
+            <div class="h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><div class="h-2 rounded-full bg-brand-500 transition-all" style="width: {{ $total > 0 ? max(4, (int) round($done * 100 / $total)) : 0 }}%"></div></div>
+        </div>
     @endif
 
     {{-- 1 · Hesaplar ve sektörler --}}
@@ -99,6 +116,14 @@
                         <button type="button" wire:click="addService({{ $sector->id }})" class="{{ $ghost }}">Hizmet ekle</button>
                         @error('newService.'.$sector->id)<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
                     </div>
+                    <details class="text-xs" data-bulk-services="{{ $sector->id }}">
+                        <summary class="cursor-pointer text-gray-600 dark:text-gray-300">Toplu hizmet ekle</summary>
+                        <div class="mt-1 flex flex-wrap items-start gap-2">
+                            <textarea wire:model="bulkServices.{{ $sector->id }}" rows="4" placeholder="Her satıra bir hizmet · isteğe bağlı eşleme kelimeleri: Diş Beyazlatma: beyazlatma, bleaching" aria-label="Toplu hizmet" class="{{ $input }} min-w-0 flex-1 text-xs"></textarea>
+                            <button type="button" wire:click="addServicesBulk({{ $sector->id }})" class="{{ $btn }}">Hizmetleri ekle</button>
+                        </div>
+                        @error('bulkServices.'.$sector->id)<p class="text-rose-600">{{ $message }}</p>@enderror
+                    </details>
                 </div>
             @empty
                 <p class="text-gray-500">Sektör yok · 1. adımda sektör seçin.</p>
@@ -106,11 +131,18 @@
 
             @if ($status === 'ready')
                 <div class="border-t border-gray-100 pt-2 dark:border-gray-800" data-proposal>
-                    <h2 class="text-xs font-semibold uppercase text-gray-500">AI önerisi · {{ count($proposal['items']) }}</h2>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h2 class="text-xs font-semibold uppercase text-gray-500">AI önerisi · {{ count($proposal['items']) }}</h2>
+                        @if ($proposal['items'] !== [])
+                            <button type="button" wire:click="pickAll(true)" class="{{ $ghost }}">Tümünü seç</button>
+                            <button type="button" wire:click="pickAll(false)" class="{{ $ghost }}">Hiçbirini</button>
+                            <button type="button" wire:click="applyPicked" @disabled($pickedCount === 0) data-apply-picked class="{{ $btn }} ml-auto">Seçilenleri ekle ({{ $pickedCount }})</button>
+                        @endif
+                    </div>
                     @if (($proposal['failed'] ?? []) !== [])<p class="text-xs text-rose-600">Yanıt alınamayan sektörler: {{ implode(', ', $proposal['failed']) }} · tekrar çalıştırın.</p>@endif
                     <ul class="mt-1 space-y-1">
                         @forelse ($proposal['items'] as $i => $row)
-                            <li class="flex items-start gap-2 text-xs"><input type="checkbox" wire:model="pick.{{ $i }}" aria-label="Seç">
+                            <li class="flex items-start gap-2 text-xs"><input type="checkbox" wire:model.live="pick.{{ $i }}" aria-label="Seç">
                                 <span>
                                     @switch($row['type'])
                                         @case('new_service')<span class="font-medium">Yeni hizmet: {{ $row['name'] }}</span>@if ($row['keywords'] !== []) ({{ implode(', ', $row['keywords']) }})@endif @break
@@ -159,7 +191,13 @@
 
             @if ($status === 'ready')
                 <div class="border-t border-gray-100 pt-2 dark:border-gray-800" data-proposal>
-                    <h2 class="text-xs font-semibold uppercase text-gray-500">AI önerisi · {{ count($proposal['items']) }}</h2>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h2 class="text-xs font-semibold uppercase text-gray-500">AI önerisi · {{ count($proposal['items']) }}</h2>
+                        @if ($proposal['items'] !== [])
+                            <button type="button" wire:click="pickAll(true)" class="{{ $ghost }}">Tümünü seç</button>
+                            <button type="button" wire:click="pickAll(false)" class="{{ $ghost }}">Hiçbirini</button>
+                        @endif
+                    </div>
                     @if (($proposal['failed'] ?? []) !== [])<p class="text-xs text-rose-600">Yanıt alınamayan sektörler: {{ implode(', ', $proposal['failed']) }} · tekrar çalıştırın.</p>@endif
                     <ul class="mt-1 space-y-1">
                         @forelse ($proposal['items'] as $i => $row)
