@@ -308,7 +308,21 @@ return [
         'brand_allows_multiple_ad_accounts' => true,
     ],
     'families' => $families,
-    'natural_key_overrides' => [],
+    /*
+     * MoxDOP v2: every discovered ad account is collected before (or without) a binding, so the V1 tables are keyed
+     * by the provider resource like the V2 tables (a central row has no Digital Asset). Compact tables keep their
+     * stored layout key (a missing asset is stored as 0 there).
+     */
+    'natural_key_overrides' => [
+        'meta_ad_account_snapshot' => ['external_resource_id', 'account_id'],
+        'meta_campaign_snapshot' => ['external_resource_id', 'account_id', 'campaign_id'],
+        'meta_adset_snapshot' => ['external_resource_id', 'account_id', 'adset_id'],
+        'meta_creative_snapshot' => ['external_resource_id', 'account_id', 'creative_id'],
+        'meta_campaign_daily' => ['external_resource_id', 'account_id', 'reporting_date', 'campaign_id'],
+        'meta_adset_daily' => ['external_resource_id', 'account_id', 'reporting_date', 'adset_id'],
+        'meta_ad_daily' => ['external_resource_id', 'account_id', 'reporting_date', 'ad_id'],
+        'meta_typed_action_daily' => ['external_resource_id', 'account_id', 'reporting_date', 'entity_level', 'entity_id', 'action_type'],
+    ],
     'columns_add' => [],
     'physical_additions' => $physicalAdditions,
     'registry_overlay' => [

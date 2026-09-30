@@ -14,6 +14,7 @@ use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\ExternalWrites\GoogleAdsNegativeListWriter;
 use App\Services\GoogleAds\GoogleAdsAssistant;
 use App\Services\GoogleAds\GoogleAdsEditorCsv;
+use App\Services\GoogleAds\GoogleAdsLeadQuality;
 use App\Services\GoogleAds\GoogleAdsScreen;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
@@ -86,6 +87,12 @@ class OverviewPage extends Component
 
     public ?int $editingId = null;
 
+    /** Ölçümleme: lead quality month (Y-m). */
+    public string $leadMonth = '';
+
+    /** @var array<string, array<string, int|string>> campaign id => lead quality counts being entered */
+    public array $leadRows = [];
+
     /** @var array<string, mixed> */
     public array $edit = [];
 
@@ -105,6 +112,36 @@ class OverviewPage extends Component
         $this->tab = $tab;
         $this->editingId = null;
         $this->normalize();
+        $this->leadRows = [];
+    }
+
+    /* ---------------- Ölçümleme: lead quality ---------------- */
+
+    public function setLeadMonth(string $month): void
+    {
+        $this->leadMonth = in_array($month, GoogleAdsLeadQuality::monthOptions(), true) ? $month : now()->format('Y-m');
+        $this->leadRows = [];
+    }
+
+    public function saveLeadQuality(string $campaignId, GoogleAdsLeadQuality $quality): void
+    {
+        $row = collect($quality->month($this->asset(), $this->leadMonth()))->firstWhere('campaign_id', $campaignId);
+        if ($row === null) {
+            DemoState::flash('Kampanya bulunamadı.', 'error');
+
+            return;
+        }
+        try {
+            $quality->save($this->asset(), $this->leadMonth(), $campaignId, $row['name'], (array) ($this->leadRows[$campaignId] ?? []), auth()->user());
+            DemoState::flash($row['name'].': kaydedildi.', 'success');
+        } catch (ValidationException $exception) {
+            DemoState::flash((string) collect($exception->errors())->flatten()->first(), 'error');
+        }
+    }
+
+    private function leadMonth(): string
+    {
+        return in_array($this->leadMonth, GoogleAdsLeadQuality::monthOptions(), true) ? $this->leadMonth : now()->format('Y-m');
     }
 
     public function setDays(int $days): void
@@ -199,24 +236,34 @@ class OverviewPage extends Component
         }
     }
 
-    /** Google Ads Editor file of the approved drafts; the drafts are then applied (baseline stored). */
-    public function downloadEditor(GoogleAdsSuggestions $suggestions): ?StreamedResponse
+    /**
+     * Google Ads Editor file of the approved drafts not downloaded yet, or again of a downloaded batch. Downloading
+     * changes nothing on Google: the drafts stay approved until "Editor'a aktardım".
+     */
+    public function downloadEditor(GoogleAdsSuggestions $suggestions, ?string $batch = null): ?StreamedResponse
     {
         $asset = $this->asset();
-        $approved = $suggestions->editorDrafts($asset);
+        $approved = $batch !== null ? $suggestions->editorBatches($asset)->get($batch, collect()) : $suggestions->editorDrafts($asset);
         if ($approved->isEmpty()) {
             DemoState::flash('Editor dosyası için onaylı taslak yok.', 'info');
 
             return null;
         }
         $csv = GoogleAdsEditorCsv::build($approved);
-        foreach ($approved as $suggestion) {
-            $suggestions->markApplied($suggestion, auth()->user(), ['editor_file_at' => now()->toIso8601String()]);
+        if ($batch === null) {
+            $suggestions->markDownloaded($approved);
         }
 
         return response()->streamDownload(function () use ($csv): void {
             echo $csv;
         }, 'google-ads-editor-'.$asset->id.'-'.now()->format('Ymd-His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /** "Editor'a aktardım": the downloaded batch was posted from Google Ads Editor; its drafts are applied (baseline). */
+    public function confirmEditorBatch(string $batch, GoogleAdsSuggestions $suggestions): void
+    {
+        $count = $suggestions->confirmEditorBatch($this->asset(), $batch, auth()->user());
+        DemoState::flash($count > 0 ? $count.' taslak uygulandı olarak işaretlendi.' : 'Bu dosyada bekleyen taslak yok.', $count > 0 ? 'success' : 'info');
     }
 
     /* ---------------- draft edits (locked) ---------------- */
@@ -334,12 +381,16 @@ class OverviewPage extends Component
         $this->queueAssistant($assistant, GoogleAdsAssistant::OP_ADS, ['ad_group' => $this->adGroupKey]);
     }
 
-    public function render(GoogleAdsScreen $screen, GoogleAdsSuggestions $suggestions, GoogleAdsAssistant $assistant): View
+    public function render(GoogleAdsScreen $screen, GoogleAdsSuggestions $suggestions, GoogleAdsAssistant $assistant, GoogleAdsLeadQuality $quality): View
     {
         $this->normalize();
         $asset = $this->asset()->loadMissing('brand.customer');
         $assetId = (int) $asset->id;
         $bound = $screen->context($asset) !== null;
+        $leadQuality = $this->tab === 'measurement' ? $quality->month($asset, $this->leadMonth()) : [];
+        foreach ($leadQuality as $row) {
+            $this->leadRows[$row['campaign_id']] ??= $row['entry'] ?? array_fill_keys(array_keys(GoogleAdsLeadQuality::FIELDS), '');
+        }
         $open = $asset->brand_id !== null ? $suggestions->open($asset) : collect();
         $state = fn (string $op): ?array => $assistant->state($assetId, $op);
         $terms = $this->tab === 'terms' && $bound ? $screen->searchTerms($asset, 30) : [];
@@ -369,6 +420,10 @@ class OverviewPage extends Component
             'terms' => $terms,
             'adGroups' => $this->tab === 'strategy' && $bound ? $assistant->adGroupOptions($asset) : [],
             'conversionActions' => $this->tab === 'measurement' && $bound ? $screen->conversionActions($asset) : [],
+            'leadQuality' => $leadQuality,
+            'leadMonthValue' => $this->leadMonth(),
+            'leadMonths' => GoogleAdsLeadQuality::monthOptions(),
+            'leadFields' => GoogleAdsLeadQuality::FIELDS,
             'analysis' => $this->tab === 'analysis' && $bound ? $screen->analysis($asset, $this->level, $this->days) : [],
             'levels' => GoogleAdsScreen::LEVELS,
             'settings' => $this->tab === 'settings' ? $screen->settings($asset) : null,

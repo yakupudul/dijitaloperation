@@ -227,6 +227,36 @@
                 </table>
             @endif
         </section>
+        <section class="{{ $panel }} overflow-x-auto" data-testid="ads-lead-quality">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-700">
+                <h2 class="font-semibold text-gray-900 dark:text-white">Lead kalitesi (elle)</h2>
+                <select wire:change="setLeadMonth($event.target.value)" aria-label="Ay" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900">
+                    @foreach ($leadMonths as $month)
+                        <option value="{{ $month }}" @selected($month === $leadMonthValue)>{{ $month }}</option>
+                    @endforeach
+                </select>
+            </div>
+            @if ($leadQuality === [])
+                <p class="px-4 py-5 text-sm text-gray-500">Bu ay kampanya verisi yok.</p>
+            @else
+                <table class="w-full text-sm">
+                    <thead><tr class="text-left text-xs text-gray-500"><th class="px-4 py-2 font-medium">Kampanya</th><th class="px-3 py-2 text-right font-medium">Google Ads dönüşüm</th>
+                        @foreach ($leadFields as $label)<th class="px-3 py-2 font-medium">{{ $label }}</th>@endforeach<th></th></tr></thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                        @foreach ($leadQuality as $row)
+                            <tr wire:key="lead-{{ $row['campaign_id'] }}">
+                                <td class="px-4 py-1.5 text-gray-900 dark:text-white">{{ $row['name'] }}</td>
+                                <td class="px-3 py-1.5 text-right">{{ $row['ads_conversions'] === null ? 'veri yok' : $num($row['ads_conversions'], 1) }}</td>
+                                @foreach ($leadFields as $field => $label)
+                                    <td class="px-3 py-1.5"><input type="number" min="0" wire:model="leadRows.{{ $row['campaign_id'] }}.{{ $field }}" aria-label="{{ $label }}" class="w-20 rounded border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900"></td>
+                                @endforeach
+                                <td class="px-3 py-1.5"><button type="button" wire:click="saveLeadQuality('{{ $row['campaign_id'] }}')" class="rounded bg-brand-500 px-2 py-1 text-xs font-semibold text-white hover:bg-brand-600">Kaydet</button></td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
+        </section>
         <section class="{{ $panel }}">
             <h2 class="border-b border-gray-100 px-4 py-3 font-semibold text-gray-900 dark:border-gray-700 dark:text-white">İzleme kontrolleri</h2>
             @php $tracking = collect($checks['items'] ?? [])->whereIn('id', ['conversion_tracking', 'conversion_goals', 'landing']); @endphp

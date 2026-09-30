@@ -6,6 +6,7 @@ use App\Models\PromptVersion;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\Prompts\PromptRegistry;
 use App\Services\Prompts\PromptRunStats;
+use App\Services\Prompts\PromptTrial;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -18,7 +19,8 @@ use Livewire\Component;
 /**
  * Ayarlar › AI işlemleri ve promptlar (Faz 8, admin only): list of every AI operation with model, version and the last
  * 30 days of runs; detail with the template, variables, context sources, output shape, model, version history
- * ("Bu sürüme dön") and recent runs. Saving publishes a new version.
+ * ("Bu sürüme dön") and recent runs. Saving publishes a new version; "Örnekte dene" runs the unsaved draft once on a real
+ * past input or a pasted sample (output, duration, cost; nothing saved to suggestions).
  */
 #[Layout('operator.layouts.app')]
 #[Title('AI işlemleri ve promptlar')]
@@ -30,6 +32,9 @@ final class AiOperationsPage extends Component
     public string $template = '';
 
     public string $model = '';
+
+    /** "Örnekte dene": the input the draft runs on (a past run's input or a pasted sample). */
+    public string $trialInput = '';
 
     public function mount(PromptRegistry $registry): void
     {
@@ -51,6 +56,7 @@ final class AiOperationsPage extends Component
         $this->operation = $operation;
         $this->template = (string) $current->template;
         $this->model = (string) ($current->model ?? '');
+        $this->trialInput = '';
         $this->resetErrorBag();
     }
 
@@ -88,7 +94,25 @@ final class AiOperationsPage extends Component
         session()->flash('status', 'Sürüm '.$version.' geri yüklendi (yeni sürüm '.$new->version.').');
     }
 
-    public function render(PromptRegistry $registry, PromptRunStats $stats, AiRouteResolver $routes): View
+    /** Loads a past run's input of this operation into the trial box. */
+    public function useSample(int $id, PromptTrial $trial): void
+    {
+        $this->authorizeAdmin();
+        $this->trialInput = (string) ($trial->sample($this->operation, $id) ?? '');
+    }
+
+    /** Runs the editor's draft (not published) once on the trial input, in the background. */
+    public function runTrial(PromptTrial $trial): void
+    {
+        $this->authorizeAdmin();
+        try {
+            $trial->queue($this->operation, $this->template, $this->model, $this->trialInput, auth()->user());
+        } catch (InvalidArgumentException $exception) {
+            $this->addError('trial', $exception->getMessage());
+        }
+    }
+
+    public function render(PromptRegistry $registry, PromptRunStats $stats, AiRouteResolver $routes, PromptTrial $trial): View
     {
         $summary = $stats->summary();
         $current = PromptVersion::query()->where('is_current', true)->get(['operation', 'version', 'model'])->keyBy('operation');
@@ -115,6 +139,8 @@ final class AiOperationsPage extends Component
                 'versions' => PromptVersion::query()->with('creator:id,name')->where('operation', $this->operation)->orderByDesc('version')->limit(50)->get(),
                 'runs' => $stats->recent($this->operation),
                 'models' => $this->modelOptions($routes),
+                'samples' => $trial->samples($this->operation),
+                'trial' => $trial->state((int) auth()->id(), $this->operation),
             ];
         }
 

@@ -7,21 +7,14 @@ use InvalidArgumentException;
 /**
  * Contract-driven DataForSEO request-family definitions (Registry DFS-*).
  *
- * Paid families are operator-consented enrichment, never a routine scheduler.
- * Domain intersection and relevant pages remain DEFERRED. SERP organic is intentionally
- * outside the routine Collection Engine and is implemented by the manual Phase 7 workflow.
+ * v2: only the free account / market families run here. The paid Labs families are retired (their registry rows
+ * stay frozen); SERP top-10 and search volume run through App\Services\Intel\SerpResults / QueryVolumes.
  */
 final class DataForSeoRequestFamilyCatalog
 {
     public const string FAMILY_FREE_USER = 'DFS-FREE-USER';
 
     public const string FAMILY_FREE_MARKETS = 'DFS-FREE-MARKETS';
-
-    public const string FAMILY_RANKED_KEYWORDS = 'DFS-RK-LIVE';
-
-    public const string FAMILY_KEYWORDS_FOR_SITE = 'DFS-KFS-LIVE';
-
-    public const string FAMILY_COMPETITORS_DOMAIN = 'DFS-COMP-DOMAIN-LIVE';
 
     public const string FAMILY_DOMAIN_INTERSECT = 'DFS-DOMAIN-INTERSECT-LIVE';
 
@@ -40,14 +33,6 @@ final class DataForSeoRequestFamilyCatalog
             self::FAMILY_FREE_USER,
             self::FAMILY_FREE_MARKETS,
         ];
-    }
-
-    /**
-     * @return list<string>
-     */
-    public static function paidFamilies(): array
-    {
-        return [];
     }
 
     /**
@@ -93,33 +78,6 @@ final class DataForSeoRequestFamilyCatalog
                 'high_cardinality' => false,
                 'paid_call' => false,
                 'raw_only' => true,
-            ],
-            self::FAMILY_RANKED_KEYWORDS => [
-                'kind' => 'ranked_keywords',
-                'dataset_ids' => ['dataforseo_ranked_keyword_snapshot'],
-                'requires_date_range' => false,
-                'preferred_mode' => 'sync',
-                'high_cardinality' => false,
-                'paid_call' => true,
-                'raw_only' => false,
-            ],
-            self::FAMILY_KEYWORDS_FOR_SITE => [
-                'kind' => 'keywords_for_site',
-                'dataset_ids' => ['dataforseo_keyword_site_snapshot'],
-                'requires_date_range' => false,
-                'preferred_mode' => 'sync',
-                'high_cardinality' => false,
-                'paid_call' => true,
-                'raw_only' => false,
-            ],
-            self::FAMILY_COMPETITORS_DOMAIN => [
-                'kind' => 'competitors_domain',
-                'dataset_ids' => ['dataforseo_competitor_domain_snapshot'],
-                'requires_date_range' => false,
-                'preferred_mode' => 'sync',
-                'high_cardinality' => false,
-                'paid_call' => true,
-                'raw_only' => false,
             ],
             default => throw new InvalidArgumentException("Unknown DataForSEO request family [{$familyId}]"),
         };

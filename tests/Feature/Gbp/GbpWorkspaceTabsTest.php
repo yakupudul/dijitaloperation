@@ -208,8 +208,12 @@ final class GbpWorkspaceTabsTest extends TestCase
         $page->assertSee('Çalışma ve özel gün saatleri')->assertSee('Cumhuriyet Bayramı')->assertSee('Onayla')->assertSee('Reddet')->assertSee('Ertele');
 
         $page->call('approveSuggestion', $hours->id);
+        $this->assertSame(Suggestion::APPROVED, $hours->fresh()->status, 'approved: the operator still has to change it on Google');
+        $this->assertNull($hours->fresh()->baseline);
+        $page->call('setTab', 'todo')->assertSee('Uygulanacaklar · 1')->assertSee('Uygulandı');
+        $page->call('markApplied', $hours->id);
         $this->assertSame(Suggestion::APPLIED, $hours->fresh()->status);
-        $this->assertNotNull($hours->fresh()->baseline);
+        $this->assertNotNull($hours->fresh()->baseline, 'baseline on Uygulandı');
         $other = $rows->where('id', '!=', $hours->id)->values();
         $page->call('snoozeSuggestion', $other[0]->id);
         $this->assertSame(Suggestion::SNOOZED, $other[0]->fresh()->status);

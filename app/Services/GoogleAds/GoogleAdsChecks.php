@@ -181,13 +181,45 @@ final class GoogleAdsChecks
         return $this->result('budget', 'fail', $reason, 2, $evidence, 'Bütçeyi ya da değişikliğin nedenini kontrol edin.');
     }
 
-    /** @param  array<string, mixed>  $pack */
+    /**
+     * Target region (spend outside the brand's service areas) and language (campaign language targeting vs the brand's
+     * languages). Fails when either fails; "veri yok" only when neither can be judged.
+     *
+     * @param  array<string, mixed>  $pack
+     */
     private function targeting(DigitalAsset $asset, array $pack): array
+    {
+        $region = $this->regionFit($asset, $pack);
+        $language = $this->languageFit($asset, $pack);
+        if ($region['state'] === 'fail' || $language['state'] === 'fail') {
+            $failing = $region['state'] === 'fail' ? $region : $language;
+            $evidence = [...$region['evidence'], ...$language['evidence']];
+            if ($region['state'] !== 'fail') {
+                $evidence[] = ['bölge' => $region['reason']];
+            }
+            if ($language['state'] !== 'fail') {
+                $evidence[] = ['dil' => $language['reason']];
+            }
+
+            return $this->result('targeting', 'fail', $failing['reason'], 2, $evidence, $failing['todo']);
+        }
+        if ($region['state'] === 'nodata' && $language['state'] === 'nodata') {
+            return $this->result('targeting', 'nodata', $region['reason'].' '.$language['reason']);
+        }
+
+        return $this->result('targeting', 'pass', $region['reason'].' '.$language['reason']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $pack
+     * @return array{state: string, reason: string, evidence: list<array<string, mixed>>, todo: string}
+     */
+    private function regionFit(DigitalAsset $asset, array $pack): array
     {
         $areas = BrandServiceArea::query()->where('brand_id', (int) $asset->brand_id)->where('status', 'active')->get();
         $regions = $pack['segments']['region'] ?? [];
         if ($areas->isEmpty() || $regions === []) {
-            return $this->result('targeting', 'nodata', $areas->isEmpty() ? 'Markanın hizmet bölgesi yok.' : 'Bölge verisi yok.');
+            return ['state' => 'nodata', 'reason' => $areas->isEmpty() ? 'Markanın hizmet bölgesi yok.' : 'Bölge verisi yok.', 'evidence' => [], 'todo' => ''];
         }
         $needles = $areas->flatMap(fn (BrandServiceArea $a): array => array_filter([SeoText::fold((string) $a->city_name), SeoText::fold((string) $a->district_name), SeoText::fold((string) $a->name)]))
             ->filter()->unique()->values()->all();
@@ -204,14 +236,43 @@ final class GoogleAdsChecks
         }));
         $outsideCost = array_sum(array_column($outside, 'cost'));
         if ($total <= 0 || $outsideCost / $total < 0.2) {
-            return $this->result('targeting', 'pass', 'Harcamanın çoğu hizmet bölgelerinde.');
+            return ['state' => 'pass', 'reason' => 'Harcamanın çoğu hizmet bölgelerinde.', 'evidence' => [], 'todo' => ''];
         }
         usort($outside, fn (array $a, array $b): int => $b['cost'] <=> $a['cost']);
         $share = (int) round($outsideCost / $total * 100);
-        $evidence = array_map(fn (array $r): array => ['bölge' => $r['label'], 'maliyet' => round($r['cost'], 2), 'dönüşüm' => round($r['conversions'], 1)], array_slice($outside, 0, 10));
-        $evidence[] = ['dil_hedeflemesi' => 'veri yok', 'marka_dilleri' => implode(', ', (array) ($asset->brand?->languages ?? [])) ?: 'veri yok'];
 
-        return $this->result('targeting', 'fail', 'Harcamanın %'.$share.' kadarı hizmet bölgeleri dışında.', 2, $evidence, 'Konum hedeflemesini “bulunan kişiler” ve hizmet bölgeleriyle sınırlayın.');
+        return ['state' => 'fail', 'reason' => 'Harcamanın %'.$share.' kadarı hizmet bölgeleri dışında.',
+            'evidence' => array_map(fn (array $r): array => ['bölge' => $r['label'], 'maliyet' => round($r['cost'], 2), 'dönüşüm' => round($r['conversions'], 1)], array_slice($outside, 0, 10)),
+            'todo' => 'Konum hedeflemesini “bulunan kişiler” ve hizmet bölgeleriyle sınırlayın.'];
+    }
+
+    /**
+     * Enabled campaigns whose language targeting contains none of the brand's languages ("all" always fits).
+     *
+     * @param  array<string, mixed>  $pack
+     * @return array{state: string, reason: string, evidence: list<array<string, mixed>>, todo: string}
+     */
+    private function languageFit(DigitalAsset $asset, array $pack): array
+    {
+        $brandLanguages = array_values(array_filter(array_map(fn ($l): string => mb_strtolower(substr((string) $l, 0, 2)), (array) ($asset->brand?->languages ?? []))));
+        $campaigns = array_filter($pack['campaigns'] ?? [], fn (array $c): bool => ($c['status'] ?? null) === 'ENABLED');
+        $known = array_filter($campaigns, fn (array $c): bool => filled($c['languages'] ?? null));
+        if ($brandLanguages === [] || $known === []) {
+            return ['state' => 'nodata', 'reason' => $brandLanguages === [] ? 'Markanın dili yok.' : 'Dil hedeflemesi verisi yok.', 'evidence' => [], 'todo' => ''];
+        }
+        $evidence = [];
+        foreach ($known as $c) {
+            $codes = explode(',', (string) $c['languages']);
+            if ($codes !== ['all'] && array_intersect($codes, $brandLanguages) === []) {
+                $evidence[] = ['kampanya' => $c['name'], 'dil_hedeflemesi' => implode(', ', $codes), 'marka_dilleri' => implode(', ', $brandLanguages)];
+            }
+        }
+        if ($evidence === []) {
+            return ['state' => 'pass', 'reason' => 'Kampanya dilleri markanın dilleriyle uyumlu.', 'evidence' => [], 'todo' => ''];
+        }
+
+        return ['state' => 'fail', 'reason' => $evidence[0]['kampanya'].': dil hedeflemesi ('.$evidence[0]['dil_hedeflemesi'].') markanın dillerini içermiyor.',
+            'evidence' => $evidence, 'todo' => 'Kampanya dil hedeflemesine markanın dillerini ekleyin.'];
     }
 
     /** @param  array<string, mixed>  $pack */
@@ -346,13 +407,16 @@ final class GoogleAdsChecks
     private function anomaly(array $pack): array
     {
         $end = $pack['period']['end'];
+        // The most recent conversion-lag window is left out: its conversions are still arriving.
+        $lag = (int) ($pack['conversion_lag_days']['days'] ?? GoogleAdsAdvisorInputCollector::DEFAULT_CONVERSION_LAG_DAYS);
+        $lagNote = ['dönüşüm_gecikmesi' => 'son '.$lag.' gün hariç ('.($pack['conversion_lag_days']['source'] ?? 'varsayılan').')'];
         $evidence = [];
         $judged = 0;
         foreach ($pack['campaigns'] ?? [] as $id => $c) {
             $sums = ['recent' => ['cost' => 0.0, 'clicks' => 0, 'conversions' => 0.0], 'base' => ['cost' => 0.0, 'clicks' => 0, 'conversions' => 0.0]];
             foreach ($pack['campaign_daily'][$id] ?? [] as $date => $m) {
-                $age = (int) ((strtotime($end) - strtotime((string) $date)) / 86400);
-                $bucket = $age < 14 ? 'recent' : ($age < 42 ? 'base' : null);
+                $age = (int) ((strtotime($end) - strtotime((string) $date)) / 86400) - $lag;
+                $bucket = $age < 0 ? null : ($age < 14 ? 'recent' : ($age < 42 ? 'base' : null));
                 if ($bucket !== null) {
                     $sums[$bucket]['cost'] += $m['cost'];
                     $sums[$bucket]['clicks'] += $m['clicks'];
@@ -376,14 +440,14 @@ final class GoogleAdsChecks
             return $this->result('anomaly', 'nodata', 'Yeterli veri yok (en az '.self::MIN_CONVERSIONS.' dönüşüm ve '.self::MIN_CLICKS.' tık gerekir).');
         }
         if ($evidence === []) {
-            return $this->result('anomaly', 'pass', 'Dönüşüm başı maliyet olağan.');
+            return $this->result('anomaly', 'pass', 'Dönüşüm başı maliyet olağan (son '.$lag.' gün hariç).');
         }
         $first = $evidence[0];
         $reason = isset($first['değişim_%'])
-            ? $first['kampanya'].': dönüşüm başı maliyet %'.$first['değişim_%'].' arttı (son 14 gün).'
-            : $first['kampanya'].': son 14 günde '.$first['son_14g_maliyet'].' harcama, 0 dönüşüm.';
+            ? $first['kampanya'].': dönüşüm başı maliyet %'.$first['değişim_%'].' arttı (14 gün; son '.$lag.' gün hariç).'
+            : $first['kampanya'].': 14 günde '.$first['son_14g_maliyet'].' harcama, 0 dönüşüm (son '.$lag.' gün hariç).';
 
-        return $this->result('anomaly', 'fail', $reason, 1, $evidence, 'Son değişiklikleri, arama terimlerini ve dönüşüm izlemeyi kontrol edin.');
+        return $this->result('anomaly', 'fail', $reason, 1, [...$evidence, $lagNote], 'Son değişiklikleri, arama terimlerini ve dönüşüm izlemeyi kontrol edin.');
     }
 
     /**

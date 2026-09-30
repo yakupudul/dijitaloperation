@@ -10,6 +10,7 @@ use App\Models\ExternalWriteAction;
 use App\Models\GbpReview;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\GoogleAds\GoogleAdsSuggestions;
 use App\Services\Integrations\WordPress\WordPressManagementService;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
@@ -41,9 +42,11 @@ final class ExternalWriteService
 
     /**
      * ADR-064: Admin-approved (possibly edited) negative keyword list for one bound Google Ads account, sent to the
-     * shared negative list. Optionally linked to the suggestion that proposed it.
+     * shared negative list. Optionally linked to the suggestion(s) that proposed it; they are applied when it succeeds.
+     *
+     * @param  list<int>  $suggestionIds
      */
-    public function requestNegativeList(User $user, DigitalAsset $asset, string $lines, ?Suggestion $suggestion = null): ExternalWriteAction
+    public function requestNegativeList(User $user, DigitalAsset $asset, string $lines, ?Suggestion $suggestion = null, array $suggestionIds = []): ExternalWriteAction
     {
         $this->guard($user, ExternalWriteAction::CHANNEL_GOOGLE_ADS);
         if ($asset->type !== 'google_ads' || ($suggestion !== null && (int) $asset->brand_id !== (int) $suggestion->brand_id)) {
@@ -66,7 +69,8 @@ final class ExternalWriteService
             'brand_id' => $asset->brand_id,
             'suggestion_id' => $suggestion?->id,
             'status' => 'queued',
-            'request_payload' => ['keywords' => $parsed['keywords'], 'rejected' => $parsed['rejected'], 'shared_set_name' => config('moxdop-external-writes.google_ads.shared_set_name')],
+            'request_payload' => ['keywords' => $parsed['keywords'], 'rejected' => $parsed['rejected'], 'shared_set_name' => config('moxdop-external-writes.google_ads.shared_set_name')]
+                + ($suggestionIds !== [] ? ['suggestion_ids' => array_values($suggestionIds)] : []),
             'requested_by' => $user->id,
         ]));
     }
@@ -430,6 +434,10 @@ final class ExternalWriteService
             $action->forceFill(['status' => $result['status'] ?? 'succeeded', 'result' => $result, 'finished_at' => now(), 'error' => null])->save();
         } catch (Throwable $exception) {
             $action->forceFill(['status' => 'failed', 'finished_at' => now(), 'error' => mb_substr($exception->getMessage(), 0, 500)])->save();
+        }
+        if ($action->action === ExternalWriteAction::ACTION_NEGATIVE_LIST_ADD) {
+            // Shared-list negatives become "Uygulandı" only once Google accepted them.
+            app(GoogleAdsSuggestions::class)->writeFinished($action);
         }
     }
 

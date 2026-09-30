@@ -20,8 +20,8 @@ use App\Support\Integrations\Meta\MetaResourceType;
 use App\Support\Integrations\ProviderRegistry;
 
 /**
- * Production Meta Ads collection requires human-confirmed active Binding
- * to an accessible META_AD_ACCOUNT + ads_read permission coverage.
+ * Meta Ads collection scope: a human-confirmed active Binding, or (MoxDOP v2: every discovered account is collected)
+ * the discovered META_AD_ACCOUNT itself for a provider-resource-first run (no asset). Both need ads_read coverage.
  */
 final class MetaAdsEligibilityGuard
 {
@@ -32,8 +32,8 @@ final class MetaAdsEligibilityGuard
 
     /**
      * @return array{
-     *   binding: CoreAssetBinding,
-     *   asset: DigitalAsset,
+     *   binding: CoreAssetBinding|null,
+     *   asset: DigitalAsset|null,
      *   resource: CoreExternalResource,
      *   integration: CoreIntegration,
      *   account_id: string,
@@ -45,6 +45,19 @@ final class MetaAdsEligibilityGuard
     public function assertEligible(CollectionRun $collectionRun, CollectionResourceRun $resourceRun): array|DatasetExecutionResult
     {
         $bindingId = $resourceRun->core_asset_binding_id;
+        if ($bindingId === null && $resourceRun->external_resource_id !== null
+            && data_get($resourceRun->metadata, 'collection_scope') === 'provider_resource_first') {
+            $resource = CoreExternalResource::query()->with('integration')->find($resourceRun->external_resource_id);
+            if (! $resource instanceof CoreExternalResource || ! $resource->integration instanceof CoreIntegration) {
+                return DatasetExecutionResult::failed(
+                    CollectionErrorCategory::Authorization,
+                    'Meta Ad Account resource is missing.',
+                    'SCOPE_GRAPH_INCOMPLETE',
+                );
+            }
+
+            return $this->accountScope(null, null, $resource, $resource->integration);
+        }
         if ($bindingId === null) {
             return DatasetExecutionResult::failed(
                 CollectionErrorCategory::Authorization,
@@ -92,6 +105,13 @@ final class MetaAdsEligibilityGuard
                 'ASSET_TYPE_MISMATCH',
             );
         }
+
+        return $this->accountScope($binding, $asset, $resource, $integration);
+    }
+
+    /** @return array<string, mixed>|DatasetExecutionResult */
+    private function accountScope(?CoreAssetBinding $binding, ?DigitalAsset $asset, CoreExternalResource $resource, CoreIntegration $integration): array|DatasetExecutionResult
+    {
 
         if ($resource->resource_type !== MetaResourceType::META_AD_ACCOUNT) {
             return DatasetExecutionResult::failed(

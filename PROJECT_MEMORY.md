@@ -1,5 +1,14 @@
 # PROJECT_MEMORY
 
+## 2026-11-03 — v2 düzeltmeleri: reklamlar, entegrasyonlar, promptlar
+
+- **Karar:** Meta da her keşfedilen reklam hesabını bağlama beklemeden toplar (kaynak ilk, varlıksız satırlar; ekran bağlama üzerinden okur). V1 Meta tablolarının doğal anahtarı artık `external_resource_id`.
+- **Karar:** DataForSEO arama hacmi yalnız operasyonel markaların kullandığı kümelerin ana sorguları + marka hedef sorguları için, ayda bir; AI önerisi sorguya hacim yazılmaz. DataForSEO görev kuyruğu (harita grid, yorum, prospect) ve ücretli Labs toplama ailesi koddan çıktı.
+- **Karar:** Google Ads'te "uygulandı" operatörün gerçek uygulamasıdır: Editor dosyası indirmek değil "Editor'a aktardım"; paylaşılan liste negatifinde başarılı Google yazımı. İşletme Profili önerileri de Onayla → Uygulandı iki adımlıdır.
+- **Karar:** Dönüşüme dayalı Google Ads yargıları son dönüşüm gecikmesi penceresini (tıklama sonrası pencere, en çok 14 gün; yoksa 7) dışarıda bırakır.
+- **Karar:** Google Ads lead kalitesi kampanya × ay elle girilir, dönüşümle toplanmaz; Meta'da lead CSV işaretleme kalır.
+- **Karar:** Prompt denemesi yayınlanmamış taslakla yapılır, hiçbir öneri yazmaz; AI çalıştırma girdisi 90 gün saklanır.
+
 ## 2026-11-01 — MoxDOP v2 Faz 9 (Sonuç takibi)
 
 - **Karar:** Sonuç takibi tek servistir (`OutcomeTracker`): uygulamada 28 günlük baseline (tek şekil), 28. ve 56. günde ölçüm, her nokta bir kez. Kanal yalnız bir metrik okuyucusu ekler; karar kuralı kanal başına tek ana metrik + %10 eşik + hacim alt sınırı, az / eksik veri = belirsiz (tahmin yok).

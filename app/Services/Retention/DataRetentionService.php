@@ -25,7 +25,7 @@ final class DataRetentionService
     private array $plans = [];
 
     /**
-     * @return array{raw_objects: int, telemetry: array<string, int>, rolled_rows: int, rollup_rows: int, query_daily_rows: array<string, int>, query_source_rows: int, closed_suggestions: int}
+     * @return array{raw_objects: int, telemetry: array<string, int>, rolled_rows: int, rollup_rows: int, query_daily_rows: array<string, int>, query_source_rows: int, closed_suggestions: int, ai_run_inputs: int}
      */
     public function run(bool $dryRun = false): array
     {
@@ -36,7 +36,19 @@ final class DataRetentionService
             'query_daily_rows' => $this->purgeQueryDailyFacts($dryRun),
             'query_source_rows' => $this->purgeQuerySources($dryRun),
             'closed_suggestions' => $this->purgeClosedSuggestions($dryRun),
+            'ai_run_inputs' => $this->purgeAiRunInputs($dryRun),
         ];
+    }
+
+    /** AI run inputs (prompt texts) are kept 90 days; the usage row itself stays as the run summary. */
+    public function purgeAiRunInputs(bool $dryRun = false): int
+    {
+        if (! Schema::hasColumn('ai_usage_records', 'input_text')) {
+            return 0;
+        }
+        $query = DB::table('ai_usage_records')->whereNotNull('input_text')->where('created_at', '<', CarbonImmutable::now()->subDays(90));
+
+        return $dryRun ? $query->count() : $query->update(['input_text' => null]);
     }
 
     /** First month that stays daily (older months are rolled / deleted). */

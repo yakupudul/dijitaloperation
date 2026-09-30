@@ -80,6 +80,26 @@ final class MetaScreenTest extends TestCase
         $this->assertSame(10, Suggestion::query()->where('action_type', 'meta_check')->count(), 'a re-run refreshes by fingerprint');
     }
 
+    public function test_ad_set_locales_are_compared_with_the_brand_languages(): void
+    {
+        $locales = fn (array $ids) => DB::table('meta_adset_targeting_snapshot')->where('adset_id', 'as1')
+            ->update(['targeting' => json_encode(['geo_locations' => ['cities' => [['key' => '1', 'name' => 'Ankara']]], 'locales' => $ids])]);
+        $region = fn (): array => collect(app(MetaChecks::class)->sync($this->asset))->firstWhere('id', 'region');
+        DB::table('meta_adset_targeting_snapshot')->where('adset_id', 'as2')->update(['targeting' => json_encode(['geo_locations' => ['cities' => [['key' => '1', 'name' => 'Ankara']]]])]);
+
+        $locales([28]);
+        $region();
+        $evidence = Suggestion::query()->where('decision_key', 'meta:'.$this->asset->id.':check:region')->sole()->evidence;
+        $this->assertContains(['reklam_seti' => 'İmplant Ankara 35+', 'dil' => 'ar', 'marka_dilleri' => 'tr, en', 'sorun' => 'markanın dili hedeflenmiyor'], $evidence);
+
+        $locales([19, 6]);
+        $this->assertStringContainsString('Dil hedefi markanın dilleriyle uyumlu', $region()['detail']);
+
+        $locales([999]);
+        DB::table('meta_adset_targeting_snapshot')->where('adset_id', 'as2')->update(['targeting' => json_encode(['geo_locations' => ['cities' => [['key' => '1', 'name' => 'Ankara']]], 'locales' => [998]])]);
+        $this->assertStringContainsString('Dil hedefi verisi yok', $region()['detail'], 'unknown locale ids: veri yok');
+    }
+
     public function test_little_data_never_proposes_closing_an_ad_and_no_data_says_veri_yok(): void
     {
         DB::table('meta_typed_action_daily')->where('reporting_date', '>=', '2026-10-02')->delete();

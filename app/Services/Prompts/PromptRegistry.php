@@ -131,6 +131,19 @@ final class PromptRegistry
     public function publish(string $operation, array $fields, User $by): PromptVersion
     {
         $this->authorize($by);
+        $draft = $this->draft($operation, $fields);
+
+        return $this->store($operation, ['purpose' => $draft->purpose, 'template' => (string) $draft->template, 'model' => $draft->model], $by);
+    }
+
+    /**
+     * A validated, UNSAVED version of the operation from the editor fields (template, model, purpose) — what publish()
+     * would store; "Örnekte dene" runs it without publishing.
+     *
+     * @param  array<string, mixed>  $fields
+     */
+    public function draft(string $operation, array $fields): PromptVersion
+    {
         $definition = $this->definition($operation);
         $template = trim(str_replace("\r\n", "\n", (string) ($fields['template'] ?? '')));
         if ($template === '') {
@@ -141,14 +154,17 @@ final class PromptRegistry
         if ($unknown !== []) {
             throw new InvalidArgumentException('Tanımsız değişken: '.implode(', ', $unknown));
         }
-        $model = self::normalizeModel($fields['model'] ?? null);
         $purpose = trim((string) ($fields['purpose'] ?? ''));
 
-        return $this->store($operation, [
+        return new PromptVersion([
+            'operation' => $operation,
             'purpose' => $purpose !== '' ? $purpose : $this->current($operation)->purpose,
-            'template' => $template,
-            'model' => $model,
-        ], $by);
+            'template' => self::withGuard($template),
+            'variables' => $definition['variables'],
+            'context_sources' => $definition['context_sources'],
+            'output_schema' => $definition['output_schema'],
+            'model' => self::normalizeModel($fields['model'] ?? null),
+        ]);
     }
 
     /** "Bu sürüme dön": copies that version (template, model, purpose) as a new current version. */

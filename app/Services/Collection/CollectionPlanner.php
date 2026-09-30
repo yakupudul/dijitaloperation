@@ -666,20 +666,6 @@ final class CollectionPlanner
             }
         }
 
-        if (in_array($familyId, DataForSeoRequestFamilyCatalog::paidFamilies(), true)) {
-            $consented = (bool) ($request->context['paid_enrichment_consented'] ?? false);
-            if (! $consented) {
-                return CollectionRunStatus::NotEligible;
-            }
-        }
-
-        if ($familyId === DataForSeoRequestFamilyCatalog::FAMILY_COMPETITORS_DOMAIN) {
-            $discovery = (bool) ($request->context['public_discovery'] ?? false);
-            if (! $discovery) {
-                return CollectionRunStatus::NotEligible;
-            }
-        }
-
         if ($familyId === WebsiteRequestFamilyCatalog::FAMILY_PAGESPEED) {
             $hasConnection = CoreConnection::query()
                 ->where('digital_asset_id', $request->digitalAsset->id)

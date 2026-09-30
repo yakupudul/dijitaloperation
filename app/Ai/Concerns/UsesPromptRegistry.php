@@ -26,7 +26,17 @@ trait UsesPromptRegistry
 
     public function promptVersionId(): ?int
     {
-        return (int) $this->promptVersion()->id;
+        $version = $this->promptVersion();
+
+        return $version->exists ? (int) $version->id : null;
+    }
+
+    /** Runs this instance with the given (possibly unsaved draft) version — "Örnekte dene". */
+    public function usePromptVersion(PromptVersion $version): static
+    {
+        $this->pinnedPromptVersion = $version;
+
+        return $this;
     }
 
     /** @return array<string, mixed> */

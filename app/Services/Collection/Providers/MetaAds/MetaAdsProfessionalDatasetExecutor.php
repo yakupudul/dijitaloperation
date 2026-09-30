@@ -171,7 +171,7 @@ final class MetaAdsProfessionalDatasetExecutor implements DatasetExecutor
                     (string) ($scope['time_zone'] ?? 'UTC'),
                     $level,
                     $rows,
-                    (int) $scope['asset']->id,
+                    $scope['asset']?->id,
                     (int) $scope['resource']->id,
                     $scope['currency'] ?? null,
                 );
@@ -210,7 +210,7 @@ final class MetaAdsProfessionalDatasetExecutor implements DatasetExecutor
                 (string) ($scope['time_zone'] ?? 'UTC'),
                 $level,
                 $rows,
-                (int) $scope['asset']->id,
+                $scope['asset']?->id,
                 (int) $scope['resource']->id,
                 $scope['currency'] ?? null,
             ),
@@ -746,7 +746,7 @@ final class MetaAdsProfessionalDatasetExecutor implements DatasetExecutor
             if ($slice !== null) {
                 $this->materializations->recordSuccessfulCoverageRange(
                     datasetId: $datasetId,
-                    digitalAssetId: (int) $scope['asset']->id,
+                    digitalAssetId: $scope['asset']?->id,
                     externalResourceId: (int) $scope['resource']->id,
                     contractVersion: (int) $context->datasetRun->contract_registry_version,
                     start: $slice['start'],
@@ -770,7 +770,7 @@ final class MetaAdsProfessionalDatasetExecutor implements DatasetExecutor
                     contractVersion: (int) $context->datasetRun->contract_registry_version,
                     batchKey: $chunkKey,
                     records: $chunk,
-                    digitalAssetId: (int) $scope['asset']->id,
+                    digitalAssetId: $scope['asset']?->id,
                     externalResourceId: (int) $scope['resource']->id,
                     collectionRunId: (int) $context->collectionRun->id,
                     resourceRunId: (int) $context->resourceRun->id,

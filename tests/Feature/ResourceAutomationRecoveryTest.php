@@ -109,24 +109,21 @@ final class ResourceAutomationRecoveryTest extends TestCase
         $this->assertSame('waiting', ResourceAutomation::query()->where('external_resource_id', $resources[1]->id)->first()->collection_status);
     }
 
-    public function test_meta_binding_recovery_admits_exact_account_without_creating_bindings(): void
+    public function test_unbound_meta_accounts_are_admitted_without_creating_bindings(): void
     {
         $integration = CoreIntegration::factory()->meta()->create();
         $resources = CoreExternalResource::factory()->count(2)->create([
             'provider' => 'meta', 'resource_type' => 'meta_ads', 'integration_id' => $integration->id,
         ]);
-        $service = app(ResourceAutomationService::class);
-        $service->tick();
-        Queue::assertNotPushed(ResourceCollectionJob::class);
+        // An account parked as "binding" by the earlier rule is due again.
+        ResourceAutomation::query()->create(['external_resource_id' => $resources[0]->id, 'collection_status' => 'attention',
+            'collection_error' => 'binding', 'next_collection_at' => now()->addDay()]);
+        app(ResourceAutomationService::class)->tick();
+        foreach ($resources as $resource) {
+            $expected = ResourceAutomation::query()->where('external_resource_id', $resource->id)->first();
+            Queue::assertPushed(ResourceCollectionJob::class, fn ($job) => $job->automationId === $expected->id);
+        }
         $this->assertSame(0, CoreAssetBinding::query()->count());
-        CoreAssetBinding::factory()->create([
-            'external_resource_id' => $resources[1]->id, 'capability' => 'meta_ads',
-        ]);
-        $service->tick();
-        $expected = ResourceAutomation::query()->where('external_resource_id', $resources[1]->id)->first();
-        Queue::assertPushed(ResourceCollectionJob::class, fn ($job) => $job->automationId === $expected->id);
-        Queue::assertPushed(ResourceCollectionJob::class, 1);
-        $this->assertSame(1, CoreAssetBinding::query()->count());
     }
 
     public function test_missing_collection_run_returns_to_bounded_retry(): void

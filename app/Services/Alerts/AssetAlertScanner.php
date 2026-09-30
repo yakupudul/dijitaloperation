@@ -170,8 +170,8 @@ final class AssetAlertScanner
         if (! $binding->isReal() || ! Schema::hasTable('meta_account_daily')) {
             return [];
         }
+        // meta_account_daily is keyed by the ad account (central rows carry no asset).
         $days = $this->dailySeries(DB::table('meta_account_daily')
-            ->where('digital_asset_id', $asset->id)
             ->where('account_id', (string) $binding->accountId)
             ->where('reporting_date', '>=', now()->subDays(40)->toDateString())
             ->selectRaw('reporting_date, sum(spend) as spend')

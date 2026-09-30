@@ -47,11 +47,13 @@ final class GoogleAdsAdvisorInputCollector
         $days = (int) config('moxdop-advisor.google_ads.window_days', 30);
         $end = CarbonImmutable::now($tz)->subDay()->startOfDay();
         $start = $end->subDays($days - 1);
-        $historyStart = $end->subDays(59);
+        // 60 days of daily history + room for the conversion-lag shift of the anomaly check.
+        $historyStart = $end->subDays(59 + self::MAX_CONVERSION_LAG_DAYS);
         $window = [$start->toDateString(), $end->toDateString()];
 
         $campaignDaily = $this->campaignDaily($scope, $historyStart->toDateString(), $end->toDateString());
         $campaigns = $this->campaigns($scope, $campaignDaily, $window);
+        $conversionActions = $this->conversionActions($scope, $window);
 
         return $base + [
             'currency' => $binding->currency,
@@ -67,7 +69,8 @@ final class GoogleAdsAdvisorInputCollector
             'quality_history' => $this->qualityHistory($scope, $end),
             'ads' => $this->ads($scope, $window),
             'landing_pages' => $this->landingPages($scope, $window),
-            'conversion_actions' => $this->conversionActions($scope, $window),
+            'conversion_actions' => $conversionActions,
+            'conversion_lag_days' => self::conversionLagDays($conversionActions['items']),
             'asset_library' => $this->assetLibrary($scope),
             'recommendations' => $this->recommendations($scope),
             'changes' => $this->changes($scope),
@@ -76,6 +79,30 @@ final class GoogleAdsAdvisorInputCollector
             'website' => $this->websiteReader->forBrandOf($asset),
             'ga4' => $this->ga4($asset, $window),
         ];
+    }
+
+    /** Longest conversion lag excluded from conversion judgements (a longer click-through lookback is capped here). */
+    public const int MAX_CONVERSION_LAG_DAYS = 14;
+
+    /** Lag when no click-through lookback was collected. */
+    public const int DEFAULT_CONVERSION_LAG_DAYS = 7;
+
+    /**
+     * Days of the most recent conversions still arriving: the longest click-through lookback of the enabled primary
+     * conversion actions (capped at MAX_CONVERSION_LAG_DAYS), else DEFAULT_CONVERSION_LAG_DAYS.
+     *
+     * @param  list<array<string, mixed>>  $actions
+     * @return array{days: int, source: string}
+     */
+    public static function conversionLagDays(array $actions): array
+    {
+        $lookbacks = array_filter(array_map(fn (array $a): ?int => ($a['primary'] ?? false) && ($a['status'] ?? null) === 'ENABLED' && is_numeric($a['lookback_days'] ?? null)
+            ? (int) $a['lookback_days'] : null, $actions));
+        if ($lookbacks === []) {
+            return ['days' => self::DEFAULT_CONVERSION_LAG_DAYS, 'source' => 'varsayılan'];
+        }
+
+        return ['days' => min(self::MAX_CONVERSION_LAG_DAYS, max(1, max($lookbacks))), 'source' => 'dönüşüm penceresi'];
     }
 
     /** @return array<string, mixed> */
@@ -132,20 +159,25 @@ final class GoogleAdsAdvisorInputCollector
             $budgets[(string) $row->budget_id] = isset($meta['amount']) && is_numeric($meta['amount']) ? (float) $meta['amount'] : null;
         }
         $snapshots = [];
-        foreach ($scope->snapshot('google_ads_campaign_snapshot')->get(['campaign_id', 'metadata']) as $row) {
+        $languages = [];
+        $hasLanguages = Schema::hasColumn('google_ads_campaign_snapshot', 'language_codes');
+        foreach ($scope->snapshot('google_ads_campaign_snapshot')->get(array_merge(['campaign_id', 'metadata'], $hasLanguages ? ['language_codes'] : [])) as $row) {
             $snapshots[(string) $row->campaign_id] = self::decode($row->metadata);
+            $languages[(string) $row->campaign_id] = $hasLanguages && filled($row->language_codes) ? (string) $row->language_codes : null;
         }
 
         $out = [];
         $scope->daily('google_ads_campaign_daily', $window[0], $window[1])
             ->select(['campaign_id', 'impressions', 'clicks', 'cost_amount', 'conversions', 'search_impression_share', 'metadata'])
             ->get()
-            ->each(function (object $row) use (&$out, $snapshots, $budgets): void {
+            ->each(function (object $row) use (&$out, $snapshots, $budgets, $languages): void {
                 $id = (string) $row->campaign_id;
                 $meta = self::decode($row->metadata);
                 $snap = $snapshots[$id] ?? [];
                 $entry = $out[$id] ?? [
                     'id' => $id,
+                    // null = not collected; "all" = every language; else ISO codes (comma list).
+                    'languages' => $languages[$id] ?? null,
                     'name' => $snap['name'] ?? $meta['campaign_name'] ?? ('Kampanya '.$id),
                     'status' => $snap['status'] ?? $meta['campaign_status'] ?? null,
                     'channel' => $snap['advertising_channel_type'] ?? $meta['advertising_channel_type'] ?? null,
@@ -485,6 +517,7 @@ final class GoogleAdsAdvisorInputCollector
                 'origin' => $meta['origin'] ?? null,
                 'primary' => (bool) ($meta['primary_for_goal'] ?? false),
                 'counting_type' => $meta['counting_type'] ?? null,
+                'lookback_days' => is_numeric($meta['click_through_lookback_window_days'] ?? null) ? (int) $meta['click_through_lookback_window_days'] : null,
                 'conversions' => $daily[$id] ?? null,
             ];
         }
