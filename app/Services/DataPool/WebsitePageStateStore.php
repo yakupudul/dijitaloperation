@@ -50,6 +50,35 @@ final class WebsitePageStateStore
         return is_array($metadata) ? $metadata : [];
     }
 
+    /**
+     * ETag / Last-Modified of each page's latest stored 200 response, for conditional requests (a 304 means unchanged).
+     *
+     * @param  list<string>  $httpUrls
+     * @return array<string, array{etag: ?string, last_modified: ?string}>
+     */
+    public function validators(int $assetId, array $httpUrls): array
+    {
+        if ($httpUrls === [] || ! $this->hasTable('website_http_snapshot')) {
+            return [];
+        }
+        $validators = [];
+        foreach ($httpUrls as $url) {
+            $latest = DB::table('website_http_snapshot')->where('digital_asset_id', $assetId)->where('url', $url)
+                ->orderByDesc('observed_at')->orderByDesc('id')->value('metadata');
+            $metadata = is_string($latest) ? json_decode($latest, true) : $latest;
+            if (! is_array($metadata) || (int) ($metadata['status_code'] ?? 0) !== 200 || empty($metadata['body_sha256'])) {
+                continue;
+            }
+            $etag = is_string($metadata['etag'] ?? null) ? $metadata['etag'] : null;
+            $lastModified = is_string($metadata['last_modified'] ?? null) ? $metadata['last_modified'] : null;
+            if ($etag !== null || $lastModified !== null) {
+                $validators[$url] = ['etag' => $etag, 'last_modified' => $lastModified];
+            }
+        }
+
+        return $validators;
+    }
+
     public function latestHtmlHash(int $assetId, string $url): ?string
     {
         if (! $this->hasTable('website_html_snapshot')) {

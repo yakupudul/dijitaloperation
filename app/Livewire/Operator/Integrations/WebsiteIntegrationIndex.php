@@ -11,6 +11,7 @@ use App\Models\DataPool\DatasetMaterialization;
 use App\Models\DataPool\DatasetWriteBatch;
 use App\Models\DigitalAsset;
 use App\Models\User;
+use App\Services\Collection\Providers\Website\WebsiteCrawlState;
 use App\Services\Collection\Providers\Website\WebsiteDatasetExecutor;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
@@ -177,7 +178,7 @@ final class WebsiteIntegrationIndex extends Component
         abort_unless($actor instanceof User, 403);
         $this->selectedAssetId = $assetId;
 
-        abort_unless(in_array($this->collectionScope, ['full', 'public', 'wordpress', 'pagespeed'], true), 422);
+        abort_unless(in_array($this->collectionScope, ['full', 'full_reread', 'public', 'wordpress', 'pagespeed'], true), 422);
         $asset->loadMissing('connections.credential');
         $wordpressReady = $asset->connections->contains(fn (CoreConnection $connection): bool => $connection->type === WordPressConnectorPairingService::CONNECTION_TYPE
             && $connection->enabled && data_get($connection->config, 'pairing_state') === 'paired'
@@ -214,8 +215,10 @@ final class WebsiteIntegrationIndex extends Component
                     'trigger' => 'operator.integrations.website.collect',
                     'collection_scope' => $this->collectionScope,
                     'force_refresh' => true,
-                    // Pages unchanged since their last fetch (WordPress modified date / sitemap lastmod) keep their copy.
-                    'refetch_unchanged' => false,
+                    // "Genel çekim": pages unchanged since their last fetch (WordPress modified date / sitemap lastmod,
+                    // or a 304 to a conditional request) keep their copy. "Tam yeniden okuma" (rare) reads every page.
+                    'refetch_unchanged' => $this->collectionScope === 'full_reread',
+                    'crawl_mode' => $this->collectionScope === 'full_reread' ? 'full' : 'recheck',
                 ],
             );
 
@@ -289,6 +292,7 @@ final class WebsiteIntegrationIndex extends Component
         $scope = (string) data_get($run->request_context, 'context.collection_scope', '');
         $label = match ($scope) {
             'full' => $this->text('Genel çekim · HTML, TLS ve bağlı WordPress', 'General · HTML, TLS and connected WordPress'),
+            'full_reread' => $this->text('Tam yeniden okuma · tüm sayfalar', 'Full re-read · every page'),
             'public' => $this->text('Sayfa HTML ve TLS', 'Page HTML and TLS'),
             'wordpress' => $this->text('WordPress tam envanter', 'WordPress full inventory'),
             'changes' => $this->text('Değişen WordPress kayıtları', 'Changed WordPress records'),
@@ -1800,12 +1804,51 @@ final class WebsiteIntegrationIndex extends Component
             ? $row['run_status_label'].' · '.($row['last_run_at']?->diffForHumans() ?? '—')
             : $this->text('Henüz yok', 'None yet');
 
-        return [
+        $lines = [
             ['label' => $this->text('Sayfalar', 'Pages'), 'value' => $pageLine],
             ['label' => $this->text('Çekim hızı', 'Crawl pace'), 'value' => $this->politenessLine(is_array($pages) && $pages['active'] ? $pages['politeness'] : null)],
+        ];
+        $sourceLine = $this->sourceLine((int) $asset->id);
+        if ($sourceLine !== null) {
+            $lines[] = ['label' => $this->text('Kaynak', 'Source'), 'value' => $sourceLine];
+        }
+
+        return [
+            ...$lines,
             ['label' => 'WordPress', 'value' => $wordpressLine],
             ['label' => $this->text('Son çekim', 'Latest collection'), 'value' => $lastRun],
         ];
+    }
+
+    /**
+     * Where the pages of the latest crawl came from, plus the site's page cache:
+     * "Önbellekten: N · Sayfa okuma: M · Değişmedi (304/aynı): K · WP Rocket, isabet %92".
+     */
+    private function sourceLine(int $assetId): ?string
+    {
+        $state = app(WebsiteCrawlState::class)->view($assetId);
+        $run = $state['last_run'];
+        $number = fn (int $value): string => number_format($value, 0, ',', '.');
+        $parts = [];
+        if (is_array($run)) {
+            $parts[] = $this->text('Önbellekten: ', 'From page cache: ').$number((int) ($run['page_cache'] ?? 0));
+            $parts[] = $this->text('Sayfa okuma: ', 'Page reads: ').$number((int) ($run['fetched'] ?? 0));
+            $parts[] = $this->text('Değişmedi (304/aynı): ', 'Unchanged (304/same): ').$number((int) ($run['not_modified'] ?? 0) + (int) ($run['same'] ?? 0));
+        }
+        $plugin = WebsiteCrawlState::pluginLabel($state['cache_plugin']);
+        $cache = $plugin ?? ($state['hit_ratio'] !== null ? $this->text('Sayfa önbelleği', 'Page cache') : null);
+        if ($cache !== null) {
+            if ($state['hit_ratio'] !== null) {
+                $cache .= $this->text(', isabet %', ', hit rate ').(int) round($state['hit_ratio'] * 100).$this->text('', '%');
+            }
+            $readable = $state['page_cache']['readable'] ?? null;
+            if ($readable === true) {
+                $cache .= $this->text(' · eklenti önbellek dosyalarını okuyor', ' · connector reads the cache files');
+            }
+            $parts[] = $cache;
+        }
+
+        return $parts === [] ? null : implode(' · ', $parts);
     }
 
     private function minutesLabel(int $minutes): string

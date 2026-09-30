@@ -70,6 +70,14 @@ final class WebsiteNormalizer
                 'error' => $fetch['error'] ?? null,
                 // Lets the next crawl recognise an unchanged response without re-reading the stored HTML.
                 'body_sha256' => is_string($fetch['body'] ?? null) && $fetch['body'] !== '' ? hash('sha256', $fetch['body']) : null,
+                // Validators for the next conditional request (If-None-Match / If-Modified-Since → 304 when unchanged).
+                'etag' => $fetch['etag'] ?? null,
+                'last_modified' => $fetch['last_modified'] ?? null,
+                // Served by the site's page cache (header / footer comment), or read from its cache files by the connector.
+                'cache_hit' => is_array($fetch['cache'] ?? null) ? ($fetch['cache']['hit'] ?? null) : null,
+                'cache_plugin' => is_array($fetch['cache'] ?? null) ? ($fetch['cache']['plugin'] ?? null) : null,
+                'fetch_source' => $fetch['source'] ?? 'public_crawl',
+                'cache_file_mtime' => $fetch['cache_file_mtime'] ?? null,
                 'http_200_neq_healthy' => true,
                 'collector_version' => WebsiteProviderCapabilities::COLLECTOR_VERSION,
             ],

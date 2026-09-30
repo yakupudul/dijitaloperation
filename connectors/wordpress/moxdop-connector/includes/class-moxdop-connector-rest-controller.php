@@ -40,6 +40,16 @@ final class MoxDOP_Connector_REST_Controller
                 'per_page' => ['type' => 'integer', 'default' => 25, 'minimum' => 1],
             ],
         ]);
+        // 1.6.0: HTML the page-cache plugin already stored on disk (read-only; nothing is rendered).
+        register_rest_route(self::NAMESPACE, '/page-cache', [
+            'methods' => WP_REST_Server::READABLE,
+            'permission_callback' => [$this->auth, 'authorize'],
+            'callback' => [$this, 'page_cache'],
+            'args' => [
+                'page' => ['type' => 'integer', 'default' => 1, 'minimum' => 1],
+                'per_page' => ['type' => 'integer', 'default' => 25, 'minimum' => 1],
+            ],
+        ]);
         // ADR-064: creates drafts; never publishes.
         register_rest_route(self::NAMESPACE, '/drafts', [
             'methods' => WP_REST_Server::CREATABLE,
@@ -175,6 +185,8 @@ final class MoxDOP_Connector_REST_Controller
 
     public function status(WP_REST_Request $request)
     {
+        $cache = MoxDOP_Connector_Page_Cache::summary();
+
         return $this->auth->envelope([
             'schema_version' => 1,
             'plugin_version' => MOXDOP_CONNECTOR_VERSION,
@@ -194,7 +206,10 @@ final class MoxDOP_Connector_REST_Controller
                 self::drafts_allowed() ? 'rich_drafts' : null,
                 MoxDOP_Connector_Drafts::polylang_active() ? 'polylang' : null,
                 MoxDOP_Connector_Drafts::scheduling_allowed() ? 'schedule' : null,
+                $cache['readable'] ? 'page_cache' : null,
             ])),
+            // 1.6.0: detected page-cache plugin and whether its files can be read (/page-cache).
+            'cache' => $cache,
             'languages' => MoxDOP_Connector_Drafts::languages(),
             'sections' => ['site', 'extensions', 'content', 'media', 'taxonomies', 'seo'],
             'server_time' => time(),
@@ -218,6 +233,33 @@ final class MoxDOP_Connector_REST_Controller
         }
         try {
             return $this->build_snapshot($request);
+        } finally {
+            MoxDOP_Connector_Lock::release($lock);
+        }
+    }
+
+    /**
+     * 1.6.0: cached HTML of published public URLs, read from the cache plugin's files. Shares the snapshot lock, so a
+     * site never builds a snapshot and an export at the same time (429 + Retry-After: 30 otherwise).
+     */
+    public function page_cache(WP_REST_Request $request)
+    {
+        $lock = 'moxdop_connector_snapshot_lock';
+        if (! MoxDOP_Connector_Lock::acquire($lock, 120)) {
+            $busy = new WP_REST_Response(['code' => 'moxdop_busy', 'message' => 'Another MoxDOP snapshot is running; retry shortly.', 'data' => ['status' => 429]], 429);
+            $busy->header('Retry-After', '30');
+
+            return $busy;
+        }
+        try {
+            $page = max(1, (int) $request->get_param('page'));
+            $per_page = min(50, max(1, (int) $request->get_param('per_page')));
+            $result = MoxDOP_Connector_Page_Cache::export($page, $per_page);
+            $result['schema_version'] = 1;
+            $result['plugin_version'] = MOXDOP_CONNECTOR_VERSION;
+            $result['generated_at'] = gmdate('c');
+
+            return $this->auth->envelope($result, $request);
         } finally {
             MoxDOP_Connector_Lock::release($lock);
         }

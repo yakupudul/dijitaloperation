@@ -48,7 +48,20 @@ final class DiscoveryConfig
     /** Aggregate HTML budget for one resumable full-site collection. */
     public const int MAX_COLLECTION_TOTAL_BYTES = 2_000_000_000;
 
-    public const string USER_AGENT = 'MoxDOP-PublicDiscovery/1.0 (+https://moximu.com; read-only public discovery)';
+    /**
+     * Browser token + our identifier. Page-cache plugins serve their cached copy only to "normal" visitors: WP Super
+     * Cache's default rejected agents are bot / crawl / spider / slurp / ia_archive / Yandex and some WAFs refuse
+     * agents without a browser token, so the name carries neither those words nor lacks "Mozilla/5.0".
+     * robots.txt rules for "MoxDOP" still apply.
+     */
+    public const string USER_AGENT = 'Mozilla/5.0 (compatible; MoxDOP-SiteReader/1.0; +https://moximu.com)';
+
+    /** Browser-like request headers: served from the page cache like a visitor (no cookies, no cache-busting). */
+    public const string ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,text/plain;q=0.7,*/*;q=0.5';
+
+    public const string ACCEPT_LANGUAGE = 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7';
+
+    public const string ACCEPT_ENCODING = 'gzip, deflate';
 
     /**
      * Production crawling must never invent likely page paths. The root is the only seed;

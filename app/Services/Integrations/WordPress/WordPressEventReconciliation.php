@@ -4,6 +4,7 @@ namespace App\Services\Integrations\WordPress;
 
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreConnection;
+use App\Services\Collection\Providers\Website\WebsiteCrawlState;
 use App\Services\Collection\Providers\Website\WebsiteDatasetExecutor;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
@@ -12,6 +13,7 @@ use App\Services\Website\Pages\WordPressPageSync;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -78,6 +80,7 @@ final class WordPressEventReconciliation
         if ($fullSlots === 0 && $changeSlots === 0) {
             return;
         }
+        $fullSlots = $this->startNightlyFullReads($fullSlots);
         $states = DB::table('website_connector_delivery')
             ->where('automation_enabled', true)
             ->whereNull('collection_run_id')
@@ -113,7 +116,7 @@ final class WordPressEventReconciliation
             }
             $inventory = CollectionRun::query()->where('digital_asset_id', $connection->digital_asset_id)
                 ->where('status', 'completed')->whereNotNull('finished_at')
-                ->whereIn('request_context->context->collection_scope', ['full', 'wordpress'])
+                ->whereIn('request_context->context->collection_scope', ['full', 'full_reread', 'wordpress'])
                 ->when($state->last_inventory_at, fn ($q) => $q->where('finished_at', '>', $state->last_inventory_at))
                 // Faz 12: paired_at is stored as ISO-8601 ("…T…+00:00"); compare in the DB's own datetime format, otherwise a
                 // same-day inventory never matches as text and a needless full inventory is started.
@@ -191,9 +194,9 @@ final class WordPressEventReconciliation
                     'candidate_url_count' => count($urls), 'truncated' => count($urls) > 100,
                     'issue_code' => 'WORDPRESS_CHANGE', 'relation_key' => 'wordpress-events'];
             }
-            if ($full && $state->last_inventory_at === null) {
-                // First inventory after pairing: the page HTML crawl follows it (WordPress first, then the pages it
-                // lists). Pages unchanged since their last fetch keep their stored copy.
+            if ($full && ($state->last_inventory_at === null || $this->neverRead((int) $connection->digital_asset_id))) {
+                // First inventory after pairing (or a site never read in full): the page HTML crawl follows it
+                // (WordPress first, then the pages it lists). Pages unchanged since their last fetch keep their copy.
                 $families = [
                     WebsiteRequestFamilyCatalog::FAMILY_WP_REST,
                     WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL,
@@ -202,6 +205,13 @@ final class WordPressEventReconciliation
                 ];
                 unset($context['targeted_verification']);
                 $context['refetch_unchanged'] = false;
+            } elseif ($full && ! isset($context['targeted_verification'])) {
+                // Routine inventory: afterwards only the pages whose WordPress modified date / sitemap lastmod is newer
+                // than their stored copy are read (a conditional request makes the rest a 304). Never a full HTML crawl:
+                // that runs at most every crawl.full_read_interval_days, at night (startNightlyFullReads).
+                $families[] = WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL;
+                $context['refetch_unchanged'] = false;
+                $context['crawl_mode'] = 'changed';
             }
             try {
                 $run = app(WebsiteCollectionOrchestrator::class)->start(
@@ -219,6 +229,88 @@ final class WordPressEventReconciliation
                 ]);
             }
         }
+    }
+
+    /**
+     * Full HTML re-read of a WordPress site (inventory + every page, `refetch_unchanged`): at most every
+     * crawl.full_read_interval_days (30) and only inside the night window (Europe/Istanbul 01:00–06:00), when the site
+     * has the fewest visitors. Uses the full-inventory slots; returns the slots left.
+     */
+    private function startNightlyFullReads(int $fullSlots): int
+    {
+        if ($fullSlots < 1 || ! self::inNightWindow() || ! Schema::hasTable('website_crawl_state')) {
+            return $fullSlots;
+        }
+        $due = now()->subDays(max(1, (int) config('moxdop-website-intelligence.crawl.full_read_interval_days', 30)));
+        $states = DB::table('website_connector_delivery as d')
+            ->join('core_connections as c', 'c.id', '=', 'd.connection_id')
+            ->leftJoin('website_crawl_state as s', 's.digital_asset_id', '=', 'c.digital_asset_id')
+            ->where('d.automation_enabled', true)->whereNull('d.collection_run_id')
+            ->where('c.enabled', true)->where('c.config->pairing_state', 'paired')
+            // A site read for the first time is started by the regular pass right away.
+            ->whereNotNull('d.last_inventory_at')
+            ->where(fn ($q) => $q->whereNull('s.last_full_read_at')->orWhere('s.last_full_read_at', '<=', $due))
+            ->orderBy('s.last_full_read_at')->limit(20)
+            ->get(['d.connection_id', 'd.reconciled_event_id']);
+        foreach ($states as $state) {
+            if ($fullSlots < 1) {
+                break;
+            }
+            $connection = CoreConnection::query()->with(['digitalAsset', 'credential'])->find($state->connection_id);
+            if (! $connection?->digitalAsset || ! $connection->credential || $connection->digitalAsset->brand_id === null
+                || CollectionRun::query()->where('digital_asset_id', $connection->digital_asset_id)
+                    ->whereIn('status', ['queued', 'running', 'retrying', 'cancellation_requested'])->exists()) {
+                continue;
+            }
+            try {
+                $run = app(WebsiteCollectionOrchestrator::class)->start(
+                    asset: $connection->digitalAsset,
+                    requestFamilyIds: [
+                        WebsiteRequestFamilyCatalog::FAMILY_WP_REST,
+                        WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL,
+                        WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS,
+                        WebsiteRequestFamilyCatalog::FAMILY_DNS_TLS,
+                    ],
+                    context: [
+                        'force_refresh' => true,
+                        'refetch_unchanged' => true,
+                        'crawl_mode' => 'full',
+                        'idempotency_key' => 'wp-full-read:'.$connection->id.':'.now()->format('Ymd'),
+                        'collection_intent' => 'wordpress_event_reconciliation',
+                        'collection_scope' => 'full',
+                        'collection_intent_label' => 'Monthly full HTML read (night)',
+                        'full_read_reason' => 'monthly_night',
+                        'wordpress_object_ids' => [],
+                    ],
+                );
+                DB::table('website_connector_delivery')->where('connection_id', $connection->id)->update([
+                    'collection_run_id' => $run->id, 'collection_event_id' => $state->reconciled_event_id,
+                    'collection_is_full' => true, 'last_error' => null,
+                ]);
+                $fullSlots--;
+            } catch (Throwable $error) {
+                report($error);
+            }
+        }
+
+        return $fullSlots;
+    }
+
+    /** Inside the night window of full HTML re-reads (crawl.full_read_window, Europe/Istanbul 01:00–06:00). */
+    public static function inNightWindow(): bool
+    {
+        $window = (array) config('moxdop-website-intelligence.crawl.full_read_window', []);
+        $hour = (int) now()->setTimezone((string) ($window['timezone'] ?? 'Europe/Istanbul'))->format('G');
+
+        return $hour >= (int) ($window['start_hour'] ?? 1) && $hour < (int) ($window['end_hour'] ?? 6);
+    }
+
+    /** No page of the site was ever read (no stored HTML, no full read recorded). */
+    private function neverRead(int $assetId): bool
+    {
+        return app(WebsiteCrawlState::class)->lastFullReadAt($assetId) === null
+            && Schema::hasTable('website_html_snapshot')
+            && DB::table('website_html_snapshot')->where('digital_asset_id', $assetId)->doesntExist();
     }
 
     public function initialize(CoreConnection $connection): void
