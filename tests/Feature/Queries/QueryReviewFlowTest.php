@@ -255,7 +255,7 @@ final class QueryReviewFlowTest extends TestCase
         $this->assertSame([$zirkonyum->id, null, $this->zirkonyum->id], [$item->query_id, $item->from_service_id, $item->to_service_id]);
 
         $tab = Livewire::test(QueriesPage::class)->call('setTab', 'deletions')->assertSee('Hizmet değişikliği · 1')
-            ->set('reviewKind', QueryReviewItem::SERVICE)->assertSee('yeni atama')->assertSee('Onayla ve uygula')
+            ->set('reviewKind', QueryReviewItem::SERVICE)->assertSee('yeni atama')->assertSee('eşleşen kelime: zirkonyum')->assertSee('Onayla ve uygula')
             ->call('approveReview')->assertSee('Önce satır seçin')
             ->set('selected', [$item->id])->call('keepReview')->assertSee('1 sorgu tutuldu');
         $this->assertNull($zirkonyum->fresh()->service_id);
@@ -267,6 +267,18 @@ final class QueryReviewFlowTest extends TestCase
         $this->assertSame($this->zirkonyum->id, $zirkonyum->fresh()->service_id);
         $this->assertSame('rule', $zirkonyum->fresh()->assignment);
         $this->assertSame(0, QueryReviewItem::query()->count());
+    }
+
+    public function test_rescan_never_changes_a_service_set_by_the_operator_or_ai(): void
+    {
+        $manual = Query::query()->where('text', 'zirkonyum fiyatları')->sole();
+        $manual->forceFill(['service_id' => $this->implant->id, 'assignment' => 'manual', 'locked' => false])->save();
+        $ai = Query::query()->where('text', 'implant fiyatları')->sole();
+        $ai->forceFill(['service_id' => $this->zirkonyum->id, 'assignment' => 'ai', 'locked' => false])->save();
+
+        app(QueryRescanner::class)->scan($this->admin->id);
+
+        $this->assertFalse(QueryReviewItem::query()->whereIn('query_id', [$manual->id, $ai->id])->exists(), 'no "atama kalkıyor" for chosen services');
     }
 
     public function test_important_notification_is_toasted_once_with_its_target(): void

@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\DB;
  */
 final class QueryRescanner
 {
+    /** Assignments the keyword rules never change (operator's choice, AI proposal the operator approved). */
+    public const array KEPT_ASSIGNMENTS = ['manual', 'ai'];
+
     public function __construct(
         private readonly QueryNormalizer $normalizer,
         private readonly QueryServiceMatcher $matcher,
@@ -30,7 +33,7 @@ final class QueryRescanner
         $review = QueryReview::query()->create(['status' => QueryReview::RUNNING, 'created_by' => $userId]);
         $deletions = 0;
         $changes = 0;
-        DB::table('queries')->select(['id', 'text', 'sector_id', 'service_id', 'locked'])
+        DB::table('queries')->select(['id', 'text', 'sector_id', 'service_id', 'locked', 'assignment'])
             ->chunkById(QueryPipeline::CHUNK, function ($rows) use ($review, &$deletions, &$changes): void {
                 $ids = $rows->pluck('id')->all();
                 $inLockedCluster = array_flip(DB::table('cluster_queries as cq')->join('clusters as c', 'c.id', '=', 'cq.cluster_id')
@@ -92,6 +95,7 @@ final class QueryRescanner
             $moved = [];
             foreach ($items->where('kind', QueryReviewItem::SERVICE) as $item) {
                 $updated = DB::table('queries')->where('id', $item->query_id)->where('locked', false)
+                    ->where(fn ($q) => $q->whereNull('assignment')->orWhereNotIn('assignment', self::KEPT_ASSIGNMENTS))
                     ->when($item->from_service_id === null, fn ($q) => $q->whereNull('service_id'), fn ($q) => $q->where('service_id', $item->from_service_id))
                     ->update(['service_id' => $item->to_service_id, 'assignment' => $item->to_service_id === null ? 'none' : 'rule', 'updated_at' => now()]);
                 if ($updated > 0) {
@@ -132,13 +136,16 @@ final class QueryRescanner
         if ($term !== null) {
             return ['kind' => QueryReviewItem::DELETE, 'term' => mb_substr($term, 0, 200), 'from_service_id' => null, 'to_service_id' => null];
         }
-        if ((bool) $row->locked || $inLockedCluster) {
+        // Only keyword-rule assignments follow the matching keywords; a service set by the operator or by AI stays.
+        if ((bool) $row->locked || $inLockedCluster || in_array($row->assignment ?? null, self::KEPT_ASSIGNMENTS, true)) {
             return null;
         }
         $current = $row->service_id !== null ? (int) $row->service_id : null;
-        $service = $this->matcher->match((string) $row->text, $row->sector_id !== null ? (int) $row->sector_id : null);
+        ['service' => $service, 'keyword' => $keyword] = $this->matcher->matchWithKeyword((string) $row->text, $row->sector_id !== null ? (int) $row->sector_id : null);
 
-        return $service !== $current ? ['kind' => QueryReviewItem::SERVICE, 'term' => null, 'from_service_id' => $current, 'to_service_id' => $service] : null;
+        // `term` of a service line = the matching keyword that decided it (null: no keyword matches any more).
+        return $service !== $current ? ['kind' => QueryReviewItem::SERVICE, 'term' => $keyword !== null ? mb_substr($keyword, 0, 200) : null,
+            'from_service_id' => $current, 'to_service_id' => $service] : null;
     }
 
     /** @param array<string, mixed> $item what "Tut" was decided on: the term to delete for, or the target service */

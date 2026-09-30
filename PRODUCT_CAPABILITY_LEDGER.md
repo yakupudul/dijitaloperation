@@ -1,5 +1,9 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-07 — Silinecekler › Hizmet değişikliği: yalnız kural atamaları, neden görünür
+
+- Tarama hizmet değişikliğini yalnız eşleme kelimesiyle (kural) atanmış kilitsiz sorgular için önerir; operatörün (`manual`) veya AI'ın (`ai`) atadığı hizmet asla değiştirilmez / kaldırılmaz (onayda da kontrol). Satırda karar veren kelime görünür ("eşleşen kelime: X" / "hiçbir eşleme kelimesi eşleşmiyor"). **State:** CODED + PHPUnit (`QueryReviewFlowTest`), SQLite + PostgreSQL.
+
 ## 2026-11-07 — Sorgular: kalıcı Silinecekler sekmesi, temiz Bekleyenler, paralel "Hizmet keşfet", toplu hizmet ekleme
 
 - **Silinecekler sekmesi (`/library/queries?tab=deletions`):** her filtre / eşleme kelimesi taramasının önerileri tek kalıcı listede birikir (`query_review_items` artık havuz: sorgu başına tek satır, son tarama kazanır; tam taramanın tekrar önermediği satır düşer). Alt görünümler "Silinecek sorgular · N" (sorgu, filtre terimi, gösterim; terim filtresi) ve "Hizmet değişikliği · M" (mevcut → yeni); arama, sektör, toplu seçim (sayfadaki tümü / filtreye uyan tümü, işareti kaldırılan hariç). "Onayla ve sil" / "Onayla ve uygula": uygulanırken yeniden kontrol (terim hâlâ eşleşiyor mu, sorgu kilitsiz ve hâlâ eski hizmette mi). "Tut": satır listeden çıkar, aynı öneri (aynı terim / aynı hedef hizmet) tekrar gelmez; "Tutulanlar" görünümünde "Geri al". Sekmede sayı rozeti, tarama sürerken "Tarama sürüyor…".

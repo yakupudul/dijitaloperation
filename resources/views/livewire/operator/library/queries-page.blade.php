@@ -277,7 +277,7 @@
                                 @else
                                     <td>{{ $serviceName($item->fromService) }}</td>
                                     <td>{{ $serviceName($item->toService) }}</td>
-                                    <td class="text-gray-500">{{ $item->from_service_id === null ? 'yeni atama' : ($item->to_service_id === null ? 'atama kalkıyor' : 'değişiyor') }}</td>
+                                    <td class="text-gray-500" data-review-reason>{{ $item->from_service_id === null ? 'yeni atama' : ($item->to_service_id === null ? 'atama kalkıyor' : 'değişiyor') }} · {{ $item->term !== null ? 'eşleşen kelime: '.$item->term : 'hiçbir eşleme kelimesi eşleşmiyor' }}</td>
                                 @endif
                                 <td class="text-right tabular-nums">{{ $num($item->searchQuery?->impressions ?? 0) }}</td>
                             </tr>

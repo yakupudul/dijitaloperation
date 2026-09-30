@@ -13,20 +13,32 @@ use Illuminate\Support\Facades\DB;
  */
 final class QueryServiceMatcher
 {
-    /** @var array<int, array<string, list<array{service: int, tokens: list<string>, score: array{0: int, 1: int}}>>> */
+    /** @var array<int, array<string, list<array{service: int, keyword: string, tokens: list<string>, score: array{0: int, 1: int}}>>> */
     private array $keywords = [];
 
     public function match(string $text, ?int $sectorId): ?int
     {
+        return $this->matchWithKeyword($text, $sectorId)['service'];
+    }
+
+    /**
+     * The service and the keyword that decided it (null keyword: no keyword matched, or two services tied).
+     *
+     * @return array{service: ?int, keyword: ?string}
+     */
+    public function matchWithKeyword(string $text, ?int $sectorId): array
+    {
+        $none = ['service' => null, 'keyword' => null];
         if ($sectorId === null) {
-            return null;
+            return $none;
         }
         $index = $this->keywords($sectorId);
         if ($index === []) {
-            return null;
+            return $none;
         }
         $tokens = array_values(array_filter(explode(' ', SeoText::fold($text)), fn (string $t): bool => $t !== ''));
         $best = null;
+        $bestKeyword = null;
         $bestScore = [0, 0];
         $tie = false;
         foreach ($tokens as $i => $token) {
@@ -36,14 +48,14 @@ final class QueryServiceMatcher
                 }
                 $order = $keyword['score'] <=> $bestScore;
                 if ($order > 0) {
-                    [$best, $bestScore, $tie] = [$keyword['service'], $keyword['score'], false];
+                    [$best, $bestKeyword, $bestScore, $tie] = [$keyword['service'], $keyword['keyword'], $keyword['score'], false];
                 } elseif ($order === 0 && $keyword['service'] !== $best) {
                     $tie = true;
                 }
             }
         }
 
-        return $tie ? null : $best;
+        return $tie ? $none : ['service' => $best, 'keyword' => $bestKeyword];
     }
 
     public function forget(): void
@@ -69,7 +81,7 @@ final class QueryServiceMatcher
         return true;
     }
 
-    /** @return array<string, list<array{service: int, tokens: list<string>, score: array{0: int, 1: int}}>> */
+    /** @return array<string, list<array{service: int, keyword: string, tokens: list<string>, score: array{0: int, 1: int}}>> */
     private function keywords(int $sectorId): array
     {
         if (isset($this->keywords[$sectorId])) {
@@ -88,6 +100,7 @@ final class QueryServiceMatcher
                     if ($tokens !== []) {
                         $index[substr($tokens[0], 0, 3)][] = [
                             'service' => (int) $row->service_catalog_item_id,
+                            'keyword' => (string) $row->normalized_key,
                             'tokens' => $tokens,
                             'score' => [count($tokens), strlen(implode(' ', $tokens))],
                         ];
