@@ -51,7 +51,7 @@ final class KeywordInsights
     /** @var array<string, array<string, list<int>>> */
     private array $indexes = [];
 
-    /** @var array<string, bool> */
+    /** @var array<string, ?string> */
     private array $locationMemo = [];
 
     // ── Kelime etkisi ────────────────────────────────────────────────────────
@@ -331,20 +331,34 @@ final class KeywordInsights
     /** A folded word that is a country / province / district name (suffixes allowed: "ankarada"). */
     private function isLocation(string $token): bool
     {
-        if (isset($this->locationMemo[$token])) {
+        return $this->locationBase($token) !== null;
+    }
+
+    /** The folded place name a folded word is (or carries a suffix of): "ankarada" → "ankara"; null when none. */
+    public function locationBase(string $token): ?string
+    {
+        if (array_key_exists($token, $this->locationMemo)) {
             return $this->locationMemo[$token];
         }
         $locations = LocationOptions::expressions();
-        $found = false;
+        $found = null;
         if (! in_array($token, self::NOT_LOCATION, true)) {
-            for ($length = strlen($token); $length >= 3 && ! $found; $length--) {
+            for ($length = strlen($token); $length >= 3 && $found === null; $length--) {
                 $prefix = substr($token, 0, $length);
-                $found = isset($locations[$prefix]) && ! in_array($prefix, self::NOT_LOCATION, true)
-                    && ($length === strlen($token) || SeoText::wordMatches($token, $prefix));
+                if (isset($locations[$prefix]) && ! in_array($prefix, self::NOT_LOCATION, true)
+                    && ($length === strlen($token) || SeoText::wordMatches($token, $prefix))) {
+                    $found = $prefix;
+                }
             }
         }
 
         return $this->locationMemo[$token] = $found;
+    }
+
+    /** @return list<string> folded intent / question / filler words */
+    public static function stopWords(): array
+    {
+        return self::STOP;
     }
 
     // ── Sektör uyumu ─────────────────────────────────────────────────────────

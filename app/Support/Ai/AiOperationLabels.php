@@ -22,6 +22,7 @@ final class AiOperationLabels
         'queries.plan_sectors' => 'AI ile planla · sektörler',
         'queries.plan_services' => 'AI ile planla · hizmetler',
         'queries.plan_filters' => 'AI ile planla · filtreler',
+        'queries.scan_filters' => 'Sorgularda filtre kelimesi tara',
         'queries.assign_services' => 'Sorgulara hizmet öner',
         'queries.cluster' => 'Sorgu kümeleme',
         'gbp.review_reply' => 'Yorum yanıt taslağı',

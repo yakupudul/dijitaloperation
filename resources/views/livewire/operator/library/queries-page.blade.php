@@ -469,8 +469,47 @@
                     <textarea wire:model="filterInstruction" rows="2" maxlength="1000" placeholder="AI talimatınız (isteğe bağlı) · örn. iş ilanı ve eğitim içerikli kelimeler üret" aria-label="AI talimatı" data-filter-instruction class="{{ $input }} min-w-0 flex-1 text-xs"></textarea>
                     <button type="button" wire:click="generateFilters" @disabled($filterStatus === 'running') class="{{ $btn }}">AI ile oluştur</button>
                     <x-operator.ai-prompt-info operation="queries.plan_filters" />
+                    <button type="button" wire:click="scanFilters" @disabled(($scan['status'] ?? null) === 'running') class="{{ $btn }}" data-scan-start>Sorgularda tara</button>
+                    <x-operator.ai-prompt-info operation="queries.scan_filters" />
                 </div>
-                <p class="text-xs text-gray-500">{{ ctype_digit($sector) ? 'Seçili sektör için' : 'Kullanılan her sektör için' }} ayrı çağrı · öneriler kaydedilmeden önce listelenir.</p>
+                <p class="text-xs text-gray-500">{{ ctype_digit($sector) ? 'Seçili sektör için' : 'Kullanılan her sektör için' }} ayrı çağrı · öneriler kaydedilmeden önce listelenir. <span class="font-medium">Sorgularda tara:</span> kütüphanedeki sorguların kelimelerinden yer adı, marka / firma, kişi adı ve alakasız kelimeleri bulur (yer adları AI olmadan; hizmet kelimeleri ve kendi marka adlarınız hiç önerilmez).</p>
+                @php $scanStatus = $scan['status'] ?? null; @endphp
+                @if ($scanStatus === 'running')
+                    <p class="flex items-center gap-2 text-xs text-gray-500" data-scan-progress>Sorgular taranıyor…@if (($scan['total'] ?? 0) > 0) {{ $scan['done'] }} / {{ $scan['total'] }} sektör tamamlandı @endif <button type="button" wire:click="stopScan" wire:confirm="Tarama durdurulsun mu?" class="rounded-lg px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700" data-scan-stop>Durdur</button></p>
+                @elseif ($scanStatus === 'ready')
+                    @php
+                        $scanSkipLines = array_map('intval', $scanSkip);
+                        $scanGroups = collect($scan['items'])->map(fn ($row, $i) => $row + ['index' => $i])->groupBy('category');
+                    @endphp
+                    <div class="rounded-lg p-3 ring-1 ring-inset ring-brand-200 dark:ring-brand-800" data-scan-result>
+                        <h3 class="text-xs font-semibold uppercase text-gray-500">Tarama sonucu · {{ count($scan['items']) }} kelime · seçilenler sepete eklenir, içeren sorgular Silinecekler'e düşer</h3>
+                        @if (($scan['failed'] ?? []) !== [])<p class="text-xs text-rose-600">Yanıt alınamayan sektörler: {{ implode(', ', $scan['failed']) }}</p>@endif
+                        @foreach (\App\Services\Queries\FilterScanner::CATEGORIES as $category => $label)
+                            @continue(! $scanGroups->has($category))
+                            <div class="mt-3" data-scan-group="{{ $category }}">
+                                <div class="flex items-center gap-2 text-xs font-semibold">
+                                    <span>{{ $label }} · {{ $scanGroups[$category]->count() }}</span>
+                                    <button type="button" wire:click="setScanCategory('{{ $category }}', true)" class="text-brand-600 hover:underline">tümünü seç</button>
+                                    <button type="button" wire:click="setScanCategory('{{ $category }}', false)" class="text-gray-500 hover:underline">hiçbirini</button>
+                                </div>
+                                <ul class="mt-1 space-y-1">
+                                    @foreach ($scanGroups[$category] as $row)
+                                        <li wire:key="sc-{{ $row['index'] }}" class="flex items-start gap-2 text-xs"><input type="checkbox" wire:click="toggleScanLine({{ $row['index'] }})" @checked(! in_array((int) $row['index'], $scanSkipLines, true)) aria-label="Seç">
+                                            <span><span class="font-medium">{{ $row['term'] }}</span> <span class="text-gray-500">· {{ $num($row['count']) }} sorgu · {{ $num($row['impressions']) }} gösterim · {{ $row['reason'] }}</span>
+                                                @if ($row['examples'] !== [])<span class="block text-gray-400">örn. {{ implode(' · ', $row['examples']) }}</span>@endif</span></li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endforeach
+                        @if ($scan['items'] === [])<p class="mt-1 text-xs text-gray-500">Filtrelenecek kelime bulunamadı.</p>@endif
+                        <div class="mt-2 flex justify-end gap-2">
+                            <button type="button" wire:click="closeScan" class="{{ $ghost }}">Vazgeç</button>
+                            <button type="button" wire:click="approveScan" @disabled($scan['items'] === []) class="{{ $btn }}" data-scan-approve>Seçilenleri sepete ekle</button>
+                        </div>
+                    </div>
+                @elseif ($scanStatus !== null)
+                    <p class="text-xs text-rose-600">{{ ['no_provider' => 'AI bağlı değil.', 'nothing' => 'Sektör yok.'][$scanStatus] ?? 'Tarama tamamlanamadı.' }}</p>
+                @endif
                 @if ($filterStatus === 'running')
                     <p class="flex items-center gap-2 text-xs text-gray-500" data-filter-progress>AI çalışıyor…@if (($filterProposal['total'] ?? 0) > 0) {{ $filterProposal['done'] }} / {{ $filterProposal['total'] }} sektör tamamlandı @endif <button type="button" wire:click="stopFilters" wire:confirm="AI adımı durdurulsun mu?" class="rounded-lg px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700" data-filter-stop>Durdur</button></p>
                 @elseif ($filterStatus === 'ready')

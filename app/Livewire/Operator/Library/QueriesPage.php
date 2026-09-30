@@ -125,6 +125,9 @@ final class QueriesPage extends Component
     /** @var list<int> unticked lines of the filter proposal */
     public array $filterSkip = [];
 
+    /** @var list<int|string> unticked lines of the "Sorgularda tara" result */
+    public array $scanSkip = [];
+
     public string $bulkService = '';
 
     public string $message = '';
@@ -682,6 +685,73 @@ final class QueriesPage extends Component
         $this->filterSkip = [];
     }
 
+    /**
+     * "Sorgularda tara": the words of the library queries that belong in the basket (place, brand, person, off-topic),
+     * one job per sector (the chosen one, else every used sector), shown as a ticked checklist.
+     */
+    public function scanFilters(QueryPlanner $planner): void
+    {
+        $actor = $this->actor();
+        $sectorIds = ctype_digit($this->sector) ? [(int) $this->sector] : $planner->usedSectorIds();
+        if ($sectorIds === []) {
+            $this->message = 'Önce markalara sektör atayın.';
+
+            return;
+        }
+        $this->scanSkip = [];
+        QueryPlanner::start((int) $actor->id, 'scan', $sectorIds, $this->filterInstruction);
+    }
+
+    public function stopScan(): void
+    {
+        QueryPlanner::reset((int) $this->actor()->id, 'scan');
+        $this->message = 'Tarama durduruldu; yeniden başlatabilirsiniz.';
+    }
+
+    public function toggleScanLine(int $index): void
+    {
+        $skip = array_map('intval', $this->scanSkip);
+        $this->scanSkip = in_array($index, $skip, true) ? array_values(array_diff($skip, [$index])) : [...$skip, $index];
+    }
+
+    /** Ticks or unticks every line of one category (Yer adı / Marka / Kişi adı / Alakasız). */
+    public function setScanCategory(string $category, bool $ticked): void
+    {
+        $scan = QueryPlanner::current((int) $this->actor()->id, 'scan');
+        $indexes = array_keys(array_filter((array) ($scan['items'] ?? []), fn ($row): bool => is_array($row) && ($row['category'] ?? null) === $category));
+        $skip = array_values(array_diff(array_map('intval', $this->scanSkip), $indexes));
+        $this->scanSkip = $ticked ? $skip : [...$skip, ...$indexes];
+    }
+
+    public function approveScan(QueryPlanner $planner): void
+    {
+        $actor = $this->actor();
+        $scan = QueryPlanner::current((int) $actor->id, 'scan');
+        if (($scan['status'] ?? null) !== 'ready') {
+            return;
+        }
+        $indexes = array_values(array_diff(array_keys((array) $scan['items']), array_map('intval', $this->scanSkip)));
+        $saved = $planner->applyFilters($scan, $indexes, $actor);
+        QueryPlanner::discard((int) $actor->id, 'scan');
+        $this->scanSkip = [];
+        if ($saved > 0) {
+            app(PendingQueries::class)->prune();
+        }
+        if ($saved > 0 && QueryPipeline::importedAt() !== null) {
+            RescanQueriesJob::dispatch((int) $actor->id);
+            $this->message = $saved.' kelime filtre sepetine eklendi · tarama başladı; silinecek sorgular Silinecekler sekmesine düşer.';
+
+            return;
+        }
+        $this->message = $saved > 0 ? $saved.' kelime filtre sepetine eklendi.' : 'Yeni kelime eklenmedi.';
+    }
+
+    public function closeScan(): void
+    {
+        QueryPlanner::discard((int) $this->actor()->id, 'scan');
+        $this->scanSkip = [];
+    }
+
     // ── Eşleme kelimeleri ────────────────────────────────────────────────────
 
     public function addKeyword(int $serviceId, ServiceKeywordService $keywords): void
@@ -1082,6 +1152,7 @@ final class QueriesPage extends Component
         $proposal = $this->rulesOpen && $user instanceof User ? QueryRuleProposer::current((int) $user->id) : null;
         $assign = $this->tab === 'queries' && $user instanceof User ? QueryServiceAssigner::current((int) $user->id) : null;
         $filterProposal = $this->tab === 'filters' && $user instanceof User ? QueryPlanner::current((int) $user->id, 'filters') : null;
+        $scan = $this->tab === 'filters' && $user instanceof User ? QueryPlanner::current((int) $user->id, 'scan') : null;
         $queries = $this->tab === 'queries' ? $this->queryList() : null;
         $serviceId = ctype_digit($this->service) ? (int) $this->service : null;
         $clusterStatus = $serviceId !== null ? Cache::get(QueryClusterer::cacheKey($serviceId)) : null;
@@ -1104,6 +1175,7 @@ final class QueriesPage extends Component
             'assign' => $assign,
             'assignRows' => ($assign['status'] ?? null) === 'ready' ? array_slice((array) $assign['items'], $this->assignPage * self::ASSIGN_PER_PAGE, self::ASSIGN_PER_PAGE, true) : [],
             'filterProposal' => $filterProposal,
+            'scan' => $scan,
             'clusters' => $this->tab === 'clusters' && $serviceId !== null ? $this->clusterList($serviceId) : null,
             'openCluster' => $openCluster,
             'affectedBrands' => $affected,
@@ -1129,7 +1201,7 @@ final class QueriesPage extends Component
             'proposal' => $proposal,
             'clusterStatus' => is_array($clusterStatus) ? $clusterStatus : null,
             'polling' => ($proposal['status'] ?? null) === 'running' || ($clusterStatus['status'] ?? null) === 'running' || $this->negAwaiting
-                || ($assign['status'] ?? null) === 'running' || ($filterProposal['status'] ?? null) === 'running' || ($this->tab === 'deletions' && $reviewRunning),
+                || ($assign['status'] ?? null) === 'running' || ($filterProposal['status'] ?? null) === 'running' || ($scan['status'] ?? null) === 'running' || ($this->tab === 'deletions' && $reviewRunning),
         ]);
     }
 

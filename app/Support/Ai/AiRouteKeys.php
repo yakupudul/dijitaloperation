@@ -119,6 +119,9 @@ final class AiRouteKeys
     /** "AI ile planla" adım 3: negative filter terms per used sector, one batched call. */
     public const string QUERIES_PLAN_FILTERS = 'queries.plan_filters';
 
+    /** Filtre sepeti "Sorgularda tara": the sector's query words → brand / person / place / off-topic words for the basket. */
+    public const string QUERIES_SCAN_FILTERS = 'queries.scan_filters';
+
     /** Sorgular "AI ile hizmet öner": unassigned library queries → a service of their sector (or none), 200 per call, all batches. */
     public const string QUERIES_ASSIGN_SERVICES = 'queries.assign_services';
 

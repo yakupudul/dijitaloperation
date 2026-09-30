@@ -65,6 +65,7 @@ final class AiJobCatalog
         'sectors' => 'queries.plan_sectors',
         'services' => 'queries.plan_services',
         'filters' => 'queries.plan_filters',
+        'scan' => 'queries.scan_filters',
     ];
 
     /** @var array<string, string> RunSiteOperationJob operation => AI operation */

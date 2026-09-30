@@ -66,6 +66,7 @@ final class AiUsageRecorder
         'QueryPlanSectorsAgent' => AiRouteKeys::QUERIES_PLAN_SECTORS,
         'QueryPlanServicesAgent' => AiRouteKeys::QUERIES_PLAN_SERVICES,
         'QueryPlanFiltersAgent' => AiRouteKeys::QUERIES_PLAN_FILTERS,
+        'QueryFilterScanAgent' => AiRouteKeys::QUERIES_SCAN_FILTERS,
         'QueryAssignServicesAgent' => AiRouteKeys::QUERIES_ASSIGN_SERVICES,
         'CompetitorClassifyAgent' => AiRouteKeys::COMPETITORS_CLASSIFY,
         'CompetitorAnalyzeAgent' => AiRouteKeys::COMPETITORS_ANALYZE,

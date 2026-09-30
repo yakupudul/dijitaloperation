@@ -47,7 +47,7 @@ final class QueryPlanner
     public const array STEPS = ['sectors', 'services', 'filters'];
 
     /** Steps run as one queued job per sector. */
-    public const array PARALLEL_STEPS = ['services', 'filters'];
+    public const array PARALLEL_STEPS = ['services', 'filters', 'scan'];
 
     private const int SAMPLES = 300;
 
@@ -217,6 +217,7 @@ final class QueryPlanner
         $items = [];
         $seen = [];
         $failed = [];
+        $scanned = [];
         foreach ((array) $state['sectors'] as $sectorId => $name) {
             if (array_key_exists($sectorId, $errors)) {
                 $failed[] = (string) $name;
@@ -224,6 +225,17 @@ final class QueryPlanner
                 continue;
             }
             foreach ((array) ($state['parts'][$sectorId] ?? []) as $item) {
+                if ($step === 'scan') {
+                    // One word found in several sectors: one line, the deleted queries added up.
+                    $fold = SeoText::fold((string) $item['term']);
+                    if (isset($scanned[$fold])) {
+                        $items[$scanned[$fold]]['count'] += (int) $item['count'];
+                        $items[$scanned[$fold]]['impressions'] += (int) $item['impressions'];
+
+                        continue;
+                    }
+                    $scanned[$fold] = count($items);
+                }
                 if ($step === 'filters') {
                     $fold = SeoText::fold((string) $item['term']);
                     if (isset($seen[$fold])) {
@@ -439,6 +451,9 @@ final class QueryPlanner
     {
         if ($step === 'services') {
             return $this->servicesFor($sector);
+        }
+        if ($step === 'scan') {
+            return app(FilterScanner::class)->scanSector($sector, $instruction);
         }
         $existing = self::existingTerms();
 

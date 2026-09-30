@@ -72,6 +72,14 @@ final class SeoTasksServiceProvider extends ServiceProvider
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::QUERIES_SCAN_FILTERS,
+            'name' => 'Query Filter Scan',
+            'module' => 'queries',
+            'description' => 'Filtre sepeti "Sorgularda tara": the sector\'s query words (keywords, generic words and own brand names left out, place names found without AI) go 400 per call with one example query each; brand / company, person, place and off-topic words come back. Checklist; the operator approves.',
+            'default_steps' => AiDefaultSteps::classification(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
             'key' => AiRouteKeys::QUERIES_ASSIGN_SERVICES,
             'name' => 'Query Service Assignment',
             'module' => 'queries',

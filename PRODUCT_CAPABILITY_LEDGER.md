@@ -24,6 +24,13 @@
 - **Sektör uyumu:** hizmeti sorgunun sektöründen başka sektöre ait sorgular (sorgu sektörü × hizmet sektörü, sayı, örnekler); "Hizmetin sektörüne taşı" veya "Hizmeti kaldır" (atanmamış, kilitsiz, kümelerden çıkar). Taramanın önerdiği kaldırma sektör uyuşmazlığından ise satırda "sektör uyuşmuyor" (`reason = sector`).
 - **State:** CODED + PHPUnit (`QueryServiceMatcherTest`, `KeywordInsightsTest`, güncellenen `QueryPipelineTest`; `tests/Feature/Queries` 60 test), SQLite + PostgreSQL. Üretim UAT yok. **Operator after deploy:** `php artisan migrate --force` (`2026_11_08_090000_query_keyword_insights`), ardından bir tarama (mevcut kural atamalarındaki çakışmalar Silinecekler'e düşer).
 
+## 2026-11-09 — Filtre sepeti: Sorgularda tara
+
+- **Ne yapar:** Filtre sepeti › "Sorgularda tara" (seçili sektör, yoksa kullanılan her sektör; sektör başına paralel iş, "3 / 7 sektör" ilerleme + Durdur). Kütüphane sorgularının kelimeleri PHP'de sayılır; eşleme kelimeleri (ek toleranslı), genel hizmet kelimeleri, niyet / dolgu kelimeleri, sektörün kendi marka adları, rakamlar ve sepette olanlar hiç önerilmez.
+- **Yer adları** (il / ilçe / ülke, ekli hâlleri dahil: "ankarada" → "ankara") AI olmadan bulunur. Kalan kelimeler gösterime göre en fazla 1.200 tanesi, 400'lük partilerle, her biri bir örnek sorguyla küçük bir AI sınıflandırmasına gider (`queries.scan_filters`, ⓘ ile prompt görülür / düzenlenir); yalnız marka / firma, kişi adı, yer adı ve alakasız işaretlenenler döner, listede olmayan kelime atılır. Filtre talimatı kutusu bu taramaya da gider.
+- **Onay:** sonuç kategoriye göre (Yer adı, Marka / firma, Kişi adı, Alakasız) kaç sorgu / gösterim sileceği ve örnek sorgularla listelenir; satır veya kategori toplu seçilir, "Seçilenleri sepete ekle" terimleri kaydeder ve tarama başlatır (içeren sorgular Silinecekler'e düşer). AI bağlı değilse yer adları yine önerilir.
+- **State:** CODED + PHPUnit (`FilterScanTest`), SQLite + PostgreSQL (`tests/Feature/Queries`). Üretim UAT yok.
+
 ## 2026-11-09 — Web sitesi çekimini durdur, gerçek hata ve erişim testi
 
 - **Çekimi durdur:** Website › çekim ekranında çekim sürerken "Çekimi durdur" (onaylı). Yalnız o sitenin aktif çekimleri normal iptal yoluyla durur (kuyruktaki / işçinin tutmadığı adım hemen, çalışan adım güvenli noktasında); bekleyen WordPress yenilemesi serbest kalır, sitenin bekleme (backoff) durumu silinir; ardından yeniden başlatılabilir. `WebsiteCollectionStopper` (aynı mantığı `moxdop:website:reset-collection` de kullanır).
