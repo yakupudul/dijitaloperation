@@ -354,9 +354,9 @@ class BrandShow extends Component
         $setup = in_array($this->tab, ['overview', 'assets'], true) ? $this->setupStatus($brand) : null;
         $seo = $workspace->seo($assets);
         $attention = array_values(array_filter([
-            $seo['critical'] > 0 ? ['tone' => 'error', 'text' => $seo['critical'].' kritik SEO düzeltmesi', 'url' => route('operator.website', ['assetId' => $seo['website_id'], 'tab' => 'seo'])] : null,
-            $seo['questions'] > 0 ? ['tone' => 'warning', 'text' => $seo['questions'].' SEO kararı seni bekliyor', 'url' => route('operator.website', ['assetId' => $seo['website_id'], 'tab' => 'seo'])] : null,
-            $seo['content'] > 0 ? ['tone' => 'info', 'text' => $seo['content'].' içerik önerisi', 'url' => route('operator.website', ['assetId' => $seo['website_id'], 'tab' => 'seo'])] : null,
+            $seo['critical'] > 0 ? ['tone' => 'error', 'text' => $seo['critical'].' kritik SEO düzeltmesi', 'url' => route('operator.website', ['assetId' => $seo['website_id'], 'tab' => 'ozet', 'sub' => 'oneriler'])] : null,
+            $seo['questions'] > 0 ? ['tone' => 'warning', 'text' => $seo['questions'].' SEO kararı seni bekliyor', 'url' => route('operator.website', ['assetId' => $seo['website_id'], 'tab' => 'ozet', 'sub' => 'oneriler'])] : null,
+            $seo['content'] > 0 ? ['tone' => 'info', 'text' => $seo['content'].' içerik önerisi', 'url' => route('operator.website', ['assetId' => $seo['website_id'], 'tab' => 'ozet', 'sub' => 'icerik'])] : null,
         ]));
 
         $context = $brand->intelligenceContext;
@@ -364,6 +364,7 @@ class BrandShow extends Component
 
         return view('livewire.operator.portfolio.brand-show', [
             ...$this->frame(false),
+            'websites' => $this->websites($brand),
             'brandModel' => $brand,
             'customer' => $brand->customer,
             'sectors' => $sectors,
@@ -394,6 +395,7 @@ class BrandShow extends Component
 
         return view('livewire.operator.portfolio.brand-show', [
             ...$this->frame(true),
+            'websites' => $this->websites($brand),
             'brandModel' => $brand,
             'customer' => $brand->customer,
             'sectors' => $sectors,
@@ -404,6 +406,16 @@ class BrandShow extends Component
             'checklist' => ['complete' => true, 'items' => []],
             'flash' => DemoState::pullFlash(),
         ]);
+    }
+
+    /**
+     * The brand's websites for the header "Siteyi aç" button.
+     *
+     * @return Collection<int, DigitalAsset>
+     */
+    private function websites(Brand $brand): Collection
+    {
+        return DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->orderBy('id')->get(['id', 'name', 'domain', 'primary_url']);
     }
 
     /** @return array{workspaceTab: bool, mainTab: string, workspaceTabs: array<string, string>} */

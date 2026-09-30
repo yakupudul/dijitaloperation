@@ -21,13 +21,16 @@
                 @if ($areas !== []) · {{ implode(' · ', array_slice($areas, 0, 3)) }}@if (count($areas) > 3) +{{ count($areas) - 3 }}@endif @endif
             </p>
         </div>
+        <div class="flex shrink-0 flex-wrap gap-2">
+            @foreach ($websites as $website)
+                <a href="{{ route('operator.website', ['assetId' => $website->id]) }}" wire:navigate data-open-website="{{ $website->id }}" title="{{ $website->domain ?: $website->primary_url }}" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">Siteyi aç @if ($websites->count() > 1)<span class="text-xs font-normal opacity-80">{{ $website->domain ?: $website->name }}</span>@endif</a>
+            @endforeach
         @if (! $workspaceTab)
-            <div class="flex shrink-0 flex-wrap gap-2">
                 <a href="{{ route('operator.brand.setup', ['brand' => $brandModel->id]) }}" wire:navigate @class(['inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium', 'bg-success-500 text-white hover:bg-success-600' => ! $checklist['complete'], 'text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700' => $checklist['complete']])>Otomatik kur</a>
                 <a href="{{ route('operator.asset.create', ['brandId' => $brandModel->id]) }}" wire:navigate class="inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Varlık ekle</a>
                 <a href="{{ route('operator.brand.edit', ['brandId' => $brandModel->id]) }}" wire:navigate class="inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Düzenle</a>
-            </div>
         @endif
+        </div>
     </div>
 
     <div class="-mx-1 overflow-x-auto">

@@ -59,6 +59,7 @@ class PanelDesignFreezeTest extends TestCase
             'operator.dashboard',
             'operator.customers',
             'operator.brands',
+            'operator.websites',
             'operator.library.queries',
             'operator.integrations',
             'operator.settings',

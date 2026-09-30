@@ -49,6 +49,7 @@ use App\Livewire\Operator\Settings\SectorPacksPage;
 use App\Livewire\Operator\Settings\SystemHealthPage;
 use App\Livewire\Operator\Settings\UsersPage;
 use App\Livewire\Operator\Website\V2\WebsiteScreen;
+use App\Livewire\Operator\Website\WebsitesIndex;
 use App\Support\Ai\AiProviderCatalog;
 use Illuminate\Support\Facades\Route;
 
@@ -116,6 +117,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::get('/assets/meta/{assetId}/insights', MetaLegacyPageRedirectController::class)->defaults('tab', 'overview')->name('operator.meta.insights');
 
         Route::livewire('/assets/google-ads/{assetId?}', GoogleAdsOverviewPage::class)->name('operator.google-ads.overview');
+        Route::livewire('/websites', WebsitesIndex::class)->name('operator.websites');
         Route::livewire('/assets/website/{assetId?}', WebsiteScreen::class)->name('operator.website');
         Route::livewire('/assets/gbp/{assetId?}', GbpOverviewPage::class)->name('operator.gbp');
         Route::livewire('/assets/analytics/{assetId?}', AnalyticsPage::class)

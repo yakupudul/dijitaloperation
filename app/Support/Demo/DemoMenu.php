@@ -5,7 +5,8 @@ namespace App\Support\Demo;
 /**
  * Canonical operator navigation for the TailAdmin operator shell (the class name is legacy).
  *
- * MoxDOP v2 (Faz 0): the sidebar is exactly Bugün · Müşteriler · Markalar · Sorgular · Entegrasyonlar · Ayarlar.
+ * MoxDOP v2 (Faz 0): the sidebar is exactly Bugün · Müşteriler · Markalar · Web siteleri · Sorgular · Entegrasyonlar ·
+ * Ayarlar.
  * Ayarlar carries the settings screens as tabs: AI işlemleri ve promptlar, Standartlar, Sektör ve hizmet kataloğu,
  * Kullanıcılar, Sistem. Every other screen is reached from a brand / asset page or a direct link.
  */
@@ -14,13 +15,13 @@ final class DemoMenu
     /**
      * The sidebar holds one entry per job; related screens are its children and show as tabs on each other (W7).
      *
-     * @return list<array{label: string, items: list<array{label: string, route: string, icon: string, children: list<array{label: string, route: string}>}>}>
+     * @return list<array{label: string, items: list<array{label: string, route: string, icon: string, children: list<array{label: string, route: string}>, active: list<string>}>}>
      */
     public static function groups(): array
     {
         $tr = app()->getLocale() === 'tr';
 
-        $item = static fn (string $label, string $route, string $icon, array $children = []): array => ['label' => $label, 'route' => $route, 'icon' => $icon, 'children' => $children];
+        $item = static fn (string $label, string $route, string $icon, array $children = [], array $active = []): array => ['label' => $label, 'route' => $route, 'icon' => $icon, 'children' => $children, 'active' => $active];
         $child = static fn (string $label, string $route): array => ['label' => $label, 'route' => $route];
 
         return [
@@ -30,6 +31,7 @@ final class DemoMenu
                     $item($tr ? 'Bugün' : 'Today', 'operator.dashboard', 'dashboard'),
                     $item(__('operator.nav.customers'), 'operator.customers', 'customers'),
                     $item(__('operator.nav.brands'), 'operator.brands', 'brands'),
+                    $item($tr ? 'Web siteleri' : 'Websites', 'operator.websites', 'website', [], ['operator.website']),
                     $item($tr ? 'Sorgular' : 'Queries', 'operator.library.queries', 'search'),
                     $item(__('operator.nav.integrations'), 'operator.integrations', 'integrations', [
                         $child($tr ? 'Keşfedilen varlıklar' : 'Discovered Assets', 'operator.integrations.discovered'),

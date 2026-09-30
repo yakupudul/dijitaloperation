@@ -134,7 +134,8 @@
                                     <p class="font-medium text-gray-900 dark:text-white">{{ number_format((int) $row['latest_rows_written'], 0, ',', '.') }}</p>
                                     <p class="mt-1 text-xs text-gray-400">{{ $tr ? 'yazılan kayıt' : 'rows written' }}</p>
                                 </td>
-                                <td class="px-5 py-4 text-right">
+                                <td class="whitespace-nowrap px-5 py-4 text-right">
+                                    <a href="{{ route('operator.website', ['assetId' => $row['asset']->id]) }}" wire:navigate data-open-site-screen="{{ $row['asset']->id }}" class="mr-2 inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ $tr ? 'Site ekranına git' : 'Open site screen' }}</a>
                                     <a href="{{ route('operator.integrations.website', ['assetId' => $row['asset']->id]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200 hover:bg-brand-50 dark:text-brand-400 dark:ring-brand-500/30 dark:hover:bg-brand-500/10">{{ $tr ? 'Aç' : 'Open' }}</a>
                                 </td>
                             </tr>
@@ -149,6 +150,7 @@
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div class="min-w-0">
                 <a href="{{ route('operator.integrations.website') }}" wire:navigate class="text-sm font-medium text-brand-600 dark:text-brand-400">← {{ $tr ? 'Tüm web siteleri' : 'All websites' }}</a>
+                <a href="{{ route('operator.website', ['assetId' => $selectedRow['asset']->id]) }}" wire:navigate data-open-site-screen="{{ $selectedRow['asset']->id }}" class="ml-3 text-sm font-medium text-brand-600 dark:text-brand-400">{{ $tr ? 'Site ekranına git →' : 'Open site screen →' }}</a>
                 <div class="mt-3 flex flex-wrap items-center gap-2">
                     <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ $selectedRow['asset']->name }}</h1>
                     <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium {{ $toneClasses($stateTone($selectedRow['overall_state'])) }}">{{ $selectedRow['run_status_label'] }}</span>

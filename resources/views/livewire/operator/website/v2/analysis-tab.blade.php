@@ -16,11 +16,15 @@
 @endphp
 <div class="space-y-4 text-sm dark:text-gray-200" data-analysis-tab>
     <header class="flex flex-wrap items-center justify-between gap-2">
-        <nav class="flex flex-wrap gap-1" aria-label="Analiz sekmeleri">
-            @foreach (\App\Livewire\Operator\Website\V2\AnalysisTab::SUBTABS as $key => $label)
-                <button type="button" wire:click="setSub('{{ $key }}')" data-sub="{{ $key }}" @class(['rounded-lg px-3 py-1.5 text-xs font-semibold', 'bg-brand-500 text-white' => $activeSub === $key, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $activeSub !== $key])>{{ $label }}</button>
-            @endforeach
-        </nav>
+        @if ($showNav)
+            <nav class="flex flex-wrap gap-1" aria-label="Analiz sekmeleri">
+                @foreach (\App\Livewire\Operator\Website\V2\AnalysisTab::SUBTABS as $key => $label)
+                    <button type="button" wire:click="setSub('{{ $key }}')" data-sub="{{ $key }}" @class(['rounded-lg px-3 py-1.5 text-xs font-semibold', 'bg-brand-500 text-white' => $activeSub === $key, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $activeSub !== $key])>{{ $label }}</button>
+                @endforeach
+            </nav>
+        @else
+            <span></span>
+        @endif
         <div class="flex items-center gap-2 text-xs text-gray-500">
             <span>{{ \Carbon\CarbonImmutable::parse($window['start'])->format('d.m.Y') }} – {{ \Carbon\CarbonImmutable::parse($window['end'])->format('d.m.Y') }}</span>
             <select wire:model.live="period" aria-label="Dönem" class="{{ $input }} py-1">

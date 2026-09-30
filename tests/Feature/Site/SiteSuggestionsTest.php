@@ -324,10 +324,11 @@ final class SiteSuggestionsTest extends SiteTestCase
         $other = $this->suggestion(['page_id' => $this->implantPage->id, 'title' => 'Bağlantı ekle', 'action_type' => 'internal_links']);
 
         $this->get(route('operator.website', ['assetId' => $this->site->id]))->assertOk()
-            ->assertSee('Genel Bakış')->assertSee('SEO Yapılacaklar')->assertSee('Site Sağlığı')->assertSee('Bağlı Varlıklar')
-            ->assertSee('Küme kapsama')->assertSee('Başlığı güçlendir')->assertSee('Organik tıklama');
+            ->assertSee('Özet')->assertSee('Sayfalar')->assertSee('Sorgular')->assertSee('Sağlık')->assertSee('Ayarlar')
+            ->assertSee('Ana hizmet sayfaları')->assertSee('Başlığı güçlendir')->assertSee('Organik tıklama');
         $this->get(route('operator.website', ['assetId' => $this->site->id, 'tab' => 'health']))->assertOk()->assertSee('Site Sağlığı')->assertDontSee('Hazırlanıyor');
-        $this->get(route('operator.website', ['assetId' => $this->site->id, 'tab' => 'seo', 'sub' => 'kumeler']))->assertOk()->assertSee('Sayfalar')->assertSee('/implant/');
+        // Old "SEO Yapılacaklar › Kümeler & Sayfalar" link lands on Sorgular › Kümeler & Sayfalar.
+        $this->get(route('operator.website', ['assetId' => $this->site->id, 'tab' => 'seo', 'sub' => 'kumeler']))->assertOk()->assertSee('Kümeler &amp; Sayfalar', false)->assertSee('/implant/');
 
         Livewire::test(ClustersPagesTab::class, ['assetId' => $this->site->id])
             ->call('run', SiteOperations::CATEGORIZE)
