@@ -9,6 +9,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use MoxDop\Website\Discovery\PublicHttpFetcher;
 use MoxDop\Website\Discovery\PublicUrlSafety;
 use RuntimeException;
 use Throwable;
@@ -55,14 +56,24 @@ final class WordPressConnectorClient
         return $data;
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * One snapshot page. Content and media pages are small (default 25): the site renders every post's blocks and
+     * reads its builder data for them, which is heavy on small shared hosts. Never more than 50 per page.
+     *
+     * @param  list<int>  $objectIds
+     * @return array<string, mixed>
+     */
     public function snapshot(CoreConnection $connection, string $section, int $page = 1, ?int $perPage = null, array $objectIds = []): array
     {
+        $default = in_array($section, ['content', 'media'], true)
+            ? (int) config('moxdop-wordpress.content_per_page', 25)
+            : (int) config('moxdop-wordpress.per_page', 50);
+
         return $this->get($connection, 'snapshot_url', '/moxdop/v1/snapshot', [
             'section' => $section,
             ...($objectIds === [] ? [] : ['object_ids' => implode(',', $objectIds)]),
             'page' => max(1, $page),
-            'per_page' => min(100, max(1, $perPage ?? (int) config('moxdop-wordpress.per_page', 50))),
+            'per_page' => min(50, max(1, $perPage ?? $default)),
         ]);
     }
 
@@ -258,8 +269,13 @@ final class WordPressConnectorClient
         if ($response->redirect()) {
             throw new RuntimeException('WordPress Connector refused an unexpected redirect.');
         }
+        $status = $response->status();
+        if (in_array($status, [429, 502, 503, 504], true)
+            || ($status >= 500 && PublicHttpFetcher::isDatabaseErrorPage($status, substr($response->body(), 0, 65536)))) {
+            throw new WordPressConnectorBusyException($status, WordPressConnectorBusyException::retryAfter($response->header('Retry-After'), $status === 429 ? 30 : 60));
+        }
         if (! $response->successful()) {
-            throw new RuntimeException('WordPress Connector returned HTTP '.$response->status().'.');
+            throw new RuntimeException('WordPress Connector returned HTTP '.$status.'.');
         }
 
         $body = $response->body();

@@ -66,9 +66,44 @@ final class WebsiteCollectionOverviewTest extends TestCase
             ->assertSee('tahmini')
             ->assertSee('2 sayfa (son envanter')
             ->assertSee('Son çekim')
+            ->assertSee('Nazik mod: aynı anda 2 sayfa · site yavaşlarsa otomatik yavaşlar')
             ->assertDontSee('35.758')
             ->assertDontSee('veri grubu başarılı')
             ->assertDontSee('Hatalı paket')
             ->assertDontSee('Güncellenen');
+    }
+
+    #[Test]
+    public function a_site_given_a_break_shows_why_and_when_the_crawl_continues(): void
+    {
+        $this->seed(RoleAndPermissionSeeder::class);
+        app()->setLocale('tr');
+        $admin = User::factory()->create();
+        $admin->assignRole(Roles::ADMIN);
+        $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create()->id]);
+        $asset = DigitalAsset::factory()->create([
+            'brand_id' => $brand->id, 'type' => 'website', 'domain' => 'klinik.example', 'primary_url' => 'https://klinik.example/',
+        ]);
+        $run = CollectionRun::factory()->create([
+            'digital_asset_id' => $asset->id, 'brand_id' => $brand->id, 'status' => CollectionRunStatus::Running,
+            'started_at' => now()->subHour(),
+            'request_context' => ['provider_sources' => ['WEBSITE_DIRECT'], 'context' => ['collection_scope' => 'public']],
+        ]);
+        $resource = CollectionResourceRun::factory()->create([
+            'collection_run_id' => $run->id, 'provider_or_source' => 'WEBSITE_DIRECT', 'digital_asset_id' => $asset->id,
+            'status' => CollectionRunStatus::Running,
+        ]);
+        CollectionDatasetRun::factory()->create([
+            'collection_run_id' => $run->id, 'collection_resource_run_id' => $resource->id, 'provider_or_source' => 'WEBSITE_DIRECT',
+            'dataset_contract_id' => 'website_url', 'request_family_id' => WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL,
+            'status' => CollectionRunStatus::Retrying, 'started_at' => now()->subHour(),
+            'checkpoint' => ['pages' => 12, 'urls_planned' => 80, 'politeness' => [
+                'mode' => 'backoff', 'concurrency' => 1, 'reason' => 'database', 'next_attempt_at' => now()->addMinutes(15)->toIso8601String(), 'crawl_delay' => null,
+            ]],
+        ]);
+
+        Livewire::actingAs($admin)->test(WebsiteIntegrationIndex::class, ['assetId' => $asset->id])
+            ->assertSee('Site yavaş yanıt veriyor (veritabanı bağlantı hatası); çekim 15 dk sonra')
+            ->assertSee('yavaşça sürecek');
     }
 }

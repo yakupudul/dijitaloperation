@@ -36,7 +36,8 @@ final class MoxDOP_Connector_REST_Controller
                     'enum' => ['site', 'extensions', 'content', 'media', 'taxonomies', 'seo'],
                 ],
                 'page' => ['type' => 'integer', 'default' => 1, 'minimum' => 1],
-                'per_page' => ['type' => 'integer', 'default' => 50, 'minimum' => 1, 'maximum' => 100],
+                // 1.5.1: at most 50 per page (MoxDOP asks 25 for content and media); larger asks are capped, not refused.
+                'per_page' => ['type' => 'integer', 'default' => 25, 'minimum' => 1],
             ],
         ]);
         // ADR-064: creates drafts; never publishes.
@@ -202,13 +203,33 @@ final class MoxDOP_Connector_REST_Controller
         ], $request);
     }
 
+    /**
+     * 1.5.1: one snapshot request at a time. Rendering a page of posts is heavy on small shared hosts, so a second
+     * request that arrives meanwhile gets 429 with Retry-After and MoxDOP asks again later.
+     */
     public function snapshot(WP_REST_Request $request)
+    {
+        $lock = 'moxdop_connector_snapshot_lock';
+        if (! MoxDOP_Connector_Lock::acquire($lock, 120)) {
+            $busy = new WP_REST_Response(['code' => 'moxdop_busy', 'message' => 'Another MoxDOP snapshot is running; retry shortly.', 'data' => ['status' => 429]], 429);
+            $busy->header('Retry-After', '30');
+
+            return $busy;
+        }
+        try {
+            return $this->build_snapshot($request);
+        } finally {
+            MoxDOP_Connector_Lock::release($lock);
+        }
+    }
+
+    private function build_snapshot(WP_REST_Request $request)
     {
         $section = sanitize_key((string) $request->get_param('section'));
         $ids = (string) $request->get_param('object_ids');
         $this->object_ids = $ids === '' ? [] : array_values(array_unique(array_map('intval', explode(',', $ids))));
         $page = max(1, (int) $request->get_param('page'));
-        $per_page = min(100, max(1, (int) $request->get_param('per_page')));
+        $per_page = min(50, max(1, (int) $request->get_param('per_page')));
 
         switch ($section) {
             case 'site':

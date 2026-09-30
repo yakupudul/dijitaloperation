@@ -31,6 +31,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Livewire\Livewire;
@@ -422,6 +423,61 @@ final class WordPressConnectorV1Test extends TestCase
         $this->assertSame([['level' => 2, 'text' => 'Nedir?']], $page->headings);
         $this->assertStringContainsString('Kayıp diş yerine yapay kök.', $page->content_text);
         $this->assertNull($page->category);
+    }
+
+    #[Test]
+    public function a_busy_site_is_asked_again_after_retry_after_with_small_content_pages_and_a_pause_between_pages(): void
+    {
+        Queue::fake();
+        Storage::fake('raw_ingestion');
+        config(['moxdop-wordpress.page_delay_seconds' => 2]);
+        $pairing = app(WordPressConnectorPairingService::class);
+        $issued = $pairing->issue($this->asset, $this->admin);
+        $credentials = $pairing->complete($this->pairingPayload($issued['code']));
+        $canonicalJson = new WordPressConnectorCanonicalJson;
+        $this->app->instance(WordPressConnectorClient::class, new WordPressConnectorClient($canonicalJson, new PublicUrlSafety(fn (string $host): array => ['93.184.216.34'])));
+        $answers = ['busy', 'busy', 'ok', 'ok'];
+        Http::fake(function (Request $request) use ($credentials, $canonicalJson, &$answers) {
+            if (array_shift($answers) === 'busy') {
+                return Http::response(['code' => 'moxdop_busy'], 429, ['Retry-After' => '30']);
+            }
+            parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+            $nonce = $request->header(WordPressConnectorClient::HEADER_NONCE)[0] ?? '';
+            $data = ['schema_version' => 1, 'plugin_version' => '1.5.1', 'section' => $query['section'] ?? '', 'object_ids' => [],
+                'records' => [], 'has_more' => ($query['section'] ?? '') === 'content'];
+            $time = now()->timestamp;
+
+            return Http::response(['data' => $data, 'meta' => ['server_time' => $time, 'request_nonce' => $nonce,
+                'signature' => hash_hmac('sha256', implode("\n", [(string) $time, $nonce, hash('sha256', $canonicalJson->encode($data))]), $credentials['shared_secret'])]]);
+        });
+
+        $run = app(WebsiteCollectionOrchestrator::class)->start(asset: $this->asset, requestFamilyIds: [WebsiteRequestFamilyCatalog::FAMILY_WP_REST], context: ['collection_scope' => 'wordpress']);
+        $datasetRun = $run->datasetRuns()->where('dataset_contract_id', 'website_cms_object_snapshot')->firstOrFail();
+        $step = fn (array $checkpoint) => app(WordPressConnectorDatasetExecutor::class)->execute(new DatasetExecutionContext(
+            collectionRun: $run->fresh(), resourceRun: $datasetRun->resourceRun, datasetRun: $datasetRun->fresh(),
+            checkpoint: $checkpoint, registryDataset: [], registryRequestFamily: [], attemptNumber: 1,
+        ));
+
+        $first = $step([]);
+        $this->assertSame(DatasetExecutionOutcome::Continue, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame(30, $first->backoffSeconds, 'Retry-After is honoured');
+        $this->assertSame(1, $first->checkpoint['busy_count']);
+        $this->assertSame(1, $first->checkpoint['page'] ?? 1, 'the same page is asked again');
+
+        $second = $step($first->checkpoint);
+        $this->assertSame(300, $second->backoffSeconds, 'a site that stays busy gets a longer break');
+
+        $third = $step($second->checkpoint);
+        $this->assertSame(DatasetExecutionOutcome::Continue, $third->outcome, (string) $third->errorMessage);
+        $this->assertSame(2, $third->backoffSeconds, 'a short pause between two snapshot pages');
+        $this->assertArrayNotHasKey('busy_count', $third->checkpoint);
+
+        $snapshots = collect(Http::recorded())->map(fn (array $pair) => $pair[0])->filter(fn (Request $request) => str_contains($request->url(), '/snapshot'));
+        $this->assertNotEmpty($snapshots);
+        foreach ($snapshots as $request) {
+            parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+            $this->assertSame('25', $query['per_page'], 'content pages are small');
+        }
     }
 
     #[Test]

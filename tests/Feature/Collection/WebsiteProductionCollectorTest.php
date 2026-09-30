@@ -23,6 +23,7 @@ use App\Models\User;
 use App\Services\Collection\CheckpointManager;
 use App\Services\Collection\CollectionPlanner;
 use App\Services\Collection\ProgressReporter;
+use App\Services\Collection\Providers\Website\WebsiteCrawlPoliteness;
 use App\Services\Collection\Providers\Website\WebsiteDatasetExecutor;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Support\DatasetExecutionContext;
@@ -35,6 +36,7 @@ use App\Support\SslCertificateProbe;
 use Database\Seeders\RoleAndPermissionSeeder;
 use DateTimeInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -481,12 +483,14 @@ class WebsiteProductionCollectorTest extends TestCase
             'rows_written_total' => 0,
         ];
 
-        // One step fetches a batch of URLs in parallel.
+        // One step fetches a small batch of URLs, a few at a time ("nazik mod").
+        $batch = (int) config('moxdop-website-intelligence.crawl.batch_size');
+        $this->assertSame(6, $batch);
         $first = $executor->execute($this->contextFrom($context, $datasetRun, $startCheckpoint));
         $this->assertSame(DatasetExecutionOutcome::Continue, $first->outcome, (string) $first->errorMessage);
-        $this->assertSame(WebsiteDatasetExecutor::CRAWL_BATCH_SIZE, $first->checkpoint['pages'] ?? null);
-        $this->assertSame(WebsiteDatasetExecutor::CRAWL_BATCH_SIZE, $first->pagesCompleted);
-        $this->assertSame(array_slice($pages, WebsiteDatasetExecutor::CRAWL_BATCH_SIZE - 2), $first->checkpoint['queue'] ?? null);
+        $this->assertSame($batch, $first->checkpoint['pages'] ?? null);
+        $this->assertSame($batch, $first->pagesCompleted);
+        $this->assertSame(array_slice($pages, $batch - 2), $first->checkpoint['queue'] ?? null);
         $this->assertContains($home, $first->checkpoint['visited'] ?? []);
         $this->assertContains($about, $first->checkpoint['visited'] ?? []);
         $this->assertGreaterThan(0, (int) ($first->checkpoint['rows_written_total'] ?? 0));
@@ -495,19 +499,19 @@ class WebsiteProductionCollectorTest extends TestCase
         $httpAfterFirst = DB::table('website_http_snapshot')->count();
         $urlsAfterFirst = DB::table('website_url')->count();
         $batchesAfterFirst = DatasetWriteBatch::query()->where('dataset_run_id', $datasetRun->id)->count();
-        $this->assertSame(WebsiteDatasetExecutor::CRAWL_BATCH_SIZE, $httpAfterFirst);
-        $this->assertSame(WebsiteDatasetExecutor::CRAWL_BATCH_SIZE, $urlsAfterFirst);
+        $this->assertSame($batch, $httpAfterFirst);
+        $this->assertSame($batch, $urlsAfterFirst);
         $this->assertGreaterThan(0, $batchesAfterFirst);
 
         $retrySameBatch = $executor->execute($this->contextFrom($context, $datasetRun, $startCheckpoint));
         $this->assertSame(DatasetExecutionOutcome::Continue, $retrySameBatch->outcome, (string) $retrySameBatch->errorMessage);
-        $this->assertSame(WebsiteDatasetExecutor::CRAWL_BATCH_SIZE, $retrySameBatch->checkpoint['pages'] ?? null);
+        $this->assertSame($batch, $retrySameBatch->checkpoint['pages'] ?? null);
         $this->assertSame($httpAfterFirst, DB::table('website_http_snapshot')->count(), 'retrying the same batch must not duplicate HTTP snapshots');
         $this->assertSame($urlsAfterFirst, DB::table('website_url')->count(), 'retrying the same batch must not duplicate URL inventory');
         $this->assertSame($batchesAfterFirst, DatasetWriteBatch::query()->where('dataset_run_id', $datasetRun->id)->count());
 
         app(CheckpointManager::class)->advance($datasetRun, $first->checkpoint);
-        $second = $executor->execute($this->contextFrom($context, $datasetRun, $first->checkpoint));
+        $second = $this->runUntilComplete($executor, $this->contextFrom($context, $datasetRun, $first->checkpoint), $datasetRun);
         $this->assertSame(DatasetExecutionOutcome::Completed, $second->outcome, (string) $second->errorMessage);
         $this->assertSame($total, $second->checkpoint['pages'] ?? null);
         $this->assertSame([], $second->checkpoint['queue'] ?? null);
@@ -868,6 +872,142 @@ class WebsiteProductionCollectorTest extends TestCase
         $this->assertSame(0, DB::table('website_http_snapshot')->count());
         $this->assertGreaterThan(DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES, (int) ($result->checkpoint['bytes_downloaded_total'] ?? 0));
         $this->assertContains('http://1.1.1.1/about', $result->checkpoint['visited'] ?? []);
+    }
+
+    #[Test]
+    public function public_crawl_is_gentle_small_steps_a_pause_between_them_and_one_step_per_site(): void
+    {
+        config(['moxdop-website-intelligence.crawl.min_delay_seconds' => 2]);
+        $this->fakePublicSite();
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $executor = app(WebsiteDatasetExecutor::class);
+        $queue = array_map(static fn (int $i): string => 'http://1.1.1.1/page-'.$i, range(1, 10));
+        $politeness = app(WebsiteCrawlPoliteness::class);
+        $this->assertSame(2, $politeness->concurrency('1.1.1.1'), 'two pages at a time per site');
+
+        $first = $executor->execute($this->contextFrom($context, $datasetRun, ['observed_at' => '2026-08-20 00:00:00', 'queue' => $queue, 'visited' => [], 'pages' => 0]));
+        $this->assertSame(DatasetExecutionOutcome::Continue, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame(6, $first->pagesCompleted);
+        $this->assertSame(2, $first->backoffSeconds, 'a pause before the next step of the same site');
+        $this->assertSame('normal', $first->checkpoint['politeness']['mode'] ?? null);
+        $this->assertSame(2, $first->checkpoint['politeness']['concurrency'] ?? null);
+
+        // Another worker holds this site: nothing is fetched, the step comes back later with the same checkpoint.
+        $lock = Cache::lock('website-crawl:host:1.1.1.1', 300);
+        $this->assertTrue($lock->get());
+        $sent = count(Http::recorded());
+        $busy = $executor->execute($this->contextFrom($context, $datasetRun, $first->checkpoint));
+        $lock->release();
+        $this->assertSame(DatasetExecutionOutcome::Continue, $busy->outcome);
+        $this->assertSame(30, $busy->backoffSeconds);
+        $this->assertSame($first->checkpoint['queue'], $busy->checkpoint['queue'] ?? null);
+        $this->assertSame($sent, count(Http::recorded()), 'no request while another step fetches from the same site');
+
+        // robots.txt Crawl-delay: one page per step, that many seconds apart.
+        $this->assertSame(5, $politeness->robotsCrawlDelay("User-agent: Googlebot\nCrawl-delay: 30\n\nUser-agent: *\nCrawl-delay: 5\nDisallow: /wp-admin/"));
+        $this->assertNull($politeness->robotsCrawlDelay("User-agent: *\nAllow: /"));
+        $slow = $executor->execute($this->contextFrom($context, $datasetRun, array_merge($first->checkpoint, ['robots_crawl_delay' => 5])));
+        $this->assertSame(1, $slow->pagesCompleted);
+        $this->assertSame(5, $slow->backoffSeconds);
+        $this->assertSame(1, $slow->checkpoint['politeness']['concurrency'] ?? null);
+    }
+
+    #[Test]
+    public function public_crawl_backs_off_when_the_site_answers_503_and_resumes_slowly(): void
+    {
+        $down = true;
+        Http::fake(function ($request) use (&$down) {
+            return $down
+                ? Http::response('<html>busy</html>', 503, ['Content-Type' => 'text/html'])
+                : Http::response('<html><head><title>OK</title></head><body>ok</body></html>', 200, ['Content-Type' => 'text/html']);
+        });
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $executor = app(WebsiteDatasetExecutor::class);
+        $queue = array_map(static fn (int $i): string => 'http://1.1.1.1/page-'.$i, range(1, 8));
+        $start = ['observed_at' => '2026-08-20 00:00:00', 'queue' => $queue, 'visited' => [], 'pages' => 0];
+
+        $first = $executor->execute($this->contextFrom($context, $datasetRun, $start));
+        $this->assertSame(DatasetExecutionOutcome::Continue, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame(300, $first->backoffSeconds, 'first break: 5 minutes');
+        $this->assertSame($queue, $first->checkpoint['queue'], 'nothing of the batch is lost');
+        $this->assertSame(0, $first->checkpoint['pages']);
+        $this->assertSame(0, DB::table('website_http_snapshot')->count(), 'error pages are not stored');
+        $this->assertSame('backoff', $first->checkpoint['politeness']['mode']);
+        $this->assertSame('unavailable', $first->checkpoint['politeness']['reason']);
+        $this->assertSame(1, $first->checkpoint['politeness']['concurrency'], 'one page at a time from now on');
+        $this->assertNotNull($first->checkpoint['politeness']['next_attempt_at']);
+
+        // Too early: no request at all.
+        $sent = count(Http::recorded());
+        $early = $executor->execute($this->contextFrom($context, $datasetRun, $first->checkpoint));
+        $this->assertSame(DatasetExecutionOutcome::Continue, $early->outcome);
+        $this->assertGreaterThan(0, $early->backoffSeconds);
+        $this->assertSame($sent, count(Http::recorded()));
+
+        // Still struggling after the break: 15 minutes.
+        $this->travel(6)->minutes();
+        $second = $executor->execute($this->contextFrom($context, $datasetRun, $first->checkpoint));
+        $this->assertSame(900, $second->backoffSeconds);
+        $this->assertSame(2, count(Http::recorded()) - $sent, 'slow mode fetches two pages per step');
+
+        // Recovered: pages are stored, still gently.
+        $down = false;
+        $this->travel(16)->minutes();
+        $third = $executor->execute($this->contextFrom($context, $datasetRun, $second->checkpoint));
+        $this->assertSame(DatasetExecutionOutcome::Continue, $third->outcome, (string) $third->errorMessage);
+        $this->assertSame(2, $third->pagesCompleted);
+        $this->assertSame('slow', $third->checkpoint['politeness']['mode']);
+    }
+
+    #[Test]
+    public function public_crawl_backs_off_on_the_wordpress_database_error_page_and_gives_up_after_many_breaks(): void
+    {
+        Http::fake(fn () => Http::response('<html><body><h1>Error establishing a database connection</h1></body></html>', 500, ['Content-Type' => 'text/html']));
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $executor = app(WebsiteDatasetExecutor::class);
+        $checkpoint = ['observed_at' => '2026-08-20 00:00:00', 'queue' => ['http://1.1.1.1/'], 'visited' => [], 'pages' => 0];
+
+        $waits = [];
+        for ($i = 0; $i < 12; $i++) {
+            $result = $executor->execute($this->contextFrom($context, $datasetRun, $checkpoint));
+            if ($result->outcome !== DatasetExecutionOutcome::Continue) {
+                break;
+            }
+            $waits[] = $result->backoffSeconds;
+            $this->assertSame('database', $result->checkpoint['politeness']['reason']);
+            $checkpoint = $result->checkpoint;
+            $this->travel($result->backoffSeconds + 1)->seconds();
+        }
+
+        $this->assertSame([300, 900, 3600, 3600], array_slice($waits, 0, 4));
+        $this->assertSame(DatasetExecutionOutcome::Failed, $result->outcome);
+        $this->assertSame('WEBSITE_HOST_STRUGGLING', $result->errorCode);
+        $this->assertStringContainsString('veritabanı', (string) $result->errorMessage);
+        $this->assertSame(0, DB::table('website_http_snapshot')->count(), 'the database error page is never stored as the page');
+    }
+
+    #[Test]
+    public function a_single_slow_page_is_skipped_after_the_breaks_instead_of_stopping_the_crawl(): void
+    {
+        Http::fake(fn ($request) => str_contains($request->url(), '/slow')
+            ? Http::response('', 504)
+            : Http::response('<html><body>ok</body></html>', 200, ['Content-Type' => 'text/html']));
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $executor = app(WebsiteDatasetExecutor::class);
+        $checkpoint = ['observed_at' => '2026-08-20 00:00:00', 'queue' => ['http://1.1.1.1/slow', 'http://1.1.1.1/ok'], 'visited' => [], 'pages' => 0];
+
+        for ($i = 0; $i < 6; $i++) {
+            $result = $executor->execute($this->contextFrom($context, $datasetRun, $checkpoint));
+            $checkpoint = $result->checkpoint ?? $checkpoint;
+            if ($result->outcome !== DatasetExecutionOutcome::Continue) {
+                break;
+            }
+            $this->travel($result->backoffSeconds + 1)->seconds();
+        }
+
+        $this->assertSame(DatasetExecutionOutcome::Completed, $result->outcome, (string) $result->errorMessage);
+        $this->assertSame(2, $result->checkpoint['pages']);
+        $this->assertSame(1, DB::table('website_http_snapshot')->where('url', 'http://1.1.1.1/slow')->count(), 'recorded as a crawl issue');
     }
 
     private function fakePublicSite(): void

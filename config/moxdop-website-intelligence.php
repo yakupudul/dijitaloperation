@@ -82,6 +82,20 @@ $crawlReason = 'Public crawl / HTTP diagnosis observations; refreshed when the s
 $connectorReason = 'WordPress Connector inventory; refreshed by connector sync and reconciliation, not routine incremental.';
 
 return [
+    /*
+     * "Nazik mod" of the public crawler (WebsiteCrawlPoliteness): small shared hosts must not be overloaded.
+     * A few pages at a time per site, a short pause between steps, one step per site across all workers; a site
+     * that answers 429 / 502 / 503 / 504, times out or shows the WordPress database error gets 5 → 15 → 60 minute
+     * breaks and one page at a time.
+     */
+    'crawl' => [
+        'concurrency' => (int) env('MOXDOP_CRAWL_CONCURRENCY', 2),
+        'batch_size' => (int) env('MOXDOP_CRAWL_BATCH_SIZE', 6),
+        'min_delay_seconds' => (int) env('MOXDOP_CRAWL_MIN_DELAY_SECONDS', 2),
+        'backoff_minutes' => [5, 15, 60],
+        'max_backoffs' => 8,
+    ],
+
     'registry_overlay' => [
         'overlay_id' => 'WEBSITE_INTELLIGENCE_V1',
         'request_families' => [

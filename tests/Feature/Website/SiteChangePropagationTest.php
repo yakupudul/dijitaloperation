@@ -81,12 +81,37 @@ final class SiteChangePropagationTest extends TestCase
     public function test_plugin_sends_right_after_a_save_and_serves_the_indexnow_key(): void
     {
         $events = file_get_contents(base_path('connectors/wordpress/moxdop-connector/includes/class-moxdop-connector-events.php'));
-        $this->assertStringContainsString('$this->send_soon();', $events, 'persist() starts a one-off send');
-        $this->assertStringContainsString('spawn_cron();', $events, 'non-blocking loopback');
-        $this->assertStringContainsString("'moxdop_five_minutes'", $events, 'the 5-minute schedule stays as fallback');
+        $this->assertStringContainsString('$this->send_soon();', $events, 'persist() schedules a one-off send');
+        $this->assertStringContainsString('wp_schedule_single_event(time() + self::DEBOUNCE, self::NOW_HOOK);', $events, 'one debounced send about a minute after the save');
+        $this->assertStringContainsString('const DEBOUNCE = 60;', $events);
+        $this->assertStringNotContainsString('spawn_cron(', $events, '1.5.1: no loopback request on every save (shared hosts)');
+        $this->assertStringContainsString("'interval' => 900", $events, 'the 15-minute schedule stays as fallback');
+        $this->assertStringContainsString('$event->schedule !== self::SCHEDULE', $events, 'existing 5-minute installs are moved to 15 minutes');
+        $this->assertStringContainsString('const HEARTBEAT = 21600;', $events, 'an empty outbox sends only a 6-hour heartbeat');
+        $this->assertStringContainsString('get_option(self::SETUP_OPTION) === MOXDOP_CONNECTOR_VERSION', $events, 'setup / dbDelta once per version');
+        $this->assertStringContainsString('time() - HOUR_IN_SECONDS', $events, 'the outbox size check runs at most hourly');
+        $rest = file_get_contents(base_path('connectors/wordpress/moxdop-connector/includes/class-moxdop-connector-rest-controller.php'));
+        $this->assertStringContainsString('MoxDOP_Connector_Lock::acquire($lock, 120)', $rest, 'one snapshot at a time');
+        $this->assertStringContainsString("\$busy->header('Retry-After', '30');", $rest);
+        $this->assertStringContainsString('$per_page = min(50, max(1,', $rest);
         $indexnow = file_get_contents(base_path('connectors/wordpress/moxdop-connector/includes/class-moxdop-connector-indexnow.php'));
         $this->assertStringContainsString("get_option('blog_public', '1') === '1'", $indexnow, 'never while search engines are discouraged');
         $this->assertStringContainsString("\$path !== '/'.\$key.'.txt'", $indexnow);
+    }
+
+    public function test_every_plugin_file_lints_and_the_version_matches_what_moxdop_offers(): void
+    {
+        $files = glob(base_path('connectors/wordpress/moxdop-connector/{,includes/}*.php'), GLOB_BRACE) ?: [];
+        $this->assertGreaterThan(10, count($files));
+        foreach ($files as $file) {
+            exec(escapeshellarg(PHP_BINARY).' -l '.escapeshellarg($file).' 2>&1', $output, $code);
+            $this->assertSame(0, $code, basename($file).': '.implode("\n", $output));
+        }
+        $main = (string) file_get_contents(base_path('connectors/wordpress/moxdop-connector/moxdop-connector.php'));
+        $version = (string) config('moxdop-wordpress.connector_version');
+        $this->assertStringContainsString(' * Version: '.$version, $main);
+        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '".$version."')", $main);
+        $this->assertStringContainsString('Stable tag: '.$version, (string) file_get_contents(base_path('connectors/wordpress/moxdop-connector/readme.txt')));
     }
 
     private function watcher(): SitemapChangeWatcher

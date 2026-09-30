@@ -17,6 +17,7 @@ use App\Services\DataPool\MaterializationService;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RawPayloadEnvelope;
 use App\Services\DataPool\Support\WriteReceipt;
+use App\Services\Integrations\WordPress\WordPressConnectorBusyException;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Services\Website\Pages\WordPressPageSync;
@@ -108,7 +109,12 @@ final class WordPressConnectorDatasetExecutor implements DatasetExecutor
             throw new RuntimeException('Invalid incremental WordPress object scope.');
         }
         $scopeIds = in_array($section, ['content', 'media', 'seo'], true) ? $objectIds : [];
-        $payload = $this->client->snapshot($connection, $section, $page, objectIds: $scopeIds);
+        try {
+            $payload = $this->client->snapshot($connection, $section, $page, objectIds: $scopeIds);
+        } catch (WordPressConnectorBusyException $busy) {
+            return $this->siteBusy($checkpoint, $busy, $sectionIndex, count($sections), $section);
+        }
+        unset($checkpoint['busy_count'], $checkpoint['busy']);
         if ($scopeIds !== [] && ($payload['object_ids'] ?? null) !== $scopeIds) {
             throw new RuntimeException('Connector did not confirm the requested incremental scope; update the plugin.');
         }
@@ -166,6 +172,37 @@ final class WordPressConnectorDatasetExecutor implements DatasetExecutor
             pagesCompleted: 1,
             stage: $section,
             checkpoint: $checkpointOut,
+            // A short pause between two snapshot pages of the same site.
+            backoffSeconds: max(0, (int) config('moxdop-wordpress.page_delay_seconds', 2)),
+        );
+    }
+
+    /**
+     * The site asked for a break (429 / 502 / 503 / 504 / database error): the same page is asked again after
+     * Retry-After, then 5 → 15 → 60 minutes when it keeps happening; after many breaks the collection stops.
+     *
+     * @param  array<string, mixed>  $checkpoint
+     */
+    private function siteBusy(array $checkpoint, WordPressConnectorBusyException $busy, int $sectionIndex, int $sections, string $section): DatasetExecutionResult
+    {
+        $count = max(0, (int) ($checkpoint['busy_count'] ?? 0)) + 1;
+        if ($count > max(1, (int) config('moxdop-wordpress.max_busy_retries', 8))) {
+            throw new RuntimeException('WordPress sitesi uzun süredir meşgul yanıt veriyor (HTTP '.$busy->status.'); envanter çekimi durduruldu.');
+        }
+        $ladder = [0, 300, 900, 3600];
+        $wait = max($busy->retryAfterSeconds, $ladder[min($count, count($ladder)) - 1]);
+
+        return new DatasetExecutionResult(
+            outcome: DatasetExecutionOutcome::Continue,
+            progressMode: ProgressMode::PageBased,
+            progressCurrent: $sectionIndex,
+            progressTotal: $sections,
+            stage: $section,
+            checkpoint: array_merge($checkpoint, [
+                'busy_count' => $count,
+                'busy' => ['status' => $busy->status, 'wait_seconds' => $wait, 'next_attempt_at' => now()->addSeconds($wait)->toIso8601String()],
+            ]),
+            backoffSeconds: $wait,
         );
     }
 

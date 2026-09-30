@@ -38,10 +38,13 @@ final class MoxDOP_Connector_IndexNow
         add_action('parse_request', [$this, 'serve_key'], 0);
     }
 
-    /** Answers /{key}.txt with the key (IndexNow ownership proof). */
+    /** Answers /{key}.txt with the key (IndexNow ownership proof). 1.5.1: other URLs cost no database query. */
     public function serve_key()
     {
         $path = (string) wp_parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+        if (! preg_match('#^/[a-f0-9]{32}\.txt$#', $path)) {
+            return;
+        }
         $key = (string) get_option(self::KEY, '');
         if ($key === '' || $path !== '/'.$key.'.txt') {
             return;

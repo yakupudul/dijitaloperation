@@ -1,5 +1,10 @@
 # PROJECT_MEMORY
 
+## 2026-11-08 — Site çekimi ve WordPress Connector küçük hostingte "nazik"
+
+- **Karar (operatör):** MoxDOP bir siteyi küçük paylaşımlı hostingi yormayacak hızda çeker: site başına aynı anda en çok 2 sayfa, adımlar arası kısa ara, aynı siteye tek çekim adımı; site zorlanırsa (429 / 503 / 502 / 504, zaman aşımı, WordPress veritabanı hatası) çekim kendiliğinden durur, tek sayfaya iner ve 5 → 15 → 60 dk bekler; neden ve sonraki deneme ekranda görünür. Hata sayfası içerik olarak kaydedilmez. İşlev kaybı yok: çekim aynı yerden devam eder. Önceki "adım başına 15 paralel sayfa" ayarının yerini alır.
+- **Karar:** WordPress Connector 1.5.1 site üzerinde yük üretmez: kayıt başına loopback yok (dakikada tek gönderim), boş outbox'ta istek yok (6 saatlik sinyal hariç), kurulum sürüm başına bir kez, aynı anda tek snapshot (429 + Retry-After; MoxDOP uyar). İçerik snapshot'ı 25 kayıtlık sayfalarla alınır.
+
 ## 2026-11-07 — Sorgular: tek Silinecekler listesi, paralel planlama
 
 - **Karar (operatör):** Filtre / eşleme kelimesi taramalarının önerileri tarama başına ayrı inceleme değil, Sorgular'da kalıcı "Silinecekler" sekmesinde birikir: sorgu başına tek satır, son öneri geçerli, hiçbir şey onaysız silinmez / değişmez. "Tut" aynı öneriyi kalıcı olarak susturur (terim ya da hedef hizmet değişirse yeniden gelir). Bildirimler sekmeye gider; eski inceleme bağlantıları sekmeye yönlenir. 2026-11-04 "tarama başına onay ekranı" kararının yerini alır.

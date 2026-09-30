@@ -259,7 +259,7 @@ final class MoxDOP_Connector_Fixes
                 return update_post_meta($target['post_id'], '_wp_attachment_image_alt', $value);
             case 'schema':
                 if (isset($target['site'])) {
-                    return update_option(self::SITE_SCHEMA_OPTION, (string) $value, false);
+                    return update_option(self::SITE_SCHEMA_OPTION, (string) $value, true);
                 }
 
                 return $value === '' ? delete_post_meta($target['post_id'], '_moxdop_schema') : update_post_meta($target['post_id'], '_moxdop_schema', wp_slash((string) $value));
