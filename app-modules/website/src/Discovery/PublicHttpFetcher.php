@@ -16,6 +16,15 @@ use Throwable;
  */
 final class PublicHttpFetcher
 {
+    /** Error code suffix for a WordPress "database connection" error page. */
+    public const string DATABASE_ERROR = 'database_connection_error';
+
+    /** @var list<string> */
+    public const array DATABASE_ERROR_MARKERS = [
+        'Error establishing a database connection',
+        'Veritabanı bağlantısı kurulurken hata',
+    ];
+
     public function __construct(
         private readonly PublicUrlSafety $safety = new PublicUrlSafety,
         private readonly PublicUrlNormalizer $normalizer = new PublicUrlNormalizer,
@@ -229,6 +238,14 @@ final class PublicHttpFetcher
         }
 
         $ok = $status < 400;
+        // WordPress answers "Error establishing a database connection" when the host runs out of database
+        // connections; that page is never stored as the page's content and tells the crawler to slow down.
+        $databaseDown = self::isDatabaseErrorPage($status, $body);
+        $error = $ok ? null : 'http_'.$status;
+        if ($databaseDown) {
+            $ok = false;
+            $error = ($error !== null ? $error.':' : '').self::DATABASE_ERROR;
+        }
 
         return ['result' => [
             'ok' => $ok,
@@ -239,8 +256,23 @@ final class PublicHttpFetcher
             'body' => $ok ? $body : null,
             'bytes' => $bytes,
             'redirect_count' => $redirects,
-            'error' => $ok ? null : 'http_'.$status,
+            'error' => $error,
         ]];
+    }
+
+    /** A server error page (or a tiny 200 page) that carries WordPress's database-connection error. */
+    public static function isDatabaseErrorPage(int $status, string $body): bool
+    {
+        if ($status < 500 && strlen($body) > 8192) {
+            return false;
+        }
+        foreach (self::DATABASE_ERROR_MARKERS as $marker) {
+            if (stripos($body, $marker) !== false) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function isAllowedContentType(string $contentType): bool

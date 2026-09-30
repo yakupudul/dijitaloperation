@@ -43,7 +43,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
     /** Re-fetch every page at least this often, whatever its modified date says. */
     private const MAX_RECHECK_DAYS = 30;
 
-    /** URLs one crawl step fetches in parallel. */
+    /** Upper bound of URLs one crawl step fetches; the real size comes from WebsiteCrawlPoliteness (default 6). */
     public const CRAWL_BATCH_SIZE = 15;
 
     public function __construct(
@@ -57,6 +57,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         private readonly PublicUrlNormalizer $urls = new PublicUrlNormalizer,
         private readonly SslCertificateProbe $tls = new SslCertificateProbe,
         private readonly WebsitePageStateStore $pageState = new WebsitePageStateStore,
+        private readonly WebsiteCrawlPoliteness $politeness = new WebsiteCrawlPoliteness,
     ) {}
 
     public function supportedRequestFamilies(): array
@@ -219,10 +220,53 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         );
     }
 
-    /** @param array<string, mixed> $scope */
+    /**
+     * "Nazik mod": the crawl waits while the site is backing off and runs one step per host at a time.
+     *
+     * @param  array<string, mixed>  $scope
+     */
     private function executePublicCrawl(DatasetExecutionContext $context, array $scope): DatasetExecutionResult
     {
+        $host = $this->politeness->host((string) $scope['seed_url']);
+        $crawlDelay = isset($context->checkpoint['robots_crawl_delay']) ? (int) $context->checkpoint['robots_crawl_delay'] : null;
+        $wait = $this->politeness->waitSeconds($host);
+        if ($wait > 0) {
+            return $this->politeWait($context->checkpoint, $wait, $this->politeness->view($host, $crawlDelay));
+        }
+        $lock = $this->politeness->lock($host);
+        if ($lock === null) {
+            // Another worker is fetching from this site right now.
+            return $this->politeWait($context->checkpoint, 30, $this->politeness->view($host, $crawlDelay));
+        }
+
+        try {
+            return $this->crawlStep($context, $scope, $host);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Keeps the checkpoint as it is and comes back later.
+     *
+     * @param  array<string, mixed>  $checkpoint
+     * @param  array<string, mixed>  $politeness
+     */
+    private function politeWait(array $checkpoint, int $seconds, array $politeness): DatasetExecutionResult
+    {
+        return new DatasetExecutionResult(
+            outcome: DatasetExecutionOutcome::Continue,
+            stage: 'polite_wait',
+            checkpoint: array_merge($checkpoint, ['politeness' => $politeness]),
+            backoffSeconds: max(1, $seconds),
+        );
+    }
+
+    /** @param array<string, mixed> $scope */
+    private function crawlStep(DatasetExecutionContext $context, array $scope, string $host): DatasetExecutionResult
+    {
         $checkpoint = $context->checkpoint;
+        $crawlDelay = isset($checkpoint['robots_crawl_delay']) ? (int) $checkpoint['robots_crawl_delay'] : null;
         $observedAt = (string) ($checkpoint['observed_at'] ?? $this->collectionObservedAt());
         $seed = (string) $scope['seed_url'];
         $targetedUrls = $this->targetedVerificationUrls($context, $seed);
@@ -244,6 +288,9 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         } else {
             // `refetch_unchanged` (default: force_refresh) — a manual collection re-fetches only changed pages.
             $requestContext = (array) $context->collectionRun->request_context;
+            // robots.txt Crawl-delay slows this crawl down further (one page per step, that many seconds apart).
+            $robots = $this->fetchForCollection(rtrim($this->origin($seed), '/').'/robots.txt');
+            $crawlDelay = $this->politeness->robotsCrawlDelay(($robots['ok'] ?? false) && is_string($robots['body'] ?? null) ? $robots['body'] : null);
             $seedQueue = $this->crawlSeedQueue((int) $scope['asset']->id, $seed, (bool) ($requestContext['refetch_unchanged'] ?? $requestContext['force_refresh'] ?? false));
             $queue = $seedQueue['queue'];
             // Pages whose modified date says they did not change since the last fetch keep their stored copy.
@@ -256,17 +303,20 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         $bytesDownloaded = (int) ($checkpoint['bytes_downloaded_total'] ?? 0);
         $assetId = (int) $scope['asset']->id;
         $maxPages = $targeted ? count($targetedUrls) : DiscoveryConfig::MAX_COLLECTION_PAGES;
+        $politenessExtra = ['robots_crawl_delay' => $crawlDelay, 'politeness' => $this->politeness->view($host, $crawlDelay)];
 
         if ($queue === [] || $pages >= $maxPages || $bytesDownloaded >= DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES) {
             return $this->completedCounted($pages, $maxPages, $this->crawlCheckpoint(
-                $observedAt, [], $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged,
+                $observedAt, [], $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged, $politenessExtra,
             ));
         }
 
-        // One step fetches up to CRAWL_BATCH_SIZE URLs in parallel. The checkpoint only advances after every page of
-        // the batch is stored; a retried step fetches the same batch again and its per-page batch keys are reused.
+        // One step fetches a small batch, a few URLs at a time (WebsiteCrawlPoliteness). The checkpoint only advances
+        // after every page of the batch is stored; a retried step fetches the same batch again and its per-page batch
+        // keys are reused.
+        $batchSize = min(self::CRAWL_BATCH_SIZE, $this->politeness->batchSize($host, $crawlDelay));
         $batch = [];
-        while ($queue !== [] && count($batch) < min(self::CRAWL_BATCH_SIZE, $maxPages - $pages)) {
+        while ($queue !== [] && count($batch) < min($batchSize, $maxPages - $pages)) {
             $candidate = (string) array_shift($queue);
             if ($candidate !== '' && ! in_array($candidate, $visited, true) && ! in_array($candidate, $batch, true)) {
                 $batch[] = $candidate;
@@ -274,11 +324,43 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         }
         if ($batch === []) {
             return $this->completedCounted($pages, $maxPages, $this->crawlCheckpoint(
-                $observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged,
+                $observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged, $politenessExtra,
             ));
         }
 
-        $fetches = $this->fetcher->fetchMany($batch, DiscoveryConfig::MAX_COLLECTION_RESPONSE_BYTES, self::CRAWL_BATCH_SIZE);
+        $fetches = $this->fetcher->fetchMany($batch, DiscoveryConfig::MAX_COLLECTION_RESPONSE_BYTES, $this->politeness->concurrency($host, $crawlDelay));
+        $distress = $this->politeness->distress($fetches);
+        if ($distress !== null) {
+            $backoff = $this->politeness->backOff($host, $distress, count($batch));
+            if ($backoff['give_up']) {
+                $this->politeness->forget($host);
+
+                return DatasetExecutionResult::failed(
+                    CollectionErrorCategory::Provider5xx,
+                    'Site uzun süredir yanıt veremiyor ('.self::distressLabel($distress).'); çekim durduruldu, site düzelince yeniden başlatın.',
+                    'WEBSITE_HOST_STRUGGLING',
+                );
+            }
+            if (! $backoff['skip_page']) {
+                // Nothing of this batch is stored: the same pages are fetched again, one at a time, after the wait.
+                $politenessExtra['politeness'] = $this->politeness->view($host, $crawlDelay);
+
+                return new DatasetExecutionResult(
+                    outcome: DatasetExecutionOutcome::Continue,
+                    progressMode: ProgressMode::PageBased,
+                    progressCurrent: $pages,
+                    progressTotal: $maxPages,
+                    stage: 'polite_backoff',
+                    checkpoint: $this->crawlCheckpoint(
+                        $observedAt, array_values(array_merge($batch, $queue)), $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged, $politenessExtra,
+                    ),
+                    backoffSeconds: $backoff['wait_seconds'],
+                );
+            }
+        } else {
+            $this->politeness->recovered($host);
+        }
+        $politenessExtra['politeness'] = $this->politeness->view($host, $crawlDelay);
         // A site with the WordPress Connector: its page list comes from WordPress (+ sitemap); links are not followed.
         $followLinks = ! $targeted && ! $this->hasCmsInventory($assetId);
         $written = 0;
@@ -317,7 +399,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             }
         }
 
-        $checkpointOut = $this->crawlCheckpoint($observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged);
+        $checkpointOut = $this->crawlCheckpoint($observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged, $politenessExtra);
 
         if ($limitReached || $queue === [] || $pages >= $maxPages || $bytesDownloaded >= DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES) {
             return $this->completedCounted($pages, $maxPages, $checkpointOut, $written, $written, $pagesThisStep);
@@ -332,7 +414,23 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             rowsWritten: $written,
             pagesCompleted: $pagesThisStep,
             checkpoint: $checkpointOut,
+            // A short pause before the next step of the same site.
+            backoffSeconds: $this->politeness->stepDelay($crawlDelay),
         );
+    }
+
+    /** Operator wording of why the site is being given a break. */
+    public static function distressLabel(string $reason): string
+    {
+        return match ($reason) {
+            'database' => 'veritabanı bağlantı hatası',
+            'rate_limited' => 'çok fazla istek (429)',
+            'unavailable' => 'geçici olarak hizmet dışı (503)',
+            'gateway' => 'sunucu geç yanıt veriyor (502/504)',
+            'timeout' => 'zaman aşımı',
+            'server_error' => 'sunucu hatası (500)',
+            default => 'yavaş yanıt',
+        };
     }
 
     /** @param array<string, mixed> $scope */
@@ -947,6 +1045,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
     /**
      * @param  list<string>  $queue
      * @param  list<string>  $visited
+     * @param  array<string, mixed>  $extra
      * @return array<string, mixed>
      */
     private function crawlCheckpoint(
@@ -958,8 +1057,9 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         int $bytesDownloaded,
         int $urlsPlanned,
         int $skippedUnchanged = 0,
+        array $extra = [],
     ): array {
-        return [
+        return $extra + [
             'skipped_unchanged' => $skippedUnchanged,
             'observed_at' => $observedAt,
             'queue' => array_values($queue),

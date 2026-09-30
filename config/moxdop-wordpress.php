@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'connector_version' => '1.5.0',
+    'connector_version' => '1.5.1',
     // Sağlık raporu, tek tık giriş ve onaylı güncelleme: 1.3.0 bu yanıtları imzasız döndürüyordu (MoxDOP reddeder); 1.4.0 imzalar.
     'management_min_plugin_version' => '1.4.0',
     // ADR-070: onaylı SEO düzeltmeleri ve içerik güncelleme.
@@ -18,4 +18,11 @@ return [
     'update_timeout_seconds' => 300,
     'max_response_bytes' => 5 * 1024 * 1024,
     'per_page' => 50,
+    // 1.5.1 "nazik mod": içerik / medya sayfaları küçük (site her yazının bloklarını işler); iki sayfa arası kısa ara;
+    // site 429 / 503 / veritabanı hatası verirse Retry-After, sonra 5 → 15 → 60 dk beklenir.
+    'content_per_page' => 25,
+    'page_delay_seconds' => (int) env('MOXDOP_WORDPRESS_PAGE_DELAY_SECONDS', 2),
+    'max_busy_retries' => 8,
+    // Eklenti boş outbox'ta en geç 6 saatte bir sinyal gönderir; bu süreden uzun sessizlik "sessiz site" sayılır.
+    'delivery_stale_hours' => 24,
 ];

@@ -277,7 +277,7 @@ final class WebsiteIntegrationIndex extends Component
             'last_reconciled' => $state->last_reconciled_at,
             'last_inventory' => $state->last_inventory_at,
             'next_retry' => $state->next_reconcile_at,
-            'stale' => ! $state->last_received_at || strtotime($state->last_received_at) < now()->subDay()->getTimestamp(),
+            'stale' => ! $state->last_received_at || strtotime($state->last_received_at) < now()->subHours((int) config('moxdop-wordpress.delivery_stale_hours', 24))->getTimestamp(),
             'pending' => DB::table('website_connector_events')->where('connection_id', $connection->id)
                 ->where('id', '>', $state->reconciled_event_id)->count(),
             'error' => $state->last_error,
@@ -1681,7 +1681,7 @@ final class WebsiteIntegrationIndex extends Component
      * Page HTML crawl progress of a run, from its checkpoint: pages fetched, pages planned (pages skipped as
      * unchanged are not planned) and, while it runs, the minutes left at the rate so far.
      *
-     * @return array{done: int, planned: int, skipped: int, active: bool, eta_minutes: ?int}|null
+     * @return array{done: int, planned: int, skipped: int, active: bool, eta_minutes: ?int, eta_label: ?string, politeness: ?array<string, mixed>}|null
      */
     private function crawlProgress(CollectionRun $run): ?array
     {
@@ -1695,9 +1695,13 @@ final class WebsiteIntegrationIndex extends Component
         $skipped = 0;
         $etaSeconds = null;
         $active = false;
+        $politeness = null;
         foreach ($crawls as $crawl) {
             /** @var CollectionDatasetRun $crawl */
             $checkpoint = is_array($crawl->checkpoint) ? $crawl->checkpoint : [];
+            if (is_array($checkpoint['politeness'] ?? null) && in_array($crawl->status?->value, ['queued', 'running', 'retrying'], true)) {
+                $politeness = $checkpoint['politeness'];
+            }
             $pages = (int) ($checkpoint['pages'] ?? 0);
             $total = max($pages, (int) ($checkpoint['urls_planned'] ?? 0));
             $done += $pages;
@@ -1719,7 +1723,40 @@ final class WebsiteIntegrationIndex extends Component
             'active' => $active,
             'eta_minutes' => $etaSeconds !== null ? max(1, (int) ceil($etaSeconds / 60)) : null,
             'eta_label' => $etaSeconds !== null ? $this->minutesLabel(max(1, (int) ceil($etaSeconds / 60))) : null,
+            'politeness' => $politeness,
         ];
+    }
+
+    /**
+     * "Nazik mod" line: how gently the site is crawled and, while it is given a break, why and until when.
+     *
+     * @param  array<string, mixed>|null  $politeness  checkpoint view of WebsiteCrawlPoliteness
+     */
+    private function politenessLine(?array $politeness): string
+    {
+        $concurrency = (int) ($politeness['concurrency'] ?? config('moxdop-website-intelligence.crawl.concurrency', 2));
+        $reason = is_string($politeness['reason'] ?? null) ? WebsiteDatasetExecutor::distressLabel($politeness['reason']) : null;
+        $next = filled($politeness['next_attempt_at'] ?? null) ? Carbon::parse((string) $politeness['next_attempt_at']) : null;
+        if (($politeness['mode'] ?? null) === 'backoff' && $next !== null && $next->isFuture()) {
+            $minutes = max(1, (int) ceil(now()->diffInSeconds($next, true) / 60));
+
+            return $this->text(
+                'Site yavaş yanıt veriyor'.($reason ? ' ('.$reason.')' : '').'; çekim '.$minutes.' dk sonra ('.$next->copy()->setTimezone(config('app.timezone'))->format('H:i').') yavaşça sürecek · aynı anda 1 sayfa',
+                'The site is responding slowly'.($reason ? ' ('.$reason.')' : '').'; collection continues gently in '.$minutes.' min ('.$next->copy()->setTimezone(config('app.timezone'))->format('H:i').') · 1 page at a time',
+            );
+        }
+        if (($politeness['mode'] ?? null) === 'slow') {
+            $why = (int) ($politeness['crawl_delay'] ?? 0) > 0
+                ? $this->text('robots.txt bekleme süresi '.(int) $politeness['crawl_delay'].' sn', 'robots.txt crawl delay '.(int) $politeness['crawl_delay'].' s')
+                : $this->text('site yakın zamanda zorlandı'.($reason ? ': '.$reason : ''), 'the site struggled recently'.($reason ? ': '.$reason : ''));
+
+            return $this->text('Nazik mod: aynı anda '.$concurrency.' sayfa · '.$why, 'Gentle mode: '.$concurrency.' page(s) at a time · '.$why);
+        }
+
+        return $this->text(
+            'Nazik mod: aynı anda '.$concurrency.' sayfa · site yavaşlarsa otomatik yavaşlar',
+            'Gentle mode: '.$concurrency.' pages at a time · slows down automatically if the site slows down',
+        );
     }
 
     /**
@@ -1765,6 +1802,7 @@ final class WebsiteIntegrationIndex extends Component
 
         return [
             ['label' => $this->text('Sayfalar', 'Pages'), 'value' => $pageLine],
+            ['label' => $this->text('Çekim hızı', 'Crawl pace'), 'value' => $this->politenessLine(is_array($pages) && $pages['active'] ? $pages['politeness'] : null)],
             ['label' => 'WordPress', 'value' => $wordpressLine],
             ['label' => $this->text('Son çekim', 'Latest collection'), 'value' => $lastRun],
         ];

@@ -4,8 +4,10 @@ defined('ABSPATH') || exit;
 
 /**
  * Small local outbox. No network requests run in content-save hooks.
- * 1.4.1: right after a save the outbox is sent by a one-off WP-Cron event started with a non-blocking loopback, so
- * MoxDOP hears about the change within seconds; the 5-minute schedule stays as the fallback.
+ * 1.5.1 ("gentle mode" for small shared hosts): a save schedules ONE send about a minute later (saves within that
+ * minute share it; no loopback request per save); the fallback schedule runs every 15 minutes and makes no request
+ * at all while the outbox is empty, except a heartbeat when the last acknowledgement is older than 6 hours.
+ * Setup (table, schedule) runs once per plugin version, never on every request.
  */
 final class MoxDOP_Connector_Events
 {
@@ -15,7 +17,22 @@ final class MoxDOP_Connector_Events
 
     const LIMIT = 10000;
 
+    const SCHEDULE = 'moxdop_fifteen_minutes';
+
+    /** Seconds between a save and the send it schedules. */
+    const DEBOUNCE = 60;
+
+    /** An empty outbox still reports in when the last acknowledgement is older than this. */
+    const HEARTBEAT = 21600;
+
+    /** Autoloaded: the plugin version whose setup already ran (no query on a normal page view). */
+    const SETUP_OPTION = 'moxdop_connector_setup_version';
+
+    const TRIM_OPTION = 'moxdop_connector_outbox_trimmed_at';
+
     private $pending = [];
+
+    private $paired = null;
 
     public function register()
     {
@@ -39,15 +56,33 @@ final class MoxDOP_Connector_Events
 
     public function schedules($schedules)
     {
-        $schedules['moxdop_five_minutes'] = ['interval' => 300, 'display' => 'MoxDOP / 5 minutes'];
+        $schedules[self::SCHEDULE] = ['interval' => 900, 'display' => 'MoxDOP / 15 minutes'];
 
         return $schedules;
     }
 
+    /** Runs on init: after the one-time setup of this version it only reads the in-memory cron list. */
     public function install()
+    {
+        if (get_option(self::SETUP_OPTION) === MOXDOP_CONNECTOR_VERSION) {
+            if (! wp_next_scheduled(self::HOOK)) {
+                wp_schedule_event(time() + 300, self::SCHEDULE, self::HOOK);
+            }
+
+            return;
+        }
+        $this->setup();
+    }
+
+    /** Once per plugin version (and again only if the outbox table could not be created, at most hourly). */
+    private function setup()
     {
         global $wpdb;
         if (get_option('moxdop_connector_outbox_version') !== '1') {
+            if (get_transient('moxdop_connector_setup_retry')) {
+                return;
+            }
+            set_transient('moxdop_connector_setup_retry', 1, HOUR_IN_SECONDS);
             require_once ABSPATH.'wp-admin/includes/upgrade.php';
             $table = $wpdb->prefix.'moxdop_outbox';
             dbDelta("CREATE TABLE $table (
@@ -58,19 +93,35 @@ final class MoxDOP_Connector_Events
                 PRIMARY KEY  (id),
                 UNIQUE KEY event_id (event_id)
             ) ".$wpdb->get_charset_collate().';');
-            if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table))) === $table) {
-                update_option('moxdop_connector_outbox_version', '1', false);
+            if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table))) !== $table) {
+                return;
             }
+            update_option('moxdop_connector_outbox_version', '1', false);
+            delete_transient('moxdop_connector_setup_retry');
+        }
+        // Up to 1.5.0 the fallback ran every 5 minutes: move existing installs to the 15-minute schedule.
+        $event = function_exists('wp_get_scheduled_event') ? wp_get_scheduled_event(self::HOOK) : false;
+        if ($event && $event->schedule !== self::SCHEDULE) {
+            wp_clear_scheduled_hook(self::HOOK);
         }
         if (! wp_next_scheduled(self::HOOK)) {
-            wp_schedule_event(time() + 60, 'moxdop_five_minutes', self::HOOK);
+            wp_schedule_event(time() + 300, self::SCHEDULE, self::HOOK);
         }
+        // Options read on every front-end page view are autoloaded, so they cost no extra database query.
+        add_option(MoxDOP_Connector_Fixes::REDIRECTS_OPTION, [], '', 'yes');
+        add_option(MoxDOP_Connector_Fixes::SITE_SCHEMA_OPTION, '', '', 'yes');
+        if (function_exists('wp_set_option_autoload')) {
+            wp_set_option_autoload(MoxDOP_Connector_Fixes::REDIRECTS_OPTION, true);
+            wp_set_option_autoload(MoxDOP_Connector_Fixes::SITE_SCHEMA_OPTION, true);
+        }
+        update_option(self::SETUP_OPTION, MOXDOP_CONNECTOR_VERSION, true);
     }
 
     public static function deactivate()
     {
         wp_clear_scheduled_hook(self::HOOK);
         wp_clear_scheduled_hook(self::NOW_HOOK);
+        delete_option(self::SETUP_OPTION);
     }
 
     private function tracked($post)
@@ -183,7 +234,10 @@ final class MoxDOP_Connector_Events
 
     private function record($type, $object_type, $object_id, $fields, $post = null)
     {
-        if (! get_option(MoxDOP_Connector_Secrets::OPTION) || get_option('moxdop_connector_outbox_version') !== '1') {
+        if ($this->paired === null) {
+            $this->paired = get_option(MoxDOP_Connector_Secrets::OPTION) && get_option('moxdop_connector_outbox_version') === '1';
+        }
+        if (! $this->paired) {
             return;
         }
         $key = $type.'|'.$object_type.'|'.$object_id;
@@ -227,6 +281,11 @@ final class MoxDOP_Connector_Events
         }
         $this->pending = [];
         $this->send_soon();
+        // The size cap is checked at most once an hour, not on every save.
+        if ((int) get_option(self::TRIM_OPTION, 0) > time() - HOUR_IN_SECONDS) {
+            return;
+        }
+        update_option(self::TRIM_OPTION, time(), true);
         $cutoff = $wpdb->get_var("SELECT id FROM $table ORDER BY id DESC LIMIT 1 OFFSET ".self::LIMIT);
         if ($cutoff) {
             $wpdb->query($wpdb->prepare("DELETE FROM $table WHERE id <= %d", $cutoff));
@@ -234,14 +293,14 @@ final class MoxDOP_Connector_Events
         }
     }
 
-    /** One-off send a few seconds from now; the loopback does not wait for an answer. */
+    /**
+     * One send about a minute after a save; further saves within that minute share it. No loopback request here:
+     * WordPress runs the due event on a later page view (or the host cron when DISABLE_WP_CRON is set).
+     */
     public function send_soon()
     {
         if (! wp_next_scheduled(self::NOW_HOOK)) {
-            wp_schedule_single_event(time(), self::NOW_HOOK);
-        }
-        if (! (defined('DISABLE_WP_CRON') && DISABLE_WP_CRON) && function_exists('spawn_cron')) {
-            spawn_cron();
+            wp_schedule_single_event(time() + self::DEBOUNCE, self::NOW_HOOK);
         }
     }
 
@@ -273,17 +332,19 @@ final class MoxDOP_Connector_Events
             || (int) get_option('moxdop_connector_events_retry_at', 0) > time()) {
             return;
         }
-        $lock = 'moxdop_connector_events_lock';
-        $old = get_option($lock);
-        if ($old && (int) $old < time() - 120) {
-            $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s", $lock, (string) $old));
-            wp_cache_delete($lock, 'options');
+        $table = $wpdb->prefix.'moxdop_outbox';
+        // Nothing to send: no request at all, except a heartbeat every 6 hours so MoxDOP knows the site is fine.
+        if (! $wpdb->get_var("SELECT id FROM $table LIMIT 1")) {
+            $ack = strtotime((string) get_option('moxdop_connector_events_ack_at'));
+            if ($ack && $ack > time() - self::HEARTBEAT) {
+                return;
+            }
         }
-        if (! add_option($lock, (string) time(), '', 'no')) {
+        $lock = 'moxdop_connector_events_lock';
+        if (! MoxDOP_Connector_Lock::acquire($lock, 120)) {
             return;
         }
         try {
-            $table = $wpdb->prefix.'moxdop_outbox';
             $rows = $wpdb->get_results("SELECT id, event_id, payload FROM $table ORDER BY id ASC LIMIT 50");
             $events = [];
             foreach ($rows as $row) {
@@ -348,7 +409,7 @@ final class MoxDOP_Connector_Events
             delete_option('moxdop_connector_events_attempt');
             delete_option('moxdop_connector_events_retry_at');
         } finally {
-            delete_option($lock);
+            MoxDOP_Connector_Lock::release($lock);
         }
     }
 }

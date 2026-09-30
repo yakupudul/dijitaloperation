@@ -46,6 +46,9 @@
         <env name="FINDINGS_EVALUATE_AFTER_EVIDENCE" value="false"/>
         <env name="OPPORTUNITIES_EVALUATE_AFTER_FINDINGS" value="false"/>
         <env name="GOOGLE_ADS_API_VERSION" value="v25" force="true"/>
+        <!-- The sync queue ignores job delays: the per-step pause between crawl / WordPress snapshot pages is tested explicitly. -->
+        <env name="MOXDOP_CRAWL_MIN_DELAY_SECONDS" value="0"/>
+        <env name="MOXDOP_WORDPRESS_PAGE_DELAY_SECONDS" value="0"/>
         <env name="MOXDOP_DISK_WARN_SHARE" value="0"/>
         <env name="MOXDOP_DISK_PAUSE_SHARE" value="0"/>
         <env name="MOXDOP_DISK_PAUSE_GB" value="0"/>

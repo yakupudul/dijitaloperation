@@ -191,7 +191,7 @@ final class OperatorIntegrationsHubQuery
             : collect();
         $current = (string) config('moxdop-wordpress.connector_version', '');
         $outdated = $delivery->filter(fn (object $row): bool => SystemHealthReader::isOutdated($row->plugin_version, $current))->count();
-        $silent = $delivery->filter(fn (object $row): bool => $row->last_received_at === null || strtotime((string) $row->last_received_at) < now()->subDay()->getTimestamp())->count();
+        $silent = $delivery->filter(fn (object $row): bool => $row->last_received_at === null || strtotime((string) $row->last_received_at) < now()->subHours((int) config('moxdop-wordpress.delivery_stale_hours', 24))->getTimestamp())->count();
         $paired = $sites->count();
 
         $shell['state'] = $paired === 0 ? 'not_configured' : ($outdated + $silent > 0 ? 'needs_attention' : 'connected');

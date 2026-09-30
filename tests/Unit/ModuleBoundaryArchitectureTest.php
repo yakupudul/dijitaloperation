@@ -35,6 +35,7 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Jobs/Async/SeoIntelligenceRefreshJob.php',
         // Shared Collection Engine adapters: reuse Website public-HTTP / SEO normalizers, no second store.
         'app/Services/Collection/Providers/Website/WebsiteDatasetExecutor.php',
+        'app/Services/Collection/Providers/Website/WebsiteCrawlPoliteness.php',
         'app/Services/Collection/Providers/Website/WebsiteEligibilityGuard.php',
         'app/Services/Collection/Providers/Website/WebsiteNormalizer.php',
         'app/Services/Collection/Providers/DataForSeo/DataForSeoDatasetExecutor.php',

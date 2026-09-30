@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.5.0
+Stable tag: 1.5.1
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -36,8 +36,9 @@ use one-time nonces. The shared secret is encrypted at rest using Sodium or Open
 == Activity delivery ==
 
 Content, SEO, maintenance and selected configuration changes are buffered locally.
-Up to 50 events are sent every five minutes through WP-Cron, with signed acknowledgements,
-deduplication and exponential retry. Low traffic can delay WP-Cron; configure a host cron
+About a minute after a save, up to 50 events are sent through WP-Cron (saves within that minute share one send),
+with signed acknowledgements, deduplication and exponential retry. A 15-minute fallback schedule sends nothing
+while the outbox is empty, except a heartbeat every 6 hours. Low traffic can delay WP-Cron; configure a host cron
 for reliable timing. The local outbox retains up to 10,000 events and reports coverage gaps.
 No historical activity is invented. Existing pairing survives plugin updates.
 Incremental snapshot requests accept up to 50 object IDs and echo the accepted scope.
@@ -70,6 +71,13 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.5.1 =
+* Gentle on small shared hosts. A save no longer starts a loopback request: one send is scheduled about a minute later and shared by the saves in that minute.
+* The fallback schedule runs every 15 minutes (was 5; existing installs are moved automatically) and makes no request while the outbox is empty, except a heartbeat every 6 hours.
+* Table and schedule setup run once per plugin version, not on every request; the outbox size check runs at most once an hour.
+* Snapshot pages are capped at 50 items and only one snapshot is built at a time; a concurrent request gets 429 with Retry-After: 30.
+* Front-end page views read no extra options (IndexNow key only on its own URL, redirects / schema options autoloaded).
 
 = 1.5.0 =
 * Rich drafts: slug, excerpt, date, categories and tags by name, SEO title / description / focus keyword, Polylang language and translation link (merged into the existing group; language-appropriate category terms).
