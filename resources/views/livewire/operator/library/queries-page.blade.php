@@ -11,7 +11,7 @@
         <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Sorgular</h1>
         <nav class="flex flex-wrap items-center gap-1" aria-label="Sekmeler">
             @foreach (\App\Livewire\Operator\Library\QueriesPage::TABS as $key => $label)
-                <button type="button" wire:click="setTab('{{ $key }}')" data-tab="{{ $key }}" @class(['rounded-lg px-3 py-1.5 text-xs font-semibold', 'bg-brand-500 text-white' => $tab === $key, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $tab !== $key])>{{ $label }}@if ($key === 'pending' && $pendingCount > 0) <span class="ml-1 rounded-full bg-rose-500 px-1.5 text-[10px] text-white" data-pending-count>{{ $pendingCount }}</span>@endif</button>
+                <button type="button" wire:click="setTab('{{ $key }}')" data-tab="{{ $key }}" @class(['rounded-lg px-3 py-1.5 text-xs font-semibold', 'bg-brand-500 text-white' => $tab === $key, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $tab !== $key])>{{ $label }}@if ($key === 'pending' && $pendingCount > 0) <span class="ml-1 rounded-full bg-rose-500 px-1.5 text-[10px] text-white" data-pending-count>{{ $pendingCount }}</span>@endif@if ($key === 'deletions' && array_sum($reviewCounts) > 0) <span class="ml-1 rounded-full bg-rose-500 px-1.5 text-[10px] text-white" data-deletions-count>{{ array_sum($reviewCounts) }}</span>@endif</button>
             @endforeach
             <a href="{{ route('operator.library.queries.plan') }}" wire:navigate class="{{ $btn }} ml-2">AI ile planla</a>
         </nav>
@@ -29,7 +29,7 @@
             <option value="">Tüm sektörler</option>
             @foreach ($sectors as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
         </select>
-        @if (! in_array($tab, ['filters', 'keywords', 'pending'], true))
+        @if (! in_array($tab, ['filters', 'keywords', 'pending', 'deletions'], true))
             <select wire:model.live="service" aria-label="Hizmet" class="{{ $input }}">
                 <option value="">Tüm hizmetler</option>
                 @if ($tab === 'queries')<option value="__any">Atanmış</option><option value="__none">Atanmamış</option>@endif
@@ -44,6 +44,9 @@
             </select>
             <input type="search" wire:model.live.debounce.400ms="search" placeholder="Ara" aria-label="Ara" class="{{ $input }} w-48">
             <label class="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300"><input type="checkbox" wire:model.live="hidden" data-hidden-filter> Gizlenenler</label>
+        @endif
+        @if ($tab === 'deletions')
+            <input type="search" wire:model.live.debounce.400ms="search" placeholder="Ara" aria-label="Ara" class="{{ $input }} w-48">
         @endif
         @if ($tab === 'queries' || $tab === 'clusters')
             <button type="button" wire:click="clusterService" @disabled(! ctype_digit($service)) class="{{ $btn }} ml-auto" title="Hizmet seçin">AI ile kümele</button>
@@ -215,6 +218,76 @@
                 </table>
             </div>
             <div class="mt-2">{{ $pending->links() }}</div>
+        </section>
+    @endif
+
+    {{-- Silinecekler: every rescan's proposals in one place (one line per query, the latest scan wins) --}}
+    @if ($tab === 'deletions')
+        <section class="{{ $card }}" data-section="deletions">
+            @php
+                $selectedCount = $selectAll ? $matchingCount : count($selected);
+                $hasSelection = $selectAll || $selected !== [];
+                $excludedIds = array_map('intval', $excluded);
+                $isDelete = $reviewKind === \App\Models\QueryReviewItem::DELETE;
+                $serviceName = fn ($service) => $service?->primaryName?->raw_label ?? '—';
+            @endphp
+            <div class="mb-3 flex flex-wrap items-center gap-2">
+                @foreach (['delete' => 'Silinecek sorgular', 'service' => 'Hizmet değişikliği'] as $kind => $label)
+                    <button type="button" wire:click="$set('reviewKind', '{{ $kind }}')" data-review-kind="{{ $kind }}" @class(['rounded-lg px-3 py-1.5 text-xs font-semibold', 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $reviewKind === $kind, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $reviewKind !== $kind])>{{ $label }} · {{ $num($reviewCounts[$kind]) }}</button>
+                @endforeach
+                @if ($isDelete && ! $reviewKept)
+                    <select wire:model.live="reviewTerm" aria-label="Filtre terimi" data-review-term class="{{ $input }} py-1 text-xs">
+                        <option value="">Tüm terimler</option>
+                        @foreach ($reviewTerms as $term => $total)<option value="{{ $term }}">{{ $term }} · {{ $total }}</option>@endforeach
+                    </select>
+                @endif
+                <label class="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300"><input type="checkbox" wire:model.live="reviewKept" data-review-kept> Tutulanlar ({{ $num($keptCount) }})</label>
+                @if ($reviewRunning)<span class="inline-flex items-center gap-1 text-xs text-gray-500" data-review-running><svg class="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"/><path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3"/></svg>Tarama sürüyor…</span>@endif
+            </div>
+            <p class="mb-2 text-xs text-gray-500">Her filtre / eşleme kelimesi değişikliğinin taraması buraya eklenir; bir sorgu için son öneri geçerlidir. Onaylanmadan hiçbir sorgu silinmez veya değişmez. "Tut": sorgu kalır, aynı öneri tekrar gelmez.</p>
+            <div class="mb-2 flex flex-wrap items-center gap-2">
+                <span class="text-xs text-gray-500" data-selection-count>{{ $num($reviewItems->total()) }} satır · seçili {{ $num($selectedCount) }}</span>
+                <button type="button" wire:click="selectPage" class="{{ $ghost }}">Sayfadaki tümünü seç</button>
+                @if (! $selectAll)<button type="button" wire:click="selectAllMatching" class="{{ $ghost }}">Filtreye uyan tümünü seç ({{ $num($reviewItems->total()) }})</button>@endif
+                @if ($hasSelection)<button type="button" wire:click="clearSelection" class="{{ $ghost }}">Seçimi temizle</button>@endif
+                @if ($reviewKept)
+                    <button type="button" wire:click="keepReview" @disabled(! $hasSelection) class="{{ $ghost }} ml-auto">Geri al</button>
+                @else
+                    <button type="button" wire:click="keepReview" @disabled(! $hasSelection) class="{{ $ghost }} ml-auto">Tut</button>
+                    <button type="button" wire:click="approveReview" wire:confirm="{{ $isDelete ? 'Seçilen sorgular silinsin mi?' : 'Seçilen sorguların hizmeti değişsin mi?' }}" @disabled(! $hasSelection) class="{{ $btn }}">{{ $isDelete ? 'Onayla ve sil' : 'Onayla ve uygula' }}</button>
+                @endif
+            </div>
+            @if ($selectAll)
+                <p class="mb-2 rounded-lg bg-blue-50 p-2 text-xs text-blue-800 dark:bg-blue-950 dark:text-blue-200" data-select-all>Filtreye uyan {{ $num($matchingCount) }} satır seçili (tüm sayfalar)@if ($excludedIds !== []) · {{ count($excludedIds) }} hariç @endif.</p>
+            @endif
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead class="text-gray-500"><tr>
+                        <th class="w-6 py-1"></th><th>Sorgu</th>
+                        @if ($isDelete)<th>Filtre terimi</th>@else<th>Mevcut</th><th>Yeni</th><th>Değişiklik</th>@endif
+                        <th class="text-right">Gösterim</th>
+                    </tr></thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @forelse ($reviewItems as $item)
+                            <tr wire:key="r-{{ $item->id }}">
+                                <td class="py-1">@if ($selectAll)<input type="checkbox" wire:click="toggleExcluded({{ $item->id }})" @checked(! in_array((int) $item->id, $excludedIds, true)) aria-label="Seç">@else<input type="checkbox" wire:model.live="selected" value="{{ $item->id }}" aria-label="Seç">@endif</td>
+                                <td class="font-medium">{{ $item->searchQuery?->text }}</td>
+                                @if ($isDelete)
+                                    <td><span class="{{ $chip }} bg-rose-50 text-rose-700 dark:bg-rose-500/10">{{ $item->term }}</span></td>
+                                @else
+                                    <td>{{ $serviceName($item->fromService) }}</td>
+                                    <td>{{ $serviceName($item->toService) }}</td>
+                                    <td class="text-gray-500">{{ $item->from_service_id === null ? 'yeni atama' : ($item->to_service_id === null ? 'atama kalkıyor' : 'değişiyor') }}</td>
+                                @endif
+                                <td class="text-right tabular-nums">{{ $num($item->searchQuery?->impressions ?? 0) }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="6" class="py-3 text-gray-500">{{ $reviewKept ? 'Tutulan satır yok.' : 'Onay bekleyen satır yok.' }}</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-2">{{ $reviewItems->links() }}</div>
         </section>
     @endif
 
@@ -399,7 +472,7 @@
                 </div>
                 <p class="text-xs text-gray-500">{{ ctype_digit($sector) ? 'Seçili sektör için' : 'Kullanılan her sektör için' }} ayrı çağrı · öneriler kaydedilmeden önce listelenir.</p>
                 @if ($filterStatus === 'running')
-                    <p class="text-xs text-gray-500">AI çalışıyor…</p>
+                    <p class="text-xs text-gray-500" data-filter-progress>AI çalışıyor…@if (($filterProposal['total'] ?? 0) > 0) {{ $filterProposal['done'] }} / {{ $filterProposal['total'] }} sektör tamamlandı @endif</p>
                 @elseif ($filterStatus === 'ready')
                     @php $skipLines = array_map('intval', $filterSkip); @endphp
                     <div data-filter-proposal>

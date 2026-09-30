@@ -427,6 +427,10 @@ Artisan::command('moxdop:website:sitemap-watch', function (): void {
 Schedule::command('moxdop:website:sitemap-watch')
     ->hourlyAt(17)->withoutOverlapping(30)->name('website-sitemap-watch');
 
+// Sorgular › Bekleyenler: kütüphanede olan / filtre terimine takılan bekleyen sorgular saatlik temizlenir.
+Schedule::command('moxdop:queries:prune-pending')
+    ->hourlyAt(23)->withoutOverlapping(30)->name('queries-prune-pending');
+
 // Faz 7: anahtar kelime kalite puanı günlük kopyası (düşüş kuralı için; snapshot yalnızca son değeri tutar).
 Schedule::command('moxdop:google-ads:record-quality-scores')
     ->dailyAt('05:40')

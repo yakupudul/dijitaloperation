@@ -5,6 +5,8 @@ namespace App\Services\Queries;
 use App\Ai\Agents\QueryPlanFiltersAgent;
 use App\Ai\Agents\QueryPlanSectorsAgent;
 use App\Ai\Agents\QueryPlanServicesAgent;
+use App\Jobs\Queries\PlanQueriesJob;
+use App\Jobs\Queries\PlanQueriesSectorJob;
 use App\Models\Brand;
 use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
@@ -32,7 +34,8 @@ use Throwable;
 /**
  * "AI ile planla" (Sorgular): 1. sectors of brands (assets inherit; own override allowed), 2. services + matching
  * keywords of the used sectors, 3. negative filter terms per sector → the first import. Steps 2 and 3 make one AI call
- * per sector (step 1 one per brand batch) so every sector gets a full answer; the proposal is validated (unknown ids,
+ * per sector — one queued job per sector, run in parallel, merged atomically into the step's proposal with a live
+ * "3 / 7 sektör" progress (step 1 one call per brand batch) — so every sector gets a full answer; the proposal is validated (unknown ids,
  * generic words, duplicates dropped) and saved only when the operator approves. Keywords and terms may come from sector
  * knowledge, not only from collected queries, so sectors without data still get a catalog. Only operational brands' data is sent to AI.
  *
@@ -41,6 +44,9 @@ use Throwable;
 final class QueryPlanner
 {
     public const array STEPS = ['sectors', 'services', 'filters'];
+
+    /** Steps run as one queued job per sector. */
+    public const array PARALLEL_STEPS = ['services', 'filters'];
 
     private const int SAMPLES = 300;
 
@@ -75,6 +81,106 @@ final class QueryPlanner
     public static function markRunning(int $userId, string $step): void
     {
         Cache::put(self::cacheKey($userId, $step), ['status' => 'running'], now()->addDay());
+    }
+
+    /**
+     * Starts an AI step for the operator. Services / filters: one queued job per sector (parallel), each merged into
+     * the proposal as it finishes (`done` / `total` for the progress bar). Sectors: one job.
+     *
+     * @param  list<int>  $sectorIds
+     */
+    public static function start(int $userId, string $step, array $sectorIds = [], string $instruction = ''): void
+    {
+        if (! in_array($step, self::PARALLEL_STEPS, true)) {
+            self::markRunning($userId, $step);
+            PlanQueriesJob::dispatch($userId, $step, $sectorIds, $instruction);
+
+            return;
+        }
+        $sectors = ServiceCategory::query()->whereIn('id', $sectorIds ?: [0])->orderBy('name')->orderBy('id')->get(['id', 'name']);
+        if ($sectors->isEmpty()) {
+            Cache::put(self::cacheKey($userId, $step), ['status' => 'nothing', 'items' => []], now()->addDay());
+
+            return;
+        }
+        $run = (string) Str::uuid();
+        Cache::put(self::cacheKey($userId, $step), [
+            'status' => 'running', 'run' => $run, 'total' => $sectors->count(), 'done' => 0,
+            'sectors' => $sectors->mapWithKeys(fn (ServiceCategory $s): array => [(int) $s->id => (string) $s->name])->all(),
+            'parts' => [], 'errors' => [],
+        ], now()->addDay());
+        foreach ($sectors as $sector) {
+            PlanQueriesSectorJob::dispatch($userId, $step, $run, (int) $sector->id, $instruction);
+        }
+    }
+
+    /**
+     * One sector's answer joins the running proposal (atomic: a cache lock around read-merge-write). The last sector
+     * completes it: items in sector order (filters deduplicated across sectors), failed sectors listed.
+     *
+     * @param  list<array<string, mixed>>|string  $result  items, or 'no_provider' / 'error'
+     * @return string|null the final status when this merge completed the step
+     */
+    public static function mergeSector(int $userId, string $step, string $run, int $sectorId, array|string $result): ?string
+    {
+        $key = self::cacheKey($userId, $step);
+
+        return Cache::lock($key.':merge', 30)->block(20, function () use ($key, $step, $run, $sectorId, $result): ?string {
+            $state = Cache::get($key);
+            if (! is_array($state) || ($state['status'] ?? null) !== 'running' || ($state['run'] ?? null) !== $run
+                || array_key_exists($sectorId, (array) $state['parts']) || array_key_exists($sectorId, (array) $state['errors'])) {
+                return null;
+            }
+            if (is_array($result)) {
+                $state['parts'][$sectorId] = $result;
+            } else {
+                $state['errors'][$sectorId] = $result;
+            }
+            $state['done'] = count($state['parts']) + count($state['errors']);
+            if ($state['done'] >= $state['total']) {
+                $state = self::completed($step, $state);
+            }
+            Cache::put($key, $state, now()->addDay());
+
+            return $state['status'] === 'running' ? null : (string) $state['status'];
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $state
+     * @return array<string, mixed>
+     */
+    private static function completed(string $step, array $state): array
+    {
+        $errors = (array) $state['errors'];
+        if (in_array('no_provider', $errors, true)) {
+            return ['status' => 'no_provider', 'items' => []];
+        }
+        if (count($errors) === (int) $state['total']) {
+            return ['status' => 'error', 'items' => []];
+        }
+        $items = [];
+        $seen = [];
+        $failed = [];
+        foreach ((array) $state['sectors'] as $sectorId => $name) {
+            if (array_key_exists($sectorId, $errors)) {
+                $failed[] = (string) $name;
+
+                continue;
+            }
+            foreach ((array) ($state['parts'][$sectorId] ?? []) as $item) {
+                if ($step === 'filters') {
+                    $fold = SeoText::fold((string) $item['term']);
+                    if (isset($seen[$fold])) {
+                        continue;
+                    }
+                    $seen[$fold] = true;
+                }
+                $items[] = $item;
+            }
+        }
+
+        return ['status' => 'ready', 'items' => $items, 'failed' => $failed];
     }
 
     public static function discard(int $userId, string $step): void
@@ -266,25 +372,44 @@ final class QueryPlanner
     {
         $sectors = ServiceCategory::query()->whereIn('id', $sectorIds)->orderBy('name')->get();
 
-        return $this->perSector($sectors, function (ServiceCategory $sector): array|string {
-            $services = self::sectorServices($sector);
-            $brandIds = $this->operationalBrandIds((int) $sector->id);
-            $brandServices = DB::table('brand_offering_names')->whereIn('brand_id', $brandIds ?: [0])->where('is_primary', true)->where('is_active', true)
-                ->orderBy('raw_label')->distinct()->limit(300)->pluck('raw_label')->map(fn ($l): string => (string) $l)->all();
-            $pageNames = DB::table('pages')->whereIn('website_asset_id', DigitalAsset::query()->whereIn('brand_id', $brandIds ?: [0])->where('type', 'website')->select('id'))
-                ->where('category', 'hizmet')->whereNotNull('title')->orderBy('id')->limit(300)->pluck('title')->map(fn ($t): string => (string) $t)->all();
-            $data = ['sectors' => [[
-                'id' => (int) $sector->id, 'name' => (string) $sector->name,
-                'services' => $services->map(fn (ServiceCatalogItem $s): array => ['id' => (int) $s->id, 'name' => (string) $s->primaryName->raw_label,
-                    'keywords' => $s->matchingKeywords->map(fn (ServiceMatchingKeyword $k): array => ['id' => (int) $k->id, 'label' => (string) $k->label])->values()->all()])->values()->all(),
-                'brand_services' => $brandServices, 'page_names' => $pageNames, 'samples' => $this->samples((int) $sector->id, $brandIds),
-            ]]];
-            $structured = $this->call(QueryPlanServicesAgent::class, $data);
+        return $this->perSector($sectors, fn (ServiceCategory $sector): array|string => $this->servicesFor($sector));
+    }
 
-            return is_array($structured)
-                ? $this->validServiceItems($structured, [(int) $sector->id => ['sector' => $sector, 'services' => $services->keyBy('id')]])
-                : $structured;
-        });
+    /**
+     * One sector of step 2 or 3 (PlanQueriesSectorJob).
+     *
+     * @return list<array<string, mixed>>|string items, or 'no_provider' / 'error'
+     */
+    public function proposeSector(string $step, ServiceCategory $sector, string $instruction = ''): array|string
+    {
+        if ($step === 'services') {
+            return $this->servicesFor($sector);
+        }
+        $existing = self::existingTerms();
+
+        return $this->filtersFor($sector, self::instruction($instruction), $existing, self::keywordLabels());
+    }
+
+    /** @return list<array<string, mixed>>|string */
+    private function servicesFor(ServiceCategory $sector): array|string
+    {
+        $services = self::sectorServices($sector);
+        $brandIds = $this->operationalBrandIds((int) $sector->id);
+        $brandServices = DB::table('brand_offering_names')->whereIn('brand_id', $brandIds ?: [0])->where('is_primary', true)->where('is_active', true)
+            ->orderBy('raw_label')->distinct()->limit(300)->pluck('raw_label')->map(fn ($l): string => (string) $l)->all();
+        $pageNames = DB::table('pages')->whereIn('website_asset_id', DigitalAsset::query()->whereIn('brand_id', $brandIds ?: [0])->where('type', 'website')->select('id'))
+            ->where('category', 'hizmet')->whereNotNull('title')->orderBy('id')->limit(300)->pluck('title')->map(fn ($t): string => (string) $t)->all();
+        $data = ['sectors' => [[
+            'id' => (int) $sector->id, 'name' => (string) $sector->name,
+            'services' => $services->map(fn (ServiceCatalogItem $s): array => ['id' => (int) $s->id, 'name' => (string) $s->primaryName->raw_label,
+                'keywords' => $s->matchingKeywords->map(fn (ServiceMatchingKeyword $k): array => ['id' => (int) $k->id, 'label' => (string) $k->label])->values()->all()])->values()->all(),
+            'brand_services' => $brandServices, 'page_names' => $pageNames, 'samples' => $this->samples((int) $sector->id, $brandIds),
+        ]]];
+        $structured = $this->call(QueryPlanServicesAgent::class, $data);
+
+        return is_array($structured)
+            ? $this->validServiceItems($structured, [(int) $sector->id => ['sector' => $sector, 'services' => $services->keyBy('id')]])
+            : $structured;
     }
 
     /**
@@ -495,38 +620,60 @@ final class QueryPlanner
     {
         $instruction = self::instruction($instruction);
         $sectors = ServiceCategory::query()->whereIn('id', $sectorIds)->orderBy('name')->get();
-        $existing = array_flip(FilterTerm::query()->pluck('term')->map(fn ($t): string => SeoText::fold((string) $t))->all());
-        $keywords = ServiceMatchingKeyword::query()->pluck('label')->map(fn ($l): string => QueryNormalizer::lower((string) $l))->all();
+        $existing = self::existingTerms();
+        $keywords = self::keywordLabels();
 
         return $this->perSector($sectors, function (ServiceCategory $sector) use (&$existing, $keywords, $instruction): array|string {
-            $services = self::sectorServices($sector);
-            $data = ['sectors' => [[
-                'id' => (int) $sector->id, 'name' => (string) $sector->name,
-                'services' => $services->map(fn (ServiceCatalogItem $s): string => (string) $s->primaryName->raw_label)->values()->all(),
-                'terms' => FilterTerm::query()->where('sector_id', $sector->id)->orderBy('term')->pluck('term')->all(),
-                'samples' => $this->samples((int) $sector->id, $this->operationalBrandIds((int) $sector->id)),
-            ]]];
-            if ($instruction !== '') {
-                $data['operator_instruction'] = $instruction;
-            }
-            $structured = $this->call(QueryPlanFiltersAgent::class, $data);
-            if (! is_array($structured)) {
-                return $structured;
-            }
-            $items = [];
-            foreach (array_slice((array) ($structured['terms'] ?? []), 0, self::MAX_ITEMS) as $row) {
-                $term = is_array($row) && is_string($row['term'] ?? null) ? trim(preg_replace('/\s+/u', ' ', QueryNormalizer::lower($row['term'])) ?? '') : '';
-                $key = SeoText::fold($term);
-                if (mb_strlen($term) < 2 || mb_strlen($term) > 100 || $key === '' || isset($existing[$key])
-                    || collect($keywords)->contains(fn (string $k): bool => QueryNormalizer::containsTerm($k, $term))) {
-                    continue;
-                }
-                $existing[$key] = true;
-                $items[] = ['sector_id' => (int) $sector->id, 'sector' => (string) $sector->name, 'term' => $term, 'reason' => mb_substr(trim((string) ($row['reason'] ?? '')), 0, 200)];
-            }
-
-            return $items;
+            return $this->filtersFor($sector, $instruction, $existing, $keywords);
         });
+    }
+
+    /** @return array<string, true> folded filter terms already in the basket */
+    private static function existingTerms(): array
+    {
+        return array_fill_keys(FilterTerm::query()->pluck('term')->map(fn ($t): string => SeoText::fold((string) $t))->all(), true);
+    }
+
+    /** @return list<string> every matching keyword (a proposed term must not delete a query holding one) */
+    private static function keywordLabels(): array
+    {
+        return ServiceMatchingKeyword::query()->pluck('label')->map(fn ($l): string => QueryNormalizer::lower((string) $l))->all();
+    }
+
+    /**
+     * @param  array<string, true>  $existing  folded terms taken so far (updated)
+     * @param  list<string>  $keywords
+     * @return list<array{sector_id: int, sector: string, term: string, reason: string}>|string
+     */
+    private function filtersFor(ServiceCategory $sector, string $instruction, array &$existing, array $keywords): array|string
+    {
+        $services = self::sectorServices($sector);
+        $data = ['sectors' => [[
+            'id' => (int) $sector->id, 'name' => (string) $sector->name,
+            'services' => $services->map(fn (ServiceCatalogItem $s): string => (string) $s->primaryName->raw_label)->values()->all(),
+            'terms' => FilterTerm::query()->where('sector_id', $sector->id)->orderBy('term')->pluck('term')->all(),
+            'samples' => $this->samples((int) $sector->id, $this->operationalBrandIds((int) $sector->id)),
+        ]]];
+        if ($instruction !== '') {
+            $data['operator_instruction'] = $instruction;
+        }
+        $structured = $this->call(QueryPlanFiltersAgent::class, $data);
+        if (! is_array($structured)) {
+            return $structured;
+        }
+        $items = [];
+        foreach (array_slice((array) ($structured['terms'] ?? []), 0, self::MAX_ITEMS) as $row) {
+            $term = is_array($row) && is_string($row['term'] ?? null) ? trim(preg_replace('/\s+/u', ' ', QueryNormalizer::lower($row['term'])) ?? '') : '';
+            $key = SeoText::fold($term);
+            if (mb_strlen($term) < 2 || mb_strlen($term) > 100 || $key === '' || isset($existing[$key])
+                || collect($keywords)->contains(fn (string $k): bool => QueryNormalizer::containsTerm($k, $term))) {
+                continue;
+            }
+            $existing[$key] = true;
+            $items[] = ['sector_id' => (int) $sector->id, 'sector' => (string) $sector->name, 'term' => $term, 'reason' => mb_substr(trim((string) ($row['reason'] ?? '')), 0, 200)];
+        }
+
+        return $items;
     }
 
     /**

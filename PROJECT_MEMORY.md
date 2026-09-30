@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-11-07 — Sorgular: tek Silinecekler listesi, paralel planlama
+
+- **Karar (operatör):** Filtre / eşleme kelimesi taramalarının önerileri tarama başına ayrı inceleme değil, Sorgular'da kalıcı "Silinecekler" sekmesinde birikir: sorgu başına tek satır, son öneri geçerli, hiçbir şey onaysız silinmez / değişmez. "Tut" aynı öneriyi kalıcı olarak susturur (terim ya da hedef hizmet değişirse yeniden gelir). Bildirimler sekmeye gider; eski inceleme bağlantıları sekmeye yönlenir. 2026-11-04 "tarama başına onay ekranı" kararının yerini alır.
+- **Karar (operatör):** Bekleyenler her zaman temiz gösterilir: güncel filtre terimine takılan ve kütüphanede (normalize metinle) olan metin listelenmez; filtre değişikliği bekleyenleri hemen süzer.
+- **Karar:** AI ile planla adım 2 ve 3 sektör başına ayrı kuyruk işiyle paralel çalışır, ilerleme sektör sayısıyla gösterilir; adım 2'de işaretli önerileri tek tıkla ekleme ve satır başına bir hizmetle toplu hizmet ekleme vardır.
+
 ## 2026-11-06 — Sorgular: hizmet ataması kuyruğu, temiz Bekleyenler
 
 - **Karar (operatör):** Bekleyenler yalnız kütüphanede olmayan ve güncel filtre terimlerinin silmeyeceği sorguları gösterir; filtre değişince bekleyenler onaysız yeniden süzülür (kütüphaneye henüz girmedikleri için). 2026-11-04 "Bekleyenler'de silinecek / temiz sonucu" kararının yerini alır.

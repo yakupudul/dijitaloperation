@@ -8,9 +8,10 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Onaylı tarama: ALL filter terms (every sector) × ALL library queries, and the matching keywords re-run for every
- * query (manual / locked-cluster assignments untouched). The result is a review (one open at a time): queries that
- * contain a filter term (to delete) and queries whose service would change. Nothing changes before the operator
- * approves; only the checked lines are applied.
+ * query (manual / locked-cluster assignments untouched). Proposals go into ONE permanent pool (Sorgular ›
+ * Silinecekler): queries that contain a filter term (to delete) and queries whose service would change — one line per
+ * query, the latest scan wins, lines no scan proposes any more leave. Nothing changes before the operator approves
+ * ("Onayla ve sil"); "Tut" keeps a line out of the pool until its proposal changes (another term / another service).
  */
 final class QueryRescanner
 {
@@ -26,74 +27,123 @@ final class QueryRescanner
         $this->matcher->forget();
         // Bekleyenler follows the current filter basket right away (no approval: nothing is in the library yet).
         $this->pending->prune();
-        // One open review at a time: an older unapplied one is replaced.
-        QueryReview::query()->whereIn('status', [QueryReview::RUNNING, QueryReview::READY, QueryReview::FAILED])->delete();
         $review = QueryReview::query()->create(['status' => QueryReview::RUNNING, 'created_by' => $userId]);
         $deletions = 0;
         $changes = 0;
         DB::table('queries')->select(['id', 'text', 'sector_id', 'service_id', 'locked'])
             ->chunkById(QueryPipeline::CHUNK, function ($rows) use ($review, &$deletions, &$changes): void {
+                $ids = $rows->pluck('id')->all();
                 $inLockedCluster = array_flip(DB::table('cluster_queries as cq')->join('clusters as c', 'c.id', '=', 'cq.cluster_id')
-                    ->whereIn('cq.query_id', $rows->pluck('id')->all())->where('c.locked', true)->pluck('cq.query_id')->map(fn ($id): int => (int) $id)->all());
+                    ->whereIn('cq.query_id', $ids)->where('c.locked', true)->pluck('cq.query_id')->map(fn ($id): int => (int) $id)->all());
+                $existing = DB::table('query_review_items')->whereIn('query_id', $ids)->get(['query_id', 'kind', 'term', 'to_service_id', 'kept_at'])
+                    ->keyBy(fn (object $row): int => (int) $row->query_id);
                 $items = [];
                 foreach ($rows as $row) {
-                    $term = $this->normalizer->matchingTerm((string) $row->text);
-                    $base = ['query_review_id' => $review->id, 'query_id' => (int) $row->id, 'term' => null, 'from_service_id' => null, 'to_service_id' => null];
-                    if ($term !== null) {
-                        $items[] = ['kind' => QueryReviewItem::DELETE, 'term' => mb_substr($term, 0, 200)] + $base;
-                        $deletions++;
-
+                    $item = $this->proposal($row, isset($inLockedCluster[(int) $row->id]));
+                    if ($item === null) {
                         continue;
                     }
-                    if ((bool) $row->locked || isset($inLockedCluster[(int) $row->id])) {
-                        continue;
-                    }
-                    $current = $row->service_id !== null ? (int) $row->service_id : null;
-                    $service = $this->matcher->match((string) $row->text, $row->sector_id !== null ? (int) $row->sector_id : null);
-                    if ($service !== $current) {
-                        $items[] = ['kind' => QueryReviewItem::SERVICE, 'from_service_id' => $current, 'to_service_id' => $service] + $base;
-                        $changes++;
+                    $old = $existing->get((int) $row->id);
+                    $kept = $old !== null && $old->kept_at !== null && self::signature((array) $old) === self::signature($item) ? $old->kept_at : null;
+                    $items[] = $item + ['query_review_id' => $review->id, 'query_id' => (int) $row->id, 'kept_at' => $kept];
+                    if ($kept === null) {
+                        $item['kind'] === QueryReviewItem::DELETE ? $deletions++ : $changes++;
                     }
                 }
                 foreach (array_chunk($items, 500) as $chunk) {
-                    DB::table('query_review_items')->insert($chunk);
+                    DB::table('query_review_items')->upsert($chunk, ['query_id'], ['query_review_id', 'kind', 'term', 'from_service_id', 'to_service_id', 'kept_at']);
                 }
             });
+        // Lines this (full) scan did not propose again are stale; emptied older scans go with them.
+        DB::table('query_review_items')->where('query_review_id', '<', $review->id)->delete();
+        QueryReview::query()->where('id', '<', $review->id)->whereNotIn('status', [QueryReview::RUNNING])->whereDoesntHave('items')->delete();
         $review->forceFill(['status' => QueryReview::READY, 'deletions' => $deletions, 'changes' => $changes])->save();
 
         return $review;
     }
 
+    /** @return array{delete: int, service: int} open (not kept) lines of the pool */
+    public static function openCounts(): array
+    {
+        $counts = DB::table('query_review_items')->whereNull('kept_at')->groupBy('kind')->selectRaw('kind, count(*) as total')->pluck('total', 'kind');
+
+        return ['delete' => (int) ($counts[QueryReviewItem::DELETE] ?? 0), 'service' => (int) ($counts[QueryReviewItem::SERVICE] ?? 0)];
+    }
+
     /**
-     * Applies the checked lines of a ready review: deletes (remembered, never come back through Bekleyenler) and
-     * service changes (skipped when the query was locked meanwhile).
+     * Applies pool lines: deletes (remembered, never come back through Bekleyenler) — only while a filter term still
+     * matches — and service changes — only while the query is unlocked and still has the proposed "from" service. The
+     * lines leave the pool either way (a stale one is proposed again by the next scan if still valid). Kept lines are
+     * skipped.
      *
      * @param  list<int>  $itemIds
      * @return array{deleted: int, changed: int}
      */
-    public function apply(QueryReview $review, array $itemIds): array
+    public function apply(array $itemIds): array
     {
-        abort_unless($review->status === QueryReview::READY, 409);
+        $this->normalizer->forget();
         $deleted = 0;
         $changed = 0;
-        foreach (array_chunk(array_values(array_unique($itemIds)), QueryPipeline::CHUNK) as $chunk) {
-            $items = QueryReviewItem::query()->where('query_review_id', $review->id)->whereIn('id', $chunk)->orderBy('id')->get();
-            $deleted += QueryPipeline::deleteQueries($items->where('kind', QueryReviewItem::DELETE)->pluck('query_id')->map(fn ($id): int => (int) $id)->values()->all(), remember: true);
+        foreach (array_chunk(array_values(array_unique(array_map('intval', $itemIds))), QueryPipeline::CHUNK) as $chunk) {
+            $items = QueryReviewItem::query()->whereIn('id', $chunk)->whereNull('kept_at')->with('searchQuery:id,text')->orderBy('id')->get();
+            $toDelete = $items->where('kind', QueryReviewItem::DELETE)
+                ->filter(fn (QueryReviewItem $item): bool => $item->searchQuery !== null && $this->normalizer->matchingTerm((string) $item->searchQuery->text) !== null)
+                ->pluck('query_id')->map(fn ($id): int => (int) $id)->values()->all();
             $moved = [];
             foreach ($items->where('kind', QueryReviewItem::SERVICE) as $item) {
-                $updated = DB::table('queries')->where('id', $item->query_id)->where('locked', false)->update([
-                    'service_id' => $item->to_service_id, 'assignment' => $item->to_service_id === null ? 'none' : 'rule', 'updated_at' => now(),
-                ]);
+                $updated = DB::table('queries')->where('id', $item->query_id)->where('locked', false)
+                    ->when($item->from_service_id === null, fn ($q) => $q->whereNull('service_id'), fn ($q) => $q->where('service_id', $item->from_service_id))
+                    ->update(['service_id' => $item->to_service_id, 'assignment' => $item->to_service_id === null ? 'none' : 'rule', 'updated_at' => now()]);
                 if ($updated > 0) {
                     $moved[] = (int) $item->query_id;
                     $changed++;
                 }
             }
+            DB::table('query_review_items')->whereIn('id', $items->pluck('id')->all() ?: [0])->delete();
+            $deleted += QueryPipeline::deleteQueries($toDelete, remember: true);
             QueryPipeline::dropForeignMemberships($moved);
         }
-        $review->forceFill(['status' => QueryReview::APPLIED, 'applied_at' => now()])->save();
-        $review->items()->delete();
 
         return ['deleted' => $deleted, 'changed' => $changed];
+    }
+
+    /**
+     * "Tut" (keep = true): the lines leave the open list; a later scan brings a line back only when its proposal
+     * changes. "Geri al" (keep = false) reopens kept lines.
+     *
+     * @param  list<int>  $itemIds
+     */
+    public function keep(array $itemIds, bool $keep = true): int
+    {
+        $count = 0;
+        foreach (array_chunk(array_values(array_unique(array_map('intval', $itemIds))), QueryPipeline::CHUNK) as $chunk) {
+            $count += DB::table('query_review_items')->whereIn('id', $chunk)
+                ->when($keep, fn ($q) => $q->whereNull('kept_at'), fn ($q) => $q->whereNotNull('kept_at'))
+                ->update(['kept_at' => $keep ? now() : null]);
+        }
+
+        return $count;
+    }
+
+    /** @return array{kind: string, term: ?string, from_service_id: ?int, to_service_id: ?int}|null */
+    private function proposal(object $row, bool $inLockedCluster): ?array
+    {
+        $term = $this->normalizer->matchingTerm((string) $row->text);
+        if ($term !== null) {
+            return ['kind' => QueryReviewItem::DELETE, 'term' => mb_substr($term, 0, 200), 'from_service_id' => null, 'to_service_id' => null];
+        }
+        if ((bool) $row->locked || $inLockedCluster) {
+            return null;
+        }
+        $current = $row->service_id !== null ? (int) $row->service_id : null;
+        $service = $this->matcher->match((string) $row->text, $row->sector_id !== null ? (int) $row->sector_id : null);
+
+        return $service !== $current ? ['kind' => QueryReviewItem::SERVICE, 'term' => null, 'from_service_id' => $current, 'to_service_id' => $service] : null;
+    }
+
+    /** @param array<string, mixed> $item what "Tut" was decided on: the term to delete for, or the target service */
+    private static function signature(array $item): string
+    {
+        return $item['kind'] === QueryReviewItem::DELETE ? 'd:'.$item['term'] : 's:'.($item['to_service_id'] ?? '');
     }
 }
