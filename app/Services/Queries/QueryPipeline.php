@@ -60,15 +60,18 @@ final class QueryPipeline
 
     /**
      * Deletes library queries (approved flows only): cluster memberships and brand rows go, raw sources stay unlinked.
-     * `remember` keeps the text as deleted so it never comes back through Bekleyenler.
+     * `remember` keeps the text as deleted so it never comes back through Bekleyenler. An unlocked cluster left with no
+     * collected query goes too (dropEmptyClusters).
      *
      * @param  list<int>  $ids
      */
-    public static function deleteQueries(array $ids, bool $remember): int
+    public static function deleteQueries(array $ids, bool $remember, bool $dropEmptyClusters = true): int
     {
         $deleted = 0;
+        $clusters = [];
         foreach (array_chunk(array_values(array_unique($ids)), self::CHUNK) as $chunk) {
-            DB::transaction(function () use ($chunk, $remember, &$deleted): void {
+            DB::transaction(function () use ($chunk, $remember, &$deleted, &$clusters): void {
+                array_push($clusters, ...DB::table('cluster_queries')->whereIn('query_id', $chunk)->distinct()->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all());
                 if ($remember) {
                     $now = now();
                     $rows = DB::table('queries')->whereIn('id', $chunk)->orderBy('id')->get(['text', 'text_hash'])
@@ -85,8 +88,40 @@ final class QueryPipeline
                 $deleted += DB::table('queries')->whereIn('id', $chunk)->delete();
             });
         }
+        if ($dropEmptyClusters && $clusters !== []) {
+            self::dropEmptyClusters($clusters);
+        }
 
         return $deleted;
+    }
+
+    /**
+     * Operator decision 2026-10-01: an unlocked cluster with no collected (non-suggested) query left is deleted with
+     * its AI-suggested queries; a locked (operator-edited) cluster stays. `null` checks every cluster.
+     *
+     * @param  list<int>|null  $clusterIds
+     */
+    public static function dropEmptyClusters(?array $clusterIds = null): int
+    {
+        $empty = DB::table('clusters as c')->where('c.locked', false)
+            ->when($clusterIds !== null, fn ($q) => $q->whereIn('c.id', array_values(array_unique($clusterIds)) ?: [0]))
+            ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('cluster_queries as cq')->whereColumn('cq.cluster_id', 'c.id')->where('cq.is_suggested', false))
+            ->pluck('c.id')->map(fn ($id): int => (int) $id)->all();
+        $dropped = 0;
+        foreach (array_chunk($empty, self::CHUNK) as $chunk) {
+            DB::transaction(function () use ($chunk, &$dropped): void {
+                $suggested = DB::table('cluster_queries as cq')->join('queries as q', 'q.id', '=', 'cq.query_id')
+                    ->whereIn('cq.cluster_id', $chunk)->where('q.is_suggested', true)->pluck('q.id')->map(fn ($id): int => (int) $id)->all();
+                DB::table('cluster_queries')->whereIn('cluster_id', $chunk)->delete();
+                $dropped += DB::table('clusters')->whereIn('id', $chunk)->delete();
+                $suggested = array_values(array_diff(array_unique($suggested), DB::table('cluster_queries')->whereIn('query_id', $suggested ?: [0])->pluck('query_id')->map(fn ($id): int => (int) $id)->all()));
+                if ($suggested !== []) {
+                    self::deleteQueries($suggested, remember: false, dropEmptyClusters: false);
+                }
+            });
+        }
+
+        return $dropped;
     }
 
     /** @return array{sources: int, queries: int, created: int, deleted: int, assigned: int, pending: int, brand_queries: int} */
@@ -445,7 +480,9 @@ final class QueryPipeline
                 ->where(fn ($q) => $q->whereNull('q.service_id')->orWhereColumn('q.service_id', '!=', 'c.service_id'))
                 ->pluck('cq.id')->all();
             if ($stale !== []) {
+                $clusters = DB::table('cluster_queries')->whereIn('id', $stale)->distinct()->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all();
                 DB::table('cluster_queries')->whereIn('id', $stale)->delete();
+                self::dropEmptyClusters($clusters);
             }
         }
     }

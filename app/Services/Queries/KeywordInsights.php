@@ -394,9 +394,12 @@ final class KeywordInsights
     public static function clearMismatchedService(int $sectorId, string $code): int
     {
         return DB::transaction(function () use ($sectorId, $code): int {
+            $clusters = ClusterQuery::query()->whereIn('query_id', self::mismatchQuery($sectorId, $code)->select('id'))->distinct()->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all();
             ClusterQuery::query()->whereIn('query_id', self::mismatchQuery($sectorId, $code)->select('id'))->delete();
+            $cleared = self::mismatchQuery($sectorId, $code)->update(['service_id' => null, 'assignment' => 'none', 'locked' => false, 'updated_at' => now()]);
+            QueryPipeline::dropEmptyClusters($clusters);
 
-            return self::mismatchQuery($sectorId, $code)->update(['service_id' => null, 'assignment' => 'none', 'locked' => false, 'updated_at' => now()]);
+            return $cleared;
         });
     }
 

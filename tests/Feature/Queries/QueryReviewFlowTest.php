@@ -180,7 +180,7 @@ final class QueryReviewFlowTest extends TestCase
         $this->assertSame(['implant fiyatları', 'implant forum yorumları', 'zirkonyum fiyatları'], Query::query()->orderBy('text')->pluck('text')->all(), 'only selected lines applied');
         $this->assertSame([$keep->id], QueryReviewItem::query()->pluck('id')->map(fn ($v): int => (int) $v)->all(), 'the unselected line stays in the tab');
         $this->assertSame(0, $cluster->clusterQueries()->count(), 'deleted query leaves its cluster');
-        $this->assertNull($cluster->fresh()->main_query_id);
+        $this->assertNull($cluster->fresh(), 'an unlocked cluster left without queries is deleted');
         $this->assertSame(0, DB::table('query_sources')->where('raw_query', 'implant forum')->whereNotNull('query_id')->count(), 'sources stay, unlinked');
         $this->assertSame(1, DB::table('query_sources')->where('raw_query', 'implant forum')->count());
 

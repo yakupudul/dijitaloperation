@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Cache;
 
 /**
  * Sorgu otomatik pilotu: one tick (triage → Bekleyenler → daily clustering); while triage work is left the job queues
- * itself again. One tick at a time (lock); the 15-minute schedule restarts it after a failure.
+ * itself again. One tick and one clean-up at a time (locks); the 15-minute schedule restarts it after a failure. The
+ * clean-up runs hourly and at once after 50 new filter terms (QueryAutopilot::cleanIfDue).
  */
 final class QueryAutopilotJob implements ShouldQueue
 {
@@ -27,7 +28,14 @@ final class QueryAutopilotJob implements ShouldQueue
     public function handle(QueryAutopilot $autopilot): void
     {
         if ($this->clean) {
-            $autopilot->clean();
+            $lock = Cache::lock('queries:autopilot:clean', $this->timeout);
+            if ($lock->get()) {
+                try {
+                    $autopilot->clean();
+                } finally {
+                    $lock->release();
+                }
+            }
 
             return;
         }

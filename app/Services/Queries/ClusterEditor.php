@@ -185,7 +185,7 @@ final class ClusterEditor
             ClusterQuery::query()->whereIn('id', $links->pluck('id'))->delete();
             Query::query()->whereIn('id', $links->where('is_suggested', true)->pluck('query_id'))->where('is_suggested', true)->delete();
             // Operator decision: a query taken out of a cluster leaves the library too (remembered: never comes back).
-            QueryPipeline::deleteQueries($links->where('is_suggested', false)->pluck('query_id')->map(fn ($id): int => (int) $id)->values()->all(), remember: true);
+            QueryPipeline::deleteQueries($links->where('is_suggested', false)->pluck('query_id')->map(fn ($id): int => (int) $id)->values()->all(), remember: true, dropEmptyClusters: false);
             $this->saved($cluster, []);
 
             return $links->count();

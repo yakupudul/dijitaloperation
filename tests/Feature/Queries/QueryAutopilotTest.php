@@ -4,7 +4,9 @@ namespace Tests\Feature\Queries;
 
 use App\Ai\Agents\QueryTriageAgent;
 use App\Jobs\Queries\ClusterQueriesJob;
+use App\Jobs\Queries\QueryAutopilotJob;
 use App\Livewire\Operator\Library\QueriesPage;
+use App\Models\ClusterQuery;
 use App\Models\FilterTerm;
 use App\Models\PendingQuery;
 use App\Models\Query;
@@ -119,5 +121,53 @@ final class QueryAutopilotTest extends SiteTestCase
         Livewire::test(QueriesPage::class)->assertSee('Otomatik pilot')->assertSee('açık')
             ->call('toggleAutopilot')->assertSee('durduruldu');
         $this->assertTrue(QueryAutopilot::paused());
+    }
+
+    public function test_the_clean_up_deletes_unlocked_clusters_left_without_queries_and_keeps_locked_ones(): void
+    {
+        QueryPipeline::markImported();
+        $emptied = $this->cluster($this->implant, 'KPSS implant', ['kpss implant', 'kpss implant fiyat']);
+        $suggested = Query::query()->create(['text' => 'kpss implant rehberi', 'text_hash' => QueryNormalizer::hash('kpss implant rehberi'), 'sector_id' => $this->dental->id,
+            'service_id' => $this->implant->id, 'assignment' => 'ai', 'is_suggested' => true]);
+        ClusterQuery::query()->create(['cluster_id' => $emptied->id, 'query_id' => $suggested->id, 'is_suggested' => true]);
+        $locked = $this->cluster($this->implant, 'KPSS elle', ['kpss diş']);
+        $locked->forceFill(['locked' => true])->save();
+        $kept = $this->cluster($this->implant, 'İmplant fiyatları', ['implant fiyatları', 'kpss implant tedavisi']);
+        Query::query()->where('text', 'implant fiyatları')->update(['locked' => true]);
+        FilterTerm::query()->create(['sector_id' => $this->dental->id, 'term' => 'kpss', 'source' => 'ai']);
+
+        app(QueryAutopilot::class)->clean();
+
+        $this->assertNull($emptied->fresh(), 'only a suggested query left: deleted');
+        $this->assertFalse(Query::query()->whereKey($suggested->id)->exists(), 'its suggested query goes too');
+        $this->assertNotNull($locked->fresh(), 'locked clusters stay even when empty');
+        $this->assertNotNull($kept->fresh());
+        $this->assertSame(['implant fiyatları'], Query::query()->whereIn('id', $kept->clusterQueries()->select('query_id'))->pluck('text')->all());
+    }
+
+    public function test_fifty_new_filter_terms_start_the_clean_up_at_once_and_the_next_one_waits_for_fifty_more(): void
+    {
+        QueryPipeline::markImported();
+        Queue::fake([QueryAutopilotJob::class]);
+        $add = function (int $count, string $prefix): void {
+            foreach (range(1, $count) as $i) {
+                FilterTerm::query()->create(['sector_id' => $this->dental->id, 'term' => $prefix.$i, 'source' => 'ai']);
+            }
+        };
+        app(QueryAutopilot::class)->clean();
+        $add(49, 'terim');
+        $this->assertFalse(app(QueryAutopilot::class)->cleanIfDue());
+        $add(1, 'son');
+        $this->assertSame(50, QueryAutopilot::newFilterTerms());
+        $this->assertTrue(app(QueryAutopilot::class)->cleanIfDue());
+        Queue::assertPushed(QueryAutopilotJob::class, fn (QueryAutopilotJob $job): bool => $job->clean);
+        $this->assertSame(0, QueryAutopilot::newFilterTerms());
+        $add(10, 'yeni');
+        $this->assertFalse(app(QueryAutopilot::class)->cleanIfDue(), 'next forced clean-up after 50 more');
+        Queue::assertPushed(QueryAutopilotJob::class, 1);
+
+        // The hourly clean-up also restarts the count.
+        app(QueryAutopilot::class)->clean();
+        $this->assertSame(0, QueryAutopilot::newFilterTerms());
     }
 }

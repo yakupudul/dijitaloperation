@@ -3,6 +3,7 @@
 namespace App\Services\Queries;
 
 use App\Ai\Agents\QueryTriageAgent;
+use App\Jobs\Queries\QueryAutopilotJob;
 use App\Models\FilterTerm;
 use App\Models\PendingQuery;
 use App\Models\Query;
@@ -37,8 +38,11 @@ use Throwable;
  *  3. When both are empty, at most once a day: services with new, never clustered queries are clustered one by one
  *     ("Hepsini kümele" queue: place into the existing clusters, or a full run for a service without clusters). New
  *     clusters wait for the operator's approval before they reach any brand.
- *  4. Hourly clean-up (operator decision: not on every new term, once an hour for all of them): a full rescan with the grown filter basket and keywords, then every open Silinecekler
- *     line is applied (filter deletions, keyword service changes) except conflicts and lines the operator kept.
+ *  4. Hourly clean-up: a full rescan with the grown filter basket and keywords, then every open Silinecekler line is
+ *     applied (filter deletions, keyword service changes) except conflicts and lines the operator kept; unlocked
+ *     clusters left without a collected query are deleted. Operator decision 2026-10-01: when 50 new filter terms
+ *     have come in since the last clean-up, it runs at once (fewer queries for triage); the next forced one waits for
+ *     the next 50, the hourly one goes on.
  */
 final class QueryAutopilot
 {
@@ -52,6 +56,9 @@ final class QueryAutopilot
     private const int TIME_BUDGET_SECONDS = 600;
 
     private const int CLUSTER_EVERY_HOURS = 20;
+
+    /** New filter terms since the last clean-up that start one at once. */
+    public const int CLEAN_AFTER_TERMS = 50;
 
     /** @var array<int, array{sector: ServiceCategory, services: Collection<int, ServiceCatalogItem>, forbidden: list<string>}|null> */
     private array $sectors = [];
@@ -136,6 +143,9 @@ final class QueryAutopilot
             $result = $this->apply($context, $rows, $structured);
             $termsAdded = $termsAdded || $result['filters'] > 0;
             $this->record(['status' => 'running'], $result);
+            if ($result['filters'] > 0) {
+                $this->cleanIfDue();
+            }
         }
         if ($termsAdded) {
             $this->pending->prune();
@@ -169,22 +179,48 @@ final class QueryAutopilot
      * Hourly clean-up: full rescan, then the open pool lines are applied (filter deletions and keyword service changes);
      * conflicts and lines the operator kept stay for the operator.
      *
-     * @return array{deleted: int, changed: int}
+     * @return array{deleted: int, changed: int, clusters?: int}
      */
     public function clean(): array
     {
         if (! self::enabled()) {
             return ['deleted' => 0, 'changed' => 0];
         }
+        $this->record(['clean_filter_id' => self::lastFilterId()]);
         $this->rescanner->scan(null);
         $ids = QueryReviewItem::query()->whereNull('kept_at')
             ->where(fn ($q) => $q->where('kind', QueryReviewItem::DELETE)
                 ->orWhere(fn ($s) => $s->where('kind', QueryReviewItem::SERVICE)->where(fn ($r) => $r->whereNull('reason')->orWhere('reason', '!=', QueryReviewItem::REASON_CONFLICT))))
             ->pluck('id')->map(fn ($id): int => (int) $id)->all();
         $result = $this->rescanner->apply($ids);
-        $this->record(['cleaned_at' => now()->toIso8601String(), 'last_clean' => $result], ['deleted' => $result['deleted'], 'changed' => $result['changed']]);
+        $result['clusters'] = QueryPipeline::dropEmptyClusters();
+        $this->record(['cleaned_at' => now()->toIso8601String(), 'last_clean' => $result],
+            ['deleted' => $result['deleted'], 'changed' => $result['changed'], 'dropped_clusters' => $result['clusters']]);
 
         return $result;
+    }
+
+    /** Filter terms added since the last clean-up (or since the last forced one was queued). */
+    public static function newFilterTerms(): int
+    {
+        return FilterTerm::query()->where('id', '>', (int) (self::state()['clean_filter_id'] ?? 0))->count();
+    }
+
+    /** Queues the clean-up at once when 50 new filter terms came in; the mark moves so the next one waits for 50 more. */
+    public function cleanIfDue(): bool
+    {
+        if (self::newFilterTerms() < self::CLEAN_AFTER_TERMS) {
+            return false;
+        }
+        $this->record(['clean_filter_id' => self::lastFilterId(), 'clean_queued_at' => now()->toIso8601String()]);
+        QueryAutopilotJob::dispatch(true);
+
+        return true;
+    }
+
+    private static function lastFilterId(): int
+    {
+        return (int) FilterTerm::query()->max('id');
     }
 
     /**
