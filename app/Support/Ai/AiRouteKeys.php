@@ -101,7 +101,7 @@ final class AiRouteKeys
     /** Faz 4: write one article of the content studio from an idea. */
     public const string CONTENT_ARTICLE = 'content.article';
 
-    /** Faz 4: one batch of gap article ideas for chosen services (one call per batch, never per idea). */
+    /** "Yeni fikir üret" (CONTENT_IDEAS_BLUEPRINT §4.3): extra content ideas of one cluster for the system-wide pool. */
     public const string CONTENT_IDEAS = 'content.ideas';
 
     /** Faz 3 "AI ile kural üret": selected queries → new filter basket terms + new matching keywords per service (one call). */

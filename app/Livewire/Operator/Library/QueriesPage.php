@@ -8,12 +8,14 @@ use App\Jobs\Queries\AssignQueryServicesJob;
 use App\Jobs\Queries\ClusterQueriesJob;
 use App\Jobs\Queries\ProposeQueryRulesJob;
 use App\Jobs\Queries\RescanQueriesJob;
+use App\Jobs\Site\GenerateContentIdeasJob;
 use App\Livewire\Concerns\PreviewsKeywordImpact;
 use App\Models\Brand;
 use App\Models\BrandClusterPage;
 use App\Models\BrandOffering;
 use App\Models\Cluster;
 use App\Models\ClusterQuery;
+use App\Models\ContentIdea;
 use App\Models\DigitalAsset;
 use App\Models\FilterTerm;
 use App\Models\Page;
@@ -38,6 +40,7 @@ use App\Services\Queries\QueryRescanner;
 use App\Services\Queries\QueryRuleEngine;
 use App\Services\Queries\QueryRuleProposer;
 use App\Services\Queries\QueryServiceAssigner;
+use App\Services\Site\ContentIdeaPool;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -162,6 +165,9 @@ final class QueriesPage extends Component
     public bool $confirmShared = false;
 
     public string $addQueryText = '';
+
+    /** "Yeni fikir üret": how many ideas (1–5). */
+    public string $ideaCount = '3';
 
     public string $brandId = '';
 
@@ -543,6 +549,27 @@ final class QueriesPage extends Component
         $this->fillClusterForm($cluster);
         $this->reset(['selectedClusterQueries', 'moveTarget', 'splitName', 'mergeIds', 'confirmShared', 'addQueryText', 'brandId', 'brandTarget', 'brandPage', 'brandExcluded']);
         $this->resetValidation();
+    }
+
+    /** "Yeni fikir üret" (CONTENT_IDEAS_BLUEPRINT §4.3): from Sorgular, without brand context; runs on the queue. */
+    public function generateIdeas(): void
+    {
+        $user = $this->actor();
+        $cluster = $this->openedCluster();
+        if ((Cache::get(ContentIdeaPool::cacheKey($cluster->id))['status'] ?? null) === 'running') {
+            return;
+        }
+        $count = max(1, min(ContentIdeaPool::MAX_COUNT, (int) $this->ideaCount));
+        Cache::put(ContentIdeaPool::cacheKey($cluster->id), ['status' => 'running', 'added' => 0, 'rejected' => []], now()->addHour());
+        GenerateContentIdeasJob::dispatch($cluster->id, null, $count, $user->id);
+        $this->message = $count.' yeni içerik fikri üretiliyor.';
+    }
+
+    public function archiveIdea(int $id): void
+    {
+        $this->actor();
+        ContentIdea::query()->where('cluster_id', $this->openedCluster()->id)->whereKey($id)->update(['status' => 'archived']);
+        $this->message = 'Fikir arşivlendi.';
     }
 
     public function closeCluster(): void
@@ -1267,6 +1294,7 @@ final class QueriesPage extends Component
         $openCluster = $this->tab === 'clusters' && $this->openClusterId !== null
             ? Cluster::query()->with(['mainQuery', 'clusterQueries.searchQuery', 'brandPages.brand:id,name', 'brandPages.page:id,url,path'])->find($this->openClusterId) : null;
         $affected = $openCluster !== null ? app(ClusterEditor::class)->affectedBrands($openCluster) : collect();
+        $ideaStatus = $openCluster !== null ? Cache::get(ContentIdeaPool::cacheKey((int) $openCluster->id)) : null;
         $pending = $this->tab === 'pending' ? $this->pendingList() : null;
         $reviewCounts = QueryRescanner::openCounts();
         $reviewRunning = QueryReview::query()->where('status', QueryReview::RUNNING)->where('created_at', '>', now()->subHour())->exists();
@@ -1293,6 +1321,9 @@ final class QueriesPage extends Component
             'openCluster' => $openCluster,
             'affectedBrands' => $affected,
             'clusterSitePages' => $openCluster !== null ? $this->clusterSitePages((int) $openCluster->id) : [],
+            'contentIdeas' => $openCluster !== null ? ContentIdea::query()->with(['originBrand:id,name', 'usages' => fn ($q) => $q->whereNotNull('page_id')->with('brand:id,name')])
+                ->where('cluster_id', $openCluster->id)->where('status', 'active')->orderBy('id')->get() : collect(),
+            'ideaStatus' => $ideaStatus,
             'brandPages' => $openCluster !== null && ctype_digit($this->brandId) && $affected->contains('id', (int) $this->brandId)
                 ? Page::query()->whereIn('website_asset_id', DigitalAsset::query()->where('brand_id', (int) $this->brandId)->select('id'))
                     ->whereIn('category', ['hizmet', 'lokasyon', 'blog', 'sss'])->orderBy('path')->limit(500)->pluck('path', 'id')->all() : [],
@@ -1315,7 +1346,7 @@ final class QueriesPage extends Component
             'proposal' => $proposal,
             'clusterStatus' => is_array($clusterStatus) ? $clusterStatus : null,
             'polling' => ($proposal['status'] ?? null) === 'running' || ($clusterStatus['status'] ?? null) === 'running' || $this->negAwaiting
-                || $overviewRunning || ($clusterQueue['status'] ?? null) === 'running'
+                || $overviewRunning || ($clusterQueue['status'] ?? null) === 'running' || ($ideaStatus['status'] ?? null) === 'running'
                 || ($assign['status'] ?? null) === 'running' || ($filterProposal['status'] ?? null) === 'running' || ($scan['status'] ?? null) === 'running' || ($this->tab === 'deletions' && $reviewRunning),
         ]);
     }

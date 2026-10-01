@@ -204,8 +204,9 @@ Havuzda her fikrin "kullanan markalar" bilgisi bu kayıtlardan okunur: sayfası 
 iç bağlantı versin, mevcut fikirleri tekrar etmesin, yasaklı ifadeleri içermesin. Ana sayfanın bir bölümü olabilecek
 konuyu fikir yapma."
 
-**Kontrol:** tür geçerli; başlık ≥ 3 kelime; hedef sorgular kümenin sorgusu ya da önerilen; ana fikirle ve havuzla
-tekrar değil; yasaklı ifade yok. Geçmeyen fikir kaydedilmez, neden ekranda yazar.
+**Kontrol:** tür geçerli; başlık ≥ 3 kelime; hedef sorgular kümenin sorgusu ya da önerilen (en az biri kümenin
+sorgusu); 3–12 taslak başlık (AI'dan 5–10 istenir); ana fikirle ve havuzla (arşiv dahil) tekrar değil; yasaklı ifade
+yok (Faz 5). Geçmeyen fikir kaydedilmez, neden ekranda yazar.
 
 ### 4.4 Testler
 

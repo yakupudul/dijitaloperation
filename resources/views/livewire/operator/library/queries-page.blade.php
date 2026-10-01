@@ -529,6 +529,46 @@
                     @endif
                 </div>
 
+                <div class="space-y-2 border-t border-gray-100 pt-3 text-xs dark:border-gray-800" data-content-ideas>
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <h3 class="font-semibold">İçerik fikirleri</h3>
+                        <div class="flex items-center gap-2">
+                            <select wire:model="ideaCount" aria-label="Fikir sayısı" class="{{ $input }} py-1 text-xs">
+                                @foreach (range(1, \App\Services\Site\ContentIdeaPool::MAX_COUNT) as $n)<option value="{{ $n }}">{{ $n }}</option>@endforeach
+                            </select>
+                            <button type="button" wire:click="generateIdeas" wire:loading.attr="disabled" @disabled(($ideaStatus['status'] ?? null) === 'running') class="{{ $ghost }}">Yeni fikir üret</button>
+                        </div>
+                    </div>
+                    <p class="text-gray-500">Ana fikir kümenin kendisidir. Buradakiler ayrı sayfa gerektiren ek fikirlerdir; havuz tüm markalar için ortaktır.</p>
+                    @if (($ideaStatus['status'] ?? null) === 'running')
+                        <p class="text-brand-600">Fikirler üretiliyor…</p>
+                    @elseif (($ideaStatus['status'] ?? null) === 'done')
+                        <p>{{ $ideaStatus['added'] }} fikir havuza eklendi.</p>
+                    @elseif (in_array($ideaStatus['status'] ?? null, ['error', 'no_provider'], true))
+                        <p class="text-rose-600">{{ $ideaStatus['status'] === 'no_provider' ? 'AI sağlayıcısı tanımlı değil.' : 'Fikir üretilemedi, tekrar deneyin.' }}</p>
+                    @endif
+                    @foreach ((array) ($ideaStatus['rejected'] ?? []) as $rej)
+                        <p class="text-amber-700 dark:text-amber-400">Eklenmedi: {{ $rej['title'] }} · {{ $rej['reason'] }}</p>
+                    @endforeach
+                    @if ($contentIdeas->isEmpty())
+                        <p class="text-gray-500">Henüz ek fikir yok.</p>
+                    @else
+                        <ul class="divide-y divide-gray-100 dark:divide-gray-800">
+                            @foreach ($contentIdeas as $idea)
+                                <li wire:key="idea-{{ $idea->id }}" class="space-y-1 py-2">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <p><span class="font-medium">{{ $idea->title }}</span> <span class="text-gray-500">· {{ \App\Models\ContentIdea::TYPE_LABELS[$idea->type] ?? $idea->type }}</span></p>
+                                        <button type="button" wire:click="archiveIdea({{ $idea->id }})" wire:confirm="Bu fikir arşivlensin mi?" class="text-gray-500 hover:text-rose-600">Arşivle</button>
+                                    </div>
+                                    @if ($idea->angle)<p class="text-gray-600 dark:text-gray-400">{{ $idea->angle }}</p>@endif
+                                    <p class="text-gray-500">Hedef: {{ collect($idea->target_queries)->map(fn ($q) => $q['text'].(($q['in_cluster'] ?? false) ? '' : ' (önerilen)'))->join(', ') }}</p>
+                                    <p class="text-gray-500">Üreten: {{ $idea->originBrand?->name ?? 'Sorgular (genel)' }} · Kullanan markalar: {{ $idea->usages->pluck('brand.name')->filter()->unique()->join(', ') ?: '—' }}</p>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </div>
+
                 @if ($affectedBrands->isNotEmpty())
                     <div class="space-y-2 border-t border-gray-100 pt-3 text-xs dark:border-gray-800" data-brand-edit>
                         <h3 class="font-semibold">Bu markaya özel düzenle</h3>

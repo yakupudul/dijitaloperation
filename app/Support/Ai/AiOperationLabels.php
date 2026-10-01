@@ -26,6 +26,7 @@ final class AiOperationLabels
         'queries.assign_services' => 'Sorgulara hizmet öner',
         'queries.cluster' => 'Sorgu kümeleme',
         'queries.cluster_review' => 'Küme gözden geçirme',
+        'content.ideas' => 'Yeni içerik fikri',
         'gbp.review_reply' => 'Yorum yanıt taslağı',
         'gbp.services_compare' => 'İşletme Profili hizmet karşılaştırma',
         'gbp.description' => 'İşletme Profili açıklama önerisi',

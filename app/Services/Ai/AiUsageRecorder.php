@@ -59,7 +59,7 @@ final class AiUsageRecorder
         'PageWriterAgent' => AiRouteKeys::SITE_FIX_PAGE,
         'ContentLocalizerAgent' => AiRouteKeys::CONTENT_LOCALIZE,
         'ArticleWriterAgent' => AiRouteKeys::CONTENT_ARTICLE,
-        'ContentIdeaAgent' => AiRouteKeys::CONTENT_IDEAS,
+        'ContentIdeasAgent' => AiRouteKeys::CONTENT_IDEAS,
         'AssetSectorAgent' => AiRouteKeys::QUERIES_ASSET_SECTOR,
         'QueryClusterAgent' => AiRouteKeys::QUERIES_CLUSTER,
         'QueryClusterReviewAgent' => AiRouteKeys::QUERIES_CLUSTER_REVIEW,

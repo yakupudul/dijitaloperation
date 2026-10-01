@@ -27,6 +27,7 @@ final class SiteServiceProvider extends ServiceProvider
         AiRouteKeys::SITE_STANDARD_FROM_DECISION => ['Site Standard From Decision', '"Bu karardan standart öner": a scoped standard (URL / marka / sektör / genel) from an approved decision; operator edits and approves.', 'classification'],
         AiRouteKeys::SITE_WEEKLY_CONTENT => ['Site Weekly Content', 'İçerik: weekly content plan (new pages / posts, updates) within the brand capacity.', 'analysis'],
         AiRouteKeys::SITE_CONTENT_DISCOVERY => ['Site Content Discovery', 'İçerik: opportunities from brand queries outside every cluster.', 'analysis'],
+        AiRouteKeys::CONTENT_IDEAS => ['Content Ideas', '"Yeni fikir üret": extra content ideas of one cluster that each need their own page (system-wide pool; brand context only from a brand screen).', 'analysis'],
         AiRouteKeys::SITE_WRITE_ARTICLE => ['Site Write Article', 'İçerik "Taslak hazırla": full article HTML; compliance gate and Admin approval before the WordPress draft.', 'analysis'],
     ];
 
