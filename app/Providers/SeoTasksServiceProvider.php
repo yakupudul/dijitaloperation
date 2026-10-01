@@ -91,7 +91,15 @@ final class SeoTasksServiceProvider extends ServiceProvider
             'key' => AiRouteKeys::QUERIES_CLUSTER,
             'name' => 'Query Clusters',
             'module' => 'queries',
-            'description' => 'Sorgular "AI ile kümele": one call groups a service\'s queries into clusters (same user need on the same page type) with intent, main query, page type and subtopics. Locked clusters are never touched.',
+            'description' => 'Sorgular "AI ile kümele": a service\'s topics go in parts (skeleton from the most searched, then 300 per call) into clusters (same user need on the same page type) with intent, main query, page type and subtopics. Locked clusters keep their definition.',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::QUERIES_CLUSTER_REVIEW,
+            'name' => 'Query Cluster Review',
+            'module' => 'queries',
+            'description' => 'Sorgular "AI ile kümele" last step: one call reviews a service\'s clusters, merges those one page would cover (never from a locked cluster) and clarifies unlocked names / needs.',
             'default_steps' => AiDefaultSteps::analysis(),
         ]);
     }

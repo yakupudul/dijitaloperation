@@ -52,9 +52,8 @@
         @if ($tab === 'queries' || $tab === 'clusters')
             <button type="button" wire:click="clusterService" @disabled(! ctype_digit($service)) class="{{ $btn }} ml-auto" title="Hizmet seçin">AI ile kümele</button>
             <x-operator.ai-prompt-info operation="queries.cluster" />
-            @if (($clusterStatus['status'] ?? null) === 'running')<span class="text-xs text-gray-500">kümeleniyor…</span>
-            @elseif (($clusterStatus['status'] ?? null) === 'ready')<span class="text-xs text-gray-500">{{ $clusterStatus['clusters'] }} küme · {{ $clusterStatus['suggested'] }} önerilen sorgu</span>
-            @elseif ($clusterStatus !== null)<span class="text-xs text-rose-600">Kümeleme: {{ ['no_queries' => 'sorgu yok', 'no_sector' => 'hizmetin sektörü yok', 'no_provider' => 'AI bağlı değil', 'error' => 'hata'][$clusterStatus['status']] ?? $clusterStatus['status'] }}</span>@endif
+            @php $runLabel = \App\Services\Queries\QueryClusterer::label($clusterStatus); @endphp
+            @if ($runLabel !== null)<span class="text-xs {{ $runLabel['tone'] === 'error' ? 'text-rose-600' : 'text-gray-500' }}" data-cluster-run>{{ $runLabel['text'] }}</span>@endif
         @endif
     </section>
 
@@ -305,10 +304,65 @@
     @if ($tab === 'clusters')
         <section class="{{ $card }}" data-section="clusters">
             @if ($clusters === null)
-                <p class="text-gray-500">Hizmet seçin.</p>
+                @php $queueRunning = ($clusterQueue['status'] ?? null) === 'running'; @endphp
+                <div class="mb-3 flex flex-wrap items-center gap-2" data-cluster-all>
+                    @if ($queueRunning)
+                        <span class="text-xs text-gray-600 dark:text-gray-300">Toplu kümeleme sürüyor · {{ (int) $clusterQueue['done'] }} / {{ (int) $clusterQueue['total'] }} hizmet bitti · sırada {{ count($clusterQueue['queue']) }}</span>
+                        <button type="button" wire:click="stopClusterAll" class="{{ $ghost }}">Durdur</button>
+                    @else
+                        <button type="button" wire:click="clusterAll" wire:confirm="Kümede olmayan sorgusu olan tüm hizmetler sırayla, parça parça kümelenecek (her parça bir AI çağrısı). Başlatılsın mı?" class="{{ $btn }}">Hepsini kümele</button>
+                        @if (($clusterQueue['status'] ?? null) === 'ready')<span class="text-xs text-gray-500">Son toplu kümeleme bitti · {{ (int) $clusterQueue['done'] }} hizmet</span>
+                        @elseif (($clusterQueue['status'] ?? null) === 'stopped')<span class="text-xs text-gray-500">Son toplu kümeleme durduruldu · {{ (int) $clusterQueue['done'] }} / {{ (int) $clusterQueue['total'] }} hizmet</span>@endif
+                    @endif
+                    <span class="text-xs text-gray-500">Hizmetler sırayla işlenir; her hizmette önce iskelet, sonra kalan konular 300'erli parçalar halinde, en sonda gözden geçirme. Onaylı kümelerin tanımı değişmez.</span>
+                </div>
+                @if ($overview === [])
+                    <p class="text-gray-500">Sorgusu olan hizmet yok.</p>
+                @else
+                    <table class="w-full text-left text-xs" data-cluster-overview>
+                        <thead class="text-gray-500"><tr><th class="py-1">Hizmet</th><th>Markalar</th><th class="text-right">Sorgu</th><th class="text-right">Kümede</th><th class="text-right">Küme</th><th>Durum</th><th></th></tr></thead>
+                        @foreach ($overview as $sectorName => $rows)
+                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                <tr><td colspan="7" class="pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500">{{ $sectorName }}</td></tr>
+                                @foreach ($rows as $row)
+                                    @php $rowLabel = \App\Services\Queries\QueryClusterer::label($row['state']); $rowRunning = ($row['state']['status'] ?? null) === 'running'; $open = $row['queries'] - $row['clustered']; @endphp
+                                    <tr wire:key="so-{{ $row['id'] }}" data-service-row="{{ $row['id'] }}">
+                                        <td class="py-1 font-medium"><button type="button" wire:click="$set('service', '{{ $row['id'] }}')" class="text-left hover:underline">{{ $row['name'] }}</button></td>
+                                        <td class="text-gray-600 dark:text-gray-400">{{ $row['brands'] === [] ? '—' : implode(', ', $row['brands']) }}</td>
+                                        <td class="text-right tabular-nums">{{ number_format($row['queries'], 0, ',', '.') }}</td>
+                                        <td class="text-right tabular-nums">{{ number_format($row['clustered'], 0, ',', '.') }}</td>
+                                        <td class="text-right tabular-nums">{{ $row['clusters'] }}@if ($row['approved'] > 0) <span class="text-gray-500">· {{ $row['approved'] }} onaylı</span>@endif</td>
+                                        <td>
+                                            @if ($rowLabel !== null && ($rowRunning || $rowLabel['tone'] === 'error' || ($clusterQueue['current'] ?? null) === $row['id']))
+                                                <span class="{{ $rowLabel['tone'] === 'error' ? 'text-rose-600' : 'text-gray-600 dark:text-gray-300' }}">{{ $rowLabel['text'] }}</span>
+                                            @elseif ($queueRunning && in_array($row['id'], (array) $clusterQueue['queue'], true))
+                                                <span class="text-gray-500">sırada</span>
+                                            @elseif ($row['clusters'] === 0)
+                                                <span class="text-amber-700 dark:text-amber-300">kümelenmedi</span>
+                                            @elseif ($open > 0)
+                                                <span class="text-amber-700 dark:text-amber-300">{{ number_format($open, 0, ',', '.') }} sorgu kümede değil</span>
+                                            @else
+                                                <span class="text-success-700 dark:text-success-400">kümelendi</span>
+                                            @endif
+                                        </td>
+                                        <td class="whitespace-nowrap text-right">
+                                            @if (! $rowRunning && $open > 0)
+                                                <button type="button" wire:click="clusterOne({{ $row['id'] }})" class="{{ $ghost }}">{{ $row['clusters'] === 0 ? 'Kümele' : 'Yerleştir' }}</button>
+                                            @endif
+                                            <button type="button" wire:click="$set('service', '{{ $row['id'] }}')" class="{{ $ghost }}">Aç</button>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        @endforeach
+                    </table>
+                @endif
             @else
+                @if ($unclustered > 0)
+                    <p class="mb-2 text-xs text-amber-700 dark:text-amber-300" data-unclustered>Kümede olmayan sorgu: {{ number_format($unclustered, 0, ',', '.') }}</p>
+                @endif
                 <table class="w-full text-left text-xs">
-                    <thead class="text-gray-500"><tr><th class="py-1">Küme</th><th>Ana sorgu</th><th>Niyet</th><th>Sayfa tipi</th><th class="text-right">Sorgu</th><th></th></tr></thead>
+                    <thead class="text-gray-500"><tr><th class="py-1">Küme</th><th>Ana sorgu</th><th>Niyet</th><th>Sayfa tipi</th><th class="text-right">Talep</th><th class="text-right">Sorgu</th><th></th></tr></thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                         @forelse ($clusters as $row)
                             <tr wire:key="c-{{ $row->id }}">
@@ -320,11 +374,12 @@
                                 <td>{{ $row->mainQuery?->text ?? '—' }}</td>
                                 <td>{{ \App\Models\Cluster::INTENT_LABELS[$row->intent] ?? $row->intent }}</td>
                                 <td>{{ \App\Models\Cluster::PAGE_TYPE_LABELS[$row->page_type] ?? $row->page_type }}</td>
+                                <td class="text-right tabular-nums">{{ number_format((int) $row->demand, 0, ',', '.') }}</td>
                                 <td class="text-right tabular-nums">{{ $row->cluster_queries_count }}</td>
                                 <td class="text-right"><button type="button" wire:click="openCluster({{ $row->id }})" class="{{ $ghost }}">Aç</button></td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="py-3 text-gray-500">Küme yok · "AI ile kümele".</td></tr>
+                            <tr><td colspan="7" class="py-3 text-gray-500">Küme yok · "AI ile kümele".</td></tr>
                         @endforelse
                     </tbody>
                 </table>

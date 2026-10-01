@@ -1,5 +1,10 @@
 # PROJECT_MEMORY
 
+## 2026-11-11 — Kümeler sistem genelinde sabit; parça parça kümeleme
+
+- **Karar (operatör):** Kümeler sektör + hizmet bazında sistem genelinde sabittir; markaya hizmet verildiğinde o hizmetin kümeleri marka ekranına gelir, markaya özel ayar (lokasyon, mevcut URL'ler) marka tarafında yapılır (sonraki iş). Sorgular › Kümeler paneli sade kalır: hizmet özeti + küme listesi + mevcut küme penceresi.
+- **Karar:** "AI ile kümele" hiçbir konuyu kesmez: iskelet → 300'erli yerleştirme → gözden geçirme, her biri ayrı AI çağrısı; "Hepsini kümele" hizmetleri talebe göre tek tek işler. Onaylı (kilitli) kümenin tanımı AI tarafından değişmez; yalnız yeni sorgular eklenebilir.
+
 ## 2026-11-11 — WordPress sitelerinde sayfa içeriği eklentiden
 
 - **Karar (operatör):** WordPress Connector bağlı sitelerde sayfa içeriği tek tek HTTP ile değil, eklentinin salt okuma `/content-export` yanıtından (25'lik isteklerle, temasız işlenmiş içerik + SEO başlığı / açıklama / canonical / dil) alınır. HTTP okuması ana sayfa, envanter dışı URL'ler ve eklentinin veremediği sayfalarla sınırlı kalır; schema ve menü bağlantıları gibi tema sinyalleri bu HTTP okumalarından gelir. Yeni yazma yok (ADR listesi değişmez).

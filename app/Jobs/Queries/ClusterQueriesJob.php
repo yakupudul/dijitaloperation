@@ -4,42 +4,64 @@ namespace App\Jobs\Queries;
 
 use App\Models\ServiceCatalogItem;
 use App\Services\Queries\QueryClusterer;
-use Illuminate\Contracts\Queue\ShouldBeUnique;
+use App\Services\Queries\QueryClusterQueue;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
-/** "AI ile kümele": one AI call clusters one service's queries; locked clusters stay as they are. */
-final class ClusterQueriesJob implements ShouldBeUnique, ShouldQueue
+/**
+ * "AI ile kümele": ONE step of a service's run (one AI call: skeleton, a part of the topics, or the review) and the
+ * next step queued after it. A failed call is repeated (same step, the run state only moves after a stored answer).
+ * Part of "Hepsini kümele" ($all): when the service is done, the next service of the queue starts.
+ */
+final class ClusterQueriesJob implements ShouldQueue
 {
     use Queueable;
 
     public int $timeout = 600;
 
-    public int $tries = 1;
+    public int $tries = 3;
 
-    public int $uniqueFor = 900;
+    /** @var list<int> */
+    public array $backoff = [30, 120];
 
-    public function __construct(public int $serviceId)
+    public function __construct(public int $serviceId, public bool $all = false)
     {
         $this->onQueue((string) config('queue.heavy_queue', 'default'));
-    }
-
-    public function uniqueId(): string
-    {
-        return (string) $this->serviceId;
     }
 
     public function handle(QueryClusterer $clusterer): void
     {
         $service = ServiceCatalogItem::query()->find($this->serviceId);
-        $result = $service !== null ? $clusterer->cluster($service) : ['status' => 'no_service', 'clusters' => 0, 'suggested' => 0];
-        Cache::put(QueryClusterer::cacheKey($this->serviceId), $result, now()->addDay());
+        if ($service === null) {
+            Cache::put(QueryClusterer::cacheKey($this->serviceId), ['status' => 'no_service'], now()->addDay());
+            $this->next();
+
+            return;
+        }
+        $state = $clusterer->step($service);
+        if (($state['status'] ?? null) === 'running') {
+            self::dispatch($this->serviceId, $this->all);
+
+            return;
+        }
+        $this->next();
     }
 
     public function failed(?Throwable $exception): void
     {
-        Cache::put(QueryClusterer::cacheKey($this->serviceId), ['status' => 'error', 'clusters' => 0, 'suggested' => 0], now()->addDay());
+        $state = QueryClusterer::state($this->serviceId) ?? [];
+        if (($state['status'] ?? null) === 'running') {
+            Cache::put(QueryClusterer::cacheKey($this->serviceId), ['status' => 'error', 'error' => mb_substr((string) $exception?->getMessage(), 0, 300)] + $state, now()->addDays(2));
+        }
+        $this->next();
+    }
+
+    private function next(): void
+    {
+        if ($this->all) {
+            app(QueryClusterQueue::class)->next($this->serviceId);
+        }
     }
 }

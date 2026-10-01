@@ -3,10 +3,13 @@
 namespace Tests\Feature\Queries;
 
 use App\Ai\Agents\QueryClusterAgent;
+use App\Ai\Agents\QueryClusterReviewAgent;
 use App\Ai\Agents\QueryRulesAgent;
+use App\Jobs\Queries\ClusterQueriesJob;
 use App\Jobs\Queries\RescanQueriesJob;
 use App\Livewire\Operator\Library\QueriesPage;
 use App\Models\Brand;
+use App\Models\BrandOffering;
 use App\Models\Cluster;
 use App\Models\ClusterQuery;
 use App\Models\CoreAssetBinding;
@@ -25,6 +28,8 @@ use App\Models\User;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Catalog\ServiceKeywordService;
 use App\Services\Queries\ClusterEditor;
+use App\Services\Queries\QueryClusterer;
+use App\Services\Queries\QueryClusterQueue;
 use App\Services\Queries\QueryPipeline;
 use App\Services\Queries\QueryRuleProposer;
 use App\Support\Roles;
@@ -204,7 +209,7 @@ final class QueriesScreenTest extends TestCase
             ], 'prompt_version' => QueryClusterAgent::PROMPT_VERSION];
         });
 
-        Livewire::test(QueriesPage::class)->set('service', (string) $this->implant->id)->call('clusterService')->assertSee('2 küme · 1 önerilen sorgu');
+        Livewire::test(QueriesPage::class)->set('service', (string) $this->implant->id)->call('clusterService')->assertSee('hazır · 2 yeni küme · 1 önerilen sorgu');
 
         $price = Cluster::query()->where('name', 'İmplant fiyatı')->sole();
         $this->assertSame($this->dental->id, $price->sector_id);
@@ -232,12 +237,136 @@ final class QueriesScreenTest extends TestCase
         app(ClusterEditor::class)->rename($price, 'İmplant fiyatları');
         Livewire::test(QueriesPage::class)->set('service', (string) $this->implant->id)->call('clusterService');
 
-        $this->assertStringNotContainsString('implant ücreti', $prompts[1], 'locked cluster queries are not sent again');
-        $this->assertStringContainsString('İmplant fiyatları', $prompts[1]);
+        $second = json_decode(substr($prompts[1], strlen("DATA_JSON\n")), true);
+        $this->assertStringNotContainsString('implant ücreti', json_encode($second['topics'], JSON_UNESCAPED_UNICODE), 'locked cluster queries are not sent again as topics');
+        $this->assertSame(['İmplant fiyatları', true], [$second['existing_clusters'][0]['name'], $second['existing_clusters'][0]['locked']], 'the locked cluster is shown as an existing cluster');
         $this->assertSame(3, Cluster::query()->whereKey($price->id)->sole()->clusterQueries()->count(), 'locked cluster untouched');
         $this->assertTrue(Query::query()->whereKey($suggested->id)->exists(), 'suggested query of a locked cluster stays');
         $this->assertFalse(Cluster::query()->whereKey($pain->id)->exists(), 'unlocked cluster replaced');
         $this->assertSame(['Ağrı süresi', 'İmplant fiyatları'], Cluster::query()->orderBy('name')->pluck('name')->all());
+    }
+
+    public function test_clustering_goes_in_parts_places_every_topic_and_reviews_the_clusters(): void
+    {
+        $this->enableAi();
+        config(['moxdop-query-rules.cluster' => ['skeleton_topics' => 2, 'place_topics' => 2]]);
+        app(ServiceKeywordService::class)->replace($this->implant, 'implant');
+        $this->sources(['implant fiyatları' => 500, 'implant sonrası ağrı' => 400, 'implant markaları' => 300, 'implant kemik tozu' => 200, 'implant sigara' => 100]);
+        $calls = [];
+        QueryClusterAgent::fake(function (string $prompt) use (&$calls): array {
+            $data = json_decode(substr($prompt, strlen("DATA_JSON\n")), true);
+            $calls[] = $data;
+            $ids = array_column($data['topics'], 'id');
+            $row = fn (?int $existing, string $name, array $queryIds): array => ['existing_cluster_id' => $existing, 'name' => $name, 'intent' => 'informational',
+                'user_need' => 'İmplant hakkında bilgi', 'page_type' => 'guide', 'query_ids' => $queryIds, 'main_query_id' => $queryIds[0] ?? null,
+                'representative_query_ids' => [], 'new_queries' => [], 'subtopics' => ['Süreç'], 'exclusions' => [], 'reasoning' => '-'];
+
+            return ['clusters' => match (count($calls)) {
+                1 => [$row(null, 'İmplant genel', $ids)],
+                2 => [$row($data['existing_clusters'][0]['id'], 'İmplant genel', [$ids[0]]), $row(null, 'İmplant malzemesi', [$ids[1]])],
+                default => [], // the last topic is not about this service: left out
+            }, 'prompt_version' => QueryClusterAgent::PROMPT_VERSION];
+        });
+        $reviews = [];
+        QueryClusterReviewAgent::fake(function (string $prompt) use (&$reviews): array {
+            $data = json_decode(substr($prompt, strlen("DATA_JSON\n")), true);
+            $reviews[] = $data;
+            $byName = array_column($data['clusters'], 'id', 'name');
+
+            return ['merges' => [['into_id' => $byName['İmplant genel'], 'from_ids' => [$byName['İmplant malzemesi'], 999]]],
+                'updates' => [['id' => $byName['İmplant genel'], 'name' => 'İmplant rehberi', 'intent' => 'informational', 'page_type' => 'guide',
+                    'user_need' => 'İmplantı baştan sona anlamak', 'subtopics' => ['Fiyat', 'Ağrı', 'Markalar'], 'exclusions' => []]],
+                'prompt_version' => QueryClusterReviewAgent::PROMPT_VERSION];
+        });
+
+        Livewire::test(QueriesPage::class)->call('setTab', 'clusters')->set('service', (string) $this->implant->id)->call('clusterService')
+            ->assertSee('hazır')->assertSee('Kümede olmayan sorgu: 1')->assertSee('İmplant rehberi');
+
+        $this->assertCount(3, $calls, 'skeleton + two placing parts');
+        $this->assertSame([2, 2, 1], array_map(fn (array $call): int => count($call['topics']), $calls));
+        $this->assertSame([], $calls[0]['existing_clusters']);
+        $this->assertSame(['İmplant genel'], array_column($calls[1]['existing_clusters'], 'name'), 'later parts see the clusters built so far');
+        $this->assertCount(2, $reviews[0]['clusters']);
+        $cluster = Cluster::query()->sole();
+        $this->assertSame(['İmplant rehberi', 'İmplantı baştan sona anlamak', ['Fiyat', 'Ağrı', 'Markalar']], [$cluster->name, $cluster->user_need, $cluster->subtopics]);
+        $this->assertSame(4, $cluster->clusterQueries()->count(), 'merged cluster keeps every placed query');
+        $this->assertFalse(ClusterQuery::query()->where('query_id', $this->queryId('implant sigara'))->exists(), 'left out by the AI');
+        $state = QueryClusterer::state($this->implant->id);
+        $this->assertSame(['ready', 'done', 4], [$state['status'], $state['step'], $state['part']]);
+        $this->assertArrayNotHasKey('left_out', $state);
+
+        // A locked cluster keeps its definition: the review never merges it away nor rewrites it.
+        $cluster->forceFill(['locked' => true])->save();
+        Cluster::query()->create(['sector_id' => $this->dental->id, 'service_id' => $this->implant->id, 'name' => 'İmplant malzemesi', 'intent' => 'informational', 'page_type' => 'guide']);
+        Cluster::query()->create(['sector_id' => $this->dental->id, 'service_id' => $this->implant->id, 'name' => 'Boş', 'intent' => 'informational', 'page_type' => 'guide']);
+        QueryClusterReviewAgent::fake(fn (): array => ['merges' => [['into_id' => Cluster::query()->where('name', 'Boş')->value('id'), 'from_ids' => [$cluster->id]]],
+            'updates' => [['id' => $cluster->id, 'name' => 'Değişmemeli', 'intent' => 'local', 'page_type' => 'location', 'user_need' => 'x', 'subtopics' => [], 'exclusions' => []]],
+            'prompt_version' => QueryClusterReviewAgent::PROMPT_VERSION]);
+        QueryClusterer::start($this->implant->id, 'place');
+        ClusterQueriesJob::dispatch($this->implant->id);
+        $this->assertSame('İmplant rehberi', $cluster->fresh()->name);
+        $this->assertSame(4, $cluster->clusterQueries()->count());
+    }
+
+    public function test_cluster_all_runs_services_one_by_one_and_the_overview_shows_brands_and_state(): void
+    {
+        $this->enableAi();
+        app(ServiceKeywordService::class)->replace($this->implant, 'implant');
+        app(ServiceKeywordService::class)->replace($this->zirkonyum, 'zirkonyum');
+        $this->sources(['implant fiyatları' => 500, 'zirkonyum kaplama fiyatı' => 50, 'zirkonyum kaç yıl dayanır' => 40]);
+        $brand = Brand::query()->sole();
+        $brand->update(['name' => 'Klinik Ankara']);
+        BrandOffering::query()->create(['brand_id' => $brand->id, 'service_catalog_item_id' => $this->implant->id, 'status' => 'active']);
+        // Zirkonyum already has an approved cluster: only its unclustered query is placed (no re-cluster).
+        $approved = $this->cluster('Zirkonyum fiyatı', ['zirkonyum kaplama fiyatı']);
+        $approved->forceFill(['service_id' => $this->zirkonyum->id, 'locked' => true, 'approved' => true])->save();
+
+        Livewire::test(QueriesPage::class)->call('setTab', 'clusters')
+            ->assertSee('Hepsini kümele')->assertSee('Diş sağlığı')->assertSee('Diş İmplantı')->assertSee('Klinik Ankara')
+            ->assertSee('kümelenmedi')->assertSee('1 sorgu kümede değil')->assertSee('1 onaylı');
+
+        $services = [];
+        QueryClusterAgent::fake(function (string $prompt) use (&$services): array {
+            $data = json_decode(substr($prompt, strlen("DATA_JSON\n")), true);
+            $services[] = $data['service'];
+            $existing = $data['existing_clusters'][0]['id'] ?? null;
+
+            return ['clusters' => [['existing_cluster_id' => $existing, 'name' => 'Yeni', 'intent' => 'commercial', 'user_need' => 'x', 'page_type' => 'service',
+                'query_ids' => array_column($data['topics'], 'id'), 'main_query_id' => null, 'representative_query_ids' => [], 'new_queries' => [],
+                'subtopics' => [], 'exclusions' => [], 'reasoning' => '-']], 'prompt_version' => QueryClusterAgent::PROMPT_VERSION];
+        });
+
+        Livewire::test(QueriesPage::class)->call('setTab', 'clusters')->call('clusterAll')->assertSee('2 hizmet sıraya alındı')
+            ->assertSee('Son toplu kümeleme bitti · 2 hizmet')->assertSee('kümelendi')->assertDontSee('kümelenmedi');
+
+        $this->assertSame(['Diş İmplantı', 'Zirkonyum Kaplama'], $services, 'biggest demand first, one service at a time');
+        $this->assertSame(2, $approved->clusterQueries()->count(), 'the new query joined the approved cluster');
+        $this->assertSame('Zirkonyum fiyatı', $approved->fresh()->name, 'its definition did not change');
+        $this->assertSame(1, Cluster::query()->where('service_id', $this->implant->id)->count());
+        $this->assertSame([], app(QueryClusterQueue::class)->servicesToCluster());
+    }
+
+    public function test_a_failed_part_marks_the_run_as_error_and_stop_ends_the_queue(): void
+    {
+        $this->enableAi();
+        app(ServiceKeywordService::class)->replace($this->implant, 'implant');
+        $this->sources(['implant fiyatları' => 500]);
+        QueryClusterAgent::fake(fn () => throw new \RuntimeException('provider down'));
+
+        QueryClusterer::start($this->implant->id);
+        try {
+            ClusterQueriesJob::dispatch($this->implant->id);
+        } catch (\RuntimeException) {
+            // The sync queue rethrows after failed().
+        }
+        $this->assertSame('error', QueryClusterer::state($this->implant->id)['status']);
+        Livewire::test(QueriesPage::class)->call('setTab', 'clusters')->assertSee('hata · yeniden deneyin');
+
+        Cache::put(QueryClusterQueue::KEY, ['status' => 'running', 'queue' => [$this->zirkonyum->id], 'current' => $this->implant->id, 'done' => 0, 'total' => 2]);
+        QueryClusterer::start($this->implant->id);
+        Livewire::test(QueriesPage::class)->call('setTab', 'clusters')->assertSee('Durdur')->call('stopClusterAll');
+        $this->assertSame(['stopped', []], [QueryClusterQueue::state()['status'], QueryClusterQueue::state()['queue']]);
+        $this->assertSame('stopped', QueryClusterer::state($this->implant->id)['status']);
     }
 
     public function test_cluster_split_merge_move_approve_and_delete_lock_the_clusters(): void

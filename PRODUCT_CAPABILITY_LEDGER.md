@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-11 — Sorgular › Kümeler: hizmet özeti, "Hepsini kümele", parça parça eksiksiz kümeleme
+
+- **Hizmet özeti:** Kümeler sekmesi hizmet seçilmeden boş kalmıyor. Sektöre göre gruplu, talebe göre sıralı tablo: hizmet, **markalar** (hizmeti etkin olarak sunan markalar), sorgu, kümedeki sorgu, küme (onaylı), durum (kümelenmedi / N sorgu kümede değil / kümelendi / kümeleniyor · parça x / y / sırada / hata), satırda **Kümele** (kümesi yoksa) veya **Yerleştir** (yeni sorgular mevcut kümelere) ve **Aç**. Sektör filtresi tabloyu daraltır; hizmet seçilince küme listesi açılır.
+- **Küme listesi:** **Talep** sütunu (üye sorguların gösterim toplamı), liste talebe göre büyükten küçüğe; üstte "Kümede olmayan sorgu: N".
+- **Parça parça kümeleme (`QueryClusterer`, `ClusterQueriesJob`):** tek çağrı / 800 konu sınırı kalktı. Her iş bir AI çağrısı: (1) iskelet — en çok aranan 400 konu (`moxdop-query-rules.cluster.skeleton_topics`); (2) yerleştirme — kalan konular 300'erli parçalarla (`place_topics`), her konu mevcut bir kümeye (`existing_cluster_id`, kilitli/onaylı da olabilir — tanımı değişmez) ya da yeni kümeye; AI'ın hizmetle ilgisiz bulduğu konular bu çalıştırmada tekrar sorulmaz; (3) gözden geçirme (`queries.cluster_review`, yeni `QueryClusterReviewAgent`) — aynı sayfaya düşecek kümeler birleştirilir (kilitli küme hiçbir zaman başka kümeye katılmaz / silinmez), kilitsiz kümelerin adı, niyeti, sayfa tipi, ihtiyacı, alt konuları netleşir; gözden geçirme hatası kümeleri bozmaz. Başarısız parça 3 kez denenir (30 sn, 2 dk), sonra durum "hata". Prompt `queries-cluster-v4`. Bir sonraki parça önceki parçanın kayıtlı cevabından sonra kuyruğa girer.
+- **Hepsini kümele (`QueryClusterQueue`):** kümede olmayan sorgusu olan tüm etkin hizmetler talebe göre sıraya alınır, aynı anda tek hizmet işlenir; kümesi olmayan hizmet tam, kümesi olan hizmet yalnız yerleştirme yapar. İlerleme (x / y hizmet, sırada N) ve **Durdur** (o anki parça biter, kuyruk boşalır).
+- **State:** CODED + PHPUnit (`QueriesScreenTest`: parçalar + gözden geçirme + kilitli küme korunması, toplu kuyruk + özet tablosu markalar/durum, hata ve durdurma), SQLite + PostgreSQL. Gerçek veriyle UAT yok. Deploy sonrası komut gerekmez.
+
 ## 2026-11-11 — Sorgular › Kümeler: küme penceresi düzeltmesi
 
 - Küme penceresi üst çubuğun (sticky header) altında kalıyordu (× ve üst alan tıklanamıyordu) ve buton sonuçları ("Küme kaydedildi." vb.) pencerenin arkasındaki sayfanın üstünde görünüyordu. Pencere artık tam ekran katmanda (arka plana tıkla / Esc ile kapanır) ve sonuç mesajı pencerenin içinde. State: CODED + PHPUnit (`QueriesScreenTest`).

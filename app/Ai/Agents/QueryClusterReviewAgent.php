@@ -14,19 +14,18 @@ use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Promptable;
 
 /**
- * Sorgular "AI ile kümele" (operation `queries.cluster`): one part of a service's topics (most searched first) goes
- * into clusters — topics that satisfy the same user need on the same page type. The first part builds the skeleton,
- * later parts join existing clusters (`existing_cluster_id`) or open new ones. Ids are checked against the input; new
- * queries the model adds are stored as "önerilen" without metrics.
+ * Sorgular "AI ile kümele", last step (operation `queries.cluster_review`): the service's clusters are reviewed once —
+ * clusters one page would cover are merged (never from a locked one), unclear names / needs of unlocked clusters are
+ * rewritten. Ids are checked against the input.
  */
-final class QueryClusterAgent implements Agent, HasProviderOptions, HasStructuredOutput, RegistryPrompted
+final class QueryClusterReviewAgent implements Agent, HasProviderOptions, HasStructuredOutput, RegistryPrompted
 {
     use Promptable;
     use UsesPromptRegistry;
 
-    public const string OPERATION = AiRouteKeys::QUERIES_CLUSTER;
+    public const string OPERATION = AiRouteKeys::QUERIES_CLUSTER_REVIEW;
 
-    public const string PROMPT_VERSION = 'queries-cluster-v4';
+    public const string PROMPT_VERSION = 'queries-cluster-review-v1';
 
     public function promptOperation(): string
     {
@@ -37,19 +36,18 @@ final class QueryClusterAgent implements Agent, HasProviderOptions, HasStructure
     public function schema(JsonSchema $schema): array
     {
         return [
-            'clusters' => $schema->array()->items($schema->object(fn (JsonSchema $row): array => [
-                'existing_cluster_id' => $row->integer()->nullable()->required(),
+            'merges' => $schema->array()->items($schema->object(fn (JsonSchema $row): array => [
+                'into_id' => $row->integer()->required(),
+                'from_ids' => $row->array()->items($row->integer())->required(),
+            ]))->required(),
+            'updates' => $schema->array()->items($schema->object(fn (JsonSchema $row): array => [
+                'id' => $row->integer()->required(),
                 'name' => $row->string()->required(),
                 'intent' => $row->string()->enum(Cluster::INTENTS)->required(),
-                'user_need' => $row->string()->required(),
                 'page_type' => $row->string()->enum(Cluster::PAGE_TYPES)->required(),
-                'query_ids' => $row->array()->items($row->integer())->required(),
-                'main_query_id' => $row->integer()->nullable()->required(),
-                'representative_query_ids' => $row->array()->items($row->integer())->required(),
-                'new_queries' => $row->array()->items($row->string())->required(),
+                'user_need' => $row->string()->required(),
                 'subtopics' => $row->array()->items($row->string())->required(),
                 'exclusions' => $row->array()->items($row->string())->required(),
-                'reasoning' => $row->string()->required(),
             ]))->required(),
             'prompt_version' => $schema->string()->required(),
         ];

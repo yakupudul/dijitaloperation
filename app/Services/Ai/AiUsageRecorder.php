@@ -62,6 +62,7 @@ final class AiUsageRecorder
         'ContentIdeaAgent' => AiRouteKeys::CONTENT_IDEAS,
         'AssetSectorAgent' => AiRouteKeys::QUERIES_ASSET_SECTOR,
         'QueryClusterAgent' => AiRouteKeys::QUERIES_CLUSTER,
+        'QueryClusterReviewAgent' => AiRouteKeys::QUERIES_CLUSTER_REVIEW,
         'QueryRulesAgent' => AiRouteKeys::QUERIES_FILTER_RULES,
         'QueryPlanSectorsAgent' => AiRouteKeys::QUERIES_PLAN_SECTORS,
         'QueryPlanServicesAgent' => AiRouteKeys::QUERIES_PLAN_SERVICES,

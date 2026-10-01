@@ -110,6 +110,9 @@ final class AiRouteKeys
     /** Faz 3 "AI ile kümele": one service's queries → clusters (same user need on the same page type), one call. */
     public const string QUERIES_CLUSTER = 'queries.cluster';
 
+    /** Sorgular "AI ile kümele" last step: merges / clarifies a service's clusters. */
+    public const string QUERIES_CLUSTER_REVIEW = 'queries.cluster_review';
+
     /** "AI ile planla" adım 1: sectors of brands without one (+ clearly different asset sectors), one batched call. */
     public const string QUERIES_PLAN_SECTORS = 'queries.plan_sectors';
 

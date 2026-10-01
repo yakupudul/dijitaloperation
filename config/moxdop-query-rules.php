@@ -18,6 +18,10 @@
 return [
     'version' => 2,
 
+    // "AI ile kümele" parts (not rules; changing them needs no new version): topics of the skeleton call, topics per
+    // placing call.
+    'cluster' => ['skeleton_topics' => 400, 'place_topics' => 300],
+
     'variant' => [
         // Dropped from every query: connectives, question particles (Turkish, English, German).
         'drop' => ['ve', 'ile', 'icin', 'bir', 'mi', 'mu', 'midir', 'mudur', 'misin', 'mudur', 'da', 'de', 'ki', 'veya', 'yada', 'ya',

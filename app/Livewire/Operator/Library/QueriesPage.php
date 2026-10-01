@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator\Library;
 
+use App\Enums\OfferingStatus;
 use App\Jobs\Queries\ApplyQueryRulesJob;
 use App\Jobs\Queries\AssignQueryServicesJob;
 use App\Jobs\Queries\ClusterQueriesJob;
@@ -10,6 +11,7 @@ use App\Jobs\Queries\RescanQueriesJob;
 use App\Livewire\Concerns\PreviewsKeywordImpact;
 use App\Models\Brand;
 use App\Models\BrandClusterPage;
+use App\Models\BrandOffering;
 use App\Models\Cluster;
 use App\Models\ClusterQuery;
 use App\Models\DigitalAsset;
@@ -28,6 +30,7 @@ use App\Services\Queries\ClusterEditor;
 use App\Services\Queries\KeywordInsights;
 use App\Services\Queries\PendingQueries;
 use App\Services\Queries\QueryClusterer;
+use App\Services\Queries\QueryClusterQueue;
 use App\Services\Queries\QueryNormalizer;
 use App\Services\Queries\QueryPipeline;
 use App\Services\Queries\QueryPlanner;
@@ -492,9 +495,43 @@ final class QueriesPage extends Component
 
             return;
         }
-        QueryClusterer::markRunning((int) $this->service);
+        QueryClusterer::start((int) $this->service);
         ClusterQueriesJob::dispatch((int) $this->service);
-        $this->message = 'Kümeleme başladı · kilitli kümeler korunur.';
+        $this->message = 'Kümeleme başladı · konular parça parça işlenir, kilitli kümeler korunur.';
+    }
+
+    /**
+     * Özet satırındaki "Kümele": a service without clusters gets a full run; one with clusters only places its
+     * unclustered queries into them.
+     */
+    public function clusterOne(int $serviceId): void
+    {
+        $this->actor();
+        if (! ServiceCatalogItem::query()->whereKey($serviceId)->exists() || (QueryClusterer::state($serviceId)['status'] ?? null) === 'running') {
+            return;
+        }
+        $place = Cluster::query()->where('service_id', $serviceId)->exists();
+        QueryClusterer::start($serviceId, $place ? 'place' : 'full');
+        ClusterQueriesJob::dispatch($serviceId);
+        $this->message = $place ? 'Yeni sorgular mevcut kümelere yerleştiriliyor.' : 'Kümeleme başladı · konular parça parça işlenir.';
+    }
+
+    /** "Hepsini kümele": services with unclustered queries, one at a time, biggest demand first. */
+    public function clusterAll(QueryClusterQueue $queue): void
+    {
+        $this->actor();
+        if ((QueryClusterQueue::state()['status'] ?? null) === 'running') {
+            return;
+        }
+        $count = $queue->start();
+        $this->message = $count > 0 ? $count.' hizmet sıraya alındı · her biri sırayla, parça parça kümelenir.' : 'Kümelenecek sorgu yok.';
+    }
+
+    public function stopClusterAll(QueryClusterQueue $queue): void
+    {
+        $this->actor();
+        $queue->stop();
+        $this->message = 'Toplu kümeleme durduruldu · işlenen hizmet o anki parçayı bitirip durur.';
     }
 
     // ── Kümeler ──────────────────────────────────────────────────────────────
@@ -1223,6 +1260,9 @@ final class QueriesPage extends Component
         $variantGroups = $queries !== null && $this->variants && ! $this->hidden ? $this->variantGroups($queries->getCollection()) : [];
         $serviceId = ctype_digit($this->service) ? (int) $this->service : null;
         $clusterStatus = $serviceId !== null ? Cache::get(QueryClusterer::cacheKey($serviceId)) : null;
+        $overview = $this->tab === 'clusters' && $serviceId === null ? $this->serviceOverview() : null;
+        $clusterQueue = $this->tab === 'clusters' ? QueryClusterQueue::state() : null;
+        $overviewRunning = $overview !== null && collect($overview)->flatten(1)->contains(fn (array $row): bool => ($row['state']['status'] ?? null) === 'running');
 
         $openCluster = $this->tab === 'clusters' && $this->openClusterId !== null
             ? Cluster::query()->with(['mainQuery', 'clusterQueries.searchQuery', 'brandPages.brand:id,name', 'brandPages.page:id,url,path'])->find($this->openClusterId) : null;
@@ -1247,6 +1287,9 @@ final class QueriesPage extends Component
             'filterProposal' => $filterProposal,
             'scan' => $scan,
             'clusters' => $this->tab === 'clusters' && $serviceId !== null ? $this->clusterList($serviceId) : null,
+            'unclustered' => $this->tab === 'clusters' && $serviceId !== null ? $this->unclusteredCount($serviceId) : 0,
+            'overview' => $overview,
+            'clusterQueue' => $clusterQueue,
             'openCluster' => $openCluster,
             'affectedBrands' => $affected,
             'brandPages' => $openCluster !== null && ctype_digit($this->brandId) && $affected->contains('id', (int) $this->brandId)
@@ -1271,6 +1314,7 @@ final class QueriesPage extends Component
             'proposal' => $proposal,
             'clusterStatus' => is_array($clusterStatus) ? $clusterStatus : null,
             'polling' => ($proposal['status'] ?? null) === 'running' || ($clusterStatus['status'] ?? null) === 'running' || $this->negAwaiting
+                || $overviewRunning || ($clusterQueue['status'] ?? null) === 'running'
                 || ($assign['status'] ?? null) === 'running' || ($filterProposal['status'] ?? null) === 'running' || ($scan['status'] ?? null) === 'running' || ($this->tab === 'deletions' && $reviewRunning),
         ]);
     }
@@ -1379,10 +1423,89 @@ final class QueriesPage extends Component
     }
 
     /** @return Collection<int, Cluster> */
+    /** The service's clusters, biggest demand (sum of the members' impressions) first. */
     private function clusterList(int $serviceId): Collection
     {
-        return Cluster::query()->where('service_id', $serviceId)->with('mainQuery:id,text')->withCount('clusterQueries')
-            ->orderByDesc('approved')->orderBy('name')->limit(300)->get();
+        $demand = ClusterQuery::query()->join('queries', 'queries.id', '=', 'cluster_queries.query_id')
+            ->join('clusters', 'clusters.id', '=', 'cluster_queries.cluster_id')->where('clusters.service_id', $serviceId)
+            ->groupBy('cluster_queries.cluster_id')->selectRaw('cluster_queries.cluster_id, sum(queries.impressions) as total')
+            ->pluck('total', 'cluster_queries.cluster_id');
+
+        return Cluster::query()->where('service_id', $serviceId)->with('mainQuery:id,text')->withCount('clusterQueries')->limit(300)->get()
+            ->each(function (Cluster $cluster) use ($demand): void {
+                $cluster->setAttribute('demand', (int) ($demand[$cluster->id] ?? 0));
+            })
+            ->sortBy([['demand', 'desc'], ['name', 'asc']])->values();
+    }
+
+    /** Visible, real queries of the service in none of its clusters. */
+    private function unclusteredCount(int $serviceId): int
+    {
+        return Query::query()->where('service_id', $serviceId)->where('hidden', false)->where('is_suggested', false)
+            ->whereNotIn('id', ClusterQuery::query()->join('clusters', 'clusters.id', '=', 'cluster_queries.cluster_id')
+                ->where('clusters.service_id', $serviceId)->select('cluster_queries.query_id'))
+            ->count();
+    }
+
+    /**
+     * Kümeler without a service filter: one row per active service with queries or clusters (of the chosen sector),
+     * grouped by sector, biggest demand first: brands that offer it, queries, clustered queries, clusters (approved)
+     * and the run state.
+     *
+     * @return array<string, list<array<string, mixed>>> sector name => rows
+     */
+    private function serviceOverview(): array
+    {
+        $code = ctype_digit($this->sector) ? ServiceCategory::query()->whereKey((int) $this->sector)->value('code') : null;
+        $services = ServiceCatalogItem::query()->with('primaryName')->where('status', 'active')
+            ->when($code !== null, fn ($q) => $q->where('sector', $code))->get()
+            ->filter(fn (ServiceCatalogItem $item): bool => $item->primaryName !== null)->keyBy('id');
+        if ($services->isEmpty()) {
+            return [];
+        }
+        $ids = $services->keys()->all();
+        $queries = Query::query()->whereIn('service_id', $ids)->where('hidden', false)->where('is_suggested', false)
+            ->groupBy('service_id')->selectRaw('service_id, count(*) as total, sum(impressions) as demand')->get()->keyBy('service_id');
+        $clustered = ClusterQuery::query()->join('clusters', 'clusters.id', '=', 'cluster_queries.cluster_id')
+            ->join('queries', 'queries.id', '=', 'cluster_queries.query_id')->whereIn('clusters.service_id', $ids)
+            ->where('queries.hidden', false)->where('queries.is_suggested', false)
+            ->groupBy('clusters.service_id')->selectRaw('clusters.service_id, count(*) as total')->pluck('total', 'clusters.service_id');
+        $clusters = Cluster::query()->whereIn('service_id', $ids)->groupBy('service_id')
+            ->selectRaw('service_id, count(*) as total, sum(case when approved then 1 else 0 end) as approved')->get()->keyBy('service_id');
+        $brands = BrandOffering::query()->join('brands', 'brands.id', '=', 'brand_offerings.brand_id')
+            ->whereIn('brand_offerings.service_catalog_item_id', $ids)->where('brand_offerings.status', OfferingStatus::Active->value)
+            ->whereNull('brands.deleted_at')->distinct()->orderBy('brands.name')
+            ->get(['brand_offerings.service_catalog_item_id', 'brands.name'])
+            ->groupBy('service_catalog_item_id')->map(fn ($rows) => $rows->pluck('name')->unique()->values()->all());
+        $states = Cache::many(array_map(fn (int $id): string => QueryClusterer::cacheKey($id), $ids));
+        $sectorNames = ServiceCategory::query()->pluck('name', 'code');
+
+        $rows = [];
+        foreach ($services as $id => $service) {
+            $total = (int) ($queries[$id]->total ?? 0);
+            $clusterCount = (int) ($clusters[$id]->total ?? 0);
+            if ($total === 0 && $clusterCount === 0) {
+                continue;
+            }
+            $state = $states[QueryClusterer::cacheKey((int) $id)] ?? null;
+            $rows[(string) ($sectorNames[$service->sector] ?? 'Sektörsüz')][] = [
+                'id' => (int) $id,
+                'name' => (string) $service->primaryName->raw_label,
+                'brands' => $brands[$id] ?? [],
+                'queries' => $total,
+                'demand' => (int) ($queries[$id]->demand ?? 0),
+                'clustered' => (int) ($clustered[$id] ?? 0),
+                'clusters' => $clusterCount,
+                'approved' => (int) ($clusters[$id]->approved ?? 0),
+                'state' => is_array($state) ? $state : null,
+            ];
+        }
+        ksort($rows);
+        foreach ($rows as &$sectorRows) {
+            usort($sectorRows, fn (array $a, array $b): int => [$b['demand'], $a['name']] <=> [$a['demand'], $b['name']]);
+        }
+
+        return $rows;
     }
 
     /** @return array<int, string> */
