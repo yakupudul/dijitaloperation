@@ -82,7 +82,7 @@
                         </span>
                     </li>
                 @empty
-                    <li class="py-2 text-gray-500">Hizmete bağlı sayfa yok. Sorgular › Kümeler &amp; Sayfalar'dan eşleştir.</li>
+                    <li class="space-y-2 py-2 text-gray-500"><span class="block">Hizmet sayfası bulunamadı. Hizmet bölümündeki sayfalar (/tedavilerimiz/, /hizmetlerimiz/ …) ve kümelerle eşleşen sayfalar burada görünür.</span><x-operator.cluster-readiness :asset-id="$this->assetId" what="Küme eşleşmesi" /></li>
                 @endforelse
             </ul>
         </section>

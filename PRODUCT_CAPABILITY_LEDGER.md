@@ -1,5 +1,12 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-15 — Web sitesi ekranı: aynı veri her yerde aynı
+
+- **Sayfa tıklamaları:** Sayfalar ve sayfa detayı Search Console sayfa toplamlarını (`gsc_page_daily`, anonim sorgular dahil) kullanır; Özet'teki site toplamıyla uyumlu. Sorgu × sayfa verisi yalnız ortalama sıra için (ve sayfa toplamı yoksa yedek olarak).
+- **Ana hizmet sayfaları:** hizmet bölümündeki sayfalar (/tedavilerimiz/, /hizmetlerimiz/ …) adında şehir geçse de "hizmet" (önce "lokasyon" sayılıyordu); kategorisi henüz yazılmamış sayfa URL'sinden değerlendirilir; haftalık yenilemede kural kategorileri pasif markada da yazılır (AI geçişi yalnız etkin markada). Başlığı olmayan sayfa slug'dan okunur başlıkla görünür.
+- **Boş görünümler tek kaynaktan:** İçerik fikirleri, Rakipler, Öneriler, Kümeler ve Özet'in boş hâli `SiteScope::clusterReadiness` ile eksik adımı ve bağlantısını gösterir (hizmet yok / katalog bağı yok / küme yok / küme onaysız → "Kümeleri onayla" / eşleştirilmedi). Eski "Kümeler & Sayfalar" yönlendirmeleri kaldırıldı.
+- **State:** CODED + PHPUnit (`SitePagesTest::test_service_section_pages_are_main_page_totals_match_the_site_and_empty_views_say_the_next_step`). Üretim UAT yok.
+
 ## 2026-11-14 — Sorgu otomatik pilotu: atama ve kümelemeye kadar onaysız
 
 - **Karar (operatör):** Sorgular hizmete atanma ve kümelenmeye kadar onay beklemeden ilerler; yeni kümelerin markalara inmesi onayda kalır. Çekim sıklığına dokunulmadı (hesap başına 1 / 3 gün, ilk bağlantıda 13 ay, sonra yalnız yeni günler + kısa geç-veri penceresi).

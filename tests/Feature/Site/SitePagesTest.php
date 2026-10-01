@@ -3,18 +3,23 @@
 namespace Tests\Feature\Site;
 
 use App\Livewire\Demo\GlobalSearch;
+use App\Livewire\Operator\Website\V2\CompetitorsTab;
+use App\Livewire\Operator\Website\V2\ContentIdeasTab;
 use App\Livewire\Operator\Website\V2\LinkedAssetsTab;
 use App\Livewire\Operator\Website\V2\OverviewTab;
 use App\Livewire\Operator\Website\V2\PagesTab;
 use App\Livewire\Operator\Website\V2\SettingsTab;
 use App\Livewire\Operator\Website\V2\WebsiteScreen;
 use App\Models\BrandOffering;
+use App\Models\Cluster;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Site\Analysis\SitePagesReader;
+use App\Services\Site\PageCategorizer;
+use App\Services\Site\SiteScope;
 use App\Support\Demo\DemoMenu;
 use App\Support\OperatorMenu;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -264,6 +269,35 @@ final class SitePagesTest extends TestCase
             'material_hash' => hash('sha256', 'x'), 'title' => $title, 'reason' => 'Gerekçe.', 'priority' => 1, 'action_type' => 'title_description',
             'status' => Suggestion::OPEN, 'action' => ['site_id' => $this->site->id], 'evidence' => [], 'page_id' => $this->implantPage->id,
         ]);
+    }
+
+    public function test_service_section_pages_are_main_page_totals_match_the_site_and_empty_views_say_the_next_step(): void
+    {
+        // A sitemap page under the service section, not categorized yet, with the city in its slug and no title.
+        $url = 'https://www.panorama.example/tedavilerimiz/implant-tedavisi/ankara-all-on-6-implant';
+        $allOn6 = Page::query()->create(['website_asset_id' => $this->site->id, 'url' => $url, 'url_hash' => hash('sha256', $url),
+            'path' => '/tedavilerimiz/implant-tedavisi/ankara-all-on-6-implant', 'title' => null, 'category' => null]);
+        $this->assertSame('hizmet', PageCategorizer::rule($allOn6, [], ['ankara']), 'service section wins over the city word');
+
+        // Page totals (anonymized queries included) replace the query × page sum; the position still comes from the facts.
+        foreach ([['/implant/', '2026-09-20', 70, 900], ['/implant/', '2026-08-20', 30, 400]] as $i => [$path, $date, $clicks, $impressions]) {
+            $this->insertFacts('gsc_page_daily', [
+                'digital_asset_id' => null, 'external_resource_id' => $this->gsc->id, 'site_url' => 'sc-domain:panorama.example', 'search_type' => 'web',
+                'reporting_date' => $date, 'page' => 'https://www.panorama.example'.$path, 'clicks' => $clicks, 'impressions' => $impressions,
+                'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', 'p'.$i),
+            ]);
+        }
+        $rows = app(SitePagesReader::class)->rows($this->site->fresh(), 28);
+        $this->assertSame([70, 900, 4.8, 30], [$rows['/implant']['clicks'], $rows['/implant']['impressions'], $rows['/implant']['position'], $rows['/implant']['prev_clicks']]);
+        $row = $rows['/tedavilerimiz/implant-tedavisi/ankara-all-on-6-implant'];
+        $this->assertSame(['hizmet', true, 'Ankara all on 6 implant'], [$row['category'], $row['is_main'], $row['title']]);
+
+        // No approved cluster for the brand's services: every cluster view says so, with the link to approve.
+        Cluster::query()->create(['sector_id' => $this->brand->sector_id, 'service_id' => BrandOffering::query()->where('brand_id', $this->brand->id)->value('service_catalog_item_id'),
+            'name' => 'İmplant fiyatları', 'intent' => 'commercial', 'page_type' => 'service', 'approved' => false]);
+        $this->assertSame('approve', SiteScope::clusterReadiness($this->brand, $this->site)['step']);
+        Livewire::test(ContentIdeasTab::class, ['assetId' => $this->site->id])->assertSeeHtml('data-cluster-readiness="approve"')->assertSee('Kümeleri onayla');
+        Livewire::test(CompetitorsTab::class, ['assetId' => $this->site->id])->assertSeeHtml('data-cluster-readiness="approve"');
     }
 
     private function page(string $path, string $title, string $category, ?int $wpId = null): Page

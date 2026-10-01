@@ -4,8 +4,10 @@ namespace App\Services\Site;
 
 use App\Enums\OfferingStatus;
 use App\Models\Brand;
+use App\Models\BrandClusterPage;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
+use App\Models\Cluster;
 use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Services\SeoTasks\SeoText;
@@ -38,6 +40,37 @@ final class SiteScope
     {
         return BrandOffering::query()->with(['primaryName', 'catalogItem.primaryName'])->where('brand_id', $brand->id)
             ->where('status', OfferingStatus::Active->value)->orderByRaw("CASE WHEN priority = 'main' THEN 0 ELSE 1 END")->orderBy('id')->get();
+    }
+
+    /**
+     * Why the site's cluster views (İçerik fikirleri, Rakipler, Öneriler, ana hizmet sayfaları) are empty, from one
+     * source for every screen: active services, services tied to the catalog, their clusters and the approved ones,
+     * and the brand rows (Eşleştir). `step` is the first missing one: services | catalog | clusters | approve | match | ready.
+     *
+     * @return array{services: int, linked: int, clusters: int, approved: int, rows: int, step: string, sector_id: ?int}
+     */
+    public static function clusterReadiness(Brand $brand, ?DigitalAsset $site = null): array
+    {
+        $offerings = BrandOffering::query()->where('brand_id', $brand->id)->where('status', OfferingStatus::Active->value);
+        $services = (clone $offerings)->count();
+        $serviceIds = (clone $offerings)->whereNotNull('service_catalog_item_id')->distinct()->pluck('service_catalog_item_id');
+        $clusters = Cluster::query()->whereIn('service_id', $serviceIds->all() ?: [0])
+            ->when($brand->sector_id !== null, fn ($q) => $q->where('sector_id', $brand->sector_id));
+        $total = (clone $clusters)->count();
+        $approved = (clone $clusters)->where('approved', true)->count();
+        $rows = $site !== null ? BrandClusterPage::query()->where('website_asset_id', $site->id)->count()
+            : BrandClusterPage::query()->where('brand_id', $brand->id)->count();
+        $step = match (true) {
+            $services === 0 => 'services',
+            $serviceIds->isEmpty() => 'catalog',
+            $total === 0 => 'clusters',
+            $approved === 0 => 'approve',
+            $rows === 0 => 'match',
+            default => 'ready',
+        };
+
+        return ['services' => $services, 'linked' => $serviceIds->count(), 'clusters' => $total, 'approved' => $approved, 'rows' => $rows, 'step' => $step,
+            'sector_id' => $brand->sector_id !== null ? (int) $brand->sector_id : null];
     }
 
     /**

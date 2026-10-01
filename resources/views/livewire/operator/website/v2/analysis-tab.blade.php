@@ -66,7 +66,7 @@
                             </tr>
                         @endforeach
                     @empty
-                        <tr><td colspan="7" class="py-2 text-gray-500">Onaylı küme yok.</td></tr>
+                        <tr><td colspan="7" class="py-2"><x-operator.cluster-readiness :asset-id="$this->websiteId" what="Kümeler" /></td></tr>
                     @endforelse
                 </tbody>
             @elseif ($activeSub === 'targets')

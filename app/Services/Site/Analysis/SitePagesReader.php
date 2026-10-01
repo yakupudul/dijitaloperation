@@ -8,6 +8,7 @@ use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Queries\QuerySourceAggregator;
+use App\Services\SeoTasks\SiteUrlPattern;
 use App\Services\Site\SiteScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
@@ -296,7 +297,9 @@ final class SitePagesReader
         foreach ($rows as $path => $row) {
             $inventory = $row['sources'] !== [];
             $rows[$path]['sources'] = array_values(array_unique($row['sources']));
-            $rows[$path]['is_main'] = $inventory && ($row['services'] !== [] || $row['clusters'] !== [] || $row['category'] === 'hizmet');
+            $rows[$path]['category'] ??= $inventory ? self::pathCategory($path) : null;
+            $rows[$path]['title'] ??= $inventory ? self::slugTitle($path) : null;
+            $rows[$path]['is_main'] = $inventory && ($row['services'] !== [] || $row['clusters'] !== [] || $rows[$path]['category'] === 'hizmet');
             $rows[$path]['delta'] = $row['prev_clicks'] > 0 ? (int) round(($row['clicks'] - $row['prev_clicks']) / $row['prev_clicks'] * 100) : null;
             $rows[$path]['problem'] = ($row['status_code'] !== null && $row['status_code'] >= 400) || $row['indexable'] === false || $row['serious'] > 0;
             $rows[$path]['declining'] = $row['prev_clicks'] >= self::DECLINE_MIN_PREVIOUS && $row['clicks'] < $row['prev_clicks'] * self::DECLINE_RATIO;
@@ -305,6 +308,25 @@ final class SitePagesReader
         ksort($rows, SORT_STRING);
 
         return $rows;
+    }
+
+    /** Category of a page not categorized yet, read from its URL only (a page under the service section is "hizmet"). */
+    private static function pathCategory(string $path): ?string
+    {
+        $segments = array_values(array_filter(explode('/', mb_strtolower(trim($path, '/')))));
+        $first = preg_match('/^[a-z]{2}$/', $segments[0] ?? '') === 1 && count($segments) > 1 ? $segments[1] : ($segments[0] ?? '');
+        $depth = count($segments) - ($first !== ($segments[0] ?? '') ? 1 : 0);
+
+        return in_array($first, SiteUrlPattern::SERVICE_SECTIONS, true) && $depth >= 2 ? 'hizmet' : null;
+    }
+
+    /** "/tedavilerimiz/implant-tedavisi/ankara-all-on-6-implant" → "Ankara all on 6 implant" (a page without a stored title). */
+    public static function slugTitle(string $path): ?string
+    {
+        $slug = urldecode((string) last(array_filter(explode('/', trim($path, '/')))));
+        $words = trim(preg_replace('/[-_]+/', ' ', preg_replace('/\.[a-z0-9]{2,5}$/i', '', $slug) ?? '') ?? '');
+
+        return $words === '' ? null : mb_strtoupper(mb_substr($words, 0, 1)).mb_substr($words, 1);
     }
 
     /** @return PageRow */

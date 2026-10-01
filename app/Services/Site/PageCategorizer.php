@@ -110,6 +110,10 @@ final class PageCategorizer
                 return 'hizmet';
             }
         }
+        // A page under the service section is a service page even when its name carries the city ("ankara-all-on-6-implant").
+        if (in_array($first, SiteUrlPattern::SERVICE_SECTIONS, true) && count($segments) >= 2) {
+            return 'hizmet';
+        }
         $tokens = SeoText::tokens($name);
         foreach ($areaWords as $word) {
             foreach ($tokens as $token) {
@@ -117,9 +121,6 @@ final class PageCategorizer
                     return 'lokasyon';
                 }
             }
-        }
-        if (in_array($first, SiteUrlPattern::SERVICE_SECTIONS, true) && count($segments) >= 2) {
-            return 'hizmet';
         }
 
         return null;

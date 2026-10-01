@@ -176,15 +176,17 @@ final class SiteOperations
     private function weeklyRefresh(DigitalAsset $site): array
     {
         $brand = SiteScope::brandOf($site);
+        // Rule categories need no AI: new pages get one even for a passive brand (the AI pass is skipped there).
+        $categorize = $this->categorizer->categorize($site, onlyNew: true)['status'];
         if (! SiteScope::aiAllowed($brand)) {
-            return ['status' => 'not_operational'];
+            return ['status' => 'not_operational', 'categorize' => $categorize];
         }
         $this->memory->refreshProfile($brand);
         SiteMetrics::forgetPageTotals((int) $site->id);
 
         return [
             'status' => 'ready',
-            'categorize' => $this->categorizer->categorize($site, onlyNew: true)['status'],
+            'categorize' => $categorize,
             'service_pages' => $this->servicePages->map($site)['status'],
             'cluster_pages' => $this->clusterPages->refresh($site)['status'],
             'summaries' => $this->memory->summarize($brand, $this->pagesInUse($site))['status'],

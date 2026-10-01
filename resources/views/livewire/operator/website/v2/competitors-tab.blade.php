@@ -106,6 +106,6 @@
             @endif
         </section>
     @empty
-        <p class="{{ $card }} text-gray-500">Onaylı küme yok. Sorgular › Kümeler'de markanın hizmet kümelerini onaylayın.</p>
+        <x-operator.cluster-readiness :asset-id="$this->websiteId" what="Rakipler" />
     @endforelse
 </div>

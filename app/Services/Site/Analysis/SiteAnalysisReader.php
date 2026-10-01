@@ -12,6 +12,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -95,12 +96,12 @@ final class SiteAnalysisReader
 
         return $this->cached($site, 'pages', $w, function () use ($w): array {
             $previous = [];
-            foreach ($this->byColumn($w['gsc'], 'page', $w['prev_start'], $w['prev_end']) as $url => $m) {
+            foreach ($this->byPage($w['gsc'], $w['prev_start'], $w['prev_end']) as $url => $m) {
                 $previous[self::path((string) $url)] = ($previous[self::path((string) $url)] ?? 0) + $m['clicks'];
             }
             $landing = $this->landing($w['ga4'], $w['start'], $w['end']);
             $rows = [];
-            foreach ($this->byColumn($w['gsc'], 'page', $w['start'], $w['end']) as $url => $m) {
+            foreach ($this->byPage($w['gsc'], $w['start'], $w['end']) as $url => $m) {
                 $path = self::path((string) $url);
                 $rows[$path] ??= ['url' => (string) $url, 'path' => $path, 'clicks' => 0, 'impressions' => 0, 'weighted' => 0.0, 'weight' => 0,
                     'sessions' => (int) ($landing[$path]['sessions'] ?? 0), 'key_events' => (float) ($landing[$path]['key_events'] ?? 0), 'prev_clicks' => $previous[$path] ?? 0];
@@ -340,6 +341,45 @@ final class SiteAnalysisReader
     private static function position(?object $row): ?float
     {
         return $row !== null && (int) ($row->weight ?? 0) > 0 ? round((float) $row->weighted / (int) $row->weight, 1) : null;
+    }
+
+    /**
+     * Search Console per page: the page totals (`gsc_page_daily`, they include anonymized queries, so they add up to the
+     * site total the Özet shows) and the query × page facts only for the position (and as a fallback when page totals
+     * were not collected).
+     *
+     * @param  list<int>  $resources
+     * @return array<string, array{clicks: int, impressions: int, weighted: float, weight: int, position: ?float}>
+     */
+    private function byPage(array $resources, string $from, string $to): array
+    {
+        $facts = $this->byColumn($resources, 'page', $from, $to);
+        if ($resources === [] || ! Schema::hasTable('gsc_page_daily')) {
+            return $facts;
+        }
+        $totals = DB::table('gsc_page_daily')->whereIn('external_resource_id', $resources)->where('search_type', 'web')
+            ->whereBetween('reporting_date', [$from, $to])->groupBy('page')->selectRaw('page as k, '.$this->metricSql())
+            ->orderByDesc('clicks')->orderByDesc('impressions')->limit(self::MAX_ROWS)->get();
+        if ($totals->isEmpty()) {
+            return $facts;
+        }
+        $byPath = [];
+        foreach ($facts as $url => $m) {
+            $key = self::path((string) $url);
+            $byPath[$key] = ['weighted' => ($byPath[$key]['weighted'] ?? 0.0) + $m['weighted'], 'weight' => ($byPath[$key]['weight'] ?? 0) + $m['weight']];
+        }
+        $out = [];
+        $used = [];
+        foreach ($totals as $r) {
+            $key = self::path((string) $r->k);
+            $fact = isset($used[$key]) ? null : ($byPath[$key] ?? null);
+            $used[$key] = true;
+            [$weighted, $weight] = (int) $r->weight > 0 ? [(float) $r->weighted, (int) $r->weight] : [(float) ($fact['weighted'] ?? 0.0), (int) ($fact['weight'] ?? 0)];
+            $out[(string) $r->k] = ['clicks' => (int) $r->clicks, 'impressions' => (int) $r->impressions, 'weighted' => $weighted, 'weight' => $weight,
+                'position' => $weight > 0 ? round($weighted / $weight, 1) : null];
+        }
+
+        return $out;
     }
 
     /**

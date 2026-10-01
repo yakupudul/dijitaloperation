@@ -67,7 +67,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="py-3 text-gray-500">Bu sitede onaylı küme yok. Kümeler Sorgular'da onaylanıp markaya hizmet verilince burada görünür; ardından "Eşleştir".</td></tr>
+                        <tr><td colspan="7" class="py-3"><x-operator.cluster-readiness :asset-id="$this->assetId" what="İçerik fikirleri" /><span class="text-gray-500">Filtreye uyan satır yok.</span></td></tr>
                     @endforelse
                 </tbody>
             </table>

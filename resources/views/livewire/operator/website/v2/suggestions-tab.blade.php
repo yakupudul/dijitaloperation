@@ -140,7 +140,7 @@
                     @endif
                 </li>
             @empty
-                <li class="py-3 text-gray-500">Öneri yok · Kümeler & Sayfalar’da "Analiz et".</li>
+                <li class="space-y-2 py-3 text-gray-500"><x-operator.cluster-readiness :asset-id="$this->assetId" what="Öneriler" /><span>Öneri yok · öneriler Sorgular › İçerik fikirleri'nde "Eşleştir" ve "SEO analizi" ile oluşur.</span></li>
             @endforelse
         </ul>
         <div class="mt-2">{{ $suggestions->links() }}</div>

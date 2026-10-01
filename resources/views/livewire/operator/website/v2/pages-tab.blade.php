@@ -82,7 +82,7 @@
                         <td class="px-2 text-right"><span class="whitespace-nowrap rounded-full px-2 py-0.5 {{ $healthClass }}">{{ $healthLabel }}</span></td>
                     </tr>
                 @empty
-                    <tr><td colspan="9" class="px-3 py-6 text-center text-gray-500">{{ $activeFilter === 'ana' ? 'Hizmete bağlı sayfa yok. "Tüm sayfalar" filtresine bakın ya da Sorgular › Kümeler & Sayfalar’dan eşleştirin.' : 'Eşleşen sayfa yok.' }}</td></tr>
+                    <tr><td colspan="9" class="px-3 py-6 text-center text-gray-500">{{ $activeFilter === 'ana' ? 'Hizmete bağlı sayfa yok. "Tüm sayfalar" filtresine bakın ya da Sorgular › İçerik fikirleri › "Eşleştir".' : 'Eşleşen sayfa yok.' }}</td></tr>
                 @endforelse
             </tbody>
         </table>
