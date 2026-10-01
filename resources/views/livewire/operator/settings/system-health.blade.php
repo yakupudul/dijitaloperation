@@ -17,8 +17,8 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
             <a href="{{ route('operator.settings', ['section' => 'operations']) }}" wire:navigate class="text-sm text-gray-500 hover:text-brand-600">← Ayarlar</a>
-            <h1 class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">Sistem Sağlığı</h1>
-            <p class="mt-1 text-sm text-gray-500">Zamanlayıcı, işçiler, sistem uyarıları, bağlantı yetkileri, hesap bazında veri tazeliği ve WordPress eklenti sürümleri.</p>
+            <h1 class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">Hata merkezi</h1>
+            <p class="mt-1 text-sm text-gray-500">Yalnız senin yapman gerekenler öne çıkar; sistemin kendisi düzelttikleri sessizce bekler, 2 günde düzelmezse sana gelir. Teknik ayrıntılar aşağıda.</p>
             <p class="mt-1 text-xs text-gray-500">Yayındaki sürüm: <span class="font-mono">{{ $release['sha'] !== null ? substr($release['sha'], 0, 12) : 'bilinmiyor' }}</span>@if ($release['deployed_at']) · {{ $when($release['deployed_at']) }}@endif</p>
         </div>
         <div class="flex gap-2">
@@ -31,6 +31,56 @@
     @if ($message !== '')
         <p class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{{ $message }}</p>
     @endif
+
+    <section class="space-y-3" data-error-center>
+        @php
+            $tones = [
+                'you' => ['bg-rose-50 ring-rose-200 dark:bg-rose-500/10 dark:ring-rose-500/20', 'text-rose-800 dark:text-rose-200'],
+                'code' => ['bg-amber-50 ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-500/20', 'text-amber-900 dark:text-amber-200'],
+                'auto' => ['bg-gray-50 ring-gray-200 dark:bg-white/[0.03] dark:ring-gray-800', 'text-gray-700 dark:text-gray-300'],
+            ];
+        @endphp
+        @if (collect($triage)->flatten(1)->isEmpty())
+            <p class="rounded-xl bg-emerald-50 p-4 text-sm font-medium text-emerald-800 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300" data-error-center-clear>✓ Açık sorun yok. Markalara bağlı tüm hesaplar ve sistem çalışıyor.</p>
+        @endif
+        @foreach (\App\Services\Observability\ErrorTriage::LABELS as $bucket => $label)
+            @continue(($triage[$bucket] ?? []) === [])
+            <details @if ($bucket !== 'auto') open @endif class="rounded-xl p-4 ring-1 ring-inset {{ $tones[$bucket][0] }}" data-error-bucket="{{ $bucket }}">
+                <summary class="cursor-pointer text-sm font-semibold {{ $tones[$bucket][1] }}">{{ $label }} · {{ collect($triage[$bucket])->sum('count') }}
+                    @if ($bucket === 'auto')<span class="font-normal opacity-75"> — bir şey yapmana gerek yok; sistem yeniden deniyor</span>@endif
+                    @if ($bucket === 'code')<span class="font-normal opacity-75"> — tekrar denemek işe yaramaz, düzeltme gerekir</span>@endif
+                </summary>
+                <div class="mt-3 space-y-3">
+                    @foreach ($triage[$bucket] as $group)
+                        <div class="rounded-lg bg-white/70 p-3 dark:bg-gray-900/60" wire:key="err-{{ $bucket }}-{{ md5($group['key']) }}">
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $group['title'] }}@if ($group['count'] > 1)<span class="ml-1 rounded-full bg-gray-200 px-2 py-0.5 text-xs dark:bg-gray-700">{{ $group['count'] }}</span>@endif</p>
+                            <ul class="mt-2 space-y-2">
+                                @foreach (array_slice($group['items'], 0, 8) as $item)
+                                    <li class="text-xs text-gray-700 dark:text-gray-300">
+                                        <p><span class="font-medium">{{ $item['title'] }}</span>@if ($item['escalated']) <span class="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">2 günde düzelmedi</span>@endif</p>
+                                        <p class="text-gray-500">{{ $item['what'] }}</p>
+                                        @if ($bucket !== 'auto')<p class="mt-0.5"><span class="font-medium">Ne yapmalı:</span> {{ $item['action'] }}</p>@endif
+                                        <div class="mt-1 flex flex-wrap gap-2">
+                                            @if (($item['button']['run_now'] ?? null) !== null)
+                                                <button type="button" wire:click="runNowAutomation({{ (int) $item['button']['run_now'] }})" class="rounded-lg bg-brand-500 px-2.5 py-1 text-xs font-semibold text-white">{{ $item['button']['label'] ?? 'Şimdi güncelle' }}</button>
+                                            @endif
+                                            @if ($item['link_url'])<a href="{{ $item['link_url'] }}" wire:navigate class="rounded-lg px-2.5 py-1 text-xs font-medium text-brand-600 ring-1 ring-inset ring-brand-200">{{ $item['link_label'] ?? 'Aç' }} →</a>@endif
+                                        </div>
+                                    </li>
+                                @endforeach
+                                @if (count($group['items']) > 8)<li class="text-xs text-gray-500">+{{ count($group['items']) - 8 }} benzer</li>@endif
+                            </ul>
+                        </div>
+                    @endforeach
+                </div>
+            </details>
+        @endforeach
+    </section>
+
+    <details class="space-y-5" data-technical>
+        <summary class="cursor-pointer text-sm font-semibold text-gray-600 dark:text-gray-300">Teknik ayrıntılar (zamanlayıcı, işçiler, bağlantılar, hesaplar, eklentiler)</summary>
+        <div class="mt-4 space-y-5">
+
 
     <div class="grid gap-4 lg:grid-cols-3">
     @if ($health['backup'] !== null)
@@ -265,4 +315,6 @@
             <p class="mt-2 text-sm text-gray-500">Eşleşmiş WordPress sitesi yok.</p>
         @endforelse
     </section>
+        </div>
+    </details>
 </div>

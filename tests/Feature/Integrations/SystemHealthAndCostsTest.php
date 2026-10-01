@@ -61,7 +61,7 @@ final class SystemHealthAndCostsTest extends TestCase
 
         $this->actingAs($this->admin);
         Livewire::test(SystemHealthPage::class)
-            ->assertSee('Sistem Sağlığı')
+            ->assertSee('Hata merkezi')
             ->assertSee('Çalışıyor')
             ->assertSee('queue:default')
             ->assertSee('(4 gün)', false)

@@ -212,7 +212,9 @@ final class OperationalAlertExplainer
         return [
             'title' => 'Hesap güncellemesi durdu · '.($account !== '' ? $account : $source),
             'what' => $where.': '.$failures.'. Neden: '.$explained['problem'].'.',
-            'why' => 'Bu hesabın verisi yenilenmiyor; raporlar, uyarılar ve öneriler eski veriye dayanıyor. Sistem kendiliğinden yeniden denemez.',
+            'why' => 'Bu hesabın verisi yenilenmiyor; raporlar, uyarılar ve öneriler eski veriye dayanıyor.'.(in_array($explained['kind'], ['retry', 'wait'], true)
+                ? ' Sistem her gün kendiliğinden yeniden dener; beklemek istemezseniz "Şimdi güncelle".'
+                : ($explained['kind'] === 'developer' ? ' Tekrar denemek işe yaramaz; yazılım düzeltmesi gerekir.' : ' Sizin bir adımınız gerekiyor; o yapılınca çekim kendiliğinden sürer.')),
             'action' => $explained['fix'],
         ] + $place;
     }

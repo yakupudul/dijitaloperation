@@ -31,9 +31,11 @@ use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Integrations\Google\GoogleBusinessProfileRetentionService;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Integrations\WordPress\WordPressEventReconciliation;
+use App\Services\Observability\ErrorTriage;
 use App\Services\Observability\WorkerHeartbeatService;
 use App\Services\Ownership\OwnershipIntegrity;
 use App\Services\Portfolio\BrandCandidateBuilder;
+use App\Services\Queries\QueryNotifier;
 use App\Services\Site\SiteOperations;
 use App\Services\Website\SitemapChangeWatcher;
 use App\Support\Console\ConsoleScope;
@@ -744,3 +746,20 @@ Schedule::command('moxdop:clusters:score-pages')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(120)
     ->name('clusters-score-pages');
+
+// Hata merkezi: one morning notice with what needs the operator (ErrorTriage `you` + `code`); nothing when all is fine.
+Artisan::command('moxdop:ops:error-digest', function (ErrorTriage $triage, QueryNotifier $notifier): void {
+    $counts = $triage->counts();
+    $you = (int) ($counts[ErrorTriage::YOU] ?? 0);
+    $code = (int) ($counts[ErrorTriage::CODE] ?? 0);
+    if ($you + $code === 0) {
+        $this->info('Hata merkezi: nothing needs the operator.');
+
+        return;
+    }
+    $parts = array_filter([$you > 0 ? $you.' iş seni bekliyor' : null, $code > 0 ? $code.' yazılım hatası' : null]);
+    $notifier->send(null, 'Hata merkezi: '.implode(', ', $parts).' · sistem '.(int) ($counts[ErrorTriage::AUTO] ?? 0).' sorunu kendisi hallediyor',
+        route('operator.settings.system-health', [], false));
+    $this->info('Digest sent: you='.$you.' code='.$code);
+})->purpose('Daily Hata merkezi digest (only what needs the operator).');
+Schedule::command('moxdop:ops:error-digest')->dailyAt('05:52')->name('ops-error-digest')->withoutOverlapping(30);

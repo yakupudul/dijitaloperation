@@ -2,13 +2,12 @@
 
 namespace App\Livewire\Demo;
 
-use App\Enums\Observability\OperationalAlertState;
 use App\Enums\OfferingStatus;
 use App\Models\Brand;
 use App\Models\DigitalAsset;
-use App\Models\Observability\OperationalAlert;
 use App\Services\DataStatus\DataStatus;
 use App\Services\DataStatus\DataStatusReader;
+use App\Services\Observability\ErrorTriage;
 use App\Services\Outcomes\OutcomeTracker;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Support\Demo\DemoState;
@@ -119,20 +118,21 @@ class Dashboard extends Component
     }
 
     /**
-     * Open operational alerts (collection failure, reconnect needed, quota, stopped worker): one line on Bugün.
+     * Hata merkezi on Bugün: only what needs the operator (ErrorTriage `you` + `code`); self-healing problems stay off.
      *
      * @return array{critical: int, warning: int, top: ?string}
      */
     private function systemAlerts(): array
     {
         try {
-            $open = OperationalAlert::query()->whereIn('state', [OperationalAlertState::Open->value, OperationalAlertState::Acknowledged->value]);
-            $top = (clone $open)->orderByRaw("case severity when 'CRITICAL' then 0 when 'WARNING' then 1 else 2 end")->orderByDesc('last_observed_at')->value('title');
+            $groups = app(ErrorTriage::class)->groups();
+            $you = collect($groups[ErrorTriage::YOU] ?? []);
+            $code = collect($groups[ErrorTriage::CODE] ?? []);
 
             return [
-                'critical' => (clone $open)->where('severity', 'CRITICAL')->count(),
-                'warning' => (clone $open)->where('severity', 'WARNING')->count(),
-                'top' => $top !== null ? (string) $top : null,
+                'critical' => (int) $you->sum('count'),
+                'warning' => (int) $code->sum('count'),
+                'top' => $you->first()['title'] ?? $code->first()['title'] ?? null,
             ];
         } catch (Throwable) {
             return ['critical' => 0, 'warning' => 0, 'top' => null];

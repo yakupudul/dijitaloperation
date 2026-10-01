@@ -168,8 +168,9 @@ final class OperatorAlertClarityTest extends TestCase
 
     public function test_a_condition_that_comes_back_keeps_one_bell_row_with_a_counter_and_resolved_ones_disappear(): void
     {
+        // A condition that needs the operator (a stopped worker); self-healing ones never ring (ErrorTriage).
         $this->travelTo(now()->setDate(2026, 9, 24)->setTime(9, 0));
-        $alert = $this->observe('dataset_stale', 'dataset:stale', ['stale_or_blocked_count' => 3]);
+        $alert = $this->observe('worker_heartbeat_missing', 'dataset:stale', ['stale_or_blocked_count' => 3]);
         $this->assertSame(1, UserNotification::query()->count());
         $reads = app(NotificationReadService::class);
         $this->assertSame(1, $reads->unreadCount($this->admin));
@@ -178,18 +179,18 @@ final class OperatorAlertClarityTest extends TestCase
         $row = UserNotification::query()->sole();
         $row->forceFill(['read_at' => now()])->save();
         $lifecycle = app(OperationalAlertLifecycleService::class);
-        $lifecycle->resolveIfActive('dataset_stale', 'SYSTEM', 'dataset:stale');
+        $lifecycle->resolveIfActive('worker_heartbeat_missing', 'SYSTEM', 'dataset:stale');
         $this->assertSame([], $reads->forUser($this->admin), 'a resolved condition leaves the bell');
         $this->travel(3)->hours();
-        $this->observe('dataset_stale', 'dataset:stale', ['stale_or_blocked_count' => 3]);
+        $this->observe('worker_heartbeat_missing', 'dataset:stale', ['stale_or_blocked_count' => 3]);
         $this->assertSame(1, UserNotification::query()->whereNull('archived_at')->count());
         $this->assertNotNull(UserNotification::query()->sole()->read_at);
         $this->assertSame(2, $alert->fresh()->occurrence_count);
 
         // Back again after the quiet period: the same row pings again (unread, on top).
-        $lifecycle->resolveIfActive('dataset_stale', 'SYSTEM', 'dataset:stale');
+        $lifecycle->resolveIfActive('worker_heartbeat_missing', 'SYSTEM', 'dataset:stale');
         $this->travel(2)->days();
-        $this->observe('dataset_stale', 'dataset:stale', ['stale_or_blocked_count' => 3]);
+        $this->observe('worker_heartbeat_missing', 'dataset:stale', ['stale_or_blocked_count' => 3]);
         $this->assertSame(1, UserNotification::query()->whereNull('archived_at')->count());
         $this->assertNull(UserNotification::query()->sole()->read_at);
         $this->assertSame(1, $reads->unreadCount($this->admin));
@@ -202,7 +203,7 @@ final class OperatorAlertClarityTest extends TestCase
 
     public function test_duplicate_rows_of_older_code_show_once_and_are_read_together(): void
     {
-        $alert = $this->observe('dataset_stale', 'dataset:stale', ['stale_or_blocked_count' => 2]);
+        $alert = $this->observe('worker_heartbeat_missing', 'dataset:stale', ['stale_or_blocked_count' => 2]);
         // Older code emitted a new notification on every reopen.
         app(DomainEventEmitter::class)->emit([
             'event_type' => DomainEventType::OperationalAlertOpened, 'actor_kind' => DomainEventActorKind::System,

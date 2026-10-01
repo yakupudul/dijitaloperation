@@ -5,8 +5,8 @@
 
     @if (($systemAlerts['critical'] ?? 0) + ($systemAlerts['warning'] ?? 0) > 0)
         <a href="{{ route('operator.settings.system-health') }}" wire:navigate @class(['flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-3 text-sm ring-1 ring-inset', 'bg-rose-50 text-rose-800 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/30' => $systemAlerts['critical'] > 0, 'bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30' => $systemAlerts['critical'] === 0])>
-            <span><strong>Sistem uyarısı:</strong> @if ($systemAlerts['critical'] > 0){{ $systemAlerts['critical'] }} kritik @endif @if ($systemAlerts['warning'] > 0){{ $systemAlerts['warning'] }} uyarı @endif @if ($systemAlerts['top']) · {{ $systemAlerts['top'] }}@endif</span>
-            <span class="font-medium underline">Sistem Sağlığı</span>
+            <span><strong>Hata merkezi:</strong> @if ($systemAlerts['critical'] > 0){{ $systemAlerts['critical'] }} iş seni bekliyor @endif @if ($systemAlerts['warning'] > 0){{ $systemAlerts['warning'] }} yazılım hatası @endif @if ($systemAlerts['top']) · {{ $systemAlerts['top'] }}@endif</span>
+            <span class="font-medium underline">Hata merkezine git</span>
         </a>
     @endif
 

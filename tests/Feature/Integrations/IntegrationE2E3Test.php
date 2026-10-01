@@ -88,7 +88,7 @@ final class IntegrationE2E3Test extends TestCase
         app(OperationalAlertEvaluator::class)->evaluate();
         $this->actingAs($this->admin);
 
-        Livewire::test(Dashboard::class)->assertSee('Sistem uyarısı');
+        Livewire::test(Dashboard::class)->assertSee('Hata merkezi:')->assertSee('iş seni bekliyor');
         $this->get(route('operator.integrations'))->assertOk()->assertSee('Bağlantı sağlığı')->assertSee('Google yetkisi 3 gün içinde doluyor')
             ->assertSee('Groq')->assertSee('OpenRouter');
     }

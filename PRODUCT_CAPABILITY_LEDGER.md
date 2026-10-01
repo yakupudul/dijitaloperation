@@ -1,5 +1,12 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-17 (b) — Hata merkezi
+
+- **Üç kova (`ErrorTriage`, kural, AI yok):** açık sistem uyarıları "Senin işin" (yeniden bağlan, yetki ver, eşleştirme düzelt, işçi durdu), "Yazılım hatası — geliştiriciye ilet" (sözleşme / istek hatası) ve "Sistem hallediyor" (sağlayıcı geçici hatası, kota, hız sınırı, takılan çekim, kuyruk birikmesi) olarak ayrılır; aynı nedenden gelenler tek grup. "Sistem hallediyor" 48 saatte düzelmezse "Senin işin"e yükselir ("2 günde düzelmedi").
+- **Zil:** kendiliğinden düzelen uyarılar bildirim açmaz; her sabah 08:52'de (05:52 UTC, `moxdop:ops:error-digest`) yalnız senin işin / yazılım hatası varsa tek bildirim gelir. "Sistem kendiliğinden yeniden denemez" çelişkisi düzeltildi (günlük yeniden deneme anlatılır).
+- **Ekran:** Ayarlar › Sistem Sağlığı artık "Hata merkezi": üstte kovalar (eylem butonları ve bağlantılarla), teknik ayrıntılar katlanmış. Bugün ekranındaki satır yalnız senin işin + yazılım hatasını sayar.
+- **State:** CODED + PHPUnit (`ErrorCenterTest`, `OperatorAlertClarityTest`, `IntegrationE2E3Test`). Üretim UAT yok.
+
 ## 2026-11-17 — Markaya bağlı olmayan hesaplar gizli
 
 - **Karar (operatör):** markaya bağlanmamış hesap sistemde bir amaç taşımaz; entegrasyon hesap listelerinde (otomatik güncelleme paneli, Search Console / GA4 / Google Ads / İşletme Profili bağlayıcıları), Sistem Sağlığı ve Entegrasyonlar sorun sayaçlarında ve deploy özet tablosunda görünmez; yalnız Marka adayları'nda listelenir. Uyarılar zaten yalnız bağlı hesaplar için açılıyordu (`isOperationallyBound`). Tek kaynak: `ResourceAutomation::scopeBrandBound`.

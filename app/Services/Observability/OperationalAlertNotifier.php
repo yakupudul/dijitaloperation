@@ -16,7 +16,7 @@ use Throwable;
  * One bell row per alert condition. The first opening emits one Prompt47 Notification; a condition that comes back
  * (the same alert row reopened) updates that row instead of adding a new one: it becomes unread again only when the
  * last ping is older than `reopen_quiet_hours`, so a flapping condition does not ring the bell every few hours.
- * Zero recipients: Alert remains OPEN — no notify-all.
+ * Zero recipients: Alert remains OPEN — no notify-all. Self-healing conditions (ErrorTriage `auto`) never ring.
  */
 final class OperationalAlertNotifier
 {
@@ -31,6 +31,11 @@ final class OperationalAlertNotifier
             return;
         }
         if ($alert->notification_emitted) {
+            return;
+        }
+        // Hata merkezi: a condition the system heals by itself (provider hiccup, quota, a stuck run) does not ring the
+        // bell; if it has not healed after ErrorTriage::ESCALATE_HOURS it reaches the operator in the daily digest.
+        if (ErrorTriage::cause($alert) === ErrorTriage::AUTO) {
             return;
         }
 
