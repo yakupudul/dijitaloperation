@@ -36,7 +36,8 @@ final class QueryRuleEngineTest extends TestCase
     public function test_variants_merge_spelling_suffixes_word_order_and_implied_words_and_facets_leave_the_topic(): void
     {
         $engine = app(QueryRuleEngine::class);
-        $engine->loadVocabulary(['implant', 'diş implantı', 'implant fiyatları', 'estetik', 'burun estetiği', 'zirkonyum kaplama', 'kaplama']);
+        // A stem must be a real library word (in ≥ 3 queries): the library is repeated.
+        $engine->loadVocabulary(array_merge(...array_fill(0, 3, ['implant', 'diş implantı', 'implant fiyatları', 'estetik', 'burun estetiği', 'zirkonyum kaplama', 'kaplama', 'cost'])));
         $key = fn (string $text): array => $engine->keys($text, 'dis sagligi');
 
         foreach (['implant', 'diş implantı', 'dis implant', 'implant diş', 'implantlar', 'implamt', 'implant tedavisi'] as $text) {
@@ -49,6 +50,19 @@ final class QueryRuleEngineTest extends TestCase
         $this->assertSame('burun estetik', $key('burun estetiği')['variant'], 'soft consonant: estetiği → estetik');
         $this->assertSame('dis', $key('diş')['variant'], 'a query of only implied words keeps them');
         $this->assertNotSame($key('kaplama')['variant'], $key('kaplam')['variant']);
+        $this->assertSame('[en] implant', $key('dental implants')['variant'], 'English: own key, plural → singular, "dental" implied');
+        $this->assertSame(['variant' => '[en] cost how implant much', 'topic' => '[en] implant', 'facets' => 'fiyat'], $key('how much does a dental implant cost'));
+        $this->assertSame('フロスとは', $key('フロスとは')['variant'], 'an alphabet the rules cannot read: the query is its own group, never an empty key');
+    }
+
+    public function test_rare_misspellings_and_rare_typo_stems_are_handled_from_the_library(): void
+    {
+        $engine = app(QueryRuleEngine::class);
+        $engine->loadVocabulary([...array_fill(0, 40, 'hurda fiyatları'), ...array_fill(0, 40, 'diastema'), 'hurd', 'diastama', 'diaestema']);
+
+        $this->assertSame('fiyat hurda', $engine->keys('hurda fiyatları')['variant'], '"hurd" (a typo in one query) never stems "hurda"');
+        $this->assertSame('diastema', $engine->keys('diastama')['variant'], 'one wrong letter');
+        $this->assertSame('diastema', $engine->keys('diaestema')['variant'], 'one extra letter');
     }
 
     public function test_apply_writes_keys_and_marks_the_head_and_the_list_shows_one_row_per_variant_group(): void
@@ -86,7 +100,7 @@ final class QueryRuleEngineTest extends TestCase
 
         $this->assertStringStartsWith("\xEF\xBB\xBFid,sorgu,sektor", $csv);
         $this->assertStringContainsString('"diş implantı","Diş sağlığı"', $csv);
-        $this->assertStringContainsString(',implant,0,implant,,1', $csv, 'the variant of the head, with its keys');
+        $this->assertStringContainsString(',implant,0,implant,,2', $csv, 'the variant of the head, with its keys');
     }
 
     public function test_bulk_filter_terms_skip_duplicates_and_question_words(): void

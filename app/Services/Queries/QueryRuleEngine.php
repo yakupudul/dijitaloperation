@@ -25,11 +25,30 @@ final class QueryRuleEngine
 
     private const int MIN_STEM = 4;
 
-    /** @var array<string, true> */
+    /** @var array<string, int> library word => number of queries holding it */
     private array $vocabulary = [];
+
+    /** A stem must be a real word of the library: in at least this many queries… */
+    private const int STEM_MIN_QUERIES = 3;
+
+    /** …and at least this share of the longer word's count ("hurd", a typo in 2 queries, never stems "hurda"). */
+    private const float STEM_MIN_SHARE = 0.05;
 
     /** @var array<string, string> */
     private array $stemMemo = [];
+
+    /** @var array<string, string> rare misspelling => frequent word, found in the library (one letter missing / extra / wrong) */
+    private array $autoTypos = [];
+
+    /** Misspelling detection: the rare word is in at most this many queries… */
+    private const int TYPO_MAX_QUERIES = 2;
+
+    /** …the word it is taken for in at least this many, and this many times more often. */
+    private const int TYPO_TARGET_MIN_QUERIES = 30;
+
+    private const int TYPO_TARGET_RATIO = 20;
+
+    private const int TYPO_MIN_LENGTH = 5;
 
     /** @var array<string, mixed>|null */
     private ?array $rules = null;
@@ -86,12 +105,14 @@ final class QueryRuleEngine
             $folded = str_replace(' '.$from.' ', ' '.$to.' ', $folded);
         }
         $implied = $sectorName !== null ? ($rules['implied'][$sectorName] ?? []) : [];
+        // Content is written per language: "implant price" and "implant fiyatı" never share a key.
+        $language = $this->language(explode(' ', trim($folded)));
         $words = [];
         foreach (explode(' ', trim($folded)) as $word) {
             if ($word === '' || isset($rules['drop'][$word]) || $this->droppedByPattern($word)) {
                 continue;
             }
-            $word = $rules['typos'][$word] ?? $word;
+            $word = $rules['typos'][$word] ?? $this->autoTypos[$word] ?? $word;
             $stem = $this->stem($word);
             $stem = $rules['synonyms'][$stem] ?? $rules['synonyms'][$word] ?? $stem;
             $words[] = $stem;
@@ -99,11 +120,18 @@ final class QueryRuleEngine
         $kept = array_values(array_filter($words, fn (string $w): bool => ! isset($rules['generic'][$w]) && ! isset($implied[$w])));
         // A query made only of implied / generic words keeps them ("diş tedavisi" stays itself).
         $kept = $kept !== [] ? $kept : $words;
-        $variant = self::key($kept);
+        if ($kept === []) {
+            // Nothing the rules can read (another alphabet, only particles): the query is its own group.
+            $own = mb_substr(trim(mb_strtolower($text)), 0, 500);
+
+            return ['variant' => $own, 'topic' => $own, 'facets' => null];
+        }
+        $prefix = $language !== null ? '['.$language.'] ' : '';
+        $variant = $prefix.self::key($kept);
 
         [$topicWords, $facets] = $this->splitFacets($kept);
         $topicWords = array_values(array_filter($topicWords, fn (string $w): bool => ! isset($rules['topic_drop'][$w])));
-        $topic = $topicWords !== [] ? self::key($topicWords) : $variant;
+        $topic = $topicWords !== [] ? $prefix.self::key($topicWords) : $variant;
 
         return ['variant' => mb_substr($variant, 0, 500), 'topic' => mb_substr($topic, 0, 500), 'facets' => $facets !== [] ? mb_substr(implode(',', $facets), 0, 200) : null];
     }
@@ -118,10 +146,10 @@ final class QueryRuleEngine
     {
         $this->vocabulary = [];
         $this->stemMemo = [];
-        $add = function (string $text): void {
-            foreach (explode(' ', SeoText::fold($text)) as $word) {
+        $add = function (string $text, int $weight = 1): void {
+            foreach (array_unique(explode(' ', SeoText::fold($text))) as $word) {
                 if ($word !== '') {
-                    $this->vocabulary[$word] = true;
+                    $this->vocabulary[$word] = ($this->vocabulary[$word] ?? 0) + $weight;
                 }
             }
         };
@@ -130,20 +158,64 @@ final class QueryRuleEngine
         foreach ([...(array) ($variant['generic'] ?? []), ...array_merge([], ...array_values((array) ($variant['sector_implied'] ?? []))),
             ...array_values((array) ($variant['synonyms'] ?? [])), ...array_values((array) ($variant['typos'] ?? [])),
             ...array_merge([], ...array_values((array) config('moxdop-query-rules.topic.facets', [])))] as $word) {
-            $add((string) $word);
+            $add((string) $word, PHP_INT_MAX >> 8);
         }
         if ($texts !== null) {
             foreach ($texts as $text) {
                 $add((string) $text);
             }
-
-            return;
+        } else {
+            DB::table('queries')->select(['id', 'text'])->chunkById(self::CHUNK, function ($rows) use ($add): void {
+                foreach ($rows as $row) {
+                    $add((string) $row->text);
+                }
+            });
         }
-        DB::table('queries')->select(['id', 'text'])->chunkById(self::CHUNK, function ($rows) use ($add): void {
-            foreach ($rows as $row) {
-                $add((string) $row->text);
+        $this->findTypos();
+    }
+
+    /**
+     * Rare words one letter away (missing, extra or wrong letter, same first letter) from a much more frequent word of
+     * the library are taken as its misspelling: "implamt", "implat", "imlpant"… → "implant". Symmetric-delete index of
+     * the frequent words; rule words, `no_stem` words and digits are left alone.
+     */
+    private function findTypos(): void
+    {
+        $this->autoTypos = [];
+        $noStem = $this->rules()['no_stem'];
+        $deletes = [];
+        foreach ($this->vocabulary as $word => $count) {
+            $word = (string) $word;
+            if ($count < self::TYPO_TARGET_MIN_QUERIES || strlen($word) < self::TYPO_MIN_LENGTH || ctype_digit($word)) {
+                continue;
             }
-        });
+            $deletes[$word][] = $word;
+            for ($i = 1; $i < strlen($word); $i++) {
+                $deletes[substr($word, 0, $i).substr($word, $i + 1)][] = $word;
+            }
+        }
+        foreach ($this->vocabulary as $word => $count) {
+            $word = (string) $word;
+            if ($count > self::TYPO_MAX_QUERIES || strlen($word) < self::TYPO_MIN_LENGTH || ctype_digit($word) || isset($noStem[$word])) {
+                continue;
+            }
+            $variants = [$word];
+            for ($i = 1; $i < strlen($word); $i++) {
+                $variants[] = substr($word, 0, $i).substr($word, $i + 1);
+            }
+            $best = null;
+            foreach ($variants as $variant) {
+                foreach ($deletes[$variant] ?? [] as $target) {
+                    if ($target !== $word && $target[0] === $word[0] && $this->vocabulary[$target] >= $count * self::TYPO_TARGET_RATIO
+                        && ($best === null || $this->vocabulary[$target] > $this->vocabulary[$best])) {
+                        $best = $target;
+                    }
+                }
+            }
+            if ($best !== null) {
+                $this->autoTypos[$word] = $best;
+            }
+        }
     }
 
     /** Shortest library word (≥ 4 letters) this word is a suffixed form of, soft consonant tolerant; else the word. */
@@ -153,6 +225,7 @@ final class QueryRuleEngine
             return $this->stemMemo[$word];
         }
         $stem = $word;
+        $wordCount = $this->vocabulary[$word] ?? 1;
         if (! isset($this->rules()['no_stem'][$word]) && ! ctype_digit($word)) {
             for ($length = self::MIN_STEM; $length < strlen($word); $length++) {
                 $prefix = substr($word, 0, $length);
@@ -162,10 +235,26 @@ final class QueryRuleEngine
                     $candidates[] = substr($prefix, 0, -1).$soft;
                 }
                 foreach ($candidates as $candidate) {
-                    if (isset($this->vocabulary[$candidate]) && ! isset($this->rules()['no_stem'][$candidate]) && SeoText::wordMatches($word, $candidate)) {
+                    $count = $this->vocabulary[$candidate] ?? 0;
+                    if ($candidate === $word) {
+                        continue;
+                    }
+                    if ($count >= self::STEM_MIN_QUERIES && $count >= $wordCount * self::STEM_MIN_SHARE
+                        && ! isset($this->rules()['no_stem'][$candidate]) && SeoText::wordMatches($word, $candidate)) {
                         $stem = $candidate;
                         break 2;
                     }
+                }
+            }
+        }
+
+        // English plurals: "implants" → "implant", "veneers" → "veneer", "surgeries" → "surgery".
+        if ($stem === $word && strlen($word) >= 5 && str_ends_with($word, 's') && ! isset($this->rules()['no_stem'][$word])) {
+            foreach ([substr($word, 0, -3).'y' => str_ends_with($word, 'ies'), substr($word, 0, -2) => str_ends_with($word, 'es'), substr($word, 0, -1) => true] as $singular => $applies) {
+                $count = $this->vocabulary[$singular] ?? 0;
+                if ($applies && $count >= self::STEM_MIN_QUERIES && $count >= $wordCount * self::STEM_MIN_SHARE) {
+                    $stem = $singular;
+                    break;
                 }
             }
         }
@@ -231,6 +320,25 @@ final class QueryRuleEngine
         return $this->facetPhrases = $byFirst;
     }
 
+    /**
+     * The query's language when it is not Turkish: the language whose marker words it holds most (config `languages`).
+     *
+     * @param  list<string>  $words  folded
+     */
+    private function language(array $words): ?string
+    {
+        $best = null;
+        $bestHits = 0;
+        foreach ($this->rules()['languages'] as $language => $markers) {
+            $hits = count(array_filter($words, fn (string $w): bool => isset($markers[$w])));
+            if ($hits > $bestHits) {
+                [$best, $bestHits] = [$language, $hits];
+            }
+        }
+
+        return $best;
+    }
+
     /** @param list<string> $words */
     private static function key(array $words): string
     {
@@ -252,7 +360,7 @@ final class QueryRuleEngine
     }
 
     /**
-     * @return array{drop: array<string, true>, generic: array<string, true>, implied: array<string, array<string, true>>, synonyms: array<string, string>, phrase_synonyms: array<string, string>, typos: array<string, string>, no_stem: array<string, true>, topic_drop: array<string, true>, drop_patterns: list<string>, facet_order: list<string>}
+     * @return array{drop: array<string, true>, generic: array<string, true>, implied: array<string, array<string, true>>, synonyms: array<string, string>, phrase_synonyms: array<string, string>, typos: array<string, string>, no_stem: array<string, true>, topic_drop: array<string, true>, drop_patterns: list<string>, languages: array<string, array<string, true>>, facet_order: list<string>}
      */
     private function rules(): array
     {
@@ -283,6 +391,7 @@ final class QueryRuleEngine
             'no_stem' => $set((array) ($variant['no_stem'] ?? [])),
             'topic_drop' => $set((array) config('moxdop-query-rules.topic.drop', [])),
             'drop_patterns' => array_map('strval', (array) ($variant['drop_patterns'] ?? [])),
+            'languages' => array_map(fn ($words): array => $set((array) $words), (array) ($variant['languages'] ?? [])),
             'facet_order' => array_map('strval', array_keys((array) config('moxdop-query-rules.topic.facets', []))),
         ];
     }

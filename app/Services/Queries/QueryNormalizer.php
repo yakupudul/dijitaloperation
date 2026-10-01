@@ -44,6 +44,15 @@ final class QueryNormalizer
         'susuz', 'selim', 'zara', 'kure', 'celtik', 'dikmen', 'bozkurt', 'demirci', 'kula', 'emet', 'dinar', 'bayat', 'kepez',
         'serik', 'adalar', 'karasu', 'yenice', 'bulanik', 'ovacik', 'hisar', 'kaman', 'kulu', 'havza', 'baglar', 'dicle',
         'jersey', 'chile', 'china', 'chad', 'jordan', 'togo',
+        // From the 2026-10-01 export: everyday words (mısır, çarşamba, vize, menteşe, talaş, araç, yumurtalık, sürücü…),
+        // surnames (yıldırım, keskin, sarıkaya…), product origins ("isviçre implant", "russian lips", "buldan bezi").
+        'misir', 'benin', 'baskil', 'sili', 'carsamba', 'persembe', 'vize', 'suruc', 'mengen', 'mentese', 'egil', 'agli', 'yemen',
+        'elmali', 'eritre', 'araban', 'kosk', 'talas', 'arac', 'avcilar', 'cubuk', 'sogut', 'yumurtalik', 'savur', 'panama',
+        'buldan', 'karesi', 'kargi', 'kanada', 'marmara', 'keles', 'turkoglu', 'alacam', 'altinova', 'yatagan', 'celebi', 'agin',
+        'catak', 'cezayir', 'korkut', 'lacin', 'idil', 'oltu', 'delice', 'baykan', 'kangal', 'sarigol', 'siran', 'altintas',
+        'gundogmus', 'candir', 'fatih', 'yildirim', 'selcuk', 'keskin', 'ulas', 'karadag', 'sarikaya', 'karatas', 'kaynarca',
+        'akkus', 'meric', 'gursu', 'russia', 'brazil', 'hindistan', 'amerika', 'italya', 'isvicre', 'isvec', 'brezilya', 'japonya',
+        'hollanda', 'guney kore',
     ];
 
     /** @var array<string, ?string> folded word → folded place name */
@@ -92,7 +101,7 @@ final class QueryNormalizer
             // Two- and three-word names first ("new york", "birlesik krallik").
             foreach ([3, 2] as $length) {
                 $window = implode(' ', array_slice($tokens, $i, $length));
-                if (count(array_slice($tokens, $i, $length)) === $length && isset($places[$window])) {
+                if (count(array_slice($tokens, $i, $length)) === $length && isset($places[$window]) && ! in_array($window, self::NOT_LOCATION, true)) {
                     return self::lower((string) $places[$window]);
                 }
             }
