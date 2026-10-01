@@ -2,8 +2,8 @@
 
 /**
  * Plugin Name: MoxDOP Website Connector
- * Description: Signed Website inventory connector for MoxDOP. Reads inventory and health; creates drafts (with categories, SEO fields and Polylang language / translation links); one-click login, approved updates, approved SEO fixes and approved content updates only when a site admin enables them; tells MoxDOP and IndexNow about changes right after a save; exports HTML the page-cache plugin already stored (read-only).
- * Version: 1.6.0
+ * Description: Signed Website inventory connector for MoxDOP. Reads inventory and health; creates drafts (with categories, SEO fields and Polylang language / translation links); one-click login, approved updates, approved SEO fixes and approved content updates only when a site admin enables them; tells MoxDOP and IndexNow about changes right after a save; exports HTML the page-cache plugin already stored and the rendered content of published pages (read-only).
+ * Version: 1.7.0
  * Requires at least: 6.2
  * Requires PHP: 7.4
  * Author: MoxDOP
@@ -11,7 +11,7 @@
  */
 defined('ABSPATH') || exit;
 
-define('MOXDOP_CONNECTOR_VERSION', '1.6.0');
+define('MOXDOP_CONNECTOR_VERSION', '1.7.0');
 define('MOXDOP_CONNECTOR_FILE', __FILE__);
 define('MOXDOP_CONNECTOR_DIR', plugin_dir_path(__FILE__));
 
@@ -21,6 +21,7 @@ require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-secrets.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-auth.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-drafts.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-page-cache.php';
+require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-content-export.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-rest-controller.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-admin.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-events.php';

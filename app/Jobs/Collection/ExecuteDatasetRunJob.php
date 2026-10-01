@@ -354,6 +354,7 @@ class ExecuteDatasetRunJob implements ShouldQueue
             ])->save();
         }
 
+        $this->clearRecoveredInterruption($datasetRun);
         $stateMachine->transition($datasetRun, CollectionRunStatus::Completed);
         $attempt->forceFill([
             'status' => CollectionRunStatus::Completed,
@@ -399,6 +400,8 @@ class ExecuteDatasetRunJob implements ShouldQueue
             'metadata' => ['continuation' => true],
         ])->save();
 
+        $this->clearRecoveredInterruption($datasetRun);
+
         // Keep DatasetRun running/queued for next chunk — do not mark complete.
         if ($datasetRun->status !== CollectionRunStatus::Running) {
             $stateMachine->transition($datasetRun, CollectionRunStatus::Running);
@@ -424,6 +427,17 @@ class ExecuteDatasetRunJob implements ShouldQueue
         }
 
         $starter->dispatchDatasetJob($fresh);
+    }
+
+    /**
+     * A step that ran after an expired worker lease was recovered: the "resuming saved checkpoint" note is history,
+     * not the dataset's current error.
+     */
+    private function clearRecoveredInterruption(CollectionDatasetRun $datasetRun): void
+    {
+        if ($datasetRun->error_code === 'INTERRUPTED_WORKER') {
+            $datasetRun->forceFill(['error_code' => null, 'error_message' => null])->save();
+        }
     }
 
     private function scheduleRetry(

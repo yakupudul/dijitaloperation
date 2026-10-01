@@ -50,6 +50,17 @@ final class MoxDOP_Connector_REST_Controller
                 'per_page' => ['type' => 'integer', 'default' => 25, 'minimum' => 1],
             ],
         ]);
+        // 1.7.0: rendered content of published posts (no theme), read-only; MoxDOP reads a site in a few requests.
+        register_rest_route(self::NAMESPACE, '/content-export', [
+            'methods' => WP_REST_Server::READABLE,
+            'permission_callback' => [$this->auth, 'authorize'],
+            'callback' => [$this, 'content_export'],
+            'args' => [
+                'ids' => ['required' => true, 'type' => 'string', 'validate_callback' => static function ($value) {
+                    return (bool) preg_match('/^[1-9][0-9]*(?:,[1-9][0-9]*){0,49}$/', (string) $value);
+                }],
+            ],
+        ]);
         // ADR-064: creates drafts; never publishes.
         register_rest_route(self::NAMESPACE, '/drafts', [
             'methods' => WP_REST_Server::CREATABLE,
@@ -207,6 +218,7 @@ final class MoxDOP_Connector_REST_Controller
                 MoxDOP_Connector_Drafts::polylang_active() ? 'polylang' : null,
                 MoxDOP_Connector_Drafts::scheduling_allowed() ? 'schedule' : null,
                 $cache['readable'] ? 'page_cache' : null,
+                'content_export',
             ])),
             // 1.6.0: detected page-cache plugin and whether its files can be read (/page-cache).
             'cache' => $cache,
@@ -255,6 +267,31 @@ final class MoxDOP_Connector_REST_Controller
             $page = max(1, (int) $request->get_param('page'));
             $per_page = min(50, max(1, (int) $request->get_param('per_page')));
             $result = MoxDOP_Connector_Page_Cache::export($page, $per_page);
+            $result['schema_version'] = 1;
+            $result['plugin_version'] = MOXDOP_CONNECTOR_VERSION;
+            $result['generated_at'] = gmdate('c');
+
+            return $this->auth->envelope($result, $request);
+        } finally {
+            MoxDOP_Connector_Lock::release($lock);
+        }
+    }
+
+    /**
+     * 1.7.0: rendered content of the asked posts. Shares the snapshot lock (429 + Retry-After: 30 while another
+     * snapshot or export runs); posts left when the time budget runs out come back as pending_ids.
+     */
+    public function content_export(WP_REST_Request $request)
+    {
+        $lock = 'moxdop_connector_snapshot_lock';
+        if (! MoxDOP_Connector_Lock::acquire($lock, 120)) {
+            $busy = new WP_REST_Response(['code' => 'moxdop_busy', 'message' => 'Another MoxDOP snapshot is running; retry shortly.', 'data' => ['status' => 429]], 429);
+            $busy->header('Retry-After', '30');
+
+            return $busy;
+        }
+        try {
+            $result = MoxDOP_Connector_Content_Export::export(array_map('intval', explode(',', (string) $request->get_param('ids'))));
             $result['schema_version'] = 1;
             $result['plugin_version'] = MOXDOP_CONNECTOR_VERSION;
             $result['generated_at'] = gmdate('c');
@@ -574,7 +611,7 @@ final class MoxDOP_Connector_REST_Controller
         ]);
     }
 
-    private function seo_fields($post_id)
+    public static function seo_fields($post_id)
     {
         $providers = [
             'yoast' => ['title' => '_yoast_wpseo_title', 'description' => '_yoast_wpseo_metadesc', 'canonical' => '_yoast_wpseo_canonical', 'robots' => '_yoast_wpseo_meta-robots-noindex'],

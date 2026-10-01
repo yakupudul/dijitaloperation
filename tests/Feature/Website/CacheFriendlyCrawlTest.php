@@ -194,7 +194,7 @@ final class CacheFriendlyCrawlTest extends TestCase
 
         $this->assertSame(DatasetExecutionOutcome::Completed, $again->outcome, (string) $again->errorMessage);
         $this->assertSame(0, $again->rowsWritten);
-        $this->assertSame(['page_cache' => 0, 'fetched' => 0, 'not_modified' => 1, 'same' => 0], $again->checkpoint['source_mix']);
+        $this->assertSame(['page_cache' => 0, 'wp_content' => 0, 'fetched' => 0, 'not_modified' => 1, 'same' => 0], $again->checkpoint['source_mix']);
         $conditional = collect(Http::recorded())->map(fn (array $pair) => $pair[0])->last();
         $this->assertSame('"v1"', $conditional->header('If-None-Match')[0] ?? null);
         $this->assertSame('Tue, 03 Nov 2026 10:00:00 GMT', $conditional->header('If-Modified-Since')[0] ?? null);
@@ -210,7 +210,7 @@ final class CacheFriendlyCrawlTest extends TestCase
             'observed_at' => '2026-11-09 00:00:00', 'queue' => [$home], 'visited' => [], 'pages' => 0, 'full_read' => true,
         ]));
         $this->assertFalse(collect(Http::recorded())->map(fn (array $pair) => $pair[0])->last()->hasHeader('If-None-Match'));
-        $this->assertSame(['page_cache' => 0, 'fetched' => 0, 'not_modified' => 0, 'same' => 1], $full->checkpoint['source_mix']);
+        $this->assertSame(['page_cache' => 0, 'wp_content' => 0, 'fetched' => 0, 'not_modified' => 0, 'same' => 1], $full->checkpoint['source_mix']);
     }
 
     #[Test]
@@ -268,7 +268,7 @@ final class CacheFriendlyCrawlTest extends TestCase
         foreach (['/', '/p1/', '/p2/'] as $path) {
             $this->assertNotContains($path, $read, $path.' came from the page cache and is not read again');
         }
-        $this->assertSame(['page_cache' => 3, 'fetched' => 2, 'not_modified' => 0, 'same' => 0], $second->checkpoint['source_mix']);
+        $this->assertSame(['page_cache' => 3, 'wp_content' => 0, 'fetched' => 2, 'not_modified' => 0, 'same' => 0], $second->checkpoint['source_mix']);
         $state = app(WebsiteCrawlState::class)->view($this->asset->id);
         $this->assertSame(3, $state['last_run']['page_cache']);
         $this->assertTrue($state['last_run']['finished']);
@@ -292,6 +292,95 @@ final class CacheFriendlyCrawlTest extends TestCase
             ->assertSee('Önbellekten: 0 · Sayfa okuma: 0 · Değişmedi (304/aynı): 3')
             ->assertSee('WP Rocket')
             ->assertSee('eklenti önbellek dosyalarını okuyor');
+    }
+
+    #[Test]
+    public function connector_1_7_content_export_replaces_page_reads_and_leaves_the_rest_to_http(): void
+    {
+        config(['moxdop-website-intelligence.crawl.content_export_min_queue' => 3, 'moxdop-wordpress.page_delay_seconds' => 1]);
+        $this->pairConnector('1.7.0');
+        foreach (['p1', 'p2', 'p3', 'p4'] as $index => $slug) {
+            DB::table('website_cms_object_snapshot')->insert([
+                'digital_asset_id' => $this->asset->id, 'cms' => 'wordpress', 'object_type' => 'page', 'object_id' => (string) ($index + 10), 'status' => 'publish',
+                'permalink' => 'http://1.1.1.1/'.$slug.'/', 'modified_at' => '2026-11-01 00:00:00', 'observed_at' => now(), 'contract_version' => 1,
+                'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', $slug), 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+        $asked = [];
+        $canonical = new WordPressConnectorCanonicalJson;
+        Http::fake(function (Request $request) use (&$asked, $canonical) {
+            $path = (string) parse_url($request->url(), PHP_URL_PATH);
+            if (str_contains($path, '/moxdop/v1/')) {
+                $data = ['schema_version' => 1, 'plugin_version' => '1.7.0', 'capabilities' => ['content_export'], 'cache' => ['plugin' => 'litespeed', 'readable' => false, 'reason' => 'server_cache']];
+                if (str_ends_with($path, '/content-export')) {
+                    parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+                    $ids = array_map('intval', explode(',', (string) $query['ids']));
+                    $asked[] = $ids;
+                    $records = [];
+                    $pending = [];
+                    foreach ($ids as $id) {
+                        if ($id === 12) {
+                            $records[] = ['id' => 12, 'status' => 'not_public'];
+                        } elseif ($id === 13 && count($asked) === 1) {
+                            $pending[] = 13;
+                        } else {
+                            $html = '<!DOCTYPE html><html lang="tr"><head><title>Sayfa '.$id.'</title><meta name="description" content="Açıklama"></head><body><main><h1>Başlık '.$id.'</h1><p>İçerik metni.</p><a href="/p2/">iç bağlantı</a></main></body></html>';
+                            $records[] = ['id' => $id, 'status' => 'content', 'url' => 'http://1.1.1.1/p'.($id - 9).'/', 'type' => 'page', 'builder' => 'elementor',
+                                'sha256' => hash('sha256', $html), 'bytes' => strlen($html), 'html_gz_b64' => base64_encode((string) gzencode($html))];
+                        }
+                    }
+                    $data = ['schema_version' => 1, 'plugin_version' => '1.7.0', 'records' => $records, 'pending_ids' => $pending];
+                }
+                $nonce = $request->header(WordPressConnectorClient::HEADER_NONCE)[0] ?? '';
+                $time = now()->timestamp;
+
+                return Http::response(['data' => $data, 'meta' => ['server_time' => $time, 'request_nonce' => $nonce,
+                    'signature' => hash_hmac('sha256', implode("\n", [(string) $time, $nonce, hash('sha256', $canonical->encode($data))]), self::SECRET)]]);
+            }
+            if ($path === '/robots.txt') {
+                return Http::response("User-agent: *\nAllow: /\n", 200, ['Content-Type' => 'text/plain']);
+            }
+            if (str_contains($path, 'sitemap')) {
+                return Http::response('', 404);
+            }
+
+            return Http::response('<html><head><title>Canlı</title><script type="application/ld+json">{"@type":"Organization"}</script></head><body><h1>Canlı</h1></body></html>', 200, ['Content-Type' => 'text/html']);
+        });
+
+        [$context, $datasetRun] = $this->makeContext();
+        $executor = app(WebsiteDatasetExecutor::class);
+        $first = $executor->execute($this->contextFrom($context, $datasetRun, []));
+
+        $this->assertSame(DatasetExecutionOutcome::Continue, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame('wp_content', $first->stage);
+        $this->assertSame([[10, 11, 12, 13]], $asked, 'the homepage is never exported');
+        $this->assertSame(2, $first->pagesCompleted);
+        $this->assertSame([['http://1.1.1.1/p4/', 13]], $first->checkpoint['wp_content']['pending'], 'a post the site had no time for is asked again');
+        $this->assertContains('http://1.1.1.1/p3/', $first->checkpoint['queue'], 'a post the export could not give stays for HTTP');
+        $this->assertNotContains('http://1.1.1.1/p1/', $first->checkpoint['queue']);
+        $metadata = json_decode((string) DB::table('website_http_snapshot')->where('url', 'http://1.1.1.1/p1/')->value('metadata'), true);
+        $this->assertSame('wp_content', $metadata['fetch_source']);
+        $this->assertSame(1, DB::table('website_heading_snapshot')->where('url', 'http://1.1.1.1/p1/')->count());
+        $this->assertSame(1, DB::table('website_metadata_snapshot')->where('url', 'http://1.1.1.1/p1/')->count());
+        $this->assertSame(0, DB::table('website_schema_snapshot')->where('url', 'http://1.1.1.1/p1/')->count(), 'no theme head: schema stays from HTTP reads');
+        $this->assertSame(0, DB::table('website_link_edge')->count(), 'no menus: link rows stay from HTTP reads');
+
+        $second = $executor->execute($this->contextFrom($context, $datasetRun, $first->checkpoint));
+        $this->assertSame('wp_content', $second->stage);
+        $this->assertSame([13], $asked[1]);
+        $this->assertArrayNotHasKey('wp_content', $second->checkpoint);
+
+        $third = $executor->execute($this->contextFrom($context, $datasetRun, $second->checkpoint));
+        $this->assertSame(DatasetExecutionOutcome::Completed, $third->outcome, (string) $third->errorMessage);
+        $this->assertSame('queue_empty', $third->checkpoint['finish_reason']);
+        $this->assertSame(0, $third->checkpoint['unread']);
+        $read = collect(Http::recorded())->map(fn (array $pair): string => (string) parse_url($pair[0]->url(), PHP_URL_PATH))->all();
+        $this->assertContains('/', $read);
+        $this->assertContains('/p3/', $read);
+        foreach (['/p1/', '/p2/', '/p4/'] as $path) {
+            $this->assertNotContains($path, $read, $path.' came from the content export');
+        }
+        $this->assertSame(['page_cache' => 0, 'wp_content' => 3, 'fetched' => 2, 'not_modified' => 0, 'same' => 0], $third->checkpoint['source_mix']);
     }
 
     #[Test]

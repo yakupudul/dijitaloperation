@@ -101,6 +101,9 @@ return [
         // WordPress Connector ≥ 1.6.0: read HTML from the cache plugin's files when this many pages are to be read.
         'page_cache_min_queue' => 20,
         'page_cache_per_page' => 25,
+        // WordPress Connector ≥ 1.7.0: page content (no theme) comes from the site when this many pages are to be read.
+        'content_export_min_queue' => 10,
+        'content_export_per_request' => 25,
         // Full HTML re-read of a WordPress site (every page, not only the changed ones): at most this often, only at
         // night (Europe/Istanbul). Other automatic runs read only changed pages.
         'full_read_interval_days' => (int) env('MOXDOP_FULL_READ_INTERVAL_DAYS', 30),

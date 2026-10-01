@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.6.0
+Stable tag: 1.7.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -74,6 +74,9 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.7.0 =
+* Content export (`/content-export`, read-only): the rendered content of published pages without the theme (Elementor builder content, otherwise the content filters with blocks and WPBakery / Divi shortcodes), with SEO title, description, canonical and language. MoxDOP reads a whole site in a few requests instead of loading every page.
 
 = 1.6.0 =
 * Page cache export: a new signed, read-only route `GET moxdop/v1/page-cache?page=&per_page=` (at most 50 per page) returns, for published public URLs, the HTML a page-cache plugin already stored on disk (WP Rocket, WP Super Cache, W3 Total Cache disk-enhanced, WP Fastest Cache, Cache Enabler). Files are only read, gzip-compressed and base64-encoded (about 4 MB per response at most); nothing is rendered. URLs without a cache file come back as `not_cached` and MoxDOP reads those over HTTP.

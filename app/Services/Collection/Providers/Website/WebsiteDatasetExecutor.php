@@ -24,6 +24,7 @@ use App\Support\SslCertificateProbe;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use MoxDop\Website\Discovery\DiscoveryConfig;
 use MoxDop\Website\Discovery\PublicHttpFetcher;
@@ -289,6 +290,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         $assetId = (int) $scope['asset']->id;
         $fullRead = ($checkpoint['full_read'] ?? false) === true;
         $pageCache = is_array($checkpoint['page_cache'] ?? null) ? $checkpoint['page_cache'] : null;
+        $wpContent = is_array($checkpoint['wp_content'] ?? null) ? $checkpoint['wp_content'] : null;
         if (is_array($checkpoint['queue'] ?? null)) {
             $queue = array_values(array_map('strval', $checkpoint['queue']));
             $visited = is_array($checkpoint['visited'] ?? null) ? array_values(array_map('strval', $checkpoint['visited'])) : [];
@@ -309,6 +311,8 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             $skippedUnchanged = count($seedQueue['unchanged']);
             // WordPress Connector ≥ 1.6.0 with a readable page cache: HTML comes from the cache files first.
             $pageCache = $this->pageCacheSource($assetId, count($queue));
+            // WordPress Connector ≥ 1.7.0: the content of WordPress pages comes from the site in a few requests.
+            $wpContent = $this->contentExportSource($assetId, $queue, $seed);
         }
         $pages = (int) ($checkpoint['pages'] ?? 0);
         $urlsPlanned = max((int) ($checkpoint['urls_planned'] ?? 0), count($queue) + count($visited) - $skippedUnchanged);
@@ -322,11 +326,15 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             'politeness' => $this->politeness->view($host, $crawlDelay, $hitRatio),
             'full_read' => $fullRead,
             'page_cache' => $pageCache,
+            'wp_content' => $wpContent,
             'source_mix' => $mix,
         ], static fn ($value): bool => $value !== null) + ['robots_crawl_delay' => $crawlDelay];
 
         if ($pageCache !== null && ! $targeted && $queue !== []) {
             return $this->pageCacheStep($context, $assetId, $seed, $observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged, $politenessExtra);
+        }
+        if ($wpContent !== null && ! $targeted && $queue !== []) {
+            return $this->contentExportStep($context, $assetId, $seed, $observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged, $politenessExtra);
         }
 
         if ($queue === [] || $pages >= $maxPages || $bytesDownloaded >= DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES) {
@@ -493,11 +501,12 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
     }
 
     /**
-     * Where the pages of this crawl came from: page_cache (the connector read the cache plugin's file), fetched (read
+     * Where the pages of this crawl came from: page_cache (the connector read the cache plugin's file), wp_content
+     * (the connector rendered the page content without the theme), fetched (read
      * over HTTP), not_modified (304) and same (read, identical to the stored copy).
      *
      * @param  array<string, mixed>  $checkpoint
-     * @return array{page_cache: int, fetched: int, not_modified: int, same: int}
+     * @return array{page_cache: int, wp_content: int, fetched: int, not_modified: int, same: int}
      */
     private function sourceMix(array $checkpoint): array
     {
@@ -505,6 +514,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
 
         return [
             'page_cache' => (int) ($mix['page_cache'] ?? 0),
+            'wp_content' => (int) ($mix['wp_content'] ?? 0),
             'fetched' => (int) ($mix['fetched'] ?? 0),
             'not_modified' => (int) ($mix['not_modified'] ?? 0),
             'same' => (int) ($mix['same'] ?? 0),
@@ -708,6 +718,196 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
     }
 
     /**
+     * WordPress Connector ≥ 1.7.0: the queued URLs that are WordPress posts (inventory permalink → post id), in queue
+     * order, when enough of them are to be read. The homepage stays an HTTP read (site-wide head, menus, schema).
+     *
+     * @param  list<string>  $queue
+     * @return array{pending: list<array{0: string, 1: int}>}|null
+     */
+    private function contentExportSource(int $assetId, array $queue, string $seed): ?array
+    {
+        if (count($queue) < max(1, (int) config('moxdop-website-intelligence.crawl.content_export_min_queue', 10))
+            || ! Schema::hasTable('website_cms_object_snapshot')) {
+            return null;
+        }
+        $connection = $this->pairedConnection($assetId);
+        if ($connection === null || version_compare((string) data_get($connection->config, 'plugin_version', '0'), (string) config('moxdop-wordpress.content_export_min_plugin_version', '1.7.0'), '<')) {
+            return null;
+        }
+        $ids = [];
+        foreach (DB::table('website_cms_object_snapshot')
+            ->where('digital_asset_id', $assetId)
+            ->where('status', 'publish')
+            ->whereNotIn('object_type', self::NON_PAGE_CMS_TYPES)
+            ->whereNotNull('permalink')
+            ->get(['permalink', 'object_id']) as $row) {
+            $url = $this->urls->normalizeAbsolute((string) $row->permalink);
+            if ($url !== null && ctype_digit((string) $row->object_id)) {
+                $ids[$url] = (int) $row->object_id;
+            }
+        }
+        $home = $this->urls->normalizeAbsolute($seed) ?? $seed;
+        $pending = [];
+        foreach ($queue as $url) {
+            if ($url !== $home && isset($ids[$url]) && $ids[$url] > 0) {
+                $pending[] = [$url, $ids[$url]];
+            }
+        }
+
+        return $pending === [] ? null : ['pending' => $pending];
+    }
+
+    /**
+     * One request of the connector's content export: the rendered content of the next posts of the queue, each
+     * persisted like a crawled page (fetch_source wp_content) and taken off the queue. Posts the site could not give
+     * (not public, too large) stay in the queue and are read over HTTP; posts it had no time for are asked again.
+     *
+     * @param  list<string>  $queue
+     * @param  list<string>  $visited
+     * @param  array<string, mixed>  $extra
+     */
+    private function contentExportStep(
+        DatasetExecutionContext $context,
+        int $assetId,
+        string $seed,
+        string $observedAt,
+        array $queue,
+        array $visited,
+        int $pages,
+        int $rowsWritten,
+        int $bytesDownloaded,
+        int $urlsPlanned,
+        int $skippedUnchanged,
+        array $extra,
+    ): DatasetExecutionResult {
+        $wanted = array_fill_keys($queue, true);
+        $pending = array_values(array_filter(
+            (array) ($extra['wp_content']['pending'] ?? []),
+            static fn ($item): bool => is_array($item) && isset($item[0], $item[1], $wanted[(string) $item[0]]),
+        ));
+        $batch = array_slice($pending, 0, max(1, min(50, (int) config('moxdop-website-intelligence.crawl.content_export_per_request', 25))));
+        $rest = array_slice($pending, count($batch));
+        $mix = $this->sourceMix($extra);
+        $written = 0;
+        $pagesThisStep = 0;
+        $connection = $this->pairedConnection($assetId);
+        $failed = $connection === null;
+        if ($connection !== null && $batch !== []) {
+            $urlById = [];
+            foreach ($batch as [$url, $id]) {
+                $urlById[(int) $id] = (string) $url;
+            }
+            try {
+                $payload = app(WordPressConnectorClient::class)->contentExport($connection, array_keys($urlById));
+                foreach ((array) ($payload['records'] ?? []) as $record) {
+                    $url = is_array($record) ? ($urlById[(int) ($record['id'] ?? 0)] ?? null) : null;
+                    $fetch = $url !== null ? $this->contentExportFetch($record, $url, $seed) : null;
+                    if ($fetch === null || $bytesDownloaded + (int) $fetch['bytes'] > DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES) {
+                        continue;
+                    }
+                    $bytesDownloaded += (int) $fetch['bytes'];
+                    $pageRows = $this->persistPage($context, $assetId, $fetch, $observedAt, 'public_crawl', $url, $seed);
+                    $this->lastPageUnchanged ? $mix['same']++ : $mix['wp_content']++;
+                    unset($wanted[$url]);
+                    $visited[] = $url;
+                    $pages++;
+                    $pagesThisStep++;
+                    $written += $pageRows;
+                    $rowsWritten += $pageRows;
+                }
+                // Posts the site had no time for are asked first in the next request.
+                $again = [];
+                foreach ((array) ($payload['pending_ids'] ?? []) as $id) {
+                    if (isset($urlById[(int) $id], $wanted[$urlById[(int) $id]])) {
+                        $again[] = [$urlById[(int) $id], (int) $id];
+                    }
+                }
+                $rest = array_merge($again, $rest);
+                $queue = array_keys($wanted);
+            } catch (WordPressConnectorBusyException $busy) {
+                $extra['source_mix'] = $mix;
+
+                return new DatasetExecutionResult(
+                    outcome: DatasetExecutionOutcome::Continue,
+                    progressMode: ProgressMode::PageBased,
+                    progressCurrent: $pages,
+                    progressTotal: DiscoveryConfig::MAX_COLLECTION_PAGES,
+                    stage: 'wp_content_wait',
+                    checkpoint: $this->crawlCheckpoint($observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged, $extra),
+                    backoffSeconds: max(30, $busy->retryAfterSeconds),
+                );
+            } catch (Throwable $error) {
+                // The export failed: the remaining pages are read over HTTP.
+                report($error);
+                $extra['wp_content_error'] = class_basename($error);
+                $failed = true;
+            }
+        }
+        if ($failed || $rest === []) {
+            unset($extra['wp_content']);
+        } else {
+            $extra['wp_content'] = ['pending' => $rest];
+        }
+        $extra['source_mix'] = $mix;
+        $checkpointOut = $this->crawlCheckpoint($observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded, $urlsPlanned, $skippedUnchanged, $extra);
+        $this->recordCrawlRun($context, $assetId, false, $checkpointOut, false);
+
+        return new DatasetExecutionResult(
+            outcome: DatasetExecutionOutcome::Continue,
+            progressMode: ProgressMode::PageBased,
+            progressCurrent: $pages,
+            progressTotal: DiscoveryConfig::MAX_COLLECTION_PAGES,
+            rowsReceived: $written,
+            rowsWritten: $written,
+            pagesCompleted: $pagesThisStep,
+            stage: 'wp_content',
+            checkpoint: $checkpointOut,
+            backoffSeconds: max(0, (int) config('moxdop-wordpress.page_delay_seconds', 2)),
+        );
+    }
+
+    /**
+     * A content-export record as a crawl fetch of the queued URL, or null when it is not usable (other status, other
+     * site, undecodable or its SHA-256 does not match).
+     *
+     * @param  array<string, mixed>  $record
+     * @return array<string, mixed>|null
+     */
+    private function contentExportFetch(array $record, string $url, string $seed): ?array
+    {
+        if (($record['status'] ?? null) !== 'content') {
+            return null;
+        }
+        $reported = $this->urls->normalizeAbsolute((string) ($record['url'] ?? ''));
+        if ($reported === null || ! $this->urls->sameSite($seed, $reported)) {
+            return null;
+        }
+        $compressed = base64_decode((string) ($record['html_gz_b64'] ?? ''), true);
+        $html = is_string($compressed) && $compressed !== '' ? @gzdecode($compressed, DiscoveryConfig::MAX_COLLECTION_RESPONSE_BYTES) : false;
+        if (! is_string($html) || $html === '' || ! hash_equals(strtolower((string) ($record['sha256'] ?? '')), hash('sha256', $html))) {
+            return null;
+        }
+
+        return [
+            'ok' => true,
+            'requested_url' => $url,
+            'final_url' => $url,
+            'status_code' => 200,
+            'content_type' => 'text/html',
+            'body' => $html,
+            'bytes' => strlen($html),
+            'redirect_count' => 0,
+            'error' => null,
+            'not_modified' => false,
+            'etag' => null,
+            'last_modified' => null,
+            'cache' => null,
+            'source' => 'wp_content',
+            'builder' => is_string($record['builder'] ?? null) ? $record['builder'] : null,
+        ];
+    }
+
+    /**
      * A 304 answer: the page did not change since its stored copy. Its stored rows move to this observation (the
      * unchanged-page path); a retried step whose observation already holds the page leaves it as it is.
      *
@@ -907,11 +1107,20 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         [$metadata, $heading, $schema] = $this->normalizer->htmlSnapshots($assetId, $fetch, $observedAt);
         $rowsWritten += $this->writeOne($context, 'website_metadata_snapshot', $source.'_meta', $assetId, [$metadata], $compactRaw, $requestedUrl, $pageIdentity);
         $rowsWritten += $this->writeOne($context, 'website_heading_snapshot', $source.'_h1', $assetId, [$heading], $compactRaw, $requestedUrl, $pageIdentity);
-        $rowsWritten += $this->writeOne($context, 'website_schema_snapshot', $source.'_schema', $assetId, [$schema], $compactRaw, $requestedUrl, $pageIdentity);
+        // Content exported by the connector has no theme (no JSON-LD in the head, no menus): the schema and link rows
+        // of the page's latest HTTP read stay as they are.
+        $contentOnly = ($fetch['source'] ?? null) === 'wp_content';
+        if (! $contentOnly) {
+            $rowsWritten += $this->writeOne($context, 'website_schema_snapshot', $source.'_schema', $assetId, [$schema], $compactRaw, $requestedUrl, $pageIdentity);
+        }
 
         $contentStats = $this->pageAnalyzer->contentStats($assetId, $fetch, $observedAt);
         if ($contentStats !== null) {
             $rowsWritten += $this->writeOne($context, 'website_content_stats', $source.'_content', $assetId, [$contentStats], $compactRaw, $requestedUrl, $pageIdentity);
+        }
+
+        if ($contentOnly) {
+            return $rowsWritten;
         }
 
         $resolutionBase = is_string($fetch['final_url'] ?? null) && trim((string) $fetch['final_url']) !== ''
@@ -1618,6 +1827,14 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
     /** @param array<string, mixed> $checkpoint */
     private function completedCounted(int $current, int $total, array $checkpoint, int $rowsReceived = 0, int $rowsWritten = 0, int $pagesCompleted = 0): DatasetExecutionResult
     {
+        // Why the crawl ended: every queued page was read, or a page / byte limit stopped it with pages left unread.
+        $left = is_array($checkpoint['queue'] ?? null) ? count($checkpoint['queue']) : 0;
+        $checkpoint['finish_reason'] = $left === 0 ? 'queue_empty' : 'limit';
+        $checkpoint['unread'] = $left;
+        if ($left > 0) {
+            Log::warning('website.crawl.finished_with_unread_pages', ['pages' => $current, 'unread' => $left]);
+        }
+
         return new DatasetExecutionResult(
             outcome: DatasetExecutionOutcome::Completed,
             progressMode: ProgressMode::PageBased,

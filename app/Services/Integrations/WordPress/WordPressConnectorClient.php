@@ -92,6 +92,22 @@ final class WordPressConnectorClient
     }
 
     /**
+     * 1.7.0: the rendered content (no theme) of the given published posts, at most 50. Records: id, status
+     * (content | not_public | skipped_size), url, type, builder, modified_at, sha256, bytes and html_gz_b64 (a small
+     * HTML document: SEO title, description, canonical, language and the content). Posts the site had no time for
+     * come back in pending_ids. One request at a time on the site (429 + Retry-After otherwise).
+     *
+     * @param  list<int>  $postIds
+     * @return array<string, mixed>
+     */
+    public function contentExport(CoreConnection $connection, array $postIds): array
+    {
+        return $this->get($connection, null, '/moxdop/v1/content-export', [
+            'ids' => implode(',', array_slice($postIds, 0, 50)),
+        ], max(30, (int) config('moxdop-wordpress.content_export_timeout_seconds', 60)));
+    }
+
+    /**
      * One snapshot page. Content and media pages are small (default 25): the site renders every post's blocks and
      * reads its builder data for them, which is heavy on small shared hosts. Never more than 50 per page.
      *
@@ -254,7 +270,7 @@ final class WordPressConnectorClient
      * @param  array<string, scalar>  $query
      * @return array<string, mixed>
      */
-    private function get(CoreConnection $connection, ?string $urlKey, string $route, array $query = []): array
+    private function get(CoreConnection $connection, ?string $urlKey, string $route, array $query = [], ?int $timeout = null): array
     {
         $credentials = $connection->credential?->encrypted_payload;
         $config = is_array($connection->config) ? $connection->config : [];
@@ -289,7 +305,7 @@ final class WordPressConnectorClient
                     self::HEADER_SIGNATURE => $signature,
                 ])
                 ->withOptions(['allow_redirects' => false])
-                ->timeout(max(5, (int) config('moxdop-wordpress.request_timeout_seconds', 30)))
+                ->timeout($timeout ?? max(5, (int) config('moxdop-wordpress.request_timeout_seconds', 30)))
                 ->get($url, $query);
 
             $data = $this->verifiedData($response, $secret, $nonce);

@@ -106,4 +106,35 @@ final class WebsiteCollectionOverviewTest extends TestCase
             ->assertSee('Site yavaş yanıt veriyor (veritabanı bağlantı hatası); çekim 15 dk sonra')
             ->assertSee('yavaşça sürecek');
     }
+
+    #[Test]
+    public function a_finished_crawl_that_read_fewer_pages_than_planned_says_it_stopped_early(): void
+    {
+        $this->seed(RoleAndPermissionSeeder::class);
+        app()->setLocale('tr');
+        $admin = User::factory()->create();
+        $admin->assignRole(Roles::ADMIN);
+        $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create()->id]);
+        $asset = DigitalAsset::factory()->create([
+            'brand_id' => $brand->id, 'type' => 'website', 'domain' => 'klinik.example', 'primary_url' => 'https://klinik.example/',
+        ]);
+        $run = CollectionRun::factory()->create([
+            'digital_asset_id' => $asset->id, 'brand_id' => $brand->id, 'status' => CollectionRunStatus::Completed,
+            'started_at' => now()->subHours(5), 'finished_at' => now()->subHour(),
+            'request_context' => ['provider_sources' => ['WEBSITE_DIRECT'], 'context' => ['collection_scope' => 'public']],
+        ]);
+        $resource = CollectionResourceRun::factory()->create([
+            'collection_run_id' => $run->id, 'provider_or_source' => 'WEBSITE_DIRECT', 'digital_asset_id' => $asset->id,
+            'status' => CollectionRunStatus::Completed,
+        ]);
+        CollectionDatasetRun::factory()->create([
+            'collection_run_id' => $run->id, 'collection_resource_run_id' => $resource->id, 'provider_or_source' => 'WEBSITE_DIRECT',
+            'dataset_contract_id' => 'website_url', 'request_family_id' => WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL,
+            'status' => CollectionRunStatus::Completed, 'started_at' => now()->subHours(5), 'finished_at' => now()->subHour(),
+            'checkpoint' => ['pages' => 826, 'urls_planned' => 4381, 'skipped_unchanged' => 619, 'queue' => []],
+        ]);
+
+        Livewire::actingAs($admin)->test(WebsiteIntegrationIndex::class, ['assetId' => $asset->id])
+            ->assertSee('826 / 4.381 sayfa · yarım kaldı: 3.555 sayfa okunmadı (sonraki Genel çekim okur)');
+    }
 }

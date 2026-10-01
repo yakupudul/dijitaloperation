@@ -112,6 +112,28 @@ final class InterruptedCollectionRecoveryTest extends TestCase
     }
 
     #[Test]
+    public function the_resuming_note_is_cleared_once_a_step_runs_again(): void
+    {
+        $dataset = $this->interrupted();
+        app(RecoverInterruptedCollections::class)->tick();
+        $dataset->refresh();
+        $this->assertSame('INTERRUPTED_WORKER', $dataset->error_code);
+        $dataset->update(['retry_at' => now()->subSecond()]);
+        $this->app->instance(DatasetExecutorResolver::class, new DatasetExecutorResolver([
+            new FakeDatasetExecutor([$dataset->request_family_id], new DatasetExecutionResult(
+                outcome: DatasetExecutionOutcome::Continue, checkpoint: ['page' => 8],
+            )),
+        ]));
+
+        $this->app->call([new ExecuteDatasetRunJob($dataset->id), 'handle']);
+
+        $dataset->refresh();
+        $this->assertSame(8, $dataset->checkpoint['page']);
+        $this->assertNull($dataset->error_code);
+        $this->assertNull($dataset->error_message);
+    }
+
+    #[Test]
     public function cancellation_left_by_a_dead_worker_is_finished_after_the_lease_expires(): void
     {
         $stale = $this->interrupted();

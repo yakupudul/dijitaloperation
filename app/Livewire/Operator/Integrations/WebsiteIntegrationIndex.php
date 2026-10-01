@@ -1669,8 +1669,10 @@ final class WebsiteIntegrationIndex extends Component
         $stages = $stages->map(function (array $stage) use ($pages): array {
             $stage['summary'] = $stage['family'] === WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL && $pages !== null
                 ? $this->text(
-                    number_format($pages['done'], 0, ',', '.').' / '.number_format($pages['planned'], 0, ',', '.').' sayfa',
-                    number_format($pages['done']).' / '.number_format($pages['planned']).' pages',
+                    number_format($pages['done'], 0, ',', '.').' / '.number_format($pages['planned'], 0, ',', '.').' sayfa'
+                        .($pages['unread'] > 0 ? ' · yarım kaldı: '.number_format($pages['unread'], 0, ',', '.').' sayfa okunmadı (sonraki Genel çekim okur)' : ''),
+                    number_format($pages['done']).' / '.number_format($pages['planned']).' pages'
+                        .($pages['unread'] > 0 ? ' · stopped early: '.number_format($pages['unread']).' pages not read (the next general collection reads them)' : ''),
                 )
                 : null;
 
@@ -1707,7 +1709,7 @@ final class WebsiteIntegrationIndex extends Component
      * Page HTML crawl progress of a run, from its checkpoint: pages fetched, pages planned (pages skipped as
      * unchanged are not planned) and, while it runs, the minutes left at the rate so far.
      *
-     * @return array{done: int, planned: int, skipped: int, active: bool, eta_minutes: ?int, eta_label: ?string, politeness: ?array<string, mixed>}|null
+     * @return array{done: int, planned: int, unread: int, skipped: int, active: bool, eta_minutes: ?int, eta_label: ?string, politeness: ?array<string, mixed>}|null
      */
     private function crawlProgress(CollectionRun $run): ?array
     {
@@ -1722,6 +1724,7 @@ final class WebsiteIntegrationIndex extends Component
         $etaSeconds = null;
         $active = false;
         $politeness = null;
+        $unread = 0;
         foreach ($crawls as $crawl) {
             /** @var CollectionDatasetRun $crawl */
             $checkpoint = is_array($crawl->checkpoint) ? $crawl->checkpoint : [];
@@ -1735,6 +1738,10 @@ final class WebsiteIntegrationIndex extends Component
             $skipped += (int) ($checkpoint['skipped_unchanged'] ?? 0);
             $running = in_array($crawl->status?->value, ['queued', 'running', 'retrying'], true);
             $active = $active || $running;
+            // A finished crawl that read fewer pages than it planned stopped early: those pages were not read.
+            if (! $running && $checkpoint !== []) {
+                $unread += max(is_array($checkpoint['queue'] ?? null) ? count($checkpoint['queue']) : 0, $total - $pages);
+            }
             $started = $crawl->started_at;
             if ($running && $pages > 0 && $started !== null && $total > $pages) {
                 $elapsed = max(1, (int) $started->diffInSeconds(now(), true));
@@ -1745,6 +1752,7 @@ final class WebsiteIntegrationIndex extends Component
         return [
             'done' => $done,
             'planned' => $planned,
+            'unread' => $unread,
             'skipped' => $skipped,
             'active' => $active,
             'eta_minutes' => $etaSeconds !== null ? max(1, (int) ceil($etaSeconds / 60)) : null,
@@ -1855,6 +1863,9 @@ final class WebsiteIntegrationIndex extends Component
         $parts = [];
         if (is_array($run)) {
             $parts[] = $this->text('Önbellekten: ', 'From page cache: ').$number((int) ($run['page_cache'] ?? 0));
+            if ((int) ($run['wp_content'] ?? 0) > 0) {
+                $parts[] = $this->text('WordPress içeriği: ', 'WordPress content: ').$number((int) $run['wp_content']);
+            }
             $parts[] = $this->text('Sayfa okuma: ', 'Page reads: ').$number((int) ($run['fetched'] ?? 0));
             $parts[] = $this->text('Değişmedi (304/aynı): ', 'Unchanged (304/same): ').$number((int) ($run['not_modified'] ?? 0) + (int) ($run['same'] ?? 0));
         }

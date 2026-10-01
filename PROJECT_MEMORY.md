@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-11-11 — WordPress sitelerinde sayfa içeriği eklentiden
+
+- **Karar (operatör):** WordPress Connector bağlı sitelerde sayfa içeriği tek tek HTTP ile değil, eklentinin salt okuma `/content-export` yanıtından (25'lik isteklerle, temasız işlenmiş içerik + SEO başlığı / açıklama / canonical / dil) alınır. HTTP okuması ana sayfa, envanter dışı URL'ler ve eklentinin veremediği sayfalarla sınırlı kalır; schema ve menü bağlantıları gibi tema sinyalleri bu HTTP okumalarından gelir. Yeni yazma yok (ADR listesi değişmez).
+
 ## 2026-11-09 — Sayfa HTML'i önbellekten; bir kez tam, sonra yalnız değişenler
 
 - **Karar (operatör):** Müşteri sitelerinin sayfa HTML'i paylaşımlı hostingi yormadan alınır: istekler sitenin sayfa önbelleğinden normal ziyaretçi gibi karşılanır (tarayıcı işaretli kimlikli User-Agent, çerez / önbellek kırıcı yok, gzip), ETag / Last-Modified ile koşullu istek (304 = değişmedi), önbellek isabeti yüksek sitede aynı anda 4 sayfa, ıskada 2.
