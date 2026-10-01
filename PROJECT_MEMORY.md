@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-11-16 — Otomatik kur ve canlı arayüz kararları
+
+- **Karar:** Otomatik kur hizmet bölgelerini de önerir (İşletme Profili adresi şube); onay sonrası web sitesi ekranı hemen hazırlanır; dolu sektör hiçbir zaman otomatik değişmez. Arayüz geri bildirimi tek yerden (operator.js + operator.css): her Livewire işleminde buton durumu, ilerleme çubuğu, `message` bildirimi; operatörün AI işi bitince bildirim.
+
 ## 2026-11-15 — Web sitesi ekranı tutarlılığı ve AI kuyruğu
 
 - **Karar:** sayfa başı Search Console rakamları sayfa toplamlarından (`gsc_page_daily`), site toplamıyla uyumlu; hizmet bölümündeki sayfa şehir adı taşısa da hizmet sayfasıdır; boş küme görünümleri tek kaynaktan (`SiteScope::clusterReadiness`) eksik adımı söyler. Otomatik arka plan AI'ı (`QueryAutopilotJob`) `background` kuyruğunda, operatörün tıkladığı AI işleri `heavy` kuyrukta; ikisi birbirini bekletmez.

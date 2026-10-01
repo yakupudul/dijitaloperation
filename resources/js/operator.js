@@ -321,3 +321,107 @@ document.addEventListener('livewire:init', () => {
         });
     }
 });
+
+/*
+ * Live feedback for every operator action (no per-button markup):
+ *  - the clicked button/link shows a spinner while its request runs (Livewire sets data-loading on it) and a short
+ *    ✓ flash when it finishes;
+ *  - a thin progress bar runs at the top while a request the operator started is in flight (polls are left out);
+ *  - a component's `message` property (the "… kuyruğa alındı" / "… kaydedildi" lines) also pops up as a toast, so the
+ *    result is seen even when the line is far from the button.
+ */
+const USER_ACTION_WINDOW_MS = 800;
+let lastUserAction = 0;
+let lastClicked = null;
+let inFlight = 0;
+let barTimer = null;
+
+function progressBar() {
+    let bar = document.getElementById('op-progress');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'op-progress';
+        bar.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(bar);
+    }
+
+    return bar;
+}
+
+function showBar() {
+    clearTimeout(barTimer);
+    barTimer = setTimeout(() => progressBar().classList.add('is-active'), 120);
+}
+
+function hideBar() {
+    clearTimeout(barTimer);
+    const bar = document.getElementById('op-progress');
+    if (bar && bar.classList.contains('is-active')) {
+        bar.classList.add('is-done');
+        setTimeout(() => bar.classList.remove('is-active', 'is-done'), 350);
+    }
+}
+
+function noticeTone(message, data) {
+    const tone = data?.messageTone ?? data?.tone;
+    if (tone === 'error' || tone === 'warning') {
+        return 'error';
+    }
+
+    return /(hata|yapılamadı|başarısız|bulunamadı|eklenemedi|kaydedilemedi|başlatılamadı|olmadı)/i.test(message) ? 'error' : 'success';
+}
+
+['click', 'keydown', 'submit', 'change'].forEach((type) => {
+    document.addEventListener(type, (event) => {
+        if (type === 'keydown' && event.key !== 'Enter') {
+            return;
+        }
+        lastUserAction = Date.now();
+        if (type === 'click') {
+            lastClicked = event.target.closest?.('button, a, [wire\\:click]') ?? null;
+        }
+    }, true);
+});
+
+document.addEventListener('livewire:init', () => {
+    if (!window.Livewire?.interceptMessage) {
+        return;
+    }
+    window.Livewire.interceptMessage(({ message, onSuccess, onError, onFinish }) => {
+        const calls = Array.from(message.actions ?? []).filter((action) => !String(action.name ?? '').startsWith('$'));
+        if (Date.now() - lastUserAction > USER_ACTION_WINDOW_MS || calls.length === 0) {
+            return;
+        }
+        const clicked = lastClicked;
+        inFlight++;
+        showBar();
+        onFinish(() => {
+            inFlight = Math.max(0, inFlight - 1);
+            if (inFlight === 0) {
+                hideBar();
+            }
+        });
+        onSuccess(({ payload }) => {
+            let data = {};
+            try {
+                const snapshot = payload?.snapshot;
+                data = (typeof snapshot === 'string' ? JSON.parse(snapshot) : snapshot)?.data ?? {};
+            } catch (error) {
+                data = {};
+            }
+            const after = data.message;
+            if (typeof after === 'string' && after.trim() !== '') {
+                window.dispatchEvent(new CustomEvent('operator-notice', { detail: { message: after, tone: noticeTone(after, data) } }));
+            }
+            // The action may have queued AI work: the header indicator refreshes now (a moment later, after the dispatch).
+            setTimeout(() => window.Livewire?.dispatch?.('ai-live-refresh'), 600);
+            if (clicked && clicked.isConnected) {
+                clicked.setAttribute('data-done', '');
+                setTimeout(() => clicked.removeAttribute('data-done'), 1200);
+            }
+        });
+        onError(() => {
+            window.dispatchEvent(new CustomEvent('operator-notice', { detail: { message: 'İşlem tamamlanamadı. Sayfayı yenileyip tekrar deneyin.', tone: 'error' } }));
+        });
+    });
+});

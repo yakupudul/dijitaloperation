@@ -1,5 +1,11 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-16 — Otomatik kur düzeltmeleri ve canlı geri bildirim
+
+- **Otomatik kur:** hizmet bölgeleri önerilir (eşleşen İşletme Profili adresi → şube, işaretli; markada bölge yoksa Search Console sorgularında en çok geçen iller → işaretsiz) ve onayla eklenir; AI'a giden sayfalar sayfa envanterinden (`pages`, WordPress + sitemap, başlıklarla) gelir; onaydan hemen sonra web sitesi hazırlanır (`SiteOperations::SETUP`: kural kategorileri, hizmet ↔ sayfa, küme satırları, hedef sorgular) ve sonuç ekranı eksik küme adımını gösterir; markada başka sektör seçiliyse yalnız bildirilir (değiştirilmez); "sorgu kütüphanesine eklenir" yazan ama bir şey eklemeyen anahtar kelime metni düzeltildi (sorgular hesap bağlanınca Bekleyenler'e gelir); hazırlık adım adım (sırada / hesaplar / hizmetler / bölgeler) ve geçen süreyle görünür, sayfaya dönmek yeni tarama başlatmaz, hazır öneri varken "Yeniden tara" onay ister.
+- **Canlı geri bildirim (tüm ekranlar, buton başına kod yok):** tıklanan buton istek sürerken döner ve bitince kısa ✓ verir; üstte ince ilerleme çubuğu; bileşenin `message` satırı sağ altta bildirim olarak da çıkar (hata kırmızı); operatörün başlattığı AI işi bitince / hata verince bildirim; AI göstergesi tıklamadan hemen sonra yenilenir (arka plan işleri sessiz).
+- **State:** CODED + PHPUnit (`BrandSetupAssistantTest` bölge/sektör/hazırlık/yeniden tetiklenmeme, `SitePagesTest::test_after_otomatik_kur…`, `AiLiveOperationsTest::test_the_operators_own_ai_work…`). Tarayıcı JS/CSS davranışı elle gözden geçirilecek. Üretim UAT yok.
+
 ## 2026-11-15 — Web sitesi ekranı: aynı veri her yerde aynı
 
 - **Sayfa tıklamaları:** Sayfalar ve sayfa detayı Search Console sayfa toplamlarını (`gsc_page_daily`, anonim sorgular dahil) kullanır; Özet'teki site toplamıyla uyumlu. Sorgu × sayfa verisi yalnız ortalama sıra için (ve sayfa toplamı yoksa yedek olarak).

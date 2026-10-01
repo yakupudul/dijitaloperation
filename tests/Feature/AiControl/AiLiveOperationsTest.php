@@ -147,6 +147,20 @@ final class AiLiveOperationsTest extends TestCase
         Livewire::test(AiLiveIndicator::class)->assertSee('AI · 0')->assertSee('Sorgu kümeleme')->assertSee('Bitti · 0,8 sn')->assertSeeHtml('wire:poll.30s');
     }
 
+    public function test_the_operators_own_ai_work_that_ends_pops_up_and_background_work_stays_quiet(): void
+    {
+        $this->actingAs($this->admin);
+        $mine = $this->liveRow(['label' => 'SEO analizi', 'user_id' => $this->admin->id]);
+        $background = $this->liveRow(['label' => 'Sorgu otomatik pilotu', 'user_id' => null]);
+        $page = Livewire::test(AiLiveIndicator::class)->assertSee('AI · 2')->assertNotDispatched('operator-notice');
+
+        $mine->forceFill(['status' => AiLiveOperation::DONE, 'finished_at' => now(), 'duration_ms' => 900])->save();
+        $background->forceFill(['status' => AiLiveOperation::DONE, 'finished_at' => now(), 'duration_ms' => 900])->save();
+        $page->dispatch('ai-live-refresh')
+            ->assertDispatched('operator-notice', message: 'AI işi bitti: SEO analizi', tone: 'success')
+            ->assertNotDispatched('operator-notice', message: 'AI işi bitti: Sorgu otomatik pilotu');
+    }
+
     public function test_settings_page_and_layout_show_the_live_section(): void
     {
         $this->liveRow(['label' => 'Meta kreatif önerisi', 'operation' => 'meta.creatives']);

@@ -123,12 +123,19 @@
     </div>
 
     {{-- Action notices from any page (e.g. a record deleted in another tab): App\Support\Operator\LivewireActionErrors. --}}
+    {{-- Also every Livewire action's `message` (resources/js/operator.js): the result of a click is seen wherever the line is. --}}
     <div x-data="{ notice: null, timer: null }" x-cloak
-        x-on:operator-notice.window="notice = $event.detail; clearTimeout(timer); timer = setTimeout(() => notice = null, 8000)"
-        class="pointer-events-none fixed inset-x-4 bottom-4 z-[100000] flex justify-center sm:inset-x-auto sm:right-6">
-        <p x-show="notice" x-transition role="alert" x-text="notice?.message" x-on:click="notice = null"
-            :class="notice?.tone === 'error' ? 'bg-red-600' : 'bg-gray-900'"
-            class="pointer-events-auto max-w-md cursor-pointer rounded-lg px-4 py-3 text-sm text-white shadow-lg"></p>
+        x-on:operator-notice.window="notice = $event.detail; clearTimeout(timer); timer = setTimeout(() => notice = null, notice?.tone === 'error' ? 9000 : 5000)"
+        class="pointer-events-none fixed inset-x-4 bottom-4 z-[100000] flex justify-center sm:inset-x-auto sm:right-6" data-operator-notice>
+        <div x-show="notice" role="status" x-on:click="notice = null"
+            x-transition:enter="transition ease-out duration-200" x-transition:enter-start="translate-y-3 opacity-0" x-transition:enter-end="translate-y-0 opacity-100"
+            x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+            :class="notice?.tone === 'error' ? 'bg-red-600 ring-red-700' : 'bg-gray-900 ring-gray-800 dark:bg-gray-800'"
+            class="pointer-events-auto flex max-w-md cursor-pointer items-start gap-3 rounded-xl px-4 py-3 text-sm text-white shadow-xl ring-1">
+            <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                :class="notice?.tone === 'error' ? 'bg-white/20' : 'bg-emerald-500'" x-text="notice?.tone === 'error' ? '!' : '✓'"></span>
+            <span class="min-w-0" x-text="notice?.message"></span>
+        </div>
     </div>
 
     @auth
