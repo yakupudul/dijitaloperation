@@ -1,5 +1,9 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-11 — Sorgular › Kümeler: küme penceresi düzeltmesi
+
+- Küme penceresi üst çubuğun (sticky header) altında kalıyordu (× ve üst alan tıklanamıyordu) ve buton sonuçları ("Küme kaydedildi." vb.) pencerenin arkasındaki sayfanın üstünde görünüyordu. Pencere artık tam ekran katmanda (arka plana tıkla / Esc ile kapanır) ve sonuç mesajı pencerenin içinde. State: CODED + PHPUnit (`QueriesScreenTest`).
+
 ## 2026-11-11 — WordPress içerik dışa aktarımı (Connector 1.7.0), yarım kalan çekim artık "tamamlandı" görünmez
 
 - **Eklenti 1.7.0 (`GET moxdop/v1/content-export?ids=`, HMAC, `/snapshot` ile aynı tek-seferde-bir kilidi, salt okuma):** istenen en çok 50 yayımlanmış, parolasız, görüntülenebilir yazının içeriği temasız işlenir: Elementor sayfaları Elementor'un kendi içerik çıktısıyla (`get_builder_content_for_display`), diğerleri `the_content` filtreleriyle (Gutenberg blokları, WPBakery / Divi kısa kodları; etkin olmayan oluşturucu kısa kod etiketleri silinir, metin kalır). Her kayıt küçük bir HTML belgesi: SEO başlığı (Yoast / Rank Math / SEOPress; `%%değişken%%` içeriyorsa yazı başlığı), açıklama, canonical, noindex (varsa), dil (Polylang, yoksa site dili), oluşturucu sayfası değilse ve içerikte H1 yoksa yazı başlığı H1. Alanlar: id, status (content / not_public / skipped_size), url, type, builder, modified_at, sha256, html_gz_b64. 20 sn'de yetişmeyenler `pending_ids`; ~4 MB yanıt sınırı. `/status` → `content_export` yeteneği. `connector_version` 1.7.0.

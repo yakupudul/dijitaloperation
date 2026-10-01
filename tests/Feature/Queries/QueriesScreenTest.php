@@ -268,7 +268,8 @@ final class QueriesScreenTest extends TestCase
         $this->assertFalse(Cluster::query()->whereKey($split->id)->exists());
         $this->assertSame([$this->queryId('a1'), $this->queryId('a2')], ClusterQuery::query()->where('cluster_id', $a->id)->orderBy('query_id')->pluck('query_id')->all());
 
-        $page->call('approveCluster')->set('clusterForm.name', 'A son')->call('saveCluster');
+        $page->call('approveCluster')->set('clusterForm.name', 'A son')->call('saveCluster')
+            ->assertSeeHtml('data-drawer-message')->assertSee('Küme kaydedildi.');
         $a->refresh();
         $this->assertTrue($a->approved);
         $this->assertSame('A son', $a->name);

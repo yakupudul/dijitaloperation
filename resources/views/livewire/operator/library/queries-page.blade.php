@@ -333,12 +333,18 @@
 
         @if ($openCluster)
             @php $members = $openCluster->clusterQueries->sortByDesc(fn ($link) => $link->searchQuery?->impressions ?? 0); $reps = array_map('intval', (array) $openCluster->representative_query_ids); @endphp
-            <aside class="fixed inset-y-0 right-0 z-40 w-full max-w-xl space-y-3 overflow-y-auto bg-white p-4 shadow-xl ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-cluster-drawer role="dialog" aria-label="Küme">
+            {{-- Above the sticky header (z-99990) and the sidebar: the drawer's own buttons stay reachable. --}}
+            <div class="fixed inset-0 z-[100000] flex justify-end" wire:keydown.escape.window="closeCluster">
+            <div class="absolute inset-0 bg-gray-900/40" wire:click="closeCluster" aria-hidden="true"></div>
+            <aside class="relative h-full w-full max-w-xl space-y-3 overflow-y-auto bg-white p-4 shadow-xl ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-cluster-drawer role="dialog" aria-label="Küme">
                 <div class="flex items-center gap-2">
                     <input type="text" wire:model="clusterForm.name" aria-label="Küme adı" class="{{ $input }} flex-1">
                     <span class="text-xs text-gray-500">sürüm {{ $openCluster->version }}</span>
                     <button type="button" wire:click="closeCluster" aria-label="Kapat" class="px-2 text-lg">×</button>
                 </div>
+                @if ($this->message !== '')
+                    <p role="status" class="rounded-lg bg-blue-50 p-2 text-xs text-blue-800 dark:bg-blue-950 dark:text-blue-200" data-drawer-message>{{ $this->message }}</p>
+                @endif
                 @error('clusterForm.name')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
 
                 @if ($affectedBrands->isNotEmpty())
@@ -457,6 +463,7 @@
                     </div>
                 @endif
             </aside>
+            </div>
         @endif
     @endif
 
