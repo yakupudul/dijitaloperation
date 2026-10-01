@@ -7,6 +7,7 @@ use App\Jobs\Queries\ApplyQueryRulesJob;
 use App\Jobs\Queries\AssignQueryServicesJob;
 use App\Jobs\Queries\ClusterQueriesJob;
 use App\Jobs\Queries\ProposeQueryRulesJob;
+use App\Jobs\Queries\QueryAutopilotJob;
 use App\Jobs\Queries\RescanQueriesJob;
 use App\Jobs\Site\GenerateContentIdeasJob;
 use App\Jobs\Site\SuggestForbiddenTermsJob;
@@ -35,6 +36,7 @@ use App\Services\Compliance\SectorPackRegistry;
 use App\Services\Queries\ClusterEditor;
 use App\Services\Queries\KeywordInsights;
 use App\Services\Queries\PendingQueries;
+use App\Services\Queries\QueryAutopilot;
 use App\Services\Queries\QueryClusterer;
 use App\Services\Queries\QueryClusterQueue;
 use App\Services\Queries\QueryNormalizer;
@@ -583,6 +585,17 @@ final class QueriesPage extends Component
         $this->message = 'Fikir arşivlendi.';
     }
 
+    /** Sorgu otomatik pilotu: pause / resume (a paused pilot changes nothing). */
+    public function toggleAutopilot(): void
+    {
+        $this->actor();
+        QueryAutopilot::setPaused(! QueryAutopilot::paused());
+        if (! QueryAutopilot::paused()) {
+            QueryAutopilotJob::dispatch();
+        }
+        $this->message = QueryAutopilot::paused() ? 'Otomatik pilot durduruldu.' : 'Otomatik pilot başlatıldı.';
+    }
+
     // ── Yasaklı ifadeler ─────────────────────────────────────────────────────
 
     public function addForbidden(ForbiddenTermsLibrary $library): void
@@ -696,7 +709,7 @@ final class QueriesPage extends Component
         $removed = $editor->removeQueries($this->openedCluster(), $this->clusterQueryIds(), $this->confirmShared);
         $this->selectedClusterQueries = [];
         $this->fillClusterForm($this->openedCluster());
-        $this->message = $removed.' sorgu kümeden çıkarıldı.';
+        $this->message = $removed.' sorgu kümeden ve Sorgular\'dan silindi.';
     }
 
     public function moveQueries(ClusterEditor $editor): void
@@ -1431,6 +1444,10 @@ final class QueriesPage extends Component
             'keywordServices' => $this->tab === 'keywords' ? $this->keywordServices() : null,
             'forbiddenRules' => $forbiddenSector !== null ? app(ForbiddenTermsLibrary::class)->rules($forbiddenSector) : null,
             'forbiddenSuggest' => $forbiddenSuggest,
+            'autopilot' => QueryAutopilot::state(),
+            'autopilotPaused' => QueryAutopilot::paused(),
+            'autopilotReady' => QueryPipeline::importedAt() !== null,
+            'autopilotQueue' => QueryAutopilot::queue()->count(),
             ...$this->keywordInsights(),
             'proposal' => $proposal,
             'clusterStatus' => is_array($clusterStatus) ? $clusterStatus : null,

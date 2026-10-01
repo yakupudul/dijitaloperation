@@ -17,6 +17,25 @@
         </nav>
     </header>
 
+    @php $ap = $autopilot; $apTotals = (array) ($ap['totals'] ?? []); @endphp
+    <section class="{{ $card }} flex flex-wrap items-center gap-2 text-xs" data-autopilot>
+        <span class="font-semibold">Otomatik pilot</span>
+        @if (! $autopilotReady)
+            <span class="text-gray-500">"AI ile planla" ilk içe aktarımı onaylanınca başlar.</span>
+        @elseif ($autopilotPaused)
+            <span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-800">durduruldu</span>
+        @else
+            <span class="rounded-full bg-success-50 px-2 py-0.5 text-success-700">açık</span>
+            <span class="text-gray-500">AI'ın bakacağı sorgu: {{ number_format($autopilotQueue, 0, ',', '.') }} · toplam: {{ (int) ($apTotals['assigned'] ?? 0) }} atandı · {{ (int) ($apTotals['filters'] ?? 0) }} filtre kelimesi · {{ (int) ($apTotals['keywords'] ?? 0) }} eşleme kelimesi · {{ (int) ($apTotals['imported'] ?? 0) }} bekleyen içe alındı · gece temizliğinde {{ (int) ($apTotals['deleted'] ?? 0) }} silindi</span>
+            @if (! empty($ap['tick_at']))<span class="text-gray-400">son tur {{ \Illuminate\Support\Carbon::parse($ap['tick_at'])->diffForHumans() }}</span>@endif
+            @if (($ap['status'] ?? null) === 'no_provider')<span class="text-rose-600">AI bağlı değil</span>@endif
+        @endif
+        @if ($autopilotReady)
+            <button type="button" wire:click="toggleAutopilot" class="{{ $ghost }} ml-auto">{{ $autopilotPaused ? 'Başlat' : 'Durdur' }}</button>
+        @endif
+        <span class="w-full text-gray-500">Her 15 dakikada: AI hizmeti atanmamış sorgulara bir kez bakar (hizmet, filtre kelimesi ya da hiçbiri), sonra Bekleyenler içe alınır; günde bir yeni sorgular kümelenir (yeni kümeler onayınla markalara iner). Filtre silmeleri her gece 01:00'de toplu yapılır.</span>
+    </section>
+
     @if ($message !== '')
         <p role="status" class="flex items-center justify-between rounded-lg bg-blue-50 p-2 text-blue-800 dark:bg-blue-950 dark:text-blue-200">
             <span>{{ $message }}</span><button type="button" wire:click="$set('message', '')" aria-label="Kapat" class="px-2">×</button>
@@ -472,7 +491,7 @@
                     <div class="flex flex-wrap items-center gap-2">
                         <input type="text" wire:model="addQueryText" wire:keydown.enter="addQueryToCluster" placeholder="Sorgu" aria-label="Eklenecek sorgu" class="{{ $input }} py-1 text-xs">
                         <button type="button" wire:click="addQueryToCluster" class="{{ $ghost }}">Sorgu ekle</button>
-                        <button type="button" wire:click="removeClusterQueries" class="{{ $ghost }}">Seçilenleri çıkar</button>
+                        <button type="button" wire:click="removeClusterQueries" wire:confirm="Seçilen sorgular kümeden ve Sorgular'dan silinsin mi? Bir daha gelmez." class="{{ $ghost }}">Seçilenleri sil</button>
                         @error('addQueryText')<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
                     </div>
                     <div class="flex flex-wrap items-center gap-2">

@@ -34,6 +34,8 @@ class Query extends Model
         'volume',
         'first_seen_on',
         'last_seen_on',
+        'ai_checked_at',
+        'cluster_checked_at',
     ];
 
     /** @return array<string, string> */
@@ -51,6 +53,8 @@ class Query extends Model
             'volume' => 'integer',
             'first_seen_on' => 'immutable_date',
             'last_seen_on' => 'immutable_date',
+            'ai_checked_at' => 'immutable_datetime',
+            'cluster_checked_at' => 'immutable_datetime',
         ];
     }
 

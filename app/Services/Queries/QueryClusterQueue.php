@@ -69,7 +69,8 @@ final class QueryClusterQueue
     }
 
     /**
-     * Active services with at least one visible, real query outside their clusters, biggest demand first.
+     * Active services with at least one visible, real query outside their clusters that clustering has not looked at
+     * yet (`cluster_checked_at`: placed or skipped once), biggest demand first.
      *
      * @return list<int>
      */
@@ -79,7 +80,7 @@ final class QueryClusterQueue
         $clustered = ClusterQuery::query()->join('clusters', 'clusters.id', '=', 'cluster_queries.cluster_id')
             ->whereColumn('cluster_queries.query_id', 'queries.id')->whereColumn('clusters.service_id', 'queries.service_id');
 
-        return Query::query()->whereIn('service_id', $active)->where('hidden', false)->where('is_suggested', false)
+        return Query::query()->whereIn('service_id', $active)->where('hidden', false)->where('is_suggested', false)->whereNull('cluster_checked_at')
             ->whereNotExists($clustered->select('cluster_queries.id'))
             ->groupBy('service_id')->selectRaw('service_id, sum(impressions) as demand')
             ->orderByDesc('demand')->orderBy('service_id')

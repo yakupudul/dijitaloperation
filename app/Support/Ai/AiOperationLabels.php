@@ -24,6 +24,7 @@ final class AiOperationLabels
         'queries.plan_filters' => 'AI ile planla · filtreler',
         'queries.scan_filters' => 'Sorgularda filtre kelimesi tara',
         'queries.assign_services' => 'Sorgulara hizmet öner',
+        'queries.triage' => 'Sorgu otomatik pilotu',
         'queries.cluster' => 'Sorgu kümeleme',
         'queries.cluster_review' => 'Küme gözden geçirme',
         'content.ideas' => 'Yeni içerik fikri',

@@ -168,6 +168,8 @@ final class QueryClusterer
             Cluster::query()->where('sector_id', $sector->id)->where('service_id', $service->id)->where('locked', false)->delete();
             Query::query()->where('service_id', $service->id)->where('is_suggested', true)
                 ->whereNotIn('id', ClusterQuery::query()->select('query_id'))->delete();
+            // A full run looks at every query of the service again.
+            Query::query()->where('service_id', $service->id)->whereNotNull('cluster_checked_at')->update(['cluster_checked_at' => null]);
             $state['left_out'] = [];
             $state['missed'] = [];
             $state['skipped'] = ['other_service' => 0, 'not_relevant' => 0, 'unprocessed' => 0, 'services' => []];
@@ -175,7 +177,7 @@ final class QueryClusterer
             $state['suggested'] = 0;
         }
         $leftOut = array_map('intval', (array) ($state['left_out'] ?? []));
-        $queries = $this->unclustered($service, $leftOut);
+        $queries = $this->unclustered($service, $leftOut, (string) ($state['mode'] ?? 'full') === 'place');
         if ($queries->isEmpty()) {
             if ($step === 'skeleton' && ! Cluster::query()->where('service_id', $service->id)->exists()) {
                 return $this->save($service, ['status' => 'no_queries'] + $state);
@@ -211,6 +213,7 @@ final class QueryClusterer
             }
         }
         $retry = false;
+        $checked = array_merge(...array_values(array_map(fn (array $topic): array => $topic['members'], array_intersect_key($batch, $result['placed']))) ?: [[]]);
         foreach (array_diff_key($batch, $result['placed']) as $head => $topic) {
             $skip = $skips[$head] ?? null;
             $count = count($topic['members']);
@@ -231,6 +234,11 @@ final class QueryClusterer
             }
             unset($missed[$head]);
             array_push($leftOut, ...$topic['members']);
+            $checked = [...$checked, ...$topic['members']];
+        }
+        // Placed and finally skipped queries are never sent to AI for clustering again (until a full run).
+        foreach (array_chunk(array_values(array_unique(array_map('intval', $checked))), 1000) as $chunk) {
+            Query::query()->whereIn('id', $chunk)->update(['cluster_checked_at' => now()]);
         }
 
         return $this->save($service, [
@@ -284,9 +292,10 @@ final class QueryClusterer
      * @param  list<int>  $leftOut
      * @return Collection<int, Query>
      */
-    private function unclustered(ServiceCatalogItem $service, array $leftOut): Collection
+    private function unclustered(ServiceCatalogItem $service, array $leftOut, bool $newOnly = false): Collection
     {
         return Query::query()->where('service_id', $service->id)->where('hidden', false)->where('is_suggested', false)
+            ->when($newOnly, fn ($q) => $q->whereNull('cluster_checked_at'))
             ->whereNotIn('id', ClusterQuery::query()->join('clusters', 'clusters.id', '=', 'cluster_queries.cluster_id')
                 ->where('clusters.service_id', $service->id)->select('cluster_queries.query_id'))
             ->when($leftOut !== [], fn ($q) => $q->whereNotIn('id', $leftOut))

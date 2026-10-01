@@ -107,7 +107,7 @@ final class QueryRescanner
                 $updated = DB::table('queries')->where('id', $item->query_id)->where('locked', false)
                     ->where(fn ($q) => $q->whereNull('assignment')->orWhereNotIn('assignment', self::KEPT_ASSIGNMENTS))
                     ->when($item->from_service_id === null, fn ($q) => $q->whereNull('service_id'), fn ($q) => $q->where('service_id', $item->from_service_id))
-                    ->update(['service_id' => $item->to_service_id, 'assignment' => $item->to_service_id === null ? 'none' : 'rule', 'updated_at' => now()]);
+                    ->update(['service_id' => $item->to_service_id, 'assignment' => $item->to_service_id === null ? 'none' : 'rule', 'cluster_checked_at' => null, 'updated_at' => now()]);
                 if ($updated > 0) {
                     $moved[] = (int) $item->query_id;
                     $changed++;

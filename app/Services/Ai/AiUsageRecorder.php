@@ -64,6 +64,7 @@ final class AiUsageRecorder
         'ForbiddenTermsAgent' => AiRouteKeys::COMPLIANCE_FORBIDDEN_TERMS,
         'AssetSectorAgent' => AiRouteKeys::QUERIES_ASSET_SECTOR,
         'QueryClusterAgent' => AiRouteKeys::QUERIES_CLUSTER,
+        'QueryTriageAgent' => AiRouteKeys::QUERIES_TRIAGE,
         'QueryClusterReviewAgent' => AiRouteKeys::QUERIES_CLUSTER_REVIEW,
         'QueryRulesAgent' => AiRouteKeys::QUERIES_FILTER_RULES,
         'QueryPlanSectorsAgent' => AiRouteKeys::QUERIES_PLAN_SECTORS,

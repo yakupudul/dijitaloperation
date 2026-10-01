@@ -140,7 +140,7 @@ final class QuerySourceAggregatorTest extends TestCase
         $listeners = collect(app('events')->getRawListeners()[CollectionRunCompleted::class] ?? [])
             ->filter(fn ($listener): bool => $listener === AggregateQuerySourcesAfterCollection::class);
         $this->assertCount(1, $listeners, 'explicit registration only, no auto-discovery duplicate');
-        $this->assertSame(['product_brands'], array_keys((array) config('moxdop-queries')));
+        $this->assertSame(['autopilot', 'product_brands'], array_keys((array) config('moxdop-queries')));
 
         Queue::fake();
         $gbp = CoreExternalResource::factory()->create(['resource_type' => 'google_business_profile', 'external_id' => 'locations/123']);

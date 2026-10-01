@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-14 — Sorgu otomatik pilotu: atama ve kümelemeye kadar onaysız
+
+- **Karar (operatör):** Sorgular hizmete atanma ve kümelenmeye kadar onay beklemeden ilerler; yeni kümelerin markalara inmesi onayda kalır. Çekim sıklığına dokunulmadı (hesap başına 1 / 3 gün, ilk bağlantıda 13 ay, sonra yalnız yeni günler + kısa geç-veri penceresi).
+- **`QueryAutopilot` (her 15 dakika `moxdop:queries:autopilot`, heavy kuyruk, kilitli):** (1) Hizmeti atanmamış, eşleme kelimesiyle yerleşmemiş her sorgu AI'a **bir kez** gider (`queries.triage`, prompt `queries-triage-v1`, 200'lük parti, sektör sektör; `ai_checked_at`): sektörün bir hizmeti (atanır, `ai`, kilitli), filtre kelimesi (kişi adı / marka adı / alakasız / yasaklı ifade → filtre sepetine `ai` kaynaklı, sorgunun sektörüne) ya da hiçbiri; yeni eşleme kelimeleri eklenir. Filtre kelimesi sorgudan alınmalı, kısa olmalı; hizmet adı, eşleme kelimesi, ürün markası (`product_brands`), yer adı, soru kelimesi, genel kelime olamaz. (2) Kuyruk bitince Bekleyenler otomatik içe alınır (eşleme kelimesiyle atanır), yerleşmeyenler sonraki turda AI'a gider. (3) İkisi de boşsa en çok günde bir yeni sorgular "Hepsini kümele" kuyruğuyla kümelenir (mevcut kümelere yerleştirme ya da kümesiz hizmette tam kümeleme); kümelemenin baktığı sorgu (`cluster_checked_at`: yerleşti ya da başka hizmet / ilgisiz diye atlandı) bir daha AI'a gitmez (tam yeniden kümelemede sıfırlanır; kural ile hizmeti değişen sorguda sıfırlanır).
+- **Gece 01:00 (`--nightly`):** tam tarama, sonra Silinecekler'deki açık satırlar uygulanır (filtre silmeleri, eşleme kelimesi hizmet değişiklikleri); çakışma satırları ve "Tut" denenler operatörde kalır. Filtre silmeleri anlık değil, gece toplu.
+- **Küme penceresi:** "Seçilenleri sil" — kümeden çıkarılan sorgu Sorgular'dan da silinir (hatırlanır, Bekleyenler'den geri gelmez).
+- **Ekran:** Sorgular başında "Otomatik pilot" satırı (AI'ın bakacağı sorgu sayısı, toplam atanan / filtre / eşleme kelimesi / içe alınan / gece silinen, son tur) ve Durdur / Başlat. İlk içe aktarım ("AI ile planla") onaylanmadan çalışmaz; `MOXDOP_QUERIES_AUTOPILOT=false` ile kapanır.
+- **State:** CODED + PHPUnit (`QueryAutopilotTest`: tek çağrı / bir kez sorma, güvenli filtre öğrenme, eşleme kelimesi, Bekleyenler, günlük kümeleme, durdurma, gece temizliği ve "Tut", kümeleme bir kez; `ClusterBrandLayerTest` küme silme). SQLite + PostgreSQL. Üretim UAT yok. **Operator after deploy:** `php artisan migrate --force`; zamanlayıcı ve heavy kuyruk çalışıyor olmalı.
+
 ## 2026-11-13 (d) — WordPress Connector dağıtımı: otomatik yok, onaylı gönderim
 
 - **Karar (operatör):** yeni eklenti sürümü sitelere otomatik dağıtılmaz; Admin Entegrasyonlar › WordPress siteleri'nde görür, onaylar ve "Web sitesine gönder" (site başına) ya da "Tüm sitelere gönder" ile gönderir (ADR-071 akışı; değişen yalnız buton adları ve açıklama). 1.4.1 altındaki sitelere bir kez elle yükleme gerekir.

@@ -88,6 +88,14 @@ final class SeoTasksServiceProvider extends ServiceProvider
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::QUERIES_TRIAGE,
+            'name' => 'Query Triage (autopilot)',
+            'module' => 'queries',
+            'description' => 'Sorgu otomatik pilotu: unassigned library queries (200 per call, per sector) get a service, a filter term (person name, brand name, irrelevant, forbidden phrase) or none, plus new matching keywords — applied without approval; each query is asked once.',
+            'default_steps' => AiDefaultSteps::classification(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
             'key' => AiRouteKeys::QUERIES_CLUSTER,
             'name' => 'Query Clusters',
             'module' => 'queries',

@@ -10,6 +10,7 @@ use App\Jobs\Gbp\SyncGbpSuggestionsJob;
 use App\Jobs\GoogleAds\SyncGoogleAdsSuggestionsJob;
 use App\Jobs\Meta\SyncMetaSuggestionsJob;
 use App\Jobs\Ops\QueueHeartbeatProbeJob;
+use App\Jobs\Queries\QueryAutopilotJob;
 use App\Jobs\RefreshBrandCandidatesJob;
 use App\Models\Brand;
 use App\Models\Collection\CollectionDatasetRun;
@@ -426,6 +427,16 @@ Artisan::command('moxdop:website:sitemap-watch', function (): void {
 
 Schedule::command('moxdop:website:sitemap-watch')
     ->hourlyAt(17)->withoutOverlapping(30)->name('website-sitemap-watch');
+
+// Sorgu otomatik pilotu: AI ile hizmet / filtre (her sorgu bir kez), Bekleyenler içe aktarımı, günlük kümeleme.
+Artisan::command('moxdop:queries:autopilot {--nightly : 01:00 temizliği (tam tarama + Silinecekler uygulanır)}', function (): void {
+    QueryAutopilotJob::dispatch((bool) $this->option('nightly'));
+    $this->info($this->option('nightly') ? 'Gece temizliği kuyruğa alındı.' : 'Otomatik pilot turu kuyruğa alındı.');
+})->purpose('Queue a query autopilot tick (or the nightly clean-up).');
+Schedule::command('moxdop:queries:autopilot')
+    ->everyFifteenMinutes()->withoutOverlapping(30)->name('queries-autopilot');
+Schedule::command('moxdop:queries:autopilot --nightly')
+    ->dailyAt('01:00')->timezone('Europe/Istanbul')->withoutOverlapping(120)->name('queries-autopilot-nightly');
 
 // Sorgular › Bekleyenler: kütüphanede olan / filtre terimine takılan bekleyen sorgular saatlik temizlenir.
 Schedule::command('moxdop:queries:prune-pending')

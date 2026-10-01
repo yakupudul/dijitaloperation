@@ -8,6 +8,7 @@ use App\Models\BrandClusterPage;
 use App\Models\BrandServiceArea;
 use App\Models\Cluster;
 use App\Models\ClusterQuery;
+use App\Models\PendingQuery;
 use App\Models\Query;
 use App\Services\Catalog\ServiceKeywordService;
 use App\Services\Queries\ClusterEditor;
@@ -144,7 +145,8 @@ final class ClusterBrandLayerTest extends SiteTestCase
         ClusterQuery::query()->create(['cluster_id' => $cluster->id, 'query_id' => $suggested->id, 'is_suggested' => true]);
         $page->set('selectedClusterQueries', [$loose->id, $suggested->id])->call('removeClusterQueries')->assertHasNoErrors();
         $this->assertFalse(ClusterQuery::query()->where('query_id', $loose->id)->exists());
-        $this->assertTrue(Query::query()->whereKey($loose->id)->exists(), 'real query stays (kümesiz)');
+        $this->assertFalse(Query::query()->whereKey($loose->id)->exists(), 'a query taken out of a cluster leaves the library');
+        $this->assertSame(PendingQuery::DELETED, PendingQuery::query()->where('text_hash', $loose->text_hash)->value('status'), 'remembered: never comes back');
         $this->assertFalse(Query::query()->whereKey($suggested->id)->exists(), 'suggested query goes');
     }
 
