@@ -122,7 +122,10 @@ final class BrandSetupAssistantTest extends TestCase
 
         $page = Livewire::test(BrandSetupPage::class, ['brand' => (string) $this->brand->id])
             ->set('websiteUrl', 'adadent.com.tr')
-            ->call('start');
+            ->call('start')
+            ->assertSeeHtml('data-setup-warnings')->assertSee('Bu adres için bağlı bir web sitesi yok');
+        $this->assertSame(0, BrandSetupProposal::query()->count(), 'nothing runs before "Yine de getir"');
+        $page->call('start', true)->assertDontSeeHtml('data-setup-warnings');
 
         $proposal = BrandSetupProposal::query()->firstOrFail();
         $this->assertSame(BrandSetupProposal::STATUS_READY, $proposal->status, (string) $proposal->error_summary);
@@ -131,6 +134,9 @@ final class BrandSetupAssistantTest extends TestCase
         $this->assertTrue($services['Gülüş Tasarımı']['is_new']);
         $this->assertTrue($services['Uydurma']['is_new'], 'unknown catalog name is not trusted');
         $this->assertFalse($services['Uydurma']['selected'], 'no valid sector → not ticked');
+        $this->assertTrue($services['İmplant Tedavisi']['selected'], 'found in a query');
+        $this->assertFalse($services['Gülüş Tasarımı']['selected'], 'no page or query shows it: not ticked');
+        $this->assertStringStartsWith('Kanıt yok', $services['Gülüş Tasarımı']['evidence']);
 
         $page->call('$refresh')->assertSee('Varlıklar ve hesap bağlantıları')->assertSee('Katalogda var')->call('approve');
 
@@ -145,8 +151,7 @@ final class BrandSetupAssistantTest extends TestCase
 
         $offerings = BrandOffering::query()->with('primaryName')->where('brand_id', $this->brand->id)->get()->keyBy(fn ($o) => $o->primaryName?->raw_label);
         $this->assertTrue((bool) $offerings['İmplant Tedavisi']->is_priority);
-        $this->assertArrayHasKey('Gülüş Tasarımı', $offerings->all());
-        $this->assertSame('saglik', ServiceCatalogItem::query()->find($offerings['Gülüş Tasarımı']->service_catalog_item_id)->sector);
+        $this->assertArrayNotHasKey('Gülüş Tasarımı', $offerings->all(), 'an unticked service is not added');
         $this->assertSame(1, ServiceCatalogItem::query()->whereHas('names', fn ($q) => $q->where('raw_label', 'İmplant Tedavisi'))->count(), 'catalog not duplicated');
         $this->assertSame($category->id, $this->brand->fresh()->sector_id);
         $this->assertTrue(collect($proposal->apply_result)->every(fn (array $r): bool => $r['ok']), json_encode($proposal->apply_result));
@@ -176,7 +181,7 @@ final class BrandSetupAssistantTest extends TestCase
             ];
         });
 
-        $page = Livewire::test(BrandSetupPage::class, ['brand' => (string) $this->brand->id])->set('websiteUrl', 'adadent.com.tr')->call('start');
+        $page = Livewire::test(BrandSetupPage::class, ['brand' => (string) $this->brand->id])->set('websiteUrl', 'adadent.com.tr')->call('start', true);
 
         $this->assertStringContainsString('"wordpress_pages"', $prompts[0]);
         $this->assertStringContainsString('"title":"All-on-4","path":"/p4/","parent":"İmplant Tedavisi"', $prompts[0]);
@@ -272,7 +277,7 @@ final class BrandSetupAssistantTest extends TestCase
             'prompt_version' => BrandSetupAgent::PROMPT_VERSION]]);
         Queue::fake([RunSiteOperationJob::class]);
 
-        $page = Livewire::test(BrandSetupPage::class, ['brand' => (string) $this->brand->id])->set('websiteUrl', 'adadent.com.tr')->call('start');
+        $page = Livewire::test(BrandSetupPage::class, ['brand' => (string) $this->brand->id])->set('websiteUrl', 'adadent.com.tr')->call('start', true);
         $proposal = BrandSetupProposal::query()->firstOrFail();
         $this->assertSame([['Çankaya, Ankara', 'gbp', true, true]], array_map(fn (array $a): array => [$a['label'], $a['source'], $a['physical'], $a['selected']], $proposal->summary['areas']));
         $this->assertNull(BrandSetupAssistant::progress($proposal->id), 'progress cleared when ready');

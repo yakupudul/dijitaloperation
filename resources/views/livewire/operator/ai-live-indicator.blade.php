@@ -1,4 +1,4 @@
-<div @if ($running->isNotEmpty()) wire:poll.5s @else wire:poll.30s @endif class="relative" data-ai-live-indicator>
+<div @if ($running->isNotEmpty()) wire:poll.5s="refreshNow" @else wire:poll.30s="refreshNow" @endif class="relative" data-ai-live-indicator>
     @if ($visible)
         <details class="group" wire:key="ai-live-details">
             <summary class="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-800 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-300">

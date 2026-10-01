@@ -12,12 +12,14 @@ use App\Livewire\Operator\Workspace\BrandDossierTab;
 use App\Models\Brand;
 use App\Models\ChiefPlan;
 use App\Models\Customer;
+use App\Models\DigitalAsset;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Models\UserNotification;
 use App\Services\Brand\BrandCare;
 use App\Services\Brand\BrandChief;
 use App\Services\Brand\BrandDossier;
+use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -118,6 +120,25 @@ final class BrandCareTest extends TestCase
         Queue::assertPushed(RunBrandCareJob::class, fn (RunBrandCareJob $job): bool => $job->force && $job->brandId === $brand->id);
     }
 
+    public function test_a_brand_without_a_website_is_not_reviewed_unless_the_operator_asks(): void
+    {
+        $bare = Brand::factory()->create(['customer_id' => Customer::factory()->create(['status' => CustomerStatus::Active->value])->id]);
+        $calls = 0;
+        BrandCareAgent::fake(function () use (&$calls): array {
+            $calls++;
+
+            return ['summary' => 's', 'tasks' => [], 'questions' => []];
+        });
+
+        $this->assertSame('blocked', app(BrandCare::class)->run($bare)['status']);
+        $this->assertSame(0, $calls, 'no AI call');
+        $this->assertStringContainsString('Web sitesi bağlı değil', BrandCare::stored($bare)['blocked']);
+        Livewire::test(BrandDossierTab::class, ['brandId' => $bare->id])->assertSeeHtml('data-care-blocked');
+
+        $this->assertSame('reviewed', app(BrandCare::class)->run($bare, force: true)['status'], '"Şimdi incele" runs anyway');
+        $this->assertNull(BrandCare::stored($bare)['blocked']);
+    }
+
     public function test_the_chief_plans_the_week_from_the_care_notes(): void
     {
         $other = $this->activeBrand('Bdent');
@@ -146,9 +167,15 @@ final class BrandCareTest extends TestCase
         Queue::assertPushed(RunBrandChiefJob::class, fn (RunBrandChiefJob $job): bool => ! $job->notify);
     }
 
+    /** An active brand with a website and one service (no blocking gap). */
     private function activeBrand(string $name): Brand
     {
-        return Brand::factory()->create(['name' => $name, 'customer_id' => Customer::factory()->create(['status' => CustomerStatus::Active->value])->id]);
+        $brand = Brand::factory()->create(['name' => $name, 'customer_id' => Customer::factory()->create(['status' => CustomerStatus::Active->value])->id]);
+        DigitalAsset::query()->create(['brand_id' => $brand->id, 'name' => strtolower($name).'.test', 'type' => 'website', 'status' => 'active', 'module_id' => 'website',
+            'domain' => strtolower($name).'.test', 'primary_url' => 'https://'.strtolower($name).'.test']);
+        app(BrandOfferingService::class)->resolveOrCreate($brand, 'Diş Beyazlatma');
+
+        return $brand;
     }
 
     /** @return array<string, mixed> */

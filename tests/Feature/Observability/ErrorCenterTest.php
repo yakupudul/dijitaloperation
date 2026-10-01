@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Observability;
 
+use App\Enums\Collection\CollectionErrorCategory;
 use App\Enums\Observability\OperationalAlertRuleType;
 use App\Enums\Observability\OperationalAlertSeverity;
 use App\Enums\Observability\OperationalSignalFamily;
@@ -9,12 +10,16 @@ use App\Livewire\Operator\Settings\SystemHealthPage;
 use App\Models\Observability\OperationalAlert;
 use App\Models\User;
 use App\Models\UserNotification;
+use App\Services\Collection\Providers\GoogleAds\GoogleAdsProviderErrorMapper;
 use App\Services\Observability\ErrorTriage;
 use App\Services\Observability\OperationalAlertLifecycleService;
+use App\Services\Verification\LiveVerifier;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
+use RuntimeException;
 use Tests\TestCase;
 
 /** Hata merkezi: open alerts in three buckets; self-healing ones stay quiet until they do not heal; one morning digest. */
@@ -70,6 +75,23 @@ final class ErrorCenterTest extends TestCase
         UserNotification::query()->delete();
         $this->artisan('moxdop:ops:error-digest')->assertSuccessful();
         $this->assertSame('Hata merkezi: 1 iş seni bekliyor · sistem 1 sorunu kendisi hallediyor', UserNotification::query()->sole()->presentation['title']);
+    }
+
+    public function test_closed_accounts_and_mixed_stale_alerts_land_in_the_right_bucket(): void
+    {
+        // The morning live check says the Meta account is disabled: retrying never helps, it is the operator's.
+        DB::table('live_checks')->insert(['check_key' => 'meta:31', 'provider' => 'meta', 'capability' => 'meta_ads', 'subject_type' => 'external_resource', 'subject_id' => 31,
+            'label' => 'Meta Ads · X', 'status' => LiveVerifier::FAIL, 'message' => 'Hesap okunuyor ama reklam yayınlayamaz: DISABLED.', 'checked_at' => now()]);
+        $disabled = $this->observe('resource-automation.collection', '31', ['reason' => 'collection_failed', 'affected' => [['error_category' => 'provider']]]);
+        $this->assertSame(ErrorTriage::YOU, ErrorTriage::cause($disabled));
+        $this->assertStringContainsString('DISABLED', app(ErrorTriage::class)->groups()[ErrorTriage::YOU][0]['items'][0]['what']);
+
+        // Fourteen transient accounts and one software error: not "yazılım hatası" for all of them.
+        $affected = array_merge(array_fill(0, 14, ['error_category' => 'provider', 'states' => ['STALE']]), [['error_category' => 'contract_mismatch', 'states' => ['STALE']]]);
+        $this->assertSame(ErrorTriage::AUTO, ErrorTriage::cause($this->observe('dataset_stale', 'dataset:stale', ['affected' => $affected])));
+
+        $mapped = app(GoogleAdsProviderErrorMapper::class)->fromThrowable(new RuntimeException('Google Ads authorization failed: The caller does not have permission | authorizationError:CUSTOMER_NOT_ENABLED'));
+        $this->assertSame([CollectionErrorCategory::Authorization, 'CUSTOMER_NOT_ENABLED'], [$mapped->errorCategory, $mapped->errorCode], 'a disabled account is not an "unexpected error"');
     }
 
     /** @param  array<string, mixed>  $observed */

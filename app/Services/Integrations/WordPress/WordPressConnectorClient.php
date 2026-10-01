@@ -338,7 +338,11 @@ final class WordPressConnectorClient
             throw new RuntimeException('WordPress Connector response exceeded the configured limit.');
         }
 
-        $decoded = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
+        // A PHP notice or a caching plugin's HTML in front of the JSON: a clear connector error instead of a JsonException.
+        $decoded = json_decode($body, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new RuntimeException('WordPress Connector returned a non-JSON response (a plugin or PHP notice may be printing before it).');
+        }
         if (! is_array($decoded) || ! is_array($decoded['data'] ?? null) || ! is_array($decoded['meta'] ?? null)) {
             throw new RuntimeException('WordPress Connector returned an invalid response envelope.');
         }

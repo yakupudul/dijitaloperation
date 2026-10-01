@@ -21,6 +21,7 @@ use App\Services\Portfolio\UnassignedWebsites;
 use App\Services\SeoTasks\SeoStoredHtmlReader;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\Analysis\SitePagesReader;
+use App\Services\Site\SiteText;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\BrandIntelligence\IdentityLabelNormalizer;
 use App\Support\Options\LocationOptions;
@@ -38,10 +39,8 @@ use Throwable;
 final class BrandSetupServiceSuggester
 {
     /** Folded page titles that are never a service (used when AI is unavailable). */
-    /** At most this many services are proposed (a clinic site easily has 40+ treatment pages). */
-    public const int MAX_SERVICES = 60;
-
-    private const int MAX_PAGES = 200;
+    /** Non-service pages sent to the AI next to every service page (service pages are never cut). */
+    private const int MAX_OTHER_PAGES = 200;
 
     private const NON_SERVICE_PAGE = '/^(ana ?sayfa|home|hakkimizda|hakkinda|iletisim|blog|sss|sikca sorulan|galeri|ekibimiz|ekip|kariyer|kvkk|gizlilik|cerez|randevu|tesekkur|fiyat|referans|basinda|haber|sepet|hesabim|odeme)/u';
 
@@ -87,7 +86,7 @@ final class BrandSetupServiceSuggester
                         'brand' => ['name' => $brand->name, 'domain' => $host],
                         'brand_service_areas' => array_map(static fn (array $a): string => implode(', ', array_filter([$a['district_name'], $a['city_name'], $a['country_code']])), $areas),
                         'wordpress_pages' => $wordpressPages,
-                        'pages' => array_slice($pages, 0, self::MAX_PAGES),
+                        'pages' => $pages,
                         'search_console_queries' => array_slice($queries, 0, 150),
                         'crawl_service_candidates' => $candidates,
                         'CATALOG' => array_map(static fn (array $c): array => ['name' => $c['name'], 'sector_code' => $c['sector']], $catalog),
@@ -121,14 +120,22 @@ final class BrandSetupServiceSuggester
 
         $catalogNames = array_column($catalog, 'name');
         $services = [];
-        foreach (array_slice(is_array($structured['services'] ?? null) ? $structured['services'] : [], 0, self::MAX_SERVICES) as $row) {
+        // No count limit: every service the data shows. Nothing invented: a service with no trace in the site pages,
+        // WordPress pages, crawl candidates or Search Console queries stays unticked and is marked "kanıt yok".
+        $evidence = $this->evidenceTexts($pages, $wordpressPages, $candidates, $queries);
+        foreach (is_array($structured['services'] ?? null) ? $structured['services'] : [] as $row) {
             if (! is_array($row) || ! is_string($row['name'] ?? null) || mb_strlen(trim($row['name'])) < 2 || mb_strlen($row['name']) > 80) {
                 continue;
             }
             $catalogName = is_string($row['catalog_name'] ?? null) && in_array($row['catalog_name'], $catalogNames, true) ? $row['catalog_name'] : null;
             $sector = is_string($row['sector_code'] ?? null) && isset($sectors[$row['sector_code']]) ? $row['sector_code'] : null;
             $aliases = array_values(array_filter((array) ($row['aliases'] ?? []), static fn ($a): bool => is_string($a) && mb_strlen(trim($a)) >= 2 && mb_strlen($a) <= 80));
-            $services[] = $this->serviceRow($catalogName ?? trim($row['name']), array_slice($aliases, 0, 4), $sector, (bool) ($row['is_core'] ?? false), mb_substr((string) ($row['evidence'] ?? ''), 0, 200), $catalog, $sectors, $existing, 0.85, (array) ($row['matching_phrases'] ?? []));
+            $phrases = array_values(array_filter((array) ($row['matching_phrases'] ?? []), 'is_string'));
+            $grounded = self::grounded(array_merge([trim($row['name'])], $aliases, $phrases, $catalogName !== null ? [$catalogName] : []), $evidence)
+                || isset($existing[$this->normalizer->normalize($catalogName ?? trim($row['name']))]);
+            $services[] = $this->serviceRow($catalogName ?? trim($row['name']), array_slice($aliases, 0, 4), $sector, (bool) ($row['is_core'] ?? false),
+                ($grounded ? '' : 'Kanıt yok — sitede ve sorgularda karşılığı bulunamadı; elle kontrol edin. ').mb_substr((string) ($row['evidence'] ?? ''), 0, 200),
+                $catalog, $sectors, $existing, $grounded ? 0.85 : 0.5, (array) ($row['matching_phrases'] ?? []));
         }
         $brandSector = is_string($structured['sector_code'] ?? null) && isset($sectors[$structured['sector_code']]) ? $structured['sector_code'] : null;
         foreach ($this->uncoveredServicePages($website, $services) as [$title, $path]) {
@@ -405,6 +412,49 @@ final class BrandSetupServiceSuggester
     }
 
     /**
+     * Every text a proposed service can be found in: page titles / H1s / URL slugs, WordPress page titles, crawl
+     * candidates and Search Console queries.
+     *
+     * @param  list<array<string, mixed>>  $pages
+     * @param  list<array<string, mixed>>  $wordpressPages
+     * @param  list<string>  $candidates
+     * @param  list<array{query: string, impressions: int}>  $queries
+     * @return list<string>
+     */
+    private function evidenceTexts(array $pages, array $wordpressPages, array $candidates, array $queries): array
+    {
+        $texts = [];
+        foreach ($pages as $page) {
+            $texts[] = implode(' ', array_filter([(string) ($page['title'] ?? ''), (string) ($page['h1'] ?? ''),
+                str_replace(['-', '_', '/'], ' ', SeoText::urlPath((string) ($page['url'] ?? ''))), mb_substr((string) ($page['homepage_text'] ?? ''), 0, 1500)]));
+        }
+        foreach ($wordpressPages as $page) {
+            $texts[] = (string) ($page['title'] ?? '');
+        }
+
+        return array_values(array_filter(array_merge($texts, $candidates, array_column($queries, 'query'))));
+    }
+
+    /**
+     * A service is grounded when all distinctive words of its name (or of one alias) appear in one evidence text.
+     *
+     * @param  list<string>  $names
+     * @param  list<string>  $evidence
+     */
+    private static function grounded(array $names, array $evidence): bool
+    {
+        foreach ($names as $name) {
+            foreach ($evidence as $text) {
+                if (SiteText::serviceScore($text, (string) $name) >= 0.99) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Service pages no proposed service covers (BrandGaps): the safety net for an AI answer that skipped some.
      *
      * @param  list<array<string, mixed>>  $services
@@ -440,8 +490,8 @@ final class BrandSetupServiceSuggester
         // with hundreds of uncategorized URLs still sends every service page.
         $inventory = Page::query()->where('website_asset_id', $website->id)->where(fn ($q) => $q->whereNull('category')->orWhereIn('category', ['hizmet', 'lokasyon', 'diger']))
             ->orderBy('path')->limit(3000)->get(['url', 'path', 'title', 'h1', 'category'])
-            ->sortBy(fn (Page $page): int => $page->category === 'hizmet' || SitePagesReader::pathCategory((string) ($page->path ?: SeoText::urlPath((string) $page->url))) === 'hizmet' ? 0 : 1)
-            ->take(self::MAX_PAGES);
+            ->groupBy(fn (Page $page): string => $page->category === 'hizmet' || SitePagesReader::pathCategory((string) ($page->path ?: SeoText::urlPath((string) $page->url))) === 'hizmet' ? 'service' : 'other');
+        $inventory = collect($inventory->get('service', []))->concat(collect($inventory->get('other', []))->take(self::MAX_OTHER_PAGES));
         foreach ($inventory as $page) {
             $seen[SeoText::urlPath((string) $page->url)] = true;
             $rows[] = ['url' => (string) $page->url, 'title' => $page->title ?? SitePagesReader::slugTitle((string) $page->path), 'h1' => $page->h1];
@@ -456,7 +506,7 @@ final class BrandSetupServiceSuggester
             if (SeoText::urlPath($url) === '/') {
                 $home = $profile;
             }
-            if (isset($seen[SeoText::urlPath($url)]) || count($rows) >= self::MAX_PAGES) {
+            if (isset($seen[SeoText::urlPath($url)]) || count($rows) >= self::MAX_OTHER_PAGES) {
                 continue;
             }
             $title = data_get($web, 'document_head.title') ?? data_get($profile->source_states, 'wordpress.seo.title') ?? data_get($profile->source_states, 'wordpress.object.title');

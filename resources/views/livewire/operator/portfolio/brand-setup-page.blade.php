@@ -43,6 +43,21 @@
         </button>
     </form>
 
+    @if ($warnings !== [])
+        <div class="rounded-xl bg-amber-50 p-5 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-500/30" data-setup-warnings>
+            <h2 class="font-semibold text-amber-900 dark:text-amber-200">Otomatik kur şu an doğru çalışamaz</h2>
+            <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900 dark:text-amber-200">
+                @foreach ($warnings as $warning)
+                    <li>{{ $warning }}</li>
+                @endforeach
+            </ul>
+            <div class="mt-3 flex flex-wrap gap-2">
+                <button type="button" wire:click="start(true)" wire:loading.attr="disabled" class="rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-700">Yine de getir</button>
+                <button type="button" wire:click="$set('warnings', [])" class="rounded-lg px-3 py-1.5 text-sm font-medium text-amber-900 ring-1 ring-inset ring-amber-300 dark:text-amber-200">Vazgeç</button>
+            </div>
+        </div>
+    @endif
+
     @if ($proposal?->isStuck())
         <p class="rounded-lg bg-amber-50 p-4 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">Hazırlık 15 dakikadır ilerlemiyor (arka plan işi durmuş olabilir). "Yeniden tara" ile tekrar başlatın.</p>
     @elseif ($proposal?->isPending())

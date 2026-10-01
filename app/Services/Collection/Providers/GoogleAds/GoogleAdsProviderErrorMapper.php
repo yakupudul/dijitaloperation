@@ -49,6 +49,20 @@ final class GoogleAdsProviderErrorMapper
             );
         }
 
+        // A mapped HTTP error re-thrown by a helper (e.g. historical activity discovery) keeps its meaning: a disabled /
+        // inaccessible account or a lost permission is the operator's to fix, never an "unexpected error" to retry.
+        if (str_contains($lower, 'authorization failed') || str_contains($lower, 'customer_not_enabled') || str_contains($lower, 'permission_denied')
+            || str_contains($lower, 'does not have permission') || str_contains($lower, 'user_permission_denied')) {
+            return DatasetExecutionResult::failed(
+                CollectionErrorCategory::Authorization,
+                $message,
+                str_contains($lower, 'customer_not_enabled') ? 'CUSTOMER_NOT_ENABLED' : 'AUTHORIZATION',
+            );
+        }
+        if (str_contains($lower, 'authentication failed')) {
+            return DatasetExecutionResult::failed(CollectionErrorCategory::Authentication, $message, 'AUTHENTICATION');
+        }
+
         if (str_contains($lower, 'network') || str_contains($lower, 'timeout') || str_contains($lower, 'timed out')) {
             return DatasetExecutionResult::retry(
                 CollectionErrorCategory::Network,

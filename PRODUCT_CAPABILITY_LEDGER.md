@@ -1,5 +1,19 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-18 (b) — "Doğru çalışamıyorsa söyle ya da dur", hizmet sınırı yok, Hata merkezi düzeltmeleri
+
+- **İlke (operatör kararı):** bir AI / sistem işi bir eksik ya da bozukluk yüzünden doğru çalışamayacaksa önce uyarır ve durur; operatör "Yine de getir" derse çalışır.
+  - Otomatik kur: site varlığı yoksa ya da sayfaları hiç toplanmadıysa tarama başlamaz, uyarı + "Yine de getir" / "Vazgeç".
+  - Bakım ajanı: site ya da hizmet yoksa haftalık inceleme çalışmaz (AI çağrısı yok), nedeni sekmede görünür; "Şimdi incele" yine çalıştırır.
+- **Otomatik kur hizmetleri:** sayı sınırı yok (prompt brand-setup-v6); tüm hizmet sayfaları AI'a gider. Uydurma yok: sitede, WordPress sayfalarında, taramada ya da Search Console sorgularında karşılığı olmayan hizmet işaretsiz ve "Kanıt yok" notuyla gelir.
+- **Hata merkezi:**
+  - Canlı doğrulamada kapalı / yetkisiz çıkan hesap (Meta DISABLED/CLOSED/UNSETTLED, Google Ads PERMISSION_DENIED) "Senin işin" kovasına düşer, açıklamaya canlı doğrulama sonucu eklenir.
+  - Google Ads "CUSTOMER_NOT_ENABLED / authorization failed" artık yetki hatası (eskiden "beklenmeyen hata, sistem yeniden deniyor").
+  - Çok hesaplı "verisi güncel değil" uyarısı tek bir hesabın yazılım hatası yüzünden "Yazılım hatası" sayılmaz; markaya bağlı olmayan hesaplar bu uyarıya girmez.
+  - Bir günden uzun süredir sinyal vermeyen eski işçi adları işçi listesinde gösterilmez.
+- **Uygulama hataları:** AI göstergesindeki "$" özellik hatası, otomatik pilot işinin eski kuyruk kaydı hatası, site projeksiyonu kilit beklemesi (LockTimeout / MaxAttempts), sorgu toplama kilit beklemesi, WordPress JSON olmayan yanıt hatası düzeltildi.
+- **Test:** BrandCareTest, BrandSetupAssistantTest, ErrorCenterTest güncellendi. UAT: yok.
+
 ## 2026-11-18 — Eksikler, site bakımı, Otomatik kur kapsamı, çakışma kuralı
 
 - **Eksikler** (`App\Services\Brand\BrandGaps`, karar `brand.gap`): AI işini tıkayan şeyler kuralla (AI'sız) bulunur: site yok, sektör yok, bölge yok, hizmet yok, markanın hizmetlerinde olmayan hizmet sayfaları, hiçbir sayfayla eşleşmemiş hizmetler. Her gece ve Marka dosyası sekmesi açılınca iş listesine yazılır; giderilen eksik kendiliğinden kapanır. Düzeltmesi olanlar yalnız "Onayla ve yap" ile çalışır (hizmetleri ekle + sayfalarla eşle; siteyi hazırla). Hepsi MoxDOP içi; dışarıya yazma yok.

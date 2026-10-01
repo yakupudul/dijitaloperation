@@ -99,7 +99,9 @@ final class SystemHealthReader
     {
         $stale = max(3, (int) ceil((int) config('moxdop-observability.worker.heartbeat_stale_seconds', 180) / 60));
 
-        return WorkerHeartbeat::query()->orderBy('worker_id')->limit(50)->get()
+        // A worker silent for more than a day is a retired name (supervisor config changed), not a stopped worker:
+        // live workers beat every minute, and a real stop is caught within minutes by worker_heartbeat_missing.
+        return WorkerHeartbeat::query()->where('last_seen_at', '>=', now()->subDay())->orderBy('worker_id')->limit(50)->get()
             ->map(function (WorkerHeartbeat $beat) use ($stale): array {
                 $minutes = (int) $beat->last_seen_at->diffInMinutes(now());
                 // Queue probes run every 5 minutes; allow two missed probes.

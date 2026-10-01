@@ -34,9 +34,6 @@ final class BrandGaps
 
     public const string FIX_SITE_SETUP = 'site_setup';
 
-    /** At most this many service pages are proposed as services in one fix. */
-    public const int MAX_SERVICES = 60;
-
     private const string NON_SERVICE = '/^(ana ?sayfa|home|hakkimizda|hakkinda|iletisim|blog|sss|sikca sorulan|galeri|ekibimiz|ekip|kariyer|kvkk|gizlilik|cerez|randevu|tesekkur|fiyat|referans|basinda|haber|tedavilerimiz|hizmetlerimiz)/u';
 
     /**
@@ -161,7 +158,7 @@ final class BrandGaps
             }
         }
 
-        return array_slice(array_values($out), 0, self::MAX_SERVICES);
+        return array_values($out);
     }
 
     /** "Şeffaf Plak (Invisalign) - Dr. Dt. … | Ankara Diş Hekimi" → "Şeffaf Plak (Invisalign)"; the city stays (removed when added). */
@@ -175,7 +172,7 @@ final class BrandGaps
     {
         $offerings = app(BrandOfferingService::class);
         $added = 0;
-        foreach (array_slice($names, 0, self::MAX_SERVICES) as $name) {
+        foreach ($names as $name) {
             $clean = trim(LocationOptions::strip($name)['text']);
             if (mb_strlen($clean) < 2) {
                 continue;

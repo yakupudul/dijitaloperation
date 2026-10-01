@@ -16,6 +16,7 @@ use App\Services\IntelligenceCore\IntelligenceCoreRegistryLoader;
 use App\Support\IntelligenceProjection\WebsiteProjectionContext;
 use App\Support\IntelligenceProjection\WebsiteProjectionContribution;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
@@ -58,16 +59,24 @@ final class WebsiteProjectionRebuilder
             return null;
         }
 
-        return Cache::lock('website-projection-rebuild:'.$asset->getKey(), 1200)->block(
-            60,
-            fn (): WebsiteIntelligenceProjectionRun => $this->rebuildUnlocked(
-                asset: $asset,
-                trigger: $trigger,
-                triggerCollectionRunId: $triggerCollectionRunId,
-                periodStart: $periodStart,
-                periodEnd: $periodEnd,
-            ),
-        );
+        // Another rebuild of this site is running: it reads the same collected data, so this one is skipped instead of
+        // waiting and failing (LockTimeoutException → three retries → MaxAttemptsExceeded in the error list).
+        try {
+            return Cache::lock('website-projection-rebuild:'.$asset->getKey(), 1200)->block(
+                60,
+                fn (): WebsiteIntelligenceProjectionRun => $this->rebuildUnlocked(
+                    asset: $asset,
+                    trigger: $trigger,
+                    triggerCollectionRunId: $triggerCollectionRunId,
+                    periodStart: $periodStart,
+                    periodEnd: $periodEnd,
+                ),
+            );
+        } catch (LockTimeoutException) {
+            Log::info('website-projection.skipped-busy', ['website_asset_id' => (int) $asset->getKey()]);
+
+            return null;
+        }
     }
 
     private function rebuildUnlocked(

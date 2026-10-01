@@ -33,6 +33,9 @@ final class BrandCare
 
     public const int MAX_QUESTIONS = 3;
 
+    /** Gaps that make a review meaningless (BrandGaps keys). */
+    public const array BLOCKING_GAPS = ['no_website', 'no_services'];
+
     /** Even with nothing changed, the agent looks again after this long. */
     public const int FULL_REVIEW_DAYS = 28;
 
@@ -55,6 +58,17 @@ final class BrandCare
     {
         if (! $brand->isOperational()) {
             return ['status' => 'not_operational'];
+        }
+        // A review on a brand without a website or services cannot be right: it stops and says why (the operator's
+        // "Şimdi incele" still runs it).
+        if (! $force) {
+            $blocking = collect(app(BrandGaps::class)->detect($brand))->whereIn('key', self::BLOCKING_GAPS)->pluck('title')->all();
+            if ($blocking !== []) {
+                $this->save($brand, ['blocked' => 'Çalışmadı: '.implode(', ', $blocking).'. Eksikler giderilince kendiliğinden devam eder.', 'checked_at' => now()->toIso8601String()]
+                    + array_diff_key(self::stored($brand) ?? [], ['blocked' => true]));
+
+                return ['status' => 'blocked', 'message' => implode(', ', $blocking)];
+            }
         }
         $file = $this->dossier->build($brand);
         $previous = self::stored($brand);
@@ -98,6 +112,7 @@ final class BrandCare
             'questions' => collect((array) ($raw['questions'] ?? []))->filter(fn ($q): bool => is_string($q) && trim($q) !== '')
                 ->map(fn (string $q): string => mb_substr(trim($q), 0, 200))->take(self::MAX_QUESTIONS)->values()->all(),
             'changed' => $changed,
+            'blocked' => null,
         ]);
 
         return ['status' => 'reviewed', 'tasks' => count($tasks), 'changed' => $changed];

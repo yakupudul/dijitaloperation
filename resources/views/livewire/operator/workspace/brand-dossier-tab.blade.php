@@ -67,6 +67,9 @@
                 </div>
             @endif
         @endif
+        @if (! empty($care['blocked']))
+            <p class="mt-3 text-sm text-amber-700 dark:text-amber-300" data-care-blocked>{{ $care['blocked'] }}</p>
+        @endif
         @if (! empty($care['failed_at']) && (empty($care['reviewed_at']) || $care['failed_at'] > $care['reviewed_at']))
             <p class="mt-3 text-sm text-rose-600">Son inceleme tamamlanamadı: {{ $care['error'] ?? '' }}</p>
         @endif

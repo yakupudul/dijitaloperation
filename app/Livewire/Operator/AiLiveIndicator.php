@@ -20,8 +20,9 @@ use Livewire\Component;
  */
 final class AiLiveIndicator extends Component
 {
-    /** @var list<int> running / queued work seen in the previous render (to announce what finished since) */
-    public array $watching = [];
+    /** Running / queued work ids seen in the previous render, comma separated (to announce what finished since). A plain
+     * string: an array property here was diffed by the browser into an invalid "$" update on some polls. */
+    public string $watching = '';
 
     /** An operator click that may have started AI work: refresh now instead of waiting for the next poll. */
     #[On('ai-live-refresh')]
@@ -52,14 +53,14 @@ final class AiLiveIndicator extends Component
             return;
         }
         $open = $live->running()->concat($live->queued(20))->pluck('id')->map(fn ($id): int => (int) $id)->values()->all();
-        $ended = array_values(array_diff($this->watching, $open));
+        $ended = array_values(array_diff(array_map('intval', array_filter(explode(',', $this->watching))), $open));
         if ($ended !== []) {
             foreach (AiLiveOperation::query()->whereIn('id', $ended)->where('user_id', auth()->id())->whereIn('status', [AiLiveOperation::DONE, AiLiveOperation::FAILED])->limit(3)->get() as $row) {
                 $this->dispatch('operator-notice', message: ($row->status === AiLiveOperation::DONE ? 'AI işi bitti: ' : 'AI işi hata verdi: ').$row->label,
                     tone: $row->status === AiLiveOperation::DONE ? 'success' : 'error');
             }
         }
-        $this->watching = $open;
+        $this->watching = implode(',', $open);
     }
 
     /**

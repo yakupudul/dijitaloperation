@@ -5,9 +5,14 @@ namespace App\Services\BrandSetup;
 use App\Jobs\BuildBrandSetupProposalJob;
 use App\Models\Brand;
 use App\Models\BrandSetupProposal;
+use App\Models\DigitalAsset;
+use App\Models\Page;
 use App\Models\User;
+use App\Services\Portfolio\UnassignedWebsites;
 use App\Support\ServiceScope;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -50,6 +55,34 @@ final class BrandSetupAssistant
     {
         Cache::put(self::progressKey((int) $proposal->id), ['step' => $step, 'at' => now()->toIso8601String()], now()->addHour());
         $proposal->forceFill(['updated_at' => now()])->save();
+    }
+
+    /**
+     * What keeps "Otomatik kur" from reading the site (operator decision 2026-11-18: a job that cannot work properly
+     * warns first and runs only when the operator says "Yine de getir"): no website asset for the address, or a site
+     * whose pages were never collected. Empty: ready.
+     *
+     * @return list<string>
+     */
+    public function readiness(Brand $brand, string $websiteUrl): array
+    {
+        $host = BrandSetupMatcher::host($websiteUrl);
+        if ($host === '' || ! str_contains($host, '.')) {
+            return [];
+        }
+        $site = $brand->digitalAssets()->where('type', 'website')->get()
+            ->first(fn (DigitalAsset $asset): bool => BrandSetupMatcher::host((string) ($asset->primary_url ?: $asset->domain)) === $host)
+            ?? app(UnassignedWebsites::class)->findByHost($host);
+        if ($site === null) {
+            return ['Bu adres için bağlı bir web sitesi yok. Hizmetler siteden okunamaz; yalnız arama verisinden (varsa) tahmin edilir ve eksik kalır. Önce siteyi Dijital varlıklara ekleyip sayfalarının toplanmasını bekleyin.'];
+        }
+        $pages = Page::query()->where('website_asset_id', $site->id)->count();
+        $wordpress = Schema::hasTable('website_cms_object_snapshot') ? DB::table('website_cms_object_snapshot')->where('digital_asset_id', $site->id)->count() : 0;
+        if ($pages === 0 && $wordpress === 0) {
+            return ['Sitenin sayfaları henüz toplanmadı. Hizmetler sayfalardan çıkarılır; şimdi çalışırsa çoğu hizmet bulunamaz. Sitenin Veri kaynakları ekranından toplamayı başlatıp bitmesini bekleyin.'];
+        }
+
+        return [];
     }
 
     public function queue(Brand $brand, string $websiteUrl, ?User $actor): BrandSetupProposal

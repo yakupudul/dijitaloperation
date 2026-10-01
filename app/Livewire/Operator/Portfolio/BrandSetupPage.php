@@ -51,6 +51,9 @@ final class BrandSetupPage extends Component
 
     public string $messageTone = 'success';
 
+    /** @var list<string> what keeps the run from working properly; shown before it starts ("Yine de getir") */
+    public array $warnings = [];
+
     public function mount(string $brand): void
     {
         abort_unless(auth()->user()?->is_active && auth()->user()?->can(Permissions::ACCESS_APP), 403);
@@ -63,12 +66,17 @@ final class BrandSetupPage extends Component
         $url = is_string($raw = request()->query('url')) ? trim($raw) : '';
         if ($url !== '' && $this->latest() === null) {
             $this->websiteUrl = $url;
-            $this->start(app(BrandSetupAssistant::class));
+            $this->start();
         }
     }
 
-    public function start(BrandSetupAssistant $assistant): void
+    public function start(bool $force = false): void
     {
+        $assistant = app(BrandSetupAssistant::class);
+        $this->warnings = $force ? [] : $assistant->readiness($this->brand(), $this->websiteUrl);
+        if ($this->warnings !== []) {
+            return;
+        }
         try {
             $proposal = $assistant->queue($this->brand(), $this->websiteUrl, auth()->user());
         } catch (ValidationException $exception) {

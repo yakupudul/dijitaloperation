@@ -3,6 +3,7 @@
 namespace App\Jobs\Queries;
 
 use App\Services\Queries\QuerySourceAggregator;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
@@ -35,8 +36,15 @@ final class AggregateQuerySourcesJob implements ShouldQueue
 
     public function handle(QuerySourceAggregator $aggregator): void
     {
-        Cache::lock('query-sources:'.$this->externalResourceId, $this->timeout)
-            ->block(60, fn () => $aggregator->aggregate($this->externalResourceId, $this->from, $this->to));
+        // A running aggregation of the same account: try again later instead of failing with LockTimeoutException.
+        try {
+            Cache::lock('query-sources:'.$this->externalResourceId, $this->timeout)
+                ->block(60, fn () => $aggregator->aggregate($this->externalResourceId, $this->from, $this->to));
+        } catch (LockTimeoutException) {
+            $this->release(300);
+
+            return;
+        }
         // Faz 3: the normalized query layer follows every aggregation (queued requests collapse into one pass).
         ProcessQueriesJob::dispatch();
     }

@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-11-18 — Çalışamayan iş önce uyarır
+
+- **Karar:** Bir AI / sistem işi eksik ya da bozukluk yüzünden doğru sonuç veremeyecekse çalışmaz; operatöre nedenini söyler, operatör "Yine de getir" derse çalışır (Otomatik kur, bakım ajanı). Otomatik kur hizmet sayısında sınır yok; kanıtı olmayan hizmet işaretsiz gelir.
+
 ## 2026-11-17 — AI ajan mimarisi kararları
 
 - Yalnız markaya bağlı hesaplar gösterilir; bağlanmamış varlıklar yalnız "Marka adayları"nda görünür.

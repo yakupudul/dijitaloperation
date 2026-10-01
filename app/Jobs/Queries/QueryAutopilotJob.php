@@ -20,8 +20,12 @@ final class QueryAutopilotJob implements ShouldQueue
 
     public int $tries = 1;
 
-    public function __construct(public bool $clean = false)
+    /** A plain property with a default: jobs queued before it existed unserialize without it. */
+    public bool $clean = false;
+
+    public function __construct(bool $clean = false)
     {
+        $this->clean = $clean;
         $this->onQueue((string) config('queue.background_queue', 'default'));
     }
 

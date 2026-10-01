@@ -9,6 +9,7 @@ use App\Enums\Observability\OperationalSignalFamily;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
+use App\Models\DigitalAsset;
 use App\Models\Observability\WorkerHeartbeat;
 use App\Services\Async\AsyncWorkerHealth;
 use App\Services\DataPool\Freshness\DueCollectionQueryService;
@@ -392,6 +393,12 @@ final class OperationalAlertEvaluator
                 $staleOrBlocked[] = $item;
             }
         }
+
+        // Only accounts that serve an operational brand's asset page the operator (operator decision 2026-11-17: an
+        // account not bound to a brand is never shown outside Marka adayları).
+        $boundAssets = DigitalAsset::query()->whereIn('id', array_values(array_unique(array_filter(array_map(fn ($item) => $item->digitalAssetId, $staleOrBlocked)))))
+            ->whereNotNull('brand_id')->whereHas('brand', fn ($q) => $q->operational())->pluck('id')->map(fn ($id): int => (int) $id)->flip();
+        $staleOrBlocked = array_values(array_filter($staleOrBlocked, fn ($item): bool => $item->digitalAssetId !== null && $boundAssets->has((int) $item->digitalAssetId)));
 
         $staleCount = count($staleOrBlocked);
         $scope = 'dataset:stale';
