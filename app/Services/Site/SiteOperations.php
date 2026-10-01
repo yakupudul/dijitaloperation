@@ -3,11 +3,13 @@
 namespace App\Services\Site;
 
 use App\Jobs\Site\RunSiteOperationJob;
+use App\Models\Brand;
 use App\Models\BrandClusterPage;
 use App\Models\DigitalAsset;
 use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Models\Suggestion;
+use App\Services\Brand\BrandDossier;
 use App\Services\Queries\QueryPipeline;
 use Illuminate\Support\Facades\Cache;
 
@@ -191,6 +193,9 @@ final class SiteOperations
         $result['cluster_pages'] = $this->clusterPages->refresh($site, judge: false)['status'];
         if ($site->brand_id !== null) {
             $result['targets'] = app(QueryPipeline::class)->brandTargets((int) $site->brand_id);
+            if (($brand = Brand::query()->find($site->brand_id)) !== null) {
+                app(BrandDossier::class)->build($brand);
+            }
         }
 
         return $result;

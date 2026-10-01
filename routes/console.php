@@ -22,6 +22,7 @@ use App\Services\Alerts\AdBudgetWatch;
 use App\Services\Analyst\AnalystEngine;
 use App\Services\Analyst\AnalystRegistry;
 use App\Services\Assistant\ReminderService;
+use App\Services\Brand\BrandDossier;
 use App\Services\Collection\Activity\ActivityTierService;
 use App\Services\Collection\CollectionErrorRecorder;
 use App\Services\Collection\Monitoring\CollectionAccountPresenter;
@@ -763,3 +764,18 @@ Artisan::command('moxdop:ops:error-digest', function (ErrorTriage $triage, Query
     $this->info('Digest sent: you='.$you.' code='.$code);
 })->purpose('Daily Hata merkezi digest (only what needs the operator).');
 Schedule::command('moxdop:ops:error-digest')->dailyAt('05:52')->name('ops-error-digest')->withoutOverlapping(30);
+
+// Marka dosyası: rebuilt every night for operational brands (no AI; unchanged sections keep their hash).
+Artisan::command('moxdop:brands:dossier {brand? : brand id}', function (BrandDossier $dossier): void {
+    $brands = Brand::query()->operational()->when($this->argument('brand'), fn ($q, $id) => $q->whereKey((int) $id))->orderBy('id')->get();
+    foreach ($brands as $brand) {
+        try {
+            $dossier->build($brand);
+        } catch (Throwable $exception) {
+            report($exception);
+            $this->warn('Brand '.$brand->id.': '.$exception->getMessage());
+        }
+    }
+    $this->info('Dossiers built: '.$brands->count());
+})->purpose('Rebuild the Marka dosyası of operational brands.');
+Schedule::command('moxdop:brands:dossier')->dailyAt('04:37')->timezone('Europe/Istanbul')->name('brands-dossier')->withoutOverlapping(60);

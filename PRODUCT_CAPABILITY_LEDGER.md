@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-17 (c) — Marka dosyası
+
+- **Ne:** Her marka için tek kısa markdown dosya (`App\Services\Brand\BrandDossier`): Kimlik, Bağlı varlıklar, Hizmetler, Talep, Web sitesi durumu, Kararlar ve sonuçları, Açık işler, Operatörün notları. AI kullanmadan verilerden derlenir; `brand_memory` (kind `dossier`) satırında saklanır.
+- **Delta okuma:** Her bölümün hash'i tutulur; `changedSince()` bir ajanın son okumasından beri değişen bölümleri verir. Değişiklik yoksa ajan hiçbir şey okumaz.
+- **Ne zaman yenilenir:** Her gece 04:37 (yalnız aktif markalar, `moxdop:brands:dossier`), Otomatik kur kurulum işi bitince, sekmedeki "Yenile" ve not kaydında.
+- **Ekran:** Marka › "Marka dosyası" sekmesi: dosya + Hedefler / Kısıtlar (Ayarlar'daki notlarla aynı kayıt).
+- **Test:** `tests/Feature/Brand/BrandDossierTest.php` (SQLite + PostgreSQL). UAT: yok.
+
 ## 2026-11-17 (b) — Hata merkezi
 
 - **Üç kova (`ErrorTriage`, kural, AI yok):** açık sistem uyarıları "Senin işin" (yeniden bağlan, yetki ver, eşleştirme düzelt, işçi durdu), "Yazılım hatası — geliştiriciye ilet" (sözleşme / istek hatası) ve "Sistem hallediyor" (sağlayıcı geçici hatası, kota, hız sınırı, takılan çekim, kuyruk birikmesi) olarak ayrılır; aynı nedenden gelenler tek grup. "Sistem hallediyor" 48 saatte düzelmezse "Senin işin"e yükselir ("2 günde düzelmedi").

@@ -64,6 +64,7 @@ class BrandShow extends Component
         'harita' => ['Harita', 'App\\Livewire\\Operator\\Workspace\\MapsTab'],
         'google_ads' => ['Google Ads', 'App\\Livewire\\Operator\\Workspace\\GoogleAdsTab'],
         'meta' => ['Meta', 'App\\Livewire\\Operator\\Workspace\\MetaTab'],
+        'dosya' => ['Marka dosyası', 'App\\Livewire\\Operator\\Workspace\\BrandDossierTab'],
     ];
 
     /** The default tab. */
