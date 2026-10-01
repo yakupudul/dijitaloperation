@@ -143,10 +143,10 @@ final class WordPressManagementTest extends TestCase
         $this->connection->forceFill(['config' => array_merge($this->connection->config, ['plugin_version' => '1.4.1'])])->save();
 
         $this->actingAs($this->member);
-        Livewire::test(WordPressSitesPage::class)->assertDontSee('Eklentiyi güncelle')->call('updateConnector', $this->site->id)->assertForbidden();
+        Livewire::test(WordPressSitesPage::class)->assertDontSee('Web sitesine gönder')->call('updateConnector', $this->site->id)->assertForbidden();
 
         $this->actingAs($this->admin);
-        Livewire::test(WordPressSitesPage::class)->assertSee('yeni: 1.4.2')->assertSee('Tümünü güncelle')
+        Livewire::test(WordPressSitesPage::class)->assertSee('yeni: 1.4.2')->assertSee('Tüm sitelere gönder')
             ->call('updateConnector', $this->site->id)->assertSee('kuyruğa alındı');
         $action = ExternalWriteAction::query()->where('action', ExternalWriteAction::ACTION_CONNECTOR_UPDATE)->firstOrFail();
         $this->assertSame('succeeded', $action->status, (string) $action->error);
@@ -167,14 +167,14 @@ final class WordPressManagementTest extends TestCase
         $this->get($path)->assertForbidden();
 
         // Up to date now: no button, a second request is refused.
-        Livewire::test(WordPressSitesPage::class)->assertDontSee('Eklentiyi güncelle')->call('updateConnector', $this->site->id)->assertSee('güncel');
+        Livewire::test(WordPressSitesPage::class)->assertDontSee('Web sitesine gönder')->call('updateConnector', $this->site->id)->assertSee('güncel');
     }
 
     public function test_sites_below_1_4_1_are_told_to_update_by_hand_once(): void
     {
         config(['moxdop-wordpress.connector_version' => '1.4.1']);
         $this->actingAs($this->admin);
-        Livewire::test(WordPressSitesPage::class)->assertSee('bir kez elle yükle')->assertDontSee('Tümünü güncelle')
+        Livewire::test(WordPressSitesPage::class)->assertSee('bir kez elle yükle')->assertDontSee('Tüm sitelere gönder')
             ->call('updateConnector', $this->site->id)->assertSee('bir kez elle yükle');
         $this->assertSame(0, ExternalWriteAction::query()->count());
         $this->assertFalse(collect($this->sent)->contains(fn (array $s): bool => str_ends_with($s[1], '/self-update')));

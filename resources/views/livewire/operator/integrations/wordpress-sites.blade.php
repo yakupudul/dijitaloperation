@@ -11,8 +11,8 @@
     @endphp
     @if ($isAdmin && $updatable > 0)
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-800 ring-1 ring-inset ring-brand-200 dark:bg-brand-500/10 dark:text-brand-200">
-            <span>MoxDOP Connector {{ $latestConnector }} hazır: {{ $updatable }} sitede tek tıkla güncellenebilir.</span>
-            <x-ta.button type="button" wire:click="updateAllConnectors" wire:confirm="{{ $updatable }} sitede MoxDOP Connector {{ $latestConnector }} sürümüne güncellensin mi?" size="sm">Tümünü güncelle</x-ta.button>
+            <span>MoxDOP Connector {{ $latestConnector }} hazır: {{ $updatable }} siteye gönderilebilir. Otomatik dağıtılmaz; siz onaylayıp gönderirsiniz.</span>
+            <x-ta.button type="button" wire:click="updateAllConnectors" wire:confirm="MoxDOP Connector {{ $latestConnector }} {{ $updatable }} web sitesine gönderilsin mi?" size="sm">Tüm sitelere gönder</x-ta.button>
         </div>
     @endif
     @if ($message !== '')<p class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{{ $message }}</p>@endif
@@ -40,7 +40,7 @@
                 </div>
                 <div class="flex flex-wrap gap-2">
                     @if ($isAdmin && $row['connector_update']['available'])
-                        <x-ta.button type="button" wire:click="updateConnector({{ $site->id }})" wire:confirm="MoxDOP Connector {{ $row['plugin_version'] }} → {{ $latestConnector }} güncellensin mi?" size="sm">Eklentiyi güncelle</x-ta.button>
+                        <x-ta.button type="button" wire:click="updateConnector({{ $site->id }})" wire:confirm="MoxDOP Connector {{ $row['plugin_version'] }} → {{ $latestConnector }} bu web sitesine gönderilsin mi?" size="sm">Web sitesine gönder</x-ta.button>
                     @endif
                     @if ($row['managed'])
                         <x-ta.button type="button" wire:click="refreshHealth({{ $site->id }})" size="sm" variant="outline">Sağlığı yenile</x-ta.button>

@@ -1,5 +1,9 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-13 (d) — WordPress Connector dağıtımı: otomatik yok, onaylı gönderim
+
+- **Karar (operatör):** yeni eklenti sürümü sitelere otomatik dağıtılmaz; Admin Entegrasyonlar › WordPress siteleri'nde görür, onaylar ve "Web sitesine gönder" (site başına) ya da "Tüm sitelere gönder" ile gönderir (ADR-071 akışı; değişen yalnız buton adları ve açıklama). 1.4.1 altındaki sitelere bir kez elle yükleme gerekir.
+
 ## 2026-11-13 (c) — İçerik fikirleri kurgusu Faz 5: yasaklı ifadeler
 
 - **Tek kaynak `compliance_rules`:** sektör paketi kuralları + sektöre eklenen ifadeler (`pack_id = sector:{kod}`, her ifade bir kural, şiddet engelle = high / uyar = low, kaynak elle / AI) + markaya özel ifadeler (`pack_id = brand:{id}`, Marka › Ayarlar "Markaya özel yasaklı ifadeler"). `SectorPackRegistry::rulesForBrand` artık bu üçünü döner; böylece günlük uyum taraması, `BriefCompliance` ve WordPress kapısı (`ContentComplianceGate`) da aynı ifadeleri uygular. `rulesForSector` markasız (Sorgular) işler için.
