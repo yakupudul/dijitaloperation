@@ -14,7 +14,8 @@ use Laravel\Ai\Promptable;
 
 /**
  * Sorgu otomatik pilotu (operation `queries.triage`): one call per batch of unassigned queries of ONE sector decides per
- * query — a service of the sector, a filter term (person name, brand name, irrelevant search, forbidden phrase) or
+ * query — a service of the sector, a filter term (person name, brand / product brand, place, irrelevant search,
+ * forbidden phrase) or
  * none — and may add matching keywords. Applied without approval; every query is asked once.
  */
 final class QueryTriageAgent implements Agent, HasProviderOptions, HasStructuredOutput, RegistryPrompted
@@ -24,7 +25,7 @@ final class QueryTriageAgent implements Agent, HasProviderOptions, HasStructured
 
     public const string OPERATION = AiRouteKeys::QUERIES_TRIAGE;
 
-    public const array FILTER_REASONS = ['person_name', 'brand_name', 'irrelevant', 'forbidden'];
+    public const array FILTER_REASONS = ['person_name', 'brand_name', 'place', 'irrelevant', 'forbidden'];
 
     public function promptOperation(): string
     {

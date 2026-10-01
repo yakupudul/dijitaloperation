@@ -42,15 +42,17 @@ final class QueryAutopilotTest extends SiteTestCase
         $product = $this->libraryQuery('straumann ankara');
         $generic = $this->libraryQuery('diş fiyatları ankara');
         $exam = $this->libraryQuery('kpss sonuçları');
+        $vague = $this->libraryQuery('implant ne kadar sürer');
         $calls = [];
-        QueryTriageAgent::fake(function (string $prompt) use (&$calls, $kaplama, $doctor, $product, $generic, $exam): array {
+        QueryTriageAgent::fake(function (string $prompt) use (&$calls, $kaplama, $doctor, $product, $generic, $exam, $vague): array {
             $calls[] = json_decode(substr($prompt, strlen("DATA_JSON\n")), true);
 
             return ['decisions' => [
                 ['query_id' => $kaplama->id, 'service_id' => $this->zirkonyum->id, 'filter_term' => null, 'filter_reason' => 'none'],
                 ['query_id' => $doctor->id, 'service_id' => null, 'filter_term' => 'dr ahmet yılmaz', 'filter_reason' => 'person_name'],
                 ['query_id' => $product->id, 'service_id' => null, 'filter_term' => 'straumann', 'filter_reason' => 'brand_name'],
-                ['query_id' => $generic->id, 'service_id' => null, 'filter_term' => 'ankara', 'filter_reason' => 'irrelevant'],
+                ['query_id' => $vague->id, 'service_id' => null, 'filter_term' => 'implant', 'filter_reason' => 'irrelevant'],
+                ['query_id' => $generic->id, 'service_id' => null, 'filter_term' => 'ankara', 'filter_reason' => 'place'],
                 ['query_id' => $exam->id, 'service_id' => null, 'filter_term' => 'kpss', 'filter_reason' => 'irrelevant'],
             ], 'keywords' => [['service_id' => $this->zirkonyum->id, 'keyword' => 'diş kaplama'], ['service_id' => $this->zirkonyum->id, 'keyword' => 'fiyat']]];
         });
@@ -59,10 +61,9 @@ final class QueryAutopilotTest extends SiteTestCase
 
         $this->assertCount(1, $calls);
         $this->assertSame('Diş sağlığı', $calls[0]['sector']['name']);
-        $this->assertContains('Straumann', $calls[0]['product_brands']);
         $this->assertSame([$this->zirkonyum->id, 'ai', true], [$kaplama->fresh()->service_id, $kaplama->fresh()->assignment, $kaplama->fresh()->locked]);
-        $this->assertEqualsCanonicalizing(['dr ahmet yılmaz', 'kpss'], FilterTerm::query()->where('source', 'ai')->pluck('term')->all(),
-            'a product brand and a place are never filter terms');
+        $this->assertEqualsCanonicalizing(['dr ahmet yılmaz', 'straumann', 'ankara', 'kpss'], FilterTerm::query()->where('source', 'ai')->pluck('term')->all(),
+            'person, product brand, place, off-topic word in; a service word never');
         $this->assertSame($this->dental->id, FilterTerm::query()->where('term', 'kpss')->value('sector_id'));
         $this->assertTrue($this->zirkonyum->fresh()->matchingKeywords->contains('label', 'diş kaplama'));
         $this->assertFalse($this->zirkonyum->fresh()->matchingKeywords->contains('label', 'fiyat'), 'generic keyword dropped');

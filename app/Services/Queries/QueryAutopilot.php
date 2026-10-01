@@ -28,8 +28,9 @@ use Throwable;
  * operator's approval, in this order, again and again:
  *
  *  1. Triage: every unassigned library query no matching keyword placed goes to AI once (`queries.triage`, 200 per
- *     call, sector by sector): a service of its sector (assigned, `ai`, locked), a filter term (person name, brand,
- *     irrelevant, forbidden phrase → added to the filter basket, source ai) or none; new matching keywords are added.
+ *     call, sector by sector): a service of its sector (assigned, `ai`, locked), a filter term (person name, brand or
+ *     product brand, place, irrelevant, forbidden phrase → added to the filter basket, source ai; the library is
+ *     brand-neutral) or none; new matching keywords are added.
  *     `ai_checked_at` marks the query so it is never sent again.
  *  2. When no query is left: Bekleyenler is imported (filter terms already applied; matching keywords assign), and
  *     the next round triages what the keywords did not place.
@@ -244,8 +245,9 @@ final class QueryAutopilot
     }
 
     /**
-     * A filter term must come from the query, be short and never touch a service word, a matching keyword, a place or
-     * a question word: it removes names, brands and off-topic words only.
+     * A filter term must come from the query and be short; it never touches a service name, a matching keyword, a
+     * question or a generic word. Places and product brands ARE filter terms: the library is brand-neutral (a brand's
+     * area is added to its target queries later), so "ankara", "straumann" leave it.
      *
      * @param  list<string>  $guards  folded service names and matching keywords of the sector
      */
@@ -254,7 +256,7 @@ final class QueryAutopilot
         $term = trim(preg_replace('/\s+/u', ' ', QueryNormalizer::lower($term)) ?? '');
         $folded = SeoText::fold($term);
         if (mb_strlen($folded) < 3 || mb_strlen($term) > 60 || count(explode(' ', $folded)) > 4 || ! SeoText::matchesPhrase($text, $term)
-            || QueryNormalizer::isQuestionTerm($term) || ServiceKeywordService::isGeneric($term) || QueryNormalizer::placeIn($term) !== null) {
+            || QueryNormalizer::isQuestionTerm($term) || ServiceKeywordService::isGeneric($term)) {
             return null;
         }
         foreach ($guards as $guard) {
@@ -274,7 +276,6 @@ final class QueryAutopilot
     {
         return $context['services']->flatMap(fn (ServiceCatalogItem $s): array => [SeoText::fold((string) $s->primaryName?->raw_label),
             ...$s->matchingKeywords->map(fn ($k): string => SeoText::fold((string) $k->label))->all()])
-            ->merge(array_map(fn (string $brand): string => SeoText::fold($brand), (array) config('moxdop-queries.product_brands.'.$context['sector']->code, [])))
             ->filter()->unique()->values()->all();
     }
 
@@ -311,7 +312,6 @@ final class QueryAutopilot
                     'id' => (int) $s->id, 'name' => (string) $s->primaryName->raw_label, 'keywords' => $s->matchingKeywords->pluck('label')->values()->all(),
                 ])->values()->all(),
                 'forbidden' => $context['forbidden'],
-                'product_brands' => array_values((array) config('moxdop-queries.product_brands.'.$context['sector']->code, [])),
                 'queries' => $rows->map(fn (Query $q): array => ['id' => (int) $q->id, 'text' => (string) $q->text, 'impressions' => (int) $q->impressions])->values()->all(),
             ];
 
