@@ -5,6 +5,7 @@ namespace Tests\Feature\Integrations;
 use App\Livewire\Demo\Integrations\GoogleIntegrationPage;
 use App\Livewire\Operator\Integrations\ResourceAutomations;
 use App\Models\Brand;
+use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
@@ -103,6 +104,7 @@ final class IntegrationE1FixesTest extends TestCase
     {
         $resource = CoreExternalResource::factory()->create(['integration_id' => $this->google->id, 'provider' => ProviderRegistry::GOOGLE, 'resource_type' => 'google_ads',
             'external_id' => '123', 'display_name' => 'Atlas Ads', 'status' => CoreExternalResource::STATUS_AVAILABLE]);
+        CoreAssetBinding::factory()->create(['digital_asset_id' => DigitalAsset::factory()->create(['brand_id' => Brand::factory()->create(['customer_id' => Customer::factory()->create()->id])->id, 'type' => 'google_ads'])->id, 'external_resource_id' => $resource->id, 'capability' => 'google_ads']);
 
         $this->actingAs($this->member);
         Livewire::test(ResourceAutomations::class);

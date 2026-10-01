@@ -170,6 +170,8 @@ class GoogleAdsConnectorPage extends Component
             ->where('provider', ProviderRegistry::GOOGLE)
             ->where('resource_type', GoogleResourceType::GOOGLE_ADS_CUSTOMER)
             ->where('status', CoreExternalResource::STATUS_AVAILABLE)
+            // Only accounts bound to a brand's asset; the rest wait under Marka adayları.
+            ->whereHas('bindings', fn ($q) => $q->where('status', CoreAssetBinding::STATUS_ACTIVE)->whereHas('digitalAsset', fn ($a) => $a->whereNotNull('brand_id')))
             ->orderBy('display_name')
             ->get();
 

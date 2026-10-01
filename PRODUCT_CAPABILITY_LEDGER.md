@@ -1,5 +1,10 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-17 — Markaya bağlı olmayan hesaplar gizli
+
+- **Karar (operatör):** markaya bağlanmamış hesap sistemde bir amaç taşımaz; entegrasyon hesap listelerinde (otomatik güncelleme paneli, Search Console / GA4 / Google Ads / İşletme Profili bağlayıcıları), Sistem Sağlığı ve Entegrasyonlar sorun sayaçlarında ve deploy özet tablosunda görünmez; yalnız Marka adayları'nda listelenir. Uyarılar zaten yalnız bağlı hesaplar için açılıyordu (`isOperationallyBound`). Tek kaynak: `ResourceAutomation::scopeBrandBound`.
+- **State:** CODED + PHPUnit (`SystemHealthAndCostsTest` bağlanmamış hesap görünmez). Üretim UAT yok.
+
 ## 2026-11-16 — Otomatik kur düzeltmeleri ve canlı geri bildirim
 
 - **Otomatik kur:** hizmet bölgeleri önerilir (eşleşen İşletme Profili adresi → şube, işaretli; markada bölge yoksa Search Console sorgularında en çok geçen iller → işaretsiz) ve onayla eklenir; AI'a giden sayfalar sayfa envanterinden (`pages`, WordPress + sitemap, başlıklarla) gelir; onaydan hemen sonra web sitesi hazırlanır (`SiteOperations::SETUP`: kural kategorileri, hizmet ↔ sayfa, küme satırları, hedef sorgular) ve sonuç ekranı eksik küme adımını gösterir; markada başka sektör seçiliyse yalnız bildirilir (değiştirilmez); "sorgu kütüphanesine eklenir" yazan ama bir şey eklemeyen anahtar kelime metni düzeltildi (sorgular hesap bağlanınca Bekleyenler'e gelir); hazırlık adım adım (sırada / hesaplar / hizmetler / bölgeler) ve geçen süreyle görünür, sayfaya dönmek yeni tarama başlatmaz, hazır öneri varken "Yeniden tara" onay ister.

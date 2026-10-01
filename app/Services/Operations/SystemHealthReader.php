@@ -170,7 +170,7 @@ final class SystemHealthReader
     {
         $staleDays = (int) config('moxdop-observability.account_stale_days', 3);
 
-        return ResourceAutomation::query()->with('resource')->get()
+        return ResourceAutomation::query()->brandBound()->with('resource')->get()
             ->filter(fn (ResourceAutomation $a): bool => $a->resource !== null)
             ->map(function (ResourceAutomation $a) use ($staleDays): array {
                 $last = $a->last_collection_success_at;

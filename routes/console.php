@@ -363,8 +363,11 @@ Artisan::command('moxdop:resources:automate {--recover-ga4-landing-pages} {--rec
     }
     $service->tick();
     if ($this->option('recover-ga4-landing-pages')) {
+        // Only brand-bound accounts: an account without a brand has no purpose until it is bound (Marka adayları).
         $rows = DB::table('resource_automations as a')->join('core_external_resources as r', 'r.id', '=', 'a.external_resource_id')
-            ->where('a.collection_enabled', true)->select('r.resource_type', 'a.collection_status')
+            ->where('a.collection_enabled', true)->whereIn('a.external_resource_id', DB::table('core_asset_bindings as b')
+            ->join('digital_assets as d', 'd.id', '=', 'b.digital_asset_id')->where('b.status', 'active')->whereNotNull('d.brand_id')->select('b.external_resource_id'))
+            ->select('r.resource_type', 'a.collection_status')
             ->selectRaw('COUNT(*) as accounts')->groupBy('r.resource_type', 'a.collection_status')
             ->orderBy('r.resource_type')->orderBy('a.collection_status')->get()
             ->map(fn ($row) => [$row->resource_type, $row->collection_status, $row->accounts])->all();

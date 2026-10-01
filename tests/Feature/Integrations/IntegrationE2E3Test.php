@@ -97,6 +97,7 @@ final class IntegrationE2E3Test extends TestCase
     {
         $google = CoreIntegration::factory()->google()->create();
         $resource = CoreExternalResource::factory()->create(['integration_id' => $google->id, 'provider' => ProviderRegistry::GOOGLE, 'resource_type' => 'google_ads', 'external_id' => '9', 'display_name' => 'Atlas Ads']);
+        CoreAssetBinding::factory()->create(['digital_asset_id' => DigitalAsset::factory()->create(['brand_id' => Brand::factory()->create(['customer_id' => Customer::factory()->create()->id])->id, 'type' => 'google_ads'])->id, 'external_resource_id' => $resource->id, 'capability' => 'google_ads']);
         $automation = ResourceAutomation::query()->create(['external_resource_id' => $resource->id, 'collection_enabled' => true, 'interval_days' => 1, 'next_collection_at' => now()->addDay()]);
         $automation->forceFill(['collection_status' => 'attention', 'collection_error' => 'collection_failed', 'collection_failures' => 3])->save();
         $this->actingAs($this->admin);

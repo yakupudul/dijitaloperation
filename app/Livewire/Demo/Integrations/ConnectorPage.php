@@ -202,7 +202,8 @@ class ConnectorPage extends Component
         if ($this->connector === 'gbp') {
             $integration = $googleReadModel->findIntegration();
             $count = $integration ? CoreExternalResource::query()->where('integration_id', $integration->id)
-                ->where('provider', 'google')->where('resource_type', 'google_business_profile')->count() : 0;
+                ->where('provider', 'google')->where('resource_type', 'google_business_profile')
+                ->whereHas('bindings', fn ($q) => $q->where('status', CoreAssetBinding::STATUS_ACTIVE)->whereHas('digitalAsset', fn ($a) => $a->whereNotNull('brand_id')))->count() : 0;
 
             return view('livewire.demo.integrations.gbp-connector', compact('integration', 'count'));
         }
@@ -239,6 +240,8 @@ class ConnectorPage extends Component
             ->where('integration_id', $integration->id)
             ->where('provider', ProviderRegistry::GOOGLE)
             ->where('resource_type', $connector['resource_type'])
+            // Only accounts bound to a brand's asset; the rest wait under Marka adayları.
+            ->whereHas('bindings', fn ($q) => $q->where('status', CoreAssetBinding::STATUS_ACTIVE)->whereHas('digitalAsset', fn ($a) => $a->whereNotNull('brand_id')))
             ->with([
                 'bindings' => fn ($query) => $query->where('status', CoreAssetBinding::STATUS_ACTIVE),
                 'bindings.digitalAsset',

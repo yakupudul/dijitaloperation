@@ -6,6 +6,7 @@ use App\Enums\CustomerStatus;
 use App\Livewire\Operator\Settings\SystemHealthPage;
 use App\Models\AssetAlert;
 use App\Models\Brand;
+use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\Customer;
@@ -51,8 +52,12 @@ final class SystemHealthAndCostsTest extends TestCase
         app(WorkerHeartbeatService::class)->beatDispatcher();
         $google = CoreIntegration::factory()->google()->create(['config' => ['auth_status' => 'connected', 'refresh_token_expires_at' => now()->addDays(4)->toIso8601String()]]);
         $resource = CoreExternalResource::factory()->create(['integration_id' => $google->id, 'display_name' => 'Atlas Ads', 'status' => 'available']);
+        CoreAssetBinding::factory()->create(['digital_asset_id' => DigitalAsset::factory()->create(['brand_id' => Brand::factory()->create(['customer_id' => Customer::factory()->create()->id])->id, 'type' => 'google_ads'])->id, 'external_resource_id' => $resource->id, 'capability' => 'google_ads']);
         $stopped = ResourceAutomation::query()->create(['external_resource_id' => $resource->id, 'collection_enabled' => true, 'collection_status' => 'attention', 'collection_error' => 'collection_failed', 'collection_failures' => 3]);
         ResourceAutomation::query()->whereKey($stopped->id)->update(['updated_at' => now()->subDay()]);
+        // An account not bound to a brand has no purpose yet: never listed or counted (only under Marka adayları).
+        $unbound = CoreExternalResource::factory()->create(['integration_id' => $google->id, 'display_name' => 'Sahipsiz Hesap', 'status' => 'available']);
+        ResourceAutomation::query()->create(['external_resource_id' => $unbound->id, 'collection_enabled' => true, 'collection_status' => 'attention', 'collection_error' => 'unbound']);
 
         $this->actingAs($this->admin);
         Livewire::test(SystemHealthPage::class)
@@ -60,7 +65,7 @@ final class SystemHealthAndCostsTest extends TestCase
             ->assertSee('Çalışıyor')
             ->assertSee('queue:default')
             ->assertSee('(4 gün)', false)
-            ->assertSee('Atlas Ads')
+            ->assertSee('Atlas Ads')->assertDontSee('Sahipsiz Hesap')
             ->assertSee('Tekrarlayan hata')
             ->assertSee('Atlas Site — 1.1.0')
             ->assertSee('güncelleme gerekli')

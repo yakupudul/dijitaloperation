@@ -134,7 +134,7 @@ class ResourceAutomations extends Component
     public function render(): View
     {
         $term = '%'.addcslashes(mb_strtolower(trim($this->search)), '\\%_').'%';
-        $accounts = $this->expanded ? ResourceAutomation::query()->with(['resource.integration', 'gbpRun'])
+        $accounts = $this->expanded ? ResourceAutomation::query()->brandBound()->with(['resource.integration', 'gbpRun'])
             ->whereHas('resource', fn ($q) => $q
                 ->when($this->provider !== '', fn ($q) => $q->where('provider', $this->provider))
                 ->when($this->resourceType !== '', fn ($q) => $q->where('resource_type', $this->resourceType))

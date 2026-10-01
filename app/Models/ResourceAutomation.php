@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -28,5 +29,18 @@ class ResourceAutomation extends Model
     public function resource(): BelongsTo
     {
         return $this->belongsTo(CoreExternalResource::class, 'external_resource_id');
+    }
+
+    /**
+     * Accounts bound (active binding) to a digital asset that belongs to a brand. Operator decision (2026-11-16): an
+     * account not bound to a brand has no purpose in the product yet; it is listed only under Marka adayları, never
+     * in integration lists, counts or alerts.
+     *
+     * @param  Builder<ResourceAutomation>  $query
+     */
+    public function scopeBrandBound(Builder $query): void
+    {
+        $query->whereHas('resource.bindings', fn ($q) => $q->where('status', CoreAssetBinding::STATUS_ACTIVE)
+            ->whereHas('digitalAsset', fn ($a) => $a->whereNotNull('brand_id')));
     }
 }
