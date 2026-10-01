@@ -49,17 +49,20 @@ final class ContentPlanner
         private readonly BrandMemoryService $memory,
     ) {}
 
-    /** @return array{status: string, added: int} */
-    public function weekly(DigitalAsset $site): array
+    /**
+     * @param  Collection<int, BrandClusterPage>|null  $only  "Konu üret": just these rows, one item
+     * @return array{status: string, added: int}
+     */
+    public function weekly(DigitalAsset $site, ?Collection $only = null): array
     {
         $brand = SiteScope::brandOf($site);
         if (! SiteScope::aiAllowed($brand)) {
             return ['status' => 'not_operational', 'added' => 0];
         }
-        $capacity = max(1, min(20, (int) ($brand->weekly_content_capacity ?? 4)));
-        $gaps = BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url'])->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
+        $capacity = $only !== null ? 1 : max(1, min(20, (int) ($brand->weekly_content_capacity ?? 4)));
+        $gaps = $only ?? BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url'])->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
             ->whereIn('state', ['no_page', 'thin_coverage'])->limit(60)->get();
-        $improvable = BrandClusterPage::query()->with('page:id,url,title')->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
+        $improvable = $only !== null ? collect() : BrandClusterPage::query()->with('page:id,url,title')->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
             ->whereIn('state', ['weak_performance', 'thin_coverage'])->whereNotNull('page_id')->limit(20)->get();
         $previous = Suggestion::query()->where('brand_id', $brand->id)->where('action_type', SiteSuggestionTypes::CONTENT)
             ->where('created_at', '>=', now()->subWeeks(8))->orderByDesc('id')->limit(60)->get(['title', 'status', 'action']);
@@ -72,6 +75,9 @@ final class ContentPlanner
                 'cluster_id' => (int) $row->cluster_id, 'name' => (string) $row->cluster?->name, 'service' => (string) ($row->cluster?->service?->primaryName?->raw_label ?? ''),
                 'intent' => (string) $row->cluster?->intent, 'page_type' => (string) $row->cluster?->page_type, 'main_query' => (string) ($row->cluster?->mainQuery?->text ?? ''),
                 'target_query' => $row->target_query, 'state' => $row->stateLabel(), 'page_url' => $row->page?->url, 'subtopics' => array_values((array) $row->cluster?->subtopics),
+                'gaps' => array_column((array) $row->gaps, 'text'),
+                'ai_questions' => $row->cluster !== null ? ClusterAudit::aiQuestions($row->cluster, $brand) : [],
+                'service_areas' => $row->cluster !== null ? ClusterAudit::serviceAreas($row->cluster, $brand) : [],
             ])->values()->all(),
             'improvable_urls' => $improvable->map(fn (BrandClusterPage $row): array => ['url' => (string) $row->page?->url, 'title' => $row->page?->title, 'state' => $row->stateLabel(), 'reason' => $row->reason])->values()->all(),
             'previous_plans' => $previous->map(fn (Suggestion $s): array => ['title' => $s->title, 'status' => $s->status])->values()->all(),
@@ -259,8 +265,10 @@ final class ContentPlanner
         $result = $this->ai->run(new WriteArticleAgent, [
             'plan' => ['title' => $suggestion->title, 'reason' => $suggestion->reason, 'page_type' => $action['page_type'] ?? 'blog', 'outline' => $action['outline'] ?? [],
                 'questions' => $action['questions'] ?? [], 'target_url' => $action['target_url'] ?? null, 'kind' => $action['kind'] ?? 'new'],
-            'cluster' => $cluster !== null ? ['name' => $cluster->name, 'main_query' => $cluster->mainQuery?->text, 'subtopics' => $cluster->subtopics,
-                'queries' => $cluster->clusterQueries->map(fn (ClusterQuery $q): string => (string) $q->searchQuery?->text)->filter()->take(30)->values()->all()] : null,
+            'cluster' => $cluster !== null ? array_filter(['name' => $cluster->name, 'main_query' => $cluster->mainQuery?->text, 'subtopics' => $cluster->subtopics,
+                'queries' => $cluster->clusterQueries->map(fn (ClusterQuery $q): string => (string) $q->searchQuery?->text)->filter()->take(30)->values()->all(),
+                'ai_questions' => ClusterAudit::aiQuestions($cluster, $brand), 'service_areas' => ClusterAudit::serviceAreas($cluster, $brand) ?: null],
+                fn (mixed $v): bool => $v !== null) : null,
             'brand' => $context['profile'], 'notes' => $context['notes'], 'standards' => $context['standards'], 'related_pages' => [...$context['pages'], ...$context['related_pages']],
             'language' => $language,
             'site_pages' => $sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title])->values()->all(),

@@ -14,6 +14,14 @@
         </p>
     @endif
 
+    <section class="{{ $card }} flex flex-wrap items-center gap-2" data-audit>
+        <button type="button" wire:click="run('cluster_audit')" class="{{ $btn }}" data-run-audit>Kümeleri içerikle karşılaştır</button>
+        <x-operator.ai-prompt-info operation="site.cluster_match" />
+        <x-operator.ai-prompt-info operation="site.cluster_gaps" />
+        <x-operator.ai-prompt-info operation="queries.ai_queries" />
+        <span class="text-xs text-gray-500">Markanın hizmetlerinin kümeleri sitedeki sayfaların içeriğiyle karşılaştırılır: hangi sayfa hangi kümeyi karşılıyor, neler eksik (sorular, yönler, AI soruları, gerekiyorsa hizmet bölgeleri).</span>
+    </section>
+
     <section class="{{ $card }} flex flex-wrap items-center gap-2" data-steps>
         <button type="button" wire:click="run('categorize')" class="{{ $ghost }}">Sayfaları sınıflandır</button>
         <x-operator.ai-prompt-info operation="site.page_categories" />
@@ -41,7 +49,23 @@
                         @foreach ($rows as $row)
                             <tr wire:key="bcp-{{ $row->id }}" data-cluster-row="{{ $row->cluster_id }}">
                                 <td class="py-1 font-medium">{{ $row->cluster?->name }}@if ($row->language)<span class="{{ $chip }} ml-1 bg-gray-100 text-gray-600">{{ $row->language }}</span>@endif @if ($row->locked)<span class="{{ $chip }} ml-1 bg-gray-100 text-gray-600">elle</span>@endif @if ($row->excluded)<span class="{{ $chip }} ml-1 bg-rose-50 text-rose-700">hariç</span>@endif</td>
-                                <td><span class="{{ $chip }} {{ $stateTone[$row->state] ?? '' }}">{{ $row->stateLabel() }}</span><p class="text-gray-500">{{ $row->reason }}</p></td>
+                                <td>
+                                    <span class="{{ $chip }} {{ $stateTone[$row->state] ?? '' }}">{{ $row->stateLabel() }}</span>
+                                    @if ($row->coverage)<span class="{{ $chip }} ml-1 {{ ['full' => 'bg-success-50 text-success-700', 'partial' => 'bg-amber-50 text-amber-700', 'none' => 'bg-rose-50 text-rose-700'][$row->coverage] ?? '' }}" data-coverage="{{ $row->coverage }}">içerik: {{ \App\Models\BrandClusterPage::COVERAGE_LABELS[$row->coverage] ?? $row->coverage }}</span>@endif
+                                    <p class="text-gray-500">{{ $row->reason }}</p>
+                                    @php $gaps = (array) $row->gaps; $questions = $brand !== null && $row->cluster !== null ? \App\Services\Site\ClusterAudit::aiQuestions($row->cluster, $brand) : []; @endphp
+                                    @if ($gaps !== [] || $questions !== [])
+                                        <details class="mt-1" data-gaps>
+                                            <summary class="cursor-pointer font-medium text-brand-600">Eksikleri gör ({{ count($gaps) }})</summary>
+                                            <ul class="mt-1 list-disc space-y-0.5 pl-4">@foreach ($gaps as $gap)<li>{{ $gap['text'] ?? '' }} <span class="text-gray-400">· {{ ['soru' => 'soru', 'bolum' => 'bölüm', 'yon' => 'yön', 'lokasyon' => 'lokasyon', 'ai_sorusu' => 'AI sorusu'][$gap['kind'] ?? ''] ?? '' }}</span></li>@endforeach</ul>
+                                            @if ($questions !== [])<p class="mt-1 font-medium text-gray-600">AI asistanına sorulanlar</p><ul class="list-disc pl-4 text-gray-500">@foreach ($questions as $question)<li>{{ $question }}</li>@endforeach</ul>@endif
+                                        </details>
+                                    @endif
+                                    <div class="mt-1 flex gap-1">
+                                        @if ($row->page_id !== null && $gaps !== [])<button type="button" wire:click="fixGaps({{ $row->id }})" class="{{ $btn }}" data-fix-gaps>Eksikleri gider</button>@endif
+                                        @if ($row->page_id === null && ! $row->excluded)<button type="button" wire:click="clusterTopic({{ $row->id }})" class="{{ $btn }}" data-cluster-topic>Konu üret</button>@endif
+                                    </div>
+                                </td>
                                 <td>
                                     <select wire:model="edit.{{ $row->id }}.page" aria-label="Hedef URL" class="{{ $input }} max-w-[14rem]">
                                         <option value="">— sayfa yok</option>

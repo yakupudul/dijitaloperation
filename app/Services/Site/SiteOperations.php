@@ -36,6 +36,15 @@ final class SiteOperations
 
     public const string WRITE_ARTICLE = 'write_article';
 
+    /** "Kümeleri içerikle karşılaştır": AI match + gaps of every cluster row (ClusterAudit). */
+    public const string CLUSTER_AUDIT = 'cluster_audit';
+
+    /** "Eksikleri gider": a missing-topic suggestion from the row's gaps, prepared by "AI ile yap" (params: row_id). */
+    public const string FIX_GAPS = 'fix_gaps';
+
+    /** "Konu üret": a content plan item (new blog / service page) for a cluster without a page (params: row_id). */
+    public const string CLUSTER_TOPIC = 'cluster_topic';
+
     /** Weekly refresh: new pages' categories, service ↔ page, cluster ↔ page, summaries of changed pages in use. */
     public const string WEEKLY_REFRESH = 'weekly_refresh';
 
@@ -46,6 +55,7 @@ final class SiteOperations
         self::CATEGORIZE => 'Sınıflandırma', self::SERVICE_PAGES => 'Hizmet ↔ sayfa', self::CLUSTER_PAGES => 'Küme ↔ sayfa',
         self::SUMMARIES => 'Sayfa özetleri', self::URL_ANALYSIS => 'URL analizi', self::APPLY_CHANGE => 'AI ile yap', self::STANDARD => 'Standart önerisi',
         self::WEEKLY_CONTENT => 'Haftalık içerik', self::DISCOVERY => 'Fırsat keşfi', self::WRITE_ARTICLE => 'Taslak', self::WEEKLY_REFRESH => 'Haftalık yenileme',
+        self::CLUSTER_AUDIT => 'Küme ↔ içerik', self::FIX_GAPS => 'Eksikleri gider', self::CLUSTER_TOPIC => 'Konu üret',
     ];
 
     public function __construct(
@@ -57,6 +67,7 @@ final class SiteOperations
         private readonly ChangeApplier $changes,
         private readonly ScopedStandards $standards,
         private readonly ContentPlanner $content,
+        private readonly ClusterAudit $audit,
     ) {}
 
     /** @param  array<string, mixed>  $params */
@@ -103,8 +114,47 @@ final class SiteOperations
             self::DISCOVERY => $this->content->discover($site),
             self::WRITE_ARTICLE => $suggestion !== null ? $this->content->writeArticle($suggestion) : ['status' => 'no_suggestion'],
             self::WEEKLY_REFRESH => $this->weeklyRefresh($site),
+            self::CLUSTER_AUDIT => $this->audit->run($site),
+            self::FIX_GAPS => $this->fixGaps($site, (int) ($params['row_id'] ?? 0)),
+            self::CLUSTER_TOPIC => $this->clusterTopic($site, (int) ($params['row_id'] ?? 0)),
             default => ['status' => 'unknown_operation'],
         };
+    }
+
+    /**
+     * The row's gaps become one missing-topic suggestion on its page (one per row, refreshed), then "AI ile yap"
+     * prepares the new version: shown side by side under Öneriler, Admin approves, WordPress gets it.
+     *
+     * @return array<string, mixed>
+     */
+    private function fixGaps(DigitalAsset $site, int $rowId): array
+    {
+        $row = BrandClusterPage::query()->with('cluster')->where('website_asset_id', $site->id)->find($rowId);
+        if ($row === null || $row->page_id === null || (array) $row->gaps === [] || $row->cluster === null) {
+            return ['status' => 'no_gaps'];
+        }
+        $gaps = (array) $row->gaps;
+        $fingerprint = hash('sha256', implode('|', [$row->brand_id, 'cluster-gaps', $row->id]));
+        $suggestion = Suggestion::query()->where('brand_id', $row->brand_id)->where('fingerprint', $fingerprint)->first() ?? new Suggestion;
+        $suggestion->forceFill([
+            'brand_id' => $row->brand_id, 'channel' => 'search', 'decision_key' => 'site.cluster_gaps', 'fingerprint' => $fingerprint,
+            'material_hash' => hash('sha256', json_encode($gaps) ?: ''), 'title' => mb_substr('Eksikleri gider: '.$row->cluster->name, 0, 160),
+            'reason' => mb_substr(implode(' · ', array_map(fn (array $g): string => (string) $g['text'], $gaps)), 0, 240), 'priority' => 2,
+            'evidence' => array_map(fn (array $g): array => ['kind' => 'gap', 'value' => (string) $g['text'], 'source' => 'küme · '.$g['kind']], $gaps),
+            'action_type' => 'missing_topic', 'target_type' => 'page', 'target_id' => (int) $row->page_id, 'page_id' => (int) $row->page_id,
+            'cluster_id' => (int) $row->cluster_id, 'status' => Suggestion::OPEN, 'first_seen_at' => $suggestion->first_seen_at ?? now(), 'last_seen_at' => now(),
+            'action' => array_merge((array) $suggestion->action, ['site_id' => (int) $site->id, 'gaps' => $gaps, 'row_id' => (int) $row->id]),
+        ])->save();
+
+        return ['suggestion_id' => (int) $suggestion->id] + $this->changes->prepare($suggestion);
+    }
+
+    /** @return array<string, mixed> */
+    private function clusterTopic(DigitalAsset $site, int $rowId): array
+    {
+        $row = BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url'])->where('website_asset_id', $site->id)->find($rowId);
+
+        return $row === null ? ['status' => 'no_row'] : $this->content->weekly($site, collect([$row]));
     }
 
     /** @return array<string, mixed> */

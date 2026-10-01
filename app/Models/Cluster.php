@@ -42,6 +42,7 @@ class Cluster extends Model
         'approved',
         'locked',
         'version',
+        'ai_queries',
     ];
 
     /** @return array<string, string> */
@@ -51,6 +52,7 @@ class Cluster extends Model
             'representative_query_ids' => 'array',
             'subtopics' => 'array',
             'exclusions' => 'array',
+            'ai_queries' => 'array',
             'approved' => 'boolean',
             'locked' => 'boolean',
             'version' => 'integer',

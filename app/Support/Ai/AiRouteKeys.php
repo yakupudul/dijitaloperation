@@ -143,6 +143,15 @@ final class AiRouteKeys
     /** Faz 4a Site AI adım 2: coverage / intent judgement of ambiguous cluster ↔ page mappings (one call per service). */
     public const string SITE_CLUSTER_PAGES = 'site.cluster_pages';
 
+    /** Küme ↔ içerik: which page of the site answers each cluster, read from page titles / headings / text (one call per service). */
+    public const string SITE_CLUSTER_MATCH = 'site.cluster_match';
+
+    /** Küme eksikleri: what a matched page does not answer of its clusters' queries, facets, AI questions and areas. */
+    public const string SITE_CLUSTER_GAPS = 'site.cluster_gaps';
+
+    /** AI sorguları: questions people ask AI assistants for each cluster ("{bölge}" where a place fits). */
+    public const string QUERIES_AI_QUERIES = 'queries.ai_queries';
+
     /** Faz 4a brand memory: 2–4 sentence summary + key facts of pages used in analysis. */
     public const string SITE_PAGE_SUMMARY = 'site.page_summary';
 

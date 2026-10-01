@@ -4,6 +4,7 @@ namespace App\Services\Site;
 
 use App\Ai\Agents\Site\ApplyChangeAgent;
 use App\Models\Brand;
+use App\Models\Cluster;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\Page;
@@ -59,7 +60,7 @@ final class ChangeApplier
             'current_html' => $html !== null ? mb_substr($html, 0, self::MAX_HTML) : null,
             'site_pages' => $sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title])->all(),
             'brand' => $context['profile'], 'notes' => $context['notes'], 'standards' => $context['standards'], 'decisions' => $context['decisions'],
-        ], 300);
+        ] + $this->clusterPack($suggestion, $brand), 300);
         if ($result['status'] !== 'ready') {
             return ['status' => $result['status']];
         }
@@ -84,6 +85,29 @@ final class ChangeApplier
         $suggestion->forceFill(['action' => array_merge($action, ['proposal' => $proposal + ['prepared_at' => now()->toIso8601String(), 'prompt_version_id' => $result['prompt_version_id']]])])->save();
 
         return ['status' => 'ready'];
+    }
+
+    /**
+     * "Eksikleri gider": the cluster the gaps come from — gaps, top queries, AI questions and (local needs only) the
+     * brand's service areas.
+     *
+     * @return array<string, mixed>
+     */
+    private function clusterPack(Suggestion $suggestion, Brand $brand): array
+    {
+        $gaps = (array) (((array) $suggestion->action)['gaps'] ?? []);
+        $cluster = $gaps !== [] && $suggestion->cluster_id !== null ? Cluster::query()->with('clusterQueries.searchQuery')->find($suggestion->cluster_id) : null;
+        if ($cluster === null) {
+            return [];
+        }
+
+        return ['cluster' => array_filter([
+            'name' => (string) $cluster->name,
+            'gaps' => array_values(array_map(fn (array $g): string => (string) ($g['text'] ?? ''), $gaps)),
+            'queries' => $cluster->clusterQueries->where('is_suggested', false)->map(fn ($q): string => (string) $q->searchQuery?->text)->filter()->take(25)->values()->all(),
+            'ai_questions' => ClusterAudit::aiQuestions($cluster, $brand),
+            'service_areas' => ClusterAudit::serviceAreas($cluster, $brand) ?: null,
+        ], fn (mixed $v): bool => $v !== null)];
     }
 
     /**

@@ -15,6 +15,9 @@ class BrandClusterPage extends Model
 {
     public const array STATES = ['no_page', 'thin_coverage', 'weak_performance', 'possible_conflict', 'wrong_page', 'sufficient', 'insufficient_data'];
 
+    /** Content coverage read by the AI (ClusterAudit). */
+    public const array COVERAGE_LABELS = ['full' => 'karşılıyor', 'partial' => 'eksikleri var', 'none' => 'karşılamıyor'];
+
     public const array STATE_LABELS = ['no_page' => 'uygun sayfa yok', 'thin_coverage' => 'kapsam yetersiz', 'weak_performance' => 'performans zayıf', 'possible_conflict' => 'çakışma olabilir', 'wrong_page' => 'yanlış sayfa görünüyor', 'sufficient' => 'yeterli', 'insufficient_data' => 'veri yetersiz'];
 
     /** @var list<string> */
@@ -44,6 +47,8 @@ class BrandClusterPage extends Model
         return [
             'locked' => 'boolean',
             'extra_page_ids' => 'array',
+            'gaps' => 'array',
+            'audited_at' => 'immutable_datetime',
             'excluded' => 'boolean',
             'clicks_28d' => 'integer',
             'impressions_28d' => 'integer',

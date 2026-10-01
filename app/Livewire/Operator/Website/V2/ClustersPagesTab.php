@@ -65,11 +65,32 @@ final class ClustersPagesTab extends Component
 
     public function run(string $operation): void
     {
-        if (! in_array($operation, [SiteOperations::CATEGORIZE, SiteOperations::SERVICE_PAGES, SiteOperations::CLUSTER_PAGES], true)) {
+        if (! in_array($operation, [SiteOperations::CATEGORIZE, SiteOperations::SERVICE_PAGES, SiteOperations::CLUSTER_PAGES, SiteOperations::CLUSTER_AUDIT], true)) {
             return;
         }
         SiteOperations::dispatch($this->assetId, $operation);
         $this->message = SiteOperations::LABELS[$operation].' kuyruğa alındı.';
+    }
+
+    /** "Eksikleri gider": the row's gaps → a suggestion on its page, prepared by "AI ile yap" (side by side under Öneriler). */
+    public function fixGaps(int $rowId): void
+    {
+        $row = BrandClusterPage::query()->where('website_asset_id', $this->assetId)->findOrFail($rowId);
+        if ($row->page_id === null || (array) $row->gaps === []) {
+            $this->message = 'Bu kümede giderilecek eksik yok.';
+
+            return;
+        }
+        SiteOperations::dispatch($this->assetId, SiteOperations::FIX_GAPS, ['row_id' => $rowId]);
+        $this->message = 'Sayfanın yeni sürümü hazırlanıyor; Öneriler sekmesinde "Eksikleri gider" önerisinde yan yana görüp onaylarsın.';
+    }
+
+    /** "Konu üret": a content plan item for a cluster with no page (İçerik sekmesinde onay → taslak → WordPress). */
+    public function clusterTopic(int $rowId): void
+    {
+        BrandClusterPage::query()->where('website_asset_id', $this->assetId)->findOrFail($rowId);
+        SiteOperations::dispatch($this->assetId, SiteOperations::CLUSTER_TOPIC, ['row_id' => $rowId]);
+        $this->message = 'Konu üretiliyor; İçerik sekmesinde onaylayıp "Taslak hazırla" diyebilirsin.';
     }
 
     public function setCategory(int $pageId, string $category, PageCategorizer $categorizer): void
@@ -153,7 +174,8 @@ final class ClustersPagesTab extends Component
             'clusterRows' => $rows,
             'services' => $rows->getCollection()->groupBy(fn (BrandClusterPage $row): string => (string) ($row->cluster?->service?->primaryName?->raw_label ?? '—')),
             'pageOptions' => $pageOptions,
-            'statuses' => collect([SiteOperations::CATEGORIZE, SiteOperations::SERVICE_PAGES, SiteOperations::CLUSTER_PAGES, SiteOperations::URL_ANALYSIS])
+            'brand' => $brand,
+            'statuses' => collect([SiteOperations::CATEGORIZE, SiteOperations::SERVICE_PAGES, SiteOperations::CLUSTER_PAGES, SiteOperations::CLUSTER_AUDIT, SiteOperations::URL_ANALYSIS])
                 ->mapWithKeys(fn (string $op): array => [$op => SiteOperations::line(SiteOperations::status($site->id, $op))])->filter()->all(),
         ]);
     }

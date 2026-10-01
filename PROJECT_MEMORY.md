@@ -60,6 +60,11 @@
 
 - **Karar (operatör):** AI işlemlerinde işlem başına çıktı / kapsam sınırı yoktur; tek sınır operatörün Ayarlar › AI'da değiştirdiği aylık bütçedir (kalan bakiye görünür). AI ile planla her sektör için ayrı ve kapsamlı üretir; verisi olmayan sektörde sektör bilgisinden hizmet / kelime önerir (yine operatör onayıyla).
 
+## 2026-10-01 — Talep → içerik döngüsü (operatörün MoxDOP amacı)
+
+- **Amaç (operatör):** insanların talebini (Google aramaları, AI asistanı soruları) gör → kümele → markanın hizmetlerinin kümelerini sitedeki içerikle karşılaştır → karşılıyorsa bırak, eksikse düzelt (Eksikleri gider → AI yeniden yazar → onay → WordPress), yoksa üret (Konu üret → onay → taslak → WordPress). Lokasyon yalnız gereken kümelerde (ticari / yerel) markanın hizmet bölgeleriyle.
+- **Karar:** küme ↔ sayfa eşleştirmesi ve eksik tespiti AI'ın sayfa içeriğini okumasıyla yapılır (`ClusterAudit`); kural eşleyicisi yalnız satır açar. AI asistanı soruları kümeye kalıcı yazılır (`clusters.ai_queries`, `{bölge}`), eksik kontrolünde ve içerik yazımında kullanılır.
+
 ## 2026-11-10 — Sorgu kural motoru ve konu bazlı kümeleme
 
 - **Karar (operatör):** Aynı anlamdaki sorgular (implant = diş implantı) ve aynı içeriğin yönleri (fiyat, nedir, nasıl…) AI'sız, sürümlü kurallarla birleştirilir (`config/moxdop-query-rules.php`). Kurallar operatörün Sorgular › CSV indir dosyasından yazılır ve sorgular değiştikçe genişletilir; filtre terimleri de bu dosyadan üretilip Toplu ekle ile içe aktarılır.

@@ -45,8 +45,11 @@ final class ClusterPageMapper
         private readonly QueryPipeline $queries,
     ) {}
 
-    /** @return array{status: string, clusters: int, ai: int} status: ready | no_brand | no_clusters | ai_* */
-    public function refresh(DigitalAsset $site): array
+    /**
+     * @param  bool  $judge  false: rules only (ClusterAudit reads the page content itself right after)
+     * @return array{status: string, clusters: int, ai: int} status: ready | no_brand | no_clusters | ai_*
+     */
+    public function refresh(DigitalAsset $site, bool $judge = true): array
     {
         $brand = SiteScope::brandOf($site);
         if ($brand === null || $brand->sector_id === null) {
@@ -81,7 +84,7 @@ final class ClusterPageMapper
 
         $status = 'ready';
         $aiCount = 0;
-        if ($groups !== [] && SiteScope::aiAllowed($brand)) {
+        if ($judge && $groups !== [] && SiteScope::aiAllowed($brand)) {
             foreach ($groups as $group) {
                 [$callStatus, $count] = $this->judge($brand, $group['items'], $group['byKey'], $hasGsc);
                 $aiCount += $count;
