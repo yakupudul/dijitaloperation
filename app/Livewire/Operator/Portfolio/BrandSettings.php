@@ -16,6 +16,7 @@ use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\Catalog\BrandCommercialContextService;
+use App\Services\Compliance\ForbiddenTermsLibrary;
 use App\Services\Integrations\BrandAccountCandidates;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
@@ -57,6 +58,9 @@ final class BrandSettings extends Component
 
     public string $constraints = '';
 
+    /** Markaya özel yasaklı ifadeler, one per line (only this brand's content). */
+    public string $forbidden = '';
+
     /** @var array<int|string, string> proposal id => edited name */
     public array $proposalNames = [];
 
@@ -81,6 +85,7 @@ final class BrandSettings extends Component
         $notes = $this->notesRow()?->data ?? [];
         $this->goals = (string) ($notes['goals'] ?? '');
         $this->constraints = (string) ($notes['constraints'] ?? '');
+        $this->forbidden = implode("\n", ForbiddenTermsLibrary::brandPhrases($brand));
     }
 
     public function saveSector(): void
@@ -200,6 +205,15 @@ final class BrandSettings extends Component
         $row = $this->notesRow() ?? new BrandMemory(['brand_id' => $this->brandId, 'kind' => 'profile', 'ref_type' => 'manual_notes']);
         $row->fill(['data' => ['goals' => trim($this->goals), 'constraints' => trim($this->constraints)], 'summary' => null, 'updated_at' => now()])->save();
         $this->message = 'Notlar kaydedildi.';
+    }
+
+    public function saveForbidden(ForbiddenTermsLibrary $library): void
+    {
+        $this->actor();
+        $this->validate(['forbidden' => ['nullable', 'string', 'max:10000']]);
+        $library->saveBrand($this->brand(), preg_split('/[\r\n,]+/', $this->forbidden) ?: []);
+        $this->forbidden = implode("\n", ForbiddenTermsLibrary::brandPhrases($this->brand()));
+        $this->message = 'Markaya özel yasaklı ifadeler kaydedildi.';
     }
 
     public function bind(OwnershipGuard $guard, UnassignedWebsites $websites): void

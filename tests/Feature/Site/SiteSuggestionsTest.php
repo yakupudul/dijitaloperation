@@ -327,8 +327,8 @@ final class SiteSuggestionsTest extends SiteTestCase
             ->assertSee('Özet')->assertSee('Sayfalar')->assertSee('Sorgular')->assertSee('Sağlık')->assertSee('Ayarlar')
             ->assertSee('Ana hizmet sayfaları')->assertSee('Başlığı güçlendir')->assertSee('Organik tıklama');
         $this->get(route('operator.website', ['assetId' => $this->site->id, 'tab' => 'health']))->assertOk()->assertSee('Site Sağlığı')->assertDontSee('Hazırlanıyor');
-        // Old "SEO Yapılacaklar › Kümeler & Sayfalar" link lands on Sorgular › Kümeler & Sayfalar.
-        $this->get(route('operator.website', ['assetId' => $this->site->id, 'tab' => 'seo', 'sub' => 'kumeler']))->assertOk()->assertSee('Kümeler &amp; Sayfalar', false)->assertSee('/implant/');
+        // Old "SEO Yapılacaklar › Kümeler & Sayfalar" link lands on Sorgular › İçerik fikirleri.
+        $this->get(route('operator.website', ['assetId' => $this->site->id, 'tab' => 'seo', 'sub' => 'kumeler']))->assertOk()->assertSee('data-content-ideas-tab', false);
 
         Livewire::test(ClustersPagesTab::class, ['assetId' => $this->site->id])
             ->call('run', SiteOperations::CATEGORIZE)

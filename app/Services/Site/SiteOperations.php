@@ -39,11 +39,20 @@ final class SiteOperations
     /** "Kümeleri içerikle karşılaştır": AI match + gaps of every cluster row (ClusterAudit). */
     public const string CLUSTER_AUDIT = 'cluster_audit';
 
-    /** "Eksikleri gider": a missing-topic suggestion from the row's gaps, prepared by "AI ile yap" (params: row_id). */
+    /**
+     * İçerik fikirleri "AI ile geliştir": a missing-topic suggestion from the idea row's gaps and recipe, prepared by
+     * "AI ile yap" (params: kind main | extra, id).
+     */
     public const string FIX_GAPS = 'fix_gaps';
 
-    /** "Konu üret": a content plan item (new blog / service page) for a cluster without a page (params: row_id). */
-    public const string CLUSTER_TOPIC = 'cluster_topic';
+    /** İçerik fikirleri "AI ile üret": a content plan item from the idea with no page, its article written (params: kind, id). */
+    public const string PRODUCE = 'produce';
+
+    /** İçerik fikirleri "Yeniden keşfet": match + gaps of one idea row on the stored pages (params: kind, id). */
+    public const string REDISCOVER = 'rediscover';
+
+    /** İçerik fikirleri "SEO analizi": the recipe of one idea row (params: kind, id). */
+    public const string RECIPE = 'recipe';
 
     /** Weekly refresh: new pages' categories, service ↔ page, cluster ↔ page, summaries of changed pages in use. */
     public const string WEEKLY_REFRESH = 'weekly_refresh';
@@ -55,7 +64,8 @@ final class SiteOperations
         self::CATEGORIZE => 'Sınıflandırma', self::SERVICE_PAGES => 'Hizmet ↔ sayfa', self::CLUSTER_PAGES => 'Küme ↔ sayfa',
         self::SUMMARIES => 'Sayfa özetleri', self::URL_ANALYSIS => 'URL analizi', self::APPLY_CHANGE => 'AI ile yap', self::STANDARD => 'Standart önerisi',
         self::WEEKLY_CONTENT => 'Haftalık içerik', self::DISCOVERY => 'Fırsat keşfi', self::WRITE_ARTICLE => 'Taslak', self::WEEKLY_REFRESH => 'Haftalık yenileme',
-        self::CLUSTER_AUDIT => 'Küme ↔ içerik', self::FIX_GAPS => 'Eksikleri gider', self::CLUSTER_TOPIC => 'Konu üret',
+        self::CLUSTER_AUDIT => 'Eşleştir', self::FIX_GAPS => 'AI ile geliştir', self::PRODUCE => 'AI ile üret', self::REDISCOVER => 'Yeniden keşfet',
+        self::RECIPE => 'SEO analizi',
     ];
 
     public function __construct(
@@ -68,6 +78,7 @@ final class SiteOperations
         private readonly ScopedStandards $standards,
         private readonly ContentPlanner $content,
         private readonly ClusterAudit $audit,
+        private readonly ContentRecipe $recipes,
     ) {}
 
     /** @param  array<string, mixed>  $params */
@@ -101,6 +112,7 @@ final class SiteOperations
     {
         $brand = SiteScope::brandOf($site);
         $suggestion = isset($params['suggestion_id']) ? Suggestion::query()->where('brand_id', $site->brand_id)->find((int) $params['suggestion_id']) : null;
+        $subject = isset($params['kind'], $params['id']) ? ContentIdeaSubject::find((int) $site->id, (string) $params['kind'], (int) $params['id']) : null;
 
         return match ($operation) {
             self::CATEGORIZE => $this->categorizer->categorize($site, (bool) ($params['only_new'] ?? false)),
@@ -115,46 +127,49 @@ final class SiteOperations
             self::WRITE_ARTICLE => $suggestion !== null ? $this->content->writeArticle($suggestion) : ['status' => 'no_suggestion'],
             self::WEEKLY_REFRESH => $this->weeklyRefresh($site),
             self::CLUSTER_AUDIT => $this->audit->run($site),
-            self::FIX_GAPS => $this->fixGaps($site, (int) ($params['row_id'] ?? 0)),
-            self::CLUSTER_TOPIC => $this->clusterTopic($site, (int) ($params['row_id'] ?? 0)),
+            self::FIX_GAPS => $subject !== null ? $this->fixGaps($subject) : ['status' => 'no_row'],
+            self::PRODUCE => $subject !== null ? $this->content->produce($subject) : ['status' => 'no_row'],
+            self::REDISCOVER => $subject === null ? ['status' => 'no_row'] : ($subject->kind === ContentIdeaSubject::MAIN
+                ? $this->audit->rediscover($subject->row) : $this->audit->rediscoverIdea($subject->row)),
+            self::RECIPE => $subject !== null ? $this->recipes->build($subject) : ['status' => 'no_row'],
             default => ['status' => 'unknown_operation'],
         };
     }
 
     /**
-     * The row's gaps become one missing-topic suggestion on its page (one per row, refreshed), then "AI ile yap"
-     * prepares the new version: shown side by side under Öneriler, Admin approves, WordPress gets it.
+     * "AI ile geliştir": the idea row's gaps and stored recipe become one missing-topic suggestion on its page (one
+     * per row, refreshed), then "AI ile yap" prepares the new version: compared side by side under Öneriler, Admin
+     * approves ("Güncelle"), WordPress gets it (ADR-070, undoable).
      *
      * @return array<string, mixed>
      */
-    private function fixGaps(DigitalAsset $site, int $rowId): array
+    private function fixGaps(ContentIdeaSubject $subject): array
     {
-        $row = BrandClusterPage::query()->with('cluster')->where('website_asset_id', $site->id)->find($rowId);
-        if ($row === null || $row->page_id === null || (array) $row->gaps === [] || $row->cluster === null) {
+        $row = $subject->row;
+        $gaps = $subject->gaps();
+        $steps = (array) data_get($row->recipe, 'steps', []);
+        if ($row->page_id === null || ($gaps === [] && $steps === [])) {
             return ['status' => 'no_gaps'];
         }
-        $gaps = (array) $row->gaps;
-        $fingerprint = hash('sha256', implode('|', [$row->brand_id, 'cluster-gaps', $row->id]));
+        $key = $subject->kind === ContentIdeaSubject::MAIN ? 'cluster-gaps' : 'idea-gaps';
+        $fingerprint = hash('sha256', implode('|', [$row->brand_id, $key, $row->id]));
         $suggestion = Suggestion::query()->where('brand_id', $row->brand_id)->where('fingerprint', $fingerprint)->first() ?? new Suggestion;
+        $lines = $gaps !== [] ? array_map(fn (array $g): string => (string) $g['text'], $gaps) : array_map(fn (array $s): string => (string) $s['action'], $steps);
         $suggestion->forceFill([
             'brand_id' => $row->brand_id, 'channel' => 'search', 'decision_key' => 'site.cluster_gaps', 'fingerprint' => $fingerprint,
-            'material_hash' => hash('sha256', json_encode($gaps) ?: ''), 'title' => mb_substr('Eksikleri gider: '.$row->cluster->name, 0, 160),
-            'reason' => mb_substr(implode(' · ', array_map(fn (array $g): string => (string) $g['text'], $gaps)), 0, 240), 'priority' => 2,
-            'evidence' => array_map(fn (array $g): array => ['kind' => 'gap', 'value' => (string) $g['text'], 'source' => 'küme · '.$g['kind']], $gaps),
+            'material_hash' => hash('sha256', json_encode([$gaps, $steps]) ?: ''), 'title' => mb_substr('Geliştir: '.$subject->title(), 0, 160),
+            'reason' => mb_substr(implode(' · ', $lines), 0, 240), 'priority' => 2,
+            'evidence' => $gaps !== [] ? array_map(fn (array $g): array => ['kind' => 'gap', 'value' => (string) $g['text'], 'source' => 'içerik fikri · '.$g['kind']], $gaps)
+                : array_map(fn (array $s): array => ['kind' => 'recipe', 'value' => (string) $s['action'], 'source' => 'SEO analizi'], $steps),
             'action_type' => 'missing_topic', 'target_type' => 'page', 'target_id' => (int) $row->page_id, 'page_id' => (int) $row->page_id,
-            'cluster_id' => (int) $row->cluster_id, 'status' => Suggestion::OPEN, 'first_seen_at' => $suggestion->first_seen_at ?? now(), 'last_seen_at' => now(),
-            'action' => array_merge((array) $suggestion->action, ['site_id' => (int) $site->id, 'gaps' => $gaps, 'row_id' => (int) $row->id]),
+            'cluster_id' => (int) $subject->cluster->id, 'status' => Suggestion::OPEN, 'first_seen_at' => $suggestion->first_seen_at ?? now(), 'last_seen_at' => now(),
+            'applied_at' => null,
+            'action' => array_merge(array_diff_key((array) $suggestion->action, array_flip(['proposal', 'writes'])), ['site_id' => (int) $subject->site->id, 'gaps' => $gaps,
+                'recipe' => array_filter(['steps' => $steps, 'seo_title' => data_get($row->recipe, 'seo_title'), 'meta_description' => data_get($row->recipe, 'meta_description')]),
+                'idea_title' => $subject->idea?->title] + $subject->params() + ($subject->kind === ContentIdeaSubject::MAIN ? ['row_id' => (int) $row->id] : [])),
         ])->save();
 
         return ['suggestion_id' => (int) $suggestion->id] + $this->changes->prepare($suggestion);
-    }
-
-    /** @return array<string, mixed> */
-    private function clusterTopic(DigitalAsset $site, int $rowId): array
-    {
-        $row = BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url'])->where('website_asset_id', $site->id)->find($rowId);
-
-        return $row === null ? ['status' => 'no_row'] : $this->content->weekly($site, collect([$row]));
     }
 
     /** @return array<string, mixed> */
@@ -228,6 +243,8 @@ final class SiteOperations
             'no_clusters' => 'onaylı küme yok',
             'no_queries' => 'sorgu yok',
             'no_brand' => 'marka / sektör yok',
+            'no_gaps' => 'giderilecek eksik yok',
+            'has_page' => 'sayfası var',
             'blocked' => 'uyum kuralına takıldı',
             'invalid' => 'AI çıktısı doğrulanamadı',
             'not_applicable' => 'bu öneri için uygulanamaz',
@@ -238,7 +255,7 @@ final class SiteOperations
     /** @param  array<string, mixed>  $params */
     private static function key(int $siteId, string $operation, array $params): string
     {
-        $subject = isset($params['suggestion_id']) ? ':'.$params['suggestion_id'] : '';
+        $subject = isset($params['suggestion_id']) ? ':'.$params['suggestion_id'] : (isset($params['kind'], $params['id']) ? ':'.$params['kind'].'-'.$params['id'] : '');
 
         return 'site-op:'.$siteId.':'.$operation.$subject;
     }

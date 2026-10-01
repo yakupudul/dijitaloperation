@@ -16,6 +16,7 @@ use App\Models\Query;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\Compliance\BriefCompliance;
+use App\Services\Compliance\ForbiddenTerms;
 use App\Services\ExternalWrites\ArticleDraft;
 use App\Services\ExternalWrites\ContentComplianceGate;
 use App\Services\ExternalWrites\ExternalWriteService;
@@ -246,6 +247,48 @@ final class ContentPlanner
         });
     }
 
+    /**
+     * İçerik fikirleri "AI ile üret" (blueprint §5.7): an idea row without a page becomes an İçerik plan item (title,
+     * page type, outline, AI questions, target URL from the site's URL pattern; an extra idea also carries its angle,
+     * target queries and the main idea's page to link to; the stored SEO analizi recipe goes along) and its article
+     * is written at once. Review and the WordPress draft (ADR-064) stay in the İçerik tab. Idempotent per title.
+     *
+     * @return array{status: string, suggestion_id?: int, message?: string}
+     */
+    public function produce(ContentIdeaSubject $subject): array
+    {
+        if ($subject->row->page_id !== null) {
+            return ['status' => 'has_page'];
+        }
+        $brand = $subject->brand();
+        if (! SiteScope::aiAllowed($brand)) {
+            return ['status' => 'not_operational'];
+        }
+        $site = $subject->site;
+        $title = $subject->title();
+        $folded = SeoText::fold($title);
+        $pageType = array_search($subject->type(), self::CLUSTER_PAGE_TYPES, true) ?: 'blog';
+        $sitePages = $this->sitePages($site);
+        $pattern = new SiteUrlPattern($sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'path' => (string) $p->path, 'cms_type' => $p->wp_post_type])->all());
+        $outline = $subject->idea !== null ? array_values((array) $subject->idea->outline) : array_values(array_filter((array) $subject->cluster->subtopics, 'is_string'));
+        $suggestion = Suggestion::query()->firstOrCreate(['brand_id' => $brand->id, 'fingerprint' => hash('sha256', implode('|', [$brand->id, 'content', $folded]))], [
+            'channel' => 'search', 'decision_key' => 'site.content', 'material_hash' => hash('sha256', $folded),
+            'title' => mb_substr($title, 0, 160), 'reason' => mb_substr((string) ($subject->idea?->angle ?? $subject->cluster->user_need ?? ''), 0, 240), 'priority' => 2,
+            'evidence' => [['kind' => 'cluster', 'value' => $subject->cluster->name.' · Sayfa yok', 'source' => 'İçerik fikirleri']],
+            'action_type' => SiteSuggestionTypes::CONTENT, 'target_type' => 'site', 'target_id' => $site->id, 'page_id' => null, 'cluster_id' => $subject->cluster->id,
+            'status' => Suggestion::OPEN, 'first_seen_at' => now(), 'last_seen_at' => now(),
+            'action' => ['site_id' => (int) $site->id, 'kind' => 'new', 'page_type' => $pageType,
+                'target_url' => $pattern->targetUrl(SiteScope::origin($site), self::URL_TYPES[$pageType], SeoText::slugify($title), (string) ($subject->cluster->service?->primaryName?->raw_label ?? '')),
+                'outline' => array_slice($outline, 0, 12), 'questions' => array_slice(ClusterAudit::aiQuestions($subject->cluster, $brand), 0, 10), 'out_of_cluster' => false, 'week' => now()->format('o-\WW')],
+        ]);
+        $suggestion->forceFill(['action' => array_merge((array) $suggestion->action, array_filter([
+            'angle' => $subject->idea?->angle, 'target_queries' => $subject->idea !== null ? array_column((array) $subject->idea->target_queries, 'text') : null,
+            'main_page_url' => $subject->mainPage()?->url, 'recipe' => data_get($subject->row->recipe, 'steps') ?: null,
+        ], fn (mixed $v): bool => $v !== null && $v !== []) + $subject->params())])->save();
+
+        return ['suggestion_id' => (int) $suggestion->id] + $this->writeArticle($suggestion);
+    }
+
     /** "Taslak hazırla": the article (validated, compliance-checked) is stored on the suggestion for review. @return array{status: string, message?: string} */
     public function writeArticle(Suggestion $suggestion): array
     {
@@ -264,14 +307,18 @@ final class ContentPlanner
         $language = SiteScope::primaryLanguage($site) ?? 'tr';
         $result = $this->ai->run(new WriteArticleAgent, [
             'plan' => ['title' => $suggestion->title, 'reason' => $suggestion->reason, 'page_type' => $action['page_type'] ?? 'blog', 'outline' => $action['outline'] ?? [],
-                'questions' => $action['questions'] ?? [], 'target_url' => $action['target_url'] ?? null, 'kind' => $action['kind'] ?? 'new'],
+                'questions' => $action['questions'] ?? [], 'target_url' => $action['target_url'] ?? null, 'kind' => $action['kind'] ?? 'new']
+                + array_filter(['angle' => $action['angle'] ?? null, 'target_queries' => $action['target_queries'] ?? null, 'main_page_url' => $action['main_page_url'] ?? null,
+                    'recipe' => isset($action['recipe']) ? array_map(fn (array $s): string => trim(($s['where'] ?? '') !== '' ? $s['where'].': '.$s['action'] : (string) ($s['action'] ?? '')), (array) $action['recipe']) : null]),
             'cluster' => $cluster !== null ? array_filter(['name' => $cluster->name, 'main_query' => $cluster->mainQuery?->text, 'subtopics' => $cluster->subtopics,
                 'queries' => $cluster->clusterQueries->map(fn (ClusterQuery $q): string => (string) $q->searchQuery?->text)->filter()->take(30)->values()->all(),
-                'ai_questions' => ClusterAudit::aiQuestions($cluster, $brand), 'service_areas' => ClusterAudit::serviceAreas($cluster, $brand) ?: null],
+                'ai_questions' => ClusterAudit::aiQuestions($cluster, $brand), 'service_areas' => ClusterAudit::serviceAreas($cluster, $brand) ?: null,
+                'benchmarks' => app(ClusterBenchmarks::class)->for($cluster, (int) $brand->id) ?: null],
                 fn (mixed $v): bool => $v !== null) : null,
             'brand' => $context['profile'], 'notes' => $context['notes'], 'standards' => $context['standards'], 'related_pages' => [...$context['pages'], ...$context['related_pages']],
             'language' => $language,
             'site_pages' => $sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title])->values()->all(),
+            'forbidden' => ForbiddenTerms::forBrand($brand)->phrases(),
         ], 600);
         if ($result['status'] !== 'ready') {
             return ['status' => $result['status']];
@@ -282,6 +329,11 @@ final class ContentPlanner
             $evidence->addNumbersFrom(['s' => $page['summary'], 'f' => $page['facts']]);
         }
         $html = $this->groundedHtml((string) ($data['html'] ?? ''), $evidence);
+        $main = (string) ($action['main_page_url'] ?? '');
+        if ($html !== '' && $main !== '' && ! str_contains($html, 'href="'.$main.'"') && ! str_contains($html, "href='".$main."'")) {
+            // An extra idea always links to its main idea's page (blueprint §4.1).
+            $html .= '<p>İlgili: <a href="'.e($main).'">'.e((string) ($cluster?->name ?? $main)).'</a></p>';
+        }
         $title = trim((string) ($data['title'] ?? ''));
         if ($html === '' || mb_strlen($title) < 5 || ! $evidence->grounded($title)) {
             return ['status' => 'invalid', 'message' => 'AI makalesi doğrulanamadı.'];
@@ -294,11 +346,19 @@ final class ContentPlanner
         ];
         $violations = ContentComplianceGate::blocking(app(ContentComplianceGate::class)->violations($brand, ArticleDraft::fromArray($article)));
         unset($action['article'], $action['article_blocked']);
+        $copy = $cluster !== null ? CopyCheck::check($html, ClusterBenchmarks::otherBrandTexts((int) $cluster->id, (int) $brand->id)) : ['ok' => true];
+        if ($violations === [] && ! $copy['ok']) {
+            $suggestion->forceFill(['action' => $action + ['article_blocked' => CopyCheck::message($copy)]])->save();
+
+            return ['status' => 'blocked', 'message' => CopyCheck::message($copy)];
+        }
         if ($violations !== []) {
             $suggestion->forceFill(['action' => $action + ['article_blocked' => ContentComplianceGate::summary($violations)]])->save();
 
             return ['status' => 'blocked', 'message' => ContentComplianceGate::summary($violations)];
         }
+        $warnings = ForbiddenTerms::forBrand($brand)->warnings(implode(' . ', [$article['title'], $article['meta_title'], $article['meta_description'], strip_tags($html)]));
+        $action['article_warnings'] = $warnings !== [] ? 'Uyarı (yasaklı ifade, uyar): «'.implode('», «', $warnings).'»' : null;
         $others = array_values(array_diff(SiteScope::languages($site), [$language]));
         $suggestion->forceFill(['action' => $action + ['article' => $article, 'article_note' => $others !== [] ? 'Diğer diller ('.implode(', ', $others).') atlandı: çeviri aracı yok.' : null]])->save();
 

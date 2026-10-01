@@ -5,8 +5,8 @@ namespace Tests\Feature\Site;
 use App\Jobs\Site\RunSiteOperationJob;
 use App\Livewire\Operator\Library\WebsiteStandardsPage;
 use App\Livewire\Operator\Website\V2\AnalysisTab;
-use App\Livewire\Operator\Website\V2\ClustersPagesTab;
 use App\Livewire\Operator\Website\V2\CompetitorsTab;
+use App\Livewire\Operator\Website\V2\ContentIdeasTab;
 use App\Livewire\Operator\Website\V2\SuggestionsTab;
 use App\Models\BrandClusterPage;
 use App\Models\BrandClusterSerp;
@@ -72,8 +72,8 @@ final class SiteScreenFixesTest extends SiteTestCase
         $this->assertSame([$english->id, $this->implantPage->id], $rows->pluck('page_id')->all());
 
         $tr = $rows->firstWhere('language', 'tr');
-        Livewire::test(ClustersPagesTab::class, ['assetId' => $this->site->id])
-            ->set('edit.'.$tr->id.'.extra', [(string) $guide->id])->call('saveCluster', $tr->id)->assertHasNoErrors();
+        Livewire::test(ContentIdeasTab::class, ['assetId' => $this->site->id])
+            ->set('edit.'.$tr->id.'.extra', [(string) $guide->id])->call('saveMain', $tr->id)->assertHasNoErrors();
         $tr->refresh();
         $this->assertSame([$guide->id], $tr->extra_page_ids);
         $this->assertSame([$this->implantPage->id, $guide->id], $tr->pageIds());
@@ -264,11 +264,11 @@ final class SiteScreenFixesTest extends SiteTestCase
         foreach (range(1, 60) as $i) {
             $this->page('/blog/yazi-'.$i.'/', 'Yazı '.$i, ['category' => 'blog']);
         }
-        Livewire::test(ClustersPagesTab::class, ['assetId' => $this->site->id])
+        Livewire::test(ContentIdeasTab::class, ['assetId' => $this->site->id])
             ->assertViewHas('pageOptions', fn (array $options): bool => count($options) === 50)
             ->set('pageSearch', 'yazi-7')
             ->assertViewHas('pageOptions', fn (array $options): bool => array_values($options) === ['/blog/yazi-7/'])
-            ->assertViewHas('clusterRows', fn ($rows): bool => $rows->perPage() === 50);
+            ->assertViewHas('groups', fn ($groups): bool => $groups->perPage() === 30);
     }
 
     public function test_sitemap_adds_only_non_wordpress_urls_for_connector_sites_and_prune_keeps_them(): void

@@ -205,7 +205,7 @@ final class SitePagesTest extends TestCase
     public function test_tabs_and_legacy_tab_ids_route_to_the_new_views(): void
     {
         $this->assertSame(['ozet', 'oneriler'], WebsiteScreen::resolve('seo', 'oneriler'));
-        $this->assertSame(['sorgular', 'eslestirme'], WebsiteScreen::resolve('seo', 'kumeler'));
+        $this->assertSame(['sorgular', 'fikirler'], WebsiteScreen::resolve('seo', 'kumeler'));
         $this->assertSame(['sorgular', 'kumeler'], WebsiteScreen::resolve('analiz', ''));
         $this->assertSame(['sorgular', 'donusumler'], WebsiteScreen::resolve('conversions', ''));
         $this->assertSame(['ozet', 'ozet'], WebsiteScreen::resolve('genel', ''));
@@ -218,7 +218,8 @@ final class SitePagesTest extends TestCase
         $this->get($url([]))->assertOk()->assertSee('data-overview', false)->assertSee('data-sub="oneriler"', false);
         $this->get($url(['tab' => 'sayfalar']))->assertOk()->assertSee('data-pages-tab', false)->assertSee('/implant');
         $this->get($url(['tab' => 'sayfalar', 'sayfa' => '/implant']))->assertOk()->assertSee('data-page-detail="/implant"', false);
-        $this->get($url(['tab' => 'sorgular']))->assertOk()->assertSee('data-analysis-tab', false)->assertSee('data-sub="eslestirme"', false)->assertDontSee('aria-label="Analiz sekmeleri"', false);
+        $this->get($url(['tab' => 'sorgular']))->assertOk()->assertSee('data-content-ideas-tab', false)->assertSee('data-sub="eslestirme"', false)->assertDontSee('aria-label="Analiz sekmeleri"', false);
+        $this->get($url(['tab' => 'sorgular', 'sub' => 'kumeler']))->assertOk()->assertSee('data-analysis-tab', false);
         $this->get($url(['tab' => 'analiz']))->assertOk()->assertSee('data-rows="clusters"', false);
         $this->get($url(['tab' => 'sorgular', 'sub' => 'sorgular']))->assertOk()->assertSee('data-rows="queries"', false)->assertSee('ankara implant');
         $this->get($url(['tab' => 'saglik']))->assertOk()->assertSee('Site Sağlığı');
@@ -228,7 +229,7 @@ final class SitePagesTest extends TestCase
 
         Livewire::test(WebsiteScreen::class, ['assetId' => (string) $this->site->id])
             ->call('setSub', 'oneriler')->assertSet('tab', 'ozet')->assertSet('sub', 'oneriler')
-            ->call('setTab', 'sorgular')->assertSet('sub', 'kumeler')
+            ->call('setTab', 'sorgular')->assertSet('sub', 'fikirler')
             ->call('setTab', 'ayarlar')->assertSet('sub', '');
         Livewire::test(SettingsTab::class, ['assetId' => $this->site->id])->assertSee('henüz toplanmadı');
         Livewire::test(LinkedAssetsTab::class, ['assetId' => $this->site->id])->assertOk();

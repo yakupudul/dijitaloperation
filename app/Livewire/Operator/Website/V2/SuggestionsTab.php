@@ -44,6 +44,8 @@ final class SuggestionsTab extends Component
     /** @var array<int, string> */
     public array $reasons = [];
 
+    /** Open suggestion; İçerik fikirleri "Önizle ve güncelle" links here with it. */
+    #[Url(as: 'oneri')]
     public ?int $openId = null;
 
     /** @var array{title?: string, rule?: string, condition?: string, exceptions?: string, scope?: string} */

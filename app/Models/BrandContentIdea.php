@@ -11,12 +11,12 @@ class BrandContentIdea extends Model
     public const array STATE_LABELS = ['sufficient' => 'Karşılıyor', 'improve' => 'Geliştirilmeli', 'no_page' => 'Sayfa yok', 'technical' => 'Teknik sorun'];
 
     /** @var list<string> */
-    protected $fillable = ['brand_id', 'content_idea_id', 'website_asset_id', 'page_id', 'state', 'coverage', 'gaps', 'reason', 'locked', 'audited_at'];
+    protected $fillable = ['brand_id', 'content_idea_id', 'website_asset_id', 'page_id', 'state', 'coverage', 'gaps', 'reason', 'locked', 'audited_at', 'recipe', 'recipe_at', 'rediscovered_at'];
 
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['gaps' => 'array', 'locked' => 'boolean', 'audited_at' => 'immutable_datetime'];
+        return ['gaps' => 'array', 'locked' => 'boolean', 'audited_at' => 'immutable_datetime', 'recipe' => 'array', 'recipe_at' => 'immutable_datetime', 'rediscovered_at' => 'immutable_datetime'];
     }
 
     /** @return BelongsTo<ContentIdea, $this> */
@@ -35,5 +35,11 @@ class BrandContentIdea extends Model
     public function page(): BelongsTo
     {
         return $this->belongsTo(Page::class);
+    }
+
+    /** @return BelongsTo<DigitalAsset, $this> */
+    public function website(): BelongsTo
+    {
+        return $this->belongsTo(DigitalAsset::class, 'website_asset_id');
     }
 }

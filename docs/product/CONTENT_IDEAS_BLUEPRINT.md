@@ -1,7 +1,7 @@
 # İçerik Fikirleri, Küme Sayfaları ve Sayfa Puanı — Ürün Kurgusu
 
 Durum: **Onaylandı** (2026-10-01, operatör). Kod bu belgeye göre yazılır; belgede olmayan davranış eklenmez.
-Uygulama: Faz 1 kodlandı.
+Uygulama: Faz 1–5 kodlandı (uygulama notları §11).
 
 İlgili belgeler: `SEARCH_DEMAND_INTELLIGENCE.md` (sorgular, kümeler), `SEO_TASKS.md`, ADR-064 / ADR-070 (WordPress
 taslak ve onaylı içerik güncelleme), sektör paketleri (`config/moxdop-sector-packs.php`).
@@ -500,3 +500,39 @@ Hepsi prompt kayıt sisteminde (prompt bilgisi ve düzenleme düğmesiyle) yer a
 3. Kopya eşikleri (§6.3): %15 ve 12 kelime.
 4. Reçete (§8.3) ayrı bir "SEO analizi" butonu olsun; "AI ile geliştir" reçeteyi uygulasın. (Alternatif: tek buton,
    reçete önizlemede.)
+
+---
+
+## 11. Uygulama notları (kodlarken düzeltilenler)
+
+- **Faz 2:** taslak başlık kontrolü 3–12 (AI'dan 5–10 istenir); en az bir hedef sorgu kümenin sorgusu olmalı.
+- **Faz 3 — yer:** "İçerik fikirleri" Web sitesi › Sorgular'ın ilk alt sekmesidir ve eski "Kümeler & Sayfalar"
+  alt sekmesindeki küme tablosunun yerini alır (küme ↔ sayfa düzenleme — hedef URL kilidi, ek URL, hedef sorgu,
+  hariç — satırdaki "Düzenle"de). O alt sekme "Sayfalar & hizmetler" adıyla yalnız sayfa sınıfı / hizmet / URL
+  analizi listesi olarak kalır. "Kümeler" alt sekmesi (dönem performans raporu) değişmedi.
+- **Durumlar:** dört duruma ek olarak iki ekran durumu: **İncelenmedi** (AI sayfayı henüz okumadı — "Eşleştir" /
+  "Yeniden keşfet") ve **Hariç** (bu markada hariç tutulan küme).
+- **Teknik sorun:** HTTP durumu yalnız sayfa HTTP ile çekildiyse bilinir (son HTML alımı); WordPress'ten gelen
+  sayfada noindex ve canonical kontrol edilir. Sisteme ayrıca bağlanılmaz.
+- **Önizleme ve onay:** "AI ile geliştir" yeni sürümü mevcut Öneriler akışında hazırlar; satırdaki "Önizle ve
+  güncelle" o öneriyi açar (eski ↔ yeni fark, uyum kapısı, "Onayla ve WordPress'e gönder", geri al). "AI ile üret"
+  makaleyi İçerik sekmesindeki içerik önerisine yazar; inceleme ve WordPress taslağı orada. Yeni yazma yolu yok.
+- **Ek fikir makalesi:** ana fikrin sayfasına bağlantı AI'a zorunlu olarak verilir; yazıda yoksa sona "İlgili:"
+  bağlantısı eklenir.
+- **Puan ve yanlış sayfa / çakışma:** gece puan hesabı kümenin sorgularında gösterim alan ilk 5 sayfayı ve
+  paylarını da saklar; gerekçe satırı ve "Eşleştir"in ilk adayı buradan gelir.
+- **Faz 4 — çıta:** başka markanın sayfası, gece puanı ≥ 60 ve "puanlandı" (veri az değil), en çok 3. İskelet: puan,
+  sıra, kapsam, tıklama oranı, H2–H4 başlık listesi, kelime sayısı, soru başlığı sayısı, kümenin alt konularından
+  işledikleri. Şema türleri saklanmadığı için iskelete girmez. Çıta; yeni fikir, SEO analizi, AI ile geliştir ve AI
+  ile üret paketlerine girer.
+- **Kopya kontrolü:** aynı kümeye atanmış diğer markaların sayfa metinleriyle; AI ile geliştir'de yalnız AI'ın
+  eklediği metin ölçülür (sayfanın kendi metni hariç). Takılan metin kaydedilmez; neden ve benzer cümleler
+  Öneriler / İçerik'te yazar, operatör yeniden üretir.
+- **Faz 5 — kayıt:** yasaklı ifadeler mevcut uyum kuralı tablosunda tutulur (tek kaynak): sektör paketi kuralları +
+  sektöre eklenen ifadeler (her ifade bir kural; şiddet engelle = high, uyar = low; kaynak elle / AI) + markaya özel
+  ifadeler (Marka › Ayarlar, marka başına bir kural). Paket kuralı silinmez, kapatılır. Aynı kurallar günlük uyum
+  taramasında ve WordPress kapısında da geçerlidir.
+- **Uygulama noktaları:** (1) fikir, SEO analizi, AI ile geliştir, AI ile üret paketlerinde `forbidden`;
+  (2) kayıttan önce tarama — engelle kaydedilmez, uyar önizlemede sarı satır; (3) WordPress'e göndermeden mevcut
+  kapı; (4) yasaklı ifade içeren fikir havuza girmez. SEO analizinde yasaklı ifade içeren adım atılır.
+

@@ -57,7 +57,8 @@
                             <div><p class="font-semibold text-gray-500">Taslak başlıklar</p><ul class="list-disc pl-4">@foreach ((array) ($a['outline'] ?? []) as $line)<li>{{ $line }}</li>@endforeach</ul></div>
                             <div><p class="font-semibold text-gray-500">AI asistanlarına sorulanlar</p><ul class="list-disc pl-4">@foreach ((array) ($a['questions'] ?? []) as $line)<li>{{ $line }}</li>@endforeach</ul></div>
                             @if ($draftStatus)<p class="text-gray-500 sm:col-span-2">Taslak: {{ $draftStatus }}</p>@endif
-                            @if (! empty($a['article_blocked']))<p class="text-rose-600 sm:col-span-2">Uyum kuralına takıldı: {{ $a['article_blocked'] }}</p>@endif
+                            @if (! empty($a['article_blocked']))<p class="text-rose-600 sm:col-span-2">{{ str_starts_with($a['article_blocked'], 'Kopya') ? '' : 'Uyum kuralına takıldı: ' }}{{ $a['article_blocked'] }}</p>@endif
+                            @if (! empty($a['article_warnings']))<p class="text-amber-700 sm:col-span-2" data-article-warnings>{{ $a['article_warnings'] }}</p>@endif
                             @if (is_array($a['article'] ?? null))
                                 <div class="sm:col-span-2" data-article>
                                     <p class="font-semibold">{{ $a['article']['title'] }} <span class="text-gray-500">· /{{ $a['article']['slug'] }}/ · {{ $a['article']['meta_description'] }}</span></p>

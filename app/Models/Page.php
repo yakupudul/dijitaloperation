@@ -81,6 +81,34 @@ class Page extends Model
         return $this->hasMany(OfferingPage::class);
     }
 
+    /**
+     * Heading texts in order; headings are stored as {level, text} (older rows / tests may hold plain strings).
+     *
+     * @return list<string>
+     */
+    public function headingTexts(): array
+    {
+        return array_values(array_filter(array_map(fn (mixed $h): string => trim(is_array($h) ? (string) ($h['text'] ?? '') : (string) (is_scalar($h) ? $h : '')),
+            (array) $this->headings), fn (string $t): bool => $t !== ''));
+    }
+
+    /**
+     * "H2 Başlık" lines (H2–H4) — the page skeleton without its text.
+     *
+     * @return list<string>
+     */
+    public function outline(): array
+    {
+        return array_values(array_filter(array_map(function (mixed $h): ?string {
+            if (! is_array($h)) {
+                return is_scalar($h) && trim((string) $h) !== '' ? 'H2 '.trim((string) $h) : null;
+            }
+            $level = (int) ($h['level'] ?? 0);
+
+            return $level >= 2 && $level <= 4 && trim((string) ($h['text'] ?? '')) !== '' ? 'H'.$level.' '.trim((string) $h['text']) : null;
+        }, (array) $this->headings)));
+    }
+
     public function categoryLabel(): string
     {
         return self::CATEGORY_LABELS[(string) $this->category] ?? '—';

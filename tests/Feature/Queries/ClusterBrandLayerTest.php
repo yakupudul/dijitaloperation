@@ -3,7 +3,7 @@
 namespace Tests\Feature\Queries;
 
 use App\Livewire\Operator\Library\QueriesPage;
-use App\Livewire\Operator\Website\V2\ClustersPagesTab;
+use App\Livewire\Operator\Website\V2\ContentIdeasTab;
 use App\Models\BrandClusterPage;
 use App\Models\BrandServiceArea;
 use App\Models\Cluster;
@@ -166,8 +166,8 @@ final class ClusterBrandLayerTest extends SiteTestCase
         $this->assertSame('https://panorama.com.tr/implant/', DB::table('brand_queries')->where('query_id', $cluster->main_query_id)->value('url'));
 
         // Website screen edits the same record through ClusterEditor; Sorgular shows it.
-        Livewire::test(ClustersPagesTab::class, ['assetId' => $this->site->id])
-            ->set("edit.{$row->id}.target", '')->set("edit.{$row->id}.excluded", true)->call('saveCluster', $row->id);
+        Livewire::test(ContentIdeasTab::class, ['assetId' => $this->site->id])
+            ->set("edit.{$row->id}.target", '')->set("edit.{$row->id}.excluded", true)->call('saveMain', $row->id);
         $row->refresh();
         $this->assertNull($row->target_query_override);
         $this->assertSame('ankara implant merkezi', $row->target_query, 'automatic target query again');

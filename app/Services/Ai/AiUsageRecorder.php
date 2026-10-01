@@ -60,6 +60,8 @@ final class AiUsageRecorder
         'ContentLocalizerAgent' => AiRouteKeys::CONTENT_LOCALIZE,
         'ArticleWriterAgent' => AiRouteKeys::CONTENT_ARTICLE,
         'ContentIdeasAgent' => AiRouteKeys::CONTENT_IDEAS,
+        'ContentRecipeAgent' => AiRouteKeys::SITE_CONTENT_RECIPE,
+        'ForbiddenTermsAgent' => AiRouteKeys::COMPLIANCE_FORBIDDEN_TERMS,
         'AssetSectorAgent' => AiRouteKeys::QUERIES_ASSET_SECTOR,
         'QueryClusterAgent' => AiRouteKeys::QUERIES_CLUSTER,
         'QueryClusterReviewAgent' => AiRouteKeys::QUERIES_CLUSTER_REVIEW,

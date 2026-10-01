@@ -14,6 +14,12 @@ use InvalidArgumentException;
  */
 final class SectorPackRegistry
 {
+    /** Rules of one sector without a pack (Sorgular › Yasaklı ifadeler): pack_id "sector:{code}". */
+    public const string SECTOR_PREFIX = 'sector:';
+
+    /** Brand-only rules (Marka › Ayarlar): pack_id "brand:{id}". */
+    public const string BRAND_PREFIX = 'brand:';
+
     /** @var array<string, SectorPack>|null */
     private ?array $packs = null;
 
@@ -79,15 +85,36 @@ final class SectorPackRegistry
         return $created;
     }
 
-    /** Active rules of the packs that apply to the brand. @return Collection<int, ComplianceRule> */
+    /**
+     * Active rules for the brand: its enabled sector packs, its sectors' own rules and its brand-only rules.
+     *
+     * @return Collection<int, ComplianceRule>
+     */
     public function rulesForBrand(Brand $brand): Collection
     {
         $packIds = array_map(fn (SectorPack $pack): string => $pack->id(), $this->forBrand($brand));
-        if ($packIds === []) {
-            return collect();
+        if ($packIds !== []) {
+            $this->syncDefaults();
         }
-        $this->syncDefaults();
+        $scopes = [...$packIds, ...array_map(fn (string $code): string => self::SECTOR_PREFIX.$code, $brand->sectorCodes()), self::BRAND_PREFIX.$brand->id];
 
-        return ComplianceRule::query()->whereIn('pack_id', $packIds)->where('active', true)->orderBy('id')->get();
+        return ComplianceRule::query()->whereIn('pack_id', $scopes)->where('active', true)->orderBy('id')->get();
+    }
+
+    /**
+     * Rules of one sector (no brand): enabled packs covering the sector code and the sector's own rules.
+     *
+     * @return Collection<int, ComplianceRule>
+     */
+    public function rulesForSector(string $code, bool $activeOnly = true): Collection
+    {
+        $packIds = array_values(array_map(fn (SectorPack $pack): string => $pack->id(),
+            array_filter($this->all(), fn (SectorPack $pack): bool => $this->isEnabled($pack->id()) && in_array($code, $pack->sectorCodes(), true))));
+        if ($packIds !== []) {
+            $this->syncDefaults();
+        }
+
+        return ComplianceRule::query()->whereIn('pack_id', [...$packIds, self::SECTOR_PREFIX.$code])
+            ->when($activeOnly, fn ($q) => $q->where('active', true))->orderBy('id')->get();
     }
 }

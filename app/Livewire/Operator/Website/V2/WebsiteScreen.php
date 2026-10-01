@@ -13,8 +13,8 @@ use Livewire\Component;
 
 /**
  * Web sitesi ekranı: Özet (trafik, ana hizmet sayfaları, açık işler · Öneriler · İçerik · Rakipler · Backlinkler) |
- * Sayfalar (URL başına envanter × Search Console × GA4 × Google Ads × sağlık) | Sorgular (Kümeler · Hedef sorgular ·
- * Sorgular · Dönüşümler · Kümeler & Sayfalar) | Sağlık | Ayarlar (+ bağlı varlıklar, veri toplama durumu). Each view
+ * Sayfalar (URL başına envanter × Search Console × GA4 × Google Ads × sağlık) | Sorgular (İçerik fikirleri · Kümeler ·
+ * Hedef sorgular · Sorgular · Dönüşümler · Sayfalar & hizmetler) | Sağlık | Ayarlar (+ bağlı varlıklar, veri toplama durumu). Each view
  * is its own component that reads stored results only. Old tab ids keep working through LEGACY_TABS.
  */
 #[Layout('operator.layouts.app')]
@@ -26,7 +26,7 @@ final class WebsiteScreen extends Component
     /** Second row of a tab (first entry = default). */
     public const array SUBS = [
         'ozet' => ['ozet' => 'Özet', 'oneriler' => 'Öneriler', 'icerik' => 'İçerik', 'rakipler' => 'Rakipler', 'backlinkler' => 'Backlinkler'],
-        'sorgular' => ['kumeler' => 'Kümeler', 'hedef' => 'Hedef sorgular', 'sorgular' => 'Sorgular', 'donusumler' => 'Dönüşümler', 'eslestirme' => 'Kümeler & Sayfalar'],
+        'sorgular' => ['fikirler' => 'İçerik fikirleri', 'kumeler' => 'Kümeler', 'hedef' => 'Hedef sorgular', 'sorgular' => 'Sorgular', 'donusumler' => 'Dönüşümler', 'eslestirme' => 'Sayfalar & hizmetler'],
     ];
 
     /** tab or tab.sub → components (rendered in order) and their extra mount parameters. */
@@ -37,6 +37,7 @@ final class WebsiteScreen extends Component
         'ozet.rakipler' => [[CompetitorsTab::class, []]],
         'ozet.backlinkler' => [[BacklinksTab::class, []]],
         'sayfalar' => [[PagesTab::class, []]],
+        'sorgular.fikirler' => [[ContentIdeasTab::class, []]],
         'sorgular.kumeler' => [[AnalysisTab::class, ['fixed' => 'clusters']]],
         'sorgular.hedef' => [[AnalysisTab::class, ['fixed' => 'targets']]],
         'sorgular.sorgular' => [[AnalysisTab::class, ['fixed' => 'queries']]],
@@ -82,7 +83,7 @@ final class WebsiteScreen extends Component
     {
         if ($tab === 'seo') {
             // Old "SEO Yapılacaklar": Kümeler & Sayfalar moved under Sorgular, the rest under Özet.
-            return in_array($sub, ['', 'kumeler'], true) ? ['sorgular', 'eslestirme'] : self::resolve('ozet', $sub);
+            return in_array($sub, ['', 'kumeler'], true) ? ['sorgular', 'fikirler'] : self::resolve('ozet', $sub);
         }
         $target = self::LEGACY_TABS[$tab] ?? $tab;
         if (str_contains($target, '.')) {

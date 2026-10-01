@@ -9,6 +9,7 @@ use App\Models\Cluster;
 use App\Models\ContentIdea;
 use App\Models\Page;
 use App\Models\User;
+use App\Services\Compliance\ForbiddenTerms;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +27,10 @@ final class ContentIdeaPool
 
     private const int SITE_PAGES = 80;
 
-    public function __construct(private readonly SiteAi $ai) {}
+    public function __construct(
+        private readonly SiteAi $ai,
+        private readonly ClusterBenchmarks $benchmarks,
+    ) {}
 
     public static function cacheKey(int $clusterId): string
     {
@@ -52,10 +56,12 @@ final class ContentIdeaPool
                     : collect((array) $cluster->ai_queries)->map(fn ($q): string => (string) $q)->values()->all(),
             ],
             'existing_ideas' => $existing->where('status', 'active')->map(fn (ContentIdea $i): array => ['title' => $i->title, 'type' => $i->type])->values()->all(),
-            'benchmarks' => [],
+            'benchmarks' => $this->benchmarks->for($cluster, $brand?->id),
             'forbidden' => [],
             'count' => $count,
         ];
+        $forbidden = $brand !== null ? ForbiddenTerms::forBrand($brand) : ForbiddenTerms::forSector($cluster->sector_id !== null ? (int) $cluster->sector_id : null);
+        $data['forbidden'] = $forbidden->phrases();
         if ($brand !== null) {
             $data['brand'] = $this->brandContext($brand);
             $data['site_pages'] = $this->sitePages($brand);
@@ -76,6 +82,10 @@ final class ContentIdeaPool
             $title = trim(mb_substr((string) ($row['title'] ?? ''), 0, 200));
             $key = SeoText::fold($title);
             $reason = $this->rejection($row, $title, $key, $taken, $inCluster);
+            $banned = $reason === null ? $forbidden->blocking(implode(' . ', [$title, (string) ($row['angle'] ?? ''), ...$this->outline($row)])) : [];
+            if ($banned !== []) {
+                $reason = 'Yasaklı ifade içeriyor: «'.implode('», «', $banned).'».';
+            }
             if ($reason !== null) {
                 $rejected[] = ['title' => $title !== '' ? $title : '(başlıksız)', 'reason' => $reason];
 

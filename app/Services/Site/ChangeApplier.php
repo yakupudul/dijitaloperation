@@ -10,6 +10,7 @@ use App\Models\ExternalWriteAction;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\Compliance\ForbiddenTerms;
 use App\Services\ExternalWrites\ArticleDraft;
 use App\Services\ExternalWrites\ContentComplianceGate;
 use App\Services\ExternalWrites\ExternalWriteService;
@@ -59,6 +60,8 @@ final class ChangeApplier
                 'headings' => array_values((array) $page->headings), 'content' => mb_substr((string) $page->content_text, 0, 12000)],
             'current_html' => $html !== null ? mb_substr($html, 0, self::MAX_HTML) : null,
             'site_pages' => $sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title])->all(),
+            'technical' => PageTechnical::of($page),
+            'forbidden' => ForbiddenTerms::forBrand($brand)->phrases(),
             'brand' => $context['profile'], 'notes' => $context['notes'], 'standards' => $context['standards'], 'decisions' => $context['decisions'],
         ] + $this->clusterPack($suggestion, $brand), 300);
         if ($result['status'] !== 'ready') {
@@ -75,38 +78,62 @@ final class ChangeApplier
             'reference' => 'suggestion-'.$suggestion->id, 'meta_title' => (string) ($proposal['new']['seo_title'] ?? ''), 'meta_description' => (string) ($proposal['new']['meta_description'] ?? ''),
         ])));
         $action = (array) $suggestion->action;
+        if ($violations === [] && isset($proposal['new']['html']) && $suggestion->cluster_id !== null) {
+            // Kopya kontrolü: only what the AI added is compared with other brands' pages of the cluster.
+            $copy = CopyCheck::check((string) $proposal['new']['html'], ClusterBenchmarks::otherBrandTexts((int) $suggestion->cluster_id, (int) $brand->id),
+                (string) $page->content_text.' '.strip_tags((string) $html));
+            if (! $copy['ok']) {
+                unset($action['proposal']);
+                $suggestion->forceFill(['action' => $action + ['proposal_blocked' => CopyCheck::message($copy)]])->save();
+
+                return ['status' => 'blocked', 'message' => CopyCheck::message($copy)];
+            }
+        }
         if ($violations !== []) {
             unset($action['proposal']);
             $suggestion->forceFill(['action' => $action + ['proposal_blocked' => ContentComplianceGate::summary($violations)]])->save();
 
             return ['status' => 'blocked', 'message' => ContentComplianceGate::summary($violations)];
         }
-        unset($action['proposal_blocked']);
+        unset($action['proposal_blocked'], $action['proposal_warnings']);
+        $warnings = ForbiddenTerms::forBrand($brand)->warnings(implode(' . ', [(string) ($proposal['new']['seo_title'] ?? ''), (string) ($proposal['new']['meta_description'] ?? ''),
+            strip_tags((string) ($proposal['new']['html'] ?? ''))]));
+        if ($warnings !== []) {
+            $action['proposal_warnings'] = 'Uyarı (yasaklı ifade, uyar): «'.implode('», «', $warnings).'»';
+        }
         $suggestion->forceFill(['action' => array_merge($action, ['proposal' => $proposal + ['prepared_at' => now()->toIso8601String(), 'prompt_version_id' => $result['prompt_version_id']]])])->save();
 
         return ['status' => 'ready'];
     }
 
     /**
-     * "Eksikleri gider": the cluster the gaps come from — gaps, top queries, AI questions and (local needs only) the
-     * brand's service areas.
+     * "AI ile geliştir" (İçerik fikirleri): the cluster the gaps come from — gaps, the stored SEO analizi recipe, the
+     * extra idea's title, top queries, AI questions and (local needs only) the brand's service areas.
      *
      * @return array<string, mixed>
      */
     private function clusterPack(Suggestion $suggestion, Brand $brand): array
     {
-        $gaps = (array) (((array) $suggestion->action)['gaps'] ?? []);
-        $cluster = $gaps !== [] && $suggestion->cluster_id !== null ? Cluster::query()->with('clusterQueries.searchQuery')->find($suggestion->cluster_id) : null;
+        $action = (array) $suggestion->action;
+        $gaps = (array) ($action['gaps'] ?? []);
+        $recipe = (array) ($action['recipe'] ?? []);
+        $cluster = ($gaps !== [] || $recipe !== []) && $suggestion->cluster_id !== null ? Cluster::query()->with('clusterQueries.searchQuery')->find($suggestion->cluster_id) : null;
         if ($cluster === null) {
             return [];
         }
 
         return ['cluster' => array_filter([
             'name' => (string) $cluster->name,
+            'idea' => $action['idea_title'] ?? null,
             'gaps' => array_values(array_map(fn (array $g): string => (string) ($g['text'] ?? ''), $gaps)),
+            'recipe' => $recipe !== [] ? array_filter([
+                'steps' => array_values(array_map(fn (array $s): string => trim(($s['where'] ?? '') !== '' ? $s['where'].': '.$s['action'] : (string) $s['action']), (array) ($recipe['steps'] ?? []))),
+                'seo_title' => $recipe['seo_title'] ?? null, 'meta_description' => $recipe['meta_description'] ?? null,
+            ]) : null,
             'queries' => $cluster->clusterQueries->where('is_suggested', false)->map(fn ($q): string => (string) $q->searchQuery?->text)->filter()->take(25)->values()->all(),
             'ai_questions' => ClusterAudit::aiQuestions($cluster, $brand),
             'service_areas' => ClusterAudit::serviceAreas($cluster, $brand) ?: null,
+            'benchmarks' => app(ClusterBenchmarks::class)->for($cluster, (int) $brand->id) ?: null,
         ], fn (mixed $v): bool => $v !== null)];
     }
 

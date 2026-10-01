@@ -104,6 +104,12 @@ final class AiRouteKeys
     /** "Yeni fikir üret" (CONTENT_IDEAS_BLUEPRINT §4.3): extra content ideas of one cluster for the system-wide pool. */
     public const string CONTENT_IDEAS = 'content.ideas';
 
+    /** "SEO analizi" (CONTENT_IDEAS_BLUEPRINT §8.3): the recipe for one content idea of a brand's site. */
+    public const string SITE_CONTENT_RECIPE = 'site.content_recipe';
+
+    /** Sorgular › Yasaklı ifadeler "AI ile öner" (CONTENT_IDEAS_BLUEPRINT §7): candidate forbidden phrases of a sector. */
+    public const string COMPLIANCE_FORBIDDEN_TERMS = 'compliance.forbidden_terms';
+
     /** Faz 3 "AI ile kural üret": selected queries → new filter basket terms + new matching keywords per service (one call). */
     public const string QUERIES_FILTER_RULES = 'queries.filter_rules';
 

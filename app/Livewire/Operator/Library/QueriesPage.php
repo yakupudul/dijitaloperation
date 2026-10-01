@@ -9,12 +9,14 @@ use App\Jobs\Queries\ClusterQueriesJob;
 use App\Jobs\Queries\ProposeQueryRulesJob;
 use App\Jobs\Queries\RescanQueriesJob;
 use App\Jobs\Site\GenerateContentIdeasJob;
+use App\Jobs\Site\SuggestForbiddenTermsJob;
 use App\Livewire\Concerns\PreviewsKeywordImpact;
 use App\Models\Brand;
 use App\Models\BrandClusterPage;
 use App\Models\BrandOffering;
 use App\Models\Cluster;
 use App\Models\ClusterQuery;
+use App\Models\ComplianceRule;
 use App\Models\ContentIdea;
 use App\Models\DigitalAsset;
 use App\Models\FilterTerm;
@@ -28,6 +30,8 @@ use App\Models\ServiceCategory;
 use App\Models\ServiceMatchingKeyword;
 use App\Models\User;
 use App\Services\Catalog\ServiceKeywordService;
+use App\Services\Compliance\ForbiddenTermsLibrary;
+use App\Services\Compliance\SectorPackRegistry;
 use App\Services\Queries\ClusterEditor;
 use App\Services\Queries\KeywordInsights;
 use App\Services\Queries\PendingQueries;
@@ -72,7 +76,7 @@ final class QueriesPage extends Component
     use PreviewsKeywordImpact;
     use WithPagination;
 
-    public const array TABS = ['queries' => 'Sorgular', 'pending' => 'Bekleyenler', 'deletions' => 'Silinecekler', 'clusters' => 'Kümeler', 'filters' => 'Filtre sepeti', 'keywords' => 'Eşleme kelimeleri'];
+    public const array TABS = ['queries' => 'Sorgular', 'pending' => 'Bekleyenler', 'deletions' => 'Silinecekler', 'clusters' => 'Kümeler', 'filters' => 'Filtre sepeti', 'keywords' => 'Eşleme kelimeleri', 'forbidden' => 'Yasaklı ifadeler'];
 
     private const int NEGATIVE_LINES = 30;
 
@@ -168,6 +172,13 @@ final class QueriesPage extends Component
 
     /** "Yeni fikir üret": how many ideas (1–5). */
     public string $ideaCount = '3';
+
+    /** Yasaklı ifadeler: new phrase form. */
+    public string $forbiddenPhrase = '';
+
+    public string $forbiddenReason = '';
+
+    public string $forbiddenSeverity = ForbiddenTermsLibrary::SEVERITY_BLOCK;
 
     public string $brandId = '';
 
@@ -570,6 +581,80 @@ final class QueriesPage extends Component
         $this->actor();
         ContentIdea::query()->where('cluster_id', $this->openedCluster()->id)->whereKey($id)->update(['status' => 'archived']);
         $this->message = 'Fikir arşivlendi.';
+    }
+
+    // ── Yasaklı ifadeler ─────────────────────────────────────────────────────
+
+    public function addForbidden(ForbiddenTermsLibrary $library): void
+    {
+        $this->actor();
+        $library->add($this->forbiddenSector(), $this->forbiddenPhrase, $this->forbiddenReason, $this->forbiddenSeverity);
+        $this->reset('forbiddenPhrase', 'forbiddenReason');
+        $this->message = 'Yasaklı ifade eklendi · tüm içerik AI işlerine ve WordPress kapısına uygulanır.';
+    }
+
+    /** Pack rules are switched off / on (kept as the operator's edit); the sector's own rules too. */
+    public function toggleForbidden(int $id): void
+    {
+        $this->actor();
+        $rule = $this->forbiddenRule($id);
+        $rule->forceFill(['active' => ! $rule->active, 'origin' => $rule->origin === 'pack' ? 'operator' : $rule->origin])->save();
+    }
+
+    /** Only the sector's own phrases are deleted; pack rules are switched off instead. */
+    public function deleteForbidden(int $id): void
+    {
+        $this->actor();
+        $rule = $this->forbiddenRule($id);
+        abort_unless(str_starts_with((string) $rule->pack_id, SectorPackRegistry::SECTOR_PREFIX), 403);
+        $rule->delete();
+        $this->message = 'İfade silindi.';
+    }
+
+    public function suggestForbidden(): void
+    {
+        $this->actor();
+        $sector = $this->forbiddenSector();
+        if ((Cache::get(ForbiddenTermsLibrary::cacheKey($sector->id))['status'] ?? null) === 'running') {
+            return;
+        }
+        Cache::put(ForbiddenTermsLibrary::cacheKey($sector->id), ['status' => 'running', 'items' => []], now()->addHour());
+        SuggestForbiddenTermsJob::dispatch((int) $sector->id);
+        $this->message = 'AI aday ifadeler hazırlıyor · tek tek onaylarsın.';
+    }
+
+    /** Approve one AI candidate (it becomes a rule with origin ai) or drop it. */
+    public function decideForbidden(int $index, bool $accept, ForbiddenTermsLibrary $library): void
+    {
+        $this->actor();
+        $sector = $this->forbiddenSector();
+        $state = Cache::get(ForbiddenTermsLibrary::cacheKey($sector->id));
+        $item = $state['items'][$index] ?? null;
+        if (! is_array($item)) {
+            return;
+        }
+        if ($accept) {
+            $library->add($sector, $item['phrase'], $item['reason'], $item['severity'], 'ai');
+        }
+        unset($state['items'][$index]);
+        $state['items'] = array_values($state['items']);
+        Cache::put(ForbiddenTermsLibrary::cacheKey($sector->id), $state, now()->addDays(2));
+    }
+
+    private function forbiddenSector(): ServiceCategory
+    {
+        abort_unless(ctype_digit($this->sector), 422, 'Sektör seçin.');
+
+        return ServiceCategory::query()->findOrFail((int) $this->sector);
+    }
+
+    private function forbiddenRule(int $id): ComplianceRule
+    {
+        $sector = $this->forbiddenSector();
+        $rule = app(ForbiddenTermsLibrary::class)->rules($sector)->firstWhere('id', $id);
+        abort_if($rule === null, 404);
+
+        return $rule;
     }
 
     public function closeCluster(): void
@@ -1295,6 +1380,8 @@ final class QueriesPage extends Component
             ? Cluster::query()->with(['mainQuery', 'clusterQueries.searchQuery', 'brandPages.brand:id,name', 'brandPages.page:id,url,path'])->find($this->openClusterId) : null;
         $affected = $openCluster !== null ? app(ClusterEditor::class)->affectedBrands($openCluster) : collect();
         $ideaStatus = $openCluster !== null ? Cache::get(ContentIdeaPool::cacheKey((int) $openCluster->id)) : null;
+        $forbiddenSector = $this->tab === 'forbidden' && ctype_digit($this->sector) ? ServiceCategory::query()->find((int) $this->sector) : null;
+        $forbiddenSuggest = $forbiddenSector !== null ? Cache::get(ForbiddenTermsLibrary::cacheKey((int) $forbiddenSector->id)) : null;
         $pending = $this->tab === 'pending' ? $this->pendingList() : null;
         $reviewCounts = QueryRescanner::openCounts();
         $reviewRunning = QueryReview::query()->where('status', QueryReview::RUNNING)->where('created_at', '>', now()->subHour())->exists();
@@ -1342,11 +1429,13 @@ final class QueriesPage extends Component
             'keptCount' => $this->tab === 'deletions' ? QueryReviewItem::query()->where('kind', $this->reviewKind)->whereNotNull('kept_at')->count() : 0,
             'negCatches' => $this->negOpen ? collect($this->negativeLines())->mapWithKeys(fn (string $term): array => [$term => QueryRuleProposer::catches($term, $this->negIds)])->all() : [],
             'keywordServices' => $this->tab === 'keywords' ? $this->keywordServices() : null,
+            'forbiddenRules' => $forbiddenSector !== null ? app(ForbiddenTermsLibrary::class)->rules($forbiddenSector) : null,
+            'forbiddenSuggest' => $forbiddenSuggest,
             ...$this->keywordInsights(),
             'proposal' => $proposal,
             'clusterStatus' => is_array($clusterStatus) ? $clusterStatus : null,
             'polling' => ($proposal['status'] ?? null) === 'running' || ($clusterStatus['status'] ?? null) === 'running' || $this->negAwaiting
-                || $overviewRunning || ($clusterQueue['status'] ?? null) === 'running' || ($ideaStatus['status'] ?? null) === 'running'
+                || $overviewRunning || ($clusterQueue['status'] ?? null) === 'running' || ($ideaStatus['status'] ?? null) === 'running' || ($forbiddenSuggest['status'] ?? null) === 'running'
                 || ($assign['status'] ?? null) === 'running' || ($filterProposal['status'] ?? null) === 'running' || ($scan['status'] ?? null) === 'running' || ($this->tab === 'deletions' && $reviewRunning),
         ]);
     }

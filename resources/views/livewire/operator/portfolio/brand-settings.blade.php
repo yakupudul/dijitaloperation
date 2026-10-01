@@ -105,6 +105,14 @@
         <button type="button" wire:click="saveNotes" class="{{ $btn }} mt-2">Kaydet</button>
     </section>
 
+    {{-- Markaya özel yasaklı ifadeler --}}
+    <section class="{{ $card }}" data-section="forbidden">
+        <h2 class="font-semibold">Markaya özel yasaklı ifadeler</h2>
+        <p class="text-xs text-gray-500">Her satıra bir ifade. Yalnız bu markanın içeriklerinde geçerli; sektörün yasaklı ifadelerine (Sorgular › Yasaklı ifadeler) eklenir.</p>
+        <textarea wire:model="forbidden" rows="3" aria-label="Markaya özel yasaklı ifadeler" class="{{ $input }} mt-2 w-full"></textarea>
+        <button type="button" wire:click="saveForbidden" class="{{ $btn }} mt-2">Kaydet</button>
+    </section>
+
     {{-- Varlıklar --}}
     <section class="{{ $card }}" data-section="assets">
         <h2 class="font-semibold">Varlıklar · {{ $assets->count() }}</h2>

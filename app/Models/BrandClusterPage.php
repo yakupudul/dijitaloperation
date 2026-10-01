@@ -39,6 +39,9 @@ class BrandClusterPage extends Model
         'locked',
         'extra_page_ids',
         'excluded',
+        'recipe',
+        'recipe_at',
+        'rediscovered_at',
     ];
 
     /** @return array<string, string> */
@@ -54,6 +57,9 @@ class BrandClusterPage extends Model
             'impressions_28d' => 'integer',
             'position_28d' => 'float',
             'refreshed_at' => 'immutable_datetime',
+            'recipe' => 'array',
+            'recipe_at' => 'immutable_datetime',
+            'rediscovered_at' => 'immutable_datetime',
         ];
     }
 

@@ -29,7 +29,7 @@
             <option value="">Tüm sektörler</option>
             @foreach ($sectors as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
         </select>
-        @if (! in_array($tab, ['filters', 'keywords', 'pending', 'deletions'], true))
+        @if (! in_array($tab, ['filters', 'keywords', 'pending', 'deletions', 'forbidden'], true))
             <select wire:model.live="service" aria-label="Hizmet" class="{{ $input }}">
                 <option value="">Tüm hizmetler</option>
                 @if ($tab === 'queries')<option value="__any">Atanmış</option><option value="__none">Atanmamış</option>@endif
@@ -946,5 +946,59 @@
                 @endif
             </div>
         </div>
+    @endif
+
+    {{-- Yasaklı ifadeler --}}
+    @if ($tab === 'forbidden')
+        <section class="{{ $card }} space-y-3 text-xs" data-section="forbidden">
+            @if ($forbiddenRules === null)
+                <p class="text-gray-500">Bir sektör seçin. Yasaklı ifadeler sektör paketi kuralları ve sektöre eklenenlerle tek kaynaktır; tüm içerik AI işlerine (fikir, SEO analizi, geliştir, üret), kayıttan önceki taramaya ve WordPress kapısına uygulanır. Markaya özel ifadeler Marka › Ayarlar'da.</p>
+            @else
+                <div class="flex flex-wrap items-end gap-2">
+                    <input type="text" wire:model="forbiddenPhrase" placeholder="İfade (ör. garantili sonuç)" aria-label="İfade" class="{{ $input }} w-56">
+                    <input type="text" wire:model="forbiddenReason" placeholder="Neden" aria-label="Neden" class="{{ $input }} w-72">
+                    <select wire:model="forbiddenSeverity" aria-label="Şiddet" class="{{ $input }}"><option value="high">engelle</option><option value="low">uyar</option></select>
+                    <button type="button" wire:click="addForbidden" class="{{ $btn }}">Ekle</button>
+                    <button type="button" wire:click="suggestForbidden" @disabled(($forbiddenSuggest['status'] ?? null) === 'running') class="{{ $ghost }}">AI ile öner</button>
+                    <x-operator.ai-prompt-info operation="compliance.forbidden_terms" />
+                    @error('forbiddenPhrase')<span class="text-rose-600">{{ $message }}</span>@enderror
+                </div>
+                @if (($forbiddenSuggest['status'] ?? null) === 'running')<p class="text-brand-600">AI aday ifadeler hazırlıyor…</p>
+                @elseif (in_array($forbiddenSuggest['status'] ?? null, ['error', 'no_provider'], true))<p class="text-rose-600">Öneri alınamadı.</p>@endif
+                @if (! empty($forbiddenSuggest['items']))
+                    <div class="rounded-lg bg-gray-50 p-2 dark:bg-gray-950" data-forbidden-suggestions>
+                        <p class="mb-1 font-semibold">AI önerileri · tek tek onayla</p>
+                        @foreach ($forbiddenSuggest['items'] as $i => $item)
+                            <div wire:key="fs-{{ $i }}-{{ md5($item['phrase']) }}" class="flex flex-wrap items-center gap-2 py-0.5">
+                                <span class="font-medium">{{ $item['phrase'] }}</span>
+                                <span class="text-gray-500">{{ $item['reason'] }} · {{ \App\Services\Compliance\ForbiddenTerms::SEVERITY_LABELS[$item['severity']] ?? $item['severity'] }}</span>
+                                <button type="button" wire:click="decideForbidden({{ $i }}, true)" class="{{ $ghost }}">Onayla</button>
+                                <button type="button" wire:click="decideForbidden({{ $i }}, false)" class="text-gray-500 hover:text-rose-600">Geç</button>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+                <table class="w-full text-left">
+                    <thead class="text-gray-500"><tr><th class="py-1">İfade</th><th>Neden</th><th>Şiddet</th><th>Kaynak</th><th></th></tr></thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @forelse ($forbiddenRules as $rule)
+                            @php $own = str_starts_with((string) $rule->pack_id, \App\Services\Compliance\SectorPackRegistry::SECTOR_PREFIX); @endphp
+                            <tr wire:key="fr-{{ $rule->id }}" @class(['opacity-50' => ! $rule->active])>
+                                <td class="py-1 font-medium">{{ implode(', ', array_slice((array) $rule->patterns, 0, 12)) }}{{ count((array) $rule->patterns) > 12 ? ' …' : '' }}</td>
+                                <td class="text-gray-500">{{ $own ? $rule->message : $rule->label.' · '.$rule->message }}</td>
+                                <td>{{ \App\Services\Compliance\ForbiddenTerms::SEVERITY_LABELS[$rule->severity] ?? $rule->severity }}</td>
+                                <td>{{ $own ? (['ai' => 'AI', 'operator' => 'elle'][$rule->origin] ?? $rule->origin) : 'sektör paketi' }}</td>
+                                <td class="whitespace-nowrap text-right">
+                                    <button type="button" wire:click="toggleForbidden({{ $rule->id }})" class="{{ $ghost }}">{{ $rule->active ? 'Kapat' : 'Aç' }}</button>
+                                    @if ($own)<button type="button" wire:click="deleteForbidden({{ $rule->id }})" wire:confirm="Silinsin mi?" class="text-gray-500 hover:text-rose-600">Sil</button>@endif
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="5" class="py-2 text-gray-500">Bu sektörde yasaklı ifade yok.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            @endif
+        </section>
     @endif
 </div>

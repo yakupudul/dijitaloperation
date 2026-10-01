@@ -4,7 +4,6 @@ namespace App\Services\Site;
 
 use App\Models\Brand;
 use App\Models\BrandClusterPage;
-use App\Models\ClusterQuery;
 use App\Models\DigitalAsset;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Facades\DB;
@@ -55,7 +54,7 @@ final class ClusterPageScorer
         $hasGsc = SiteScope::resourceIds($brand, 'search_console') !== [];
         $last = $hasGsc ? $this->metrics->lastGscDay($brand) : null;
         $range = $last !== null ? [$last->subDays(self::WINDOW_DAYS - 1)->toDateString(), $last->toDateString()] : null;
-        $members = $this->members($rows->pluck('cluster_id')->unique()->map(fn ($id): int => (int) $id)->all());
+        $members = ClusterPageShares::members($rows->pluck('cluster_id')->unique()->map(fn ($id): int => (int) $id)->all());
 
         $facts = [];
         if ($range !== null) {
@@ -77,7 +76,8 @@ final class ClusterPageScorer
             $values = ['brand_id' => $brand->id, 'cluster_id' => $row->cluster_id, 'page_id' => $row->page_id, 'cluster_queries' => count($queries),
                 'window_start' => $range[0] ?? null, 'window_end' => $range[1] ?? null, 'computed_at' => $now,
                 'impressions' => 0, 'clicks' => 0, 'position' => null, 'covered_queries' => 0, 'coverage' => 0, 'ctr' => 0, 'score' => null,
-                'ga4_sessions' => null, 'ga4_key_events' => null];
+                'ga4_sessions' => null, 'ga4_key_events' => null,
+                'page_shares' => json_encode(ClusterPageShares::fromFacts($facts[(int) $row->website_asset_id] ?? [], $queries))];
             if ($row->page === null) {
                 $values['state'] = 'no_page';
             } elseif (! $hasGsc) {
@@ -116,24 +116,5 @@ final class ClusterPageScorer
         }
 
         return $rows->count();
-    }
-
-    /**
-     * Real queries of each cluster (suggested ones have no data).
-     *
-     * @param  list<int>  $clusterIds
-     * @return array<int, list<int>>
-     */
-    private function members(array $clusterIds): array
-    {
-        $out = [];
-        ClusterQuery::query()->join('queries', 'queries.id', '=', 'cluster_queries.query_id')
-            ->whereIn('cluster_queries.cluster_id', $clusterIds)->where('cluster_queries.is_suggested', false)->where('queries.is_suggested', false)
-            ->orderBy('cluster_queries.id')->get(['cluster_queries.cluster_id', 'cluster_queries.query_id'])
-            ->each(function ($row) use (&$out): void {
-                $out[(int) $row->cluster_id][] = (int) $row->query_id;
-            });
-
-        return $out;
     }
 }

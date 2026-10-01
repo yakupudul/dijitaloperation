@@ -70,7 +70,8 @@
                     @if ($opened?->id === $s->id)
                         <div class="mt-2 space-y-3 rounded-lg bg-gray-50 p-3 dark:bg-gray-950" data-detail>
                             @if ($applyStatus)<p class="text-gray-500">AI ile yap: {{ $applyStatus }}</p>@endif
-                            @if (data_get($s->action, 'proposal_blocked'))<p class="text-rose-600">Uyum kuralına takıldı: {{ data_get($s->action, 'proposal_blocked') }}</p>@endif
+                            @if (data_get($s->action, 'proposal_blocked'))<p class="text-rose-600">{{ str_starts_with((string) data_get($s->action, 'proposal_blocked'), 'Kopya') ? '' : 'Uyum kuralına takıldı: ' }}{{ data_get($s->action, 'proposal_blocked') }}</p>@endif
+                            @if (data_get($s->action, 'proposal_warnings'))<p class="text-amber-700" data-proposal-warnings>{{ data_get($s->action, 'proposal_warnings') }}</p>@endif
 
                             @if ($proposal !== [])
                                 <div data-proposal>
