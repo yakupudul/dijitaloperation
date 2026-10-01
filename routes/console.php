@@ -2,6 +2,7 @@
 
 use App\Enums\Collection\CollectionRunStatus;
 use App\Jobs\Assistant\UptimeCheckJob;
+use App\Jobs\Brand\RunBrandChiefJob;
 use App\Jobs\CheckAdBudgetJob;
 use App\Jobs\CheckSitemapChangesJob;
 use App\Jobs\Collection\ExecuteDatasetRunJob;
@@ -22,6 +23,7 @@ use App\Services\Alerts\AdBudgetWatch;
 use App\Services\Analyst\AnalystEngine;
 use App\Services\Analyst\AnalystRegistry;
 use App\Services\Assistant\ReminderService;
+use App\Services\Brand\BrandCare;
 use App\Services\Brand\BrandDossier;
 use App\Services\Collection\Activity\ActivityTierService;
 use App\Services\Collection\CollectionErrorRecorder;
@@ -779,3 +781,20 @@ Artisan::command('moxdop:brands:dossier {brand? : brand id}', function (BrandDos
     $this->info('Dossiers built: '.$brands->count());
 })->purpose('Rebuild the Marka dosyası of operational brands.');
 Schedule::command('moxdop:brands:dossier')->dailyAt('04:37')->timezone('Europe/Istanbul')->name('brands-dossier')->withoutOverlapping(60);
+
+// Marka bakım ajanı: Sunday night, one queued review per active brand; a brand whose dossier did not change costs nothing.
+Artisan::command('moxdop:brands:care {brand? : brand id} {--force : review even when nothing changed}', function (): void {
+    $brands = Brand::query()->operational()->when($this->argument('brand'), fn ($q, $id) => $q->whereKey((int) $id))->orderBy('id')->get();
+    foreach ($brands as $brand) {
+        BrandCare::queue($brand, (bool) $this->option('force'));
+    }
+    $this->info('Brand care queued: '.$brands->count());
+})->purpose('Queue the weekly Marka bakım ajanı review of the active brands.');
+Schedule::command('moxdop:brands:care')->weeklyOn(0, '21:13')->timezone('Europe/Istanbul')->name('brands-care')->withoutOverlapping(60);
+
+// Şef: Monday morning plan across the active brands, after Sunday's care reviews.
+Artisan::command('moxdop:brands:chief', function (): void {
+    RunBrandChiefJob::dispatch();
+    $this->info('Chief plan queued.');
+})->purpose('Queue Şef\'s weekly plan.');
+Schedule::command('moxdop:brands:chief')->weeklyOn(1, '07:41')->timezone('Europe/Istanbul')->name('brands-chief')->withoutOverlapping(60);

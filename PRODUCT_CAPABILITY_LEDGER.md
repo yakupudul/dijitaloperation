@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-17 (d) — Marka bakım ajanı + Şef
+
+- **Marka bakım ajanı** (`brand.care`, `App\Services\Brand\BrandCare`): her pazar 21:13, yalnız aktif markalar (`moxdop:brands:care`, arka plan kuyruğu). Marka dosyasını, son incelemeden beri değişen bölümleri ve kendi önceki işlerini okur; ham veriyi okumaz. Dosya değişmediyse (ve son tam bakış 28 günden yeni ise) AI çağrısı yok.
+- **Çıktı:** kısa not + en çok 5 iş (tek iş listesi `suggestions`, karar `brand.care`, hedef marka) + en çok 3 soru. Açık işleri tekrar etmez; operatörün kapattığı/yaptığı işi geri açmaz; artık önermediği açık işi kapatır. Dışarıya yazmaz.
+- **Şef** (`brand.chief`, `App\Services\Brand\BrandChief`): her pazartesi 07:41 bakım notlarından tek haftalık plan (en çok 10 satır, marka başına en çok 3), `chief_plans` tablosu, tek bildirim. Bugün ekranında "Bu haftanın planı" + "Planı yenile".
+- **Ekran:** Marka › Marka dosyası sekmesinde "Bakım ajanı" bölümü (not, işler, sorular, "Şimdi incele").
+- **Test:** `tests/Feature/Brand/BrandCareTest.php` (SQLite + PostgreSQL; AI sahte). UAT: yok; gerçek sağlayıcıyla ilk çalışma pazar gecesi.
+
 ## 2026-11-17 (c) — Marka dosyası
 
 - **Ne:** Her marka için tek kısa markdown dosya (`App\Services\Brand\BrandDossier`): Kimlik, Bağlı varlıklar, Hizmetler, Talep, Web sitesi durumu, Kararlar ve sonuçları, Açık işler, Operatörün notları. AI kullanmadan verilerden derlenir; `brand_memory` (kind `dossier`) satırında saklanır.

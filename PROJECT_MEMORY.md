@@ -5,7 +5,7 @@
 - Yalnız markaya bağlı hesaplar gösterilir; bağlanmamış varlıklar yalnız "Marka adayları"nda görünür.
 - Hata merkezi: üç kova (senin işin / sistem hallediyor / yazılım hatası); kendiliğinden düzelenler 48 saat sessiz, sabah tek özet.
 - Marka dosyası: AI ajanları binlerce satırı her seferinde okumaz; önce marka dosyasını, sonra yalnız son okumadan beri değişen bölümleri okur (bölüm hash'leri). Dosya AI'sız derlenir.
-- Sıradaki: Marka bakım ajanı (yalnız aktif markalar, haftalık, değişiklik yoksa çalışmaz) + Şef (marka farkında haftalık plan). Tutarlılık denetçisi ve ayrı gerçek kullanım doğrulaması yapılmayacak.
+- Marka bakım ajanı (yalnız aktif markalar, pazar gecesi, dosya değişmediyse çalışmaz; işleri tek iş listesine yazar) + Şef (pazartesi, bakım notlarından tek haftalık plan) kuruldu. Tutarlılık denetçisi ve ayrı gerçek kullanım doğrulaması yapılmayacak.
 
 ## 2026-11-16 — Otomatik kur ve canlı arayüz kararları
 

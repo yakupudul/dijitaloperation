@@ -33,6 +33,8 @@ final class AiOperationLabels
         'gbp.review_reply' => 'Yorum yanıt taslağı',
         'gbp.services_compare' => 'İşletme Profili hizmet karşılaştırma',
         'gbp.description' => 'İşletme Profili açıklama önerisi',
+        'brand.care' => 'Marka bakım ajanı',
+        'brand.chief' => 'Şef: haftalık plan',
         'gbp.post_from_page' => 'Sayfadan gönderi yaz',
         'google_ads.search_terms' => 'Google Ads arama terimleri',
         'google_ads.structure' => 'Google Ads kampanya yapısı',

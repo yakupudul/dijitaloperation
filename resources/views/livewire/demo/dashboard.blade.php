@@ -10,6 +10,39 @@
         </a>
     @endif
 
+    <section class="rounded-xl bg-white px-4 py-3 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-chief-plan>
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <div class="flex flex-wrap items-baseline gap-x-3 text-sm">
+                <h2 class="font-semibold text-gray-800 dark:text-white/90">Bu haftanın planı</h2>
+                <span class="text-xs text-gray-500">Şef · her pazartesi, bakım ajanlarının notlarından
+                    @if ($chiefPlan) · {{ $chiefPlan->week_start->format('d.m.Y') }} haftası @endif</span>
+            </div>
+            <button type="button" wire:click="refreshPlan" wire:loading.attr="disabled" class="text-xs font-medium text-brand-600 hover:underline">Planı yenile</button>
+        </div>
+        @if ($chiefPlan === null)
+            <p class="mt-1 text-xs text-gray-500">Henüz plan yok; ilk plan pazartesi sabahı hazırlanır.</p>
+        @elseif ($chiefPlan->status === 'failed')
+            <p class="mt-1 text-xs text-rose-600">Plan hazırlanamadı: {{ $chiefPlan->error }}</p>
+        @else
+            @if ($chiefPlan->headline)
+                <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ $chiefPlan->headline }}</p>
+            @endif
+            <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm">
+                @foreach ((array) $chiefPlan->plan as $line)
+                    <li>
+                        @if ($line['brand_id'] > 0)
+                            <a href="{{ route('operator.brand', ['brand' => $line['brand_id'], 'tab' => 'dosya']) }}" wire:navigate class="font-medium text-gray-800 hover:text-brand-600 dark:text-white/90">{{ $line['brand'] }}</a>
+                        @else
+                            <a href="{{ route('operator.settings.system-health') }}" wire:navigate class="font-medium text-gray-800 hover:text-brand-600 dark:text-white/90">{{ $line['brand'] }}</a>
+                        @endif
+                        <span class="text-gray-700 dark:text-gray-300">— {{ $line['task'] }}</span>
+                        @if ($line['why'] !== '')<span class="block text-xs text-gray-500">{{ $line['why'] }}</span>@endif
+                    </li>
+                @endforeach
+            </ol>
+        @endif
+    </section>
+
     <section class="rounded-xl bg-white px-4 py-3 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-today-results>
         <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
             <h2 class="font-semibold text-gray-800 dark:text-white/90">Sonuçlar</h2>

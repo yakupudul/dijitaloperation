@@ -3,8 +3,11 @@
 namespace App\Livewire\Demo;
 
 use App\Enums\OfferingStatus;
+use App\Jobs\Brand\RunBrandChiefJob;
 use App\Models\Brand;
 use App\Models\DigitalAsset;
+use App\Models\User;
+use App\Services\Brand\BrandChief;
 use App\Services\DataStatus\DataStatus;
 use App\Services\DataStatus\DataStatusReader;
 use App\Services\Observability\ErrorTriage;
@@ -26,12 +29,23 @@ use Throwable;
 #[Title('Bugün')]
 class Dashboard extends Component
 {
+    /** Şef's plan again, now (queued; the plan replaces this week's). */
+    public function refreshPlan(): void
+    {
+        $actor = auth()->user();
+        abort_unless($actor instanceof User && $actor->is_active, 403);
+        RunBrandChiefJob::dispatch(false);
+        $this->dispatch('ai-live-refresh');
+        $this->dispatch('operator-notice', message: 'Şef planı hazırlıyor; birkaç dakika içinde burada.', tone: 'success');
+    }
+
     public function render(): View
     {
         return view('livewire.demo.dashboard', [
             'rows' => $this->rows(),
             'systemAlerts' => $this->systemAlerts(),
             'results' => $this->results(),
+            'chiefPlan' => BrandChief::current(),
             'flash' => DemoState::pullFlash(),
         ]);
     }

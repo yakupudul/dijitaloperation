@@ -16,6 +16,22 @@ final class AdvisorServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::BRAND_CARE,
+            'name' => 'Brand Care Agent',
+            'module' => 'advisor',
+            'description' => 'Marka bakım ajanı: weekly, active brands only, runs only when the Marka dosyası changed. Reads the dossier and the changed sections, proposes at most 5 tasks into the work list and asks for missing facts. Nothing is written outside MoxDOP.',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::BRAND_CHIEF,
+            'name' => 'Chief Weekly Plan',
+            'module' => 'advisor',
+            'description' => 'Şef: every Monday, one plan across the active brands (at most 10 lines) from the brand care notes, goals and open work counts. Read-only.',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
             'key' => AiRouteKeys::GBP_REVIEW_REPLY,
             'name' => 'Google Review Reply Draft',
             'module' => 'advisor',
