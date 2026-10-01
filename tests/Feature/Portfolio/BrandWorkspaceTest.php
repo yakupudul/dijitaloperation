@@ -4,6 +4,7 @@ namespace Tests\Feature\Portfolio;
 
 use App\Livewire\Demo\Portfolio\BrandCreate;
 use App\Livewire\Demo\Portfolio\CustomerDetail;
+use App\Livewire\Operator\Portfolio\BrandSetupPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\Brand;
 use App\Models\BrandOffering;
@@ -172,7 +173,10 @@ final class BrandWorkspaceTest extends TestCase
             ->assertRedirect(route('operator.brand.setup', ['brand' => Brand::query()->where('name', 'Yeni Marka')->value('id'), 'url' => 'yenimarka.com']));
 
         $brandId = Brand::query()->where('name', 'Yeni Marka')->value('id');
-        $this->get(route('operator.brand.setup', ['brand' => $brandId, 'url' => 'yenimarka.com']))->assertOk();
+        // The site's pages are not collected yet: Otomatik kur warns and waits for "Yine de getir".
+        $this->get(route('operator.brand.setup', ['brand' => $brandId, 'url' => 'yenimarka.com']))->assertOk()->assertSee('Yine de getir');
+        $this->assertSame(0, DB::table('brand_setup_proposals')->where('brand_id', $brandId)->count());
+        Livewire::test(BrandSetupPage::class, ['brand' => (string) $brandId])->set('websiteUrl', 'yenimarka.com')->call('start', true);
         $this->assertSame(1, DB::table('brand_setup_proposals')->where('brand_id', $brandId)->count());
         $this->get(route('operator.brand.setup', ['brand' => $brandId, 'url' => 'yenimarka.com']))->assertOk();
         $this->assertSame(1, DB::table('brand_setup_proposals')->where('brand_id', $brandId)->count(), 'reopening does not start a second proposal');
