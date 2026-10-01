@@ -1,5 +1,12 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-11 — Kümeleme v5 (sayfa büyüklüğünde, atlananların nedeni) + veri kaynağında "son çekim ne yazdı"
+
+- **Prompt `queries-cluster-v5`:** küme = Google'ın tek URL ile cevapladığı konular; "diğer / çeşitli" çöp küme yasak; sektörün diğer hizmetlerine ait konular (`other_services` verilir) kümelenmez, `skipped` (other_service + hizmet adı | not_relevant) olarak döner; her konu ya bir kümede ya `skipped`'ta olmalı.
+- **Atlananlar:** AI'ın açıkça atladığı konular nedeniyle sayılır; cevapta hiç geçmeyen konu bir sonraki parçada bir kez daha sorulur, yine geçmezse "işlenemedi" sayılır (eskiden ilk seferde kalıcı dışarıda kalıyordu). Küme listesinde: "Kümede olmayan sorgu: N · son kümelemede AI: başka hizmete ait X (hizmet adları) · hizmetle ilgisiz Y · işlenemedi Z".
+- **Veri kaynakları (varlık › Veri kaynakları):** bağlı her hesabın altında son bitmiş çekimin yazdığı: yeni satır / güncellendi / değişmedi (`dataset_write_batches`), Search Console ve Google Ads için yeniden doğrulama penceresi ve "aynı gün ve boyut tek satırdır; tekrar çekim kopya oluşturmaz" açıklaması.
+- **State:** CODED + PHPUnit (`QueriesScreenTest`, `OperatorAssetDataSourcesGuardsTest`). İmplant gibi önceden kümelenmiş hizmetleri yeni kurallarla almak için "AI ile kümele" ile yeniden kümelemek gerekir (onaylı kümeler korunur).
+
 ## 2026-11-11 — Sorgular › Kümeler: hizmet özeti, "Hepsini kümele", parça parça eksiksiz kümeleme
 
 - **Hizmet özeti:** Kümeler sekmesi hizmet seçilmeden boş kalmıyor. Sektöre göre gruplu, talebe göre sıralı tablo: hizmet, **markalar** (hizmeti etkin olarak sunan markalar), sorgu, kümedeki sorgu, küme (onaylı), durum (kümelenmedi / N sorgu kümede değil / kümelendi / kümeleniyor · parça x / y / sırada / hata), satırda **Kümele** (kümesi yoksa) veya **Yerleştir** (yeni sorgular mevcut kümelere) ve **Aç**. Sektör filtresi tabloyu daraltır; hizmet seçilince küme listesi açılır.

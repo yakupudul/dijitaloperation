@@ -24,6 +24,7 @@ use App\Support\Integrations\AssetBindingCompatibility;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -431,6 +432,7 @@ final class AssetDataSourcesPage extends Component
             // Faz 13: automatic collection state per bound account (last success, stopped / reconnect) on the asset.
             'automations' => ResourceAutomation::query()->whereIn('external_resource_id', $bindings->pluck('external_resource_id')->filter()->all())
                 ->get()->keyBy('external_resource_id'),
+            'lastWrites' => $this->lastWrites($bindings->pluck('external_resource_id')->filter()->map(fn ($id): int => (int) $id)->all()),
             'resources' => $resources,
             'ownedElsewhere' => $ownedElsewhere,
             'transfers' => OwnershipTransfer::query()->with('transferredBy:id,name')->touchingAsset((int) $asset->id)->latest('id')->limit(10)->get(),
@@ -443,6 +445,42 @@ final class AssetDataSourcesPage extends Component
             'websiteCollection' => $websiteCollection,
             'websiteSources' => $websiteSources,
         ]);
+    }
+
+    /**
+     * What the latest finished collection of each bound account wrote: new, updated and unchanged rows. Rows are keyed
+     * (date + dimensions), so a repeated collection updates the same row instead of adding a copy.
+     *
+     * @param  list<int>  $resourceIds
+     * @return array<int, array{at: ?Carbon, inserted: int, updated: int, unchanged: int}>
+     */
+    private function lastWrites(array $resourceIds): array
+    {
+        if ($resourceIds === []) {
+            return [];
+        }
+        $runs = DB::table('collection_resource_runs')->whereIn('external_resource_id', $resourceIds)
+            ->whereIn('status', ['completed', 'partial'])->whereNotNull('finished_at')
+            ->groupBy('external_resource_id')->selectRaw('external_resource_id, max(id) as id')->pluck('id', 'external_resource_id');
+        if ($runs->isEmpty()) {
+            return [];
+        }
+        $totals = DB::table('dataset_write_batches as wb')->join('collection_dataset_runs as dr', 'dr.id', '=', 'wb.dataset_run_id')
+            ->whereIn('dr.collection_resource_run_id', $runs->values())->where('wb.status', 'committed')
+            ->groupBy('dr.collection_resource_run_id')
+            ->selectRaw('dr.collection_resource_run_id as run_id, sum(wb.rows_inserted) as inserted, sum(wb.rows_updated) as updated, sum(coalesce(wb.rows_unchanged, 0)) as unchanged')
+            ->get()->keyBy('run_id');
+        $finished = DB::table('collection_resource_runs')->whereIn('id', $runs->values())->pluck('finished_at', 'id');
+        $out = [];
+        foreach ($runs as $resourceId => $runId) {
+            $row = $totals[$runId] ?? null;
+            $out[(int) $resourceId] = [
+                'at' => $finished[$runId] !== null ? Carbon::parse((string) $finished[$runId]) : null,
+                'inserted' => (int) ($row->inserted ?? 0), 'updated' => (int) ($row->updated ?? 0), 'unchanged' => (int) ($row->unchanged ?? 0),
+            ];
+        }
+
+        return $out;
     }
 
     private function asset(): DigitalAsset

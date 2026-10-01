@@ -160,6 +160,15 @@
                                         @if ($automation->collection_status === 'attention' && $automation->collection_error) · {{ __('resource-auto.'.$automation->collection_error) }} — <a href="{{ route('operator.settings.system-health') }}" wire:navigate class="underline">Sistem Sağlığı</a>@endif
                                     </p>
                                 @endif
+                                @php $write = $lastWrites[(int) $current->id] ?? null; @endphp
+                                @if ($write !== null)
+                                    @php $n = fn (int $v): string => number_format($v, 0, ',', '.'); @endphp
+                                    <p class="mt-1 text-xs text-gray-500" data-last-write>
+                                        Son çekim {{ $write['at']?->timezone('Europe/Istanbul')->format('d.m.Y H:i') ?? '—' }}: {{ $n($write['inserted']) }} yeni satır · {{ $n($write['updated']) }} güncellendi · {{ $n($write['unchanged']) }} değişmedi.
+                                        {{ ['search_console' => 'Son 7 gün her çekimde yeniden doğrulanır (Google rakamları geç kesinleştirir).', 'google_ads' => 'Geç gelen dönüşümler için son günler yeniden, haftada bir son 30 gün doğrulanır.'][$capability] ?? '' }}
+                                        Aynı gün ve boyut tek satırdır; tekrar çekim kopya oluşturmaz, değişen satırı günceller.
+                                    </p>
+                                @endif
                             </div>
                         @endif
 

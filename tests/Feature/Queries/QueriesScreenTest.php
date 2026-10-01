@@ -200,7 +200,8 @@ final class QueriesScreenTest extends TestCase
                         'main_query_id' => null, 'representative_query_ids' => [], 'new_queries' => [], 'subtopics' => [], 'reasoning' => 'Bilgi.'],
                     ['name' => 'Uydurma', 'intent' => 'local', 'page_type' => 'location', 'query_ids' => [555555], 'main_query_id' => 555555,
                         'representative_query_ids' => [], 'new_queries' => ['ankara implant'], 'subtopics' => [], 'reasoning' => '-'],
-                ], 'prompt_version' => QueryClusterAgent::PROMPT_VERSION];
+                ], 'skipped' => [['id' => $ids('implant ağrısı ne kadar sürer')[0], 'reason' => 'not_relevant', 'service' => null]],
+                    'prompt_version' => QueryClusterAgent::PROMPT_VERSION];
             }
 
             return ['clusters' => [
@@ -261,11 +262,14 @@ final class QueriesScreenTest extends TestCase
                 'user_need' => 'İmplant hakkında bilgi', 'page_type' => 'guide', 'query_ids' => $queryIds, 'main_query_id' => $queryIds[0] ?? null,
                 'representative_query_ids' => [], 'new_queries' => [], 'subtopics' => ['Süreç'], 'exclusions' => [], 'reasoning' => '-'];
 
-            return ['clusters' => match (count($calls)) {
-                1 => [$row(null, 'İmplant genel', $ids)],
-                2 => [$row($data['existing_clusters'][0]['id'], 'İmplant genel', [$ids[0]]), $row(null, 'İmplant malzemesi', [$ids[1]])],
-                default => [], // the last topic is not about this service: left out
-            }, 'prompt_version' => QueryClusterAgent::PROMPT_VERSION];
+            return match (count($calls)) {
+                1 => ['clusters' => [$row(null, 'İmplant genel', $ids)], 'skipped' => []],
+                // The second topic is not mentioned: it is asked again in the next part.
+                2 => ['clusters' => [$row($data['existing_clusters'][0]['id'], 'İmplant genel', [$ids[0]])], 'skipped' => []],
+                3 => ['clusters' => [$row(null, 'İmplant malzemesi', [$ids[0]])],
+                    'skipped' => [['id' => $ids[1], 'reason' => 'other_service', 'service' => 'Zirkonyum Kaplama']]],
+                default => ['clusters' => [], 'skipped' => array_map(fn (int $id): array => ['id' => $id, 'reason' => 'not_relevant', 'service' => null], $ids)],
+            } + ['prompt_version' => QueryClusterAgent::PROMPT_VERSION];
         });
         $reviews = [];
         QueryClusterReviewAgent::fake(function (string $prompt) use (&$reviews): array {
@@ -280,10 +284,12 @@ final class QueriesScreenTest extends TestCase
         });
 
         Livewire::test(QueriesPage::class)->call('setTab', 'clusters')->set('service', (string) $this->implant->id)->call('clusterService')
-            ->assertSee('hazır')->assertSee('Kümede olmayan sorgu: 1')->assertSee('İmplant rehberi');
+            ->assertSee('hazır')->assertSee('Kümede olmayan sorgu: 1')->assertSee('başka hizmete ait 1')->assertSee('(Zirkonyum Kaplama 1)')->assertSee('İmplant rehberi');
 
         $this->assertCount(3, $calls, 'skeleton + two placing parts');
-        $this->assertSame([2, 2, 1], array_map(fn (array $call): int => count($call['topics']), $calls));
+        $this->assertSame([2, 2, 2], array_map(fn (array $call): int => count($call['topics']), $calls));
+        $this->assertSame(array_column($calls[1]['topics'], 'id')[1], array_column($calls[2]['topics'], 'id')[0], 'a topic the answer did not mention is asked again first');
+        $this->assertSame(['Zirkonyum Kaplama'], $calls[0]['other_services']);
         $this->assertSame([], $calls[0]['existing_clusters']);
         $this->assertSame(['İmplant genel'], array_column($calls[1]['existing_clusters'], 'name'), 'later parts see the clusters built so far');
         $this->assertCount(2, $reviews[0]['clusters']);
@@ -293,6 +299,7 @@ final class QueriesScreenTest extends TestCase
         $this->assertFalse(ClusterQuery::query()->where('query_id', $this->queryId('implant sigara'))->exists(), 'left out by the AI');
         $state = QueryClusterer::state($this->implant->id);
         $this->assertSame(['ready', 'done', 4], [$state['status'], $state['step'], $state['part']]);
+        $this->assertSame([1, 0, 0], [$state['skipped']['other_service'], $state['skipped']['not_relevant'], $state['skipped']['unprocessed']]);
         $this->assertArrayNotHasKey('left_out', $state);
 
         // A locked cluster keeps its definition: the review never merges it away nor rewrites it.

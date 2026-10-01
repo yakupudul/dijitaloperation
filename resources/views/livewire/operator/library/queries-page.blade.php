@@ -359,7 +359,11 @@
                 @endif
             @else
                 @if ($unclustered > 0)
-                    <p class="mb-2 text-xs text-amber-700 dark:text-amber-300" data-unclustered>Kümede olmayan sorgu: {{ number_format($unclustered, 0, ',', '.') }}</p>
+                    @php
+                        $skip = (array) ($clusterStatus['skipped'] ?? []);
+                        $skipServices = collect((array) ($skip['services'] ?? []))->sortDesc()->take(4)->map(fn ($n, $name) => $name.' '.number_format((int) $n, 0, ',', '.'))->implode(', ');
+                    @endphp
+                    <p class="mb-2 text-xs text-amber-700 dark:text-amber-300" data-unclustered>Kümede olmayan sorgu: {{ number_format($unclustered, 0, ',', '.') }}@if (($clusterStatus['status'] ?? null) !== 'running' && array_sum(array_map('intval', array_intersect_key($skip, array_flip(['other_service', 'not_relevant', 'unprocessed'])))) > 0) · son kümelemede AI: başka hizmete ait {{ number_format((int) ($skip['other_service'] ?? 0), 0, ',', '.') }}@if ($skipServices !== '') ({{ $skipServices }})@endif · hizmetle ilgisiz {{ number_format((int) ($skip['not_relevant'] ?? 0), 0, ',', '.') }} · işlenemedi {{ number_format((int) ($skip['unprocessed'] ?? 0), 0, ',', '.') }}@endif</p>
                 @endif
                 <table class="w-full text-left text-xs">
                     <thead class="text-gray-500"><tr><th class="py-1">Küme</th><th>Ana sorgu</th><th>Niyet</th><th>Sayfa tipi</th><th class="text-right">Talep</th><th class="text-right">Sorgu</th><th></th></tr></thead>

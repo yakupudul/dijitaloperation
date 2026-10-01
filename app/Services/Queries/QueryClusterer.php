@@ -31,8 +31,9 @@ use RuntimeException;
  * - skeleton (full run): the service's unlocked clusters are replaced; the SKELETON_TOPICS most searched topics are
  *   grouped into clusters;
  * - place: the next PLACE_TOPICS unclustered topics (most searched first) join an existing cluster
- *   (`existing_cluster_id`, also a locked one — its definition never changes) or open a new one; until every topic is
- *   clustered or left out by the AI (not about this service);
+ *   (`existing_cluster_id`, also a locked one — its definition never changes) or open a new one; topics the AI skips
+ *   (another service of the sector / not relevant) are counted with their reason, topics its answer does not mention
+ *   are asked once more in a later part and then counted as unprocessed;
  * - review: one call merges clusters one page would cover (never from a locked cluster) and clarifies unlocked ones.
  * A "place" run (new queries of a service that already has clusters) starts at place. Topic ids are head query ids,
  * checked against the input (each topic in one cluster); AI-added queries are stored as suggested (`is_suggested`, no
@@ -79,7 +80,8 @@ final class QueryClusterer
     {
         Cache::put(self::cacheKey($serviceId), [
             'status' => 'running', 'mode' => $mode === 'place' ? 'place' : 'full', 'step' => $mode === 'place' ? 'place' : 'skeleton',
-            'part' => 0, 'parts' => null, 'left_out' => [], 'clusters' => 0, 'suggested' => 0, 'started_at' => now()->toIso8601String(),
+            'part' => 0, 'parts' => null, 'left_out' => [], 'missed' => [], 'clusters' => 0, 'suggested' => 0, 'started_at' => now()->toIso8601String(),
+            'skipped' => ['other_service' => 0, 'not_relevant' => 0, 'unprocessed' => 0, 'services' => []],
         ], now()->addDays(2));
     }
 
@@ -167,6 +169,8 @@ final class QueryClusterer
             Query::query()->where('service_id', $service->id)->where('is_suggested', true)
                 ->whereNotIn('id', ClusterQuery::query()->select('query_id'))->delete();
             $state['left_out'] = [];
+            $state['missed'] = [];
+            $state['skipped'] = ['other_service' => 0, 'not_relevant' => 0, 'unprocessed' => 0, 'services' => []];
             $state['clusters'] = 0;
             $state['suggested'] = 0;
         }
@@ -192,21 +196,65 @@ final class QueryClusterer
             'service' => (string) ($service->primaryName?->raw_label ?? ''),
             'topics' => array_values(array_map(fn (array $t): array => array_diff_key($t, ['members' => true]), $batch)),
             'existing_clusters' => $existing,
+            'other_services' => $this->otherServices($service),
         ]);
         $result = DB::transaction(fn (): array => $this->apply($sector, $service, $queries, $batch, (array) ($structured['clusters'] ?? [])));
 
-        // Topics of this part the AI left out (not about this service) are not asked again in this run.
-        foreach (array_diff_key($batch, $result['placed']) as $topic) {
+        // Topics the AI skipped (another service / not relevant) are not asked again in this run; topics its answer did
+        // not mention are asked once more in a later part, then counted as unprocessed.
+        $skipped = (array) ($state['skipped'] ?? ['other_service' => 0, 'not_relevant' => 0, 'unprocessed' => 0, 'services' => []]);
+        $missed = (array) ($state['missed'] ?? []);
+        $skips = [];
+        foreach ((array) ($structured['skipped'] ?? []) as $skip) {
+            if (is_array($skip) && is_int($skip['id'] ?? null)) {
+                $skips[$skip['id']] = $skip;
+            }
+        }
+        $retry = false;
+        foreach (array_diff_key($batch, $result['placed']) as $head => $topic) {
+            $skip = $skips[$head] ?? null;
+            $count = count($topic['members']);
+            if ($skip !== null) {
+                $reason = ($skip['reason'] ?? null) === 'other_service' ? 'other_service' : 'not_relevant';
+                $skipped[$reason] = (int) ($skipped[$reason] ?? 0) + $count;
+                $other = trim((string) ($skip['service'] ?? ''));
+                if ($reason === 'other_service' && $other !== '') {
+                    $skipped['services'][$other] = (int) ($skipped['services'][$other] ?? 0) + $count;
+                }
+            } elseif ((int) ($missed[$head] ?? 0) < 1) {
+                $missed[$head] = 1;
+                $retry = true;
+
+                continue;
+            } else {
+                $skipped['unprocessed'] = (int) ($skipped['unprocessed'] ?? 0) + $count;
+            }
+            unset($missed[$head]);
             array_push($leftOut, ...$topic['members']);
         }
 
         return $this->save($service, [
-            'step' => $rest > 0 ? 'place' : 'review',
+            'step' => $rest > 0 || $retry ? 'place' : 'review',
+            'missed' => $missed,
+            'skipped' => $skipped,
             'part' => (int) ($state['part'] ?? 0) + 1,
             'left_out' => array_values(array_unique($leftOut)),
             'clusters' => (int) ($state['clusters'] ?? 0) + $result['clusters'],
             'suggested' => (int) ($state['suggested'] ?? 0) + $result['suggested'],
         ] + $state);
+    }
+
+    /**
+     * Names of the sector's other active services: topics about them are skipped, not clustered here.
+     *
+     * @return list<string>
+     */
+    private function otherServices(ServiceCatalogItem $service): array
+    {
+        return ServiceCatalogItem::query()->with('primaryName')->where('status', 'active')->where('sector', $service->sector)
+            ->whereKeyNot($service->id)->limit(200)->get()
+            ->map(fn (ServiceCatalogItem $item): string => (string) ($item->primaryName?->raw_label ?? ''))
+            ->filter()->values()->all();
     }
 
     /**
@@ -222,7 +270,7 @@ final class QueryClusterer
             return $current;
         }
         if (($state['status'] ?? null) !== 'running') {
-            unset($state['left_out']);
+            unset($state['left_out'], $state['missed']);
         }
         Cache::put(self::cacheKey((int) $service->id), $state, now()->addDays(2));
 

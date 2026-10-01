@@ -2,8 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Enums\Collection\CollectionRunStatus;
 use App\Livewire\Operator\AssetDataSourcesPage;
 use App\Models\Brand;
+use App\Models\Collection\CollectionDatasetRun;
+use App\Models\Collection\CollectionResourceRun;
+use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
@@ -23,6 +27,7 @@ use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -270,6 +275,32 @@ class OperatorAssetDataSourcesGuardsTest extends TestCase
             ->assertHasErrors(['selectedResource.google_ads']);
 
         $this->assertSame(0, CoreAssetBinding::query()->count());
+    }
+
+    public function test_a_bound_account_shows_what_its_latest_collection_wrote(): void
+    {
+        $this->actingAs($this->admin);
+        $website = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'website']);
+        $resource = CoreExternalResource::factory()->create([
+            'integration_id' => $this->google->id, 'provider' => ProviderRegistry::GOOGLE, 'resource_type' => 'ga4',
+            'external_id' => 'properties/1', 'display_name' => 'GA4', 'status' => CoreExternalResource::STATUS_AVAILABLE,
+        ]);
+        Livewire::test(AssetDataSourcesPage::class, ['assetId' => (string) $website->id])
+            ->set('selectedResource.ga4', (string) $resource->id)->call('bind', 'ga4')->assertHasNoErrors();
+        $run = CollectionRun::factory()->create(['digital_asset_id' => $website->id, 'status' => CollectionRunStatus::Completed]);
+        $resourceRun = CollectionResourceRun::factory()->create(['collection_run_id' => $run->id, 'external_resource_id' => $resource->id,
+            'digital_asset_id' => $website->id, 'status' => CollectionRunStatus::Completed, 'finished_at' => now()]);
+        $datasetRun = CollectionDatasetRun::factory()->create(['collection_run_id' => $run->id, 'collection_resource_run_id' => $resourceRun->id,
+            'status' => CollectionRunStatus::Completed]);
+        foreach ([[2, 1, 4], [1, 1, 1]] as $index => [$inserted, $updated, $unchanged]) {
+            DB::table('dataset_write_batches')->insert(['dataset_run_id' => $datasetRun->id, 'batch_key' => 'b'.$index, 'idempotency_key' => 'k'.$index,
+                'dataset_id' => 'ga4_daily', 'status' => 'committed', 'rows_received' => $inserted + $updated + $unchanged, 'rows_inserted' => $inserted,
+                'rows_updated' => $updated, 'rows_unchanged' => $unchanged, 'created_at' => now(), 'updated_at' => now()]);
+        }
+
+        Livewire::test(AssetDataSourcesPage::class, ['assetId' => (string) $website->id])
+            ->assertSee('3 yeni satır · 2 güncellendi · 5 değişmedi')
+            ->assertSee('tekrar çekim kopya oluşturmaz');
     }
 
     public function test_changing_resource_closes_the_old_binding_and_keeps_historical_run_identity(): void
