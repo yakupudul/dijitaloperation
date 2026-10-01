@@ -113,7 +113,7 @@ class PanelDesignFreezeTest extends TestCase
 
         preg_match_all('/role="tab"[^>]*wire:click="setTab\\(\'([^\']+)\'\\)"/', $html, $matches);
         $this->assertSame(
-            ['ozet', 'arama', 'harita', 'google_ads', 'meta', 'ayarlar', 'settings', 'overview', 'business', 'assets', 'files'],
+            ['ozet', 'arama', 'harita', 'google_ads', 'meta', 'dosya', 'ayarlar', 'settings', 'overview', 'business', 'assets', 'files'],
             $matches[1] ?? [],
             'Faz 11c: Dosyalar moved from the menu to the brand page'
         );
