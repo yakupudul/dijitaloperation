@@ -106,6 +106,10 @@ final class KeywordInsights
                             $result['from'][$current] = ($result['from'][$current] ?? 0) + 1;
                             $result['fromTotal']++;
                         }
+                    } elseif ($match['conflicts'] !== [] && $current !== null && in_array($current, array_map('intval', array_column($match['conflicts'], 'service')), true)) {
+                        // Already in one of the conflicting services: the assignment stays (same rule as the rescan).
+                        $outcome = $current === $serviceId ? 'stays' : 'elsewhere';
+                        $result['elsewhere'] += $current === $serviceId ? 0 : 1;
                     } elseif ($match['conflicts'] !== []) {
                         $result['conflict']++;
                         $outcome = 'conflict';

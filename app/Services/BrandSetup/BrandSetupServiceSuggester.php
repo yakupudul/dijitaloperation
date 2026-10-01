@@ -15,6 +15,7 @@ use App\Models\ServiceCatalogName;
 use App\Models\ServiceCategory;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\Brand\BrandGaps;
 use App\Services\Catalog\ServiceKeywordService;
 use App\Services\Portfolio\UnassignedWebsites;
 use App\Services\SeoTasks\SeoStoredHtmlReader;
@@ -37,6 +38,11 @@ use Throwable;
 final class BrandSetupServiceSuggester
 {
     /** Folded page titles that are never a service (used when AI is unavailable). */
+    /** At most this many services are proposed (a clinic site easily has 40+ treatment pages). */
+    public const int MAX_SERVICES = 60;
+
+    private const int MAX_PAGES = 200;
+
     private const NON_SERVICE_PAGE = '/^(ana ?sayfa|home|hakkimizda|hakkinda|iletisim|blog|sss|sikca sorulan|galeri|ekibimiz|ekip|kariyer|kvkk|gizlilik|cerez|randevu|tesekkur|fiyat|referans|basinda|haber|sepet|hesabim|odeme)/u';
 
     public function __construct(
@@ -81,7 +87,7 @@ final class BrandSetupServiceSuggester
                         'brand' => ['name' => $brand->name, 'domain' => $host],
                         'brand_service_areas' => array_map(static fn (array $a): string => implode(', ', array_filter([$a['district_name'], $a['city_name'], $a['country_code']])), $areas),
                         'wordpress_pages' => $wordpressPages,
-                        'pages' => array_slice($pages, 0, 120),
+                        'pages' => array_slice($pages, 0, self::MAX_PAGES),
                         'search_console_queries' => array_slice($queries, 0, 150),
                         'crawl_service_candidates' => $candidates,
                         'CATALOG' => array_map(static fn (array $c): array => ['name' => $c['name'], 'sector_code' => $c['sector']], $catalog),
@@ -115,7 +121,7 @@ final class BrandSetupServiceSuggester
 
         $catalogNames = array_column($catalog, 'name');
         $services = [];
-        foreach (array_slice(is_array($structured['services'] ?? null) ? $structured['services'] : [], 0, 20) as $row) {
+        foreach (array_slice(is_array($structured['services'] ?? null) ? $structured['services'] : [], 0, self::MAX_SERVICES) as $row) {
             if (! is_array($row) || ! is_string($row['name'] ?? null) || mb_strlen(trim($row['name'])) < 2 || mb_strlen($row['name']) > 80) {
                 continue;
             }
@@ -125,6 +131,9 @@ final class BrandSetupServiceSuggester
             $services[] = $this->serviceRow($catalogName ?? trim($row['name']), array_slice($aliases, 0, 4), $sector, (bool) ($row['is_core'] ?? false), mb_substr((string) ($row['evidence'] ?? ''), 0, 200), $catalog, $sectors, $existing, 0.85, (array) ($row['matching_phrases'] ?? []));
         }
         $brandSector = is_string($structured['sector_code'] ?? null) && isset($sectors[$structured['sector_code']]) ? $structured['sector_code'] : null;
+        foreach ($this->uncoveredServicePages($website, $services) as [$title, $path]) {
+            $services[] = $this->serviceRow($title, [], $brandSector, false, 'Sitede hizmet sayfası var: '.$path, $catalog, $sectors, $existing, 0.8);
+        }
 
         return [
             'status' => 'ready',
@@ -396,6 +405,27 @@ final class BrandSetupServiceSuggester
     }
 
     /**
+     * Service pages no proposed service covers (BrandGaps): the safety net for an AI answer that skipped some.
+     *
+     * @param  list<array<string, mixed>>  $services
+     * @return list<array{0: string, 1: string}> [title, path]
+     */
+    private function uncoveredServicePages(?DigitalAsset $website, array $services): array
+    {
+        if ($website === null) {
+            return [];
+        }
+        $names = [];
+        foreach ($services as $service) {
+            foreach (array_merge([(string) $service['name']], (array) $service['aliases']) as $label) {
+                $names[] = (string) $label;
+            }
+        }
+
+        return BrandGaps::uncoveredServicePages($website, $names);
+    }
+
+    /**
      * Site pages for the AI: the page inventory first (`pages`: WordPress + sitemap, with titles and categories — the
      * same list the website screen shows), the older crawl projection only for what the inventory lacks, and the
      * homepage text.
@@ -406,8 +436,13 @@ final class BrandSetupServiceSuggester
     {
         $rows = [];
         $seen = [];
-        foreach (Page::query()->where('website_asset_id', $website->id)->where(fn ($q) => $q->whereNull('category')->orWhereIn('category', ['hizmet', 'lokasyon', 'diger']))
-            ->orderByRaw("CASE WHEN category = 'hizmet' THEN 0 ELSE 1 END")->orderBy('path')->limit(150)->get(['url', 'path', 'title', 'h1']) as $page) {
+        // Service pages first: categorized "hizmet" or under the site's service section (/tedavilerimiz/…), so a site
+        // with hundreds of uncategorized URLs still sends every service page.
+        $inventory = Page::query()->where('website_asset_id', $website->id)->where(fn ($q) => $q->whereNull('category')->orWhereIn('category', ['hizmet', 'lokasyon', 'diger']))
+            ->orderBy('path')->limit(3000)->get(['url', 'path', 'title', 'h1', 'category'])
+            ->sortBy(fn (Page $page): int => $page->category === 'hizmet' || SitePagesReader::pathCategory((string) ($page->path ?: SeoText::urlPath((string) $page->url))) === 'hizmet' ? 0 : 1)
+            ->take(self::MAX_PAGES);
+        foreach ($inventory as $page) {
             $seen[SeoText::urlPath((string) $page->url)] = true;
             $rows[] = ['url' => (string) $page->url, 'title' => $page->title ?? SitePagesReader::slugTitle((string) $page->path), 'h1' => $page->h1];
         }
@@ -421,7 +456,7 @@ final class BrandSetupServiceSuggester
             if (SeoText::urlPath($url) === '/') {
                 $home = $profile;
             }
-            if (isset($seen[SeoText::urlPath($url)]) || count($rows) >= 150) {
+            if (isset($seen[SeoText::urlPath($url)]) || count($rows) >= self::MAX_PAGES) {
                 continue;
             }
             $title = data_get($web, 'document_head.title') ?? data_get($profile->source_states, 'wordpress.seo.title') ?? data_get($profile->source_states, 'wordpress.object.title');

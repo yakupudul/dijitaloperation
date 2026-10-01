@@ -25,6 +25,7 @@ use App\Services\Analyst\AnalystRegistry;
 use App\Services\Assistant\ReminderService;
 use App\Services\Brand\BrandCare;
 use App\Services\Brand\BrandDossier;
+use App\Services\Brand\BrandGaps;
 use App\Services\Collection\Activity\ActivityTierService;
 use App\Services\Collection\CollectionErrorRecorder;
 use App\Services\Collection\Monitoring\CollectionAccountPresenter;
@@ -772,6 +773,14 @@ Artisan::command('moxdop:brands:dossier {brand? : brand id}', function (BrandDos
     $brands = Brand::query()->operational()->when($this->argument('brand'), fn ($q, $id) => $q->whereKey((int) $id))->orderBy('id')->get();
     foreach ($brands as $brand) {
         try {
+            // Site upkeep: new / uncategorized pages or no service ↔ page match yet → the site setup runs again (rules
+            // first, AI only for what the rules cannot decide) and rebuilds the dossier when done.
+            $sites = DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->get()->filter(fn (DigitalAsset $site): bool => BrandDossier::siteNeedsSetup($site));
+            foreach ($sites as $site) {
+                SiteOperations::dispatch((int) $site->id, SiteOperations::SETUP);
+            }
+            // Eksikler: what blocks the brand's AI work, into the work list (fixes run only on the operator's approval).
+            app(BrandGaps::class)->sync($brand);
             $dossier->build($brand);
         } catch (Throwable $exception) {
             report($exception);

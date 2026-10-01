@@ -14,6 +14,7 @@ use App\Models\ResourceAutomation;
 use App\Models\Suggestion;
 use App\Services\Site\Analysis\SitePagesReader;
 use App\Services\Site\SiteScope;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -119,6 +120,41 @@ final class BrandDossier
         return ['goals' => (string) ($data['goals'] ?? ''), 'constraints' => (string) ($data['constraints'] ?? '')];
     }
 
+    /** Service pages the way the website screen counts them: categorized "hizmet", or not categorized yet and under the service section. */
+    public static function servicePageCount(DigitalAsset $site): int
+    {
+        $count = Page::query()->where('website_asset_id', $site->id)->where('category', 'hizmet')->count();
+        foreach (Page::query()->where('website_asset_id', $site->id)->whereNull('category')->limit(5000)->pluck('path') as $path) {
+            $count += SitePagesReader::pathCategory((string) $path) === 'hizmet' ? 1 : 0;
+        }
+
+        return $count;
+    }
+
+    /**
+     * The site's setup (categorize → service ↔ page → cluster pages) must run again: pages nobody categorized yet (new
+     * pages after the last setup), or service pages while no page is matched to a service at all.
+     */
+    public static function siteNeedsSetup(DigitalAsset $site): bool
+    {
+        $pages = Page::query()->where('website_asset_id', $site->id);
+        // Pages the rules and AI could not decide stay uncategorized: only a CHANGED count triggers again (no nightly AI loop).
+        $uncategorized = (clone $pages)->whereNull('category')->count();
+        $key = 'site-setup:uncategorized:'.$site->id;
+        if ($uncategorized > 0 && Cache::get($key) !== $uncategorized) {
+            Cache::forever($key, $uncategorized);
+
+            return true;
+        }
+
+        // Service pages but none matched to a service: tried again at most once a week.
+        $unmatched = $site->brand_id !== null && BrandOffering::query()->where('brand_id', $site->brand_id)->where('status', 'active')->exists()
+            && (clone $pages)->where('category', 'hizmet')->exists()
+            && DB::table('offering_pages')->whereIn('page_id', (clone $pages)->select('id'))->doesntExist();
+
+        return $unmatched && Cache::add('site-setup:unmatched:'.$site->id, true, now()->addDays(7));
+    }
+
     private static function row(Brand $brand): ?BrandMemory
     {
         return BrandMemory::query()->where('brand_id', $brand->id)->where('kind', self::KIND)->first();
@@ -212,7 +248,7 @@ final class BrandDossier
             } catch (Throwable) {
                 // no Search Console / GA4 bound
             }
-            $lines[] = '- '.($site->primary_url ?: $site->domain).': '.(clone $pages)->count().' sayfa ('.(clone $pages)->where('category', 'hizmet')->count().' hizmet sayfası)';
+            $lines[] = '- '.($site->primary_url ?: $site->domain).': '.(clone $pages)->count().' sayfa ('.self::servicePageCount($site).' hizmet sayfası)';
             if ($trend !== null && ($trend['has_gsc'] || $trend['has_ga4'])) {
                 $lines[] = sprintf('  - Son 28 gün: %s tıklama (önceki %s), %s oturum', number_format($trend['current']['clicks'], 0, ',', '.'),
                     number_format($trend['previous']['clicks'], 0, ',', '.'), number_format($trend['current']['sessions'], 0, ',', '.'));

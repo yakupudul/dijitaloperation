@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-18 — Eksikler, site bakımı, Otomatik kur kapsamı, çakışma kuralı
+
+- **Eksikler** (`App\Services\Brand\BrandGaps`, karar `brand.gap`): AI işini tıkayan şeyler kuralla (AI'sız) bulunur: site yok, sektör yok, bölge yok, hizmet yok, markanın hizmetlerinde olmayan hizmet sayfaları, hiçbir sayfayla eşleşmemiş hizmetler. Her gece ve Marka dosyası sekmesi açılınca iş listesine yazılır; giderilen eksik kendiliğinden kapanır. Düzeltmesi olanlar yalnız "Onayla ve yap" ile çalışır (hizmetleri ekle + sayfalarla eşle; siteyi hazırla). Hepsi MoxDOP içi; dışarıya yazma yok.
+- **Site bakımı:** gece komutu, kategorilenmemiş yeni sayfa varsa (sayı değiştiyse) ya da hizmet sayfaları hiçbir hizmetle eşleşmemişse (haftada en çok bir kez) sitenin kurulum işini yeniden başlatır. Neden: Otomatik kur'dan sonra toplanan sayfalar hiç kategorilenmiyordu; marka dosyası "0 hizmet sayfası / sayfası eşleşmedi" gösteriyordu.
+- **Marka dosyası** hizmet sayfası sayımı web sitesi ekranıyla aynı kural (kategori "hizmet" ya da hizmet bölümü altında).
+- **Otomatik kur:** hizmet sınırı 20 → 60; AI'a önce hizmet bölümündeki sayfalar gider (200 sayfa); AI'ın atladığı her hizmet sayfası işaretli öneri olarak eklenir (prompt brand-setup-v5).
+- **Sorgu taraması:** iki hizmetin kelimesi eşleşen sorgu zaten bu hizmetlerden birindeyse ataması korunur (eskiden kaldırılması öneriliyordu). Kalan satırlarda "Yeni" sütunu "Hizmetsiz" yazar ve nedeni açıklar. Kelime etki önizlemesi aynı kuralı kullanır.
+- **Test:** `tests/Feature/Brand/SiteUpkeepTest.php`, `KeywordInsightsTest` güncellendi (SQLite + PostgreSQL). UAT: yok.
+
 ## 2026-11-17 (d) — Marka bakım ajanı + Şef
 
 - **Marka bakım ajanı** (`brand.care`, `App\Services\Brand\BrandCare`): her pazar 21:13, yalnız aktif markalar (`moxdop:brands:care`, arka plan kuyruğu). Marka dosyasını, son incelemeden beri değişen bölümleri ve kendi önceki işlerini okur; ham veriyi okumaz. Dosya değişmediyse (ve son tam bakış 28 günden yeni ise) AI çağrısı yok.

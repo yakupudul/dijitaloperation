@@ -3,6 +3,28 @@
         <p class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{{ $message }}</p>
     @endif
 
+    @if ($gaps->isNotEmpty())
+        <div class="rounded-xl bg-amber-50 p-5 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-500/30" data-brand-gaps>
+            <h2 class="font-semibold text-amber-900 dark:text-amber-200">Eksikler · {{ $gaps->count() }}</h2>
+            <p class="mt-1 text-sm text-amber-800 dark:text-amber-300">AI işlerini tıkayan şeyler. "Onayla ve yap" yalnız MoxDOP içinde düzeltir; dışarıya hiçbir şey yazmaz.</p>
+            <ul class="mt-3 space-y-3 text-sm">
+                @foreach ($gaps as $gap)
+                    <li class="flex flex-wrap items-start justify-between gap-2" data-gap="{{ $gap->id }}">
+                        <div class="min-w-0">
+                            <p class="font-medium text-gray-900 dark:text-white">{{ $gap->title }}</p>
+                            <p class="text-xs text-gray-600 dark:text-gray-400">{{ $gap->reason }}</p>
+                        </div>
+                        @if (! empty($gap->action['fix']))
+                            <button type="button" wire:click="applyGap({{ $gap->id }})" wire:loading.attr="disabled" wire:confirm="Bu eksik şimdi düzeltilsin mi?" class="shrink-0 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600">Onayla ve yap</button>
+                        @elseif (! empty($gap->action['url']))
+                            <a href="{{ $gap->action['url'] }}" wire:navigate class="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold text-brand-700 ring-1 ring-inset ring-brand-200 hover:bg-white dark:text-brand-300">Düzelt →</a>
+                        @endif
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-brand-care>
         <div class="flex flex-wrap items-start justify-between gap-2">
             <div>

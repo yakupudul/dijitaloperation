@@ -160,6 +160,11 @@ final class QueryRescanner
         // conflicting keywords ("a / b") when two services' keywords hit the query.
         $term = $match['keyword'];
         $reason = null;
+        // Two services' keywords hit the query and it already belongs to one of them: the assignment stays (removing
+        // it would leave a correctly placed query without a service).
+        if ($match['conflicts'] !== [] && $current !== null && in_array($current, array_map('intval', array_column($match['conflicts'], 'service')), true)) {
+            return null;
+        }
         if ($match['conflicts'] !== []) {
             $term = implode(' / ', array_column($match['conflicts'], 'keyword'));
             $reason = QueryReviewItem::REASON_CONFLICT;

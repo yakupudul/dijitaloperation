@@ -76,10 +76,10 @@ final class KeywordInsightsTest extends TestCase
         $this->assertSame(['Diş İmplantı' => 1], $impact['from']);
         $this->assertSame(1, $impact['unassigned']);
         $this->assertSame(1, $impact['kept'], 'the manual (locked) assignment stays');
-        $this->assertSame(1, $impact['elsewhere'], '"kaplama" ⊂ "zirkonyum kaplama": zirkonyum keeps its query');
-        $this->assertSame(1, $impact['conflict'], '"implant kaplama": implant / kaplama, neither contains the other');
+        $this->assertSame(2, $impact['elsewhere'], '"kaplama" ⊂ "zirkonyum kaplama": zirkonyum keeps its query; "implant kaplama" stays in implant (one of the two conflicting services)');
+        $this->assertSame(0, $impact['conflict'], 'a conflict never takes a query out of a conflicting service it already has');
         $this->assertSame(['zirkonyum kaplama fiyatları', 'kaplama nedir', 'diş kaplama', 'implant kaplama', 'porselen kaplama'], array_column($impact['examples'], 'text'), 'most impressions first');
-        $this->assertSame(['elsewhere', 'comes', 'kept', 'conflict', 'stays'], array_column($impact['examples'], 'outcome'));
+        $this->assertSame(['elsewhere', 'comes', 'kept', 'elsewhere', 'stays'], array_column($impact['examples'], 'outcome'));
         $this->assertSame(2, $impact['pages']);
         $this->assertSame(['kaplama renkleri'], array_column(app(KeywordInsights::class)->impact($this->kaplama, 'kaplama', 1)['examples'], 'text'));
         $this->assertStringContainsString('Zirkonyum', (string) app(KeywordInsights::class)->impact($this->kaplama, 'zirkonyum')['error'], 'a keyword of another service in the sector');
@@ -89,20 +89,19 @@ final class KeywordInsightsTest extends TestCase
         $page = Livewire::test(QueriesPage::class)->set('sector', (string) $this->dental->id)->call('setTab', 'keywords')
             ->set('newKeyword.'.$this->kaplama->id, 'Kaplama')
             ->assertSee("Bu kelime 6 sorgu yakalayacak · 1'si şu an bu hizmette · 1'si başka hizmetten gelecek (Diş İmplantı: 1) · 1'si atanmamış")
-            ->assertSee('1 sorgu elle / AI ile atanmış veya kilitli')->assertSee('1 sorgu çakışmaya düşer')->assertSee('zirkonyum kaplama fiyatları')
+            ->assertSee('1 sorgu elle / AI ile atanmış veya kilitli')->assertDontSee('çakışmaya düşer')->assertSee('zirkonyum kaplama fiyatları')
             ->call('impactPage', 1)->assertSee('kaplama renkleri')
             ->call('addKeyword', $this->kaplama->id)->assertHasNoErrors()->assertSet('impact', [])->assertDontSee('sorgu yakalayacak');
         Queue::assertPushed(RescanQueriesJob::class);
         $this->assertTrue($this->kaplama->matchingKeywords()->where('normalized_key', 'kaplama')->exists(), 'saved as today');
 
-        // The rescan follows the preview: a rule assignment that turns into a conflict is proposed for removal.
+        // The rescan follows the preview: a rule assignment already in one of the conflicting services stays (no line).
         app(QueryRescanner::class)->scan($this->admin->id);
-        $conflict = QueryReviewItem::query()->where('query_id', $this->queryId('implant kaplama'))->sole();
-        $this->assertSame([QueryReviewItem::REASON_CONFLICT, 'implant / kaplama', $this->implant->id, null], [$conflict->reason, $conflict->term, $conflict->from_service_id, $conflict->to_service_id]);
+        $this->assertFalse(QueryReviewItem::query()->where('query_id', $this->queryId('implant kaplama'))->exists());
         $this->assertSame($this->kaplama->id, QueryReviewItem::query()->where('query_id', $this->queryId('kaplama nedir'))->value('to_service_id'));
         $this->assertFalse(QueryReviewItem::query()->where('query_id', $this->queryId('zirkonyum kaplama fiyatları'))->exists());
         $this->assertFalse(QueryReviewItem::query()->where('query_id', $this->queryId('diş kaplama'))->exists());
-        $page->set('reviewKind', QueryReviewItem::SERVICE)->call('setTab', 'deletions')->assertSee('atama kalkıyor · çakışma: implant / kaplama');
+        $page->set('reviewKind', QueryReviewItem::SERVICE)->call('setTab', 'deletions')->assertDontSee('çakışma: implant / kaplama');
     }
 
     public function test_step_two_of_the_plan_wizard_previews_an_inline_keyword(): void
@@ -111,7 +110,7 @@ final class KeywordInsightsTest extends TestCase
 
         Livewire::test(QueryPlanWizard::class)->call('goTo', 2)
             ->set('newKeyword.'.$this->kaplama->id, 'kaplama')
-            ->assertSet('impact.total', 6)->assertSet('impact.conflict', 1)
+            ->assertSet('impact.total', 6)->assertSet('impact.conflict', 0)
             ->call('addKeyword', $this->kaplama->id)->assertHasNoErrors()->assertSet('impact', []);
     }
 
@@ -169,10 +168,9 @@ final class KeywordInsightsTest extends TestCase
 
         $this->assertSame([$ruleConflict->id, $open->id, $third->id, $this->queryId('zirkonyum implant yorum')], array_keys(app(KeywordInsights::class)->conflicts($this->dental->id)));
 
-        // Rescan: only a rule assignment that becomes a conflict gets a line (unassigned conflicts stay as they are).
+        // Rescan: a rule assignment already in one of the conflicting services stays; unassigned conflicts stay as they are.
         app(QueryRescanner::class)->scan(null);
-        $this->assertSame([$ruleConflict->id], QueryReviewItem::query()->pluck('query_id')->map(fn ($id): int => (int) $id)->all());
-        $this->assertSame('zirkonyum / implant', QueryReviewItem::query()->value('term'));
+        $this->assertSame([], QueryReviewItem::query()->pluck('query_id')->map(fn ($id): int => (int) $id)->all());
 
         $page = Livewire::test(QueriesPage::class)->set('sector', (string) $this->dental->id)->call('setTab', 'keywords')
             ->assertSeeHtml('data-keyword-view="conflicts"')->assertSee('Çakışmalar · 3')
@@ -218,7 +216,7 @@ final class KeywordInsightsTest extends TestCase
         $this->assertSame([QueryReviewItem::REASON_SECTOR, null], [$line->reason, $line->to_service_id]);
         $this->assertFalse(QueryReviewItem::query()->where('query_id', $wrongManual->id)->exists(), 'manual stays');
         $page = Livewire::test(QueriesPage::class)->set('reviewKind', QueryReviewItem::SERVICE)->call('setTab', 'deletions')
-            ->assertSee('atama kalkıyor · hiçbir eşleme kelimesi eşleşmiyor · sektör uyuşmuyor');
+            ->assertSee('hizmetsiz kalacak (artık hiçbir hizmetin kelimesi eşleşmiyor) · hiçbir eşleme kelimesi eşleşmiyor · sektör uyuşmuyor')->assertSee('Hizmetsiz');
 
         $page->call('setTab', 'keywords')->assertSee('Sektör uyumu · 2')->call('setKeywordView', 'sectors')
             ->assertSee('saç ekimi fiyat diş')->assertSee('Hizmetin sektörüne taşı')

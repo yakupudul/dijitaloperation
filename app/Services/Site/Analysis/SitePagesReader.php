@@ -311,7 +311,7 @@ final class SitePagesReader
     }
 
     /** Category of a page not categorized yet, read from its URL only (a page under the service section is "hizmet"). */
-    private static function pathCategory(string $path): ?string
+    public static function pathCategory(string $path): ?string
     {
         $segments = array_values(array_filter(explode('/', mb_strtolower(trim($path, '/')))));
         $first = preg_match('/^[a-z]{2}$/', $segments[0] ?? '') === 1 && count($segments) > 1 ? $segments[1] : ($segments[0] ?? '');

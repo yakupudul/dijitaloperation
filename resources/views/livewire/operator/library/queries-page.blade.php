@@ -304,8 +304,8 @@
                                     <td><span class="{{ $chip }} bg-rose-50 text-rose-700 dark:bg-rose-500/10">{{ $item->term }}</span></td>
                                 @else
                                     <td>{{ $serviceName($item->fromService) }}</td>
-                                    <td>{{ $serviceName($item->toService) }}</td>
-                                    <td class="text-gray-500" data-review-reason>{{ $item->from_service_id === null ? 'yeni atama' : ($item->to_service_id === null ? 'atama kalkıyor' : 'değişiyor') }} · {{ $item->reason === \App\Models\QueryReviewItem::REASON_CONFLICT ? 'çakışma: '.$item->term : ($item->term !== null ? 'eşleşen kelime: '.$item->term : 'hiçbir eşleme kelimesi eşleşmiyor') }}{{ $item->reason === \App\Models\QueryReviewItem::REASON_SECTOR ? ' · sektör uyuşmuyor (mevcut hizmet başka sektörde)' : '' }}</td>
+                                    <td>@if ($item->to_service_id === null)<span class="text-amber-700 dark:text-amber-300">Hizmetsiz</span>@else{{ $serviceName($item->toService) }}@endif</td>
+                                    <td class="text-gray-500" data-review-reason>{{ $item->from_service_id === null ? 'yeni atama' : ($item->to_service_id === null ? ($item->reason === \App\Models\QueryReviewItem::REASON_CONFLICT ? 'hizmetsiz kalacak (iki hizmetin kelimesi eşleşiyor; onaylarsan hizmeti kaldırılır)' : 'hizmetsiz kalacak (artık hiçbir hizmetin kelimesi eşleşmiyor)') : 'değişiyor') }} · {{ $item->reason === \App\Models\QueryReviewItem::REASON_CONFLICT ? 'çakışma: '.$item->term : ($item->term !== null ? 'eşleşen kelime: '.$item->term : 'hiçbir eşleme kelimesi eşleşmiyor') }}{{ $item->reason === \App\Models\QueryReviewItem::REASON_SECTOR ? ' · sektör uyuşmuyor (mevcut hizmet başka sektörde)' : '' }}</td>
                                 @endif
                                 <td class="text-right tabular-nums">{{ $num($item->searchQuery?->impressions ?? 0) }}</td>
                             </tr>
