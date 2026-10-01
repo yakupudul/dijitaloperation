@@ -1,7 +1,7 @@
 # İçerik Fikirleri, Küme Sayfaları ve Sayfa Puanı — Ürün Kurgusu
 
-Durum: **Taslak, operatör onayı bekliyor** (2026-10-01). Bu belge onaylanınca kod buna göre yazılır; belgede
-olmayan davranış eklenmez.
+Durum: **Onaylandı** (2026-10-01, operatör). Kod bu belgeye göre yazılır; belgede olmayan davranış eklenmez.
+Uygulama: Faz 1 kodlandı.
 
 İlgili belgeler: `SEARCH_DEMAND_INTELLIGENCE.md` (sorgular, kümeler), `SEO_TASKS.md`, ADR-064 / ADR-070 (WordPress
 taslak ve onaylı içerik güncelleme), sektör paketleri (`config/moxdop-sector-packs.php`).
@@ -86,14 +86,14 @@ Bugün de böyle; bu kurgu bu kuralı değiştirmez.
 | Kapsam | Sayfanın en az 1 gösterim aldığı küme sorgusu sayısı ÷ kümenin gerçek sorgu sayısı |
 | Tıklama oranı | Tıklama ÷ gösterim |
 
-### 3.3 Puan (0–100)
+### 3.3 Puan (1–100)
 
 ```
 Sıralama puanı  = 100 × (20 − min(sıra, 20)) ÷ 19      # 1. sıra = 100, 20. sıra ve sonrası = 0
 Kapsam puanı    = 100 × min(kapsam ÷ 0,5 ; 1)          # kümenin yarısında görünmek = tam puan
 Tıklama puanı   = 100 × min(tıklama oranı ÷ 0,10 ; 1)  # %10 ve üstü = tam puan
 
-Puan = 0,50 × Sıralama + 0,25 × Kapsam + 0,25 × Tıklama  (tam sayıya yuvarlanır)
+Puan = 0,50 × Sıralama + 0,25 × Kapsam + 0,25 × Tıklama  (tam sayıya yuvarlanır; en az 1, en çok 100)
 ```
 
 **Neden ham gösterim/tıklama sayısı puana girmiyor?** İzmir'deki bir sitenin gösterimi Manisa'dakinden doğal
@@ -135,7 +135,7 @@ Puana göre sıralı (puansızlar en altta). URL sitede açılır; marka adı ma
 
 - **Bir sayfa birden fazla kümeye atanmış:** her küme için ayrı puan (her biri kendi sorgularıyla).
 - **Çok dilli site:** her dil satırı ayrı; puan o dilin sayfası için.
-- **Sayfa yönlendirilmiş / silinmiş:** son taramada 3xx/4xx ise puan yerine "sayfa erişilemiyor".
+- **Sayfa yönlendirilmiş / silinmiş:** puan hesabı bunu bilmez; İçerik fikirleri listesinde "Teknik sorun" durumu gösterir (§5.4).
 - **Aynı sitede kümenin sorguları başka sayfada daha iyi:** puan atanmış sayfa içindir; "yanlış sayfa" uyarısı mevcut
   eşleme durumlarından gelir (§5.4).
 
@@ -491,9 +491,9 @@ Hepsi prompt kayıt sisteminde (prompt bilgisi ve düzenleme düğmesiyle) yer a
 
 ---
 
-## 10. Onay bekleyen noktalar
+## 10. Onaylanan noktalar (2026-10-01)
 
-1. Puan formülü ve eşikleri (§3.3, §3.4): ağırlıklar %50 / %25 / %25; kapsamda %50, tıklama oranında %10 tam puan;
+1. Puan 1–100 aralığında (§3.3); ağırlıklar %50 / %25 / %25, kapsamda %50 ve tıklama oranında %10 tam puan,
    "veri az" eşiği 100 gösterim.
 2. Durum eşikleri (§5.4): "Geliştirilmeli" için puan < 50; çıta sayfa için puan ≥ 60.
 3. Kopya eşikleri (§6.3): %15 ve 12 kelime.

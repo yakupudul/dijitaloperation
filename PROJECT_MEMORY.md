@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-11-12 — İçerik fikirleri / küme sayfaları / sayfa puanı kurgusu onaylandı
+
+- **Karar (operatör):** `docs/product/CONTENT_IDEAS_BLUEPRINT.md` canonical: ana içerik fikri = küme; ek fikirler yalnız operatör "Yeni fikir üret" deyince, sistem geneli havuzda (üreten / kullanan marka); küme sayfaları ve puanları tüm markalarda görünür; markalar arası kısıt yok, başarılı sayfa AI'a iskelet olarak çıta olur (metin değil; kopya kontrolü %15 beşli dizi / 12 kelimelik cümle); puan yalnız Search Console (1–100: %50 sıra, %25 kapsam, %25 tıklama oranı); "Geliştirilmeli" puan < 50, çıta ≥ 60; reçete ayrı "SEO analizi" butonu, "AI ile geliştir" reçeteyi uygular; yasaklı ifadeler sektör paketiyle tek kaynak.
+
 ## 2026-11-11 — Kümeler sistem genelinde sabit; parça parça kümeleme
 
 - **Karar (operatör):** Kümeler sektör + hizmet bazında sistem genelinde sabittir; markaya hizmet verildiğinde o hizmetin kümeleri marka ekranına gelir, markaya özel ayar (lokasyon, mevcut URL'ler) marka tarafında yapılır (sonraki iş). Sorgular › Kümeler paneli sade kalır: hizmet özeti + küme listesi + mevcut küme penceresi.

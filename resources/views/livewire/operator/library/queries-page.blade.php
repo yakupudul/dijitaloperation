@@ -495,6 +495,40 @@
                     </div>
                 </div>
 
+                @php
+                    $scoreState = ['low_data' => 'veri az', 'no_gsc' => 'GSC bağlı değil', 'no_gsc_data' => 'GSC verisi yok', 'no_page' => '—'];
+                    $nf = fn ($v): string => number_format((int) $v, 0, ',', '.');
+                @endphp
+                <div class="space-y-2 border-t border-gray-100 pt-3 text-xs dark:border-gray-800" data-cluster-site-pages>
+                    <h3 class="font-semibold">Bu kümeye atanmış sayfalar (tüm markalar)</h3>
+                    @if ($clusterSitePages === [])
+                        <p class="text-gray-500">Henüz hiçbir markada bu kümeye sayfa atanmadı.</p>
+                    @else
+                        <table class="w-full text-left">
+                            <thead class="text-gray-500"><tr><th class="py-1">Marka</th><th>URL</th><th class="text-right">Puan</th><th class="text-right">Ort. sıra</th><th class="text-right">Gösterim</th><th class="text-right">Tıklama</th><th class="text-right">Kapsam</th><th class="text-right">GA4</th></tr></thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                @foreach ($clusterSitePages as $sp)
+                                    @php $sc = $sp['score']; @endphp
+                                    <tr>
+                                        <td class="py-1"><a href="{{ route('operator.website', ['assetId' => $sp['site_id']]) }}" wire:navigate class="hover:underline">{{ $sp['brand'] }}</a></td>
+                                        <td class="max-w-[14rem] truncate"><a href="{{ $sp['url'] }}" target="_blank" rel="noopener" class="text-brand-600 hover:underline">{{ preg_replace('#^https?://[^/]+#', '', $sp['url']) ?: '/' }}</a></td>
+                                        <td class="text-right font-semibold tabular-nums">
+                                            @if ($sc?->score !== null){{ $sc->score }}@if ($sc->previous_score !== null && $sc->previous_score != $sc->score) <span class="text-gray-400">{{ $sc->score > $sc->previous_score ? '↑' : '↓' }}</span>@endif
+                                            @else<span class="font-normal text-gray-500">{{ $sc !== null ? ($scoreState[$sc->state] ?? $sc->state) : 'hesaplanmadı' }}</span>@endif
+                                        </td>
+                                        <td class="text-right tabular-nums">{{ $sc?->position !== null ? number_format((float) $sc->position, 1, ',', '.') : '—' }}</td>
+                                        <td class="text-right tabular-nums">{{ $sc !== null ? $nf($sc->impressions) : '—' }}</td>
+                                        <td class="text-right tabular-nums">{{ $sc !== null ? $nf($sc->clicks) : '—' }}</td>
+                                        <td class="text-right tabular-nums">{{ $sc !== null && $sc->cluster_queries > 0 ? $sc->covered_queries.'/'.$sc->cluster_queries : '—' }}</td>
+                                        <td class="text-right tabular-nums">{{ $sc?->ga4_sessions !== null ? $nf($sc->ga4_sessions).' / '.number_format((float) $sc->ga4_key_events, 0, ',', '.') : '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                        <p class="text-gray-500">Puan (1–100): son 90 günde yalnız bu kümenin sorgularında sıralama (%50), kapsam (%25) ve tıklama oranı (%25) · her gece yenilenir · GA4: oturum / dönüşüm (bilgi, puana girmez).</p>
+                    @endif
+                </div>
+
                 @if ($affectedBrands->isNotEmpty())
                     <div class="space-y-2 border-t border-gray-100 pt-3 text-xs dark:border-gray-800" data-brand-edit>
                         <h3 class="font-semibold">Bu markaya özel düzenle</h3>

@@ -1292,6 +1292,7 @@ final class QueriesPage extends Component
             'clusterQueue' => $clusterQueue,
             'openCluster' => $openCluster,
             'affectedBrands' => $affected,
+            'clusterSitePages' => $openCluster !== null ? $this->clusterSitePages((int) $openCluster->id) : [],
             'brandPages' => $openCluster !== null && ctype_digit($this->brandId) && $affected->contains('id', (int) $this->brandId)
                 ? Page::query()->whereIn('website_asset_id', DigitalAsset::query()->where('brand_id', (int) $this->brandId)->select('id'))
                     ->whereIn('category', ['hizmet', 'lokasyon', 'blog', 'sss'])->orderBy('path')->limit(500)->pluck('path', 'id')->all() : [],
@@ -1436,6 +1437,24 @@ final class QueriesPage extends Component
                 $cluster->setAttribute('demand', (int) ($demand[$cluster->id] ?? 0));
             })
             ->sortBy([['demand', 'desc'], ['name', 'asc']])->values();
+    }
+
+    /**
+     * "Bu kümeye atanmış sayfalar (tüm markalar)": every brand's page for the cluster with its nightly score
+     * (ClusterPageScorer), scored pages first.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function clusterSitePages(int $clusterId): array
+    {
+        $scores = DB::table('cluster_page_scores')->where('cluster_id', $clusterId)->get()->keyBy('brand_cluster_page_id');
+
+        return BrandClusterPage::query()->with(['brand:id,name', 'page:id,url'])->where('cluster_id', $clusterId)->where('excluded', false)
+            ->whereNotNull('page_id')->get()
+            ->map(fn (BrandClusterPage $row): array => ['brand' => (string) $row->brand?->name, 'site_id' => (int) $row->website_asset_id,
+                'url' => (string) $row->page?->url, 'score' => $scores[$row->id] ?? null])
+            ->sortBy([fn (array $a, array $b): int => [$b['score']?->score ?? -1, $a['brand']] <=> [$a['score']?->score ?? -1, $b['brand']]])
+            ->values()->all();
     }
 
     /** Visible, real queries of the service in none of its clusters. */

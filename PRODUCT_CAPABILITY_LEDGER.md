@@ -1,5 +1,12 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-12 — İçerik fikirleri kurgusu Faz 1: sayfa puanı + tüm markalardaki küme sayfaları
+
+- Ürün kurgusu: `docs/product/CONTENT_IDEAS_BLUEPRINT.md` (onaylı). Faz 1 kodlandı; Faz 2–5 sırada.
+- **Sayfa puanı (`ClusterPageScorer`, `cluster_page_scores`, gece 07:10 `moxdop:clusters:score-pages`):** her küme satırının sayfası, markanın Search Console verisinin son 90 gününde yalnız o kümenin gerçek sorgularında (`query_sources` bağıyla; varyantlar dahil, önerilen sorgular hariç): gösterim, tıklama, ağırlıklı sıra, kapsam (göründüğü küme sorgusu / küme sorgusu), tıklama oranı. Puan 1–100 = %50 sıralama (1. sıra 100 → 20+ 0) + %25 kapsam (%50 kapsam tam) + %25 tıklama oranı (%10 tam). Ham gösterim/tıklama puana girmez (şehir büyüklüğü). Puansız: GSC bağlı değil / GSC verisi yok / sayfa yok / veri az (< 100 gösterim). GA4 oturum + dönüşüm aynı pencerede bilgi. Önceki puan eğilim için tutulur.
+- **Ekran:** Sorgular › Küme penceresi › "Bu kümeye atanmış sayfalar (tüm markalar)": marka (web sitesi ekranına bağlantı), URL, puan (↑↓), ort. sıra, gösterim, tıklama, kapsam, GA4.
+- **State:** CODED + PHPUnit (`ClusterPageScoreTest`: formül, 90 gün penceresi, başka sayfa / küme dışı sorgu / önerilen sorgu hariç, GSC bağlı değil, veri az, önceki puan, ekran). **Operator after deploy:** `php artisan migrate --force`; puanlar ilk gece oluşur, hemen görmek için `php artisan moxdop:clusters:score-pages`.
+
 ## 2026-11-11 — Kümeleme v5 (sayfa büyüklüğünde, atlananların nedeni) + veri kaynağında "son çekim ne yazdı"
 
 - **Prompt `queries-cluster-v5`:** küme = Google'ın tek URL ile cevapladığı konular; "diğer / çeşitli" çöp küme yasak; sektörün diğer hizmetlerine ait konular (`other_services` verilir) kümelenmez, `skipped` (other_service + hizmet adı | not_relevant) olarak döner; her konu ya bir kümede ya `skipped`'ta olmalı.

@@ -723,3 +723,10 @@ Schedule::command('moxdop:outcomes:measure')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(60)
     ->name('outcomes-measure');
+
+// Sayfa puanı (docs/product/CONTENT_IDEAS_BLUEPRINT.md §3): after the night's Search Console collections.
+Schedule::command('moxdop:clusters:score-pages')
+    ->dailyAt('07:10')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(120)
+    ->name('clusters-score-pages');

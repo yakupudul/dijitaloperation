@@ -72,7 +72,7 @@ Blueprint, MASTER_SPEC'i **override edemez**; yalnızca ayrıntılandırır.
 | Website module | `docs/product/website/WEBSITE.md` |
 | Website Diagnosis | `docs/product/website/DIAGNOSIS.md` |
 | SEO Görevleri (weekly content plan) | `docs/product/SEO_TASKS.md` (**CODED, UAT pending**) |
-| İçerik fikirleri, küme sayfaları, sayfa puanı (SEO asistanı reçetesi) | `docs/product/CONTENT_IDEAS_BLUEPRINT.md` (**Taslak, onay bekliyor**) |
+| İçerik fikirleri, küme sayfaları, sayfa puanı (SEO asistanı reçetesi) | `docs/product/CONTENT_IDEAS_BLUEPRINT.md` (**Onaylı; Faz 1 CODED**) |
 | Danışman sistemi yol haritası | `docs/product/ADVISOR_ROADMAP.md` (**DRAFT, awaiting owner decision**) |
 | WordPress | `docs/product/website/WORDPRESS.md` |
 | Search Console | `docs/product/website/SEARCH_CONSOLE.md` |

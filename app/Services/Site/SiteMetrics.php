@@ -20,6 +20,15 @@ final class SiteMetrics
     /** @var array<int, array{start: string, end: string, prev_start: string, prev_end: string}|null> */
     private array $windows = [];
 
+    /** The last day of the brand's Search Console data (web), or null when none arrived. */
+    public function lastGscDay(Brand $brand): ?CarbonImmutable
+    {
+        $ids = SiteScope::resourceIds($brand, 'search_console');
+        $last = $ids === [] ? null : DB::table('gsc_query_page_daily')->whereIn('external_resource_id', $ids)->where('search_type', 'web')->max('reporting_date');
+
+        return $last === null ? null : CarbonImmutable::parse((string) $last);
+    }
+
     /** @return array{start: string, end: string, prev_start: string, prev_end: string}|null */
     public function window(Brand $brand): ?array
     {
@@ -140,15 +149,16 @@ final class SiteMetrics
     }
 
     /**
-     * Query × page facts (28 days) of the given normalized queries: raw Search Console queries are linked to them through
-     * `query_sources` (Faz 3).
+     * Query × page facts (28 days, or the given [from, to]) of the given normalized queries: raw Search Console queries
+     * are linked to them through `query_sources` (Faz 3).
      *
      * @param  list<int>  $queryIds
+     * @param  array{0: string, 1: string}|null  $range
      * @return list<array{query_id: int, url_key: string, url: string, clicks: int, impressions: int, position: ?float}>
      */
-    public function queryPageFacts(Brand $brand, DigitalAsset $site, array $queryIds): array
+    public function queryPageFacts(Brand $brand, DigitalAsset $site, array $queryIds, ?array $range = null): array
     {
-        $window = $this->window($brand);
+        $window = $range !== null ? ['start' => $range[0], 'end' => $range[1]] : $this->window($brand);
         $resources = SiteScope::resourceIds($brand, 'search_console');
         if ($window === null || $queryIds === [] || $resources === []) {
             return [];
@@ -210,7 +220,7 @@ final class SiteMetrics
     }
 
     /** @return array{sessions: int, key_events: float}|null GA4 landing page (28 days, all sources); null = no GA4 data */
-    public function ga4Landing(Brand $brand, string $url): ?array
+    public function ga4Landing(Brand $brand, string $url, int $days = 28): ?array
     {
         $ids = SiteScope::resourceIds($brand, 'ga4');
         $last = $ids === [] ? null : DB::table('ga4_landing_source_daily')->whereIn('external_resource_id', $ids)->max('reporting_date');
@@ -221,7 +231,7 @@ final class SiteMetrics
         $path = SeoText::urlPath($url);
         $paths = array_values(array_unique([$path, rtrim($path, '/') ?: '/', rtrim($path, '/').'/']));
         $row = DB::table('ga4_landing_source_daily')->whereIn('external_resource_id', $ids)
-            ->whereBetween('reporting_date', [$end->subDays(27)->toDateString(), $end->toDateString()])->whereIn('landingPage', $paths)
+            ->whereBetween('reporting_date', [$end->subDays($days - 1)->toDateString(), $end->toDateString()])->whereIn('landingPage', $paths)
             ->selectRaw('sum(sessions) as sessions, sum('.DB::getQueryGrammar()->wrap('keyEvents').') as key_events')->first();
 
         return ['sessions' => (int) ($row->sessions ?? 0), 'key_events' => round((float) ($row->key_events ?? 0), 1)];
