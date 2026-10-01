@@ -204,6 +204,10 @@ final class SitePagesTest extends TestCase
             ->assertSee('Organik tıklama')->assertSee('2.800')->assertSee('Oturum')->assertSee('data-sparkline="Organik tıklama"', false)
             ->assertSee('Ana hizmet sayfaları')->assertSee('İyi 1')->assertSee('Sorunlu 1')->assertSee('Diş İmplantı')
             ->assertSee('Başlığı güçlendir')
+            ->assertSee('Tıklama oranı')->assertSee('10,0%')->assertSee('Ortalama sıra')
+            ->assertSee('En çok tıklanan sorgular')->assertSeeHtml('data-top-queries')->assertSee('ankara implant')
+            ->assertSee('En çok tıklanan sayfalar')->assertSee('Diş implantı')
+            ->assertSee('Kaybedenler')->assertSee('10 → 2')
             ->set('period', 90)->assertSee('29.06.2026 – 26.09.2026');
     }
 

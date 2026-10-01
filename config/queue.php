@@ -23,6 +23,12 @@ return [
     'heavy_queue' => env('HEAVY_QUEUE', env('QUEUE_CONNECTION') === 'redis' ? 'heavy' : 'default'),
 
     /*
+    | Automatic background AI (query autopilot) on its own Horizon supervisor, so operator-triggered heavy jobs never
+    | wait behind it. Without Redis it stays on "default".
+    */
+    'background_queue' => env('BACKGROUND_QUEUE', env('QUEUE_CONNECTION') === 'redis' ? 'background' : 'default'),
+
+    /*
     |--------------------------------------------------------------------------
     | Queue Connections
     |--------------------------------------------------------------------------

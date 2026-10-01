@@ -22,7 +22,7 @@ final class QueryAutopilotJob implements ShouldQueue
 
     public function __construct(public bool $clean = false)
     {
-        $this->onQueue((string) config('queue.heavy_queue', 'default'));
+        $this->onQueue((string) config('queue.background_queue', 'default'));
     }
 
     public function handle(QueryAutopilot $autopilot): void

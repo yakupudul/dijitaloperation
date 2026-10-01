@@ -5,7 +5,9 @@
 - **Sayfa tıklamaları:** Sayfalar ve sayfa detayı Search Console sayfa toplamlarını (`gsc_page_daily`, anonim sorgular dahil) kullanır; Özet'teki site toplamıyla uyumlu. Sorgu × sayfa verisi yalnız ortalama sıra için (ve sayfa toplamı yoksa yedek olarak).
 - **Ana hizmet sayfaları:** hizmet bölümündeki sayfalar (/tedavilerimiz/, /hizmetlerimiz/ …) adında şehir geçse de "hizmet" (önce "lokasyon" sayılıyordu); kategorisi henüz yazılmamış sayfa URL'sinden değerlendirilir; haftalık yenilemede kural kategorileri pasif markada da yazılır (AI geçişi yalnız etkin markada). Başlığı olmayan sayfa slug'dan okunur başlıkla görünür.
 - **Boş görünümler tek kaynaktan:** İçerik fikirleri, Rakipler, Öneriler, Kümeler ve Özet'in boş hâli `SiteScope::clusterReadiness` ile eksik adımı ve bağlantısını gösterir (hizmet yok / katalog bağı yok / küme yok / küme onaysız → "Kümeleri onayla" / eşleştirilmedi). Eski "Kümeler & Sayfalar" yönlendirmeleri kaldırıldı.
-- **State:** CODED + PHPUnit (`SitePagesTest::test_service_section_pages_are_main_page_totals_match_the_site_and_empty_views_say_the_next_step`). Üretim UAT yok.
+- **Özet (Search Console / GA4 genel bakış düzeni):** 6 kart (tıklama, gösterim, tıklama oranı, ortalama sıra — düşmesi iyi —, oturum, anahtar etkinlik; önceki döneme göre), günlük çizgiler, en çok tıklanan sorgular ve sayfalar (değişimle), "Neler değişti" (en çok tıklama kazanan / kaybeden sayfalar), ana hizmet sayfaları, açık işler.
+- **AI hızı:** otomatik pilot ayrı `background` kuyruğunda (Horizon `supervisor-background`, 1 işçi): operatörün tıkladığı AI işleri (heavy) onun arkasında beklemez. `queries.triage` v3 yalnız atanan / filtrelenen sorgular için satır döner (yazılmayan = hiçbiri), çıktı ve süre kısalır.
+- **State:** CODED + PHPUnit (`SitePagesTest::test_service_section_pages_are_main_page_totals_match_the_site_and_empty_views_say_the_next_step`, `test_overview_shows_traffic_trend_service_pages_and_open_work`). Üretim UAT yok. **Operator after deploy:** Horizon yeniden başlar (deploy.sh), yeni `background` kuyruğu otomatik açılır.
 
 ## 2026-11-14 — Sorgu otomatik pilotu: atama ve kümelemeye kadar onaysız
 

@@ -28,18 +28,27 @@
         </select>
     </div>
 
-    <section class="grid grid-cols-2 gap-3 lg:grid-cols-4" data-numbers>
-        @foreach ([
-            ['Organik tıklama', $c['clicks'], $p['clicks'], $num, $trend['has_gsc'], 'Search Console bağlı değil'],
-            ['Gösterim', $c['impressions'], $p['impressions'], $num, $trend['has_gsc'], 'Search Console bağlı değil'],
-            ['Oturum', $c['sessions'], $p['sessions'], $num, $trend['has_ga4'], 'GA4 bağlı değil'],
-            ['Anahtar etkinlik', $c['key_events'], $p['key_events'], $dec, $trend['has_ga4'], 'GA4 bağlı değil'],
-        ] as [$label, $value, $previous, $format, $bound, $missing])
-            @php($delta = $pct($value, $previous))
-            <div class="{{ $card }}">
+    @php
+        $ctr = fn (array $t): ?float => $t['impressions'] > 0 ? round($t['clicks'] / $t['impressions'] * 100, 1) : null;
+        $cards = [
+            ['Tıklama', $c['clicks'], $p['clicks'], $num, $trend['has_gsc'], 'Search Console bağlı değil', false],
+            ['Gösterim', $c['impressions'], $p['impressions'], $num, $trend['has_gsc'], 'Search Console bağlı değil', false],
+            ['Tıklama oranı', $ctr($c), $ctr($p), fn ($v) => $dec($v).'%', $trend['has_gsc'], 'Search Console bağlı değil', false],
+            ['Ortalama sıra', $totals['current']['position'], $totals['previous']['position'], $dec, $trend['has_gsc'], 'Search Console bağlı değil', true],
+            ['Oturum', $c['sessions'], $p['sessions'], $num, $trend['has_ga4'], 'GA4 bağlı değil', false],
+            ['Anahtar etkinlik', $c['key_events'], $p['key_events'], $dec, $trend['has_ga4'], 'GA4 bağlı değil', false],
+        ];
+    @endphp
+    <section class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" data-numbers>
+        @foreach ($cards as [$label, $value, $previous, $format, $bound, $missing, $lowerIsBetter])
+            @php
+                $delta = $value !== null && $previous !== null ? $pct($value, $previous) : null;
+                $good = $delta !== null && $delta !== 0 && (($delta > 0) xor $lowerIsBetter);
+            @endphp
+            <div class="{{ $card }}" data-number="{{ $label }}">
                 <p class="text-xs text-gray-500">{{ $label }}</p>
-                <p class="text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $bound ? $format($value) : '—' }}</p>
-                <p @class(['text-xs', 'text-rose-600' => $delta !== null && $delta < 0, 'text-emerald-600' => $delta !== null && $delta > 0, 'text-gray-500' => $delta === null || $delta === 0])>
+                <p class="text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $bound && $value !== null ? $format($value) : '—' }}</p>
+                <p @class(['text-xs', 'text-emerald-600' => $delta !== null && $delta !== 0 && $good, 'text-rose-600' => $delta !== null && $delta !== 0 && ! $good, 'text-gray-500' => $delta === null || $delta === 0])>
                     @if (! $bound){{ $missing }}@elseif ($delta === null)önceki dönem verisi yok@else{{ $delta > 0 ? '▲ +' : ($delta < 0 ? '▼ ' : '') }}{{ $delta }}% · önceki {{ $format($previous) }}@endif
                 </p>
             </div>
@@ -55,6 +64,78 @@
                 <div class="{{ $card }}">@include('livewire.operator.website.v2.partials.sparkline', ['points' => array_map(fn ($d) => ['date' => $d['date'], 'value' => $d['sessions']], $trend['series']), 'label' => 'Oturum', 'format' => $num])</div>
             @endif
         </section>
+    @endif
+
+    @if ($trend['has_gsc'])
+        <div class="grid gap-4 lg:grid-cols-2">
+            <section class="{{ $card }}" data-top-queries>
+                <div class="mb-2 flex items-center justify-between gap-2">
+                    <h2 class="text-sm font-semibold">En çok tıklanan sorgular</h2>
+                    <a href="{{ route('operator.website', ['assetId' => $this->assetId, 'tab' => 'sorgular', 'sub' => 'sorgular']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">Tümü →</a>
+                </div>
+                <table class="w-full text-xs">
+                    <thead class="text-gray-500"><tr><th class="py-1 text-left font-medium">Sorgu</th><th class="text-right font-medium">Tıklama</th><th class="text-right font-medium">Gösterim</th><th class="text-right font-medium">Sıra</th></tr></thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @forelse ($topQueries as $q)
+                            @php($qDelta = $pct($q['clicks'], $q['prev_clicks']))
+                            <tr wire:key="tq-{{ md5($q['query']) }}">
+                                <td class="max-w-[16rem] truncate py-1.5">{{ $q['query'] }}</td>
+                                <td class="text-right tabular-nums">{{ $num($q['clicks']) }}@if ($qDelta !== null) <span @class(['text-[10px]', 'text-emerald-600' => $qDelta > 0, 'text-rose-600' => $qDelta < 0, 'text-gray-400' => $qDelta === 0])>{{ $qDelta > 0 ? '+' : '' }}{{ $qDelta }}%</span>@endif</td>
+                                <td class="text-right tabular-nums">{{ $num($q['impressions']) }}</td>
+                                <td class="text-right tabular-nums">{{ $q['position'] !== null ? $dec($q['position']) : '—' }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="4" class="py-2 text-gray-500">Bu dönemde tıklama alan sorgu yok.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="{{ $card }}" data-top-pages>
+                <div class="mb-2 flex items-center justify-between gap-2">
+                    <h2 class="text-sm font-semibold">En çok tıklanan sayfalar</h2>
+                    <a href="{{ $pageUrl(['filtre' => 'tum']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">Tümü →</a>
+                </div>
+                <table class="w-full text-xs">
+                    <thead class="text-gray-500"><tr><th class="py-1 text-left font-medium">Sayfa</th><th class="text-right font-medium">Tıklama</th><th class="text-right font-medium">Oturum</th><th class="text-right font-medium">Sıra</th></tr></thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @forelse ($topPages as $row)
+                            <tr wire:key="tp-{{ md5($row['path']) }}">
+                                <td class="max-w-[16rem] py-1.5"><a href="{{ $pageUrl(['sayfa' => $row['path']]) }}" wire:navigate class="block truncate hover:underline">{{ $row['title'] ?? $row['path'] }}</a><span class="block truncate text-gray-400">{{ $row['path'] }}</span></td>
+                                <td class="text-right tabular-nums">{{ $num($row['clicks']) }}@if ($row['delta'] !== null) <span @class(['text-[10px]', 'text-emerald-600' => $row['delta'] > 0, 'text-rose-600' => $row['delta'] < 0, 'text-gray-400' => $row['delta'] === 0])>{{ $row['delta'] > 0 ? '+' : '' }}{{ $row['delta'] }}%</span>@endif</td>
+                                <td class="text-right tabular-nums">{{ $num($row['sessions']) }}</td>
+                                <td class="text-right tabular-nums">{{ $row['position'] !== null ? $dec($row['position']) : '—' }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="4" class="py-2 text-gray-500">Bu dönemde tıklama alan sayfa yok.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </section>
+        </div>
+
+        @if ($winners !== [] || $losers !== [])
+            <section class="{{ $card }}" data-movers>
+                <h2 class="mb-2 text-sm font-semibold">Neler değişti <span class="font-normal text-gray-500">· önceki {{ $periodDays }} güne göre en çok tıklama kazanan ve kaybeden sayfalar</span></h2>
+                <div class="grid gap-4 md:grid-cols-2">
+                    @foreach (['Kazananlar' => $winners, 'Kaybedenler' => $losers] as $heading => $list)
+                        <div>
+                            <p class="mb-1 text-xs font-medium {{ $heading === 'Kazananlar' ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300' }}">{{ $heading }}</p>
+                            <ul class="divide-y divide-gray-100 text-xs dark:divide-gray-800">
+                                @forelse ($list as $row)
+                                    <li class="flex items-center justify-between gap-3 py-1.5" wire:key="mv-{{ md5($row['path']) }}">
+                                        <a href="{{ $pageUrl(['sayfa' => $row['path']]) }}" wire:navigate class="min-w-0 truncate hover:underline">{{ $row['title'] ?? $row['path'] }}</a>
+                                        <span class="shrink-0 tabular-nums text-gray-500">{{ $num($row['prev_clicks']) }} → {{ $num($row['clicks']) }} <span class="{{ $row['change'] > 0 ? 'text-emerald-600' : 'text-rose-600' }}">({{ $row['change'] > 0 ? '+' : '' }}{{ $num($row['change']) }})</span></span>
+                                    </li>
+                                @empty
+                                    <li class="py-1.5 text-gray-500">—</li>
+                                @endforelse
+                            </ul>
+                        </div>
+                    @endforeach
+                </div>
+            </section>
+        @endif
     @endif
 
     <div class="grid gap-4 lg:grid-cols-2">

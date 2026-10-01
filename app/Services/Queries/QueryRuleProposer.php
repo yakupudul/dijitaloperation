@@ -89,7 +89,7 @@ final class QueryRuleProposer
     public function propose(array $queryIds): array
     {
         $empty = ['terms' => [], 'keywords' => []];
-        $queries = Query::query()->whereIn('id', array_slice($queryIds, 0, self::MAX_QUERIES))->with('service.primaryName')->get();
+        $queries = Query::query()->whereIn('id', array_slice($queryIds, 0, self::MAX_QUERIES))->with('service.primaryName')->orderBy('id')->get();
         if ($queries->isEmpty()) {
             return ['status' => 'no_queries'] + $empty;
         }

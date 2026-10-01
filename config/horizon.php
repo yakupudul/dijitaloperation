@@ -214,6 +214,20 @@ return [
         ],
         // Long AI / analysis jobs (advisor, SEO plans, brain, SERP, erase) so quick jobs on "default"
         // (uptime, writes, notifications) never wait behind them.
+        // Automatic background AI (query autopilot): its own worker, so it never holds a heavy worker that an
+        // operator's click (SEO analysis, AI ile üret, clustering) is waiting for.
+        'supervisor-background' => [
+            'connection' => 'redis',
+            'queue' => ['background'],
+            'balance' => 'simple',
+            'maxProcesses' => (int) env('HORIZON_BACKGROUND_MAX_PROCESSES', 1),
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 512,
+            'tries' => 1,
+            'timeout' => (int) env('HORIZON_HEAVY_TIMEOUT', 900),
+            'nice' => 10,
+        ],
         'supervisor-heavy' => [
             'connection' => 'redis',
             'queue' => ['heavy'],

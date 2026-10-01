@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-11-15 — Web sitesi ekranı tutarlılığı ve AI kuyruğu
+
+- **Karar:** sayfa başı Search Console rakamları sayfa toplamlarından (`gsc_page_daily`), site toplamıyla uyumlu; hizmet bölümündeki sayfa şehir adı taşısa da hizmet sayfasıdır; boş küme görünümleri tek kaynaktan (`SiteScope::clusterReadiness`) eksik adımı söyler. Otomatik arka plan AI'ı (`QueryAutopilotJob`) `background` kuyruğunda, operatörün tıkladığı AI işleri `heavy` kuyrukta; ikisi birbirini bekletmez.
+
 ## 2026-11-14 — Sorgu otomatik pilotu kararı
 
 - **Karar (operatör):** sorgu hattı hizmet ataması ve kümelemeye kadar onaysız ilerler (AI hizmet atar, filtre ve eşleme kelimesi ekler, Bekleyenler otomatik içe alınır, filtre silmeleri saatte bir toplu); her sorgu atama için bir kez, kümeleme için bir kez AI'a gider. Yeni kümelerin markalara inmesi operatör onayında kalır. Kümeden çıkarılan sorgu kütüphaneden de silinir. Gerçek sorgusu kalmayan kilitsiz küme silinir. Filtre temizliği saatte bir; 50 yeni filtre kelimesinde hemen (sonraki zorunlu temizlik 50 kelime daha bekler). Çekim sıklığı değişmedi. Önceki "onaylı tarama / onaylı AI ataması" kararlarının yerini alır (elle araçlar duruyor).
