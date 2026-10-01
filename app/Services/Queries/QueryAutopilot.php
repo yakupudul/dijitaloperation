@@ -37,7 +37,7 @@ use Throwable;
  *  3. When both are empty, at most once a day: services with new, never clustered queries are clustered one by one
  *     ("Hepsini kümele" queue: place into the existing clusters, or a full run for a service without clusters). New
  *     clusters wait for the operator's approval before they reach any brand.
- *  4. Nightly clean-up (01:00): a full rescan with the grown filter basket and keywords, then every open Silinecekler
+ *  4. Hourly clean-up (operator decision: not on every new term, once an hour for all of them): a full rescan with the grown filter basket and keywords, then every open Silinecekler
  *     line is applied (filter deletions, keyword service changes) except conflicts and lines the operator kept.
  */
 final class QueryAutopilot
@@ -166,12 +166,12 @@ final class QueryAutopilot
     }
 
     /**
-     * 01:00 clean-up: full rescan, then the open pool lines are applied (filter deletions and keyword service changes);
+     * Hourly clean-up: full rescan, then the open pool lines are applied (filter deletions and keyword service changes);
      * conflicts and lines the operator kept stay for the operator.
      *
      * @return array{deleted: int, changed: int}
      */
-    public function nightlyClean(): array
+    public function clean(): array
     {
         if (! self::enabled()) {
             return ['deleted' => 0, 'changed' => 0];

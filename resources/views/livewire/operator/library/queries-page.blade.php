@@ -26,14 +26,14 @@
             <span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-800">durduruldu</span>
         @else
             <span class="rounded-full bg-success-50 px-2 py-0.5 text-success-700">açık</span>
-            <span class="text-gray-500">AI'ın bakacağı sorgu: {{ number_format($autopilotQueue, 0, ',', '.') }} · toplam: {{ (int) ($apTotals['assigned'] ?? 0) }} atandı · {{ (int) ($apTotals['filters'] ?? 0) }} filtre kelimesi · {{ (int) ($apTotals['keywords'] ?? 0) }} eşleme kelimesi · {{ (int) ($apTotals['imported'] ?? 0) }} bekleyen içe alındı · gece temizliğinde {{ (int) ($apTotals['deleted'] ?? 0) }} silindi</span>
+            <span class="text-gray-500">AI'ın bakacağı sorgu: {{ number_format($autopilotQueue, 0, ',', '.') }} · toplam: {{ (int) ($apTotals['assigned'] ?? 0) }} atandı · {{ (int) ($apTotals['filters'] ?? 0) }} filtre kelimesi · {{ (int) ($apTotals['keywords'] ?? 0) }} eşleme kelimesi · {{ (int) ($apTotals['imported'] ?? 0) }} bekleyen içe alındı · temizlikte {{ (int) ($apTotals['deleted'] ?? 0) }} silindi</span>
             @if (! empty($ap['tick_at']))<span class="text-gray-400">son tur {{ \Illuminate\Support\Carbon::parse($ap['tick_at'])->diffForHumans() }}</span>@endif
             @if (($ap['status'] ?? null) === 'no_provider')<span class="text-rose-600">AI bağlı değil</span>@endif
         @endif
         @if ($autopilotReady)
             <button type="button" wire:click="toggleAutopilot" class="{{ $ghost }} ml-auto">{{ $autopilotPaused ? 'Başlat' : 'Durdur' }}</button>
         @endif
-        <span class="w-full text-gray-500">Her 15 dakikada: AI hizmeti atanmamış sorgulara bir kez bakar (hizmet, filtre kelimesi ya da hiçbiri), sonra Bekleyenler içe alınır; günde bir yeni sorgular kümelenir (yeni kümeler onayınla markalara iner). Filtre silmeleri her gece 01:00'de toplu yapılır.</span>
+        <span class="w-full text-gray-500">Her 15 dakikada: AI hizmeti atanmamış sorgulara bir kez bakar (hizmet, filtre kelimesi ya da hiçbiri), sonra Bekleyenler içe alınır; günde bir yeni sorgular kümelenir (yeni kümeler onayınla markalara iner). Filtre sepetine uyan sorgular saatte bir toplu silinir.</span>
     </section>
 
     @if ($message !== '')

@@ -2,7 +2,7 @@
 
 ## 2026-11-14 — Sorgu otomatik pilotu kararı
 
-- **Karar (operatör):** sorgu hattı hizmet ataması ve kümelemeye kadar onaysız ilerler (AI hizmet atar, filtre ve eşleme kelimesi ekler, Bekleyenler otomatik içe alınır, filtre silmeleri gece 01:00 toplu); her sorgu atama için bir kez, kümeleme için bir kez AI'a gider. Yeni kümelerin markalara inmesi operatör onayında kalır. Kümeden çıkarılan sorgu kütüphaneden de silinir. Çekim sıklığı değişmedi. Önceki "onaylı tarama / onaylı AI ataması" kararlarının yerini alır (elle araçlar duruyor).
+- **Karar (operatör):** sorgu hattı hizmet ataması ve kümelemeye kadar onaysız ilerler (AI hizmet atar, filtre ve eşleme kelimesi ekler, Bekleyenler otomatik içe alınır, filtre silmeleri saatte bir toplu); her sorgu atama için bir kez, kümeleme için bir kez AI'a gider. Yeni kümelerin markalara inmesi operatör onayında kalır. Kümeden çıkarılan sorgu kütüphaneden de silinir. Çekim sıklığı değişmedi. Önceki "onaylı tarama / onaylı AI ataması" kararlarının yerini alır (elle araçlar duruyor).
 
 ## 2026-11-13 — İçerik fikirleri sekmesi, çıta, yasaklı ifadeler kararları (Faz 3–5)
 

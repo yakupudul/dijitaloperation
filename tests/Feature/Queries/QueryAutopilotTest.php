@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\Feature\Site\SiteTestCase;
 
-/** Sorgu otomatik pilotu: triage once per query, filter learning, Bekleyenler, daily clustering, 01:00 clean-up. */
+/** Sorgu otomatik pilotu: triage once per query, filter learning, Bekleyenler, daily clustering, hourly clean-up. */
 final class QueryAutopilotTest extends SiteTestCase
 {
     private function libraryQuery(string $text, ?int $serviceId = null): Query
@@ -68,7 +68,7 @@ final class QueryAutopilotTest extends SiteTestCase
         $this->assertTrue($this->zirkonyum->fresh()->matchingKeywords->contains('label', 'diş kaplama'));
         $this->assertFalse($this->zirkonyum->fresh()->matchingKeywords->contains('label', 'fiyat'), 'generic keyword dropped');
         $this->assertSame(0, Query::query()->whereNull('ai_checked_at')->whereNull('service_id')->count());
-        $this->assertTrue(Query::query()->whereKey($doctor->id)->exists(), 'deleting waits for the 01:00 clean-up');
+        $this->assertTrue(Query::query()->whereKey($doctor->id)->exists(), 'deleting waits for the hourly clean-up');
         Queue::assertPushed(ClusterQueriesJob::class);
         $this->assertSame('running', QueryClusterQueue::state()['status']);
 
@@ -90,7 +90,7 @@ final class QueryAutopilotTest extends SiteTestCase
         $this->assertCount(1, $calls);
     }
 
-    public function test_the_nightly_clean_up_applies_filter_deletions_and_keeps_what_the_operator_kept(): void
+    public function test_the_hourly_clean_up_applies_filter_deletions_and_keeps_what_the_operator_kept(): void
     {
         QueryPipeline::markImported();
         $exam = $this->libraryQuery('kpss sonuçları');
@@ -99,7 +99,7 @@ final class QueryAutopilotTest extends SiteTestCase
         app(QueryRescanner::class)->scan(null);
         app(QueryRescanner::class)->keep(QueryReviewItem::query()->where('query_id', $kept->id)->pluck('id')->all());
 
-        $result = app(QueryAutopilot::class)->nightlyClean();
+        $result = app(QueryAutopilot::class)->clean();
 
         $this->assertSame(1, $result['deleted']);
         $this->assertFalse(Query::query()->whereKey($exam->id)->exists());

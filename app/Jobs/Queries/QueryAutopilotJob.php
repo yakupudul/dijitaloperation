@@ -19,15 +19,15 @@ final class QueryAutopilotJob implements ShouldQueue
 
     public int $tries = 1;
 
-    public function __construct(public bool $nightly = false)
+    public function __construct(public bool $clean = false)
     {
         $this->onQueue((string) config('queue.heavy_queue', 'default'));
     }
 
     public function handle(QueryAutopilot $autopilot): void
     {
-        if ($this->nightly) {
-            $autopilot->nightlyClean();
+        if ($this->clean) {
+            $autopilot->clean();
 
             return;
         }
