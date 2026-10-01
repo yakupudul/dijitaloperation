@@ -198,8 +198,11 @@ as_root install -m 0644 deploy/staging/cron.example /etc/cron.d/moxdop-staging
 as_root supervisorctl reread
 as_root supervisorctl update
 
+# Horizon finishes its running jobs (AI jobs may take up to 15 minutes) and exits; Supervisor (autorestart) starts it
+# again on the new code. `supervisorctl restart` would block the deploy — with the site in maintenance mode — until
+# those jobs end (stopwaitsecs=3600), so the deploy only asks for the graceful exit and makes sure Horizon runs.
 php artisan horizon:terminate --no-interaction || true
-as_root supervisorctl restart moxdop-staging-horizon || true
+as_root supervisorctl start moxdop-staging-horizon >/dev/null 2>&1 || true
 as_root supervisorctl restart moxdop-staging-collection || true
 as_root supervisorctl restart moxdop-staging-google-ads-collection || true
 as_root supervisorctl restart 'moxdop-staging-website-collection:*' || true
