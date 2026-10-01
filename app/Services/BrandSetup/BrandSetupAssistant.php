@@ -7,18 +7,50 @@ use App\Models\Brand;
 use App\Models\BrandSetupProposal;
 use App\Models\User;
 use App\Support\ServiceScope;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * Orchestrates "Otomatik kur": queue → build (matcher + service suggester) → operator approval.
+ * Orchestrates "Otomatik kur": queue → build (matcher + service suggester + area suggester, each step recorded so the
+ * page shows where the build is) → operator approval. Opening the page again never starts a new build: only
+ * "Önerileri hazırla" / "Yeniden tara" does, and while one is running the same one is followed.
  */
 final class BrandSetupAssistant
 {
+    /** Steps the page shows while a proposal is being built (key => label). */
+    public const array STEPS = [
+        'queued' => 'Sırada (arka plan işçisi bekleniyor)',
+        'accounts' => 'Hesaplar alan adıyla eşleştiriliyor (Search Console, GA4, İşletme Profili, reklam hesapları)',
+        'services' => 'Sayfalar ve sorgular okunuyor, AI hizmetleri çıkarıyor',
+        'areas' => 'Hizmet bölgeleri bulunuyor',
+    ];
+
     public function __construct(
         private readonly BrandSetupMatcher $matcher,
         private readonly BrandSetupServiceSuggester $services,
+        private readonly BrandSetupAreaSuggester $areas,
     ) {}
+
+    public static function progressKey(int $proposalId): string
+    {
+        return 'brand-setup:progress:'.$proposalId;
+    }
+
+    /** @return array{step: string, at: string}|null */
+    public static function progress(int $proposalId): ?array
+    {
+        $progress = Cache::get(self::progressKey($proposalId));
+
+        return is_array($progress) ? $progress : null;
+    }
+
+    /** Records the current step and keeps the proposal fresh (a long build is not "stuck"). */
+    private static function step(BrandSetupProposal $proposal, string $step): void
+    {
+        Cache::put(self::progressKey((int) $proposal->id), ['step' => $step, 'at' => now()->toIso8601String()], now()->addHour());
+        $proposal->forceFill(['updated_at' => now()])->save();
+    }
 
     public function queue(Brand $brand, string $websiteUrl, ?User $actor): BrandSetupProposal
     {
@@ -60,15 +92,20 @@ final class BrandSetupAssistant
         $proposal->forceFill(['status' => BrandSetupProposal::STATUS_BUILDING])->save();
         try {
             $brand = $proposal->brand;
+            self::step($proposal, 'accounts');
             $items = $this->matcher->propose($brand, (string) $proposal->website_url);
+            self::step($proposal, 'services');
             $suggestion = $this->services->suggest($brand, BrandSetupMatcher::host((string) $proposal->website_url), $items);
+            self::step($proposal, 'areas');
+            $summary = $suggestion['summary'] + ['areas' => $this->areas->suggest($brand, $items, (array) ($suggestion['summary']['locations'] ?? []))];
             $proposal->forceFill([
                 'status' => BrandSetupProposal::STATUS_READY,
                 'items' => $items,
                 'services' => $suggestion['services'],
                 'services_status' => $suggestion['status'],
-                'summary' => $suggestion['summary'],
+                'summary' => $summary,
             ])->save();
+            Cache::forget(self::progressKey((int) $proposal->id));
         } catch (Throwable $exception) {
             $proposal->forceFill(['status' => BrandSetupProposal::STATUS_FAILED, 'error_summary' => mb_substr($exception->getMessage(), 0, 500)])->save();
 

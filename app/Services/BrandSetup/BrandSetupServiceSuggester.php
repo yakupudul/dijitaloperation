@@ -9,6 +9,7 @@ use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
 use App\Models\DiscoveryCandidate;
 use App\Models\IntelligenceProjection\WebsitePageProfile;
+use App\Models\Page;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCatalogName;
 use App\Models\ServiceCategory;
@@ -18,6 +19,7 @@ use App\Services\Catalog\ServiceKeywordService;
 use App\Services\Portfolio\UnassignedWebsites;
 use App\Services\SeoTasks\SeoStoredHtmlReader;
 use App\Services\SeoTasks\SeoText;
+use App\Services\Site\Analysis\SitePagesReader;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\BrandIntelligence\IdentityLabelNormalizer;
 use App\Support\Options\LocationOptions;
@@ -79,7 +81,7 @@ final class BrandSetupServiceSuggester
                         'brand' => ['name' => $brand->name, 'domain' => $host],
                         'brand_service_areas' => array_map(static fn (array $a): string => implode(', ', array_filter([$a['district_name'], $a['city_name'], $a['country_code']])), $areas),
                         'wordpress_pages' => $wordpressPages,
-                        'pages' => array_slice($pages, 0, 60),
+                        'pages' => array_slice($pages, 0, 120),
                         'search_console_queries' => array_slice($queries, 0, 150),
                         'crawl_service_candidates' => $candidates,
                         'CATALOG' => array_map(static fn (array $c): array => ['name' => $c['name'], 'sector_code' => $c['sector']], $catalog),
@@ -393,10 +395,22 @@ final class BrandSetupServiceSuggester
         return array_filter($context, fn ($v): bool => $v !== null && $v !== []) === [] ? null : $context;
     }
 
-    /** @return list<array<string, mixed>> */
+    /**
+     * Site pages for the AI: the page inventory first (`pages`: WordPress + sitemap, with titles and categories — the
+     * same list the website screen shows), the older crawl projection only for what the inventory lacks, and the
+     * homepage text.
+     *
+     * @return list<array<string, mixed>>
+     */
     private function pages(DigitalAsset $website): array
     {
         $rows = [];
+        $seen = [];
+        foreach (Page::query()->where('website_asset_id', $website->id)->where(fn ($q) => $q->whereNull('category')->orWhereIn('category', ['hizmet', 'lokasyon', 'diger']))
+            ->orderByRaw("CASE WHEN category = 'hizmet' THEN 0 ELSE 1 END")->orderBy('path')->limit(150)->get(['url', 'path', 'title', 'h1']) as $page) {
+            $seen[SeoText::urlPath((string) $page->url)] = true;
+            $rows[] = ['url' => (string) $page->url, 'title' => $page->title ?? SitePagesReader::slugTitle((string) $page->path), 'h1' => $page->h1];
+        }
         $home = null;
         foreach (WebsitePageProfile::query()->where('website_asset_id', $website->id)->limit(400)->get() as $profile) {
             $web = (array) data_get($profile->source_states, 'website', []);
@@ -404,11 +418,14 @@ final class BrandSetupServiceSuggester
             if (! SeoText::isDocumentUrl($url, is_string(data_get($web, 'http.content_type')) ? data_get($web, 'http.content_type') : null)) {
                 continue;
             }
-            $title = data_get($web, 'document_head.title') ?? data_get($profile->source_states, 'wordpress.seo.title') ?? data_get($profile->source_states, 'wordpress.object.title');
-            $rows[] = ['url' => $url, 'title' => is_string($title) ? $title : null, 'h1' => data_get($web, 'headings.h1')];
             if (SeoText::urlPath($url) === '/') {
                 $home = $profile;
             }
+            if (isset($seen[SeoText::urlPath($url)]) || count($rows) >= 150) {
+                continue;
+            }
+            $title = data_get($web, 'document_head.title') ?? data_get($profile->source_states, 'wordpress.seo.title') ?? data_get($profile->source_states, 'wordpress.object.title');
+            $rows[] = ['url' => $url, 'title' => is_string($title) ? $title : null, 'h1' => data_get($web, 'headings.h1')];
         }
         if ($home !== null) {
             $facts = $this->html->inspect($website, $home, 1500);

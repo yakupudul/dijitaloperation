@@ -19,6 +19,7 @@ use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Site\Analysis\SitePagesReader;
 use App\Services\Site\PageCategorizer;
+use App\Services\Site\SiteOperations;
 use App\Services\Site\SiteScope;
 use App\Support\Demo\DemoMenu;
 use App\Support\OperatorMenu;
@@ -302,6 +303,19 @@ final class SitePagesTest extends TestCase
         $this->assertSame('approve', SiteScope::clusterReadiness($this->brand, $this->site)['step']);
         Livewire::test(ContentIdeasTab::class, ['assetId' => $this->site->id])->assertSeeHtml('data-cluster-readiness="approve"')->assertSee('Kümeleri onayla');
         Livewire::test(CompetitorsTab::class, ['assetId' => $this->site->id])->assertSeeHtml('data-cluster-readiness="approve"');
+    }
+
+    public function test_after_otomatik_kur_the_site_is_prepared_without_waiting_for_the_weekly_refresh(): void
+    {
+        $url = 'https://www.panorama.example/tedavilerimiz/ankara-zirkonyum';
+        $page = Page::query()->create(['website_asset_id' => $this->site->id, 'url' => $url, 'url_hash' => hash('sha256', $url), 'path' => '/tedavilerimiz/ankara-zirkonyum', 'title' => 'Ankara Zirkonyum']);
+
+        $result = app(SiteOperations::class)->run($this->site->fresh(), SiteOperations::SETUP);
+
+        $this->assertSame('ready', $result['status']);
+        $this->assertArrayHasKey('cluster_pages', $result);
+        $this->assertIsInt($result['targets']);
+        $this->assertSame('hizmet', $page->fresh()->category, 'rule category written right away');
     }
 
     private function page(string $path, string $title, string $category, ?int $wpId = null): Page

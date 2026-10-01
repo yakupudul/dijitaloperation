@@ -5,8 +5,10 @@ namespace App\Livewire\Operator\Portfolio;
 use App\Models\Brand;
 use App\Models\BrandSetupProposal;
 use App\Models\DigitalAsset;
+use App\Models\ServiceCategory;
 use App\Services\BrandSetup\BrandSetupApplier;
 use App\Services\BrandSetup\BrandSetupAssistant;
+use App\Services\Site\SiteScope;
 use App\Support\Permissions;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -18,8 +20,9 @@ use Livewire\Component;
 use Throwable;
 
 /**
- * /brands/{brand}/setup — "Otomatik kur": propose website asset, account bindings and services;
- * the operator ticks/unticks and approves with one click.
+ * /brands/{brand}/setup — "Otomatik kur": propose website asset, account bindings, services, service areas and the
+ * business context; the operator ticks/unticks and approves with one click. Opening the page never starts a build:
+ * a running one is followed (step + elapsed time), a finished one is shown; only the button starts a new one.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Otomatik kur')]
@@ -35,6 +38,9 @@ final class BrandSetupPage extends Component
 
     /** @var array<int, bool> */
     public array $selectedServices = [];
+
+    /** @var array<int, bool> */
+    public array $selectedAreas = [];
 
     /** Fill the brand's İş bağlamı from the site (only empty fields). */
     public bool $applyContext = true;
@@ -100,13 +106,14 @@ final class BrandSetupPage extends Component
         }
         $keys = array_map('strval', array_keys(array_filter($this->selectedItems)));
         $services = array_map('intval', array_keys(array_filter($this->selectedServices)));
-        if ($keys === [] && $services === [] && ! ($this->applyContext && is_array(data_get($proposal->summary, 'business_context')))) {
+        $areas = array_map('intval', array_keys(array_filter($this->selectedAreas)));
+        if ($keys === [] && $services === [] && $areas === [] && ! ($this->applyContext && is_array(data_get($proposal->summary, 'business_context')))) {
             $this->flash('Onaylanacak bir şey seçilmedi.', 'error');
 
             return;
         }
         try {
-            $results = $applier->apply($proposal, auth()->user(), $keys, $services, $this->applyContext);
+            $results = $applier->apply($proposal, auth()->user(), $keys, $services, $this->applyContext, $areas);
         } catch (Throwable $exception) {
             report($exception);
             $this->flash('Öneri uygulanırken beklenmeyen bir hata oluştu; hiçbir dış platforma yazılmadı. Sayfayı yenileyip sonuçları kontrol edin.', 'error');
@@ -136,11 +143,21 @@ final class BrandSetupPage extends Component
             foreach ($proposal->serviceRows() as $index => $service) {
                 $this->selectedServices[$index] = (bool) ($service['selected'] ?? false);
             }
+            $this->selectedAreas = [];
+            foreach (array_values((array) data_get($proposal->summary, 'areas', [])) as $index => $area) {
+                $this->selectedAreas[$index] = (bool) ($area['selected'] ?? false);
+            }
         }
+
+        $website = $brand->digitalAssets()->where('type', 'website')->orderBy('id')->first();
 
         return view('livewire.operator.portfolio.brand-setup-page', [
             'brand' => $brand,
             'proposal' => $proposal,
+            'progress' => $proposal?->isPending() ? BrandSetupAssistant::progress((int) $proposal->id) : null,
+            'readiness' => $proposal?->status === BrandSetupProposal::STATUS_APPLIED ? SiteScope::clusterReadiness($brand, $website) : null,
+            'websiteId' => $website?->id,
+            'sectorName' => $brand->sector_id !== null ? ServiceCategory::query()->whereKey($brand->sector_id)->value('name') : null,
             'assets' => DigitalAsset::query()->where('brand_id', $brand->id)->get()->keyBy('id'),
         ]);
     }

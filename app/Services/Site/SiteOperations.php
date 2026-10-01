@@ -8,6 +8,7 @@ use App\Models\DigitalAsset;
 use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Models\Suggestion;
+use App\Services\Queries\QueryPipeline;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -57,6 +58,12 @@ final class SiteOperations
     /** Weekly refresh: new pages' categories, service ↔ page, cluster ↔ page, summaries of changed pages in use. */
     public const string WEEKLY_REFRESH = 'weekly_refresh';
 
+    /**
+     * After "Otomatik kur" approval: new pages' categories, service ↔ page, cluster rows (rules) and the brand's target
+     * queries, so the website screen fills at once instead of after the weekly refresh.
+     */
+    public const string SETUP = 'setup';
+
     /** Pages per URL analysis job (each page is one AI call). */
     public const int URL_BATCH = 3;
 
@@ -65,7 +72,7 @@ final class SiteOperations
         self::SUMMARIES => 'Sayfa özetleri', self::URL_ANALYSIS => 'URL analizi', self::APPLY_CHANGE => 'AI ile yap', self::STANDARD => 'Standart önerisi',
         self::WEEKLY_CONTENT => 'Haftalık içerik', self::DISCOVERY => 'Fırsat keşfi', self::WRITE_ARTICLE => 'Taslak', self::WEEKLY_REFRESH => 'Haftalık yenileme',
         self::CLUSTER_AUDIT => 'Eşleştir', self::FIX_GAPS => 'AI ile geliştir', self::PRODUCE => 'AI ile üret', self::REDISCOVER => 'Yeniden keşfet',
-        self::RECIPE => 'SEO analizi',
+        self::RECIPE => 'SEO analizi', self::SETUP => 'Kurulum sonrası hazırlık',
     ];
 
     public function __construct(
@@ -126,6 +133,7 @@ final class SiteOperations
             self::DISCOVERY => $this->content->discover($site),
             self::WRITE_ARTICLE => $suggestion !== null ? $this->content->writeArticle($suggestion) : ['status' => 'no_suggestion'],
             self::WEEKLY_REFRESH => $this->weeklyRefresh($site),
+            self::SETUP => $this->afterSetup($site),
             self::CLUSTER_AUDIT => $this->audit->run($site),
             self::FIX_GAPS => $subject !== null ? $this->fixGaps($subject) : ['status' => 'no_row'],
             self::PRODUCE => $subject !== null ? $this->content->produce($subject) : ['status' => 'no_row'],
@@ -170,6 +178,22 @@ final class SiteOperations
         ])->save();
 
         return ['suggestion_id' => (int) $suggestion->id] + $this->changes->prepare($suggestion);
+    }
+
+    /** @return array<string, mixed> */
+    private function afterSetup(DigitalAsset $site): array
+    {
+        SiteMetrics::forgetPageTotals((int) $site->id);
+        $result = ['status' => 'ready', 'categorize' => $this->categorizer->categorize($site, onlyNew: true)['status']];
+        if (SiteScope::aiAllowed(SiteScope::brandOf($site))) {
+            $result['service_pages'] = $this->servicePages->map($site)['status'];
+        }
+        $result['cluster_pages'] = $this->clusterPages->refresh($site, judge: false)['status'];
+        if ($site->brand_id !== null) {
+            $result['targets'] = app(QueryPipeline::class)->brandTargets((int) $site->brand_id);
+        }
+
+        return $result;
     }
 
     /** @return array<string, mixed> */

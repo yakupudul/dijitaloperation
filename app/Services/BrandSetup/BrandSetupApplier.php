@@ -12,12 +12,14 @@ use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\Async\AsyncOperationService;
 use App\Services\BrandIntelligence\BrandOfferingService;
+use App\Services\Catalog\BrandCommercialContextService;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Catalog\ServiceKeywordService;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Services\Ownership\OwnershipGuard;
 use App\Services\Portfolio\UnassignedWebsites;
+use App\Services\Site\SiteOperations;
 use App\Support\Integrations\ResourceBindingPlan;
 use Illuminate\Database\QueryException;
 use Illuminate\Validation\ValidationException;
@@ -53,14 +55,16 @@ final class BrandSetupApplier
         private readonly BrandOfferingService $offerings,
         private readonly ServiceCatalogService $catalog,
         private readonly OwnershipGuard $ownership,
+        private readonly BrandCommercialContextService $context,
     ) {}
 
     /**
      * @param  list<string>  $itemKeys  selected asset/binding item keys
      * @param  list<int>  $serviceIndexes  selected service rows
+     * @param  list<int>  $areaIndexes  selected service area rows (summary.areas)
      * @return list<array{key: string, label: string, ok: bool, message: string}>
      */
-    public function apply(BrandSetupProposal $proposal, User $actor, array $itemKeys, array $serviceIndexes, bool $applyContext = true): array
+    public function apply(BrandSetupProposal $proposal, User $actor, array $itemKeys, array $serviceIndexes, bool $applyContext = true, array $areaIndexes = []): array
     {
         $brand = $proposal->brand()->first();
         if (! $brand instanceof Brand) {
@@ -75,7 +79,7 @@ final class BrandSetupApplier
 
         $results = [];
         try {
-            $this->applySteps($proposal, $brand, $actor, $itemKeys, $serviceIndexes, $applyContext, $results);
+            $this->applySteps($proposal, $brand, $actor, $itemKeys, $serviceIndexes, $applyContext, $areaIndexes, $results);
         } catch (Throwable $exception) {
             // Every step guards itself; this only catches a bug between steps so the operator still gets the list.
             $results[] = $this->failed('apply', 'Uygulama', $this->reason($exception, 'Uygulama yarıda kaldı'));
@@ -100,9 +104,10 @@ final class BrandSetupApplier
     /**
      * @param  list<string>  $itemKeys
      * @param  list<int>  $serviceIndexes
+     * @param  list<int>  $areaIndexes
      * @param  list<array{key: string, label: string, ok: bool, message: string}>  $results
      */
-    private function applySteps(BrandSetupProposal $proposal, Brand $brand, User $actor, array $itemKeys, array $serviceIndexes, bool $applyContext, array &$results): void
+    private function applySteps(BrandSetupProposal $proposal, Brand $brand, User $actor, array $itemKeys, array $serviceIndexes, bool $applyContext, array $areaIndexes, array &$results): void
     {
         $selected = array_flip(array_values(array_filter($itemKeys, 'is_string')));
         $items = $proposal->itemRows();
@@ -140,7 +145,6 @@ final class BrandSetupApplier
 
         // 3) Services and sector. The same service picked twice (duplicate AI rows) is applied once.
         $services = $proposal->serviceRows();
-        $keywordCount = 0;
         $seenServices = [];
         foreach (array_unique(array_map('intval', array_filter($serviceIndexes, 'is_numeric'))) as $index) {
             $service = $services[$index] ?? null;
@@ -152,12 +156,18 @@ final class BrandSetupApplier
                 continue;
             }
             $seenServices[$serviceKey] = true;
-            $results[] = $this->service($service, $brand, $actor, $keywordCount);
+            $results[] = $this->service($service, $brand, $actor);
         }
         $sectorCode = data_get($proposal->summary, 'sector_code');
         if (is_string($sectorCode) && trim($sectorCode) !== '') {
             $this->attempt($results, 'sector', 'Sektör', 'Sektör atanamadı', function () use ($brand, $sectorCode, &$results): void {
                 if ($brand->sector_id !== null) {
+                    $current = ServiceCategory::query()->find($brand->sector_id);
+                    if ($current !== null && $current->code !== trim($sectorCode)) {
+                        $suggested = ServiceCategory::query()->where('code', trim($sectorCode))->value('name') ?? $sectorCode;
+                        $results[] = ['key' => 'sector', 'label' => 'Sektör (değiştirilmedi)', 'ok' => true, 'message' => sprintf('Markada «%s» seçili; AI siteden «%s» öneriyor. Doğruysa markanın düzenleme sayfasından değiştirin.', $current->name, $suggested)];
+                    }
+
                     return;
                 }
                 $category = ServiceCategory::query()->where('code', mb_substr(trim($sectorCode), 0, 120))->first();
@@ -171,6 +181,27 @@ final class BrandSetupApplier
             });
         }
 
+        // 3a) Service areas (Business Profile address, Search Console cities).
+        $areas = array_values((array) data_get($proposal->summary, 'areas', []));
+        foreach (array_unique(array_map('intval', array_filter($areaIndexes, 'is_numeric'))) as $index) {
+            $area = $areas[$index] ?? null;
+            if (! is_array($area) || ! is_string($area['city_name'] ?? null)) {
+                continue;
+            }
+            $label = 'Hizmet bölgesi: '.(string) ($area['label'] ?? $area['city_name']);
+            $outcome = $this->attempt($results, 'area:'.$index, $label, 'Bölge eklenemedi', function () use ($brand, $area, $label): array {
+                $row = $this->context->addServiceArea($brand, ['country_code' => 'TR', 'city_name' => $area['city_name'], 'district_name' => (string) ($area['district_name'] ?? '')]);
+                if (($area['physical'] ?? false) === true && ! $row->physical_branch) {
+                    $row->forceFill(['physical_branch' => true])->save();
+                }
+
+                return ['key' => 'area:'.$row->id, 'label' => $label, 'ok' => true, 'message' => ($area['physical'] ?? false) ? 'Şube olarak eklendi.' : 'Bölge eklendi.'];
+            });
+            if (is_array($outcome)) {
+                $results[] = $outcome;
+            }
+        }
+
         // 3b) İş bağlamı: fill the business context from the site, only fields the operator has not written.
         if ($applyContext && is_array($context = data_get($proposal->summary, 'business_context'))) {
             $outcome = $this->attempt($results, 'context', 'İş bağlamı', 'İş bağlamı kaydedilemedi', fn (): array => $this->businessContext($brand, $context, $actor));
@@ -179,7 +210,13 @@ final class BrandSetupApplier
             }
         }
 
-        // 4) Follow-up: crawl the site when services are still waiting.
+        // 4) Follow-up: the website screen is filled right away (page categories, service ↔ page, cluster rows, target
+        // queries) instead of waiting for the weekly refresh.
+        if ($website !== null) {
+            SiteOperations::dispatch((int) $website->id, SiteOperations::SETUP);
+        }
+
+        // 5) Crawl the site when services are still waiting.
         if ($website !== null && $proposal->services_status === 'waiting_for_site') {
             try {
                 app(AsyncOperationService::class)->queuePublicDiscovery($website, $actor);
@@ -290,7 +327,7 @@ final class BrandSetupApplier
      * @param  array<string, mixed>  $service  a BrandSetupProposal::serviceRows() row
      * @return array{key: string, label: string, ok: bool, message: string}
      */
-    private function service(array $service, Brand $brand, User $actor, int &$keywordCount): array
+    private function service(array $service, Brand $brand, User $actor): array
     {
         $result = ['key' => 'service:'.$service['name'], 'label' => $service['name'], 'ok' => false, 'message' => ''];
         try {
@@ -316,7 +353,6 @@ final class BrandSetupApplier
             } catch (Throwable) {
                 // the service is added; phrases can be edited under Kütüphane › Hizmetler
             }
-            $keywordCount += $this->storeKeywords($service, $offering, $brand, $actor);
 
             $message = match (true) {
                 $service['status'] === 'already' => 'Hizmet markada vardı.',
@@ -342,24 +378,6 @@ final class BrandSetupApplier
         }
 
         return count(app(ServiceKeywordService::class)->append($catalogItem, $service['matching_phrases'] !== [] ? $service['matching_phrases'] : [$service['name']]));
-    }
-
-    /**
-     * Location-free Search Console queries become the service's keywords in the shared query library
-     * (sector → service → query), so brands elsewhere reuse them; locations come from each brand's
-     * service areas at render time.
-     */
-    private function storeKeywords(array $service, $offering, Brand $brand, User $actor): int
-    {
-        $catalogItem = $offering?->service_catalog_item_id !== null ? ServiceCatalogItem::query()->find($offering->service_catalog_item_id) : null;
-        $sector = $catalogItem?->sector ?? $service['sector_code'] ?? $brand->sectorCodes()[0] ?? null;
-        if ($catalogItem === null || ! is_string($sector)) {
-            return 0;
-        }
-        // v2: keywords are no longer written to a query library here; Faz 3 rebuilds queries from collected sources.
-        $stored = 0;
-
-        return $stored;
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace Tests\Feature\BrandSetup;
 
 use App\Ai\Agents\BrandSetupAgent;
+use App\Jobs\Site\RunSiteOperationJob;
 use App\Livewire\Operator\Portfolio\BrandSetupPage;
 use App\Models\Brand;
 use App\Models\BrandOffering;
@@ -21,11 +22,14 @@ use App\Services\BrandSetup\BrandSetupAssistant;
 use App\Services\BrandSetup\BrandSetupMatcher;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Portfolio\UnassignedWebsites;
+use App\Services\Site\SiteOperations;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\Support\InsertsFacts;
 use Tests\TestCase;
@@ -247,6 +251,55 @@ final class BrandSetupAssistantTest extends TestCase
         $this->assertSame([], $proposal->services);
         $this->assertSame(0, DigitalAsset::query()->count(), 'building a proposal writes nothing');
         $this->assertSame(0, CoreAssetBinding::query()->count());
+    }
+
+    public function test_areas_from_the_business_profile_are_added_the_site_screen_is_prepared_and_a_different_sector_is_only_reported(): void
+    {
+        [$gscResource] = $this->resources();
+        CoreExternalResource::query()->where('external_id', 'locations/1')->firstOrFail()
+            ->forceFill(['metadata' => ['website_uri' => 'https://adadent.com.tr/', 'selectable' => true, 'storefront_address' => ['regionCode' => 'TR', 'administrativeArea' => 'Ankara', 'locality' => 'Çankaya']]])->save();
+        $other = ServiceCategory::query()->create(['code' => 'guzellik', 'name' => 'Güzellik', 'normalized_key' => 'guzellik']);
+        ServiceCategory::query()->create(['code' => 'saglik', 'name' => 'Sağlık', 'normalized_key' => 'saglik']);
+        $this->brand->forceFill(['sector_id' => $other->id])->save();
+        $this->insertFacts('gsc_query_page_daily', [
+            'digital_asset_id' => null, 'external_resource_id' => $gscResource->id, 'site_url' => 'sc-domain:adadent.com.tr',
+            'reporting_date' => now()->subDays(5)->toDateString(), 'query' => 'implant fiyatları', 'page' => 'https://www.adadent.com.tr/implant/',
+            'clicks' => 3, 'impressions' => 400, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+            'record_fingerprint' => hash('sha256', 'y'), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        BrandSetupAgent::fake([['brand_summary' => 'Diş kliniği.', 'sector_code' => 'saglik',
+            'services' => [['name' => 'İmplant Tedavisi', 'catalog_name' => null, 'sector_code' => 'saglik', 'aliases' => [], 'is_core' => true, 'evidence' => 'Sorgu']],
+            'prompt_version' => BrandSetupAgent::PROMPT_VERSION]]);
+        Queue::fake([RunSiteOperationJob::class]);
+
+        $page = Livewire::test(BrandSetupPage::class, ['brand' => (string) $this->brand->id])->set('websiteUrl', 'adadent.com.tr')->call('start');
+        $proposal = BrandSetupProposal::query()->firstOrFail();
+        $this->assertSame([['Çankaya, Ankara', 'gbp', true, true]], array_map(fn (array $a): array => [$a['label'], $a['source'], $a['physical'], $a['selected']], $proposal->summary['areas']));
+        $this->assertNull(BrandSetupAssistant::progress($proposal->id), 'progress cleared when ready');
+
+        $page->call('$refresh')->assertSee('Hizmet bölgeleri')->assertSee('Çankaya, Ankara')->assertSeeHtml('data-sector-mismatch')
+            ->assertDontSee('sorgu kütüphanesine eklenir')->call('approve');
+
+        $area = $this->brand->serviceAreas()->sole();
+        $this->assertSame(['Ankara', 'Çankaya', true], [$area->city_name, $area->district_name, $area->physical_branch]);
+        $this->assertSame($other->id, $this->brand->fresh()->sector_id, 'a set sector is never changed');
+        $this->assertStringContainsString('«Güzellik» seçili', collect($proposal->fresh()->apply_result)->firstWhere('key', 'sector')['message']);
+        $website = DigitalAsset::query()->where('brand_id', $this->brand->id)->where('type', 'website')->firstOrFail();
+        Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->siteId === $website->id && $job->operation === SiteOperations::SETUP);
+    }
+
+    public function test_reopening_the_page_follows_the_running_build_with_its_step_and_never_starts_another(): void
+    {
+        $proposal = BrandSetupProposal::query()->create(['brand_id' => $this->brand->id, 'status' => BrandSetupProposal::STATUS_BUILDING, 'website_url' => 'adadent.com.tr']);
+        Cache::put(BrandSetupAssistant::progressKey($proposal->id), ['step' => 'services', 'at' => now()->toIso8601String()]);
+
+        Livewire::withQueryParams(['url' => 'adadent.com.tr'])->test(BrandSetupPage::class, ['brand' => (string) $this->brand->id])
+            ->assertSeeHtml('data-setup-progress="services"')->assertSee('bu sayfadan çıkabilirsin')->assertSee('Hazırlanıyor…');
+        $this->assertSame(1, BrandSetupProposal::query()->count(), 'opening the page again does not queue a new build');
+
+        // The button while it runs returns the same proposal.
+        Livewire::test(BrandSetupPage::class, ['brand' => (string) $this->brand->id])->set('websiteUrl', 'adadent.com.tr')->call('start');
+        $this->assertSame(1, BrandSetupProposal::query()->count());
     }
 
     /** @return list<CoreExternalResource> */
