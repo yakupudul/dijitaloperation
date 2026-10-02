@@ -53,7 +53,8 @@ class DataPoolFoundationTest extends TestCase
         $registry = app(DataPoolStorageRegistry::class);
         $this->assertSame('MOXDOP_DATA_POOL_STORAGE', $registry->metadata()['storage_contract_id']);
         $this->assertCount(118, $registry->dispositions());
-        $this->assertCount(106, $registry->physicalDatasets());
+        $this->assertCount(103, $registry->physicalDatasets());
+        $this->assertFalse($registry->hasPhysicalTable('dataforseo_ranked_keyword_snapshot'));
         $this->assertFalse($registry->hasPhysicalTable('ga4_event_source_medium_daily'));
     }
 

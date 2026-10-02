@@ -22,6 +22,7 @@ class PostgresAppSchemaMigrationTest extends TestCase
         $this->assertTrue(Schema::hasTable('customers'));
         $this->assertTrue(Schema::hasTable('core_asset_bindings'));
         $this->assertTrue(Schema::hasTable('collection_schedules'));
-        $this->assertTrue(Schema::hasTable('prospects'));
+        // The v2 schema reset (2026_10_27_090000) dropped the prospect table family.
+        $this->assertFalse(Schema::hasTable('prospects'));
     }
 }

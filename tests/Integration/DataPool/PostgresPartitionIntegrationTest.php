@@ -40,17 +40,19 @@ class PostgresPartitionIntegrationTest extends TestCase
     {
         $manager = app(PartitionManager::class);
         $table = 'gsc_query_page_daily';
+        // gsc_query_page_daily is a view over the monthly partitioned compact fact table.
+        $factTable = 'gsc_f_query_page';
 
-        $manager->ensureRange($table, '2026-07-15', '2026-08-20');
-        $manager->ensureRange($table, '2026-07-15', '2026-08-20'); // race-safe retry
+        $manager->ensureRange($factTable, '2026-07-15', '2026-08-20');
+        $manager->ensureRange($factTable, '2026-07-15', '2026-08-20'); // race-safe retry
 
         $partitions = collect(DB::select(
             'SELECT c.relname FROM pg_class c JOIN pg_inherits i ON i.inhrelid = c.oid JOIN pg_class p ON p.oid = i.inhparent WHERE p.relname = ? ORDER BY 1',
-            [$table]
+            [$factTable]
         ))->pluck('relname')->all();
 
-        $this->assertContains('gsc_query_page_daily_2026_07', $partitions);
-        $this->assertContains('gsc_query_page_daily_2026_08', $partitions);
+        $this->assertContains('gsc_f_query_page_2026_07', $partitions);
+        $this->assertContains('gsc_f_query_page_2026_08', $partitions);
 
         $run = CollectionDatasetRun::factory()->create([
             'dataset_contract_id' => 'gsc_query_page_daily',
@@ -66,6 +68,10 @@ class PostgresPartitionIntegrationTest extends TestCase
             records: [
                 [
                     'digital_asset_id' => 1,
+                    'external_resource_id' => 501,
+                    'search_type' => 'web',
+                    'external_resource_id' => 501,
+                    'search_type' => 'web',
                     'site_url' => 'https://example.com/',
                     'reporting_date' => '2026-07-31',
                     'query' => 'alpha',
@@ -75,6 +81,10 @@ class PostgresPartitionIntegrationTest extends TestCase
                 ],
                 [
                     'digital_asset_id' => 1,
+                    'external_resource_id' => 501,
+                    'search_type' => 'web',
+                    'external_resource_id' => 501,
+                    'search_type' => 'web',
                     'site_url' => 'https://example.com/',
                     'reporting_date' => '2026-08-01',
                     'query' => 'alpha',
@@ -99,6 +109,8 @@ class PostgresPartitionIntegrationTest extends TestCase
             batchKey: 'pg-upsert',
             records: [[
                 'digital_asset_id' => 1,
+                'external_resource_id' => 501,
+                'search_type' => 'web',
                 'site_url' => 'https://example.com/',
                 'reporting_date' => '2026-08-01',
                 'query' => 'alpha',

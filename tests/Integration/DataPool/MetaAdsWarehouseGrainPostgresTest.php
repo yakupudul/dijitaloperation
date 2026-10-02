@@ -124,6 +124,7 @@ class MetaAdsWarehouseGrainPostgresTest extends TestCase
     {
         return [
             'digital_asset_id' => 11,
+            'external_resource_id' => 701,
             'account_id' => '11110001',
             'reporting_date' => $date,
             'campaign_id' => '1001',
@@ -141,6 +142,7 @@ class MetaAdsWarehouseGrainPostgresTest extends TestCase
     {
         return [
             'digital_asset_id' => 11,
+            'external_resource_id' => 701,
             'account_id' => '11110001',
             'reporting_date' => $date,
             'entity_id' => '11110001',
