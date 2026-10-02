@@ -1224,11 +1224,12 @@ TPL,
             'output_schema' => null,
             'model' => null,
             'template' => <<<'TPL'
-You write ONE article for a business website. Prompt version: site-write-article-v6.
+You write ONE article for a business website. Prompt version: site-write-article-v7.
 DATA_JSON has `plan` (title, outline, questions, page_type, target_url; for a content idea also angle: how the page
-differs from the cluster's main page, target_queries, main_page_url: link to it once, naturally, and recipe: the
-approved SEO analysis steps to follow), `cluster` (main query, subtopics, queries,
-ai_questions: what people ask AI assistants, service_areas: places the business serves, given only when the need is
+differs from the cluster's main page, target_queries, main_page_url: link to it once, naturally, recipe: the
+approved SEO analysis steps to follow, and seo_title / meta_description: the approved ones, use them as meta_title /
+meta_description unchanged), `cluster` (main query, subtopics, queries,
+ai_questions: further questions people ask AI assistants, beyond plan.questions, service_areas: places the business serves, given only when the need is
 local), `brand`, `notes`, `standards`, `related_pages`, `language` and `site_pages`. Use the cluster's queries and
 ai_questions naturally in headings and the question-and-answer section; when service_areas is given, say which of
 those places the business serves (a short local section), without inventing addresses or claims.

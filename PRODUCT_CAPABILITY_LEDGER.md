@@ -4,7 +4,8 @@
 
 - **Makale yazıcı ("AI ile taslak yaz" / "Taslak hazırla"):** Girdi adım adım kurulur: plan (başlık, bölümler, sorular, açı, hedef sorgular), SEO analizi reçetesi, küme (sorgular, AI soruları, bölgeler, rakip iskeletleri), marka dosyası (profil, notlar, standartlar, ilgili sayfalar), iç bağlantı için site sayfaları, yasaklı ifadeler.
   - Yasaklı ifade içeren sorular ve bölümler AI'a gitmeden temizlenir («En iyi … seçerken» → «… seçerken»).
-  - Metin sektör kuralına takılırsa AI ihlallerle (`fix`) bir kez yeniden yazar (prompt site-write-article-v6). Yine takılırsa taslak gönderilemez ama okunabilir; sorunlu ifadeler işaretli.
+  - Yazar girdisi sadeleşti (prompt site-write-article-v7): yasaklı ifade temizliği tüm kopyalanan girdilere uygulanır (hedef sorgular, açı, reçete, küme sorguları, alt konular, ana sorgu); plandaki sorular küme AI sorularında tekrar gönderilmez; açıyla aynı gerekçe ve tekrarlayan bölüm başlıkları atılır; gizli sorgular gitmez, sorgular gösterime göre sıralanır; "AI ile üret" hedef URL'si temizlenmiş başlıktan; SEO analizi reçetesinin onaylı SEO başlığı ve açıklaması makalenin meta alanlarına aynen yazılır.
+  - Metin sektör kuralına takılırsa AI ihlallerle (`fix`) bir kez yeniden yazar (prompt site-write-article-v7). Yine takılırsa taslak gönderilemez ama okunabilir; sorunlu ifadeler işaretli.
 - **İçerik planı:** Satırda durum etiketi (Taslak hazır · Uyum kuralına takıldı · WordPress'e gönderildi).
   - İçerik fikirlerindeki "Taslağı oku" bağlantısı taslağı doğrudan açar (`taslak`).
   - Durum filtresi kendi URL anahtarını kullanır (`plan_durum`); İçerik fikirleri'nin `durum` anahtarı listeyi boşaltmaz.

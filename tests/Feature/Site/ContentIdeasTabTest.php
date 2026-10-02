@@ -13,8 +13,11 @@ use App\Models\BrandClusterPage;
 use App\Models\BrandContentIdea;
 use App\Models\ContentIdea;
 use App\Models\Suggestion;
+use App\Services\Compliance\ForbiddenTermsLibrary;
 use App\Services\Site\ClusterAudit;
 use App\Services\Site\ContentIdeaState;
+use App\Services\Site\ContentIdeaSubject;
+use App\Services\Site\ContentPlanner;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
@@ -200,5 +203,48 @@ final class ContentIdeasTabTest extends SiteTestCase
             [$written[0]['plan']['angle'], $written[0]['plan']['target_queries'], $written[0]['plan']['main_page_url'], $written[0]['plan']['outline']]);
         $article = data_get(Suggestion::query()->where('action_type', 'content')->sole()->action, 'article');
         $this->assertStringContainsString('<a href="https://panorama.com.tr/implant/">İmplant sonrası bakım</a>', $article['html'], 'an extra idea always links to the main page');
+    }
+
+    public function test_ai_ile_uret_sends_each_input_once_without_forbidden_phrases_and_keeps_the_recipe_seo_fields(): void
+    {
+        $this->enableAi();
+        $main = $this->page('/implant/', 'İmplant Tedavisi', ['category' => 'hizmet']);
+        $cluster = $this->cluster($this->implant, 'İmplant sonrası bakım', ['implant sonrası bakım', 'implant sonrası ne yenir', 'en iyi implant sonrası diş macunu'], ['ağrı', 'beslenme'], 'informational');
+        $cluster->forceFill(['page_type' => 'guide', 'ai_queries' => ['İmplant sonrası ağrı kaç gün sürer?']])->save();
+        DB::table('queries')->where('text', 'implant sonrası bakım')->update(['impressions' => 10]);
+        DB::table('queries')->where('text', 'implant sonrası ne yenir')->update(['impressions' => 90, 'hidden' => false]);
+        DB::table('queries')->where('text', 'en iyi implant sonrası diş macunu')->update(['hidden' => true]);
+        BrandClusterPage::query()->create(['brand_id' => $this->brand->id, 'cluster_id' => $cluster->id, 'website_asset_id' => $this->site->id, 'page_id' => $main->id, 'state' => 'weak_performance', 'language' => 'tr']);
+        app(ForbiddenTermsLibrary::class)->saveBrand($this->brand, ['en iyi']);
+        $idea = ContentIdea::query()->create(['cluster_id' => $cluster->id, 'title' => 'En iyi implant sonrası beslenme rehberi', 'title_key' => 'en iyi implant sonrasi beslenme rehberi',
+            'type' => 'guide', 'angle' => 'İlk haftalarda en iyi ne yenir.', 'target_queries' => [['text' => 'implant sonrası en iyi yiyecekler', 'in_cluster' => false]],
+            'outline' => ['İlk gün', 'İlk hafta', 'İlk hafta']]);
+        $usage = BrandContentIdea::query()->create(['brand_id' => $this->brand->id, 'content_idea_id' => $idea->id, 'website_asset_id' => $this->site->id, 'state' => 'no_page', 'language' => 'tr',
+            'recipe' => ['steps' => [['order' => 1, 'area' => 'bolum', 'action' => 'En iyi yiyecekler tablosu ekle', 'where' => 'İlk hafta', 'why' => 'x', 'evidence' => []]],
+                'seo_title' => 'İmplant Sonrası Beslenme | Panorama', 'meta_description' => 'İmplant sonrası ilk haftalarda ne yenir?']]);
+        $sent = [];
+        WriteArticleAgent::fake(function (string $prompt) use (&$sent): array {
+            $sent[] = json_decode(substr($prompt, strlen("DATA_JSON\n")), true);
+
+            return ['title' => 'İmplant sonrası beslenme rehberi', 'slug' => 'x', 'meta_title' => 'Yazarın başlığı', 'meta_description' => 'Yazarın açıklaması.', 'excerpt' => 'x',
+                'html' => '<p>İlk gün ılık gıdalar.</p>'];
+        });
+
+        $result = app(ContentPlanner::class)->produce(ContentIdeaSubject::find($this->site->id, 'extra', $usage->id));
+
+        $this->assertSame('ready', $result['status']);
+        $plan = $sent[0]['plan'];
+        $this->assertSame(['İlk gün', 'İlk hafta'], $plan['outline'], 'a repeated heading goes once');
+        $this->assertSame(['İmplant sonrası ağrı kaç gün sürer?'], $plan['questions']);
+        $this->assertArrayNotHasKey('ai_questions', $sent[0]['cluster'], 'the plan questions are not sent twice');
+        $this->assertSame(['implant sonrası yiyecekler'], $plan['target_queries']);
+        $this->assertSame('İlk haftalarda ne yenir.', $plan['angle']);
+        $this->assertArrayNotHasKey('reason', $plan, 'the reason repeats the angle');
+        $this->assertSame(['İlk hafta: yiyecekler tablosu ekle'], $plan['recipe']);
+        $this->assertSame(['new', 'İmplant Sonrası Beslenme | Panorama'], [$plan['kind'], $plan['seo_title']]);
+        $this->assertStringNotContainsString('en-iyi', (string) $plan['target_url']);
+        $this->assertSame(['implant sonrası ne yenir', 'implant sonrası bakım'], $sent[0]['cluster']['queries'], 'hidden queries left out, most impressions first');
+        $article = data_get(Suggestion::query()->where('action_type', 'content')->sole()->action, 'article');
+        $this->assertSame(['İmplant Sonrası Beslenme | Panorama', 'İmplant sonrası ilk haftalarda ne yenir?'], [$article['meta_title'], $article['meta_description']]);
     }
 }

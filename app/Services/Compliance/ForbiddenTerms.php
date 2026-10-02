@@ -58,12 +58,14 @@ final class ForbiddenTerms
         if ($hits === []) {
             return $text;
         }
+        $capitalized = preg_match('/^\p{Lu}/u', $text) === 1;
         foreach ($hits as $phrase) {
             $text = (string) preg_replace('/(?<![\p{L}\p{N}])'.preg_quote($phrase, '/').'(?![\p{L}\p{N}])/iu', '', $text);
         }
         $text = trim((string) preg_replace('/\s{2,}/u', ' ', $text));
 
-        return $text === '' ? $text : mb_strtoupper(mb_substr($text, 0, 1)).mb_substr($text, 1);
+        // A sentence keeps its capital; a lowercase search query stays lowercase.
+        return $text === '' || ! $capitalized ? $text : mb_strtoupper(mb_substr($text, 0, 1)).mb_substr($text, 1);
     }
 
     /** @return list<string> phrases of "uyar" rules found in the text */

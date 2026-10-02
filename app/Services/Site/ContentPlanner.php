@@ -278,12 +278,13 @@ final class ContentPlanner
             'action_type' => SiteSuggestionTypes::CONTENT, 'target_type' => 'site', 'target_id' => $site->id, 'page_id' => null, 'cluster_id' => $subject->cluster->id,
             'status' => Suggestion::OPEN, 'first_seen_at' => now(), 'last_seen_at' => now(),
             'action' => ['site_id' => (int) $site->id, 'kind' => 'new', 'page_type' => $pageType,
-                'target_url' => $pattern->targetUrl(SiteScope::origin($site), self::URL_TYPES[$pageType], SeoText::slugify($title), (string) ($subject->cluster->service?->primaryName?->raw_label ?? '')),
+                'target_url' => $pattern->targetUrl(SiteScope::origin($site), self::URL_TYPES[$pageType], SeoText::slugify(ForbiddenTerms::forBrand($brand)->scrub($title)), (string) ($subject->cluster->service?->primaryName?->raw_label ?? '')),
                 'outline' => array_slice($outline, 0, 12), 'questions' => array_slice(ClusterAudit::aiQuestions($subject->cluster, $brand), 0, 10), 'out_of_cluster' => false, 'week' => now()->format('o-\WW')],
         ]);
         $suggestion->forceFill(['action' => array_merge((array) $suggestion->action, array_filter([
             'angle' => $subject->idea?->angle, 'target_queries' => $subject->idea !== null ? array_column((array) $subject->idea->target_queries, 'text') : null,
             'main_page_url' => $subject->mainPage()?->url, 'recipe' => data_get($subject->row->recipe, 'steps') ?: null,
+            'recipe_seo' => array_filter(['seo_title' => data_get($subject->row->recipe, 'seo_title'), 'meta_description' => data_get($subject->row->recipe, 'meta_description')]) ?: null,
         ], fn (mixed $v): bool => $v !== null && $v !== []) + $subject->params())])->save();
 
         return ['suggestion_id' => (int) $suggestion->id] + $this->writeArticle($suggestion);
@@ -306,18 +307,27 @@ final class ContentPlanner
         $context = $this->memory->contextFor($brand, $suggestion->page_id !== null ? [(int) $suggestion->page_id] : [], $cluster !== null ? [(int) $cluster->id] : []);
         $language = SiteScope::primaryLanguage($site) ?? 'tr';
         $terms = ForbiddenTerms::forBrand($brand);
-        // Inputs the writer copies (questions, outline) lose their forbidden phrases first ("En iyi … seçerken" → "… seçerken").
-        $scrub = fn (array $lines): array => array_values(array_filter(array_map(fn ($line): string => $terms->scrub((string) $line), $lines), fn (string $l): bool => $l !== ''));
+        // Every input the writer copies loses its forbidden phrases first ("En iyi … seçerken" → "… seçerken"); repeated lines go once.
+        $scrub = fn (array $lines): array => array_values(array_unique(array_filter(array_map(fn ($line): string => $terms->scrub((string) $line), $lines), fn (string $l): bool => $l !== '')));
+        $text = fn (mixed $value): ?string => ($clean = $terms->scrub(trim((string) $value))) !== '' ? $clean : null;
+        $questions = $scrub((array) ($action['questions'] ?? []));
+        $angle = $text($action['angle'] ?? null);
+        $reason = $text($suggestion->reason);
+        $recipe = isset($action['recipe']) ? $scrub(array_map(fn (array $s): string => trim(($s['where'] ?? '') !== '' ? $s['where'].': '.$s['action'] : (string) ($s['action'] ?? '')), (array) $action['recipe'])) : [];
+        $recipeSeo = (array) ($action['recipe_seo'] ?? []);
         $input = [
-            'plan' => ['title' => $terms->scrub((string) $suggestion->title), 'reason' => $suggestion->reason, 'page_type' => $action['page_type'] ?? 'blog', 'outline' => $scrub((array) ($action['outline'] ?? [])),
-                'questions' => $scrub((array) ($action['questions'] ?? [])), 'target_url' => $action['target_url'] ?? null, 'kind' => $action['kind'] ?? 'new']
-                + array_filter(['angle' => $action['angle'] ?? null, 'target_queries' => $action['target_queries'] ?? null, 'main_page_url' => $action['main_page_url'] ?? null,
-                    'recipe' => isset($action['recipe']) ? array_map(fn (array $s): string => trim(($s['where'] ?? '') !== '' ? $s['where'].': '.$s['action'] : (string) ($s['action'] ?? '')), (array) $action['recipe']) : null]),
-            'cluster' => $cluster !== null ? array_filter(['name' => $cluster->name, 'main_query' => $cluster->mainQuery?->text, 'subtopics' => $cluster->subtopics,
-                'queries' => $cluster->clusterQueries->map(fn (ClusterQuery $q): string => (string) $q->searchQuery?->text)->filter()->take(30)->values()->all(),
-                'ai_questions' => $scrub(ClusterAudit::aiQuestions($cluster, $brand)), 'service_areas' => ClusterAudit::serviceAreas($cluster, $brand) ?: null,
+            'plan' => ['title' => $terms->scrub((string) $suggestion->title), 'page_type' => $action['page_type'] ?? 'blog', 'outline' => $scrub((array) ($action['outline'] ?? [])),
+                'questions' => $questions, 'target_url' => $action['target_url'] ?? null, 'kind' => ($action['kind'] ?? null) === 'update' ? 'update' : 'new']
+                + array_filter(['reason' => $reason !== $angle ? $reason : null, 'angle' => $angle, 'target_queries' => $scrub((array) ($action['target_queries'] ?? [])), 'main_page_url' => $action['main_page_url'] ?? null,
+                    'recipe' => $recipe, 'seo_title' => $text($recipeSeo['seo_title'] ?? null), 'meta_description' => $text($recipeSeo['meta_description'] ?? null)],
+                    fn (mixed $v): bool => $v !== null && $v !== []),
+            'cluster' => $cluster !== null ? array_filter(['name' => $cluster->name, 'main_query' => $text($cluster->mainQuery?->text), 'subtopics' => $scrub(array_filter((array) $cluster->subtopics, 'is_string')),
+                'queries' => $scrub($cluster->clusterQueries->filter(fn (ClusterQuery $q): bool => $q->searchQuery !== null && ! $q->searchQuery->hidden)
+                    ->sortByDesc(fn (ClusterQuery $q): int => (int) $q->searchQuery->impressions)->map(fn (ClusterQuery $q): string => (string) $q->searchQuery->text)->take(30)->all()),
+                // Questions already in the plan are not sent twice.
+                'ai_questions' => array_values(array_diff($scrub(ClusterAudit::aiQuestions($cluster, $brand)), $questions)), 'service_areas' => ClusterAudit::serviceAreas($cluster, $brand) ?: null,
                 'benchmarks' => app(ClusterBenchmarks::class)->for($cluster, (int) $brand->id) ?: null],
-                fn (mixed $v): bool => $v !== null) : null,
+                fn (mixed $v): bool => $v !== null && $v !== []) : null,
             'brand' => $context['profile'], 'notes' => $context['notes'], 'standards' => $context['standards'], 'related_pages' => [...$context['pages'], ...$context['related_pages']],
             'language' => $language,
             'site_pages' => $sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title])->values()->all(),
@@ -380,7 +390,9 @@ final class ContentPlanner
         }
         $article = [
             'title' => mb_substr($title, 0, 200), 'slug' => SeoText::slugify((string) ($data['slug'] ?? $title)) ?: SeoText::slugify($title), 'html' => $html,
-            'meta_title' => mb_substr(trim((string) ($data['meta_title'] ?? '')), 0, 120), 'meta_description' => mb_substr(trim((string) ($data['meta_description'] ?? '')), 0, 320),
+            // The approved SEO analysis title / description win over the writer's own.
+            'meta_title' => mb_substr(trim((string) ($input['plan']['seo_title'] ?? $data['meta_title'] ?? '')), 0, 120),
+            'meta_description' => mb_substr(trim((string) ($input['plan']['meta_description'] ?? $data['meta_description'] ?? '')), 0, 320),
             'excerpt' => mb_substr(trim((string) ($data['excerpt'] ?? '')), 0, 300), 'language' => $language,
             'post_type' => ($action['page_type'] ?? 'blog') === 'blog' ? 'post' : 'page', 'reference' => $reference,
         ];
