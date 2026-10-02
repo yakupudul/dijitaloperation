@@ -138,9 +138,10 @@ class MetaCentralIntegrationTest extends TestCase
             'invalid_credential' => ['status' => 401, 'body' => ['error' => ['message' => 'bad', 'code' => 190]], 'ok' => false, 'needle' => 'Authentication'],
             'permission_missing' => ['status' => 403, 'body' => ['error' => ['message' => 'perm', 'code' => 10]], 'ok' => false, 'needle' => 'Permission'],
             'rate_limited' => ['status' => 429, 'body' => ['error' => ['message' => 'limit', 'code' => 4]], 'ok' => false, 'needle' => 'Rate limited'],
-            'provider_unavailable' => ['status' => 503, 'body' => ['error' => ['message' => 'down']], 'ok' => false, 'needle' => 'unavailable'],
-            'malformed_error_payload' => ['status' => 200, 'body' => ['error' => ['message' => 'weird', 'code' => 1]], 'ok' => false, 'needle' => 'Unknown'],
-            'malformed_missing_id' => ['status' => 200, 'body' => ['name' => 'No Id'], 'ok' => false, 'needle' => 'Unknown'],
+            'provider_unavailable' => ['status' => 503, 'body' => [], 'ok' => false, 'needle' => 'Provider unavailable (HTTP 503). [http 503 · retryable]'],
+            'structured_error_on_5xx' => ['status' => 503, 'body' => ['error' => ['message' => 'down']], 'ok' => false, 'needle' => 'Meta request rejected: down [http 503 · not retryable]'],
+            'malformed_error_payload' => ['status' => 200, 'body' => ['error' => ['message' => 'weird', 'code' => 1]], 'ok' => false, 'needle' => 'Meta request rejected: weird [http 200 · code 1 · not retryable]'],
+            'malformed_missing_id' => ['status' => 200, 'body' => ['name' => 'No Id'], 'ok' => false, 'needle' => 'Malformed provider response. [not retryable]'],
         ];
     }
 

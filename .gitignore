@@ -40,3 +40,6 @@ __pycache__/
 *.py[cod]
 .automation/runtime/
 .automation/runtime/
+
+# Ad-hoc source snapshot archives
+/moxdop-*.zip
