@@ -59,8 +59,7 @@ class GoogleAdsOperatingWorkspaceTest extends TestCase
 
         Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id])
             ->assertSee('Northwind Google Ads')
-            ->assertSee('Needs attention')
-            ->assertSee('Budget pacing')
+            ->assertSee('Specialist checklist')
             ->assertSee('Campaign portfolio')
             ->assertDontSee('₺48,320')
             ->assertDontSee('Ahead of plan')
@@ -72,15 +71,15 @@ class GoogleAdsOperatingWorkspaceTest extends TestCase
 
         Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'search_terms'])
             ->assertSet('tab', 'search_demand')
-            ->assertSee('Search & demand');
+            ->assertSee('Search & keywords');
 
         Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'conversions'])
             ->assertSet('tab', 'measurement')
-            ->assertSee('Measurement');
+            ->assertSee('Conversions & measurement');
 
         Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'insights'])
             ->assertSet('tab', 'overview')
-            ->assertSee('Needs attention');
+            ->assertSee('Campaign portfolio');
     }
 
     public function test_demo_totals_are_coherent_and_deterministic(): void
