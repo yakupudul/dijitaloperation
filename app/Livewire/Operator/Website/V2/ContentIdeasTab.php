@@ -5,6 +5,7 @@ namespace App\Livewire\Operator\Website\V2;
 use App\Jobs\Site\GenerateContentIdeasJob;
 use App\Models\BrandClusterPage;
 use App\Models\BrandContentIdea;
+use App\Models\Cluster;
 use App\Models\ContentIdea;
 use App\Models\DigitalAsset;
 use App\Models\Page;
@@ -38,7 +39,7 @@ use Livewire\WithPagination;
  * URLs, target query, excluded — same ClusterEditor as Sorgular) and per cluster "Yeni fikir üret" with brand
  * context. Every AI step runs on the queue.
  */
-final class ContentIdeasTab extends Component
+class ContentIdeasTab extends Component
 {
     use WithPagination;
 
@@ -241,40 +242,7 @@ final class ContentIdeasTab extends Component
     {
         $site = DigitalAsset::query()->findOrFail($this->assetId);
         $brand = SiteScope::brandOf($site);
-        $mains = BrandClusterPage::query()->with(['cluster.service.primaryName', 'cluster.mainQuery', 'page'])->where('website_asset_id', $site->id)
-            ->orderBy('id')->get()->filter(fn (BrandClusterPage $row): bool => $row->cluster !== null);
-        $clusterIds = $mains->pluck('cluster_id')->unique()->map(fn ($id): int => (int) $id)->values()->all();
-        $ideas = ContentIdea::query()->with('originBrand:id,name')->where('status', 'active')->whereIn('cluster_id', $clusterIds ?: [0])->orderBy('id')->get();
-        $usages = BrandContentIdea::query()->with('page')->where('website_asset_id', $site->id)->whereIn('content_idea_id', $ideas->pluck('id')->all() ?: [0])->get()->keyBy('content_idea_id');
-        $scores = DB::table('cluster_page_scores')->whereIn('brand_cluster_page_id', $mains->pluck('id')->all() ?: [0])->get()->keyBy('brand_cluster_page_id');
-        $demand = DB::table('cluster_queries as cq')->join('queries as q', 'q.id', '=', 'cq.query_id')->whereIn('cq.cluster_id', $clusterIds ?: [0])
-            ->where('q.hidden', false)->groupBy('cq.cluster_id')->selectRaw('cq.cluster_id, sum(q.impressions) as total')->pluck('total', 'cq.cluster_id');
-        $technical = PageTechnical::many($mains->pluck('page')->merge($usages->pluck('page'))->filter()->unique('id'));
-
-        $groups = $mains->groupBy('cluster_id')->map(function (Collection $rows) use ($ideas, $usages, $scores, $demand, $technical): array {
-            $cluster = $rows->first()->cluster;
-            $mainRows = $rows->map(function (BrandClusterPage $row) use ($scores, $technical): array {
-                $score = $scores[$row->id] ?? null;
-                $resolved = $row->excluded ? ['state' => 'excluded', 'reason' => 'Bu markada hariç tutuldu.', 'technical' => null]
-                    : ContentIdeaState::resolve($row->page, $row->coverage, $row->gaps, $score, (array) json_decode((string) ($score->page_shares ?? '[]'), true),
-                        (string) $row->reason, $row->page !== null ? ($technical[$row->page->id] ?? null) : null);
-
-                return ['kind' => ContentIdeaSubject::MAIN, 'model' => $row, 'score' => $score] + $resolved;
-            })->values();
-            $extraRows = $ideas->where('cluster_id', $cluster->id)->map(function (ContentIdea $idea) use ($usages, $technical): array {
-                $usage = $usages->get($idea->id);
-                $resolved = $usage === null || $usage->audited_at === null && $usage->page_id === null
-                    ? ['state' => 'unchecked', 'reason' => 'Henüz eşleştirilmedi — "Yeniden keşfet"', 'technical' => null]
-                    : ContentIdeaState::resolve($usage->page, $usage->coverage, $usage->gaps, null, [], (string) $usage->reason,
-                        $usage->page !== null ? ($technical[$usage->page->id] ?? null) : null);
-
-                return ['kind' => ContentIdeaSubject::EXTRA, 'idea' => $idea, 'model' => $usage, 'score' => null] + $resolved;
-            })->sortBy(fn (array $r): int => ContentIdeaState::ORDER[$r['state']] ?? 9)->values();
-            $first = $mainRows->sortBy(fn (array $r): int => ContentIdeaState::ORDER[$r['state']] ?? 9)->first();
-
-            return ['cluster' => $cluster, 'demand' => (int) ($demand[$cluster->id] ?? 0), 'mains' => $mainRows, 'extras' => $extraRows,
-                'order' => ContentIdeaState::ORDER[$first['state']] ?? 9];
-        });
+        [$mains, $groups] = $this->clusterGroups($site);
 
         $filtered = $groups->filter(function (array $g): bool {
             if ($this->service !== '' && (string) $g['cluster']->service_id !== $this->service) {
@@ -323,6 +291,51 @@ final class ContentIdeasTab extends Component
         ]);
     }
 
+    /**
+     * The brand rows of the site and one group per cluster: main rows (state, score) and the pool's extra ideas.
+     *
+     * @return array{0: Collection<int, BrandClusterPage>, 1: Collection<int, array{cluster: Cluster, demand: int, mains: Collection<int, array<string, mixed>>, extras: Collection<int, array<string, mixed>>, order: int}>}
+     */
+    protected function clusterGroups(DigitalAsset $site): array
+    {
+        $mains = BrandClusterPage::query()->with(['cluster.service.primaryName', 'cluster.mainQuery', 'page'])->where('website_asset_id', $site->id)
+            ->orderBy('id')->get()->filter(fn (BrandClusterPage $row): bool => $row->cluster !== null);
+        $clusterIds = $mains->pluck('cluster_id')->unique()->map(fn ($id): int => (int) $id)->values()->all();
+        $ideas = ContentIdea::query()->with('originBrand:id,name')->where('status', 'active')->whereIn('cluster_id', $clusterIds ?: [0])->orderBy('id')->get();
+        $usages = BrandContentIdea::query()->with('page')->where('website_asset_id', $site->id)->whereIn('content_idea_id', $ideas->pluck('id')->all() ?: [0])->get()->keyBy('content_idea_id');
+        $scores = DB::table('cluster_page_scores')->whereIn('brand_cluster_page_id', $mains->pluck('id')->all() ?: [0])->get()->keyBy('brand_cluster_page_id');
+        $demand = DB::table('cluster_queries as cq')->join('queries as q', 'q.id', '=', 'cq.query_id')->whereIn('cq.cluster_id', $clusterIds ?: [0])
+            ->where('q.hidden', false)->groupBy('cq.cluster_id')->selectRaw('cq.cluster_id, sum(q.impressions) as total')->pluck('total', 'cq.cluster_id');
+        $technical = PageTechnical::many($mains->pluck('page')->merge($usages->pluck('page'))->filter()->unique('id'));
+
+        $groups = $mains->groupBy('cluster_id')->map(function (Collection $rows) use ($ideas, $usages, $scores, $demand, $technical): array {
+            $cluster = $rows->first()->cluster;
+            $mainRows = $rows->map(function (BrandClusterPage $row) use ($scores, $technical): array {
+                $score = $scores[$row->id] ?? null;
+                $resolved = $row->excluded ? ['state' => 'excluded', 'reason' => 'Bu markada hariç tutuldu.', 'technical' => null]
+                    : ContentIdeaState::resolve($row->page, $row->coverage, $row->gaps, $score, (array) json_decode((string) ($score->page_shares ?? '[]'), true),
+                        (string) $row->reason, $row->page !== null ? ($technical[$row->page->id] ?? null) : null);
+
+                return ['kind' => ContentIdeaSubject::MAIN, 'model' => $row, 'score' => $score] + $resolved;
+            })->values();
+            $extraRows = $ideas->where('cluster_id', $cluster->id)->map(function (ContentIdea $idea) use ($usages, $technical): array {
+                $usage = $usages->get($idea->id);
+                $resolved = $usage === null || $usage->audited_at === null && $usage->page_id === null
+                    ? ['state' => 'unchecked', 'reason' => 'Henüz eşleştirilmedi — "Yeniden keşfet"', 'technical' => null]
+                    : ContentIdeaState::resolve($usage->page, $usage->coverage, $usage->gaps, null, [], (string) $usage->reason,
+                        $usage->page !== null ? ($technical[$usage->page->id] ?? null) : null);
+
+                return ['kind' => ContentIdeaSubject::EXTRA, 'idea' => $idea, 'model' => $usage, 'score' => null] + $resolved;
+            })->sortBy(fn (array $r): int => ContentIdeaState::ORDER[$r['state']] ?? 9)->values();
+            $first = $mainRows->sortBy(fn (array $r): int => ContentIdeaState::ORDER[$r['state']] ?? 9)->first();
+
+            return ['cluster' => $cluster, 'demand' => (int) ($demand[$cluster->id] ?? 0), 'mains' => $mainRows, 'extras' => $extraRows,
+                'order' => ContentIdeaState::ORDER[$first['state']] ?? 9];
+        });
+
+        return [$mains, $groups];
+    }
+
     private function overlap(int $suggestionId): Suggestion
     {
         $site = DigitalAsset::query()->findOrFail($this->assetId);
@@ -358,7 +371,7 @@ final class ContentIdeasTab extends Component
      * @param  Collection<int, array<string, mixed>>  $groups
      * @return array<string, string>
      */
-    private function statuses(Collection $groups): array
+    protected function statuses(Collection $groups): array
     {
         $out = [];
         foreach ($groups as $g) {
@@ -385,7 +398,7 @@ final class ContentIdeasTab extends Component
      * @param  Collection<int, array<string, mixed>>  $groups
      * @return array<string, Suggestion>
      */
-    private function suggestions(Collection $groups): array
+    protected function suggestions(Collection $groups): array
     {
         $brandId = DigitalAsset::query()->whereKey($this->assetId)->value('brand_id');
         $clusterIds = $groups->map(fn (array $g): int => (int) $g['cluster']->id)->all();
@@ -408,7 +421,7 @@ final class ContentIdeasTab extends Component
      * @param  Collection<int, array<string, mixed>>  $groups
      * @return array<int, string>
      */
-    private function pageOptions(DigitalAsset $site, Collection $groups): array
+    protected function pageOptions(DigitalAsset $site, Collection $groups): array
     {
         $term = trim($this->pageSearch);
         $chosen = $groups->flatMap(fn (array $g): array => [...$g['mains']->flatMap(fn (array $r): array => $r['model']->pageIds())->all(),

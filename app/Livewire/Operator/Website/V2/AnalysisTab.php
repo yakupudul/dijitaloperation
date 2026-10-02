@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator\Website\V2;
 
+use App\Livewire\Operator\Website\V2\Concerns\UsesSiteRange;
 use App\Livewire\Operator\Website\V2\Concerns\WebsiteTab;
 use App\Services\Site\Analysis\SiteAnalysisReader;
 use Illuminate\Contracts\View\View;
@@ -19,6 +20,7 @@ use Livewire\WithPagination;
  */
 final class AnalysisTab extends Component
 {
+    use UsesSiteRange;
     use WebsiteTab {
         mount as mountTab;
     }
@@ -38,9 +40,11 @@ final class AnalysisTab extends Component
     #[Locked]
     public string $fixed = '';
 
-    public function mount(int $assetId, string $fixed = ''): void
+    /** @param  array{days?: int, start?: ?string, end?: ?string, compare?: string}  $range */
+    public function mount(int $assetId, string $fixed = '', array $range = []): void
     {
         $this->mountTab($assetId);
+        $this->range = $range;
         $this->fixed = array_key_exists($fixed, self::SUBTABS) ? $fixed : '';
     }
 
@@ -58,7 +62,8 @@ final class AnalysisTab extends Component
     public function render(SiteAnalysisReader $reader): View
     {
         $site = $this->site();
-        $period = array_key_exists($this->period, SiteAnalysisReader::PERIODS) ? $this->period : 28;
+        $screenRange = $this->hasScreenRange();
+        $period = $screenRange ? $this->siteRange()->days : (array_key_exists($this->period, SiteAnalysisReader::PERIODS) ? $this->period : 28);
         $sub = $this->fixed !== '' ? $this->fixed : (array_key_exists($this->sub, self::SUBTABS) ? $this->sub : 'clusters');
         $rows = match ($sub) {
             'targets' => $reader->targetQueries($site, $period),
@@ -75,6 +80,7 @@ final class AnalysisTab extends Component
             'rows' => new LengthAwarePaginator(array_slice($rows, ($page - 1) * self::PER_PAGE, self::PER_PAGE), count($rows), self::PER_PAGE, $page, ['pageName' => 'p']),
             'activeSub' => $sub,
             'showNav' => $this->fixed === '',
+            'screenRange' => $screenRange,
         ]);
     }
 }

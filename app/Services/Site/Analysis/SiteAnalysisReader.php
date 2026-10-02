@@ -37,19 +37,51 @@ final class SiteAnalysisReader
     /** @return array{end: string, start: string, prev_start: string, prev_end: string, gsc: list<int>, ga4: list<int>} */
     public function window(DigitalAsset $site, int $days): array
     {
-        $days = array_key_exists($days, self::PERIODS) ? $days : 28;
+        $gsc = $this->resources($site, 'search_console');
+        $ga4 = $this->resources($site, 'ga4');
+        // The screen's date picker (SiteRange) wins; a reader used alone keeps the N days up to the last data day.
+        $range = SiteRange::current() ?? new SiteRange(self::days($days));
+
+        return $range->window($this->lastDay($site)) + ['gsc' => $gsc, 'ga4' => $ga4];
+    }
+
+    /**
+     * Organic (Google search) sessions and key events from GA4 landing × source / medium, for the funnel.
+     *
+     * @return array{current: array{sessions: int, key_events: float}, previous: array{sessions: int, key_events: float}}|null null without GA4 landing data
+     */
+    public function organic(DigitalAsset $site, int $days): ?array
+    {
+        $w = $this->window($site, $days);
+        if ($w['ga4'] === []) {
+            return null;
+        }
+
+        return $this->cached($site, 'organic', $w, function () use ($w): ?array {
+            $out = [];
+            foreach (['current' => [$w['start'], $w['end']], 'previous' => [$w['prev_start'], $w['prev_end']]] as $key => [$from, $to]) {
+                $row = DB::table('ga4_landing_source_daily')->whereIn('external_resource_id', $w['ga4'])->whereBetween('reporting_date', [$from, $to])
+                    ->whereRaw('lower("sessionMedium") = ?', ['organic'])->selectRaw('count(*) as n, sum(sessions) as sessions, sum("keyEvents") as key_events')->first();
+                $out[$key] = ['rows' => (int) ($row->n ?? 0), 'sessions' => (int) ($row->sessions ?? 0), 'key_events' => round((float) ($row->key_events ?? 0), 1)];
+            }
+            if ($out['current']['rows'] === 0 && $out['previous']['rows'] === 0) {
+                return null;
+            }
+
+            return ['current' => ['sessions' => $out['current']['sessions'], 'key_events' => $out['current']['key_events']],
+                'previous' => ['sessions' => $out['previous']['sessions'], 'key_events' => $out['previous']['key_events']]];
+        });
+    }
+
+    /** The last day with Search Console data (else GA4, else yesterday). */
+    public function lastDay(DigitalAsset $site): CarbonImmutable
+    {
         $gsc = $this->resources($site, 'search_console');
         $ga4 = $this->resources($site, 'ga4');
         $last = $gsc !== [] ? DB::table('gsc_query_page_daily')->whereIn('external_resource_id', $gsc)->where('search_type', 'web')->max('reporting_date') : null;
         $last ??= $ga4 !== [] ? DB::table('ga4_landing_source_daily')->whereIn('external_resource_id', $ga4)->max('reporting_date') : null;
-        $end = $last !== null ? CarbonImmutable::parse($last) : CarbonImmutable::yesterday();
-        $start = $end->subDays($days - 1);
 
-        return [
-            'end' => $end->toDateString(), 'start' => $start->toDateString(),
-            'prev_end' => $start->subDay()->toDateString(), 'prev_start' => $start->subDays($days)->toDateString(),
-            'gsc' => $gsc, 'ga4' => $ga4,
-        ];
+        return $last !== null ? CarbonImmutable::parse($last) : CarbonImmutable::yesterday();
     }
 
     /** @return array{current: array{clicks: int, impressions: int, position: ?float, sessions: int, key_events: float}, previous: array{clicks: int, impressions: int, position: ?float, sessions: int, key_events: float}} */
@@ -460,6 +492,12 @@ final class SiteAnalysisReader
      */
     private function cached(DigitalAsset $site, string $part, array $w, callable $build): mixed
     {
-        return Cache::remember('site:analysis:'.$site->id.':'.$part.':'.$w['start'].':'.$w['end'].':'.md5(json_encode([$w['gsc'], $w['ga4']])), now()->addHour(), $build);
+        return Cache::remember('site:analysis:'.$site->id.':'.$part.':'.$w['start'].':'.$w['end'].':'.$w['prev_start'].':'.md5(json_encode([$w['gsc'], $w['ga4']])), now()->addHour(), $build);
+    }
+
+    /** A period length the readers accept: a preset of the date picker, else 28. */
+    public static function days(int $days): int
+    {
+        return array_key_exists($days, SiteRange::PRESETS) || array_key_exists($days, self::PERIODS) ? $days : 28;
     }
 }

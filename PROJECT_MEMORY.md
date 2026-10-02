@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-11-24 — Web sitesi ekranı v3
+
+- **Karar (operatör):** Site ekranı Google / Meta panelleri gibi sade olur: tek sıra sekme, başlıkta tek tarih seçici (karşılaştırmalı).
+  - İlk sekme Kümeler panosu: hizmet → ana küme → alt kümeler, dikey kartlar.
+  - Analiz: GSC × GA4 × sayfa. Sayfalar türlere göre. Teknik SEO: Google'ın bildirdikleri ve HTML sorunları ayrı.
+- **Kural:** Bulgular ve teşhisler saklanan veriden kuralla çıkar; AI değildir. Kaynak yoksa "—" gösterilir.
+
 ## 2026-11-23 — OpenAI ücretsiz kota
 
 - **Karar:** OpenAI paylaşım kotası, operatör açtığında harcama sayılmaz (%90 güvenlik payı). Saatlik denetim gerçek faturayla uyuşmazlıkta kotayı kendisi kapatır.

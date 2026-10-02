@@ -4,7 +4,7 @@
     $num = fn ($value) => $value === null ? '—' : number_format((float) $value, 0, ',', '.');
     $dec = fn ($value) => $value === null ? '—' : number_format((float) $value, 1, ',', '.');
     $money = fn ($value) => $value === null ? '—' : number_format((float) $value, 2, ',', '.');
-    $hasAds = collect($rows->items())->contains(fn (array $row): bool => $row['ads_clicks'] !== null);
+    $hasAds = $rows !== null && collect($rows->items())->contains(fn (array $row): bool => $row['ads_clicks'] !== null);
     $arrow = fn (string $column) => $sort === $column ? ($dir === 'asc' ? ' ↑' : ' ↓') : '';
     $th = 'cursor-pointer select-none whitespace-nowrap px-2 py-2 text-right hover:text-gray-800 dark:hover:text-white';
     $health = function (array $row): array {
@@ -27,21 +27,78 @@
         return ['—', 'text-gray-400'];
     };
 @endphp
-<div class="space-y-3 text-sm dark:text-gray-200" data-pages-tab>
+<div class="space-y-4 text-sm dark:text-gray-200" data-pages-tab>
+    @php $all = collect($types)->sum('count'); @endphp
+    <section class="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8" data-page-types>
+        <button type="button" wire:click="setType('')" data-type="" @class(['rounded-xl p-3 text-left ring-1 ring-inset', 'bg-brand-50 ring-brand-500 dark:bg-brand-500/10' => $activeType === '', 'bg-white ring-gray-200 hover:ring-gray-300 dark:bg-gray-900 dark:ring-gray-800' => $activeType !== ''])>
+            <span class="block text-xs text-gray-500">Tümü</span>
+            <span class="block text-lg font-semibold tabular-nums text-gray-900 dark:text-white">{{ $num($all) }}</span>
+            <span class="block text-[11px] text-gray-400">{{ $periodDays }} gün</span>
+        </button>
+        @foreach ($types as $key => $bucket)
+            <button type="button" wire:click="setType('{{ $key }}')" data-type="{{ $key }}" @disabled($bucket['count'] === 0) @class(['rounded-xl p-3 text-left ring-1 ring-inset disabled:cursor-default disabled:opacity-50', 'bg-brand-50 ring-brand-500 dark:bg-brand-500/10' => $activeType === $key, 'bg-white ring-gray-200 hover:ring-gray-300 dark:bg-gray-900 dark:ring-gray-800' => $activeType !== $key])>
+                <span class="block truncate text-xs text-gray-500">{{ $bucket['label'] }}</span>
+                <span class="block text-lg font-semibold tabular-nums text-gray-900 dark:text-white">{{ $num($bucket['count']) }}</span>
+                <span class="block text-[11px] text-gray-400">{{ $num($bucket['clicked']) }} tıklama alan</span>
+            </button>
+        @endforeach
+    </section>
+
     <div class="flex flex-wrap items-center justify-between gap-2">
-        <nav class="flex flex-wrap gap-1" aria-label="Sayfa filtreleri">
-            @foreach (\App\Services\Site\Analysis\SitePagesReader::FILTERS as $key => $label)
-                <button type="button" wire:click="setFilter('{{ $key }}')" data-filter="{{ $key }}" @class(['rounded-lg px-3 py-1.5 text-xs font-semibold', 'bg-brand-500 text-white' => $activeFilter === $key, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $activeFilter !== $key])>{{ $label }} <span class="font-normal opacity-75">{{ $num($counts[$key] ?? 0) }}</span></button>
-            @endforeach
-        </nav>
+        @if ($grouped)
+            <p class="text-xs text-gray-500">Her türün en çok tıklanan sayfaları; tamamı için türe tıklayın.</p>
+        @else
+            <nav class="flex flex-wrap gap-1" aria-label="Sayfa filtreleri">
+                @foreach (\App\Services\Site\Analysis\SitePagesReader::FILTERS as $key => $label)
+                    <button type="button" wire:click="setFilter('{{ $key }}')" data-filter="{{ $key }}" @class(['rounded-lg px-3 py-1.5 text-xs font-semibold', 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $activeFilter === $key, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $activeFilter !== $key])>{{ $label }}@if ($activeType === '') <span class="font-normal opacity-75">{{ $num($counts[$key] ?? 0) }}</span>@endif</button>
+                @endforeach
+            </nav>
+        @endif
         <div class="flex items-center gap-2">
             <input type="search" wire:model.live.debounce.400ms="search" placeholder="URL, başlık veya hizmet ara" aria-label="Ara" class="{{ $input }} w-56 py-1">
-            <select wire:model.live="period" aria-label="Dönem" class="{{ $input }} py-1">
-                @foreach (\App\Services\Site\Analysis\SitePagesReader::PERIODS as $days => $label)<option value="{{ $days }}">{{ $label }}</option>@endforeach
-            </select>
+            @unless ($screenRange)
+                <select wire:model.live="period" aria-label="Dönem" class="{{ $input }} py-1">
+                    @foreach (\App\Services\Site\Analysis\SitePagesReader::PERIODS as $days => $label)<option value="{{ $days }}">{{ $label }}</option>@endforeach
+                </select>
+            @endunless
         </div>
     </div>
 
+    @if ($grouped)
+        @php $shown = collect($types)->filter(fn (array $bucket): bool => $bucket['count'] > 0); @endphp
+        @forelse ($shown as $key => $bucket)
+            <section class="{{ $card }} overflow-x-auto p-0" data-type-section="{{ $key }}">
+                <header class="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-2.5 dark:border-gray-800">
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $bucket['label'] }} <span class="font-normal text-gray-500">· {{ $num($bucket['count']) }} sayfa · {{ $num($bucket['impressions']) }} gösterim</span></h3>
+                    @if ($bucket['count'] > count($bucket['rows']))
+                        <button type="button" wire:click="setType('{{ $key }}')" class="text-xs font-medium text-brand-600 hover:underline">{{ $bucket['label'] }} tümü ({{ $num($bucket['count']) }}) →</button>
+                    @endif
+                </header>
+                <table class="w-full text-left text-xs">
+                    <thead class="text-gray-500"><tr><th class="px-4 py-1.5">Sayfa</th><th class="px-2 text-right">Tıklama</th><th class="px-2 text-right">Gösterim</th><th class="px-2 text-right">Sıra</th><th class="px-2 text-right">Oturum</th><th class="px-2 text-right">Dönüşüm</th><th class="px-2 text-right">Sağlık</th></tr></thead>
+                    <tbody>
+                        @foreach ($bucket['rows'] as $row)
+                            @php [$healthLabel, $healthClass] = $health($row); @endphp
+                            <tr wire:key="type-{{ $key }}-{{ md5($row['path']) }}" wire:click="open(@js($row['path']))" data-page-row="{{ $row['path'] }}" class="cursor-pointer border-t border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/[0.03]">
+                                <td class="max-w-md px-4 py-2"><span class="block truncate font-medium text-gray-900 dark:text-white">{{ $row['title'] ?: $row['path'] }}</span><span class="block truncate text-gray-400">{{ $row['path'] }}</span></td>
+                                <td class="px-2 text-right tabular-nums">{{ $num($row['clicks']) }}</td>
+                                <td class="px-2 text-right tabular-nums">{{ $num($row['impressions']) }}</td>
+                                <td class="px-2 text-right tabular-nums">{{ $dec($row['position']) }}</td>
+                                <td class="px-2 text-right tabular-nums">{{ $num($row['sessions']) }}</td>
+                                <td class="px-2 text-right tabular-nums">{{ $dec($row['key_events']) }}</td>
+                                <td class="px-2 text-right"><span class="whitespace-nowrap rounded-full px-2 py-0.5 {{ $healthClass }}">{{ $healthLabel }}</span></td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </section>
+        @empty
+            <p class="{{ $card }} text-gray-500">Henüz sayfa yok. Site taraması ya da Search Console verisi gelince burada türlerine göre listelenir.</p>
+        @endforelse
+    @else
+    @if ($activeType !== '')
+        <p class="flex items-center gap-2 text-xs text-gray-500"><button type="button" wire:click="setType('')" class="font-medium text-brand-600 hover:underline">← Tüm türler</button> · {{ \App\Services\Site\Analysis\SitePagesReader::TYPES[$activeType] }}</p>
+    @endif
     <section class="{{ $card }} overflow-x-auto p-0" data-page-rows>
         <table class="w-full text-left text-xs">
             <thead class="border-b border-gray-100 text-gray-500 dark:border-gray-800">
@@ -59,7 +116,7 @@
             </thead>
             <tbody>
                 @forelse ($rows as $row)
-                    @php([$healthLabel, $healthClass] = $health($row))
+                    @php [$healthLabel, $healthClass] = $health($row); @endphp
                     <tr wire:key="page-{{ md5($row['path']) }}" wire:click="open(@js($row['path']))" data-page-row="{{ $row['path'] }}" class="cursor-pointer border-t border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/[0.03]">
                         <td class="max-w-md px-3 py-2">
                             <span class="block truncate font-medium text-gray-900 dark:text-white">{{ $row['title'] ?: $row['path'] }}</span>
@@ -82,15 +139,16 @@
                         <td class="px-2 text-right"><span class="whitespace-nowrap rounded-full px-2 py-0.5 {{ $healthClass }}">{{ $healthLabel }}</span></td>
                     </tr>
                 @empty
-                    <tr><td colspan="9" class="px-3 py-6 text-center text-gray-500">{{ $activeFilter === 'ana' ? 'Hizmete bağlı sayfa yok. "Tüm sayfalar" filtresine bakın ya da Sorgular › İçerik fikirleri › "Eşleştir".' : 'Eşleşen sayfa yok.' }}</td></tr>
+                    <tr><td colspan="9" class="px-3 py-6 text-center text-gray-500">{{ $activeFilter === 'ana' ? 'Hizmete bağlı sayfa yok. "Tüm sayfalar" filtresine bakın ya da Kümeler › "Eşleştir".' : 'Eşleşen sayfa yok.' }}</td></tr>
                 @endforelse
             </tbody>
         </table>
         <div class="px-3 py-2">{{ $rows->links() }}</div>
     </section>
+    @endif
 
     @if ($page !== null)
-        @php($row = $page['row'])
+        @php $row = $page['row']; @endphp
         <div class="fixed inset-0 z-99999 flex justify-end" role="dialog" aria-modal="true" aria-label="Sayfa detayı" data-page-detail="{{ $row['path'] }}" wire:keydown.escape.window="close">
             <button type="button" class="absolute inset-0 bg-gray-900/40" wire:click="close" aria-label="Kapat"></button>
             <aside class="relative h-full w-full max-w-2xl space-y-4 overflow-y-auto bg-white p-5 shadow-xl dark:bg-gray-900">
@@ -170,7 +228,7 @@
                     <div class="mb-1 flex items-center justify-between gap-2">
                         <h3 class="text-sm font-semibold">İlgili öneriler</h3>
                         @if ($row['page_id'] !== null)
-                            <a href="{{ route('operator.website', ['assetId' => $site->id, 'tab' => 'ozet', 'sub' => 'oneriler', 'url' => $row['page_id']]) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline" data-detail-fixes>{{ $page['wordpress'] ? 'Önerileri aç ve WordPress’e uygula →' : 'Önerileri aç →' }}</a>
+                            <a href="{{ route('operator.website', ['assetId' => $site->id, 'tab' => 'yapilacaklar', 'url' => $row['page_id']]) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline" data-detail-fixes>{{ $page['wordpress'] ? 'Önerileri aç ve WordPress’e uygula →' : 'Önerileri aç →' }}</a>
                         @endif
                     </div>
                     <ul class="divide-y divide-gray-100 text-xs dark:divide-gray-800">

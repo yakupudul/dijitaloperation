@@ -93,8 +93,8 @@ final class DataStatusTest extends TestCase
         $page->assertSee('Veri durumu')->assertSee('Güncel')->assertSee('son veri 26 Eyl');
         $page->assertDontSee('data-data-status-banner', false)->assertDontSee('İlk veri yükleniyor')->assertDontSee('Bağlı değil');
         $page->assertDontSee('henüz Google Analytics')->assertDontSee('Son veri: henüz yok');
-        // v2 Genel Bakış: 26 days × 100 clicks inside the last-28-days window (Search Console property totals).
-        $page->assertSee('Organik tıklama')->assertSee('2.600');
+        // Analiz: 26 days × 100 clicks inside the last-28-days window (Search Console property totals).
+        $this->get(route('operator.website', ['assetId' => $site->id, 'tab' => 'analiz']))->assertOk()->assertSee('data-scorecard="clicks"', false)->assertSee('2.600');
         $page->assertDontSee('Açık bulgular');
 
     }

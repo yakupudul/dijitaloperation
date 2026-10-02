@@ -1,5 +1,35 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-24 — Web sitesi ekranı v3: tek sıra sekme, ortak tarih seçici, Kümeler panosu, Analiz, Teknik SEO
+
+- **Kabuk:** Tek satır başlık; tek sıra sekme: **Kümeler** (varsayılan) · **Analiz** · **Sayfalar** · **Sorgular** · **Teknik SEO** · **Yapılacaklar** · **Ayarlar**.
+  - Seyrek kullanılanlar "Diğer" menüsünde: İçerik fikirleri (ayrıntılı liste), İçerik planı, Hedef sorgular, Dönüşümler, Eşleştirme, Rakipler, Backlinkler.
+  - Eski sekme / alt sekme bağlantıları yeni sekmeye gider (`LEGACY_TABS`, `LEGACY_SUBS`).
+- **Tarih seçici (Google Ads / Meta tarzı):** hazır aralıklar (7 / 14 / 28 gün, 3 / 6 / 12 ay, geçen ay), iki aylık takvim, özel aralık, önceki dönem ya da geçen yıl ile karşılaştırma.
+  - `SiteRange` istek için bağlanır; Search Console / GA4 okuyan tüm sekmeler (Kümeler, Analiz, Sayfalar, Sorgular, Hedef sorgular, Dönüşümler) aynı dönemi gösterir.
+  - URL: `donem`, `bas`, `bit`, `kars`.
+- **Kümeler panosu (`ClustersBoardTab`):** kümeler hizmete göre gruplanır; önce ana hizmetler, en sonda "Hizmete bağlı olmayan kümeler".
+  - Her hizmette önce ana küme (hizmet sayfası türünde, talebi en yüksek), sonra alt kümeler. 3 kart görünür, gerisi "Tüm alt kümeler (n daha)".
+  - Kart: konu, Eşlendi / Eşlenmedi, sektör talebi, bizim gösterim ve sıra (seçili dönem).
+  - Kart sekmeleri: İçerik fikirleri (ilki "Olmazsa olmaz"; tür, "Sitede: sayfa" + Geliştir ya da "Sitede yok" + Oluştur) ve Sorgular.
+  - "+ Yeni fikir üret", Eşleştir, onay bekleyen kümeler. Filtreler: hizmet, durum, tür, ara.
+  - Eylemler İçerik fikirleri ile aynıdır; AI yalnız tıklayınca, kuyrukta çalışır.
+- **Analiz (`AnalyticsTab`):** 6 ölçü kartı (GSC: Tıklama, Gösterim, TO, Ortalama sıra; GA4: Oturum, Dönüşüm), değişim ve küçük çizgi grafik. Karta tıklayınca grafik metriği değişir.
+  - Tek zaman ekseninde iki grafik (üstte GSC, altta GA4), karşılaştırma dönemi kesikli çizgi, üzerine gelince ipucu.
+  - Huni: Gösterim → Tıklama → Organik oturum (GA4 google / organic) → Dönüşüm.
+  - 4 bulgu: görünen ama tıklanmayan hizmet sayfaları, ilk 10'da olup tıklanmayan sorgular, ana sayfanın oturum payı, dönüşüm oranı.
+  - Sayfa karnesi: GSC + GA4, kurallı teşhis, CSV indirme.
+  - Tahmin yok: kaynak yoksa "—".
+- **Sayfalar:** tür kartları (Hizmet, Hizmet kategorisi, Soru-cevap / blog, Kurumsal, Lokasyon, Anahtar kelime sayfası, Diğer).
+  - "Tümü" her türün ilk sayfalarını ayrı bölümde gösterir. Bir tür seçilince tam tablo, filtreler ve sayfa detay çekmecesi gelir.
+- **Teknik SEO (`TechnicalSeoTab` + `TechnicalSeoReader`):** kutucuklar Kritik / Uyarı / Bilgi / Google doğruluyor (son 28 günde uygulanan düzeltme).
+  - Google dizin çubuğu, kaynak ve önem filtreleri.
+  - İki liste: "Google'ın bildirdikleri" (URL denetimi kapsam durumu, canonical uyuşmazlığı, site haritası hatası) ve "Sitenin HTML'inde bulduklarımız" (son tarama sorunları, aynı başlıklı sayfalar).
+  - Her satırda neden, tek eylem ve kimin düzelteceği (WordPress / geliştirici / Google). Çekmecede ne oluyor, nasıl düzeltilir ve etkilenen sayfalar.
+  - Site sağlığı aynı sekmenin altında.
+- **Test:** ClustersBoardTabTest; SitePagesTest (tarih aralığı, Analiz, sayfa türleri, Teknik SEO, sekmeler / eski bağlantılar); SiteSuggestionsTest.
+- **Eksik:** UAT yok; görsel kabul operatörde.
+
 ## 2026-11-23 — OpenAI ücretsiz paylaşım kotası + kota denetimi
 
 - **Kota:** OpenAI › Veri kontrolleri › «Giriş ve çıkışları OpenAI ile paylaşın» açıkken paylaşılan trafiğin bir kısmı ücretsizdir (UTC günü): küçük modellerde (gpt-5-mini vb.) 2,5 M, büyüklerde (gpt-5 vb.) 250 k token.

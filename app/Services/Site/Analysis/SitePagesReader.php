@@ -27,13 +27,20 @@ use Illuminate\Support\Facades\Schema;
  * @phpstan-type PageRow array{path: string, url: string, page_id: ?int, title: ?string, category: ?string, sources: list<string>,
  *     services: list<string>, clusters: list<string>, is_main: bool, clicks: int, impressions: int, position: ?float, prev_clicks: int,
  *     delta: ?int, sessions: int, key_events: float, ads_clicks: ?int, ads_cost: ?float, status_code: ?int, indexable: ?bool, issues: int,
- *     serious: int, problem: bool, declining: bool, no_traffic: bool, wp_post_id: ?int}
+ *     serious: int, problem: bool, declining: bool, no_traffic: bool, wp_post_id: ?int, type: string}
  */
 final class SitePagesReader
 {
     public const array PERIODS = [28 => '28 gün', 90 => '90 gün'];
 
     public const array FILTERS = ['ana' => 'Ana hizmet sayfaları', 'tum' => 'Tüm sayfalar', 'trafiksiz' => 'Trafik almayan', 'sorunlu' => 'Sorunlu', 'dususte' => 'Düşüşte'];
+
+    /** Sayfa türleri (Sayfalar sekmesinin kartları), in display order. */
+    public const array TYPES = ['hizmet' => 'Hizmet', 'kategori' => 'Hizmet kategorisi', 'icerik' => 'Soru-cevap / blog', 'kurumsal' => 'Kurumsal',
+        'lokasyon' => 'Lokasyon', 'anahtar' => 'Anahtar kelime sayfası', 'diger' => 'Diğer'];
+
+    /** URL folders of generated keyword pages ("/kws/ankara-cankaya-implant/"). */
+    private const array KEYWORD_FOLDERS = ['kws', 'kw', 'keyword', 'keywords', 'anahtar-kelime'];
 
     public const array SORTS = ['clicks', 'impressions', 'position', 'delta', 'sessions', 'key_events', 'ads_clicks', 'issues', 'path'];
 
@@ -50,7 +57,7 @@ final class SitePagesReader
 
     public static function period(int $days): int
     {
-        return array_key_exists($days, self::PERIODS) ? $days : 28;
+        return SiteRange::current()?->days ?? SiteAnalysisReader::days($days);
     }
 
     /**
@@ -63,15 +70,15 @@ final class SitePagesReader
         $days = self::period($days);
         $w = $this->analysis->window($site, $days);
         $inventory = Page::query()->where('website_asset_id', $site->id)->selectRaw('count(*) as n, max(updated_at) as at')->first();
-        $key = 'site:pages:'.$site->id.':'.$days.':'.$w['end'].':'.md5(json_encode([$w['gsc'], $w['ga4'], $inventory?->n, (string) $inventory?->at]));
+        $key = 'site:pages:'.$site->id.':'.$days.':'.$w['start'].':'.$w['end'].':'.$w['prev_start'].':'.md5(json_encode([$w['gsc'], $w['ga4'], $inventory?->n, (string) $inventory?->at]));
 
         return Cache::remember($key, now()->addMinutes(self::CACHE_MINUTES), fn (): array => $this->build($site, $days, $w));
     }
 
     /** @return LengthAwarePaginator<int, PageRow> */
-    public function list(DigitalAsset $site, int $days, string $filter, string $search, string $sort, bool $desc, int $page, int $perPage = 50): LengthAwarePaginator
+    public function list(DigitalAsset $site, int $days, string $filter, string $search, string $sort, bool $desc, int $page, int $perPage = 50, string $type = ''): LengthAwarePaginator
     {
-        $rows = array_values(array_filter($this->rows($site, $days), fn (array $row): bool => self::matches($row, $filter)));
+        $rows = array_values(array_filter($this->rows($site, $days), fn (array $row): bool => self::matches($row, $filter) && ($type === '' || $row['type'] === $type)));
         $needle = self::fold(trim($search));
         if ($needle !== '') {
             $rows = array_values(array_filter($rows, fn (array $row): bool => str_contains(self::fold($row['path'].' '.($row['title'] ?? '').' '.implode(' ', [...$row['services'], ...$row['clusters']])), $needle)));
@@ -111,6 +118,87 @@ final class SitePagesReader
     }
 
     /**
+     * Sayfa türleri: per type the pages of the site (inventory) and how many got a click, plus its first rows by
+     * impressions (the grouped view).
+     *
+     * @return array<string, array{label: string, count: int, clicked: int, impressions: int, rows: list<PageRow>}>
+     */
+    public function types(DigitalAsset $site, int $days, int $perType = 5): array
+    {
+        $out = [];
+        foreach (self::TYPES as $type => $label) {
+            $out[$type] = ['label' => $label, 'count' => 0, 'clicked' => 0, 'impressions' => 0, 'rows' => []];
+        }
+        foreach ($this->rows($site, $days) as $row) {
+            if ($row['sources'] === [] && $row['impressions'] === 0) {
+                continue;
+            }
+            $bucket = &$out[$row['type']];
+            $bucket['count']++;
+            $bucket['clicked'] += $row['clicks'] > 0 ? 1 : 0;
+            $bucket['impressions'] += $row['impressions'];
+            $bucket['rows'][] = $row;
+            unset($bucket);
+        }
+        foreach ($out as $type => $bucket) {
+            usort($bucket['rows'], fn (array $a, array $b): int => [$b['clicks'], $b['impressions'], $a['path']] <=> [$a['clicks'], $a['impressions'], $b['path']]);
+            $out[$type]['rows'] = array_slice($bucket['rows'], 0, $perType);
+        }
+
+        return $out;
+    }
+
+    /** The type of a page: keyword folder, service section page, content, corporate, location or other. */
+    public static function typeOf(array $row, bool $isHub): string
+    {
+        $segments = array_values(array_filter(explode('/', mb_strtolower(trim((string) $row['path'], '/')))));
+        if (array_intersect($segments, self::KEYWORD_FOLDERS) !== []) {
+            return 'anahtar';
+        }
+        if ($row['path'] === '/' || $row['category'] === 'kurumsal') {
+            return 'kurumsal';
+        }
+        if ($isHub && in_array($row['category'], ['hizmet', null], true)) {
+            return 'kategori';
+        }
+
+        return match ($row['category']) {
+            'hizmet' => 'hizmet',
+            'blog', 'sss' => 'icerik',
+            'lokasyon' => 'lokasyon',
+            default => 'diger',
+        };
+    }
+
+    /**
+     * Section pages: an inventory page whose path is the folder of other service pages ("/tedavilerimiz",
+     * "/tedavilerimiz/implant-tedavisi").
+     *
+     * @param  array<string, PageRow>  $rows
+     * @return array<string, true>
+     */
+    private static function hubs(array $rows): array
+    {
+        $hubs = [];
+        foreach ($rows as $path => $row) {
+            if ($row['sources'] === [] || $row['category'] !== 'hizmet') {
+                continue;
+            }
+            $parent = rtrim($path, '/');
+            while (($cut = strrpos($parent, '/')) !== false && $cut > 0) {
+                $parent = substr($parent, 0, $cut);
+                foreach ([$parent, $parent.'/'] as $candidate) {
+                    if (isset($rows[$candidate]) && $rows[$candidate]['sources'] !== []) {
+                        $hubs[$candidate] = true;
+                    }
+                }
+            }
+        }
+
+        return $hubs;
+    }
+
+    /**
      * State of the main service pages: sorunlu (HTTP ≥ 400, noindex or a critical / high issue) → düşüşte → iyi.
      *
      * @return array{iyi: int, dususte: int, sorunlu: int, rows: list<array{row: PageRow, state: string}>}
@@ -146,35 +234,47 @@ final class SitePagesReader
         $w = $this->analysis->window($site, $days);
         $propertyEnd = $w['gsc'] !== [] ? DB::table('gsc_property_daily')->whereIn('external_resource_id', $w['gsc'])->where('search_type', 'web')->max('reporting_date') : null;
         $propertyEnd ??= $w['ga4'] !== [] ? DB::table('ga4_property_daily')->whereIn('external_resource_id', $w['ga4'])->max('reporting_date') : null;
-        $end = CarbonImmutable::parse(max(array_filter([$w['end'], $propertyEnd !== null ? substr((string) $propertyEnd, 0, 10) : null])));
-        $start = $end->subDays($days - 1);
-        $prevStart = $start->subDays($days);
+        $range = SiteRange::current();
+        if ($range?->custom()) {
+            $win = ['start' => $w['start'], 'end' => $w['end'], 'prev_start' => $w['prev_start'], 'prev_end' => $w['prev_end']];
+        } else {
+            $last = CarbonImmutable::parse(max(array_filter([$w['end'], $propertyEnd !== null ? substr((string) $propertyEnd, 0, 10) : null])));
+            $win = ($range ?? new SiteRange($days))->window($last);
+        }
+        $start = CarbonImmutable::parse($win['start']);
+        $end = CarbonImmutable::parse($win['end']);
+        $prevStart = CarbonImmutable::parse($win['prev_start']);
+        $prevEnd = CarbonImmutable::parse($win['prev_end']);
 
-        return Cache::remember('site:pages:trend:'.$site->id.':'.$days.':'.$end->toDateString().':'.md5(json_encode([$w['gsc'], $w['ga4']])), now()->addMinutes(self::CACHE_MINUTES),
-            function () use ($w, $start, $end, $prevStart): array {
-                $from = $prevStart->toDateString();
-                $to = $end->toDateString();
-                $gsc = $this->dailyGsc($w['gsc'], $from, $to);
-                $ga4 = $this->dailyGa4($w['ga4'], $from, $to);
-                $series = [];
+        return Cache::remember('site:pages:trend:v2:'.$site->id.':'.implode(':', $win).':'.md5(json_encode([$w['gsc'], $w['ga4']])), now()->addMinutes(self::CACHE_MINUTES),
+            function () use ($w, $start, $end, $prevStart, $prevEnd): array {
                 $zero = ['clicks' => 0, 'impressions' => 0, 'sessions' => 0, 'key_events' => 0.0];
                 $totals = ['current' => $zero, 'previous' => $zero];
-                for ($day = $prevStart; $day->lte($end); $day = $day->addDay()) {
-                    $date = $day->toDateString();
-                    $point = ['date' => $date, 'clicks' => $gsc[$date]['clicks'] ?? 0, 'impressions' => $gsc[$date]['impressions'] ?? 0,
-                        'sessions' => $ga4[$date]['sessions'] ?? 0, 'key_events' => $ga4[$date]['key_events'] ?? 0.0];
-                    $bucket = $day->lt($start) ? 'previous' : 'current';
-                    foreach (['clicks', 'impressions', 'sessions', 'key_events'] as $metric) {
-                        $totals[$bucket][$metric] += $point[$metric];
-                    }
-                    if ($bucket === 'current') {
-                        $series[] = $point;
+                $series = [];
+                $previousSeries = [];
+                // One read over both periods: the same source table (property totals first) for the period and its comparison.
+                $gsc = $this->dailyGsc($w['gsc'], $prevStart->toDateString(), $end->toDateString());
+                $ga4 = $this->dailyGa4($w['ga4'], $prevStart->toDateString(), $end->toDateString());
+                foreach (['previous' => [$prevStart, $prevEnd], 'current' => [$start, $end]] as $bucket => [$from, $to]) {
+                    for ($day = $from; $day->lte($to); $day = $day->addDay()) {
+                        $date = $day->toDateString();
+                        $point = ['date' => $date, 'clicks' => $gsc[$date]['clicks'] ?? 0, 'impressions' => $gsc[$date]['impressions'] ?? 0, 'position' => $gsc[$date]['position'] ?? null,
+                            'sessions' => $ga4[$date]['sessions'] ?? 0, 'key_events' => $ga4[$date]['key_events'] ?? 0.0];
+                        foreach (['clicks', 'impressions', 'sessions', 'key_events'] as $metric) {
+                            $totals[$bucket][$metric] += $point[$metric];
+                        }
+                        if ($bucket === 'current') {
+                            $series[] = $point;
+                        } else {
+                            $previousSeries[] = $point;
+                        }
                     }
                 }
                 $totals['current']['key_events'] = round($totals['current']['key_events'], 1);
                 $totals['previous']['key_events'] = round($totals['previous']['key_events'], 1);
 
-                return ['start' => $start->toDateString(), 'end' => $to, 'series' => $series, 'current' => $totals['current'], 'previous' => $totals['previous'],
+                return ['start' => $start->toDateString(), 'end' => $end->toDateString(), 'prev_start' => $prevStart->toDateString(), 'prev_end' => $prevEnd->toDateString(),
+                    'series' => $series, 'previous_series' => $previousSeries, 'current' => $totals['current'], 'previous' => $totals['previous'],
                     'has_gsc' => $w['gsc'] !== [], 'has_ga4' => $w['ga4'] !== []];
             });
     }
@@ -306,6 +406,14 @@ final class SitePagesReader
             $rows[$path]['declining'] = $row['prev_clicks'] >= self::DECLINE_MIN_PREVIOUS && $row['clicks'] < $row['prev_clicks'] * self::DECLINE_RATIO;
             $rows[$path]['no_traffic'] = $inventory && $row['clicks'] === 0 && $row['sessions'] === 0;
         }
+        $hubs = self::hubs($rows);
+        foreach ($rows as $path => $row) {
+            $rows[$path]['type'] = self::typeOf($row, isset($hubs[$path]));
+            // A section page that lists services is not a service page itself.
+            if ($rows[$path]['type'] === 'kategori') {
+                $rows[$path]['is_main'] = false;
+            }
+        }
         ksort($rows, SORT_STRING);
 
         return $rows;
@@ -337,7 +445,7 @@ final class SitePagesReader
             'path' => $path, 'url' => $url, 'page_id' => null, 'title' => null, 'category' => null, 'sources' => [], 'services' => [], 'clusters' => [],
             'is_main' => false, 'clicks' => 0, 'impressions' => 0, 'position' => null, 'prev_clicks' => 0, 'delta' => null, 'sessions' => 0,
             'key_events' => 0.0, 'ads_clicks' => null, 'ads_cost' => null, 'status_code' => null, 'indexable' => null, 'issues' => 0, 'serious' => 0,
-            'problem' => false, 'declining' => false, 'no_traffic' => false, 'wp_post_id' => null,
+            'problem' => false, 'declining' => false, 'no_traffic' => false, 'wp_post_id' => null, 'type' => 'diger',
         ];
     }
 
@@ -631,10 +739,12 @@ final class SitePagesReader
         if ($resources === []) {
             return [];
         }
+        $position = QuerySourceAggregator::positionExpression();
         $daily = fn (string $table): array => DB::table($table)->whereIn('external_resource_id', $resources)->where('search_type', 'web')
             ->whereBetween('reporting_date', [$from, $to])->groupBy('reporting_date')->orderBy('reporting_date')
-            ->selectRaw('reporting_date as d, sum(clicks) as clicks, sum(impressions) as impressions')->get()
-            ->mapWithKeys(fn (object $r): array => [substr((string) $r->d, 0, 10) => ['clicks' => (int) $r->clicks, 'impressions' => (int) $r->impressions]])->all();
+            ->selectRaw('reporting_date as d, sum(clicks) as clicks, sum(impressions) as impressions, sum(('.$position.') * impressions) as weighted, sum(CASE WHEN ('.$position.') IS NULL THEN 0 ELSE impressions END) as weight')->get()
+            ->mapWithKeys(fn (object $r): array => [substr((string) $r->d, 0, 10) => ['clicks' => (int) $r->clicks, 'impressions' => (int) $r->impressions,
+                'position' => (float) $r->weight > 0 ? round((float) $r->weighted / (float) $r->weight, 1) : null]])->all();
         $property = $daily('gsc_property_daily');
 
         return $property !== [] ? $property : $daily('gsc_query_page_daily');

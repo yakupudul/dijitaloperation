@@ -324,11 +324,11 @@ final class SiteSuggestionsTest extends SiteTestCase
         $other = $this->suggestion(['page_id' => $this->implantPage->id, 'title' => 'Bağlantı ekle', 'action_type' => 'internal_links']);
 
         $this->get(route('operator.website', ['assetId' => $this->site->id]))->assertOk()
-            ->assertSee('Özet')->assertSee('Sayfalar')->assertSee('Sorgular')->assertSee('Sağlık')->assertSee('Ayarlar')
-            ->assertSee('Ana hizmet sayfaları')->assertSee('Başlığı güçlendir')->assertSee('Organik tıklama');
+            ->assertSee('Kümeler')->assertSee('Analiz')->assertSee('Sayfalar')->assertSee('Sorgular')->assertSee('Teknik SEO')->assertSee('Yapılacaklar')->assertSee('Ayarlar');
+        $this->get(route('operator.website', ['assetId' => $this->site->id, 'tab' => 'yapilacaklar']))->assertOk()->assertSee('Başlığı güçlendir');
         $this->get(route('operator.website', ['assetId' => $this->site->id, 'tab' => 'health']))->assertOk()->assertSee('Site Sağlığı')->assertDontSee('Hazırlanıyor');
-        // Old "SEO Yapılacaklar › Kümeler & Sayfalar" link lands on Sorgular › İçerik fikirleri.
-        $this->get(route('operator.website', ['assetId' => $this->site->id, 'tab' => 'seo', 'sub' => 'kumeler']))->assertOk()->assertSee('data-content-ideas-tab', false);
+        // Old "SEO Yapılacaklar › Kümeler & Sayfalar" link lands on Kümeler.
+        $this->get(route('operator.website', ['assetId' => $this->site->id, 'tab' => 'seo', 'sub' => 'kumeler']))->assertOk()->assertSee('data-clusters-board', false);
 
         Livewire::test(ClustersPagesTab::class, ['assetId' => $this->site->id])
             ->call('run', SiteOperations::CATEGORIZE)

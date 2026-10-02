@@ -219,7 +219,7 @@ final class SeoPlanInputCollector
     }
 
     /** @return list<array{path: string, errors: int, warnings: int, is_pending: bool, last_downloaded: ?string}> */
-    private function sitemaps(DigitalAsset $site): array
+    public function sitemaps(DigitalAsset $site): array
     {
         if (! Schema::hasTable('gsc_sitemap_snapshot')) {
             return [];

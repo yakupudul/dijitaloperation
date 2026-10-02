@@ -12,6 +12,7 @@ import 'flatpickr/dist/flatpickr.min.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './maps/ga4-world-map';
 import { bindSortableTables } from './sortable-tables';
+import './site-screen';
 
 window.ApexCharts = ApexCharts;
 window.flatpickr = flatpickr;

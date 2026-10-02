@@ -15,6 +15,7 @@
     $p = $totals['previous'];
 @endphp
 <div class="space-y-4 text-sm dark:text-gray-200" data-analysis-tab>
+    @if ($showNav || ! $screenRange)
     <header class="flex flex-wrap items-center justify-between gap-2">
         @if ($showNav)
             <nav class="flex flex-wrap gap-1" aria-label="Analiz sekmeleri">
@@ -25,13 +26,16 @@
         @else
             <span></span>
         @endif
-        <div class="flex items-center gap-2 text-xs text-gray-500">
-            <span>{{ \Carbon\CarbonImmutable::parse($window['start'])->format('d.m.Y') }} – {{ \Carbon\CarbonImmutable::parse($window['end'])->format('d.m.Y') }}</span>
-            <select wire:model.live="period" aria-label="Dönem" class="{{ $input }} py-1">
-                @foreach (\App\Services\Site\Analysis\SiteAnalysisReader::PERIODS as $days => $label)<option value="{{ $days }}">{{ $label }}</option>@endforeach
-            </select>
-        </div>
+        @unless ($screenRange)
+            <div class="flex items-center gap-2 text-xs text-gray-500">
+                <span>{{ \Carbon\CarbonImmutable::parse($window['start'])->format('d.m.Y') }} – {{ \Carbon\CarbonImmutable::parse($window['end'])->format('d.m.Y') }}</span>
+                <select wire:model.live="period" aria-label="Dönem" class="{{ $input }} py-1">
+                    @foreach (\App\Services\Site\Analysis\SiteAnalysisReader::PERIODS as $days => $label)<option value="{{ $days }}">{{ $label }}</option>@endforeach
+                </select>
+            </div>
+        @endunless
     </header>
+    @endif
 
     <section class="grid grid-cols-2 gap-2 sm:grid-cols-5" data-totals>
         @foreach ([['Tıklama', $c['clicks'], $p['clicks'], $num], ['Gösterim', $c['impressions'], $p['impressions'], $num], ['Ort. sıra', $c['position'], $p['position'], $dec], ['Oturum', $c['sessions'], $p['sessions'], $num], ['Anahtar etkinlik', $c['key_events'], $p['key_events'], $dec]] as [$label, $value, $previous, $format])
