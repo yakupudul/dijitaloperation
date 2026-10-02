@@ -1,5 +1,10 @@
 # PROJECT_MEMORY
 
+## 2026-11-23 — OpenAI ücretsiz kota
+
+- **Karar:** OpenAI paylaşım kotası, operatör açtığında harcama sayılmaz (%90 güvenlik payı). Saatlik denetim gerçek faturayla uyuşmazlıkta kotayı kendisi kapatır.
+- **Not:** Paylaşım, müşteri verisinin OpenAI eğitimine gitmesi demektir. Bu operatörün KVKK kararıdır.
+
 ## 2026-11-22 — AI harcaması: sert günlük tavan
 
 - **Karar (operatör):** Günlük AI harcaması, tıklananlar dahil, 1 $'ı geçmez. Ayarlardan değişebilir.

@@ -29,6 +29,9 @@ class AiAgentRawDatabaseBoundaryTest extends TestCase
         // AI cost accounting (ai_usage_records): usage writes and monthly budget sums, no business data.
         'AiUsageRecorder.php',
         'AiBudget.php',
+        // OpenAI free quota and its cost audit: token / cost sums of the AI call list, no business data.
+        'OpenAiFreeQuota.php',
+        'OpenAiCostAudit.php',
     ];
 
     /**

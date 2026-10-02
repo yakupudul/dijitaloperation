@@ -10,6 +10,8 @@ use App\Services\Ai\AiBudget;
 use App\Services\Ai\AiLiveOperations;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\Ai\AiSchedule;
+use App\Services\Ai\OpenAiCostAudit;
+use App\Services\Ai\OpenAiFreeQuota;
 use App\Services\AiJobs\AiJobTracker;
 use App\Services\Prompts\PromptRegistry;
 use App\Services\Prompts\PromptRunStats;
@@ -48,6 +50,12 @@ final class AiOperationsPage extends Component
     /** Daily ceiling of automatic AI work in USD (rolling 24 hours; operator clicks keep running). */
     public string $dailyAutoBudget = '';
 
+    /** OpenAI › Veri kontrolleri › "Giriş ve çıkışları paylaş" is on: the daily free tokens are not counted as spend. */
+    public bool $openAiFreeQuota = false;
+
+    /** OpenAI Admin key (Kota denetimi reads the real costs); never shown back, empty keeps the stored one. */
+    public string $openAiAdminKey = '';
+
     /** Cost breakdown window: 24 | 168 hours. */
     public int $costHours = 24;
 
@@ -56,6 +64,7 @@ final class AiOperationsPage extends Component
         $this->authorizeAdmin();
         $this->budget = (string) round($aiBudget->monthlyBudget(), 2);
         $this->dailyAutoBudget = (string) round($aiBudget->dailyBudget(), 2);
+        $this->openAiFreeQuota = app(OpenAiFreeQuota::class)->enabled();
         if ($this->operation !== '') {
             $this->open($this->operation, $registry);
         }
@@ -83,8 +92,21 @@ final class AiOperationsPage extends Component
         $this->validate(['budget' => ['required', 'numeric', 'min:0', 'max:100000'], 'dailyAutoBudget' => ['required', 'numeric', 'min:0', 'max:10000']], [],
             ['budget' => 'Aylık bütçe', 'dailyAutoBudget' => 'Günlük AI tavanı']);
         $setting = AgencySetting::query()->orderBy('id')->first() ?? new AgencySetting;
-        $setting->forceFill(['ai_monthly_budget_usd' => round((float) $this->budget, 2), 'ai_daily_auto_budget_usd' => round((float) $this->dailyAutoBudget, 2)])->save();
+        $this->validate(['openAiAdminKey' => ['nullable', 'string', 'max:300']]);
+        $setting->forceFill(['ai_monthly_budget_usd' => round((float) $this->budget, 2), 'ai_daily_auto_budget_usd' => round((float) $this->dailyAutoBudget, 2),
+            'ai_openai_free_quota' => $this->openAiFreeQuota]
+            + (trim($this->openAiAdminKey) !== '' ? ['ai_openai_admin_key' => trim($this->openAiAdminKey)] : []))->save();
+        $this->openAiAdminKey = '';
         session()->flash('status', 'AI bütçeleri kaydedildi.');
+    }
+
+    /** "Şimdi denetle": OpenAI's real costs against our estimate (also hourly by itself). */
+    public function auditOpenAi(OpenAiCostAudit $audit): void
+    {
+        $this->authorizeAdmin();
+        $result = $audit->run();
+        $this->openAiFreeQuota = app(OpenAiFreeQuota::class)->enabled();
+        session()->flash('status', (string) ($result['message'] ?? 'Denetlendi.'));
     }
 
     public function close(): void
@@ -190,7 +212,9 @@ final class AiOperationsPage extends Component
             'monthlyBudget' => $aiBudget->monthlyBudget(),
             'costs' => $detail === null ? $aiBudget->breakdown(in_array($this->costHours, [24, 168], true) ? $this->costHours : 24) : [],
             'autoSpend' => $aiBudget->dailySpend(), 'autoBudget' => $aiBudget->dailyBudget(), 'remaining' => max(0.0, $aiBudget->monthlyBudget() - $aiBudget->monthSpend()),
-            'schedule' => $detail === null ? app(AiSchedule::class)->upcoming() : []]);
+            'schedule' => $detail === null ? app(AiSchedule::class)->upcoming() : [],
+            'quota' => app(OpenAiFreeQuota::class)->status(), 'audit' => OpenAiCostAudit::last(),
+            'adminKeySet' => (string) (AgencySetting::query()->orderBy('id')->first()?->ai_openai_admin_key ?? '') !== '']);
     }
 
     /** "Durdur" (Admin): removes a queued job, or asks a running one to stop between its AI calls. */

@@ -23,6 +23,18 @@ return [
     // Areas (operation prefix: queries.*, site.*, brand.*…) whose AI may run without an operator click. "*" = all.
     'automatic_areas' => array_values(array_filter(array_map('trim', explode(',', (string) env('AI_AUTOMATIC_AREAS', 'queries'))))),
 
+    // OpenAI › Veri kontrolleri › "Giriş ve çıkışları OpenAI ile paylaşın": shared traffic is free up to these tokens a day
+    // (UTC day, per model group). Counted at `safety` of the limit so our estimate never runs past OpenAI's own count.
+    'openai_free_quota' => [
+        'safety' => 0.9,
+        'tiers' => [
+            'large' => ['label' => 'Büyük modeller', 'tokens' => 250_000,
+                'models' => ['gpt-5.4', 'gpt-5.2', 'gpt-5.1', 'gpt-5', 'gpt-4.1', 'gpt-4o', 'o1', 'o3']],
+            'small' => ['label' => 'Küçük modeller', 'tokens' => 2_500_000,
+                'models' => ['gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5-mini', 'gpt-5-nano', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4o-mini', 'o3-mini', 'o4-mini']],
+        ],
+    ],
+
     'models' => [
         'anthropic' => [
             'claude-sonnet-5' => ['input' => 2.00, 'output' => 10.00],

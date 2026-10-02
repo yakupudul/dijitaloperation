@@ -93,7 +93,7 @@ final class AiBudget
         return $stored !== null ? (float) $stored : (float) config('moxdop-ai-pricing.daily_auto_budget_usd', 1);
     }
 
-    /** Spend of every AI call today (Europe/Istanbul): the larger of the call list and the usage records. */
+    /** Spend of every AI call today (Europe/Istanbul): the largest of the call list, the usage records and OpenAI's audited cost. */
     public function dailySpend(): float
     {
         $since = now('Europe/Istanbul')->startOfDay()->utc();
@@ -102,7 +102,8 @@ final class AiBudget
         $records = Schema::hasTable('ai_usage_records')
             ? (float) DB::table('ai_usage_records')->where('created_at', '>=', $since)->sum('cost_usd') : 0.0;
 
-        return max($calls, $records);
+        // OpenAI's real cost of today (Kota denetimi) is a floor: our estimate never hides real spend.
+        return max($calls, $records, (float) OpenAiCostAudit::todayActual());
     }
 
     public function dailyExhausted(): bool

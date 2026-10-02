@@ -150,7 +150,7 @@ final class AiUsageRecorder
                 'output_tokens' => max(0, $usage->completionTokens),
                 'cache_read_tokens' => max(0, $usage->cacheReadInputTokens),
                 'cache_write_tokens' => max(0, $usage->cacheWriteInputTokens),
-                'cost_usd' => $this->pricing->cost($provider, $model, $usage->promptTokens, $usage->completionTokens, $usage->cacheReadInputTokens, $usage->cacheWriteInputTokens),
+                'cost_usd' => $this->billedCost($event->invocationId, $this->pricing->cost($provider, $model, $usage->promptTokens, $usage->completionTokens, $usage->cacheReadInputTokens, $usage->cacheWriteInputTokens)),
                 'invocation_id' => mb_substr($event->invocationId, 0, 64),
                 'duration_ms' => $this->duration($event->prompt->agent),
                 'status' => 'ok',
@@ -178,6 +178,18 @@ final class AiUsageRecorder
             ?? Context::getHidden('ai_route_key');
 
         return is_string($routeKey) && $routeKey !== '' ? $routeKey : null;
+    }
+
+    /** The billed cost the call list wrote (OpenAI ücretsiz kota applied there), else the list price. */
+    private function billedCost(string $invocationId, ?float $listCost): ?float
+    {
+        if (! Schema::hasColumn('ai_live_operations', 'list_cost_usd')) {
+            return $listCost;
+        }
+        $row = DB::table('ai_live_operations')->where('invocation_id', mb_substr($invocationId, 0, 64))->where('kind', 'call')
+            ->whereNotNull('list_cost_usd')->orderByDesc('id')->first(['cost_usd']);
+
+        return $row !== null && $row->cost_usd !== null ? (float) $row->cost_usd : $listCost;
     }
 
     private function promptVersionId(object $agent): ?int

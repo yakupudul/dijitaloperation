@@ -144,9 +144,13 @@ final class AiLiveOperations
             $usage = $event->response->usage;
             $provider = (string) ($event->response->meta->provider ?? 'unknown');
             $model = (string) ($event->response->meta->model ?? 'unknown');
-            $cost = $this->pricing->cost($provider, $model, $usage->promptTokens, $usage->completionTokens, $usage->cacheReadInputTokens, $usage->cacheWriteInputTokens);
+            $listCost = $this->pricing->cost($provider, $model, $usage->promptTokens, $usage->completionTokens, $usage->cacheReadInputTokens, $usage->cacheWriteInputTokens);
+            // OpenAI ücretsiz paylaşım kotası: the tokens inside today's quota are not billed.
+            $quota = app(OpenAiFreeQuota::class);
+            [$cost, $free] = $quota->bill($provider, $model, max(0, $usage->promptTokens) + max(0, $usage->completionTokens), $listCost, $id);
             $cancelled = AiLiveOperation::query()->whereKey($id)->whereNotNull('cancel_requested_at')->exists() || $this->jobs->cancelRequested();
             $this->close($id, $cancelled ? AiLiveOperation::CANCELLED : AiLiveOperation::DONE, $cancelled ? 'Durduruldu; bu çağrının sonucu kullanılmadı.' : null, $cost, [
+                ...($quota->enabled() ? ['list_cost_usd' => $listCost, 'free_tokens' => $free] : []),
                 'provider' => $provider !== 'unknown' ? mb_substr($provider, 0, 48) : null,
                 'model' => $model !== 'unknown' ? mb_substr($model, 0, 190) : null,
                 'input_tokens' => max(0, $usage->promptTokens),

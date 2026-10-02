@@ -21,6 +21,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Ai\AiBudget;
+use App\Services\Ai\OpenAiCostAudit;
 use App\Services\Alerts\AdBudgetWatch;
 use App\Services\Analyst\AnalystEngine;
 use App\Services\Analyst\AnalystRegistry;
@@ -831,6 +832,13 @@ Artisan::command('moxdop:ai:costs {--hours=24 : Kaç saat geriye}', function (Ai
     ], $rows));
     $this->info(sprintf('Toplam: $%.3f · bugün tüm AI: $%.3f / günlük tavan $%.2f', array_sum(array_column($rows, 'cost')), $budget->dailySpend(), $budget->dailyBudget()));
 })->purpose('Show the AI spend per operation (automatic vs operator) and the daily automatic ceiling.');
+
+// Kota denetimi: OpenAI's real costs against our estimate (turns the free-quota accounting off when they disagree).
+Artisan::command('moxdop:ai:openai-audit', function (OpenAiCostAudit $audit): void {
+    $result = $audit->run();
+    $this->info((string) ($result['message'] ?? $result['status']));
+})->purpose('Compare OpenAI\'s real costs (Costs API) with the recorded AI spend; disable the free-quota accounting on mismatch.');
+Schedule::command('moxdop:ai:openai-audit')->hourlyAt(23)->withoutOverlapping(10)->name('ai-openai-audit');
 
 // Takılı AI işleri: rows a dead worker left "Çalışıyor" (killed for timeout before the tracker closed them on failure).
 Artisan::command('moxdop:ai:close-stuck {--minutes=30 : Bu kadar dakikadır çalışıyor görünenler (en uzun iş süresi 28 dk)}', function (): void {

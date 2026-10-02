@@ -40,6 +40,14 @@
                     <p @class(['text-xs', 'font-semibold text-rose-600' => $autoBudget > 0 && $autoSpend >= $autoBudget, 'text-gray-500' => ! ($autoBudget > 0 && $autoSpend >= $autoBudget)]) data-ai-auto-budget>
                         Bugün tüm AI: {{ $usd($autoSpend) }} / {{ $autoBudget > 0 ? $usd($autoBudget) : 'sınırsız' }}@if ($autoBudget > 0 && $autoSpend >= $autoBudget) · tavan doldu, AI yarına kadar durdu @endif · otomatik çalışan: yalnız Sorgular
                     </p>
+                    @if ($quota['enabled'])
+                        <p class="text-xs text-emerald-700 dark:text-emerald-400" data-openai-quota>
+                            OpenAI ücretsiz kota (UTC günü): {{ collect($quota['tiers'])->map(fn (array $tier): string => $tier['label'].' '.number_format($tier['used'] / 1000, 0, ',', '.').'k / '.number_format($tier['limit'] / 1000, 0, ',', '.').'k')->implode(' · ') }} · bugün kazanılan {{ $usd($quota['saved']) }}
+                        </p>
+                    @endif
+                    @if (($audit['status'] ?? null) === 'mismatch')
+                        <p class="text-xs font-semibold text-rose-600" data-openai-audit-alert>{{ $audit['message'] }}</p>
+                    @endif
                 </div>
             </div>
 
@@ -184,7 +192,25 @@
                     <span class="text-xs text-gray-500">Günlük AI tavanı, tüm işler (USD)</span>
                     <input type="number" step="0.5" min="0" wire:model="dailyAutoBudget" class="w-32 rounded-lg border border-gray-300 px-2 py-1 dark:border-gray-700 dark:bg-gray-900" data-daily-auto-budget>
                 </label>
+                <label class="flex w-full items-start gap-2 text-xs text-gray-700 dark:text-gray-300">
+                    <input type="checkbox" wire:model="openAiFreeQuota" class="mt-0.5 rounded border-gray-300" data-openai-free-quota>
+                    <span><strong>OpenAI ücretsiz paylaşım kotası açık.</strong> OpenAI › Veri kontrolleri › «Giriş ve çıkışları OpenAI ile paylaşın» açıkken günde küçük modellerde 2,5 milyon, büyüklerde 250 bin token ücretsizdir. Bunun %90'ı kadar token harcama sayılmaz; aşan kısım liste fiyatından sayılır.</span>
+                </label>
+                <label class="flex flex-col gap-1">
+                    <span class="text-xs text-gray-500">OpenAI Admin anahtarı (kota denetimi için){{ $adminKeySet ? ' · kayıtlı' : '' }}</span>
+                    <input type="password" autocomplete="off" wire:model="openAiAdminKey" placeholder="{{ $adminKeySet ? '•••••••• (değiştirmek için yaz)' : 'sk-admin-…' }}" class="w-72 rounded-lg border border-gray-300 px-2 py-1 dark:border-gray-700 dark:bg-gray-900" data-openai-admin-key>
+                </label>
                 <button type="submit" class="rounded-lg bg-brand-500 px-3 py-1.5 text-white">Kaydet</button>
+                <button type="button" wire:click="auditOpenAi" class="rounded-lg border border-gray-300 px-3 py-1.5 text-gray-700 dark:border-gray-700 dark:text-gray-300" data-openai-audit-now>Şimdi denetle</button>
+                <div class="w-full text-xs text-gray-500" data-openai-audit>
+                    Kota denetimi saatte bir OpenAI'ın gerçek faturasını (Admin anahtarıyla) bizim tahminimizle karşılaştırır. Dün OpenAI belirgin şekilde fazla faturaladıysa kota hesabını kendisi kapatır. Bugünkü gerçek fatura, günlük tavan için alt sınır sayılır.
+                    @if ($audit !== null)
+                        <br>Son denetim {{ \Carbon\CarbonImmutable::parse($audit['checked_at'])->timezone('Europe/Istanbul')->format('d.m H:i') }}: {{ $audit['message'] ?? $audit['status'] }}
+                        @foreach (($audit['days'] ?? []) as $day)
+                            <br>{{ $day['date'] }} · OpenAI {{ $usd($day['actual']) }} · tahmin {{ $usd($day['estimated']) }} · liste fiyatı {{ $usd($day['list']) }}
+                        @endforeach
+                    @endif
+                </div>
                 <span class="w-full text-xs text-gray-500">Aylık bakiye bitince ay sonuna kadar yalnız ücretsiz modeller çalışır. Günün (İstanbul saati) tüm AI harcaması tavana ulaşınca, tıkladığın işler dahil hiçbir ücretli AI çağrısı başlamaz; yarın yeniden çalışır. Kimse tıklamadan yalnız Sorgular alanındaki AI çalışır (sorgu pilotu, kümeleme); site akışı, analistler, bakım ajanı ve Şef yalnız tıklayınca çalışır. 0 = tavan yok.</span>
                 @error('dailyAutoBudget')<span class="text-xs text-red-600">{{ $message }}</span>@enderror
                 @error('budget')<span class="text-xs text-red-600">{{ $message }}</span>@enderror

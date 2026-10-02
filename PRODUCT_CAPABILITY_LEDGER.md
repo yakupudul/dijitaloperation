@@ -1,5 +1,17 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-23 — OpenAI ücretsiz paylaşım kotası + kota denetimi
+
+- **Kota:** OpenAI › Veri kontrolleri › «Giriş ve çıkışları OpenAI ile paylaşın» açıkken paylaşılan trafiğin bir kısmı ücretsizdir (UTC günü): küçük modellerde (gpt-5-mini vb.) 2,5 M, büyüklerde (gpt-5 vb.) 250 k token.
+  - Ayarlar › AI işlemleri › AI bütçesi'nde "OpenAI ücretsiz paylaşım kotası açık" işaretlenince bu tokenlerin %90'ı harcama sayılmaz; aşan kısım liste fiyatından sayılır.
+  - Her çağrıda liste fiyatı ve kotadan karşılanan token ayrıca saklanır. Sayfada bugünkü kota kullanımı ve kazanılan tutar görünür.
+- **Kota denetimi (saatte bir, `moxdop:ai:openai-audit`, «Şimdi denetle"):** OpenAI Admin anahtarıyla OpenAI'ın gerçek faturasını (Costs API) bizim tahminimizle karşılaştırır.
+  - Dün OpenAI tahminden belirgin fazla faturaladıysa (×1,25 + 0,05 $), kota hesabı kendiliğinden kapanır ve sayfada uyarı çıkar.
+  - Bugünkü gerçek fatura günlük tavan için alt sınırdır.
+  - Anahtar şifreli saklanır; ekranda gösterilmez.
+- **Sınır:** Costs API kuruluşun tüm OpenAI harcamasını verir. Aynı hesapta başka uygulama varsa denetim fazla görüp kotayı kapatabilir (güvenli taraf).
+- **Test:** OpenAiFreeQuotaTest (kota hesabı, denetim uyumsuzluğu / uyumu, anahtar yok, ayar ekranı). UAT: yok.
+
 ## 2026-11-22 — Günlük 1 $ tavan (tüm AI) ve otomatik AI yalnız Sorgular'da
 
 - **Sorun:** Bir günde 27 $ harcandı. Önceki tavan yalnız "kimse tıklamadan" çalışan işleri sayıyordu. Bir operatör tıklamasından zincirlenen işler (kümeleme → site akışı → Eşleştir) "tıklanmış" sayıldığı için tavana takılmıyordu.
