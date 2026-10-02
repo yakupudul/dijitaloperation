@@ -15,7 +15,8 @@
     $rowOverlaps = ! $extra && $model !== null ? ($overlaps[(int) $model->id] ?? collect()) : collect();
     $audited = $model !== null && ($model->rediscovered_at !== null || ($model->audited_at ?? null) !== null);
 @endphp
-<tr wire:key="row-{{ $key }}" data-idea-row="{{ $key }}" data-state="{{ $r['state'] }}" @class(['align-top', 'text-gray-700 dark:text-gray-300' => $extra])>
+<tbody wire:key="body-{{ $key }}" x-data="{ detail: false }" class="border-t border-gray-100 dark:border-gray-800">
+<tr data-idea-row="{{ $key }}" data-state="{{ $r['state'] }}" @class(['align-top', 'text-gray-700 dark:text-gray-300' => $extra])>
     <td @class(['py-1.5', 'pl-6' => $extra])>
         <span @class(['font-semibold' => ! $extra])>{{ $extra ? '↳ ' : '' }}{{ $title }}</span>
         @if (! $extra && $model->language)<span class="{{ $chip }} ml-1 bg-gray-100 text-gray-600">{{ $model->language }}</span>@endif
@@ -36,9 +37,45 @@
         @elseif ($score)<span class="text-gray-400">{{ ['low_data' => 'veri az', 'no_gsc' => 'GSC yok', 'no_gsc_data' => 'veri yok', 'no_page' => '—'][$score->state] ?? '—' }}</span>
         @else<span class="text-gray-400">—</span>@endif
     </td>
-    <td class="max-w-[22rem]">
-        <span class="{{ $chip }} {{ $tone[$r['state']] ?? '' }}" data-idea-state>{{ \App\Services\Site\ContentIdeaState::LABELS[$r['state']] ?? $r['state'] }}</span>
-        <p class="mt-0.5 text-gray-500">{{ $r['reason'] }}</p>
+    <td class="max-w-[16rem]">
+        <button type="button" @click="detail = !detail" :aria-expanded="detail.toString()" class="{{ $chip }} {{ $tone[$r['state']] ?? '' }} inline-flex items-center gap-1 hover:ring-1 hover:ring-current" data-idea-state title="Ayrıntı için tıkla">
+            {{ \App\Services\Site\ContentIdeaState::LABELS[$r['state']] ?? $r['state'] }}
+            <svg class="h-3 w-3 transition" :class="detail && 'rotate-180'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <p class="mt-0.5 line-clamp-2 text-gray-500">{{ $r['reason'] }}</p>
+        @foreach ($rowStatuses as $k => $line)
+            <p class="text-brand-600">{{ \App\Services\Site\SiteOperations::LABELS[\Illuminate\Support\Str::after($k, ':')] ?? '' }}: {{ $line }}</p>
+        @endforeach
+    </td>
+    <td class="text-right">
+        <div class="flex flex-wrap justify-end gap-1">
+            @if ($r['state'] !== 'excluded')
+                <button type="button" wire:click="rediscover('{{ $actKind }}', {{ $actId }})" class="{{ $ghost }}" data-rediscover>Yeniden keşfet</button>
+                <button type="button" wire:click="recipe('{{ $actKind }}', {{ $actId }})" class="{{ $ghost }}" data-recipe>SEO analizi</button>
+            @endif
+            @if ($recipe !== [])<button type="button" wire:click="toggle('{{ $key }}:recipe')" class="{{ $ghost }}">Reçete</button>@endif
+            @if ($r['state'] === 'improve' && $page?->wp_post_id !== null)
+                <button type="button" wire:click="improve('{{ $r['kind'] }}', {{ $model->id }})" class="{{ $btn }}" data-improve title="AI mevcut sayfanın eksiklerini tamamlayan yeni sürümü hazırlar; «Önizle ve güncelle» ile eski ↔ yeni karşılaştırıp onaylarsan WordPress'te güncellenir.">AI ile geliştir</button>
+            @endif
+            @if ($improveSuggestion !== null && data_get($improveSuggestion->action, 'proposal') && $improveSuggestion->applied_at === null)
+                <a href="{{ route('operator.website', ['assetId' => $assetId, 'tab' => 'yapilacaklar', 'oneri' => $improveSuggestion->id]) }}" wire:navigate class="{{ $btn }}" data-preview>Önizle ve güncelle</a>
+            @elseif ($improveSuggestion !== null && data_get($improveSuggestion->action, 'proposal_blocked'))
+                <span class="text-rose-600">{{ \Illuminate\Support\Str::limit((string) data_get($improveSuggestion->action, 'proposal_blocked'), 140) }}</span>
+            @endif
+            @if ($r['state'] === 'no_page' && $audited)
+                <button type="button" wire:click="produce('{{ $r['kind'] }}', {{ $model->id }})" class="{{ $btn }}" data-produce title="AI bu fikir için makaleyi yazar ve İçerik planı'na koyar. WordPress'e kendiliğinden gitmez: orada inceleyip «WordPress taslağı gönder» dersen yazı WordPress'te taslak olarak açılır.">AI ile taslak yaz</button>
+            @endif
+            @if ($contentSuggestion !== null)
+                <a href="{{ route('operator.website', ['assetId' => $assetId, 'tab' => 'icerik']) }}" wire:navigate class="{{ $ghost }}" data-content-link>Taslak hazır → İçerik planı</a>
+            @endif
+            @if (! $extra)<button type="button" wire:click="generateIdeas({{ $cluster->id }})" @disabled(($ideaStatus['status'] ?? null) === 'running') class="{{ $ghost }}" data-generate-ideas="{{ $cluster->id }}" title="Bu küme için AI yeni içerik fikirleri üretir (sayı üstten seçilir).">{{ ($ideaStatus['status'] ?? null) === 'running' ? 'Fikirler üretiliyor…' : '+ Fikir' }}</button>@endif
+            @if ($model !== null)<button type="button" wire:click="toggle('{{ $key }}:edit')" class="{{ $ghost }}">{{ $extra ? 'Sayfa seç' : 'Düzenle' }}</button>@endif
+        </div>
+    </td>
+</tr>
+<tr x-show="detail" x-cloak data-idea-detail="{{ $key }}">
+    <td colspan="7" class="bg-gray-50 px-3 pb-3 pt-2 dark:bg-gray-950">
+        <p class="text-gray-700 dark:text-gray-300"><span class="font-semibold">Neden bu durum:</span> {{ $r['reason'] }}</p>
         @if (! $extra && $r['state'] === 'no_page')
             {{-- Eşleşmeyen küme: the content idea comes from the cluster itself (need, page type, sections) — nothing invented. --}}
             <div class="mt-1 rounded-lg bg-blue-50 p-2 text-blue-900 dark:bg-blue-950 dark:text-blue-100" data-content-idea>
@@ -67,41 +104,15 @@
             </div>
         @endif
         @if ($gaps !== [] || $questions !== [])
-            <details class="mt-1" data-gaps>
-                <summary class="cursor-pointer font-medium text-brand-600">Eksikler ({{ count($gaps) }})</summary>
+            <div class="mt-2" data-gaps>
+                <p class="font-semibold text-gray-800 dark:text-gray-100">Eksikler ({{ count($gaps) }})</p>
                 <ul class="mt-1 list-disc space-y-0.5 pl-4">@foreach ($gaps as $gap)<li>{{ $gap['text'] ?? '' }} <span class="text-gray-400">· {{ $kinds[$gap['kind'] ?? ''] ?? '' }}</span></li>@endforeach</ul>
                 @if ($questions !== [])<p class="mt-1 font-medium text-gray-600">AI asistanına sorulanlar</p><ul class="list-disc pl-4 text-gray-500">@foreach ($questions as $question)<li>{{ $question }}</li>@endforeach</ul>@endif
-            </details>
+            </div>
         @endif
-        @foreach ($rowStatuses as $k => $line)
-            <p class="text-gray-500">{{ \App\Services\Site\SiteOperations::LABELS[\Illuminate\Support\Str::after($k, ':')] ?? '' }}: {{ $line }}</p>
-        @endforeach
-    </td>
-    <td class="text-right">
-        <div class="flex flex-wrap justify-end gap-1">
-            @if ($r['state'] !== 'excluded')
-                <button type="button" wire:click="rediscover('{{ $actKind }}', {{ $actId }})" class="{{ $ghost }}" data-rediscover>Yeniden keşfet</button>
-                <button type="button" wire:click="recipe('{{ $actKind }}', {{ $actId }})" class="{{ $ghost }}" data-recipe>SEO analizi</button>
-            @endif
-            @if ($recipe !== [])<button type="button" wire:click="toggle('{{ $key }}:recipe')" class="{{ $ghost }}">Reçete</button>@endif
-            @if ($r['state'] === 'improve' && $page?->wp_post_id !== null)
-                <button type="button" wire:click="improve('{{ $r['kind'] }}', {{ $model->id }})" class="{{ $btn }}" data-improve>AI ile geliştir</button>
-            @endif
-            @if ($improveSuggestion !== null && data_get($improveSuggestion->action, 'proposal') && $improveSuggestion->applied_at === null)
-                <a href="{{ route('operator.website', ['assetId' => $assetId, 'tab' => 'ozet', 'sub' => 'oneriler', 'oneri' => $improveSuggestion->id]) }}" wire:navigate class="{{ $btn }}" data-preview>Önizle ve güncelle</a>
-            @elseif ($improveSuggestion !== null && data_get($improveSuggestion->action, 'proposal_blocked'))
-                <span class="text-rose-600">{{ \Illuminate\Support\Str::limit((string) data_get($improveSuggestion->action, 'proposal_blocked'), 140) }}</span>
-            @endif
-            @if ($r['state'] === 'no_page' && $audited)
-                <button type="button" wire:click="produce('{{ $r['kind'] }}', {{ $model->id }})" class="{{ $btn }}" data-produce>AI ile üret</button>
-            @endif
-            @if ($contentSuggestion !== null)
-                <a href="{{ route('operator.website', ['assetId' => $assetId, 'tab' => 'ozet', 'sub' => 'icerik']) }}" wire:navigate class="{{ $ghost }}" data-content-link>İçerik sekmesinde</a>
-            @endif
-            @if ($model !== null)<button type="button" wire:click="toggle('{{ $key }}:edit')" class="{{ $ghost }}">{{ $extra ? 'Sayfa seç' : 'Düzenle' }}</button>@endif
-        </div>
     </td>
 </tr>
+
 @if ($open === $key.':recipe' && $recipe !== [])
     <tr wire:key="recipe-{{ $key }}"><td colspan="7" class="bg-gray-50 p-3 dark:bg-gray-950" data-recipe-panel>
         @if (! empty($recipe['summary']))<p class="font-semibold">{{ $recipe['summary'] }}</p>@endif
@@ -144,3 +155,4 @@
         </div>
     </td></tr>
 @endif
+</tbody>

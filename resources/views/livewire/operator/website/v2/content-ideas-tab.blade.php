@@ -47,12 +47,31 @@
                 <option value="">Tüm türler</option>
                 @foreach ($types as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
             </select>
-            <select wire:model.live="state" aria-label="Durum" class="{{ $input }}">
-                <option value="">Tüm durumlar</option>
-                @foreach (\App\Services\Site\ContentIdeaState::LABELS as $key => $label)<option value="{{ $key }}">{{ $label }} ({{ $counts[$key] ?? 0 }})</option>@endforeach
-            </select>
         </div>
-        <p class="text-gray-500">Her küme bir ana fikirdir; altındakiler havuzdaki ek fikirler. Eşleştirme sisteme çekilmiş sayfa metinleriyle yapılır, siteye bağlanılmaz. Puan (1–100) yalnız Search Console: sıralama, kapsam, tıklama oranı.</p>
+        <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Durum" data-state-filters>
+            @php $allCount = array_sum($counts); @endphp
+            <button type="button" wire:click="$set('state', '')" @class(['rounded-lg px-2.5 py-1 font-semibold', 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $state === '', 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $state !== ''])>Tümü <span class="font-normal opacity-75">{{ $num($allCount) }}</span></button>
+            @foreach (\App\Services\Site\ContentIdeaState::LABELS as $key => $label)
+                @if (($counts[$key] ?? 0) > 0 || $state === $key)
+                    <button type="button" wire:click="$set('state', '{{ $key }}')" data-state-filter="{{ $key }}" @class(['rounded-lg px-2.5 py-1 font-semibold', 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $state === $key, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $state !== $key])>{{ $label }} <span class="font-normal opacity-75">{{ $num($counts[$key] ?? 0) }}</span></button>
+                @endif
+            @endforeach
+            <label class="ml-auto flex items-center gap-1 text-gray-500">Yeni fikir sayısı
+                <select wire:model="ideaCount" aria-label="Fikir sayısı" class="{{ $input }} py-0.5">
+                    @foreach (range(1, \App\Services\Site\ContentIdeaPool::MAX_COUNT) as $n)<option value="{{ $n }}">{{ $n }}</option>@endforeach
+                </select>
+            </label>
+        <p class="text-gray-500">Her küme bir ana fikirdir (kalın satır); altındaki ↳ satırlar aynı kümenin ek fikirleri. Durum etiketine tıklayınca neden, içerik önerisi, eksikler ve çakışan sayfalar açılır.</p>
+        <details class="text-gray-600 dark:text-gray-400" data-button-help>
+            <summary class="cursor-pointer font-medium text-brand-600">Butonlar ne yapar?</summary>
+            <ul class="mt-1 list-disc space-y-0.5 pl-4">
+                <li><span class="font-semibold">Yeniden keşfet</span> — yalnız bu fikir için sitedeki sayfaları yeniden okur, uygun sayfa var mı bakar (AI).</li>
+                <li><span class="font-semibold">SEO analizi</span> — sayfa için adım adım düzeltme reçetesi hazırlar (AI). Hiçbir şey yazmaz.</li>
+                <li><span class="font-semibold">AI ile geliştir</span> — WordPress'teki sayfanın eksiklerini tamamlayan yeni sürümü hazırlar. «Önizle ve güncelle»de onaylayınca WordPress'te güncellenir (geri alınabilir).</li>
+                <li><span class="font-semibold">AI ile taslak yaz</span> — sitede sayfa yoksa makaleyi yazar ve <span class="font-semibold">İçerik planı</span>'na koyar. WordPress'e kendiliğinden gitmez; orada inceleyip «WordPress taslağı gönder» dersen yazı WordPress'te <span class="font-semibold">taslak</span> olarak açılır, yayına almak sizde.</li>
+                <li><span class="font-semibold">+ Fikir</span> — bu küme için seçili sayıda yeni içerik fikri üretir (AI); ↳ satırlar olarak eklenir.</li>
+            </ul>
+        </details>
     </section>
 
     @if ($pendingClusters->isNotEmpty())
@@ -78,35 +97,25 @@
     <section class="{{ $card }}">
         <div class="overflow-x-auto">
             <table class="w-full text-left">
-                <thead class="text-gray-500"><tr><th class="py-1">Fikir</th><th>Tür</th><th class="text-right">Talep</th><th>Eşleşen URL</th><th class="text-right">Puan</th><th>Durum</th><th class="text-right">İşlem</th></tr></thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                    @forelse ($groups as $g)
-                        @php $cluster = $g['cluster']; $ideaStatus = $ideaStatuses[$cluster->id] ?? null; @endphp
-                        @foreach ($g['mains'] as $r)
-                            @include('livewire.operator.website.v2.partials.content-idea-row', ['r' => $r, 'cluster' => $cluster, 'demand' => $g['demand'], 'extra' => false])
-                        @endforeach
-                        @foreach ($g['extras'] as $r)
-                            @include('livewire.operator.website.v2.partials.content-idea-row', ['r' => $r, 'cluster' => $cluster, 'demand' => null, 'extra' => true])
-                        @endforeach
-                        <tr wire:key="new-ideas-{{ $cluster->id }}" class="bg-gray-50/50 dark:bg-gray-950/40">
-                            <td colspan="7" class="py-1 pl-6">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <select wire:model="ideaCount" aria-label="Fikir sayısı" class="{{ $input }} py-0.5">
-                                        @foreach (range(1, \App\Services\Site\ContentIdeaPool::MAX_COUNT) as $n)<option value="{{ $n }}">{{ $n }}</option>@endforeach
-                                    </select>
-                                    <button type="button" wire:click="generateIdeas({{ $cluster->id }})" @disabled(($ideaStatus['status'] ?? null) === 'running') class="{{ $ghost }}" data-generate-ideas="{{ $cluster->id }}">Yeni fikir üret</button>
-                                    <x-operator.ai-prompt-info operation="content.ideas" />
-                                    @if (($ideaStatus['status'] ?? null) === 'running')<span class="text-brand-600">Fikirler üretiliyor…</span>
-                                    @elseif (($ideaStatus['status'] ?? null) === 'done')<span class="text-gray-500">{{ $ideaStatus['added'] }} fikir havuza eklendi.</span>
-                                    @elseif (in_array($ideaStatus['status'] ?? null, ['error', 'no_provider'], true))<span class="text-rose-600">Fikir üretilemedi.</span>@endif
-                                    @foreach ((array) ($ideaStatus['rejected'] ?? []) as $rej)<span class="text-amber-700">Eklenmedi: {{ $rej['title'] }} · {{ $rej['reason'] }}</span>@endforeach
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="7" class="py-3"><x-operator.cluster-readiness :asset-id="$this->assetId" what="İçerik fikirleri" /><span class="text-gray-500">Filtreye uyan satır yok.</span></td></tr>
-                    @endforelse
-                </tbody>
+                <thead class="text-gray-500"><tr><th class="py-1">Fikir</th><th>Tür</th><th class="text-right" title="Kümenin sorgularının sektördeki toplam gösterimi">Talep</th><th>Sitedeki sayfa</th><th class="text-right" title="Search Console puanı (1–100)">Puan</th><th>Durum <span class="font-normal">(tıkla)</span></th><th class="text-right">İşlem</th></tr></thead>
+                @forelse ($groups as $g)
+                    @php $cluster = $g['cluster']; $ideaStatus = $ideaStatuses[$cluster->id] ?? null; @endphp
+                    @foreach ($g['mains'] as $r)
+                        @include('livewire.operator.website.v2.partials.content-idea-row', ['r' => $r, 'cluster' => $cluster, 'demand' => $g['demand'], 'extra' => false])
+                    @endforeach
+                    @foreach ($g['extras'] as $r)
+                        @include('livewire.operator.website.v2.partials.content-idea-row', ['r' => $r, 'cluster' => $cluster, 'demand' => null, 'extra' => true])
+                    @endforeach
+                    @if (($ideaStatus['status'] ?? null) === 'done' || in_array($ideaStatus['status'] ?? null, ['error', 'no_provider'], true) || ! empty($ideaStatus['rejected']))
+                        <tbody wire:key="idea-status-{{ $cluster->id }}"><tr><td colspan="7" class="py-1 pl-6">
+                            @if (($ideaStatus['status'] ?? null) === 'done')<span class="text-gray-500">{{ $ideaStatus['added'] }} yeni fikir eklendi.</span>
+                            @elseif (in_array($ideaStatus['status'] ?? null, ['error', 'no_provider'], true))<span class="text-rose-600">Fikir üretilemedi.</span>@endif
+                            @foreach ((array) ($ideaStatus['rejected'] ?? []) as $rej)<span class="text-amber-700">Eklenmedi: {{ $rej['title'] }} · {{ $rej['reason'] }}</span>@endforeach
+                        </td></tr></tbody>
+                    @endif
+                @empty
+                    <tbody><tr><td colspan="7" class="py-3"><x-operator.cluster-readiness :asset-id="$this->assetId" what="İçerik fikirleri" /><span class="text-gray-500">Filtreye uyan satır yok.</span></td></tr></tbody>
+                @endforelse
             </table>
         </div>
         <div class="mt-2">{{ $groups->links() }}</div>

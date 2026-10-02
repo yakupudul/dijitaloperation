@@ -43,7 +43,7 @@ class ContentIdeasTab extends Component
 {
     use WithPagination;
 
-    private const int PER_PAGE = 30;
+    private const int PER_PAGE = 100;
 
     private const int PAGE_OPTIONS = 50;
 

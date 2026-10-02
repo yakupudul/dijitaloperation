@@ -268,7 +268,7 @@ final class SiteScreenFixesTest extends SiteTestCase
             ->assertViewHas('pageOptions', fn (array $options): bool => count($options) === 50)
             ->set('pageSearch', 'yazi-7')
             ->assertViewHas('pageOptions', fn (array $options): bool => array_values($options) === ['/blog/yazi-7/'])
-            ->assertViewHas('groups', fn ($groups): bool => $groups->perPage() === 30);
+            ->assertViewHas('groups', fn ($groups): bool => $groups->perPage() === 100);
     }
 
     public function test_sitemap_adds_only_non_wordpress_urls_for_connector_sites_and_prune_keeps_them(): void

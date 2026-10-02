@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-24 — İçerik fikirleri listesi sadeleşti
+
+- Durum filtresi seçim kutusu yerine sayılı düğmeler (Tümü varsayılan). Sayfa başına 100 fikir.
+- Durum etiketine tıklayınca satırın altında ayrıntı açılır: neden, içerik önerisi, çakışan sayfalar, eksikler, AI soruları.
+- "Yeni fikir üret" satırları kalktı; her kümenin satırında "+ Fikir", sayı üstte seçilir.
+- "AI ile üret" → "AI ile taslak yaz". Makale İçerik planı'na yazılır; WordPress'e yalnız «WordPress taslağı gönder» ile **taslak** olarak gider (ADR-064). "Butonlar ne yapar?" açıklaması eklendi.
+- **Test:** Site testleri (SiteScreenFixesTest sayfa boyu 100).
+
 ## 2026-11-24 — Web sitesi ekranı v3: tek sıra sekme, ortak tarih seçici, Kümeler panosu, Analiz, Teknik SEO
 
 - **Kabuk:** Tek satır başlık; tek sıra sekme: **Kümeler** (varsayılan) · **Analiz** · **Sayfalar** · **Sorgular** · **Teknik SEO** · **Yapılacaklar** · **Ayarlar**.
