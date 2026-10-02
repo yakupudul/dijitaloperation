@@ -2,6 +2,7 @@
 
 namespace App\Services\Collection;
 
+use App\Enums\Collection\CollectionErrorCategory;
 use App\Enums\Collection\CollectionRunStatus;
 use App\Enums\Collection\RequirementLevel;
 use App\Events\Collection\CollectionRunCancelled;
@@ -11,6 +12,7 @@ use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
 use App\Models\Run;
 use App\Services\Async\AsyncOperationService;
+use App\Support\Async\AsyncFailureClassifier;
 
 final class CollectionStatusAggregator
 {
@@ -239,14 +241,57 @@ final class CollectionStatusAggregator
             default => ['failed', 'Failed'],
         };
 
+        $collectionErrorCategory = $status === 'failed' ? $this->collectionErrorCategory($collectionRun) : null;
+
         app(AsyncOperationService::class)->markFinished($operatorRun, $status, $label, [
             'collection_run_id' => $collectionRun->id,
             'collection_status' => $collectionRun->status->value,
-            'failure_category' => $status === 'failed' ? null : data_get($operatorRun->metadata, 'failure_category'),
+            // A failed/cancelled run always carries a category; a completed/partial run
+            // clears any category left by an earlier attempt of the same operator run.
+            'failure_category' => $collectionErrorCategory !== null ? $this->asyncFailureCategory($collectionErrorCategory) : null,
+            'collection_error_category' => $collectionErrorCategory?->value,
             'failure_summary' => $status === 'failed'
                 ? ($collectionRun->failure_summary ?: 'Provider collection did not complete successfully.')
                 : null,
             'retryable' => $status !== 'completed',
         ]);
+    }
+
+    /**
+     * Most specific provider error category behind a failed or cancelled collection run.
+     */
+    private function collectionErrorCategory(CollectionRun $collectionRun): CollectionErrorCategory
+    {
+        if ($collectionRun->status === CollectionRunStatus::Cancelled) {
+            return CollectionErrorCategory::Cancelled;
+        }
+
+        $category = $collectionRun->datasetRuns()
+            ->where('status', CollectionRunStatus::Failed)
+            ->whereNotNull('error_category')
+            ->orderByDesc('id')
+            ->value('error_category');
+
+        if ($category instanceof CollectionErrorCategory) {
+            return $category;
+        }
+
+        return CollectionErrorCategory::tryFrom((string) $category) ?? CollectionErrorCategory::Unknown;
+    }
+
+    /**
+     * Map a collection error category onto the async operation failure vocabulary.
+     */
+    private function asyncFailureCategory(CollectionErrorCategory $category): string
+    {
+        return match ($category) {
+            CollectionErrorCategory::RateLimit,
+            CollectionErrorCategory::Quota,
+            CollectionErrorCategory::Timeout,
+            CollectionErrorCategory::Network,
+            CollectionErrorCategory::Provider5xx,
+            CollectionErrorCategory::Cancelled => AsyncFailureClassifier::TRANSIENT,
+            default => AsyncFailureClassifier::VALIDATION,
+        };
     }
 }

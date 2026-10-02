@@ -3,6 +3,7 @@
 namespace App\Services\Gsc;
 
 use App\Enums\DataPool\MaterializationStatus;
+use App\Models\Collection\CollectionDatasetRun;
 use App\Models\DataPool\DataIntegrityAuditRun;
 use App\Models\DataPool\DataIntegrityCheckResult;
 use App\Models\DataPool\DatasetMaterialization;
@@ -15,6 +16,13 @@ use App\Services\Gsc\Support\GscDatasetReadiness;
 
 /**
  * UI-facing readiness/coverage gate for GSC datasets (Prompt 29).
+ *
+ * A bound Digital Asset reads both its legacy asset-bound materialization and the
+ * provider-resource-first central materialization (digital_asset_id = null) of the
+ * bound property. Central coverage only counts dates written by Web search-type
+ * dataset runs, because the bound read path serves Web performance only. A formal
+ * binding-scoped integrity audit wins when present; otherwise a durable central
+ * materialization is treated as collection-verified (same rule as Google Ads).
  */
 final class GscUiDatasetGate
 {
@@ -35,13 +43,12 @@ final class GscUiDatasetGate
         string $datasetId,
         ?string $reportingTimezone = null,
     ): GscDatasetReadiness {
-        $materialization = $this->materialization($digitalAssetId, $externalResourceId, $datasetId);
-        $integrity = $this->evaluateIntegrity($digitalAssetId, $externalResourceId, $datasetId);
+        $scope = $this->materializations($digitalAssetId, $externalResourceId, $datasetId);
+        $materialization = $this->latestMaterialization($scope);
+        $integrity = $this->evaluateIntegrity($digitalAssetId, $externalResourceId, $datasetId, $scope['central']);
         $freshness = $this->evaluateFreshness($datasetId, $materialization, $integrity['ready'], $reportingTimezone);
 
-        $covered = $materialization !== null
-            && $materialization->last_collected_at !== null
-            && ! in_array($materialization->status, [MaterializationStatus::NotCollected, MaterializationStatus::Unavailable], true);
+        $covered = $this->isCollected($scope['bound']) || $this->isCollected($scope['central']);
 
         return new GscDatasetReadiness(
             datasetId: $datasetId,
@@ -68,10 +75,11 @@ final class GscUiDatasetGate
         string $end,
         ?string $reportingTimezone = null,
     ): GscDatasetReadiness {
-        $materialization = $this->materialization($digitalAssetId, $externalResourceId, $datasetId);
-        $integrity = $this->evaluateIntegrity($digitalAssetId, $externalResourceId, $datasetId);
+        $scope = $this->materializations($digitalAssetId, $externalResourceId, $datasetId);
+        $materialization = $this->latestMaterialization($scope);
+        $integrity = $this->evaluateIntegrity($digitalAssetId, $externalResourceId, $datasetId, $scope['central']);
         $freshness = $this->evaluateFreshness($datasetId, $materialization, $integrity['ready'], $reportingTimezone);
-        $coverage = $this->evaluateCoverage($materialization, $start, $end);
+        $coverage = $this->evaluateCoverage($this->coverageDates($scope), $start, $end);
 
         return new GscDatasetReadiness(
             datasetId: $datasetId,
@@ -87,23 +95,128 @@ final class GscUiDatasetGate
         );
     }
 
-    private function materialization(
+    /**
+     * @return array{bound: ?DatasetMaterialization, central: ?DatasetMaterialization}
+     */
+    private function materializations(
         int $digitalAssetId,
         int $externalResourceId,
         string $datasetId,
-    ): ?DatasetMaterialization {
-        return DatasetMaterialization::query()
+    ): array {
+        $base = DatasetMaterialization::query()
             ->where('dataset_id', $datasetId)
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
-            ->first();
+            ->where('external_resource_id', $externalResourceId);
+
+        return [
+            'bound' => (clone $base)
+                ->where('digital_asset_id', $digitalAssetId)
+                ->orderByDesc('last_collected_at')
+                ->first(),
+            'central' => (clone $base)
+                ->whereNull('digital_asset_id')
+                ->orderByDesc('last_collected_at')
+                ->first(),
+        ];
+    }
+
+    /**
+     * The most recently collected scope drives freshness.
+     *
+     * @param  array{bound: ?DatasetMaterialization, central: ?DatasetMaterialization}  $scope
+     */
+    private function latestMaterialization(array $scope): ?DatasetMaterialization
+    {
+        $bound = $scope['bound'];
+        $central = $scope['central'];
+        if ($bound === null || $central === null) {
+            return $central ?? $bound;
+        }
+
+        return ($central->last_collected_at?->getTimestamp() ?? 0) >= ($bound->last_collected_at?->getTimestamp() ?? 0)
+            ? $central
+            : $bound;
+    }
+
+    private function isCollected(?DatasetMaterialization $materialization): bool
+    {
+        return $materialization !== null
+            && $materialization->last_collected_at !== null
+            && ! in_array($materialization->status, [MaterializationStatus::NotCollected, MaterializationStatus::Unavailable], true);
+    }
+
+    /**
+     * Successful coverage dates (including zero-row success) across the bound scope and
+     * the Web search-type runs of the central scope.
+     *
+     * @param  array{bound: ?DatasetMaterialization, central: ?DatasetMaterialization}  $scope
+     * @return list<string>
+     */
+    private function coverageDates(array $scope): array
+    {
+        $dates = [];
+
+        if ($scope['bound'] !== null) {
+            $meta = is_array($scope['bound']->freshness_metadata) ? $scope['bound']->freshness_metadata : [];
+            foreach (['successful_coverage_dates', 'zero_row_success_dates'] as $key) {
+                if (is_array($meta[$key] ?? null)) {
+                    $dates = array_merge($dates, array_values(array_filter($meta[$key], 'is_string')));
+                }
+            }
+        }
+
+        if ($scope['central'] !== null) {
+            $dates = array_merge($dates, $this->centralWebCoverageDates($scope['central']));
+        }
+
+        return array_values(array_unique($dates));
+    }
+
+    /**
+     * Central materializations are shared by every collected search type, so only dates
+     * attributed to Web dataset runs prove Web coverage.
+     *
+     * @return list<string>
+     */
+    private function centralWebCoverageDates(DatasetMaterialization $materialization): array
+    {
+        $byRun = data_get($materialization->freshness_metadata, 'coverage_dates_by_dataset_run');
+        if (! is_array($byRun) || $byRun === []) {
+            return [];
+        }
+
+        $webRunIds = CollectionDatasetRun::query()
+            ->whereIn('id', array_map('intval', array_keys($byRun)))
+            ->get(['id', 'metadata'])
+            ->filter(static function (CollectionDatasetRun $run): bool {
+                $searchType = data_get($run->metadata, 'search_type')
+                    ?? data_get($run->metadata, 'central_definition.search_type')
+                    ?? 'web';
+
+                return $searchType === 'web';
+            })
+            ->map(static fn (CollectionDatasetRun $run): int => (int) $run->id)
+            ->all();
+
+        $dates = [];
+        foreach ($webRunIds as $runId) {
+            $runDates = $byRun[(string) $runId] ?? $byRun[$runId] ?? [];
+            if (is_array($runDates)) {
+                $dates = array_merge($dates, array_values(array_filter($runDates, 'is_string')));
+            }
+        }
+
+        return $dates;
     }
 
     /**
      * @return array{ready: bool, status: string, audit_run_uuid: ?string}
      */
-    private function evaluateIntegrity(int $digitalAssetId, int $externalResourceId, string $datasetId): array
-    {
+    private function evaluateIntegrity(
+        int $digitalAssetId,
+        int $externalResourceId,
+        string $datasetId,
+        ?DatasetMaterialization $central = null,
+    ): array {
         $run = DataIntegrityAuditRun::query()
             ->whereHas('checkResults', function ($query) use ($digitalAssetId, $externalResourceId, $datasetId): void {
                 $query->where('digital_asset_id', $digitalAssetId)
@@ -115,7 +228,7 @@ final class GscUiDatasetGate
             ->first();
 
         if (! $run instanceof DataIntegrityAuditRun) {
-            return [
+            return $this->centralCollectionVerified($central) ?? [
                 'ready' => false,
                 'status' => 'UNVERIFIED',
                 'audit_run_uuid' => null,
@@ -149,7 +262,7 @@ final class GscUiDatasetGate
             ->all();
 
         if ($checks === []) {
-            return [
+            return $this->centralCollectionVerified($central) ?? [
                 'ready' => false,
                 'status' => 'UNVERIFIED',
                 'audit_run_uuid' => $run->uuid,
@@ -162,6 +275,26 @@ final class GscUiDatasetGate
             'ready' => $status->allowsRealUiMigration(),
             'status' => $status->value,
             'audit_run_uuid' => $run->uuid,
+        ];
+    }
+
+    /**
+     * Central typed writes have already passed contract normalization and a durable
+     * storage commit; integrity audits are binding-scoped and never cover them. Coverage
+     * and freshness are still evaluated independently, so nothing is fabricated here.
+     *
+     * @return array{ready: bool, status: string, audit_run_uuid: ?string}|null
+     */
+    private function centralCollectionVerified(?DatasetMaterialization $central): ?array
+    {
+        if (! $this->isCollected($central)) {
+            return null;
+        }
+
+        return [
+            'ready' => true,
+            'status' => 'CENTRAL_COLLECTION_VERIFIED',
+            'audit_run_uuid' => null,
         ];
     }
 
@@ -183,9 +316,10 @@ final class GscUiDatasetGate
     }
 
     /**
+     * @param  list<string>  $dates
      * @return array{state: string, dates: list<string>, effective_start: ?string, effective_end: ?string}
      */
-    private function evaluateCoverage(?DatasetMaterialization $materialization, string $start, string $end): array
+    private function evaluateCoverage(array $dates, string $start, string $end): array
     {
         $none = [
             'state' => GscDatasetReadiness::COVERAGE_NOT_COVERED,
@@ -193,22 +327,6 @@ final class GscUiDatasetGate
             'effective_start' => null,
             'effective_end' => null,
         ];
-
-        if ($materialization === null) {
-            return $none;
-        }
-
-        $meta = is_array($materialization->freshness_metadata) ? $materialization->freshness_metadata : [];
-
-        $dates = is_array($meta['successful_coverage_dates'] ?? null)
-            ? array_values(array_filter($meta['successful_coverage_dates'], 'is_string'))
-            : [];
-
-        if (is_array($meta['zero_row_success_dates'] ?? null)) {
-            $dates = array_merge($dates, array_values(array_filter($meta['zero_row_success_dates'], 'is_string')));
-        }
-
-        $dates = array_values(array_unique($dates));
 
         if ($dates === []) {
             return $none;

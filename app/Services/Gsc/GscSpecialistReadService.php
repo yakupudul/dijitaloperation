@@ -142,8 +142,10 @@ final class GscSpecialistReadService
         $sums = $propertyGate->isUsable()
             ? $this->pool->propertyDailySums($digitalAssetId, $externalResourceId, $siteUrl, $propertyGate->effectiveStart, $propertyGate->effectiveEnd)
             : null;
-        $prevSums = $prevPropertyGate->isUsable()
-            ? $this->pool->propertyDailySums($digitalAssetId, $externalResourceId, $siteUrl, $prevPropertyGate->effectiveStart, $prevPropertyGate->effectiveEnd)
+        // A period comparison is only honest when both windows are fully covered; a
+        // partially collected window would compare different day counts.
+        $prevSums = $propertyGate->isFullyCovered() && $prevPropertyGate->isFullyCovered()
+            ? $this->pool->propertyDailySums($digitalAssetId, $externalResourceId, $siteUrl, $prevStart, $prevEnd)
             : null;
 
         $asset = DigitalAsset::query()->with('brand')->find($digitalAssetId);
@@ -182,7 +184,7 @@ final class GscSpecialistReadService
         $provenance['pages.directory'] = $pageGate->dataSourceState()->value;
         $provenance['page_pulse'] = $pageGate->dataSourceState()->value;
 
-        $data['indexing'] = $this->realIndexing($digitalAssetId, $siteUrl, $sitemapGate, $inspectionGate);
+        $data['indexing'] = $this->realIndexing($digitalAssetId, $externalResourceId, $siteUrl, $sitemapGate, $inspectionGate);
         $provenance['indexing.coverage'] = DataSourceState::Unavailable->value;
         $provenance['indexing.urls'] = $inspectionGate->isUsable() ? DataSourceState::ProviderLimited->value : DataSourceState::Unavailable->value;
         $provenance['indexing.sitemaps'] = $sitemapGate->dataSourceState()->value;
@@ -449,11 +451,11 @@ final class GscSpecialistReadService
     }
 
     /** @return array<string, mixed> */
-    private function realIndexing(int $digitalAssetId, string $siteUrl, GscDatasetReadiness $sitemapGate, GscDatasetReadiness $inspectionGate): array
+    private function realIndexing(int $digitalAssetId, int $externalResourceId, string $siteUrl, GscDatasetReadiness $sitemapGate, GscDatasetReadiness $inspectionGate): array
     {
         $sitemaps = [];
         if ($sitemapGate->isUsable()) {
-            foreach ($this->pool->sitemaps($digitalAssetId, $siteUrl) as $row) {
+            foreach ($this->pool->sitemaps($digitalAssetId, $siteUrl, $externalResourceId) as $row) {
                 $meta = is_array($row['metadata']) ? $row['metadata'] : [];
                 $submittedTotal = 0;
                 foreach ($meta['contents'] ?? [] as $content) {

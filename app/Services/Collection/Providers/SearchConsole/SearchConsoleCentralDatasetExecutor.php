@@ -10,6 +10,7 @@ use App\Services\Collection\Contracts\RawPayloadWriter;
 use App\Services\Collection\Support\DatasetExecutionContext;
 use App\Services\Collection\Support\DatasetExecutionResult;
 use App\Services\DataPool\DatasetWritePipeline;
+use App\Services\DataPool\MaterializationService;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RawPayloadEnvelope;
 use Carbon\CarbonImmutable;
@@ -38,6 +39,7 @@ final class SearchConsoleCentralDatasetExecutor implements DatasetExecutor
         private readonly SearchConsoleProviderErrorMapper $errors,
         private readonly DatasetWritePipeline $pipeline,
         private readonly RawPayloadWriter $rawWriter,
+        private readonly MaterializationService $materializations,
     ) {}
 
     public function supportedRequestFamilies(): array
@@ -269,6 +271,17 @@ final class SearchConsoleCentralDatasetExecutor implements DatasetExecutor
             $rowsWrittenTotal += $written;
 
             if (count($rows) < $pageSize) {
+                // Slice complete: every day of it was measured, including days (or a
+                // whole slice) the provider returned no rows for. Missing ≠ zero, so
+                // durable coverage is what proves an empty day was collected.
+                $this->recordCoverage(
+                    $context,
+                    $scope,
+                    $datasetId,
+                    $slice['start'],
+                    $slice['end'],
+                    zeroRow: $startRow === 0 && $records === [],
+                );
                 $sliceIndex++;
                 $startRow = 0;
             } else {
@@ -406,6 +419,8 @@ final class SearchConsoleCentralDatasetExecutor implements DatasetExecutor
             }
 
             if ($appearanceTypes === []) {
+                $this->recordCoverage($context, $scope, $datasetId, $start, $end, zeroRow: true);
+
                 return new DatasetExecutionResult(
                     outcome: DatasetExecutionOutcome::Completed,
                     progressMode: ProgressMode::Counted,
@@ -599,6 +614,10 @@ final class SearchConsoleCentralDatasetExecutor implements DatasetExecutor
         ];
 
         if ($appearanceIndex >= count($appearanceTypes)) {
+            // Coverage is only proven once every discovered appearance was filtered over
+            // every slice; days without rows for any appearance are measured zeros.
+            $this->recordCoverage($context, $scope, $datasetId, $start, $end, zeroRow: $rowsWrittenTotal === 0);
+
             return new DatasetExecutionResult(
                 outcome: DatasetExecutionOutcome::Completed,
                 progressMode: ProgressMode::Counted,
@@ -624,6 +643,33 @@ final class SearchConsoleCentralDatasetExecutor implements DatasetExecutor
             pagesCompleted: $tickPages,
             stage: 'central_search_appearance_continue',
             checkpoint: $next,
+        );
+    }
+
+    /**
+     * Durable successful coverage for an inclusive range of the central resource scope.
+     *
+     * @param  array<string, mixed>  $scope
+     */
+    private function recordCoverage(
+        DatasetExecutionContext $context,
+        array $scope,
+        string $datasetId,
+        string $start,
+        string $end,
+        bool $zeroRow,
+    ): void {
+        $this->materializations->recordSuccessfulCoverageRange(
+            datasetId: $datasetId,
+            digitalAssetId: null,
+            externalResourceId: (int) $scope['resource']->id,
+            contractVersion: (int) $context->datasetRun->contract_registry_version,
+            start: $start,
+            end: $end,
+            collectionRunId: (int) $context->collectionRun->id,
+            datasetRunId: (int) $context->datasetRun->id,
+            providerOrSource: 'SEARCH_CONSOLE',
+            zeroRow: $zeroRow,
         );
     }
 

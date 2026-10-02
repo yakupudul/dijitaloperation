@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Gsc;
 
+use App\Enums\Collection\CollectionRunStatus;
 use App\Enums\DataPool\IntegrityAuditMode;
 use App\Enums\DataPool\IntegrityAuditStatus;
 use App\Enums\DataPool\IntegrityCheckStatus;
@@ -9,6 +10,9 @@ use App\Enums\DataPool\MaterializationStatus;
 use App\Enums\DigitalAssetStatus;
 use App\Livewire\Demo\Assets\SearchConsolePage;
 use App\Models\Brand;
+use App\Models\Collection\CollectionDatasetRun;
+use App\Models\Collection\CollectionResourceRun;
+use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
@@ -22,6 +26,7 @@ use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\User;
 use App\Services\DataPool\Integrity\Support\CoverageIntervalSet;
+use App\Services\DataPool\MaterializationService;
 use App\Services\Formulas\GscFormulaCalculator;
 use App\Services\Gsc\GscPoolReadRepository;
 use App\Services\Gsc\GscSpecialistBindingResolver;
@@ -36,6 +41,7 @@ use App\Support\Roles;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -471,6 +477,145 @@ class GscRealDataMigrationTest extends TestCase
             'indexing',
             'operations',
         ], $component->allowedTabs);
+    }
+
+    #[Test]
+    public function bound_workspace_reads_central_resource_first_history_after_binding(): void
+    {
+        $dates = $this->contiguousDates('2026-07-16', 28);
+        $this->centralMaterializationWithDates('gsc_property_daily', $dates, 'web');
+        $this->insertCentralPropertyRows($dates, clicks: 100, impressions: 1000, searchType: 'web');
+        // Other search surfaces of the same central property never leak into the Web workspace.
+        $this->insertCentralPropertyRows($dates, clicks: 7, impressions: 70, searchType: 'image');
+
+        $workspace = app(GscSpecialistReadService::class)->workspace((string) $this->asset->id, 'last_28');
+
+        $this->assertSame('real', $workspace['migration_mode']);
+        $this->assertSame(2800, $workspace['glance']['clicks']['raw']);
+        $this->assertSame(28000, $workspace['glance']['impressions']['raw']);
+        $this->assertSame('REAL', $workspace['data_provenance']['glance.clicks']);
+        $this->assertCount(28, $workspace['metric_series']['clicks']);
+    }
+
+    #[Test]
+    public function central_coverage_from_another_search_type_does_not_make_the_web_workspace_ready(): void
+    {
+        $dates = $this->contiguousDates('2026-07-16', 28);
+        $this->centralMaterializationWithDates('gsc_property_daily', $dates, 'image');
+        $this->insertCentralPropertyRows($dates, clicks: 7, impressions: 70, searchType: 'image');
+
+        $workspace = app(GscSpecialistReadService::class)->workspace((string) $this->asset->id, 'last_28');
+
+        $this->assertNull($workspace['glance']['clicks']['raw']);
+        $this->assertSame('UNAVAILABLE', $workspace['data_provenance']['glance.clicks']);
+    }
+
+    #[Test]
+    public function a_natural_key_has_one_row_so_bound_and_central_scopes_never_double_count(): void
+    {
+        $date = '2026-07-16';
+        $this->insertPropertyDailyRows([$date], clicks: 10, impressions: 100);
+
+        $this->expectException(QueryException::class);
+        $this->insertCentralPropertyRows([$date], clicks: 10, impressions: 100, searchType: 'web');
+    }
+
+    #[Test]
+    public function comparison_is_unavailable_unless_both_periods_are_fully_covered(): void
+    {
+        $current = $this->contiguousDates('2026-07-16', 28);
+        // Only half of the previous 28-day window was collected.
+        $previous = $this->contiguousDates('2026-07-02', 14);
+        $this->seedDatasetReady('gsc_property_daily', array_merge($previous, $current));
+        $this->insertPropertyDailyRows(array_merge($previous, $current), clicks: 10, impressions: 100);
+
+        $workspace = app(GscSpecialistReadService::class)->workspace((string) $this->asset->id, 'last_28');
+
+        $this->assertSame(280, $workspace['glance']['clicks']['raw']);
+        $this->assertStringContainsString('vs previous period unavailable', $workspace['glance']['clicks']['secondary']);
+        $this->assertStringContainsString('vs previous period unavailable', $workspace['glance']['impressions']['secondary']);
+        $this->assertStringContainsString('vs previous period unavailable', $workspace['glance']['ctr']['secondary']);
+    }
+
+    #[Test]
+    public function fully_covered_yoy_comparison_is_labelled_year_ago(): void
+    {
+        $current = $this->contiguousDates('2026-07-16', 28);
+        $yearAgo = $this->contiguousDates('2025-07-16', 28);
+        $this->seedDatasetReady('gsc_property_daily', array_merge($yearAgo, $current));
+        $this->insertPropertyDailyRows($current, clicks: 20, impressions: 100);
+        $this->insertPropertyDailyRows($yearAgo, clicks: 10, impressions: 100);
+
+        $workspace = app(GscSpecialistReadService::class)->workspace((string) $this->asset->id, 'last_28', null, null, 'yoy');
+
+        $this->assertSame('+100.0% vs year-ago period', explode(' · ', $workspace['glance']['clicks']['secondary'])[0]);
+        $this->assertStringNotContainsString('previous period', $workspace['glance']['ctr']['secondary']);
+    }
+
+    /**
+     * Central materialization whose coverage is attributed to a dataset run of one search type.
+     *
+     * @param  list<string>  $dates
+     */
+    private function centralMaterializationWithDates(string $datasetId, array $dates, string $searchType): void
+    {
+        $run = CollectionRun::factory()->create(['status' => CollectionRunStatus::Completed]);
+        $resourceRun = CollectionResourceRun::factory()->create([
+            'collection_run_id' => $run->id,
+            'provider_or_source' => 'SEARCH_CONSOLE',
+            'resource_kind' => 'provider_resource',
+            'external_resource_id' => $this->resource->id,
+            'digital_asset_id' => null,
+            'status' => CollectionRunStatus::Completed,
+            'metadata' => ['collection_scope' => 'provider_resource_first'],
+        ]);
+        $datasetRun = CollectionDatasetRun::factory()->create([
+            'collection_run_id' => $run->id,
+            'collection_resource_run_id' => $resourceRun->id,
+            'provider_or_source' => 'SEARCH_CONSOLE',
+            'dataset_contract_id' => $datasetId,
+            'request_family_id' => 'GSC_CENTRAL_SEARCH_ANALYTICS',
+            'status' => CollectionRunStatus::Completed,
+            'metadata' => ['search_type' => $searchType, 'central_definition' => ['dataset_id' => $datasetId, 'search_type' => $searchType]],
+        ]);
+
+        $materialization = app(MaterializationService::class)->recordSuccessfulCoverageDates(
+            datasetId: $datasetId,
+            digitalAssetId: null,
+            externalResourceId: $this->resource->id,
+            contractVersion: 1,
+            dates: $dates,
+            collectionRunId: $run->id,
+            datasetRunId: $datasetRun->id,
+            providerOrSource: 'SEARCH_CONSOLE',
+        );
+        $materialization->forceFill(['last_collected_at' => CarbonImmutable::parse('2026-08-12 10:00:00', 'UTC')])->save();
+    }
+
+    /**
+     * @param  list<string>  $dates
+     */
+    private function insertCentralPropertyRows(array $dates, int $clicks, int $impressions, string $searchType): void
+    {
+        foreach ($dates as $date) {
+            DB::table('gsc_property_daily')->insert([
+                'digital_asset_id' => null,
+                'external_resource_id' => $this->resource->id,
+                'site_url' => 'sc-domain:example.com',
+                'reporting_date' => $date,
+                'search_type' => $searchType,
+                'clicks' => $clicks,
+                'impressions' => $impressions,
+                'contract_version' => 1,
+                'first_collected_at' => now(),
+                'last_collected_at' => now(),
+                'source_timezone' => 'America/Los_Angeles',
+                'record_fingerprint' => hash('sha256', 'central-'.$searchType.'-'.$date),
+                'metadata' => json_encode(['provider_average_position' => 6.0]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
     }
 
     /**

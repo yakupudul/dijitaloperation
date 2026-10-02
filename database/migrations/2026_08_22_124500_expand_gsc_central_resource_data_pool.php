@@ -93,6 +93,12 @@ return new class extends Migration
                 continue;
             }
 
+            if (Schema::hasIndex($table, $name)) {
+                continue;
+            }
+
+            $this->dedupeResourceNaturalKey($table, $columns);
+
             if (Schema::getConnection()->getDriverName() === 'pgsql') {
                 $quoted = implode(', ', array_map(fn (string $column): string => '"'.str_replace('"', '""', $column).'"', $columns));
                 DB::statement("CREATE UNIQUE INDEX IF NOT EXISTS {$name} ON {$table} ({$quoted})");
@@ -108,13 +114,46 @@ return new class extends Migration
         }
     }
 
+    /**
+     * Legacy asset-bound collection keyed facts by digital_asset_id, so the same property
+     * collected for two Digital Assets left two rows per resource-first natural key once
+     * search_type was backfilled to 'web'. Keep the most recently collected row (newest id
+     * on ties) so the resource-first unique index can be created. Idempotent: a table
+     * without duplicates deletes nothing.
+     *
+     * @param  list<string>  $columns
+     */
+    private function dedupeResourceNaturalKey(string $table, array $columns): void
+    {
+        $partition = implode(', ', array_map(
+            static fn (string $column): string => '"'.str_replace('"', '""', $column).'"',
+            $columns,
+        ));
+
+        // A NULL key column never collides in a unique index, so those rows are left alone.
+        $notNull = implode(' AND ', array_map(
+            static fn (string $column): string => '"'.str_replace('"', '""', $column).'" IS NOT NULL',
+            $columns,
+        ));
+
+        DB::statement(
+            "DELETE FROM {$table} WHERE id IN ("
+            .'SELECT id FROM ('
+            ."SELECT id, ROW_NUMBER() OVER (PARTITION BY {$partition} "
+            .'ORDER BY CASE WHEN last_collected_at IS NULL THEN 1 ELSE 0 END, last_collected_at DESC, id DESC) AS natural_key_rank '
+            ."FROM {$table} WHERE {$notNull}"
+            .') ranked WHERE natural_key_rank > 1)'
+        );
+    }
+
     private function createSitemapCentralIndex(): void
     {
-        if (! Schema::hasTable('gsc_sitemap_snapshot')) {
+        if (! Schema::hasTable('gsc_sitemap_snapshot') || Schema::hasIndex('gsc_sitemap_snapshot', 'gsc_smap_res_nk')) {
             return;
         }
 
         $columns = ['external_resource_id', 'site_url', 'sitemap_path', 'retrieved_at'];
+        $this->dedupeResourceNaturalKey('gsc_sitemap_snapshot', $columns);
         if (Schema::getConnection()->getDriverName() === 'pgsql') {
             DB::statement('CREATE UNIQUE INDEX IF NOT EXISTS gsc_smap_res_nk ON gsc_sitemap_snapshot (external_resource_id, site_url, sitemap_path, retrieved_at)');
             DB::statement('CREATE INDEX IF NOT EXISTS gsc_smap_res_idx ON gsc_sitemap_snapshot (external_resource_id)');

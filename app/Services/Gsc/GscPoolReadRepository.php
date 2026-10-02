@@ -2,15 +2,40 @@
 
 namespace App\Services\Gsc;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Read-only aggregate SQL over the GSC normalized data pool.
  * Property KPIs come from gsc_property_daily ONLY — never summed from query/page rows.
+ *
+ * Bound reads resolve the bound property's facts whether they were written by the
+ * asset-bound collector (digital_asset_id = asset) or by the resource-first central
+ * collector (digital_asset_id = null). The natural keys are resource-first
+ * (external_resource_id, site_url, reporting_date, search_type, dimensions…), so a
+ * natural key has exactly one row and reading both scopes never double counts.
  */
 class GscPoolReadRepository
 {
+    /** The bound workspace reports Web search performance only. */
+    public const string BOUND_SEARCH_TYPE = 'web';
+
+    /**
+     * Restrict a dated GSC fact query to the bound property's Web facts from either the
+     * asset-bound or the central (digital_asset_id = null) collection scope.
+     */
+    private function boundWebScope(Builder $query, int $digitalAssetId, int $externalResourceId, string $siteUrl): Builder
+    {
+        return $query
+            ->where('external_resource_id', $externalResourceId)
+            ->where('site_url', $siteUrl)
+            ->where('search_type', self::BOUND_SEARCH_TYPE)
+            ->where(fn (Builder $scope) => $scope
+                ->where('digital_asset_id', $digitalAssetId)
+                ->orWhereNull('digital_asset_id'));
+    }
+
     /**
      * Property-level sums for a date range from gsc_property_daily only.
      *
@@ -24,9 +49,7 @@ class GscPoolReadRepository
         string $end,
     ): array {
         $rows = DB::table('gsc_property_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
-            ->where('site_url', $siteUrl)
+            ->tap(fn (Builder $query) => $this->boundWebScope($query, $digitalAssetId, $externalResourceId, $siteUrl))
             ->whereBetween('reporting_date', [$start, $end])
             ->get(['clicks', 'impressions', 'metadata']);
 
@@ -108,9 +131,7 @@ class GscPoolReadRepository
         string $end,
     ): array {
         return DB::table('gsc_property_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
-            ->where('site_url', $siteUrl)
+            ->tap(fn (Builder $query) => $this->boundWebScope($query, $digitalAssetId, $externalResourceId, $siteUrl))
             ->whereBetween('reporting_date', [$start, $end])
             ->orderBy('reporting_date')
             ->get(['reporting_date', 'clicks', 'impressions', 'metadata'])
@@ -137,9 +158,7 @@ class GscPoolReadRepository
         int $limit = 10,
     ): array {
         $rows = DB::table('gsc_query_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
-            ->where('site_url', $siteUrl)
+            ->tap(fn (Builder $query) => $this->boundWebScope($query, $digitalAssetId, $externalResourceId, $siteUrl))
             ->whereBetween('reporting_date', [$start, $end])
             ->groupBy('query')
             ->orderByDesc(DB::raw('SUM(clicks)'))
@@ -152,9 +171,7 @@ class GscPoolReadRepository
         if ($queryKeys !== []) {
             // One bounded detail query for the top-N queries (avoids N+1) — Prompt 65.
             $detailRows = DB::table('gsc_query_daily')
-                ->where('digital_asset_id', $digitalAssetId)
-                ->where('external_resource_id', $externalResourceId)
-                ->where('site_url', $siteUrl)
+                ->tap(fn (Builder $query) => $this->boundWebScope($query, $digitalAssetId, $externalResourceId, $siteUrl))
                 ->whereIn('query', $queryKeys)
                 ->whereBetween('reporting_date', [$start, $end])
                 ->get(['query', 'impressions', 'metadata']);
@@ -200,9 +217,7 @@ class GscPoolReadRepository
         int $limit = 20,
     ): array {
         return DB::table('gsc_page_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
-            ->where('site_url', $siteUrl)
+            ->tap(fn (Builder $query) => $this->boundWebScope($query, $digitalAssetId, $externalResourceId, $siteUrl))
             ->whereBetween('reporting_date', [$start, $end])
             ->groupBy('page')
             ->orderByDesc(DB::raw('SUM(clicks)'))
@@ -228,9 +243,7 @@ class GscPoolReadRepository
         string $end,
     ): array {
         $aggregates = DB::table('gsc_device_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
-            ->where('site_url', $siteUrl)
+            ->tap(fn (Builder $query) => $this->boundWebScope($query, $digitalAssetId, $externalResourceId, $siteUrl))
             ->whereBetween('reporting_date', [$start, $end])
             ->groupBy('device')
             ->orderByDesc(DB::raw('SUM(clicks)'))
@@ -241,9 +254,7 @@ class GscPoolReadRepository
         $detailsByDevice = [];
         if ($deviceKeys !== []) {
             $detailRows = DB::table('gsc_device_daily')
-                ->where('digital_asset_id', $digitalAssetId)
-                ->where('external_resource_id', $externalResourceId)
-                ->where('site_url', $siteUrl)
+                ->tap(fn (Builder $query) => $this->boundWebScope($query, $digitalAssetId, $externalResourceId, $siteUrl))
                 ->whereIn('device', $deviceKeys)
                 ->whereBetween('reporting_date', [$start, $end])
                 ->get(['device', 'impressions', 'metadata']);
@@ -289,9 +300,7 @@ class GscPoolReadRepository
         int $limit = 10,
     ): array {
         return DB::table('gsc_country_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
-            ->where('site_url', $siteUrl)
+            ->tap(fn (Builder $query) => $this->boundWebScope($query, $digitalAssetId, $externalResourceId, $siteUrl))
             ->whereBetween('reporting_date', [$start, $end])
             ->groupBy('country')
             ->orderByDesc(DB::raw('SUM(clicks)'))
@@ -311,11 +320,16 @@ class GscPoolReadRepository
      *
      * @return list<array<string, mixed>>
      */
-    public function sitemaps(int $digitalAssetId, string $siteUrl): array
+    public function sitemaps(int $digitalAssetId, string $siteUrl, ?int $externalResourceId = null): array
     {
         // Bound SQL before PHP dedupe (Prompt 65) — unique sitemap paths only.
+        // Central sitemap snapshots carry digital_asset_id = null and the resource id.
         $rows = DB::table('gsc_sitemap_snapshot')
-            ->where('digital_asset_id', $digitalAssetId)
+            ->where(fn (Builder $scope) => $scope
+                ->where('digital_asset_id', $digitalAssetId)
+                ->when($externalResourceId !== null, fn (Builder $central) => $central->orWhere(fn (Builder $inner) => $inner
+                    ->whereNull('digital_asset_id')
+                    ->where('external_resource_id', $externalResourceId))))
             ->where('site_url', $siteUrl)
             ->orderByDesc('retrieved_at')
             ->limit(500)
