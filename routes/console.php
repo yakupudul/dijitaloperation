@@ -19,6 +19,7 @@ use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\User;
+use App\Services\Ai\AiBudget;
 use App\Services\Alerts\AdBudgetWatch;
 use App\Services\Analyst\AnalystEngine;
 use App\Services\Analyst\AnalystRegistry;
@@ -818,6 +819,15 @@ Artisan::command('moxdop:brands:care {brand? : brand id} {--force : review even 
 Schedule::command('moxdop:brands:care')->weeklyOn(0, '21:13')->timezone('Europe/Istanbul')->name('brands-care')->withoutOverlapping(60);
 
 // Şef: Monday morning plan across the active brands, after Sunday's care reviews.
+// AI harcama dökümü: where the money went (per operation, automatic vs operator), and today's automatic ceiling.
+Artisan::command('moxdop:ai:costs {--hours=24 : Kaç saat geriye}', function (AiBudget $budget): void {
+    $rows = $budget->breakdown((int) $this->option('hours'));
+    $this->table(['İşlem', 'Çağrı', 'Toplam $', 'Otomatik $', 'Model'], array_map(fn (array $r): array => [
+        $r['label'].' ('.$r['operation'].')', $r['calls'], number_format($r['cost'], 3), number_format($r['auto_cost'], 3), $r['model'] ?? '—',
+    ], $rows));
+    $this->info(sprintf('Toplam: $%.3f · otomatik işler son 24 saat: $%.3f / günlük tavan $%.2f', array_sum(array_column($rows, 'cost')), $budget->dailyAutoSpend(), $budget->dailyAutoBudget()));
+})->purpose('Show the AI spend per operation (automatic vs operator) and the daily automatic ceiling.');
+
 // Şef denetimi on demand (it also runs before every weekly plan): errors in what the AI did, rules only.
 Artisan::command('moxdop:brands:audit {brand? : brand id}', function (BrandAudit $audit): void {
     $brands = Brand::query()->operational()->when($this->argument('brand'), fn ($q, $id) => $q->whereKey((int) $id))->orderBy('id')->get();

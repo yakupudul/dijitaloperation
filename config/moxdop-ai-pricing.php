@@ -16,6 +16,10 @@ return [
     // Operatör onayı: ayda ~100 USD. Ayarlar › AI ekranından kaydedilen değer bunu geçersiz kılar.
     'monthly_budget_usd' => (float) env('AI_MONTHLY_BUDGET_USD', 100),
 
+    // AI work nobody clicked (nightly site flow, query autopilot, clustering, analysts, care agent): stops for the rest of
+    // the day (rolling 24 hours) once it spent this much; operator clicks keep running. 0 = no daily ceiling.
+    'daily_auto_budget_usd' => (float) env('AI_DAILY_AUTO_BUDGET_USD', 1),
+
     'models' => [
         'anthropic' => [
             'claude-sonnet-5' => ['input' => 2.00, 'output' => 10.00],

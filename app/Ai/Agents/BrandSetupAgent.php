@@ -4,6 +4,7 @@ namespace App\Ai\Agents;
 
 use App\Ai\Concerns\UsesPromptRegistry;
 use App\Ai\Contracts\RegistryPrompted;
+use App\Support\Ai\AiProviderOptions;
 use App\Support\Ai\AiRouteKeys;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Agent;
@@ -61,6 +62,6 @@ final class BrandSetupAgent implements Agent, HasProviderOptions, HasStructuredO
     {
         $key = $provider instanceof Lab ? $provider->value : $provider;
 
-        return $key === Lab::OpenAI->value ? ['store' => false] : [];
+        return AiProviderOptions::for((string) $key);
     }
 }

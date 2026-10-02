@@ -1,5 +1,18 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-20 — AI harcaması: otomatik işlere günlük tavan, ucuz model, harcama dökümü
+
+- **Sorun:** 14 saatte 12 $. Otomatik işlerin çoğu en pahalı modelde (Sonnet 5) çalışıyordu ve bir üst sınırları yoktu.
+- **Otomatik işler günlük tavanı (varsayılan 1 $):** kimse tıklamadan çalışan AI son 24 saatte tavana ulaşınca durur. Ücretsiz modeller ve operatörün tıkladığı işler çalışmaya devam eder.
+  - Otomatik işler: gece site akışı, sorgu pilotu, kümeleme, analistler, bakım ajanı, Şef.
+  - Ayarlar › AI işlemleri › AI bütçesi'nden değişir (0 = tavan yok); `.env`'de `AI_DAILY_AUTO_BUDGET_USD` ile de ayarlanabilir.
+- **Asıl neden (yalnız OpenAI bağlı):** tüm işler `gpt-5-mini`'de çalışıyordu. Bu model ayar verilmeyince her çağrıda orta düzeyde gizli "düşünme" yapar; düşünme tokenleri çıktı fiyatından ($2/M) faturalanır.
+  - Artık tüm ajanlar GPT-5 / o-serisi modellerde düşük düşünme seviyesiyle çağrılır (`OPENAI_REASONING_EFFORT=low`; boş bırakılırsa modelin varsayılanı).
+  - Düşünmeyen modellere (gpt-4.1, gpt-4o) bu ayar gönderilmez.
+- **Anthropic bağlanırsa:** küme ↔ sayfa eşleştirme, küme eksikleri, AI küme yargısı ve küme gözden geçirme Haiku 4.5'te çalışır. Kümeleme Sonnet'te kalır. Yalnız OpenAI bağlıyken bunun etkisi yoktur.
+- **Harcama nereye gitti:** AI işlemleri sayfasında 24 saat / 7 gün için işlem bazında çağrı, maliyet, pay, otomatik kısmı ve model. Komut: `moxdop:ai:costs --hours=24`.
+- **Test:** AiCostControlTest (günlük tavan, döküm, komut), AiLiveOperationsTest. UAT: yok.
+
 ## 2026-11-19 (d) — AI işleri biter: aynı iş için tekrar para ödenmez, kararlar kurala dönüşür
 
 - **Sonsuz döngü / tekrar ödeme kapatıldı:**

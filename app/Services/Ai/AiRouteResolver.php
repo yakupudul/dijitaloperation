@@ -10,6 +10,7 @@ use App\Services\Integrations\Gemini\GeminiCredentialResolver;
 use App\Services\Integrations\OpenAi\OpenAiCredentialResolver;
 use App\Services\Prompts\PromptRegistry;
 use App\Support\Ai\AiProviderCatalog;
+use App\Support\Ai\AiProviderOptions;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Ai\ResolvedAiRoute;
 use App\Support\Integrations\ProviderRegistry;
@@ -85,6 +86,11 @@ final class AiRouteResolver
             if ($eligibility['eligible'] && AiProviderCatalog::isSupported($provider)) {
                 $providerModels[$provider] = $model !== '' ? $model : AiProviderCatalog::defaultModel($provider);
             }
+        }
+
+        // The OpenAI model of this route: provider options add the low reasoning effort only for reasoning models.
+        if (isset($providerModels[AiProviderCatalog::OPENAI])) {
+            Context::addHidden(AiProviderOptions::OPENAI_MODEL_CONTEXT, $providerModels[AiProviderCatalog::OPENAI]);
         }
 
         return new ResolvedAiRoute(

@@ -1,5 +1,10 @@
 # PROJECT_MEMORY
 
+## 2026-11-20 — AI harcama sınırı
+
+- **Karar:** Kimse tıklamadan çalışan AI işlerinin günlük tavanı vardır (varsayılan 1 $, son 24 saat); tavan dolunca durur, operatör tıklamaları sürer.
+  - Toplu eşleştirme / eksik / gözden geçirme işleri Haiku'da çalışır; kümeleme ve analiz Sonnet'te kalır.
+
 ## 2026-11-19 — Site akışı
 
 - **Karar (AI maliyet ilkesi):** AI'a aynı girdiyle iki kez para ödenmez; verdiği karar girdisi değişene kadar kural gibi saklanır.

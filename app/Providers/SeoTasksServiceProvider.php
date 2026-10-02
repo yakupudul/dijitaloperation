@@ -108,7 +108,7 @@ final class SeoTasksServiceProvider extends ServiceProvider
             'name' => 'Query Cluster Review',
             'module' => 'queries',
             'description' => 'Sorgular "AI ile kümele" last step: one call reviews a service\'s clusters, merges those one page would cover (never from a locked cluster) and clarifies unlocked names / needs.',
-            'default_steps' => AiDefaultSteps::analysis(),
+            'default_steps' => AiDefaultSteps::classification(),
         ]);
     }
 }

@@ -185,7 +185,7 @@ final class AiLiveOperationsTest extends TestCase
         $this->liveRow(['label' => 'Marka bakım ajanı', 'status' => AiLiveOperation::FAILED, 'finished_at' => now(), 'error' => 'Sağlayıcı yanıtı: HTTP 529']);
 
         Livewire::actingAs($this->admin)->test(AiOperationsPage::class)
-            ->assertSeeHtml('data-ai-summary')->assertSeeHtml('wire:poll.5s')
+            ->assertSeeHtml('data-ai-summary')->assertSeeHtml('wire:poll.5s')->assertSeeHtml('data-ai-costs')->assertSeeHtml('data-ai-auto-budget')
             ->assertSee('Kümeleri içerikle eşleştir')->assertSee('Panorama Ankara › panorama.com.tr')
             ->assertSeeHtml('data-ai-step')->assertSee('Küme eksikleri')->assertSee('1 çağrı bitti')->assertSee('Başlatan: Otomatik')
             ->assertSeeHtml('data-ai-queued')->assertSee('SEO analizi')

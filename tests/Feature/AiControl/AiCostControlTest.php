@@ -8,13 +8,16 @@ use App\Models\AgencySetting;
 use App\Models\CoreIntegration;
 use App\Models\User;
 use App\Services\Ai\AiBudget;
+use App\Services\Ai\AiLiveOperations;
 use App\Services\Ai\AiPricing;
 use App\Services\Ai\AiRouteResolver;
 use App\Support\Ai\AiProviderCatalog;
+use App\Support\Ai\AiProviderOptions;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
@@ -122,6 +125,55 @@ final class AiCostControlTest extends TestCase
         $analysis = app(AiRouteResolver::class)->resolve(AiRouteKeys::BRAND_SETUP);
         $this->assertTrue($analysis->isEmpty());
         $this->assertSame('budget_exhausted', $analysis->steps[0]['reason']);
+    }
+
+    public function test_automatic_ai_work_stops_for_the_day_at_the_daily_ceiling_while_operator_clicks_keep_running(): void
+    {
+        config(['moxdop.anthropic.api_key' => 'sk-ant-test']);
+        CoreIntegration::factory()->anthropic()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
+        (AgencySetting::query()->orderBy('id')->first() ?? AgencySetting::query()->create(['agency_name' => 'MoxDOP', 'portal_name' => 'MoxDOP']))
+            ->forceFill(['ai_daily_auto_budget_usd' => 1])->save();
+        $call = fn (array $extra): int => DB::table('ai_live_operations')->insertGetId(array_merge(['kind' => 'call', 'operation' => 'site.cluster_gaps',
+            'label' => 'Küme eksikleri', 'agent' => 'ClusterGapsAgent', 'status' => 'done', 'started_at' => now()->subHour(), 'finished_at' => now()->subHour(),
+            'model' => 'claude-haiku-4-5'], $extra));
+        $call(['cost_usd' => 0.70, 'user_id' => null]);
+        $call(['cost_usd' => 5.00, 'user_id' => $this->admin->id]); // operator clicks never count
+        $call(['cost_usd' => 0.40, 'user_id' => null, 'started_at' => now()->subDays(2)]); // older than 24 hours
+
+        $budget = app(AiBudget::class);
+        $this->assertEqualsWithDelta(0.70, $budget->dailyAutoSpend(), 0.0001);
+        $this->assertFalse($budget->dailyAutoExhausted());
+        $call(['cost_usd' => 0.35, 'user_id' => null]);
+        $this->assertTrue($budget->dailyAutoExhausted());
+
+        // The operator (signed in) still runs; the nightly / queued work nobody clicked does not.
+        $this->assertFalse(app(AiRouteResolver::class)->resolve(AiRouteKeys::BRAND_SETUP)->isEmpty());
+        auth()->logout();
+        Context::forgetHidden(AiLiveOperations::USER_CONTEXT); // a scheduled job: nobody behind it
+        $this->assertTrue(AiBudget::isAutomatic());
+        $this->assertTrue(app(AiRouteResolver::class)->resolve(AiRouteKeys::BRAND_SETUP)->isEmpty());
+
+        $rows = collect($budget->breakdown(24))->keyBy('operation');
+        $this->assertEqualsWithDelta(6.05, $rows['site.cluster_gaps']['cost'], 0.0001);
+        $this->assertEqualsWithDelta(1.05, $rows['site.cluster_gaps']['auto_cost'], 0.0001);
+        $this->artisan('moxdop:ai:costs')->expectsOutputToContain('günlük tavan $1.00')->assertSuccessful();
+    }
+
+    public function test_openai_reasoning_models_run_with_low_effort_and_other_models_get_no_reasoning_option(): void
+    {
+        config(['moxdop.openai.api_key' => 'sk-test', 'ai.providers.openai.key' => 'sk-test']);
+        CoreIntegration::factory()->openai()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
+
+        $route = app(AiRouteResolver::class)->resolve(AiRouteKeys::QUERIES_TRIAGE);
+        $this->assertSame('openai', $route->primaryProvider(), 'only OpenAI is connected: every route runs there');
+        $this->assertSame(['store' => false, 'reasoning' => ['effort' => 'low']], AiProviderOptions::for('openai'));
+        $this->assertSame([], AiProviderOptions::for('anthropic'));
+
+        Context::addHidden(AiProviderOptions::OPENAI_MODEL_CONTEXT, 'gpt-4.1-mini');
+        $this->assertSame(['store' => false], AiProviderOptions::for('openai'), 'not a reasoning model: no reasoning option');
+        config(['moxdop.ai.defaults.openai_reasoning_effort' => '']);
+        Context::addHidden(AiProviderOptions::OPENAI_MODEL_CONTEXT, 'gpt-5-mini');
+        $this->assertSame(['store' => false], AiProviderOptions::for('openai'), 'empty effort = the model default');
     }
 
     public function test_free_tier_providers_are_blocked_for_client_data_routes(): void

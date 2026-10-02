@@ -45,10 +45,17 @@ final class AiOperationsPage extends Component
     /** Monthly AI budget in USD (paid models stop when the month's spend reaches it; free models keep running). */
     public string $budget = '';
 
+    /** Daily ceiling of automatic AI work in USD (rolling 24 hours; operator clicks keep running). */
+    public string $dailyAutoBudget = '';
+
+    /** Cost breakdown window: 24 | 168 hours. */
+    public int $costHours = 24;
+
     public function mount(PromptRegistry $registry, AiBudget $aiBudget): void
     {
         $this->authorizeAdmin();
         $this->budget = (string) round($aiBudget->monthlyBudget(), 2);
+        $this->dailyAutoBudget = (string) round($aiBudget->dailyAutoBudget(), 2);
         if ($this->operation !== '') {
             $this->open($this->operation, $registry);
         }
@@ -73,10 +80,11 @@ final class AiOperationsPage extends Component
     public function saveBudget(): void
     {
         $this->authorizeAdmin();
-        $this->validate(['budget' => ['required', 'numeric', 'min:0', 'max:100000']], [], ['budget' => 'Aylık bütçe']);
+        $this->validate(['budget' => ['required', 'numeric', 'min:0', 'max:100000'], 'dailyAutoBudget' => ['required', 'numeric', 'min:0', 'max:10000']], [],
+            ['budget' => 'Aylık bütçe', 'dailyAutoBudget' => 'Otomatik işler günlük tavanı']);
         $setting = AgencySetting::query()->orderBy('id')->first() ?? new AgencySetting;
-        $setting->forceFill(['ai_monthly_budget_usd' => round((float) $this->budget, 2)])->save();
-        session()->flash('status', 'Aylık AI bütçesi kaydedildi.');
+        $setting->forceFill(['ai_monthly_budget_usd' => round((float) $this->budget, 2), 'ai_daily_auto_budget_usd' => round((float) $this->dailyAutoBudget, 2)])->save();
+        session()->flash('status', 'AI bütçeleri kaydedildi.');
     }
 
     public function close(): void
@@ -179,7 +187,9 @@ final class AiOperationsPage extends Component
         $liveRows = $detail === null ? $this->live($live) : null;
 
         return view('livewire.operator.settings.ai-operations', ['rows' => $rows, 'detail' => $detail, 'live' => $liveRows, 'monthSpend' => $aiBudget->monthSpend(),
-            'monthlyBudget' => $aiBudget->monthlyBudget(), 'remaining' => max(0.0, $aiBudget->monthlyBudget() - $aiBudget->monthSpend()),
+            'monthlyBudget' => $aiBudget->monthlyBudget(),
+            'costs' => $detail === null ? $aiBudget->breakdown(in_array($this->costHours, [24, 168], true) ? $this->costHours : 24) : [],
+            'autoSpend' => $aiBudget->dailyAutoSpend(), 'autoBudget' => $aiBudget->dailyAutoBudget(), 'remaining' => max(0.0, $aiBudget->monthlyBudget() - $aiBudget->monthSpend()),
             'schedule' => $detail === null ? app(AiSchedule::class)->upcoming() : []]);
     }
 

@@ -4,6 +4,7 @@ namespace App\Ai\Agents\Insights;
 
 use App\Ai\Concerns\UsesPromptRegistry;
 use App\Ai\Contracts\RegistryPrompted;
+use App\Support\Ai\AiProviderOptions;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasProviderOptions;
@@ -41,6 +42,6 @@ abstract class InsightAgent implements Agent, HasProviderOptions, HasStructuredO
     {
         $key = $provider instanceof Lab ? $provider->value : $provider;
 
-        return $key === Lab::OpenAI->value ? ['store' => false] : [];
+        return AiProviderOptions::for((string) $key);
     }
 }

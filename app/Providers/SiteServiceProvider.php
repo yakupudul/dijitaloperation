@@ -17,9 +17,9 @@ final class SiteServiceProvider extends ServiceProvider
     private const array ROUTES = [
         AiRouteKeys::SITE_PAGE_CATEGORIES => ['Site Page Categories', 'Web sitesi: one batched call categorizes the pages the rules could not place (hizmet / blog / kurumsal / sss / lokasyon / diğer).', 'classification'],
         AiRouteKeys::SITE_SERVICE_PAGES => ['Site Service Pages', 'Web sitesi AI adım 1: hizmet / lokasyon pages the name rules could not match → one approved brand service or none.', 'classification'],
-        AiRouteKeys::SITE_CLUSTER_PAGES => ['Site Cluster Pages', 'Web sitesi AI adım 2: coverage / intent judgement of the ambiguous cluster ↔ page mappings, one call per service.', 'analysis'],
-        AiRouteKeys::SITE_CLUSTER_MATCH => ['Site Cluster Match', 'Küme ↔ içerik: which page answers each cluster of one service, read from page titles, headings and text (candidates chosen by word overlap).', 'analysis'],
-        AiRouteKeys::SITE_CLUSTER_GAPS => ['Site Cluster Gaps', 'Küme eksikleri: what one page does not answer of its clusters (queries, facets, AI questions, service areas when the cluster needs them).', 'analysis'],
+        AiRouteKeys::SITE_CLUSTER_PAGES => ['Site Cluster Pages', 'Web sitesi AI adım 2: coverage / intent judgement of the ambiguous cluster ↔ page mappings, one call per service.', 'classification'],
+        AiRouteKeys::SITE_CLUSTER_MATCH => ['Site Cluster Match', 'Küme ↔ içerik: which page answers each cluster of one service, read from page titles, headings and text (candidates chosen by word overlap).', 'classification'],
+        AiRouteKeys::SITE_CLUSTER_GAPS => ['Site Cluster Gaps', 'Küme eksikleri: what one page does not answer of its clusters (queries, facets, AI questions, service areas when the cluster needs them).', 'classification'],
         AiRouteKeys::QUERIES_AI_QUERIES => ['Query AI Questions', 'AI sorguları: 4–8 questions people ask AI assistants per cluster of one service ("{bölge}" placeholder for local ones).', 'classification'],
         AiRouteKeys::SITE_PAGE_SUMMARY => ['Site Page Summaries', 'Marka hafızası: 2–4 sentence summary + key facts of pages used in analysis (batched).', 'classification'],
         AiRouteKeys::SITE_URL_ANALYSIS => ['Site URL Analysis', 'URL analizi: suggestions for one URL from its data pack; URLs / numbers / quotes are checked against the pack.', 'analysis'],

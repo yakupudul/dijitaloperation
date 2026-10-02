@@ -4,6 +4,7 @@ namespace App\Ai\Agents\Site;
 
 use App\Ai\Concerns\UsesPromptRegistry;
 use App\Ai\Contracts\RegistryPrompted;
+use App\Support\Ai\AiProviderOptions;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasProviderOptions;
 use Laravel\Ai\Contracts\HasStructuredOutput;
@@ -24,6 +25,6 @@ abstract class SiteAgent implements Agent, HasProviderOptions, HasStructuredOutp
     {
         $key = $provider instanceof Lab ? $provider->value : $provider;
 
-        return $key === Lab::OpenAI->value ? ['store' => false] : [];
+        return AiProviderOptions::for((string) $key);
     }
 }

@@ -3,6 +3,9 @@
 namespace App\Services\Ai;
 
 use App\Models\AgencySetting;
+use App\Services\AiJobs\AiJobTracker;
+use App\Support\Ai\AiOperationLabels;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -41,10 +44,79 @@ final class AiBudget
         return $budget > 0 && $this->monthSpend() >= $budget;
     }
 
-    /** A step may run when budget remains, or when its model is known to be free. */
+    /**
+     * A step may run when budget remains, or when its model is known to be free. Automatic work (nobody clicked) also
+     * stops for the day once its rolling 24-hour spend reached the daily ceiling.
+     */
     public function allows(string $provider, string $model): bool
     {
-        return ! $this->isExhausted() || $this->pricing->isFree($provider, $model);
+        if ($this->pricing->isFree($provider, $model)) {
+            return true;
+        }
+
+        return ! $this->isExhausted() && ! (self::isAutomatic() && $this->dailyAutoExhausted());
+    }
+
+    public function dailyAutoBudget(): float
+    {
+        $stored = Schema::hasColumn('agency_settings', 'ai_daily_auto_budget_usd')
+            ? AgencySetting::query()->orderBy('id')->value('ai_daily_auto_budget_usd')
+            : null;
+
+        return $stored !== null ? (float) $stored : (float) config('moxdop-ai-pricing.daily_auto_budget_usd', 1);
+    }
+
+    /** Spend of the AI calls nobody clicked in the last 24 hours. */
+    public function dailyAutoSpend(): float
+    {
+        if (! Schema::hasTable('ai_live_operations')) {
+            return 0.0;
+        }
+
+        return (float) DB::table('ai_live_operations')->where('kind', 'call')->whereNull('user_id')
+            ->where('started_at', '>=', now()->subDay())->sum('cost_usd');
+    }
+
+    public function dailyAutoExhausted(): bool
+    {
+        $budget = $this->dailyAutoBudget();
+
+        return $budget > 0 && $this->dailyAutoSpend() >= $budget;
+    }
+
+    /**
+     * Where the money went: AI calls of the last $hours per operation (most expensive first), split into automatic
+     * work (nobody clicked) and operator clicks, with the model used most.
+     *
+     * @return list<array{operation: string, label: string, calls: int, cost: float, auto_cost: float, model: ?string}>
+     */
+    public function breakdown(int $hours = 24): array
+    {
+        if (! Schema::hasTable('ai_live_operations')) {
+            return [];
+        }
+
+        return DB::table('ai_live_operations')->where('kind', 'call')->where('started_at', '>=', now()->subHours($hours))
+            ->selectRaw('operation, count(*) as calls, coalesce(sum(cost_usd), 0) as cost, coalesce(sum(case when user_id is null then cost_usd else 0 end), 0) as auto_cost, max(model) as model')
+            ->groupBy('operation')->orderByDesc('cost')->get()
+            ->map(fn (object $row): array => ['operation' => (string) $row->operation, 'label' => AiOperationLabels::for($row->operation !== null ? (string) $row->operation : null),
+                'calls' => (int) $row->calls, 'cost' => round((float) $row->cost, 4), 'auto_cost' => round((float) $row->auto_cost, 4),
+                'model' => $row->model !== null ? (string) $row->model : null])
+            ->all();
+    }
+
+    /** No operator behind this call: not a web request of a signed-in user and no operator handed down to the job. */
+    public static function isAutomatic(): bool
+    {
+        if (auth()->check()) {
+            return false;
+        }
+        if (Context::getHidden(AiLiveOperations::USER_CONTEXT) !== null) {
+            return false;
+        }
+        $rowId = app(AiJobTracker::class)->currentRowId();
+
+        return $rowId === null || DB::table('ai_live_operations')->where('id', $rowId)->value('user_id') === null;
     }
 
     /**

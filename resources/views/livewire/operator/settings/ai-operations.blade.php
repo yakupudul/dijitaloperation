@@ -37,6 +37,9 @@
                     <p class="text-xs text-gray-500">Maliyet · bugün / bu ay</p>
                     <p class="text-2xl font-bold tabular-nums text-gray-800 dark:text-white/90">{{ $usd($live['today']['cost']) }} <span class="text-sm font-normal text-gray-500">/ {{ $usd($monthSpend) }}</span></p>
                     <p @class(['text-xs', 'text-rose-600' => $remaining <= 0, 'text-gray-500' => $remaining > 0])>Kalan bakiye: {{ $usd($remaining) }} (bütçe {{ $usd($monthlyBudget) }})</p>
+                    <p @class(['text-xs', 'font-semibold text-rose-600' => $autoBudget > 0 && $autoSpend >= $autoBudget, 'text-gray-500' => ! ($autoBudget > 0 && $autoSpend >= $autoBudget)]) data-ai-auto-budget>
+                        Otomatik işler (24 sa): {{ $usd($autoSpend) }} / {{ $autoBudget > 0 ? $usd($autoBudget) : 'sınırsız' }}@if ($autoBudget > 0 && $autoSpend >= $autoBudget) · tavan doldu, otomatik AI durdu @endif
+                    </p>
                 </div>
             </div>
 
@@ -97,6 +100,35 @@
                 @endif
             </section>
 
+            {{-- Harcama nereye gitti --}}
+            <section class="{{ $card }} p-5" data-ai-costs>
+                <div class="flex flex-wrap items-baseline justify-between gap-2">
+                    <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Harcama nereye gitti</h2>
+                    <div class="flex gap-1 text-xs">
+                        <button type="button" wire:click="$set('costHours', 24)" @class(['rounded-lg px-2 py-1', 'bg-brand-500 text-white' => $costHours === 24, 'ring-1 ring-inset ring-gray-300 text-gray-600' => $costHours !== 24])>24 saat</button>
+                        <button type="button" wire:click="$set('costHours', 168)" @class(['rounded-lg px-2 py-1', 'bg-brand-500 text-white' => $costHours === 168, 'ring-1 ring-inset ring-gray-300 text-gray-600' => $costHours !== 168])>7 gün</button>
+                    </div>
+                </div>
+                @php($costTotal = array_sum(array_column($costs, 'cost')))
+                <table class="mt-2 w-full text-sm">
+                    <thead class="text-left text-xs text-gray-400"><tr><th class="py-1">İşlem</th><th class="text-right">Çağrı</th><th class="text-right">Maliyet</th><th class="text-right">Pay</th><th class="text-right">Otomatik</th><th class="pl-3">Model</th></tr></thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                        @forelse ($costs as $cost)
+                            <tr wire:key="cost-{{ $cost['operation'] }}">
+                                <td class="py-1.5">{{ $cost['label'] }}</td>
+                                <td class="text-right tabular-nums">{{ $cost['calls'] }}</td>
+                                <td class="text-right tabular-nums font-medium">{{ $usd($cost['cost']) }}</td>
+                                <td class="text-right tabular-nums text-gray-500">{{ $costTotal > 0 ? round($cost['cost'] / $costTotal * 100) : 0 }}%</td>
+                                <td class="text-right tabular-nums text-gray-500">{{ $usd($cost['auto_cost']) }}</td>
+                                <td class="pl-3 text-xs text-gray-500">{{ $cost['model'] ?? '—' }}</td>
+                            </tr>
+                        @empty
+                            <tr><td class="py-2 text-gray-500">Bu sürede AI harcaması yok.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </section>
+
             <div class="grid gap-5 lg:grid-cols-3">
                 {{-- Son 24 saat --}}
                 <section class="{{ $card }} p-5 lg:col-span-2" data-ai-finished>
@@ -142,14 +174,19 @@
         </div>
 
         <details class="{{ $card }} px-5 py-3 text-sm" data-ai-budget>
-            <summary class="cursor-pointer font-semibold text-gray-800 dark:text-white/90">Aylık AI bütçesi · {{ $usd($monthlyBudget) }} · Kalan bakiye {{ $usd($remaining) }}</summary>
+            <summary class="cursor-pointer font-semibold text-gray-800 dark:text-white/90">AI bütçesi · aylık {{ $usd($monthlyBudget) }} · otomatik işler günlük {{ $autoBudget > 0 ? $usd($autoBudget) : 'sınırsız' }} · Kalan bakiye {{ $usd($remaining) }}</summary>
             <form wire:submit="saveBudget" class="mt-2 flex flex-wrap items-end gap-3">
                 <label class="flex flex-col gap-1">
                     <span class="text-xs text-gray-500">Aylık AI bütçesi (USD)</span>
                     <input type="number" step="1" min="0" wire:model="budget" class="w-32 rounded-lg border border-gray-300 px-2 py-1 dark:border-gray-700 dark:bg-gray-900">
                 </label>
+                <label class="flex flex-col gap-1">
+                    <span class="text-xs text-gray-500">Otomatik işler günlük tavanı (USD)</span>
+                    <input type="number" step="0.5" min="0" wire:model="dailyAutoBudget" class="w-32 rounded-lg border border-gray-300 px-2 py-1 dark:border-gray-700 dark:bg-gray-900" data-daily-auto-budget>
+                </label>
                 <button type="submit" class="rounded-lg bg-brand-500 px-3 py-1.5 text-white">Kaydet</button>
-                <span class="w-full text-xs text-gray-500">İşlem başına sınır yok; bakiye bitince ay sonuna kadar yalnız ücretsiz modeller çalışır.</span>
+                <span class="w-full text-xs text-gray-500">Aylık bakiye bitince ay sonuna kadar yalnız ücretsiz modeller çalışır. Kimse tıklamadan çalışan işler (gece akışı, sorgu pilotu, kümeleme, analistler) son 24 saatte günlük tavana ulaşınca durur; senin tıkladığın işler çalışmaya devam eder. 0 = tavan yok.</span>
+                @error('dailyAutoBudget')<span class="text-xs text-red-600">{{ $message }}</span>@enderror
                 @error('budget')<span class="text-xs text-red-600">{{ $message }}</span>@enderror
             </form>
         </details>
