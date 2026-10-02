@@ -89,6 +89,15 @@ return new class extends Migration
             return false;
         }
 
+        if ($driver === 'pgsql') {
+            $rows = $connection->select(
+                'SELECT 1 FROM pg_indexes WHERE tablename = ? AND indexname = ? LIMIT 1',
+                ['evidence', $indexName],
+            );
+
+            return $rows !== [];
+        }
+
         $database = $connection->getDatabaseName();
         $rows = $connection->select(
             'SELECT 1 FROM information_schema.statistics WHERE table_schema = ? AND table_name = ? AND index_name = ? LIMIT 1',

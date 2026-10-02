@@ -3,48 +3,48 @@
 namespace App\Support\Demo;
 
 /**
- * Canonical /app navigation for the full product demo (TailAdmin sidebar).
+ * Canonical operator navigation for the TailAdmin operator shell (the class name is legacy).
  *
- * Module/package architecture is intentionally not exposed here.
+ * MoxDOP v2 (Faz 0): the sidebar is exactly Bugün · Müşteriler · Markalar · Web siteleri · Sorgular · Entegrasyonlar ·
+ * Ayarlar.
+ * Ayarlar carries the settings screens as tabs: AI işlemleri ve promptlar, Standartlar, Sektör ve hizmet kataloğu,
+ * Kullanıcılar, Sistem. Every other screen is reached from a brand / asset page or a direct link.
  */
 final class DemoMenu
 {
     /**
-     * @return list<array{label: string, items: list<array{label: string, route: string, icon: string}>}>
+     * The sidebar holds one entry per job; related screens are its children and show as tabs on each other (W7).
+     *
+     * @return list<array{label: string, items: list<array{label: string, route: string, icon: string, children: list<array{label: string, route: string}>, active: list<string>}>}>
      */
     public static function groups(): array
     {
+        $tr = app()->getLocale() === 'tr';
+
+        $item = static fn (string $label, string $route, string $icon, array $children = [], array $active = []): array => ['label' => $label, 'route' => $route, 'icon' => $icon, 'children' => $children, 'active' => $active];
+        $child = static fn (string $label, string $route): array => ['label' => $label, 'route' => $route];
+
         return [
             [
                 'label' => __('operator.nav.groups.menu'),
                 'items' => [
-                    ['label' => __('operator.nav.dashboard'), 'route' => 'demo.dashboard', 'icon' => 'dashboard'],
-                ],
-            ],
-            [
-                'label' => __('operator.nav.groups.portfolio'),
-                'items' => [
-                    ['label' => __('operator.nav.customers'), 'route' => 'demo.customers', 'icon' => 'customers'],
-                    ['label' => __('operator.nav.brands'), 'route' => 'demo.brands', 'icon' => 'brands'],
-                    ['label' => __('operator.nav.digital_assets'), 'route' => 'demo.assets', 'icon' => 'assets'],
-                    ['label' => __('operator.nav.files'), 'route' => 'demo.files', 'icon' => 'files'],
-                ],
-            ],
-            [
-                'label' => __('operator.nav.groups.operations'),
-                'items' => [
-                    ['label' => __('operator.nav.opportunities'), 'route' => 'demo.opportunities', 'icon' => 'recommendations'],
-                    ['label' => __('operator.nav.findings'), 'route' => 'demo.findings', 'icon' => 'findings'],
-                    ['label' => __('operator.nav.recommendations'), 'route' => 'demo.recommendations', 'icon' => 'recommendations'],
-                    ['label' => __('operator.nav.work'), 'route' => 'demo.tasks', 'icon' => 'tasks'],
-                    ['label' => __('operator.nav.activity'), 'route' => 'demo.activity', 'icon' => 'activity'],
-                ],
-            ],
-            [
-                'label' => __('operator.nav.groups.system'),
-                'items' => [
-                    ['label' => __('operator.nav.integrations'), 'route' => 'demo.integrations', 'icon' => 'integrations'],
-                    ['label' => __('operator.nav.settings'), 'route' => 'demo.settings', 'icon' => 'settings'],
+                    $item($tr ? 'Bugün' : 'Today', 'operator.dashboard', 'dashboard'),
+                    $item(__('operator.nav.customers'), 'operator.customers', 'customers'),
+                    $item(__('operator.nav.brands'), 'operator.brands', 'brands'),
+                    $item($tr ? 'Web siteleri' : 'Websites', 'operator.websites', 'website', [], ['operator.website']),
+                    $item($tr ? 'Sorgular' : 'Queries', 'operator.library.queries', 'search'),
+                    $item(__('operator.nav.integrations'), 'operator.integrations', 'integrations', [
+                        $child($tr ? 'Keşfedilen varlıklar' : 'Discovered Assets', 'operator.integrations.discovered'),
+                        $child($tr ? 'WordPress siteleri' : 'WordPress Sites', 'operator.integrations.wordpress-sites'),
+                        $child($tr ? 'Veri merkezi' : 'Data Center', 'operator.data-center'),
+                    ]),
+                    $item(__('operator.nav.settings'), 'operator.settings', 'settings', [
+                        $child($tr ? 'AI işlemleri ve promptlar' : 'AI operations & prompts', 'operator.settings.ai-operations'),
+                        $child($tr ? 'Standartlar' : 'Standards', 'operator.library.website-standards'),
+                        $child($tr ? 'Sektör ve hizmet kataloğu' : 'Sector & service catalog', 'operator.library.services'),
+                        $child($tr ? 'Kullanıcılar' : 'Users', 'operator.settings.users'),
+                        $child($tr ? 'Sistem' : 'System', 'operator.settings.system-health'),
+                    ]),
                 ],
             ],
         ];

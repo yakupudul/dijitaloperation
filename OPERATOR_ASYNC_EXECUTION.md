@@ -139,7 +139,7 @@ A global **Activity / Operations Center** is the intended aggregation surface fo
 As of Async Operations + Activity Center:
 
 - Database queue + `AsyncOperationService` orchestrate long Digital Asset actions
-- Filament Activity (`/app/runs`) is the operator Operations Center
+- Operator Activity Center is the root Livewire surface `/activity` (`operator.activity`). Filament Runs at `/admin/runs` remain technical/admin tooling only (ADR-044). Legacy `/app/runs` returns HTTP 410.
 - Migrated flows: bound collect (Meta/Google/Website refresh), Website diagnosis, public discovery, SEO refresh (when provider work needed), Website/Google/Meta AI guidance
 - Deliberately still sync: short cross-asset consistency packs; integration resource refresh; SEO “already fresh” short-circuit
 - Cancellation: **future** — do not expose fake Cancel for in-flight provider HTTP

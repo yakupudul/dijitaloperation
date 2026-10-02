@@ -2,20 +2,15 @@
 
 namespace Tests\Feature;
 
-use App\Filament\App\Clusters\Settings\Pages\AiControlPlaneSettings;
 use App\Filament\App\Resources\Modules\ModuleResource;
 use App\Livewire\Demo\Dashboard;
-use App\Livewire\Demo\Operations\ActivityIndex;
-use App\Livewire\Demo\Operations\FindingsIndex;
-use App\Livewire\Demo\Operations\RecommendationsIndex;
-use App\Livewire\Demo\Portfolio\BrandShow;
 use App\Livewire\Demo\SettingsPage;
+use App\Livewire\Operator\Portfolio\BrandShow;
+use App\Models\AgencySetting;
+use App\Models\Brand;
 use App\Models\User;
-use App\Support\Agents\AgentProfileKeys;
-use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\AiRouteRegistry;
-use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use App\Support\DigitalAssetTypes;
 use App\Support\DigitalAssetVisualCatalog;
@@ -64,88 +59,26 @@ class ProductVisionRecoveryTest extends TestCase
     public function test_ai_control_plane_enumerates_all_registered_routes(): void
     {
         $registry = app(AiRouteRegistry::class);
-        foreach ([
-            AiRouteKeys::WEBSITE_AI_GUIDANCE,
-            AiRouteKeys::WEBSITE_DISCOVERY_CONTEXT,
-            AiRouteKeys::GOOGLE_ADS_AI_GUIDANCE,
-            AiRouteKeys::META_ADS_AI_GUIDANCE,
-            AiRouteKeys::GBP_AI_GUIDANCE,
-            AiRouteKeys::GA4_AI_GUIDANCE,
-            AiRouteKeys::GSC_AI_GUIDANCE,
-        ] as $key) {
-            $this->assertTrue($registry->has($key), 'Missing AI route: '.$key);
+        $this->assertTrue($registry->has(AiRouteKeys::WEBSITE_DISCOVERY_CONTEXT), 'Missing AI route: '.AiRouteKeys::WEBSITE_DISCOVERY_CONTEXT);
+
+        // Faz 1 (ADR-065): module AI guidance routes are no longer registered.
+        foreach (['website.ai_guidance', 'google_ads.ai_guidance', 'meta_ads.ai_guidance', 'gbp.ai_guidance', 'ga4.ai_guidance', 'gsc.ai_guidance'] as $key) {
+            $this->assertFalse($registry->has($key), 'Removed AI route still registered: '.$key);
         }
-
-        Livewire::test(AiControlPlaneSettings::class)
-            ->assertOk()
-            ->assertSee('Registered AI routes')
-            ->assertSee('Website AI Guidance')
-            ->assertSee('Website Discovery Context')
-            ->assertSee('Google Ads')
-            ->assertSee('Meta Ads')
-            ->assertSee('GBP Local Presence Guidance')
-            ->assertSee('GA4 Measurement Guidance')
-            ->assertSee('Search Console Organic Search Guidance')
-            ->call('selectRoute', AiRouteKeys::META_ADS_AI_GUIDANCE)
-            ->assertSet('selectedRoute', AiRouteKeys::META_ADS_AI_GUIDANCE)
-            ->assertSee('meta_ads.ai_guidance');
-    }
-
-    public function test_specialist_agent_profiles_are_registered(): void
-    {
-        $agents = app(AgentProfileRegistry::class);
-        $this->assertTrue($agents->has(AgentProfileKeys::GBP_LOCAL_PRESENCE_ANALYST));
-        $this->assertTrue($agents->has(AgentProfileKeys::GA4_MEASUREMENT_ANALYST));
-        $this->assertTrue($agents->has(AgentProfileKeys::GSC_ORGANIC_SEARCH_ANALYST));
-        $this->assertSame('designed', $agents->get(AgentProfileKeys::GBP_LOCAL_PRESENCE_ANALYST)->status);
-        $this->assertSame(AiRouteKeys::GA4_AI_GUIDANCE, $agents->get(AgentProfileKeys::GA4_MEASUREMENT_ANALYST)->aiRouteKey);
-    }
-
-    public function test_findings_support_acknowledge_and_resolve_actions(): void
-    {
-        Livewire::test(FindingsIndex::class)
-            ->assertOk()
-            ->call('acknowledge', 'f-lead-measurement')
-            ->assertSee('Finding acknowledged')
-            ->call('resolve', 'f-lead-measurement')
-            ->assertSee('Finding resolved');
-
-        $statuses = DemoState::all()['finding_statuses'] ?? [];
-        $this->assertSame('resolved', $statuses['f-lead-measurement'] ?? null);
-    }
-
-    public function test_recommendations_support_defer_decision(): void
-    {
-        Livewire::test(RecommendationsIndex::class)
-            ->assertOk()
-            ->call('defer', 'r-review-conversion-mapping')
-            ->assertSee('deferred');
-
-        $rec = collect(DemoState::all()['recommendations'])->firstWhere('id', 'r-review-conversion-mapping');
-        $this->assertSame('deferred', $rec['status'] ?? null);
-    }
-
-    public function test_activity_period_filter_excludes_older_seed_events(): void
-    {
-        Livewire::test(ActivityIndex::class)
-            ->assertOk()
-            ->set('period', 'last_7')
-            ->assertDontSee('Hosting probe failed')
-            ->set('period', 'last_90')
-            ->assertSee('Hosting probe failed');
     }
 
     public function test_brand_business_context_is_editable_as_canonical_source(): void
     {
-        Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
+        $brand = Brand::factory()->create(['name' => 'Northwind Brand']);
+
+        Livewire::test(BrandShow::class, ['brand' => (string) $brand->id])
             ->assertOk()
             ->call('startEditingContext')
-            ->set('context_business_summary', 'Updated Atlas Dental canonical summary')
+            ->set('context_business_summary', 'Updated Northwind canonical summary')
             ->call('saveBusinessContext')
-            ->assertSee('Updated Atlas Dental canonical summary');
+            ->assertSee('Updated Northwind canonical summary');
 
-        $saved = DemoState::brandBusinessContext(DemoCatalog::BRAND_ID);
-        $this->assertSame('Updated Atlas Dental canonical summary', $saved['business_summary'] ?? null);
+        $this->assertSame('Updated Northwind canonical summary', $brand->fresh()->intelligenceContext?->business_summary);
     }
 
     public function test_settings_persist_general_and_notification_overrides(): void
@@ -157,26 +90,23 @@ class ProductVisionRecoveryTest extends TestCase
             ->call('saveGeneral')
             ->assertSet('agency_name', 'Moximu Agency Demo')
             ->set('section', 'ai')
-            ->assertSee(__('operator.settings.ai.routes_title'))
-            ->assertSee('gbp.ai_guidance')
-            ->assertSee('ga4.ai_guidance')
-            ->assertSee('gsc.ai_guidance')
-            ->assertSee('GBP Local Presence Analyst');
+            ->assertSee(__('operator.settings.ai.overview'));
 
-        $this->assertSame('Moximu Agency Demo', DemoState::settingsOverrides()['general']['agency_name'] ?? null);
+        $this->assertSame('Moximu Agency Demo', AgencySetting::query()->first()?->agency_name);
+        $this->assertSame([], DemoState::settingsOverrides());
     }
 
     public function test_app_shell_surfaces_remain_reachable(): void
     {
-        Livewire::test(Dashboard::class)->assertOk()->assertSee('Needs your attention')->assertSee('My Work');
+        Livewire::test(Dashboard::class)->assertOk()->assertSee(__('operator.dashboard_exec.today'));
 
-        $this->get('/app/assets')->assertOk();
-        $this->get('/app/assets/analytics')->assertOk();
-        $this->get('/app/assets/search-console')->assertOk();
-        $this->get('/app/assets/gbp')->assertOk();
-        $this->get('/app/setup')->assertOk();
-        $this->get('/app/integrations/connectors/ga4')->assertOk();
-        $this->get('/app/integrations/connectors/gsc')->assertOk();
-        $this->get('/app/settings?section=ai')->assertOk();
+        $this->get('/assets')->assertOk();
+        $this->get('/assets/analytics')->assertNotFound();
+        $this->get('/assets/search-console')->assertNotFound();
+        $this->get('/assets/gbp')->assertNotFound();
+        $this->get('/setup')->assertNotFound(); // setup happens through "Otomatik kur" on the brand
+        $this->get('/integrations/connectors/ga4')->assertOk();
+        $this->get('/integrations/connectors/gsc')->assertOk();
+        $this->get('/settings?section=ai')->assertOk();
     }
 }

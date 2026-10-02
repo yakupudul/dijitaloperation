@@ -13,15 +13,15 @@ final class AnthropicAuthStatus
         $resolver = app(AnthropicCredentialResolver::class);
 
         if (! $resolver->isConfigured($integration)) {
-            return 'Not configured';
+            return __('operator.states.not_configured');
         }
 
         if ($resolver->apiKeySource($integration) === AnthropicCredentialResolver::SOURCE_ENVIRONMENT
             && ! $resolver->hasDatabaseApiKey($integration)) {
-            return 'Configured by environment';
+            return __('operator.states.configured_environment');
         }
 
-        return 'Configured';
+        return __('operator.states.configured');
     }
 
     public static function connectionLabel(CoreIntegration $integration): string

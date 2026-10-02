@@ -1,4 +1,4 @@
-<div class="relative hidden md:block" x-data="{ open: @entangle('open') }" @click.outside="open = false">
+<div class="relative hidden lg:block" x-data="{ open: @entangle('open') }" @click.outside="open = false">
     <label class="sr-only" for="global-portfolio-search">{{ __('operator.actions.search') }}</label>
     <input
         id="global-portfolio-search"

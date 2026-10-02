@@ -1,0 +1,206 @@
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Prompt 66 — Observability & Operations
+    |--------------------------------------------------------------------------
+    | Explicit dimensions. No overall health score. No fake quotas.
+    */
+
+    'enabled' => env('MOXDOP_OBSERVABILITY_ENABLED', true),
+
+    // Warn this many days before a Google (testing app) refresh token or Meta long-lived token expires.
+    'credential_expiry_warning_days' => (int) env('MOXDOP_OPS_CREDENTIAL_EXPIRY_WARNING_DAYS', 7),
+
+    // Queues that get a heartbeat probe job every 5 minutes (worker liveness per queue).
+    'probe_queues' => ['default', 'collection'],
+
+    'liveness_path' => env('MOXDOP_OPS_LIVENESS_PATH', '/up/liveness'),
+    'readiness_path' => env('MOXDOP_OPS_READINESS_PATH', '/up/readiness'),
+
+    /*
+    | Worker heartbeat — deployment-specific expected counts live in env.
+    | Never hard-code developer laptop process counts as production truth.
+    */
+    'worker' => [
+        'heartbeat_stale_seconds' => (int) env('MOXDOP_OPS_WORKER_HEARTBEAT_STALE_SECONDS', 180),
+        // worker_heartbeat_missing opens only after every heartbeat has been silent this long (deploy restarts).
+        'alert_after_seconds' => (int) env('MOXDOP_OPS_WORKER_ALERT_AFTER_SECONDS', 600),
+        'expected_supervisors' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('MOXDOP_OPS_EXPECTED_SUPERVISORS', '')),
+        ))),
+    ],
+
+    'queue' => [
+        // Workload-class backlog: wait age matters more than raw count.
+        'interactive_oldest_age_alert_seconds' => (int) env('MOXDOP_OPS_QUEUE_INTERACTIVE_AGE_SECONDS', 300),
+        'background_oldest_age_alert_seconds' => (int) env('MOXDOP_OPS_QUEUE_BACKGROUND_AGE_SECONDS', 3600),
+        'hold_duration_seconds' => (int) env('MOXDOP_OPS_QUEUE_HOLD_SECONDS', 120),
+        // Horizon wait ("time to clear") per redis queue; above this an operational alert opens (redis driver only).
+        'wait_alert_seconds' => [
+            'default' => (int) env('MOXDOP_OPS_QUEUE_WAIT_DEFAULT_SECONDS', 300),
+            'heavy' => (int) env('MOXDOP_OPS_QUEUE_WAIT_HEAVY_SECONDS', 900),
+            'collection' => (int) env('MOXDOP_OPS_QUEUE_WAIT_COLLECTION_SECONDS', 1800),
+        ],
+    ],
+
+    'collection' => [
+        // Workload-aware stuck policies (seconds without progress).
+        'stuck_incremental_no_progress_seconds' => (int) env('MOXDOP_OPS_STUCK_INCREMENTAL_SECONDS', 900),
+        'stuck_backfill_no_progress_seconds' => (int) env('MOXDOP_OPS_STUCK_BACKFILL_SECONDS', 7200),
+        'stuck_default_no_progress_seconds' => (int) env('MOXDOP_OPS_STUCK_DEFAULT_SECONDS', 1800),
+    ],
+
+    'provider_api' => [
+        'window_seconds' => 900,
+        'error_rate_minimum_attempts' => (int) env('MOXDOP_OPS_PROVIDER_MIN_ATTEMPTS', 20),
+        'error_rate_threshold' => (float) env('MOXDOP_OPS_PROVIDER_ERROR_RATE', 0.35),
+        'rate_limit_minimum_attempts' => (int) env('MOXDOP_OPS_RATE_LIMIT_MIN_ATTEMPTS', 10),
+        'rate_limit_threshold' => (float) env('MOXDOP_OPS_RATE_LIMIT_RATE', 0.25),
+        'counter_retention_hours' => (int) env('MOXDOP_OPS_PROVIDER_COUNTER_RETENTION_HOURS', 72),
+    ],
+
+    'dataset' => [
+        // Stale alerts use Prompt27 state + operational hold — not universal hours.
+        'stale_hold_seconds' => (int) env('MOXDOP_OPS_STALE_HOLD_SECONDS', 1800),
+    ],
+
+    'scheduler' => [
+        'dispatcher_stale_seconds' => (int) env('MOXDOP_OPS_SCHEDULER_STALE_SECONDS', 600),
+    ],
+
+    'alert' => [
+        'notify_on_open' => (bool) env('MOXDOP_OPS_ALERT_NOTIFY_ON_OPEN', true),
+        'notify_on_resolve' => (bool) env('MOXDOP_OPS_ALERT_NOTIFY_ON_RESOLVE', false),
+        // A condition that comes back updates its one bell row; within these hours of the last ping it stays read.
+        'reopen_quiet_hours' => (int) env('MOXDOP_OPS_ALERT_REOPEN_QUIET_HOURS', 24),
+        // Explicit internal recipient user IDs. Empty = Admin role users only.
+        // Zero recipients: Alert stays OPEN, no notify-all fallback.
+        'recipient_user_ids' => array_values(array_filter(array_map(
+            'intval',
+            explode(',', (string) env('MOXDOP_OPS_ALERT_RECIPIENT_USER_IDS', '')),
+        ))),
+    ],
+
+    /*
+    | Versioned operational alert rules (deterministic; no SQL/PHP expressions).
+    | Thresholds that are NOT_CONFIGURED stay disabled until deployment sets env.
+    */
+    'rules' => [
+        [
+            'key' => 'queue_interactive_backlog',
+            'version' => 1,
+            'type' => 'QUEUE_BACKLOG',
+            'enabled' => true,
+            'severity' => 'WARNING',
+            'signal_family' => 'QUEUE',
+            'hold_seconds' => null, // uses queue.hold_duration_seconds
+            'recovery' => 'oldest_age_below_threshold',
+        ],
+        [
+            'key' => 'queue_wait_high',
+            'version' => 1,
+            'type' => 'QUEUE_BACKLOG',
+            'enabled' => true,
+            'severity' => 'WARNING',
+            'signal_family' => 'QUEUE',
+            'hold_seconds' => 0, // Horizon wait is already a forecast; queue.wait_alert_seconds per queue
+            'recovery' => 'wait_below_threshold',
+        ],
+        [
+            'key' => 'worker_heartbeat_missing',
+            'version' => 1,
+            'type' => 'QUEUE_WORKER_UNAVAILABLE',
+            'enabled' => true,
+            'severity' => 'CRITICAL',
+            'signal_family' => 'WORKER',
+            'hold_seconds' => null,
+            'recovery' => 'heartbeat_fresh',
+        ],
+        [
+            'key' => 'collection_stuck',
+            'version' => 1,
+            'type' => 'COLLECTION_STUCK',
+            'enabled' => true,
+            'severity' => 'WARNING',
+            'signal_family' => 'COLLECTION',
+            'hold_seconds' => 0,
+            'recovery' => 'no_stuck_candidates',
+        ],
+        [
+            'key' => 'collection_repeated_failure',
+            'version' => 1,
+            'type' => 'COLLECTION_REPEATED_FAILURE',
+            'enabled' => true,
+            'severity' => 'WARNING',
+            'signal_family' => 'COLLECTION',
+            'min_failures' => 3,
+            'window_seconds' => 3600,
+            'recovery' => 'no_recent_failures',
+        ],
+        [
+            'key' => 'provider_rate_limited',
+            'version' => 1,
+            'type' => 'PROVIDER_RATE_LIMITED',
+            'enabled' => true,
+            'severity' => 'WARNING',
+            'signal_family' => 'PROVIDER_API',
+            'recovery' => 'rate_below_threshold',
+        ],
+        [
+            'key' => 'provider_error_rate',
+            'version' => 1,
+            'type' => 'PROVIDER_ERROR_RATE',
+            'enabled' => true,
+            'severity' => 'WARNING',
+            'signal_family' => 'PROVIDER_API',
+            'recovery' => 'error_rate_below_threshold',
+        ],
+        [
+            'key' => 'credential_reconnect_required',
+            'version' => 1,
+            'type' => 'PROVIDER_AUTH_FAILURE',
+            'enabled' => true,
+            'severity' => 'CRITICAL',
+            'signal_family' => 'CREDENTIAL',
+            'recovery' => 'credential_active',
+        ],
+        [
+            'key' => 'credential_expiring',
+            'version' => 1,
+            'type' => 'PROVIDER_AUTH_FAILURE',
+            'enabled' => true,
+            'severity' => 'WARNING',
+            'signal_family' => 'CREDENTIAL',
+            'recovery' => 'credential_renewed',
+        ],
+        [
+            'key' => 'dataset_stale',
+            'version' => 1,
+            'type' => 'DATASET_STALE',
+            'enabled' => true,
+            'severity' => 'WARNING',
+            'signal_family' => 'DATASET',
+            'recovery' => 'freshness_current',
+        ],
+    ],
+
+    /* Disk guard (StorageGuard): warn by phone below warn_share; collection waits below pause_share or pause_gb. */
+    'storage' => [
+        'warn_share' => (float) env('MOXDOP_DISK_WARN_SHARE', 0.15),
+        'pause_share' => (float) env('MOXDOP_DISK_PAUSE_SHARE', 0.06),
+        'pause_gb' => (float) env('MOXDOP_DISK_PAUSE_GB', 3),
+    ],
+
+    /* Phone notification for a new kind of application error (one per kind per 6 hours). */
+    'error_alerts' => (bool) env('MOXDOP_ERROR_ALERTS', true),
+
+    /* Error grouping (app_error_groups): one row per fingerprint, written at most once per group per throttle window. */
+    'error_groups' => [
+        'enabled' => (bool) env('MOXDOP_ERROR_GROUPS', true),
+        'throttle_seconds' => (int) env('MOXDOP_ERROR_GROUPS_THROTTLE_SECONDS', 60),
+    ],
+];

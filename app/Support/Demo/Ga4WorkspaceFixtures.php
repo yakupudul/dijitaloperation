@@ -99,6 +99,10 @@ final class Ga4WorkspaceFixtures
      */
     public static function workspace(string $preset = 'last_28', ?string $start = null, ?string $end = null): array
     {
+        if (! DemoPeriod::inFixtureAnchorContext()) {
+            return DemoPeriod::usingFixtureAnchor(fn (): array => self::workspace($preset, $start, $end));
+        }
+
         $f = DemoCatalog::periodFactors($preset, $start, $end);
         $bounds = DemoPeriod::bounds($preset, $f['start'] ?? $start, $f['end'] ?? $end);
         $rangeStart = $bounds['start']->toDateString();
@@ -550,17 +554,17 @@ final class Ga4WorkspaceFixtures
                 'Paid Search' => [
                     'asset' => 'Google Ads',
                     'asset_id' => DemoCatalog::GOOGLE_ADS_ASSET_ID,
-                    'route' => 'demo.google-ads.overview',
+                    'route' => 'operator.google-ads.overview',
                 ],
                 'Paid Social' => [
                     'asset' => 'Meta Ads',
                     'asset_id' => DemoCatalog::META_ASSET_ID,
-                    'route' => 'demo.meta.overview',
+                    'route' => 'operator.meta.overview',
                 ],
                 'Organic Search' => [
                     'asset' => 'Search Console',
                     'asset_id' => DemoCatalog::GSC_ASSET_ID,
-                    'route' => 'demo.search-console',
+                    'route' => 'operator.search-console',
                 ],
                 default => null,
             };
@@ -585,7 +589,7 @@ final class Ga4WorkspaceFixtures
                 'mapped_actions' => (int) round($actions * 0.08),
                 'related_asset' => 'Meta Ads',
                 'related_asset_id' => DemoCatalog::META_ASSET_ID,
-                'route' => 'demo.meta.overview',
+                'route' => 'operator.meta.overview',
             ],
             [
                 'campaign' => 'Implant — TR Search',
@@ -594,7 +598,7 @@ final class Ga4WorkspaceFixtures
                 'mapped_actions' => (int) round($actions * 0.12),
                 'related_asset' => 'Google Ads',
                 'related_asset_id' => DemoCatalog::GOOGLE_ADS_ASSET_ID,
-                'route' => 'demo.google-ads.overview',
+                'route' => 'operator.google-ads.overview',
             ],
             [
                 'campaign' => 'Brand — Atlas Dental',
@@ -603,7 +607,7 @@ final class Ga4WorkspaceFixtures
                 'mapped_actions' => (int) round($actions * 0.05),
                 'related_asset' => 'Google Ads',
                 'related_asset_id' => DemoCatalog::GOOGLE_ADS_ASSET_ID,
-                'route' => 'demo.google-ads.overview',
+                'route' => 'operator.google-ads.overview',
             ],
             [
                 'campaign' => '(not set)',
@@ -710,7 +714,7 @@ final class Ga4WorkspaceFixtures
                     'asset_id' => DemoCatalog::WEBSITE_ASSET_ID,
                     'relationship' => 'Measures',
                     'detail' => 'Acquisition, landing behaviour, configured key events',
-                    'route' => 'demo.website',
+                    'route' => 'operator.website',
                 ],
             ],
             'provides_evidence_to' => [
@@ -718,19 +722,19 @@ final class Ga4WorkspaceFixtures
                     'asset' => 'Google Ads',
                     'asset_id' => DemoCatalog::GOOGLE_ADS_ASSET_ID,
                     'detail' => 'Landing behaviour + conversion evidence for paid search',
-                    'route' => 'demo.google-ads.overview',
+                    'route' => 'operator.google-ads.overview',
                 ],
                 [
                     'asset' => 'Meta Ads',
                     'asset_id' => DemoCatalog::META_ASSET_ID,
                     'detail' => 'Website destination behaviour for paid social',
-                    'route' => 'demo.meta.overview',
+                    'route' => 'operator.meta.overview',
                 ],
                 [
                     'asset' => 'Website Diagnosis / Findings',
                     'asset_id' => DemoCatalog::WEBSITE_ASSET_ID,
                     'detail' => 'Measurement debt and interruption Findings',
-                    'route' => 'demo.website',
+                    'route' => 'operator.website',
                 ],
             ],
             'technical_connection' => [
@@ -976,6 +980,10 @@ final class Ga4WorkspaceFixtures
      */
     public static function rawDayWeight(string $date): array
     {
+        if (! DemoPeriod::inFixtureAnchorContext()) {
+            return DemoPeriod::usingFixtureAnchor(fn (): array => self::rawDayWeight($date));
+        }
+
         $hash = crc32($date.'|ga4-atlas|demo');
         $unit = ($hash % 10000) / 10000;
         $dow = (int) Carbon::parse($date, DemoPeriod::TIMEZONE)->dayOfWeekIso;
@@ -1013,6 +1021,10 @@ final class Ga4WorkspaceFixtures
      */
     public static function aggregateProperty(string $start, string $end): array
     {
+        if (! DemoPeriod::inFixtureAnchorContext()) {
+            return DemoPeriod::usingFixtureAnchor(fn (): array => self::aggregateProperty($start, $end));
+        }
+
         $anchor = DemoPeriod::anchor();
         $baselineStart = $anchor->copy()->subDays(27)->toDateString();
         $baselineEnd = $anchor->toDateString();
@@ -1120,6 +1132,10 @@ final class Ga4WorkspaceFixtures
      */
     public static function daysInRange(string $start, string $end): array
     {
+        if (! DemoPeriod::inFixtureAnchorContext()) {
+            return DemoPeriod::usingFixtureAnchor(fn (): array => self::daysInRange($start, $end));
+        }
+
         $from = Carbon::parse($start, DemoPeriod::TIMEZONE)->startOfDay();
         $to = Carbon::parse($end, DemoPeriod::TIMEZONE)->startOfDay();
         if ($from->greaterThan($to)) {

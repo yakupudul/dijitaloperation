@@ -24,53 +24,67 @@ class ModuleBoundaryArchitectureTest extends TestCase
      * @var list<string>
      */
     private const CORE_WEBSITE_IMPORT_ALLOWLIST = [
-        // Thin compatibility facades (domain already in module).
-        'app/Services/WebsiteAiInsightService.php',
-        'app/Ai/Agents/WebsiteFindingInsightAgent.php',
+        // Uptime monitor wraps the module's public HTTP fetcher (no second fetch stack).
+        'app/Services/Website/PageFetcher.php',
         // Legacy Website Diagnosis orchestration still in Core; DocumentHead* lives in module.
         'app/Services/WebsiteDiagnosisService.php',
-        // Core Filament composition surfaces that delegate to module presenters/services.
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/Pages/ViewDigitalAsset.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/WebsiteHealthRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/WebsiteSettingsRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/WebsitePerformanceRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/WebsiteActivityRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/WebsiteConnectionsRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/WebsiteDiscoveryRelationManager.php',
+        // Core Filament technical surface that delegates to module presenters.
         'app/Filament/App/Resources/Runs/RunResource.php',
         // Async platform jobs: thin Core orchestration that dispatches module domain services.
         'app/Jobs/Async/PublicDiscoveryJob.php',
         'app/Jobs/Async/SeoIntelligenceRefreshJob.php',
-        'app/Jobs/Async/WebsiteAiGuidanceJob.php',
+        // Shared Collection Engine adapters: reuse Website public-HTTP / SEO normalizers, no second store.
+        'app/Services/Collection/Providers/Website/WebsiteDatasetExecutor.php',
+        'app/Services/Collection/Providers/Website/WebsiteCrawlPoliteness.php',
+        'app/Services/Collection/Providers/Website/WebsiteEligibilityGuard.php',
+        'app/Services/Collection/Providers/Website/WebsiteNormalizer.php',
+        // Stop button: resolves the site host (WebsiteDomainTarget) to clear its crawl wait.
+        'app/Services/Collection/Website/WebsiteCollectionStopper.php',
+        // Server-side reachability probe through the module's public HTTP fetcher.
+        'app/Console/Commands/WebsiteProbeCommand.php',
+        'app/Services/Collection/Providers/DataForSeo/DataForSeoDatasetExecutor.php',
+        'app/Services/Collection/Providers/DataForSeo/DataForSeoEligibilityGuard.php',
+        // Phase C.1: Core collected-facts adapters reuse existing Website Document Head evaluator.
+        'app/Services/Analysis/Adapters/WebsiteCollectedDocumentHeadAdapter.php',
+        // SEO Tasks: read-only adapter over the module's verified stored-HTML reader.
+        'app/Services/SeoTasks/SeoStoredHtmlReader.php',
+        // Faz 8: competitor watch and prospect audits reuse the same safe public HTTP fetcher.
+        'app/Services/Intel/PublicPageReader.php',
+        // 1.4.1: hourly sitemap watch reuses the same safe public HTTP fetcher.
+        'app/Services/Website/SitemapChangeWatcher.php',
+        // Shared public-URL safety / normalization / fetch primitives (Discovery\PublicUrl*, PublicHttpFetcher).
+        'app/Services/Collection/Providers/Website/WebsitePageAnalyzer.php',
+        'app/Services/Integrations/WordPress/WordPressConnectorClient.php',
+        'app/Support/IntelligenceProjection/Website/WebsitePageFamilyClassifier.php',
+        // Public discovery stored-source adapters reuse the module's page extractor.
+        'app/Services/Website/PublicDiscovery/DiscoveryCandidateApplicationService.php',
+        'app/Services/Website/PublicDiscovery/StoredDiscoverySource.php',
+        // Website Standards: the library UI reuses the module's standards catalog + evaluator.
+        'app/Livewire/Operator/Library/WebsiteStandardsPage.php',
+        // Faz 4a: scoped decision standards + URL standard results of a page live in the same standards catalog.
+        'app/Services/Site/ScopedStandards.php',
+        // Business Profile standards live in the same standards catalog (asset_type google_business_profile).
+        'app/Services/Gbp/GbpStandardInput.php',
     ];
 
     /**
-     * Core Filament composition surfaces allowed to import Google Ads module presenters/services.
+     * Core files allowed to import Google Ads module implementation namespaces.
      *
      * @var list<string>
      */
     private const CORE_GOOGLE_ADS_IMPORT_ALLOWLIST = [
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/Pages/ViewDigitalAsset.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsPerformanceRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsSearchTermsRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsIntelligenceRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsConnectionsRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsActivityRelationManager.php',
-        'app/Jobs/Async/GoogleAdsAiGuidanceJob.php',
+        // Phase C.1: Core collected-facts adapter reuses existing Google Ads bound-evidence evaluator.
+        'app/Services/Analysis/Adapters/GoogleAdsCollectedCampaignAdapter.php',
     ];
 
     /**
-     * Core Filament composition surfaces allowed to import Meta Ads module presenters.
+     * Core files allowed to import Meta Ads module implementation namespaces.
      *
      * @var list<string>
      */
     private const CORE_META_ADS_IMPORT_ALLOWLIST = [
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/Pages/ViewDigitalAsset.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsPerformanceRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsIntelligenceRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsConnectionsRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsActivityRelationManager.php',
-        'app/Jobs/Async/MetaAdsAiGuidanceJob.php',
+        // Phase C.1: Core collected-facts adapter reuses existing Meta Ads bound-evidence evaluator.
+        'app/Services/Analysis/Adapters/MetaAdsCollectedCampaignAdapter.php',
     ];
 
     #[Test]
@@ -155,7 +169,7 @@ class ModuleBoundaryArchitectureTest extends TestCase
     #[Test]
     public function modules_may_depend_on_core_models_and_shared_infrastructure_namespaces(): void
     {
-        $websiteService = base_path('app-modules/website/src/Ai/WebsiteAiRecommendationService.php');
+        $websiteService = base_path('app-modules/website/src/SeoIntelligence/SeoIntelligenceRefreshService.php');
         $this->assertFileExists($websiteService);
         $contents = (string) file_get_contents($websiteService);
 
@@ -180,17 +194,6 @@ class ModuleBoundaryArchitectureTest extends TestCase
             $this->assertNotContains($provider, ModuleCatalog::PRODUCT_MODULE_IDS);
             $this->assertNotContains($provider, ModuleCatalog::DEVELOPER_FIXTURE_MODULE_IDS);
         }
-    }
-
-    #[Test]
-    public function website_ai_core_facade_remains_thin_compatibility_delegate(): void
-    {
-        $path = base_path('app/Services/WebsiteAiInsightService.php');
-        $contents = (string) file_get_contents($path);
-
-        $this->assertStringContainsString('WebsiteAiRecommendationService', $contents);
-        $this->assertMatchesRegularExpression('/compatible|facade/i', $contents);
-        $this->assertDoesNotMatchRegularExpression('/function\s+buildPrompt|function\s+ground|function\s+scoreFinding/', $contents);
     }
 
     /**

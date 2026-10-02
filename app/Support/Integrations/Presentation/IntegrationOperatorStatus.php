@@ -20,11 +20,11 @@ final class IntegrationOperatorStatus
     public static function label(string $status): string
     {
         return match ($status) {
-            self::CONNECTED => 'Connected',
-            self::CONFIGURED => 'Configured',
-            self::NEEDS_ATTENTION => 'Needs attention',
-            self::DISABLED => 'Disabled',
-            default => 'Not configured',
+            self::CONNECTED => __('operator.states.connected'),
+            self::CONFIGURED => __('operator.states.configured'),
+            self::NEEDS_ATTENTION => __('operator.states.needs_attention'),
+            self::DISABLED => __('operator.states.disabled'),
+            default => __('operator.states.not_configured'),
         };
     }
 

@@ -17,8 +17,10 @@ final class AssetBindingCompatibility
     {
         return match ($assetType) {
             'website' => ['search_console', 'ga4'],
+            'ga4', 'google_analytics', 'analytics' => ['ga4'],
+            'gsc', 'search_console', 'google_search_console' => ['search_console'],
             'google_ads' => ['google_ads'],
-            'google_business_profile' => ['google_business_profile'],
+            'google_business_profile', 'gbp' => ['google_business_profile'],
             'meta_ads' => ['meta_ads'],
             default => [],
         };

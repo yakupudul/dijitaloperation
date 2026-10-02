@@ -2,15 +2,25 @@
 
 namespace App\Services\Integrations\Google\Discovery;
 
+use App\Exceptions\Integrations\GoogleAuthenticationException;
+use App\Exceptions\Integrations\GoogleAuthorizationException;
 use App\Models\CoreIntegration;
 use App\Services\Integrations\Google\GoogleApiClient;
 use App\Services\Integrations\Google\GoogleCredentialResolver;
+use App\Services\Integrations\Google\GoogleScopeCoverageService;
+use App\Services\Integrations\Google\GoogleScopeRegistry;
 use App\Support\Integrations\DiscoveredExternalResource;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Discover Google Ads accounts via ListAccessibleCustomers + MCC customer_client hierarchy.
- * Read-only. No campaign mutations. No manual customer ID entry.
+ * Discover Google Ads customers via listAccessibleCustomers + customer_client hierarchy.
+ *
+ * Verified 2026-08-13:
+ * https://developers.google.com/google-ads/api/docs/account-management/listing-accounts
+ * Manager hierarchy via customer_client; login-customer-id is request context (not OAuth).
+ *
+ * Selectability: non-manager customers are selectable performance resources; managers are
+ * inventory/navigation context (Prompt 16 decides binding).
  */
 class GoogleAdsDiscoverer
 {
@@ -43,19 +53,35 @@ GAQL;
     public function __construct(
         private readonly GoogleApiClient $client,
         private readonly GoogleCredentialResolver $credentials,
+        private readonly GoogleScopeCoverageService $coverage,
     ) {}
 
     public function discover(CoreIntegration $integration): CapabilityDiscoveryResult
     {
+        $granted = $this->coverage->grantedScopes($integration);
+        if ($granted !== [] && ! $this->coverage->hasCapability($integration, GoogleScopeRegistry::CAPABILITY_GOOGLE_ADS)) {
+            return CapabilityDiscoveryResult::scopeRequired(
+                'google_ads',
+                'Missing adwords scope. Grant Google Ads access via incremental authorization.',
+            );
+        }
+
         if ($this->credentials->developerToken($integration) === null) {
             return CapabilityDiscoveryResult::setupRequired(
                 'google_ads',
-                'Google Ads developer token is missing. Configure it under Settings → Integrations → Google, or set GOOGLE_ADS_DEVELOPER_TOKEN as a deployment fallback.',
+                'Google Ads developer token is missing. Configure GOOGLE_ADS_DEVELOPER_TOKEN or Settings → Integrations → Google.',
             );
         }
 
         try {
             $response = $this->client->getAds($integration, 'customers:listAccessibleCustomers');
+        } catch (GoogleAuthorizationException) {
+            return CapabilityDiscoveryResult::scopeRequired(
+                'google_ads',
+                'Missing adwords scope for Google Ads discovery.',
+            );
+        } catch (GoogleAuthenticationException $e) {
+            return CapabilityDiscoveryResult::authenticationRequired('google_ads', $e->getMessage());
         } catch (\RuntimeException $e) {
             $message = $e->getMessage();
             if (str_contains(strtolower($message), 'developer token')) {
@@ -68,9 +94,9 @@ GAQL;
         }
 
         if ($response->status() === 403) {
-            return CapabilityDiscoveryResult::setupRequired(
+            return CapabilityDiscoveryResult::externalAccessRequired(
                 'google_ads',
-                'Google Ads API access denied. Check developer token approval status and adwords scope.',
+                'Google Ads API access denied. Check developer token access level and API enablement.',
             );
         }
 
@@ -90,6 +116,8 @@ GAQL;
 
         /** @var array<string, DiscoveredExternalResource> $byId */
         $byId = [];
+        $partial = false;
+        $visitedSeeds = [];
 
         foreach ($names as $resourceName) {
             if (! is_string($resourceName) || ! str_starts_with($resourceName, 'customers/')) {
@@ -97,12 +125,17 @@ GAQL;
             }
 
             $seedId = str_replace('customers/', '', $resourceName);
-            if ($seedId === '' || ! ctype_digit($seedId)) {
+            if ($seedId === '' || ! ctype_digit($seedId) || isset($visitedSeeds[$seedId])) {
                 continue;
             }
+            $visitedSeeds[$seedId] = true;
 
             $expanded = $this->expandSeedAccount($integration, $seedId);
-            foreach ($expanded as $resource) {
+            if ($expanded['partial']) {
+                $partial = true;
+            }
+
+            foreach ($expanded['resources'] as $resource) {
                 $existing = $byId[$resource->externalId] ?? null;
                 if ($existing === null) {
                     $byId[$resource->externalId] = $resource;
@@ -110,76 +143,118 @@ GAQL;
                     continue;
                 }
 
-                // Prefer richer descriptive names / lower hierarchy level when duplicates appear.
                 $byId[$resource->externalId] = $this->preferRicher($existing, $resource);
             }
         }
 
         $resources = array_values($byId);
+        $message = count($resources).' Google Ads accounts discovered.';
 
-        return CapabilityDiscoveryResult::ok(
-            'google_ads',
-            $resources,
-            count($resources).' Google Ads accounts discovered.',
-        );
+        if ($partial) {
+            return CapabilityDiscoveryResult::partial(
+                'google_ads',
+                $resources,
+                $message.' Hierarchy traversal was partial for at least one manager branch.',
+            );
+        }
+
+        return CapabilityDiscoveryResult::ok('google_ads', $resources, $message);
     }
 
     /**
-     * @return list<DiscoveredExternalResource>
+     * @return array{resources: list<DiscoveredExternalResource>, partial: bool}
      */
     private function expandSeedAccount(CoreIntegration $integration, string $seedId): array
     {
-        try {
-            $search = $this->client->searchAds(
-                $integration,
-                $seedId,
-                self::CUSTOMER_CLIENT_QUERY,
-                $seedId,
-            );
-        } catch (\Throwable $e) {
-            Log::warning('Google Ads customer_client search failed', [
-                'integration_id' => $integration->id,
-                'exception' => $e::class,
-            ]);
+        $pageToken = null;
+        $fromHierarchy = [];
+        $partial = false;
+        $pages = 0;
 
-            return [$this->resourceFromCustomerLookup($integration, $seedId, $seedId, seedAccessible: true)];
-        }
+        do {
+            try {
+                $search = $this->client->searchAds(
+                    $integration,
+                    $seedId,
+                    self::CUSTOMER_CLIENT_QUERY,
+                    $seedId,
+                    $pageToken,
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Google Ads customer_client search failed', [
+                    'integration_id' => $integration->id,
+                    'exception' => $e::class,
+                ]);
 
-        if ($search->successful()) {
-            $fromHierarchy = $this->resourcesFromCustomerClientResults(
+                if ($fromHierarchy !== []) {
+                    return ['resources' => $fromHierarchy, 'partial' => true];
+                }
+
+                return [
+                    'resources' => [$this->resourceFromCustomerLookup($integration, $seedId, $seedId, seedAccessible: true)],
+                    'partial' => false,
+                ];
+            }
+
+            $pages++;
+
+            if (! $search->successful()) {
+                Log::warning('Google Ads customer_client search non-success', [
+                    'integration_id' => $integration->id,
+                    'status' => $search->status(),
+                ]);
+
+                if ($fromHierarchy !== []) {
+                    return ['resources' => $fromHierarchy, 'partial' => true];
+                }
+
+                return [
+                    'resources' => [$this->resourceFromCustomerLookup($integration, $seedId, $seedId, seedAccessible: true)],
+                    'partial' => false,
+                ];
+            }
+
+            $pageResources = $this->resourcesFromCustomerClientResults(
                 $search->json('results') ?? [],
                 $seedId,
             );
-
-            if ($fromHierarchy !== []) {
-                // Ensure the accessible seed/MCC itself is retained even when customer_client
-                // only returns child accounts (manager relationship metadata stays on children).
-                $hasSeed = false;
-                foreach ($fromHierarchy as $resource) {
-                    if ($resource->externalId === $seedId) {
-                        $hasSeed = true;
-                        break;
-                    }
-                }
-
-                if (! $hasSeed) {
-                    array_unshift(
-                        $fromHierarchy,
-                        $this->resourceFromCustomerLookup($integration, $seedId, $seedId, seedAccessible: true),
-                    );
-                }
-
-                return $fromHierarchy;
+            foreach ($pageResources as $resource) {
+                $fromHierarchy[$resource->externalId] = $resource;
             }
-        } else {
-            Log::warning('Google Ads customer_client search non-success', [
-                'integration_id' => $integration->id,
-                'status' => $search->status(),
-            ]);
+
+            $next = $search->json('nextPageToken');
+            $pageToken = is_string($next) && $next !== '' ? $next : null;
+        } while ($pageToken !== null && $pages < 50);
+
+        if ($pageToken !== null) {
+            $partial = true;
         }
 
-        // Non-manager seed or hierarchy unavailable: still catalog the directly accessible account.
-        return [$this->resourceFromCustomerLookup($integration, $seedId, $seedId, seedAccessible: true)];
+        $resources = array_values($fromHierarchy);
+
+        if ($resources !== []) {
+            $hasSeed = false;
+            foreach ($resources as $resource) {
+                if ($resource->externalId === $seedId) {
+                    $hasSeed = true;
+                    break;
+                }
+            }
+
+            if (! $hasSeed) {
+                array_unshift(
+                    $resources,
+                    $this->resourceFromCustomerLookup($integration, $seedId, $seedId, seedAccessible: true),
+                );
+            }
+
+            return ['resources' => $resources, 'partial' => $partial];
+        }
+
+        return [
+            'resources' => [$this->resourceFromCustomerLookup($integration, $seedId, $seedId, seedAccessible: true)],
+            'partial' => false,
+        ];
     }
 
     /**
@@ -330,6 +405,8 @@ GAQL;
                 'seed_accessible' => $seedAccessible,
                 'login_customer_id' => $loginCustomerId,
                 'manager_customer_id' => $managerCustomerId,
+                // Managers are hierarchy/navigation context; clients are primary selectable.
+                'selectable' => ! $isManager,
             ], fn (mixed $value): bool => $value !== null),
         );
     }

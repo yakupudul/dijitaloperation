@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\TaskScopeKind;
+use App\Enums\TaskSourceKind;
 use Database\Factories\TaskFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -10,9 +12,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'recommendation_id',
+    'client_request_id',
+    'recurring_review_run_item_id',
+    'client_request_task_idempotency_key',
+    'source_kind',
+    'idempotency_key',
     'customer_id',
     'brand_id',
     'digital_asset_id',
+    'scope_kind',
     'title',
     'action',
     'rationale',
@@ -97,6 +105,8 @@ class Task extends Model
     protected function casts(): array
     {
         return [
+            'scope_kind' => TaskScopeKind::class,
+            'source_kind' => TaskSourceKind::class,
             'snapshot_json' => 'array',
             'outcome_json' => 'array',
             'due_date' => 'date',

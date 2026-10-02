@@ -1,0 +1,120 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Enums\CustomerStatus;
+use App\Livewire\Demo\Portfolio\CustomersIndex;
+use App\Models\Brand;
+use App\Models\CoreAssetBinding;
+use App\Models\CoreExternalResource;
+use App\Models\Customer;
+use App\Models\DigitalAsset;
+use App\Models\ResourceAutomation;
+use App\Models\User;
+use App\Services\Integrations\Google\GoogleBusinessProfileRetentionService;
+use App\Services\Integrations\ResourceAutomationService;
+use App\Support\Roles;
+use Database\Seeders\RoleAndPermissionSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Livewire\Livewire;
+use Tests\TestCase;
+
+/**
+ * A passive customer's assets are not operational (no AI, no operator alerts) while collection itself continues for
+ * every discovered account (v2 Faz 1); GBP retention keeps keywords.
+ */
+final class PassiveCustomerGateTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_operational_scope_requires_active_asset_and_active_customer(): void
+    {
+        $active = $this->website(CustomerStatus::Active);
+        $passiveCustomer = $this->website(CustomerStatus::Inactive);
+        $inactiveAsset = $this->website(CustomerStatus::Active, 'inactive');
+
+        $ids = DigitalAsset::query()->operational()->pluck('id')->all();
+
+        $this->assertSame([$active->id], $ids);
+        $this->assertTrue($active->fresh()->isOperational());
+        $this->assertFalse($passiveCustomer->fresh()->isOperational());
+        $this->assertFalse($inactiveAsset->fresh()->isOperational());
+    }
+
+    public function test_collection_needs_a_brand_assigned_asset_but_not_an_active_customer(): void
+    {
+        // Only accounts of brand-assigned assets are collected; passive customers keep collecting (AI stays off).
+        $service = app(ResourceAutomationService::class);
+        $gsc = CoreExternalResource::factory()->create(['resource_type' => 'search_console', 'external_id' => 'sc-domain:example.test']);
+        $gscAutomation = ResourceAutomation::query()->create(['external_resource_id' => $gsc->id]);
+        $resource = CoreExternalResource::factory()->create(['resource_type' => 'ga4']);
+        $automation = ResourceAutomation::query()->create(['external_resource_id' => $resource->id]);
+        $this->assertSame('unbound', $service->portfolioGate($gscAutomation));
+        $this->assertSame('unbound', $service->portfolioGate($automation), 'unassigned GA4 is not collected');
+
+        $site = $this->website(CustomerStatus::Active);
+        CoreAssetBinding::factory()->create([
+            'digital_asset_id' => $site->id, 'external_resource_id' => $resource->id, 'capability' => 'ga4',
+        ]);
+        $site->brand->customer->update(['status' => CustomerStatus::Inactive]);
+        $this->assertNull($service->portfolioGate($automation->fresh()), 'passive customer: still collected');
+        $this->assertFalse($service->isOperationallyBound($resource->fresh()), 'but it never pages the operator');
+    }
+
+    public function test_gbp_retention_purges_provider_content_but_keeps_search_keywords(): void
+    {
+        $old = now()->subDays(45);
+        $base = ['digital_asset_id' => 1, 'external_resource_id' => 1, 'run_id' => 1, 'location_name' => 'locations/1', 'collected_at' => $old, 'created_at' => $old, 'updated_at' => $old];
+        DB::table('gbp_reviews')->insert($base + ['review_id' => 'r1', 'raw_payload' => '{}']);
+        DB::table('gbp_search_keywords_monthly')->insert($base + ['month_start' => '2026-06-01', 'search_keyword' => 'diş kliniği', 'search_keyword_hash' => hash('sha256', 'diş kliniği'), 'impressions' => 120]);
+
+        app(GoogleBusinessProfileRetentionService::class)->purgeExpired();
+
+        $this->assertSame(0, DB::table('gbp_reviews')->count());
+        $this->assertSame(1, DB::table('gbp_search_keywords_monthly')->count(), 'keyword data is never deleted');
+    }
+
+    public function test_customer_list_switch_pauses_and_resumes_flows(): void
+    {
+        $this->seed(RoleAndPermissionSeeder::class);
+        $admin = User::factory()->create(['is_active' => true]);
+        $admin->assignRole(Roles::ADMIN);
+        $this->actingAs($admin);
+
+        $site = $this->website(CustomerStatus::Active);
+        $customer = $site->brand->customer;
+        $resource = CoreExternalResource::factory()->create(['resource_type' => 'search_console', 'external_id' => 'sc-domain:switch.test']);
+        CoreAssetBinding::factory()->create(['digital_asset_id' => $site->id, 'external_resource_id' => $resource->id, 'capability' => 'search_console']);
+        $automation = ResourceAutomation::query()->create(['external_resource_id' => $resource->id]);
+
+        Livewire::test(CustomersIndex::class)
+            ->assertSee(__('customer_status.active'))
+            ->call('toggleActive', (string) $customer->id);
+        $this->assertSame(CustomerStatus::Inactive, $customer->fresh()->status);
+        $this->assertFalse($site->fresh()->isOperational());
+
+        $automation->update(['collection_status' => 'attention', 'collection_error' => 'customer_passive', 'next_collection_at' => now()->addDays(3)]);
+        Livewire::test(CustomersIndex::class)->call('toggleActive', (string) $customer->id);
+        $this->assertSame(CustomerStatus::Active, $customer->fresh()->status);
+        $this->assertNull($automation->fresh()->collection_error);
+        $this->assertTrue($automation->fresh()->next_collection_at->lte(now()), 'collection is due right after reactivation');
+    }
+
+    private function website(CustomerStatus $customerStatus, string $assetStatus = 'active'): DigitalAsset
+    {
+        $customer = Customer::factory()->create(['status' => $customerStatus]);
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+
+        return DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'website', 'status' => $assetStatus]);
+    }
+
+    private function completedPlan(DigitalAsset $site, \DateTimeInterface $at): void
+    {
+        $plan = SeoPlan::query()->create([
+            'customer_id' => $site->brand->customer_id, 'brand_id' => $site->brand_id, 'digital_asset_id' => $site->id,
+            'status' => SeoPlan::STATUS_COMPLETED, 'trigger' => 'scheduled', 'version' => 1,
+        ]);
+        $plan->forceFill(['created_at' => $at])->save();
+    }
+}

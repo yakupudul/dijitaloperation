@@ -11,6 +11,7 @@ use App\Services\Integrations\DataForSeo\DataForSeoApiClient;
 use App\Services\Integrations\DataForSeo\DataForSeoEndpointAllowlist;
 use App\Services\Integrations\DataForSeo\DataForSeoException;
 use App\Services\Integrations\DataForSeo\DataForSeoProviderCredentialService;
+use App\Services\Integrations\DataForSeo\DataForSeoSpendGuard;
 use App\Services\Integrations\EvidenceFreshnessDecision;
 use App\Services\Integrations\EvidenceFreshnessGuard;
 use App\Services\Integrations\PaidRequestFingerprint;
@@ -18,6 +19,7 @@ use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -250,6 +252,35 @@ class DataForSeoCostGuardTest extends TestCase
         }
 
         $this->assertSame(1, $attempts, 'Paid POST must not be automatically retried after an ambiguous transport failure.');
+    }
+
+    public function test_global_monthly_cap_records_spend_and_blocks_paid_calls_once_reached(): void
+    {
+        config(['moxdop-intel.global_monthly_usd' => 0.05]);
+        $calls = 0;
+        Http::fake(function () use (&$calls) {
+            $calls++;
+
+            return Http::response(['status_code' => 20000, 'status_message' => 'Ok.', 'cost' => 0.03, 'tasks_count' => 1, 'tasks_error' => 0, 'tasks' => [['status_code' => 20000, 'id' => 't'.$calls, 'cost' => 0.03]]], 200);
+        });
+        $post = fn () => app(DataForSeoApiClient::class)->request($this->integration->fresh(['providerCredential']), 'POST', DataForSeoEndpointAllowlist::APPENDIX_USER_DATA, DataForSeoApiClient::CHARGE_CLASS_PAID_CREATE, [['keyword' => 'diş']]);
+
+        $post();
+        $post();
+        $this->assertEqualsWithDelta(0.06, app(DataForSeoSpendGuard::class)->spentThisMonth(), 0.0001);
+
+        try {
+            $post();
+            $this->fail('Expected the global cap to block the third paid call');
+        } catch (DataForSeoException $exception) {
+            $this->assertSame(DataForSeoSpendGuard::KIND_BUDGET, $exception->kind);
+        }
+        $this->assertSame(2, $calls, 'a blocked call never reaches DataForSEO');
+        $this->assertSame(1, (int) DB::table('dataforseo_monthly_spend')->value('blocked'));
+
+        // Free reads are never blocked.
+        app(DataForSeoApiClient::class)->request($this->integration->fresh(['providerCredential']), 'GET', DataForSeoEndpointAllowlist::APPENDIX_USER_DATA, DataForSeoApiClient::CHARGE_CLASS_SAFE_READ);
+        $this->assertSame(3, $calls);
     }
 
     public function test_http_200_internal_error_is_not_success_for_client(): void

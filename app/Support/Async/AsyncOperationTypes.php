@@ -13,13 +13,28 @@ final class AsyncOperationTypes
 
     public const string PUBLIC_DISCOVERY = 'public_discovery';
 
+    public const string SEARCH_DEMAND_COMPETITOR_PAGE_COLLECTION = 'search_demand_competitor_page_collection';
+
+    public const string SEARCH_DEMAND_COMPETITIVE_INTELLIGENCE = 'search_demand_competitive_intelligence';
+
+    public const string SEARCH_DEMAND_WEBSITE_IMPROVEMENT = 'search_demand_website_improvement';
+
+    public const string SEARCH_DEMAND_CHANGE_VERIFICATION = 'search_demand_change_verification';
+
     public const string SEO_INTELLIGENCE_REFRESH = 'seo_intelligence_refresh';
 
+    /** @deprecated Faz 1: producer removed (module AI guidance); kept so historical Runs keep a label. */
     public const string WEBSITE_AI_GUIDANCE = 'website_ai_guidance';
 
+    /** @deprecated Faz 1: producer removed (module AI guidance); kept so historical Runs keep a label. */
     public const string GOOGLE_ADS_AI_GUIDANCE = 'google_ads_ai_guidance';
 
+    /** @deprecated Faz 1: producer removed (module AI guidance); kept so historical Runs keep a label. */
     public const string META_ADS_AI_GUIDANCE = 'meta_ads_ai_guidance';
+
+    public const string FINDING_EVALUATION = 'finding_evaluation';
+
+    public const string WEBSITE_PRODUCTION_COLLECTION = 'website_production_collection';
 
     /**
      * Orchestration module_id for Activity Center Runs that wrap background work.
@@ -27,6 +42,14 @@ final class AsyncOperationTypes
     public const string MODULE_BOUND_COLLECT = 'bound-collect';
 
     public const string MODULE_PUBLIC_DISCOVERY = 'public-discovery';
+
+    public const string MODULE_SEARCH_DEMAND_COMPETITOR_PAGE_COLLECTION = 'search-demand-competitor-page-collection';
+
+    public const string MODULE_SEARCH_DEMAND_COMPETITIVE_INTELLIGENCE = 'search-demand-competitive-intelligence';
+
+    public const string MODULE_SEARCH_DEMAND_WEBSITE_IMPROVEMENT = 'search-demand-website-improvement';
+
+    public const string MODULE_SEARCH_DEMAND_CHANGE_VERIFICATION = 'search-demand-change-verification';
 
     public const string MODULE_SEO_REFRESH = 'seo-intelligence-refresh';
 
@@ -38,11 +61,18 @@ final class AsyncOperationTypes
         return [
             self::BOUND_COLLECT => 'Collect live data',
             self::WEBSITE_DIAGNOSIS => 'Website diagnosis',
+            'website_standards' => 'Website standards assessment',
             self::PUBLIC_DISCOVERY => 'Public discovery',
+            self::SEARCH_DEMAND_COMPETITOR_PAGE_COLLECTION => 'Competitor page collection',
+            self::SEARCH_DEMAND_COMPETITIVE_INTELLIGENCE => 'Competitive intelligence',
+            self::SEARCH_DEMAND_WEBSITE_IMPROVEMENT => 'Website improvement planning',
+            self::SEARCH_DEMAND_CHANGE_VERIFICATION => 'Website change verification',
             self::SEO_INTELLIGENCE_REFRESH => 'SEO intelligence refresh',
             self::WEBSITE_AI_GUIDANCE => 'Website AI guidance',
             self::GOOGLE_ADS_AI_GUIDANCE => 'Google Ads AI guidance',
             self::META_ADS_AI_GUIDANCE => 'Meta Ads AI guidance',
+            self::FINDING_EVALUATION => 'Finding evaluation',
+            self::WEBSITE_PRODUCTION_COLLECTION => 'Website production collection',
         ];
     }
 

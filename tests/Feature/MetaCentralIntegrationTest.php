@@ -2,8 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Filament\App\Resources\Integrations\Pages\ViewIntegration;
-use App\Filament\App\Resources\Integrations\RelationManagers\ExternalResourcesRelationManager;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -28,7 +26,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionClass;
 use Tests\TestCase;
@@ -139,8 +136,8 @@ class MetaCentralIntegrationTest extends TestCase
             'permission_missing' => ['status' => 403, 'body' => ['error' => ['message' => 'perm', 'code' => 10]], 'ok' => false, 'needle' => 'Permission'],
             'rate_limited' => ['status' => 429, 'body' => ['error' => ['message' => 'limit', 'code' => 4]], 'ok' => false, 'needle' => 'Rate limited'],
             'provider_unavailable' => ['status' => 503, 'body' => ['error' => ['message' => 'down']], 'ok' => false, 'needle' => 'unavailable'],
-            'malformed_error_payload' => ['status' => 200, 'body' => ['error' => ['message' => 'weird', 'code' => 1]], 'ok' => false, 'needle' => 'Unknown'],
-            'malformed_missing_id' => ['status' => 200, 'body' => ['name' => 'No Id'], 'ok' => false, 'needle' => 'Unknown'],
+            'malformed_error_payload' => ['status' => 200, 'body' => ['error' => ['message' => 'weird', 'code' => 1]], 'ok' => false, 'needle' => 'rejected'],
+            'malformed_missing_id' => ['status' => 200, 'body' => ['name' => 'No Id'], 'ok' => false, 'needle' => 'rejected'],
         ];
     }
 
@@ -400,12 +397,15 @@ class MetaCentralIntegrationTest extends TestCase
 
     public function test_meta_api_client_exposes_no_mutation_methods(): void
     {
-        $methods = collect((new ReflectionClass(MetaApiClient::class))->getMethods())
+        $reflection = new ReflectionClass(MetaApiClient::class);
+        $methods = collect($reflection->getMethods())
             ->filter(fn ($method) => $method->class === MetaApiClient::class)
             ->map(fn ($method) => $method->getName())
             ->all();
 
-        foreach (['post', 'put', 'patch', 'delete', 'mutate', 'write'] as $forbidden) {
+        // Prompt 24: POST is allowed only as transport for read-only async Insights AdReportRun creation.
+        // Advertising configuration mutations remain forbidden.
+        foreach (['put', 'patch', 'delete', 'mutate', 'write'] as $forbidden) {
             $this->assertFalse(
                 collect($methods)->contains(fn (string $name): bool => str_contains(strtolower($name), $forbidden)),
                 'Forbidden mutation surface: '.$forbidden,
@@ -414,31 +414,11 @@ class MetaCentralIntegrationTest extends TestCase
 
         $this->assertContains('get', $methods);
         $this->assertContains('getAbsolute', $methods);
-    }
-
-    public function test_view_integration_shows_masked_token_and_meta_actions(): void
-    {
-        app(MetaProviderCredentialService::class)->save($this->integration, [
-            'access_token' => 'EAAG-ui-secret',
-        ], $this->admin);
-
-        Livewire::test(ViewIntegration::class, [
-            'record' => $this->integration->id,
-        ])
-            ->assertOk()
-            ->assertSee('Stored securely ✓')
-            ->assertSee('Discover resources')
-            ->assertSee('Test connection')
-            ->assertSee('ads_read')
-            ->assertDontSee('EAAG-ui-secret')
-            ->assertDontSee('Credentials JSON');
-
-        $this->assertTrue(
-            ExternalResourcesRelationManager::canViewForRecord(
-                $this->integration,
-                ViewIntegration::class,
-            ),
-        );
+        $this->assertContains('post', $methods);
+        $postDoc = (string) $reflection->getMethod('post')->getDocComment();
+        $this->assertStringContainsString('read-only', strtolower($postDoc));
+        $this->assertStringContainsString('async', strtolower($postDoc));
+        $this->assertStringContainsString('insights', strtolower($postDoc));
     }
 
     public function test_rejects_pagination_url_outside_graph_host(): void

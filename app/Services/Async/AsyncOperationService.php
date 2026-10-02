@@ -3,21 +3,25 @@
 namespace App\Services\Async;
 
 use App\Jobs\Async\CollectLiveBoundDataJob;
-use App\Jobs\Async\GoogleAdsAiGuidanceJob;
-use App\Jobs\Async\MetaAdsAiGuidanceJob;
+use App\Jobs\Async\EvaluateFindingsForAssetJob;
 use App\Jobs\Async\PublicDiscoveryJob;
 use App\Jobs\Async\SeoIntelligenceRefreshJob;
-use App\Jobs\Async\WebsiteAiGuidanceJob;
 use App\Jobs\Async\WebsiteDiagnosisJob;
+use App\Models\Collection\CollectionRun;
 use App\Models\DigitalAsset;
+use App\Models\ModuleRegistry;
 use App\Models\Run;
 use App\Models\User;
+use App\Services\Integrations\DataForSeo\DataForSeoEndpointAllowlist;
 use App\Support\Async\AsyncFailureClassifier;
 use App\Support\Async\AsyncOperationTypes;
+use App\Support\Permissions;
+use App\Support\ServiceScope;
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 use Throwable;
 
 /**
@@ -65,6 +69,11 @@ final class AsyncOperationService
      */
     public function queuePublicDiscovery(DigitalAsset $asset, ?User $user = null): array
     {
+        abort_unless($user?->is_active && $user->can(Permissions::ACCESS_APP) && ModuleRegistry::isEnabled('website'), 403);
+        if ($asset->type !== 'website') {
+            throw new InvalidArgumentException('Public discovery requires a website.');
+        }
+
         return $this->queue(
             asset: $asset,
             operationType: AsyncOperationTypes::PUBLIC_DISCOVERY,
@@ -80,6 +89,11 @@ final class AsyncOperationService
      */
     public function queueSeoIntelligenceRefresh(DigitalAsset $asset, ?User $user = null): array
     {
+        // MoxDOP v2 (Faz 1): the paid DataForSEO Labs keyword refresh is retired (endpoints no longer allowlisted).
+        if (! DataForSeoEndpointAllowlist::isAllowed(DataForSeoEndpointAllowlist::LABS_GOOGLE_RANKED_KEYWORDS_LIVE)) {
+            return ['ok' => false, 'queued' => false, 'message' => 'DataForSEO anahtar kelime yenilemesi v2’de kaldırıldı.', 'run' => null, 'existing_run' => null];
+        }
+
         return $this->queue(
             asset: $asset,
             operationType: AsyncOperationTypes::SEO_INTELLIGENCE_REFRESH,
@@ -91,53 +105,17 @@ final class AsyncOperationService
     }
 
     /**
-     * @param  list<int>|null  $findingIds
      * @return array{ok: bool, queued: bool, message: string, run: ?Run, existing_run: ?Run}
      */
-    public function queueWebsiteAiGuidance(DigitalAsset $asset, ?User $user = null, ?array $findingIds = null): array
+    public function queueFindingEvaluation(DigitalAsset $asset, ?User $user = null): array
     {
         return $this->queue(
             asset: $asset,
-            operationType: AsyncOperationTypes::WEBSITE_AI_GUIDANCE,
-            moduleId: 'website-ai-guidance',
-            humanTitle: 'Website AI guidance',
+            operationType: AsyncOperationTypes::FINDING_EVALUATION,
+            moduleId: 'finding-evaluation',
+            humanTitle: __('operator.async.finding_evaluation'),
             user: $user,
-            jobFactory: fn (Run $run): object => new WebsiteAiGuidanceJob($run->id, $findingIds),
-            extraMetadata: ['finding_ids' => $findingIds],
-        );
-    }
-
-    /**
-     * @param  list<int>|null  $findingIds
-     * @return array{ok: bool, queued: bool, message: string, run: ?Run, existing_run: ?Run}
-     */
-    public function queueGoogleAdsAiGuidance(DigitalAsset $asset, ?User $user = null, ?array $findingIds = null): array
-    {
-        return $this->queue(
-            asset: $asset,
-            operationType: AsyncOperationTypes::GOOGLE_ADS_AI_GUIDANCE,
-            moduleId: 'google-ads-ai-guidance',
-            humanTitle: 'Google Ads AI guidance',
-            user: $user,
-            jobFactory: fn (Run $run): object => new GoogleAdsAiGuidanceJob($run->id, $findingIds),
-            extraMetadata: ['finding_ids' => $findingIds],
-        );
-    }
-
-    /**
-     * @param  list<int>|null  $findingIds
-     * @return array{ok: bool, queued: bool, message: string, run: ?Run, existing_run: ?Run}
-     */
-    public function queueMetaAdsAiGuidance(DigitalAsset $asset, ?User $user = null, ?array $findingIds = null): array
-    {
-        return $this->queue(
-            asset: $asset,
-            operationType: AsyncOperationTypes::META_ADS_AI_GUIDANCE,
-            moduleId: 'meta-ads-ai-guidance',
-            humanTitle: 'Meta Ads AI guidance',
-            user: $user,
-            jobFactory: fn (Run $run): object => new MetaAdsAiGuidanceJob($run->id, $findingIds),
-            extraMetadata: ['finding_ids' => $findingIds],
+            jobFactory: fn (Run $run): object => new EvaluateFindingsForAssetJob($asset->id, runId: $run->id),
         );
     }
 
@@ -155,6 +133,10 @@ final class AsyncOperationService
         callable $jobFactory,
         array $extraMetadata = [],
     ): array {
+        // Service scope: no collection, crawl, analysis or paid call for a brandless asset or a passive customer.
+        if (! app(ServiceScope::class)->isAssetOperational($asset->id)) {
+            return ['ok' => false, 'queued' => false, 'message' => ServiceScope::NOT_SERVED, 'run' => null, 'existing_run' => null];
+        }
         $lockKey = "async-op:{$operationType}:{$asset->id}";
 
         return Cache::lock($lockKey, 15)->block(5, function () use (
@@ -280,6 +262,25 @@ final class AsyncOperationService
         $this->notifyTerminal($run->fresh() ?? $run);
     }
 
+    /**
+     * Handle-time service scope check of a queued operation: when its asset stopped being operational (customer
+     * switched to passive, brand removed) the run ends without any provider call. Returns true when it was skipped.
+     */
+    public function skippedOutsideServiceScope(?Run $run): bool
+    {
+        if ($run === null || $run->digital_asset_id === null || app(ServiceScope::class)->isAssetOperational($run->digital_asset_id)) {
+            return false;
+        }
+        if (! in_array($run->status, ['completed', 'partial', 'failed'], true)) {
+            $this->markFinished($run, 'failed', 'Hizmet kapsamı dışında', [
+                'failure_category' => 'service_scope', 'failure_summary' => ServiceScope::NOT_SERVED,
+                'result_summary' => ServiceScope::NOT_SERVED, 'retryable' => false,
+            ]);
+        }
+
+        return true;
+    }
+
     public function markFailed(Run $run, Throwable $exception): void
     {
         $classified = AsyncFailureClassifier::classify($exception);
@@ -337,8 +338,6 @@ final class AsyncOperationService
 
         $asset = $original->digitalAsset ?? DigitalAsset::query()->findOrFail($original->digital_asset_id);
         $type = (string) data_get($original->metadata, 'operation_type');
-        $findingIds = data_get($original->metadata, 'finding_ids');
-        $findingIds = is_array($findingIds) ? array_values(array_map('intval', $findingIds)) : null;
 
         $result = match ($type) {
             AsyncOperationTypes::BOUND_COLLECT => $this->queueBoundCollect($asset, $user, [
@@ -347,9 +346,7 @@ final class AsyncOperationService
             AsyncOperationTypes::WEBSITE_DIAGNOSIS => $this->queueWebsiteDiagnosis($asset, $user),
             AsyncOperationTypes::PUBLIC_DISCOVERY => $this->queuePublicDiscovery($asset, $user),
             AsyncOperationTypes::SEO_INTELLIGENCE_REFRESH => $this->queueSeoIntelligenceRefresh($asset, $user),
-            AsyncOperationTypes::WEBSITE_AI_GUIDANCE => $this->queueWebsiteAiGuidance($asset, $user, $findingIds),
-            AsyncOperationTypes::GOOGLE_ADS_AI_GUIDANCE => $this->queueGoogleAdsAiGuidance($asset, $user, $findingIds),
-            AsyncOperationTypes::META_ADS_AI_GUIDANCE => $this->queueMetaAdsAiGuidance($asset, $user, $findingIds),
+            AsyncOperationTypes::FINDING_EVALUATION => $this->queueFindingEvaluation($asset, $user),
             default => [
                 'ok' => false,
                 'queued' => false,
@@ -381,6 +378,21 @@ final class AsyncOperationService
             ->orderBy('id')
             ->chunkById(50, function ($runs) use ($cutoff, &$count): void {
                 foreach ($runs as $run) {
+                    if (data_get($run->metadata, 'operation_type') === AsyncOperationTypes::PUBLIC_DISCOVERY
+                        && data_get($run->metadata, 'phase') === 'awaiting_collection') {
+                        $collection = CollectionRun::query()
+                            ->where('digital_asset_id', $run->digital_asset_id)
+                            ->where('idempotency_key', 'public-discovery:'.$run->id)->first();
+                        if ($collection?->status->isTerminal()) {
+                            PublicDiscoveryJob::dispatch($run->id);
+                            $this->setPhase($run, 'resuming_discovery', 'Toplanan HTML inceleme kuyruğunda');
+
+                            continue;
+                        }
+                        if ($collection !== null && $collection->updated_at?->greaterThan($cutoff)) {
+                            continue;
+                        }
+                    }
                     $progressAt = data_get($run->metadata, 'progress_at');
                     $reference = $progressAt ? Carbon::parse($progressAt) : ($run->updated_at ?? $run->started_at);
                     if ($reference === null || $reference->greaterThan($cutoff)) {

@@ -2,11 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Demo\Operations\OpportunitiesIndex;
-use App\Livewire\Demo\Operations\RecommendationsIndex;
-use App\Livewire\Demo\Portfolio\BrandShow;
+use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\User;
-use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -14,10 +11,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
+use Tests\Support\CreatesCanonicalPortfolio;
 use Tests\TestCase;
 
 class CommercialGrowthIntelligenceTest extends TestCase
 {
+    use CreatesCanonicalPortfolio;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -31,131 +30,71 @@ class CommercialGrowthIntelligenceTest extends TestCase
         $this->actingAs($user);
 
         DemoState::reset();
-    }
-
-    public function test_opportunities_nav_and_route_load_under_app(): void
-    {
-        $url = route('demo.opportunities');
-
-        $this->assertStringNotContainsString('/system', $url);
-
-        $this->get($url)
-            ->assertOk()
-            ->assertSee(__('operator.nav.opportunities'));
-
-        Livewire::test(OpportunitiesIndex::class)
-            ->assertSee('High paid implant demand but weak organic coverage')
-            ->assertDontSee('Opportunity score');
-    }
-
-    public function test_opportunity_demo_state_actions(): void
-    {
-        Livewire::test(OpportunitiesIndex::class)
-            ->call('review', 'opp-implant-organic-gap')
-            ->assertSet('view', 'open');
-
-        $statuses = DemoState::all()['opportunity_statuses'] ?? [];
-        $this->assertSame('reviewing', $statuses['opp-implant-organic-gap'] ?? null);
-
-        Livewire::test(OpportunitiesIndex::class)
-            ->call('defer', 'opp-content-coverage');
-
-        $statuses = DemoState::all()['opportunity_statuses'] ?? [];
-        $this->assertSame('deferred', $statuses['opp-content-coverage'] ?? null);
-
-        Livewire::test(OpportunitiesIndex::class)
-            ->call('dismiss', 'opp-meta-creative-angle');
-
-        $statuses = DemoState::all()['opportunity_statuses'] ?? [];
-        $this->assertSame('dismissed', $statuses['opp-meta-creative-angle'] ?? null);
-
-        Livewire::test(OpportunitiesIndex::class)
-            ->call('createRecommendation', 'opp-gbp-local-gap');
-
-        $statuses = DemoState::all()['opportunity_statuses'] ?? [];
-        $this->assertSame('converted', $statuses['opp-gbp-local-gap'] ?? null);
-
-        $rec = collect(DemoState::all()['recommendations'] ?? [])->firstWhere('id', 'r-from-opp-gbp-local-gap');
-        $this->assertNotNull($rec);
-        $this->assertSame('opp-gbp-local-gap', $rec['source_opportunity_id'] ?? null);
+        $this->seedCanonicalPortfolio();
     }
 
     public function test_customer_relationship_shows_service_scope(): void
     {
-        $this->get(route('demo.customer', ['customerId' => DemoCatalog::CUSTOMER_ID, 'tab' => 'relationship']))
+        $this->get(route('operator.customer', ['customerId' => $this->portfolioCustomer->id, 'tab' => 'relationship']))
             ->assertOk()
-            ->assertSee(__('operator.service_scope.title'))
-            ->assertSee('Google Ads Management')
-            ->assertSee('campaign monitoring');
+            ->assertSee(__('operator.service_scope.title'));
     }
 
     public function test_brand_business_shows_goals_and_agency_scope(): void
     {
-        Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
+        Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
             ->call('setTab', 'business')
-            ->call('setBusinessSection', 'context')
-            ->assertSee(__('operator.goals.title'))
-            ->assertSee(__('operator.commercial.agency_scope'))
-            ->assertSee('Increase qualified implant consultations');
+            ->assertSee('İş bağlamı')
+            ->assertSee('Ajansın verdiği hizmetler');
     }
 
-    public function test_brand_growth_shows_opportunity_titles(): void
+    public function test_retired_brand_work_tabs_open_the_overview(): void
     {
-        Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
+        Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
             ->call('setTab', 'growth')
-            ->assertSee('High paid implant demand but weak organic coverage')
-            ->assertSee(__('operator.opportunities.growth_section'));
+            ->assertSet('tab', 'overview')
+            ->call('setTab', 'work')
+            ->assertSet('tab', 'overview')
+            ->assertDontSee('High paid implant demand but weak organic coverage');
     }
 
-    public function test_brand_value_shows_business_outcomes_without_zero_revenue(): void
+    public function test_opportunity_persistence_exists_while_deferred_entities_remain_deferred(): void
     {
-        Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
-            ->call('setTab', 'value')
-            ->call('setValueSection', 'outcomes')
-            ->assertSee(__('operator.outcomes.title'))
-            ->assertSee(__('operator.outcomes.platform_results'))
-            ->assertSee(__('operator.outcomes.not_available'))
-            ->assertDontSee('₺0');
-    }
+        $this->assertTrue(Schema::hasTable('opportunities'));
+        $this->assertTrue(Schema::hasTable('opportunity_evaluations'));
 
-    public function test_no_persistence_tables_or_migrations_for_commercial_entities(): void
-    {
-        foreach (['opportunities', 'service_plans', 'business_outcomes', 'goals'] as $table) {
-            $this->assertFalse(Schema::hasTable($table), 'Unexpected table: '.$table);
+        foreach (['service_plans', 'leads', 'patients', 'deals', 'pipelines', 'appointments', 'invoices', 'payments'] as $table) {
+            $this->assertFalse(Schema::hasTable($table), 'Unexpected CRM/deferred table: '.$table);
         }
+
+        $this->assertTrue(Schema::hasTable('brand_goals'));
+        $this->assertTrue(Schema::hasTable('brand_offerings'));
+        $this->assertTrue(Schema::hasTable('brand_offering_names'));
 
         $migrationPath = database_path('migrations');
-        $patterns = ['*opportunities*', '*service_plans*', '*business_outcomes*', '*goals*'];
-
-        foreach ($patterns as $pattern) {
+        foreach (['*service_plans*', '*create_leads*', '*create_patients*', '*create_deals*'] as $pattern) {
             $matches = File::glob($migrationPath.'/'.$pattern);
-            $this->assertEmpty($matches, 'Unexpected migration files for pattern: '.$pattern);
+            $this->assertEmpty($matches, 'Unexpected CRM migration files for pattern: '.$pattern);
         }
-    }
 
-    public function test_recommendation_source_distinguishes_opportunity_from_finding(): void
-    {
-        DemoState::createRecommendationFromOpportunity('opp-implant-organic-gap');
-
-        $this->get(route('demo.recommendations'))
-            ->assertOk();
-
-        Livewire::test(RecommendationsIndex::class)
-            ->call('expand', 'r-from-opp-implant-organic-gap')
-            ->assertSee(__('operator.commercial.source_opportunity'))
-            ->assertSee('opp-implant-organic-gap')
-            ->assertSee(__('operator.commercial.service'));
+        $this->assertNotEmpty(File::glob($migrationPath.'/*opportunities*'));
+        $this->assertNotEmpty(File::glob($migrationPath.'/*business_outcome*'));
     }
 
     public function test_digital_asset_scope_awareness_on_website_and_instagram(): void
     {
-        $this->get(route('demo.website'))
-            ->assertOk()
-            ->assertSee(__('operator.commercial.managed_under'))
-            ->assertSee('Website Maintenance');
+        $website = $this->createPortfolioAsset('website', 'Northwind Website');
+        $instagram = $this->createPortfolioAsset('instagram', 'Northwind Instagram');
 
-        $this->get(route('demo.instagram'))
+        $this->get(route('operator.website'))->assertNotFound();
+        $this->get(route('operator.instagram'))->assertRedirect(route('operator.assets'));
+
+        $this->get(route('operator.website', ['assetId' => $website->id]))
             ->assertOk()
-            ->assertSee(__('operator.commercial.outside_scope'));
+            ->assertSee('Northwind Website')
+            ->assertDontSee('Atlas Dental Website');
+
+        $this->get(route('operator.instagram', ['assetId' => $instagram->id]))
+            ->assertRedirect(route('operator.assets'));
     }
 }

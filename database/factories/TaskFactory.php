@@ -24,6 +24,9 @@ class TaskFactory extends Factory
     {
         return [
             'recommendation_id' => Recommendation::factory(),
+            'client_request_id' => null,
+            'source_kind' => 'recommendation',
+            'idempotency_key' => null,
             'digital_asset_id' => function (array $attributes): int {
                 if (isset($attributes['recommendation_id'])) {
                     $digitalAssetId = Recommendation::query()
@@ -43,6 +46,7 @@ class TaskFactory extends Factory
 
                 return DigitalAsset::factory()->create()->id;
             },
+            'scope_kind' => 'digital_asset',
             'brand_id' => function (array $attributes): int {
                 if (isset($attributes['digital_asset_id'])) {
                     $brandId = DigitalAsset::query()->find($attributes['digital_asset_id'])?->brand_id;

@@ -1,0 +1,295 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Enums\Collection\CollectionRunStatus;
+use App\Jobs\Async\ResourceCollectionJob;
+use App\Models\Brand;
+use App\Models\Collection\CollectionDatasetRun;
+use App\Models\Collection\CollectionResourceRun;
+use App\Models\Collection\CollectionRun;
+use App\Models\CoreAssetBinding;
+use App\Models\CoreExternalResource;
+use App\Models\CoreIntegration;
+use App\Models\DigitalAsset;
+use App\Models\Observability\OperationalAlert;
+use App\Models\ResourceAutomation;
+use App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService;
+use App\Services\Collection\Providers\GoogleAds\GoogleAdsCentralRequestFamilyCatalog;
+use App\Services\Integrations\ResourceAutomationService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
+use Tests\TestCase;
+
+final class ResourceAutomationRecoveryTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->freezeTime();
+        config(['moxdop-resource-automation.queue_connection' => 'database']);
+        Queue::fake();
+    }
+
+    public function test_new_accounts_start_without_id_based_delay_and_respect_capacity(): void
+    {
+        // Only accounts bound to an operational asset pass the portfolio gate.
+        CoreExternalResource::factory()->count(3)->create(['resource_type' => 'google_ads'])
+            ->each(fn (CoreExternalResource $resource) => $this->bindToActiveAsset($resource));
+        app(ResourceAutomationService::class)->tick();
+        Queue::assertPushed(ResourceCollectionJob::class, 2);
+        $this->assertSame(2, ResourceAutomation::query()->where('collection_status', 'planning')->count());
+        app(ResourceAutomationService::class)->tick();
+        Queue::assertPushed(ResourceCollectionJob::class, 2);
+    }
+
+    public function test_terminal_parent_does_not_keep_account_slots_or_locks_occupied(): void
+    {
+        $resource = CoreExternalResource::factory()->create(['resource_type' => 'google_ads']);
+        $this->bindToActiveAsset($resource);
+        $run = CollectionRun::factory()->create(['status' => CollectionRunStatus::Failed]);
+        CollectionResourceRun::factory()->create([
+            'collection_run_id' => $run->id, 'external_resource_id' => $resource->id,
+            'status' => CollectionRunStatus::Running,
+        ]);
+        config(['moxdop-resource-automation.max_active_collections' => 1]);
+        $service = app(ResourceAutomationService::class);
+        $service->tick();
+        Queue::assertPushed(ResourceCollectionJob::class, 1);
+        $this->assertTrue($service->withResourceLocks([$resource->id], fn () => true));
+    }
+
+    public function test_paused_accounts_are_not_resumed_by_initial_collection_recovery(): void
+    {
+        $resource = CoreExternalResource::factory()->create();
+        $automation = ResourceAutomation::query()->create([
+            'external_resource_id' => $resource->id, 'collection_enabled' => false,
+            'next_collection_at' => now()->addHours(20),
+        ]);
+        app(ResourceAutomationService::class)->tick();
+        Queue::assertNotPushed(ResourceCollectionJob::class);
+        $this->assertFalse($automation->fresh()->collection_enabled);
+        $this->assertTrue($automation->fresh()->next_collection_at->isFuture());
+    }
+
+    public function test_google_ads_repairs_unfinished_child_after_parent_failure(): void
+    {
+        $resource = CoreExternalResource::factory()->create(['resource_type' => 'google_ads']);
+        $parent = CollectionRun::factory()->create(['status' => CollectionRunStatus::Failed]);
+        $child = CollectionResourceRun::factory()->create([
+            'collection_run_id' => $parent->id, 'external_resource_id' => $resource->id,
+            'digital_asset_id' => null, 'provider_or_source' => 'GOOGLE_ADS',
+            'status' => CollectionRunStatus::Running, 'metadata' => ['collection_scope' => 'provider_resource_first'],
+        ]);
+        $dataset = CollectionDatasetRun::factory()->create([
+            'collection_run_id' => $parent->id, 'collection_resource_run_id' => $child->id,
+            'provider_or_source' => 'GOOGLE_ADS', 'status' => CollectionRunStatus::Running,
+            'request_family_id' => GoogleAdsCentralRequestFamilyCatalog::ENTITY_SNAPSHOT,
+            'checkpoint' => ['step_index' => 2], 'metadata' => [],
+        ]);
+        $reflection = new \ReflectionClass(GoogleAdsCentralCollectionService::class);
+        $plan = $reflection->getMethod('smartPlan')->invoke($reflection->newInstanceWithoutConstructor(), $resource);
+        $this->assertSame('google_ads_central_repair', $plan['intent']);
+        $this->assertSame($dataset->id, $plan['families'][0]['resumed_from_dataset_run_id']);
+        $this->assertSame(['step_index' => 2], $plan['families'][0]['checkpoint']);
+    }
+
+    public function test_existing_initial_delay_is_recovered_without_overriding_error_backoff(): void
+    {
+        $resources = CoreExternalResource::factory()->count(2)->create(['resource_type' => 'google_ads']);
+        foreach ($resources as $index => $resource) {
+            $this->bindToActiveAsset($resource);
+            ResourceAutomation::query()->create([
+                'external_resource_id' => $resource->id, 'next_collection_at' => now()->addHours(20),
+                'collection_error' => $index === 0 ? null : 'collection_failed',
+            ]);
+        }
+        app(ResourceAutomationService::class)->tick();
+        Queue::assertPushed(ResourceCollectionJob::class, 1);
+        $this->assertSame('waiting', ResourceAutomation::query()->where('external_resource_id', $resources[1]->id)->first()->collection_status);
+    }
+
+    public function test_meta_accounts_not_assigned_to_a_brand_wait_until_assigned(): void
+    {
+        $integration = CoreIntegration::factory()->meta()->create();
+        $resources = CoreExternalResource::factory()->count(2)->create([
+            'provider' => 'meta', 'resource_type' => 'meta_ads', 'integration_id' => $integration->id,
+        ]);
+        // An account parked as "binding" by the earlier rule is due again.
+        ResourceAutomation::query()->create(['external_resource_id' => $resources[0]->id, 'collection_status' => 'attention',
+            'collection_error' => 'binding', 'next_collection_at' => now()->addDay()]);
+        $service = app(ResourceAutomationService::class);
+        $service->tick();
+        Queue::assertNotPushed(ResourceCollectionJob::class);
+        $this->assertSame(['unbound', 'unbound'], ResourceAutomation::query()->orderBy('id')->pluck('collection_error')->all());
+
+        $this->bindToActiveAsset($resources[1]);
+        $service->tick();
+        $assigned = ResourceAutomation::query()->where('external_resource_id', $resources[1]->id)->first();
+        Queue::assertPushed(ResourceCollectionJob::class, fn ($job) => $job->automationId === $assigned->id);
+        Queue::assertPushed(ResourceCollectionJob::class, 1);
+    }
+
+    public function test_missing_collection_run_returns_to_bounded_retry(): void
+    {
+        $resource = CoreExternalResource::factory()->create();
+        $automation = ResourceAutomation::query()->create([
+            'external_resource_id' => $resource->id, 'collection_status' => 'collecting',
+            'collection_run_id' => 999999, 'next_collection_at' => now()->addDay(),
+        ]);
+        app(ResourceAutomationService::class)->tick();
+        $this->assertSame('waiting', $automation->fresh()->collection_status);
+        $this->assertSame('collection_failed', $automation->fresh()->collection_error);
+        Queue::assertNotPushed(ResourceCollectionJob::class);
+    }
+
+    public function test_new_planner_does_not_reconcile_the_previous_failed_attempt(): void
+    {
+        $resource = CoreExternalResource::factory()->create(['resource_type' => 'google_ads']);
+        $this->bindToActiveAsset($resource);
+        $old = CollectionRun::factory()->create(['status' => CollectionRunStatus::Failed]);
+        $automation = ResourceAutomation::query()->create([
+            'external_resource_id' => $resource->id, 'collection_status' => 'waiting',
+            'collection_run_id' => $old->id, 'collection_error' => 'collection_failed',
+            'next_collection_at' => now()->subMinute(),
+        ]);
+        $service = app(ResourceAutomationService::class);
+        $service->tick();
+        $service->tick();
+        $this->assertSame('planning', $automation->fresh()->collection_status);
+        $this->assertNull($automation->fresh()->collection_run_id);
+        Queue::assertPushed(ResourceCollectionJob::class, 1);
+    }
+
+    public function test_busy_shared_provider_lane_does_not_starve_google_ads_admission(): void
+    {
+        $service = app(ResourceAutomationService::class);
+        foreach (['ga4', 'search_console'] as $type) {
+            $resource = CoreExternalResource::factory()->create(['resource_type' => $type]);
+            $run = CollectionRun::factory()->create(['status' => CollectionRunStatus::Running]);
+            CollectionResourceRun::factory()->create([
+                'collection_run_id' => $run->id, 'external_resource_id' => $resource->id,
+                'status' => CollectionRunStatus::Running,
+            ]);
+        }
+        // These older due rows must not hide the Ads candidates behind the per-tick limit.
+        CoreExternalResource::factory()->count(12)->create(['resource_type' => 'ga4']);
+        $ads = CoreExternalResource::factory()->count(3)->create(['resource_type' => 'google_ads']);
+        $ads->each(fn (CoreExternalResource $resource) => $this->bindToActiveAsset($resource));
+        $service->tick();
+        // Unassigned GA4 properties are not collected; the Ads lane fills its two slots.
+        Queue::assertPushed(ResourceCollectionJob::class, 2);
+        $plannedIds = ResourceAutomation::query()->where('collection_status', 'planning')->pluck('external_resource_id')->all();
+        $this->assertEqualsCanonicalizing($ads->take(2)->pluck('id')->all(), array_values(array_intersect($plannedIds, $ads->pluck('id')->all())));
+        $service->tick();
+        Queue::assertPushed(ResourceCollectionJob::class, 2);
+    }
+
+    public function test_busy_ads_lane_does_not_starve_other_providers(): void
+    {
+        foreach (range(1, 2) as $unused) {
+            $resource = CoreExternalResource::factory()->create(['resource_type' => 'google_ads']);
+            $run = CollectionRun::factory()->create(['status' => CollectionRunStatus::Running]);
+            CollectionResourceRun::factory()->create([
+                'collection_run_id' => $run->id, 'external_resource_id' => $resource->id,
+                'status' => CollectionRunStatus::Running,
+            ]);
+        }
+        $ga4 = CoreExternalResource::factory()->create(['resource_type' => 'ga4']);
+        $this->bindToActiveAsset($ga4);
+        app(ResourceAutomationService::class)->tick();
+        Queue::assertPushed(ResourceCollectionJob::class, 1);
+        $this->assertSame('planning', ResourceAutomation::query()->where('external_resource_id', $ga4->id)->first()->collection_status);
+    }
+
+    public function test_deployment_recovery_only_rearms_enabled_accounts_with_known_landing_key_failure(): void
+    {
+        foreach ([true, false] as $enabled) {
+            $resource = CoreExternalResource::factory()->create(['resource_type' => 'ga4']);
+            $run = CollectionRun::factory()->create(['status' => CollectionRunStatus::Partial]);
+            $resourceRun = CollectionResourceRun::factory()->create([
+                'collection_run_id' => $run->id, 'external_resource_id' => $resource->id,
+                'status' => CollectionRunStatus::Partial,
+            ]);
+            CollectionDatasetRun::factory()->create([
+                'collection_run_id' => $run->id, 'collection_resource_run_id' => $resourceRun->id,
+                'status' => CollectionRunStatus::Failed, 'dataset_contract_id' => 'ga4_landing_page_daily',
+                'error_code' => 'PERSISTENCE',
+                'error_message' => 'CONTRACT_MISMATCH: missing natural key [landingPage] at record 0 for [ga4_landing_page_daily]',
+            ]);
+            ResourceAutomation::query()->create([
+                'external_resource_id' => $resource->id, 'collection_enabled' => $enabled,
+                'collection_run_id' => $run->id, 'collection_status' => 'attention',
+                'collection_error' => 'collection_failed', 'collection_failures' => 3,
+            ]);
+        }
+        $service = app(ResourceAutomationService::class);
+        $this->assertSame(1, $service->recoverGa4LandingFailures());
+        $this->assertSame(0, $service->recoverGa4LandingFailures());
+        $this->assertSame('attention', ResourceAutomation::query()->where('collection_enabled', false)->first()->collection_status);
+        $this->assertSame('waiting', ResourceAutomation::query()->where('collection_enabled', true)->first()->collection_status);
+    }
+
+    public function test_deployment_recovery_rearms_geo_empty_dimension_failures_but_not_other_errors(): void
+    {
+        foreach (['CONTRACT_MISMATCH: missing natural key [region] at record 4 for [ga4_geo_city_daily]', 'Required GA4 metric [newUsers] unavailable'] as $message) {
+            $resource = CoreExternalResource::factory()->create(['resource_type' => 'ga4']);
+            $run = CollectionRun::factory()->create(['status' => CollectionRunStatus::Partial]);
+            $resourceRun = CollectionResourceRun::factory()->create([
+                'collection_run_id' => $run->id, 'external_resource_id' => $resource->id,
+                'status' => CollectionRunStatus::Partial,
+            ]);
+            CollectionDatasetRun::factory()->create([
+                'collection_run_id' => $run->id, 'collection_resource_run_id' => $resourceRun->id,
+                'status' => CollectionRunStatus::Failed, 'dataset_contract_id' => 'ga4_geo_city_daily',
+                'error_code' => 'PERSISTENCE', 'error_message' => $message,
+            ]);
+            ResourceAutomation::query()->create([
+                'external_resource_id' => $resource->id, 'collection_enabled' => true,
+                'collection_run_id' => $run->id, 'collection_status' => 'attention',
+                'collection_error' => 'request_requires_fix', 'collection_failures' => 3,
+            ]);
+        }
+        $this->assertSame(1, app(ResourceAutomationService::class)->recoverGa4LandingFailures());
+        $this->assertSame(['attention', 'waiting'], ResourceAutomation::query()->orderBy('collection_status')->pluck('collection_status')->all());
+    }
+
+    public function test_unassigned_account_waits_resumes_once_assigned_and_never_alerts(): void
+    {
+        $resource = CoreExternalResource::factory()->create(['resource_type' => 'ga4']);
+        $service = app(ResourceAutomationService::class);
+        $service->tick();
+        $automation = ResourceAutomation::query()->where('external_resource_id', $resource->id)->firstOrFail();
+        $this->assertSame('unbound', $automation->collection_error, 'only accounts of brand-assigned assets are collected');
+        Queue::assertNotPushed(ResourceCollectionJob::class);
+
+        // Bound to an asset without a brand: still waits.
+        $site = DigitalAsset::factory()->create(['brand_id' => null, 'type' => 'website']);
+        CoreAssetBinding::factory()->create(['external_resource_id' => $resource->id, 'capability' => 'ga4', 'digital_asset_id' => $site->id]);
+        $this->assertSame('unbound', $service->portfolioGate($automation->fresh()));
+        $service->alert($automation->id, 'collection', 'collection_failed');
+        $this->assertSame(0, OperationalAlert::query()->where('rule_key', 'resource-automation.collection')->count(), 'no operator alert for an unassigned account');
+
+        // The asset is assigned to a brand: released on the next tick.
+        $site->update(['brand_id' => Brand::factory()->create()->id]);
+        $service->tick();
+        $this->assertNotSame('unbound', $automation->fresh()->collection_error);
+        Queue::assertPushed(ResourceCollectionJob::class, 1);
+
+    }
+
+    public function test_dispatch_sink_is_rejected_instead_of_silently_losing_planning_jobs(): void
+    {
+        config(['moxdop-resource-automation.queue_connection' => 'null']);
+        $this->expectException(\RuntimeException::class);
+        app(ResourceAutomationService::class)->tick();
+    }
+
+    /** Collection runs only for accounts bound to an active customer's asset (Faz 0 portfolio gate). */
+    private function bindToActiveAsset(CoreExternalResource $resource): void
+    {
+        CoreAssetBinding::factory()->create(['external_resource_id' => $resource->id, 'capability' => $resource->resource_type]);
+    }
+}

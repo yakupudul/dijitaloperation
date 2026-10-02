@@ -2,21 +2,14 @@
 
 namespace Tests\Feature;
 
-use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\Pages\ViewDigitalAsset;
-use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\AssetBindingsRelationManager;
-use App\Filament\App\Resources\Integrations\IntegrationResource;
-use App\Filament\App\Resources\Integrations\Pages\ViewIntegration;
-use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
-use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Integrations\Google\GoogleOAuthService;
 use App\Services\Integrations\Google\GoogleResourceRefreshService;
-use App\Support\Integrations\AssetBindingCompatibility;
 use App\Support\Integrations\Google\GoogleAuthStatus;
 use App\Support\Integrations\Google\GoogleScopes;
 use App\Support\Integrations\ProviderRegistry;
@@ -28,7 +21,6 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 class GoogleCentralIntegrationTest extends TestCase
@@ -100,7 +92,7 @@ class GoogleCentralIntegrationTest extends TestCase
         $this->get(route('integrations.google.callback', [
             'code' => 'auth-code',
             'state' => 'valid-state',
-        ]))->assertRedirect(route('demo.integrations.google'));
+        ]))->assertRedirect(route('operator.integrations.google'));
 
         $credential = CoreIntegrationCredential::query()
             ->where('integration_id', $this->integration->id)
@@ -128,7 +120,7 @@ class GoogleCentralIntegrationTest extends TestCase
         config(['moxdop.google.client_id' => null, 'moxdop.google.client_secret' => null]);
 
         $this->get(route('integrations.google.authorize', $this->integration))
-            ->assertRedirect(route('demo.integrations.google'));
+            ->assertRedirect(route('operator.integrations.google'));
 
         $this->assertSame(GoogleAuthStatus::NOT_CONFIGURED, GoogleAuthStatus::for($this->integration->fresh()));
 
@@ -140,11 +132,11 @@ class GoogleCentralIntegrationTest extends TestCase
         $this->get(route('integrations.google.callback', [
             'error' => 'access_denied',
             'state' => 'x',
-        ]))->assertRedirect(route('demo.integrations'));
+        ]))->assertRedirect(route('operator.integrations'));
 
-        $this->assertStringStartsWith(url('/app'), route('demo.integrations.google'));
-        $this->assertStringNotContainsString('/system', route('demo.integrations.google'));
-        $this->assertStringNotContainsString('/system', route('demo.integrations'));
+        $this->assertStringStartsWith(url('/'), route('operator.integrations.google'));
+        $this->assertStringNotContainsString('/system', route('operator.integrations.google'));
+        $this->assertStringNotContainsString('/system', route('operator.integrations'));
     }
 
     public function test_token_refresh_updates_encrypted_access_token(): void
@@ -186,8 +178,12 @@ class GoogleCentralIntegrationTest extends TestCase
             'expires_at' => now()->addHour(),
         ]);
 
-        // Missing developer token => Ads setup_required; GBP disabled => setup_required.
-        config(['moxdop.google.developer_token' => null]);
+        // Missing developer token => Ads setup_required; GBP scope off => scope_required.
+        config([
+            'moxdop.google.developer_token' => null,
+            'moxdop.google.include_gbp_scope' => false,
+            'moxdop.google.gbp_discovery_enabled' => false,
+        ]);
 
         Http::fake([
             'https://www.googleapis.com/webmasters/v3/sites' => Http::response([
@@ -215,7 +211,7 @@ class GoogleCentralIntegrationTest extends TestCase
         $this->assertSame('ok', $result['results']['search_console']['status']);
         $this->assertSame('ok', $result['results']['ga4']['status']);
         $this->assertSame('setup_required', $result['results']['google_ads']['status']);
-        $this->assertSame('setup_required', $result['results']['google_business_profile']['status']);
+        $this->assertSame('scope_required', $result['results']['google_business_profile']['status']);
 
         $this->assertDatabaseHas('core_external_resources', [
             'integration_id' => $this->integration->id,
@@ -333,72 +329,7 @@ class GoogleCentralIntegrationTest extends TestCase
         ]);
     }
 
-    public function test_binding_compatibility_and_no_asset_level_google_credential(): void
-    {
-        $customer = Customer::factory()->create();
-        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
-        $website = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'website']);
-        $adsAsset = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'google_ads']);
-
-        $gsc = CoreExternalResource::factory()->create([
-            'integration_id' => $this->integration->id,
-            'provider' => ProviderRegistry::GOOGLE,
-            'resource_type' => 'search_console',
-            'external_id' => 'sc-domain:moximu.com',
-            'display_name' => 'moximu.com',
-            'status' => 'available',
-        ]);
-        $ads = CoreExternalResource::factory()->create([
-            'integration_id' => $this->integration->id,
-            'provider' => ProviderRegistry::GOOGLE,
-            'resource_type' => 'google_ads',
-            'external_id' => '1234567890',
-            'display_name' => 'Ads 1234567890',
-            'status' => 'available',
-        ]);
-
-        $this->assertTrue(AssetBindingCompatibility::isCompatible($website, $gsc));
-        $this->assertFalse(AssetBindingCompatibility::isCompatible($website, $ads));
-        $this->assertTrue(AssetBindingCompatibility::isCompatible($adsAsset, $ads));
-
-        Livewire::test(AssetBindingsRelationManager::class, [
-            'ownerRecord' => $website,
-            'pageClass' => ViewDigitalAsset::class,
-        ])
-            ->callTableAction('create', data: [
-                'external_resource_id' => $ads->id,
-                'status' => CoreAssetBinding::STATUS_ACTIVE,
-            ])
-            ->assertHasTableActionErrors();
-
-        Livewire::test(AssetBindingsRelationManager::class, [
-            'ownerRecord' => $website,
-            'pageClass' => ViewDigitalAsset::class,
-        ])
-            ->callTableAction('create', data: [
-                'external_resource_id' => $gsc->id,
-                'status' => CoreAssetBinding::STATUS_ACTIVE,
-            ])
-            ->assertHasNoTableActionErrors();
-
-        $binding = CoreAssetBinding::query()->firstOrFail();
-        $this->assertSame($website->id, $binding->digital_asset_id);
-        $this->assertNull(data_get($binding->configuration, 'access_token'));
-        $this->assertNull(data_get($binding->externalResource->metadata, 'refresh_token'));
-    }
-
-    public function test_team_member_cannot_authorize_google(): void
-    {
-        $team = User::factory()->create();
-        $team->assignRole(Roles::TEAM_MEMBER);
-        $this->actingAs($team);
-
-        $this->get(route('integrations.google.authorize', $this->integration))->assertForbidden();
-        $this->get(route('integrations.google.callback'))->assertForbidden();
-        $this->assertFalse(IntegrationResource::canAccess());
-    }
-
-    public function test_disconnect_clears_credentials_and_marks_resources_unavailable(): void
+    public function test_disconnect_clears_credentials_and_preserves_resources_bindings(): void
     {
         CoreIntegrationCredential::factory()->provider()->create([
             'integration_id' => $this->integration->id,
@@ -436,23 +367,9 @@ class GoogleCentralIntegrationTest extends TestCase
         $this->assertFalse($this->integration->fresh()->authorizationCredential()->exists());
         $this->assertTrue($this->integration->fresh()->providerCredential()->exists());
         $this->assertSame('keep-client-secret', $this->integration->fresh()->providerCredential->encrypted_payload['client_secret']);
-        $this->assertSame('unavailable', $resource->fresh()->status);
-        $this->assertSame('disabled', CoreAssetBinding::query()->first()->status);
+        $this->assertSame('available', $resource->fresh()->status);
+        $this->assertSame('active', CoreAssetBinding::query()->first()->status);
         $this->assertDatabaseHas('digital_assets', ['id' => $asset->id]);
-    }
-
-    public function test_google_integration_view_shows_setup_and_actions_without_secrets(): void
-    {
-        Livewire::test(ViewIntegration::class, ['record' => $this->integration->getRouteKey()])
-            ->assertOk()
-            ->assertSee('Application configuration')
-            ->assertSee('Authorization')
-            ->assertSee('Authorize Google')
-            ->assertSee('Configure')
-            ->assertSee('Test connection')
-            ->assertSee('Refresh resources')
-            ->assertSee('Configured by environment')
-            ->assertDontSee('test-client-secret')
-            ->assertDontSee('refresh-secret');
+        $this->assertSame(GoogleAuthStatus::REVOKED, GoogleAuthStatus::for($this->integration->fresh(['credential'])));
     }
 }

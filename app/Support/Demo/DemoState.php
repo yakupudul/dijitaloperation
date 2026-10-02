@@ -2,10 +2,16 @@
 
 namespace App\Support\Demo;
 
+use App\Models\Brand;
+use App\Models\Customer;
+use App\Services\Operator\AgencySettingService;
 use App\Support\Options\CountryOptions;
 
 /**
- * Session-backed mutable Demo Mode state. Isolated from the operator database.
+ * Session helper for operator UI chrome (flash, filters, settings overrides).
+ *
+ * Does NOT seed Atlas / DemoCatalog business truth. Reading an empty session
+ * must not create customers, brands, assets, findings, or team members.
  */
 final class DemoState
 {
@@ -18,16 +24,13 @@ final class DemoState
     {
         $state = session()->get(self::SESSION_KEY);
         if (! is_array($state)) {
-            $state = self::defaults();
-            session()->put(self::SESSION_KEY, $state);
-
-            return $state;
+            return self::defaults();
         }
 
         $defaults = self::defaults();
-        foreach (['contacts', 'customer_activity', 'demo_assets', 'discovery_candidates', 'discovery_history', 'discovery_conflict_resolutions', 'connector_bindings', 'wizard_state', 'finding_statuses', 'settings_overrides', 'brand_business_context', 'activity_events', 'opportunity_statuses', 'business_outcome_overrides', 'client_requests', 'playbook_states', 'recurring_review_states', 'approval_states', 'qa_states', 'capture_notes', 'execution_overrides', 'hypotheses', 'report_config', 'demo_notifications'] as $key) {
+        foreach (array_keys($defaults) as $key) {
             if (! array_key_exists($key, $state)) {
-                $state[$key] = $defaults[$key] ?? [];
+                $state[$key] = $defaults[$key];
             }
         }
 
@@ -36,28 +39,30 @@ final class DemoState
 
     public static function reset(): void
     {
-        session()->put(self::SESSION_KEY, self::defaults());
+        session()->forget(self::SESSION_KEY);
     }
 
     /**
+     * Empty operational session — never Atlas Health Group / DemoCatalog seeds.
+     *
      * @return array<string, mixed>
      */
     public static function defaults(): array
     {
         return [
-            'customers' => [DemoCatalog::customer()],
-            'brands' => [DemoCatalog::brand()],
-            'contacts' => DemoCatalog::customerContacts(),
-            'customer_activity' => DemoCatalog::customerActivity(),
-            'recommendations' => DemoCatalog::recommendationsSeed(),
-            'tasks' => DemoCatalog::tasksSeed(),
-            'activity' => DemoCatalog::activitySeed(),
+            'customers' => [],
+            'brands' => [],
+            'contacts' => [],
+            'customer_activity' => [],
+            'recommendations' => [],
+            'tasks' => [],
+            'activity' => [],
             'demo_assets' => [],
             'import' => [
                 'running' => false,
                 'started_at' => null,
-                'overall_ready' => 11,
-                'overall_total' => 31,
+                'overall_ready' => 0,
+                'overall_total' => 0,
                 'tick' => 0,
                 'selected_account_id' => null,
             ],
@@ -66,29 +71,23 @@ final class DemoState
                 'completed' => false,
                 'steps' => [],
             ],
-            'discovery_candidates' => DemoCatalog::brandDiscoveryCandidates(),
-            'discovery_history' => BrandPublicDiscoveryFixtures::history(),
+            'discovery_candidates' => [],
+            'discovery_history' => [],
             'discovery_conflict_resolutions' => [],
             'connector_bindings' => [],
-            'wizard_state' => null,
             'finding_statuses' => [],
             'settings_overrides' => [],
             'brand_business_context' => [],
             'activity_events' => [],
             'opportunity_statuses' => [],
             'business_outcome_overrides' => [],
-            'client_requests' => self::seedClientRequests(),
-            'playbook_states' => [],
-            'recurring_review_states' => [],
-            'approval_states' => [],
-            'qa_states' => [],
             'capture_notes' => [],
             'report_config' => [],
-            'demo_notifications' => null,
+            'demo_notifications' => [],
             'execution_overrides' => [],
             'hypotheses' => [],
             'ai_brief_visible' => false,
-            'period_preset' => 'last_28',
+            'period_preset' => app(AgencySettingService::class)->defaultAnalyticalDateRange(),
             'period_start' => null,
             'period_end' => null,
             'compare' => true,
@@ -163,7 +162,7 @@ final class DemoState
         $state = self::all();
         $state['customers'][] = self::normalizeCustomer($customer);
         session()->put(self::SESSION_KEY, $state);
-        self::flash('Customer “'.$customer['name'].'” saved (Demo Mode).');
+        self::flash('Customer “'.$customer['name'].'” saved.');
     }
 
     /**
@@ -180,7 +179,7 @@ final class DemoState
         }
         unset($row);
         session()->put(self::SESSION_KEY, $state);
-        self::flash('Customer changes saved (Demo Mode).');
+        self::flash('Customer changes saved.');
     }
 
     /**
@@ -227,7 +226,7 @@ final class DemoState
     public static function setCustomerStatus(string $id, string $status): void
     {
         self::updateCustomer($id, ['status' => $status]);
-        self::flash($status === 'archived' ? 'Customer archived (Demo Mode).' : 'Customer restored (Demo Mode).');
+        self::flash($status === 'archived' ? 'Customer archived.' : 'Customer restored.');
     }
 
     /**
@@ -247,7 +246,7 @@ final class DemoState
             unset($customer);
         }
         session()->put(self::SESSION_KEY, $state);
-        self::flash('Brand “'.$brand['name'].'” added (Demo Mode).');
+        self::flash('Brand “'.$brand['name'].'” added.');
     }
 
     /**
@@ -264,7 +263,7 @@ final class DemoState
         }
         unset($row);
         session()->put(self::SESSION_KEY, $state);
-        self::flash('Brand changes saved (Demo Mode).');
+        self::flash('Brand changes saved.');
     }
 
     /**
@@ -313,7 +312,7 @@ final class DemoState
         $state['contacts'] = $state['contacts'] ?? [];
         $state['contacts'][] = $contact;
         session()->put(self::SESSION_KEY, $state);
-        self::flash('Contact “'.$contact['name'].'” saved (Demo Mode).');
+        self::flash('Contact “'.$contact['name'].'” saved.');
     }
 
     /**
@@ -330,7 +329,7 @@ final class DemoState
         }
         unset($row);
         session()->put(self::SESSION_KEY, $state);
-        self::flash('Contact updated (Demo Mode).');
+        self::flash('Contact updated.');
     }
 
     public static function deleteContact(string $id): void
@@ -341,7 +340,7 @@ final class DemoState
             static fn (array $row): bool => ($row['id'] ?? '') !== $id
         ));
         session()->put(self::SESSION_KEY, $state);
-        self::flash('Contact removed (Demo Mode).');
+        self::flash('Contact removed.');
     }
 
     /**
@@ -371,7 +370,7 @@ final class DemoState
             }
         }
         session()->put(self::SESSION_KEY, $state);
-        self::flash('Digital Asset “'.$asset['name'].'” added (Demo Mode).');
+        self::flash('Digital Asset “'.$asset['name'].'” added.');
     }
 
     /**
@@ -428,33 +427,6 @@ final class DemoState
         session()->put(self::SESSION_KEY, $state);
     }
 
-    /**
-     * @param  array<string, mixed>  $wizard
-     */
-    public static function saveWizardState(array $wizard): void
-    {
-        $state = self::all();
-        $state['wizard_state'] = $wizard;
-        session()->put(self::SESSION_KEY, $state);
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    public static function wizardState(): ?array
-    {
-        $wizard = self::all()['wizard_state'] ?? null;
-
-        return is_array($wizard) ? $wizard : null;
-    }
-
-    public static function clearWizardState(): void
-    {
-        $state = self::all();
-        $state['wizard_state'] = null;
-        session()->put(self::SESSION_KEY, $state);
-    }
-
     public static function setRecommendationStatus(string $id, string $status): void
     {
         $state = self::all();
@@ -480,7 +452,7 @@ final class DemoState
             'actor_kind' => 'human',
             'status' => 'success',
             'asset_type' => null,
-            'route' => 'demo.recommendations',
+            'route' => 'operator.recommendations',
         ]);
     }
 
@@ -510,9 +482,9 @@ final class DemoState
             'actor_kind' => 'human',
             'status' => 'success',
             'asset_type' => null,
-            'route' => 'demo.findings',
+            'route' => 'operator.findings',
         ]);
-        self::flash($label.' (Demo Mode).');
+        self::flash($label.'.');
     }
 
     /**
@@ -544,7 +516,7 @@ final class DemoState
         $current = is_array($state['settings_overrides'] ?? null) ? $state['settings_overrides'] : [];
         $state['settings_overrides'] = array_replace_recursive($current, $overrides);
         session()->put(self::SESSION_KEY, $state);
-        self::flash('Settings updated (Demo Mode — session only).');
+        self::flash('Settings updated.');
     }
 
     /**
@@ -580,9 +552,9 @@ final class DemoState
             'actor_kind' => 'human',
             'status' => 'success',
             'asset_type' => null,
-            'route' => 'demo.brand',
+            'route' => 'operator.brand',
         ]);
-        self::flash('Business Context saved as canonical Brand truth (Demo Mode). Legacy Brand free-text fields are not the source of truth.');
+        self::flash('Business Context saved as canonical Brand truth. Legacy Brand free-text fields are not the source of truth.');
     }
 
     /**
@@ -685,9 +657,9 @@ final class DemoState
             'actor_kind' => 'human',
             'status' => 'success',
             'asset_type' => null,
-            'route' => 'demo.tasks',
+            'route' => 'operator.tasks',
         ]);
-        self::flash('Task created from recommendation (Demo Mode).');
+        self::flash('Task created from recommendation.');
     }
 
     public static function setTaskStatus(string $id, string $status): void
@@ -711,7 +683,7 @@ final class DemoState
         }
         unset($task);
         session()->put(self::SESSION_KEY, $state);
-        self::flash('Task updated (Demo Mode).');
+        self::flash('Task updated.');
     }
 
     public static function startMetaImport(): void
@@ -729,7 +701,7 @@ final class DemoState
             'when' => 'Now',
         ]);
         session()->put(self::SESSION_KEY, $state);
-        self::flash('Meta data import started (Demo Mode simulation).', 'info');
+        self::flash('Meta data import started.', 'info');
     }
 
     public static function tickMetaImport(): void
@@ -755,30 +727,13 @@ final class DemoState
 
     public static function startPublicResearch(): void
     {
-        $steps = array_map(
-            static fn (array $row): string => (string) $row['step'],
-            DemoCatalog::publicDiscoverySteps()
-        );
-        self::put([
-            'public_research' => [
-                'running' => false,
-                'completed' => true,
-                'steps' => $steps,
-                'cards' => DemoCatalog::publicDiscoverySteps(),
-                'website' => 'atlasdental.example',
-                'pages_inspected' => 8,
-                'completed_at' => 'Today at 11:42',
-            ],
-            'discovery_candidates' => DemoCatalog::brandDiscoveryCandidates(),
-            'discovery_history' => BrandPublicDiscoveryFixtures::history(),
-        ]);
-        self::flash('Public brand research completed (Demo Mode · PUBLIC DISCOVERY provenance).');
+        self::flash('Public discovery has not run. No candidates are generated until a real discovery run exists.', 'info');
     }
 
     public static function setDiscoveryCandidateStatus(string $id, string $status, ?string $reason = null, ?string $mappedTo = null): void
     {
         $state = self::all();
-        $candidates = $state['discovery_candidates'] ?? DemoCatalog::brandDiscoveryCandidates();
+        $candidates = $state['discovery_candidates'] ?? [];
         $label = $id;
         foreach ($candidates as &$row) {
             if (($row['id'] ?? '') === $id) {
@@ -818,10 +773,10 @@ final class DemoState
         session()->put(self::SESSION_KEY, $state);
 
         $flash = match ($status) {
-            'accepted' => 'Candidate accepted (Demo Mode — human-reviewed Brand Context update recorded; no silent overwrite of unrelated fields).',
-            'mapped' => 'Mapped to existing Brand Context item (Demo Mode — duplicate Offering avoided).',
-            'ignored' => 'Candidate ignored (Demo Mode — source Evidence retained).',
-            default => 'Discovery candidate updated (Demo Mode).',
+            'accepted' => 'Candidate accepted.',
+            'mapped' => 'Mapped to existing Brand Context item.',
+            'ignored' => 'Candidate ignored.',
+            default => 'Discovery candidate updated.',
         };
         self::flash($flash);
     }
@@ -854,13 +809,12 @@ final class DemoState
         ];
         $state['discovery_history'] = $history;
         session()->put(self::SESSION_KEY, $state);
-        self::flash('Conflict decision recorded (Demo Mode — no provider write).');
+        self::flash('Conflict decision recorded. No provider write was made.');
     }
 
     public static function showAiBrief(): void
     {
-        self::put(['ai_brief_visible' => true]);
-        self::flash('Brand analysis ready (Demo Mode — no live AI call).', 'info');
+        self::flash('Brand analysis is unavailable until canonical evidence exists.', 'info');
     }
 
     /**
@@ -883,7 +837,7 @@ final class DemoState
             }
             unset($row);
             session()->put(self::SESSION_KEY, $state);
-            self::flash('Recommendation “'.$existing['title'].'” ready in queue (Demo Mode).');
+            self::flash('Recommendation “'.$existing['title'].'” ready in queue.');
 
             return;
         }
@@ -906,7 +860,7 @@ final class DemoState
             'asset' => 'Cross-channel',
         ];
         session()->put(self::SESSION_KEY, $state);
-        self::flash('Recommendation created from AI analysis (Demo Mode).');
+        self::flash('Recommendation created from AI analysis.');
     }
 
     public static function setPeriod(string $preset, ?string $start = null, ?string $end = null): void
@@ -984,9 +938,9 @@ final class DemoState
             'actor_kind' => 'human',
             'status' => 'success',
             'asset_type' => null,
-            'route' => 'demo.opportunities',
+            'route' => 'operator.opportunities',
         ]);
-        self::flash($label.' (Demo Mode).');
+        self::flash($label.'.');
     }
 
     public static function createRecommendationFromOpportunity(string $id): void
@@ -1047,9 +1001,9 @@ final class DemoState
             'actor_kind' => 'human',
             'status' => 'success',
             'asset_type' => collect($opportunity['asset_types'] ?? [])->first(),
-            'route' => 'demo.recommendations',
+            'route' => 'operator.recommendations',
         ]);
-        self::flash('Recommendation created from opportunity (Demo Mode).');
+        self::flash('Recommendation created from opportunity.');
     }
 
     /**
@@ -1117,390 +1071,26 @@ final class DemoState
         $overrides[$brandId] = $current;
         $state['business_outcome_overrides'] = $overrides;
         session()->put(self::SESSION_KEY, $state);
-        self::flash('Business outcomes updated (Demo Mode).');
-    }
-
-    /**
-     * @return array<string, array<string, mixed>>
-     */
-    private static function seedClientRequests(): array
-    {
-        $seed = [];
-        foreach (AgencyExecutionFixtures::clientRequests() as $request) {
-            $id = (string) ($request['id'] ?? '');
-            if ($id !== '') {
-                $seed[$id] = $request;
-            }
-        }
-
-        return $seed;
-    }
-
-    /**
-     * @return list<array<string, mixed>>
-     */
-    public static function clientRequestsWithState(): array
-    {
-        $store = self::all()['client_requests'] ?? [];
-        if (! is_array($store) || $store === []) {
-            $store = self::seedClientRequests();
-        }
-
-        return array_values(array_map(
-            static fn (array $row): array => $row,
-            $store
-        ));
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    public static function findClientRequest(string $id): ?array
-    {
-        $request = collect(self::clientRequestsWithState())->firstWhere('id', $id);
-
-        return is_array($request) ? $request : null;
-    }
-
-    public static function setClientRequestStatus(string $id, string $status): void
-    {
-        $allowed = ['new', 'triaged', 'planned', 'waiting_on_client', 'in_progress', 'done', 'declined'];
-        if (! in_array($status, $allowed, true)) {
-            return;
-        }
-
-        $state = self::all();
-        $requests = is_array($state['client_requests'] ?? null) ? $state['client_requests'] : self::seedClientRequests();
-        if (! isset($requests[$id]) || ! is_array($requests[$id])) {
-            return;
-        }
-
-        $requests[$id]['status'] = $status;
-        $requests[$id]['waiting_on_client'] = $status === 'waiting_on_client';
-        $state['client_requests'] = $requests;
-        session()->put(self::SESSION_KEY, $state);
-
-        self::recordActivityEvent([
-            'title' => 'Client request status updated',
-            'scope' => 'Operations · Client Requests',
-            'detail' => ($requests[$id]['title'] ?? $id).' → '.$status,
-            'actor' => 'Demo Operator',
-            'actor_kind' => 'human',
-            'status' => 'success',
-            'route' => 'demo.tasks',
-        ]);
-        self::flash(__('operator.requests.status_updated').' (Demo Mode).');
-    }
-
-    public static function createTaskFromClientRequest(string $id): ?string
-    {
-        $request = self::findClientRequest($id);
-        if ($request === null) {
-            return null;
-        }
-
-        $state = self::all();
-        $taskId = 't-req-'.substr(md5($id.microtime()), 0, 8);
-        $state['tasks'][] = [
-            'id' => $taskId,
-            'title' => $request['title'] ?? 'Client request task',
-            'brand' => $request['brand'] ?? DemoCatalog::brand()['name'],
-            'customer' => $request['customer'] ?? DemoCatalog::customer()['name'],
-            'asset' => $request['asset'] ?? null,
-            'asset_type' => $request['asset_type'] ?? null,
-            'owner' => $request['owner'] ?? 'Unassigned',
-            'assignee_id' => $request['owner_id'] ?? null,
-            'priority' => $request['priority'] ?? 'medium',
-            'due' => $request['due'] ?? 'Next week',
-            'status' => 'open',
-            'origin' => 'Client Request',
-            'client_request_id' => $id,
-            'description' => $request['description'] ?? '',
-            'success_signal' => 'Client request fulfilled and confirmed.',
-            'why' => [
-                'finding' => null,
-                'recommendation' => null,
-                'evidence' => 'Captured from client request '.$id,
-            ],
-            'outcome' => null,
-        ];
-
-        $requests = is_array($state['client_requests'] ?? null) ? $state['client_requests'] : self::seedClientRequests();
-        if (isset($requests[$id])) {
-            $requests[$id]['linked_task_id'] = $taskId;
-            $requests[$id]['status'] = 'planned';
-        }
-        $state['client_requests'] = $requests;
-        session()->put(self::SESSION_KEY, $state);
-
-        self::recordActivityEvent([
-            'title' => 'Task created from client request',
-            'scope' => ($request['brand'] ?? 'Brand').' · Client Requests',
-            'detail' => $request['title'] ?? $id,
-            'actor' => 'Demo Operator',
-            'actor_kind' => 'human',
-            'status' => 'success',
-            'route' => 'demo.task',
-        ]);
-        self::flash(__('operator.requests.task_created').' (Demo Mode).');
-
-        return $taskId;
-    }
-
-    /**
-     * @return list<array<string, mixed>>
-     */
-    public static function recurringReviewsWithState(): array
-    {
-        $states = self::all()['recurring_review_states'] ?? [];
-        if (! is_array($states)) {
-            $states = [];
-        }
-
-        return array_map(function (array $review) use ($states): array {
-            $id = (string) ($review['id'] ?? '');
-            if ($id !== '' && isset($states[$id]) && is_array($states[$id])) {
-                $review = array_merge($review, $states[$id]);
-            }
-
-            return $review;
-        }, AgencyExecutionFixtures::recurringReviews());
-    }
-
-    public static function setRecurringReviewStatus(string $id, string $status): void
-    {
-        $allowed = ['upcoming', 'due', 'overdue', 'in_progress', 'completed', 'skipped'];
-        if (! in_array($status, $allowed, true)) {
-            return;
-        }
-
-        $state = self::all();
-        $reviews = is_array($state['recurring_review_states'] ?? null) ? $state['recurring_review_states'] : [];
-        $reviews[$id] = array_merge($reviews[$id] ?? [], ['status' => $status]);
-        $state['recurring_review_states'] = $reviews;
-        session()->put(self::SESSION_KEY, $state);
-
-        self::recordActivityEvent([
-            'title' => 'Recurring review updated',
-            'scope' => 'Operations · Recurring Reviews',
-            'detail' => $id.' → '.$status,
-            'actor' => 'Demo Operator',
-            'actor_kind' => 'human',
-            'status' => 'success',
-            'route' => 'demo.tasks',
-        ]);
-        self::flash(__('operator.reviews.status_updated').' (Demo Mode).');
-    }
-
-    public static function completeRecurringReview(string $id, string $result): void
-    {
-        $allowed = ['no_issue', 'finding', 'opportunity', 'task'];
-        if (! in_array($result, $allowed, true)) {
-            return;
-        }
-
-        $review = collect(AgencyExecutionFixtures::recurringReviews())->firstWhere('id', $id);
-        if ($review === null) {
-            return;
-        }
-
-        $state = self::all();
-        $reviews = is_array($state['recurring_review_states'] ?? null) ? $state['recurring_review_states'] : [];
-        $reviews[$id] = array_merge($reviews[$id] ?? [], [
-            'status' => 'completed',
-            'result' => $result,
-            'completed_at' => now()->timezone(config('app.timezone'))->format('M j · H:i'),
-        ]);
-        $state['recurring_review_states'] = $reviews;
-
-        $detail = ($review['playbook_name'] ?? $id).' · '.$result;
-
-        if ($result === 'finding') {
-            $findingId = 'f-review-'.substr(md5($id.microtime()), 0, 8);
-            $detail .= ' · '.$findingId;
-        } elseif ($result === 'opportunity') {
-            $oppId = 'opp-hyp-'.substr(md5($id.microtime()), 0, 8);
-            $hypotheses = is_array($state['hypotheses'] ?? null) ? $state['hypotheses'] : [];
-            $hypotheses[] = [
-                'id' => $oppId,
-                'title' => 'From recurring review: '.($review['playbook_name'] ?? 'Review'),
-                'brand_id' => $review['brand_id'] ?? DemoCatalog::BRAND_ID,
-                'brand_name' => $review['brand'] ?? DemoCatalog::brand()['name'],
-                'customer_id' => $review['customer_id'] ?? DemoCatalog::CUSTOMER_ID,
-                'service_code' => $review['service_code'] ?? null,
-                'service_label' => $review['service_label'] ?? null,
-                'status' => 'open',
-                'source' => 'recurring_review',
-                'source_review_id' => $id,
-                'evidence' => [],
-                'evidence_status' => 'insufficient',
-                'provenance' => 'Operator hypothesis from review',
-            ];
-            $state['hypotheses'] = $hypotheses;
-            $statuses = is_array($state['opportunity_statuses'] ?? null) ? $state['opportunity_statuses'] : [];
-            $statuses[$oppId] = 'open';
-            $state['opportunity_statuses'] = $statuses;
-            $detail .= ' · '.$oppId;
-        } elseif ($result === 'task') {
-            $taskId = 't-review-'.substr(md5($id.microtime()), 0, 8);
-            $state['tasks'][] = [
-                'id' => $taskId,
-                'title' => 'Follow-up from '.($review['playbook_name'] ?? 'recurring review'),
-                'brand' => $review['brand'] ?? DemoCatalog::brand()['name'],
-                'customer' => $review['customer'] ?? DemoCatalog::customer()['name'],
-                'asset_type' => $review['asset_type'] ?? null,
-                'owner' => $review['owner'] ?? 'Unassigned',
-                'assignee_id' => $review['owner_id'] ?? null,
-                'priority' => 'medium',
-                'due' => 'Next week',
-                'status' => 'open',
-                'origin' => 'Recurring Review',
-                'recurring_review_id' => $id,
-                'description' => 'Created from completed recurring review.',
-                'outcome' => null,
-            ];
-            $detail .= ' · '.$taskId;
-        }
-
-        session()->put(self::SESSION_KEY, $state);
-
-        self::recordActivityEvent([
-            'title' => 'Recurring review completed',
-            'scope' => 'Operations · Recurring Reviews',
-            'detail' => $detail,
-            'actor' => 'Demo Operator',
-            'actor_kind' => 'human',
-            'status' => 'success',
-            'route' => 'demo.tasks',
-        ]);
-        self::flash(__('operator.reviews.completed').' (Demo Mode).');
-    }
-
-    public static function skipRecurringReview(string $id, string $reason): void
-    {
-        $state = self::all();
-        $reviews = is_array($state['recurring_review_states'] ?? null) ? $state['recurring_review_states'] : [];
-        $reviews[$id] = array_merge($reviews[$id] ?? [], [
-            'status' => 'skipped',
-            'skip_reason' => $reason,
-        ]);
-        $state['recurring_review_states'] = $reviews;
-        session()->put(self::SESSION_KEY, $state);
-
-        self::recordActivityEvent([
-            'title' => 'Recurring review skipped',
-            'scope' => 'Operations · Recurring Reviews',
-            'detail' => $id.' · '.$reason,
-            'actor' => 'Demo Operator',
-            'actor_kind' => 'human',
-            'status' => 'info',
-            'route' => 'demo.tasks',
-        ]);
-        self::flash(__('operator.reviews.skipped').' (Demo Mode).');
-    }
-
-    public static function setApprovalState(string $id, string $stateValue): void
-    {
-        $allowed = ['waiting', 'approved', 'rejected'];
-        if (! in_array($stateValue, $allowed, true)) {
-            return;
-        }
-
-        $state = self::all();
-        $approvals = is_array($state['approval_states'] ?? null) ? $state['approval_states'] : [];
-        $approvals[$id] = array_merge($approvals[$id] ?? [], ['status' => $stateValue]);
-        $state['approval_states'] = $approvals;
-        session()->put(self::SESSION_KEY, $state);
-
-        self::recordActivityEvent([
-            'title' => 'Approval '.$stateValue,
-            'scope' => 'Operations · Approvals',
-            'detail' => $id,
-            'actor' => 'Demo Operator',
-            'actor_kind' => 'human',
-            'status' => 'success',
-            'route' => 'demo.tasks',
-        ]);
-        self::flash(__('operator.approvals.updated').' (Demo Mode).');
-    }
-
-    public static function setQaState(string $workId, string $stateValue): void
-    {
-        $allowed = ['ready', 'approved', 'rejected'];
-        if (! in_array($stateValue, $allowed, true)) {
-            return;
-        }
-
-        $state = self::all();
-        $qa = is_array($state['qa_states'] ?? null) ? $state['qa_states'] : [];
-        $qa[$workId] = $stateValue;
-        $state['qa_states'] = $qa;
-        session()->put(self::SESSION_KEY, $state);
-
-        self::recordActivityEvent([
-            'title' => 'QA '.$stateValue,
-            'scope' => 'Operations · QA',
-            'detail' => $workId,
-            'actor' => 'Demo Operator',
-            'actor_kind' => 'human',
-            'status' => 'success',
-            'route' => 'demo.tasks',
-        ]);
-        self::flash(__('operator.qa.updated').' (Demo Mode).');
+        self::flash('Business outcomes updated.');
     }
 
     /**
      * @param  array<string, mixed>  $payload
+     * @return array{customer_id: string|null, customer: string|null, brand_id: string|null, brand: string|null}
      */
-    public static function captureClientRequest(array $payload): string
+    private static function captureScope(array $payload): array
     {
-        $state = self::all();
-        $requests = is_array($state['client_requests'] ?? null) ? $state['client_requests'] : self::seedClientRequests();
-        $id = 'req-cap-'.substr(md5(($payload['title'] ?? '').microtime()), 0, 8);
-        $brand = DemoCatalog::brand();
-        $customer = DemoCatalog::customer();
+        $brandId = isset($payload['brand_id']) && is_numeric($payload['brand_id']) ? (int) $payload['brand_id'] : null;
+        $customerId = isset($payload['customer_id']) && is_numeric($payload['customer_id']) ? (int) $payload['customer_id'] : null;
+        $brand = $brandId !== null ? Brand::query()->with('customer')->find($brandId) : null;
+        $customer = $customerId !== null ? Customer::query()->find($customerId) : $brand?->customer;
 
-        $requests[$id] = [
-            'id' => $id,
-            'title' => trim((string) ($payload['title'] ?? 'Untitled request')),
-            'customer_id' => $payload['customer_id'] ?? DemoCatalog::CUSTOMER_ID,
-            'customer' => $customer['name'],
-            'brand_id' => $payload['brand_id'] ?? DemoCatalog::BRAND_ID,
-            'brand' => $brand['name'],
-            'asset' => $payload['asset'] ?? null,
-            'asset_type' => $payload['asset_type'] ?? null,
-            'service_code' => $payload['service_code'] ?? null,
-            'service_label' => $payload['service_label'] ?? null,
-            'source' => $payload['source'] ?? 'meeting',
-            'source_label' => ucfirst((string) ($payload['source'] ?? 'meeting')),
-            'status' => 'new',
-            'waiting_on_client' => false,
-            'in_scope' => (bool) ($payload['in_scope'] ?? true),
-            'owner_id' => $payload['owner_id'] ?? null,
-            'owner' => $payload['owner'] ?? 'Unassigned',
-            'due' => $payload['due'] ?? 'Next week',
-            'due_key' => AgencyExecutionFixtures::dueKey((string) ($payload['due'] ?? 'Next week')),
-            'priority' => $payload['priority'] ?? 'medium',
-            'effort' => $payload['effort'] ?? null,
-            'description' => $payload['description'] ?? '',
-            'linked_task_id' => null,
+        return [
+            'customer_id' => $customer !== null ? (string) $customer->id : null,
+            'customer' => $customer?->name,
+            'brand_id' => $brand !== null ? (string) $brand->id : null,
+            'brand' => $brand?->name,
         ];
-
-        $state['client_requests'] = $requests;
-        session()->put(self::SESSION_KEY, $state);
-
-        self::recordActivityEvent([
-            'title' => 'Client request captured',
-            'scope' => 'Capture · Client Request',
-            'detail' => $requests[$id]['title'],
-            'actor' => 'Demo Operator',
-            'actor_kind' => 'human',
-            'status' => 'success',
-            'route' => 'demo.tasks',
-        ]);
-        self::flash(__('operator.capture.saved_request').' (Demo Mode).');
-
-        return $id;
     }
 
     /**
@@ -1510,17 +1100,17 @@ final class DemoState
     {
         $state = self::all();
         $taskId = 't-cap-'.substr(md5(($payload['title'] ?? '').microtime()), 0, 8);
-        $brand = DemoCatalog::brand();
+        $scope = self::captureScope($payload);
 
         $state['tasks'][] = [
             'id' => $taskId,
             'title' => trim((string) ($payload['title'] ?? 'Untitled task')),
-            'brand' => $brand['name'],
-            'customer' => DemoCatalog::customer()['name'],
+            'brand' => $scope['brand'],
+            'customer' => $scope['customer'],
             'asset' => $payload['asset'] ?? null,
             'asset_type' => $payload['asset_type'] ?? null,
-            'owner' => $payload['owner'] ?? 'Ayşe Demir',
-            'assignee_id' => $payload['owner_id'] ?? AgencyExecutionFixtures::CURRENT_OPERATOR_ID,
+            'owner' => $payload['owner'] ?? 'Unassigned',
+            'assignee_id' => $payload['owner_id'] ?? null,
             'priority' => $payload['priority'] ?? 'medium',
             'due' => $payload['due'] ?? 'Next week',
             'status' => 'open',
@@ -1537,9 +1127,9 @@ final class DemoState
             'actor' => 'Demo Operator',
             'actor_kind' => 'human',
             'status' => 'success',
-            'route' => 'demo.task',
+            'route' => 'operator.task',
         ]);
-        self::flash(__('operator.capture.saved_task').' (Demo Mode).');
+        self::flash(__('operator.capture.saved_task').'.');
 
         return $taskId;
     }
@@ -1551,15 +1141,15 @@ final class DemoState
     {
         $state = self::all();
         $id = 'opp-hyp-'.substr(md5(($payload['title'] ?? '').microtime()), 0, 8);
-        $brand = DemoCatalog::brand();
+        $scope = self::captureScope($payload);
         $hypotheses = is_array($state['hypotheses'] ?? null) ? $state['hypotheses'] : [];
 
         $hypotheses[] = [
             'id' => $id,
             'title' => trim((string) ($payload['title'] ?? 'Untitled hypothesis')),
-            'brand_id' => $payload['brand_id'] ?? DemoCatalog::BRAND_ID,
-            'brand_name' => $brand['name'],
-            'customer_id' => DemoCatalog::CUSTOMER_ID,
+            'brand_id' => $scope['brand_id'],
+            'brand_name' => $scope['brand'],
+            'customer_id' => $scope['customer_id'],
             'service_code' => $payload['service_code'] ?? null,
             'service_label' => $payload['service_label'] ?? null,
             'status' => 'open',
@@ -1584,9 +1174,9 @@ final class DemoState
             'actor' => 'Demo Operator',
             'actor_kind' => 'human',
             'status' => 'info',
-            'route' => 'demo.opportunities',
+            'route' => 'operator.opportunities',
         ]);
-        self::flash(__('operator.capture.saved_hypothesis').' (Demo Mode).');
+        self::flash(__('operator.capture.saved_hypothesis').'.');
 
         return $id;
     }
@@ -1608,7 +1198,7 @@ final class DemoState
             'body' => trim((string) ($payload['body'] ?? '')),
             'scope' => $payload['scope'] ?? 'Operations',
             'brand_id' => $payload['brand_id'] ?? null,
-            'customer_id' => $payload['customer_id'] ?? DemoCatalog::CUSTOMER_ID,
+            'customer_id' => $payload['customer_id'] ?? null,
             'captured_at' => now()->timezone(config('app.timezone'))->format('M j · H:i'),
         ];
         $state['capture_notes'] = $notes;
@@ -1621,12 +1211,12 @@ final class DemoState
             'actor' => 'Demo Operator',
             'actor_kind' => 'human',
             'status' => 'success',
-            'route' => 'demo.activity',
+            'route' => 'operator.activity',
         ]);
         self::flash(
             ($kind === 'decision'
                 ? __('operator.capture.saved_decision')
-                : __('operator.capture.saved_note')).' (Demo Mode).'
+                : __('operator.capture.saved_note')).'.'
         );
 
         return $id;
@@ -1683,21 +1273,15 @@ final class DemoState
      */
     public static function demoNotifications(): array
     {
-        $state = self::all();
-        if (! is_array($state['demo_notifications'] ?? null)) {
-            $state['demo_notifications'] = DemoNotificationFixtures::items();
-            session()->put(self::SESSION_KEY, $state);
-        }
+        $items = self::all()['demo_notifications'] ?? [];
 
-        return array_values($state['demo_notifications']);
+        return is_array($items) ? array_values($items) : [];
     }
 
     public static function markDemoNotificationRead(string $id): void
     {
         $state = self::all();
-        $items = is_array($state['demo_notifications'] ?? null)
-            ? $state['demo_notifications']
-            : DemoNotificationFixtures::items();
+        $items = is_array($state['demo_notifications'] ?? null) ? $state['demo_notifications'] : [];
 
         foreach ($items as &$item) {
             if (($item['id'] ?? '') === $id) {
@@ -1712,9 +1296,7 @@ final class DemoState
     public static function markAllDemoNotificationsRead(): void
     {
         $state = self::all();
-        $items = is_array($state['demo_notifications'] ?? null)
-            ? $state['demo_notifications']
-            : DemoNotificationFixtures::items();
+        $items = is_array($state['demo_notifications'] ?? null) ? $state['demo_notifications'] : [];
 
         foreach ($items as &$item) {
             $item['read'] = true;

@@ -11,6 +11,7 @@ use App\Services\Integrations\BoundCollectionGuard;
 use App\Services\Integrations\Meta\MetaApiClient;
 use App\Services\Integrations\Meta\MetaException;
 use App\Support\Integrations\ComparisonPeriod;
+use App\Support\Integrations\Meta\MetaAdAccountId;
 use App\Support\Integrations\Meta\MetaApiConfig;
 use App\Support\Integrations\ProviderRegistry;
 use Illuminate\Support\Facades\Log;
@@ -78,7 +79,7 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
             throw new RuntimeException('Meta Ads collection requires a Meta Integration.');
         }
 
-        $actId = $this->normalizeActId((string) $resource->external_id);
+        $actId = MetaAdAccountId::toApiForm((string) $resource->external_id);
         $periods = ComparisonPeriod::lastTwentyEightCompleteDays();
         $observedAt = now();
 
@@ -455,16 +456,6 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
         return $run->fresh(['evidence']) ?? $run;
     }
 
-    private function normalizeActId(string $externalId): string
-    {
-        $externalId = trim($externalId);
-        if ($externalId === '') {
-            throw new RuntimeException('Meta Ads External Resource has no Ad Account ID.');
-        }
-
-        return str_starts_with($externalId, 'act_') ? $externalId : 'act_'.$externalId;
-    }
-
     /**
      * @param  array{start: string, end: string}  $period
      * @return array{ok: bool, status_code: ?int, rows: list<array<string, mixed>>, truncated: bool, error: ?string, error_category: ?string, pages_fetched: int}
@@ -524,6 +515,10 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
      * Fetch entity metadata for the exact provider IDs returned by Insights.
      * Never joins by name / row order / display label.
      *
+     * The Graph API does not support `id IN` filtering on account entity edges and MetaApiClient blocks it
+     * before any provider call, so the account edge is paginated (bounded by MAX_PAGES) and rows are matched
+     * to the requested provider IDs in-process.
+     *
      * @param  list<string>  $ids
      * @return array{ok: bool, by_id: array<string, array<string, mixed>>, truncated: bool, error: ?string, error_category: ?string, joined: int, missed: int, pages_fetched: int}
      */
@@ -548,18 +543,17 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
             ];
         }
 
+        $pageSize = 250;
         $fetch = $this->paginate($integration, $path, [
             'fields' => $fields,
-            'limit' => count($ids),
-            'filtering' => json_encode([
-                ['field' => 'id', 'operator' => 'IN', 'value' => $ids],
-            ], JSON_THROW_ON_ERROR),
-        ], count($ids));
+            'limit' => $pageSize,
+        ], $pageSize * self::MAX_PAGES);
 
+        $wanted = array_fill_keys($ids, true);
         $byId = [];
         foreach ($fetch['rows'] as $row) {
             $id = (string) ($row['id'] ?? '');
-            if ($id === '') {
+            if ($id === '' || ! isset($wanted[$id])) {
                 continue;
             }
             if ($adsCreativeShape) {
@@ -587,7 +581,8 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
         return [
             'ok' => $fetch['ok'],
             'by_id' => $byId,
-            'truncated' => $fetch['truncated'],
+            // Unread edge pages only matter when a requested ID was not found.
+            'truncated' => $fetch['truncated'] && $missed > 0,
             'error' => $fetch['error'],
             'error_category' => $fetch['error_category'] ?? null,
             'joined' => $joined,

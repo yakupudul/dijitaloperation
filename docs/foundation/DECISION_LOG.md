@@ -175,10 +175,10 @@
 
 ## ADR-026 — Tek Filament panel ve auth
 
-- **Durum:** Accepted
+- **Durum:** Accepted (panel **path** superseded by **ADR-044**; auth/RBAC unchanged)
 - **Tarih:** 2026-08-07
 - **Karar:** Tek panel id `app`, path `/app`. Laravel `web` session guard. Public registration yok; kullanıcıları Admin oluşturur. Password reset ve profile var. Roller Admin / Team Member. RBAC: `spatie/laravel-permission`. Multi-tenancy veya müşteri guard yok.
-- **İlgili:** `MASTER_SPEC.md` §6, `CORE_RESPONSIBILITIES.md`
+- **İlgili:** `MASTER_SPEC.md` §6, `CORE_RESPONSIBILITIES.md`; path → ADR-044
 
 ## ADR-027 — Connection ve credential şeması
 
@@ -279,7 +279,7 @@
   7. **Agency-scoped vs asset-scoped auth:**
      - Agency/provider: Google, Meta, DataForSEO, OpenAI → Integration.
      - Asset-scoped: WordPress application password, site-specific CMS credentials → mevcut `CoreConnection` (+ `core_connection_credentials`) kalır.
-  8. **External integrations remain READ-ONLY** (ADR-018). Campaign/site/account mutation yok.
+  8. **External integrations remain READ-ONLY** (ADR-018). Campaign/site/account mutation yok. Tek istisna ADR-064: Admin onaylı Google Ads paylaşılan negatif listesi ve WordPress taslağı.
   9. **Digital Asset hierarchy değişmez** (Customer → Brand → Digital Asset; ADR-017).
   10. **Resource discovery** provider Integration üzerinden, test edilebilir `DiscoversProviderResources` contract’ı ile yapılır. Bu foundation ADR’si live OAuth/discovery’yi zorunlu kılmaz.
   11. **Disabled Integration:** Yeni discovery/collection durur; mevcut External Resource ve Binding kayıtları otomatik silinmez; secret purge edilmez (ADR-014 ile uyumlu).
@@ -359,6 +359,300 @@
 
 ---
 
+## ADR-044 — Canonical operator routes and Filament admin path (supersedes ADR-026 path only)
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-19
+- **Bağlam:** ADR-026 placed the single Filament panel at `/app` and treated that panel as the application UI. The release integration trunk (`cursor/production-readiness-audit-ea01`) already ships a different, live architecture: TailAdmin Livewire operator product on root routes, Filament as technical/admin tooling at `/admin`, and retired `/app` + `/system` prefixes. Canonical docs lagged the code. This ADR records the live architecture; it is not a UI redesign.
+- **Karar:**
+  1. **Operator product** lives on root application routes of the product host (`app.moximu.com` in production): `/`, `/login`, `/customers`, `/brands`, `/assets`, `/integrations`, `/activity`, `/findings`, `/recommendations`, `/tasks`, `/settings`, `/profile`, and the other TailAdmin Livewire surfaces. One normal application. Do not duplicate Customers/Brands/Assets under Filament as a second operator product. Do not advertise Filament as “Back-office” in the product UI.
+  2. **Technical/admin Filament** remains a single panel, id `app`, path **`/admin` only**. Auth/RBAC from ADR-026 is unchanged: Laravel `web` session guard; no public registration; Admin creates users; password reset and profile; roles Admin / Team Member; `spatie/laravel-permission`; no multi-tenancy or customer guard.
+  3. **Legacy prefixes** `/app/*` and `/system/*` are retired. Existing release behavior is **HTTP 410** (not a product redirect). There is no parallel `/app` or `/system` operator product.
+  4. Named operator routes, OAuth callbacks (`{APP_URL}/integrations/google/callback`, `{APP_URL}/integrations/meta/callback`), and operator login (`/login`) stay on the product origin. Filament login is `/admin/login` and is not the operator sign-in.
+  5. Staging/production require HTTPS (`APP_URL` https + `APP_FORCE_HTTPS` + `SESSION_SECURE_COOKIE`). PostgreSQL is the production/staging database; SQLite remains local/dev/PHPUnit only. Queue on staging/production is Redis + Laravel Horizon; local/PHPUnit may use `database`/`sync`. `php artisan moxdop:production-check` is the local/CI production-readiness gate.
+- **İlgili:** ADR-026 (path only); `MASTER_SPEC.md` §6 / §12; `AGENTS.md`; `routes/web.php`; `AppPanelProvider`
+
+---
+
+## ADR-045 — WordPress inside truth + Public Discovery outside truth
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-29
+- **Bağlam:** Public `/wp-json/wp/v2` envanteri, CMS’in yetkili iç durumunu temsil etmiyor; yalnız connector ise gerçek HTTP, redirect ve yayınlanan final HTML’i kanıtlayamıyor. Entegrasyon ekranındaki collection state ile Website varlığındaki diagnosis çıktısı da karışmamalı.
+- **Karar:**
+  1. WordPress V1, Website asset-scoped `CoreConnection` + encrypted credential ile gerçek, kurulabilir, read-only plugin connector olarak çalışır.
+  2. Connector CMS iç gerçeğini toplar. Public Discovery, WordPress sitelerde kaldırılmaz; dış HTTP/HTML doğrulama katmanı olarak aynı Website collection planında kalır. WordPress olmayan siteler public family’lerle çalışır.
+  3. Connector pairing tek kullanımlık hash-stored code ve iki yönlü HMAC-SHA256 imza kullanır. Write REST route, user/password/comment ve media binary collection yoktur.
+  4. Integration surface yalnız bağlantı, collection progress/history, dataset ve raw/normalized record truth gösterir. Finding/Recommendation/Task burada üretilmez veya sunulmaz.
+  5. Website Digital Asset analysis tamamlanmış WordPress/Public DatasetRun’larını birleştirir; connector ayarı ile published HTML farkları deterministik Finding olabilir. GA4/GSC davranış/platform Evidence’i mevcut akışlardan eklenir. Recommendation grounded, Task dönüşümü manueldir.
+  6. Connector code/test completion live WordPress UAT veya production deploy anlamına gelmez.
+- **İlgili:** ADR-012, ADR-017, ADR-018, ADR-027, ADR-034, ADR-039; `docs/product/website/WORDPRESS.md`; `PRODUCT_CAPABILITY_LEDGER.md`
+
+---
+
+
+## ADR-046 — MoxDOP Intelligence Core: provider-neutral identity and provenance layer
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-31
+- **Bağlam:** Website, WordPress, GSC, GA4, Ads, GBP ve DataForSEO verilerinin ekranlarda farklı kurallarla doğrudan birleştirilmesi; ikinci bir veri ambarı, belirsiz kimlik eşleştirmesi ve yeni sağlayıcıda yeniden yazım riski oluşturur.
+- **Karar:**
+  1. Intelligence Core, sağlayıcı fact tablolarının üzerinde çalışan ortak **kimlik + provenance + metrik sözleşmesi + capability** katmanıdır. Provider fact tabloları canonical truth olarak kalır; generic EAV/metrik ambarına kopyalanmaz.
+  2. Ortak kimlikler Page/URL, Search Term, Entity ve Business Action’dır. Zaman/market/language/device/surface/model/sampling bağlamı ile provider/dataset/record/asset/resource/run/contract provenance korunur.
+  3. URL normalizasyonu scheme, `www`, path case ve trailing slash farklılıklarını otomatik birleştirmez. Eşdeğerlik redirect, canonical, CMS permalink, rule veya operator kanıtı gerektirir.
+  4. Search term canonical kimliği diacritics korur; folded metin yalnız clustering içindir. GSC query, Ads search term/keyword, DataForSEO/GBP keyword ve gelecekteki AI query kaynak anlamları ayrı tutulur.
+  5. Missing ≠ zero; estimated ≠ measured; platform signal ≠ verified business outcome. Registry dışı metric/formula veya magic score oluşturulmaz.
+  6. Page/Search Term/Entity/Outcome profilleri rebuildable Projection katmanlarıdır; bu ADR onları uygulanmış saymaz. Yeni kaynaklar capability adapter ekler.
+  7. Mevcut Formula Registry, Evidence Definitions, Canonical Evidence ve Finding Rules tek deterministik teşhis zinciridir. Paralel Evidence/Finding sistemi kurulmaz; AI Finding/Task yaratmaz ve harici write yasağı sürer.
+- **İlgili:** ADR-007, ADR-018, ADR-023, ADR-034, ADR-036, ADR-039, ADR-045; `resources/intelligence/MOXDOP_INTELLIGENCE_CORE_V1.json`
+
+---
+
+## ADR-047 — Website Intelligence Projection as a rebuildable source-keyed read model
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-31
+- **Bağlam:** Website public/HTML, authenticated WordPress, GSC ve GA4 verilerini her Website sekmesinde doğrudan join etmek; farklı URL/term anlamlarını karıştırır, provider eklenince ekranları yeniden yazdırır ve ikinci bir canonical data warehouse yaratma riski doğurur.
+- **Karar:**
+  1. Website Projection, ADR-046 kimlikleri üzerinde dört rebuildable read profile üretir: Page, Search Term, Entity ve Outcome. Provider fact tabloları canonical truth olarak kalır.
+  2. Her profil source-keyed typed state JSON taşır. Bu yapı generic EAV metric warehouse değildir; sadece domain-specific identity read model'idir. Yeni provider yeni adapter/source state ekler, tablo grain'i değişmez.
+  3. İlk adapter seti Website direct observation, WordPress CMS authenticated snapshot, confirmed-binding GSC ve confirmed-binding GA4'tür. Binding yoksa `not_configured`, veri yoksa `not_collected`; ikisi de numeric zero değildir.
+  4. Default projection window son tamamlanmış 90 UTC gündür. Her source kendi period/coverage/watermark/provenance bilgisini taşır. GSC average position impression-weighted hesaplanır ve rank tracker değildir; provider row limits belirtilir.
+  5. WordPress CMS state ve published visitor HTML aynı Page identity üzerinde ayrı source state kalır. Full raw HTML private ingestion artifact'tadır; profile hash/reference taşır.
+  6. GA4 Key Event yalnız explicit Business Action mapping ile Outcome profile'a girer ve provider-attributed signal olarak kalır; operator-verified business outcome'a otomatik yükseltilmez.
+  7. Terminal Website/GSC/GA4 collection run ilgili Website rebuild job'ını kuyruğa alır. Source adapter failure projection'ı partial yapar ve önceki başarılı source state'i korur; tam başarılı rebuild stale profile'ları temizler.
+  8. Formula/Evidence/Finding/Recommendation/manual Task hattı değişmez. Projection Finding üretmez, AI çalıştırmaz ve provider write yapmaz.
+- **İlgili:** ADR-039, ADR-042, ADR-043, ADR-045, ADR-046; `resources/intelligence/MOXDOP_INTELLIGENCE_CORE_V1.json`; `docs/product/website/WEBSITE.md`
+
+---
+
+## ADR-048 — Global Service Catalog and reusable Search Query Library
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-02
+- **Bağlam:** Provider verilerini toplamış olmak, bir Brand'in hangi hizmetleri hangi bölgelerde öne çıkarmak istediğini açıklamaz. Her Brand için aynı sorguları yeniden DataForSEO'dan satın almak da ajans bilgisini tekrar kullanmaz. Öte yandan global sorgu kütüphanesini Brand-scoped Intelligence kimliği veya ikinci bir metrik ambarı yapmak ADR-046'yı bozar.
+- **Karar:**
+  1. Global Service Catalog ajans genelinde stable Service kimliği ve alias tutar. Mevcut Brand Offering, Brand-scoped canonical kimlik olarak kalır ve opsiyonel olarak katalog Service'ine bağlanır.
+  2. Brand, birden fazla açık ülke/şehir/ilçe Service Area satırı taşır. Bu satırlar Brand Context'e projection olur; otomatik Service × Area Cartesian scope üretmez.
+  3. Search Query Library ajans genelinde yeniden kullanılabilir sorgu kimliği ve kaynak kayıtlarını tutar. Manuel, dosya, Google Ads, GSC ve DataForSEO gözlemleri birbirini ezmez; provenance ve mevcut metrikler source record'da kalır.
+  4. Query Library provider Evidence veya Brand-scoped Intelligence identity değildir. Bir sorgu Brand'e uygulandığında ADR-046 `IntelligenceSearchTermIdentity` hattına resolve edilir.
+  5. AI sınıflandırma/clustering çıktısı adaydır. Confidence, rationale, abstention, model/skill version ve insan onayı olmadan operator truth veya URL ownership olmaz. SERP benzerliği daha sonraki doğrulama katmanıdır.
+  6. Bu foundation provider çağrısı, external write, Finding, Recommendation veya Task üretmez.
+- **İlgili:** ADR-023, ADR-034, ADR-039, ADR-046, ADR-047; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
+## ADR-049 — Search Demand AI proposals and human review boundary
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-03
+- **Bağlam:** Sorgu üretimi, alias önerisi ve semantik sınıflandırma insan dil muhakemesi gerektirir; ancak AI çıktısını doğrudan global sorgu veya Service truth yapmak hatalı sınıflandırmayı kalıcı hale getirir. Uzun AI çağrısını request içinde çalıştırmak da operator async standardını ihlal eder.
+- **Karar:**
+  1. `Search Intelligence Analyst`, işlem başına yalnız gerekli generation veya classification Skill'i ile ve merkezi `search_demand.librarian` route'u üzerinden çalışır.
+  2. AI çalışması kuyruklanır. Run ve candidate kayıtları Library truth'tan ayrı tutulur; queued/running/completed/failed ve pending/approved/rejected durumları açıkça persist edilir.
+  3. Exact cache anahtarı input + Agent version + Skill signature/definition fingerprint + sanitized AI route/model signature'dır. Aynı tamamlanmış çalışma provider çağrısı yapılmadan yeniden kullanılır.
+  4. Sorgu, alias ve semantik alanlar yalnız insan onayıyla uygulanır. Rejection ve abstention provenance olarak kalır; çekimser çıktı otomatik truth olmaz.
+  5. AI metrik, SERP gözlemi veya ticari sonuç uyduramaz; Findings, Recommendations, Tasks, provider-spend, CMS veya başka external write üretemez. OpenAI `store=false` kalır.
+- **İlgili:** ADR-018, ADR-023, ADR-039, ADR-048; `OPERATOR_ASYNC_EXECUTION.md`; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
+## ADR-050 — Relational Brand Query Portfolio and dynamic location expansion
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-03
+- **Bağlam:** Global Library sorgusunu her Brand ve bölge için kopyalamak hem ajans bilgisini parçalar hem Service × Area Cartesian büyüme yaratır. Buna karşılık global, Brand ve Website kararlarını tek status alanına sıkıştırmak da farklı sahiplik kapsamlarını kaybettirir.
+- **Karar:**
+  1. Brand Query Portfolio global Library satırını foreign-key relation ile uygular; global query text kopyalanmaz. Brand-only sorgu normalized kendi kimliğini taşır.
+  2. Brand query text/family/market/location/branded override'ları global satırı değiştirmeyen explicit operator facts'tir. Brand-only sorgunun globale önerilmesi yalnız submitted review state üretir.
+  3. Default alan kapsamı tüm etkin Brand Service Areas'dır; gerekirse seçili-area relation kullanılır. `{location}` metinleri yalnız read/request anında genişletilir ve kalıcı Service × Area sorgu satırı yaratılmaz.
+  4. Uygulanan her portfolio query mevcut Brand-scoped `IntelligenceSearchTermIdentity` resolver hattına bağlanır. Ayrı query identity warehouse kurulmaz.
+  5. Website etkin/excluded durumu portfolio item ile Digital Asset arasındaki ayrı relation'dır; global, Brand ve Website scope birbirine karıştırılmaz.
+- **İlgili:** ADR-039, ADR-046, ADR-048, ADR-049; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
+## ADR-051 — Human-governed layered Search Demand clusters
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-03
+- **Bağlam:** Talep ailesi, benzer SERP niyeti ve aynı içerik/URL hedefi eş anlamlı değildir. Bunları tek AI etiketi yapmak URL sahipliğini kanıtsız varsayar; yeni sorgular geldiğinde bütün kümeleri yeniden yazmak da insan kararlarını ve stabil kimlikleri kaybettirir.
+- **Karar:**
+  1. Brand Query Portfolio öğeleri Brand-scoped, stabil Search Demand Cluster kimliklerine membership ile bağlanır. Talep ailesi, SERP intent group ve content target cluster ayrı alanlardır.
+  2. AI clustering queued run ve pending candidate üretir. Incremental mod yalnız kümelenmemiş etkin sorguları alır; mevcut kümeyi değiştiren move/merge/split/update önerileri yalnız explicit review modunda oluşur.
+  3. AI önerisi insan onayı olmadan kümeyi değiştirmez. Lock edilmiş küme ve üyeleri değiştirilemez; operator unlock, move, merge ve split işlemleri de aynı servis sınırlarını kullanır.
+  4. Her yapısal karar küme sürümünü artırır ve üye ID'leri dahil snapshot saklar. Exact tekrar kullanımı input + mevcut cluster state + Agent + Skill fingerprint + provider/model route imzasına bağlıdır.
+  5. SERP observation sağlanmadıkça validation state `ai_prediction` kalır. `serp_validated`, `serp_conflict` ve `review_required` daha sonraki gözlemsel doğrulama içindir; confidence performans metriği veya URL ownership kanıtı değildir.
+  6. Clustering Agent metrik, Finding, Recommendation, Task, içerik, redirect, provider-spend veya external write üretemez.
+- **İlgili:** ADR-018, ADR-023, ADR-046, ADR-049, ADR-050; `OPERATOR_ASYNC_EXECUTION.md`; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
+## ADR-052 — Read-only Query–URL Visibility Map over canonical facts
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-03
+- **Bağlam:** Search Demand sorgularını GSC, GA4 ve Website HTML verisiyle ilişkilendirmek gerekir; ancak performansı portfolio veya cluster tablolarına kopyalamak ikinci bir warehouse ve çelişen truth üretir. GA4 landing performansını sorguya atfetmek de kaynak grain'ini aşan yanlış bir iddiadır.
+- **Karar:**
+  1. Visibility Map yalnız Website'te active edilmiş Brand Query Portfolio item'larını okur ve canonical `IntelligenceSearchTermIdentity` alias'ları üzerinden GSC query text gözlemlerini eşler.
+  2. Query–URL ilişkisi, clicks, impressions, CTR ve average position explicit dönem için `gsc_query_page_daily` kaynağından okunur. Provider limitleri ve position semantiği korunur.
+  3. URL identity, HTTP/robots/HTML coverage mevcut `IntelligencePageIdentity` ve `WebsitePageProfile` projection'ından okunur; yeni URL identity veya metrics warehouse kurulmaz.
+  4. GA4 landing sessions/engaged sessions Page grain olarak gösterilir ve query attribution sayılmaz.
+  5. Period comparison yalnız iki tarafta gözlem varsa delta üretir. GSC satırı olmayan aktif sorgu `unobserved` olur; missing/unavailable değer sıfıra çevrilmez.
+  6. Bu yüzey read-only'dir; SERP validation, URL ownership kararı, Finding, Recommendation, Task veya external write üretmez.
+- **İlgili:** ADR-039, ADR-046, ADR-047, ADR-050, ADR-051; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
+## ADR-053 — Manual paid SERP observations and human-applied cluster validation
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-03
+- **Bağlam:** Search Demand kümelerini gerçek sonuç örtüşmesiyle sınamak, marka konumunu gözlemek ve sorgulara market tahmini eklemek gerekir. Bunu Brand oluşturma veya sayfa render'ına bağlamak kontrolsüz maliyet; DataForSEO hacmini GSC gerçeğiyle birleştirmek yanlış ölçüm; SERP sonucundan doğrudan URL sahibi veya rakip kaydı üretmek ise Faz 8/9 karar sınırlarını ihlal eder.
+- **Karar:**
+  1. SERP enrichment sağlayıcıdan bağımsız adapter sözleşmesi arkasında, yalnız operator tarafından hizmet veya küme scope'u ile başlatılan queued run'dır. Website SEO location/language zorunlu, device ve 10/20 depth explicit, sorgu sayısı 20 ile sınırlıdır.
+  2. Her paid POST için result-affecting fingerprint, freshness reuse ve concurrent lock uygulanır. HTTP öncesi durable attempt marker yazılır; response/fact commit ispatlanamazsa `CHARGE_UNKNOWN` olur ve `tries=1` nedeniyle otomatik retry yapılmaz.
+  3. SERP snapshot ilk organik URL'leri, SERP features, Brand-domain rank/URL, market/device context, task/fingerprint ve retrieval provenance ile saklar. Bu gözlem URL ownership veya competitor-library write değildir.
+  4. Search volume, CPC, competition ve monthly trend `provider_estimate` olarak ayrı snapshot'tır; GSC/GA4 measured değerleriyle birleştirilmez. Eksik değer sıfır değildir. Pre-call USD estimate yalnız deployment configuration varsayımıdır; provider-reported cost ayrı tutulur.
+  5. Optional Keyword Ideas sonucu pending candidate'dır. Yalnız insan onayı Brand Portfolio query oluşturup Website'te etkinleştirebilir; otomatik cluster/global library/Finding/Task üretmez.
+  6. İlk on exact organic URL üzerinde pairwise Jaccard ortalaması threshold provenance ile validation recommendation üretir. `serp_validated`, `serp_conflict` veya `review_required` cluster state'i yalnız operator approval ile uygulanır. Üyelik ve URL ownership değişmez.
+- **İlgili:** ADR-018, ADR-039, ADR-046, ADR-050, ADR-051, ADR-052; `OPERATOR_ASYNC_EXECUTION.md`; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
+## ADR-054 — Fail-closed URL eligibility and human-owned Page Relevance decisions
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-04
+- **Bağlam:** Bir Search Demand içerik kümesini Website URL'sine bağlamak gerekir; ancak GSC'de görünen veya SERP'te sıralanan URL'yi otomatik hedef kabul etmek intended ownership ile observed visibility'yi karıştırır. İki URL'nin görünmesi de tek başına cannibalization kanıtı değildir. AI'nin teknik olarak uygunsuz sayfayı önermesi veya redirect/silme uygulaması insan karar sınırını ihlal eder.
+- **Karar:**
+  1. URL ownership, Website + content-target-cluster grain'inde tek, sürümlü ve insan yönetimli karardır. Kilitli insan kararı yeni analizlerle otomatik değişmez.
+  2. Adaylar mevcut Website Page Projection'dan gelir ve bir review'da 20 ile sınırlıdır. GSC dönem gözlemi, saklı SERP Brand URL'si, mevcut owner ve semantik ön seçim ayrı provenance olarak kalır; performans ownership tablolarına kopyalanan yeni warehouse olmaz.
+  3. Teknik kapı fail-closed çalışır: aynı Website, public gözlem, 2xx HTTP, observed `noindex` yokluğu, başka URL'ye canonical olmama, observed dil eşleşmesi ve izinli içerik URL türü gerekir. Missing kanıt `unknown` olur; yalnız `eligible` URL önerilebilir veya doğrulanabilir.
+  4. İki dönem arasında GSC lider URL değişimi veya configured dominance eşiğinin altındaki parçalanma yalnız wrong-URL/cannibalization review candidate üretir. Algoritma cannibalization veya hangi kararın yanlış olduğunu kesinleştirmez.
+  5. Page Relevance AI queued ve exact-fingerprint cached evidence pack üzerinde yalnız semantik uyum yorumlar; en fazla bir eligible owner önerir veya abstain eder. AI çıktısı ownership truth değildir.
+  6. İnsan onayı anlık teknik kapıyı tekrar çalıştırır, evidence snapshot ve version kaydeder ve isteğe bağlı kilit uygular. Redirect, delete, merge, page/content creation, Finding, Recommendation, Task, provider spend ve external write otomatik değildir.
+- **İlgili:** ADR-018, ADR-023, ADR-046, ADR-047, ADR-050, ADR-051, ADR-052, ADR-053; `OPERATOR_ASYNC_EXECUTION.md`; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
+## ADR-055 — Brand-scoped Competitor Library with observation-only discovery
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-04
+- **Bağlam:** SERP'te aynı sorguda görünen domain ticari rakip, içerik rakibi, dizin, platform veya otorite sitesi olabilir. DataForSEO sonucunu doğrudan ticari rakip yapmak observed search competition ile operator-owned business knowledge'ı karıştırır. Rakip URL/sorgu ilişkilerini tek JSON listesine koymak da provenance ve sonraki sayfa seçimini kaybettirir.
+- **Karar:**
+  1. Competitor Library kimliği Brand + normalized domain'dir. Host lower-case olur ve `www` aynı domain'e katlanır; diğer subdomain'ler otomatik birleşmez. Lifecycle `pending`, `approved`, `rejected` olarak ayrı tutulur.
+  2. Commercial, SERP ve content competitor rolleri bağımsızdır. Business, directory, platform ve authority-site kind ayrı sınıflandırmadır; `unknown` insan kararı gelene kadar geçerlidir.
+  3. Faz 7 SERP sonuçları ve mevcut `dataforseo_competitor_domain_snapshot` satırları yalnız saklı gözlemden, operator action ile ve 100 distinct domain sınırında candidate üretir. Faz 9 importer provider çağrısı yapmaz ve maliyet oluşturmaz.
+  4. DataForSEO gözlemi `is_serp_competitor` sinyalini destekler; `is_commercial_competitor` veya `is_content_competitor` alanını otomatik kanıtlamaz. Pending aday ancak insan onayıyla approved olur; rejection source provenance'ı silmez.
+  5. Source, Website, provider record, observation time ve mevcut market/query/rank bağlamı ayrı source satırında kalır. Rakip URL'leri, göründüğü Brand Portfolio sorguları ve Service/Brand Service Area/content-target-cluster ilişkileri relational tutulur; kalıcı Service × Area Cartesian scope yaratılmaz.
+  6. Manuel ekleme explicit human approval'dır. Faz 9 competitor HTML toplamaz, AI çalıştırmaz, page intent sınıflandırmaz, Finding/Recommendation/Task üretmez ve external write yapmaz. Bunlar Faz 10–12 sınırıdır.
+- **İlgili:** ADR-018, ADR-023, ADR-039, ADR-046, ADR-048, ADR-050, ADR-051, ADR-053, ADR-054; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
+## ADR-056 — Bounded exact-URL competitor page collection and reusable history
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-04
+- **Bağlam:** Rakip sayfaların başlık, yapı, şema, bağlantı ve hizmet/lokasyon ifadelerini gözlemek gerekir. Ancak SERP'te görülen birkaç URL'den tüm rakip sitesini taramaya geçmek gereksiz trafik ve kontrolsüz kapsam yaratır. Aynı HTML'i her çalışmada tekrar parse edip tam normalize içeriği kopyalamak da geçmişi şişirir.
+- **Karar:**
+  1. Faz 10 yalnız approved Competitor Library kayıtlarının operator-selected content-target cluster ile ilişkili URL'lerini toplar. Seçim URL hash'iyle tekilleştirilir; rakip başına 3, run başına 20 URL ile sınırlıdır.
+  2. Public Discovery'nin SSRF-safe HTTP fetcher'ı aynen kullanılır: her redirect public-IP kontrolünden geçer, timeout/response-size sınırları korunur ve credential gönderilmez. Final URL approved competitor domain'i dışına çıkarsa gözlem fail-closed olur.
+  3. Yalnız seçilmiş exact URL'ler istenir. Sayfadaki iç/dış bağlantılar yapı gözlemi olarak saklanır ama takip edilmez; rakip site çapında crawl, robots veya sitemap expansion yapılmaz.
+  4. Değişen sayfa görünür normalize metin, title/meta, H1–H6, JSON-LD schema summary, bounded iç/dış links ve operator-owned service/location sözlüğünden deterministic expression match üretir.
+  5. Her deneme append-only gözlem geçmişidir. Raw HTML hash aynıysa parsing atlanır; normalize content fingerprint aynıysa yeni satır önceki content observation'a referans verir ve içerik alanlarını kopyalamaz. Failed/unchanged zamanları da last-observed history olarak kalır.
+  6. İşlem canonical async Run/Activity hattında yürür. Faz 10 AI analizi, intent classification, Finding, Recommendation, Task, provider spend veya external write yapmaz; bunlar daha sonraki insan-gated fazlardır.
+- **İlgili:** ADR-013, ADR-018, ADR-023, ADR-045, ADR-046, ADR-053, ADR-055; `OPERATOR_ASYNC_EXECUTION.md`; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
+## ADR-057 — Evidence-bounded Competitive Intelligence as review-only analysis
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-04
+- **Bağlam:** Rakip sayfa gözlemlerinden kullanıcı soruları, kapsam farkları ve farklılaşma yönleri çıkarmak gerekir. Ancak agent'ın canlı web'e çıkması, rakip içeriğini talimat kabul etmesi, uzunluğu kalite yerine koyması veya sınıflandırma/URL ownership/Finding truth'ını otomatik değiştirmesi kanıt ve insan otoritesi sınırını bozar.
+- **Karar:**
+  1. Faz 11 için ayrı Competitive Intelligence Analyst, Skill ve AI route kullanılır. Run yalnız bir Website + active content-target cluster scope'undadır ve canonical queued Run/Activity hattında yürür.
+  2. Required evidence, insan tarafından doğrulanmış URL owner'ın checksum doğrulamalı saklı Website HTML sürümü ile approved/cluster-linked rakiplerin successful Faz 10 observations kayıtlarıdır. Agent yeni URL fetch etmez veya browse etmez.
+  3. Input en yeni unique rakip URL'lerinde sekiz sayfa ile; Brand metni 16.000 ve rakip metni sayfa başına 12.000 karakter ile sınırlıdır. Page/query metni untrusted data'dır ve instruction olarak yorumlanmaz.
+  4. Çıktı competitor kind/roles, page intent, topics/subtopics, user questions, content structure, local trust, Brand page missing user needs, unnecessary/do-not-copy sections, differentiation ideas, evidence explanation, confidence ve abstention alanlarıyla ayrı proposal kayıtlarında saklanır.
+  5. Eksik kapsam word-count karşılaştırmasıyla değil rakibin yanıtlayıp Brand sayfasının yanıtlamadığı kullanıcı ihtiyacı/sorusu olarak ifade edilir. Rank, volume, traffic, conversion veya performans uydurulmaz.
+  6. Exact input + Agent + Skill + route fingerprint tamamlanmış sonucu reuse eder. İnsan accept/reject yalnız analysis review state'ini değiştirir; competitor classification, URL ownership, Finding, Recommendation, Task, page/content ve external system truth'ı değişmez. Finding/Recommendation üretimi Faz 12'dir.
+- **İlgili:** ADR-013, ADR-018, ADR-023, ADR-046, ADR-049, ADR-054, ADR-055, ADR-056; `OPERATOR_ASYNC_EXECUTION.md`; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
+## ADR-058 — Human-gated Search Demand Finding and Recommendation promotion
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-04
+- **Bağlam:** Faz 12 teknik sayfa sorunlarını ve onaylı rekabet analizinden çıkarılan semantik iyileştirme ihtiyacını operasyon hattına taşır. AI'nın doğrudan canonical Finding üretmesi, pending/rejected analizi kullanması veya Recommendation ile birlikte Task açması MASTER_SPEC'teki Formula/Evidence/Finding/Recommendation/manual Task otoritesini bozar. Ayrı bir ikinci Finding modeli de core gerçeğini parçalar.
+- **Karar:**
+  1. Deterministic technical check ve AI semantic interpretation ayrı proposal origin'leri olarak saklanır. Missing title/H1/meta, zero observed internal link, wrong-URL candidate ve cannibalization candidate trusted application code tarafından üretilir; AI bunları tekrarlamaz.
+  2. Website Improvement Analyst yalnız human-approved Faz 11 analysis, verified Brand page, active content-target cluster ve optional Page Relevance sinyallerini alır. Pending/rejected/abstained analysis input'a girmez; page/query metni untrusted data kalır ve agent browse/fetch yapmaz.
+  3. Her semantic proposal bir allowed action type, content brief, exact analysis/observation/competitor references, evidence explanation, confidence, rationale, verification steps ve abstention taşır. Rank, volume, traffic, conversion, revenue veya causality uydurulmaz.
+  4. Proposal canonical Finding değildir. Operator accept işlemi atomic olarak canonical derived Evidence yayınlar, bunu FindingEvaluation'a bağlar, mevcut `findings` satırını create/reconfirm eder ve canonical `CreateRecommendationFromFinding` writer ile Recommendation oluşturur. Duplicate entity yaratılmaz.
+  5. AI proposal origin/provenance'i Finding, Recommendation ve Evidence üzerinde korunur; fakat insan gate'i olmadan hiçbir canonical write yapılmaz. Rejected proposal yalnız review state değiştirir; abstained veya `insufficient_evidence` proposal promote edilemez.
+  6. Recommendation → Task mevcut explicit manual action olarak kalır. Faz 12 Task, URL ownership, redirect, page/content, CMS veya external system mutation yapmaz. Değişiklik/sonuç ölçümü Faz 13'tür.
+- **İlgili:** ADR-013, ADR-018, ADR-023, ADR-025, ADR-034, ADR-041, ADR-046, ADR-049, ADR-054, ADR-057; `OPERATOR_ASYNC_EXECUTION.md`; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
+## ADR-059 — Search Demand change verification uses Task Outcome as the only result truth
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-04
+- **Bağlam:** Faz 13 uygulanan Website değişikliğini eski/yeni HTML, ilgili sayfa ailesi ve GSC/GA4/SERP dönemleriyle izlemelidir. Ayrı bir Result/Outcome entity açmak ADR-036'yı; AI veya metrik hareketiyle doğrudan Finding/Task değiştirmek insan otoritesi ve nedensellik sınırını ihlal eder. Hedefli yeniden tarama yeni bir crawler veya otomatik ücretli sağlayıcı çağrısı üretmemelidir.
+- **Karar:**
+  1. `search_demand_change_trackings` uygulanmış değişikliğin audit/provenance kaydıdır; sonuç gerçeği değildir. Current Outcome yalnız mevcut Task `outcome_*` alanlarında tutulur ve ayrı Result/Outcome tablosu açılmaz.
+  2. Kayıt yalnız human-approved Faz 12 proposal → canonical Recommendation → manuel oluşturulmuş ve tamamlanmış Task zincirinden açılır. Uygulama özeti, affected Website URLs/query clusters, application/review dates ve pre-change HTML fingerprints saklanır.
+  3. Post-change collection mevcut shared Website Public Crawl ile exact affected URLs + bounded related page family üzerinde çalışır; 100 URL üst sınırı vardır. Faz 13 DataForSEO çağırmaz, full-site crawl yapmaz ve CMS/Website/external write gerçekleştirmez.
+  4. Collection-linked post-change HTML fingerprints trusted code ile alınır. Missing title/H1/meta/internal-link koşulları deterministik yeniden değerlendirilir. Diğer semantic condition'lar stored before/after evidence kullanan Website Change Verification Analyst tarafından yalnız proposal olarak yorumlanır.
+  5. GSC query-page ve GA4 landing-page facts explicit pre/post periods ile; SERP rank ise yalnız mevcut stored snapshots ile karşılaştırılır. Missing coverage `insufficient_data`, premature window `too_early` kalır. Hiçbir visibility movement causality ispatı sayılmaz.
+  6. Exact input + Agent + Skill + route fingerprint equivalent verification'ı reuse eder. İnsan accept işlemi Task Outcome'u günceller ve yalnız resolved/still-observed kararı varsa canonical FindingEvaluation ekler; reject hiçbir canonical truth değiştirmez.
+- **İlgili:** ADR-013, ADR-018, ADR-023, ADR-025, ADR-029, ADR-034, ADR-036, ADR-046, ADR-052, ADR-053, ADR-058; `OPERATOR_ASYNC_EXECUTION.md`; `docs/product/OPERATIONAL_OUTCOME_LOOP.md`; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
+## ADR-060 — Website standards, independent assessment and shared content criteria
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-06
+- **Yetki / kapsam:** Operator requested implementation of Website standards, Library, query-cluster/URL matching and competitor improvements on `chatgpt/search-demand-foundation`. Main, PRs and server deployment are outside this task.
+- **Karar:**
+  1. Website standards live in the Website module as versioned definitions. Existing 17 diagnosis IDs are retained; the initial catalogue has 26 entries. Group, applicability, evidence requirement, deterministic/expert method, interpretation, source, action and verification travel with each definition. Admins enable/disable criteria and add bounded expert criteria; executable rule definitions are not accepted through the UI.
+  2. The Website asset can evaluate stored observations without a query cluster, verified owner, competitor or AI route. This is a queued Run, using the existing improvement proposal and human promotion pipeline; nullable cluster/ownership/competitive scope supports this independent mode. No Result or second Finding/Recommendation entity is created.
+  3. Unknown, not applicable, advisory and verified defect are distinct states. Old observations become unknown after 30 days. A missing optional canonical is not a defect; title/description lengths and Open Graph are advisory. A noindex/redirect becomes a blocking finding candidate only for a human-verified search target. Source HTML remains checksum-checked and scoped to the same Website.
+  4. Technical issue groups are ordered by verified-target blockers, other observed defects, then advisory review, with affected page count breaking ties. Coverage decisions are a separate list ordered by repair need and explicit service priority. No business impact or invented score determines ordering.
+  5. Coverage joins existing Brand offerings, Website-active portfolio items, clusters, owner decisions and candidate pages. Failed technical eligibility does not establish absent content. Relevant blocked pages remain repair/review candidates; human URL locks remain unchanged. This clarifies ADR-054 without relaxing the eligibility requirement for approving an owner.
+  6. Selected-page semantic improvement uses current stored owner content and shared standards; approved comparable competitor analysis is optional. This supersedes ADR-058's mandatory Phase 11 prerequisite. Technical title/head/link checks are centralized in the independent assessment; existing ownership/cannibalization signals remain separate. An own-page excerpt alone cannot justify a new page or merge: new contract actions are improve_existing, internal_linking, no_action and insufficient_evidence; FAQ sections may improve the existing page.
+  7. Competitive Intelligence evaluates both pages against the same criteria and records comparability, states and exact short excerpts. Incomparable/unsupported/abstained output cannot be accepted or create coverage obligations. Human review and current definition checks remain required. Semantic proposals require a supplied standard, traceable own-page excerpt and meaningful action/verification, with no ranking or AI-citation guarantee.
+  8. Approval rechecks definitions and evidence scope. Changed page/owner/cluster/approved competitor context requires another assessment. Exact unchanged input reuses the earlier analysis; repeated identical HTML collection does not by itself require another model call. No analysis collects data, starts paid SERP, publishes externally or creates Tasks automatically.
+  9. Scope limits are explicit: 500 Website profiles, 3,000 Website-active queries, 100 clusters, 20 candidate pages per cluster; 5 MB stored HTML and 16,000 own-page text characters. Site-wide technical work is verified by another standards assessment. Existing Phase 13 measurement remains limited to cluster-scoped completed Tasks and explicitly excludes site-wide proposals.
+  10. Search Demand Skill requirements use a finite `workflow_context` catalogue for service/cluster/observation/standard inputs. These are bounded service-assembled contexts, not newly canonical Evidence types; registration does not fetch data or bypass approval. All 30 shipped Skill definitions remain validated.
+- **İlgili:** ADR-013, ADR-014, ADR-018, ADR-023, ADR-025, ADR-032, ADR-034, ADR-036, ADR-045–059; `docs/product/website/WEBSITE_STANDARDS_ASSESSMENT.md`.
+
+---
+
+## ADR-061 — Stored public discovery with explicit canonical application receipts
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-06
+- **Yetki / kapsam:** User-approved Public Discovery Stage 1 plan, followed by “tamam yap” / “Devam et”. Implementation is restricted to `chatgpt/search-demand-foundation`; no main change, PR, merge or server deployment.
+- **Karar:**
+  1. Basic discovery reads scoped, checksum-verified public HTML already stored by Integration collection. Missing, stale or invalid data is refreshed through the existing Website Collection Engine, not a new crawler. A canonical async parent Run waits and resumes after the linked collection; idempotency, terminal-state guards and the existing stale-operation scheduler protect delivery/recovery.
+  2. New discovery does not call AI, DataForSEO or another paid research provider. Historical interpretation/competitor candidates are retained. Agent-Reach is a reference, not an installed execution dependency.
+  3. Original observation time, exact URL identity and truthful bounded coverage are required. Limits are seven-day freshness, 500 pages / 32 MiB per pass and 5 MiB per object. Existing collector limits remain unchanged; targeted refresh handles at most 100 URLs per operation. Reuse requires unchanged valid source input and known-service context.
+  4. Services require structured claims or supported page headings. Navigation alone is insufficient; addresses/contact observations are distinct from service-area coverage. Same-value candidates aggregate provenance and preserve prior decisions.
+  5. Human application uses current canonical Brand Offering, Service Catalog, Brand Service Area and Competitor Library identities. It may neither archive unrelated records nor restore archived/rejected identities. Existing labels, priorities, roles and relationships are preserved. Scalar replacement requires explicit selection and current-value comparison.
+  6. Accepted social profiles are visible in Integrations for manual authorization/resource selection/binding. No automatic asset or binding is created. Receipts distinguish applied, integration-ready, observation-only and conflict; legacy acceptance requires explicit transfer without backfill. Re-review of kept conflicts/observations preserves receipt history.
+  7. Review requires an active authorized operator, matching Brand/Website scope, owned destination IDs and current readable sources for new stored-source candidates. Historical candidates remain explicitly historical. No second Finding/Result, new table or framework is introduced.
+- **İlgili:** ADR-018, ADR-023, ADR-032, ADR-045, ADR-046, ADR-048, ADR-055; `docs/product/DISCOVERY_INTELLIGENCE.md`; `OPERATOR_ASYNC_EXECUTION.md`.
+
+---
+
 ## Karar indeksi
 
 | ID | Başlık | Durum |
@@ -388,7 +682,7 @@
 | ADR-023 | AI sınırı | Accepted |
 | ADR-024 | İlk modül seti | Accepted |
 | ADR-025 | Manuel Task dönüşümü | Accepted |
-| ADR-026 | Panel + auth | Accepted |
+| ADR-026 | Panel + auth | Accepted (path superseded → ADR-044) |
 | ADR-027 | Connection/credential | Accepted |
 | ADR-028 | Eski analysis alanları | Superseded → 034 |
 | ADR-029 | Task snapshot | Accepted |
@@ -406,6 +700,24 @@
 | ADR-041 | OpenAI agency Integration credentials | Accepted |
 | ADR-042 | GA4 first-class Digital Asset + Evidence role | Accepted |
 | ADR-043 | GSC first-class Digital Asset + Evidence role | Accepted |
+| ADR-044 | Canonical operator routes + Filament `/admin` | Accepted |
+| ADR-045 | WordPress inside truth + Public Discovery outside truth | Accepted |
+| ADR-046 | Provider-neutral Intelligence Core identity/provenance layer | Accepted |
+| ADR-047 | Rebuildable Website Intelligence Projection | Accepted |
+| ADR-048 | Global Service Catalog + reusable Search Query Library | Accepted |
+| ADR-049 | Search Demand AI proposals + human review boundary | Accepted |
+| ADR-050 | Relational Brand Query Portfolio + dynamic locations | Accepted |
+| ADR-051 | Human-governed layered Search Demand clusters | Accepted |
+| ADR-052 | Read-only Query–URL Visibility Map over canonical facts | Accepted |
+| ADR-053 | Manual paid SERP observations + human-applied cluster validation | Accepted |
+| ADR-054 | Fail-closed URL eligibility + human-owned Page Relevance decisions | Accepted |
+| ADR-055 | Brand-scoped Competitor Library + observation-only discovery | Accepted |
+| ADR-056 | Bounded exact-URL competitor page collection + reusable history | Accepted |
+| ADR-057 | Evidence-bounded Competitive Intelligence + review-only analysis | Accepted |
+| ADR-058 | Human-gated Search Demand Finding + Recommendation promotion | Accepted |
+| ADR-059 | Search Demand change verification + Task Outcome truth | Accepted |
+| ADR-060 | Independent Website standards + shared content and competitor criteria | Accepted |
+| ADR-061 | Stored public discovery + canonical application receipts | Accepted |
 
 ## Süpercede edilen kararlar
 
@@ -422,3 +734,233 @@
 | ADR-028 | ADR-034 |
 | ADR-021 (Pest satırı) | ADR-038 |
 | ADR-030 (AI API key panelden yönetilmez / env-only) | ADR-041 |
+| ADR-026 (Filament path `/app`) | ADR-044 |
+
+
+## ADR-062 — Global Services editing and four-item Library navigation
+- Status: Accepted, 2026-09-07; explicit operator instruction on staging.
+- Library exposes only Hizmetler, Sorgular, Sorgu kümeleri and Rakipler.
+- Catalogue service IDs are global. Current brand names and context projections follow global edits; historical observations retain their original evidence.
+- Services and sector categories have CRUD in the Services workspace. Service deletion is reversible and hides current usages while preserving foreign keys. Sector deletion unassigns services.
+- Existing brand goals, priorities and query relationships retain their IDs. Name conflicts abort transactionally.
+- No main changes, PR, cloning, tests or deployment were authorized for this delivery; operator requested direct GitHub staging commit and deploy instructions.
+
+
+## ADR-063 — Agency query imports, service expressions and central geography
+
+- **Status:** Accepted, operator request 2026-09-07/08; scope is staging branch chatgpt/search-demand-foundation.
+- Matching words are service-local expressions, not globally unique identity aliases. A phrase can map to multiple services. Service assignment is limited to explicit selected services and sector; missing matches remain human-reviewable.
+- New Library writes strip known place names and share one canonical text identity across sources/markets/sectors. Multiple sector relations preserve categorization without duplicate queries. Raw source text remains visible; provider facts and Intelligence identities do not change. Historical location-bearing Library identities are not destructively merged.
+- Country/city/district knowledge is one pinned, licensed, bundled catalog, with complete Turkey subdivisions. No Library Locations menu and no runtime remote lookup. Provider geotarget identifiers remain provider-specific.
+- Paste, file, stored-provider imports and bulk assignment run through persistent import jobs in bounded chunks. No provider calls, metric fabrication or causal claims.
+- Operator expressly forbade cloning and tests. Code review only; deployment, database/runtime and operator UAT are unverified. Full contract and limitations: docs/product/SEARCH_DEMAND_INTELLIGENCE.md.
+
+## ADR-064 — Sınırlı harici yazma: Google Ads paylaşılan negatif listesi ve WordPress taslağı
+
+- **Durum:** Accepted (sahip kararı, 2026-09-25: "Faz 7 yap" — kapsam "ikisi de", paylaşılan liste, yalnız Admin)
+- **Değiştirdiği:** ADR-018'e iki dar istisna. Başka her harici yazma yasağı aynen sürer.
+- **Karar:**
+  1. **Google Ads:** Danışmanın `negative-keywords` önerisindeki listeyi, Admin onayıyla hesapta "MoxDOP negatifleri" adlı paylaşılan negatif anahtar kelime listesine ekler ve listeyi etkin arama kampanyalarına bağlar. Kampanya, bütçe, teklif, reklam, hedefleme değiştirilmez. Yalnız bu listeye ekleme ve kendi eklediklerini silme yapılır.
+  2. **WordPress:** SEO Görevleri içerik briefinden MoxDOP Connector eklentisi (≥1.2.0) üzerinden **taslak** yazı/sayfa oluşturur. Asla yayınlamaz, mevcut içeriği değiştirmez. Geri alma yalnız hâlâ taslak olan ve MoxDOP'un oluşturduğu içeriği çöpe taşır.
+  3. Her yazma: yalnız Admin rolü, açık tıklama + onay, kuyrukta çalışır, `external_write_actions` tablosuna gönderilen istek ve dönen kimliklerle kaydedilir, tek tıkla geri alınır. `EXTERNAL_WRITES_ENABLED=false` (veya kanal bazında) tüm yazmayı kapatır. WordPress tarafında eklenti ayarı/filtresi site sahibinin kapatmasına izin verir.
+- **İlgili:** ADR-018, `MASTER_SPEC.md` (Kapsam dışı → istisna notu), `docs/product/ADVISOR_ROADMAP.md` Faz 7, `config/moxdop-external-writes.php`
+
+
+## ADR-065 — Filament `/admin` yalnız teknik araç (Faz 1); modül AI rehberliği kaldırıldı
+
+- **Durum:** Accepted (sahip kararı, Faz 1 – Temizlik: "Filament kopyaları" ve "ölü AI kodu"; `docs/product/MOXDOP_STRATEGY_ROADMAP.md`)
+- **Değiştirdiği / sıkılaştırdığı:** ADR-044 (Filament `/admin` teknik araç) — artık yazılı kural değil, kodda da öyle.
+- **Karar:**
+  1. Filament paneli (`id=app`, `/admin`) yalnız şunları içerir: **Runs** (`/admin/runs`, collection/evidence run teknik görünümü), **Modules** kayıt defteri (`/admin/modules`, aç/kapa), **Dashboard** (`OpsActionOverviewWidget` + `AsyncWorkerHealthWidget` + `SystemStatusWidget`), giriş / şifre sıfırlama / profil / iki adımlı doğrulama (MFA).
+  2. Operatör ürününü kopyalayan Filament kaynakları silindi: Customers → Brands → Digital Assets ağacı (ViewDigitalAsset ve tüm ilişki yöneticileri dahil), Findings, Recommendations, Tasks, Integrations, Portfolio dizinleri, Settings kümesi (General, AI Control Plane, Agent Profiles, Skill Library). Bu yetenekler yalnız kök operatör ürününde yaşar (`/customers`, `/brands`, `/assets`, `/findings`, `/recommendations`, `/tasks`, `/integrations/*`, `/settings`, `/settings/ai/*`). Dashboard widget bağlantıları operatör rotalarına gider.
+  3. Modül AI rehberliği (Website / Google Ads / Meta Ads "AI Guidance"; tasarım aşamasındaki GA4 / GSC / GBP rehberlik rotaları) kaldırıldı: servisler, bağlam oluşturucular, kabul/grounding sınıfları, `*AiGuidanceJob` işleri, `AsyncOperationService` kuyruk dalları, ilgili ajan profilleri (Website SEO / Google Ads / Meta Ads / GA4 / GSC / GBP analistleri), modül SKILL.md dosyaları ve AI rota anahtarları. Tek tetikleyicisi Filament ViewDigitalAsset idi. AI yalnız tıklamayla çalışan Danışman taslakları (Google Ads reklam metni, Meta kreatif, GBP profil) ve SEO Görevleri AI'ı üzerinden kalır. Website Discovery Context (Brand Discovery Analyst + `brand-context-discovery` skill) değişmedi.
+  4. Geçmiş kayıtlar korunur: `runs`, `evidence`, `recommendations`, `agent_execution_runs`, `ai_usage_records` satırlarına dokunulmaz; tablo silinmez. `AsyncOperationTypes` içindeki eski rehberlik tip sabitleri yalnız etiket için `@deprecated` olarak kalır.
+- **Bilinen boşluk:** Çapraz varlık tutarlılık kontrollerinin (`AnalyzeWebsite*ConsistencyJob`, `AnalyzeInstagramMetaAdsDestinationConsistencyJob`) tek UI tetikleyicisi ViewDigitalAsset idi; servisler/işler kodda duruyor ama şu an UI'dan başlatılamıyor. WordPress uygulama şifresi bağlantısı (`WordPressConnectionProbeService`, eski `wordpress` bağlantı tipi) da yalnız Filament'teydi; operatör ürünü MoxDOP Connector eşleştirmesini (`wordpress_connector`) kullanır.
+- **İlgili:** ADR-044, ADR-023, ADR-064, `app/Providers/Filament/AppPanelProvider.php`, `app/Support/MoxDopNavigation.php`
+
+
+## ADR-066 — Sektör örüntüleri: markalar arası toplamlar yalnız ajans içi
+
+- **Durum:** Accepted (sahip kararı, Faz 7 – Beyin: "Faz 7'ye geç"; "Karar vermem gereken her şeyi onaylıyorum")
+- **Değiştirdiği:** Markalar arası veri kullanımı daha önce yalnız marka bazındaydı. Bu ADR dar bir toplam kullanımına izin verir; müşteri görünürlüğü kuralları aynen sürer.
+- **Karar:**
+  1. Aynı sektördeki (marka `sector` alanı) **aktif müşterilerin** markaları üzerinden şu toplamlar okunur: talep tablosunda tekrar eden markasız aramalar, danışmanın tekrar tekrar bulduğu sorunlar (kural bazında), "Yapıldı" önerilerin ölçülen sonucu (kural bazında başarı oranı).
+  2. **Eşik:** Bir sektör ve bir örüntü en az 2 farklı aktif marka ister (`moxdop-advisor.sector_patterns.min_brands`, 2'nin altına ayarlanamaz). Bir markanın kendi eksik listesi yalnız *diğer* markalardan (≥ 2) oluşur.
+  3. **Gizlilik:** Hiçbir örüntünün yanında başka markanın adı, ham metriği ya da kaynağı gösterilmez; yalnız marka sayısı ve toplam gösterim/tık/dönüşüm. Sayfa ajans içidir (`/settings/sector-patterns`); müşteri raporlarına, Değer Hikâyesi'ne, AI istemlerine ve dışa aktarmalara girmez.
+  4. **Önceliklendirme:** Kural etkinlik ağırlığı (`RuleEffectiveness`) markanın sektöründe yeterli ölçüm (`brain.min_measured`) varsa sektör sonucunu, yoksa ajans genelini kullanır.
+  5. Pasif müşterinin markaları toplamlara girmez. Harici yazma yoktur; yalnız mevcut veriden okuma.
+- **İlgili:** ADR-018, ADR-064, `app/Services/Brain/SectorPatternReader.php`, `app/Services/Brain/RuleEffectiveness.php`, `docs/product/MOXDOP_STRATEGY_ROADMAP.md` Faz 7
+
+
+## ADR-067 — Pazar istihbaratı: rakip/yorum verisi yalnız okuma, iç kullanım; ajans lead webhook'u
+
+- **Durum:** Accepted (sahip kararı, Faz 8 – "Faz 8'e geç"; yol haritası: "Yorum kazıyıcı (iç kullanım, sahibi riski üstlendi)"; "Karar vermem gereken her şeyi onaylıyorum")
+- **Karar:**
+  1. **Kaynak:** Harita grid sıralaması, Google yorumları ve backlink verisi yalnız DataForSEO üzerinden okunur (standart kuyruk / live). Kendi tarayıcı (headless) ile Google kazıma yapılmaz. Rakip siteleri yalnız güvenli herkese açık okuyucuyla (SSRF korumalı, boyut/yönlendirme sınırı) haftada bir okunur. OpenStreetMap Nominatim yalnız hizmet bölgesi koordinatı için, saniyede bir istek ve kimlikli User-Agent ile.
+  2. **Maliyet:** Her ücretli çağrı `dataforseo_tasks` tablosuna maliyetiyle yazılır; marka bazında isteğe bağlı açılır ve tek aylık USD tavanı (harita + yorum + backlink) aşılamaz. Dış denetim harita sorgusu ajans geneli ayrı tavan içindedir. Pasif müşterinin markası için zamanlanmış hiçbir ücretli iş çalışmaz.
+  3. **Gizlilik:** Yorum yazanların adı/profili saklanmaz; yalnız puan, tarih, metin ve işletme yanıtı var/yok. Rakip yorum ve site verisi ajans içidir; müşteri raporlarına ve AI istemlerine otomatik girmez.
+  4. **Yazma yok:** Google, Meta veya rakip sitelere hiçbir şey yazılmaz. KML dosyası yalnız indirilir; My Maps'e içe aktarma ve siteye gömme sahibinin elle yaptığı iştir ve ölçümlü deney olarak işaretlenir. ADR-064 istisnaları değişmez.
+  5. **Meta Reklam Kütüphanesi:** API Türkiye'de ticari reklam vermediği için yalnız kütüphane bağlantısı (sayfa kimliği ya da ad araması) sunulur; kazıma yapılmaz.
+  6. **Lead kutusu:** `/api/leads/{token}` herkese açık tek giriş noktasıdır: yalnız ajansın kendi formu içindir, token veritabanında hash olarak tutulur ve yenilenebilir, istek hızı sınırlıdır, spam tuzağı vardır. Müşteri sitelerinin formları buraya bağlanmaz.
+- **İlgili:** ADR-018, ADR-064, ADR-066, `config/moxdop-intel.php`, `app/Services/Intel/*`, `app/Services/Sales/AgencyLeadInbox.php`
+
+
+## ADR-068 — WordPress Connector v2: sağlık, tek tık panel girişi, onaylı güncelleme
+
+- **Durum:** Accepted (sahip kararı, Faz 9 – "Faz 9'a geç"; yol haritası: "WordPress eklenti v2 (sağlık, tek tık panel girişi, onaylı güncelleme)"; "yeni istisnalar … ayrı ADR ile"; "Karar vermem gereken her şeyi onaylıyorum")
+- **Değiştirdiği:** ADR-018'e üçüncü dar istisna (ADR-064'ün yanına). İçerik düzenleme ve yayınlama yasağı aynen sürer.
+- **Karar:**
+  1. **Sağlık (okuma):** Eklenti 1.3.0 `GET /moxdop/v1/health` ile WordPress/PHP sürümü, bekleyen çekirdek/eklenti/tema güncellemeleri ve WordPress Site Sağlığı özetini verir; MoxDOP günde bir okur (`moxdop:wordpress:health` 06:20).
+  2. **Tek tık giriş:** Yalnız site yöneticisi eklenti ayarlarında bir kullanıcı seçerse açılır (varsayılan kapalı). MoxDOP'ta yalnız Admin, imzalı istekle tek kullanımlık, 60 saniyelik bir bağlantı alır; bağlantı yalnız sitenin kendi adresine yönlenebilir; her kullanım `security_audit_events` tablosuna `WORDPRESS_ADMIN_LOGIN` olarak yazılır; eklenti kendi kaydını tutar.
+  3. **Onaylı güncelleme:** Yalnız site yöneticisi eklentide açarsa (varsayılan kapalı) ve yalnız WordPress'in kendisinin önerdiği güncelleme (eklenti, tema, çekirdek) — her istekte tek öğe, her birini Admin ayrı onaylar. `external_write_actions` kaydı (`update_apply`), kuyrukta çalışır, sonrası sağlık yeniden okunur. **Geri alınamaz**; ekran önce yedek önerir. `EXTERNAL_WRITES_ENABLED` / kanal anahtarı kapatır.
+  4. Yeni eklenti/tema kurma, silme, ayar veya içerik değiştirme yoktur.
+- **İlgili:** ADR-018, ADR-064, `connectors/wordpress/moxdop-connector/includes/class-moxdop-connector-management.php`, `app/Services/Integrations/WordPress/WordPressManagementService.php`
+
+
+## ADR-069 — Aylık rapor v2 kendi tablosunda (`monthly_reports`)
+
+- **Durum:** Accepted (sahip kararı, Faz 9 – "Looker yerine aylık rapor"; "Karar vermem gereken her şeyi onaylıyorum")
+- **Değiştirdiği:** Demo döneminden kalan "değer/rapor varlıkları için üretim tablosu yok" korumasını yalnız `monthly_reports` için kaldırır (`ClientValueReportingKnowledgeTest`). `client_value_stories`, `reports`, `report_sections`, `knowledge_articles`, `decision_logs`, `narrative_snapshots` yasağı sürer.
+- **Karar:** Aylık rapor v2, marka + ay başına tek satırda dondurulmuş rakamları, düzenlenebilir AI yorumunu, operatör notunu ve yayın durumunu tutar. Değişmez `report_snapshots` (Client Value Story) ayrı kalır; v2 yorum düzenlemeyi gerektirdiği için değişmez anlık görüntüye yazılmaz. Müşteri yalnız yayımlanmış raporu, süreli imzalı bağlantıyla görür.
+- **İlgili:** ADR-068, `app/Services/MonthlyReport/*`, `database/migrations/2026_10_04_090000_create_monthly_reports_table.php`
+
+
+## ADR-070 — WordPress'te onaylı SEO / teknik düzeltme ve sayfa metni güncellemesi
+
+- **Durum:** Accepted (sahip kararı, 2026-10-11: "Fazları sırayla yap". Önerilen üç faz: 1 başlık/açıklama/alt metin/schema; 2 yönlendirme/noindex/canonical/iç bağlantı; 3 sayfa metni ve yeni sayfa. Otomatik yayın yok.)
+- **Değiştirdiği:** ADR-018'e dördüncü dar istisna (ADR-064 ve ADR-068'in yanına). ADR-064'ün "mevcut içeriği değiştirmez" kısıtını yalnız aşağıdaki işlemler için kaldırır.
+- **Karar:**
+  1. **Kapsam (WordPress, MoxDOP Connector ≥ 1.4.0):**
+     - SEO başlığı ve meta açıklama: Yoast, Rank Math, SEOPress alanlarına; eklenti yoksa MoxDOP'un kendi alanlarına yazılır.
+     - Görsel alt metni.
+     - JSON-LD schema: sayfa ya da site geneli.
+     - 301 yönlendirme: eklentinin kendi tablosunda.
+     - noindex ve canonical.
+     - Bir sayfaya tek iç bağlantı eklemek: yalnız metinde zaten geçen ifadeye bağlantı verilir.
+     - Sayfa metni güncellemesi: yeni sürüm önce ayrı **taslak kopya** olarak yazılır. Canlı sayfayı ancak ikinci, ayrı onaylanan "Yayına al" isteği değiştirir. WordPress eski sürümü revizyon olarak saklar.
+     - Yeni sayfa: yalnız taslak (ADR-064 gibi).
+  2. **İki taraflı açma:** Eklentide "SEO fixes" ve "Content updates" ayrı ayrı ve varsayılan kapalıdır. Site yöneticisi açmadan hiçbir istek uygulanmaz. MoxDOP'ta yalnız Admin onaylar. `EXTERNAL_WRITES_ENABLED` / kanal anahtarı hepsini kapatır.
+  3. **Kayıt ve geri alma:**
+     - Her istek `external_write_actions` satırıdır (`site_fix`, `content_draft`, `content_apply`). Her öneri `site_fix_items` satırıdır.
+     - Eklenti her değişikliğin önceki değerini saklar. Geri alma yalnız değer o arada sitede değiştirilmediyse yazar. Değiştirilmişse üzerine yazmaz ve bunu raporlar.
+  4. **Öneri kaynağı:**
+     - Sorunları kurallar saklanan veriden bulur: genel tarama ve eklenti anlık görüntüsü.
+     - Değerleri AI yalnız tıklamayla önerir.
+     - Operatör her değeri görür ve düzenleyebilir. Uygulanan her değer "önce / sonra" olarak kalır.
+     - AI metni sektör uyum kurallarına göre yazılır. Fiyat, garanti ve yeni bilgi uydurmaz.
+  5. **Yapılmayanlar:** Tema/eklenti dosyası düzenleme, kod ekleme, silme, yayınlama (Yayına al dışında), WordPress dışı siteler.
+  6. **1.3.0 düzeltmesi:** `/health`, `/login-link` ve `/updates` imzasız yanıt döndürüyordu; MoxDOP bu yanıtları reddettiği için ADR-068 özellikleri gerçek sitede çalışamıyordu. 1.4.0 bu yanıtları da imzalar. `management_min_plugin_version` 1.4.0'dır.
+- **İlgili:** ADR-018, ADR-064, ADR-068, `connectors/wordpress/moxdop-connector/includes/class-moxdop-connector-fixes.php`, `app/Services/SiteFixes/*`, `app/Services/ExternalWrites/WordPressFixWriter.php`, `app/Livewire/Operator/Website/SiteFixesPanel.php`
+
+## ADR-071 — MoxDOP Connector kendini güncelleme ve IndexNow bildirimi
+
+- **Durum:** Accepted (sahip kararı, 2026-10-11: "sistemdeki eklentiyi güncellediğimizde eklenti yüklenmişse bir web sitesinde tek tuşla güncelleme yaptırabilmeliyim"; anında yayılım önerilerine "yap").
+- **Değiştirdiği:** ADR-068'e ek (onaylı güncelleme). Yeni bir harici yazma türü değil, WordPress Connector'ın **yalnız kendisini** güncellemesi.
+- **Karar:**
+  1. **Kendini güncelleme (Connector ≥ 1.4.1):**
+     - MoxDOP'ta Admin "Eklentiyi güncelle" ya da "Tümünü güncelle" der. Her site ayrı bir `external_write_actions` satırıdır (`connector_update`) ve geri alınamaz.
+     - MoxDOP paketi bir kez üretir, SHA-256'sını hesaplar ve 15 dakika geçerli, imzalı bir indirme bağlantısı verir.
+     - Eklenti yalnız şu koşullarda kurar: sürüm şu ankinden yeni; bağlantı eşleştiği MoxDOP adresinde; ZIP'in özeti tutuyor; eklenti beklenen klasörde. Kurulumdan sonra eklenti etkin kalır.
+     - Eklenti ayarında "Connector updates" seçeneği vardır (varsayılan açık). Site yöneticisi kapatabilir.
+     - 1.4.0 ve öncesi bu uç noktayı bilmez: bu siteler bir kez elle güncellenir. Sonraki sürümler tek tıktır.
+  2. **IndexNow (Connector ≥ 1.4.1):**
+     - Yayındaki bir sayfa değişince ya da onaylı bir düzeltme uygulanınca **sitenin kendisi** api.indexnow.org'a bildirim gönderir (Bing / Yandex), SEO eklentilerinin yaptığı gibi. MoxDOP arama motorlarına kendi adına bir şey göndermez.
+     - Anahtar dosyası `/{key}.txt` adresinde sunulur.
+     - Seçenek varsayılan açıktır. "Arama motorlarını engelle" açıkken çalışmaz.
+  3. **Anında yayılım (yazma değil, okuma):**
+     - Eklenti kayıttan hemen sonra olayı gönderir (tek seferlik WP-Cron ve beklemeyen loopback). 5 dakikalık zamanlama yedek olarak kalır.
+     - Mutabakat her dakika çalışır. Küçük değişiklik yenilemelerinin ayrı eşzamanlılık hakkı vardır (8). Tam envanter 2 hakkı paylaşır.
+     - Onaylı düzeltmeden sonra etkilenen sayfalar hedefli olarak yeniden taranır ve öneri "sitede doğrulandı" ya da "sitede hâlâ görünüyor" olarak işaretlenir.
+     - Değişen sayfalar Search Console URL denetiminde öne alınır. Değişiklikten 1–3 gün sonra günlük bir denetim yapılır (salt okuma).
+     - Connector'ı olmayan siteler için sitemap `lastmod` saatlik izlenir; yalnız değişen sayfalar taranır.
+- **İlgili:** ADR-064, ADR-068, ADR-070, `connectors/wordpress/moxdop-connector/includes/class-moxdop-connector-updater.php`, `class-moxdop-connector-indexnow.php`, `app/Services/Integrations/WordPress/WordPressManagementService.php`, `app/Services/SiteFixes/SiteFixVerification.php`, `app/Services/Website/SitemapChangeWatcher.php`
+
+
+## ADR-072 — Hizmet Beyni: hizmet bazlı öğrenme, AI hazırlar / insan onaylar, sektör yalnız fren
+
+- **Durum:** Kabul (operatör onayı 2026-10-14, "sırayla tüm fazları yap").
+- **Değiştirdiği:** ADR-066'yı genişletir. Sektör örüntüleri kalır; öğrenmenin birimi artık hizmettir.
+- **Karar:**
+  1. **Öğrenme birimi.** Birim **hizmet × sayfa türü × pazar tipi** kohortudur.
+     - Sektör öğrenmeye katılmaz. Yalnız öneriyi süzer ("fren"): uyum paketi metin kuralları, sektöre hiç önerilmeyecek öneri türleri ve isteğe bağlı yasal kapı.
+  2. **Kalıcı zincir.** Zincir şudur: hizmet → sayfa boyutunda konu kümesi → hedef URL → Google Ads reklam grubu → Meta reklamı (hizmet + mesaj açısı).
+     - Tablolar: mevcut `library_query_clusters` / `library_cluster_targets` genişletildi; yeni `brain_ad_group_clusters` ve `brain_meta_ads`.
+  3. **AI hazırlar, insan toplu onaylar, sistem uygular.**
+     - Tek kuyruk: `brain_proposals`. İçinde hesap eşleme, sorgu → hizmet, kümeler, küme → sayfa ve Meta sınıflaması var.
+     - İstatistik, ölçüm, fren ve uygulama deterministiktir.
+     - AI'ın kendi güven beyanı kullanılmaz. Güven sistemden gelir: eşleme ifadesi kapsaması, vektör marjı, AI ile vektörün uyumu.
+  4. **Başarı normalize edilir.**
+     - Talep payı ve sıraya göre beklenen tıklanma kullanılır.
+     - Az veri Bayes küçültmeyle ortalamaya çekilir.
+     - Puan kohort içi yüzdeliktir.
+  5. **Yöntem iki aşamalıdır:**
+     - **Hipotez:** kohortun üstü ile altı arasında belirgin fark olmalı; asgari marka ve sayfa eşiği var.
+     - **Kanıtlanmış:** uygulanan önerinin 28 / 56 gün sonraki etkisi, uygulanmayan benzer sayfalarla karşılaştırılır (fark-içinde-fark).
+     - Etkisiz yöntem kapatılır.
+  6. **Gizlilik.** Başka markanın adı bir yöntemin ya da önerinin yanında görünmez; yalnız sayılar (ADR-066 ile aynı).
+  7. **Harici yazma yok.**
+     - Beyin yalnız öneri üretir. Uygulama mevcut onaylı yazma yollarıyla yapılır (ADR-064 / 068 / 070).
+     - Embedding için `laravel/ai` Embeddings kullanılır (OpenAI → Gemini). Vektörler JSON olarak önbelleklenir; pgvector gerekmez.
+- **Açık risk:** RG 12.11.2025 / 33075 Sağlık Tanıtım Yönetmeliği'nin Türkiye'ye yönelik ücretli sağlık tanıtımını kısıtladığı ikincil kaynaklarda bildiriliyor. Hukuk görüşü gelene kadar yasal kapı kapalıdır (`moxdop-brain.legal.health_paid_ads_gate = 0`).
+- **İlgili:** `docs/product/SERVICE_BRAIN_BLUEPRINT.md`, `app/Services/Brain/*`, `config/moxdop-brain.php`, ADR-066.
+
+
+## ADR-073 — İşletme Profili yazması: yorum yanıtı ve gönderi (onaylı, geri alınabilir)
+
+- **Durum:** Kabul (operatör onayı 2026-10-16, "karar vermem gereken her şeyi onaylıyorum").
+- **Değiştirdiği:** ADR-064'ün "harici yazma yok" istisna listesine bir kanal ekler. Başka hiçbir yazma eklenmez.
+- **Karar:**
+  1. **Kapsam.** Yalnız iki işlem:
+     - **Yorum yanıtı:** `PUT …/reviews/{id}/reply`. Geri alma önceki yanıtı geri koyar; önceden yanıt yoksa yanıtı siler.
+     - **Yerel gönderi (localPosts):** `POST …/localPosts`. Geri alma gönderiyi siler.
+     - Çalışma saatleri, kategoriler, hizmetler, fotoğraflar ve işletme bilgileri **değiştirilmez**.
+  2. **İzin sınırı kodda.** `GoogleApiClient::writeBusinessProfile` yalnız bu iki uç noktayı ve put/post/delete yöntemlerini kabul eder. Tek çağıran `GbpWriter`'dır.
+  3. **Onay ve kayıt.**
+     - Her yazma `external_write_actions` satırıdır ve Admin onayıyla kuyruğa girer (`ExternalWriteService::requestReviewReply` / `requestLocalPost`).
+     - Satırda gönderilen içerik ve geri alma için gereken kimlikler tutulur.
+  4. **İçerik takvimi.** `content_calendar_items` planlanan gönderileri tutar. `moxdop:content:publish-due` (10 dk) yalnız **onaylanmış** ve zamanı gelmiş gönderileri aynı yazma yolundan yayınlar.
+  5. **Google Ads kampanya duraklatma / bütçe değişikliği bu ADR'de yoktur.**
+     - Denendi ama güvenlik denetimi bu yazmayı engelledi ("gerçek dünyada harcama etkisi olan işlem").
+     - `mutateAds` izin listesi ADR-064'teki paylaşılan negatif listelerle sınırlı kalır. Bütçe temposu yalnız okunur ve Portföy sağlığı ekranında uyarı olarak gösterilir.
+- **İlgili:** ADR-064, `app/Services/ExternalWrites/GbpWriter.php`, `app/Services/Content/ContentCalendarPublisher.php`, `config/moxdop-external-writes.php` (`gbp`).
+
+
+## ADR-074 — Lead sonucu işaretleme (CRM değil)
+
+- **Durum:** Kabul (operatör onayı 2026-10-17, "karar vermem gereken her şeyi onaylıyorum").
+- **Karar:**
+  1. `lead_outcomes` tek tablodur. Her satır (marka, lead_source, lead_ref) başına bir müşteri tarafı lead'dir ve kliniğin bildirdiği sonucu tutar: new | contacted | appointment | sale | junk | unreachable. Ayrıca isteğe bağlı TL değer, not, işaretleyen kişi ve zaman.
+  2. MoxDOP müşteri lead'i çekmez (`leads_retrieval` yasak; `/api/leads` yalnız ajansın kendi formu içindir).
+     - Lead'ler form aracının ya da Meta Lead Center'ın dışa aktarma dosyasından yüklenir, ya da elle eklenir.
+  3. Ad, telefon ve e-posta saklanmaz; yalnız eşleştirme ipucu tutulur (baş harfler ve telefonun son 4 hanesi).
+     - Dosyada kimlik sütunu yoksa satır, anahtarlı özetle (HMAC) tanınır.
+  4. Hasta, randevu takvimi, satış hattı ve fırsat yoktur.
+     - Ölçüler: nitelikli oran (randevu + satış / işaretli lead) ve reklam harcamasına göre nitelikli lead başı maliyet.
+  5. Komuta merkezi, 2 günden eski ve sonucu girilmemiş lead'leri marka başına tek öğe olarak gösterir. Aylık rapora, sonuç girilmişse "Lead kalitesi" bölümü eklenir.
+- **İlgili:** `app/Services/LeadOutcomes/*`, `app/Livewire/Operator/Portfolio/BrandLeads.php`, `CommercialGrowthIntelligenceTest` (ertelenen CRM tabloları).
+
+## ADR-075 — Müşteri içerik onayı: imzalı, süreli bağlantı (müşteri girişi değil)
+
+- **Durum:** Kabul (operatör onayı 2026-10-17, "karar vermem gereken her şeyi onaylıyorum").
+- **Karar:**
+  1. Operatör İçerik takviminde bir taslak için **"Müşteri onayına gönder"** der. MoxDOP 14 gün geçerli, imzalı bir bağlantı üretir (`/onay/{id}`).
+     - Operatör bağlantıyı kendisi gönderir (WhatsApp / e-posta); MoxDOP otomatik göndermez.
+  2. Müşteri sayfada yalnız içeriği görür ve bir kez **Onaylıyorum** ya da **Değişiklik istiyorum** der. Değişiklik isteğinde not zorunludur.
+     - Hesap, oturum ve başka marka verisi yoktur.
+     - Yeni istek eskisini geçersiz kılar. Süresi dolan bağlantı çalışmaz.
+  3. **Müşteri yanıtı hiçbir şeyi yayınlamaz.** Yanıt Komuta merkezine düşer ("Müşteri onayladı / değişiklik istedi"). Yayın onayı yine Admin'dedir (ADR-073).
+  4. Bu bir müşteri portalı değildir. Müşteri girişi olmaması ilkesi korunur; aynı model yalnız imzalı aylık rapor bağlantısında zaten vardır.
+- **İlgili:** `app/Models/ClientApproval.php`, `app/Http/Controllers/Clients/ClientApprovalController.php`, `tests/Feature/Clients/ClientApprovalTest.php`, ADR-073.
+
+## ADR-076 — WordPress taslağı: uyum kapısı, dil ataması ve çeviri bağlantısı (Polylang), WXR dışa aktarma
+
+- **Durum:** Kabul (içerik dağıtım altyapısı görevi, 2026-09-28; ADR-064 taslak istisnasının içinde kalır).
+- **Değiştirdiği:** ADR-064 (2) taslağını genişletir. Yeni bir harici yazma türü eklemez: hâlâ yalnız MoxDOP'un oluşturduğu **taslak** yazı/sayfa vardır; geri alma taslakları çöpe taşır.
+- **Karar:**
+  1. **Uyum kapısı.** AI'ın yazdığı her sayfa / makale (başlık, SEO başlığı, meta açıklama, odak kelime, özet, adres, metin) markanın sektör paketi kurallarından geçer (`ContentComplianceGate`, kaynak `ai_draft`). Yüksek / orta önemdeki ihlal varken WordPress'e gönderme ve WXR dışa aktarma **reddedilir**. Operatör takılan ifadeleri Türkçe görür; "Yeniden yaz (uyumlu)" AI'a ihlalleri söyleyerek yeniden yazdırır ya da metni kendisi düzenler. Sağlık paketine İngilizce ifadeler eklendi (`claims_en`: best, painless, guarantee, safe, comfortable, fast, price, expert…).
+  2. **Zengin taslak (Connector ≥ 1.5.0).** `/drafts` artık slug, özet, tarih, kategori / etiket (adla; yoksa oluşturulur), Yoast / Rank Math / SEOPress SEO başlığı, açıklama ve odak kelime, Polylang dili (`language`) ve çevirisi olduğu yazı (`translation_of`) alır. Eski yük (title, content_html, post_type, excerpt, reference) aynen çalışır; eski eklenti ek alanları yok sayar. Referansla idempotent kalır.
+  3. **Zamanlama.** Varsayılan her zaman `draft`. `future` (WordPress'in seçilen tarihte yayınlaması) yalnız operatör ileri bir tarih seçtiyse **ve** site yöneticisi eklentide "Scheduled drafts" seçeneğini açtıysa olur (varsayılan kapalı). Zamanlanmış MoxDOP yazısı da taslak gibi çöpe taşınabilir.
+  4. **Polylang.** Eklenti etkinse dili atar (`pll_set_post_language`), çeviriyi mevcut gruba ekler (`pll_save_post_translations`, eski bağlar korunur), kategori için o dildeki terimi kullanır ya da çeviri terimi oluşturup kaynak terime bağlar (`pll_save_term_translations`). Polylang yoksa dil alanları sessizce yok sayılır. Site anlık görüntüsü ve `/status` sitenin dillerini (slug, ad, locale, varsayılan, ana sayfa) verir.
+  5. **Çok dilli gönderim.** `ContentDraftPublisher::publish()` kaynak dili önce, çevirileri sonra `translation_of` ile gönderir; tek `external_write_actions` satırı (`article_drafts`), tek Admin onayı, tek geri alma (önce çeviriler, sonra kaynak çöpe). Çeviri üretimi AI'dır (`content.localize`, bütçe / sağlayıcı yönlendirmesi diğer rotalar gibi): birebir çeviri değil yerelleştirme; iç bağlantılar bilinen hedef dil sayfasına, bilinmiyorsa dilin ana sayfasına çevrilir; sonuç yine uyum kapısından geçer.
+  6. **WXR dışa aktarma.** `WxrExporter` WordPress eXtended RSS 1.2 dosyası üretir (taslak durumunda; kategori nicename; Yoast + Rank Math alanları). WordPress içe aktarıcı Polylang bağlarını kaybettiği için her öğe `_moxdop_translation_key` ve `_moxdop_language` taşır; Connector kuruluysa **Araçlar › MoxDOP Polylang** önce kuru çalıştırma tablosu gösterir, site yöneticisi onaylayınca dilleri atar ve çevirileri bağlar (yalnız `manage_options`, tekrar çalıştırmak bağlı grupları değiştirmez). İndirme yalnız Admin'dir ve ihlalli makaleyi reddeder.
+- **İlgili:** ADR-064, ADR-070, ADR-071, `app/Services/ContentDelivery/*`, `app/Services/ExternalWrites/WordPressDraftWriter.php`, `app/Ai/Agents/Content/ContentLocalizerAgent.php`, `connectors/wordpress/moxdop-connector/includes/class-moxdop-connector-drafts.php`, `class-moxdop-connector-translation-pairing.php`, `tests/Feature/ContentDelivery/ContentDeliveryTest.php`.

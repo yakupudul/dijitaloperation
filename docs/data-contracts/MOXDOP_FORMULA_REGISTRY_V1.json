@@ -1,0 +1,3468 @@
+{
+  "metadata": {
+    "registry_id": "MOXDOP_FORMULA_REGISTRY",
+    "version": 1,
+    "status": "FROZEN_FOR_CALCULATION_IMPLEMENTATION",
+    "created_at": "2026-08-13",
+    "data_contract_registry_id": "MOXDOP_DATA_CONTRACT_REGISTRY",
+    "data_contract_registry_version": 1,
+    "data_contract_registry_commit": "b498c8c41b8af8daccf26ab4c3519159f9e9900a",
+    "source_contracts": [
+      "GA4_DATA_CONTRACT",
+      "SEARCH_CONSOLE_DATA_CONTRACT",
+      "GOOGLE_ADS_DATA_CONTRACT",
+      "META_ADS_DATA_CONTRACT",
+      "WEBSITE_DATA_CONTRACT",
+      "DATAFORSEO_DATA_CONTRACT"
+    ],
+    "description": "Canonical deterministic Formula Registry V1. Providers supply facts; MoxDOP formulas derive values. Collectors do not implement formulas.",
+    "global_policies": {
+      "MISSING_NEVER_EQUALS_ZERO": true,
+      "NO_SILENT_DIVIDE_BY_ZERO": true,
+      "NO_INTERMEDIATE_ROUNDING": true,
+      "RATIOS_RECOMPUTE_FROM_BASE_FACTS_WHERE_VALID": true,
+      "PERCENT_CHANGE_DISTINCT_FROM_PERCENTAGE_POINT_CHANGE": true,
+      "CURRENCY_MUST_BE_COMPARABLE": true,
+      "REPORTING_TIMEZONE_MUST_BE_PRESERVED": true,
+      "STALE_INPUT_PROPAGATES": true,
+      "PARTIAL_INPUT_PROPAGATES": true,
+      "ESTIMATED_INPUT_PROVENANCE_PROPAGATES": true,
+      "TYPED_RESULT_IDENTITY_REQUIRED": true,
+      "PROVIDER_FACT_DISTINCT_FROM_MOXDOP_DERIVED": true,
+      "NO_MAGIC_SCORES": true,
+      "INTERNAL_RATIO_SCALE": "FRACTION_0_1",
+      "DISPLAY_PERCENTAGE_SCALE": "PERCENT_0_100"
+    },
+    "id_rules": {
+      "case": "UPPER_SNAKE_CASE",
+      "immutable_within_v1": true,
+      "breaking_change": "new_id_or_v2"
+    }
+  },
+  "enums": {
+    "formula_type": [
+      "RATIO",
+      "RATE",
+      "PERCENTAGE",
+      "COST_PER",
+      "AVERAGE",
+      "SUM",
+      "ABSOLUTE_DELTA",
+      "RELATIVE_CHANGE",
+      "PERCENTAGE_POINT_CHANGE",
+      "INDEX_OR_PACING",
+      "OTHER_DETERMINISTIC"
+    ],
+    "output_type": [
+      "COUNT",
+      "DECIMAL",
+      "MONEY",
+      "RATIO",
+      "PERCENTAGE",
+      "PERCENTAGE_POINT",
+      "DURATION",
+      "POSITION",
+      "OTHER"
+    ],
+    "status": [
+      "FROZEN",
+      "DECISION_REQUIRED",
+      "DEPENDENCY_NOT_YET_PRODUCTION",
+      "REJECTED"
+    ],
+    "semantic_direction": [
+      "HIGHER_IS_GENERALLY_FAVORABLE",
+      "LOWER_IS_GENERALLY_FAVORABLE",
+      "CONTEXT_DEPENDENT",
+      "NEUTRAL",
+      "NOT_APPLICABLE"
+    ],
+    "calculation_location": [
+      "QUERY_TIME",
+      "PRESENTATION_TIME",
+      "MATERIALIZED_LATER",
+      "PERIOD_PROVIDER_QUERY_REQUIRED",
+      "DOMAIN_SERVICE_LATER"
+    ]
+  },
+  "global_policies": {
+    "MISSING_NEVER_EQUALS_ZERO": true,
+    "NO_SILENT_DIVIDE_BY_ZERO": true,
+    "NO_INTERMEDIATE_ROUNDING": true,
+    "RATIOS_RECOMPUTE_FROM_BASE_FACTS_WHERE_VALID": true,
+    "PERCENT_CHANGE_DISTINCT_FROM_PERCENTAGE_POINT_CHANGE": true,
+    "CURRENCY_MUST_BE_COMPARABLE": true,
+    "REPORTING_TIMEZONE_MUST_BE_PRESERVED": true,
+    "STALE_INPUT_PROPAGATES": true,
+    "PARTIAL_INPUT_PROPAGATES": true,
+    "ESTIMATED_INPUT_PROVENANCE_PROPAGATES": true,
+    "TYPED_RESULT_IDENTITY_REQUIRED": true,
+    "PROVIDER_FACT_DISTINCT_FROM_MOXDOP_DERIVED": true,
+    "NO_MAGIC_SCORES": true,
+    "INTERNAL_RATIO_SCALE": "FRACTION_0_1",
+    "DISPLAY_PERCENTAGE_SCALE": "PERCENT_0_100"
+  },
+  "missing_value_policies": [
+    {
+      "id": "MP_RATIO_STANDARD",
+      "description": "Standard ratio missing/zero handling",
+      "cases": {
+        "normal": "VALUE",
+        "numerator_zero_positive_denominator": "VALUE_ZERO",
+        "positive_numerator_zero_denominator": "UNDEFINED_ZERO_DENOMINATOR",
+        "zero_over_zero": "UNDEFINED",
+        "numerator_missing": "NOT_COLLECTED",
+        "denominator_missing": "NOT_COLLECTED",
+        "not_configured": "NOT_CONFIGURED",
+        "unavailable": "UNAVAILABLE",
+        "partial": "PARTIAL",
+        "stale": "STALE_DERIVED"
+      }
+    },
+    {
+      "id": "MP_RELATIVE_CHANGE",
+      "description": "Relative period change",
+      "cases": {
+        "normal": "VALUE",
+        "previous_zero_current_positive": "UNDEFINED_RELATIVE_CHANGE",
+        "previous_zero_current_zero": "UNDEFINED",
+        "previous_missing": "NOT_COLLECTED",
+        "current_missing": "NOT_COLLECTED",
+        "partial": "PARTIAL",
+        "stale": "STALE_DERIVED"
+      }
+    },
+    {
+      "id": "MP_MAPPING_REQUIRED",
+      "description": "Requires mapping; absence is not zero",
+      "cases": {
+        "mapping_absent": "NOT_CONFIGURED",
+        "denominator_zero": "UNDEFINED_ZERO_DENOMINATOR",
+        "zero_over_zero": "UNDEFINED",
+        "normal": "VALUE"
+      }
+    }
+  ],
+  "rounding_policies": [
+    {
+      "id": "RP_NO_INTERMEDIATE",
+      "calculation": "NO_INTERMEDIATE_ROUNDING",
+      "display": "DISPLAY_ONLY"
+    },
+    {
+      "id": "RP_PERCENT_DISPLAY",
+      "calculation": "NO_INTERMEDIATE_ROUNDING",
+      "display": "PERCENT_DISPLAY",
+      "typical_decimals": 1
+    },
+    {
+      "id": "RP_MONEY_DISPLAY",
+      "calculation": "NO_INTERMEDIATE_ROUNDING",
+      "display": "CURRENCY_DISPLAY",
+      "note": "minor units from currency metadata; not universal 2 decimals"
+    },
+    {
+      "id": "RP_COUNT_DISPLAY",
+      "calculation": "NO_INTERMEDIATE_ROUNDING",
+      "display": "COUNT_DISPLAY"
+    }
+  ],
+  "comparison_policies": [
+    {
+      "id": "COMPARE_RELATIVE_EQUAL_PREVIOUS_PERIOD",
+      "type": "RELATIVE_PERCENT_CHANGE",
+      "previous_period": "immediately_preceding_equal_length_in_reporting_timezone",
+      "expression": "(current - previous) / previous",
+      "output_internal": "FRACTION_0_1",
+      "display": "PERCENT_0_100",
+      "previous_zero": "UNDEFINED_RELATIVE_CHANGE",
+      "zero_zero": "UNDEFINED"
+    },
+    {
+      "id": "COMPARE_PERCENTAGE_POINT_EQUAL_PREVIOUS_PERIOD",
+      "type": "PERCENTAGE_POINT_CHANGE",
+      "previous_period": "immediately_preceding_equal_length_in_reporting_timezone",
+      "expression": "current_rate_fraction - previous_rate_fraction",
+      "output_unit": "PERCENTAGE_POINT",
+      "note": "0.06-0.04 = +0.02 (= +2 pp). Not +50% and not labeled +2%."
+    },
+    {
+      "id": "COMPARE_ABSOLUTE_EQUAL_PREVIOUS_PERIOD",
+      "type": "ABSOLUTE_DELTA",
+      "previous_period": "immediately_preceding_equal_length_in_reporting_timezone",
+      "expression": "current - previous"
+    }
+  ],
+  "currency_policies": [
+    {
+      "id": "CP_ACCOUNT_CURRENCY",
+      "source": "provider_account_currency",
+      "fx_allowed": false,
+      "mixed_currency": "NOT_COMPARABLE_CURRENCY"
+    },
+    {
+      "id": "CP_NA",
+      "source": "not_applicable",
+      "fx_allowed": false
+    }
+  ],
+  "timezone_policies": [
+    {
+      "id": "TZ_GA4",
+      "reporting_timezone": "ga4_property_timezone"
+    },
+    {
+      "id": "TZ_GSC",
+      "reporting_timezone": "gsc_reporting_date_semantics"
+    },
+    {
+      "id": "TZ_GADS",
+      "reporting_timezone": "google_ads_customer_time_zone"
+    },
+    {
+      "id": "TZ_META",
+      "reporting_timezone": "meta_ad_account_timezone"
+    },
+    {
+      "id": "TZ_WEB",
+      "reporting_timezone": "observation_timestamp"
+    },
+    {
+      "id": "TZ_DFS",
+      "reporting_timezone": "snapshot_retrieved_at_plus_market_context"
+    }
+  ],
+  "formulas": [
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": "Never AVG(row CTR). Demo GscWorkspaceFixtures returns 0.0 when impr=0 — REPLACE LATER (should be UNDEFINED).",
+      "examples": [
+        {
+          "clicks": 10,
+          "impressions": 100,
+          "result": 0.1,
+          "display": "10.0%"
+        }
+      ],
+      "semantic_direction": "HIGHER_IS_GENERALLY_FAVORABLE",
+      "percentage_semantics": "INTERNAL_FRACTION_DISPLAY_PERCENT",
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_PERCENTAGE_POINT_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "gsc_reporting_date_semantics",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": "optional provider ctr for reconciliation only",
+      "reconciliation": null,
+      "id": "FORMULA_GSC_CTR",
+      "name": "GSC Click-Through Rate",
+      "description": "Search Console CTR recomputed from aggregated clicks and impressions.",
+      "formula_type": "RATE",
+      "expression": "sum(clicks) / sum(impressions)",
+      "numerator": {
+        "metric": "clicks",
+        "requirement_ids": [
+          "GSC_OVERVIEW_CLICKS"
+        ],
+        "additivity": "ADDITIVE"
+      },
+      "denominator": {
+        "metric": "impressions",
+        "requirement_ids": [
+          "GSC_OVERVIEW_IMPRESSIONS"
+        ],
+        "additivity": "ADDITIVE"
+      },
+      "inputs": [
+        {
+          "requirement_id": "GSC_OVERVIEW_CLICKS",
+          "role": "numerator",
+          "metric": "clicks"
+        },
+        {
+          "requirement_id": "GSC_OVERVIEW_IMPRESSIONS",
+          "role": "denominator",
+          "metric": "impressions"
+        }
+      ],
+      "output_type": "RATIO",
+      "output_unit": "FRACTION",
+      "aggregation_method": "RECOMPUTE_FROM_SUMS",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_PERCENT_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GSC_OVERVIEW_CTR",
+        "GSC_PERF_CTR",
+        "WEB_VIS_GSC_KPIS",
+        "GSC_DEMAND_QUERY_EXPLORER"
+      ],
+      "source_contracts": [
+        "SEARCH_CONSOLE_DATA_CONTRACT",
+        "WEBSITE_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": "Never average row CTRs.",
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": "INTERNAL_FRACTION_DISPLAY_PERCENT",
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_PERCENTAGE_POINT_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "google_ads_customer_time_zone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": "metrics.ctr optional reconcile",
+      "reconciliation": null,
+      "id": "FORMULA_GADS_CTR",
+      "name": "Google Ads CTR",
+      "description": "Ads CTR from aggregated clicks/impressions.",
+      "formula_type": "RATE",
+      "expression": "sum(clicks) / sum(impressions)",
+      "numerator": {
+        "metric": "clicks",
+        "additivity": "ADDITIVE"
+      },
+      "denominator": {
+        "metric": "impressions",
+        "additivity": "ADDITIVE"
+      },
+      "inputs": [
+        {
+          "requirement_id": "GADS_OVERVIEW_SPEND",
+          "role": "facts",
+          "metrics": [
+            "clicks",
+            "impressions"
+          ]
+        }
+      ],
+      "output_type": "RATIO",
+      "output_unit": "FRACTION",
+      "aggregation_method": "RECOMPUTE_FROM_SUMS",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_PERCENT_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GADS_CAMPAIGN_DAILY",
+        "GADS_OVERVIEW_CAMPAIGN_PORTFOLIO"
+      ],
+      "source_contracts": [
+        "GOOGLE_ADS_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": "Optional — NOT Link CTR. Do not substitute for FORMULA_META_LINK_CTR. | All-click CTR distinct from FORMULA_META_LINK_CTR. Never average row CTR.",
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_PERCENTAGE_POINT_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "meta_ad_account_timezone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_META_CTR_ALL",
+      "name": "Meta All-Click CTR",
+      "description": "All clicks / impressions. Distinct from Link CTR.",
+      "formula_type": "RATE",
+      "expression": "sum(clicks) / sum(impressions)",
+      "numerator": {
+        "metric": "clicks"
+      },
+      "denominator": {
+        "metric": "impressions"
+      },
+      "inputs": [
+        {
+          "requirement_id": "META_CAMPAIGN_DAILY",
+          "role": "numerator",
+          "metric": "clicks"
+        },
+        {
+          "requirement_id": "META_CAMPAIGN_DAILY",
+          "role": "denominator",
+          "metric": "impressions"
+        }
+      ],
+      "output_type": "RATIO",
+      "output_unit": "FRACTION",
+      "aggregation_method": "RECOMPUTE_FROM_SUMS",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_PERCENT_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "META_CAMPAIGN_DAILY",
+        "META_OVERVIEW_CAMPAIGN_PORTFOLIO",
+        "META_AD_DAILY"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": "Demo MetaAdsWorkspaceFixtures scales link CTR as percent (×100) — presentation; keep internal fraction.",
+      "examples": null,
+      "semantic_direction": "HIGHER_IS_GENERALLY_FAVORABLE",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_PERCENTAGE_POINT_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "meta_ad_account_timezone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_META_LINK_CTR",
+      "name": "Meta Link CTR",
+      "description": "inline_link_clicks / impressions.",
+      "formula_type": "RATE",
+      "expression": "sum(inline_link_clicks) / sum(impressions)",
+      "numerator": {
+        "metric": "inline_link_clicks"
+      },
+      "denominator": {
+        "metric": "impressions"
+      },
+      "inputs": [
+        {
+          "requirement_id": "META_CAMPAIGN_LINK_CTR",
+          "role": "consumer"
+        },
+        {
+          "requirement_id": "META_CAMPAIGN_DAILY",
+          "role": "facts"
+        }
+      ],
+      "output_type": "RATIO",
+      "output_unit": "FRACTION",
+      "aggregation_method": "RECOMPUTE_FROM_SUMS",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_PERCENT_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "META_CAMPAIGN_LINK_CTR"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": "Never average row CPCs. Input cost must be normalized currency amount not raw micros.",
+      "examples": null,
+      "semantic_direction": "LOWER_IS_GENERALLY_FAVORABLE",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_RELATIVE_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "CP_ACCOUNT_CURRENCY",
+      "timezone_policy": "google_ads_customer_time_zone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_GADS_CPC",
+      "name": "Google Ads CPC",
+      "description": "Spend / clicks in account currency.",
+      "formula_type": "COST_PER",
+      "expression": "sum(cost) / sum(clicks)",
+      "numerator": {
+        "metric": "cost",
+        "requirement_ids": [
+          "GADS_OVERVIEW_SPEND",
+          "GADS_CAMPAIGN_DAILY"
+        ],
+        "additivity": "ADDITIVE",
+        "unit": "ACCOUNT_CURRENCY"
+      },
+      "denominator": {
+        "metric": "clicks",
+        "requirement_ids": [
+          "GADS_CAMPAIGN_DAILY"
+        ],
+        "additivity": "ADDITIVE"
+      },
+      "inputs": [
+        {
+          "requirement_id": "GADS_OVERVIEW_SPEND",
+          "role": "numerator",
+          "metric": "cost"
+        },
+        {
+          "requirement_id": "GADS_CAMPAIGN_DAILY",
+          "role": "denominator",
+          "metric": "clicks"
+        }
+      ],
+      "output_type": "MONEY",
+      "output_unit": "ACCOUNT_CURRENCY_PER_CLICK",
+      "aggregation_method": "RECOMPUTE_FROM_SUMS",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_MONEY_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GADS_CAMPAIGN_DAILY",
+        "GADS_OVERVIEW_CAMPAIGN_PORTFOLIO",
+        "GADS_KEYWORD_DAILY"
+      ],
+      "source_contracts": [
+        "GOOGLE_ADS_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": "≠ cost per link click.",
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_RELATIVE_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "CP_ACCOUNT_CURRENCY",
+      "timezone_policy": "meta_ad_account_timezone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_META_CPC",
+      "name": "Meta CPC (all clicks)",
+      "description": "Spend / all clicks.",
+      "formula_type": "COST_PER",
+      "expression": "sum(spend) / sum(clicks)",
+      "numerator": {
+        "metric": "spend",
+        "requirement_ids": [
+          "META_OVERVIEW_SPEND",
+          "META_CAMPAIGN_DAILY"
+        ],
+        "additivity": "ADDITIVE"
+      },
+      "denominator": {
+        "metric": "clicks",
+        "requirement_ids": [
+          "META_CAMPAIGN_DAILY"
+        ],
+        "additivity": "ADDITIVE"
+      },
+      "inputs": [
+        {
+          "requirement_id": "META_OVERVIEW_SPEND",
+          "role": "numerator",
+          "metric": "spend"
+        },
+        {
+          "requirement_id": "META_CAMPAIGN_DAILY",
+          "role": "denominator",
+          "metric": "clicks"
+        }
+      ],
+      "output_type": "MONEY",
+      "output_unit": "ACCOUNT_CURRENCY_PER_CLICK",
+      "aggregation_method": "RECOMPUTE_FROM_SUMS",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_MONEY_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "META_CAMPAIGN_DAILY",
+        "META_OVERVIEW_CAMPAIGN_PORTFOLIO",
+        "META_AD_DAILY"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": null,
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_RELATIVE_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "CP_ACCOUNT_CURRENCY",
+      "timezone_policy": "meta_ad_account_timezone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_META_COST_PER_LINK_CLICK",
+      "name": "Meta Cost per Link Click",
+      "description": "Spend / inline_link_clicks.",
+      "formula_type": "COST_PER",
+      "expression": "sum(spend) / sum(inline_link_clicks)",
+      "numerator": {
+        "metric": "spend",
+        "requirement_ids": [
+          "META_OVERVIEW_SPEND",
+          "META_CAMPAIGN_DAILY"
+        ],
+        "additivity": "ADDITIVE"
+      },
+      "denominator": {
+        "metric": "inline_link_clicks",
+        "requirement_ids": [
+          "META_LINK_CLICK",
+          "META_CAMPAIGN_DAILY"
+        ],
+        "additivity": "ADDITIVE"
+      },
+      "inputs": [
+        {
+          "requirement_id": "META_OVERVIEW_SPEND",
+          "role": "numerator",
+          "metric": "spend"
+        },
+        {
+          "requirement_id": "META_LINK_CLICK",
+          "role": "denominator",
+          "metric": "inline_link_clicks"
+        }
+      ],
+      "output_type": "MONEY",
+      "output_unit": "ACCOUNT_CURRENCY_PER_LINK_CLICK",
+      "aggregation_method": "RECOMPUTE_FROM_SUMS",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_MONEY_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "META_CAMPAIGN_DAILY",
+        "META_LINK_CLICK",
+        "META_OVERVIEW_CAMPAIGN_PORTFOLIO"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": "Optional in Meta contract (not Overview KPI). Google Ads CPM NOT REQUIRED V1 — no GADS CPM formula.",
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_RELATIVE_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "CP_ACCOUNT_CURRENCY",
+      "timezone_policy": "meta_ad_account_timezone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_META_CPM",
+      "name": "Meta CPM",
+      "description": "Spend per thousand impressions.",
+      "formula_type": "COST_PER",
+      "expression": "sum(spend) / sum(impressions) * 1000",
+      "numerator": {
+        "metric": "spend",
+        "requirement_ids": [
+          "META_OVERVIEW_SPEND",
+          "META_CAMPAIGN_DAILY"
+        ],
+        "additivity": "ADDITIVE"
+      },
+      "denominator": {
+        "metric": "impressions",
+        "requirement_ids": [
+          "META_CAMPAIGN_DAILY"
+        ],
+        "additivity": "ADDITIVE"
+      },
+      "inputs": [
+        {
+          "requirement_id": "META_OVERVIEW_SPEND",
+          "role": "numerator",
+          "metric": "spend"
+        },
+        {
+          "requirement_id": "META_CAMPAIGN_DAILY",
+          "role": "denominator",
+          "metric": "impressions"
+        }
+      ],
+      "output_type": "MONEY",
+      "output_unit": "ACCOUNT_CURRENCY_PER_1000_IMPRESSIONS",
+      "aggregation_method": "RECOMPUTE_FROM_SUMS",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_MONEY_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "META_CAMPAIGN_DAILY",
+        "META_OVERVIEW_CAMPAIGN_PORTFOLIO",
+        "META_AD_DAILY"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": "Unit conversion of additive micros. Do not treat as ratio.",
+      "examples": null,
+      "semantic_direction": "NEUTRAL",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_RELATIVE_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "CP_ACCOUNT_CURRENCY",
+      "timezone_policy": "google_ads_customer_time_zone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_GADS_SPEND",
+      "name": "Google Ads Spend",
+      "description": "Normalize cost_micros to currency amount.",
+      "formula_type": "SUM",
+      "expression": "sum(cost_micros) / 1e6",
+      "numerator": {
+        "metric": "cost_micros"
+      },
+      "denominator": "not_applicable",
+      "inputs": [
+        {
+          "requirement_id": "GADS_OVERVIEW_SPEND",
+          "role": "consumer"
+        }
+      ],
+      "output_type": "MONEY",
+      "output_unit": "ACCOUNT_CURRENCY",
+      "aggregation_method": "SUM_THEN_SCALE",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "not_applicable",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_MONEY_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GADS_OVERVIEW_SPEND"
+      ],
+      "source_contracts": [
+        "GOOGLE_ADS_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": null,
+      "examples": null,
+      "semantic_direction": "NEUTRAL",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_RELATIVE_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "CP_ACCOUNT_CURRENCY",
+      "timezone_policy": "meta_ad_account_timezone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_META_SPEND",
+      "name": "Meta Spend",
+      "description": "Sum spend in account currency.",
+      "formula_type": "SUM",
+      "expression": "sum(spend)",
+      "numerator": {
+        "metric": "spend"
+      },
+      "denominator": "not_applicable",
+      "inputs": [
+        {
+          "requirement_id": "META_OVERVIEW_SPEND",
+          "role": "consumer"
+        }
+      ],
+      "output_type": "MONEY",
+      "output_unit": "ACCOUNT_CURRENCY",
+      "aggregation_method": "SUM",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "not_applicable",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_MONEY_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "META_OVERVIEW_SPEND"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": [
+        "primary_conversion_mapping_configured"
+      ],
+      "notes": "No mapping → NOT_CONFIGURED (not 0). ≠ All Conversions. ≠ Business Outcome.",
+      "examples": null,
+      "semantic_direction": "LOWER_IS_GENERALLY_FAVORABLE",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_RELATIVE_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "CP_ACCOUNT_CURRENCY",
+      "timezone_policy": "google_ads_customer_time_zone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_GADS_CPA",
+      "name": "Google Ads Cost per Primary Conversion",
+      "description": "Spend / mapped primary conversions (not All Conversions, not Business Outcome).",
+      "formula_type": "COST_PER",
+      "expression": "sum(cost) / sum(primary_conversions)",
+      "numerator": {
+        "metric": "cost"
+      },
+      "denominator": {
+        "metric": "primary_conversions",
+        "mapping": "conversion_action_mapping"
+      },
+      "inputs": [
+        {
+          "requirement_id": "GADS_OVERVIEW_CPA",
+          "role": "consumer"
+        },
+        {
+          "requirement_id": "GADS_OVERVIEW_PRIMARY_CONVERSIONS",
+          "role": "denominator"
+        }
+      ],
+      "output_type": "MONEY",
+      "output_unit": "ACCOUNT_CURRENCY_PER_CONVERSION",
+      "aggregation_method": "RECOMPUTE_FROM_SUMS",
+      "null_policy": "MP_MAPPING_REQUIRED",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_MAPPING_REQUIRED",
+      "rounding_policy": "RP_MONEY_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GADS_OVERVIEW_CPA",
+        "GADS_CAMPAIGN_CPA"
+      ],
+      "source_contracts": [
+        "GOOGLE_ADS_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": "Requires primary conversion mapping; absence → NOT_CONFIGURED (not 0%).",
+      "notes": "Optional UI. Denominator is clicks per Google Ads contract.",
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": "INTERNAL_FRACTION_DISPLAY_PERCENT",
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_PERCENTAGE_POINT_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "google_ads_customer_time_zone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_GADS_CVR",
+      "name": "Google Ads Conversion Rate",
+      "description": "Primary conversions / clicks.",
+      "formula_type": "RATE",
+      "expression": "sum(primary_conversions) / sum(clicks)",
+      "numerator": {
+        "metric": "primary_conversions",
+        "requirement_ids": [
+          "GADS_OVERVIEW_PRIMARY_CONVERSIONS",
+          "GADS_CAMPAIGN_PRIMARY_CONVERSIONS"
+        ],
+        "additivity": "ADDITIVE",
+        "mapping_dependency": "GADS primary conversion mapping"
+      },
+      "denominator": {
+        "metric": "clicks",
+        "requirement_ids": [
+          "GADS_CAMPAIGN_DAILY"
+        ],
+        "additivity": "ADDITIVE"
+      },
+      "inputs": [
+        {
+          "requirement_id": "GADS_OVERVIEW_PRIMARY_CONVERSIONS",
+          "role": "numerator",
+          "metric": "primary_conversions"
+        },
+        {
+          "requirement_id": "GADS_CAMPAIGN_DAILY",
+          "role": "denominator",
+          "metric": "clicks"
+        }
+      ],
+      "output_type": "RATIO",
+      "output_unit": "FRACTION",
+      "aggregation_method": "RECOMPUTE_FROM_SUMS",
+      "null_policy": "MP_MAPPING_REQUIRED",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_MAPPING_REQUIRED",
+      "rounding_policy": "RP_PERCENT_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GADS_CAMPAIGN_DAILY",
+        "GADS_OVERVIEW_CAMPAIGN_PORTFOLIO",
+        "GADS_OVERVIEW_PRIMARY_CONVERSIONS"
+      ],
+      "source_contracts": [
+        "GOOGLE_ADS_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": [
+        "result_type_identity_present",
+        "typed_action_mapping_if_curated"
+      ],
+      "notes": "HARD RULE: Cost per Result without result_type is INVALID. Mixed Lead+Messaging+Purchase → NOT_COMPARABLE_RESULT_TYPE.",
+      "examples": [
+        {
+          "note": "Lead vs Messaging across periods is NOT_COMPARABLE_RESULT_TYPE"
+        }
+      ],
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_RELATIVE_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "CP_ACCOUNT_CURRENCY",
+      "timezone_policy": "meta_ad_account_timezone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_META_COST_PER_RESULT",
+      "name": "Meta Cost per Typed Result",
+      "description": "Spend / typed result count for a single result_type.",
+      "formula_type": "COST_PER",
+      "expression": "sum(spend) / sum(typed_result_count[result_type])",
+      "numerator": {
+        "metric": "spend"
+      },
+      "denominator": {
+        "metric": "typed_result_count",
+        "requires": "result_type"
+      },
+      "inputs": [
+        {
+          "requirement_id": "META_ACTION_TYPE_DAILY",
+          "role": "typed_actions"
+        },
+        {
+          "requirement_id": "META_CAMPAIGN_COST_RESULT",
+          "role": "consumer"
+        }
+      ],
+      "output_type": "MONEY",
+      "output_unit": "ACCOUNT_CURRENCY_PER_RESULT",
+      "aggregation_method": "RECOMPUTE_FROM_SUMS",
+      "null_policy": "MP_MAPPING_REQUIRED",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_MAPPING_REQUIRED",
+      "rounding_policy": "RP_MONEY_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "META_CAMPAIGN_COST_RESULT",
+        "META_OVERVIEW_CAMPAIGN_PORTFOLIO"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": [
+        "lead_result_type_mapped"
+      ],
+      "notes": "Only comparable Lead↔Lead.",
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_RELATIVE_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "CP_ACCOUNT_CURRENCY",
+      "timezone_policy": "meta_ad_account_timezone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_META_COST_PRIMARY",
+      "name": "Meta Cost per Primary Lead",
+      "description": "Spend on Lead-objective campaigns / Lead typed counts.",
+      "formula_type": "COST_PER",
+      "expression": "sum(spend_on_lead_campaigns) / sum(lead_typed_count)",
+      "numerator": {
+        "metric": "spend",
+        "filter": "lead_campaigns"
+      },
+      "denominator": {
+        "metric": "lead_count",
+        "action_type_set": "lead"
+      },
+      "inputs": [
+        {
+          "requirement_id": "META_OVERVIEW_COST_PRIMARY",
+          "role": "consumer"
+        }
+      ],
+      "output_type": "MONEY",
+      "output_unit": "ACCOUNT_CURRENCY_PER_LEAD",
+      "aggregation_method": "RECOMPUTE_FROM_SUMS",
+      "null_policy": "MP_MAPPING_REQUIRED",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_MAPPING_REQUIRED",
+      "rounding_policy": "RP_MONEY_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "META_OVERVIEW_COST_PRIMARY"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": "Do NOT average daily frequency. Do NOT sum daily reach. Prefer meta_period_reach_cache / provider period Insights.",
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_ABSOLUTE_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "not_applicable",
+      "calculation_location": "PERIOD_PROVIDER_QUERY_REQUIRED",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_META_FREQUENCY",
+      "name": "Meta Frequency",
+      "description": "Prefer provider period frequency; derived only as period_impressions/period_reach when period Reach fact available.",
+      "formula_type": "RATE",
+      "expression": "period_impressions / period_reach  OR  provider_frequency(period)",
+      "numerator": {
+        "metric": "impressions",
+        "scope": "period"
+      },
+      "denominator": {
+        "metric": "reach",
+        "scope": "period",
+        "additivity": "NON_ADDITIVE"
+      },
+      "inputs": [
+        {
+          "requirement_id": "META_CAMPAIGN_FREQUENCY",
+          "role": "consumer"
+        }
+      ],
+      "output_type": "RATIO",
+      "output_unit": "IMPRESSIONS_PER_REACHED_PERSON",
+      "aggregation_method": "PERIOD_PROVIDER_OR_PERIOD_FACTS",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_NO_INTERMEDIATE",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "META_CAMPAIGN_FREQUENCY"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": "Never average daily engagement rates.",
+      "examples": null,
+      "semantic_direction": "HIGHER_IS_GENERALLY_FAVORABLE",
+      "percentage_semantics": "INTERNAL_FRACTION_DISPLAY_PERCENT",
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_PERCENTAGE_POINT_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "ga4_property_timezone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_GA4_ENGAGEMENT_RATE",
+      "name": "GA4 Engagement Rate",
+      "description": "engagedSessions / sessions.",
+      "formula_type": "RATE",
+      "expression": "sum(engagedSessions) / sum(sessions)",
+      "numerator": {
+        "metric": "engagedSessions"
+      },
+      "denominator": {
+        "metric": "sessions"
+      },
+      "inputs": [
+        {
+          "requirement_id": "GA4_BEH_ENGAGEMENT_RATE",
+          "role": "consumer"
+        },
+        {
+          "requirement_id": "GA4_OVERVIEW_SESSIONS",
+          "role": "sessions"
+        }
+      ],
+      "output_type": "RATIO",
+      "output_unit": "FRACTION",
+      "aggregation_method": "RECOMPUTE_FROM_SUMS",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_PERCENT_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GA4_BEH_ENGAGEMENT_RATE",
+        "GA4_OVERVIEW_LANDING_PULSE"
+      ],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": "DECISION_REQUIRED: divisor activeUsers vs sessions. Collect both; do not implement as READY until DEC_GA4_ENGAGEMENT_TIME_DIVISOR locks. Provisional expression uses activeUsers. | V1 freeze: calculation proceeds with documented provisional semantics; DEC non-blocking.",
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_RELATIVE_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "ga4_property_timezone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_GA4_AVG_ENGAGEMENT_TIME",
+      "name": "GA4 Average Engagement Time",
+      "description": "userEngagementDuration / activeUsers (provisional divisor pending product lock).",
+      "formula_type": "AVERAGE",
+      "expression": "sum(userEngagementDuration) / sum(activeUsers)",
+      "numerator": {
+        "metric": "userEngagementDuration"
+      },
+      "denominator": {
+        "metric": "activeUsers"
+      },
+      "inputs": [
+        {
+          "requirement_id": "GA4_BEH_AVG_ENGAGEMENT_TIME",
+          "role": "consumer"
+        }
+      ],
+      "output_type": "DURATION",
+      "output_unit": "SECONDS",
+      "aggregation_method": "RECOMPUTE_FROM_SUMS",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_NO_INTERMEDIATE",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GA4_BEH_AVG_ENGAGEMENT_TIME"
+      ],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": null,
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_RELATIVE_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "ga4_property_timezone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_GA4_VIEWS_PER_SESSION",
+      "name": "GA4 Views per Session",
+      "description": "screenPageViews / sessions.",
+      "formula_type": "RATE",
+      "expression": "sum(screenPageViews) / sum(sessions)",
+      "numerator": {
+        "metric": "screenPageViews"
+      },
+      "denominator": {
+        "metric": "sessions"
+      },
+      "inputs": [
+        {
+          "requirement_id": "GA4_BEH_VIEWS_PER_SESSION",
+          "role": "consumer"
+        }
+      ],
+      "output_type": "RATIO",
+      "output_unit": "VIEWS_PER_SESSION",
+      "aggregation_method": "RECOMPUTE_FROM_SUMS",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_NO_INTERMEDIATE",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GA4_BEH_VIEWS_PER_SESSION"
+      ],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": null,
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_PERCENTAGE_POINT_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "ga4_property_timezone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_GA4_CHANNEL_SHARE",
+      "name": "GA4 Channel Share",
+      "description": "channel sessions / property sessions.",
+      "formula_type": "PERCENTAGE",
+      "expression": "sum(channel_sessions) / sum(property_sessions)",
+      "numerator": {
+        "metric": "sessions",
+        "grain": "channel"
+      },
+      "denominator": {
+        "metric": "sessions",
+        "grain": "property"
+      },
+      "inputs": [
+        {
+          "requirement_id": "GA4_OVERVIEW_ACQUISITION_MIX",
+          "role": "consumer"
+        }
+      ],
+      "output_type": "RATIO",
+      "output_unit": "FRACTION",
+      "aggregation_method": "RECOMPUTE_FROM_SUMS",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_PERCENT_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GA4_OVERVIEW_ACQUISITION_MIX",
+        "GA4_ACQ_CHANNELS"
+      ],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": null,
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_PERCENTAGE_POINT_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "ga4_property_timezone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_GA4_DEVICE_SHARE",
+      "name": "GA4 Device Share",
+      "description": "device sessions / property sessions.",
+      "formula_type": "PERCENTAGE",
+      "expression": "sum(device_sessions) / sum(property_sessions)",
+      "numerator": {
+        "metric": "sessions",
+        "grain": "device"
+      },
+      "denominator": {
+        "metric": "sessions",
+        "grain": "property"
+      },
+      "inputs": [
+        {
+          "requirement_id": "GA4_BEH_DEVICES",
+          "role": "consumer"
+        }
+      ],
+      "output_type": "RATIO",
+      "output_unit": "FRACTION",
+      "aggregation_method": "RECOMPUTE_FROM_SUMS",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_PERCENT_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GA4_BEH_DEVICES"
+      ],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": [
+        "business_action_mapping_configured"
+      ],
+      "notes": "No mapping → NOT_CONFIGURED, never 0 actions implied as measured zero BA.",
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_RELATIVE_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "ga4_property_timezone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_GA4_BUSINESS_ACTION_COUNT",
+      "name": "GA4 Mapped Business Action Count",
+      "description": "Sum eventCount for events in Business Action mapping.",
+      "formula_type": "SUM",
+      "expression": "sum(eventCount where eventName in mapped_set)",
+      "numerator": {
+        "metric": "eventCount",
+        "filter": "business_action_mapping"
+      },
+      "denominator": "not_applicable",
+      "inputs": [
+        {
+          "requirement_id": "GA4_OVERVIEW_BUSINESS_ACTIONS",
+          "role": "consumer"
+        },
+        {
+          "requirement_id": "GA4_MEAS_EVENTS",
+          "role": "events"
+        }
+      ],
+      "output_type": "COUNT",
+      "output_unit": "ACTIONS",
+      "aggregation_method": "SUM_FILTERED",
+      "null_policy": "MP_MAPPING_REQUIRED",
+      "zero_denominator_policy": "not_applicable",
+      "missing_policy": "MP_MAPPING_REQUIRED",
+      "rounding_policy": "RP_COUNT_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GA4_OVERVIEW_BUSINESS_ACTIONS"
+      ],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [
+        "FORMULA_GA4_BUSINESS_ACTION_COUNT"
+      ],
+      "eligibility": [
+        "business_action_mapping_configured"
+      ],
+      "notes": "HARD: no mapping ≠ 0% BA rate → NOT_CONFIGURED.",
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_PERCENTAGE_POINT_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "ga4_property_timezone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_GA4_BUSINESS_ACTION_RATE",
+      "name": "GA4 Business Action Rate",
+      "description": "Mapped BA count / sessions.",
+      "formula_type": "RATE",
+      "expression": "FORMULA_GA4_BUSINESS_ACTION_COUNT / sum(sessions)",
+      "numerator": {
+        "formula_ref": "FORMULA_GA4_BUSINESS_ACTION_COUNT"
+      },
+      "denominator": {
+        "metric": "sessions"
+      },
+      "inputs": [
+        {
+          "requirement_id": "GA4_OVERVIEW_LANDING_PULSE",
+          "role": "consumer"
+        }
+      ],
+      "output_type": "RATIO",
+      "output_unit": "FRACTION",
+      "aggregation_method": "RECOMPUTE_FROM_SUMS",
+      "null_policy": "MP_MAPPING_REQUIRED",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_MAPPING_REQUIRED",
+      "rounding_policy": "RP_PERCENT_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GA4_OVERVIEW_LANDING_PULSE"
+      ],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": null,
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_PERCENTAGE_POINT_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "ga4_property_timezone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_GA4_UTM_UNAVAILABLE_PCT",
+      "name": "GA4 UTM Unavailable Share",
+      "description": "Sessions with unset/empty campaign / sessions.",
+      "formula_type": "PERCENTAGE",
+      "expression": "sum(sessions where campaign in {(not set), empty}) / sum(sessions)",
+      "numerator": {
+        "metric": "sessions",
+        "filter": "utm_unavailable"
+      },
+      "denominator": {
+        "metric": "sessions"
+      },
+      "inputs": [
+        {
+          "requirement_id": "GA4_MEAS_UTM_HYGIENE",
+          "role": "consumer"
+        }
+      ],
+      "output_type": "RATIO",
+      "output_unit": "FRACTION",
+      "aggregation_method": "RECOMPUTE_FROM_SUMS",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_PERCENT_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GA4_MEAS_UTM_HYGIENE"
+      ],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": "previous=0 & current>0 → UNDEFINED_RELATIVE_CHANGE (absolute delta may still show). Never Infinity%.",
+      "examples": [
+        {
+          "current": 120,
+          "previous": 100,
+          "result": 0.2
+        },
+        {
+          "current": 100,
+          "previous": 0,
+          "result": "UNDEFINED_RELATIVE_CHANGE"
+        }
+      ],
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": "RELATIVE_PERCENT_CHANGE",
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_RELATIVE_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "not_applicable",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_PERIOD_RELATIVE_CHANGE",
+      "name": "Period Relative Change",
+      "description": "(current-previous)/previous for comparable numeric metrics.",
+      "formula_type": "RELATIVE_CHANGE",
+      "expression": "(current - previous) / previous",
+      "numerator": {
+        "role": "delta"
+      },
+      "denominator": {
+        "role": "previous"
+      },
+      "inputs": [],
+      "output_type": "RATIO",
+      "output_unit": "FRACTION",
+      "aggregation_method": "COMPARE_AFTER_PERIOD_AGGREGATE",
+      "null_policy": "MP_RELATIVE_CHANGE",
+      "zero_denominator_policy": "UNDEFINED_RELATIVE_CHANGE",
+      "missing_policy": "MP_RELATIVE_CHANGE",
+      "rounding_policy": "RP_PERCENT_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GA4_SHELL_COMPARE_TOGGLE",
+        "GADS_PREVIOUS_PERIOD",
+        "GSC_SHELL_COMPARE",
+        "META_PREVIOUS_PERIOD"
+      ],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT",
+        "GOOGLE_ADS_DATA_CONTRACT",
+        "META_ADS_DATA_CONTRACT",
+        "SEARCH_CONSOLE_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": "Distinct from relative % and percentage points.",
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_ABSOLUTE_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "not_applicable",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_PERIOD_ABSOLUTE_DELTA",
+      "name": "Period Absolute Delta",
+      "description": "current - previous.",
+      "formula_type": "ABSOLUTE_DELTA",
+      "expression": "current - previous",
+      "numerator": "not_applicable",
+      "denominator": "not_applicable",
+      "inputs": [],
+      "output_type": "DECIMAL",
+      "output_unit": "INPUT_UNIT",
+      "aggregation_method": "COMPARE_AFTER_PERIOD_AGGREGATE",
+      "null_policy": "MP_RELATIVE_CHANGE",
+      "zero_denominator_policy": "not_applicable",
+      "missing_policy": "MP_RELATIVE_CHANGE",
+      "rounding_policy": "RP_NO_INTERMEDIATE",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GA4_SHELL_COMPARE_TOGGLE",
+        "GADS_PREVIOUS_PERIOD",
+        "GSC_PERF_AVG_POSITION",
+        "GSC_SHELL_COMPARE",
+        "META_PREVIOUS_PERIOD"
+      ],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT",
+        "SEARCH_CONSOLE_DATA_CONTRACT",
+        "GOOGLE_ADS_DATA_CONTRACT",
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": "Never label pp change as +2%.",
+      "examples": [
+        {
+          "previous": 0.04,
+          "current": 0.06,
+          "pp": 0.02,
+          "relative": 0.5,
+          "note": "Display +2 pp vs +50% relative — distinct"
+        }
+      ],
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_PERCENTAGE_POINT_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "not_applicable",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_PERCENTAGE_POINT_DELTA",
+      "name": "Percentage-Point Change",
+      "description": "current_rate - previous_rate in fraction space.",
+      "formula_type": "PERCENTAGE_POINT_CHANGE",
+      "expression": "current_rate - previous_rate",
+      "numerator": "not_applicable",
+      "denominator": "not_applicable",
+      "inputs": [],
+      "output_type": "PERCENTAGE_POINT",
+      "output_unit": "PERCENTAGE_POINT",
+      "aggregation_method": "COMPARE_RATES",
+      "null_policy": "MP_RELATIVE_CHANGE",
+      "zero_denominator_policy": "not_applicable",
+      "missing_policy": "MP_RELATIVE_CHANGE",
+      "rounding_policy": "RP_PERCENT_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GA4_BEH_ENGAGEMENT_RATE",
+        "GA4_SHELL_COMPARE_TOGGLE",
+        "GADS_PREVIOUS_PERIOD",
+        "GSC_OVERVIEW_CTR",
+        "GSC_SHELL_COMPARE",
+        "META_CAMPAIGN_LINK_CTR",
+        "META_PREVIOUS_PERIOD"
+      ],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT",
+        "SEARCH_CONSOLE_DATA_CONTRACT",
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": [
+        "agency_planned_budget_configured"
+      ],
+      "notes": "Not Meta pacing. No Budget Health Score. Ahead≠automatically bad. Demo: GoogleAdsWorkspaceFixtures::pacing.",
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "not_applicable",
+      "currency_policy": "CP_ACCOUNT_CURRENCY",
+      "timezone_policy": "google_ads_customer_time_zone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_GADS_BUDGET_PACING",
+      "name": "Google Ads Account Budget Pacing",
+      "description": "Compare actual spend to planned_monthly * elapsed_fraction.",
+      "formula_type": "INDEX_OR_PACING",
+      "expression": "actual_spend vs planned_monthly * (elapsed_days/days_in_month)",
+      "numerator": {
+        "metric": "actual_spend"
+      },
+      "denominator": {
+        "metric": "expected_spend"
+      },
+      "inputs": [
+        {
+          "requirement_id": "GADS_OVERVIEW_BUDGET_PACING",
+          "role": "consumer"
+        }
+      ],
+      "output_type": "DECIMAL",
+      "output_unit": "PACING_STATE_AND_MONEY",
+      "aggregation_method": "HYBRID_OPERATOR_PLAN",
+      "null_policy": "MP_MAPPING_REQUIRED",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_MAPPING_REQUIRED",
+      "rounding_policy": "RP_MONEY_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GADS_OVERVIEW_BUDGET_PACING"
+      ],
+      "source_contracts": [
+        "GOOGLE_ADS_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": "Methodology partially Demo; thresholds DECISION_REQUIRED. Classification labels are not a score. | V1 freeze: calculation proceeds with documented provisional semantics; DEC non-blocking.",
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "not_applicable",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "not_applicable",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_GADS_CAMPAIGN_PACING",
+      "name": "Google Ads Campaign Pacing Label",
+      "description": "Campaign pacing from plan/budget/optional IS — Demo methodology.",
+      "formula_type": "INDEX_OR_PACING",
+      "expression": "classify(spend, budget_or_plan, optional_lost_is)",
+      "numerator": "not_applicable",
+      "denominator": "not_applicable",
+      "inputs": [
+        {
+          "requirement_id": "GADS_CAMPAIGN_PACING",
+          "role": "consumer"
+        }
+      ],
+      "output_type": "OTHER",
+      "output_unit": "ENUM_LABEL",
+      "aggregation_method": "HYBRID",
+      "null_policy": "MP_MAPPING_REQUIRED",
+      "zero_denominator_policy": "not_applicable",
+      "missing_policy": "MP_MAPPING_REQUIRED",
+      "rounding_policy": "RP_NO_INTERMEDIATE",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GADS_CAMPAIGN_PACING"
+      ],
+      "source_contracts": [
+        "GOOGLE_ADS_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": [
+        "agency_planned_budget_configured"
+      ],
+      "notes": "Source requirement may be DEMO_ONLY for plan side; formula defined. Distinct from FORMULA_GADS_BUDGET_PACING.",
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "not_applicable",
+      "currency_policy": "CP_ACCOUNT_CURRENCY",
+      "timezone_policy": "meta_ad_account_timezone",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_META_BUDGET_PACING",
+      "name": "Meta Budget Pacing",
+      "description": "Spend vs agency planned×elapsed (operator plan).",
+      "formula_type": "INDEX_OR_PACING",
+      "expression": "actual_spend vs planned * elapsed_fraction",
+      "numerator": {
+        "metric": "spend"
+      },
+      "denominator": {
+        "metric": "expected"
+      },
+      "inputs": [
+        {
+          "requirement_id": "META_OVERVIEW_BUDGET_PACING",
+          "role": "consumer"
+        }
+      ],
+      "output_type": "OTHER",
+      "output_unit": "PACING_STATE",
+      "aggregation_method": "HYBRID_OPERATOR_PLAN",
+      "null_policy": "MP_MAPPING_REQUIRED",
+      "zero_denominator_policy": "not_applicable",
+      "missing_policy": "MP_MAPPING_REQUIRED",
+      "rounding_policy": "RP_MONEY_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "META_OVERVIEW_BUDGET_PACING"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": "Do not invent unweighted AVG(position). Provider-returned period position preferred when single query aggregate.",
+      "examples": null,
+      "semantic_direction": "LOWER_IS_GENERALLY_FAVORABLE",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "COMPARE_ABSOLUTE_EQUAL_PREVIOUS_PERIOD",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "not_applicable",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_GSC_IMPRESSION_WEIGHTED_POSITION",
+      "name": "GSC Impression-Weighted Position",
+      "description": "Optional aggregate when combining rows: sum(pos*impr)/sum(impr). Period KPI prefers provider aggregate when available.",
+      "formula_type": "AVERAGE",
+      "expression": "sum(position * impressions) / sum(impressions)",
+      "numerator": {
+        "metric": "position_x_impressions"
+      },
+      "denominator": {
+        "metric": "impressions"
+      },
+      "inputs": [
+        {
+          "requirement_id": "GSC_PERF_AVG_POSITION",
+          "role": "consumer"
+        }
+      ],
+      "output_type": "POSITION",
+      "output_unit": "AVERAGE_POSITION",
+      "aggregation_method": "WEIGHTED_AVERAGE",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "UNDEFINED_ZERO_DENOMINATOR",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_NO_INTERMEDIATE",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "GSC_PERF_AVG_POSITION"
+      ],
+      "source_contracts": [
+        "SEARCH_CONSOLE_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": "Partial coverage label if inventory incomplete — not Health Score.",
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "not_applicable",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "not_applicable",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_WEB_INVENTORY_COUNT",
+      "name": "Website Inventory Count",
+      "description": "Count of known Website URLs in inventory.",
+      "formula_type": "SUM",
+      "expression": "count(website_url rows)",
+      "numerator": {
+        "metric": "url_count"
+      },
+      "denominator": "not_applicable",
+      "inputs": [
+        {
+          "requirement_id": "WEB_OVERVIEW_INVENTORY",
+          "role": "consumer"
+        }
+      ],
+      "output_type": "COUNT",
+      "output_unit": "URLS",
+      "aggregation_method": "COUNT",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "not_applicable",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_COUNT_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "WEB_OVERVIEW_INVENTORY"
+      ],
+      "source_contracts": [
+        "WEBSITE_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    },
+    {
+      "formula_version": 1,
+      "contract_version": 1,
+      "data_contract_registry_version": 1,
+      "dependency_formula_ids": [],
+      "eligibility": null,
+      "notes": null,
+      "examples": null,
+      "semantic_direction": "CONTEXT_DEPENDENT",
+      "percentage_semantics": null,
+      "precision": {
+        "internal": "full",
+        "display_decimals": null
+      },
+      "valid_input_units": null,
+      "comparison_policy": "not_applicable",
+      "currency_policy": "not_applicable",
+      "timezone_policy": "observation_timestamp",
+      "calculation_location": "QUERY_TIME",
+      "provider_native_alternative": null,
+      "reconciliation": null,
+      "id": "FORMULA_WEB_TLS_DAYS_REMAINING",
+      "name": "TLS Days Remaining",
+      "description": "certificate_expiry_date - observation_date in days.",
+      "formula_type": "ABSOLUTE_DELTA",
+      "expression": "tls_not_after_date - observation_date",
+      "numerator": "not_applicable",
+      "denominator": "not_applicable",
+      "inputs": [
+        {
+          "requirement_id": "WEB_INFRA_TLS",
+          "role": "consumer"
+        }
+      ],
+      "output_type": "DURATION",
+      "output_unit": "DAYS",
+      "aggregation_method": "DATE_DIFF",
+      "null_policy": "MP_RATIO_STANDARD",
+      "zero_denominator_policy": "not_applicable",
+      "missing_policy": "MP_RATIO_STANDARD",
+      "rounding_policy": "RP_COUNT_DISPLAY",
+      "provenance": "MOXDOP_DERIVED",
+      "consumer_requirement_ids": [
+        "WEB_INFRA_TLS"
+      ],
+      "source_contracts": [
+        "WEBSITE_DATA_CONTRACT"
+      ],
+      "status": "FROZEN"
+    }
+  ],
+  "dispositions": [
+    {
+      "requirement_id": "DFS_OVERVIEW",
+      "disposition": "NON_FORMULA_HEURISTIC",
+      "formula_id": null,
+      "notes": "Overview composition — provider estimated facts + heuristics"
+    },
+    {
+      "requirement_id": "DFS_VIS_OPP",
+      "disposition": "NON_FORMULA_HEURISTIC",
+      "formula_id": null,
+      "notes": "Cross-source opportunity heuristics — not magic score"
+    },
+    {
+      "requirement_id": "FORMULA_DFS_CROSS_SOURCE_OPP",
+      "disposition": "NON_FORMULA_HEURISTIC",
+      "formula_id": null,
+      "notes": "Handoff candidate disposed as heuristic not arithmetic formula"
+    },
+    {
+      "requirement_id": "GA4_BEH_APPOINTMENT_COMPLETION",
+      "disposition": "UNAVAILABLE",
+      "formula_id": null,
+      "notes": "Unavailable when Appointment not mapped"
+    },
+    {
+      "requirement_id": "GA4_BEH_AVG_ENGAGEMENT_TIME",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GA4_AVG_ENGAGEMENT_TIME",
+      "notes": "FORMULA_GA4_AVG_ENGAGEMENT_TIME"
+    },
+    {
+      "requirement_id": "GA4_BEH_DEVICES",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GA4_DEVICE_SHARE",
+      "notes": "FORMULA_GA4_DEVICE_SHARE"
+    },
+    {
+      "requirement_id": "GA4_BEH_ENGAGEMENT_RATE",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GA4_ENGAGEMENT_RATE",
+      "notes": "FORMULA_GA4_ENGAGEMENT_RATE"
+    },
+    {
+      "requirement_id": "GA4_BEH_LANDING_TABLE",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GA4_ENGAGEMENT_RATE",
+      "notes": "Uses FORMULA_GA4_ENGAGEMENT_RATE + FORMULA_GA4_BUSINESS_ACTION_COUNT at landing grain"
+    },
+    {
+      "requirement_id": "GA4_BEH_VIEWS_PER_SESSION",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GA4_VIEWS_PER_SESSION",
+      "notes": "FORMULA_GA4_VIEWS_PER_SESSION"
+    },
+    {
+      "requirement_id": "GA4_JOURNEY_RATES",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GA4_BUSINESS_ACTION_RATE",
+      "notes": "FORMULA_GA4_BUSINESS_ACTION_RATE (journey rates use BA counts / sessions; same zero policy)"
+    },
+    {
+      "requirement_id": "GA4_MEAS_DUPLICATES",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "Qualitative"
+    },
+    {
+      "requirement_id": "GA4_MEAS_INTERRUPTIONS",
+      "disposition": "NON_FORMULA_HEURISTIC",
+      "formula_id": null,
+      "notes": "Heuristic on daily facts — classification later"
+    },
+    {
+      "requirement_id": "GA4_MEAS_QUALITY",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "Rule engine later"
+    },
+    {
+      "requirement_id": "GA4_MEAS_REFERRALS",
+      "disposition": "NON_FORMULA_HEURISTIC",
+      "formula_id": null,
+      "notes": "Flag when source matches property host"
+    },
+    {
+      "requirement_id": "GA4_MEAS_STREAMS",
+      "disposition": "PROVIDER_NATIVE",
+      "formula_id": null,
+      "notes": "Stream metadata / last-hit freshness"
+    },
+    {
+      "requirement_id": "GA4_MEAS_TRUST_CHIPS",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "Derived from BA mapping states — not a numeric formula"
+    },
+    {
+      "requirement_id": "GA4_MEAS_UTM_HYGIENE",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GA4_UTM_UNAVAILABLE_PCT",
+      "notes": "FORMULA_GA4_UTM_UNAVAILABLE_PCT"
+    },
+    {
+      "requirement_id": "GA4_OVERVIEW_ACQUISITION_MIX",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GA4_CHANNEL_SHARE",
+      "notes": "FORMULA_GA4_CHANNEL_SHARE"
+    },
+    {
+      "requirement_id": "GA4_OVERVIEW_BUSINESS_ACTIONS",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GA4_BUSINESS_ACTION_COUNT",
+      "notes": "FORMULA_GA4_BUSINESS_ACTION_COUNT"
+    },
+    {
+      "requirement_id": "GA4_OVERVIEW_MEASUREMENT_STATE",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "Rules over mapping states"
+    },
+    {
+      "requirement_id": "GA4_OVERVIEW_SESSIONS",
+      "disposition": "PROVIDER_NATIVE",
+      "formula_id": null,
+      "notes": "Additive sessions sum"
+    },
+    {
+      "requirement_id": "GA4_OVERVIEW_SESSIONS_TREND",
+      "disposition": "AGGREGATION_ONLY",
+      "formula_id": null,
+      "notes": "Chart series from daily facts"
+    },
+    {
+      "requirement_id": "GA4_OVERVIEW_USERS",
+      "disposition": "PROVIDER_NATIVE_PERIOD",
+      "formula_id": null,
+      "notes": "totalUsers semi-additive — range aggregate from provider"
+    },
+    {
+      "requirement_id": "GA4_SHELL_COMPARE_TOGGLE",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_PERIOD_RELATIVE_CHANGE",
+      "notes": "FORMULA_PERIOD_RELATIVE_CHANGE + FORMULA_PERCENTAGE_POINT_DELTA + FORMULA_PERIOD_ABSOLUTE_DELTA"
+    },
+    {
+      "requirement_id": "GA4_SHELL_FRESHNESS_CHIPS",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "Age from Run timestamps"
+    },
+    {
+      "requirement_id": "GA4_SHELL_PERIOD",
+      "disposition": "PROVIDER_NATIVE",
+      "formula_id": null,
+      "notes": "Preset → date interval resolution — Data Contract period rule, not formula"
+    },
+    {
+      "requirement_id": "GADS_ACCOUNT_CURRENCY",
+      "disposition": "PROVIDER_NATIVE",
+      "formula_id": null,
+      "notes": "Currency metadata; micros normalization via FORMULA_GADS_SPEND"
+    },
+    {
+      "requirement_id": "GADS_ASSET_EXTENSION_COVERAGE",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "Present/Partial/Missing rules — not numeric formula"
+    },
+    {
+      "requirement_id": "GADS_CAMPAIGN_BUDGET",
+      "disposition": "PROVIDER_NATIVE",
+      "formula_id": null,
+      "notes": "Budget config; micros÷1e6 display"
+    },
+    {
+      "requirement_id": "GADS_CAMPAIGN_CPA",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GADS_CPA",
+      "notes": "FORMULA_GADS_CPA"
+    },
+    {
+      "requirement_id": "GADS_CAMPAIGN_IMPRESSION_SHARE",
+      "disposition": "PROVIDER_NATIVE",
+      "formula_id": null,
+      "notes": "Provider impression share — do not average naively"
+    },
+    {
+      "requirement_id": "GADS_CAMPAIGN_PACING",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GADS_CAMPAIGN_PACING",
+      "notes": "FORMULA_GADS_CAMPAIGN_PACING"
+    },
+    {
+      "requirement_id": "GADS_CAMPAIGN_PRIMARY_CONVERSIONS",
+      "disposition": "MAPPING_SUM",
+      "formula_id": null,
+      "notes": "Sum mapped primary conversions"
+    },
+    {
+      "requirement_id": "GADS_CAMPAIGN_TYPE",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "enum→label"
+    },
+    {
+      "requirement_id": "GADS_KEYWORD_MATCH_TYPE",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "enum→label"
+    },
+    {
+      "requirement_id": "GADS_KEYWORD_OBSERVED_ALIGNMENT",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "DEMO_ONLY"
+    },
+    {
+      "requirement_id": "GADS_MEASUREMENT_HEALTH",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "DEMO_ONLY rules — not a health score formula"
+    },
+    {
+      "requirement_id": "GADS_OVERVIEW_BUDGET_PACING",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GADS_BUDGET_PACING",
+      "notes": "FORMULA_GADS_BUDGET_PACING"
+    },
+    {
+      "requirement_id": "GADS_OVERVIEW_CAMPAIGN_PORTFOLIO",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GADS_CTR",
+      "notes": "Uses FORMULA_GADS_CTR / FORMULA_GADS_CPC / FORMULA_GADS_CPA / FORMULA_GADS_CVR"
+    },
+    {
+      "requirement_id": "GADS_OVERVIEW_CPA",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GADS_CPA",
+      "notes": "FORMULA_GADS_CPA"
+    },
+    {
+      "requirement_id": "GADS_OVERVIEW_PRIMARY_CONVERSIONS",
+      "disposition": "MAPPING_SUM",
+      "formula_id": null,
+      "notes": "Sum of mapped primary conversions — mapping required; not a ratio formula"
+    },
+    {
+      "requirement_id": "GADS_OVERVIEW_SEARCH_SUMMARY",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "Review spend aggregation of classified terms"
+    },
+    {
+      "requirement_id": "GADS_OVERVIEW_SPEND",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GADS_SPEND",
+      "notes": "FORMULA_GADS_SPEND"
+    },
+    {
+      "requirement_id": "GADS_OVERVIEW_SPEND_BY_OFFERING",
+      "disposition": "AGGREGATION_ONLY",
+      "formula_id": null,
+      "notes": "Operator-maintained offering sum"
+    },
+    {
+      "requirement_id": "GADS_PREVIOUS_PERIOD",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_PERIOD_",
+      "notes": "FORMULA_PERIOD_* family"
+    },
+    {
+      "requirement_id": "GADS_SEARCH_DECISION_INBOX",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "DEMO_ONLY"
+    },
+    {
+      "requirement_id": "GADS_SEARCH_INTENT_DISTRIBUTION",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "DEMO_ONLY share of classified base"
+    },
+    {
+      "requirement_id": "GADS_SEARCH_INTENT_DRIFT",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_PERCENTAGE_POINT_DELTA",
+      "notes": "FORMULA_PERCENTAGE_POINT_DELTA / FORMULA_PERIOD_RELATIVE_CHANGE on intent shares when classification exists"
+    },
+    {
+      "requirement_id": "GADS_SEARCH_REVIEWABLE_SPEND",
+      "disposition": "AGGREGATION_ONLY",
+      "formula_id": null,
+      "notes": "DEMO_ONLY sum of classified review spend"
+    },
+    {
+      "requirement_id": "GADS_SEARCH_TERM_CLASSIFICATION",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "DEMO_ONLY"
+    },
+    {
+      "requirement_id": "GSC_DEMAND_CLUSTERS",
+      "disposition": "UNAVAILABLE_METHODOLOGY",
+      "formula_id": null,
+      "notes": "Cluster methodology not frozen as formula"
+    },
+    {
+      "requirement_id": "GSC_DEMAND_MOMENTUM",
+      "disposition": "UNAVAILABLE_METHODOLOGY",
+      "formula_id": null,
+      "notes": "Momentum classification thresholds not frozen"
+    },
+    {
+      "requirement_id": "GSC_DEMAND_OWNERSHIP",
+      "disposition": "NON_FORMULA_ARGMAX",
+      "formula_id": null,
+      "notes": "Observed owner = argmax impressions — methodology, not rate formula"
+    },
+    {
+      "requirement_id": "GSC_DER_STRIKING_DISTANCE",
+      "disposition": "NON_FORMULA_HEURISTIC",
+      "formula_id": null,
+      "notes": "Heuristic band — not formula"
+    },
+    {
+      "requirement_id": "GSC_INDEX_RECONCILIATION",
+      "disposition": "NON_FORMULA_HEURISTIC",
+      "formula_id": null,
+      "notes": "Cross-asset gap derivation"
+    },
+    {
+      "requirement_id": "GSC_INDEX_SITEMAPS",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "status from isPending/errors"
+    },
+    {
+      "requirement_id": "GSC_OVERVIEW_CLICKS",
+      "disposition": "PROVIDER_NATIVE",
+      "formula_id": null,
+      "notes": "Additive clicks; comparison via FORMULA_PERIOD_RELATIVE_CHANGE"
+    },
+    {
+      "requirement_id": "GSC_OVERVIEW_CTR",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GSC_CTR",
+      "notes": "FORMULA_GSC_CTR"
+    },
+    {
+      "requirement_id": "GSC_OVERVIEW_IMPRESSIONS",
+      "disposition": "PROVIDER_NATIVE",
+      "formula_id": null,
+      "notes": "Additive impressions; comparison via FORMULA_PERIOD_RELATIVE_CHANGE"
+    },
+    {
+      "requirement_id": "GSC_OVERVIEW_MOMENTUM",
+      "disposition": "NON_FORMULA_HEURISTIC",
+      "formula_id": null,
+      "notes": "DEMO_ONLY momentum"
+    },
+    {
+      "requirement_id": "GSC_OVERVIEW_OPPORTUNITIES",
+      "disposition": "NON_FORMULA_HEURISTIC",
+      "formula_id": null,
+      "notes": "Striking distance / opp heuristics — not arithmetic formula"
+    },
+    {
+      "requirement_id": "GSC_OVERVIEW_PAGE_PULSE",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_PERIOD_RELATIVE_CHANGE",
+      "notes": "FORMULA_PERIOD_RELATIVE_CHANGE on page clicks"
+    },
+    {
+      "requirement_id": "GSC_OVERVIEW_TREND",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GSC_CTR",
+      "notes": "FORMULA_GSC_CTR + FORMULA_PERIOD_RELATIVE_CHANGE on clicks/impr"
+    },
+    {
+      "requirement_id": "GSC_PAGES_DIRECTORY",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GSC_CTR",
+      "notes": "FORMULA_GSC_CTR + period deltas"
+    },
+    {
+      "requirement_id": "GSC_PERF_AVG_POSITION",
+      "disposition": "PROVIDER_NATIVE",
+      "formula_id": null,
+      "notes": "Provider Search Analytics position; FORMULA_GSC_IMPRESSION_WEIGHTED_POSITION only when combining rows"
+    },
+    {
+      "requirement_id": "GSC_PERF_BRAND_NONBRAND",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "Brand split classification + optional share via PERIOD formulas"
+    },
+    {
+      "requirement_id": "GSC_PERF_CTR",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GSC_CTR",
+      "notes": "FORMULA_GSC_CTR"
+    },
+    {
+      "requirement_id": "GSC_PERF_DEVICE",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_GSC_CTR",
+      "notes": "FORMULA_GSC_CTR at device grain"
+    },
+    {
+      "requirement_id": "GSC_PERF_DIAGNOSIS",
+      "disposition": "NON_FORMULA_HEURISTIC",
+      "formula_id": null,
+      "notes": "Diagnosis narrative — not formula"
+    },
+    {
+      "requirement_id": "GSC_SHELL_COMPARE",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_PERIOD_RELATIVE_CHANGE",
+      "notes": "FORMULA_PERIOD_RELATIVE_CHANGE / FORMULA_PERIOD_ABSOLUTE_DELTA / FORMULA_PERCENTAGE_POINT_DELTA"
+    },
+    {
+      "requirement_id": "META_ADSET_BUDGET",
+      "disposition": "PROVIDER_NATIVE",
+      "formula_id": null,
+      "notes": "Budget configuration"
+    },
+    {
+      "requirement_id": "META_CAMPAIGN_COST_RESULT",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_META_COST_PER_RESULT",
+      "notes": "FORMULA_META_COST_PER_RESULT"
+    },
+    {
+      "requirement_id": "META_CAMPAIGN_FREQUENCY",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_META_FREQUENCY",
+      "notes": "FORMULA_META_FREQUENCY"
+    },
+    {
+      "requirement_id": "META_CAMPAIGN_LINK_CTR",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_META_LINK_CTR",
+      "notes": "FORMULA_META_LINK_CTR"
+    },
+    {
+      "requirement_id": "META_CAMPAIGN_OBJECTIVE",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "map→family label"
+    },
+    {
+      "requirement_id": "META_CAMPAIGN_PACING",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_META_BUDGET_PACING",
+      "notes": "FORMULA_META_BUDGET_PACING (campaign grain)"
+    },
+    {
+      "requirement_id": "META_CAMPAIGN_REACH",
+      "disposition": "PROVIDER_NATIVE_PERIOD",
+      "formula_id": null,
+      "notes": "NON_ADDITIVE; period provider query — never sum daily reach"
+    },
+    {
+      "requirement_id": "META_CAMPAIGN_RESULT",
+      "disposition": "MAPPING_TYPED",
+      "formula_id": null,
+      "notes": "Typed result count — requires result_type identity; cost uses FORMULA_META_COST_PER_RESULT"
+    },
+    {
+      "requirement_id": "META_CREATIVE_CLASSIFICATION",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "DEMO_ONLY"
+    },
+    {
+      "requirement_id": "META_CREATIVE_PERFORMANCE",
+      "disposition": "AGGREGATION_ONLY",
+      "formula_id": null,
+      "notes": "sum spend/actions by creative_id — additive rollup, not ratio formula; cost/result uses FORMULA_META_COST_PER_RESULT"
+    },
+    {
+      "requirement_id": "META_FUNNEL_DESTINATION",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "DEMO_ONLY group"
+    },
+    {
+      "requirement_id": "META_FUNNEL_IG_PROFILE",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_META_COST_PER_RESULT",
+      "notes": "FORMULA_META_COST_PER_RESULT with result_type=ig_profile_visit"
+    },
+    {
+      "requirement_id": "META_FUNNEL_INSTANT_FORM",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_META_COST_PER_RESULT",
+      "notes": "FORMULA_META_COST_PER_RESULT with result_type=lead/instant_form"
+    },
+    {
+      "requirement_id": "META_FUNNEL_MESSAGING",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_META_COST_PER_RESULT",
+      "notes": "FORMULA_META_COST_PER_RESULT with result_type=messaging_conversation"
+    },
+    {
+      "requirement_id": "META_OVERVIEW_BUDGET_PACING",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_META_BUDGET_PACING",
+      "notes": "FORMULA_META_BUDGET_PACING"
+    },
+    {
+      "requirement_id": "META_OVERVIEW_COST_PRIMARY",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_META_COST_PRIMARY",
+      "notes": "FORMULA_META_COST_PRIMARY"
+    },
+    {
+      "requirement_id": "META_OVERVIEW_CREATIVE_PULSE",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "Creative pulse classification"
+    },
+    {
+      "requirement_id": "META_OVERVIEW_RESULT_MIX",
+      "disposition": "MAPPING_TYPED",
+      "formula_id": null,
+      "notes": "Group by result type; mixed types not comparable for cost/result"
+    },
+    {
+      "requirement_id": "META_OVERVIEW_SPEND",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_META_SPEND",
+      "notes": "FORMULA_META_SPEND"
+    },
+    {
+      "requirement_id": "META_PREVIOUS_PERIOD",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_PERIOD_",
+      "notes": "FORMULA_PERIOD_* family"
+    },
+    {
+      "requirement_id": "SYS_RF_DFS_DOMAIN_INTERSECT_LIVE",
+      "disposition": "PROVIDER_NATIVE",
+      "formula_id": null,
+      "notes": "Request family support row"
+    },
+    {
+      "requirement_id": "SYS_RF_DFS_RELEVANT_PAGES_LIVE",
+      "disposition": "PROVIDER_NATIVE",
+      "formula_id": null,
+      "notes": "Request family support row"
+    },
+    {
+      "requirement_id": "SYS_RF_DFS_SERP_ORGANIC",
+      "disposition": "PROVIDER_NATIVE",
+      "formula_id": null,
+      "notes": "Request family support row"
+    },
+    {
+      "requirement_id": "SYS_RF_RF_META_ASYNC_INSIGHTS",
+      "disposition": "PROVIDER_NATIVE",
+      "formula_id": null,
+      "notes": "Request family support row"
+    },
+    {
+      "requirement_id": "WEB_CONTENT_ROLE",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "Content role classification"
+    },
+    {
+      "requirement_id": "WEB_HEALTH_CANONICAL",
+      "disposition": "NON_FORMULA_COUNTS",
+      "formula_id": null,
+      "notes": "Canonical missing counts — not health score"
+    },
+    {
+      "requirement_id": "WEB_HEALTH_HTTP_STATUS",
+      "disposition": "NON_FORMULA_COUNTS",
+      "formula_id": null,
+      "notes": "Status class / broken counts — not health score"
+    },
+    {
+      "requirement_id": "WEB_HEALTH_LCP",
+      "disposition": "PROVIDER_NATIVE",
+      "formula_id": null,
+      "notes": "Lighthouse/lab rating — provider-derived; not MoxDOP formula"
+    },
+    {
+      "requirement_id": "WEB_HEALTH_SUMMARY",
+      "disposition": "NON_FORMULA_COUNTS",
+      "formula_id": null,
+      "notes": "Finding/health counts — not a health score"
+    },
+    {
+      "requirement_id": "WEB_INFRA_HOSTING",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "DEMO_ONLY hosting renewal"
+    },
+    {
+      "requirement_id": "WEB_INFRA_TLS",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_WEB_TLS_DAYS_REMAINING",
+      "notes": "FORMULA_WEB_TLS_DAYS_REMAINING"
+    },
+    {
+      "requirement_id": "WEB_OVERVIEW_FINDINGS",
+      "disposition": "NON_FORMULA_COUNTS",
+      "formula_id": null,
+      "notes": "Finding counts from operations domain"
+    },
+    {
+      "requirement_id": "WEB_OVERVIEW_INVENTORY",
+      "disposition": "FORMULA",
+      "formula_id": "FORMULA_WEB_INVENTORY_COUNT",
+      "notes": "FORMULA_WEB_INVENTORY_COUNT"
+    },
+    {
+      "requirement_id": "WEB_PERF_LAB",
+      "disposition": "PROVIDER_NATIVE",
+      "formula_id": null,
+      "notes": "Lighthouse score — provider methodology; not reimplemented"
+    },
+    {
+      "requirement_id": "WEB_VIS_AI",
+      "disposition": "NON_FORMULA_CLASSIFICATION",
+      "formula_id": null,
+      "notes": "AI visibility classification"
+    },
+    {
+      "requirement_id": "WEB_VIS_GSC_GROUPS",
+      "disposition": "NON_FORMULA_HEURISTIC",
+      "formula_id": null,
+      "notes": "Striking distance / vis delta heuristics; numeric deltas via FORMULA_PERIOD_*"
+    }
+  ],
+  "rejected_formulas": [
+    {
+      "id": "REJECTED_WEBSITE_HEALTH_SCORE",
+      "reason": "Frozen product forbids Website Health Score"
+    },
+    {
+      "id": "REJECTED_SEO_SCORE",
+      "reason": "No transparent frozen methodology"
+    },
+    {
+      "id": "REJECTED_OPPORTUNITY_SCORE",
+      "reason": "Opportunities are domain concepts"
+    },
+    {
+      "id": "REJECTED_CAMPAIGN_HEALTH_SCORE",
+      "reason": "Pacing ≠ health score"
+    },
+    {
+      "id": "REJECTED_GADS_ROAS",
+      "reason": "NOT REQUIRED V1 by Google Ads contract"
+    },
+    {
+      "id": "REJECTED_META_ROAS",
+      "reason": "No ROAS UI in Meta freeze"
+    },
+    {
+      "id": "REJECTED_QUALIFIED_LEAD_RATE",
+      "reason": "Not a frozen V1 KPI formula; Business Outcome dependency not production — exclude until Value/Outcome freeze requires it"
+    }
+  ],
+  "decisions": [
+    {
+      "decision_id": "DEC_GA4_ENGAGEMENT_TIME_DIVISOR",
+      "blocking": "NON_BLOCKING",
+      "formula_ids": [
+        "FORMULA_GA4_AVG_ENGAGEMENT_TIME"
+      ],
+      "question": "Avg engagement time divisor activeUsers vs sessions",
+      "status": "PROVISIONAL_FROZEN",
+      "impact": "Provisional divisor=activeUsers frozen for V1; sessions alternative would be new formula version. NON_BLOCKING.",
+      "recommended_resolution": "Keep activeUsers as V1 divisor per GA4 common reporting; document sessions as alternative identity if product later requires."
+    },
+    {
+      "decision_id": "DEC_GADS_CAMPAIGN_PACING_THRESHOLDS",
+      "blocking": "NON_BLOCKING",
+      "formula_ids": [
+        "FORMULA_GADS_CAMPAIGN_PACING"
+      ],
+      "question": "Exact Ahead/Behind/Constrained thresholds",
+      "status": "PROVISIONAL_FROZEN",
+      "impact": "Numeric pacing index frozen; Ahead/Behind/Constrained label thresholds presentation-owned. NON_BLOCKING.",
+      "recommended_resolution": "Keep index calculation; classification labels outside Formula Registry."
+    }
+  ],
+  "existing_code_audit": [
+    {
+      "location": "app/Support/Demo/GscWorkspaceFixtures.php::~1050",
+      "metric": "CTR",
+      "current_formula": "clicks/impressions; returns 0.0 when impr=0",
+      "consumer": "GSC workspace Demo",
+      "canonical_formula_id": "FORMULA_GSC_CTR",
+      "matches_registry": "PARTIAL",
+      "missing_safe": false,
+      "zero_safe": false,
+      "aggregation_safe": true,
+      "currency_safe": true,
+      "timezone_safe": "UNKNOWN",
+      "future_action": "REPLACE_LATER — UNDEFINED_ZERO_DENOMINATOR / UNDEFINED for 0/0; never return 0.0"
+    },
+    {
+      "location": "app/Support/Demo/MetaAdsWorkspaceFixtures.php::~1714",
+      "metric": "Link CTR",
+      "current_formula": "(linkClicks/impr)*100; may fall back to base ctr",
+      "consumer": "Meta Ads Demo",
+      "canonical_formula_id": "FORMULA_META_LINK_CTR",
+      "matches_registry": "PARTIAL",
+      "missing_safe": false,
+      "zero_safe": "PARTIAL",
+      "aggregation_safe": "UNKNOWN",
+      "currency_safe": true,
+      "timezone_safe": "UNKNOWN",
+      "future_action": "REPLACE_LATER — do not fall back all-click CTR; use UNDEFINED when impr=0"
+    },
+    {
+      "location": "app/Support/Demo/GoogleAdsWorkspaceFixtures.php::pacing",
+      "metric": "Budget pacing",
+      "current_formula": "actual vs planned * elapsed; uses max(0.01,...) for projected",
+      "consumer": "Google Ads Demo",
+      "canonical_formula_id": "FORMULA_GADS_BUDGET_PACING",
+      "matches_registry": "PARTIAL",
+      "missing_safe": false,
+      "zero_safe": false,
+      "aggregation_safe": true,
+      "currency_safe": false,
+      "timezone_safe": "UNKNOWN",
+      "future_action": "KEEP_LATER adapt — remove silent max(0.01); currency from account"
+    },
+    {
+      "location": "app/Support/Demo/MetaAdsWorkspaceFixtures.php::pacing",
+      "metric": "Meta budget pacing",
+      "current_formula": "actual vs planned * elapsed_fraction",
+      "consumer": "Meta Ads Demo",
+      "canonical_formula_id": "FORMULA_META_BUDGET_PACING",
+      "matches_registry": "PARTIAL",
+      "missing_safe": "UNKNOWN",
+      "zero_safe": "UNKNOWN",
+      "aggregation_safe": true,
+      "currency_safe": "UNKNOWN",
+      "timezone_safe": "UNKNOWN",
+      "future_action": "KEEP_LATER — align zero/missing policies"
+    },
+    {
+      "location": "app/Support/Demo/DemoCatalog.php::compareDelta",
+      "metric": "Relative % delta (synthetic)",
+      "current_formula": "Deterministic fake deltas from efficiency_factor — not real previous period",
+      "consumer": "Multi-asset Demo KPI chips",
+      "canonical_formula_id": "FORMULA_PERIOD_RELATIVE_CHANGE",
+      "matches_registry": false,
+      "missing_safe": false,
+      "zero_safe": false,
+      "aggregation_safe": false,
+      "currency_safe": false,
+      "timezone_safe": false,
+      "future_action": "REPLACE_LATER — Demo-only synthetic; production must use equal-length previous period"
+    },
+    {
+      "location": "resources/views/.../google-ads overview (hardcoded ₺)",
+      "metric": "pacing/money display",
+      "current_formula": "presentation",
+      "consumer": "Google Ads overview Blade",
+      "canonical_formula_id": null,
+      "matches_registry": false,
+      "missing_safe": "n/a",
+      "zero_safe": "n/a",
+      "aggregation_safe": "n/a",
+      "currency_safe": false,
+      "timezone_safe": "n/a",
+      "future_action": "REPLACE_LATER — use account currency metadata; never hardcode TRY"
+    },
+    {
+      "location": "app/Support/Demo/DemoCatalog.php (CTR/CPC/CPM/CPA/CVR precomputed fixtures)",
+      "metric": "Multiple efficiency KPIs",
+      "current_formula": "Hardcoded/scaled fixture values; not reaggregated from base facts",
+      "consumer": "Demo panels",
+      "canonical_formula_id": "MULTIPLE",
+      "matches_registry": false,
+      "missing_safe": false,
+      "zero_safe": false,
+      "aggregation_safe": false,
+      "currency_safe": false,
+      "timezone_safe": false,
+      "future_action": "REPLACE_LATER when panels migrate off Demo — compute via Formula Registry"
+    }
+  ],
+  "data_contract_gaps": [],
+  "traceability": [
+    {
+      "formula_id": "FORMULA_GSC_CTR",
+      "consumer_requirement_ids": [
+        "GSC_OVERVIEW_CTR",
+        "GSC_PERF_CTR",
+        "WEB_VIS_GSC_KPIS",
+        "GSC_DEMAND_QUERY_EXPLORER"
+      ],
+      "input_requirement_ids": [
+        "GSC_OVERVIEW_CLICKS",
+        "GSC_OVERVIEW_IMPRESSIONS"
+      ],
+      "source_contracts": [
+        "SEARCH_CONSOLE_DATA_CONTRACT",
+        "WEBSITE_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_GADS_CTR",
+      "consumer_requirement_ids": [
+        "GADS_CAMPAIGN_DAILY",
+        "GADS_OVERVIEW_CAMPAIGN_PORTFOLIO"
+      ],
+      "input_requirement_ids": [
+        "GADS_OVERVIEW_SPEND"
+      ],
+      "source_contracts": [
+        "GOOGLE_ADS_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_META_CTR_ALL",
+      "consumer_requirement_ids": [
+        "META_CAMPAIGN_DAILY",
+        "META_OVERVIEW_CAMPAIGN_PORTFOLIO",
+        "META_AD_DAILY"
+      ],
+      "input_requirement_ids": [
+        "META_CAMPAIGN_DAILY",
+        "META_CAMPAIGN_DAILY"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_META_LINK_CTR",
+      "consumer_requirement_ids": [
+        "META_CAMPAIGN_LINK_CTR"
+      ],
+      "input_requirement_ids": [
+        "META_CAMPAIGN_LINK_CTR",
+        "META_CAMPAIGN_DAILY"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_GADS_CPC",
+      "consumer_requirement_ids": [
+        "GADS_CAMPAIGN_DAILY",
+        "GADS_OVERVIEW_CAMPAIGN_PORTFOLIO",
+        "GADS_KEYWORD_DAILY"
+      ],
+      "input_requirement_ids": [
+        "GADS_OVERVIEW_SPEND",
+        "GADS_CAMPAIGN_DAILY"
+      ],
+      "source_contracts": [
+        "GOOGLE_ADS_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_META_CPC",
+      "consumer_requirement_ids": [
+        "META_CAMPAIGN_DAILY",
+        "META_OVERVIEW_CAMPAIGN_PORTFOLIO",
+        "META_AD_DAILY"
+      ],
+      "input_requirement_ids": [
+        "META_OVERVIEW_SPEND",
+        "META_CAMPAIGN_DAILY"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_META_COST_PER_LINK_CLICK",
+      "consumer_requirement_ids": [
+        "META_CAMPAIGN_DAILY",
+        "META_LINK_CLICK",
+        "META_OVERVIEW_CAMPAIGN_PORTFOLIO"
+      ],
+      "input_requirement_ids": [
+        "META_OVERVIEW_SPEND",
+        "META_LINK_CLICK"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_META_CPM",
+      "consumer_requirement_ids": [
+        "META_CAMPAIGN_DAILY",
+        "META_OVERVIEW_CAMPAIGN_PORTFOLIO",
+        "META_AD_DAILY"
+      ],
+      "input_requirement_ids": [
+        "META_OVERVIEW_SPEND",
+        "META_CAMPAIGN_DAILY"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_GADS_SPEND",
+      "consumer_requirement_ids": [
+        "GADS_OVERVIEW_SPEND"
+      ],
+      "input_requirement_ids": [
+        "GADS_OVERVIEW_SPEND"
+      ],
+      "source_contracts": [
+        "GOOGLE_ADS_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_META_SPEND",
+      "consumer_requirement_ids": [
+        "META_OVERVIEW_SPEND"
+      ],
+      "input_requirement_ids": [
+        "META_OVERVIEW_SPEND"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_GADS_CPA",
+      "consumer_requirement_ids": [
+        "GADS_OVERVIEW_CPA",
+        "GADS_CAMPAIGN_CPA"
+      ],
+      "input_requirement_ids": [
+        "GADS_OVERVIEW_CPA",
+        "GADS_OVERVIEW_PRIMARY_CONVERSIONS"
+      ],
+      "source_contracts": [
+        "GOOGLE_ADS_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_GADS_CVR",
+      "consumer_requirement_ids": [
+        "GADS_CAMPAIGN_DAILY",
+        "GADS_OVERVIEW_CAMPAIGN_PORTFOLIO",
+        "GADS_OVERVIEW_PRIMARY_CONVERSIONS"
+      ],
+      "input_requirement_ids": [
+        "GADS_OVERVIEW_PRIMARY_CONVERSIONS",
+        "GADS_CAMPAIGN_DAILY"
+      ],
+      "source_contracts": [
+        "GOOGLE_ADS_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_META_COST_PER_RESULT",
+      "consumer_requirement_ids": [
+        "META_CAMPAIGN_COST_RESULT",
+        "META_OVERVIEW_CAMPAIGN_PORTFOLIO"
+      ],
+      "input_requirement_ids": [
+        "META_ACTION_TYPE_DAILY",
+        "META_CAMPAIGN_COST_RESULT"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_META_COST_PRIMARY",
+      "consumer_requirement_ids": [
+        "META_OVERVIEW_COST_PRIMARY"
+      ],
+      "input_requirement_ids": [
+        "META_OVERVIEW_COST_PRIMARY"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_META_FREQUENCY",
+      "consumer_requirement_ids": [
+        "META_CAMPAIGN_FREQUENCY"
+      ],
+      "input_requirement_ids": [
+        "META_CAMPAIGN_FREQUENCY"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_GA4_ENGAGEMENT_RATE",
+      "consumer_requirement_ids": [
+        "GA4_BEH_ENGAGEMENT_RATE",
+        "GA4_OVERVIEW_LANDING_PULSE"
+      ],
+      "input_requirement_ids": [
+        "GA4_BEH_ENGAGEMENT_RATE",
+        "GA4_OVERVIEW_SESSIONS"
+      ],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_GA4_AVG_ENGAGEMENT_TIME",
+      "consumer_requirement_ids": [
+        "GA4_BEH_AVG_ENGAGEMENT_TIME"
+      ],
+      "input_requirement_ids": [
+        "GA4_BEH_AVG_ENGAGEMENT_TIME"
+      ],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_GA4_VIEWS_PER_SESSION",
+      "consumer_requirement_ids": [
+        "GA4_BEH_VIEWS_PER_SESSION"
+      ],
+      "input_requirement_ids": [
+        "GA4_BEH_VIEWS_PER_SESSION"
+      ],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_GA4_CHANNEL_SHARE",
+      "consumer_requirement_ids": [
+        "GA4_OVERVIEW_ACQUISITION_MIX",
+        "GA4_ACQ_CHANNELS"
+      ],
+      "input_requirement_ids": [
+        "GA4_OVERVIEW_ACQUISITION_MIX"
+      ],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_GA4_DEVICE_SHARE",
+      "consumer_requirement_ids": [
+        "GA4_BEH_DEVICES"
+      ],
+      "input_requirement_ids": [
+        "GA4_BEH_DEVICES"
+      ],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_GA4_BUSINESS_ACTION_COUNT",
+      "consumer_requirement_ids": [
+        "GA4_OVERVIEW_BUSINESS_ACTIONS"
+      ],
+      "input_requirement_ids": [
+        "GA4_OVERVIEW_BUSINESS_ACTIONS",
+        "GA4_MEAS_EVENTS"
+      ],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_GA4_BUSINESS_ACTION_RATE",
+      "consumer_requirement_ids": [
+        "GA4_OVERVIEW_LANDING_PULSE"
+      ],
+      "input_requirement_ids": [
+        "GA4_OVERVIEW_LANDING_PULSE"
+      ],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_GA4_UTM_UNAVAILABLE_PCT",
+      "consumer_requirement_ids": [
+        "GA4_MEAS_UTM_HYGIENE"
+      ],
+      "input_requirement_ids": [
+        "GA4_MEAS_UTM_HYGIENE"
+      ],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_PERIOD_RELATIVE_CHANGE",
+      "consumer_requirement_ids": [
+        "GA4_SHELL_COMPARE_TOGGLE",
+        "GADS_PREVIOUS_PERIOD",
+        "GSC_SHELL_COMPARE",
+        "META_PREVIOUS_PERIOD"
+      ],
+      "input_requirement_ids": [],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT",
+        "GOOGLE_ADS_DATA_CONTRACT",
+        "META_ADS_DATA_CONTRACT",
+        "SEARCH_CONSOLE_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_PERIOD_ABSOLUTE_DELTA",
+      "consumer_requirement_ids": [
+        "GA4_SHELL_COMPARE_TOGGLE",
+        "GADS_PREVIOUS_PERIOD",
+        "GSC_PERF_AVG_POSITION",
+        "GSC_SHELL_COMPARE",
+        "META_PREVIOUS_PERIOD"
+      ],
+      "input_requirement_ids": [],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT",
+        "SEARCH_CONSOLE_DATA_CONTRACT",
+        "GOOGLE_ADS_DATA_CONTRACT",
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_PERCENTAGE_POINT_DELTA",
+      "consumer_requirement_ids": [
+        "GA4_BEH_ENGAGEMENT_RATE",
+        "GA4_SHELL_COMPARE_TOGGLE",
+        "GADS_PREVIOUS_PERIOD",
+        "GSC_OVERVIEW_CTR",
+        "GSC_SHELL_COMPARE",
+        "META_CAMPAIGN_LINK_CTR",
+        "META_PREVIOUS_PERIOD"
+      ],
+      "input_requirement_ids": [],
+      "source_contracts": [
+        "GA4_DATA_CONTRACT",
+        "SEARCH_CONSOLE_DATA_CONTRACT",
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_GADS_BUDGET_PACING",
+      "consumer_requirement_ids": [
+        "GADS_OVERVIEW_BUDGET_PACING"
+      ],
+      "input_requirement_ids": [
+        "GADS_OVERVIEW_BUDGET_PACING"
+      ],
+      "source_contracts": [
+        "GOOGLE_ADS_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_GADS_CAMPAIGN_PACING",
+      "consumer_requirement_ids": [
+        "GADS_CAMPAIGN_PACING"
+      ],
+      "input_requirement_ids": [
+        "GADS_CAMPAIGN_PACING"
+      ],
+      "source_contracts": [
+        "GOOGLE_ADS_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_META_BUDGET_PACING",
+      "consumer_requirement_ids": [
+        "META_OVERVIEW_BUDGET_PACING"
+      ],
+      "input_requirement_ids": [
+        "META_OVERVIEW_BUDGET_PACING"
+      ],
+      "source_contracts": [
+        "META_ADS_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_GSC_IMPRESSION_WEIGHTED_POSITION",
+      "consumer_requirement_ids": [
+        "GSC_PERF_AVG_POSITION"
+      ],
+      "input_requirement_ids": [
+        "GSC_PERF_AVG_POSITION"
+      ],
+      "source_contracts": [
+        "SEARCH_CONSOLE_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_WEB_INVENTORY_COUNT",
+      "consumer_requirement_ids": [
+        "WEB_OVERVIEW_INVENTORY"
+      ],
+      "input_requirement_ids": [
+        "WEB_OVERVIEW_INVENTORY"
+      ],
+      "source_contracts": [
+        "WEBSITE_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    },
+    {
+      "formula_id": "FORMULA_WEB_TLS_DAYS_REMAINING",
+      "consumer_requirement_ids": [
+        "WEB_INFRA_TLS"
+      ],
+      "input_requirement_ids": [
+        "WEB_INFRA_TLS"
+      ],
+      "source_contracts": [
+        "WEBSITE_DATA_CONTRACT"
+      ],
+      "formula_version": 1,
+      "provenance": "MOXDOP_DERIVED"
+    }
+  ],
+  "validation": {
+    "passed": true,
+    "errors": [],
+    "formula_count": 32,
+    "disposition_count": 106,
+    "rejected_count": 7,
+    "frozen_formula_count": 32,
+    "decision_required_formulas": 0,
+    "moxdop_derived_requirements": 35,
+    "moxdop_derived_disposed": 35,
+    "orphan_formulas": 0,
+    "warnings": [
+      "DEC_F01 engagement-time divisor provisional (activeUsers) — NON_BLOCKING",
+      "DEC_F02 GAds campaign pacing label thresholds presentation-owned — NON_BLOCKING",
+      "DemoCatalog.compareDelta is synthetic Demo — REPLACE LATER"
+    ],
+    "semantic_tests": {
+      "divide_by_zero": "PASS_CONTRACT",
+      "period_comparison": "PASS_CONTRACT",
+      "percentage_point": "PASS_CONTRACT",
+      "currency_mixed": "PASS_CONTRACT_NOT_COMPARABLE",
+      "meta_typed_result": "PASS_CONTRACT_NOT_COMPARABLE_MIXED",
+      "ba_mapping_absent": "PASS_CONTRACT_NOT_CONFIGURED"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+<?php
+
+namespace App\Enums;
+
+enum RecurringDomainRunType: string
+{
+    case CollectionRun = 'collection_run';
+    /** @deprecated Faz 1: producer removed */
+    case RecurringReviewRun = 'recurring_review_run';
+    /** @deprecated Faz 1: producer removed */
+    case BusinessOutcomeRecheckRun = 'business_outcome_recheck_run';
+    case NotificationBatch = 'notification_batch';
+    case ReportDeliveryOccurrence = 'report_delivery_occurrence';
+    case IntelligenceExecutionPlan = 'intelligence_execution_plan';
+}

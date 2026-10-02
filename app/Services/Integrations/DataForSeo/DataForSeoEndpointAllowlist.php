@@ -13,6 +13,9 @@ final class DataForSeoEndpointAllowlist
     /** Free Labs market directory (not charged). */
     public const string LABS_LOCATIONS_AND_LANGUAGES = 'dataforseo_labs/locations_and_languages';
 
+    /** Free SERP location directory for Türkiye (cities and districts for local SERP checks). */
+    public const string SERP_GOOGLE_LOCATIONS_TR = 'serp/google/locations/tr';
+
     /** Paid — Website ranked organic keywords. */
     public const string LABS_GOOGLE_RANKED_KEYWORDS_LIVE = 'dataforseo_labs/google/ranked_keywords/live';
 
@@ -22,7 +25,44 @@ final class DataForSeoEndpointAllowlist
     /** Paid — organic competitor domains for a target domain (Labs Google). */
     public const string LABS_GOOGLE_COMPETITORS_DOMAIN_LIVE = 'dataforseo_labs/google/competitors_domain/live';
 
+    /** Paid — Sales Intent Radar V1 public SERP (retired in v2; not allowlisted). */
+    public const string SERP_GOOGLE_ORGANIC_LIVE_REGULAR = 'serp/google/organic/live/regular';
+
+    /** Paid — v2: top-10 organic SERP of a representative query (30-day cache in serp_results). */
+    public const string SERP_GOOGLE_ORGANIC_LIVE_ADVANCED = 'serp/google/organic/live/advanced';
+
+    /** Paid — explicit keyword search-volume and monthly-trend observation. */
+    public const string KEYWORDS_DATA_GOOGLE_ADS_SEARCH_VOLUME_LIVE = 'keywords_data/google_ads/search_volume/live';
+
+    /** Paid — bounded related query expansion from explicit seeds. */
+    public const string LABS_GOOGLE_KEYWORD_IDEAS_LIVE = 'dataforseo_labs/google/keyword_ideas/live';
+
+    /** Paid — Google Maps SERP, standard queue (Faz 8 harita grid takibi, dış denetim). */
+    public const string SERP_GOOGLE_MAPS_TASK_POST = 'serp/google/maps/task_post';
+
+    /** Paid — Google reviews of one business, standard queue (Faz 8 yorum istihbaratı). */
+    public const string BUSINESS_DATA_GOOGLE_REVIEWS_TASK_POST = 'business_data/google/reviews/task_post';
+
+    /** Paid — backlink summary of a target (Faz 8 backlink fırsat motoru). */
+    public const string BACKLINKS_SUMMARY_LIVE = 'backlinks/summary/live';
+
+    /** Paid — referring domains of a target. */
+    public const string BACKLINKS_REFERRING_DOMAINS_LIVE = 'backlinks/referring_domains/live';
+
+    /** Paid — domains linking to several targets (competitor intersection). */
+    public const string BACKLINKS_DOMAIN_INTERSECTION_LIVE = 'backlinks/domain_intersection/live';
+
     /**
+     * Result reads of queued tasks posted above: the task id is part of the path, so these are matched by
+     * pattern (free reads; only the post is charged).
+     */
+    public const array TASK_GET_PATTERNS = [];
+
+    /**
+     * MoxDOP v2 (Faz 1): only the free directory / account reads, the top-10 SERP and search volume. Every other
+     * DataForSEO task (Labs ranked keywords, keywords for site, competitor domains, keyword ideas, maps / reviews
+     * queues, backlinks) is retired; its constant stays for reference only and can never be called.
+     *
      * @return list<string>
      */
     public static function all(): array
@@ -30,17 +70,25 @@ final class DataForSeoEndpointAllowlist
         return [
             self::APPENDIX_USER_DATA,
             self::LABS_LOCATIONS_AND_LANGUAGES,
-            self::LABS_GOOGLE_RANKED_KEYWORDS_LIVE,
-            self::LABS_GOOGLE_KEYWORDS_FOR_SITE_LIVE,
-            self::LABS_GOOGLE_COMPETITORS_DOMAIN_LIVE,
+            self::SERP_GOOGLE_LOCATIONS_TR,
+            self::SERP_GOOGLE_ORGANIC_LIVE_ADVANCED,
+            self::KEYWORDS_DATA_GOOGLE_ADS_SEARCH_VOLUME_LIVE,
         ];
     }
 
     public static function isAllowed(string $endpoint): bool
     {
         $normalized = ltrim(trim($endpoint), '/');
+        if (in_array($normalized, self::all(), true)) {
+            return true;
+        }
+        foreach (self::TASK_GET_PATTERNS as $pattern) {
+            if (preg_match($pattern, $normalized) === 1) {
+                return true;
+            }
+        }
 
-        return in_array($normalized, self::all(), true);
+        return false;
     }
 
     public static function assertAllowed(string $endpoint): string

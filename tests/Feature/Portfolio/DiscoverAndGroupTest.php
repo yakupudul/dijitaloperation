@@ -1,0 +1,130 @@
+<?php
+
+namespace Tests\Feature\Portfolio;
+
+use App\Jobs\Async\PublicDiscoveryJob;
+use App\Jobs\BuildBrandSetupProposalJob;
+use App\Models\Brand;
+use App\Models\BrandSetupProposal;
+use App\Models\CoreAssetBinding;
+use App\Models\CoreExternalResource;
+use App\Models\CoreIntegration;
+use App\Models\CoreIntegrationCredential;
+use App\Models\Customer;
+use App\Models\DigitalAsset;
+use App\Models\User;
+use App\Services\Portfolio\PortfolioDiscoveryGrouper;
+use App\Support\Roles;
+use Database\Seeders\RoleAndPermissionSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Http;
+use Tests\TestCase;
+
+final class DiscoverAndGroupTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private User $admin;
+
+    private CoreIntegration $google;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->seed(RoleAndPermissionSeeder::class);
+        config(['moxdop.google.client_id' => 'cid', 'moxdop.google.client_secret' => 'csecret', 'moxdop.google.developer_token' => 'dev']);
+        $this->admin = User::factory()->create(['is_active' => true]);
+        $this->admin->assignRole(Roles::ADMIN);
+        $this->actingAs($this->admin);
+        $this->google = CoreIntegration::factory()->google()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
+        CoreIntegrationCredential::factory()->provider()->create(['integration_id' => $this->google->id, 'encrypted_payload' => ['client_id' => 'cid', 'client_secret' => 'csecret', 'developer_token' => 'dev']]);
+        CoreIntegrationCredential::factory()->authorization()->create(['integration_id' => $this->google->id, 'encrypted_payload' => ['access_token' => 'atok', 'refresh_token' => 'rtok'], 'expires_at' => now()->addHour()]);
+        Http::preventStrayRequests();
+        Bus::fake();
+    }
+
+    public function test_unbound_accounts_are_grouped_by_domain_then_by_name(): void
+    {
+        $this->resources();
+
+        $groups = collect(app(PortfolioDiscoveryGrouper::class)->groups())->keyBy('key');
+
+        $atlas = $groups['host:atlasdental.com'];
+        $this->assertSame('Atlas Dental Kliniği', $atlas['suggested_brand'], 'Business Profile title names the brand');
+        $this->assertEqualsCanonicalizing(
+            ['search_console', 'ga4', 'google_business_profile', 'google_ads'],
+            array_column($atlas['resources'], 'type'),
+            'GA4 joins by web stream, Ads by name',
+        );
+        $this->assertArrayHasKey('name:yildizoptik', $groups->all(), 'accounts without a web address form name groups');
+        $this->assertFalse($groups->flatMap(fn (array $g) => array_column($g['resources'], 'external_id'))->contains('999'), 'manager accounts are never offered');
+        $this->assertFalse($groups->flatMap(fn (array $g) => array_column($g['resources'], 'external_id'))->contains('sc-domain:bagli.com'), 'bound accounts are not offered');
+    }
+
+    public function test_finished_site_crawl_queues_the_service_proposal_once(): void
+    {
+        $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create()->id]);
+        $website = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'website', 'primary_url' => 'https://ornek.com.tr/', 'domain' => 'ornek.com.tr']);
+        BrandSetupProposal::query()->create(['brand_id' => $brand->id, 'status' => 'applied', 'services_status' => 'waiting_for_site', 'items' => [], 'services' => []]);
+        $propose = new \ReflectionMethod(PublicDiscoveryJob::class, 'proposeServices');
+
+        $propose->invoke(new PublicDiscoveryJob(1), $website, $this->admin);
+        $propose->invoke(new PublicDiscoveryJob(1), $website, $this->admin);
+
+        $this->assertSame(2, BrandSetupProposal::query()->where('brand_id', $brand->id)->count());
+        Bus::assertDispatched(BuildBrandSetupProposalJob::class, 1);
+    }
+
+    public function test_group_matching_an_existing_website_points_to_that_brand(): void
+    {
+        $this->resources();
+        $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create()->id, 'name' => 'Atlas']);
+        DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'website', 'primary_url' => 'https://www.atlasdental.com/', 'domain' => 'atlasdental.com']);
+
+        $group = collect(app(PortfolioDiscoveryGrouper::class)->groups())->firstWhere('key', 'host:atlasdental.com');
+        $this->assertSame($brand->id, $group['existing_brand_id']);
+    }
+
+    public function test_social_hosts_owner_names_and_account_titles_are_handled(): void
+    {
+        $make = fn (string $type, string $externalId, string $name, array $meta = []) => CoreExternalResource::factory()->create([
+            'integration_id' => $this->google->id, 'provider' => 'google', 'resource_type' => $type, 'external_id' => $externalId,
+            'display_name' => $name, 'metadata' => $meta + ['selectable' => true], 'status' => CoreExternalResource::STATUS_AVAILABLE,
+        ]);
+        $make('google_business_profile', 'locations/7', 'Alal', ['website_uri' => 'https://instagram.com/alal']);
+        $make('google_business_profile', 'locations/8', 'İzmir Hurdacı | Tevka Hurda Metal', ['website_uri' => 'https://tevkahurdametal.com/']);
+        $make('ga4', 'properties/9', 'Hospika - GA4', ['web_stream_uris' => ['https://hospika.com']]);
+        $make('google_ads', '777', 'Gediz Tıp Merkezi', ['descriptive_name' => 'Gediz Tıp Merkezi', 'business_name' => 'Tevka Hurda Metal']);
+        $make('google_ads', '778', 'Tevka Hurda Metal Reklam', ['descriptive_name' => 'Tevka Hurda Metal Reklam']);
+
+        $groups = collect(app(PortfolioDiscoveryGrouper::class)->groups())->keyBy('key');
+
+        $this->assertArrayNotHasKey('host:instagram.com', $groups->all(), 'a social profile link is not a brand website');
+        $this->assertArrayHasKey('name:alal', $groups->all());
+        $tevka = $groups['host:tevkahurdametal.com'];
+        $this->assertSame('Tevka Hurda Metal', $tevka['suggested_brand'], 'the "|" part matching the domain names the brand');
+        $this->assertSame('Hospika', $groups['host:hospika.com']['suggested_brand'], '"- GA4" is dropped');
+        $byId = collect($tevka['resources'])->keyBy('external_id');
+        $this->assertTrue($byId['778']['selected'], 'own account name matches: pre-selected');
+        $this->assertFalse($byId['777']['selected'], 'only the owning business matches: proposed, not pre-selected');
+        $this->assertStringContainsString('işletme', $byId['777']['reason']);
+    }
+
+    private function resources(): void
+    {
+        $make = fn (string $type, string $externalId, string $name, array $meta = []) => CoreExternalResource::factory()->create([
+            'integration_id' => $this->google->id, 'provider' => 'google', 'resource_type' => $type, 'external_id' => $externalId,
+            'display_name' => $name, 'metadata' => $meta + ['selectable' => true], 'status' => CoreExternalResource::STATUS_AVAILABLE,
+        ]);
+
+        $make('search_console', 'sc-domain:atlasdental.com', 'atlasdental.com', ['site_url' => 'sc-domain:atlasdental.com']);
+        $make('ga4', 'properties/111', 'Web', ['property_id' => '111', 'web_stream_uris' => ['https://www.atlasdental.com'], 'web_streams_checked_at' => now()->toIso8601String()]);
+        $make('google_business_profile', 'locations/1', 'Atlas Dental Kliniği', ['website_uri' => 'https://atlasdental.com/']);
+        $make('google_ads', '1234567890', 'Atlas Dental Reklam', ['descriptive_name' => 'Atlas Dental Reklam', 'is_manager' => false]);
+        $make('google_ads', '999', 'Ajans MCC', ['descriptive_name' => 'Ajans MCC', 'is_manager' => true]);
+        $make('google_ads', '555', 'Yıldız Optik', ['descriptive_name' => 'Yıldız Optik', 'is_manager' => false]);
+        $bound = $make('search_console', 'sc-domain:bagli.com', 'bagli.com', ['site_url' => 'sc-domain:bagli.com']);
+        CoreAssetBinding::factory()->create(['external_resource_id' => $bound->id, 'capability' => 'search_console']);
+    }
+}

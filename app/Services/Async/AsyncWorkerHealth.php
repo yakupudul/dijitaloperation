@@ -19,7 +19,9 @@ final class AsyncWorkerHealth
      *     oldest_queued_job_age_seconds: int|null,
      *     last_processed_at: string|null,
      *     worker_appears_idle: bool,
-     *     message: string
+     *     message: string,
+     *     message_key: string,
+     *     message_replace: array<string, scalar>
      * }
      */
     public function snapshot(): array
@@ -44,11 +46,27 @@ final class AsyncWorkerHealth
 
         $workerAppearsIdle = $pending > 0 && $oldestAge !== null && $oldestAge >= 120;
 
-        $message = match (true) {
-            $driver !== 'database' => 'Queue driver is '.$driver.'. Worker health signal is limited.',
-            $pending === 0 => 'No queued jobs waiting.',
-            $workerAppearsIdle => 'Jobs are waiting and the oldest is over 2 minutes old — queue worker may not be running.',
-            default => $pending.' job(s) waiting; worker appears active or recently started.',
+        [$message, $messageKey, $messageReplace] = match (true) {
+            $driver !== 'database' => [
+                'Queue driver is '.$driver.'. Worker health signal is limited.',
+                'driver_limited',
+                ['driver' => $driver],
+            ],
+            $pending === 0 => [
+                'No queued jobs waiting.',
+                'no_jobs',
+                [],
+            ],
+            $workerAppearsIdle => [
+                'Jobs are waiting and the oldest is over 2 minutes old — queue worker may not be running.',
+                'jobs_stale',
+                [],
+            ],
+            default => [
+                $pending.' job(s) waiting; worker appears active or recently started.',
+                'jobs_waiting',
+                ['count' => $pending],
+            ],
         };
 
         return [
@@ -60,6 +78,8 @@ final class AsyncWorkerHealth
                 : ($lastProcessed !== null ? (string) $lastProcessed : null),
             'worker_appears_idle' => $workerAppearsIdle,
             'message' => $message,
+            'message_key' => $messageKey,
+            'message_replace' => $messageReplace,
         ];
     }
 }

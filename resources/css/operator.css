@@ -257,3 +257,71 @@
   min-height: 12rem;
   height: 12rem;
 }
+
+/*
+ * Live feedback for operator actions (resources/js/operator.js): the clicked control shows a spinner while its
+ * Livewire request runs (data-loading, set by Livewire) and a short ✓ when it is done; a thin bar runs at the top.
+ * Controls that already carry their own wire:loading spinner are left alone.
+ */
+button[data-loading]:not(:has([wire\:loading])),
+a[data-loading]:not(:has([wire\:loading])) {
+    position: relative;
+    cursor: progress;
+    color: transparent !important;
+    pointer-events: none;
+}
+button[data-loading]:not(:has([wire\:loading]))::after,
+a[data-loading]:not(:has([wire\:loading]))::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 9999px;
+    border: 2px solid currentColor;
+    border-color: rgb(148 163 184 / 0.45);
+    border-top-color: var(--color-brand-500, #465fff);
+    animation: op-spin 0.7s linear infinite;
+}
+button[data-loading] > *, a[data-loading] > * {
+    visibility: hidden;
+}
+button[data-loading]:has([wire\:loading]) > *, a[data-loading]:has([wire\:loading]) > * {
+    visibility: visible;
+}
+button[data-done], a[data-done] {
+    animation: op-done 1.2s ease-out;
+}
+@keyframes op-spin {
+    to { transform: rotate(360deg); }
+}
+@keyframes op-done {
+    0% { box-shadow: 0 0 0 0 rgb(16 185 129 / 0.55); }
+    100% { box-shadow: 0 0 0 10px rgb(16 185 129 / 0); }
+}
+#op-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 100001;
+    height: 3px;
+    width: 0;
+    opacity: 0;
+    background: linear-gradient(90deg, var(--color-brand-500, #465fff), #22c55e);
+    box-shadow: 0 0 8px rgb(70 95 255 / 0.5);
+    transition: width 8s cubic-bezier(0.1, 0.7, 0.2, 1), opacity 0.2s;
+    pointer-events: none;
+}
+#op-progress.is-active {
+    width: 85%;
+    opacity: 1;
+}
+#op-progress.is-done {
+    width: 100%;
+    transition: width 0.25s ease-out, opacity 0.3s 0.2s;
+    opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+    #op-progress, button[data-done], a[data-done] { transition: none; animation: none; }
+}

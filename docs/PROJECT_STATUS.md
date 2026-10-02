@@ -6,12 +6,15 @@ This file tracks implementation progress for humans and agents.
 
 # DOP Project Status
 
-Last updated: 2026-08-11
+Last updated: 2026-08-20
 
 ## Current product track
 
 | Item | Status |
 | --- | --- |
+| Issue #201 Phase A–E stacked children | CODE/TEST ACCEPTANCE on unmerged stack (#202 → #199 → #200 → #203 → #204 → #206 → #207 → #208) |
+| **Issue #201 Phase F — production readiness / release** | **CODE/RELEASE-CANDIDATE READY WITH EXTERNAL GATES** — child of #208; not merged; live staging deploy/UAT and Reviewer APPROVED remain external |
+| Next | Operator stacked merge + host deploy of the RC SHA; do not invent new product scope |
 | Original foundation roadmap (steps 1–23) | COMPLETED (historical) |
 | Google central Integration + bound collection | COMPLETED |
 | Deterministic performance Findings | COMPLETED |
@@ -31,7 +34,7 @@ Last updated: 2026-08-11
 | **Meta Ads Central Integration + Resource Binding V1** | **IMPLEMENTED V1** — agency Meta Integration + Ad Account ExternalResources + Meta Ads Digital Asset binding; `docs/product/meta-ads/META_ADS_INTEGRATION.md` (real Meta Integration + resource discovery + binding UAT: **PASS**) |
 | **Meta Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** — bound Insights collection + Evidence + Findings + Meta Ads Analyst/Skills + `meta_ads.ai_guidance`; `docs/product/meta-ads/META_ADS_INTELLIGENCE.md` |
 | **Async Operations + Activity Center** | **MERGING / ACCEPTED (implementation)** — database queue + Activity Center; Cloud Meta async smoke PASS; persistent UAT **PREPARED / DEFERRED** (not a merge blocker) |
-| Next milestone | **Meta Ads Expert Workspace** (after #121 merges) — do **not** provision persistent UAT/VPS yet |
+| Later product track (not Phase F) | Meta Ads Expert Workspace / Memory-Retrieval remain later backlog — they do not reopen this release |
 | Memory / Retrieval V1 | PLANNED — only when knowledge volume justifies it; vector RAG deferred |
 
 ### Next milestone candidates (after Meta Expert Workspace)

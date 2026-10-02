@@ -2,6 +2,8 @@
 
 Internal audit matrix for the Final Interface Completion milestone. Not an operator page.
 
+> **Route note (ADR-044):** `/app/...` Expected paths in the table below are historical freeze labels. Canonical operator routes are site root (`/profile`, `/settings`, `/integrations`, …). Filament is `/admin`. Legacy `/app` and `/system` return HTTP 410.
+
 | Screen | Action label | Type | Expected | Actual | Demo/Live/Internal | Route/state | Test |
 |--------|--------------|------|----------|--------|--------------------|-------------|------|
 | Header | Locale EN/TR | state | Persist locale | Persists on User | Internal | LocaleSwitcher | FinalInterfaceCompletionTest |
@@ -26,8 +28,8 @@ Internal audit matrix for the Final Interface Completion milestone. Not an opera
 
 - No `href="#"` / Coming soon found under `resources/views/livewire/demo`.
 - No Demo blade links to `/system` or `/admin`.
-- Filament technical panel remains at `/system` for login and legacy CRUD; operator shell must not deep-link there.
-- Full Agent Profile / Skill assignment editors remain Filament-backed (`/system/settings/...`) — Demo Settings shows registry overview + Control Plane editor only.
+- Filament technical panel remains at `/admin` for login and technical CRUD (ADR-044); operator shell must not deep-link there.
+- Full Agent Profile / Skill assignment editors remain Filament-backed (`/admin/settings/...`) — operator Settings shows registry overview + Control Plane editor only.
 
 ## Classification legend
 

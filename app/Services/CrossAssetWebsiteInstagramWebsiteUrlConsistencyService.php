@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\RecommendationOrigin;
+use App\Enums\RecommendationSourceKind;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
@@ -313,6 +315,9 @@ class CrossAssetWebsiteInstagramWebsiteUrlConsistencyService
         ]);
 
         $recommendation->fill([
+            'source_kind' => RecommendationSourceKind::Finding->value,
+            'opportunity_id' => null,
+            'origin' => RecommendationOrigin::DeterministicTemplate->value,
             'digital_asset_id' => $websiteAsset->id,
             'source_module' => self::MODULE_ID,
             'title' => 'Align Website and Instagram profile website URLs',

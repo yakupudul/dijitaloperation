@@ -16,6 +16,11 @@ final class GoogleAuthStatus
 
     public const string REFRESH_REQUIRED = 'refresh_required';
 
+    /** Alias stored value for reauthorization / action-required. */
+    public const string REAUTH_REQUIRED = self::REFRESH_REQUIRED;
+
+    public const string REVOKED = 'revoked';
+
     public const string ERROR = 'error';
 
     public const string DISABLED = 'disabled';
@@ -35,7 +40,7 @@ final class GoogleAuthStatus
         }
 
         $configStatus = (string) data_get($integration->config, 'auth_status', '');
-        if (in_array($configStatus, [self::REFRESH_REQUIRED, self::ERROR], true)) {
+        if (in_array($configStatus, [self::REFRESH_REQUIRED, self::ERROR, self::REVOKED], true)) {
             return $configStatus;
         }
 
@@ -54,12 +59,13 @@ final class GoogleAuthStatus
     public static function label(string $status): string
     {
         return match ($status) {
-            self::NOT_CONFIGURED => 'Not configured',
-            self::AUTHORIZATION_REQUIRED => 'Not authorized',
-            self::CONNECTED => 'Connected',
-            self::REFRESH_REQUIRED => 'Refresh required',
-            self::ERROR => 'Error',
-            self::DISABLED => 'Disabled',
+            self::NOT_CONFIGURED => __('operator.states.not_configured'),
+            self::AUTHORIZATION_REQUIRED => __('operator.states.not_authorized'),
+            self::CONNECTED => __('operator.states.authorized'),
+            self::REFRESH_REQUIRED => __('operator.states.reconnect_required'),
+            self::REVOKED => __('operator.states.revoked'),
+            self::ERROR => __('operator.states.error'),
+            self::DISABLED => __('operator.states.disabled'),
             default => str($status)->replace('_', ' ')->title()->toString(),
         };
     }
@@ -67,8 +73,8 @@ final class GoogleAuthStatus
     public static function applicationConfigurationLabel(CoreIntegration $integration): string
     {
         return app(GoogleCredentialResolver::class)->isAppConfigured($integration)
-            ? 'Complete'
-            : 'Incomplete';
+            ? __('operator.states.configured')
+            : __('operator.states.not_configured');
     }
 
     public static function adsDeveloperTokenLabel(CoreIntegration $integration): string
@@ -76,11 +82,9 @@ final class GoogleAuthStatus
         $resolver = app(GoogleCredentialResolver::class);
 
         if ($resolver->hasDeveloperToken($integration)) {
-            return $resolver->developerTokenSource($integration) === GoogleCredentialResolver::SOURCE_ENVIRONMENT
-                ? 'Developer token configured by environment'
-                : 'Developer token configured';
+            return __('operator.states.configured');
         }
 
-        return 'Developer token missing';
+        return __('operator.states.missing');
     }
 }

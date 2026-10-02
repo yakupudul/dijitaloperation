@@ -13,6 +13,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'digital_asset_id',
     'source_module',
     'type',
+    'definition_id',
+    'evidence_fingerprint',
+    'is_canonical',
+    'eligibility_status',
+    'collection_run_id',
+    'brand_goal_id',
+    'brand_offering_id',
+    'is_derived',
+    'generated_by_ai',
     'request_fingerprint',
     'title',
     'payload',
@@ -41,11 +50,37 @@ class Evidence extends Model
     }
 
     /**
+     * @return BelongsTo<BrandGoal, $this>
+     */
+    public function brandGoal(): BelongsTo
+    {
+        return $this->belongsTo(BrandGoal::class);
+    }
+
+    /**
+     * @return BelongsTo<BrandOffering, $this>
+     */
+    public function brandOffering(): BelongsTo
+    {
+        return $this->belongsTo(BrandOffering::class);
+    }
+
+    public function isCanonical(): bool
+    {
+        return (bool) $this->is_canonical
+            && filled($this->definition_id)
+            && filled($this->evidence_fingerprint);
+    }
+
+    /**
      * @var array<string, string>
      */
     protected $casts = [
         'payload' => 'array',
         'observed_at' => 'datetime',
         'fresh_until' => 'datetime',
+        'is_canonical' => 'boolean',
+        'is_derived' => 'boolean',
+        'generated_by_ai' => 'boolean',
     ];
 }

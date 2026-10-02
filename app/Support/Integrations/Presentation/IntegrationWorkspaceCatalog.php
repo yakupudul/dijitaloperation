@@ -2,7 +2,6 @@
 
 namespace App\Support\Integrations\Presentation;
 
-use App\Filament\App\Resources\Integrations\IntegrationResource;
 use App\Models\CoreIntegration;
 use App\Support\Integrations\ProviderRegistry;
 use Illuminate\Support\Collection;
@@ -93,7 +92,7 @@ final class IntegrationWorkspaceCatalog
                     lastCheckedLabel: $this->health->lastCheckedLabel($integration, $provider),
                     action: $hasRecord ? 'manage' : 'setup',
                     manageUrl: $hasRecord
-                        ? IntegrationResource::getUrl('view', ['record' => $integration])
+                        ? $this->manageUrlFor($provider, $integration)
                         : null,
                     integrationId: $hasRecord ? $integration->id : null,
                     supportsResources: (bool) $meta['supports_resources'],
@@ -128,5 +127,18 @@ final class IntegrationWorkspaceCatalog
             ->where('provider', $provider)
             ->orderBy('id')
             ->first();
+    }
+
+    /**
+     * Operator integration pages are the only configure/manage surface (Filament copies removed in Faz 1).
+     */
+    private function manageUrlFor(string $provider, CoreIntegration $integration): string
+    {
+        return match ($provider) {
+            ProviderRegistry::GOOGLE => route('operator.integrations.google', absolute: false),
+            ProviderRegistry::META => route('operator.integrations.meta', absolute: false),
+            ProviderRegistry::DATAFORSEO => route('operator.integrations.dataforseo', absolute: false),
+            default => route('operator.integrations.ai', ['provider' => $provider], absolute: false),
+        };
     }
 }

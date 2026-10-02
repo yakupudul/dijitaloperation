@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moxdop.local/schemas/MOXDOP_FORMULA_REGISTRY_V1.schema.json",
+  "title": "MOXDOP Formula Registry V1",
+  "type": "object",
+  "required": [
+    "metadata",
+    "enums",
+    "global_policies",
+    "formulas",
+    "missing_value_policies",
+    "rounding_policies",
+    "comparison_policies",
+    "currency_policies",
+    "timezone_policies",
+    "dispositions",
+    "decisions",
+    "validation"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "registry_id",
+        "version",
+        "status",
+        "created_at",
+        "data_contract_registry_id",
+        "data_contract_registry_version",
+        "data_contract_registry_commit",
+        "source_contracts",
+        "description"
+      ],
+      "properties": {
+        "registry_id": {
+          "const": "MOXDOP_FORMULA_REGISTRY"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "enum": [
+            "FROZEN_FOR_CALCULATION_IMPLEMENTATION",
+            "PARTIAL",
+            "DECISION_REQUIRED"
+          ]
+        },
+        "source_contracts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "enums": {
+      "type": "object",
+      "required": [
+        "formula_type",
+        "output_type",
+        "status",
+        "semantic_direction",
+        "calculation_location"
+      ]
+    },
+    "global_policies": {
+      "type": "object",
+      "required": [
+        "MISSING_NEVER_EQUALS_ZERO",
+        "NO_SILENT_DIVIDE_BY_ZERO",
+        "NO_INTERMEDIATE_ROUNDING",
+        "RATIOS_RECOMPUTE_FROM_BASE_FACTS_WHERE_VALID",
+        "PERCENT_CHANGE_DISTINCT_FROM_PERCENTAGE_POINT_CHANGE",
+        "CURRENCY_MUST_BE_COMPARABLE",
+        "REPORTING_TIMEZONE_MUST_BE_PRESERVED",
+        "STALE_INPUT_PROPAGATES",
+        "PARTIAL_INPUT_PROPAGATES",
+        "ESTIMATED_INPUT_PROVENANCE_PROPAGATES",
+        "TYPED_RESULT_IDENTITY_REQUIRED",
+        "PROVIDER_FACT_DISTINCT_FROM_MOXDOP_DERIVED",
+        "NO_MAGIC_SCORES"
+      ]
+    },
+    "missing_value_policies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "description",
+          "cases"
+        ]
+      }
+    },
+    "rounding_policies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "calculation",
+          "display"
+        ]
+      }
+    },
+    "comparison_policies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "previous_period"
+        ]
+      }
+    },
+    "currency_policies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id"
+        ]
+      }
+    },
+    "timezone_policies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id"
+        ]
+      }
+    },
+    "formulas": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "formula_type",
+          "expression",
+          "numerator",
+          "denominator",
+          "inputs",
+          "output_type",
+          "output_unit",
+          "aggregation_method",
+          "null_policy",
+          "zero_denominator_policy",
+          "missing_policy",
+          "rounding_policy",
+          "comparison_policy",
+          "currency_policy",
+          "timezone_policy",
+          "provenance",
+          "consumer_requirement_ids",
+          "source_contracts",
+          "contract_version",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^FORMULA_[A-Z0-9_]+$"
+          },
+          "formula_type": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "FROZEN",
+              "DECISION_REQUIRED",
+              "DEPENDENCY_NOT_YET_PRODUCTION",
+              "REJECTED"
+            ]
+          },
+          "consumer_requirement_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "inputs": {
+            "type": "array"
+          },
+          "formula_version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "dispositions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "requirement_id",
+          "disposition",
+          "notes"
+        ]
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "decision_id",
+          "blocking",
+          "question"
+        ]
+      }
+    },
+    "validation": {
+      "type": "object",
+      "required": [
+        "passed",
+        "errors",
+        "formula_count"
+      ]
+    }
+  }
+}

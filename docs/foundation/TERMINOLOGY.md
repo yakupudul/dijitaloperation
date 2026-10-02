@@ -7,7 +7,8 @@
 | Terim | Anlam |
 |-------|--------|
 | DOP / MoxDOP | Moximu iç Dijital Operasyon Platformu |
-| Panel `app` | Tek Filament panel; path `/app` |
+| Operator product | Root routes (`/`, `/login`, `/customers`, `/brands`, `/assets`, `/integrations`, `/tasks`, …) |
+| Panel `app` | Tek Filament teknik/admin panel; path `/admin` (ADR-044) |
 | Admin / Team Member | MVP roller |
 | Customer / Brand / Digital Asset / Connection | Sahiplik zinciri |
 | Run | Toplama/teşhis çalıştırması |

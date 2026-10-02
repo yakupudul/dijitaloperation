@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moxdop.local/schemas/MOXDOP_DATA_CONTRACT_REGISTRY_V1.schema.json",
+  "title": "MOXDOP Data Contract Registry V1",
+  "type": "object",
+  "required": [
+    "metadata",
+    "enums",
+    "source_contracts",
+    "sources",
+    "requirements",
+    "datasets",
+    "request_families",
+    "decisions",
+    "unsupported",
+    "traceability"
+  ],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "registry_id",
+        "version",
+        "status",
+        "created_at",
+        "source_base_commit",
+        "description"
+      ],
+      "properties": {
+        "registry_id": {
+          "const": "MOXDOP_DATA_CONTRACT_REGISTRY"
+        },
+        "version": {
+          "type": "integer",
+          "const": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "FROZEN_FOR_COLLECTION_IMPLEMENTATION",
+            "PARTIAL",
+            "DECISION_REQUIRED",
+            "DRAFT"
+          ]
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "source_base_commit": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "enums": {
+      "type": "object"
+    },
+    "source_contracts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "contract_id",
+          "file",
+          "version",
+          "source_commit",
+          "status",
+          "included_in_registry"
+        ]
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "operating_mode"
+        ]
+      }
+    },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "consumer",
+          "provider_or_source",
+          "source_class",
+          "dataset",
+          "request_family",
+          "dimensions",
+          "metrics",
+          "grain",
+          "historical_depth",
+          "refresh_cadence",
+          "requirement_level",
+          "storage_class",
+          "formula",
+          "dependencies",
+          "provenance",
+          "contract_version",
+          "source_contract",
+          "source_requirement_ids",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$"
+          },
+          "requirement_level": {
+            "enum": [
+              "REQUIRED",
+              "OPTIONAL",
+              "CONDITIONAL"
+            ]
+          },
+          "status": {
+            "enum": [
+              "COLLECTION_READY",
+              "NO_COLLECTION_REQUIRED",
+              "DECISION_REQUIRED",
+              "UNAVAILABLE",
+              "UNSUPPORTED",
+              "DEMO_ONLY",
+              "DEFERRED"
+            ]
+          },
+          "dataset": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "request_family": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "formula": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "datasets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "provider_or_source",
+          "description",
+          "storage_class",
+          "grain",
+          "primary_dimensions",
+          "base_metrics",
+          "snapshot_or_timeseries",
+          "history_policy",
+          "refresh_policy",
+          "consumer_requirement_ids",
+          "provenance",
+          "status"
+        ]
+      }
+    },
+    "request_families": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "provider_or_source",
+          "capability_endpoint_resource",
+          "requirement_ids",
+          "status"
+        ]
+      }
+    },
+    "decisions": {
+      "type": "array"
+    },
+    "unsupported": {
+      "type": "array"
+    },
+    "traceability": {
+      "type": "array"
+    }
+  }
+}

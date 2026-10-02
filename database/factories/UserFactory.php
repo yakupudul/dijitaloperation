@@ -33,6 +33,8 @@ class UserFactory extends Factory
             'avatar_path' => null,
             'locale' => 'en',
             'timezone' => 'UTC',
+            'is_active' => true,
+            'last_login_at' => null,
         ];
     }
 

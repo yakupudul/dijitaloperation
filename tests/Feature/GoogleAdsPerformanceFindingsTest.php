@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
@@ -11,6 +12,7 @@ use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\Run;
 use App\Services\Findings\FindingLifecycleService;
+use App\Services\Integrations\BoundCollectorRegistry;
 use App\Services\Integrations\CollectLiveBoundDataService;
 use App\Support\Integrations\ProviderRegistry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -272,17 +274,80 @@ class GoogleAdsPerformanceFindingsTest extends TestCase
             ], 200);
         });
 
-        $result = app(CollectLiveBoundDataService::class)->collect($asset->fresh());
-        $this->assertNotEmpty($result['runs']);
-        $this->assertArrayHasKey('findings', $result);
-        $this->assertGreaterThanOrEqual(1, $result['findings']['opened']);
+        $binding = CoreAssetBinding::query()
+            ->with(['externalResource.integration', 'digitalAsset'])
+            ->where('digital_asset_id', $asset->id)
+            ->where('capability', 'google_ads')
+            ->firstOrFail();
+
+        $collector = app(BoundCollectorRegistry::class)->forCapability('google_ads');
+        $this->assertNotNull($collector);
+        $run = $collector->collect($binding);
+        $this->assertSame('google-ads', $run->module_id);
+
+        $evaluated = app(GoogleAdsPerformanceBoundEvidenceEvaluator::class)->evaluate($asset, [$run->fresh('evidence')]);
+        $this->assertTrue($evaluated->evaluationSuccessful);
+        $stats = app(FindingLifecycleService::class)->apply($evaluated);
+        $this->assertGreaterThanOrEqual(1, $stats['opened']);
         $this->assertDatabaseHas('findings', [
             'digital_asset_id' => $asset->id,
             'fingerprint' => PerformanceFindingsCatalog::RULE_CAMPAIGN_SPEND_ZERO_CONVERSIONS.':42',
         ]);
-        $this->assertSame(
-            $result['findings']['opened'],
-            data_get($result['runs'][array_key_last($result['runs'])]->fresh()->metadata, 'findings_lifecycle.opened'),
-        );
+    }
+
+    public function test_operator_collect_now_routes_google_ads_to_collection_engine(): void
+    {
+        $integration = CoreIntegration::factory()->google()->create([
+            'status' => CoreIntegration::STATUS_ACTIVE,
+        ]);
+        CoreIntegrationCredential::factory()->provider()->create([
+            'integration_id' => $integration->id,
+            'encrypted_payload' => [
+                'client_id' => 'cid',
+                'client_secret' => 'csecret',
+                'developer_token' => 'dev-token',
+            ],
+        ]);
+        CoreIntegrationCredential::factory()->authorization()->create([
+            'integration_id' => $integration->id,
+            'encrypted_payload' => [
+                'access_token' => 'atok',
+                'refresh_token' => 'rtok',
+            ],
+            'expires_at' => now()->addHour(),
+        ]);
+
+        $asset = DigitalAsset::factory()->create(['type' => 'google_ads']);
+        $resource = CoreExternalResource::factory()->create([
+            'integration_id' => $integration->id,
+            'provider' => ProviderRegistry::GOOGLE,
+            'resource_type' => 'google_ads',
+            'external_id' => '1234567890',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
+            'metadata' => ['login_customer_id' => '9999999999'],
+        ]);
+        CoreAssetBinding::factory()->create([
+            'digital_asset_id' => $asset->id,
+            'external_resource_id' => $resource->id,
+            'capability' => 'google_ads',
+            'status' => CoreAssetBinding::STATUS_ACTIVE,
+        ]);
+
+        config([
+            'moxdop-collection.require_queue_connection' => false,
+            'moxdop-collection.queue_connection' => 'database',
+        ]);
+
+        $result = app(CollectLiveBoundDataService::class)->collect($asset->fresh());
+        $this->assertTrue($result['ok'], (string) ($result['message'] ?? ''));
+        $this->assertNotNull($result['collection_run_id']);
+        $this->assertEmpty($result['runs']);
+        $this->assertDatabaseHas('collection_runs', [
+            'id' => $result['collection_run_id'],
+            'digital_asset_id' => $asset->id,
+        ]);
+        $this->assertTrue(CollectionRun::query()->whereKey($result['collection_run_id'])->exists());
+        $this->assertSame(0, Evidence::query()->where('type', 'google_ads_account_summary')->count());
+        $this->assertSame(0, Run::query()->where('module_id', 'google-ads')->count());
     }
 }

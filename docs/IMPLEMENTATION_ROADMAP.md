@@ -104,7 +104,7 @@ Büyük bir roadmap maddesi tek PR olmak zorunda değildir. Örnek Customer:
 
 | Adım | Not |
 |------|-----|
-| 1–2 | Tek panel `app`/`/app`, `spatie/laravel-permission`, Admin / Team Member — **done** |
+| 1–2 | Operator root routes + Filament `app`/`/admin` (ADR-044), `spatie/laravel-permission`, Admin / Team Member — **done** |
 | 3–6 | Domain CRUD + Connection/credential (ADR-027) |
 | 7 | Custom plugin framework yok; minimal registry |
 | 8 | Finding kalıcı + fingerprint (ADR-034); Evidence Run’a bağlı; Result entity yok |

@@ -4,6 +4,7 @@ namespace App\Support\Integrations\Presentation;
 
 use App\Models\CoreIntegration;
 use App\Services\Integrations\Anthropic\AnthropicCredentialResolver;
+use App\Services\Integrations\ApiKeyAi\ApiKeyAiCredentialResolver;
 use App\Services\Integrations\DataForSeo\DataForSeoCredentialResolver;
 use App\Services\Integrations\Gemini\GeminiCredentialResolver;
 use App\Services\Integrations\Google\GoogleCredentialResolver;
@@ -48,10 +49,11 @@ final class IntegrationHealthPresenter
                 $integration,
                 app(GeminiCredentialResolver::class)->isConfigured($integration),
             ),
-            ProviderRegistry::META => $this->apiKeyProviderStatus(
+            ProviderRegistry::GROQ, ProviderRegistry::OPENROUTER => $this->apiKeyProviderStatus(
                 $integration,
-                app(MetaCredentialResolver::class)->isConfigured($integration),
+                app(ApiKeyAiCredentialResolver::class)->isConfigured($integration),
             ),
+            ProviderRegistry::META => $this->metaStatus($integration),
             default => IntegrationOperatorStatus::NOT_CONFIGURED,
         };
     }
@@ -67,7 +69,9 @@ final class IntegrationHealthPresenter
             ProviderRegistry::META => $this->metaSummary($integration),
             ProviderRegistry::OPENAI,
             ProviderRegistry::ANTHROPIC,
-            ProviderRegistry::GEMINI => $this->aiProviderSummary($integration),
+            ProviderRegistry::GEMINI,
+            ProviderRegistry::GROQ,
+            ProviderRegistry::OPENROUTER => $this->aiProviderSummary($integration),
             default => [],
         };
     }
@@ -111,6 +115,21 @@ final class IntegrationHealthPresenter
             GoogleAuthStatus::AUTHORIZATION_REQUIRED => IntegrationOperatorStatus::CONFIGURED,
             default => IntegrationOperatorStatus::NOT_CONFIGURED,
         };
+    }
+
+    private function metaStatus(CoreIntegration $integration): string
+    {
+        $resolver = app(MetaCredentialResolver::class);
+
+        if (! $resolver->isApplicationConfigured($integration)) {
+            return IntegrationOperatorStatus::NOT_CONFIGURED;
+        }
+
+        if (! $resolver->hasTenantAuthorization($integration)) {
+            return IntegrationOperatorStatus::CONFIGURED;
+        }
+
+        return $this->apiKeyProviderStatus($integration, true);
     }
 
     private function apiKeyProviderStatus(CoreIntegration $integration, bool $configured): string

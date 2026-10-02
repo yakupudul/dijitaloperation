@@ -2,7 +2,6 @@
 
 namespace MoxDop\Website\Workspace;
 
-use App\Filament\App\Resources\Findings\FindingResource;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreConnection;
 use App\Models\CoreExternalResource;
@@ -14,10 +13,9 @@ use App\Models\Recommendation;
 use App\Models\Run;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Integrations\ProviderRegistry;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
-use MoxDop\Website\Ai\WebsiteAiRecommendationConfig;
-use MoxDop\Website\Ai\WebsiteAiRecommendationService;
 use MoxDop\Website\Discovery\DiscoveryConfig;
 use MoxDop\Website\Opportunities\GscStrikingDistanceOpportunities;
 use MoxDop\Website\SeoIntelligence\CrossSourceKeywordOpportunities;
@@ -31,9 +29,14 @@ use MoxDop\Website\SeoIntelligence\SeoIntelligenceConfig;
 final class WebsiteWorkspaceData
 {
     /**
+     * Module id of historical Website AI guidance runs (producer removed in Faz 1; kept so old runs keep a title).
+     */
+    private const string LEGACY_AI_GUIDANCE_MODULE_ID = 'website-ai-insights';
+
+    /**
      * @return array<string, mixed>
      */
-    public function for(DigitalAsset $asset): array
+    public function for(DigitalAsset $asset, ?string $periodStart = null, ?string $periodEnd = null): array
     {
         $gscSummary = $this->latestEvidence($asset, 'gsc_performance_summary');
         $gscDaily = $this->latestEvidence($asset, 'gsc_daily_performance');
@@ -43,10 +46,13 @@ final class WebsiteWorkspaceData
         $ga4Landing = $this->latestEvidence($asset, 'ga4_landing_page_performance');
         $ga4Acquisition = $this->latestEvidence($asset, 'ga4_acquisition_summary');
 
-        $period = data_get($gscSummary?->payload, 'requested_period')
-            ?? data_get($ga4Summary?->payload, 'requested_period');
-        $comparison = data_get($gscSummary?->payload, 'comparison_period')
-            ?? data_get($ga4Summary?->payload, 'comparison_period');
+        $gscSummaryForPeriod = $this->evidenceForSelectedPeriod($gscSummary, $periodStart, $periodEnd);
+        $ga4SummaryForPeriod = $this->evidenceForSelectedPeriod($ga4Summary, $periodStart, $periodEnd);
+
+        $period = data_get($gscSummaryForPeriod?->payload, 'requested_period')
+            ?? data_get($ga4SummaryForPeriod?->payload, 'requested_period');
+        $comparison = data_get($gscSummaryForPeriod?->payload, 'comparison_period')
+            ?? data_get($ga4SummaryForPeriod?->payload, 'comparison_period');
 
         $lastUpdated = collect([$gscSummary, $ga4Summary])
             ->filter()
@@ -93,16 +99,16 @@ final class WebsiteWorkspaceData
                 ? $lastUpdated->diffForHumans()
                 : null,
             'kpis' => array_values(array_filter([
-                ...$this->gscKpis($gscSummary),
-                ...$this->ga4Kpis($ga4Summary),
+                ...$this->gscKpis($gscSummaryForPeriod),
+                ...$this->ga4Kpis($ga4SummaryForPeriod),
             ])),
-            'gsc_daily' => $this->dailySeries($gscDaily),
-            'queries' => $this->boundedRows($gscQueries, 12),
-            'pages' => $this->boundedRows($gscPages, 12),
-            'landing_pages' => $this->boundedRows($ga4Landing, 12),
-            'acquisition' => $this->boundedRows($ga4Acquisition, 12),
-            'ga4_summary' => $ga4Summary?->payload,
-            'gsc_summary' => $gscSummary?->payload,
+            'gsc_daily' => $this->dailySeries($gscDaily, $periodStart, $periodEnd),
+            'queries' => $this->boundedRows($gscQueries, 12, $periodStart, $periodEnd),
+            'pages' => $this->boundedRows($gscPages, 12, $periodStart, $periodEnd),
+            'landing_pages' => $this->boundedRows($ga4Landing, 12, $periodStart, $periodEnd),
+            'acquisition' => $this->boundedRows($ga4Acquisition, 12, $periodStart, $periodEnd),
+            'ga4_summary' => $ga4SummaryForPeriod?->payload,
+            'gsc_summary' => $gscSummaryForPeriod?->payload,
             'seo_opportunities' => $seoOpportunities,
             'seo_intelligence' => $seoIntelligence,
             'findings' => [
@@ -121,11 +127,14 @@ final class WebsiteWorkspaceData
             ],
             'recommendations' => $recommendations,
             'diagnosis' => $this->diagnosisSummary($diagnosisRun),
-            'ai_guidance' => $this->aiGuidance($asset),
             'connections' => $connections,
             'connection_health' => $this->connectionHealthLine($connections),
             'activity' => $this->activityRows($asset),
             'has_performance_data' => $gscSummary !== null || $ga4Summary !== null,
+            'period_has_data' => $gscSummaryForPeriod !== null || $ga4SummaryForPeriod !== null
+                || $this->dailySeries($gscDaily, $periodStart, $periodEnd)['labels'] !== [],
+            'selected_period_start' => $periodStart,
+            'selected_period_end' => $periodEnd,
         ];
     }
 
@@ -145,6 +154,7 @@ final class WebsiteWorkspaceData
         $summary = Evidence::query()
             ->where('digital_asset_id', $asset->id)
             ->where('type', DiscoveryConfig::EVIDENCE_SITE_SUMMARY)
+            ->where('run_id', $lastRun?->id ?? 0)
             ->where('source_module', DiscoveryConfig::MODULE_ID)
             ->latest('observed_at')
             ->latest('id')
@@ -173,9 +183,9 @@ final class WebsiteWorkspaceData
         $status = data_get($lastRun?->metadata, 'discovery_status')
             ?? ($summaryPayload['status'] ?? null);
         $statusLabel = match ($status) {
-            'succeeded' => 'Succeeded',
-            'partial' => 'Partial',
-            'failed' => 'Failed',
+            'succeeded' => __('public_discovery.complete'),
+            'partial' => __('public_discovery.partial'),
+            'failed' => __('public_discovery.failed'),
             default => $lastRun ? ucfirst((string) $lastRun->status) : 'Not run',
         };
 
@@ -197,11 +207,12 @@ final class WebsiteWorkspaceData
             $competitorEmpty = (string) ($summaryPayload['competitor_message'] ?? 'Unavailable — external competitor intelligence provider is not configured.');
         }
 
-        $retrieved = $summary?->observed_at ?? $lastRun?->finished_at;
+        $retrieved = isset($summaryPayload['retrieved_at']) ? CarbonImmutable::parse($summaryPayload['retrieved_at']) : null;
 
         return [
             'last_run' => $lastRun,
             'summary' => $summaryPayload,
+            'coverage' => $summaryPayload['coverage'] ?? null,
             'status_label' => $statusLabel,
             'pages_inspected' => (int) (data_get($lastRun?->metadata, 'pages_inspected') ?? ($summaryPayload['pages_inspected'] ?? 0)),
             'fact_count' => $facts->where('status', DiscoveryCandidate::STATUS_PENDING)->count() + $facts->where('status', DiscoveryCandidate::STATUS_ACCEPTED)->count(),
@@ -212,86 +223,6 @@ final class WebsiteWorkspaceData
             'competitor_empty_message' => $competitorEmpty,
             'retrieved_human' => $retrieved instanceof CarbonInterface ? $retrieved->diffForHumans() : null,
             'ai_label' => $aiLabel,
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function aiGuidance(DigitalAsset $asset): array
-    {
-        $service = app(WebsiteAiRecommendationService::class);
-        $insight = $service->latestSuccessfulInsight($asset);
-        $failed = $service->latestFailedInsight($asset);
-
-        if ($insight === null && $failed === null) {
-            return [
-                'available' => false,
-                'insight' => null,
-                'failed' => null,
-            ];
-        }
-
-        $payload = is_array($insight?->payload) ? $insight->payload : [];
-        $failedPayload = is_array($failed?->payload) ? $failed->payload : [];
-        $showFailure = $failed !== null && ($insight === null || $failed->id > $insight->id);
-
-        $interpretations = [];
-        foreach ($payload['finding_interpretations'] ?? [] as $row) {
-            if (! is_array($row)) {
-                continue;
-            }
-            $findingId = (int) ($row['finding_id'] ?? 0);
-            $finding = $findingId > 0
-                ? Finding::query()->where('digital_asset_id', $asset->id)->find($findingId)
-                : null;
-
-            $existingAiRec = Recommendation::query()
-                ->where('digital_asset_id', $asset->id)
-                ->where('finding_id', $findingId)
-                ->where('source_module', WebsiteAiRecommendationConfig::MODULE_ID)
-                ->orderByDesc('id')
-                ->first();
-
-            $interpretations[] = [
-                'finding_id' => $findingId,
-                'finding_title' => $finding?->title ?? ('Finding #'.$findingId),
-                'severity' => $finding?->severity ?? ($row['suggested_priority'] ?? 'medium'),
-                'explanation' => (string) ($row['explanation'] ?? $row['likely_cause'] ?? ''),
-                'business_relevance' => (string) ($row['business_relevance'] ?? $row['business_impact'] ?? ''),
-                'uncertainty' => (string) ($row['uncertainty'] ?? 'medium'),
-                'suggested_priority' => (string) ($row['suggested_priority'] ?? 'medium'),
-                'evidence_ids' => array_values(array_map('intval', $row['evidence_ids'] ?? [])),
-                'watch_metrics' => is_array($row['watch_metrics'] ?? null) ? $row['watch_metrics'] : [],
-                'recommendation_draft' => is_array($row['recommendation_draft'] ?? null)
-                    ? $row['recommendation_draft']
-                    : null,
-                'existing_recommendation' => $existingAiRec,
-                'can_accept' => $existingAiRec === null
-                    || ! in_array($existingAiRec->status, ['dismissed', 'converted'], true),
-            ];
-        }
-
-        $completeness = is_array($payload['brand_completeness'] ?? null)
-            ? $payload['brand_completeness']
-            : null;
-
-        return [
-            'available' => $insight !== null,
-            'generated_at' => $insight?->observed_at,
-            'generated_human' => $insight?->observed_at?->diffForHumans(),
-            'executive_summary' => (string) ($payload['executive_summary'] ?? $payload['summary'] ?? ''),
-            'overall_priority' => (string) ($payload['overall_priority'] ?? ''),
-            'finding_count' => count($payload['finding_ids'] ?? []),
-            'evidence_count' => count($payload['evidence_ids'] ?? []),
-            'brand_completeness' => $completeness,
-            'interpretations' => $interpretations,
-            'failed' => $showFailure ? [
-                'at' => $failed?->observed_at,
-                'error_class' => (string) ($failedPayload['error_class'] ?? 'unknown'),
-                'message' => 'Latest AI request failed. Previous successful guidance is shown when available.',
-            ] : null,
-            'insight_id' => $insight?->id,
         ];
     }
 
@@ -341,7 +272,7 @@ final class WebsiteWorkspaceData
                 'source' => $label,
                 'status' => $finding->status,
                 'recommendation' => $recommendation?->action,
-                'url' => FindingResource::getUrl('view', ['record' => $finding]),
+                'url' => route('operator.website', ['assetId' => $finding->digital_asset_id]),
             ];
         }
 
@@ -467,7 +398,7 @@ final class WebsiteWorkspaceData
         $capability = data_get($run->metadata, 'capability');
 
         return match (true) {
-            $run->module_id === WebsiteAiRecommendationConfig::MODULE_ID => WebsiteAiRecommendationConfig::RUN_TITLE,
+            $run->module_id === self::LEGACY_AI_GUIDANCE_MODULE_ID => 'AI Guidance',
             $run->module_id === DiscoveryConfig::MODULE_ID => 'Public discovery',
             $run->module_id === 'website-diagnosis' => 'Website technical check',
             $capability === 'search_console' => 'Search Console data refresh',
@@ -520,6 +451,30 @@ final class WebsiteWorkspaceData
             ->latest('observed_at')
             ->latest('id')
             ->first();
+    }
+
+    private function evidenceForSelectedPeriod(?Evidence $evidence, ?string $periodStart, ?string $periodEnd): ?Evidence
+    {
+        if ($evidence === null) {
+            return null;
+        }
+
+        if (! filled($periodStart) || ! filled($periodEnd)) {
+            return $evidence;
+        }
+
+        $requested = data_get($evidence->payload, 'requested_period');
+        $evidenceStart = is_array($requested) ? ($requested['start'] ?? null) : null;
+        $evidenceEnd = is_array($requested) ? ($requested['end'] ?? null) : null;
+        if (! is_string($evidenceStart) || $evidenceStart === '' || ! is_string($evidenceEnd) || $evidenceEnd === '') {
+            return null;
+        }
+
+        if ($evidenceStart > $periodEnd || $evidenceEnd < $periodStart) {
+            return null;
+        }
+
+        return $evidence;
     }
 
     private function latestBindingRun(DigitalAsset $asset, string $capability): ?Run
@@ -639,40 +594,137 @@ final class WebsiteWorkspaceData
     /**
      * @return array{labels: list<string>, clicks: list<float|null>, impressions: list<float|null>}
      */
-    private function dailySeries(?Evidence $evidence): array
+    private function dailySeries(?Evidence $evidence, ?string $periodStart = null, ?string $periodEnd = null): array
     {
         $rows = is_array($evidence?->payload['rows'] ?? null) ? $evidence->payload['rows'] : [];
         $labels = [];
         $clicks = [];
         $impressions = [];
 
-        foreach (array_slice($rows, 0, 28) as $row) {
+        foreach ($rows as $row) {
             if (! is_array($row)) {
                 continue;
             }
-            $labels[] = (string) ($row['date'] ?? '');
+            $date = (string) ($row['date'] ?? '');
+            if ($date === '') {
+                continue;
+            }
+            if (filled($periodStart) && $date < $periodStart) {
+                continue;
+            }
+            if (filled($periodEnd) && $date > $periodEnd) {
+                continue;
+            }
+            $labels[] = $date;
             $clicks[] = isset($row['clicks']) ? (float) $row['clicks'] : null;
             $impressions[] = isset($row['impressions']) ? (float) $row['impressions'] : null;
+        }
+
+        if (! filled($periodStart) && ! filled($periodEnd) && count($labels) > 28) {
+            $labels = array_slice($labels, 0, 28);
+            $clicks = array_slice($clicks, 0, 28);
+            $impressions = array_slice($impressions, 0, 28);
         }
 
         return compact('labels', 'clicks', 'impressions');
     }
 
     /**
+     * Detail datasets that are aggregates for a requested_period must match that
+     * range exactly. Dated rows may be sliced when the Evidence period overlaps.
+     * Do not prorate or reuse a wider aggregate under a narrower selection.
+     *
      * @return list<array<string, mixed>>
      */
-    private function boundedRows(?Evidence $evidence, int $limit): array
+    private function boundedRows(?Evidence $evidence, int $limit, ?string $periodStart = null, ?string $periodEnd = null): array
     {
-        $rows = is_array($evidence?->payload['rows'] ?? null) ? $evidence->payload['rows'] : [];
+        if ($evidence === null) {
+            return [];
+        }
+
+        $rows = is_array($evidence->payload['rows'] ?? null) ? $evidence->payload['rows'] : [];
+        if (! filled($periodStart) || ! filled($periodEnd)) {
+            return $this->takeBoundedRows($rows, $limit, null, null, allowUndated: true);
+        }
+
+        if ($this->evidenceForSelectedPeriod($evidence, $periodStart, $periodEnd) === null) {
+            return [];
+        }
+
+        $exactMatch = $this->evidenceRequestedPeriodMatches($evidence, $periodStart, $periodEnd);
+
+        return $this->takeBoundedRows($rows, $limit, $periodStart, $periodEnd, allowUndated: $exactMatch);
+    }
+
+    /**
+     * @param  list<mixed>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function takeBoundedRows(array $rows, int $limit, ?string $periodStart, ?string $periodEnd, bool $allowUndated): array
+    {
         $out = [];
 
-        foreach (array_slice($rows, 0, $limit) as $row) {
-            if (is_array($row)) {
-                $out[] = $row;
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $date = $this->rowDate($row);
+            if ($date === null) {
+                if (! $allowUndated) {
+                    continue;
+                }
+            } elseif ($this->rowIsOutsideSelectedPeriod($row, $periodStart, $periodEnd)) {
+                continue;
+            }
+            $out[] = $row;
+            if (count($out) >= $limit) {
+                break;
             }
         }
 
         return $out;
+    }
+
+    private function evidenceRequestedPeriodMatches(Evidence $evidence, string $periodStart, string $periodEnd): bool
+    {
+        $requested = data_get($evidence->payload, 'requested_period');
+        $evidenceStart = is_array($requested) ? ($requested['start'] ?? null) : null;
+        $evidenceEnd = is_array($requested) ? ($requested['end'] ?? null) : null;
+
+        return $evidenceStart === $periodStart && $evidenceEnd === $periodEnd;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function rowDate(array $row): ?string
+    {
+        $date = $row['date'] ?? $row['day'] ?? null;
+
+        return is_string($date) && $date !== '' ? $date : null;
+    }
+
+    /**
+     * Dated rows (when present) are bounded to the selected range.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    private function rowIsOutsideSelectedPeriod(array $row, ?string $periodStart, ?string $periodEnd): bool
+    {
+        $date = $this->rowDate($row);
+        if ($date === null) {
+            return false;
+        }
+
+        if (filled($periodStart) && $date < $periodStart) {
+            return true;
+        }
+
+        if (filled($periodEnd) && $date > $periodEnd) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -804,7 +856,7 @@ final class WebsiteWorkspaceData
                     ]));
                 }
 
-                if ($run->module_id === WebsiteAiRecommendationConfig::MODULE_ID) {
+                if ($run->module_id === self::LEGACY_AI_GUIDANCE_MODULE_ID) {
                     $findingCount = count(data_get($run->metadata, 'finding_ids', []) ?: []);
                     $providerLabel = is_string($provider) && $provider !== ''
                         ? AiProviderCatalog::label($provider)

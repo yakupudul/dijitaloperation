@@ -3,12 +3,17 @@
 > **STATUS: PARTIALLY IMPLEMENTED (V1)**  
 >  
 > **Implemented in V1:**  
-> - **AI Router:** OpenAI + Anthropic + Gemini, workflow routes (`website.ai_guidance`), native failover, provenance  
-> - **Agent Profiles + Skill Library:** Website SEO Analyst, curated Website Skills, bounded context, eligibility, Agent/Skill provenance  
-> **Still PLANNED / NOT IMPLEMENTED:** Playbooks, Recommendation Reviewer AI layer, Capability Registry / Capability Router, Memory/Retrieval, vector RAG, aggregator providers, operator-custom Skills DB. **Discovery Intelligence V1 is IMPLEMENTED** (Website-owned; see `DISCOVERY_INTELLIGENCE.md`).  
+> - **AI Router:** OpenAI + Anthropic + Gemini, workflow routes (`website.ai_guidance`, Ads/Meta/Discovery routes), native failover, provenance  
+> - **Agent Profiles + Skill Library:** code-defined profiles + curated Markdown Skills, bounded context, eligibility, Agent/Skill provenance  
+> - **Prompt 50 Agent execution (operational):** EvidencePack + planner + pre-inference abstention + structured output validation + execution provenance for Website SEO, Brand Discovery, Google Ads, Meta Ads — see [`docs/implementation/AI_AGENT_PRODUCTION_EXECUTION.md`](../implementation/AI_AGENT_PRODUCTION_EXECUTION.md). GBP/GA4/GSC Agents remain **designed** (no live execution claimed). Raw DB Agent access **FORBIDDEN**.  
+> **Still PLANNED / NOT IMPLEMENTED:** Playbooks, Recommendation Reviewer AI layer, Capability Registry / Capability Router, Memory/Retrieval (**Prompt 51**), vector RAG, aggregator providers, operator-custom Skills DB. **Discovery Intelligence V1 is IMPLEMENTED** (Website-owned; see `DISCOVERY_INTELLIGENCE.md`).  
 >  
 > Authority order remains: `MASTER_SPEC` → accepted ADRs → product blueprints → this direction doc.  
 > Related: [`AGENT_SKILL_ARCHITECTURE.md`](./AGENT_SKILL_ARCHITECTURE.md) · [`DISCOVERY_INTELLIGENCE.md`](./DISCOVERY_INTELLIGENCE.md) · [`KNOWLEDGE_MEMORY_ARCHITECTURE.md`](./KNOWLEDGE_MEMORY_ARCHITECTURE.md) · [`docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md`](../research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md).
+
+### Prompt 50 note
+
+Prompt 50 does **not** invent providers or routes. It grounds operational Agent runs on the existing Control Plane (route signature versioning, failover, `laravel/ai`), enforces Skill eligibility before inference, and rejects chain-of-thought / magic scores in structured output. Memory/retrieval stays **NOT YET**.
 
 ---
 
@@ -57,6 +62,8 @@ Product rules (already canonical in MASTER_SPEC / ADR-041 path):
 | Route-specific primary/fallback — **AI Router** (`website.ai_guidance`) | **IMPLEMENTED V1** |
 | Agent Profiles (Website SEO Analyst) | **IMPLEMENTED V1** |
 | Skill Library (built-in Markdown Skills) | **IMPLEMENTED V1** |
+| Grounded Agent / Skill execution (operational specialists) | **IMPLEMENTED V1 (Prompt 50)** — GBP/GA4/GSC designed only |
+| Memory / Retrieval | **PLANNED / NOT YET (Prompt 51)** |
 | Capability Registry / Capability Router | **PLANNED / NOT IMPLEMENTED** |
 | Outside-in Discovery Intelligence | **IMPLEMENTED V1** — Website public discovery + `website.discovery_context`; see `DISCOVERY_INTELLIGENCE.md` |
 | Playbooks | **PLANNED / NOT IMPLEMENTED** |

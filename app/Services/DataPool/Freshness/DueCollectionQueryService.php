@@ -1,0 +1,401 @@
+<?php
+
+namespace App\Services\DataPool\Freshness;
+
+use App\Enums\DataPool\FreshnessState;
+use App\Models\CoreAssetBinding;
+use App\Models\DataPool\DatasetMaterialization;
+use App\Services\Collection\Activity\ActivityCollectionPlan;
+use App\Services\Collection\Activity\CollectionActivityGate;
+use App\Services\Collection\DataContractRegistryLoader;
+use App\Services\DataPool\Freshness\Support\DueCollectionItem;
+use App\Support\Collection\CollectionDatasetCatalog;
+use App\Support\ServiceScope;
+use App\Support\Time\SafeTimezone;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
+
+/**
+ * Provider-neutral due-collection query for future Prompt 62 scheduler.
+ * DB + contract/policy driven — zero analytical provider calls.
+ */
+final class DueCollectionQueryService
+{
+    /**
+     * Capability → provider_or_source
+     *
+     * @var array<string, string>
+     */
+    private const CAPABILITY_PROVIDER = [
+        'ga4' => 'GA4',
+        'search_console' => 'SEARCH_CONSOLE',
+        'google_ads' => 'GOOGLE_ADS',
+        'meta_ads' => 'META_ADS',
+    ];
+
+    public function __construct(
+        private readonly DataFreshnessPolicyLoader $policies,
+        private readonly DataContractRegistryLoader $contracts,
+        private readonly IncrementalCoveragePlanner $planner,
+    ) {}
+
+    /**
+     * @param  array{
+     *   customer_id?: ?int,
+     *   brand_id?: ?int,
+     *   digital_asset_id?: ?int,
+     *   core_asset_binding_ids?: list<int>,
+     *   provider_sources?: list<string>|null,
+     *   include_action_required?: bool,
+     *   authorization_ready_by_binding_id?: array<int, bool>,
+     *   integrity_blocked_by_dataset_resource?: array<string, bool>,
+     *   activity_gate?: bool
+     * }  $filters
+     * @return list<DueCollectionItem>
+     */
+    public function query(array $filters = []): array
+    {
+        $this->policies->validate();
+        $this->contracts->load();
+
+        $bindings = $this->loadBindings($filters);
+        if ($bindings === []) {
+            return [];
+        }
+
+        $materializations = $this->loadMaterializations($bindings);
+        $familiesByProvider = $this->indexExecutableFamilies($filters['provider_sources'] ?? null);
+
+        $includeActionRequired = (bool) ($filters['include_action_required'] ?? true);
+        $authByBinding = $filters['authorization_ready_by_binding_id'] ?? [];
+        $integrityMap = $filters['integrity_blocked_by_dataset_resource'] ?? [];
+
+        // Activity gate (real collection starts only; status reads never make the provider change check).
+        $gate = ($filters['activity_gate'] ?? false) === true ? app(CollectionActivityGate::class) : null;
+
+        $items = [];
+        foreach ($bindings as $binding) {
+            $capability = (string) $binding->capability;
+            $provider = self::CAPABILITY_PROVIDER[$capability] ?? null;
+            if ($provider === null) {
+                continue;
+            }
+
+            $authReady = $authByBinding[(int) $binding->id] ?? true;
+            $families = $familiesByProvider[$provider] ?? [];
+            $activity = $gate !== null && $binding->externalResource !== null ? $gate->plan($binding->externalResource) : null;
+            $gatedFamilies = [];
+            $plannedCount = 0;
+            foreach ($families as $family) {
+                if ($activity !== null && ! $activity->allowsFamily((string) $family['id'])) {
+                    $gatedFamilies[] = (string) $family['id'];
+
+                    continue;
+                }
+                $datasetId = $this->primaryDatasetForFamily((string) $family['id']);
+                if ($datasetId === null || ! CollectionDatasetCatalog::keeps($provider, $datasetId)) {
+                    continue;
+                }
+
+                $policy = $this->policies->policy($datasetId);
+                if ($policy === null) {
+                    continue;
+                }
+
+                $assetId = (int) ($binding->digital_asset_id ?? 0);
+                $resourceId = $binding->external_resource_id !== null ? (int) $binding->external_resource_id : null;
+                $mat = $this->findMaterialization($materializations, $datasetId, $assetId, $resourceId);
+
+                $integrityKey = $datasetId.'|'.$assetId.'|'.($resourceId ?? 'null');
+                $decision = $this->planner->planDataset($datasetId, $mat, array_filter([
+                    'authorization_ready' => $authReady,
+                    'integrity_blocked' => (bool) ($integrityMap[$integrityKey] ?? false),
+                    'reporting_timezone' => $this->resourceTimezone($binding),
+                    'max_span_days_override' => self::activitySpanOverride($activity),
+                ], static fn (mixed $value): bool => $value !== null));
+
+                if ($decision->executable && $activity !== null && $activity->isFull()
+                    && $gate->isStructureFamily($provider, (string) $family['id'])
+                    && ! $gate->structureDecision($binding->externalResource, $provider)['due']) {
+                    $gatedFamilies[] = (string) $family['id'];
+
+                    continue;
+                }
+
+                if ($decision->executable) {
+                    $plannedCount++;
+                    $items[] = new DueCollectionItem(
+                        digitalAssetId: $assetId,
+                        brandId: $binding->digitalAsset?->brand_id,
+                        customerId: $binding->digitalAsset?->brand?->customer_id,
+                        coreAssetBindingId: (int) $binding->id,
+                        externalResourceId: $resourceId,
+                        providerOrSource: $provider,
+                        datasetId: $datasetId,
+                        requestFamilyId: (string) $family['id'],
+                        freshnessState: $decision->freshnessState,
+                        reasons: $decision->reasons,
+                        dateRange: $decision->dateRange,
+                        dueSince: $decision->dateRange['start'] ?? null,
+                        priorityCategory: $this->priorityCategory($decision->freshnessState, $decision->reasons),
+                        actionRequired: false,
+                        policyVersion: $decision->policyVersion,
+                    );
+
+                    continue;
+                }
+
+                if ($includeActionRequired && $decision->freshnessState === FreshnessState::ActionRequired) {
+                    $items[] = new DueCollectionItem(
+                        digitalAssetId: $assetId,
+                        brandId: $binding->digitalAsset?->brand_id,
+                        customerId: $binding->digitalAsset?->brand?->customer_id,
+                        coreAssetBindingId: (int) $binding->id,
+                        externalResourceId: $resourceId,
+                        providerOrSource: $provider,
+                        datasetId: $datasetId,
+                        requestFamilyId: (string) $family['id'],
+                        freshnessState: $decision->freshnessState,
+                        reasons: [],
+                        dateRange: null,
+                        dueSince: null,
+                        priorityCategory: 'action_required',
+                        actionRequired: true,
+                        policyVersion: $decision->policyVersion,
+                    );
+                }
+            }
+            if ($activity !== null) {
+                $gate->recordPass($activity, $plannedCount, count($gatedFamilies), ['skipped_families' => $gatedFamilies, 'binding_id' => (int) $binding->id]);
+            }
+        }
+
+        return $items;
+    }
+
+    /**
+     * Span bound the activity plan imposes on historical datasets: a dormant check reads only the last few days;
+     * an account that resumed activity backfills the whole gap since its last full collection.
+     */
+    public static function activitySpanOverride(?ActivityCollectionPlan $activity): ?int
+    {
+        if ($activity === null) {
+            return null;
+        }
+        if ($activity->mode === ActivityCollectionPlan::MODE_CHECK) {
+            return $activity->checkDays;
+        }
+        if ($activity->isFull() && $activity->backfillFrom !== null) {
+            return max(1, (int) CarbonImmutable::parse($activity->backfillFrom)->diffInDays(now()) + 2);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return list<CoreAssetBinding>
+     */
+    private function loadBindings(array $filters): array
+    {
+        $query = CoreAssetBinding::query()
+            ->with(['digitalAsset.brand', 'externalResource'])
+            ->where('status', CoreAssetBinding::STATUS_ACTIVE)
+            ->whereIn('capability', array_keys(self::CAPABILITY_PROVIDER))
+            // Service scope: bindings of a brandless asset or a passive customer are never due.
+            ->whereIn('digital_asset_id', app(ServiceScope::class)->assetIdQuery());
+
+        $bindingIds = $this->normalizedBindingIds($filters);
+        if ($bindingIds !== null) {
+            $query->whereIn('id', $bindingIds);
+
+            /** @var list<CoreAssetBinding> */
+            return $query->orderBy('id')->get()->all();
+        }
+
+        if (isset($filters['digital_asset_id'])) {
+            $query->where('digital_asset_id', (int) $filters['digital_asset_id']);
+        }
+        if (isset($filters['brand_id'])) {
+            $query->whereHas('digitalAsset', fn ($q) => $q->where('brand_id', (int) $filters['brand_id']));
+        }
+        if (isset($filters['customer_id'])) {
+            $query->whereHas('digitalAsset.brand', fn ($q) => $q->where('customer_id', (int) $filters['customer_id']));
+        }
+
+        /** @var list<CoreAssetBinding> */
+        return $query->orderBy('id')->get()->all();
+    }
+
+    /**
+     * Exact-ID due-query scope. When present, digital_asset / brand / customer
+     * filters are not applied — callers must pass only the intended binding IDs.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return list<int>|null
+     */
+    private function normalizedBindingIds(array $filters): ?array
+    {
+        if (! array_key_exists('core_asset_binding_ids', $filters)) {
+            return null;
+        }
+
+        $raw = $filters['core_asset_binding_ids'];
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $ids = [];
+        foreach ($raw as $id) {
+            if (is_int($id) || (is_string($id) && ctype_digit($id))) {
+                $ids[] = (int) $id;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * @param  list<CoreAssetBinding>  $bindings
+     * @return Collection<int, DatasetMaterialization>
+     */
+    private function loadMaterializations(array $bindings): Collection
+    {
+        $assetIds = [];
+        $resourceIds = [];
+        foreach ($bindings as $binding) {
+            if ($binding->digital_asset_id !== null) {
+                $assetIds[] = (int) $binding->digital_asset_id;
+            }
+            if ($binding->external_resource_id !== null) {
+                $resourceIds[] = (int) $binding->external_resource_id;
+            }
+        }
+
+        if ($assetIds === []) {
+            return collect();
+        }
+        $assetIds = array_values(array_unique($assetIds));
+        $resourceIds = array_values(array_unique($resourceIds));
+
+        // Central (account-first) collection records coverage per account without an asset; it serves every asset bound to it.
+        return DatasetMaterialization::query()
+            ->where(fn ($q) => $q->whereIn('digital_asset_id', $assetIds)
+                ->when($resourceIds !== [], fn ($q) => $q->whereIn('external_resource_id', $resourceIds)))
+            ->when($resourceIds !== [], fn ($q) => $q->orWhere(fn ($q) => $q->whereNull('digital_asset_id')->whereIn('external_resource_id', $resourceIds)))
+            ->get();
+    }
+
+    /**
+     * @param  list<string>|null  $providerFilter
+     * @return array<string, list<array<string, mixed>>>
+     */
+    private function indexExecutableFamilies(?array $providerFilter): array
+    {
+        $indexed = [];
+        foreach ($this->contracts->requestFamilies() as $family) {
+            $provider = (string) ($family['provider_or_source'] ?? '');
+            $status = (string) ($family['status'] ?? '');
+            if ($provider === '' || in_array($status, ['DEFERRED', 'UNSUPPORTED', 'UNAVAILABLE', 'DEMO_ONLY'], true)) {
+                continue;
+            }
+            if ($providerFilter !== null && $providerFilter !== [] && ! in_array($provider, $providerFilter, true)) {
+                continue;
+            }
+            if (($family['id'] ?? null) === 'GSC_RF_APPEARANCE_DAILY') {
+                continue;
+            }
+            if (($family['id'] ?? null) === 'GSC_RF_URL_INSPECTION') {
+                continue;
+            }
+            $indexed[$provider][] = $family;
+        }
+
+        return $indexed;
+    }
+
+    private function primaryDatasetForFamily(string $familyId): ?string
+    {
+        foreach ($this->contracts->requirements() as $requirement) {
+            if (($requirement['request_family'] ?? null) === $familyId) {
+                $dataset = $requirement['dataset'] ?? null;
+                if (is_string($dataset) && $dataset !== '') {
+                    return $dataset;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  Collection<int, DatasetMaterialization>  $materializations
+     */
+    private function findMaterialization(
+        Collection $materializations,
+        string $datasetId,
+        int $digitalAssetId,
+        ?int $externalResourceId,
+    ): ?DatasetMaterialization {
+        $own = $materializations->first(function (DatasetMaterialization $row) use ($datasetId, $digitalAssetId, $externalResourceId): bool {
+            if ($row->dataset_id !== $datasetId || (int) $row->digital_asset_id !== $digitalAssetId) {
+                return false;
+            }
+            if ($externalResourceId === null) {
+                return $row->external_resource_id === null;
+            }
+
+            return (int) $row->external_resource_id === $externalResourceId;
+        });
+        if ($externalResourceId === null) {
+            return $own;
+        }
+        $central = $materializations->first(fn (DatasetMaterialization $row): bool => $row->dataset_id === $datasetId
+            && $row->digital_asset_id === null && (int) $row->external_resource_id === $externalResourceId);
+        if ($own === null || $central === null) {
+            return $own ?? $central;
+        }
+
+        // An old per-asset row must not hide the account's newer coverage.
+        return [(string) $central->coverage_end_date, (string) $central->last_collected_at] > [(string) $own->coverage_end_date, (string) $own->last_collected_at] ? $central : $own;
+    }
+
+    private function resourceTimezone(CoreAssetBinding $binding): ?string
+    {
+        $meta = is_array($binding->externalResource?->metadata) ? $binding->externalResource->metadata : [];
+        foreach (['timezone', 'timezone_name', 'timeZone', 'time_zone'] as $key) {
+            if (is_string($meta[$key] ?? null) && $meta[$key] !== '') {
+                return SafeTimezone::normalize((string) $meta[$key]);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<string>  $reasons
+     */
+    private function priorityCategory(FreshnessState $state, array $reasons): string
+    {
+        if ($state === FreshnessState::Stale) {
+            return 'stale';
+        }
+        if (in_array('GAP_RECOVERY', $reasons, true)) {
+            return 'gap_recovery';
+        }
+        if (in_array('CATCH_UP', $reasons, true)) {
+            return 'catch_up';
+        }
+        if (in_array('NEW_COVERAGE', $reasons, true)) {
+            return 'new_coverage';
+        }
+        if (in_array('LATE_DATA_REPROCESS', $reasons, true)) {
+            return 'reprocess';
+        }
+        if (in_array('SNAPSHOT_REFRESH', $reasons, true)) {
+            return 'snapshot';
+        }
+
+        return 'due';
+    }
+}

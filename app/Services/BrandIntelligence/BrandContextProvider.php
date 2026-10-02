@@ -8,13 +8,21 @@ use App\Support\BrandIntelligence\BrandIntelligenceCompleteness;
 use App\Support\BrandIntelligence\BrandIntelligenceSnapshot;
 use App\Support\BrandIntelligence\BusinessModelOptions;
 use App\Support\BrandIntelligence\ConversionGoalTypes;
+use App\Support\BrandIntelligence\Dto\GoalDto;
 
 /**
  * Factual Brand intelligence reader for modules and future AI.
  * Returns normalized facts only — no inference, no external calls, no AI.
+ *
+ * Identity-bearing goals/priority offerings prefer canonical Goal/Offering entities
+ * (stable IDs) with compatibility projection fallback for unmigrated rows.
  */
 final class BrandContextProvider
 {
+    public function __construct(
+        private readonly BrandIntelligenceContextReadService $identityRead,
+    ) {}
+
     public function for(Brand $brand): BrandIntelligenceSnapshot
     {
         $brand->loadMissing('intelligenceContext');
@@ -33,8 +41,9 @@ final class BrandContextProvider
     private function snapshot(Brand $brand, ?BrandIntelligenceContext $context): BrandIntelligenceSnapshot
     {
         $completeness = BrandIntelligenceCompleteness::for($context);
+        $identity = $this->identityRead->for($brand);
 
-        if ($context === null) {
+        if ($context === null && $identity->businessGoals === [] && $identity->conversionGoals === [] && $identity->priorityOfferings === []) {
             return new BrandIntelligenceSnapshot(
                 brandId: $brand->id,
                 brandName: $brand->name,
@@ -57,24 +66,64 @@ final class BrandContextProvider
             );
         }
 
+        $businessGoals = array_map(static fn (GoalDto $g): array => [
+            'id' => $g->id,
+            'goal' => $g->label,
+            'note' => $g->note,
+            'applicability_mode' => $g->applicabilityMode,
+            'offering_ids' => $g->offeringIds,
+        ], $identity->businessGoals);
+
+        $conversionGoals = array_map(static function (GoalDto $g): array {
+            $type = $g->conversionType ?? ConversionGoalTypes::CUSTOM;
+
+            return [
+                'id' => $g->id,
+                'type' => $type,
+                'type_label' => ConversionGoalTypes::label($type),
+                'label' => $g->label,
+                'note' => $g->note,
+                'applicability_mode' => $g->applicabilityMode,
+                'offering_ids' => $g->offeringIds,
+            ];
+        }, $identity->conversionGoals);
+
+        // Compatibility: if entities empty but legacy projection still present (pre-migrate), use legacy.
+        if ($businessGoals === [] && $context !== null) {
+            $businessGoals = $this->normalizeGoals($context->business_goals);
+        }
+        if ($conversionGoals === [] && $context !== null) {
+            $conversionGoals = $this->normalizeConversionGoals($context->conversion_goals);
+        }
+
+        $priorityOfferings = array_map(
+            static fn ($o): string => $o->primaryLabel,
+            $identity->priorityOfferings,
+        );
+        if ($priorityOfferings === [] && $context !== null) {
+            $priorityOfferings = $this->normalizeStringList($context->priority_offerings);
+        }
+
         return new BrandIntelligenceSnapshot(
             brandId: $brand->id,
             brandName: $brand->name,
-            hasContext: true,
-            businessSummary: $this->nullableString($context->business_summary),
-            businessModel: $this->nullableString($context->business_model),
-            businessModelLabel: BusinessModelOptions::label($context->business_model),
-            offerings: $this->normalizeOfferings($context->products_services),
-            priorityOfferings: $this->normalizeStringList($context->priority_offerings),
-            targetAudiences: $this->normalizeNamedNotes($context->target_audiences),
-            targetMarkets: $this->normalizeNamedNotes($context->target_markets),
-            businessGoals: $this->normalizeGoals($context->business_goals),
-            conversionGoals: $this->normalizeConversionGoals($context->conversion_goals),
-            positioning: $this->nullableString($context->positioning),
-            differentiators: $this->normalizeStringList($context->differentiators),
-            competitors: $this->normalizeCompetitors($context->known_competitors),
-            importantConstraints: $this->nullableString($context->important_constraints),
-            source: filled($context->source) ? (string) $context->source : BrandIntelligenceContext::SOURCE_OPERATOR,
+            hasContext: $context instanceof BrandIntelligenceContext || $identity->businessGoals !== [] || $identity->offerings !== [],
+            businessSummary: $this->nullableString($context?->business_summary),
+            businessModel: $this->nullableString($context?->business_model),
+            businessModelLabel: BusinessModelOptions::label($context?->business_model),
+            offerings: $this->normalizeOfferings($context?->products_services),
+            priorityOfferings: $priorityOfferings,
+            targetAudiences: $this->normalizeNamedNotes($context?->target_audiences),
+            targetMarkets: $this->normalizeNamedNotes($context?->target_markets),
+            businessGoals: $businessGoals,
+            conversionGoals: $conversionGoals,
+            positioning: $this->nullableString($context?->positioning),
+            differentiators: $this->normalizeStringList($context?->differentiators),
+            competitors: $this->normalizeCompetitors($context?->known_competitors),
+            importantConstraints: $this->nullableString($context?->important_constraints),
+            source: $context instanceof BrandIntelligenceContext && filled($context->source)
+                ? (string) $context->source
+                : BrandIntelligenceContext::SOURCE_OPERATOR,
             completeness: $completeness,
         );
     }

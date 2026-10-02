@@ -295,9 +295,15 @@ final class GoogleAdsPerformanceBoundEvidenceEvaluator implements EvaluatesBound
                 continue;
             }
 
-            $cost = $this->floatOrNull($row['cost'] ?? null) ?? 0.0;
-            $clicks = $this->floatOrNull($row['clicks'] ?? null) ?? 0.0;
-            $conversions = $this->floatOrNull($row['conversions'] ?? null) ?? 0.0;
+            $cost = $this->floatOrNull($row['cost'] ?? null);
+            $clicks = $this->floatOrNull($row['clicks'] ?? null);
+            $conversions = $this->floatOrNull($row['conversions'] ?? null);
+            if ($conversions === null || ($cost === null && $clicks === null)) {
+                continue;
+            }
+
+            $cost = $cost ?? 0.0;
+            $clicks = $clicks ?? 0.0;
             $name = is_string($row['campaign_name'] ?? null) ? $row['campaign_name'] : $campaignId;
 
             $enoughVolume = $cost >= PerformanceFindingsCatalog::CAMPAIGN_COST_MIN

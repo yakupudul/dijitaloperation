@@ -1,30 +1,46 @@
 #!/usr/bin/env bash
-# Staging deploy helper for MoxDOP (single VPS: Nginx + PHP-FPM + PostgreSQL + Redis + Supervisor queue workers).
-# Run from the application root on the staging host after checking out an exact Git SHA.
+# Staging deploy helper for MoxDOP (single VPS: Nginx + PHP-FPM + PostgreSQL + Redis + Horizon + DB-driven collection workers).
+# Run from the application root after checking out an exact Git SHA.
 # Does NOT print secrets. Never migrate:fresh.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
+APP_DOWN=0
+cleanup() {
+  if [[ "$APP_DOWN" -eq 1 ]]; then
+    php artisan up --no-interaction >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT
+
+as_root() {
+  if [[ "$(id -u)" -eq 0 ]]; then
+    "$@"
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+  else
+    echo "deploy/staging: ERROR — root privileges are required for Supervisor/cron installation" >&2
+    exit 1
+  fi
+}
+
 if [[ ! -f artisan ]]; then
-  echo "deploy/staging/deploy.sh: not a Laravel app root: $ROOT" >&2
+  echo "deploy/staging: not a Laravel app root: $ROOT" >&2
   exit 1
 fi
 
 # Product invariant: app.moximu.com is the operator application root.
-# Legacy /app/* and /system/* operator prefixes are retired. This branch is stale
-# if those routes are still canonical, so deployment must stop before dependencies,
-# migrations, caches, or workers are touched.
+# Legacy /app/* and /system/* operator prefixes are retired and must never be deployed again.
 if [[ ! -f routes/web.php || ! -f routes/demo.php ]]; then
-  echo "deploy/staging/deploy.sh: canonical route files are missing" >&2
+  echo "deploy/staging: ERROR — canonical route files are missing" >&2
   exit 1
 fi
 
 if grep -Fq -- "->prefix('app')" routes/demo.php || grep -Fq -- '->prefix("app")' routes/demo.php; then
-  echo "deploy/staging/deploy.sh: REFUSING DEPLOY — legacy /app operator prefix detected" >&2
-  echo "Canonical product URL is https://app.moximu.com/; /app/* is retired." >&2
-  echo "Checkout the current canonical release branch before deploying." >&2
+  echo "deploy/staging: ERROR — legacy /app operator prefix detected in routes/demo.php" >&2
+  echo "deploy/staging: app.moximu.com/ is canonical; /app/* is retired" >&2
   exit 1
 fi
 
@@ -32,46 +48,70 @@ if grep -Fq -- "redirect('/app')" routes/web.php \
   || grep -Fq -- 'redirect("/app")' routes/web.php \
   || grep -Fq -- "redirect('/system/login')" routes/web.php \
   || grep -Fq -- 'redirect("/system/login")' routes/web.php; then
-  echo "deploy/staging/deploy.sh: REFUSING DEPLOY — legacy /app or /system root redirect detected" >&2
-  echo "Canonical product URL is https://app.moximu.com/." >&2
+  echo "deploy/staging: ERROR — legacy /app or /system root redirect detected in routes/web.php" >&2
+  echo "deploy/staging: refuse to replace the canonical root operator application" >&2
   exit 1
 fi
 
 if ! grep -Fq -- "Route::livewire('/', Dashboard::class)" routes/demo.php; then
-  echo "deploy/staging/deploy.sh: REFUSING DEPLOY — canonical root dashboard route is missing" >&2
+  echo "deploy/staging: ERROR — canonical root dashboard route is missing" >&2
   exit 1
 fi
 
 echo "deploy/staging: canonical root-route guard PASS"
 
 if [[ ! -f .env ]]; then
-  echo "deploy/staging/deploy.sh: missing .env" >&2
-  exit 1
-fi
-
-if grep -qE '^DB_CONNECTION=sqlite' .env; then
-  echo "deploy/staging/deploy.sh: staging must use PostgreSQL (DB_CONNECTION=pgsql)" >&2
+  echo "deploy/staging: missing .env" >&2
   exit 1
 fi
 
 if ! grep -qE '^DB_CONNECTION=pgsql' .env; then
-  echo "deploy/staging/deploy.sh: DB_CONNECTION=pgsql is required" >&2
+  echo "deploy/staging: DB_CONNECTION=pgsql is required" >&2
   exit 1
 fi
 
 if ! grep -qE '^APP_ENV=staging' .env; then
-  echo "deploy/staging/deploy.sh: APP_ENV=staging is required" >&2
+  echo "deploy/staging: APP_ENV=staging is required" >&2
   exit 1
 fi
 
 if grep -qE '^APP_DEBUG=true' .env; then
-  echo "deploy/staging/deploy.sh: APP_DEBUG must be false" >&2
+  echo "deploy/staging: APP_DEBUG must be false" >&2
   exit 1
 fi
 
 if ! grep -qE '^APP_KEY=base64:' .env; then
-  echo "deploy/staging/deploy.sh: APP_KEY missing — generate ONCE; do not regenerate on every deploy" >&2
+  echo "deploy/staging: APP_KEY missing" >&2
   exit 1
+fi
+
+# The operator product is Turkish; config/app.php defaults to tr. Warn only — never rewrite .env.
+APP_LOCALE_VALUE="$(grep -E '^APP_LOCALE=' .env | tail -n1 | cut -d= -f2 | tr -d '"' | tr -d "'" || true)"
+if [[ -n "${APP_LOCALE_VALUE}" && "${APP_LOCALE_VALUE}" != "tr" ]]; then
+  echo "deploy/staging: WARNING — APP_LOCALE=${APP_LOCALE_VALUE}; the operator product default is tr (remove the line or set APP_LOCALE=tr)." >&2
+fi
+
+# Faz 13: the default queue must be durable and actually worked. With QUEUE_CONNECTION=database and only
+# Horizon (redis) running, default-queue jobs pile up silently.
+QUEUE_DEFAULT="$(grep -E '^QUEUE_CONNECTION=' .env | tail -n1 | cut -d= -f2 | tr -d '"' | tr -d "'")"
+if [[ -z "${QUEUE_DEFAULT}" || "${QUEUE_DEFAULT}" == "sync" ]]; then
+  echo "deploy/staging: QUEUE_CONNECTION must be redis (or database with a database worker), got '${QUEUE_DEFAULT:-empty}'" >&2
+  exit 1
+fi
+if [[ "${QUEUE_DEFAULT}" != "redis" ]]; then
+  echo "deploy/staging: WARNING — QUEUE_CONNECTION=${QUEUE_DEFAULT}. Horizon only works redis; make sure a 'queue:work ${QUEUE_DEFAULT}' worker runs, or set QUEUE_CONNECTION=redis." >&2
+fi
+if ! grep -rqs "moxdop:ops:watchdog" /etc/cron.d /var/spool/cron 2>/dev/null; then
+  # The outside watchdog must run even when the Laravel scheduler is down; install it once (root deploys).
+  if [[ -w /etc/cron.d ]]; then
+    APP_DIR="$(pwd)"
+    printf '%s\n' "# MoxDOP outside watchdog (installed by deploy/staging/deploy.sh)" \
+      "*/5 * * * * www-data cd ${APP_DIR} && php artisan moxdop:ops:watchdog >> ${APP_DIR}/storage/logs/watchdog.log 2>&1" > /etc/cron.d/moxdop-watchdog
+    chmod 0644 /etc/cron.d/moxdop-watchdog
+    echo "deploy/staging: installed outside watchdog cron (/etc/cron.d/moxdop-watchdog)"
+  else
+    echo "deploy/staging: WARNING — outside watchdog cron is not installed (see deploy/staging/cron.example)." >&2
+  fi
 fi
 
 RELEASE_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
@@ -80,71 +120,180 @@ echo "deploy/staging: release SHA ${RELEASE_SHA}"
 echo "deploy/staging: composer install"
 composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
 
-# Current production dependency set uses the phpredis extension, not predis/predis.
-# Fail before maintenance mode if an old staging .env still points at Predis.
-if grep -qE '^REDIS_CLIENT=predis([[:space:]]*)$' .env; then
-  if php -r 'exit(extension_loaded("redis") ? 0 : 1);'; then
-    echo "deploy/staging/deploy.sh: REDIS_CLIENT=predis is stale; set REDIS_CLIENT=phpredis before deploy" >&2
-  else
-    echo "deploy/staging/deploy.sh: Predis package is absent and phpredis extension is unavailable" >&2
-  fi
-  exit 1
-fi
-
 if command -v npm >/dev/null 2>&1; then
   echo "deploy/staging: npm ci && npm run build"
   npm ci --no-fund --no-audit
   npm run build
 else
-  echo "deploy/staging: npm not found — ensure public/build exists from a prior build"
   if [[ ! -f public/build/manifest.json ]]; then
-    echo "deploy/staging/deploy.sh: missing public/build/manifest.json" >&2
+    echo "deploy/staging: missing public/build/manifest.json" >&2
     exit 1
   fi
 fi
 
-MAINTENANCE_ENTERED=0
-cleanup() {
-  status=$?
-  if [[ "$MAINTENANCE_ENTERED" -eq 1 ]]; then
-    php artisan up --no-interaction >/dev/null 2>&1 || true
-  fi
-  exit "$status"
-}
-trap cleanup EXIT
-
-php artisan down --retry=60 --no-interaction || true
-MAINTENANCE_ENTERED=1
-
-echo "deploy/staging: migrate --force (never migrate:fresh)"
-php artisan migrate --force --no-interaction
-
-php artisan storage:link --no-interaction || true
-
-echo "deploy/staging: optimize caches"
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-php artisan event:cache || true
-
-echo "deploy/staging: signal Laravel queue workers to restart"
-php artisan queue:restart --no-interaction || true
-
-if command -v supervisorctl >/dev/null 2>&1; then
-  if supervisorctl status 2>/dev/null | grep -q 'moxdop-staging-worker'; then
-    supervisorctl restart 'moxdop-staging-worker:*' 2>/dev/null \
-      || supervisorctl restart moxdop-staging-worker 2>/dev/null \
-      || echo "deploy/staging: worker supervisor restart skipped"
-  else
-    echo "deploy/staging: moxdop-staging-worker is not configured in Supervisor"
-  fi
-else
-  echo "deploy/staging: supervisorctl not found — queue worker restart skipped"
+# Deploy gate (read-only): required settings, DB/Redis reachability, config/route/view cache compilation;
+# pending migrations are listed. A FAIL stops here, before maintenance mode and migrations. The config cache of
+# the previous release is cleared first so the gate reads this release's code and the current .env.
+echo "deploy/staging: preflight"
+php artisan config:clear --no-interaction >/dev/null
+if ! php artisan moxdop:preflight --no-interaction; then
+  echo "deploy/staging: ERROR — preflight failed (see FAIL lines above); nothing was migrated" >&2
+  exit 1
 fi
 
+php artisan down --retry=60 --no-interaction || true
+APP_DOWN=1
+
+echo "deploy/staging: migrate --force"
+php artisan migrate --force --no-interaction
+[[ -L public/storage ]] || php artisan storage:link --no-interaction || true
+
+echo "deploy/staging: optimize caches (atomic)"
+# `artisan route:cache` deletes bootstrap/cache/routes-v7.php first and writes the new file afterwards. Cron,
+# Horizon workers and PHP-FPM keep booting the app during `artisan down`, and a boot between the delete and the
+# write crashed with "require(bootstrap/cache/routes-v7.php): Failed to open stream". Each cache is built into a
+# temporary file (APP_*_CACHE) and moved over the live one with a single rename: there is never a moment without it.
+atomic_cache() {
+  local kind="$1" env_name="$2" file="$3"
+  local next="bootstrap/cache/.${file}.next"
+  rm -f "${next}"
+  env "${env_name}=${next}" php artisan "${kind}:cache" --no-interaction
+  if [[ ! -s "${next}" ]]; then
+    echo "deploy/staging: ERROR — ${kind}:cache produced no file" >&2
+    return 1
+  fi
+  mv -f "${next}" "bootstrap/cache/${file}"
+}
+atomic_cache config APP_CONFIG_CACHE config.php
+atomic_cache route APP_ROUTES_CACHE routes-v7.php
+php artisan view:cache
+atomic_cache event APP_EVENTS_CACHE events.php || true
+
+echo "deploy/staging: verify collection dispatch sink"
+php -r '
+require "vendor/autoload.php";
+$app = require "bootstrap/app.php";
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+app(App\Services\Collection\CollectionQueueGate::class)->assertReady();
+echo "collection dispatch sink reachable: ".config("moxdop-collection.queue_connection").PHP_EOL;
+' || exit 1
+
+# PostgreSQL CollectionDatasetRun rows are authoritative. Older releases mirrored
+# dataset work into redis:collection, which can leave delayed duplicate jobs behind.
+# Clear that legacy mirror before restarting Horizon; DB workers will recover every
+# still-eligible queued/retrying row from PostgreSQL state.
+echo "deploy/staging: clear legacy redis:collection mirror"
+php artisan queue:clear redis --queue=collection --no-interaction || true
+
+if ! command -v supervisorctl >/dev/null 2>&1; then
+  echo "deploy/staging: ERROR — supervisorctl is required" >&2
+  exit 1
+fi
+
+echo "deploy/staging: install Supervisor and scheduler configs"
+as_root install -m 0644 deploy/staging/supervisor-horizon.conf.example /etc/supervisor/conf.d/moxdop-staging-horizon.conf
+as_root install -m 0644 deploy/staging/supervisor-collection.conf.example /etc/supervisor/conf.d/moxdop-staging-collection.conf
+as_root install -m 0644 deploy/staging/cron.example /etc/cron.d/moxdop-staging
+
+as_root supervisorctl reread
+as_root supervisorctl update
+
+# Horizon finishes its running jobs (AI jobs may take up to 15 minutes) and exits; Supervisor (autorestart) starts it
+# again on the new code. `supervisorctl restart` would block the deploy — with the site in maintenance mode — until
+# those jobs end (stopwaitsecs=3600), so the deploy only asks for the graceful exit and makes sure Horizon runs.
+php artisan horizon:terminate --no-interaction || true
+as_root supervisorctl start moxdop-staging-horizon >/dev/null 2>&1 || true
+as_root supervisorctl restart moxdop-staging-collection || true
+as_root supervisorctl restart moxdop-staging-google-ads-collection || true
+as_root supervisorctl restart 'moxdop-staging-website-collection:*' || true
+
+sleep 3
+
+HORIZON_STATUS="$(as_root supervisorctl status moxdop-staging-horizon 2>/dev/null || true)"
+COLLECTION_STATUS="$(as_root supervisorctl status moxdop-staging-collection 2>/dev/null || true)"
+GOOGLE_ADS_COLLECTION_STATUS="$(as_root supervisorctl status moxdop-staging-google-ads-collection 2>/dev/null || true)"
+WEBSITE_COLLECTION_STATUS="$(as_root supervisorctl status 'moxdop-staging-website-collection:*' 2>/dev/null || true)"
+
+echo "$HORIZON_STATUS"
+echo "$COLLECTION_STATUS"
+echo "$GOOGLE_ADS_COLLECTION_STATUS"
+echo "$WEBSITE_COLLECTION_STATUS"
+
+if ! grep -q 'RUNNING' <<<"$HORIZON_STATUS"; then
+  echo "deploy/staging: ERROR — Horizon is not RUNNING" >&2
+  as_root supervisorctl status || true
+  exit 1
+fi
+
+if ! grep -q 'RUNNING' <<<"$COLLECTION_STATUS"; then
+  echo "deploy/staging: ERROR — general collection worker is not RUNNING" >&2
+  as_root tail -n 80 /var/log/moxdop-staging-collection.log 2>/dev/null || true
+  exit 1
+fi
+
+if ! grep -q 'RUNNING' <<<"$GOOGLE_ADS_COLLECTION_STATUS"; then
+  echo "deploy/staging: ERROR — Google Ads collection worker is not RUNNING" >&2
+  as_root tail -n 80 /var/log/moxdop-staging-google-ads-collection.log 2>/dev/null || true
+  exit 1
+fi
+
+if ! grep -q 'RUNNING' <<<"$WEBSITE_COLLECTION_STATUS"; then
+  echo "deploy/staging: ERROR — Website collection worker is not RUNNING" >&2
+  as_root tail -n 80 /var/log/moxdop-staging-website-collection-00.log 2>/dev/null || true
+  exit 1
+fi
+
+echo "deploy/staging: restart cron scheduler"
+as_root systemctl restart cron 2>/dev/null || as_root service cron restart 2>/dev/null || true
+
+echo "deploy/staging: recover stranded collection DB state"
+php artisan moxdop:collection:redispatch-stale --force --no-interaction || exit 1
+
+echo "deploy/staging: admit due automatic account collections"
+php artisan moxdop:resources:automate --recover-ga4-landing-pages --recover-gsc-appearance --no-interaction || exit 1
+
+# Give DB-driven workers time to pick up stranded rows.
+sleep 3
+
+echo "deploy/staging: collection worker status"
+as_root supervisorctl status moxdop-staging-collection || exit 1
+as_root supervisorctl status moxdop-staging-google-ads-collection || exit 1
+as_root supervisorctl status 'moxdop-staging-website-collection:*' || exit 1
+
+echo "deploy/staging: collection state"
+php artisan moxdop:collection:status --no-interaction || true
+php artisan moxdop:collection:status --provider=GOOGLE_ADS --details --no-interaction || true
+
+echo "deploy/staging: collection dispatch sink depth"
+php -r '
+require "vendor/autoload.php";
+$app = require "bootstrap/app.php";
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+$connection = (string) config("moxdop-collection.queue_connection", "null");
+$queue = (string) config("moxdop-collection.queue", "collection");
+echo "connection={$connection} queue={$queue} depth=".Illuminate\Support\Facades\Queue::connection($connection)->size($queue).PHP_EOL;
+' || exit 1
+
+# Record the live release so errors and the system health page can name it (storage/app/release.json).
+echo "deploy/staging: record release ${RELEASE_SHA}"
+mkdir -p storage/app
+RELEASE_TMP="$(mktemp storage/app/.release.json.XXXXXX)"
+printf '{"sha":"%s","deployed_at":"%s"}\n' "${RELEASE_SHA}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${RELEASE_TMP}"
+chmod 0644 "${RELEASE_TMP}"
+mv -f "${RELEASE_TMP}" storage/app/release.json
+
 php artisan up --no-interaction
-MAINTENANCE_ENTERED=0
-trap - EXIT
+APP_DOWN=0
+
+# Faz 4: post-deploy checks. The release is already live, so failures are reported loudly but do not
+# roll back; read the FAIL lines and fix before the next deploy.
+echo "deploy/staging: post-deploy smoke (no provider calls)"
+if ! bash deploy/staging/smoke.sh; then
+  echo "deploy/staging: WARNING — smoke checks failed (see FAIL lines above)"
+fi
+echo "deploy/staging: scheduler registered jobs"
+php artisan schedule:list --no-interaction >/dev/null 2>&1 && echo "PASS  schedule:list" || echo "WARNING — schedule:list failed"
 
 echo "deploy/staging: done — SHA ${RELEASE_SHA}"
 php artisan about --only=environment 2>/dev/null || true
+

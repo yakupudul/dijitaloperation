@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
     'name',
@@ -24,6 +25,9 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
     'hq_country',
     'hq_city',
     'primary_email',
+    'monthly_fee',
+    'ad_budget_google',
+    'ad_budget_meta',
     'primary_phone',
     'service_started_at',
     'services_received',
@@ -32,7 +36,7 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 class Customer extends Model
 {
     /** @use HasFactory<CustomerFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected static function booted(): void
     {
@@ -57,6 +61,16 @@ class Customer extends Model
     public function brands(): HasMany
     {
         return $this->hasMany(Brand::class);
+    }
+
+    /**
+     * Canonical Customer Service Scopes (Prompt 36).
+     *
+     * @return HasMany<CustomerServiceScope, $this>
+     */
+    public function serviceScopes(): HasMany
+    {
+        return $this->hasMany(CustomerServiceScope::class);
     }
 
     /**

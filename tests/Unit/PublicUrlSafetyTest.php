@@ -61,14 +61,44 @@ class PublicUrlSafetyTest extends TestCase
     {
         $normalizer = new PublicUrlNormalizer;
 
+        // Host case and fragments are normalized away; path case, trailing slash and www are preserved
+        // because they can address a different server resource.
         $a = $normalizer->normalizeAbsolute('https://WWW.Example.com/About/#top');
-        $b = $normalizer->normalizeAbsolute('https://example.com/about');
+        $b = $normalizer->normalizeAbsolute('https://www.example.com/About/');
+        $this->assertSame('https://www.example.com/About/', $a);
         $this->assertSame($a, $b);
+        $this->assertSame('https://example.com/about', $normalizer->normalizeAbsolute('https://example.com/about'));
+        $this->assertNotSame($a, $normalizer->normalizeAbsolute('https://example.com/about'));
         $this->assertTrue($normalizer->sameSite('https://example.com/', 'https://www.example.com/services'));
         $this->assertFalse($normalizer->sameSite('https://example.com/', 'https://other.com/'));
         $this->assertSame(
             'https://example.com/contact',
             $normalizer->resolve('https://example.com/about', '/contact'),
+        );
+        $this->assertSame(
+            'https://example.com/blog/post-1',
+            $normalizer->resolve('https://example.com/blog/', 'post-1'),
+        );
+        // RFC 3986: a base without a trailing slash is a document path, so the reference is its sibling.
+        $this->assertSame(
+            'https://example.com/post-1',
+            $normalizer->resolve('https://example.com/blog', 'post-1'),
+        );
+        $this->assertSame(
+            'https://example.com/pricing',
+            $normalizer->resolve('https://example.com/blog/', '../pricing'),
+        );
+        $this->assertSame(
+            'https://example.com/blog/pricing',
+            $normalizer->resolve('https://example.com/blog/sub/', '../pricing'),
+        );
+        $this->assertSame(
+            'https://example.com/contact',
+            $normalizer->resolve('https://example.com/blog/', '/contact'),
+        );
+        $this->assertSame(
+            'https://example.com/post-1',
+            $normalizer->resolve('https://example.com/about.html', 'post-1'),
         );
     }
 }

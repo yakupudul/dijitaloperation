@@ -32,14 +32,9 @@ return new class extends Migration
             })
             ->update(['credential_type' => 'authorization']);
 
-        $this->dropUniqueIfExists('core_integration_credentials_integration_id_unique');
-
-        try {
-            Schema::table('core_integration_credentials', function (Blueprint $table): void {
-                $table->dropUnique(['integration_id']);
-            });
-        } catch (Throwable) {
-            // Already dropped or never existed under that definition.
+        // Avoid try/catch around DDL on PostgreSQL: a failed statement aborts the migration transaction.
+        if ($this->hasIndexNamed('core_integration_credentials_integration_id_unique')) {
+            $this->dropUniqueIfExists('core_integration_credentials_integration_id_unique');
         }
 
         if (! $this->hasIndexNamed('core_integration_credentials_integration_type_unique')) {

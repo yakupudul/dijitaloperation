@@ -115,11 +115,13 @@ Yasak örnekler:
 * Instagram veya diğer sosyal hesaplarda paylaşım yapmak
 * Her türlü harici **write action**
 
+İstisna (ADR-064, sahip kararı): yalnız Admin onayıyla, kayıtlı ve geri alınabilir şekilde (1) Google Ads'te "MoxDOP negatifleri" paylaşılan negatif listesine ekleme, (2) WordPress'te MoxDOP Connector ile **taslak** oluşturma. ADR-068: onaylı WordPress güncellemesi ve tek tık giriş. ADR-070: WordPress'te onaylı SEO/teknik düzeltmeler (başlık, açıklama, alt metin, schema, 301, noindex/canonical, iç bağlantı) ve onaylı sayfa metni güncellemesi (önce taslak kopya, ikinci onayla yayına). ADR-071: Admin onayıyla MoxDOP Connector'ın yalnız kendisini güncellemesi (özeti doğrulanmış paket, yalnız daha yeni sürüm). Hepsi site yöneticisi eklentide açarsa çalışır. Başka hiçbir harici yazma yapılmaz.
+
 Harici entegrasyonlarda mümkün olan en düşük ve **salt okunur** yetkiler tercih edilir.
 
 DOP kendi iç verilerinde müşteri, marka, varlık, connection, bulgu, öneri, görev ve durum değişiklikleri yapabilir.
 
-## 6. MVP kullanıcı modeli ve panel/auth (ADR-026)
+## 6. MVP kullanıcı modeli ve panel/auth (ADR-026; route/path **ADR-044**)
 
 | Rol | Açıklama |
 |-----|----------|
@@ -128,9 +130,11 @@ DOP kendi iç verilerinde müşteri, marka, varlık, connection, bulgu, öneri, 
 
 | Konu | Karar |
 |------|--------|
-| Panel | Tek Filament panel |
+| Operator product | Root application routes on the product host (`/`, `/login`, `/customers`, `/brands`, `/assets`, `/integrations`, `/tasks`, …). One TailAdmin Livewire application. Do not duplicate Customers/Brands/Assets as a second operator product. |
+| Filament | Tek teknik/admin panel; günlük operatör ürünü değil |
 | Panel id | `app` |
-| Panel path | `/app` |
+| Panel path | `/admin` |
+| Legacy `/app/*`, `/system/*` | Retired — HTTP 410; no parallel operator product; do not redirect those prefixes into the product |
 | Guard | Laravel standart `web` session guard |
 | Permissions | `spatie/laravel-permission` |
 | Public registration | Yok |
@@ -231,6 +235,23 @@ Platforma özel veriler core tablolara eklenmez (modül `payload` / kendi tablol
 V1’de Outcome, Task üzerindeki **gözlemlenmiş sinyal**dir (`outcome_status` / `outcome_json`); ayrı Result/Outcome tablosu yoktur.
 Nedensel attribution iddia edilmez. Ayrıntı: `docs/product/OPERATIONAL_OUTCOME_LOOP.md`.
 
+
+### 7.5 MoxDOP Intelligence Core ve Projection sınırı (ADR-046)
+
+Intelligence Core, provider Data Pool/fact tablolarını değiştirmeden kaynaklar arasında güvenli birleştirme sağlayan semantik katmandır:
+
+* **Identity:** Page/URL, Search Term, Entity ve Business Action kimlikleri ile source alias’ları
+* **Context:** reporting date, source timezone, observed/retrieved time, market, language, device, surface, model ve sampling state
+* **Provenance:** provider/source, dataset, source record, Digital Asset, External Resource, CollectionRun, DatasetRun ve contract version
+* **Metric contract:** source class, unit, desteklenen grain ve additivity; missing/zero ile estimated/measured ayrımı
+* **Capability adapter:** yeni kaynak mevcut tüketiciyi yeniden yazdırmadan registry capability’leri üzerinden eklenir
+
+Provider fact tabloları canonical truth olarak kalır; Intelligence Core generic EAV/metrik ambarı veya ikinci Evidence deposu değildir. Website Projection ve sonraki Page/Search Term/Entity/Outcome projection’ları bu kimliklere bağlanan, yeniden üretilebilir read modelleridir.
+
+URL eşdeğerliği yalnız syntactic sadeleştirmeyle kurulmaz. Search term folded değeri yalnız clustering içindir. Platform conversion/result sinyali doğrulanmış business outcome sayılmaz.
+
+Deterministik sonuç akışı mevcut `MOXDOP_FORMULA_REGISTRY → CanonicalEvidencePipeline → MOXDOP_FINDING_RULES → Finding → Recommendation → manuel Task` zinciridir. AI bu zincirden sonra açıklama/önceliklendirme yardımı sağlar; Finding veya Task icat etmez.
+
 ## 8. Modüler mimari (MVP sade)
 
 Plugin-based **modular monolith** — paketleme temeli:
@@ -311,7 +332,7 @@ Sonra AI: bulguları açıklar → ilişkileri yorumlar → muhtemel neden → �
 |--------|--------|
 | Framework | Laravel 13 |
 | Dil | PHP 8.3+ |
-| Admin UI | Filament 5 + Livewire (panel id `app`, path `/app`) |
+| Admin UI | Operator product: Livewire TailAdmin at site root. Technical Filament 5 panel id `app`, path `/admin` (ADR-044). |
 | Auth / RBAC | `web` guard + `spatie/laravel-permission` |
 | DB | MySQL 8 |
 | Queue | Başlangıçta database queue |
@@ -359,3 +380,31 @@ DOP özel kodu ürün değerine ayrılır: digital asset management, connections
 MVP sadeleştirme sonrası Core’u bloke eden ürün/mimari açık soru **kalmamıştır**.
 
 Website Diagnosis fazı başlamadan önce `docs/website/DIAGNOSIS_CATALOG.md` zorunludur (Core blocker değildir).
+
+
+## 16. WhatsApp reply assistant — operator-authorized staging extension (2026-09-10)
+
+The owner requested a single additional MoxDOP menu for WhatsApp conversation review and AI reply
+suggestions, on `chatgpt/search-demand-foundation` only, without main changes or a PR.
+This is an agency inbox advisory workflow, not an advertising Asset diagnosis or automatic outreach.
+It may draft a response to an existing conversation from normalized inbound/outbound message records
+and operator-maintained service terms. It cannot send messages or create Tasks. The owner-approved
+2026-09-14 connection extension permits Embedded Signup token exchange and WABA application
+subscription solely for establishing this inbound integration. No other provider mutation is added.
+A distinct `whatsapp` central Integration holds encrypted credentials so existing Meta Ads credentials
+and authorizations remain untouched. The explicit WABA/phone binding is configured by the owner.
+Only active Admin operators can access the inbox; Team Member access is not enabled in this version.
+The dedicated workflow uses the existing Laravel AI SDK and central AI route/provider credentials.
+Full contract and limitations: `docs/product/WHATSAPP_ASSISTANT.md`.
+
+## 17. Free Intent Radar — owner-authorized staging extension (2026-09-13)
+
+The operator approved bounded public demand monitoring for agency service sales without paid
+search or AI APIs. Existing Sales profiles/signals/prospects own this workflow; no managed
+Customer/Brand/Asset or new Finding/Task is required to observe a prospective request.
+Selected global catalog services, optional terms/location, monitored public HTML/RSS sources,
+persistent background schedules and explicit prospect conversion form the initial scope.
+External writes, auto-outreach and fabricated identity remain prohibited. No generalized
+web-search/MCP capability layer is introduced. Scope and runtime limits are recorded in
+docs/architecture/SALES_ASSISTANT_V1_IMPLEMENTATION_B.md and PRODUCT_CAPABILITY_LEDGER.md.
+

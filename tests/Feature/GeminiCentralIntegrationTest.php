@@ -2,9 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Filament\App\Resources\Integrations\Pages\ListIntegrations;
-use App\Filament\App\Resources\Integrations\Pages\ViewIntegration;
-use App\Filament\App\Resources\Integrations\RelationManagers\ExternalResourcesRelationManager;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\User;
@@ -20,7 +17,6 @@ use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 class GeminiCentralIntegrationTest extends TestCase
@@ -116,38 +112,5 @@ class GeminiCentralIntegrationTest extends TestCase
                 && $request->hasHeader('x-goog-api-key', 'gem-header-key')
                 && $request->method() === 'GET';
         });
-    }
-
-    public function test_auth_failure_and_secret_absent_from_ui(): void
-    {
-        app(GeminiProviderCredentialService::class)->save($this->integration, [
-            'api_key' => 'gem-bad',
-        ], $this->admin);
-
-        Http::fake([
-            'generativelanguage.googleapis.com/*' => Http::response(['error' => 'denied'], 403),
-        ]);
-
-        $result = app(GeminiConnectionService::class)->testConnection($this->integration->fresh(['providerCredential']));
-        $this->assertFalse($result['ok']);
-
-        Livewire::test(ViewIntegration::class, ['record' => $this->integration->fresh()->getRouteKey()])
-            ->assertOk()
-            ->assertSee('Stored securely ✓')
-            ->assertSee('separate from Google OAuth')
-            ->assertDontSee('gem-bad')
-            ->assertDontSee('Authorize Google');
-
-        $this->assertFalse(
-            ExternalResourcesRelationManager::canViewForRecord($this->integration->fresh(), ViewIntegration::class),
-        );
-    }
-
-    public function test_hub_lists_gemini_card(): void
-    {
-        Livewire::test(ListIntegrations::class)
-            ->assertOk()
-            ->assertSee('Gemini')
-            ->assertSee('Google AI reasoning and multimodal intelligence');
     }
 }

@@ -3,16 +3,14 @@
 namespace Tests\Feature;
 
 use App\Livewire\Demo\Files\FilesIndex;
-use App\Livewire\Demo\Instagram\OverviewPage as InstagramOverviewPage;
-use App\Livewire\Demo\Integrations\SiteConnectorShow;
 use App\Livewire\Demo\ProfilePage;
-use App\Livewire\Demo\Settings\AiControlPlanePage;
 use App\Livewire\Demo\SettingsPage;
+use App\Livewire\Operator\Integrations\SiteConnectorShow;
+use App\Models\DigitalAsset;
 use App\Models\OperatorFile;
 use App\Models\User;
 use App\Support\Demo\DemoMenu;
 use App\Support\Demo\DemoState;
-use App\Support\Demo\SiteConnectorFixtures;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -56,7 +54,7 @@ class FinalInterfaceCompletionTest extends TestCase
         $this->assertSame('brief.pdf', $file->original_name);
         $this->assertSame($this->admin->id, $file->user_id);
 
-        $this->get(route('demo.files.download', $file))
+        $this->get(route('operator.files.download', $file))
             ->assertOk()
             ->assertHeader('content-disposition');
     }
@@ -75,14 +73,14 @@ class FinalInterfaceCompletionTest extends TestCase
         ]);
 
         auth()->logout();
-        $this->get(route('demo.files.download', $file))
-            ->assertRedirect('/system/login');
+        $this->get(route('operator.files.download', $file))
+            ->assertRedirect('/login');
 
         $other = User::factory()->create();
         $other->assignRole(Roles::TEAM_MEMBER);
         $this->actingAs($other);
 
-        $this->get(route('demo.files.download', $file))
+        $this->get(route('operator.files.download', $file))
             ->assertForbidden();
     }
 
@@ -117,56 +115,48 @@ class FinalInterfaceCompletionTest extends TestCase
         $this->assertSame('tr', app()->getLocale());
     }
 
-    public function test_site_connector_download_is_labeled_demo(): void
+    public function test_site_connector_download_is_a_production_plugin(): void
     {
-        $response = $this->get(route('demo.integrations.site-connector.download', ['connector' => 'wordpress']));
+        DigitalAsset::factory()->create(['type' => 'website', 'primary_url' => 'https://example.com']);
+        $response = $this->get(route('operator.integrations.site-connector.download', ['connector' => 'wordpress']));
 
         $response->assertOk();
         $disposition = (string) $response->headers->get('content-disposition');
-        $this->assertStringContainsString('moxdop-wordpress-connector-0.1.0-demo.zip', $disposition);
-        $this->assertStringContainsString('DEMO CONNECTOR PACKAGE', (string) $response->headers->get('X-MoxDOP-Package'));
+        $this->assertStringContainsString('moxdop-wordpress-connector-'.config('moxdop-wordpress.connector_version').'.zip', $disposition);
+        $this->assertSame('WORDPRESS CONNECTOR PRODUCTION PACKAGE', $response->headers->get('X-MoxDOP-Package'));
 
         Livewire::test(SiteConnectorShow::class, ['connector' => 'wordpress'])
-            ->assertSee('DEMO CONNECTOR PACKAGE')
-            ->assertSee('not production', false)
-            ->call('setTab', 'releases')
-            ->assertSee('v0.1.0 Demo');
+            ->assertSee('moxdop-wordpress-connector-'.config('moxdop-wordpress.connector_version').'.zip')
+            ->assertDontSee('DEMO CONNECTOR PACKAGE');
 
-        $zipPath = SiteConnectorFixtures::ensureDemoZip();
         $zip = new ZipArchive;
-        $this->assertTrue($zip->open($zipPath) === true);
-        $readme = $zip->getFromName('README.txt');
+        $this->assertTrue($zip->open($response->baseResponse->getFile()->getPathname()) === true);
+        $plugin = $zip->getFromName('moxdop-connector/moxdop-connector.php');
         $zip->close();
-        $this->assertIsString($readme);
-        $this->assertStringContainsString('DEMO CONNECTOR PACKAGE — NOT PRODUCTION INSTALLABLE', $readme);
+        $this->assertIsString($plugin);
+        $this->assertStringContainsString('Plugin Name: MoxDOP Website Connector', $plugin);
     }
 
-    public function test_instagram_workspace_returns_ok_with_useful_tabs(): void
+    public function test_retired_instagram_workspace_redirects_to_asset_list(): void
     {
-        $this->get(route('demo.instagram'))
-            ->assertOk()
-            ->assertSee('Instagram')
-            ->assertSee('@atlasdentalankara')
-            ->assertSee(__('operator.asset.relationship_summary'))
-            ->assertSee('Website URL mismatch');
+        $this->get(route('operator.instagram'))->assertRedirect(route('operator.assets'));
 
-        Livewire::test(InstagramOverviewPage::class)
-            ->call('setTab', 'profile')
-            ->assertSee('atlasdentalankara')
-            ->call('setTab', 'operations')
-            ->assertSee('Bio website path');
+        $asset = DigitalAsset::factory()->create([
+            'type' => 'instagram',
+            'name' => 'Northwind Instagram',
+        ]);
+
+        $this->get(route('operator.instagram', ['assetId' => $asset->id]))
+            ->assertRedirect(route('operator.assets'));
     }
 
-    public function test_demo_menu_includes_files_item(): void
+    public function test_files_left_the_menu_but_stays_reachable(): void
     {
         $items = collect(DemoMenu::groups())->flatMap(fn (array $group): array => $group['items']);
-        $files = $items->firstWhere('route', 'demo.files');
 
-        $this->assertNotNull($files);
-        $this->assertSame('demo.files', $files['route']);
-        $this->assertSame(__('operator.nav.files'), $files['label']);
+        $this->assertNull($items->firstWhere('route', 'operator.files'), 'Faz 10e sade menü');
 
-        $this->get(route('demo.files'))
+        $this->get(route('operator.files'))
             ->assertOk()
             ->assertSee(__('operator.files.title'));
     }
@@ -178,36 +168,22 @@ class FinalInterfaceCompletionTest extends TestCase
 
         $this->assertStringNotContainsString('href="/system', $html);
         $this->assertStringNotContainsString("href='/system", $html);
-        $this->assertStringContainsString('/app/settings/ai/control-plane', $html);
+        $this->assertStringContainsString('/integrations/openai', $html);
+        $this->assertStringNotContainsString('/settings/ai/control-plane', $html);
 
         $advanced = Livewire::test(SettingsPage::class, ['section' => 'advanced'])->html();
         $this->assertStringNotContainsString('Open system panel', $advanced);
         $this->assertStringNotContainsString('href="/system', $advanced);
-        $this->assertStringContainsString('Open Agency Command Center', $advanced);
-    }
-
-    public function test_ai_control_plane_lists_registered_routes(): void
-    {
-        $this->get(route('demo.settings.ai.control-plane'))
-            ->assertOk()
-            ->assertSee('AI Control Plane')
-            ->assertDontSee('href="/system', false);
-
-        Livewire::test(AiControlPlanePage::class)
-            ->assertOk()
-            ->assertSee('website.ai_guidance')
-            ->assertSee('google_ads.ai_guidance')
-            ->assertSee('meta_ads.ai_guidance');
+        $this->assertStringContainsString(__('operator.nav.dashboard'), $advanced);
     }
 
     public function test_profile_and_site_connectors_routes_are_reachable(): void
     {
-        $this->get(route('demo.profile'))->assertOk()->assertSee(__('operator.profile.title'));
-        $this->get(route('demo.integrations.site-connectors'))
+        $this->get(route('operator.profile'))->assertOk()->assertSee(__('operator.profile.title'));
+        $this->get(route('operator.integrations.site-connector', ['connector' => 'wordpress']))
             ->assertOk()
-            ->assertSee('WordPress')
-            ->assertSee(__('operator.site_connectors.title'));
-        $this->get(route('demo.integrations'))
+            ->assertSee('WordPress');
+        $this->get(route('operator.integrations'))
             ->assertOk()
             ->assertSee(__('operator.site_connectors.title'));
     }

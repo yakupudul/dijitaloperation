@@ -97,16 +97,30 @@ jobs:
           gh pr view "$PR_NUMBER" --json number,title,body,headRefName,headRefOid,baseRefName,mergeable,url \
             > .automation/runtime/pr.json
           python - <<'PY'
-          import json, os, sys
+          import json, os, re, sys
           from pathlib import Path
           sys.path.insert(0, ".automation")
           from pr_gate import is_automation_product_pr, write_task_file_from_pr_body
 
           pr = json.loads(Path(".automation/runtime/pr.json").read_text(encoding="utf-8"))
           body = pr.get("body") or ""
+          base_ref = str(pr.get("baseRefName") or "").strip()
+          if not base_ref:
+              print("::error::PR baseRefName is missing; refusing to calculate PR diff")
+              raise SystemExit(1)
+          if (
+              not re.fullmatch(r"[A-Za-z0-9._/-]+", base_ref)
+              or base_ref.startswith("/")
+              or base_ref.endswith("/")
+              or ".." in base_ref
+              or "//" in base_ref
+          ):
+              print(f"::error::Unsafe PR baseRefName: {base_ref!r}")
+              raise SystemExit(1)
           Path(".automation/runtime/pr_body.md").write_text(body, encoding="utf-8")
           Path(".automation/runtime/pr_title.txt").write_text(pr.get("title") or "", encoding="utf-8")
           Path(".automation/runtime/branch.txt").write_text(pr.get("headRefName") or "", encoding="utf-8")
+          Path(".automation/runtime/base_branch.txt").write_text(base_ref, encoding="utf-8")
           Path(".automation/runtime/pr_number.txt").write_text(str(pr.get("number") or ""), encoding="utf-8")
           Path(".automation/runtime/head_sha.txt").write_text(pr.get("headRefOid") or "", encoding="utf-8")
           auto = is_automation_product_pr(body)
@@ -119,11 +133,15 @@ jobs:
               except Exception as exc:
                   print(f"::error::Failed to parse DOP PR task metadata: {exc}")
                   raise SystemExit(1)
-          print(f"automation_pr={auto} branch={pr.get('headRefName')} sha={pr.get('headRefOid')}")
+          print(
+              f"automation_pr={auto} branch={pr.get('headRefName')} "
+              f"base={base_ref} sha={pr.get('headRefOid')}"
+          )
           PY
-          git fetch origin main
-          git diff --name-only "origin/main...HEAD" > .automation/runtime/pr_files.txt || true
-          git diff "origin/main...HEAD" > .automation/runtime/pr.diff || true
+          BASE_REF="$(cat .automation/runtime/base_branch.txt)"
+          git fetch origin "refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+          git diff --name-only "origin/${BASE_REF}...HEAD" > .automation/runtime/pr_files.txt
+          git diff "origin/${BASE_REF}...HEAD" > .automation/runtime/pr.diff
 
       - name: Composer validate
         run: composer validate --no-check-publish

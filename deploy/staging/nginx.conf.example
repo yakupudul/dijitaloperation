@@ -1,0 +1,65 @@
+# Example Nginx site for MoxDOP staging (single VPS).
+# Replace server_name, root, and TLS paths. Document root MUST be Laravel /public.
+#
+# public/storage → storage/app/public is the only public symlink (avatars / agency branding).
+# Private customer files, report PDFs, and raw ingestion live under storage/app/private
+# and storage/app/raw_ingestion — never symlink those into public/.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name app.moximu.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name app.moximu.com;
+
+    # ssl_certificate     /etc/letsencrypt/live/app.moximu.com/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/app.moximu.com/privkey.pem;
+
+    root /var/www/moxdop-staging/public;
+    index index.php;
+
+    charset utf-8;
+    client_max_body_size 32M;
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+    location = /robots.txt  { access_log off; log_not_found off; }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+
+    # Do not expose application internals. /storage is the public disk symlink only.
+    location ~ ^/(database|\.env) {
+        deny all;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+        fastcgi_hide_header X-Powered-By;
+    }
+
+    # Existing Vite/public files are served from disk. Missing .js/.css (Livewire hashed
+    # /livewire-*/livewire.min.js) must fall through to Laravel, not hard 404.
+    location ~* \.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2)$ {
+        expires 7d;
+        access_log off;
+        try_files $uri /index.php?$query_string;
+    }
+}

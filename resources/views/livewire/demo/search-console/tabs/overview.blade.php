@@ -219,5 +219,4 @@
 
     @include('livewire.demo.search-console.tabs.relationships')
 
-    @include('livewire.demo.partials._opportunity-card', ['opportunity' => collect(\App\Support\Demo\OpportunityFixtures::forAssetType('gsc'))->first()])
 </div>

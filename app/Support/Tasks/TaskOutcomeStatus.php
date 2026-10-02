@@ -19,6 +19,20 @@ final class TaskOutcomeStatus
 
     public const string NOT_EVALUABLE = 'not_evaluable';
 
+    public const string TECHNICALLY_FIXED = 'technically_fixed';
+
+    public const string CONTENT_CHANGE_VERIFIED = 'content_change_verified';
+
+    public const string VISIBILITY_INCREASED = 'visibility_increased';
+
+    public const string VISIBILITY_DECREASED = 'visibility_decreased';
+
+    public const string NO_CHANGE_OBSERVED = 'no_change_observed';
+
+    public const string TOO_EARLY = 'too_early';
+
+    public const string INSUFFICIENT_DATA = 'insufficient_data';
+
     public const string EVALUATOR_VERSION = 'finding-lifecycle-outcome-v1';
 
     /**
@@ -33,6 +47,13 @@ final class TaskOutcomeStatus
             self::REGRESSION_OBSERVED,
             self::INSUFFICIENT_EVIDENCE,
             self::NOT_EVALUABLE,
+            self::TECHNICALLY_FIXED,
+            self::CONTENT_CHANGE_VERIFIED,
+            self::VISIBILITY_INCREASED,
+            self::VISIBILITY_DECREASED,
+            self::NO_CHANGE_OBSERVED,
+            self::TOO_EARLY,
+            self::INSUFFICIENT_DATA,
         ];
     }
 
@@ -45,6 +66,13 @@ final class TaskOutcomeStatus
             self::REGRESSION_OBSERVED => 'Regression observed',
             self::INSUFFICIENT_EVIDENCE => 'Insufficient evidence',
             self::NOT_EVALUABLE => 'Not evaluable',
+            self::TECHNICALLY_FIXED => 'Technically fixed',
+            self::CONTENT_CHANGE_VERIFIED => 'Content change verified',
+            self::VISIBILITY_INCREASED => 'Visibility increased',
+            self::VISIBILITY_DECREASED => 'Visibility decreased',
+            self::NO_CHANGE_OBSERVED => 'No change observed',
+            self::TOO_EARLY => 'Too early to evaluate',
+            self::INSUFFICIENT_DATA => 'Insufficient data',
             default => str($status)->replace('_', ' ')->title()->toString(),
         };
     }
@@ -58,6 +86,13 @@ final class TaskOutcomeStatus
             self::REGRESSION_OBSERVED => 'Improvement had been observed earlier; the same stable Finding has been observed again in a later successful evaluation.',
             self::INSUFFICIENT_EVIDENCE => 'A relevant follow-up attempt exists, but the evaluation was not successful/complete enough to judge Outcome safely.',
             self::NOT_EVALUABLE => 'This Task does not have enough auditable Finding provenance to evaluate Outcome safely.',
+            self::TECHNICALLY_FIXED => 'The original technical condition is absent from the accepted post-change stored HTML observation.',
+            self::CONTENT_CHANGE_VERIFIED => 'A human accepted the semantic comparison showing that the intended content change is present.',
+            self::VISIBILITY_INCREASED => 'Stored GSC or SERP observations increased after the recorded change; this is observational, not causal attribution.',
+            self::VISIBILITY_DECREASED => 'Stored GSC or SERP observations decreased after the recorded change; this is observational, not causal attribution.',
+            self::NO_CHANGE_OBSERVED => 'Comparable stored observations do not show a consistent visibility change.',
+            self::TOO_EARLY => 'The configured review-after date has not been reached.',
+            self::INSUFFICIENT_DATA => 'Comparable stored post-change evidence is not sufficient for a safe Outcome judgment.',
             default => 'Outcome state is recorded without causal attribution.',
         };
     }

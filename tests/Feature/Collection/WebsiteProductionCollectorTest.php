@@ -1,0 +1,1143 @@
+<?php
+
+namespace Tests\Feature\Collection;
+
+use App\Enums\Collection\CollectionRunStatus;
+use App\Enums\Collection\CollectionTriggerType;
+use App\Enums\Collection\DatasetExecutionOutcome;
+use App\Enums\DigitalAssetStatus;
+use App\Models\Brand;
+use App\Models\Collection\CollectionDatasetRun;
+use App\Models\Collection\CollectionResourceRun;
+use App\Models\Collection\CollectionRun;
+use App\Models\CoreAssetBinding;
+use App\Models\CoreConnection;
+use App\Models\CoreConnectionCredential;
+use App\Models\CoreExternalResource;
+use App\Models\CoreIntegration;
+use App\Models\Customer;
+use App\Models\DataPool\DatasetWriteBatch;
+use App\Models\DigitalAsset;
+use App\Models\Evidence;
+use App\Models\User;
+use App\Services\Collection\CheckpointManager;
+use App\Services\Collection\CollectionPlanner;
+use App\Services\Collection\ProgressReporter;
+use App\Services\Collection\Providers\Website\WebsiteCrawlPoliteness;
+use App\Services\Collection\Providers\Website\WebsiteDatasetExecutor;
+use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
+use App\Services\Collection\Support\DatasetExecutionContext;
+use App\Services\Collection\Support\DatasetExecutionResult;
+use App\Services\Collection\Support\StartCollectionRequest;
+use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
+use App\Services\PageSpeedConnectionProbeService;
+use App\Support\Roles;
+use App\Support\SslCertificateProbe;
+use Database\Seeders\RoleAndPermissionSeeder;
+use DateTimeInterface;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use MoxDop\Website\Discovery\DiscoveryConfig;
+use MoxDop\Website\Discovery\PublicHttpFetcher;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
+
+class WebsiteProductionCollectorTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private Brand $brand;
+
+    private DigitalAsset $asset;
+
+    private User $admin;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->seed(RoleAndPermissionSeeder::class);
+
+        Storage::fake('raw_ingestion');
+        config([
+            'moxdop-collection.queue_connection' => 'database',
+            'moxdop-collection.require_queue_connection' => false,
+            'moxdop-data-pool.raw_disk' => 'raw_ingestion',
+            'filesystems.disks.raw_ingestion' => [
+                'driver' => 'local',
+                'root' => storage_path('framework/testing/raw_ingestion'),
+            ],
+        ]);
+
+        $this->admin = User::factory()->create();
+        $this->admin->assignRole(Roles::ADMIN);
+
+        $customer = Customer::factory()->create();
+        $this->brand = Brand::factory()->create(['customer_id' => $customer->id]);
+        $this->asset = DigitalAsset::factory()->create([
+            'brand_id' => $this->brand->id,
+            'type' => 'website',
+            'module_id' => 'website',
+            'status' => DigitalAssetStatus::Active,
+            'domain' => '1.1.1.1',
+            'primary_url' => 'http://1.1.1.1/',
+        ]);
+    }
+
+    #[Test]
+    public function website_orchestrator_does_not_pull_google_or_meta_sibling_bindings(): void
+    {
+        Queue::fake();
+
+        $google = CoreIntegration::factory()->google()->create([
+            'status' => CoreIntegration::STATUS_ACTIVE,
+        ]);
+
+        $gscBinding = CoreAssetBinding::factory()->create([
+            'digital_asset_id' => $this->asset->id,
+            'capability' => 'search_console',
+            'status' => CoreAssetBinding::STATUS_ACTIVE,
+            'external_resource_id' => CoreExternalResource::factory()->create([
+                'integration_id' => $google->id,
+                'provider' => 'google',
+                'resource_type' => 'search_console',
+                'external_id' => 'sc-domain:example.com',
+                'status' => CoreExternalResource::STATUS_AVAILABLE,
+            ])->id,
+        ]);
+
+        $adsAsset = DigitalAsset::factory()->create([
+            'brand_id' => $this->brand->id,
+            'type' => 'google_ads',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+        $adsBinding = CoreAssetBinding::factory()->create([
+            'digital_asset_id' => $adsAsset->id,
+            'capability' => 'google_ads',
+            'status' => CoreAssetBinding::STATUS_ACTIVE,
+            'external_resource_id' => CoreExternalResource::factory()->create([
+                'integration_id' => $google->id,
+                'provider' => 'google',
+                'resource_type' => 'google_ads',
+                'external_id' => '1234567890',
+                'status' => CoreExternalResource::STATUS_AVAILABLE,
+            ])->id,
+        ]);
+
+        $run = app(WebsiteCollectionOrchestrator::class)->start($this->asset, $this->admin);
+        $providers = $run->resourceRuns->pluck('provider_or_source')->unique()->values()->all();
+        $bindingIds = $run->resourceRuns->pluck('core_asset_binding_id')->filter()->values()->all();
+        $families = $run->datasetRuns->pluck('request_family_id')->all();
+
+        $this->assertNotContains('SEARCH_CONSOLE', $providers);
+        $this->assertNotContains('GA4', $providers);
+        $this->assertNotContains('GOOGLE_ADS', $providers);
+        $this->assertNotContains('META_ADS', $providers);
+        $this->assertContains('WEBSITE_DIRECT', $providers);
+        $this->assertContains('DOMAIN_DNS_TLS', $providers);
+        $this->assertSame([], $bindingIds);
+        $this->assertContains(WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS, $families);
+        $this->assertContains(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL, $families);
+        $this->assertNotContains(WebsiteRequestFamilyCatalog::FAMILY_WP_REST, $families);
+        $this->assertSame(
+            CollectionRunStatus::NotEligible,
+            $run->datasetRuns->firstWhere('request_family_id', WebsiteRequestFamilyCatalog::FAMILY_PAGESPEED)?->status,
+        );
+
+        $this->assertNotSame($gscBinding->id, $adsBinding->id);
+    }
+
+    #[Test]
+    public function null_provider_sources_on_a_website_asset_do_not_auto_add_website_families(): void
+    {
+        CoreAssetBinding::factory()->create([
+            'digital_asset_id' => $this->asset->id,
+            'capability' => 'search_console',
+            'status' => CoreAssetBinding::STATUS_ACTIVE,
+            'external_resource_id' => CoreExternalResource::factory()->create([
+                'integration_id' => CoreIntegration::factory()->google()->create([
+                    'status' => CoreIntegration::STATUS_ACTIVE,
+                ])->id,
+                'provider' => 'google',
+                'resource_type' => 'search_console',
+                'external_id' => 'sc-domain:example.com',
+                'status' => CoreExternalResource::STATUS_AVAILABLE,
+            ])->id,
+        ]);
+
+        $plan = app(CollectionPlanner::class)->plan(new StartCollectionRequest(
+            digitalAsset: $this->asset,
+        ));
+
+        $providers = array_column($plan['resources'], 'provider_or_source');
+        $families = array_column($plan['datasets'], 'request_family_id');
+        $this->assertContains('SEARCH_CONSOLE', $providers);
+        $this->assertNotContains('WEBSITE_DIRECT', $providers);
+        $this->assertNotContains('DATAFORSEO', $providers);
+        $this->assertNotContains(WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS, $families);
+        $this->assertNotContains(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL, $families);
+    }
+
+    #[Test]
+    public function incremental_trigger_marks_website_families_not_eligible(): void
+    {
+        $plan = app(CollectionPlanner::class)->plan(new StartCollectionRequest(
+            digitalAsset: $this->asset,
+            triggerType: CollectionTriggerType::Incremental,
+            providerSources: ['WEBSITE_DIRECT', 'DOMAIN_DNS_TLS'],
+            requestFamilyIds: [
+                WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS,
+                WebsiteRequestFamilyCatalog::FAMILY_DNS_TLS,
+            ],
+        ));
+
+        foreach ($plan['datasets'] as $dataset) {
+            $this->assertSame(CollectionRunStatus::NotEligible->value, $dataset['planned_status']);
+        }
+    }
+
+    #[Test]
+    public function http_html_diagnosis_checkpoints_steps_and_does_not_multiply_on_resume_or_overlap(): void
+    {
+        $this->fakePublicSite();
+
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS);
+        $executor = app(WebsiteDatasetExecutor::class);
+
+        $first = $executor->execute($context);
+        $this->assertSame(DatasetExecutionOutcome::Continue, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame(1, $first->checkpoint['step_index'] ?? null);
+        $observedAt = (string) $first->checkpoint['observed_at'];
+        app(CheckpointManager::class)->advance($datasetRun, $first->checkpoint);
+
+        $homepageHttp = DB::table('website_http_snapshot')->count();
+        $homepageUrls = DB::table('website_url')->count();
+        $this->assertGreaterThan(0, $homepageHttp);
+        $this->assertGreaterThan(0, $homepageUrls);
+
+        $second = $executor->execute($this->contextFrom($context, $datasetRun, $first->checkpoint));
+        $this->assertSame(DatasetExecutionOutcome::Continue, $second->outcome, (string) $second->errorMessage);
+        $this->assertSame(2, $second->checkpoint['step_index'] ?? null);
+        $this->assertSame($observedAt, $second->checkpoint['observed_at'] ?? null);
+        $this->assertSame($homepageUrls, DB::table('website_url')->count(), 'robots tick must not duplicate homepage URL inventory');
+
+        $third = $this->runUntilComplete($executor, $this->contextFrom($context, $datasetRun, $second->checkpoint), $datasetRun, $second);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $third->outcome, (string) $third->errorMessage);
+
+        $urlsAfter = DB::table('website_url')->count();
+        $httpAfter = DB::table('website_http_snapshot')->count();
+        $this->assertGreaterThan($homepageHttp, $httpAfter, 'robots and sitemap ticks must add HTTP snapshots');
+        $this->assertSame(0, Evidence::query()->count());
+
+        $overlap = $this->runUntilComplete(
+            $executor,
+            $this->contextFrom($context, $datasetRun, [
+                'step_index' => 0,
+                'observed_at' => $observedAt,
+                'rows_written_total' => 0,
+            ]),
+            $datasetRun,
+        );
+        $this->assertSame(DatasetExecutionOutcome::Completed, $overlap->outcome, (string) $overlap->errorMessage);
+        $this->assertSame($urlsAfter, DB::table('website_url')->count());
+        $this->assertSame($httpAfter, DB::table('website_http_snapshot')->count());
+    }
+
+    #[Test]
+    public function http_html_diagnosis_reports_progress_deltas_not_cumulative_totals(): void
+    {
+        $this->fakePublicSite();
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS);
+        $executor = app(WebsiteDatasetExecutor::class);
+        $progress = app(ProgressReporter::class);
+
+        $first = $executor->execute($context);
+        $this->assertSame(DatasetExecutionOutcome::Continue, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame(1, $first->pagesCompleted);
+        $this->assertSame($first->rowsWritten, (int) $first->checkpoint['rows_written_total']);
+        $this->assertGreaterThan(0, $first->rowsWritten);
+        $progress->report(
+            $datasetRun,
+            $first->progressMode,
+            $first->progressCurrent,
+            $first->progressTotal,
+            $first->stage,
+            $first->rowsReceived,
+            $first->rowsWritten,
+            $first->chunksCompleted,
+            $first->pagesCompleted,
+        );
+        $datasetRun->refresh();
+        $this->assertSame(1, (int) $datasetRun->pages_completed);
+        $this->assertSame($first->rowsWritten, (int) $datasetRun->rows_written);
+
+        $second = $executor->execute($this->contextFrom($context, $datasetRun, $first->checkpoint));
+        $this->assertSame(DatasetExecutionOutcome::Continue, $second->outcome, (string) $second->errorMessage);
+        $this->assertSame(1, $second->pagesCompleted);
+        $this->assertSame(2, $second->checkpoint['step_index'] ?? null);
+        $this->assertSame(
+            (int) $first->checkpoint['rows_written_total'] + $second->rowsWritten,
+            (int) $second->checkpoint['rows_written_total'],
+        );
+        $progress->report(
+            $datasetRun,
+            $second->progressMode,
+            $second->progressCurrent,
+            $second->progressTotal,
+            $second->stage,
+            $second->rowsReceived,
+            $second->rowsWritten,
+            $second->chunksCompleted,
+            $second->pagesCompleted,
+        );
+        $datasetRun->refresh();
+        $this->assertSame(2, (int) $datasetRun->pages_completed);
+        $this->assertSame(
+            $first->rowsWritten + $second->rowsWritten,
+            (int) $datasetRun->rows_written,
+        );
+
+        $third = $executor->execute($this->contextFrom($context, $datasetRun, $second->checkpoint));
+        $this->assertSame(DatasetExecutionOutcome::Completed, $third->outcome, (string) $third->errorMessage);
+        $this->assertSame(1, $third->pagesCompleted);
+        $this->assertSame(3, $third->checkpoint['step_index'] ?? null);
+        $this->assertSame(
+            (int) $second->checkpoint['rows_written_total'] + $third->rowsWritten,
+            (int) $third->checkpoint['rows_written_total'],
+        );
+        $progress->report(
+            $datasetRun,
+            $third->progressMode,
+            $third->progressCurrent,
+            $third->progressTotal,
+            $third->stage,
+            $third->rowsReceived,
+            $third->rowsWritten,
+            $third->chunksCompleted,
+            $third->pagesCompleted,
+        );
+        $datasetRun->refresh();
+        $this->assertSame(3, (int) $datasetRun->pages_completed);
+        $this->assertSame(
+            $first->rowsWritten + $second->rowsWritten + $third->rowsWritten,
+            (int) $datasetRun->rows_written,
+        );
+        $this->assertNotSame(1 + 2 + 3, (int) $datasetRun->pages_completed);
+
+        $resume = $executor->execute($this->contextFrom($context, $datasetRun, $first->checkpoint));
+        $this->assertSame(1, $resume->pagesCompleted);
+        $this->assertSame($second->rowsWritten, $resume->rowsWritten);
+
+        $retryHomepage = $executor->execute($this->contextFrom($context, $datasetRun, [
+            'step_index' => 0,
+            'observed_at' => (string) $first->checkpoint['observed_at'],
+            'rows_written_total' => 0,
+        ]));
+        $this->assertSame(1, $retryHomepage->pagesCompleted);
+        $this->assertSame($first->rowsWritten, $retryHomepage->rowsWritten);
+        $this->assertSame($retryHomepage->rowsWritten, (int) $retryHomepage->checkpoint['rows_written_total']);
+    }
+
+    #[Test]
+    public function dns_tls_writes_one_infra_snapshot_via_injected_probe(): void
+    {
+        $probe = new class extends SslCertificateProbe
+        {
+            public function probe(string $host, DateTimeInterface $observedAt, int $port = 443): array
+            {
+                return [
+                    'subject_common_name' => $host,
+                    'issuer_common_name' => 'Test CA',
+                    'valid_from' => '2026-01-01 00:00:00',
+                    'valid_to' => '2027-01-01 00:00:00',
+                    'observed_at' => $observedAt->format('Y-m-d H:i:s'),
+                    'fetch_method' => 'test',
+                    'host' => $host,
+                    'present' => true,
+                ];
+            }
+        };
+        $this->app->instance(SslCertificateProbe::class, $probe);
+        $this->app->forgetInstance(WebsiteDatasetExecutor::class);
+
+        $result = $this->runFamily(WebsiteRequestFamilyCatalog::FAMILY_DNS_TLS);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $result->outcome, (string) $result->errorMessage);
+        $this->assertSame(1, DB::table('website_infra_snapshot')->count());
+        $row = DB::table('website_infra_snapshot')->first();
+        $this->assertSame((string) $this->asset->id, $row->asset_id);
+        $this->assertSame(0, Evidence::query()->count());
+    }
+
+    #[Test]
+    public function pagespeed_without_connection_is_not_eligible_and_executor_does_not_call_psi(): void
+    {
+        $plan = app(CollectionPlanner::class)->plan(new StartCollectionRequest(
+            digitalAsset: $this->asset,
+            providerSources: ['PAGESPEED_TECHNICAL'],
+            requestFamilyIds: [WebsiteRequestFamilyCatalog::FAMILY_PAGESPEED],
+        ));
+        $this->assertSame(CollectionRunStatus::NotEligible->value, $plan['datasets'][0]['planned_status']);
+
+        Http::fake();
+        $result = $this->runFamily(WebsiteRequestFamilyCatalog::FAMILY_PAGESPEED);
+        $this->assertSame(DatasetExecutionOutcome::Failed, $result->outcome);
+        $this->assertSame('PAGESPEED_CONNECTION_REQUIRED', $result->errorCode);
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function pagespeed_with_connection_writes_performance_measurement(): void
+    {
+        $connection = CoreConnection::factory()->create([
+            'digital_asset_id' => $this->asset->id,
+            'type' => PageSpeedConnectionProbeService::CONNECTION_TYPE,
+            'enabled' => true,
+            'config' => [
+                'strategy' => 'mobile',
+                'url' => 'http://1.1.1.1/',
+            ],
+        ]);
+        CoreConnectionCredential::factory()->create([
+            'connection_id' => $connection->id,
+            'encrypted_payload' => ['api_key' => 'psi-test-key'],
+        ]);
+
+        Http::fake([
+            'https://www.googleapis.com/pagespeedonline/v5/runPagespeed*' => Http::response([
+                'lighthouseResult' => [
+                    'finalUrl' => 'http://1.1.1.1/',
+                    'fetchTime' => '2026-08-20T00:00:00.000Z',
+                    'audits' => [
+                        'largest-contentful-paint' => ['numericValue' => 2400],
+                    ],
+                ],
+                'originLoadingExperience' => [
+                    'overall_category' => 'AVERAGE',
+                    'metrics' => [
+                        'LARGEST_CONTENTFUL_PAINT_MS' => ['percentile' => 2900],
+                        'INTERACTION_TO_NEXT_PAINT' => ['percentile' => 210],
+                        'CUMULATIVE_LAYOUT_SHIFT_SCORE' => ['percentile' => 12],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $result = $this->runFamily(WebsiteRequestFamilyCatalog::FAMILY_PAGESPEED);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $result->outcome, (string) $result->errorMessage);
+        $this->assertSame(1, DB::table('website_performance_measurement')->count());
+        $this->assertSame(0, Evidence::query()->count());
+
+        $field = json_decode((string) DB::table('website_performance_measurement')->value('metadata'), true)['field'];
+        $this->assertSame(['scope' => 'origin', 'category' => 'AVERAGE', 'lcp_ms' => 2900, 'inp_ms' => 210, 'cls' => 0.12], $field);
+    }
+
+    #[Test]
+    public function sibling_resource_run_binding_is_rejected(): void
+    {
+        $this->fakePublicSite();
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS);
+        $binding = CoreAssetBinding::factory()->create([
+            'digital_asset_id' => $this->asset->id,
+            'capability' => 'search_console',
+            'status' => CoreAssetBinding::STATUS_ACTIVE,
+            'external_resource_id' => CoreExternalResource::factory()->create([
+                'integration_id' => CoreIntegration::factory()->google()->create([
+                    'status' => CoreIntegration::STATUS_ACTIVE,
+                ])->id,
+                'provider' => 'google',
+                'resource_type' => 'search_console',
+                'external_id' => 'sc-domain:1.1.1.1',
+                'status' => CoreExternalResource::STATUS_AVAILABLE,
+            ])->id,
+        ]);
+        $context->resourceRun->forceFill(['core_asset_binding_id' => $binding->id])->save();
+
+        $result = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom(
+            $context,
+            $datasetRun,
+            [],
+        ));
+        $this->assertSame(DatasetExecutionOutcome::Failed, $result->outcome);
+        $this->assertSame('BINDING_NOT_USED', $result->errorCode);
+    }
+
+    #[Test]
+    public function public_crawl_persists_each_url_with_a_unique_batch_key_and_stays_idempotent_on_retry_and_resume(): void
+    {
+        $this->fakePublicSite();
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $executor = app(WebsiteDatasetExecutor::class);
+        $home = 'http://1.1.1.1/';
+        $about = 'http://1.1.1.1/about';
+        $pages = array_map(static fn (int $i): string => 'http://1.1.1.1/page-'.$i, range(1, 15));
+        $total = 2 + count($pages);
+        $startCheckpoint = [
+            'observed_at' => '2026-08-20 00:00:00',
+            'queue' => [$home, $about, ...$pages],
+            'visited' => [],
+            'pages' => 0,
+            'rows_written_total' => 0,
+        ];
+
+        // One step fetches a small batch of URLs, a few at a time ("nazik mod").
+        $batch = (int) config('moxdop-website-intelligence.crawl.batch_size');
+        $this->assertSame(6, $batch);
+        $first = $executor->execute($this->contextFrom($context, $datasetRun, $startCheckpoint));
+        $this->assertSame(DatasetExecutionOutcome::Continue, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame($batch, $first->checkpoint['pages'] ?? null);
+        $this->assertSame($batch, $first->pagesCompleted);
+        $this->assertSame(array_slice($pages, $batch - 2), $first->checkpoint['queue'] ?? null);
+        $this->assertContains($home, $first->checkpoint['visited'] ?? []);
+        $this->assertContains($about, $first->checkpoint['visited'] ?? []);
+        $this->assertGreaterThan(0, (int) ($first->checkpoint['rows_written_total'] ?? 0));
+        $this->assertSame($first->rowsWritten, (int) $first->checkpoint['rows_written_total']);
+
+        $httpAfterFirst = DB::table('website_http_snapshot')->count();
+        $urlsAfterFirst = DB::table('website_url')->count();
+        $batchesAfterFirst = DatasetWriteBatch::query()->where('dataset_run_id', $datasetRun->id)->count();
+        $this->assertSame($batch, $httpAfterFirst);
+        $this->assertSame($batch, $urlsAfterFirst);
+        $this->assertGreaterThan(0, $batchesAfterFirst);
+
+        $retrySameBatch = $executor->execute($this->contextFrom($context, $datasetRun, $startCheckpoint));
+        $this->assertSame(DatasetExecutionOutcome::Continue, $retrySameBatch->outcome, (string) $retrySameBatch->errorMessage);
+        $this->assertSame($batch, $retrySameBatch->checkpoint['pages'] ?? null);
+        $this->assertSame($httpAfterFirst, DB::table('website_http_snapshot')->count(), 'retrying the same batch must not duplicate HTTP snapshots');
+        $this->assertSame($urlsAfterFirst, DB::table('website_url')->count(), 'retrying the same batch must not duplicate URL inventory');
+        $this->assertSame($batchesAfterFirst, DatasetWriteBatch::query()->where('dataset_run_id', $datasetRun->id)->count());
+
+        app(CheckpointManager::class)->advance($datasetRun, $first->checkpoint);
+        $second = $this->runUntilComplete($executor, $this->contextFrom($context, $datasetRun, $first->checkpoint), $datasetRun);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $second->outcome, (string) $second->errorMessage);
+        $this->assertSame($total, $second->checkpoint['pages'] ?? null);
+        $this->assertSame([], $second->checkpoint['queue'] ?? null);
+        $this->assertEqualsCanonicalizing([$home, $about, ...$pages], $second->checkpoint['visited'] ?? []);
+
+        $httpUrls = DB::table('website_http_snapshot')->orderBy('id')->pluck('url')->all();
+        $this->assertCount($total, $httpUrls);
+        $this->assertCount($total, array_unique($httpUrls));
+        $this->assertSame($total, DB::table('website_url')->count());
+        $this->assertContains($home, $httpUrls);
+        $this->assertContains($about, $httpUrls);
+
+        $httpBatchKeys = DatasetWriteBatch::query()
+            ->where('dataset_run_id', $datasetRun->id)
+            ->where('dataset_id', 'website_http_snapshot')
+            ->orderBy('id')
+            ->pluck('batch_key')
+            ->all();
+        $this->assertCount($total, $httpBatchKeys);
+        $this->assertCount($total, array_unique($httpBatchKeys));
+        foreach ($httpBatchKeys as $batchKey) {
+            $this->assertMatchesRegularExpression('/^website:website_http_snapshot:public_crawl_http:url=[a-f0-9]{64}$/', (string) $batchKey);
+        }
+
+        $committedRows = (int) DatasetWriteBatch::query()
+            ->where('dataset_run_id', $datasetRun->id)
+            ->where('status', 'committed')
+            ->sum('rows_received');
+        $this->assertSame($committedRows, (int) ($second->checkpoint['rows_written_total'] ?? 0));
+        $this->assertSame(0, Evidence::query()->count());
+
+        $resume = $this->runUntilComplete(
+            $executor,
+            $this->contextFrom($context, $datasetRun, $first->checkpoint),
+            $datasetRun,
+        );
+        $this->assertSame(DatasetExecutionOutcome::Completed, $resume->outcome, (string) $resume->errorMessage);
+        $this->assertSame($total, DB::table('website_http_snapshot')->count(), 'resume must not lose or duplicate crawled pages');
+        $this->assertSame($total, DB::table('website_url')->count());
+        $this->assertSame($committedRows, (int) DatasetWriteBatch::query()->where('dataset_run_id', $datasetRun->id)->sum('rows_received'));
+        $this->assertSame($total, (int) ($resume->checkpoint['pages'] ?? 0));
+    }
+
+    #[Test]
+    public function public_crawl_resolves_nested_relative_links_against_the_fetched_page_not_the_seed(): void
+    {
+        Http::fake(function ($request) {
+            $path = (string) (parse_url($request->url(), PHP_URL_PATH) ?: '/');
+            if ($path === '/blog' || $path === '/blog/') {
+                return Http::response(
+                    '<html><body><a href="post-1">Post</a><a href="../pricing">Pricing</a><a href="/contact">Contact</a></body></html>',
+                    200,
+                    ['Content-Type' => 'text/html'],
+                );
+            }
+
+            return Http::response('<html><body>ok</body></html>', 200, ['Content-Type' => 'text/html']);
+        });
+
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $result = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, [
+            'observed_at' => '2026-08-20 00:00:00',
+            'queue' => ['http://1.1.1.1/blog/'],
+            'visited' => [],
+            'pages' => 0,
+            'rows_written_total' => 0,
+            'bytes_downloaded_total' => 0,
+        ]));
+
+        $this->assertSame(DatasetExecutionOutcome::Continue, $result->outcome, (string) $result->errorMessage);
+        $queue = array_values($result->checkpoint['queue'] ?? []);
+        $this->assertContains('http://1.1.1.1/blog/post-1', $queue);
+        $this->assertContains('http://1.1.1.1/pricing', $queue);
+        $this->assertContains('http://1.1.1.1/contact', $queue);
+        $this->assertNotContains('http://1.1.1.1/post-1', $queue);
+    }
+
+    #[Test]
+    public function public_crawl_skips_media_and_by_product_urls_and_pages_unchanged_since_the_last_fetch(): void
+    {
+        $this->travelTo('2026-08-20 10:00:00');
+        Http::fake(function ($request) {
+            $url = $request->url();
+            if (str_contains($url, 'robots.txt')) {
+                return Http::response("User-agent: *\n", 200, ['Content-Type' => 'text/plain']);
+            }
+            if (str_contains($url, 'sitemap')) {
+                return Http::response('<?xml version="1.0"?><urlset>'
+                    .'<url><loc>http://1.1.1.1/about</loc><lastmod>2026-08-01</lastmod></url>'
+                    .'<url><loc>http://1.1.1.1/implant</loc><lastmod>2026-08-19T12:00:00+00:00</lastmod><image:image><image:loc>http://1.1.1.1/wp-content/uploads/a.jpg</image:loc></image:image></url>'
+                    .'<url><loc>http://1.1.1.1/tag/dis/</loc></url><url><loc>http://1.1.1.1/feed/</loc></url>'
+                    .'<url><loc>http://1.1.1.1/elementor-123/</loc></url><url><loc>http://1.1.1.1/brosur.pdf</loc></url>'
+                    .'</urlset>', 200, ['Content-Type' => 'application/xml']);
+            }
+
+            return Http::response('<html><head><link rel="alternate" href="/feed/"><link rel="stylesheet" href="/wp-content/x.css"></head>'
+                .'<body><a href="/contact">İletişim</a><a href="/author/admin/">Yazar</a><a href="/wp-content/uploads/b.png">img</a></body></html>', 200, ['Content-Type' => 'text/html']);
+        });
+        foreach (['http://1.1.1.1/about', 'http://1.1.1.1/implant'] as $url) {
+            DB::table('website_html_snapshot')->insert([
+                'digital_asset_id' => $this->asset->id, 'url' => $url, 'html_hash' => str_repeat('a', 64), 'change_state' => 'new', 'html_bytes' => 10,
+                'observed_at' => '2026-08-18 10:00:00', 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+                'record_fingerprint' => hash('sha256', $url), 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $first = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, []));
+
+        // One step fetches the whole (small) queue in parallel; the links it finds are queued for the next step.
+        $queue = array_values($first->checkpoint['queue'] ?? []);
+        $fetched = DB::table('website_http_snapshot')->pluck('url')->all();
+        $this->assertContains('http://1.1.1.1/implant', $fetched, 'changed after the last fetch');
+        $this->assertContains('http://1.1.1.1/contact', $queue);
+        $this->assertNotContains('http://1.1.1.1/about', $fetched, 'lastmod is older than the stored copy');
+        $this->assertContains('http://1.1.1.1/about', $first->checkpoint['visited'] ?? []);
+        $this->assertSame(1, $first->checkpoint['skipped_unchanged'] ?? null);
+        foreach ([...$queue, ...$fetched] as $url) {
+            $this->assertDoesNotMatchRegularExpression('#/(tag|feed|author|elementor-123|wp-content)/|\.pdf$#', $url);
+        }
+
+        // force_refresh alone (every manual trigger sets it) stays changed-only.
+        $context->collectionRun->forceFill(['request_context' => ['force_refresh' => true, 'context' => ['collection_scope' => 'full']]])->save();
+        $manual = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, []));
+        $this->assertSame(2, $manual->checkpoint['skipped_unchanged'] ?? null, 'Genel çekim reads only changed pages (implant was read above)');
+
+        // "Tam yeniden okuma": every page.
+        $context->collectionRun->forceFill(['request_context' => ['force_refresh' => true, 'context' => ['collection_scope' => 'full_reread', 'refetch_unchanged' => true]]])->save();
+        $forced = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, []));
+        $this->assertTrue($forced->checkpoint['full_read'] ?? null);
+        $this->assertSame(0, $forced->checkpoint['skipped_unchanged'] ?? null);
+        $this->assertContains('http://1.1.1.1/about', DB::table('website_http_snapshot')->pluck('url')->all(), 'a forced refresh fetches everything');
+    }
+
+    #[Test]
+    public function public_crawl_of_a_manual_collection_skips_unchanged_pages_and_a_wordpress_site_does_not_follow_links(): void
+    {
+        $this->travelTo('2026-08-20 10:00:00');
+        Http::fake(function ($request) {
+            $url = $request->url();
+            if (str_contains($url, 'robots.txt') || str_contains($url, 'sitemap')) {
+                return Http::response('', 404);
+            }
+
+            return Http::response('<html><body><a href="/discovered-by-link">x</a></body></html>', 200, ['Content-Type' => 'text/html']);
+        });
+        DB::table('website_html_snapshot')->insert([
+            'digital_asset_id' => $this->asset->id, 'url' => 'http://1.1.1.1/about', 'html_hash' => str_repeat('a', 64), 'change_state' => 'new', 'html_bytes' => 10,
+            'observed_at' => '2026-08-18 10:00:00', 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+            'record_fingerprint' => hash('sha256', 'about'), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->assertTrue(Schema::hasTable('website_cms_object_snapshot'));
+
+        // Without WordPress: links found on the page are followed.
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $context->collectionRun->forceFill(['request_context' => ['force_refresh' => true, 'refetch_unchanged' => false]])->save();
+        $plain = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, []));
+        $this->assertContains('http://1.1.1.1/discovered-by-link', $plain->checkpoint['queue'] ?? []);
+
+        // With the WordPress inventory: the page list comes from WordPress; unchanged pages keep their copy.
+        DB::table('website_cms_object_snapshot')->insert(['digital_asset_id' => $this->asset->id, 'cms' => 'wordpress', 'object_type' => 'page', 'object_id' => '1', 'status' => 'publish',
+            'title' => 'Hakkımızda', 'permalink' => 'http://1.1.1.1/about', 'observed_at' => now(), 'contract_version' => 1,
+            'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', 'cms-about'), 'created_at' => now(), 'updated_at' => now()]);
+        $wordpress = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, []));
+        $this->assertNotContains('http://1.1.1.1/discovered-by-link', $wordpress->checkpoint['queue'] ?? [], 'links are not followed');
+        $this->assertNotContains('http://1.1.1.1/about', $wordpress->checkpoint['queue'] ?? [], 'fetched 2 days ago, no newer date: kept');
+        $this->assertContains('http://1.1.1.1/about', $wordpress->checkpoint['visited'] ?? []);
+    }
+
+    #[Test]
+    public function public_crawl_resolves_relative_links_against_the_redirect_final_url(): void
+    {
+        Http::fake(function ($request) {
+            $path = (string) (parse_url($request->url(), PHP_URL_PATH) ?: '/');
+            if ($path === '/old' || $path === '/old/') {
+                return Http::response('', 301, ['Location' => 'http://1.1.1.1/blog/']);
+            }
+            if ($path === '/blog' || $path === '/blog/') {
+                return Http::response(
+                    '<html><body><a href="post-1">Post</a></body></html>',
+                    200,
+                    ['Content-Type' => 'text/html'],
+                );
+            }
+
+            return Http::response('<html><body>ok</body></html>', 200, ['Content-Type' => 'text/html']);
+        });
+
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $result = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, [
+            'observed_at' => '2026-08-20 00:00:00',
+            'queue' => ['http://1.1.1.1/old'],
+            'visited' => [],
+            'pages' => 0,
+            'rows_written_total' => 0,
+            'bytes_downloaded_total' => 0,
+        ]));
+
+        $this->assertSame(DatasetExecutionOutcome::Continue, $result->outcome, (string) $result->errorMessage);
+        $queue = array_values($result->checkpoint['queue'] ?? []);
+        $this->assertContains('http://1.1.1.1/blog/post-1', $queue);
+        $this->assertNotContains('http://1.1.1.1/post-1', $queue);
+        $this->assertNotContains('http://1.1.1.1/old/post-1', $queue);
+    }
+
+    #[Test]
+    public function public_crawl_enforces_aggregate_byte_limit_across_resume_without_duplicating_facts(): void
+    {
+        $this->fakePublicSite();
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $executor = app(WebsiteDatasetExecutor::class);
+        $home = 'http://1.1.1.1/';
+        $about = 'http://1.1.1.1/about';
+
+        $first = $executor->execute($this->contextFrom($context, $datasetRun, [
+            'observed_at' => '2026-08-20 00:00:00',
+            'queue' => [$home, $about],
+            'visited' => [],
+            'pages' => 0,
+            'rows_written_total' => 0,
+            'bytes_downloaded_total' => 0,
+        ]));
+        // Both URLs fit in one parallel step.
+        $this->assertSame(DatasetExecutionOutcome::Completed, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame(2, $first->checkpoint['pages'] ?? null);
+        $this->assertGreaterThan(0, (int) ($first->checkpoint['bytes_downloaded_total'] ?? 0));
+        $httpAfterFirst = DB::table('website_http_snapshot')->count();
+        $bytesAfterFirst = (int) ($first->checkpoint['bytes_downloaded_total'] ?? 0);
+
+        $retry = $executor->execute($this->contextFrom($context, $datasetRun, [
+            'observed_at' => '2026-08-20 00:00:00',
+            'queue' => [$home, $about],
+            'visited' => [],
+            'pages' => 0,
+            'rows_written_total' => 0,
+            'bytes_downloaded_total' => 0,
+        ]));
+        $this->assertSame($bytesAfterFirst, (int) ($retry->checkpoint['bytes_downloaded_total'] ?? 0));
+        $this->assertSame($httpAfterFirst, DB::table('website_http_snapshot')->count());
+
+        $stopped = $executor->execute($this->contextFrom($context, $datasetRun, [
+            'observed_at' => '2026-08-20 00:00:00',
+            'queue' => [$about],
+            'visited' => [$home],
+            'pages' => 1,
+            'rows_written_total' => (int) ($first->checkpoint['rows_written_total'] ?? 0),
+            'bytes_downloaded_total' => DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES,
+        ]));
+        $this->assertSame(DatasetExecutionOutcome::Completed, $stopped->outcome, (string) $stopped->errorMessage);
+        $this->assertSame(1, $stopped->checkpoint['pages'] ?? null);
+        $this->assertSame($httpAfterFirst, DB::table('website_http_snapshot')->count(), 'resume at the aggregate byte limit must not fetch further pages');
+        $this->assertSame(DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES, (int) ($stopped->checkpoint['bytes_downloaded_total'] ?? 0));
+    }
+
+    #[Test]
+    public function a_recrawl_of_an_unchanged_page_moves_its_stored_rows_instead_of_appending_a_copy(): void
+    {
+        $this->fakePublicSite();
+        $home = 'http://1.1.1.1/';
+        $tables = ['website_http_snapshot', 'website_html_snapshot', 'website_metadata_snapshot', 'website_heading_snapshot',
+            'website_schema_snapshot', 'website_content_stats', 'website_link_edge'];
+
+        [$context] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $first = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $context->datasetRun, [
+            'observed_at' => '2026-08-20 00:00:00', 'queue' => [$home], 'visited' => [], 'pages' => 0,
+        ]));
+        $this->assertGreaterThan(0, $first->rowsWritten);
+        $counts = [];
+        foreach ($tables as $table) {
+            $counts[$table] = DB::table($table)->count();
+            $this->assertGreaterThan(0, $counts[$table], $table);
+        }
+        $batches = DatasetWriteBatch::query()->count();
+
+        [$second] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $again = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($second, $second->datasetRun, [
+            'observed_at' => '2026-08-21 00:00:00', 'queue' => [$home], 'visited' => [], 'pages' => 0,
+        ]));
+
+        $this->assertNull($again->errorMessage);
+        $this->assertSame(1, $again->checkpoint['pages'] ?? null);
+        $this->assertSame(0, $again->rowsWritten, 'an unchanged page writes nothing new');
+        $this->assertSame($batches, DatasetWriteBatch::query()->count());
+        foreach ($tables as $table) {
+            $this->assertSame($counts[$table], DB::table($table)->count(), $table.' must not grow for an unchanged page');
+            $this->assertSame(0, DB::table($table)->where('observed_at', '<', '2026-08-21 00:00:00')->count(), $table.' rows move to the new observation');
+            $this->assertSame($counts[$table], DB::table($table)->where('last_collection_run_id', $second->collectionRun->id)->count());
+        }
+        $html = DB::table('website_html_snapshot')->sole();
+        $this->assertSame('unchanged', $html->change_state);
+        $this->assertSame($html->html_hash, $html->previous_html_hash);
+    }
+
+    #[Test]
+    public function a_changed_page_replaces_its_link_edges_instead_of_appending_them(): void
+    {
+        $body = '<html><head><title>Klinik</title></head><body><h1>Klinik</h1><main><a href="/implant">İmplant</a><a href="/ortodonti">Ortodonti</a></main></body></html>';
+        Http::fake(function ($request) use (&$body) {
+            return Http::response($body, 200, ['Content-Type' => 'text/html']);
+        });
+        $home = 'http://1.1.1.1/';
+
+        [$context] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $context->datasetRun, [
+            'observed_at' => '2026-08-20 00:00:00', 'queue' => [$home], 'visited' => [], 'pages' => 0,
+        ]));
+        $this->assertSame(2, DB::table('website_link_edge')->where('source_url', $home)->count());
+
+        $body = '<html><head><title>Klinik</title></head><body><h1>Klinik</h1><main><a href="/iletisim">İletişim</a></main></body></html>';
+        [$second] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($second, $second->datasetRun, [
+            'observed_at' => '2026-08-21 00:00:00', 'queue' => [$home], 'visited' => [], 'pages' => 0,
+        ]));
+
+        $edges = DB::table('website_link_edge')->where('source_url', $home)->get();
+        $this->assertCount(1, $edges);
+        $this->assertSame('http://1.1.1.1/iletisim', $edges->first()->normalized_target_url);
+        $this->assertSame(2, DB::table('website_html_snapshot')->count(), 'a changed page keeps its HTML history');
+        $this->assertSame('changed', DB::table('website_html_snapshot')->orderByDesc('observed_at')->value('change_state'));
+    }
+
+    #[Test]
+    public function fetch_many_applies_the_same_safety_redirect_and_size_rules_as_a_single_fetch(): void
+    {
+        Http::fake(function ($request) {
+            return match (parse_url($request->url(), PHP_URL_PATH)) {
+                '/moved' => Http::response('', 301, ['Location' => '/final']),
+                '/private' => Http::response('', 302, ['Location' => 'http://127.0.0.1/admin']),
+                '/big' => Http::response(str_repeat('a', 2048), 200, ['Content-Type' => 'text/html']),
+                default => Http::response('<html>ok</html>', 200, ['Content-Type' => 'text/html']),
+            };
+        });
+
+        $results = (new PublicHttpFetcher)->fetchMany(
+            ['http://1.1.1.1/moved', 'http://1.1.1.1/private', 'http://1.1.1.1/big', 'http://1.1.1.1/ok'],
+            1024,
+        );
+
+        $this->assertSame(['http://1.1.1.1/moved', 'http://1.1.1.1/private', 'http://1.1.1.1/big', 'http://1.1.1.1/ok'], array_keys($results));
+        $this->assertTrue($results['http://1.1.1.1/moved']['ok']);
+        $this->assertSame('http://1.1.1.1/final', $results['http://1.1.1.1/moved']['final_url']);
+        $this->assertSame(1, $results['http://1.1.1.1/moved']['redirect_count']);
+        $this->assertFalse($results['http://1.1.1.1/private']['ok'], 'a redirect to a private address is blocked');
+        $this->assertSame('response_too_large', $results['http://1.1.1.1/big']['error']);
+        $this->assertSame('<html>ok</html>', $results['http://1.1.1.1/ok']['body']);
+        Http::assertNotSent(fn ($request): bool => str_contains($request->url(), '127.0.0.1'));
+    }
+
+    #[Test]
+    public function public_crawl_does_not_persist_the_page_that_exceeds_the_aggregate_byte_limit(): void
+    {
+        $this->fakePublicSite();
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $result = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, [
+            'observed_at' => '2026-08-20 00:00:00',
+            'queue' => ['http://1.1.1.1/about'],
+            'visited' => [],
+            'pages' => 0,
+            'rows_written_total' => 0,
+            'bytes_downloaded_total' => DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES - 1,
+        ]));
+
+        $this->assertSame(DatasetExecutionOutcome::Completed, $result->outcome, (string) $result->errorMessage);
+        $this->assertSame(0, $result->checkpoint['pages'] ?? null);
+        $this->assertSame(0, DB::table('website_http_snapshot')->count());
+        $this->assertGreaterThan(DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES, (int) ($result->checkpoint['bytes_downloaded_total'] ?? 0));
+        $this->assertContains('http://1.1.1.1/about', $result->checkpoint['visited'] ?? []);
+    }
+
+    #[Test]
+    public function public_crawl_is_gentle_small_steps_a_pause_between_them_and_one_step_per_site(): void
+    {
+        config(['moxdop-website-intelligence.crawl.min_delay_seconds' => 2]);
+        $this->fakePublicSite();
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $executor = app(WebsiteDatasetExecutor::class);
+        $queue = array_map(static fn (int $i): string => 'http://1.1.1.1/page-'.$i, range(1, 10));
+        $politeness = app(WebsiteCrawlPoliteness::class);
+        $this->assertSame(2, $politeness->concurrency('1.1.1.1'), 'two pages at a time per site');
+
+        $first = $executor->execute($this->contextFrom($context, $datasetRun, ['observed_at' => '2026-08-20 00:00:00', 'queue' => $queue, 'visited' => [], 'pages' => 0]));
+        $this->assertSame(DatasetExecutionOutcome::Continue, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame(6, $first->pagesCompleted);
+        $this->assertSame(2, $first->backoffSeconds, 'a pause before the next step of the same site');
+        $this->assertSame('normal', $first->checkpoint['politeness']['mode'] ?? null);
+        $this->assertSame(2, $first->checkpoint['politeness']['concurrency'] ?? null);
+
+        // Another worker holds this site: nothing is fetched, the step comes back later with the same checkpoint.
+        $lock = Cache::lock('website-crawl:host:1.1.1.1', 300);
+        $this->assertTrue($lock->get());
+        $sent = count(Http::recorded());
+        $busy = $executor->execute($this->contextFrom($context, $datasetRun, $first->checkpoint));
+        $lock->release();
+        $this->assertSame(DatasetExecutionOutcome::Continue, $busy->outcome);
+        $this->assertSame(30, $busy->backoffSeconds);
+        $this->assertSame($first->checkpoint['queue'], $busy->checkpoint['queue'] ?? null);
+        $this->assertSame($sent, count(Http::recorded()), 'no request while another step fetches from the same site');
+
+        // robots.txt Crawl-delay: one page per step, that many seconds apart.
+        $this->assertSame(5, $politeness->robotsCrawlDelay("User-agent: Googlebot\nCrawl-delay: 30\n\nUser-agent: *\nCrawl-delay: 5\nDisallow: /wp-admin/"));
+        $this->assertNull($politeness->robotsCrawlDelay("User-agent: *\nAllow: /"));
+        $slow = $executor->execute($this->contextFrom($context, $datasetRun, array_merge($first->checkpoint, ['robots_crawl_delay' => 5])));
+        $this->assertSame(1, $slow->pagesCompleted);
+        $this->assertSame(5, $slow->backoffSeconds);
+        $this->assertSame(1, $slow->checkpoint['politeness']['concurrency'] ?? null);
+    }
+
+    #[Test]
+    public function public_crawl_backs_off_when_the_site_answers_503_and_resumes_slowly(): void
+    {
+        $down = true;
+        Http::fake(function ($request) use (&$down) {
+            return $down
+                ? Http::response('<html>busy</html>', 503, ['Content-Type' => 'text/html'])
+                : Http::response('<html><head><title>OK</title></head><body>ok</body></html>', 200, ['Content-Type' => 'text/html']);
+        });
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $executor = app(WebsiteDatasetExecutor::class);
+        $queue = array_map(static fn (int $i): string => 'http://1.1.1.1/page-'.$i, range(1, 8));
+        $start = ['observed_at' => '2026-08-20 00:00:00', 'queue' => $queue, 'visited' => [], 'pages' => 0];
+
+        $first = $executor->execute($this->contextFrom($context, $datasetRun, $start));
+        $this->assertSame(DatasetExecutionOutcome::Continue, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame(300, $first->backoffSeconds, 'first break: 5 minutes');
+        $this->assertSame($queue, $first->checkpoint['queue'], 'nothing of the batch is lost');
+        $this->assertSame(0, $first->checkpoint['pages']);
+        $this->assertSame(0, DB::table('website_http_snapshot')->count(), 'error pages are not stored');
+        $this->assertSame('backoff', $first->checkpoint['politeness']['mode']);
+        $this->assertSame('unavailable', $first->checkpoint['politeness']['reason']);
+        $this->assertSame(1, $first->checkpoint['politeness']['concurrency'], 'one page at a time from now on');
+        $this->assertNotNull($first->checkpoint['politeness']['next_attempt_at']);
+
+        // Too early: no request at all.
+        $sent = count(Http::recorded());
+        $early = $executor->execute($this->contextFrom($context, $datasetRun, $first->checkpoint));
+        $this->assertSame(DatasetExecutionOutcome::Continue, $early->outcome);
+        $this->assertGreaterThan(0, $early->backoffSeconds);
+        $this->assertSame($sent, count(Http::recorded()));
+
+        // Still struggling after the break: 15 minutes.
+        $this->travel(6)->minutes();
+        $second = $executor->execute($this->contextFrom($context, $datasetRun, $first->checkpoint));
+        $this->assertSame(900, $second->backoffSeconds);
+        $this->assertSame(2, count(Http::recorded()) - $sent, 'slow mode fetches two pages per step');
+
+        // Recovered: pages are stored, still gently.
+        $down = false;
+        $this->travel(16)->minutes();
+        $third = $executor->execute($this->contextFrom($context, $datasetRun, $second->checkpoint));
+        $this->assertSame(DatasetExecutionOutcome::Continue, $third->outcome, (string) $third->errorMessage);
+        $this->assertSame(2, $third->pagesCompleted);
+        $this->assertSame('slow', $third->checkpoint['politeness']['mode']);
+    }
+
+    #[Test]
+    public function public_crawl_backs_off_on_the_wordpress_database_error_page_and_gives_up_after_many_breaks(): void
+    {
+        Http::fake(fn () => Http::response('<html><body><h1>Error establishing a database connection</h1></body></html>', 500, ['Content-Type' => 'text/html']));
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $executor = app(WebsiteDatasetExecutor::class);
+        $checkpoint = ['observed_at' => '2026-08-20 00:00:00', 'queue' => ['http://1.1.1.1/'], 'visited' => [], 'pages' => 0];
+
+        $waits = [];
+        for ($i = 0; $i < 12; $i++) {
+            $result = $executor->execute($this->contextFrom($context, $datasetRun, $checkpoint));
+            if ($result->outcome !== DatasetExecutionOutcome::Continue) {
+                break;
+            }
+            $waits[] = $result->backoffSeconds;
+            $this->assertSame('database', $result->checkpoint['politeness']['reason']);
+            $checkpoint = $result->checkpoint;
+            $this->travel($result->backoffSeconds + 1)->seconds();
+        }
+
+        $this->assertSame([300, 900, 3600, 3600], array_slice($waits, 0, 4));
+        $this->assertSame(DatasetExecutionOutcome::Failed, $result->outcome);
+        $this->assertSame('WEBSITE_HOST_STRUGGLING', $result->errorCode);
+        $this->assertStringContainsString('veritabanı', (string) $result->errorMessage);
+        $this->assertSame(0, DB::table('website_http_snapshot')->count(), 'the database error page is never stored as the page');
+    }
+
+    #[Test]
+    public function a_single_slow_page_is_skipped_after_the_breaks_instead_of_stopping_the_crawl(): void
+    {
+        Http::fake(fn ($request) => str_contains($request->url(), '/slow')
+            ? Http::response('', 504)
+            : Http::response('<html><body>ok</body></html>', 200, ['Content-Type' => 'text/html']));
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $executor = app(WebsiteDatasetExecutor::class);
+        $checkpoint = ['observed_at' => '2026-08-20 00:00:00', 'queue' => ['http://1.1.1.1/slow', 'http://1.1.1.1/ok'], 'visited' => [], 'pages' => 0];
+
+        for ($i = 0; $i < 6; $i++) {
+            $result = $executor->execute($this->contextFrom($context, $datasetRun, $checkpoint));
+            $checkpoint = $result->checkpoint ?? $checkpoint;
+            if ($result->outcome !== DatasetExecutionOutcome::Continue) {
+                break;
+            }
+            $this->travel($result->backoffSeconds + 1)->seconds();
+        }
+
+        $this->assertSame(DatasetExecutionOutcome::Completed, $result->outcome, (string) $result->errorMessage);
+        $this->assertSame(2, $result->checkpoint['pages']);
+        $this->assertSame(1, DB::table('website_http_snapshot')->where('url', 'http://1.1.1.1/slow')->count(), 'recorded as a crawl issue');
+    }
+
+    private function fakePublicSite(): void
+    {
+        Http::fake(function ($request) {
+            $url = $request->url();
+            if (str_contains($url, 'robots.txt')) {
+                return Http::response("User-agent: *\nAllow: /\n", 200, ['Content-Type' => 'text/plain']);
+            }
+            if (str_contains($url, 'sitemap.xml')) {
+                return Http::response(
+                    '<?xml version="1.0"?><urlset><loc>http://1.1.1.1/page-a</loc></urlset>',
+                    200,
+                    ['Content-Type' => 'application/xml'],
+                );
+            }
+
+            return Http::response(
+                '<html><head><title>Clinic</title><meta name="description" content="Demo"></head><body><h1>Clinic</h1><a href="/about">About</a></body></html>',
+                200,
+                ['Content-Type' => 'text/html'],
+            );
+        });
+    }
+
+    private function runFamily(string $family): DatasetExecutionResult
+    {
+        [$context, $datasetRun] = $this->makeContext($family);
+
+        return $this->runUntilComplete(app(WebsiteDatasetExecutor::class), $context, $datasetRun);
+    }
+
+    private function runUntilComplete(
+        WebsiteDatasetExecutor $executor,
+        DatasetExecutionContext $context,
+        CollectionDatasetRun $datasetRun,
+        ?DatasetExecutionResult $seed = null,
+    ): DatasetExecutionResult {
+        $result = $seed ?? $executor->execute($context);
+        $guard = 0;
+        while ($result->outcome === DatasetExecutionOutcome::Continue && $guard < 40) {
+            $guard++;
+            if ($result->checkpoint !== null) {
+                app(CheckpointManager::class)->advance($datasetRun, $result->checkpoint);
+            }
+            $result = $executor->execute($this->contextFrom($context, $datasetRun, $result->checkpoint ?? []));
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param  array<string, mixed>  $checkpoint
+     */
+    private function contextFrom(
+        DatasetExecutionContext $context,
+        CollectionDatasetRun $datasetRun,
+        array $checkpoint,
+    ): DatasetExecutionContext {
+        return new DatasetExecutionContext(
+            collectionRun: $context->collectionRun->fresh(),
+            resourceRun: $context->resourceRun->fresh(),
+            datasetRun: $datasetRun->fresh(),
+            checkpoint: $checkpoint,
+            registryDataset: [],
+            registryRequestFamily: [],
+            attemptNumber: 1,
+        );
+    }
+
+    /**
+     * @return array{0: DatasetExecutionContext, 1: CollectionDatasetRun}
+     */
+    private function makeContext(string $family): array
+    {
+        $definition = WebsiteRequestFamilyCatalog::definition($family);
+        $provider = match ($family) {
+            WebsiteRequestFamilyCatalog::FAMILY_PAGESPEED => 'PAGESPEED_TECHNICAL',
+            WebsiteRequestFamilyCatalog::FAMILY_DNS_TLS => 'DOMAIN_DNS_TLS',
+            default => 'WEBSITE_DIRECT',
+        };
+
+        $run = CollectionRun::factory()->create([
+            'digital_asset_id' => $this->asset->id,
+            'brand_id' => $this->brand->id,
+            'customer_id' => $this->brand->customer_id,
+            'status' => CollectionRunStatus::Running,
+            'request_context' => [
+                'context' => ['collection_intent' => 'website_production_collection'],
+            ],
+        ]);
+
+        $resourceRun = CollectionResourceRun::factory()->create([
+            'collection_run_id' => $run->id,
+            'provider_or_source' => $provider,
+            'resource_kind' => 'website_asset_capability',
+            'external_resource_id' => null,
+            'digital_asset_id' => $this->asset->id,
+            'core_asset_binding_id' => null,
+            'status' => CollectionRunStatus::Running,
+        ]);
+
+        $datasetRun = CollectionDatasetRun::factory()->create([
+            'collection_run_id' => $run->id,
+            'collection_resource_run_id' => $resourceRun->id,
+            'provider_or_source' => $provider,
+            'dataset_contract_id' => $definition['dataset_ids'][0],
+            'request_family_id' => $family,
+            'contract_registry_version' => 1,
+            'status' => CollectionRunStatus::Running,
+        ]);
+
+        return [
+            new DatasetExecutionContext(
+                collectionRun: $run,
+                resourceRun: $resourceRun,
+                datasetRun: $datasetRun,
+                checkpoint: [],
+                registryDataset: [],
+                registryRequestFamily: [],
+                attemptNumber: 1,
+            ),
+            $datasetRun,
+        ];
+    }
+}

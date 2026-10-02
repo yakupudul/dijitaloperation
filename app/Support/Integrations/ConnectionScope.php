@@ -19,6 +19,7 @@ final class ConnectionScope
     {
         return [
             'wordpress',
+            'wordpress_connector',
         ];
     }
 

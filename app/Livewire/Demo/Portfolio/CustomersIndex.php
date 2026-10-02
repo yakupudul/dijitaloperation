@@ -4,19 +4,25 @@ namespace App\Livewire\Demo\Portfolio;
 
 use App\Enums\CustomerStatus;
 use App\Enums\CustomerType;
-use App\Support\Demo\DemoCatalog;
+use App\Models\Customer;
+use App\Services\Operator\OperatorPortfolioPresenter;
+use App\Services\Operator\OperatorUserDirectory;
+use App\Services\Portfolio\PortfolioDeletionService;
 use App\Support\Demo\DemoState;
 use App\Support\Options\AgencyServiceOptions;
 use App\Support\Options\CountryOptions;
 use App\Support\Options\IndustryOptions;
+use App\Support\Roles;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Customers')]
+#[Title('Müşteriler')]
 class CustomersIndex extends Component
 {
     #[Url(as: 'q', history: true)]
@@ -51,6 +57,30 @@ class CustomersIndex extends Component
 
     public bool $showOptionalColumns = false;
 
+    /** @var list<int> selected customer ids for bulk actions */
+    public array $selected = [];
+
+    public function toggleAll(array $visibleIds): void
+    {
+        $visibleIds = array_map('intval', $visibleIds);
+        $this->selected = array_values(array_intersect($this->selected, $visibleIds)) === $visibleIds && $visibleIds !== []
+            ? []
+            : $visibleIds;
+    }
+
+    /** Admin-only removal of the selected customers (and their brands/assets): data is kept, collection stops. */
+    public function deleteSelected(PortfolioDeletionService $deletion): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $ids = array_values(array_filter(array_map('intval', $this->selected)));
+        if ($ids === []) {
+            return;
+        }
+        $result = $deletion->deleteCustomers($ids, auth()->user());
+        $this->selected = [];
+        DemoState::flash($result['deleted'].' müşteri silindi. Toplanan veriler korundu, veri çekimi durdu; hesap tekrar bir markaya bağlanırsa çekim devam eder.'.($result['skipped'] > 0 ? ' '.$result['skipped'].' kayıt silinemedi.' : ''), $result['skipped'] > 0 ? 'warning' : 'success');
+    }
+
     public function clearFilters(): void
     {
         $this->search = '';
@@ -75,6 +105,21 @@ class CustomersIndex extends Component
         $this->dir = 'asc';
     }
 
+    /**
+     * Active ↔ passive switch on the list. Passive stops every automatic flow for the customer's assets
+     * (collection, plans, alerts, WordPress); data is kept and flows resume when switched back.
+     */
+    public function toggleActive(string $customerId): void
+    {
+        abort_unless(ctype_digit($customerId), 404);
+        $customer = Customer::query()->findOrFail((int) $customerId);
+        $activate = $customer->status !== CustomerStatus::Active;
+        // Passive: every automatic flow, AI and paid call stops (service scope); active again: paused collection resumes.
+        $customer->forceFill(['status' => $activate ? CustomerStatus::Active : CustomerStatus::Inactive])->save();
+
+        DemoState::flash(__($activate ? 'customer_status.activated' : 'customer_status.paused', ['name' => $customer->name]));
+    }
+
     public function hasActiveFilters(): bool
     {
         return $this->search !== ''
@@ -92,45 +137,10 @@ class CustomersIndex extends Component
      */
     protected function filteredCustomers(): array
     {
-        $team = collect(DemoCatalog::teamMembers())->keyBy('id');
-        $brands = collect(DemoState::all()['brands'] ?? []);
-
-        $rows = collect(DemoState::all()['customers'] ?? [])
-            ->map(function (array $customer) use ($brands, $team): array {
-                $customer = DemoState::normalizeCustomer($customer);
-                $customerBrands = $brands->where('customer_id', $customer['id']);
-                $customer['brands_count'] = $customerBrands->count();
-                $customer['digital_assets_count'] = (int) $customerBrands->sum(fn (array $b): int => (int) ($b['assets_count'] ?? 0));
-                if (($customer['digital_assets_count'] ?? 0) === 0 && ($customer['id'] ?? '') === DemoCatalog::CUSTOMER_ID) {
-                    $customer['digital_assets_count'] = count(DemoCatalog::assets());
-                }
-                $customer['open_findings'] = (int) ($customer['open_findings'] ?? $customerBrands->sum(fn (array $b): int => (int) ($b['open_findings'] ?? 0)));
-                $customer['open_tasks'] = (int) ($customer['open_tasks'] ?? $customerBrands->sum(fn (array $b): int => (int) ($b['open_tasks'] ?? 0)));
-                $customer['industry_label'] = IndustryOptions::label($customer['industry'] ?? null);
-                if (($customer['industry'] ?? '') === IndustryOptions::OTHER && ! empty($customer['industry_other'])) {
-                    $customer['industry_label'] = (string) $customer['industry_other'];
-                }
-                $customer['hq_display'] = CountryOptions::formatHq($customer['hq_city'] ?? null, $customer['hq_country'] ?? null);
-                $customer['type_label'] = match ($customer['type'] ?? '') {
-                    'company' => 'Company',
-                    'individual' => 'Individual',
-                    default => (string) ($customer['type'] ?? '—'),
-                };
-                $customer['status_label'] = match ($customer['status'] ?? '') {
-                    'active' => 'Active',
-                    'inactive' => 'Inactive',
-                    'archived' => 'Archived',
-                    default => ucfirst((string) ($customer['status'] ?? '')),
-                };
-                $customer['responsible_labels'] = collect($customer['responsible_user_ids'] ?? [])
-                    ->map(fn (string $id): string => $team[$id]['name'] ?? $id)
-                    ->values()
-                    ->all();
-                $customer['needs_attention'] = ((int) $customer['open_findings'] > 0)
-                    || ((int) ($customer['overdue_tasks'] ?? 0) > 0);
-
-                return $customer;
-            });
+        $rows = Customer::query()
+            ->with(['brands.digitalAssets', 'responsibleUsers'])
+            ->get()
+            ->map(fn (Customer $customer): array => OperatorPortfolioPresenter::customer($customer));
 
         if ($this->search !== '') {
             $q = mb_strtolower($this->search);
@@ -189,23 +199,28 @@ class CustomersIndex extends Component
     public function render(): View
     {
         $customers = $this->filteredCustomers();
-        $allCount = count(DemoState::all()['customers'] ?? []);
+        $allCount = Customer::query()->count();
 
-        $typeOptions = collect(CustomerType::cases())->mapWithKeys(fn ($c) => [$c->value => $c->name])->all();
-        $statusOptions = collect(CustomerStatus::cases())->mapWithKeys(fn ($c) => [$c->value => $c->name])->all();
-        $teamOptions = collect(DemoCatalog::teamMembers())->mapWithKeys(fn ($m) => [$m['id'] => $m['name']])->all();
+        $typeOptions = collect(CustomerType::cases())->mapWithKeys(fn ($c) => [$c->value => __('operator.customer.types.'.$c->value)])->all();
+        $statusOptions = collect(CustomerStatus::cases())->mapWithKeys(fn ($c) => [$c->value => __('operator.states.'.$c->value)])->all();
 
         return view('livewire.demo.portfolio.customers-index', [
             'customers' => $customers,
             'allCount' => $allCount,
+            'visibleIds' => array_values(array_map(fn (array $c): int => (int) $c['id'], $customers)),
+            'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'hasFilters' => $this->hasActiveFilters(),
             'typeOptions' => $typeOptions,
             'statusOptions' => $statusOptions,
             'industryOptions' => IndustryOptions::options(),
             'countryOptions' => CountryOptions::options(),
             'serviceOptions' => AgencyServiceOptions::options(),
-            'teamOptions' => $teamOptions,
+            'teamOptions' => OperatorUserDirectory::options(),
             'flash' => DemoState::pullFlash(),
+            // Faz 10b: customer health score (daily), reasons as the badge tooltip.
+            'health' => Schema::hasTable('customer_health') ? DB::table('customer_health')->get(['customer_id', 'score', 'band', 'reasons'])
+                ->mapWithKeys(fn (object $r): array => [(int) $r->customer_id => ['score' => (int) $r->score, 'band' => (string) $r->band,
+                    'reasons' => collect((array) json_decode((string) $r->reasons, true))->map(fn (array $x): string => '−'.$x['points'].' '.$x['text'])->implode("\n") ?: 'Sorun görünmüyor.']])->all() : [],
         ]);
     }
 }

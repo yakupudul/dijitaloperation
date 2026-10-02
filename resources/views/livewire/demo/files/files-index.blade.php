@@ -90,7 +90,7 @@
                             <td class="px-4 py-3 text-gray-500">{{ $file->created_at?->diffForHumans() }}</td>
                             <td class="px-4 py-3">
                                 <div class="flex flex-wrap justify-end gap-2">
-                                    <a href="{{ route('demo.files.download', $file) }}" class="text-xs font-medium text-brand-600 dark:text-brand-400">{{ __('operator.actions.download') }}</a>
+                                    <a href="{{ route('operator.files.download', $file) }}" class="text-xs font-medium text-brand-600 dark:text-brand-400">{{ __('operator.actions.download') }}</a>
                                     <button type="button" wire:click="startRename({{ $file->id }})" class="text-xs font-medium text-gray-600 dark:text-gray-300">{{ __('operator.actions.rename') }}</button>
                                     @if ($confirmDeleteId === $file->id)
                                         <button type="button" wire:click="deleteFile" class="text-xs font-medium text-red-600 dark:text-red-400">{{ __('operator.actions.confirm') }}</button>

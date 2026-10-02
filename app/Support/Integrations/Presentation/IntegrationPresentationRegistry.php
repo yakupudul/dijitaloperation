@@ -106,6 +106,30 @@ final class IntegrationPresentationRegistry
                     'AI guidance',
                 ],
             ],
+            [
+                'provider' => ProviderRegistry::GROQ,
+                'label' => ProviderRegistry::label(ProviderRegistry::GROQ),
+                'description' => 'Fast open models with a free tier — only for routes without client data',
+                'group' => self::GROUP_AI,
+                'group_label' => 'AI providers',
+                'icon' => 'ai',
+                'supports_resources' => false,
+                'capability_labels' => [
+                    'Free tier',
+                ],
+            ],
+            [
+                'provider' => ProviderRegistry::OPENROUTER,
+                'label' => ProviderRegistry::label(ProviderRegistry::OPENROUTER),
+                'description' => 'One key for many models, including free ones — only for routes without client data',
+                'group' => self::GROUP_AI,
+                'group_label' => 'AI providers',
+                'icon' => 'ai',
+                'supports_resources' => false,
+                'capability_labels' => [
+                    'Free models',
+                ],
+            ],
         ];
     }
 

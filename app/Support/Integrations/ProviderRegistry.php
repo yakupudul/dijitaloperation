@@ -20,6 +20,10 @@ final class ProviderRegistry
 
     public const string GEMINI = 'gemini';
 
+    public const string GROQ = 'groq';
+
+    public const string OPENROUTER = 'openrouter';
+
     /**
      * @return array<string, array{label: string, capabilities: list<string>}>
      */
@@ -66,6 +70,18 @@ final class ProviderRegistry
                     'ai',
                 ],
             ],
+            self::GROQ => [
+                'label' => 'Groq',
+                'capabilities' => [
+                    'ai',
+                ],
+            ],
+            self::OPENROUTER => [
+                'label' => 'OpenRouter',
+                'capabilities' => [
+                    'ai',
+                ],
+            ],
         ];
     }
 
@@ -106,7 +122,7 @@ final class ProviderRegistry
     {
         return match ($capability) {
             'search_console' => 'Search Console',
-            'ga4' => 'GA4',
+            'ga4' => 'Google Analytics 4',
             'google_ads' => 'Google Ads',
             'google_business_profile' => 'Google Business Profile',
             'meta_ads' => 'Meta Ads',

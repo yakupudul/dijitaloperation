@@ -4,7 +4,9 @@ namespace App\Providers\Filament;
 
 use App\Filament\App\Widgets\OpsActionOverviewWidget;
 use App\Http\Middleware\SetOperatorLocale;
+use App\Http\Middleware\SetOperatorTimezone;
 use App\Support\MoxDopNavigation;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -29,13 +31,16 @@ class AppPanelProvider extends PanelProvider
         return $panel
             ->default()
             ->id('app')
-            ->path('system')
-            ->homeUrl('/app')
+            // Technical tooling only (Runs, Modules, system widgets). Operator product lives at the site root (ADR-044, ADR Faz 1).
+            ->path('admin')
+            ->homeUrl('/')
             ->viteTheme('resources/css/filament/app/theme.css')
             ->authGuard('web')
             ->login()
             ->passwordReset()
             ->profile()
+            // Same authenticator-app secret as the operator /login (set up from Profil › İki adımlı doğrulama).
+            ->multiFactorAuthentication([AppAuthentication::make()->recoverable()])
             ->spa()
             // OAuth launch endpoints return redirect()->away() to Google and must use full browser navigation.
             ->spaUrlExceptions([
@@ -54,16 +59,12 @@ class AppPanelProvider extends PanelProvider
             ->font('IBM Plex Sans')
             ->databaseNotifications()
             ->navigationGroups([
-                NavigationGroup::make(MoxDopNavigation::PORTFOLIO)
-                    ->collapsed(false),
                 NavigationGroup::make(MoxDopNavigation::OPERATIONS)
                     ->collapsed(false),
                 NavigationGroup::make(MoxDopNavigation::SYSTEM)
                     ->collapsed(false),
             ])
-            ->discoverClusters(in: app_path('Filament/App/Clusters'), for: 'App\\Filament\\App\\Clusters')
             ->discoverResources(in: app_path('Filament/App/Resources'), for: 'App\\Filament\\App\\Resources')
-            ->discoverPages(in: app_path('Filament/App/Pages'), for: 'App\\Filament\\App\\Pages')
             ->pages([
                 Dashboard::class,
             ])
@@ -82,6 +83,7 @@ class AppPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
                 SetOperatorLocale::class,
+                SetOperatorTimezone::class,
             ])
             ->authMiddleware([
                 Authenticate::class,

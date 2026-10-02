@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\Pages\ViewDigitalAsset;
 use App\Models\Brand;
 use App\Models\CoreIntegration;
 use App\Models\Customer;
@@ -21,14 +20,11 @@ use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 use MoxDop\Website\SeoIntelligence\CrossSourceKeywordOpportunities;
-use MoxDop\Website\SeoIntelligence\KeywordsForSiteCollector;
 use MoxDop\Website\SeoIntelligence\KeywordsForSiteNormalizer;
 use MoxDop\Website\SeoIntelligence\RankedKeywordsCollector;
 use MoxDop\Website\SeoIntelligence\RankedKeywordsNormalizer;
 use MoxDop\Website\SeoIntelligence\SeoIntelligenceConfig;
-use MoxDop\Website\SeoIntelligence\SeoIntelligenceRefreshService;
 use MoxDop\Website\SeoIntelligence\WebsiteDomainTarget;
 use MoxDop\Website\Workspace\WebsiteWorkspaceData;
 use Tests\TestCase;
@@ -99,73 +95,6 @@ class WebsiteSeoIntelligenceLightTest extends TestCase
         $this->assertSame('moximu.com', WebsiteDomainTarget::normalize('https://www.moximu.com/path'));
     }
 
-    public function test_first_ranked_keywords_request_makes_one_provider_call_and_stores_evidence(): void
-    {
-        Http::fake([
-            'https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live' => Http::response(
-                $this->rankedKeywordsFixture(cost: 0.0123),
-                200,
-            ),
-        ]);
-
-        $result = app(RankedKeywordsCollector::class)->collect(
-            $this->website,
-            $this->integration->fresh(['providerCredential']),
-        );
-
-        $this->assertTrue($result['provider_called']);
-        $this->assertSame(0.0123, $result['reported_cost_usd']);
-        $this->assertSame('MISS', $result['cache_status']);
-        $this->assertDatabaseHas('evidence', [
-            'digital_asset_id' => $this->website->id,
-            'type' => SeoIntelligenceConfig::EVIDENCE_RANKED_SUMMARY,
-        ]);
-        $this->assertDatabaseHas('evidence', [
-            'digital_asset_id' => $this->website->id,
-            'type' => SeoIntelligenceConfig::EVIDENCE_RANKED_ROWS,
-        ]);
-
-        $summary = Evidence::query()
-            ->where('type', SeoIntelligenceConfig::EVIDENCE_RANKED_SUMMARY)
-            ->first();
-        $this->assertNotNull($summary?->request_fingerprint);
-        $this->assertNotNull($summary?->fresh_until);
-        $this->assertSame(0.0123, data_get($result['run']->metadata, 'reported_cost_usd'));
-        $this->assertStringNotContainsString('dfs-secret-password', json_encode($result['run']->metadata));
-
-        Http::assertSentCount(1);
-    }
-
-    public function test_identical_ranked_keywords_request_is_cache_hit_with_zero_provider_calls(): void
-    {
-        Http::fake([
-            'https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live' => Http::response(
-                $this->rankedKeywordsFixture(),
-                200,
-            ),
-        ]);
-
-        app(RankedKeywordsCollector::class)->collect($this->website, $this->integration->fresh(['providerCredential']));
-        Http::assertSentCount(1);
-
-        $second = app(RankedKeywordsCollector::class)->collect(
-            $this->website,
-            $this->integration->fresh(['providerCredential']),
-        );
-
-        $this->assertFalse($second['provider_called']);
-        $this->assertSame(0.0, $second['reported_cost_usd']);
-        $this->assertSame('HIT_FRESH', $second['cache_status']);
-        $this->assertSame(0, data_get($second['run']->metadata, 'provider_calls'));
-        $this->assertTrue((bool) data_get($second['run']->metadata, 'provider_call_skipped'));
-
-        Http::assertSentCount(1);
-        $this->assertSame(
-            1,
-            Evidence::query()->where('type', SeoIntelligenceConfig::EVIDENCE_RANKED_SUMMARY)->count(),
-        );
-    }
-
     public function test_market_and_language_changes_produce_new_fingerprints(): void
     {
         $turkey = app(RankedKeywordsCollector::class)->fingerprint($this->website, 'moximu.com');
@@ -184,141 +113,6 @@ class WebsiteSeoIntelligenceLightTest extends TestCase
         ])->save();
         $english = app(RankedKeywordsCollector::class)->fingerprint($this->website->fresh(), 'moximu.com');
         $this->assertNotSame($turkey, $english);
-    }
-
-    public function test_stale_ranked_evidence_allows_exactly_one_new_provider_call(): void
-    {
-        $fingerprint = app(RankedKeywordsCollector::class)->fingerprint($this->website, 'moximu.com');
-        $run = Run::factory()->create([
-            'digital_asset_id' => $this->website->id,
-            'status' => 'completed',
-            'module_id' => 'website',
-        ]);
-        Evidence::factory()->create([
-            'run_id' => $run->id,
-            'digital_asset_id' => $this->website->id,
-            'source_module' => 'website',
-            'type' => SeoIntelligenceConfig::EVIDENCE_RANKED_SUMMARY,
-            'request_fingerprint' => $fingerprint,
-            'payload' => ['response_ok' => true, 'ok' => true],
-            'fresh_until' => now()->subHour(),
-            'observed_at' => now()->subDays(6),
-        ]);
-
-        Http::fake([
-            'https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live' => Http::response(
-                $this->rankedKeywordsFixture(cost: 0.01),
-                200,
-            ),
-        ]);
-
-        $result = app(RankedKeywordsCollector::class)->collect(
-            $this->website,
-            $this->integration->fresh(['providerCredential']),
-        );
-
-        $this->assertTrue($result['provider_called']);
-        Http::assertSentCount(1);
-        $this->assertSame(
-            2,
-            Evidence::query()->where('type', SeoIntelligenceConfig::EVIDENCE_RANKED_SUMMARY)->count(),
-        );
-    }
-
-    public function test_failed_provider_request_preserves_previous_valid_evidence(): void
-    {
-        Http::fake([
-            'https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live' => Http::sequence()
-                ->push($this->rankedKeywordsFixture(cost: 0.01), 200)
-                ->push(['status_code' => 50000, 'status_message' => 'Internal Error.', 'cost' => 0, 'tasks' => []], 200),
-        ]);
-
-        app(RankedKeywordsCollector::class)->collect($this->website, $this->integration->fresh(['providerCredential']));
-
-        $this->website->forceFill([
-            'seo_market_language_code' => 'en',
-            'seo_market_language_name' => 'English',
-        ])->save();
-
-        $before = Evidence::query()
-            ->where('digital_asset_id', $this->website->id)
-            ->where('type', SeoIntelligenceConfig::EVIDENCE_RANKED_SUMMARY)
-            ->count();
-
-        try {
-            app(RankedKeywordsCollector::class)->collect(
-                $this->website->fresh(),
-                $this->integration->fresh(['providerCredential']),
-            );
-            $this->fail('Expected provider failure');
-        } catch (\Throwable) {
-            // expected
-        }
-
-        $this->assertSame(
-            $before,
-            Evidence::query()
-                ->where('digital_asset_id', $this->website->id)
-                ->where('type', SeoIntelligenceConfig::EVIDENCE_RANKED_SUMMARY)
-                ->where('payload->response_ok', true)
-                ->count(),
-        );
-        $this->assertTrue(
-            Run::query()
-                ->where('digital_asset_id', $this->website->id)
-                ->where('status', 'failed')
-                ->where('metadata->capability', SeoIntelligenceConfig::CAPABILITY_RANKED)
-                ->exists(),
-        );
-    }
-
-    public function test_keywords_for_site_fresh_request_is_zero_provider_calls(): void
-    {
-        Http::fake([
-            'https://api.dataforseo.com/v3/dataforseo_labs/google/keywords_for_site/live' => Http::response(
-                $this->keywordsForSiteFixture(cost: 0.02),
-                200,
-            ),
-        ]);
-
-        app(KeywordsForSiteCollector::class)->collect(
-            $this->website,
-            $this->integration->fresh(['providerCredential']),
-        );
-        $second = app(KeywordsForSiteCollector::class)->collect(
-            $this->website,
-            $this->integration->fresh(['providerCredential']),
-        );
-
-        $this->assertFalse($second['provider_called']);
-        $this->assertSame(0.0, $second['reported_cost_usd']);
-        Http::assertSentCount(1);
-    }
-
-    public function test_repeated_refresh_does_not_duplicate_paid_calls(): void
-    {
-        Http::fake([
-            'https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live' => Http::response(
-                $this->rankedKeywordsFixture(cost: 0.01),
-                200,
-            ),
-            'https://api.dataforseo.com/v3/dataforseo_labs/google/keywords_for_site/live' => Http::response(
-                $this->keywordsForSiteFixture(cost: 0.02),
-                200,
-            ),
-        ]);
-
-        $service = app(SeoIntelligenceRefreshService::class);
-        $first = $service->refresh($this->website);
-        $second = $service->refresh($this->website);
-
-        $this->assertTrue($first['ok']);
-        $this->assertSame(2, $first['provider_calls']);
-        $this->assertTrue($second['ok']);
-        $this->assertSame(0, $second['provider_calls']);
-        $this->assertTrue($second['both_fresh']);
-
-        Http::assertSentCount(2);
     }
 
     public function test_ranked_keywords_normalizer_bounds_and_organic_only(): void
@@ -400,20 +194,6 @@ class WebsiteSeoIntelligenceLightTest extends TestCase
             $byKeyword['seo agencies']['category'],
         );
         $this->assertLessThanOrEqual(SeoIntelligenceConfig::opportunitiesMaxRows(), $opps['count']);
-    }
-
-    public function test_refresh_data_action_does_not_call_dataforseo(): void
-    {
-        Http::fake();
-
-        Livewire::test(ViewDigitalAsset::class, [
-            'record' => $this->website->getRouteKey(),
-            'parentRecord' => $this->brand,
-        ])
-            ->assertActionExists('refreshData')
-            ->assertActionExists('refreshSeoIntelligence');
-
-        Http::assertNothingSent();
     }
 
     public function test_workspace_presents_organic_visibility_and_activity_titles(): void

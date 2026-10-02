@@ -2,45 +2,52 @@
 
 namespace MoxDop\Website\Discovery;
 
-use App\Models\Brand;
-use App\Models\BrandIntelligenceContext;
 use App\Models\DigitalAsset;
 use App\Models\DiscoveryCandidate;
 use App\Models\User;
+use App\Services\Website\PublicDiscovery\DiscoveryCandidateApplicationService;
+use App\Services\Website\PublicDiscovery\StoredDiscoverySource;
+use App\Services\Website\PublicDiscovery\StoredHtmlReader;
+use App\Support\Permissions;
 use Illuminate\Support\Facades\DB;
-use InvalidArgumentException;
+use Illuminate\Validation\ValidationException;
 
-/**
- * Human review actions for Discovery candidates → Brand Context / asset fields.
- */
 final class DiscoveryCandidateReviewService
 {
     public const string SOURCE_PUBLIC_DISCOVERY = 'public_discovery';
 
     public const string SOURCE_PUBLIC_DISCOVERY_EDITED = 'public_discovery_edited';
 
-    public function accept(DiscoveryCandidate $candidate, User $actor, ?string $editedValue = null): DiscoveryCandidate
+    public function __construct(private readonly DiscoveryCandidateApplicationService $applications) {}
+
+    public function accept(DiscoveryCandidate $candidate, User $actor, ?string $editedValue = null, array $options = []): DiscoveryCandidate
     {
-        if ($candidate->status === DiscoveryCandidate::STATUS_ACCEPTED) {
-            return $candidate;
-        }
+        abort_unless($actor->is_active && $actor->can(Permissions::ACCESS_APP), 403);
 
-        $value = $editedValue !== null ? trim($editedValue) : (string) $candidate->proposed_value;
-        if ($value === '') {
-            throw new InvalidArgumentException('Accepted value cannot be empty.');
-        }
-
-        $edited = $editedValue !== null && trim($editedValue) !== (string) $candidate->proposed_value;
-
-        return DB::transaction(function () use ($candidate, $actor, $value, $edited): DiscoveryCandidate {
-            $this->applyToCanonical($candidate, $value, $edited, $actor);
-
+        return DB::transaction(function () use ($candidate, $actor, $editedValue, $options): DiscoveryCandidate {
+            $candidate = DiscoveryCandidate::query()->lockForUpdate()->findOrFail($candidate->id);
+            if ($candidate->status === DiscoveryCandidate::STATUS_ACCEPTED) {
+                if (in_array(data_get($candidate->support_json, 'application.state'), ['applied', 'integration_ready'], true) || ! ($options['apply_reviewed'] ?? false)) {
+                    return $candidate;
+                }
+            }
+            $value = trim($editedValue ?? $candidate->accepted_value ?? $candidate->proposed_value);
+            if ($value === '' || mb_strlen($value) > 2000) {
+                throw ValidationException::withMessages(['editedValue' => '1–2000 karakter arasında bir değer girin.']);
+            }
+            $this->assertCurrentSource($candidate);
+            $previous = data_get($candidate->support_json, 'application');
+            $receipt = $this->applications->apply($candidate, $value, $actor, $options);
+            if ($previous !== null) {
+                $history = data_get($candidate->support_json, 'application_history', []);
+                $history[] = $previous;
+                $candidate->support_json = array_merge($candidate->support_json ?? [], ['application_history' => $history]);
+            }
             $candidate->forceFill([
-                'status' => DiscoveryCandidate::STATUS_ACCEPTED,
-                'reviewed_by_id' => $actor->id,
-                'reviewed_at' => now(),
-                'accepted_value' => $value,
-                'was_edited' => $edited,
+                'status' => DiscoveryCandidate::STATUS_ACCEPTED, 'reviewed_by_id' => $actor->id,
+                'reviewed_at' => now(), 'accepted_value' => $value,
+                'was_edited' => $value !== $candidate->proposed_value,
+                'support_json' => array_merge($candidate->support_json ?? [], ['application' => $receipt]),
             ])->save();
 
             return $candidate->refresh();
@@ -49,130 +56,41 @@ final class DiscoveryCandidateReviewService
 
     public function ignore(DiscoveryCandidate $candidate, User $actor): DiscoveryCandidate
     {
-        $candidate->forceFill([
-            'status' => DiscoveryCandidate::STATUS_IGNORED,
-            'reviewed_by_id' => $actor->id,
-            'reviewed_at' => now(),
-        ])->save();
+        abort_unless($actor->is_active && $actor->can(Permissions::ACCESS_APP), 403);
 
-        return $candidate->refresh();
-    }
-
-    private function applyToCanonical(DiscoveryCandidate $candidate, string $value, bool $edited, User $actor): void
-    {
-        $field = $candidate->target_field;
-
-        if ($field === 'languages') {
-            $asset = DigitalAsset::query()->findOrFail($candidate->digital_asset_id);
-            $languages = is_array($asset->languages) ? $asset->languages : [];
-            if (! in_array($value, $languages, true)) {
-                $languages[] = $value;
-                $asset->forceFill(['languages' => array_values($languages)])->save();
+        return DB::transaction(function () use ($candidate, $actor): DiscoveryCandidate {
+            $candidate = DiscoveryCandidate::query()->lockForUpdate()->findOrFail($candidate->id);
+            if ($candidate->status === DiscoveryCandidate::STATUS_ACCEPTED) {
+                throw ValidationException::withMessages(['candidate' => 'Aktarılmış kayıt burada geri alınamaz; ilgili kaydı kendi ekranından düzenleyin.']);
             }
+            $candidate->update(['status' => DiscoveryCandidate::STATUS_IGNORED, 'reviewed_by_id' => $actor->id, 'reviewed_at' => now()]);
 
-            return;
-        }
-
-        if ($field === 'social_links') {
-            // No Brand Context social schema in V1 — acceptance records operator decision only.
-            return;
-        }
-
-        $brand = Brand::query()->findOrFail($candidate->brand_id);
-        $context = $brand->intelligenceContext()->firstOrNew(['brand_id' => $brand->id]);
-
-        match ($field) {
-            'business_summary' => $this->setScalarIfEmptyOrAppendConflict($context, 'business_summary', $value, $candidate),
-            'positioning' => $this->setScalarIfEmptyOrAppendConflict($context, 'positioning', $value, $candidate),
-            'products_services' => $this->appendNamed($context, 'products_services', $value),
-            'differentiators' => $this->appendStringList($context, 'differentiators', $value),
-            'target_audiences' => $this->appendNamed($context, 'target_audiences', $value, noteKey: 'note'),
-            'target_markets' => $this->appendNamed($context, 'target_markets', $value, noteKey: 'note'),
-            'known_competitors' => $this->appendCompetitor($context, $value, $candidate),
-            default => null,
-        };
-
-        $context->source = $edited
-            ? BrandIntelligenceContext::SOURCE_PUBLIC_DISCOVERY_EDITED
-            : BrandIntelligenceContext::SOURCE_PUBLIC_DISCOVERY;
-        $context->updated_by = $actor->id;
-        $context->save();
+            return $candidate->refresh();
+        });
     }
 
-    private function setScalarIfEmptyOrAppendConflict(
-        BrandIntelligenceContext $context,
-        string $attribute,
-        string $value,
-        DiscoveryCandidate $candidate,
-    ): void {
-        $current = is_string($context->{$attribute} ?? null) ? trim((string) $context->{$attribute}) : '';
-        if ($current === '') {
-            $context->{$attribute} = $value;
-
-            return;
-        }
-
-        if ($this->normalize($current) === $this->normalize($value)) {
-            return;
-        }
-
-        // Human override wins: do not overwrite. Candidate remains accepted as reviewed proposal.
-        $support = is_array($candidate->support_json) ? $candidate->support_json : [];
-        $support['conflict_with_existing'] = $current;
-        $candidate->support_json = $support;
-    }
-
-    private function appendNamed(BrandIntelligenceContext $context, string $attribute, string $value, string $noteKey = 'description'): void
+    private function assertCurrentSource(DiscoveryCandidate $candidate): void
     {
-        $rows = is_array($context->{$attribute}) ? $context->{$attribute} : [];
-        foreach ($rows as $row) {
-            if (is_array($row) && isset($row['name']) && $this->normalize((string) $row['name']) === $this->normalize($value)) {
-                return;
-            }
+        // Legacy decisions can be explicitly transferred but are never relabelled as fresh observations.
+        if (data_get($candidate->support_json, 'normalization_version') !== DiscoveryConfig::VERSION) {
+            return;
         }
-        $rows[] = ['name' => $value, $noteKey === 'description' ? 'description' : 'note' => 'From public discovery'];
-        $context->{$attribute} = $rows;
-    }
-
-    private function appendStringList(BrandIntelligenceContext $context, string $attribute, string $value): void
-    {
-        $rows = is_array($context->{$attribute}) ? $context->{$attribute} : [];
-        foreach ($rows as $row) {
-            $existing = is_string($row) ? $row : (is_array($row) ? (string) ($row['name'] ?? '') : '');
-            if ($this->normalize($existing) === $this->normalize($value)) {
-                return;
-            }
-        }
-        $rows[] = $value;
-        $context->{$attribute} = $rows;
-    }
-
-    private function appendCompetitor(BrandIntelligenceContext $context, string $value, DiscoveryCandidate $candidate): void
-    {
-        $rows = is_array($context->known_competitors) ? $context->known_competitors : [];
-        foreach ($rows as $row) {
-            if (! is_array($row)) {
+        $asset = DigitalAsset::query()->where('brand_id', $candidate->brand_id)->findOrFail($candidate->digital_asset_id);
+        foreach (data_get($candidate->support_json, 'sources', []) as $source) {
+            $snapshot = DB::table('website_html_snapshot')->where('digital_asset_id', $asset->id)
+                ->where('url', $source['url'] ?? '')->orderByDesc('observed_at')->orderByDesc('id')->first();
+            if ($snapshot === null || (int) $snapshot->id !== (int) ($source['snapshot_id'] ?? 0)
+                || ! app(StoredDiscoverySource::class)->isFresh($snapshot->observed_at)) {
                 continue;
             }
-            $name = isset($row['name']) ? (string) $row['name'] : '';
-            $url = isset($row['url']) ? (string) $row['url'] : '';
-            if ($this->normalize($name) === $this->normalize($value) || $this->normalize($url) === $this->normalize($value)) {
-                return;
+            try {
+                if (app(StoredHtmlReader::class)->read($asset, $snapshot->url, (int) $snapshot->id) !== null) {
+                    return;
+                }
+            } catch (\Throwable) {
+                continue;
             }
         }
-
-        $support = is_array($candidate->support_json) ? $candidate->support_json : [];
-        $domain = isset($support['domain']) && is_string($support['domain']) ? $support['domain'] : $value;
-        $rows[] = [
-            'name' => $domain,
-            'url' => str_contains($domain, '.') ? 'https://'.$domain : null,
-            'note' => 'Accepted from public discovery competitor candidate',
-        ];
-        $context->known_competitors = $rows;
-    }
-
-    private function normalize(string $value): string
-    {
-        return mb_strtolower(trim(preg_replace('/\s+/u', ' ', $value) ?? $value));
+        throw ValidationException::withMessages(['editedValue' => 'Bu adayın kaynağı eski veya değişmiş. Keşfi yeniden çalıştırıp güncel adayı inceleyin.']);
     }
 }

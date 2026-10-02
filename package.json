@@ -4,9 +4,13 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "qa:e2e": "playwright test; node tests/e2e/scripts/generate-report.mjs; node tests/e2e/scripts/generate-report-002.mjs",
+        "qa:e2e:ui": "playwright test --ui",
+        "qa:e2e:report": "playwright show-report"
     },
     "devDependencies": {
+        "@playwright/test": "^1.62.1",
         "@tailwindcss/vite": "^4.3.3",
         "concurrently": "^9.0.1",
         "laravel-vite-plugin": "^3.1",

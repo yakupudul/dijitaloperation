@@ -1,0 +1,121 @@
+<?php
+
+namespace Tests\Feature\Portfolio;
+
+use App\Livewire\Demo\Portfolio\BrandsIndex;
+use App\Livewire\Demo\Portfolio\CustomersIndex;
+use App\Models\Brand;
+use App\Models\CoreAssetBinding;
+use App\Models\Customer;
+use App\Models\DigitalAsset;
+use App\Models\User;
+use App\Services\Portfolio\PortfolioDeletionService;
+use App\Support\Roles;
+use Database\Seeders\RoleAndPermissionSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Livewire\Livewire;
+use Tests\TestCase;
+
+/** Admin-only bulk delete of customers / brands: archives the tree, keeps collected data, stops collection. */
+final class PortfolioBulkDeleteTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private function admin(): User
+    {
+        $this->seed(RoleAndPermissionSeeder::class);
+        $admin = User::factory()->create(['is_active' => true]);
+        $admin->assignRole(Roles::ADMIN);
+
+        return $admin;
+    }
+
+    /** @return array{0: Customer, 1: Brand, 2: DigitalAsset} */
+    private function portfolio(): array
+    {
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+        $asset = DigitalAsset::factory()->create(['brand_id' => $brand->id]);
+
+        // Scoped rows that must survive the delete.
+        DB::table('brand_goals')->insert(['brand_id' => $brand->id, 'kind' => 'lead', 'label' => 'Teklif', 'normalized_key' => 'teklif', 'created_at' => now(), 'updated_at' => now()]);
+        $offeringId = DB::table('brand_offerings')->insertGetId(['brand_id' => $brand->id, 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('brand_offering_names')->insert(['brand_id' => $brand->id, 'brand_offering_id' => $offeringId, 'raw_label' => 'İmplant', 'normalized_key' => 'implant', 'name_kind' => 'service', 'provenance' => 'manual', 'normalization_version' => 'v1', 'created_at' => now(), 'updated_at' => now()]);
+
+        return [$customer, $brand, $asset];
+    }
+
+    public function test_deleting_a_customer_archives_the_tree_keeps_data_and_stops_collection(): void
+    {
+        [$customer, $brand, $asset] = $this->portfolio();
+        $binding = CoreAssetBinding::factory()->create(['digital_asset_id' => $asset->id]);
+
+        $result = app(PortfolioDeletionService::class)->deleteCustomers([$customer->id]);
+
+        $this->assertSame(['deleted' => 1, 'skipped' => 0], $result);
+        $this->assertSoftDeleted('customers', ['id' => $customer->id]);
+        $this->assertSoftDeleted('brands', ['id' => $brand->id]);
+        $this->assertSoftDeleted('digital_assets', ['id' => $asset->id]);
+        $this->assertNull(Customer::query()->find($customer->id), 'gone from every list');
+
+        // Collected / scoped data is kept.
+        $this->assertSame(1, DB::table('brand_goals')->where('brand_id', $brand->id)->count());
+        $this->assertSame(1, DB::table('brand_offering_names')->where('brand_id', $brand->id)->count());
+        $this->assertDatabaseHas('core_external_resources', ['id' => $binding->external_resource_id]);
+
+        // Collection stops: the binding is disabled (unbound accounts are not collected), with the reason recorded.
+        $binding->refresh();
+        $this->assertSame(CoreAssetBinding::STATUS_DISABLED, $binding->status);
+        $this->assertSame(PortfolioDeletionService::CLOSED_REASON, $binding->configuration['closed_reason']);
+
+        // Binding the same account to another brand's asset works again (only one ACTIVE binding per account).
+        $newAsset = DigitalAsset::factory()->create();
+        CoreAssetBinding::factory()->create(['digital_asset_id' => $newAsset->id, 'external_resource_id' => $binding->external_resource_id]);
+        $this->assertSame(1, CoreAssetBinding::query()->where('external_resource_id', $binding->external_resource_id)->where('status', CoreAssetBinding::STATUS_ACTIVE)->count());
+    }
+
+    public function test_deleting_a_brand_keeps_the_customer_and_other_brands(): void
+    {
+        [$customer, $brand, $asset] = $this->portfolio();
+        $sibling = Brand::factory()->create(['customer_id' => $customer->id]);
+        $siblingAsset = DigitalAsset::factory()->create(['brand_id' => $sibling->id]);
+        $siblingBinding = CoreAssetBinding::factory()->create(['digital_asset_id' => $siblingAsset->id]);
+
+        $result = app(PortfolioDeletionService::class)->deleteBrands([$brand->id]);
+
+        $this->assertSame(['deleted' => 1, 'skipped' => 0], $result);
+        $this->assertNotSoftDeleted('customers', ['id' => $customer->id]);
+        $this->assertSoftDeleted('brands', ['id' => $brand->id]);
+        $this->assertSoftDeleted('digital_assets', ['id' => $asset->id]);
+        $this->assertNotSoftDeleted('brands', ['id' => $sibling->id]);
+        $this->assertSame(CoreAssetBinding::STATUS_ACTIVE, $siblingBinding->refresh()->status);
+        $this->assertSame(1, DB::table('brand_goals')->where('brand_id', $brand->id)->count());
+    }
+
+    public function test_bulk_delete_is_admin_only_and_wired_on_the_customers_list(): void
+    {
+        [$customer] = $this->portfolio();
+        $other = Customer::factory()->create();
+
+        // Non-admin cannot delete.
+        $member = User::factory()->create(['is_active' => true]);
+        Livewire::actingAs($member)->test(CustomersIndex::class)->set('selected', [$customer->id])->call('deleteSelected')->assertStatus(403);
+        $this->assertNotSoftDeleted('customers', ['id' => $customer->id]);
+
+        // Admin deletes the selected one and keeps the other.
+        Livewire::actingAs($this->admin())->test(CustomersIndex::class)
+            ->set('selected', [$customer->id])->call('deleteSelected')->assertHasNoErrors();
+        $this->assertSoftDeleted('customers', ['id' => $customer->id]);
+        $this->assertNotSoftDeleted('customers', ['id' => $other->id]);
+    }
+
+    public function test_brands_list_bulk_delete_wires_through(): void
+    {
+        [, $brand] = $this->portfolio();
+
+        Livewire::actingAs($this->admin())->test(BrandsIndex::class)
+            ->set('selected', [$brand->id])->call('deleteSelected')->assertHasNoErrors();
+        $this->assertSoftDeleted('brands', ['id' => $brand->id]);
+    }
+}

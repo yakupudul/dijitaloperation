@@ -2,10 +2,10 @@
 
 namespace App\Livewire\Demo;
 
-use App\Support\Demo\AgencyExecutionFixtures;
-use App\Support\Demo\ClientValueFixtures;
-use App\Support\Demo\DemoCatalog;
-use App\Support\Demo\DemoState;
+use App\Models\Brand;
+use App\Models\Customer;
+use App\Models\DigitalAsset;
+use App\Services\Operator\OperatorPortfolioPresenter;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
 
@@ -34,98 +34,67 @@ class GlobalSearch extends Component
         $results = [];
 
         if ($needle !== '') {
-            foreach (DemoState::all()['customers'] ?? [] as $customer) {
-                $name = (string) ($customer['name'] ?? '');
-                if ($name !== '' && str_contains(mb_strtolower($name), $needle)) {
-                    $results[] = [
-                        'label' => $name,
-                        'meta' => __('operator.nav.customers'),
-                        'url' => route('demo.customer', ['customerId' => $customer['id']]),
-                    ];
-                }
-            }
+            Customer::query()
+                ->orderBy('name')
+                ->get()
+                ->each(function (Customer $customer) use ($needle, &$results): void {
+                    $name = (string) $customer->name;
+                    if ($name !== '' && str_contains(mb_strtolower($name), $needle)) {
+                        $results[] = [
+                            'label' => $name,
+                            'meta' => __('operator.nav.customers'),
+                            'url' => route('operator.customer', ['customerId' => $customer->id]),
+                        ];
+                    }
+                });
 
-            foreach (DemoState::all()['brands'] ?? [] as $brand) {
-                $name = (string) ($brand['name'] ?? '');
-                if ($name !== '' && str_contains(mb_strtolower($name), $needle)) {
-                    $results[] = [
-                        'label' => $name,
-                        'meta' => __('operator.nav.brands').' · '.($brand['customer_name'] ?? DemoCatalog::customer()['name'] ?? ''),
-                        'url' => route('demo.brand', ['brand' => $brand['id']]),
-                    ];
-                }
-            }
+            Brand::query()
+                ->with('customer')
+                ->orderBy('name')
+                ->get()
+                ->each(function (Brand $brand) use ($needle, &$results): void {
+                    $name = (string) $brand->name;
+                    if ($name !== '' && str_contains(mb_strtolower($name), $needle)) {
+                        $results[] = [
+                            'label' => $name,
+                            'meta' => __('operator.nav.brands').' · '.($brand->customer?->name ?? '—'),
+                            'url' => route('operator.brand', ['brand' => $brand->id]),
+                        ];
+                    }
+                });
 
-            foreach (DemoCatalog::assets() as $asset) {
-                $name = (string) ($asset['name'] ?? '');
-                $type = (string) ($asset['type'] ?? '');
-                if (($name !== '' && str_contains(mb_strtolower($name), $needle))
-                    || ($type !== '' && str_contains(mb_strtolower($type), $needle))) {
-                    $route = match ($type) {
-                        'website' => 'demo.website',
-                        'google_ads' => 'demo.google-ads.overview',
-                        'meta_ads' => 'demo.meta.overview',
-                        'gbp', 'google_business_profile' => 'demo.gbp',
-                        'ga4', 'google_analytics' => 'demo.analytics',
-                        'gsc', 'search_console' => 'demo.search-console',
-                        'instagram' => 'demo.instagram',
-                        default => 'demo.assets',
-                    };
-                    $results[] = [
-                        'label' => $name !== '' ? $name : $type,
-                        'meta' => __('operator.nav.digital_assets').' · '.($asset['brand'] ?? 'Atlas Dental'),
-                        'url' => route($route, array_filter(['assetId' => $asset['id'] ?? null])),
-                    ];
-                }
-            }
+            DigitalAsset::query()
+                ->with('brand')
+                ->whereNotIn('type', ['domain', 'hosting'])
+                ->orderBy('name')
+                ->get()
+                ->each(function (DigitalAsset $asset) use ($needle, &$results): void {
+                    $presented = OperatorPortfolioPresenter::asset($asset);
+                    $name = (string) ($presented['name'] ?? '');
+                    $type = (string) ($presented['type'] ?? '');
+                    $typeLabel = (string) ($presented['type_label'] ?? '');
+                    if ($asset->type === 'website') {
+                        // Websites are found by domain / URL too and open the website screen.
+                        if (str_contains(mb_strtolower($name.' '.$asset->domain.' '.$asset->primary_url.' '.$type.' '.$typeLabel), $needle)) {
+                            $results[] = [
+                                'label' => $name !== '' ? $name : (string) $asset->domain,
+                                'meta' => 'Web sitesi · '.($asset->domain ?: $asset->primary_url ?: '—').' · '.($asset->brand?->name ?? 'markasız'),
+                                'url' => route('operator.website', ['assetId' => $asset->id]),
+                            ];
+                        }
 
-            foreach (DemoState::findingsWithStatus() as $finding) {
-                $title = (string) ($finding['title'] ?? '');
-                if ($title !== '' && str_contains(mb_strtolower($title), $needle)) {
-                    $results[] = [
-                        'label' => $title,
-                        'meta' => __('operator.nav.findings').' · '.($finding['brand'] ?? ''),
-                        'url' => route('demo.findings'),
-                    ];
-                }
-            }
-
-            foreach (DemoState::all()['tasks'] ?? [] as $task) {
-                $title = (string) ($task['title'] ?? '');
-                if ($title !== '' && str_contains(mb_strtolower($title), $needle)) {
-                    $results[] = [
-                        'label' => $title,
-                        'meta' => __('operator.nav.tasks').' · '.($task['brand'] ?? ''),
-                        'url' => route('demo.task', ['taskId' => $task['id']]),
-                    ];
-                }
-            }
-
-            foreach (AgencyExecutionFixtures::playbooks() as $playbook) {
-                $name = (string) ($playbook['name'] ?? '');
-                if ($name !== '' && str_contains(mb_strtolower($name), $needle)) {
-                    $results[] = [
-                        'label' => $name,
-                        'meta' => 'Playbook',
-                        'url' => route('demo.settings.playbook', ['playbookId' => $playbook['id']]),
-                    ];
-                }
-            }
-
-            foreach (ClientValueFixtures::meaningfulDecisions() as $decision) {
-                $title = (string) ($decision['title'] ?? '');
-                if ($title !== '' && str_contains(mb_strtolower($title), $needle)) {
-                    $results[] = [
-                        'label' => $title,
-                        'meta' => 'Decision',
-                        'url' => route('demo.brand', [
-                            'brand' => DemoCatalog::BRAND_ID,
-                            'tab' => 'value',
-                            'value' => 'decisions',
-                        ]),
-                    ];
-                }
-            }
+                        return;
+                    }
+                    if (($name !== '' && str_contains(mb_strtolower($name), $needle))
+                        || ($type !== '' && str_contains(mb_strtolower($type), $needle))
+                        || ($typeLabel !== '' && str_contains(mb_strtolower($typeLabel), $needle))) {
+                        $results[] = [
+                            'label' => $name !== '' ? $name : $typeLabel,
+                            'meta' => __('operator.nav.digital_assets').' · '.($presented['brand_name'] ?? '—'),
+                            'url' => route($presented['route'], ['assetId' => $asset->id]),
+                        ];
+                    }
+                });
         }
 
         return view('livewire.demo.global-search', [

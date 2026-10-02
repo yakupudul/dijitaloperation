@@ -2,25 +2,37 @@
 
 namespace App\Livewire\Demo\Portfolio;
 
-use App\Support\Demo\ClientValueFixtures;
-use App\Support\Demo\CommercialContextFixtures;
-use App\Support\Demo\DemoCatalog;
+use App\Enums\CustomerStatus;
+use App\Livewire\Concerns\WithAiInsights;
+use App\Models\Customer;
+use App\Models\CustomerContact;
+use App\Services\Operator\BrandWorkspaceReadService;
+use App\Services\Operator\OperatorPortfolioPresenter;
+use App\Services\Operator\OperatorUserDirectory;
+use App\Services\Portfolio\CustomerCommercialSummary;
+use App\Services\ServiceScope\CustomerServiceScopeReadService;
 use App\Support\Demo\DemoState;
 use App\Support\Options\AgencyServiceOptions;
 use App\Support\Options\ContactRoleOptions;
 use App\Support\Options\CountryOptions;
 use App\Support\Options\IndustryOptions;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Customer')]
+#[Title('Müşteri')]
 class CustomerDetail extends Component
 {
+    use WithAiInsights;
+
+    #[Locked]
     public string $customerId = '';
 
     #[Url(history: true)]
@@ -40,12 +52,20 @@ class CustomerDetail extends Component
 
     public string $contact_phone = '';
 
-    #[Url(as: 'activity_filter', history: true)]
-    public string $activityFilter = 'all';
+    public string $taskCreateNonce = '';
+
+    /** @var array{monthly_fee: string, ad_budget_google: string, ad_budget_meta: string} */
+    public array $commercial = ['monthly_fee' => '', 'ad_budget_google' => '', 'ad_budget_meta' => ''];
+
+    public bool $editingCommercial = false;
 
     public function mount(string $customerId): void
     {
+        abort_unless(ctype_digit($customerId), 404);
+        abort_if(Customer::query()->find($customerId) === null, 404);
+
         $this->customerId = $customerId;
+        $this->taskCreateNonce = (string) Str::uuid();
         $this->normalizeTab();
     }
 
@@ -57,48 +77,42 @@ class CustomerDetail extends Component
 
     private function normalizeTab(): void
     {
-        $legacy = [
-            'contacts' => 'relationship',
-            'files' => 'overview',
-            'operations' => 'overview',
-            'activity' => 'overview',
-        ];
-        if (isset($legacy[$this->tab])) {
-            $this->tab = $legacy[$this->tab];
+        // Brands, contacts and relationship live on the overview; old deep links keep working.
+        if (in_array($this->tab, ['contacts', 'relationship', 'brands', 'files', 'operations', 'activity', 'requests'], true)) {
+            $this->tab = 'overview';
         }
-        if (! in_array($this->tab, ['overview', 'brands', 'relationship', 'requests', 'reports'], true)) {
+        if (! in_array($this->tab, ['overview'], true)) {
             $this->tab = 'overview';
         }
     }
 
-    public function triageRequest(string $id): void
+    public function editCommercial(): void
     {
-        DemoState::setClientRequestStatus($id, 'triaged');
+        $customer = Customer::query()->findOrFail((int) $this->customerId);
+        $value = static fn ($v): string => $v !== null ? rtrim(rtrim(number_format((float) $v, 2, '.', ''), '0'), '.') : '';
+        $this->commercial = ['monthly_fee' => $value($customer->monthly_fee), 'ad_budget_google' => $value($customer->ad_budget_google), 'ad_budget_meta' => $value($customer->ad_budget_meta)];
+        $this->editingCommercial = true;
     }
 
-    public function planRequest(string $id): void
+    /** Monthly fee and the ad budgets agreed with the customer (TRY); empty = not agreed. */
+    public function saveCommercial(): void
     {
-        DemoState::setClientRequestStatus($id, 'planned');
-    }
+        // Turkish input: "15.000" or "15.000,50" means fifteen thousand; "2000,5" uses a decimal comma.
+        $this->commercial = array_map(static function ($v): string {
+            $v = str_replace([' ', '₺'], '', trim((string) $v));
+            if (preg_match('/^\d{1,3}(\.\d{3})+(,\d+)?$/', $v) === 1) {
+                $v = str_replace('.', '', $v);
+            }
 
-    public function waitRequest(string $id): void
-    {
-        DemoState::setClientRequestStatus($id, 'waiting_on_client');
-    }
-
-    public function doneRequest(string $id): void
-    {
-        DemoState::setClientRequestStatus($id, 'done');
-    }
-
-    public function declineRequest(string $id): void
-    {
-        DemoState::setClientRequestStatus($id, 'declined');
-    }
-
-    public function createTaskFromRequest(string $id): void
-    {
-        DemoState::createTaskFromClientRequest($id);
+            return str_replace(',', '.', $v);
+        }, $this->commercial);
+        $this->validate([
+            'commercial.monthly_fee' => ['nullable', 'numeric', 'min:0', 'max:9999999999'],
+            'commercial.ad_budget_google' => ['nullable', 'numeric', 'min:0', 'max:9999999999'],
+            'commercial.ad_budget_meta' => ['nullable', 'numeric', 'min:0', 'max:9999999999'],
+        ]);
+        Customer::query()->whereKey((int) $this->customerId)->update(array_map(static fn (string $v): ?string => $v === '' ? null : $v, $this->commercial));
+        $this->editingCommercial = false;
     }
 
     public function openContactForm(?string $contactId = null): void
@@ -117,18 +131,21 @@ class CustomerDetail extends Component
             return;
         }
 
-        $contact = collect(DemoState::all()['contacts'] ?? [])->firstWhere('id', $contactId);
-        if (! is_array($contact)) {
+        abort_unless(ctype_digit($contactId), 404);
+        $contact = CustomerContact::query()
+            ->where('customer_id', $this->customerId)
+            ->find($contactId);
+        if ($contact === null) {
             return;
         }
 
-        $this->contact_name = (string) ($contact['name'] ?? '');
-        $this->contact_role = (string) ($contact['role'] ?? '');
-        $this->contact_title_custom = ($contact['role'] ?? '') === ContactRoleOptions::OTHER
-            ? (string) ($contact['title'] ?? '')
-            : '';
-        $this->contact_email = (string) ($contact['email'] ?? '');
-        $this->contact_phone = (string) ($contact['phone'] ?? '');
+        $this->contact_name = (string) $contact->name;
+        $title = (string) ($contact->title ?? '');
+        $role = $title !== '' ? array_search($title, ContactRoleOptions::options(), true) : false;
+        $this->contact_role = is_string($role) ? $role : ($title !== '' ? ContactRoleOptions::OTHER : '');
+        $this->contact_title_custom = is_string($role) ? '' : $title;
+        $this->contact_email = (string) ($contact->email ?? '');
+        $this->contact_phone = (string) ($contact->phone ?? '');
     }
 
     public function closeContactForm(): void
@@ -157,107 +174,92 @@ class CustomerDetail extends Component
             : ContactRoleOptions::label($this->contact_role !== '' ? $this->contact_role : null);
 
         $payload = [
-            'customer_id' => $this->customerId,
+            'customer_id' => (int) $this->customerId,
             'name' => trim($this->contact_name),
-            'role' => $this->contact_role !== '' ? $this->contact_role : null,
             'title' => $title === '—' ? null : $title,
             'email' => $this->contact_email !== '' ? trim($this->contact_email) : null,
             'phone' => $this->contact_phone !== '' ? trim($this->contact_phone) : null,
         ];
 
-        if ($this->editingContactId) {
-            DemoState::updateContact($this->editingContactId, $payload);
+        if ($this->editingContactId && ctype_digit($this->editingContactId)) {
+            CustomerContact::query()
+                ->where('customer_id', $this->customerId)
+                ->whereKey((int) $this->editingContactId)
+                ->update($payload);
+            DemoState::flash(__('operator.flash.contact_updated'));
         } else {
-            $payload['id'] = 'cc-'.substr(md5($this->contact_name.microtime(true)), 0, 8);
-            DemoState::addContact($payload);
+            CustomerContact::query()->create($payload);
+            DemoState::flash(__('operator.flash.contact_saved'));
         }
 
         $this->closeContactForm();
-        $this->tab = 'relationship';
+        $this->tab = 'overview';
     }
 
     public function deleteContact(string $contactId): void
     {
-        DemoState::deleteContact($contactId);
-        $this->tab = 'relationship';
+        abort_unless(ctype_digit($contactId), 404);
+        CustomerContact::query()
+            ->where('customer_id', $this->customerId)
+            ->whereKey((int) $contactId)
+            ->delete();
+        DemoState::flash(__('operator.flash.contact_removed'));
+        $this->tab = 'overview';
     }
 
     public function archiveCustomer(): void
     {
-        DemoState::setCustomerStatus($this->customerId, 'archived');
+        $customer = $this->canonicalCustomer();
+        $customer->status = CustomerStatus::Archived;
+        $customer->save();
+        DemoState::flash(__('operator.flash.customer_archived'));
     }
 
     public function restoreCustomer(): void
     {
-        DemoState::setCustomerStatus($this->customerId, 'active');
+        $customer = $this->canonicalCustomer();
+        $customer->status = CustomerStatus::Active;
+        $customer->save();
+        DemoState::flash(__('operator.flash.customer_restored'));
+    }
+
+    protected function insightSubject(string $kind, int $subjectId): ?Model
+    {
+        return $kind === 'customer.brief' && $subjectId === (int) $this->customerId ? Customer::query()->find($subjectId) : null;
     }
 
     public function render(): View
     {
-        $customer = DemoState::findCustomer($this->customerId) ?? DemoCatalog::customer();
-        $customer = DemoState::normalizeCustomer($customer);
-        $team = collect(DemoCatalog::teamMembers())->keyBy('id');
+        $model = $this->canonicalCustomer();
+        $model->load(['brands.digitalAssets', 'responsibleUsers', 'contacts']);
+        $customer = OperatorPortfolioPresenter::customer($model);
+        $team = collect(OperatorUserDirectory::presentationMembers())->keyBy('id');
 
-        $brands = collect(DemoState::all()['brands'] ?? [])
-            ->filter(fn (array $b): bool => ($b['customer_id'] ?? '') === ($customer['id'] ?? ''))
-            ->map(fn (array $b): array => DemoState::normalizeBrand($b))
+        $workspace = app(BrandWorkspaceReadService::class);
+        $brands = $model->brands
+            ->map(function ($brand) use ($workspace): array {
+                $assets = $workspace->assets($brand);
+
+                return OperatorPortfolioPresenter::brand($brand) + [
+                    'setup' => $workspace->checklist($brand, $assets, $workspace->services($brand)),
+                    'accounts' => collect($assets)->flatMap(fn (array $a): array => array_column($a['accounts'], 'label'))->unique()->values()->all(),
+                ];
+            })
             ->values();
 
-        if ($brands->isEmpty() && ($customer['id'] ?? '') === DemoCatalog::CUSTOMER_ID) {
-            $brands = collect([DemoState::normalizeBrand(DemoCatalog::brand())]);
-        }
-
-        $contacts = collect(DemoState::all()['contacts'] ?? [])
-            ->filter(fn (array $c): bool => ($c['customer_id'] ?? '') === ($customer['id'] ?? ''))
-            ->values();
-
-        $findings = collect(DemoCatalog::findings())
-            ->filter(fn (array $f): bool => ($customer['id'] ?? '') === DemoCatalog::CUSTOMER_ID)
-            ->values();
-
-        $recommendations = collect(DemoState::all()['recommendations'] ?? [])
-            ->filter(fn (array $r): bool => ($customer['id'] ?? '') === DemoCatalog::CUSTOMER_ID)
-            ->values();
-
-        $tasks = collect(DemoState::all()['tasks'] ?? [])
-            ->filter(fn (array $t): bool => ($customer['id'] ?? '') === DemoCatalog::CUSTOMER_ID)
-            ->values();
-
-        $openTasks = $tasks->filter(fn (array $t): bool => ! in_array($t['status'] ?? '', ['completed', 'cancelled'], true));
-        $overdueTasks = $openTasks->filter(fn (array $t): bool => ($t['priority'] ?? '') === 'high' || str_contains(mb_strtolower((string) ($t['due'] ?? '')), 'overdue'));
-        $attentionFindings = $findings->filter(fn (array $f): bool => in_array($f['severity'] ?? '', ['critical', 'high'], true))->take(3);
-
-        $activity = collect(DemoState::all()['customer_activity'] ?? [])
-            ->filter(fn (array $a): bool => ($a['customer_id'] ?? '') === ($customer['id'] ?? ''))
-            ->when($this->activityFilter !== 'all', fn ($c) => $c->filter(fn (array $a): bool => ($a['category'] ?? '') === $this->activityFilter))
+        $contacts = $model->contacts
+            ->map(fn (CustomerContact $contact): array => OperatorPortfolioPresenter::contact($contact))
             ->values();
 
         $industryLabel = IndustryOptions::label($customer['industry'] ?? null);
-        if (($customer['industry'] ?? '') === IndustryOptions::OTHER && ! empty($customer['industry_other'])) {
-            $industryLabel = (string) $customer['industry_other'];
-        }
-
         $digitalAssetsCount = (int) $brands->sum(fn (array $b): int => (int) ($b['assets_count'] ?? 0));
-        if ($digitalAssetsCount === 0 && ($customer['id'] ?? '') === DemoCatalog::CUSTOMER_ID) {
-            $digitalAssetsCount = count(DemoCatalog::assets());
-        }
-
-        $requests = collect(DemoState::clientRequestsWithState())
-            ->filter(fn (array $r): bool => ($r['customer_id'] ?? '') === ($customer['id'] ?? ''))
-            ->values()
-            ->all();
 
         return view('livewire.demo.portfolio.customer-detail', [
             'customer' => $customer,
             'industryLabel' => $industryLabel,
             'hqDisplay' => CountryOptions::formatHq($customer['hq_city'] ?? null, $customer['hq_country'] ?? null),
-            'typeLabel' => ($customer['type'] ?? '') === 'individual' ? 'Individual' : 'Company',
-            'statusLabel' => match ($customer['status'] ?? '') {
-                'active' => 'Active',
-                'inactive' => 'Inactive',
-                'archived' => 'Archived',
-                default => ucfirst((string) ($customer['status'] ?? '')),
-            },
+            'typeLabel' => ($customer['type'] ?? '') === 'individual' ? 'Bireysel' : 'Şirket',
+            'statusLabel' => $customer['status_label'] ?? '',
             'serviceLabels' => AgencyServiceOptions::labels($customer['services'] ?? []),
             'responsibleUsers' => collect($customer['responsible_user_ids'] ?? [])
                 ->map(fn (string $id) => $team[$id] ?? null)
@@ -266,22 +268,21 @@ class CustomerDetail extends Component
                 ->all(),
             'brands' => $brands->all(),
             'contacts' => $contacts->all(),
-            'findings' => $findings->all(),
-            'recommendations' => $recommendations->all(),
-            'tasks' => $tasks->all(),
-            'openTasks' => $openTasks->values()->all(),
-            'overdueTasks' => $overdueTasks->values()->all(),
-            'attentionFindings' => $attentionFindings->values()->all(),
-            'activity' => $activity->take(12)->all(),
             'digitalAssetsCount' => $digitalAssetsCount,
-            'openFindingsCount' => (int) ($customer['open_findings'] ?? $findings->count()),
-            'openTasksCount' => (int) ($customer['open_tasks'] ?? $openTasks->count()),
             'roleOptions' => ContactRoleOptions::options(),
             'team' => $team,
-            'serviceScope' => CommercialContextFixtures::serviceScopeForCustomer((string) ($customer['id'] ?? '')),
-            'clientRequests' => $requests,
-            'customerReports' => ClientValueFixtures::customerReports((string) ($customer['id'] ?? $this->customerId)),
+            'serviceScope' => app(CustomerServiceScopeReadService::class)->forCustomer($model, includeEnded: false),
+            'commercialSummary' => app(CustomerCommercialSummary::class)->for($model),
             'flash' => DemoState::pullFlash(),
         ]);
+    }
+
+    private function canonicalCustomer(): Customer
+    {
+        abort_unless(ctype_digit($this->customerId), 404);
+        $customer = Customer::query()->find($this->customerId);
+        abort_if($customer === null, 404);
+
+        return $customer;
     }
 }

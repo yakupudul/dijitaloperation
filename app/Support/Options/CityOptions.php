@@ -3,28 +3,18 @@
 namespace App\Support\Options;
 
 /**
- * Lightweight city suggestions keyed by ISO country code.
- * Not exhaustive — combobox allows custom city entry when needed.
+ * Central Turkey province catalog; other countries accept an explicit custom city.
  */
 final class CityOptions
 {
+    public const string OTHER = '__other__';
+
     /**
      * @return array<string, list<string>>
      */
     public static function byCountry(): array
     {
-        return [
-            'TR' => ['Adana', 'Ankara', 'Antalya', 'Bursa', 'Gaziantep', 'Istanbul', 'Izmir', 'Kayseri', 'Konya', 'Mersin'],
-            'DE' => ['Berlin', 'Cologne', 'Frankfurt', 'Hamburg', 'Munich', 'Stuttgart'],
-            'GB' => ['Birmingham', 'Edinburgh', 'Glasgow', 'Leeds', 'London', 'Manchester'],
-            'US' => ['Austin', 'Chicago', 'Houston', 'Los Angeles', 'Miami', 'New York', 'San Francisco', 'Seattle'],
-            'NL' => ['Amsterdam', 'Rotterdam', 'The Hague', 'Utrecht'],
-            'FR' => ['Lyon', 'Marseille', 'Nice', 'Paris'],
-            'AE' => ['Abu Dhabi', 'Dubai', 'Sharjah'],
-            'SA' => ['Jeddah', 'Riyadh'],
-            'AZ' => ['Baku'],
-            'IQ' => ['Baghdad', 'Erbil'],
-        ];
+        return ['TR' => array_values(LocationOptions::cities())];
     }
 
     /**
@@ -42,14 +32,27 @@ final class CityOptions
     }
 
     /**
-     * Options map for select components (value === label).
+     * Options map for select components (value === label), plus an explicit Other escape.
      *
      * @return array<string, string>
      */
     public static function optionsForCountry(?string $countryCode): array
     {
-        $cities = self::forCountry($countryCode);
+        if ($countryCode === null || $countryCode === '') {
+            return [];
+        }
 
-        return array_combine($cities, $cities) ?: [];
+        $cities = self::forCountry($countryCode);
+        $options = $cities === [] ? [] : (array_combine($cities, $cities) ?: []);
+        if (strtoupper($countryCode) !== 'TR') {
+            $options[self::OTHER] = __('operator.forms.city_other');
+        }
+
+        return $options;
+    }
+
+    public static function isCatalogCity(?string $countryCode, string $city): bool
+    {
+        return $city !== '' && $city !== self::OTHER && in_array($city, self::forCountry($countryCode), true);
     }
 }

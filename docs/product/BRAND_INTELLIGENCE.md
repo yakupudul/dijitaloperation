@@ -25,6 +25,8 @@ Everything in Brand Intelligence Context must be **explicitly entered** (or late
 - No Evidence records for Admin typing Brand facts
 - **No AI in this milestone**
 
+The current Search Demand foundation projects operator-selected Brand services, priority order and service areas into this context. Global catalog records remain reusable vocabulary; Brand Offering and Brand Service Area remain the Brand-scoped truth.
+
 ## Ownership
 
 Brand-level Core domain data:

@@ -178,6 +178,10 @@ final class MetaAdsWorkspaceFixtures
      */
     public static function workspace(string $preset = 'last_28', ?string $start = null, ?string $end = null): array
     {
+        if (! DemoPeriod::inFixtureAnchorContext()) {
+            return DemoPeriod::usingFixtureAnchor(fn (): array => self::workspace($preset, $start, $end));
+        }
+
         $f = DemoCatalog::periodFactors($preset, $start, $end);
         $bounds = DemoPeriod::bounds($preset, $f['start'] ?? $start, $f['end'] ?? $end);
         $rangeStart = $bounds['start']->toDateString();
@@ -1674,6 +1678,10 @@ final class MetaAdsWorkspaceFixtures
      */
     public static function aggregateCampaign(string $campaignId, string $start, string $end): array
     {
+        if (! DemoPeriod::inFixtureAnchorContext()) {
+            return DemoPeriod::usingFixtureAnchor(fn (): array => self::aggregateCampaign($campaignId, $start, $end));
+        }
+
         $base = self::CAMPAIGN_BASELINES[$campaignId] ?? null;
         if ($base === null) {
             return [
@@ -1751,6 +1759,10 @@ final class MetaAdsWorkspaceFixtures
      */
     public static function daysInRange(string $start, string $end): array
     {
+        if (! DemoPeriod::inFixtureAnchorContext()) {
+            return DemoPeriod::usingFixtureAnchor(fn (): array => self::daysInRange($start, $end));
+        }
+
         $from = Carbon::parse($start, DemoPeriod::TIMEZONE)->startOfDay();
         $to = Carbon::parse($end, DemoPeriod::TIMEZONE)->startOfDay();
         if ($from->greaterThan($to)) {

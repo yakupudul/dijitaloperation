@@ -41,7 +41,7 @@ Laravel Boost guidelines ile çelişirse DOP belgeleri kazanır.
 - Install: `bash .cursor/cloud-agent-install.sh` (`composer install`, `npm ci`, `npm run build`)
 - Start: `bash .cursor/cloud-agent-start.sh` (runtime `.env`, SQLite, migrate, seed)
 - App server terminal: `php artisan serve --host=0.0.0.0 --port=8000` (forward port 8000)
-- Login: `/system/login` (Filament auth); product: `/app`
+- Login: `/login` (operator product); Filament technical/admin: `/admin/login`
 - Admin user: `php artisan dop:create-admin` (interactive; never commit passwords)
 - Provider credentials are **not** required for basic boot / PHPUnit / **Demo Mode** product review
 - Full interactive product demo (Atlas Dental): branch `feature/moxdop-full-product-demo` — session fixtures only; `docs/product/MOXDOP_MASTER_PRODUCT_BLUEPRINT.md`
@@ -56,9 +56,10 @@ Laravel Boost guidelines ile çelişirse DOP belgeleri kazanır.
 ### Kilit kararlar
 
 - Moximu **iç** operasyon; SaaS / Workspace / müşteri girişi yok
-- Harici **write action yok**
-- Tek Filament panel: id `app`, path **`/system`** (developer / system tooling only — **not** the operator product)
-- Canonical operator product URL: **`/app`** (TailAdmin Livewire shell). One normal application. Do not duplicate Customers/Brands/Assets under Filament.
+- Harici **write action yok** — istisnalar: ADR-064 (Admin onaylı Google Ads paylaşılan negatif listesi, WordPress taslağı), ADR-068 (WordPress onaylı güncelleme, tek tık giriş), ADR-070 (WordPress onaylı SEO/teknik düzeltme ve sayfa metni güncellemesi), ADR-071 (Connector'ın onaylı kendini güncellemesi), ADR-073 (Admin onaylı İşletme Profili yorum yanıtı ve gönderisi), ADR-076 (ADR-064 WordPress taslağının Polylang dil ataması ve çeviri bağlantısı). Hepsi kayıtlı; ADR-068 / ADR-071 güncellemeleri hariç geri alınabilir. Başka yazma eklenmez.
+- Tek Filament panel: id `app`, path **`/admin`** (developer / technical tooling only — **not** the operator product; ADR-044)
+- Canonical operator product: **root routes** (`/`, `/login`, `/customers`, `/brands`, `/assets`, `/integrations`, `/tasks`, … — TailAdmin Livewire). One normal application. Do not duplicate Customers/Brands/Assets under Filament.
+- Legacy **`/app/*`** and **`/system/*`**: retired (HTTP 410). No parallel operator product.
 - Do **not** advertise Filament as “Back-office” in the product UI. Operators should not need Filament for daily work.
 - **Screenshots:** Do **not** automatically generate screenshot packages, visual UAT artifact loops, or screenshot self-reviews for product UI unless the operator **explicitly** asks. Browser smoke to confirm routes render is OK; visual acceptance is human manual review.
 - Modüller: `app-modules/` + `internachi/modular` — MVP’de custom plugin framework yok (minimal registry: id + enabled/disabled)
@@ -85,9 +86,13 @@ GitHub **DOP Autopilot** altında çalışan Implementer/Fixer:
 - MASTER_SPEC / product blueprint scope’u değiştirilemez
 - Product PR merge yalnızca Actions içi verified Reviewer `APPROVED` + final gates ile yapılır; local Cursor maintenance agent Reviewer yokken product PR merge etmez
 
+### Cursor Automation — PR review submitted (fixer loop)
+
+Always-on GitHub trigger **PR review submitted** cannot be stored as `.cursor/hooks.json` (IDE agent events only). Versioned fixer instructions: `.cursor/skills/moxdop-pr-review-fixer/SKILL.md`. Dashboard paste: `.cursor/skills/moxdop-pr-review-fixer/DASHBOARD_PROMPT.md`. A human must create/activate the Automation at https://cursor.com/automations/new for `yakupudul/dijitaloperation`. The agent works on the **existing PR head**; it does not open a replacement PR and does not merge. A clean Codex approval (no comments / no defects) must **not** terminate the loop: inspect the active milestone and continue the next incomplete requirement on the same PR. Exit only when nothing actionable remains in that milestone or a genuine external/business blocker requires escalation.
+
 ### Pratik
 
-- SaaS, Client Portal, harici write, marketplace/ZIP, custom migrator/FSM ekleme.
+- SaaS, Client Portal, harici write (ADR-064 / 068 / 070 dışı), marketplace/ZIP, custom migrator/FSM ekleme.
 - MVP Core listesi dışında Attachments/Tags/feature-flags/ağır health-audit zorunlu sayma.
 ===
 

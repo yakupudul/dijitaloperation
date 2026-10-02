@@ -247,6 +247,8 @@ def stage_completion_evidence(
             [
                 "app/Filament/App/Resources/Customers/CustomerResource.php",
                 "app/Filament/Resources/CustomerResource.php",
+                # Operator product (ADR-044): portfolio CRUD lives in the Livewire app, not Filament.
+                "app/Livewire/Demo/Portfolio/CustomersIndex.php",
             ],
         ),
         _exists(root, "app/Models/Customer.php") or mentioned("customer"),
@@ -258,6 +260,7 @@ def stage_completion_evidence(
                 root,
                 [
                     "app/Filament/App/Resources/Customers/Resources/Brands/BrandResource.php",
+                    "app/Livewire/Demo/Portfolio/BrandsIndex.php",
                 ],
             )
             or mentioned("brand-crud", "brand-filament", "brand-resource")
@@ -273,7 +276,10 @@ def stage_completion_evidence(
 
     evidence[5] = (
         _exists(root, "app/Models/DigitalAsset.php")
-        and bool(list((root / "app/Filament").rglob("*DigitalAsset*")) if (root / "app/Filament").exists() else []),
+        and (
+            bool(list((root / "app/Filament").rglob("*DigitalAsset*")) if (root / "app/Filament").exists() else [])
+            or _exists(root, "app/Livewire/Demo/Portfolio/AssetsIndex.php")
+        ),
         _exists(root, "app/Models/DigitalAsset.php") or mentioned("digital-asset", "digital_asset"),
     )
     evidence[6] = (
@@ -296,10 +302,9 @@ def stage_completion_evidence(
             "app/Models/Evidence.php",
         )
     )
-    pipeline_ui = bool(
-        _exists(root, "app/Filament/App/Resources/Runs/RunResource.php")
-        and _exists(root, "app/Filament/App/Resources/Findings/FindingResource.php")
-    )
+    # The Filament FindingResource was retired with the /admin trim (runs stay inspectable there), so
+    # stage evidence no longer requires it.
+    pipeline_ui = _exists(root, "app/Filament/App/Resources/Runs/RunResource.php")
     evidence[8] = (
         pipeline_models and pipeline_ui,
         pipeline_models or mentioned("finding", "recommendation", "run-foundation", "analysis-pipeline", "task-foundation"),

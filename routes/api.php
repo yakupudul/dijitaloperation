@@ -1,0 +1,20 @@
+<?php
+
+use App\Http\Controllers\Integrations\WordPressConnectorEventsController;
+use App\Http\Controllers\Integrations\WordPressConnectorPairController;
+use App\Http\Controllers\Integrations\WordPressConnectorReleaseController;
+use Illuminate\Support\Facades\Route;
+
+Route::post('/connectors/wordpress/pair', WordPressConnectorPairController::class)
+    ->middleware('throttle:10,1')
+    ->name('api.connectors.wordpress.pair');
+
+Route::post('/connectors/wordpress/events', WordPressConnectorEventsController::class)
+    ->middleware('throttle:120,1')
+    ->name('api.connectors.wordpress.events');
+
+// 1.4.1: short-lived signed link to one built connector ZIP, fetched by the plugin during an approved self-update.
+Route::get('/connectors/wordpress/releases/{file}', WordPressConnectorReleaseController::class)
+    ->middleware(['signed', 'throttle:30,1'])
+    ->where('file', 'moxdop-wordpress-connector-[0-9.]+-[a-f0-9]{16}\.zip')
+    ->name('api.connectors.wordpress.release');

@@ -7,7 +7,7 @@ namespace MoxDop\Website\Discovery;
  */
 final class DiscoveryConfig
 {
-    public const string VERSION = 'website-public-discovery-v1';
+    public const string VERSION = 'website-public-discovery-v3-stored';
 
     public const string MODULE_ID = 'website-discovery';
 
@@ -17,36 +17,70 @@ final class DiscoveryConfig
 
     public const string EVIDENCE_COMPETITOR_CANDIDATES = 'website_public_competitor_candidates';
 
+    /** Maximum number of HTML pages analyzed in a single public crawl run. */
     public const int MAX_PAGES = 15;
+
+    /** Maximum URL observations collected by the resumable Website Collection Engine. */
+    public const int MAX_COLLECTION_PAGES = 5000;
+
+    /** Maximum number of sitemap documents followed from one website. */
+    public const int MAX_SITEMAP_FILES = 50;
+
+    /** Maximum number of page URLs accepted from sitemap urlsets in one run. */
+    public const int MAX_SITEMAP_URLS = 5000;
+
+    /** Maximum sitemap-index nesting depth. */
+    public const int MAX_SITEMAP_DEPTH = 3;
 
     public const int MAX_REDIRECTS = 5;
 
     public const int CONNECT_TIMEOUT_SECONDS = 5;
 
-    public const int TIMEOUT_SECONDS = 12;
+    public const int TIMEOUT_SECONDS = 20;
 
     public const int MAX_RESPONSE_BYTES = 1_500_000;
 
+    /** Maximum complete response retained by the resumable Website Collection Engine. */
+    public const int MAX_COLLECTION_RESPONSE_BYTES = 10_000_000;
+
     public const int MAX_TOTAL_BYTES = 8_000_000;
 
-    public const string USER_AGENT = 'MoxDOP-PublicDiscovery/1.0 (+https://moximu.com; read-only public discovery)';
+    /** Aggregate HTML budget for one resumable full-site collection. */
+    public const int MAX_COLLECTION_TOTAL_BYTES = 2_000_000_000;
 
     /**
+     * Browser token + our identifier. Page-cache plugins serve their cached copy only to "normal" visitors: WP Super
+     * Cache's default rejected agents are bot / crawl / spider / slurp / ia_archive / Yandex and some WAFs refuse
+     * agents without a browser token, so the name carries neither those words nor lacks "Mozilla/5.0".
+     * robots.txt rules for "MoxDOP" still apply.
+     */
+    public const string USER_AGENT = 'Mozilla/5.0 (compatible; MoxDOP-SiteReader/1.0; +https://moximu.com)';
+
+    /** Browser-like request headers: served from the page cache like a visitor (no cookies, no cache-busting). */
+    public const string ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,text/plain;q=0.7,*/*;q=0.5';
+
+    public const string ACCEPT_LANGUAGE = 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7';
+
+    public const string ACCEPT_ENCODING = 'gzip, deflate';
+
+    /**
+     * Production crawling must never invent likely page paths. The root is the only seed;
+     * additional URLs must come from robots/sitemaps, redirects, or real same-site links.
+     *
      * @return list<string>
      */
     public static function preferredPathHints(): array
     {
+        return ['/'];
+    }
+
+    /** @return list<string> */
+    public static function sitemapFallbackPaths(): array
+    {
         return [
-            '/',
-            '/about',
-            '/about-us',
-            '/services',
-            '/products',
-            '/contact',
-            '/contact-us',
-            '/locations',
-            '/location',
-            '/our-services',
+            '/sitemap.xml',
+            '/sitemap_index.xml',
+            '/sitemaps.xml',
         ];
     }
 }

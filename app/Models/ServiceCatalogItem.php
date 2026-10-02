@@ -1,0 +1,55 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+#[Fillable([
+    'uuid',
+    'sector',
+    'description',
+    'status',
+    'created_by',
+    'updated_by',
+])]
+class ServiceCatalogItem extends Model
+{
+    use SoftDeletes;
+
+    public function matchingKeywords(): HasMany
+    {
+        return $this->hasMany(ServiceMatchingKeyword::class);
+    }
+
+    public function names(): HasMany
+    {
+        return $this->hasMany(ServiceCatalogName::class)->withoutGlobalScope('visible_service');
+    }
+
+    public function primaryName(): HasOne
+    {
+        return $this->hasOne(ServiceCatalogName::class)->withoutGlobalScope('visible_service')
+            ->where('is_primary', true)
+            ->where('is_active', true);
+    }
+
+    public function brandOfferings(): HasMany
+    {
+        return $this->hasMany(BrandOffering::class);
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function updatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by');
+    }
+}

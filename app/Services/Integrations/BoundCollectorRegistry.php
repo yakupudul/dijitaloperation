@@ -13,8 +13,22 @@ final class BoundCollectorRegistry
     public function register(CollectsBoundProviderData $collector): void
     {
         $capability = $collector->capability();
-        if (isset($this->byCapability[$capability])) {
-            throw new LogicException('Bound collector already registered for capability: '.$capability);
+        $existing = $this->byCapability[$capability] ?? null;
+
+        // Laravel can boot the same provider more than once while rebuilding the
+        // package/service manifest during deploy. Re-registering the exact same
+        // collector class is harmless and must not make composer package:discover fail.
+        if ($existing instanceof CollectsBoundProviderData) {
+            if ($existing::class === $collector::class) {
+                return;
+            }
+
+            throw new LogicException(sprintf(
+                'Bound collector already registered for capability: %s (%s, attempted %s)',
+                $capability,
+                $existing::class,
+                $collector::class,
+            ));
         }
 
         $this->byCapability[$capability] = $collector;

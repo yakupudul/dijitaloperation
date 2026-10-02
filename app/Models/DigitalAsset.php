@@ -2,13 +2,24 @@
 
 namespace App\Models;
 
+use App\Enums\CustomerStatus;
 use App\Enums\DigitalAssetStatus;
+use App\Models\IntelligenceCore\IntelligencePageIdentity;
+use App\Models\IntelligenceProjection\WebsiteEntityProfile;
+use App\Models\IntelligenceProjection\WebsiteIntelligenceProjectionRun;
+use App\Models\IntelligenceProjection\WebsiteOutcomeProfile;
+use App\Models\IntelligenceProjection\WebsitePageProfile;
+use App\Models\IntelligenceProjection\WebsiteSearchTermProfile;
+use App\Services\Ownership\OwnershipGuard;
 use Database\Factories\DigitalAssetFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Validation\ValidationException;
 
 #[Fillable([
     'brand_id',
@@ -27,11 +38,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'seo_market_language_name',
     'site_type',
     'hosting_context',
+    'sector_id',
 ])]
 class DigitalAsset extends Model
 {
     /** @use HasFactory<DigitalAssetFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     /**
      * @return BelongsTo<Brand, $this>
@@ -39,6 +51,29 @@ class DigitalAsset extends Model
     public function brand(): BelongsTo
     {
         return $this->belongsTo(Brand::class);
+    }
+
+    /**
+     * The asset's own sector override (`digital_assets.sector_id`); null = inherits the brand's.
+     *
+     * @return BelongsTo<ServiceCategory, $this>
+     */
+    public function ownSector(): BelongsTo
+    {
+        return $this->belongsTo(ServiceCategory::class, 'sector_id');
+    }
+
+    /** Effective sector: the asset's own override, else its brand's (`brands.sector_id`). */
+    public function sector(): ?ServiceCategory
+    {
+        return ($this->sector_id !== null ? $this->ownSector : null) ?? $this->brand?->sectorCategory;
+    }
+
+    public function sectorId(): ?int
+    {
+        $id = $this->sector()?->id;
+
+        return $id !== null ? (int) $id : null;
     }
 
     /**
@@ -76,6 +111,46 @@ class DigitalAsset extends Model
     }
 
     /**
+     * Provider-neutral Page identities resolved for this Website asset.
+     *
+     * @return HasMany<IntelligencePageIdentity, $this>
+     */
+    public function intelligencePageIdentities(): HasMany
+    {
+        return $this->hasMany(IntelligencePageIdentity::class, 'website_asset_id');
+    }
+
+    /** @return HasMany<WebsiteIntelligenceProjectionRun, $this> */
+    public function websiteProjectionRuns(): HasMany
+    {
+        return $this->hasMany(WebsiteIntelligenceProjectionRun::class, 'website_asset_id');
+    }
+
+    /** @return HasMany<WebsitePageProfile, $this> */
+    public function websitePageProfiles(): HasMany
+    {
+        return $this->hasMany(WebsitePageProfile::class, 'website_asset_id');
+    }
+
+    /** @return HasMany<WebsiteSearchTermProfile, $this> */
+    public function websiteSearchTermProfiles(): HasMany
+    {
+        return $this->hasMany(WebsiteSearchTermProfile::class, 'website_asset_id');
+    }
+
+    /** @return HasMany<WebsiteEntityProfile, $this> */
+    public function websiteEntityProfiles(): HasMany
+    {
+        return $this->hasMany(WebsiteEntityProfile::class, 'website_asset_id');
+    }
+
+    /** @return HasMany<WebsiteOutcomeProfile, $this> */
+    public function websiteOutcomeProfiles(): HasMany
+    {
+        return $this->hasMany(WebsiteOutcomeProfile::class, 'website_asset_id');
+    }
+
+    /**
      * @return HasMany<Recommendation, $this>
      */
     public function recommendations(): HasMany
@@ -94,6 +169,49 @@ class DigitalAsset extends Model
             'target_countries' => 'array',
             'seo_market_location_code' => 'integer',
         ];
+    }
+
+    /**
+     * Assets whose flows may run: the asset and its customer are both active. A passive customer
+     * (inactive / archived) stops every collection, plan, scan and tick for all of its assets.
+     *
+     * @param  Builder<DigitalAsset>  $query
+     * @return Builder<DigitalAsset>
+     */
+    protected static function booted(): void
+    {
+        // Only a website may exist before its brand (added under Integrations, picked when the brand is created).
+        static::saving(function (DigitalAsset $asset): void {
+            if ($asset->brand_id === null && $asset->type !== 'website') {
+                throw new \LogicException('Only a website can exist without a brand.');
+            }
+            // One website asset per domain, whatever path saves it (forms, Filament, imports).
+            if ($asset->type === 'website' && (! $asset->exists || $asset->isDirty(['domain', 'primary_url', 'type']))) {
+                $guard = app(OwnershipGuard::class);
+                $existing = $guard->duplicateWebsite($asset);
+                if ($existing !== null) {
+                    throw ValidationException::withMessages([
+                        'domain' => $guard->duplicateWebsiteMessage($existing, $asset->brand_id !== null ? (int) $asset->brand_id : null),
+                    ]);
+                }
+            }
+        });
+    }
+
+    public function scopeOperational(Builder $query): Builder
+    {
+        return $query
+            ->where('digital_assets.status', DigitalAssetStatus::Active->value)
+            ->whereHas('brand.customer', fn (Builder $customer): Builder => $customer->where('status', CustomerStatus::Active->value));
+    }
+
+    public function isOperational(): bool
+    {
+        if ($this->status !== DigitalAssetStatus::Active) {
+            return false;
+        }
+
+        return $this->brand?->customer?->status === CustomerStatus::Active;
     }
 
     public function hasSeoMarketConfigured(): bool

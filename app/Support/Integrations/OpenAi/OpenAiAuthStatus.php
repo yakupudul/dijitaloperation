@@ -37,9 +37,9 @@ final class OpenAiAuthStatus
     public static function label(string $status): string
     {
         return match ($status) {
-            self::CONFIGURED => 'Configured',
-            self::CONNECTION_ISSUE => 'Connection issue',
-            default => 'Not configured',
+            self::CONFIGURED => __('operator.states.configured'),
+            self::CONNECTION_ISSUE => __('operator.states.connection_issue'),
+            default => __('operator.states.not_configured'),
         };
     }
 
@@ -48,15 +48,15 @@ final class OpenAiAuthStatus
         $resolver = app(OpenAiCredentialResolver::class);
 
         if (! $resolver->isConfigured($integration)) {
-            return 'Not configured';
+            return __('operator.states.not_configured');
         }
 
         if ($resolver->apiKeySource($integration) === OpenAiCredentialResolver::SOURCE_ENVIRONMENT
             && ! $resolver->hasDatabaseApiKey($integration)) {
-            return 'Configured by environment';
+            return __('operator.states.configured_environment');
         }
 
-        return 'Configured';
+        return __('operator.states.configured');
     }
 
     public static function connectionLabel(CoreIntegration $integration): string

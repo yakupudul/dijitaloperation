@@ -166,5 +166,4 @@
 
     @include('livewire.demo.analytics.tabs.relationships')
 
-    @include('livewire.demo.partials._opportunity-card', ['opportunity' => collect(\App\Support\Demo\OpportunityFixtures::forAssetType('ga4'))->first()])
 </div>

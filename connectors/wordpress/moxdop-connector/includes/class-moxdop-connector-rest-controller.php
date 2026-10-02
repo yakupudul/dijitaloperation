@@ -1,0 +1,688 @@
+<?php
+
+defined('ABSPATH') || exit;
+
+final class MoxDOP_Connector_REST_Controller
+{
+    const NAMESPACE = 'moxdop/v1';
+
+    private $auth;
+
+    private $object_ids = [];
+
+    public function __construct(MoxDOP_Connector_Auth $auth)
+    {
+        $this->auth = $auth;
+    }
+
+    public function register_routes()
+    {
+        register_rest_route(self::NAMESPACE, '/status', [
+            'methods' => WP_REST_Server::READABLE,
+            'permission_callback' => [$this->auth, 'authorize'],
+            'callback' => [$this, 'status'],
+        ]);
+        register_rest_route(self::NAMESPACE, '/snapshot', [
+            'methods' => WP_REST_Server::READABLE,
+            'permission_callback' => [$this->auth, 'authorize'],
+            'callback' => [$this, 'snapshot'],
+            'args' => [
+                'object_ids' => ['type' => 'string', 'default' => '', 'validate_callback' => static function ($value) {
+                    return $value === '' || preg_match('/^[1-9][0-9]*(?:,[1-9][0-9]*){0,49}$/', $value);
+                }],
+                'section' => [
+                    'required' => true,
+                    'type' => 'string',
+                    'enum' => ['site', 'extensions', 'content', 'media', 'taxonomies', 'seo'],
+                ],
+                'page' => ['type' => 'integer', 'default' => 1, 'minimum' => 1],
+                // 1.5.1: at most 50 per page (MoxDOP asks 25 for content and media); larger asks are capped, not refused.
+                'per_page' => ['type' => 'integer', 'default' => 25, 'minimum' => 1],
+            ],
+        ]);
+        // 1.6.0: HTML the page-cache plugin already stored on disk (read-only; nothing is rendered).
+        register_rest_route(self::NAMESPACE, '/page-cache', [
+            'methods' => WP_REST_Server::READABLE,
+            'permission_callback' => [$this->auth, 'authorize'],
+            'callback' => [$this, 'page_cache'],
+            'args' => [
+                'page' => ['type' => 'integer', 'default' => 1, 'minimum' => 1],
+                'per_page' => ['type' => 'integer', 'default' => 25, 'minimum' => 1],
+            ],
+        ]);
+        // 1.7.0: rendered content of published posts (no theme), read-only; MoxDOP reads a site in a few requests.
+        register_rest_route(self::NAMESPACE, '/content-export', [
+            'methods' => WP_REST_Server::READABLE,
+            'permission_callback' => [$this->auth, 'authorize'],
+            'callback' => [$this, 'content_export'],
+            'args' => [
+                'ids' => ['required' => true, 'type' => 'string', 'validate_callback' => static function ($value) {
+                    return (bool) preg_match('/^[1-9][0-9]*(?:,[1-9][0-9]*){0,49}$/', (string) $value);
+                }],
+            ],
+        ]);
+        // ADR-064: creates drafts; never publishes.
+        register_rest_route(self::NAMESPACE, '/drafts', [
+            'methods' => WP_REST_Server::CREATABLE,
+            'permission_callback' => [$this->auth, 'authorize'],
+            'callback' => [$this, 'create_draft'],
+        ]);
+        // Connector v2 (1.3.0). Login and updates stay disabled until a site admin turns them on.
+        $management = new MoxDOP_Connector_Management;
+        // 1.4.0: every management response is signed like the others (MoxDOP rejects unsigned responses).
+        register_rest_route(self::NAMESPACE, '/health', [
+            'methods' => WP_REST_Server::READABLE,
+            'permission_callback' => [$this->auth, 'authorize'],
+            'callback' => function (WP_REST_Request $request) use ($management) {
+                return $this->signed($management->health(), $request);
+            },
+        ]);
+        register_rest_route(self::NAMESPACE, '/login-link', [
+            'methods' => WP_REST_Server::CREATABLE,
+            'permission_callback' => [$this->auth, 'authorize'],
+            'callback' => function (WP_REST_Request $request) use ($management) {
+                return $this->signed($management->login_link($request), $request);
+            },
+        ]);
+        register_rest_route(self::NAMESPACE, '/updates', [
+            'methods' => WP_REST_Server::CREATABLE,
+            'permission_callback' => [$this->auth, 'authorize'],
+            'callback' => function (WP_REST_Request $request) use ($management) {
+                return $this->signed($management->update($request), $request);
+            },
+        ]);
+        // 1.4.1: one-click update of this plugin from the paired MoxDOP (ZIP hash checked).
+        register_rest_route(self::NAMESPACE, '/self-update', [
+            'methods' => WP_REST_Server::CREATABLE,
+            'permission_callback' => [$this->auth, 'authorize'],
+            'callback' => function (WP_REST_Request $request) {
+                return $this->signed((new MoxDOP_Connector_Updater)->update($request), $request);
+            },
+        ]);
+        // 1.4.0 (ADR-070): approved SEO fixes and content updates, off until the site admin enables them.
+        (new MoxDOP_Connector_Fixes($this->auth))->register_routes(self::NAMESPACE);
+        register_rest_route(self::NAMESPACE, '/drafts/(?P<id>[1-9][0-9]*)', [
+            'methods' => WP_REST_Server::DELETABLE,
+            'permission_callback' => [$this->auth, 'authorize'],
+            'callback' => [$this, 'trash_draft'],
+        ]);
+    }
+
+    /** Wraps a plain result in the signed envelope; errors pass through unchanged. */
+    private function signed($result, WP_REST_Request $request)
+    {
+        if (is_wp_error($result)) {
+            return $result;
+        }
+        $data = $result instanceof WP_REST_Response ? $result->get_data() : $result;
+
+        return $this->auth->envelope(is_array($data) ? $data : ['value' => $data], $request);
+    }
+
+    public static function drafts_allowed()
+    {
+        return (bool) apply_filters('moxdop_connector_allow_drafts', get_option('moxdop_connector_allow_drafts', '1') === '1');
+    }
+
+    public function create_draft(WP_REST_Request $request)
+    {
+        if (! self::drafts_allowed()) {
+            return new WP_Error('moxdop_drafts_disabled', 'Draft creation is disabled on this site.', ['status' => 403]);
+        }
+        $body = json_decode((string) $request->get_body(), true);
+        if (! is_array($body)) {
+            return new WP_Error('moxdop_invalid_body', 'Invalid draft payload.', ['status' => 400]);
+        }
+        $title = sanitize_text_field((string) ($body['title'] ?? ''));
+        // 1.5.0 accepts "content" too; older MoxDOP versions send "content_html".
+        $content = wp_kses_post((string) ($body['content_html'] ?? ($body['content'] ?? '')));
+        $types = (array) apply_filters('moxdop_connector_draft_post_types', ['post', 'page']);
+        $requested_type = (string) ($body['post_type'] ?? 'post');
+        $type = in_array($requested_type, $types, true) && post_type_exists($requested_type) ? $requested_type : 'post';
+        $reference = sanitize_text_field((string) ($body['reference'] ?? ''));
+        if ($title === '' || $content === '' || $reference === '' || strlen($content) > 200000) {
+            return new WP_Error('moxdop_invalid_body', 'Draft title, content and reference are required.', ['status' => 400]);
+        }
+        $existing = get_posts(['post_type' => $type, 'post_status' => ['draft', 'pending', 'auto-draft', 'future'], 'meta_key' => '_moxdop_draft_reference', 'meta_value' => $reference, 'numberposts' => 1, 'fields' => 'ids', 'lang' => '']);
+        if (! empty($existing)) {
+            $post_id = (int) $existing[0];
+            // Same reference again: nothing is rewritten, only a missing language / translation link is added.
+            $decorated = MoxDOP_Connector_Drafts::decorate($post_id, $type, array_intersect_key($body, ['language' => 1, 'translation_of' => 1]));
+        } else {
+            $admins = get_users(['role' => 'administrator', 'number' => 1, 'fields' => 'ID']);
+            $post_id = wp_insert_post(array_merge([
+                'post_type' => $type,
+                'post_status' => 'draft',
+                'post_title' => $title,
+                'post_content' => $content,
+                'post_excerpt' => sanitize_textarea_field((string) ($body['excerpt'] ?? '')),
+                'post_author' => ! empty($admins) ? (int) $admins[0] : 0,
+            ], MoxDOP_Connector_Drafts::post_fields($body)), true);
+            if (is_wp_error($post_id)) {
+                return new WP_Error('moxdop_draft_failed', $post_id->get_error_message(), ['status' => 500]);
+            }
+            update_post_meta($post_id, '_moxdop_draft_reference', $reference);
+            update_post_meta($post_id, '_moxdop_created', '1');
+            if (! empty($body['translation_key'])) {
+                update_post_meta($post_id, '_moxdop_translation_key', sanitize_text_field((string) $body['translation_key']));
+            }
+            $decorated = MoxDOP_Connector_Drafts::decorate($post_id, $type, $body);
+        }
+
+        return $this->auth->envelope(array_merge([
+            'schema_version' => 1,
+            'post_id' => (int) $post_id,
+            'status' => get_post_status($post_id),
+            'slug' => (string) get_post_field('post_name', $post_id),
+            'edit_url' => admin_url('post.php?post='.(int) $post_id.'&action=edit'),
+            'preview_url' => get_preview_post_link($post_id) ?: '',
+        ], $decorated), $request);
+    }
+
+    public function trash_draft(WP_REST_Request $request)
+    {
+        $post_id = (int) $request->get_param('id');
+        $post = get_post($post_id);
+        if (! $post || get_post_meta($post_id, '_moxdop_created', true) !== '1') {
+            return new WP_Error('moxdop_not_found', 'No MoxDOP draft with this id.', ['status' => 404]);
+        }
+        if (! in_array($post->post_status, ['draft', 'pending', 'auto-draft', 'future'], true)) {
+            return new WP_Error('moxdop_not_draft', 'The post is no longer a draft; it was not removed.', ['status' => 409]);
+        }
+        wp_trash_post($post_id);
+
+        return $this->auth->envelope(['schema_version' => 1, 'post_id' => $post_id, 'status' => 'trash'], $request);
+    }
+
+    public function status(WP_REST_Request $request)
+    {
+        $cache = MoxDOP_Connector_Page_Cache::summary();
+
+        return $this->auth->envelope([
+            'schema_version' => 1,
+            'plugin_version' => MOXDOP_CONNECTOR_VERSION,
+            'installation_id' => (string) get_option('moxdop_connector_installation_id'),
+            'site_url' => site_url('/'),
+            'home_url' => home_url('/'),
+            'wordpress_version' => get_bloginfo('version'),
+            'php_version' => PHP_VERSION,
+            'read_only' => ! self::drafts_allowed(),
+            'capabilities' => array_values(array_filter([
+                self::drafts_allowed() ? 'drafts' : null,
+                MoxDOP_Connector_Management::updates_allowed() ? 'updates' : null,
+                MoxDOP_Connector_Fixes::fixes_allowed() ? 'fixes' : null,
+                MoxDOP_Connector_Fixes::content_allowed() ? 'content' : null,
+                MoxDOP_Connector_Updater::allowed() ? 'self_update' : null,
+                MoxDOP_Connector_IndexNow::enabled() ? 'indexnow' : null,
+                self::drafts_allowed() ? 'rich_drafts' : null,
+                MoxDOP_Connector_Drafts::polylang_active() ? 'polylang' : null,
+                MoxDOP_Connector_Drafts::scheduling_allowed() ? 'schedule' : null,
+                $cache['readable'] ? 'page_cache' : null,
+                'content_export',
+            ])),
+            // 1.6.0: detected page-cache plugin and whether its files can be read (/page-cache).
+            'cache' => $cache,
+            'languages' => MoxDOP_Connector_Drafts::languages(),
+            'sections' => ['site', 'extensions', 'content', 'media', 'taxonomies', 'seo'],
+            'server_time' => time(),
+            'event_delivery' => (new MoxDOP_Connector_Events)->status(),
+            'management_enabled' => false,
+        ], $request);
+    }
+
+    /**
+     * 1.5.1: one snapshot request at a time. Rendering a page of posts is heavy on small shared hosts, so a second
+     * request that arrives meanwhile gets 429 with Retry-After and MoxDOP asks again later.
+     */
+    public function snapshot(WP_REST_Request $request)
+    {
+        $lock = 'moxdop_connector_snapshot_lock';
+        if (! MoxDOP_Connector_Lock::acquire($lock, 120)) {
+            $busy = new WP_REST_Response(['code' => 'moxdop_busy', 'message' => 'Another MoxDOP snapshot is running; retry shortly.', 'data' => ['status' => 429]], 429);
+            $busy->header('Retry-After', '30');
+
+            return $busy;
+        }
+        try {
+            return $this->build_snapshot($request);
+        } finally {
+            MoxDOP_Connector_Lock::release($lock);
+        }
+    }
+
+    /**
+     * 1.6.0: cached HTML of published public URLs, read from the cache plugin's files. Shares the snapshot lock, so a
+     * site never builds a snapshot and an export at the same time (429 + Retry-After: 30 otherwise).
+     */
+    public function page_cache(WP_REST_Request $request)
+    {
+        $lock = 'moxdop_connector_snapshot_lock';
+        if (! MoxDOP_Connector_Lock::acquire($lock, 120)) {
+            $busy = new WP_REST_Response(['code' => 'moxdop_busy', 'message' => 'Another MoxDOP snapshot is running; retry shortly.', 'data' => ['status' => 429]], 429);
+            $busy->header('Retry-After', '30');
+
+            return $busy;
+        }
+        try {
+            $page = max(1, (int) $request->get_param('page'));
+            $per_page = min(50, max(1, (int) $request->get_param('per_page')));
+            $result = MoxDOP_Connector_Page_Cache::export($page, $per_page);
+            $result['schema_version'] = 1;
+            $result['plugin_version'] = MOXDOP_CONNECTOR_VERSION;
+            $result['generated_at'] = gmdate('c');
+
+            return $this->auth->envelope($result, $request);
+        } finally {
+            MoxDOP_Connector_Lock::release($lock);
+        }
+    }
+
+    /**
+     * 1.7.0: rendered content of the asked posts. Shares the snapshot lock (429 + Retry-After: 30 while another
+     * snapshot or export runs); posts left when the time budget runs out come back as pending_ids.
+     */
+    public function content_export(WP_REST_Request $request)
+    {
+        $lock = 'moxdop_connector_snapshot_lock';
+        if (! MoxDOP_Connector_Lock::acquire($lock, 120)) {
+            $busy = new WP_REST_Response(['code' => 'moxdop_busy', 'message' => 'Another MoxDOP snapshot is running; retry shortly.', 'data' => ['status' => 429]], 429);
+            $busy->header('Retry-After', '30');
+
+            return $busy;
+        }
+        try {
+            $result = MoxDOP_Connector_Content_Export::export(array_map('intval', explode(',', (string) $request->get_param('ids'))));
+            $result['schema_version'] = 1;
+            $result['plugin_version'] = MOXDOP_CONNECTOR_VERSION;
+            $result['generated_at'] = gmdate('c');
+
+            return $this->auth->envelope($result, $request);
+        } finally {
+            MoxDOP_Connector_Lock::release($lock);
+        }
+    }
+
+    private function build_snapshot(WP_REST_Request $request)
+    {
+        $section = sanitize_key((string) $request->get_param('section'));
+        $ids = (string) $request->get_param('object_ids');
+        $this->object_ids = $ids === '' ? [] : array_values(array_unique(array_map('intval', explode(',', $ids))));
+        $page = max(1, (int) $request->get_param('page'));
+        $per_page = min(50, max(1, (int) $request->get_param('per_page')));
+
+        switch ($section) {
+            case 'site':
+                $result = $this->site_snapshot();
+                break;
+            case 'extensions':
+                $result = $this->extension_snapshot($page, $per_page);
+                break;
+            case 'content':
+                $result = $this->content_snapshot($page, $per_page);
+                break;
+            case 'media':
+                $result = $this->media_snapshot($page, $per_page);
+                break;
+            case 'taxonomies':
+                $result = $this->taxonomy_snapshot($page, $per_page);
+                break;
+            case 'seo':
+                $result = $this->seo_snapshot($page, $per_page);
+                break;
+            default:
+                return new WP_Error('moxdop_unknown_section', 'Unknown connector section.', ['status' => 400]);
+        }
+
+        $result['schema_version'] = 1;
+        $result['plugin_version'] = MOXDOP_CONNECTOR_VERSION;
+        $result['object_ids'] = $this->object_ids;
+        $result['section'] = $section;
+        $result['generated_at'] = gmdate('c');
+
+        return $this->auth->envelope($result, $request);
+    }
+
+    private function site_snapshot()
+    {
+        $theme = wp_get_theme();
+        $core_updates = get_site_transient('update_core');
+        $core_offer = is_object($core_updates) && is_array($core_updates->updates ?? null)
+            ? ($core_updates->updates[0] ?? null)
+            : null;
+        $health = get_transient('health-check-site-status-result');
+        $health = is_array($health) ? [
+            'good' => $this->health_count($health['good'] ?? null),
+            'recommended' => $this->health_count($health['recommended'] ?? null),
+            'critical' => $this->health_count($health['critical'] ?? null),
+        ] : null;
+        $record = [
+            'site_key' => (string) get_option('moxdop_connector_installation_id'),
+            'site_url' => site_url('/'),
+            'home_url' => home_url('/'),
+            'wordpress_version' => get_bloginfo('version'),
+            'php_version' => PHP_VERSION,
+            'core_update_available' => is_object($core_offer) && ($core_offer->response ?? '') === 'upgrade',
+            'available_wordpress_version' => is_object($core_offer) ? ($core_offer->current ?? null) : null,
+            'core_update_checked_at' => is_object($core_updates) && ! empty($core_updates->last_checked)
+                ? gmdate('c', (int) $core_updates->last_checked)
+                : null,
+            'locale' => get_locale(),
+            'timezone' => wp_timezone_string(),
+            'active_theme' => $theme->get_stylesheet(),
+            'active_theme_name' => $theme->get('Name'),
+            'active_theme_version' => $theme->get('Version'),
+            'is_multisite' => is_multisite(),
+            'rest_state' => 'reachable',
+            'cron_state' => defined('DISABLE_WP_CRON') && DISABLE_WP_CRON ? 'disabled' : 'enabled',
+            'settings' => [
+                'blog_public' => (bool) get_option('blog_public'),
+                'permalink_structure' => (string) get_option('permalink_structure'),
+                'show_on_front' => (string) get_option('show_on_front'),
+                'page_on_front' => (int) get_option('page_on_front'),
+                'page_for_posts' => (int) get_option('page_for_posts'),
+                'posts_per_page' => (int) get_option('posts_per_page'),
+                'uploads_use_yearmonth_folders' => (bool) get_option('uploads_use_yearmonth_folders'),
+                'memory_limit' => (string) WP_MEMORY_LIMIT,
+                'max_upload_size' => (int) wp_max_upload_size(),
+            ],
+            'features' => [
+                'polylang' => defined('POLYLANG_VERSION'),
+                'litespeed_cache' => defined('LSCWP_V'),
+            ],
+            // 1.5.0: Polylang languages (slug, name, locale, default, home_url) so MoxDOP knows where drafts can go.
+            'languages' => MoxDOP_Connector_Drafts::languages(),
+            'site_health_cached' => $health,
+            'health' => (new MoxDOP_Connector_Health)->snapshot(),
+        ];
+
+        return $this->page([$record], 1, 100, 1);
+    }
+
+    private function extension_snapshot($page, $per_page)
+    {
+        require_once ABSPATH.'wp-admin/includes/plugin.php';
+        $updates = get_site_transient('update_plugins');
+        $active = (array) get_option('active_plugins', []);
+        if (is_multisite()) {
+            $active = array_values(array_unique(array_merge($active, array_keys((array) get_site_option('active_sitewide_plugins', [])))));
+        }
+        $auto_plugins = (array) get_option('auto_update_plugins', []);
+        $records = [];
+        foreach (get_plugins() as $file => $plugin) {
+            $available = isset($updates->response[$file]) ? (string) ($updates->response[$file]->new_version ?? '') : null;
+            $records[] = [
+                'extension_type' => 'plugin',
+                'extension_id' => $file,
+                'name' => (string) ($plugin['Name'] ?? $file),
+                'version' => (string) ($plugin['Version'] ?? ''),
+                'status' => in_array($file, $active, true) ? 'active' : 'inactive',
+                'update_available' => ! empty($available),
+                'available_version' => $available ?: null,
+                'auto_update' => in_array($file, $auto_plugins, true),
+                'update_checked_at' => is_object($updates) && ! empty($updates->last_checked)
+                    ? gmdate('c', (int) $updates->last_checked)
+                    : null,
+            ];
+        }
+
+        $theme_updates = get_site_transient('update_themes');
+        $auto_themes = (array) get_option('auto_update_themes', []);
+        $active_stylesheet = get_stylesheet();
+        foreach (wp_get_themes() as $stylesheet => $theme) {
+            $available = isset($theme_updates->response[$stylesheet])
+                ? (string) ($theme_updates->response[$stylesheet]['new_version'] ?? '')
+                : null;
+            $records[] = [
+                'extension_type' => 'theme',
+                'extension_id' => $stylesheet,
+                'name' => $theme->get('Name'),
+                'version' => $theme->get('Version'),
+                'status' => $stylesheet === $active_stylesheet ? 'active' : 'inactive',
+                'update_available' => ! empty($available),
+                'available_version' => $available ?: null,
+                'auto_update' => in_array($stylesheet, $auto_themes, true),
+                'update_checked_at' => is_object($theme_updates) && ! empty($theme_updates->last_checked)
+                    ? gmdate('c', (int) $theme_updates->last_checked)
+                    : null,
+            ];
+        }
+
+        return $this->slice($records, $page, $per_page);
+    }
+
+    private function content_snapshot($page, $per_page)
+    {
+        $query = $this->content_query($page, $per_page);
+        $records = [];
+        foreach ($query->posts as $post) {
+            // Blocks are rendered without running the entire `the_content` filter chain.
+            // Public Discovery remains the source of truth for final theme/shortcode HTML.
+            $rendered = function_exists('do_blocks') ? do_blocks($post->post_content) : $post->post_content;
+            $elementor = (string) get_post_meta($post->ID, '_elementor_data', true);
+            $records[] = [
+                'object_type' => $post->post_type,
+                'object_id' => (string) $post->ID,
+                'status' => $post->post_status,
+                'slug' => $post->post_name,
+                'permalink' => get_permalink($post),
+                'title' => get_the_title($post),
+                'published_at' => get_post_datetime($post, 'date', 'gmt') ? get_post_datetime($post, 'date', 'gmt')->format('c') : null,
+                'modified_at' => get_post_datetime($post, 'modified', 'gmt') ? get_post_datetime($post, 'modified', 'gmt')->format('c') : null,
+                'parent_id' => $post->post_parent ? (string) $post->post_parent : null,
+                'template' => (string) get_page_template_slug($post),
+                'featured_media_id' => get_post_thumbnail_id($post) ? (string) get_post_thumbnail_id($post) : null,
+                'language' => $this->language($post->ID),
+                'translations' => $this->translations($post->ID),
+                'business_fields' => $this->business_fields($post->ID),
+                'content_raw' => $post->post_content,
+                'content_rendered' => $rendered,
+                'content_hash' => hash('sha256', (string) $rendered),
+                'content_length' => strlen((string) $rendered),
+                'builder' => $elementor !== '' ? [
+                    'provider' => 'elementor',
+                    'content_raw' => $elementor,
+                    'content_hash' => hash('sha256', $elementor),
+                    'content_length' => strlen($elementor),
+                ] : null,
+            ];
+        }
+
+        return $this->page($records, $page, $per_page, (int) $query->found_posts);
+    }
+
+    private function media_snapshot($page, $per_page)
+    {
+        $query = new WP_Query([
+            'post_type' => 'attachment',
+            'post_status' => 'inherit',
+            'post__in' => $this->object_ids,
+            'posts_per_page' => $per_page,
+            'paged' => $page,
+            'orderby' => 'ID',
+            'order' => 'ASC',
+            'no_found_rows' => false,
+        ]);
+        $records = [];
+        foreach ($query->posts as $post) {
+            $metadata = wp_get_attachment_metadata($post->ID);
+            $records[] = [
+                'object_type' => 'attachment',
+                'object_id' => (string) $post->ID,
+                'status' => $post->post_status,
+                'slug' => $post->post_name,
+                'permalink' => wp_get_attachment_url($post->ID),
+                'title' => get_the_title($post),
+                'published_at' => get_post_datetime($post, 'date', 'gmt') ? get_post_datetime($post, 'date', 'gmt')->format('c') : null,
+                'modified_at' => get_post_datetime($post, 'modified', 'gmt') ? get_post_datetime($post, 'modified', 'gmt')->format('c') : null,
+                'parent_id' => $post->post_parent ? (string) $post->post_parent : null,
+                'mime_type' => $post->post_mime_type,
+                'alt_text' => (string) get_post_meta($post->ID, '_wp_attachment_image_alt', true),
+                'width' => is_array($metadata) ? ($metadata['width'] ?? null) : null,
+                'height' => is_array($metadata) ? ($metadata['height'] ?? null) : null,
+                'file' => is_array($metadata) ? ($metadata['file'] ?? null) : null,
+                'file_size' => is_array($metadata) ? ($metadata['filesize'] ?? null) : null,
+                'language' => $this->language($post->ID),
+            ];
+        }
+
+        return $this->page($records, $page, $per_page, (int) $query->found_posts);
+    }
+
+    private function taxonomy_snapshot($page, $per_page)
+    {
+        $records = [];
+        $taxonomies = get_taxonomies(['show_ui' => true], 'objects');
+        ksort($taxonomies, SORT_STRING);
+        $total = 0;
+        $wanted_offset = ($page - 1) * $per_page;
+        $remaining = $per_page;
+        foreach ($taxonomies as $taxonomy) {
+            $taxonomy_total = wp_count_terms(['taxonomy' => $taxonomy->name, 'hide_empty' => false]);
+            if (is_wp_error($taxonomy_total)) {
+                continue;
+            }
+            $taxonomy_total = (int) $taxonomy_total;
+            $taxonomy_start = $total;
+            $total += $taxonomy_total;
+            if ($remaining < 1 || $wanted_offset >= $taxonomy_start + $taxonomy_total) {
+                continue;
+            }
+
+            $local_offset = max(0, $wanted_offset - $taxonomy_start);
+            $terms = get_terms([
+                'taxonomy' => $taxonomy->name,
+                'hide_empty' => false,
+                'number' => $remaining,
+                'offset' => $local_offset,
+                'orderby' => 'term_id',
+                'order' => 'ASC',
+            ]);
+            if (is_wp_error($terms)) {
+                continue;
+            }
+            foreach ($terms as $term) {
+                $records[] = [
+                    'taxonomy' => $taxonomy->name,
+                    'term_id' => (string) $term->term_id,
+                    'name' => $term->name,
+                    'slug' => $term->slug,
+                    'parent_id' => $term->parent ? (string) $term->parent : null,
+                    'content_count' => (int) $term->count,
+                    'language' => function_exists('pll_get_term_language') ? pll_get_term_language($term->term_id, 'slug') : null,
+                ];
+                $remaining--;
+            }
+        }
+
+        return $this->page($records, $page, $per_page, $total);
+    }
+
+    private function seo_snapshot($page, $per_page)
+    {
+        $query = $this->content_query($page, $per_page);
+        $records = [];
+        foreach ($query->posts as $post) {
+            $fields = $this->seo_fields($post->ID);
+            $records[] = array_merge([
+                'object_type' => $post->post_type,
+                'object_id' => (string) $post->ID,
+                'permalink' => get_permalink($post),
+                'language' => $this->language($post->ID),
+            ], $fields);
+        }
+
+        return $this->page($records, $page, $per_page, (int) $query->found_posts);
+    }
+
+    private function content_query($page, $per_page)
+    {
+        $types = get_post_types(['public' => true], 'names');
+        unset($types['attachment'], $types['wp_block'], $types['wp_template'], $types['wp_template_part'], $types['wp_navigation']);
+
+        return new WP_Query([
+            'post_type' => array_values($types),
+            'post_status' => $this->object_ids ? ['publish', 'future', 'draft', 'pending', 'private', 'trash'] : ['publish', 'future', 'draft', 'pending', 'private'],
+            'post__in' => $this->object_ids,
+            'posts_per_page' => $per_page,
+            'paged' => $page,
+            'orderby' => 'ID',
+            'order' => 'ASC',
+            'no_found_rows' => false,
+        ]);
+    }
+
+    public static function seo_fields($post_id)
+    {
+        $providers = [
+            'yoast' => ['title' => '_yoast_wpseo_title', 'description' => '_yoast_wpseo_metadesc', 'canonical' => '_yoast_wpseo_canonical', 'robots' => '_yoast_wpseo_meta-robots-noindex'],
+            'rank_math' => ['title' => 'rank_math_title', 'description' => 'rank_math_description', 'canonical' => 'rank_math_canonical_url', 'robots' => 'rank_math_robots'],
+            'seopress' => ['title' => '_seopress_titles_title', 'description' => '_seopress_titles_desc', 'canonical' => '_seopress_robots_canonical', 'robots' => '_seopress_robots_index'],
+        ];
+        foreach ($providers as $provider => $keys) {
+            $values = [];
+            foreach ($keys as $field => $key) {
+                $value = get_post_meta($post_id, $key, true);
+                $values[$field] = is_array($value) ? implode(',', array_map('sanitize_text_field', $value)) : (string) $value;
+            }
+            if (implode('', $values) !== '') {
+                return [
+                    'seo_provider' => $provider,
+                    'seo_title' => $values['title'] ?: null,
+                    'meta_description' => $values['description'] ?: null,
+                    'canonical_url' => $values['canonical'] ?: null,
+                    'robots' => $values['robots'] ?: null,
+                ];
+            }
+        }
+
+        return ['seo_provider' => null, 'seo_title' => null, 'meta_description' => null, 'canonical_url' => null, 'robots' => null];
+    }
+
+    private function business_fields($post_id)
+    {
+        $values = [];
+        foreach (['sube_adi', 'sube_telefon', 'sube_adresi', 'adres_posta_kodu', 'latitude', 'longitude'] as $key) {
+            $value = get_post_meta($post_id, $key, true);
+            if (is_scalar($value) && (string) $value !== '') {
+                $values[$key] = mb_substr(sanitize_text_field((string) $value), 0, 500);
+            }
+        }
+
+        return $values;
+    }
+
+    private function language($post_id)
+    {
+        return function_exists('pll_get_post_language') ? pll_get_post_language($post_id, 'slug') : null;
+    }
+
+    private function translations($post_id)
+    {
+        return function_exists('pll_get_post_translations') ? (array) pll_get_post_translations($post_id) : [];
+    }
+
+    private function health_count($value)
+    {
+        if (is_numeric($value)) {
+            return max(0, (int) $value);
+        }
+
+        return is_countable($value) ? count($value) : null;
+    }
+
+    private function slice(array $records, $page, $per_page)
+    {
+        return $this->page(array_slice($records, ($page - 1) * $per_page, $per_page), $page, $per_page, count($records));
+    }
+
+    private function page(array $records, $page, $per_page, $total)
+    {
+        return [
+            'records' => array_values($records),
+            'page' => (int) $page,
+            'per_page' => (int) $per_page,
+            'total' => (int) $total,
+            'has_more' => $page * $per_page < $total,
+        ];
+    }
+}

@@ -8,7 +8,6 @@ use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
-use App\Models\Run;
 use App\Models\User;
 use App\Services\Integrations\BoundCollectorRegistry;
 use App\Services\Integrations\CollectLiveBoundDataService;
@@ -464,10 +463,20 @@ class GoogleBoundDataCollectionTest extends TestCase
         Http::fake([
             'https://www.googleapis.com/webmasters/v3/sites/*' => Http::response(['rows' => []], 200),
         ]);
+        config([
+            'moxdop-collection.require_queue_connection' => false,
+            'moxdop-collection.queue_connection' => 'database',
+        ]);
 
         $result = app(CollectLiveBoundDataService::class)->collect($this->website->fresh());
-        $this->assertNotEmpty($result['runs']);
-        $this->assertInstanceOf(Run::class, $result['runs'][0]);
+        $this->assertTrue($result['ok']);
+        $this->assertNotNull($result['collection_run_id']);
+        $this->assertEmpty($result['runs']);
+        $this->assertDatabaseHas('collection_runs', [
+            'id' => $result['collection_run_id'],
+            'digital_asset_id' => $this->website->id,
+        ]);
+        $this->assertSame(0, Evidence::query()->where('type', 'search_console_performance')->count());
     }
 
     public function test_token_refresh_path_on_google_api_client_post(): void

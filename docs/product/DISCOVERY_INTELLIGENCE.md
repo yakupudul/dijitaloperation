@@ -1,6 +1,6 @@
 # Discovery Intelligence (Outside-in)
 
-> **STATUS: DISCOVERY INTELLIGENCE V1 → IMPLEMENTED V1**  
+> **STATUS: Stage 1 stored public discovery — staging implementation; real operator UAT required**
 > Owned primarily by `app-modules/website/` (no Discovery Module).  
 >  
 > Authority order: `MASTER_SPEC` → accepted ADRs → product blueprints → this doc.  
@@ -11,7 +11,57 @@
 > [`BRAND_INTELLIGENCE.md`](./BRAND_INTELLIGENCE.md) ·  
 > [`docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md`](../research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md).
 
-## Implemented V1 scope
+## Stage 1 — stored public discovery (authorized 2026-09-06)
+
+This section is the current contract on `chatgpt/search-demand-foundation`, based on staging commit `52b080bdc9e3e14507a0b4e57347287dcf73796d`. It supersedes the historical V1 execution description below for this branch only. Main was not used as implementation truth or modified. User authorization: the Public Discovery plan followed by “tamam yap” and “Devam et”. Product spec paths: `docs/MASTER_SPEC.md`, this document, `OPERATOR_ASYNC_EXECUTION.md`; accepted decision: ADR-061.
+
+### Operator flow
+
+1. Choose a Website in **Kamu Keşif**, then **Keşfi çalıştır**. Customer, Brand, Digital Asset, credentials and binding remain in the existing Integration workflow.
+2. The operation first reads stored public HTML. If data is absent, older than seven days, corrupt or an error template, it requests public HTML through the existing Website Collection Engine. The operation resumes when that collection finishes; the operator can leave the page.
+3. Review the known URL inventory, inspected/missing/stale/unreadable/ineligible counts, original source dates and up to 100 example gap URLs. A bounded inventory is never labelled the whole website. Partial collection remains visible even when some usable pages exist.
+4. Review one candidate, inspect its source URLs and stored HTML, edit its value or select an existing destination. Save the decision. The receipt states what actually happened and links to the destination where applicable.
+5. Previously accepted/ignored decisions remain intact on repeated discovery. An old approval without an application receipt can be explicitly reviewed and transferred; there is no automatic backfill. Kept scalar conflicts and address-only observations can be reviewed again, preserving receipt history.
+
+### Sources, extraction and cost
+
+- `StoredDiscoverySource` selects latest observations from `website_html_snapshot` and `website_url`, scoped to the Website. `StoredHtmlReader` checks raw-object ownership, raw checksum, decoded content hash and size. Only eligible public HTML is considered; HTTP 200 error templates are rejected through the existing Website page analyzer.
+- Stored source age: seven days, with five minutes of clock tolerance. Read bounds: 500 pages, 32 MiB decoded HTML per pass and 5 MiB per stored/decoded object. Existing collector bounds remain unchanged: 5,000 URLs and 2,000,000,000 aggregate response bytes. For an existing inventory, refresh is targeted to at most 100 missing/stale/problem URLs per operation; remaining gaps stay partial and can be addressed by another run or Integration collection.
+- Only observed same-site redirects may alias requested/final URLs, with newer direct observations taking precedence. Path case, slash and query identity are preserved. Unrelated redirects never establish ownership. Source dates are retained; processing time is separate.
+- Services require Service/Product structured markup, a specific service/product/treatment page heading with body text, or a heading matching an existing active Brand Offering name. Short navigation labels alone are insufficient. This deterministic pass can miss unstructured services; it does not invent missing claims.
+- `areaServed` / `serviceArea` statements are service-area candidates. Address/contact text remains source information. A homepage meta description can propose the business summary; descriptions of unrelated subpages do not replace the brand summary.
+- Same-value claims combine source provenance. Profile/channel URL identity preserves case-sensitive paths. Accepted/ignored status, edited values and application receipts survive re-observation; the same valid unchanged HTML and known-service input reuses the prior successful Run.
+- The basic operation calls neither AI nor paid providers, even if credentials are configured. Historical AI/competitor candidates remain readable and reviewable. It does not run the legacy standalone crawler, the Discovery Analyst or DataForSEO domain-overlap calls.
+
+### Actual destinations
+
+| Candidate | Human action | Persisted destination |
+| --- | --- | --- |
+| Service / product | Confirm name or map an existing Brand service | Active `BrandOffering` linked to active `ServiceCatalogItem`; receipt stores both IDs; existing priority/name wins |
+| Service area | Explicitly confirm coverage; choose existing area or country/city/district | Additive `BrandServiceArea`; other areas and priorities remain intact |
+| Physical address, phone, email | Save source information | Reviewed `DiscoveryCandidate` with `observation_only` receipt; address may instead become an explicitly confirmed service area |
+| Historical competitor | Review domain | Canonical Competitor Library identity plus provenance; existing roles, classification, notes and relationships remain intact; rejected identities require review in the Library |
+| Social profile | Confirm a supported public profile URL | `integration_ready` receipt; searchable, paginated **Keşiften gelen sosyal profiller** in Integrations, filterable by Brand; no automatic Digital Asset or binding |
+| Language | Confirm document language code | Website `languages` |
+| Business summary / positioning | Keep current or explicitly replace | Existing Brand Context, with a current-value comparison before replacement; a kept conflict is recorded, not reported as applied |
+
+Review is transactional and requires an active authorized operator. Brand and Website identity must agree; selected service/area IDs must belong to that Brand. Archived services/areas are not restored. New stored-source candidates require a still-current, readable source at application time. Historical candidates are clearly labelled as historical and are never relabelled as fresh observations merely because a human reviewed them.
+
+### Async and compatibility
+
+`PublicDiscoveryJob` uses the canonical async parent Run and existing `website-discovery` child Run / Evidence. Per-operation and per-Website locks guard duplicate jobs; collection uses the durable `public-discovery:<operation-id>` idempotency key. Only the public HTTP/HTML and crawl families are requested, with paid enrichment disabled. The auto-discovered `ResumePublicDiscoveryAfterCollection` listener resumes the matching operation after commit. The existing five-minute stale-operation scheduler also recovers a missed terminal collection event. Failed/cancelled collection does not cause an automatic recollection loop.
+
+Candidate pagination replaces the old 80-row ceiling on the dedicated review screen. Legacy Brand/Website previews retain their read-model keys; source summaries now belong to the displayed child Run. No new result entity, plugin framework, database table or dependency is added.
+
+### Verification and remaining work
+
+Verification on 2026-09-07: 70 targeted tests / 365 assertions, Pint, the frontend build and Blade compilation passed. The capability state is recorded in `PRODUCT_CAPABILITY_LEDGER.md`. PHPUnit uses an isolated in-memory SQLite database and synthetic stored HTML / fake HTTP. Automated checks cover stored-source reuse, actual collection planning and resumption, duplicate delivery, canonical transfers, preservation of decisions, corruption/ownership/source freshness, language/profile extraction, limits, TR/EN operator routes and Integration handoff. Two older collector-budget fixtures were corrected to use the collector's already-existing 2 GB constant instead of the legacy standalone crawler's 8 MB constant; production collection limits were not changed.
+
+Real staging PostgreSQL, queue/Supervisor operation, representative customer websites and human visual UAT remain unclaimed. The local PHP runtime lacks `ext-intl`; IDN behaviour requires verification in the deployed runtime. The frontend build's existing bundle-size/font optimization advisories are outside this slice.
+
+Agent-Reach was reviewed as an architectural reference; no runtime, installer, cookie flow or browser automation was installed. Stage 1 does not add web/SERP research, social-post analysis, reviews/mentions, Jina readers or scheduled multi-brand monitoring. Those are subsequent, separately bounded Public Discovery stages. The existing competitor Library and other Website workspaces remain available.
+
+## Historical V1 scope
 
 - Bounded public Website discovery (operator-triggered **Discover public context**)
 - SSRF-safe public HTTP retrieval (no JS/browser execution, no login/cookie scraping)

@@ -16,13 +16,13 @@ class FilamentPanelTest extends TestCase
 
     public function test_login_page_is_accessible(): void
     {
-        $this->get('/system/login')->assertOk();
+        $this->get('/admin/login')->assertOk();
     }
 
     public function test_guests_cannot_access_panel(): void
     {
-        $this->get('/system')
-            ->assertRedirect('/system/login');
+        $this->get('/admin')
+            ->assertRedirect('/admin/login');
     }
 
     public function test_admin_can_access_panel(): void
@@ -33,7 +33,7 @@ class FilamentPanelTest extends TestCase
         $user->assignRole(Roles::ADMIN);
 
         $this->actingAs($user)
-            ->get('/system')
+            ->get('/admin')
             ->assertOk();
     }
 
@@ -47,7 +47,7 @@ class FilamentPanelTest extends TestCase
         $this->assertTrue($user->can(Permissions::ACCESS_APP));
 
         $this->actingAs($user)
-            ->get('/system')
+            ->get('/admin')
             ->assertOk();
     }
 
@@ -64,7 +64,7 @@ class FilamentPanelTest extends TestCase
         $this->assertFalse($user->can(Permissions::ACCESS_APP));
 
         $this->actingAs($user)
-            ->get('/system')
+            ->get('/admin')
             ->assertForbidden();
     }
 
@@ -75,17 +75,19 @@ class FilamentPanelTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->get('/system')
+            ->get('/admin')
             ->assertForbidden();
     }
 
     public function test_registration_is_not_available(): void
     {
-        $this->get('/system/register')->assertNotFound();
+        $this->get('/admin/register')->assertNotFound();
     }
 
-    public function test_legacy_app_login_redirects_to_system_login(): void
+    public function test_operator_login_is_owned_by_app_not_legacy_system(): void
     {
-        $this->get('/app/login')->assertRedirect('/system/login');
+        $this->get('/login')->assertOk();
+        $this->get('/app/login')->assertStatus(410);
+        $this->get('/system/login')->assertStatus(410);
     }
 }

@@ -1,0 +1,220 @@
+<?php
+
+namespace Tests\Feature\AiControl;
+
+use App\Ai\Agents\BrandSetupAgent;
+use App\Livewire\Demo\Integrations\AiProviderIntegrationPage;
+use App\Models\AgencySetting;
+use App\Models\CoreIntegration;
+use App\Models\User;
+use App\Services\Ai\AiBudget;
+use App\Services\Ai\AiBudgetExceededException;
+use App\Services\Ai\AiLiveOperations;
+use App\Services\Ai\AiPricing;
+use App\Services\Ai\AiRouteResolver;
+use App\Support\Ai\AiProviderCatalog;
+use App\Support\Ai\AiProviderOptions;
+use App\Support\Ai\AiRouteKeys;
+use App\Support\Roles;
+use Database\Seeders\RoleAndPermissionSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Context;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
+use Tests\TestCase;
+
+/**
+ * Faz 1a: Groq / OpenRouter providers, per-call usage + cost, monthly budget and the client-data rule.
+ */
+final class AiCostControlTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private User $admin;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['app.key' => 'base64:'.base64_encode(str_repeat('k', 32))]);
+        $this->seed(RoleAndPermissionSeeder::class);
+        $this->admin = User::factory()->create(['is_active' => true]);
+        $this->admin->assignRole(Roles::ADMIN);
+        $this->actingAs($this->admin);
+        config([
+            'moxdop.openai.api_key' => null, 'ai.providers.openai.key' => null,
+            'moxdop.anthropic.api_key' => null, 'ai.providers.anthropic.key' => null,
+            'moxdop.gemini.api_key' => null, 'ai.providers.gemini.key' => null,
+            'ai.providers.groq.key' => null, 'ai.providers.openrouter.key' => null,
+        ]);
+        Http::preventStrayRequests();
+    }
+
+    public function test_every_offered_openai_and_anthropic_model_has_a_price_and_the_default_budget_is_100(): void
+    {
+        $pricing = app(AiPricing::class);
+        $models = [
+            ['openai', AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI)],
+            ['anthropic', AiProviderCatalog::defaultModel(AiProviderCatalog::ANTHROPIC)],
+            ['openai', (string) config('moxdop.ai.defaults.embedding_model', 'text-embedding-3-small')],
+        ];
+        foreach (['gpt-5-mini', 'gpt-5', 'gpt-4.1-mini', 'gpt-4.1', 'gpt-4o', 'claude-sonnet-5', 'claude-opus-4-8', 'claude-haiku-4-5-20251001'] as $model) {
+            $models[] = [str_starts_with($model, 'claude') ? 'anthropic' : 'openai', $model];
+        }
+        foreach ($models as [$provider, $model]) {
+            $this->assertNotNull($pricing->price($provider, $model), $provider.' '.$model.' has no price: its calls would show $0.00 and never count against the budget');
+        }
+        $this->assertSame(100.0, app(AiBudget::class)->monthlyBudget(), 'operator approved ~$100 / month');
+    }
+
+    public function test_backfill_prices_usage_that_was_recorded_without_a_cost(): void
+    {
+        $row = ['route_key' => 'queries.asset_sector', 'agent' => 'AssetSectorAgent', 'input_tokens' => 1_000, 'output_tokens' => 1_000, 'cost_usd' => null, 'created_at' => now()];
+        $priced = DB::table('ai_usage_records')->insertGetId($row + ['provider' => 'openai', 'model' => 'gpt-5-mini']);
+        $unknown = DB::table('ai_usage_records')->insertGetId($row + ['provider' => 'openai', 'model' => 'some-future-model']);
+
+        (require database_path('migrations/2026_10_26_120000_backfill_unknown_ai_usage_costs.php'))->up();
+
+        $this->assertEqualsWithDelta(0.00225, (float) DB::table('ai_usage_records')->where('id', $priced)->value('cost_usd'), 0.000001);
+        $this->assertNull(DB::table('ai_usage_records')->where('id', $unknown)->value('cost_usd'));
+        $this->assertEqualsWithDelta(0.00225, app(AiBudget::class)->monthSpend(), 0.000001, 'the budget now counts OpenAI spend');
+    }
+
+    public function test_pricing_computes_cost_and_recognises_free_models(): void
+    {
+        $pricing = app(AiPricing::class);
+        // Sonnet 5: $2 / $10 per million tokens.
+        $this->assertEqualsWithDelta(0.07, $pricing->cost('anthropic', 'claude-sonnet-5', 20_000, 3_000), 0.000001);
+        $this->assertEqualsWithDelta(0.0035, $pricing->cost('anthropic', 'claude-haiku-4-5-20251001', 1_000, 500), 0.000001);
+        $this->assertTrue($pricing->isFree('openrouter', 'meta-llama/llama-3.3-70b-instruct:free'));
+        $this->assertTrue($pricing->isFree('groq', 'llama-3.3-70b-versatile'));
+        // OpenAI models used by the routes are priced (production showed $0.00 for every OpenAI call before).
+        $this->assertEqualsWithDelta(0.00225, $pricing->cost('openai', 'gpt-5-mini', 1_000, 1_000), 0.000001);
+        $this->assertEqualsWithDelta(0.00225, $pricing->cost('openai', 'gpt-5-mini-2025-08-07', 1_000, 1_000), 0.000001, 'dated snapshot → alias price');
+        $this->assertNull($pricing->cost('openai', 'some-future-model', 1_000, 1_000), 'unknown price stays unknown, never zero');
+    }
+
+    public function test_every_agent_call_is_recorded_with_route_and_cost(): void
+    {
+        config(['moxdop.anthropic.api_key' => 'sk-ant-test']);
+        CoreIntegration::factory()->anthropic()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
+        BrandSetupAgent::fake([['services' => [], 'prompt_version' => 'x']]);
+
+        $route = app(AiRouteResolver::class)->resolve(AiRouteKeys::BRAND_SETUP);
+        $this->assertSame('anthropic', $route->primaryProvider());
+        (new BrandSetupAgent)->prompt('CONTEXT_JSON {}', provider: $route->providerModels);
+
+        $row = DB::table('ai_usage_records')->first();
+        $this->assertNotNull($row);
+        $this->assertSame(AiRouteKeys::BRAND_SETUP, $row->route_key);
+        $this->assertSame('BrandSetupAgent', $row->agent);
+    }
+
+    public function test_budget_exhaustion_skips_paid_models_but_keeps_free_ones(): void
+    {
+        config(['moxdop.anthropic.api_key' => 'sk-ant-test', 'ai.providers.groq.key' => 'gsk-test']);
+        (AgencySetting::query()->orderBy('id')->first() ?? AgencySetting::query()->create(['agency_name' => 'MoxDOP', 'portal_name' => 'MoxDOP']))
+            ->forceFill(['ai_monthly_budget_usd' => 5])->save();
+        DB::table('ai_usage_records')->insert([
+            'route_key' => 'x', 'agent' => 'A', 'provider' => 'anthropic', 'model' => 'claude-sonnet-5',
+            'input_tokens' => 1, 'output_tokens' => 1, 'cost_usd' => 5.10, 'created_at' => now(),
+        ]);
+        $this->assertTrue(app(AiBudget::class)->isExhausted());
+
+        // Client-data route: only paid providers allowed → nothing can run, plans fall back to rules.
+        $analysis = app(AiRouteResolver::class)->resolve(AiRouteKeys::BRAND_SETUP);
+        $this->assertTrue($analysis->isEmpty());
+        $this->assertSame('budget_exhausted', $analysis->steps[0]['reason']);
+    }
+
+    public function test_the_daily_ceiling_stops_all_ai_of_the_day_and_only_query_ai_runs_by_itself(): void
+    {
+        config(['moxdop.anthropic.api_key' => 'sk-ant-test', 'moxdop-ai-pricing.automatic_areas' => ['queries']]);
+        CoreIntegration::factory()->anthropic()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
+        $setting = AgencySetting::query()->orderBy('id')->first() ?? AgencySetting::query()->create(['agency_name' => 'MoxDOP', 'portal_name' => 'MoxDOP']);
+        $setting->forceFill(['ai_daily_auto_budget_usd' => 1])->save();
+        $call = fn (array $extra): int => DB::table('ai_live_operations')->insertGetId(array_merge(['kind' => 'call', 'operation' => 'site.cluster_gaps',
+            'label' => 'Küme eksikleri', 'agent' => 'ClusterGapsAgent', 'status' => 'done', 'started_at' => now(), 'finished_at' => now(),
+            'model' => 'claude-haiku-4-5'], $extra));
+        $call(['cost_usd' => 0.70, 'user_id' => null]);
+        $call(['cost_usd' => 0.20, 'user_id' => $this->admin->id]); // clicks count too
+        $call(['cost_usd' => 0.40, 'user_id' => null, 'started_at' => now()->subDays(2)]); // another day
+
+        $budget = app(AiBudget::class);
+        $this->assertEqualsWithDelta(0.90, $budget->dailySpend(), 0.0001);
+        $this->assertFalse(app(AiRouteResolver::class)->resolve(AiRouteKeys::BRAND_SETUP)->isEmpty(), 'room left: the operator runs');
+        $call(['cost_usd' => 0.15, 'user_id' => $this->admin->id]);
+        $this->assertTrue($budget->dailyExhausted());
+        $this->assertTrue(app(AiRouteResolver::class)->resolve(AiRouteKeys::BRAND_SETUP)->isEmpty(), 'ceiling reached: not even a click');
+        BrandSetupAgent::fake([['services' => [], 'prompt_version' => 'x']]);
+        try {
+            (new BrandSetupAgent)->prompt('CONTEXT_JSON {}', provider: ['anthropic' => 'claude-haiku-4-5']);
+            $this->fail('a call past the daily ceiling must not start');
+        } catch (AiBudgetExceededException $exception) {
+            $this->assertStringContainsString('Günlük AI tavanı doldu', $exception->getMessage());
+        }
+
+        // Nobody clicked: only Sorgular may run by itself, whatever the budget.
+        $setting->forceFill(['ai_daily_auto_budget_usd' => 0])->save();
+        auth()->logout();
+        Context::forgetHidden(AiLiveOperations::USER_CONTEXT); // a scheduled job: nobody behind it
+        $this->assertTrue(AiBudget::isAutomatic());
+        $this->assertTrue(app(AiRouteResolver::class)->resolve(AiRouteKeys::BRAND_SETUP)->isEmpty());
+        $this->assertFalse(app(AiRouteResolver::class)->resolve(AiRouteKeys::QUERIES_CLUSTER)->isEmpty());
+        try {
+            (new BrandSetupAgent)->prompt('CONTEXT_JSON {}', provider: ['anthropic' => 'claude-haiku-4-5']);
+            $this->fail('automatic AI outside Sorgular must not start');
+        } catch (AiBudgetExceededException $exception) {
+            $this->assertStringContainsString('yalnız operatör tıklayınca', $exception->getMessage());
+        }
+
+        $rows = collect($budget->breakdown(24))->keyBy('operation');
+        $this->assertEqualsWithDelta(1.05, $rows['site.cluster_gaps']['cost'], 0.0001);
+        $this->artisan('moxdop:ai:costs')->expectsOutputToContain('günlük tavan $0.00')->assertSuccessful();
+    }
+
+    public function test_openai_reasoning_models_run_with_low_effort_and_other_models_get_no_reasoning_option(): void
+    {
+        config(['moxdop.openai.api_key' => 'sk-test', 'ai.providers.openai.key' => 'sk-test']);
+        CoreIntegration::factory()->openai()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
+
+        $route = app(AiRouteResolver::class)->resolve(AiRouteKeys::QUERIES_TRIAGE);
+        $this->assertSame('openai', $route->primaryProvider(), 'only OpenAI is connected: every route runs there');
+        $this->assertSame(['store' => false, 'reasoning' => ['effort' => 'low']], AiProviderOptions::for('openai'));
+        $this->assertSame([], AiProviderOptions::for('anthropic'));
+
+        Context::addHidden(AiProviderOptions::OPENAI_MODEL_CONTEXT, 'gpt-4.1-mini');
+        $this->assertSame(['store' => false], AiProviderOptions::for('openai'), 'not a reasoning model: no reasoning option');
+        config(['moxdop.ai.defaults.openai_reasoning_effort' => '']);
+        Context::addHidden(AiProviderOptions::OPENAI_MODEL_CONTEXT, 'gpt-5-mini');
+        $this->assertSame(['store' => false], AiProviderOptions::for('openai'), 'empty effort = the model default');
+    }
+
+    public function test_free_tier_providers_are_blocked_for_client_data_routes(): void
+    {
+        config(['ai.providers.groq.key' => 'gsk-test']);
+
+        try {
+            app(AiRouteResolver::class)->saveSteps(AiRouteKeys::BRAND_SETUP, [['provider' => AiProviderCatalog::GROQ, 'model' => 'llama-3.3-70b-versatile']]);
+            $this->fail('client-data route accepted a free-tier provider');
+        } catch (ValidationException $exception) {
+            $this->assertStringContainsString('müşteri verisi', implode(' ', $exception->errors()['steps']));
+        }
+    }
+
+    public function test_groq_key_can_be_saved_and_tested_from_the_integration_page(): void
+    {
+        Http::fake(['api.groq.com/*' => Http::response(['data' => [['id' => 'llama-3.3-70b-versatile']]], 200)]);
+
+        Livewire::test(AiProviderIntegrationPage::class, ['provider' => 'groq'])
+            ->update([['method' => 'saveConfiguration', 'params' => [], 'path' => '']], ['apiKey' => 'gsk-live-test'])
+            ->assertHasNoErrors()
+            ->call('testConfiguration');
+
+        $integration = CoreIntegration::query()->where('provider', 'groq')->firstOrFail();
+        $this->assertSame('connected', $integration->config['connection_status'] ?? null);
+        $this->assertSame('gsk-live-test', $integration->providerCredential->encrypted_payload['api_key']);
+        Http::assertSent(fn ($request): bool => $request->hasHeader('Authorization', 'Bearer gsk-live-test'));
+    }
+}

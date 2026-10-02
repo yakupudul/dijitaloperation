@@ -34,6 +34,8 @@ final class PublicPageExtractor
         $emails = [];
         $social = [];
         $addresses = [];
+        $services = [];
+        $areas = [];
         $htmlLang = null;
 
         if ($xpath instanceof DOMXPath) {
@@ -45,6 +47,13 @@ final class PublicPageExtractor
             $emails = $this->collectHrefValues($xpath, 'mailto:', 20);
             $social = $this->collectSocialLinks($xpath, $finalUrl);
             $addresses = $this->collectAddressLikeText($xpath);
+            [$services, $areas] = $this->structuredClaims($xpath);
+            $path = (string) parse_url($finalUrl, PHP_URL_PATH);
+            if ($h1 !== null && $this->serviceName($h1)
+                && preg_match('~/(?:hizmetler?|services?|urunler?|products?|tedaviler|treatments)/[^/]+~iu', $path)
+                && $this->firstText($xpath, '//main//p|//article//p|//body//p') !== null) {
+                $services[] = ['name' => $h1, 'from' => 'service_page_heading'];
+            }
         }
 
         return [
@@ -52,7 +61,7 @@ final class PublicPageExtractor
             'title' => $head['title'] ?? null,
             'h1' => $h1,
             'meta_description' => $head['meta_description'] ?? null,
-            'canonical_url' => $head['open_graph']['url'] ?? null,
+            'canonical_url' => $xpath ? $this->firstAttr($xpath, '//link[contains(concat(" ", normalize-space(@rel), " "), " canonical ")]/@href') : null,
             'html_lang' => $htmlLang,
             'hreflang' => $head['hreflang'] ?? [],
             'open_graph' => $head['open_graph'] ?? [],
@@ -63,6 +72,9 @@ final class PublicPageExtractor
             'emails' => $emails,
             'social_links' => $social,
             'address_candidates' => $addresses,
+            'service_claims' => $services,
+            'main_text_excerpt' => $xpath ? mb_substr($this->firstText($xpath, '//main//p|//article//p|//body//p') ?? '', 0, 1000) : '',
+            'service_area_claims' => $areas,
             'normalization_version' => DiscoveryConfig::VERSION,
         ];
     }
@@ -72,7 +84,7 @@ final class PublicPageExtractor
         try {
             $dom = new DOMDocument;
             $previous = libxml_use_internal_errors(true);
-            $dom->loadHTML('<?xml encoding="UTF-8">'.$html, LIBXML_NOWARNING | LIBXML_NOERROR);
+            $dom->loadHTML('<?xml encoding="UTF-8">'.$html, LIBXML_NOWARNING | LIBXML_NOERROR | LIBXML_NONET);
             libxml_clear_errors();
             libxml_use_internal_errors($previous);
 
@@ -208,55 +220,129 @@ final class PublicPageExtractor
      */
     private function collectSocialLinks(DOMXPath $xpath, string $baseUrl): array
     {
-        $map = [
-            'instagram.com' => 'instagram',
-            'facebook.com' => 'facebook',
-            'fb.com' => 'facebook',
-            'linkedin.com' => 'linkedin',
-            'youtube.com' => 'youtube',
-            'youtu.be' => 'youtube',
-            'twitter.com' => 'x',
-            'x.com' => 'x',
-            'tiktok.com' => 'tiktok',
-        ];
-
-        $nodes = $xpath->query('//a[@href]');
-        if ($nodes === false) {
-            return [];
+        $out = [];
+        foreach ($xpath->query('//a[@href]') ?: [] as $node) {
+            $url = $this->normalizer->resolve($baseUrl, $node->getAttribute('href'));
+            $profile = $url === null ? null : $this->normalizeSocialProfile($url);
+            if ($profile !== null) {
+                $out[$profile['url']] = $profile;
+            }
+            if (count($out) >= 20) {
+                break;
+            }
         }
 
-        $out = [];
-        $seen = [];
-        foreach ($nodes as $node) {
-            if (! $node instanceof DOMElement) {
-                continue;
-            }
-            $href = trim((string) $node->getAttribute('href'));
-            $resolved = $this->normalizer->resolve($baseUrl, $href) ?? $this->normalizer->normalizeAbsolute($href);
-            if ($resolved === null) {
-                continue;
-            }
-            $host = $this->normalizer->registrableHost($resolved);
-            if ($host === null) {
-                continue;
-            }
-            foreach ($map as $needle => $platform) {
-                if ($host === $needle || str_ends_with($host, '.'.$needle)) {
-                    if (isset($seen[$resolved])) {
-                        continue 2;
-                    }
-                    $seen[$resolved] = true;
-                    $out[] = [
-                        'platform' => $platform,
-                        'url' => $resolved,
-                    ];
+        return array_values($out);
+    }
 
-                    continue 2;
+    /** Only public profile URLs; posts, sharing, login and content URLs are not identities. */
+    public function normalizeSocialProfile(string $url): ?array
+    {
+        $url = $this->normalizer->normalizeAbsolute($url);
+        if ($url === null) {
+            return null;
+        }
+        $host = preg_replace('/^www\./', '', strtolower((string) parse_url($url, PHP_URL_HOST)));
+        $path = trim((string) parse_url($url, PHP_URL_PATH), '/');
+        $parts = explode('/', $path);
+        $handle = strtolower($parts[0]);
+        $platform = match ($host) {
+            'instagram.com' => 'instagram', 'facebook.com', 'fb.com' => 'facebook',
+            'linkedin.com' => 'linkedin', 'youtube.com' => 'youtube',
+            'twitter.com', 'x.com' => 'x', 'tiktok.com' => 'tiktok', default => null,
+        };
+        if ($platform === null || $path === '' || strlen($path) > 255) {
+            return null;
+        }
+        $valid = match ($platform) {
+            'instagram' => count($parts) === 1 && preg_match('/^[a-zA-Z0-9_.]+$/', $path)
+                && ! in_array($handle, ['p', 'reel', 'reels', 'explore', 'accounts', 'stories', 'direct', 'about'], true),
+            'facebook' => count($parts) === 1 && preg_match('/^[a-zA-Z0-9._-]+$/', $path)
+                && ! in_array($handle, ['share', 'sharer', 'sharer.php', 'login', 'login.php', 'watch', 'reel', 'reels', 'groups', 'events', 'dialog', 'home.php'], true),
+            'linkedin' => count($parts) === 2 && in_array($handle, ['company', 'in', 'school'], true),
+            'youtube' => (count($parts) === 1 && str_starts_with($path, '@'))
+                || (count($parts) === 2 && in_array($handle, ['channel', 'user', 'c'], true)),
+            'x' => count($parts) === 1 && preg_match('/^[a-zA-Z0-9_]{1,15}$/', $path)
+                && ! in_array($handle, ['intent', 'share', 'home', 'search', 'explore', 'settings', 'i'], true),
+            'tiktok' => count($parts) === 1 && preg_match('/^@[a-zA-Z0-9_.]+$/', $path),
+            default => false,
+        };
+        if (! $valid) {
+            return null;
+        }
+        $query = '';
+        if ($platform === 'facebook' && $handle === 'profile.php') {
+            parse_str((string) parse_url($url, PHP_URL_QUERY), $params);
+            if (! is_string($params['id'] ?? null) || ! ctype_digit($params['id'])) {
+                return null;
+            }
+            $query = '?id='.$params['id'];
+        }
+        $host = match ($platform) {
+            'x' => 'x.com', 'facebook' => 'facebook.com', default => $host
+        };
+
+        return ['platform' => $platform, 'url' => 'https://'.$host.'/'.$path.$query];
+    }
+
+    /** @return array{0: list<array{name: string, from: string}>, 1: list<string>} */
+    private function structuredClaims(DOMXPath $xpath): array
+    {
+        $services = [];
+        $areas = [];
+        $budget = 200;
+        foreach ($xpath->query('//script[@type="application/ld+json"]') ?: [] as $index => $script) {
+            if ($index >= 12 || strlen($script->textContent) > 100000) {
+                continue;
+            }
+            $json = json_decode($script->textContent, true, 32);
+            if (! is_array($json)) {
+                continue;
+            }
+            $queue = array_is_list($json) ? $json : [$json];
+            while ($queue !== [] && $budget-- > 0) {
+                $node = array_shift($queue);
+                if (! is_array($node)) {
+                    continue;
+                }
+                foreach (['@graph', 'mainEntity'] as $child) {
+                    if (is_array($node[$child] ?? null)) {
+                        $queue = array_merge($queue, array_is_list($node[$child]) ? $node[$child] : [$node[$child]]);
+                    }
+                }
+                $types = array_filter((array) ($node['@type'] ?? []), 'is_string');
+                if (array_intersect($types, ['Service', 'Product']) !== [] && is_string($node['name'] ?? null)
+                    && $this->serviceName($node['name'])) {
+                    $services[] = ['name' => trim($node['name']), 'from' => 'structured_service'];
+                }
+                if (array_intersect($types, ['Article', 'BlogPosting', 'NewsArticle', 'Review']) !== []) {
+                    continue;
+                }
+                foreach (['areaServed', 'serviceArea'] as $key) {
+                    $values = $node[$key] ?? [];
+                    $values = is_array($values) && array_is_list($values) ? $values : [$values];
+                    foreach ($values as $value) {
+                        $name = is_string($value) ? $value : (is_array($value) ? ($value['name'] ?? null) : null);
+                        if (is_string($name) && mb_strlen(trim($name)) >= 2 && mb_strlen($name) <= 160) {
+                            $areas[] = trim($name);
+                        }
+                    }
                 }
             }
         }
 
-        return $out;
+        return [array_slice($services, 0, 40), array_slice(array_values(array_unique($areas)), 0, 40)];
+    }
+
+    private function serviceName(string $name): bool
+    {
+        $name = mb_strtolower(trim($name));
+
+        return mb_strlen($name) >= 3 && mb_strlen($name) <= 160 && ! in_array($name, [
+            'home', 'services', 'service', 'products', 'product', 'about', 'contact', 'blog', 'news',
+            'ana sayfa', 'anasayfa', 'hizmetler', 'hizmetlerimiz', 'ürünler', 'ürünlerimiz',
+            'hakkımızda', 'iletişim', 'kvkk', 'gizlilik', 'kampanyalar', 'tedaviler', 'tedavilerimiz',
+        ], true);
     }
 
     /**
@@ -265,7 +351,7 @@ final class PublicPageExtractor
     private function collectAddressLikeText(DOMXPath $xpath): array
     {
         $out = [];
-        foreach (['//address', '//*[contains(@class,"address") or contains(@class,"location") or contains(@id,"address") or contains(@id,"location")]'] as $query) {
+        foreach (['//address', '//*[contains(@class,"address") or contains(@id,"address")]'] as $query) {
             $nodes = $xpath->query($query);
             if ($nodes === false) {
                 continue;

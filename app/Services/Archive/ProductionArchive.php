@@ -1,0 +1,137 @@
+<?php
+
+namespace App\Services\Archive;
+
+use App\Models\AiProduction;
+use App\Models\BrandSetupProposal;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
+use Throwable;
+
+/**
+ * Üretim Arşivi. AI outputs are recorded when they land on their work item (model events, see boot()), so
+ * the drafters themselves stay unchanged; the same content is never stored twice for a subject. Versions are
+ * never deleted; the operator marks them used / published / discarded and rates them 👍 / 👎.
+ */
+final class ProductionArchive
+{
+    public const array KIND_LABELS = [
+        'google_ads.ad_copy' => 'Google Ads reklam metni',
+        'meta_ads.creative' => 'Meta reklam metni',
+        'gbp.profile' => 'İşletme Profili metni',
+        'seo.content_brief' => 'SEO içerik briefi',
+        'brand_setup.proposal' => 'Marka kurulum önerisi',
+        'report.monthly_commentary' => 'Aylık rapor yorumu',
+        'gbp.review_reply' => 'Yorum yanıt taslağı',
+        'gbp.post' => 'İşletme Profili gönderisi',
+        'advisor.explain' => 'Danışman açıklaması',
+        'google_ads.search_terms' => 'Arama terimi incelemesi',
+        'reviews.themes' => 'Yorum temaları',
+        'alerts.cause' => 'Uyarı nedeni',
+        'customer.brief' => 'Müşteri görüşme özeti',
+        'sales.lead_score' => 'Lead puanı',
+        'website.technical_tasks' => 'Teknik iş listesi',
+        'website.page_draft' => 'Web sayfası metni',
+        'analyst.search' => 'Arama analizi',
+        'analyst.maps' => 'Harita analizi',
+        'analyst.google_ads' => 'Google Ads analizi',
+        'analyst.meta' => 'Meta analizi',
+    ];
+
+    /** Register the model hooks that feed the archive. */
+    public static function boot(): void
+    {
+        BrandSetupProposal::saved(static function (BrandSetupProposal $proposal): void {
+            if ($proposal->wasChanged('summary') && is_array($proposal->summary) && $proposal->summary !== []) {
+                self::safely(fn () => app(self::class)->record('brand_setup.proposal', $proposal,
+                    ['summary' => $proposal->summary, 'services' => $proposal->services],
+                    ['brand_id' => $proposal->brand_id, 'title' => 'Marka kurulum önerisi']));
+            }
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $content
+     * @param  array{brand_id?: ?int, digital_asset_id?: ?int, title?: ?string, provider?: ?string, model?: ?string, prompt_version?: ?string}  $meta
+     */
+    public function record(string $kind, Model $subject, array $content, array $meta = []): ?AiProduction
+    {
+        $body = $content;
+        unset($body['created_at']);
+        $hash = hash('sha256', json_encode($body, JSON_UNESCAPED_UNICODE) ?: '');
+        $subjectType = class_basename($subject->getMorphClass());
+
+        return DB::transaction(function () use ($kind, $subject, $content, $meta, $hash, $subjectType): ?AiProduction {
+            $existing = AiProduction::query()->where('kind', $kind)->where('subject_type', $subjectType)->where('subject_id', $subject->getKey())
+                ->lockForUpdate()->get(['id', 'version', 'content_hash']);
+            if ($existing->contains('content_hash', $hash)) {
+                return null;
+            }
+
+            return AiProduction::query()->create([
+                'kind' => $kind, 'subject_type' => $subjectType, 'subject_id' => (int) $subject->getKey(),
+                'brand_id' => $meta['brand_id'] ?? null, 'digital_asset_id' => $meta['digital_asset_id'] ?? null,
+                'version' => (int) $existing->max('version') + 1,
+                'title' => isset($meta['title']) ? mb_substr((string) $meta['title'], 0, 255) : null,
+                'content' => $content, 'content_hash' => $hash,
+                'provider' => $meta['provider'] ?? ($content['provider'] ?? null),
+                'model' => $meta['model'] ?? ($content['model'] ?? null),
+                'prompt_version' => isset($content['prompt_version']) ? (string) $content['prompt_version'] : ($meta['prompt_version'] ?? null),
+                'status' => AiProduction::STATUS_NEW,
+            ]);
+        });
+    }
+
+    /**
+     * Faz 14: the owner's liked (👍) outputs of a kind for the brand, newest first, as tone examples for the next
+     * generation. Only the given content field is returned.
+     *
+     * @return list<string>
+     */
+    public function likedExamples(string $kind, int $brandId, string $field, int $limit = 3): array
+    {
+        return AiProduction::query()->where('kind', $kind)->where('brand_id', $brandId)->where('rating', 1)
+            ->orderByDesc('id')->limit($limit)->get(['content'])
+            ->map(fn (AiProduction $row): string => mb_substr(trim((string) data_get($row->content, $field, '')), 0, 800))
+            ->filter()->values()->all();
+    }
+
+    /** Latest version for a subject created within $days (fresh output is shown before a new AI call). */
+    public function fresh(string $kind, Model $subject, int $days = 14): ?AiProduction
+    {
+        $subjectType = class_basename($subject->getMorphClass());
+
+        return AiProduction::query()->where('kind', $kind)->where('subject_type', $subjectType)->where('subject_id', $subject->getKey())
+            ->where('status', '!=', AiProduction::STATUS_DISCARDED)->where('created_at', '>=', now()->subDays($days))
+            ->orderByDesc('version')->first();
+    }
+
+    public function versions(Model $subject): int
+    {
+        return AiProduction::query()->where('subject_type', class_basename($subject->getMorphClass()))->where('subject_id', $subject->getKey())->count();
+    }
+
+    public function mark(AiProduction $production, string $status, ?User $by): void
+    {
+        if (! in_array($status, AiProduction::STATUSES, true)) {
+            throw new InvalidArgumentException('Unknown archive status: '.$status);
+        }
+        $production->forceFill(['status' => $status, 'status_changed_by' => $by?->id, 'status_changed_at' => now()])->save();
+    }
+
+    public function rate(AiProduction $production, int $rating): void
+    {
+        $production->forceFill(['rating' => $production->rating === $rating ? null : max(-1, min(1, $rating))])->save();
+    }
+
+    private static function safely(callable $callback): void
+    {
+        try {
+            $callback();
+        } catch (Throwable $exception) {
+            report($exception); // the archive must never break the work item that produced the output
+        }
+    }
+}

@@ -39,6 +39,11 @@ final class TaskOutcomeEvaluator
         $fingerprint = $context['fingerprint'];
         $sourceModule = $context['source_module'];
 
+        // Brand/Customer-scoped Tasks have no DigitalAsset — Outcome V1 is asset-bound.
+        if ($task->digital_asset_id === null) {
+            return $this->applyNotEvaluable($task, 'missing_task_digital_asset');
+        }
+
         if ((int) $finding->digital_asset_id !== (int) $task->digital_asset_id) {
             return $this->applyNotEvaluable($task, 'digital_asset_mismatch');
         }

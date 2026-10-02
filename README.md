@@ -25,7 +25,7 @@ php artisan dop:create-admin
 php artisan serve
 ```
 
-Panel: `/app/login`
+Panel: `/login` (operator). Filament: `/admin/login`.
 
 ## Website Diagnosis (reachability)
 

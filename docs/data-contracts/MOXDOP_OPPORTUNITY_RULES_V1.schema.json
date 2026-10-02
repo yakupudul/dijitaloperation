@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moxdop.local/schemas/MOXDOP_OPPORTUNITY_RULES_V1.schema.json",
+  "title": "MOXDOP Opportunity Rules V1",
+  "type": "object",
+  "required": ["metadata", "invariants", "rules"],
+  "additionalProperties": false,
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["registry_id", "version"],
+      "properties": {
+        "registry_id": { "const": "MOXDOP_OPPORTUNITY_RULES" },
+        "version": { "type": "integer", "const": 1 },
+        "status": { "type": "string" },
+        "created_at": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "invariants": {
+      "type": "object",
+      "required": [
+        "NO_ARBITRARY_EXPRESSIONS",
+        "NO_RUNTIME_EVAL",
+        "NO_GENERIC_METRIC_PROMOTION",
+        "NO_GENERIC_FINDING_PROMOTION",
+        "EVIDENCE_NOT_FINDING",
+        "FINDING_NOT_OPPORTUNITY",
+        "NO_PROVIDER_TABLE_BYPASS",
+        "NO_MAGIC_SCORE",
+        "MISSING_IS_NOT_CLEARED",
+        "STALE_IS_NOT_CLEARED",
+        "PARTIAL_IS_NOT_CLEARED",
+        "NO_GOAL_OFFERING_NAME_INFERENCE",
+        "NO_SERVICE_SCOPE_AUTO_CREATE"
+      ]
+    },
+    "condition_types": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "rules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/rule" }
+    }
+  },
+  "$defs": {
+    "condition": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "VALUE_LT",
+            "VALUE_LTE",
+            "VALUE_GT",
+            "VALUE_GTE",
+            "VALUE_EQUALS",
+            "VALUE_BETWEEN",
+            "VALUE_OUTSIDE",
+            "STATE_EQUALS",
+            "STATE_NOT_EQUALS",
+            "BOOLEAN_IS",
+            "ABSENCE_CONFIRMED",
+            "PRESENCE_CONFIRMED",
+            "ABS_DECREASE_GTE",
+            "ABS_INCREASE_GTE",
+            "FINDING_PRESENT",
+            "FINDING_ABSENT_WITH_PROOF"
+          ]
+        },
+        "path": { "type": "string" },
+        "current_path": { "type": "string" },
+        "previous_path": { "type": "string" },
+        "finding_rule_stable_id": { "type": "string" },
+        "value": { "type": ["number", "string", "boolean", "null"] },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "unit": { "type": "string" }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "required": [
+        "id",
+        "stable_id",
+        "version",
+        "enabled",
+        "meaning",
+        "category",
+        "qualitative_priority",
+        "source_module",
+        "evidence_definition_ids",
+        "finding_rule_stable_ids",
+        "allowed_finding_states",
+        "subject",
+        "cardinality",
+        "activation",
+        "auto_close",
+        "reopen_policy"
+      ]
+    }
+  }
+}

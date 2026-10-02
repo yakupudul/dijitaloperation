@@ -4,24 +4,24 @@ namespace Tests\Feature;
 
 use App\Livewire\Demo\Assets\AnalyticsPage;
 use App\Livewire\Demo\Assets\SearchConsolePage;
-use App\Livewire\Demo\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Demo\Meta\OverviewPage as MetaOverviewPage;
-use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
+use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Models\User;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\Ga4WorkspaceFixtures;
 use App\Support\Demo\GscWorkspaceFixtures;
-use App\Support\Demo\MetaAdsWorkspaceFixtures;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\Support\CreatesCanonicalPortfolio;
 use Tests\TestCase;
 
 class DemoSharedPeriodFilterTest extends TestCase
 {
+    use CreatesCanonicalPortfolio;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -49,73 +49,32 @@ class DemoSharedPeriodFilterTest extends TestCase
     {
         $this->assertNotNull(DemoPeriod::validateCustom(null, '2026-08-01'));
         $this->assertNotNull(DemoPeriod::validateCustom('2026-08-10', '2026-08-01'));
-        $this->assertNotNull(DemoPeriod::validateCustom('2026-08-13', '2026-08-14'));
+        $this->assertNotNull(DemoPeriod::usingFixtureAnchor(
+            fn (): ?string => DemoPeriod::validateCustom('2026-08-13', '2026-08-14'),
+        ));
         $this->assertNull(DemoPeriod::validateCustom('2026-07-06', '2026-08-12'));
     }
 
-    public function test_meta_custom_apply_cancel_and_aggregation(): void
+    public function test_meta_analysis_window_persists_across_tabs(): void
     {
-        $baseline = MetaAdsWorkspaceFixtures::workspace('last_28');
-        $baselineSpend = (int) $baseline['glance']['spend']['raw'];
+        $asset = $this->createPortfolioAsset('meta_ads', 'Northwind Meta', ['module_id' => 'meta-ads']);
 
-        $component = Livewire::test(MetaOverviewPage::class, ['assetId' => DemoCatalog::META_ASSET_ID])
-            ->assertSet('period', 'last_28')
-            ->call('openCustomPicker')
-            ->assertSet('showCustomPicker', true)
-            ->set('draftPeriodStart', '2026-08-10')
-            ->set('draftPeriodEnd', '2026-08-01')
-            ->call('applyCustomPeriod')
-            ->assertSet('showCustomPicker', true)
-            ->assertNotSet('customPeriodError', null);
-
-        $component
-            ->set('draftPeriodStart', '2026-08-01')
-            ->set('draftPeriodEnd', '2026-08-10')
-            ->call('applyCustomPeriod')
-            ->assertSet('period', 'custom')
-            ->assertSet('periodStart', '2026-08-01')
-            ->assertSet('periodEnd', '2026-08-10')
-            ->assertSet('showCustomPicker', false)
-            ->assertSee('Aug 1')
-            ->assertSee('10');
-
-        $custom = MetaAdsWorkspaceFixtures::workspace('custom', '2026-08-01', '2026-08-10');
-        $customSpend = (int) $custom['glance']['spend']['raw'];
-        $this->assertNotSame($baselineSpend, $customSpend);
-        $this->assertLessThan($baselineSpend, $customSpend);
-
-        $component
-            ->call('openCustomPicker')
-            ->set('draftPeriodStart', '2026-07-01')
-            ->set('draftPeriodEnd', '2026-07-15')
-            ->call('cancelCustomPeriod')
-            ->assertSet('period', 'custom')
-            ->assertSet('periodStart', '2026-08-01')
-            ->assertSet('periodEnd', '2026-08-10');
-    }
-
-    public function test_meta_period_persists_across_tabs_and_compare_label_renders(): void
-    {
-        Livewire::test(MetaOverviewPage::class, ['assetId' => DemoCatalog::META_ASSET_ID])
-            ->call('setPeriod', 'last_7')
-            ->assertSet('period', 'last_7')
+        Livewire::test(MetaOverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'analysis'])
+            ->call('setDays', 90)
             ->call('setTab', 'creatives')
-            ->assertSet('period', 'last_7')
-            ->assertSet('tab', 'creatives')
-            ->assertSet('compare', true)
-            ->assertSee('vs');
+            ->assertSet('days', 90)
+            ->assertSet('tab', 'creatives');
     }
 
-    public function test_website_and_google_ads_still_accept_shared_period_presets(): void
+    public function test_google_ads_accepts_its_day_window(): void
     {
-        Livewire::test(WebsiteOverviewPage::class)
-            ->call('setPeriod', 'last_14')
-            ->assertSet('period', 'last_14')
-            ->assertOk();
+        $gads = $this->createPortfolioAsset('google_ads', 'Northwind Ads', ['module_id' => 'google-ads']);
 
-        Livewire::test(GoogleAdsOverviewPage::class)
-            ->call('setPeriod', 'last_7')
-            ->assertSet('period', 'last_7')
+        Livewire::test(GoogleAdsOverviewPage::class, ['assetId' => (string) $gads->id])
+            ->call('setDays', 90)
+            ->assertSet('days', 90)
+            ->call('setDays', 7)
+            ->assertSet('days', 28)
             ->assertSee('Google Ads');
     }
 
@@ -123,8 +82,9 @@ class DemoSharedPeriodFilterTest extends TestCase
     {
         $baseline = Ga4WorkspaceFixtures::workspace('last_28');
         $baselineSessions = (int) $baseline['glance']['sessions']['raw'];
+        $asset = $this->createPortfolioAsset('ga4', 'Northwind GA4', ['module_id' => 'analytics']);
 
-        Livewire::test(AnalyticsPage::class, ['assetId' => DemoCatalog::GA4_ASSET_ID])
+        Livewire::test(AnalyticsPage::class, ['assetId' => (string) $asset->id])
             ->call('openCustomPicker')
             ->set('draftPeriodStart', '2026-07-06')
             ->set('draftPeriodEnd', '2026-08-12')
@@ -147,8 +107,9 @@ class DemoSharedPeriodFilterTest extends TestCase
     {
         $baseline = GscWorkspaceFixtures::workspace('last_28');
         $baselineClicks = (int) $baseline['glance']['clicks']['raw'];
+        $asset = $this->createPortfolioAsset('gsc', 'Northwind GSC', ['module_id' => 'search-console']);
 
-        Livewire::test(SearchConsolePage::class, ['assetId' => DemoCatalog::GSC_ASSET_ID])
+        Livewire::test(SearchConsolePage::class, ['assetId' => (string) $asset->id])
             ->call('openCustomPicker')
             ->set('draftPeriodStart', '2026-07-06')
             ->set('draftPeriodEnd', '2026-08-12')
@@ -167,7 +128,7 @@ class DemoSharedPeriodFilterTest extends TestCase
 
     public function test_last_90_preset_resolves_three_month_window(): void
     {
-        $bounds = DemoPeriod::bounds('last_90');
+        $bounds = DemoPeriod::usingFixtureAnchor(fn () => DemoPeriod::bounds('last_90'));
         $this->assertSame(90, $bounds['days']);
         $this->assertSame('2026-05-15', $bounds['start']->toDateString());
         $this->assertSame('2026-08-12', $bounds['end']->toDateString());

@@ -13,15 +13,15 @@ final class GeminiAuthStatus
         $resolver = app(GeminiCredentialResolver::class);
 
         if (! $resolver->isConfigured($integration)) {
-            return 'Not configured';
+            return __('operator.states.not_configured');
         }
 
         if ($resolver->apiKeySource($integration) === GeminiCredentialResolver::SOURCE_ENVIRONMENT
             && ! $resolver->hasDatabaseApiKey($integration)) {
-            return 'Configured by environment';
+            return __('operator.states.configured_environment');
         }
 
-        return 'Configured';
+        return __('operator.states.configured');
     }
 
     public static function connectionLabel(CoreIntegration $integration): string

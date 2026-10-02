@@ -2,6 +2,8 @@
 
 namespace App\Services\Integrations\Google;
 
+use App\Exceptions\Integrations\GoogleAuthenticationException;
+use App\Exceptions\Integrations\GoogleAuthorizationException;
 use App\Models\CoreIntegration;
 use App\Support\Integrations\Google\GoogleOAuthConfig;
 use Illuminate\Http\Client\PendingRequest;
@@ -10,16 +12,23 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
+/**
+ * Google HTTP client. Access tokens resolve through GoogleCredentialBroker.
+ */
 class GoogleApiClient
 {
     public function __construct(
+        private readonly GoogleCredentialBroker $broker,
         private readonly GoogleOAuthService $oauth,
         private readonly GoogleCredentialResolver $credentials,
     ) {}
 
-    public function get(CoreIntegration $integration, string $url, array $query = []): Response
+    /**
+     * @param  array<string, mixed>  $query
+     */
+    public function get(CoreIntegration $integration, string $url, array $query = [], ?string $capability = null): Response
     {
-        return $this->request($integration, 'get', $url, $query);
+        return $this->request($integration, 'get', $url, $query, $capability);
     }
 
     /**
@@ -28,17 +37,21 @@ class GoogleApiClient
      *
      * @param  array<string, mixed>  $body
      */
-    public function post(CoreIntegration $integration, string $url, array $body = []): Response
+    public function post(CoreIntegration $integration, string $url, array $body = [], ?string $capability = null): Response
     {
-        return $this->request($integration, 'post', $url, $body);
+        return $this->request($integration, 'post', $url, $body, $capability);
     }
 
     /**
      * @param  ?string  $loginCustomerId  Manager account ID for login-customer-id header (digits only).
      */
-    public function getAds(CoreIntegration $integration, string $path, ?string $loginCustomerId = null): Response
-    {
-        return $this->adsRequest($integration, 'get', $path, [], $loginCustomerId);
+    public function getAds(
+        CoreIntegration $integration,
+        string $path,
+        ?string $loginCustomerId = null,
+        ?string $capability = 'google_ads',
+    ): Response {
+        return $this->adsRequest($integration, 'get', $path, [], $loginCustomerId, $capability);
     }
 
     /**
@@ -53,6 +66,7 @@ class GoogleApiClient
         string $query,
         ?string $loginCustomerId = null,
         ?string $pageToken = null,
+        ?string $capability = 'google_ads',
     ): Response {
         $customerId = preg_replace('/\D+/', '', $customerId) ?? '';
         if ($customerId === '') {
@@ -70,6 +84,61 @@ class GoogleApiClient
             'customers/'.$customerId.'/googleAds:search',
             $body,
             $loginCustomerId ?? $customerId,
+            $capability,
+        );
+    }
+
+    /**
+     * The only Google Ads write MoxDOP performs (ADR-064): shared negative keyword list maintenance through
+     * sharedSets / sharedCriteria / campaignSharedSets :mutate. Callers are restricted to
+     * GoogleAdsNegativeListWriter; nothing else in the product may call this.
+     *
+     * @param  array<string, mixed>  $body
+     */
+    public function mutateAds(
+        CoreIntegration $integration,
+        string $customerId,
+        string $service,
+        array $body,
+        ?string $loginCustomerId = null,
+    ): Response {
+        $customerId = preg_replace('/\D+/', '', $customerId) ?? '';
+        if ($customerId === '' || ! in_array($service, ['sharedSets', 'sharedCriteria', 'campaignSharedSets'], true)) {
+            throw new RuntimeException('Google Ads mutate target is not allowed.');
+        }
+
+        return $this->adsRequest($integration, 'post', 'customers/'.$customerId.'/'.$service.':mutate', $body, $loginCustomerId ?? $customerId);
+    }
+
+    /**
+     * Read-only Google Ads GAQL SearchStream (googleAds:searchStream).
+     * Official REST returns the full result in one streamed response (no pageToken).
+     * Callers must process rows in bounded application batches — do not treat this
+     * as permission to hold unbounded normalized state in memory.
+     *
+     * @see https://developers.google.com/google-ads/api/rest/common/search
+     */
+    public function searchStreamAds(
+        CoreIntegration $integration,
+        string $customerId,
+        string $query,
+        ?string $loginCustomerId = null,
+        ?string $capability = 'google_ads',
+        ?int $timeoutSeconds = null,
+    ): Response {
+        $customerId = preg_replace('/\D+/', '', $customerId) ?? '';
+        if ($customerId === '') {
+            throw new RuntimeException('Google Ads customer ID is missing.');
+        }
+
+        return $this->adsRequest(
+            $integration,
+            'post',
+            'customers/'.$customerId.'/googleAds:searchStream',
+            ['query' => $query],
+            $loginCustomerId ?? $customerId,
+            $capability,
+            $timeoutSeconds,
         );
     }
 
@@ -82,18 +151,18 @@ class GoogleApiClient
         string $path,
         array $body = [],
         ?string $loginCustomerId = null,
+        ?string $capability = 'google_ads',
+        ?int $timeoutSeconds = null,
     ): Response {
-        $developerToken = $this->credentials->developerToken($integration);
+        $developerToken = $this->broker->adsDeveloperToken($integration)
+            ?? $this->credentials->developerToken($integration);
         if ($developerToken === null) {
             throw new RuntimeException('Google Ads developer token is missing.');
         }
 
         $url = GoogleOAuthConfig::adsApiUrl($path);
-
-        $token = $this->oauth->validAccessToken($integration);
-        if ($token === null) {
-            throw new RuntimeException('Google authorization is missing or expired.');
-        }
+        $token = $this->resolveAccessToken($integration, $capability);
+        $timeout = $timeoutSeconds ?? 30;
 
         $headers = [
             'developer-token' => $developerToken,
@@ -106,12 +175,14 @@ class GoogleApiClient
         }
 
         try {
-            $pending = Http::withToken($token)->withHeaders($headers)->timeout(30)->acceptJson();
+            $pending = Http::withToken($token)->withHeaders($headers)->timeout($timeout)->acceptJson();
 
             /** @var Response $response */
             $response = $method === 'post'
                 ? $pending->asJson()->post($url, $body)
                 : $pending->get($url);
+        } catch (GoogleAuthenticationException|GoogleAuthorizationException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             Log::warning('Google Ads API network failure', [
                 'integration_id' => $integration->id,
@@ -122,9 +193,9 @@ class GoogleApiClient
         }
 
         if ($response->status() === 401) {
-            $refreshed = $this->oauth->refreshAccessToken($integration);
+            $refreshed = $this->oauth->refreshAccessToken($integration, force: true);
             if ($refreshed !== null) {
-                $pending = Http::withToken($refreshed)->withHeaders($headers)->timeout(30)->acceptJson();
+                $pending = Http::withToken($refreshed)->withHeaders($headers)->timeout($timeout)->acceptJson();
                 $response = $method === 'post'
                     ? $pending->asJson()->post($url, $body)
                     : $pending->get($url);
@@ -137,21 +208,23 @@ class GoogleApiClient
     /**
      * @param  array<string, mixed>  $payload  Query for GET, JSON body for POST.
      */
-    private function request(CoreIntegration $integration, string $method, string $url, array $payload = []): Response
-    {
-        $token = $this->oauth->validAccessToken($integration);
-        if ($token === null) {
-            throw new RuntimeException('Google authorization is missing or expired.');
-        }
+    private function request(
+        CoreIntegration $integration,
+        string $method,
+        string $url,
+        array $payload = [],
+        ?string $capability = null,
+    ): Response {
+        $token = $this->resolveAccessToken($integration, $capability);
 
         try {
             /** @var PendingRequest $pending */
             $pending = Http::withToken($token)->timeout(45)->acceptJson();
 
             /** @var Response $response */
-            $response = $method === 'post'
-                ? $pending->asJson()->post($url, $payload)
-                : $pending->get($url, $payload);
+            $response = $this->send($pending, $method, $url, $payload);
+        } catch (GoogleAuthenticationException|GoogleAuthorizationException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             Log::warning('Google API network failure', [
                 'integration_id' => $integration->id,
@@ -162,16 +235,52 @@ class GoogleApiClient
         }
 
         if ($response->status() === 401) {
-            $refreshed = $this->oauth->refreshAccessToken($integration);
+            $refreshed = $this->oauth->refreshAccessToken($integration, force: true);
             if ($refreshed !== null) {
                 $pending = Http::withToken($refreshed)->timeout(45)->acceptJson();
-                $response = $method === 'post'
-                    ? $pending->asJson()->post($url, $payload)
-                    : $pending->get($url, $payload);
+                $response = $this->send($pending, $method, $url, $payload);
             }
         }
 
         return $response;
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function send(PendingRequest $pending, string $method, string $url, array $payload): Response
+    {
+        return match ($method) {
+            'post' => $pending->asJson()->post($url, $payload),
+            'put' => $pending->asJson()->put($url, $payload),
+            'delete' => $pending->delete($url),
+            default => $pending->get($url, $payload),
+        };
+    }
+
+    /**
+     * ADR-073: the only Business Profile writes MoxDOP performs — reply to a review (PUT / DELETE …/reviews/{id}/reply)
+     * and a local post (POST / DELETE …/localPosts). Callers are restricted to GbpWriter.
+     *
+     * @param  array<string, mixed>  $body
+     */
+    public function writeBusinessProfile(CoreIntegration $integration, string $method, string $url, array $body = []): Response
+    {
+        $allowed = preg_match('#^https://mybusiness\.googleapis\.com/v4/accounts/[^/]+/locations/[^/]+/(reviews/[^/]+/reply|localPosts(/[^/]+)?)$#', $url) === 1;
+        if (! $allowed || ! in_array($method, ['put', 'post', 'delete'], true)) {
+            throw new RuntimeException('Business Profile write target is not allowed.');
+        }
+
+        return $this->request($integration, $method, $url, $body, 'google_business_profile');
+    }
+
+    private function resolveAccessToken(CoreIntegration $integration, ?string $capability): string
+    {
+        try {
+            return $this->broker->accessTokenFor($integration, $capability);
+        } catch (GoogleAuthorizationException $e) {
+            throw $e;
+        } catch (GoogleAuthenticationException $e) {
+            throw $e;
+        }
     }
 
     private function normalizeCustomerId(?string $customerId): ?string

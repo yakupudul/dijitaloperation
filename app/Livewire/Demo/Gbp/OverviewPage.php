@@ -2,418 +2,374 @@
 
 namespace App\Livewire\Demo\Gbp;
 
-use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
-use App\Support\Demo\DemoCatalog;
+use App\Contracts\GbpOperatorWorkspace;
+use App\Jobs\Gbp\SyncGbpSuggestionsJob;
+use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
+use App\Models\AiProduction;
+use App\Models\CoreAssetBinding;
+use App\Models\DigitalAsset;
+use App\Models\ExternalWriteAction;
+use App\Models\GbpReview;
+use App\Models\Suggestion;
+use App\Services\Analyst\AnalystDecisionStore;
+use App\Services\Archive\ProductionArchive;
+use App\Services\Async\AsyncOperationService;
+use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\Gbp\GbpAssistant;
+use App\Services\Gbp\GbpDailyWorkspace;
+use App\Services\Gbp\GbpScreen;
+use App\Services\Gbp\GbpSuggestions;
+use App\Services\Gbp\ReviewReplyDrafter;
 use App\Support\Demo\DemoState;
-use App\Support\Demo\GbpWorkspaceFixtures;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
+/**
+ * İşletme Profili (Faz 7): Genel Bakış · Yapılacaklar · Yorumlar · Gönderiler · Analiz · Ayarlar for one bound location.
+ * Numbers come from the collected gbp_* tables (GbpScreen); suggestions from the ONE suggestions table (GbpSuggestions);
+ * AI work is queued (GbpAssistant, ReviewReplyDrafter). The only writes to Google are ADR-073 — a review reply and a
+ * post (now or scheduled) — Admin-approved, recorded and undoable through ExternalWriteService. Profile fields
+ * (categories, services, description) are changed by the operator on Google.
+ */
 #[Layout('operator.layouts.app')]
-#[Title('Google Business Profile')]
+#[Title('İşletme Profili')]
 class OverviewPage extends Component
 {
-    use InteractsWithDemoPeriod;
+    use ResolvesCanonicalOperatorAsset;
 
-    public string $assetId = DemoCatalog::GBP_ASSET_ID;
+    public const array TABS = ['overview' => 'Genel Bakış', 'todo' => 'Yapılacaklar', 'reviews' => 'Yorumlar', 'posts' => 'Gönderiler', 'analysis' => 'Analiz', 'settings' => 'Ayarlar'];
+
+    /** @var array<string, string> Retired tab keys kept working for old links. */
+    private const array LEGACY_TAB_MAP = [
+        'performance' => 'analysis', 'queries' => 'analysis', 'visibility' => 'analysis',
+        'profile' => 'todo', 'health' => 'todo', 'advisor' => 'todo', 'setup' => 'settings', 'collect' => 'reviews',
+        'insights' => 'overview', 'competitors' => 'overview', 'operations' => 'overview',
+    ];
+
+    /** @var list<int> */
+    private const array DAY_OPTIONS = [28, 90, 180];
+
+    #[Locked]
+    public string $assetId = '';
 
     #[Url]
     public string $tab = 'overview';
 
+    /** Analiz window in days. */
     #[Url]
-    public string $keyword = '';
-
-    #[Url]
-    public string $scan = 'latest';
+    public int $days = 28;
 
     #[Url]
-    public bool $scan_compare = false;
+    public bool $unanswered = false;
 
-    #[Url]
-    public string $vis_mode = 'rank';
+    /** Gönderiler form. @var array{body: string, url: string, action_type: string, when: string, publish_at: string} */
+    public array $post = ['body' => '', 'url' => '', 'action_type' => 'LEARN_MORE', 'when' => 'now', 'publish_at' => ''];
 
-    #[Url]
-    public string $perf_sub = 'discovery';
+    public bool $postFormOpen = false;
 
-    #[Url]
-    public string $query_period = 'Last month';
-
-    #[Url]
-    public string $query_filter = 'all';
-
-    #[Url]
-    public string $reviews_sub = 'inbox';
-
-    #[Url]
-    public string $review_stars = 'all';
-
-    #[Url]
-    public string $review_reply = 'all';
-
-    #[Url]
-    public string $review_topic = '';
-
-    #[Url]
-    public string $review_q = '';
-
-    #[Url]
-    public string $ops = 'findings';
-
-    #[Url]
-    public ?string $finding = null;
-
-    #[Url]
-    public ?string $point = null;
-
-    #[Url(as: 'attention')]
-    public ?string $attention = null;
-
-    /**
-     * @var list<string>
-     */
-    public array $allowedTabs = [
-        'overview',
-        'profile',
-        'visibility',
-        'performance',
-        'reviews',
-        'competitors',
-        'operations',
-    ];
-
-    /**
-     * @var array<string, string>
-     */
-    private const LEGACY_TAB_MAP = [
-        'queries' => 'performance',
-        'insights' => 'overview',
-    ];
-
-    /**
-     * @var list<string>
-     */
-    public array $timeBasedTabs = [
-        'performance',
-        'reviews',
-    ];
+    /** Siteden paylaş: selected page id. */
+    public string $sharePageId = '';
 
     public function mount(?string $assetId = null): void
     {
-        $this->assetId = $assetId ?: DemoCatalog::GBP_ASSET_ID;
-        $this->mountPeriod();
-        $this->normalizeTab();
-
-        if ($this->keyword === '') {
-            $stored = DemoState::getFilter('gbp_keyword');
-            $this->keyword = is_string($stored) && $stored !== ''
-                ? $stored
-                : GbpWorkspaceFixtures::visibility()['default_keyword'];
+        $this->bindCanonicalAsset($assetId, ['google_business_profile', 'gbp']);
+        $this->normalize();
+        $asset = $this->asset();
+        // First visit: the system checks are computed once in the background (then daily).
+        if ($asset->brand_id !== null && Cache::add('gbp-suggestions-seeded:'.$asset->id, true, now()->addHour())
+            && Suggestion::query()->where('target_type', GbpSuggestions::TARGET)->where('target_id', $asset->id)->doesntExist()) {
+            SyncGbpSuggestionsJob::dispatch((int) $asset->id);
         }
     }
 
     public function setTab(string $tab): void
     {
         $this->tab = $tab;
-        $this->normalizeTab();
-        $this->finding = null;
-        $this->point = null;
+        $this->normalize();
     }
 
-    public function setKeyword(string $keyword): void
+    public function setDays(int $days): void
     {
-        $this->keyword = $keyword;
-        DemoState::setFilter('gbp_keyword', $keyword);
-        $this->point = null;
-        $this->tab = 'visibility';
+        $this->days = $days;
+        $this->normalize();
     }
 
-    public function updatedKeyword(string $value): void
+    public function refreshData(AsyncOperationService $async): void
     {
-        DemoState::setFilter('gbp_keyword', $value);
-        $this->point = null;
+        $result = $async->queueBoundCollect($this->asset(), auth()->user(), ['trigger' => 'operator.gbp.refresh']);
+        DemoState::flash((string) ($result['message'] ?? __('operator_runtime.sources.collect_failed')), ($result['ok'] ?? false) ? 'success' : 'info');
     }
 
-    public function setScan(string $scan): void
+    /* ---------------- Yapılacaklar ---------------- */
+
+    public function recheck(): void
     {
-        if (in_array($scan, ['latest', 'previous'], true)) {
-            $this->scan = $scan;
+        SyncGbpSuggestionsJob::dispatch((int) $this->asset()->id);
+        DemoState::flash('Profil standartları yeniden kontrol ediliyor.', 'info');
+    }
+
+    public function compareServices(GbpAssistant $assistant): void
+    {
+        $this->queueAssistant($assistant, GbpAssistant::OP_SERVICES);
+    }
+
+    public function proposeDescription(GbpAssistant $assistant): void
+    {
+        $this->queueAssistant($assistant, GbpAssistant::OP_DESCRIPTION);
+    }
+
+    public function approveSuggestion(int $id, GbpSuggestions $suggestions): void
+    {
+        $suggestions->approve($suggestions->find($this->asset(), $id), auth()->user());
+        DemoState::flash('Onaylandı; Google’da yapınca “Uygulandı” deyin.', 'success');
+    }
+
+    /** The operator made the change on Google: applied with the outcome baseline. */
+    public function markApplied(int $id, GbpSuggestions $suggestions): void
+    {
+        $suggestion = $suggestions->find($this->asset(), $id);
+        abort_unless($suggestion->status === Suggestion::APPROVED, 404);
+        $suggestions->markApplied($suggestion, auth()->user());
+        DemoState::flash('Uygulandı olarak işaretlendi.', 'success');
+    }
+
+    public function dismissSuggestion(int $id, GbpSuggestions $suggestions, AnalystDecisionStore $store): void
+    {
+        $store->dismiss($suggestions->find($this->asset(), $id), auth()->user());
+        DemoState::flash('Reddedildi.', 'info');
+    }
+
+    public function snoozeSuggestion(int $id, GbpSuggestions $suggestions, AnalystDecisionStore $store): void
+    {
+        $store->snooze($suggestions->find($this->asset(), $id), 7);
+        DemoState::flash('7 gün ertelendi.', 'info');
+    }
+
+    /* ---------------- Yorumlar ---------------- */
+
+    public function showUnanswered(): void
+    {
+        $this->unanswered = true;
+        $this->setTab('reviews');
+    }
+
+    public function draftReply(int $reviewId, ReviewReplyDrafter $drafter): void
+    {
+        if (! (bool) $this->asset()->loadMissing('brand.customer')->brand?->isOperational()) {
+            DemoState::flash('Marka operasyonel değil; AI çalışmaz.', 'error');
+
+            return;
+        }
+        try {
+            $drafter->queue($this->review($reviewId));
+            DemoState::flash('Yanıt taslağı hazırlanıyor.', 'info');
+        } catch (ValidationException $exception) {
+            DemoState::flash((string) collect($exception->errors())->flatten()->first(), 'error');
         }
     }
 
-    public function toggleScanCompare(): void
+    /** ADR-073: the Admin-approved reply goes to Google (undo from the list). */
+    public function publishReply(int $reviewId, string $text, ExternalWriteService $writes): void
     {
-        $this->scan_compare = ! $this->scan_compare;
-    }
-
-    public function setVisMode(string $mode): void
-    {
-        if (in_array($mode, ['rank', 'change'], true)) {
-            $this->vis_mode = $mode;
+        try {
+            $writes->requestReviewReply(auth()->user(), $this->review($reviewId), $text);
+            DemoState::flash('Yanıt Google’a gönderiliyor.', 'info');
+        } catch (ValidationException $exception) {
+            DemoState::flash((string) collect($exception->errors())->flatten()->first(), 'error');
         }
     }
 
-    public function setPerfSub(string $sub): void
+    /** ADR-073 undo of a reply or a post of this profile (Admin). */
+    public function undoWrite(int $actionId, ExternalWriteService $writes): void
     {
-        if (in_array($sub, ['discovery', 'actions', 'queries'], true)) {
-            $this->perf_sub = $sub;
-            $this->tab = 'performance';
+        try {
+            $writes->requestUndo(auth()->user(), $this->writeAction($actionId));
+            DemoState::flash('Geri alınıyor.', 'info');
+        } catch (ValidationException $exception) {
+            DemoState::flash((string) collect($exception->errors())->flatten()->first(), 'error');
         }
     }
 
-    public function setQueryFilter(string $filter): void
+    /* ---------------- Gönderiler ---------------- */
+
+    public function startPost(): void
     {
-        $allowed = ['all', 'Brand', 'Service', 'Local service', 'Location', 'Discovery', 'Growing', 'Declining', 'Website gap', 'Tracked'];
-        if (in_array($filter, $allowed, true)) {
-            $this->query_filter = $filter;
-            $this->perf_sub = 'queries';
-            $this->tab = 'performance';
+        $this->post = ['body' => '', 'url' => '', 'action_type' => 'LEARN_MORE', 'when' => 'now', 'publish_at' => ''];
+        $this->postFormOpen = true;
+        $this->resetValidation();
+    }
+
+    public function cancelPost(): void
+    {
+        $this->postFormOpen = false;
+        $this->resetValidation();
+    }
+
+    public function sharePage(GbpAssistant $assistant): void
+    {
+        $this->queueAssistant($assistant, GbpAssistant::OP_POST, ['page_id' => (int) $this->sharePageId]);
+    }
+
+    /** Loads the page-post AI draft into the form (the operator edits it before approving). */
+    public function useAiDraft(int $productionId, ProductionArchive $archive): void
+    {
+        $draft = AiProduction::query()->whereKey($productionId)->where('kind', GbpAssistant::POST_KIND)
+            ->where('subject_type', 'DigitalAsset')->where('subject_id', $this->asset()->id)->firstOrFail();
+        $this->startPost();
+        $this->post['body'] = mb_substr((string) data_get($draft->content, 'body'), 0, GbpAssistant::POST_MAX);
+        $this->post['url'] = (string) data_get($draft->content, 'url', '');
+        $this->post['action_type'] = (string) (data_get($draft->content, 'action_type') ?: 'LEARN_MORE');
+        $archive->mark($draft, AiProduction::STATUS_USED, auth()->user());
+    }
+
+    /** ADR-073: the Admin-approved post goes to Google now or at the chosen time (undo / cancel from the list). */
+    public function publishPost(ExternalWriteService $writes): void
+    {
+        abort_unless(ExternalWriteService::allowed(auth()->user(), ExternalWriteAction::CHANNEL_GBP), 403);
+        $data = $this->validate([
+            'post.body' => ['required', 'string', 'max:'.GbpAssistant::POST_MAX],
+            'post.url' => ['nullable', 'url', 'max:500'],
+            'post.action_type' => ['required', 'in:LEARN_MORE,BOOK,CALL,ORDER,SIGN_UP'],
+            'post.when' => ['required', 'in:now,later'],
+            'post.publish_at' => ['required_if:post.when,later', 'nullable', 'date'],
+        ], [], ['post.body' => 'metin', 'post.url' => 'bağlantı', 'post.publish_at' => 'yayın zamanı'])['post'];
+        $blocking = GbpAssistant::blockingHits($this->asset()->loadMissing('brand')->brand, (string) $data['body']);
+        if ($blocking !== []) {
+            $this->addError('post.body', 'Sektör uyum kuralına takılıyor: '.implode(', ', $blocking).'.');
+
+            return;
         }
-    }
+        try {
+            $action = $writes->requestLocalPost(auth()->user(), $this->asset(), [
+                'summary' => (string) $data['body'], 'url' => ($data['url'] ?? '') ?: null, 'action_type' => $data['action_type'],
+                'publish_at' => $data['when'] === 'later' ? (string) $data['publish_at'] : null,
+            ]);
+            $this->postFormOpen = false;
+            $action->refresh();
+            if ($action->status === 'failed') {
+                DemoState::flash('Google gönderiyi kabul etmedi: '.$action->error, 'error');
 
-    public function setReviewsSub(string $sub): void
-    {
-        if (in_array($sub, ['inbox', 'topics', 'queue'], true)) {
-            $this->reviews_sub = $sub;
-            $this->tab = 'reviews';
-        }
-    }
-
-    public function setOps(string $ops): void
-    {
-        if (in_array($ops, ['findings', 'recommendations', 'tasks', 'outcomes'], true)) {
-            $this->ops = $ops;
-            $this->tab = 'operations';
-        }
-    }
-
-    public function selectPoint(string $id): void
-    {
-        $this->point = $id;
-        $this->tab = 'visibility';
-    }
-
-    public function clearPoint(): void
-    {
-        $this->point = null;
-    }
-
-    public function openFinding(string $id): void
-    {
-        $this->finding = $id;
-        $this->attention = null;
-        $this->ops = 'findings';
-        $this->tab = 'operations';
-    }
-
-    public function closeFinding(): void
-    {
-        $this->finding = null;
-    }
-
-    public function openAttention(string $id): void
-    {
-        $this->attention = $id;
-    }
-
-    public function closeAttention(): void
-    {
-        $this->attention = null;
-    }
-
-    public function refreshData(): void
-    {
-        DemoState::flash('GBP data refresh queued (Demo Mode · no live Google Business Profile API call).', 'info');
-    }
-
-    public function runLocalVisibilityScan(): void
-    {
-        DemoState::flash('Local visibility scan completed (Demo Mode · deterministic fixture timestamps updated in presentation only).', 'info');
-        $this->tab = 'visibility';
-        $this->scan = 'latest';
-    }
-
-    public function createReviewTask(string $reviewId): void
-    {
-        DemoState::flash('Internal Task created for review '.$reviewId.' (Demo Mode · no Google reply).', 'info');
-        $this->reviews_sub = 'queue';
-        $this->tab = 'reviews';
-    }
-
-    protected function normalizeTab(): void
-    {
-        if (isset(self::LEGACY_TAB_MAP[$this->tab])) {
-            $legacy = $this->tab;
-            $this->tab = self::LEGACY_TAB_MAP[$legacy];
-            if ($legacy === 'queries') {
-                $this->perf_sub = 'queries';
+                return;
             }
-        }
-
-        if (! in_array($this->tab, $this->allowedTabs, true)) {
-            $this->tab = 'overview';
+            DemoState::flash($action->status === 'scheduled' ? 'Gönderi zamanlandı.' : 'Gönderi Google’a gönderiliyor.', 'info');
+        } catch (ValidationException $exception) {
+            DemoState::flash((string) collect($exception->errors())->flatten()->first(), 'error');
         }
     }
 
-    public function render(): View
+    public function cancelScheduled(int $actionId, ExternalWriteService $writes): void
     {
-        $this->normalizeTab();
-        $data = GbpWorkspaceFixtures::workspace($this->period);
-        $visibility = $data['visibility'];
-        $keywords = $visibility['keywords'];
-
-        if (! in_array($this->keyword, $keywords, true)) {
-            $this->keyword = $visibility['default_keyword'];
+        try {
+            $writes->cancelScheduled(auth()->user(), $this->writeAction($actionId));
+            DemoState::flash('Zamanlanmış gönderi iptal edildi.', 'info');
+        } catch (ValidationException $exception) {
+            DemoState::flash((string) collect($exception->errors())->flatten()->first(), 'error');
         }
+    }
 
-        $scanBundle = $visibility['scans'][$this->keyword];
-        $currentScan = $scanBundle['current'];
-        $previousScanMeta = $scanBundle['previous'];
-        $points = $currentScan['points'];
-
-        if ($this->scan === 'previous') {
-            $points = collect($points)->map(function (array $p) use ($previousScanMeta): array {
-                $p['rank'] = $p['previous_rank'];
-                $p['scan_at'] = $previousScanMeta['scanned_at'];
-                $p['delta'] = 0;
-
-                return $p;
-            })->all();
-            $ranks = array_column($points, 'rank');
-            $currentScan = [
-                ...$currentScan,
-                'scanned_at' => $previousScanMeta['scanned_at'],
-                'average_rank' => $previousScanMeta['average_rank'],
-                'top3_count' => count(array_filter($ranks, fn (int $r): bool => $r <= 3)),
-                'top10_count' => count(array_filter($ranks, fn (int $r): bool => $r <= 10)),
-                'best' => min($ranks),
-                'worst' => max($ranks),
-                'points' => $points,
-            ];
-        }
-
-        $selectedPoint = null;
-        if ($this->point) {
-            $selectedPoint = collect($points)->firstWhere('id', $this->point);
-        }
-
-        $mapMode = ($this->scan_compare || $this->vis_mode === 'change') && $this->scan !== 'previous' ? 'change' : 'rank';
-
-        $mapPayload = [
-            'mode' => $mapMode,
-            'business' => [
-                'name' => $visibility['business']['name'],
-                'lat' => $visibility['business']['lat'],
-                'lng' => $visibility['business']['lng'],
-                'address' => $visibility['business']['label'],
-            ],
-            'points' => collect($points)->map(fn (array $p): array => [
-                'id' => $p['id'],
-                'lat' => $p['lat'],
-                'lng' => $p['lng'],
-                'rank' => $p['rank'],
-                'delta' => $p['delta'],
-                'label' => $p['direction'].' · '.$p['distance_km'].' km',
-            ])->values()->all(),
-        ];
-
-        $miniMapPayload = [
-            'mode' => 'rank',
-            'business' => $mapPayload['business'],
-            'points' => $mapPayload['points'],
-        ];
-
-        $queryRows = collect($data['performance']['queries']['rows'] ?? []);
-        if ($this->query_filter === 'Tracked') {
-            $queryRows = $queryRows->where('tracked', true);
-        } elseif ($this->query_filter === 'Website gap') {
-            $queryRows = $queryRows->where('website', 'Missing');
-        } elseif ($this->query_filter === 'Growing') {
-            $queryRows = $queryRows->filter(fn (array $r): bool => str_starts_with((string) $r['change'], '+'));
-        } elseif ($this->query_filter === 'Declining') {
-            $queryRows = $queryRows->filter(fn (array $r): bool => str_starts_with((string) $r['change'], '−') || str_starts_with((string) $r['change'], '-'));
-        } elseif ($this->query_filter !== 'all') {
-            $queryRows = $queryRows->where('intent', $this->query_filter);
-        }
-
-        $inbox = collect($data['reviews']['inbox'] ?? []);
-        if ($this->review_stars !== 'all') {
-            $inbox = $inbox->where('stars', (int) $this->review_stars);
-        }
-        if ($this->review_reply !== 'all') {
-            $inbox = $inbox->where('reply', $this->review_reply);
-        }
-        if ($this->review_topic !== '') {
-            $topic = $this->review_topic;
-            $inbox = $inbox->filter(fn (array $r): bool => in_array($topic, $r['topics'] ?? [], true));
-        }
-        if ($this->review_q !== '') {
-            $q = mb_strtolower($this->review_q);
-            $inbox = $inbox->filter(fn (array $r): bool => str_contains(mb_strtolower(($r['excerpt'] ?? '').' '.($r['reviewer'] ?? '')), $q));
-        }
-
-        $selectedFinding = null;
-        if ($this->finding) {
-            $selectedFinding = collect($data['operations']['findings'] ?? [])->firstWhere('id', $this->finding);
-            $detail = $data['operations']['finding_detail'][$this->finding] ?? null;
-            if ($selectedFinding && $detail) {
-                $selectedFinding = array_merge($selectedFinding, $detail);
-            }
-        }
-
-        $selectedAttention = null;
-        if ($this->attention) {
-            $selectedAttention = collect($data['needs_attention'] ?? [])->firstWhere('id', $this->attention);
-        }
-
-        $discovery = $data['performance']['discovery'];
-        $actions = $data['performance']['actions'];
-
-        $asset = DemoCatalog::asset($this->assetId) ?? DemoCatalog::asset(DemoCatalog::GBP_ASSET_ID);
+    public function render(GbpOperatorWorkspace $workspace, GbpDailyWorkspace $daily, GbpScreen $screen, GbpSuggestions $suggestions, GbpAssistant $assistant): View
+    {
+        $this->normalize();
+        $asset = $this->asset()->loadMissing('brand.customer', 'brand.sectorCategory');
+        $data = $workspace->for($asset, 28);
+        $resource = $daily->resource($asset);
+        $resourceId = $resource?->id !== null ? (int) $resource->id : null;
+        $assetId = (int) $asset->id;
+        $reviewList = $this->tab === 'reviews' && $resourceId !== null ? $daily->reviews($resourceId, '', $this->unanswered) : [];
 
         return view('livewire.demo.gbp.overview', [
-            'asset' => $asset,
+            'asset' => $this->presentCanonicalAsset(),
+            'tabs' => self::TABS,
             'data' => $data,
             'identity' => $data['identity'],
-            'visibility' => $visibility,
-            'currentScan' => $currentScan,
-            'previousScan' => $previousScanMeta,
-            'points' => $points,
-            'selectedPoint' => $selectedPoint,
-            'mapPayload' => $mapPayload,
-            'miniMapPayload' => $miniMapPayload,
-            'queryRows' => $queryRows->values()->all(),
-            'reviewInbox' => $inbox->values()->all(),
-            'selectedFinding' => $selectedFinding,
-            'selectedAttention' => $selectedAttention,
-            'showPeriodBar' => in_array($this->tab, $this->timeBasedTabs, true),
-            'discoveryChartOptions' => [
-                'chart' => ['type' => 'area', 'height' => 240, 'toolbar' => ['show' => false], 'stacked' => false],
-                'series' => [
-                    ['name' => 'Search impressions', 'data' => $discovery['series_search']['values']],
-                    ['name' => 'Maps impressions', 'data' => $discovery['series_maps']['values']],
-                ],
-                'xaxis' => ['categories' => $discovery['series_search']['labels']],
-                'stroke' => ['curve' => 'smooth', 'width' => 2],
-                'dataLabels' => ['enabled' => false],
-                'colors' => ['#ea580c', '#0284c7'],
-                'legend' => ['position' => 'top'],
-                'fill' => [
-                    'type' => 'gradient',
-                    'gradient' => ['shadeIntensity' => 1, 'opacityFrom' => 0.3, 'opacityTo' => 0.05],
-                ],
-            ],
-            'actionsChartOptions' => [
-                'chart' => ['type' => 'line', 'height' => 240, 'toolbar' => ['show' => false]],
-                'series' => [['name' => 'Customer actions', 'data' => $actions['series']['values']]],
-                'xaxis' => ['categories' => $actions['series']['labels']],
-                'stroke' => ['curve' => 'smooth', 'width' => 2],
-                'dataLabels' => ['enabled' => false],
-                'colors' => ['#ea580c'],
-            ],
+            'bound' => (bool) ($data['connection']['bound'] ?? false),
+            'brand' => $asset->brand,
+            'sectorName' => $asset->sector()?->name,
+            'operational' => (bool) $asset->brand?->isOperational(),
             'flash' => DemoState::pullFlash(),
+            'canWrite' => ExternalWriteService::allowed(auth()->user(), ExternalWriteAction::CHANNEL_GBP),
+            'numbers' => $this->tab === 'overview' ? $screen->overview($asset, $resourceId) : null,
+            'openCount' => $asset->brand_id !== null ? $suggestions->open($asset)->count() : 0,
+            'suggestions' => $this->tab === 'todo' ? $suggestions->open($asset) : collect(),
+            'approved' => $this->tab === 'todo' && $asset->brand_id !== null ? $suggestions->approved($asset) : collect(),
+            'servicesState' => $this->tab === 'todo' ? $assistant->state($assetId, GbpAssistant::OP_SERVICES) : null,
+            'descriptionState' => $this->tab === 'todo' ? $assistant->state($assetId, GbpAssistant::OP_DESCRIPTION) : null,
+            'reviewAccess' => $this->tab === 'reviews' && $resourceId !== null ? $daily->reviewAccess($asset) : null,
+            'reviewList' => $reviewList,
+            'replyDrafts' => $this->replyDrafts($reviewList),
+            'posts' => $this->tab === 'posts' ? $daily->posts($asset, $resourceId) : null,
+            'pages' => $this->tab === 'posts' ? $assistant->shareablePages($asset) : [],
+            'postDraft' => $this->tab === 'posts' ? $assistant->latestPost($asset) : null,
+            'postState' => $this->tab === 'posts' ? $assistant->state($assetId, GbpAssistant::OP_POST) : null,
+            'analysis' => $this->tab === 'analysis' && $resourceId !== null ? $screen->analysis($resourceId, $this->days) : null,
+            'dayOptions' => self::DAY_OPTIONS,
         ]);
+    }
+
+    /** @param  array{page_id?: int}  $params */
+    private function queueAssistant(GbpAssistant $assistant, string $operation, array $params = []): void
+    {
+        try {
+            $assistant->queue($this->asset(), $operation, $params);
+            DemoState::flash('AI çalışıyor; birkaç saniye sonra burada görünür.', 'info');
+        } catch (ValidationException $exception) {
+            DemoState::flash((string) collect($exception->errors())->flatten()->first(), 'error');
+        }
+    }
+
+    private function normalize(): void
+    {
+        $this->tab = self::LEGACY_TAB_MAP[$this->tab] ?? $this->tab;
+        if (! isset(self::TABS[$this->tab])) {
+            $this->tab = 'overview';
+        }
+        if (! in_array($this->days, self::DAY_OPTIONS, true)) {
+            $this->days = 28;
+        }
+    }
+
+    private function review(int $reviewId): GbpReview
+    {
+        $resourceIds = CoreAssetBinding::query()->where('digital_asset_id', $this->asset()->id)->where('status', CoreAssetBinding::STATUS_ACTIVE)->pluck('external_resource_id');
+
+        return GbpReview::query()->whereIn('external_resource_id', $resourceIds)->findOrFail($reviewId);
+    }
+
+    private function writeAction(int $actionId): ExternalWriteAction
+    {
+        return ExternalWriteAction::query()->whereKey($actionId)->where('channel', ExternalWriteAction::CHANNEL_GBP)
+            ->where('digital_asset_id', $this->asset()->id)->firstOrFail();
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $reviews
+     * @return array<int, array{text: ?string, state: ?string}>
+     */
+    private function replyDrafts(array $reviews): array
+    {
+        $ids = collect($reviews)->pluck('id')->filter()->map(fn ($id): int => (int) $id)->all();
+        if ($ids === []) {
+            return [];
+        }
+        $drafts = AiProduction::query()->where('kind', ReviewReplyDrafter::KIND)->where('subject_type', 'GbpReview')->whereIn('subject_id', $ids)
+            ->where('status', '!=', AiProduction::STATUS_DISCARDED)->orderBy('version')->get()->keyBy('subject_id');
+        $drafter = app(ReviewReplyDrafter::class);
+        $out = [];
+        foreach ($ids as $id) {
+            $out[$id] = ['text' => $drafts->has($id) ? (string) data_get($drafts[$id]->content, 'reply') : null, 'state' => $drafter->state($id)];
+        }
+
+        return $out;
+    }
+
+    private function asset(): DigitalAsset
+    {
+        return DigitalAsset::query()->whereKey((int) $this->assetId)->whereIn('type', ['google_business_profile', 'gbp'])->firstOrFail();
     }
 }

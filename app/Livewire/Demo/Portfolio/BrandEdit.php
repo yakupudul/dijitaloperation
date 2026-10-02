@@ -3,15 +3,17 @@
 namespace App\Livewire\Demo\Portfolio;
 
 use App\Livewire\Demo\Portfolio\Concerns\InteractsWithBrandForm;
-use App\Support\Demo\DemoCatalog;
+use App\Models\Brand;
+use App\Services\Catalog\BrandCommercialContextService;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Edit brand')]
+#[Title('Markayı düzenle')]
 class BrandEdit extends Component
 {
     use InteractsWithBrandForm;
@@ -20,18 +22,20 @@ class BrandEdit extends Component
 
     public function mount(string $brandId): void
     {
-        $this->brandId = $brandId;
-        $brand = DemoState::findBrand($brandId) ?? (
-            $brandId === DemoCatalog::BRAND_ID ? DemoCatalog::brand() : null
-        );
-
+        abort_unless(ctype_digit($brandId), 404);
+        $brand = Brand::query()->with(['responsibleUsers', 'sectors'])->find($brandId);
         abort_if($brand === null, 404);
 
-        $this->fillBrandForm($brand);
+        $this->brandId = (string) $brand->id;
+        $this->fillBrandForm(array_merge($brand->attributesToArray(), [
+            'sector_codes' => $brand->sectorCodes(),
+            'responsible_user_ids' => $brand->responsibleUsers->modelKeys(),
+        ]));
+        $this->fillCommercialContext($brand);
         $this->customerLocked = true;
     }
 
-    public function save(): mixed
+    public function save(BrandCommercialContextService $commercialContext): mixed
     {
         if ($this->saving) {
             return null;
@@ -42,29 +46,30 @@ class BrandEdit extends Component
         try {
             $this->validate($this->brandRules());
 
-            $existing = DemoState::findBrand($this->brandId) ?? DemoCatalog::brand();
-            $payload = array_merge($existing, $this->brandPayload($this->brandId));
-            $payload['assets_count'] = $existing['assets_count'] ?? 0;
-            $payload['open_findings'] = $existing['open_findings'] ?? 0;
-            $payload['open_tasks'] = $existing['open_tasks'] ?? 0;
-            $payload['health'] = $existing['health'] ?? 'healthy';
-            $payload['health_label'] = $existing['health_label'] ?? 'Healthy';
-            $payload['summary'] = $existing['summary'] ?? $payload['summary'];
+            $brand = Brand::query()->find($this->brandId);
+            abort_if($brand === null, 404);
 
-            if (DemoState::findBrand($this->brandId) === null) {
-                $state = DemoState::all();
-                $state['brands'] = array_values(array_filter(
-                    $state['brands'] ?? [],
-                    static fn (array $b): bool => ($b['id'] ?? '') !== $this->brandId
-                ));
-                $state['brands'][] = DemoState::normalizeBrand($payload);
-                session()->put(DemoState::SESSION_KEY, $state);
-                DemoState::flash('Brand changes saved (Demo Mode).');
-            } else {
-                DemoState::updateBrand($this->brandId, $payload);
-            }
+            DB::transaction(function () use ($brand, $commercialContext): void {
+                $brand->fill($this->brandEloquentPayload());
+                $brand->save();
+                $this->syncBrandSectors($brand);
+                $brand->responsibleUsers()->sync($this->sanitizedResponsibleUserIds());
+                $commercialContext->sync(
+                    $brand,
+                    $this->selected_service_catalog_ids,
+                    $this->priority_service_catalog_ids,
+                    $this->service_areas,
+                    $this->new_service_name,
+                    $this->new_service_is_priority,
+                    auth()->user(),
+                    customServiceSector: $this->new_service_sector,
+                    allowedSectorCodes: $this->selected_sector_codes,
+                );
+            });
 
-            return $this->redirect(route('demo.brand', ['brand' => $this->brandId]), navigate: true);
+            DemoState::flash(__('operator.forms.brand_updated'));
+
+            return $this->redirect(route('operator.brand', ['brand' => $brand->id]), navigate: true);
         } finally {
             $this->saving = false;
         }
@@ -74,10 +79,10 @@ class BrandEdit extends Component
     {
         return view('livewire.demo.portfolio.brand-form', array_merge($this->brandFormViewData(), [
             'mode' => 'edit',
-            'pageTitle' => 'Edit brand',
-            'pageSubtitle' => 'Update brand context used across digital assets.',
-            'backUrl' => route('demo.brand', ['brand' => $this->brandId]),
-            'primaryAction' => 'Save changes',
+            'pageTitle' => __('operator.forms.edit_brand'),
+            'pageSubtitle' => __('operator.forms.edit_brand_subtitle'),
+            'backUrl' => route('operator.brand', ['brand' => $this->brandId]),
+            'primaryAction' => __('operator.forms.save_changes'),
         ]));
     }
 }

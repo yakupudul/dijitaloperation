@@ -3,6 +3,13 @@
 > **STATUS: PLANNED PRODUCT ARCHITECTURE**  
 > **PARTIALLY IMPLEMENTED THROUGH EXISTING STRUCTURED DATA**  
 >  
+> **Prompt 51 alignment:** MoxDOP **Intelligence Memory** has exactly **three** primary
+> logical layers — **Brand Memory**, **Sector Memory**, and **Knowledge / Skill Memory**.
+> See [`docs/implementation/INTELLIGENCE_MEMORY_ARCHITECTURE.md`](../implementation/INTELLIGENCE_MEMORY_ARCHITECTURE.md).
+> The “System / Institutional” and “Operational” sections below remain useful product
+> distinctions for docs/history, but they are **not** additional Intelligence Memory layers
+> and must not be collapsed into a giant AI brain or universal `memories` table.
+>  
 > This document defines how MoxDOP thinks about **knowledge** and **memory**.  
 > It does **not** authorize vector RAG, embeddings, Skill runtime tables, or self-modifying AI.  
 >  

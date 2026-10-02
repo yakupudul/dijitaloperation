@@ -53,6 +53,19 @@ class DataForSeoApiClient
     }
 
     /**
+     * GET /v3/serp/google/locations/tr — free SERP location directory (cities, districts).
+     */
+    public function getSerpGoogleLocationsTr(CoreIntegration $integration): DataForSeoResponse
+    {
+        return $this->request(
+            $integration,
+            'GET',
+            DataForSeoEndpointAllowlist::SERP_GOOGLE_LOCATIONS_TR,
+            self::CHARGE_CLASS_SAFE_READ,
+        );
+    }
+
+    /**
      * POST /v3/dataforseo_labs/google/ranked_keywords/live — paid.
      *
      * @param  list<array<string, mixed>>  $tasks
@@ -102,6 +115,70 @@ class DataForSeoApiClient
     }
 
     /**
+     * POST /v3/serp/google/organic/live/regular — paid. Explicit operator runs only.
+     *
+     * @param  list<array<string, mixed>>  $tasks
+     */
+    public function postSerpGoogleOrganicLiveRegular(CoreIntegration $integration, array $tasks): DataForSeoResponse
+    {
+        return $this->request(
+            $integration,
+            'POST',
+            DataForSeoEndpointAllowlist::SERP_GOOGLE_ORGANIC_LIVE_REGULAR,
+            self::CHARGE_CLASS_PAID_CREATE,
+            $tasks,
+        );
+    }
+
+    /**
+     * POST /v3/serp/google/organic/live/advanced — paid. Top-10 SERP (v2 Rakipler; cached 30 days).
+     *
+     * @param  list<array<string, mixed>>  $tasks
+     */
+    public function postSerpGoogleOrganicLiveAdvanced(CoreIntegration $integration, array $tasks): DataForSeoResponse
+    {
+        return $this->request(
+            $integration,
+            'POST',
+            DataForSeoEndpointAllowlist::SERP_GOOGLE_ORGANIC_LIVE_ADVANCED,
+            self::CHARGE_CLASS_PAID_CREATE,
+            $tasks,
+        );
+    }
+
+    /**
+     * POST /v3/keywords_data/google_ads/search_volume/live — paid.
+     *
+     * @param  list<array<string, mixed>>  $tasks
+     */
+    public function postGoogleAdsSearchVolumeLive(CoreIntegration $integration, array $tasks): DataForSeoResponse
+    {
+        return $this->request(
+            $integration,
+            'POST',
+            DataForSeoEndpointAllowlist::KEYWORDS_DATA_GOOGLE_ADS_SEARCH_VOLUME_LIVE,
+            self::CHARGE_CLASS_PAID_CREATE,
+            $tasks,
+        );
+    }
+
+    /**
+     * POST /v3/dataforseo_labs/google/keyword_ideas/live — paid.
+     *
+     * @param  list<array<string, mixed>>  $tasks
+     */
+    public function postKeywordIdeasLive(CoreIntegration $integration, array $tasks): DataForSeoResponse
+    {
+        return $this->request(
+            $integration,
+            'POST',
+            DataForSeoEndpointAllowlist::LABS_GOOGLE_KEYWORD_IDEAS_LIVE,
+            self::CHARGE_CLASS_PAID_CREATE,
+            $tasks,
+        );
+    }
+
+    /**
      * Execute an allowlisted DataForSEO request.
      *
      * @param  array<string, mixed>|null  $jsonBody
@@ -134,14 +211,21 @@ class DataForSeoApiClient
             );
         }
 
+        $spend = app(DataForSeoSpendGuard::class);
+        if ($chargeClass === self::CHARGE_CLASS_PAID_CREATE) {
+            $spend->assertCanSpend();
+        }
+
         $maxAttempts = $chargeClass === self::CHARGE_CLASS_SAFE_READ ? 2 : 1;
         $lastException = null;
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             try {
                 $response = $this->send($login, $password, $method, $endpoint, $jsonBody);
+                $normalized = $this->normalizeOrThrow($response, $chargeClass, $attempt, $maxAttempts);
+                $spend->record($normalized->cost);
 
-                return $this->normalizeOrThrow($response, $chargeClass, $attempt, $maxAttempts);
+                return $normalized;
             } catch (ConnectionException $exception) {
                 $lastException = $exception;
 

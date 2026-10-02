@@ -1,0 +1,304 @@
+{
+  "metadata": {
+    "registry_id": "MOXDOP_FINDING_RULES",
+    "version": 1,
+    "status": "PRODUCTION_V1",
+    "created_at": "2026-08-14",
+    "description": "Versioned Finding Rule Registry. Rules consume canonical Evidence only. Thresholds are copied from frozen Website PerformanceFindingsCatalog — not invented folklore CTR/CPC/rank gates."
+  },
+  "invariants": {
+    "NO_ARBITRARY_EXPRESSIONS": true,
+    "NO_RUNTIME_EVAL": true,
+    "NO_GENERIC_METRIC_PROMOTION": true,
+    "EVIDENCE_NOT_FINDING": true,
+    "NO_PROVIDER_TABLE_BYPASS": true,
+    "MISSING_IS_NOT_CLEARED": true,
+    "STALE_IS_NOT_CLEARED": true,
+    "PARTIAL_IS_NOT_CLEARED": true,
+    "NO_GOAL_OFFERING_NAME_INFERENCE": true,
+    "NO_SERVICE_SCOPE_HIDDEN_SUPPRESSION": true,
+    "FORMULAS_OWNED_BY_FORMULA_REGISTRY": true
+  },
+  "condition_types": [
+    "VALUE_LT",
+    "VALUE_LTE",
+    "VALUE_GT",
+    "VALUE_GTE",
+    "VALUE_EQUALS",
+    "VALUE_BETWEEN",
+    "VALUE_OUTSIDE",
+    "STATE_EQUALS",
+    "STATE_NOT_EQUALS",
+    "BOOLEAN_IS",
+    "ABSENCE_CONFIRMED",
+    "PRESENCE_CONFIRMED",
+    "ABS_DECREASE_GTE",
+    "ABS_INCREASE_GTE"
+  ],
+  "rules": [
+    {
+      "id": "website.gsc.clicks_relative_decline",
+      "stable_id": "website:gsc:clicks-decline",
+      "version": 1,
+      "enabled": true,
+      "meaning": "Search Console property clicks declined versus the previous comparable period under frozen catalog gates.",
+      "category": "performance",
+      "severity": "high",
+      "severity_policy": "static",
+      "source_module": "website",
+      "consumer_intent": "operator_finding_queue",
+      "evidence_definition_ids": ["gsc.property.period_comparison"],
+      "required_evidence_kinds": ["period_comparison"],
+      "scope_requirements": ["customer", "brand", "digital_asset"],
+      "subject": {
+        "kind": "digital_asset",
+        "grain": "PER_DIGITAL_ASSET"
+      },
+      "goal_offering_policy": "inherit_explicit_evidence_scope_do_not_infer",
+      "include_goal_in_fingerprint": false,
+      "include_offering_in_fingerprint": false,
+      "include_period_in_fingerprint": false,
+      "cardinality": {
+        "strategy": "PER_DIGITAL_ASSET",
+        "max_per_digital_asset": 1,
+        "bound": "one_finding_per_asset"
+      },
+      "join_key": ["customer_id", "brand_id", "digital_asset_id"],
+      "integrity_requirement": "trusted",
+      "freshness_requirement": "fresh_or_fresh_with_limitation",
+      "completeness_requirement": "required_states_are_VALUE",
+      "provider_limitation_policy": "block_not_false",
+      "activation_policy": "IMMEDIATE",
+      "threshold_source": "MoxDop\\Website\\Findings\\PerformanceFindingsCatalog",
+      "units": {
+        "count": "count",
+        "relative_change": "ratio"
+      },
+      "currency_policy": "not_applicable",
+      "period_compatibility": "same_evidence_period",
+      "dimension_compatibility": "property_grain",
+      "required_operand_states": [
+        { "path": "metrics.clicks.relative_change_state", "equals": "VALUE" }
+      ],
+      "activation": {
+        "combiner": "ALL",
+        "conditions": [
+          { "type": "VALUE_GTE", "path": "metrics.clicks.previous", "value": 100, "unit": "count" },
+          { "type": "VALUE_LTE", "path": "metrics.clicks.relative_change", "value": -0.2, "unit": "ratio" },
+          { "type": "ABS_DECREASE_GTE", "current_path": "metrics.clicks.current", "previous_path": "metrics.clicks.previous", "value": 20, "unit": "count" }
+        ]
+      },
+      "clear": {
+        "combiner": "ALL",
+        "conditions": [
+          { "type": "VALUE_GTE", "path": "metrics.clicks.previous", "value": 100, "unit": "count" },
+          { "type": "VALUE_GT", "path": "metrics.clicks.relative_change", "value": -0.2, "unit": "ratio" }
+        ]
+      },
+      "auto_resolve": true,
+      "reopen_policy": "REOPEN_SAME_FINDING",
+      "fingerprint_inputs": ["stable_rule_id", "customer_id", "brand_id", "digital_asset_id", "subject_kind", "subject_id"],
+      "evaluation_fingerprint_inputs": ["finding_fingerprint", "rule_version", "evidence_observation_fingerprints", "period", "condition_config"],
+      "title_template": "Search Console clicks declined",
+      "summary_template": "Clicks moved from {metrics.clicks.previous} to {metrics.clicks.current} (relative change {metrics.clicks.relative_change}) versus the previous comparable period."
+    },
+    {
+      "id": "website.gsc.impressions_relative_decline",
+      "stable_id": "website:gsc:impressions-decline",
+      "version": 1,
+      "enabled": true,
+      "meaning": "Search Console property impressions declined versus the previous comparable period under frozen catalog gates.",
+      "category": "performance",
+      "severity": "medium",
+      "severity_policy": "static",
+      "source_module": "website",
+      "consumer_intent": "operator_finding_queue",
+      "evidence_definition_ids": ["gsc.property.period_comparison"],
+      "required_evidence_kinds": ["period_comparison"],
+      "scope_requirements": ["customer", "brand", "digital_asset"],
+      "subject": {
+        "kind": "digital_asset",
+        "grain": "PER_DIGITAL_ASSET"
+      },
+      "goal_offering_policy": "inherit_explicit_evidence_scope_do_not_infer",
+      "include_goal_in_fingerprint": false,
+      "include_offering_in_fingerprint": false,
+      "include_period_in_fingerprint": false,
+      "cardinality": {
+        "strategy": "PER_DIGITAL_ASSET",
+        "max_per_digital_asset": 1,
+        "bound": "one_finding_per_asset"
+      },
+      "join_key": ["customer_id", "brand_id", "digital_asset_id"],
+      "integrity_requirement": "trusted",
+      "freshness_requirement": "fresh_or_fresh_with_limitation",
+      "completeness_requirement": "required_states_are_VALUE",
+      "provider_limitation_policy": "block_not_false",
+      "activation_policy": "IMMEDIATE",
+      "threshold_source": "MoxDop\\Website\\Findings\\PerformanceFindingsCatalog",
+      "units": {
+        "count": "count",
+        "relative_change": "ratio"
+      },
+      "currency_policy": "not_applicable",
+      "period_compatibility": "same_evidence_period",
+      "dimension_compatibility": "property_grain",
+      "required_operand_states": [
+        { "path": "metrics.impressions.relative_change_state", "equals": "VALUE" }
+      ],
+      "activation": {
+        "combiner": "ALL",
+        "conditions": [
+          { "type": "VALUE_GTE", "path": "metrics.impressions.previous", "value": 500, "unit": "count" },
+          { "type": "VALUE_LTE", "path": "metrics.impressions.relative_change", "value": -0.2, "unit": "ratio" },
+          { "type": "ABS_DECREASE_GTE", "current_path": "metrics.impressions.current", "previous_path": "metrics.impressions.previous", "value": 100, "unit": "count" }
+        ]
+      },
+      "clear": {
+        "combiner": "ALL",
+        "conditions": [
+          { "type": "VALUE_GTE", "path": "metrics.impressions.previous", "value": 500, "unit": "count" },
+          { "type": "VALUE_GT", "path": "metrics.impressions.relative_change", "value": -0.2, "unit": "ratio" }
+        ]
+      },
+      "auto_resolve": true,
+      "reopen_policy": "REOPEN_SAME_FINDING",
+      "fingerprint_inputs": ["stable_rule_id", "customer_id", "brand_id", "digital_asset_id", "subject_kind", "subject_id"],
+      "evaluation_fingerprint_inputs": ["finding_fingerprint", "rule_version", "evidence_observation_fingerprints", "period", "condition_config"],
+      "title_template": "Search Console impressions declined",
+      "summary_template": "Impressions moved from {metrics.impressions.previous} to {metrics.impressions.current} (relative change {metrics.impressions.relative_change}) versus the previous comparable period."
+    },
+    {
+      "id": "website.gsc.ctr_absolute_decline",
+      "stable_id": "website:gsc:ctr-decline",
+      "version": 1,
+      "enabled": true,
+      "meaning": "Search Console property CTR declined by at least the frozen catalog absolute ratio-point drop, with sufficient prior impressions. CTR values come from FORMULA_GSC_CTR on canonical Evidence — Finding rules do not recompute CTR.",
+      "category": "performance",
+      "severity": "medium",
+      "severity_policy": "static",
+      "source_module": "website",
+      "consumer_intent": "operator_finding_queue",
+      "evidence_definition_ids": ["gsc.property.period_comparison"],
+      "required_evidence_kinds": ["period_comparison"],
+      "scope_requirements": ["customer", "brand", "digital_asset"],
+      "subject": {
+        "kind": "digital_asset",
+        "grain": "PER_DIGITAL_ASSET"
+      },
+      "goal_offering_policy": "inherit_explicit_evidence_scope_do_not_infer",
+      "include_goal_in_fingerprint": false,
+      "include_offering_in_fingerprint": false,
+      "include_period_in_fingerprint": false,
+      "cardinality": {
+        "strategy": "PER_DIGITAL_ASSET",
+        "max_per_digital_asset": 1,
+        "bound": "one_finding_per_asset"
+      },
+      "join_key": ["customer_id", "brand_id", "digital_asset_id"],
+      "integrity_requirement": "trusted",
+      "freshness_requirement": "fresh_or_fresh_with_limitation",
+      "completeness_requirement": "required_states_are_VALUE",
+      "provider_limitation_policy": "block_not_false",
+      "activation_policy": "IMMEDIATE",
+      "threshold_source": "MoxDop\\Website\\Findings\\PerformanceFindingsCatalog",
+      "units": {
+        "count": "count",
+        "ctr": "ratio"
+      },
+      "currency_policy": "not_applicable",
+      "period_compatibility": "same_evidence_period",
+      "dimension_compatibility": "property_grain",
+      "required_operand_states": [
+        { "path": "metrics.ctr.current_state", "equals": "VALUE" },
+        { "path": "metrics.ctr.previous_state", "equals": "VALUE" }
+      ],
+      "activation": {
+        "combiner": "ALL",
+        "conditions": [
+          { "type": "VALUE_GTE", "path": "metrics.impressions.previous", "value": 500, "unit": "count" },
+          { "type": "ABS_DECREASE_GTE", "current_path": "metrics.ctr.current", "previous_path": "metrics.ctr.previous", "value": 0.005, "unit": "ratio" }
+        ]
+      },
+      "clear": {
+        "combiner": "ALL",
+        "conditions": [
+          { "type": "VALUE_GTE", "path": "metrics.impressions.previous", "value": 500, "unit": "count" },
+          { "type": "ABS_DECREASE_GTE", "current_path": "metrics.ctr.current", "previous_path": "metrics.ctr.previous", "value": 0.005, "unit": "ratio", "negate": true }
+        ]
+      },
+      "auto_resolve": true,
+      "reopen_policy": "REOPEN_SAME_FINDING",
+      "fingerprint_inputs": ["stable_rule_id", "customer_id", "brand_id", "digital_asset_id", "subject_kind", "subject_id"],
+      "evaluation_fingerprint_inputs": ["finding_fingerprint", "rule_version", "evidence_observation_fingerprints", "period", "condition_config"],
+      "title_template": "Search Console CTR declined",
+      "summary_template": "CTR moved from {metrics.ctr.previous} to {metrics.ctr.current} versus the previous comparable period with prior impressions {metrics.impressions.previous}."
+    },
+    {
+      "id": "website.ga4.sessions_relative_decline",
+      "stable_id": "website:ga4:sessions-decline",
+      "version": 1,
+      "enabled": true,
+      "meaning": "GA4 property sessions declined versus the previous comparable period under frozen catalog gates. This is sessions, not users and not qualified leads.",
+      "category": "performance",
+      "severity": "medium",
+      "severity_policy": "static",
+      "source_module": "website",
+      "consumer_intent": "operator_finding_queue",
+      "evidence_definition_ids": ["ga4.property.period_comparison"],
+      "required_evidence_kinds": ["period_comparison"],
+      "scope_requirements": ["customer", "brand", "digital_asset"],
+      "subject": {
+        "kind": "digital_asset",
+        "grain": "PER_DIGITAL_ASSET"
+      },
+      "goal_offering_policy": "inherit_explicit_evidence_scope_do_not_infer",
+      "include_goal_in_fingerprint": false,
+      "include_offering_in_fingerprint": false,
+      "include_period_in_fingerprint": false,
+      "cardinality": {
+        "strategy": "PER_DIGITAL_ASSET",
+        "max_per_digital_asset": 1,
+        "bound": "one_finding_per_asset"
+      },
+      "join_key": ["customer_id", "brand_id", "digital_asset_id"],
+      "integrity_requirement": "trusted",
+      "freshness_requirement": "fresh_or_fresh_with_limitation",
+      "completeness_requirement": "required_states_are_VALUE",
+      "provider_limitation_policy": "block_not_false",
+      "activation_policy": "IMMEDIATE",
+      "threshold_source": "MoxDop\\Website\\Findings\\PerformanceFindingsCatalog",
+      "units": {
+        "count": "count",
+        "relative_change": "ratio"
+      },
+      "currency_policy": "not_applicable",
+      "period_compatibility": "same_evidence_period",
+      "dimension_compatibility": "property_grain",
+      "required_operand_states": [
+        { "path": "metrics.sessions.relative_change_state", "equals": "VALUE" }
+      ],
+      "activation": {
+        "combiner": "ALL",
+        "conditions": [
+          { "type": "VALUE_GTE", "path": "metrics.sessions.previous", "value": 50, "unit": "count" },
+          { "type": "VALUE_LTE", "path": "metrics.sessions.relative_change", "value": -0.2, "unit": "ratio" },
+          { "type": "ABS_DECREASE_GTE", "current_path": "metrics.sessions.current", "previous_path": "metrics.sessions.previous", "value": 15, "unit": "count" }
+        ]
+      },
+      "clear": {
+        "combiner": "ALL",
+        "conditions": [
+          { "type": "VALUE_GTE", "path": "metrics.sessions.previous", "value": 50, "unit": "count" },
+          { "type": "VALUE_GT", "path": "metrics.sessions.relative_change", "value": -0.2, "unit": "ratio" }
+        ]
+      },
+      "auto_resolve": true,
+      "reopen_policy": "REOPEN_SAME_FINDING",
+      "fingerprint_inputs": ["stable_rule_id", "customer_id", "brand_id", "digital_asset_id", "subject_kind", "subject_id"],
+      "evaluation_fingerprint_inputs": ["finding_fingerprint", "rule_version", "evidence_observation_fingerprints", "period", "condition_config"],
+      "title_template": "GA4 sessions declined",
+      "summary_template": "Sessions moved from {metrics.sessions.previous} to {metrics.sessions.current} (relative change {metrics.sessions.relative_change}) versus the previous comparable period."
+    }
+  ]
+}

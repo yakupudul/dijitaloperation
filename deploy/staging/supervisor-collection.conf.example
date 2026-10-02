@@ -1,0 +1,59 @@
+; Dedicated canonical collection workers for MoxDOP staging.
+; PostgreSQL collection state is the source of truth. Google Ads and Website are
+; isolated from the other providers so a GA4/Meta backlog cannot starve Ads runs
+; and a long website crawl never waits behind (or blocks) other providers.
+; Dataset dispatch locks prevent duplicate execution with Horizon/Redis and
+; between the processes of one lane.
+
+[program:moxdop-staging-collection]
+process_name=%(program_name)s
+command=php /var/www/moxdop/artisan moxdop:collection:work-db --exclude-provider=GOOGLE_ADS,WEBSITE_DIRECT,DOMAIN_DNS_TLS,PAGESPEED_TECHNICAL,WORDPRESS_SITE_CONNECTOR --sleep=1 --max-runtime=3500
+directory=/var/www/moxdop
+autostart=true
+autorestart=true
+startsecs=2
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/var/log/moxdop-staging-collection.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=5
+stopwaitsecs=360
+
+[program:moxdop-staging-google-ads-collection]
+process_name=%(program_name)s
+command=php /var/www/moxdop/artisan moxdop:collection:work-db --provider=GOOGLE_ADS --sleep=1 --max-runtime=3500
+directory=/var/www/moxdop
+autostart=true
+autorestart=true
+startsecs=2
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/var/log/moxdop-staging-google-ads-collection.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=5
+stopwaitsecs=360
+
+; Website lane: page HTML crawl (15 URLs in parallel per step), HTTP/robots/sitemap, TLS, PageSpeed and the
+; WordPress Connector inventory. Two processes so two sites progress at the same time.
+[program:moxdop-staging-website-collection]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/moxdop/artisan moxdop:collection:work-db --provider=WEBSITE_DIRECT,DOMAIN_DNS_TLS,PAGESPEED_TECHNICAL,WORDPRESS_SITE_CONNECTOR --sleep=1 --max-runtime=3500
+directory=/var/www/moxdop
+autostart=true
+autorestart=true
+startsecs=2
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=2
+redirect_stderr=true
+stdout_logfile=/var/log/moxdop-staging-website-collection-%(process_num)02d.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=5
+stopwaitsecs=360

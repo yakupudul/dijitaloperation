@@ -133,7 +133,7 @@ final class SkillRegistry
 
         usort(
             $skills,
-            fn (SkillDefinition $a, SkillDefinition $b): int => [$a->module, $a->name] <=> [$b->module, $a->name]
+            fn (SkillDefinition $a, SkillDefinition $b): int => [$a->module, $a->name] <=> [$b->module, $b->name]
         );
 
         return $this->skills = $skills;

@@ -2,11 +2,14 @@
 
 namespace App\Filament\App\Widgets;
 
+use App\Services\Observability\OperationalHealthSnapshot;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Facades\Auth;
 
 /**
- * Kept for future Settings/System surfaces. Not shown on the operational Dashboard.
+ * Real bounded operational dimensions (Prompt 66).
+ * Kept undiscovered on the main Dashboard — available for Settings/System surfaces.
+ * Never shows a numeric health score or hard-coded "All Systems Operational".
  */
 class SystemStatusWidget extends Widget
 {
@@ -17,18 +20,21 @@ class SystemStatusWidget extends Widget
     protected int|string|array $columnSpan = 'full';
 
     /**
-     * @return array{title: string, status: string, user: string, environment: string, laravel: string}
+     * @return array<string, mixed>
      */
     protected function getViewData(): array
     {
         $user = Auth::user();
+        $snapshot = app(OperationalHealthSnapshot::class)->snapshot();
 
         return [
-            'title' => 'MoxDOP',
-            'status' => 'System status',
+            'title' => 'MoxDOP Operations',
             'user' => $user?->name ?? 'Unknown',
             'environment' => (string) config('app.env'),
             'laravel' => app()->version(),
+            'dimensions' => $snapshot['dimensions'],
+            'open_alert_count' => $snapshot['open_alert_count'],
+            'overall_score' => null,
         ];
     }
 }

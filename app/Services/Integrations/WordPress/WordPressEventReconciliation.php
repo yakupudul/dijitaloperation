@@ -1,0 +1,327 @@
+<?php
+
+namespace App\Services\Integrations\WordPress;
+
+use App\Models\Collection\CollectionRun;
+use App\Models\CoreConnection;
+use App\Services\Collection\Providers\Website\WebsiteCrawlState;
+use App\Services\Collection\Providers\Website\WebsiteDatasetExecutor;
+use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
+use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
+use App\Services\SeoTasks\SeoText;
+use App\Services\Website\Pages\WordPressPageSync;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Throwable;
+
+/**
+ * Admits bounded work to the existing queue; never performs provider HTTP here.
+ *
+ * 1.4.1 fast path: runs every minute. A small batch of changed objects (the usual case: someone saved a page) is
+ * refreshed about a minute after the event arrives and has its own, wider concurrency; only full inventories share
+ * the two slots. Also settles site-fix verification crawls (ADR-070).
+ */
+final class WordPressEventReconciliation
+{
+    /** Concurrent full WordPress inventories across all sites. */
+    private const int FULL_SLOTS = 2;
+
+    /** Concurrent changed-object refreshes across all sites. */
+    private const int CHANGE_SLOTS = 8;
+
+    public function tick(): void
+    {
+        $lock = Cache::lock('wordpress-event-reconciliation', 120);
+        if (! $lock->get()) {
+            return;
+        }
+        try {
+            $this->reconcile();
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function reconcile(): void
+    {
+        // Inventory polling must not depend on WordPress managing to send a heartbeat.
+        CoreConnection::query()->where('type', WordPressConnectorPairingService::CONNECTION_TYPE)
+            ->where('enabled', true)->where('config->pairing_state', 'paired')
+            ->whereHas('credential')->whereHas('digitalAsset', fn ($q) => $q->where('type', 'website'))
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('website_connector_delivery')
+                ->whereColumn('connection_id', 'core_connections.id'))
+            ->orderBy('id')->limit(200)->get()->each(fn ($connection) => $this->initialize($connection));
+        DB::table('website_connector_nonces')->where('created_at', '<', now()->subHour())->delete();
+        $active = DB::table('website_connector_delivery')->whereNotNull('collection_run_id')->get();
+        foreach ($active as $state) {
+            $run = CollectionRun::query()->find($state->collection_run_id);
+            $status = $run?->status?->value;
+            if (in_array($status, ['queued', 'running', 'retrying', 'cancellation_requested'], true)) {
+                continue;
+            }
+            $update = ['collection_run_id' => null, 'next_reconcile_at' => $state->collection_is_full ? now()->addMinutes(10) : now()->addMinute()];
+            if ($status === 'completed') {
+                $update += ['reconciled_event_id' => $state->collection_event_id, 'last_reconciled_at' => now(), 'last_error' => null];
+                if ($state->collection_is_full) {
+                    $update['last_inventory_at'] = now();
+                }
+            } else {
+                $update += ['last_error' => 'WordPress veri yenilemesi tamamlanamadı; çekim geçmişini inceleyin.', 'next_reconcile_at' => now()->addHour()];
+                $update['next_reconcile_at'] = now()->addHour();
+            }
+            DB::table('website_connector_delivery')->where('connection_id', $state->connection_id)->where('collection_run_id', $state->collection_run_id)->update($update);
+        }
+        $busy = DB::table('website_connector_delivery')->whereNotNull('collection_run_id')->selectRaw('collection_is_full, count(*) as c')
+            ->groupBy('collection_is_full')->pluck('c', 'collection_is_full')->all();
+        $fullSlots = max(0, self::FULL_SLOTS - (int) ($busy[1] ?? $busy['1'] ?? 0));
+        $changeSlots = max(0, self::CHANGE_SLOTS - (int) ($busy[0] ?? $busy['0'] ?? 0));
+        if ($fullSlots === 0 && $changeSlots === 0) {
+            return;
+        }
+        $fullSlots = $this->startNightlyFullReads($fullSlots);
+        $states = DB::table('website_connector_delivery')
+            ->where('automation_enabled', true)
+            ->whereNull('collection_run_id')
+            ->whereExists(fn ($q) => $q->selectRaw('1')->from('core_connections')
+                ->whereColumn('core_connections.id', 'website_connector_delivery.connection_id')
+                ->where('enabled', true)->where('config->pairing_state', 'paired'))
+            ->where(fn ($q) => $q->whereNull('next_reconcile_at')->orWhere('next_reconcile_at', '<=', now()))
+            ->where(fn ($q) => $q->whereColumn('latest_event_id', '>', 'reconciled_event_id')
+                ->orWhereNull('last_inventory_at')
+                ->orWhere(fn ($q) => $q->where('inventory_interval_days', 1)->where('last_inventory_at', '<=', now()->subDay()))
+                ->orWhere(fn ($q) => $q->where('inventory_interval_days', 3)->where('last_inventory_at', '<=', now()->subDays(3)))
+                ->orWhereColumn('gap_at', '>', 'last_inventory_at'))
+            ->orderBy('next_reconcile_at')->limit(40)->get();
+        foreach ($states as $state) {
+            if ($fullSlots < 1 && $changeSlots < 1) {
+                break;
+            }
+            $connection = CoreConnection::query()->with(['digitalAsset.brand.customer', 'credential'])->find($state->connection_id);
+            if (! $connection?->enabled || data_get($connection->config, 'pairing_state') !== 'paired'
+                || ! $connection->digitalAsset || ! $connection->credential || $connection->digitalAsset->brand_id === null) {
+                // Passive customers keep collecting; an unpaired / deleted site or one not assigned to a brand waits.
+                DB::table('website_connector_delivery')->where('connection_id', $state->connection_id)
+                    ->update(['next_reconcile_at' => now()->addHour()]);
+
+                continue;
+            }
+            if (CollectionRun::query()->where('digital_asset_id', $connection->digital_asset_id)
+                ->whereIn('status', ['queued', 'running', 'retrying', 'cancellation_requested'])->exists()) {
+                DB::table('website_connector_delivery')->where('connection_id', $state->connection_id)
+                    ->update(['next_reconcile_at' => now()->addMinute()]);
+
+                continue;
+            }
+            $inventory = CollectionRun::query()->where('digital_asset_id', $connection->digital_asset_id)
+                ->where('status', 'completed')->whereNotNull('finished_at')
+                ->whereIn('request_context->context->collection_scope', ['full', 'full_reread', 'wordpress'])
+                ->when($state->last_inventory_at, fn ($q) => $q->where('finished_at', '>', $state->last_inventory_at))
+                // Faz 12: paired_at is stored as ISO-8601 ("…T…+00:00"); compare in the DB's own datetime format, otherwise a
+                // same-day inventory never matches as text and a needless full inventory is started.
+                ->when(data_get($connection->config, 'paired_at'), fn ($q, $pairedAt) => $q->where('started_at', '>=', Carbon::parse((string) $pairedAt)->utc()->toDateTimeString()))
+                ->whereHas('datasetRuns', fn ($q) => $q->where('request_family_id', WebsiteRequestFamilyCatalog::FAMILY_WP_REST)
+                    ->where('status', 'completed'), '=', 5)
+                ->orderByDesc('finished_at')->first();
+            if ($inventory) {
+                $state->last_inventory_at = $inventory->finished_at->toDateTimeString();
+                DB::table('website_connector_delivery')->where('connection_id', $connection->id)
+                    ->update(['last_inventory_at' => $state->last_inventory_at]);
+            }
+            $full = $state->last_inventory_at === null || strtotime($state->last_inventory_at) <= now()->subDays((int) $state->inventory_interval_days)->getTimestamp()
+                || ($state->gap_at && strtotime($state->gap_at) > strtotime($state->last_inventory_at ?? '1970-01-01'));
+            $events = DB::table('website_connector_events')->where('connection_id', $connection->id)
+                ->where('id', '>', $state->reconciled_event_id)->orderBy('id')->limit(50)->get();
+            // v2 pages: a deleted / trashed / unpublished object leaves `pages` now; a template (theme) change marks
+            // every page changed without refetching. Updated / new objects are refreshed below (changed-object run).
+            try {
+                app(WordPressPageSync::class)->applyEvents((int) $connection->digital_asset_id, $events);
+            } catch (Throwable $error) {
+                report($error);
+            }
+            $events = $events->reject(fn ($event): bool => WordPressPageSync::isTemplateChange($event))->values();
+            $watermarkId = (int) (DB::table('website_connector_events')->where('connection_id', $connection->id)
+                ->where('id', '>', $state->reconciled_event_id)->orderBy('id')->limit(50)->pluck('id')->max() ?? $state->reconciled_event_id);
+            if (! $full && ($events->isEmpty() || $events->every(fn ($event) => $event->type === 'access.role_changed'))) {
+                DB::table('website_connector_delivery')->where('connection_id', $connection->id)->update([
+                    'reconciled_event_id' => $watermarkId,
+                    'next_reconcile_at' => now()->addMinutes(10),
+                ]);
+
+                continue;
+            }
+            $ids = $events->filter(fn ($e) => str_starts_with($e->type, 'content.') || str_starts_with($e->type, 'seo.'))
+                ->pluck('object_id')->filter(fn ($id) => ctype_digit($id) && (int) $id > 0)->map(fn ($id) => (int) $id)->unique()->values()->all();
+            // Global settings updates (permalinks, front page) require a fresh inventory. A theme change does not (v2):
+            // its pages were only marked changed above.
+            $full = $full || version_compare((string) $state->plugin_version, '1.1.0', '<')
+                || $ids === [] || $events->contains(fn ($e) => $e->type === 'settings.updated');
+            if ($full ? $fullSlots < 1 : $changeSlots < 1) {
+                continue;
+            }
+            // A full CMS snapshot does not verify URLs outside this event batch.
+            $watermark = $watermarkId;
+            $context = [
+                'force_refresh' => true,
+                'idempotency_key' => 'wp-events:'.$connection->id.':'.$watermark.':'.now()->format('YmdHi'),
+                'collection_intent' => 'wordpress_event_reconciliation',
+                'collection_scope' => $full ? 'wordpress' : 'changes',
+                'collection_intent_label' => $full ? 'WordPress inventory reconciliation' : 'WordPress changed-object refresh',
+                'wordpress_object_ids' => $full ? [] : $ids,
+            ];
+            $families = [WebsiteRequestFamilyCatalog::FAMILY_WP_REST];
+            $urls = [];
+            if ($ids !== []) {
+                $urls = DB::table('website_cms_object_snapshot')->where('digital_asset_id', $connection->digital_asset_id)
+                    ->whereIn('object_id', array_map('strval', $ids))->whereNotIn('object_type', WebsiteDatasetExecutor::NON_PAGE_CMS_TYPES)->pluck('permalink')->all();
+            }
+            foreach ($events as $event) {
+                $url = data_get(json_decode($event->payload, true), 'url');
+                if (is_string($url) && $url !== '') {
+                    $urls[] = $url;
+                }
+            }
+            $host = strtolower((string) parse_url($connection->digitalAsset->primary_url ?: ('https://'.$connection->digitalAsset->domain), PHP_URL_HOST));
+            $urls = array_values(array_unique(array_filter($urls, fn ($url) => is_string($url)
+                && in_array(parse_url($url, PHP_URL_SCHEME), ['http', 'https'], true)
+                && strtolower((string) parse_url($url, PHP_URL_HOST)) === $host
+                && parse_url($url, PHP_URL_USER) === null && parse_url($url, PHP_URL_PASS) === null
+                && SeoText::isCrawlablePage($url))));
+            if ($urls !== []) {
+                $families[] = WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL;
+                $context['targeted_verification'] = ['version' => 1, 'urls' => array_slice($urls, 0, 100),
+                    'candidate_url_count' => count($urls), 'truncated' => count($urls) > 100,
+                    'issue_code' => 'WORDPRESS_CHANGE', 'relation_key' => 'wordpress-events'];
+            }
+            if ($full && ($state->last_inventory_at === null || $this->neverRead((int) $connection->digital_asset_id))) {
+                // First inventory after pairing (or a site never read in full): the page HTML crawl follows it
+                // (WordPress first, then the pages it lists). Pages unchanged since their last fetch keep their copy.
+                $families = [
+                    WebsiteRequestFamilyCatalog::FAMILY_WP_REST,
+                    WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL,
+                    WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS,
+                    WebsiteRequestFamilyCatalog::FAMILY_DNS_TLS,
+                ];
+                unset($context['targeted_verification']);
+                $context['refetch_unchanged'] = false;
+            } elseif ($full && ! isset($context['targeted_verification'])) {
+                // Routine inventory: afterwards only the pages whose WordPress modified date / sitemap lastmod is newer
+                // than their stored copy are read (a conditional request makes the rest a 304). Never a full HTML crawl:
+                // that runs at most every crawl.full_read_interval_days, at night (startNightlyFullReads).
+                $families[] = WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL;
+                $context['refetch_unchanged'] = false;
+                $context['crawl_mode'] = 'changed';
+            }
+            try {
+                $run = app(WebsiteCollectionOrchestrator::class)->start(
+                    asset: $connection->digitalAsset, requestFamilyIds: $families, context: $context,
+                );
+                DB::table('website_connector_delivery')->where('connection_id', $connection->id)->update([
+                    'collection_run_id' => $run->id, 'collection_event_id' => $watermark,
+                    'collection_is_full' => $full, 'last_error' => null,
+                ]);
+                $full ? $fullSlots-- : $changeSlots--;
+            } catch (Throwable $error) {
+                DB::table('website_connector_delivery')->where('connection_id', $connection->id)->update([
+                    'last_error' => 'WordPress yenilemesi başlatılamadı: '.class_basename($error),
+                    'next_reconcile_at' => now()->addHour(),
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Full HTML re-read of a WordPress site (inventory + every page, `refetch_unchanged`): at most every
+     * crawl.full_read_interval_days (30) and only inside the night window (Europe/Istanbul 01:00–06:00), when the site
+     * has the fewest visitors. Uses the full-inventory slots; returns the slots left.
+     */
+    private function startNightlyFullReads(int $fullSlots): int
+    {
+        if ($fullSlots < 1 || ! self::inNightWindow() || ! Schema::hasTable('website_crawl_state')) {
+            return $fullSlots;
+        }
+        $due = now()->subDays(max(1, (int) config('moxdop-website-intelligence.crawl.full_read_interval_days', 30)));
+        $states = DB::table('website_connector_delivery as d')
+            ->join('core_connections as c', 'c.id', '=', 'd.connection_id')
+            ->leftJoin('website_crawl_state as s', 's.digital_asset_id', '=', 'c.digital_asset_id')
+            ->where('d.automation_enabled', true)->whereNull('d.collection_run_id')
+            ->where('c.enabled', true)->where('c.config->pairing_state', 'paired')
+            // A site read for the first time is started by the regular pass right away.
+            ->whereNotNull('d.last_inventory_at')
+            ->where(fn ($q) => $q->whereNull('s.last_full_read_at')->orWhere('s.last_full_read_at', '<=', $due))
+            ->orderBy('s.last_full_read_at')->limit(20)
+            ->get(['d.connection_id', 'd.reconciled_event_id']);
+        foreach ($states as $state) {
+            if ($fullSlots < 1) {
+                break;
+            }
+            $connection = CoreConnection::query()->with(['digitalAsset', 'credential'])->find($state->connection_id);
+            if (! $connection?->digitalAsset || ! $connection->credential || $connection->digitalAsset->brand_id === null
+                || CollectionRun::query()->where('digital_asset_id', $connection->digital_asset_id)
+                    ->whereIn('status', ['queued', 'running', 'retrying', 'cancellation_requested'])->exists()) {
+                continue;
+            }
+            try {
+                $run = app(WebsiteCollectionOrchestrator::class)->start(
+                    asset: $connection->digitalAsset,
+                    requestFamilyIds: [
+                        WebsiteRequestFamilyCatalog::FAMILY_WP_REST,
+                        WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL,
+                        WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS,
+                        WebsiteRequestFamilyCatalog::FAMILY_DNS_TLS,
+                    ],
+                    context: [
+                        'force_refresh' => true,
+                        'refetch_unchanged' => true,
+                        'crawl_mode' => 'full',
+                        'idempotency_key' => 'wp-full-read:'.$connection->id.':'.now()->format('Ymd'),
+                        'collection_intent' => 'wordpress_event_reconciliation',
+                        'collection_scope' => 'full',
+                        'collection_intent_label' => 'Monthly full HTML read (night)',
+                        'full_read_reason' => 'monthly_night',
+                        'wordpress_object_ids' => [],
+                    ],
+                );
+                DB::table('website_connector_delivery')->where('connection_id', $connection->id)->update([
+                    'collection_run_id' => $run->id, 'collection_event_id' => $state->reconciled_event_id,
+                    'collection_is_full' => true, 'last_error' => null,
+                ]);
+                $fullSlots--;
+            } catch (Throwable $error) {
+                report($error);
+            }
+        }
+
+        return $fullSlots;
+    }
+
+    /** Inside the night window of full HTML re-reads (crawl.full_read_window, Europe/Istanbul 01:00–06:00). */
+    public static function inNightWindow(): bool
+    {
+        $window = (array) config('moxdop-website-intelligence.crawl.full_read_window', []);
+        $hour = (int) now()->setTimezone((string) ($window['timezone'] ?? 'Europe/Istanbul'))->format('G');
+
+        return $hour >= (int) ($window['start_hour'] ?? 1) && $hour < (int) ($window['end_hour'] ?? 6);
+    }
+
+    /** No page of the site was ever read (no stored HTML, no full read recorded). */
+    private function neverRead(int $assetId): bool
+    {
+        return app(WebsiteCrawlState::class)->lastFullReadAt($assetId) === null
+            && Schema::hasTable('website_html_snapshot')
+            && DB::table('website_html_snapshot')->where('digital_asset_id', $assetId)->doesntExist();
+    }
+
+    public function initialize(CoreConnection $connection): void
+    {
+        if (! $connection->enabled || $connection->type !== WordPressConnectorPairingService::CONNECTION_TYPE
+            || data_get($connection->config, 'pairing_state') !== 'paired' || ! $connection->credential) {
+            return;
+        }
+        DB::table('website_connector_delivery')->insertOrIgnore([
+            'connection_id' => $connection->id,
+            'plugin_version' => data_get($connection->config, 'plugin_version'),
+        ]);
+    }
+}

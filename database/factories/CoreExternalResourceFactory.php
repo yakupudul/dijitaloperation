@@ -20,7 +20,9 @@ class CoreExternalResourceFactory extends Factory
     public function definition(): array
     {
         return [
-            'integration_id' => CoreIntegration::factory()->google(),
+            // One integration per provider (unique): reuse it when a previous resource already created it.
+            'integration_id' => fn (): int => CoreIntegration::query()->where('provider', ProviderRegistry::GOOGLE)->value('id')
+                ?? CoreIntegration::factory()->google()->create()->id,
             'provider' => ProviderRegistry::GOOGLE,
             'resource_type' => 'ga4',
             'external_id' => 'properties/'.fake()->numerify('########'),

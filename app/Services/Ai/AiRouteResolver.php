@@ -5,12 +5,16 @@ namespace App\Services\Ai;
 use App\Models\AiRouteStep;
 use App\Models\CoreIntegration;
 use App\Services\Integrations\Anthropic\AnthropicCredentialResolver;
+use App\Services\Integrations\ApiKeyAi\ApiKeyAiCredentialResolver;
 use App\Services\Integrations\Gemini\GeminiCredentialResolver;
 use App\Services\Integrations\OpenAi\OpenAiCredentialResolver;
+use App\Services\Prompts\PromptRegistry;
 use App\Support\Ai\AiProviderCatalog;
+use App\Support\Ai\AiProviderOptions;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Ai\ResolvedAiRoute;
 use App\Support\Integrations\ProviderRegistry;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -42,15 +46,34 @@ final class AiRouteResolver
                 'model' => $step->model,
             ])->all()
             : $descriptor['default_steps'];
+        // Faz 8: the model pinned on the operation's current prompt version becomes the primary step.
+        $pinned = app(PromptRegistry::class)->modelFor($routeKey);
+        if ($pinned !== null) {
+            $rawSteps = [
+                ['provider' => $pinned[0], 'model' => $pinned[1]],
+                ...array_filter(array_values($rawSteps), fn (array $step): bool => ($step['provider'] ?? '') !== $pinned[0]),
+            ];
+        }
 
         $steps = [];
         $providerModels = [];
+        $clientData = self::containsClientData($descriptor);
+        $budget = app(AiBudget::class);
+        // Lets the usage recorder attribute calls from agents without a static route mapping.
+        Context::addHidden('ai_route_key', $routeKey);
 
         foreach (array_values($rawSteps) as $index => $raw) {
             $provider = (string) ($raw['provider'] ?? '');
             $model = (string) ($raw['model'] ?? '');
             $role = $index === 0 ? 'PRIMARY' : 'FALLBACK';
             $eligibility = $this->eligibility($provider);
+            $effectiveModel = $model !== '' ? $model : AiProviderCatalog::defaultModel($provider);
+            if ($eligibility['eligible'] && $clientData && AiProviderCatalog::isFreeTierDataRisk($provider)) {
+                $eligibility = ['eligible' => false, 'reason' => 'client_data_not_allowed'];
+            }
+            if ($eligibility['eligible'] && ! $budget->allows($provider, $effectiveModel, $routeKey)) {
+                $eligibility = ['eligible' => false, 'reason' => 'budget_exhausted'];
+            }
 
             $steps[] = [
                 'provider' => $provider,
@@ -65,6 +88,11 @@ final class AiRouteResolver
             }
         }
 
+        // The OpenAI model of this route: provider options add the low reasoning effort only for reasoning models.
+        if (isset($providerModels[AiProviderCatalog::OPENAI])) {
+            Context::addHidden(AiProviderOptions::OPENAI_MODEL_CONTEXT, $providerModels[AiProviderCatalog::OPENAI]);
+        }
+
         return new ResolvedAiRoute(
             routeKey: $routeKey,
             routeName: $descriptor['name'],
@@ -73,6 +101,16 @@ final class AiRouteResolver
             signature: $this->signature($routeKey, $providerModels),
             usingPersistedSteps: $usingPersisted,
         );
+    }
+
+    /**
+     * Routes carry client data unless their descriptor explicitly says otherwise.
+     *
+     * @param  array<string, mixed>  $descriptor
+     */
+    public static function containsClientData(array $descriptor): bool
+    {
+        return (bool) ($descriptor['contains_client_data'] ?? true);
     }
 
     /**
@@ -117,6 +155,12 @@ final class AiRouteResolver
                 ]);
             }
 
+            if (AiProviderCatalog::isFreeTierDataRisk($provider) && self::containsClientData($this->registry->get($routeKey))) {
+                throw ValidationException::withMessages([
+                    'steps' => AiProviderCatalog::label($provider).' ücretsiz/üçüncü taraf katman: bu AI işi müşteri verisi içerdiği için seçilemez.',
+                ]);
+            }
+
             if (isset($seen[$provider])) {
                 throw ValidationException::withMessages([
                     'steps' => 'Each provider may appear only once in a route (V1).',
@@ -146,6 +190,12 @@ final class AiRouteResolver
         });
     }
 
+    /** Whether the provider is configured, enabled and supported (model choices of the prompt screen). */
+    public function providerReady(string $provider): bool
+    {
+        return $this->eligibility($provider)['eligible'];
+    }
+
     /**
      * @return array{eligible: bool, reason: ?string}
      */
@@ -169,6 +219,9 @@ final class AiRouteResolver
             ProviderRegistry::OPENAI, AiProviderCatalog::OPENAI => $this->isOpenAiConfigured($integration),
             AiProviderCatalog::ANTHROPIC => $this->isAnthropicConfigured($integration),
             AiProviderCatalog::GEMINI => $this->isGeminiConfigured($integration),
+            AiProviderCatalog::GROQ, AiProviderCatalog::OPENROUTER => $integration instanceof CoreIntegration
+                ? app(ApiKeyAiCredentialResolver::class)->isConfigured($integration)
+                : app(ApiKeyAiCredentialResolver::class)->envApiKey($provider) !== null,
             default => false,
         };
 
