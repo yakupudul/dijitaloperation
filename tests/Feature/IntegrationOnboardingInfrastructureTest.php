@@ -54,7 +54,23 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
             ->assertOk()
             ->assertSee('Meta Ads Connector');
 
-        foreach (['google-ads', 'ga4', 'gsc', 'gbp', 'meta-ads'] as $connector) {
+        // GA4 and Search Console use the central, property-first connector workspace.
+        foreach (['ga4', 'gsc'] as $connector) {
+            $this->get(route('operator.integrations.connector', ['connector' => $connector]))
+                ->assertOk()
+                ->assertSee('Mülkler')
+                ->assertSee('Veri')
+                ->assertSee('Geçmiş')
+                ->assertSee('Not configured');
+        }
+
+        $this->get(route('operator.integrations.connector', ['connector' => 'google-ads']))
+            ->assertOk()
+            ->assertSee('Hesaplar')
+            ->assertSee('Veri')
+            ->assertSee('Canlı Akış');
+
+        foreach (['gbp', 'meta-ads'] as $connector) {
             $this->get(route('operator.integrations.connector', ['connector' => $connector]))
                 ->assertOk()
                 ->assertSee('Overview')
@@ -77,8 +93,6 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
             ->assertDontSee('Recommended match')
             ->call('setTab', 'data')
             ->assertSee('No collection data')
-            ->call('setTab', 'sync')
-            ->assertSee('Last successful collection')
             ->call('setTab', 'activity');
     }
 

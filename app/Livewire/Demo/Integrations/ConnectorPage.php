@@ -12,6 +12,7 @@ use App\Services\Collection\Ga4\Ga4CentralCollectionService;
 use App\Services\Collection\SearchConsole\SearchConsoleCentralCollectionService;
 use App\Services\Integrations\Google\GoogleIntegrationReadModel;
 use App\Support\Demo\DemoState;
+use App\Support\Integrations\Google\GoogleAuthStatus;
 use App\Support\Integrations\Google\GoogleConnectorRegistry;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
@@ -45,9 +46,13 @@ class ConnectorPage extends Component
     public array $selectedResourceIds = [];
 
     public ?string $bindResourceId = null;
+
     public string $bindMode = 'existing';
+
     public string $selectedAssetId = '';
+
     public string $newAssetName = '';
+
     public bool $confirmBind = false;
 
     /** @var list<string> */
@@ -392,6 +397,7 @@ class ConnectorPage extends Component
             'integration_label' => 'Google',
             'integration_route' => 'operator.integrations.google',
             'connection' => $connection,
+            'connected' => $connection === GoogleAuthStatus::label(GoogleAuthStatus::CONNECTED),
             'freshness' => $freshness,
             'latest_collection' => $latestCollection,
             'resources_count' => (int) ($summary['discovered'] ?? $resourceModels->count()),
@@ -450,6 +456,7 @@ class ConnectorPage extends Component
             'integration_label' => $meta['integration_label'],
             'integration_route' => $meta['integration_route'],
             'connection' => 'Not configured',
+            'connected' => false,
             'freshness' => 'Not collected',
             'latest_collection' => '—',
             'resources_count' => 0,

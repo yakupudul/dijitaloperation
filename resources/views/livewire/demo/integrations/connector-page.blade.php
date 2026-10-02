@@ -42,10 +42,17 @@
                 <div class="min-w-0">
                     <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ $connectorTitle }}</h1>
                     <div class="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                        <span class="inline-flex items-center gap-1.5 font-medium text-emerald-700 dark:text-emerald-400">
-                            <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-                            Bağlı
-                        </span>
+                        @if ($data['connected'] ?? false)
+                            <span class="inline-flex items-center gap-1.5 font-medium text-emerald-700 dark:text-emerald-400">
+                                <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                                Bağlı
+                            </span>
+                        @else
+                            <span class="inline-flex items-center gap-1.5 font-medium text-amber-700 dark:text-amber-400">
+                                <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+                                {{ $data['connection'] }}
+                            </span>
+                        @endif
                         <span class="text-gray-300 dark:text-gray-700">·</span>
                         <span>{{ $data['resources_count'] }} mülk bulundu</span>
                         @if (($data['freshness'] ?? null) === 'Collected')

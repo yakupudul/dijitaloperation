@@ -658,7 +658,15 @@ class DataFreshnessIncrementalCollectionTest extends TestCase
         $contents = file_get_contents(base_path('routes/console.php'));
         $this->assertIsString($contents);
         $this->assertStringNotContainsString('Schedule::daily', $contents);
-        $this->assertStringNotContainsString('collection', strtolower($contents));
+
+        // The only scheduled provider refresh is the explicit central GA4
+        // restatement for operator-selected properties (issue #211 A1).
+        preg_match_all("/Schedule::command\\('([^']+)'/", $contents, $matches);
+        $collectionCommands = array_values(array_filter(
+            $matches[1],
+            fn (string $command): bool => str_contains($command, 'collect') || str_contains($command, 'restatement'),
+        ));
+        $this->assertSame(['moxdop:ga4:central-restatement'], $collectionCommands);
     }
 
     #[Test]

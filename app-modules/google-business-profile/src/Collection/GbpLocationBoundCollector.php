@@ -21,6 +21,9 @@ final class GbpLocationBoundCollector implements CollectsBoundProviderData
 
     public const string CAPABILITY = 'google_business_profile';
 
+    /** Legacy location-access Evidence type still read by the operator GBP workspace. */
+    public const string EVIDENCE_TYPE = 'gbp_location_access';
+
     public function __construct(
         private readonly GoogleBusinessProfileBoundCollector $collector,
     ) {}

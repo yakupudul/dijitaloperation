@@ -124,7 +124,7 @@ class GoogleOAuthLifecycleTest extends TestCase
         }
     }
 
-    public function test_incremental_authorization_requests_missing_ads_scope_only(): void
+    public function test_incremental_authorization_requests_full_target_scope_set(): void
     {
         $this->integration->forceFill([
             'config' => [
@@ -145,7 +145,13 @@ class GoogleOAuthLifecycleTest extends TestCase
             incremental: true,
         );
 
-        $this->assertSame([GoogleScopes::ADWORDS], $scopes);
+        // Re-authorization asks for the complete target set so stale local
+        // coverage can never drop an already-selected connector's scope.
+        $this->assertSame([
+            GoogleScopes::ADWORDS,
+            GoogleScopes::ANALYTICS_READONLY,
+            GoogleScopes::SEARCH_CONSOLE_READONLY,
+        ], $scopes);
     }
 
     public function test_authorization_url_has_required_params_and_hashed_state(): void

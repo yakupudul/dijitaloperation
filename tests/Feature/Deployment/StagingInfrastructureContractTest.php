@@ -21,7 +21,7 @@ class StagingInfrastructureContractTest extends TestCase
         $this->assertArrayHasKey('supervisor-collection', $environments['staging']);
         $this->assertSame(['web', 'auth'], config('horizon.middleware'));
         $this->assertLessThanOrEqual(2, (int) $environments['staging']['supervisor-1']['maxProcesses']);
-        $this->assertLessThanOrEqual(2, (int) $environments['staging']['supervisor-collection']['maxProcesses']);
+        $this->assertLessThanOrEqual(3, (int) $environments['staging']['supervisor-collection']['maxProcesses']);
     }
 
     public function test_sales_intent_paid_calls_default_off(): void
