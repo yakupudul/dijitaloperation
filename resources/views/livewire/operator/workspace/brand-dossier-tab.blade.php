@@ -25,6 +25,37 @@
         </div>
     @endif
 
+    <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-brand-audit>
+        <div class="flex flex-wrap items-start justify-between gap-2">
+            <div>
+                <h2 class="font-semibold text-gray-800 dark:text-white/90">Şef denetimi · {{ $audit->count() }} hata</h2>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    AI'ın bu marka için yaptıklarını markanın kendi verisiyle karşılaştırır; yalnız hata arar, yeni iş üretmez. AI kullanmaz.
+                    "Düzelt" yalnız yanlış AI kararını geri alır. Her pazartesi Şef planından önce çalışır.
+                    @if ($auditedAt)<span class="text-gray-400">Son denetim: {{ \Illuminate\Support\Carbon::parse($auditedAt)->timezone('Europe/Istanbul')->format('d.m.Y H:i') }}</span>@endif
+                </p>
+            </div>
+            <button type="button" wire:click="auditNow" wire:loading.attr="disabled" class="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700" data-audit-now>Şimdi denetle</button>
+        </div>
+        @if ($audit->isNotEmpty())
+            <ul class="mt-3 space-y-3 text-sm">
+                @foreach ($audit as $finding)
+                    <li class="flex flex-wrap items-start justify-between gap-2" data-audit-finding="{{ $finding->id }}">
+                        <div class="min-w-0">
+                            <p class="font-medium text-rose-700 dark:text-rose-300">{{ $finding->title }}</p>
+                            <p class="text-xs text-gray-600 dark:text-gray-400">{{ $finding->reason }}</p>
+                            <ul class="mt-1 list-disc pl-4 text-xs text-gray-500">@foreach ((array) data_get($finding->action, 'examples', []) as $example)<li>{{ $example }}</li>@endforeach</ul>
+                        </div>
+                        <div class="flex shrink-0 gap-2">
+                            <button type="button" wire:click="fixAudit({{ $finding->id }})" wire:loading.attr="disabled" wire:confirm="Yanlış AI kararları geri alınsın mı?" class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600" data-fix-audit>Düzelt</button>
+                            <button type="button" wire:click="acceptAudit({{ $finding->id }})" class="rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700" data-accept-audit>Doğru, bırak</button>
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+    </div>
+
     <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-brand-care>
         <div class="flex flex-wrap items-start justify-between gap-2">
             <div>

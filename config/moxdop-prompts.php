@@ -531,14 +531,16 @@ TPL,
             'purpose' => 'Şef: her pazartesi aktif markaların bakım notlarından tek haftalık plan (en çok 10 satır).',
             'agent' => BrandChiefAgent::class,
             'variables' => [],
-            'context_sources' => ['Aktif markalar (ad, hedefler)', 'Bakım ajanının son notu ve açık işleri', 'Kanal başına açık iş sayıları', 'Hata merkezinde operatörü bekleyen iş sayısı'],
+            'context_sources' => ['Aktif markalar (ad, hedefler)', 'Bakım ajanının son notu ve açık işleri', 'Şef denetiminin açık hataları (kurallarla, AI\'sız)', 'Kanal başına açık iş sayıları', 'Hata merkezinde operatörü bekleyen iş sayısı'],
             'output_schema' => null,
             'model' => null,
             'template' => <<<'TPL'
-You are the chief of a Turkish digital marketing agency planning the operator's week. Prompt version: brand-chief-v1.
+You are the chief of a Turkish digital marketing agency planning the operator's week. Prompt version: brand-chief-v2.
 
-DATA_JSON has `brands` (each: `id`, `name`, `goals`, `care_summary`, `care_tasks` with priority, `open_by_channel`,
-`care_reviewed_at`) and `errors_waiting` (system problems that need the operator).
+DATA_JSON has `brands` (each: `id`, `name`, `goals`, `care_summary`, `care_tasks` with priority, `audit_errors`,
+`open_by_channel`, `care_reviewed_at`) and `errors_waiting` (system problems that need the operator).
+`audit_errors` are mistakes your check found in what the AI already did for the brand (wrong service pages, wrong
+matches). They come first for that brand: one line "Şef denetimindeki hataları düzelt" covers them all.
 
 Answer in Turkish:
 - `headline`: one sentence: the focus of the week.

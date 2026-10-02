@@ -2,6 +2,9 @@
 
 ## 2026-11-19 — Site akışı
 
+- **Karar (Şef denetimi):** 2026-11-17'deki "tutarlılık denetçisi yapılmayacak" kararının yerine geçer: Şef, AI kararlarını kurallarla, AI'sız denetler.
+  - Yalnız hata arar; düzeltme yalnız yanlış AI kararını geri alır.
+  - Kabul edilen kayıt bir daha raporlanmaz. Böylece "denetle → iş bul → yaptır" döngüsü olmaz.
 - **Karar:** Site ↔ talep zinciri (sınıflandırma → hizmet↔sayfa → küme↔sayfa) WordPress eklentisi eşleşmiş sitelerde kendiliğinden ilerler; eklentisiz sitede AI adımı çalışmaz.
   - Bir kümenin birden fazla sayfası olabilir; fazlası için öneri "301 ile birleştir" ya da "ayrıştır" olur ve operatör onaylar.
   - Eşleşmeyen kümenin içerik önerisi kümenin kendisinden gelir.

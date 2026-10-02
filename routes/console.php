@@ -23,6 +23,7 @@ use App\Services\Alerts\AdBudgetWatch;
 use App\Services\Analyst\AnalystEngine;
 use App\Services\Analyst\AnalystRegistry;
 use App\Services\Assistant\ReminderService;
+use App\Services\Brand\BrandAudit;
 use App\Services\Brand\BrandCare;
 use App\Services\Brand\BrandDossier;
 use App\Services\Brand\BrandGaps;
@@ -817,6 +818,14 @@ Artisan::command('moxdop:brands:care {brand? : brand id} {--force : review even 
 Schedule::command('moxdop:brands:care')->weeklyOn(0, '21:13')->timezone('Europe/Istanbul')->name('brands-care')->withoutOverlapping(60);
 
 // Şef: Monday morning plan across the active brands, after Sunday's care reviews.
+// Şef denetimi on demand (it also runs before every weekly plan): errors in what the AI did, rules only.
+Artisan::command('moxdop:brands:audit {brand? : brand id}', function (BrandAudit $audit): void {
+    $brands = Brand::query()->operational()->when($this->argument('brand'), fn ($q, $id) => $q->whereKey((int) $id))->orderBy('id')->get();
+    foreach ($brands as $brand) {
+        $this->line($brand->id.' '.$brand->name.': '.$audit->sync($brand).' açık hata');
+    }
+})->purpose('Şef denetimi: rule checks of the AI decisions of operational brands.');
+
 Artisan::command('moxdop:brands:chief', function (): void {
     RunBrandChiefJob::dispatch();
     $this->info('Chief plan queued.');

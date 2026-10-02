@@ -5,6 +5,7 @@ namespace App\Livewire\Operator\Workspace;
 use App\Models\Brand;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\Brand\BrandAudit;
 use App\Services\Brand\BrandCare;
 use App\Services\Brand\BrandDossier;
 use App\Services\Brand\BrandGaps;
@@ -52,6 +53,28 @@ class BrandDossierTab extends Component
         $this->dispatch('ai-live-refresh');
     }
 
+    /** "Şimdi denetle": Şef denetimi now (rules, no AI). */
+    public function auditNow(BrandAudit $audit): void
+    {
+        $this->actor();
+        $open = $audit->sync($this->brand());
+        $this->message = $open > 0 ? 'Şef denetimi: '.$open.' hata bulundu.' : 'Şef denetimi: hata yok.';
+    }
+
+    /** "Düzelt": the wrong AI decisions of one finding are taken back. */
+    public function fixAudit(int $suggestionId, BrandAudit $audit): void
+    {
+        $actor = $this->actor();
+        $this->message = $audit->fix($this->auditFinding($suggestionId), $actor);
+    }
+
+    /** "Doğru, bırak": the listed items are right and are not reported again. */
+    public function acceptAudit(int $suggestionId, BrandAudit $audit): void
+    {
+        $audit->accept($this->auditFinding($suggestionId), $this->actor());
+        $this->message = 'Tamam; bu kayıtlar bir daha hata sayılmaz.';
+    }
+
     /** "Şimdi incele": one review now, even when nothing changed (queued; the note updates when it is done). */
     public function reviewNow(): void
     {
@@ -87,9 +110,17 @@ class BrandDossierTab extends Component
             'gaps' => Suggestion::query()->where('brand_id', $brand->id)->where('decision_key', BrandGaps::DECISION)->actionable()
                 ->orderBy('priority')->orderBy('id')->get(['id', 'title', 'reason', 'action']),
             'care' => BrandCare::stored($brand),
+            'audit' => Suggestion::query()->where('brand_id', $brand->id)->where('decision_key', BrandAudit::DECISION)->actionable()
+                ->orderBy('id')->get(['id', 'title', 'reason', 'action']),
+            'auditedAt' => BrandAudit::auditedAt($brand),
             'careTasks' => Suggestion::query()->where('brand_id', $brand->id)->where('decision_key', BrandCare::DECISION)->actionable()
                 ->orderBy('priority')->orderBy('id')->get(['id', 'title', 'reason', 'channel', 'priority']),
         ]);
+    }
+
+    private function auditFinding(int $suggestionId): Suggestion
+    {
+        return Suggestion::query()->where('brand_id', $this->brandId)->where('decision_key', BrandAudit::DECISION)->actionable()->findOrFail($suggestionId);
     }
 
     private function brand(): Brand

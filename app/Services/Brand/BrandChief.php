@@ -14,7 +14,8 @@ use Illuminate\Support\Carbon;
 use Throwable;
 
 /**
- * Şef (operator decision 2026-11-17): every Monday one plan for the operator's week across the active brands. It reads
+ * Şef (operator decision 2026-11-17): every Monday one plan for the operator's week across the active brands. First it
+ * runs the Şef denetimi (BrandAudit, rules only: errors in what the AI did for each brand). It reads
  * only what the care agents already wrote (note, open tasks), the brands' goals and the open work counts — one small
  * call, never the raw data. The plan is kept per week and sent as one notice.
  */
@@ -29,6 +30,7 @@ final class BrandChief
         private readonly AiProviderRuntimeConfig $runtime,
         private readonly ErrorTriage $triage,
         private readonly QueryNotifier $notifier,
+        private readonly BrandAudit $audit,
     ) {}
 
     public static function weekStart(): Carbon
@@ -54,6 +56,10 @@ final class BrandChief
             return ['status' => 'no_ai', 'message' => 'Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.'];
         }
         try {
+            // Şef denetimi first (rules, no AI): errors in what the AI did reach the plan.
+            foreach ($brands as $brand) {
+                $this->audit->sync($brand);
+            }
             $errors = $this->triage->counts();
             $data = ['brands' => $brands->map(fn (Brand $brand): array => $this->brandInput($brand))->values()->all(),
                 'errors_waiting' => (int) ($errors[ErrorTriage::YOU] ?? 0) + (int) ($errors[ErrorTriage::CODE] ?? 0)];
@@ -91,6 +97,8 @@ final class BrandChief
             'care_reviewed_at' => isset($care['reviewed_at']) ? substr((string) $care['reviewed_at'], 0, 10) : null,
             'care_tasks' => Suggestion::query()->where('brand_id', $brand->id)->where('decision_key', BrandCare::DECISION)->actionable()
                 ->orderBy('priority')->limit(BrandCare::MAX_TASKS)->get(['title', 'priority'])->map(fn (Suggestion $s): array => ['title' => (string) $s->title, 'priority' => (int) $s->priority])->all(),
+            'audit_errors' => Suggestion::query()->where('brand_id', $brand->id)->where('decision_key', BrandAudit::DECISION)->actionable()
+                ->orderBy('id')->pluck('title')->map(fn ($t): string => (string) $t)->all(),
             'open_by_channel' => Suggestion::query()->where('brand_id', $brand->id)->actionable()->selectRaw('channel, count(*) as n')->groupBy('channel')->pluck('n', 'channel')
                 ->map(fn ($n): int => (int) $n)->all(),
         ];

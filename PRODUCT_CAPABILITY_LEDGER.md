@@ -1,5 +1,23 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-19 (b) — Şef denetimi: AI'ın marka için yaptıklarında hata arar
+
+- **Ne yapar:** AI'ın marka için verdiği kararları markanın kendi verisiyle kurallarla karşılaştırır (AI çağrısı yok). Yalnız hata (çelişki) arar, iyileştirme işi üretmez. Kontroller:
+  - AI'ın hizmet sayfası saydığı toplu/arşiv sayfaları (/kws/, makale klasörleri);
+  - AI'ın sayfayı, adı başka bir hizmetin adını taşırken bambaşka bir hizmete bağlaması;
+  - AI'ın kümeyi markanın başka bir hizmetine ait sayfayla eşleştirmesi;
+  - artık olmayan sayfa ya da kümeye ait açık işler.
+- **Düzelt:** yalnız yanlış AI kararını geri alır; yeni AI işi başlatmaz:
+  - sınıflandırma kurallarla yeniden yapılır;
+  - sayfa adındaki hizmete sabitlenir;
+  - küme eşleşmesi kaldırılır;
+  - iş kapatılır.
+  - Eşleştirme artık başka hizmetin sayfasını aday almaz; aynı hata yeniden oluşmaz.
+- **Döngü yok:** "Doğru, bırak" listelenen kayıtları bir daha hata saymaz. Aynı türden yeni bir hata çıkarsa bulgu yalnız yeni kayıtla açılır.
+- **Ne zaman:** her pazartesi Şef planından önce çalışır. Açık hatalar Şef'in planına girer (brand-chief-v2).
+  - Marka dosyası sekmesinde "Şef denetimi" bölümü ve "Şimdi denetle" var. Komut: `moxdop:brands:audit {brand?}`.
+- **Test:** BrandAuditTest. UAT: yok.
+
 ## 2026-11-19 — Site akışı: WordPress bağlıysa kendi kendine akar
 
 - **Akış (SiteFlow):** markanın sitesinde WordPress eklentisi eşleşmişse zincir kendiliğinden ilerler:

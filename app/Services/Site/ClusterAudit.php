@@ -12,6 +12,7 @@ use App\Models\Cluster;
 use App\Models\ContentIdea;
 use App\Models\DigitalAsset;
 use App\Models\Page;
+use App\Services\Brand\BrandAudit;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -366,13 +367,16 @@ final class ClusterAudit
     {
         $pages = $this->candidatePages($site, $rows->first()->language);
         $pageWords = $this->pageWords($pages);
+        // A page linked to other services of the brand (and not to this cluster's service) is never a candidate.
+        $pageServices = BrandAudit::pageServices($site);
         $candidates = [];
         foreach ($rows as $row) {
             $cluster = $row->cluster;
+            $foreign = array_keys(array_filter($pageServices, fn (array $services): bool => ! in_array((int) $cluster->service_id, $services, true)));
             $words = SeoText::tokens(implode(' ', [$cluster->name, $cluster->mainQuery?->text, ...array_slice($members[$cluster->id]['queries'] ?? [], 0, 20)]));
             $lead = $shares[(int) $cluster->id][0] ?? null;
             $candidates[(int) $row->id] = $this->candidates($words, (string) $cluster->page_type, $pages, $pageWords,
-                $lead !== null && $lead['share'] >= ClusterPageShares::LEAD ? $lead['url_key'] : null, [], $row->locked ? $row->page_id : null);
+                $lead !== null && $lead['share'] >= ClusterPageShares::LEAD ? $lead['url_key'] : null, $foreign, $row->locked ? $row->page_id : null);
         }
         $pageIds = array_slice(array_values(array_unique(array_merge(...array_values($candidates ?: [[]])))), 0, self::MAX_PAGES_PER_CALL);
         if ($pageIds === []) {
