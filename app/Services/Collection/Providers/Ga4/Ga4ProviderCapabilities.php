@@ -23,6 +23,9 @@ final class Ga4ProviderCapabilities
 
     public const int DEFAULT_PAGE_SIZE = 10000;
 
+    /** Official maximum metrics per runReport request */
+    public const int MAX_METRICS_PER_REQUEST = 10;
+
     public const string PROVIDER_COMPLETENESS = 'PROVIDER_REPORT_BOUNDED';
 
     public const string EXECUTION_COMPLETENESS = 'REQUEST_EXECUTION_COMPLETE';

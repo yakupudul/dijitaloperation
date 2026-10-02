@@ -360,17 +360,20 @@ final class Ga4DatasetExecutor implements DatasetExecutor
 
         $supportedOptional = array_values(array_filter(
             $optional,
-            fn (string $metric): bool => isset($available[$metric]),
+            fn (string $metric): bool => isset($available[$metric]) && ! in_array($metric, $required, true),
         ));
 
-        return array_values(array_unique([...$required, ...$supportedOptional]));
+        // GA4 rejects runReport requests above the per-request metric ceiling; optional metrics only fill remaining slots.
+        $remainingSlots = max(0, Ga4ProviderCapabilities::MAX_METRICS_PER_REQUEST - count($required));
+
+        return array_values(array_unique([...$required, ...array_slice($supportedOptional, 0, $remainingSlots)]));
     }
 
     /**
-     * @param array<string, mixed> $scope
-     * @param list<string> $dimensions
-     * @param list<string> $metrics
-     * @param list<string> $optionalMetrics
+     * @param  array<string, mixed>  $scope
+     * @param  list<string>  $dimensions
+     * @param  list<string>  $metrics
+     * @param  list<string>  $optionalMetrics
      */
     private function executePagedReport(
         DatasetExecutionContext $context,
