@@ -5,6 +5,7 @@ namespace Tests\Feature\DataPool;
 use App\Enums\DataPool\MaterializationStatus;
 use App\Enums\DataPool\WriteBatchStatus;
 use App\Models\Collection\CollectionDatasetRun;
+use App\Models\CoreExternalResource;
 use App\Models\DataPool\DatasetMaterialization;
 use App\Models\DataPool\DatasetWriteBatch;
 use App\Models\DataPool\RawIngestionObject;
@@ -52,9 +53,47 @@ class DataPoolFoundationTest extends TestCase
 
         $registry = app(DataPoolStorageRegistry::class);
         $this->assertSame('MOXDOP_DATA_POOL_STORAGE', $registry->metadata()['storage_contract_id']);
-        $this->assertCount(66, $registry->dispositions());
-        $this->assertCount(54, $registry->physicalDatasets());
         $this->assertFalse($registry->hasPhysicalTable('ga4_event_source_medium_daily'));
+
+        // Frozen base contract on disk is unchanged by runtime overlays.
+        $base = json_decode((string) file_get_contents(config('moxdop-data-pool.storage_contract_path')), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertCount(66, $base['dispositions']);
+        $this->assertCount(54, $base['physical_datasets']);
+        $baseDispositionIds = array_column($base['dispositions'], 'logical_dataset_id');
+
+        // Effective contract = base + every provider overlay physical addition (disjoint from base).
+        $additionIds = [];
+        foreach (['moxdop-ga4-central', 'moxdop-gsc-central', 'moxdop-gbp-central', 'moxdop-google-ads-central', 'moxdop-google-ads-history', 'moxdop-google-ads-resource-first'] as $overlayKey) {
+            foreach (array_keys(config($overlayKey.'.physical_additions', [])) as $datasetId) {
+                $this->assertNotContains($datasetId, $baseDispositionIds, "Overlay [{$overlayKey}] must not redefine base dataset [{$datasetId}]");
+                $this->assertNotContains($datasetId, $additionIds, "Dataset [{$datasetId}] added by more than one overlay");
+                $additionIds[] = $datasetId;
+            }
+        }
+        $this->assertNotEmpty($additionIds);
+        $this->assertCount(count($base['dispositions']) + count($additionIds), $registry->dispositions());
+        $this->assertCount(count($base['physical_datasets']) + count($additionIds), $registry->physicalDatasets());
+
+        // Every base disposition survives; every effective physical dataset has a matching PHYSICAL_TABLE disposition,
+        // a unique table, and a non-empty natural key made of declared columns.
+        foreach ($baseDispositionIds as $datasetId) {
+            $this->assertNotNull($registry->disposition($datasetId), "Base disposition [{$datasetId}] lost");
+        }
+        $tables = [];
+        foreach ($registry->physicalDatasets() as $physical) {
+            $datasetId = $physical['logical_dataset_id'];
+            $disposition = $registry->disposition($datasetId);
+            $this->assertSame('PHYSICAL_TABLE', $disposition['disposition'] ?? null, "[{$datasetId}] lacks PHYSICAL_TABLE disposition");
+            $this->assertNotContains($physical['table'], $tables, "Duplicate physical table [{$physical['table']}]");
+            $tables[] = $physical['table'];
+            $this->assertNotEmpty($physical['natural_key'], "[{$datasetId}] has empty natural key");
+            $columnNames = array_column($physical['columns'] ?? [], 'name');
+            foreach ($physical['natural_key'] as $keyColumn) {
+                $this->assertContains($keyColumn, $columnNames, "Natural key column [{$keyColumn}] missing on [{$datasetId}]");
+            }
+        }
+        $physicalDispositionCount = count(array_filter($registry->dispositions(), fn (array $row): bool => ($row['disposition'] ?? null) === 'PHYSICAL_TABLE'));
+        $this->assertSame(count($registry->physicalDatasets()), $physicalDispositionCount);
     }
 
     #[Test]
@@ -130,6 +169,8 @@ class DataPoolFoundationTest extends TestCase
     #[Test]
     public function warehouse_upserts_are_idempotent_across_batches_and_runs(): void
     {
+        $resourceId = $this->resourceFirstExternalResourceId();
+
         $runA = CollectionDatasetRun::factory()->create([
             'dataset_contract_id' => 'ga4_property_daily',
             'provider_or_source' => 'GA4',
@@ -141,7 +182,7 @@ class DataPoolFoundationTest extends TestCase
 
         $writer = app(PostgresWarehouseWriter::class);
 
-        $make = function (CollectionDatasetRun $run, string $batchKey, int $sessions) {
+        $make = function (CollectionDatasetRun $run, string $batchKey, int $sessions) use ($resourceId) {
             return new NormalizedDatasetBatch(
                 datasetId: 'ga4_property_daily',
                 datasetRunId: (int) $run->id,
@@ -149,6 +190,7 @@ class DataPoolFoundationTest extends TestCase
                 batchKey: $batchKey,
                 records: [[
                     'digital_asset_id' => 42,
+                    'external_resource_id' => $resourceId,
                     'property_id' => 'properties/123',
                     'reporting_date' => '2026-08-01',
                     'sessions' => $sessions,
@@ -284,6 +326,8 @@ class DataPoolFoundationTest extends TestCase
     #[Test]
     public function missing_dataset_is_not_synthetic_zero_and_materialization_tracks_state(): void
     {
+        $resourceId = $this->resourceFirstExternalResourceId();
+
         $this->assertSame(0, DB::table('gsc_query_daily')->count());
         $this->assertNull(DatasetMaterialization::query()->where('dataset_id', 'gsc_query_daily')->first());
 
@@ -299,8 +343,10 @@ class DataPoolFoundationTest extends TestCase
             batchKey: 'q1',
             records: [[
                 'digital_asset_id' => 5,
+                'external_resource_id' => $resourceId,
                 'site_url' => 'https://example.com/',
                 'reporting_date' => '2026-08-05',
+                'search_type' => 'web',
                 'query' => 'moxdop',
                 'clicks' => 0,
                 'impressions' => 4,
@@ -324,6 +370,8 @@ class DataPoolFoundationTest extends TestCase
     #[Test]
     public function checkpoint_advances_only_after_durable_commit(): void
     {
+        $resourceId = $this->resourceFirstExternalResourceId();
+
         $run = CollectionDatasetRun::factory()->create([
             'dataset_contract_id' => 'ga4_property_daily',
             'provider_or_source' => 'GA4',
@@ -338,6 +386,7 @@ class DataPoolFoundationTest extends TestCase
             batchKey: 'cp-1',
             records: [[
                 'digital_asset_id' => 3,
+                'external_resource_id' => $resourceId,
                 'property_id' => 'properties/9',
                 'reporting_date' => '2026-08-06',
                 'sessions' => 1,
@@ -394,6 +443,8 @@ class DataPoolFoundationTest extends TestCase
     #[Test]
     public function raw_then_db_retry_reuses_object_and_commits_once(): void
     {
+        $resourceId = $this->resourceFirstExternalResourceId();
+
         $run = CollectionDatasetRun::factory()->create([
             'dataset_contract_id' => 'ga4_property_daily',
             'provider_or_source' => 'GA4',
@@ -427,6 +478,7 @@ class DataPoolFoundationTest extends TestCase
             batchKey: 'retry-1',
             records: [[
                 'digital_asset_id' => 8,
+                'external_resource_id' => $resourceId,
                 'property_id' => 'properties/8',
                 'reporting_date' => '2026-08-07',
                 'sessions' => 5,
@@ -456,6 +508,8 @@ class DataPoolFoundationTest extends TestCase
     #[Test]
     public function failed_batch_row_is_reused_in_place_on_retry(): void
     {
+        $resourceId = $this->resourceFirstExternalResourceId();
+
         $run = CollectionDatasetRun::factory()->create([
             'dataset_contract_id' => 'ga4_property_daily',
             'provider_or_source' => 'GA4',
@@ -482,6 +536,7 @@ class DataPoolFoundationTest extends TestCase
             batchKey: 'retry-after-failure',
             records: [[
                 'digital_asset_id' => 77,
+                'external_resource_id' => $resourceId,
                 'property_id' => 'properties/retry',
                 'reporting_date' => '2026-08-08',
                 'sessions' => 5,
@@ -505,6 +560,8 @@ class DataPoolFoundationTest extends TestCase
     #[Test]
     public function pending_batch_row_is_reused_in_place_on_retry(): void
     {
+        $resourceId = $this->resourceFirstExternalResourceId();
+
         $run = CollectionDatasetRun::factory()->create([
             'dataset_contract_id' => 'ga4_property_daily',
             'provider_or_source' => 'GA4',
@@ -531,6 +588,7 @@ class DataPoolFoundationTest extends TestCase
             batchKey: 'retry-after-pending',
             records: [[
                 'digital_asset_id' => 78,
+                'external_resource_id' => $resourceId,
                 'property_id' => 'properties/pending',
                 'reporting_date' => '2026-08-09',
                 'sessions' => 7,
@@ -554,6 +612,8 @@ class DataPoolFoundationTest extends TestCase
     #[Test]
     public function upsert_preserves_keyword_rows_that_share_criterion_across_ad_groups(): void
     {
+        $resourceId = $this->resourceFirstExternalResourceId();
+
         $run = CollectionDatasetRun::factory()->create([
             'dataset_contract_id' => 'google_ads_keyword_snapshot',
             'provider_or_source' => 'GOOGLE_ADS',
@@ -567,6 +627,7 @@ class DataPoolFoundationTest extends TestCase
             records: [
                 [
                     'digital_asset_id' => 2,
+                    'external_resource_id' => $resourceId,
                     'customer_id' => '1112223333',
                     'ad_group_id' => '1',
                     'criterion_id' => '999',
@@ -575,6 +636,7 @@ class DataPoolFoundationTest extends TestCase
                 ],
                 [
                     'digital_asset_id' => 2,
+                    'external_resource_id' => $resourceId,
                     'customer_id' => '1112223333',
                     'ad_group_id' => '2',
                     'criterion_id' => '999',
@@ -598,6 +660,8 @@ class DataPoolFoundationTest extends TestCase
     #[Test]
     public function upsert_collapses_true_natural_key_duplicates_in_one_batch(): void
     {
+        $resourceId = $this->resourceFirstExternalResourceId();
+
         $run = CollectionDatasetRun::factory()->create([
             'dataset_contract_id' => 'google_ads_keyword_snapshot',
             'provider_or_source' => 'GOOGLE_ADS',
@@ -611,6 +675,7 @@ class DataPoolFoundationTest extends TestCase
             records: [
                 [
                     'digital_asset_id' => 2,
+                    'external_resource_id' => $resourceId,
                     'customer_id' => '1112223333',
                     'ad_group_id' => '2',
                     'criterion_id' => '999',
@@ -619,6 +684,7 @@ class DataPoolFoundationTest extends TestCase
                 ],
                 [
                     'digital_asset_id' => 2,
+                    'external_resource_id' => $resourceId,
                     'customer_id' => '1112223333',
                     'ad_group_id' => '2',
                     'criterion_id' => '999',
@@ -640,6 +706,8 @@ class DataPoolFoundationTest extends TestCase
     #[Test]
     public function failed_batch_with_stale_checksum_can_retry_collapsed_payload(): void
     {
+        $resourceId = $this->resourceFirstExternalResourceId();
+
         $run = CollectionDatasetRun::factory()->create([
             'dataset_contract_id' => 'google_ads_keyword_snapshot',
             'provider_or_source' => 'GOOGLE_ADS',
@@ -667,6 +735,7 @@ class DataPoolFoundationTest extends TestCase
             records: [
                 [
                     'digital_asset_id' => 2,
+                    'external_resource_id' => $resourceId,
                     'customer_id' => '1112223333',
                     'ad_group_id' => '2',
                     'criterion_id' => '999',
@@ -688,6 +757,8 @@ class DataPoolFoundationTest extends TestCase
     #[Test]
     public function post_fact_commit_failed_batch_cannot_replace_checksum_or_leave_stale_keys(): void
     {
+        $resourceId = $this->resourceFirstExternalResourceId();
+
         $run = CollectionDatasetRun::factory()->create([
             'dataset_contract_id' => 'google_ads_keyword_snapshot',
             'provider_or_source' => 'GOOGLE_ADS',
@@ -702,6 +773,7 @@ class DataPoolFoundationTest extends TestCase
             records: [
                 [
                     'digital_asset_id' => 2,
+                    'external_resource_id' => $resourceId,
                     'customer_id' => '1112223333',
                     'ad_group_id' => '1',
                     'criterion_id' => '999',
@@ -710,6 +782,7 @@ class DataPoolFoundationTest extends TestCase
                 ],
                 [
                     'digital_asset_id' => 2,
+                    'external_resource_id' => $resourceId,
                     'customer_id' => '1112223333',
                     'ad_group_id' => '2',
                     'criterion_id' => '999',
@@ -742,6 +815,7 @@ class DataPoolFoundationTest extends TestCase
                 records: [
                     [
                         'digital_asset_id' => 2,
+                        'external_resource_id' => $resourceId,
                         'customer_id' => '1112223333',
                         'ad_group_id' => '2',
                         'criterion_id' => '999',
@@ -820,6 +894,8 @@ class DataPoolFoundationTest extends TestCase
     #[Test]
     public function bulk_writer_is_batch_oriented_for_representative_chunk(): void
     {
+        $resourceId = $this->resourceFirstExternalResourceId();
+
         $run = CollectionDatasetRun::factory()->create([
             'dataset_contract_id' => 'gsc_query_daily',
             'provider_or_source' => 'SEARCH_CONSOLE',
@@ -829,8 +905,10 @@ class DataPoolFoundationTest extends TestCase
         for ($i = 0; $i < 200; $i++) {
             $records[] = [
                 'digital_asset_id' => 2,
+                'external_resource_id' => $resourceId,
                 'site_url' => 'https://example.com/',
                 'reporting_date' => '2026-08-08',
+                'search_type' => 'web',
                 'query' => 'q'.$i,
                 'clicks' => $i,
                 'impressions' => $i + 1,
@@ -850,6 +928,15 @@ class DataPoolFoundationTest extends TestCase
 
         $this->assertSame(200, $receipt->rowsReceived);
         $this->assertSame(200, DB::table('gsc_query_daily')->count());
+    }
+
+    /**
+     * Production GA4 / GSC / Google Ads normalizers always stamp external_resource_id on every
+     * record; the effective (overlaid) storage contract keys these datasets resource-first.
+     */
+    private function resourceFirstExternalResourceId(): int
+    {
+        return (int) CoreExternalResource::factory()->create()->id;
     }
 }
 

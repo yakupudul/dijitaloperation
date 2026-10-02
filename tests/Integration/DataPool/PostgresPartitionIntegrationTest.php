@@ -3,6 +3,7 @@
 namespace Tests\Integration\DataPool;
 
 use App\Models\Collection\CollectionDatasetRun;
+use App\Models\CoreExternalResource;
 use App\Services\DataPool\PartitionManager;
 use App\Services\DataPool\PostgresWarehouseWriter;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
@@ -57,6 +58,9 @@ class PostgresPartitionIntegrationTest extends TestCase
             'provider_or_source' => 'SEARCH_CONSOLE',
         ]);
 
+        // Production GSC normalizers stamp external_resource_id + search_type (resource-first natural key).
+        $resourceId = (int) CoreExternalResource::factory()->searchConsole()->create()->id;
+
         $writer = app(PostgresWarehouseWriter::class);
         $receipt = $writer->write(new NormalizedDatasetBatch(
             datasetId: 'gsc_query_page_daily',
@@ -66,8 +70,10 @@ class PostgresPartitionIntegrationTest extends TestCase
             records: [
                 [
                     'digital_asset_id' => 1,
+                    'external_resource_id' => $resourceId,
                     'site_url' => 'https://example.com/',
                     'reporting_date' => '2026-07-31',
+                    'search_type' => 'web',
                     'query' => 'alpha',
                     'page' => 'https://example.com/a',
                     'clicks' => 1,
@@ -75,8 +81,10 @@ class PostgresPartitionIntegrationTest extends TestCase
                 ],
                 [
                     'digital_asset_id' => 1,
+                    'external_resource_id' => $resourceId,
                     'site_url' => 'https://example.com/',
                     'reporting_date' => '2026-08-01',
+                    'search_type' => 'web',
                     'query' => 'alpha',
                     'page' => 'https://example.com/a',
                     'clicks' => 2,
@@ -99,8 +107,10 @@ class PostgresPartitionIntegrationTest extends TestCase
             batchKey: 'pg-upsert',
             records: [[
                 'digital_asset_id' => 1,
+                'external_resource_id' => $resourceId,
                 'site_url' => 'https://example.com/',
                 'reporting_date' => '2026-08-01',
+                'search_type' => 'web',
                 'query' => 'alpha',
                 'page' => 'https://example.com/a',
                 'clicks' => 99,

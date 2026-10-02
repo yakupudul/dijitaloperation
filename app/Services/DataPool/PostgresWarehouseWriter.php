@@ -10,6 +10,7 @@ use App\Services\DataPool\Support\RecordFingerprint;
 use App\Services\DataPool\Support\WriteReceipt;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Query\Expression;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use RuntimeException;
@@ -21,6 +22,13 @@ use Throwable;
  */
 final class PostgresWarehouseWriter implements WarehouseWriter
 {
+    /**
+     * Binding identity columns that an upsert may set or change but never clear: a central
+     * (resource-first, digital_asset_id = null) restatement of a fact must not erase the asset
+     * attribution an asset-bound collection already wrote for the same natural key.
+     */
+    private const STICKY_IDENTITY_COLUMNS = ['digital_asset_id', 'external_resource_id'];
+
     public function __construct(
         private readonly DataPoolStorageRegistry $registry,
         private readonly PartitionManager $partitions,
@@ -274,7 +282,7 @@ final class PostgresWarehouseWriter implements WarehouseWriter
                 DB::table($table)->upsert(
                     $chunk,
                     $naturalKey,
-                    $updateColumns,
+                    $this->genericUpdateColumns($table, $updateColumns),
                 );
             }
 
@@ -367,7 +375,9 @@ final class PostgresWarehouseWriter implements WarehouseWriter
             if ($col === 'first_collected_at') {
                 continue;
             }
-            $sets[] = '"'.$col.'" = EXCLUDED."'.$col.'"';
+            $sets[] = in_array($col, self::STICKY_IDENTITY_COLUMNS, true)
+                ? '"'.$col.'" = COALESCE(EXCLUDED."'.$col.'", '.$this->quoteIdent($table).'."'.$col.'")'
+                : '"'.$col.'" = EXCLUDED."'.$col.'"';
         }
         // Preserve first_collected_at
         if (in_array('first_collected_at', $columns, true)) {
@@ -384,6 +394,31 @@ final class PostgresWarehouseWriter implements WarehouseWriter
         );
 
         DB::statement($sql, $bindings);
+    }
+
+    /**
+     * Upsert update set for the non-PostgreSQL (SQLite test) path with the same sticky identity semantics.
+     *
+     * @param  list<string>  $updateColumns
+     * @return array<int|string, string|Expression>
+     */
+    private function genericUpdateColumns(string $table, array $updateColumns): array
+    {
+        if (DB::connection()->getDriverName() !== 'sqlite') {
+            return $updateColumns;
+        }
+
+        $grammar = DB::connection()->getQueryGrammar();
+        $update = [];
+        foreach ($updateColumns as $col) {
+            if (in_array($col, self::STICKY_IDENTITY_COLUMNS, true)) {
+                $update[$col] = DB::raw('COALESCE(excluded.'.$grammar->wrap($col).', '.$grammar->wrapTable($table).'.'.$grammar->wrap($col).')');
+            } else {
+                $update[] = $col;
+            }
+        }
+
+        return $update;
     }
 
     private function bindValue(mixed $value): mixed
