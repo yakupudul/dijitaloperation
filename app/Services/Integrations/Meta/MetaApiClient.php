@@ -252,6 +252,12 @@ class MetaApiClient
                 kind: $kind,
                 httpStatus: $status,
                 providerCode: $code,
+                providerSubcode: is_numeric($error['error_subcode'] ?? null) ? (int) $error['error_subcode'] : null,
+                providerType: $this->safeOptionalText($error['type'] ?? null),
+                providerUserTitle: $this->safeOptionalText($error['error_user_title'] ?? null),
+                providerUserMessage: $this->safeOptionalText($error['error_user_msg'] ?? null),
+                isTransient: filter_var($error['is_transient'] ?? false, FILTER_VALIDATE_BOOL),
+                traceId: $this->safeTraceId($error['fbtrace_id'] ?? null),
             );
         }
 
@@ -463,5 +469,39 @@ class MetaApiClient
         $text = $parts !== [] ? implode(' · ', $parts) : 'Meta Graph error.';
 
         return mb_substr($text, 0, 800);
+    }
+
+    private function safeOptionalText(mixed $value, int $limit = 280): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $text = trim((string) $value);
+        if ($text === '') {
+            return null;
+        }
+
+        // Redact common credential shapes if a provider ever echoes them.
+        $text = preg_replace('/(?i)(access_token\s*[=:]\s*)[^\s&,]+/', '$1[redacted]', $text) ?? $text;
+        $text = preg_replace('/(?i)(authorization\s*:\s*bearer\s+)[A-Za-z0-9._~-]+/', '$1[redacted]', $text) ?? $text;
+        $text = preg_replace('/\bEAA[A-Za-z0-9_-]{16,}\b/', '[redacted]', $text) ?? $text;
+
+        if (mb_strlen($text) > $limit) {
+            $text = mb_substr($text, 0, $limit - 1).'…';
+        }
+
+        return $text;
+    }
+
+    private function safeTraceId(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $trace = trim((string) $value);
+
+        return $trace !== '' && preg_match('/^[A-Za-z0-9_-]{1,120}$/', $trace) === 1 ? $trace : null;
     }
 }

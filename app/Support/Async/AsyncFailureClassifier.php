@@ -21,27 +21,16 @@ final class AsyncFailureClassifier
     public static function classify(Throwable $exception): array
     {
         if ($exception instanceof MetaException) {
-            return match ($exception->kind) {
-                MetaException::KIND_RATE_LIMIT,
-                MetaException::KIND_TRANSPORT,
-                MetaException::KIND_HTTP => [
-                    'category' => self::TRANSIENT,
-                    'summary' => self::safeMessage($exception->getMessage(), 'Temporary Meta provider error'),
-                    'retryable' => true,
-                ],
-                MetaException::KIND_AUTH,
-                MetaException::KIND_PERMISSION,
-                MetaException::KIND_CONFIG => [
-                    'category' => self::VALIDATION,
-                    'summary' => self::safeMessage($exception->getMessage(), 'Meta configuration or permission issue'),
-                    'retryable' => false,
-                ],
-                default => [
-                    'category' => self::VALIDATION,
-                    'summary' => self::safeMessage($exception->getMessage(), 'Meta provider error'),
-                    'retryable' => false,
-                ],
-            };
+            $retryable = $exception->retryable();
+
+            return [
+                'category' => $retryable ? self::TRANSIENT : self::VALIDATION,
+                'summary' => self::safeMessage(
+                    $exception->getMessage(),
+                    $retryable ? 'Temporary Meta provider error' : 'Meta provider request failed',
+                ),
+                'retryable' => $retryable,
+            ];
         }
 
         $message = $exception->getMessage();
