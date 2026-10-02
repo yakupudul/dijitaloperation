@@ -26,7 +26,8 @@ use Illuminate\Support\Facades\Cache;
  *     page, coverage, gaps and the other pages that answer the same need (ClusterOverlaps → work list); a cluster
  *     without a page gets its content idea on İçerik fikirleri.
  *
- * advance() starts the next step that is due (one at a time, never while one runs): nightly (moxdop:brands:dossier),
+ * advance() starts the next step that is due (one at a time, never while one runs, never again for FAILURE_PAUSE_HOURS
+ * after Eşleştir failed): nightly (moxdop:brands:dossier),
  * after a site setup finishes and after clustering approves new clusters. Step 3 runs again only when its inputs
  * changed (approved clusters of the brand, page contents) or rows were never read — no daily AI loop.
  */
@@ -38,7 +39,12 @@ final class SiteFlow
     /** Page text changes alone (dynamic dates, counters) re-run Eşleştir at most this often. */
     public const int CONTENT_RERUN_DAYS = 7;
 
-    /** @return string setup | audit | running | ready | waiting:not_operational | waiting:wordpress | waiting:pages */
+    /** Eşleştir that failed (AI error, no provider / daily ceiling, timeout) is not started again by itself for this long. */
+    public const int FAILURE_PAUSE_HOURS = 6;
+
+    private const array FAILURES = ['error', 'timeout', 'stalled', 'ai_error', 'ai_no_provider'];
+
+    /** @return string setup | audit | running | ready | paused | waiting:not_operational | waiting:wordpress | waiting:pages */
     public static function advance(DigitalAsset $site, bool $setup = true): string
     {
         $brand = SiteScope::brandOf($site);
@@ -60,6 +66,9 @@ final class SiteFlow
             return 'setup';
         }
         if (self::auditDue($site)) {
+            if (self::failedRecently($site)) {
+                return 'paused';
+            }
             SiteOperations::dispatch((int) $site->id, SiteOperations::CLUSTER_AUDIT);
 
             return 'audit';
@@ -143,6 +152,24 @@ final class SiteFlow
                 'detail' => $read.' / '.$total.' küme okundu'.($at !== null ? ' · '.CarbonImmutable::parse((string) $at)->diffForHumans() : '')],
             ['key' => 'results', 'label' => 'Sonuç', 'done' => $read > 0, 'detail' => $noPage.' kümede sayfa yok (içerik önerisi) · '.$overlaps.' çakışma'],
         ];
+    }
+
+    /** The last Eşleştir failed within FAILURE_PAUSE_HOURS: no automatic retry loop (the operator can start it). */
+    public static function failedRecently(DigitalAsset $site): bool
+    {
+        $status = SiteOperations::status((int) $site->id, SiteOperations::CLUSTER_AUDIT);
+
+        return in_array($status['status'] ?? null, self::FAILURES, true) && isset($status['at'])
+            && CarbonImmutable::parse((string) $status['at'])->gt(now()->subHours(self::FAILURE_PAUSE_HOURS));
+    }
+
+    /** Eşleştir of the site is queued or running (any part). */
+    public static function auditRunning(int $siteId): bool
+    {
+        $status = SiteOperations::status($siteId, SiteOperations::CLUSTER_AUDIT);
+
+        return ($status['status'] ?? null) === 'running' && isset($status['at'])
+            && CarbonImmutable::parse((string) $status['at'])->gt(now()->subHours(self::RUNNING_HOURS));
     }
 
     private static function running(DigitalAsset $site): bool

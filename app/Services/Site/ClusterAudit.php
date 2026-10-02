@@ -15,6 +15,7 @@ use App\Models\Page;
 use App\Services\Brand\BrandAudit;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -34,6 +35,10 @@ use Illuminate\Support\Facades\DB;
  * Candidates (CONTENT_IDEAS_BLUEPRINT §5.2): the page with ≥ 50 % of the cluster's Search Console impressions first,
  * then word overlap with pages of the matching category first; home / contact / about / legal pages never.
  * 5. Extra ideas of the content pool (§5.3): the same steps per idea, the main idea's page never a candidate.
+ *
+ * Parçalı çalışma: a run stops starting new AI calls after RUN_SECONDS (a site with many clusters needs more calls than
+ * one queue job may last) and returns "partial"; the pass remembers what is done (service groups matched, pages read,
+ * idea groups) so the next part continues where it stopped — no AI call is paid twice for the same pass.
  */
 final class ClusterAudit
 {
@@ -53,6 +58,19 @@ final class ClusterAudit
 
     private const array STATES = ['full' => 'sufficient', 'partial' => 'thin_coverage', 'none' => 'no_page'];
 
+    /** No new AI call starts after this many seconds of a run (the job timeout is 840 s, one call at most 300 s). */
+    public const int RUN_SECONDS = 420;
+
+    /** An unfinished pass older than this is started again from the beginning. */
+    private const int PASS_HOURS = 24;
+
+    private ?int $startedAt = null;
+
+    private int $callsDone = 0;
+
+    /** @var array{since: string, matched: list<string>, gapped: list<int>, idea_groups: list<int>, idea_gapped: list<int>}|null */
+    private ?array $pass = null;
+
     /** Tür uyumu (blueprint §5.2 c): page categories put first for a page type. */
     private const array TYPE_CATEGORIES = ['service' => ['hizmet'], 'guide' => ['blog'], 'faq' => ['sss', 'blog'], 'location' => ['lokasyon'], 'comparison' => ['blog']];
 
@@ -65,13 +83,36 @@ final class ClusterAudit
         private readonly ClusterPageShares $shares,
     ) {}
 
-    /** @return array{status: string, clusters: int, matched: int, gaps: int} */
-    public function run(DigitalAsset $site): array
+    /**
+     * @param  bool  $continueOnly  a follow-up part: only an open pass is continued (nothing to do when it already ended)
+     * @return array{status: string, clusters: int, matched: int, gaps: int}
+     */
+    public function run(DigitalAsset $site, bool $continueOnly = false): array
     {
         $brand = SiteScope::brandOf($site);
         if (! SiteScope::aiAllowed($brand)) {
             return ['status' => 'not_operational', 'clusters' => 0, 'matched' => 0, 'gaps' => 0];
         }
+        $this->pass = $this->openPass($site);
+        if ($this->pass === null) {
+            if ($continueOnly) {
+                return ['status' => 'ready', 'clusters' => 0, 'matched' => 0, 'gaps' => 0];
+            }
+            $this->pass = ['since' => now()->toIso8601String(), 'matched' => [], 'gapped' => [], 'idea_groups' => [], 'idea_gapped' => []];
+        }
+        $this->startedAt = now()->getTimestamp();
+        $this->callsDone = 0;
+        try {
+            return $this->runPass($site, $brand);
+        } finally {
+            $this->startedAt = null;
+            $this->pass = null;
+        }
+    }
+
+    /** @return array<string, mixed> */
+    private function runPass(DigitalAsset $site, Brand $brand): array
+    {
         $mapped = $this->mapper->refresh($site, judge: false);
         if ($mapped['status'] !== 'ready') {
             return ['status' => $mapped['status'], 'clusters' => 0, 'matched' => 0, 'gaps' => 0];
@@ -84,27 +125,53 @@ final class ClusterAudit
         $members = $this->members($clusters->pluck('id')->all());
         $shares = $this->shares->forClusters($brand, $site, $clusters->pluck('id')->map(fn ($id): int => (int) $id)->all());
 
+        if ($this->outOfTime()) {
+            return $this->partial($site, $rows->count());
+        }
+
         $matched = 0;
-        foreach ($rows->groupBy(fn (BrandClusterPage $row): string => ($row->language ?? '').'|'.$row->cluster->service_id) as $group) {
+        foreach ($rows->groupBy(fn (BrandClusterPage $row): string => ($row->language ?? '').'|'.$row->cluster->service_id) as $key => $group) {
+            if (in_array((string) $key, $this->pass['matched'], true)) {
+                continue;
+            }
+            if ($this->outOfTime()) {
+                return $this->partial($site, $rows->count());
+            }
             $result = $this->match($site, $group, $members, $shares);
             if ($result === 'no_provider' || $result === 'error') {
+                $this->savePass($site);
+
                 return ['status' => 'ai_'.$result, 'clusters' => $rows->count(), 'matched' => $matched, 'gaps' => 0];
             }
             $matched += $result;
+            $this->pass['matched'][] = (string) $key;
+            $this->callsDone++;
         }
 
         $gaps = 0;
         $fresh = BrandClusterPage::query()->with('cluster')->whereIn('id', $rows->pluck('id'))->get();
         foreach ($fresh->whereNotNull('page_id')->groupBy('page_id') as $pageId => $pageRows) {
+            if (in_array((int) $pageId, $this->pass['gapped'], true)) {
+                continue;
+            }
+            if ($this->outOfTime()) {
+                return $this->partial($site, $rows->count());
+            }
             $page = Page::query()->where('website_asset_id', $site->id)->find((int) $pageId);
             if ($page !== null) {
                 $gaps += $this->gaps($brand, $page, $pageRows, $members);
+                $this->callsDone++;
             }
+            $this->pass['gapped'][] = (int) $pageId;
         }
         BrandClusterPage::query()->whereIn('id', $fresh->whereNull('page_id')->pluck('id'))
             ->update(['coverage' => 'none', 'gaps' => null, 'audited_at' => now()]);
         $ideas = $this->ideas($site, $brand);
+        if ($ideas === null) {
+            return $this->partial($site, $rows->count());
+        }
         $overlaps = app(ClusterOverlaps::class)->sync($site, $brand, $shares);
+        Cache::forget(self::passKey($site));
         SiteFlow::audited($site);
 
         return ['status' => 'ready', 'clusters' => $rows->count(), 'matched' => $matched, 'gaps' => $gaps, 'ideas' => $ideas, 'overlaps' => $overlaps];
@@ -146,9 +213,9 @@ final class ClusterAudit
      * row): usage rows are created, candidates come from the idea's title, angle and target queries — never the main
      * idea's page — the AI reads them (`site.cluster_match`, kind extra) and lists the gaps of a matched page.
      *
-     * @return int ideas with a page
+     * @return int|null ideas with a page; null when the run's time ran out (the pass continues in the next part)
      */
-    public function ideas(DigitalAsset $site, Brand $brand, ?BrandContentIdea $only = null): int
+    public function ideas(DigitalAsset $site, Brand $brand, ?BrandContentIdea $only = null): ?int
     {
         $mainRows = BrandClusterPage::query()->with('cluster.service.primaryName')->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
             ->where('excluded', false)->orderByRaw('CASE WHEN language IS NULL THEN 1 ELSE 0 END')->orderBy('id')->get()
@@ -163,7 +230,13 @@ final class ClusterAudit
         $pages = $this->candidatePages($site, SiteScope::primaryLanguage($site));
         $pageWords = $this->pageWords($pages);
         $matched = 0;
-        foreach ($usages->groupBy(fn (BrandContentIdea $u): int => (int) $mainRows[$u->idea->cluster_id]->cluster->service_id) as $group) {
+        foreach ($usages->groupBy(fn (BrandContentIdea $u): int => (int) $mainRows[$u->idea->cluster_id]->cluster->service_id) as $serviceId => $group) {
+            if ($only === null && $this->pass !== null && in_array((int) $serviceId, $this->pass['idea_groups'], true)) {
+                continue;
+            }
+            if ($this->outOfTime()) {
+                return null;
+            }
             $candidates = [];
             foreach ($group as $usage) {
                 $idea = $usage->idea;
@@ -186,6 +259,7 @@ final class ClusterAudit
                     ])->values()->all(),
                     'pages' => array_map(fn (int $id): array => $this->pagePack($byId[$id]), $pageIds),
                 ], 300);
+                $this->callsDone++;
                 if ($result['status'] !== 'ready') {
                     return $matched;
                 }
@@ -201,13 +275,28 @@ final class ClusterAudit
                 $coverage = $pageId === null ? 'none' : ($coverage === 'none' ? 'partial' : $coverage);
                 $reason = mb_substr(trim((string) ($answer['reason'] ?? '')), 0, 300);
                 $reason = preg_match('/https?:|www\.|\d{2,}/u', $reason) === 1 ? '' : $reason;
+                if ($pageId !== null && $this->pass !== null && in_array((int) $usage->id, $this->pass['idea_gapped'], true) && (int) $usage->page_id === $pageId) {
+                    $matched++; // read in an earlier part of this pass: same page, its gaps stay
+
+                    continue;
+                }
                 $usage->forceFill(['page_id' => $pageId, 'coverage' => $coverage, 'gaps' => null, 'audited_at' => now(),
                     'state' => $pageId === null ? 'no_page' : ($coverage === 'full' ? 'sufficient' : 'improve'),
                     'reason' => $reason !== '' ? $reason : ($pageId === null ? 'Sitede bu konuyu işleyen ayrı bir sayfa yok.' : null)])->save();
                 if ($pageId !== null) {
                     $matched++;
+                    if ($this->outOfTime()) {
+                        return null;
+                    }
                     $this->ideaGaps($brand, $usage);
+                    $this->callsDone++;
+                    if ($this->pass !== null) {
+                        $this->pass['idea_gapped'][] = (int) $usage->id;
+                    }
                 }
+            }
+            if ($this->pass !== null) {
+                $this->pass['idea_groups'][] = (int) $serviceId;
             }
         }
 
@@ -250,6 +339,46 @@ final class ClusterAudit
             ->filter(fn (array $g): bool => mb_strlen($g['text']) >= 5)->take(self::MAX_GAPS)->values()->all();
         $coverage = $gaps === [] ? 'full' : 'partial';
         $usage->forceFill(['coverage' => $coverage, 'gaps' => $gaps, 'state' => $coverage === 'full' ? 'sufficient' : 'improve', 'audited_at' => now()])->save();
+    }
+
+    /** Whether this run must stop starting AI calls (at least one call was made, so every part makes progress). */
+    private function outOfTime(): bool
+    {
+        return $this->startedAt !== null && $this->callsDone > 0 && now()->getTimestamp() - $this->startedAt >= self::RUN_SECONDS;
+    }
+
+    /** @return array<string, mixed> */
+    private function partial(DigitalAsset $site, int $clusters): array
+    {
+        $this->savePass($site);
+
+        return ['status' => 'partial', 'clusters' => $clusters, 'matched' => 0, 'gaps' => 0];
+    }
+
+    private function savePass(DigitalAsset $site): void
+    {
+        if ($this->pass !== null) {
+            Cache::put(self::passKey($site), $this->pass, now()->addHours(self::PASS_HOURS));
+        }
+    }
+
+    /** @return array{since: string, matched: list<string>, gapped: list<int>, idea_groups: list<int>, idea_gapped: list<int>}|null */
+    private function openPass(DigitalAsset $site): ?array
+    {
+        $pass = Cache::get(self::passKey($site));
+
+        return is_array($pass) && isset($pass['since']) ? $pass + ['matched' => [], 'gapped' => [], 'idea_groups' => [], 'idea_gapped' => []] : null;
+    }
+
+    /** Whether a pass of this site stopped half way and waits for its next part. */
+    public static function passOpen(DigitalAsset $site): bool
+    {
+        return Cache::has(self::passKey($site));
+    }
+
+    private static function passKey(DigitalAsset $site): string
+    {
+        return 'cluster-audit:pass:'.$site->id;
     }
 
     /**
@@ -345,6 +474,8 @@ final class ClusterAudit
                     return;
                 }
                 $byId = $chunk->keyBy('id');
+                // A cluster the AI gave no questions for is not asked again on every run.
+                Cluster::query()->whereIn('id', $chunk->pluck('id'))->whereNull('ai_queries')->update(['ai_queries' => '[]']);
                 foreach ((array) ($result['data']['clusters'] ?? []) as $row) {
                     $cluster = is_array($row) && is_int($row['cluster_id'] ?? null) ? $byId->get($row['cluster_id']) : null;
                     if ($cluster === null) {

@@ -7,10 +7,12 @@ use App\Models\User;
 use App\Services\Ai\AiLiveOperations;
 use Illuminate\Contracts\Queue\Job;
 use Illuminate\Queue\Events\JobExceptionOccurred;
+use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Queue\Events\JobQueued;
 use Illuminate\Queue\Jobs\SyncJob;
+use Illuminate\Queue\TimeoutExceededException;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -99,6 +101,20 @@ final class AiJobTracker
     {
         $final = $event->job->hasFailed() || $event->job instanceof SyncJob || $event->connectionName === 'sync';
         $this->end($event->job, $event->exception->getMessage(), $final);
+    }
+
+    /**
+     * A job failed for good — also when the worker kills it for running past its timeout (no "processed" event comes
+     * then): the row is closed at once with the cost of the calls it made, never left "Çalışıyor" until the sweep.
+     */
+    public function failed(JobFailed $event): void
+    {
+        $this->end($event->job, self::failureMessage($event->exception), true);
+    }
+
+    public static function failureMessage(Throwable $exception): string
+    {
+        return $exception instanceof TimeoutExceededException ? 'Zaman aşımı: iş süresini aştı, işçi durdurdu.' : $exception->getMessage();
     }
 
     /** The innermost queued job this process runs: uuid, class and its AI işleri row (tracked jobs only). */

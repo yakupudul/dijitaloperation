@@ -105,6 +105,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Client\Events\ConnectionFailed;
 use Illuminate\Http\Client\Events\ResponseReceived;
 use Illuminate\Queue\Events\JobExceptionOccurred;
+use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Queue\Events\JobQueued;
@@ -255,6 +256,7 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(ConnectionFailed::class, [AiLiveOperations::class, 'httpResponse']);
         Event::listen(JobExceptionOccurred::class, fn (JobExceptionOccurred $event) => app(AiLiveOperations::class)->closeOpen($event->exception->getMessage()));
         Event::listen(JobProcessed::class, fn () => app(AiLiveOperations::class)->closeOpen());
+        Event::listen(JobFailed::class, fn (JobFailed $event) => app(AiLiveOperations::class)->closeOpen(AiJobTracker::failureMessage($event->exception)));
         Event::listen(Authenticated::class, fn (Authenticated $event) => Context::addHidden(AiLiveOperations::USER_CONTEXT, $event->user->getAuthIdentifier()));
         $this->app->terminating(fn () => app(AiLiveOperations::class)->closeOpen());
 
@@ -264,6 +266,7 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(JobProcessing::class, [AiJobTracker::class, 'processing']);
         Event::listen(JobProcessed::class, [AiJobTracker::class, 'processed']);
         Event::listen(JobExceptionOccurred::class, [AiJobTracker::class, 'exceptionOccurred']);
+        Event::listen(JobFailed::class, [AiJobTracker::class, 'failed']);
         Bus::pipeThrough([static function (mixed $command, Closure $next): mixed {
             try {
                 return $next($command);

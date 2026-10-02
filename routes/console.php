@@ -13,6 +13,7 @@ use App\Jobs\Meta\SyncMetaSuggestionsJob;
 use App\Jobs\Ops\QueueHeartbeatProbeJob;
 use App\Jobs\Queries\QueryAutopilotJob;
 use App\Jobs\RefreshBrandCandidatesJob;
+use App\Models\AiLiveOperation;
 use App\Models\Brand;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
@@ -827,6 +828,14 @@ Artisan::command('moxdop:ai:costs {--hours=24 : Kaç saat geriye}', function (Ai
     ], $rows));
     $this->info(sprintf('Toplam: $%.3f · otomatik işler son 24 saat: $%.3f / günlük tavan $%.2f', array_sum(array_column($rows, 'cost')), $budget->dailyAutoSpend(), $budget->dailyAutoBudget()));
 })->purpose('Show the AI spend per operation (automatic vs operator) and the daily automatic ceiling.');
+
+// Takılı AI işleri: rows a dead worker left "Çalışıyor" (killed for timeout before the tracker closed them on failure).
+Artisan::command('moxdop:ai:close-stuck {--minutes=30 : Bu kadar dakikadır çalışıyor görünenler (en uzun iş süresi 28 dk)}', function (): void {
+    $before = now()->subMinutes(max(5, (int) $this->option('minutes')));
+    $closed = AiLiveOperation::query()->where('status', AiLiveOperation::RUNNING)->where('started_at', '<', $before)
+        ->update(['status' => AiLiveOperation::FAILED, 'error' => 'İş yarıda kaldı (zaman aşımı); kapatıldı.', 'finished_at' => now()]);
+    $this->info($closed.' takılı AI satırı kapatıldı.');
+})->purpose('Close AI job / call rows still marked running long after their worker died.');
 
 // Şef denetimi on demand (it also runs before every weekly plan): errors in what the AI did, rules only.
 Artisan::command('moxdop:brands:audit {brand? : brand id}', function (BrandAudit $audit): void {

@@ -15,11 +15,16 @@ use App\Services\Ai\AiLiveOperations;
 use App\Services\AiJobs\AiJobTracker;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
+use Illuminate\Contracts\Queue\Job;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Queue\Events\JobFailed;
+use Illuminate\Queue\Events\JobProcessing;
+use Illuminate\Queue\TimeoutExceededException;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
+use Mockery;
 use Tests\TestCase;
 
 /**
@@ -290,6 +295,30 @@ final class AiJobsTest extends TestCase
     }
 
     /** @param  array<string, mixed>  $attributes */
+    public function test_a_job_the_worker_kills_for_its_timeout_is_closed_at_once_and_stuck_rows_can_be_closed(): void
+    {
+        $row = $this->row(['kind' => AiLiveOperation::KIND_JOB, 'job_uuid' => 'uuid-timeout', 'job_class' => FakeMultiCallAiJob::class, 'status' => AiLiveOperation::QUEUED]);
+        $this->row(['parent_id' => $row->id, 'kind' => AiLiveOperation::KIND_CALL, 'status' => AiLiveOperation::DONE, 'cost_usd' => 0.004, 'finished_at' => now()]);
+        $job = Mockery::mock(Job::class);
+        $job->shouldReceive('uuid')->andReturn('uuid-timeout');
+        $job->shouldReceive('resolveName')->andReturn(FakeMultiCallAiJob::class);
+        $job->shouldIgnoreMissing();
+        app(AiJobTracker::class)->processing(new JobProcessing('database', $job));
+        $this->assertSame(AiLiveOperation::RUNNING, $row->fresh()->status);
+
+        event(new JobFailed('database', $job, new TimeoutExceededException('timed out')));
+
+        $row->refresh();
+        $this->assertSame([AiLiveOperation::FAILED, 'Zaman aşımı: iş süresini aştı, işçi durdurdu.', 0.004], [$row->status, $row->error, (float) $row->cost_usd]);
+        $this->assertNotNull($row->finished_at);
+
+        // Rows a dead worker left running before this fix: closed by the command; recent ones stay.
+        $old = $this->row(['kind' => AiLiveOperation::KIND_JOB, 'job_uuid' => 'uuid-old', 'started_at' => now()->subMinutes(90)]);
+        $recent = $this->row(['kind' => AiLiveOperation::KIND_JOB, 'job_uuid' => 'uuid-new', 'started_at' => now()->subMinutes(5)]);
+        $this->artisan('moxdop:ai:close-stuck')->expectsOutputToContain('1 takılı AI satırı kapatıldı.')->assertExitCode(0);
+        $this->assertSame([AiLiveOperation::FAILED, AiLiveOperation::RUNNING], [$old->fresh()->status, $recent->fresh()->status]);
+    }
+
     private function row(array $attributes): AiLiveOperation
     {
         return AiLiveOperation::query()->create([

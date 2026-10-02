@@ -1,5 +1,19 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-21 — Eşleştir yığılması: parçalı çalışma, zaman aşımında satır kapanır, hatada döngü yok
+
+- **Sorun:** AI işleri'nde aynı site için onlarca "Site · Eşleştir" satırı saatlerce "Çalışıyor" kaldı, maliyet "—".
+  - Büyük sitelerde Eşleştir 14 dakikalık iş süresini aşıyordu. İşçi işi öldürünce satır kapanmıyordu (3 saatlik süpürmeye kadar açık kalıyordu).
+  - İş "hata" durumuna düşünce bir sonraki tetik (kümeleme onayı, gece akışı) Eşleştir'i baştan başlatıyordu. Aynı AI çağrılarına tekrar tekrar para ödeniyordu.
+- **Parçalı çalışma:** Eşleştir 7 dakikadan sonra yeni AI çağrısı başlatmaz ve kaldığı yeri hatırlar: eşleşen hizmet grupları, okunan sayfalar, fikir grupları.
+  - Sonraki parça kendiliğinden kuyruğa girer ve aynı adımı tekrar ödemez. Bir geçişte en çok 30 parça çalışır.
+  - Bir sitede aynı anda yalnız bir Eşleştir çalışır. "Eşleştir" düğmesi çalışan varken yenisini başlatmaz.
+- **Zaman aşımı:** İşçinin öldürdüğü iş anında "Hata · Zaman aşımı" olur. Satır, o ana kadarki çağrıların maliyetiyle kapanır.
+- **Hata sonrası bekleme:** Eşleştir hata verince (AI hatası, sağlayıcı yok / günlük tavan, zaman aşımı) akış 6 saat kendiliğinden yeniden başlatmaz. Operatör "Eşleştir" ile hemen başlatabilir; sonra açık geçiş kaldığı yerden sürer.
+- **AI soruları:** AI'ın soru vermediği küme her çalışmada yeniden sorulmaz.
+- **Temizlik:** `moxdop:ai:close-stuck --minutes=30` eski takılı satırları kapatır.
+- **Test:** SiteFlowTest (parçalar, hiçbir adım iki kez ödenmez, zaman aşımı sonrası bekleme), AiJobsTest (zaman aşımında satır kapanır, komut). UAT: yok.
+
 ## 2026-11-20 — AI harcaması: otomatik işlere günlük tavan, ucuz model, harcama dökümü
 
 - **Sorun:** 14 saatte 12 $. Otomatik işlerin çoğu en pahalı modelde (Sonnet 5) çalışıyordu ve bir üst sınırları yoktu.

@@ -1,5 +1,10 @@
 # PROJECT_MEMORY
 
+## 2026-11-21 — Uzun AI işleri parçalı çalışır
+
+- **Karar:** Kuyruk süresini aşabilecek AI işi (Eşleştir) süre bütçesiyle parçalara bölünür. Her parça kaldığı yerden sürer; bir adım iki kez ödenmez.
+- **Karar:** Hata veren otomatik iş kendiliğinden hemen yeniden başlamaz (6 saat). Zaman aşımında AI işi satırı anında kapanır.
+
 ## 2026-11-20 — AI harcama sınırı
 
 - **Karar:** Kimse tıklamadan çalışan AI işlerinin günlük tavanı vardır (varsayılan 1 $, son 24 saat); tavan dolunca durur, operatör tıklamaları sürer.

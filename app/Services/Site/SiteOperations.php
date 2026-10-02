@@ -136,7 +136,7 @@ final class SiteOperations
             self::WRITE_ARTICLE => $suggestion !== null ? $this->content->writeArticle($suggestion) : ['status' => 'no_suggestion'],
             self::WEEKLY_REFRESH => $this->weeklyRefresh($site),
             self::SETUP => $this->afterSetup($site, (bool) ($params['unattended'] ?? false)),
-            self::CLUSTER_AUDIT => $this->audit->run($site),
+            self::CLUSTER_AUDIT => $this->audit->run($site, continueOnly: isset($params['part'])),
             self::FIX_GAPS => $subject !== null ? $this->fixGaps($subject) : ['status' => 'no_row'],
             self::PRODUCE => $subject !== null ? $this->content->produce($subject) : ['status' => 'no_row'],
             self::REDISCOVER => $subject === null ? ['status' => 'no_row'] : ($subject->kind === ContentIdeaSubject::MAIN
@@ -274,6 +274,8 @@ final class SiteOperations
 
         return match ((string) ($status['status'] ?? '')) {
             'running' => 'çalışıyor…',
+            'timeout' => 'süre aşıldı; kalan kısım sonra devam eder',
+            'stalled' => 'çok parçaya bölündü, durduruldu; tekrar başlatın',
             'ready' => 'tamam',
             'not_operational' => 'pasif müşteri: AI çalışmaz',
             'no_provider', 'ai_no_provider' => 'AI bağlı değil',

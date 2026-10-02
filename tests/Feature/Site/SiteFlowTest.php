@@ -9,9 +9,11 @@ use App\Jobs\Site\RunSiteOperationJob;
 use App\Livewire\Operator\Website\V2\ContentIdeasTab;
 use App\Models\BrandClusterPage;
 use App\Models\BrandServiceArea;
+use App\Models\Cluster;
 use App\Models\CoreConnection;
 use App\Models\CoreConnectionCredential;
 use App\Models\ExternalWriteAction;
+use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Brand\BrandGaps;
@@ -20,6 +22,7 @@ use App\Services\Site\ClusterOverlaps;
 use App\Services\Site\SiteAreas;
 use App\Services\Site\SiteFlow;
 use App\Services\Site\SiteOperations;
+use Illuminate\Queue\TimeoutExceededException;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
@@ -130,6 +133,79 @@ final class SiteFlowTest extends SiteTestCase
         ]]);
         app(ClusterAudit::class)->run($this->site);
         $this->assertSame([], Suggestion::query()->where('decision_key', ClusterOverlaps::DECISION)->actionable()->pluck('id')->all());
+    }
+
+    /** Two services, two pages; every AI call takes longer than a run may last. @return array{match: int, gaps: int} */
+    private function slowAi(): object
+    {
+        $this->page('/implant/', 'İmplant Tedavisi', ['category' => 'hizmet', 'content_text' => 'İmplant tedavisi anlatılır.']);
+        $this->page('/zirkonyum/', 'Zirkonyum Kaplama', ['category' => 'hizmet', 'content_text' => 'Zirkonyum kaplama anlatılır.']);
+        $this->cluster($this->implant, 'İmplant tedavisi', ['implant tedavisi']);
+        $this->cluster($this->zirkonyum, 'Zirkonyum kaplama', ['zirkonyum kaplama']);
+        Cluster::query()->update(['ai_queries' => '[]']);
+        $calls = (object) ['match' => 0, 'gaps' => 0];
+        ClusterMatchAgent::fake(function (string $prompt) use ($calls): array {
+            $calls->match++;
+            $this->travel(ClusterAudit::RUN_SECONDS + 1)->seconds();
+            $data = json_decode(substr($prompt, strlen("DATA_JSON\n")), true);
+
+            return ['clusters' => array_map(fn (array $c): array => ['cluster_id' => $c['cluster_id'], 'page_id' => $data['pages'][0]['id'],
+                'also_page_ids' => [], 'coverage' => 'full', 'reason' => 'Sayfa konuyu işliyor.'], $data['clusters'])];
+        });
+        ClusterGapsAgent::fake(function () use ($calls): array {
+            $calls->gaps++;
+            $this->travel(ClusterAudit::RUN_SECONDS + 1)->seconds();
+
+            return ['clusters' => []];
+        });
+
+        return $calls;
+    }
+
+    public function test_a_large_eslestir_runs_in_parts_and_never_pays_for_a_step_twice(): void
+    {
+        $this->enableAi();
+        $calls = $this->slowAi();
+        $audit = app(ClusterAudit::class);
+
+        $parts = 0;
+        do {
+            $result = $audit->run($this->site, continueOnly: $parts > 0);
+            $parts++;
+        } while ($result['status'] === 'partial' && $parts < 10);
+
+        $this->assertSame(['ready', 4, 2, 2], [$result['status'], $parts, $calls->match, $calls->gaps], 'match A | match B | gaps 1 | gaps 2: each part continues, nothing twice');
+        $this->assertFalse(ClusterAudit::passOpen($this->site));
+        $this->assertFalse(SiteFlow::auditDue($this->site));
+        $this->assertSame('ready', $audit->run($this->site, continueOnly: true)['status'], 'a late follow-up part finds no open pass');
+        $this->assertSame([2, 2], [$calls->match, $calls->gaps]);
+    }
+
+    public function test_a_part_out_of_time_queues_the_next_and_a_failed_eslestir_is_not_retried_in_a_loop(): void
+    {
+        $this->enableAi();
+        $this->pair();
+        $this->slowAi();
+        OfferingPage::query()->create(['brand_offering_id' => $this->implantOffering->id, 'page_id' => Page::query()->where('path', '/implant/')->value('id'), 'source' => 'rule', 'locked' => false]);
+        Queue::fake();
+        SiteOperations::putStatus((int) $this->site->id, SiteOperations::SETUP, ['status' => 'ready'], ['unattended' => true]);
+
+        (new RunSiteOperationJob((int) $this->site->id, SiteOperations::CLUSTER_AUDIT))->handle(app(SiteOperations::class));
+        Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->operation === SiteOperations::CLUSTER_AUDIT && $job->params === ['part' => 2]);
+        $this->assertTrue(SiteFlow::auditRunning((int) $this->site->id));
+        $this->assertSame('running', SiteFlow::advance($this->site), 'no second Eşleştir while parts run');
+        Livewire::test(ContentIdeasTab::class, ['assetId' => $this->site->id])->call('matchAll')->assertSee('Eşleştirme zaten çalışıyor');
+        Queue::assertPushed(RunSiteOperationJob::class, 1);
+
+        // The worker killed a part for its timeout: the flow waits instead of starting it again every few minutes.
+        (new RunSiteOperationJob((int) $this->site->id, SiteOperations::CLUSTER_AUDIT, ['part' => 2]))->failed(new TimeoutExceededException('timed out'));
+        $this->assertSame('timeout', SiteOperations::status((int) $this->site->id, SiteOperations::CLUSTER_AUDIT)['status']);
+        $this->assertSame('paused', SiteFlow::advance($this->site));
+        $this->assertSame('paused', SiteFlow::advance($this->site));
+        Queue::assertPushed(RunSiteOperationJob::class, 1);
+        $this->travel(SiteFlow::FAILURE_PAUSE_HOURS + 1)->hours();
+        $this->assertSame('audit', SiteFlow::advance($this->site), 'later it continues the open pass');
+        Queue::assertPushed(RunSiteOperationJob::class, 2);
     }
 
     public function test_service_areas_come_from_the_sites_own_pages_and_are_added_on_approval(): void

@@ -88,6 +88,11 @@ final class ContentIdeasTab extends Component
     /** "Eşleştir": rule rows, AI match + gaps of every main and extra idea (ClusterAudit). */
     public function matchAll(): void
     {
+        if (SiteFlow::auditRunning($this->assetId)) {
+            $this->message = 'Eşleştirme zaten çalışıyor · bitince sonuçlar burada.';
+
+            return;
+        }
         SiteOperations::dispatch($this->assetId, SiteOperations::CLUSTER_AUDIT);
         $this->message = 'Eşleştirme kuyruğa alındı · her fikir için sayfalar okunur, durum ve eksikler yazılır.';
     }
@@ -129,6 +134,7 @@ final class ContentIdeasTab extends Component
             'setup' => 'Sayfa sınıflandırma ve hizmet ↔ sayfa başladı; bitince küme ↔ sayfa kendiliğinden gelir.',
             'audit' => 'Küme ↔ sayfa eşleştirme başladı.',
             'running' => 'Akış zaten çalışıyor.',
+            'paused' => 'Son eşleştirme hata verdi; kendiliğinden '.SiteFlow::FAILURE_PAUSE_HOURS.' saat sonra yeniden denenir. Hemen denemek için «Eşleştir».',
             'waiting:wordpress' => 'WordPress eklentisi bağlı değil: akış eklenti eşleşince çalışır.',
             'waiting:pages' => 'Sitenin sayfaları henüz toplanmadı.',
             'waiting:not_operational' => 'Pasif müşteri: AI çalışmaz.',
