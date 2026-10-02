@@ -35,7 +35,7 @@ return new class extends Migration
                     $index,
                 );
             });
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // Existing equivalent index is acceptable on disposable/test databases.
         }
     }
@@ -58,7 +58,7 @@ return new class extends Migration
             Schema::table('ga4_landing_page_daily', function ($table) use ($index): void {
                 $table->dropUnique($index);
             });
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // No-op when the index is already absent.
         }
     }

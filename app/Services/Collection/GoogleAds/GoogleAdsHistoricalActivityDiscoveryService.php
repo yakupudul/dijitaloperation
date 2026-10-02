@@ -193,7 +193,7 @@ final class GoogleAdsHistoricalActivityDiscoveryService
      * Consecutive active months form one detailed-backfill period. Whole inactive
      * gaps become separate periods and are not queried at daily/search-term grain.
      *
-     * @param list<array<string,mixed>> $activeRows
+     * @param  list<array<string,mixed>>  $activeRows
      * @return list<array{start:string,end:string}>
      */
     private function granularPeriods(
@@ -219,6 +219,7 @@ final class GoogleAdsHistoricalActivityDiscoveryService
             $monthEnd = $parsed->endOfMonth()->startOfDay();
             if ($monthEnd->lessThan($boundary)) {
                 $previousActiveMonth = $monthStart;
+
                 continue;
             }
             if ($monthEnd->greaterThan($providerEnd)) {
@@ -227,6 +228,7 @@ final class GoogleAdsHistoricalActivityDiscoveryService
             $periodStart = $monthStart->lessThan($boundary) ? $boundary : $monthStart;
             if ($periodStart->greaterThan($monthEnd)) {
                 $previousActiveMonth = $monthStart;
+
                 continue;
             }
 

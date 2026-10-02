@@ -14,12 +14,19 @@ use InvalidArgumentException;
 final class GoogleAdsCentralRequestFamilyCatalog
 {
     public const string ACCOUNT_MONTHLY_HISTORY = 'GADS_CENTRAL_RF_ACCOUNT_MONTHLY_HISTORY';
+
     public const string ENTITY_SNAPSHOT = 'GADS_CENTRAL_RF_ENTITY_SNAPSHOT';
+
     public const string ACCOUNT_DAILY = 'GADS_CENTRAL_RF_ACCOUNT_DAILY';
+
     public const string CAMPAIGN_DAILY = 'GADS_CENTRAL_RF_CAMPAIGN_DAILY';
+
     public const string KEYWORD = 'GADS_CENTRAL_RF_KEYWORD';
+
     public const string SEARCH_TERM = 'GADS_CENTRAL_RF_SEARCH_TERM';
+
     public const string LANDING_PAGE = 'GADS_CENTRAL_RF_LANDING_PAGE';
+
     public const string CONVERSION_ACTION = 'GADS_CENTRAL_RF_CONVERSION_ACTION';
 
     /** @return list<string> */

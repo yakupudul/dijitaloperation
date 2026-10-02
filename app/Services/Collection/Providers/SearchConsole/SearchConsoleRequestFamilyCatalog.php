@@ -10,19 +10,33 @@ use InvalidArgumentException;
 final class SearchConsoleRequestFamilyCatalog
 {
     public const string FAMILY_PROPERTY_DAILY = 'GSC_RF_PROPERTY_DAILY';
+
     public const string FAMILY_QUERY_DAILY = 'GSC_RF_QUERY_DAILY';
+
     public const string FAMILY_PAGE_DAILY = 'GSC_RF_PAGE_DAILY';
+
     public const string FAMILY_QUERY_PAGE_DAILY = 'GSC_RF_QUERY_PAGE_DAILY';
+
     public const string FAMILY_DEVICE_DAILY = 'GSC_RF_DEVICE_DAILY';
+
     public const string FAMILY_COUNTRY_DAILY = 'GSC_RF_COUNTRY_DAILY';
+
     public const string FAMILY_PAGE_DEVICE_DAILY = 'GSC_RF_PAGE_DEVICE_DAILY';
+
     public const string FAMILY_PAGE_COUNTRY_DAILY = 'GSC_RF_PAGE_COUNTRY_DAILY';
+
     public const string FAMILY_QUERY_DEVICE_DAILY = 'GSC_RF_QUERY_DEVICE_DAILY';
+
     public const string FAMILY_QUERY_COUNTRY_DAILY = 'GSC_RF_QUERY_COUNTRY_DAILY';
+
     public const string FAMILY_SEARCH_APPEARANCE_DAILY = 'GSC_RF_SEARCH_APPEARANCE_DAILY';
+
     public const string FAMILY_SEARCH_APPEARANCE_PAGE_DAILY = 'GSC_RF_SEARCH_APPEARANCE_PAGE_DAILY';
+
     public const string FAMILY_SITEMAPS = 'GSC_RF_SITEMAPS';
+
     public const string FAMILY_URL_INSPECTION = 'GSC_RF_URL_INSPECTION';
+
     public const string FAMILY_SEARCH_ANALYTICS = 'GSC_RF_SEARCH_ANALYTICS';
 
     /** @return list<string> */
@@ -72,7 +86,7 @@ final class SearchConsoleRequestFamilyCatalog
      * do not expose a useful query dimension. Search Appearance is collected from
      * Web with Google's required two-step discover-then-filter flow.
      *
-     * @param list<string> $activeSearchTypes
+     * @param  list<string>  $activeSearchTypes
      * @return list<string>
      */
     public static function compatibleSearchTypes(string $familyId, array $activeSearchTypes): array

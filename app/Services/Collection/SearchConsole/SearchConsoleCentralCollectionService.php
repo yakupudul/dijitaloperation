@@ -35,7 +35,9 @@ use Throwable;
 final class SearchConsoleCentralCollectionService
 {
     public const int INITIAL_DAYS = 486;
+
     public const int RESTATEMENT_DAYS = 7;
+
     public const int FINAL_LAG_DAYS = 3;
 
     public function __construct(
@@ -54,7 +56,7 @@ final class SearchConsoleCentralCollectionService
     }
 
     /** @param list<int|string> $externalResourceIds
-     *  @return Collection<int, CoreExternalResource>
+     * @return Collection<int, CoreExternalResource>
      */
     private function resolveResources(CoreIntegration $integration, array $externalResourceIds): Collection
     {
@@ -238,7 +240,7 @@ final class SearchConsoleCentralCollectionService
     }
 
     /**
-     * @param list<string> $activeSearchTypes
+     * @param  list<string>  $activeSearchTypes
      * @return list<array<string, mixed>>
      */
     private function datasetPlans(array $activeSearchTypes, CarbonImmutable $start, CarbonImmutable $end): array

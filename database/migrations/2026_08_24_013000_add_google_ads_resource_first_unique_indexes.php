@@ -41,7 +41,7 @@ return new class extends Migration
                 ->exists();
 
             if ($duplicate) {
-                throw new \RuntimeException("Cannot enable Google Ads resource-first identity: duplicate provider rows exist in [{$table}]. Resolve duplicates before migration.");
+                throw new RuntimeException("Cannot enable Google Ads resource-first identity: duplicate provider rows exist in [{$table}]. Resolve duplicates before migration.");
             }
 
             $name = $this->indexName($table);

@@ -207,6 +207,7 @@ class GoogleAdsPoolReadRepository
                 'keyword_neq_search_term' => true,
             ];
         }
+
         return $rows;
     }
 
@@ -238,6 +239,7 @@ class GoogleAdsPoolReadRepository
             ->orderBy('conversion_action_id')->get(['conversion_action_id', 'metadata'])
             ->map(function ($row): array {
                 $meta = $this->decodeMetadata($row->metadata);
+
                 return [
                     'conversion_action_id' => (string) $row->conversion_action_id,
                     'name' => (string) ($meta['name'] ?? ('Action '.$row->conversion_action_id)),
@@ -280,6 +282,7 @@ class GoogleAdsPoolReadRepository
         return $query->orderBy('ad_id')->limit($limit)->get(['ad_id', 'metadata'])
             ->map(function ($row): array {
                 $meta = $this->decodeMetadata($row->metadata);
+
                 return [
                     'ad_id' => (string) $row->ad_id,
                     'type' => $meta['type'] ?? $meta['ad_type'] ?? null,
@@ -302,6 +305,7 @@ class GoogleAdsPoolReadRepository
         return $query->orderBy('asset_id')->limit($limit)->get(['asset_id', 'metadata'])
             ->map(function ($row): array {
                 $meta = $this->decodeMetadata($row->metadata);
+
                 return [
                     'asset_id' => (string) $row->asset_id,
                     'type' => $meta['type'] ?? $meta['asset_type'] ?? null,
@@ -315,6 +319,7 @@ class GoogleAdsPoolReadRepository
     private function dailyScope(string $table, int $digitalAssetId, int $externalResourceId, string $customerId, string $start, string $end): Builder
     {
         $useCentral = $this->centralExists($table, $externalResourceId, $customerId, $start, $end);
+
         return $this->scopeWithMode($table, $digitalAssetId, $externalResourceId, $customerId, $useCentral)
             ->whereBetween('reporting_date', [$start, $end]);
     }
@@ -333,6 +338,7 @@ class GoogleAdsPoolReadRepository
         if ($start !== null && $end !== null) {
             $query->whereBetween('reporting_date', [$start, $end]);
         }
+
         return $query->exists();
     }
 
@@ -341,6 +347,7 @@ class GoogleAdsPoolReadRepository
         $query = DB::table($table)
             ->where('external_resource_id', $externalResourceId)
             ->where('customer_id', $customerId);
+
         return $central ? $query->whereNull('digital_asset_id') : $query->where('digital_asset_id', $digitalAssetId);
     }
 
@@ -352,8 +359,10 @@ class GoogleAdsPoolReadRepository
         }
         if (is_string($raw) && $raw !== '') {
             $decoded = json_decode($raw, true);
+
             return is_array($decoded) ? $decoded : [];
         }
+
         return [];
     }
 
@@ -362,12 +371,14 @@ class GoogleAdsPoolReadRepository
         if (! array_key_exists($key, $meta) || $meta[$key] === null || $meta[$key] === '') {
             return null;
         }
+
         return (float) $meta[$key];
     }
 
     private function resourceIdTail(string $resourceName): string
     {
         $parts = explode('/', $resourceName);
+
         return (string) end($parts);
     }
 }

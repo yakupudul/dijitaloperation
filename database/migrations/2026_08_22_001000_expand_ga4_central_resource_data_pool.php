@@ -255,7 +255,7 @@ return new class extends Migration
             } else {
                 try {
                     Schema::table($table, fn (Blueprint $blueprint) => $blueprint->unique($columns, $index));
-                } catch (\Throwable) {
+                } catch (Throwable) {
                     // Existing equivalent index on disposable/test databases is acceptable.
                 }
             }

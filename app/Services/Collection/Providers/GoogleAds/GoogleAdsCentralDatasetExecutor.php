@@ -503,10 +503,10 @@ final class GoogleAdsCentralDatasetExecutor implements DatasetExecutor
     }
 
     /**
-     * @param array<string,mixed> $scope
-     * @param list<array<string,mixed>> $rawRows
-     * @param list<array<string,mixed>> $records
-     * @param array{start:string,end:string}|null $slice
+     * @param  array<string,mixed>  $scope
+     * @param  list<array<string,mixed>>  $rawRows
+     * @param  list<array<string,mixed>>  $records
+     * @param  array{start:string,end:string}|null  $slice
      */
     private function write(
         DatasetExecutionContext $context,

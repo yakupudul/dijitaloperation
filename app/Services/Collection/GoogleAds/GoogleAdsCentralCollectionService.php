@@ -33,7 +33,9 @@ use InvalidArgumentException;
 final class GoogleAdsCentralCollectionService
 {
     public const int HISTORY_POLICY_VERSION = 2;
+
     public const int RESTATEMENT_DAYS = 30;
+
     public const int CHANGE_EVENT_SAFE_DAYS = 29;
 
     private const array ACTIVE_STATUSES = [
@@ -163,8 +165,7 @@ final class GoogleAdsCentralCollectionService
             }
         }
 
-        $historyBaseline = $history->first(fn (CollectionResourceRun $run): bool =>
-            $run->status === CollectionRunStatus::Completed
+        $historyBaseline = $history->first(fn (CollectionResourceRun $run): bool => $run->status === CollectionRunStatus::Completed
             && (int) data_get($run->metadata, 'history_policy_version', 0) >= self::HISTORY_POLICY_VERSION
         );
 
@@ -200,11 +201,13 @@ final class GoogleAdsCentralCollectionService
         foreach (GoogleAdsCentralRequestFamilyCatalog::supportedFamilies() as $family) {
             if (GoogleAdsCentralRequestFamilyCatalog::isHistoryFamily($family)) {
                 $out[] = ['family' => $family, 'date_range' => null, 'execution_variant' => 'lifetime'];
+
                 continue;
             }
 
             if (! GoogleAdsCentralRequestFamilyCatalog::isDated($family)) {
                 $out[] = ['family' => $family, 'date_range' => null, 'execution_variant' => ''];
+
                 continue;
             }
 
@@ -217,6 +220,7 @@ final class GoogleAdsCentralCollectionService
                     ],
                     'execution_variant' => 'recent',
                 ];
+
                 continue;
             }
 
@@ -253,6 +257,7 @@ final class GoogleAdsCentralCollectionService
 
             if (! GoogleAdsCentralRequestFamilyCatalog::isDated($family)) {
                 $out[] = ['family' => $family, 'date_range' => null, 'execution_variant' => ''];
+
                 continue;
             }
 

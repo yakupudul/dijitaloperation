@@ -8,7 +8,6 @@
  * discovers lifetime activity at monthly grain and uses that result to bound the
  * expensive daily-detail backfill.
  */
-
 $column = static fn (string $name, string $type, bool $nullable = true, string $role = 'dimension'): array => [
     'name' => $name,
     'type' => $type,

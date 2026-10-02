@@ -13,6 +13,7 @@ use Illuminate\Http\Client\Response;
 final class Ga4ApiClient
 {
     public const string DATA_API_V1BETA = 'https://analyticsdata.googleapis.com/v1beta';
+
     public const string ADMIN_API_V1BETA = 'https://analyticsadmin.googleapis.com/v1beta';
 
     public function __construct(

@@ -516,7 +516,7 @@ final class GscSpecialistReadService
             return number_format($value / 1_000, 1).'K';
         }
 
-return number_format($value);
+        return number_format($value);
     }
 
     private function allProvenance(DataSourceState $state): array

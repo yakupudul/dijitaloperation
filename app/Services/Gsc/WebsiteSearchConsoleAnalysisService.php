@@ -9,7 +9,6 @@ use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Operator\OperatorReportingPeriod;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -501,7 +500,7 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param list<string> $dimensions
-     *  @return list<array<string,mixed>>
+     * @return list<array<string,mixed>>
      */
     private function crossDimensionPerformance(string $table, array $dimensions, int $resourceId, string $siteUrl, string $start, string $end, int $limit): array
     {
@@ -531,8 +530,8 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param list<array<string,mixed>> $current
-     *  @param list<array<string,mixed>> $previous
-     *  @return array<string,list<array<string,mixed>>>
+     * @param  list<array<string,mixed>>  $previous
+     * @return array<string,list<array<string,mixed>>>
      */
     private function movements(array $current, array $previous, string $dimension): array
     {
@@ -549,6 +548,7 @@ final class WebsiteSearchConsoleAnalysisService
                 if ((int) ($row['impressions'] ?? 0) >= 10) {
                     $new[] = $row + ['click_delta' => (int) ($row['clicks'] ?? 0), 'impression_delta' => (int) ($row['impressions'] ?? 0)];
                 }
+
                 continue;
             }
 
@@ -598,7 +598,7 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param list<array<string,mixed>> $queries
-     *  @return array<string,mixed>
+     * @return array<string,mixed>
      */
     private function opportunities(array $queries): array
     {
@@ -652,7 +652,7 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param list<array<string,mixed>> $queries
-     *  @return array<string,int>
+     * @return array<string,int>
      */
     private function positionBands(array $queries): array
     {
@@ -678,7 +678,7 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param list<array<string,mixed>> $queries
-     *  @return array<string,mixed>
+     * @return array<string,mixed>
      */
     private function brandSplit(DigitalAsset $asset, array $queries): array
     {
@@ -726,11 +726,11 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param list<array<string,mixed>> $queries
-     *  @return list<array<string,mixed>>
+     * @return list<array<string,mixed>>
      */
     private function topicClusters(array $queries): array
     {
-        $stop = ['ve','ile','icin','bir','bu','mi','mu','mı','the','and','for','with','from','what','how','near','in','of','to','a','an'];
+        $stop = ['ve', 'ile', 'icin', 'bir', 'bu', 'mi', 'mu', 'mı', 'the', 'and', 'for', 'with', 'from', 'what', 'how', 'near', 'in', 'of', 'to', 'a', 'an'];
         $tokens = [];
         foreach (array_slice($queries, 0, 200) as $row) {
             $words = preg_split('/\s+/u', $this->normalizeText((string) ($row['query'] ?? ''))) ?: [];
@@ -767,8 +767,8 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param list<array<string,mixed>> $current
-     *  @param list<array<string,mixed>> $previous
-     *  @return list<array<string,mixed>>
+     * @param  list<array<string,mixed>>  $previous
+     * @return list<array<string,mixed>>
      */
     private function contentDecay(array $current, array $previous): array
     {
@@ -943,7 +943,7 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param list<array<string,mixed>> $samples
-     *  @return array<string,mixed>
+     * @return array<string,mixed>
      */
     private function indexHealth(array $samples): array
     {
@@ -979,11 +979,11 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param array<string,mixed> $current
-     *  @param array<string,mixed>|null $previous
-     *  @param array<string,list<array<string,mixed>>> $pageMovements
-     *  @param list<array<string,mixed>> $sitemaps
-     *  @param list<array<string,mixed>> $inspection
-     *  @return list<array<string,mixed>>
+     * @param  array<string,mixed>|null  $previous
+     * @param  array<string,list<array<string,mixed>>>  $pageMovements
+     * @param  list<array<string,mixed>>  $sitemaps
+     * @param  list<array<string,mixed>>  $inspection
+     * @return list<array<string,mixed>>
      */
     private function riskSignals(array $current, ?array $previous, array $pageMovements, array $sitemaps, array $inspection, bool $compare): array
     {
@@ -1020,7 +1020,7 @@ final class WebsiteSearchConsoleAnalysisService
     }
 
     /** @param list<array<string,mixed>> $rows
-     *  @return list<array<string,mixed>>
+     * @return list<array<string,mixed>>
      */
     private function sortRows(array $rows, string $key): array
     {

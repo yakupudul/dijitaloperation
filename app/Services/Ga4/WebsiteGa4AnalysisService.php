@@ -509,8 +509,8 @@ final class WebsiteGa4AnalysisService
     }
 
     /**
-     * @param array<string, string> $dimensions provider column => output alias
-     * @param array<string, string> $metrics provider metric => output alias
+     * @param  array<string, string>  $dimensions  provider column => output alias
+     * @param  array<string, string>  $metrics  provider metric => output alias
      * @return Collection<int, object>
      */
     private function grouped(

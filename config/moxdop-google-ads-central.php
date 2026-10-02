@@ -10,7 +10,6 @@
  * Ratios (CTR, CPC, CPA, ROAS, CVR) are intentionally NOT stored here. They are
  * MOXDOP-derived from additive provider facts at read time.
  */
-
 $column = static fn (string $name, string $type, bool $nullable = true, string $role = 'dimension'): array => [
     'name' => $name,
     'type' => $type,

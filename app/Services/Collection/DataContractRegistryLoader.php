@@ -133,7 +133,6 @@ final class DataContractRegistryLoader
 
     /**
      * @param  array<string, mixed>  $registry
-     * @param  mixed  $overlay
      * @return array<string, mixed>
      */
     private function applyRuntimeOverlay(array $registry, mixed $overlay): array

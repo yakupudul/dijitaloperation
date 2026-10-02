@@ -148,7 +148,7 @@ final class GoogleAdsProfessionalWorkspaceReadService
     }
 
     /**
-     * @param list<string> $dimensions
+     * @param  list<string>  $dimensions
      * @return list<array<string,mixed>>
      */
     private function dailyBreakdown(

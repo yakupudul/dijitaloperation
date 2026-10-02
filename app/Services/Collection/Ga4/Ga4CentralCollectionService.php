@@ -75,7 +75,7 @@ final class Ga4CentralCollectionService
      * - Partial/failed/cancelled latest attempt: rerun only unfinished families over their original range.
      * - Healthy history: start 13 days before the latest successful coverage end and fill through yesterday.
      *
-     * @param list<int|string> $externalResourceIds
+     * @param  list<int|string>  $externalResourceIds
      */
     public function startSmartUpdate(CoreIntegration $integration, array $externalResourceIds, ?User $requestedBy = null): CollectionRun
     {
@@ -89,7 +89,7 @@ final class Ga4CentralCollectionService
     }
 
     /** @param list<int|string> $externalResourceIds
-     *  @return Collection<int, CoreExternalResource>
+     * @return Collection<int, CoreExternalResource>
      */
     private function resolveResources(CoreIntegration $integration, array $externalResourceIds): Collection
     {
@@ -261,7 +261,7 @@ final class Ga4CentralCollectionService
     }
 
     /**
-     * @param list<array<string, mixed>> $plans
+     * @param  list<array<string, mixed>>  $plans
      */
     private function startPlans(CoreIntegration $integration, array $plans, ?User $requestedBy): CollectionRun
     {

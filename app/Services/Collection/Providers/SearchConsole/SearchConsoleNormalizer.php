@@ -60,6 +60,7 @@ final class SearchConsoleNormalizer
                 $value = $keys[$index] ?? null;
                 if ($dimension === 'date') {
                     $record['reporting_date'] = is_string($value) ? $value : null;
+
                     continue;
                 }
 
@@ -181,7 +182,7 @@ final class SearchConsoleNormalizer
     }
 
     /** @param array<string, mixed> $inspectionResult
-     *  @return array<string, mixed>
+     * @return array<string, mixed>
      */
     public function normalizeUrlInspection(
         string $siteUrl,
