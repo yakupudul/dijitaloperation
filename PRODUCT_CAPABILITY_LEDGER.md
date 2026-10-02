@@ -1,5 +1,19 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-24 — Makale taslağı uyum düzeltmesi, Google URL denetimi, site haritası Search Console'dan
+
+- **Makale yazıcı ("AI ile taslak yaz" / "Taslak hazırla"):** Girdi adım adım kurulur: plan (başlık, bölümler, sorular, açı, hedef sorgular), SEO analizi reçetesi, küme (sorgular, AI soruları, bölgeler, rakip iskeletleri), marka dosyası (profil, notlar, standartlar, ilgili sayfalar), iç bağlantı için site sayfaları, yasaklı ifadeler.
+  - Yasaklı ifade içeren sorular ve bölümler AI'a gitmeden temizlenir («En iyi … seçerken» → «… seçerken»).
+  - Metin sektör kuralına takılırsa AI ihlallerle (`fix`) bir kez yeniden yazar (prompt site-write-article-v6). Yine takılırsa taslak gönderilemez ama okunabilir; sorunlu ifadeler işaretli.
+- **İçerik planı:** Satırda durum etiketi (Taslak hazır · Uyum kuralına takıldı · WordPress'e gönderildi).
+  - İçerik fikirlerindeki "Taslağı oku" bağlantısı taslağı doğrudan açar (`taslak`).
+  - Durum filtresi kendi URL anahtarını kullanır (`plan_durum`); İçerik fikirleri'nin `durum` anahtarı listeyi boşaltmaz.
+- **Google URL denetimi (`moxdop:gsc:inspect-urls`, her gün 06:05; Teknik SEO › «Şimdi denetle»):** Her site için günde 25 sayfa Search Console URL Inspection API'ye gönderilir.
+  - Sıra: hizmete bağlı hizmet sayfaları → diğer hizmet sayfaları → Google'da en çok görünenler → envanter. Aynı sayfa 14 gün sonra yeniden denetlenir.
+  - Teknik SEO › Google'ın bildirdikleri ve dizin çubuğu bu veriyle dolar. Önceden hedef üreten parça bağlı değildi; veri hiç gelmiyordu.
+- **Site haritası:** Ayarlar'da adres boşsa Search Console'a gönderilmiş site haritaları kullanılır ve hata / uyarı / son okuma ile listelenir. www / www'siz aynı alan sayılır.
+- **Test:** ForbiddenTermsTest (temizleme, yeniden yazma, takılan taslak), SitePagesTest (URL denetimi, site haritası). Tam paket yeşil. UAT: yok.
+
 ## 2026-11-24 — İçerik fikirleri listesi sadeleşti
 
 - Durum filtresi seçim kutusu yerine sayılı düğmeler (Tümü varsayılan). Sayfa başına 100 fikir.

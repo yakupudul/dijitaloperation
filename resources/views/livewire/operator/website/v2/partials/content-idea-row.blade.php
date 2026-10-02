@@ -66,7 +66,7 @@
                 <button type="button" wire:click="produce('{{ $r['kind'] }}', {{ $model->id }})" class="{{ $btn }}" data-produce title="AI bu fikir için makaleyi yazar ve İçerik planı'na koyar. WordPress'e kendiliğinden gitmez: orada inceleyip «WordPress taslağı gönder» dersen yazı WordPress'te taslak olarak açılır.">AI ile taslak yaz</button>
             @endif
             @if ($contentSuggestion !== null)
-                <a href="{{ route('operator.website', ['assetId' => $assetId, 'tab' => 'icerik']) }}" wire:navigate class="{{ $ghost }}" data-content-link>Taslak hazır → İçerik planı</a>
+                <a href="{{ route('operator.website', ['assetId' => $assetId, 'tab' => 'icerik', 'taslak' => $contentSuggestion->id]) }}" wire:navigate class="{{ $ghost }}" data-content-link>{{ is_array(data_get($contentSuggestion->action, 'article')) ? 'Taslağı oku' : (data_get($contentSuggestion->action, 'article_blocked') ? 'Taslak takıldı · gör' : 'İçerik planında') }}</a>
             @endif
             @if (! $extra)<button type="button" wire:click="generateIdeas({{ $cluster->id }})" @disabled(($ideaStatus['status'] ?? null) === 'running') class="{{ $ghost }}" data-generate-ideas="{{ $cluster->id }}" title="Bu küme için AI yeni içerik fikirleri üretir (sayı üstten seçilir).">{{ ($ideaStatus['status'] ?? null) === 'running' ? 'Fikirler üretiliyor…' : '+ Fikir' }}</button>@endif
             @if ($model !== null)<button type="button" wire:click="toggle('{{ $key }}:edit')" class="{{ $ghost }}">{{ $extra ? 'Sayfa seç' : 'Düzenle' }}</button>@endif

@@ -136,7 +136,7 @@ final class TechnicalSeoReader
             }
         }
 
-        return [self::sorted($groups), $index, $inspections !== [] || $sitemaps !== [], count($sitemaps)];
+        return [self::sorted($groups), $index, $inspections !== [], count($sitemaps)];
     }
 
     /** @return array{0: list<Finding>, 1: bool} */

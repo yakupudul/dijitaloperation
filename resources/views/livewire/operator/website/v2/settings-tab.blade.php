@@ -16,6 +16,21 @@
         <input id="sitemap-url" type="url" wire:model="sitemapUrl" placeholder="https://…/sitemap_index.xml (boş = otomatik)" class="{{ $input }} w-96 max-w-full">
         <button type="button" wire:click="saveSitemap" class="{{ $ghost }}">Kaydet</button>
         @error('sitemapUrl')<span class="text-rose-600">{{ $message }}</span>@enderror
+        <div class="w-full text-gray-600 dark:text-gray-400" data-gsc-sitemaps>
+            @if ($gscSitemaps !== [])
+                <p>{{ trim($sitemapUrl) === '' ? 'Boş bırakıldığı için Search Console’a gönderilmiş site haritaları kullanılıyor:' : 'Search Console’a gönderilmiş site haritaları (yukarıdaki adres öncelikli):' }}</p>
+                <ul class="mt-1 space-y-0.5">
+                    @foreach ($gscSitemaps as $map)
+                        <li class="flex flex-wrap gap-2">
+                            <a href="{{ $map['path'] }}" target="_blank" rel="noopener" class="font-medium text-brand-600 hover:underline">{{ $map['path'] }}</a>
+                            <span @class(['text-rose-600' => $map['errors'] > 0, 'text-amber-700' => $map['errors'] === 0 && $map['warnings'] > 0, 'text-gray-500' => $map['errors'] === 0 && $map['warnings'] === 0])>{{ $map['errors'] > 0 ? $map['errors'].' hata' : ($map['warnings'] > 0 ? $map['warnings'].' uyarı' : 'sorun yok') }}{{ $map['is_pending'] ? ' · Google işliyor' : '' }}{{ $map['last_downloaded'] ? ' · Google son okuma '.\Carbon\CarbonImmutable::parse($map['last_downloaded'])->format('d.m.Y') : '' }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+            @else
+                <p>Search Console’da kayıtlı site haritası yok; boşsa robots.txt ve bilinen adresler denenir.</p>
+            @endif
+        </div>
     </section>
     <section class="{{ $card }} flex flex-wrap items-center gap-2">
         <label for="capacity" class="font-semibold">Haftalık içerik kapasitesi</label>

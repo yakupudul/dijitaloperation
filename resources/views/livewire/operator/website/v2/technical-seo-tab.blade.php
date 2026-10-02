@@ -11,10 +11,13 @@
         ['info', 'Bilgi', $data['tiles']['info'], 'text-gray-700 dark:text-gray-300', 'sayfa · iyileştirme'],
         ['', 'Google doğruluyor', $data['tiles']['validating'], 'text-blue-700 dark:text-blue-400', 'son 28 günde uygulanan düzeltme'],
     ];
-    $empty = ['google' => $data['has_gsc'] ? 'Google bu filtrede sorun bildirmiyor.' : 'Search Console URL denetimi verisi yok (bağlantı ya da toplama bekleniyor).',
+    $empty = ['google' => $data['has_gsc'] ? 'Google bu filtrede sorun bildirmiyor.' : 'Search Console URL denetimi henüz gelmedi: her gün hizmet sayfalarından başlayarak 25 sayfa denetlenir; hemen başlatmak için «Şimdi denetle».',
         'html' => $data['has_crawl'] ? 'Bu filtrede HTML sorunu yok.' : 'Site henüz taranmadı.'];
 @endphp
 <div class="space-y-5 text-sm" data-technical-seo-tab>
+    @if ($message !== '')
+        <p role="status" class="flex items-center justify-between rounded-lg bg-blue-50 p-2 text-xs text-blue-800 dark:bg-blue-950 dark:text-blue-200"><span>{{ $message }}</span><button type="button" wire:click="$set('message', '')" aria-label="Kapat" class="px-2">×</button></p>
+    @endif
     <section class="grid grid-cols-2 gap-3 lg:grid-cols-4" data-tech-tiles>
         @foreach ($tiles as [$key, $label, $value, $tone, $note])
             <button type="button" @if ($key !== '') wire:click="$set('severity', '{{ $activeSeverity === $key ? '' : $key }}')" @endif data-tile="{{ $key ?: 'validating' }}"
@@ -32,8 +35,9 @@
             @if ($index['inspected'] > 0)
                 <span class="text-gray-500">Denetlenen {{ $num($index['inspected']) }} sayfanın <span class="font-semibold text-emerald-700 dark:text-emerald-400">{{ $num($index['indexed']) }}</span> dizinde, <span class="font-semibold text-rose-700 dark:text-rose-400">{{ $num($index['not_indexed']) }}</span> dizinde değil</span>
             @else
-                <span class="text-gray-500">URL denetimi verisi yok</span>
+                <span class="text-gray-500">Henüz Google URL denetimi yok · her gün 25 sayfa otomatik denetlenir</span>
             @endif
+            <button type="button" wire:click="inspectNow" class="h-7 rounded-lg px-2.5 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700" data-inspect-now title="Search Console URL Inspection API ile bugünkü sayfaları denetler (AI değil).">Şimdi denetle</button>
         </div>
         <div class="mt-2 flex h-2.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
             @if ($index['inspected'] > 0)

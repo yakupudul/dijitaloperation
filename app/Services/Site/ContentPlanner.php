@@ -305,29 +305,69 @@ final class ContentPlanner
         $cluster = $suggestion->cluster_id !== null ? Cluster::query()->with(['mainQuery', 'clusterQueries.searchQuery'])->find($suggestion->cluster_id) : null;
         $context = $this->memory->contextFor($brand, $suggestion->page_id !== null ? [(int) $suggestion->page_id] : [], $cluster !== null ? [(int) $cluster->id] : []);
         $language = SiteScope::primaryLanguage($site) ?? 'tr';
-        $result = $this->ai->run(new WriteArticleAgent, [
-            'plan' => ['title' => $suggestion->title, 'reason' => $suggestion->reason, 'page_type' => $action['page_type'] ?? 'blog', 'outline' => $action['outline'] ?? [],
-                'questions' => $action['questions'] ?? [], 'target_url' => $action['target_url'] ?? null, 'kind' => $action['kind'] ?? 'new']
+        $terms = ForbiddenTerms::forBrand($brand);
+        // Inputs the writer copies (questions, outline) lose their forbidden phrases first ("En iyi … seçerken" → "… seçerken").
+        $scrub = fn (array $lines): array => array_values(array_filter(array_map(fn ($line): string => $terms->scrub((string) $line), $lines), fn (string $l): bool => $l !== ''));
+        $input = [
+            'plan' => ['title' => $terms->scrub((string) $suggestion->title), 'reason' => $suggestion->reason, 'page_type' => $action['page_type'] ?? 'blog', 'outline' => $scrub((array) ($action['outline'] ?? [])),
+                'questions' => $scrub((array) ($action['questions'] ?? [])), 'target_url' => $action['target_url'] ?? null, 'kind' => $action['kind'] ?? 'new']
                 + array_filter(['angle' => $action['angle'] ?? null, 'target_queries' => $action['target_queries'] ?? null, 'main_page_url' => $action['main_page_url'] ?? null,
                     'recipe' => isset($action['recipe']) ? array_map(fn (array $s): string => trim(($s['where'] ?? '') !== '' ? $s['where'].': '.$s['action'] : (string) ($s['action'] ?? '')), (array) $action['recipe']) : null]),
             'cluster' => $cluster !== null ? array_filter(['name' => $cluster->name, 'main_query' => $cluster->mainQuery?->text, 'subtopics' => $cluster->subtopics,
                 'queries' => $cluster->clusterQueries->map(fn (ClusterQuery $q): string => (string) $q->searchQuery?->text)->filter()->take(30)->values()->all(),
-                'ai_questions' => ClusterAudit::aiQuestions($cluster, $brand), 'service_areas' => ClusterAudit::serviceAreas($cluster, $brand) ?: null,
+                'ai_questions' => $scrub(ClusterAudit::aiQuestions($cluster, $brand)), 'service_areas' => ClusterAudit::serviceAreas($cluster, $brand) ?: null,
                 'benchmarks' => app(ClusterBenchmarks::class)->for($cluster, (int) $brand->id) ?: null],
                 fn (mixed $v): bool => $v !== null) : null,
             'brand' => $context['profile'], 'notes' => $context['notes'], 'standards' => $context['standards'], 'related_pages' => [...$context['pages'], ...$context['related_pages']],
             'language' => $language,
             'site_pages' => $sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title])->values()->all(),
-            'forbidden' => ForbiddenTerms::forBrand($brand)->phrases(),
-        ], 600);
-        if ($result['status'] !== 'ready') {
-            return ['status' => $result['status']];
-        }
-        $data = $result['data'];
+            'forbidden' => $terms->phrases(),
+        ];
         $evidence = new SiteEvidence($sitePages->pluck('url')->map(fn ($u): string => (string) $u)->all());
         foreach ($context['pages'] as $page) {
             $evidence->addNumbersFrom(['s' => $page['summary'], 'f' => $page['facts']]);
         }
+        unset($action['article'], $action['article_blocked'], $action['article_blocked_draft']);
+        // At most two writes: when the first one breaks a sector rule, the second gets the offending phrases to rewrite.
+        for ($attempt = 1; $attempt <= 2; $attempt++) {
+            $outcome = $this->writeOnce($input, $evidence, $action, $cluster, $brand, $language, 'suggestion-'.$suggestion->id);
+            if ($outcome['status'] !== 'blocked' || $outcome['violations'] === [] || $attempt === 2) {
+                break;
+            }
+            $input['fix'] = ContentComplianceGate::forPrompt($outcome['violations']);
+        }
+        if ($outcome['status'] === 'invalid' || $outcome['status'] !== 'ready' && ! isset($outcome['article'])) {
+            return array_intersect_key($outcome, ['status' => 1, 'message' => 1]);
+        }
+        $article = $outcome['article'];
+        if ($outcome['status'] === 'blocked') {
+            // Kept to read and fix by hand; never sent while blocked.
+            $suggestion->forceFill(['action' => $action + ['article_blocked' => $outcome['message'], 'article_blocked_draft' => $article]])->save();
+
+            return ['status' => 'blocked', 'message' => $outcome['message']];
+        }
+        $warnings = $terms->warnings(implode(' . ', [$article['title'], $article['meta_title'], $article['meta_description'], strip_tags($article['html'])]));
+        $action['article_warnings'] = $warnings !== [] ? 'Uyarı (yasaklı ifade, uyar): «'.implode('», «', $warnings).'»' : null;
+        $others = array_values(array_diff(SiteScope::languages($site), [$language]));
+        $suggestion->forceFill(['action' => $action + ['article' => $article, 'article_note' => $others !== [] ? 'Diğer diller ('.implode(', ', $others).') atlandı: çeviri aracı yok.' : null]])->save();
+
+        return ['status' => 'ready'];
+    }
+
+    /**
+     * One write: the agent's article, grounded and checked (sector rules, copy check).
+     *
+     * @param  array<string, mixed>  $input
+     * @param  array<string, mixed>  $action
+     * @return array{status: string, message?: string, article?: array<string, mixed>, violations: list<array<string, mixed>>}
+     */
+    private function writeOnce(array $input, SiteEvidence $evidence, array $action, ?Cluster $cluster, Brand $brand, string $language, string $reference): array
+    {
+        $result = $this->ai->run(new WriteArticleAgent, $input, 600);
+        if ($result['status'] !== 'ready') {
+            return ['status' => $result['status'], 'violations' => []];
+        }
+        $data = $result['data'];
         $html = $this->groundedHtml((string) ($data['html'] ?? ''), $evidence);
         $main = (string) ($action['main_page_url'] ?? '');
         if ($html !== '' && $main !== '' && ! str_contains($html, 'href="'.$main.'"') && ! str_contains($html, "href='".$main."'")) {
@@ -336,33 +376,24 @@ final class ContentPlanner
         }
         $title = trim((string) ($data['title'] ?? ''));
         if ($html === '' || mb_strlen($title) < 5 || ! $evidence->grounded($title)) {
-            return ['status' => 'invalid', 'message' => 'AI makalesi doğrulanamadı.'];
+            return ['status' => 'invalid', 'message' => 'AI makalesi doğrulanamadı.', 'violations' => []];
         }
         $article = [
             'title' => mb_substr($title, 0, 200), 'slug' => SeoText::slugify((string) ($data['slug'] ?? $title)) ?: SeoText::slugify($title), 'html' => $html,
             'meta_title' => mb_substr(trim((string) ($data['meta_title'] ?? '')), 0, 120), 'meta_description' => mb_substr(trim((string) ($data['meta_description'] ?? '')), 0, 320),
             'excerpt' => mb_substr(trim((string) ($data['excerpt'] ?? '')), 0, 300), 'language' => $language,
-            'post_type' => ($action['page_type'] ?? 'blog') === 'blog' ? 'post' : 'page', 'reference' => 'suggestion-'.$suggestion->id,
+            'post_type' => ($action['page_type'] ?? 'blog') === 'blog' ? 'post' : 'page', 'reference' => $reference,
         ];
         $violations = ContentComplianceGate::blocking(app(ContentComplianceGate::class)->violations($brand, ArticleDraft::fromArray($article)));
-        unset($action['article'], $action['article_blocked']);
-        $copy = $cluster !== null ? CopyCheck::check($html, ClusterBenchmarks::otherBrandTexts((int) $cluster->id, (int) $brand->id)) : ['ok' => true];
-        if ($violations === [] && ! $copy['ok']) {
-            $suggestion->forceFill(['action' => $action + ['article_blocked' => CopyCheck::message($copy)]])->save();
-
-            return ['status' => 'blocked', 'message' => CopyCheck::message($copy)];
-        }
         if ($violations !== []) {
-            $suggestion->forceFill(['action' => $action + ['article_blocked' => ContentComplianceGate::summary($violations)]])->save();
-
-            return ['status' => 'blocked', 'message' => ContentComplianceGate::summary($violations)];
+            return ['status' => 'blocked', 'message' => ContentComplianceGate::summary($violations), 'article' => $article, 'violations' => $violations];
         }
-        $warnings = ForbiddenTerms::forBrand($brand)->warnings(implode(' . ', [$article['title'], $article['meta_title'], $article['meta_description'], strip_tags($html)]));
-        $action['article_warnings'] = $warnings !== [] ? 'Uyarı (yasaklı ifade, uyar): «'.implode('», «', $warnings).'»' : null;
-        $others = array_values(array_diff(SiteScope::languages($site), [$language]));
-        $suggestion->forceFill(['action' => $action + ['article' => $article, 'article_note' => $others !== [] ? 'Diğer diller ('.implode(', ', $others).') atlandı: çeviri aracı yok.' : null]])->save();
+        $copy = $cluster !== null ? CopyCheck::check($html, ClusterBenchmarks::otherBrandTexts((int) $cluster->id, (int) $brand->id)) : ['ok' => true];
+        if (! $copy['ok']) {
+            return ['status' => 'blocked', 'message' => CopyCheck::message($copy), 'article' => $article, 'violations' => []];
+        }
 
-        return ['status' => 'ready'];
+        return ['status' => 'ready', 'article' => $article, 'violations' => []];
     }
 
     /** Admin approval: the prepared article goes to WordPress as a draft (existing rich draft path, undoable). */

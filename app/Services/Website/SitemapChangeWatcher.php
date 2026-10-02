@@ -6,6 +6,7 @@ use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
+use App\Services\SeoTasks\SeoPlanInputCollector;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Website\Pages\MainContentExtractor;
 use App\Services\Website\Pages\PageStore;
@@ -73,13 +74,13 @@ final class SitemapChangeWatcher
 
         // Faz 4a Ayarlar: the operator's sitemap URL replaces robots.txt / fallback discovery.
         $override = trim((string) ($site->sitemap_url ?? ''));
-        $queue = $override !== '' ? [[$override, null]] : $this->roots($base);
+        $queue = $override !== '' ? [[$override, null]] : (self::searchConsoleSitemaps($site) !== [] ? array_map(fn (string $u): array => [$u, null], self::searchConsoleSitemaps($site)) : $this->roots($base));
         $files = [];
         $pages = [];
         $seen = [];
         while ($queue !== [] && count($seen) < self::MAX_SITEMAP_FILES && count($pages) < self::MAX_PAGES) {
             [$url, $lastmod] = array_shift($queue);
-            if (isset($seen[$url]) || strtolower((string) parse_url($url, PHP_URL_HOST)) !== $host) {
+            if (isset($seen[$url]) || preg_replace('/^www\./', '', strtolower((string) parse_url($url, PHP_URL_HOST))) !== preg_replace('/^www\./', '', $host)) {
                 continue;
             }
             $seen[$url] = true;
@@ -173,6 +174,23 @@ final class SitemapChangeWatcher
         DB::table('website_sitemap_watch')->updateOrInsert(['digital_asset_id' => $site->id], $update);
 
         return $result;
+    }
+
+    /**
+     * The sitemaps submitted in Search Console (latest snapshot): used before robots.txt / fallback paths when the operator
+     * has not set one, so the site's real sitemap is read without typing it.
+     *
+     * @return list<string>
+     */
+    public static function searchConsoleSitemaps(DigitalAsset $site): array
+    {
+        try {
+            $paths = array_column(app(SeoPlanInputCollector::class)->sitemaps($site), 'path');
+        } catch (Throwable) {
+            return [];
+        }
+
+        return array_values(array_slice(array_filter($paths, fn ($p): bool => is_string($p) && str_starts_with($p, 'http')), 0, 5));
     }
 
     /** @return list<array{0: string, 1: ?string}> */

@@ -16,9 +16,12 @@ use App\Models\BrandOffering;
 use App\Models\Cluster;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
+use App\Models\CoreIntegration;
+use App\Models\CoreIntegrationCredential;
 use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Models\Suggestion;
+use App\Services\Gsc\UrlInspectionTargets;
 use App\Services\Site\Analysis\SiteAnalysisReader;
 use App\Services\Site\Analysis\SitePagesReader;
 use App\Services\Site\Analysis\SiteRange;
@@ -26,7 +29,11 @@ use App\Services\Site\Analysis\TechnicalSeoReader;
 use App\Services\Site\PageCategorizer;
 use App\Services\Site\SiteOperations;
 use App\Services\Site\SiteScope;
+use App\Services\Website\SitemapChangeWatcher;
 use App\Support\Demo\DemoMenu;
+use App\Support\Integrations\Google\GoogleResourceType;
+use App\Support\Integrations\Google\GoogleScopes;
+use App\Support\Integrations\ProviderRegistry;
 use App\Support\OperatorMenu;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -447,5 +454,40 @@ final class SitePagesTest extends TestCase
             ->call('close')->assertDontSeeHtml('data-finding-drawer')
             ->set('source', 'html')->assertDontSee('Google’ın bildirdikleri')
             ->set('source', '')->set('severity', 'info')->assertDontSee('Google 404 buluyor');
+    }
+
+    public function test_daily_url_inspection_batch_and_search_console_sitemaps(): void
+    {
+        config(['moxdop.google.client_id' => 'test-client-id', 'moxdop.google.client_secret' => 'test-client-secret']);
+        $integration = CoreIntegration::query()->where('provider', ProviderRegistry::GOOGLE)->first()
+            ?? CoreIntegration::factory()->google()->create();
+        $integration->forceFill(['status' => CoreIntegration::STATUS_ACTIVE, 'config' => ['granted_scopes' => [GoogleScopes::SEARCH_CONSOLE_READONLY]]])->save();
+        CoreIntegrationCredential::factory()->provider()->create(['integration_id' => $integration->id]);
+        CoreIntegrationCredential::factory()->authorization()->create(['integration_id' => $integration->id, 'expires_at' => now()->addHour(),
+            'encrypted_payload' => ['access_token' => 't', 'refresh_token' => 'r', 'scope' => GoogleScopes::SEARCH_CONSOLE_READONLY]]);
+        $this->gsc->forceFill(['integration_id' => $integration->id, 'provider' => ProviderRegistry::GOOGLE,
+            'resource_type' => GoogleResourceType::GSC_PROPERTY, 'external_id' => 'sc-domain:panorama.example',
+            'status' => CoreExternalResource::STATUS_AVAILABLE])->save();
+        $targets = app(UrlInspectionTargets::class)->for($this->site->fresh(), 3);
+        $this->assertNotNull($targets['site_url']);
+        $this->assertCount(3, $targets['targets']);
+        $this->assertStringContainsString('/implant', $targets['targets'][0], 'service pages first');
+
+        // A URL inspected in the last 14 days waits.
+        $this->insertFacts('gsc_url_inspection_snapshot', ['digital_asset_id' => $this->site->id, 'external_resource_id' => $this->gsc->id, 'site_url' => $targets['site_url'],
+            'page' => $targets['targets'][0], 'inspected_at' => now(), 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+            'record_fingerprint' => hash('sha256', 'insp-recent'), 'metadata' => json_encode(['coverage_state' => 'Submitted and indexed'])]);
+        $this->assertNotContains($targets['targets'][0], app(UrlInspectionTargets::class)->for($this->site->fresh(), 3)['targets']);
+
+        $run = app(UrlInspectionTargets::class)->start($this->site->fresh());
+        $this->assertNotNull($run);
+        $this->assertSame(['url_inspection_targets'], array_values(array_intersect(array_keys((array) data_get($run->request_context, 'context')), ['url_inspection_targets'])));
+
+        // Ayarlar: Search Console sitemaps are shown and used when no sitemap URL is set.
+        $this->insertFacts('gsc_sitemap_snapshot', ['digital_asset_id' => $this->site->id, 'external_resource_id' => $this->gsc->id, 'site_url' => $targets['site_url'],
+            'sitemap_path' => 'https://www.panorama.example/sitemap_index.xml', 'retrieved_at' => now(), 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+            'record_fingerprint' => hash('sha256', 'sm'), 'metadata' => json_encode(['errors' => 0, 'warnings' => 2])]);
+        $this->assertSame(['https://www.panorama.example/sitemap_index.xml'], SitemapChangeWatcher::searchConsoleSitemaps($this->site->fresh()));
+        Livewire::test(SettingsTab::class, ['assetId' => $this->site->id])->assertSeeHtml('data-gsc-sitemaps')->assertSee('sitemap_index.xml')->assertSee('2 uyarı');
     }
 }

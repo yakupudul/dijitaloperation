@@ -27,9 +27,11 @@ final class ContentTab extends Component
     #[Locked]
     public int $assetId = 0;
 
-    #[Url(as: 'durum')]
+    /** Own URL key: "durum" belongs to İçerik fikirleri (idea states), a shared key would empty this list. */
+    #[Url(as: 'plan_durum')]
     public string $status = 'open';
 
+    #[Url(as: 'taslak')]
     public ?int $openId = null;
 
     /** @var array<int, string> */
@@ -92,10 +94,17 @@ final class ContentTab extends Component
         $site = DigitalAsset::query()->findOrFail($this->assetId);
         $items = Suggestion::query()->where('brand_id', (int) $site->brand_id)->where('action_type', SiteSuggestionTypes::CONTENT)
             ->where('action->site_id', $site->id)
-            ->when($this->status !== '', fn ($q) => $q->where('status', $this->status))
+            ->when(array_key_exists($this->status, SuggestionsTab::STATUS_LABELS), fn ($q) => $q->where('status', $this->status))
             ->orderByDesc('id')->paginate(30);
         $clusterNames = Cluster::query()->whereIn('id', $items->getCollection()->pluck('cluster_id')->filter())->pluck('name', 'id')->all();
         $opened = $this->openId !== null ? $items->getCollection()->firstWhere('id', $this->openId) : null;
+        if ($opened === null && $this->openId !== null) {
+            // Opened from İçerik fikirleri ("Taslağı oku"): shown on top even when it is not on this page / filter.
+            $opened = Suggestion::query()->where('brand_id', (int) $site->brand_id)->where('action_type', SiteSuggestionTypes::CONTENT)->where('action->site_id', $site->id)->find($this->openId);
+            if ($opened !== null) {
+                $items->setCollection($items->getCollection()->prepend($opened));
+            }
+        }
 
         return view('livewire.operator.website.v2.content-tab', [
             'items' => $items,

@@ -7,6 +7,7 @@ use App\Ai\Agents\Site\ForbiddenTermsAgent;
 use App\Ai\Agents\Site\WriteArticleAgent;
 use App\Livewire\Operator\Library\QueriesPage;
 use App\Livewire\Operator\Portfolio\BrandSettings;
+use App\Livewire\Operator\Website\V2\ContentTab;
 use App\Models\Brand;
 use App\Models\ComplianceRule;
 use App\Models\ContentIdea;
@@ -111,5 +112,43 @@ final class ForbiddenTermsTest extends SiteTestCase
         $gate = app(ContentComplianceGate::class);
         $this->expectException(ValidationException::class);
         $gate->assertCompliant($this->brand, ArticleDraft::fromArray(['title' => 'Mavi klinik', 'html' => '<p>Metin.</p>', 'reference' => 'x']));
+    }
+
+    public function test_article_writer_scrubs_inputs_retries_once_with_the_violations_and_keeps_a_blocked_draft_to_read(): void
+    {
+        $this->enableAi();
+        $this->assertSame('Pedodonti uzmanını seçerken nelere dikkat etmeliyim?', ForbiddenTerms::forBrand($this->brand)->scrub('En iyi pedodonti uzmanını seçerken nelere dikkat etmeliyim?'));
+        $this->assertSame('Süreç nasıl?', ForbiddenTerms::forBrand($this->brand)->scrub('Süreç nasıl?'));
+
+        $cluster = $this->cluster($this->implant, 'İmplant tedavisi süreci', ['implant tedavisi']);
+        $suggestion = Suggestion::query()->create(['brand_id' => $this->brand->id, 'channel' => 'search', 'decision_key' => 'site.content', 'fingerprint' => 'f2',
+            'material_hash' => 'm', 'title' => 'İmplant rehberi', 'reason' => 'r', 'priority' => 2, 'evidence' => [], 'action_type' => 'content', 'target_type' => 'site',
+            'target_id' => $this->site->id, 'cluster_id' => $cluster->id, 'status' => Suggestion::OPEN, 'first_seen_at' => now(), 'last_seen_at' => now(),
+            'action' => ['site_id' => $this->site->id, 'kind' => 'new', 'page_type' => 'blog', 'outline' => ['En iyi implant hangisi'], 'questions' => ['En iyi hekimi nasıl seçerim?']]]);
+        $sent = [];
+        $answers = ['<p>En iyi implant budur.</p>', '<p>İmplant adım adım yapılır.</p>'];
+        WriteArticleAgent::fake(function (string $prompt) use (&$sent, &$answers): array {
+            $sent[] = json_decode(substr($prompt, strlen("DATA_JSON\n")), true);
+
+            return ['title' => 'İmplant rehberi', 'slug' => 'implant', 'meta_title' => 'İmplant', 'meta_description' => 'İmplant.', 'excerpt' => 'İmplant.', 'html' => array_shift($answers) ?? '<p>En iyi.</p>'];
+        });
+
+        $this->assertSame('ready', app(ContentPlanner::class)->writeArticle($suggestion)['status']);
+        $this->assertCount(2, $sent, 'one rewrite after the sector rule');
+        $this->assertSame(['Implant hangisi'], array_map(fn (string $l): string => str_replace('İ', 'I', $l), $sent[0]['plan']['outline']));
+        $this->assertSame(['Hekimi nasıl seçerim?'], $sent[0]['plan']['questions']);
+        $this->assertArrayNotHasKey('fix', $sent[0]);
+        $this->assertSame('en iyi', mb_strtolower($sent[1]['fix'][0]['phrase']));
+        $this->assertSame('<p>İmplant adım adım yapılır.</p>', data_get($suggestion->fresh()->action, 'article.html'));
+
+        // Both writes break the rule: blocked, never sendable, but the text is kept to read.
+        $sent = [];
+        $answers = ['<p>En iyi klinik.</p>', '<p>Yine en iyi klinik.</p>'];
+        $this->assertSame('blocked', app(ContentPlanner::class)->writeArticle($suggestion->fresh())['status']);
+        $action = (array) $suggestion->fresh()->action;
+        $this->assertArrayNotHasKey('article', $action);
+        $this->assertSame('<p>Yine en iyi klinik.</p>', $action['article_blocked_draft']['html']);
+        Livewire::test(ContentTab::class, ['assetId' => $this->site->id])->set('openId', $suggestion->id)
+            ->assertSee('Uyum kuralına takıldı')->assertSeeHtml('data-blocked-draft')->assertSeeHtml('<mark')->assertDontSee('WordPress’e taslak gönder');
     }
 }

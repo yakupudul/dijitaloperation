@@ -36,6 +36,9 @@
                             <p class="font-medium">{{ $item->title }}
                                 <span class="{{ $chip }} ml-1 bg-gray-100 text-gray-600 dark:bg-gray-800">{{ ($a['kind'] ?? 'new') === 'update' ? 'güncelle' : 'yeni' }} · {{ $a['page_type'] ?? '—' }}</span>
                                 @if ($a['out_of_cluster'] ?? false)<span class="{{ $chip }} ml-1 bg-purple-50 text-purple-700">küme dışı</span>@endif
+                                @if (isset($a['article_write_id']))<span class="{{ $chip }} ml-1 bg-emerald-50 text-emerald-700" data-draft-state="sent">WordPress'e taslak gönderildi</span>
+                                @elseif (is_array($a['article'] ?? null))<span class="{{ $chip }} ml-1 bg-blue-50 text-blue-700" data-draft-state="ready">Taslak hazır · okumak için «Aç»</span>
+                                @elseif (! empty($a['article_blocked']))<span class="{{ $chip }} ml-1 bg-rose-50 text-rose-700" data-draft-state="blocked">Uyum kuralına takıldı</span>@endif
                             </p>
                             <p class="text-gray-500">{{ $item->cluster_id !== null ? ($clusterNames[$item->cluster_id] ?? '—').' · ' : '' }}{{ $a['target_url'] ?? '—' }}@if ($item->reason) · {{ $item->reason }}@endif</p>
                         </div>
@@ -44,7 +47,7 @@
                                 <button type="button" wire:click="addToLibrary({{ $item->id }})" class="{{ $ghost }}">Kütüphaneye ekle</button>
                             @endif
                             @if (in_array($item->status, ['open', 'recheck'], true))
-                                <button type="button" wire:click="prepareDraft({{ $item->id }})" class="{{ $btn }}">Taslak hazırla</button>
+                                <button type="button" wire:click="prepareDraft({{ $item->id }})" class="{{ $btn }}" title="AI; başlıklar, sorular, küme sorguları, SEO analizi reçetesi, marka dosyası ve sektör kurallarıyla makaleyi yazar.">{{ is_array($a['article'] ?? null) || ! empty($a['article_blocked']) ? 'Yeniden yaz' : 'Taslak hazırla' }}</button>
                                 <x-operator.ai-prompt-info operation="site.write_article" />
                                 <input type="text" wire:model="reasons.{{ $item->id }}" placeholder="Neden" aria-label="Reddetme nedeni" class="{{ $input }} w-28">
                                 <button type="button" wire:click="dismiss({{ $item->id }})" class="{{ $ghost }}">Reddet</button>
@@ -57,7 +60,22 @@
                             <div><p class="font-semibold text-gray-500">Taslak başlıklar</p><ul class="list-disc pl-4">@foreach ((array) ($a['outline'] ?? []) as $line)<li>{{ $line }}</li>@endforeach</ul></div>
                             <div><p class="font-semibold text-gray-500">AI asistanlarına sorulanlar</p><ul class="list-disc pl-4">@foreach ((array) ($a['questions'] ?? []) as $line)<li>{{ $line }}</li>@endforeach</ul></div>
                             @if ($draftStatus)<p class="text-gray-500 sm:col-span-2">Taslak: {{ $draftStatus }}</p>@endif
-                            @if (! empty($a['article_blocked']))<p class="text-rose-600 sm:col-span-2">{{ str_starts_with($a['article_blocked'], 'Kopya') ? '' : 'Uyum kuralına takıldı: ' }}{{ $a['article_blocked'] }}</p>@endif
+                            @if (! empty($a['article_blocked']))
+                                <div class="sm:col-span-2" data-article-blocked>
+                                    <p class="text-rose-600">{{ str_starts_with($a['article_blocked'], 'Kopya') ? '' : 'Uyum kuralına takıldı (AI bir kez düzeltmeyi denedi): ' }}{{ $a['article_blocked'] }}</p>
+                                    <p class="mt-0.5 text-gray-500">Bu taslak WordPress'e gönderilemez. «Taslak hazırla» ile yeniden yazdırabilirsin; aşağıda yazılan metni görebilirsin.</p>
+                                    @if (is_array($a['article_blocked_draft'] ?? null))
+                                        @php preg_match_all('/«([^»]+)»/u', (string) $a['article_blocked'], $bad); $bad = array_unique($bad[1] ?? []); @endphp
+                                        <p class="mt-1 font-semibold">{{ $a['article_blocked_draft']['title'] }}</p>
+                                        <div class="mt-1 max-h-72 overflow-y-auto rounded bg-white p-2 dark:bg-gray-900" data-blocked-draft>
+                                            @foreach (\App\Services\Site\SiteDiff::blocks((string) $a['article_blocked_draft']['html']) as $block)
+                                                @php $text = e($block['text']); foreach ($bad as $phrase) { $text = preg_replace('/'.preg_quote(e($phrase), '/').'/iu', '<mark class="rounded bg-rose-100 px-0.5 text-rose-800">$0</mark>', $text); } @endphp
+                                                <p @class(['my-1', 'font-semibold' => str_starts_with($block['tag'], 'h'), 'pl-3' => $block['tag'] === 'li'])>{{ $block['tag'] === 'li' ? '• ' : '' }}{!! $text !!}</p>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </div>
+                            @endif
                             @if (! empty($a['article_warnings']))<p class="text-amber-700 sm:col-span-2" data-article-warnings>{{ $a['article_warnings'] }}</p>@endif
                             @if (is_array($a['article'] ?? null))
                                 <div class="sm:col-span-2" data-article>

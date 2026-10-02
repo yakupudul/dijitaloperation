@@ -36,6 +36,7 @@ use App\Services\Collection\Monitoring\CollectionAccountPresenter;
 use App\Services\Collection\RecoverInterruptedCollections;
 use App\Services\Collection\StartCollectionService;
 use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\Gsc\UrlInspectionTargets;
 use App\Services\Integrations\Google\GoogleBusinessProfileRetentionService;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Integrations\WordPress\WordPressEventReconciliation;
@@ -441,6 +442,26 @@ Artisan::command('moxdop:website:sitemap-watch', function (): void {
         CheckSitemapChangesJob::dispatch($siteId);
     }
 })->purpose('Queue the hourly sitemap change check of websites without the WordPress Connector.');
+
+// Teknik SEO › Google'ın bildirdikleri: each day a small batch of a site's pages goes to the Search Console URL Inspection
+// API (service pages first, each URL again after 14 days), so Google's index state reaches the screen without a click.
+Artisan::command('moxdop:gsc:inspect-urls {--site= : Yalnız bu web sitesi}', function (): void {
+    $sites = DigitalAsset::query()->where('type', 'website')->when($this->option('site'), fn ($q, $id) => $q->whereKey((int) $id))->get();
+    foreach ($sites as $site) {
+        if (! $site->isOperational()) {
+            continue;
+        }
+        try {
+            $run = app(UrlInspectionTargets::class)->start($site);
+            $this->line($site->name.': '.($run !== null ? 'URL denetimi başladı (run '.$run->id.')' : 'denetlenecek sayfa yok'));
+        } catch (Throwable $e) {
+            $this->warn($site->name.': '.$e->getMessage());
+        }
+    }
+})->purpose('Queue today\'s Search Console URL Inspection batch of every website.');
+
+Schedule::command('moxdop:gsc:inspect-urls')
+    ->dailyAt('06:05')->withoutOverlapping(60)->name('gsc-inspect-urls');
 
 Schedule::command('moxdop:website:sitemap-watch')
     ->hourlyAt(17)->withoutOverlapping(30)->name('website-sitemap-watch');

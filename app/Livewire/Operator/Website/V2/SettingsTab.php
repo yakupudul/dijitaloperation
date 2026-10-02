@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\Collection\CollectionRun;
 use App\Models\DigitalAsset;
 use App\Models\Page;
+use App\Services\SeoTasks\SeoPlanInputCollector;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -70,6 +71,7 @@ final class SettingsTab extends Component
 
         return view('livewire.operator.website.v2.settings-tab', [
             'collection' => $run === null ? null : ['status' => self::RUN_LABELS[$status] ?? $status, 'at' => $run->updated_at],
+            'gscSitemaps' => app(SeoPlanInputCollector::class)->sitemaps(DigitalAsset::query()->findOrFail($this->assetId)),
             'corrections' => Page::query()->where('website_asset_id', $this->assetId)->where('category_locked', true)->orderBy('path')->limit(200)->get(['id', 'url', 'path', 'category']),
         ]);
     }

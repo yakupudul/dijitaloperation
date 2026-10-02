@@ -3,6 +3,7 @@
 namespace App\Livewire\Operator\Website\V2;
 
 use App\Livewire\Operator\Website\V2\Concerns\WebsiteTab;
+use App\Services\Gsc\UrlInspectionTargets;
 use App\Services\Site\Analysis\TechnicalSeoReader;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Url;
@@ -29,6 +30,18 @@ final class TechnicalSeoTab extends Component
     public function show(string $key): void
     {
         $this->open = $key;
+    }
+
+    /** "Şimdi denetle": today's Search Console URL Inspection batch (Google API, no AI). */
+    public function inspectNow(UrlInspectionTargets $targets): void
+    {
+        $this->actor();
+        try {
+            $run = $targets->start($this->site());
+            $this->message = $run !== null ? 'Google URL denetimi başladı ('.count((array) data_get($run->request_context, 'context.url_inspection_targets')).' sayfa); sonuçlar birkaç dakika içinde burada.' : 'Bugün denetlenecek sayfa yok ya da Search Console bağlı değil.';
+        } catch (\Throwable $e) {
+            $this->message = 'Denetim başlatılamadı: '.$e->getMessage();
+        }
     }
 
     public function close(): void

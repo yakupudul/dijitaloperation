@@ -48,6 +48,24 @@ final class ForbiddenTerms
         return $this->hits($text, true);
     }
 
+    /**
+     * The text without its blocking phrases ("En iyi pedodonti uzmanını seçerken…" → "Pedodonti uzmanını seçerken…"), so
+     * plan inputs the writer copies (questions, outline) do not carry a forbidden phrase into the article.
+     */
+    public function scrub(string $text): string
+    {
+        $hits = $this->blocking($text);
+        if ($hits === []) {
+            return $text;
+        }
+        foreach ($hits as $phrase) {
+            $text = (string) preg_replace('/(?<![\p{L}\p{N}])'.preg_quote($phrase, '/').'(?![\p{L}\p{N}])/iu', '', $text);
+        }
+        $text = trim((string) preg_replace('/\s{2,}/u', ' ', $text));
+
+        return $text === '' ? $text : mb_strtoupper(mb_substr($text, 0, 1)).mb_substr($text, 1);
+    }
+
     /** @return list<string> phrases of "uyar" rules found in the text */
     public function warnings(string $text): array
     {
