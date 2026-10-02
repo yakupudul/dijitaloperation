@@ -10,7 +10,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * AI spend guard: a daily ceiling for all AI of the day (default 1 $), the monthly budget, and automatic work (nobody
+ * AI spend guard: the OpenAI free sharing quota first (OpenAiFreeQuota), then a daily ceiling for all paid AI of the day
+ * (default 1 $), the monthly budget, and automatic work (nobody
  * clicked) only in the areas allowed to run by themselves (Sorgular). Checked when a route is resolved and again right
  * before every agent call (AiLiveOperations::started), so no paid call starts past the ceiling.
  */
@@ -61,6 +62,10 @@ final class AiBudget
             return 'Bu AI işi yalnız operatör tıklayınca çalışır (otomatik çalışan alan: Sorgular).';
         }
         if ($provider !== null && $model !== null && $provider !== '' && $model !== '' && $this->pricing->isFree($provider, $model)) {
+            return null;
+        }
+        // Önce ücretsiz kota, sonra günlük tavan: free OpenAI tokens left today → the call costs nothing.
+        if (app(OpenAiFreeQuota::class)->hasRoom($provider, $model)) {
             return null;
         }
         if ($this->dailyExhausted()) {

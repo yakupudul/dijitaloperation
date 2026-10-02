@@ -5,6 +5,7 @@
 - **Kota:** OpenAI › Veri kontrolleri › «Giriş ve çıkışları OpenAI ile paylaşın» açıkken paylaşılan trafiğin bir kısmı ücretsizdir (UTC günü): küçük modellerde (gpt-5-mini vb.) 2,5 M, büyüklerde (gpt-5 vb.) 250 k token.
   - Ayarlar › AI işlemleri › AI bütçesi'nde "OpenAI ücretsiz paylaşım kotası açık" işaretlenince bu tokenlerin %90'ı harcama sayılmaz; aşan kısım liste fiyatından sayılır.
   - Her çağrıda liste fiyatı ve kotadan karşılanan token ayrıca saklanır. Sayfada bugünkü kota kullanımı ve kazanılan tutar görünür.
+- **Önce ücretsiz kota, sonra 1 $:** Bir OpenAI modelinin bugün ücretsiz tokeni kaldıysa çağrı, günlük ücretli tavan dolmuş olsa da çalışır; kota bitince günlük tavan geçerlidir. Kotaya yalnız paylaşım açıkken yapılan çağrılar sayılır.
 - **Kota denetimi (saatte bir, `moxdop:ai:openai-audit`, «Şimdi denetle"):** OpenAI Admin anahtarıyla OpenAI'ın gerçek faturasını (Costs API) bizim tahminimizle karşılaştırır.
   - Dün OpenAI tahminden belirgin fazla faturaladıysa (×1,25 + 0,05 $), kota hesabı kendiliğinden kapanır ve sayfada uyarı çıkar.
   - Bugünkü gerçek fatura günlük tavan için alt sınırdır.

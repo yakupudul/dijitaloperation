@@ -35,11 +35,11 @@ final class OpenAiFreeQuotaTest extends TestCase
         $this->setting->forceFill(['ai_openai_free_quota' => true])->save();
     }
 
-    private function openAiCall(string $model, int $tokens, float $cost, ?float $list = null, ?string $at = null): void
+    private function openAiCall(string $model, int $tokens, float $cost, ?float $list = null, ?string $at = null, bool $shared = true): void
     {
         DB::table('ai_live_operations')->insert(['kind' => 'call', 'operation' => 'queries.cluster', 'label' => 'Kümele', 'agent' => 'QueryClusterAgent',
             'status' => 'done', 'provider' => 'openai', 'model' => $model, 'input_tokens' => $tokens, 'output_tokens' => 0, 'cost_usd' => $cost,
-            'list_cost_usd' => $list ?? $cost, 'started_at' => $at ?? now(), 'finished_at' => $at ?? now()]);
+            'list_cost_usd' => $shared ? ($list ?? $cost) : null, 'started_at' => $at ?? now(), 'finished_at' => $at ?? now()]);
     }
 
     public function test_tokens_inside_the_days_free_quota_are_not_counted_and_the_rest_is_billed(): void
@@ -47,6 +47,7 @@ final class OpenAiFreeQuotaTest extends TestCase
         $quota = app(OpenAiFreeQuota::class);
         $this->openAiCall('gpt-5-mini', 2_000_000, 0.0, 0.8);
         $this->openAiCall('gpt-5-mini', 900_000, 0.4, 0.4, '2026-10-01 22:00:00'); // yesterday (UTC): another quota day
+        $this->openAiCall('gpt-5-mini', 5_000_000, 2.0, null, null, shared: false); // before the sharing was on: never used the quota
 
         // 90 % of 2.5 M = 2.25 M counted; 250 k of these 500 k are free.
         $this->assertSame([0.5, 250_000], $quota->bill('openai', 'gpt-5-mini-2025-08-07', 500_000, 1.0));
@@ -56,6 +57,24 @@ final class OpenAiFreeQuotaTest extends TestCase
 
         $this->setting->forceFill(['ai_openai_free_quota' => false])->save();
         $this->assertSame([1.0, 0], $quota->bill('openai', 'gpt-5-mini', 500_000, 1.0), 'off: list price');
+    }
+
+    public function test_the_free_quota_is_used_first_and_the_paid_ceiling_only_after_it(): void
+    {
+        $this->setting->forceFill(['ai_daily_auto_budget_usd' => 1])->save();
+        $this->openAiCall('gpt-5-mini', 1_000_000, 3.0, 3.0, null, shared: false); // paid earlier today: the ceiling is spent
+        $budget = app(AiBudget::class);
+        $this->assertTrue($budget->dailyExhausted());
+
+        $this->assertNull($budget->blockReason('openai', 'gpt-5-mini', 'queries.triage'), 'free tokens left: runs although $1 is spent');
+        $this->assertNotNull($budget->blockReason('anthropic', 'claude-haiku-4-5', 'queries.triage'), 'no free quota there: the ceiling holds');
+
+        $this->openAiCall('gpt-5-mini', 2_300_000, 0.0, 0.9); // the day's free tokens are used up
+        $this->assertStringContainsString('Günlük AI tavanı doldu', (string) $budget->blockReason('openai', 'gpt-5-mini', 'queries.triage'));
+        $this->assertNull($budget->blockReason('openai', 'gpt-5', 'queries.triage'), 'the large models have their own quota');
+
+        $this->setting->forceFill(['ai_openai_free_quota' => false])->save();
+        $this->assertNotNull($budget->blockReason('openai', 'gpt-5', 'queries.triage'));
     }
 
     public function test_the_audit_turns_the_quota_off_when_openai_billed_more_than_the_estimate_and_its_cost_floors_the_ceiling(): void
@@ -88,7 +107,9 @@ final class OpenAiFreeQuotaTest extends TestCase
             ['start_time' => CarbonImmutable::parse('2026-10-01', 'UTC')->getTimestamp(), 'results' => [['amount' => ['value' => 0.11, 'currency' => 'usd']]]],
         ]])]);
 
-        $this->assertSame('ok', app(OpenAiCostAudit::class)->run()['status']);
+        $audit = app(OpenAiCostAudit::class)->run();
+        $this->assertSame('ok', $audit['status']);
+        $this->assertStringContainsString('ücretsiz kota uygulanıyor', $audit['message']);
         $this->assertTrue(app(OpenAiFreeQuota::class)->enabled());
     }
 

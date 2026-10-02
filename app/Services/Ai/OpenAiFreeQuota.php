@@ -63,7 +63,21 @@ final class OpenAiFreeQuota
         return [round($listCost * (1 - $free / $tokens), 6), $free];
     }
 
-    /** Tokens of the group's OpenAI calls since 00:00 UTC (paid or not: all of them use up the quota). */
+    /**
+     * Önce ücretsiz kota: an OpenAI call whose model still has free tokens today runs even when the day's paid ceiling
+     * is spent (it costs nothing); once the group's quota is used up, the paid ceiling applies.
+     */
+    public function hasRoom(?string $provider, ?string $model): bool
+    {
+        $tier = self::tier($model);
+
+        return $provider === 'openai' && $tier !== null && $this->enabled() && $this->usedToday($tier) < self::limit($tier);
+    }
+
+    /**
+     * Tokens of the group's OpenAI calls since 00:00 UTC made while the quota was on (only shared traffic counts at
+     * OpenAI: calls before the sharing was switched on never used it up).
+     */
     public function usedToday(string $tier, ?int $exceptRowId = null): int
     {
         return (int) $this->todayCalls($exceptRowId)->filter(fn (object $row): bool => self::tier($row->model) === $tier)
@@ -98,7 +112,7 @@ final class OpenAiFreeQuota
         return DB::table('ai_live_operations')->where('kind', 'call')->where('provider', 'openai')
             ->where('started_at', '>=', CarbonImmutable::now('UTC')->startOfDay())
             ->when($exceptRowId !== null, fn ($q) => $q->where('id', '!=', $exceptRowId))
-            ->whereNotNull('input_tokens')
+            ->whereNotNull('input_tokens')->whereNotNull('list_cost_usd')
             ->get(['model', 'input_tokens', 'output_tokens', 'cost_usd', 'list_cost_usd']);
     }
 }

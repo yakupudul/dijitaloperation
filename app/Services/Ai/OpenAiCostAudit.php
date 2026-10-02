@@ -63,7 +63,11 @@ final class OpenAiCostAudit
         $finished = collect($days)->first(fn (array $d): bool => $d['date'] === $today->subDay()->toDateString());
         $status = 'ok';
         $message = $quotaOn ? 'OpenAI faturası tahminle uyumlu: ücretsiz kota uygulanıyor.' : 'Ücretsiz kota hesabı kapalı; maliyetler liste fiyatından sayılıyor.';
-        if ($quotaOn && $finished !== null && now('UTC')->gte($today->addHours(self::SETTLE_HOURS))
+        $settled = $finished !== null && now('UTC')->gte($today->addHours(self::SETTLE_HOURS));
+        if ($quotaOn && ($finished === null || $finished['list'] - $finished['estimated'] < 0.01)) {
+            $message = 'Ücretsiz kota açık; dün kotadan karşılanan çağrı yoktu. Karşılaştırma, kotanın kullanıldığı ilk tam günden sonra anlam kazanır.';
+        }
+        if ($quotaOn && $settled && $finished['list'] - $finished['estimated'] >= 0.01
             && $finished['actual'] > $finished['estimated'] * self::TOLERANCE + self::MARGIN_USD) {
             $status = 'mismatch';
             $message = sprintf('Dün OpenAI $%.2f faturaladı, tahminimiz $%.2f idi: ücretsiz kota uygulanmıyor görünüyor (paylaşım kapalı, başka proje ya da aynı hesapta başka uygulama). Kota hesabı kapatıldı; liste fiyatı sayılıyor.',
