@@ -2,6 +2,7 @@
 
 namespace App\Services\Gsc;
 
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -29,6 +30,46 @@ class GscPoolReadRepository
             ->whereBetween('reporting_date', [$start, $end])
             ->get(['clicks', 'impressions', 'metadata']);
 
+        return $this->aggregatePropertyRows($rows);
+    }
+
+    /**
+     * Property-level sums for one collection scope and search type.
+     *
+     * A null digital asset id reads the resource-first central pool (facts written with
+     * digital_asset_id = null); an id reads that asset's bound collection.
+     *
+     * @return array{clicks: int, impressions: int, position_weighted_numerator: float, position_impressions: int, rows: int}
+     */
+    public function scopedPropertyDailySums(
+        ?int $digitalAssetId,
+        int $externalResourceId,
+        string $siteUrl,
+        string $searchType,
+        string $start,
+        string $end,
+    ): array {
+        $rows = DB::table('gsc_property_daily')
+            ->when(
+                $digitalAssetId === null,
+                fn ($query) => $query->whereNull('digital_asset_id'),
+                fn ($query) => $query->where('digital_asset_id', $digitalAssetId),
+            )
+            ->where('external_resource_id', $externalResourceId)
+            ->where('site_url', $siteUrl)
+            ->where('search_type', $searchType)
+            ->whereBetween('reporting_date', [$start, $end])
+            ->get(['clicks', 'impressions', 'metadata']);
+
+        return $this->aggregatePropertyRows($rows);
+    }
+
+    /**
+     * @param  Collection<int, object>  $rows
+     * @return array{clicks: int, impressions: int, position_weighted_numerator: float, position_impressions: int, rows: int}
+     */
+    private function aggregatePropertyRows(Collection $rows): array
+    {
         $clicks = 0;
         $impressions = 0;
         $positionNumerator = 0.0;

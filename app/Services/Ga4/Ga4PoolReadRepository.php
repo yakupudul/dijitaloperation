@@ -2,6 +2,7 @@
 
 namespace App\Services\Ga4;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -26,8 +27,48 @@ class Ga4PoolReadRepository
         string $start,
         string $end,
     ): array {
-        $row = DB::table('ga4_property_daily')
-            ->where('digital_asset_id', $digitalAssetId)
+        return $this->aggregatePropertyDaily(
+            DB::table('ga4_property_daily')->where('digital_asset_id', $digitalAssetId),
+            $externalResourceId,
+            $propertyId,
+            $start,
+            $end,
+        );
+    }
+
+    /**
+     * Property-level sums for one collection scope. A null digital asset id reads the
+     * resource-first central pool (digital_asset_id = null); an id reads that asset's
+     * bound collection. Same non-additive exclusions as propertyDailySums().
+     *
+     * @return array{sessions: int, engagedSessions: int, screenPageViews: int, userEngagementDuration: float, activeUsers: int, newUsers: ?int, conversions: ?float, keyEvents: ?float, totalRevenue: ?float, rows: int}
+     */
+    public function scopedPropertyDailySums(
+        ?int $digitalAssetId,
+        int $externalResourceId,
+        string $propertyId,
+        string $start,
+        string $end,
+    ): array {
+        $query = DB::table('ga4_property_daily');
+        $query = $digitalAssetId === null
+            ? $query->whereNull('digital_asset_id')
+            : $query->where('digital_asset_id', $digitalAssetId);
+
+        return $this->aggregatePropertyDaily($query, $externalResourceId, $propertyId, $start, $end);
+    }
+
+    /**
+     * @return array{sessions: int, engagedSessions: int, screenPageViews: int, userEngagementDuration: float, activeUsers: int, newUsers: ?int, conversions: ?float, keyEvents: ?float, totalRevenue: ?float, rows: int}
+     */
+    private function aggregatePropertyDaily(
+        Builder $query,
+        int $externalResourceId,
+        string $propertyId,
+        string $start,
+        string $end,
+    ): array {
+        $row = $query
             ->where('external_resource_id', $externalResourceId)
             ->where('property_id', $propertyId)
             ->whereBetween('reporting_date', [$start, $end])

@@ -2,12 +2,16 @@
 
 namespace App\Services\DataPool\Reconciliation;
 
+use App\Enums\Collection\CollectionRunStatus;
+use App\Models\Collection\CollectionDatasetRun;
 use App\Models\CoreExternalResource;
+use App\Models\DataPool\DatasetMaterialization;
 use App\Models\DigitalAsset;
 use App\Services\Collection\Providers\Ga4\Ga4ApiClient;
 use App\Services\Collection\Providers\Ga4\Ga4ReportRequestBuilder;
 use App\Services\Collection\Providers\SearchConsole\SearchConsoleApiClient;
 use App\Services\Collection\Providers\SearchConsole\SearchConsoleRequestFamilyCatalog;
+use App\Services\DataPool\Integrity\Support\CoverageIntervalSet;
 use App\Services\Ga4\Ga4PoolReadRepository;
 use App\Services\Ga4\Ga4SpecialistBindingResolver;
 use App\Services\Ga4\Ga4UiDatasetGate;
@@ -18,6 +22,7 @@ use App\Services\Gsc\GscUiDatasetGate;
 use App\Services\Gsc\Support\GscBindingMode;
 use App\Support\DataPool\Reconciliation\ClosedPeriodReconciliationReport;
 use App\Support\Operator\OperatorClock;
+use Carbon\CarbonImmutable;
 use InvalidArgumentException;
 
 /**
@@ -27,6 +32,15 @@ use InvalidArgumentException;
 final class ClosedPeriodProviderReconciler
 {
     public const float DEFAULT_TOLERANCE = 0.01;
+
+    public const string COVERAGE_FULL = 'FULLY_COVERED';
+
+    public const string COVERAGE_PARTIAL = 'PARTIALLY_COVERED';
+
+    public const string COVERAGE_NONE = 'NOT_COVERED';
+
+    /** Integrity audits are binding-scoped; central facts have no audit scope of their own. */
+    public const string INTEGRITY_NOT_AUDITED_CENTRAL = 'NOT_AUDITED_CENTRAL';
 
     public function __construct(
         private readonly GscSpecialistBindingResolver $gscBindings,
@@ -87,23 +101,54 @@ final class ClosedPeriodProviderReconciler
             throw new InvalidArgumentException('Search Console is not real-bound for this asset. Bind a GSC property before reconciling.');
         }
 
-        $readiness = $this->gscGate->evaluate(
+        $definition = SearchConsoleRequestFamilyCatalog::definition(SearchConsoleRequestFamilyCatalog::FAMILY_PROPERTY_DAILY);
+        $searchType = (string) $definition['search_type'];
+        $dataState = (string) $definition['data_state'];
+        $aggregationType = is_string($definition['aggregation_type']) && $definition['aggregation_type'] !== ''
+            ? $definition['aggregation_type']
+            : null;
+
+        $coverage = $this->provenCoverage(
+            'SEARCH_CONSOLE',
+            'gsc_property_daily',
             (int) $binding->digitalAssetId,
+            (int) $binding->externalResourceId,
+            $from,
+            $to,
+            static function (CollectionDatasetRun $run) use ($searchType, $dataState, $aggregationType): bool {
+                // Bound collection always executes the catalog definition and does not
+                // persist it on the run; central runs persist the exact definition used.
+                $metadata = is_array($run->metadata) ? $run->metadata : [];
+                $central = is_array($metadata['central_definition'] ?? null) ? $metadata['central_definition'] : [];
+                $runSearchType = $metadata['search_type'] ?? $central['search_type'] ?? $searchType;
+                $runDataState = $central['data_state'] ?? $dataState;
+                $runAggregation = array_key_exists('aggregation_type', $central) ? $central['aggregation_type'] : $aggregationType;
+
+                return $runSearchType === $searchType
+                    && $runDataState === $dataState
+                    && ($runAggregation === '' ? null : $runAggregation) === $aggregationType;
+            },
+        );
+        $integrity = $this->integrityStatus($coverage['digital_asset_id'], fn (int $assetId): string => $this->gscGate->evaluate(
+            $assetId,
             (int) $binding->externalResourceId,
             'gsc_property_daily',
             $from,
             $to,
             $binding->timezone,
-        );
+        )->integrityStatus);
 
-        $warehouse = $this->gscPool->propertyDailySums(
-            (int) $binding->digitalAssetId,
+        $warehouse = $this->gscPool->scopedPropertyDailySums(
+            $coverage['digital_asset_id'],
             (int) $binding->externalResourceId,
             (string) $binding->siteUrl,
+            $searchType,
             $from,
             $to,
         );
-        $warehouseUnavailable = ! $readiness->isFullyCovered() || $warehouse['rows'] === 0;
+        $warehouseUnavailable = $coverage['state'] !== self::COVERAGE_FULL
+            || $this->integrityBlocks($integrity)
+            || $warehouse['rows'] === 0;
 
         $resource = $binding->externalResourceId !== null
             ? CoreExternalResource::query()->with('integration')->find($binding->externalResourceId)
@@ -113,17 +158,16 @@ final class ClosedPeriodProviderReconciler
             throw new InvalidArgumentException('Search Console integration is missing for this binding.');
         }
 
-        $definition = SearchConsoleRequestFamilyCatalog::definition(SearchConsoleRequestFamilyCatalog::FAMILY_PROPERTY_DAILY);
         $request = [
             'startDate' => $from,
             'endDate' => $to,
             'dimensions' => [],
             'rowLimit' => 1,
-            'type' => $definition['search_type'],
-            'dataState' => $definition['data_state'],
+            'type' => $searchType,
+            'dataState' => $dataState,
         ];
-        if (is_string($definition['aggregation_type']) && $definition['aggregation_type'] !== '') {
-            $request['aggregationType'] = $definition['aggregation_type'];
+        if ($aggregationType !== null) {
+            $request['aggregationType'] = $aggregationType;
         }
 
         $response = $this->gscApi->searchAnalyticsQuery($integration, (string) $binding->siteUrl, $request);
@@ -167,13 +211,15 @@ final class ClosedPeriodProviderReconciler
             'digital_asset_id' => $asset->id,
             'external_resource_id' => $binding->externalResourceId,
             'site_url' => $binding->siteUrl,
+            'search_type' => $searchType,
+            'data_state' => $dataState,
+            ...$this->coverageScope($coverage, $integrity),
             'warehouse_rows' => $warehouse['rows'],
-            'coverage_state' => $readiness->coverageState,
-            'integrity_status' => $readiness->integrityStatus,
         ], $metrics, [
             'GSC clicks and impressions are additive across days and may pass only when the full closed period has proven successful coverage.',
             'CTR and average position are not additive warehouse facts — differences are documented, not hidden as zero.',
-            'Provider totals use the same property-daily search type, data state and aggregation definition as collection.',
+            'Provider totals use the same property-daily search type, data state and aggregation definition as collection; coverage counts only completed collection runs executed with that definition.',
+            'Central (resource-first) and asset-bound collections are both read; central facts carry no digital asset id.',
         ], '/assets/search-console/'.$asset->id);
     }
 
@@ -184,23 +230,34 @@ final class ClosedPeriodProviderReconciler
             throw new InvalidArgumentException('GA4 is not real-bound for this asset. Bind a GA4 property before reconciling.');
         }
 
-        $readiness = $this->ga4Gate->evaluate(
+        $coverage = $this->provenCoverage(
+            'GA4',
+            'ga4_property_daily',
             (int) $binding->digitalAssetId,
+            (int) $binding->externalResourceId,
+            $from,
+            $to,
+            static fn (CollectionDatasetRun $run): bool => true,
+        );
+        $integrity = $this->integrityStatus($coverage['digital_asset_id'], fn (int $assetId): string => $this->ga4Gate->evaluate(
+            $assetId,
             (int) $binding->externalResourceId,
             'ga4_property_daily',
             $from,
             $to,
             $binding->timezone,
-        );
+        )->integrityStatus);
 
-        $warehouse = $this->ga4Pool->propertyDailySums(
-            (int) $binding->digitalAssetId,
+        $warehouse = $this->ga4Pool->scopedPropertyDailySums(
+            $coverage['digital_asset_id'],
             (int) $binding->externalResourceId,
             (string) $binding->propertyId,
             $from,
             $to,
         );
-        $warehouseUnavailable = ! $readiness->isFullyCovered() || $warehouse['rows'] === 0;
+        $warehouseUnavailable = $coverage['state'] !== self::COVERAGE_FULL
+            || $this->integrityBlocks($integrity)
+            || $warehouse['rows'] === 0;
 
         $resource = $binding->externalResourceId !== null
             ? CoreExternalResource::query()->with('integration')->find($binding->externalResourceId)
@@ -277,15 +334,142 @@ final class ClosedPeriodProviderReconciler
             'digital_asset_id' => $asset->id,
             'external_resource_id' => $binding->externalResourceId,
             'property_id' => $binding->propertyId,
+            ...$this->coverageScope($coverage, $integrity),
             'warehouse_rows' => $warehouse['rows'],
-            'coverage_state' => $readiness->coverageState,
-            'integrity_status' => $readiness->integrityStatus,
         ], $metrics, [
-            'Additive GA4 metrics may pass only when the full closed period has proven successful coverage.',
+            'Additive GA4 metrics may pass only when the full closed period has proven successful coverage from completed collection runs.',
+            'Central (resource-first) and asset-bound collections are both read; central facts carry no digital asset id.',
             'Optional metrics that were not collected remain unavailable; missing is never converted to zero.',
             'totalUsers/activeUsers are non-additive. GA4 UI thresholding/sampling differences must be documented, not hidden.',
             'Property data retention may truncate the 16-month backfill. Out-of-retention days are a limitation, not a fabricated zero.',
         ], '/assets/analytics/'.$asset->id);
+    }
+
+    /**
+     * Prove coverage of [from, to] for the collection scope that owns the facts.
+     *
+     * Scope: the resource-first central collection (digital_asset_id = null) when it has a
+     * materialization for this resource, otherwise the asset-bound collection. Only dates
+     * written by dataset runs that reached `completed` (and match the collection definition)
+     * count; dates left behind by partial, failed or running runs never prove coverage.
+     *
+     * @param  callable(CollectionDatasetRun): bool  $matchesDefinition
+     * @return array{mode: string, digital_asset_id: ?int, state: string, missing_dates: list<string>, dataset_run_ids: list<int>}
+     */
+    private function provenCoverage(
+        string $provider,
+        string $datasetId,
+        int $digitalAssetId,
+        int $externalResourceId,
+        string $from,
+        string $to,
+        callable $matchesDefinition,
+    ): array {
+        $central = DatasetMaterialization::query()
+            ->where('dataset_id', $datasetId)
+            ->where('external_resource_id', $externalResourceId)
+            ->whereNull('digital_asset_id')
+            ->exists();
+        $scopeAssetId = $central ? null : $digitalAssetId;
+
+        $datesByRun = [];
+        $materializations = DatasetMaterialization::query()
+            ->where('dataset_id', $datasetId)
+            ->where('external_resource_id', $externalResourceId)
+            ->when(
+                $central,
+                fn ($query) => $query->whereNull('digital_asset_id'),
+                fn ($query) => $query->where('digital_asset_id', $digitalAssetId),
+            )
+            ->get();
+        foreach ($materializations as $materialization) {
+            $byRun = data_get($materialization->freshness_metadata, 'coverage_dates_by_dataset_run');
+            if (! is_array($byRun)) {
+                continue;
+            }
+            foreach ($byRun as $runId => $dates) {
+                if (! is_array($dates)) {
+                    continue;
+                }
+                $datesByRun[(int) $runId] = array_merge($datesByRun[(int) $runId] ?? [], array_values(array_filter($dates, 'is_string')));
+            }
+        }
+
+        $runs = $datesByRun === []
+            ? collect()
+            : CollectionDatasetRun::query()
+                ->whereIn('id', array_keys($datesByRun))
+                ->where('provider_or_source', $provider)
+                ->where('status', CollectionRunStatus::Completed)
+                ->whereHas('resourceRun', fn ($query) => $query
+                    ->where('external_resource_id', $externalResourceId)
+                    ->when(
+                        $central,
+                        fn ($inner) => $inner->whereNull('digital_asset_id'),
+                        fn ($inner) => $inner->where('digital_asset_id', $digitalAssetId),
+                    ))
+                ->get()
+                ->filter($matchesDefinition)
+                ->values();
+
+        $dates = [];
+        foreach ($runs as $run) {
+            $dates = array_merge($dates, $datesByRun[(int) $run->id] ?? []);
+        }
+
+        $missing = CoverageIntervalSet::fromSuccessfulDates($dates)->gapsIn($from, $to);
+        $requiredDays = (int) CarbonImmutable::parse($from)->diffInDays(CarbonImmutable::parse($to)) + 1;
+
+        return [
+            'mode' => $central ? 'central' : 'bound',
+            'digital_asset_id' => $scopeAssetId,
+            'state' => match (true) {
+                $missing === [] => self::COVERAGE_FULL,
+                count($missing) === $requiredDays => self::COVERAGE_NONE,
+                default => self::COVERAGE_PARTIAL,
+            },
+            'missing_dates' => $missing,
+            'dataset_run_ids' => array_map(static fn (CollectionDatasetRun $run): int => (int) $run->id, $runs->all()),
+        ];
+    }
+
+    /**
+     * Binding-scoped integrity audit status. Central facts have no asset scope to audit.
+     *
+     * @param  callable(int): string  $evaluate
+     */
+    private function integrityStatus(?int $scopeDigitalAssetId, callable $evaluate): string
+    {
+        if ($scopeDigitalAssetId === null) {
+            return self::INTEGRITY_NOT_AUDITED_CENTRAL;
+        }
+
+        return $evaluate($scopeDigitalAssetId);
+    }
+
+    /**
+     * A recorded blocking audit result fails closed. An absent audit does not prove
+     * anything either way; the completed-run coverage and provider totals do.
+     */
+    private function integrityBlocks(string $integrityStatus): bool
+    {
+        return str_starts_with($integrityStatus, 'BLOCKED_');
+    }
+
+    /**
+     * @param  array{mode: string, digital_asset_id: ?int, state: string, missing_dates: list<string>, dataset_run_ids: list<int>}  $coverage
+     * @return array<string, mixed>
+     */
+    private function coverageScope(array $coverage, string $integrity): array
+    {
+        return [
+            'collection_scope' => $coverage['mode'],
+            'coverage_state' => $coverage['state'],
+            'missing_days' => count($coverage['missing_dates']),
+            'first_missing_date' => $coverage['missing_dates'][0] ?? null,
+            'completed_dataset_run_ids' => $coverage['dataset_run_ids'],
+            'integrity_status' => $integrity,
+        ];
     }
 
     /**
