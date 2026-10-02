@@ -7,6 +7,7 @@ use App\Models\BrandOffering;
 use App\Models\DigitalAsset;
 use App\Models\OfferingPage;
 use App\Models\Page;
+use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -14,7 +15,7 @@ use Illuminate\Validation\ValidationException;
 /**
  * AI adım 1 — hizmet ↔ sayfa: each hizmet / lokasyon page of the site gets one approved brand service (or none). The
  * service name rule decides first (all distinctive words of the name in the page title / H1 / slug, one clear winner);
- * the rest go to ONE batched AI call (`site.service_pages`). Operator choices are locked (`offering_pages.locked`).
+ * the remaining service pages go to ONE batched AI call (`site.service_pages`); template / archive sections are skipped. Operator choices are locked (`offering_pages.locked`).
  */
 final class ServicePageMapper
 {
@@ -33,8 +34,8 @@ final class ServicePageMapper
             return ['status' => 'no_services', 'rule' => 0, 'ai' => 0, 'unmatched' => 0];
         }
         $locked = OfferingPage::query()->where('locked', true)->whereIn('page_id', Page::query()->where('website_asset_id', $site->id)->select('id'))->pluck('page_id')->all();
-        $pages = Page::query()->where('website_asset_id', $site->id)->whereIn('category', self::CATEGORIES)->whereNotIn('id', $locked)
-            ->orderBy('id')->get(['id', 'url', 'path', 'title', 'h1', 'category', 'language']);
+        $pages = self::eligible($site)->whereNotIn('id', $locked)->values();
+        self::prune($site);
         $names = $offerings->mapWithKeys(fn (BrandOffering $o): array => [(int) $o->id => $o->displayName()]);
         $rule = [];
         $unsure = collect();
@@ -42,8 +43,8 @@ final class ServicePageMapper
             $offeringId = self::ruleMatch($page, $names->all());
             if ($offeringId !== null) {
                 $rule[(int) $page->id] = $offeringId;
-            } else {
-                $unsure->push($page);
+            } elseif ($page->category === 'hizmet') {
+                $unsure->push($page); // location pages are matched by name only; the AI judges service pages
             }
         }
         DB::transaction(function () use ($pages, $rule): void {
@@ -75,6 +76,29 @@ final class ServicePageMapper
         }
 
         return ['status' => $status, 'rule' => count($rule), 'ai' => $ai, 'unmatched' => $unsure->count() - $ai];
+    }
+
+    /**
+     * Service / location pages outside template and archive sections (the pages a service may be linked to).
+     *
+     * @return Collection<int, Page>
+     */
+    public static function eligible(DigitalAsset $site): Collection
+    {
+        $bulk = PageCategorizer::bulkSections((int) $site->id);
+
+        return Page::query()->where('website_asset_id', $site->id)->whereIn('category', self::CATEGORIES)
+            ->orderBy('id')->get(['id', 'url', 'path', 'title', 'h1', 'category', 'language'])
+            ->reject(fn (Page $p): bool => PageCategorizer::inTemplateSection((string) ($p->path ?: SeoText::urlPath((string) $p->url)), $bulk))->values();
+    }
+
+    /** Pages that are no longer service / location pages (recategorized, template sections) lose their unlocked links. @return int removed */
+    public static function prune(DigitalAsset $site): int
+    {
+        $keep = self::eligible($site)->pluck('id')->all();
+
+        return OfferingPage::query()->where('locked', false)->whereIn('page_id', Page::query()->where('website_asset_id', $site->id)->select('id'))
+            ->whereNotIn('page_id', $keep ?: [0])->delete();
     }
 
     /**

@@ -40,6 +40,9 @@ use App\Services\Observability\WorkerHeartbeatService;
 use App\Services\Ownership\OwnershipIntegrity;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Queries\QueryNotifier;
+use App\Services\Site\PageCategorizer;
+use App\Services\Site\ServicePageMapper;
+use App\Services\Site\SiteMetrics;
 use App\Services\Site\SiteOperations;
 use App\Services\Website\SitemapChangeWatcher;
 use App\Support\Console\ConsoleScope;
@@ -768,6 +771,19 @@ Artisan::command('moxdop:ops:error-digest', function (ErrorTriage $triage, Query
 })->purpose('Daily Hata merkezi digest (only what needs the operator).');
 Schedule::command('moxdop:ops:error-digest')->dailyAt('05:52')->name('ops-error-digest')->withoutOverlapping(30);
 
+// Sınıflandırma temizliği: rules only (no AI) over every unlocked page — template / archive sections stop being service
+// pages, their service links are removed. Run once after the template-section rule shipped; safe to repeat.
+Artisan::command('moxdop:site:recategorize {site? : website asset id}', function (PageCategorizer $categorizer): void {
+    $sites = DigitalAsset::query()->where('type', 'website')->whereNotNull('brand_id')->when($this->argument('site'), fn ($q, $id) => $q->whereKey((int) $id))->orderBy('id')->get();
+    foreach ($sites as $site) {
+        $result = $categorizer->categorize($site, useAi: false);
+        $pruned = ServicePageMapper::prune($site);
+        SiteMetrics::forgetPageTotals((int) $site->id);
+        $this->line($site->id.' '.($site->domain ?: $site->name).': rule='.$result['rule'].' links_removed='.$pruned);
+    }
+    $this->info('Recategorized: '.$sites->count());
+})->purpose('Rules-only page recategorization (template / archive sections) and stale service-link cleanup.');
+
 // Marka dosyası: rebuilt every night for operational brands (no AI; unchanged sections keep their hash).
 Artisan::command('moxdop:brands:dossier {brand? : brand id}', function (BrandDossier $dossier): void {
     $brands = Brand::query()->operational()->when($this->argument('brand'), fn ($q, $id) => $q->whereKey((int) $id))->orderBy('id')->get();
@@ -777,7 +793,7 @@ Artisan::command('moxdop:brands:dossier {brand? : brand id}', function (BrandDos
             // first, AI only for what the rules cannot decide) and rebuilds the dossier when done.
             $sites = DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->get()->filter(fn (DigitalAsset $site): bool => BrandDossier::siteNeedsSetup($site));
             foreach ($sites as $site) {
-                SiteOperations::dispatch((int) $site->id, SiteOperations::SETUP);
+                SiteOperations::dispatch((int) $site->id, SiteOperations::SETUP, ['unattended' => true]);
             }
             // Eksikler: what blocks the brand's AI work, into the work list (fixes run only on the operator's approval).
             app(BrandGaps::class)->sync($brand);

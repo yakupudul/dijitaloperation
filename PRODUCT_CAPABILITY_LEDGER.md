@@ -1,5 +1,26 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-18 (c) — Şablon sayfalar hizmet sayılmaz, gece bakımı AI sınırı, onay bekleyen kümeler
+
+- **Sorun (Bornova Hurda):** 5038 sayfadan 620'si "Ana hizmet sayfaları" görünüyordu. Bunlar "/hurda/…" makaleleri ve "/kws/izmir-…-mahallesi-hurdaci" anahtar kelime sayfalarıydı. Nedenleri:
+  - AI sınıflandırması bunları "hizmet" saydı.
+  - Lokasyon sayfaları hizmete bağlanınca "ana" sayıldı.
+- **Kural:**
+  - Hizmet bölümü dışında 40+ sayfalık bir klasör şablon bölümdür: yer adı geçiyorsa lokasyon, değilse blog. Hiçbir zaman hizmet değildir.
+  - /kws/, /tag/, /etiket/, /kategori/ … her zaman "diğer"dir.
+  - Bu sayfalar hizmete bağlanmaz. Eski otomatik bağları silinir (kilitli bağlar kalır).
+  - "Ana hizmet sayfası" yalnız kategorisi "hizmet" olan sayfadır.
+  - Lokasyon sayfaları hizmete yalnız ad kuralıyla bağlanır (AI yok).
+  - Otomatik kur ve "Eksikler" şablon sayfalardan hizmet önermez.
+  - AI sınıflandırma talimatı site-page-categories-v2: "hizmet"te katı.
+- **Gece bakımı:** kurallarla karar verilemeyen sayfa sayısı 200'ü aşarsa AI'a gönderilmez. Eksikler'de "N sayfa sınıflanmadı" görünür; onaylanınca AI çalışır.
+- **Temizlik komutu:** `moxdop:site:recategorize {site?}` kuralları yeniden uygular ve bayat hizmet bağlarını siler. AI kullanmaz.
+- **AI göstergesi:** "site.setup" artık "Site hazırlığı (sayfa sınıflandırma, hizmet ↔ sayfa)" olarak görünür. Diğer site işleri de Türkçe adıyla görünür.
+- **Onay bekleyen kümeler:** markanın hizmetlerinin onaylanmamış kümeleri Web sitesi › Sorgular › İçerik fikirleri'nde listelenir.
+  - "Onayla" ve "Tümünü onayla" var. Onaylanan küme satırı hemen gelir (kurallarla, AI yok).
+  - Kütüphanede hazır olma uyarısı da buraya yönlendirir.
+- **Test:** PageTemplateSectionsTest. UAT: yok.
+
 ## 2026-11-18 (b) — "Doğru çalışamıyorsa söyle ya da dur", hizmet sınırı yok, Hata merkezi düzeltmeleri
 
 - **İlke (operatör kararı):** bir AI / sistem işi bir eksik ya da bozukluk yüzünden doğru çalışamayacaksa önce uyarır ve durur; operatör "Yine de getir" derse çalışır.

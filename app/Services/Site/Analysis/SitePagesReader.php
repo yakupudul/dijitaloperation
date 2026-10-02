@@ -299,7 +299,8 @@ final class SitePagesReader
             $rows[$path]['sources'] = array_values(array_unique($row['sources']));
             $rows[$path]['category'] ??= $inventory ? self::pathCategory($path) : null;
             $rows[$path]['title'] ??= $inventory ? self::slugTitle($path) : null;
-            $rows[$path]['is_main'] = $inventory && ($row['services'] !== [] || $row['clusters'] !== [] || $rows[$path]['category'] === 'hizmet');
+            // Main service page = a service page; a location / article page linked to a service or cluster is not one.
+            $rows[$path]['is_main'] = $inventory && $rows[$path]['category'] === 'hizmet';
             $rows[$path]['delta'] = $row['prev_clicks'] > 0 ? (int) round(($row['clicks'] - $row['prev_clicks']) / $row['prev_clicks'] * 100) : null;
             $rows[$path]['problem'] = ($row['status_code'] !== null && $row['status_code'] >= 400) || $row['indexable'] === false || $row['serious'] > 0;
             $rows[$path]['declining'] = $row['prev_clicks'] >= self::DECLINE_MIN_PREVIOUS && $row['clicks'] < $row['prev_clicks'] * self::DECLINE_RATIO;

@@ -10,7 +10,7 @@
         'services' => ['Markada etkin hizmet yok.', route('operator.brand', ['brand' => $brand->id]), 'Markaya hizmet ekle'],
         'catalog' => ['Markanın '.$r['services'].' hizmeti sistem hizmet kataloğuna bağlı değil; kümeler hizmet üzerinden gelir.', route('operator.brand', ['brand' => $brand->id]), 'Hizmetleri bağla'],
         'clusters' => ['Markanın '.$r['linked'].' hizmetinde henüz küme yok. Otomatik pilot sorguları kümelediğinde burada görünür.', $queries, 'Sorgular › Kümeler'],
-        'approve' => ['Markanın hizmetlerinde '.$r['clusters'].' küme var, hiçbiri onaylı değil. Onaylanan kümeler bu siteye iner.', $queries, 'Kümeleri onayla'],
+        'approve' => ['Markanın hizmetlerinde '.$r['clusters'].' küme var, hiçbiri onaylı değil. İçerik fikirleri\'nde listelenir, oradan onaylayabilirsin.', route('operator.website', ['assetId' => $assetId, 'tab' => 'sorgular', 'sub' => 'fikirler']), 'Kümeleri onayla'],
         'match' => [$r['approved'].' onaylı küme var, sayfalarla henüz eşleştirilmedi.', route('operator.website', ['assetId' => $assetId, 'tab' => 'sorgular', 'sub' => 'fikirler']), 'İçerik fikirleri › Eşleştir'],
         default => [null, null, null],
     };

@@ -4,6 +4,7 @@ namespace App\Support\Ai;
 
 use App\Services\Ai\AiUsageRecorder;
 use App\Services\Prompts\PromptRegistry;
+use App\Services\Site\SiteOperations;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -60,6 +61,8 @@ final class AiOperationLabels
         'site.weekly_content' => 'Haftalık içerik önerisi',
         'site.content_discovery' => 'İçerik fırsatı keşfi',
         'site.write_article' => 'Makale taslağı',
+        'site.setup' => 'Site hazırlığı (sayfa sınıflandırma, hizmet ↔ sayfa)',
+        'site.weekly_refresh' => 'Site haftalık yenileme',
         AiUsageRecorder::TRIAL_ROUTE => 'Prompt denemesi (Örnekte dene)',
     ];
 
@@ -70,6 +73,9 @@ final class AiOperationLabels
         }
         if (isset(self::LABELS[$operation])) {
             return self::LABELS[$operation];
+        }
+        if (str_starts_with($operation, 'site.') && isset(SiteOperations::LABELS[Str::after($operation, 'site.')])) {
+            return 'Site · '.SiteOperations::LABELS[Str::after($operation, 'site.')];
         }
         if (str_starts_with($operation, 'analyst.')) {
             return 'Kanal analisti · '.Str::after($operation, 'analyst.');

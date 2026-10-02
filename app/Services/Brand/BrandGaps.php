@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\Analysis\SitePagesReader;
+use App\Services\Site\PageCategorizer;
 use App\Services\Site\SiteOperations;
 use App\Services\Site\SiteScope;
 use App\Services\Site\SiteText;
@@ -65,6 +66,13 @@ final class BrandGaps
                 $gaps[] = ['key' => 'services:'.$site->id, 'title' => count($titles).' hizmet sayfası markanın hizmetlerinde yok ('.$label.')',
                     'why' => 'Sitede sayfası olan hizmetler: '.implode(', ', array_slice($titles, 0, 8)).(count($titles) > 8 ? ' …' : '').'. Onaylarsan hizmet olarak eklenir ve sayfalarıyla eşlenir.',
                     'fix' => self::FIX_ADD_SERVICES, 'params' => ['site_id' => (int) $site->id, 'names' => $titles], 'url' => null];
+            }
+            $uncategorized = Page::query()->where('website_asset_id', $site->id)->whereNull('category')->count();
+            if ($uncategorized > PageCategorizer::UNATTENDED_AI_LIMIT) {
+                $gaps[] = ['key' => 'categories:'.$site->id, 'title' => $uncategorized.' sayfa sınıflanmadı ('.$label.')',
+                    'why' => 'Kurallar bu sayfalara karar veremedi; gece bakımı bu kadar sayfayı kendiliğinden AI\'a göndermez. Onaylarsan AI sınıflandırır (yaklaşık '
+                        .(int) ceil($uncategorized / PageCategorizer::AI_BATCH).' AI çağrısı), ardından hizmet ↔ sayfa eşlenir.',
+                    'fix' => self::FIX_SITE_SETUP, 'params' => ['site_id' => (int) $site->id], 'url' => null];
             }
             $unmatched = $offerings->isNotEmpty() && Page::query()->where('website_asset_id', $site->id)->exists()
                 ? $offerings->filter(fn (BrandOffering $o): bool => DB::table('offering_pages as op')->join('pages as p', 'p.id', '=', 'op.page_id')
@@ -136,9 +144,13 @@ final class BrandGaps
     public static function uncoveredServicePages(DigitalAsset $site, array $names): array
     {
         $out = [];
+        $bulk = PageCategorizer::bulkSections((int) $site->id);
         foreach (Page::query()->where('website_asset_id', $site->id)->orderBy('path')->limit(3000)->get(['url', 'path', 'title', 'h1', 'category']) as $page) {
             $path = (string) ($page->path ?: SeoText::urlPath((string) $page->url));
             if ($page->category !== 'hizmet' && ($page->category !== null || SitePagesReader::pathCategory($path) !== 'hizmet')) {
+                continue;
+            }
+            if (PageCategorizer::inTemplateSection($path, $bulk)) {
                 continue;
             }
             $title = self::serviceTitle((string) ($page->h1 ?: $page->title ?: SitePagesReader::slugTitle($path)));

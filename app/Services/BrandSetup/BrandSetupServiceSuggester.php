@@ -21,6 +21,7 @@ use App\Services\Portfolio\UnassignedWebsites;
 use App\Services\SeoTasks\SeoStoredHtmlReader;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\Analysis\SitePagesReader;
+use App\Services\Site\PageCategorizer;
 use App\Services\Site\SiteText;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\BrandIntelligence\IdentityLabelNormalizer;
@@ -488,9 +489,17 @@ final class BrandSetupServiceSuggester
         $seen = [];
         // Service pages first: categorized "hizmet" or under the site's service section (/tedavilerimiz/…), so a site
         // with hundreds of uncategorized URLs still sends every service page.
+        $bulk = PageCategorizer::bulkSections((int) $website->id);
         $inventory = Page::query()->where('website_asset_id', $website->id)->where(fn ($q) => $q->whereNull('category')->orWhereIn('category', ['hizmet', 'lokasyon', 'diger']))
             ->orderBy('path')->limit(3000)->get(['url', 'path', 'title', 'h1', 'category'])
-            ->groupBy(fn (Page $page): string => $page->category === 'hizmet' || SitePagesReader::pathCategory((string) ($page->path ?: SeoText::urlPath((string) $page->url))) === 'hizmet' ? 'service' : 'other');
+            ->groupBy(function (Page $page) use ($bulk): string {
+                $path = (string) ($page->path ?: SeoText::urlPath((string) $page->url));
+                if (PageCategorizer::inTemplateSection($path, $bulk)) {
+                    return 'other'; // "/kws/…", hundreds of "/hurda/…" articles: not service pages
+                }
+
+                return $page->category === 'hizmet' || SitePagesReader::pathCategory($path) === 'hizmet' ? 'service' : 'other';
+            });
         $inventory = collect($inventory->get('service', []))->concat(collect($inventory->get('other', []))->take(self::MAX_OTHER_PAGES));
         foreach ($inventory as $page) {
             $seen[SeoText::urlPath((string) $page->url)] = true;

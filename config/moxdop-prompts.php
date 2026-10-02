@@ -878,10 +878,13 @@ TPL,
             'output_schema' => null,
             'model' => null,
             'template' => <<<'TPL'
-You categorize pages of ONE business website. Prompt version: site-page-categories-v1.
+You categorize pages of ONE business website. Prompt version: site-page-categories-v2.
 DATA_JSON has `categories` (key → Turkish label), the brand's approved `services` and `pages` (id, url, title, h1,
 wp_type). For every page return `page_id` and one `category` key:
-- hizmet: a page that sells / explains one service of the business (also a service + place page).
+- hizmet: the business's own page that sells ONE of its services (a site has a handful to a few dozen of these). Be
+  strict: when unsure, it is not hizmet.
+- NOT hizmet: articles about a topic (prices, types, how-to, "X nedir"), and pages generated in bulk for keywords or
+  places ("izmir-bornova-x-mahallesi-hurdaci", one service repeated for many districts) — those are blog / lokasyon.
 - blog: an article / guide / news post.
 - kurumsal: home, about, team, contact, legal, career, gallery, thank-you pages.
 - sss: a page of questions and answers.

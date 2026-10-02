@@ -43,6 +43,22 @@ final class SiteScope
     }
 
     /**
+     * Clusters of the brand's services (its sector) that nobody approved yet: shown with an "Onayla" button on the site's
+     * İçerik fikirleri, so the operator does not have to find them in the shared library.
+     *
+     * @return Collection<int, Cluster>
+     */
+    public static function pendingClusters(Brand $brand, int $limit = 100): Collection
+    {
+        $serviceIds = BrandOffering::query()->where('brand_id', $brand->id)->where('status', OfferingStatus::Active->value)
+            ->whereNotNull('service_catalog_item_id')->distinct()->pluck('service_catalog_item_id')->all();
+
+        return Cluster::query()->with(['service.primaryName', 'mainQuery'])->withCount('clusterQueries')->where('approved', false)
+            ->whereIn('service_id', $serviceIds ?: [0])->when($brand->sector_id !== null, fn ($q) => $q->where('sector_id', $brand->sector_id))
+            ->orderBy('service_id')->orderBy('name')->limit($limit)->get();
+    }
+
+    /**
      * Why the site's cluster views (İçerik fikirleri, Rakipler, Öneriler, ana hizmet sayfaları) are empty, from one
      * source for every screen: active services, services tied to the catalog, their clusters and the approved ones,
      * and the brand rows (Eşleştir). `step` is the first missing one: services | catalog | clusters | approve | match | ready.

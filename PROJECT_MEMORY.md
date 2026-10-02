@@ -2,6 +2,9 @@
 
 ## 2026-11-18 — Çalışamayan iş önce uyarır
 
+- **Karar:** Toplu üretilmiş sayfalar (hizmet bölümü dışında 40+ sayfalık klasör, /kws/ /tag/ arşivleri) hizmet sayfası değildir.
+  - Gece bakımı 200'den fazla sayfayı kendiliğinden AI'a göndermez; Eksikler'den onay ister.
+  - Onaylanmamış kümeler markanın sitesinde listelenir ve oradan onaylanır.
 - **Karar:** Bir AI / sistem işi eksik ya da bozukluk yüzünden doğru sonuç veremeyecekse çalışmaz; operatöre nedenini söyler, operatör "Yine de getir" derse çalışır (Otomatik kur, bakım ajanı). Otomatik kur hizmet sayısında sınır yok; kanıtı olmayan hizmet işaretsiz gelir.
 
 ## 2026-11-17 — AI ajan mimarisi kararları

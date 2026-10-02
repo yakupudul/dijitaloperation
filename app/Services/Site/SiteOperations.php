@@ -135,7 +135,7 @@ final class SiteOperations
             self::DISCOVERY => $this->content->discover($site),
             self::WRITE_ARTICLE => $suggestion !== null ? $this->content->writeArticle($suggestion) : ['status' => 'no_suggestion'],
             self::WEEKLY_REFRESH => $this->weeklyRefresh($site),
-            self::SETUP => $this->afterSetup($site),
+            self::SETUP => $this->afterSetup($site, (bool) ($params['unattended'] ?? false)),
             self::CLUSTER_AUDIT => $this->audit->run($site),
             self::FIX_GAPS => $subject !== null ? $this->fixGaps($subject) : ['status' => 'no_row'],
             self::PRODUCE => $subject !== null ? $this->content->produce($subject) : ['status' => 'no_row'],
@@ -182,11 +182,16 @@ final class SiteOperations
         return ['suggestion_id' => (int) $suggestion->id] + $this->changes->prepare($suggestion);
     }
 
-    /** @return array<string, mixed> */
-    private function afterSetup(DigitalAsset $site): array
+    /**
+     * @param  bool  $unattended  started by the nightly upkeep (no operator click)
+     * @return array<string, mixed>
+     */
+    private function afterSetup(DigitalAsset $site, bool $unattended = false): array
     {
         SiteMetrics::forgetPageTotals((int) $site->id);
-        $result = ['status' => 'ready', 'categorize' => $this->categorizer->categorize($site, onlyNew: true)['status']];
+        // Nightly upkeep never sends hundreds of pages to AI on its own: too many → Eksikler asks the operator first.
+        $aiLimit = $unattended ? PageCategorizer::UNATTENDED_AI_LIMIT : null;
+        $result = ['status' => 'ready', 'categorize' => $this->categorizer->categorize($site, onlyNew: true, aiLimit: $aiLimit)['status']];
         if (SiteScope::aiAllowed(SiteScope::brandOf($site))) {
             $result['service_pages'] = $this->servicePages->map($site)['status'];
         }

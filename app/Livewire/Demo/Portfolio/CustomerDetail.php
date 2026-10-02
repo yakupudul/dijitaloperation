@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -31,6 +32,7 @@ class CustomerDetail extends Component
 {
     use WithAiInsights;
 
+    #[Locked]
     public string $customerId = '';
 
     #[Url(history: true)]

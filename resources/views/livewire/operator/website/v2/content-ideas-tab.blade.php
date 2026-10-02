@@ -38,6 +38,26 @@
         <p class="text-gray-500">Her küme bir ana fikirdir; altındakiler havuzdaki ek fikirler. Eşleştirme sisteme çekilmiş sayfa metinleriyle yapılır, siteye bağlanılmaz. Puan (1–100) yalnız Search Console: sıralama, kapsam, tıklama oranı.</p>
     </section>
 
+    @if ($pendingClusters->isNotEmpty())
+        <details class="{{ $card }}" data-pending-clusters @if ($groups->total() === 0) open @endif>
+            <summary class="cursor-pointer font-semibold text-amber-800 dark:text-amber-200">Onay bekleyen kümeler ({{ $pendingClusters->count() }}) · markanın hizmetlerinde</summary>
+            <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+                <p class="text-gray-500">Onaylanan küme bu listeye iner (kümeler ortak: aynı hizmetteki diğer markalara da iner).</p>
+                <button type="button" wire:click="approveAllClusters" wire:confirm="{{ $pendingClusters->count() }} küme onaylansın mı?" class="{{ $btn }}" data-approve-all-clusters>Tümünü onayla</button>
+            </div>
+            <ul class="mt-2 divide-y divide-gray-100 dark:divide-gray-800">
+                @foreach ($pendingClusters as $pending)
+                    <li class="flex flex-wrap items-center gap-2 py-1.5" wire:key="pending-cluster-{{ $pending->id }}">
+                        <span class="font-medium text-gray-900 dark:text-white">{{ $pending->name }}</span>
+                        <span class="{{ $chip }} bg-gray-100 text-gray-600">{{ $pending->service?->primaryName?->raw_label ?? '—' }}</span>
+                        <span class="text-gray-500">{{ \App\Models\Cluster::PAGE_TYPE_LABELS[$pending->page_type] ?? $pending->page_type }} · {{ $pending->cluster_queries_count }} sorgu @if ($pending->mainQuery) · «{{ $pending->mainQuery->text }}»@endif</span>
+                        <button type="button" wire:click="approveCluster({{ $pending->id }})" class="{{ $ghost }} ml-auto" data-approve-cluster="{{ $pending->id }}">Onayla</button>
+                    </li>
+                @endforeach
+            </ul>
+        </details>
+    @endif
+
     <section class="{{ $card }}">
         <div class="overflow-x-auto">
             <table class="w-full text-left">

@@ -10,6 +10,7 @@ use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Queries\ClusterEditor;
+use App\Services\Site\ClusterPageMapper;
 use App\Services\Site\ContentIdeaPool;
 use App\Services\Site\ContentIdeaState;
 use App\Services\Site\ContentIdeaSubject;
@@ -87,6 +88,21 @@ final class ContentIdeasTab extends Component
     {
         SiteOperations::dispatch($this->assetId, SiteOperations::CLUSTER_AUDIT);
         $this->message = 'Eşleştirme kuyruğa alındı · her fikir için sayfalar okunur, durum ve eksikler yazılır.';
+    }
+
+    /** "Onayla" on a pending cluster of the brand's services: approved (shared library), its row lands here (rules, no AI). */
+    public function approveCluster(int $clusterId, ClusterEditor $editor, ClusterPageMapper $mapper): void
+    {
+        $this->approvePending([$clusterId], $editor, $mapper);
+    }
+
+    /** "Tümünü onayla": every pending cluster of the brand's services. */
+    public function approveAllClusters(ClusterEditor $editor, ClusterPageMapper $mapper): void
+    {
+        $site = DigitalAsset::query()->findOrFail($this->assetId);
+        $brand = SiteScope::brandOf($site);
+        abort_if($brand === null, 404);
+        $this->approvePending(SiteScope::pendingClusters($brand)->pluck('id')->map(fn ($id): int => (int) $id)->all(), $editor, $mapper);
     }
 
     public function rediscover(string $kind, int $id): void
@@ -251,6 +267,7 @@ final class ContentIdeasTab extends Component
 
         return view('livewire.operator.website.v2.content-ideas-tab', [
             'brand' => $brand,
+            'pendingClusters' => $brand !== null ? SiteScope::pendingClusters($brand) : collect(),
             'groups' => $paginator,
             'services' => $mains->mapWithKeys(fn (BrandClusterPage $row): array => [(string) $row->cluster->service_id => (string) ($row->cluster->service?->primaryName?->raw_label ?? '—')])->sort()->all(),
             'counts' => $groups->flatMap(fn (array $g): Collection => $g['mains']->merge($g['extras']))->countBy('state')->all(),
@@ -262,6 +279,26 @@ final class ContentIdeasTab extends Component
             'polling' => in_array('çalışıyor…', $statuses, true) || SiteOperations::line(SiteOperations::status($site->id, SiteOperations::CLUSTER_AUDIT)) === 'çalışıyor…'
                 || collect($paginator->getCollection())->contains(fn (array $g): bool => (Cache::get(ContentIdeaPool::cacheKey((int) $g['cluster']->id))['status'] ?? null) === 'running'),
         ]);
+    }
+
+    /** @param  list<int>  $clusterIds */
+    private function approvePending(array $clusterIds, ClusterEditor $editor, ClusterPageMapper $mapper): void
+    {
+        $site = DigitalAsset::query()->findOrFail($this->assetId);
+        $brand = SiteScope::brandOf($site);
+        abort_if($brand === null, 404);
+        $pending = SiteScope::pendingClusters($brand)->keyBy('id');
+        $approved = 0;
+        foreach ($clusterIds as $id) {
+            if (($cluster = $pending->get($id)) !== null) {
+                // The button itself is the operator's approval of the shared cluster (other brands of the service get it too).
+                $editor->approve($cluster, confirmed: true);
+                $approved++;
+            }
+        }
+        abort_if($approved === 0, 404);
+        $mapper->refresh($site, judge: false);
+        $this->message = $approved.' küme onaylandı ve listeye eklendi · sayfa kontrolü için "Eşleştir".';
     }
 
     /**

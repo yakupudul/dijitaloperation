@@ -20,6 +20,15 @@ final class PageCategorizer
 {
     public const int AI_BATCH = 200;
 
+    /** A non-service folder with this many pages is a template / archive section (articles, keyword pages), never "hizmet". */
+    public const int BULK_SECTION = 40;
+
+    /** Unattended runs (nightly upkeep) send at most this many unsure pages to AI; more waits for the operator. */
+    public const int UNATTENDED_AI_LIMIT = 200;
+
+    /** Tag / keyword / archive folders: never a service page. */
+    public const array ARCHIVE_SECTIONS = ['kws', 'tag', 'tags', 'etiket', 'etiketler', 'kategori', 'category', 'author', 'yazar', 'arsiv', 'archive', 'page', 'search', 'ara', 'arama', 'anahtar-kelime', 'anahtar-kelimeler', 'keyword', 'keywords', 'feed', 'amp'];
+
     private const string KURUMSAL = '#^/(?:[a-z]{2}/)?(?:hakkimizda|hakkinda|kurumsal|about|about-us|iletisim|contact|contact-us|kvkk|kvkk-aydinlatma-metni|gizlilik|gizlilik-politikasi|privacy|privacy-policy|cerez|cerez-politikasi|cookie|cookies|cookie-policy|yasal|legal|kullanim-kosullari|terms|ekibimiz|ekip|team|doktorlarimiz|kariyer|career|careers|galeri|gallery|referanslar|basinda-biz|tesekkurler|randevu)(?:/|$|-)#';
 
     private const string KURUMSAL_TITLE = '/^(ana ?sayfa|home|hakkimizda|hakkinda|about|iletisim|contact|kvkk|gizlilik|cerez|ekibimiz|ekip|kariyer|galeri|referans|basinda|tesekkur|randevu)/u';
@@ -31,11 +40,12 @@ final class PageCategorizer
     public function __construct(private readonly SiteAi $ai) {}
 
     /**
-     * Categorizes the site's unlocked pages (only uncategorized ones when $onlyNew).
+     * Categorizes the site's unlocked pages (only uncategorized ones when $onlyNew). $aiLimit: more unsure pages than
+     * this → no AI call at all (status too_many; the operator starts it). $useAi false: rules only.
      *
-     * @return array{status: string, rule: int, ai: int, unsure: int} status: ready | not_operational | no_brand | ai_* (partial)
+     * @return array{status: string, rule: int, ai: int, unsure: int} status: ready | not_operational | no_brand | too_many | ai_* (partial)
      */
-    public function categorize(DigitalAsset $site, bool $onlyNew = false): array
+    public function categorize(DigitalAsset $site, bool $onlyNew = false, ?int $aiLimit = null, bool $useAi = true): array
     {
         $brand = SiteScope::brandOf($site);
         if ($brand === null) {
@@ -46,10 +56,11 @@ final class PageCategorizer
         $pages = Page::query()->where('website_asset_id', $site->id)->where('category_locked', false)
             ->when($onlyNew, fn ($q) => $q->whereNull('category'))
             ->orderBy('id')->get(['id', 'url', 'path', 'title', 'h1', 'wp_post_type', 'language', 'category', 'category_source']);
+        $bulk = self::bulkSections((int) $site->id);
         $rule = 0;
         $unsure = collect();
         foreach ($pages as $page) {
-            $category = self::rule($page, $offerings, $areaWords);
+            $category = self::rule($page, $offerings, $areaWords, $bulk);
             if ($category === null) {
                 $unsure->push($page);
 
@@ -63,8 +74,14 @@ final class PageCategorizer
         if ($unsure->isEmpty()) {
             return ['status' => 'ready', 'rule' => $rule, 'ai' => 0, 'unsure' => 0];
         }
+        if (! $useAi) {
+            return ['status' => 'ready', 'rule' => $rule, 'ai' => 0, 'unsure' => $unsure->count()];
+        }
         if (! SiteScope::aiAllowed($brand)) {
             return ['status' => 'not_operational', 'rule' => $rule, 'ai' => 0, 'unsure' => $unsure->count()];
+        }
+        if ($aiLimit !== null && $unsure->count() > $aiLimit) {
+            return ['status' => 'too_many', 'rule' => $rule, 'ai' => 0, 'unsure' => $unsure->count()];
         }
         $status = 'ready';
         $ai = 0;
@@ -85,8 +102,9 @@ final class PageCategorizer
      *
      * @param  list<string>  $offerings  approved service names
      * @param  list<string>  $areaWords  folded brand area words
+     * @param  list<string>  $bulkSections  the site's template / archive folders ({@see bulkSections})
      */
-    public static function rule(Page $page, array $offerings, array $areaWords): ?string
+    public static function rule(Page $page, array $offerings, array $areaWords, array $bulkSections = []): ?string
     {
         $path = '/'.ltrim(mb_strtolower((string) ($page->path ?: SeoText::urlPath((string) $page->url))), '/');
         $title = SeoText::fold((string) ($page->title ?: $page->h1));
@@ -104,7 +122,15 @@ final class PageCategorizer
         if (in_array($first, SiteUrlPattern::POST_SECTIONS, true) && count($segments) >= 2 || preg_match('#/\d{4}/\d{2}/#', $path) === 1) {
             return 'blog';
         }
+        if (in_array($first, self::ARCHIVE_SECTIONS, true)) {
+            return 'diger';
+        }
         $name = SiteText::pageName($page);
+        // Hundreds of pages in one non-service folder ("/hurda/…" articles, "/kws/izmir-…-mahallesi-hurdaci") are
+        // generated content: a place word → lokasyon, otherwise an article. Never a main service page.
+        if (count($segments) >= 2 && in_array($first, $bulkSections, true)) {
+            return self::hasAreaWord($name, $areaWords) ? 'lokasyon' : 'blog';
+        }
         foreach ($offerings as $offering) {
             if (SiteText::serviceScore($name, $offering) >= 0.99) {
                 return 'hizmet';
@@ -114,16 +140,65 @@ final class PageCategorizer
         if (in_array($first, SiteUrlPattern::SERVICE_SECTIONS, true) && count($segments) >= 2) {
             return 'hizmet';
         }
-        $tokens = SeoText::tokens($name);
+
+        return self::hasAreaWord($name, $areaWords) ? 'lokasyon' : null;
+    }
+
+    /**
+     * First folders (after a language prefix) holding at least BULK_SECTION pages that are not the service section:
+     * template / archive sections of the site.
+     *
+     * @return list<string>
+     */
+    public static function bulkSections(int $siteId): array
+    {
+        $counts = [];
+        foreach (Page::query()->where('website_asset_id', $siteId)->toBase()->get(['path', 'url']) as $page) {
+            $first = self::section((string) ($page->path ?: SeoText::urlPath((string) $page->url)));
+            if ($first !== null) {
+                $counts[$first] = ($counts[$first] ?? 0) + 1;
+            }
+        }
+
+        return array_values(array_map('strval', array_keys(array_filter($counts, fn (int $count, string $first): bool => $count >= self::BULK_SECTION
+            && ! in_array($first, SiteUrlPattern::SERVICE_SECTIONS, true), ARRAY_FILTER_USE_BOTH))));
+    }
+
+    /** First folder of a page path below which more pages sit ("/en/kws/x" → "kws"), or null for a top-level page. */
+    public static function section(string $path): ?string
+    {
+        $segments = array_values(array_filter(explode('/', trim(mb_strtolower($path), '/'))));
+        if (preg_match('/^[a-z]{2}$/', $segments[0] ?? '') === 1 && count($segments) > 1) {
+            array_shift($segments);
+        }
+
+        return count($segments) >= 2 ? $segments[0] : null;
+    }
+
+    /**
+     * A page in a template / archive section (never a service page).
+     *
+     * @param  list<string>  $bulkSections
+     */
+    public static function inTemplateSection(string $path, array $bulkSections): bool
+    {
+        $section = self::section($path);
+
+        return $section !== null && (in_array($section, $bulkSections, true) || in_array($section, self::ARCHIVE_SECTIONS, true));
+    }
+
+    /** @param  list<string>  $areaWords */
+    private static function hasAreaWord(string $name, array $areaWords): bool
+    {
         foreach ($areaWords as $word) {
-            foreach ($tokens as $token) {
+            foreach (SeoText::tokens($name) as $token) {
                 if (SeoText::wordMatches($token, $word)) {
-                    return 'lokasyon';
+                    return true;
                 }
             }
         }
 
-        return null;
+        return false;
     }
 
     /** Operator's category: stored and locked (no rule or AI pass changes it). */
