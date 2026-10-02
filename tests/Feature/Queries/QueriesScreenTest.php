@@ -175,7 +175,7 @@ final class QueriesScreenTest extends TestCase
         $this->assertFalse($review->items()->where('query_id', $locked)->exists(), 'locked assignment is not proposed');
     }
 
-    public function test_ai_clustering_creates_clusters_flags_suggested_queries_and_keeps_locked_clusters_on_rerun(): void
+    public function test_ai_clustering_creates_clusters_never_invents_queries_auto_approves_and_keeps_locked_and_approved_clusters_on_rerun(): void
     {
         $this->enableAi();
         app(ServiceKeywordService::class)->replace($this->implant, 'implant');
@@ -210,7 +210,7 @@ final class QueriesScreenTest extends TestCase
             ], 'prompt_version' => QueryClusterAgent::PROMPT_VERSION];
         });
 
-        Livewire::test(QueriesPage::class)->set('service', (string) $this->implant->id)->call('clusterService')->assertSee('hazır · 2 yeni küme · 1 önerilen sorgu');
+        Livewire::test(QueriesPage::class)->set('service', (string) $this->implant->id)->call('clusterService')->assertSee('hazır · 2 yeni küme · 2 otomatik onaylandı');
 
         $price = Cluster::query()->where('name', 'İmplant fiyatı')->sole();
         $this->assertSame($this->dental->id, $price->sector_id);
@@ -224,16 +224,14 @@ final class QueriesScreenTest extends TestCase
         $this->assertSame('İmplant tedavisinin fiyatını öğrenmek', $price->user_need);
         $this->assertSame(['İmplant sonrası ağrı'], $price->exclusions, 'trimmed, strings only, unique');
         $this->assertNull(Cluster::query()->where('name', 'İmplant sonrası ağrı')->value('user_need'), 'missing need → null');
-        $suggested = Query::query()->where('text', 'implant fiyatları 2026')->sole();
-        $this->assertTrue($suggested->is_suggested);
-        $this->assertSame(0, $suggested->impressions);
-        $this->assertTrue(ClusterQuery::query()->where('query_id', $suggested->id)->value('is_suggested'));
-        $this->assertSame(3, $price->clusterQueries()->count(), 'two real + one suggested; "İmplant Ücreti" normalizes to an existing query');
+        $this->assertFalse(Query::query()->where('text', 'implant fiyatları 2026')->exists(), 'a query the model made up is never stored');
+        $this->assertSame(2, $price->clusterQueries()->count(), 'only collected searches; "İmplant Ücreti" is already in the topic');
+        $this->assertTrue($price->approved, 'a sound cluster of a finished run is approved on its own');
+        $this->assertFalse($price->locked, 'auto-approval does not lock: the operator can still edit');
         $pain = Cluster::query()->where('name', 'İmplant sonrası ağrı')->sole();
         $this->assertSame($ids('implant sonrası ağrı'), $pain->clusterQueries()->pluck('query_id')->all(), 'a query is in one cluster only');
         $this->assertFalse(Cluster::query()->where('name', 'Uydurma')->exists());
         $this->assertFalse(Query::query()->where('text', 'ankara implant')->exists());
-        $this->get(route('operator.library.queries', ['service' => $this->implant->id]))->assertSee('önerilen');
 
         app(ClusterEditor::class)->rename($price, 'İmplant fiyatları');
         Livewire::test(QueriesPage::class)->set('service', (string) $this->implant->id)->call('clusterService');
@@ -241,10 +239,9 @@ final class QueriesScreenTest extends TestCase
         $second = json_decode(substr($prompts[1], strlen("DATA_JSON\n")), true);
         $this->assertStringNotContainsString('implant ücreti', json_encode($second['topics'], JSON_UNESCAPED_UNICODE), 'locked cluster queries are not sent again as topics');
         $this->assertSame(['İmplant fiyatları', true], [$second['existing_clusters'][0]['name'], $second['existing_clusters'][0]['locked']], 'the locked cluster is shown as an existing cluster');
-        $this->assertSame(3, Cluster::query()->whereKey($price->id)->sole()->clusterQueries()->count(), 'locked cluster untouched');
-        $this->assertTrue(Query::query()->whereKey($suggested->id)->exists(), 'suggested query of a locked cluster stays');
-        $this->assertFalse(Cluster::query()->whereKey($pain->id)->exists(), 'unlocked cluster replaced');
-        $this->assertSame(['Ağrı süresi', 'İmplant fiyatları'], Cluster::query()->orderBy('name')->pluck('name')->all());
+        $this->assertSame(2, Cluster::query()->whereKey($price->id)->sole()->clusterQueries()->count(), 'locked cluster untouched');
+        $this->assertTrue(Cluster::query()->whereKey($pain->id)->exists(), 'an approved cluster is in use by brands: a full run keeps it');
+        $this->assertSame(['Ağrı süresi', 'İmplant fiyatları', 'İmplant sonrası ağrı'], Cluster::query()->orderBy('name')->pluck('name')->all());
     }
 
     public function test_clustering_goes_in_parts_places_every_topic_and_reviews_the_clusters(): void
@@ -313,6 +310,50 @@ final class QueriesScreenTest extends TestCase
         ClusterQueriesJob::dispatch($this->implant->id);
         $this->assertSame('İmplant rehberi', $cluster->fresh()->name);
         $this->assertSame(4, $cluster->clusterQueries()->count());
+    }
+
+    public function test_clustering_refuses_catch_all_clusters_and_the_review_never_merges_other_page_types_or_approved_clusters(): void
+    {
+        $this->enableAi();
+        app(ServiceKeywordService::class)->replace($this->implant, 'implant');
+        $this->sources(['implant fiyatları' => 500, 'implant sonrası ağrı' => 400]);
+        $calls = 0;
+        QueryClusterAgent::fake(function (string $prompt) use (&$calls): array {
+            $calls++;
+            $ids = array_column(json_decode(substr($prompt, strlen("DATA_JSON\n")), true)['topics'], 'id');
+            $row = fn (string $name, string $type, array $queryIds): array => ['existing_cluster_id' => null, 'name' => $name, 'intent' => 'informational',
+                'user_need' => 'x', 'page_type' => $type, 'query_ids' => $queryIds, 'main_query_id' => null, 'representative_query_ids' => [],
+                'new_queries' => [], 'subtopics' => [], 'exclusions' => [], 'reasoning' => '-'];
+
+            // First answer: one catch-all cluster (refused, its topics are asked again); then a real split.
+            return ($calls === 1 ? ['clusters' => [$row('Diğer sorular', 'guide', $ids)]]
+                : ['clusters' => [$row('İmplant fiyatı', 'service', [$ids[0]]), $row('İmplant sonrası ağrı', 'guide', [$ids[1]])]])
+                + ['skipped' => [], 'prompt_version' => QueryClusterAgent::PROMPT_VERSION];
+        });
+        QueryClusterReviewAgent::fake(function (string $prompt): array {
+            $byName = array_column(json_decode(substr($prompt, strlen("DATA_JSON\n")), true)['clusters'], 'id', 'name');
+
+            return ['merges' => [['into_id' => $byName['İmplant fiyatı'], 'from_ids' => [$byName['İmplant sonrası ağrı']]]],
+                'updates' => [['id' => $byName['İmplant fiyatı'], 'name' => 'Genel', 'intent' => 'commercial', 'page_type' => 'service',
+                    'user_need' => 'x', 'subtopics' => [], 'exclusions' => []]], 'prompt_version' => QueryClusterReviewAgent::PROMPT_VERSION];
+        });
+
+        Livewire::test(QueriesPage::class)->set('service', (string) $this->implant->id)->call('clusterService')->assertSee('2 otomatik onaylandı');
+
+        $this->assertSame(2, $calls);
+        $this->assertFalse(Cluster::query()->where('name', 'Diğer sorular')->exists(), 'a catch-all cluster is never stored');
+        $this->assertSame(['İmplant fiyatı', 'İmplant sonrası ağrı'], Cluster::query()->orderBy('name')->pluck('name')->all(),
+            'a service page and a guide are never merged; a catch-all rename is refused');
+        $this->assertSame(2, Cluster::query()->where('approved', true)->count());
+
+        // A later review never merges an approved cluster away (brands use it).
+        $guide = Cluster::query()->where('name', 'İmplant sonrası ağrı')->sole();
+        $other = Cluster::query()->create(['sector_id' => $this->dental->id, 'service_id' => $this->implant->id, 'name' => 'İmplant ağrısı', 'intent' => 'informational', 'page_type' => 'guide']);
+        QueryClusterReviewAgent::fake(fn (): array => ['merges' => [['into_id' => $other->id, 'from_ids' => [$guide->id]]], 'updates' => [],
+            'prompt_version' => QueryClusterReviewAgent::PROMPT_VERSION]);
+        QueryClusterer::start($this->implant->id, 'place');
+        ClusterQueriesJob::dispatch($this->implant->id);
+        $this->assertTrue($guide->fresh() !== null, 'approved cluster kept');
     }
 
     public function test_cluster_all_runs_services_one_by_one_and_the_overview_shows_brands_and_state(): void

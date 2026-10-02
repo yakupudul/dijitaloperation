@@ -92,6 +92,21 @@ final class QueryAutopilotTest extends SiteTestCase
         $this->assertCount(1, $calls);
     }
 
+    public function test_clustering_starts_once_a_day_even_while_triage_still_has_queries(): void
+    {
+        $this->enableAi();
+        Queue::fake([ClusterQueriesJob::class]);
+        QueryPipeline::markImported();
+        $this->libraryQuery('implant fiyatları', $this->implant->id);
+        $this->libraryQuery('porselen diş kaplama');
+        QueryTriageAgent::fake(fn (): array => throw new \RuntimeException('provider down'));
+
+        $this->assertSame('more', app(QueryAutopilot::class)->tick(), 'triage is not finished');
+
+        Queue::assertPushed(ClusterQueriesJob::class, fn (ClusterQueriesJob $job): bool => $job->serviceId === $this->implant->id);
+        $this->assertSame('running', QueryClusterQueue::state()['status']);
+    }
+
     public function test_the_hourly_clean_up_applies_filter_deletions_and_keeps_what_the_operator_kept(): void
     {
         QueryPipeline::markImported();

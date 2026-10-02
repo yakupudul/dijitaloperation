@@ -1,5 +1,20 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-18 (d) — Kümeleme: otomatik, sınırsız, uydurmasız
+
+- **Otomatik:** sorgu otomatik pilotu kümelemeyi günde bir kez başlatır. AI'ın sorgu sınıflandırması bitmemiş olsa da başlar; sürekli sorgu akışı kümelemeyi artık bekletmez.
+- **Otomatik onay:** biten kümeleme çalışması sağlam kümelerini kendisi onaylar (kilitlemez; operatör düzenleyebilir). Sağlam küme:
+  - net bir ihtiyacı var, "diğer / çeşitli / genel" değil;
+  - sayfa tipi "diğer" değil;
+  - en az bir gerçek (toplanmış) sorgusu var.
+  - Onaylanan kümeler hizmeti alan aktif markaların hedeflerine ve sitelerindeki küme satırlarına hemen iner (kurallarla, AI yok). Geçmeyenler İçerik fikirleri'nde "Onay bekleyen kümeler"de kalır.
+- **Uydurma yok:** AI'ın "eklediği" sorgular artık kaydedilmez. Kümeler yalnız toplanmış aramalardan oluşur (talimat queries-cluster-v6).
+  - "Diğer sorular" gibi her şeyi toplayan kümeler reddedilir; konuları bir sonraki parçada yeniden sorulur.
+  - Gözden geçirme (queries-cluster-review-v2) farklı sayfa tiplerini (hizmet sayfası ile rehber) birleştiremez, onaylı ya da kilitli kümeyi silemez, adı "genel" gibi bir adla değiştiremez.
+  - Tam yeniden kümeleme onaylı kümeleri silmez.
+- **Sınır yok:** AI yanıtındaki küme, birleştirme ve güncelleme sayılarında üst sınır kaldırıldı; geçerli her satır kaydedilir.
+- **Test:** QueriesScreenTest (catch-all / sayfa tipi / onaylı küme), QueryAutopilotTest (triage sürerken kümeleme). UAT: yok.
+
 ## 2026-11-18 (c) — Şablon sayfalar hizmet sayılmaz, gece bakımı AI sınırı, onay bekleyen kümeler
 
 - **Sorun (Bornova Hurda):** 5038 sayfadan 620'si "Ana hizmet sayfaları" görünüyordu. Bunlar "/hurda/…" makaleleri ve "/kws/izmir-…-mahallesi-hurdaci" anahtar kelime sayfalarıydı. Nedenleri:

@@ -2,6 +2,10 @@
 
 ## 2026-11-18 — Çalışamayan iş önce uyarır
 
+- **Karar (kümeleme):** Kümeleme kendiliğinden çalışır ve sağlam kümeleri kendisi onaylar (kilitlemeden).
+  - AI sorgu uyduramaz; kümeler yalnız toplanmış aramalardan oluşur.
+  - "Diğer / genel" kümeler ve farklı sayfa tiplerinin birleştirilmesi reddedilir.
+  - Onaylı kümeler yeniden kümelemede silinmez.
 - **Karar:** Toplu üretilmiş sayfalar (hizmet bölümü dışında 40+ sayfalık klasör, /kws/ /tag/ arşivleri) hizmet sayfası değildir.
   - Gece bakımı 200'den fazla sayfayı kendiliğinden AI'a göndermez; Eksikler'den onay ister.
   - Onaylanmamış kümeler markanın sitesinde listelenir ve oradan onaylanır.

@@ -35,9 +35,9 @@ use Throwable;
  *     `ai_checked_at` marks the query so it is never sent again.
  *  2. When no query is left: Bekleyenler is imported (filter terms already applied; matching keywords assign), and
  *     the next round triages what the keywords did not place.
- *  3. When both are empty, at most once a day: services with new, never clustered queries are clustered one by one
- *     ("Hepsini kümele" queue: place into the existing clusters, or a full run for a service without clusters). New
- *     clusters wait for the operator's approval before they reach any brand.
+ *  3. At most once a day, whatever triage still has to do: services with new, never clustered queries are clustered
+ *     one by one ("Hepsini kümele" queue: place into the existing clusters, or a full run for a service without
+ *     clusters). A finished run approves its sound clusters itself (QueryClusterer::autoApprove).
  *  4. Hourly clean-up: a full rescan with the grown filter basket and keywords, then every open Silinecekler line is
  *     applied (filter deletions, keyword service changes) except conflicts and lines the operator kept; unlocked
  *     clusters left without a collected query are deleted. Operator decision 2026-10-01: when 50 new filter terms
@@ -113,6 +113,9 @@ final class QueryAutopilot
         if (! self::enabled()) {
             return 'off';
         }
+        // Clustering never waits for an empty triage queue (a steady query flow would starve it): once a day the services
+        // with new queries are clustered on the heavy queue while triage goes on.
+        $clustering = $this->clusterIfDue();
         $started = microtime(true);
         $skipSectors = [];
         $termsAdded = false;
@@ -162,17 +165,26 @@ final class QueryAutopilot
             return 'imported';
         }
 
-        $last = self::state()['clustered_at'] ?? null;
-        if ((QueryClusterQueue::state()['status'] ?? null) !== 'running' && ($last === null || now()->diffInHours(CarbonImmutable::parse((string) $last), true) >= self::CLUSTER_EVERY_HOURS)
-            && $this->clusters->servicesToCluster() !== []) {
-            $count = $this->clusters->start();
-            $this->record(['status' => 'idle', 'clustered_at' => now()->toIso8601String()], ['clustered_services' => $count]);
-
+        if ($clustering || $this->clusterIfDue()) {
             return 'clustering';
         }
         $this->record(['status' => 'idle']);
 
         return 'idle';
+    }
+
+    /** Starts the "Hepsini kümele" queue at most every CLUSTER_EVERY_HOURS when some service has new queries. */
+    private function clusterIfDue(): bool
+    {
+        $last = self::state()['clustered_at'] ?? null;
+        if ((QueryClusterQueue::state()['status'] ?? null) === 'running' || ($last !== null && now()->diffInHours(CarbonImmutable::parse((string) $last), true) < self::CLUSTER_EVERY_HOURS)
+            || $this->clusters->servicesToCluster() === []) {
+            return false;
+        }
+        $count = $this->clusters->start();
+        $this->record(['clustered_at' => now()->toIso8601String()], ['clustered_services' => $count]);
+
+        return true;
     }
 
     /**

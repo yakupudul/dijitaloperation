@@ -5,14 +5,17 @@ namespace App\Services\Queries;
 use App\Ai\Agents\QueryClusterAgent;
 use App\Ai\Agents\QueryClusterReviewAgent;
 use App\Models\Brand;
+use App\Models\BrandOffering;
 use App\Models\Cluster;
 use App\Models\ClusterQuery;
-use App\Models\PendingQuery;
+use App\Models\DigitalAsset;
 use App\Models\Query;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\SeoTasks\SeoText;
+use App\Services\Site\ClusterPageMapper;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -36,8 +39,9 @@ use RuntimeException;
  *   are asked once more in a later part and then counted as unprocessed;
  * - review: one call merges clusters one page would cover (never from a locked cluster) and clarifies unlocked ones.
  * A "place" run (new queries of a service that already has clusters) starts at place. Topic ids are head query ids,
- * checked against the input (each topic in one cluster); AI-added queries are stored as suggested (`is_suggested`, no
- * metrics). The run state (step, part, left-out queries) lives in the cache under cacheKey().
+ * checked against the input (each topic in one cluster); the model never adds queries (only collected searches are
+ * clustered) and catch-all clusters are refused. A finished run approves its sound clusters (autoApprove). No caps on
+ * the answer: every valid row is stored. The run state (step, part, left-out queries) lives in the cache under cacheKey().
  */
 final class QueryClusterer
 {
@@ -49,7 +53,8 @@ final class QueryClusterer
 
     private const int GSC_DAYS = 90;
 
-    private const int MAX_NEW_PER_CLUSTER = 5;
+    /** Names of catch-all clusters (one page cannot answer them): such a cluster is refused, its topics asked again. */
+    private const string CATCH_ALL = '/^(diger|digerleri|cesitli|genel|genel sorular|diger sorular|karisik|other|misc|miscellaneous|general)\b/u';
 
     public function __construct(
         private readonly AiRouteResolver $routes,
@@ -119,7 +124,8 @@ final class QueryClusterer
             return ['text' => 'kümeleniyor · '.($step !== '' ? $step.' · ' : '').'parça '.$part.($parts > 0 ? ' / '.$parts : ''), 'tone' => 'run'];
         }
         if ($status === 'ready') {
-            return ['text' => 'hazır'.(isset($state['clusters']) ? ' · '.(int) $state['clusters'].' yeni küme · '.(int) ($state['suggested'] ?? 0).' önerilen sorgu' : ''), 'tone' => 'ok'];
+            return ['text' => 'hazır'.(isset($state['clusters']) ? ' · '.(int) $state['clusters'].' yeni küme' : '')
+                .(isset($state['approved']) ? ' · '.(int) $state['approved'].' otomatik onaylandı' : ''), 'tone' => 'ok'];
         }
 
         return ['text' => [
@@ -159,13 +165,15 @@ final class QueryClusterer
         $step = (string) ($state['step'] ?? 'skeleton');
         if ($step === 'review') {
             $this->review($sector, $service);
+            $approved = $this->autoApprove($service);
 
-            return $this->save($service, ['status' => 'ready', 'step' => 'done', 'part' => (int) ($state['part'] ?? 0) + 1] + $state);
+            return $this->save($service, ['status' => 'ready', 'step' => 'done', 'approved' => $approved, 'part' => (int) ($state['part'] ?? 0) + 1] + $state);
         }
 
         if ($step === 'skeleton') {
-            // The previous AI proposal (unlocked clusters) is replaced; suggested queries left without a cluster go with it.
-            Cluster::query()->where('sector_id', $sector->id)->where('service_id', $service->id)->where('locked', false)->delete();
+            // The previous AI proposal (unlocked, unapproved clusters) is replaced; approved clusters are in use by brands and
+            // stay as existing clusters. Suggested queries left without a cluster go with it.
+            Cluster::query()->where('sector_id', $sector->id)->where('service_id', $service->id)->where('locked', false)->where('approved', false)->delete();
             Query::query()->where('service_id', $service->id)->where('is_suggested', true)
                 ->whereNotIn('id', ClusterQuery::query()->select('query_id'))->delete();
             // A full run looks at every query of the service again.
@@ -389,14 +397,17 @@ final class QueryClusterer
 
         DB::transaction(function () use ($structured, $clusters): void {
             $gone = [];
-            foreach (array_slice((array) ($structured['merges'] ?? []), 0, 100) as $merge) {
+            foreach ((array) ($structured['merges'] ?? []) as $merge) {
                 $into = is_array($merge) && is_int($merge['into_id'] ?? null) ? $clusters->get($merge['into_id']) : null;
                 if ($into === null || isset($gone[$into->id])) {
                     continue;
                 }
                 foreach ((array) ($merge['from_ids'] ?? []) as $fromId) {
                     $from = is_int($fromId) ? $clusters->get($fromId) : null;
-                    if ($from === null || $from->locked || $from->id === $into->id || isset($gone[$from->id])) {
+                    // Never from a locked or approved (in use by brands) cluster; one page = one page type, so a service
+                    // page and a guide are never merged whatever the answer says.
+                    if ($from === null || $from->locked || $from->approved || $from->id === $into->id || isset($gone[$from->id])
+                        || $from->page_type !== $into->page_type) {
                         continue;
                     }
                     $have = ClusterQuery::query()->where('cluster_id', $into->id)->pluck('query_id')->all();
@@ -405,9 +416,10 @@ final class QueryClusterer
                     $gone[$from->id] = true;
                 }
             }
-            foreach (array_slice((array) ($structured['updates'] ?? []), 0, 200) as $update) {
+            foreach ((array) ($structured['updates'] ?? []) as $update) {
                 $cluster = is_array($update) && is_int($update['id'] ?? null) ? $clusters->get($update['id']) : null;
-                if ($cluster === null || $cluster->locked || isset($gone[$cluster->id]) || mb_strlen(trim((string) ($update['name'] ?? ''))) < 2) {
+                if ($cluster === null || $cluster->locked || isset($gone[$cluster->id]) || mb_strlen(trim((string) ($update['name'] ?? ''))) < 2
+                    || self::catchAll((string) $update['name'])) {
                     continue;
                 }
                 $cluster->forceFill([
@@ -547,7 +559,7 @@ final class QueryClusterer
         $clusters = 0;
         $suggested = 0;
         $now = now();
-        foreach (array_slice($rows, 0, 100) as $row) {
+        foreach ($rows as $row) {
             if (! is_array($row)) {
                 continue;
             }
@@ -566,8 +578,8 @@ final class QueryClusterer
                 }
             }
             $target = is_int($row['existing_cluster_id'] ?? null) && $existing->has($row['existing_cluster_id']) ? (int) $row['existing_cluster_id'] : null;
-            if ($ids === [] || ($target === null && mb_strlen($name) < 2)) {
-                continue; // a cluster must hold at least one real query
+            if ($ids === [] || ($target === null && (mb_strlen($name) < 2 || self::catchAll($name)))) {
+                continue; // a cluster holds at least one real query and one clear need (its topics are asked again)
             }
             foreach ($heads as $head) {
                 $usedTopics[$head] = true;
@@ -601,12 +613,12 @@ final class QueryClusterer
                 $used[$id] = true;
                 $members[] = ['cluster_id' => $cluster->id, 'query_id' => $id, 'is_suggested' => false, 'created_at' => $now, 'updated_at' => $now];
             }
-            foreach (array_slice((array) ($row['new_queries'] ?? []), 0, self::MAX_NEW_PER_CLUSTER) as $text) {
-                $queryId = $this->suggestedQuery((string) $text, $sector, $service, $byText, $used);
+            // Queries the model "adds" are never created: only a real, free query of this service it names joins.
+            foreach ((array) ($row['new_queries'] ?? []) as $text) {
+                $queryId = $this->existingFreeQuery((string) $text, $byText, $used);
                 if ($queryId !== null) {
                     $used[$queryId] = true;
-                    $members[] = ['cluster_id' => $cluster->id, 'query_id' => $queryId, 'is_suggested' => true, 'created_at' => $now, 'updated_at' => $now];
-                    $suggested++;
+                    $members[] = ['cluster_id' => $cluster->id, 'query_id' => $queryId, 'is_suggested' => false, 'created_at' => $now, 'updated_at' => $now];
                 }
             }
             ClusterQuery::query()->insert($members);
@@ -617,30 +629,62 @@ final class QueryClusterer
     }
 
     /**
-     * A query the model added: normalized like any query; an existing text is never duplicated (only a free query of the
-     * same service is reused); otherwise stored as suggested, without metrics.
+     * A query text the model named: joins only when it is a real, free query of this service in this run (normalized
+     * like any query). New texts are never stored — clusters hold collected searches only.
      *
      * @param  array<string, int>  $byText
      * @param  array<int, bool>  $used
      */
-    private function suggestedQuery(string $text, ServiceCategory $sector, ServiceCatalogItem $service, array $byText, array $used): ?int
+    private function existingFreeQuery(string $text, array $byText, array $used): ?int
     {
         $normalized = $this->normalizer->normalize($text);
-        if (mb_strlen($normalized) < 3) {
-            return null;
+        $id = $byText[$normalized] ?? null;
+
+        return $id !== null && ! isset($used[$id]) ? (int) $id : null;
+    }
+
+    private static function catchAll(string $name): bool
+    {
+        return preg_match(self::CATCH_ALL, SeoText::fold($name)) === 1;
+    }
+
+    /**
+     * A finished run approves its sound clusters at once (operator decision 2026-11-18: clustering runs on its own):
+     * unlocked, not approved, a clear need (not a catch-all, page type not "other") and at least one collected query.
+     * Approved clusters reach the brands of the service (site rows, targets); they are not locked, so the operator can
+     * still edit them. Clusters that fail stay pending and are listed on the brand's İçerik fikirleri.
+     *
+     * @return int approved
+     */
+    private function autoApprove(ServiceCatalogItem $service): int
+    {
+        $approved = 0;
+        $clusters = Cluster::query()->where('service_id', $service->id)->where('approved', false)->where('locked', false)
+            ->where('page_type', '!=', 'other')->get();
+        foreach ($clusters as $cluster) {
+            $real = ClusterQuery::query()->join('queries', 'queries.id', '=', 'cluster_queries.query_id')
+                ->where('cluster_queries.cluster_id', $cluster->id)->where('queries.is_suggested', false)->where('queries.hidden', false)->exists();
+            if ($real && ! self::catchAll((string) $cluster->name)) {
+                $cluster->forceFill(['approved' => true])->save();
+                $approved++;
+            }
         }
-        if (isset($byText[$normalized])) {
-            return isset($used[$byText[$normalized]]) ? null : $byText[$normalized];
-        }
-        $hash = QueryNormalizer::hash($normalized);
-        if (Query::query()->where('text_hash', $hash)->exists() || $this->normalizer->matchingTerm($normalized) !== null
-            || PendingQuery::query()->where('text_hash', $hash)->where('status', '!=', PendingQuery::PENDING)->exists()) {
-            return null;
+        if ($approved > 0) {
+            // The brands of the service get them at once: targets, and the clusters' rows on their sites (rules, no AI).
+            $brandIds = Brand::query()->operational()->whereIn('id', BrandOffering::query()->where('service_catalog_item_id', $service->id)
+                ->where('status', 'active')->select('brand_id'))->pluck('id')->map(fn ($id): int => (int) $id)->all();
+            foreach ($brandIds as $brandId) {
+                app(QueryPipeline::class)->brandTargets($brandId);
+            }
+            foreach (DigitalAsset::query()->whereIn('brand_id', $brandIds ?: [0])->where('type', 'website')->get() as $site) {
+                try {
+                    app(ClusterPageMapper::class)->refresh($site, judge: false);
+                } catch (\Throwable $exception) {
+                    report($exception);
+                }
+            }
         }
 
-        return (int) Query::query()->create([
-            'text' => $normalized, 'text_hash' => $hash, 'sector_id' => $sector->id, 'service_id' => $service->id,
-            'assignment' => 'ai', 'is_suggested' => true,
-        ])->id;
+        return $approved;
     }
 }
