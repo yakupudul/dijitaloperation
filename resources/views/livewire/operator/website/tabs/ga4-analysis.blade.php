@@ -195,7 +195,11 @@
                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('website_ga4.engagement_rate') }}</h3>
                     <p class="mt-1 text-xs leading-5 text-gray-400">{{ __('website_ga4.engagement_rate_hint') }}</p>
                 </div>
-                <div data-chart='@json($ga4Charts['engagement'] ?? [])' aria-label="Engaged visit rate" class="mx-auto min-h-[220px] max-w-[280px]"></div>
+                @if (! empty($ga4Charts['engagement']))
+                    <div data-chart='@json($ga4Charts['engagement'])' aria-label="Engaged visit rate" class="mx-auto min-h-[220px] max-w-[280px]"></div>
+                @else
+                    <p class="flex min-h-[220px] items-center justify-center text-3xl font-semibold text-gray-400">—</p>
+                @endif
                 <div class="grid grid-cols-2 gap-2">
                     @foreach ([
                         [__('website_ga4.engaged_sessions'), $secondary['engaged_sessions'] ?? null, 0],

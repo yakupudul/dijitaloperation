@@ -235,7 +235,7 @@ class OverviewPage extends Component
         $channels = array_values(array_slice($analysis['channels'] ?? [], 0, 6));
         $devices = array_values(array_slice($analysis['devices'] ?? [], 0, 5));
         $countries = array_values(array_slice($analysis['countries'] ?? [], 0, 8));
-        $engagement = $this->ga4MetricValue($analysis, 'engagement_rate') ?? 0.0;
+        $engagement = $this->ga4MetricValue($analysis, 'engagement_rate');
 
         return [
             'trend' => [
@@ -286,7 +286,7 @@ class OverviewPage extends Component
                 'plotOptions' => ['pie' => ['donut' => ['size' => '68%']]],
                 'tooltip' => ['enabled' => true],
             ],
-            'engagement' => [
+            'engagement' => $engagement === null ? null : [
                 'chart' => ['type' => 'radialBar', 'height' => 245, 'sparkline' => ['enabled' => true], 'fontFamily' => 'Outfit, sans-serif'],
                 'series' => [round(max(0, min(100, (float) $engagement)), 1)],
                 'labels' => [__('website_ga4.engagement_rate')],
