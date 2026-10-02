@@ -190,7 +190,7 @@ final class AiLiveOperationsTest extends TestCase
             ->assertSeeHtml('data-ai-step')->assertSee('Küme eksikleri')->assertSee('1 çağrı bitti')->assertSee('Başlatan: Otomatik')
             ->assertSeeHtml('data-ai-queued')->assertSee('SEO analizi')
             ->assertSeeHtml('data-ai-finished')->assertSee('Sağlayıcı yanıtı: HTTP 529')->assertSee('1 hata')
-            ->assertSeeHtml('data-ai-schedule')->assertSee('Site akışı + marka dosyası')->assertSee('Şef: denetim + haftalık plan')
+            ->assertSeeHtml('data-ai-schedule')->assertSee('Marka dosyası')->assertSee('Şef: denetim + haftalık plan')
             ->call('stop', $queued->id);
 
         $this->assertSame(AiLiveOperation::CANCELLED, $queued->fresh()->status);

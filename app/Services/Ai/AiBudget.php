@@ -10,8 +10,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Monthly AI spend guard. When the month's recorded spend reaches the budget, only models with a
- * known zero price stay eligible; everything else is skipped and plans continue on rules.
+ * AI spend guard: a daily ceiling for all AI of the day (default 1 $), the monthly budget, and automatic work (nobody
+ * clicked) only in the areas allowed to run by themselves (Sorgular). Checked when a route is resolved and again right
+ * before every agent call (AiLiveOperations::started), so no paid call starts past the ceiling.
  */
 final class AiBudget
 {
@@ -45,19 +46,45 @@ final class AiBudget
     }
 
     /**
-     * A step may run when budget remains, or when its model is known to be free. Automatic work (nobody clicked) also
-     * stops for the day once its rolling 24-hour spend reached the daily ceiling.
+     * A step may run when: nobody clicked → only in an area allowed to run by itself (Sorgular); the model is free, or
+     * the month's budget and the day's ceiling (all AI of the day) still have room.
      */
-    public function allows(string $provider, string $model): bool
+    public function allows(string $provider, string $model, ?string $operation = null): bool
     {
-        if ($this->pricing->isFree($provider, $model)) {
+        return $this->blockReason($provider, $model, $operation) === null;
+    }
+
+    /** Why an AI call must not start (Turkish, for the operator), null when it may. */
+    public function blockReason(?string $provider, ?string $model, ?string $operation): ?string
+    {
+        if (self::isAutomatic() && ! self::automaticAllowed($operation)) {
+            return 'Bu AI işi yalnız operatör tıklayınca çalışır (otomatik çalışan alan: Sorgular).';
+        }
+        if ($provider !== null && $model !== null && $provider !== '' && $model !== '' && $this->pricing->isFree($provider, $model)) {
+            return null;
+        }
+        if ($this->dailyExhausted()) {
+            return sprintf('Günlük AI tavanı doldu ($%.2f / $%.2f); yarın yeniden çalışır.', $this->dailySpend(), $this->dailyBudget());
+        }
+        if ($this->isExhausted()) {
+            return 'Aylık AI bütçesi doldu.';
+        }
+
+        return null;
+    }
+
+    /** Whether AI of this operation may run with nobody clicking (config moxdop-ai-pricing.automatic_areas). */
+    public static function automaticAllowed(?string $operation): bool
+    {
+        $areas = (array) config('moxdop-ai-pricing.automatic_areas', ['queries']);
+        if (in_array('*', $areas, true)) {
             return true;
         }
 
-        return ! $this->isExhausted() && ! (self::isAutomatic() && $this->dailyAutoExhausted());
+        return $operation !== null && in_array(explode('.', $operation)[0], $areas, true);
     }
 
-    public function dailyAutoBudget(): float
+    public function dailyBudget(): float
     {
         $stored = Schema::hasColumn('agency_settings', 'ai_daily_auto_budget_usd')
             ? AgencySetting::query()->orderBy('id')->value('ai_daily_auto_budget_usd')
@@ -66,22 +93,23 @@ final class AiBudget
         return $stored !== null ? (float) $stored : (float) config('moxdop-ai-pricing.daily_auto_budget_usd', 1);
     }
 
-    /** Spend of the AI calls nobody clicked in the last 24 hours. */
-    public function dailyAutoSpend(): float
+    /** Spend of every AI call today (Europe/Istanbul): the larger of the call list and the usage records. */
+    public function dailySpend(): float
     {
-        if (! Schema::hasTable('ai_live_operations')) {
-            return 0.0;
-        }
+        $since = now('Europe/Istanbul')->startOfDay()->utc();
+        $calls = Schema::hasTable('ai_live_operations')
+            ? (float) DB::table('ai_live_operations')->where('kind', 'call')->where('started_at', '>=', $since)->sum('cost_usd') : 0.0;
+        $records = Schema::hasTable('ai_usage_records')
+            ? (float) DB::table('ai_usage_records')->where('created_at', '>=', $since)->sum('cost_usd') : 0.0;
 
-        return (float) DB::table('ai_live_operations')->where('kind', 'call')->whereNull('user_id')
-            ->where('started_at', '>=', now()->subDay())->sum('cost_usd');
+        return max($calls, $records);
     }
 
-    public function dailyAutoExhausted(): bool
+    public function dailyExhausted(): bool
     {
-        $budget = $this->dailyAutoBudget();
+        $budget = $this->dailyBudget();
 
-        return $budget > 0 && $this->dailyAutoSpend() >= $budget;
+        return $budget > 0 && $this->dailySpend() >= $budget;
     }
 
     /**

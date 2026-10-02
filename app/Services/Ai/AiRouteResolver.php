@@ -71,7 +71,7 @@ final class AiRouteResolver
             if ($eligibility['eligible'] && $clientData && AiProviderCatalog::isFreeTierDataRisk($provider)) {
                 $eligibility = ['eligible' => false, 'reason' => 'client_data_not_allowed'];
             }
-            if ($eligibility['eligible'] && ! $budget->allows($provider, $effectiveModel)) {
+            if ($eligibility['eligible'] && ! $budget->allows($provider, $effectiveModel, $routeKey)) {
                 $eligibility = ['eligible' => false, 'reason' => 'budget_exhausted'];
             }
 

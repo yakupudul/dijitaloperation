@@ -38,7 +38,7 @@
                     <p class="text-2xl font-bold tabular-nums text-gray-800 dark:text-white/90">{{ $usd($live['today']['cost']) }} <span class="text-sm font-normal text-gray-500">/ {{ $usd($monthSpend) }}</span></p>
                     <p @class(['text-xs', 'text-rose-600' => $remaining <= 0, 'text-gray-500' => $remaining > 0])>Kalan bakiye: {{ $usd($remaining) }} (bütçe {{ $usd($monthlyBudget) }})</p>
                     <p @class(['text-xs', 'font-semibold text-rose-600' => $autoBudget > 0 && $autoSpend >= $autoBudget, 'text-gray-500' => ! ($autoBudget > 0 && $autoSpend >= $autoBudget)]) data-ai-auto-budget>
-                        Otomatik işler (24 sa): {{ $usd($autoSpend) }} / {{ $autoBudget > 0 ? $usd($autoBudget) : 'sınırsız' }}@if ($autoBudget > 0 && $autoSpend >= $autoBudget) · tavan doldu, otomatik AI durdu @endif
+                        Bugün tüm AI: {{ $usd($autoSpend) }} / {{ $autoBudget > 0 ? $usd($autoBudget) : 'sınırsız' }}@if ($autoBudget > 0 && $autoSpend >= $autoBudget) · tavan doldu, AI yarına kadar durdu @endif · otomatik çalışan: yalnız Sorgular
                     </p>
                 </div>
             </div>
@@ -174,18 +174,18 @@
         </div>
 
         <details class="{{ $card }} px-5 py-3 text-sm" data-ai-budget>
-            <summary class="cursor-pointer font-semibold text-gray-800 dark:text-white/90">AI bütçesi · aylık {{ $usd($monthlyBudget) }} · otomatik işler günlük {{ $autoBudget > 0 ? $usd($autoBudget) : 'sınırsız' }} · Kalan bakiye {{ $usd($remaining) }}</summary>
+            <summary class="cursor-pointer font-semibold text-gray-800 dark:text-white/90">AI bütçesi · aylık {{ $usd($monthlyBudget) }} · günlük tavan (tüm AI) {{ $autoBudget > 0 ? $usd($autoBudget) : 'sınırsız' }} · Kalan bakiye {{ $usd($remaining) }}</summary>
             <form wire:submit="saveBudget" class="mt-2 flex flex-wrap items-end gap-3">
                 <label class="flex flex-col gap-1">
                     <span class="text-xs text-gray-500">Aylık AI bütçesi (USD)</span>
                     <input type="number" step="1" min="0" wire:model="budget" class="w-32 rounded-lg border border-gray-300 px-2 py-1 dark:border-gray-700 dark:bg-gray-900">
                 </label>
                 <label class="flex flex-col gap-1">
-                    <span class="text-xs text-gray-500">Otomatik işler günlük tavanı (USD)</span>
+                    <span class="text-xs text-gray-500">Günlük AI tavanı, tüm işler (USD)</span>
                     <input type="number" step="0.5" min="0" wire:model="dailyAutoBudget" class="w-32 rounded-lg border border-gray-300 px-2 py-1 dark:border-gray-700 dark:bg-gray-900" data-daily-auto-budget>
                 </label>
                 <button type="submit" class="rounded-lg bg-brand-500 px-3 py-1.5 text-white">Kaydet</button>
-                <span class="w-full text-xs text-gray-500">Aylık bakiye bitince ay sonuna kadar yalnız ücretsiz modeller çalışır. Kimse tıklamadan çalışan işler (gece akışı, sorgu pilotu, kümeleme, analistler) son 24 saatte günlük tavana ulaşınca durur; senin tıkladığın işler çalışmaya devam eder. 0 = tavan yok.</span>
+                <span class="w-full text-xs text-gray-500">Aylık bakiye bitince ay sonuna kadar yalnız ücretsiz modeller çalışır. Günün (İstanbul saati) tüm AI harcaması tavana ulaşınca, tıkladığın işler dahil hiçbir ücretli AI çağrısı başlamaz; yarın yeniden çalışır. Kimse tıklamadan yalnız Sorgular alanındaki AI çalışır (sorgu pilotu, kümeleme); site akışı, analistler, bakım ajanı ve Şef yalnız tıklayınca çalışır. 0 = tavan yok.</span>
                 @error('dailyAutoBudget')<span class="text-xs text-red-600">{{ $message }}</span>@enderror
                 @error('budget')<span class="text-xs text-red-600">{{ $message }}</span>@enderror
             </form>

@@ -68,6 +68,7 @@ final class AiLiveOperations
         if ($this->jobs->cancelRequested()) {
             throw new AiCancelledException;
         }
+        $this->guardBudget($event);
         try {
             if (! $this->ready()) {
                 return;
@@ -103,6 +104,26 @@ final class AiLiveOperations
             $this->lastError = null;
         } catch (Throwable $exception) {
             Log::warning('AI live operation could not be opened.', ['error' => $exception->getMessage()]);
+        }
+    }
+
+    /**
+     * The last gate before money is spent: past the day's ceiling, or work nobody clicked outside Sorgular, the call
+     * never starts (AiBudgetExceededException; the caller's error path runs, nothing is paid).
+     */
+    private function guardBudget(PromptingAgent $event): void
+    {
+        $operation = Context::getHidden(AiUsageRecorder::TRIAL_CONTEXT) === true ? AiUsageRecorder::TRIAL_ROUTE : AiUsageRecorder::routeKeyFor($event->prompt->agent);
+        $model = is_string($event->prompt->model) && $event->prompt->model !== '' ? $event->prompt->model : null;
+        try {
+            $reason = app(AiBudget::class)->blockReason($this->providerName($event), $model, $operation);
+        } catch (Throwable) {
+            return;
+        }
+        if ($reason !== null) {
+            Log::info('AI call blocked by the spend guard.', ['operation' => $operation, 'reason' => $reason]);
+
+            throw new AiBudgetExceededException($reason);
         }
     }
 

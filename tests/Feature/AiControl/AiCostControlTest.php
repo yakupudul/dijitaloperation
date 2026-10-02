@@ -8,6 +8,7 @@ use App\Models\AgencySetting;
 use App\Models\CoreIntegration;
 use App\Models\User;
 use App\Services\Ai\AiBudget;
+use App\Services\Ai\AiBudgetExceededException;
 use App\Services\Ai\AiLiveOperations;
 use App\Services\Ai\AiPricing;
 use App\Services\Ai\AiRouteResolver;
@@ -127,36 +128,50 @@ final class AiCostControlTest extends TestCase
         $this->assertSame('budget_exhausted', $analysis->steps[0]['reason']);
     }
 
-    public function test_automatic_ai_work_stops_for_the_day_at_the_daily_ceiling_while_operator_clicks_keep_running(): void
+    public function test_the_daily_ceiling_stops_all_ai_of_the_day_and_only_query_ai_runs_by_itself(): void
     {
-        config(['moxdop.anthropic.api_key' => 'sk-ant-test']);
+        config(['moxdop.anthropic.api_key' => 'sk-ant-test', 'moxdop-ai-pricing.automatic_areas' => ['queries']]);
         CoreIntegration::factory()->anthropic()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
-        (AgencySetting::query()->orderBy('id')->first() ?? AgencySetting::query()->create(['agency_name' => 'MoxDOP', 'portal_name' => 'MoxDOP']))
-            ->forceFill(['ai_daily_auto_budget_usd' => 1])->save();
+        $setting = AgencySetting::query()->orderBy('id')->first() ?? AgencySetting::query()->create(['agency_name' => 'MoxDOP', 'portal_name' => 'MoxDOP']);
+        $setting->forceFill(['ai_daily_auto_budget_usd' => 1])->save();
         $call = fn (array $extra): int => DB::table('ai_live_operations')->insertGetId(array_merge(['kind' => 'call', 'operation' => 'site.cluster_gaps',
-            'label' => 'Küme eksikleri', 'agent' => 'ClusterGapsAgent', 'status' => 'done', 'started_at' => now()->subHour(), 'finished_at' => now()->subHour(),
+            'label' => 'Küme eksikleri', 'agent' => 'ClusterGapsAgent', 'status' => 'done', 'started_at' => now(), 'finished_at' => now(),
             'model' => 'claude-haiku-4-5'], $extra));
         $call(['cost_usd' => 0.70, 'user_id' => null]);
-        $call(['cost_usd' => 5.00, 'user_id' => $this->admin->id]); // operator clicks never count
-        $call(['cost_usd' => 0.40, 'user_id' => null, 'started_at' => now()->subDays(2)]); // older than 24 hours
+        $call(['cost_usd' => 0.20, 'user_id' => $this->admin->id]); // clicks count too
+        $call(['cost_usd' => 0.40, 'user_id' => null, 'started_at' => now()->subDays(2)]); // another day
 
         $budget = app(AiBudget::class);
-        $this->assertEqualsWithDelta(0.70, $budget->dailyAutoSpend(), 0.0001);
-        $this->assertFalse($budget->dailyAutoExhausted());
-        $call(['cost_usd' => 0.35, 'user_id' => null]);
-        $this->assertTrue($budget->dailyAutoExhausted());
+        $this->assertEqualsWithDelta(0.90, $budget->dailySpend(), 0.0001);
+        $this->assertFalse(app(AiRouteResolver::class)->resolve(AiRouteKeys::BRAND_SETUP)->isEmpty(), 'room left: the operator runs');
+        $call(['cost_usd' => 0.15, 'user_id' => $this->admin->id]);
+        $this->assertTrue($budget->dailyExhausted());
+        $this->assertTrue(app(AiRouteResolver::class)->resolve(AiRouteKeys::BRAND_SETUP)->isEmpty(), 'ceiling reached: not even a click');
+        BrandSetupAgent::fake([['services' => [], 'prompt_version' => 'x']]);
+        try {
+            (new BrandSetupAgent)->prompt('CONTEXT_JSON {}', provider: ['anthropic' => 'claude-haiku-4-5']);
+            $this->fail('a call past the daily ceiling must not start');
+        } catch (AiBudgetExceededException $exception) {
+            $this->assertStringContainsString('Günlük AI tavanı doldu', $exception->getMessage());
+        }
 
-        // The operator (signed in) still runs; the nightly / queued work nobody clicked does not.
-        $this->assertFalse(app(AiRouteResolver::class)->resolve(AiRouteKeys::BRAND_SETUP)->isEmpty());
+        // Nobody clicked: only Sorgular may run by itself, whatever the budget.
+        $setting->forceFill(['ai_daily_auto_budget_usd' => 0])->save();
         auth()->logout();
         Context::forgetHidden(AiLiveOperations::USER_CONTEXT); // a scheduled job: nobody behind it
         $this->assertTrue(AiBudget::isAutomatic());
         $this->assertTrue(app(AiRouteResolver::class)->resolve(AiRouteKeys::BRAND_SETUP)->isEmpty());
+        $this->assertFalse(app(AiRouteResolver::class)->resolve(AiRouteKeys::QUERIES_CLUSTER)->isEmpty());
+        try {
+            (new BrandSetupAgent)->prompt('CONTEXT_JSON {}', provider: ['anthropic' => 'claude-haiku-4-5']);
+            $this->fail('automatic AI outside Sorgular must not start');
+        } catch (AiBudgetExceededException $exception) {
+            $this->assertStringContainsString('yalnız operatör tıklayınca', $exception->getMessage());
+        }
 
         $rows = collect($budget->breakdown(24))->keyBy('operation');
-        $this->assertEqualsWithDelta(6.05, $rows['site.cluster_gaps']['cost'], 0.0001);
-        $this->assertEqualsWithDelta(1.05, $rows['site.cluster_gaps']['auto_cost'], 0.0001);
-        $this->artisan('moxdop:ai:costs')->expectsOutputToContain('günlük tavan $1.00')->assertSuccessful();
+        $this->assertEqualsWithDelta(1.05, $rows['site.cluster_gaps']['cost'], 0.0001);
+        $this->artisan('moxdop:ai:costs')->expectsOutputToContain('günlük tavan $0.00')->assertSuccessful();
     }
 
     public function test_openai_reasoning_models_run_with_low_effort_and_other_models_get_no_reasoning_option(): void

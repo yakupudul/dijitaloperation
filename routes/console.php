@@ -637,6 +637,7 @@ Schedule::command('moxdop:analyst:weekly')
     ->weeklyOn(1, '07:40')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(60)
+    ->when(fn (): bool => AiBudget::automaticAllowed('analyst.weekly'))
     ->name('analyst-weekly');
 
 // Faz 2: keşfedilen varlıklar → marka adayları (yeni kaynaklar her gün; onaylı gruplar değişmez).
@@ -716,6 +717,7 @@ Artisan::command('moxdop:site:weekly {--site= : One website asset id}', function
 Schedule::command('moxdop:site:weekly')
     ->weeklyOn(1, '05:52')
     ->withoutOverlapping(60)
+    ->when(fn (): bool => AiBudget::automaticAllowed('site.weekly_refresh'))
     ->name('site-weekly');
 
 // Faz 6: Meta sistem kontrolleri (en çok 10 kontrol → öneriler; AI yok), operasyonel markalar.
@@ -817,7 +819,8 @@ Artisan::command('moxdop:brands:care {brand? : brand id} {--force : review even 
     }
     $this->info('Brand care queued: '.$brands->count());
 })->purpose('Queue the weekly Marka bakım ajanı review of the active brands.');
-Schedule::command('moxdop:brands:care')->weeklyOn(0, '21:13')->timezone('Europe/Istanbul')->name('brands-care')->withoutOverlapping(60);
+Schedule::command('moxdop:brands:care')->weeklyOn(0, '21:13')->timezone('Europe/Istanbul')->name('brands-care')->withoutOverlapping(60)
+    ->when(fn (): bool => AiBudget::automaticAllowed('brand.care'));
 
 // Şef: Monday morning plan across the active brands, after Sunday's care reviews.
 // AI harcama dökümü: where the money went (per operation, automatic vs operator), and today's automatic ceiling.
@@ -826,7 +829,7 @@ Artisan::command('moxdop:ai:costs {--hours=24 : Kaç saat geriye}', function (Ai
     $this->table(['İşlem', 'Çağrı', 'Toplam $', 'Otomatik $', 'Model'], array_map(fn (array $r): array => [
         $r['label'].' ('.$r['operation'].')', $r['calls'], number_format($r['cost'], 3), number_format($r['auto_cost'], 3), $r['model'] ?? '—',
     ], $rows));
-    $this->info(sprintf('Toplam: $%.3f · otomatik işler son 24 saat: $%.3f / günlük tavan $%.2f', array_sum(array_column($rows, 'cost')), $budget->dailyAutoSpend(), $budget->dailyAutoBudget()));
+    $this->info(sprintf('Toplam: $%.3f · bugün tüm AI: $%.3f / günlük tavan $%.2f', array_sum(array_column($rows, 'cost')), $budget->dailySpend(), $budget->dailyBudget()));
 })->purpose('Show the AI spend per operation (automatic vs operator) and the daily automatic ceiling.');
 
 // Takılı AI işleri: rows a dead worker left "Çalışıyor" (killed for timeout before the tracker closed them on failure).
@@ -849,4 +852,5 @@ Artisan::command('moxdop:brands:chief', function (): void {
     RunBrandChiefJob::dispatch();
     $this->info('Chief plan queued.');
 })->purpose('Queue Şef\'s weekly plan.');
-Schedule::command('moxdop:brands:chief')->weeklyOn(1, '07:41')->timezone('Europe/Istanbul')->name('brands-chief')->withoutOverlapping(60);
+Schedule::command('moxdop:brands:chief')->weeklyOn(1, '07:41')->timezone('Europe/Istanbul')->name('brands-chief')->withoutOverlapping(60)
+    ->when(fn (): bool => AiBudget::automaticAllowed('brand.chief'));

@@ -1,5 +1,10 @@
 # PROJECT_MEMORY
 
+## 2026-11-22 — AI harcaması: sert günlük tavan
+
+- **Karar (operatör):** Günlük AI harcaması, tıklananlar dahil, 1 $'ı geçmez. Ayarlardan değişebilir.
+- **Karar (operatör):** Kimse tıklamadan yalnız Sorgular alanındaki AI çalışır (sorgu pilotu, kümeleme). Diğer AI işleri yalnız operatör tıklamasıyla başlar.
+
 ## 2026-11-21 — Uzun AI işleri parçalı çalışır
 
 - **Karar:** Kuyruk süresini aşabilecek AI işi (Eşleştir) süre bütçesiyle parçalara bölünür. Her parça kaldığı yerden sürer; bir adım iki kez ödenmez.

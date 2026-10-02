@@ -55,7 +55,7 @@ final class AiOperationsPage extends Component
     {
         $this->authorizeAdmin();
         $this->budget = (string) round($aiBudget->monthlyBudget(), 2);
-        $this->dailyAutoBudget = (string) round($aiBudget->dailyAutoBudget(), 2);
+        $this->dailyAutoBudget = (string) round($aiBudget->dailyBudget(), 2);
         if ($this->operation !== '') {
             $this->open($this->operation, $registry);
         }
@@ -81,7 +81,7 @@ final class AiOperationsPage extends Component
     {
         $this->authorizeAdmin();
         $this->validate(['budget' => ['required', 'numeric', 'min:0', 'max:100000'], 'dailyAutoBudget' => ['required', 'numeric', 'min:0', 'max:10000']], [],
-            ['budget' => 'Aylık bütçe', 'dailyAutoBudget' => 'Otomatik işler günlük tavanı']);
+            ['budget' => 'Aylık bütçe', 'dailyAutoBudget' => 'Günlük AI tavanı']);
         $setting = AgencySetting::query()->orderBy('id')->first() ?? new AgencySetting;
         $setting->forceFill(['ai_monthly_budget_usd' => round((float) $this->budget, 2), 'ai_daily_auto_budget_usd' => round((float) $this->dailyAutoBudget, 2)])->save();
         session()->flash('status', 'AI bütçeleri kaydedildi.');
@@ -189,7 +189,7 @@ final class AiOperationsPage extends Component
         return view('livewire.operator.settings.ai-operations', ['rows' => $rows, 'detail' => $detail, 'live' => $liveRows, 'monthSpend' => $aiBudget->monthSpend(),
             'monthlyBudget' => $aiBudget->monthlyBudget(),
             'costs' => $detail === null ? $aiBudget->breakdown(in_array($this->costHours, [24, 168], true) ? $this->costHours : 24) : [],
-            'autoSpend' => $aiBudget->dailyAutoSpend(), 'autoBudget' => $aiBudget->dailyAutoBudget(), 'remaining' => max(0.0, $aiBudget->monthlyBudget() - $aiBudget->monthSpend()),
+            'autoSpend' => $aiBudget->dailySpend(), 'autoBudget' => $aiBudget->dailyBudget(), 'remaining' => max(0.0, $aiBudget->monthlyBudget() - $aiBudget->monthSpend()),
             'schedule' => $detail === null ? app(AiSchedule::class)->upcoming() : []]);
     }
 

@@ -16,9 +16,12 @@ return [
     // Operatör onayı: ayda ~100 USD. Ayarlar › AI ekranından kaydedilen değer bunu geçersiz kılar.
     'monthly_budget_usd' => (float) env('AI_MONTHLY_BUDGET_USD', 100),
 
-    // AI work nobody clicked (nightly site flow, query autopilot, clustering, analysts, care agent): stops for the rest of
-    // the day (rolling 24 hours) once it spent this much; operator clicks keep running. 0 = no daily ceiling.
+    // Günlük AI tavanı: ALL AI calls of the day (Europe/Istanbul), automatic and clicked alike; no paid call starts once
+    // the day spent this much. Ayarlar › AI işlemleri overrides it. 0 = no daily ceiling.
     'daily_auto_budget_usd' => (float) env('AI_DAILY_AUTO_BUDGET_USD', 1),
+
+    // Areas (operation prefix: queries.*, site.*, brand.*…) whose AI may run without an operator click. "*" = all.
+    'automatic_areas' => array_values(array_filter(array_map('trim', explode(',', (string) env('AI_AUTOMATIC_AREAS', 'queries'))))),
 
     'models' => [
         'anthropic' => [

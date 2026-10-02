@@ -126,10 +126,10 @@ final class ContentIdeasTab extends Component
         $this->message = 'İki sayfa ayrı kalıyor; çakışma değişmedikçe yeniden önerilmez.';
     }
 
-    /** "Akışı ilerlet": the next due step of the site flow now (same as the nightly run). */
+    /** "Akışı ilerlet": the next due step of the site flow now (the flow starts AI work only on this click). */
     public function advanceFlow(): void
     {
-        $result = SiteFlow::advance(DigitalAsset::query()->findOrFail($this->assetId));
+        $result = SiteFlow::advance(DigitalAsset::query()->findOrFail($this->assetId), manual: true);
         $this->message = match ($result) {
             'setup' => 'Sayfa sınıflandırma ve hizmet ↔ sayfa başladı; bitince küme ↔ sayfa kendiliğinden gelir.',
             'audit' => 'Küme ↔ sayfa eşleştirme başladı.',

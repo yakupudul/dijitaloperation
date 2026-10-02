@@ -23,6 +23,7 @@ use App\Services\Site\SiteAreas;
 use App\Services\Site\SiteFlow;
 use App\Services\Site\SiteOperations;
 use Illuminate\Queue\TimeoutExceededException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
@@ -52,8 +53,17 @@ final class SiteFlowTest extends SiteTestCase
 
         $this->assertSame('waiting:wordpress', SiteFlow::advance($this->site));
         Queue::assertNothingPushed();
-
+        config(['moxdop-ai-pricing.automatic_areas' => ['queries']]);
         $this->pair();
+        $this->assertSame('waiting:manual', SiteFlow::advance($this->site), 'only Sorgular runs by itself: the site flow waits for a click');
+        Queue::assertNothingPushed();
+        Livewire::test(ContentIdeasTab::class, ['assetId' => $this->site->id])->call('advanceFlow')->assertSee('Sayfa sınıflandırma ve hizmet');
+        Queue::assertPushed(RunSiteOperationJob::class, 1);
+        config(['moxdop-ai-pricing.automatic_areas' => ['*']]);
+        SiteOperations::putStatus((int) $this->site->id, SiteOperations::SETUP, ['status' => 'ready'], ['unattended' => true]);
+        Cache::forget('site-setup:unmatched:'.$this->site->id);
+        Queue::fake();
+
         $this->assertSame('setup', SiteFlow::advance($this->site), 'service pages but no service ↔ page match: the setup first');
         Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->operation === SiteOperations::SETUP);
         SiteOperations::putStatus((int) $this->site->id, SiteOperations::SETUP, ['status' => 'ready'], ['unattended' => true]);

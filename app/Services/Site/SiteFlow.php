@@ -11,6 +11,7 @@ use App\Models\DigitalAsset;
 use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Models\Suggestion;
+use App\Services\Ai\AiBudget;
 use App\Services\Brand\BrandDossier;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use Carbon\CarbonImmutable;
@@ -44,9 +45,16 @@ final class SiteFlow
 
     private const array FAILURES = ['error', 'timeout', 'stalled', 'ai_error', 'ai_no_provider'];
 
-    /** @return string setup | audit | running | ready | paused | waiting:not_operational | waiting:wordpress | waiting:pages */
-    public static function advance(DigitalAsset $site, bool $setup = true): string
+    /**
+     * @param  bool  $manual  the operator clicked ("Akışı ilerlet"); otherwise (nightly, after clustering / setup) the flow
+     *                        starts AI work only when the site area may run by itself (AiBudget::automaticAllowed)
+     * @return string setup | audit | running | ready | paused | waiting:manual | waiting:not_operational | waiting:wordpress | waiting:pages
+     */
+    public static function advance(DigitalAsset $site, bool $setup = true, bool $manual = false): string
     {
+        if (! $manual && ! AiBudget::automaticAllowed('site.cluster_match')) {
+            return 'waiting:manual';
+        }
         $brand = SiteScope::brandOf($site);
         if (! SiteScope::aiAllowed($brand)) {
             return 'waiting:not_operational';

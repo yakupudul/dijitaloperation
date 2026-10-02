@@ -1,5 +1,17 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-22 — Günlük 1 $ tavan (tüm AI) ve otomatik AI yalnız Sorgular'da
+
+- **Sorun:** Bir günde 27 $ harcandı. Önceki tavan yalnız "kimse tıklamadan" çalışan işleri sayıyordu. Bir operatör tıklamasından zincirlenen işler (kümeleme → site akışı → Eşleştir) "tıklanmış" sayıldığı için tavana takılmıyordu.
+- **Günlük tavan artık tüm AI'ı kapsar (varsayılan 1 $, İstanbul günü):** tıklananlar dahil. Tavan dolunca ücretli hiçbir AI çağrısı başlamaz; yarın yeniden çalışır.
+  - Ayarlar › AI işlemleri › "Günlük AI tavanı, tüm işler" ile değişir (0 = tavan yok).
+- **Kontrol AI çağrısının başladığı tek yerde de yapılır:** her ajan çağrısı tavanı ve izni yeniden kontrol eder; aşılmışsa çağrı hiç başlamaz, para harcanmaz.
+- **Otomatik çalışan alan yalnız Sorgular:** sorgu pilotu ve kümeleme.
+  - Site akışı (gece, kümeleme ve kurulum sonrası), haftalık site yenileme, kanal analistleri, bakım ajanı ve Şef kendiliğinden çalışmaz; zamanlanmış işleri atlanır.
+  - Site akışı İçerik fikirleri › "Akışı ilerlet" veya "Eşleştir" ile çalışır.
+  - `.env`: `AI_AUTOMATIC_AREAS=queries` (virgüllü liste; `*` = hepsi).
+- **Test:** AiCostControlTest (tüm AI'ı kapsayan tavan, çağrı anında engel, yalnız Sorgular otomatik), SiteFlowTest (akış tıklama bekler). UAT: yok.
+
 ## 2026-11-21 — Eşleştir yığılması: parçalı çalışma, zaman aşımında satır kapanır, hatada döngü yok
 
 - **Sorun:** AI işleri'nde aynı site için onlarca "Site · Eşleştir" satırı saatlerce "Çalışıyor" kaldı, maliyet "—".
