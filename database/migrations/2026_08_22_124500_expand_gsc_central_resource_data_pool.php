@@ -50,7 +50,9 @@ return new class extends Migration
             Schema::dropIfExists($table);
         }
 
-        if (Schema::getConnection()->getDriverName() === 'pgsql') {
+        // SQLite cannot drop a column that an index still references, so the
+        // central indexes are dropped on every driver before search_type goes.
+        if (in_array(Schema::getConnection()->getDriverName(), ['pgsql', 'sqlite'], true)) {
             foreach ([
                 'gsc_prop_res_st_nk', 'gsc_prop_res_st_nk_date',
                 'gsc_query_res_st_nk', 'gsc_query_res_st_nk_date',
