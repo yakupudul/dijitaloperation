@@ -51,6 +51,13 @@ final class SystemHealthPage extends Component
         $this->message = 'Güncelleme sıraya alındı; birkaç dakika içinde başlar. Başarılı olunca uyarı kendiliğinden kapanır.';
     }
 
+    /** "Kullanılmıyor olarak işaretle" on a closed / inaccessible account's alert: the asset stays bound, collects once more, then pauses. */
+    public function markAssetInactive(int $assetId, ResourceAutomationService $automations): void
+    {
+        $asset = $automations->markAssetInactive($assetId, auth()->user());
+        $this->message = '"'.$asset->name.'" Kullanılmıyor olarak işaretlendi; bir kez daha çekilip otomatik çekim duracak. Varlığı Aktif yapınca sürer.';
+    }
+
     /** Admin: queue the read-only live verification of every connection (moxdop:verify:live). */
     public function verifyNow(): void
     {

@@ -4,9 +4,9 @@
     $errorLabels = [
         'reconnect' => 'Bağlantı yenilenmeli', 'collection_failed' => 'Tekrarlayan hata', 'request_requires_fix' => 'İstek düzeltilmeli (yazılım)',
         'cancelled' => 'İptal edildi', 'manager' => 'Yönetici hesabı', 'binding' => 'Bağlama yok', 'unbound' => 'Varlığa bağlı değil',
-        'customer_passive' => 'Müşteri pasif',
+        'customer_passive' => 'Müşteri pasif', 'asset_inactive' => 'Varlık kullanılmıyor', 'account_unavailable' => 'Hesap kapalı / erişim yok',
     ];
-    $stateLabels = ['waiting' => 'Sırada', 'planning' => 'Planlanıyor', 'collecting' => 'Çekiliyor', 'current' => 'Güncel', 'attention' => 'Durdu'];
+    $stateLabels = ['waiting' => 'Sırada', 'planning' => 'Planlanıyor', 'collecting' => 'Çekiliyor', 'current' => 'Güncel', 'attention' => 'Durdu', 'unused' => 'Kullanılmıyor'];
     $typeLabels = ['google_ads' => 'Google Ads', 'ga4' => 'GA4', 'search_console' => 'Search Console', 'google_business_profile' => 'İşletme Profili', 'meta_ads' => 'Meta Ads'];
     $runStatus = ['completed' => 'tamamlandı', 'failed' => 'başarısız', 'partial' => 'kısmen tamamlandı', 'running' => 'çekiliyor', 'queued' => 'sırada', 'retrying' => 'yeniden denenecek', 'cancelled' => 'durduruldu', 'skipped' => 'atlandı', 'cancellation_requested' => 'durduruluyor'];
     $authLabels = ['active' => 'Açık', 'disabled' => 'Kapalı', 'REFRESH_REQUIRED' => 'izin yenilenmeli', 'REAUTH_REQUIRED' => 'yeniden bağlanmalı', 'REVOKED' => 'izin geri alındı', 'EXPIRED' => 'izin süresi doldu', 'PERMISSION_REQUIRED' => 'ek izin gerekli', 'CONNECTED' => 'bağlı', 'OK' => 'bağlı', 'ERROR' => 'hata'];
@@ -63,6 +63,8 @@
                                         <div class="mt-1 flex flex-wrap gap-2">
                                             @if (($item['button']['run_now'] ?? null) !== null)
                                                 <button type="button" wire:click="runNowAutomation({{ (int) $item['button']['run_now'] }})" class="rounded-lg bg-brand-500 px-2.5 py-1 text-xs font-semibold text-white">{{ $item['button']['label'] ?? 'Şimdi güncelle' }}</button>
+                                            @elseif (($item['button']['mark_inactive'] ?? null) !== null)
+                                                <button type="button" wire:click="markAssetInactive({{ (int) $item['button']['mark_inactive'] }})" wire:confirm="Varlık Kullanılmıyor olarak işaretlensin mi? Bağlantı kopmaz, veri silinmez; bir kez daha çekilir, sonra Aktif yapana kadar otomatik çekim durur." wire:loading.attr="disabled" class="rounded-lg bg-brand-500 px-2.5 py-1 text-xs font-semibold text-white">{{ $item['button']['label'] }}</button>
                                             @endif
                                             @if ($item['link_url'])<a href="{{ $item['link_url'] }}" wire:navigate class="rounded-lg px-2.5 py-1 text-xs font-medium text-brand-600 ring-1 ring-inset ring-brand-200">{{ $item['link_label'] ?? 'Aç' }} →</a>@endif
                                         </div>
@@ -140,6 +142,7 @@
                 <p class="mt-1 flex flex-wrap gap-3 text-xs">
                     @if (! empty($alert['button']['url']))<a href="{{ $alert['button']['url'] }}" class="font-semibold text-brand-600 hover:underline">{{ $alert['button']['label'] }}</a>@endif
                     @if (! empty($alert['button']['run_now']))<button type="button" wire:click="runNowAutomation({{ (int) $alert['button']['run_now'] }})" wire:loading.attr="disabled" class="font-semibold text-brand-600 hover:underline">{{ $alert['button']['label'] }}</button>@endif
+                    @if (! empty($alert['button']['mark_inactive']))<button type="button" wire:click="markAssetInactive({{ (int) $alert['button']['mark_inactive'] }})" wire:confirm="Varlık Kullanılmıyor olarak işaretlensin mi? Bağlantı kopmaz, veri silinmez; bir kez daha çekilir, sonra Aktif yapana kadar otomatik çekim durur." wire:loading.attr="disabled" class="font-semibold text-brand-600 hover:underline">{{ $alert['button']['label'] }}</button>@endif
                     @if (! empty($alert['link_url']) && ! str_contains((string) $alert['link_url'], '/settings/system-health'))<a href="{{ $alert['link_url'] }}" wire:navigate class="text-brand-600 hover:underline">{{ $alert['link_label'] }} →</a>@endif
                 </p>
             </div>

@@ -27,7 +27,9 @@ final class RebuildWebsiteProjectionJob implements ShouldBeUniqueUntilProcessing
         public readonly ?string $periodStart = null,
         public readonly ?string $periodEnd = null,
     ) {
-        $this->onQueue('default');
+        // Up to 15 minutes: the heavy supervisor's grace period matches; the default one (5 min) killed it mid-run
+        // on scale-down and deploys, which used up its attempts ("attempted too many times").
+        $this->onQueue((string) config('queue.heavy_queue', 'default'));
     }
 
     public function uniqueId(): string

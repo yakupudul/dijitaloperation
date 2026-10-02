@@ -1755,6 +1755,12 @@ return [
             'type' => 'Varlık türü',
             'type_locked' => 'Tür, varlık oluşturulduktan sonra değiştirilemez.',
             'status' => 'Durum',
+            'status_options' => [
+                'active' => 'Aktif',
+                'inactive' => 'Kullanılmıyor',
+                'archived' => 'Arşivlendi',
+            ],
+            'status_hint' => 'Kullanılmıyor: hesap bağlantısı kopmaz, veri silinmez; bir kez daha veri çekilir, sonra Aktif yapana kadar otomatik çekim durur.',
             'website_details' => 'Web sitesi bilgileri',
             'website_details_hint' => 'Yalnız web sitesi varlıklarında görünür. Veri kaynakları kayıttan sonra bağlanır.',
             'domain' => 'Alan adı',

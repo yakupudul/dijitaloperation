@@ -12,14 +12,15 @@ use Carbon\CarbonInterface;
  * - `why`    Neden önemli: the impact on reports, recommendations, ads or the client.
  * - `action` Ne yapmalısın: one concrete step.
  * - `link`   Nereden: the exact page (asset data sources, reconnect screen, Komuta merkezi topic), plus an optional
- *            one-click `button` (a URL, or `run_now` on a ResourceAutomation for "Şimdi güncelle").
+ *            one-click `button` (a URL, `run_now` on a ResourceAutomation for "Şimdi güncelle", or `mark_inactive` on a
+ *            Digital Asset for "Kullanılmıyor olarak işaretle").
  *
  * `occurrences` / `firstSeen` let a repeating condition read "3. kez · ilk 24 Eyl" on one row.
  */
 final readonly class OperatorMessage
 {
     /**
-     * @param  array{label: string, url?: string|null, run_now?: int|null}|null  $button
+     * @param  array{label: string, url?: string|null, run_now?: int|null, mark_inactive?: int|null}|null  $button
      */
     public function __construct(
         public string $title,

@@ -8,7 +8,8 @@ namespace App\Support\Operator;
  *
  * `kind` tells the caller which button fits: reconnect (provider consent screen), grant_access (someone must give the
  * connected user access to the account), wait (it resumes by itself), retry ("Şimdi güncelle"), developer (a software
- * fix; retrying does not help), bind (connect the account to an asset), customer (the customer is passive).
+ * fix; retrying does not help), bind (connect the account to an asset), customer (the customer is passive), unused (the
+ * account is closed / inaccessible: reopen it or mark its asset "Kullanılmıyor").
  */
 final class CollectionErrorExplainer
 {
@@ -71,6 +72,16 @@ final class CollectionErrorExplainer
                 'fix' => 'Hesabı Entegrasyonlar › Hesaplar ekranından doğru markanın varlığına bağlayın; bağlanınca veriler otomatik gelir.',
                 'kind' => 'bind',
             ],
+            'account_unavailable' => [
+                'problem' => 'Hesap '.$company.' tarafında kapalı ya da bağlı kullanıcının bu hesaba erişimi yok',
+                'fix' => 'Tekrar denemek işe yaramaz. Hesap kullanılıyorsa açtırın ya da hesap sahibinden '.$user.' okuma yetkisi vermesini isteyin; sabah canlı doğrulaması hesabı okuyabildiğinde çekim kendiliğinden sürer. Kullanılmıyorsa varlığı "Kullanılmıyor" olarak işaretleyin; bağlantı kopmaz, veri silinmez.',
+                'kind' => 'unused',
+            ],
+            'asset_inactive' => [
+                'problem' => 'Hesabın bağlı olduğu varlık "Kullanılmıyor" olarak işaretli',
+                'fix' => 'Bir şey yapmanıza gerek yok: işaretten sonra bir kez çekildi, otomatik çekim duruyor. Yeniden kullanmaya başlarsanız varlığı Aktif yapın; çekim kendiliğinden sürer.',
+                'kind' => 'customer',
+            ],
             'customer_passive' => [
                 'problem' => 'Hesabın bağlı olduğu müşteri veya varlık pasif',
                 'fix' => 'Müşteriyle çalışmaya devam ediyorsanız müşteriyi aktif yapın; çekim kendiliğinden sürer. Çalışmıyorsanız bir şey yapmanıza gerek yok.',
@@ -101,6 +112,8 @@ final class CollectionErrorExplainer
             $value === 'cancelled' => 'cancelled',
             in_array($value, ['binding', 'unbound'], true) => 'bind',
             $value === 'customer_passive' => 'customer_passive',
+            $value === 'account_unavailable' => 'account_unavailable',
+            $value === 'asset_inactive' => 'asset_inactive',
             default => 'unknown',
         };
     }

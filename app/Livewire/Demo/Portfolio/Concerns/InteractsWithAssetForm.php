@@ -226,7 +226,7 @@ trait InteractsWithAssetForm
             'brandName' => $brandName,
             'customerOptions' => Customer::query()->orderBy('name')->pluck('name', 'id')->mapWithKeys(fn ($name, $id): array => [(string) $id => (string) $name])->all(),
             'typeOptions' => $this->typeOptions(),
-            'statusOptions' => collect(DigitalAssetStatus::cases())->mapWithKeys(fn ($case) => [$case->value => $case->name])->all(),
+            'statusOptions' => collect(DigitalAssetStatus::cases())->mapWithKeys(fn ($case) => [$case->value => __('operator.forms.asset_form.status_options.'.$case->value)])->all(),
             'cmsOptions' => CmsOptions::options(),
             'websiteTypeOptions' => WebsiteTypeOptions::options(),
             'languageOptions' => LanguageOptions::options(),

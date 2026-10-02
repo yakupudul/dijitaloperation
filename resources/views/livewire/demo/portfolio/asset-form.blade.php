@@ -66,7 +66,7 @@
                         <x-ta.form.select wire:model.live="type" :options="$typeOptions" :placeholder="__($f.'select')" :nullable="false" />
                     @endif
                 </x-ta.form.field>
-                <x-ta.form.field :label="__($f.'status')" :required="true" :error="$errors->first('status')">
+                <x-ta.form.field :label="__($f.'status')" :required="true" :error="$errors->first('status')" :helper="__($f.'status_hint')">
                     <x-ta.form.select wire:model="status" :options="$statusOptions" :searchable="false" :nullable="false" />
                 </x-ta.form.field>
             </div>

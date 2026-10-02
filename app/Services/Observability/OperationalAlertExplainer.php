@@ -367,6 +367,9 @@ final class OperationalAlertExplainer
         if (in_array($fix['kind'] ?? 'retry', ['retry', 'grant_access'], true) && count($automations) === 1) {
             $place['button'] = ['label' => 'Şimdi güncelle', 'run_now' => (int) $automations[0]];
         }
+        if (($fix['kind'] ?? null) === 'unused' && count($assets) === 1) {
+            $place['button'] = ['label' => 'Kullanılmıyor olarak işaretle', 'mark_inactive' => (int) $assets[0]];
+        }
 
         return $place;
     }

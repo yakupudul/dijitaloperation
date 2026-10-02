@@ -10,6 +10,7 @@ use App\Models\IntelligenceProjection\WebsiteIntelligenceProjectionRun;
 use App\Models\IntelligenceProjection\WebsiteOutcomeProfile;
 use App\Models\IntelligenceProjection\WebsitePageProfile;
 use App\Models\IntelligenceProjection\WebsiteSearchTermProfile;
+use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Ownership\OwnershipGuard;
 use Database\Factories\DigitalAssetFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -194,6 +195,13 @@ class DigitalAsset extends Model
                         'domain' => $guard->duplicateWebsiteMessage($existing, $asset->brand_id !== null ? (int) $asset->brand_id : null),
                     ]);
                 }
+            }
+        });
+        // Marked "Kullanılmıyor" or active again, whatever path saves it: its accounts are due for their one-time /
+        // resumed collection (ResourceAutomationService::portfolioGate).
+        static::updated(function (DigitalAsset $asset): void {
+            if ($asset->wasChanged('status')) {
+                app(ResourceAutomationService::class)->assetStatusChanged((int) $asset->id);
             }
         });
     }

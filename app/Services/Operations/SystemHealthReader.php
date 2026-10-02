@@ -177,6 +177,8 @@ final class SystemHealthReader
             ->map(function (ResourceAutomation $a) use ($staleDays): array {
                 $last = $a->last_collection_success_at;
                 $interval = max(1, (int) ($a->interval_days ?? 1));
+                // Parked after its one-time collection: every asset of the account is marked "Kullanılmıyor".
+                $unused = $a->collection_error === 'asset_inactive';
 
                 return [
                     'id' => (int) $a->id,
@@ -185,12 +187,12 @@ final class SystemHealthReader
                     'type' => (string) $a->resource->resource_type,
                     'name' => (string) ($a->resource->display_name ?: $a->resource->external_id),
                     'enabled' => (bool) $a->collection_enabled,
-                    'state' => (string) ($a->collection_status ?: 'waiting'),
+                    'state' => $unused ? 'unused' : (string) ($a->collection_status ?: 'waiting'),
                     'error' => $a->collection_error,
                     'data_through' => $a->data_through !== null ? substr((string) $a->data_through, 0, 10) : null,
                     'last_success' => $last !== null ? (string) $last : null,
                     'next' => $a->next_collection_at !== null ? (string) $a->next_collection_at : null,
-                    'stale' => (bool) $a->collection_enabled && ($last === null || CarbonImmutable::parse((string) $last)->lt(now()->subDays($interval + $staleDays))),
+                    'stale' => (bool) $a->collection_enabled && ! $unused && ($last === null || CarbonImmutable::parse((string) $last)->lt(now()->subDays($interval + $staleDays))),
                 ];
             })
             ->sortBy(fn (array $a): string => ($a['state'] === 'attention' ? '0' : ($a['stale'] ? '1' : '2')).$a['provider'].$a['name'])
@@ -232,6 +234,8 @@ final class SystemHealthReader
             ->join('core_connections as c', 'c.id', '=', 'd.connection_id')
             ->leftJoin('digital_assets as a', 'a.id', '=', 'c.digital_asset_id')
             ->where('c.type', 'wordpress_connector')
+            // A disconnected (disabled) pairing keeps its delivery row; only live connections are listed.
+            ->where('c.enabled', true)
             ->orderBy('a.name')
             ->get(['a.name as site', 'a.domain', 'd.plugin_version', 'd.last_received_at'])
             ->map(fn (object $row): array => [

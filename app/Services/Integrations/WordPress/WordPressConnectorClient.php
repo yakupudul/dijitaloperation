@@ -338,10 +338,13 @@ final class WordPressConnectorClient
             throw new RuntimeException('WordPress Connector response exceeded the configured limit.');
         }
 
-        // A PHP notice or a caching plugin's HTML in front of the JSON: a clear connector error instead of a JsonException.
-        $decoded = json_decode($body, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new RuntimeException('WordPress Connector returned a non-JSON response (a plugin or PHP notice may be printing before it).');
+        // A UTF-8 BOM, whitespace or a PHP notice in front of the JSON is skipped (the signature covers the decoded
+        // envelope, not the raw bytes); anything else is a clear connector error instead of a JsonException.
+        $decoded = self::decodeEnvelope($body);
+        if ($decoded === null) {
+            $prefix = trim((string) preg_replace('/\s+/', ' ', strip_tags(substr($body, 0, 160))));
+            throw new RuntimeException('WordPress Connector returned a non-JSON response (a plugin or PHP notice may be printing before it)'
+                .($prefix !== '' ? ': "'.mb_strcut($prefix, 0, 120).'"' : '').'.');
         }
         if (! is_array($decoded) || ! is_array($decoded['data'] ?? null) || ! is_array($decoded['meta'] ?? null)) {
             throw new RuntimeException('WordPress Connector returned an invalid response envelope.');
@@ -379,5 +382,26 @@ final class WordPressConnectorClient
         $connection->forceFill([
             'last_error' => Str::limit(preg_replace('/[\r\n]+/', ' ', $error->getMessage()) ?? 'Connector request failed.', 500),
         ])->save();
+    }
+
+    /**
+     * The connector's JSON envelope; tolerates a leading BOM / whitespace and output printed before the JSON object.
+     *
+     * @return array<mixed>|null
+     */
+    public static function decodeEnvelope(string $body): ?array
+    {
+        $body = trim(str_starts_with($body, "\xEF\xBB\xBF") ? substr($body, 3) : $body);
+        $decoded = json_decode($body, true);
+        if (json_last_error() === JSON_ERROR_NONE) {
+            return is_array($decoded) ? $decoded : [];
+        }
+        $start = strpos($body, '{"');
+        if ($start === false || $start === 0) {
+            return null;
+        }
+        $decoded = json_decode(substr($body, $start), true);
+
+        return json_last_error() === JSON_ERROR_NONE && is_array($decoded) ? $decoded : null;
     }
 }

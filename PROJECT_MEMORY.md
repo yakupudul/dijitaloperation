@@ -1,5 +1,15 @@
 # PROJECT_MEMORY
 
+## 2026-11-25 — Kullanılmayan varlık: bağlantı kopmaz, bir kez çekilir, sonra durur
+
+- **Karar (operatör):** Markaya ait bir dijital varlık artık kullanılmıyorsa bağlantısı koparılmaz; varlık **Kullanılmıyor** (durum `inactive`) olarak işaretlenir.
+  - İşaretten sonra hesapları **bir kez** daha çekilir; ardından operatör varlığı yeniden Aktif yapana kadar otomatik çekim durur (`asset_inactive`). Veri silinmez, bağlama kalır.
+  - Aktif yapınca çekim kendiliğinden sürer. Hesap satırında "Şimdi güncelle" bir kez daha çeker.
+  - Hesap birden çok varlığa bağlıysa, varlıklardan biri aktif olduğu sürece normal çekilir.
+- **Karar:** Sağlayıcıda kapalı / erişilemeyen hesap (Google Ads `CUSTOMER_NOT_ENABLED`, izin yok) "beklenmeyen hata" sayılmaz: ilk hatada `account_unavailable` ile durur, her gün yeniden denenmez. Sabah canlı doğrulaması hesabı okuyabildiğinde kendiliğinden sürer.
+  - Hata merkezi bu hesaplarda "Şimdi güncelle" yerine "Kullanılmıyor olarak işaretle" önerir.
+- **Karar:** Ödeme / inceleme bekleyen Meta hesapları (UNSETTLED, PENDING_SETTLEMENT, IN_GRACE_PERIOD, PENDING_RISK_REVIEW) canlı doğrulamada başarısız değil, uyarılıdır: hesap açık, veri okunuyor.
+
 ## 2026-11-24 — Web sitesi ekranı v3
 
 - **Karar (operatör):** Site ekranı Google / Meta panelleri gibi sade olur: tek sıra sekme, başlıkta tek tarih seçici (karşılaştırmalı).

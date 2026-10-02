@@ -45,6 +45,8 @@
                             <div class="mt-2 flex flex-wrap items-center gap-2">
                                 @if (! empty($item['button']['run_now']))
                                     <button type="button" wire:click="runNow({{ (int) $item['button']['run_now'] }})" wire:loading.attr="disabled" class="rounded-md bg-brand-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-brand-600">{{ $item['button']['label'] }}</button>
+                                @elseif (! empty($item['button']['mark_inactive']))
+                                    <button type="button" wire:click="markAssetInactive({{ (int) $item['button']['mark_inactive'] }})" wire:confirm="Varlık Kullanılmıyor olarak işaretlensin mi? Bağlantı kopmaz, veri silinmez; bir kez daha çekilir, sonra Aktif yapana kadar otomatik çekim durur." wire:loading.attr="disabled" class="rounded-md bg-brand-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-brand-600">{{ $item['button']['label'] }}</button>
                                 @elseif (! empty($item['button']['url']))
                                     <a href="{{ $item['button']['url'] }}" class="rounded-md bg-brand-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-brand-600">{{ $item['button']['label'] }}</a>
                                 @endif

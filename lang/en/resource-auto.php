@@ -76,6 +76,8 @@ return [
     'reconnect' => 'Check account access and the integration connection.',
     'manager' => 'Manager account. Data is collected from its client accounts.',
     'customer_passive' => 'Its customer or asset is passive; collection is paused. It resumes when the customer is active again.',
+    'asset_inactive' => 'Every digital asset of this account is marked unused; its one-time collection after the mark is done and automatic collection is paused. It resumes when the asset is active again; use Collect now for one more pull.',
+    'account_unavailable' => 'The account is closed at the provider or the connected user cannot access it; retrying does not help. If it is in use, reopen it or request access (collection resumes once the morning live check can read it); otherwise mark its asset unused.',
     'unbound' => 'Not bound to a Digital Asset assigned to a brand; nothing is collected. It starts once assigned to a brand.',
     'binding' => 'The current collector needs a Digital Asset binding. Map this account in Integrations.',
     'collection_failed' => 'The last refresh could not complete. It is retried automatically after 30 minutes and 3 hours; after three failures it stops and waits for you. See the collection details for the reason, or use Update now to retry immediately.',

@@ -149,6 +149,17 @@ final class LiveVerificationTest extends TestCase
         $this->assertSame(18, DB::table('live_checks')->count(), 'two runs × 9 checks are kept');
     }
 
+    public function test_an_unpaid_meta_account_is_readable_with_a_warning_not_a_failure(): void
+    {
+        $this->metaAccountStatus = 3;
+
+        $this->artisan('moxdop:verify:live', ['--sync' => true])->assertSuccessful();
+
+        $meta = collect(LiveVerifier::latest())->firstWhere('capability', 'meta_ads');
+        $this->assertSame('ok', $meta['status']);
+        $this->assertStringContainsString('UNSETTLED', (string) $meta['message']);
+    }
+
     public function test_broken_google_authorization_fails_the_token_and_skips_its_accounts(): void
     {
         $google = CoreIntegration::query()->where('provider', 'google')->firstOrFail();

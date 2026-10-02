@@ -25,6 +25,29 @@ class ClusterQuery extends Model
         ];
     }
 
+    /**
+     * Inserts memberships whose query still exists. Clustering waits minutes on the AI between reading queries and
+     * writing their memberships; a filter-scan approval may delete some of them meanwhile (foreign key violation on
+     * `query_id`). The surviving rows are share-locked so a delete cannot slip in before the insert commits.
+     *
+     * @param  list<array{cluster_id: int, query_id: int, is_suggested: bool, created_at: mixed, updated_at: mixed}>  $rows
+     * @return int rows inserted
+     */
+    public static function insertExisting(array $rows): int
+    {
+        if ($rows === []) {
+            return 0;
+        }
+        $live = Query::query()->whereIn('id', array_column($rows, 'query_id'))->sharedLock()->pluck('id')
+            ->map(fn ($id): int => (int) $id)->flip();
+        $rows = array_values(array_filter($rows, fn (array $row): bool => isset($live[(int) $row['query_id']])));
+        if ($rows !== []) {
+            static::query()->insert($rows);
+        }
+
+        return count($rows);
+    }
+
     /** @return BelongsTo<Cluster, $this> */
     public function cluster(): BelongsTo
     {

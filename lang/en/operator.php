@@ -1754,6 +1754,12 @@ return [
             'type' => 'Asset type',
             'type_locked' => 'The type cannot be changed after the asset is created.',
             'status' => 'Status',
+            'status_options' => [
+                'active' => 'Active',
+                'inactive' => 'Not in use',
+                'archived' => 'Archived',
+            ],
+            'status_hint' => 'Not in use: the account stays connected and no data is deleted; it is collected once more, then automatic collection pauses until it is active again.',
             'website_details' => 'Website details',
             'website_details_hint' => 'Shown only for Website assets. Data sources are connected after saving.',
             'domain' => 'Domain',

@@ -76,6 +76,8 @@ return [
     'reconnect' => 'Google/Meta bağlantısının izni sona ermiş ya da hesaba erişim kaldırılmış; veri çekilemiyor. Bağlantıyı Yeniden bağlan ile yenileyin ya da hesap sahibinden erişim isteyin.',
     'manager' => 'Yönetici hesabı. Veriler altındaki müşteri hesaplarından çekilir.',
     'customer_passive' => 'Bağlı olduğu müşteri veya varlık pasif; veri çekimi durduruldu. Müşteriyi aktif yapınca kendiliğinden sürer.',
+    'asset_inactive' => 'Bu hesabın bağlı olduğu dijital varlık Kullanılmıyor olarak işaretli; işaretten sonraki tek seferlik çekim yapıldı, otomatik çekim duruyor. Varlığı Aktif yapınca kendiliğinden sürer; bir kez daha çekmek için Şimdi güncelle.',
+    'account_unavailable' => 'Hesap sağlayıcıda kapalı ya da bağlı kullanıcının bu hesaba erişimi yok; tekrar denemek işe yaramaz. Hesap kullanılıyorsa açtırın / erişim isteyin (sabah canlı doğrulaması hesabı okuyabildiğinde çekim kendiliğinden sürer); kullanılmıyorsa varlığı Kullanılmıyor olarak işaretleyin.',
     'unbound' => 'Bu hesap markaya atanmış bir dijital varlığa bağlı değil; veri çekilmiyor. Markaya atayınca kendiliğinden başlar.',
     'binding' => 'Bu kaynağın mevcut çekicisi bir dijital varlık bağlantısı gerektiriyor. Entegrasyonlardan eşleştirin.',
     'collection_failed' => 'Son güncelleme tamamlanamadı. Sistem 30 dakika ve 3 saat sonra kendiliğinden yeniden dener; üç denemede de başarısız olursa güncelleme durur ve sizi bekler. Nedeni Çekim ayrıntıları\'nda; beklemek istemezseniz Şimdi güncelle ile hemen yeniden deneyin.',

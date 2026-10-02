@@ -195,7 +195,7 @@ final class ContentPlanner
                 $query = Query::query()->create(['text' => $normalized, 'text_hash' => $hash, 'sector_id' => $brand->sector_id, 'service_id' => $serviceId, 'assignment' => 'ai', 'is_suggested' => true]);
                 $members[] = ['cluster_id' => $cluster->id, 'query_id' => $query->id, 'is_suggested' => true, 'created_at' => $now, 'updated_at' => $now];
             }
-            ClusterQuery::query()->insert($members);
+            ClusterQuery::insertExisting($members);
             $suggestion->forceFill(['action' => array_merge($action, ['library_cluster_id' => $cluster->id])])->save();
 
             return $cluster;

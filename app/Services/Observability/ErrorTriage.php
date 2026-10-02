@@ -35,6 +35,8 @@ final class ErrorTriage
         self::CODE => 'Yazılım hatası — geliştiriciye ilet',
     ];
 
+    public const string LIVE_PROBLEM_ACTION = 'Tekrar denemek işe yaramaz. Hesap kullanılıyorsa sağlayıcıda açtırın ya da yetki verin; kullanılmıyorsa varlığı "Kullanılmıyor" olarak işaretleyin (bağlantı kopmaz, veri silinmez; bir kez daha çekilir, sonra otomatik çekim durur).';
+
     /** An "auto" alert still open after this long needs a person. */
     public const int ESCALATE_HOURS = 48;
 
@@ -108,15 +110,19 @@ final class ErrorTriage
             $title = trim(explode(' · ', $message->title, 2)[0]);
             $buckets[$bucket][$key] ??= ['key' => $key, 'title' => $title, 'count' => 0, 'items' => []];
             $buckets[$bucket][$key]['count']++;
+            // The morning live check says the account itself is closed / disabled / inaccessible: the stored reason
+            // ("geçici hata, tekrar deneyin") no longer applies, and "Şimdi güncelle" cannot help.
+            $live = str_starts_with((string) $alert->rule_key, 'resource-automation.') ? self::liveProblem((int) $alert->scope_key) : null;
             $buckets[$bucket][$key]['items'][] = [
                 'id' => (int) $alert->id,
                 'title' => $message->title,
-                'what' => trim($message->what.(str_starts_with((string) $alert->rule_key, 'resource-automation.') && ($live = self::liveProblem((int) $alert->scope_key)) !== null
-                    ? ' Canlı doğrulama: '.$live.' Hesabı açın / yetki verin ya da kullanılmıyorsa markadan ayırın.' : '')),
-                'action' => $message->action,
+                'what' => trim($message->what.($live !== null ? ' Canlı doğrulama: '.$live : '')),
+                'action' => $live !== null ? self::LIVE_PROBLEM_ACTION : $message->action,
                 'link_url' => $message->linkUrl,
                 'link_label' => $message->linkLabel,
-                'button' => $message->button,
+                'button' => $live !== null
+                    ? ($message->assetId !== null ? ['label' => 'Kullanılmıyor olarak işaretle', 'mark_inactive' => $message->assetId] : null)
+                    : $message->button,
                 'since' => (string) ($alert->opened_at ?? $alert->first_observed_at),
                 'escalated' => $bucket === self::YOU && self::cause($alert) === self::AUTO,
             ];

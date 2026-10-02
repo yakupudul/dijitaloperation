@@ -7,11 +7,13 @@ use App\Enums\Observability\OperationalAlertRuleType;
 use App\Enums\Observability\OperationalAlertSeverity;
 use App\Enums\Observability\OperationalSignalFamily;
 use App\Models\Collection\CollectionDatasetRun;
+use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\DigitalAsset;
 use App\Models\Observability\WorkerHeartbeat;
 use App\Services\Async\AsyncWorkerHealth;
+use App\Services\Collection\Activity\CollectionActivityGate;
 use App\Services\DataPool\Freshness\DueCollectionQueryService;
 use App\Support\Integrations\ProviderRegistry;
 use Carbon\CarbonImmutable;
@@ -32,6 +34,7 @@ final class OperationalAlertEvaluator
         private readonly DueCollectionQueryService $dueCollections,
         private readonly QueueWaitMonitor $queueWaits,
         private readonly AlertSubjects $subjects,
+        private readonly CollectionActivityGate $activity,
     ) {}
 
     /**
@@ -396,9 +399,29 @@ final class OperationalAlertEvaluator
 
         // Only accounts that serve an operational brand's asset page the operator (operator decision 2026-11-17: an
         // account not bound to a brand is never shown outside Marka adayları).
+        // An asset marked "Kullanılmıyor" is parked on purpose and never counts.
         $boundAssets = DigitalAsset::query()->whereIn('id', array_values(array_unique(array_filter(array_map(fn ($item) => $item->digitalAssetId, $staleOrBlocked)))))
-            ->whereNotNull('brand_id')->whereHas('brand', fn ($q) => $q->operational())->pluck('id')->map(fn ($id): int => (int) $id)->flip();
+            ->whereNotNull('brand_id')->operational()->pluck('digital_assets.id')->map(fn ($id): int => (int) $id)->flip();
         $staleOrBlocked = array_values(array_filter($staleOrBlocked, fn ($item): bool => $item->digitalAssetId !== null && $boundAssets->has((int) $item->digitalAssetId)));
+        // Idle / dormant accounts (no spend) are only checked once a week with a light pass; their full datasets are
+        // not expected to move, so they are not "out of date" (they showed as permanently stale before).
+        $tiers = [];
+        $staleOrBlocked = array_values(array_filter($staleOrBlocked, function ($item) use (&$tiers): bool {
+            if ($item->freshnessState !== FreshnessState::Stale || $item->externalResourceId === null) {
+                return true;
+            }
+            $id = (int) $item->externalResourceId;
+            if (! array_key_exists($id, $tiers)) {
+                $resource = CoreExternalResource::query()->find($id);
+                try {
+                    $tiers[$id] = $resource !== null ? $this->activity->plan($resource)->isFull() : true;
+                } catch (Throwable) {
+                    $tiers[$id] = true;
+                }
+            }
+
+            return $tiers[$id];
+        }));
 
         $staleCount = count($staleOrBlocked);
         $scope = 'dataset:stale';

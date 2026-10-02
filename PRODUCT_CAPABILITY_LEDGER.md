@@ -1,5 +1,19 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-25 — Hata merkezi düzeltmeleri ve "Kullanılmıyor" varlık
+
+- **Kullanılmıyor varlık:** Varlık formunda durum seçenekleri Türkçe (Aktif · Kullanılmıyor · Arşivlendi) ve açıklamalı. Kullanılmıyor işaretlenen varlığın hesapları hemen bir kez çekilir, sonra Aktif yapılana kadar otomatik çekim durur (`resource_automations.inactive_collection_at`, durma nedeni `asset_inactive`). Bağlama ve veri kalır.
+  - Bu hesaplar uyarı açmaz, canlı doğrulamaya girmez, "veri güncel değil" sayılmaz. Sistem sağlığı hesap listesinde "Kullanılmıyor" görünür.
+  - Hata merkezinde ve bildirimde kapalı / erişilemeyen hesap için tek tıkla "Kullanılmıyor olarak işaretle" (onaylı).
+- **Kapalı Google Ads hesabı:** Planlama sırasında gelen yetki hatası (`CUSTOMER_NOT_ENABLED`, `PERMISSION_DENIED`) artık iş içinde 3 kez yeniden denenip "beklenmeyen hata" olarak raporlanmıyor. Hesap ilk hatada `account_unavailable` ile durur, günlük yeniden denemeye girmez. Canlı doğrulama hesabı okuyabildiğinde sürer.
+- **Canlı doğrulama sorunu olan uyarılar:** "Ne yapmalı" artık "geçici hata, tekrar deneyin" demiyor. "Şimdi güncelle" yerine "Kullanılmıyor olarak işaretle" çıkıyor.
+- **Meta canlı doğrulama:** UNSETTLED / PENDING_SETTLEMENT / IN_GRACE_PERIOD / PENDING_RISK_REVIEW hesaplar "Çalışıyor" ve uyarılı. DISABLED / CLOSED başarısız kalır.
+- **"Veri güncel değil" uyarısı:** Harcaması olmayan (boşta / uykuda, haftalık hafif kontrol) hesapların tam veri setleri bayat sayılmıyor. Kullanılmıyor varlıklar sayılmıyor.
+- **Web sitesi projeksiyonu:** `RebuildWebsiteProjectionJob` uzun işler kuyruğunda (`heavy`, 15 dk) çalışıyor. Varsayılan kuyruğun 5 dakikalık süresi deploy ve ölçeklemede işi öldürüyor, "attempted too many times" ile bitiriyordu.
+- **Sorgu kümeleme:** Küme üyelikleri yazılmadan hemen önce sorguların hâlâ var olduğu kilitli okumayla doğrulanıyor (`ClusterQuery::insertExisting`). Filtre taraması onayında silinen sorgular artık yabancı anahtar hatası vermiyor.
+- **WordPress:** Yanıtın başındaki BOM / boşluk / PHP uyarısı atlanıp JSON okunuyor; okunamazsa hata ilk karakterleri gösteriyor. Sistem sağlığındaki eklenti listesi kapatılmış eski eşleşmeleri göstermiyor.
+- **Test:** UnusedAssetCollectionTest, ErrorCenterTest, LiveVerificationTest. UAT: yok.
+
 ## 2026-11-24 — Makale taslağı uyum düzeltmesi, Google URL denetimi, site haritası Search Console'dan
 
 - **Makale yazıcı ("AI ile taslak yaz" / "Taslak hazırla"):** Girdi adım adım kurulur: plan (başlık, bölümler, sorular, açı, hedef sorgular), SEO analizi reçetesi, küme (sorgular, AI soruları, bölgeler, rakip iskeletleri), marka dosyası (profil, notlar, standartlar, ilgili sayfalar), iç bağlantı için site sayfaları, yasaklı ifadeler.

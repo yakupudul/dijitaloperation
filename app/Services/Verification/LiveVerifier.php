@@ -44,6 +44,9 @@ final class LiveVerifier
     /** Meta ad account_status values that mean the account cannot deliver ads. */
     private const array META_ACCOUNT_STATUS = [1 => 'ACTIVE', 2 => 'DISABLED', 3 => 'UNSETTLED', 7 => 'PENDING_RISK_REVIEW', 8 => 'PENDING_SETTLEMENT', 9 => 'IN_GRACE_PERIOD', 100 => 'PENDING_CLOSURE', 101 => 'CLOSED'];
 
+    /** Open accounts waiting on payment or review: readable, so not a failed check. */
+    private const array META_READABLE_STATUS = [3, 7, 8, 9];
+
     private const array GOOGLE_CAPABILITIES = ['ga4', 'search_console', 'google_ads', 'google_business_profile'];
 
     public function __construct(
@@ -252,9 +255,15 @@ final class LiveVerifier
             try {
                 $account = $this->meta->get($integration, MetaAdAccountId::toApiForm((string) $resource->external_id), ['fields' => 'id,account_status']);
                 $code = (int) ($account['account_status'] ?? 0);
-                $active = $code === 1;
-                $record($this->result('meta', 'meta_ads', 'external_resource', $resource->id, $label, $active ? self::OK : self::FAIL, $this->elapsed($started),
-                    $active ? 'Hesap aktif.' : 'Hesap okunuyor ama reklam yayınlayamaz: '.(self::META_ACCOUNT_STATUS[$code] ?? 'durum '.$code).'.'));
+                $status = self::META_ACCOUNT_STATUS[$code] ?? 'durum '.$code;
+                // Unpaid balance / review / grace: the account is open and its data is readable — a warning, not a failure.
+                $readable = in_array($code, self::META_READABLE_STATUS, true);
+                $record($this->result('meta', 'meta_ads', 'external_resource', $resource->id, $label, $code === 1 || $readable ? self::OK : self::FAIL, $this->elapsed($started),
+                    match (true) {
+                        $code === 1 => 'Hesap aktif.',
+                        $readable => 'Hesap açık, veri okunuyor; uyarı: '.$status.' (ödeme / inceleme bekliyor, reklam yayını durabilir).',
+                        default => 'Hesap okunuyor ama reklam yayınlayamaz: '.$status.'.',
+                    }));
             } catch (MetaException $error) {
                 $record($this->result('meta', 'meta_ads', 'external_resource', $resource->id, $label, self::FAIL, $this->elapsed($started), MetaOperatorMessages::forException($error)));
             } catch (Throwable $error) {

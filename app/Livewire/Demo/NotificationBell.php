@@ -66,6 +66,21 @@ class NotificationBell extends Component
         }
     }
 
+    /** "Kullanılmıyor olarak işaretle" on a closed / inaccessible account's notice. */
+    public function markAssetInactive(int $assetId): void
+    {
+        $user = Auth::user();
+        if ($user === null) {
+            return;
+        }
+        try {
+            $asset = app(ResourceAutomationService::class)->markAssetInactive($assetId, $user);
+            $this->notice = '"'.$asset->name.'" Kullanılmıyor olarak işaretlendi; bir kez daha çekilip otomatik çekim duracak.';
+        } catch (ModelNotFoundException) {
+            $this->notice = 'Bu varlık artık bulunamadı.';
+        }
+    }
+
     public function markAllRead(): void
     {
         $user = Auth::user();

@@ -84,7 +84,10 @@ final class ErrorCenterTest extends TestCase
             'label' => 'Meta Ads · X', 'status' => LiveVerifier::FAIL, 'message' => 'Hesap okunuyor ama reklam yayınlayamaz: DISABLED.', 'checked_at' => now()]);
         $disabled = $this->observe('resource-automation.collection', '31', ['reason' => 'collection_failed', 'affected' => [['error_category' => 'provider']]]);
         $this->assertSame(ErrorTriage::YOU, ErrorTriage::cause($disabled));
-        $this->assertStringContainsString('DISABLED', app(ErrorTriage::class)->groups()[ErrorTriage::YOU][0]['items'][0]['what']);
+        $item = app(ErrorTriage::class)->groups()[ErrorTriage::YOU][0]['items'][0];
+        $this->assertStringContainsString('DISABLED', $item['what']);
+        $this->assertSame(ErrorTriage::LIVE_PROBLEM_ACTION, $item['action'], 'not "geçici hata, tekrar deneyin"');
+        $this->assertArrayNotHasKey('run_now', (array) $item['button'], 'retrying cannot help a closed account');
 
         // Fourteen transient accounts and one software error: not "yazılım hatası" for all of them.
         $affected = array_merge(array_fill(0, 14, ['error_category' => 'provider', 'states' => ['STALE']]), [['error_category' => 'contract_mismatch', 'states' => ['STALE']]]);

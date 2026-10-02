@@ -2,6 +2,8 @@
 
 namespace App\Services\Integrations;
 
+use App\Enums\Collection\CollectionErrorCategory;
+use App\Enums\DigitalAssetStatus;
 use App\Enums\Observability\OperationalAlertRuleType;
 use App\Enums\Observability\OperationalAlertSeverity;
 use App\Enums\Observability\OperationalAlertState;
@@ -22,11 +24,14 @@ use App\Services\Collection\Activity\CollectionActivityGate;
 use App\Services\Collection\Ga4\Ga4CentralCollectionService;
 use App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService;
 use App\Services\Collection\Meta\MetaCentralCollectionService;
+use App\Services\Collection\Providers\GoogleAds\GoogleAdsProviderErrorMapper;
 use App\Services\Collection\SearchConsole\SearchConsoleCentralCollectionService;
 use App\Services\Integrations\Google\GoogleBusinessProfileBoundCollector;
 use App\Services\Observability\AlertSubjects;
 use App\Services\Observability\OperationalAlertLifecycleService;
+use App\Services\Verification\LiveVerifier;
 use App\Support\Permissions;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -94,7 +99,42 @@ final class ResourceAutomationService
         ResourceAutomation::query()->findOrFail($id)->update([
             'collection_enabled' => true, 'next_collection_at' => now(),
             'collection_error' => null, 'collection_failures' => 0, 'updated_by' => $actor->id,
+            // "Şimdi güncelle" on an account of an unused asset takes one more one-time collection.
+            'inactive_collection_at' => null,
         ]);
+    }
+
+    /**
+     * Operator decision (2026-11-25): an asset that is no longer used is marked "Kullanılmıyor" (inactive) instead of
+     * unbinding its accounts. Its accounts are collected once more, then parked until the asset is active again.
+     */
+    public function markAssetInactive(int $assetId, User $actor): DigitalAsset
+    {
+        $this->authorize($actor);
+        $asset = DigitalAsset::query()->findOrFail($assetId);
+        $asset->update(['status' => DigitalAssetStatus::Inactive->value]);
+
+        return $asset;
+    }
+
+    /**
+     * The asset was marked "Kullanılmıyor" or active again: its accounts are due now. Marked unused, they take their
+     * one-time collection and then park (portfolioGate); active again, they resume normal automatic collection.
+     */
+    public function assetStatusChanged(int $assetId): int
+    {
+        $resourceIds = CoreAssetBinding::query()->where('digital_asset_id', $assetId)
+            ->where('status', CoreAssetBinding::STATUS_ACTIVE)->pluck('external_resource_id');
+        if ($resourceIds->isEmpty()) {
+            return 0;
+        }
+
+        // A collection already running finishes; the mark is cleared either way so the next pass is decided afresh.
+        ResourceAutomation::query()->whereIn('external_resource_id', $resourceIds)->update(['inactive_collection_at' => null]);
+
+        return ResourceAutomation::query()->whereIn('external_resource_id', $resourceIds)
+            ->where('collection_enabled', true)->whereNotIn('collection_status', ['planning', 'collecting'])
+            ->update(['collection_status' => 'waiting', 'collection_error' => null, 'collection_failures' => 0, 'next_collection_at' => now()]);
     }
 
     public function tick(): void
@@ -119,9 +159,9 @@ final class ResourceAutomationService
                         $automation->update(['collection_status' => 'waiting', 'collection_error' => null, 'next_collection_at' => now()]);
                     }
                 });
-            // Accounts parked as unbound / passive resume once assigned to a brand (portfolioGate).
+            // Accounts parked as unbound / passive / unused resume once assigned to a brand or active again (portfolioGate).
             ResourceAutomation::query()->where('collection_enabled', true)
-                ->where('collection_status', 'attention')->whereIn('collection_error', ['unbound', 'customer_passive'])
+                ->where('collection_status', 'attention')->whereIn('collection_error', ['unbound', 'customer_passive', 'asset_inactive'])
                 ->orderBy('id')->limit(200)->get()->each(function ($automation): void {
                     if ($this->readiness($automation->resource) === null && $this->portfolioGate($automation) === null) {
                         $automation->update(['collection_status' => 'waiting', 'collection_error' => null, 'next_collection_at' => now()]);
@@ -282,12 +322,50 @@ final class ResourceAutomationService
      */
     public function portfolioGate(ResourceAutomation $automation): ?string
     {
-        $assigned = CoreAssetBinding::query()->where('external_resource_id', $automation->external_resource_id)
-            ->where('status', CoreAssetBinding::STATUS_ACTIVE)
-            ->whereHas('digitalAsset', fn ($q) => $q->whereNotNull('brand_id'))
-            ->exists();
+        $statuses = $this->boundAssetStatuses((int) $automation->external_resource_id);
+        if ($statuses->isEmpty()) {
+            return 'unbound';
+        }
+        if ($statuses->contains(DigitalAssetStatus::Active->value)) {
+            if ($automation->inactive_collection_at !== null) {
+                $automation->update(['inactive_collection_at' => null]);
+            }
 
-        return $assigned ? null : 'unbound';
+            return null;
+        }
+        // Every asset of the account is marked "Kullanılmıyor": one collection after the mark, then parked. A Business
+        // Profile collection runs in steps over several ticks; its unfinished run may still complete.
+        if ($automation->inactive_collection_at === null) {
+            return null;
+        }
+        $gbpRunning = $automation->gbp_run_id !== null
+            && Run::query()->whereKey($automation->gbp_run_id)->where('status', 'running')->exists();
+
+        return $gbpRunning ? null : 'asset_inactive';
+    }
+
+    /** Whether the account's one-time collection for an unused asset starts now (all its assets are inactive). */
+    private function startsInactiveCollection(ResourceAutomation $automation): bool
+    {
+        if ($automation->inactive_collection_at !== null) {
+            return false;
+        }
+        $statuses = $this->boundAssetStatuses((int) $automation->external_resource_id);
+
+        return $statuses->isNotEmpty() && ! $statuses->contains(DigitalAssetStatus::Active->value);
+    }
+
+    /**
+     * Status values of the brand-assigned digital assets the account is actively bound to.
+     *
+     * @return Collection<int, string>
+     */
+    private function boundAssetStatuses(int $resourceId): Collection
+    {
+        return DigitalAsset::query()->whereNotNull('brand_id')
+            ->whereIn('id', CoreAssetBinding::query()->select('digital_asset_id')
+                ->where('external_resource_id', $resourceId)->where('status', CoreAssetBinding::STATUS_ACTIVE))
+            ->toBase()->pluck('status')->map(fn ($status): string => (string) $status)->values();
     }
 
     /** A customer turned active again: its accounts paused by the portfolio gate are due immediately. */
@@ -339,7 +417,21 @@ final class ResourceAutomationService
                 }
             });
 
-        return ['retried' => $retried, 'reconnected' => $reconnected,
+        // A closed / inaccessible account resumes once the morning live check reads it again.
+        $reopened = 0;
+        ResourceAutomation::query()->where('collection_enabled', true)->where('collection_status', 'attention')
+            ->where('collection_error', 'account_unavailable')->get()
+            ->each(function (ResourceAutomation $automation) use (&$reopened): void {
+                $latest = DB::table('live_checks')->where('subject_type', 'external_resource')
+                    ->where('subject_id', $automation->external_resource_id)->orderByDesc('id')->first(['status', 'checked_at']);
+                if ($latest !== null && $latest->status === LiveVerifier::OK && $automation->updated_at !== null
+                    && $automation->updated_at->lt(CarbonImmutable::parse((string) $latest->checked_at))) {
+                    $automation->update(['collection_status' => 'waiting', 'collection_error' => null, 'collection_failures' => 0, 'next_collection_at' => now()]);
+                    $reopened++;
+                }
+            });
+
+        return ['retried' => $retried, 'reconnected' => $reconnected + $reopened,
             'recovered' => $this->recoverGa4LandingFailures(), 'alerts_resolved' => $this->resolveUnboundAlerts()];
     }
 
@@ -358,6 +450,9 @@ final class ResourceAutomationService
                 'next_collection_at' => $this->nextAt($a)]);
 
             return;
+        }
+        if ($this->startsInactiveCollection($a)) {
+            $a->update(['inactive_collection_at' => now()]);
         }
         $r = $a->resource;
         // v2: every discovered account collects the full v2 dataset catalogue (never a query-only subset).
@@ -509,7 +604,7 @@ final class ResourceAutomationService
             return;
         }
         $failures = (int) $a->collection_failures + 1;
-        $stop = in_array($reason, ['reconnect', 'cancelled', 'request_requires_fix'], true) || $failures >= 3;
+        $stop = in_array($reason, ['reconnect', 'cancelled', 'request_requires_fix', 'account_unavailable'], true) || $failures >= 3;
         if ($stop && $reason !== 'cancelled') {
             $this->alert($a->id, 'collection', $reason);
         }
@@ -518,6 +613,23 @@ final class ResourceAutomationService
             'collection_failures' => $failures, 'collection_queued_at' => null,
             'next_collection_at' => $stop ? null : now()->addMinutes($failures === 1 ? 30 : 180),
         ]);
+    }
+
+    /**
+     * Stop reason for an error thrown while an account's collection is being planned (before any dataset run exists),
+     * or null when it is not a known account condition. A closed / not-enabled Google Ads customer or a missing
+     * permission is `account_unavailable`; an expired consent is `reconnect`.
+     */
+    public static function stopReasonFor(Throwable $error): ?string
+    {
+        $mapped = app(GoogleAdsProviderErrorMapper::class)->fromThrowable($error);
+
+        return match (true) {
+            $mapped->errorCode === 'SCOPE_REQUIRED', $mapped->errorCategory === CollectionErrorCategory::Authentication => 'reconnect',
+            $mapped->errorCode === 'DEVELOPER_TOKEN_REQUIRED' => null,
+            $mapped->errorCategory === CollectionErrorCategory::Authorization => 'account_unavailable',
+            default => null,
+        };
     }
 
     public function alert(int $automationId, string $phase, ?string $reason): void

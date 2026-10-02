@@ -287,7 +287,7 @@ final class QueryClusterer
         }
         $placed = $queries->filter(fn (Query $q): bool => $q->topic_key !== null && $owners->has($q->topic_key));
         $now = now();
-        ClusterQuery::query()->insert($placed->map(fn (Query $q): array => ['cluster_id' => $owners[$q->topic_key], 'query_id' => (int) $q->id, 'is_suggested' => false,
+        ClusterQuery::insertExisting($placed->map(fn (Query $q): array => ['cluster_id' => $owners[$q->topic_key], 'query_id' => (int) $q->id, 'is_suggested' => false,
             'created_at' => $now, 'updated_at' => $now])->values()->all());
         Query::query()->whereIn('id', $placed->pluck('id'))->update(['cluster_checked_at' => $now]);
 
@@ -621,7 +621,7 @@ final class QueryClusterer
                 $usedTopics[$head] = true;
             }
             if ($target !== null) {
-                ClusterQuery::query()->insert(array_map(fn (int $id): array => ['cluster_id' => $target, 'query_id' => $id, 'is_suggested' => false, 'created_at' => $now, 'updated_at' => $now], $ids));
+                ClusterQuery::insertExisting(array_map(fn (int $id): array => ['cluster_id' => $target, 'query_id' => $id, 'is_suggested' => false, 'created_at' => $now, 'updated_at' => $now], $ids));
                 foreach ($ids as $id) {
                     $used[$id] = true;
                 }
@@ -657,7 +657,7 @@ final class QueryClusterer
                     $members[] = ['cluster_id' => $cluster->id, 'query_id' => $queryId, 'is_suggested' => false, 'created_at' => $now, 'updated_at' => $now];
                 }
             }
-            ClusterQuery::query()->insert($members);
+            ClusterQuery::insertExisting($members);
             $clusters++;
         }
 
