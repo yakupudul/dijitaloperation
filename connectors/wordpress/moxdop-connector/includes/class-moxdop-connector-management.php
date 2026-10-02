@@ -83,7 +83,7 @@ final class MoxDOP_Connector_Management
             'plugins' => $plugins,
             'themes' => $themes,
             'site_health' => is_array($site_health) ? ['good' => (int) ($site_health['good'] ?? 0), 'recommended' => (int) ($site_health['recommended'] ?? 0), 'critical' => (int) ($site_health['critical'] ?? 0)] : null,
-            'basics' => (new MoxDOP_Connector_Health())->snapshot(),
+            'basics' => (new MoxDOP_Connector_Health)->snapshot(),
             'login_enabled' => self::login_user_id() > 0,
             'updates_enabled' => self::updates_allowed(),
             'observed_at' => gmdate('c'),
@@ -145,7 +145,7 @@ final class MoxDOP_Connector_Management
         if (! WP_Filesystem()) {
             return new WP_Error('moxdop_filesystem', 'WordPress cannot write files without FTP credentials on this host.', ['status' => 409]);
         }
-        $skin = new Automatic_Upgrader_Skin();
+        $skin = new Automatic_Upgrader_Skin;
         $before = null;
         $after = null;
         if ($type === 'plugin') {

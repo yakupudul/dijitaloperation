@@ -6,7 +6,6 @@ use App\Enums\Collection\CollectionRunStatus;
 use App\Models\Collection\CollectionResourceRun;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
-use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService;
 use App\Services\DataPool\Freshness\StartIncrementalCollectionService;
@@ -46,8 +45,8 @@ final class DataSyncScopeService
     }
 
     /**
-     * @param list<string> $capabilities
-     * @param list<string> $providers
+     * @param  list<string>  $capabilities
+     * @param  list<string>  $providers
      * @return array{outcome:string,message:string}
      */
     public function start(int $digitalAssetId, array $capabilities, array $providers, ?User $user): array
@@ -69,12 +68,14 @@ final class DataSyncScopeService
 
             try {
                 $run = $this->googleAds->startSmartUpdate($integration, $resources->pluck('id')->all(), $user);
+
                 return ['outcome' => 'started', 'message' => 'Google Ads güncellemesi başlatıldı. Run #'.$run->id.'.'];
             } catch (Throwable $e) {
                 $message = $e->getMessage();
                 if (str_contains(mb_strtolower($message), 'zaten devam ediyor')) {
                     return ['outcome' => 'active_equivalent', 'message' => 'Google Ads güncellemesi zaten devam ediyor.'];
                 }
+
                 return ['outcome' => 'failed', 'message' => $message];
             }
         }
@@ -156,8 +157,11 @@ final class DataSyncScopeService
         foreach ($datasets as $dataset) {
             if ($dataset->status->isTerminal()) {
                 $work += 1;
-                if ($dataset->status === CollectionRunStatus::Completed || $dataset->status === CollectionRunStatus::Skipped || $dataset->status === CollectionRunStatus::NotEligible) $completed++;
-                else $failed++;
+                if ($dataset->status === CollectionRunStatus::Completed || $dataset->status === CollectionRunStatus::Skipped || $dataset->status === CollectionRunStatus::NotEligible) {
+                    $completed++;
+                } else {
+                    $failed++;
+                }
             } elseif ((int) ($dataset->progress_total ?? 0) > 0) {
                 $hasInternal = true;
                 $work += min(1, (int) ($dataset->progress_current ?? 0) / (int) $dataset->progress_total);
@@ -193,14 +197,18 @@ final class DataSyncScopeService
 
     private function resourceDataThrough(?CollectionResourceRun $resourceRun): ?string
     {
-        if ($resourceRun === null) return null;
+        if ($resourceRun === null) {
+            return null;
+        }
         $ends = $resourceRun->datasetRuns->map(fn ($dataset) => data_get($dataset->metadata, 'date_range.end'))->filter(fn ($end) => is_string($end) && $end !== '')->values();
+
         return $ends->isEmpty() ? null : (string) $ends->max();
     }
 
     private function humanStage(string $dataset, string $stage): string
     {
         $needle = mb_strtolower($dataset.' '.$stage);
+
         return match (true) {
             str_contains($needle, 'search_term') => 'Arama sorguları güncelleniyor',
             str_contains($needle, 'campaign') => 'Kampanya performansı güncelleniyor',

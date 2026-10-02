@@ -83,7 +83,7 @@ return new class extends Migration
             ->exists();
 
         if ($hasVariants) {
-            throw new \RuntimeException('Cannot safely roll back execution_variant while multiple provider variants exist.');
+            throw new RuntimeException('Cannot safely roll back execution_variant while multiple provider variants exist.');
         }
 
         if (DB::getDriverName() === 'pgsql') {

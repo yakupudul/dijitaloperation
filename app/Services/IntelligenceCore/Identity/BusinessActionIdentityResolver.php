@@ -76,7 +76,7 @@ final class BusinessActionIdentityResolver
      * Maps a provider signal to an explicitly defined Brand action. It never
      * upgrades platform attribution into a verified business outcome.
      *
-     * @param array<string, mixed> $metadata
+     * @param  array<string, mixed>  $metadata
      */
     public function mapSignal(
         IntelligenceBusinessActionIdentity $action,

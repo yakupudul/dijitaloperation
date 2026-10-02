@@ -367,10 +367,10 @@ final class Ga4DatasetExecutor implements DatasetExecutor
     }
 
     /**
-     * @param array<string, mixed> $scope
-     * @param list<string> $dimensions
-     * @param list<string> $metrics
-     * @param list<string> $optionalMetrics
+     * @param  array<string, mixed>  $scope
+     * @param  list<string>  $dimensions
+     * @param  list<string>  $metrics
+     * @param  list<string>  $optionalMetrics
      */
     private function executePagedReport(
         DatasetExecutionContext $context,

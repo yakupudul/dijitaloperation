@@ -78,4 +78,3 @@ final class MoxDOP_Connector_Secrets
         return is_array($decoded) ? $decoded : null;
     }
 }
-

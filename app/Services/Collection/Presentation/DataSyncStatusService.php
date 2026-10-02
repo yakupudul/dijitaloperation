@@ -49,8 +49,8 @@ final class DataSyncStatusService
     ) {}
 
     /**
-     * @param list<int> $bindingIds
-     * @param list<string>|null $providerSources
+     * @param  list<int>  $bindingIds
+     * @param  list<string>|null  $providerSources
      * @return array<string,mixed>
      */
     public function forBindings(array $bindingIds, ?array $providerSources = null): array
@@ -120,8 +120,8 @@ final class DataSyncStatusService
     }
 
     /**
-     * @param list<int> $bindingIds
-     * @param list<string> $providers
+     * @param  list<int>  $bindingIds
+     * @param  list<string>  $providers
      * @return list<DueCollectionItem>
      */
     private function dueItems(array $bindingIds, array $providers): array
@@ -139,10 +139,10 @@ final class DataSyncStatusService
     }
 
     /**
-     * @param Collection<int,CollectionRun> $runs
-     * @param list<int> $bindingIds
-     * @param list<string> $providers
-     * @param list<DueCollectionItem> $due
+     * @param  Collection<int,CollectionRun>  $runs
+     * @param  list<int>  $bindingIds
+     * @param  list<string>  $providers
+     * @param  list<DueCollectionItem>  $due
      * @return array<string,mixed>
      */
     private function presentActive(Collection $runs, array $bindingIds, array $providers, ?CollectionRun $latestSuccess, array $due): array
@@ -169,6 +169,7 @@ final class DataSyncStatusService
                 } else {
                     $completed++;
                 }
+
                 continue;
             }
 
@@ -187,6 +188,7 @@ final class DataSyncStatusService
         $currentDataset = $datasetRuns
             ->filter(function (CollectionDatasetRun $row): bool {
                 $status = $row->status?->value ?? (string) $row->status;
+
                 return ! in_array($status, self::TERMINAL_STATUSES, true);
             })
             ->sortByDesc(fn (CollectionDatasetRun $row) => $row->started_at?->getTimestamp() ?? $row->id)
@@ -222,9 +224,9 @@ final class DataSyncStatusService
     }
 
     /**
-     * @param list<int> $bindingIds
-     * @param list<string> $providers
-     * @param list<DueCollectionItem> $due
+     * @param  list<int>  $bindingIds
+     * @param  list<string>  $providers
+     * @param  list<DueCollectionItem>  $due
      * @return list<array<string,mixed>>
      */
     private function providerRows(array $bindingIds, array $providers, array $due): array
@@ -256,9 +258,9 @@ final class DataSyncStatusService
     }
 
     /**
-     * @param Collection<int,CollectionRun> $runs
-     * @param list<int> $bindingIds
-     * @param list<string> $providers
+     * @param  Collection<int,CollectionRun>  $runs
+     * @param  list<int>  $bindingIds
+     * @param  list<string>  $providers
      * @return list<array<string,mixed>>
      */
     private function providerRowsFromRuns(Collection $runs, array $bindingIds, array $providers): array
@@ -292,6 +294,7 @@ final class DataSyncStatusService
             /** @var CollectionDatasetRun|null $current */
             $current = $providerDatasets->first(function (CollectionDatasetRun $row): bool {
                 $status = $row->status?->value ?? (string) $row->status;
+
                 return ! in_array($status, self::TERMINAL_STATUSES, true);
             });
 

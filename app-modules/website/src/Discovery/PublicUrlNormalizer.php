@@ -66,7 +66,7 @@ final class PublicUrlNormalizer
         $port = '';
         if (isset($parts['port'])) {
             $candidatePort = (int) $parts['port'];
-            if (!(($scheme === 'http' && $candidatePort === 80) || ($scheme === 'https' && $candidatePort === 443))) {
+            if (! (($scheme === 'http' && $candidatePort === 80) || ($scheme === 'https' && $candidatePort === 443))) {
                 $port = ':'.$candidatePort;
             }
         }

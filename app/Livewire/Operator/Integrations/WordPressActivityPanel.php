@@ -18,8 +18,11 @@ final class WordPressActivityPanel extends Component
     public int $assetId;
 
     public string $from = '';
+
     public string $until = '';
+
     public string $kind = '';
+
     public string $actor = '';
 
     public function mount(int $assetId): void
@@ -54,6 +57,7 @@ final class WordPressActivityPanel extends Component
         $counts = (clone $query)->selectRaw('type, COUNT(*) AS total')->groupBy('type')->pluck('total', 'type');
         $connection = CoreConnection::query()->where('digital_asset_id', $this->assetId)->where('type', 'wordpress_connector')->first();
         $delivery = $connection ? DB::table('website_connector_delivery')->where('connection_id', $connection->id)->first() : null;
+
         return view('livewire.operator.integrations.wordpress-activity-panel', [
             'events' => $query->orderByDesc('occurred_at')->orderByDesc('id')->paginate(25, ['*'], 'wpActivity'),
             'counts' => $counts,

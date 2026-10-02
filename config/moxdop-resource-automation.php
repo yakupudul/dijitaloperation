@@ -11,4 +11,3 @@ return [
     'max_active_query_imports' => 4,
     'query_rows_per_chunk' => 100,
 ];
-

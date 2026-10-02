@@ -28,6 +28,7 @@ final class CollectionAccountPresenter
         if ($activity && $activity < now()->subMinutes(30)->getTimestamp()) {
             return 'delayed';
         }
+
         return $pending->contains(fn ($d) => $d->status->value === 'queued') ? 'queued'
             : ($pending->contains(fn ($d) => $d->status->value === 'retrying') ? 'retrying' : $run->status->value);
     }

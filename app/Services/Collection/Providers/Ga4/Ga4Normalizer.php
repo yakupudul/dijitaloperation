@@ -17,10 +17,10 @@ final class Ga4Normalizer
     ];
 
     /**
-     * @param list<string> $dimensions
-     * @param list<string> $metrics
-     * @param array<string, mixed> $payload
-     * @param array<string, mixed> $provenance
+     * @param  list<string>  $dimensions
+     * @param  list<string>  $metrics
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $provenance
      * @return list<array<string, mixed>>
      */
     public function normalizeReportRows(
@@ -106,20 +106,24 @@ final class Ga4Normalizer
                 $value = (string) ($dimValues[$index]['value'] ?? '');
                 if ($dimension === 'date') {
                     $record['reporting_date'] = $this->normalizeDate($value);
+
                     continue;
                 }
                 if ($dimension === 'sessionSourceMedium') {
                     [$record['sessionSource'], $record['sessionMedium']] = $this->splitSourceMedium($value);
+
                     continue;
                 }
                 if ($dimension === 'firstUserSourceMedium') {
                     [$record['firstUserSource'], $record['firstUserMedium']] = $this->splitSourceMedium($value);
+
                     continue;
                 }
                 if ($dimension === 'landingPagePlusQueryString') {
                     // New central grain keeps query string, while the legacy table still requires landingPage.
                     $record['landingPagePlusQueryString'] = $value;
                     $record['landingPage'] = $value;
+
                     continue;
                 }
 
@@ -144,9 +148,9 @@ final class Ga4Normalizer
     }
 
     /**
-     * @param array<string, mixed> $property
-     * @param list<array<string, mixed>> $streams
-     * @param array<string, mixed> $configuration
+     * @param  array<string, mixed>  $property
+     * @param  list<array<string, mixed>>  $streams
+     * @param  array<string, mixed>  $configuration
      * @return array<string, mixed>
      */
     public function normalizePropertyMetadata(

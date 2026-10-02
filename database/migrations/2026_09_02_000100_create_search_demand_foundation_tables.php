@@ -283,7 +283,7 @@ return new class extends Migration
 
     private function normalizeLabel(string $label): string
     {
-        $value = class_exists(\Normalizer::class) ? \Normalizer::normalize($label, \Normalizer::FORM_C) : $label;
+        $value = class_exists(Normalizer::class) ? Normalizer::normalize($label, Normalizer::FORM_C) : $label;
         $value = is_string($value) ? $value : $label;
         $value = preg_replace('/\s+/u', ' ', trim($value)) ?? trim($value);
         $value = mb_strtolower($value, 'UTF-8');

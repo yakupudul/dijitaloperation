@@ -9,6 +9,7 @@ use App\Support\Options\AgencyServiceOptions;
 use App\Support\Options\CityOptions;
 use App\Support\Options\CountryOptions;
 use App\Support\Options\IndustryOptions;
+use App\Support\Options\LocationOptions;
 use Illuminate\Validation\Rule;
 
 trait InteractsWithCustomerForm
@@ -116,8 +117,8 @@ trait InteractsWithCustomerForm
         $this->hq_country = (string) ($customer['hq_country'] ?? '');
         $storedCity = (string) ($customer['hq_city'] ?? '');
         if ($this->hq_country === 'TR' && $storedCity !== '') {
-            $storedCity = collect(\App\Support\Options\LocationOptions::cities())->first(
-                fn (string $name): bool => \App\Support\Options\LocationOptions::fold($name) === \App\Support\Options\LocationOptions::fold($storedCity)
+            $storedCity = collect(LocationOptions::cities())->first(
+                fn (string $name): bool => LocationOptions::fold($name) === LocationOptions::fold($storedCity)
             ) ?? $storedCity;
         }
         if (CityOptions::isCatalogCity($this->hq_country, $storedCity)) {
@@ -202,7 +203,7 @@ trait InteractsWithCustomerForm
     protected function resolvedHqCity(): ?string
     {
         if ($this->hq_country === 'TR') {
-            return \App\Support\Options\LocationOptions::normalizeArea('TR',
+            return LocationOptions::normalizeArea('TR',
                 $this->hq_city === CityOptions::OTHER ? $this->hq_city_other : $this->hq_city, null, 'hq_city')['city_name'];
         }
         if ($this->hq_city === CityOptions::OTHER) {

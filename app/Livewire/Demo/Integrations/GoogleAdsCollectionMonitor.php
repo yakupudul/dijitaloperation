@@ -9,6 +9,7 @@ use App\Models\Collection\CollectionRun;
 use App\Models\CoreIntegration;
 use App\Services\Collection\CancellationService;
 use App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService;
+use App\Services\Collection\Monitoring\CollectionAccountPresenter;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsCentralRequestFamilyCatalog;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
@@ -195,8 +196,7 @@ class GoogleAdsCollectionMonitor extends Component
         $running = $nonTerminal->where('status', CollectionRunStatus::Running)->count();
         $queued = $nonTerminal->where('status', CollectionRunStatus::Queued)->count();
         $retrying = $nonTerminal->where('status', CollectionRunStatus::Retrying)->count();
-        $quotaRetries = $nonTerminal->filter(fn (CollectionDatasetRun $dataset): bool =>
-            $dataset->status === CollectionRunStatus::Retrying
+        $quotaRetries = $nonTerminal->filter(fn (CollectionDatasetRun $dataset): bool => $dataset->status === CollectionRunStatus::Retrying
             && $dataset->retry_at !== null
             && $dataset->retry_at->isFuture()
             && ($dataset->error_category?->value === 'quota'
@@ -220,9 +220,9 @@ class GoogleAdsCollectionMonitor extends Component
         return [
             'id' => (int) $run->id,
             'label' => (string) (data_get($run->metadata, 'collection_intent_label') ?: 'Google Ads merkezi veri toplama'),
-            'status' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->state($run),
+            'status' => app(CollectionAccountPresenter::class)->state($run),
             'persisted_status' => $run->status->value,
-            'status_label' => $quotaWaiting ? 'Kota bekleniyor' : app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($run),
+            'status_label' => $quotaWaiting ? 'Kota bekleniyor' : app(CollectionAccountPresenter::class)->label($run),
             'quota_waiting' => $quotaWaiting,
             'quota_retry_at' => $retryAt?->toIso8601String(),
             'quota_retry_human' => $retryAt?->diffForHumans(),
@@ -267,8 +267,7 @@ class GoogleAdsCollectionMonitor extends Component
             ? substr($customerId, 0, 3).'-'.substr($customerId, 3, 3).'-'.substr($customerId, 6)
             : $customerId;
         $nonTerminal = $datasets->filter(fn (CollectionDatasetRun $dataset): bool => ! $dataset->status->isTerminal());
-        $quotaWaiting = $nonTerminal->isNotEmpty() && $nonTerminal->every(fn (CollectionDatasetRun $dataset): bool =>
-            $dataset->status === CollectionRunStatus::Retrying
+        $quotaWaiting = $nonTerminal->isNotEmpty() && $nonTerminal->every(fn (CollectionDatasetRun $dataset): bool => $dataset->status === CollectionRunStatus::Retrying
             && $dataset->retry_at !== null
             && $dataset->retry_at->isFuture()
             && ($dataset->error_category?->value === 'quota'
@@ -280,8 +279,8 @@ class GoogleAdsCollectionMonitor extends Component
             'external_resource_id' => (int) $resource->external_resource_id,
             'name' => (string) ($resource->externalResource?->display_name ?: 'Google Ads hesabı'),
             'customer_id' => $formatted,
-            'status' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->state($resource),
-            'status_label' => $quotaWaiting ? 'Kota bekleniyor' : app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($resource),
+            'status' => app(CollectionAccountPresenter::class)->state($resource),
+            'status_label' => $quotaWaiting ? 'Kota bekleniyor' : app(CollectionAccountPresenter::class)->label($resource),
             'terminal' => $resource->status->isTerminal(),
             'progress_percent' => $progress,
             'datasets_total' => $total,
@@ -354,4 +353,3 @@ class GoogleAdsCollectionMonitor extends Component
         };
     }
 }
-

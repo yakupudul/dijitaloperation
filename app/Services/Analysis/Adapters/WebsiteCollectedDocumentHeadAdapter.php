@@ -13,6 +13,7 @@ use App\Services\Analysis\Support\DigitalAssetType;
 use App\Services\Findings\FindingLifecycleService;
 use App\Services\WebsiteDiagnosisService;
 use App\Support\Findings\RuleEvaluationResult;
+use App\Support\Findings\RuleMatch;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Query\Builder;
@@ -124,7 +125,7 @@ final class WebsiteCollectedDocumentHeadAdapter
 
     /**
      * @param array{
-     *   evaluated:bool,evaluated_rule_ids:list<string>,matches:list<\App\Support\Findings\RuleMatch>,
+     *   evaluated:bool,evaluated_rule_ids:list<string>,matches:list<RuleMatch>,
      *   observed_at:?CarbonImmutable,provenance:array<string,mixed>,evidence:array<string,mixed>
      * } $wordpress
      */
@@ -166,7 +167,7 @@ final class WebsiteCollectedDocumentHeadAdapter
 
     /**
      * @param array{
-     *   evaluated:bool,evaluated_rule_ids:list<string>,matches:list<\App\Support\Findings\RuleMatch>,
+     *   evaluated:bool,evaluated_rule_ids:list<string>,matches:list<RuleMatch>,
      *   observed_at:?CarbonImmutable,provenance:array<string,mixed>,evidence:array<string,mixed>
      * } $wordpress
      */

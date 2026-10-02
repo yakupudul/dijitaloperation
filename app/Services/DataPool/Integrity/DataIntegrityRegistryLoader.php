@@ -58,7 +58,7 @@ final class DataIntegrityRegistryLoader
     }
 
     /**
-     * @param list<string>|null $providers
+     * @param  list<string>|null  $providers
      * @return list<array<string, mixed>>
      */
     public function profilesForProviders(?array $providers = null): array
@@ -113,7 +113,7 @@ final class DataIntegrityRegistryLoader
     }
 
     /**
-     * @param list<array<string, mixed>> $profiles
+     * @param  list<array<string, mixed>>  $profiles
      * @return list<array<string, mixed>>
      */
     private function withMetaAdsProfessionalProfiles(array $profiles): array
@@ -262,7 +262,7 @@ final class DataIntegrityRegistryLoader
      * These are current-state crawl/CMS observations; a failed integrity check must never
      * be auto-repaired or silently converted into an SEO score.
      *
-     * @param list<array<string, mixed>> $profiles
+     * @param  list<array<string, mixed>>  $profiles
      * @return list<array<string, mixed>>
      */
     private function withWebsiteIntelligenceProfiles(array $profiles): array
@@ -342,7 +342,7 @@ final class DataIntegrityRegistryLoader
     }
 
     /**
-     * @param array<string, mixed> $contract
+     * @param  array<string, mixed>  $contract
      * @return list<string>
      */
     private function metricColumns(array $contract): array

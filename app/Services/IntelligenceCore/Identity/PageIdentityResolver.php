@@ -95,7 +95,7 @@ final class PageIdentityResolver
     /**
      * Requires redirect, canonical, CMS permalink, rule or operator evidence.
      *
-     * @param array<string, mixed> $metadata
+     * @param  array<string, mixed>  $metadata
      */
     public function attachEvidenceAlias(
         IntelligencePageIdentity $identity,

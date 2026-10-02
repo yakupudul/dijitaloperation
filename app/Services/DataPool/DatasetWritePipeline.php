@@ -90,8 +90,7 @@ final class DatasetWritePipeline
     private function recordsWithCanonicalScope(
         NormalizedDatasetBatch $batch,
         ?RawPayloadReference $rawPayloadReference,
-    ): array
-    {
+    ): array {
         if ($batch->records === [] || ! $this->registry->hasPhysicalTable($batch->datasetId)) {
             return $batch->records;
         }

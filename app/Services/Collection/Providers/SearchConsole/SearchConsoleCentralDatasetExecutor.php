@@ -25,7 +25,9 @@ use Throwable;
 final class SearchConsoleCentralDatasetExecutor implements DatasetExecutor
 {
     public const string FAMILY_ANALYTICS = 'GSC_CENTRAL_SEARCH_ANALYTICS';
+
     public const string FAMILY_SITEMAPS = 'GSC_CENTRAL_SITEMAPS';
+
     public const string FAMILY_SITE_METADATA = 'GSC_CENTRAL_SITE_METADATA';
 
     public function __construct(
@@ -318,7 +320,7 @@ final class SearchConsoleCentralDatasetExecutor implements DatasetExecutor
      * date or page. Discover values with searchAppearance alone, then apply each
      * discovered value as a filter while grouping by date / date+page.
      *
-     * @param array<string, mixed> $scope
+     * @param  array<string, mixed>  $scope
      */
     private function executeSearchAppearanceAnalytics(
         DatasetExecutionContext $context,
@@ -441,6 +443,7 @@ final class SearchConsoleCentralDatasetExecutor implements DatasetExecutor
                 $appearanceIndex++;
                 $sliceIndex = 0;
                 $startRow = 0;
+
                 continue;
             }
 
@@ -738,4 +741,3 @@ final class SearchConsoleCentralDatasetExecutor implements DatasetExecutor
         );
     }
 }
-

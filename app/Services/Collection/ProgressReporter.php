@@ -65,4 +65,3 @@ final class ProgressReporter
         DatasetRunProgressed::dispatch($datasetRun->fresh() ?? $datasetRun);
     }
 }
-

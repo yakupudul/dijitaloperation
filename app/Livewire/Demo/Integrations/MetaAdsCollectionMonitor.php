@@ -31,6 +31,7 @@ class MetaAdsCollectionMonitor extends Component
 
         if ($run->status->isTerminal()) {
             $this->actionMessage = 'Bu Meta Ads veri toplama işlemi zaten tamamlanmış.';
+
             return;
         }
 
@@ -54,6 +55,7 @@ class MetaAdsCollectionMonitor extends Component
 
         if ($resource->status->isTerminal()) {
             $this->actionMessage = 'Bu reklam hesabı için toplama zaten tamamlanmış.';
+
             return;
         }
 
@@ -264,6 +266,7 @@ class MetaAdsCollectionMonitor extends Component
     private function mapDatasetError(CollectionDatasetRun $dataset): array
     {
         $message = trim((string) ($dataset->error_message ?? ''));
+
         return [
             'id' => (int) $dataset->id,
             'label' => $this->datasetLabel($dataset),
@@ -285,6 +288,7 @@ class MetaAdsCollectionMonitor extends Component
             return 1.0;
         }
         $percentage = $dataset->percentage();
+
         return $percentage === null ? 0.0 : min(1.0, max(0.0, $percentage / 100));
     }
 

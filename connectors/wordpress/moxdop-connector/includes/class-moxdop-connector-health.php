@@ -22,6 +22,7 @@ final class MoxDOP_Connector_Health
         foreach (['curl', 'dom', 'fileinfo', 'json', 'mbstring', 'mysqli', 'openssl', 'zip', 'gd', 'imagick'] as $module) {
             $modules[$module] = extension_loaded($module);
         }
+
         return [
             'observed_at' => gmdate('c'),
             'environment' => function_exists('wp_get_environment_type') ? wp_get_environment_type() : null,
@@ -39,7 +40,7 @@ final class MoxDOP_Connector_Health
             'page_cache_configured' => defined('WP_CACHE') && WP_CACHE,
             'users_can_register' => (bool) get_option('users_can_register'),
             'default_role' => (string) get_option('default_role'),
-            'event_delivery' => (new MoxDOP_Connector_Events())->status(),
+            'event_delivery' => (new MoxDOP_Connector_Events)->status(),
             'adapters' => [
                 'seopress' => defined('SEOPRESS_VERSION') ? SEOPRESS_VERSION : null,
                 'litespeed' => defined('LSCWP_V') ? LSCWP_V : null,

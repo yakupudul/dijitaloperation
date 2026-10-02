@@ -10,7 +10,7 @@ final class MoxDOP_Connector_Auth
 
     public function __construct()
     {
-        $this->secrets = new MoxDOP_Connector_Secrets();
+        $this->secrets = new MoxDOP_Connector_Secrets;
     }
 
     public function authorize(WP_REST_Request $request)
@@ -84,4 +84,3 @@ final class MoxDOP_Connector_Auth
         ]);
     }
 }
-

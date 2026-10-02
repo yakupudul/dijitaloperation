@@ -80,6 +80,7 @@ final class StoredSeoInspector
             }
             $hreflang[] = ['language' => $node->getAttribute('hreflang'), 'url' => $urls->resolve($base, $node->getAttribute('href'))];
         }
+
         return [
             'base_url' => $base,
             'title_count' => $xpath->query('//head/title')->length,

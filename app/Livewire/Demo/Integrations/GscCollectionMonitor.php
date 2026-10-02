@@ -8,6 +8,7 @@ use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreIntegration;
 use App\Services\Collection\CancellationService;
+use App\Services\Collection\Monitoring\CollectionAccountPresenter;
 use App\Services\Collection\SearchConsole\SearchConsoleCentralCollectionService;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
@@ -216,8 +217,8 @@ class GscCollectionMonitor extends Component
         return [
             'id' => (int) $run->id,
             'label' => (string) (data_get($run->metadata, 'collection_intent_label') ?: 'Search Console Merkezi Veri Toplama'),
-            'status' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->state($run),
-            'status_label' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($run),
+            'status' => app(CollectionAccountPresenter::class)->state($run),
+            'status_label' => app(CollectionAccountPresenter::class)->label($run),
             'progress_percent' => $progress,
             'sites_total' => count($resources),
             'sites_finished' => collect($resources)->where('terminal', true)->count(),
@@ -263,8 +264,8 @@ class GscCollectionMonitor extends Component
             'external_resource_id' => (int) $resource->external_resource_id,
             'name' => $this->siteLabel($siteUrl),
             'site_url' => $siteUrl,
-            'status' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->state($resource),
-            'status_label' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($resource),
+            'status' => app(CollectionAccountPresenter::class)->state($resource),
+            'status_label' => app(CollectionAccountPresenter::class)->label($resource),
             'terminal' => $resource->status->isTerminal(),
             'progress_percent' => $progress,
             'datasets_total' => $total,
@@ -335,7 +336,7 @@ class GscCollectionMonitor extends Component
             'external_resource_id' => (int) $resource->external_resource_id,
             'name' => $this->siteLabel($siteUrl),
             'site_url' => $siteUrl,
-            'status_label' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($resource),
+            'status_label' => app(CollectionAccountPresenter::class)->label($resource),
             'failed_count' => count($errors),
             'last_activity' => $resource->last_activity_at?->diffForHumans() ?? '—',
             'errors' => $errors,
@@ -452,4 +453,3 @@ class GscCollectionMonitor extends Component
         return is_string($host) && $host !== '' ? preg_replace('/^www\./i', '', $host) : $siteUrl;
     }
 }
-

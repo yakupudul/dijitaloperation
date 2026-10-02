@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Log;
 final class GoogleAdsRequestGovernor
 {
     private const GLOBAL_COOLDOWN_KEY = 'moxdop:gads:quota:global-until';
+
     private const RECOVERY_MARKER_KEY = 'moxdop:gads:quota:recovery-scanned';
 
     /** @template T of Response @param callable():T $request @return T */

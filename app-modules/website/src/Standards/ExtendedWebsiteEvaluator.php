@@ -19,6 +19,7 @@ final class ExtendedWebsiteEvaluator
             }
             if ($method === 'wp_event_delivery') {
                 $received = $wp['last_event_received_at'] ?? null;
+
                 return is_string($received) && strtotime($received) !== false && strtotime($received) <= $at + 300
                     ? $this->result($standard, $at - strtotime($received) > 1800, $received) : $unknown;
             }
@@ -112,6 +113,7 @@ final class ExtendedWebsiteEvaluator
                     break;
                 case 'wp_health_critical':
                     $value = $payload['site_health_cached']['critical'] ?? null;
+
                     return is_numeric($value) && $value > 0
                         ? $out('review', 'Önbellekte kritik sağlık bildirimi var; WordPress ekranında güncel sonucu doğrulayın.', $value)
                         : $unknown;
@@ -120,6 +122,7 @@ final class ExtendedWebsiteEvaluator
                     $failed = is_bool($value) ? ! $value : null;
                     break;
             }
+
             return $failed === null ? $unknown : $this->result($standard, $failed, $value);
         }
         $httpAt = data_get($page, 'facts.http.observed_at');
@@ -171,6 +174,7 @@ final class ExtendedWebsiteEvaluator
                         $candidate = is_string($target) ? ($index[$target] ?? null) : null;
                         if (! is_numeric($candidate['status_code'] ?? null) || (int) $candidate['status_code'] < 200 || (int) $candidate['status_code'] >= 300) {
                             $missing++;
+
                             continue;
                         }
                         if ($method === 'canonical_noindex') {
@@ -232,7 +236,9 @@ final class ExtendedWebsiteEvaluator
             case 'title_duplicate':
             case 'description_duplicate':
             case 'content_duplicate':
-                $field = match ($method) { 'title_duplicate' => 'title', 'description_duplicate' => 'meta_description', default => 'content_fingerprint' };
+                $field = match ($method) {
+                    'title_duplicate' => 'title', 'description_duplicate' => 'meta_description', default => 'content_fingerprint'
+                };
                 $needle = trim((string) ($html[$field] ?? ''));
                 if ($needle === '' || ($method === 'content_duplicate' && trim($html['normalized_text_excerpt'] ?? '') === '')) {
                     return $out('not_applicable', 'Karşılaştırılacak dolu içerik bulunmuyor.');
@@ -271,6 +277,7 @@ final class ExtendedWebsiteEvaluator
                     $code = $index[$url]['status_code'] ?? null;
                     if (! is_numeric($code)) {
                         $missing++;
+
                         continue;
                     }
                     $bad = $method === 'internal_broken' ? $code >= 400
@@ -286,6 +293,7 @@ final class ExtendedWebsiteEvaluator
                 $failed = $value !== [];
                 break;
         }
+
         return $failed === null ? $unknown : $this->result($standard, $failed, $value);
     }
 
@@ -295,6 +303,7 @@ final class ExtendedWebsiteEvaluator
             return false;
         }
         $timestamp = strtotime($value);
+
         return $timestamp !== false && $timestamp <= $at + 300 && $timestamp >= $at - $seconds;
     }
 

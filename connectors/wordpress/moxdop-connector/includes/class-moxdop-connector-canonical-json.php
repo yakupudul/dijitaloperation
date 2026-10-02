@@ -29,4 +29,3 @@ final class MoxDOP_Connector_Canonical_JSON
         return $value;
     }
 }
-

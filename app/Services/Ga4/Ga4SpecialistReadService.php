@@ -22,12 +22,19 @@ use Throwable;
 final class Ga4SpecialistReadService
 {
     private const string DATASET_PROPERTY_METADATA = 'ga4_property_metadata';
+
     private const string DATASET_PROPERTY_DAILY = 'ga4_property_daily';
+
     private const string DATASET_ACQUISITION_CHANNEL = 'ga4_acquisition_channel_daily';
+
     private const string DATASET_SOURCE_MEDIUM = 'ga4_source_medium_daily';
+
     private const string DATASET_CAMPAIGN = 'ga4_campaign_daily';
+
     private const string DATASET_LANDING_PAGE = 'ga4_landing_page_daily';
+
     private const string DATASET_EVENT = 'ga4_event_daily';
+
     private const string DATASET_DEVICE = 'ga4_device_daily';
 
     /** @var list<string> */
@@ -63,13 +70,18 @@ final class Ga4SpecialistReadService
     public function workspace(string $assetId, string $preset = 'last_28', ?string $start = null, ?string $end = null, string $compareMode = 'previous'): array
     {
         $binding = $this->bindingResolver->resolve($assetId);
-        if ($binding->mode === Ga4BindingMode::DemoCatalog) return $this->demoWorkspace($preset, $start, $end);
-        if ($binding->mode !== Ga4BindingMode::RealBound) return $this->operationalWorkspace($binding, $preset, $start, $end, 'not_connected');
+        if ($binding->mode === Ga4BindingMode::DemoCatalog) {
+            return $this->demoWorkspace($preset, $start, $end);
+        }
+        if ($binding->mode !== Ga4BindingMode::RealBound) {
+            return $this->operationalWorkspace($binding, $preset, $start, $end, 'not_connected');
+        }
 
         try {
             return $this->buildRealWorkspace($binding, $preset, $start, $end, $compareMode);
         } catch (Throwable $e) {
             Log::error('ga4.read_service.real_workspace_failed', ['digital_asset_id' => $binding->digitalAssetId, 'external_resource_id' => $binding->externalResourceId, 'error' => $e->getMessage()]);
+
             return $this->operationalWorkspace($binding, $preset, $start, $end, 'real', $e->getMessage());
         }
     }
@@ -81,6 +93,7 @@ final class Ga4SpecialistReadService
         $data['migration_mode'] = 'demo_catalog';
         $data['data_provenance'] = $this->allProvenance(DataSourceState::Demo);
         $data['tab_status'] = array_fill_keys(array_keys(self::TAB_FIELD_MAP), DataSourceState::Demo->value);
+
         return $data;
     }
 
@@ -194,6 +207,7 @@ final class Ga4SpecialistReadService
         $data['migration_mode'] = 'real';
         $data['data_provenance'] = $provenance;
         $data['tab_status'] = $this->rollupTabStatus($provenance);
+
         return $data;
     }
 
@@ -201,7 +215,8 @@ final class Ga4SpecialistReadService
     private function operationalWorkspace(Ga4BindingContext $binding, string $preset, ?string $start, ?string $end, string $migrationMode, ?string $errorMessage = null): array
     {
         $bounds = OperatorReportingPeriod::queryBounds($preset, $start, $end);
-        $rangeStart = $bounds['start']->toDateString(); $rangeEnd = $bounds['end']->toDateString();
+        $rangeStart = $bounds['start']->toDateString();
+        $rangeEnd = $bounds['end']->toDateString();
         $prev = OperatorReportingPeriod::previousQueryBounds($preset, $start, $end);
         $reason = $errorMessage !== null ? 'query_error' : ($binding->reason ?? 'no_active_ga4_binding');
         $statusLabel = $errorMessage !== null ? 'Error' : ($binding->mode === Ga4BindingMode::ActionRequired ? 'Action required' : 'Not connected');
@@ -222,7 +237,9 @@ final class Ga4SpecialistReadService
             'operations' => ['subtitle' => $errorMessage !== null ? 'GA4 read error — no findings, recommendations, tasks, or outcomes available.' : 'GA4 binding required — connect a property to see findings, recommendations, tasks, and outcomes.', 'findings' => [], 'recommendations' => [], 'tasks' => [], 'outcomes' => [], 'finding_detail' => [], 'collection_state' => ['note' => $collectionNote, 'datasets' => []]],
             'recent_outcomes' => [], 'opportunities' => [], 'narrative' => null, 'missing_note' => 'Missing ≠ zero — Not connected / Unavailable means the signal is absent, not a measured 0.', 'migration_mode' => $migrationMode, 'data_provenance' => $this->allProvenance(DataSourceState::Unavailable),
         ];
-        $data['tab_status'] = $this->rollupTabStatus($data['data_provenance']); return $data;
+        $data['tab_status'] = $this->rollupTabStatus($data['data_provenance']);
+
+        return $data;
     }
 
     private function realIdentity(Ga4BindingContext $binding, ?DigitalAsset $asset, ?array $propertyMeta): array
@@ -232,14 +249,22 @@ final class Ga4SpecialistReadService
         $primaryStream = $this->primaryDataStream($metaJson);
         $measurementId = is_string($primaryStream['measurement_id'] ?? null) ? $primaryStream['measurement_id'] : null;
         $streamName = is_string($primaryStream['name'] ?? null) ? $primaryStream['name'] : null;
-        $brandName = $asset?->brand?->name; $assetName = $asset?->name; $title = $propertyName ?? $assetName ?? 'GA4 property';
+        $brandName = $asset?->brand?->name;
+        $assetName = $asset?->name;
+        $title = $propertyName ?? $assetName ?? 'GA4 property';
+
         return ['eyebrow' => 'Google Analytics', 'title' => "{$title} — GA4", 'brand' => $brandName, 'brand_id' => $asset?->brand_id, 'brand_name' => $brandName, 'website_asset_id' => null, 'google_ads_asset_id' => null, 'meta_asset_id' => null, 'ga4_asset_id' => $binding->assetId, 'relationship_line' => $assetName !== null ? "Measures · {$assetName}" : null, 'status' => 'Connected', 'freshness' => null, 'reporting_timezone' => $binding->timezone, 'property_id' => $binding->propertyId, 'measurement_id' => $measurementId, 'property_name' => $propertyName ?? $assetName, 'stream_name' => $streamName];
     }
 
     private function realFreshnessChips(Ga4DatasetReadiness $dailyGate, string $propertyId): array
     {
-        $stateLabel = match ($dailyGate->freshnessState) {'FRESH', 'FRESH_WITH_LIMITATION' => 'current', 'STALE' => 'stale', default => 'attention'};
-        $ageLabel = match ($dailyGate->freshnessState) {'FRESH', 'FRESH_WITH_LIMITATION' => 'Fresh', 'DUE' => 'Due', 'STALE' => 'Stale', 'PARTIAL' => 'Partial', 'ACTION_REQUIRED' => 'Action required', 'INTEGRITY_BLOCKED' => 'Blocked', default => 'Unknown'};
+        $stateLabel = match ($dailyGate->freshnessState) {
+            'FRESH', 'FRESH_WITH_LIMITATION' => 'current', 'STALE' => 'stale', default => 'attention'
+        };
+        $ageLabel = match ($dailyGate->freshnessState) {
+            'FRESH', 'FRESH_WITH_LIMITATION' => 'Fresh', 'DUE' => 'Due', 'STALE' => 'Stale', 'PARTIAL' => 'Partial', 'ACTION_REQUIRED' => 'Action required', 'INTEGRITY_BLOCKED' => 'Blocked', default => 'Unknown'
+        };
+
         return [['source' => 'GA4', 'age' => $ageLabel, 'detail' => "Property {$propertyId} · ga4_property_daily · {$dailyGate->coverageState}", 'state' => $stateLabel]];
     }
 
@@ -248,13 +273,16 @@ final class Ga4SpecialistReadService
         $comparisonText = $compareMode === 'yoy' ? 'year-ago period' : 'previous period';
         if (! $dailyGate->isUsable()) {
             $unavailable = ['value' => '—', 'raw' => null, 'secondary' => 'Unavailable', 'tone' => 'neutral'];
+
             return ['users' => $unavailable + ['note' => 'GA4 unique users are non-additive.'], 'sessions' => $unavailable + ['note' => 'Sessions unavailable — ga4_property_daily dataset is not ready for real UI.'], 'new_users' => $unavailable + ['note' => 'New users unavailable — missing is not zero.'], 'conversions' => $unavailable + ['note' => 'Key events / conversions unavailable — missing is not zero.'], 'revenue' => $unavailable + ['note' => 'Revenue unavailable — missing is not zero.'], 'business_actions' => $unavailable + ['note' => 'Business action mapping is not configured for this property.'], 'measurement_state' => ['value' => 'Unavailable', 'secondary' => 'No business-action mapping store', 'tone' => 'neutral']];
         }
 
         $sessionsRaw = $sums !== null ? (int) $sums['sessions'] : 0;
         $delta = ($sums !== null && $prevSums !== null) ? $this->formulas->periodRelativeChange((float) $sums['sessions'], (float) $prevSums['sessions']) : null;
         $sessions = ['value' => number_format($sessionsRaw), 'raw' => $sessionsRaw, 'secondary' => $this->deltaSecondary($delta, $dailyGate, $compareMode), 'tone' => 'neutral'];
-        if ($dailyGate->coverageState === Ga4DatasetReadiness::COVERAGE_PARTIALLY_COVERED) $sessions['note'] = 'Partial coverage — sessions reflect only collected days in this range.';
+        if ($dailyGate->coverageState === Ga4DatasetReadiness::COVERAGE_PARTIALLY_COVERED) {
+            $sessions['note'] = 'Partial coverage — sessions reflect only collected days in this range.';
+        }
 
         $users = ['value' => '—', 'raw' => null, 'secondary' => 'Unavailable · not additive', 'tone' => 'neutral', 'note' => 'GA4 unique users cannot be summed across days into a period total — showing Unavailable rather than an inflated/incorrect sum.'];
 
@@ -275,15 +303,22 @@ final class Ga4SpecialistReadService
             : ['value' => number_format((float) $revenueValue, 2), 'raw' => (float) $revenueValue, 'secondary' => 'totalRevenue', 'tone' => 'neutral'];
 
         $unavailableChip = ['value' => '—', 'raw' => null, 'secondary' => 'Unavailable', 'tone' => 'neutral', 'note' => 'Business action mapping is not configured for this property.'];
+
         return ['users' => $users, 'sessions' => $sessions, 'new_users' => $newUsers, 'conversions' => $conversions, 'revenue' => $revenue, 'business_actions' => $unavailableChip, 'measurement_state' => ['value' => 'Unavailable', 'secondary' => 'No business-action mapping store', 'tone' => 'neutral']];
     }
 
     private function deltaSecondary(?FormulaResult $delta, Ga4DatasetReadiness $gate, string $compareMode): string
     {
         $comparisonText = $compareMode === 'yoy' ? 'year-ago period' : 'previous period';
-        if (! $gate->isUsable()) return 'Unavailable vs '.$comparisonText;
-        if ($delta === null || ! $delta->isValue()) return 'vs '.$comparisonText.' unavailable';
-        $pct = $delta->toPercentDisplay(); $prefix = $pct >= 0 ? '+' : '';
+        if (! $gate->isUsable()) {
+            return 'Unavailable vs '.$comparisonText;
+        }
+        if ($delta === null || ! $delta->isValue()) {
+            return 'vs '.$comparisonText.' unavailable';
+        }
+        $pct = $delta->toPercentDisplay();
+        $prefix = $pct >= 0 ? '+' : '';
+
         return $prefix.number_format($pct, 1).'% vs '.$comparisonText;
     }
 
@@ -294,10 +329,18 @@ final class Ga4SpecialistReadService
 
     private function realPerformanceTrend(Ga4DatasetReadiness $dailyGate, int $digitalAssetId, int $externalResourceId, string $propertyId): array
     {
-        if (! $dailyGate->isUsable() || $dailyGate->effectiveStart === null || $dailyGate->effectiveEnd === null) return ['labels' => [], 'sessions' => [], 'business_actions' => [], 'note' => 'Sessions trend unavailable — ga4_property_daily dataset is not ready for real UI.'];
-        $series = $this->pool->propertyDailySeries($digitalAssetId, $externalResourceId, $propertyId, $dailyGate->effectiveStart, $dailyGate->effectiveEnd); $labels = []; $sessions = [];
-        foreach ($series as $point) { $labels[] = CarbonImmutable::parse($point['date'])->format('M j'); $sessions[] = $point['sessions']; }
+        if (! $dailyGate->isUsable() || $dailyGate->effectiveStart === null || $dailyGate->effectiveEnd === null) {
+            return ['labels' => [], 'sessions' => [], 'business_actions' => [], 'note' => 'Sessions trend unavailable — ga4_property_daily dataset is not ready for real UI.'];
+        }
+        $series = $this->pool->propertyDailySeries($digitalAssetId, $externalResourceId, $propertyId, $dailyGate->effectiveStart, $dailyGate->effectiveEnd);
+        $labels = [];
+        $sessions = [];
+        foreach ($series as $point) {
+            $labels[] = CarbonImmutable::parse($point['date'])->format('M j');
+            $sessions[] = $point['sessions'];
+        }
         $partial = $dailyGate->coverageState === Ga4DatasetReadiness::COVERAGE_PARTIALLY_COVERED;
+
         return ['labels' => $labels, 'sessions' => $sessions, 'business_actions' => [], 'note' => ($partial ? 'Sessions · real GA4 data (partial coverage). ' : 'Sessions · real GA4 data. ').'Business actions omitted — no Business Action mapping configured (not mixed with Demo on this chart).'];
     }
 
@@ -305,65 +348,141 @@ final class Ga4SpecialistReadService
     {
         $channels = [];
         if ($channelGate->isUsable() && $channelGate->effectiveStart !== null && $channelGate->effectiveEnd !== null) {
-            $rows = $this->pool->acquisitionChannels($digitalAssetId, $externalResourceId, $propertyId, $channelGate->effectiveStart, $channelGate->effectiveEnd); $totalSessions = (int) array_sum(array_column($rows, 'sessions'));
-            foreach ($rows as $row) { $share = $this->formulas->channelShare($row['sessions'], $totalSessions); $channels[] = ['channel' => $row['channel'], 'sessions' => $row['sessions'], 'share_pct' => $share->toPercentDisplay() ?? 0.0, 'bar' => $totalSessions > 0 ? (int) round(($row['sessions'] / $totalSessions) * 100) : 0, 'mapped_actions' => null, 'related' => null]; }
+            $rows = $this->pool->acquisitionChannels($digitalAssetId, $externalResourceId, $propertyId, $channelGate->effectiveStart, $channelGate->effectiveEnd);
+            $totalSessions = (int) array_sum(array_column($rows, 'sessions'));
+            foreach ($rows as $row) {
+                $share = $this->formulas->channelShare($row['sessions'], $totalSessions);
+                $channels[] = ['channel' => $row['channel'], 'sessions' => $row['sessions'], 'share_pct' => $share->toPercentDisplay() ?? 0.0, 'bar' => $totalSessions > 0 ? (int) round(($row['sessions'] / $totalSessions) * 100) : 0, 'mapped_actions' => null, 'related' => null];
+            }
         }
         $sourceMedium = [];
-        if ($sourceMediumGate->isUsable() && $sourceMediumGate->effectiveStart !== null && $sourceMediumGate->effectiveEnd !== null) foreach ($this->pool->sourceMedium($digitalAssetId, $externalResourceId, $propertyId, $sourceMediumGate->effectiveStart, $sourceMediumGate->effectiveEnd) as $row) $sourceMedium[] = ['source_medium' => $row['source_medium'], 'sessions' => $row['sessions'], 'mapped_actions' => null];
+        if ($sourceMediumGate->isUsable() && $sourceMediumGate->effectiveStart !== null && $sourceMediumGate->effectiveEnd !== null) {
+            foreach ($this->pool->sourceMedium($digitalAssetId, $externalResourceId, $propertyId, $sourceMediumGate->effectiveStart, $sourceMediumGate->effectiveEnd) as $row) {
+                $sourceMedium[] = ['source_medium' => $row['source_medium'], 'sessions' => $row['sessions'], 'mapped_actions' => null];
+            }
+        }
         $campaigns = [];
-        if ($campaignGate->isUsable() && $campaignGate->effectiveStart !== null && $campaignGate->effectiveEnd !== null) foreach ($this->pool->campaigns($digitalAssetId, $externalResourceId, $propertyId, $campaignGate->effectiveStart, $campaignGate->effectiveEnd) as $row) $campaigns[] = ['campaign' => $row['campaign'], 'source' => null, 'sessions' => $row['sessions'], 'mapped_actions' => null, 'related_asset' => null, 'related_asset_id' => null, 'route' => null];
+        if ($campaignGate->isUsable() && $campaignGate->effectiveStart !== null && $campaignGate->effectiveEnd !== null) {
+            foreach ($this->pool->campaigns($digitalAssetId, $externalResourceId, $propertyId, $campaignGate->effectiveStart, $campaignGate->effectiveEnd) as $row) {
+                $campaigns[] = ['campaign' => $row['campaign'], 'source' => null, 'sessions' => $row['sessions'], 'mapped_actions' => null, 'related_asset' => null, 'related_asset_id' => null, 'route' => null];
+            }
+        }
         $anyReady = $channelGate->isUsable() || $sourceMediumGate->isUsable() || $campaignGate->isUsable();
+
         return ['channels' => $channels, 'source_medium' => $sourceMedium, 'campaigns' => $campaigns, 'utm_note' => $anyReady ? 'Real GA4 acquisition data · mapped business actions Unavailable (no Business Action mapping configured).' : 'Acquisition data unavailable — GA4 acquisition datasets are not ready for real UI.'];
     }
 
     private function realBehavior(int $digitalAssetId, int $externalResourceId, string $propertyId, Ga4DatasetReadiness $landingGate, Ga4DatasetReadiness $dailyGate, Ga4DatasetReadiness $deviceGate, ?array $propertySums): array
     {
         $landingPages = [];
-        if ($landingGate->isUsable() && $landingGate->effectiveStart !== null && $landingGate->effectiveEnd !== null) foreach ($this->pool->landingPages($digitalAssetId, $externalResourceId, $propertyId, $landingGate->effectiveStart, $landingGate->effectiveEnd) as $row) { $engagedRate = $this->formulas->engagementRate($row['engagedSessions'], $row['sessions']); $landingPages[] = ['path' => $row['path'], 'title' => '', 'content_role' => '', 'sessions' => $row['sessions'], 'engaged_sessions' => $row['engagedSessions'], 'engaged_rate' => $engagedRate->toPercentDisplay(0) ?? 0.0, 'mapped_actions' => 0, 'website_asset_id' => null, 'attention' => null]; }
+        if ($landingGate->isUsable() && $landingGate->effectiveStart !== null && $landingGate->effectiveEnd !== null) {
+            foreach ($this->pool->landingPages($digitalAssetId, $externalResourceId, $propertyId, $landingGate->effectiveStart, $landingGate->effectiveEnd) as $row) {
+                $engagedRate = $this->formulas->engagementRate($row['engagedSessions'], $row['sessions']);
+                $landingPages[] = ['path' => $row['path'], 'title' => '', 'content_role' => '', 'sessions' => $row['sessions'], 'engaged_sessions' => $row['engagedSessions'], 'engaged_rate' => $engagedRate->toPercentDisplay(0) ?? 0.0, 'mapped_actions' => 0, 'website_asset_id' => null, 'attention' => null];
+            }
+        }
         $engagement = [];
-        if ($dailyGate->isUsable() && $propertySums !== null) { $rate = $this->formulas->engagementRate($propertySums['engagedSessions'], $propertySums['sessions']); $avgTime = $this->formulas->avgEngagementTime($propertySums['userEngagementDuration'], $propertySums['activeUsers']); $viewsPerSession = $this->formulas->viewsPerSession($propertySums['screenPageViews'], $propertySums['sessions']); $engagement = [['metric' => 'Engagement rate', 'value' => $rate->isValue() ? number_format((float) $rate->toPercentDisplay(), 1).'%' : 'Unavailable', 'state' => $rate->isValue() ? 'Measured' : 'Unavailable'], ['metric' => 'Avg engagement time', 'value' => $avgTime->isValue() ? $this->formatSeconds((float) $avgTime->toDisplay()) : 'Unavailable', 'state' => $avgTime->isValue() ? 'Measured' : 'Unavailable'], ['metric' => 'Views / session', 'value' => $viewsPerSession->isValue() ? number_format((float) $viewsPerSession->toDisplay(1), 1) : 'Unavailable', 'state' => $viewsPerSession->isValue() ? 'Measured' : 'Unavailable'], ['metric' => 'Appointment completion', 'value' => 'Unavailable', 'state' => 'Not mapped']]; }
+        if ($dailyGate->isUsable() && $propertySums !== null) {
+            $rate = $this->formulas->engagementRate($propertySums['engagedSessions'], $propertySums['sessions']);
+            $avgTime = $this->formulas->avgEngagementTime($propertySums['userEngagementDuration'], $propertySums['activeUsers']);
+            $viewsPerSession = $this->formulas->viewsPerSession($propertySums['screenPageViews'], $propertySums['sessions']);
+            $engagement = [['metric' => 'Engagement rate', 'value' => $rate->isValue() ? number_format((float) $rate->toPercentDisplay(), 1).'%' : 'Unavailable', 'state' => $rate->isValue() ? 'Measured' : 'Unavailable'], ['metric' => 'Avg engagement time', 'value' => $avgTime->isValue() ? $this->formatSeconds((float) $avgTime->toDisplay()) : 'Unavailable', 'state' => $avgTime->isValue() ? 'Measured' : 'Unavailable'], ['metric' => 'Views / session', 'value' => $viewsPerSession->isValue() ? number_format((float) $viewsPerSession->toDisplay(1), 1) : 'Unavailable', 'state' => $viewsPerSession->isValue() ? 'Measured' : 'Unavailable'], ['metric' => 'Appointment completion', 'value' => 'Unavailable', 'state' => 'Not mapped']];
+        }
         $devices = [];
-        if ($deviceGate->isUsable() && $deviceGate->effectiveStart !== null && $deviceGate->effectiveEnd !== null) { $rows = $this->pool->devices($digitalAssetId, $externalResourceId, $propertyId, $deviceGate->effectiveStart, $deviceGate->effectiveEnd); $total = (int) array_sum(array_column($rows, 'sessions')); foreach ($rows as $row) { $share = $this->formulas->deviceShare($row['sessions'], $total); $devices[] = ['device' => $row['device'], 'share_pct' => (int) round($share->toPercentDisplay() ?? 0.0), 'sessions' => $row['sessions']]; } }
+        if ($deviceGate->isUsable() && $deviceGate->effectiveStart !== null && $deviceGate->effectiveEnd !== null) {
+            $rows = $this->pool->devices($digitalAssetId, $externalResourceId, $propertyId, $deviceGate->effectiveStart, $deviceGate->effectiveEnd);
+            $total = (int) array_sum(array_column($rows, 'sessions'));
+            foreach ($rows as $row) {
+                $share = $this->formulas->deviceShare($row['sessions'], $total);
+                $devices[] = ['device' => $row['device'], 'share_pct' => (int) round($share->toPercentDisplay() ?? 0.0), 'sessions' => $row['sessions']];
+            }
+        }
+
         return ['subtitle' => 'Landing behaviour from live GA4 data — business action mapping stays Unavailable (no mapping store configured).', 'landing_pages' => $landingPages, 'engagement' => $engagement, 'devices' => $devices];
     }
 
-    private function formatSeconds(float $seconds): string { $minutes = (int) floor($seconds / 60); $secs = (int) round($seconds - ($minutes * 60)); return $minutes > 0 ? "{$minutes}m {$secs}s" : "{$secs}s"; }
+    private function formatSeconds(float $seconds): string
+    {
+        $minutes = (int) floor($seconds / 60);
+        $secs = (int) round($seconds - ($minutes * 60));
+
+        return $minutes > 0 ? "{$minutes}m {$secs}s" : "{$secs}s";
+    }
 
     private function realMeasurementEvents(int $digitalAssetId, int $externalResourceId, string $propertyId, Ga4DatasetReadiness $eventGate): array
     {
-        if (! $eventGate->isUsable() || $eventGate->effectiveStart === null || $eventGate->effectiveEnd === null) return [];
+        if (! $eventGate->isUsable() || $eventGate->effectiveStart === null || $eventGate->effectiveEnd === null) {
+            return [];
+        }
+
         return array_map(static fn (array $row): array => ['event' => $row['event'], 'count' => $row['count'], 'mapped_action' => 'Unavailable', 'state' => 'Observed'], $this->pool->events($digitalAssetId, $externalResourceId, $propertyId, $eventGate->effectiveStart, $eventGate->effectiveEnd));
     }
 
     private function realStreams(?array $propertyMeta): array
     {
-        if ($propertyMeta === null) return [];
-        $metaJson = is_array($propertyMeta['metadata'] ?? null) ? $propertyMeta['metadata'] : []; $streams = is_array($metaJson['data_streams'] ?? null) ? $metaJson['data_streams'] : [];
-        if ($streams === []) return [['name' => $metaJson['display_name'] ?? 'GA4 web stream', 'stream_id' => null, 'measurement_id' => null, 'type' => 'Web', 'status' => 'Receiving', 'last_hit' => $propertyMeta['last_collected_at'] ?? null]];
+        if ($propertyMeta === null) {
+            return [];
+        }
+        $metaJson = is_array($propertyMeta['metadata'] ?? null) ? $propertyMeta['metadata'] : [];
+        $streams = is_array($metaJson['data_streams'] ?? null) ? $metaJson['data_streams'] : [];
+        if ($streams === []) {
+            return [['name' => $metaJson['display_name'] ?? 'GA4 web stream', 'stream_id' => null, 'measurement_id' => null, 'type' => 'Web', 'status' => 'Receiving', 'last_hit' => $propertyMeta['last_collected_at'] ?? null]];
+        }
+
         return array_map(static fn (array $stream): array => ['name' => $stream['displayName'] ?? $stream['name'] ?? 'GA4 stream', 'stream_id' => $stream['name'] ?? null, 'measurement_id' => $stream['webStreamData']['measurementId'] ?? null, 'type' => $stream['type'] ?? 'Web', 'status' => 'Receiving', 'last_hit' => $propertyMeta['last_collected_at'] ?? null], $streams);
     }
 
     private function primaryDataStream(array $metaJson): array
     {
-        $streams = is_array($metaJson['data_streams'] ?? null) ? $metaJson['data_streams'] : []; $first = $streams[0] ?? null;
-        if (! is_array($first)) return ['name' => null, 'measurement_id' => null];
+        $streams = is_array($metaJson['data_streams'] ?? null) ? $metaJson['data_streams'] : [];
+        $first = $streams[0] ?? null;
+        if (! is_array($first)) {
+            return ['name' => null, 'measurement_id' => null];
+        }
+
         return ['name' => $first['displayName'] ?? $first['name'] ?? null, 'measurement_id' => $first['webStreamData']['measurementId'] ?? null];
     }
 
     private function realUtmHygiene(int $digitalAssetId, int $externalResourceId, string $propertyId, Ga4DatasetReadiness $campaignGate, ?array $propertySums): array
     {
-        if (! $campaignGate->isUsable() || $propertySums === null || $campaignGate->effectiveStart === null || $campaignGate->effectiveEnd === null) return ['unavailable_pct' => null, 'prior_unavailable_pct' => null, 'unavailable_sessions' => null, 'trend' => null, 'note' => 'UTM hygiene unavailable — ga4_campaign_daily dataset is not ready for real UI.', 'finding_id' => null];
-        $unavailableSessions = $this->pool->utmUnavailableSessions($digitalAssetId, $externalResourceId, $propertyId, $campaignGate->effectiveStart, $campaignGate->effectiveEnd); $totalSessions = (int) $propertySums['sessions']; $pct = $this->formulas->utmUnavailablePct($unavailableSessions, $totalSessions);
+        if (! $campaignGate->isUsable() || $propertySums === null || $campaignGate->effectiveStart === null || $campaignGate->effectiveEnd === null) {
+            return ['unavailable_pct' => null, 'prior_unavailable_pct' => null, 'unavailable_sessions' => null, 'trend' => null, 'note' => 'UTM hygiene unavailable — ga4_campaign_daily dataset is not ready for real UI.', 'finding_id' => null];
+        }
+        $unavailableSessions = $this->pool->utmUnavailableSessions($digitalAssetId, $externalResourceId, $propertyId, $campaignGate->effectiveStart, $campaignGate->effectiveEnd);
+        $totalSessions = (int) $propertySums['sessions'];
+        $pct = $this->formulas->utmUnavailablePct($unavailableSessions, $totalSessions);
+
         return ['unavailable_pct' => $pct->toPercentDisplay() ?? 0.0, 'prior_unavailable_pct' => null, 'unavailable_sessions' => $unavailableSessions, 'trend' => null, 'note' => 'Real GA4 campaign data — no prior-window comparison computed.', 'finding_id' => null];
     }
 
-    private function realCollectionState(array $gates): array { return ['note' => 'Real GA4 collection/materialization/freshness/integrity/coverage state. Findings, Recommendations, Tasks and Outcomes below remain Demo — this migration creates no Evidence/Findings/Opportunities/Business Outcomes.', 'datasets' => array_map(static fn (Ga4DatasetReadiness $g): array => $g->toArray(), $gates)]; }
-    private function realTechnicalConnection(Ga4BindingContext $binding, ?array $propertyMeta): array { $metaJson = is_array($propertyMeta['metadata'] ?? null) ? $propertyMeta['metadata'] : []; $primaryStream = $this->primaryDataStream($metaJson); return ['type' => 'GA4 property binding', 'property_id' => $binding->propertyId, 'measurement_id' => $primaryStream['measurement_id'], 'status' => 'Connected', 'note' => 'Real binding · CoreAssetBinding #'.$binding->coreAssetBindingId]; }
-    private function allProvenance(DataSourceState $state): array { return array_fill_keys(self::PROVENANCE_FIELDS, $state->value); }
+    private function realCollectionState(array $gates): array
+    {
+        return ['note' => 'Real GA4 collection/materialization/freshness/integrity/coverage state. Findings, Recommendations, Tasks and Outcomes below remain Demo — this migration creates no Evidence/Findings/Opportunities/Business Outcomes.', 'datasets' => array_map(static fn (Ga4DatasetReadiness $g): array => $g->toArray(), $gates)];
+    }
+
+    private function realTechnicalConnection(Ga4BindingContext $binding, ?array $propertyMeta): array
+    {
+        $metaJson = is_array($propertyMeta['metadata'] ?? null) ? $propertyMeta['metadata'] : [];
+        $primaryStream = $this->primaryDataStream($metaJson);
+
+        return ['type' => 'GA4 property binding', 'property_id' => $binding->propertyId, 'measurement_id' => $primaryStream['measurement_id'], 'status' => 'Connected', 'note' => 'Real binding · CoreAssetBinding #'.$binding->coreAssetBindingId];
+    }
+
+    private function allProvenance(DataSourceState $state): array
+    {
+        return array_fill_keys(self::PROVENANCE_FIELDS, $state->value);
+    }
+
     private function rollupTabStatus(array $provenance): array
     {
         $status = [];
-        foreach (self::TAB_FIELD_MAP as $tab => $fields) { $values = array_values(array_unique(array_map(static fn (string $field): string => $provenance[$field] ?? DataSourceState::Unavailable->value, $fields))); $status[$tab] = match (true) { $values === [DataSourceState::Real->value] => 'REAL', $values === [DataSourceState::Demo->value] => 'DEMO', $values === [DataSourceState::Unavailable->value] => 'UNAVAILABLE', default => 'PARTIAL' }; }
+        foreach (self::TAB_FIELD_MAP as $tab => $fields) {
+            $values = array_values(array_unique(array_map(static fn (string $field): string => $provenance[$field] ?? DataSourceState::Unavailable->value, $fields)));
+            $status[$tab] = match (true) {
+                $values === [DataSourceState::Real->value] => 'REAL', $values === [DataSourceState::Demo->value] => 'DEMO', $values === [DataSourceState::Unavailable->value] => 'UNAVAILABLE', default => 'PARTIAL'
+            };
+        }
+
         return $status;
     }
 }

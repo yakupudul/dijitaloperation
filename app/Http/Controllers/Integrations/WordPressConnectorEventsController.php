@@ -101,11 +101,13 @@ final class WordPressConnectorEventsController
                 ], JSON_THROW_ON_ERROR),
                 'latest_event_id' => DB::table('website_connector_events')->where('connection_id', $locked->id)->max('id') ?? 0,
             ]);
+
             return $ids;
         });
 
         $data = ['accepted_event_ids' => $ids];
         $time = time();
+
         return response()->json(['data' => $data, 'meta' => [
             'server_time' => $time, 'request_nonce' => $nonce,
             'signature' => hash_hmac('sha256', implode("\n", [(string) $time, $nonce,
