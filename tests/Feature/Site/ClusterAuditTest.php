@@ -62,7 +62,7 @@ final class ClusterAuditTest extends SiteTestCase
 
         $result = app(ClusterAudit::class)->run($this->site);
 
-        $this->assertSame(['status' => 'ready', 'clusters' => 2, 'matched' => 1, 'gaps' => 2, 'ideas' => 0], $result);
+        $this->assertSame(['status' => 'ready', 'clusters' => 2, 'matched' => 1, 'gaps' => 2, 'ideas' => 0, 'overlaps' => 0], $result);
         $this->assertCount(1, $calls['questions'], 'one AI-questions call per service');
         $this->assertSame(['{bölge} implant için hangi kliniği önerirsin?', 'İmplant mı köprü mü daha iyi?'], $treatment->fresh()->ai_queries, 'too-short questions dropped');
         $this->assertTrue($calls['questions'][0]['clusters'][0]['local']);
@@ -85,7 +85,8 @@ final class ClusterAuditTest extends SiteTestCase
         $implantPage->forceFill(['wp_post_id' => 41])->save();
         $page = Livewire::test(ContentIdeasTab::class, ['assetId' => $this->site->id])
             ->assertSee('Geliştirilmeli')->assertSee('Eksikler (2)')->assertSee('Çankaya implant için hangi kliniği önerirsin?')
-            ->assertSeeHtml('data-improve')->assertDontSeeHtml('data-produce');
+            ->assertSeeHtml('data-improve')->assertSeeHtml('data-produce', 'Eşleştir found no page: AI ile üret is offered at once')
+            ->assertSeeHtml('data-content-idea')->assertSee('İçerik önerisi:');
 
         $applied = [];
         ApplyChangeAgent::fake(function (string $prompt) use (&$applied): array {
@@ -99,8 +100,7 @@ final class ClusterAuditTest extends SiteTestCase
         $this->assertSame(['Tedavinin ne kadar sürdüğü yanıtlanmamış', 'Çankaya şubesinde hizmet verildiği belirtilmemiş'], $applied[0]['cluster']['gaps']);
         $this->assertSame(['Çankaya'], $applied[0]['cluster']['service_areas']);
 
-        // No page: "AI ile üret" appears only after "Yeniden keşfet" found nothing either.
-        $page->call('produce', 'main', $aftercareRow->id)->assertSee('Önce "Yeniden keşfet"');
+        // No page: "Yeniden keşfet" looks again; it still finds nothing.
         $page->call('rediscover', 'main', $aftercareRow->id);
         $this->assertNotNull($aftercareRow->fresh()->rediscovered_at);
         $this->assertNull($aftercareRow->fresh()->page_id);

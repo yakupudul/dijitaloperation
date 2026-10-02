@@ -1,5 +1,26 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-19 — Site akışı: WordPress bağlıysa kendi kendine akar
+
+- **Akış (SiteFlow):** markanın sitesinde WordPress eklentisi eşleşmişse zincir kendiliğinden ilerler:
+  1. sayfalar;
+  2. sayfa sınıflandırma ve hizmet ↔ sayfa (kurallar önce, kalanı AI);
+  3. küme ↔ sayfa ("Eşleştir": sayfa, kapsam, eksikler, aynı ihtiyacı karşılayan diğer sayfalar).
+  - Her gece (moxdop:brands:dossier), site hazırlığı bitince ve kümeleme yeni küme onaylayınca bir sonraki adım başlar. Aynı anda tek adım çalışır.
+  - Küme ↔ sayfa yalnız girdileri değişince yeniden çalışır: onaylı kümeler, sayfa içerikleri / kategorileri, ya da hiç okunmamış satır. Her gece AI çalışmaz.
+  - Eklenti bağlı değilse AI adımı çalışmaz; Eksikler'de "WordPress eklentisi bağlı değil" görünür.
+  - Web sitesi › Sorgular › İçerik fikirleri'nin üstünde "Site akışı" kartı adımları ve sayıları gösterir; "Akışı şimdi ilerlet" düğmesi var.
+- **Bir küme birden fazla sayfayla eşleşirse:** eşleştirme AI'ı (site-cluster-match-v3) aynı ihtiyacı işleyen diğer sayfaları da söyler; Search Console'da kümenin gösterimlerinin en az %25'ini alan sayfalar da eklenir.
+  - Satırda "Bu kümeyle eşleşen diğer sayfalar" listelenir; her biri İş listesine öneri olarak düşer (site.cluster_overlap).
+  - Az trafik alan ve başka kümenin hedefi olmayan sayfa için öneri "301 ile birleştir" (onaylı WordPress yönlendirmesi, ADR-070, geri alınabilir).
+  - Trafik alan ya da başka kümenin hedefi olan sayfa için öneri "Ayrıştır". "Ayrı kalsın" ile kapatılır.
+  - Çakışma kalkınca açık öneri kendiliğinden kapanır.
+- **Eşleşmeyen küme:** satırda kümenin kendisinden "İçerik önerisi" görünür (sayfa tipi, ad, kullanıcı ihtiyacı, bölümler, hedef sorgu; uydurma yok).
+  - "AI ile üret" Eşleştir sayfa bulamayınca hemen açılır; "Yeni fikir üret" her kümede var.
+- **Hizmet bölgeleri:** markanın bölgesi yoksa sitenin hizmet / lokasyon / kurumsal sayfa başlıklarındaki il-ilçe adları bulunur (en az 2 sayfada geçen, AI'sız, şablon bölümler hariç).
+  - Eksikler'de "Sitede N hizmet bölgesi bulundu"; onaylanınca eklenir.
+- **Test:** SiteFlowTest, ClusterAuditTest, SiteUpkeepTest güncellendi. UAT: yok.
+
 ## 2026-11-18 (d) — Kümeleme: otomatik, sınırsız, uydurmasız
 
 - **Otomatik:** sorgu otomatik pilotu kümelemeyi günde bir kez başlatır. AI'ın sorgu sınıflandırması bitmemiş olsa da başlar; sürekli sorgu akışı kümelemeyi artık bekletmez.

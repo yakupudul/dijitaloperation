@@ -42,6 +42,7 @@ use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Queries\QueryNotifier;
 use App\Services\Site\PageCategorizer;
 use App\Services\Site\ServicePageMapper;
+use App\Services\Site\SiteFlow;
 use App\Services\Site\SiteMetrics;
 use App\Services\Site\SiteOperations;
 use App\Services\Website\SitemapChangeWatcher;
@@ -789,11 +790,9 @@ Artisan::command('moxdop:brands:dossier {brand? : brand id}', function (BrandDos
     $brands = Brand::query()->operational()->when($this->argument('brand'), fn ($q, $id) => $q->whereKey((int) $id))->orderBy('id')->get();
     foreach ($brands as $brand) {
         try {
-            // Site upkeep: new / uncategorized pages or no service ↔ page match yet → the site setup runs again (rules
-            // first, AI only for what the rules cannot decide) and rebuilds the dossier when done.
-            $sites = DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->get()->filter(fn (DigitalAsset $site): bool => BrandDossier::siteNeedsSetup($site));
-            foreach ($sites as $site) {
-                SiteOperations::dispatch((int) $site->id, SiteOperations::SETUP, ['unattended' => true]);
+            // Site akışı (WordPress plugin paired): the next due step of categorize → service ↔ page → cluster ↔ page.
+            foreach (DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->get() as $site) {
+                SiteFlow::advance($site);
             }
             // Eksikler: what blocks the brand's AI work, into the work list (fixes run only on the operator's approval).
             app(BrandGaps::class)->sync($brand);

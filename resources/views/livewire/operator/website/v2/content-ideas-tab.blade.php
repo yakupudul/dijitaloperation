@@ -16,6 +16,23 @@
         </p>
     @endif
 
+    @if ($flow !== [])
+        <section class="{{ $card }}" data-site-flow>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="font-semibold text-gray-900 dark:text-white">Site akışı <span class="font-normal text-gray-500">· WordPress bağlıyken her gece kendiliğinden ilerler</span></p>
+                <button type="button" wire:click="advanceFlow" class="{{ $ghost }}" data-advance-flow>Akışı şimdi ilerlet</button>
+            </div>
+            <ol class="mt-2 grid gap-1 sm:grid-cols-2 lg:grid-cols-4">
+                @foreach ($flow as $step)
+                    <li class="flex items-start gap-1.5" data-flow-step="{{ $step['key'] }}" data-done="{{ $step['done'] ? '1' : '0' }}">
+                        <span @class(['mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full', 'bg-success-500' => $step['done'], 'bg-gray-300' => ! $step['done']])></span>
+                        <span><span class="font-medium">{{ $step['label'] }}</span> <span class="text-gray-500">· {{ $step['detail'] }}</span></span>
+                    </li>
+                @endforeach
+            </ol>
+        </section>
+    @endif
+
     <section class="{{ $card }} space-y-2">
         <div class="flex flex-wrap items-center gap-2">
             <button type="button" wire:click="matchAll" class="{{ $btn }}" data-match-all>Eşleştir</button>

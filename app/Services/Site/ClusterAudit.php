@@ -103,8 +103,10 @@ final class ClusterAudit
         BrandClusterPage::query()->whereIn('id', $fresh->whereNull('page_id')->pluck('id'))
             ->update(['coverage' => 'none', 'gaps' => null, 'audited_at' => now()]);
         $ideas = $this->ideas($site, $brand);
+        $overlaps = app(ClusterOverlaps::class)->sync($site, $brand, $shares);
+        SiteFlow::audited($site);
 
-        return ['status' => 'ready', 'clusters' => $rows->count(), 'matched' => $matched, 'gaps' => $gaps, 'ideas' => $ideas];
+        return ['status' => 'ready', 'clusters' => $rows->count(), 'matched' => $matched, 'gaps' => $gaps, 'ideas' => $ideas, 'overlaps' => $overlaps];
     }
 
     /**
@@ -375,7 +377,7 @@ final class ClusterAudit
         $pageIds = array_slice(array_values(array_unique(array_merge(...array_values($candidates ?: [[]])))), 0, self::MAX_PAGES_PER_CALL);
         if ($pageIds === []) {
             foreach ($rows as $row) {
-                $this->place($row, null, 'none', 'Sitede bu konuyu işleyen sayfa bulunamadı.');
+                $this->place($row, null, 'none', 'Sitede bu konuyu işleyen sayfa bulunamadı.', []);
             }
 
             return 0;
@@ -404,8 +406,11 @@ final class ClusterAudit
             }
             $coverage = $pageId === null ? 'none' : ($coverage === 'none' ? 'partial' : $coverage);
             $reason = mb_substr(trim((string) ($answer['reason'] ?? '')), 0, 300);
+            // Other candidate pages the AI says answer the same need: the cluster's overlapping pages.
+            $also = array_values(array_unique(array_filter((array) ($answer['also_page_ids'] ?? []),
+                fn ($id): bool => is_int($id) && $id !== $pageId && in_array($id, $candidates[(int) $row->id], true))));
             // A reason with a URL or a number of two or more digits is not from the page text: dropped.
-            $this->place($row, $pageId, $coverage, preg_match('/https?:|www\.|\d{2,}/u', $reason) === 1 ? '' : $reason);
+            $this->place($row, $pageId, $coverage, preg_match('/https?:|www\.|\d{2,}/u', $reason) === 1 ? '' : $reason, $pageId !== null ? $also : []);
             $matched += $pageId !== null ? 1 : 0;
         }
 
@@ -490,9 +495,10 @@ final class ClusterAudit
         ];
     }
 
-    private function place(BrandClusterPage $row, ?int $pageId, string $coverage, string $reason): void
+    /** @param  list<int>  $overlaps */
+    private function place(BrandClusterPage $row, ?int $pageId, string $coverage, string $reason, array $overlaps): void
     {
-        $values = ['coverage' => $coverage, 'reason' => $reason !== '' ? $reason : $row->reason, 'audited_at' => now()];
+        $values = ['coverage' => $coverage, 'reason' => $reason !== '' ? $reason : $row->reason, 'audited_at' => now(), 'overlap_page_ids' => $overlaps ?: null];
         if (! $row->locked) {
             $values += ['page_id' => $pageId, 'state' => self::STATES[$coverage], 'decided_by' => 'ai'];
         }

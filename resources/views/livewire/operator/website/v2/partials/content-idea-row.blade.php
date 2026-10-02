@@ -12,6 +12,8 @@
     $type = $extra ? $r['idea']->type : $cluster->page_type;
     $questions = ! $extra && $brand !== null ? \App\Services\Site\ClusterAudit::aiQuestions($cluster, $brand) : [];
     $rowStatuses = collect($statuses)->filter(fn ($line, $k) => str_starts_with($k, $key.':'));
+    $rowOverlaps = ! $extra && $model !== null ? ($overlaps[(int) $model->id] ?? collect()) : collect();
+    $audited = $model !== null && ($model->rediscovered_at !== null || ($model->audited_at ?? null) !== null);
 @endphp
 <tr wire:key="row-{{ $key }}" data-idea-row="{{ $key }}" data-state="{{ $r['state'] }}" @class(['align-top', 'text-gray-700 dark:text-gray-300' => $extra])>
     <td @class(['py-1.5', 'pl-6' => $extra])>
@@ -37,6 +39,33 @@
     <td class="max-w-[22rem]">
         <span class="{{ $chip }} {{ $tone[$r['state']] ?? '' }}" data-idea-state>{{ \App\Services\Site\ContentIdeaState::LABELS[$r['state']] ?? $r['state'] }}</span>
         <p class="mt-0.5 text-gray-500">{{ $r['reason'] }}</p>
+        @if (! $extra && $r['state'] === 'no_page')
+            {{-- Eşleşmeyen küme: the content idea comes from the cluster itself (need, page type, sections) — nothing invented. --}}
+            <div class="mt-1 rounded-lg bg-blue-50 p-2 text-blue-900 dark:bg-blue-950 dark:text-blue-100" data-content-idea>
+                <p><span class="font-semibold">İçerik önerisi:</span> yeni {{ \App\Models\Cluster::PAGE_TYPE_LABELS[$cluster->page_type] ?? 'içerik' }} sayfası · «{{ $cluster->name }}»@if ($cluster->user_need) — {{ $cluster->user_need }}@endif</p>
+                @if ((array) $cluster->subtopics !== [])<p class="mt-0.5">Bölümler: {{ implode(' · ', (array) $cluster->subtopics) }}</p>@endif
+                @if ($cluster->mainQuery)<p class="mt-0.5 text-blue-700 dark:text-blue-300">Hedef sorgu: «{{ $cluster->mainQuery->text }}»</p>@endif
+            </div>
+        @endif
+        @if ($rowOverlaps->isNotEmpty())
+            <div class="mt-1 rounded-lg bg-amber-50 p-2 text-amber-900 dark:bg-amber-500/10 dark:text-amber-100" data-overlaps>
+                <p class="font-semibold">Bu kümeyle eşleşen diğer sayfalar ({{ $rowOverlaps->count() }})</p>
+                @foreach ($rowOverlaps as $overlap)
+                    <div class="mt-1 flex flex-wrap items-center gap-2" wire:key="overlap-{{ $overlap->id }}" data-overlap="{{ $overlap->id }}">
+                        <a href="{{ data_get($overlap->action, 'overlap_url') }}" target="_blank" rel="noopener" class="font-medium underline">{{ parse_url((string) data_get($overlap->action, 'overlap_url'), PHP_URL_PATH) ?: '/' }}</a>
+                        <span class="text-amber-800 dark:text-amber-200">{{ $overlap->reason }}</span>
+                        @if (in_array($overlap->status, ['open', 'recheck'], true))
+                            @if (data_get($overlap->action, 'recommendation') === \App\Services\Site\ClusterOverlaps::REDIRECT)
+                                <button type="button" wire:click="mergeOverlap({{ $overlap->id }})" wire:confirm="Sayfa ana sayfaya 301 ile yönlendirilsin mi? (WordPress, geri alınabilir)" class="{{ $btn }}" data-merge-overlap>301 ile birleştir</button>
+                            @endif
+                            <button type="button" wire:click="keepOverlap({{ $overlap->id }})" class="{{ $ghost }}" data-keep-overlap>Ayrı kalsın</button>
+                        @else
+                            <span class="{{ $chip }} bg-gray-100 text-gray-600">{{ $overlap->status === 'dismissed' ? 'ayrı kalıyor' : 'yönlendirildi' }}</span>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        @endif
         @if ($gaps !== [] || $questions !== [])
             <details class="mt-1" data-gaps>
                 <summary class="cursor-pointer font-medium text-brand-600">Eksikler ({{ count($gaps) }})</summary>
@@ -63,7 +92,7 @@
             @elseif ($improveSuggestion !== null && data_get($improveSuggestion->action, 'proposal_blocked'))
                 <span class="text-rose-600">{{ \Illuminate\Support\Str::limit((string) data_get($improveSuggestion->action, 'proposal_blocked'), 140) }}</span>
             @endif
-            @if ($r['state'] === 'no_page' && $model?->rediscovered_at !== null)
+            @if ($r['state'] === 'no_page' && $audited)
                 <button type="button" wire:click="produce('{{ $r['kind'] }}', {{ $model->id }})" class="{{ $btn }}" data-produce>AI ile üret</button>
             @endif
             @if ($contentSuggestion !== null)

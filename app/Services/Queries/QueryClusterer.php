@@ -16,6 +16,7 @@ use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\ClusterPageMapper;
+use App\Services\Site\SiteFlow;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -679,6 +680,7 @@ final class QueryClusterer
             foreach (DigitalAsset::query()->whereIn('brand_id', $brandIds ?: [0])->where('type', 'website')->get() as $site) {
                 try {
                     app(ClusterPageMapper::class)->refresh($site, judge: false);
+                    SiteFlow::advance($site, setup: false); // Eşleştir for the new clusters (WordPress-paired sites)
                 } catch (\Throwable $exception) {
                     report($exception);
                 }

@@ -33,6 +33,7 @@ final class SiteSuggestionTypes
         return match ($type) {
             self::CONTENT => 'içerik',
             self::COMPETITOR => 'rakip',
+            ClusterOverlaps::TYPE => 'küme çakışması',
             default => self::ANALYSIS[$type] ?? $type,
         };
     }

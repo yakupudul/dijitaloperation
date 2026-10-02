@@ -22,6 +22,7 @@ final class ClusterMatchAgent extends SiteAgent
             'clusters' => $schema->array()->items($schema->object(fn (JsonSchema $row): array => [
                 'cluster_id' => $row->integer()->required(),
                 'page_id' => $row->integer()->nullable()->required(),
+                'also_page_ids' => $row->array()->items($row->integer())->required(),
                 'coverage' => $row->string()->enum(self::COVERAGE)->required(),
                 'reason' => $row->string()->required(),
             ]))->required(),

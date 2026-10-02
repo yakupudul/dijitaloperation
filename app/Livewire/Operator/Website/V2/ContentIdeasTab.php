@@ -10,11 +10,13 @@ use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Queries\ClusterEditor;
+use App\Services\Site\ClusterOverlaps;
 use App\Services\Site\ClusterPageMapper;
 use App\Services\Site\ContentIdeaPool;
 use App\Services\Site\ContentIdeaState;
 use App\Services\Site\ContentIdeaSubject;
 use App\Services\Site\PageTechnical;
+use App\Services\Site\SiteFlow;
 use App\Services\Site\SiteOperations;
 use App\Services\Site\SiteScope;
 use Illuminate\Contracts\View\View;
@@ -105,6 +107,35 @@ final class ContentIdeasTab extends Component
         $this->approvePending(SiteScope::pendingClusters($brand)->pluck('id')->map(fn ($id): int => (int) $id)->all(), $editor, $mapper);
     }
 
+    /** "301 ile birleştir" on an overlapping page of a cluster (approved WordPress write, undoable). */
+    public function mergeOverlap(int $suggestionId, ClusterOverlaps $overlaps): void
+    {
+        $overlaps->redirect($this->overlap($suggestionId), auth()->user());
+        $this->message = 'Yönlendirme WordPress’e gönderildi · İş listesi › geçmişten geri alınabilir.';
+    }
+
+    /** "Ayrı kalsın": both pages stay. */
+    public function keepOverlap(int $suggestionId, ClusterOverlaps $overlaps): void
+    {
+        $overlaps->keep($this->overlap($suggestionId), auth()->user());
+        $this->message = 'İki sayfa ayrı kalıyor; çakışma değişmedikçe yeniden önerilmez.';
+    }
+
+    /** "Akışı ilerlet": the next due step of the site flow now (same as the nightly run). */
+    public function advanceFlow(): void
+    {
+        $result = SiteFlow::advance(DigitalAsset::query()->findOrFail($this->assetId));
+        $this->message = match ($result) {
+            'setup' => 'Sayfa sınıflandırma ve hizmet ↔ sayfa başladı; bitince küme ↔ sayfa kendiliğinden gelir.',
+            'audit' => 'Küme ↔ sayfa eşleştirme başladı.',
+            'running' => 'Akış zaten çalışıyor.',
+            'waiting:wordpress' => 'WordPress eklentisi bağlı değil: akış eklenti eşleşince çalışır.',
+            'waiting:pages' => 'Sitenin sayfaları henüz toplanmadı.',
+            'waiting:not_operational' => 'Pasif müşteri: AI çalışmaz.',
+            default => 'Akış güncel: değişen bir şey yok.',
+        };
+    }
+
     public function rediscover(string $kind, int $id): void
     {
         [$kind, $id] = $this->subjectKey($kind, $id);
@@ -139,8 +170,8 @@ final class ContentIdeasTab extends Component
     {
         $subject = $this->subject($kind, $id);
         $row = $this->row($subject);
-        if ($row['state'] !== 'no_page' || $subject->row->rediscovered_at === null) {
-            $this->message = 'Önce "Yeniden keşfet": sitede uygun sayfa yoksa AI ile üretilir.';
+        if ($row['state'] !== 'no_page' || ($subject->row->rediscovered_at === null && $subject->row->audited_at === null)) {
+            $this->message = 'Önce "Eşleştir" ya da "Yeniden keşfet": sitede uygun sayfa yoksa AI ile üretilir.';
 
             return;
         }
@@ -268,6 +299,11 @@ final class ContentIdeasTab extends Component
         return view('livewire.operator.website.v2.content-ideas-tab', [
             'brand' => $brand,
             'pendingClusters' => $brand !== null ? SiteScope::pendingClusters($brand) : collect(),
+            'overlaps' => Suggestion::query()->where('brand_id', (int) $site->brand_id)->where('decision_key', ClusterOverlaps::DECISION)
+                ->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::DISMISSED, Suggestion::APPLIED])->orderBy('id')->get()
+                ->filter(fn (Suggestion $s): bool => (int) data_get($s->action, 'site_id') === (int) $site->id)
+                ->groupBy(fn (Suggestion $s): int => (int) data_get($s->action, 'row_id'))->all(),
+            'flow' => SiteFlow::steps($site),
             'groups' => $paginator,
             'services' => $mains->mapWithKeys(fn (BrandClusterPage $row): array => [(string) $row->cluster->service_id => (string) ($row->cluster->service?->primaryName?->raw_label ?? '—')])->sort()->all(),
             'counts' => $groups->flatMap(fn (array $g): Collection => $g['mains']->merge($g['extras']))->countBy('state')->all(),
@@ -279,6 +315,15 @@ final class ContentIdeasTab extends Component
             'polling' => in_array('çalışıyor…', $statuses, true) || SiteOperations::line(SiteOperations::status($site->id, SiteOperations::CLUSTER_AUDIT)) === 'çalışıyor…'
                 || collect($paginator->getCollection())->contains(fn (array $g): bool => (Cache::get(ContentIdeaPool::cacheKey((int) $g['cluster']->id))['status'] ?? null) === 'running'),
         ]);
+    }
+
+    private function overlap(int $suggestionId): Suggestion
+    {
+        $site = DigitalAsset::query()->findOrFail($this->assetId);
+        $suggestion = Suggestion::query()->where('brand_id', (int) $site->brand_id)->where('decision_key', ClusterOverlaps::DECISION)->find($suggestionId);
+        abort_if($suggestion === null || (int) data_get($suggestion->action, 'site_id') !== (int) $site->id, 404);
+
+        return $suggestion;
     }
 
     /** @param  list<int>  $clusterIds */

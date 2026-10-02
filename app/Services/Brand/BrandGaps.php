@@ -9,9 +9,12 @@ use App\Models\Page;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\BrandIntelligence\BrandOfferingService;
+use App\Services\Catalog\BrandCommercialContextService;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\Analysis\SitePagesReader;
 use App\Services\Site\PageCategorizer;
+use App\Services\Site\SiteAreas;
+use App\Services\Site\SiteFlow;
 use App\Services\Site\SiteOperations;
 use App\Services\Site\SiteScope;
 use App\Services\Site\SiteText;
@@ -35,6 +38,8 @@ final class BrandGaps
 
     public const string FIX_SITE_SETUP = 'site_setup';
 
+    public const string FIX_ADD_AREAS = 'add_areas';
+
     private const string NON_SERVICE = '/^(ana ?sayfa|home|hakkimizda|hakkinda|iletisim|blog|sss|sikca sorulan|galeri|ekibimiz|ekip|kariyer|kvkk|gizlilik|cerez|randevu|tesekkur|fiyat|referans|basinda|haber|tedavilerimiz|hizmetlerimiz)/u';
 
     /**
@@ -53,13 +58,30 @@ final class BrandGaps
             $gaps[] = ['key' => 'no_sector', 'title' => 'Sektör seçilmemiş', 'why' => 'Sorgu kütüphanesi ve kümeler sektöre göre okunur.', 'fix' => null, 'params' => [],
                 'url' => route('operator.brand.setup', ['brand' => $brand->id])];
         }
+        $found = [];
         if ($brand->serviceAreas()->where('status', 'active')->doesntExist()) {
+            foreach ($sites as $site) {
+                $found = $found ?: SiteAreas::detect($site);
+            }
+        }
+        if ($found !== []) {
+            $labels = array_column($found, 'label');
+            $gaps[] = ['key' => 'areas', 'title' => 'Sitede '.count($found).' hizmet bölgesi bulundu',
+                'why' => 'Sitenin hizmet ve lokasyon sayfalarında geçen bölgeler: '.implode(', ', $labels).'. Onaylarsan hizmet bölgesi olarak eklenir; yerel sorgular, küme eksikleri ve rakip aramaları bunları kullanır.',
+                'fix' => self::FIX_ADD_AREAS, 'params' => ['areas' => array_map(fn (array $a): array => ['city' => $a['city'], 'district' => $a['district']], $found)], 'url' => null];
+        } elseif ($brand->serviceAreas()->where('status', 'active')->doesntExist()) {
             $gaps[] = ['key' => 'no_area', 'title' => 'Hizmet bölgesi yok', 'why' => 'Yerel sorgular, rakip ve harita önerileri bölgeye göre yapılır.', 'fix' => null, 'params' => [],
                 'url' => route('operator.brand', ['brand' => $brand->id, 'tab' => 'business'])];
         }
         $names = $offerings->map(fn (BrandOffering $o): string => $o->displayName())->all();
         foreach ($sites as $site) {
             $label = (string) ($site->domain ?: $site->name);
+            // WordPress sites (or not known yet): the plugin runs the site flow; other CMSs cannot pair it.
+            if (($site->cms === null || str_contains(strtolower((string) $site->cms), 'wordpress')) && ! SiteFlow::wordpressPaired($site)) {
+                $gaps[] = ['key' => 'wordpress:'.$site->id, 'title' => 'WordPress eklentisi bağlı değil ('.$label.')',
+                    'why' => 'Hizmet sayfası tespiti, hizmet ↔ sayfa ve küme ↔ sayfa eşleştirmesi eklenti bağlıyken kendiliğinden çalışır; düzeltmeler de eklentiyle uygulanır.',
+                    'fix' => null, 'params' => [], 'url' => route('operator.integrations.site-connector', ['connector' => 'wordpress', 'site' => $site->id])];
+            }
             $missing = self::uncoveredServicePages($site, $names);
             if ($missing !== []) {
                 $titles = array_column($missing, 0);
@@ -127,11 +149,32 @@ final class BrandGaps
         $message = match ($action['fix'] ?? null) {
             self::FIX_ADD_SERVICES => $this->addServices($brand, $site, array_values(array_filter((array) data_get($action, 'params.names'), 'is_string')), $actor),
             self::FIX_SITE_SETUP => $site !== null ? $this->siteSetup($site) : throw ValidationException::withMessages(['gap' => 'Site bulunamadı.']),
+            self::FIX_ADD_AREAS => $this->addAreas($brand, (array) data_get($action, 'params.areas', [])),
             default => throw ValidationException::withMessages(['gap' => 'Bu eksiğin otomatik düzeltmesi yok; bağlantıdan elle yapın.']),
         };
         $suggestion->forceFill(['status' => Suggestion::APPLIED, 'resolved_by' => $actor?->id, 'resolved_at' => now(), 'applied_at' => now()])->save();
 
         return $message;
+    }
+
+    /** @param  list<mixed>  $areas  [{city, district}] */
+    private function addAreas(Brand $brand, array $areas): string
+    {
+        $added = 0;
+        foreach ($areas as $area) {
+            if (! is_array($area) || ! is_string($area['city'] ?? null)) {
+                continue;
+            }
+            try {
+                app(BrandCommercialContextService::class)->addServiceArea($brand, ['country_code' => 'TR', 'city_name' => $area['city'],
+                    'district_name' => is_string($area['district'] ?? null) ? $area['district'] : '']);
+                $added++;
+            } catch (ValidationException) {
+                // an archived or invalid area stays for the operator
+            }
+        }
+
+        return $added.' hizmet bölgesi eklendi.';
     }
 
     /**

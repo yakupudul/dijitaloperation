@@ -7,6 +7,7 @@ use App\Jobs\Site\RunSiteOperationJob;
 use App\Livewire\Operator\Workspace\BrandDossierTab;
 use App\Models\Brand;
 use App\Models\BrandOffering;
+use App\Models\CoreConnection;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\Page;
@@ -90,9 +91,17 @@ final class SiteUpkeepTest extends TestCase
     {
         $this->assertSame(3, BrandDossier::servicePageCount($this->site), 'uncategorized pages under /tedavilerimiz/ count');
 
+        // The site flow waits for the WordPress plugin: no AI step for a site that is not paired.
+        Queue::fake();
+        $this->artisan('moxdop:brands:dossier')->assertSuccessful();
+        Queue::assertNotPushed(RunSiteOperationJob::class);
+        $this->assertTrue(Suggestion::query()->where('decision_key', BrandGaps::DECISION)->where('title', 'like', 'WordPress eklentisi bağlı değil%')->exists());
+
+        CoreConnection::factory()->create(['digital_asset_id' => $this->site->id, 'type' => 'wordpress_connector', 'enabled' => true, 'config' => ['pairing_state' => 'paired']]);
         Queue::fake();
         $this->artisan('moxdop:brands:dossier')->assertSuccessful();
         Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->operation === SiteOperations::SETUP);
+        $this->assertFalse(Suggestion::query()->where('decision_key', BrandGaps::DECISION)->actionable()->where('title', 'like', 'WordPress eklentisi bağlı değil%')->exists());
 
         // Same uncategorized count the next night: no second run (no nightly AI loop).
         Queue::fake();

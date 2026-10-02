@@ -202,6 +202,8 @@ final class SiteOperations
                 app(BrandDossier::class)->build($brand);
             }
         }
+        // Site akışı: the cluster ↔ page step follows at once when it is due (WordPress paired, operational brand).
+        $result['flow'] = SiteFlow::advance($site, setup: false);
 
         return $result;
     }

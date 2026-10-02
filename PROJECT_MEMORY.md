@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-11-19 — Site akışı
+
+- **Karar:** Site ↔ talep zinciri (sınıflandırma → hizmet↔sayfa → küme↔sayfa) WordPress eklentisi eşleşmiş sitelerde kendiliğinden ilerler; eklentisiz sitede AI adımı çalışmaz.
+  - Bir kümenin birden fazla sayfası olabilir; fazlası için öneri "301 ile birleştir" ya da "ayrıştır" olur ve operatör onaylar.
+  - Eşleşmeyen kümenin içerik önerisi kümenin kendisinden gelir.
+  - Hizmet bölgeleri siteden bulunur ve onayla eklenir.
+
 ## 2026-11-18 — Çalışamayan iş önce uyarır
 
 - **Karar (kümeleme):** Kümeleme kendiliğinden çalışır ve sağlam kümeleri kendisi onaylar (kilitlemeden).

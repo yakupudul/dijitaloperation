@@ -42,6 +42,7 @@ class BrandClusterPage extends Model
         'recipe',
         'recipe_at',
         'rediscovered_at',
+        'overlap_page_ids',
     ];
 
     /** @return array<string, string> */
@@ -50,6 +51,7 @@ class BrandClusterPage extends Model
         return [
             'locked' => 'boolean',
             'extra_page_ids' => 'array',
+            'overlap_page_ids' => 'array',
             'gaps' => 'array',
             'audited_at' => 'immutable_datetime',
             'excluded' => 'boolean',
