@@ -44,7 +44,7 @@
                 <td class="px-4 py-2.5 text-xs text-gray-500">{{ $row['content_role'] }}</td>
                 <td class="px-4 py-2.5 text-sm tabular-nums">{{ number_format($row['sessions']) }}</td>
                 <td class="px-4 py-2.5 text-sm tabular-nums">{{ $row['engaged_rate'] }}% · {{ number_format($row['engaged_sessions']) }}</td>
-                <td class="px-4 py-2.5 text-sm tabular-nums">{{ number_format($row['mapped_actions']) }}</td>
+                <td class="px-4 py-2.5 text-sm tabular-nums">@if (($row['mapped_actions'] ?? null) !== null){{ number_format($row['mapped_actions']) }}@else<span class="text-slate-400">Unavailable</span>@endif</td>
                 <td class="px-4 py-2.5">
                     @if (! empty($row['attention']))
                         <span class="text-xs text-amber-700 dark:text-amber-400">{{ $row['attention'] }}</span>

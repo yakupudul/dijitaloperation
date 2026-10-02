@@ -20,7 +20,7 @@ final class Ga4MetadataCompatibilityService
     ) {}
 
     /**
-     * @return array{timeZone: string, currencyCode: ?string, displayName: ?string, property: array<string, mixed>, streams: list<array<string, mixed>>}|DatasetExecutionResult
+     * @return array{timeZone: string, currencyCode: ?string, displayName: ?string, property: array<string, mixed>, streams: list<array<string, mixed>>, streams_available: bool, streams_source: string}|DatasetExecutionResult
      */
     public function propertyContext(CoreIntegration $integration, string $propertyResourceName): array|DatasetExecutionResult
     {
@@ -42,10 +42,22 @@ final class Ga4MetadataCompatibilityService
         }
 
         $streamsResponse = $this->api->listDataStreams($integration, $propertyResourceName, ['pageSize' => 200]);
+        $lastGoodKey = 'ga4:data-streams:last-good:'.$propertyResourceName;
         $streams = [];
+        $streamsSource = 'unavailable';
         if ($streamsResponse->successful()) {
             $payload = $streamsResponse->json();
-            $streams = is_array($payload['dataStreams'] ?? null) ? $payload['dataStreams'] : [];
+            $streams = is_array($payload['dataStreams'] ?? null) ? array_values($payload['dataStreams']) : [];
+            $streamsSource = 'provider';
+            Cache::forever($lastGoodKey, $streams);
+        } else {
+            // A 403/429/5xx is not "this property has no streams": keep the last successful
+            // snapshot when one exists, otherwise mark streams unavailable (never empty truth).
+            $lastGood = Cache::get($lastGoodKey);
+            if (is_array($lastGood)) {
+                $streams = $lastGood;
+                $streamsSource = 'last_successful_snapshot';
+            }
         }
 
         $context = [
@@ -54,9 +66,14 @@ final class Ga4MetadataCompatibilityService
             'displayName' => isset($property['displayName']) ? (string) $property['displayName'] : null,
             'property' => $property,
             'streams' => $streams,
+            'streams_available' => $streamsSource !== 'unavailable',
+            'streams_source' => $streamsSource,
         ];
 
-        Cache::put($cacheKey, $context, $ttl);
+        // Only a fully successful provider read is cached, so a transient streams failure is retried.
+        if ($streamsSource === 'provider') {
+            Cache::put($cacheKey, $context, $ttl);
+        }
 
         return $context;
     }

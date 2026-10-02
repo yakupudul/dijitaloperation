@@ -246,6 +246,12 @@ return new class extends Migration
                 continue;
             }
             $index = substr($table.'_resource_nk_unique', 0, 60);
+            if (Schema::hasIndex($table, $index)) {
+                continue;
+            }
+
+            $this->dedupeResourceNaturalKey($table, $columns);
+
             if (DB::connection()->getDriverName() === 'pgsql') {
                 $cols = implode(', ', array_map(
                     fn (string $column): string => '"'.str_replace('"', '""', $column).'"',
@@ -260,6 +266,32 @@ return new class extends Migration
                 }
             }
         }
+    }
+
+    /**
+     * Historical asset-bound collection keyed facts by digital_asset_id, so a resource that
+     * was rebound to another Digital Asset left rows differing only by digital_asset_id.
+     * Keep the most recently collected row per resource natural key (newest id on ties) so
+     * the resource-first unique index can be created. Rows with a NULL key column never
+     * collide in a unique index (e.g. legacy landing pages without
+     * landingPagePlusQueryString) and are left untouched. Idempotent.
+     *
+     * @param  list<string>  $columns
+     */
+    private function dedupeResourceNaturalKey(string $table, array $columns): void
+    {
+        $quote = static fn (string $column): string => '"'.str_replace('"', '""', $column).'"';
+        $partition = implode(', ', array_map($quote, $columns));
+        $notNull = implode(' AND ', array_map(static fn (string $column): string => $quote($column).' IS NOT NULL', $columns));
+        $order = Schema::hasColumn($table, 'last_collected_at') ? 'last_collected_at DESC, id DESC' : 'id DESC';
+
+        DB::statement(
+            'DELETE FROM '.$quote($table).' WHERE id IN ('
+            .'SELECT id FROM ('
+            .'SELECT id, ROW_NUMBER() OVER (PARTITION BY '.$partition.' ORDER BY '.$order.') AS natural_key_rank '
+            .'FROM '.$quote($table).' WHERE '.$notNull
+            .') ranked WHERE natural_key_rank > 1)'
+        );
     }
 
     public function down(): void

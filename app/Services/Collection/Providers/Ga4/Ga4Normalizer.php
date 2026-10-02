@@ -122,11 +122,25 @@ final class Ga4Normalizer
                 $record[$dimension] = $value;
             }
 
+            /*
+             * A metric value the provider did not return (or returned non-numeric) is
+             * unknown, not zero: it is stored as NULL and listed in metadata.missing_metrics.
+             * Required (NOT NULL) fact columns then reject the write instead of persisting a
+             * fabricated 0. Missing ≠ zero.
+             */
+            $missingMetrics = [];
             foreach ($metrics as $index => $metric) {
-                $raw = (string) (data_get($metricValues, $index.'.value') ?? '0');
-                $record[$metric] = in_array($metric, self::DECIMAL_METRICS, true)
+                $raw = data_get($metricValues, $index.'.value');
+                $value = in_array($metric, self::DECIMAL_METRICS, true)
                     ? $this->normalizeDecimal($raw)
                     : $this->normalizeInteger($raw);
+                if ($value === null) {
+                    $missingMetrics[] = $metric;
+                }
+                $record[$metric] = $value;
+            }
+            if ($missingMetrics !== []) {
+                $record['metadata']['missing_metrics'] = $missingMetrics;
             }
 
             if (str_contains($datasetId, '_daily') && empty($record['reporting_date'])) {
@@ -148,13 +162,14 @@ final class Ga4Normalizer
     public function normalizePropertyMetadata(
         string $propertyId,
         array $property,
-        array $streams,
+        ?array $streams,
         ?int $digitalAssetId = null,
         ?int $externalResourceId = null,
         array $configuration = [],
+        string $streamsSource = 'provider',
     ): array {
-        $streamSummaries = [];
-        foreach ($streams as $stream) {
+        $streamSummaries = $streams === null ? null : [];
+        foreach ($streams ?? [] as $stream) {
             if (! is_array($stream)) {
                 continue;
             }
@@ -191,6 +206,7 @@ final class Ga4Normalizer
                 'industry_category' => $property['industryCategory'] ?? null,
                 'service_level' => $property['serviceLevel'] ?? null,
                 'data_streams' => $streamSummaries,
+                'data_streams_source' => $streams === null ? 'unavailable' : $streamsSource,
                 'key_events' => $configuration['key_events'] ?? [],
                 'data_retention_settings' => $configuration['data_retention_settings'] ?? null,
                 'attribution_settings' => $configuration['attribution_settings'] ?? null,
@@ -205,19 +221,19 @@ final class Ga4Normalizer
         ];
     }
 
-    private function normalizeDecimal(string $value): string
+    private function normalizeDecimal(mixed $value): ?string
     {
         if (! is_numeric($value)) {
-            return '0.000000';
+            return null;
         }
 
         return number_format((float) $value, 6, '.', '');
     }
 
-    private function normalizeInteger(string $value): int
+    private function normalizeInteger(mixed $value): ?int
     {
         if (! is_numeric($value)) {
-            return 0;
+            return null;
         }
 
         return (int) round((float) $value);

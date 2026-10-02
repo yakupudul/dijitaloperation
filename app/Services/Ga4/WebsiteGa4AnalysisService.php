@@ -4,7 +4,10 @@ namespace App\Services\Ga4;
 
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
+use App\Models\DataPool\DatasetMaterialization;
 use App\Models\DigitalAsset;
+use App\Services\DataPool\Integrity\Support\CoverageIntervalSet;
+use App\Services\Ga4\Support\Ga4CampaignGrain;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Operator\OperatorReportingPeriod;
 use Carbon\CarbonImmutable;
@@ -68,14 +71,14 @@ final class WebsiteGa4AnalysisService
         $requestedStart = $bounds['start']->toDateString();
         $requestedEnd = $bounds['end']->toDateString();
 
-        $coverage = $this->baseQuery('ga4_property_daily', $resourceId, $propertyId)
-            ->selectRaw('MIN("reporting_date") as min_date, MAX("reporting_date") as max_date, MAX("last_collected_at") as last_collected_at')
-            ->first();
-
-        $coverageEnd = filled($coverage?->max_date) ? (string) $coverage->max_date : null;
+        // Coverage is what successful collection runs proved (materialization coverage dates),
+        // never MIN/MAX of whatever fact rows exist — a gap is not a measured zero.
+        $coverage = $this->provenCoverage($resourceId);
+        $coverageEnd = $coverage['end'];
         $rangeStart = $requestedStart;
         $rangeEnd = $coverageEnd !== null && $coverageEnd < $requestedEnd ? $coverageEnd : $requestedEnd;
-        $rangeIsUsable = $rangeEnd >= $rangeStart;
+        $rangeIsUsable = $rangeEnd >= $rangeStart
+            && $this->isFullyCovered($coverage['dates'], $rangeStart, $rangeEnd);
 
         [$prevStart, $prevEnd] = $this->comparisonRange(
             $rangeStart,
@@ -88,14 +91,14 @@ final class WebsiteGa4AnalysisService
 
         $current = $rangeIsUsable
             ? $this->propertySums($resourceId, $propertyId, $rangeStart, $rangeEnd)
-            : $this->zeroPropertySums();
-        $previous = $compare && $rangeIsUsable
+            : $this->unavailablePropertySums();
+        $previous = $compare && $rangeIsUsable && $this->isFullyCovered($coverage['dates'], $prevStart, $prevEnd)
             ? $this->propertySums($resourceId, $propertyId, $prevStart, $prevEnd)
             : null;
 
-        $sessions = (int) $current['sessions'];
-        $engaged = (int) $current['engagedSessions'];
-        $engagementRate = $sessions > 0 ? ($engaged / $sessions) * 100 : null;
+        $sessions = $current['sessions'] === null ? null : (int) $current['sessions'];
+        $engaged = $current['engagedSessions'] === null ? null : (int) $current['engagedSessions'];
+        $engagementRate = $sessions !== null && $sessions > 0 ? ($engaged / $sessions) * 100 : null;
         $previousEngagementRate = $previous && (int) $previous['sessions'] > 0
             ? ((int) $previous['engagedSessions'] / (int) $previous['sessions']) * 100
             : null;
@@ -108,7 +111,7 @@ final class WebsiteGa4AnalysisService
                     'date' => (string) $row->reporting_date,
                     'sessions' => (int) ($row->sessions ?? 0),
                     'views' => (int) ($row->screenPageViews ?? 0),
-                    'new_users' => (int) ($row->newUsers ?? 0),
+                    'new_users' => $row->newUsers === null ? null : (int) $row->newUsers,
                 ])
                 ->all()
             : [];
@@ -136,14 +139,15 @@ final class WebsiteGa4AnalysisService
                 'truncated_to_available_data' => $rangeIsUsable && $rangeEnd !== $requestedEnd,
             ],
             'coverage' => [
-                'start' => filled($coverage?->min_date) ? (string) $coverage->min_date : null,
+                'start' => $coverage['start'],
                 'end' => $coverageEnd,
-                'last_collected_at' => filled($coverage?->last_collected_at) ? (string) $coverage->last_collected_at : null,
+                'last_collected_at' => $coverage['last_collected_at'],
+                'complete' => $rangeIsUsable,
             ],
             'metrics' => $metrics,
             'secondary_metrics' => [
-                'engaged_sessions' => (int) $current['engagedSessions'],
-                'events' => (int) $current['eventCount'],
+                'engaged_sessions' => $current['engagedSessions'],
+                'events' => $current['eventCount'],
                 'key_events' => $current['keyEvents'],
                 'revenue' => $current['totalRevenue'],
             ],
@@ -190,7 +194,7 @@ final class WebsiteGa4AnalysisService
                 'comparison_label' => $compare ? $comparison['label'] : null,
                 'truncated_to_available_data' => false,
             ],
-            'coverage' => ['start' => null, 'end' => null, 'last_collected_at' => null],
+            'coverage' => ['start' => null, 'end' => null, 'last_collected_at' => null, 'complete' => false],
             'metrics' => [],
             'secondary_metrics' => [],
             'trend' => ['labels' => [], 'sessions' => [], 'views' => [], 'new_users' => []],
@@ -245,38 +249,96 @@ final class WebsiteGa4AnalysisService
                 'COALESCE(SUM("sessions"), 0) as sessions_sum',
                 'COALESCE(SUM("engagedSessions"), 0) as engaged_sum',
                 'SUM("newUsers") as new_users_sum',
+                'COUNT("newUsers") as new_users_count',
                 'COALESCE(SUM("screenPageViews"), 0) as views_sum',
                 'COALESCE(SUM("eventCount"), 0) as event_count_sum',
                 'SUM("keyEvents") as key_events_sum',
+                'COUNT("keyEvents") as key_events_count',
                 'SUM("totalRevenue") as revenue_sum',
+                'COUNT("totalRevenue") as revenue_count',
             ]))
             ->first();
 
+        $rows = (int) ($row->rows_count ?? 0);
+        // Optional metrics are a period total only when every row carries them (missing ≠ zero).
+        $complete = static fn (string $countAlias): bool => $rows > 0 && (int) ($row->{$countAlias} ?? 0) === $rows;
+
         return [
-            'rows' => (int) ($row->rows_count ?? 0),
+            'rows' => $rows,
             'sessions' => (int) ($row->sessions_sum ?? 0),
             'engagedSessions' => (int) ($row->engaged_sum ?? 0),
-            'newUsers' => $row?->new_users_sum !== null ? (int) $row->new_users_sum : null,
+            'newUsers' => $complete('new_users_count') ? (int) $row->new_users_sum : null,
             'screenPageViews' => (int) ($row->views_sum ?? 0),
             'eventCount' => (int) ($row->event_count_sum ?? 0),
-            'keyEvents' => $row?->key_events_sum !== null ? (float) $row->key_events_sum : null,
-            'totalRevenue' => $row?->revenue_sum !== null ? (float) $row->revenue_sum : null,
+            'keyEvents' => $complete('key_events_count') ? (float) $row->key_events_sum : null,
+            'totalRevenue' => $complete('revenue_count') ? (float) $row->revenue_sum : null,
         ];
     }
 
-    /** @return array<string, int|float|null> */
-    private function zeroPropertySums(): array
+    /**
+     * Totals for a range whose coverage is not proven: every value is unavailable, not zero.
+     *
+     * @return array<string, int|float|null>
+     */
+    private function unavailablePropertySums(): array
     {
         return [
             'rows' => 0,
-            'sessions' => 0,
-            'engagedSessions' => 0,
+            'sessions' => null,
+            'engagedSessions' => null,
             'newUsers' => null,
-            'screenPageViews' => 0,
-            'eventCount' => 0,
+            'screenPageViews' => null,
+            'eventCount' => null,
             'keyEvents' => null,
             'totalRevenue' => null,
         ];
+    }
+
+    /**
+     * Union of dates proven by successful collection for this GA4 resource's property daily
+     * dataset (central and asset-bound materializations alike).
+     *
+     * @return array{dates: list<string>, start: ?string, end: ?string, last_collected_at: ?string}
+     */
+    private function provenCoverage(int $resourceId): array
+    {
+        $dates = [];
+        $lastCollectedAt = null;
+        $materializations = DatasetMaterialization::query()
+            ->where('dataset_id', 'ga4_property_daily')
+            ->where('external_resource_id', $resourceId)
+            ->get();
+        foreach ($materializations as $materialization) {
+            $meta = is_array($materialization->freshness_metadata) ? $materialization->freshness_metadata : [];
+            foreach (['successful_coverage_dates', 'zero_row_success_dates'] as $key) {
+                if (is_array($meta[$key] ?? null)) {
+                    $dates = array_merge($dates, array_values(array_filter($meta[$key], 'is_string')));
+                }
+            }
+            $collected = $materialization->last_collected_at?->toDateTimeString();
+            if ($collected !== null && ($lastCollectedAt === null || $collected > $lastCollectedAt)) {
+                $lastCollectedAt = $collected;
+            }
+        }
+        $dates = array_values(array_unique($dates));
+        sort($dates);
+
+        return [
+            'dates' => $dates,
+            'start' => $dates[0] ?? null,
+            'end' => $dates === [] ? null : $dates[count($dates) - 1],
+            'last_collected_at' => $lastCollectedAt,
+        ];
+    }
+
+    /** @param list<string> $dates */
+    private function isFullyCovered(array $dates, string $start, string $end): bool
+    {
+        if ($dates === [] || $end < $start) {
+            return false;
+        }
+
+        return CoverageIntervalSet::fromSuccessfulDates($dates)->gapsIn($start, $end) === [];
     }
 
     /** @return array<string, mixed> */
@@ -311,7 +373,8 @@ final class WebsiteGa4AnalysisService
             ['sessions' => 'sessions', 'engagedSessions' => 'engaged'],
             'sessions', 8,
         );
-        $total = max(1, (int) $rows->sum('sessions'));
+        // Share denominator is the full channel population, not the displayed top rows.
+        $total = max(1, (int) $this->baseQuery('ga4_acquisition_channel_daily', $resourceId, $propertyId, $start, $end)->sum('sessions'));
 
         return $rows->map(static fn ($row): array => [
             'label' => (string) $row->label,
@@ -352,19 +415,33 @@ final class WebsiteGa4AnalysisService
         ])->all();
     }
 
-    /** @return list<array<string, mixed>> */
+    /**
+     * Campaign breakdown. Legacy rows collected before the expanded grain
+     * (sessionCampaignId/sessionSource/sessionMedium NULL) are ignored for any day that
+     * already has expanded-grain rows, so the same sessions are never counted twice.
+     *
+     * @return list<array<string, mixed>>
+     */
     private function campaigns(int $resourceId, string $propertyId, string $start, string $end): array
     {
-        return $this->grouped(
-            'ga4_campaign_daily', $resourceId, $propertyId, $start, $end,
-            ['sessionCampaignName' => 'label'],
-            ['sessions' => 'sessions', 'engagedSessions' => 'engaged'],
-            'sessions', 10,
-        )->map(static fn ($row): array => [
-            'label' => (string) $row->label,
-            'sessions' => (int) $row->sessions,
-            'engaged' => (int) $row->engaged,
-        ])->all();
+        if (! Schema::hasTable('ga4_campaign_daily')) {
+            return [];
+        }
+
+        $query = $this->baseQuery('ga4_campaign_daily', $resourceId, $propertyId, $start, $end);
+        Ga4CampaignGrain::excludeSupersededLegacyRows($query);
+
+        return $query
+            ->groupBy('sessionCampaignName')
+            ->orderByDesc(DB::raw('SUM("sessions")'))
+            ->limit(10)
+            ->selectRaw('"sessionCampaignName" as label, COALESCE(SUM("sessions"), 0) as sessions, COALESCE(SUM("engagedSessions"), 0) as engaged')
+            ->get()
+            ->map(static fn ($row): array => [
+                'label' => (string) $row->label,
+                'sessions' => (int) $row->sessions,
+                'engaged' => (int) $row->engaged,
+            ])->all();
     }
 
     /** @return list<array<string, mixed>> */
@@ -478,8 +555,14 @@ final class WebsiteGa4AnalysisService
             'revenue' => (float) $row->revenue,
         ])->all();
 
-        $purchases = array_sum(array_column($items, 'purchases'));
-        $hasData = $purchases > 0 || collect($items)->sum('views') > 0 || (float) ($current['totalRevenue'] ?? 0) > 0;
+        // Period total over every item row, not the displayed top items.
+        $purchaseTotals = Schema::hasTable('ga4_ecommerce_item_daily')
+            ? $this->baseQuery('ga4_ecommerce_item_daily', $resourceId, $propertyId, $start, $end)
+                ->selectRaw('COUNT("itemsPurchased") as purchases_rows, SUM("itemsPurchased") as purchases_sum')
+                ->first()
+            : null;
+        $purchases = (int) ($purchaseTotals->purchases_rows ?? 0) > 0 ? (int) $purchaseTotals->purchases_sum : null;
+        $hasData = ($purchases ?? 0) > 0 || collect($items)->sum('views') > 0 || (float) ($current['totalRevenue'] ?? 0) > 0;
 
         return [
             'has_data' => $hasData,

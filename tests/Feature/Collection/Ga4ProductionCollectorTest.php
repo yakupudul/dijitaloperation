@@ -22,6 +22,7 @@ use App\Services\Collection\CheckpointManager;
 use App\Services\Collection\CollectionPlanner;
 use App\Services\Collection\DatasetExecutorResolver;
 use App\Services\Collection\Providers\Ga4\Ga4DatasetExecutor;
+use App\Services\Collection\Providers\Ga4\Ga4MetadataCompatibilityService;
 use App\Services\Collection\Providers\Ga4\Ga4ProviderCapabilities;
 use App\Services\Collection\Providers\Ga4\Ga4ReportRequestBuilder;
 use App\Services\Collection\Providers\Ga4\Ga4RequestFamilyCatalog;
@@ -169,6 +170,43 @@ class Ga4ProductionCollectorTest extends TestCase
         $meta = json_decode((string) $row->metadata, true);
         $this->assertTrue($meta['data_stream_is_not_collection_root']);
         $this->assertSame('G-TEST123', $meta['data_streams'][0]['webStreamData']['measurementId']);
+    }
+
+    #[Test]
+    public function data_streams_failure_keeps_last_successful_stream_snapshot(): void
+    {
+        $this->fakeGa4Http();
+        $first = $this->runFamily(Ga4RequestFamilyCatalog::FAMILY_PROPERTY_METADATA);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $first->outcome, (string) $first->errorMessage);
+
+        Cache::flush();
+        $this->fakeGa4Http(['streams_status' => 403]);
+        $second = $this->runFamily(Ga4RequestFamilyCatalog::FAMILY_PROPERTY_METADATA);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $second->outcome, (string) $second->errorMessage);
+
+        $meta = json_decode((string) DB::table('ga4_property_metadata')->value('metadata'), true);
+        $this->assertCount(1, $meta['data_streams']);
+        $this->assertSame('G-TEST123', $meta['data_streams'][0]['webStreamData']['measurementId']);
+        $this->assertSame('last_successful_snapshot', $meta['data_streams_source']);
+    }
+
+    #[Test]
+    public function data_streams_failure_without_snapshot_is_unavailable_and_not_cached_as_empty(): void
+    {
+        $this->fakeGa4Http(['streams_status' => 503]);
+        $result = $this->runFamily(Ga4RequestFamilyCatalog::FAMILY_PROPERTY_METADATA);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $result->outcome, (string) $result->errorMessage);
+
+        $meta = json_decode((string) DB::table('ga4_property_metadata')->value('metadata'), true);
+        $this->assertNull($meta['data_streams']);
+        $this->assertSame('unavailable', $meta['data_streams_source']);
+
+        // Provider recovers: the failed read was not cached as an empty stream list.
+        $this->fakeGa4Http();
+        $context = app(Ga4MetadataCompatibilityService::class)->propertyContext($this->integration, 'properties/123456');
+        $this->assertIsArray($context);
+        $this->assertTrue($context['streams_available']);
+        $this->assertCount(1, $context['streams']);
     }
 
     #[Test]
@@ -613,6 +651,99 @@ class Ga4ProductionCollectorTest extends TestCase
     }
 
     #[Test]
+    public function restated_slice_removes_dimension_keys_the_provider_no_longer_returns(): void
+    {
+        $responses = [
+            ['a' => '5', 'b' => '7'],
+            ['a' => '6'],
+        ];
+        $this->fakeEventRestatement($responses);
+
+        $first = $this->runFamily(Ga4RequestFamilyCatalog::FAMILY_EVENT_DAILY, ['start' => '2026-08-01', 'end' => '2026-08-01']);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame(2, DB::table('ga4_event_daily')->count());
+
+        $this->travel(5)->minutes();
+        Cache::flush();
+        $second = $this->runFamily(Ga4RequestFamilyCatalog::FAMILY_EVENT_DAILY, ['start' => '2026-08-01', 'end' => '2026-08-01']);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $second->outcome, (string) $second->errorMessage);
+
+        $this->assertSame(['a'], DB::table('ga4_event_daily')->pluck('eventName')->all());
+        $this->assertSame(6, (int) DB::table('ga4_event_daily')->sum('eventCount'));
+    }
+
+    #[Test]
+    public function partial_restated_slice_never_prunes_previous_rows(): void
+    {
+        config([
+            'moxdop-ga4-collector.page_size' => 1,
+            'moxdop-ga4-collector.max_pages_per_tick' => 5,
+        ]);
+        $responses = [
+            ['a' => '5', 'b' => '7'],
+            ['c' => '1', 'd' => '1'],
+        ];
+        $this->fakeEventRestatement($responses, failSecondRunPageOffset: 1);
+
+        $first = $this->runFamily(Ga4RequestFamilyCatalog::FAMILY_EVENT_DAILY, ['start' => '2026-08-01', 'end' => '2026-08-01']);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame(2, DB::table('ga4_event_daily')->count());
+
+        $this->travel(5)->minutes();
+        Cache::flush();
+        $second = $this->runFamily(Ga4RequestFamilyCatalog::FAMILY_EVENT_DAILY, ['start' => '2026-08-01', 'end' => '2026-08-01']);
+        $this->assertNotSame(DatasetExecutionOutcome::Completed, $second->outcome);
+
+        $this->assertEqualsCanonicalizing(['a', 'b', 'c'], DB::table('ga4_event_daily')->pluck('eventName')->all());
+    }
+
+    /**
+     * Fakes GA4 for the event family: each collection run consumes the next map of
+     * eventName => eventCount. Pages honour offset/limit from the request body.
+     *
+     * @param  list<array<string, string>>  $responses
+     */
+    private function fakeEventRestatement(array $responses, ?int $failSecondRunPageOffset = null): void
+    {
+        Http::swap(new Factory);
+        $state = ['run' => -1];
+        Http::fake(function ($request) use (&$responses, &$state, $failSecondRunPageOffset) {
+            $url = $request->url();
+            if (str_contains($url, '/metadata')) {
+                return Http::response($this->metadataPayload(), 200);
+            }
+            if (str_contains($url, 'checkCompatibility')) {
+                return Http::response(['dimensionCompatibilities' => [], 'metricCompatibilities' => []], 200);
+            }
+            if (str_contains($url, 'dataStreams')) {
+                return Http::response(['dataStreams' => []], 200);
+            }
+            if (str_contains($url, 'analyticsadmin') && str_contains($url, 'properties/')) {
+                return Http::response($this->adminPropertyPayload(), 200);
+            }
+            if (str_contains($url, 'runReport')) {
+                $data = $request->data() ?: (json_decode($request->body(), true) ?? []);
+                $offset = (int) ($data['offset'] ?? 0);
+                $limit = (int) ($data['limit'] ?? 10000);
+                if ($offset === 0) {
+                    $state['run'] = min($state['run'] + 1, count($responses) - 1);
+                }
+                if ($failSecondRunPageOffset !== null && $state['run'] === 1 && $offset === $failSecondRunPageOffset) {
+                    return Http::response(['error' => ['code' => 400, 'message' => 'bad page', 'status' => 'INVALID_ARGUMENT']], 400);
+                }
+                $all = [];
+                foreach ($responses[$state['run']] as $event => $count) {
+                    $all[] = [['20260801', $event], ['eventCount' => $count, 'activeUsers' => '1']];
+                }
+
+                return $this->reportResponse($data, ['date', 'eventName'], array_slice($all, $offset, $limit), count($all));
+            }
+
+            return Http::response(['error' => ['message' => 'unexpected '.$url]], 500);
+        });
+    }
+
+    #[Test]
     public function raw_payload_has_no_tokens_and_executor_registered(): void
     {
         $this->fakeGa4Http([
@@ -690,17 +821,21 @@ class Ga4ProductionCollectorTest extends TestCase
     {
         $report = $overrides['report'] ?? ['dimensions' => ['date'], 'rows' => []];
         $metadata = $overrides['metadata'] ?? $this->metadataPayload();
+        $streamsStatus = (int) ($overrides['streams_status'] ?? 200);
 
         // Replace factory: Http::fake() merges stub callbacks and first match wins.
         Http::swap(new Factory);
 
-        Http::fake(function ($request) use ($report, $metadata) {
+        Http::fake(function ($request) use ($report, $metadata, $streamsStatus) {
             $url = $request->url();
             if (str_contains($url, '/metadata')) {
                 return Http::response($metadata, 200);
             }
             if (str_contains($url, 'checkCompatibility')) {
                 return Http::response(['dimensionCompatibilities' => [], 'metricCompatibilities' => []], 200);
+            }
+            if (str_contains($url, 'dataStreams') && $streamsStatus !== 200) {
+                return Http::response(['error' => ['code' => $streamsStatus, 'message' => 'streams unavailable']], $streamsStatus);
             }
             if (str_contains($url, 'dataStreams')) {
                 return Http::response([

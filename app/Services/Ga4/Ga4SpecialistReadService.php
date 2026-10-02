@@ -143,7 +143,7 @@ final class Ga4SpecialistReadService
         $data['freshness'] = $this->realFreshnessChips($dailyGate, $propertyId);
         $provenance['freshness.ga4'] = DataSourceState::Real->value;
 
-        $data['glance'] = $this->realGlance($dailyGate, $sums, $prevSums, $compareMode);
+        $data['glance'] = $this->realGlance($dailyGate, $sums, $prevSums, $compareMode, $prevDailyGate);
         $provenance['glance.sessions'] = $dailyGate->dataSourceState()->value;
         $provenance['glance.users'] = DataSourceState::Unavailable->value;
         $provenance['glance.new_users'] = $dailyGate->isUsable() && ($sums['newUsers'] ?? null) !== null ? $dailyGate->dataSourceState()->value : DataSourceState::Unavailable->value;
@@ -268,7 +268,7 @@ final class Ga4SpecialistReadService
         return [['source' => 'GA4', 'age' => $ageLabel, 'detail' => "Property {$propertyId} · ga4_property_daily · {$dailyGate->coverageState}", 'state' => $stateLabel]];
     }
 
-    private function realGlance(Ga4DatasetReadiness $dailyGate, ?array $sums, ?array $prevSums, string $compareMode): array
+    private function realGlance(Ga4DatasetReadiness $dailyGate, ?array $sums, ?array $prevSums, string $compareMode, ?Ga4DatasetReadiness $prevDailyGate = null): array
     {
         $comparisonText = $compareMode === 'yoy' ? 'year-ago period' : 'previous period';
         if (! $dailyGate->isUsable()) {
@@ -278,7 +278,11 @@ final class Ga4SpecialistReadService
         }
 
         $sessionsRaw = $sums !== null ? (int) $sums['sessions'] : 0;
-        $delta = ($sums !== null && $prevSums !== null) ? $this->formulas->periodRelativeChange((float) $sums['sessions'], (float) $prevSums['sessions']) : null;
+        // A period-over-period delta is only meaningful when both windows are fully covered;
+        // comparing a partial window against a full one fabricates a drop/growth.
+        $delta = ($sums !== null && $prevSums !== null && $dailyGate->isFullyCovered() && $prevDailyGate?->isFullyCovered() === true)
+            ? $this->formulas->periodRelativeChange((float) $sums['sessions'], (float) $prevSums['sessions'])
+            : null;
         $sessions = ['value' => number_format($sessionsRaw), 'raw' => $sessionsRaw, 'secondary' => $this->deltaSecondary($delta, $dailyGate, $compareMode), 'tone' => 'neutral'];
         if ($dailyGate->coverageState === Ga4DatasetReadiness::COVERAGE_PARTIALLY_COVERED) {
             $sessions['note'] = 'Partial coverage — sessions reflect only collected days in this range.';
@@ -378,7 +382,7 @@ final class Ga4SpecialistReadService
         if ($landingGate->isUsable() && $landingGate->effectiveStart !== null && $landingGate->effectiveEnd !== null) {
             foreach ($this->pool->landingPages($digitalAssetId, $externalResourceId, $propertyId, $landingGate->effectiveStart, $landingGate->effectiveEnd) as $row) {
                 $engagedRate = $this->formulas->engagementRate($row['engagedSessions'], $row['sessions']);
-                $landingPages[] = ['path' => $row['path'], 'title' => '', 'content_role' => '', 'sessions' => $row['sessions'], 'engaged_sessions' => $row['engagedSessions'], 'engaged_rate' => $engagedRate->toPercentDisplay(0) ?? 0.0, 'mapped_actions' => 0, 'website_asset_id' => null, 'attention' => null];
+                $landingPages[] = ['path' => $row['path'], 'title' => '', 'content_role' => '', 'sessions' => $row['sessions'], 'engaged_sessions' => $row['engagedSessions'], 'engaged_rate' => $engagedRate->toPercentDisplay(0) ?? 0.0, 'mapped_actions' => null, 'website_asset_id' => null, 'attention' => null];
             }
         }
         $engagement = [];
@@ -426,10 +430,17 @@ final class Ga4SpecialistReadService
         $metaJson = is_array($propertyMeta['metadata'] ?? null) ? $propertyMeta['metadata'] : [];
         $streams = is_array($metaJson['data_streams'] ?? null) ? $metaJson['data_streams'] : [];
         if ($streams === []) {
-            return [['name' => $metaJson['display_name'] ?? 'GA4 web stream', 'stream_id' => null, 'measurement_id' => null, 'type' => 'Web', 'status' => 'Receiving', 'last_hit' => $propertyMeta['last_collected_at'] ?? null]];
+            // No collected stream list (or the list was unavailable) — never fabricate a stream.
+            return [];
         }
 
-        return array_map(static fn (array $stream): array => ['name' => $stream['displayName'] ?? $stream['name'] ?? 'GA4 stream', 'stream_id' => $stream['name'] ?? null, 'measurement_id' => $stream['webStreamData']['measurementId'] ?? null, 'type' => $stream['type'] ?? 'Web', 'status' => 'Receiving', 'last_hit' => $propertyMeta['last_collected_at'] ?? null], $streams);
+        // The Admin API stream list proves configuration only — not that hits are arriving —
+        // and the metadata collection time is not a last-hit time.
+        $status = ($metaJson['data_streams_source'] ?? 'provider') === 'last_successful_snapshot'
+            ? 'Configured (last known)'
+            : 'Configured';
+
+        return array_map(static fn (array $stream): array => ['name' => $stream['displayName'] ?? $stream['name'] ?? 'GA4 stream', 'stream_id' => $stream['name'] ?? null, 'measurement_id' => $stream['webStreamData']['measurementId'] ?? null, 'type' => $stream['type'] ?? 'Web', 'status' => $status, 'last_hit' => null], $streams);
     }
 
     private function primaryDataStream(array $metaJson): array

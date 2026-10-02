@@ -23,6 +23,7 @@ use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\User;
 use App\Services\DataPool\Integrity\Support\CoverageIntervalSet;
+use App\Services\DataPool\PartitionManager;
 use App\Services\Formulas\Ga4FormulaCalculator;
 use App\Services\Ga4\Ga4PoolReadRepository;
 use App\Services\Ga4\Ga4SpecialistBindingResolver;
@@ -391,9 +392,142 @@ class Ga4RealDataMigrationTest extends TestCase
         $this->assertSame(DataSourceState::PartialReal, $gate->dataSourceState());
     }
 
+    #[Test]
+    public function optional_metric_total_is_unavailable_unless_every_day_carries_it(): void
+    {
+        $dates = $this->contiguousDates('2026-07-16', 28);
+        $this->insertPropertyDailyRows($dates);
+        $pool = app(Ga4PoolReadRepository::class);
+
+        DB::table('ga4_property_daily')->where('reporting_date', '2026-07-20')->update(['keyEvents' => 5, 'totalRevenue' => 10, 'newUsers' => 3, 'conversions' => 2]);
+        $partial = $pool->propertyDailySums($this->asset->id, $this->resource->id, '123456', '2026-07-16', '2026-08-12');
+        $this->assertNull($partial['keyEvents']);
+        $this->assertNull($partial['totalRevenue']);
+        $this->assertNull($partial['newUsers']);
+        $this->assertNull($partial['conversions']);
+        $this->assertSame(1400, $partial['sessions']);
+
+        DB::table('ga4_property_daily')->update(['keyEvents' => 1, 'totalRevenue' => 0, 'newUsers' => 2, 'conversions' => 1]);
+        $full = $pool->propertyDailySums($this->asset->id, $this->resource->id, '123456', '2026-07-16', '2026-08-12');
+        $this->assertSame(28.0, $full['keyEvents']);
+        $this->assertSame(0.0, $full['totalRevenue']);
+        $this->assertSame(56, $full['newUsers']);
+
+        // A requested day without any row is not full coverage — optional totals stay unavailable.
+        $gap = $pool->scopedPropertyDailySums($this->asset->id, $this->resource->id, '123456', '2026-07-15', '2026-08-12');
+        $this->assertNull($gap['keyEvents']);
+        $this->assertNull($gap['totalRevenue']);
+        $this->assertSame(1400, $gap['sessions']);
+    }
+
+    #[Test]
+    public function sessions_delta_is_unavailable_when_comparison_period_is_only_partially_covered(): void
+    {
+        $current = $this->contiguousDates('2026-07-16', 28);
+        $previous = $this->contiguousDates('2026-07-01', 5);
+        $this->seedDatasetReady('ga4_property_daily', array_merge($previous, $current));
+        $this->insertPropertyDailyRows(array_merge($previous, $current), sessions: 50);
+
+        $workspace = app(Ga4SpecialistReadService::class)->workspace((string) $this->asset->id, 'last_28');
+
+        $this->assertSame(1400, $workspace['glance']['sessions']['raw']);
+        $this->assertStringContainsString('unavailable', $workspace['glance']['sessions']['secondary']);
+        $this->assertStringNotContainsString('%', $workspace['glance']['sessions']['secondary']);
+    }
+
+    #[Test]
+    public function sessions_delta_is_computed_when_both_periods_are_fully_covered(): void
+    {
+        $dates = $this->contiguousDates('2026-06-18', 56);
+        $this->seedDatasetReady('ga4_property_daily', $dates);
+        $this->insertPropertyDailyRows($dates, sessions: 50);
+
+        $workspace = app(Ga4SpecialistReadService::class)->workspace((string) $this->asset->id, 'last_28');
+
+        $this->assertStringContainsString('+0.0%', $workspace['glance']['sessions']['secondary']);
+    }
+
+    #[Test]
+    public function streams_are_never_fabricated_when_no_stream_list_was_collected(): void
+    {
+        $this->seedDatasetReady('ga4_property_metadata', [now()->toDateString()]);
+        DB::table('ga4_property_metadata')->insert([
+            'digital_asset_id' => $this->asset->id,
+            'external_resource_id' => $this->resource->id,
+            'property_id' => '123456',
+            'source_timezone' => 'Europe/Berlin',
+            'metadata' => json_encode(['display_name' => 'Bound GA4 Property', 'data_streams' => null, 'data_streams_source' => 'unavailable']),
+            'contract_version' => 1,
+            'first_collected_at' => now(),
+            'last_collected_at' => now(),
+            'record_fingerprint' => hash('sha256', 'meta'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $workspace = app(Ga4SpecialistReadService::class)->workspace((string) $this->asset->id, 'last_28');
+
+        $this->assertSame([], $workspace['measurement']['streams']);
+    }
+
+    #[Test]
+    public function landing_page_mapped_actions_are_unavailable_without_a_mapping_store(): void
+    {
+        $dates = $this->contiguousDates('2026-07-16', 28);
+        $this->seedDatasetReady('ga4_landing_page_daily', $dates);
+        foreach ($dates as $date) {
+            $this->ensurePartitionFor('ga4_landing_page_daily', $date);
+            DB::table('ga4_landing_page_daily')->insert([
+                'digital_asset_id' => $this->asset->id,
+                'external_resource_id' => $this->resource->id,
+                'property_id' => '123456',
+                'reporting_date' => $date,
+                'landingPage' => '/pricing',
+                'sessions' => 10,
+                'engagedSessions' => 5,
+                'contract_version' => 1,
+                'first_collected_at' => now(),
+                'last_collected_at' => now(),
+                'record_fingerprint' => hash('sha256', 'landing-'.$date),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        $workspace = app(Ga4SpecialistReadService::class)->workspace((string) $this->asset->id, 'last_28');
+
+        $this->assertNotEmpty($workspace['behavior']['landing_pages']);
+        $this->assertNull($workspace['behavior']['landing_pages'][0]['mapped_actions']);
+
+        $user = User::factory()->create();
+        $user->assignRole(Roles::ADMIN);
+        $this->actingAs($user);
+        Livewire::test(AnalyticsPage::class, ['assetId' => (string) $this->asset->id])
+            ->assertOk()
+            ->assertSee('/pricing')
+            ->set('tab', 'behavior')
+            ->assertOk()
+            ->assertSee('Unavailable');
+    }
+
     /**
      * @param  list<string>  $dates
      */
+    /** PostgreSQL range-partitioned fact tables need their monthly partition before a raw insert. */
+    private function ensurePartitionFor(string $table, string $date): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+        $partitioned = DB::selectOne(
+            'SELECT 1 AS ok FROM pg_partitioned_table p JOIN pg_class c ON c.oid = p.partrelid JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relname = ? AND n.nspname = current_schema()',
+            [$table],
+        );
+        if ($partitioned !== null) {
+            app(PartitionManager::class)->ensureRange($table, $date, $date);
+        }
+    }
+
     private function seedDatasetReady(string $datasetId, array $dates): void
     {
         $this->materializationWithDates($datasetId, $dates);

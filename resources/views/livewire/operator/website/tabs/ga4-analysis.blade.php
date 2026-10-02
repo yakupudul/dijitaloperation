@@ -136,7 +136,12 @@
             <a href="{{ route('operator.asset.sources', ['assetId' => $asset->id]) }}" wire:navigate class="mt-4 inline-flex rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700">{{ __('operator.website.actions.data_sources') }}</a>
         </section>
     @else
-        @if (! ($ga4Analysis['has_data'] ?? false))
+        @if (($ga4Analysis['coverage']['complete'] ?? true) === false)
+            <section class="rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-500/20 dark:bg-amber-500/10">
+                <h3 class="font-semibold text-amber-900 dark:text-amber-200">{{ __('website_ga4.coverage_incomplete_title') }}</h3>
+                <p class="mt-1 text-sm text-amber-800/80 dark:text-amber-300/80">{{ __('website_ga4.coverage_incomplete_body') }}</p>
+            </section>
+        @elseif (! ($ga4Analysis['has_data'] ?? false))
             <section class="rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-500/20 dark:bg-amber-500/10">
                 <h3 class="font-semibold text-amber-900 dark:text-amber-200">{{ __('website_ga4.no_data_title') }}</h3>
                 <p class="mt-1 text-sm text-amber-800/80 dark:text-amber-300/80">{{ __('website_ga4.no_data_body') }}</p>
@@ -435,7 +440,7 @@
             <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                 <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-800">
                     <div><h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('website_ga4.ecommerce') }}</h3><p class="mt-0.5 text-xs text-gray-400">{{ __('website_ga4.products') }}</p></div>
-                    <div class="flex gap-5 text-right text-xs"><div><span class="block text-gray-400">{{ __('website_ga4.purchases_col') }}</span><strong class="mt-0.5 block text-sm text-gray-900 dark:text-white">{{ number_format($ga4Analysis['ecommerce']['purchases'] ?? 0) }}</strong></div><div><span class="block text-gray-400">{{ __('website_ga4.revenue_col') }}</span><strong class="mt-0.5 block text-sm text-gray-900 dark:text-white">{{ $ga4Analysis['ecommerce']['revenue'] === null ? '—' : number_format((float) $ga4Analysis['ecommerce']['revenue'], 2) }}</strong></div></div>
+                    <div class="flex gap-5 text-right text-xs"><div><span class="block text-gray-400">{{ __('website_ga4.purchases_col') }}</span><strong class="mt-0.5 block text-sm text-gray-900 dark:text-white">{{ ($ga4Analysis['ecommerce']['purchases'] ?? null) === null ? '—' : number_format($ga4Analysis['ecommerce']['purchases']) }}</strong></div><div><span class="block text-gray-400">{{ __('website_ga4.revenue_col') }}</span><strong class="mt-0.5 block text-sm text-gray-900 dark:text-white">{{ $ga4Analysis['ecommerce']['revenue'] === null ? '—' : number_format((float) $ga4Analysis['ecommerce']['revenue'], 2) }}</strong></div></div>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full text-sm"><thead><tr class="border-b border-gray-100 text-left text-[11px] uppercase tracking-wide text-gray-400 dark:border-gray-800"><th class="px-5 py-3 font-medium">{{ __('website_ga4.product_col') }}</th><th class="px-3 py-3 text-right font-medium">{{ __('website_ga4.views_col') }}</th><th class="px-3 py-3 text-right font-medium">{{ __('website_ga4.cart_col') }}</th><th class="px-5 py-3 text-right font-medium">{{ __('website_ga4.purchases_col') }}</th></tr></thead><tbody class="divide-y divide-gray-100 dark:divide-gray-800">@foreach ($ga4Analysis['ecommerce']['items'] ?? [] as $row)<tr><td class="px-5 py-3 font-medium text-gray-800 dark:text-white/90">{{ $row['item_name'] ?: $row['item_id'] }}</td><td class="px-3 py-3 text-right tabular-nums">{{ number_format($row['views']) }}</td><td class="px-3 py-3 text-right tabular-nums">{{ number_format($row['carts']) }}</td><td class="px-5 py-3 text-right tabular-nums">{{ number_format($row['purchases']) }}</td></tr>@endforeach</tbody></table>

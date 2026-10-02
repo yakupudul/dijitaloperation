@@ -10,6 +10,8 @@ return [
     'no_binding_body' => 'Bu web sitesine bir GA4 mülkü bağladığınızda merkezi Data Pool verileri burada ziyaretçi analizi olarak gösterilir.',
     'no_data_title' => 'Seçilen dönemde ziyaretçi verisi yok',
     'no_data_body' => 'Tarih aralığını değiştirin veya Google Analytics veri kaynağının güncel olduğundan emin olun.',
+    'coverage_incomplete_title' => 'Bu dönem henüz tam toplanmadı',
+    'coverage_incomplete_body' => 'Seçilen aralıktaki bazı günler başarıyla toplanmadığı için toplamlar sıfır yerine kullanılamaz olarak gösterilir. Kullanılabilir analiz aralığı içinde bir dönem seçin veya Google Analytics veri kaynağını yenileyin.',
 
     'overview_section' => 'Trafik özeti',
     'overview_section_hint' => 'Seçilen dönemde sitenin ne kadar ziyaret edildiğini ve ziyaretlerin kalitesini gösterir.',

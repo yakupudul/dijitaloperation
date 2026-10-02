@@ -145,7 +145,7 @@
                         <td class="px-4 py-2.5">
                             <x-ta.badge :color="match($row['status'] ?? '') { 'Receiving', 'Healthy' => 'success', 'Interrupted', 'Stale' => 'warning', default => 'light' }" size="sm">{{ $row['status'] ?? '—' }}</x-ta.badge>
                         </td>
-                        <td class="px-4 py-2.5 text-xs text-gray-500">{{ $row['last_hit'] ?? 'No data' }}</td>
+                        <td class="px-4 py-2.5 text-xs text-gray-500">{{ $row['last_hit'] ?? 'Unavailable' }}</td>
                     </tr>
                 @endforeach
             </x-ta.table>

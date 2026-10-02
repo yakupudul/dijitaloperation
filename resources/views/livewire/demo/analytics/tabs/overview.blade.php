@@ -88,7 +88,7 @@
                     </td>
                     <td class="px-3 py-2 text-sm tabular-nums">{{ number_format($row['sessions']) }}</td>
                     <td class="px-3 py-2 text-sm tabular-nums">{{ $row['engaged_rate'] }}%</td>
-                    <td class="px-3 py-2 text-sm tabular-nums">{{ number_format($row['mapped_actions']) }}</td>
+                    <td class="px-3 py-2 text-sm tabular-nums">@if (($row['mapped_actions'] ?? null) !== null){{ number_format($row['mapped_actions']) }}@else<span class="text-slate-400">Unavailable</span>@endif</td>
                     <td class="px-3 py-2 text-xs text-gray-500">{{ $row['attention'] ?? '—' }}</td>
                     <td class="px-3 py-2"><button type="button" wire:click="openLanding('{{ $row['path'] }}')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Inspect</button></td>
                 </tr>

@@ -49,6 +49,22 @@ final class MoxdopGa4CentralRestatementCommand extends Command
             ->get(['id', 'integration_id'])
             ->groupBy('integration_id');
 
+        $activeResourceIds = CollectionResourceRun::query()
+            ->where('provider_or_source', 'GA4')
+            ->whereNull('digital_asset_id')
+            ->whereIn('external_resource_id', $resourceIds->all())
+            ->where('metadata->collection_scope', 'provider_resource_first')
+            ->whereIn('status', [
+                CollectionRunStatus::Queued->value,
+                CollectionRunStatus::Running->value,
+                CollectionRunStatus::Retrying->value,
+                CollectionRunStatus::CancellationRequested->value,
+            ])
+            ->distinct()
+            ->pluck('external_resource_id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
         $started = 0;
         foreach ($resources as $integrationId => $group) {
             $integration = CoreIntegration::query()->find((int) $integrationId);
@@ -56,15 +72,34 @@ final class MoxdopGa4CentralRestatementCommand extends Command
                 continue;
             }
 
+            // A property that is still collecting is skipped on its own; it must not
+            // abort the refresh of its sibling properties under the same integration.
+            $ids = [];
+            foreach ($group->pluck('id')->map(fn ($id): int => (int) $id) as $id) {
+                if (in_array($id, $activeResourceIds, true)) {
+                    $this->warn('Skipped GA4 property resource #'.$id.': a collection is already in progress.');
+
+                    continue;
+                }
+                $ids[] = $id;
+            }
+            if ($ids === []) {
+                continue;
+            }
+
             try {
-                $collector->startSmartUpdate(
-                    $integration,
-                    $group->pluck('id')->map(fn ($id): int => (int) $id)->all(),
-                    null,
-                );
-                $started += $group->count();
+                $collector->startSmartUpdate($integration, $ids, null);
+                $started += count($ids);
             } catch (\InvalidArgumentException $e) {
-                $this->warn('Skipped integration #'.$integration->id.': '.$e->getMessage());
+                // Raced with another start: fall back to one property at a time.
+                foreach ($ids as $id) {
+                    try {
+                        $collector->startSmartUpdate($integration, [$id], null);
+                        $started++;
+                    } catch (\InvalidArgumentException $single) {
+                        $this->warn('Skipped GA4 property resource #'.$id.': '.$single->getMessage());
+                    }
+                }
             }
         }
 

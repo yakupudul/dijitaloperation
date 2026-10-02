@@ -11,11 +11,13 @@ use App\Services\Collection\Contracts\DatasetExecutor;
 use App\Services\Collection\Contracts\RawPayloadWriter;
 use App\Services\Collection\Support\DatasetExecutionContext;
 use App\Services\Collection\Support\DatasetExecutionResult;
+use App\Services\DataPool\DataPoolStorageRegistry;
 use App\Services\DataPool\DatasetWritePipeline;
 use App\Services\DataPool\MaterializationService;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RawPayloadEnvelope;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -36,6 +38,7 @@ final class Ga4DatasetExecutor implements DatasetExecutor
         private readonly DatasetWritePipeline $pipeline,
         private readonly RawPayloadWriter $rawWriter,
         private readonly MaterializationService $materializations,
+        private readonly DataPoolStorageRegistry $registry,
     ) {}
 
     public function supportedRequestFamilies(): array
@@ -92,13 +95,20 @@ final class Ga4DatasetExecutor implements DatasetExecutor
 
         $assetId = $this->assetId($scope);
         $resourceId = (int) $scope['resource']->id;
+        $streamsSource = (string) ($ctx['streams_source'] ?? 'provider');
+        $streams = $ctx['streams'];
+        if (($ctx['streams_available'] ?? true) !== true) {
+            $streams = $this->storedDataStreams($resourceId, (string) $scope['property_id']);
+            $streamsSource = $streams === null ? 'unavailable' : 'last_successful_snapshot';
+        }
         $record = $this->normalizer->normalizePropertyMetadata(
             $scope['property_id'],
             $ctx['property'],
-            $ctx['streams'],
+            $streams,
             $assetId,
             $resourceId,
             $configuration,
+            $streamsSource,
         );
 
         $batchKey = 'ga4:metadata:'.$scope['property_id'];
@@ -439,6 +449,7 @@ final class Ga4DatasetExecutor implements DatasetExecutor
         $pagesCompleted = (int) ($checkpoint['pages_completed'] ?? 0);
         $rowsReceivedTotal = (int) ($checkpoint['rows_received_total'] ?? 0);
         $rowsWrittenTotal = (int) ($checkpoint['rows_written_total'] ?? 0);
+        $sliceStartedAt = is_string($checkpoint['slice_started_at'] ?? null) ? $checkpoint['slice_started_at'] : null;
 
         $pageSize = min(
             (int) config('moxdop-ga4-collector.page_size', Ga4ProviderCapabilities::DEFAULT_PAGE_SIZE),
@@ -459,6 +470,9 @@ final class Ga4DatasetExecutor implements DatasetExecutor
         while ($sliceIndex < count($slices) && $tickPages < $maxPagesPerTick) {
             $slice = $slices[$sliceIndex];
             $lastSlice = $slice;
+            if ($offset === 0) {
+                $sliceStartedAt = now()->toDateTimeString();
+            }
             $body = $this->requestBuilder->build(
                 $dimensions,
                 $metrics,
@@ -632,8 +646,26 @@ final class Ga4DatasetExecutor implements DatasetExecutor
                 || ($rowCount !== null && $nextOffset >= $rowCount);
 
             if ($pageComplete) {
+                try {
+                    $this->pruneRowsAbsentFromCompletedSlice(
+                        $datasetId,
+                        $resourceId,
+                        (string) $scope['property_id'],
+                        $slice,
+                        (int) $context->datasetRun->id,
+                        $sliceStartedAt,
+                    );
+                } catch (Throwable $e) {
+                    return DatasetExecutionResult::failed(
+                        CollectionErrorCategory::Persistence,
+                        'GA4 restatement prune failed before checkpoint advance: '.$e->getMessage(),
+                        'PERSISTENCE',
+                    );
+                }
+
                 $sliceIndex++;
                 $offset = 0;
+                $sliceStartedAt = null;
             } else {
                 $offset = $nextOffset;
             }
@@ -646,6 +678,7 @@ final class Ga4DatasetExecutor implements DatasetExecutor
             'rows_received_total' => $rowsReceivedTotal,
             'rows_written_total' => $rowsWrittenTotal,
             'last_slice' => $lastSlice,
+            'slice_started_at' => $sliceStartedAt,
             'timezone' => $timezone,
             'provider_completeness' => Ga4ProviderCapabilities::PROVIDER_COMPLETENESS,
             'execution_completeness' => $sliceIndex >= count($slices)
@@ -682,6 +715,65 @@ final class Ga4DatasetExecutor implements DatasetExecutor
             stage: sprintf('slice_%d_offset_%d', $sliceIndex, $offset),
             checkpoint: $nextCheckpoint,
         );
+    }
+
+    /**
+     * Restatement prune: once every page of a slice (resource + family + date range) has been
+     * received and committed, rows of that slice whose natural key the provider no longer
+     * returned are stale and would overcount. Every row the slice wrote carries this dataset
+     * run id; rows re-stamped by another run after this slice started are preserved. Only
+     * called on full slice completion — a failed or partial slice never deletes anything.
+     *
+     * @param  array{start: string, end: string}  $slice
+     */
+    private function pruneRowsAbsentFromCompletedSlice(
+        string $datasetId,
+        int $resourceId,
+        string $propertyId,
+        array $slice,
+        int $datasetRunId,
+        ?string $sliceStartedAt,
+    ): void {
+        if (! $this->registry->hasPhysicalTable($datasetId)) {
+            return;
+        }
+        $physical = $this->registry->physicalDataset($datasetId);
+        if (($physical['write_mode'] ?? null) !== 'UPSERT_DAILY_FACT') {
+            return;
+        }
+
+        DB::transaction(function () use ($physical, $resourceId, $propertyId, $slice, $datasetRunId, $sliceStartedAt): void {
+            DB::table($physical['table'])
+                ->where('external_resource_id', $resourceId)
+                ->where('property_id', $propertyId)
+                ->whereBetween('reporting_date', [$slice['start'], $slice['end']])
+                ->where(function ($query) use ($datasetRunId): void {
+                    $query->whereNull('last_dataset_run_id')
+                        ->orWhere('last_dataset_run_id', '<>', $datasetRunId);
+                })
+                ->when($sliceStartedAt !== null, fn ($query) => $query->where('last_collected_at', '<', $sliceStartedAt))
+                ->delete();
+        });
+    }
+
+    /**
+     * Last successfully collected data streams for this property, or null when none were ever
+     * stored. Used when dataStreams.list fails so a provider error never overwrites the
+     * stored snapshot with an empty list.
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    private function storedDataStreams(int $resourceId, string $propertyId): ?array
+    {
+        $raw = DB::table('ga4_property_metadata')
+            ->where('external_resource_id', $resourceId)
+            ->where('property_id', $propertyId)
+            ->orderByDesc('last_collected_at')
+            ->value('metadata');
+        $metadata = is_string($raw) ? json_decode($raw, true) : (is_array($raw) ? $raw : null);
+        $streams = is_array($metadata) ? ($metadata['data_streams'] ?? null) : null;
+
+        return is_array($streams) ? array_values($streams) : null;
     }
 
     /** @return array{start: string, end: string}|DatasetExecutionResult */

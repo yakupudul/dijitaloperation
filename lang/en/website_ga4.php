@@ -10,6 +10,8 @@ return [
     'no_binding_body' => 'Link a GA4 property to this Website and its central Data Pool facts will appear here as visitor analysis.',
     'no_data_title' => 'No visitor data for this period',
     'no_data_body' => 'Change the date range or make sure the Google Analytics data source is current.',
+    'coverage_incomplete_title' => 'This period is not fully collected yet',
+    'coverage_incomplete_body' => 'Some days in the selected range have not been collected successfully, so totals are shown as unavailable instead of zero. Choose a range inside the available analysis range or refresh the Google Analytics data source.',
 
     'overview_section' => 'Traffic summary',
     'overview_section_hint' => 'Shows how much the site was visited and the quality of those visits during the selected period.',
