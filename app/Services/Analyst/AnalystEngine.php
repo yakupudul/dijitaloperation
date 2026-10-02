@@ -97,6 +97,14 @@ final class AnalystEngine
 
                 return;
             }
+            // The weekly run pays only for new data: the same input as the last finished analysis is not analysed again
+            // ("Yeniden analiz et" always runs).
+            if ($run->trigger !== 'manual' && AnalystRun::query()->where('brand_id', $run->brand_id)->where('channel', $run->channel)
+                ->where('status', AnalystRun::DONE)->whereKeyNot($run->id)->orderByDesc('id')->value('pack_hash') === $pack->hash()) {
+                $this->finish($run, AnalystRun::SKIPPED, 'Veri geçen analizden beri değişmedi; AI çalıştırılmadı.');
+
+                return;
+            }
             $route = $this->routes->resolve($analyst->routeKey());
             if ($route->isEmpty()) {
                 $this->finish($run, AnalystRun::SKIPPED, 'AI kapalı ya da aylık AI bütçesi doldu (Ayarlar → AI).');

@@ -57,6 +57,11 @@ final class QueryAutopilot
 
     private const int CLUSTER_EVERY_HOURS = 20;
 
+    /** Failed triage calls in a row before the pilot waits ERROR_PAUSE_HOURS (the same queries are not paid for again and again). */
+    private const int MAX_ERRORS = 3;
+
+    private const int ERROR_PAUSE_HOURS = 2;
+
     /** New filter terms since the last clean-up that start one at once. */
     public const int CLEAN_AFTER_TERMS = 50;
 
@@ -118,6 +123,10 @@ final class QueryAutopilot
         $clustering = $this->clusterIfDue();
         $started = microtime(true);
         $skipSectors = [];
+        $waitUntil = self::state()['error_wait_until'] ?? null;
+        if (is_string($waitUntil) && CarbonImmutable::parse($waitUntil)->isFuture()) {
+            $skipSectors = self::queue()->distinct()->pluck('sector_id')->map(fn ($id): int => (int) $id)->all(); // triage waits; the rest goes on
+        }
         $termsAdded = false;
         while (microtime(true) - $started < self::TIME_BUDGET_SECONDS) {
             $first = self::queue()->whereNotIn('sector_id', $skipSectors ?: [0])->orderBy('sector_id')->orderBy('id')->first(['id', 'sector_id']);
@@ -139,10 +148,13 @@ final class QueryAutopilot
                 return 'no_provider';
             }
             if (! is_array($structured)) {
-                $this->record(['status' => 'error']);
+                $errors = (int) (self::state()['errors_in_row'] ?? 0) + 1;
+                $this->record(['status' => 'error', 'errors_in_row' => $errors]
+                    + ($errors >= self::MAX_ERRORS ? ['error_wait_until' => now()->addHours(self::ERROR_PAUSE_HOURS)->toIso8601String(), 'errors_in_row' => 0] : []));
 
                 return 'more';
             }
+            $this->record(['errors_in_row' => 0]);
             $result = $this->apply($context, $rows, $structured);
             $termsAdded = $termsAdded || $result['filters'] > 0;
             $this->record(['status' => 'running'], $result);

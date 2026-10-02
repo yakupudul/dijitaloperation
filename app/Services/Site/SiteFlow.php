@@ -35,6 +35,9 @@ final class SiteFlow
     /** A "running" mark older than this is stale (a job that died). */
     private const int RUNNING_HOURS = 3;
 
+    /** Page text changes alone (dynamic dates, counters) re-run Eşleştir at most this often. */
+    public const int CONTENT_RERUN_DAYS = 7;
+
     /** @return string setup | audit | running | ready | waiting:not_operational | waiting:wordpress | waiting:pages */
     public static function advance(DigitalAsset $site, bool $setup = true): string
     {
@@ -71,7 +74,11 @@ final class SiteFlow
             ->where('enabled', true)->where('config->pairing_state', WordPressConnectorPairingService::PAIRED)->exists();
     }
 
-    /** Küme ↔ sayfa must run: rows never read, or the approved clusters / page contents changed since the last run. */
+    /**
+     * Küme ↔ sayfa must run: rows never read, or the approved clusters / pages / categories changed since the last run.
+     * Changed page texts alone count at most once every CONTENT_RERUN_DAYS (a site whose pages change on every crawl
+     * would otherwise pay for a run every night).
+     */
     public static function auditDue(DigitalAsset $site): bool
     {
         $fingerprint = self::fingerprint($site);
@@ -81,8 +88,14 @@ final class SiteFlow
         if (BrandClusterPage::query()->where('website_asset_id', $site->id)->where('excluded', false)->whereNull('audited_at')->exists()) {
             return true;
         }
+        $last = Cache::get(self::key($site));
+        if (! is_array($last) || ($last['structure'] ?? null) !== $fingerprint['structure']) {
+            return true;
+        }
+        $at = Cache::get(self::key($site).':at');
 
-        return Cache::get(self::key($site)) !== $fingerprint;
+        return $last['content'] !== $fingerprint['content']
+            && (! is_string($at) || CarbonImmutable::parse($at)->lte(now()->subDays(self::CONTENT_RERUN_DAYS)));
     }
 
     /** Called when Eşleştir finished: the inputs it read are remembered. */
@@ -145,8 +158,13 @@ final class SiteFlow
         return false;
     }
 
-    /** Approved clusters of the brand's services + the site's page contents; null when there is nothing to match. */
-    private static function fingerprint(DigitalAsset $site): ?string
+    /**
+     * Approved clusters of the brand's services + the site's pages and categories (structure) and their texts (content);
+     * null when there is nothing to match.
+     *
+     * @return array{structure: string, content: string}|null
+     */
+    private static function fingerprint(DigitalAsset $site): ?array
     {
         $brand = SiteScope::brandOf($site);
         if ($brand === null) {
@@ -156,10 +174,12 @@ final class SiteFlow
         if ($clusters === []) {
             return null;
         }
-        $pages = Page::query()->where('website_asset_id', $site->id)->orderBy('id')->toBase()->get(['id', 'content_hash', 'category'])
-            ->map(fn (object $p): string => $p->id.':'.$p->content_hash.':'.$p->category)->implode(',');
+        $pages = Page::query()->where('website_asset_id', $site->id)->orderBy('id')->toBase()->get(['id', 'content_hash', 'category']);
 
-        return hash('sha256', implode(',', $clusters).'|'.$pages);
+        return [
+            'structure' => hash('sha256', implode(',', $clusters).'|'.$pages->map(fn (object $p): string => $p->id.':'.$p->category)->implode(',')),
+            'content' => hash('sha256', $pages->map(fn (object $p): string => $p->id.':'.$p->content_hash)->implode(',')),
+        ];
     }
 
     /** @return list<int> */

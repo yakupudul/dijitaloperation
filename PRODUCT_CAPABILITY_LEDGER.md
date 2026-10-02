@@ -1,5 +1,19 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-19 (d) — AI işleri biter: aynı iş için tekrar para ödenmez, kararlar kurala dönüşür
+
+- **Sonsuz döngü / tekrar ödeme kapatıldı:**
+  - **Hizmet ↔ sayfa:** AI'ın bir sayfa için verdiği karar (hizmet ya da "hizmet yok") saklanır; haftalık yenileme aynı sayfayı yeniden sormaz. Markanın hizmet listesi değişince bu sayfalar bir kez daha sorulur.
+  - **Küme ↔ sayfa:** kural geçişi AI'ın eşleştirmesini artık ezmiyor (önceden ezip haftalık yeniden AI'a yaptırabiliyordu). AI kararı bir sonraki Eşleştir'e kadar kural gibi durur.
+  - **Site akışı:** sayfa ya da kategori değişikliğinde Eşleştir hemen çalışır. Yalnız sayfa metni değişirse (her taramada değişen tarih vb.) en çok haftada bir çalışır.
+  - **Kanal analistleri:** haftalık çalışma, veri geçen analizden beri değişmediyse AI çağırmaz. "Yeniden analiz et" her zaman çalışır.
+  - **Sorgu otomatik pilotu:** AI üst üste 3 kez hata verirse 2 saat bekler; aynı sorgular her 15 dakikada yeniden gönderilmez.
+- **Öğrenilen kurallar (sonraki işler AI'sız):**
+  - **Klasör kuralı:** sitede en az 5 sayfası sınıflanmış ve %90'ı aynı kategoride olan klasörün yeni sayfaları o kategoriyi AI'sız alır ("hizmet" hariç).
+  - **Konu kuralı:** bir kümenin zaten tuttuğu konudan yeni bir sorgu gelirse o kümeye AI'sız girer. Kümeleme sonucu "N sorgu kuralla yerleşti (AI'sız)" yazar.
+  - Önceden var olanlar: sorgu pilotu yeni eşleme kelimeleri ve filtre terimleri öğrenir; sınıflandırma kararları ve küme yerleşimleri bir kez verilir.
+- **Test:** AiNoLoopTest, SiteFlowTest. Analist "veri değişmedi" atlaması için ayrı test yok. UAT: yok.
+
 ## 2026-11-19 (c) — AI işlemleri sayfası: AI şu an nerede ne yapıyor
 
 - **Ayarlar › AI işlemleri** yeniden düzenlendi. Çalışan iş varken her 5 sn, yokken her 30 sn kendiliğinden yenilenir.

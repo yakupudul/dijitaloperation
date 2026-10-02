@@ -23,6 +23,11 @@ final class PageCategorizer
     /** A non-service folder with this many pages is a template / archive section (articles, keyword pages), never "hizmet". */
     public const int BULK_SECTION = 40;
 
+    /** Öğrenilmiş klasör kuralı: categorized pages a folder needs, and the share that must agree. */
+    public const int LEARN_MIN = 5;
+
+    public const float LEARN_SHARE = 0.9;
+
     /** Unattended runs (nightly upkeep) send at most this many unsure pages to AI; more waits for the operator. */
     public const int UNATTENDED_AI_LIMIT = 200;
 
@@ -70,6 +75,21 @@ final class PageCategorizer
                 Page::query()->whereKey($page->id)->update(['category' => $category, 'category_source' => 'rule']);
             }
             $rule++;
+        }
+        // Öğrenilmiş kural: a folder whose categorized pages (AI or rules) agree gives its new pages the same category
+        // without AI. "hizmet" is never learned this way (a service page needs its own evidence).
+        $learned = self::learnedSections((int) $site->id);
+        if ($learned !== []) {
+            $unsure = $unsure->reject(function (Page $page) use ($learned, &$rule): bool {
+                $category = $learned[self::section((string) ($page->path ?: SeoText::urlPath((string) $page->url)))] ?? null;
+                if ($category === null) {
+                    return false;
+                }
+                Page::query()->whereKey($page->id)->where('category_locked', false)->update(['category' => $category, 'category_source' => 'rule']);
+                $rule++;
+
+                return true;
+            })->values();
         }
         if ($unsure->isEmpty()) {
             return ['status' => 'ready', 'rule' => $rule, 'ai' => 0, 'unsure' => 0];
@@ -162,6 +182,34 @@ final class PageCategorizer
 
         return array_values(array_map('strval', array_keys(array_filter($counts, fn (int $count, string $first): bool => $count >= self::BULK_SECTION
             && ! in_array($first, SiteUrlPattern::SERVICE_SECTIONS, true), ARRAY_FILTER_USE_BOTH))));
+    }
+
+    /**
+     * Folders the site has already categorized consistently: at least LEARN_MIN pages with a category, LEARN_SHARE of
+     * them the same (never "hizmet").
+     *
+     * @return array<string, string> folder => category
+     */
+    public static function learnedSections(int $siteId): array
+    {
+        $counts = [];
+        foreach (Page::query()->where('website_asset_id', $siteId)->whereNotNull('category')->toBase()->get(['path', 'url', 'category']) as $page) {
+            $section = self::section((string) ($page->path ?: SeoText::urlPath((string) $page->url)));
+            if ($section !== null) {
+                $counts[$section][(string) $page->category] = ($counts[$section][(string) $page->category] ?? 0) + 1;
+            }
+        }
+        $out = [];
+        foreach ($counts as $section => $byCategory) {
+            arsort($byCategory);
+            $top = (string) array_key_first($byCategory);
+            $total = array_sum($byCategory);
+            if ($top !== 'hizmet' && $total >= self::LEARN_MIN && $byCategory[$top] / $total >= self::LEARN_SHARE) {
+                $out[(string) $section] = $top;
+            }
+        }
+
+        return $out;
     }
 
     /** First folder of a page path below which more pages sit ("/en/kws/x" → "kws"), or null for a top-level page. */

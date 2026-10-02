@@ -63,7 +63,15 @@ final class SiteFlowTest extends SiteTestCase
         BrandClusterPage::query()->update(['audited_at' => now()]);
         SiteFlow::audited($this->site);
         $this->assertSame('ready', SiteFlow::advance($this->site));
+        // A changed page text alone re-runs Eşleştir at most once a week (pages that change on every crawl cost nothing nightly).
         Page::query()->where('path', '/implant/')->update(['content_hash' => hash('sha256', 'yeni metin')]);
+        $this->assertFalse(SiteFlow::auditDue($this->site));
+        $this->travel(SiteFlow::CONTENT_RERUN_DAYS + 1)->days();
+        $this->assertTrue(SiteFlow::auditDue($this->site));
+        $this->travelBack();
+        // A new page or a changed category counts at once.
+        SiteFlow::audited($this->site);
+        $this->page('/zirkonyum/', 'Zirkonyum', ['category' => 'hizmet']);
         $this->assertTrue(SiteFlow::auditDue($this->site));
 
         $steps = collect(SiteFlow::steps($this->site))->keyBy('key');

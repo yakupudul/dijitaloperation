@@ -126,7 +126,8 @@ final class QueryClusterer
         }
         if ($status === 'ready') {
             return ['text' => 'hazır'.(isset($state['clusters']) ? ' · '.(int) $state['clusters'].' yeni küme' : '')
-                .(isset($state['approved']) ? ' · '.(int) $state['approved'].' otomatik onaylandı' : ''), 'tone' => 'ok'];
+                .(isset($state['approved']) ? ' · '.(int) $state['approved'].' otomatik onaylandı' : '')
+                .(! empty($state['by_rule']) ? ' · '.(int) $state['by_rule'].' sorgu kuralla yerleşti (AI\'sız)' : ''), 'tone' => 'ok'];
         }
 
         return ['text' => [
@@ -187,6 +188,10 @@ final class QueryClusterer
         }
         $leftOut = array_map('intval', (array) ($state['left_out'] ?? []));
         $queries = $this->unclustered($service, $leftOut, (string) ($state['mode'] ?? 'full') === 'place');
+        // Öğrenilmiş kural: a new query of a topic the clusters already hold (same rule-engine topic) joins that cluster
+        // without AI; the AI only sees topics no cluster has yet.
+        [$queries, $byRule] = $this->placeByTopic($service, $queries);
+        $state['by_rule'] = (int) ($state['by_rule'] ?? 0) + $byRule;
         if ($queries->isEmpty()) {
             if ($step === 'skeleton' && ! Cluster::query()->where('service_id', $service->id)->exists()) {
                 return $this->save($service, ['status' => 'no_queries'] + $state);
@@ -259,6 +264,36 @@ final class QueryClusterer
             'clusters' => (int) ($state['clusters'] ?? 0) + $result['clusters'],
             'suggested' => (int) ($state['suggested'] ?? 0) + $result['suggested'],
         ] + $state);
+    }
+
+    /**
+     * Unclustered queries whose topic key one cluster of the service already holds go into that cluster (a key held by
+     * several clusters is left to the AI).
+     *
+     * @param  Collection<int, Query>  $queries
+     * @return array{0: Collection<int, Query>, 1: int} the queries left for the AI, placed count
+     */
+    private function placeByTopic(ServiceCatalogItem $service, Collection $queries): array
+    {
+        $keys = $queries->pluck('topic_key')->filter()->unique()->values()->all();
+        if ($keys === []) {
+            return [$queries, 0];
+        }
+        $owners = ClusterQuery::query()->join('clusters', 'clusters.id', '=', 'cluster_queries.cluster_id')->join('queries', 'queries.id', '=', 'cluster_queries.query_id')
+            ->where('clusters.service_id', $service->id)->whereIn('queries.topic_key', $keys)->distinct()->get(['queries.topic_key', 'cluster_queries.cluster_id'])
+            ->groupBy('topic_key')->filter(fn (Collection $rows): bool => $rows->count() === 1)->map(fn (Collection $rows): int => (int) $rows->first()->cluster_id);
+        if ($owners->isEmpty()) {
+            return [$queries, 0];
+        }
+        $placed = $queries->filter(fn (Query $q): bool => $q->topic_key !== null && $owners->has($q->topic_key));
+        $now = now();
+        ClusterQuery::query()->insert($placed->map(fn (Query $q): array => ['cluster_id' => $owners[$q->topic_key], 'query_id' => (int) $q->id, 'is_suggested' => false,
+            'created_at' => $now, 'updated_at' => $now])->values()->all());
+        Query::query()->whereIn('id', $placed->pluck('id'))->update(['cluster_checked_at' => $now]);
+
+        $placedIds = $placed->pluck('id')->map(fn ($id): int => (int) $id)->flip();
+
+        return [$queries->reject(fn (Query $q): bool => isset($placedIds[(int) $q->id]))->values(), $placed->count()];
     }
 
     /**

@@ -136,7 +136,11 @@ final class ClusterPageMapper
                 'clicks_28d' => $decision['metrics']['clicks'], 'impressions_28d' => $decision['metrics']['impressions'], 'position_28d' => $decision['metrics']['position'],
                 'refreshed_at' => now(),
             ];
-            if ($row !== null && $row->locked) {
+            // An AI decision (Eşleştir / AI judge) or a Şef correction stands like a rule until Eşleştir runs again:
+            // the rule pass only refreshes its numbers and never asks the AI about it again.
+            $decided = $row !== null && ! $row->locked && in_array($row->decided_by, ['ai', 'audit'], true)
+                && ($row->page_id === null || $pages->contains('id', (int) $row->page_id));
+            if ($row !== null && ($row->locked || $decided)) {
                 $pageMetrics = $row->page_id !== null ? $this->pageMetrics($clusterFacts, $byKey, (int) $row->page_id, $hasGsc) : $decision['metrics'];
                 $row->forceFill(['target_query' => $values['target_query'], 'clicks_28d' => $pageMetrics['clicks'], 'impressions_28d' => $pageMetrics['impressions'], 'position_28d' => $pageMetrics['position'], 'refreshed_at' => now()])->save();
                 $keep[] = $row->id;

@@ -9,6 +9,7 @@ use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -33,22 +34,34 @@ final class ServicePageMapper
         if ($brand === null || $offerings->isEmpty()) {
             return ['status' => 'no_services', 'rule' => 0, 'ai' => 0, 'unmatched' => 0];
         }
-        $locked = OfferingPage::query()->where('locked', true)->whereIn('page_id', Page::query()->where('website_asset_id', $site->id)->select('id'))->pluck('page_id')->all();
+        $sitePages = Page::query()->where('website_asset_id', $site->id)->select('id');
+        $locked = OfferingPage::query()->where('locked', true)->whereIn('page_id', $sitePages)->pluck('page_id')->all();
         $pages = self::eligible($site)->whereNotIn('id', $locked)->values();
         self::prune($site);
         $names = $offerings->mapWithKeys(fn (BrandOffering $o): array => [(int) $o->id => $o->displayName()]);
+        // AI decisions are kept like rules (never asked again) while the brand's service list stays the same; a changed
+        // list makes the AI judge those pages once more.
+        $signature = hash('sha256', json_encode($names->sortKeys()->all()) ?: '');
+        if (Cache::get(self::signatureKey($site)) !== $signature) {
+            OfferingPage::query()->where('locked', false)->where('source', 'ai')->whereIn('page_id', $sitePages)->delete();
+            Cache::forever(self::signatureKey($site), $signature);
+        }
+        $judged = OfferingPage::query()->where('locked', false)->where('source', 'ai')->whereIn('page_id', $pages->pluck('id'))->pluck('page_id')
+            ->map(fn ($id): int => (int) $id)->flip();
         $rule = [];
         $unsure = collect();
         foreach ($pages as $page) {
             $offeringId = self::ruleMatch($page, $names->all());
             if ($offeringId !== null) {
                 $rule[(int) $page->id] = $offeringId;
-            } elseif ($page->category === 'hizmet') {
+            } elseif ($page->category === 'hizmet' && ! $judged->has((int) $page->id)) {
                 $unsure->push($page); // location pages are matched by name only; the AI judges service pages
             }
         }
         DB::transaction(function () use ($pages, $rule): void {
-            OfferingPage::query()->where('locked', false)->whereIn('page_id', $pages->pluck('id'))->delete();
+            // Rule links are rebuilt; an AI decision stays unless the rule now decides the page.
+            OfferingPage::query()->where('locked', false)->whereIn('page_id', $pages->pluck('id'))
+                ->where(fn ($q) => $q->where('source', '!=', 'ai')->orWhereIn('page_id', array_keys($rule) ?: [0]))->delete();
             $now = now();
             $rows = [];
             foreach ($rule as $pageId => $offeringId) {
@@ -99,6 +112,11 @@ final class ServicePageMapper
 
         return OfferingPage::query()->where('locked', false)->whereIn('page_id', Page::query()->where('website_asset_id', $site->id)->select('id'))
             ->whereNotIn('page_id', $keep ?: [0])->delete();
+    }
+
+    private static function signatureKey(DigitalAsset $site): string
+    {
+        return 'service-pages:offerings:'.$site->id;
     }
 
     /**
@@ -158,10 +176,11 @@ final class ServicePageMapper
         foreach ((array) ($result['data']['pages'] ?? []) as $row) {
             $pageId = is_array($row) && is_int($row['page_id'] ?? null) ? $row['page_id'] : null;
             $offeringId = is_array($row) && is_int($row['service_id'] ?? null) ? $row['service_id'] : null;
-            if ($pageId === null || ! $ids->has($pageId) || $offeringId === null || ! isset($names[$offeringId])) {
-                continue; // unknown page / service ids are never trusted; "no service" leaves the page unmapped
+            if ($pageId === null || ! $ids->has($pageId) || ($offeringId !== null && ! isset($names[$offeringId]))) {
+                continue; // unknown page / service ids are never trusted
             }
             $ids->forget($pageId);
+            // "No service" is remembered too (a row without a service): the page is not asked again.
             $rows[] = ['brand_offering_id' => $offeringId, 'page_id' => $pageId, 'source' => 'ai', 'locked' => false, 'created_at' => $now, 'updated_at' => $now];
         }
         DB::transaction(function () use ($rows): void {

@@ -2,6 +2,9 @@
 
 ## 2026-11-19 — Site akışı
 
+- **Karar (AI maliyet ilkesi):** AI'a aynı girdiyle iki kez para ödenmez; verdiği karar girdisi değişene kadar kural gibi saklanır.
+  - Tekrarlanan kararlar kurala dönüşür: klasör kategorisi ve kümedeki konu.
+  - Hata veren AI işi beklemeye geçer.
 - **Karar (Şef denetimi):** 2026-11-17'deki "tutarlılık denetçisi yapılmayacak" kararının yerine geçer: Şef, AI kararlarını kurallarla, AI'sız denetler.
   - Yalnız hata arar; düzeltme yalnız yanlış AI kararını geri alır.
   - Kabul edilen kayıt bir daha raporlanmaz. Böylece "denetle → iş bul → yaptır" döngüsü olmaz.
