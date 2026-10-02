@@ -23,11 +23,17 @@ use Throwable;
 final class GscSpecialistReadService
 {
     private const string DATASET_PROPERTY_DAILY = 'gsc_property_daily';
+
     private const string DATASET_QUERY_DAILY = 'gsc_query_daily';
+
     private const string DATASET_PAGE_DAILY = 'gsc_page_daily';
+
     private const string DATASET_DEVICE_DAILY = 'gsc_device_daily';
+
     private const string DATASET_COUNTRY_DAILY = 'gsc_country_daily';
+
     private const string DATASET_SITEMAP_SNAPSHOT = 'gsc_sitemap_snapshot';
+
     private const string DATASET_URL_INSPECTION_SNAPSHOT = 'gsc_url_inspection_snapshot';
 
     public const string POSITION_PROVENANCE_NOTE = 'Average position is impression-weighted provider metadata — not an exact SERP rank.';
@@ -267,6 +273,7 @@ final class GscSpecialistReadService
             'data_provenance' => $this->allProvenance(DataSourceState::Unavailable),
         ];
         $data['tab_status'] = $this->rollupTabStatus($data['data_provenance']);
+
         return $data;
     }
 
@@ -277,14 +284,20 @@ final class GscSpecialistReadService
         $assetName = $asset?->name;
         $title = $assetName ?? 'Search Console property';
         $propertyType = str_starts_with((string) $binding->siteUrl, 'sc-domain:') ? 'Domain property' : 'URL-prefix property';
+
         return ['eyebrow' => 'Google Search Console', 'title' => "{$title} — Search Console", 'brand' => $brandName, 'brand_id' => $asset?->brand_id, 'brand_name' => $brandName, 'website_asset_id' => null, 'ga4_asset_id' => null, 'google_ads_asset_id' => null, 'gbp_asset_id' => null, 'gsc_asset_id' => $binding->assetId, 'relationship_line' => $assetName !== null ? "Observes · {$assetName}" : null, 'property_label' => $binding->siteUrl, 'property_type' => $propertyType, 'status' => 'Connected', 'freshness' => null, 'reporting_timezone' => $binding->timezone];
     }
 
     /** @return list<array<string, mixed>> */
     private function realFreshnessChips(array $demoChips, GscDatasetReadiness $propertyGate, string $siteUrl): array
     {
-        $stateLabel = match ($propertyGate->freshnessState) {'FRESH', 'FRESH_WITH_LIMITATION' => 'current', 'STALE' => 'stale', default => 'attention'};
-        $ageLabel = match ($propertyGate->freshnessState) {'FRESH', 'FRESH_WITH_LIMITATION' => 'Fresh', 'DUE' => 'Due', 'STALE' => 'Stale', 'PARTIAL' => 'Partial', 'ACTION_REQUIRED' => 'Action required', 'INTEGRITY_BLOCKED' => 'Blocked', default => 'Unknown'};
+        $stateLabel = match ($propertyGate->freshnessState) {
+            'FRESH', 'FRESH_WITH_LIMITATION' => 'current', 'STALE' => 'stale', default => 'attention'
+        };
+        $ageLabel = match ($propertyGate->freshnessState) {
+            'FRESH', 'FRESH_WITH_LIMITATION' => 'Fresh', 'DUE' => 'Due', 'STALE' => 'Stale', 'PARTIAL' => 'Partial', 'ACTION_REQUIRED' => 'Action required', 'INTEGRITY_BLOCKED' => 'Blocked', default => 'Unknown'
+        };
+
         return [['source' => 'Search Console', 'age' => $ageLabel, 'detail' => "Property {$siteUrl} · gsc_property_daily · {$propertyGate->coverageState}", 'state' => $stateLabel]];
     }
 
@@ -308,6 +321,7 @@ final class GscSpecialistReadService
         if (! $propertyGate->isUsable()) {
             $note = 'Property metrics unavailable — gsc_property_daily dataset is not ready for real UI. Unavailable ≠ zero.';
             $unavailable = ['value' => '—', 'raw' => null, 'secondary' => 'Unavailable', 'tone' => 'neutral', 'note' => $note];
+
             return [
                 'clicks' => $unavailable + ['avg_position' => null, 'position_note' => self::POSITION_PROVENANCE_NOTE],
                 'impressions' => $unavailable + ['note' => $note.' Impressions are observed Search Console appearances — not search volume or total keyword universe.'],
@@ -324,41 +338,66 @@ final class GscSpecialistReadService
             $clicks['note'] = $partial;
             $impressions['note'] = $partial;
         }
+
         return ['clicks' => $clicks, 'impressions' => $impressions, 'ctr' => $ctr, 'search_attention' => ['value' => '—', 'raw' => null, 'secondary' => 'Unavailable', 'tone' => 'neutral', 'note' => 'Search attention scoring is not computed on real GSC data.']];
     }
 
     private function deltaSecondary(?FormulaResult $delta, GscDatasetReadiness $gate, string $compareMode): string
     {
         $comparisonText = $compareMode === 'yoy' ? 'year-ago period' : 'previous period';
-        if (! $gate->isUsable()) return 'Unavailable vs '.$comparisonText;
-        if ($delta === null || ! $delta->isValue()) return 'vs '.$comparisonText.' unavailable';
+        if (! $gate->isUsable()) {
+            return 'Unavailable vs '.$comparisonText;
+        }
+        if ($delta === null || ! $delta->isValue()) {
+            return 'vs '.$comparisonText.' unavailable';
+        }
         $pct = $delta->toPercentDisplay();
         $prefix = $pct >= 0 ? '+' : '';
+
         return $prefix.number_format($pct, 1).'% vs '.$comparisonText;
     }
 
     /** @return array<string, mixed> */
     private function realPerformanceTrend(GscDatasetReadiness $propertyGate, int $digitalAssetId, int $externalResourceId, string $siteUrl, string $timezone): array
     {
-        if (! $propertyGate->isUsable() || $propertyGate->effectiveStart === null || $propertyGate->effectiveEnd === null) return ['labels' => [], 'clicks' => [], 'impressions' => [], 'note' => 'Performance trend unavailable — gsc_property_daily dataset is not ready for real UI.'];
+        if (! $propertyGate->isUsable() || $propertyGate->effectiveStart === null || $propertyGate->effectiveEnd === null) {
+            return ['labels' => [], 'clicks' => [], 'impressions' => [], 'note' => 'Performance trend unavailable — gsc_property_daily dataset is not ready for real UI.'];
+        }
         $series = $this->pool->propertyDailySeries($digitalAssetId, $externalResourceId, $siteUrl, $propertyGate->effectiveStart, $propertyGate->effectiveEnd);
-        $labels = []; $clicks = []; $impressions = [];
-        foreach ($series as $point) { $labels[] = CarbonImmutable::parse($point['date'], $timezone)->format('M j'); $clicks[] = $point['clicks']; $impressions[] = $point['impressions']; }
+        $labels = [];
+        $clicks = [];
+        $impressions = [];
+        foreach ($series as $point) {
+            $labels[] = CarbonImmutable::parse($point['date'], $timezone)->format('M j');
+            $clicks[] = $point['clicks'];
+            $impressions[] = $point['impressions'];
+        }
         $partial = $propertyGate->coverageState === GscDatasetReadiness::COVERAGE_PARTIALLY_COVERED;
+
         return ['labels' => $labels, 'clicks' => $clicks, 'impressions' => $impressions, 'note' => ($partial ? 'Real GSC property daily data (partial coverage). ' : 'Real GSC property daily data. ').self::POSITION_PROVENANCE_NOTE];
     }
 
-    /** @return array{labels: list<string>, clicks: list<int>, impressions: list<int>, ctr: list<float>, position: list<float>} */
+    /** @return array{labels: list<string>, clicks: list<int>, impressions: list<int>, ctr: list<?float>, position: list<?float>} Days without impressions are null gaps, never zero. */
     private function realMetricSeries(GscDatasetReadiness $propertyGate, int $digitalAssetId, int $externalResourceId, string $siteUrl, string $timezone): array
     {
-        if (! $propertyGate->isUsable() || $propertyGate->effectiveStart === null || $propertyGate->effectiveEnd === null) return ['labels' => [], 'clicks' => [], 'impressions' => [], 'ctr' => [], 'position' => []];
-        $series = $this->pool->propertyDailySeries($digitalAssetId, $externalResourceId, $siteUrl, $propertyGate->effectiveStart, $propertyGate->effectiveEnd);
-        $labels = []; $clicks = []; $impressions = []; $ctr = []; $position = [];
-        foreach ($series as $point) {
-            $labels[] = CarbonImmutable::parse($point['date'], $timezone)->format('M j'); $clicks[] = $point['clicks']; $impressions[] = $point['impressions'];
-            $dayCtr = $this->formulas->ctr($point['clicks'], $point['impressions']); $ctr[] = $dayCtr->isValue() ? round((float) $dayCtr->toDisplay(), 4) : 0.0;
-            $dayPosition = ($point['position'] !== null && $point['impressions'] > 0) ? (float) $point['position'] : null; $position[] = $dayPosition ?? 0.0;
+        if (! $propertyGate->isUsable() || $propertyGate->effectiveStart === null || $propertyGate->effectiveEnd === null) {
+            return ['labels' => [], 'clicks' => [], 'impressions' => [], 'ctr' => [], 'position' => []];
         }
+        $series = $this->pool->propertyDailySeries($digitalAssetId, $externalResourceId, $siteUrl, $propertyGate->effectiveStart, $propertyGate->effectiveEnd);
+        $labels = [];
+        $clicks = [];
+        $impressions = [];
+        $ctr = [];
+        $position = [];
+        foreach ($series as $point) {
+            $labels[] = CarbonImmutable::parse($point['date'], $timezone)->format('M j');
+            $clicks[] = $point['clicks'];
+            $impressions[] = $point['impressions'];
+            $dayCtr = $this->formulas->ctr($point['clicks'], $point['impressions']);
+            $ctr[] = $dayCtr->isValue() ? round((float) $dayCtr->toDisplay(), 4) : null;
+            $position[] = ($point['position'] !== null && $point['impressions'] > 0) ? (float) $point['position'] : null;
+        }
+
         return ['labels' => $labels, 'clicks' => $clicks, 'impressions' => $impressions, 'ctr' => $ctr, 'position' => $position];
     }
 
@@ -375,8 +414,11 @@ final class GscSpecialistReadService
         }
         $countries = [];
         if ($countryGate->isUsable() && $countryGate->effectiveStart !== null && $countryGate->effectiveEnd !== null) {
-            foreach ($this->pool->countries($digitalAssetId, $externalResourceId, $siteUrl, $countryGate->effectiveStart, $countryGate->effectiveEnd) as $row) $countries[] = ['country' => strtoupper((string) $row['country']), 'clicks' => $row['clicks'], 'impressions' => $row['impressions'], 'note' => 'Impressions are observed appearances — not search volume.'];
+            foreach ($this->pool->countries($digitalAssetId, $externalResourceId, $siteUrl, $countryGate->effectiveStart, $countryGate->effectiveEnd) as $row) {
+                $countries[] = ['country' => strtoupper((string) $row['country']), 'clicks' => $row['clicks'], 'impressions' => $row['impressions'], 'note' => 'Impressions are observed appearances — not search volume.'];
+            }
         }
+
         return ['devices' => $devices, 'countries' => $countries, 'brand_nonbrand' => ['note' => 'Unavailable — brand vs non-brand query classification is not configured for real GSC data.'], 'diagnosis' => ['interpretation' => 'Unavailable — performance diagnosis heuristics are not computed on real GSC data.']];
     }
 
@@ -391,14 +433,18 @@ final class GscSpecialistReadService
                 $queries[] = ['query' => $row['query'], 'clicks' => $row['clicks'], 'impressions' => $row['impressions'], 'ctr' => $ctr->isValue() ? round((float) $ctr->toPercentDisplay(), 1) : null, 'position' => $position->isValue() ? round((float) $position->toDisplay(), 1) : null, 'page' => null, 'trend' => 'observed', 'completeness' => 'PROVIDER_LIMITED', 'position_note' => self::POSITION_PROVENANCE_NOTE];
             }
         }
+
         return ['clusters' => [], 'queries' => $queries, 'momentum' => [], 'ownership_reviews' => [], 'observed_query_note' => 'Queries observed in selected Search Console dataset — not an exhaustive keyword universe. Impressions ≠ search volume. Clusters/momentum/ownership are unavailable on the real path.'];
     }
 
     /** @return list<array<string, mixed>> */
     private function realPagesDirectory(int $digitalAssetId, int $externalResourceId, string $siteUrl, GscDatasetReadiness $pageGate): array
     {
-        if (! $pageGate->isUsable() || $pageGate->effectiveStart === null || $pageGate->effectiveEnd === null) return [];
+        if (! $pageGate->isUsable() || $pageGate->effectiveStart === null || $pageGate->effectiveEnd === null) {
+            return [];
+        }
         $rows = $this->pool->topPages($digitalAssetId, $externalResourceId, $siteUrl, $pageGate->effectiveStart, $pageGate->effectiveEnd);
+
         return array_map(static fn (array $row): array => ['path' => $row['page'], 'title' => '', 'content_role' => '', 'offering' => null, 'clicks' => $row['clicks'], 'impressions' => $row['impressions'], 'ga4_context' => ['sessions' => null, 'engagement_rate' => null, 'mapped_actions' => null, 'note' => 'GA4 page context unavailable on real path — not query-attributed.'], 'website_attention' => null], $rows);
     }
 
@@ -408,35 +454,86 @@ final class GscSpecialistReadService
         $sitemaps = [];
         if ($sitemapGate->isUsable()) {
             foreach ($this->pool->sitemaps($digitalAssetId, $siteUrl) as $row) {
-                $meta = is_array($row['metadata']) ? $row['metadata'] : []; $submittedTotal = 0;
-                foreach ($meta['contents'] ?? [] as $content) if (is_array($content) && isset($content['submitted'])) $submittedTotal += (int) $content['submitted'];
+                $meta = is_array($row['metadata']) ? $row['metadata'] : [];
+                $submittedTotal = 0;
+                foreach ($meta['contents'] ?? [] as $content) {
+                    if (is_array($content) && isset($content['submitted'])) {
+                        $submittedTotal += (int) $content['submitted'];
+                    }
+                }
                 $sitemaps[] = ['path' => $row['path'], 'submitted' => $meta['last_submitted'] ?? null, 'last_downloaded' => $meta['last_downloaded'] ?? null, 'discovered' => $submittedTotal > 0 ? $submittedTotal : null, 'warnings' => $meta['warnings'] ?? 0, 'errors' => $meta['errors'] ?? 0, 'status' => ($meta['errors'] ?? 0) > 0 ? 'Errors' : 'Success', 'note' => 'Submitted URL count ≠ indexed URL count — deprecated indexed field is never used.'];
             }
         }
         $urls = [];
         if ($inspectionGate->isUsable()) {
             foreach ($this->pool->urlInspectionSamples($digitalAssetId, $siteUrl) as $row) {
-                $meta = is_array($row['metadata']) ? $row['metadata'] : []; $userCanonical = is_string($meta['user_canonical'] ?? null) ? $meta['user_canonical'] : null; $googleCanonical = is_string($meta['google_canonical'] ?? null) ? $meta['google_canonical'] : null;
+                $meta = is_array($row['metadata']) ? $row['metadata'] : [];
+                $userCanonical = is_string($meta['user_canonical'] ?? null) ? $meta['user_canonical'] : null;
+                $googleCanonical = is_string($meta['google_canonical'] ?? null) ? $meta['google_canonical'] : null;
                 $urls[] = ['id' => 'url-'.Str::slug($row['page']), 'path' => $this->pathFromUrl($row['page']), 'url' => $row['page'], 'role' => '', 'sitemap' => is_array($meta['sitemap'] ?? null) && ($meta['sitemap'] ?? []) !== [] ? 'Present' : 'Unknown', 'index_state' => $meta['coverage_state'] ?? 'Unavailable', 'last_crawl' => $meta['last_crawl_time'] ?? null, 'canonical' => ($userCanonical !== null && $googleCanonical !== null && $userCanonical !== $googleCanonical) ? 'Mismatch' : ($userCanonical !== null || $googleCanonical !== null ? 'Match' : 'Unknown'), 'user_canonical' => $userCanonical, 'google_canonical' => $googleCanonical, 'search_visibility' => 'Sample only', 'attention' => null, 'sample_note' => 'URL Inspection selective sample — not extrapolated to uninspected URLs.'];
             }
         }
+
         return ['subtitle' => 'Google index state and sitemap metadata — read-only observation from pool snapshots.', 'coverage' => ['indexed' => null, 'not_indexed' => null, 'unknown' => null, 'excluded' => null, 'state' => 'Unavailable', 'note' => 'Site-wide Page Indexing totals are unavailable from the GSC API — not substituted with Demo numbers.'], 'urls' => $urls, 'sitemaps' => $sitemaps, 'reconciliation' => ['website_urls' => null, 'sitemap_urls' => null, 'index_observed' => null, 'priority_missing_sitemap' => null, 'gaps' => [], 'note' => 'Site-wide reconciliation including index_observed totals is unavailable on the real path.'], 'discoverability_by_role' => [], 'inspection_note' => 'URL Inspection is a selective sample only — never extrapolated to uninspected URLs. No inspection record ≠ not indexed.'];
     }
 
-    private function unavailableDiscoverability(): array { return ['subtitle' => 'Site-wide discoverability funnel unavailable on real path — GSC API cannot supply full index coverage totals.', 'stages' => [], 'note' => 'GA4 actions are page-attributed — GSC cannot prove query→conversion. Index observed site-wide totals remain unavailable.']; }
-    private function realCollectionState(array $gates): array { return ['note' => 'Real GSC collection/materialization/freshness/integrity/coverage state. Findings, Recommendations, Tasks and Outcomes below remain Demo — this migration creates no Evidence/Findings/Opportunities.', 'datasets' => array_map(static fn (GscDatasetReadiness $g): array => $g->toArray(), $gates)]; }
-    private function realTechnicalConnection(GscBindingContext $binding): array { $propertyType = str_starts_with((string) $binding->siteUrl, 'sc-domain:') ? 'Domain property' : 'URL-prefix property'; return ['type' => 'Search Console property binding', 'property' => $binding->siteUrl, 'property_type' => $propertyType, 'status' => 'Connected', 'note' => 'Real binding · CoreAssetBinding #'.$binding->coreAssetBindingId]; }
-    private function humanizeDevice(string $device): string { return match (strtoupper($device)) {'MOBILE' => 'Mobile', 'DESKTOP' => 'Desktop', 'TABLET' => 'Tablet', default => Str::title(strtolower($device))}; }
-    private function pathFromUrl(string $url): string { $path = parse_url($url, PHP_URL_PATH); return is_string($path) && $path !== '' ? $path : '/'; }
-    private function formatCompact(int $value): string { if ($value >= 1_000_000) return number_format($value / 1_000_000, 1).'M'; if ($value >= 1_000) return number_format($value / 1_000, 1).'K'; return number_format($value); }
-    private function allProvenance(DataSourceState $state): array { return array_fill_keys(self::PROVENANCE_FIELDS, $state->value); }
+    private function unavailableDiscoverability(): array
+    {
+        return ['subtitle' => 'Site-wide discoverability funnel unavailable on real path — GSC API cannot supply full index coverage totals.', 'stages' => [], 'note' => 'GA4 actions are page-attributed — GSC cannot prove query→conversion. Index observed site-wide totals remain unavailable.'];
+    }
+
+    private function realCollectionState(array $gates): array
+    {
+        return ['note' => 'Real GSC collection/materialization/freshness/integrity/coverage state. Findings, Recommendations, Tasks and Outcomes below remain Demo — this migration creates no Evidence/Findings/Opportunities.', 'datasets' => array_map(static fn (GscDatasetReadiness $g): array => $g->toArray(), $gates)];
+    }
+
+    private function realTechnicalConnection(GscBindingContext $binding): array
+    {
+        $propertyType = str_starts_with((string) $binding->siteUrl, 'sc-domain:') ? 'Domain property' : 'URL-prefix property';
+
+        return ['type' => 'Search Console property binding', 'property' => $binding->siteUrl, 'property_type' => $propertyType, 'status' => 'Connected', 'note' => 'Real binding · CoreAssetBinding #'.$binding->coreAssetBindingId];
+    }
+
+    private function humanizeDevice(string $device): string
+    {
+        return match (strtoupper($device)) {
+            'MOBILE' => 'Mobile', 'DESKTOP' => 'Desktop', 'TABLET' => 'Tablet', default => Str::title(strtolower($device))
+        };
+    }
+
+    private function pathFromUrl(string $url): string
+    {
+        $path = parse_url($url, PHP_URL_PATH);
+
+        return is_string($path) && $path !== '' ? $path : '/';
+    }
+
+    private function formatCompact(int $value): string
+    {
+        if ($value >= 1_000_000) {
+            return number_format($value / 1_000_000, 1).'M';
+        } if ($value >= 1_000) {
+            return number_format($value / 1_000, 1).'K';
+        }
+
+return number_format($value);
+    }
+
+    private function allProvenance(DataSourceState $state): array
+    {
+        return array_fill_keys(self::PROVENANCE_FIELDS, $state->value);
+    }
+
     private function rollupTabStatus(array $provenance): array
     {
         $status = [];
         foreach (self::TAB_FIELD_MAP as $tab => $fields) {
             $values = array_values(array_unique(array_map(static fn (string $field): string => $provenance[$field] ?? DataSourceState::Unavailable->value, $fields)));
-            $status[$tab] = match (true) { $values === [DataSourceState::Real->value] => 'REAL', $values === [DataSourceState::Demo->value] => 'DEMO', $values === [DataSourceState::Unavailable->value] => 'UNAVAILABLE', default => 'PARTIAL' };
+            $status[$tab] = match (true) {
+                $values === [DataSourceState::Real->value] => 'REAL', $values === [DataSourceState::Demo->value] => 'DEMO', $values === [DataSourceState::Unavailable->value] => 'UNAVAILABLE', default => 'PARTIAL'
+            };
         }
+
         return $status;
     }
 }

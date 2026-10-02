@@ -290,7 +290,7 @@ class SearchConsolePage extends Component
         $metricLabel = $metricLabels[$metricKey] ?? 'Clicks';
         $metricValues = $allSeries[$metricKey] ?? $allSeries['clicks'];
         if ($metricKey === 'ctr') {
-            $metricValues = array_map(static fn (float $v): float => round($v * 100, 2), $metricValues);
+            $metricValues = array_map(static fn (?float $v): ?float => $v === null ? null : round($v * 100, 2), $metricValues);
         }
 
         return view('livewire.demo.search-console.overview', [

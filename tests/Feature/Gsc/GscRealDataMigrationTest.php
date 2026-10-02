@@ -256,6 +256,22 @@ class GscRealDataMigrationTest extends TestCase
     }
 
     #[Test]
+    public function zero_impression_day_is_a_chart_gap_not_position_or_ctr_zero(): void
+    {
+        $dates = $this->contiguousDates('2026-07-16', 28);
+        $this->seedDatasetReady('gsc_property_daily', $dates);
+        $this->insertPropertyDailyRows(array_slice($dates, 1), clicks: 10, impressions: 100, position: 8.0);
+        $this->insertPropertyDailyRows([$dates[0]], clicks: 0, impressions: 0, position: 0.0);
+
+        $series = app(GscSpecialistReadService::class)->workspace((string) $this->asset->id, 'last_28')['metric_series'];
+
+        $this->assertNull($series['position'][0]);
+        $this->assertNull($series['ctr'][0]);
+        $this->assertSame(8.0, $series['position'][1]);
+        $this->assertNotContains(0.0, $series['position']);
+    }
+
+    #[Test]
     public function impressions_are_labeled_honestly_not_as_search_volume(): void
     {
         $dates = $this->contiguousDates('2026-07-16', 28);
