@@ -4,10 +4,13 @@ namespace App\Livewire\Operator\Settings;
 
 use App\Livewire\Operator\AiLiveIndicator;
 use App\Models\AgencySetting;
+use App\Models\AiLiveOperation;
 use App\Models\PromptVersion;
 use App\Services\Ai\AiBudget;
 use App\Services\Ai\AiLiveOperations;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\Ai\AiSchedule;
+use App\Services\AiJobs\AiJobTracker;
 use App\Services\Prompts\PromptRegistry;
 use App\Services\Prompts\PromptRunStats;
 use App\Services\Prompts\PromptTrial;
@@ -173,14 +176,55 @@ final class AiOperationsPage extends Component
             ];
         }
 
-        $liveRows = null;
-        if ($detail === null) {
-            $running = $live->running();
-            $finished = $live->finishedRecently(20);
-            $liveRows = ['running' => $running, 'finished' => $finished, 'users' => AiLiveIndicator::userNames($running->concat($finished))];
-        }
+        $liveRows = $detail === null ? $this->live($live) : null;
 
-        return view('livewire.operator.settings.ai-operations', ['rows' => $rows, 'detail' => $detail, 'live' => $liveRows, 'monthSpend' => $aiBudget->monthSpend(), 'remaining' => max(0.0, $aiBudget->monthlyBudget() - $aiBudget->monthSpend())]);
+        return view('livewire.operator.settings.ai-operations', ['rows' => $rows, 'detail' => $detail, 'live' => $liveRows, 'monthSpend' => $aiBudget->monthSpend(),
+            'monthlyBudget' => $aiBudget->monthlyBudget(), 'remaining' => max(0.0, $aiBudget->monthlyBudget() - $aiBudget->monthSpend()),
+            'schedule' => $detail === null ? app(AiSchedule::class)->upcoming() : []]);
+    }
+
+    /** "Durdur" (Admin): removes a queued job, or asks a running one to stop between its AI calls. */
+    public function stop(int $id, AiJobTracker $jobs): void
+    {
+        $this->authorizeAdmin();
+        $row = AiLiveOperation::query()->whereNull('parent_id')->find($id);
+        session()->flash('status', ($row !== null ? $jobs->cancel($row, auth()->user()) : null) ?? 'Bu iş artık durdurulamaz (bitmiş ya da bir sayfa isteğinin parçası).');
+    }
+
+    /**
+     * "Şu an": running top-level work with the step it is on (its running / last AI call), the calls done so far and
+     * the cost so far; the queue; the last 24 hours; today's totals.
+     *
+     * @return array<string, mixed>
+     */
+    private function live(AiLiveOperations $live): array
+    {
+        $running = $live->running();
+        $queued = $live->queued(30);
+        $finished = AiLiveOperation::query()->whereNull('parent_id')->whereNotIn('status', [AiLiveOperation::RUNNING, AiLiveOperation::QUEUED])
+            ->where('finished_at', '>=', now()->subDay())->orderByDesc('finished_at')->orderByDesc('id')->limit(40)->get();
+        $steps = [];
+        if ($running->isNotEmpty()) {
+            AiLiveOperation::query()->whereIn('parent_id', $running->pluck('id'))->orderBy('started_at')->orderBy('id')
+                ->get(['id', 'parent_id', 'label', 'status', 'model', 'provider', 'cost_usd', 'started_at'])
+                ->groupBy('parent_id')->each(function ($calls, $parentId) use (&$steps): void {
+                    $current = $calls->firstWhere('status', AiLiveOperation::RUNNING) ?? $calls->last();
+                    $steps[(int) $parentId] = ['label' => (string) $current->label, 'model' => (string) ($current->model ?? ''), 'running' => $current->status === AiLiveOperation::RUNNING,
+                        'done' => $calls->where('status', AiLiveOperation::DONE)->count(), 'calls' => $calls->count(), 'cost' => (float) $calls->sum('cost_usd')];
+                });
+        }
+        $today = now('Europe/Istanbul')->startOfDay()->utc();
+        $todayRows = AiLiveOperation::query()->whereNull('parent_id')->where('started_at', '>=', $today);
+
+        return [
+            'running' => $running, 'queued' => $queued, 'finished' => $finished, 'steps' => $steps,
+            'users' => AiLiveIndicator::userNames($running->concat($queued)->concat($finished)),
+            'today' => [
+                'done' => (clone $todayRows)->where('status', AiLiveOperation::DONE)->count(),
+                'failed' => (clone $todayRows)->where('status', AiLiveOperation::FAILED)->count(),
+                'cost' => (float) AiLiveOperation::query()->where('kind', AiLiveOperation::KIND_CALL)->where('started_at', '>=', $today)->sum('cost_usd'),
+            ],
+        ];
     }
 
     /** @return array<string, string> value ("provider:model", '' = route model) => label */

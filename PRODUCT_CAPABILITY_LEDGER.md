@@ -1,5 +1,23 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-19 (c) — AI işlemleri sayfası: AI şu an nerede ne yapıyor
+
+- **Ayarlar › AI işlemleri** yeniden düzenlendi. Çalışan iş varken her 5 sn, yokken her 30 sn kendiliğinden yenilenir.
+  - **Özet:** şu an çalışan, sırada bekleyen, bugün biten (hata sayısıyla), maliyet (bugün / bu ay, kalan bakiye).
+  - **Canlı:** çalışan her iş bir kart:
+    - ne yapıyor;
+    - nerede (marka › varlık; sayfasına "aç" bağlantısı);
+    - hangi adımda (işin içindeki çalışan AI çağrısı, biten çağrı sayısı, model);
+    - kim başlattı (kişi ya da "Otomatik");
+    - geçen süre, şimdiye kadarki maliyet;
+    - "Ayrıntı" ve "Durdur".
+  - **Sırada:** bekleyen işler ("Kaldır").
+  - **Son 24 saat:** bitenler; durum, marka, süre, maliyet, hata nedeni.
+  - **Otomatik takvim:** kimse tıklamadan AI çalıştıran işler ve sonraki çalışma saati, gerçek zamanlamadan okunur.
+    - Sorgu otomatik pilotu, site akışı, site haftalık yenileme, kanal analistleri, bakım ajanı, Şef.
+  - Bütçe ve "Promptlar ve modeller" listesi açılır bölümlere alındı. Prompt listesi Türkçe adlarla ve en çok çalışan önce gösterilir.
+- **Test:** AiLiveOperationsTest. UAT: yok.
+
 ## 2026-11-19 (b) — Şef denetimi: AI'ın marka için yaptıklarında hata arar
 
 - **Ne yapar:** AI'ın marka için verdiği kararları markanın kendi verisiyle kurallarla karşılaştırır (AI çağrısı yok). Yalnız hata (çelişki) arar, iyileştirme işi üretmez. Kontroller:

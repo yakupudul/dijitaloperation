@@ -4,6 +4,7 @@ namespace Tests\Feature\AiControl;
 
 use App\Ai\Agents\GbpPostFromPageAgent;
 use App\Livewire\Operator\AiLiveIndicator;
+use App\Livewire\Operator\Settings\AiOperationsPage;
 use App\Models\AiLiveOperation;
 use App\Models\User;
 use App\Services\Ai\AiLiveOperations;
@@ -172,6 +173,27 @@ final class AiLiveOperationsTest extends TestCase
             ->assertSeeHtml('data-ai-live-running')
             ->assertSeeHtml('data-ai-live-indicator')
             ->assertSeeHtml('data-ai-prompt-info-modal');
+    }
+
+    public function test_the_ai_operations_page_shows_where_each_running_job_is_and_what_runs_next(): void
+    {
+        $job = $this->liveRow(['kind' => AiLiveOperation::KIND_JOB, 'label' => 'Kümeleri içerikle eşleştir', 'subject' => 'Panorama Ankara · panorama.com.tr',
+            'link' => '/assets/5?tab=sorgular', 'user_id' => null]);
+        $this->liveRow(['parent_id' => $job->id, 'label' => 'Küme ↔ içerik eşleştirme', 'status' => AiLiveOperation::DONE, 'finished_at' => now(), 'cost_usd' => 0.02, 'model' => 'claude-x']);
+        $this->liveRow(['parent_id' => $job->id, 'label' => 'Küme eksikleri', 'model' => 'claude-x', 'cost_usd' => null]);
+        $queued = $this->liveRow(['kind' => AiLiveOperation::KIND_JOB, 'label' => 'SEO analizi', 'status' => AiLiveOperation::QUEUED, 'queued_at' => now(), 'user_id' => $this->admin->id]);
+        $this->liveRow(['label' => 'Marka bakım ajanı', 'status' => AiLiveOperation::FAILED, 'finished_at' => now(), 'error' => 'Sağlayıcı yanıtı: HTTP 529']);
+
+        Livewire::actingAs($this->admin)->test(AiOperationsPage::class)
+            ->assertSeeHtml('data-ai-summary')->assertSeeHtml('wire:poll.5s')
+            ->assertSee('Kümeleri içerikle eşleştir')->assertSee('Panorama Ankara › panorama.com.tr')
+            ->assertSeeHtml('data-ai-step')->assertSee('Küme eksikleri')->assertSee('1 çağrı bitti')->assertSee('Başlatan: Otomatik')
+            ->assertSeeHtml('data-ai-queued')->assertSee('SEO analizi')
+            ->assertSeeHtml('data-ai-finished')->assertSee('Sağlayıcı yanıtı: HTTP 529')->assertSee('1 hata')
+            ->assertSeeHtml('data-ai-schedule')->assertSee('Site akışı + marka dosyası')->assertSee('Şef: denetim + haftalık plan')
+            ->call('stop', $queued->id);
+
+        $this->assertSame(AiLiveOperation::CANCELLED, $queued->fresh()->status);
     }
 
     public function test_live_rows_are_kept_thirty_days_by_default(): void
