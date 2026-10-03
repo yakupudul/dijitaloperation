@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Queries;
 
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Queries\QueryNotifier;
 use App\Services\Queries\QueryServiceAssigner;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -27,9 +28,14 @@ final class AssignQueryServicesJob implements ShouldQueue
         $this->onQueue((string) config('queue.heavy_queue', 'default'));
     }
 
-    public function handle(QueryServiceAssigner $assigner, QueryNotifier $notifier): void
+    public function handle(QueryServiceAssigner $assigner, QueryNotifier $notifier, AiTaskQueue $tasks): void
     {
-        $next = $assigner->run($this->userId, $this->sectorId, $this->cursor);
+        $tasks->begin(new self($this->userId, $this->sectorId, $this->cursor), null, 'Sorgulara hizmet öner');
+        try {
+            $next = $assigner->run($this->userId, $this->sectorId, $this->cursor);
+        } finally {
+            $tasks->settle();
+        }
         if ($next !== null) {
             self::dispatch($this->userId, $this->sectorId, $next);
 

@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Queries;
 
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Queries\QueryNotifier;
 use App\Services\Queries\QueryPlanner;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -9,7 +10,10 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
-/** "AI ile planla": one AI step (sectors | services | filters); the proposal waits for the operator who asked. */
+/**
+ * "AI ile planla": one AI step (sectors | services | filters); the proposal waits for the operator who asked. Delegated
+ * to Claude: the step waits for the answers and this job runs again when they are in.
+ */
 final class PlanQueriesJob implements ShouldQueue
 {
     use Queueable;
@@ -26,9 +30,20 @@ final class PlanQueriesJob implements ShouldQueue
         $this->onQueue((string) config('queue.heavy_queue', 'default'));
     }
 
-    public function handle(QueryPlanner $planner, QueryNotifier $notifier): void
+    public function handle(QueryPlanner $planner, QueryNotifier $notifier, AiTaskQueue $tasks): void
     {
-        $result = $planner->propose($this->step, $this->sectorIds, $this->instruction);
+        $tasks->begin(new self($this->userId, $this->step, $this->sectorIds, $this->instruction), null, 'Sorgu planı · '.(self::LABELS[$this->step] ?? $this->step));
+        try {
+            $result = $planner->propose($this->step, $this->sectorIds, $this->instruction);
+        } finally {
+            $tasks->settle();
+        }
+        if (($result['status'] ?? null) === 'queued') {
+            // Waiting for Claude (MCP queue): this job runs again with the answers.
+            QueryPlanner::markWaiting($this->userId, $this->step);
+
+            return;
+        }
         Cache::put(QueryPlanner::cacheKey($this->userId, $this->step), $result, now()->addDay());
         if (($result['status'] ?? null) === 'error') {
             $this->notifyFailed($notifier);

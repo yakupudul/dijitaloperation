@@ -103,7 +103,7 @@
                     <div class="flex flex-wrap items-center gap-2">
                         <h2 class="text-xs font-semibold uppercase text-gray-500">AI hizmet önerisi</h2>
                         @if ($assignStatus === 'running')
-                            <span class="text-xs text-gray-500">çalışıyor… {{ $num($assign['done'] ?? 0) }} / {{ $num($assign['total'] ?? 0) }} sorgu</span>
+                            <span class="text-xs text-gray-500">@if (! empty($assign['waiting']))Claude bekleniyor (kuyruk iş saatlerinde 2 saatte bir çalışır)… @else çalışıyor… @endif{{ $num($assign['done'] ?? 0) }} / {{ $num($assign['total'] ?? 0) }} sorgu</span>
                         @elseif ($assignStatus === 'ready')
                             <span class="text-xs text-gray-500">{{ $num(count($assign['items'])) }} öneri · {{ $num($assign['done'] ?? 0) }} sorgu incelendi</span>
                             @if (($assign['failed'] ?? 0) > 0)<span class="text-xs text-rose-600">{{ $assign['failed'] }} parti yanıt vermedi · tekrar çalıştırın</span>@endif
@@ -651,7 +651,7 @@
                 <p class="text-xs text-gray-500">{{ ctype_digit($sector) ? 'Seçili sektör için' : 'Kullanılan her sektör için' }} ayrı çağrı · öneriler kaydedilmeden önce listelenir. <span class="font-medium">Sorgularda tara:</span> kütüphanedeki sorguların kelimelerinden marka / firma, kişi adı, semt ve alakasız kelimeleri bulur (hizmet kelimeleri, kendi marka adlarınız ve soru kelimeleri hiç önerilmez). İl / ilçe / ülke adı içeren sorgular zaten otomatik silinir; nedir / nasıl gibi soru kelimeleri filtreye eklenemez.</p>
                 @php $scanStatus = $scan['status'] ?? null; @endphp
                 @if ($scanStatus === 'running')
-                    <p class="flex items-center gap-2 text-xs text-gray-500" data-scan-progress>Sorgular taranıyor…@if (($scan['total'] ?? 0) > 0) {{ $scan['done'] }} / {{ $scan['total'] }} sektör tamamlandı @endif <button type="button" wire:click="stopScan" wire:confirm="Tarama durdurulsun mu?" class="rounded-lg px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700" data-scan-stop>Durdur</button></p>
+                    <p class="flex items-center gap-2 text-xs text-gray-500" data-scan-progress>{{ ! empty($scan['waiting']) ? 'Claude bekleniyor…' : 'Sorgular taranıyor…' }}@if (($scan['total'] ?? 0) > 0) {{ $scan['done'] }} / {{ $scan['total'] }} sektör tamamlandı @endif <button type="button" wire:click="stopScan" wire:confirm="Tarama durdurulsun mu?" class="rounded-lg px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700" data-scan-stop>Durdur</button></p>
                 @elseif ($scanStatus === 'ready')
                     @php
                         $scanSkipLines = array_map('intval', $scanSkip);
@@ -687,7 +687,7 @@
                     <p class="text-xs text-rose-600">{{ ['no_provider' => 'AI bağlı değil.', 'nothing' => 'Sektör yok.'][$scanStatus] ?? 'Tarama tamamlanamadı.' }}</p>
                 @endif
                 @if ($filterStatus === 'running')
-                    <p class="flex items-center gap-2 text-xs text-gray-500" data-filter-progress>AI çalışıyor…@if (($filterProposal['total'] ?? 0) > 0) {{ $filterProposal['done'] }} / {{ $filterProposal['total'] }} sektör tamamlandı @endif <button type="button" wire:click="stopFilters" wire:confirm="AI adımı durdurulsun mu?" class="rounded-lg px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700" data-filter-stop>Durdur</button></p>
+                    <p class="flex items-center gap-2 text-xs text-gray-500" data-filter-progress>{{ ! empty($filterProposal['waiting']) ? 'Claude bekleniyor…' : 'AI çalışıyor…' }}@if (($filterProposal['total'] ?? 0) > 0) {{ $filterProposal['done'] }} / {{ $filterProposal['total'] }} sektör tamamlandı @endif <button type="button" wire:click="stopFilters" wire:confirm="AI adımı durdurulsun mu?" class="rounded-lg px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700" data-filter-stop>Durdur</button></p>
                 @elseif ($filterStatus === 'ready')
                     @php $skipLines = array_map('intval', $filterSkip); @endphp
                     <div data-filter-proposal>
@@ -936,7 +936,7 @@
                 </div>
                 @php $status = $proposal['status'] ?? 'running'; @endphp
                 @if ($status === 'running')
-                    <p class="mt-3 text-gray-500">Hazırlanıyor…</p>
+                    <p class="mt-3 text-gray-500">{{ ! empty($proposal['waiting']) ? 'Claude bekleniyor (kuyruk iş saatlerinde 2 saatte bir çalışır)…' : 'Hazırlanıyor…' }}</p>
                 @elseif ($status !== 'ready')
                     <p class="mt-3 text-rose-600">{{ ['no_provider' => 'AI bağlı değil.', 'no_queries' => 'Sorgu bulunamadı.'][$status] ?? 'Öneri alınamadı.' }}</p>
                 @else

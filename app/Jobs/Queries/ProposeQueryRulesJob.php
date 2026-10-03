@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Queries;
 
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Queries\QueryRuleProposer;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -23,9 +24,21 @@ final class ProposeQueryRulesJob implements ShouldQueue
         $this->onQueue((string) config('queue.heavy_queue', 'default'));
     }
 
-    public function handle(QueryRuleProposer $proposer): void
+    public function handle(QueryRuleProposer $proposer, AiTaskQueue $tasks): void
     {
-        Cache::put(QueryRuleProposer::cacheKey($this->userId), $proposer->propose($this->queryIds), now()->addDay());
+        $tasks->begin(new self($this->userId, $this->queryIds), null, 'Sorgu kuralları · '.count($this->queryIds).' sorgu');
+        try {
+            $result = $proposer->propose($this->queryIds);
+        } finally {
+            $tasks->settle();
+        }
+        if ($result['status'] === 'queued') {
+            // Waiting for Claude (MCP queue): this job runs again with the answer.
+            Cache::put(QueryRuleProposer::cacheKey($this->userId), ['status' => 'running', 'waiting' => true], now()->addDays(5));
+
+            return;
+        }
+        Cache::put(QueryRuleProposer::cacheKey($this->userId), $result, now()->addDay());
     }
 
     public function failed(?Throwable $exception): void

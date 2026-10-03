@@ -7,6 +7,7 @@ use App\Ai\Agents\QueryPlanFiltersAgent;
 use App\Enums\NotificationKind;
 use App\Livewire\Operator\Library\QueriesPage;
 use App\Livewire\Operator\Library\QueryPlanWizard;
+use App\Models\AiTask;
 use App\Models\Brand;
 use App\Models\Cluster;
 use App\Models\ClusterQuery;
@@ -19,8 +20,10 @@ use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Models\UserNotification;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Catalog\ServiceKeywordService;
+use App\Services\Prompts\PromptRegistry;
 use App\Services\Queries\QueryNormalizer;
 use App\Services\Queries\QueryPipeline;
 use App\Services\Queries\QueryServiceAssigner;
@@ -161,6 +164,37 @@ final class QueryBulkAndAssignTest extends TestCase
         $this->assertSame($this->zirkonyum->id, $query->fresh()->service_id);
 
         Livewire::test(QueriesPage::class)->call('suggestServices')->assertSee('Hizmeti atanmamış (sektörü olan) sorgu yok.');
+    }
+
+    public function test_delegated_assignment_asks_every_batch_at_once_and_builds_the_proposal_when_claude_answered(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token']);
+        $registry = app(PromptRegistry::class);
+        $registry->publish(QueryAssignServicesAgent::OPERATION, ['template' => (string) $registry->current(QueryAssignServicesAgent::OPERATION)->template, 'model' => AiTaskQueue::MODEL], $this->admin);
+        QueryAssignServicesAgent::fake()->preventStrayPrompts();
+        $dental = $this->libraryQuery('zirkonyum diş fiyatı', $this->dental, 10);
+        $hair = $this->libraryQuery('fue saç ekimi fiyatı', $this->hair, 5);
+
+        Livewire::test(QueriesPage::class)->call('suggestServices')->assertSee('Claude bekleniyor');
+
+        $tasks = AiTask::query()->orderBy('id')->get();
+        $this->assertCount(2, $tasks, 'one task per sector batch, asked at once');
+        $state = QueryServiceAssigner::current($this->admin->id);
+        $this->assertSame(['running', true], [$state['status'], $state['waiting']]);
+        QueryAssignServicesAgent::assertNeverPrompted();
+
+        $queue = app(AiTaskQueue::class);
+        $this->assertSame([], $queue->submit($tasks[0], ['assignments' => [['query_id' => $dental->id, 'service_id' => $this->zirkonyum->id, 'reason' => 'Zirkonyum']],
+            'keywords' => [], 'prompt_version' => 'x']));
+        $this->assertSame('running', QueryServiceAssigner::current($this->admin->id)['status'], 'still waiting for the second batch');
+        $this->assertSame([], $queue->submit($tasks[1], ['assignments' => [['query_id' => $hair->id, 'service_id' => $this->fue->id, 'reason' => 'FUE']],
+            'keywords' => [], 'prompt_version' => 'x']));
+
+        $state = QueryServiceAssigner::current($this->admin->id);
+        $this->assertSame('ready', $state['status']);
+        $this->assertSame([$dental->id, $hair->id], array_column($state['items'], 'query_id'));
+        $this->assertArrayNotHasKey('batches', $state);
+        $this->assertSame(2, AiTask::query()->count());
     }
 
     public function test_assigned_and_unassigned_filters(): void

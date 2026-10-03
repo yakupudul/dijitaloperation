@@ -9,6 +9,7 @@ use App\Enums\NotificationKind;
 use App\Jobs\Queries\PlanQueriesJob;
 use App\Jobs\Queries\PlanQueriesSectorJob;
 use App\Livewire\Operator\Library\QueryPlanWizard;
+use App\Models\AiTask;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -23,8 +24,10 @@ use App\Models\ServiceCategory;
 use App\Models\ServiceMatchingKeyword;
 use App\Models\User;
 use App\Models\UserNotification;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Catalog\ServiceKeywordService;
+use App\Services\Prompts\PromptRegistry;
 use App\Services\Queries\QueryPipeline;
 use App\Services\Queries\QueryPlanner;
 use App\Support\Roles;
@@ -243,6 +246,36 @@ final class QueryPlanWizardTest extends TestCase
         $this->assertSame('ready', $proposal['status']);
         $this->assertSame(['Diş Beyazlatma', 'FUE Saç Ekimi'], array_column($proposal['items'], 'name'));
         $page->call('syncProposal')->assertDontSeeHtml('data-plan-progress')->assertSee('Yeni hizmet: FUE Saç Ekimi')->assertSet('pick', [0 => true, 1 => true]);
+    }
+
+    public function test_delegated_step_two_waits_for_claude_per_sector_without_being_closed_as_stale(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token']);
+        $registry = app(PromptRegistry::class);
+        $registry->publish(QueryPlanServicesAgent::OPERATION, ['template' => (string) $registry->current(QueryPlanServicesAgent::OPERATION)->template, 'model' => AiTaskQueue::MODEL], $this->admin);
+        QueryPlanServicesAgent::fake()->preventStrayPrompts();
+        Brand::factory()->create(['customer_id' => Customer::factory()->create()->id, 'sector_id' => $this->hair->id]);
+
+        Livewire::test(QueryPlanWizard::class)->call('goTo', 2)->call('runAi')->assertSee('0 / 2 sektör tamamlandı');
+
+        $tasks = AiTask::query()->orderBy('id')->get();
+        $this->assertCount(2, $tasks, 'one task per sector');
+        $this->travel(3)->hours();
+        $state = QueryPlanner::current($this->admin->id, 'services');
+        $this->assertSame(['running', true], [$state['status'], $state['waiting']], 'a waiting step is not closed as stale');
+        QueryPlanServicesAgent::assertNeverPrompted();
+
+        $answer = fn (int $sectorId, string $name): array => ['new_services' => [['sector_id' => $sectorId, 'name' => $name, 'keywords' => [], 'reason' => 'sektör bilgisi']],
+            'add_keywords' => [], 'remove_keywords' => [], 'move_keywords' => [], 'prompt_version' => QueryPlanServicesAgent::PROMPT_VERSION];
+        $queue = app(AiTaskQueue::class);
+        foreach ($tasks as $task) {
+            $sectorId = (int) json_decode(substr($task->input, strlen("DATA_JSON\n")), true)['sectors'][0]['id'];
+            $this->assertSame([], $queue->submit($task, $answer($sectorId, $sectorId === $this->hair->id ? 'FUE Saç Ekimi' : 'Diş Beyazlatma')));
+        }
+
+        $proposal = QueryPlanner::current($this->admin->id, 'services');
+        $this->assertSame('ready', $proposal['status']);
+        $this->assertSame(['Diş Beyazlatma', 'FUE Saç Ekimi'], array_column($proposal['items'], 'name'));
     }
 
     public function test_a_step_with_a_sector_that_never_answers_is_closed_and_can_be_stopped(): void

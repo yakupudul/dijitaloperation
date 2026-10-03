@@ -11,6 +11,7 @@ use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Catalog\ServiceKeywordService;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Facades\Cache;
@@ -37,6 +38,7 @@ final class QueryRuleProposer
         private readonly AiRouteResolver $routes,
         private readonly AiProviderRuntimeConfig $runtime,
         private readonly ServiceKeywordService $keywords,
+        private readonly AiTaskQueue $tasks,
     ) {}
 
     public static function cacheKey(int $userId): string
@@ -100,27 +102,35 @@ final class QueryRuleProposer
             ->filter(fn (ServiceCatalogItem $item): bool => $item->primaryName !== null)->keyBy('id');
         $sectorByCode = $sectors->pluck('id', 'code');
 
+        $data = [
+            'queries' => $queries->map(fn (Query $q): array => ['id' => (int) $q->id, 'text' => (string) $q->text, 'sector_id' => $q->sector_id, 'service' => $q->service?->primaryName?->raw_label])->values()->all(),
+            'library_sample' => Query::query()->whereNotIn('id', $queries->pluck('id'))->where('hidden', false)->where('is_suggested', false)
+                ->orderByDesc('impressions')->orderBy('id')->limit(self::SAMPLE)->pluck('text')->all(),
+            'sectors' => $sectors->map(fn (ServiceCategory $s): array => ['id' => (int) $s->id, 'name' => (string) $s->name])->values()->all(),
+            'services' => $services->map(fn (ServiceCatalogItem $item): array => [
+                'id' => (int) $item->id, 'sector_id' => $sectorByCode[$item->sector] ?? null, 'name' => (string) $item->primaryName->raw_label,
+                'keywords' => $item->matchingKeywords->pluck('label')->take(30)->values()->all(),
+            ])->values()->all(),
+            'filter_terms' => FilterTerm::query()->orderBy('id')->limit(500)->get(['term', 'sector_id'])->map(fn (FilterTerm $t): array => ['term' => $t->term, 'sector_id' => $t->sector_id])->all(),
+        ];
+        // Delegated to Claude (MCP queue): the proposal waits ("queued"); the job runs again with the answer.
+        $structured = $this->tasks->delegatedCall(new QueryRulesAgent, $data, 'rules');
+        if (is_string($structured)) {
+            return ['status' => $structured] + $empty;
+        }
         try {
-            $route = $this->routes->resolve(QueryRulesAgent::OPERATION);
-            if ($route->isEmpty()) {
-                return ['status' => 'no_provider'] + $empty;
+            if ($structured === null) {
+                $route = $this->routes->resolve(QueryRulesAgent::OPERATION);
+                if ($route->isEmpty()) {
+                    return ['status' => 'no_provider'] + $empty;
+                }
+                $this->runtime->prepare(array_keys($route->providerModels));
+                $structured = (new QueryRulesAgent)->prompt(
+                    "DATA_JSON\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                    provider: $route->providerModels,
+                    timeout: 180,
+                )->toArray();
             }
-            $this->runtime->prepare(array_keys($route->providerModels));
-            $structured = (new QueryRulesAgent)->prompt(
-                "DATA_JSON\n".json_encode([
-                    'queries' => $queries->map(fn (Query $q): array => ['id' => (int) $q->id, 'text' => (string) $q->text, 'sector_id' => $q->sector_id, 'service' => $q->service?->primaryName?->raw_label])->values()->all(),
-                    'library_sample' => Query::query()->whereNotIn('id', $queries->pluck('id'))->where('hidden', false)->where('is_suggested', false)
-                        ->orderByDesc('impressions')->orderBy('id')->limit(self::SAMPLE)->pluck('text')->all(),
-                    'sectors' => $sectors->map(fn (ServiceCategory $s): array => ['id' => (int) $s->id, 'name' => (string) $s->name])->values()->all(),
-                    'services' => $services->map(fn (ServiceCatalogItem $item): array => [
-                        'id' => (int) $item->id, 'sector_id' => $sectorByCode[$item->sector] ?? null, 'name' => (string) $item->primaryName->raw_label,
-                        'keywords' => $item->matchingKeywords->pluck('label')->take(30)->values()->all(),
-                    ])->values()->all(),
-                    'filter_terms' => FilterTerm::query()->orderBy('id')->limit(500)->get(['term', 'sector_id'])->map(fn (FilterTerm $t): array => ['term' => $t->term, 'sector_id' => $t->sector_id])->all(),
-                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-                provider: $route->providerModels,
-                timeout: 180,
-            )->toArray();
         } catch (Throwable $exception) {
             Log::warning('Query rule proposal failed.', ['error' => $exception->getMessage()]);
 

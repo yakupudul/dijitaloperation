@@ -12,6 +12,9 @@
     if ($progress) {
         $statusText = null;
     }
+    if ($running && ! empty($proposal['waiting'])) {
+        $statusText = 'Claude bekleniyor (kuyruk iş saatlerinde 2 saatte bir çalışır)…';
+    }
     $pickedCount = count(array_filter($pick));
 @endphp
 <div class="space-y-4 text-sm dark:text-gray-200" data-query-plan @if ($running) wire:poll.2s="syncProposal" @endif>

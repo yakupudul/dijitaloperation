@@ -58,6 +58,12 @@ final class AiTaskQueue
         AiRouteKeys::SITE_IMAGE_ALTS,
         AiRouteKeys::QUERIES_CLUSTER,
         AiRouteKeys::QUERIES_CLUSTER_REVIEW,
+        AiRouteKeys::QUERIES_PLAN_SECTORS,
+        AiRouteKeys::QUERIES_PLAN_SERVICES,
+        AiRouteKeys::QUERIES_PLAN_FILTERS,
+        AiRouteKeys::QUERIES_SCAN_FILTERS,
+        AiRouteKeys::QUERIES_FILTER_RULES,
+        AiRouteKeys::QUERIES_ASSIGN_SERVICES,
     ];
 
     /** Whether the operation runs through a resumable path that can wait for Claude (structured registry agents in SUPPORTED). */
@@ -105,10 +111,13 @@ final class AiTaskQueue
      * The delegated call's answer: ready (Claude answered this call of the run), queued (waiting for Claude), error
      * (Claude could not do it), or null when no resumable run is open (the caller keeps the provider route).
      *
+     * A caller whose pack can drift while it waits (live metrics, a growing library) names the call with $slot (stable
+     * within the run, e.g. "batch-3" of a stored list): the answer is then found by the slot, not by the input.
+     *
      * @param  array<string, mixed>  $data  the DATA_JSON pack
      * @return array{status: string, data: array<string, mixed>, prompt_version_id: ?int}|null
      */
-    public function answer(Agent&RegistryPrompted&HasStructuredOutput $agent, array $data): ?array
+    public function answer(Agent&RegistryPrompted&HasStructuredOutput $agent, array $data, ?string $slot = null): ?array
     {
         if ($this->run === null) {
             return null;
@@ -119,7 +128,7 @@ final class AiTaskQueue
         $operation = $agent->promptOperation();
         $versionId = $agent->promptVersionId();
         $input = 'DATA_JSON'."\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
-        $hash = hash('sha256', $operation."\n".$input);
+        $hash = hash('sha256', $operation."\n".($slot !== null ? 'slot:'.$slot : $input));
         $task = AiTask::query()->where('resume_key', $key)->where('operation', $operation)->where('input_hash', $hash)
             ->where('status', '!=', AiTask::CONSUMED)->latest('id')->first();
         if ($task === null) {
@@ -138,6 +147,31 @@ final class AiTaskQueue
             AiTask::DONE => ['status' => 'ready', 'data' => (array) $task->output, 'prompt_version_id' => $task->prompt_version_id],
             AiTask::FAILED => ['status' => 'error', 'data' => [], 'prompt_version_id' => null],
             default => ['status' => 'queued', 'data' => [], 'prompt_version_id' => null],
+        };
+    }
+
+    /**
+     * The delegated call for callers that report a failed call as a status string: the structured output, 'queued'
+     * (waiting for Claude), 'error' (Claude could not do it), or null when the operation is not delegated or no
+     * resumable run is open (the caller keeps the provider route).
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>|string|null
+     */
+    public function delegatedCall(Agent&RegistryPrompted&HasStructuredOutput $agent, array $data, ?string $slot = null): array|string|null
+    {
+        if (! $this->delegated($agent->promptOperation())) {
+            return null;
+        }
+        $answer = $this->answer($agent, $data, $slot);
+        if ($answer === null) {
+            return null;
+        }
+
+        return match ($answer['status']) {
+            'ready' => $answer['data'],
+            'queued' => 'queued',
+            default => 'error',
         };
     }
 

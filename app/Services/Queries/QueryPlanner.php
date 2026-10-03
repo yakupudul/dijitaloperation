@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Services\Ai\AiCancellation;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Catalog\ServiceKeywordService;
 use App\Services\Portfolio\BrandCandidateBuilder;
@@ -41,6 +42,10 @@ use Throwable;
  * knowledge, not only from collected queries, so sectors without data still get a catalog. Only operational brands' data is sent to AI.
  *
  * Sector values in the UI: '' (none / inherit the brand's), a sector id, or "new:Ad" (a proposed new sector).
+ *
+ * Delegated to Claude (MCP queue): every call of the step is asked at once and the step waits (`waiting`, status still
+ * running, never closed as stale while it waits); the job runs again when Claude has answered and the step completes
+ * like a provider answer.
  */
 final class QueryPlanner
 {
@@ -64,7 +69,11 @@ final class QueryPlanner
         private readonly ServiceKeywordService $keywords,
         private readonly ServiceCatalogService $catalog,
         private readonly IdentityLabelNormalizer $labels,
+        private readonly AiTaskQueue $tasks,
     ) {}
+
+    /** A step waiting for Claude is kept (and not closed as stale) this long: answers come in working hours. */
+    public const int WAITING_DAYS = 5;
 
     public static function cacheKey(int $userId, string $step): string
     {
@@ -100,6 +109,9 @@ final class QueryPlanner
     private static function isStale(array $state): bool
     {
         $at = (int) ($state['updated_at'] ?? 0);
+        if (! empty($state['waiting'])) {
+            return $at < now()->subDays(self::WAITING_DAYS)->getTimestamp();
+        }
 
         // States written before this field existed count as stale once looked at.
         return $at === 0 || $at < now()->subMinutes(self::STALE_MINUTES)->getTimestamp();
@@ -135,6 +147,26 @@ final class QueryPlanner
 
             return $state;
         }) ?: null;
+    }
+
+    /** The step waits for Claude (MCP queue): still running, kept until the job runs again with the answers. */
+    public static function markWaiting(int $userId, string $step): void
+    {
+        Cache::put(self::cacheKey($userId, $step), ['status' => 'running', 'waiting' => true, 'updated_at' => now()->getTimestamp()], now()->addDays(self::WAITING_DAYS));
+    }
+
+    /**
+     * One sector of a per-sector step waits for Claude: the step stays running and is kept until that sector answers.
+     */
+    public static function waitSector(int $userId, string $step, string $run): void
+    {
+        $key = self::cacheKey($userId, $step);
+        Cache::lock($key.':merge', 30)->block(20, function () use ($key, $run): void {
+            $state = Cache::get($key);
+            if (is_array($state) && ($state['status'] ?? null) === 'running' && ($state['run'] ?? null) === $run) {
+                Cache::put($key, ['waiting' => true, 'updated_at' => now()->getTimestamp()] + $state, now()->addDays(self::WAITING_DAYS));
+            }
+        });
     }
 
     /**
@@ -195,7 +227,7 @@ final class QueryPlanner
             if ($state['done'] >= $state['total']) {
                 $state = self::completed($step, $state);
             }
-            Cache::put($key, $state, now()->addDay());
+            Cache::put($key, $state, ! empty($state['waiting']) ? now()->addDays(self::WAITING_DAYS) : now()->addDay());
 
             return $state['status'] === 'running' ? null : (string) $state['status'];
         });
@@ -325,6 +357,7 @@ final class QueryPlanner
         $rows = ['brands' => [], 'assets' => []];
         $failures = 0;
         $status = 'error';
+        $waiting = false;
         foreach ($brands->chunk(self::BRANDS_PER_CALL) as $chunk) {
             $data = [
                 'sectors' => $sectors->map(fn (ServiceCategory $s): array => ['id' => (int) $s->id, 'name' => (string) $s->name])->all(),
@@ -338,6 +371,11 @@ final class QueryPlanner
                 })->values()->all(),
             ];
             $structured = $this->call(QueryPlanSectorsAgent::class, $data);
+            if ($structured === 'queued') {
+                $waiting = true;
+
+                continue;
+            }
             if (! is_array($structured)) {
                 $status = $structured;
                 $failures++;
@@ -346,6 +384,9 @@ final class QueryPlanner
             }
             $rows['brands'] = [...$rows['brands'], ...array_values((array) ($structured['brands'] ?? []))];
             $rows['assets'] = [...$rows['assets'], ...array_values((array) ($structured['assets'] ?? []))];
+        }
+        if ($waiting) {
+            return ['status' => 'queued'] + $empty;
         }
         if ($failures === (int) ceil($brands->count() / self::BRANDS_PER_CALL)) {
             return ['status' => $status] + $empty;
@@ -475,7 +516,7 @@ final class QueryPlanner
                 'keywords' => $s->matchingKeywords->map(fn (ServiceMatchingKeyword $k): array => ['id' => (int) $k->id, 'label' => (string) $k->label])->values()->all()])->values()->all(),
             'brand_services' => $brandServices, 'page_names' => $pageNames, 'samples' => $this->samples((int) $sector->id, $brandIds),
         ]]];
-        $structured = $this->call(QueryPlanServicesAgent::class, $data);
+        $structured = $this->call(QueryPlanServicesAgent::class, $data, 'sector-'.$sector->id);
 
         return is_array($structured)
             ? $this->validServiceItems($structured, [(int) $sector->id => ['sector' => $sector, 'services' => $services->keyBy('id')]])
@@ -498,6 +539,7 @@ final class QueryPlanner
         $items = [];
         $failed = [];
         $status = 'error';
+        $waiting = false;
         $started = microtime(true);
         foreach ($sectors as $sector) {
             if (microtime(true) - $started > self::TIME_BUDGET_SECONDS) {
@@ -506,6 +548,11 @@ final class QueryPlanner
                 continue;
             }
             $result = $callback($sector);
+            if ($result === 'queued') {
+                $waiting = true;
+
+                continue;
+            }
             if (! is_array($result)) {
                 if ($result === 'no_provider') {
                     return ['status' => 'no_provider', 'items' => []];
@@ -516,6 +563,9 @@ final class QueryPlanner
                 continue;
             }
             $items = [...$items, ...$result];
+        }
+        if ($waiting) {
+            return ['status' => 'queued', 'items' => []];
         }
         if (count($failed) === $sectors->count()) {
             return ['status' => $status, 'items' => []];
@@ -727,7 +777,7 @@ final class QueryPlanner
         if ($instruction !== '') {
             $data['operator_instruction'] = $instruction;
         }
-        $structured = $this->call(QueryPlanFiltersAgent::class, $data);
+        $structured = $this->call(QueryPlanFiltersAgent::class, $data, 'sector-'.$sector->id);
         if (! is_array($structured)) {
             return $structured;
         }
@@ -860,10 +910,19 @@ final class QueryPlanner
             ->map(fn ($raw): string => $normalizer->normalize((string) $raw))->filter()->unique()->take(self::SAMPLES)->values()->all();
     }
 
-    /** @return array<string, mixed>|string structured output, or 'no_provider' / 'error' */
-    private function call(string $agent, array $data): array|string
+    /**
+     * @param  class-string<QueryPlanSectorsAgent|QueryPlanServicesAgent|QueryPlanFiltersAgent>  $agent
+     * @param  array<string, mixed>  $data
+     * @param  string|null  $slot  the call's stable name in the run (delegated: found again although samples moved)
+     * @return array<string, mixed>|string structured output, or 'no_provider' / 'error' / 'queued' (waiting for Claude)
+     */
+    private function call(string $agent, array $data, ?string $slot = null): array|string
     {
         AiCancellation::throwIfRequested();
+        $delegated = $this->tasks->delegatedCall(new $agent, $data, $slot);
+        if ($delegated !== null) {
+            return $delegated;
+        }
         try {
             $route = $this->routes->resolve($agent::OPERATION);
             if ($route->isEmpty()) {

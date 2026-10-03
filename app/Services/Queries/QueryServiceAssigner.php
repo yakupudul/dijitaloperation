@@ -11,12 +11,14 @@ use App\Models\User;
 use App\Services\Ai\AiCancellation;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Catalog\ServiceKeywordService;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -27,6 +29,9 @@ use Throwable;
  * ids, services of another sector and duplicates dropped) and collected per operator as a checklist; nothing changes
  * before "Onayla". Approval assigns the ticked queries (assignment `ai`, locked so a rescan keeps them) and adds the
  * ticked matching keywords (then a rescan review, like every keyword change).
+ *
+ * Delegated to Claude (MCP queue): the batches are fixed at the first run (query ids in the state) and all asked at
+ * once; the proposal waits (`waiting`) until Claude has answered every batch and is then built from the answers.
  */
 final class QueryServiceAssigner
 {
@@ -42,7 +47,11 @@ final class QueryServiceAssigner
         private readonly AiRouteResolver $routes,
         private readonly AiProviderRuntimeConfig $runtime,
         private readonly ServiceKeywordService $keywords,
+        private readonly AiTaskQueue $tasks,
     ) {}
+
+    /** A proposal waiting for Claude is kept this long (answers come in working hours). */
+    private const int WAITING_DAYS = 5;
 
     public static function cacheKey(int $userId): string
     {
@@ -88,6 +97,11 @@ final class QueryServiceAssigner
     {
         $state = self::current($userId) ?? [];
         if (($state['status'] ?? null) !== 'running') {
+            return null;
+        }
+        if ($this->tasks->delegated(QueryAssignServicesAgent::OPERATION)) {
+            $this->runDelegated($userId, $sectorId, $state);
+
             return null;
         }
         $started = microtime(true);
@@ -140,6 +154,70 @@ final class QueryServiceAssigner
         Cache::put(self::cacheKey($userId), $state, now()->addDay());
 
         return null;
+    }
+
+    /**
+     * Every batch of the run asked at once (Claude): waits while any batch is unanswered, then stores the proposal.
+     *
+     * @param  array<string, mixed>  $state
+     */
+    private function runDelegated(int $userId, ?int $sectorId, array $state): void
+    {
+        if (! isset($state['batches'])) {
+            $batches = [];
+            foreach (self::queue($sectorId)->orderBy('sector_id')->orderBy('id')->get(['id', 'sector_id'])->groupBy('sector_id') as $sector => $rows) {
+                foreach ($rows->chunk(self::BATCH) as $chunk) {
+                    $batches[] = ['sector' => (int) $sector, 'ids' => $chunk->pluck('id')->map(fn ($id): int => (int) $id)->values()->all()];
+                }
+            }
+            $state['batches'] = $batches;
+            $state['run'] = (string) Str::uuid();
+        }
+        $items = [];
+        $keywords = [];
+        $taken = [];
+        $done = 0;
+        $calls = 0;
+        $failed = 0;
+        $waiting = false;
+        foreach ((array) $state['batches'] as $index => $batch) {
+            $rows = Query::query()->whereIn('id', $batch['ids'])->orderBy('id')->get(['id', 'text', 'impressions']);
+            $context = $this->sectorContext((int) $batch['sector']);
+            if ($context === null || $rows->isEmpty()) {
+                $done += count($batch['ids']);
+
+                continue;
+            }
+            $structured = $this->call($context, $rows, $state['run'].'-'.$index);
+            $calls++;
+            if ($structured === 'queued') {
+                $waiting = true;
+
+                continue;
+            }
+            $done += $rows->count();
+            if (! is_array($structured)) {
+                $failed++;
+
+                continue;
+            }
+            $items = [...$items, ...$this->validAssignments($structured, $context, $rows)];
+            $keywords = [...$keywords, ...$this->validKeywords($structured, $context, $rows, $taken)];
+        }
+        $state = ['done' => $done, 'calls' => $calls, 'failed' => $failed, 'items' => $items, 'keywords' => $keywords] + $state;
+        if ($waiting) {
+            Cache::put(self::cacheKey($userId), ['waiting' => true] + $state, now()->addDays(self::WAITING_DAYS));
+
+            return;
+        }
+        unset($state['waiting'], $state['batches'], $state['run']);
+        $state['status'] = match (true) {
+            $done === 0 => 'nothing',
+            $calls === 0 => 'no_services',
+            $failed === $calls => 'error',
+            default => 'ready',
+        };
+        Cache::put(self::cacheKey($userId), $state, now()->addDay());
     }
 
     /**
@@ -207,24 +285,29 @@ final class QueryServiceAssigner
     /**
      * @param  array{sector: ServiceCategory, services: Collection<int, ServiceCatalogItem>}  $context
      * @param  Collection<int, Query>  $rows
-     * @return array<string, mixed>|string structured output, or 'no_provider' / 'error'
+     * @param  string|null  $slot  the batch's stable name in a delegated run
+     * @return array<string, mixed>|string structured output, or 'no_provider' / 'error' / 'queued' (waiting for Claude)
      */
-    private function call(array $context, Collection $rows): array|string
+    private function call(array $context, Collection $rows, ?string $slot = null): array|string
     {
         AiCancellation::throwIfRequested();
+        $data = [
+            'sector' => ['id' => (int) $context['sector']->id, 'name' => (string) $context['sector']->name],
+            'services' => $context['services']->map(fn (ServiceCatalogItem $s): array => [
+                'id' => (int) $s->id, 'name' => (string) $s->primaryName->raw_label, 'keywords' => $s->matchingKeywords->pluck('label')->values()->all(),
+            ])->values()->all(),
+            'queries' => $rows->map(fn (Query $q): array => ['id' => (int) $q->id, 'text' => (string) $q->text, 'impressions' => (int) $q->impressions])->values()->all(),
+        ];
+        $delegated = $slot !== null ? $this->tasks->delegatedCall(new QueryAssignServicesAgent, $data, $slot) : null;
+        if ($delegated !== null) {
+            return $delegated;
+        }
         try {
             $route = $this->routes->resolve(QueryAssignServicesAgent::OPERATION);
             if ($route->isEmpty()) {
                 return 'no_provider';
             }
             $this->runtime->prepare(array_keys($route->providerModels));
-            $data = [
-                'sector' => ['id' => (int) $context['sector']->id, 'name' => (string) $context['sector']->name],
-                'services' => $context['services']->map(fn (ServiceCatalogItem $s): array => [
-                    'id' => (int) $s->id, 'name' => (string) $s->primaryName->raw_label, 'keywords' => $s->matchingKeywords->pluck('label')->values()->all(),
-                ])->values()->all(),
-                'queries' => $rows->map(fn (Query $q): array => ['id' => (int) $q->id, 'text' => (string) $q->text, 'impressions' => (int) $q->impressions])->values()->all(),
-            ];
 
             return (new QueryAssignServicesAgent)->prompt(
                 "DATA_JSON\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),

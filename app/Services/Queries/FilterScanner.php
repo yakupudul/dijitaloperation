@@ -11,6 +11,7 @@ use App\Models\ServiceMatchingKeyword;
 use App\Services\Ai\AiCancellation;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Catalog\ServiceKeywordService;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Facades\DB;
@@ -43,6 +44,7 @@ final class FilterScanner
     public function __construct(
         private readonly AiRouteResolver $routes,
         private readonly AiProviderRuntimeConfig $runtime,
+        private readonly AiTaskQueue $tasks,
     ) {}
 
     /**
@@ -59,9 +61,15 @@ final class FilterScanner
         $rest = array_slice($rest, 0, self::AI_WORDS, true);
         $failures = 0;
         $status = 'error';
+        $waiting = false;
         $chunks = array_chunk($rest, self::WORDS_PER_CALL, true);
-        foreach ($chunks as $chunk) {
-            $result = $this->classify($sector, $chunk, QueryPlanner::instruction($instruction));
+        foreach ($chunks as $index => $chunk) {
+            $result = $this->classify($sector, $chunk, QueryPlanner::instruction($instruction), 'scan-'.$sector->id.'-'.$index);
+            if ($result === 'queued') {
+                $waiting = true;
+
+                continue;
+            }
             if (is_string($result)) {
                 $status = $result;
                 $failures++;
@@ -71,6 +79,9 @@ final class FilterScanner
             foreach ($result as $fold => $row) {
                 $items[] = $this->item($sector, $chunk[$fold]['label'], $row['category'], $row['reason'], $chunk[$fold]);
             }
+        }
+        if ($waiting) {
+            return 'queued';
         }
         if ($chunks !== [] && $failures === count($chunks) && $items === []) {
             return $status;
@@ -174,9 +185,10 @@ final class FilterScanner
 
     /**
      * @param  array<string, array{label: string, count: int, impressions: int, examples: list<string>}>  $chunk
-     * @return array<string, array{category: string, reason: string}>|string flagged folded words, or 'no_provider' / 'error'
+     * @param  string  $slot  the call's stable name in the run (delegated: found again although word counts moved)
+     * @return array<string, array{category: string, reason: string}>|string flagged folded words, or 'no_provider' / 'error' / 'queued'
      */
-    private function classify(ServiceCategory $sector, array $chunk, string $instruction): array|string
+    private function classify(ServiceCategory $sector, array $chunk, string $instruction, string $slot): array|string
     {
         $data = [
             'sector' => (string) $sector->name,
@@ -187,21 +199,9 @@ final class FilterScanner
             $data['operator_instruction'] = $instruction;
         }
         AiCancellation::throwIfRequested();
-        try {
-            $route = $this->routes->resolve(QueryFilterScanAgent::OPERATION);
-            if ($route->isEmpty()) {
-                return 'no_provider';
-            }
-            $this->runtime->prepare(array_keys($route->providerModels));
-            $structured = (new QueryFilterScanAgent)->prompt(
-                "DATA_JSON\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-                provider: $route->providerModels,
-                timeout: 120,
-            )->toArray();
-        } catch (Throwable $exception) {
-            Log::warning('Filter scan AI call failed.', ['error' => $exception->getMessage()]);
-
-            return 'error';
+        $structured = $this->tasks->delegatedCall(new QueryFilterScanAgent, $data, $slot) ?? $this->ask($data);
+        if (is_string($structured)) {
+            return $structured;
         }
 
         $flagged = [];
@@ -215,6 +215,31 @@ final class FilterScanner
         }
 
         return $flagged;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>|string structured output, or 'no_provider' / 'error'
+     */
+    private function ask(array $data): array|string
+    {
+        try {
+            $route = $this->routes->resolve(QueryFilterScanAgent::OPERATION);
+            if ($route->isEmpty()) {
+                return 'no_provider';
+            }
+            $this->runtime->prepare(array_keys($route->providerModels));
+
+            return (new QueryFilterScanAgent)->prompt(
+                "DATA_JSON\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                provider: $route->providerModels,
+                timeout: 120,
+            )->toArray();
+        } catch (Throwable $exception) {
+            Log::warning('Filter scan AI call failed.', ['error' => $exception->getMessage()]);
+
+            return 'error';
+        }
     }
 
     /**
