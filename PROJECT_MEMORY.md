@@ -1914,3 +1914,7 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   gözden geçirme, sorgu planı adımları, kural ve hizmet önerisi, hizmet keşfi, marka adayı gruplama, Otomatik kur
   hizmet önerisi) Claude'a devredilir. Kuyruk routine'i iş saatlerinde 2 saatte bir (07:57–19:57 İstanbul) çalışır;
   bekleyen adımlar "Claude bekleniyor" gösterir.
+- **Sayfa tasarımı (yakup, 2026-10-03):** web sitesi ekranının yeni görünümü (kompakt başlık, alt çizgili sekme, halkalı
+  kart, renkli etiket, sayfada Türkçe metin) müşteri, marka ve dijital varlık sayfalarının da standardıdır. Marka
+  sayfası dört sekme: Özet / Dijital varlıklar / Bilgi dosyası / Ayarlar. Öncelikli hizmet tek alan (`priority='main'`).
+  Listelerdeki iş sayısı marka Özet'iyle aynı kuraldır (`Suggestion::actionable()`).

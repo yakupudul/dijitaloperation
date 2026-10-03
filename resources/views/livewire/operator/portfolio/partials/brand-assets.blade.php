@@ -21,7 +21,7 @@
     <section class="space-y-2" aria-labelledby="brand-asset-cards-heading">
         <div class="flex flex-wrap items-center justify-between gap-2">
             <h2 id="brand-asset-cards-heading" class="text-sm font-semibold text-gray-900 dark:text-white">Dijital varlıklar <span class="font-normal text-gray-400">{{ count($assetCards) }}</span></h2>
-            <a href="{{ route('operator.assets') }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Tüm markaların varlıkları →</a>
+            <a href="{{ route('operator.assets', ['brand' => $brandModel->id]) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Varlık listesinde aç →</a>
         </div>
         @if ($assetCards === [])
             <p class="{{ $card }} text-gray-500">Henüz dijital varlık yok. "Otomatik kur" ile web sitesinden başla ya da "Varlık ekle".</p>

@@ -2941,3 +2941,32 @@ Inline calls (outside a resumable job, e.g. `moxdop:brand-candidates --sync`) of
 back to the provider route (yakup, 2026-10-03): the call fails (`AiTaskQueue::blocksInline`); `--sync` queues the job.
 Verification: PHPUnit delegated tests in `QueriesScreenTest`, `QueryPlanWizardTest`, `QueryBulkAndAssignTest`,
 `BrandServicesAndSettingsTest`, `BrandSetupAssistantTest`, `BrandCandidatesTest`. Not deployed; not DONE.
+
+### Customer / brand / digital asset pages — website v2 look and report fixes (2026-10-03)
+
+Report `raporlar/marka-sayfalari-raporu.md` (sample brand Panorama Ankara). All three lists and the brand page use
+the website screen's v2 style (compact header, underline tabs, ring cards, coloured chips, inline Turkish text).
+- **Lists** (`PortfolioSignalsReader`): Açık iş (`Suggestion::actionable()`, same rule as brand Özet, per channel /
+  asset), Veri durumu (worst source of `DataStatusReader`), Dikkat with reason; retired Finding / WorkTask counts
+  removed; customer and brand lists paginated (50) with grouped queries; brand search matches the domain; channel
+  dots; customer detail without its single tab; active/passive switch checked server side (Admin or a responsible
+  user); customer sector comes from its brands (`industry` only a fallback). Dijital varlıklar is in the menu again,
+  with all filters in the URL (`?brand=`, `?customer=`, …); numeric account names read as "Marka · Meta reklam hesabı
+  …9017". Not done: "Kurulum x/y" in the brand list.
+- **Brand page:** four tabs Özet / Dijital varlıklar / Bilgi dosyası / Ayarlar; old `?tab=` values map in `mount`
+  (channel tabs open Özet with `?kanal=`). ★ is `priority='main'` only (`is_priority` kept in sync, backfill
+  migration `2026_11_27_090000_brand_offerings_priority_sync`). Setup checklist counts an account only when data has
+  arrived, a local business needs a city; each gap has "Düzelt →". Goals / constraints edited only in Ayarlar › İş
+  bağlamı; the dossier (MCP `get-brand` facts) gains İş bağlamı, service pages (hub first) and per-channel open work.
+- **Discovered assets:** "Markaya bağla" on brandless rows (website → brand; account through `PortfolioGroupCreator`),
+  candidate rows on two lines with "Güven %N" and "Sektör belirlenmedi"; Entegrasyonlar links to the page and its
+  "boşta" count opens the brandless filter.
+- **Google Ads closed accounts:** `CUSTOMER_NOT_ENABLED` in historical discovery stores `metadata.not_enabled_at`;
+  automatic collection readiness is `not_enabled` ("Hesap kapalı") for 7 days, then retried; success clears it.
+- **Business Profile checks:** titles reworded (İşletme adına eklenen kelimeler, Profil doğrulaması, Ad / adres /
+  telefon tutarlılığı); rules unchanged.
+- **Livewire:** `DropInvalidLivewireUpdates` drops update keys that cannot name a property (`$`, empty), the cause of
+  "Public property [$] not found" on the header AI indicator.
+Verification: PHPUnit (`Portfolio/PortfolioSignalsTest`, `Portfolio/BrandOverviewTest`, `Portfolio/BrandWorkspaceTest`,
+`Brand/BrandDossierTest`, `BrandCandidatesTest`, `ResourceAutomationRecoveryTest`, `AiLiveOperationsTest`,
+`PanelDesignFreezeTest` + updated UX tests). No UAT; not deployed; not DONE.
