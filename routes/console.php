@@ -19,6 +19,7 @@ use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
+use App\Models\ScreenCheck;
 use App\Models\User;
 use App\Services\Ai\AiBudget;
 use App\Services\Ai\OpenAiCostAudit;
@@ -43,6 +44,7 @@ use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Integrations\WordPress\WordPressEventReconciliation;
 use App\Services\Observability\ErrorTriage;
 use App\Services\Observability\WorkerHeartbeatService;
+use App\Services\Operations\ScreenChecker;
 use App\Services\Ownership\OwnershipIntegrity;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Queries\QueryNotifier;
@@ -886,3 +888,16 @@ Artisan::command('moxdop:brands:chief', function (): void {
 })->purpose('Queue Şef\'s weekly plan.');
 Schedule::command('moxdop:brands:chief')->weeklyOn(1, '07:41')->timezone('Europe/Istanbul')->name('brands-chief')->withoutOverlapping(60)
     ->when(fn (): bool => AiBudget::automaticAllowed('brand.chief'));
+
+// Geliştirme havuzu: sayfa taraması — every operator screen rendered as an Admin (status, time, queries, error, outline)
+// for Claude to find broken / slow / confusing pages (MCP screen-checks). Also after each "Deploy tamamlandı".
+Artisan::command('moxdop:screens:check', function (ScreenChecker $checker): void {
+    $failed = $checker->run();
+    $this->info('Taranan ekran: '.ScreenCheck::query()->count().' · hatalı: '.$failed);
+})->purpose('Render every operator screen as an Admin and store status, time, queries, errors and an outline.');
+
+Schedule::command('moxdop:screens:check')
+    ->dailyAt('04:50')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(60)
+    ->name('screens-check');

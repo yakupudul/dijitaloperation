@@ -8,12 +8,16 @@ use App\Mcp\Tools\GetBrand;
 use App\Mcp\Tools\GetPage;
 use App\Mcp\Tools\GetTask;
 use App\Mcp\Tools\ListBrands;
+use App\Mcp\Tools\ListChanges;
 use App\Mcp\Tools\ListNotes;
 use App\Mcp\Tools\ListTasks;
+use App\Mcp\Tools\ProposeChange;
 use App\Mcp\Tools\RequestArticle;
 use App\Mcp\Tools\SaveNote;
+use App\Mcp\Tools\ScreenChecks;
 use App\Mcp\Tools\SubmitResult;
 use App\Mcp\Tools\SystemHealth;
+use App\Mcp\Tools\UpdateChange;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Attributes\Instructions;
 use Laravel\Mcp\Server\Attributes\Name;
@@ -23,10 +27,12 @@ use Laravel\Mcp\Server\Attributes\Version;
  * MoxDOP MCP sunucusu: the AI iş kuyruğu seen from Claude. Claude lists the waiting tasks, reads one (instructions,
  * DATA_JSON input, output schema), does it, and submits a result MoxDOP checks against the schema before the asking
  * job continues. Claude also reads brands (the rule-built brand file), keeps its own notes, starts drafts for approved
- * titles and reads system health. Nothing here writes to a brand's site or an ad account; approvals stay in MoxDOP.
+ * titles, reads system health and screen checks, and works the Geliştirme havuzu (proposes changes of MoxDOP itself, codes
+ * the approved ones, verifies them after deploy). Nothing here writes to a brand's site or an ad account; approvals stay
+ * in MoxDOP.
  */
 #[Name('MoxDOP')]
-#[Version('1.2.0')]
+#[Version('1.3.0')]
 #[Instructions(<<<'MARKDOWN'
 MoxDOP is Moximu's internal agency operations app: one operator runs search, maps, Google Ads and Meta work for about
 100 brands. You are connected as a co-worker. This text is your whole working guide; you need nothing else.
@@ -62,6 +68,16 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
   and a proposed fix; propose improvements (UI/UX, load, integrations, data collection) as `proposal` notes without
   `brand_id`. Never change data to make a problem disappear.
 
+## Geliştirme havuzu (improving MoxDOP itself)
+- Find: `system-health` (errors, collection failures, alerts) and `screen-checks` (broken / slow screens; with `path`
+  the screen outline for design and wording). Put each real finding in the pool with `propose-change` (Turkish, with
+  evidence and the proposed fix). Do not repeat what is already there; a rejected finding stays rejected.
+- Build: `list-changes` (default: your work). Code only `approved` changes: `update-change step=start`, fix in the
+  repository with tests, push the branch, then `step=ready` with the commit and the exact deploy commands. Cannot be
+  done as asked → `step=give_back` with the reason. You never deploy; the operator does and marks it.
+- Check: `deployed` changes → compare the live release, `system-health` and `screen-checks`, then `step=verified` or
+  `step=failed` with what you checked.
+
 Write to the operator in Turkish, plainly and briefly.
 MARKDOWN)]
 class MoxdopServer extends Server
@@ -79,5 +95,9 @@ class MoxdopServer extends Server
         ContentQueue::class,
         RequestArticle::class,
         SystemHealth::class,
+        ScreenChecks::class,
+        ListChanges::class,
+        ProposeChange::class,
+        UpdateChange::class,
     ];
 }

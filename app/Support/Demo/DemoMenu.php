@@ -45,6 +45,7 @@ final class DemoMenu
                         $child($tr ? 'Sektör ve hizmet kataloğu' : 'Sector & service catalog', 'operator.library.services'),
                         $child($tr ? 'Kullanıcılar' : 'Users', 'operator.settings.users'),
                         $child($tr ? 'Sistem' : 'System', 'operator.settings.system-health'),
+                        $child($tr ? 'Geliştirme havuzu' : 'Improvements', 'operator.settings.improvements'),
                     ]),
                 ],
             ],

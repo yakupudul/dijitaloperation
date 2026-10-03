@@ -2979,3 +2979,17 @@ and the Monday weekly site refresh queue Claude tasks with nobody clicking; oper
 summaries, analysts, care agent, Şef) keep waiting for a click and are stopped call by call by the spend guard.
 Claude tasks never count toward the daily ceiling. Verification: `Mcp/AiTaskQueueTest::test_work_delegated_to_claude_may_run_without_a_click`.
 Not deployed; not DONE.
+
+### Geliştirme havuzu: Claude improves MoxDOP itself (yakup, 2026-10-03)
+
+Ayarlar › **Geliştirme havuzu** (`/settings/improvements`, Admin). Table `system_changes` (kind bug | collection | page
+| design | improvement, fingerprint so a finding is proposed once, status proposed → approved → in_progress → ready →
+deployed → verified | failed, rejected). Claude proposes over MCP (`propose-change`) from `system-health` and the new
+**Sayfa taraması** (`screen-checks`: `ScreenChecker` renders every operator screen plus sample brands, customers,
+website tabs and one asset per channel as an Admin, nightly 04:50 `moxdop:screens:check` and after each deploy mark;
+status, ms, queries, exception @ file:line, text outline). The operator approves / rejects (with a note) or writes a
+request (approved at once). Claude codes approved ones (`list-changes`, `update-change step=start|ready|give_back`),
+pushes the branch and writes commit + deploy commands; "Deploy bekliyor" shows them with Kopyala and **Deploy
+tamamlandı** (also detected when the live release SHA equals the commit); Claude then checks (`step=verified|failed`).
+Admins get a notification when a deploy is ready or a check fails. Claude never deploys.
+Verification: `Operations/ImprovementPoolTest`. Not deployed; not DONE.

@@ -85,7 +85,7 @@ class PanelDesignFreezeTest extends TestCase
         $tabs = OperatorMenu::sectionTabs('operator.integrations.discovered');
         $this->assertSame(['/integrations', '/integrations/discovered', '/integrations/wordpress-sites', '/data-center'], array_column($tabs, 'url'));
         $this->assertSame([false, true, false, false], array_column($tabs, 'active'));
-        $this->assertSame(['/settings', '/settings/ai-operations', '/library/website-standards', '/library/services', '/settings/users', '/settings/system-health'], array_column(OperatorMenu::sectionTabs('operator.settings.users'), 'url'), 'v2: Ayarlar carries AI işlemleri, Standartlar, Sektör ve hizmet kataloğu, Kullanıcılar, Sistem');
+        $this->assertSame(['/settings', '/settings/ai-operations', '/library/website-standards', '/library/services', '/settings/users', '/settings/system-health', '/settings/improvements'], array_column(OperatorMenu::sectionTabs('operator.settings.users'), 'url'), 'v2: Ayarlar carries AI işlemleri, Standartlar, Sektör ve hizmet kataloğu, Kullanıcılar, Sistem, Geliştirme havuzu');
         $this->assertNull(OperatorMenu::sectionTabs('operator.customers'));
 
         $this->get(route('operator.integrations.discovered'))->assertOk()->assertSee('aria-current="page"', false)->assertSee(route('operator.data-center', absolute: false), false);

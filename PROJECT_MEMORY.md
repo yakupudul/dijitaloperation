@@ -1920,3 +1920,6 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   Listelerdeki iş sayısı marka Özet'iyle aynı kuraldır (`Suggestion::actionable()`).
 - **Otomatik Claude işleri (yakup, 2026-10-03):** Claude'a devredilen işlemler kimse tıklamadan da çalışır (gece site
   akışı, pazartesi haftalık site yenileme); API'de kalan işler yalnız tıklayınca çalışır, otomatik API yalnız Sorgular.
+- **Geliştirme havuzu (yakup, 2026-10-03):** Claude sistemi (hata, veri çekimi, sayfa taraması, tasarım) tarar ve
+  bulguyu Ayarlar › Geliştirme havuzu'na öneri olarak yazar; yalnız yakup'un onayladıklarını kodlar, dala gönderir
+  ve deploy komutlarını havuza yazar. Deploy'u yakup yapar ve "Deploy tamamlandı" der; Claude canlıda kontrol edip kapatır.
