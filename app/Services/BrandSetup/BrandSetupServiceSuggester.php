@@ -15,6 +15,7 @@ use App\Models\ServiceCatalogName;
 use App\Models\ServiceCategory;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Brand\BrandGaps;
 use App\Services\Catalog\ServiceKeywordService;
 use App\Services\Portfolio\UnassignedWebsites;
@@ -50,10 +51,12 @@ final class BrandSetupServiceSuggester
         private readonly AiProviderRuntimeConfig $runtime,
         private readonly IdentityLabelNormalizer $normalizer,
         private readonly SeoStoredHtmlReader $html,
+        private readonly AiTaskQueue $tasks,
     ) {}
 
     /**
      * @param  list<array<string, mixed>>  $items  matcher output (to find the chosen Search Console property)
+     *                                             Delegated to Claude (MCP queue): status "queued" while the answer is awaited (the job runs again with it).
      * @return array{status: string, services: list<array<string, mixed>>, summary: array<string, mixed>}
      */
     public function suggest(Brand $brand, string $host, array $items): array
@@ -76,23 +79,33 @@ final class BrandSetupServiceSuggester
         $sectors = ServiceCategory::options();
         $existing = $this->existingOfferingKeys($brand);
 
+        $context = [
+            'brand' => ['name' => $brand->name, 'domain' => $host],
+            'brand_service_areas' => array_map(static fn (array $a): string => implode(', ', array_filter([$a['district_name'], $a['city_name'], $a['country_code']])), $areas),
+            'wordpress_pages' => $wordpressPages,
+            'pages' => $pages,
+            'search_console_queries' => array_slice($queries, 0, 150),
+            'crawl_service_candidates' => $candidates,
+            'CATALOG' => array_map(static fn (array $c): array => ['name' => $c['name'], 'sector_code' => $c['sector']], $catalog),
+            'SECTORS' => collect($sectors)->map(fn ($name, $code): array => ['code' => $code, 'name' => $name])->values()->all(),
+        ];
         $structured = null;
         $summary = [];
+        $delegated = $this->tasks->delegatedCall(new BrandSetupAgent, $context, 'setup', 'CONTEXT_JSON');
+        if ($delegated === 'queued') {
+            return ['status' => 'queued', 'services' => [], 'summary' => ['waiting' => 'claude']];
+        }
         try {
-            $route = $this->routes->resolve(AiRouteKeys::BRAND_SETUP);
-            if (! $route->isEmpty()) {
+            $route = $delegated === null ? $this->routes->resolve(AiRouteKeys::BRAND_SETUP) : null;
+            if (is_array($delegated)) {
+                $structured = $delegated;
+                $summary = ['provider' => AiTaskQueue::PROVIDER, 'model' => AiTaskQueue::MODEL];
+            } elseif ($delegated === 'error') {
+                $summary = ['ai_skipped_reason' => 'llm_error', 'ai_error' => 'Claude bu öneriyi hazırlayamadı.'];
+            } elseif (! $route->isEmpty()) {
                 $this->runtime->prepare(array_keys($route->providerModels));
                 $response = (new BrandSetupAgent)->prompt(
-                    "CONTEXT_JSON\n".json_encode([
-                        'brand' => ['name' => $brand->name, 'domain' => $host],
-                        'brand_service_areas' => array_map(static fn (array $a): string => implode(', ', array_filter([$a['district_name'], $a['city_name'], $a['country_code']])), $areas),
-                        'wordpress_pages' => $wordpressPages,
-                        'pages' => $pages,
-                        'search_console_queries' => array_slice($queries, 0, 150),
-                        'crawl_service_candidates' => $candidates,
-                        'CATALOG' => array_map(static fn (array $c): array => ['name' => $c['name'], 'sector_code' => $c['sector']], $catalog),
-                        'SECTORS' => collect($sectors)->map(fn ($name, $code): array => ['code' => $code, 'name' => $name])->values()->all(),
-                    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                    "CONTEXT_JSON\n".json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
                     provider: $route->providerModels,
                     timeout: 200,
                 );

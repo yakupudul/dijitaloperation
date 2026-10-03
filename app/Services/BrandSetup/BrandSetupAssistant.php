@@ -94,7 +94,7 @@ final class BrandSetupAssistant
         }
         $pending = BrandSetupProposal::query()->where('brand_id', $brand->id)
             ->whereIn('status', [BrandSetupProposal::STATUS_QUEUED, BrandSetupProposal::STATUS_BUILDING])
-            ->where('updated_at', '>=', now()->subMinutes(15))->latest('id')->first();
+            ->where(fn ($q) => $q->where('updated_at', '>=', now()->subMinutes(15))->orWhere('summary->waiting', 'claude'))->latest('id')->first();
         if ($pending !== null) {
             return $pending;
         }
@@ -129,6 +129,13 @@ final class BrandSetupAssistant
             $items = $this->matcher->propose($brand, (string) $proposal->website_url);
             self::step($proposal, 'services');
             $suggestion = $this->services->suggest($brand, BrandSetupMatcher::host((string) $proposal->website_url), $items);
+            if ($suggestion['status'] === 'queued') {
+                // Waiting for Claude (MCP queue): the proposal stays "building" (not stuck); the job runs again with the answer.
+                $proposal->forceFill(['items' => $items, 'summary' => ['waiting' => 'claude']])->save();
+                Cache::put(self::progressKey((int) $proposal->id), ['step' => 'services', 'at' => now()->toIso8601String()], now()->addDays(5));
+
+                return $proposal;
+            }
             self::step($proposal, 'areas');
             $summary = $suggestion['summary'] + ['areas' => $this->areas->suggest($brand, $items, (array) ($suggestion['summary']['locations'] ?? []))];
             $proposal->forceFill([

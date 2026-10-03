@@ -46,10 +46,16 @@ class BrandSetupProposal extends Model
         ];
     }
 
-    /** Queued / building but untouched for 15 minutes: the worker died or the job was lost. */
+    /** Queued / building but untouched for 15 minutes: the worker died or the job was lost (waiting for Claude is not). */
     public function isStuck(): bool
     {
-        return $this->isPending() && $this->updated_at !== null && $this->updated_at->lt(now()->subMinutes(15));
+        return $this->isPending() && ! $this->waitsForClaude() && $this->updated_at !== null && $this->updated_at->lt(now()->subMinutes(15));
+    }
+
+    /** The build waits for Claude's answer (MCP queue); the job runs again when it is in. */
+    public function waitsForClaude(): bool
+    {
+        return $this->isPending() && data_get($this->summary, 'waiting') === 'claude';
     }
 
     /**

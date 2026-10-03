@@ -3,7 +3,9 @@
 namespace Tests\Feature\Ownership;
 
 use App\Ai\Agents\BrandCandidateAgent;
+use App\Jobs\RefreshBrandCandidatesJob;
 use App\Livewire\Operator\Integrations\DiscoveredAssetsPage;
+use App\Models\AiTask;
 use App\Models\Brand;
 use App\Models\BrandCandidate;
 use App\Models\BrandCandidateResource;
@@ -15,9 +17,12 @@ use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\ServiceCategory;
 use App\Models\User;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Ownership\OwnershipGuard;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Portfolio\BrandCandidateManager;
+use App\Services\Prompts\PromptRegistry;
+use App\Support\Ai\AiRouteKeys;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -280,6 +285,32 @@ final class BrandCandidatesTest extends TestCase
         $retry = app(BrandCandidateBuilder::class)->refresh();
         $this->assertSame('called', $retry['ai_status']);
         $this->assertSame('Xyz Holding', $this->candidateOf($r['leftover'])->name, 'the next run retries the leftovers');
+    }
+
+    public function test_delegated_grouping_waits_for_claude_and_places_the_leftovers_from_the_answer(): void
+    {
+        $this->enableAi();
+        config(['moxdop-mcp.token' => 'test-mcp-token']);
+        $registry = app(PromptRegistry::class);
+        $registry->publish(AiRouteKeys::BRAND_CANDIDATES, ['template' => (string) $registry->current(AiRouteKeys::BRAND_CANDIDATES)->template, 'model' => AiTaskQueue::MODEL], $this->admin);
+        BrandCandidateAgent::fake()->preventStrayPrompts();
+        $r = $this->resources();
+
+        app()->call([new RefreshBrandCandidatesJob, 'handle']);
+
+        $task = AiTask::query()->sole();
+        $this->assertSame(AiRouteKeys::BRAND_CANDIDATES, $task->operation);
+        $this->assertFalse(BrandCandidateResource::query()->where('external_resource_id', $r['leftover']->id)->exists(), 'leftovers wait for Claude');
+        $this->assertNotNull($this->candidateOf($r['gsc']), 'deterministic grouping does not wait');
+        BrandCandidateAgent::assertNeverPrompted();
+
+        $this->assertSame([], app(AiTaskQueue::class)->submit($task, ['groups' => [['candidate_key' => null, 'name' => 'Xyz Holding', 'account_keys' => ['r:'.$r['leftover']->id]]],
+            'sectors' => [], 'prompt_version' => BrandCandidateAgent::PROMPT_VERSION]));
+        Bus::assertDispatched(RefreshBrandCandidatesJob::class);
+        app()->call([new RefreshBrandCandidatesJob, 'handle']);
+
+        $this->assertSame('Xyz Holding', $this->candidateOf($r['leftover'])->name);
+        $this->assertSame(AiTask::CONSUMED, $task->fresh()->status);
     }
 
     private function enableAi(): void

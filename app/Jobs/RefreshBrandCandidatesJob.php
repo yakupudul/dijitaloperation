@@ -2,12 +2,16 @@
 
 namespace App\Jobs;
 
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
-/** Keşfedilen varlıklar: groups new discovered resources into brand candidates (daily + "Yeniden grupla"). */
+/**
+ * Keşfedilen varlıklar: groups new discovered resources into brand candidates (daily + "Yeniden grupla"). Delegated to
+ * Claude: runs again when Claude has answered every batch.
+ */
 final class RefreshBrandCandidatesJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
@@ -23,8 +27,13 @@ final class RefreshBrandCandidatesJob implements ShouldBeUnique, ShouldQueue
         $this->onQueue((string) config('queue.heavy_queue', 'default'));
     }
 
-    public function handle(BrandCandidateBuilder $builder): void
+    public function handle(BrandCandidateBuilder $builder, AiTaskQueue $tasks): void
     {
-        $builder->refresh();
+        $tasks->begin(new self, null, 'Marka adaylarını grupla');
+        try {
+            $builder->refresh();
+        } finally {
+            $tasks->settle();
+        }
     }
 }

@@ -12,6 +12,7 @@ use App\Models\ServiceCatalogItem;
 use App\Models\User;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\SeoTasks\SeoText;
@@ -28,7 +29,8 @@ use Throwable;
  * website(s) minus home / about / blog posts / contact / legal / category pages go to ONE AI call that proposes
  * normalized Turkish service names, the matching catalog item of the brand's sector (else a new catalog item, flagged)
  * and the source pages. Page and catalog ids are checked against the input. Re-runs only add new proposals; approved
- * offerings are locked and never renamed by AI.
+ * offerings are locked and never renamed by AI. Delegated to Claude (MCP queue): the call waits ("queued") and the job
+ * runs again with the answer.
  */
 final class BrandServiceExtractor
 {
@@ -50,6 +52,7 @@ final class BrandServiceExtractor
         private readonly IdentityLabelNormalizer $normalizer,
         private readonly ServiceCatalogService $catalog,
         private readonly BrandOfferingService $offerings,
+        private readonly AiTaskQueue $tasks,
     ) {}
 
     /**
@@ -86,7 +89,7 @@ final class BrandServiceExtractor
         return $title === '' || preg_match(self::EXCLUDED_TITLE, $title) === 1;
     }
 
-    /** @return array{status: string, added: int} status: ready | not_operational | no_sector | no_pages | no_provider | error */
+    /** @return array{status: string, added: int} status: ready | queued | not_operational | no_sector | no_pages | no_provider | error */
     public function extract(Brand $brand): array
     {
         if (! Brand::query()->operational()->whereKey($brand->id)->exists()) {
@@ -106,22 +109,29 @@ final class BrandServiceExtractor
         $existing = BrandOffering::query()->with(['primaryName', 'catalogItem.primaryName'])->where('brand_id', $brand->id)
             ->where('status', OfferingStatus::Active->value)->get();
 
+        $data = [
+            'brand' => ['name' => $brand->name, 'sector' => $sector->name],
+            'pages' => $pages->map(fn (Page $p): array => ['id' => (int) $p->id, 'url' => (string) $p->url, 'title' => $p->title, 'h1' => $p->h1, 'language' => $p->language])->all(),
+            'catalog' => $catalog->map(fn (string $name, int $id): array => ['id' => $id, 'name' => $name])->values()->all(),
+            'existing' => $existing->map(fn (BrandOffering $o): string => $o->displayName())->values()->all(),
+        ];
+        $structured = $this->tasks->delegatedCall(new BrandServiceAgent, $data, 'services');
+        if (is_string($structured)) {
+            return ['status' => $structured, 'added' => 0];
+        }
         try {
-            $route = $this->routes->resolve(AiRouteKeys::BRAND_SERVICES);
-            if ($route->isEmpty()) {
-                return ['status' => 'no_provider', 'added' => 0];
+            if ($structured === null) {
+                $route = $this->routes->resolve(AiRouteKeys::BRAND_SERVICES);
+                if ($route->isEmpty()) {
+                    return ['status' => 'no_provider', 'added' => 0];
+                }
+                $this->runtime->prepare(array_keys($route->providerModels));
+                $structured = (new BrandServiceAgent)->prompt(
+                    "DATA_JSON\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                    provider: $route->providerModels,
+                    timeout: 180,
+                )->toArray();
             }
-            $this->runtime->prepare(array_keys($route->providerModels));
-            $structured = (new BrandServiceAgent)->prompt(
-                "DATA_JSON\n".json_encode([
-                    'brand' => ['name' => $brand->name, 'sector' => $sector->name],
-                    'pages' => $pages->map(fn (Page $p): array => ['id' => (int) $p->id, 'url' => (string) $p->url, 'title' => $p->title, 'h1' => $p->h1, 'language' => $p->language])->all(),
-                    'catalog' => $catalog->map(fn (string $name, int $id): array => ['id' => $id, 'name' => $name])->values()->all(),
-                    'existing' => $existing->map(fn (BrandOffering $o): string => $o->displayName())->values()->all(),
-                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-                provider: $route->providerModels,
-                timeout: 180,
-            )->toArray();
         } catch (Throwable $exception) {
             Log::warning('Brand service extraction failed.', ['brand_id' => $brand->id, 'error' => $exception->getMessage()]);
 

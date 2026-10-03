@@ -14,6 +14,7 @@ use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
 use App\Models\ServiceCategory;
 use App\Models\User;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\Catalog\BrandCommercialContextService;
 use App\Services\Compliance\ForbiddenTermsLibrary;
@@ -25,6 +26,7 @@ use App\Services\Ownership\OwnershipTransferService;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Portfolio\BrandServiceExtractor;
 use App\Services\Portfolio\UnassignedWebsites;
+use App\Support\Ai\AiRouteKeys;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Integrations\ResourceBindingPlan;
 use App\Support\Roles;
@@ -163,7 +165,8 @@ final class BrandSettings extends Component
             return;
         }
         ExtractBrandServicesJob::dispatch($brand->id);
-        $this->message = 'Hizmet keşfi başladı.';
+        $this->message = app(AiTaskQueue::class)->delegated(AiRouteKeys::BRAND_SERVICES)
+            ? 'Hizmet keşfi Claude kuyruğunda · yanıt iş saatlerinde 2 saatte bir gelir.' : 'Hizmet keşfi başladı.';
     }
 
     public function approveProposal(int $proposalId, BrandServiceExtractor $extractor): void

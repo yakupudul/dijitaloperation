@@ -5,6 +5,7 @@ namespace Tests\Feature\BrandSetup;
 use App\Ai\Agents\BrandSetupAgent;
 use App\Jobs\Site\RunSiteOperationJob;
 use App\Livewire\Operator\Portfolio\BrandSetupPage;
+use App\Models\AiTask;
 use App\Models\Brand;
 use App\Models\BrandOffering;
 use App\Models\BrandSetupProposal;
@@ -17,12 +18,15 @@ use App\Models\DigitalAsset;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Models\User;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\BrandSetup\BrandSetupAssistant;
 use App\Services\BrandSetup\BrandSetupMatcher;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Portfolio\UnassignedWebsites;
+use App\Services\Prompts\PromptRegistry;
 use App\Services\Site\SiteOperations;
+use App\Support\Ai\AiRouteKeys;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -224,6 +228,44 @@ final class BrandSetupAssistantTest extends TestCase
         $this->assertSame(['implant', 'implant tedavisi', 'vidalı diş'], $item->matchingKeywords()->orderBy('label')->pluck('label')->all());
         $this->assertSame(1, BrandOffering::query()->where('brand_id', $this->brand->id)->count(), 'no duplicate offering');
         $this->assertFalse((bool) $offering->fresh()->is_priority, 'operator priority is not overwritten');
+    }
+
+    public function test_delegated_service_suggestion_waits_for_claude_without_getting_stuck(): void
+    {
+        [$gscResource] = $this->resources();
+        ServiceCategory::query()->create(['code' => 'saglik', 'name' => 'Sağlık', 'normalized_key' => 'saglik']);
+        $this->insertFacts('gsc_query_page_daily', [
+            'digital_asset_id' => null, 'external_resource_id' => $gscResource->id, 'site_url' => 'sc-domain:adadent.com.tr',
+            'reporting_date' => now()->subDays(5)->toDateString(), 'query' => 'ankara implant', 'page' => 'https://www.adadent.com.tr/implant/',
+            'clicks' => 3, 'impressions' => 400, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+            'record_fingerprint' => hash('sha256', 'w'), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        config(['moxdop-mcp.token' => 'test-mcp-token']);
+        $registry = app(PromptRegistry::class);
+        $registry->publish(AiRouteKeys::BRAND_SETUP, ['template' => (string) $registry->current(AiRouteKeys::BRAND_SETUP)->template, 'model' => AiTaskQueue::MODEL], $this->admin);
+        BrandSetupAgent::fake()->preventStrayPrompts();
+
+        $proposal = app(BrandSetupAssistant::class)->queue($this->brand, 'adadent.com.tr', $this->admin)->fresh();
+
+        $this->assertSame(BrandSetupProposal::STATUS_BUILDING, $proposal->status);
+        $this->assertTrue($proposal->waitsForClaude());
+        $task = AiTask::query()->sole();
+        $this->assertStringStartsWith('CONTEXT_JSON', $task->input);
+        $this->travel(2)->hours();
+        $this->assertFalse($proposal->fresh()->isStuck(), 'waiting for Claude is not a dead worker');
+        $this->assertSame($proposal->id, app(BrandSetupAssistant::class)->queue($this->brand, 'adadent.com.tr', $this->admin)->id, 'a second click follows the waiting build');
+        Livewire::test(BrandSetupPage::class, ['brand' => (string) $this->brand->id])->assertSee("Claude'da bekliyor", false)->assertSeeHtml('data-setup-progress="services"');
+        BrandSetupAgent::assertNeverPrompted();
+
+        $this->assertSame([], app(AiTaskQueue::class)->submit($task, ['brand_summary' => 'Diş kliniği.', 'sector_code' => 'saglik',
+            'services' => [['name' => 'İmplant Tedavisi', 'catalog_name' => null, 'sector_code' => 'saglik', 'aliases' => [], 'matching_phrases' => ['implant'], 'is_core' => true, 'evidence' => 'Sorgu']],
+            'business_context' => ['business_summary' => null, 'business_model' => null, 'target_audiences' => [], 'positioning' => null, 'differentiators' => []],
+            'prompt_version' => BrandSetupAgent::PROMPT_VERSION]));
+
+        $proposal = $proposal->fresh();
+        $this->assertSame(BrandSetupProposal::STATUS_READY, $proposal->status);
+        $this->assertSame('İmplant Tedavisi', $proposal->services[0]['name']);
+        $this->assertSame(AiTaskQueue::PROVIDER, $proposal->summary['provider']);
     }
 
     public function test_ai_failure_is_shown_to_the_operator_and_accounts_are_still_proposed(): void

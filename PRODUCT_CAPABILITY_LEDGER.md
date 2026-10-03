@@ -2927,3 +2927,15 @@ and the base types it prints; types MoxDOP wrote before); a proposal with only t
 Queue routine: every 2 hours 07:57–19:57 Istanbul.
 Verification: PHPUnit `tests/Feature/Site/ImageAltsTest.php`, `tests/Feature/Mcp/McpWorkspaceTest.php`. Not deployed;
 not DONE.
+
+## 2026-10-03 — Claude (MCP) devri: kümeleme, sorgu planı, marka işlemleri (staging)
+
+Delegable to Claude too: `queries.cluster`, `queries.cluster_review` (daily clustering of the autopilot and "AI ile
+kümele"), `queries.plan_sectors`, `queries.plan_services`, `queries.plan_filters`, `queries.scan_filters`,
+`queries.filter_rules`, `queries.assign_services`, `brand.services`, `brand.candidates`, `brand_setup.assistant`.
+`queries.triage` (15-minute autopilot triage) stays on the API. A clustering step stores the part it asked
+(`pending` in the run state) so the answer is found although triage adds queries meanwhile; calls whose pack drifts
+(samples, metrics) are named by a stable slot in the run (`AiTaskQueue::answer(..., $slot)`). Waiting steps show
+"Claude bekleniyor" and are not closed as stale (kept 5 days); Otomatik kur stays "building" without becoming stuck.
+Verification: PHPUnit delegated tests in `QueriesScreenTest`, `QueryPlanWizardTest`, `QueryBulkAndAssignTest`,
+`BrandServicesAndSettingsTest`, `BrandSetupAssistantTest`, `BrandCandidatesTest`. Not deployed; not DONE.

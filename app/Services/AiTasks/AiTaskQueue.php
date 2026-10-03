@@ -64,6 +64,9 @@ final class AiTaskQueue
         AiRouteKeys::QUERIES_SCAN_FILTERS,
         AiRouteKeys::QUERIES_FILTER_RULES,
         AiRouteKeys::QUERIES_ASSIGN_SERVICES,
+        AiRouteKeys::BRAND_SERVICES,
+        AiRouteKeys::BRAND_CANDIDATES,
+        AiRouteKeys::BRAND_SETUP,
     ];
 
     /** Whether the operation runs through a resumable path that can wait for Claude (structured registry agents in SUPPORTED). */
@@ -117,7 +120,7 @@ final class AiTaskQueue
      * @param  array<string, mixed>  $data  the DATA_JSON pack
      * @return array{status: string, data: array<string, mixed>, prompt_version_id: ?int}|null
      */
-    public function answer(Agent&RegistryPrompted&HasStructuredOutput $agent, array $data, ?string $slot = null): ?array
+    public function answer(Agent&RegistryPrompted&HasStructuredOutput $agent, array $data, ?string $slot = null, string $label = 'DATA_JSON'): ?array
     {
         if ($this->run === null) {
             return null;
@@ -127,7 +130,7 @@ final class AiTaskQueue
         $sequence = $this->run['sequence'] = $run['sequence'] + 1;
         $operation = $agent->promptOperation();
         $versionId = $agent->promptVersionId();
-        $input = 'DATA_JSON'."\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+        $input = $label."\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
         $hash = hash('sha256', $operation."\n".($slot !== null ? 'slot:'.$slot : $input));
         $task = AiTask::query()->where('resume_key', $key)->where('operation', $operation)->where('input_hash', $hash)
             ->where('status', '!=', AiTask::CONSUMED)->latest('id')->first();
@@ -156,14 +159,15 @@ final class AiTaskQueue
      * resumable run is open (the caller keeps the provider route).
      *
      * @param  array<string, mixed>  $data
+     * @param  string  $label  the pack's name the operation's prompt reads (DATA_JSON, CONTEXT_JSON)
      * @return array<string, mixed>|string|null
      */
-    public function delegatedCall(Agent&RegistryPrompted&HasStructuredOutput $agent, array $data, ?string $slot = null): array|string|null
+    public function delegatedCall(Agent&RegistryPrompted&HasStructuredOutput $agent, array $data, ?string $slot = null, string $label = 'DATA_JSON'): array|string|null
     {
         if (! $this->delegated($agent->promptOperation())) {
             return null;
         }
-        $answer = $this->answer($agent, $data, $slot);
+        $answer = $this->answer($agent, $data, $slot, $label);
         if ($answer === null) {
             return null;
         }

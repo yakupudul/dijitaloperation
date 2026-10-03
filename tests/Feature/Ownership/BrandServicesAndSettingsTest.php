@@ -7,6 +7,7 @@ use App\Enums\CustomerStatus;
 use App\Livewire\Demo\Dashboard;
 use App\Livewire\Operator\Portfolio\BrandSettings;
 use App\Livewire\Operator\Portfolio\BrandShow;
+use App\Models\AiTask;
 use App\Models\Brand;
 use App\Models\BrandMemory;
 use App\Models\BrandOffering;
@@ -19,8 +20,11 @@ use App\Models\Page;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Models\User;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Portfolio\BrandServiceExtractor;
+use App\Services\Prompts\PromptRegistry;
+use App\Support\Ai\AiRouteKeys;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -129,6 +133,30 @@ final class BrandServicesAndSettingsTest extends TestCase
         $this->assertSame(['status' => 'ready', 'added' => 1], app(BrandServiceExtractor::class)->extract($this->brand));
         $this->assertSame('Diş İmplantı', $implant->fresh()->displayName());
         $settings->call('$refresh')->assertSee('Diş Beyazlatma');
+    }
+
+    public function test_delegated_extraction_waits_for_claude_and_proposes_from_the_submitted_answer(): void
+    {
+        $this->enableAi();
+        config(['moxdop-mcp.token' => 'test-mcp-token']);
+        $registry = app(PromptRegistry::class);
+        $registry->publish(AiRouteKeys::BRAND_SERVICES, ['template' => (string) $registry->current(AiRouteKeys::BRAND_SERVICES)->template, 'model' => AiTaskQueue::MODEL], $this->admin);
+        BrandServiceAgent::fake()->preventStrayPrompts();
+        $pages = $this->pages();
+
+        Livewire::test(BrandSettings::class, ['brandId' => $this->brand->id])->call('extractServices')->assertSee('Claude kuyruğunda');
+
+        $task = AiTask::query()->sole();
+        $this->assertSame([AiRouteKeys::BRAND_SERVICES, $this->brand->id], [$task->operation, $task->brand_id]);
+        $this->assertSame(0, BrandServiceCandidate::query()->count());
+        BrandServiceAgent::assertNeverPrompted();
+
+        $this->assertSame([], app(AiTaskQueue::class)->submit($task, ['services' => [
+            ['name' => 'Diş İmplantı', 'catalog_item_id' => $this->implant->id, 'page_ids' => [$pages['implant']->id]],
+        ], 'prompt_version' => BrandServiceAgent::PROMPT_VERSION]));
+
+        $this->assertSame(['Diş İmplantı'], BrandServiceCandidate::query()->pluck('name')->all());
+        $this->assertSame(AiTask::CONSUMED, $task->fresh()->status);
     }
 
     public function test_merge_combines_source_pages(): void

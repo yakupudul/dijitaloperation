@@ -72,7 +72,11 @@
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <p class="flex items-center gap-2 font-semibold">
                     <span class="relative flex h-2.5 w-2.5"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75"></span><span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500"></span></span>
-                    Öneriler hazırlanıyor — bu sayfadan çıkabilirsin, iş arka planda sürer; geri döndüğünde aynı yerden takip edilir.
+                    @if ($proposal->waitsForClaude())
+                        Hizmet önerisi Claude'da bekliyor (kuyruk iş saatlerinde 2 saatte bir çalışır) — bu sayfadan çıkabilirsin; yanıt gelince öneriler hazırlanır.
+                    @else
+                        Öneriler hazırlanıyor — bu sayfadan çıkabilirsin, iş arka planda sürer; geri döndüğünde aynı yerden takip edilir.
+                    @endif
                 </p>
                 <span class="tabular-nums text-xs" x-text="(() => { const s = Math.max(0, now - started); return Math.floor(s / 60) + ' dk ' + (s % 60) + ' sn'; })()"></span>
             </div>

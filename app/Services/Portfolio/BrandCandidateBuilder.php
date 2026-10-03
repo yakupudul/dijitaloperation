@@ -15,6 +15,7 @@ use App\Models\ServiceCategory;
 use App\Services\Ai\AiCancellation;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\BrandSetup\BrandSetupMatcher;
 use App\Support\Ai\AiRouteKeys;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +31,8 @@ use Throwable;
  *  2. ONE AI call per batch groups what is left and proposes every new candidate's sector from its most reliable
  *     signal (Business Profile primary category > site title > ads). Validated: unknown keys / sectors are dropped.
  * Runs daily for new resources. Approved and dismissed candidates are never changed; proposed ones only gain new
- * members or lose members that got a brand elsewhere.
+ * members or lose members that got a brand elsewhere. Delegated to Claude (MCP queue): every batch is asked at once,
+ * the leftovers stay unplaced meanwhile and the job runs again with the answers.
  */
 final class BrandCandidateBuilder
 {
@@ -48,6 +50,7 @@ final class BrandCandidateBuilder
         private readonly PortfolioDiscoveryGrouper $grouper,
         private readonly AiRouteResolver $routes,
         private readonly AiProviderRuntimeConfig $runtime,
+        private readonly AiTaskQueue $tasks,
     ) {}
 
     public static function typeLabel(string $type): string
@@ -153,8 +156,11 @@ final class BrandCandidateBuilder
         if ($leftovers !== [] || $needSector->isNotEmpty()) {
             $batches = max((int) ceil(count($leftovers) / self::BATCH), (int) ceil($needSector->count() / self::BATCH));
             for ($i = 0; $i < $batches; $i++) {
-                $status = $this->aiBatch(array_slice($leftovers, $i * self::BATCH, self::BATCH), $needSector->slice($i * self::BATCH, self::BATCH)->values()->all(), $created);
+                $status = $this->aiBatch(array_slice($leftovers, $i * self::BATCH, self::BATCH), $needSector->slice($i * self::BATCH, self::BATCH)->values()->all(), $created, $i);
                 $summary['ai_status'] = $status;
+                if ($status === 'queued') {
+                    continue; // waiting for Claude: the other batches are asked too
+                }
                 if ($status === 'called') {
                     $summary['ai_calls']++;
                 }
@@ -187,19 +193,24 @@ final class BrandCandidateBuilder
      * @param  list<array<string, mixed>>  $leftovers
      * @param  list<BrandCandidate>  $candidates
      * @param  list<BrandCandidate>  $created
+     * @return string called | queued | error | no_provider
      */
-    private function aiBatch(array $leftovers, array $candidates, array &$created): string
+    private function aiBatch(array $leftovers, array $candidates, array &$created, int $index = 0): string
     {
         AiCancellation::throwIfRequested();
-        try {
-            $route = $this->routes->resolve(AiRouteKeys::BRAND_CANDIDATES);
-            if ($route->isEmpty()) {
+        $delegated = $this->tasks->delegated(AiRouteKeys::BRAND_CANDIDATES);
+        $route = null;
+        if (! $delegated) {
+            try {
+                $route = $this->routes->resolve(AiRouteKeys::BRAND_CANDIDATES);
+                if ($route->isEmpty()) {
+                    return 'no_provider';
+                }
+            } catch (Throwable $exception) {
+                report($exception);
+
                 return 'no_provider';
             }
-        } catch (Throwable $exception) {
-            report($exception);
-
-            return 'no_provider';
         }
         $sectors = ServiceCategory::query()->orderBy('name')->get(['id', 'code', 'name']);
         $unplaced = [];
@@ -222,13 +233,29 @@ final class BrandCandidateBuilder
             }
         }
 
+        $structured = $delegated ? $this->tasks->delegatedCall(new BrandCandidateAgent, $data, 'batch-'.$index) : null;
+        if ($structured === 'queued') {
+            return 'queued';
+        }
+        if ($structured === 'error') {
+            $this->lastAiError = 'Claude bu gruplamayı yapamadı.';
+
+            return 'error';
+        }
         try {
-            $this->runtime->prepare(array_keys($route->providerModels));
-            $structured = (new BrandCandidateAgent)->prompt(
-                "DATA_JSON\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-                provider: $route->providerModels,
-                timeout: 180,
-            )->toArray();
+            if (! is_array($structured)) {
+                // Not delegated, or no resumable run open (inline call): the provider route.
+                $route ??= $this->routes->resolve(AiRouteKeys::BRAND_CANDIDATES);
+                if ($route->isEmpty()) {
+                    return 'no_provider';
+                }
+                $this->runtime->prepare(array_keys($route->providerModels));
+                $structured = (new BrandCandidateAgent)->prompt(
+                    "DATA_JSON\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                    provider: $route->providerModels,
+                    timeout: 180,
+                )->toArray();
+            }
         } catch (Throwable $exception) {
             Log::warning('Brand candidate AI call failed.', ['error' => $exception->getMessage()]);
             $this->lastAiError = mb_substr($exception->getMessage(), 0, 300);

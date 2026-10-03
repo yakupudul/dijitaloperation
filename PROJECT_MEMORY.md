@@ -1909,3 +1909,8 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   (`pages.content_outline`, HTML saklanmaz); iskelet sürüm hash'ine girmez, yeniden analiz tetiklemez.
 - **Kontrol listeleri (yakup, 2026-10-03):** İşletme Profili ve Meta için claude-seo ve marketingskills (MIT)
   kaynaklı kurallar MoxDOP kuralı olarak yeniden yazıldı (AI yok, eşikler kodda); repolar bağımlılık olarak eklenmez.
+- **Claude devri (yakup, 2026-10-03):** saatlik sorgu otomatiğinin 15 dakikalık ayıklaması (filtre + hizmet ataması,
+  `queries.triage`) API'de kalır; diğer AI işlemleri (site sınıflandırma ve eşleştirmeleri, günlük kümeleme ve
+  gözden geçirme, sorgu planı adımları, kural ve hizmet önerisi, hizmet keşfi, marka adayı gruplama, Otomatik kur
+  hizmet önerisi) Claude'a devredilir. Kuyruk routine'i iş saatlerinde 2 saatte bir (07:57–19:57 İstanbul) çalışır;
+  bekleyen adımlar "Claude bekleniyor" gösterir.

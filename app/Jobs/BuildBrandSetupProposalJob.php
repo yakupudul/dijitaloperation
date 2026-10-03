@@ -3,12 +3,13 @@
 namespace App\Jobs;
 
 use App\Models\BrandSetupProposal;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\BrandSetup\BrandSetupAssistant;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
 
-/** Builds one "Otomatik kur" proposal (GA4 stream lookups + one AI call) off the request path. */
+/** Builds one "Otomatik kur" proposal (GA4 stream lookups + one AI call) off the request path; delegated: runs again with Claude's answer. */
 final class BuildBrandSetupProposalJob implements ShouldQueue
 {
     use Queueable;
@@ -19,9 +20,15 @@ final class BuildBrandSetupProposalJob implements ShouldQueue
 
     public function __construct(public int $proposalId) {}
 
-    public function handle(BrandSetupAssistant $assistant): void
+    public function handle(BrandSetupAssistant $assistant, AiTaskQueue $tasks): void
     {
-        $assistant->build($this->proposalId);
+        $proposal = BrandSetupProposal::query()->find($this->proposalId);
+        $tasks->begin(new self($this->proposalId), $proposal?->brand_id, 'Otomatik kur · hizmet önerisi');
+        try {
+            $assistant->build($this->proposalId);
+        } finally {
+            $tasks->settle();
+        }
     }
 
     public function failed(?Throwable $exception): void
