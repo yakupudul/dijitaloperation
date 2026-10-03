@@ -3,6 +3,7 @@
 namespace App\Jobs\Queries;
 
 use App\Models\ServiceCatalogItem;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Queries\QueryClusterer;
 use App\Services\Queries\QueryClusterQueue;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -13,7 +14,8 @@ use Throwable;
 /**
  * "AI ile kümele": ONE step of a service's run (one AI call: skeleton, a part of the topics, or the review) and the
  * next step queued after it. A failed call is repeated (same step, the run state only moves after a stored answer).
- * Part of "Hepsini kümele" ($all): when the service is done, the next service of the queue starts.
+ * Part of "Hepsini kümele" ($all): when the service is done, the next service of the queue starts. Delegated to Claude:
+ * a step that waits for Claude ends the job without a next step; the queue dispatches it again when Claude answers.
  */
 final class ClusterQueriesJob implements ShouldQueue
 {
@@ -31,7 +33,7 @@ final class ClusterQueriesJob implements ShouldQueue
         $this->onQueue((string) config('queue.heavy_queue', 'default'));
     }
 
-    public function handle(QueryClusterer $clusterer): void
+    public function handle(QueryClusterer $clusterer, AiTaskQueue $tasks): void
     {
         $service = ServiceCatalogItem::query()->find($this->serviceId);
         if ($service === null) {
@@ -40,7 +42,15 @@ final class ClusterQueriesJob implements ShouldQueue
 
             return;
         }
-        $state = $clusterer->step($service);
+        $tasks->begin(new self($this->serviceId, $this->all), null, 'Kümeleme · '.($service->primaryName?->raw_label ?? '#'.$service->id));
+        try {
+            $state = $clusterer->step($service);
+        } finally {
+            $tasks->settle();
+        }
+        if (($state['waiting'] ?? null) === 'claude') {
+            return;
+        }
         if (($state['status'] ?? null) === 'running') {
             self::dispatch($this->serviceId, $this->all);
 

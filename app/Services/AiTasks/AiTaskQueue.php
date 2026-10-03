@@ -2,7 +2,6 @@
 
 namespace App\Services\AiTasks;
 
-use App\Ai\Agents\Site\SiteAgent;
 use App\Ai\Contracts\RegistryPrompted;
 use App\Models\AiTask;
 use App\Services\Prompts\PromptRegistry;
@@ -57,14 +56,17 @@ final class AiTaskQueue
         AiRouteKeys::SITE_SERVICE_PAGES,
         AiRouteKeys::SITE_CLUSTER_PAGES,
         AiRouteKeys::SITE_IMAGE_ALTS,
+        AiRouteKeys::QUERIES_CLUSTER,
+        AiRouteKeys::QUERIES_CLUSTER_REVIEW,
     ];
 
-    /** Whether the operation runs through a resumable path that can wait for Claude (website-screen agents in SUPPORTED). */
+    /** Whether the operation runs through a resumable path that can wait for Claude (structured registry agents in SUPPORTED). */
     public function supports(string $operation): bool
     {
         $agent = $this->registry->definitions()[$operation]['agent'] ?? null;
 
-        return in_array($operation, self::SUPPORTED, true) && is_string($agent) && is_subclass_of($agent, SiteAgent::class);
+        return in_array($operation, self::SUPPORTED, true) && is_string($agent)
+            && is_subclass_of($agent, RegistryPrompted::class) && is_subclass_of($agent, HasStructuredOutput::class);
     }
 
     /** Whether the operation's current prompt version delegates it to Claude (and the MCP server is configured). */

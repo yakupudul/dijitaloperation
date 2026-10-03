@@ -14,9 +14,11 @@ use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\ClusterPageMapper;
 use App\Services\Site\SiteFlow;
+use DomainException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -43,6 +45,10 @@ use RuntimeException;
  * checked against the input (each topic in one cluster); the model never adds queries (only collected searches are
  * clustered) and catch-all clusters are refused. A finished run approves its sound clusters (autoApprove). No caps on
  * the answer: every valid row is stored. The run state (step, part, left-out queries) lives in the cache under cacheKey().
+ *
+ * Delegated to Claude (MCP queue, operator decision 2026-10-03): a step asks once and waits (`waiting` = claude) with
+ * its pack stored in the state (`pending`), so the answer is found again by the same input although triage adds
+ * queries meanwhile; the job is dispatched again when Claude answers and the step goes on with that answer.
  */
 final class QueryClusterer
 {
@@ -61,7 +67,11 @@ final class QueryClusterer
         private readonly AiRouteResolver $routes,
         private readonly AiProviderRuntimeConfig $runtime,
         private readonly QueryNormalizer $normalizer,
+        private readonly AiTaskQueue $tasks,
     ) {}
+
+    /** A waiting run keeps its state longer (Claude answers in working hours; a weekend lies between). */
+    private const int WAITING_DAYS = 5;
 
     private static function skeletonTopics(): int
     {
@@ -122,7 +132,7 @@ final class QueryClusterer
             $parts = max($part, (int) ($state['parts'] ?? 0));
             $step = ['skeleton' => 'iskelet', 'place' => 'yerleştirme', 'review' => 'gözden geçirme'][$state['step'] ?? ''] ?? '';
 
-            return ['text' => 'kümeleniyor · '.($step !== '' ? $step.' · ' : '').'parça '.$part.($parts > 0 ? ' / '.$parts : ''), 'tone' => 'run'];
+            return ['text' => (($state['waiting'] ?? null) === 'claude' ? 'Claude bekleniyor' : 'kümeleniyor').' · '.($step !== '' ? $step.' · ' : '').'parça '.$part.($parts > 0 ? ' / '.$parts : ''), 'tone' => 'run'];
         }
         if ($status === 'ready') {
             return ['text' => 'hazır'.(isset($state['clusters']) ? ' · '.(int) $state['clusters'].' yeni küme' : '')
@@ -160,19 +170,24 @@ final class QueryClusterer
         if ($sector === null) {
             return $this->save($service, ['status' => 'no_sector'] + $state);
         }
-        if ($this->routes->resolve(QueryClusterAgent::OPERATION)->isEmpty()) {
+        if (! $this->tasks->delegated(QueryClusterAgent::OPERATION) && $this->routes->resolve(QueryClusterAgent::OPERATION)->isEmpty()) {
             return $this->save($service, ['status' => 'no_provider'] + $state);
         }
 
         $step = (string) ($state['step'] ?? 'skeleton');
+        $pending = is_array($state['pending'] ?? null) ? $state['pending'] : null;
+        unset($state['pending'], $state['waiting']);
         if ($step === 'review') {
-            $this->review($sector, $service);
+            $waiting = $this->review($sector, $service, $pending);
+            if ($waiting !== null) {
+                return $this->save($service, ['waiting' => 'claude', 'pending' => $waiting] + $state);
+            }
             $approved = $this->autoApprove($service);
 
             return $this->save($service, ['status' => 'ready', 'step' => 'done', 'approved' => $approved, 'part' => (int) ($state['part'] ?? 0) + 1] + $state);
         }
 
-        if ($step === 'skeleton') {
+        if ($step === 'skeleton' && $pending === null) {
             // The previous AI proposal (unlocked, unapproved clusters) is replaced; approved clusters are in use by brands and
             // stay as existing clusters. Suggested queries left without a cluster go with it.
             Cluster::query()->where('sector_id', $sector->id)->where('service_id', $service->id)->where('locked', false)->where('approved', false)->delete();
@@ -188,32 +203,53 @@ final class QueryClusterer
         }
         $leftOut = array_map('intval', (array) ($state['left_out'] ?? []));
         $queries = $this->unclustered($service, $leftOut, (string) ($state['mode'] ?? 'full') === 'place');
-        // Öğrenilmiş kural: a new query of a topic the clusters already hold (same rule-engine topic) joins that cluster
-        // without AI; the AI only sees topics no cluster has yet.
-        [$queries, $byRule] = $this->placeByTopic($service, $queries);
-        $state['by_rule'] = (int) ($state['by_rule'] ?? 0) + $byRule;
-        if ($queries->isEmpty()) {
-            if ($step === 'skeleton' && ! Cluster::query()->where('service_id', $service->id)->exists()) {
-                return $this->save($service, ['status' => 'no_queries'] + $state);
+        if ($pending !== null) {
+            // The part Claude was asked about, as it was asked (queries triage added meanwhile wait for a later part).
+            // A topic whose head query left the service meanwhile (hidden, moved) is dropped; gone members never join.
+            $present = $queries->pluck('id')->map(fn ($id): int => (int) $id)->flip();
+            $batch = [];
+            foreach ((array) $pending['batch'] as $head => $topic) {
+                if (isset($present[(int) $head])) {
+                    $topic['members'] = array_values(array_filter((array) $topic['members'], fn ($member): bool => isset($present[(int) $member])));
+                    $batch[(int) $head] = $topic;
+                }
             }
+            $data = (array) $pending['data'];
+            $rest = (int) $pending['rest'];
+        } else {
+            // Öğrenilmiş kural: a new query of a topic the clusters already hold (same rule-engine topic) joins that cluster
+            // without AI; the AI only sees topics no cluster has yet.
+            [$queries, $byRule] = $this->placeByTopic($service, $queries);
+            $state['by_rule'] = (int) ($state['by_rule'] ?? 0) + $byRule;
+            if ($queries->isEmpty()) {
+                if ($step === 'skeleton' && ! Cluster::query()->where('service_id', $service->id)->exists()) {
+                    return $this->save($service, ['status' => 'no_queries'] + $state);
+                }
 
-            return $this->save($service, ['step' => 'review'] + $state);
+                return $this->save($service, ['step' => 'review'] + $state);
+            }
+            $all = $this->topics($queries);
+            $size = $step === 'skeleton' ? self::skeletonTopics() : self::placeTopics();
+            $batch = array_slice($all, 0, $size, true);
+            $rest = count($all) - count($batch);
+            $state['parts'] = (int) ($state['part'] ?? 0) + 1 + (int) ceil($rest / self::placeTopics()) + 1;
+            $this->attachGoogleUrls((int) $sector->id, $batch, $queries);
+            $data = [
+                'sector' => (string) $sector->name,
+                'service' => (string) ($service->primaryName?->raw_label ?? ''),
+                'topics' => array_values(array_map(fn (array $t): array => array_diff_key($t, ['members' => true]), $batch)),
+                'existing_clusters' => $this->existingClusters($service),
+                'other_services' => $this->otherServices($service),
+            ];
         }
-        $all = $this->topics($queries);
-        $size = $step === 'skeleton' ? self::skeletonTopics() : self::placeTopics();
-        $batch = array_slice($all, 0, $size, true);
-        $rest = count($all) - count($batch);
-        $state['parts'] = (int) ($state['part'] ?? 0) + 1 + (int) ceil($rest / self::placeTopics()) + 1;
-        $this->attachGoogleUrls((int) $sector->id, $batch, $queries);
-
-        $existing = $this->existingClusters($service);
-        $structured = $this->ask(QueryClusterAgent::class, [
-            'sector' => (string) $sector->name,
-            'service' => (string) ($service->primaryName?->raw_label ?? ''),
-            'topics' => array_values(array_map(fn (array $t): array => array_diff_key($t, ['members' => true]), $batch)),
-            'existing_clusters' => $existing,
-            'other_services' => $this->otherServices($service),
-        ]);
+        try {
+            $structured = $this->ask(QueryClusterAgent::class, $data);
+        } catch (DomainException $exception) {
+            return $this->save($service, ['status' => 'error', 'error' => $exception->getMessage()] + $state);
+        }
+        if ($structured === null) {
+            return $this->save($service, ['waiting' => 'claude', 'pending' => ['batch' => $batch, 'data' => $data, 'rest' => $rest]] + $state);
+        }
         $result = DB::transaction(fn (): array => $this->apply($sector, $service, $queries, $batch, (array) ($structured['clusters'] ?? [])));
 
         // Topics the AI skipped (another service / not relevant) are not asked again in this run; topics its answer did
@@ -322,9 +358,9 @@ final class QueryClusterer
             return $current;
         }
         if (($state['status'] ?? null) !== 'running') {
-            unset($state['left_out'], $state['missed']);
+            unset($state['left_out'], $state['missed'], $state['pending'], $state['waiting']);
         }
-        Cache::put(self::cacheKey((int) $service->id), $state, now()->addDays(2));
+        Cache::put(self::cacheKey((int) $service->id), $state, now()->addDays(isset($state['waiting']) ? self::WAITING_DAYS : 2));
 
         return $state;
     }
@@ -378,14 +414,25 @@ final class QueryClusterer
     }
 
     /**
-     * One structured call of a cluster agent; throws when no provider answers (the job repeats the step).
+     * One structured call of a cluster agent; throws when no provider answers (the job repeats the step). Delegated to
+     * Claude inside the job's run: null while the answer is awaited, DomainException when Claude could not do it.
      *
-     * @param  class-string  $agent
+     * @param  class-string<QueryClusterAgent|QueryClusterReviewAgent>  $agent
      * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
+     * @return array<string, mixed>|null
      */
-    private function ask(string $agent, array $data): array
+    private function ask(string $agent, array $data): ?array
     {
+        if ($this->tasks->delegated($agent::OPERATION)) {
+            $answer = $this->tasks->answer(new $agent, $data);
+            if ($answer !== null) {
+                return match ($answer['status']) {
+                    'ready' => $answer['data'],
+                    'queued' => null,
+                    default => throw new DomainException('Claude bu kümeleme adımını yapamadı.'),
+                };
+            }
+        }
         $route = $this->routes->resolve($agent::OPERATION);
         if ($route->isEmpty()) {
             throw new RuntimeException('No AI provider for '.$agent::OPERATION.'.');
@@ -401,34 +448,29 @@ final class QueryClusterer
 
     /**
      * Last step: clusters one page would cover are merged (never from a locked cluster), unclear unlocked clusters are
-     * rewritten. A failed review leaves the clusters as they are.
+     * rewritten. A failed review leaves the clusters as they are. Waiting for Claude: the pack asked (stored by the caller
+     * and given back as $pending on the re-run, so the same question finds its answer).
+     *
+     * @param  array<string, mixed>|null  $pending
+     * @return array<string, mixed>|null the pending pack while Claude's answer is awaited
      */
-    private function review(ServiceCategory $sector, ServiceCatalogItem $service): void
+    private function review(ServiceCategory $sector, ServiceCatalogItem $service, ?array $pending = null): ?array
     {
         $clusters = Cluster::query()->where('service_id', $service->id)->withCount('clusterQueries')->orderBy('id')->get()->keyBy('id');
-        if ($clusters->where('locked', false)->count() < 2 || $this->routes->resolve(QueryClusterReviewAgent::OPERATION)->isEmpty()) {
-            return;
+        if ($clusters->where('locked', false)->count() < 2
+            || (! $this->tasks->delegated(QueryClusterReviewAgent::OPERATION) && $this->routes->resolve(QueryClusterReviewAgent::OPERATION)->isEmpty())) {
+            return null;
         }
-        $examples = collect($this->existingClusters($service))->keyBy('id');
-        $impressions = ClusterQuery::query()->join('queries', 'queries.id', '=', 'cluster_queries.query_id')
-            ->whereIn('cluster_queries.cluster_id', $clusters->keys())->groupBy('cluster_queries.cluster_id')
-            ->selectRaw('cluster_queries.cluster_id, sum(queries.impressions) as total')->pluck('total', 'cluster_queries.cluster_id');
         try {
-            $structured = $this->ask(QueryClusterReviewAgent::class, [
-                'sector' => (string) $sector->name,
-                'service' => (string) ($service->primaryName?->raw_label ?? ''),
-                'clusters' => $clusters->map(fn (Cluster $cluster): array => [
-                    'id' => (int) $cluster->id, 'name' => (string) $cluster->name, 'intent' => (string) $cluster->intent,
-                    'page_type' => (string) $cluster->page_type, 'user_need' => (string) $cluster->user_need,
-                    'subtopics' => (array) $cluster->subtopics, 'queries' => (int) $cluster->cluster_queries_count,
-                    'impressions' => (int) ($impressions[$cluster->id] ?? 0),
-                    'top_queries' => $examples[(int) $cluster->id]['examples'] ?? [], 'locked' => (bool) $cluster->locked,
-                ])->values()->all(),
-            ]);
+            $data = is_array($pending['data'] ?? null) ? (array) $pending['data'] : $this->reviewPack($sector, $service, $clusters);
+            $structured = $this->ask(QueryClusterReviewAgent::class, $data);
         } catch (\Throwable $exception) {
             Log::warning('Query cluster review failed.', ['service_id' => $service->id, 'error' => $exception->getMessage()]);
 
-            return;
+            return null;
+        }
+        if ($structured === null) {
+            return ['data' => $data];
         }
 
         DB::transaction(function () use ($structured, $clusters): void {
@@ -468,6 +510,34 @@ final class QueryClusterer
                 ])->save();
             }
         });
+
+        return null;
+    }
+
+    /**
+     * The review's input: every cluster of the service with its definition, size, demand and most searched queries.
+     *
+     * @param  Collection<int, Cluster>  $clusters
+     * @return array<string, mixed>
+     */
+    private function reviewPack(ServiceCategory $sector, ServiceCatalogItem $service, Collection $clusters): array
+    {
+        $examples = collect($this->existingClusters($service))->keyBy('id');
+        $impressions = ClusterQuery::query()->join('queries', 'queries.id', '=', 'cluster_queries.query_id')
+            ->whereIn('cluster_queries.cluster_id', $clusters->keys())->groupBy('cluster_queries.cluster_id')
+            ->selectRaw('cluster_queries.cluster_id, sum(queries.impressions) as total')->pluck('total', 'cluster_queries.cluster_id');
+
+        return [
+            'sector' => (string) $sector->name,
+            'service' => (string) ($service->primaryName?->raw_label ?? ''),
+            'clusters' => $clusters->map(fn (Cluster $cluster): array => [
+                'id' => (int) $cluster->id, 'name' => (string) $cluster->name, 'intent' => (string) $cluster->intent,
+                'page_type' => (string) $cluster->page_type, 'user_need' => (string) $cluster->user_need,
+                'subtopics' => (array) $cluster->subtopics, 'queries' => (int) $cluster->cluster_queries_count,
+                'impressions' => (int) ($impressions[$cluster->id] ?? 0),
+                'top_queries' => $examples[(int) $cluster->id]['examples'] ?? [], 'locked' => (bool) $cluster->locked,
+            ])->values()->all(),
+        ];
     }
 
     /**

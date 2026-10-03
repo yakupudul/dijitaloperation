@@ -8,6 +8,7 @@ use App\Ai\Agents\QueryRulesAgent;
 use App\Jobs\Queries\ClusterQueriesJob;
 use App\Jobs\Queries\RescanQueriesJob;
 use App\Livewire\Operator\Library\QueriesPage;
+use App\Models\AiTask;
 use App\Models\Brand;
 use App\Models\BrandOffering;
 use App\Models\Cluster;
@@ -25,8 +26,10 @@ use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Models\ServiceMatchingKeyword;
 use App\Models\User;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Catalog\ServiceKeywordService;
+use App\Services\Prompts\PromptRegistry;
 use App\Services\Queries\ClusterEditor;
 use App\Services\Queries\QueryClusterer;
 use App\Services\Queries\QueryClusterQueue;
@@ -310,6 +313,55 @@ final class QueriesScreenTest extends TestCase
         ClusterQueriesJob::dispatch($this->implant->id);
         $this->assertSame('İmplant rehberi', $cluster->fresh()->name);
         $this->assertSame(4, $cluster->clusterQueries()->count());
+    }
+
+    public function test_delegated_clustering_waits_for_claude_and_keeps_the_asked_part_while_triage_adds_queries(): void
+    {
+        $this->enableAi();
+        config(['moxdop-mcp.token' => 'test-mcp-token']);
+        $registry = app(PromptRegistry::class);
+        foreach ([QueryClusterAgent::OPERATION, QueryClusterReviewAgent::OPERATION] as $operation) {
+            $registry->publish($operation, ['template' => (string) $registry->current($operation)->template, 'model' => AiTaskQueue::MODEL], $this->admin);
+        }
+        QueryClusterAgent::fake()->preventStrayPrompts();
+        QueryClusterReviewAgent::fake()->preventStrayPrompts();
+        app(ServiceKeywordService::class)->replace($this->implant, 'implant');
+        $this->sources(['implant fiyatları' => 500, 'implant sonrası ağrı' => 400]);
+        $tasks = app(AiTaskQueue::class);
+
+        QueryClusterer::start($this->implant->id);
+        ClusterQueriesJob::dispatch($this->implant->id);
+
+        $task = AiTask::query()->sole();
+        $this->assertSame([QueryClusterAgent::OPERATION, AiTask::PENDING], [$task->operation, $task->status]);
+        $state = QueryClusterer::state($this->implant->id);
+        $this->assertSame(['running', 'claude'], [$state['status'], $state['waiting']]);
+        $this->assertStringStartsWith('Claude bekleniyor', QueryClusterer::label($state)['text']);
+        QueryClusterAgent::assertNeverPrompted();
+
+        // Triage adds a bigger query meanwhile: the asked part stays as asked, so Claude's answer is found again.
+        $this->sources(['implant bakımı' => 900]);
+        $ids = [$this->queryId('implant fiyatları'), $this->queryId('implant sonrası ağrı')];
+        $row = fn (string $name, string $type, array $queryIds): array => ['existing_cluster_id' => null, 'name' => $name, 'intent' => 'informational',
+            'user_need' => 'İmplant hakkında bilgi', 'page_type' => $type, 'query_ids' => $queryIds, 'main_query_id' => $queryIds[0],
+            'representative_query_ids' => [], 'new_queries' => [], 'subtopics' => [], 'exclusions' => [], 'reasoning' => '-'];
+        $this->assertSame([], $tasks->submit($task, ['clusters' => [$row('İmplant fiyatı', 'service', [$ids[0]]), $row('İmplant sonrası', 'guide', [$ids[1]])],
+            'skipped' => [], 'prompt_version' => QueryClusterAgent::PROMPT_VERSION]));
+
+        $this->assertSame(['İmplant fiyatı', 'İmplant sonrası'], Cluster::query()->orderBy('id')->pluck('name')->all());
+        $this->assertFalse(ClusterQuery::query()->where('query_id', $this->queryId('implant bakımı'))->exists(), 'not in the asked part');
+        $review = AiTask::query()->where('operation', QueryClusterReviewAgent::OPERATION)->sole();
+        $this->assertSame(AiTask::PENDING, $review->status);
+        $this->assertSame(AiTask::CONSUMED, $task->fresh()->status);
+        $this->assertSame('review', QueryClusterer::state($this->implant->id)['step']);
+
+        $this->assertSame([], $tasks->submit($review, ['merges' => [], 'updates' => [], 'prompt_version' => QueryClusterReviewAgent::PROMPT_VERSION]));
+
+        $state = QueryClusterer::state($this->implant->id);
+        $this->assertSame(['ready', 2], [$state['status'], $state['approved']]);
+        $this->assertArrayNotHasKey('pending', $state);
+        $this->assertArrayNotHasKey('waiting', $state);
+        $this->assertSame(2, AiTask::query()->count());
     }
 
     public function test_clustering_refuses_catch_all_clusters_and_the_review_never_merges_other_page_types_or_approved_clusters(): void
