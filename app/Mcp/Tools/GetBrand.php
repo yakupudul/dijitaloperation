@@ -11,7 +11,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 
-#[Description('Reads one brand: `facts` (the brand file MoxDOP builds by rules from its own data: identity, assets, services, demand, website state, decisions and outcomes, open work, operator notes) and `claude_notes` (your own earlier notes, opinions not facts). Marks the returned sections as read. only_changed=true returns only sections changed since your last read; sections limits to some keys; rebuild=true rebuilds the file first (no AI).')]
+#[Description('Reads one brand: `facts` (the brand file MoxDOP builds by rules from its own data: identity, business context, assets, services with their pages, demand, website state, decisions and outcomes, open work, operator notes) and `claude_notes` (your own earlier notes, opinions not facts). Marks the returned sections as read. only_changed=true returns only sections changed since your last read; sections limits to some keys; rebuild=true rebuilds the file first (no AI).')]
 class GetBrand extends Tool
 {
     public function __construct(private readonly BrandBriefing $briefing) {}

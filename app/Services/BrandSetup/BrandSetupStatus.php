@@ -139,7 +139,7 @@ final class BrandSetupStatus
             $bindDetail .= ' · '.count($open).' bağlanmamış hesap bulundu.';
         }
         $steps[] = $this->step('bind', 'Hesap bağla', $accounts->isNotEmpty(), $bindDetail,
-            ['link', route('operator.brand', ['brand' => $brand->id, 'tab' => 'assets']).'#hesap-ekle', $open !== [] ? 'Hesap ekle ('.count($open).')' : 'Hesap ekle']);
+            ['link', route('operator.brand', ['brand' => $brand->id, 'tab' => 'varliklar']).'#hesap-ekle', $open !== [] ? 'Hesap ekle ('.count($open).')' : 'Hesap ekle']);
         // More unbound accounts of the brand's business: keep the action visible even when one account is bound.
         $steps[array_key_last($steps)]['always'] = $open !== [];
 

@@ -4,7 +4,6 @@ namespace App\Services\Operator;
 
 use App\Models\Brand;
 use App\Models\DigitalAsset;
-use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\DataStatus\DataStatus;
@@ -20,7 +19,7 @@ use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 /**
- * Read model of the brand page "Özet" tab and of the channel tabs' empty states: period KPIs with the change against
+ * Read model of the brand page "Özet" tab (with its channel filter): period KPIs with the change against
  * the previous period of the same length, one card per digital asset with its data-source status, the open
  * suggestions and the services with their page mapping. Numbers come from the existing screen readers (Search Console
  * + GA4 via SiteAnalysisReader, Google Ads via GoogleAdsScreen, Meta via MetaScreen, İşletme Profili via the outcome
@@ -138,7 +137,7 @@ final class BrandOverviewReader
         $bindWeb = $website !== null
             ? ['label' => 'Bağla', 'url' => route('operator.asset.sources', ['assetId' => $website['id']])]
             : ['label' => 'Web sitesi ekle', 'url' => route('operator.asset.create', ['brandId' => $brand->id])];
-        $bindAccount = ['label' => 'Hesap bağla', 'url' => route('operator.brand', ['brand' => $brand->id, 'tab' => 'assets'])];
+        $bindAccount = ['label' => 'Hesap bağla', 'url' => route('operator.brand', ['brand' => $brand->id, 'tab' => 'varliklar'])];
         $num = static fn (float|int $v): string => number_format((float) $v, 0, ',', '.');
 
         $web = $raw['web'];
@@ -163,22 +162,28 @@ final class BrandOverviewReader
     /**
      * Open suggestions (open, or snoozed whose date passed) of the brand, most urgent first, with where to act.
      *
-     * @return array{total: int, by_channel: array<string, int>, items: list<array{id: int, channel: string, channel_label: string, title: string, reason: string, url: ?string}>}
+     * @return array{total: int, by_channel: array<string, int>, by_key: array<string, int>, items: list<array{id: int, channel: string, channel_label: string, title: string, reason: string, url: ?string}>}
      */
     public function openWork(Brand $brand, ?string $channel = null, int $limit = 5): array
     {
         $base = fn () => Suggestion::query()->where('brand_id', $brand->id)->actionable()->when($channel !== null, fn ($q) => $q->where('channel', $channel));
-        $byChannel = $base()->selectRaw('channel, count(*) as n')->groupBy('channel')->pluck('n', 'channel')
-            ->mapWithKeys(fn ($n, $key): array => [(string) (Suggestion::CHANNEL_LABELS[$key] ?? $key) => (int) $n])->all();
-        $rows = $base()->orderBy('priority')->orderByDesc('last_seen_at')->orderBy('id')->limit($limit)
-            ->get(['id', 'channel', 'title', 'reason', 'target_type', 'target_id', 'page_id']);
+        $byKey = $base()->selectRaw('channel, count(*) as n')->groupBy('channel')->pluck('n', 'channel')
+            ->mapWithKeys(fn ($n, $key): array => [(string) $key => (int) $n])->all();
+        $byChannel = [];
+        foreach ($byKey as $key => $n) {
+            $label = (string) (Suggestion::CHANNEL_LABELS[$key] ?? $key);
+            $byChannel[$label] = ($byChannel[$label] ?? 0) + $n;
+        }
+        $rows = $limit > 0 ? $base()->orderBy('priority')->orderByDesc('last_seen_at')->orderBy('id')->limit($limit)
+            ->get(['id', 'channel', 'title', 'reason', 'target_type', 'target_id', 'page_id']) : collect();
         $pageSites = Page::query()->whereIn('id', $rows->pluck('page_id')->filter()->unique()->values())->pluck('website_asset_id', 'id');
-        $firstOfType = DigitalAsset::query()->where('brand_id', $brand->id)->whereIn('type', ['website', 'google_business_profile', 'google_ads', 'meta_ads'])
+        $firstOfType = $rows->isEmpty() ? collect() : DigitalAsset::query()->where('brand_id', $brand->id)->whereIn('type', ['website', 'google_business_profile', 'google_ads', 'meta_ads'])
             ->orderBy('id')->get(['id', 'type'])->unique('type')->pluck('id', 'type');
 
         return [
-            'total' => array_sum($byChannel),
+            'total' => array_sum($byKey),
             'by_channel' => $byChannel,
+            'by_key' => $byKey,
             'items' => $rows->map(fn (Suggestion $s): array => [
                 'id' => (int) $s->id, 'channel' => (string) $s->channel, 'channel_label' => $s->channelLabel(),
                 'title' => (string) $s->title, 'reason' => (string) $s->reason,
@@ -188,42 +193,22 @@ final class BrandOverviewReader
     }
 
     /**
-     * The brand's services with how many website pages each is mapped to (offering_pages).
+     * The brand's services with how many website pages each is mapped to (offering_pages) and the hub page (the most
+     * general mapped page), so the operator sees which page answers the service.
      *
      * @param  list<array<string, mixed>>  $services  BrandWorkspaceReadService::services()
-     * @return array{total: int, priority: int, mapped: int, rows: list<array{id: int, name: string, is_priority: bool, pages: int}>}
+     * @return array{total: int, priority: int, mapped: int, rows: list<array{id: int, name: string, is_priority: bool, pages: int, hub: ?array{path: string, url: string, website_asset_id: int}}>}
      */
     public function services(array $services, int $limit = 6): array
     {
-        $ids = array_column($services, 'id');
-        $pages = $ids === [] ? collect() : OfferingPage::query()->whereIn('brand_offering_id', $ids)
-            ->groupBy('brand_offering_id')->selectRaw('brand_offering_id, count(*) as n')->pluck('n', 'brand_offering_id');
         $rows = array_map(fn (array $s): array => ['id' => (int) $s['id'], 'name' => (string) $s['name'], 'is_priority' => (bool) $s['is_priority'],
-            'pages' => (int) ($pages[$s['id']] ?? 0)], $services);
+            'pages' => count($s['pages'] ?? []), 'hub' => $s['hub'] ?? null], $services);
 
         return [
             'total' => count($rows),
             'priority' => count(array_filter($rows, fn (array $r): bool => $r['is_priority'])),
             'mapped' => count(array_filter($rows, fn (array $r): bool => $r['pages'] > 0)),
             'rows' => array_slice($rows, 0, $limit),
-        ];
-    }
-
-    /**
-     * What a channel tab shows until its own workspace exists: the assets feeding the channel with their data-source
-     * status, what is missing, and the channel's open suggestions.
-     *
-     * @param  list<array<string, mixed>>  $cards  output of assetCards()
-     * @return array{asset_label: string, assets: list<array<string, mixed>>, work: array<string, mixed>}
-     */
-    public function channel(Brand $brand, string $tab, array $cards): array
-    {
-        $definition = self::CHANNELS[$tab];
-
-        return [
-            'asset_label' => $definition['asset_label'],
-            'assets' => array_values(array_filter($cards, fn (array $c): bool => in_array($c['type'], $definition['types'], true))),
-            'work' => $this->openWork($brand, $definition['channel'], 10),
         ];
     }
 

@@ -4,6 +4,7 @@ namespace App\Services\Brand;
 
 use App\Models\Brand;
 use App\Models\BrandClusterPage;
+use App\Models\BrandIntelligenceContext;
 use App\Models\BrandMemory;
 use App\Models\BrandOffering;
 use App\Models\Cluster;
@@ -12,17 +13,21 @@ use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Models\ResourceAutomation;
 use App\Models\Suggestion;
+use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Site\Analysis\SitePagesReader;
 use App\Services\Site\SiteScope;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Marka dosyası (operator decision 2026-11-17): one short markdown file per brand that every AI agent reads first, so
- * no agent reads the thousands of rows behind it again. Compiled from the stages without AI: identity → bound assets →
- * services → demand (queries, clusters) → website state → decisions and their measured outcomes → open work → the
- * operator's notes (goals / constraints, edited on the same tab; the only hand-written part).
+ * Marka dosyası — "Bilgi dosyası" on the brand page (operator decision 2026-11-17): one short markdown file per brand
+ * that every AI agent reads first, so no agent reads the thousands of rows behind it again. Compiled from the stages
+ * without AI: identity → business context → bound assets → services (every mapped page, hub first) → demand (queries,
+ * clusters) → website state (with the clusters behind each problem state) → decisions and their measured outcomes →
+ * open work (by channel, with the reason) → the operator's notes (goals / constraints, edited in Ayarlar › İş bağlamı;
+ * the only hand-written part).
  *
  * Stored in `brand_memory` (kind `dossier`): the markdown, every section's hash (what changed since an agent last
  * looked: `changedSince()`), the whole file's hash and when it was built. Rebuilt nightly for operational brands, after
@@ -35,6 +40,7 @@ final class BrandDossier
 
     public const array SECTIONS = [
         'identity' => 'Kimlik',
+        'context' => 'İş bağlamı',
         'assets' => 'Bağlı varlıklar',
         'services' => 'Hizmetler',
         'demand' => 'Talep',
@@ -49,6 +55,12 @@ final class BrandDossier
     private const int DECISIONS = 10;
 
     private const int OPEN_WORK = 5;
+
+    /** Pages listed per service in the file (the hub first). */
+    private const int SERVICE_PAGES = 5;
+
+    /** Cluster names listed per cluster-page state. */
+    private const int STATE_CLUSTERS = 8;
 
     /** @return array{markdown: string, sections: array<string, array{title: string, markdown: string, hash: string}>, hash: string, built_at: ?string}|null */
     public static function stored(Brand $brand): ?array
@@ -112,12 +124,54 @@ final class BrandDossier
         $row->fill(['data' => ['goals' => trim($goals), 'constraints' => trim($constraints)], 'summary' => null])->save();
     }
 
-    /** @return array{goals: string, constraints: string} */
+    /**
+     * Hedefler / kısıtlar — one source: the operator's notes (edited in Ayarlar › İş bağlamı). A brand whose goals were
+     * only ever typed into the older İş bağlamı fields reads them from there until the notes are saved once.
+     *
+     * @return array{goals: string, constraints: string}
+     */
     public static function notes(Brand $brand): array
     {
         $data = (array) BrandMemory::query()->where('brand_id', $brand->id)->where('kind', 'profile')->where('ref_type', 'manual_notes')->value('data');
+        $goals = trim((string) ($data['goals'] ?? ''));
+        $constraints = trim((string) ($data['constraints'] ?? ''));
+        $context = $data === [] ? BrandIntelligenceContext::query()->where('brand_id', $brand->id)->first() : null;
+        if ($context !== null) {
+            $goals = implode("\n", self::labels($context->business_goals, ['goal', 'label', 'name']));
+            $constraints = is_string($context->important_constraints) ? trim($context->important_constraints)
+                : implode("\n", self::labels($context->important_constraints, ['name', 'label']));
+        }
 
-        return ['goals' => (string) ($data['goals'] ?? ''), 'constraints' => (string) ($data['constraints'] ?? '')];
+        return ['goals' => $goals, 'constraints' => $constraints];
+    }
+
+    /**
+     * Plain labels of a context list (strings, or rows carrying one of the keys).
+     *
+     * @param  list<string>  $keys
+     * @return list<string>
+     */
+    public static function labels(mixed $rows, array $keys): array
+    {
+        if (! is_array($rows)) {
+            return [];
+        }
+        $labels = [];
+        foreach ($rows as $row) {
+            if (is_string($row) && trim($row) !== '') {
+                $labels[] = trim($row);
+
+                continue;
+            }
+            foreach ($keys as $key) {
+                if (is_array($row) && is_string($row[$key] ?? null) && trim($row[$key]) !== '') {
+                    $labels[] = trim($row[$key]);
+                    break;
+                }
+            }
+        }
+
+        return array_values(array_unique($labels));
     }
 
     /** Service pages the way the website screen counts them: categorized "hizmet", or not categorized yet and under the service section. */
@@ -164,6 +218,7 @@ final class BrandDossier
     {
         return match ($key) {
             'identity' => $this->identity($brand),
+            'context' => $this->context($brand),
             'assets' => $this->assets($brand),
             'services' => $this->services($brand),
             'demand' => $this->demand($brand),
@@ -187,6 +242,28 @@ final class BrandDossier
         ]));
     }
 
+    /** İş bağlamı: what the business is, for whom, how it differs and what counts as a conversion (goals: notes). */
+    private function context(Brand $brand): string
+    {
+        $context = BrandIntelligenceContext::query()->where('brand_id', $brand->id)->first();
+        if ($context === null) {
+            return 'Girilmedi.';
+        }
+        $list = fn (mixed $rows, array $keys): string => implode(', ', self::labels($rows, $keys));
+        $rows = [
+            'Özet' => trim((string) $context->business_summary),
+            'İş modeli' => trim((string) $context->business_model),
+            'Öncelikli teklifler' => $list($context->priority_offerings, ['name', 'label', 'goal']),
+            'Hedef kitle' => $list($context->target_audiences, ['name', 'label']),
+            'Konumlandırma' => trim((string) $context->positioning),
+            'Farklılaştırıcılar' => $list($context->differentiators, ['name', 'label']),
+            'Dönüşüm hedefleri' => $list($context->conversion_goals, ['label', 'type', 'goal']),
+        ];
+
+        return collect($rows)->filter(fn (string $value): bool => $value !== '')
+            ->map(fn (string $value, string $label): string => '- '.$label.': '.$value)->implode("\n") ?: 'Girilmedi.';
+    }
+
     private function assets(Brand $brand): string
     {
         $lines = [];
@@ -204,12 +281,19 @@ final class BrandDossier
         return implode("\n", $lines) ?: 'Bağlı varlık yok.';
     }
 
+    /** Every service with all its mapped pages, the hub (most general page) first; ★ = main service. */
     private function services(Brand $brand): string
     {
-        return SiteScope::offerings($brand)->map(function (BrandOffering $o): string {
-            $page = DB::table('offering_pages as op')->join('pages as p', 'p.id', '=', 'op.page_id')->where('op.brand_offering_id', $o->id)->value('p.path');
+        $offerings = SiteScope::offerings($brand);
+        $pages = BrandWorkspaceReadService::offeringPages($offerings->map(fn (BrandOffering $o): int => (int) $o->id)->values()->all());
 
-            return '- '.($o->is_priority || $o->priority === 'main' ? '★ ' : '').$o->displayName().($page !== null ? ' → '.$page : ' → sayfası eşleşmedi');
+        return $offerings->map(function (BrandOffering $o) use ($pages): string {
+            $paths = array_column($pages[(int) $o->id] ?? [], 'path');
+            $more = count($paths) - self::SERVICE_PAGES;
+
+            return '- '.($o->isMain() ? '★ ' : '').$o->displayName().($paths !== []
+                ? ' → '.implode(', ', array_slice($paths, 0, self::SERVICE_PAGES)).($more > 0 ? ' (+'.$more.' sayfa)' : '')
+                : ' → sayfası eşleşmedi');
         })->implode("\n") ?: 'Etkin hizmet yok.';
     }
 
@@ -255,10 +339,27 @@ final class BrandDossier
             }
             if ($states !== []) {
                 $lines[] = '  - Küme sayfaları: '.collect($states)->map(fn ($n, $state): string => (BrandClusterPage::STATE_LABELS[$state] ?? $state).' '.$n)->implode(', ');
+                foreach (array_keys($states) as $state) {
+                    if ($state !== 'sufficient') {
+                        $lines[] = '    - '.$this->stateClusters($site, (string) $state, (int) $states[$state]);
+                    }
+                }
             }
         }
 
         return implode("\n", $lines) ?: 'Web sitesi bağlı değil.';
+    }
+
+    /** "Veri yetersiz: implant ankara, zirkonyum (+3)": the clusters behind one cluster-page state, most seen first. */
+    private function stateClusters(DigitalAsset $site, string $state, int $count): string
+    {
+        $names = BrandClusterPage::query()->join('clusters', 'clusters.id', '=', 'brand_cluster_pages.cluster_id')
+            ->where('brand_cluster_pages.website_asset_id', $site->id)->where('brand_cluster_pages.state', $state)
+            ->orderByRaw('coalesce(brand_cluster_pages.impressions_28d, 0) desc')->orderBy('clusters.name')
+            ->limit(self::STATE_CLUSTERS)->pluck('clusters.name')->map(fn ($name): string => (string) $name)->all();
+        $more = $count - count($names);
+
+        return Str::ucfirst(BrandClusterPage::STATE_LABELS[$state] ?? $state).': '.($names !== [] ? implode(', ', $names) : '—').($more > 0 ? ' (+'.$more.')' : '');
     }
 
     private function decisions(Brand $brand): string
@@ -276,9 +377,17 @@ final class BrandDossier
     {
         $open = Suggestion::query()->where('brand_id', $brand->id)->whereIn('status', [Suggestion::OPEN, Suggestion::APPROVED, Suggestion::RECHECK]);
         $count = (clone $open)->count();
-        $top = (clone $open)->orderBy('priority')->orderByDesc('id')->limit(self::OPEN_WORK)->get(['title', 'channel', 'status']);
+        if ($count === 0) {
+            return 'Açık iş yok.';
+        }
+        $top = (clone $open)->orderBy('priority')->orderByDesc('id')->limit(self::OPEN_WORK)->get(['title', 'reason', 'channel', 'status']);
+        $byChannel = (clone $open)->selectRaw('channel, count(*) as n')->groupBy('channel')->orderBy('channel')->pluck('n', 'channel')
+            ->map(fn ($n, $channel): string => (Suggestion::CHANNEL_LABELS[$channel] ?? $channel).' '.$n)->implode(', ');
+        $shown = $count > $top->count() ? ' (en acil '.$top->count().' tanesi aşağıda)' : '';
+        $reason = fn (Suggestion $s): string => trim((string) $s->reason) !== '' ? ' — '.Str::limit((string) preg_replace('/\s+/u', ' ', trim((string) $s->reason)), 140) : '';
 
-        return $count === 0 ? 'Açık iş yok.' : '- Toplam '.$count." açık iş\n".$top->map(fn (Suggestion $s): string => '- ['.$s->channel.'] '.$s->title)->implode("\n");
+        return '- Toplam '.$count.' açık iş · '.$byChannel.$shown."\n"
+            .$top->map(fn (Suggestion $s): string => '- ['.$s->channelLabel().'] '.$s->title.$reason($s))->implode("\n");
     }
 
     private function notesSection(Brand $brand): string

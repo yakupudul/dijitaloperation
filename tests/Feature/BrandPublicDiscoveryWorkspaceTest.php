@@ -43,7 +43,7 @@ class BrandPublicDiscoveryWorkspaceTest extends TestCase
     {
         // Discovery lives on the website asset; the old deep link lands on the brand's business tab.
         Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id, 'tab' => 'discovery'])
-            ->assertSet('tab', 'business')
+            ->assertSet('tab', 'ayarlar')
             ->assertSee('Otomatik kur')
             ->assertDontSee('Dental Implant')
             ->assertDontSee('Smile Design')

@@ -67,7 +67,19 @@ final class BrandCommercialContextService
         ?User $actor = null,
         ?string $customServiceSector = null,
         ?array $allowedSectorCodes = null,
+        bool $syncServices = true,
     ): void {
+        if (! $syncServices) {
+            // The brand edit form shows services read-only (they are edited in Marka › Ayarlar): keep them as they are.
+            $active = BrandOffering::query()->where('brand_id', $brand->id)->where('status', OfferingStatus::Active)->whereNotNull('service_catalog_item_id')
+                ->pluck('service_catalog_item_id')->map(fn ($id): int => (int) $id)->all();
+            DB::transaction(function () use ($brand, $areas, $actor, $active): void {
+                $services = ServiceCatalogItem::query()->with('primaryName')->whereIn('id', $active)->get()->values()->all();
+                $this->syncAreas($brand, $areas, $services, $actor);
+            });
+
+            return;
+        }
         DB::transaction(function () use ($brand, $serviceCatalogIds, $priorityServiceCatalogIds, $areas, $customServiceName, $customServicePriority, $actor, $customServiceSector, $allowedSectorCodes): void {
             $catalogIds = array_values(array_unique(array_filter(array_map('intval', $serviceCatalogIds))));
             $customCatalogId = null;
@@ -152,34 +164,45 @@ final class BrandCommercialContextService
             }
             $this->offerings->setPriorityOrder($brand, $priorityOfferingIds, $actor);
 
-            $normalizedAreas = $this->normalizeAreas($areas);
-            $desiredKeys = [];
-            foreach ($normalizedAreas as $rank => $area) {
-                $desiredKeys[] = $area['normalized_key'];
-                $existing = BrandServiceArea::query()->where('brand_id', $brand->id)->where('normalized_key', $area['normalized_key'])->first();
-                if (! $existing && $area['country_code'] === 'TR') {
-                    $existing = BrandServiceArea::query()->where('brand_id', $brand->id)->where('country_code', 'TR')->get()
-                        ->first(fn ($row): bool => LocationOptions::fold((string) $row->city_name) === LocationOptions::fold((string) $area['city_name'])
-                            && LocationOptions::fold((string) $row->district_name) === LocationOptions::fold((string) $area['district_name']));
-                }
-                $existing ??= new BrandServiceArea(['brand_id' => $brand->id]);
-                $existing->fill(array_merge($area, ['status' => 'active', 'priority_rank' => $rank + 1]))->save();
-            }
-
-            BrandServiceArea::query()
-                ->where('brand_id', $brand->id)
-                ->when($desiredKeys !== [], fn ($query) => $query->whereNotIn('normalized_key', $desiredKeys))
-                ->when($desiredKeys === [], fn ($query) => $query)
-                ->update(['status' => 'archived', 'priority_rank' => null]);
-
-            $countries = collect($normalizedAreas)->pluck('country_code')->unique()->values()->all();
-            $brand->forceFill([
-                'primary_country' => $countries[0] ?? null,
-                'target_markets' => $countries,
-            ])->save();
-
-            $this->projectBrandContext($brand, $services->values()->all(), $normalizedAreas, $actor);
+            $this->syncAreas($brand, $areas, $services->values()->all(), $actor);
         });
+    }
+
+    /**
+     * Service areas (archived when left out), primary country / target markets, then the brand context projection.
+     *
+     * @param  list<array{country_code?: string, city_name?: string, district_name?: string}>  $areas
+     * @param  list<ServiceCatalogItem>  $services
+     */
+    private function syncAreas(Brand $brand, array $areas, array $services, ?User $actor): void
+    {
+        $normalizedAreas = $this->normalizeAreas($areas);
+        $desiredKeys = [];
+        foreach ($normalizedAreas as $rank => $area) {
+            $desiredKeys[] = $area['normalized_key'];
+            $existing = BrandServiceArea::query()->where('brand_id', $brand->id)->where('normalized_key', $area['normalized_key'])->first();
+            if (! $existing && $area['country_code'] === 'TR') {
+                $existing = BrandServiceArea::query()->where('brand_id', $brand->id)->where('country_code', 'TR')->get()
+                    ->first(fn ($row): bool => LocationOptions::fold((string) $row->city_name) === LocationOptions::fold((string) $area['city_name'])
+                        && LocationOptions::fold((string) $row->district_name) === LocationOptions::fold((string) $area['district_name']));
+            }
+            $existing ??= new BrandServiceArea(['brand_id' => $brand->id]);
+            $existing->fill(array_merge($area, ['status' => 'active', 'priority_rank' => $rank + 1]))->save();
+        }
+
+        BrandServiceArea::query()
+            ->where('brand_id', $brand->id)
+            ->when($desiredKeys !== [], fn ($query) => $query->whereNotIn('normalized_key', $desiredKeys))
+            ->when($desiredKeys === [], fn ($query) => $query)
+            ->update(['status' => 'archived', 'priority_rank' => null]);
+
+        $countries = collect($normalizedAreas)->pluck('country_code')->unique()->values()->all();
+        $brand->forceFill([
+            'primary_country' => $countries[0] ?? null,
+            'target_markets' => $countries,
+        ])->save();
+
+        $this->projectBrandContext($brand, $services, $normalizedAreas, $actor);
     }
 
     /** @param list<ServiceCatalogItem> $services @param list<array<string, mixed>> $areas */

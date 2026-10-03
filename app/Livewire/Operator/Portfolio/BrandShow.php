@@ -4,6 +4,7 @@ namespace App\Livewire\Operator\Portfolio;
 
 use App\Jobs\DiscoverProviderResourcesJob;
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
+use App\Livewire\Operator\Workspace\BrandDossierTab;
 use App\Models\Brand;
 use App\Models\BrandIntelligenceContext;
 use App\Models\BrandOffering;
@@ -13,7 +14,9 @@ use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
 use App\Models\OperatorFile;
 use App\Models\ResourceAutomation;
+use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\Brand\BrandDossier;
 use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
 use App\Services\BrandSetup\BrandSetupStatus;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
@@ -44,10 +47,11 @@ use Livewire\Component;
 use Throwable;
 
 /**
- * Brand page: "Özet" (default — period KPIs, digital assets with data status, open work, services), one tab per
- * channel — Arama · Harita · Google Ads · Meta — whose own workspace is rebuilt in Faz 4–7 (until then the tab says
- * which sources feed it, what is missing and where the work happens), and "Ayarlar" with setup, business, assets and
- * files. Everything shown comes from the database.
+ * Brand page — one row of tabs, like the website screen: Özet (period numbers, digital assets with their data status,
+ * open work with a channel filter, services) · Dijital varlıklar (asset cards, "Hesap ekle", setup status, bindings) ·
+ * Bilgi dosyası (the file every AI agent reads first) · Ayarlar (Marka bilgileri, Dosyalar). A channel tab (Arama,
+ * Harita, Google Ads, Meta) appears only once its own component exists; until then its old link opens Özet filtered to
+ * that channel. Old ?tab= values resolve to their new place (LEGACY_TABS). Everything shown comes from the database.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Marka')]
@@ -55,32 +59,54 @@ class BrandShow extends Component
 {
     use InteractsWithDemoPeriod;
 
-    /** Settings sub-tabs (the former brand page). */
-    public const array TABS = ['settings', 'overview', 'business', 'assets', 'files'];
+    /** The tab row. */
+    public const array TABS = ['ozet' => 'Özet', 'varliklar' => 'Dijital varlıklar', 'dosya' => 'Bilgi dosyası', 'ayarlar' => 'Ayarlar'];
 
-    /** Workspace tab => [label, Livewire component class (rendered only when it exists)]. "ayarlar" opens TABS. */
-    public const array WORKSPACE_TABS = [
+    /** Ayarlar views. */
+    public const array SETTINGS = ['marka' => 'Marka bilgileri', 'dosyalar' => 'Dosyalar'];
+
+    /** Tab => its own Livewire component. */
+    public const array COMPONENTS = ['dosya' => BrandDossierTab::class];
+
+    /** Channel tab => [label, component class]: shown as a tab only when the class exists. */
+    public const array CHANNEL_TABS = [
         'arama' => ['Arama', 'App\\Livewire\\Operator\\Workspace\\SearchTab'],
         'harita' => ['Harita', 'App\\Livewire\\Operator\\Workspace\\MapsTab'],
         'google_ads' => ['Google Ads', 'App\\Livewire\\Operator\\Workspace\\GoogleAdsTab'],
         'meta' => ['Meta', 'App\\Livewire\\Operator\\Workspace\\MetaTab'],
-        'dosya' => ['Marka dosyası', 'App\\Livewire\\Operator\\Workspace\\BrandDossierTab'],
     ];
 
     /** The default tab. */
     public const string OVERVIEW_TAB = 'ozet';
 
-    /** Old deep links keep working. */
-    private const array LEGACY_TABS = [
-        'estate' => 'assets', 'cross_channel' => 'assets', 'operations' => 'overview', 'growth' => 'overview', 'ai' => 'overview', 'work' => 'overview',
-        'value' => 'overview', 'history' => 'overview', 'reports' => 'overview', 'research' => 'business', 'discovery' => 'business', 'context' => 'business',
+    /** Old tab ids => [tab, Ayarlar view]. Old deep links keep working. */
+    public const array LEGACY_TABS = [
+        'assets' => ['varliklar', ''], 'estate' => ['varliklar', ''], 'cross_channel' => ['varliklar', ''], 'overview' => ['varliklar', ''],
+        'settings' => ['ayarlar', 'marka'], 'business' => ['ayarlar', 'marka'], 'research' => ['ayarlar', 'marka'], 'discovery' => ['ayarlar', 'marka'],
+        'context' => ['ayarlar', 'marka'], 'files' => ['ayarlar', 'dosyalar'],
+        'operations' => ['ozet', ''], 'growth' => ['ozet', ''], 'ai' => ['ozet', ''], 'work' => ['ozet', ''], 'value' => ['ozet', ''],
+        'history' => ['ozet', ''], 'reports' => ['ozet', ''],
     ];
+
+    /** Open work shown on Özet before "+N iş daha". */
+    public const int WORK_LIMIT = 5;
 
     #[Locked]
     public string $brand = '';
 
     #[Url(as: 'tab', history: true)]
     public string $tab = self::OVERVIEW_TAB;
+
+    /** Ayarlar view (marka | dosyalar). */
+    #[Url(as: 'sub', history: true)]
+    public string $sub = '';
+
+    /** Özet channel filter (arama | harita | google_ads | meta), empty = all channels. */
+    #[Url(as: 'kanal', history: true)]
+    public string $kanal = '';
+
+    /** Özet: every open suggestion instead of the first few. */
+    public bool $allWork = false;
 
     public bool $editingContext = false;
 
@@ -107,50 +133,92 @@ class BrandShow extends Component
         abort_unless(ctype_digit($brand), 404);
         abort_if(Brand::query()->find($brand) === null, 404);
         $this->brand = $brand;
-        $this->tab = $this->normalizeTab($this->tab);
+        $this->applyTab($this->tab, $this->sub);
         $this->mountPeriod();
     }
 
     public function setTab(string $tab): void
     {
-        $this->tab = $this->normalizeTab($tab);
+        $this->allWork = false;
+        $this->applyTab($tab, '');
     }
 
-    private function normalizeTab(string $tab): string
+    public function setSub(string $sub): void
     {
-        if ($tab === 'ayarlar') {
-            return 'settings';
-        }
-        $tab = self::LEGACY_TABS[$tab] ?? $tab;
-
-        return $tab === self::OVERVIEW_TAB || isset(self::WORKSPACE_TABS[$tab]) || in_array($tab, self::TABS, true) ? $tab : self::OVERVIEW_TAB;
+        $this->applyTab('ayarlar', $sub);
     }
 
-    /** Star / unstar a service: the SEO plan looks deeply only at starred services. */
+    /** Özet channel filter; the same channel again (or an unknown one) clears it. */
+    public function setChannel(string $channel): void
+    {
+        $this->kanal = isset(BrandOverviewReader::CHANNELS[$channel]) && $this->kanal !== $channel ? $channel : '';
+        $this->allWork = false;
+    }
+
+    public function showAllWork(bool $all = true): void
+    {
+        $this->allWork = $all;
+    }
+
+    /**
+     * Current or old tab (and Ayarlar view) → [tab, Ayarlar view, channel filter].
+     *
+     * @return array{0: string, 1: string, 2: ?string}
+     */
+    public static function resolve(string $tab, string $sub = ''): array
+    {
+        if (isset(self::LEGACY_TABS[$tab])) {
+            [$tab, $legacySub] = self::LEGACY_TABS[$tab];
+            $sub = $legacySub !== '' ? $legacySub : $sub;
+        }
+        if (isset(self::CHANNEL_TABS[$tab])) {
+            return class_exists(self::CHANNEL_TABS[$tab][1]) ? [$tab, '', null] : [self::OVERVIEW_TAB, '', $tab];
+        }
+        if ($tab === 'ayarlar') {
+            return ['ayarlar', isset(self::SETTINGS[$sub]) ? $sub : 'marka', null];
+        }
+
+        return [isset(self::TABS[$tab]) ? $tab : self::OVERVIEW_TAB, '', null];
+    }
+
+    private function applyTab(string $tab, string $sub): void
+    {
+        [$this->tab, $this->sub, $channel] = self::resolve($tab, $sub);
+        if ($channel !== null) {
+            $this->kanal = $channel;
+        } elseif ($this->tab !== self::OVERVIEW_TAB || ! isset(BrandOverviewReader::CHANNELS[$this->kanal])) {
+            $this->kanal = '';
+        }
+    }
+
+    /** ★ on / off: ★ = main service (`priority = main`); the SEO plan, Harita and Ads look at main services first. */
     public function toggleOfferingPriority(int $offeringId): void
     {
         $offering = BrandOffering::query()->where('brand_id', (int) $this->brand)->whereKey($offeringId)->firstOrFail();
-        $offering->forceFill(['is_priority' => ! $offering->is_priority])->save();
-        DemoState::flash($offering->is_priority
-            ? 'Hizmet öncelikli olarak işaretlendi; SEO planı bu hizmete derinlemesine bakar.'
-            : 'Hizmetin önceliği kaldırıldı.');
+        $offering->forceFill(['priority' => $offering->isMain() ? 'secondary' : 'main'])->save();
+        DemoState::flash($offering->isMain()
+            ? 'Hizmet ana hizmet (★) olarak işaretlendi; SEO planı bu hizmete derinlemesine bakar.'
+            : 'Hizmet ikincil yapıldı.');
     }
 
     public function startEditingContext(): void
     {
-        $context = $this->brandModel()->intelligenceContext;
-        $join = fn (mixed $rows, array $keys): string => implode("\n", $this->labels($rows, $keys));
+        $brand = $this->brandModel();
+        $context = $brand->intelligenceContext;
+        $join = fn (mixed $rows, array $keys): string => implode("\n", BrandDossier::labels($rows, $keys));
+        $notes = BrandDossier::notes($brand);
         $this->context_business_summary = (string) ($context?->business_summary ?? '');
         $this->context_business_model = (string) ($context?->business_model ?? '');
         $this->context_priority_offerings = $join($context?->priority_offerings, ['name', 'label', 'goal']);
         $this->context_target_audiences = $join($context?->target_audiences, ['name', 'label']);
         $this->context_positioning = (string) ($context?->positioning ?? '');
         $this->context_differentiators = $join($context?->differentiators, ['name', 'label']);
-        $this->context_business_goals = $join($context?->business_goals, ['goal', 'label', 'name']);
+        $this->context_business_goals = $notes['goals'];
         $this->context_conversion_goals = $join($context?->conversion_goals, ['label', 'type', 'goal']);
-        $this->context_constraints = is_string($context?->important_constraints) ? $context->important_constraints : $join($context?->important_constraints, ['name', 'label']);
+        $this->context_constraints = $notes['constraints'];
         $this->editingContext = true;
-        $this->tab = 'business';
+        $this->tab = 'ayarlar';
+        $this->sub = 'marka';
     }
 
     public function cancelEditingContext(): void
@@ -158,13 +226,21 @@ class BrandShow extends Component
         $this->editingContext = false;
     }
 
+    /**
+     * İş bağlamı is one form: summary, model, audiences… go to the brand's intelligence context; goals and constraints
+     * are the brand file's notes (one source, read by every AI agent and MCP get-brand) and are mirrored into the context.
+     */
     public function saveBusinessContext(): void
     {
         $brand = $this->brandModel();
         $context = $brand->intelligenceContext;
         $split = static fn (string $value): array => array_values(array_filter(array_map('trim', preg_split('/[,\n]+/', $value) ?: [])));
         // Column sizes (PostgreSQL refuses longer values): business model 64, each goal / offering / audience line 255.
-        $this->validate(['context_business_model' => ['nullable', 'string', 'max:64']], [
+        $this->validate([
+            'context_business_model' => ['nullable', 'string', 'max:64'],
+            'context_business_goals' => ['nullable', 'string', 'max:4000'],
+            'context_constraints' => ['nullable', 'string', 'max:4000'],
+        ], [
             'context_business_model.max' => 'İş modeli en fazla 64 karakter olabilir (ör. "Klinik — randevulu hizmet").',
         ]);
         foreach (['context_priority_offerings' => 'Öncelikli teklifler', 'context_target_audiences' => 'Hedef kitle', 'context_business_goals' => 'İş hedefleri',
@@ -188,9 +264,15 @@ class BrandShow extends Component
             'known_competitors' => is_array($context?->known_competitors) ? $context->known_competitors : [],
             'important_constraints' => trim($this->context_constraints),
         ], auth()->user());
+        BrandDossier::saveNotes($brand, $this->context_business_goals, $this->context_constraints);
+        try {
+            app(BrandDossier::class)->build($brand->fresh() ?? $brand);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
 
         $this->editingContext = false;
-        DemoState::flash('İş bağlamı kaydedildi.');
+        DemoState::flash('İş bağlamı kaydedildi; bilgi dosyası yenilendi.');
     }
 
     /**
@@ -346,92 +428,112 @@ class BrandShow extends Component
             ->latest()->limit(100)->get();
     }
 
-    public function render(): View
-    {
-        $brand = $this->brandModel();
-        if ($this->tab === self::OVERVIEW_TAB) {
-            return $this->renderOverview($brand);
-        }
-        if (isset(self::WORKSPACE_TABS[$this->tab])) {
-            return $this->renderWorkspace($brand);
-        }
-        $workspace = app(BrandWorkspaceReadService::class);
-        $assets = $workspace->assets($brand);
-        $services = $workspace->services($brand);
-        $checklist = $workspace->checklist($brand, $assets, $services);
-
-        $setup = in_array($this->tab, ['overview', 'assets'], true) ? $this->setupStatus($brand) : null;
-        $seo = $workspace->seo($assets);
-        $attention = array_values(array_filter([
-            $seo['critical'] > 0 ? ['tone' => 'error', 'text' => $seo['critical'].' kritik SEO düzeltmesi', 'url' => route('operator.website', ['assetId' => $seo['website_id'], 'tab' => 'ozet', 'sub' => 'oneriler'])] : null,
-            $seo['questions'] > 0 ? ['tone' => 'warning', 'text' => $seo['questions'].' SEO kararı seni bekliyor', 'url' => route('operator.website', ['assetId' => $seo['website_id'], 'tab' => 'ozet', 'sub' => 'oneriler'])] : null,
-            $seo['content'] > 0 ? ['tone' => 'info', 'text' => $seo['content'].' içerik önerisi', 'url' => route('operator.website', ['assetId' => $seo['website_id'], 'tab' => 'ozet', 'sub' => 'icerik'])] : null,
-        ]));
-
-        $context = $brand->intelligenceContext;
-
-        return view('livewire.operator.portfolio.brand-show', [
-            ...$this->frame(),
-            ...$this->header($brand),
-            'responsible' => $brand->responsibleUsers->pluck('name')->all(),
-            'assets' => $assets,
-            'services' => $services,
-            'checklist' => $checklist,
-            'setup' => $setup,
-            'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
-            'attention' => $attention,
-            'context' => $context instanceof BrandIntelligenceContext ? $this->contextRows($context) : [],
-            'serviceScope' => app(CustomerServiceScopeReadService::class)->forBrand($brand, includeEnded: false),
-            'reportPreview' => null,
-            'flash' => DemoState::pullFlash(),
-            'brandFiles' => $this->tab === 'files' ? $this->brandFiles($brand) : collect(),
-        ]);
-    }
-
     /** Selected Özet period in days (28 / 90), from the shared period preset. */
     public function overviewDays(): int
     {
         return $this->period === 'last_90' ? 90 : 28;
     }
 
-    /** Özet: period KPIs, the brand's digital assets with their data status, open work and services. */
-    private function renderOverview(Brand $brand): View
+    public function render(): View
     {
-        $overview = app(BrandOverviewReader::class);
+        $brand = $this->brandModel();
         $workspace = app(BrandWorkspaceReadService::class);
-        $models = $overview->assetModels($brand);
-        $cards = $overview->assetCards($models);
+        $overview = app(BrandOverviewReader::class);
+        $assets = $workspace->assets($brand);
         $services = $workspace->services($brand);
-        $checklist = $workspace->checklist($brand, $workspace->assets($brand), $services);
+        $checklist = $workspace->checklist($brand, $assets, $services);
+
+        $data = match ($this->tab) {
+            self::OVERVIEW_TAB => $this->overviewData($brand, $overview, $services),
+            'varliklar' => $this->assetsData($brand, $overview, $assets),
+            'ayarlar' => $this->settingsData($brand, $services),
+            default => [],
+        };
 
         return view('livewire.operator.portfolio.brand-show', [
-            ...$this->frame(),
             ...$this->header($brand),
-            'days' => $this->overviewDays(),
-            'kpis' => $overview->kpis($brand, $models, $cards, $this->overviewDays()),
-            'assetCards' => $cards,
-            'work' => $overview->openWork($brand),
-            'serviceSummary' => $overview->services($services),
+            'tabs' => $this->tabs(),
+            'channelComponent' => isset(self::CHANNEL_TABS[$this->tab]) ? self::CHANNEL_TABS[$this->tab][1] : null,
             'checklist' => $checklist,
+            'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'flash' => DemoState::pullFlash(),
+            ...$data,
         ]);
     }
 
-    /** Channel tabs: the channel component once it exists; until then its sources, what is missing and its open work. */
-    private function renderWorkspace(Brand $brand): View
+    /**
+     * Özet: period KPIs, asset cards and open work (both filtered by the channel chip), services.
+     *
+     * @param  list<array<string, mixed>>  $services
+     * @return array<string, mixed>
+     */
+    private function overviewData(Brand $brand, BrandOverviewReader $overview, array $services): array
     {
-        $class = self::WORKSPACE_TABS[$this->tab][1];
-        $component = class_exists($class) ? $class : null;
-        $overview = app(BrandOverviewReader::class);
+        $models = $overview->assetModels($brand);
+        $cards = $overview->assetCards($models);
+        $channel = BrandOverviewReader::CHANNELS[$this->kanal] ?? null;
+        $limit = $this->allWork ? 100 : self::WORK_LIMIT;
+        $all = $overview->openWork($brand, null, $channel === null ? $limit : 0);
+        $work = $channel === null ? $all : $overview->openWork($brand, $channel['channel'], $limit);
+        $channelCounts = [];
+        foreach (BrandOverviewReader::CHANNELS as $key => $definition) {
+            $channelCounts[$key] = ['label' => Suggestion::CHANNEL_LABELS[$definition['channel']] ?? $key, 'count' => (int) ($all['by_key'][$definition['channel']] ?? 0)];
+        }
 
-        return view('livewire.operator.portfolio.brand-show', [
-            ...$this->frame(),
-            ...$this->header($brand),
-            'channelComponent' => $component,
-            'channel' => $component === null ? $overview->channel($brand, $this->tab, $overview->assetCards($overview->assetModels($brand))) : null,
-            'checklist' => ['complete' => true, 'items' => []],
-            'flash' => DemoState::pullFlash(),
-        ]);
+        return [
+            'days' => $this->overviewDays(),
+            'kpis' => $overview->kpis($brand, $models, $cards, $this->overviewDays()),
+            'assetCards' => $channel === null ? $cards : array_values(array_filter($cards, fn (array $c): bool => in_array($c['type'], $channel['types'], true))),
+            'channelFilter' => $channel === null ? null : ['key' => $this->kanal, 'label' => $channelCounts[$this->kanal]['label'], 'asset_label' => $channel['asset_label']],
+            'channelCounts' => $channelCounts,
+            'workTotal' => $all['total'],
+            'work' => $work,
+            'serviceSummary' => $overview->services($services),
+        ];
+    }
+
+    /**
+     * Dijital varlıklar: every asset card, "Hesap ekle" and the per-channel setup status.
+     *
+     * @param  list<array<string, mixed>>  $assets
+     * @return array<string, mixed>
+     */
+    private function assetsData(Brand $brand, BrandOverviewReader $overview, array $assets): array
+    {
+        return [
+            'assetCards' => $overview->assetCards($overview->assetModels($brand)),
+            'assets' => $assets,
+            'setup' => $this->setupStatus($brand),
+        ];
+    }
+
+    /**
+     * Ayarlar: Marka bilgileri (brand settings, İş bağlamı, scope, conversions) or Dosyalar.
+     *
+     * @param  list<array<string, mixed>>  $services
+     * @return array<string, mixed>
+     */
+    private function settingsData(Brand $brand, array $services): array
+    {
+        if ($this->sub === 'dosyalar') {
+            return ['brandFiles' => $this->brandFiles($brand)];
+        }
+        $context = $brand->intelligenceContext;
+
+        return [
+            'services' => $services,
+            'responsible' => $brand->responsibleUsers->pluck('name')->all(),
+            'context' => $this->contextRows($brand, $context instanceof BrandIntelligenceContext ? $context : null),
+            'serviceScope' => app(CustomerServiceScopeReadService::class)->forBrand($brand, includeEnded: false),
+        ];
+    }
+
+    /** @return array<string, string> the visible tab row (channel tabs only once their component exists) */
+    private function tabs(): array
+    {
+        $channels = array_map(fn (array $t): string => $t[0], array_filter(self::CHANNEL_TABS, fn (array $t): bool => class_exists($t[1])));
+
+        return ['ozet' => self::TABS['ozet']] + $channels + array_diff_key(self::TABS, ['ozet' => true]);
     }
 
     /** @return array<string, mixed> header data shared by every tab */
@@ -448,25 +550,13 @@ class BrandShow extends Component
     }
 
     /**
-     * The brand's websites for the header "Siteyi aç" button.
+     * The brand's websites for the header links.
      *
      * @return Collection<int, DigitalAsset>
      */
     private function websites(Brand $brand): Collection
     {
         return DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->orderBy('id')->get(['id', 'name', 'domain', 'primary_url']);
-    }
-
-    /** @return array{workspaceTab: bool, mainTab: string, workspaceTabs: array<string, string>} */
-    private function frame(): array
-    {
-        $workspace = isset(self::WORKSPACE_TABS[$this->tab]);
-
-        return [
-            'workspaceTab' => $workspace,
-            'mainTab' => $workspace || $this->tab === self::OVERVIEW_TAB ? $this->tab : 'ayarlar',
-            'workspaceTabs' => [self::OVERVIEW_TAB => 'Özet'] + array_map(fn (array $t): string => $t[0], self::WORKSPACE_TABS) + ['ayarlar' => 'Ayarlar'],
-        ];
     }
 
     /** @return array<string, mixed>|null */
@@ -487,43 +577,23 @@ class BrandShow extends Component
     }
 
     /** @return list<array{label: string, value: string}> */
-    private function contextRows(BrandIntelligenceContext $context): array
+    private function contextRows(Brand $brand, ?BrandIntelligenceContext $context): array
     {
+        $notes = BrandDossier::notes($brand);
+        if ($context === null && $notes['goals'] === '' && $notes['constraints'] === '') {
+            return [];
+        }
         $rows = [
-            'İşletme özeti' => $context->business_summary,
-            'İş modeli' => $context->business_model,
-            'Hedef kitle' => implode(', ', $this->labels($context->target_audiences, ['name', 'label'])),
-            'Konumlandırma' => $context->positioning,
-            'Farklılaştırıcılar' => implode(', ', $this->labels($context->differentiators, ['name', 'label'])),
-            'İş hedefleri' => implode(', ', $this->labels($context->business_goals, ['goal', 'label', 'name'])),
-            'Dönüşüm hedefleri' => implode(', ', $this->labels($context->conversion_goals, ['label', 'type', 'goal'])),
-            'Kısıtlar' => is_string($context->important_constraints) ? $context->important_constraints : implode(', ', $this->labels($context->important_constraints, ['name', 'label'])),
+            'İşletme özeti' => $context?->business_summary,
+            'İş modeli' => $context?->business_model,
+            'Hedef kitle' => implode(', ', BrandDossier::labels($context?->target_audiences, ['name', 'label'])),
+            'Konumlandırma' => $context?->positioning,
+            'Farklılaştırıcılar' => implode(', ', BrandDossier::labels($context?->differentiators, ['name', 'label'])),
+            'İş hedefleri' => $notes['goals'],
+            'Dönüşüm hedefleri' => implode(', ', BrandDossier::labels($context?->conversion_goals, ['label', 'type', 'goal'])),
+            'Kısıtlar' => $notes['constraints'],
         ];
 
         return collect($rows)->map(fn ($value, string $label): array => ['label' => $label, 'value' => trim((string) $value)])->values()->all();
-    }
-
-    /** @return list<string> */
-    private function labels(mixed $rows, array $keys): array
-    {
-        if (! is_array($rows)) {
-            return [];
-        }
-        $labels = [];
-        foreach ($rows as $row) {
-            if (is_string($row) && trim($row) !== '') {
-                $labels[] = trim($row);
-
-                continue;
-            }
-            foreach ($keys as $key) {
-                if (is_array($row) && is_string($row[$key] ?? null) && trim($row[$key]) !== '') {
-                    $labels[] = trim($row[$key]);
-                    break;
-                }
-            }
-        }
-
-        return array_values(array_unique($labels));
     }
 }

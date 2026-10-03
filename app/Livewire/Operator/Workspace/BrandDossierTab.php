@@ -14,18 +14,15 @@ use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
- * "Marka dosyası" tab: Eksikler (what blocks the AI work, each fixed only on "Onayla ve yap"), the Marka bakım ajanı's last note (summary, questions, its open tasks, "Şimdi incele"), then the
- * short file every AI agent reads first (compiled without AI) with a "Yenile" button, and the operator's goals and
- * constraints — the only hand-written part.
+ * "Bilgi dosyası" tab: Eksikler (what blocks the AI work, each fixed only on "Onayla ve yap"), the Marka bakım ajanı's
+ * last note (summary, questions, its open tasks, "Şimdi incele"), then the short file every AI agent reads first
+ * (compiled without AI) with a "Yenile" button. The operator's goals and constraints are shown here read-only; they are
+ * edited once, in Ayarlar › Marka bilgileri › İş bağlamı.
  */
 class BrandDossierTab extends Component
 {
     #[Locked]
     public int $brandId;
-
-    public string $goals = '';
-
-    public string $constraints = '';
 
     public string $message = '';
 
@@ -33,7 +30,6 @@ class BrandDossierTab extends Component
     {
         $this->brandId = $brandId;
         app(BrandGaps::class)->sync($this->brand());
-        ['goals' => $this->goals, 'constraints' => $this->constraints] = BrandDossier::notes($this->brand());
     }
 
     public function rebuild(BrandDossier $dossier, BrandGaps $gaps): void
@@ -41,7 +37,7 @@ class BrandDossierTab extends Component
         $this->actor();
         $gaps->sync($this->brand());
         $dossier->build($this->brand());
-        $this->message = 'Marka dosyası yenilendi.';
+        $this->message = 'Bilgi dosyası yenilendi.';
     }
 
     /** "Onayla ve yap": one gap's fix (inside MoxDOP only). */
@@ -90,16 +86,6 @@ class BrandDossierTab extends Component
         $this->message = 'Bakım ajanı sıraya alındı; birkaç dakika içinde not burada.';
     }
 
-    public function saveNotes(BrandDossier $dossier): void
-    {
-        $this->actor();
-        $this->validate(['goals' => ['nullable', 'string', 'max:4000'], 'constraints' => ['nullable', 'string', 'max:4000']]);
-        $brand = $this->brand();
-        BrandDossier::saveNotes($brand, $this->goals, $this->constraints);
-        $dossier->build($brand);
-        $this->message = 'Notlar kaydedildi; dosya yenilendi.';
-    }
-
     public function render(BrandDossier $dossier): View
     {
         $brand = $this->brand();
@@ -107,6 +93,7 @@ class BrandDossierTab extends Component
         return view('livewire.operator.workspace.brand-dossier-tab', [
             'dossier' => BrandDossier::stored($brand) ?? $dossier->build($brand),
             'operational' => $brand->isOperational(),
+            'notes' => BrandDossier::notes($brand),
             'gaps' => Suggestion::query()->where('brand_id', $brand->id)->where('decision_key', BrandGaps::DECISION)->actionable()
                 ->orderBy('priority')->orderBy('id')->get(['id', 'title', 'reason', 'action']),
             'care' => BrandCare::stored($brand),

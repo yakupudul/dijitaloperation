@@ -3,25 +3,25 @@
     $stateMark = ['done' => ['✓', 'text-success-600'], 'next' => ['→', 'text-brand-600'], 'waiting' => ['○', 'text-gray-300 dark:text-gray-600'], 'optional' => ['○', 'text-gray-400']];
     $stateText = ['done' => 'Tamam', 'next' => 'Sıradaki adım', 'waiting' => 'Önce önceki adım', 'optional' => 'İsteğe bağlı'];
 @endphp
-<section class="{{ $card }} p-5" data-setup-status aria-labelledby="brand-setup-status-heading">
+<section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-setup-status aria-labelledby="brand-setup-status-heading">
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <h2 id="brand-setup-status-heading" class="text-base font-semibold text-gray-800 dark:text-white/90">Kurulum durumu · {{ $setup['done'] }}/{{ $setup['total'] }} kanal hazır</h2>
+            <h2 id="brand-setup-status-heading" class="text-sm font-semibold text-gray-900 dark:text-white">Kurulum durumu · {{ $setup['done'] }}/{{ $setup['total'] }} kanal hazır</h2>
             <p class="mt-1 text-sm text-gray-500">Her kanalda sıradaki adımın düğmesine basın; bağlanan her hesabın verisi birkaç dakika içinde kendiliğinden çekilmeye başlar.</p>
         </div>
         <a href="{{ route('operator.brand.setup', ['brand' => $brandModel->id]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Otomatik kur</a>
     </div>
-    <div class="mt-4 grid gap-4 xl:grid-cols-3">
+    <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         @foreach ($setup['channels'] as $channel)
             <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]" data-setup-channel="{{ $channel['key'] }}">
                 <div class="flex items-center justify-between gap-2">
                     <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ $channel['label'] }}</h3>
                     @if ($channel['complete'])
-                        <span class="rounded-full bg-success-50 px-2 py-0.5 text-xs text-success-700 dark:bg-success-500/10 dark:text-success-400">Hazır</span>
+                        <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">Hazır</span>
                     @elseif ($channel['unused'])
                         <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-gray-800">Kullanılmıyor</span>
                     @else
-                        <span class="rounded-full bg-warning-50 px-2 py-0.5 text-xs text-warning-700 dark:bg-warning-500/10 dark:text-warning-400">{{ $channel['done'] }}/{{ $channel['total'] }}</span>
+                        <span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">{{ $channel['done'] }}/{{ $channel['total'] }}</span>
                     @endif
                 </div>
                 @if ($channel['unused'])

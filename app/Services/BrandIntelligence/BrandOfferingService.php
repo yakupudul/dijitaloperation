@@ -395,13 +395,13 @@ final class BrandOfferingService
             BrandOffering::query()
                 ->where('brand_id', $brand->id)
                 ->whereNotNull('priority_rank')
-                ->update(['priority_rank' => null, 'is_priority' => false]);
+                ->update(['priority_rank' => null, 'is_priority' => false, 'priority' => 'secondary']);
 
             foreach ($ids as $index => $id) {
                 BrandOffering::query()
                     ->where('brand_id', $brand->id)
                     ->where('id', $id)
-                    ->update(['priority_rank' => $index + 1, 'is_priority' => true]);
+                    ->update(['priority_rank' => $index + 1, 'is_priority' => true, 'priority' => 'main']);
             }
 
             if ($recordActivity) {

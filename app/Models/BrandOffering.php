@@ -19,6 +19,25 @@ class BrandOffering extends Model
                     ->orWhereHas('catalogItem');
             });
         });
+
+        // One priority (★ = main): `priority` is the field, `is_priority` its mirror for older readers. Whichever is
+        // written, the other follows; a service that is no longer main also leaves the ranked priority list.
+        static::saving(function (BrandOffering $offering): void {
+            if ($offering->isDirty('priority') && array_key_exists((string) $offering->priority, self::PRIORITIES)) {
+                $offering->is_priority = $offering->priority === 'main';
+            } elseif ($offering->isDirty('is_priority')) {
+                $offering->priority = $offering->is_priority ? 'main' : 'secondary';
+            }
+            if (! $offering->is_priority && $offering->isDirty(['priority', 'is_priority'])) {
+                $offering->priority_rank = null;
+            }
+        });
+    }
+
+    /** ★: the operator's main service (the SEO plan, Harita and Ads look at it first). */
+    public function isMain(): bool
+    {
+        return $this->priority === 'main' || (bool) $this->is_priority;
     }
 
     /**

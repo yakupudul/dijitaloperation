@@ -4,7 +4,7 @@
     @endif
 
     @if ($gaps->isNotEmpty())
-        <div class="rounded-xl bg-amber-50 p-5 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-500/30" data-brand-gaps>
+        <div class="rounded-xl bg-amber-50 p-4 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-500/30" data-brand-gaps>
             <h2 class="font-semibold text-amber-900 dark:text-amber-200">Eksikler · {{ $gaps->count() }}</h2>
             <p class="mt-1 text-sm text-amber-800 dark:text-amber-300">AI işlerini tıkayan şeyler. "Onayla ve yap" yalnız MoxDOP içinde düzeltir; dışarıya hiçbir şey yazmaz.</p>
             <ul class="mt-3 space-y-3 text-sm">
@@ -25,7 +25,7 @@
         </div>
     @endif
 
-    <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-brand-audit>
+    <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-brand-audit>
         <div class="flex flex-wrap items-start justify-between gap-2">
             <div>
                 <h2 class="font-semibold text-gray-800 dark:text-white/90">Şef denetimi · {{ $audit->count() }} hata</h2>
@@ -56,7 +56,7 @@
         @endif
     </div>
 
-    <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-brand-care>
+    <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-brand-care>
         <div class="flex flex-wrap items-start justify-between gap-2">
             <div>
                 <h2 class="font-semibold text-gray-800 dark:text-white/90">Bakım ajanı</h2>
@@ -89,7 +89,7 @@
             @endif
             @if (! empty($care['questions']))
                 <div class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
-                    <p class="font-medium">Ajanın soruları (cevabı aşağıdaki hedefler / kısıtlara ya da ilgili ayara yaz):</p>
+                    <p class="font-medium">Ajanın soruları (cevabı Ayarlar › İş bağlamı içindeki hedefler / kısıtlara ya da ilgili ayara yaz):</p>
                     <ul class="mt-1 list-disc pl-5">
                         @foreach ($care['questions'] as $question)
                             <li>{{ $question }}</li>
@@ -106,10 +106,10 @@
         @endif
     </div>
 
-    <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+    <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
         <div class="flex flex-wrap items-start justify-between gap-2">
             <div>
-                <h2 class="font-semibold text-gray-800 dark:text-white/90">Marka dosyası</h2>
+                <h2 class="font-semibold text-gray-800 dark:text-white/90">Bilgi dosyası</h2>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     AI ajanlarının her işte ilk okuduğu kısa özet. Sistem verilerden kendisi derler (AI kullanmaz); her gece ve Otomatik kur sonrası yenilenir.
                     @if ($dossier['built_at'])
@@ -130,19 +130,17 @@
         </div>
     </div>
 
-    <form wire:submit="saveNotes" class="space-y-3 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-        <div>
-            <h2 class="font-semibold text-gray-800 dark:text-white/90">Hedefler ve kısıtlar</h2>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Dosyada elle yazılan tek kısım. Ajanlar hedefe göre öncelik verir, kısıtlardaki şeyleri asla önermez.</p>
+    <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-dossier-notes>
+        <div class="flex flex-wrap items-start justify-between gap-2">
+            <div>
+                <h2 class="font-semibold text-gray-900 dark:text-white">Hedefler ve kısıtlar</h2>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Dosyada elle yazılan kısım. Ajanlar hedefe göre öncelik verir, kısıtlardaki şeyleri asla önermez.</p>
+            </div>
+            <a href="{{ route('operator.brand', ['brand' => $brandId, 'tab' => 'ayarlar']) }}" wire:navigate class="shrink-0 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Düzenle →</a>
         </div>
-        <label class="block text-sm text-gray-700 dark:text-gray-300">Hedefler
-            <textarea wire:model="goals" rows="3" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Örn. implant hastası sayısını artırmak; Kadıköy şubesini öne çıkarmak"></textarea>
-        </label>
-        <label class="block text-sm text-gray-700 dark:text-gray-300">Kısıtlar
-            <textarea wire:model="constraints" rows="3" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Örn. fiyat yazma; rakip adı geçirme"></textarea>
-        </label>
-        @error('goals') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
-        @error('constraints') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
-        <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-600">Kaydet</button>
-    </form>
+        <dl class="mt-3 grid gap-3 text-sm md:grid-cols-2">
+            <div><dt class="text-xs text-gray-500">Hedefler</dt><dd class="mt-0.5 whitespace-pre-line text-gray-900 dark:text-white/90">{{ $notes['goals'] !== '' ? $notes['goals'] : '—' }}</dd></div>
+            <div><dt class="text-xs text-gray-500">Kısıtlar</dt><dd class="mt-0.5 whitespace-pre-line text-gray-900 dark:text-white/90">{{ $notes['constraints'] !== '' ? $notes['constraints'] : '—' }}</dd></div>
+        </dl>
+    </div>
 </section>

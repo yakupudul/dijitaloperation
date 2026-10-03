@@ -175,7 +175,7 @@ class AssetCreate extends Component
     public function render(): View
     {
         $backUrl = $this->brandLocked
-            ? route('operator.brand', ['brand' => $this->brand_id, 'tab' => 'assets'])
+            ? route('operator.brand', ['brand' => $this->brand_id, 'tab' => 'varliklar'])
             : route('operator.assets');
 
         return view('livewire.demo.portfolio.asset-form', $this->assetFormViewData() + [

@@ -2,8 +2,10 @@
 
 namespace App\Livewire\Demo\Portfolio;
 
+use App\Enums\OfferingStatus;
 use App\Livewire\Demo\Portfolio\Concerns\InteractsWithBrandForm;
 use App\Models\Brand;
+use App\Models\BrandOffering;
 use App\Services\Catalog\BrandCommercialContextService;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
@@ -14,6 +16,10 @@ use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
 #[Title('Markayı düzenle')]
+/**
+ * Markayı düzenle: name, sector, service areas and optional details. Services are shown read-only with a link: they are
+ * edited in one place, Marka › Ayarlar › Marka bilgileri.
+ */
 class BrandEdit extends Component
 {
     use InteractsWithBrandForm;
@@ -44,7 +50,11 @@ class BrandEdit extends Component
         $this->saving = true;
 
         try {
-            $this->validate($this->brandRules());
+            // Services are not edited here (read-only list), so their rules do not apply.
+            $this->validate(array_diff_key($this->brandRules(), array_flip([
+                'new_service_sector', 'selected_service_catalog_ids', 'selected_service_catalog_ids.*', 'priority_service_catalog_ids',
+                'priority_service_catalog_ids.*', 'new_service_name', 'new_service_is_priority',
+            ])));
 
             $brand = Brand::query()->find($this->brandId);
             abort_if($brand === null, 404);
@@ -64,6 +74,7 @@ class BrandEdit extends Component
                     auth()->user(),
                     customServiceSector: $this->new_service_sector,
                     allowedSectorCodes: $this->selected_sector_codes,
+                    syncServices: false,
                 );
             });
 
@@ -83,6 +94,11 @@ class BrandEdit extends Component
             'pageSubtitle' => __('operator.forms.edit_brand_subtitle'),
             'backUrl' => route('operator.brand', ['brand' => $this->brandId]),
             'primaryAction' => __('operator.forms.save_changes'),
+            'brandId' => $this->brandId,
+            'currentServices' => BrandOffering::query()->with(['primaryName', 'catalogItem.primaryName'])->where('brand_id', (int) $this->brandId)
+                ->where('status', OfferingStatus::Active->value)->get()
+                ->map(fn (BrandOffering $o): array => ['name' => $o->displayName(), 'main' => $o->isMain()])
+                ->sortBy(fn (array $s): string => ($s['main'] ? '0' : '1').$s['name'])->values()->all(),
         ]));
     }
 }

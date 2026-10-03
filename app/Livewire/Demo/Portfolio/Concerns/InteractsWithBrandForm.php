@@ -19,9 +19,10 @@ trait InteractsWithBrandForm
 
     public string $name = '';
 
+    /** The brand's one sector (industry code); the brand model keeps a single sector. */
     public string $sector = '';
 
-    /** @var list<string> */
+    /** @var list<string> derived from (zero or one code), kept for the service picker and older callers */
     public array $selected_sector_codes = [];
 
     public string $service_search = '';
@@ -79,7 +80,8 @@ trait InteractsWithBrandForm
         return [
             'customer_id' => ['required', Rule::in($customerIds)],
             'name' => ['required', 'string', 'min:2', 'max:120'],
-            'selected_sector_codes' => ['array', 'max:100'],
+            'sector' => ['nullable', 'string', Rule::in(array_keys(IndustryOptions::options()))],
+            'selected_sector_codes' => ['array', 'max:1'],
             'selected_sector_codes.*' => ['string', 'distinct', Rule::in(array_keys(IndustryOptions::options()))],
             'new_service_sector' => [Rule::requiredIf(trim($this->new_service_name) !== ''), 'nullable', Rule::in($this->selected_sector_codes)],
             'primary_country' => ['nullable', Rule::in(array_keys(CountryOptions::options()))],
@@ -115,7 +117,7 @@ trait InteractsWithBrandForm
         $this->customer_id = (string) ($brand['customer_id'] ?? '');
         $this->name = (string) ($brand['name'] ?? '');
         $this->sector = (string) ($brand['sector'] ?? $brand['industry'] ?? '');
-        $this->selected_sector_codes = array_values($brand['sector_codes'] ?? array_filter([$this->sector]));
+        $this->selected_sector_codes = array_slice(array_values($brand['sector_codes'] ?? array_filter([$this->sector])), 0, 1);
         $this->updatedSelectedSectorCodes();
         $this->primary_country = (string) ($brand['primary_country'] ?? '');
         $this->target_markets = array_values($brand['target_markets'] ?? []);
@@ -151,8 +153,15 @@ trait InteractsWithBrandForm
         ];
     }
 
+    public function updatedSector(): void
+    {
+        $this->selected_sector_codes = $this->sector !== '' ? [$this->sector] : [];
+        $this->updatedSelectedSectorCodes();
+    }
+
     public function updatedSelectedSectorCodes(): void
     {
+        $this->selected_sector_codes = array_slice(array_values($this->selected_sector_codes), 0, 1);
         $this->sector = $this->selected_sector_codes[0] ?? '';
         if (! in_array($this->new_service_sector, $this->selected_sector_codes, true)) {
             $this->new_service_sector = count($this->selected_sector_codes) === 1 ? $this->sector : '';
@@ -244,8 +253,8 @@ trait InteractsWithBrandForm
             ->values()
             ->all();
         $this->priority_service_catalog_ids = $offerings
-            ->filter(fn ($offering): bool => $offering->status->value === 'active' && $offering->priority_rank !== null && $offering->service_catalog_item_id !== null)
-            ->sortBy('priority_rank')
+            ->filter(fn ($offering): bool => $offering->status->value === 'active' && $offering->isMain() && $offering->service_catalog_item_id !== null)
+            ->sortBy(fn ($offering): int => $offering->priority_rank ?? PHP_INT_MAX)
             ->pluck('service_catalog_item_id')
             ->map(fn ($id): string => (string) $id)
             ->values()

@@ -1,9 +1,9 @@
 {{-- Hesap ekle: unbound accounts of the brand's MCC / Meta Business or matching the brand's name; one click = one new asset. --}}
 @php $suggested = collect($candidates)->where('strong', true); @endphp
-<section id="hesap-ekle" class="{{ $card }}" data-add-account>
-    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-5 py-3 dark:border-gray-800">
+<section id="hesap-ekle" class="rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-add-account>
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
         <div>
-            <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Hesap ekle</h2>
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Hesap ekle</h2>
             <p class="text-xs text-gray-500">Markanın MCC / Meta Business'ında ya da adıyla eşleşen, henüz hiçbir varlığa bağlı olmayan hesaplar. Her hesap ayrı bir varlık olur; verisi birkaç dakika içinde çekilmeye başlar ve marka toplamlarına girer.</p>
         </div>
         @if ($isAdmin && $suggested->count() > 1)
@@ -11,7 +11,7 @@
         @endif
     </div>
     @forelse ($candidates as $candidate)
-        <div wire:key="candidate-{{ $candidate['resource_id'] }}" data-candidate="{{ $candidate['resource_id'] }}" class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-3 last:border-0 dark:border-gray-800">
+        <div wire:key="candidate-{{ $candidate['resource_id'] }}" data-candidate="{{ $candidate['resource_id'] }}" class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 last:border-0 dark:border-gray-800">
             <div class="min-w-0">
                 <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $candidate['name'] }} <span class="font-normal text-gray-500">· {{ $candidate['type_label'] }} · {{ $candidate['external_id'] }}</span></p>
                 <p class="text-xs text-gray-500">
@@ -24,9 +24,9 @@
             @endif
         </div>
     @empty
-        <p class="px-5 py-4 text-sm text-gray-500">Markanın işletmesinde bağlanmamış hesap yok. Hesap görünmüyorsa Google / Meta sayfasından hesapları yeniden listeleyin; Meta'da müşterinin Business'ının seçili olduğundan emin olun.</p>
+        <p class="px-4 py-4 text-sm text-gray-500">Markanın işletmesinde bağlanmamış hesap yok. Hesap görünmüyorsa Google / Meta sayfasından hesapları yeniden listeleyin; Meta'da müşterinin Business'ının seçili olduğundan emin olun.</p>
     @endforelse
     @unless ($isAdmin)
-        <p class="px-5 pb-3 text-xs text-gray-400">Hesap bağlamayı yalnız Admin onaylayabilir.</p>
+        <p class="px-4 pb-3 text-xs text-gray-400">Hesap bağlamayı yalnız Admin onaylayabilir.</p>
     @endunless
 </section>

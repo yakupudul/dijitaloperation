@@ -52,7 +52,7 @@ final class BrandGaps
         $offerings = SiteScope::offerings($brand);
         if ($sites->isEmpty()) {
             $gaps[] = ['key' => 'no_website', 'title' => 'Web sitesi bağlı değil', 'why' => 'Hizmet sayfaları, sorgular ve içerik önerileri siteden okunur; site olmadan ajanlar çalışamaz.',
-                'fix' => null, 'params' => [], 'url' => route('operator.brand', ['brand' => $brand->id, 'tab' => 'assets'])];
+                'fix' => null, 'params' => [], 'url' => route('operator.brand', ['brand' => $brand->id, 'tab' => 'varliklar'])];
         }
         if ($brand->sector_id === null) {
             $gaps[] = ['key' => 'no_sector', 'title' => 'Sektör seçilmemiş', 'why' => 'Sorgu kütüphanesi ve kümeler sektöre göre okunur.', 'fix' => null, 'params' => [],
@@ -71,7 +71,7 @@ final class BrandGaps
                 'fix' => self::FIX_ADD_AREAS, 'params' => ['areas' => array_map(fn (array $a): array => ['city' => $a['city'], 'district' => $a['district']], $found)], 'url' => null];
         } elseif ($brand->serviceAreas()->where('status', 'active')->doesntExist()) {
             $gaps[] = ['key' => 'no_area', 'title' => 'Hizmet bölgesi yok', 'why' => 'Yerel sorgular, rakip ve harita önerileri bölgeye göre yapılır.', 'fix' => null, 'params' => [],
-                'url' => route('operator.brand', ['brand' => $brand->id, 'tab' => 'business'])];
+                'url' => route('operator.brand', ['brand' => $brand->id, 'tab' => 'ayarlar'])];
         }
         $names = $offerings->map(fn (BrandOffering $o): string => $o->displayName())->all();
         foreach ($sites as $site) {

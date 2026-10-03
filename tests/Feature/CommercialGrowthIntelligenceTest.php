@@ -52,9 +52,9 @@ class CommercialGrowthIntelligenceTest extends TestCase
     {
         Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
             ->call('setTab', 'growth')
-            ->assertSet('tab', 'overview')
+            ->assertSet('tab', 'ozet')
             ->call('setTab', 'work')
-            ->assertSet('tab', 'overview')
+            ->assertSet('tab', 'ozet')
             ->assertDontSee('High paid implant demand but weak organic coverage');
     }
 

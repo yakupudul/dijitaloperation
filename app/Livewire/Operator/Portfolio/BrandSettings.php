@@ -5,7 +5,6 @@ namespace App\Livewire\Operator\Portfolio;
 use App\Enums\OfferingStatus;
 use App\Jobs\ExtractBrandServicesJob;
 use App\Models\Brand;
-use App\Models\BrandMemory;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
 use App\Models\BrandServiceCandidate;
@@ -21,6 +20,7 @@ use App\Services\Compliance\ForbiddenTermsLibrary;
 use App\Services\Integrations\BrandAccountCandidates;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
+use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Ownership\OwnershipGuard;
 use App\Services\Ownership\OwnershipTransferService;
 use App\Services\Portfolio\BrandCandidateBuilder;
@@ -37,14 +37,20 @@ use Livewire\Component;
 use Throwable;
 
 /**
- * Marka › Ayarlar: sector (the brand's one sector; assets inherit it), service areas (one list, "fiziksel şube"),
- * services with main / secondary priority and "Sayfalardan hizmet çıkar", manual notes (hedefler, kısıtlar) and the
- * brand's assets (bind / unbind / move through the ownership guard and transfer service).
+ * Marka › Ayarlar › Marka bilgileri (`part` = info): sector (the brand's one sector; assets inherit it), service areas
+ * (one list, "fiziksel şube"), services — the one place they are edited: ★ = ana (`priority = main`), add, remove, the
+ * hub page each is mapped to, "Sayfalardan hizmet çıkar" and its proposals — and the brand's forbidden phrases.
+ * Dijital varlıklar (`part` = assets): the brand's assets with bind / unbind / move through the ownership guard and the
+ * transfer service. Goals and constraints are edited once, in İş bağlamı (BrandShow).
  */
 final class BrandSettings extends Component
 {
     #[Locked]
     public int $brandId;
+
+    /** info = Marka bilgileri, assets = Dijital varlıklar › bağlantılar. */
+    #[Locked]
+    public string $part = 'info';
 
     public string $sectorId = '';
 
@@ -56,9 +62,8 @@ final class BrandSettings extends Component
 
     public bool $areaPhysical = false;
 
-    public string $goals = '';
-
-    public string $constraints = '';
+    /** "Hizmet ekle": a service by name (found in or added to the catalog). */
+    public string $newService = '';
 
     /** Markaya özel yasaklı ifadeler, one per line (only this brand's content). */
     public string $forbidden = '';
@@ -79,14 +84,12 @@ final class BrandSettings extends Component
 
     public string $message = '';
 
-    public function mount(int|string $brandId): void
+    public function mount(int|string $brandId, string $part = 'info'): void
     {
         $brand = Brand::query()->findOrFail((int) $brandId);
         $this->brandId = (int) $brand->id;
+        $this->part = $part === 'assets' ? 'assets' : 'info';
         $this->sectorId = $brand->sector_id !== null ? (string) $brand->sector_id : '';
-        $notes = $this->notesRow()?->data ?? [];
-        $this->goals = (string) ($notes['goals'] ?? '');
-        $this->constraints = (string) ($notes['constraints'] ?? '');
         $this->forbidden = implode("\n", ForbiddenTermsLibrary::brandPhrases($brand));
     }
 
@@ -144,6 +147,32 @@ final class BrandSettings extends Component
         $this->offering($offeringId)->forceFill(['priority' => $priority])->save();
     }
 
+    /** ★ on / off (main ↔ secondary). */
+    public function togglePriority(int $offeringId): void
+    {
+        $this->actor();
+        $offering = $this->offering($offeringId);
+        $offering->forceFill(['priority' => $offering->isMain() ? 'secondary' : 'main'])->save();
+    }
+
+    public function addService(BrandOfferingService $offerings): void
+    {
+        $actor = $this->actor();
+        $this->validate(['newService' => ['required', 'string', 'min:2', 'max:255']], ['newService.required' => 'Hizmet adı gerekli.']);
+        try {
+            $offering = $offerings->resolveOrCreate($this->brand(), trim($this->newService), actor: $actor)['offering'];
+        } catch (ValidationException $exception) {
+            $this->addError('newService', (string) collect($exception->errors())->flatten()->first());
+
+            return;
+        }
+        if ($offering->status !== OfferingStatus::Active) {
+            $offering->forceFill(['status' => OfferingStatus::Active])->save();
+        }
+        $this->newService = '';
+        $this->message = 'Hizmet eklendi: '.$offering->displayName().'.';
+    }
+
     public function removeOffering(int $offeringId, BrandOfferingService $offerings): void
     {
         $offerings->archive($this->offering($offeringId), $this->actor());
@@ -199,15 +228,6 @@ final class BrandSettings extends Component
         $extractor->merge($this->proposal($ids->first()), $ids->slice(1)->values()->all());
         $this->mergePick = [];
         $this->message = $ids->count().' öneri birleştirildi.';
-    }
-
-    public function saveNotes(): void
-    {
-        $this->actor();
-        $this->validate(['goals' => ['nullable', 'string', 'max:4000'], 'constraints' => ['nullable', 'string', 'max:4000']]);
-        $row = $this->notesRow() ?? new BrandMemory(['brand_id' => $this->brandId, 'kind' => 'profile', 'ref_type' => 'manual_notes']);
-        $row->fill(['data' => ['goals' => trim($this->goals), 'constraints' => trim($this->constraints)], 'summary' => null, 'updated_at' => now()])->save();
-        $this->message = 'Notlar kaydedildi.';
     }
 
     public function saveForbidden(ForbiddenTermsLibrary $library): void
@@ -295,13 +315,15 @@ final class BrandSettings extends Component
             $this->proposalPriority[$proposal->id] ??= 'secondary';
         }
         $isAdmin = (bool) auth()->user()?->hasRole(Roles::ADMIN);
+        $offerings = BrandOffering::query()->with(['primaryName', 'catalogItem.primaryName', 'catalogItem.matchingKeywords'])->where('brand_id', $brand->id)
+            ->where('status', OfferingStatus::Active->value)->get()->sortBy(fn (BrandOffering $o): string => ($o->isMain() ? '0' : '1').$o->displayName())->values();
 
         return view('livewire.operator.portfolio.brand-settings', [
             'brand' => $brand,
             'sectors' => ServiceCategory::query()->orderBy('name')->pluck('name', 'id')->all(),
             'areas' => $brand->serviceAreas()->where('status', 'active')->orderBy('priority_rank')->orderBy('id')->get(),
-            'offerings' => BrandOffering::query()->with(['primaryName', 'catalogItem.primaryName'])->where('brand_id', $brand->id)
-                ->where('status', OfferingStatus::Active->value)->get()->sortBy(fn (BrandOffering $o): string => ($o->priority === 'main' ? '0' : '1').$o->displayName())->values(),
+            'offerings' => $offerings,
+            'offeringPages' => BrandWorkspaceReadService::offeringPages($offerings->map(fn (BrandOffering $o): int => (int) $o->id)->all()),
             'proposals' => $proposals,
             'assets' => $assets,
             'bindings' => $bindings,
@@ -330,11 +352,6 @@ final class BrandSettings extends Component
     private function proposal(int $id): BrandServiceCandidate
     {
         return BrandServiceCandidate::query()->where('brand_id', $this->brandId)->findOrFail($id);
-    }
-
-    private function notesRow(): ?BrandMemory
-    {
-        return BrandMemory::query()->where('brand_id', $this->brandId)->where('kind', 'profile')->where('ref_type', 'manual_notes')->first();
     }
 
     private function actor(): User

@@ -9,7 +9,6 @@ use App\Livewire\Operator\Portfolio\BrandSettings;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\AiTask;
 use App\Models\Brand;
-use App\Models\BrandMemory;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
 use App\Models\BrandServiceCandidate;
@@ -181,7 +180,7 @@ final class BrandServicesAndSettingsTest extends TestCase
         $this->assertSame('not_operational', $extractor->extract($this->brand->fresh())['status']);
     }
 
-    public function test_brand_settings_sector_areas_priority_notes(): void
+    public function test_brand_settings_sector_areas_priority_and_services(): void
     {
         $legal = ServiceCategory::query()->firstOrCreate(['code' => 'legal'], ['name' => 'Hukuk', 'normalized_key' => 'hukuk']);
         $offering = BrandOffering::query()->create(['brand_id' => $this->brand->id, 'service_catalog_item_id' => $this->implant->id, 'status' => 'active']);
@@ -191,7 +190,6 @@ final class BrandServicesAndSettingsTest extends TestCase
             ->set('areaName', 'Çankaya şubesi')->set('areaCity', 'Ankara')->set('areaDistrict', 'Çankaya')->set('areaPhysical', true)->call('addArea')
             ->set('areaCity', 'Eskişehir')->call('addArea')
             ->call('setPriority', $offering->id, 'main')
-            ->set('goals', 'Ayda 40 implant randevusu')->set('constraints', 'Fiyat yazılmaz')->call('saveNotes')
             ->assertHasNoErrors();
 
         $this->assertSame($legal->id, $this->brand->fresh()->sector_id);
@@ -200,17 +198,26 @@ final class BrandServicesAndSettingsTest extends TestCase
         $areas = BrandServiceArea::query()->where('brand_id', $this->brand->id)->orderBy('id')->get();
         $this->assertSame(['Çankaya şubesi', 'Eskişehir, Türkiye'], $areas->map->displayName()->all());
         $this->assertSame([true, false], $areas->pluck('physical_branch')->all());
-        $this->assertSame('main', $offering->fresh()->priority);
-        $notes = BrandMemory::query()->where('brand_id', $this->brand->id)->where('kind', 'profile')->firstOrFail();
-        $this->assertSame(['goals' => 'Ayda 40 implant randevusu', 'constraints' => 'Fiyat yazılmaz'], $notes->data);
+        $this->assertSame(['main', true], [$offering->fresh()->priority, (bool) $offering->fresh()->is_priority], '★ = main, mirrored into is_priority');
+        $page->call('togglePriority', $offering->id);
+        $this->assertSame(['secondary', false], [$offering->fresh()->priority, (bool) $offering->fresh()->is_priority]);
+        $page->assertDontSeeHtml('wire:click="saveNotes"')->assertSeeHtml('data-priority="secondary"');
+
+        // "Hizmet ekle": the one place services are added by hand.
+        $page->call('addService')->assertHasErrors('newService')
+            ->set('newService', 'Zirkonyum Kaplama')->call('addService')->assertHasNoErrors()->assertSet('newService', '')->assertSee('Zirkonyum Kaplama');
+        $this->assertTrue(BrandOffering::query()->where('brand_id', $this->brand->id)->where('status', 'active')->get()->contains(fn (BrandOffering $o): bool => $o->displayName() === 'Zirkonyum Kaplama'));
 
         $page->call('togglePhysical', $areas[1]->id)->call('removeArea', $areas[0]->id);
         $this->assertTrue($areas[1]->fresh()->physical_branch);
         $this->assertNull($areas[0]->fresh());
 
-        // Sayfa: Marka › Ayarlar opens the settings; the asset list shows the website.
+        // Sayfa: Marka › Ayarlar opens Marka bilgileri; the bindings live on Dijital varlıklar.
         Livewire::withQueryParams(['tab' => 'ayarlar'])->test(BrandShow::class, ['brand' => (string) $this->brand->id])
-            ->assertSee('Hizmet bölgeleri')->assertSee('Sayfalardan hizmet çıkar')->assertSee('panorama.com.tr');
+            ->assertSee('Hizmet bölgeleri')->assertSee('Sayfalardan hizmet çıkar')->assertSee('panorama.com.tr')->assertSee('İş bağlamı')
+            ->assertSeeHtml('data-brand-settings="info"')->assertDontSeeHtml('data-brand-settings="assets"');
+        Livewire::withQueryParams(['tab' => 'varliklar'])->test(BrandShow::class, ['brand' => (string) $this->brand->id])
+            ->assertSeeHtml('data-brand-settings="assets"')->assertSeeHtml('data-asset-row="'.$this->site->id.'"');
     }
 
     public function test_asset_moves_to_another_brand_keep_one_brand_one_customer(): void

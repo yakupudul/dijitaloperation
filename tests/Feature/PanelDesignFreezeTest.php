@@ -109,15 +109,15 @@ class PanelDesignFreezeTest extends TestCase
     {
         $html = Livewire::withQueryParams(['tab' => 'overview'])->test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])->html();
 
-        foreach (['Özet', 'Kurulum', 'İşletme', 'Dijital varlıklar', 'Dosyalar'] as $tab) {
+        foreach (['Özet', 'Dijital varlıklar', 'Bilgi dosyası', 'Ayarlar'] as $tab) {
             $this->assertMatchesRegularExpression('/role="tab"[^>]*>'.preg_quote($tab, '/').'(<| )/u', $html);
         }
 
         preg_match_all('/role="tab"[^>]*wire:click="setTab\\(\'([^\']+)\'\\)"/', $html, $matches);
         $this->assertSame(
-            ['ozet', 'arama', 'harita', 'google_ads', 'meta', 'dosya', 'ayarlar', 'settings', 'overview', 'business', 'assets', 'files'],
+            ['ozet', 'varliklar', 'dosya', 'ayarlar'],
             $matches[1] ?? [],
-            'Faz 11c: Dosyalar moved from the menu to the brand page'
+            'Brand page: four tabs; files live under Ayarlar'
         );
         $this->assertStringNotContainsString('Domain (legacy)', $html);
         $this->assertStringNotContainsString('Hosting (legacy)', $html);

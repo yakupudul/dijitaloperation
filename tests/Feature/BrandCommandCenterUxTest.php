@@ -73,7 +73,7 @@ class BrandCommandCenterUxTest extends TestCase
 
     public function test_brand_overview_command_center(): void
     {
-        Livewire::withQueryParams(['tab' => 'overview'])->test(BrandShow::class, ['brand' => (string) $this->workBrand->id])
+        Livewire::test(BrandShow::class, ['brand' => (string) $this->workBrand->id])
             ->assertSee('Atlas Dental Ankara')
             ->assertSee('Atlas Health Group')
             ->assertSee('Dijital varlıklar')
@@ -91,16 +91,16 @@ class BrandCommandCenterUxTest extends TestCase
     {
         Livewire::test(BrandShow::class, ['brand' => (string) $this->workBrand->id])
             ->call('setTab', 'assets')
-            ->assertSee('Dijital varlıklar ve bağlı hesaplar')
+            ->assertSee('Bağlantılar')
             ->assertSee('Atlas Dental Website')
             ->assertDontSee('Atlas Dental — Meta')
             ->call('setTab', 'cross_channel')
-            ->assertSet('tab', 'assets')
+            ->assertSet('tab', 'varliklar')
             ->call('setTab', 'context')
             ->assertSee('İş bağlamı')
             ->assertDontSee('Dental implants')
             ->call('setTab', 'operations')
-            ->assertSet('tab', 'overview')
+            ->assertSet('tab', 'ozet')
             ->assertDontSee('Meta CPL deteriorated')
             ->assertDontSee('Replace underperforming Meta creative');
     }
@@ -109,7 +109,7 @@ class BrandCommandCenterUxTest extends TestCase
     {
         Livewire::test(BrandShow::class, ['brand' => (string) $this->workBrand->id])
             ->call('setTab', 'discovery')
-            ->assertSet('tab', 'business')
+            ->assertSet('tab', 'ayarlar')
             ->assertDontSee('Dental Implant')
             ->assertDontSee('Smile Design')
             ->assertDontSee('Çankaya');
@@ -119,7 +119,7 @@ class BrandCommandCenterUxTest extends TestCase
     {
         Livewire::test(BrandShow::class, ['brand' => (string) $this->workBrand->id])
             ->call('setTab', 'ai')
-            ->assertSet('tab', 'overview')
+            ->assertSet('tab', 'ozet')
             ->assertDontSee('Demo Mode')
             ->assertDontSee('Replace underperforming Meta creative');
     }
@@ -150,7 +150,7 @@ class BrandCommandCenterUxTest extends TestCase
     public function test_legacy_research_tab_redirects_to_discovery(): void
     {
         Livewire::test(BrandShow::class, ['brand' => (string) $this->workBrand->id, 'tab' => 'research'])
-            ->assertSet('tab', 'business');
+            ->assertSet('tab', 'ayarlar')->assertSet('sub', 'marka');
     }
 
     public function test_catalog_brand_id_is_not_found(): void

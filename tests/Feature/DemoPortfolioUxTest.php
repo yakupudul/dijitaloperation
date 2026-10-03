@@ -42,7 +42,7 @@ class DemoPortfolioUxTest extends TestCase
             ->assertSee('Nova Dental')
             ->assertSee('Dijital varlıklar')
             ->call('setTab', 'discovery')
-            ->assertSet('tab', 'business')
+            ->assertSet('tab', 'ayarlar')
             ->assertDontSee('Dental Implant')
             ->assertDontSee('atlasdental.example')
             ->assertDontSee('Replace underperforming Meta creative');

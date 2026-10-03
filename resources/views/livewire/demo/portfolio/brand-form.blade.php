@@ -44,10 +44,27 @@
 
         <x-ta.form.section :title="__('brand-form.sectors_services')">
             <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">{{ __('brand-form.sectors_help') }}</p>
-            <x-ta.form.field :label="__('brand-form.sectors')" :error="$errors->first('selected_sector_codes')">
-                <x-ta.form.multi-select id="brand-sectors" wire:model.live="selected_sector_codes" :options="$industryOptions" :placeholder="__('brand-form.choose_sectors')" />
+            <x-ta.form.field :label="__('brand-form.sectors')" :error="$errors->first('sector') ?: $errors->first('selected_sector_codes')">
+                <x-ta.form.select id="brand-sector" wire:model.live="sector" :options="$industryOptions" :placeholder="__('brand-form.choose_sector')" />
             </x-ta.form.field>
 
+            @if ($mode === 'edit')
+                {{-- Services are edited in one place: Marka › Ayarlar › Marka bilgileri. --}}
+                <div class="mt-6 border-t border-gray-100 pt-5 dark:border-gray-800" data-brand-form-services-readonly>
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Hizmetler <span class="ml-1 text-xs font-normal text-gray-500">{{ count($currentServices) }}</span></h2>
+                        <a href="{{ route('operator.brand', ['brand' => $brandId, 'tab' => 'ayarlar']) }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">Düzenle →</a>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">Hizmetler, ★ ana hizmet ve eşleşen sayfalar Marka › Ayarlar › Marka bilgileri'nde düzenlenir.</p>
+                    <ul class="mt-3 flex flex-wrap gap-2">
+                        @forelse ($currentServices as $service)
+                            <li class="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300">@if ($service['main'])<span class="text-amber-500">★</span> @endif{{ $service['name'] }}</li>
+                        @empty
+                            <li class="text-sm text-gray-500">Hizmet yok.</li>
+                        @endforelse
+                    </ul>
+                </div>
+            @else
             <div class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-5 dark:border-gray-800">
                 <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('brand-form.services') }} <span class="ml-2 rounded-full bg-brand-50 px-2 py-1 text-xs text-brand-600 dark:bg-brand-500/10">{{ count($selected_service_catalog_ids) }} {{ __('brand-form.selected') }}</span></h2>
                 <a href="{{ route('operator.library.services') }}" target="_blank" rel="noopener" class="text-sm font-medium text-brand-600">{{ __('brand-form.manage_library') }} ↗</a>
@@ -108,6 +125,7 @@
                 </div>
                 <label class="mt-3 flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300"><input wire:model="new_service_is_priority" type="checkbox" class="rounded border-gray-300 text-brand-500" /> {{ __('brand-form.priority') }}</label>
             </details>
+            @endif
         </x-ta.form.section>
         <x-ta.form.section :title="__('brand-form.areas')">
             @error('service_areas')<p class="mb-3 text-sm text-red-600">{{ $message }}</p>@enderror
