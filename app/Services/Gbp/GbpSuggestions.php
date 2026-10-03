@@ -7,6 +7,7 @@ use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\Analyst\AnalystDecisionStore;
 use App\Services\Suggestions\AssetSuggestions;
+use App\Services\Work\WorkVerifier;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -41,7 +42,8 @@ final class GbpSuggestions extends AssetSuggestions
         if ($asset->brand_id === null || $resource === null || DB::table('gbp_location_snapshots')->where('external_resource_id', $resource->id)->doesntExist()) {
             return 0;
         }
-        $failing = collect($this->standards->results($asset, (int) $resource->id))
+        $results = collect($this->standards->results($asset, (int) $resource->id));
+        $failing = $results
             ->filter(fn (array $r): bool => in_array($r['state'], ['fail', 'review'], true))
             ->sortBy(fn (array $r): string => ($r['state'] === 'fail' ? '0' : '1').(self::SEVERITY_PRIORITY[$r['severity']] ?? 3).$r['id'])
             ->take(self::MAX_STANDARDS);
@@ -55,7 +57,12 @@ final class GbpSuggestions extends AssetSuggestions
             'action' => ['standard_id' => $r['id'], 'todo' => (string) ($r['solution'] ?? '')],
         ])->values()->all();
 
-        return $this->replaceGroup($asset, 'standard', $items);
+        $stored = $this->replaceGroup($asset, 'standard', $items);
+        app(WorkVerifier::class)->checks($asset, self::CHANNEL, 'gbp_standard',
+            $results->where('state', 'pass')->pluck('id')->map(fn ($id): string => (string) $id)->values()->all(),
+            $results->where('state', 'fail')->pluck('id')->map(fn ($id): string => (string) $id)->values()->all());
+
+        return $stored;
     }
 
     /**

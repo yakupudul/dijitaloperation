@@ -2994,3 +2994,33 @@ pushes the branch and writes commit + deploy commands; "Deploy bekliyor" shows t
 tamamlandı** (also detected when the live release SHA equals the commit); Claude then checks (`step=verified|failed`).
 Admins get a notification when a deploy is ready or a check fails. Claude never deploys.
 Verification: `Operations/ImprovementPoolTest`. Not deployed; not DONE.
+
+### Genel işler and phone notifications (yakup, 2026-10-03)
+
+**Genel işler** (`/work`, `operator.work`, sidebar entry after Bugün; Panel stays as it is) lists every operational
+brand's open work in six tabs: Web site SEO içerikler (channel `search` except the technical types; content titles show
+their line stage: başlık onayı → yazılıyor → okunacak → siteye gönderildi), Teknik SEO (`title_description`,
+`internal_links`, `technical_seo`, `conversion`, `image_alt`), Teknik sağlık (active website asset alerts), Google Ads,
+Meta Ads and Google İşletme (their suggestions + active asset alerts). Freshness-only alerts are left out. Rows are
+ordered by urgency (alert severity / suggestion priority), with a brand filter and an urgent / total count on each tab.
+`WorkDesk` reads the existing `suggestions` and `asset_alerts` and acts through the same services as the asset
+screens: Onayla (website suggestions via `SiteSuggestions`, Google Ads via `GoogleAdsSuggestions`), Yaptım
+(`AnalystDecisionStore::markDone`, outcome baseline), Geri al, Reddet, 7 gün ertele. Writes to a site or Business
+Profile still happen on the asset screen ("Aç"). "Yapıldı (30 gün)" lists applied work with the system's check.
+- **Yaptım + automatic detection (both, yakup's choice):** new `suggestions.verification` / `verified_at`. "Yaptım" on a
+  system-check item (`ads_check`, `meta_check`, `gbp_standard`) waits as `pending`. The next run of that check
+  (`WorkVerifier`, called from `GoogleAdsSuggestions::syncChecks`, `MetaChecks::sync` and
+  `GbpSuggestions::syncStandards`) marks it `confirmed` when the check passes, or `still_seen` when it still fails on
+  data pulled at least 12 hours after the click. An open check item whose check now passes is applied by the system
+  (`auto`, "Sistem kendisi fark etti"). Checks without data change nothing. AI suggestions are closed only by "Yaptım".
+- **Phone notifications (Web Push):** "Telefona bildirim aç" on Genel işler registers `public/sw.js`, subscribes with the
+  VAPID key and stores the device (`push_subscriptions`). The key pair is created once in `web_push_keys`, with the
+  private key encrypted. `PushNotifier` gains the `browser` channel. It sends an empty VAPID-signed push (no payload,
+  so no message encryption library is needed), and the service worker reads the text from `/push/latest`. Only high /
+  critical work alerts go to phones: site down, ad account blocked or budget out, conversions stopped, ads
+  disapproved, bad unanswered review, account access lost, and the operator's own reminders. Software error,
+  watchdog, backup and new-account messages stay on ntfy / Telegram. 404 / 410 from the push service removes the
+  device. "Dene" sends a test push. iPhone needs the page added to the home screen first (`manifest.webmanifest`).
+Verification: `Work/WorkDeskTest` (tabs, Yaptım → confirmed / still seen / auto, approve rules, snooze, subscribe, VAPID
+JWT verified with the public key, system alerts not pushed, expired device removed). Not deployed; real-phone delivery
+not tested yet; not DONE.

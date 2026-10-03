@@ -1925,3 +1925,8 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   ve deploy komutlarını havuza yazar. Deploy'u yakup yapar ve "Deploy tamamlandı" der; Claude canlıda kontrol edip kapatır.
   Deploy komutlarında `deploy.sh` sonrası her artisan komutu `sudo -u www-data php artisan …` olarak yazılır; root
   olarak çalışan komutlar storage/ dosyalarını root'a bırakıp tüm sayfaları 500'e düşürdü (2026-10-03).
+- **Genel işler (yakup, 2026-10-03):** sol menüde ayrı giriş (Panel yerinde kalır); altı sekme (SEO içerik, teknik SEO,
+  teknik sağlık, Google Ads, Meta Ads, Google İşletme) mevcut öneri ve uyarıları tek yerde toplar. Ads / Meta / GBP
+  işlerinde ikisi birden: operatör "Yaptım" der ve sistem bir sonraki çekimde kontrol eder; sistem kontrolü kendiliğinden
+  geçerse iş "Sistem kendisi fark etti" diye kapanır. Telefona bildirim Web Push ile; yalnız çok önemli iş uyarıları
+  (site kapandı, reklam hesabı durdu, kötü yorum vb.) gider, yazılım hataları gitmez.

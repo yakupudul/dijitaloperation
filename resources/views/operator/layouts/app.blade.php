@@ -5,6 +5,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    {{-- Genel işler: installable on the phone home screen (iPhone needs it for notifications). --}}
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#465fff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="/images/app/icon-192.png">
 
     <title>{{ $title ?? __('operator.product.operator') }} | {{ $operatorBranding['portal_name'] ?? 'MoxDOP' }}</title>
     @if (! empty($operatorBranding['favicon_url']))

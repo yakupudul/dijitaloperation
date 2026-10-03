@@ -1,0 +1,340 @@
+<?php
+
+namespace App\Services\Work;
+
+use App\Models\AssetAlert;
+use App\Models\DigitalAsset;
+use App\Models\Page;
+use App\Models\Suggestion;
+use App\Models\User;
+use App\Services\Analyst\AnalystDecisionStore;
+use App\Services\DataStatus\DataStatusReader;
+use App\Services\GoogleAds\GoogleAdsSuggestions;
+use App\Services\Operator\OperatorPortfolioPresenter;
+use App\Services\Site\ClusterOverlaps;
+use App\Services\Site\ImageAlts;
+use App\Services\Site\SiteSuggestions;
+use App\Services\Site\SiteSuggestionTypes;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
+
+/**
+ * Genel işler (yakup, 2026-10-03): every brand's open work in one place, split into six tabs. It reads what MoxDOP
+ * already produces — the ONE `suggestions` table (search · maps · google_ads · meta) and the open asset alerts — and
+ * writes nothing new to any site or account: Onayla / Yaptım / Reddet / Ertele use the same services as the asset
+ * screens; writes to a site or Business Profile still happen on the asset screen after approval.
+ *
+ * Row shape: kind (suggestion | alert), id, rank (0 = most urgent), brand, asset, url, title, reason, who, stage,
+ * verification, actions.
+ */
+final class WorkDesk
+{
+    public const array TABS = [
+        'icerik' => 'Web site SEO içerikler',
+        'teknik' => 'Teknik SEO',
+        'saglik' => 'Teknik sağlık',
+        'ads' => 'Google Ads',
+        'meta' => 'Meta Ads',
+        'isletme' => 'Google İşletme',
+    ];
+
+    public const string VIEW_OPEN = 'acik';
+
+    public const string VIEW_DONE = 'yapildi';
+
+    /** Website suggestion types that change a page's fields or markup (the rest of channel `search` is content). */
+    public const array TECHNICAL_TYPES = ['title_description', 'internal_links', 'technical_seo', 'conversion', ImageAlts::TYPE];
+
+    public const array SEVERITY_RANK = ['critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3, 'info' => 4];
+
+    /** How many rows a tab lists (most urgent first). */
+    public const int LIMIT = 300;
+
+    /** Applied items stay under "Yapıldı" this long. */
+    public const int DONE_DAYS = 30;
+
+    private const array TAB_CHANNEL = ['icerik' => 'search', 'teknik' => 'search', 'ads' => 'google_ads', 'meta' => 'meta', 'isletme' => 'maps'];
+
+    private const array TAB_ALERT_TYPES = [
+        'saglik' => ['website'],
+        'ads' => ['google_ads'],
+        'meta' => ['meta_ads'],
+        'isletme' => ['google_business_profile', 'gbp'],
+    ];
+
+    public function __construct(
+        private readonly AnalystDecisionStore $decisions,
+        private readonly SiteSuggestions $siteSuggestions,
+    ) {}
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function rows(string $tab, string $view = self::VIEW_OPEN, ?int $brandId = null): Collection
+    {
+        $tab = isset(self::TABS[$tab]) ? $tab : 'icerik';
+        $rows = collect();
+        if (isset(self::TAB_CHANNEL[$tab])) {
+            $suggestions = $this->suggestionQuery($tab, $view, $brandId)
+                ->with('brand:id,name')
+                ->orderBy($view === self::VIEW_DONE ? 'applied_at' : 'priority', $view === self::VIEW_DONE ? 'desc' : 'asc')
+                ->orderByDesc('id')->limit(self::LIMIT)->get();
+            $assets = $this->assetsFor($suggestions);
+            $rows = $suggestions->map(fn (Suggestion $s): array => $this->suggestionRow($s, $assets));
+        }
+        if ($view === self::VIEW_OPEN && isset(self::TAB_ALERT_TYPES[$tab])) {
+            $alerts = $this->alertQuery($tab, $brandId)->with(['brand:id,name', 'digitalAsset'])->limit(self::LIMIT)->get();
+            $rows = $alerts->map(fn (AssetAlert $a): array => $this->alertRow($a))->concat($rows);
+        }
+
+        return $view === self::VIEW_DONE ? $rows->values()
+            : $rows->sortBy([['rank', 'asc'], ['seen', 'desc']])->take(self::LIMIT)->values();
+    }
+
+    /** @return array<string, int> open items per tab */
+    public function counts(?int $brandId = null): array
+    {
+        $counts = [];
+        foreach (array_keys(self::TABS) as $tab) {
+            $count = isset(self::TAB_CHANNEL[$tab]) ? $this->suggestionQuery($tab, self::VIEW_OPEN, $brandId)->count() : 0;
+            $counts[$tab] = $count + (isset(self::TAB_ALERT_TYPES[$tab]) ? $this->alertQuery($tab, $brandId)->count() : 0);
+        }
+
+        return $counts;
+    }
+
+    /** @return array<string, int> urgent (critical / high or priority 1) open items per tab */
+    public function urgent(?int $brandId = null): array
+    {
+        $urgent = [];
+        foreach (array_keys(self::TABS) as $tab) {
+            $count = isset(self::TAB_CHANNEL[$tab]) ? $this->suggestionQuery($tab, self::VIEW_OPEN, $brandId)->where('priority', '<=', 1)->count() : 0;
+            $urgent[$tab] = $count + (isset(self::TAB_ALERT_TYPES[$tab]) ? $this->alertQuery($tab, $brandId)->whereIn('severity', ['critical', 'high'])->count() : 0);
+        }
+
+        return $urgent;
+    }
+
+    /** Onayla: a website suggestion goes to its approved queue (titles are then written, changes applied on the site screen). */
+    public function approve(int $id, User $user): string
+    {
+        $suggestion = $this->suggestion($id);
+        if ($suggestion->channel === 'search') {
+            $this->siteSuggestions->approve($suggestion, $user);
+
+            return $suggestion->action_type === SiteSuggestionTypes::CONTENT ? 'Başlık onaylandı; yazı kuyruğa girer.' : 'Onaylandı; sitede "AI ile yap" ile uygulanır.';
+        }
+        if ($suggestion->channel === 'google_ads') {
+            app(GoogleAdsSuggestions::class)->approve($suggestion, $user);
+
+            return 'Onaylandı.';
+        }
+        throw ValidationException::withMessages(['work' => 'Bu iş elle yapılır: yaptıktan sonra "Yaptım" deyin.']);
+    }
+
+    /**
+     * Yaptım: the operator did it (on Google, Meta or the site). A system-check item waits for the next pull to confirm
+     * it; other items are applied with the outcome baseline.
+     */
+    public function done(int $id, User $user, ?string $note = null): string
+    {
+        $suggestion = $this->suggestion($id);
+        if (! in_array($suggestion->status, [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED, Suggestion::APPROVED], true)) {
+            throw ValidationException::withMessages(['work' => 'Bu iş zaten kapandı.']);
+        }
+        $this->decisions->markDone($suggestion, $user, $note);
+        $checked = isset(WorkVerifier::CHECK_TYPES[(string) $suggestion->action_type]);
+        $suggestion->forceFill(['verification' => $checked ? Suggestion::VERIFY_PENDING : null, 'verified_at' => null])->save();
+
+        return $checked ? 'Yapıldı olarak işaretlendi; sistem bir sonraki veri çekiminde kontrol edecek.' : 'Yapıldı olarak işaretlendi.';
+    }
+
+    /** Geri al: a "Yaptım" by mistake goes back to the open list. */
+    public function reopen(int $id): void
+    {
+        $suggestion = $this->suggestion($id);
+        if ($suggestion->status !== Suggestion::APPLIED) {
+            throw ValidationException::withMessages(['work' => 'Yalnız yapıldı olarak işaretlenen iş geri alınır.']);
+        }
+        $suggestion->forceFill(['status' => Suggestion::OPEN, 'applied_at' => null, 'resolved_at' => null, 'resolved_by' => null,
+            'verification' => null, 'verified_at' => null, 'baseline' => null, 'outcome' => null, 'measured_at' => null])->save();
+    }
+
+    public function dismiss(int $id, User $user, ?string $reason = null): void
+    {
+        $suggestion = $this->suggestion($id);
+        if ($suggestion->channel === 'search') {
+            $this->siteSuggestions->dismiss($suggestion, $user, filled($reason) ? (string) $reason : 'Genel işlerden reddedildi');
+
+            return;
+        }
+        if (in_array($suggestion->status, [Suggestion::APPLIED, Suggestion::DISMISSED], true)) {
+            throw ValidationException::withMessages(['work' => 'Bu iş zaten kapandı.']);
+        }
+        $this->decisions->dismiss($suggestion, $user, $reason);
+    }
+
+    public function snooze(string $kind, int $id, int $days, User $user): void
+    {
+        if ($kind === 'alert') {
+            AssetAlert::query()->open()->whereKey($id)->firstOrFail()->forceFill(['snoozed_until' => now()->addDays($days), 'snoozed_by' => $user->id])->save();
+
+            return;
+        }
+        $this->decisions->snooze($this->suggestion($id), $days);
+    }
+
+    /** @return Builder<Suggestion> */
+    private function suggestionQuery(string $tab, string $view, ?int $brandId): Builder
+    {
+        $query = Suggestion::query()->where('channel', self::TAB_CHANNEL[$tab])
+            ->whereHas('brand', fn (Builder $brand): Builder => $brand->operational())
+            ->when($brandId !== null, fn (Builder $q): Builder => $q->where('brand_id', $brandId));
+        if ($tab === 'teknik') {
+            $query->whereIn('action_type', self::TECHNICAL_TYPES);
+        } elseif ($tab === 'icerik') {
+            $query->where(fn (Builder $q): Builder => $q->whereNull('action_type')->orWhereNotIn('action_type', self::TECHNICAL_TYPES));
+        }
+        if ($view === self::VIEW_DONE) {
+            return $query->where('status', Suggestion::APPLIED)->where('applied_at', '>=', now()->subDays(self::DONE_DAYS));
+        }
+
+        return $query->where(fn (Builder $q): Builder => $q->where('status', Suggestion::APPROVED)
+            ->orWhere(fn (Builder $open): Builder => $open->actionable()));
+    }
+
+    /** @return Builder<AssetAlert> */
+    private function alertQuery(string $tab, ?int $brandId): Builder
+    {
+        return AssetAlert::query()->active()->whereNotIn('kind', DataStatusReader::FRESHNESS_ALERT_KINDS)
+            ->whereHas('digitalAsset', fn (Builder $asset): Builder => $asset->operational()->whereIn('type', self::TAB_ALERT_TYPES[$tab]))
+            ->when($brandId !== null, fn (Builder $q): Builder => $q->where('brand_id', $brandId))
+            ->orderByDesc('last_detected_at');
+    }
+
+    /**
+     * Assets the suggestions point at: a page → its website, a site / account target → that asset.
+     *
+     * @param  Collection<int, Suggestion>  $suggestions
+     * @return array{assets: Collection<int, DigitalAsset>, pages: array<int, int>}
+     */
+    private function assetsFor(Collection $suggestions): array
+    {
+        $pageIds = $suggestions->where('target_type', 'page')->pluck('target_id')->merge($suggestions->pluck('page_id'))->filter()->unique()->values();
+        $pages = $pageIds->isEmpty() ? [] : Page::query()->whereIn('id', $pageIds)->pluck('website_asset_id', 'id')->map(fn ($id): int => (int) $id)->all();
+        $assetIds = $suggestions->reject(fn (Suggestion $s): bool => in_array($s->target_type, ['page', 'brand', null], true))->pluck('target_id')
+            ->merge(array_values($pages))->merge($suggestions->map(fn (Suggestion $s): int => (int) (((array) $s->action)['site_id'] ?? 0)))
+            ->filter()->unique()->values();
+
+        return ['assets' => DigitalAsset::query()->whereIn('id', $assetIds->all() ?: [0])->get()->keyBy('id'), 'pages' => $pages];
+    }
+
+    /**
+     * @param  array{assets: Collection<int, DigitalAsset>, pages: array<int, int>}  $assets
+     * @return array<string, mixed>
+     */
+    private function suggestionRow(Suggestion $s, array $assets): array
+    {
+        $action = (array) $s->action;
+        $assetId = match (true) {
+            $s->target_type === 'page' => $assets['pages'][(int) $s->target_id] ?? null,
+            $s->page_id !== null && isset($assets['pages'][(int) $s->page_id]) => $assets['pages'][(int) $s->page_id],
+            ! in_array($s->target_type, ['brand', null], true) => (int) $s->target_id,
+            default => (int) ($action['site_id'] ?? 0) ?: null,
+        };
+        $asset = $assetId !== null ? $assets['assets']->get($assetId) : null;
+        $type = (string) $s->action_type;
+        $url = $asset !== null ? OperatorPortfolioPresenter::specialistUrl($asset) : ($s->brand_id ? route('operator.brand', ['brand' => $s->brand_id]) : null);
+        if ($asset !== null && $asset->type === 'website') {
+            $url = route('operator.website', ['assetId' => $asset->id, 'tab' => $s->action_type === SiteSuggestionTypes::CONTENT ? 'icerik' : 'yapilacaklar']);
+        }
+        [$who, $canApprove] = $this->who($s);
+
+        return [
+            'kind' => 'suggestion', 'id' => (int) $s->id, 'rank' => max(0, (int) $s->priority), 'seen' => (string) ($s->last_seen_at ?? $s->created_at),
+            'brand' => $s->brand?->name, 'brand_id' => $s->brand_id, 'asset' => $asset?->name, 'url' => $url,
+            'title' => (string) $s->title, 'reason' => (string) $s->reason, 'type' => $this->typeLabel($s),
+            'who' => $who, 'stage' => $this->stage($s), 'status' => (string) $s->status,
+            'verification' => $s->verification, 'verified_at' => $s->verified_at, 'applied_at' => $s->applied_at,
+            'can_approve' => $canApprove && in_array($s->status, [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED], true),
+            'can_done' => in_array($s->status, [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED, Suggestion::APPROVED], true)
+                && ! ($s->channel === 'search' && $type === SiteSuggestionTypes::CONTENT),
+            'can_reopen' => $s->status === Suggestion::APPLIED && $s->verification !== Suggestion::VERIFY_AUTO,
+            'checked' => isset(WorkVerifier::CHECK_TYPES[$type]),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function alertRow(AssetAlert $a): array
+    {
+        $asset = $a->digitalAsset;
+
+        return [
+            'kind' => 'alert', 'id' => (int) $a->id, 'rank' => self::SEVERITY_RANK[(string) $a->severity] ?? 3, 'seen' => (string) $a->last_detected_at,
+            'severity' => (string) $a->severity,
+            'brand' => $a->brand?->name, 'brand_id' => $a->brand_id, 'asset' => $asset?->name,
+            'url' => $asset !== null ? OperatorPortfolioPresenter::specialistUrl($asset) : null,
+            'title' => (string) $a->title, 'reason' => (string) $a->message, 'type' => 'Uyarı',
+            'who' => $a->kind === 'bad_review_unanswered' ? 'Yanıt taslağı · onayla gönder' : 'Elle · durum düzelince kendisi kapanır',
+            'stage' => null, 'status' => 'open', 'verification' => null, 'verified_at' => null, 'applied_at' => null,
+            'can_approve' => false, 'can_done' => false, 'can_reopen' => false, 'checked' => true,
+        ];
+    }
+
+    /** @return array{0: string, 1: bool} who does it, and whether "Onayla" applies here */
+    private function who(Suggestion $s): array
+    {
+        $type = (string) $s->action_type;
+
+        return match ($s->channel) {
+            'search' => match (true) {
+                $type === SiteSuggestionTypes::CONTENT => ['Başlık onayı · Claude yazar · taslak siteye', true],
+                $type === ImageAlts::TYPE || SiteSuggestionTypes::applicable($type) => ['Onayla · sistem siteye yazar', true],
+                default => ['Onayla · sitede elle', true],
+            },
+            'google_ads' => match (true) {
+                GoogleAdsSuggestions::isSharedNegative($s) => ['Onayla · sistem ortak negatif listeye ekler', true],
+                in_array($type, GoogleAdsSuggestions::EDITOR_TYPES, true) => ['Onayla · Editor dosyası · elle', true],
+                default => ['Elle · Yaptım de', false],
+            },
+            default => ['Elle · Yaptım de', false],
+        };
+    }
+
+    private function typeLabel(Suggestion $s): string
+    {
+        $type = (string) $s->action_type;
+
+        return match (true) {
+            $s->channel === 'search' => match ($type) {
+                ClusterOverlaps::TYPE, ImageAlts::TYPE, SiteSuggestionTypes::CONTENT, SiteSuggestionTypes::COMPETITOR => SiteSuggestionTypes::label($type),
+                default => SiteSuggestionTypes::ANALYSIS[$type] ?? 'öneri',
+            },
+            isset(WorkVerifier::CHECK_TYPES[$type]) => 'sistem kontrolü',
+            default => 'öneri',
+        };
+    }
+
+    /** Content line stage: title approval → writing → read → WordPress draft. */
+    private function stage(Suggestion $s): ?string
+    {
+        if ($s->action_type !== SiteSuggestionTypes::CONTENT) {
+            return $s->status === Suggestion::APPROVED ? 'Onaylandı · uygulanacak' : null;
+        }
+        $action = (array) $s->action;
+
+        return match (true) {
+            $s->status === Suggestion::APPLIED => 'Siteye gönderildi',
+            isset($action['article_blocked']) => 'Yazı sektör kuralına takıldı',
+            isset($action['article']) => 'Yazı hazır · okunacak',
+            $s->status === Suggestion::APPROVED => 'Başlık onaylı · yazılıyor',
+            default => 'Başlık onayı bekliyor',
+        };
+    }
+
+    private function suggestion(int $id): Suggestion
+    {
+        return Suggestion::query()->whereKey($id)->whereHas('brand', fn (Builder $brand): Builder => $brand->operational())->firstOrFail();
+    }
+}

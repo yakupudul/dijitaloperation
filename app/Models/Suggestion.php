@@ -30,6 +30,17 @@ class Suggestion extends Model
 
     public const array CHANNELS = ['search', 'maps', 'google_ads', 'meta'];
 
+    /** After "Yaptım": the next data pull confirms the change (Genel işler). */
+    public const string VERIFY_PENDING = 'pending';
+
+    public const string VERIFY_CONFIRMED = 'confirmed';
+
+    /** The data pulled after the change still shows the problem. */
+    public const string VERIFY_STILL_SEEN = 'still_seen';
+
+    /** The system check passed by itself: the change was noticed without a click. */
+    public const string VERIFY_AUTO = 'auto';
+
     public const array CHANNEL_LABELS = ['search' => 'Arama', 'maps' => 'Harita', 'google_ads' => 'Google Ads', 'meta' => 'Meta'];
 
     protected $guarded = ['id'];
@@ -43,6 +54,7 @@ class Suggestion extends Model
             'snoozed_until' => 'immutable_datetime', 'resolved_at' => 'immutable_datetime',
             'applied_at' => 'immutable_datetime', 'measured_at' => 'immutable_datetime',
             'first_seen_at' => 'immutable_datetime', 'last_seen_at' => 'immutable_datetime',
+            'verified_at' => 'immutable_datetime',
         ];
     }
 

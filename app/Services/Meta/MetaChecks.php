@@ -6,6 +6,7 @@ use App\Models\BrandServiceArea;
 use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Services\SeoTasks\SeoText;
+use App\Services\Work\WorkVerifier;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 
@@ -81,6 +82,9 @@ final class MetaChecks
             }
         }
         $this->suggestions->replaceGroup($asset, 'check', $items);
+        app(WorkVerifier::class)->checks($asset, MetaSuggestions::CHANNEL, 'meta_check',
+            array_values(array_map(fn (array $c): string => $c['id'], array_filter($states, fn (array $c): bool => $c['state'] === 'ok'))),
+            array_values(array_map(fn (array $c): string => $c['id'], array_filter($states, fn (array $c): bool => $c['state'] === 'issue'))));
         Cache::put(self::stateKey((int) $asset->id), ['at' => now()->toIso8601String(), 'checks' => $states], now()->addDays(3));
 
         return $states;

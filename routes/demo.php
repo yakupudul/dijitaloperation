@@ -52,6 +52,7 @@ use App\Livewire\Operator\Settings\SystemHealthPage;
 use App\Livewire\Operator\Settings\UsersPage;
 use App\Livewire\Operator\Website\V2\WebsiteScreen;
 use App\Livewire\Operator\Website\WebsitesIndex;
+use App\Livewire\Operator\Work\WorkPage;
 use App\Support\Ai\AiProviderCatalog;
 use Illuminate\Support\Facades\Route;
 
@@ -142,6 +143,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/ai-operations', AiOperationsPage::class)->name('operator.settings.ai-operations');
         Route::livewire('/settings/users', UsersPage::class)->name('operator.settings.users');
         Route::livewire('/settings/improvements', ImprovementsPage::class)->name('operator.settings.improvements');
+        Route::livewire('/work', WorkPage::class)->name('operator.work');
         Route::livewire('/settings/sector-packs', SectorPacksPage::class)->name('operator.settings.sector-packs');
         Route::livewire('/data-center', DataCenterPage::class)->name('operator.data-center');
         Route::livewire('/integrations/wordpress-sites', WordPressSitesPage::class)->name('operator.integrations.wordpress-sites');

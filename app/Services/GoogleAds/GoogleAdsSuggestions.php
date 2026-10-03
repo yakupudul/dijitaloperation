@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Outcomes\OutcomeTracker;
 use App\Services\Suggestions\AssetSuggestions;
+use App\Services\Work\WorkVerifier;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
@@ -49,7 +50,12 @@ final class GoogleAdsSuggestions extends AssetSuggestions
                 'evidence' => $check['evidence'], 'action_type' => 'ads_check', 'action' => ['check' => $check['id'], 'todo' => $check['todo']]];
         }
 
-        return $this->replaceGroup($asset, 'check', $items);
+        $stored = $this->replaceGroup($asset, 'check', $items);
+        app(WorkVerifier::class)->checks($asset, $this->channel(), 'ads_check',
+            array_values(array_map(fn (array $c): string => (string) $c['id'], array_filter($results, fn (array $c): bool => $c['state'] === 'pass'))),
+            array_values(array_map(fn (array $c): string => (string) $c['id'], array_filter($results, fn (array $c): bool => $c['state'] === 'fail'))));
+
+        return $stored;
     }
 
     /** @return array{at: string, items: list<array{id: string, label: string, state: string, reason: string}>}|null */

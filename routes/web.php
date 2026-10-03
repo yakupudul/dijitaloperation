@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\OperatorTwoFactorChallengeController;
 use App\Http\Controllers\Integrations\GoogleOAuthController;
 use App\Http\Controllers\Integrations\MetaOAuthController;
 use App\Http\Controllers\LegacyRetiredPrefixController;
+use App\Http\Controllers\Operator\PushController;
 use App\Http\Controllers\Operator\WebsiteHtmlSnapshotController;
 use App\Http\Controllers\Ops\OpsHealthController;
 use App\Http\Middleware\EnsureDemoAppAccess;
@@ -33,6 +34,13 @@ Route::post('/logout', [OperatorLoginController::class, 'destroy'])
 
 Route::get('/up/liveness', [OpsHealthController::class, 'liveness'])->name('ops.liveness');
 Route::get('/up/readiness', [OpsHealthController::class, 'readiness'])->name('ops.readiness');
+Route::middleware(['web', 'auth'])->prefix('push')->name('push.')->group(function (): void {
+    Route::get('/key', [PushController::class, 'key'])->name('key');
+    Route::post('/subscribe', [PushController::class, 'subscribe'])->middleware('throttle:20,1')->name('subscribe');
+    Route::post('/unsubscribe', [PushController::class, 'unsubscribe'])->name('unsubscribe');
+    Route::get('/latest', [PushController::class, 'latest'])->name('latest');
+    Route::post('/test', [PushController::class, 'test'])->middleware('throttle:5,1')->name('test');
+});
 Route::middleware(['web', 'auth'])->group(function (): void {
     Route::get('/integrations/google/callback', [GoogleOAuthController::class, 'callback'])
         ->name('integrations.google.callback');
