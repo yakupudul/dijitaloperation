@@ -38,7 +38,7 @@ final class GbpStandardsTest extends TestCase
 
         $catalog = new WebsiteStandardCatalog;
         $gbp = $catalog->forAssetType('google_business_profile');
-        $this->assertCount(11, $gbp);
+        $this->assertCount(16, $gbp);
         foreach ($catalog->definitions() as $id => $standard) {
             $this->assertArrayHasKey($standard['group'], WebsiteStandardCatalog::GROUPS, $id);
             $this->assertContains($standard['severity'], ['low', 'medium', 'high'], $id);
@@ -118,6 +118,7 @@ final class GbpStandardsTest extends TestCase
             'attributes review' => ['attributes_set', ['attributes' => ['available' => true, 'set' => [], 'unset' => ['Tekerlekli sandalye']]], 'review'],
             'attributes unknown' => ['attributes_set', ['attributes' => ['available' => false, 'set' => [], 'unset' => []]], 'unknown'],
             'description pass' => ['description', ['location' => ['description' => str_repeat('Diş sağlığı hakkında bilgi. ', 10)]], 'pass'],
+            'description review short' => ['description', ['location' => ['description' => 'Ankara’da diş kliniği.']], 'review'],
             'description fail empty' => ['description', ['location' => ['description' => '']], 'fail'],
             'description fail long' => ['description', ['location' => ['description' => str_repeat('a', 760)]], 'fail'],
             'description fail url' => ['description', ['location' => ['description' => 'Randevu için www.atlas.com.tr adresine gidin.']], 'fail'],
@@ -147,6 +148,21 @@ final class GbpStandardsTest extends TestCase
             'responses review slow' => ['review_responses', ['reviews' => self::reviews(['reply' => ['considered' => 10, 'replied' => 10, 'median_hours' => 120.0]])], 'review'],
             'responses n/a' => ['review_responses', ['reviews' => self::reviews(['reply' => ['considered' => 0, 'replied' => 0, 'median_hours' => null]])], 'not_applicable'],
             'responses unknown' => ['review_responses', ['reviews' => ['available' => false]], 'unknown'],
+            'verified pass' => ['verified', ['verification' => ['verified' => true]], 'pass'],
+            'verified fail' => ['verified', ['verification' => ['verified' => false]], 'fail'],
+            'verified unknown' => ['verified', ['verification' => ['verified' => null]], 'unknown'],
+            'extra categories pass' => ['additional_categories', ['location' => ['additional_categories' => ['Ortodontist', 'Ağız ve diş cerrahı']]], 'pass'],
+            'extra categories review' => ['additional_categories', ['location' => ['additional_categories' => []]], 'review'],
+            'contact pass' => ['contact', ['location' => ['website_uri' => 'https://atlas.com.tr/', 'phone' => '0312 444 55 66']], 'pass'],
+            'contact fail' => ['contact', ['location' => ['website_uri' => '', 'phone' => '0312 444 55 66']], 'fail'],
+            'contact review nationwide' => ['contact', ['location' => ['website_uri' => 'https://atlas.com.tr/', 'phone' => '+90 850 123 45 67']], 'review'],
+            'contact review 444' => ['contact', ['location' => ['website_uri' => 'https://atlas.com.tr/', 'phone' => '444 1 234']], 'review'],
+            'photo set pass' => ['photo_set', ['media' => ['available' => true, 'last_photo' => '2026-09-01', 'photo_count' => 14, 'has_logo' => true, 'has_cover' => true]], 'pass'],
+            'photo set review' => ['photo_set', ['media' => ['available' => true, 'last_photo' => '2026-09-01', 'photo_count' => 4, 'has_logo' => false, 'has_cover' => true]], 'review'],
+            'photo set unknown' => ['photo_set', ['media' => ['available' => false, 'last_photo' => null]], 'unknown'],
+            'service area n/a storefront' => ['service_area', ['location' => ['has_storefront' => true]], 'not_applicable'],
+            'service area pass' => ['service_area', ['location' => ['has_storefront' => false, 'service_area_count' => 3]], 'pass'],
+            'service area fail' => ['service_area', ['location' => ['has_storefront' => false, 'service_area_count' => 0]], 'fail'],
         ];
     }
 
@@ -173,7 +189,7 @@ final class GbpStandardsTest extends TestCase
     {
         $standards = (new WebsiteStandardCatalog)->forAssetType('google_business_profile');
         $results = (new GbpStandardEvaluator)->evaluate($standards, ['location' => null]);
-        $this->assertCount(11, $results);
+        $this->assertCount(16, $results);
         $this->assertSame(['unknown'], array_values(array_unique(array_column($results, 'state'))));
     }
 
@@ -216,6 +232,9 @@ final class GbpStandardsTest extends TestCase
         $this->assertSame('review', $results['gbp:review_responses']['state'], '1 of 3 unanswered');
         $this->assertSame('unknown', $results['gbp:photos_recent']['state'], 'media not collected is never a failure');
         $this->assertSame('unknown', $results['gbp:attributes_set']['state']);
+        $this->assertSame('unknown', $results['gbp:verified']['state'], 'verification not collected');
+        $this->assertSame('fail', $results['gbp:contact']['state'], 'no website / phone on the profile');
+        $this->assertSame('fail', $results['gbp:service_area']['state'], 'no address and no service area');
     }
 
     /** @return array<string, mixed> */

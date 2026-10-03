@@ -14,6 +14,7 @@ use App\Services\Meta\MetaChecks;
 use App\Services\Meta\MetaScreen;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Support\Integrations\Meta\MetaResourceType;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -63,8 +64,11 @@ final class MetaScreenTest extends TestCase
     {
         $states = collect(app(MetaChecks::class)->sync($this->asset))->keyBy('id');
 
-        $this->assertCount(10, $states);
-        $this->assertSame(array_fill_keys(array_keys(MetaChecks::CHECKS), 'issue'), $states->map->state->all());
+        $this->assertCount(12, $states);
+        $original = array_diff(array_keys(MetaChecks::CHECKS), ['ad_count', 'starved']);
+        $this->assertSame(array_fill_keys($original, 'issue'), $states->only($original)->map->state->all());
+        $this->assertSame('ok', $states['ad_count']['state'], 'one ad per campaign');
+        $this->assertSame('no_data', $states['starved']['state']);
         $rows = Suggestion::query()->where('channel', 'meta')->where('action_type', 'meta_check')->get()->keyBy(fn (Suggestion $s): string => $s->action['check']);
         $this->assertCount(10, $rows);
         $this->assertTrue($rows->every(fn (Suggestion $s): bool => $s->target_type === 'meta' && $s->target_id === $this->asset->id && $s->evidence !== []));
@@ -78,6 +82,27 @@ final class MetaScreenTest extends TestCase
 
         app(MetaChecks::class)->sync($this->asset);
         $this->assertSame(10, Suggestion::query()->where('action_type', 'meta_check')->count(), 'a re-run refreshes by fingerprint');
+    }
+
+    public function test_too_many_ads_for_the_budget_and_ads_meta_pushed_back_are_flagged(): void
+    {
+        // Ten more small ads in the lead campaign, all running for the whole window.
+        foreach (range(3, 12) as $n) {
+            $this->professional('meta_ad_snapshot', ['ad_id' => 'ad'.$n, 'ad_name' => 'Test reklamı '.$n, 'campaign_id' => 'c1', 'adset_id' => 'as1', 'creative_id' => 'cr1', 'effective_status' => 'ACTIVE']);
+            for ($i = 28; $i < 56; $i++) {
+                $this->daily('ad'.$n, 'c1', 'as1', CarbonImmutable::parse('2026-09-04')->addDays($i)->toDateString(), 1, 50, 1, 40);
+            }
+        }
+
+        $states = collect(app(MetaChecks::class)->sync($this->asset))->keyBy('id');
+
+        $this->assertSame('issue', $states['ad_count']['state'], $states['ad_count']['detail']);
+        $this->assertSame('issue', $states['starved']['state'], $states['starved']['detail']);
+        $adCount = Suggestion::query()->where('decision_key', 'meta:'.$this->asset->id.':check:ad_count')->sole()->evidence;
+        $this->assertSame(['kampanya' => 'Diş İmplantı Lead Ankara', 'aktif_reklam' => 11, 'kaldırabileceği' => 9], array_slice($adCount[0], 0, 3));
+        $starved = collect(Suggestion::query()->where('decision_key', 'meta:'.$this->asset->id.':check:starved')->sole()->evidence)->pluck('reklam');
+        $this->assertCount(10, $starved);
+        $this->assertNotContains('İmplant video reklamı', $starved, 'the ad that gets the budget stays');
     }
 
     public function test_ad_set_locales_are_compared_with_the_brand_languages(): void

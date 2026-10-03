@@ -2897,3 +2897,17 @@ match + gaps, content recipe, change applier, URL analysis, page summary, page m
 MCP 1.2.0 adds `get-page` (stored page, outline, no live fetch). Backfill: `php artisan moxdop:pages:sync --all`
 (WordPress sites through the connector inventory; sitemap sites as pages are re-read).
 Verification: PHPUnit `tests/Feature/Mcp/McpPageOutlineTest.php`. Not deployed; not DONE.
+
+## 2026-10-03 — İşletme Profili ve Meta kontrol listeleri (staging)
+
+Sources: claude-seo `maps-gbp-checklist.md` and marketingskills `ads/references/meta-decision-system.md` (both MIT),
+re-expressed as MoxDOP rules (no AI). Business Profile standards 11 → 16: `gbp:verified` (verification snapshot),
+`gbp:additional_categories` (≥ 2), `gbp:contact` (website + phone; 0850 / 444 / 0800 = review), `gbp:photo_set`
+(logo, cover, ≥ 10 photos), `gbp:service_area` (hidden address needs areas); `gbp:description` under 250 characters
+= review. Meta checks 10 → 12: `ad_count` (a campaign feeds 14-day spend ÷ (2 × cost per result) ads) and `starved`
+(an active ad running a week that got under half its fair share of the campaign's last-7-day spend). Prompts:
+gbp-description-v2 (250–700), meta-creatives-v2 (refresh order hook → visual → format → text), meta-structure-v2
+(ad ceiling, test campaign, +20 % budget steps, no edits on performing ads, ~50 results / week), meta-landing-v2
+(higher-intent lead forms, 1–3 questions). Operator-edited prompts are not overwritten.
+Verification: PHPUnit `tests/Feature/Gbp/GbpStandardsTest.php`, `tests/Feature/Meta/MetaScreenTest.php`. Not
+deployed; operator review of the new findings on real profiles / accounts awaits UAT. Not DONE.

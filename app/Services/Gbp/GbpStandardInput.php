@@ -63,6 +63,7 @@ final class GbpStandardInput
             'media' => $this->media($resourceId),
             'posts' => $this->posts($asset, $resourceId),
             'reviews' => $this->reviews($resourceId, $today),
+            'verification' => $this->verification($resourceId),
         ];
     }
 
@@ -84,6 +85,10 @@ final class GbpStandardInput
             'regular_hours' => (array) ($decode($row->regular_hours)['periods'] ?? []),
             'special_hours' => (array) ($decode($row->special_hours)['specialHourPeriods'] ?? []),
             'open_status' => $decode($row->open_info)['status'] ?? null,
+            'website_uri' => (string) ($row->website_uri ?? ''),
+            'phone' => (string) ($decode($row->phone_numbers)['primaryPhone'] ?? ''),
+            'has_storefront' => array_filter((array) ($decode($row->storefront_address)['addressLines'] ?? [])) !== [],
+            'service_area_count' => count((array) ($decode($row->service_area)['places']['placeInfos'] ?? [])),
         ];
     }
 
@@ -177,13 +182,23 @@ final class GbpStandardInput
         return null;
     }
 
-    /** @return array{available: bool, last_photo: ?string} */
+    /** @return array{available: bool, last_photo: ?string, photo_count: int, has_logo: bool, has_cover: bool} */
     private function media(int $resourceId): array
     {
-        $rows = DB::table('gbp_media')->where('external_resource_id', $resourceId)->get(['media_format', 'create_time']);
+        $rows = DB::table('gbp_media')->where('external_resource_id', $resourceId)->get(['media_format', 'category', 'create_time']);
         $photos = $rows->filter(static fn (object $r): bool => strtoupper((string) $r->media_format) !== 'VIDEO');
+        $categories = $rows->map(static fn (object $r): string => strtoupper((string) $r->category))->unique();
 
-        return ['available' => $rows->isNotEmpty(), 'last_photo' => $photos->max('create_time') !== null ? substr((string) $photos->max('create_time'), 0, 10) : null];
+        return ['available' => $rows->isNotEmpty(), 'last_photo' => $photos->max('create_time') !== null ? substr((string) $photos->max('create_time'), 0, 10) : null,
+            'photo_count' => $photos->count(), 'has_logo' => $categories->contains('LOGO'), 'has_cover' => $categories->contains('COVER')];
+    }
+
+    /** @return array{verified: ?bool} null = not collected */
+    private function verification(int $resourceId): array
+    {
+        $row = DB::table('gbp_verification_snapshots')->where('external_resource_id', $resourceId)->orderByDesc('captured_at')->orderByDesc('id')->first(['has_voice_of_merchant']);
+
+        return ['verified' => $row === null || $row->has_voice_of_merchant === null ? null : (bool) $row->has_voice_of_merchant];
     }
 
     /** @return array{available: bool, last_post: ?string, promotional: list<string>} */

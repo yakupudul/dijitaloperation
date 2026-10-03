@@ -121,6 +121,10 @@ final class GbpStandardEvaluator
                     $problems[] = '"'.$hit['matched'].'" ('.$hit['label'].')';
                 }
 
+                if ($problems === [] && mb_strlen($description) < 250) {
+                    return $this->result('review', $standard, 'Açıklama kısa ('.mb_strlen($description).' karakter; 250–750 önerilir).', 'Açıklamayı ana hizmeti ve hizmet bölgesini doğal biçimde anlatacak şekilde 250–750 karaktere tamamlayın.');
+                }
+
                 return $problems === [] ? $this->pass('Açıklama var ('.mb_strlen($description).' karakter).')
                     : $this->result($failState, $standard, 'Açıklamada sorun: '.implode(', ', $problems).'.');
             case 'hours':
@@ -200,6 +204,50 @@ final class GbpStandardEvaluator
 
                 return $problems === [] ? $this->pass('Yorumların %'.(int) round(100 * $rate).'’i yanıtlı'.($median !== null ? ', ortanca '.$this->duration((float) $median) : '').'.')
                     : $this->result($failState, $standard, $this->capitalize(implode('; ', $problems)).'.', null, ['rate' => round($rate, 2), 'median_hours' => $median]);
+            case 'verified':
+                $verified = $input['verification']['verified'] ?? null;
+                if ($verified === null) {
+                    return $this->unknown('Doğrulama durumu toplanmadı.');
+                }
+
+                return $verified ? $this->pass('Profil doğrulanmış; yönetim yetkisi var.')
+                    : $this->result($failState, $standard, 'Profil doğrulanmamış ya da yönetim yetkisi yok.');
+            case 'additional_categories':
+                $count = count((array) ($location['additional_categories'] ?? []));
+                if ($count >= 2) {
+                    return $this->pass($count.' ek kategori var.');
+                }
+
+                return $this->result($failState, $standard, $count === 0 ? 'Ek kategori yok.' : 'Yalnız 1 ek kategori var.');
+            case 'contact':
+                return $this->contact($standard, $location, $failState);
+            case 'photo_set':
+                $media = $input['media'] ?? ['available' => false];
+                if (! ($media['available'] ?? false)) {
+                    return $this->unknown('Profil fotoğrafları toplanmadı.');
+                }
+                $problems = [];
+                if (! ($media['has_logo'] ?? false)) {
+                    $problems[] = 'logo yok';
+                }
+                if (! ($media['has_cover'] ?? false)) {
+                    $problems[] = 'kapak fotoğrafı yok';
+                }
+                $photos = (int) ($media['photo_count'] ?? 0);
+                if ($photos < 10) {
+                    $problems[] = 'yalnız '.$photos.' fotoğraf (en az 10)';
+                }
+
+                return $problems === [] ? $this->pass('Logo, kapak ve '.$photos.' fotoğraf var.')
+                    : $this->result($failState, $standard, $this->capitalize(implode('; ', $problems)).'.');
+            case 'service_area':
+                if ($location['has_storefront'] ?? true) {
+                    return $this->na('Profilde adres gösteriliyor; hizmet bölgesi zorunlu değil.');
+                }
+                $areas = (int) ($location['service_area_count'] ?? 0);
+
+                return $areas > 0 ? $this->pass($areas.' hizmet bölgesi girili.')
+                    : $this->result($failState, $standard, 'Adres gizli ama hizmet bölgesi girilmemiş.');
         }
 
         return $this->unknown('Bu kontrol için değerlendirici yok.');
@@ -280,6 +328,30 @@ final class GbpStandardEvaluator
         }
 
         return $this->pass($days.'/7 gün saat var'.(($input['holidays'] ?? []) !== [] ? '; yaklaşan tatil için özel saat girili.' : '; yakında resmi tatil yok.'));
+    }
+
+    /**
+     * Website and phone of the profile; a nationwide number (0850, 444, 0800) is only a review point.
+     *
+     * @param  array<string, mixed>  $standard
+     * @param  array<string, mixed>  $location
+     * @return array{state: string, finding: string, solution: ?string, evidence: mixed}
+     */
+    private function contact(array $standard, array $location, string $failState): array
+    {
+        $website = trim((string) ($location['website_uri'] ?? ''));
+        $phone = trim((string) ($location['phone'] ?? ''));
+        $missing = array_values(array_filter([$website === '' ? 'web sitesi' : null, $phone === '' ? 'telefon' : null]));
+        if ($missing !== []) {
+            return $this->result($failState, $standard, 'Profilde '.implode(' ve ', $missing).' yok.');
+        }
+        $digits = (string) preg_replace('/\D+/', '', $phone);
+        $digits = str_starts_with($digits, '90') ? substr($digits, 2) : ltrim($digits, '0');
+        if (preg_match('/^(850|800|444)/', $digits) === 1) {
+            return $this->result('review', $standard, 'Telefon yerel değil ('.$phone.'); şubenin yerel numarası daha güçlü sinyal verir.');
+        }
+
+        return $this->pass('Web sitesi ve yerel telefon var.');
     }
 
     /** @param  list<string>  $profile */

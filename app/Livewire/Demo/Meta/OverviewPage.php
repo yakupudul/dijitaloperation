@@ -28,7 +28,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Meta (Faz 6): Genel Bakış · Yapılacaklar · Kreatifler · Kampanya Stratejisi · Ölçümleme · Analiz · Ayarlar for one
- * bound ad account. Numbers come from the collected Meta tables (MetaScreen); ten system checks and three AI
+ * bound ad account. Numbers come from the collected Meta tables (MetaScreen); twelve system checks and three AI
  * operations fill the ONE suggestions table (MetaChecks, MetaAssistant). Nothing is written to Meta: an approved item
  * is a copyable instruction / CSV row; "Uygulandı" stores the baseline. Lead quality is marked by hand (MetaLeads).
  */

@@ -1907,3 +1907,5 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 - **WordPress türü:** yeni makale her zaman yazı (post); sayfa yalnız mevcut hizmet sayfası güncellenirken.
 - **Sayfa iskeleti (yakup, 2026-10-03):** AI'ya sayfa düz metin değil Markdown iskelet olarak gider
   (`pages.content_outline`, HTML saklanmaz); iskelet sürüm hash'ine girmez, yeniden analiz tetiklemez.
+- **Kontrol listeleri (yakup, 2026-10-03):** İşletme Profili ve Meta için claude-seo ve marketingskills (MIT)
+  kaynaklı kurallar MoxDOP kuralı olarak yeniden yazıldı (AI yok, eşikler kodda); repolar bağımlılık olarak eklenmez.

@@ -10,7 +10,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * The ten Meta system checks (no AI), from the collected data of the bound account over the last 28 days (vs the 28
+ * The Meta system checks (no AI), from the collected data of the bound account over the last 28 days (vs the 28
  * before). Each check ends as `issue` (→ one suggestion with its evidence rows), `ok`, `no_data` ("veri yok") or
  * `low_data` ("veri az": never a pause / "kapat" proposal on little data). Run daily and on "Yeniden kontrol et";
  * the states are kept for the screen.
@@ -28,6 +28,8 @@ final class MetaChecks
         'change' => 'Harcama / sonuç değişimi',
         'fatigue' => 'Kreatif yorgunluğu',
         'weak_ad' => 'Sonuç getirmeyen reklam',
+        'ad_count' => 'Reklam sayısı ↔ bütçe',
+        'starved' => 'Bütçe almayan reklam',
     ];
 
     /** Objectives that buy results (leads / sales). */
@@ -105,8 +107,10 @@ final class MetaChecks
         $ads = $this->screen->adPerformance($account, $w['from'], $w['to'], $entities);
         $prev = $this->screen->adPerformance($account, $w['prev_from'], $w['prev_to'], $entities);
         $recent = $this->screen->adPerformance($account, CarbonImmutable::parse($w['to'])->subDays(2)->toDateString(), $w['to'], $entities);
+        $last14 = $this->screen->adPerformance($account, CarbonImmutable::parse($w['to'])->subDays(13)->toDateString(), $w['to'], $entities);
+        $week = $this->screen->adPerformance($account, CarbonImmutable::parse($w['to'])->subDays(6)->toDateString(), $w['to'], $entities);
 
-        return ['asset' => $asset, 'account' => $account, 'w' => $w, 'e' => $entities, 'ads' => $ads, 'prev' => $prev, 'recent' => $recent,
+        return ['asset' => $asset, 'account' => $account, 'w' => $w, 'e' => $entities, 'ads' => $ads, 'prev' => $prev, 'recent' => $recent, 'last14' => $last14, 'week' => $week,
             'cur_total' => MetaScreen::totals($ads), 'prev_total' => MetaScreen::totals($prev), 'money' => fn (?float $v): string => $v === null ? '—' : number_format($v, 2, ',', '.').' '.$account['currency']];
     }
 
@@ -427,6 +431,82 @@ final class MetaChecks
 
         return $this->issue('Sonuç getirmeyen reklam: '.count($rows), count($rows).' reklam hesabın sonuç başı maliyetinin 2 katından fazla harcadı, 0 sonuç.', 2, $rows,
             'Bu reklamları kapatın ya da kreatifini değiştirin.');
+    }
+
+    /**
+     * Ad-count ceiling (marketingskills ads / Meta decision system): over 14 days each ad needs about 2 × the cost per
+     * result to be judged, so a campaign feeds spend of 14 days ÷ (2 × cost per result) ads; more starve each other.
+     */
+    private function checkAdCount(array $ctx): array
+    {
+        $total = $ctx['cur_total'];
+        if ($total['results'] < self::MIN_ACCOUNT_RESULTS || $total['cpr'] === null) {
+            return ['state' => $total['spend'] > 0 ? 'low_data' : 'no_data', 'detail' => 'Hesapta '.(int) $total['results'].' sonuç; reklam tavanı için veri az.'];
+        }
+        $campaigns = [];
+        foreach ($ctx['last14'] as $ad) {
+            if ($ad['spend'] > 0) {
+                $campaigns[$ad['campaign_id']]['ads'] = ($campaigns[$ad['campaign_id']]['ads'] ?? 0) + 1;
+                $campaigns[$ad['campaign_id']]['spend'] = ($campaigns[$ad['campaign_id']]['spend'] ?? 0) + $ad['spend'];
+            }
+        }
+        if ($campaigns === []) {
+            return ['state' => 'no_data', 'detail' => 'Son 14 günde harcama yok.'];
+        }
+        $rows = [];
+        foreach ($campaigns as $id => $c) {
+            $ceiling = max(1, (int) floor($c['spend'] / (2 * $total['cpr'])));
+            if ($c['ads'] >= 3 && $c['ads'] > $ceiling) {
+                $rows[] = ['kampanya' => (string) ($ctx['e']['campaigns'][$id]['name'] ?? $id), 'aktif_reklam' => $c['ads'], 'kaldırabileceği' => $ceiling, '14_gün_harcama' => ($ctx['money'])($c['spend'])];
+            }
+        }
+        if ($rows === []) {
+            return ['state' => 'ok', 'detail' => 'Kampanyaların reklam sayısı bütçeyle uyumlu.'];
+        }
+
+        return $this->issue('Bütçeye göre çok reklam: '.count($rows).' kampanya', count($rows).' kampanyada reklam sayısı 14 günlük harcamanın besleyebileceğinden fazla (reklam başına 2 × sonuç başı maliyet).', 3, $rows,
+            'Bu kampanyalarda en az sonuç getiren reklamları kapatıp sayıyı tavana indirin; yeni test eklemeden önce birini kapatın.');
+    }
+
+    /**
+     * Delivery check (marketingskills ads / Meta decision system, stage 1): an ad running at least a week that gets
+     * under half of its fair share of the campaign's spend in the last 7 days was pushed back by Meta.
+     */
+    private function checkStarved(array $ctx): array
+    {
+        $byCampaign = [];
+        foreach ($ctx['e']['ads'] as $id => $ad) {
+            $ranBefore = ($ctx['ads'][$id]['spend'] ?? 0) > ($ctx['week'][$id]['spend'] ?? 0);
+            if ($ad['status'] === 'ACTIVE' && $ranBefore) {
+                $byCampaign[$ad['campaign_id']][] = $id;
+            }
+        }
+        $rows = [];
+        $checked = 0;
+        foreach ($byCampaign as $campaignId => $ids) {
+            $spend = array_sum(array_map(fn (string $id): float => (float) ($ctx['week'][$id]['spend'] ?? 0), $ids));
+            if (count($ids) < 2 || $spend <= 0) {
+                continue;
+            }
+            $checked++;
+            $share = $spend / count($ids);
+            foreach ($ids as $id) {
+                $adSpend = (float) ($ctx['week'][$id]['spend'] ?? 0);
+                if ($adSpend < 0.5 * $share) {
+                    $rows[] = ['reklam' => (string) ($ctx['e']['ads'][$id]['name'] ?? $id), 'kampanya' => (string) ($ctx['e']['campaigns'][$campaignId]['name'] ?? $campaignId),
+                        'son_7_gün' => ($ctx['money'])($adSpend), 'adil_pay' => ($ctx['money'])($share)];
+                }
+            }
+        }
+        if ($checked === 0) {
+            return ['state' => 'no_data', 'detail' => 'Birden çok aktif reklamı olan kampanya yok.'];
+        }
+        if ($rows === []) {
+            return ['state' => 'ok', 'detail' => 'Aktif reklamlar kampanya bütçesinden pay alıyor.'];
+        }
+
+        return $this->issue('Bütçe almayan reklam: '.count($rows), count($rows).' reklam son 7 günde kampanyadaki adil payının yarısından az harcadı; Meta onu geri plana itmiş.', 3, $rows,
+            'Bu reklamları kapatın; yerine kancası ya da görseli değişmiş yeni bir sürüm koyun (metni değiştirmek yetmez).');
     }
 
     /** @return list<array{ad: string, link_url: string, lead_gen_form_id: string}> creatives of the ads that spent in the window */

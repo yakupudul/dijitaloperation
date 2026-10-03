@@ -2458,6 +2458,126 @@
       "source_url": "https://support.google.com/business/answer/3474050",
       "source_reviewed_at": "2026-09-28",
       "severity": "medium"
+    },
+    {
+      "id": "gbp:verified",
+      "version": 1,
+      "enabled": true,
+      "title": "Profil doğrulanmış",
+      "group": "gbp_profile",
+      "method": "gbp_verified",
+      "classification": "verified",
+      "applicability": "profile",
+      "applies_to": "profile",
+      "category": "gbp_profile",
+      "evaluated_in": "gbp_profile_health",
+      "asset_type": "google_business_profile",
+      "platform": "general",
+      "required_evidence": [
+        "gbp_verification"
+      ],
+      "criterion": "Profil doğrulanmış ve yönetim yetkisi bizde olmalı; doğrulanmamış profil haritada zayıf görünür ve düzenlenemez.",
+      "action": "Profili Google İşletme Profili’nden doğrulayın (video, telefon veya posta ile).",
+      "verification": "Değişikliği Google İşletme Profili’nde yapın; bir sonraki toplamada Profil sağlığı güncellenir.",
+      "source_url": "https://support.google.com/business/answer/7107242",
+      "source_reviewed_at": "2026-10-03",
+      "severity": "high"
+    },
+    {
+      "id": "gbp:additional_categories",
+      "version": 1,
+      "enabled": true,
+      "title": "Ek kategoriler",
+      "group": "gbp_profile",
+      "method": "gbp_additional_categories",
+      "classification": "advisory",
+      "applicability": "profile",
+      "applies_to": "profile",
+      "category": "gbp_profile",
+      "evaluated_in": "gbp_profile_health",
+      "asset_type": "google_business_profile",
+      "platform": "general",
+      "required_evidence": [
+        "gbp_location"
+      ],
+      "criterion": "Birincil kategorinin yanında işin gerçekten yaptığı hizmetleri anlatan 2–5 ek kategori seçilmeli; ilgisiz kategori eklenmez.",
+      "action": "İşletmenin sunduğu hizmetlere uyan ek kategorileri ekleyin.",
+      "verification": "Değişikliği Google İşletme Profili’nde yapın; bir sonraki toplamada Profil sağlığı güncellenir.",
+      "source_url": "https://support.google.com/business/answer/7249669",
+      "source_reviewed_at": "2026-10-03",
+      "severity": "medium"
+    },
+    {
+      "id": "gbp:contact",
+      "version": 1,
+      "enabled": true,
+      "title": "Web sitesi ve telefon",
+      "group": "gbp_profile",
+      "method": "gbp_contact",
+      "classification": "verified",
+      "applicability": "profile",
+      "applies_to": "profile",
+      "category": "gbp_profile",
+      "evaluated_in": "gbp_profile_health",
+      "asset_type": "google_business_profile",
+      "platform": "general",
+      "required_evidence": [
+        "gbp_location"
+      ],
+      "criterion": "Profilde markanın web sitesi ve doğrudan aranabilen yerel bir telefon olmalı; 0850 / 444 / 0800 numaraları yerel sinyal vermez.",
+      "action": "Profile markanın sitesini ve şubenin yerel telefonunu girin.",
+      "verification": "Değişikliği Google İşletme Profili’nde yapın; bir sonraki toplamada Profil sağlığı güncellenir.",
+      "source_url": "https://support.google.com/business/answer/3039617",
+      "source_reviewed_at": "2026-10-03",
+      "severity": "high"
+    },
+    {
+      "id": "gbp:photo_set",
+      "version": 1,
+      "enabled": true,
+      "title": "Logo, kapak ve fotoğraf sayısı",
+      "group": "gbp_profile",
+      "method": "gbp_photo_set",
+      "classification": "advisory",
+      "applicability": "profile",
+      "applies_to": "profile",
+      "category": "gbp_profile",
+      "evaluated_in": "gbp_profile_health",
+      "asset_type": "google_business_profile",
+      "platform": "general",
+      "required_evidence": [
+        "gbp_media"
+      ],
+      "criterion": "Profilde logo, kapak fotoğrafı ve farklı türlerden (dış cephe, iç mekân, ekip, hizmet) en az 10 fotoğraf olmalı.",
+      "action": "Eksik logo / kapak fotoğrafını ve gerçek işletme fotoğraflarını yükleyin.",
+      "verification": "Değişikliği Google İşletme Profili’nde yapın; bir sonraki toplamada Profil sağlığı güncellenir.",
+      "source_url": "https://support.google.com/business/answer/6103862",
+      "source_reviewed_at": "2026-10-03",
+      "severity": "medium"
+    },
+    {
+      "id": "gbp:service_area",
+      "version": 1,
+      "enabled": true,
+      "title": "Hizmet bölgesi",
+      "group": "gbp_profile",
+      "method": "gbp_service_area",
+      "classification": "verified",
+      "applicability": "profile",
+      "applies_to": "profile",
+      "category": "gbp_profile",
+      "evaluated_in": "gbp_profile_health",
+      "asset_type": "google_business_profile",
+      "platform": "general",
+      "required_evidence": [
+        "gbp_location"
+      ],
+      "criterion": "Adresini göstermeyen (hizmet bölgeli) işletme hizmet verdiği şehir / ilçeleri girmeli; en fazla 20 bölge.",
+      "action": "Hizmet bölgesi bölümüne hizmet verilen şehir ve ilçeleri girin.",
+      "verification": "Değişikliği Google İşletme Profili’nde yapın; bir sonraki toplamada Profil sağlığı güncellenir.",
+      "source_url": "https://support.google.com/business/answer/9157481",
+      "source_reviewed_at": "2026-10-03",
+      "severity": "medium"
     }
   ]
 }
