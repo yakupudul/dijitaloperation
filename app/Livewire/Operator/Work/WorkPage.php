@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator\Work;
 
+use App\Livewire\Operator\Work\Concerns\ActsOnContentIdeas;
 use App\Models\Brand;
 use App\Models\PushSubscription;
 use App\Services\Work\ContentBoard;
@@ -23,11 +24,17 @@ use Livewire\Component;
 #[Title('Genel işler')]
 final class WorkPage extends Component
 {
+    use ActsOnContentIdeas;
+
     #[Url(as: 'sekme')]
     public string $tab = 'icerik';
 
     #[Url(as: 'durum')]
     public string $view = WorkDesk::VIEW_OPEN;
+
+    /** İçerik fikirleri step: yazilacak | okunacak | gonderildi. */
+    #[Url(as: 'adim')]
+    public string $step = 'yazilacak';
 
     #[Url(as: 'marka')]
     public ?int $brand = null;
@@ -38,12 +45,6 @@ final class WorkPage extends Component
     public array $notes = [];
 
     public string $message = '';
-
-    /** @var array<int|string, string> content idea id => language picked before "Yaz" */
-    public array $languages = [];
-
-    /** Content idea whose article is open to read. */
-    public ?int $reading = null;
 
     public function mount(): void
     {
@@ -91,28 +92,15 @@ final class WorkPage extends Component
         $this->act(fn (): string => $desk->act($id, $do, auth()->user()), $id);
     }
 
-    /** İçerik kutusu "Yaz" (title approved + writer started) or "+ dil" (a translation of the written article). */
-    public function writeContent(int $id, ?string $language = null): void
+    public function setStep(string $step): void
     {
-        $board = app(ContentBoard::class);
-        $picked = $language ?? (filled($this->languages[$id] ?? null) ? (string) $this->languages[$id] : null);
-        $this->act(fn (): string => $board->write($id, auth()->user(), $picked));
+        $this->step = array_key_exists($step, ContentBoard::STEPS) ? $step : 'yazilacak';
     }
 
-    public function sendContent(int $id, ContentBoard $board): void
+    /** "Hepsini onayla ve yazdır" on one site's waiting titles. */
+    public function writeAll(int $siteId, ContentBoard $board): void
     {
-        $this->act(fn (): string => $board->send($id, auth()->user()));
-        $this->reading = null;
-    }
-
-    public function read(int $id): void
-    {
-        $this->reading = $id;
-    }
-
-    public function closeReading(): void
-    {
-        $this->reading = null;
+        $this->act(fn (): string => $board->writeAll($siteId, auth()->user()));
     }
 
     public function reopen(int $id, WorkDesk $desk): void
@@ -159,14 +147,15 @@ final class WorkPage extends Component
     public function render(WorkDesk $desk, ContentBoard $board): View
     {
         $rows = $desk->rows($this->tab, $this->view, $this->brand);
-        $boxes = $this->tab === 'icerik' && $this->view === WorkDesk::VIEW_OPEN ? $board->boxes($this->brand) : collect();
+        $this->step = array_key_exists($this->step, ContentBoard::STEPS) ? $this->step : 'yazilacak';
+        $queue = $this->tab === 'icerik' && $this->view === WorkDesk::VIEW_OPEN ? $board->queue($this->brand) : null;
 
         return view('livewire.operator.work.work-page', [
             'tabs' => WorkDesk::TABS,
             'counts' => $desk->counts($this->brand),
             'urgent' => $desk->urgent($this->brand),
             'rows' => $rows->take($this->shown),
-            'boxes' => $boxes,
+            'queue' => $queue,
             'article' => $this->reading !== null ? $board->article($this->reading) : null,
             'total' => $rows->count(),
             'brands' => Brand::query()->operational()->orderBy('name')->get(['id', 'name']),

@@ -118,7 +118,7 @@ class WorkDeskTest extends TestCase
         $draft->forceFill(['status' => Suggestion::APPROVED])->save();
 
         Livewire::test(WorkPage::class)->assertDontSee('2 hizmet bölgesi bulundu')->assertSee('Çakışma: implant')->assertSee('Ayrı kalsın')
-            ->assertDontSee('301 ile birleştir')->assertSee('İmplant bakımı')->assertSee('data-read="'.$draft->id.'"', false)
+            ->assertDontSee('301 ile birleştir')->call('setStep', 'okunacak')->assertSee('İmplant bakımı')->assertSee('data-read="'.$draft->id.'"', false)
             ->call('setTab', 'kurulum')->assertSee('2 hizmet bölgesi bulundu')->assertSee('Onayla ve yap')->assertSee('Elle yap')
             ->assertSee('Doğru, bırak')->assertDontSee('wire:click="done('.$gap->id.')"', false)
             ->call('done', $gap->id)->assertSee('sistem kendisi kapatır')

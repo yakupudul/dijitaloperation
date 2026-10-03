@@ -1932,8 +1932,9 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   (site kapandı, reklam hesabı durdu, kötü yorum vb.) gider, yazılım hataları gitmez.
   Marka kurulum işleri (eksik / denetim) ayrı "Marka kurulumu" sekmesinde kendi düğmeleriyle; sistemin kendisi kapattığı
   işlerde (kurulum, 301 birleştirme) "Yaptım" yok.
-- **İçerik fikirleri kutuları (yakup, 2026-10-03):** Genel işler › SEO içerikler her site için bir kutu; sekmeler
-  Yazılacak / Okunacak / Gönderildi. "Yaz" tek tıkla başlığı onaylar ve yazdırır, "Oku" yazıyı açar, "Taslak gönder"
+- **İçerik fikirleri (yakup, 2026-10-03, "İkisi birden"):** Genel işler › SEO içerikler üstte adım sekmeleri (Onay
+  bekleyen başlıklar / Okunacak yazılar / Gönderildi), içinde sitelere göre gruplu, sitede "Hepsini onayla ve yazdır".
+  Site başına kutu (Yazılacak / Okunacak / Gönderildi) web sitesi › İçerik sekmesinde. "Yaz" tek tıkla başlığı onaylar ve yazdırır, "Oku" yazıyı açar, "Taslak gönder"
   WordPress'e taslak yollar. Sitenin dilleri (sayfa dillerinden) görünür; yazı sitenin herhangi bir dilinde yazılabilir,
   diğer diller bağlı çeviri olarak (Polylang, ADR-076) birlikte gönderilir. 301 birleştirme sayfayı silmez: eklentiye
   yönlendirme kuralı yazar, geri alınabilir.

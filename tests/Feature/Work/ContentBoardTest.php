@@ -4,6 +4,7 @@ namespace Tests\Feature\Work;
 
 use App\Ai\Agents\Site\WriteArticleAgent;
 use App\Jobs\Site\RunSiteOperationJob;
+use App\Livewire\Operator\Website\V2\ContentTab;
 use App\Livewire\Operator\Work\WorkPage;
 use App\Models\CoreConnection;
 use App\Models\ExternalWriteAction;
@@ -47,7 +48,7 @@ final class ContentBoardTest extends SiteTestCase
         Cache::flush(); // the queued job would have marked the run finished
         $this->assertSame('tr', $idea->fresh()->action['language']);
 
-        Livewire::test(WorkPage::class)->assertSeeHtml('data-read="'.$idea->id.'"')->call('read', $idea->id)
+        Livewire::test(WorkPage::class)->call('setStep', 'okunacak')->assertSeeHtml('data-read="'.$idea->id.'"')->call('read', $idea->id)
             ->assertSeeHtml('data-reader="'.$idea->id.'"')->assertSee('Soğuk uygulama yapılır.')->assertSeeHtml('data-translate="en"')
             ->call('writeContent', $idea->id, 'en')->assertSee('İngilizce çevirisi yazılıyor');
         Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => ($job->params['language'] ?? null) === 'en');
@@ -65,7 +66,27 @@ final class ContentBoardTest extends SiteTestCase
         $this->assertSame(['tr', 'en'], $write->request_payload['languages'], 'sent together, linked');
         $this->assertSame(['tr', 'en'], $idea->fresh()->action['sent_languages']);
         $this->assertSame(0, app(WorkDesk::class)->counts()['icerik'], 'a sent idea is no longer open work');
-        Livewire::test(WorkPage::class)->assertSee('Taslak gönderildi');
+        Livewire::test(WorkPage::class, ['step' => 'gonderildi'])->assertSee('Taslak gönderildi');
+    }
+
+    public function test_all_waiting_titles_of_a_site_are_approved_in_one_click_and_the_site_box_is_on_the_content_tab(): void
+    {
+        Queue::fake();
+        $this->page('/implant/', 'Ankara İmplant Tedavisi');
+        $ideas = collect(['Bir', 'İki', 'Üç'])->map(fn (string $t): Suggestion => Suggestion::query()->create([
+            'brand_id' => $this->brand->id, 'channel' => 'search', 'decision_key' => 'site.content', 'fingerprint' => md5($t), 'material_hash' => md5($t),
+            'title' => 'İmplant rehberi '.$t, 'reason' => 'x', 'priority' => 2, 'evidence' => [], 'action_type' => 'content',
+            'action' => ['site_id' => $this->site->id, 'kind' => 'new', 'page_type' => 'blog'], 'status' => Suggestion::OPEN,
+            'target_type' => 'site', 'target_id' => $this->site->id, 'first_seen_at' => now(), 'last_seen_at' => now(),
+        ]));
+
+        Livewire::test(WorkPage::class)->assertSee('Onay bekleyen başlıklar')->assertSeeHtml('data-write-all="'.$this->site->id.'"')
+            ->call('writeAll', $this->site->id)->assertSee('3 başlık onaylandı');
+        $this->assertSame([Suggestion::APPROVED], $ideas->map(fn (Suggestion $s): string => $s->fresh()->status)->unique()->values()->all());
+        Queue::assertPushed(RunSiteOperationJob::class, 3);
+
+        Livewire::test(ContentTab::class, ['assetId' => $this->site->id])->assertSeeHtml('data-content-box="'.$this->site->id.'"')
+            ->assertSee('İmplant rehberi Bir')->call('read', 999999)->assertSet('reading', null);
     }
 
     public function test_a_foreign_language_can_be_picked_before_writing_and_unknown_languages_are_refused(): void

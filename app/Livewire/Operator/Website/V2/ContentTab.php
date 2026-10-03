@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator\Website\V2;
 
+use App\Livewire\Operator\Work\Concerns\ActsOnContentIdeas;
 use App\Models\Cluster;
 use App\Models\DigitalAsset;
 use App\Models\Suggestion;
@@ -9,6 +10,7 @@ use App\Services\Site\ContentPlanner;
 use App\Services\Site\SiteOperations;
 use App\Services\Site\SiteSuggestions;
 use App\Services\Site\SiteSuggestionTypes;
+use App\Services\Work\ContentBoard;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
@@ -22,6 +24,7 @@ use Livewire\WithPagination;
  */
 final class ContentTab extends Component
 {
+    use ActsOnContentIdeas;
     use WithPagination;
 
     #[Locked]
@@ -107,6 +110,8 @@ final class ContentTab extends Component
         }
 
         return view('livewire.operator.website.v2.content-tab', [
+            'boxes' => app(ContentBoard::class)->boxes(null, (int) $site->id),
+            'article' => $this->reading !== null ? app(ContentBoard::class)->article($this->reading) : null,
             'items' => $items,
             'clusterNames' => $clusterNames,
             'opened' => $opened,
@@ -115,6 +120,11 @@ final class ContentTab extends Component
                 ->mapWithKeys(fn (string $op): array => [$op => SiteOperations::line(SiteOperations::status($site->id, $op))])->filter()->all(),
             'draftStatus' => $opened !== null ? SiteOperations::line(SiteOperations::status($site->id, SiteOperations::WRITE_ARTICLE, ['suggestion_id' => $opened->id])) : null,
         ]);
+    }
+
+    protected function ownsContentIdea(int $id): bool
+    {
+        return Suggestion::query()->whereKey($id)->where('action_type', SiteSuggestionTypes::CONTENT)->where('action->site_id', $this->assetId)->exists();
     }
 
     private function suggestion(int $id): Suggestion

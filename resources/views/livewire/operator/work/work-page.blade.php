@@ -31,8 +31,8 @@
         <span class="text-gray-400">{{ $total }} iş</span>
     </div>
 
-    @if($boxes->isNotEmpty() || ($tab === 'icerik' && $view === 'acik'))
-        @include('livewire.operator.work.partials.content-boxes')
+    @if($queue !== null)
+        @include('livewire.operator.work.partials.content-queue')
         @if($rows->isNotEmpty())<h2 class="pt-2 text-base font-semibold text-gray-900 dark:text-white">Diğer SEO işleri</h2>@endif
     @endif
 

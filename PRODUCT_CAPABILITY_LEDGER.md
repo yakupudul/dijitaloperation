@@ -3034,9 +3034,12 @@ not tested yet; not DONE.
   "kim yapar" lines are corrected. A done time shows only on applied rows: a gap reopened by `BrandGaps::sync` showed
   its old "yapıldı" time while open. `WorkDeskTest` covers these.
 
-- **İçerik fikirleri boxes (yakup, 2026-10-03):** Genel işler › Web site SEO içerikler opens with one box per website
-  (`ContentBoard`, the cluster-card style of the website Kümeler board). A box shows the site's languages (page count
-  per language) and three steps:
+- **İçerik fikirleri (yakup, 2026-10-03; layout "İkisi birden" chosen after review):** Genel işler › Web site SEO
+  içerikler opens with the operator's steps across every site (`ContentBoard::queue`): Onay bekleyen başlıklar,
+  Okunacak yazılar, Gönderildi (30 gün). Each step is grouped by site, most urgent first, with the site's languages.
+  A site with several waiting titles has "Hepsini onayla ve yazdır" (at most 25 per click, `writeAll`). A title being
+  written stays with a "yazılıyor…" marker. The per-site box (the cluster-card style of the website Kümeler board)
+  moved to the website İçerik tab. The box shows the site's languages (page count per language) and three steps:
   - **Yazılacak:** the title waits, or is being written. "Yaz" approves the title and queues `WRITE_ARTICLE` in one
     click; Claude writes it over MCP.
   - **Okunacak:** the article is written, or held by a sector rule ("Yeniden yaz"). "Oku" opens a reader with every

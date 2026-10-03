@@ -13,6 +13,8 @@
     @endif
     @if ($errors->any())<p class="text-xs text-rose-600">{{ $errors->first() }}</p>@endif
 
+    @include('livewire.operator.work.partials.content-boxes', ['single' => true])
+
     <section class="{{ $card }} flex flex-wrap items-center gap-2">
         <button type="button" wire:click="run('weekly_content')" class="{{ $btn }}">Haftalık içerik öner</button>
         <x-operator.ai-prompt-info operation="site.weekly_content" />

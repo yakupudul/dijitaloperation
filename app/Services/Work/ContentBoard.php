@@ -34,6 +34,11 @@ final class ContentBoard
     /** Ideas shown per step in one box (the rest on the site's İçerik tab). */
     public const int PER_STEP = 8;
 
+    /** Ideas per site in a Genel işler step (the rest on the site's İçerik tab). */
+    public const int QUEUE_PER_SITE = 30;
+
+    public const int WRITE_ALL_MAX = 25;
+
     private const int LIMIT = 2000;
 
     public function __construct(private readonly SiteSuggestions $siteSuggestions, private readonly ContentPlanner $planner) {}
@@ -41,9 +46,9 @@ final class ContentBoard
     /**
      * @return Collection<int, array{site: DigitalAsset, brand: ?string, languages: array<string, int>, steps: array<string, list<array<string, mixed>>>, counts: array<string, int>, urgent: int, url: string}>
      */
-    public function boxes(?int $brandId = null): Collection
+    public function boxes(?int $brandId = null, ?int $siteId = null, int $perStep = self::PER_STEP): Collection
     {
-        $items = $this->query($brandId)->with('brand:id,name')->orderBy('priority')->orderByDesc('id')->limit(self::LIMIT)->get();
+        $items = $this->query($brandId)->when($siteId !== null, fn (Builder $q): Builder => $q->where('action->site_id', $siteId))->with('brand:id,name')->orderBy('priority')->orderByDesc('id')->limit(self::LIMIT)->get();
         $siteIds = $items->map(fn (Suggestion $s): int => (int) data_get($s->action, 'site_id'))->filter()->unique()->values();
         $sites = DigitalAsset::query()->whereIn('id', $siteIds->all() ?: [0])->get()->keyBy('id');
         $languages = DB::table('pages')->whereIn('website_asset_id', $siteIds->all() ?: [0])->whereNotNull('language')
@@ -52,7 +57,7 @@ final class ContentBoard
 
         return $items->groupBy(fn (Suggestion $s): int => (int) data_get($s->action, 'site_id'))
             ->filter(fn (Collection $rows, int $siteId): bool => $sites->has($siteId))
-            ->map(function (Collection $rows, int $siteId) use ($sites, $languages): array {
+            ->map(function (Collection $rows, int $siteId) use ($sites, $languages, $perStep): array {
                 $site = $sites->get($siteId);
                 $siteLanguages = ContentPlanner::siteLanguages($site);
                 $steps = array_fill_keys(array_keys(self::STEPS), []);
@@ -68,12 +73,50 @@ final class ContentBoard
 
                 return [
                     'site' => $site, 'brand' => $rows->first()->brand?->name, 'languages' => $languages->get($siteId, []) ?: array_fill_keys($siteLanguages, 0),
-                    'steps' => array_map(fn (array $list): array => array_slice($list, 0, self::PER_STEP), $steps), 'counts' => $counts,
+                    'steps' => array_map(fn (array $list): array => array_slice($list, 0, $perStep), $steps), 'counts' => $counts,
+                    'waiting' => collect($steps['yazilacak'])->where('writing', false)->where('approved', false)->count(),
                     'urgent' => collect($steps['yazilacak'])->where('rank', '<=', 1)->count() + $counts['okunacak'],
                     'url' => route('operator.website', ['assetId' => $site->id, 'tab' => 'icerik']),
                 ];
             })
             ->sortBy([['urgent', 'desc'], [fn (array $box): int => $box['counts']['yazilacak'], 'desc']])->values();
+    }
+
+    /**
+     * Genel işler: the operator's steps across every site — Onay bekleyen başlıklar, Okunacak yazılar, Gönderildi —
+     * each grouped by site (most urgent site first). A title being written stays under its site with a marker.
+     *
+     * @return array{counts: array<string, int>, groups: array<string, list<array<string, mixed>>>}
+     */
+    public function queue(?int $brandId = null): array
+    {
+        $boxes = $this->boxes($brandId, null, self::QUEUE_PER_SITE);
+        $groups = [];
+        foreach (array_keys(self::STEPS) as $step) {
+            $groups[$step] = $boxes->filter(fn (array $box): bool => $box['counts'][$step] > 0)
+                ->sortByDesc(fn (array $box): int => $step === 'yazilacak' ? $box['waiting'] * 10 + (int) collect($box['steps']['yazilacak'])->where('rank', '<=', 1)->count() : $box['counts'][$step])
+                ->map(fn (array $box): array => ['site' => $box['site'], 'brand' => $box['brand'], 'languages' => $box['languages'], 'url' => $box['url'],
+                    'items' => $box['steps'][$step], 'total' => $box['counts'][$step], 'waiting' => $box['waiting']])->values()->all();
+        }
+
+        return ['counts' => [
+            'yazilacak' => (int) $boxes->sum('waiting'), 'okunacak' => (int) $boxes->sum(fn (array $box): int => $box['counts']['okunacak']),
+            'gonderildi' => (int) $boxes->sum(fn (array $box): int => $box['counts']['gonderildi']),
+        ], 'groups' => $groups];
+    }
+
+    /** "Hepsini onayla ve yazdır": every waiting title of the site (at most WRITE_ALL_MAX per click). */
+    public function writeAll(int $siteId, User $user): string
+    {
+        $waiting = $this->query(null)->where('action->site_id', $siteId)->actionable()->orderBy('priority')->orderBy('id')->get()
+            ->reject(fn (Suggestion $s): bool => is_array(data_get($s->action, 'article')) || isset(((array) $s->action)['article_blocked']))
+            ->take(self::WRITE_ALL_MAX);
+        if ($waiting->isEmpty()) {
+            throw ValidationException::withMessages(['work' => 'Bu sitede onay bekleyen başlık yok.']);
+        }
+        $waiting->each(fn (Suggestion $s): string => $this->write((int) $s->id, $user));
+
+        return $waiting->count().' başlık onaylandı ve yazdırılıyor; bitince Okunacak\'a düşer.';
     }
 
     /** "Yaz": the title is approved (when open) and the writer starts, in the language picked (one of the site's). */
