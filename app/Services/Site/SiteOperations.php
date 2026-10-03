@@ -66,6 +66,9 @@ final class SiteOperations
      */
     public const string SETUP = 'setup';
 
+    /** Görsel alt metni: alt text proposals for WordPress images without one (one suggestion per page). */
+    public const string IMAGE_ALTS = 'image_alts';
+
     /** Pages per URL analysis job (each page is one AI call). */
     public const int URL_BATCH = 3;
 
@@ -74,7 +77,7 @@ final class SiteOperations
         self::SUMMARIES => 'Sayfa özetleri', self::URL_ANALYSIS => 'URL analizi', self::APPLY_CHANGE => 'AI ile yap', self::STANDARD => 'Standart önerisi',
         self::WEEKLY_CONTENT => 'Haftalık içerik', self::DISCOVERY => 'Fırsat keşfi', self::WRITE_ARTICLE => 'Taslak', self::WEEKLY_REFRESH => 'Haftalık yenileme',
         self::CLUSTER_AUDIT => 'Eşleştir', self::FIX_GAPS => 'AI ile geliştir', self::PRODUCE => 'AI ile üret', self::REDISCOVER => 'Yeniden keşfet',
-        self::RECIPE => 'SEO analizi', self::SETUP => 'Kurulum sonrası hazırlık',
+        self::RECIPE => 'SEO analizi', self::SETUP => 'Kurulum sonrası hazırlık', self::IMAGE_ALTS => 'Görsel alt metni',
     ];
 
     public function __construct(
@@ -88,6 +91,7 @@ final class SiteOperations
         private readonly ContentPlanner $content,
         private readonly ClusterAudit $audit,
         private readonly ContentRecipe $recipes,
+        private readonly ImageAlts $imageAlts,
     ) {}
 
     /** @param  array<string, mixed>  $params */
@@ -125,6 +129,7 @@ final class SiteOperations
 
         return match ($operation) {
             self::CATEGORIZE => $this->categorizer->categorize($site, (bool) ($params['only_new'] ?? false)),
+            self::IMAGE_ALTS => $this->imageAlts->propose($site),
             self::SERVICE_PAGES => $this->servicePages->map($site),
             self::CLUSTER_PAGES => $this->clusterPages->refresh($site),
             self::SUMMARIES => $brand !== null ? $this->memory->summarize($brand, $this->pagesInUse($site)) : ['status' => 'no_brand'],
@@ -192,8 +197,14 @@ final class SiteOperations
         // Nightly upkeep never sends hundreds of pages to AI on its own: too many → Eksikler asks the operator first.
         $aiLimit = $unattended ? PageCategorizer::UNATTENDED_AI_LIMIT : null;
         $result = ['status' => 'ready', 'categorize' => $this->categorizer->categorize($site, onlyNew: true, aiLimit: $aiLimit)['status']];
+        if ($result['categorize'] === 'queued') {
+            return ['status' => 'queued'] + $result; // the next steps read the categories: they wait for Claude's answer
+        }
         if (SiteScope::aiAllowed(SiteScope::brandOf($site))) {
             $result['service_pages'] = $this->servicePages->map($site)['status'];
+            if ($result['service_pages'] === 'queued') {
+                return ['status' => 'queued'] + $result;
+            }
         }
         $result['cluster_pages'] = $this->clusterPages->refresh($site, judge: false)['status'];
         if ($site->brand_id !== null) {
@@ -217,16 +228,22 @@ final class SiteOperations
         if (! SiteScope::aiAllowed($brand)) {
             return ['status' => 'not_operational', 'categorize' => $categorize];
         }
+        if ($categorize === 'queued') {
+            return ['status' => 'queued', 'categorize' => $categorize];
+        }
         $this->memory->refreshProfile($brand);
         SiteMetrics::forgetPageTotals((int) $site->id);
+        $result = ['status' => 'ready', 'categorize' => $categorize];
+        // Each step reads the one before (categories → service pages → cluster pages): a step waiting for Claude stops the run.
+        foreach (['service_pages' => fn (): string => $this->servicePages->map($site)['status'],
+            'cluster_pages' => fn (): string => $this->clusterPages->refresh($site)['status']] as $step => $runStep) {
+            $result[$step] = $runStep();
+            if ($result[$step] === 'queued') {
+                return ['status' => 'queued'] + $result;
+            }
+        }
 
-        return [
-            'status' => 'ready',
-            'categorize' => $categorize,
-            'service_pages' => $this->servicePages->map($site)['status'],
-            'cluster_pages' => $this->clusterPages->refresh($site)['status'],
-            'summaries' => $this->memory->summarize($brand, $this->pagesInUse($site))['status'],
-        ];
+        return $result + ['summaries' => $this->memory->summarize($brand, $this->pagesInUse($site))['status']];
     }
 
     /**

@@ -53,6 +53,10 @@ final class AiTaskQueue
         AiRouteKeys::SITE_CLUSTER_MATCH,
         AiRouteKeys::SITE_CLUSTER_GAPS,
         AiRouteKeys::QUERIES_AI_QUERIES,
+        AiRouteKeys::SITE_PAGE_CATEGORIES,
+        AiRouteKeys::SITE_SERVICE_PAGES,
+        AiRouteKeys::SITE_CLUSTER_PAGES,
+        AiRouteKeys::SITE_IMAGE_ALTS,
     ];
 
     /** Whether the operation runs through a resumable path that can wait for Claude (website-screen agents in SUPPORTED). */

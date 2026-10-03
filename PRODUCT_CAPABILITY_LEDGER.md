@@ -2911,3 +2911,19 @@ gbp-description-v2 (250–700), meta-creatives-v2 (refresh order hook → visual
 (higher-intent lead forms, 1–3 questions). Operator-edited prompts are not overwritten.
 Verification: PHPUnit `tests/Feature/Gbp/GbpStandardsTest.php`, `tests/Feature/Meta/MetaScreenTest.php`. Not
 deployed; operator review of the new findings on real profiles / accounts awaits UAT. Not DONE.
+
+## 2026-10-03 — Claude (MCP) devri: site grubu, görsel alt metni, şema koruması (staging)
+
+Delegable to Claude (`AiTaskQueue::SUPPORTED`): `site.page_categories`, `site.service_pages`, `site.cluster_pages`,
+`site.image_alts`. Their batches are all asked at once (the re-run with the answers sees the same batches) and the
+run ends `queued`; Kurulum sonrası hazırlık and Haftalık yenileme stop at a waiting step (categories → service pages
+→ cluster pages read each other). Callers outside a site job (rule-only passes) keep the provider route.
+Görsel alt metni (`ImageAlts`, Öneriler › "Görsel alt metni öner"): WordPress images without alt text that are on a
+stored page (uploaded to it / featured image) → `site.image_alts` from file name, image title and page (names that
+say nothing are skipped; ≤ 125 characters; sector forbidden phrases blocked) → one suggestion per page → "Onayla ve
+WordPress’e gönder" = `alt_text` site fix (ADR-070, undoable). An image is proposed once.
+"AI ile yap" (site-apply-change-v6) gets `existing_schema` (SEO plugin of the object: Yoast / Rank Math / SEOPress
+and the base types it prints; types MoxDOP wrote before); a proposal with only those types is dropped in code.
+Queue routine: every 2 hours 07:57–19:57 Istanbul.
+Verification: PHPUnit `tests/Feature/Site/ImageAltsTest.php`, `tests/Feature/Mcp/McpWorkspaceTest.php`. Not deployed;
+not DONE.

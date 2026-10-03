@@ -84,15 +84,24 @@ final class ClusterPageMapper
 
         $status = 'ready';
         $aiCount = 0;
+        $waiting = false;
         if ($judge && $groups !== [] && SiteScope::aiAllowed($brand)) {
             foreach ($groups as $group) {
                 [$callStatus, $count] = $this->judge($brand, $group['items'], $group['byKey'], $hasGsc);
                 $aiCount += $count;
+                if ($callStatus === 'queued') {
+                    $waiting = true; // Claude (MCP): every service group is asked at once
+
+                    continue;
+                }
                 if ($callStatus !== 'ready') {
                     $status = 'ai_'.$callStatus;
                     break;
                 }
             }
+        }
+        if ($waiting && $status === 'ready') {
+            $status = 'queued';
         }
 
         $this->queries->brandTargets((int) $brand->id); // brand_queries URLs follow the mapping

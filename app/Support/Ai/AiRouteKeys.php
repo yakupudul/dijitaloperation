@@ -158,6 +158,9 @@ final class AiRouteKeys
     /** Faz 4a Site AI adım 1: brand service ↔ hizmet / lokasyon page for pages the name rules could not match. */
     public const string SITE_SERVICE_PAGES = 'site.service_pages';
 
+    /** Görsel alt metni: alt text for WordPress images without one (file name + page; operator approves the write). */
+    public const string SITE_IMAGE_ALTS = 'site.image_alts';
+
     /** Faz 4a Site AI adım 2: coverage / intent judgement of ambiguous cluster ↔ page mappings (one call per service). */
     public const string SITE_CLUSTER_PAGES = 'site.cluster_pages';
 

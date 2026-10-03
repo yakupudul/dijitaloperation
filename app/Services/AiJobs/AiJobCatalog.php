@@ -71,6 +71,7 @@ final class AiJobCatalog
     /** @var array<string, string> RunSiteOperationJob operation => AI operation */
     private const array SITE_OPERATIONS = [
         'categorize' => 'site.page_categories',
+        'image_alts' => 'site.image_alts',
         'summaries' => 'site.page_summary',
         'standard' => 'site.standard_from_decision',
     ];

@@ -50,6 +50,7 @@ final class AiOperationLabels
         'backlinks.sources' => 'Backlink kaynak önerisi',
         'site.page_categories' => 'Sayfaları sınıflandır',
         'site.service_pages' => 'Hizmet ↔ sayfa eşleme',
+        'site.image_alts' => 'Görsel alt metni öner',
         'site.cluster_pages' => 'Küme ↔ sayfa eşleme',
         'site.cluster_match' => 'Küme ↔ içerik eşleştirme',
         'site.cluster_gaps' => 'Küme eksikleri',

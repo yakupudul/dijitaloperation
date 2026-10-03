@@ -79,13 +79,23 @@ final class ServicePageMapper
         }
         $ai = 0;
         $status = 'ready';
+        $waiting = false;
         foreach ($unsure->chunk(self::AI_BATCH) as $batch) {
             [$batchStatus, $count] = $this->aiBatch($batch->values(), $names->all());
             $ai += $count;
+            if ($batchStatus === 'queued') {
+                // Claude (MCP): every batch is asked at once, so the re-run with the answers sees the same batches.
+                $waiting = true;
+
+                continue;
+            }
             if ($batchStatus !== 'ready') {
                 $status = 'ai_'.$batchStatus;
                 break;
             }
+        }
+        if ($waiting && $status === 'ready') {
+            $status = 'queued';
         }
 
         return ['status' => $status, 'rule' => count($rule), 'ai' => $ai, 'unmatched' => $unsure->count() - $ai];

@@ -29,6 +29,11 @@
             @foreach (\App\Livewire\Operator\Website\V2\SuggestionsTab::STATUS_LABELS as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
         </select>
         <span class="text-xs text-gray-500">{{ $suggestions->total() }} öneri</span>
+        <span class="ml-auto flex items-center gap-1" data-image-alts>
+            @if ($altStatus)<span class="text-xs text-gray-500">Görsel alt metni: {{ $altStatus }}</span>@endif
+            <button type="button" wire:click="proposeAlts" class="{{ $ghost }}">Görsel alt metni öner</button>
+            <x-operator.ai-prompt-info operation="site.image_alts" />
+        </span>
     </section>
 
     <section class="{{ $card }}" data-section="suggestions">
@@ -38,7 +43,7 @@
                     <div class="flex flex-wrap items-start justify-between gap-2">
                         <div class="min-w-0">
                             <p class="font-medium">{{ $s->title }}
-                                <span class="{{ $chip }} ml-1 bg-gray-100 text-gray-600 dark:bg-gray-800">{{ $types[$s->action_type] ?? $s->action_type }}</span>
+                                <span class="{{ $chip }} ml-1 bg-gray-100 text-gray-600 dark:bg-gray-800">{{ \App\Services\Site\SiteSuggestionTypes::label((string) $s->action_type) }}</span>
                                 <span class="{{ $chip }} ml-1 {{ $s->status === 'recheck' ? 'bg-amber-50 text-amber-700' : 'bg-gray-50 text-gray-500' }}">{{ \App\Livewire\Operator\Website\V2\SuggestionsTab::STATUS_LABELS[$s->status] ?? $s->status }}</span>
                                 @if ($s->status === 'applied' && ($outcome = \App\Services\Outcomes\OutcomeTracker::latest($s)) !== null)
                                     <span title="{{ $outcome['reason'] }}">@include('livewire.demo.partials.outcome-badge', ['verdict' => $outcome['verdict']])</span>
@@ -50,8 +55,13 @@
                             </p>
                         </div>
                         <div class="flex flex-wrap items-center gap-1">
-                            @if (in_array($s->status, ['open', 'recheck'], true))
+                            @if ($s->action_type === \App\Services\Site\ImageAlts::TYPE && in_array($s->status, ['open', 'recheck'], true))
+                                <button type="button" wire:click="applyAlts({{ $s->id }})" wire:confirm="Alt metinler WordPress’e yazılsın mı? (geri alınabilir)" class="{{ $btn }}">Onayla ve WordPress’e gönder</button>
+                            @endif
+                            @if (in_array($s->status, ['open', 'recheck'], true) && $s->action_type !== \App\Services\Site\ImageAlts::TYPE)
                                 <button type="button" wire:click="approve({{ $s->id }})" class="{{ $ghost }}">Onayla</button>
+                            @endif
+                            @if (in_array($s->status, ['open', 'recheck'], true))
                                 <input type="text" wire:model="reasons.{{ $s->id }}" placeholder="Neden" aria-label="Reddetme nedeni" class="{{ $input }} w-28">
                                 <button type="button" wire:click="dismiss({{ $s->id }})" class="{{ $ghost }}">Reddet</button>
                             @endif
@@ -70,6 +80,11 @@
                     @if ($opened?->id === $s->id)
                         <div class="mt-2 space-y-3 rounded-lg bg-gray-50 p-3 dark:bg-gray-950" data-detail>
                             @if ($applyStatus)<p class="text-gray-500">AI ile yap: {{ $applyStatus }}</p>@endif
+                            @if ($s->action_type === \App\Services\Site\ImageAlts::TYPE)
+                                <ul data-image-alt-list>
+                                    @foreach ((array) data_get($s->action, 'images', []) as $image)<li><span class="text-gray-500">{{ $image['file'] }}</span> → «{{ $image['alt'] }}»</li>@endforeach
+                                </ul>
+                            @endif
                             @if (data_get($s->action, 'proposal_blocked'))<p class="text-rose-600">{{ str_starts_with((string) data_get($s->action, 'proposal_blocked'), 'Kopya') ? '' : 'Uyum kuralına takıldı: ' }}{{ data_get($s->action, 'proposal_blocked') }}</p>@endif
                             @if (data_get($s->action, 'proposal_warnings'))<p class="text-amber-700" data-proposal-warnings>{{ data_get($s->action, 'proposal_warnings') }}</p>@endif
 

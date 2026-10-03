@@ -5,6 +5,9 @@ namespace Tests\Feature\Mcp;
 use App\Ai\Agents\Site\ClusterAiQueriesAgent;
 use App\Ai\Agents\Site\ClusterGapsAgent;
 use App\Ai\Agents\Site\ClusterMatchAgent;
+use App\Ai\Agents\Site\PageCategoriesAgent;
+use App\Ai\Agents\Site\PageSummaryAgent;
+use App\Ai\Agents\Site\ServicePagesAgent;
 use App\Ai\Agents\Site\WriteArticleAgent;
 use App\Jobs\Site\RunSiteOperationJob;
 use App\Mcp\Servers\MoxdopServer;
@@ -19,6 +22,7 @@ use App\Mcp\Tools\SystemHealth;
 use App\Models\AiTask;
 use App\Models\BrandClusterPage;
 use App\Models\ClaudeNote;
+use App\Models\OfferingPage;
 use App\Models\Suggestion;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Brand\BrandDossier;
@@ -89,6 +93,38 @@ final class McpWorkspaceTest extends SiteTestCase
         $this->assertSame(3, AiTask::query()->where('status', AiTask::CONSUMED)->count());
         ClusterMatchAgent::assertNeverPrompted();
         ClusterGapsAgent::assertNeverPrompted();
+    }
+
+    public function test_weekly_refresh_waits_for_claude_on_categories_then_service_pages(): void
+    {
+        $this->delegate(AiRouteKeys::SITE_PAGE_CATEGORIES);
+        $this->delegate(AiRouteKeys::SITE_SERVICE_PAGES);
+        PageCategoriesAgent::fake()->preventStrayPrompts();
+        ServicePagesAgent::fake()->preventStrayPrompts();
+        PageSummaryAgent::fake([['pages' => []]]);
+        $page = $this->page('/vida-kok/', 'Vida Kök Uygulaması', ['wp_post_type' => 'page', 'category' => null]);
+        $job = new RunSiteOperationJob($this->site->id, SiteOperations::WEEKLY_REFRESH);
+        Queue::fake();
+
+        // Round 1: categories only; the service step reads them, so it is not asked yet.
+        $job->handle(app(SiteOperations::class));
+        $this->assertSame('queued', SiteOperations::status($this->site->id, SiteOperations::WEEKLY_REFRESH)['status']);
+        $categories = AiTask::query()->where('status', AiTask::PENDING)->sole();
+        $this->assertSame(AiRouteKeys::SITE_PAGE_CATEGORIES, $categories->operation);
+        MoxdopServer::tool(SubmitResult::class, ['id' => $categories->id, 'output' => ['pages' => [['page_id' => $page->id, 'category' => 'hizmet']]]])->assertOk();
+
+        // Round 2: the category is stored, the service ↔ page call waits.
+        $job->handle(app(SiteOperations::class));
+        $this->assertSame(['hizmet', 'ai'], [$page->fresh()->category, $page->fresh()->category_source]);
+        $services = AiTask::query()->where('status', AiTask::PENDING)->sole();
+        $this->assertSame(AiRouteKeys::SITE_SERVICE_PAGES, $services->operation);
+        MoxdopServer::tool(SubmitResult::class, ['id' => $services->id, 'output' => ['pages' => [['page_id' => $page->id, 'service_id' => $this->implantOffering->id]]]])->assertOk();
+
+        $job->handle(app(SiteOperations::class));
+        $this->assertSame('ready', SiteOperations::status($this->site->id, SiteOperations::WEEKLY_REFRESH)['status']);
+        $this->assertSame($this->implantOffering->id, OfferingPage::query()->where('page_id', $page->id)->value('brand_offering_id'));
+        PageCategoriesAgent::assertNeverPrompted();
+        ServicePagesAgent::assertNeverPrompted();
     }
 
     public function test_only_operations_whose_callers_wait_can_be_delegated(): void

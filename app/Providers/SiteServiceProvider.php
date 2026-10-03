@@ -17,6 +17,7 @@ final class SiteServiceProvider extends ServiceProvider
     private const array ROUTES = [
         AiRouteKeys::SITE_PAGE_CATEGORIES => ['Site Page Categories', 'Web sitesi: one batched call categorizes the pages the rules could not place (hizmet / blog / kurumsal / sss / lokasyon / diğer).', 'classification'],
         AiRouteKeys::SITE_SERVICE_PAGES => ['Site Service Pages', 'Web sitesi AI adım 1: hizmet / lokasyon pages the name rules could not match → one approved brand service or none.', 'classification'],
+        AiRouteKeys::SITE_IMAGE_ALTS => ['Site Image Alts', 'Görsel alt metni: alt text for WordPress images without one, from the file name and the page; Admin approval before WordPress.', 'classification'],
         AiRouteKeys::SITE_CLUSTER_PAGES => ['Site Cluster Pages', 'Web sitesi AI adım 2: coverage / intent judgement of the ambiguous cluster ↔ page mappings, one call per service.', 'classification'],
         AiRouteKeys::SITE_CLUSTER_MATCH => ['Site Cluster Match', 'Küme ↔ içerik: which page answers each cluster of one service, read from page titles, headings and text (candidates chosen by word overlap).', 'classification'],
         AiRouteKeys::SITE_CLUSTER_GAPS => ['Site Cluster Gaps', 'Küme eksikleri: what one page does not answer of its clusters (queries, facets, AI questions, service areas when the cluster needs them).', 'classification'],

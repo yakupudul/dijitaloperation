@@ -105,13 +105,23 @@ final class PageCategorizer
         }
         $status = 'ready';
         $ai = 0;
+        $waiting = false;
         foreach ($unsure->chunk(self::AI_BATCH) as $batch) {
             [$batchStatus, $count] = $this->aiBatch($batch->values(), $offerings);
             $ai += $count;
+            if ($batchStatus === 'queued') {
+                // Claude (MCP): every batch is asked at once, so the re-run with the answers sees the same batches.
+                $waiting = true;
+
+                continue;
+            }
             if ($batchStatus !== 'ready') {
                 $status = 'ai_'.$batchStatus;
                 break;
             }
+        }
+        if ($waiting && $status === 'ready') {
+            $status = 'queued';
         }
 
         return ['status' => $status, 'rule' => $rule, 'ai' => $ai, 'unsure' => $unsure->count() - $ai];

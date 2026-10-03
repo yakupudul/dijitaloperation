@@ -18,6 +18,7 @@ use App\Services\ExternalWrites\WordPressDraftWriter;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Services\Outcomes\OutcomeTracker;
 use App\Services\SeoTasks\SeoText;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -31,6 +32,9 @@ use Throwable;
 final class ChangeApplier
 {
     public const int MAX_HTML = 30000;
+
+    /** JSON-LD types Yoast, Rank Math and SEOPress already print on every page: never written again by MoxDOP. */
+    public const array PLUGIN_SCHEMA_TYPES = ['WebPage', 'WebSite', 'Organization', 'BreadcrumbList', 'Article', 'BlogPosting', 'Person', 'ImageObject', 'SearchAction'];
 
     public function __construct(
         private readonly SiteAi $ai,
@@ -61,13 +65,14 @@ final class ChangeApplier
             'current_html' => $html !== null ? mb_substr($html, 0, self::MAX_HTML) : null,
             'site_pages' => $sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title])->all(),
             'technical' => PageTechnical::of($page),
+            'existing_schema' => self::existingSchema($page),
             'forbidden' => ForbiddenTerms::forBrand($brand)->phrases(),
             'brand' => $context['profile'], 'notes' => $context['notes'], 'standards' => $context['standards'], 'decisions' => $context['decisions'],
         ] + $this->clusterPack($suggestion, $brand), 300);
         if ($result['status'] !== 'ready') {
             return ['status' => $result['status']];
         }
-        $proposal = $this->validated($result['data'], $page, $html, $sitePages->pluck('url')->map(fn ($u): string => (string) $u)->all());
+        $proposal = $this->validated($result['data'], $page, $html, $sitePages->pluck('url')->map(fn ($u): string => (string) $u)->all(), self::existingSchema($page)['seo_plugin'] !== null);
         if ($proposal === null) {
             return ['status' => 'invalid', 'message' => 'AI çıktısı sayfa verisiyle doğrulanamadı.'];
         }
@@ -142,7 +147,7 @@ final class ChangeApplier
      * @param  list<string>  $siteUrls
      * @return array{kind: string, current: array<string, mixed>, new: array<string, mixed>, note: string}|null
      */
-    public function validated(array $data, Page $page, ?string $currentHtml, array $siteUrls): ?array
+    public function validated(array $data, Page $page, ?string $currentHtml, array $siteUrls, bool $pluginSchema = false): ?array
     {
         $evidence = new SiteEvidence([...$siteUrls, (string) $page->url], [], [(string) $page->content_text]);
         preg_match_all('/\d+(?:[.,]\d+)?/', (string) $page->content_text.' '.$page->title.' '.$page->meta_description, $numbers);
@@ -170,7 +175,7 @@ final class ChangeApplier
             $new['internal_links'] = $links;
         }
         $schema = trim((string) ($data['schema_json'] ?? ''));
-        if ($schema !== '' && is_array(json_decode($schema, true))) {
+        if ($schema !== '' && is_array(json_decode($schema, true)) && ! ($pluginSchema && self::onlyPluginTypes((array) json_decode($schema, true)))) {
             $new['schema_json'] = $schema;
         }
         $html = trim((string) ($data['html'] ?? ''));
@@ -193,6 +198,57 @@ final class ChangeApplier
             'new' => $new,
             'note' => mb_substr(trim((string) ($data['note'] ?? '')), 0, 300),
         ];
+    }
+
+    /**
+     * Structured data the page already has: the SEO plugin of the WordPress object (its base schema is on every page)
+     * and the JSON-LD types MoxDOP already wrote to it.
+     *
+     * @return array{seo_plugin: ?string, plugin_types: list<string>, written_by_moxdop: list<string>}
+     */
+    public static function existingSchema(Page $page): array
+    {
+        $plugin = $page->wp_post_id !== null ? DB::table('website_cms_seo_snapshot')->where('digital_asset_id', $page->website_asset_id)
+            ->where('object_id', (string) $page->wp_post_id)->orderByDesc('id')->value('seo_provider') : null;
+        $plugin = in_array($plugin, ['yoast', 'rankmath', 'rank_math', 'seopress'], true) ? (string) $plugin : null;
+        $written = [];
+        if ($page->wp_post_id !== null) {
+            foreach (ExternalWriteAction::query()->where('digital_asset_id', $page->website_asset_id)->where('status', 'succeeded')->latest('id')->limit(50)->get(['request_payload']) as $action) {
+                foreach ((array) data_get($action->request_payload, 'changes', []) as $change) {
+                    if (($change['type'] ?? null) === 'schema' && (int) ($change['object_id'] ?? 0) === (int) $page->wp_post_id) {
+                        array_push($written, ...self::schemaTypes((array) json_decode((string) ($change['value'] ?? ''), true)));
+                    }
+                }
+            }
+        }
+
+        return ['seo_plugin' => $plugin, 'plugin_types' => $plugin !== null ? self::PLUGIN_SCHEMA_TYPES : [], 'written_by_moxdop' => array_values(array_unique($written))];
+    }
+
+    /** @param array<mixed> $schema */
+    private static function onlyPluginTypes(array $schema): bool
+    {
+        $types = self::schemaTypes($schema);
+
+        return $types === [] || array_diff($types, self::PLUGIN_SCHEMA_TYPES) === [];
+    }
+
+    /**
+     * @param  array<mixed>  $schema
+     * @return list<string>
+     */
+    private static function schemaTypes(array $schema): array
+    {
+        $types = [];
+        foreach (isset($schema['@graph']) && is_array($schema['@graph']) ? $schema['@graph'] : [$schema] as $node) {
+            foreach ((array) (is_array($node) ? ($node['@type'] ?? []) : []) as $type) {
+                if (is_string($type) && $type !== '') {
+                    $types[] = $type;
+                }
+            }
+        }
+
+        return array_values(array_unique($types));
     }
 
     /**

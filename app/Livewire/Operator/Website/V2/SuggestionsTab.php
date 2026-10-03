@@ -8,6 +8,7 @@ use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Site\ChangeApplier;
+use App\Services\Site\ImageAlts;
 use App\Services\Site\ScopedStandards;
 use App\Services\Site\SiteDiff;
 use App\Services\Site\SiteOperations;
@@ -119,6 +120,19 @@ final class SuggestionsTab extends Component
         $this->message = 'Geri alma kuyruğa alındı.';
     }
 
+    /** "Görsel alt metni öner": AI proposals for WordPress images without alt text (one suggestion per page). */
+    public function proposeAlts(): void
+    {
+        SiteOperations::dispatch($this->assetId, SiteOperations::IMAGE_ALTS);
+        $this->message = 'Görsel alt metinleri hazırlanıyor.';
+    }
+
+    public function applyAlts(int $id, ImageAlts $alts): void
+    {
+        $alts->approve($this->suggestion($id), auth()->user());
+        $this->message = 'Alt metinler WordPress’e gönderiliyor (geri alınabilir).';
+    }
+
     public function proposeStandard(int $id): void
     {
         $this->suggestion($id);
@@ -158,6 +172,7 @@ final class SuggestionsTab extends Component
             'writes' => $opened !== null ? ExternalWriteAction::query()->where('suggestion_id', $opened->id)->orderBy('id')->get() : collect(),
             'pageOptions' => Page::query()->where('website_asset_id', $site->id)->whereIn('id', Suggestion::query()->where('brand_id', (int) $site->brand_id)->whereNotNull('page_id')->select('page_id'))->orderBy('path')->pluck('path', 'id')->all(),
             'applyStatus' => $opened !== null ? SiteOperations::line(SiteOperations::status($site->id, SiteOperations::APPLY_CHANGE, ['suggestion_id' => $opened->id])) : null,
+            'altStatus' => SiteOperations::line(SiteOperations::status($site->id, SiteOperations::IMAGE_ALTS)),
             'standardStatus' => $opened !== null ? SiteOperations::line(SiteOperations::status($site->id, SiteOperations::STANDARD, ['suggestion_id' => $opened->id])) : null,
         ]);
     }

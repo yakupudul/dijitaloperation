@@ -34,6 +34,7 @@ final class SiteSuggestionTypes
             self::CONTENT => 'içerik',
             self::COMPETITOR => 'rakip',
             ClusterOverlaps::TYPE => 'küme çakışması',
+            ImageAlts::TYPE => 'görsel alt metni',
             default => self::ANALYSIS[$type] ?? $type,
         };
     }
