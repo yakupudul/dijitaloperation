@@ -432,6 +432,9 @@ final class QueryClusterer
                     default => throw new DomainException('Claude bu kümeleme adımını yapamadı.'),
                 };
             }
+            if ($this->tasks->blocksInline($agent::OPERATION)) {
+                throw new DomainException('Kümeleme Claude\'a devredildi; yalnız arka plan işinden çalışır.');
+            }
         }
         $route = $this->routes->resolve($agent::OPERATION);
         if ($route->isEmpty()) {

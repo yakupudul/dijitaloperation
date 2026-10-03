@@ -2937,5 +2937,7 @@ kümele"), `queries.plan_sectors`, `queries.plan_services`, `queries.plan_filter
 (`pending` in the run state) so the answer is found although triage adds queries meanwhile; calls whose pack drifts
 (samples, metrics) are named by a stable slot in the run (`AiTaskQueue::answer(..., $slot)`). Waiting steps show
 "Claude bekleniyor" and are not closed as stale (kept 5 days); Otomatik kur stays "building" without becoming stuck.
+Inline calls (outside a resumable job, e.g. `moxdop:brand-candidates --sync`) of a delegated operation never fall
+back to the provider route (yakup, 2026-10-03): the call fails (`AiTaskQueue::blocksInline`); `--sync` queues the job.
 Verification: PHPUnit delegated tests in `QueriesScreenTest`, `QueryPlanWizardTest`, `QueryBulkAndAssignTest`,
 `BrandServicesAndSettingsTest`, `BrandSetupAssistantTest`, `BrandCandidatesTest`. Not deployed; not DONE.

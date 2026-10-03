@@ -22,6 +22,7 @@ use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Ai\AiBudget;
 use App\Services\Ai\OpenAiCostAudit;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Alerts\AdBudgetWatch;
 use App\Services\Analyst\AnalystEngine;
 use App\Services\Analyst\AnalystRegistry;
@@ -51,6 +52,7 @@ use App\Services\Site\SiteFlow;
 use App\Services\Site\SiteMetrics;
 use App\Services\Site\SiteOperations;
 use App\Services\Website\SitemapChangeWatcher;
+use App\Support\Ai\AiRouteKeys;
 use App\Support\Console\ConsoleScope;
 use App\Support\Console\ConsoleScopeException;
 use App\Support\Roles;
@@ -664,7 +666,8 @@ Schedule::command('moxdop:analyst:weekly')
 
 // Faz 2: keşfedilen varlıklar → marka adayları (yeni kaynaklar her gün; onaylı gruplar değişmez).
 Artisan::command('moxdop:brand-candidates {--sync : Run now instead of queueing}', function (): void {
-    if ($this->option('sync')) {
+    // Delegated to Claude: grouping waits for Claude, so it always runs as the resumable job.
+    if ($this->option('sync') && ! app(AiTaskQueue::class)->delegated(AiRouteKeys::BRAND_CANDIDATES)) {
         $summary = app(BrandCandidateBuilder::class)->refresh();
         $this->info(sprintf('Yeni kaynak %d · yeni aday %d · AI çağrısı %d (%s)', $summary['new_subjects'], $summary['candidates_created'], $summary['ai_calls'], $summary['ai_status']));
         if ($summary['ai_error'] !== null) {

@@ -14,6 +14,7 @@ use App\Models\AiTask;
 use App\Models\Suggestion;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Prompts\PromptRegistry;
+use App\Services\Site\SiteAi;
 use App\Services\Site\SiteOperations;
 use App\Support\Ai\AiRouteKeys;
 use Illuminate\Support\Facades\Queue;
@@ -156,6 +157,18 @@ final class AiTaskQueueTest extends SiteTestCase
 
         config(['moxdop-mcp.token' => '']);
         $this->postJson('/mcp/moxdop', $message, ['Authorization' => 'Bearer test-mcp-token'])->assertNotFound();
+    }
+
+    public function test_a_delegated_operation_called_outside_a_job_never_uses_the_provider(): void
+    {
+        $this->delegate(AiRouteKeys::SITE_WRITE_ARTICLE);
+        WriteArticleAgent::fake()->preventStrayPrompts();
+
+        $result = app(SiteAi::class)->run(new WriteArticleAgent, ['title' => 'İmplant sonrası ilk hafta']);
+
+        $this->assertSame('error', $result['status']);
+        $this->assertSame(0, AiTask::query()->count());
+        WriteArticleAgent::assertNeverPrompted();
     }
 
     private function delegate(string $operation): void

@@ -8,6 +8,7 @@ use App\Services\Prompts\PromptRegistry;
 use App\Support\Ai\AiRouteKeys;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\ObjectSchema;
@@ -18,8 +19,8 @@ use Laravel\Ai\ObjectSchema;
  * run ends "queued", and when Claude has answered every open call of that run over MCP the job is dispatched again;
  * the re-run gets each answer back by its call (operation + input hash, so a re-run that skips calls it already
  * stored, like a multi-step Eşleştir, still finds the right answer) and continues exactly like a provider
- * response. Outside such a job
- * the call keeps the provider route. Scoped: the open run lives in this instance (one per request / job), so it never
+ * response. Outside such a job (an inline call from a page or a command) a delegated operation never falls back to
+ * the provider route (operator decision 2026-10-03: delegated work stays with Claude); the call fails instead. Scoped: the open run lives in this instance (one per request / job), so it never
  * leaks into jobs dispatched during the run.
  */
 final class AiTaskQueue
@@ -82,6 +83,20 @@ final class AiTaskQueue
     public function delegated(string $operation): bool
     {
         return self::enabled() && $this->registry->current($operation)->model === self::MODEL && $this->supports($operation);
+    }
+
+    /**
+     * A delegated operation called outside a resumable run (inline from a page or a command): it must not use the
+     * provider route, and the caller reports it as failed.
+     */
+    public function blocksInline(string $operation): bool
+    {
+        if ($this->run !== null || ! $this->delegated($operation)) {
+            return false;
+        }
+        Log::info('Delegated AI operation called outside a job; provider route not used.', ['operation' => $operation]);
+
+        return true;
     }
 
     /** Starts a resumable run: the job is dispatched again once Claude has answered its delegated calls. */
@@ -155,8 +170,8 @@ final class AiTaskQueue
 
     /**
      * The delegated call for callers that report a failed call as a status string: the structured output, 'queued'
-     * (waiting for Claude), 'error' (Claude could not do it), or null when the operation is not delegated or no
-     * resumable run is open (the caller keeps the provider route).
+     * (waiting for Claude), 'error' (Claude could not do it, or an inline call outside a resumable run), or null when
+     * the operation is not delegated (the caller keeps the provider route).
      *
      * @param  array<string, mixed>  $data
      * @param  string  $label  the pack's name the operation's prompt reads (DATA_JSON, CONTEXT_JSON)
@@ -169,7 +184,7 @@ final class AiTaskQueue
         }
         $answer = $this->answer($agent, $data, $slot, $label);
         if ($answer === null) {
-            return null;
+            return $this->blocksInline($agent->promptOperation()) ? 'error' : null;
         }
 
         return match ($answer['status']) {

@@ -13,7 +13,7 @@ use Throwable;
 /**
  * One structured call of a website-screen AI operation: route (budget, providers) → DATA_JSON → structured output.
  * An operation delegated to Claude (MCP) waits in the AI iş kuyruğu instead (status queued; the job runs again with
- * the answer). Never throws; the caller validates the output against its own data pack before storing anything.
+ * the answer); called inline (outside such a job) it fails rather than use the provider. Never throws; the caller validates the output against its own data pack before storing anything.
  */
 final class SiteAi
 {
@@ -33,6 +33,9 @@ final class SiteAi
         try {
             if ($this->tasks->delegated($agent->promptOperation()) && ($answer = $this->tasks->answer($agent, $data)) !== null) {
                 return $answer;
+            }
+            if ($this->tasks->blocksInline($agent->promptOperation())) {
+                return ['status' => 'error', 'data' => [], 'prompt_version_id' => null];
             }
             $route = $this->routes->resolve($agent->promptOperation());
             if ($route->isEmpty()) {
