@@ -8,7 +8,19 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 APP_DOWN=0
+# PHP-FPM runs as the web user (www-data). Artisan commands run here as root (view:cache, migrate, logs …) leave
+# root-owned files in storage/ and bootstrap/cache/, and the web user then fails on them (2026-10-03: every page
+# answered 500 with "touch(): Utime failed: Operation not permitted" in BladeCompiler). The trap hands both
+# directories back to the web user whenever the script ends, success or failure.
+WEB_USER="${MOXDOP_WEB_USER:-www-data}"
+restore_web_ownership() {
+  if id "${WEB_USER}" >/dev/null 2>&1; then
+    ( as_root chown -R "${WEB_USER}:${WEB_USER}" storage bootstrap/cache ) >/dev/null 2>&1 \
+      || echo "deploy/staging: WARNING — could not hand storage/ and bootstrap/cache/ to ${WEB_USER}" >&2
+  fi
+}
 cleanup() {
+  restore_web_ownership
   if [[ "$APP_DOWN" -eq 1 ]]; then
     php artisan up --no-interaction >/dev/null 2>&1 || true
   fi
@@ -282,6 +294,7 @@ printf '{"sha":"%s","deployed_at":"%s"}\n' "${RELEASE_SHA}" "$(date -u +%Y-%m-%d
 chmod 0644 "${RELEASE_TMP}"
 mv -f "${RELEASE_TMP}" storage/app/release.json
 
+restore_web_ownership
 php artisan up --no-interaction
 APP_DOWN=0
 

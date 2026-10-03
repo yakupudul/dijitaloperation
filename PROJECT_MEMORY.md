@@ -1923,3 +1923,5 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 - **Geliştirme havuzu (yakup, 2026-10-03):** Claude sistemi (hata, veri çekimi, sayfa taraması, tasarım) tarar ve
   bulguyu Ayarlar › Geliştirme havuzu'na öneri olarak yazar; yalnız yakup'un onayladıklarını kodlar, dala gönderir
   ve deploy komutlarını havuza yazar. Deploy'u yakup yapar ve "Deploy tamamlandı" der; Claude canlıda kontrol edip kapatır.
+  Deploy komutlarında `deploy.sh` sonrası her artisan komutu `sudo -u www-data php artisan …` olarak yazılır; root
+  olarak çalışan komutlar storage/ dosyalarını root'a bırakıp tüm sayfaları 500'e düşürdü (2026-10-03).

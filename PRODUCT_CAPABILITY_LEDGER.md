@@ -1003,6 +1003,7 @@ Beş bağımsız Livewire bileşeni (`App\Livewire\Operator\Website\V2\{Competit
   - report snapshot `SET TRANSACTION` issued inside a transaction.
 - **Deploy gate:** `moxdop:preflight` stops `deploy/staging/deploy.sh` before maintenance mode and migrations. It checks env keys, the DB, Redis, and that config, routes and views compile.
   - `storage/app/release.json` records the deployed SHA; Sistem sağlığı shows it and grouped errors carry it.
+  - The script hands `storage/` and `bootstrap/cache/` back to the web user (`MOXDOP_WEB_USER`, default www-data) before `artisan up` and on every exit. Root-owned compiled views made every page answer 500 on 2026-10-03 (`touch(): Utime failed`). Artisan commands run after the script go through `sudo -u www-data`.
 - **Observability** (Sistem sağlığı):
   - Horizon queue wait alarm `queue_wait_high` (300 / 900 / 1800 s; redis only).
   - Grouped application errors (`app_error_groups`).

@@ -75,6 +75,8 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
 - Build: `list-changes` (default: your work). Code only `approved` changes: `update-change step=start`, fix in the
   repository with tests, push the branch, then `step=ready` with the commit and the exact deploy commands. Cannot be
   done as asked → `step=give_back` with the reason. You never deploy; the operator does and marks it.
+  Deploy commands: `git fetch` + `git checkout <sha>` + `bash deploy/staging/deploy.sh` (it migrates and caches);
+  any artisan command after it runs as the web user (`sudo -u www-data php artisan …`), never as root.
 - Check: `deployed` changes → compare the live release, `system-health` and `screen-checks`, then `step=verified` or
   `step=failed` with what you checked.
 
