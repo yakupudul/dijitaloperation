@@ -76,7 +76,7 @@ final class ContentRecipe
             'idea' => $idea,
             'page' => $page !== null ? [
                 'url' => (string) $page->url, 'title' => $page->title, 'h1' => $page->h1, 'headings' => array_slice($page->headingTexts(), 0, 40),
-                'word_count' => (int) $page->word_count, 'content' => mb_substr(trim(preg_replace('/\s+/u', ' ', (string) $page->content_text) ?? ''), 0, self::PAGE_CONTENT),
+                'word_count' => (int) $page->word_count, 'content' => $page->aiText(self::PAGE_CONTENT),
                 'technical' => PageTechnical::of($page),
             ] : null,
             'coverage' => ['state' => (string) ($subject->row->coverage ?? 'unknown'), 'gaps' => $subject->gaps()],

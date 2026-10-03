@@ -240,7 +240,7 @@ final class GbpAssistant
             'business' => $brand->name,
             'offerings' => array_column($this->offerings($brand), 'name'),
             'page' => ['title' => (string) ($page->title ?: $page->h1), 'category' => $page->category, 'summary' => (string) $page->content_summary,
-                'text' => mb_substr(trim((string) $page->content_text), 0, 6000)],
+                'text' => $page->aiText(6000)],
             'recent_posts' => $resourceId !== null ? DB::table('gbp_posts')->where('external_resource_id', $resourceId)->orderByDesc('create_time')->limit(5)
                 ->pluck('summary')->map(fn ($s): string => mb_substr((string) $s, 0, 200))->all() : [],
             'compliance' => $this->complianceRules($brand),

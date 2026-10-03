@@ -94,7 +94,7 @@ final class UrlAnalyzer
         $queries = $gsc !== null ? $this->metrics->pageQueries($brand, (string) $page->url) : [];
         $ga4 = $this->metrics->ga4Landing($brand, (string) $page->url);
         $sitePages = Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)->orderBy('path')->limit(300)->get(['id', 'url', 'title', 'category']);
-        $content = mb_substr((string) $page->content_text, 0, self::MAX_CONTENT);
+        $content = $page->aiText(self::MAX_CONTENT);
         $competitors = $this->competitorExamples($brand, $site, $clusterIds);
         $pack = [
             'brand' => [

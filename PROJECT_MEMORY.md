@@ -1905,3 +1905,5 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 - **Maliyet:** API faturasının çoğu Eşleştir'den (küme ↔ içerik eşleştirme + küme eksikleri). Bu işlemler artık
   Claude'a devredilebilir (adım adım tur: AI soruları → eşleştirme → eksikler).
 - **WordPress türü:** yeni makale her zaman yazı (post); sayfa yalnız mevcut hizmet sayfası güncellenirken.
+- **Sayfa iskeleti (yakup, 2026-10-03):** AI'ya sayfa düz metin değil Markdown iskelet olarak gider
+  (`pages.content_outline`, HTML saklanmaz); iskelet sürüm hash'ine girmez, yeniden analiz tetiklemez.

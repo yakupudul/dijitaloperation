@@ -2885,3 +2885,15 @@ Verification: PHPUnit `tests/Feature/Mcp/McpWorkspaceTest.php` + `AiTaskQueueTes
 routine run of Eşleştir over MCP and the operator's quality review await UAT. Not DONE.
 `php artisan moxdop:mcp:delegate [operations…] [--api]` sets the supported operations to Claude (MCP) or back to the
 route model from the shell (a new prompt version published as the first active admin); tested in `McpWorkspaceTest`.
+
+## 2026-10-03 — Sayfa içeriği Markdown iskelet (staging)
+
+`pages.content_outline`: the main content as a light Markdown outline (`#` headings, paragraphs, `- ` / `1. ` lists,
+tables, `> ` quotes, `S: / C:` for details / dl questions, `[görsel: alt]`, `[metin](link)`), built by
+`MainContentExtractor` for WordPress content and sitemap pages. Not in the content hash: filling it in on an
+unchanged page saves quietly (no re-analysis), an SEO-only refresh keeps the stored one. AI operations (Eşleştir
+match + gaps, content recipe, change applier, URL analysis, page summary, page mapper, GBP post) read
+`Page::aiText()` (outline, else the flat text). Flat `content_text` stays for evidence and word checks.
+MCP 1.2.0 adds `get-page` (stored page, outline, no live fetch). Backfill: `php artisan moxdop:pages:sync --all`
+(WordPress sites through the connector inventory; sitemap sites as pages are re-read).
+Verification: PHPUnit `tests/Feature/Mcp/McpPageOutlineTest.php`. Not deployed; not DONE.

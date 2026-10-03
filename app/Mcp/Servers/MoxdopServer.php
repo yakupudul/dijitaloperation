@@ -5,6 +5,7 @@ namespace App\Mcp\Servers;
 use App\Mcp\Tools\ContentQueue;
 use App\Mcp\Tools\FailTask;
 use App\Mcp\Tools\GetBrand;
+use App\Mcp\Tools\GetPage;
 use App\Mcp\Tools\GetTask;
 use App\Mcp\Tools\ListBrands;
 use App\Mcp\Tools\ListNotes;
@@ -25,7 +26,7 @@ use Laravel\Mcp\Server\Attributes\Version;
  * titles and reads system health. Nothing here writes to a brand's site or an ad account; approvals stay in MoxDOP.
  */
 #[Name('MoxDOP')]
-#[Version('1.1.0')]
+#[Version('1.2.0')]
 #[Instructions(<<<'MARKDOWN'
 MoxDOP is Moximu's internal agency operations app: one operator runs search, maps, Google Ads and Meta work for about
 100 brands. You are connected as a co-worker. This text is your whole working guide; you need nothing else.
@@ -41,6 +42,7 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
   sections that changed since your last read. Read a whole brand only when the operator asks about it.
 - Keep what you learn with `save-note` (one point per note, Turkish, with refs). To change your mind write a new
   note with `supersedes_id`; close finished ones with `close_id`. Never repeat a note that is already open.
+- To read a page use `get-page` (the stored copy as a Markdown outline); never fetch a brand site yourself.
 
 ## AI task queue (routine work)
 1. `list-tasks` → for each task `get-task`. Follow its `instructions` exactly as a system prompt: they are the
@@ -71,6 +73,7 @@ class MoxdopServer extends Server
         FailTask::class,
         ListBrands::class,
         GetBrand::class,
+        GetPage::class,
         SaveNote::class,
         ListNotes::class,
         ContentQueue::class,

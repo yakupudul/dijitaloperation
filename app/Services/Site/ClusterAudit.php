@@ -387,7 +387,7 @@ final class ClusterAudit
         }
         $result = $this->ai->run(new ClusterGapsAgent, [
             'page' => ['url' => (string) $page->url, 'title' => $page->title, 'h1' => $page->h1, 'headings' => array_slice($page->headingTexts(), 0, 40),
-                'content' => mb_substr(trim(preg_replace('/\s+/u', ' ', (string) $page->content_text) ?? ''), 0, self::PAGE_CONTENT)],
+                'content' => $page->aiText(self::PAGE_CONTENT)],
             'clusters' => [['cluster_id' => (int) $usage->id, 'name' => (string) $usage->idea->title, 'facets' => [],
                 'queries' => array_column((array) $usage->idea->target_queries, 'text'), 'ai_queries' => [], 'subtopics' => array_values((array) $usage->idea->outline)]],
         ], 300);
@@ -642,7 +642,7 @@ final class ClusterAudit
         return Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)
             ->where(fn ($q) => $q->whereIn('category', self::PAGE_CATEGORIES)->orWhereNull('category'))
             ->when($language !== null, fn ($q) => $q->where(fn ($l) => $l->where('language', $language)->orWhereNull('language')))
-            ->orderBy('id')->get(['id', 'url', 'path', 'title', 'h1', 'headings', 'content_text', 'category'])
+            ->orderBy('id')->get(['id', 'url', 'path', 'title', 'h1', 'headings', 'content_text', 'content_outline', 'category'])
             ->reject(fn (Page $p): bool => preg_match(self::NEVER_CANDIDATE, '/'.trim((string) $p->path, '/')) === 1 || trim((string) $p->path, '/') === '')
             ->values();
     }
@@ -728,7 +728,7 @@ final class ClusterAudit
     {
         $result = $this->ai->run(new ClusterGapsAgent, [
             'page' => ['url' => (string) $page->url, 'title' => $page->title, 'h1' => $page->h1, 'headings' => array_slice($page->headingTexts(), 0, 40),
-                'content' => mb_substr(trim(preg_replace('/\s+/u', ' ', (string) $page->content_text) ?? ''), 0, self::PAGE_CONTENT)],
+                'content' => $page->aiText(self::PAGE_CONTENT)],
             'clusters' => $rows->map(fn (BrandClusterPage $row): array => array_filter([
                 'cluster_id' => (int) $row->cluster_id, 'name' => (string) $row->cluster->name, 'facets' => $members[$row->cluster_id]['facets'] ?? [],
                 'queries' => $members[$row->cluster_id]['queries'] ?? [], 'ai_queries' => self::aiQuestions($row->cluster, $brand),

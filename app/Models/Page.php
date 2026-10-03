@@ -35,6 +35,7 @@ class Page extends Model
         'h1',
         'headings',
         'content_text',
+        'content_outline',
         'content_summary',
         'content_hash',
         'word_count',
@@ -107,6 +108,23 @@ class Page extends Model
 
             return $level >= 2 && $level <= 4 && trim((string) ($h['text'] ?? '')) !== '' ? 'H'.$level.' '.trim((string) $h['text']) : null;
         }, (array) $this->headings)));
+    }
+
+    /**
+     * What AI operations read: the Markdown outline (headings, paragraphs, lists, tables), else the flat text of a row
+     * not re-read since the outline was added. Cut at a paragraph boundary before $limit characters.
+     */
+    public function aiText(int $limit): string
+    {
+        $outline = trim((string) $this->content_outline);
+        $text = $outline !== '' ? $outline : trim((string) $this->content_text);
+        if (mb_strlen($text) <= $limit) {
+            return $text;
+        }
+        $cut = mb_substr($text, 0, $limit);
+        $break = mb_strrpos($cut, "\n\n");
+
+        return rtrim($break !== false && $break > $limit / 2 ? mb_substr($cut, 0, $break) : $cut);
     }
 
     public function categoryLabel(): string

@@ -299,7 +299,7 @@ final class ClusterPageMapper
     private function judge(Brand $brand, array $items, Collection $byKey, bool $hasGsc): array
     {
         $candidateIds = collect($items)->flatMap(fn (array $i): array => $i['candidates'])->unique()->values()->all();
-        $pages = Page::query()->whereIn('id', $candidateIds)->get(['id', 'url', 'title', 'h1', 'headings', 'content_text', 'content_summary'])->keyBy('id');
+        $pages = Page::query()->whereIn('id', $candidateIds)->get(['id', 'url', 'title', 'h1', 'headings', 'content_text', 'content_outline', 'content_summary'])->keyBy('id');
         $result = $this->ai->run(new ClusterPagesAgent, [
             'brand' => $brand->name,
             'clusters' => array_map(fn (array $i): array => [
@@ -309,7 +309,7 @@ final class ClusterPageMapper
             ], $items),
             'pages' => $pages->map(fn (Page $p): array => ['id' => (int) $p->id, 'url' => (string) $p->url, 'title' => $p->title, 'h1' => $p->h1,
                 'headings' => collect((array) $p->headings)->pluck('text')->take(30)->values()->all(),
-                'content' => mb_substr((string) ($p->content_text ?? ''), 0, self::MAX_CONTENT)])->values()->all(),
+                'content' => $p->aiText(self::MAX_CONTENT)])->values()->all(),
         ], 240);
         if ($result['status'] !== 'ready') {
             return [$result['status'], 0];

@@ -27,11 +27,18 @@ final class MainContentExtractor
 
     private const int MAX_HEADINGS = 120;
 
+    private const int MAX_OUTLINE = 60000;
+
+    private const int MAX_TABLE_ROWS = 30;
+
+    /** Inline elements: their text joins the surrounding line. */
+    private const array INLINE = ['span', 'strong', 'b', 'em', 'i', 'a', 'small', 'sup', 'sub', 'mark', 'abbr', 'code', 'u', 's', 'del', 'ins', 'q', 'cite', 'time', 'label', 'font', 'bdi', 'bdo', 'kbd', 'var', 'wbr'];
+
     /**
      * Full HTML document (non-WordPress sites).
      *
      * @return array{title: ?string, meta_description: ?string, canonical: ?string, language: ?string, is_indexable: bool,
-     *     h1: ?string, headings: list<array{level: int, text: string}>, content_text: string, word_count: int}
+     *     h1: ?string, headings: list<array{level: int, text: string}>, content_text: string, content_outline: string, word_count: int}
      */
     public function fromDocument(string $html, string $url): array
     {
@@ -44,6 +51,7 @@ final class MainContentExtractor
         $documentH1 = $this->firstH1($xpath);
         $this->removeChrome($xpath);
         $main = $this->mainNode($xpath) ?? $document->getElementsByTagName('body')->item(0);
+        $outline = $main instanceof DOMNode ? $this->outline($main) : '';
         [$text, $headings] = $main instanceof DOMNode ? $this->read($main) : ['', []];
         $h1 = $this->firstLevel($headings, 1) ?? $documentH1;
 
@@ -51,6 +59,7 @@ final class MainContentExtractor
             'h1' => $h1,
             'headings' => $headings,
             'content_text' => $text,
+            'content_outline' => $outline,
             'word_count' => $this->words($text),
         ];
     }
@@ -58,7 +67,7 @@ final class MainContentExtractor
     /**
      * A content fragment (WordPress post content): already main content, only cleaned and read.
      *
-     * @return array{h1: ?string, headings: list<array{level: int, text: string}>, content_text: string, word_count: int}
+     * @return array{h1: ?string, headings: list<array{level: int, text: string}>, content_text: string, content_outline: string, word_count: int}
      */
     public function fromFragment(string $html): array
     {
@@ -66,14 +75,15 @@ final class MainContentExtractor
         if ($document === null) {
             $text = $this->normalize(strip_tags($html));
 
-            return ['h1' => null, 'headings' => [], 'content_text' => $text, 'word_count' => $this->words($text)];
+            return ['h1' => null, 'headings' => [], 'content_text' => $text, 'content_outline' => $text, 'word_count' => $this->words($text)];
         }
         $xpath = new DOMXPath($document);
         $this->removeChrome($xpath);
         $body = $document->getElementsByTagName('body')->item(0);
+        $outline = $body instanceof DOMNode ? $this->outline($body) : '';
         [$text, $headings] = $body instanceof DOMNode ? $this->read($body) : ['', []];
 
-        return ['h1' => $this->firstLevel($headings, 1), 'headings' => $headings, 'content_text' => $text, 'word_count' => $this->words($text)];
+        return ['h1' => $this->firstLevel($headings, 1), 'headings' => $headings, 'content_text' => $text, 'content_outline' => $outline, 'word_count' => $this->words($text)];
     }
 
     public function words(string $text): int
@@ -223,6 +233,280 @@ final class MainContentExtractor
         return [mb_substr($this->normalize((string) $root->textContent), 0, self::MAX_TEXT), $headings];
     }
 
+    /**
+     * The main content as a light Markdown outline for AI: "#"-headings, paragraphs, "- " / "1. " lists, tables,
+     * "> " quotes, "S: / C:" for FAQ (details / dl), "[görsel: alt]" and "[metin](link)". Read before read() pads blocks.
+     */
+    private function outline(DOMNode $root): string
+    {
+        $blocks = [];
+        $this->outlineBlocks($root, $blocks);
+        $outline = '';
+        foreach ($blocks as $block) {
+            if ($block === '') {
+                continue;
+            }
+            if (mb_strlen($outline) + mb_strlen($block) + 2 > self::MAX_OUTLINE) {
+                break;
+            }
+            $outline .= ($outline === '' ? '' : "\n\n").$block;
+        }
+
+        return $outline;
+    }
+
+    /** @param list<string> $blocks */
+    private function outlineBlocks(DOMNode $node, array &$blocks): void
+    {
+        $line = '';
+        foreach ($node->childNodes as $child) {
+            if ($this->isInline($child)) {
+                $line .= $this->inline($child);
+
+                continue;
+            }
+            $this->flush($line, $blocks);
+            $this->outlineBlock($child, $blocks);
+        }
+        $this->flush($line, $blocks);
+    }
+
+    /** @param list<string> $blocks */
+    private function outlineBlock(DOMNode $node, array &$blocks): void
+    {
+        if (! $node instanceof DOMElement) {
+            return;
+        }
+        $tag = mb_strtolower($node->nodeName);
+        switch (true) {
+            case preg_match('/^h([1-6])$/', $tag, $m) === 1:
+                $text = $this->inlineText($node);
+                if ($text !== '') {
+                    $blocks[] = str_repeat('#', (int) $m[1]).' '.mb_substr($text, 0, 500);
+                }
+
+                return;
+            case $tag === 'p':
+                $text = $this->inlineText($node);
+                if ($text !== '') {
+                    $blocks[] = $text;
+                }
+
+                return;
+            case $tag === 'ul' || $tag === 'ol':
+                $list = $this->listLines($node, 0);
+                if ($list !== []) {
+                    $blocks[] = implode("\n", $list);
+                }
+
+                return;
+            case $tag === 'table':
+                $table = $this->table($node);
+                if ($table !== '') {
+                    $blocks[] = $table;
+                }
+
+                return;
+            case $tag === 'blockquote':
+                $inner = [];
+                $this->outlineBlocks($node, $inner);
+                if ($inner !== []) {
+                    $blocks[] = '> '.str_replace("\n", "\n> ", implode("\n\n", array_filter($inner)));
+                }
+
+                return;
+            case $tag === 'details':
+                $question = '';
+                $answer = [];
+                foreach ($node->childNodes as $child) {
+                    if ($child instanceof DOMElement && mb_strtolower($child->nodeName) === 'summary') {
+                        $question = $this->inlineText($child);
+                    } elseif ($this->isInline($child)) {
+                        $answer[] = $this->normalize($this->inline($child));
+                    } else {
+                        $this->outlineBlock($child, $answer);
+                    }
+                }
+                $answerText = trim(implode(' ', array_filter($answer)));
+                if ($question !== '' || $answerText !== '') {
+                    $blocks[] = trim(($question !== '' ? 'S: '.$question : '').($answerText !== '' ? "\nC: ".$answerText : ''));
+                }
+
+                return;
+            case $tag === 'dl':
+                $lines = [];
+                foreach ($node->childNodes as $child) {
+                    if (! $child instanceof DOMElement) {
+                        continue;
+                    }
+                    $text = $this->inlineText($child);
+                    $name = mb_strtolower($child->nodeName);
+                    if ($text !== '' && ($name === 'dt' || $name === 'dd')) {
+                        $lines[] = ($name === 'dt' ? 'S: ' : 'C: ').$text;
+                    }
+                }
+                if ($lines !== []) {
+                    $blocks[] = implode("\n", $lines);
+                }
+
+                return;
+            case $tag === 'img':
+                $alt = $this->normalize($node->getAttribute('alt'));
+                if ($alt !== '') {
+                    $blocks[] = '[görsel: '.mb_substr($alt, 0, 200).']';
+                }
+
+                return;
+            case in_array($tag, ['br', 'hr', 'figure', 'picture', 'video', 'audio', 'source', 'canvas', 'button', 'input', 'select', 'textarea'], true):
+                if ($tag === 'figure' || $tag === 'picture') {
+                    $this->outlineBlocks($node, $blocks);
+                }
+
+                return;
+            default:
+                $this->outlineBlocks($node, $blocks);
+        }
+    }
+
+    /** @return list<string> */
+    private function listLines(DOMElement $list, int $depth): array
+    {
+        $lines = [];
+        $ordered = mb_strtolower($list->nodeName) === 'ol';
+        $number = 0;
+        foreach ($list->childNodes as $item) {
+            if (! $item instanceof DOMElement || mb_strtolower($item->nodeName) !== 'li') {
+                continue;
+            }
+            $text = '';
+            $nested = [];
+            foreach ($item->childNodes as $child) {
+                $name = $child instanceof DOMElement ? mb_strtolower($child->nodeName) : '';
+                if ($name === 'ul' || $name === 'ol') {
+                    $nested = [...$nested, ...$this->listLines($child, $depth + 1)];
+                } else {
+                    $text .= ' '.$this->inline($child);
+                }
+            }
+            $text = $this->normalize($text);
+            if ($text !== '') {
+                $number++;
+                $lines[] = str_repeat('  ', $depth).($ordered ? $number.'. ' : '- ').mb_substr($text, 0, 1000);
+            }
+            $lines = [...$lines, ...$nested];
+        }
+
+        return $lines;
+    }
+
+    private function table(DOMElement $table): string
+    {
+        $rows = [];
+        $xpath = new DOMXPath($table->ownerDocument ?? new DOMDocument);
+        foreach ($xpath->query('.//tr', $table) ?: [] as $row) {
+            if (count($rows) >= self::MAX_TABLE_ROWS + 1) {
+                break;
+            }
+            $cells = [];
+            foreach ($row->childNodes as $cell) {
+                if ($cell instanceof DOMElement && in_array(mb_strtolower($cell->nodeName), ['td', 'th'], true)) {
+                    $cells[] = str_replace('|', '/', mb_substr($this->inlineText($cell), 0, 200));
+                }
+            }
+            if (array_filter($cells, fn (string $c): bool => $c !== '') !== []) {
+                $rows[] = '| '.implode(' | ', $cells).' |';
+            }
+        }
+        if ($rows === []) {
+            return '';
+        }
+        $columns = substr_count($rows[0], ' | ') + 1;
+        array_splice($rows, 1, 0, ['|'.str_repeat(' --- |', $columns)]);
+
+        return implode("\n", $rows);
+    }
+
+    private function isInline(DOMNode $node): bool
+    {
+        return $node->nodeType === XML_TEXT_NODE || $node->nodeType === XML_CDATA_SECTION_NODE
+            || ($node instanceof DOMElement && in_array(mb_strtolower($node->nodeName), self::INLINE, true) && ! $this->hasBlockChild($node));
+    }
+
+    private function hasBlockChild(DOMElement $node): bool
+    {
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement && ! in_array(mb_strtolower($child->nodeName), [...self::INLINE, 'br', 'img'], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Inline Markdown of a node: text, "[metin](link)", "[görsel: alt]"; a <br> is a space. */
+    private function inline(DOMNode $node): string
+    {
+        if ($node->nodeType === XML_TEXT_NODE || $node->nodeType === XML_CDATA_SECTION_NODE) {
+            return (string) $node->textContent;
+        }
+        if (! $node instanceof DOMElement) {
+            return '';
+        }
+        $tag = mb_strtolower($node->nodeName);
+        if ($tag === 'br') {
+            return ' ';
+        }
+        if ($tag === 'img') {
+            $alt = $this->normalize($node->getAttribute('alt'));
+
+            return $alt !== '' ? ' [görsel: '.mb_substr($alt, 0, 200).'] ' : '';
+        }
+        $inner = '';
+        foreach ($node->childNodes as $child) {
+            $inner .= $this->inline($child);
+        }
+        if ($tag === 'a') {
+            $href = trim($node->getAttribute('href'));
+            $text = $this->normalize($inner);
+            if ($text !== '' && $href !== '' && ! str_starts_with($href, '#') && preg_match('/^(javascript|data):/i', $href) !== 1) {
+                return '['.$text.']('.$href.')';
+            }
+        }
+
+        return $inner;
+    }
+
+    private function inlineText(DOMNode $node): string
+    {
+        $text = '';
+        foreach ($node->childNodes as $child) {
+            $text .= $this->isInline($child) || ! $child instanceof DOMElement ? $this->inline($child) : ' '.$this->blockText($child).' ';
+        }
+
+        return $this->normalize($text);
+    }
+
+    /** Text of a block found inside an inline context (a <div> in a <td>, a <p> in an <li>). */
+    private function blockText(DOMElement $node): string
+    {
+        $parts = [];
+        foreach ($node->childNodes as $child) {
+            $parts[] = $this->isInline($child) || ! $child instanceof DOMElement ? $this->inline($child) : $this->blockText($child);
+        }
+
+        return implode(' ', $parts);
+    }
+
+    /** @param list<string> $blocks */
+    private function flush(string &$line, array &$blocks): void
+    {
+        $text = $this->normalize($line);
+        if ($text !== '') {
+            $blocks[] = $text;
+        }
+        $line = '';
+    }
+
     /** @param list<array{level: int, text: string}> $headings */
     private function firstLevel(array $headings, int $level): ?string
     {
@@ -250,10 +534,10 @@ final class MainContentExtractor
         return trim(preg_replace('/[\p{Z}\s]+/u', ' ', $value) ?? $value);
     }
 
-    /** @return array{title: null, meta_description: null, canonical: null, language: null, is_indexable: bool, h1: null, headings: list<never>, content_text: string, word_count: int} */
+    /** @return array{title: null, meta_description: null, canonical: null, language: null, is_indexable: bool, h1: null, headings: list<never>, content_text: string, content_outline: string, word_count: int} */
     private function empty(): array
     {
         return ['title' => null, 'meta_description' => null, 'canonical' => null, 'language' => null, 'is_indexable' => true,
-            'h1' => null, 'headings' => [], 'content_text' => '', 'word_count' => 0];
+            'h1' => null, 'headings' => [], 'content_text' => '', 'content_outline' => '', 'word_count' => 0];
     }
 }

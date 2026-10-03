@@ -181,6 +181,7 @@ final class WordPressPageSync
             'h1' => $content['h1'] ?? ($title !== '' ? html_entity_decode($title, ENT_QUOTES | ENT_HTML5, 'UTF-8') : null),
             'headings' => $content['headings'],
             'content_text' => $content['content_text'],
+            'content_outline' => $content['content_outline'],
             'word_count' => $content['word_count'],
             'is_indexable' => $seo['is_indexable'],
             'changed_at' => is_string($record['modified_at'] ?? null) ? $record['modified_at'] : null,

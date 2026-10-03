@@ -24,7 +24,7 @@ final class PageStore
 
     /**
      * @param  array{url: string, language?: ?string, title?: ?string, meta_description?: ?string, canonical?: ?string,
-     *     h1?: ?string, headings?: list<array{level: int, text: string}>, content_text?: ?string, word_count?: int,
+     *     h1?: ?string, headings?: list<array{level: int, text: string}>, content_text?: ?string, content_outline?: ?string, word_count?: int,
      *     is_indexable?: bool, wp_post_id?: ?int, wp_post_type?: ?string, changed_at?: ?string}  $fields
      */
     public function upsert(int $siteId, array $fields): string
@@ -32,10 +32,13 @@ final class PageStore
         $url = trim((string) $fields['url']);
         $row = $this->row($fields);
         $hash = self::contentHash($row);
+        // The outline is not part of the version: null = not read this time (an SEO-only refresh), keep what is stored.
+        $outline = isset($fields['content_outline']) && is_string($fields['content_outline'])
+            ? ['content_outline' => mb_substr($fields['content_outline'], 0, 65000)] : [];
         $urlHash = self::urlHash($url);
         $changedAt = $this->time($fields['changed_at'] ?? null);
 
-        return DB::transaction(function () use ($siteId, $fields, $url, $row, $hash, $urlHash, $changedAt): string {
+        return DB::transaction(function () use ($siteId, $fields, $url, $row, $hash, $outline, $urlHash, $changedAt): string {
             $wpId = isset($fields['wp_post_id']) ? (int) $fields['wp_post_id'] : null;
             $page = $wpId !== null
                 ? Page::query()->where('website_asset_id', $siteId)->where('wp_post_id', $wpId)->lockForUpdate()->first()
@@ -43,7 +46,7 @@ final class PageStore
             $page ??= Page::query()->where('website_asset_id', $siteId)->where('url_hash', $urlHash)->lockForUpdate()->first();
 
             if ($page === null) {
-                Page::query()->create($row + [
+                Page::query()->create($row + $outline + [
                     'website_asset_id' => $siteId, 'url' => $url, 'url_hash' => $urlHash, 'path' => self::path($url),
                     'category' => null, 'content_hash' => $hash, 'content_summary' => null,
                     'wp_post_id' => $wpId, 'wp_post_type' => $fields['wp_post_type'] ?? null,
@@ -60,14 +63,19 @@ final class PageStore
                 BrandMemoryService::recheck($siteId, [(int) $page->id]);
             }
             if (! $urlChanged && $page->content_hash === $hash) {
+                $quiet = $outline !== [] && $page->content_outline !== $outline['content_outline'] ? $outline : [];
                 if ($wpId !== null && ($page->wp_post_id !== $wpId || $page->wp_post_type !== ($fields['wp_post_type'] ?? null))) {
-                    $page->forceFill(['wp_post_id' => $wpId, 'wp_post_type' => $fields['wp_post_type'] ?? null])->save();
+                    $quiet += ['wp_post_id' => $wpId, 'wp_post_type' => $fields['wp_post_type'] ?? null];
+                }
+                if ($quiet !== []) {
+                    // Same version: the outline is filled in (first read after it was added) without a re-analysis.
+                    $page->forceFill($quiet)->save();
                 }
 
                 return self::UNCHANGED;
             }
 
-            $update = ['url' => $url, 'url_hash' => $urlHash, 'path' => self::path($url)];
+            $update = ['url' => $url, 'url_hash' => $urlHash, 'path' => self::path($url)] + $outline;
             if ($wpId !== null) {
                 $update += ['wp_post_id' => $wpId, 'wp_post_type' => $fields['wp_post_type'] ?? null];
             }

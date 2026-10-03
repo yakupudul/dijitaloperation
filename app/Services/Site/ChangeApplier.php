@@ -57,7 +57,7 @@ final class ChangeApplier
         $result = $this->ai->run(new ApplyChangeAgent, [
             'suggestion' => ['type' => $type, 'title' => $suggestion->title, 'reason' => $suggestion->reason, 'evidence' => $suggestion->evidence],
             'page' => ['url' => $page->url, 'title' => $page->title, 'meta_description' => $page->meta_description, 'h1' => $page->h1,
-                'headings' => array_values((array) $page->headings), 'content' => mb_substr((string) $page->content_text, 0, 12000)],
+                'headings' => array_values((array) $page->headings), 'content' => $page->aiText(12000)],
             'current_html' => $html !== null ? mb_substr($html, 0, self::MAX_HTML) : null,
             'site_pages' => $sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title])->all(),
             'technical' => PageTechnical::of($page),

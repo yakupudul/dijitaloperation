@@ -116,7 +116,7 @@ final class BrandMemoryService
     {
         $siteIds = DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->pluck('id');
         $pages = Page::query()->whereIn('website_asset_id', $siteIds)->whereIn('id', $pageIds)->whereNull('content_summary')
-            ->whereNotNull('content_text')->orderBy('id')->get(['id', 'url', 'title', 'h1', 'headings', 'content_text', 'content_hash']);
+            ->whereNotNull('content_text')->orderBy('id')->get(['id', 'url', 'title', 'h1', 'headings', 'content_text', 'content_outline', 'content_hash']);
         if ($pages->isEmpty()) {
             return ['status' => 'ready', 'written' => 0];
         }
@@ -128,7 +128,7 @@ final class BrandMemoryService
             $result = $this->ai->run(new PageSummaryAgent, [
                 'brand' => $brand->name,
                 'pages' => $batch->map(fn (Page $p): array => ['id' => (int) $p->id, 'url' => (string) $p->url, 'title' => $p->title, 'h1' => $p->h1,
-                    'content' => mb_substr((string) $p->content_text, 0, self::MAX_CONTENT)])->values()->all(),
+                    'content' => $p->aiText(self::MAX_CONTENT)])->values()->all(),
             ]);
             if ($result['status'] !== 'ready') {
                 return ['status' => $result['status'], 'written' => $written];
