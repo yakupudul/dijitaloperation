@@ -45,6 +45,9 @@ final class SiteFlow
 
     private const array FAILURES = ['error', 'timeout', 'stalled', 'ai_error', 'ai_no_provider'];
 
+    /** Running, or waiting for Claude (MCP): the flow does not start the same operation again. */
+    private const array ACTIVE = ['running', 'queued'];
+
     /**
      * @param  bool  $manual  the operator clicked ("Akışı ilerlet"); otherwise (nightly, after clustering / setup) the flow
      *                        starts AI work only when the site area may run by itself (AiBudget::automaticAllowed)
@@ -176,7 +179,7 @@ final class SiteFlow
     {
         $status = SiteOperations::status($siteId, SiteOperations::CLUSTER_AUDIT);
 
-        return ($status['status'] ?? null) === 'running' && isset($status['at'])
+        return in_array($status['status'] ?? null, self::ACTIVE, true) && isset($status['at'])
             && CarbonImmutable::parse((string) $status['at'])->gt(now()->subHours(self::RUNNING_HOURS));
     }
 
@@ -184,7 +187,7 @@ final class SiteFlow
     {
         foreach ([[SiteOperations::SETUP, []], [SiteOperations::SETUP, ['unattended' => true]], [SiteOperations::CLUSTER_AUDIT, []]] as [$operation, $params]) {
             $status = SiteOperations::status((int) $site->id, $operation, $params);
-            if (($status['status'] ?? null) === 'running' && isset($status['at'])
+            if (in_array($status['status'] ?? null, self::ACTIVE, true) && isset($status['at'])
                 && CarbonImmutable::parse((string) $status['at'])->gt(now()->subHours(self::RUNNING_HOURS))) {
                 return true;
             }

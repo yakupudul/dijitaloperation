@@ -1892,3 +1892,16 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 - **Kapsam (Faz 1):** `SiteAi::run` kullanan site işlemleri (`SiteAgent` alt sınıfları) — `RunSiteOperationJob`.
   Diğer çağrı noktaları sonraki fazlarda; yol haritası Claude Doc "MoxDOP AI süreçleri: MCP'ye taşıma yol haritası".
 - **Erişim:** `/mcp/moxdop`, `Authorization: Bearer MOXDOP_MCP_TOKEN`; token boşsa sunucu 404 ve seçenek görünmez.
+
+## 2026-10-03 — Claude (MCP) Faz 2a: Claude'un çalışma alanı
+
+- **Karar (yakup, 2026-10-03):** Claude MCP ile markaları okur, notlarını MoxDOP'ta tutar, onaylı başlıklara taslak
+  başlatır, sistem sağlığını okuyup hata / iyileştirme önerir. Görsel üretimi yok. Hafıza Claude hesabında değil
+  MoxDOP'ta: başka bir Max hesabı token + kısa routine prompt'u ile aynı yerden devam eder.
+- **Kırılganlık kuralı:** Claude'a giden marka özeti kurallarla derlenen marka dosyasıdır (AI yorumu yok, `facts`).
+  Claude'un notları ayrı tabloda (`claude_notes`), tarihli ve türlü, yalnız eklenir (değişen görüş yeni not + supersede);
+  operatör kararlarını, marka dosyasını ya da promptları değiştirmez ve başka hiçbir AI işleminin girdisi olmaz.
+- **Taslak:** yalnız operatörün onayladığı başlık yazılır; WordPress'e gönderme operatörün tıklamasıdır.
+- **Maliyet:** API faturasının çoğu Eşleştir'den (küme ↔ içerik eşleştirme + küme eksikleri). Bu işlemler artık
+  Claude'a devredilebilir (adım adım tur: AI soruları → eşleştirme → eksikler).
+- **WordPress türü:** yeni makale her zaman yazı (post); sayfa yalnız mevcut hizmet sayfası güncellenirken.

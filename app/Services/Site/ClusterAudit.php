@@ -39,6 +39,10 @@ use Illuminate\Support\Facades\DB;
  * Parçalı çalışma: a run stops starting new AI calls after RUN_SECONDS (a site with many clusters needs more calls than
  * one queue job may last) and returns "partial"; the pass remembers what is done (service groups matched, pages read,
  * idea groups) so the next part continues where it stopped — no AI call is paid twice for the same pass.
+ *
+ * Claude (MCP): when match / gaps are delegated, a run queues every call of the current step at once and returns
+ * "queued" (the pass is kept); Claude's answers dispatch the job again, which stores them and queues the next step
+ * (match → gaps → extra ideas), so one Claude session drains a whole site in a few rounds.
  */
 final class ClusterAudit
 {
@@ -67,6 +71,9 @@ final class ClusterAudit
     private ?int $startedAt = null;
 
     private int $callsDone = 0;
+
+    /** A delegated call of this run waits for Claude (MCP): the step is not finished. */
+    private bool $waiting = false;
 
     /** @var array{since: string, matched: list<string>, gapped: list<int>, idea_groups: list<int>, idea_gapped: list<int>}|null */
     private ?array $pass = null;
@@ -102,11 +109,13 @@ final class ClusterAudit
         }
         $this->startedAt = now()->getTimestamp();
         $this->callsDone = 0;
+        $this->waiting = false;
         try {
             return $this->runPass($site, $brand);
         } finally {
             $this->startedAt = null;
             $this->pass = null;
+            $this->waiting = false;
         }
     }
 
@@ -122,6 +131,10 @@ final class ClusterAudit
             ->filter(fn (BrandClusterPage $row): bool => $row->cluster !== null);
         $clusters = $rows->pluck('cluster')->unique('id')->values();
         $this->fillAiQueries($clusters, $brand, SiteScope::primaryLanguage($site) ?? 'tr');
+        if ($this->waiting) {
+            // The match reads the AI questions: it waits for them, so Claude is not asked twice.
+            return $this->queued($site, $rows->count());
+        }
         $members = $this->members($clusters->pluck('id')->all());
         $shares = $this->shares->forClusters($brand, $site, $clusters->pluck('id')->map(fn ($id): int => (int) $id)->all());
 
@@ -138,6 +151,12 @@ final class ClusterAudit
                 return $this->partial($site, $rows->count());
             }
             $result = $this->match($site, $group, $members, $shares);
+            if ($result === 'queued') {
+                $this->waiting = true;
+                $this->callsDone++;
+
+                continue;
+            }
             if ($result === 'no_provider' || $result === 'error') {
                 $this->savePass($site);
 
@@ -146,6 +165,10 @@ final class ClusterAudit
             $matched += $result;
             $this->pass['matched'][] = (string) $key;
             $this->callsDone++;
+        }
+
+        if ($this->waiting) {
+            return $this->queued($site, $rows->count());
         }
 
         $gaps = 0;
@@ -159,16 +182,28 @@ final class ClusterAudit
             }
             $page = Page::query()->where('website_asset_id', $site->id)->find((int) $pageId);
             if ($page !== null) {
-                $gaps += $this->gaps($brand, $page, $pageRows, $members);
+                $found = $this->gaps($brand, $page, $pageRows, $members);
                 $this->callsDone++;
+                if ($found === null) {
+                    $this->waiting = true;
+
+                    continue;
+                }
+                $gaps += $found;
             }
             $this->pass['gapped'][] = (int) $pageId;
+        }
+        if ($this->waiting) {
+            return $this->queued($site, $rows->count());
         }
         BrandClusterPage::query()->whereIn('id', $fresh->whereNull('page_id')->pluck('id'))
             ->update(['coverage' => 'none', 'gaps' => null, 'audited_at' => now()]);
         $ideas = $this->ideas($site, $brand);
         if ($ideas === null) {
             return $this->partial($site, $rows->count());
+        }
+        if ($this->waiting) {
+            return $this->queued($site, $rows->count());
         }
         $overlaps = app(ClusterOverlaps::class)->sync($site, $brand, $shares);
         Cache::forget(self::passKey($site));
@@ -191,15 +226,26 @@ final class ClusterAudit
         if ($site === null || $row->cluster === null || ! SiteScope::aiAllowed($brand)) {
             return ['status' => 'not_operational', 'page_id' => null];
         }
+        $this->waiting = false;
         $this->fillAiQueries(collect([$row->cluster]), $brand, SiteScope::primaryLanguage($site) ?? 'tr');
+        if ($this->waiting) {
+            $this->waiting = false;
+
+            return ['status' => 'queued', 'page_id' => null];
+        }
         $members = $this->members([(int) $row->cluster_id]);
         $result = $this->match($site, collect([$row]), $members, $this->shares->forClusters($brand, $site, [(int) $row->cluster_id]));
+        if ($result === 'queued') {
+            return ['status' => 'queued', 'page_id' => null];
+        }
         if ($result === 'no_provider' || $result === 'error') {
             return ['status' => 'ai_'.$result, 'page_id' => null];
         }
         $row->refresh();
         if ($row->page_id !== null && ($page = Page::query()->where('website_asset_id', $site->id)->find($row->page_id)) !== null) {
-            $this->gaps($brand, $page, collect([$row->load('cluster')]), $members);
+            if ($this->gaps($brand, $page, collect([$row->load('cluster')]), $members) === null) {
+                return ['status' => 'queued', 'page_id' => (int) $row->page_id];
+            }
         } else {
             $row->forceFill(['coverage' => 'none', 'gaps' => null, 'audited_at' => now()])->save();
         }
@@ -260,6 +306,11 @@ final class ClusterAudit
                     'pages' => array_map(fn (int $id): array => $this->pagePack($byId[$id]), $pageIds),
                 ], 300);
                 $this->callsDone++;
+                if ($result['status'] === 'queued') {
+                    $this->waiting = true;
+
+                    continue;
+                }
                 if ($result['status'] !== 'ready') {
                     return $matched;
                 }
@@ -288,8 +339,12 @@ final class ClusterAudit
                     if ($this->outOfTime()) {
                         return null;
                     }
-                    $this->ideaGaps($brand, $usage);
                     $this->callsDone++;
+                    if (! $this->ideaGaps($brand, $usage)) {
+                        $this->waiting = true;
+
+                        continue;
+                    }
                     if ($this->pass !== null) {
                         $this->pass['idea_gapped'][] = (int) $usage->id;
                     }
@@ -311,18 +366,24 @@ final class ClusterAudit
         if ($site === null || ! SiteScope::aiAllowed($brand)) {
             return ['status' => 'not_operational', 'page_id' => null];
         }
+        $this->waiting = false;
         $this->ideas($site, $brand, $usage);
+        if ($this->waiting) {
+            $this->waiting = false;
+
+            return ['status' => 'queued', 'page_id' => null];
+        }
         $usage->refresh()->forceFill(['rediscovered_at' => now()])->save();
 
         return ['status' => 'ready', 'page_id' => $usage->page_id !== null ? (int) $usage->page_id : null];
     }
 
-    /** Gaps of the page matched to an extra idea (title, target queries, outline as subtopics). */
-    private function ideaGaps(Brand $brand, BrandContentIdea $usage): void
+    /** Gaps of the page matched to an extra idea (title, target queries, outline as subtopics); false while Claude has not answered. */
+    private function ideaGaps(Brand $brand, BrandContentIdea $usage): bool
     {
         $page = Page::query()->find($usage->page_id);
         if ($page === null) {
-            return;
+            return true;
         }
         $result = $this->ai->run(new ClusterGapsAgent, [
             'page' => ['url' => (string) $page->url, 'title' => $page->title, 'h1' => $page->h1, 'headings' => array_slice($page->headingTexts(), 0, 40),
@@ -330,15 +391,20 @@ final class ClusterAudit
             'clusters' => [['cluster_id' => (int) $usage->id, 'name' => (string) $usage->idea->title, 'facets' => [],
                 'queries' => array_column((array) $usage->idea->target_queries, 'text'), 'ai_queries' => [], 'subtopics' => array_values((array) $usage->idea->outline)]],
         ], 300);
+        if ($result['status'] === 'queued') {
+            return false;
+        }
         $answer = $result['status'] === 'ready' ? collect((array) ($result['data']['clusters'] ?? []))->first(fn ($r): bool => is_array($r) && ($r['cluster_id'] ?? null) === (int) $usage->id) : null;
         if ($answer === null) {
-            return;
+            return true;
         }
         $gaps = collect((array) ($answer['gaps'] ?? []))->filter(fn ($g): bool => is_array($g) && in_array($g['kind'] ?? null, ClusterGapsAgent::KINDS, true) && $g['kind'] !== 'lokasyon')
             ->map(fn (array $g): array => ['text' => mb_substr(trim((string) ($g['text'] ?? '')), 0, 200), 'kind' => (string) $g['kind']])
             ->filter(fn (array $g): bool => mb_strlen($g['text']) >= 5)->take(self::MAX_GAPS)->values()->all();
         $coverage = $gaps === [] ? 'full' : 'partial';
         $usage->forceFill(['coverage' => $coverage, 'gaps' => $gaps, 'state' => $coverage === 'full' ? 'sufficient' : 'improve', 'audited_at' => now()])->save();
+
+        return true;
     }
 
     /** Whether this run must stop starting AI calls (at least one call was made, so every part makes progress). */
@@ -353,6 +419,14 @@ final class ClusterAudit
         $this->savePass($site);
 
         return ['status' => 'partial', 'clusters' => $clusters, 'matched' => 0, 'gaps' => 0];
+    }
+
+    /** @return array<string, mixed> a step waits for Claude (MCP): the pass is kept; Claude's answers run the job again */
+    private function queued(DigitalAsset $site, int $clusters): array
+    {
+        $this->savePass($site);
+
+        return ['status' => 'queued', 'clusters' => $clusters, 'matched' => 0, 'gaps' => 0];
     }
 
     private function savePass(DigitalAsset $site): void
@@ -470,6 +544,11 @@ final class ClusterAudit
                         'main_query' => (string) ($c->mainQuery?->text ?? ''), 'facets' => $members[$c->id]['facets'] ?? [],
                         'queries' => array_slice($members[$c->id]['queries'] ?? [], 0, 10), 'local' => self::needsLocation($c)])->values()->all(),
                 ], 180);
+                if ($result['status'] === 'queued') {
+                    $this->waiting = true;
+
+                    continue;
+                }
                 if ($result['status'] !== 'ready') {
                     return;
                 }
@@ -643,8 +722,9 @@ final class ClusterAudit
     /**
      * @param  Collection<int, BrandClusterPage>  $rows  the rows targeting this page
      * @param  array<int, array{queries: list<string>, facets: list<string>}>  $members
+     * @return int|null gaps found; null while Claude (MCP) has not answered
      */
-    private function gaps(Brand $brand, Page $page, Collection $rows, array $members): int
+    private function gaps(Brand $brand, Page $page, Collection $rows, array $members): ?int
     {
         $result = $this->ai->run(new ClusterGapsAgent, [
             'page' => ['url' => (string) $page->url, 'title' => $page->title, 'h1' => $page->h1, 'headings' => array_slice($page->headingTexts(), 0, 40),
@@ -655,6 +735,9 @@ final class ClusterAudit
                 'service_areas' => self::serviceAreas($row->cluster, $brand) ?: null,
             ], fn (mixed $v): bool => $v !== null))->values()->all(),
         ], 300);
+        if ($result['status'] === 'queued') {
+            return null;
+        }
         if ($result['status'] !== 'ready') {
             return 0;
         }

@@ -6,6 +6,7 @@ use App\Ai\Agents\Site\SiteAgent;
 use App\Ai\Contracts\RegistryPrompted;
 use App\Models\AiTask;
 use App\Services\Prompts\PromptRegistry;
+use App\Support\Ai\AiRouteKeys;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Illuminate\Support\Facades\DB;
 use Laravel\Ai\Contracts\Agent;
@@ -16,7 +17,9 @@ use Laravel\Ai\ObjectSchema;
  * AI iş kuyruğu (docs: MCP yol haritası, Faz 1). An operation whose current prompt version picks "Claude (MCP)" is
  * not sent to a provider: inside a resumable job (begin()) each agent call of the run becomes an ai_tasks row, the
  * run ends "queued", and when Claude has answered every open call of that run over MCP the job is dispatched again;
- * the re-run gets each answer back in call order and continues exactly like a provider response. Outside such a job
+ * the re-run gets each answer back by its call (operation + input hash, so a re-run that skips calls it already
+ * stored, like a multi-step Eşleştir, still finds the right answer) and continues exactly like a provider
+ * response. Outside such a job
  * the call keeps the provider route. Scoped: the open run lives in this instance (one per request / job), so it never
  * leaks into jobs dispatched during the run.
  */
@@ -40,12 +43,24 @@ final class AiTaskQueue
         return trim((string) config('moxdop-mcp.token')) !== '';
     }
 
-    /** Whether the operation runs through a resumable path that can wait for Claude (Faz 1: website-screen agents). */
+    /**
+     * Operations whose callers handle "queued" (wait, keep their progress, continue with Claude's answer). Any other
+     * site operation keeps the provider route until its caller is taught to wait.
+     */
+    public const array SUPPORTED = [
+        AiRouteKeys::SITE_WRITE_ARTICLE,
+        AiRouteKeys::SITE_CONTENT_RECIPE,
+        AiRouteKeys::SITE_CLUSTER_MATCH,
+        AiRouteKeys::SITE_CLUSTER_GAPS,
+        AiRouteKeys::QUERIES_AI_QUERIES,
+    ];
+
+    /** Whether the operation runs through a resumable path that can wait for Claude (website-screen agents in SUPPORTED). */
     public function supports(string $operation): bool
     {
         $agent = $this->registry->definitions()[$operation]['agent'] ?? null;
 
-        return is_string($agent) && is_subclass_of($agent, SiteAgent::class);
+        return in_array($operation, self::SUPPORTED, true) && is_string($agent) && is_subclass_of($agent, SiteAgent::class);
     }
 
     /** Whether the operation's current prompt version delegates it to Claude (and the MCP server is configured). */
@@ -97,14 +112,16 @@ final class AiTaskQueue
         $sequence = $this->run['sequence'] = $run['sequence'] + 1;
         $operation = $agent->promptOperation();
         $versionId = $agent->promptVersionId();
-        $task = AiTask::query()->where('resume_key', $key)->where('sequence', $sequence)->where('operation', $operation)
+        $input = 'DATA_JSON'."\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+        $hash = hash('sha256', $operation."\n".$input);
+        $task = AiTask::query()->where('resume_key', $key)->where('operation', $operation)->where('input_hash', $hash)
             ->where('status', '!=', AiTask::CONSUMED)->latest('id')->first();
         if ($task === null) {
             AiTask::query()->create([
                 'operation' => $operation, 'brand_id' => $run['brand_id'] ?? null, 'subject' => $run['subject'] ?? null,
-                'resume_key' => $key, 'sequence' => $sequence, 'status' => AiTask::PENDING, 'prompt_version_id' => $versionId,
+                'resume_key' => $key, 'sequence' => $sequence, 'input_hash' => $hash, 'status' => AiTask::PENDING, 'prompt_version_id' => $versionId,
                 'instructions' => (string) $agent->instructions(),
-                'input' => 'DATA_JSON'."\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR),
+                'input' => $input,
                 'output_schema' => self::schemaOf($agent), 'resume' => $run['resume'],
             ]);
 

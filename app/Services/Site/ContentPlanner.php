@@ -394,7 +394,8 @@ final class ContentPlanner
             'meta_title' => mb_substr(trim((string) ($input['plan']['seo_title'] ?? $data['meta_title'] ?? '')), 0, 120),
             'meta_description' => mb_substr(trim((string) ($input['plan']['meta_description'] ?? $data['meta_description'] ?? '')), 0, 320),
             'excerpt' => mb_substr(trim((string) ($data['excerpt'] ?? '')), 0, 300), 'language' => $language,
-            'post_type' => ($action['page_type'] ?? 'blog') === 'blog' ? 'post' : 'page', 'reference' => $reference,
+            // A new article is always a post (operator decision 2026-10-03); only rewriting an existing non-blog page stays a page.
+            'post_type' => ($action['kind'] ?? null) === 'update' && ($action['page_type'] ?? 'blog') !== 'blog' ? 'page' : 'post', 'reference' => $reference,
         ];
         $violations = ContentComplianceGate::blocking(app(ContentComplianceGate::class)->violations($brand, ArticleDraft::fromArray($article)));
         if ($violations !== []) {

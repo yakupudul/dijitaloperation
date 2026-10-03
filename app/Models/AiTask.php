@@ -38,6 +38,7 @@ class AiTask extends Model
         'subject',
         'resume_key',
         'sequence',
+        'input_hash',
         'status',
         'prompt_version_id',
         'instructions',

@@ -2864,3 +2864,22 @@ AI işlemleri screen shows the queue (open / done 7 days / failed, last 10). Oth
 Verification: PHPUnit `tests/Feature/Mcp/AiTaskQueueTest.php` (queue → MCP submit → resume → stored article; schema
 refusal; fail_task; non-delegated keeps provider; token gate on HTTP; screen option). Not deployed; real Claude
 routine run against production and quality acceptance (10 drafts) await operator UAT. Not DONE.
+
+## 2026-10-03 — AI iş kuyruğu: Claude (MCP) Faz 2a (staging)
+
+MCP server 1.1.0. The server instructions are Claude's whole working guide (facts vs notes, read only what changed,
+queue loop, content, system), so a new Claude account needs only the token and a short routine prompt.
+New tools: `list-brands` (active brands, brand-file sections changed since Claude's last read), `get-brand` (the
+rule-built brand file as `facts` + Claude's open notes; marks sections read, cursor in `brand_memory` kind
+`claude_seen`), `save-note` / `list-notes` (`claude_notes`: observation / hypothesis / proposal / followup,
+append-only, supersede / close; never read by other AI operations), `content-queue` + `request-article` (starts
+"Taslak hazırla" for an operator-APPROVED content title only; sending to WordPress stays the operator's click),
+`system-health` (release, scheduler, stopped workers, queue waits, top error groups, Hata merkezi groups, failed AI tasks).
+Eşleştir (`ClusterAudit`) waits for Claude: AI questions → match (one task per service) → gaps (one per page) → extra
+ideas, each step queued at once, the pass kept, the job resumed by Claude's answers. A re-run finds an answer by
+operation + input hash (`ai_tasks.input_hash`), not call position. Delegation is limited to operations whose callers
+wait (`AiTaskQueue::SUPPORTED`: write_article, content_recipe, cluster_match, cluster_gaps, queries.ai_queries).
+A new article draft is always a WordPress post; only an update of an existing non-blog page stays a page.
+
+Verification: PHPUnit `tests/Feature/Mcp/McpWorkspaceTest.php` + `AiTaskQueueTest.php`. Not deployed; a real
+routine run of Eşleştir over MCP and the operator's quality review await UAT. Not DONE.
