@@ -95,6 +95,7 @@ final class WorkDesk
         $rows = collect();
         if (isset(self::TAB_CHANNEL[$tab])) {
             $suggestions = $this->suggestionQuery($tab, $view, $brandId)
+                ->when($tab === 'icerik' && $view === self::VIEW_OPEN, fn (Builder $q): Builder => $q->where('action_type', '!=', SiteSuggestionTypes::CONTENT))
                 ->with('brand:id,name')
                 ->orderBy($view === self::VIEW_DONE ? 'applied_at' : 'priority', $view === self::VIEW_DONE ? 'desc' : 'asc')
                 ->orderByDesc('id')->limit(self::LIMIT)->get();
@@ -280,7 +281,8 @@ final class WorkDesk
             return $query->where('status', Suggestion::APPLIED)->where('applied_at', '>=', now()->subDays(self::DONE_DAYS));
         }
 
-        return $query->where(fn (Builder $q): Builder => $q->where('status', Suggestion::APPROVED)
+        // A content idea whose WordPress draft is sent stays approved; it is no longer open work.
+        return $query->whereNull('action->article_write_id')->where(fn (Builder $q): Builder => $q->where('status', Suggestion::APPROVED)
             ->orWhere(fn (Builder $open): Builder => $open->actionable()));
     }
 

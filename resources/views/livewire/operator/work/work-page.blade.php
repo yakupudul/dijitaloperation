@@ -31,6 +31,11 @@
         <span class="text-gray-400">{{ $total }} iş</span>
     </div>
 
+    @if($boxes->isNotEmpty() || ($tab === 'icerik' && $view === 'acik'))
+        @include('livewire.operator.work.partials.content-boxes')
+        @if($rows->isNotEmpty())<h2 class="pt-2 text-base font-semibold text-gray-900 dark:text-white">Diğer SEO işleri</h2>@endif
+    @endif
+
     <div class="space-y-2">
         @forelse($rows as $row)
             <article wire:key="{{ $row['kind'] }}-{{ $row['id'] }}" class="rounded-xl bg-white p-4 text-sm ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-work-row="{{ $row['kind'] }}-{{ $row['id'] }}">
@@ -80,7 +85,9 @@
                 </div>
             </article>
         @empty
+            @if(! ($tab === 'icerik' && $view === 'acik'))
             <p class="rounded-xl bg-white p-6 text-center text-sm text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">{{ $view === 'acik' ? 'Bu sekmede açık iş yok.' : 'Son 30 günde yapılan iş yok.' }}</p>
+            @endif
         @endforelse
         @if($total > $rows->count())
             <button type="button" wire:click="more" class="w-full rounded-lg py-2 text-xs font-semibold text-gray-600 ring-1 ring-inset ring-gray-200 dark:ring-gray-800">Daha fazla göster ({{ $total - $rows->count() }})</button>

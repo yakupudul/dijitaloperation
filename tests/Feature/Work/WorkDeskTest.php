@@ -54,7 +54,7 @@ class WorkDeskTest extends TestCase
             'severity' => 'critical', 'title' => 'Site erişilemiyor', 'message' => '5xx', 'data' => [], 'first_detected_at' => now(), 'last_detected_at' => now()]);
 
         $this->get(route('operator.work'))->assertOk()->assertSee('Genel işler')->assertSee('Web site SEO içerikler')
-            ->assertSee('İmplant fiyatları rehberi')->assertSee('Başlık onayı bekliyor')->assertDontSee('Ana sayfa başlığı çok uzun')
+            ->assertSee('İmplant fiyatları rehberi')->assertSee('İçerik fikirleri')->assertSee('data-write=', false)->assertDontSee('Ana sayfa başlığı çok uzun')
             ->assertSee('Telefona bildirim aç', false);
 
         Livewire::test(WorkPage::class)->call('setTab', 'teknik')->assertSee('Ana sayfa başlığı çok uzun')->assertDontSee('İmplant fiyatları rehberi')
@@ -118,7 +118,7 @@ class WorkDeskTest extends TestCase
         $draft->forceFill(['status' => Suggestion::APPROVED])->save();
 
         Livewire::test(WorkPage::class)->assertDontSee('2 hizmet bölgesi bulundu')->assertSee('Çakışma: implant')->assertSee('Ayrı kalsın')
-            ->assertDontSee('301 ile birleştir')->assertSee('Yazı hazır · okunacak')->assertSee('WordPress\'e taslak gönder')->assertSee('Yazıyı oku')
+            ->assertDontSee('301 ile birleştir')->assertSee('İmplant bakımı')->assertSee('data-read="'.$draft->id.'"', false)
             ->call('setTab', 'kurulum')->assertSee('2 hizmet bölgesi bulundu')->assertSee('Onayla ve yap')->assertSee('Elle yap')
             ->assertSee('Doğru, bırak')->assertDontSee('wire:click="done('.$gap->id.')"', false)
             ->call('done', $gap->id)->assertSee('sistem kendisi kapatır')

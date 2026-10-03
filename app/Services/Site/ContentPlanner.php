@@ -290,8 +290,14 @@ final class ContentPlanner
         return ['suggestion_id' => (int) $suggestion->id] + $this->writeArticle($suggestion);
     }
 
-    /** "Taslak hazırla": the article (validated, compliance-checked) is stored on the suggestion for review. @return array{status: string, message?: string} */
-    public function writeArticle(Suggestion $suggestion): array
+    /**
+     * "Taslak hazırla": the article (validated, compliance-checked) is stored on the suggestion for review. With a
+     * language of the site other than the written article's, the same plan is written in that language as a
+     * translation (`action.translations.{lang}`), sent with the source as linked Polylang drafts (ADR-076).
+     *
+     * @return array{status: string, message?: string}
+     */
+    public function writeArticle(Suggestion $suggestion, ?string $language = null): array
     {
         $action = (array) $suggestion->action;
         $site = DigitalAsset::query()->find($action['site_id'] ?? null);
@@ -305,7 +311,9 @@ final class ContentPlanner
         $sitePages = $this->sitePages($site);
         $cluster = $suggestion->cluster_id !== null ? Cluster::query()->with(['mainQuery', 'clusterQueries.searchQuery'])->find($suggestion->cluster_id) : null;
         $context = $this->memory->contextFor($brand, $suggestion->page_id !== null ? [(int) $suggestion->page_id] : [], $cluster !== null ? [(int) $cluster->id] : []);
-        $language = SiteScope::primaryLanguage($site) ?? 'tr';
+        $sourceLanguage = self::articleLanguage($suggestion, $site);
+        $language = $language !== null && in_array($language, self::siteLanguages($site), true) ? $language : $sourceLanguage;
+        $translation = $language !== $sourceLanguage && is_array($action['article'] ?? null);
         $terms = ForbiddenTerms::forBrand($brand);
         // Every input the writer copies loses its forbidden phrases first ("En iyi … seçerken" → "… seçerken"); repeated lines go once.
         $scrub = fn (array $lines): array => array_values(array_unique(array_filter(array_map(fn ($line): string => $terms->scrub((string) $line), $lines), fn (string $l): bool => $l !== '')));
@@ -337,10 +345,15 @@ final class ContentPlanner
         foreach ($context['pages'] as $page) {
             $evidence->addNumbersFrom(['s' => $page['summary'], 'f' => $page['facts']]);
         }
-        unset($action['article'], $action['article_blocked'], $action['article_blocked_draft']);
+        if ($translation) {
+            unset($action['translations'][$language], $action['translations_blocked'][$language]);
+        } else {
+            unset($action['article'], $action['article_blocked'], $action['article_blocked_draft']);
+            $action['language'] = $language;
+        }
         // At most two writes: when the first one breaks a sector rule, the second gets the offending phrases to rewrite.
         for ($attempt = 1; $attempt <= 2; $attempt++) {
-            $outcome = $this->writeOnce($input, $evidence, $action, $cluster, $brand, $language, 'suggestion-'.$suggestion->id);
+            $outcome = $this->writeOnce($input, $evidence, $action, $cluster, $brand, $language, 'suggestion-'.$suggestion->id.($translation ? '-'.$language : ''));
             if ($outcome['status'] !== 'blocked' || $outcome['violations'] === [] || $attempt === 2) {
                 break;
             }
@@ -350,6 +363,13 @@ final class ContentPlanner
             return array_intersect_key($outcome, ['status' => 1, 'message' => 1]);
         }
         $article = $outcome['article'];
+        if ($translation) {
+            $key = $outcome['status'] === 'blocked' ? 'translations_blocked' : 'translations';
+            $action[$key] = array_merge((array) ($action[$key] ?? []), [$language => $outcome['status'] === 'blocked' ? $outcome['message'] : $article]);
+            $suggestion->forceFill(['action' => $action])->save();
+
+            return $outcome['status'] === 'blocked' ? ['status' => 'blocked', 'message' => $outcome['message']] : ['status' => 'ready'];
+        }
         if ($outcome['status'] === 'blocked') {
             // Kept to read and fix by hand; never sent while blocked.
             $suggestion->forceFill(['action' => $action + ['article_blocked' => $outcome['message'], 'article_blocked_draft' => $article]])->save();
@@ -358,10 +378,28 @@ final class ContentPlanner
         }
         $warnings = $terms->warnings(implode(' . ', [$article['title'], $article['meta_title'], $article['meta_description'], strip_tags($article['html'])]));
         $action['article_warnings'] = $warnings !== [] ? 'Uyarı (yasaklı ifade, uyar): «'.implode('», «', $warnings).'»' : null;
-        $others = array_values(array_diff(SiteScope::languages($site), [$language]));
-        $suggestion->forceFill(['action' => $action + ['article' => $article, 'article_note' => $others !== [] ? 'Diğer diller ('.implode(', ', $others).') atlandı: çeviri aracı yok.' : null]])->save();
+        $others = array_values(array_diff(self::siteLanguages($site), [$language]));
+        $suggestion->forceFill(['action' => array_merge($action, ['article' => $article,
+            'article_note' => $others !== [] ? 'Sitede başka dil de var ('.implode(', ', $others).'): Genel işler › içerik kutusunda o dilde de yazdırılabilir.' : null])])->save();
 
         return ['status' => 'ready'];
+    }
+
+    /** The language the article of this idea is (or will be) written in: the operator's pick, else the site's main language. */
+    public static function articleLanguage(Suggestion $suggestion, DigitalAsset $site): string
+    {
+        $picked = data_get($suggestion->action, 'language');
+
+        return is_string($picked) && $picked !== '' ? $picked : (SiteScope::primaryLanguage($site) ?? 'tr');
+    }
+
+    /** @return list<string> the languages the site's pages use (its main language first), plus the asset's own setting */
+    public static function siteLanguages(DigitalAsset $site): array
+    {
+        $primary = SiteScope::primaryLanguage($site) ?? 'tr';
+        $declared = array_map(fn ($l): string => strtolower(substr((string) $l, 0, 2)), array_filter((array) ($site->languages ?? []), 'is_string'));
+
+        return array_values(array_unique([$primary, ...SiteScope::languages($site), ...$declared]));
     }
 
     /**
@@ -409,7 +447,10 @@ final class ContentPlanner
         return ['status' => 'ready', 'article' => $article, 'violations' => []];
     }
 
-    /** Admin approval: the prepared article goes to WordPress as a draft (existing rich draft path, undoable). */
+    /**
+     * Admin approval: the prepared article goes to WordPress as a draft (existing rich draft path, undoable), with its
+     * written translations as linked drafts (ADR-076). A translation written after the source was sent goes on its own.
+     */
     public function sendDraft(Suggestion $suggestion, User $user): int
     {
         $action = (array) $suggestion->action;
@@ -417,9 +458,21 @@ final class ContentPlanner
         if (! is_array($action['article'] ?? null) || $site === null) {
             throw ValidationException::withMessages(['write' => 'Önce "Taslak hazırla".']);
         }
-        $write = app(ExternalWriteService::class)->requestArticleDrafts($user, $site, ArticleDraft::fromArray($action['article']));
-        $suggestion->forceFill(['status' => Suggestion::APPROVED, 'resolved_by' => $user->id, 'resolved_at' => now(),
-            'action' => array_merge($action, ['article_write_id' => $write->id])])->save();
+        $sent = array_values((array) ($action['sent_languages'] ?? []));
+        $pending = array_filter((array) ($action['translations'] ?? []), fn ($article, $lang): bool => is_array($article) && ! in_array($lang, $sent, true), ARRAY_FILTER_USE_BOTH);
+        $drafts = array_map(fn (array $article): ArticleDraft => ArticleDraft::fromArray($article), array_values($pending));
+        if (! isset($action['article_write_id'])) {
+            $source = ArticleDraft::fromArray($action['article']);
+            $write = app(ExternalWriteService::class)->requestArticleDrafts($user, $site, $source, $drafts);
+            $action = array_merge($action, ['article_write_id' => $write->id, 'sent_languages' => [$source->language ?? self::articleLanguage($suggestion, $site), ...array_keys($pending)]]);
+        } elseif ($drafts !== []) {
+            $write = app(ExternalWriteService::class)->requestArticleDrafts($user, $site, $drafts[0], array_slice($drafts, 1));
+            $action = array_merge($action, ['sent_languages' => [...$sent, ...array_keys($pending)],
+                'translation_write_ids' => [...(array) ($action['translation_write_ids'] ?? []), (int) $write->id]]);
+        } else {
+            throw ValidationException::withMessages(['write' => 'Bu yazı zaten gönderildi; gönderilecek yeni dil yok.']);
+        }
+        $suggestion->forceFill(['status' => Suggestion::APPROVED, 'resolved_by' => $user->id, 'resolved_at' => now(), 'action' => $action])->save();
         $this->memory->recordDecision($suggestion, 'onaylandı', 'WordPress taslağı');
 
         return (int) $write->id;

@@ -1,0 +1,166 @@
+{{-- Web site SEO içerikler: one box per website (the cluster card style), its ideas in three steps. --}}
+@php
+    $btn = 'h-8 shrink-0 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50';
+    $ghost = 'h-8 shrink-0 rounded-lg px-3 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700';
+    $langs = \App\Services\Work\ContentBoard::LANGUAGE_LABELS;
+    $chip = 'rounded px-1.5 py-0.5 text-[10px] font-semibold';
+@endphp
+<section class="space-y-3" data-content-boxes>
+    <div class="flex flex-wrap items-end justify-between gap-2">
+        <div>
+            <h2 class="text-base font-semibold text-gray-900 dark:text-white">İçerik fikirleri</h2>
+            <p class="mt-0.5 text-xs text-gray-500">Her site bir kutu. Yaz: başlık onaylanır, Claude yazar. Oku: yazıyı okursun. Gönder: WordPress'e taslak gider (geri alınabilir).</p>
+        </div>
+    </div>
+    @if ($boxes->isEmpty())
+        <p class="rounded-xl bg-white p-6 text-center text-sm text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">Bekleyen içerik fikri yok.</p>
+    @endif
+    <div class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+        @foreach ($boxes as $box)
+            @php $site = $box['site']; @endphp
+            <article wire:key="content-box-{{ $site->id }}" data-content-box="{{ $site->id }}"
+                     x-data="{ step: '{{ $box['counts']['okunacak'] > 0 ? 'okunacak' : ($box['counts']['yazilacak'] > 0 ? 'yazilacak' : 'gonderildi') }}' }"
+                     class="flex min-h-[24rem] flex-col overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <div class="flex items-start gap-3 px-4 pb-3 pt-4">
+                    <div class="min-w-0 flex-1">
+                        <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{{ $box['brand'] ?? '—' }}</span>
+                        <h3 class="mt-0.5 truncate text-[15px] font-semibold leading-snug text-gray-900 dark:text-white" title="{{ $site->domain ?: $site->name }}">{{ $site->domain ?: $site->name }}</h3>
+                    </div>
+                    <div class="flex shrink-0 flex-wrap justify-end gap-1" data-site-languages>
+                        @foreach ($box['languages'] as $code => $pages)
+                            <span class="{{ $chip }} {{ $loop->first ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300' }}" title="{{ ($langs[$code] ?? $code).($pages > 0 ? ' · '.$pages.' sayfa' : '') }}">{{ strtoupper($code) }}</span>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div role="tablist" class="grid grid-cols-3 gap-2 px-4 pb-3">
+                    @foreach (\App\Services\Work\ContentBoard::STEPS as $code => $label)
+                        <button type="button" role="tab" @click="step = '{{ $code }}'" :aria-selected="(step === '{{ $code }}').toString()"
+                                :class="step === '{{ $code }}' ? 'ring-gray-900 dark:ring-white' : 'ring-transparent'"
+                                class="rounded-lg bg-gray-50 px-2.5 py-2 text-left ring-2 ring-inset dark:bg-white/[0.03]" data-step-tab="{{ $code }}">
+                            <span class="block text-[11px] text-gray-500">{{ $label }}</span>
+                            <span @class(['block text-sm font-semibold tabular-nums', 'text-amber-700 dark:text-amber-300' => $code === 'okunacak' && $box['counts'][$code] > 0, 'text-emerald-700 dark:text-emerald-400' => $code === 'gonderildi' && $box['counts'][$code] > 0])>{{ $box['counts'][$code] }}</span>
+                        </button>
+                    @endforeach
+                </div>
+
+                <div class="max-h-96 flex-1 overflow-y-auto border-t border-gray-200 dark:border-gray-800">
+                    @foreach (\App\Services\Work\ContentBoard::STEPS as $code => $label)
+                        <ul x-show="step === '{{ $code }}'" @if ($code !== array_key_first(\App\Services\Work\ContentBoard::STEPS)) x-cloak @endif class="divide-y divide-gray-100 dark:divide-gray-800" data-step-list="{{ $code }}">
+                            @forelse ($box['steps'][$code] as $item)
+                                <li class="px-4 py-3" wire:key="content-item-{{ $item['id'] }}" data-content-item="{{ $item['id'] }}">
+                                    <div class="mb-1 flex flex-wrap items-center gap-1.5">
+                                        @if ($item['rank'] <= 1 && $code === 'yazilacak')<span class="{{ $chip }} bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">Acil</span>@endif
+                                        <span class="{{ $chip }} {{ $item['kind'] === 'Güncelleme' ? 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300' : 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' }}">{{ $item['kind'] }}</span>
+                                        <span class="{{ $chip }} bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-300">{{ strtoupper($item['language']) }}@foreach ($item['translations'] as $t) + {{ strtoupper($t) }}@endforeach</span>
+                                        @if ($item['blocked'])<span class="{{ $chip }} bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">Kurala takıldı</span>@endif
+                                    </div>
+                                    <p class="font-medium leading-snug text-gray-900 dark:text-white">{{ $item['title'] }}</p>
+                                    @if ($item['line'])<p @class(['mt-1 text-xs', 'text-brand-600' => $item['writing'], 'text-rose-600' => ! $item['writing']])>{{ $item['writing'] ? ($code === 'yazilacak' ? 'Yazılıyor · ' : 'Çeviri yazılıyor · ') : 'Son deneme: ' }}{{ $item['line'] }}</p>@endif
+                                    <div class="mt-2 flex flex-wrap items-center justify-end gap-2 text-xs">
+                                        @if ($code === 'yazilacak')
+                                            @if ($item['writing'])
+                                                <span class="text-brand-600">yazılıyor…</span>
+                                            @else
+                                                @if ($item['can_pick_language'])
+                                                    <select wire:model="languages.{{ $item['id'] }}" aria-label="Dil" class="h-8 rounded-lg border-gray-300 py-0 text-xs dark:border-gray-700 dark:bg-gray-950">
+                                                        @foreach (array_keys($box['languages']) as $codeLang)<option value="{{ $codeLang }}" @selected($codeLang === $item['language'])>{{ $langs[$codeLang] ?? strtoupper($codeLang) }}</option>@endforeach
+                                                    </select>
+                                                @endif
+                                                <button type="button" wire:click="writeContent({{ $item['id'] }})" class="{{ $btn }}" data-write="{{ $item['id'] }}">{{ $item['approved'] ? 'Yeniden yaz' : 'Yaz' }}</button>
+                                            @endif
+                                        @elseif ($code === 'okunacak')
+                                            @if ($item['blocked'])
+                                                <button type="button" wire:click="writeContent({{ $item['id'] }})" class="{{ $ghost }}" data-rewrite="{{ $item['id'] }}">Yeniden yaz</button>
+                                            @endif
+                                            <button type="button" wire:click="read({{ $item['id'] }})" class="{{ $btn }}" data-read="{{ $item['id'] }}">Oku</button>
+                                        @else
+                                            <span class="mr-auto text-emerald-700 dark:text-emerald-400">Taslak gönderildi{{ $item['sent_at'] ? ' · '.$item['sent_at']->timezone('Europe/Istanbul')->format('d.m') : '' }}</span>
+                                            @if ($item['unsent'] !== [])
+                                                <button type="button" wire:click="sendContent({{ $item['id'] }})" wire:confirm="Yeni dil WordPress'e taslak olarak gönderilsin mi?" class="{{ $btn }}">{{ implode(', ', array_map('strtoupper', $item['unsent'])) }} gönder</button>
+                                            @elseif ($item['missing_languages'] !== [] && ! $item['writing'])
+                                                <button type="button" wire:click="writeContent({{ $item['id'] }}, '{{ $item['missing_languages'][0] }}')" class="{{ $ghost }}">+ {{ $langs[$item['missing_languages'][0]] ?? strtoupper($item['missing_languages'][0]) }}</button>
+                                            @endif
+                                            <button type="button" wire:click="read({{ $item['id'] }})" class="{{ $ghost }}">Oku</button>
+                                        @endif
+                                    </div>
+                                </li>
+                            @empty
+                                <li class="px-4 py-6 text-center text-xs text-gray-500">{{ $code === 'yazilacak' ? 'Yazılacak fikir yok.' : ($code === 'okunacak' ? 'Okunacak yazı yok.' : 'Son 30 günde gönderilen yok.') }}</li>
+                            @endforelse
+                            @if ($box['counts'][$code] > count($box['steps'][$code]))
+                                <li class="px-4 py-2 text-center text-xs text-gray-500">+{{ $box['counts'][$code] - count($box['steps'][$code]) }} daha · sitenin İçerik sekmesinde</li>
+                            @endif
+                        </ul>
+                    @endforeach
+                </div>
+
+                <footer class="flex items-center justify-between gap-2 border-t border-gray-200 px-4 py-2.5 text-xs dark:border-gray-800">
+                    <span class="text-gray-500">{{ array_sum($box['counts']) }} fikir</span>
+                    <a href="{{ $box['url'] }}" wire:navigate class="font-medium text-brand-600 hover:underline">İçerik sekmesi →</a>
+                </footer>
+            </article>
+        @endforeach
+    </div>
+</section>
+
+@if ($article !== null)
+    @php
+        $versions = array_filter([($article['article']['language'] ?? 'kaynak') => $article['article'] ?? $article['blocked_draft']] + $article['translations']);
+    @endphp
+    <div class="fixed inset-0 z-[99999] flex items-start justify-center overflow-y-auto bg-gray-900/50 p-4 sm:p-8" wire:keydown.escape.window="closeReading" role="dialog" aria-modal="true" aria-label="Yazıyı oku" data-reader="{{ $article['id'] }}">
+        <div class="w-full max-w-3xl rounded-2xl bg-white shadow-xl dark:bg-gray-900" x-data="{ lang: '{{ array_key_first($versions) }}' }">
+            <header class="flex items-start gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-800">
+                <div class="min-w-0 flex-1">
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Fikir · {{ $article['idea'] }}</p>
+                    @if (count($versions) > 1)
+                        <div class="mt-2 flex gap-1.5" role="tablist">
+                            @foreach ($versions as $code => $version)
+                                <button type="button" @click="lang = '{{ $code }}'" :class="lang === '{{ $code }}' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'ring-1 ring-inset ring-gray-300 dark:ring-gray-700'" class="h-7 rounded-lg px-2.5 text-xs font-semibold">{{ $langs[$code] ?? strtoupper($code) }}</button>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+                <button type="button" wire:click="closeReading" aria-label="Kapat" class="h-8 w-8 rounded-lg text-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">×</button>
+            </header>
+            @if ($article['blocked'])<p class="mx-5 mt-4 rounded-lg bg-rose-50 p-2.5 text-xs text-rose-800 dark:bg-rose-500/10 dark:text-rose-200">Uyum kuralına takıldı; gönderilemez. «Yeniden yaz» ile yeniden yazdırabilirsin: {{ $article['blocked'] }}</p>@endif
+            @if ($article['warnings'])<p class="mx-5 mt-4 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">{{ $article['warnings'] }}</p>@endif
+            @foreach ($versions as $code => $version)
+                <div x-show="lang === '{{ $code }}'" @if (! $loop->first) x-cloak @endif class="px-5 py-4" data-reader-version="{{ $code }}">
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{{ $version['title'] }}</h2>
+                    <p class="mt-1 text-xs text-gray-500">/{{ $version['slug'] ?? '' }}/ · {{ $version['meta_description'] ?? '' }}</p>
+                    <div class="mt-4 space-y-2 text-sm leading-relaxed text-gray-800 dark:text-gray-200">
+                        @foreach (\App\Services\Site\SiteDiff::blocks((string) $version['html']) as $block)
+                            @if (str_starts_with($block['tag'], 'h'))
+                                <h3 class="pt-2 text-base font-semibold text-gray-900 dark:text-white">{{ $block['text'] }}</h3>
+                            @elseif ($block['tag'] === 'li')
+                                <p class="pl-4">• {{ $block['text'] }}</p>
+                            @else
+                                <p>{{ $block['text'] }}</p>
+                            @endif
+                        @endforeach
+                    </div>
+                </div>
+            @endforeach
+            @php
+                $sentAll = $article['sent'] !== [] && array_diff(array_keys($versions), $article['sent']) === [];
+            @endphp
+            <footer class="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 px-5 py-3 dark:border-gray-800">
+                @foreach ($article['translations_blocked'] as $code => $why)<span class="mr-auto text-xs text-rose-600">{{ strtoupper($code) }} çevirisi kurala takıldı.</span>@endforeach
+                @if ($article['writing'])
+                    <span class="text-xs text-brand-600">Çeviri yazılıyor…</span>
+                @else
+                    @foreach ($article['missing'] as $code)
+                        <button type="button" wire:click="writeContent({{ $article['id'] }}, '{{ $code }}')" class="{{ $ghost }}" data-translate="{{ $code }}">+ {{ $langs[$code] ?? strtoupper($code) }} yaz</button>
+                    @endforeach
+                @endif
+                <button type="button" wire:click="closeReading" class="{{ $ghost }}">Kapat</button>
+                @if ($article['article'] !== null && ! $sentAll)
+                    <button type="button" wire:click="sendContent({{ $article['id'] }})" wire:confirm="{{ implode(', ', array_map('strtoupper', array_keys($versions))) }} WordPress'e taslak olarak gönderilsin mi?" class="{{ $btn }}" data-send="{{ $article['id'] }}">WordPress'e taslak gönder{{ count($versions) > 1 ? ' ('.implode(' + ', array_map('strtoupper', array_keys($versions))).')' : '' }}</button>
+                @elseif ($sentAll)
+                    <span class="text-xs text-emerald-700 dark:text-emerald-400">WordPress'e taslak olarak gönderildi.</span>
+                @endif
+            </footer>
+        </div>
+    </div>
+@endif

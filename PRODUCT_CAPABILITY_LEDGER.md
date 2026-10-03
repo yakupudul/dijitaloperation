@@ -3034,6 +3034,24 @@ not tested yet; not DONE.
   "kim yapar" lines are corrected. A done time shows only on applied rows: a gap reopened by `BrandGaps::sync` showed
   its old "yapıldı" time while open. `WorkDeskTest` covers these.
 
+- **İçerik fikirleri boxes (yakup, 2026-10-03):** Genel işler › Web site SEO içerikler opens with one box per website
+  (`ContentBoard`, the cluster-card style of the website Kümeler board). A box shows the site's languages (page count
+  per language) and three steps:
+  - **Yazılacak:** the title waits, or is being written. "Yaz" approves the title and queues `WRITE_ARTICLE` in one
+    click; Claude writes it over MCP.
+  - **Okunacak:** the article is written, or held by a sector rule ("Yeniden yaz"). "Oku" opens a reader with every
+    language version and "WordPress'e taslak gönder".
+  - **Gönderildi:** the draft was sent in the last 30 days.
+  Other SEO work of the tab stays as the list under "Diğer SEO işleri". A sent idea (`action.article_write_id`) is no
+  longer counted as open work.
+- **Languages:** `ContentPlanner::siteLanguages` combines the languages of the site's pages with the asset's own
+  setting, the main language first. Before writing, the operator can pick the article's language (`action.language`).
+  After writing, "+ {dil} yaz" writes the same plan in another site language as a translation
+  (`action.translations.{lang}`; `WRITE_ARTICLE` with a `language` param). "Taslak gönder" sends the source and its
+  translations as linked Polylang drafts (ADR-076, `sent_languages`); a translation written later is sent on its own.
+  A language the site does not use is refused. `ContentBoardTest` covers this. Not deployed; a real Polylang site is
+  not tested yet; not DONE.
+
 ### Microsoft Clarity behaviour (yakup, 2026-10-03)
 
 The Ayarlar tab of each website saves a Clarity project id (for the dashboard link) and the Data Export API token

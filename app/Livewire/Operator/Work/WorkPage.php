@@ -4,6 +4,7 @@ namespace App\Livewire\Operator\Work;
 
 use App\Models\Brand;
 use App\Models\PushSubscription;
+use App\Services\Work\ContentBoard;
 use App\Services\Work\WorkDesk;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\ValidationException;
@@ -37,6 +38,12 @@ final class WorkPage extends Component
     public array $notes = [];
 
     public string $message = '';
+
+    /** @var array<int|string, string> content idea id => language picked before "Yaz" */
+    public array $languages = [];
+
+    /** Content idea whose article is open to read. */
+    public ?int $reading = null;
 
     public function mount(): void
     {
@@ -84,6 +91,30 @@ final class WorkPage extends Component
         $this->act(fn (): string => $desk->act($id, $do, auth()->user()), $id);
     }
 
+    /** İçerik kutusu "Yaz" (title approved + writer started) or "+ dil" (a translation of the written article). */
+    public function writeContent(int $id, ?string $language = null): void
+    {
+        $board = app(ContentBoard::class);
+        $picked = $language ?? (filled($this->languages[$id] ?? null) ? (string) $this->languages[$id] : null);
+        $this->act(fn (): string => $board->write($id, auth()->user(), $picked));
+    }
+
+    public function sendContent(int $id, ContentBoard $board): void
+    {
+        $this->act(fn (): string => $board->send($id, auth()->user()));
+        $this->reading = null;
+    }
+
+    public function read(int $id): void
+    {
+        $this->reading = $id;
+    }
+
+    public function closeReading(): void
+    {
+        $this->reading = null;
+    }
+
     public function reopen(int $id, WorkDesk $desk): void
     {
         $this->act(function () use ($desk, $id): string {
@@ -125,15 +156,18 @@ final class WorkPage extends Component
         }
     }
 
-    public function render(WorkDesk $desk): View
+    public function render(WorkDesk $desk, ContentBoard $board): View
     {
         $rows = $desk->rows($this->tab, $this->view, $this->brand);
+        $boxes = $this->tab === 'icerik' && $this->view === WorkDesk::VIEW_OPEN ? $board->boxes($this->brand) : collect();
 
         return view('livewire.operator.work.work-page', [
             'tabs' => WorkDesk::TABS,
             'counts' => $desk->counts($this->brand),
             'urgent' => $desk->urgent($this->brand),
             'rows' => $rows->take($this->shown),
+            'boxes' => $boxes,
+            'article' => $this->reading !== null ? $board->article($this->reading) : null,
             'total' => $rows->count(),
             'brands' => Brand::query()->operational()->orderBy('name')->get(['id', 'name']),
             'pushDevices' => PushSubscription::query()->where('user_id', auth()->id())->count(),

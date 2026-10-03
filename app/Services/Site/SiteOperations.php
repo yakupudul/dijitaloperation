@@ -138,7 +138,7 @@ final class SiteOperations
             self::STANDARD => $suggestion !== null ? $this->standards->propose($suggestion) : ['status' => 'no_suggestion'],
             self::WEEKLY_CONTENT => $this->content->weekly($site),
             self::DISCOVERY => $this->content->discover($site),
-            self::WRITE_ARTICLE => $suggestion !== null ? $this->content->writeArticle($suggestion) : ['status' => 'no_suggestion'],
+            self::WRITE_ARTICLE => $suggestion !== null ? $this->content->writeArticle($suggestion, isset($params['language']) ? (string) $params['language'] : null) : ['status' => 'no_suggestion'],
             self::WEEKLY_REFRESH => $this->weeklyRefresh($site),
             self::SETUP => $this->afterSetup($site, (bool) ($params['unattended'] ?? false)),
             self::CLUSTER_AUDIT => $this->audit->run($site, continueOnly: isset($params['part'])),
