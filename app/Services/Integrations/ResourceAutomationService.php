@@ -21,6 +21,7 @@ use App\Services\Collection\Activity\ActivityTierService;
 use App\Services\Collection\Activity\CollectionActivityGate;
 use App\Services\Collection\Ga4\Ga4CentralCollectionService;
 use App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService;
+use App\Services\Collection\GoogleAds\GoogleAdsHistoricalActivityDiscoveryService;
 use App\Services\Collection\Meta\MetaCentralCollectionService;
 use App\Services\Collection\SearchConsole\SearchConsoleCentralCollectionService;
 use App\Services\Integrations\Google\GoogleBusinessProfileBoundCollector;
@@ -270,6 +271,9 @@ final class ResourceAutomationService
         if ($resource->resource_type === 'google_ads' && ((bool) data_get($resource->metadata, 'is_manager', false)
             || ! (bool) data_get($resource->metadata, 'selectable', true))) {
             return 'manager';
+        }
+        if ($resource->resource_type === 'google_ads' && GoogleAdsHistoricalActivityDiscoveryService::recentlyNotEnabled($resource)) {
+            return 'not_enabled';
         }
 
         return null;

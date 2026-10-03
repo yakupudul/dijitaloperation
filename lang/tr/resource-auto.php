@@ -75,6 +75,7 @@ return [
     'busy' => 'Bu hesap için bir işlem zaten devam ediyor.',
     'reconnect' => 'Google/Meta bağlantısının izni sona ermiş ya da hesaba erişim kaldırılmış; veri çekilemiyor. Bağlantıyı Yeniden bağlan ile yenileyin ya da hesap sahibinden erişim isteyin.',
     'manager' => 'Yönetici hesabı. Veriler altındaki müşteri hesaplarından çekilir.',
+    'not_enabled' => 'Google Ads hesabı etkin değil (kapalı ya da askıda); veri çekilemiyor. Sistem 7 günde bir yeniden dener; hesap açılınca kendiliğinden sürer.',
     'customer_passive' => 'Bağlı olduğu müşteri veya varlık pasif; veri çekimi durduruldu. Müşteriyi aktif yapınca kendiliğinden sürer.',
     'unbound' => 'Bu hesap markaya atanmış bir dijital varlığa bağlı değil; veri çekilmiyor. Markaya atayınca kendiliğinden başlar.',
     'binding' => 'Bu kaynağın mevcut çekicisi bir dijital varlık bağlantısı gerektiriyor. Entegrasyonlardan eşleştirin.',

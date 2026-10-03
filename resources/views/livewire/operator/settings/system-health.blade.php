@@ -3,7 +3,7 @@
     $when = fn (?string $value): string => $value ? \Illuminate\Support\Carbon::parse($value)->timezone('Europe/Istanbul')->format('d.m.Y H:i') : '—';
     $errorLabels = [
         'reconnect' => 'Bağlantı yenilenmeli', 'collection_failed' => 'Tekrarlayan hata', 'request_requires_fix' => 'İstek düzeltilmeli (yazılım)',
-        'cancelled' => 'İptal edildi', 'manager' => 'Yönetici hesabı', 'binding' => 'Bağlama yok', 'unbound' => 'Varlığa bağlı değil',
+        'cancelled' => 'İptal edildi', 'manager' => 'Yönetici hesabı', 'not_enabled' => 'Hesap kapalı', 'binding' => 'Bağlama yok', 'unbound' => 'Varlığa bağlı değil',
         'customer_passive' => 'Müşteri pasif',
     ];
     $stateLabels = ['waiting' => 'Sırada', 'planning' => 'Planlanıyor', 'collecting' => 'Çekiliyor', 'current' => 'Güncel', 'attention' => 'Durdu'];

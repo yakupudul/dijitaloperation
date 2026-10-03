@@ -75,6 +75,7 @@ return [
     'busy' => 'An operation is already active for this account.',
     'reconnect' => 'Check account access and the integration connection.',
     'manager' => 'Manager account. Data is collected from its client accounts.',
+    'not_enabled' => 'The Google Ads account is not enabled (closed or suspended); no data can be collected. Retried every 7 days.',
     'customer_passive' => 'Its customer or asset is passive; collection is paused. It resumes when the customer is active again.',
     'unbound' => 'Not bound to a Digital Asset assigned to a brand; nothing is collected. It starts once assigned to a brand.',
     'binding' => 'The current collector needs a Digital Asset binding. Map this account in Integrations.',

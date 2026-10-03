@@ -66,6 +66,35 @@ final class GoogleAdsHistoricalActivityDiscoveryService
         );
     }
 
+    /** Re-checked after this many days: an account opened again is collected without operator action. */
+    public const int NOT_ENABLED_RETRY_DAYS = 7;
+
+    /** Whether the account answered CUSTOMER_NOT_ENABLED recently (automatic collection waits; retried weekly). */
+    public static function recentlyNotEnabled(CoreExternalResource $resource): bool
+    {
+        $at = data_get($resource->metadata, 'not_enabled_at');
+
+        return is_string($at) && CarbonImmutable::parse($at)->greaterThan(CarbonImmutable::now()->subDays(self::NOT_ENABLED_RETRY_DAYS));
+    }
+
+    private static function markNotEnabled(int $externalResourceId, bool $notEnabled): void
+    {
+        $resource = CoreExternalResource::query()->find($externalResourceId);
+        if ($resource === null) {
+            return;
+        }
+        $metadata = is_array($resource->metadata) ? $resource->metadata : [];
+        if (! $notEnabled && ! array_key_exists('not_enabled_at', $metadata)) {
+            return;
+        }
+        if ($notEnabled) {
+            $metadata['not_enabled_at'] = CarbonImmutable::now()->toIso8601String();
+        } else {
+            unset($metadata['not_enabled_at']);
+        }
+        $resource->forceFill(['metadata' => $metadata])->save();
+    }
+
     /** @return array<string,mixed> */
     public function discoverAccount(
         CoreIntegration $integration,
@@ -96,8 +125,15 @@ final class GoogleAdsHistoricalActivityDiscoveryService
         $response = $this->client->searchStream($integration, $customerId, $query, $loginCustomerId);
         if (! $response->successful()) {
             $mapped = $this->errors->fromHttpResponse($response);
+            if ($mapped->errorCode === 'CUSTOMER_NOT_ENABLED') {
+                // Closed / suspended account: marked so automatic collection waits instead of failing every tick.
+                self::markNotEnabled($externalResourceId, true);
+
+                throw new RuntimeException('Google Ads hesabı etkin değil (kapalı ya da askıda).');
+            }
             throw new RuntimeException($mapped->errorMessage ?? 'Google Ads historical activity discovery failed.');
         }
+        self::markNotEnabled($externalResourceId, false);
 
         $json = $response->json();
         if (! is_array($json)) {

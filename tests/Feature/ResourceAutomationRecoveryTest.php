@@ -288,6 +288,17 @@ final class ResourceAutomationRecoveryTest extends TestCase
     }
 
     /** Collection runs only for accounts bound to an active customer's asset (Faz 0 portfolio gate). */
+    public function test_a_closed_google_ads_account_waits_a_week_before_it_is_tried_again(): void
+    {
+        $resource = CoreExternalResource::factory()->create(['resource_type' => 'google_ads',
+            'metadata' => ['not_enabled_at' => now()->subDays(2)->toIso8601String()]]);
+        $automation = app(ResourceAutomationService::class);
+        $this->assertSame('not_enabled', $automation->readiness($resource));
+
+        $resource->forceFill(['metadata' => ['not_enabled_at' => now()->subDays(8)->toIso8601String()]])->save();
+        $this->assertNull($automation->readiness($resource->fresh()));
+    }
+
     private function bindToActiveAsset(CoreExternalResource $resource): void
     {
         CoreAssetBinding::factory()->create(['external_resource_id' => $resource->id, 'capability' => $resource->resource_type]);
