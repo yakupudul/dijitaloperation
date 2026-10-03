@@ -36,16 +36,11 @@
 
         <x-ta.form.section :title="__('operator.forms.business_profile')">
             <div class="grid gap-4 md:grid-cols-2">
-                <x-ta.form.field :label="__('operator.forms.industry')" :error="$errors->first('industry')">
-                    <x-ta.form.select wire:model.live="industry" :options="$industryOptions" :placeholder="__('operator.forms.search_industry')" />
-                </x-ta.form.field>
-
-                @if ($showIndustryOther)
-                    <x-ta.form.field :label="__('operator.forms.custom_industry')" :error="$errors->first('industry_other')">
-                        <input wire:model="industry_other" type="text"
-                            class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm shadow-theme-xs outline-none focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-                    </x-ta.form.field>
-                @endif
+                <div class="md:col-span-2" data-customer-sector>
+                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Sektör</p>
+                    <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ ($brandSectorLabel ?? '') !== '' ? $brandSectorLabel : 'Henüz yok' }}</p>
+                    <p class="mt-0.5 text-xs text-gray-500">Markalardan gelir: sektör her markanın kendi ayarında seçilir, müşteride ayrıca tutulmaz.</p>
+                </div>
 
                 <x-ta.form.field :label="__('operator.forms.hq_country')" :error="$errors->first('hq_country')">
                     <x-ta.form.select wire:model.live="hq_country" :options="$countryOptions" :placeholder="__('operator.forms.search_country')" />

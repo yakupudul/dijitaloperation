@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\Customer;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Operator\OperatorUserDirectory;
+use App\Services\Operator\PortfolioSignalsReader;
 use App\Services\Portfolio\PortfolioDeletionService;
 use App\Support\Demo\DemoState;
 use App\Support\DigitalAssetTypes;
@@ -13,15 +14,21 @@ use App\Support\Options\CountryOptions;
 use App\Support\Options\IndustryOptions;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 #[Layout('operator.layouts.app')]
 #[Title('Markalar')]
 class BrandsIndex extends Component
 {
+    use WithPagination;
+
+    public const int PER_PAGE = 50;
+
     #[Url(as: 'q', history: true)]
     public string $search = '';
 
@@ -57,6 +64,13 @@ class BrandsIndex extends Component
     /** @var list<int> selected brand ids for bulk actions */
     public array $selected = [];
 
+    public function updated(string $property): void
+    {
+        if (in_array($property, ['search', 'customer', 'sector', 'primary_market', 'asset_type', 'responsible', 'attention', 'context'], true)) {
+            $this->resetPage();
+        }
+    }
+
     public function toggleAll(array $visibleIds): void
     {
         $visibleIds = array_map('intval', $visibleIds);
@@ -88,6 +102,7 @@ class BrandsIndex extends Component
         $this->responsible = '';
         $this->attention = '';
         $this->context = '';
+        $this->resetPage();
     }
 
     public function hasActiveFilters(): bool
@@ -111,25 +126,32 @@ class BrandsIndex extends Component
         }
 
         $this->sort = $column;
-        $this->dir = 'asc';
+        $this->dir = in_array($column, ['work', 'attention'], true) ? 'desc' : 'asc';
     }
 
     /**
+     * Every brand presented once per render, with its signals (open work, data status, attention) from
+     * PortfolioSignalsReader in a fixed number of queries.
+     *
      * @return list<array<string, mixed>>
      */
     protected function enrichedBrands(): array
     {
-        return Brand::query()
-            ->with(['customer', 'responsibleUsers', 'digitalAssets', 'intelligenceContext'])
-            ->get()
-            ->map(fn (Brand $brand): array => OperatorPortfolioPresenter::brand($brand))
+        $models = Brand::query()
+            ->with(['customer', 'responsibleUsers', 'digitalAssets.assetBindings', 'intelligenceContext', 'sectorCategory'])
+            ->get();
+        $signals = app(PortfolioSignalsReader::class)->forBrands($models)['brands'];
+
+        return $models
+            ->map(fn (Brand $brand): array => OperatorPortfolioPresenter::brand($brand, $signals[(int) $brand->id] ?? PortfolioSignalsReader::emptyBrand()))
             ->values()
             ->all();
     }
 
     public function render(): View
     {
-        $rows = collect($this->enrichedBrands());
+        $all = collect($this->enrichedBrands());
+        $rows = $all;
 
         if ($this->search !== '') {
             $q = mb_strtolower($this->search);
@@ -149,7 +171,7 @@ class BrandsIndex extends Component
             $rows = $rows->filter(fn (array $b): bool => ($b['customer_id'] ?? '') === $this->customer);
         }
         if ($this->sector !== '') {
-            $rows = $rows->filter(fn (array $b): bool => ($b['sector'] ?? '') === $this->sector);
+            $rows = $rows->filter(fn (array $b): bool => ($b['sector'] ?? '') === $this->sector || in_array($this->sector, $b['sector_codes'] ?? [], true));
         }
         if ($this->primary_market !== '') {
             $rows = $rows->filter(fn (array $b): bool => ($b['primary_country'] ?? '') === $this->primary_market);
@@ -174,24 +196,24 @@ class BrandsIndex extends Component
         }
 
         $sort = $this->sort;
-        $dir = $this->dir === 'desc' ? 'desc' : 'asc';
         $rows = $rows->sortBy(function (array $b) use ($sort) {
             return match ($sort) {
                 'customer' => mb_strtolower((string) ($b['customer_name'] ?? '')),
                 'sector' => mb_strtolower((string) ($b['sector_label'] ?? '')),
                 'assets' => (int) ($b['assets_count'] ?? 0),
-                'findings' => (int) ($b['open_findings'] ?? 0),
-                'tasks' => (int) ($b['open_tasks'] ?? 0),
+                'work' => (int) ($b['open_work'] ?? 0),
+                'attention' => ((int) ($b['needs_attention'] ?? false)) * 1000 + (int) ($b['data_issues'] ?? 0),
                 default => mb_strtolower((string) ($b['name'] ?? '')),
             };
-        }, SORT_REGULAR, $dir === 'desc')->values();
+        }, SORT_REGULAR, $this->dir === 'desc')->values();
 
-        $all = collect($this->enrichedBrands());
+        $page = max(1, $this->getPage());
+        $brands = new LengthAwarePaginator($rows->slice(($page - 1) * self::PER_PAGE, self::PER_PAGE)->values()->all(), $rows->count(), self::PER_PAGE, $page);
 
         return view('livewire.demo.portfolio.brands-index', [
-            'brands' => $rows->all(),
+            'brands' => $brands,
             'allCount' => $all->count(),
-            'visibleIds' => $rows->map(fn (array $b): int => (int) $b['id'])->values()->all(),
+            'visibleIds' => array_map(fn (array $b): int => (int) $b['id'], $brands->items()),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'summaryLine' => sprintf(
                 '%d marka · %d dijital varlık (%d bağlı) · %d marka dikkat istiyor',

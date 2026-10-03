@@ -1,155 +1,97 @@
-<div class="space-y-6">
+@php
+    $card = 'rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
+    $select = 'h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white';
+    $chip = ['ok' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300', 'warn' => 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300', 'bad' => 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300', 'muted' => 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'];
+    $quickViews = ['all' => 'Tümü', 'needs_attention' => 'Dikkat istiyor', 'data_issues' => 'Veri sorunu', 'active_work' => 'Açık işi olan', 'recent' => 'Son güncellenen'];
+    $views = ['table' => 'Liste', 'matrix' => 'Marka × kanal', 'cards' => 'Kart'];
+@endphp
+<div class="space-y-4" data-assets-index>
     @include('livewire.demo.partials.flash')
 
-    @include('livewire.demo.partials.workspace-header', [
-        'eyebrow' => __('operator.forms.portfolio'),
-        'title' => __('operator.nav.digital_assets'),
-        'subtitle' => __('operator.directory.subtitle'),
-        'actions' => '<div class="flex flex-wrap gap-2"><a href="'.route('operator.asset.create').'" wire:navigate class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">'.e(__('operator.directory.quick_add_asset')).'</a></div>',
-    ])
-
-    <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <p class="text-xs uppercase tracking-wide text-gray-400">{{ __('operator.directory.managed_assets') }}</p>
-            <p class="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">{{ $glance['managed'] }}</p>
+    <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+            <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Dijital varlıklar</h1>
+            <p class="mt-1 text-sm text-gray-500">Markalara bağlı siteler ve hesaplar. Veri durumu her kaynağın en kötü durumunu gösterir.</p>
+            <p class="mt-1 text-xs text-gray-500" data-assets-summary>
+                <span class="tabular-nums">{{ $glance['managed'] }}</span> varlık ·
+                <button type="button" wire:click="setQuickView('needs_attention')" class="hover:underline"><span class="tabular-nums">{{ $glance['needs_attention'] }}</span> dikkat istiyor</button> ·
+                <button type="button" wire:click="setQuickView('data_issues')" class="hover:underline"><span class="tabular-nums">{{ $glance['data_issues'] }}</span> veri sorunu</button> ·
+                <button type="button" wire:click="setQuickView('active_work')" class="hover:underline"><span class="tabular-nums">{{ $glance['active_work'] }}</span> açık işi olan</button>
+            </p>
         </div>
-        <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <p class="text-xs uppercase tracking-wide text-gray-400">{{ __('operator.directory.needs_attention') }}</p>
-            <p class="mt-1 text-2xl font-bold text-warning-600 dark:text-warning-400">{{ $glance['needs_attention'] }}</p>
-        </div>
-        <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <p class="text-xs uppercase tracking-wide text-gray-400">{{ __('operator.directory.data_stale') }}</p>
-            <p class="mt-1 text-2xl font-bold text-error-600 dark:text-error-400">{{ $glance['data_issues'] }}</p>
-        </div>
-        <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <p class="text-xs uppercase tracking-wide text-gray-400">{{ __('operator.directory.active_work') }}</p>
-            <p class="mt-1 text-2xl font-bold text-brand-600 dark:text-brand-400">{{ $glance['active_work'] }}</p>
-        </div>
+        <a href="{{ route('operator.asset.create', $filterBrand !== '' ? ['brandId' => $filterBrand] : []) }}" wire:navigate class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-600">Varlık ekle</a>
     </div>
 
-    <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="flex flex-wrap gap-2" role="tablist" aria-label="{{ __('operator.directory.quick_views') }}">
-            @foreach ([
-                'all' => __('operator.directory.all'),
-                'needs_attention' => __('operator.directory.needs_attention'),
-                'data_issues' => __('operator.directory.data_issues'),
-                'active_work' => __('operator.directory.active_work'),
-                'recent' => __('operator.directory.recently_updated'),
-            ] as $key => $label)
-                <button type="button" wire:click="setQuickView('{{ $key }}')"
-                    @class([
-                        'rounded-lg px-3 py-2 text-sm font-medium',
-                        'bg-brand-500 text-white' => $quickView === $key,
-                        'bg-white text-gray-600 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700' => $quickView !== $key,
-                    ])>{{ $label }}</button>
+    <nav class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-gray-200 dark:border-gray-800" aria-label="Görünüm">
+        <div class="flex flex-wrap items-center gap-x-6">
+            @foreach ($quickViews as $key => $label)
+                <button type="button" wire:click="setQuickView('{{ $key }}')" aria-pressed="{{ $quickView === $key ? 'true' : 'false' }}"
+                    @class(['-mb-px h-11 border-b-2 text-sm', 'border-gray-900 font-semibold text-gray-900 dark:border-white dark:text-white' => $quickView === $key, 'border-transparent font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400' => $quickView !== $key])>{{ $label }}</button>
             @endforeach
         </div>
-        <div class="flex rounded-lg ring-1 ring-inset ring-gray-200 dark:ring-gray-700" role="group" aria-label="{{ __('operator.directory.view_mode') }}">
-            <button type="button" wire:click="setViewMode('table')"
-                @class(['rounded-l-lg px-3 py-2 text-xs font-medium', 'bg-brand-500 text-white' => $viewMode === 'table', 'text-gray-600 dark:text-gray-300' => $viewMode !== 'table'])>{{ __('operator.directory.list') }}</button>
-            <button type="button" wire:click="setViewMode('matrix')"
-                @class(['px-3 py-2 text-xs font-medium', 'bg-brand-500 text-white' => $viewMode === 'matrix', 'text-gray-600 dark:text-gray-300' => $viewMode !== 'matrix'])>{{ __('operator.directory.estate_matrix') }}</button>
-            <button type="button" wire:click="setViewMode('cards')"
-                @class(['rounded-r-lg px-3 py-2 text-xs font-medium', 'bg-brand-500 text-white' => $viewMode === 'cards', 'text-gray-600 dark:text-gray-300' => $viewMode !== 'cards'])>{{ __('operator.directory.cards') }}</button>
+        <div class="flex items-center gap-1 pb-1 text-xs" role="group" aria-label="Görünüm türü">
+            @foreach ($views as $key => $label)
+                <button type="button" wire:click="setViewMode('{{ $key }}')" aria-pressed="{{ $viewMode === $key ? 'true' : 'false' }}"
+                    @class(['rounded-lg px-2.5 py-1.5 font-medium', 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $viewMode === $key, 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5' => $viewMode !== $key])>{{ $label }}</button>
+            @endforeach
         </div>
-    </div>
+    </nav>
 
-    <div class="flex flex-wrap items-end gap-3 rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-        <div>
-            <label class="mb-1 block text-xs font-medium text-gray-500" for="filter-customer">{{ __('operator.forms.customer') }}</label>
-            <select id="filter-customer" wire:model.live="filterCustomer" class="rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-700">
-                <option value="">{{ __('operator.directory.all_customers') }}</option>
-                @foreach ($customerOptions as $id => $label)
-                    <option value="{{ $id }}">{{ $label }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div>
-            <label class="mb-1 block text-xs font-medium text-gray-500" for="filter-brand">{{ __('operator.directory.brand') }}</label>
-            <select id="filter-brand" wire:model.live="filterBrand" class="rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-700">
-                <option value="">{{ __('operator.directory.all_brands') }}</option>
-                @foreach ($brandOptions as $id => $label)
-                    <option value="{{ $id }}">{{ $label }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div>
-            <label class="mb-1 block text-xs font-medium text-gray-500" for="filter-type">{{ __('operator.directory.asset_type') }}</label>
-            <select id="filter-type" wire:model.live="filterType" class="rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-700">
-                <option value="">{{ __('operator.directory.all_types') }}</option>
-                @foreach ($typeOptions as $id => $label)
-                    <option value="{{ $id }}">{{ $label }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div>
-            <label class="mb-1 block text-xs font-medium text-gray-500" for="filter-op">{{ __('operator.directory.operational_status') }}</label>
-            <select id="filter-op" wire:model.live="filterOperational" class="rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-700">
-                <option value="">{{ __('operator.directory.all') }}</option>
-                @foreach ($operationalOptions as $id => $label)
-                    <option value="{{ $id }}">{{ $label }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div>
-            <label class="mb-1 block text-xs font-medium text-gray-500" for="filter-data">{{ __('operator.directory.data_state') }}</label>
-            <select id="filter-data" wire:model.live="filterDataState" class="rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-700">
-                <option value="">{{ __('operator.directory.all') }}</option>
-                @foreach ($dataStateOptions as $id => $label)
-                    <option value="{{ $id }}">{{ $label }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div>
-            <label class="mb-1 block text-xs font-medium text-gray-500" for="filter-owner">{{ __('operator.directory.responsible') }}</label>
-            <select id="filter-owner" wire:model.live="filterResponsible" class="rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-700">
-                <option value="">{{ __('operator.directory.anyone') }}</option>
-                @foreach ($responsibleOptions as $id => $label)
-                    <option value="{{ $id }}">{{ $label }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div>
-            <label class="mb-1 block text-xs font-medium text-gray-500" for="filter-search">{{ __('operator.forms.search') }}</label>
-            <input id="filter-search" type="search" wire:model.live.debounce.300ms="search" placeholder="{{ __('operator.directory.search_name_or_type') }}"
-                class="rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-700" />
-        </div>
-        <x-ta.button wire:click="clearFilters" size="sm" variant="outline">{{ __('operator.forms.clear') }}</x-ta.button>
+    <div class="flex flex-wrap items-center gap-2">
+        <input type="search" wire:model.live.debounce.300ms="search" placeholder="Varlık, alan adı veya marka ara" aria-label="Ara"
+            class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm sm:w-64 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+        <select wire:model.live="filterCustomer" class="{{ $select }}" aria-label="Müşteri">
+            <option value="">Müşteri: hepsi</option>
+            @foreach ($customerOptions as $id => $label)<option value="{{ $id }}">{{ $label }}</option>@endforeach
+        </select>
+        <select wire:model.live="filterBrand" class="{{ $select }}" aria-label="Marka">
+            <option value="">Marka: hepsi</option>
+            @foreach ($brandOptions as $id => $label)<option value="{{ $id }}">{{ $label }}</option>@endforeach
+        </select>
+        <select wire:model.live="filterType" class="{{ $select }}" aria-label="Tür">
+            <option value="">Tür: hepsi</option>
+            @foreach ($typeOptions as $id => $label)<option value="{{ $id }}">{{ $label }}</option>@endforeach
+        </select>
+        <select wire:model.live="filterDataState" class="{{ $select }}" aria-label="Veri durumu">
+            <option value="">Veri: hepsi</option>
+            @foreach ($dataStateOptions as $id => $label)<option value="{{ $id }}">{{ $label }}</option>@endforeach
+        </select>
+        <select wire:model.live="filterOperational" class="{{ $select }}" aria-label="Durum">
+            <option value="">Durum: hepsi</option>
+            @foreach ($operationalOptions as $id => $label)<option value="{{ $id }}">{{ $label }}</option>@endforeach
+        </select>
+        <select wire:model.live="filterResponsible" class="{{ $select }}" aria-label="Sorumlu">
+            <option value="">Sorumlu: herkes</option>
+            @foreach ($responsibleOptions as $id => $label)<option value="{{ $id }}">{{ $label }}</option>@endforeach
+        </select>
+        <button type="button" wire:click="clearFilters" class="text-xs font-medium text-brand-600 hover:underline">Temizle</button>
     </div>
 
     @if ($viewMode === 'matrix')
-        <div class="overflow-x-auto rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <table class="min-w-full text-sm">
-                <caption class="sr-only">{{ __('operator.directory.matrix_caption') }}</caption>
-                <thead>
-                    <tr class="border-b border-gray-100 dark:border-gray-800">
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.brand') }}</th>
-                        @foreach ($matrix['columns'] as $type => $label)
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-400">{{ $label }}</th>
-                        @endforeach
+        @php($cellTone = ['ok' => $chip['ok'], 'warn' => $chip['warn'], 'bad' => $chip['bad'], 'muted' => $chip['muted']])
+        <section class="overflow-x-auto rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-estate-matrix>
+            <table class="w-full text-left text-sm">
+                <caption class="sr-only">Marka ve kanal matrisi</caption>
+                <thead class="border-b border-gray-100 text-xs text-gray-500 dark:border-gray-800">
+                    <tr>
+                        <th scope="col" class="px-4 py-3 font-medium">Marka</th>
+                        @foreach ($matrix['columns'] as $type => $label)<th scope="col" class="px-4 py-3 font-medium">{{ $label }}</th>@endforeach
                     </tr>
                 </thead>
-                <tbody>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                     @foreach ($matrix['rows'] as $row)
-                        <tr class="border-b border-gray-50 dark:border-gray-800/60">
-                            <th scope="row" class="px-4 py-3 text-left font-medium text-gray-800 dark:text-white/90">
-                                {{ $row['brand'] }}
-                                <span class="block text-xs font-normal text-gray-500">{{ $row['customer'] }}</span>
+                        <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.03]">
+                            <th scope="row" class="px-4 py-3 font-normal">
+                                <a href="{{ route('operator.brand', ['brand' => $row['brand_id']]) }}" wire:navigate class="font-medium text-gray-900 hover:text-brand-600 dark:text-white">{{ $row['brand'] }}</a>
+                                <p class="text-xs text-gray-500">{{ $row['customer'] }}</p>
                             </th>
                             @foreach ($matrix['columns'] as $type => $label)
-                                @php $cell = $row['cells'][$type] ?? ['state' => 'not_configured', 'label' => __('operator.states.not_configured')]; @endphp
+                                @php($cell = $row['cells'][$type] ?? ['state' => 'not_configured'])
                                 <td class="px-4 py-3">
                                     @if (($cell['state'] ?? '') === 'not_configured')
-                                        <span class="text-gray-400">—</span>
-                                        <span class="sr-only">{{ __('operator.directory.not_configured_sr') }}</span>
+                                        <span class="text-gray-400" aria-hidden="true">—</span><span class="sr-only">Tanımlı değil</span>
                                     @else
-                                        <a href="{{ $cell['url'] ?? route($cell['route'], $cell['route_params'] ?? []) }}" wire:navigate
-                                            @class([
-                                                'inline-flex rounded-md px-2 py-1 text-xs font-medium',
-                                                'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-400' => ($cell['state'] ?? '') === 'present',
-                                                'bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-400' => ($cell['state'] ?? '') === 'attention',
-                                                'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-400' => ($cell['state'] ?? '') === 'data_issue',
-                                            ])>{{ $cell['label'] }}</a>
+                                        <a href="{{ $cell['url'] }}" wire:navigate class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ $cellTone[$cell['tone'] ?? 'muted'] ?? $chip['muted'] }}">{{ $cell['label'] }}</a>
                                     @endif
                                 </td>
                             @endforeach
@@ -157,105 +99,101 @@
                     @endforeach
                 </tbody>
             </table>
-            <p class="border-t border-gray-100 px-4 py-3 text-xs text-gray-500 dark:border-gray-800">
-                {{ __('operator.directory.matrix_note') }}
-            </p>
-        </div>
+            <p class="border-t border-gray-100 px-4 py-3 text-xs text-gray-500 dark:border-gray-800">GA4 ve Search Console web sitesinin kaynaklarıdır; hücre o kaynağın veri durumunu gösterir.</p>
+        </section>
     @elseif (count($assets) === 0)
-        @include('livewire.demo.partials.empty-panel', [
-            'title' => __('operator.directory.no_match_assets'),
-            'message' => __('operator.directory.no_match_assets_help'),
-        ])
+        <section class="{{ $card }} text-center">
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Filtreye uyan varlık yok</h2>
+            <button type="button" wire:click="clearFilters" class="mt-2 text-sm font-medium text-brand-600 hover:underline">Filtreleri temizle</button>
+        </section>
     @elseif ($viewMode === 'cards')
-        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             @foreach ($assets as $asset)
-                <x-ta.card>
-                    <div class="flex items-start justify-between gap-2">
-                        <div class="flex min-w-0 items-start gap-3">
-                            <x-demo.digital-asset-mark :type="$asset['type']" :asset="$asset" size="md" />
-                            <div class="min-w-0">
-                                <h3 class="font-semibold text-gray-800 dark:text-white/90">{{ $asset['name'] }}</h3>
-                                <p class="text-sm text-gray-500">{{ $asset['type_label'] }}</p>
-                                <p class="mt-1 text-xs text-gray-400">{{ $asset['brand_name'] ?? '' }} · {{ $asset['customer_name'] ?? '' }}</p>
-                            </div>
+                <section class="{{ $card }}" wire:key="asset-card-{{ $asset['id'] }}">
+                    <div class="flex items-start gap-3">
+                        <x-demo.digital-asset-mark :type="$asset['type']" :asset="$asset" size="md" />
+                        <div class="min-w-0">
+                            <a href="{{ $asset['url'] }}" wire:navigate class="font-medium text-gray-900 hover:text-brand-600 dark:text-white">{{ $asset['display_name'] }}</a>
+                            <p class="text-xs text-gray-500">{{ $asset['type_label'] }}@if ($asset['stored_name']) · {{ $asset['stored_name'] }}@endif</p>
+                            <p class="text-xs text-gray-500"><a href="{{ route('operator.brand', ['brand' => $asset['brand_id']]) }}" wire:navigate class="hover:underline">{{ $asset['brand_name'] }}</a> · {{ $asset['customer_name'] }}</p>
                         </div>
                     </div>
-                    <div class="mt-3 flex flex-wrap gap-2 text-xs">
-                        <x-ta.badge color="light" size="sm">{{ $asset['operational_status_label'] ?? __('operator.states.active') }}</x-ta.badge>
-                        <x-ta.badge :color="match($asset['data_state'] ?? '') { 'fresh' => 'success', 'stale' => 'warning', 'unavailable' => 'error', default => 'light' }" size="sm">
-                            {{ __('operator.directory.data_prefix') }} · {{ $asset['data_state_label'] ?? '—' }}
-                        </x-ta.badge>
+                    <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                        <span class="rounded-full px-2 py-0.5 font-medium {{ $chip[$asset['tone']] ?? $chip['muted'] }}">{{ $asset['data_label'] }}</span>
+                        @if ($asset['operational_status'] !== 'active')<span class="rounded-full px-2 py-0.5 {{ $chip['muted'] }}">{{ $asset['operational_status_label'] }}</span>@endif
+                        <span class="text-gray-500"><span class="tabular-nums">{{ $asset['open_work'] }}</span> açık iş</span>
                     </div>
-                    <p class="mt-3 text-sm text-gray-500">{{ $asset['open_findings'] ?? 0 }} {{ __('operator.directory.findings') }} · {{ $asset['open_tasks'] ?? 0 }} {{ __('operator.directory.tasks') }}</p>
-                    <div class="mt-4">
-                        <x-ta.button :href="$asset['url']" size="sm">{{ __('operator.actions.open') }}</x-ta.button>
-                    </div>
-                </x-ta.card>
+                    @if ($asset['attention_reason'])<p class="mt-2 text-xs text-amber-800 dark:text-amber-300">{{ $asset['attention_reason'] }}</p>@endif
+                    <p class="mt-3 flex gap-3 text-xs">
+                        <a href="{{ $asset['url'] }}" wire:navigate class="font-medium text-brand-600 hover:underline">Aç</a>
+                        <a href="{{ $asset['sources_url'] }}" wire:navigate class="text-gray-600 hover:underline dark:text-gray-300">Veri kaynakları</a>
+                    </p>
+                </section>
             @endforeach
         </div>
     @else
-        <div class="overflow-x-auto rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <table class="min-w-full text-sm">
-                <caption class="sr-only">{{ __('operator.directory.assets_caption') }}</caption>
-                <thead>
-                    <tr class="border-b border-gray-100 dark:border-gray-800">
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.asset') }}</th>
-                        <th scope="col" class="hidden px-4 py-3 text-left text-xs font-medium uppercase text-gray-400 md:table-cell">{{ __('operator.directory.brand') }} / {{ __('operator.directory.customer') }}</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.operational') }}</th>
-                        <th scope="col" class="hidden px-4 py-3 text-left text-xs font-medium uppercase text-gray-400 lg:table-cell">{{ __('operator.directory.data') }}</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.attention') }}</th>
-                        <th scope="col" class="hidden px-4 py-3 text-left text-xs font-medium uppercase text-gray-400 sm:table-cell">{{ __('operator.directory.work') }}</th>
-                        <th scope="col" class="hidden px-4 py-3 text-left text-xs font-medium uppercase text-gray-400 xl:table-cell">{{ __('operator.directory.responsible') }}</th>
-                        <th scope="col" class="hidden px-4 py-3 text-left text-xs font-medium uppercase text-gray-400 xl:table-cell">{{ __('operator.directory.activity') }}</th>
-                        <th scope="col" class="px-4 py-3"><span class="sr-only">{{ __('operator.directory.action') }}</span></th>
+        <section class="overflow-x-auto rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+            <table class="w-full text-left text-sm">
+                <caption class="sr-only">Dijital varlıklar</caption>
+                <thead class="border-b border-gray-100 text-xs text-gray-500 dark:border-gray-800">
+                    <tr>
+                        <th scope="col" class="px-4 py-3 font-medium">Varlık</th>
+                        <th scope="col" class="hidden px-4 py-3 font-medium md:table-cell">Marka</th>
+                        <th scope="col" class="px-4 py-3 font-medium">Veri</th>
+                        <th scope="col" class="px-4 py-3 text-right font-medium">Açık iş</th>
+                        <th scope="col" class="hidden px-4 py-3 font-medium sm:table-cell">Durum</th>
+                        <th scope="col" class="hidden px-4 py-3 font-medium xl:table-cell">Sorumlu</th>
+                        <th scope="col" class="hidden px-4 py-3 font-medium lg:table-cell">Son çekim</th>
+                        <th scope="col" class="px-4 py-3"><span class="sr-only">İşlem</span></th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                     @foreach ($assets as $asset)
-                        <tr class="border-b border-gray-50 dark:border-gray-800/60">
+                        <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.03]" wire:key="asset-{{ $asset['id'] }}" data-asset-row="{{ $asset['id'] }}">
                             <td class="px-4 py-3">
                                 <div class="flex items-center gap-2.5">
                                     <x-demo.digital-asset-mark :type="$asset['type']" :asset="$asset" size="sm" />
-                                    <div>
-                                        <p class="font-medium text-gray-800 dark:text-white/90">{{ $asset['name'] }}</p>
-                                        <p class="text-xs text-gray-500">{{ $asset['type_label'] }}</p>
+                                    <div class="min-w-0">
+                                        <a href="{{ $asset['url'] }}" wire:navigate class="font-medium text-gray-900 hover:text-brand-600 dark:text-white">{{ $asset['display_name'] }}</a>
+                                        <p class="text-xs text-gray-500">{{ $asset['type_label'] }}@if ($asset['stored_name']) · {{ $asset['stored_name'] }}@endif<span class="md:hidden"> · {{ $asset['brand_name'] }}</span></p>
                                     </div>
                                 </div>
                             </td>
-                            <td class="hidden px-4 py-3 text-gray-500 md:table-cell">
-                                <span class="block text-gray-800 dark:text-white/90">{{ $asset['brand_name'] ?? '—' }}</span>
-                                <span class="text-xs">{{ $asset['customer_name'] ?? '' }}</span>
+                            <td class="hidden px-4 py-3 md:table-cell">
+                                <a href="{{ route('operator.brand', ['brand' => $asset['brand_id']]) }}" wire:navigate class="text-gray-700 hover:underline dark:text-gray-300">{{ $asset['brand_name'] }}</a>
+                                <p class="text-xs text-gray-400">{{ $asset['customer_name'] }}</p>
                             </td>
-                            <td class="px-4 py-3">
-                                <x-ta.badge color="light" size="sm">{{ $asset['operational_status_label'] ?? __('operator.states.active') }}</x-ta.badge>
+                            <td class="px-4 py-3" data-asset-data="{{ $asset['tone'] }}">
+                                <span class="rounded-full px-2 py-0.5 text-xs font-medium {{ $chip[$asset['tone']] ?? $chip['muted'] }}">{{ $asset['data_label'] }}</span>
+                                @if ($asset['attention_reason'])<p class="mt-0.5 max-w-xs text-xs text-gray-500">{{ $asset['attention_reason'] }}</p>@endif
                             </td>
-                            <td class="hidden px-4 py-3 lg:table-cell">
-                                <x-ta.badge :color="match($asset['data_state'] ?? '') { 'fresh' => 'success', 'stale' => 'warning', 'unavailable' => 'error', default => 'light' }" size="sm">
-                                    {{ $asset['data_state_label'] ?? '—' }}
-                                </x-ta.badge>
+                            <td class="px-4 py-3 text-right tabular-nums">
+                                {{ $asset['open_work'] }}
+                                @if ($asset['critical'] > 0)<p class="text-xs text-rose-600">{{ $asset['critical'] }} kritik</p>@endif
                             </td>
-                            <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $asset['open_findings'] ?? 0 }} {{ __('operator.directory.findings') }}</td>
-                            <td class="hidden px-4 py-3 text-gray-600 dark:text-gray-300 sm:table-cell">{{ $asset['open_tasks'] ?? 0 }} {{ __('operator.directory.tasks') }}</td>
+                            <td class="hidden px-4 py-3 sm:table-cell">
+                                <span @class(['rounded-full px-2 py-0.5 text-xs', $chip['ok'] => $asset['operational_status'] === 'active', $chip['muted'] => $asset['operational_status'] !== 'active'])>{{ $asset['operational_status_label'] }}</span>
+                            </td>
                             <td class="hidden px-4 py-3 xl:table-cell">
-                                @php $owner = ($asset['responsible_users'][0] ?? null); @endphp
+                                @php($owner = $asset['responsible_users'][0] ?? null)
                                 @if ($owner)
-                                    <span class="inline-flex items-center gap-2" title="{{ $owner['name'] }}">
-                                        <span class="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700 dark:bg-white/10 dark:text-white/90" aria-hidden="true">{{ $owner['initials'] }}</span>
-                                        <span class="sr-only">{{ $owner['name'] }}</span>
+                                    <span class="inline-flex items-center gap-2" title="{{ collect($asset['responsible_users'])->pluck('name')->implode(', ') }}">
+                                        <span class="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-[10px] font-semibold text-gray-700 dark:bg-white/10 dark:text-white/90" aria-hidden="true">{{ $owner['initials'] }}</span>
                                         <span class="text-sm text-gray-700 dark:text-gray-300">{{ $owner['name'] }}</span>
                                     </span>
                                 @else
                                     <span class="text-gray-400">—</span>
                                 @endif
                             </td>
-                            <td class="hidden px-4 py-3 text-xs text-gray-500 xl:table-cell">{{ ($asset['last_update'] ?? '') !== '' ? $asset['last_update'] : '—' }}</td>
+                            <td class="hidden px-4 py-3 text-xs text-gray-500 lg:table-cell">{{ ($asset['last_update'] ?? '') !== '' ? $asset['last_update'] : '—' }}</td>
                             <td class="px-4 py-3 text-right">
-                                <x-ta.button :href="$asset['url']" size="sm" variant="outline">{{ __('operator.actions.open') }}</x-ta.button>
+                                <a href="{{ $asset['sources_url'] }}" wire:navigate class="hidden text-xs text-gray-600 hover:underline sm:inline dark:text-gray-300">Veri kaynakları</a>
+                                <a href="{{ $asset['url'] }}" wire:navigate class="ml-2 rounded-lg px-3 py-1.5 text-xs font-medium text-brand-600 ring-1 ring-inset ring-brand-200 hover:bg-brand-50 dark:text-brand-400 dark:ring-brand-500/30">Aç</a>
                             </td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
-        </div>
+        </section>
     @endif
 </div>

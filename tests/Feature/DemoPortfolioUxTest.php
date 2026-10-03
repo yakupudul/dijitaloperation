@@ -64,8 +64,8 @@ class DemoPortfolioUxTest extends TestCase
         ]);
 
         Livewire::test(AssetsIndex::class)
-            ->assertSee(__('operator.directory.managed_assets'))
-            ->assertSee(__('operator.directory.subtitle'))
+            ->assertSee('Dijital varlıklar')
+            ->assertSee('Markalara bağlı siteler ve hesaplar.')
             ->assertSee('Nova Website')
             ->assertSee('Nova Meta')
             ->assertDontSee('DemoHost')
@@ -84,7 +84,7 @@ class DemoPortfolioUxTest extends TestCase
 
         Livewire::test(AssetsIndex::class)
             ->call('setViewMode', 'matrix')
-            ->assertSee(__('operator.directory.estate_matrix'))
+            ->assertSee('Marka × kanal')
             ->assertSee('Nova Dental')
             ->assertDontSee('Atlas Dental Ankara');
     }

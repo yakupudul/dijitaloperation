@@ -35,18 +35,18 @@ class BrandCommandCenterUxTest extends TestCase
     public function test_brands_directory_search_filters_and_rollups(): void
     {
         Livewire::test(BrandsIndex::class)
-            ->assertSee('Brands')
-            ->assertSee('Brands managed across customer accounts')
+            ->assertSee('Markalar')
+            ->assertSee('Noktalar kanalların veri durumunu')
             ->assertSee('Atlas Dental Ankara')
             ->assertSee('Atlas Health Group')
             ->assertSee('dijital varlık')
-            ->assertSee(__('operator.forms.add_brand'))
+            ->assertSee('Marka ekle')
             ->assertSee(route('operator.brand.create', absolute: false))
             ->assertDontSee('/setup?entry=', false)
             ->set('search', 'Atlas Dental')
             ->assertSee('Atlas Dental Ankara')
             ->set('search', 'NoSuchBrandXYZ')
-            ->assertSee('No brands match these filters.')
+            ->assertSee('Filtreye uyan marka yok')
             ->call('clearFilters')
             ->set('customer', (string) $this->workCustomer->id)
             ->assertSee('Atlas Dental Ankara')
@@ -67,8 +67,8 @@ class BrandCommandCenterUxTest extends TestCase
     {
         Livewire::test(BrandsIndex::class)
             ->set('search', 'zzzz-no-match')
-            ->assertSee('No brands match these filters.')
-            ->assertDontSee('No brands yet');
+            ->assertSee('Filtreye uyan marka yok')
+            ->assertDontSee('Henüz marka yok');
     }
 
     public function test_brand_overview_command_center(): void

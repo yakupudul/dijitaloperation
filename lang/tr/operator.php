@@ -192,7 +192,7 @@ return [
 
     'portfolio' => [
         'add_customer' => 'Müşteri ekle',
-        'account_owner_responsible' => 'Müşteri Sorumlusu / Sorumlu Ekip',
+        'account_owner_responsible' => 'Hesap sorumlusu ve ekip',
     ],
 
     'work' => [
@@ -1794,7 +1794,7 @@ return [
         'type' => 'Tür',
         'search' => 'Ara',
         'search_customers' => 'Müşteri ara…',
-        'empty_customers_title' => '0 kayıt',
+        'empty_customers_title' => 'Henüz müşteri yok',
         'empty_customers' => 'İlk müşterinizi oluşturun',
         'customers_subtitle' => 'Ajans müşteri hesapları — markalar ve açık işler burada toplanır.',
         'portfolio' => 'Portföy',

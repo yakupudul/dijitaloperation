@@ -5,8 +5,8 @@ namespace App\Support\Demo;
 /**
  * Canonical operator navigation for the TailAdmin operator shell (the class name is legacy).
  *
- * MoxDOP v2 (Faz 0): the sidebar is exactly Bugün · Müşteriler · Markalar · Web siteleri · Sorgular · Entegrasyonlar ·
- * Ayarlar.
+ * MoxDOP v2 (Faz 0): the sidebar is exactly Bugün · Müşteriler · Markalar · Dijital varlıklar · Web siteleri · Sorgular ·
+ * Entegrasyonlar · Ayarlar.
  * Ayarlar carries the settings screens as tabs: AI işlemleri ve promptlar, Standartlar, Sektör ve hizmet kataloğu,
  * Kullanıcılar, Sistem. Every other screen is reached from a brand / asset page or a direct link.
  */
@@ -31,6 +31,7 @@ final class DemoMenu
                     $item($tr ? 'Bugün' : 'Today', 'operator.dashboard', 'dashboard'),
                     $item(__('operator.nav.customers'), 'operator.customers', 'customers'),
                     $item(__('operator.nav.brands'), 'operator.brands', 'brands'),
+                    $item($tr ? 'Dijital varlıklar' : 'Digital assets', 'operator.assets', 'assets', [], ['operator.asset.create', 'operator.asset.edit']),
                     $item($tr ? 'Web siteleri' : 'Websites', 'operator.websites', 'website', [], ['operator.website']),
                     $item($tr ? 'Sorgular' : 'Queries', 'operator.library.queries', 'search'),
                     $item(__('operator.nav.integrations'), 'operator.integrations', 'integrations', [

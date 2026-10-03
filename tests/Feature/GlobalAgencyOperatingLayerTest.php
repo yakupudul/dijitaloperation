@@ -137,7 +137,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
     {
         $this->get(route('operator.customer', ['customerId' => $this->workCustomer->id]))
             ->assertOk()
-            ->assertSee('Account Owner')
+            ->assertSee('Hesap sorumlusu')
             ->assertSee('Atlas Health Group');
 
         $this->get(route('operator.customer', [

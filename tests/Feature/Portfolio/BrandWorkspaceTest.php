@@ -127,7 +127,7 @@ final class BrandWorkspaceTest extends TestCase
         $this->get(route('operator.customer', ['customerId' => $this->brand->customer_id]))
             ->assertOk()
             ->assertSee('aria-label="Diğer"', false)
-            ->assertSee('role="tab"', false);
+            ->assertSee('data-customer-brand="'.$this->brand->id.'"', false);
         $this->get('/setup')->assertNotFound();
     }
 

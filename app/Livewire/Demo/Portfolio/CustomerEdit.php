@@ -69,6 +69,18 @@ class CustomerEdit extends Component
             'backLabel' => __('operator.nav.customers'),
             'primaryAction' => __('operator.forms.save_changes'),
             'showSaveAndAddBrand' => false,
+            'brandSectorLabel' => $this->brandSectorLabel(),
         ]));
+    }
+
+    /** The sectors of the customer's brands (read-only on the form: the sector lives on each brand). */
+    private function brandSectorLabel(): string
+    {
+        if (! ctype_digit($this->customerId)) {
+            return '';
+        }
+        $customer = Customer::query()->with('brands.sectorCategory')->find((int) $this->customerId);
+
+        return $customer !== null ? (string) OperatorPortfolioPresenter::customer($customer)['sector_label'] : '';
     }
 }

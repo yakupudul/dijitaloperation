@@ -9,15 +9,17 @@ use App\Models\CustomerContact;
 use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Operator\OperatorUserDirectory;
+use App\Services\Operator\PortfolioSignalsReader;
 use App\Services\Portfolio\CustomerCommercialSummary;
 use App\Services\ServiceScope\CustomerServiceScopeReadService;
 use App\Support\Demo\DemoState;
 use App\Support\Options\AgencyServiceOptions;
 use App\Support\Options\ContactRoleOptions;
 use App\Support\Options\CountryOptions;
-use App\Support\Options\IndustryOptions;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
@@ -231,18 +233,19 @@ class CustomerDetail extends Component
     public function render(): View
     {
         $model = $this->canonicalCustomer();
-        $model->load(['brands.digitalAssets', 'responsibleUsers', 'contacts']);
-        $customer = OperatorPortfolioPresenter::customer($model);
+        $model->load(['brands.digitalAssets.assetBindings', 'brands.sectorCategory', 'brands.responsibleUsers', 'brands.intelligenceContext', 'responsibleUsers', 'contacts']);
+        $model->brands->each(fn ($brand) => $brand->setRelation('customer', $model));
+        $signals = app(PortfolioSignalsReader::class)->forCustomers(collect([$model]));
+        $customer = OperatorPortfolioPresenter::customer($model, $signals['customers'][(int) $model->id] ?? []);
         $team = collect(OperatorUserDirectory::presentationMembers())->keyBy('id');
 
         $workspace = app(BrandWorkspaceReadService::class);
         $brands = $model->brands
-            ->map(function ($brand) use ($workspace): array {
+            ->map(function ($brand) use ($workspace, $signals): array {
                 $assets = $workspace->assets($brand);
 
-                return OperatorPortfolioPresenter::brand($brand) + [
+                return OperatorPortfolioPresenter::brand($brand, $signals['brands'][(int) $brand->id] ?? PortfolioSignalsReader::emptyBrand()) + [
                     'setup' => $workspace->checklist($brand, $assets, $workspace->services($brand)),
-                    'accounts' => collect($assets)->flatMap(fn (array $a): array => array_column($a['accounts'], 'label'))->unique()->values()->all(),
                 ];
             })
             ->values();
@@ -251,12 +254,11 @@ class CustomerDetail extends Component
             ->map(fn (CustomerContact $contact): array => OperatorPortfolioPresenter::contact($contact))
             ->values();
 
-        $industryLabel = IndustryOptions::label($customer['industry'] ?? null);
         $digitalAssetsCount = (int) $brands->sum(fn (array $b): int => (int) ($b['assets_count'] ?? 0));
 
         return view('livewire.demo.portfolio.customer-detail', [
             'customer' => $customer,
-            'industryLabel' => $industryLabel,
+            'industryLabel' => $customer['sector_label'],
             'hqDisplay' => CountryOptions::formatHq($customer['hq_city'] ?? null, $customer['hq_country'] ?? null),
             'typeLabel' => ($customer['type'] ?? '') === 'individual' ? 'Bireysel' : 'Şirket',
             'statusLabel' => $customer['status_label'] ?? '',
@@ -273,8 +275,35 @@ class CustomerDetail extends Component
             'team' => $team,
             'serviceScope' => app(CustomerServiceScopeReadService::class)->forCustomer($model, includeEnded: false),
             'commercialSummary' => app(CustomerCommercialSummary::class)->for($model),
+            'healthReasons' => $this->healthReasons((int) $model->id),
             'flash' => DemoState::pullFlash(),
         ]);
+    }
+
+    /**
+     * Why the daily health score is what it is (biggest point loss first), when the score table exists.
+     *
+     * @return array{score: int, band: string, reasons: list<array{points: int, text: string}>}|null
+     */
+    private function healthReasons(int $customerId): ?array
+    {
+        if (! Schema::hasTable('customer_health')) {
+            return null;
+        }
+        $row = DB::table('customer_health')->where('customer_id', $customerId)->first(['score', 'band', 'reasons']);
+        if ($row === null) {
+            return null;
+        }
+
+        return [
+            'score' => (int) $row->score,
+            'band' => (string) $row->band,
+            'reasons' => collect((array) json_decode((string) $row->reasons, true))
+                ->filter(fn (mixed $x): bool => is_array($x) && isset($x['text']))
+                ->map(fn (array $x): array => ['points' => (int) ($x['points'] ?? 0), 'text' => (string) $x['text']])
+                ->sortByDesc('points')
+                ->values()->all(),
+        ];
     }
 
     private function canonicalCustomer(): Customer

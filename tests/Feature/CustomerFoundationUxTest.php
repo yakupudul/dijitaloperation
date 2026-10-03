@@ -44,16 +44,18 @@ class CustomerFoundationUxTest extends TestCase
         $this->actingAs($this->user);
     }
 
-    public function test_customers_index_renders_directory_and_open_findings_label(): void
+    public function test_customers_index_renders_directory_with_open_work_not_retired_findings(): void
     {
         Customer::factory()->create(['name' => 'Horizon Clinics']);
 
         Livewire::test(CustomersIndex::class)
-            ->assertSee('Customers')
+            ->assertSee('Müşteriler')
             ->assertSee('Horizon Clinics')
-            ->assertSee('Open findings')
-            ->assertDontSee('Open issues')
-            ->assertSee(__('operator.portfolio.add_customer'))
+            ->assertSee('Açık iş')
+            ->assertSee('Veri sorunu')
+            ->assertDontSee('Open findings')
+            ->assertDontSee('Açık bulgular')
+            ->assertSee('Müşteri ekle')
             ->assertSee(route('operator.customer.create', absolute: false));
     }
 
@@ -80,7 +82,7 @@ class CustomerFoundationUxTest extends TestCase
             ->set('industry', 'dental')
             ->assertSee('Horizon Clinics')
             ->set('hq_country', 'TR')
-            ->assertSee(__('operator.forms.no_match_filters'));
+            ->assertSee('Filtreye uyan müşteri yok');
     }
 
     public function test_customer_create_validates_and_persists_canonical_customer(): void
@@ -119,18 +121,19 @@ class CustomerFoundationUxTest extends TestCase
 
         Livewire::test(CustomerDetail::class, ['customerId' => (string) $customer->id])
             ->assertSee('Nova Health Group')
-            ->assertSee(__('operator.portfolio.account_owner_responsible'))
+            ->assertSee('Sorumlular ve hizmetler')
+            ->assertDontSee('role="tablist"', false)
             ->call('setTab', 'relationship')
             ->assertSet('tab', 'overview')
-            ->assertSee(__('operator.service_scope.title'))
+            ->assertSee('Hizmet kapsamı')
             ->call('openContactForm')
             ->set('contact_name', 'Yeni Kişi')
             ->set('contact_role', 'marketing')
             ->set('contact_email', 'yeni@nova.example')
             ->call('saveContact')
             ->assertSee('Yeni Kişi')
-            ->assertSee(__('operator.customer.actions.open_files'))
-            ->assertSee(__('operator.customer.actions.add_brand'));
+            ->assertSee('Dosyalar')
+            ->assertSee('Marka ekle');
     }
 
     public function test_customer_directory_cta_is_localized(): void
@@ -143,7 +146,8 @@ class CustomerFoundationUxTest extends TestCase
             ->assertSee(route('operator.customer.create', absolute: false));
 
         Livewire::test(CustomerDetail::class, ['customerId' => (string) $customer->id])
-            ->assertSee(__('operator.portfolio.account_owner_responsible'));
+            ->assertSee('Sorumlular ve hizmetler')
+            ->assertDontSee('Account Owner');
     }
 
     public function test_customer_edit_prefills_and_saves(): void

@@ -37,7 +37,7 @@ class CommercialGrowthIntelligenceTest extends TestCase
     {
         $this->get(route('operator.customer', ['customerId' => $this->portfolioCustomer->id, 'tab' => 'relationship']))
             ->assertOk()
-            ->assertSee(__('operator.service_scope.title'));
+            ->assertSee('Hizmet kapsamı');
     }
 
     public function test_brand_business_shows_goals_and_agency_scope(): void

@@ -61,13 +61,16 @@ final class AssetListStatusTest extends TestCase
         $this->assertSame(__('operator.states.not_connected'), $status[$unbound->id]['data_state_label']);
         $this->assertSame('not_applicable', $status[$instagram->id]['data_state']);
 
+        // The list speaks the DataStatus language of the brand Özet asset card: a bound account without data rows in the
+        // Data Pool is "İlk veri yükleniyor" (a data issue), an unbound one "Bağlı değil" (not an issue).
         Livewire::test(AssetsIndex::class)
-            ->assertSee(__('operator.states.fresh'))
-            ->assertSee(__('operator.states.stale'))
+            ->assertSee('İlk veri yükleniyor')
+            ->assertSee('Bağlı değil')
             ->call('setQuickView', 'data_issues')
             ->assertSee('Eski Profil')
             ->assertSee('Boş Ads')
-            ->assertDontSee('Taze Profil');
+            ->assertDontSee('Bağsız Meta')
+            ->assertDontSee('data-asset-row="'.$instagram->id.'"', false);
     }
 
     public function test_edit_form_updates_asset_and_keeps_type(): void

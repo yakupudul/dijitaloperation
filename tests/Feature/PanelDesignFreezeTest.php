@@ -59,6 +59,7 @@ class PanelDesignFreezeTest extends TestCase
             'operator.dashboard',
             'operator.customers',
             'operator.brands',
+            'operator.assets',
             'operator.websites',
             'operator.library.queries',
             'operator.integrations',
@@ -96,10 +97,11 @@ class PanelDesignFreezeTest extends TestCase
     public function test_customer_primary_ia(): void
     {
         Livewire::test(CustomerDetail::class, ['customerId' => (string) $this->portfolioCustomer->id])
-            ->assertSee(__('operator.customer.tabs.overview'))
+            ->assertDontSee('role="tablist"', false)
+            ->assertSee('Markalar')
             ->assertDontSee('Müşteri İlişkisi')
-            ->assertSee(__('operator.customer.actions.add_brand'))
-            ->assertSee(__('operator.customer.actions.open_files'))
+            ->assertSee('Marka ekle')
+            ->assertSee('Dosyalar')
             ->assertDontSee(__('operator.customer.actions.view_activity'));
     }
 

@@ -69,8 +69,8 @@ class CanonicalPortfolioRuntimeTest extends TestCase
 
         Livewire::test(CustomersIndex::class)
             ->assertOk()
-            ->assertSee('0 records')
-            ->assertSee('Create your first customer')
+            ->assertSee('Henüz müşteri yok')
+            ->assertSee('İlk müşteriyi ekleyin')
             ->assertDontSee('Atlas Health Group');
     }
 
