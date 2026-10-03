@@ -7,7 +7,6 @@ use App\Ai\Contracts\RegistryPrompted;
 use App\Models\AiTask;
 use App\Services\Prompts\PromptRegistry;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
-use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
@@ -18,7 +17,8 @@ use Laravel\Ai\ObjectSchema;
  * not sent to a provider: inside a resumable job (begin()) each agent call of the run becomes an ai_tasks row, the
  * run ends "queued", and when Claude has answered every open call of that run over MCP the job is dispatched again;
  * the re-run gets each answer back in call order and continues exactly like a provider response. Outside such a job
- * the call keeps the provider route.
+ * the call keeps the provider route. Scoped: the open run lives in this instance (one per request / job), so it never
+ * leaks into jobs dispatched during the run.
  */
 final class AiTaskQueue
 {
@@ -27,11 +27,8 @@ final class AiTaskQueue
 
     public const string PROVIDER = 'claude_mcp';
 
-    /** Hidden context: the serialized job of the current run, its brand and subject. */
-    public const string RESUME_CONTEXT = 'ai_task.resume';
-
-    /** @var array<string, int> resume key => calls made in this run */
-    private array $sequence = [];
+    /** @var array{resume: string, key: string, brand_id: ?int, subject: ?string, sequence: int}|null the open run */
+    private ?array $run = null;
 
     public function __construct(
         private readonly PromptRegistry $registry,
@@ -61,8 +58,8 @@ final class AiTaskQueue
     public function begin(object $job, ?int $brandId = null, ?string $subject = null): void
     {
         $resume = serialize($job);
-        $this->sequence[self::key($resume)] = 0;
-        Context::addHidden(self::RESUME_CONTEXT, ['resume' => $resume, 'brand_id' => $brandId, 'subject' => $subject !== null ? mb_substr($subject, 0, 200) : null]);
+        $this->run = ['resume' => $resume, 'key' => self::key($resume), 'brand_id' => $brandId,
+            'subject' => $subject !== null ? mb_substr($subject, 0, 200) : null, 'sequence' => 0];
     }
 
     /**
@@ -71,17 +68,16 @@ final class AiTaskQueue
      */
     public function settle(): void
     {
-        $run = Context::getHidden(self::RESUME_CONTEXT);
-        Context::forgetHidden(self::RESUME_CONTEXT);
-        if (! is_array($run)) {
+        $run = $this->run;
+        $this->run = null;
+        if ($run === null) {
             return;
         }
-        $key = self::key((string) $run['resume']);
+        $key = $run['key'];
         if (! AiTask::query()->where('resume_key', $key)->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])->exists()) {
             AiTask::query()->where('resume_key', $key)->whereIn('status', [AiTask::DONE, AiTask::FAILED])
                 ->update(['status' => AiTask::CONSUMED, 'consumed_at' => now()]);
         }
-        unset($this->sequence[$key]);
     }
 
     /**
@@ -93,12 +89,12 @@ final class AiTaskQueue
      */
     public function answer(Agent&RegistryPrompted&HasStructuredOutput $agent, array $data): ?array
     {
-        $run = Context::getHidden(self::RESUME_CONTEXT);
-        if (! is_array($run) || ! is_string($run['resume'] ?? null)) {
+        if ($this->run === null) {
             return null;
         }
-        $key = self::key($run['resume']);
-        $sequence = $this->sequence[$key] = ($this->sequence[$key] ?? 0) + 1;
+        $run = $this->run;
+        $key = $run['key'];
+        $sequence = $this->run['sequence'] = $run['sequence'] + 1;
         $operation = $agent->promptOperation();
         $versionId = $agent->promptVersionId();
         $task = AiTask::query()->where('resume_key', $key)->where('sequence', $sequence)->where('operation', $operation)

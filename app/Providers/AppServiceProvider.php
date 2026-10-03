@@ -34,6 +34,7 @@ use App\Services\Ai\AiCancelledException;
 use App\Services\Ai\AiLiveOperations;
 use App\Services\Ai\AiUsageRecorder;
 use App\Services\AiJobs\AiJobTracker;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Collection\Activity\ActivityTierServiceReader;
 use App\Services\Collection\Activity\NullActivityTierReader;
@@ -135,6 +136,7 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->scoped(ServiceScope::class);
         $this->app->scoped(AiLiveOperations::class);
+        $this->app->scoped(AiTaskQueue::class);
         $this->app->singleton(AiJobTracker::class);
         $this->app->singleton(AgencySettingService::class);
         $this->app->singleton(OperatorMailConfigService::class);
