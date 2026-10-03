@@ -38,6 +38,30 @@
         <button type="button" wire:click="saveCapacity" class="{{ $ghost }}">Kaydet</button>
         @error('capacity')<span class="text-rose-600">{{ $message }}</span>@enderror
     </section>
+    <section class="{{ $card }} space-y-2" data-clarity>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-sm font-semibold">Microsoft Clarity</h2>
+            @if ($clarity !== null)
+                <span @class(['rounded-full px-2 py-0.5', 'bg-emerald-50 text-emerald-700' => $clarity->enabled && $clarity->last_status === 'ok', 'bg-rose-50 text-rose-700' => $clarity->last_status === 'error', 'bg-amber-50 text-amber-800' => $clarity->last_status === 'empty', 'bg-gray-100 text-gray-600' => ! $clarity->enabled || $clarity->last_status === null])>
+                    {{ ! $clarity->enabled ? 'durduruldu' : match ($clarity->last_status) { 'ok' => 'son çekim '.$clarity->last_pulled_at?->timezone('Europe/Istanbul')->format('d.m H:i'), 'error' => 'hata', 'empty' => 'veri yok', default => 'henüz çekilmedi' } }}
+                </span>
+            @endif
+        </div>
+        <p class="text-gray-600 dark:text-gray-400">Ziyaretçinin sitede ne yaşadığı: öfkeli ve çalışmayan tıklamalar, hızlı geri dönüşler, JavaScript hataları, kaydırma. Kötü sayfalar Genel işler › Teknik sağlık'a iş olarak düşer. Clarity etiketi sitede yüklü olmalı; token: Clarity › Settings › Data Export › Generate new API token.</p>
+        @if ($clarity?->last_error)<p class="text-rose-600" data-clarity-error>{{ $clarity->last_error }}</p>@endif
+        <div class="flex flex-wrap items-center gap-2">
+            <input type="text" wire:model="clarityProjectId" aria-label="Clarity proje kimliği" placeholder="Proje kimliği (ör. abcd1234ef)" class="{{ $input }} w-48">
+            <input type="password" wire:model="clarityToken" aria-label="Clarity API token" autocomplete="off" placeholder="{{ $clarity !== null ? 'Token kayıtlı (değiştirmek için yapıştırın)' : 'Data Export API token' }}" class="{{ $input }} w-80 max-w-full">
+            <button type="button" wire:click="saveClarity" class="{{ $ghost }}">Kaydet</button>
+            @if ($clarity !== null)
+                <button type="button" wire:click="pullClarity" class="{{ $ghost }}">Şimdi çek</button>
+                <button type="button" wire:click="toggleClarity" class="{{ $ghost }}">{{ $clarity->enabled ? 'Durdur' : 'Aç' }}</button>
+                @if ($clarity->dashboardUrl())<a href="{{ $clarity->dashboardUrl() }}" target="_blank" rel="noopener" class="font-medium text-brand-600 hover:underline">Clarity'de aç ↗</a>@endif
+            @endif
+        </div>
+        @error('clarityProjectId')<p class="text-rose-600">{{ $message }}</p>@enderror
+        @error('clarityToken')<p class="text-rose-600">{{ $message }}</p>@enderror
+    </section>
     <section class="{{ $card }}" data-corrections>
         <h2 class="mb-2 text-sm font-semibold">Kategori düzeltmeleri</h2>
         <ul class="divide-y divide-gray-100 dark:divide-gray-800">

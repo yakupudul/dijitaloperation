@@ -35,6 +35,7 @@ final class SiteSuggestionTypes
             self::COMPETITOR => 'rakip',
             ClusterOverlaps::TYPE => 'küme çakışması',
             ImageAlts::TYPE => 'görsel alt metni',
+            Clarity\ClarityRules::TYPE => 'ziyaretçi davranışı',
             default => self::ANALYSIS[$type] ?? $type,
         };
     }

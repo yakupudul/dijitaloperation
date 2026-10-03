@@ -1930,3 +1930,8 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   işlerinde ikisi birden: operatör "Yaptım" der ve sistem bir sonraki çekimde kontrol eder; sistem kontrolü kendiliğinden
   geçerse iş "Sistem kendisi fark etti" diye kapanır. Telefona bildirim Web Push ile; yalnız çok önemli iş uyarıları
   (site kapandı, reklam hesabı durdu, kötü yorum vb.) gider, yazılım hataları gitmez.
+  Marka kurulum işleri (eksik / denetim) ayrı "Marka kurulumu" sekmesinde kendi düğmeleriyle; sistemin kendisi kapattığı
+  işlerde (kurulum, 301 birleştirme) "Yaptım" yok.
+- **Microsoft Clarity (yakup, 2026-10-03):** her site için Clarity proje kimliği + Data Export token (Ayarlar). Günde bir
+  çekim; kural tabanlı (AI yok) öfkeli / çalışmayan tıklama, hızlı geri dönüş, JS hatası, kaydırma → Genel işler › Teknik
+  sağlık işi. Siteye hiçbir şey yazılmaz; Clarity etiketini siteye yakup ekler.

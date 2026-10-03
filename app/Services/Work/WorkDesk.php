@@ -8,10 +8,14 @@ use App\Models\Page;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\Analyst\AnalystDecisionStore;
+use App\Services\Brand\BrandAudit;
+use App\Services\Brand\BrandGaps;
 use App\Services\DataStatus\DataStatusReader;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
 use App\Services\Operator\OperatorPortfolioPresenter;
+use App\Services\Site\Clarity\ClarityRules;
 use App\Services\Site\ClusterOverlaps;
+use App\Services\Site\ContentPlanner;
 use App\Services\Site\ImageAlts;
 use App\Services\Site\SiteSuggestions;
 use App\Services\Site\SiteSuggestionTypes;
@@ -20,7 +24,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Genel işler (yakup, 2026-10-03): every brand's open work in one place, split into six tabs. It reads what MoxDOP
+ * Genel işler (yakup, 2026-10-03): every brand's open work in one place, split into seven tabs. It reads what MoxDOP
  * already produces — the ONE `suggestions` table (search · maps · google_ads · meta) and the open asset alerts — and
  * writes nothing new to any site or account: Onayla / Yaptım / Reddet / Ertele use the same services as the asset
  * screens; writes to a site or Business Profile still happen on the asset screen after approval.
@@ -31,6 +35,7 @@ use Illuminate\Validation\ValidationException;
 final class WorkDesk
 {
     public const array TABS = [
+        'kurulum' => 'Marka kurulumu',
         'icerik' => 'Web site SEO içerikler',
         'teknik' => 'Teknik SEO',
         'saglik' => 'Teknik sağlık',
@@ -46,6 +51,19 @@ final class WorkDesk
     /** Website suggestion types that change a page's fields or markup (the rest of channel `search` is content). */
     public const array TECHNICAL_TYPES = ['title_description', 'internal_links', 'technical_seo', 'conversion', ImageAlts::TYPE];
 
+    /** Brand setup work (BrandGaps / BrandAudit): fixed inside MoxDOP and closed by the system when the gap is gone. */
+    public const array SETUP_TYPES = ['brand_gap', 'brand_audit'];
+
+    /** Row buttons beyond Onayla / Yaptım: code => label. */
+    public const array ACTIONS = [
+        'gap_fix' => 'Onayla ve yap',
+        'audit_fix' => 'Düzelt',
+        'audit_accept' => 'Doğru, bırak',
+        'merge' => '301 ile birleştir',
+        'keep' => 'Ayrı kalsın',
+        'send_draft' => 'WordPress\'e taslak gönder',
+    ];
+
     public const array SEVERITY_RANK = ['critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3, 'info' => 4];
 
     /** How many rows a tab lists (most urgent first). */
@@ -54,7 +72,7 @@ final class WorkDesk
     /** Applied items stay under "Yapıldı" this long. */
     public const int DONE_DAYS = 30;
 
-    private const array TAB_CHANNEL = ['icerik' => 'search', 'teknik' => 'search', 'ads' => 'google_ads', 'meta' => 'meta', 'isletme' => 'maps'];
+    private const array TAB_CHANNEL = ['kurulum' => 'search', 'icerik' => 'search', 'teknik' => 'search', 'saglik' => 'search', 'ads' => 'google_ads', 'meta' => 'meta', 'isletme' => 'maps'];
 
     private const array TAB_ALERT_TYPES = [
         'saglik' => ['website'],
@@ -120,6 +138,12 @@ final class WorkDesk
     public function approve(int $id, User $user): string
     {
         $suggestion = $this->suggestion($id);
+        if (in_array($suggestion->action_type, [...self::SETUP_TYPES, ClusterOverlaps::TYPE], true)) {
+            throw ValidationException::withMessages(['work' => 'Bu işin kendi düğmesi var.']);
+        }
+        if ($suggestion->action_type === ClarityRules::TYPE) {
+            throw ValidationException::withMessages(['work' => 'Bu iş elle yapılır: yaptıktan sonra "Yaptım" deyin.']);
+        }
         if ($suggestion->channel === 'search') {
             $this->siteSuggestions->approve($suggestion, $user);
 
@@ -143,11 +167,62 @@ final class WorkDesk
         if (! in_array($suggestion->status, [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED, Suggestion::APPROVED], true)) {
             throw ValidationException::withMessages(['work' => 'Bu iş zaten kapandı.']);
         }
+        if (! $this->doneAllowed($suggestion)) {
+            throw ValidationException::withMessages(['work' => 'Bu işi sistem kendisi kapatır; kendi düğmesini kullanın.']);
+        }
         $this->decisions->markDone($suggestion, $user, $note);
         $checked = isset(WorkVerifier::CHECK_TYPES[(string) $suggestion->action_type]);
         $suggestion->forceFill(['verification' => $checked ? Suggestion::VERIFY_PENDING : null, 'verified_at' => null])->save();
 
         return $checked ? 'Yapıldı olarak işaretlendi; sistem bir sonraki veri çekiminde kontrol edecek.' : 'Yapıldı olarak işaretlendi.';
+    }
+
+    /**
+     * The type's own buttons: Kurulum "Onayla ve yap" (BrandGaps), "Düzelt" / "Doğru, bırak" (BrandAudit), overlap
+     * "301 ile birleştir" / "Ayrı kalsın" (ClusterOverlaps), a written article "WordPress'e taslak gönder" (ContentPlanner).
+     * Each uses the same service as the brand / site screen.
+     */
+    public function act(int $id, string $do, User $user): string
+    {
+        $suggestion = $this->suggestion($id);
+        if (! in_array($do, $this->actionsFor($suggestion), true)) {
+            throw ValidationException::withMessages(['work' => 'Bu iş için bu adım yok.']);
+        }
+
+        return match ($do) {
+            'gap_fix' => app(BrandGaps::class)->apply($suggestion, $user),
+            'audit_fix' => app(BrandAudit::class)->fix($suggestion, $user),
+            'audit_accept' => tap('Doğru kabul edildi; bu bulgular bir daha gelmez.', fn () => app(BrandAudit::class)->accept($suggestion, $user)),
+            'merge' => tap('301 yönlendirmesi onaylandı; sitede uygulanır (geri alınabilir).', fn () => app(ClusterOverlaps::class)->redirect($suggestion, $user)),
+            'keep' => tap('Ayrı kalsın; çakışma değişmedikçe geri gelmez.', fn () => app(ClusterOverlaps::class)->keep($suggestion, $user)),
+            'send_draft' => tap('WordPress taslağı kuyruğa alındı (geri alınabilir).', fn () => app(ContentPlanner::class)->sendDraft($suggestion, $user)),
+        };
+    }
+
+    /** @return list<string> the type's own buttons available now */
+    private function actionsFor(Suggestion $s): array
+    {
+        $open = in_array($s->status, [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED], true);
+        $action = (array) $s->action;
+
+        return match ((string) $s->action_type) {
+            'brand_gap' => $open && ($action['fix'] ?? null) !== null ? ['gap_fix'] : [],
+            'brand_audit' => $open ? ['audit_fix', 'audit_accept'] : [],
+            ClusterOverlaps::TYPE => $open ? [...(($action['recommendation'] ?? null) === ClusterOverlaps::REDIRECT ? ['merge'] : []), 'keep'] : [],
+            SiteSuggestionTypes::CONTENT => $s->status === Suggestion::APPROVED && is_array($action['article'] ?? null)
+                && ! isset($action['article_blocked']) && ! isset($action['article_write_id']) ? ['send_draft'] : [],
+            default => [],
+        };
+    }
+
+    /** "Yaptım" only where the operator's own work closes it: not content (its own line), setup (system closes), a 301 merge. */
+    private function doneAllowed(Suggestion $s): bool
+    {
+        $type = (string) $s->action_type;
+
+        return ! ($s->channel === 'search' && $type === SiteSuggestionTypes::CONTENT)
+            && ! in_array($type, self::SETUP_TYPES, true)
+            && ! ($type === ClusterOverlaps::TYPE && data_get($s->action, 'recommendation') === ClusterOverlaps::REDIRECT);
     }
 
     /** Geri al: a "Yaptım" by mistake goes back to the open list. */
@@ -193,8 +268,13 @@ final class WorkDesk
             ->when($brandId !== null, fn (Builder $q): Builder => $q->where('brand_id', $brandId));
         if ($tab === 'teknik') {
             $query->whereIn('action_type', self::TECHNICAL_TYPES);
+        } elseif ($tab === 'kurulum') {
+            $query->whereIn('action_type', self::SETUP_TYPES);
+        } elseif ($tab === 'saglik') {
+            $query->where('action_type', ClarityRules::TYPE);
         } elseif ($tab === 'icerik') {
-            $query->where(fn (Builder $q): Builder => $q->whereNull('action_type')->orWhereNotIn('action_type', self::TECHNICAL_TYPES));
+            $query->where(fn (Builder $q): Builder => $q->whereNull('action_type')
+                ->orWhereNotIn('action_type', [...self::TECHNICAL_TYPES, ...self::SETUP_TYPES, ClarityRules::TYPE]));
         }
         if ($view === self::VIEW_DONE) {
             return $query->where('status', Suggestion::APPLIED)->where('applied_at', '>=', now()->subDays(self::DONE_DAYS));
@@ -247,7 +327,15 @@ final class WorkDesk
         $type = (string) $s->action_type;
         $url = $asset !== null ? OperatorPortfolioPresenter::specialistUrl($asset) : ($s->brand_id ? route('operator.brand', ['brand' => $s->brand_id]) : null);
         if ($asset !== null && $asset->type === 'website') {
-            $url = route('operator.website', ['assetId' => $asset->id, 'tab' => $s->action_type === SiteSuggestionTypes::CONTENT ? 'icerik' : 'yapilacaklar']);
+            $url = route('operator.website', ['assetId' => $asset->id, 'tab' => $s->action_type === SiteSuggestionTypes::CONTENT ? 'icerik' : 'yapilacaklar']
+                + ($s->action_type === SiteSuggestionTypes::CONTENT && is_array($action['article'] ?? null) ? ['taslak' => $s->id] : []));
+        }
+        if ($type === 'brand_gap' && is_string($action['url'] ?? null) && $action['url'] !== '') {
+            $url = (string) $action['url'];
+        }
+        $external = $type === ClarityRules::TYPE && is_string($action['clarity_url'] ?? null);
+        if ($external) {
+            $url = (string) $action['clarity_url'];
         }
         [$who, $canApprove] = $this->who($s);
 
@@ -256,10 +344,18 @@ final class WorkDesk
             'brand' => $s->brand?->name, 'brand_id' => $s->brand_id, 'asset' => $asset?->name, 'url' => $url,
             'title' => (string) $s->title, 'reason' => (string) $s->reason, 'type' => $this->typeLabel($s),
             'who' => $who, 'stage' => $this->stage($s), 'status' => (string) $s->status,
-            'verification' => $s->verification, 'verified_at' => $s->verified_at, 'applied_at' => $s->applied_at,
+            'verification' => $s->verification, 'verified_at' => $s->verified_at,
+            'applied_at' => $s->status === Suggestion::APPLIED ? $s->applied_at : null,
             'can_approve' => $canApprove && in_array($s->status, [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED], true),
-            'can_done' => in_array($s->status, [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED, Suggestion::APPROVED], true)
-                && ! ($s->channel === 'search' && $type === SiteSuggestionTypes::CONTENT),
+            'can_done' => in_array($s->status, [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED, Suggestion::APPROVED], true) && $this->doneAllowed($s),
+            'actions' => $this->actionsFor($s),
+            'external' => $external,
+            'url_label' => match (true) {
+                $external => 'Clarity\'de aç ↗',
+                $type === SiteSuggestionTypes::CONTENT && is_array($action['article'] ?? null) => 'Yazıyı oku →',
+                $type === 'brand_gap' && ($action['fix'] ?? null) === null => 'Elle yap →',
+                default => 'Aç →',
+            },
             'can_reopen' => $s->status === Suggestion::APPLIED && $s->verification !== Suggestion::VERIFY_AUTO,
             'checked' => isset(WorkVerifier::CHECK_TYPES[$type]),
         ];
@@ -278,7 +374,7 @@ final class WorkDesk
             'title' => (string) $a->title, 'reason' => (string) $a->message, 'type' => 'Uyarı',
             'who' => $a->kind === 'bad_review_unanswered' ? 'Yanıt taslağı · onayla gönder' : 'Elle · durum düzelince kendisi kapanır',
             'stage' => null, 'status' => 'open', 'verification' => null, 'verified_at' => null, 'applied_at' => null,
-            'can_approve' => false, 'can_done' => false, 'can_reopen' => false, 'checked' => true,
+            'can_approve' => false, 'can_done' => false, 'can_reopen' => false, 'checked' => true, 'actions' => [], 'url_label' => 'Aç →', 'external' => false,
         ];
     }
 
@@ -286,9 +382,16 @@ final class WorkDesk
     private function who(Suggestion $s): array
     {
         $type = (string) $s->action_type;
+        $action = (array) $s->action;
 
         return match ($s->channel) {
             'search' => match (true) {
+                $type === 'brand_gap' => [($action['fix'] ?? null) !== null ? 'Onayla ve yap · sistem MoxDOP içinde düzeltir · eksik kalkınca kendisi kapanır'
+                    : 'Bağlantıdan elle · eksik kalkınca kendisi kapanır', false],
+                $type === ClarityRules::TYPE => ['Clarity kayıtlarına bak · sitede elle düzelt · Yaptım de, sistem sonraki çekimde kontrol eder', false],
+                $type === 'brand_audit' => ['Düzelt: sistem yanlış kararı geri alır · Doğru, bırak: bir daha sorulmaz', false],
+                $type === ClusterOverlaps::TYPE => [($action['recommendation'] ?? null) === ClusterOverlaps::REDIRECT
+                    ? '301 ile birleştir · sistem siteye yazar (geri alınabilir)' : 'Sayfa metni elle ayrıştırılır · çakışma kalkınca kendisi kapanır', false],
                 $type === SiteSuggestionTypes::CONTENT => ['Başlık onayı · Claude yazar · taslak siteye', true],
                 $type === ImageAlts::TYPE || SiteSuggestionTypes::applicable($type) => ['Onayla · sistem siteye yazar', true],
                 default => ['Onayla · sitede elle', true],
@@ -307,6 +410,9 @@ final class WorkDesk
         $type = (string) $s->action_type;
 
         return match (true) {
+            $type === 'brand_gap' => 'kurulum eksiği',
+            $type === 'brand_audit' => 'şef denetimi',
+            $type === ClarityRules::TYPE => 'ziyaretçi davranışı',
             $s->channel === 'search' => match ($type) {
                 ClusterOverlaps::TYPE, ImageAlts::TYPE, SiteSuggestionTypes::CONTENT, SiteSuggestionTypes::COMPETITOR => SiteSuggestionTypes::label($type),
                 default => SiteSuggestionTypes::ANALYSIS[$type] ?? 'öneri',
@@ -326,6 +432,7 @@ final class WorkDesk
 
         return match (true) {
             $s->status === Suggestion::APPLIED => 'Siteye gönderildi',
+            isset($action['article_write_id']) => 'WordPress taslağı gönderildi',
             isset($action['article_blocked']) => 'Yazı sektör kuralına takıldı',
             isset($action['article']) => 'Yazı hazır · okunacak',
             $s->status === Suggestion::APPROVED => 'Başlık onaylı · yazılıyor',

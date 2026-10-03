@@ -13,7 +13,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
- * Genel işler (`/work`): all brands' open work in six tabs — Web site SEO içerikler, Teknik SEO, Teknik sağlık,
+ * Genel işler (`/work`): all brands' open work in seven tabs — Marka kurulumu, Web site SEO içerikler, Teknik SEO, Teknik sağlık,
  * Google Ads, Meta Ads, Google İşletme — most urgent first. Onayla / Yaptım / Reddet / Ertele act on the item;
  * "Aç" opens the asset screen where approved site and Business Profile changes are written. "Yapıldı" lists the
  * last 30 days with the system's check of each change (confirmed, still seen, noticed by itself).
@@ -76,6 +76,12 @@ final class WorkPage extends Component
     public function done(int $id, WorkDesk $desk): void
     {
         $this->act(fn (): string => $desk->done($id, auth()->user(), $this->notes[$id] ?? null), $id);
+    }
+
+    /** The type's own button (Onayla ve yap, Düzelt, Doğru bırak, 301 ile birleştir, Ayrı kalsın, WordPress'e taslak gönder). */
+    public function run(int $id, string $do, WorkDesk $desk): void
+    {
+        $this->act(fn (): string => $desk->act($id, $do, auth()->user()), $id);
     }
 
     public function reopen(int $id, WorkDesk $desk): void

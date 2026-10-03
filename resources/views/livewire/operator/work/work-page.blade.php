@@ -2,7 +2,7 @@
     <header class="flex flex-wrap items-start justify-between gap-3">
         <div>
             <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Genel işler</h1>
-            <p class="mt-1 text-xs text-gray-500">Bütün markaların açık işleri, en acili üstte. Onayla, yaptım de ya da reddet; site ve İşletme Profili yazmaları "Aç" ile varlık ekranında yapılır.</p>
+            <p class="mt-1 text-xs text-gray-500">Bütün markaların açık işleri, en acili üstte. Onayla, yaptım de ya da reddet. Sistemin kapattığı işlerde (kurulum, çakışma) kendi düğmesini kullan; İşletme Profili yazmaları "Aç" ile varlık ekranında yapılır.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <select wire:model.live="brand" aria-label="Marka" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950">
@@ -53,12 +53,15 @@
                 @if($row['reason'] !== '')<p class="mt-0.5 text-gray-600 dark:text-gray-400">{{ $row['reason'] }}</p>@endif
                 <p class="mt-1 text-xs text-gray-400">{{ $row['who'] }}@if($row['applied_at']) · yapıldı {{ $row['applied_at']->timezone('Europe/Istanbul')->format('d.m H:i') }}@endif</p>
                 <div class="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
-                    @if($row['kind'] === 'suggestion' && ($row['can_done'] || $row['can_approve']))
+                    @if($row['kind'] === 'suggestion' && ($row['can_done'] || $row['can_approve'] || $row['actions'] !== []))
                         <input type="text" wire:model="notes.{{ $row['id'] }}" placeholder="Not (isteğe bağlı)" aria-label="Not" class="min-w-40 flex-1 rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-950">
                     @endif
                     @if($row['can_approve'])
                         <button type="button" wire:click="approve({{ $row['id'] }})" class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white">Onayla</button>
                     @endif
+                    @foreach($row['actions'] as $do)
+                        <button type="button" wire:click="run({{ $row['id'] }}, '{{ $do }}')" @if(in_array($do, ['merge', 'send_draft', 'audit_fix'], true)) wire:confirm="{{ \App\Services\Work\WorkDesk::ACTIONS[$do] }}: emin misiniz?" @endif @class(['rounded-lg px-3 py-1.5 text-xs font-semibold', 'bg-brand-500 text-white' => $loop->first, 'ring-1 ring-inset ring-gray-300 dark:ring-gray-700' => ! $loop->first]) data-work-action="{{ $do }}">{{ \App\Services\Work\WorkDesk::ACTIONS[$do] }}</button>
+                    @endforeach
                     @if($row['can_done'])
                         <button type="button" wire:click="done({{ $row['id'] }})" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white">Yaptım</button>
                     @endif
@@ -72,7 +75,7 @@
                         @endif
                     @endif
                     @if($row['url'])
-                        <a href="{{ $row['url'] }}" wire:navigate class="ml-auto text-xs font-semibold text-brand-600 hover:underline">Aç →</a>
+                        <a href="{{ $row['url'] }}" @if($row['external']) target="_blank" rel="noopener" @else wire:navigate @endif class="ml-auto text-xs font-semibold text-brand-600 hover:underline">{{ $row['url_label'] }}</a>
                     @endif
                 </div>
             </article>

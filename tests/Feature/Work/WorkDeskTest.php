@@ -106,6 +106,42 @@ class WorkDeskTest extends TestCase
         $this->assertSame(Suggestion::SNOOZED, $meta->fresh()->status);
     }
 
+    public function test_setup_overlap_and_draft_work_use_their_own_buttons(): void
+    {
+        $gap = $this->suggestion('search', 'brand', $this->portfolioBrand->id, 'brand_gap', '2 hizmet bölgesi bulundu',
+            ['gap' => 'areas', 'fix' => 'add_areas', 'params' => ['areas' => []], 'url' => null], 1);
+        $manualGap = $this->suggestion('search', 'brand', $this->portfolioBrand->id, 'brand_gap', 'Sektör seçilmemiş',
+            ['gap' => 'no_sector', 'fix' => null, 'params' => [], 'url' => 'https://moxdop.test/brands/1/setup'], 2);
+        $audit = $this->suggestion('search', 'brand', $this->portfolioBrand->id, 'brand_audit', '3 sayfa yanlış kümede', ['check' => 'cluster_pages', 'items' => [5, 6]], 1);
+        $overlap = $this->suggestion('search', 'site', $this->site->id, 'cluster_overlap', 'Çakışma: implant', ['site_id' => $this->site->id, 'recommendation' => 'differentiate'], 3);
+        $draft = $this->suggestion('search', 'site', $this->site->id, 'content', 'İmplant bakımı', ['site_id' => $this->site->id, 'article' => ['title' => 'İmplant bakımı']], 3);
+        $draft->forceFill(['status' => Suggestion::APPROVED])->save();
+
+        Livewire::test(WorkPage::class)->assertDontSee('2 hizmet bölgesi bulundu')->assertSee('Çakışma: implant')->assertSee('Ayrı kalsın')
+            ->assertDontSee('301 ile birleştir')->assertSee('Yazı hazır · okunacak')->assertSee('WordPress\'e taslak gönder')->assertSee('Yazıyı oku')
+            ->call('setTab', 'kurulum')->assertSee('2 hizmet bölgesi bulundu')->assertSee('Onayla ve yap')->assertSee('Elle yap')
+            ->assertSee('Doğru, bırak')->assertDontSee('wire:click="done('.$gap->id.')"', false)
+            ->call('done', $gap->id)->assertSee('sistem kendisi kapatır')
+            ->call('approve', $gap->id)->assertSee('kendi düğmesi')
+            ->call('run', $manualGap->id, 'gap_fix')->assertSee('bu adım yok')
+            ->call('run', $gap->id, 'gap_fix')->assertSee('0 hizmet bölgesi eklendi')
+            ->call('run', $audit->id, 'audit_accept')->assertSee('Doğru kabul edildi');
+        $this->assertSame(Suggestion::APPLIED, $gap->fresh()->status);
+        $this->assertSame(Suggestion::OPEN, $manualGap->fresh()->status);
+        $this->assertSame([Suggestion::DISMISSED, [5, 6]], [$audit->fresh()->status, $audit->fresh()->action['accepted']]);
+
+        Livewire::test(WorkPage::class)->call('run', $overlap->id, 'merge')->assertSee('bu adım yok')->call('run', $overlap->id, 'keep');
+        $this->assertSame(Suggestion::DISMISSED, $overlap->fresh()->status);
+    }
+
+    public function test_a_reopened_item_does_not_show_its_old_done_time(): void
+    {
+        $gap = $this->suggestion('search', 'brand', $this->portfolioBrand->id, 'brand_gap', '6 hizmet hiçbir sayfayla eşleşmemiş', ['fix' => 'site_setup', 'params' => []], 1);
+        $gap->forceFill(['applied_at' => now()->subHour()])->save();
+
+        Livewire::test(WorkPage::class, ['tab' => 'kurulum'])->assertSee('6 hizmet hiçbir sayfayla eşleşmemiş')->assertDontSee('· yapıldı', false);
+    }
+
     public function test_a_phone_subscribes_and_only_important_work_alerts_are_pushed(): void
     {
         $this->postJson(route('push.subscribe'), ['endpoint' => 'https://fcm.googleapis.com/fcm/send/abc', 'keys' => ['p256dh' => 'BPk', 'auth' => 'au']])->assertOk();

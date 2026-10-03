@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
 final class WorkVerifier
 {
     /** Rule-based suggestion types and the action field that names their check. */
-    public const array CHECK_TYPES = ['ads_check' => 'check', 'meta_check' => 'check', 'gbp_standard' => 'standard_id'];
+    public const array CHECK_TYPES = ['ads_check' => 'check', 'meta_check' => 'check', 'gbp_standard' => 'standard_id', 'clarity' => 'check'];
 
     /** Data pulled sooner than this after "Yaptım" may predate the change, so it never marks it still seen. */
     public const int SETTLE_HOURS = 12;

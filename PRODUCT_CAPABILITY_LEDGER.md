@@ -3024,3 +3024,37 @@ Profile still happen on the asset screen ("Aç"). "Yapıldı (30 gün)" lists ap
 Verification: `Work/WorkDeskTest` (tabs, Yaptım → confirmed / still seen / auto, approve rules, snooze, subscribe, VAPID
 JWT verified with the public key, system alerts not pushed, expired device removed). Not deployed; real-phone delivery
 not tested yet; not DONE.
+- **Fixes after the first deploy (yakup's page review, 2026-10-03):** a seventh tab **Marka kurulumu** takes `brand_gap`
+  and `brand_audit` out of SEO içerikler. Those rows get their own buttons through `WorkDesk::act`: "Onayla ve yap"
+  (`BrandGaps::apply`, only when the gap has an automatic fix; otherwise "Elle yap →" opens the gap's link), "Düzelt"
+  and "Doğru, bırak" (`BrandAudit::fix` / `accept`). Küme çakışması rows get "301 ile birleştir"
+  (`ClusterOverlaps::redirect`, only for the REDIRECT recommendation) and "Ayrı kalsın" (`keep`). A written article gets
+  "WordPress'e taslak gönder" (`ContentPlanner::sendDraft`) and "Yazıyı oku →" (website İçerik tab with `taslak`). The
+  generic Onayla and Yaptım are refused for setup work and 301 merges, because the system closes those itself. The
+  "kim yapar" lines are corrected. A done time shows only on applied rows: a gap reopened by `BrandGaps::sync` showed
+  its old "yapıldı" time while open. `WorkDeskTest` covers these.
+
+### Microsoft Clarity behaviour (yakup, 2026-10-03)
+
+The Ayarlar tab of each website saves a Clarity project id (for the dashboard link) and the Data Export API token
+(`clarity_projects`). The token is encrypted and never sent back to the browser. The tab also has "Şimdi çek" (at most
+once an hour), "Durdur" and the last pull state or error. `moxdop:clarity:pull` runs daily at 07:03 Istanbul and
+queues `PullClarityJob` for each enabled operational site. It makes one `project-live-insights` request (last 24 h,
+URL × Device; the API allows 10 a day and at most 3 days). `ClarityCollector` folds query-string variants per page URL
+and device. It stores sessions, rage / dead click, quick back, JavaScript error, error click and excessive scroll
+shares, scroll depth and active time as the previous day (`clarity_page_days`, matched to `pages`, kept 120 days).
+`ClarityRules` (no AI) uses a 7-day, session-weighted view; pages with fewer than 30 sessions are skipped. Each rule
+has a fail line and a lower pass line:
+- JavaScript hatası: fail ≥5%, pass <2%.
+- Öfkeli tıklama: fail ≥4%, pass <2%.
+- Tıklanan ama çalışmayan alan: fail ≥12%, pass <7%.
+- Hızlı geri dönüş: fail ≥20%, pass <12%.
+- Sayfa okunmuyor: average scroll fail <35%, pass ≥45%.
+
+A failing page becomes a `clarity` suggestion. It is attached to the site and page, carries a mobile note, and shows in
+Genel işler › Teknik sağlık and the site's Yapılacaklar, with "Clarity'de aç ↗". It is manual work: Yaptım is followed
+by `WorkVerifier` (`clarity` → `check`), and a clear pass closes the item by itself. An item the system closed itself
+reopens if the page fails again. Nothing is written to the site, and the Clarity tag is installed by the operator.
+Verification: `Site/ClarityTest` (token encrypted and write-only, hourly pull guard, API answer folded per page ×
+device, rule → work in Teknik sağlık, a pass closes it itself, 401 shown on Ayarlar). Not deployed; no real Clarity
+project tested; Ads / Meta landing-page link not built yet; not DONE.

@@ -13,8 +13,10 @@ use App\Jobs\Meta\SyncMetaSuggestionsJob;
 use App\Jobs\Ops\QueueHeartbeatProbeJob;
 use App\Jobs\Queries\QueryAutopilotJob;
 use App\Jobs\RefreshBrandCandidatesJob;
+use App\Jobs\Site\PullClarityJob;
 use App\Models\AiLiveOperation;
 use App\Models\Brand;
+use App\Models\ClarityProject;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
@@ -772,6 +774,23 @@ Schedule::command('moxdop:google-ads:suggestions')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(30)
     ->name('google-ads-suggestions-daily');
+
+// Microsoft Clarity: sitelerin günlük ziyaretçi davranışı (öfkeli / çalışmayan tıklama, hızlı geri dönüş, JS hatası,
+// kaydırma) → Genel işler › Teknik sağlık. Proje başına günde bir istek (API sınırı günde 10). AI yok.
+Artisan::command('moxdop:clarity:pull {--site= : One website asset id}', function (): void {
+    $ids = ClarityProject::query()->where('enabled', true)
+        ->whereIn('website_asset_id', DigitalAsset::query()->operational()->where('type', 'website')->select('digital_assets.id'))
+        ->when($this->option('site'), fn ($q, $id) => $q->where('website_asset_id', (int) $id))
+        ->pluck('website_asset_id');
+    $ids->each(fn ($id) => PullClarityJob::dispatch((int) $id));
+    $this->info('Kuyruğa alınan site: '.$ids->count());
+})->purpose('Queue the daily Microsoft Clarity behaviour pull (and its rules) of operational websites.');
+
+Schedule::command('moxdop:clarity:pull')
+    ->dailyAt('07:03')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(30)
+    ->name('clarity-pull-daily');
 
 // Faz 9: sonuç takibi — uygulanan önerilerin 28. ve 56. gün ölçümü (her nokta bir kez).
 Schedule::command('moxdop:outcomes:measure')
