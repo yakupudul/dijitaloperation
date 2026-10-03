@@ -2850,3 +2850,17 @@ Verification: source/diff review only. Per owner no tests, build or live provide
 vendor/Pint are unavailable. Not deployed or runtime proven; actual persisted rows, API-specific
 403/429 errors, queue/scheduler operation and browser rendering require operator deployment/UAT.
 Official quota guidance: https://developers.google.com/my-business/content/limits
+
+## 2026-10-03 — AI iş kuyruğu: Claude (MCP) Faz 1 (staging)
+
+Website-screen AI operations (`SiteAi::run`: makale taslağı, SEO analizi, fikirler, eşleştirmeler…) can be set to
+"Claude (MCP, abonelik)" per operation in Ayarlar › AI işlemleri. Such a call does not reach a provider: it becomes an
+`ai_tasks` row and the site operation status shows "Claude bekleniyor". MoxDOP MCP server (`laravel/mcp`, route
+`/mcp/moxdop`, bearer `MOXDOP_MCP_TOKEN`) exposes list_tasks, get_task, submit_result (validated against the agent's
+JSON schema, errors returned to fix), fail_task. When every open call of a run is answered the job is re-dispatched
+and continues unchanged (evidence check, sector compliance gate, review, WordPress draft only on approval).
+AI işlemleri screen shows the queue (open / done 7 days / failed, last 10). Other AI call sites keep the API.
+
+Verification: PHPUnit `tests/Feature/Mcp/AiTaskQueueTest.php` (queue → MCP submit → resume → stored article; schema
+refusal; fail_task; non-delegated keeps provider; token gate on HTTP; screen option). Not deployed; real Claude
+routine run against production and quality acceptance (10 drafts) await operator UAT. Not DONE.

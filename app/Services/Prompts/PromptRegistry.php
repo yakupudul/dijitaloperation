@@ -4,6 +4,7 @@ namespace App\Services\Prompts;
 
 use App\Models\PromptVersion;
 use App\Models\User;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Roles;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -233,6 +234,9 @@ final class PromptRegistry
         $model = trim((string) $model);
         if ($model === '') {
             return null;
+        }
+        if ($model === AiTaskQueue::MODEL) {
+            return $model; // "Claude (MCP)": the operation waits for Claude instead of calling a provider
         }
         [$provider, $name] = array_pad(explode(':', $model, 2), 2, '');
         if (! AiProviderCatalog::isSupported($provider) || trim($name) === '') {

@@ -274,6 +274,7 @@ final class SiteOperations
 
         return match ((string) ($status['status'] ?? '')) {
             'running' => 'çalışıyor…',
+            'queued' => 'Claude bekleniyor (MCP); sonuç gelince devam eder',
             'timeout' => 'süre aşıldı; kalan kısım sonra devam eder',
             'stalled' => 'çok parçaya bölündü, durduruldu; tekrar başlatın',
             'ready' => 'tamam',

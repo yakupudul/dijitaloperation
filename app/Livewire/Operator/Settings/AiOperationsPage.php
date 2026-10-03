@@ -5,6 +5,7 @@ namespace App\Livewire\Operator\Settings;
 use App\Livewire\Operator\AiLiveIndicator;
 use App\Models\AgencySetting;
 use App\Models\AiLiveOperation;
+use App\Models\AiTask;
 use App\Models\PromptVersion;
 use App\Services\Ai\AiBudget;
 use App\Services\Ai\AiLiveOperations;
@@ -13,11 +14,14 @@ use App\Services\Ai\AiSchedule;
 use App\Services\Ai\OpenAiCostAudit;
 use App\Services\Ai\OpenAiFreeQuota;
 use App\Services\AiJobs\AiJobTracker;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Prompts\PromptRegistry;
 use App\Services\Prompts\PromptRunStats;
 use App\Services\Prompts\PromptTrial;
 use App\Support\Ai\AiProviderCatalog;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -214,7 +218,24 @@ final class AiOperationsPage extends Component
             'autoSpend' => $aiBudget->dailySpend(), 'autoBudget' => $aiBudget->dailyBudget(), 'remaining' => max(0.0, $aiBudget->monthlyBudget() - $aiBudget->monthSpend()),
             'schedule' => $detail === null ? app(AiSchedule::class)->upcoming() : [],
             'quota' => app(OpenAiFreeQuota::class)->status(), 'audit' => OpenAiCostAudit::last(),
-            'adminKeySet' => (string) (AgencySetting::query()->orderBy('id')->first()?->ai_openai_admin_key ?? '') !== '']);
+            'adminKeySet' => (string) (AgencySetting::query()->orderBy('id')->first()?->ai_openai_admin_key ?? '') !== '',
+            'mcpTasks' => $detail === null ? $this->mcpTasks() : null]);
+    }
+
+    /** @return array{open: int, done: int, failed: int, recent: Collection<int, AiTask>}|null */
+    private function mcpTasks(): ?array
+    {
+        if (! AiTaskQueue::enabled() || ! Schema::hasTable('ai_tasks')) {
+            return null;
+        }
+        $week = now()->subDays(7);
+
+        return [
+            'open' => AiTask::query()->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])->count(),
+            'done' => AiTask::query()->whereIn('status', [AiTask::DONE, AiTask::CONSUMED])->where('completed_at', '>=', $week)->count(),
+            'failed' => AiTask::query()->where('status', AiTask::FAILED)->where('created_at', '>=', $week)->count(),
+            'recent' => AiTask::query()->with('brand:id,name')->latest('id')->limit(10)->get(['id', 'operation', 'brand_id', 'subject', 'status', 'error', 'created_at']),
+        ];
     }
 
     /** "Durdur" (Admin): removes a queued job, or asks a running one to stop between its AI calls. */
@@ -277,6 +298,9 @@ final class AiOperationsPage extends Component
                 }
                 $options[$provider.':'.$model] = AiProviderCatalog::label($provider).' · '.$model;
             }
+        }
+        if (AiTaskQueue::enabled() && $this->operation !== '' && app(AiTaskQueue::class)->supports($this->operation)) {
+            $options[AiTaskQueue::MODEL] = 'Claude (MCP, abonelik) · AI iş kuyruğunda bekler';
         }
         if ($this->model !== '' && ! isset($options[$this->model])) {
             $options[$this->model] = $this->model;

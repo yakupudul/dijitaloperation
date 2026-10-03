@@ -108,6 +108,25 @@
                 @endif
             </section>
 
+            {{-- AI iş kuyruğu (Claude MCP) --}}
+            @if ($mcpTasks !== null)
+                <section class="{{ $card }} p-5" data-ai-tasks>
+                    <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Claude (MCP) iş kuyruğu</h2>
+                    <p class="mt-1 text-xs text-gray-500">"Claude (MCP)" seçilen işlemler API'yi çağırmaz; Claude kuyruğu çekip sonucu yazınca iş devam eder.</p>
+                    <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">Claude bekleniyor: <span class="font-semibold tabular-nums">{{ $mcpTasks['open'] }}</span> · Son 7 günde biten: <span class="tabular-nums">{{ $mcpTasks['done'] }}</span> · Yapılamayan: <span class="tabular-nums">{{ $mcpTasks['failed'] }}</span></p>
+                    @if ($mcpTasks['recent']->isNotEmpty())
+                        <ul class="mt-3 divide-y divide-gray-100 text-xs dark:divide-gray-800">
+                            @foreach ($mcpTasks['recent'] as $task)
+                                <li class="flex flex-wrap justify-between gap-2 py-1.5">
+                                    <span class="text-gray-700 dark:text-gray-300">{{ \App\Support\Ai\AiOperationLabels::for($task->operation) }} · {{ $task->subject ?? $task->brand?->name ?? '—' }}</span>
+                                    <span class="{{ $task->status === \App\Models\AiTask::FAILED ? 'text-rose-600' : 'text-gray-500' }}" title="{{ $task->error }}">{{ \App\Models\AiTask::STATUS_LABELS[$task->status] ?? $task->status }} · {{ $task->created_at?->diffForHumans() }}</span>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </section>
+            @endif
+
             {{-- Harcama nereye gitti --}}
             <section class="{{ $card }} p-5" data-ai-costs>
                 <div class="flex flex-wrap items-baseline justify-between gap-2">

@@ -1879,3 +1879,16 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 - **Sınır:** çeviri aracı Faz 0'da kaldırıldı; çok dilli sitede makale yalnız ana dilde taslak olur (not düşülür).
   Küme ↔ sayfa yalnız sitenin ana dili için hesaplanır.
 
+
+## 2026-10-03 — AI iş kuyruğu: Claude (MCP, abonelik) Faz 1
+
+- **Karar (yakup, 2026-10-02):** AI işleri API yerine Claude Max aboneliğiyle, MoxDOP'un MCP sunucusu üzerinden yapılır;
+  anında sonuç yerine "Claude bekleniyor" kabul. Sorgu otomatik pilotu (`queries.triage`) ve "Örnekte dene" API'de kalır.
+  Abonelik oturumunu MoxDOP arka planda çağırmaz (sağlayıcı şartları); Claude kendi ürünü (routine / Claude Code) içinden bağlanır.
+- **Nasıl:** işlemin güncel prompt sürümünde model `claude_mcp:abonelik` seçilir (Ayarlar › AI işlemleri). Devam
+  ettirilebilir bir job içinde (`AiTaskQueue::begin`) her ajan çağrısı `ai_tasks` satırı olur (talimat, DATA_JSON,
+  ajan şeması, job'un serileştirilmiş hali); Claude `submit_result` ile yazınca şemaya karşı doğrulanır, run'ın açık işi
+  kalmayınca job yeniden kuyruğa girer ve cevaplar çağrı sırasıyla geri döner. Sonraki doğrulama / uyum kapısı / onay aynı.
+- **Kapsam (Faz 1):** `SiteAi::run` kullanan site işlemleri (`SiteAgent` alt sınıfları) — `RunSiteOperationJob`.
+  Diğer çağrı noktaları sonraki fazlarda; yol haritası Claude Doc "MoxDOP AI süreçleri: MCP'ye taşıma yol haritası".
+- **Erişim:** `/mcp/moxdop`, `Authorization: Bearer MOXDOP_MCP_TOKEN`; token boşsa sunucu 404 ve seçenek görünmez.

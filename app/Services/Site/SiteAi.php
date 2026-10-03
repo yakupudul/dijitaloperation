@@ -6,28 +6,34 @@ use App\Ai\Agents\Site\SiteAgent;
 use App\Services\Ai\AiCancellation;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
  * One structured call of a website-screen AI operation: route (budget, providers) → DATA_JSON → structured output.
- * Never throws; the caller validates the output against its own data pack before storing anything.
+ * An operation delegated to Claude (MCP) waits in the AI iş kuyruğu instead (status queued; the job runs again with
+ * the answer). Never throws; the caller validates the output against its own data pack before storing anything.
  */
 final class SiteAi
 {
     public function __construct(
         private readonly AiRouteResolver $routes,
         private readonly AiProviderRuntimeConfig $runtime,
+        private readonly AiTaskQueue $tasks,
     ) {}
 
     /**
      * @param  array<string, mixed>  $data
-     * @return array{status: string, data: array<string, mixed>, prompt_version_id: ?int} status: ready | no_provider | error
+     * @return array{status: string, data: array<string, mixed>, prompt_version_id: ?int} status: ready | queued | no_provider | error
      */
     public function run(SiteAgent $agent, array $data, int $timeout = 180): array
     {
         AiCancellation::throwIfRequested();
         try {
+            if ($this->tasks->delegated($agent->promptOperation()) && ($answer = $this->tasks->answer($agent, $data)) !== null) {
+                return $answer;
+            }
             $route = $this->routes->resolve($agent->promptOperation());
             if ($route->isEmpty()) {
                 return ['status' => 'no_provider', 'data' => [], 'prompt_version_id' => null];

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "moxdop": {
+      "type": "http",
+      "url": "${MOXDOP_MCP_URL:-https://app.moximu.com/mcp/moxdop}",
+      "headers": {
+        "Authorization": "Bearer ${MOXDOP_MCP_TOKEN}"
+      }
+    }
+  }
+}

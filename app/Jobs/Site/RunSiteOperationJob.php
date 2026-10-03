@@ -3,6 +3,7 @@
 namespace App\Jobs\Site;
 
 use App\Models\DigitalAsset;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Site\SiteOperations;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -50,6 +51,18 @@ final class RunSiteOperationJob implements ShouldBeUnique, ShouldQueue
 
             return;
         }
+        // Claude (MCP): a delegated call of this run waits in the AI iş kuyruğu; the same job runs again with the answer.
+        $tasks = app(AiTaskQueue::class);
+        $tasks->begin(new self($this->siteId, $this->operation, $this->params), $site->brand_id !== null ? (int) $site->brand_id : null, $this->subject($site));
+        try {
+            $this->run($operations, $site);
+        } finally {
+            $tasks->settle();
+        }
+    }
+
+    private function run(SiteOperations $operations, DigitalAsset $site): void
+    {
         if ($this->operation !== SiteOperations::CLUSTER_AUDIT) {
             SiteOperations::putStatus($this->siteId, $this->operation, $operations->run($site, $this->operation, $this->params), $this->params);
 
@@ -76,6 +89,15 @@ final class RunSiteOperationJob implements ShouldBeUnique, ShouldQueue
             return;
         }
         SiteOperations::putStatus($this->siteId, $this->operation, $result + ['part' => $part], $this->params);
+    }
+
+    /** Short subject of the AI iş kuyruğu row: the site and the suggestion or idea it is for. */
+    private function subject(DigitalAsset $site): string
+    {
+        $for = isset($this->params['suggestion_id']) ? ' · öneri #'.$this->params['suggestion_id']
+            : (isset($this->params['kind'], $this->params['id']) ? ' · fikir '.$this->params['kind'].'#'.$this->params['id'] : '');
+
+        return (string) ($site->name ?? $site->id).$for;
     }
 
     public function failed(?Throwable $exception): void
