@@ -2883,3 +2883,5 @@ A new article draft is always a WordPress post; only an update of an existing no
 
 Verification: PHPUnit `tests/Feature/Mcp/McpWorkspaceTest.php` + `AiTaskQueueTest.php`. Not deployed; a real
 routine run of Eşleştir over MCP and the operator's quality review await UAT. Not DONE.
+`php artisan moxdop:mcp:delegate [operations…] [--api]` sets the supported operations to Claude (MCP) or back to the
+route model from the shell (a new prompt version published as the first active admin); tested in `McpWorkspaceTest`.

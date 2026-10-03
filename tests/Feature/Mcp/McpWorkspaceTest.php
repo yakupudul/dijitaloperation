@@ -152,6 +152,25 @@ final class McpWorkspaceTest extends SiteTestCase
         $this->assertSame('post', $suggestion->fresh()->action['article']['post_type']);
     }
 
+    public function test_delegate_command_hands_supported_operations_to_claude_and_back(): void
+    {
+        $queue = app(AiTaskQueue::class);
+
+        $this->artisan('moxdop:mcp:delegate')->assertSuccessful();
+        foreach (AiTaskQueue::SUPPORTED as $operation) {
+            $this->assertTrue($queue->delegated($operation), $operation);
+        }
+        $this->artisan('moxdop:mcp:delegate', ['operations' => [AiRouteKeys::QUERIES_TRIAGE]])->expectsOutputToContain('atlandı')->assertSuccessful();
+        $this->assertFalse($queue->delegated(AiRouteKeys::QUERIES_TRIAGE));
+
+        $this->artisan('moxdop:mcp:delegate', ['operations' => [AiRouteKeys::SITE_CLUSTER_MATCH], '--api' => true])->assertSuccessful();
+        $this->assertFalse($queue->delegated(AiRouteKeys::SITE_CLUSTER_MATCH));
+        $this->assertTrue($queue->delegated(AiRouteKeys::SITE_CLUSTER_GAPS));
+
+        config(['moxdop-mcp.token' => '']);
+        $this->artisan('moxdop:mcp:delegate')->assertFailed();
+    }
+
     public function test_system_health_reads_stored_state(): void
     {
         MoxdopServer::tool(SystemHealth::class)->assertOk()->assertSee('failed_ai_tasks')->assertSee('alerts');
