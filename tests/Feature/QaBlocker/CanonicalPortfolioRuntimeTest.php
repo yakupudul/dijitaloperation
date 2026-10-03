@@ -137,6 +137,14 @@ class CanonicalPortfolioRuntimeTest extends TestCase
         $this->get(route('operator.brand', ['brand' => 'atlas-dental']))->assertNotFound();
     }
 
+    public function test_brand_list_renders_a_brand_with_a_responsible_user(): void
+    {
+        $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create()->id, 'name' => 'Sorumlulu Marka']);
+        $brand->responsibleUsers()->attach($this->admin->id);
+
+        Livewire::test(BrandsIndex::class)->assertOk()->assertSee('Sorumlulu Marka')->assertSee('OQ');
+    }
+
     public function test_digital_assets_persist_canonical_types_without_domain_hosting(): void
     {
         $customer = Customer::factory()->create();

@@ -127,6 +127,10 @@ final class OperatorPortfolioPresenter
                     'id' => (string) $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'initials' => collect(explode(' ', (string) $user->name))
+                        ->map(static fn (string $part): string => mb_strtoupper(mb_substr($part, 0, 1)))
+                        ->take(2)
+                        ->implode(''),
                 ])
                 ->values()
                 ->all(),
