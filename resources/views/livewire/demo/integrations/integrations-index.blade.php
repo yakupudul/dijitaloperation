@@ -10,7 +10,10 @@
     <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" aria-labelledby="hub-health">
         <div class="flex flex-wrap items-center justify-between gap-2">
             <h2 id="hub-health" class="text-sm font-semibold text-gray-800 dark:text-white/90">Bağlantı sağlığı</h2>
-            <a href="{{ route('operator.settings.system-health') }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">Hesap bazında tablo: Sistem Sağlığı →</a>
+            <span class="flex flex-wrap items-center gap-3">
+                <a href="{{ route('operator.integrations.discovered') }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">Keşfedilen varlıklar →</a>
+                <a href="{{ route('operator.settings.system-health') }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">Hesap bazında tablo: Sistem Sağlığı →</a>
+            </span>
         </div>
         @if ($problems === [])
             <p class="mt-2 text-sm text-emerald-600">İşlem gerektiren bağlantı yok: yetkiler geçerli, hesaplar güncel, WordPress siteleri sinyal gönderiyor.</p>
@@ -76,10 +79,10 @@
                                     <dt class="text-xs text-gray-400">{{ __('operator.integrations_ui.bound') }}</dt>
                                     <dd class="font-semibold text-gray-800 dark:text-white/90">{{ $provider['bound'] }}</dd>
                                 </div>
-                                <div class="rounded-lg bg-gray-50 px-2 py-2 dark:bg-white/[0.03]">
+                                <a href="{{ route('operator.integrations.discovered', array_filter(['bound' => 'no', 'kind' => ($provider['id'] ?? '') === 'meta' ? 'meta_ads' : null])) }}" wire:navigate class="rounded-lg bg-gray-50 px-2 py-2 hover:bg-gray-100 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]" title="Markasız hesapları gör">
                                     <dt class="text-xs text-gray-400">{{ __('operator.integrations_ui.available') }}</dt>
-                                    <dd class="font-semibold text-gray-800 dark:text-white/90">{{ $provider['available'] }}</dd>
-                                </div>
+                                    <dd class="font-semibold text-brand-600">{{ $provider['available'] }}</dd>
+                                </a>
                             </dl>
                         @elseif ($provider['resources_discovered'] !== null && ($provider['discovery_not_run'] ?? false))
                             <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">{{ __('operator.states.not_discovered') }}</p>

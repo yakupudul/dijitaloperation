@@ -3,6 +3,7 @@
 namespace Tests\Feature\AiControl;
 
 use App\Ai\Agents\GbpPostFromPageAgent;
+use App\Http\Middleware\DropInvalidLivewireUpdates;
 use App\Livewire\Operator\AiLiveIndicator;
 use App\Livewire\Operator\Settings\AiOperationsPage;
 use App\Models\AiLiveOperation;
@@ -12,6 +13,8 @@ use App\Services\Retention\DataRetentionService;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Livewire\Livewire;
 use RuntimeException;
 use Tests\TestCase;
@@ -215,5 +218,21 @@ final class AiLiveOperationsTest extends TestCase
             'operation' => 'queries.plan_services', 'label' => 'AI ile planla · hizmetler', 'agent' => 'QueryPlanServicesAgent',
             'status' => AiLiveOperation::RUNNING, 'started_at' => now()->subSeconds(3), ...$attributes,
         ]);
+    }
+
+    public function test_a_livewire_update_naming_no_property_is_dropped_before_it_reaches_the_component(): void
+    {
+        $request = Request::create('/livewire/update', 'POST', ['components' => [
+            ['snapshot' => '{}', 'updates' => ['$' => [], '' => 1, 'watching' => '3,4', 'bindTo.asset:1' => '2'], 'calls' => []],
+        ]]);
+        $request->headers->set('X-Livewire', '1');
+        $seen = null;
+        (new DropInvalidLivewireUpdates)->handle($request, function (Request $passed) use (&$seen): Response {
+            $seen = $passed->input('components.0.updates');
+
+            return new Response;
+        });
+
+        $this->assertSame(['watching' => '3,4', 'bindTo.asset:1' => '2'], $seen);
     }
 }

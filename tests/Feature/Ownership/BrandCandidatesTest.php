@@ -204,6 +204,28 @@ final class BrandCandidatesTest extends TestCase
         $this->assertNull($outcome['brand']->sector_id, 'no sector proposed → none stored');
     }
 
+    public function test_a_brandless_row_is_bound_to_an_existing_brand_from_the_table(): void
+    {
+        $brand = Brand::factory()->create(['name' => 'Panorama']);
+        DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'website', 'primary_url' => 'https://panorama.com.tr/', 'domain' => 'panorama.com.tr']);
+        $site = DigitalAsset::factory()->create(['brand_id' => null, 'type' => 'website', 'name' => 'panorama-blog.com', 'domain' => 'panorama-blog.com', 'primary_url' => 'https://panorama-blog.com/']);
+        $ads = $this->make('google_ads', '5556667777', 'Panorama Ads', ['descriptive_name' => 'Panorama Ads']);
+
+        Livewire::test(DiscoveredAssetsPage::class)
+            ->assertSee('Markaya bağla')
+            ->call('bindToBrand', 'asset:'.$site->id)
+            ->assertSee('Önce marka seçin.')
+            ->set('bindTo.asset:'.$site->id, (string) $brand->id)
+            ->call('bindToBrand', 'asset:'.$site->id)
+            ->set('bindTo.resource:'.$ads->id, (string) $brand->id)
+            ->call('bindToBrand', 'resource:'.$ads->id)
+            ->assertSee('Hesap Panorama markasına bağlandı.');
+
+        $this->assertSame($brand->id, $site->fresh()->brand_id);
+        $binding = CoreAssetBinding::query()->where('external_resource_id', $ads->id)->where('status', 'active')->firstOrFail();
+        $this->assertSame($brand->id, $binding->digitalAsset->brand_id);
+    }
+
     public function test_edit_move_rename_sector_and_dismiss(): void
     {
         $r = $this->resources();

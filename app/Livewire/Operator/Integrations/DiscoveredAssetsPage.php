@@ -3,13 +3,17 @@
 namespace App\Livewire\Operator\Integrations;
 
 use App\Jobs\RefreshBrandCandidatesJob;
+use App\Models\Brand;
 use App\Models\BrandCandidate;
 use App\Models\BrandCandidateResource;
 use App\Models\Customer;
+use App\Models\DigitalAsset;
 use App\Models\ServiceCategory;
 use App\Services\Ownership\OwnershipIntegrity;
 use App\Services\Portfolio\BrandCandidateManager;
 use App\Services\Portfolio\PortfolioDiscoveryGrouper;
+use App\Services\Portfolio\PortfolioGroupCreator;
+use App\Services\Portfolio\UnassignedWebsites;
 use App\Services\SeoTasks\SeoText;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -26,7 +30,7 @@ use Throwable;
  * Entegrasyonlar › Keşfedilen varlıklar: every discovered account and website (bound or not), brand candidates
  * (BrandCandidateBuilder: deterministic grouping + one AI call per batch, sector proposal) with Onayla (customer →
  * brand with sector → assets) · Düzenle (name, sector, move a member) · Yoksay, and ownership problems with a safe
- * fix. Sector lives on the brand only.
+ * fix. A brandless row is bound to an existing brand from the table ("Markaya bağla"). Sector lives on the brand only.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Keşfedilen varlıklar')]
@@ -59,6 +63,9 @@ final class DiscoveredAssetsPage extends Component
     public array $moveTo = [];
 
     public ?int $editing = null;
+
+    /** @var array<string, string> subject key ("resource:12" / "asset:4") => brand id */
+    public array $bindTo = [];
 
     public string $message = '';
 
@@ -149,6 +156,43 @@ final class DiscoveredAssetsPage extends Component
         }
     }
 
+    /** "Markaya bağla": a brandless website joins the brand; an account is bound through the brand setup applier. */
+    public function bindToBrand(string $key, PortfolioGroupCreator $creator, UnassignedWebsites $websites): void
+    {
+        $this->authorizeAdmin();
+        $brand = Brand::query()->find((int) ($this->bindTo[$key] ?? 0));
+        if ($brand === null) {
+            $this->message = 'Önce marka seçin.';
+
+            return;
+        }
+        [$type, $id] = array_pad(explode(':', $key, 2), 2, '0');
+        try {
+            if ($type === 'asset') {
+                $site = DigitalAsset::query()->findOrFail((int) $id);
+                $this->message = $websites->assign($site, $brand) ? $site->domain.' → '.$brand->name.'.' : 'Bu site zaten bir markada.';
+            } else {
+                $site = $brand->digitalAssets()->where('type', 'website')->orderBy('id')->first();
+                $outcome = $creator->create([
+                    'brand_id' => $brand->id,
+                    'website_url' => (string) ($site?->primary_url ?: ($site?->domain ? 'https://'.$site->domain.'/' : '')),
+                ], [(int) $id], auth()->user());
+                $failed = collect($outcome['results'])->where('ok', false)->pluck('message')->first();
+                $this->message = $failed !== null ? 'Bağlanamadı: '.$failed : 'Hesap '.$brand->name.' markasına bağlandı.';
+            }
+        } catch (ValidationException $exception) {
+            $this->message = (string) collect($exception->errors())->flatten()->first();
+
+            return;
+        } catch (Throwable $exception) {
+            report($exception);
+            $this->message = 'Bağlanamadı.';
+
+            return;
+        }
+        unset($this->bindTo[$key]);
+    }
+
     private function candidate(int $id): BrandCandidate
     {
         return BrandCandidate::query()->findOrFail($id);
@@ -186,6 +230,7 @@ final class DiscoveredAssetsPage extends Component
             'decided' => BrandCandidate::query()->where('status', '!=', BrandCandidate::PROPOSED)->count(),
             'problems' => $integrity->problems(),
             'customers' => Customer::query()->orderBy('name')->pluck('name', 'id')->all(),
+            'brands' => Brand::query()->orderBy('name')->pluck('name', 'id')->all(),
             'kinds' => ['website' => 'Web sitesi', 'search_console' => 'Search Console', 'ga4' => 'GA4', 'google_business_profile' => 'İşletme Profili', 'google_ads' => 'Google Ads', 'meta_ads' => 'Meta'],
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
         ]);
