@@ -38,7 +38,7 @@
                     <p class="text-2xl font-bold tabular-nums text-gray-800 dark:text-white/90">{{ $usd($live['today']['cost']) }} <span class="text-sm font-normal text-gray-500">/ {{ $usd($monthSpend) }}</span></p>
                     <p @class(['text-xs', 'text-rose-600' => $remaining <= 0, 'text-gray-500' => $remaining > 0])>Kalan bakiye: {{ $usd($remaining) }} (bütçe {{ $usd($monthlyBudget) }})</p>
                     <p @class(['text-xs', 'font-semibold text-rose-600' => $autoBudget > 0 && $autoSpend >= $autoBudget, 'text-gray-500' => ! ($autoBudget > 0 && $autoSpend >= $autoBudget)]) data-ai-auto-budget>
-                        Bugün tüm AI: {{ $usd($autoSpend) }} / {{ $autoBudget > 0 ? $usd($autoBudget) : 'sınırsız' }}@if ($autoBudget > 0 && $autoSpend >= $autoBudget) · tavan doldu, AI yarına kadar durdu @endif · otomatik çalışan: yalnız Sorgular
+                        Bugün tüm AI: {{ $usd($autoSpend) }} / {{ $autoBudget > 0 ? $usd($autoBudget) : 'sınırsız' }}@if ($autoBudget > 0 && $autoSpend >= $autoBudget) · tavan doldu, ücretli AI yarına kadar durdu (Claude işleri sürer) @endif · otomatik çalışan: Sorgular ve Claude'a devredilen işler
                     </p>
                     @if ($quota['enabled'])
                         <p class="text-xs text-emerald-700 dark:text-emerald-400" data-openai-quota>
@@ -230,7 +230,7 @@
                         @endforeach
                     @endif
                 </div>
-                <span class="w-full text-xs text-gray-500">Aylık bakiye bitince ay sonuna kadar yalnız ücretsiz modeller çalışır. Günün (İstanbul saati) tüm AI harcaması tavana ulaşınca, tıkladığın işler dahil hiçbir ücretli AI çağrısı başlamaz; yarın yeniden çalışır. Kimse tıklamadan yalnız Sorgular alanındaki AI çalışır (sorgu pilotu, kümeleme); site akışı, analistler, bakım ajanı ve Şef yalnız tıklayınca çalışır. 0 = tavan yok.</span>
+                <span class="w-full text-xs text-gray-500">Aylık bakiye bitince ay sonuna kadar yalnız ücretsiz modeller çalışır. Günün (İstanbul saati) tüm AI harcaması tavana ulaşınca, tıkladığın işler dahil hiçbir ücretli AI çağrısı başlamaz; yarın yeniden çalışır. Kimse tıklamadan Sorgular alanındaki AI (sorgu pilotu, kümeleme) ve Claude'a devredilen işler (site akışı, haftalık site yenileme) çalışır; Claude işleri tavana ve bütçeye sayılmaz. API'de kalan analistler, bakım ajanı ve Şef yalnız tıklayınca çalışır. 0 = tavan yok.</span>
                 @error('dailyAutoBudget')<span class="text-xs text-red-600">{{ $message }}</span>@enderror
                 @error('budget')<span class="text-xs text-red-600">{{ $message }}</span>@enderror
             </form>

@@ -19,15 +19,15 @@ final class AiSchedule
     /** Schedule name => [label, what it does]. Only AI work is listed. */
     public const array TASKS = [
         'queries-autopilot' => ['Sorgu otomatik pilotu', 'Yeni sorgulara hizmet / filtre (her sorgu bir kez); günde bir kez yeni sorguları kümeler.'],
-        'brands-dossier' => ['Marka dosyası', 'Marka dosyası ve Eksikler (AI\'sız). Site akışı yalnız «Akışı ilerlet» ile çalışır.'],
+        'brands-dossier' => ['Marka dosyası', 'Marka dosyası ve Eksikler (AI\'sız), ardından site akışı (Claude\'a devredilmişse kendiliğinden, değilse «Akışı ilerlet» ile).'],
         'site-weekly' => ['Site haftalık yenileme', 'Yeni sayfaların kategorisi, eşleşmeler ve kullanılan sayfaların özetleri.'],
         'analyst-weekly' => ['Kanal analistleri', 'Aktif markaların canlı kanalları (Google Ads, Meta, İşletme Profili) için haftalık inceleme.'],
         'brands-care' => ['Marka bakım ajanı', 'Marka dosyası değiştiyse inceler, işleri İş listesine yazar.'],
         'brands-chief' => ['Şef: denetim + haftalık plan', 'AI kararlarında hata arar (AI\'sız), sonra haftalık planı yazar.'],
     ];
 
-    /** Schedule name => AI area: off (no next run) unless the area may run by itself (AiBudget::automaticAllowed). */
-    private const array AREAS = ['analyst-weekly' => 'analyst', 'site-weekly' => 'site', 'brands-care' => 'brand', 'brands-chief' => 'brand'];
+    /** Schedule name => its gate (routes/console.php `when`): off (no next run) unless it may run by itself (AiBudget::automaticAllowed). */
+    private const array GATES = ['analyst-weekly' => 'analyst.weekly', 'site-weekly' => 'site.weekly_refresh', 'brands-care' => 'brand.care', 'brands-chief' => 'brand.chief'];
 
     /**
      * @return list<array{name: string, label: string, what: string, next: ?CarbonImmutable}>
@@ -38,8 +38,8 @@ final class AiSchedule
         $out = [];
         foreach (self::TASKS as $name => [$label, $what]) {
             $next = null;
-            if (isset(self::AREAS[$name]) && ! AiBudget::automaticAllowed(self::AREAS[$name].'.scheduled')) {
-                $out[] = ['name' => $name, 'label' => $label, 'what' => 'Kapalı: yalnız tıklayınca çalışır (otomatik AI yalnız Sorgular).', 'next' => null];
+            if (isset(self::GATES[$name]) && ! AiBudget::automaticAllowed(self::GATES[$name])) {
+                $out[] = ['name' => $name, 'label' => $label, 'what' => 'Kapalı: yalnız tıklayınca çalışır (otomatik AI: Sorgular ve Claude\'a devredilen işler).', 'next' => null];
 
                 continue;
             }

@@ -1918,3 +1918,5 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   kart, renkli etiket, sayfada Türkçe metin) müşteri, marka ve dijital varlık sayfalarının da standardıdır. Marka
   sayfası dört sekme: Özet / Dijital varlıklar / Bilgi dosyası / Ayarlar. Öncelikli hizmet tek alan (`priority='main'`).
   Listelerdeki iş sayısı marka Özet'iyle aynı kuraldır (`Suggestion::actionable()`).
+- **Otomatik Claude işleri (yakup, 2026-10-03):** Claude'a devredilen işlemler kimse tıklamadan da çalışır (gece site
+  akışı, pazartesi haftalık site yenileme); API'de kalan işler yalnız tıklayınca çalışır, otomatik API yalnız Sorgular.

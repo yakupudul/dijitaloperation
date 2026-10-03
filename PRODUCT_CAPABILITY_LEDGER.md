@@ -2970,3 +2970,12 @@ the website screen's v2 style (compact header, underline tabs, ring cards, colou
 Verification: PHPUnit (`Portfolio/PortfolioSignalsTest`, `Portfolio/BrandOverviewTest`, `Portfolio/BrandWorkspaceTest`,
 `Brand/BrandDossierTest`, `BrandCandidatesTest`, `ResourceAutomationRecoveryTest`, `AiLiveOperationsTest`,
 `PanelDesignFreezeTest` + updated UX tests). No UAT; not deployed; not DONE.
+
+### Automatic AI for work delegated to Claude (yakup, 2026-10-03)
+
+`AiBudget::automaticAllowed` also allows an operation delegated to Claude over MCP (no API cost), and the gate
+`site.weekly_refresh` opens when one of its site steps is delegated. So the nightly site flow (after the brand file)
+and the Monday weekly site refresh queue Claude tasks with nobody clicking; operations still on the API (page
+summaries, analysts, care agent, Şef) keep waiting for a click and are stopped call by call by the spend guard.
+Claude tasks never count toward the daily ceiling. Verification: `Mcp/AiTaskQueueTest::test_work_delegated_to_claude_may_run_without_a_click`.
+Not deployed; not DONE.

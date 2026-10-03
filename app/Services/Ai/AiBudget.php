@@ -4,15 +4,18 @@ namespace App\Services\Ai;
 
 use App\Models\AgencySetting;
 use App\Services\AiJobs\AiJobTracker;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Support\Ai\AiOperationLabels;
+use App\Support\Ai\AiRouteKeys;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Throwable;
 
 /**
  * AI spend guard: the OpenAI free sharing quota first (OpenAiFreeQuota), then a daily ceiling for all paid AI of the day
  * (default 1 $), the monthly budget, and automatic work (nobody
- * clicked) only in the areas allowed to run by themselves (Sorgular). Checked when a route is resolved and again right
+ * clicked) only in the areas allowed to run by themselves (Sorgular) or delegated to Claude. Checked when a route is resolved and again right
  * before every agent call (AiLiveOperations::started), so no paid call starts past the ceiling.
  */
 final class AiBudget
@@ -78,15 +81,49 @@ final class AiBudget
         return null;
     }
 
-    /** Whether AI of this operation may run with nobody clicking (config moxdop-ai-pricing.automatic_areas). */
+    /**
+     * Scheduled gates that are not an AI operation themselves => the operations they run. The gate opens when one of
+     * them is delegated to Claude; the others are still stopped call by call (blockReason).
+     */
+    private const array GATES = [
+        'site.weekly_refresh' => [AiRouteKeys::SITE_PAGE_CATEGORIES, AiRouteKeys::SITE_SERVICE_PAGES, AiRouteKeys::SITE_CLUSTER_PAGES, AiRouteKeys::SITE_CLUSTER_MATCH],
+    ];
+
+    /**
+     * Whether AI of this operation may run with nobody clicking: an area of config moxdop-ai-pricing.automatic_areas, or
+     * an operation delegated to Claude over MCP (no API cost; yakup, 2026-10-03).
+     */
     public static function automaticAllowed(?string $operation): bool
     {
         $areas = (array) config('moxdop-ai-pricing.automatic_areas', ['queries']);
         if (in_array('*', $areas, true)) {
             return true;
         }
+        if ($operation === null) {
+            return false;
+        }
+        if (in_array(explode('.', $operation)[0], $areas, true)) {
+            return true;
+        }
 
-        return $operation !== null && in_array(explode('.', $operation)[0], $areas, true);
+        return self::delegatedToClaude(self::GATES[$operation] ?? [$operation]);
+    }
+
+    /** @param  list<string>  $operations */
+    private static function delegatedToClaude(array $operations): bool
+    {
+        try {
+            $queue = app(AiTaskQueue::class);
+            foreach ($operations as $operation) {
+                if ($queue->delegated($operation)) {
+                    return true;
+                }
+            }
+        } catch (Throwable) {
+            return false;
+        }
+
+        return false;
     }
 
     public function dailyBudget(): float

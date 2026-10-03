@@ -19,7 +19,7 @@
     @if ($flow !== [])
         <section class="{{ $card }}" data-site-flow>
             <div class="flex flex-wrap items-center justify-between gap-2">
-                <p class="font-semibold text-gray-900 dark:text-white">Site akışı <span class="font-normal text-gray-500">· WordPress bağlıyken «Akışı ilerlet» ile ilerler (AI yalnız tıklayınca çalışır)</span></p>
+                <p class="font-semibold text-gray-900 dark:text-white">Site akışı <span class="font-normal text-gray-500">· WordPress bağlıyken Claude'a devredilmişse kendiliğinden, değilse «Akışı ilerlet» ile ilerler</span></p>
                 <button type="button" wire:click="advanceFlow" class="{{ $ghost }}" data-advance-flow>Akışı şimdi ilerlet</button>
             </div>
             <ol class="mt-2 grid gap-1 sm:grid-cols-2 lg:grid-cols-4">

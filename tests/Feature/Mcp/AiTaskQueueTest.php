@@ -12,6 +12,8 @@ use App\Mcp\Tools\ListTasks;
 use App\Mcp\Tools\SubmitResult;
 use App\Models\AiTask;
 use App\Models\Suggestion;
+use App\Services\Ai\AiBudget;
+use App\Services\Ai\AiSchedule;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Prompts\PromptRegistry;
 use App\Services\Site\SiteAi;
@@ -169,6 +171,24 @@ final class AiTaskQueueTest extends SiteTestCase
         $this->assertSame('error', $result['status']);
         $this->assertSame(0, AiTask::query()->count());
         WriteArticleAgent::assertNeverPrompted();
+    }
+
+    public function test_work_delegated_to_claude_may_run_without_a_click(): void
+    {
+        config(['moxdop-ai-pricing.automatic_areas' => ['queries']]);
+        $this->assertFalse(AiBudget::automaticAllowed('site.cluster_match'));
+        $this->assertFalse(AiBudget::automaticAllowed('site.weekly_refresh'));
+
+        $this->delegate('site.cluster_match');
+        $this->assertTrue(AiBudget::automaticAllowed('site.cluster_match'), 'delegated: no API cost, runs by itself');
+        $this->assertTrue(AiBudget::automaticAllowed('site.weekly_refresh'), 'the weekly gate opens with a delegated site step');
+        $this->assertFalse(AiBudget::automaticAllowed('site.page_summary'), 'an API operation still waits for a click');
+        $this->assertFalse(AiBudget::automaticAllowed('brand.care'));
+        $site = collect(app(AiSchedule::class)->upcoming())->firstWhere('name', 'site-weekly');
+        $this->assertStringNotContainsString('Kapalı', $site['what']);
+
+        config(['moxdop-mcp.token' => '']);
+        $this->assertFalse(AiBudget::automaticAllowed('site.cluster_match'), 'MCP off: the API route, so a click again');
     }
 
     private function delegate(string $operation): void
