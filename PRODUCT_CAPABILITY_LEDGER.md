@@ -3079,6 +3079,20 @@ not tested yet; not DONE.
   keeps its decision; the extra copies close as "Çakışma kalktı". `moxdop:clusters:sync-overlaps` rebuilds the
   overlaps from the stored match (no AI) to clean old duplicates at once. Verification: `Site/ClusterOverlapsTest`,
   `Work/WorkDeskTest`. Not deployed; not DONE.
+- **Öncelik puanı (yakup, 2026-10-02; coded 2026-10-04):** no weekly title cap; every content idea gets a rule-based
+  1–100 score (`ContentScore`, no AI): 100 × (0,35 Talep + 0,25 Hizmet + 0,25 Boşluk + 0,15 Niyet). Talep = the
+  cluster's search volume or the brand's Search Console impressions on it, log scale against the brand's largest
+  cluster (0,5 when no data); Hizmet = ★ 1 / other active service 0,6 / none 0,3; Boşluk = from the page score
+  (`cluster_page_scores`); Niyet = hizmet / lokasyon 1, SSS 0,7, blog 0,5. Waiting titles and sites sort by it, the
+  chip "Puan N" explains the parts, and "Hepsini onayla ve yazdır" writes the highest first. `ContentScoreTest`.
+- **Yazım kuralları (2026-10-04):** writer prompt `site-write-article-v8` adds the SEO rules (main query in title,
+  meta title and first paragraph; subtopics as headings; no stuffing; link to the service page; areas named
+  naturally). `ArticleSeoCheck` checks the written article by rules (main query in title / first paragraph, repeats,
+  internal link, service areas) and the reader shows "SEO kontrolü"; it never blocks. A forbidden phrase `{marka}`
+  (Sorgular › Yasaklı ifadeler) stands for each brand's name and domain root (not a service-word domain) and applies
+  to AI content only (`ai_draft`, `seo_brief`). `moxdop:prompts:adopt-default site.write_article` publishes the new
+  default prompt on a published / Claude-delegated operation and keeps its model. `ArticleRulesTest`. Not deployed;
+  not DONE.
 
 ### Microsoft Clarity behaviour (yakup, 2026-10-03)
 

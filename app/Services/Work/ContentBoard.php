@@ -41,7 +41,7 @@ final class ContentBoard
 
     private const int LIMIT = 2000;
 
-    public function __construct(private readonly SiteSuggestions $siteSuggestions, private readonly ContentPlanner $planner) {}
+    public function __construct(private readonly SiteSuggestions $siteSuggestions, private readonly ContentPlanner $planner, private readonly ContentScore $scorer) {}
 
     /**
      * @return Collection<int, array{site: DigitalAsset, brand: ?string, languages: array<string, int>, steps: array<string, list<array<string, mixed>>>, counts: array<string, int>, urgent: int, url: string}>
@@ -49,6 +49,7 @@ final class ContentBoard
     public function boxes(?int $brandId = null, ?int $siteId = null, int $perStep = self::PER_STEP): Collection
     {
         $items = $this->query($brandId)->when($siteId !== null, fn (Builder $q): Builder => $q->where('action->site_id', $siteId))->with('brand:id,name')->orderBy('priority')->orderByDesc('id')->limit(self::LIMIT)->get();
+        $scores = $this->scorer->forSuggestions($items);
         $siteIds = $items->map(fn (Suggestion $s): int => (int) data_get($s->action, 'site_id'))->filter()->unique()->values();
         $sites = DigitalAsset::query()->whereIn('id', $siteIds->all() ?: [0])->get()->keyBy('id');
         $languages = DB::table('pages')->whereIn('website_asset_id', $siteIds->all() ?: [0])->whereNotNull('language')
@@ -57,12 +58,12 @@ final class ContentBoard
 
         return $items->groupBy(fn (Suggestion $s): int => (int) data_get($s->action, 'site_id'))
             ->filter(fn (Collection $rows, int $siteId): bool => $sites->has($siteId))
-            ->map(function (Collection $rows, int $siteId) use ($sites, $languages, $perStep): array {
+            ->map(function (Collection $rows, int $siteId) use ($sites, $languages, $perStep, $scores): array {
                 $site = $sites->get($siteId);
                 $siteLanguages = ContentPlanner::siteLanguages($site);
                 $steps = array_fill_keys(array_keys(self::STEPS), []);
                 foreach ($rows as $suggestion) {
-                    $item = $this->item($suggestion, $site, $siteLanguages);
+                    $item = $this->item($suggestion, $site, $siteLanguages, $scores[(int) $suggestion->id] ?? null);
                     if ($item['step'] === 'gonderildi' && ($item['sent_at'] === null || $item['sent_at']->lt(now()->subDays(WorkDesk::DONE_DAYS))) && $item['unsent'] === []) {
                         continue; // sent more than 30 days ago
                     }
@@ -70,16 +71,18 @@ final class ContentBoard
                 }
                 $counts = array_map('count', $steps);
                 $steps['gonderildi'] = collect($steps['gonderildi'])->sortByDesc('sent_at')->values()->all();
+                $steps['yazilacak'] = collect($steps['yazilacak'])->sortByDesc('score')->values()->all();
 
                 return [
                     'site' => $site, 'brand' => $rows->first()->brand?->name, 'languages' => $languages->get($siteId, []) ?: array_fill_keys($siteLanguages, 0),
                     'steps' => array_map(fn (array $list): array => array_slice($list, 0, $perStep), $steps), 'counts' => $counts,
                     'waiting' => collect($steps['yazilacak'])->where('writing', false)->where('approved', false)->count(),
+                    'top_score' => (int) collect($steps['yazilacak'])->where('writing', false)->where('approved', false)->max('score'),
                     'urgent' => collect($steps['yazilacak'])->where('rank', '<=', 1)->count() + $counts['okunacak'],
                     'url' => route('operator.website', ['assetId' => $site->id, 'tab' => 'icerik']),
                 ];
             })
-            ->sortBy([['urgent', 'desc'], [fn (array $box): int => $box['counts']['yazilacak'], 'desc']])->values();
+            ->sortBy([['top_score', 'desc'], ['urgent', 'desc'], [fn (array $box): int => $box['counts']['yazilacak'], 'desc']])->values();
     }
 
     /**
@@ -94,9 +97,9 @@ final class ContentBoard
         $groups = [];
         foreach (array_keys(self::STEPS) as $step) {
             $groups[$step] = $boxes->filter(fn (array $box): bool => $box['counts'][$step] > 0)
-                ->sortByDesc(fn (array $box): int => $step === 'yazilacak' ? $box['waiting'] * 10 + (int) collect($box['steps']['yazilacak'])->where('rank', '<=', 1)->count() : $box['counts'][$step])
+                ->sortByDesc(fn (array $box): int => $step === 'yazilacak' ? $box['top_score'] * 1000 + $box['waiting'] : $box['counts'][$step])
                 ->map(fn (array $box): array => ['site' => $box['site'], 'brand' => $box['brand'], 'languages' => $box['languages'], 'url' => $box['url'],
-                    'items' => $box['steps'][$step], 'total' => $box['counts'][$step], 'waiting' => $box['waiting']])->values()->all();
+                    'items' => $box['steps'][$step], 'total' => $box['counts'][$step], 'waiting' => $box['waiting'], 'top_score' => $box['top_score']])->values()->all();
         }
 
         return ['counts' => [
@@ -105,12 +108,13 @@ final class ContentBoard
         ], 'groups' => $groups];
     }
 
-    /** "Hepsini onayla ve yazdır": every waiting title of the site (at most WRITE_ALL_MAX per click). */
+    /** "Hepsini onayla ve yazdır": every waiting title of the site, highest score first (at most WRITE_ALL_MAX per click). */
     public function writeAll(int $siteId, User $user): string
     {
         $waiting = $this->query(null)->where('action->site_id', $siteId)->actionable()->orderBy('priority')->orderBy('id')->get()
-            ->reject(fn (Suggestion $s): bool => is_array(data_get($s->action, 'article')) || isset(((array) $s->action)['article_blocked']))
-            ->take(self::WRITE_ALL_MAX);
+            ->reject(fn (Suggestion $s): bool => is_array(data_get($s->action, 'article')) || isset(((array) $s->action)['article_blocked']));
+        $scores = $this->scorer->forSuggestions($waiting);
+        $waiting = $waiting->sortByDesc(fn (Suggestion $s): int => $scores[(int) $s->id]['score'] ?? 0)->take(self::WRITE_ALL_MAX);
         if ($waiting->isEmpty()) {
             throw ValidationException::withMessages(['work' => 'Bu sitede onay bekleyen başlık yok.']);
         }
@@ -176,7 +180,7 @@ final class ContentBoard
             'missing' => $site !== null && is_array($action['article'] ?? null) ? array_values(array_diff(ContentPlanner::siteLanguages($site), $written)) : [],
             'writing' => in_array($status['status'] ?? null, ['running', 'queued'], true),
             'article' => $action['article'] ?? null, 'blocked' => $action['article_blocked'] ?? null, 'blocked_draft' => $action['article_blocked_draft'] ?? null,
-            'warnings' => $action['article_warnings'] ?? null, 'translations' => array_filter((array) ($action['translations'] ?? []), 'is_array'),
+            'warnings' => $action['article_warnings'] ?? null, 'seo' => array_key_exists('article_seo', $action) ? array_values(array_filter((array) $action['article_seo'], 'is_string')) : null, 'translations' => array_filter((array) ($action['translations'] ?? []), 'is_array'),
             'translations_blocked' => (array) ($action['translations_blocked'] ?? []), 'sent' => (array) ($action['sent_languages'] ?? []),
         ];
     }
@@ -188,9 +192,10 @@ final class ContentBoard
 
     /**
      * @param  list<string>  $siteLanguages
+     * @param  array{score: int, parts: array<string, float>, notes: list<string>}|null  $scored  ContentScore of the idea
      * @return array<string, mixed>
      */
-    private function item(Suggestion $s, DigitalAsset $site, array $siteLanguages): array
+    private function item(Suggestion $s, DigitalAsset $site, array $siteLanguages, ?array $scored = null): array
     {
         $action = (array) $s->action;
         $hasArticle = is_array($action['article'] ?? null);
@@ -215,6 +220,7 @@ final class ContentBoard
             'writing' => $writing, 'line' => $writing ? $line : (in_array($status['status'] ?? null, [null, 'ready'], true) ? null : $line),
             'approved' => $s->status === Suggestion::APPROVED, 'sent_at' => $sent ? ($s->resolved_at ?? $s->applied_at) : null,
             'reason' => (string) $s->reason,
+            'score' => $scored['score'] ?? 0, 'score_line' => $scored !== null ? ContentScore::explain($scored) : null,
         ];
     }
 

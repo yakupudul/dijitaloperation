@@ -25,6 +25,14 @@
             </header>
             @if ($article['blocked'])<p class="mx-5 mt-4 rounded-lg bg-rose-50 p-2.5 text-xs text-rose-800 dark:bg-rose-500/10 dark:text-rose-200">Uyum kuralına takıldı; gönderilemez. «Yeniden yaz» ile yeniden yazdırabilirsin: {{ $article['blocked'] }}</p>@endif
             @if ($article['warnings'])<p class="mx-5 mt-4 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">{{ $article['warnings'] }}</p>@endif
+            @if (! empty($article['seo']))
+                <div class="mx-5 mt-4 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200" data-article-seo>
+                    <p class="font-semibold">SEO kontrolü</p>
+                    <ul class="mt-1 list-disc pl-4">@foreach ($article['seo'] as $issue)<li>{{ $issue }}</li>@endforeach</ul>
+                </div>
+            @elseif (($article['seo'] ?? null) === [] && $article['article'] !== null)
+                <p class="mx-5 mt-4 text-xs text-emerald-700 dark:text-emerald-400" data-article-seo-ok>SEO kontrolü: ana sorgu, iç bağlantı ve bölge tamam.</p>
+            @endif
             @foreach ($versions as $code => $version)
                 <div x-show="lang === '{{ $code }}'" @if (! $loop->first) x-cloak @endif class="px-5 py-4" data-reader-version="{{ $code }}">
                     <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{{ $version['title'] }}</h2>

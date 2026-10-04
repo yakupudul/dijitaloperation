@@ -32,7 +32,9 @@ final class ForbiddenTerms
     {
         $code = $sectorId !== null ? ServiceCategory::query()->whereKey($sectorId)->value('code') : null;
 
-        return new self($code !== null ? self::forbiddenOnly(app(SectorPackRegistry::class)->rulesForSector((string) $code)) : collect());
+        // Without a brand "{marka}" has nothing to stand for: those rules wait for the brand's own content work.
+        return new self($code !== null ? self::forbiddenOnly(app(SectorPackRegistry::class)->rulesForSector((string) $code))
+            ->reject(fn (ComplianceRule $rule): bool => SectorPackRegistry::hasBrandToken($rule))->values() : collect());
     }
 
     /** @return list<string> every forbidden phrase, for the AI pack */

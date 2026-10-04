@@ -1950,6 +1950,10 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   kez yazılır, satırda yalnız ne / neden / düğme kalır; küme çakışmaları kümesinin altında. Marka filtresi seçiliyse her
   zaman görünür ve tek tıkla kalkar (sistem hiçbir markayı kendisi seçmez). Aynı küme · ana sayfa · sayfa çifti tek
   iştir; başka dildeki sayfa çakışma sayılmaz.
+- **İçerik öncelik puanı ve yazım kuralları (yakup, 2026-10-02; kod 2026-10-04):** haftalık başlık sınırı yok; her içerik
+  fikri kurala dayalı 1–100 puan alır (Talep %35, Hizmet %25, Boşluk %25, Niyet %15; AI yok) ve başlıklar puana göre
+  sıralanır. Sağlık yasaklı ifadeleri mevcut sektör paketinden başlar. `{marka}` yasaklı ifadesi her markada o markanın
+  adı ve alan adı olur, yalnız AI içeriğine uygulanır. Yazı sonrası SEO kontrolü uyarır, engellemez.
 - **Microsoft Clarity (yakup, 2026-10-03):** her site için Clarity proje kimliği + Data Export token (Ayarlar). Günde bir
   çekim; kural tabanlı (AI yok) öfkeli / çalışmayan tıklama, hızlı geri dönüş, JS hatası, kaydırma → Genel işler › Teknik
   sağlık işi. Siteye hiçbir şey yazılmaz; Clarity etiketini siteye yakup ekler.
