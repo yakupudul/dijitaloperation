@@ -219,3 +219,31 @@ not a claim that WhatsApp onboarding or the existing-number connection is comple
 Previously reported advanced-access error #2655111 is a separate Meta approval blocker.
 No extra permission, account deletion, number registration or backend mutation was added.
 No tests, formatter, browser UAT or deployment performed, per operator workflow.
+
+
+## 2026-12-02 — Connection hardening and screen redesign
+
+Symptom: the operator picked a business portfolio in the Meta popup and continued; nothing came back, the attempt
+stayed `prepared` and the screen showed only a raw English token error (code 190 / 463) from an old manual token.
+
+- The popup is launched with `extras: { setup: {}, sessionInfoVersion: '3', featureType: 'whatsapp_business_app_onboarding' }`
+  (coexistence). Meta requires session logging for WhatsApp Business app onboarding; a v4 configuration ignores the
+  override harmlessly. Embedded Signup v2/v3 is retired by Meta on 2026-10-15, so the configuration id must be a v4
+  "WhatsApp Embedded Signup" configuration.
+- Session events: `FINISH`, `FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING`, `FINISH_ONLY_WABA` complete; `CANCEL`
+  (`current_step`, or `error_message` / `error_id` / `session_id`) and a popup closed without a code are posted to
+  `operator.whatsapp.report` and stored on the attempt (`cancelled`, details shown on the screen).
+- Meta's exchangeable code lives about 30 seconds: `WhatsAppSignup::submit()` exchanges it inside the request
+  (`exchanging`), then queues `CompleteWhatsAppSignup`. When no account event arrives within 4 seconds the page posts
+  `CODE_ONLY`; the job reads the shared WABA ids from `debug_token` granular scopes and picks the only phone itself.
+- `coexistence_state`: `signup_reported` (business app event), `not_used` (Cloud API finish in coexistence mode),
+  `unknown` (code only), `not_requested` (Cloud API mode). For `signup_reported` the job requests
+  `POST {phone}/smb_app_data` with `sync_type` `smb_app_state_sync` and `history` (Meta allows 24 hours); the result
+  is `history_sync` on the integration and never fails the connection.
+- The Meta app owner's portfolio cannot be chosen in Embedded Signup; the screen points that case to the manual form
+  (WABA id, phone number id, system user token).
+- Screen: setup steps when not connected (`WhatsAppConnection::state()`), two-pane inbox when connected, settings
+  panel with reply-suggestion settings separated from the manual connection form. Meta errors are explained in
+  Turkish by `WhatsAppErrorText`.
+- Tests: `WhatsAppSignupFlowTest`. Not verified against a live Meta popup.
+

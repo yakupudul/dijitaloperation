@@ -1,5 +1,17 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-12-02 — WhatsApp bağlantısı sağlamlaştı, ekran yeniden tasarlandı
+
+- **Neden:** yakup Facebook penceresinde portföy seçip devam etti, MoxDOP'a hiçbir sonuç dönmedi; deneme "Meta onayı bekleniyor"da kaldı, sebep görünmüyordu. Eski el ile girilmiş erişim anahtarının süresi 10 Eylül'de dolmuştu ve ekranda İngilizce ham hata vardı.
+- **Bağlantı akışı:**
+  - Pencere `sessionInfoVersion: '3'` ile açılır (Coexistence için Meta'nın istediği session logging).
+  - Pencere iptal / hata / sonuçsuz kapanırsa bağlantı sayfası nedeni `POST /whatsapp/connect/{attempt}/report` ile kaydeder (deneme `cancelled`, Meta adımı ve hata no'su saklanır); aynı deneme yeniden denenebilir.
+  - Meta kodu ~30 sn yaşadığı için kod sunucuya gelir gelmez değiştirilir (`exchanging` durumu), gerisi kuyrukta. Hesap mesajı gelmezse 4 sn sonra yalnız kod gönderilir; iş paylaşılan WhatsApp hesabını `debug_token` izinlerinden bulur, tek numara varsa kendisi seçer.
+  - Coexistence modunda Meta Cloud API (FINISH) dönerse reddedilmez, "uygulamayla birlikte kullanım seçilmedi" diye işaretlenir. Coexistence numarasında kişiler ve geçmiş mesajlar `smb_app_data` ile istenir.
+  - Meta hataları Türkçe açıklanır (190/463 süresi dolmuş anahtar vb.); ham Meta mesajı "Meta'nın teknik mesajı" altında.
+- **Ekran:** Bağlı değilken 3 adımlı kurulum (Meta uygulama bilgileri → Facebook ile bağla, son denemenin sonucu → webhook adresi ve durumları). Bağlıyken üstte durum rozeti + iki bölmeli gelen kutusu (görüşmeler | mesajlar ve altta kopyalanacak AI cevabı). "Ayarlar": yanıt önerileri (model, otomatik, hizmet/fiyat metni, KVKK süresi), bağlantı durumu ve düğmeleri, Meta uygulama bilgileri, "Elle bağla" (sahip portföyün kendi numarası için), son aktarımlar.
+- **Test:** WhatsAppSignupFlowTest (10 test) + mevcut WhatsApp testleri. UAT: yok — yakup Facebook ile yeniden bağlayınca doğrulanır; Tech Provider durumu ve v4 yapılandırması Meta tarafında kontrol edilmeli.
+
 ## 2026-12-01 — WhatsApp gelen kutusu geri geldi (OpenAI ile anında yanıt önerisi)
 
 - **Ekran:** Menüde **WhatsApp** (yalnız Admin) → `/whatsapp`. Meta Embedded Signup ile numara bağlama, bağlantı teşhisi, webhook (`/api/whatsapp/webhook`), görüşme listesi ve mesajlar, 24 saat yanıt penceresi, KVKK "DUR" algılama — v2 öncesi koddan geri alındı.

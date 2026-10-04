@@ -32,9 +32,9 @@ final class WhatsAppSignupController
         $row = $signup->owned($attempt, $request->user(), $request->session()->getId());
         $validator = Validator::make($request->all(), [
             'code' => ['required', 'string', 'max:4096'],
-            'waba_id' => ['required', 'regex:/^[0-9]{5,40}$/'],
+            'event' => ['required', 'in:FINISH,FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING,FINISH_ONLY_WABA,CODE_ONLY'],
+            'waba_id' => ['nullable', 'required_unless:event,CODE_ONLY', 'regex:/^[0-9]{5,40}$/'],
             'phone_number_id' => ['nullable', 'regex:/^[0-9]{5,40}$/'],
-            'event' => ['required', 'in:FINISH,FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'],
         ]);
         // Do not flash OAuth codes into the session on a malformed browser request.
         if ($validator->fails()) {
@@ -47,6 +47,22 @@ final class WhatsAppSignupController
         }
 
         return response()->json(['queued' => true, 'redirect' => route('operator.whatsapp')]);
+    }
+
+    /** The popup ended without a result: where it stopped (CANCEL current_step) or the error Meta showed. */
+    public function report(Request $request, string $attempt, WhatsAppSignup $signup): JsonResponse
+    {
+        $row = $signup->owned($attempt, $request->user(), $request->session()->getId());
+        $data = $request->validate([
+            'event' => ['required', 'in:CANCEL,ERROR,POPUP_CLOSED,LOGIN_REFUSED,NO_CODE'],
+            'current_step' => ['nullable', 'string', 'max:100'],
+            'error_message' => ['nullable', 'string', 'max:500'],
+            'error_id' => ['nullable', 'string', 'max:100'],
+            'session_id' => ['nullable', 'string', 'max:200'],
+        ]);
+        $signup->report($row, $data);
+
+        return response()->json(['saved' => true]);
     }
 
     public function selectPhone(Request $request, string $attempt, WhatsAppSignup $signup): JsonResponse

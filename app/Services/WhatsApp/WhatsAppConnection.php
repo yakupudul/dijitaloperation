@@ -59,9 +59,9 @@ final class WhatsAppConnection
             'access_token' => ['nullable', 'string', 'max:4096'],
             'app_secret' => ['nullable', 'string', 'max:255'],
             'verify_token' => ['nullable', 'string', 'min:16', 'max:255'],
-            'business_context' => ['required', 'string', 'max:12000'],
+            'business_context' => ['sometimes', 'required', 'string', 'max:12000'],
             'enabled' => ['required', 'boolean'],
-            'automatic_suggestions' => ['required', 'boolean'],
+            'automatic_suggestions' => ['sometimes', 'required', 'boolean'],
         ], [
             'verify_token.min' => 'Webhook Verify Token en az 16 karakter olmalı.',
         ], [
@@ -106,14 +106,16 @@ final class WhatsAppConnection
             }
             $config['subscription_state'] = 'not_checked';
             $config['subscription_error'] = null;
-            $contextChanged = ($config['business_context'] ?? '') !== $data['business_context'];
+            $contextChanged = array_key_exists('business_context', $data) && ($config['business_context'] ?? '') !== $data['business_context'];
             $config['connection_check_request_id'] = (string) Str::uuid();
             $config['connection_check_requested_at'] = null;
             $config['connection_check'] = 'not_checked';
             $config['connection_checked_at'] = null;
             $config['settings_saved_at'] = now()->toIso8601String();
             foreach (['waba_id', 'phone_number_id', 'business_phone', 'business_context', 'automatic_suggestions'] as $key) {
-                $config[$key] = $data[$key];
+                if (array_key_exists($key, $data)) {
+                    $config[$key] = $data[$key];
+                }
             }
             $integration->update([
                 'status' => $data['enabled'] ? CoreIntegration::STATUS_ACTIVE : CoreIntegration::STATUS_DISABLED,
@@ -123,10 +125,37 @@ final class WhatsAppConnection
                 'encrypted_payload' => $secrets, 'refreshed_at' => now(),
             ]);
             if ($contextChanged) {
-                WhatsAppConversation::query()->where('integration_id', $integration->id)
-                    ->update(['suggestion_status' => 'pending', 'updated_at' => now()]);
+                self::contextChanged($integration);
             }
         });
+    }
+
+    /** New service terms: drafts of conversations still inside the 24-hour reply window are prepared again. */
+    public static function contextChanged(CoreIntegration $integration): void
+    {
+        WhatsAppConversation::query()->where('integration_id', $integration->id)->where('suggestion_status', 'ready')
+            ->where('last_incoming_at', '>', now()->subHours(24))
+            ->update(['suggestion_status' => 'pending', 'updated_at' => now()]);
+    }
+
+    /**
+     * Where the connection stands, for the screen: 'setup' (Meta app details missing), 'connect' (no number yet),
+     * 'attention' (a number is saved but Meta refuses it), 'disabled' or 'connected'.
+     */
+    public function state(?CoreIntegration $integration): string
+    {
+        $config = $integration?->config ?? [];
+        $secrets = $this->credentialStatus($integration);
+        $bound = filled($config['waba_id'] ?? null) && filled($config['phone_number_id'] ?? null) && $secrets['access_token'];
+
+        return match (true) {
+            $integration !== null && ! $integration->isActive() => 'disabled',
+            ! $bound && (! filled($config['app_id'] ?? null) || ! filled($config['signup_config_id'] ?? null) || ! $secrets['app_secret'] || ! $secrets['verify_token']) => 'setup',
+            ! $bound => 'connect',
+            ! empty($config['connection_error']) || in_array($config['connection_check'] ?? '', ['failed', 'phone_mismatch'], true)
+                || in_array($config['subscription_state'] ?? '', ['failed', 'missing'], true) => 'attention',
+            default => 'connected',
+        };
     }
 
     public function assertBindingAvailable(CoreIntegration $integration, array $data): bool

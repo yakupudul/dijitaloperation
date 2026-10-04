@@ -7,6 +7,9 @@
   - Yanıt önerisi **OpenAI API** ile anında hazırlanır; Claude MCP kuyruğuna gitmez (WhatsApp yanıtı dakikalar içinde gerekir). Model WhatsApp ekranından seçilir (`config.ai_model`).
   - "Yeni mesajlarda otomatik öneri" açıksa öneri tıklamasız çalışır ("otomatik AI yalnız Sorgular" kuralının tek istisnası); günlük AI tavanı yine geçerlidir.
 - **Kural:** MoxDOP mesaj göndermez; öneri kopyalanır, operatör telefondan yollar.
+- **Bağlantı (2026-10-04 düzeltmesi):** Meta Embedded Signup penceresi `sessionInfoVersion: '3'` ile açılır (Coexistence için Meta "session logging" ister). Meta'nın yetki kodu ~30 sn yaşar; sunucu kodu tarayıcıdan gelir gelmez tek Graph çağrısıyla değiştirir, gerisi kuyrukta. Pencere sonuçsuz kapanırsa (CANCEL adımı / hata / kapandı) neden denemeye yazılır ve ekranda Türkçe görünür. Coexistence numarasında bağlantıdan sonra kişiler + geçmiş `smb_app_data` ile istenir (Meta 24 saat tanır).
+  - Meta uygulamasının sahibi olan portföy pencerede seçilemez (Meta kuralı); o numara "Elle bağla" ile sistem kullanıcısı anahtarıyla bağlanır.
+  - Meta, Embedded Signup v2/v3'ü 15 Ekim 2026'da kapatıyor; yapılandırma ID'si "WhatsApp Embedded Signup" şablonlu güncel (v4) yapılandırma olmalı.
 
 ## 2026-11-24 — Web sitesi ekranı v3
 

@@ -45,6 +45,9 @@ class Inbox extends Component
 
     public bool $showSettings = false;
 
+    /** The manual (own WhatsApp account) connection form is open in the settings. */
+    public bool $manualOpen = false;
+
     public string $notice = '';
 
     public string $waba_id = '';
@@ -85,8 +88,7 @@ class Inbox extends Component
         $this->ai_model = WhatsAppSuggestions::model($integration);
         $days = AgencySetting::query()->value('whatsapp_retention_days');
         $this->retention_days = $days !== null ? (string) $days : '';
-        $this->showSettings = $integration === null;
-        if ($integration === null) {
+        if (trim($this->business_context) === '') {
             // Faz 12: no built-in prices or names; the operator writes the agency's own terms here.
             $agency = (string) (AgencySetting::query()->value('agency_name') ?? '');
             $this->business_context = ($agency !== '' ? $agency.'. ' : '').'Hizmetler ve fiyatlar: (buraya yazın). KDV, domain, hosting, teslim tarihi ve ödeme planı ayrıca netleştirilmeli; dahil olduğu varsayılmamalı. Burada yazmayan fiyatı uydurma. Kısa, samimi, profesyonel ve baskısız Türkçe yaz.';
@@ -113,6 +115,13 @@ class Inbox extends Component
 
             return false;
         }
+    }
+
+    /** Own business (the Meta app owner's portfolio cannot be picked in the Meta popup): connect with IDs and a token. */
+    public function openManual(): void
+    {
+        $this->showSettings = true;
+        $this->manualOpen = true;
     }
 
     public function beginSignup(WhatsAppSignup $signup): void
@@ -148,10 +157,7 @@ class Inbox extends Component
         $this->resetValidation();
         $this->notice = '';
         try {
-            $input = $this->only([
-                'waba_id', 'phone_number_id', 'business_phone',
-                'business_context', 'enabled', 'automatic_suggestions',
-            ]);
+            $input = $this->only(['waba_id', 'phone_number_id', 'business_phone', 'enabled']);
             foreach (['access_token', 'app_secret', 'verify_token'] as $key) {
                 $input[$key] = $secrets[$key] ?? '';
             }
@@ -170,29 +176,40 @@ class Inbox extends Component
         }
     }
 
-    /** The OpenAI model of the reply suggestions and the KVKK message retention; saved apart from the connection. */
+    /**
+     * Reply suggestions (OpenAI model, automatic drafting, the agency's service terms) and the KVKK message retention;
+     * saved apart from the connection so changing the model never touches the Meta settings.
+     */
     public function saveAiSettings(WhatsAppConnection $connection): void
     {
         $this->resetValidation();
         $this->notice = '';
         $this->validate([
             'ai_model' => ['required', 'string', 'in:'.implode(',', array_keys(WhatsAppSuggestions::modelOptions()))],
+            'automatic_suggestions' => ['boolean'],
+            'business_context' => ['required', 'string', 'max:12000'],
             'retention_days' => ['nullable', 'integer', 'min:30', 'max:3650'],
-        ], [], ['ai_model' => 'yanıt önerisi modeli', 'retention_days' => 'saklama süresi']);
+        ], [], ['ai_model' => 'yanıt önerisi modeli', 'business_context' => 'hizmetler ve fiyatlar', 'retention_days' => 'saklama süresi']);
         $integration = $connection->integration();
         if ($integration === null) {
-            $this->addError('ai_model', 'Önce WhatsApp bağlantısını kaydedin.');
+            $this->addError('ai_model', 'Önce WhatsApp bağlantısını kurun.');
 
             return;
         }
         DB::transaction(function () use ($integration): void {
             $current = CoreIntegration::query()->lockForUpdate()->findOrFail($integration->id);
-            $current->update(['config' => [...($current->config ?? []), 'ai_model' => $this->ai_model]]);
+            $config = $current->config ?? [];
+            $contextChanged = ($config['business_context'] ?? '') !== $this->business_context;
+            $current->update(['config' => [...$config, 'ai_model' => $this->ai_model,
+                'automatic_suggestions' => $this->automatic_suggestions, 'business_context' => $this->business_context]]);
+            if ($contextChanged) {
+                WhatsAppConnection::contextChanged($current);
+            }
         });
         AgencySetting::query()->first()?->forceFill([
             'whatsapp_retention_days' => $this->retention_days !== '' ? (int) $this->retention_days : null,
         ])->save();
-        $this->notice = 'Öneri modeli ve saklama süresi kaydedildi. Yeni öneriler '.$this->ai_model.' ile hazırlanır.';
+        $this->notice = 'Yanıt önerisi ayarları kaydedildi. Yeni öneriler '.$this->ai_model.' ile hazırlanır.';
     }
 
     public function refreshConnectionStatus(): void
@@ -296,6 +313,11 @@ class Inbox extends Component
         $this->notice = $this->linkCustomer !== '' ? 'Görüşme müşteriye bağlandı.' : 'Görüşmenin müşteri bağlantısı kaldırıldı.';
     }
 
+    public function updatedLinkCustomer(WhatsAppContactLinker $linker): void
+    {
+        $this->saveLink($linker);
+    }
+
     private function selectedConversation(): WhatsAppConversation
     {
         abort_if($this->conversation === null, 404);
@@ -318,6 +340,7 @@ class Inbox extends Component
 
         return view('livewire.operator.whatsapp.inbox', [
             'integration' => $integration, 'rows' => $rows, 'selected' => $selected, 'messages' => $messages,
+            'state' => $connection->state($integration),
             'config' => $integration?->config ?? [],
             'credentialStatus' => $connection->credentialStatus($integration),
             'signupAttempt' => WhatsAppSignupAttempt::query()->where('integration_id', $integration?->id)

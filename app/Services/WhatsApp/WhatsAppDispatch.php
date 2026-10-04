@@ -14,9 +14,9 @@ final class WhatsAppDispatch
     {
         $integration = app(WhatsAppConnection::class)->integration();
         // Recover interrupted signup work and remove short-lived encrypted OAuth material.
-        WhatsAppSignupAttempt::query()->whereIn('status', ['prepared', 'choose_phone', 'queued'])
+        WhatsAppSignupAttempt::query()->whereIn('status', ['prepared', 'cancelled', 'choose_phone', 'queued'])
             ->where('expires_at', '<', now())->update(['status' => 'expired', 'payload' => null, 'updated_at' => now()]);
-        WhatsAppSignupAttempt::query()->where('status', 'running')->where('updated_at', '<', now()->subMinutes(3))
+        WhatsAppSignupAttempt::query()->whereIn('status', ['exchanging', 'running'])->where('updated_at', '<', now()->subMinutes(3))
             ->update(['status' => 'interrupted', 'payload' => null, 'updated_at' => now()]);
         foreach (WhatsAppSignupAttempt::query()->where('status', 'queued')->limit(5)->get() as $attempt) {
             app(WhatsAppSignup::class)->dispatch($attempt);
