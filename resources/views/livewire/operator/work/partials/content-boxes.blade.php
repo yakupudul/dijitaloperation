@@ -44,7 +44,8 @@
                             @forelse ($box['steps'][$code] as $item)
                                 <li class="px-4 py-3" wire:key="content-item-{{ $item['id'] }}" data-content-item="{{ $item['id'] }}">
                                     <div class="mb-1 flex flex-wrap items-center gap-1.5">
-                                        @if ($item['rank'] <= 1 && $code === 'yazilacak')<span class="{{ $chip }} bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">Acil</span>@endif
+                                        @if ($code === 'yazilacak' && $item['score'] > 0)<span class="{{ $chip }} tabular-nums {{ $item['score'] >= 70 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' : ($item['score'] >= 45 ? 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' : 'bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-300') }}" title="Öncelik puanı: {{ $item['score_line'] }}" data-score="{{ $item['score'] }}">Puan {{ $item['score'] }}</span>@endif
+                                @if ($item['rank'] <= 1 && $code === 'yazilacak')<span class="{{ $chip }} bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">Acil</span>@endif
                                         <span class="{{ $chip }} {{ $item['kind'] === 'Güncelleme' ? 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300' : 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' }}">{{ $item['kind'] }}</span>
                                         <span class="{{ $chip }} bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-300">{{ strtoupper($item['language']) }}@foreach ($item['translations'] as $t) + {{ strtoupper($t) }}@endforeach</span>
                                         @if ($item['blocked'])<span class="{{ $chip }} bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">Kurala takıldı</span>@endif
