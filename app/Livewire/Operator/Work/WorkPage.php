@@ -180,11 +180,14 @@ final class WorkPage extends Component
 
     public function render(WorkDesk $desk, ContentBoard $board): View
     {
+        $brands = Brand::query()->operational()->orderBy('name')->get(['id', 'name']);
+        if ($this->brand !== null && ! $brands->contains('id', $this->brand)) {
+            $this->brand = null; // an old link to a brand that is no longer served: every brand, not an empty page
+        }
         $rows = $desk->rows($this->tab, $this->view, $this->brand);
         $sections = WorkDesk::groups($rows, $this->view === WorkDesk::VIEW_OPEN);
         $this->step = array_key_exists($this->step, ContentBoard::STEPS) ? $this->step : 'yazilacak';
         $queue = $this->tab === 'icerik' && $this->view === WorkDesk::VIEW_OPEN ? $board->queue($this->brand) : null;
-        $brands = Brand::query()->operational()->orderBy('name')->get(['id', 'name']);
 
         return view('livewire.operator.work.work-page', [
             'tabs' => WorkDesk::TABS,
@@ -195,6 +198,7 @@ final class WorkPage extends Component
             'queue' => $queue,
             'article' => $this->reading !== null ? $board->article($this->reading) : null,
             'total' => $rows->count(),
+            'truncated' => $rows->count() >= WorkDesk::LIMIT,
             'brands' => $brands,
             'brandCounts' => $desk->brandCounts($this->tab),
             'brandName' => $this->brand !== null ? $brands->firstWhere('id', $this->brand)?->name : null,

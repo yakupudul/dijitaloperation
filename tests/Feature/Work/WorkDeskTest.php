@@ -169,6 +169,15 @@ class WorkDeskTest extends TestCase
         $this->assertSame(Suggestion::APPROVED, Suggestion::query()->where('title', 'Northwind sayfa 1 başlığı')->value('status'), 'an approval is kept');
         $this->assertSame(Suggestion::OPEN, Suggestion::query()->where('brand_id', $first->id)->value('status'), 'another card is not touched');
         $page->call('snoozeGroup', $key)->assertSee('artık listede yok');
+
+        // A snooze that ran out is open work again, and its buttons work.
+        $this->travel(8)->days();
+        $snoozed = Suggestion::query()->where('title', 'Northwind sayfa 2 başlığı')->sole();
+        Livewire::test(WorkPage::class, ['tab' => 'teknik'])->assertSee('Northwind sayfa 2 başlığı')->call('approve', $snoozed->id)->assertSee('Onaylandı');
+        $this->assertSame(Suggestion::APPROVED, $snoozed->fresh()->status);
+
+        // An old link to a brand that is no longer served shows every brand, not an empty page.
+        Livewire::test(WorkPage::class, ['tab' => 'teknik', 'brand' => 999999])->assertSet('brand', null)->assertSee('Aardvark ana sayfa başlığı');
     }
 
     public function test_a_reopened_item_does_not_show_its_old_done_time(): void

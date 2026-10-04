@@ -166,6 +166,7 @@ final class WorkDesk
             foreach ($section['groups'] as &$group) {
                 $items = $group['items'];
                 $group['count'] = count($items);
+                $group['snoozable'] = count(array_filter($items, fn (array $r): bool => $r['status'] !== Suggestion::APPROVED));
                 $group['urgent'] = count(array_filter($items, fn (array $r): bool => $r['rank'] <= 1));
                 $group['rank'] = min(array_column($items, 'rank'));
                 $whos = array_unique(array_column($items, 'who'));
@@ -567,8 +568,14 @@ final class WorkDesk
         };
     }
 
+    /** An expired snooze is open work again (it is listed as such), so its buttons act on it as open. */
     private function suggestion(int $id): Suggestion
     {
-        return Suggestion::query()->whereKey($id)->whereHas('brand', fn (Builder $brand): Builder => $brand->operational())->firstOrFail();
+        $suggestion = Suggestion::query()->whereKey($id)->whereHas('brand', fn (Builder $brand): Builder => $brand->operational())->firstOrFail();
+        if ($suggestion->status === Suggestion::SNOOZED && ($suggestion->snoozed_until === null || $suggestion->snoozed_until->lte(now()))) {
+            $suggestion->status = Suggestion::OPEN;
+        }
+
+        return $suggestion;
     }
 }

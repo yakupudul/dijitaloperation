@@ -3066,9 +3066,13 @@ not tested yet; not DONE.
 - **Küme çakışması duplicates (Geliştirme havuzu #1):** `ClusterOverlaps::sync` skips a page whose language differs from
   the cluster row's (TR row ↔ EN page was proposed as a 301). The fingerprint is cluster · main page · page (it was the
   language row id), so TR / EN / language-less rows give one item. An item with the old fingerprint is adopted and
-  keeps its decision; the extra copies close as "Çakışma kalktı". `moxdop:clusters:sync-overlaps` rebuilds the
-  overlaps from the stored match (no AI) to clean old duplicates at once. Verification: `Site/ClusterOverlapsTest`,
-  `Work/WorkDeskTest`. Not deployed; not DONE.
+  keeps its decision (a decided copy wins over an open one); the extra copies, snoozed ones too, close as "Çakışma
+  kalktı". A language-less row compares with its main page's language. An overlap the system closed reopens when it is
+  seen again (main page changed and changed back). `moxdop:clusters:sync-overlaps` rebuilds the overlaps from the
+  stored match (no AI) to clean old duplicates at once. A snooze that ran out acts as open work (Onayla / 301 used to
+  fail on it); "Hepsini 7 gün ertele" leaves approved items alone; an old `marka` link to a brand no longer served
+  shows every brand; a tab over 2000 rows says so. Verification: `Site/ClusterOverlapsTest`, `Work/WorkDeskTest`.
+  Not deployed; not DONE.
 
 ### Microsoft Clarity behaviour (yakup, 2026-10-03)
 

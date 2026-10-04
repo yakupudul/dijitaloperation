@@ -35,16 +35,22 @@ final class ClusterOverlaps
 
     public const string DIFFERENTIATE = 'differentiate';
 
+    /** Note of an overlap the system closed because it was gone; it reopens when the overlap comes back. */
+    public const string GONE = 'Çakışma kalktı.';
+
     public function __construct(private readonly ExternalWriteService $writes, private readonly BrandMemoryService $memory) {}
 
     /**
      * @param  array<int, list<array{url: string, url_key: string, impressions: int, share: float}>>  $shares  cluster id → Search Console pages
-     * @return int open overlaps
+     * @return int open overlaps (decided ones not counted)
      */
     public function sync(DigitalAsset $site, Brand $brand, array $shares = []): int
     {
+        // Language-less rows first: a pair several rows find keeps the language row (the website tab lists it there).
         $rows = BrandClusterPage::query()->with('cluster')->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
-            ->where('excluded', false)->whereNotNull('page_id')->orderBy('id')->get()->filter(fn (BrandClusterPage $row): bool => $row->cluster !== null);
+            ->where('excluded', false)->whereNotNull('page_id')->orderBy('id')->get()->filter(fn (BrandClusterPage $row): bool => $row->cluster !== null)
+            ->sortBy(fn (BrandClusterPage $row): array => [filled($row->language) ? 1 : 0, (int) $row->id])->values();
+        $rowIds = $rows->groupBy('cluster_id')->map(fn ($group): array => $group->pluck('id')->map(fn ($id): int => (int) $id)->all())->all();
         $pages = Page::query()->where('website_asset_id', $site->id)->get(['id', 'url', 'path', 'language'])->keyBy('id');
         $byKey = $pages->mapWithKeys(fn (Page $p): array => [SeoText::urlKey((string) $p->url) => (int) $p->id])->all();
         $targets = BrandClusterPage::query()->where('website_asset_id', $site->id)->where('excluded', false)->whereNotNull('page_id')
@@ -70,20 +76,21 @@ final class ClusterOverlaps
             $skip = [(int) $row->page_id, ...array_map('intval', (array) $row->extra_page_ids)];
             foreach (array_unique(array_map('intval', $overlaps)) as $pageId) {
                 $page = $pages->get($pageId);
-                if ($page === null || in_array($pageId, $skip, true) || ! self::sameLanguage($row, $page)) {
+                if ($page === null || in_array($pageId, $skip, true) || ! self::sameLanguage((string) ($row->language ?: $main->language), $page)) {
                     continue;
                 }
                 $share = $gsc[$pageId] ?? 0.0;
                 $otherTarget = array_diff($targets[$pageId] ?? [], [(int) $row->cluster_id]) !== [];
-                $kept[] = $this->upsert($site, $brand, $row, $main, $page, $share, $otherTarget);
+                $suggestion = $this->upsert($site, $brand, $row, $main, $page, $share, $otherTarget, $rowIds[(int) $row->cluster_id] ?? [(int) $row->id]);
+                $kept[(int) $suggestion->id] = in_array($suggestion->status, [Suggestion::OPEN, Suggestion::RECHECK], true);
             }
         }
         Suggestion::query()->where('brand_id', $brand->id)->where('decision_key', self::DECISION)
-            ->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK])->whereNotIn('id', $kept ?: [0])->get()
+            ->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED])->whereNotIn('id', array_keys($kept) ?: [0])->get()
             ->filter(fn (Suggestion $s): bool => (int) data_get($s->action, 'site_id') === (int) $site->id)
-            ->each(fn (Suggestion $s) => $s->forceFill(['status' => Suggestion::APPLIED, 'resolved_at' => now(), 'operator_note' => 'Çakışma kalktı.'])->save());
+            ->each(fn (Suggestion $s) => $s->forceFill(['status' => Suggestion::APPLIED, 'resolved_at' => now(), 'operator_note' => self::GONE])->save());
 
-        return count(array_unique($kept));
+        return count(array_filter($kept));
     }
 
     /** "301 ile birleştir": the overlapping page redirects to the cluster's main page (approved WordPress write, undoable). */
@@ -120,7 +127,8 @@ final class ClusterOverlaps
         $this->memory->recordDecision($suggestion, 'reddedildi', 'Ayrı kalsın');
     }
 
-    private function upsert(DigitalAsset $site, Brand $brand, BrandClusterPage $row, Page $main, Page $page, float $share, bool $otherTarget): int
+    /** @param  list<int>  $clusterRowIds  the site's rows of the same cluster (their old per-row fingerprints) */
+    private function upsert(DigitalAsset $site, Brand $brand, BrandClusterPage $row, Page $main, Page $page, float $share, bool $otherTarget, array $clusterRowIds): Suggestion
     {
         $recommendation = $share >= ClusterPageShares::CONFLICT || $otherTarget ? self::DIFFERENTIATE : self::REDIRECT;
         $mainPath = self::path($main);
@@ -131,12 +139,11 @@ final class ClusterOverlaps
             default => $path.' aynı ihtiyacı işliyor ama bu kümede az trafik alıyor. Eksik bilgisi '.$mainPath.' sayfasına taşınıp 301 ile oraya yönlendirilmeli.',
         };
         $fingerprint = hash('sha256', implode('|', [$brand->id, 'cluster-overlap', $row->cluster_id, $main->id, $page->id]));
-        // Before 2026-10-05 the fingerprint carried the language row: such a suggestion keeps its decision and moves over.
-        $legacy = hash('sha256', implode('|', [$brand->id, 'cluster-overlap', $row->id, $page->id]));
         $suggestion = Suggestion::query()->where('brand_id', $brand->id)->where('fingerprint', $fingerprint)->first()
-            ?? Suggestion::query()->where('brand_id', $brand->id)->where('fingerprint', $legacy)->first() ?? new Suggestion;
+            ?? $this->legacy($brand, $clusterRowIds, $page) ?? new Suggestion;
         $material = hash('sha256', $recommendation.'|'.$main->id);
-        $reopen = in_array($suggestion->status, [Suggestion::DISMISSED, Suggestion::APPLIED], true) && $suggestion->material_hash !== $material;
+        $gone = $suggestion->status === Suggestion::APPLIED && $suggestion->applied_at === null && $suggestion->operator_note === self::GONE;
+        $reopen = $gone || (in_array($suggestion->status, [Suggestion::DISMISSED, Suggestion::APPLIED], true) && $suggestion->material_hash !== $material);
         $suggestion->forceFill([
             'brand_id' => $brand->id, 'channel' => 'search', 'decision_key' => self::DECISION, 'fingerprint' => $fingerprint, 'material_hash' => $material,
             'title' => mb_substr('Çakışma: «'.$row->cluster->name.'» · '.$path.' ↔ '.$mainPath, 0, 160), 'reason' => mb_substr($why, 0, 240),
@@ -147,18 +154,39 @@ final class ClusterOverlaps
                 'main_url' => (string) $main->url, 'overlap_url' => (string) $page->url, 'recommendation' => $recommendation, 'share' => $share]),
             'status' => $suggestion->exists && ! $reopen ? $suggestion->status : Suggestion::OPEN,
             'first_seen_at' => $suggestion->first_seen_at ?? now(), 'last_seen_at' => now(),
-        ])->save();
+        ] + ($gone ? ['operator_note' => null, 'resolved_at' => null] : []))->save();
 
-        return (int) $suggestion->id;
+        return $suggestion;
     }
 
-    /** A row and a page that both carry a language must share it (TR row ↔ EN page is a translation, not an overlap). */
-    private static function sameLanguage(BrandClusterPage $row, Page $page): bool
+    /**
+     * Before 2026-10-05 the fingerprint carried the language row, so one pair could have a suggestion per row. The one
+     * the operator decided on (merged, kept apart, snoozed) moves over to the new fingerprint; the others close as gone.
+     *
+     * @param  list<int>  $clusterRowIds
+     */
+    private function legacy(Brand $brand, array $clusterRowIds, Page $page): ?Suggestion
     {
-        $rowLanguage = strtolower((string) $row->language);
+        $fingerprints = array_map(fn (int $rowId): string => hash('sha256', implode('|', [$brand->id, 'cluster-overlap', $rowId, $page->id])), $clusterRowIds);
+
+        return Suggestion::query()->where('brand_id', $brand->id)->whereIn('fingerprint', $fingerprints)->orderBy('id')->get()
+            ->sortBy(fn (Suggestion $s): int => match (true) {
+                $s->status === Suggestion::DISMISSED, $s->status === Suggestion::APPLIED && $s->applied_at !== null => 0,
+                $s->status === Suggestion::SNOOZED => 1,
+                default => 2,
+            })->first();
+    }
+
+    /**
+     * The row's language (or, on a language-less row, its main page's) and the page's must match when both are known:
+     * a TR row ↔ EN page is a translation, not an overlap.
+     */
+    private static function sameLanguage(string $language, Page $page): bool
+    {
+        $language = strtolower($language);
         $pageLanguage = strtolower((string) $page->language);
 
-        return $rowLanguage === '' || $pageLanguage === '' || $rowLanguage === $pageLanguage;
+        return $language === '' || $pageLanguage === '' || $language === $pageLanguage;
     }
 
     private static function path(Page $page): string
