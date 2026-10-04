@@ -21,7 +21,9 @@ use Illuminate\Validation\ValidationException;
  *   its content goes into the main page, the URL redirects there (approved WordPress write, ADR-070, undoable);
  * - differentiate ("Ayrıştır"): the page gets real traffic or is the target of another cluster — it is kept and
  *   focused on its own need, with a link to the main page.
- * Overlaps that are gone close their suggestion. Operator-added pages (extra_page_ids) are never an overlap.
+ * Overlaps that are gone close their suggestion. Operator-added pages (extra_page_ids) are never an overlap. Cluster rows are
+ * per language: a page in another language than the row is a language version, never an overlap, and the same
+ * cluster · main page · page pair is one suggestion whichever language row found it.
  */
 final class ClusterOverlaps
 {
@@ -43,7 +45,7 @@ final class ClusterOverlaps
     {
         $rows = BrandClusterPage::query()->with('cluster')->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
             ->where('excluded', false)->whereNotNull('page_id')->orderBy('id')->get()->filter(fn (BrandClusterPage $row): bool => $row->cluster !== null);
-        $pages = Page::query()->where('website_asset_id', $site->id)->get(['id', 'url', 'path'])->keyBy('id');
+        $pages = Page::query()->where('website_asset_id', $site->id)->get(['id', 'url', 'path', 'language'])->keyBy('id');
         $byKey = $pages->mapWithKeys(fn (Page $p): array => [SeoText::urlKey((string) $p->url) => (int) $p->id])->all();
         $targets = BrandClusterPage::query()->where('website_asset_id', $site->id)->where('excluded', false)->whereNotNull('page_id')
             ->get(['cluster_id', 'page_id'])->groupBy('page_id')->map(fn ($group): array => $group->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all())->all();
@@ -68,7 +70,7 @@ final class ClusterOverlaps
             $skip = [(int) $row->page_id, ...array_map('intval', (array) $row->extra_page_ids)];
             foreach (array_unique(array_map('intval', $overlaps)) as $pageId) {
                 $page = $pages->get($pageId);
-                if ($page === null || in_array($pageId, $skip, true)) {
+                if ($page === null || in_array($pageId, $skip, true) || ! self::sameLanguage($row, $page)) {
                     continue;
                 }
                 $share = $gsc[$pageId] ?? 0.0;
@@ -81,7 +83,7 @@ final class ClusterOverlaps
             ->filter(fn (Suggestion $s): bool => (int) data_get($s->action, 'site_id') === (int) $site->id)
             ->each(fn (Suggestion $s) => $s->forceFill(['status' => Suggestion::APPLIED, 'resolved_at' => now(), 'operator_note' => 'Çakışma kalktı.'])->save());
 
-        return count($kept);
+        return count(array_unique($kept));
     }
 
     /** "301 ile birleştir": the overlapping page redirects to the cluster's main page (approved WordPress write, undoable). */
@@ -128,8 +130,11 @@ final class ClusterOverlaps
             $recommendation === self::DIFFERENTIATE => $path.' bu kümede trafik alıyor (gösterimlerin %'.(int) round($share * 100).'si); '.$mainPath.' ile aynı ihtiyacı hedefliyor. Farklı bir ihtiyaca odaklanmalı ve '.$mainPath.' sayfasına bağlantı vermeli.',
             default => $path.' aynı ihtiyacı işliyor ama bu kümede az trafik alıyor. Eksik bilgisi '.$mainPath.' sayfasına taşınıp 301 ile oraya yönlendirilmeli.',
         };
-        $fingerprint = hash('sha256', implode('|', [$brand->id, 'cluster-overlap', $row->id, $page->id]));
-        $suggestion = Suggestion::query()->where('brand_id', $brand->id)->where('fingerprint', $fingerprint)->first() ?? new Suggestion;
+        $fingerprint = hash('sha256', implode('|', [$brand->id, 'cluster-overlap', $row->cluster_id, $main->id, $page->id]));
+        // Before 2026-10-05 the fingerprint carried the language row: such a suggestion keeps its decision and moves over.
+        $legacy = hash('sha256', implode('|', [$brand->id, 'cluster-overlap', $row->id, $page->id]));
+        $suggestion = Suggestion::query()->where('brand_id', $brand->id)->where('fingerprint', $fingerprint)->first()
+            ?? Suggestion::query()->where('brand_id', $brand->id)->where('fingerprint', $legacy)->first() ?? new Suggestion;
         $material = hash('sha256', $recommendation.'|'.$main->id);
         $reopen = in_array($suggestion->status, [Suggestion::DISMISSED, Suggestion::APPLIED], true) && $suggestion->material_hash !== $material;
         $suggestion->forceFill([
@@ -145,6 +150,15 @@ final class ClusterOverlaps
         ])->save();
 
         return (int) $suggestion->id;
+    }
+
+    /** A row and a page that both carry a language must share it (TR row ↔ EN page is a translation, not an overlap). */
+    private static function sameLanguage(BrandClusterPage $row, Page $page): bool
+    {
+        $rowLanguage = strtolower((string) $row->language);
+        $pageLanguage = strtolower((string) $page->language);
+
+        return $rowLanguage === '' || $pageLanguage === '' || $rowLanguage === $pageLanguage;
     }
 
     private static function path(Page $page): string

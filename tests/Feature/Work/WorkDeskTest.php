@@ -4,12 +4,14 @@ namespace Tests\Feature\Work;
 
 use App\Livewire\Operator\Work\WorkPage;
 use App\Models\AssetAlert;
+use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Models\PushSubscription;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\Assistant\PushNotifier;
 use App\Services\Push\WebPush;
+use App\Services\Work\WorkDesk;
 use App\Services\Work\WorkVerifier;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -134,12 +136,47 @@ class WorkDeskTest extends TestCase
         $this->assertSame(Suggestion::DISMISSED, $overlap->fresh()->status);
     }
 
+    public function test_every_brand_is_listed_in_its_own_section_and_a_brand_filter_is_always_shown_with_a_way_back(): void
+    {
+        $first = Brand::factory()->create(['customer_id' => $this->portfolioCustomer->id, 'name' => 'Aardvark Dental']);
+        $firstSite = DigitalAsset::factory()->create(['brand_id' => $first->id, 'type' => 'website', 'name' => 'aardvark.test', 'status' => 'active']);
+        $this->suggestion('search', 'site', $firstSite->id, 'title_description', 'Aardvark ana sayfa başlığı', [], 2, $first->id);
+        foreach (range(1, WorkDesk::PER_GROUP + 1) as $n) {
+            $this->suggestion('search', 'site', $this->site->id, 'title_description', 'Northwind sayfa '.$n.' başlığı', [], 2);
+        }
+
+        $page = Livewire::test(WorkPage::class, ['tab' => 'teknik'])->assertSet('brand', null)
+            ->assertSeeHtml('data-work-brand="'.$first->id.'"')->assertSeeHtml('data-work-brand="'.$this->portfolioBrand->id.'"')
+            ->assertSee('Aardvark ana sayfa başlığı')->assertSee('Northwind Brand ('.(WorkDesk::PER_GROUP + 1).')')->assertSee('Aardvark Dental (1)')
+            ->assertSee('Northwind sayfa '.(WorkDesk::PER_GROUP + 1).' başlığı')->assertDontSee('Northwind sayfa 1 başlığı')->assertSee('Tümünü göster (+1 iş)')
+            ->assertDontSeeHtml('data-brand-filter-on');
+        $html = $page->html();
+        $this->assertSame(2, substr_count($html, 'data-work-group='), 'one card per brand · site · type');
+        $who = (string) app(WorkDesk::class)->rows('teknik')->first()['who'];
+        $this->assertSame(2, substr_count($html, 'data-work-rule'));
+        $this->assertSame(2, substr_count($html, e($who)), 'the shared rule is said once per card, not on each row');
+
+        $key = collect(WorkDesk::groups(app(WorkDesk::class)->rows('teknik')))->flatMap(fn (array $s): array => $s['groups'])->firstWhere('count', WorkDesk::PER_GROUP + 1)['key'];
+        $page->call('expand', $key)->assertSee('Northwind sayfa 1 başlığı')->assertDontSee('Tümünü göster (+1 iş)');
+
+        $page->call('showBrand', $first->id)->assertSet('brand', $first->id)->assertSeeHtml('data-brand-filter-on="'.$first->id.'"')
+            ->assertSeeText('Yalnız Aardvark Dental gösteriliyor')->assertSee('Aardvark Dental markasının açık işleri')->assertDontSee('Northwind sayfa '.(WorkDesk::PER_GROUP + 1).' başlığı')
+            ->call('clearBrand')->assertSet('brand', null)->assertSee('Northwind sayfa '.(WorkDesk::PER_GROUP + 1).' başlığı')->assertSee('Aardvark ana sayfa başlığı');
+
+        Suggestion::query()->where('title', 'Northwind sayfa 1 başlığı')->update(['status' => Suggestion::APPROVED]);
+        $page->call('snoozeGroup', $key)->assertSee(WorkDesk::PER_GROUP.' iş 7 gün ertelendi.')->assertDontSee('Northwind sayfa '.(WorkDesk::PER_GROUP + 1).' başlığı');
+        $this->assertSame(WorkDesk::PER_GROUP, Suggestion::query()->where('brand_id', $this->portfolioBrand->id)->where('status', Suggestion::SNOOZED)->count());
+        $this->assertSame(Suggestion::APPROVED, Suggestion::query()->where('title', 'Northwind sayfa 1 başlığı')->value('status'), 'an approval is kept');
+        $this->assertSame(Suggestion::OPEN, Suggestion::query()->where('brand_id', $first->id)->value('status'), 'another card is not touched');
+        $page->call('snoozeGroup', $key)->assertSee('artık listede yok');
+    }
+
     public function test_a_reopened_item_does_not_show_its_old_done_time(): void
     {
         $gap = $this->suggestion('search', 'brand', $this->portfolioBrand->id, 'brand_gap', '6 hizmet hiçbir sayfayla eşleşmemiş', ['fix' => 'site_setup', 'params' => []], 1);
         $gap->forceFill(['applied_at' => now()->subHour()])->save();
 
-        Livewire::test(WorkPage::class, ['tab' => 'kurulum'])->assertSee('6 hizmet hiçbir sayfayla eşleşmemiş')->assertDontSee('· yapıldı', false);
+        Livewire::test(WorkPage::class, ['tab' => 'kurulum'])->assertSee('6 hizmet hiçbir sayfayla eşleşmemiş')->assertDontSee('data-applied-at', false);
     }
 
     public function test_a_phone_subscribes_and_only_important_work_alerts_are_pushed(): void
@@ -189,10 +226,10 @@ class WorkDeskTest extends TestCase
     }
 
     /** @param  array<string, mixed>  $action */
-    private function suggestion(string $channel, string $targetType, int $targetId, string $type, string $title, array $action, int $priority): Suggestion
+    private function suggestion(string $channel, string $targetType, int $targetId, string $type, string $title, array $action, int $priority, ?int $brandId = null): Suggestion
     {
         return Suggestion::query()->create([
-            'brand_id' => $this->portfolioBrand->id, 'channel' => $channel, 'decision_key' => $type.':'.$title, 'fingerprint' => md5($channel.$title),
+            'brand_id' => $brandId ?? $this->portfolioBrand->id, 'channel' => $channel, 'decision_key' => $type.':'.$title, 'fingerprint' => md5($channel.$title),
             'material_hash' => md5($title), 'title' => $title, 'reason' => 'Neden: '.$title, 'priority' => $priority, 'evidence' => [],
             'action_type' => $type, 'action' => $action, 'status' => Suggestion::OPEN, 'target_type' => $targetType, 'target_id' => $targetId,
             'first_seen_at' => now(), 'last_seen_at' => now(),

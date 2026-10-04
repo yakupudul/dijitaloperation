@@ -13,8 +13,10 @@ use App\Services\Brand\BrandGaps;
 use App\Services\DataStatus\DataStatusReader;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
 use App\Services\Operator\OperatorPortfolioPresenter;
+use App\Services\SeoTasks\SeoText;
 use App\Services\Site\Clarity\ClarityRules;
 use App\Services\Site\ClusterOverlaps;
+use App\Services\Site\ClusterPageShares;
 use App\Services\Site\ContentPlanner;
 use App\Services\Site\ImageAlts;
 use App\Services\Site\SiteSuggestions;
@@ -67,7 +69,10 @@ final class WorkDesk
     public const array SEVERITY_RANK = ['critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3, 'info' => 4];
 
     /** How many rows a tab lists (most urgent first). */
-    public const int LIMIT = 300;
+    public const int LIMIT = 2000;
+
+    /** Rows (overlaps: clusters) a work card shows before "Tümünü göster". */
+    public const int PER_GROUP = 5;
 
     /** Applied items stay under "Yapıldı" this long. */
     public const int DONE_DAYS = 30;
@@ -96,7 +101,7 @@ final class WorkDesk
         if (isset(self::TAB_CHANNEL[$tab])) {
             $suggestions = $this->suggestionQuery($tab, $view, $brandId)
                 ->when($tab === 'icerik' && $view === self::VIEW_OPEN, fn (Builder $q): Builder => $q->where('action_type', '!=', SiteSuggestionTypes::CONTENT))
-                ->with('brand:id,name')
+                ->with(['brand:id,name', 'cluster:id,name'])
                 ->orderBy($view === self::VIEW_DONE ? 'applied_at' : 'priority', $view === self::VIEW_DONE ? 'desc' : 'asc')
                 ->orderByDesc('id')->limit(self::LIMIT)->get();
             $assets = $this->assetsFor($suggestions);
@@ -121,6 +126,98 @@ final class WorkDesk
         }
 
         return $counts;
+    }
+
+    /** @return array<int, int> open items of one tab per brand id (the brand filter shows them) */
+    public function brandCounts(string $tab): array
+    {
+        $tab = isset(self::TABS[$tab]) ? $tab : 'icerik';
+        $counts = isset(self::TAB_CHANNEL[$tab]) ? $this->suggestionQuery($tab, self::VIEW_OPEN, null)
+            ->groupBy('brand_id')->selectRaw('brand_id, count(*) as n')->pluck('n', 'brand_id')->map(fn ($n): int => (int) $n)->all() : [];
+        if (isset(self::TAB_ALERT_TYPES[$tab])) {
+            $alerts = $this->alertQuery($tab, null)->reorder()->groupBy('brand_id')->selectRaw('brand_id, count(*) as n')->pluck('n', 'brand_id');
+            foreach ($alerts as $brandId => $n) {
+                $counts[(int) $brandId] = ($counts[(int) $brandId] ?? 0) + (int) $n;
+            }
+        }
+
+        return $counts;
+    }
+
+    /**
+     * The list as an issue report (yakup, 2026-10-04: "aynı iş bir marka için tekrar tekrar söylüyor"): one section per
+     * brand, in it one card per site · work type with its rule said once; overlaps further by cluster (the main page
+     * once, the overlapping pages under it). Open work: most urgent brand and card first; done work keeps its order.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return list<array{brand_id: ?int, brand: string, count: int, urgent: int, rank: int, groups: list<array<string, mixed>>}>
+     */
+    public static function groups(Collection $rows, bool $open = true): array
+    {
+        $sections = [];
+        foreach ($rows as $row) {
+            $brandKey = (int) ($row['brand_id'] ?? 0);
+            $key = $brandKey.'|'.$row['kind'].'|'.$row['type'].'|'.($row['asset'] ?? '');
+            $sections[$brandKey] ??= ['brand_id' => $row['brand_id'] ?? null, 'brand' => (string) ($row['brand'] ?? '—'), 'count' => 0, 'urgent' => 0, 'rank' => PHP_INT_MAX, 'groups' => []];
+            $sections[$brandKey]['groups'][$key] ??= ['key' => md5($key), 'type' => (string) $row['type'], 'asset' => $row['asset'] ?? null, 'items' => []];
+            $sections[$brandKey]['groups'][$key]['items'][] = $row;
+        }
+        foreach ($sections as &$section) {
+            foreach ($section['groups'] as &$group) {
+                $items = $group['items'];
+                $group['count'] = count($items);
+                $group['urgent'] = count(array_filter($items, fn (array $r): bool => $r['rank'] <= 1));
+                $group['rank'] = min(array_column($items, 'rank'));
+                $whos = array_unique(array_column($items, 'who'));
+                $urls = array_unique(array_map(fn (array $r): string => (string) $r['url'], $items));
+                $overlap = ($items[0]['overlap'] ?? null) !== null;
+                $group['who'] = ! $overlap && count($whos) === 1 ? (string) $whos[0] : null;
+                $group['about'] = $overlap ? 'Aynı arama ihtiyacına birden çok sayfa yanıt veriyor. «301 öneriliyor» olan sayfa ana sayfaya yönlendirilir (sistem siteye yazar, geri alınabilir); «Ayrıştır» olanın metni kendi ihtiyacına odaklanır, çakışma kalkınca iş kendisi kapanır.' : $group['who'];
+                $group['url'] = count($urls) === 1 && $urls[0] !== '' ? $items[0]['url'] : null;
+                $group['url_label'] = $group['url'] !== null ? ($items[0]['external'] ? $items[0]['url_label'] : 'Aç →') : null;
+                $group['external'] = $group['url'] !== null && $items[0]['external'];
+                $group['clusters'] = $overlap ? array_values(array_reduce($items, function (array $carry, array $r): array {
+                    $id = (int) ($r['overlap']['cluster_id'] ?? 0).'|'.$r['overlap']['main_path'];
+                    $carry[$id] ??= ['name' => $r['overlap']['cluster'], 'main_path' => $r['overlap']['main_path'], 'main_url' => $r['overlap']['main_url'], 'items' => []];
+                    $carry[$id]['items'][] = $r;
+
+                    return $carry;
+                }, [])) : null;
+                $section['count'] += $group['count'];
+                $section['urgent'] += $group['urgent'];
+                $section['rank'] = min($section['rank'], $group['rank']);
+            }
+            unset($group);
+            $section['groups'] = array_values($section['groups']);
+            if ($open) {
+                usort($section['groups'], fn (array $a, array $b): int => [$a['rank'], $b['count']] <=> [$b['rank'], $a['count']]);
+            }
+        }
+        unset($section);
+        $sections = array_values($sections);
+        if ($open) {
+            usort($sections, fn (array $a, array $b): int => [$a['rank'], $b['urgent'], $b['count']] <=> [$b['rank'], $a['urgent'], $a['count']]);
+        }
+
+        return $sections;
+    }
+
+    /**
+     * "Hepsini 7 gün ertele" on one card of the open list; an approved item keeps its approval. Returns how many items
+     * were snoozed.
+     */
+    public function snoozeGroup(string $tab, string $key, ?int $brandId, User $user): int
+    {
+        $group = collect(self::groups($this->rows($tab, self::VIEW_OPEN, $brandId)))->flatMap(fn (array $section): array => $section['groups'])->firstWhere('key', $key);
+        $items = array_values(array_filter($group['items'] ?? [], fn (array $row): bool => $row['status'] !== Suggestion::APPROVED));
+        if ($items === []) {
+            throw ValidationException::withMessages(['work' => 'Bu iş grubu artık listede yok.']);
+        }
+        foreach ($items as $row) {
+            $this->snooze($row['kind'], (int) $row['id'], 7, $user);
+        }
+
+        return count($items);
     }
 
     /** @return array<string, int> urgent (critical / high or priority 1) open items per tab */
@@ -360,6 +457,34 @@ final class WorkDesk
             },
             'can_reopen' => $s->status === Suggestion::APPLIED && $s->verification !== Suggestion::VERIFY_AUTO,
             'checked' => isset(WorkVerifier::CHECK_TYPES[$type]),
+            'overlap' => $type === ClusterOverlaps::TYPE ? $this->overlap($s) : null,
+        ];
+    }
+
+    /**
+     * A cluster overlap shown under its cluster: the overlapping page, the main page and a short reason without the
+     * repeated paths.
+     *
+     * @return array{cluster: ?string, cluster_id: ?int, main_path: string, main_url: ?string, path: string, url: ?string, recommendation: string, why: string}
+     */
+    private function overlap(Suggestion $s): array
+    {
+        $action = (array) $s->action;
+        $recommendation = (string) ($action['recommendation'] ?? ClusterOverlaps::DIFFERENTIATE);
+        $share = (float) ($action['share'] ?? 0);
+        $mainUrl = is_string($action['main_url'] ?? null) ? $action['main_url'] : null;
+        $url = is_string($action['overlap_url'] ?? null) ? $action['overlap_url'] : null;
+
+        return [
+            'cluster' => $s->cluster?->name, 'cluster_id' => $s->cluster_id !== null ? (int) $s->cluster_id : null,
+            'main_path' => $mainUrl !== null ? '/'.ltrim(SeoText::urlPath($mainUrl), '/') : '', 'main_url' => $mainUrl,
+            'path' => $url !== null ? '/'.ltrim(SeoText::urlPath($url), '/') : (string) $s->title, 'url' => $url,
+            'recommendation' => $recommendation,
+            'why' => match (true) {
+                $recommendation === ClusterOverlaps::REDIRECT => 'Bu kümede az trafik alıyor. Eksik bilgisi ana sayfaya taşınıp 301 ile oraya yönlendirilsin.',
+                $share >= ClusterPageShares::CONFLICT => 'Bu kümenin gösterimlerinde payı %'.(int) round($share * 100).'. Kendi ihtiyacına odaklansın, ana sayfaya bağlantı versin.',
+                default => 'Başka bir kümenin hedef sayfası; birleştirilmez. Kendi ihtiyacına odaklansın, ana sayfaya bağlantı versin.',
+            },
         ];
     }
 

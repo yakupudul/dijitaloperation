@@ -16,9 +16,10 @@ use Livewire\Component;
 
 /**
  * Genel işler (`/work`): all brands' open work in seven tabs — Marka kurulumu, Web site SEO içerikler, Teknik SEO, Teknik sağlık,
- * Google Ads, Meta Ads, Google İşletme — most urgent first. Onayla / Yaptım / Reddet / Ertele act on the item;
- * "Aç" opens the asset screen where approved site and Business Profile changes are written. "Yapıldı" lists the
- * last 30 days with the system's check of each change (confirmed, still seen, noticed by itself).
+ * Google Ads, Meta Ads, Google İşletme — most urgent first, grouped per brand and work type (WorkDesk::groups).
+ * Onayla / Yaptım / Reddet / Ertele act on the item; "Aç" opens the asset screen where approved site and Business
+ * Profile changes are written. "Yapıldı" lists the last 30 days with the system's check of each change (confirmed,
+ * still seen, noticed by itself). The brand filter lives in the URL (`marka`) and is always shown with "Tüm markalar".
  */
 #[Layout('operator.layouts.app')]
 #[Title('Genel işler')]
@@ -39,7 +40,11 @@ final class WorkPage extends Component
     #[Url(as: 'marka')]
     public ?int $brand = null;
 
-    public int $shown = 60;
+    /** Brand sections listed (the rest behind "Daha fazla marka"). */
+    public int $shown = 20;
+
+    /** @var array<string, bool> work card key => all its rows shown */
+    public array $expanded = [];
 
     /** @var array<int|string, string> suggestion id => note / reason */
     public array $notes = [];
@@ -56,24 +61,47 @@ final class WorkPage extends Component
     public function setTab(string $tab): void
     {
         $this->tab = isset(WorkDesk::TABS[$tab]) ? $tab : 'icerik';
-        $this->shown = 60;
+        $this->resetList();
         $this->message = '';
     }
 
     public function setView(string $view): void
     {
         $this->view = $view === WorkDesk::VIEW_DONE ? WorkDesk::VIEW_DONE : WorkDesk::VIEW_OPEN;
-        $this->shown = 60;
+        $this->resetList();
     }
 
     public function updatedBrand(): void
     {
-        $this->shown = 60;
+        $this->resetList();
+    }
+
+    public function showBrand(int $brandId): void
+    {
+        $this->brand = $brandId;
+        $this->resetList();
+    }
+
+    public function clearBrand(): void
+    {
+        $this->brand = null;
+        $this->resetList();
     }
 
     public function more(): void
     {
-        $this->shown += 60;
+        $this->shown += 20;
+    }
+
+    public function expand(string $key): void
+    {
+        $this->expanded[$key] = true;
+    }
+
+    /** "Hepsini 7 gün ertele" on one work card. */
+    public function snoozeGroup(string $key, WorkDesk $desk): void
+    {
+        $this->act(fn (): string => $desk->snoozeGroup($this->tab, $key, $this->brand, auth()->user()).' iş 7 gün ertelendi.');
     }
 
     public function approve(int $id, WorkDesk $desk): void
@@ -130,6 +158,12 @@ final class WorkPage extends Component
         });
     }
 
+    private function resetList(): void
+    {
+        $this->shown = 20;
+        $this->expanded = [];
+    }
+
     /** @param  callable(): string  $step */
     private function act(callable $step, ?int $id = null): void
     {
@@ -147,18 +181,23 @@ final class WorkPage extends Component
     public function render(WorkDesk $desk, ContentBoard $board): View
     {
         $rows = $desk->rows($this->tab, $this->view, $this->brand);
+        $sections = WorkDesk::groups($rows, $this->view === WorkDesk::VIEW_OPEN);
         $this->step = array_key_exists($this->step, ContentBoard::STEPS) ? $this->step : 'yazilacak';
         $queue = $this->tab === 'icerik' && $this->view === WorkDesk::VIEW_OPEN ? $board->queue($this->brand) : null;
+        $brands = Brand::query()->operational()->orderBy('name')->get(['id', 'name']);
 
         return view('livewire.operator.work.work-page', [
             'tabs' => WorkDesk::TABS,
             'counts' => $desk->counts($this->brand),
             'urgent' => $desk->urgent($this->brand),
-            'rows' => $rows->take($this->shown),
+            'sections' => array_slice($sections, 0, $this->shown),
+            'hiddenSections' => max(0, count($sections) - $this->shown),
             'queue' => $queue,
             'article' => $this->reading !== null ? $board->article($this->reading) : null,
             'total' => $rows->count(),
-            'brands' => Brand::query()->operational()->orderBy('name')->get(['id', 'name']),
+            'brands' => $brands,
+            'brandCounts' => $desk->brandCounts($this->tab),
+            'brandName' => $this->brand !== null ? $brands->firstWhere('id', $this->brand)?->name : null,
             'pushDevices' => PushSubscription::query()->where('user_id', auth()->id())->count(),
         ]);
     }

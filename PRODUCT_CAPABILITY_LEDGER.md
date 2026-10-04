@@ -3054,6 +3054,21 @@ not tested yet; not DONE.
   translations as linked Polylang drafts (ADR-076, `sent_languages`); a translation written later is sent on its own.
   A language the site does not use is refused. `ContentBoardTest` covers this. Not deployed; a real Polylang site is
   not tested yet; not DONE.
+- **Grouped list and visible brand filter (yakup's page review, 2026-10-04: "sadece avrupadent var", "aynı iş bir
+  marka için tekrar tekrar söylüyor"):** the reviewed page had the brand filter set to Avrupadent (`marka=7` in the
+  page state); no code picks a brand. The filter now always shows when set ("Yalnız X gösteriliyor · Tüm markaları
+  göster"), the header names the brand, the options carry each brand's open count for the tab, and the selected option
+  is rendered server-side (`autocomplete="off"`). The list is an issue report (`WorkDesk::groups`): one section per
+  brand (most urgent first, "Yalnız bu marka"), in it one card per site · work type with its rule said once, the first
+  `PER_GROUP` (5) rows and "Tümünü göster"; küme çakışması rows sit under their cluster with the main page once, a
+  "301 öneriliyor" / "Ayrıştır" chip and a short reason. "Hepsini 7 gün ertele" acts on one card. Ertele / Reddet and
+  the note moved into a "⋯" menu. The tab reads up to 2000 rows (was 300); 20 brand sections, then "Daha fazla marka".
+- **Küme çakışması duplicates (Geliştirme havuzu #1):** `ClusterOverlaps::sync` skips a page whose language differs from
+  the cluster row's (TR row ↔ EN page was proposed as a 301). The fingerprint is cluster · main page · page (it was the
+  language row id), so TR / EN / language-less rows give one item. An item with the old fingerprint is adopted and
+  keeps its decision; the extra copies close as "Çakışma kalktı". `moxdop:clusters:sync-overlaps` rebuilds the
+  overlaps from the stored match (no AI) to clean old duplicates at once. Verification: `Site/ClusterOverlapsTest`,
+  `Work/WorkDeskTest`. Not deployed; not DONE.
 
 ### Microsoft Clarity behaviour (yakup, 2026-10-03)
 

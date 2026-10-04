@@ -1938,6 +1938,10 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   WordPress'e taslak yollar. Sitenin dilleri (sayfa dillerinden) görünür; yazı sitenin herhangi bir dilinde yazılabilir,
   diğer diller bağlı çeviri olarak (Polylang, ADR-076) birlikte gönderilir. 301 birleştirme sayfayı silmez: eklentiye
   yönlendirme kuralı yazar, geri alınabilir.
+- **Genel işler okunurluk (yakup, 2026-10-04):** liste marka → site · iş türü kartı olarak gruplanır; kartın kuralı bir
+  kez yazılır, satırda yalnız ne / neden / düğme kalır; küme çakışmaları kümesinin altında. Marka filtresi seçiliyse her
+  zaman görünür ve tek tıkla kalkar (sistem hiçbir markayı kendisi seçmez). Aynı küme · ana sayfa · sayfa çifti tek
+  iştir; başka dildeki sayfa çakışma sayılmaz.
 - **Microsoft Clarity (yakup, 2026-10-03):** her site için Clarity proje kimliği + Data Export token (Ayarlar). Günde bir
   çekim; kural tabanlı (AI yok) öfkeli / çalışmayan tıklama, hızlı geri dönüş, JS hatası, kaydırma → Genel işler › Teknik
   sağlık işi. Siteye hiçbir şey yazılmaz; Clarity etiketini siteye yakup ekler.
