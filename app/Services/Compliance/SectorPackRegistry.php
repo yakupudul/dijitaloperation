@@ -4,6 +4,8 @@ namespace App\Services\Compliance;
 
 use App\Models\Brand;
 use App\Models\ComplianceRule;
+use App\Services\BrandSetup\BrandSetupMatcher;
+use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -19,6 +21,9 @@ final class SectorPackRegistry
 
     /** Brand-only rules (Marka › Ayarlar): pack_id "brand:{id}". */
     public const string BRAND_PREFIX = 'brand:';
+
+    /** In a rule's phrase: the brand's own name (and domain), filled per brand — "{marka}" forbids naming the brand. */
+    public const string BRAND_TOKEN = '{marka}';
 
     /** @var array<string, SectorPack>|null */
     private ?array $packs = null;
@@ -97,8 +102,45 @@ final class SectorPackRegistry
             $this->syncDefaults();
         }
         $scopes = [...$packIds, ...array_map(fn (string $code): string => self::SECTOR_PREFIX.$code, $brand->sectorCodes()), self::BRAND_PREFIX.$brand->id];
+        $marks = null;
 
-        return ComplianceRule::query()->whereIn('pack_id', $scopes)->where('active', true)->orderBy('id')->get();
+        return ComplianceRule::query()->whereIn('pack_id', $scopes)->where('active', true)->orderBy('id')->get()
+            ->each(function (ComplianceRule $rule) use ($brand, &$marks): void {
+                if (! self::hasBrandToken($rule)) {
+                    return;
+                }
+                $marks ??= self::brandMarks($brand);
+                $rule->patterns = array_values(array_unique(collect((array) $rule->patterns)
+                    ->flatMap(fn (mixed $pattern): array => str_contains((string) $pattern, self::BRAND_TOKEN)
+                        ? array_map(fn (string $mark): string => str_replace(self::BRAND_TOKEN, $mark, (string) $pattern), $marks)
+                        : [(string) $pattern])->all()));
+            });
+    }
+
+    public static function hasBrandToken(ComplianceRule $rule): bool
+    {
+        return collect((array) $rule->patterns)->contains(fn (mixed $pattern): bool => str_contains((string) $pattern, self::BRAND_TOKEN));
+    }
+
+    /**
+     * What "{marka}" stands for in a rule ("İçerikte marka adı geçmesin", yakup 2026-10-02): the brand's name and the
+     * distinctive part of its websites' domains ("adadent.com.tr" → "adadent"), at least 3 letters.
+     *
+     * @return list<string>
+     */
+    public static function brandMarks(Brand $brand): array
+    {
+        // A domain root that is a service word ("implant.com.tr") would forbid the service itself: it stays out.
+        $serviceWords = $brand->offerings()->with('catalogItem.names')->get()
+            ->flatMap(fn ($offering): array => $offering->catalogItem?->names->pluck('raw_label')->all() ?? [])
+            ->flatMap(fn (mixed $name): array => preg_split('/[^\p{L}\p{N}]+/u', SeoText::fold((string) $name), -1, PREG_SPLIT_NO_EMPTY) ?: [])->unique()->values()->all();
+        $hosts = $brand->digitalAssets()->where('type', 'website')->pluck('domain')->filter()
+            ->map(fn (string $host): string => BrandSetupMatcher::domainRoot(mb_strtolower(preg_replace('/^www\./', '', $host) ?? $host)))
+            ->reject(fn (string $root): bool => collect($serviceWords)->contains(fn (string $word): bool => mb_strlen($word) >= 4
+                && (str_starts_with($word, SeoText::fold($root)) || str_starts_with(SeoText::fold($root), $word))));
+
+        return collect([trim((string) $brand->name), ...$hosts->all()])
+            ->filter(fn (string $mark): bool => mb_strlen($mark) >= 3)->unique(fn (string $mark): string => mb_strtolower($mark))->values()->all();
     }
 
     /**

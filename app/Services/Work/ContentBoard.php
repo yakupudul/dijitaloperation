@@ -180,7 +180,7 @@ final class ContentBoard
             'missing' => $site !== null && is_array($action['article'] ?? null) ? array_values(array_diff(ContentPlanner::siteLanguages($site), $written)) : [],
             'writing' => in_array($status['status'] ?? null, ['running', 'queued'], true),
             'article' => $action['article'] ?? null, 'blocked' => $action['article_blocked'] ?? null, 'blocked_draft' => $action['article_blocked_draft'] ?? null,
-            'warnings' => $action['article_warnings'] ?? null, 'translations' => array_filter((array) ($action['translations'] ?? []), 'is_array'),
+            'warnings' => $action['article_warnings'] ?? null, 'seo' => array_key_exists('article_seo', $action) ? array_values(array_filter((array) $action['article_seo'], 'is_string')) : null, 'translations' => array_filter((array) ($action['translations'] ?? []), 'is_array'),
             'translations_blocked' => (array) ($action['translations_blocked'] ?? []), 'sent' => (array) ($action['sent_languages'] ?? []),
         ];
     }

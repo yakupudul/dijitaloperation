@@ -23,6 +23,9 @@ use Illuminate\Validation\ValidationException;
  */
 final class ForbiddenTermsLibrary
 {
+    /** Sources of the content the AI writes (article drafts and content briefs). */
+    public const array AI_CONTENT_SOURCES = ['ai_draft', 'seo_brief'];
+
     public const string SEVERITY_BLOCK = 'high';
 
     public const string SEVERITY_WARN = 'low';
@@ -59,8 +62,19 @@ final class ForbiddenTermsLibrary
             'kind' => ComplianceRuleKinds::FORBIDDEN, 'label' => mb_substr($phrase, 0, 160), 'patterns' => [$phrase],
             'message' => trim($reason) !== '' ? mb_substr(trim($reason), 0, 1000) : 'Bu ifade sektörde kullanılmaz.',
             'severity' => $severity === self::SEVERITY_WARN ? self::SEVERITY_WARN : self::SEVERITY_BLOCK,
-            'applies_to' => ComplianceRuleKinds::TEXT_SOURCES, 'active' => true, 'origin' => $origin === 'ai' ? 'ai' : 'operator',
+            'applies_to' => self::appliesTo($phrase), 'active' => true, 'origin' => $origin === 'ai' ? 'ai' : 'operator',
         ]);
+    }
+
+    /**
+     * A "{marka}" phrase is for the content the AI writes only: the brand's own pages, profile and ads name the brand
+     * by nature, so the daily auditor must not flag them.
+     *
+     * @return list<string>
+     */
+    public static function appliesTo(string $phrase): array
+    {
+        return str_contains($phrase, SectorPackRegistry::BRAND_TOKEN) ? self::AI_CONTENT_SOURCES : ComplianceRuleKinds::TEXT_SOURCES;
     }
 
     /** Brand-only phrases: one rule per brand, replaced as a whole. @param  list<string>  $phrases */
