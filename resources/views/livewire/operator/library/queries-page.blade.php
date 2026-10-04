@@ -971,10 +971,10 @@
     @if ($tab === 'forbidden')
         <section class="{{ $card }} space-y-3 text-xs" data-section="forbidden">
             @if ($forbiddenRules === null)
-                <p class="text-gray-500">Bir sektör seçin. Yasaklı ifadeler sektör paketi kuralları ve sektöre eklenenlerle tek kaynaktır; tüm içerik AI işlerine (fikir, SEO analizi, geliştir, üret), kayıttan önceki taramaya ve WordPress kapısına uygulanır. Markaya özel ifadeler Marka › Ayarlar'da.</p>
+                <p class="text-gray-500">Bir sektör seçin. Yasaklı ifadeler sektör paketi kuralları ve sektöre eklenenlerle tek kaynaktır; tüm içerik AI işlerine (fikir, SEO analizi, geliştir, üret), kayıttan önceki taramaya ve WordPress kapısına uygulanır. Markaya özel ifadeler Marka › Ayarlar'da. <span class="font-medium">{marka}</span> yazılan ifade her markada o markanın adı (ve alan adı) olur: yalnız <span class="font-medium">{marka}</span> eklemek, içerikte marka adının geçmesini engeller.</p>
             @else
                 <div class="flex flex-wrap items-end gap-2">
-                    <input type="text" wire:model="forbiddenPhrase" placeholder="İfade (ör. garantili sonuç)" aria-label="İfade" class="{{ $input }} w-56">
+                    <input type="text" wire:model="forbiddenPhrase" placeholder="İfade (ör. garantili sonuç, {marka})" aria-label="İfade" class="{{ $input }} w-56">
                     <input type="text" wire:model="forbiddenReason" placeholder="Neden" aria-label="Neden" class="{{ $input }} w-72">
                     <select wire:model="forbiddenSeverity" aria-label="Şiddet" class="{{ $input }}"><option value="high">engelle</option><option value="low">uyar</option></select>
                     <button type="button" wire:click="addForbidden" class="{{ $btn }}">Ekle</button>

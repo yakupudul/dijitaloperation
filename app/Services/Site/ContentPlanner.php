@@ -378,6 +378,7 @@ final class ContentPlanner
         }
         $warnings = $terms->warnings(implode(' . ', [$article['title'], $article['meta_title'], $article['meta_description'], strip_tags($article['html'])]));
         $action['article_warnings'] = $warnings !== [] ? 'Uyarı (yasaklı ifade, uyar): «'.implode('», «', $warnings).'»' : null;
+        $action['article_seo'] = ArticleSeoCheck::check($article, $input['cluster']['main_query'] ?? null, (array) ($input['cluster']['service_areas'] ?? []), SiteScope::origin($site));
         $others = array_values(array_diff(self::siteLanguages($site), [$language]));
         $suggestion->forceFill(['action' => array_merge($action, ['article' => $article,
             'article_note' => $others !== [] ? 'Sitede başka dil de var ('.implode(', ', $others).'): Genel işler › içerik kutusunda o dilde de yazdırılabilir.' : null])])->save();
