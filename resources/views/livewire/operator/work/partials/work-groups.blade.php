@@ -24,9 +24,9 @@
                     $hidden = count($units) - count($shownUnits);
                     $sharedAsset = $group['asset'];
                 @endphp
-                <article wire:key="work-group-{{ $group['key'] }}" class="overflow-hidden rounded-xl bg-white text-sm ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-work-group="{{ $group['key'] }}">
-                    <header class="flex flex-wrap items-start gap-3 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-                        <div class="min-w-0 flex-1">
+                <article wire:key="work-group-{{ $group['key'] }}" class="rounded-xl bg-white text-sm ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-work-group="{{ $group['key'] }}">
+                    <header class="flex flex-col gap-2 border-b border-gray-100 px-4 py-3 sm:flex-row sm:items-start sm:gap-3 dark:border-gray-800">
+                        <div class="min-w-0 sm:flex-1">
                             <div class="flex flex-wrap items-center gap-2">
                                 <h3 class="font-semibold text-gray-900 first-letter:uppercase dark:text-white">{{ $group['type'] }}</h3>
                                 <span class="rounded-full bg-gray-100 px-2 text-xs tabular-nums text-gray-700 dark:bg-gray-800 dark:text-gray-300">{{ $group['count'] }}</span>
@@ -36,8 +36,8 @@
                             @if($group['about'])<p class="mt-0.5 max-w-3xl text-xs text-gray-500" data-work-rule>{{ $group['about'] }}</p>@endif
                         </div>
                         <div class="flex flex-wrap items-center gap-2 text-xs">
-                            @if($view === 'acik' && $group['count'] > 1)
-                                <button type="button" wire:click="snoozeGroup('{{ $group['key'] }}')" wire:confirm="Bu karttaki {{ $group['count'] }} iş 7 gün ertelensin mi?" class="{{ $ghost }}" data-snooze-group>Hepsini 7 gün ertele</button>
+                            @if($view === 'acik' && $group['snoozable'] > 1)
+                                <button type="button" wire:click="snoozeGroup('{{ $group['key'] }}')" wire:confirm="Bu karttaki {{ $group['snoozable'] }} iş 7 gün ertelensin mi?{{ $group['snoozable'] < $group['count'] ? ' Onaylanmış işler ertelenmez.' : '' }}" class="{{ $ghost }}" data-snooze-group>Hepsini 7 gün ertele ({{ $group['snoozable'] }})</button>
                             @endif
                             @if($group['url'])
                                 <a href="{{ $group['url'] }}" @if($group['external']) target="_blank" rel="noopener" @else wire:navigate @endif class="font-semibold text-brand-600 hover:underline">{{ $group['url_label'] }}</a>
@@ -74,7 +74,7 @@
                     @endif
 
                     @if($hidden > 0)
-                        <button type="button" wire:click="expand('{{ $group['key'] }}')" class="w-full border-t border-gray-100 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/5" data-expand-group>
+                        <button type="button" wire:click="expand('{{ $group['key'] }}')" class="w-full rounded-b-xl border-t border-gray-100 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/5" data-expand-group>
                             Tümünü göster (+{{ $hidden }} {{ $group['clusters'] !== null ? 'küme' : 'iş' }})
                         </button>
                     @endif
@@ -86,6 +86,10 @@
             <p class="rounded-xl bg-white p-6 text-center text-sm text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">{{ $view === 'acik' ? 'Bu sekmede açık iş yok.' : 'Son 30 günde yapılan iş yok.' }}</p>
         @endif
     @endforelse
+
+    @if($truncated)
+        <p class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200" data-work-truncated>Bu sekmede en acil {{ \App\Services\Work\WorkDesk::LIMIT }} iş listeleniyor; geri kalanı için marka seç.</p>
+    @endif
 
     @if($hiddenSections > 0)
         <button type="button" wire:click="more" class="w-full rounded-lg py-2 text-xs font-semibold text-gray-600 ring-1 ring-inset ring-gray-200 dark:ring-gray-800">Daha fazla marka göster ({{ $hiddenSections }})</button>
