@@ -63,9 +63,10 @@ class PanelDesignFreezeTest extends TestCase
             'operator.assets',
             'operator.websites',
             'operator.library.queries',
+            'operator.whatsapp',
             'operator.integrations',
             'operator.settings',
-        ], $routes);
+        ], $routes, 'WhatsApp shows for admins only (2026-12-01)');
 
         $labels = collect(DemoMenu::groups())
             ->flatMap(fn (array $group): array => $group['items'])

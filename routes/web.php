@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\OperatorResetPasswordController;
 use App\Http\Controllers\Auth\OperatorTwoFactorChallengeController;
 use App\Http\Controllers\Integrations\GoogleOAuthController;
 use App\Http\Controllers\Integrations\MetaOAuthController;
+use App\Http\Controllers\Integrations\WhatsAppSignupController;
 use App\Http\Controllers\LegacyRetiredPrefixController;
 use App\Http\Controllers\Operator\PushController;
 use App\Http\Controllers\Operator\WebsiteHtmlSnapshotController;
@@ -15,6 +16,7 @@ use App\Livewire\Operator\AssetDataSourcesPage;
 use App\Livewire\Operator\Integrations\WebsiteIntegrationIndex;
 use App\Livewire\Operator\PublicDiscoveryIndex;
 use App\Livewire\Operator\Website\PublicDiscoveryPage;
+use App\Livewire\Operator\WhatsApp\Inbox as WhatsAppInbox;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function (): void {
@@ -89,6 +91,16 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (
     Route::get('/assets/website/{assetId}/html/{rawObjectId}', [WebsiteHtmlSnapshotController::class, 'show'])
         ->where(['assetId' => '[0-9]{1,18}', 'rawObjectId' => '[0-9]{1,18}'])
         ->name('operator.website.html.show');
+
+    // WhatsApp inbox (admins): read conversations, AI reply suggestions to copy; MoxDOP never sends.
+    Route::get('/whatsapp/connect/{attempt}', [WhatsAppSignupController::class, 'show'])
+        ->whereUuid('attempt')->name('operator.whatsapp.connect');
+    Route::post('/whatsapp/connect/{attempt}', [WhatsAppSignupController::class, 'complete'])
+        ->whereUuid('attempt')->middleware('throttle:10,1')->name('operator.whatsapp.complete');
+    Route::post('/whatsapp/connect/{attempt}/phone', [WhatsAppSignupController::class, 'selectPhone'])
+        ->whereUuid('attempt')->middleware('throttle:10,1')->name('operator.whatsapp.select-phone');
+    Route::livewire('/whatsapp', WhatsAppInbox::class)
+        ->name('operator.whatsapp');
 });
 
 Route::any('/app/{path?}', [LegacyRetiredPrefixController::class, 'app'])

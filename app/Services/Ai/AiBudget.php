@@ -2,9 +2,11 @@
 
 namespace App\Services\Ai;
 
+use App\Ai\Agents\WhatsAppReplyAgent;
 use App\Models\AgencySetting;
 use App\Services\AiJobs\AiJobTracker;
 use App\Services\AiTasks\AiTaskQueue;
+use App\Services\WhatsApp\WhatsAppSuggestions;
 use App\Support\Ai\AiOperationLabels;
 use App\Support\Ai\AiRouteKeys;
 use Illuminate\Support\Facades\Context;
@@ -104,6 +106,10 @@ final class AiBudget
         }
         if (in_array(explode('.', $operation)[0], $areas, true)) {
             return true;
+        }
+        // WhatsApp reply drafts run on their own only when the operator turned automatic suggestions on there.
+        if ($operation === WhatsAppReplyAgent::ROUTE) {
+            return WhatsAppSuggestions::automaticEnabled();
         }
 
         return self::delegatedToClaude(self::GATES[$operation] ?? [$operation]);

@@ -1,5 +1,9 @@
 # WhatsApp Assistant — staging source implementation
 
+> 2026-12-01 update: restored after the v2 reset. Sidebar entry **WhatsApp** (Admin only). Conversations link to
+> customers only (prospects are gone). Reply suggestions use the OpenAI API only, with the model chosen on the
+> WhatsApp screen; the route key is `whatsapp.reply`. Retention days are set on the WhatsApp screen.
+
 User-authorized scope, 2026-09-10: one simple menu inside MoxDOP. Existing WhatsApp API messages
 are listed by conversation, with a suggested Turkish sales/customer-relations reply to copy.
 No message sending, automatic outreach, tasks, CRM conversion, browser extension or separate app.

@@ -1,5 +1,13 @@
 # PROJECT_MEMORY
 
+## 2026-12-01 — WhatsApp gelen kutusu geri döndü
+
+- **Karar (yakup, 2026-10-04):** Meta uygulama incelemesi `whatsapp_business_management` iznini onayladı; v2'de silinen WhatsApp kutusu geri gelir (`/whatsapp`, yalnız Admin).
+  - Potansiyel müşteri / Lead kutusu v2'de olmadığı için görüşme yalnız **Müşteri**'ye bağlanır (telefonla otomatik ya da elle).
+  - Yanıt önerisi **OpenAI API** ile anında hazırlanır; Claude MCP kuyruğuna gitmez (WhatsApp yanıtı dakikalar içinde gerekir). Model WhatsApp ekranından seçilir (`config.ai_model`).
+  - "Yeni mesajlarda otomatik öneri" açıksa öneri tıklamasız çalışır ("otomatik AI yalnız Sorgular" kuralının tek istisnası); günlük AI tavanı yine geçerlidir.
+- **Kural:** MoxDOP mesaj göndermez; öneri kopyalanır, operatör telefondan yollar.
+
 ## 2026-11-24 — Web sitesi ekranı v3
 
 - **Karar (operatör):** Site ekranı Google / Meta panelleri gibi sade olur: tek sıra sekme, başlıkta tek tarih seçici (karşılaştırmalı).

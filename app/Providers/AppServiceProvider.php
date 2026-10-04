@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Ai\Agents\WhatsAppReplyAgent;
 use App\Contracts\Ai\AgentContextGateway as AgentContextGatewayContract;
 use App\Contracts\Collection\ActivityTierReader;
 use App\Enums\CustomerStatus;
@@ -36,6 +37,7 @@ use App\Services\Ai\AiUsageRecorder;
 use App\Services\AiJobs\AiJobTracker;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Archive\ProductionArchive;
+use App\Services\Assistant\WhatsAppContactLinker;
 use App\Services\Collection\Activity\ActivityTierServiceReader;
 use App\Services\Collection\Activity\NullActivityTierReader;
 use App\Services\Collection\Contracts\NormalizedDatasetWriter;
@@ -93,6 +95,7 @@ use App\Services\ServiceScope\CommercialServiceContextProvider;
 use App\Services\ServiceScope\CustomerServiceScopeReadService;
 use App\Services\ServiceScope\CustomerServiceScopeService;
 use App\Support\Agents\AgentProfileRegistry;
+use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Database\ViewAwarePostgresConnection;
 use App\Support\Operator\LivewireActionErrors;
@@ -291,6 +294,17 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(AgentFailedOver::class, [AiUsageRecorder::class, 'failed']);
         $this->trackLiveAiOperations();
         ProductionArchive::boot();
+        WhatsAppContactLinker::boot();
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => WhatsAppReplyAgent::ROUTE,
+            'name' => 'WhatsApp Reply Assistant',
+            'module' => 'whatsapp',
+            'description' => 'Conversation-scoped Turkish reply drafts through the OpenAI API (model chosen on the WhatsApp screen); copy only, MoxDOP never sends.',
+            'default_steps' => [[
+                'provider' => AiProviderCatalog::OPENAI,
+                'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
+            ]],
+        ]);
 
         Gate::before(function ($user, string $ability): ?bool {
             return method_exists($user, 'hasRole') && $user->hasRole(Roles::ADMIN)

@@ -30,6 +30,7 @@ use App\Services\Alerts\AdBudgetWatch;
 use App\Services\Analyst\AnalystEngine;
 use App\Services\Analyst\AnalystRegistry;
 use App\Services\Assistant\ReminderService;
+use App\Services\Assistant\WhatsAppContactLinker;
 use App\Services\Brand\BrandAudit;
 use App\Services\Brand\BrandCare;
 use App\Services\Brand\BrandDossier;
@@ -56,6 +57,7 @@ use App\Services\Site\SiteFlow;
 use App\Services\Site\SiteMetrics;
 use App\Services\Site\SiteOperations;
 use App\Services\Website\SitemapChangeWatcher;
+use App\Services\WhatsApp\WhatsAppDispatch;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Console\ConsoleScope;
 use App\Support\Console\ConsoleScopeException;
@@ -920,3 +922,21 @@ Schedule::command('moxdop:screens:check')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(60)
     ->name('screens-check');
+
+// WhatsApp inbox: received events → conversations, then reply suggestions (automatic or on click; the webhook and
+// the button already dispatch right away, this minute tick is the fallback). Message texts past the KVKK retention
+// are blanked nightly; new customer phones link their conversations hourly.
+Artisan::command('moxdop:whatsapp:dispatch', function (): void {
+    app(WhatsAppDispatch::class)->tick();
+})->purpose('Process received WhatsApp events and prepare advisory reply drafts.');
+
+Schedule::command('moxdop:whatsapp:dispatch')
+    ->everyMinute()->withoutOverlapping(2)->name('whatsapp-assistant-dispatch');
+
+Schedule::command('moxdop:whatsapp:retention')
+    ->dailyAt('03:50')
+    ->withoutOverlapping(30)
+    ->name('whatsapp-retention-daily');
+
+Schedule::call(fn () => app(WhatsAppContactLinker::class)->linkAll())
+    ->hourly()->name('whatsapp-contact-link')->withoutOverlapping(30);

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Integrations\WhatsAppWebhookController;
 use App\Http\Controllers\Integrations\WordPressConnectorEventsController;
 use App\Http\Controllers\Integrations\WordPressConnectorPairController;
 use App\Http\Controllers\Integrations\WordPressConnectorReleaseController;
@@ -18,3 +19,8 @@ Route::get('/connectors/wordpress/releases/{file}', WordPressConnectorReleaseCon
     ->middleware(['signed', 'throttle:30,1'])
     ->where('file', 'moxdop-wordpress-connector-[0-9.]+-[a-f0-9]{16}\.zip')
     ->name('api.connectors.wordpress.release');
+
+Route::get('/whatsapp/webhook', [WhatsAppWebhookController::class, 'verify'])
+    ->middleware('throttle:30,1')->name('api.whatsapp.webhook');
+Route::post('/whatsapp/webhook', [WhatsAppWebhookController::class, 'receive'])
+    ->middleware('throttle:300,1')->name('api.whatsapp.receive');

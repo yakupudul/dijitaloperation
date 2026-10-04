@@ -1,5 +1,15 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-12-01 — WhatsApp gelen kutusu geri geldi (OpenAI ile anında yanıt önerisi)
+
+- **Ekran:** Menüde **WhatsApp** (yalnız Admin) → `/whatsapp`. Meta Embedded Signup ile numara bağlama, bağlantı teşhisi, webhook (`/api/whatsapp/webhook`), görüşme listesi ve mesajlar, 24 saat yanıt penceresi, KVKK "DUR" algılama — v2 öncesi koddan geri alındı.
+- **Yanıt önerisi:** Yalnız OpenAI. Model ekranın üstündeki "Yanıt önerisi modeli (OpenAI)" listesinden seçilir (fiyatı bilinen OpenAI modelleri + varsayılan). Düğmeye basınca iş hemen kuyruğa girer; webhook gelen mesajı hemen işler, otomatik öneri açıksa ~10 sn sonra hazırlanır. Dakikalık `moxdop:whatsapp:dispatch` yedek olarak kalır.
+  - Günlük AI tavanı geçerli; tavan doluysa ya da OpenAI bağlı değilse görüşmede Türkçe neden yazar.
+- **Müşteri eşleştirme:** Telefon (müşteri ana telefonu + kişi telefonları) ile otomatik; elle seçim korunur. Aday / Lead kutusu bağlantısı yok (v2'de kaldırıldı).
+- **KVKK saklama:** Süre WhatsApp ekranından (en az 30 gün; boş = süresiz); `moxdop:whatsapp:retention` her gece 03:50.
+- **Tablolar:** `2026_12_01_090000_restore_whatsapp_inbox_tables` (`whatsapp_*`, `agency_settings.whatsapp_retention_days`), mevcutsa dokunmaz.
+- **Test:** WhatsAppSuggestionModelTest, WhatsAppContactLinkTest, WhatsAppSettingsTest, WhatsAppInboxSignalsTest. UAT: yok (gerçek numara bağlanınca yakup dener).
+
 ## 2026-11-24 — Makale taslağı uyum düzeltmesi, Google URL denetimi, site haritası Search Console'dan
 
 - **Makale yazıcı ("AI ile taslak yaz" / "Taslak hazırla"):** Girdi adım adım kurulur: plan (başlık, bölümler, sorular, açı, hedef sorgular), SEO analizi reçetesi, küme (sorgular, AI soruları, bölgeler, rakip iskeletleri), marka dosyası (profil, notlar, standartlar, ilgili sayfalar), iç bağlantı için site sayfaları, yasaklı ifadeler.
@@ -719,7 +729,7 @@ Beş bağımsız Livewire bileşeni (`App\Livewire\Operator\Website\V2\{Competit
 - Komuta merkezi (`/command-center`, `inbox_*`), Portföy sağlığı (`/portfolio/health`), İçerik takvimi (`/content`, `content_calendar_items`, müşteri onayı `/onay/*`) — REMOVED (v2)
 - Lead kutusu (`/leads`, `agency_leads`, `lead_outcomes`, Meta leadgen / form webhook), Potansiyel müşteriler (`/prospects*`, `prospect_*`, niyet radarı `sales_*`, dış denetim `prospect_audits`) — REMOVED (v2)
 - Ajans işletmesi (`/agency`, faturalar, zaman kayıtları, taahhütler, görüşme kaydı), müşteri sağlık puanı (`customer_health*`), KVKK takibi, yenilemeler (`asset_renewals`, `/renewals`, takvim beslemesi) — REMOVED (v2); SSL / alan adı bitiş gerçekleri veri havuzunda (`website_infra_snapshot`) kalır
-- WhatsApp asistanı (`/whatsapp*`, `whatsapp_*`, webhook) — REMOVED (v2)
+- WhatsApp asistanı (`/whatsapp*`, `whatsapp_*`, webhook) — REMOVED (v2); 2026-12-01'de geri geldi (bkz. üstteki kayıt)
 - Harita grid sıralaması, KML, yorum istihbaratı, rakip site izleme, backlink v1, AI görünürlüğü (`/market/*`, `map_grid_*`, `review_*`, `backlink_*`, `competitor_site_snapshots`, `ai_visibility_checks`) — REMOVED (v2); Faz 4 Rakipler / Backlinkler yeniden tasarlar (`DataForSeoTaskQueue` kaldı)
 - Aylık rapor v2 ve rapor v1 (`/reports/*`, `monthly_reports`, `report_*`, değer hikâyesi, ajans karnesi, grafik notları) — REMOVED (v2)
 - BrandDemand hub (`brand_demand_*`, `demand_*`, `moxdop:demand:*`) ve eski sorgu hattı (`query_variants`, `query_ingest_states`, `asset_sectors`, `moxdop:queries:*`) — REMOVED (v2)
