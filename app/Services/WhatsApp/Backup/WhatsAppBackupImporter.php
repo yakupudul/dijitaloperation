@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Validation\ValidationException;
+use PDOException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
 
@@ -176,6 +177,12 @@ final class WhatsAppBackupImporter
             $this->reader->decrypt($import->path(), $key, $database);
             $import->update(['backup_key' => null, 'stats' => ['phase' => 'import']]);
             $this->updateConfig(fn (array $config): array => [...$config, 'backup_key' => Crypt::encryptString($key)]);
+            if (! WhatsAppBackupReader::canReadDatabase()) {
+                // The key worked and is saved: the file stays so "Çıkar" can run again once the server can read SQLite.
+                $import->update(['status' => 'uploaded', 'stats' => null, 'error' => WhatsAppBackupReader::SQLITE_MISSING]);
+
+                return;
+            }
             $stats = $this->import($import, $database);
             $import->update(['status' => 'completed', 'stats' => $stats, 'finished_at' => now(), 'error' => null]);
             $this->discardFiles($import);
@@ -185,7 +192,7 @@ final class WhatsAppBackupImporter
         } catch (Throwable $exception) {
             report($exception);
             $import->update(['status' => 'failed', 'backup_key' => null, 'finished_at' => now(),
-                'error' => $exception instanceof WhatsAppBackupFormatException ? $exception->getMessage() : 'Yedek okunamadı ('.class_basename($exception).'). Dosyayı yeniden yükleyip deneyin; sürerse bu mesajı iletin.']);
+                'error' => $exception instanceof WhatsAppBackupFormatException ? $exception->getMessage() : 'Yedek okunamadı ('.class_basename($exception).($exception instanceof PDOException ? ': '.mb_substr($exception->getMessage(), 0, 300) : '').'). Dosyayı yeniden yükleyip deneyin; sürerse bu mesajı iletin.']);
             $this->discardFiles($import);
         } finally {
             File::delete($database);

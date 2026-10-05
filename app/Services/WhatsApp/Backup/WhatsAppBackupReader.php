@@ -20,6 +20,14 @@ final class WhatsAppBackupReader
 
     public const FORMAT_ERROR = 'Dosya WhatsApp\'ın uçtan uca şifreli yedeği (msgstore.db.crypt15) gibi görünmüyor. Telefonda Android › media › com.whatsapp.w4b › WhatsApp Business › Databases klasöründeki msgstore.db.crypt15 dosyasını yükleyin.';
 
+    public const SQLITE_MISSING = 'Anahtar doğru, yedek açıldı; ama sunucuda PHP\'nin SQLite eklentisi olmadığı için içindeki sohbetler okunamıyor. Sunucuda bir kez şunu çalıştırın: sudo apt install -y php8.3-sqlite3 && sudo systemctl restart php8.3-fpm && sudo supervisorctl restart moxdop-staging-horizon. Sonra anahtar alanını boş bırakıp Çıkar\'a basın; dosya ve anahtar duruyor.';
+
+    /** Whether this PHP can read the SQLite database inside the backup (pdo_sqlite). */
+    public static function canReadDatabase(): bool
+    {
+        return in_array('sqlite', PDO::getAvailableDrivers(), true);
+    }
+
     /** Message types in msgstore that are not conversation (system notices, calls, polls' internals). */
     private const SKIPPED_TYPES = [7, 8, 10, 11, 12, 14, 17, 18, 19, 21, 22, 27, 28, 36, 38, 39, 45, 46, 54, 64, 66, 90, 112];
 
