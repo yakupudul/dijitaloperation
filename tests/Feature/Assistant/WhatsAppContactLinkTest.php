@@ -75,6 +75,20 @@ final class WhatsAppContactLinkTest extends TestCase
         $this->assertSame([$customer->id, 'operator'], [$conversation->fresh()->customer_id, $conversation->fresh()->link_source]);
     }
 
+    public function test_a_conversation_opened_from_a_link_can_be_unlinked(): void
+    {
+        $customer = Customer::factory()->create(['name' => 'Delta Klinik']);
+        $conversation = $this->conversation('905009998877', 'Ayşe Hanım');
+        app(WhatsAppContactLinker::class)->setManual($conversation, $customer->id);
+        $this->actingAs($this->admin);
+
+        Livewire::withQueryParams(['conversation' => $conversation->id])->test(Inbox::class)
+            ->assertSet('linkCustomer', (string) $customer->id)
+            ->set('linkCustomer', '');
+
+        $this->assertNull($conversation->fresh()->customer_id);
+    }
+
     private function conversation(string $waId, ?string $name = null): WhatsAppConversation
     {
         return WhatsAppConversation::query()->create([

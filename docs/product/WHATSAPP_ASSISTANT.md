@@ -35,7 +35,9 @@ Meta Callback URL: `{APP_URL}/api/whatsapp/webhook`. Configure the matching Veri
 Subscribe to `messages`; if Coexistence is available, also `smb_message_echoes` and `history`.
 As of the owner-authorized 2026-09-14 extension, Embedded Signup and WABA app subscription are
 implemented. Meta application callback/Verify Token/field configuration still happens in Meta.
-No number registration endpoint, history request endpoint or automated Business-app migration is called.
+No number registration endpoint or automated Business-app migration is called. The history request
+(`POST {phone}/smb_app_data`, `sync_type=history`) is sent only when the operator clicks "Geçmiş mesajları al"
+inside Meta's 24-hour window after a coexistence onboarding (2026-10-05).
 The default flow requests Coexistence; Meta eligibility and operator consent remain required.
 
 GET verifies subscribe/challenge; POST verifies X-Hub-Signature-256 with App Secret over original bytes.
@@ -232,14 +234,26 @@ stayed `prepared` and the screen showed only a raw English token error (code 190
   "WhatsApp Embedded Signup" configuration.
 - Session events: `FINISH`, `FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING`, `FINISH_ONLY_WABA` complete; `CANCEL`
   (`current_step`, or `error_message` / `error_id` / `session_id`) and a popup closed without a code are posted to
-  `operator.whatsapp.report` and stored on the attempt (`cancelled`, details shown on the screen).
+  `operator.whatsapp.report` and stored on the attempt (`cancelled`, details shown on the screen). A popup that
+  answers within 3 seconds is reported as `LOGIN_REFUSED` (blocked popup or domain not in Facebook Login for
+  Business "Allowed Domains" / "Valid OAuth redirect URIs"); an account event with no code within 45 seconds as
+  `NO_CODE`. Messages are accepted only from `https://facebook.com` and its subdomains.
 - Meta's exchangeable code lives about 30 seconds: `WhatsAppSignup::submit()` exchanges it inside the request
-  (`exchanging`), then queues `CompleteWhatsAppSignup`. When no account event arrives within 4 seconds the page posts
-  `CODE_ONLY`; the job reads the shared WABA ids from `debug_token` granular scopes and picks the only phone itself.
-- `coexistence_state`: `signup_reported` (business app event), `not_used` (Cloud API finish in coexistence mode),
-  `unknown` (code only), `not_requested` (Cloud API mode). For `signup_reported` the job requests
-  `POST {phone}/smb_app_data` with `sync_type` `smb_app_state_sync` and `history` (Meta allows 24 hours); the result
-  is `history_sync` on the integration and never fails the connection.
+  (`exchanging`), then queues `CompleteWhatsAppSignup`. When no account event arrives within 6 seconds the page posts
+  `CODE_ONLY` (with `finish_event` when Meta reported how it finished but without an account id); the job reads the
+  shared WABA ids from `debug_token` granular scopes (at most 20). A single phone is picked automatically only when
+  Meta reported the account or the token covers exactly one account; otherwise the operator chooses (`choose_phone`).
+- `coexistence_state`: `signup_reported` (business app event, or the number reports `is_on_biz_app`), `not_used`
+  (Cloud API finish in coexistence mode), `unknown` (code only), `not_requested` (Cloud API mode). For every path
+  except `signup_reported` the job reads `GET {phone}?fields=platform_type,is_on_biz_app`; a number with
+  `platform_type=NOT_APPLICABLE` (never registered on Cloud API) is refused before binding, since MoxDOP does not
+  register numbers and no message would arrive. An unanswered check does not block.
+- History: for `signup_reported` / `unknown` numbers connected through the popup, the screen shows "Geçmiş mesajları
+  al" until 24 hours after `signup_completed_at`. The click sends `smb_app_data` `history` only (contacts sync is
+  not used by MoxDOP); the result is `history_sync` (`requested` / `failed` + `history_sync_error`) and can be
+  retried inside the window. A manual binding to another number clears this state (`connected_via=manual`).
+- A reconnect or subscription attempt started from a connected number is shown above the inbox (status, Meta reason,
+  continue / choose-number link) for 24 hours.
 - The Meta app owner's portfolio cannot be chosen in Embedded Signup; the screen points that case to the manual form
   (WABA id, phone number id, system user token).
 - Screen: setup steps when not connected (`WhatsAppConnection::state()`), two-pane inbox when connected, settings

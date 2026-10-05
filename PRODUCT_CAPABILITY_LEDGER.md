@@ -6,11 +6,14 @@
 - **Bağlantı akışı:**
   - Pencere `sessionInfoVersion: '3'` ile açılır (Coexistence için Meta'nın istediği session logging).
   - Pencere iptal / hata / sonuçsuz kapanırsa bağlantı sayfası nedeni `POST /whatsapp/connect/{attempt}/report` ile kaydeder (deneme `cancelled`, Meta adımı ve hata no'su saklanır); aynı deneme yeniden denenebilir.
-  - Meta kodu ~30 sn yaşadığı için kod sunucuya gelir gelmez değiştirilir (`exchanging` durumu), gerisi kuyrukta. Hesap mesajı gelmezse 4 sn sonra yalnız kod gönderilir; iş paylaşılan WhatsApp hesabını `debug_token` izinlerinden bulur, tek numara varsa kendisi seçer.
-  - Coexistence modunda Meta Cloud API (FINISH) dönerse reddedilmez, "uygulamayla birlikte kullanım seçilmedi" diye işaretlenir. Coexistence numarasında kişiler ve geçmiş mesajlar `smb_app_data` ile istenir.
+  - Meta kodu ~30 sn yaşadığı için kod sunucuya gelir gelmez değiştirilir (`exchanging` durumu), gerisi kuyrukta. Hesap mesajı gelmezse 6 sn sonra yalnız kod gönderilir; iş paylaşılan WhatsApp hesabını `debug_token` izinlerinden bulur. Tek numarayı kendisi yalnız Meta hesabı bildirdiyse ya da anahtar tek hesabı kapsıyorsa seçer; yoksa operatör seçer.
+  - Pencere hemen sonuçsuz dönerse (`LOGIN_REFUSED`) ekranda Meta'daki "Allowed Domains" / "Valid OAuth redirect URIs" ayarı gösterilir.
+  - Coexistence modunda Meta Cloud API (FINISH) dönerse numaranın Meta'daki durumu okunur: Cloud API'ye hiç kaydedilmemiş yeni numara (`NOT_APPLICABLE`) bağlanmaz, neden Türkçe yazar; kayıtlı numara "uygulamayla birlikte kullanım seçilmedi" diye bağlanır.
+  - Geçmiş mesajlar: WhatsApp Business uygulamasıyla bağlanan numarada ekranda 24 saat boyunca "Geçmiş mesajları al" düğmesi çıkar; tıklanınca `smb_app_data` (`history`) istenir, hata olursa tekrar denenebilir. Otomatik istek yok.
+  - Bağlı numaradan başlatılan yeniden bağlama / abonelik denemesinin durumu gelen kutusunun üstünde görünür.
   - Meta hataları Türkçe açıklanır (190/463 süresi dolmuş anahtar vb.); ham Meta mesajı "Meta'nın teknik mesajı" altında.
 - **Ekran:** Bağlı değilken 3 adımlı kurulum (Meta uygulama bilgileri → Facebook ile bağla, son denemenin sonucu → webhook adresi ve durumları). Bağlıyken üstte durum rozeti + iki bölmeli gelen kutusu (görüşmeler | mesajlar ve altta kopyalanacak AI cevabı). "Ayarlar": yanıt önerileri (model, otomatik, hizmet/fiyat metni, KVKK süresi), bağlantı durumu ve düğmeleri, Meta uygulama bilgileri, "Elle bağla" (sahip portföyün kendi numarası için), son aktarımlar.
-- **Test:** WhatsAppSignupFlowTest (10 test) + mevcut WhatsApp testleri. UAT: yok — yakup Facebook ile yeniden bağlayınca doğrulanır; Tech Provider durumu ve v4 yapılandırması Meta tarafında kontrol edilmeli.
+- **Test:** WhatsAppSignupFlowTest (19 test), WhatsAppContactLinkTest (bağlantıdan açılan görüşmenin müşteri bağı) + mevcut WhatsApp testleri. UAT: yok — yakup Facebook ile yeniden bağlayınca doğrulanır; Tech Provider durumu ve v4 yapılandırması Meta tarafında kontrol edilmeli.
 
 ## 2026-12-01 — WhatsApp gelen kutusu geri geldi (OpenAI ile anında yanıt önerisi)
 

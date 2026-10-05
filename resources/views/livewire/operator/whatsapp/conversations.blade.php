@@ -81,8 +81,8 @@
                 </div>
             </header>
 
-            <div class="min-h-0 flex-1 space-y-2 overflow-y-auto bg-gray-50 px-4 py-4 dark:bg-white/[0.02]" x-data x-init="$el.scrollTop = $el.scrollHeight">
-                @if($messages->hasMorePages())
+            <div class="min-h-0 flex-1 space-y-2 overflow-y-auto bg-gray-50 px-4 py-4 dark:bg-white/[0.02]" wire:key="wa-messages-{{ $selected->id }}-{{ $messages->currentPage() }}" x-data x-init="$el.scrollTop = $el.scrollHeight">
+                @if($messages->hasPages())
                     <div class="text-center text-xs">{{ $messages->links() }}</div>
                 @endif
                 @foreach($messages->getCollection()->reverse() as $message)
@@ -115,7 +115,7 @@
                                 <span x-text="copyStatus" role="status" class="text-xs text-gray-500"></span>
                             </div>
                         @endif
-                        <details class="text-xs text-gray-500">
+                        <details class="text-xs text-gray-500" wire:ignore.self>
                             <summary class="cursor-pointer select-none">Neden bu cevap?</summary>
                             <p class="mt-1">{{ $selected->rationale }}</p>
                             <p class="mt-1">{{ $selected->context_message_count }} mesaj okunarak {{ $when($selected->suggested_at) }} tarihinde hazırlandı.{{ $selected->context_truncated ? ' Uzun görüşme olduğu için en eski mesajların bir kısmı okunmadı.' : '' }}</p>

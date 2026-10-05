@@ -15,6 +15,9 @@ use Throwable;
 
 final class WhatsAppSignup
 {
+    /** Accounts read from the token's scopes when Meta did not say which one was chosen. */
+    private const MAX_SHARED_ACCOUNTS = 20;
+
     public function __construct(private WhatsAppConnection $connection, private WhatsAppGraph $graph) {}
 
     public function saveSetup(User $user, array $input): void
@@ -144,7 +147,9 @@ final class WhatsAppSignup
             }
             $attempt->update([
                 'status' => 'exchanging', 'step' => 'exchange_code', 'details' => null,
-                'payload' => ['code' => $data['code'], 'waba_id' => $wabaId, 'phone_number_id' => $data['phone_number_id'] ?? null, 'event' => $data['event']],
+                'payload' => ['code' => $data['code'], 'waba_id' => $wabaId, 'phone_number_id' => $data['phone_number_id'] ?? null,
+                    // Meta reported how the popup finished but without an account id: keep the kind (e.g. app onboarding).
+                    'event' => $data['event'] === 'CODE_ONLY' && filled($data['finish_event'] ?? null) ? $data['finish_event'] : $data['event']],
             ]);
 
             return true;
@@ -293,6 +298,7 @@ final class WhatsAppSignup
                     }
                 }
                 $attempt->update(['step' => 'verify_phone']);
+                $reportedWaba = preg_match('/^[0-9]{5,40}$/', (string) ($payload['waba_id'] ?? '')) === 1;
                 $wabaIds = $this->sharedAccounts($payload, $debug);
                 $phones = [];
                 foreach ($wabaIds as $candidate) {
@@ -305,12 +311,19 @@ final class WhatsAppSignup
                     throw new WhatsAppGraphException(['message' => 'Paylaşılan WhatsApp hesabında numara bulunamadı. Meta penceresinde numarayı ekleyip doğrulama adımını bitirdiğinizden emin olun.']);
                 }
                 $phoneId = (string) ($payload['phone_number_id'] ?? '');
-                if ($phoneId === '' && count($phones) === 1) {
+                // A single number is taken as is only when it surely belongs to the account chosen in this popup:
+                // reported by Meta, or the token covers just one account. Otherwise the operator confirms it.
+                if ($phoneId === '' && count($phones) === 1 && ($reportedWaba || count($wabaIds) === 1)) {
                     $phoneId = $phones[0]['id'];
                 }
                 if ($phoneId === '') {
                     $payload['phones'] = $phones;
-                    $attempt->update(['status' => 'choose_phone', 'payload' => $payload, 'details' => ['message' => 'Meta birden fazla numara paylaştı. Bağlamak istediğiniz numarayı seçin.']]);
+                    $message = match (true) {
+                        $reportedWaba => 'Meta birden fazla numara paylaştı. Bağlamak istediğiniz numarayı seçin.',
+                        count($wabaIds) >= self::MAX_SHARED_ACCOUNTS => 'Meta hangi hesabı seçtiğinizi bildirmedi ve çok sayıda hesap paylaştı; ilk '.self::MAX_SHARED_ACCOUNTS.' hesabın numaraları listelendi. Bağlamak istediğiniz numarayı seçin.',
+                        default => 'Meta hangi hesabı seçtiğinizi bildirmedi. Bağlamak istediğiniz numarayı seçin.',
+                    };
+                    $attempt->update(['status' => 'choose_phone', 'payload' => $payload, 'details' => ['message' => $message]]);
 
                     return;
                 }
@@ -329,6 +342,18 @@ final class WhatsAppSignup
                     ($payload['event'] ?? '') === 'FINISH' => 'not_used',
                     default => 'unknown',
                 };
+                if ($coexistence !== 'signup_reported') {
+                    // Read the path from the number itself: a business-app number, or a Cloud API number that was
+                    // never registered (MoxDOP does not register numbers, so no message would ever arrive).
+                    $platform = $this->phonePlatform($phoneId, $token, $secret);
+                    if (($platform['is_on_biz_app'] ?? null) === true) {
+                        $coexistence = 'signup_reported';
+                    } elseif (($platform['platform_type'] ?? null) === 'NOT_APPLICABLE') {
+                        throw new WhatsAppGraphException(['message' => $attempt->mode === 'coexistence'
+                            ? 'Meta penceresinde numara yeni bir Cloud API numarası olarak eklendi ama Meta\'da kaydı tamamlanmadı; bu haliyle mesaj gelmez (MoxDOP numara kaydı yapmaz). Telefondaki WhatsApp Business numaranızı bağlamak için yeniden deneyin ve penceredeki "Mevcut WhatsApp Business uygulamanızı bağlayın" seçeneğini seçin.'
+                            : 'Numara Meta\'da Cloud API\'ye henüz kaydedilmemiş; bu haliyle mesaj gelmez (MoxDOP numara kaydı yapmaz). Numarayı Meta tarafında kaydettirip yeniden bağlayın.']);
+                    }
+                }
                 DB::transaction(function () use ($attempt, $wabaId, $phoneId, $number, $token, $debug, $coexistence): void {
                     $row = CoreIntegration::query()->lockForUpdate()->findOrFail($attempt->integration_id);
                     $current = WhatsAppSignupAttempt::query()->lockForUpdate()->findOrFail($attempt->id);
@@ -377,12 +402,9 @@ final class WhatsAppSignup
             if (! $this->graph->subscribed($subscriptions, $appId)) {
                 throw new WhatsAppGraphException(['message' => 'Uygulama, WABA abonelik listesinde doğrulanamadı.']);
             }
-            $message = 'Numara bağlandı ve mesaj aboneliği doğrulandı. Gelen ilk mesaj burada görünecek.';
-            if ($attempt->mode !== 'subscription' && data_get($row->config, 'coexistence_state') === 'signup_reported') {
-                $message = $this->requestAppSync($row, $token, $secret)
-                    ? 'Numara WhatsApp Business uygulamasıyla birlikte bağlandı. Kişiler ve geçmiş mesajlar Meta\'dan birkaç dakika içinde gelir.'
-                    : 'Numara bağlandı ama geçmiş mesaj aktarımı başlatılamadı (ayrıntı bağlantı bölümünde). Yeni mesajlar yine de gelir.';
-            }
+            $message = $this->connection->historyDeadline($row) !== null
+                ? 'Numara bağlandı ve mesaj aboneliği doğrulandı. Telefondaki geçmiş mesajları almak için 24 saat içinde WhatsApp ekranındaki "Geçmiş mesajları al" düğmesine basın.'
+                : 'Numara bağlandı ve mesaj aboneliği doğrulandı. Gelen ilk mesaj burada görünecek.';
             $this->finish($attempt, 'completed', ['message' => $message]);
         } catch (ValidationException $exception) {
             $this->finish($attempt, 'failed', ['message' => collect($exception->errors())->flatten()->first()]);
@@ -429,7 +451,7 @@ final class WhatsAppSignup
             ->filter(fn ($scope) => is_array($scope) && in_array($scope['scope'] ?? null, ['whatsapp_business_management', 'whatsapp_business_messaging'], true))
             ->flatMap(fn (array $scope) => (array) ($scope['target_ids'] ?? []))
             ->map(fn ($id) => (string) $id)->filter(fn (string $id) => preg_match('/^[0-9]{5,40}$/', $id) === 1)
-            ->unique()->take(10)->values()->all();
+            ->unique()->take(self::MAX_SHARED_ACCOUNTS)->values()->all();
         if ($ids === []) {
             throw new WhatsAppGraphException(['message' => 'Meta hangi WhatsApp hesabının paylaşıldığını bildirmedi. Bağlantıyı yeniden başlatıp penceredeki adımların hepsini bitirin.']);
         }
@@ -438,18 +460,25 @@ final class WhatsAppSignup
     }
 
     /**
-     * Coexistence: Meta shares the app's contacts and chat history only when asked within 24 hours of onboarding.
-     * The data arrives later as webhooks; a failure here does not undo the connection.
+     * Coexistence, on the operator's click: asks Meta for the WhatsApp Business app's chat history, which Meta shares
+     * only within 24 hours of onboarding (contacts sync is not asked: MoxDOP does not use it). The messages arrive
+     * later as history webhooks; a failure here does not undo the connection and can be retried inside the window.
      */
-    private function requestAppSync(CoreIntegration $row, string $token, string $secret): bool
+    public function requestHistory(User $user): bool
     {
+        $this->connection->authorize($user);
+        $row = $this->connection->integration();
+        if (! $row || $this->connection->historyDeadline($row) === null) {
+            throw ValidationException::withMessages(['history' => 'Geçmiş mesajlar yalnız WhatsApp Business uygulamasıyla bağlanan numara için, bağlantıdan sonraki 24 saat içinde istenebilir.']);
+        }
+        $secrets = $this->connection->secrets($row);
+        $token = (string) ($secrets['access_token'] ?? '');
+        $secret = (string) ($secrets['app_secret'] ?? '');
         $phoneId = (string) data_get($row->config, 'phone_number_id');
         $state = 'requested';
         $error = null;
         try {
-            foreach (['smb_app_state_sync', 'history'] as $type) {
-                $this->graph->request('POST', $phoneId.'/smb_app_data', ['messaging_product' => 'whatsapp', 'sync_type' => $type], $token, $secret);
-            }
+            $this->graph->request('POST', $phoneId.'/smb_app_data', ['messaging_product' => 'whatsapp', 'sync_type' => 'history'], $token, $secret);
         } catch (WhatsAppGraphException $exception) {
             $state = 'failed';
             $error = $exception->details;
@@ -462,6 +491,21 @@ final class WhatsAppSignup
         });
 
         return $state === 'requested';
+    }
+
+    /**
+     * The number's platform as Meta reports it (is_on_biz_app, platform_type), or [] when Meta does not answer: the
+     * check then does not block the connection.
+     *
+     * @return array<string, mixed>
+     */
+    private function phonePlatform(string $phoneId, string $token, string $secret): array
+    {
+        try {
+            return $this->graph->request('GET', $phoneId, ['fields' => 'platform_type,is_on_biz_app'], $token, $secret);
+        } catch (WhatsAppGraphException) {
+            return [];
+        }
     }
 
     private function expireUnsubmitted(CoreIntegration $row): void

@@ -1,22 +1,6 @@
 @php
-    $attemptLabels = [
-        'prepared' => ['muted', 'Meta penceresi açıldı, sonuç gelmedi'],
-        'cancelled' => ['bad', 'Meta penceresinde yarıda kaldı'],
-        'exchanging' => ['warn', 'Meta onayı alınıyor…'],
-        'queued' => ['warn', 'Bağlanıyor…'],
-        'running' => ['warn', 'Bağlanıyor…'],
-        'choose_phone' => ['warn', 'Numara seçmeniz gerekiyor'],
-        'completed' => ['ok', 'Tamamlandı'],
-        'partial' => ['bad', 'Numara bağlandı, mesaj aboneliği kurulamadı'],
-        'failed' => ['bad', 'Tamamlanamadı'],
-        'expired' => ['muted', 'Süresi doldu'],
-        'interrupted' => ['bad', 'Yarıda kesildi; yeniden deneyin'],
-    ];
-    $runningSteps = ['exchange_code' => 'Meta yetkisi alınıyor', 'verify_token' => 'İzinler kontrol ediliyor', 'verify_phone' => 'Numara kontrol ediliyor', 'subscribe' => 'Mesaj aboneliği kuruluyor'];
     $connectionProblem = $config['connection_error'] ?? (($config['subscription_state'] ?? '') === 'failed' ? ($config['subscription_error'] ?? null) : null);
     $tokenExpired = \App\Services\WhatsApp\WhatsAppErrorText::tokenExpired($config['connection_error'] ?? null);
-    $canContinue = $signupAttempt && in_array($signupAttempt->status, ['prepared', 'cancelled', 'choose_phone'], true)
-        && $signupAttempt->expires_at->isFuture() && $signupAttempt->user_id === auth()->id();
     $webhookVerified = ! empty($config['webhook_verified_at']);
     $subscribed = ($config['subscription_state'] ?? '') === 'verified';
     $firstMessage = ! empty($config['last_message_received_at']);
@@ -69,21 +53,7 @@
                     @endif
                 </div>
                 @if($signupAttempt && $signupAttempt->status !== 'completed')
-                    @php [$attemptTone, $attemptText] = $attemptLabels[$signupAttempt->status] ?? ['muted', $signupAttempt->status]; @endphp
-                    <div class="rounded-lg p-3 text-sm ring-1 ring-inset {{ $tone[$attemptTone] }}" data-wa-attempt="{{ $signupAttempt->status }}">
-                        <p class="font-medium">Son deneme: {{ $attemptText }} <span class="font-normal opacity-75">· {{ $when($signupAttempt->updated_at) }}</span></p>
-                        @if($signupAttempt->status === 'running')
-                            <p class="mt-1">{{ $runningSteps[$signupAttempt->step] ?? 'Bağlantı hazırlanıyor' }}. Sayfayı açık tutmanız gerekmez.</p>
-                        @elseif($signupAttempt->status === 'prepared')
-                            <p class="mt-1">Facebook penceresinden MoxDOP'a hiçbir sonuç dönmedi (pencere kapatıldı ya da adımlar bitmedi). Tekrar deneyin; bu kez pencere kapanırsa sebebi burada yazar.</p>
-                        @endif
-                        @if(!empty($signupAttempt->details) && $signupAttempt->status !== 'running')
-                            <div class="mt-1">@include('livewire.operator.whatsapp.error-detail', ['error' => $signupAttempt->details, 'label' => null])</div>
-                        @endif
-                        @if($attemptBusy && $signupAttempt->updated_at->lessThan(now()->subMinutes(3)))
-                            <p class="mt-1">Beklenenden uzun sürdü. Kuyruk hizmetini (Horizon) kontrol edin.</p>
-                        @endif
-                    </div>
+                    @include('livewire.operator.whatsapp.attempt-status')
                 @endif
                 <p class="text-xs text-gray-500">Kendi numaranız mı (Meta uygulamasının sahibi olan portföy)? Meta o portföyün bu pencerede seçilmesine izin vermez. <button type="button" wire:click="openManual" class="font-medium text-brand-600 hover:underline">Elle bağlayın</button>.</p>
             </div>

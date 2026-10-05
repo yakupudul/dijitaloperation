@@ -35,6 +35,7 @@ final class WhatsAppSignupController
             'event' => ['required', 'in:FINISH,FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING,FINISH_ONLY_WABA,CODE_ONLY'],
             'waba_id' => ['nullable', 'required_unless:event,CODE_ONLY', 'regex:/^[0-9]{5,40}$/'],
             'phone_number_id' => ['nullable', 'regex:/^[0-9]{5,40}$/'],
+            'finish_event' => ['nullable', 'in:FINISH,FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING,FINISH_ONLY_WABA'],
         ]);
         // Do not flash OAuth codes into the session on a malformed browser request.
         if ($validator->fails()) {

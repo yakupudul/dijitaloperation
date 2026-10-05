@@ -88,6 +88,9 @@ class Inbox extends Component
         $this->ai_model = WhatsAppSuggestions::model($integration);
         $days = AgencySetting::query()->value('whatsapp_retention_days');
         $this->retention_days = $days !== null ? (string) $days : '';
+        // Opened from a link (?conversation=): prefill the customer field as a click in the list would.
+        $linked = $this->conversation ? WhatsAppConversation::query()->where('integration_id', $integration?->id)->find($this->conversation)?->customer_id : null;
+        $this->linkCustomer = $linked ? (string) $linked : '';
         if (trim($this->business_context) === '') {
             // Faz 12: no built-in prices or names; the operator writes the agency's own terms here.
             $agency = (string) (AgencySetting::query()->value('agency_name') ?? '');
@@ -122,6 +125,7 @@ class Inbox extends Component
     {
         $this->showSettings = true;
         $this->manualOpen = true;
+        $this->dispatch('wa-open-manual');
     }
 
     public function beginSignup(WhatsAppSignup $signup): void
@@ -135,6 +139,15 @@ class Inbox extends Component
         $attempt = $signup->begin(auth()->user(), session()->getId(), true);
         $signup->dispatch($attempt);
         $this->notice = 'WABA webhook aboneliği arka planda kuruluyor. Sonuç bu ekranda görünecek.';
+    }
+
+    /** Coexistence: the operator asks Meta for the phone's chat history (allowed within 24 hours of onboarding). */
+    public function requestHistory(WhatsAppSignup $signup): void
+    {
+        $this->resetValidation();
+        $this->notice = $signup->requestHistory(auth()->user())
+            ? 'Meta\'dan geçmiş mesajlar istendi. Birkaç dakika içinde görüşme listesine gelmeye başlar.'
+            : 'Meta geçmiş mesaj aktarımını başlatmadı; nedeni aşağıda yazıyor. 24 saat dolmadan tekrar deneyebilirsiniz.';
     }
 
     public function updatedQ(): void
@@ -309,13 +322,22 @@ class Inbox extends Component
     public function saveLink(WhatsAppContactLinker $linker): void
     {
         $conversation = $this->selectedConversation();
-        $linker->setManual($conversation, $this->linkCustomer !== '' ? (int) $this->linkCustomer : null);
+        $customerId = $this->linkCustomer !== '' ? (int) $this->linkCustomer : null;
+        if ($customerId !== null && ! Customer::query()->whereKey($customerId)->exists()) {
+            $this->addError('linkCustomer', 'Seçilen müşteri bulunamadı.');
+
+            return;
+        }
+        $linker->setManual($conversation, $customerId);
         $this->notice = $this->linkCustomer !== '' ? 'Görüşme müşteriye bağlandı.' : 'Görüşmenin müşteri bağlantısı kaldırıldı.';
     }
 
+    /** The customer list in the conversation header saves on change. */
     public function updatedLinkCustomer(WhatsAppContactLinker $linker): void
     {
-        $this->saveLink($linker);
+        if ($this->conversation !== null) {
+            $this->saveLink($linker);
+        }
     }
 
     private function selectedConversation(): WhatsAppConversation
@@ -343,6 +365,7 @@ class Inbox extends Component
             'state' => $connection->state($integration),
             'config' => $integration?->config ?? [],
             'credentialStatus' => $connection->credentialStatus($integration),
+            'historyDeadline' => $connection->historyDeadline($integration),
             'signupAttempt' => WhatsAppSignupAttempt::query()->where('integration_id', $integration?->id)
                 ->select(['id', 'user_id', 'status', 'step', 'mode', 'details', 'updated_at', 'expires_at'])
                 ->orderByDesc('created_at')->first(),

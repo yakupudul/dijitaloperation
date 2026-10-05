@@ -13,12 +13,12 @@
         @if($attempt['expires_at']->isPast())
             <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">Bu bağlantı oturumunun süresi doldu. WhatsApp ekranına dönüp yeniden başlatın.</p>
         @elseif($attempt['status'] === 'choose_phone')
-            <p class="text-sm">Meta birden fazla numara paylaştı. Bağlamak istediğiniz işletme numarasını seçin.</p>
+            <p class="text-sm">{{ $attempt['details']['message'] ?? 'Meta birden fazla numara paylaştı. Bağlamak istediğiniz işletme numarasını seçin.' }}</p>
             <label for="wa-selected-phone" class="block text-sm font-medium">İşletme numarası</label>
             <select id="wa-selected-phone" class="w-full rounded-lg border border-gray-300 bg-transparent p-3 dark:border-gray-700">
                 <option value="">Numara seçin</option>
                 @foreach($phones as $phone)
-                    <option value="{{ $phone['id'] }}">{{ $phone['display_phone_number'] }} · {{ $phone['verified_name'] }}</option>
+                    <option value="{{ $phone['id'] }}">{{ $phone['display_phone_number'] }} · {{ $phone['verified_name'] }}@if(filled($phone['waba_id'] ?? null)) · WhatsApp hesabı {{ $phone['waba_id'] }}@endif</option>
                 @endforeach
             </select>
             <button id="wa-select-phone" type="button" class="rounded-lg bg-brand-500 px-5 py-3 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50">Bu numarayı bağla</button>
@@ -60,7 +60,7 @@
     const status = document.getElementById('wa-signup-status');
     const login = document.getElementById('wa-facebook-login');
     const retry = document.getElementById('wa-retry-handoff');
-    let code = null, session = null, saving = false, launched = false, reported = false, timer = null, noCode = null, launchedAt = 0;
+    let code = null, session = null, finished = null, saving = false, launched = false, reported = false, timer = null, noCode = null, launchedAt = 0;
     const fromFacebook = origin => { try { const url = new URL(origin); return url.protocol === 'https:' && (url.hostname === 'facebook.com' || url.hostname.endsWith('.facebook.com')); } catch (_) { return false; } };
     const say = message => { status.textContent = message; };
     async function post(url, payload) {
@@ -95,7 +95,7 @@
         try {
             const data = await post(settings.completeUrl, session
                 ? { code, waba_id: session.waba_id, phone_number_id: session.phone_number_id, event: session.event }
-                : { code, event: 'CODE_ONLY' });
+                : { code, event: 'CODE_ONLY', finish_event: finished });
             code = null;
             session = null;
             window.location.assign(data.redirect);
@@ -120,9 +120,12 @@
         const data = message.data || {};
         if (['FINISH', 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING', 'FINISH_ONLY_WABA'].includes(message.event)) {
             const waba = String(data.waba_id || '');
-            if (!/^[0-9]{5,40}$/.test(waba)) return;
-            session = { waba_id: waba, phone_number_id: /^[0-9]{5,40}$/.test(String(data.phone_number_id || '')) ? String(data.phone_number_id) : null, event: message.event };
-            if (code) { handoff(); return; }
+            finished = message.event;
+            if (/^[0-9]{5,40}$/.test(waba)) {
+                session = { waba_id: waba, phone_number_id: /^[0-9]{5,40}$/.test(String(data.phone_number_id || '')) ? String(data.phone_number_id) : null, event: message.event };
+            }
+            // Without an account id the server still finds the shared account; the finish kind is kept either way.
+            if (code) { handoff(true); return; }
             // The account came back but Meta has not handed the code to the page yet; without it nothing can connect.
             clearTimeout(noCode);
             noCode = setTimeout(() => { if (!code) report({ event: 'NO_CODE' }, 'Meta hesap seçimini bildirdi ama yetki kodunu vermedi. Nedeni WhatsApp ekranında yazıyor.'); }, 45000);
@@ -153,7 +156,7 @@
         sdk.onerror = () => say('Facebook yüklenemedi. Tarayıcıdaki reklam/izleme engelleyicilerini kapatıp sayfayı yenileyin.');
         document.head.appendChild(sdk);
         login.addEventListener('click', () => {
-            code = null; session = null; launched = true; reported = false; launchedAt = Date.now();
+            code = null; session = null; finished = null; launched = true; reported = false; launchedAt = Date.now();
             clearTimeout(timer); clearTimeout(noCode);
             login.disabled = true;
             say('Meta penceresindeki adımları bitirin.');
@@ -167,8 +170,8 @@
                     if (response.authResponse && typeof response.authResponse.code === 'string') {
                         code = response.authResponse.code;
                         clearTimeout(noCode);
-                        if (session) { handoff(); return; }
-                        timer = setTimeout(() => handoff(true), 4000);
+                        if (session || finished) { handoff(true); return; }
+                        timer = setTimeout(() => handoff(true), 6000);
                         say('Meta onayı alındı. Hesap bilgisi bekleniyor…');
                     } else if (!reported && Date.now() - launchedAt < 3000) {
                         // An answer within seconds means the popup never really ran (blocked, or this domain is not allowed in Meta).

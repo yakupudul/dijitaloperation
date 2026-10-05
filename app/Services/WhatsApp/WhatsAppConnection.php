@@ -9,6 +9,7 @@ use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppWebhookReceipt;
 use App\Support\Permissions;
 use App\Support\Roles;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -98,6 +99,9 @@ final class WhatsAppConnection
             $bindingChanged = $this->assertBindingAvailable($integration, $data);
             if ($bindingChanged) {
                 unset($config['history_state'], $config['echo_seen_at'], $config['last_receipt_at'], $config['last_message_received_at']);
+                // A number entered by hand is not a Meta-popup onboarding: its business-app history cannot be asked.
+                unset($config['coexistence_state'], $config['signup_completed_at'], $config['history_sync'], $config['history_sync_error'], $config['history_sync_requested_at']);
+                $config['connected_via'] = 'manual';
             }
             $config['settings_revision'] = (string) Str::uuid();
             $config['connection_error'] = null;
@@ -156,6 +160,23 @@ final class WhatsAppConnection
                 || in_array($config['subscription_state'] ?? '', ['failed', 'missing'], true) => 'attention',
             default => 'connected',
         };
+    }
+
+    /**
+     * Until when the operator can ask Meta for the WhatsApp Business app's contacts and chat history (24 hours after a
+     * coexistence onboarding), or null when that is not possible or already asked.
+     */
+    public function historyDeadline(?CoreIntegration $integration): ?CarbonImmutable
+    {
+        $config = $integration?->config ?? [];
+        $signedUpAt = $config['signup_completed_at'] ?? null;
+        if (($config['connected_via'] ?? '') !== 'embedded_signup' || ! in_array($config['coexistence_state'] ?? '', ['signup_reported', 'unknown'], true)
+            || ($config['history_sync'] ?? null) === 'requested' || ! filled($config['phone_number_id'] ?? null) || ! is_string($signedUpAt)) {
+            return null;
+        }
+        $deadline = CarbonImmutable::parse($signedUpAt)->addHours(24);
+
+        return $deadline->isFuture() ? $deadline : null;
     }
 
     public function assertBindingAvailable(CoreIntegration $integration, array $data): bool

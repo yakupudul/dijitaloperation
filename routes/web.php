@@ -96,11 +96,11 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (
     Route::get('/whatsapp/connect/{attempt}', [WhatsAppSignupController::class, 'show'])
         ->whereUuid('attempt')->name('operator.whatsapp.connect');
     Route::post('/whatsapp/connect/{attempt}', [WhatsAppSignupController::class, 'complete'])
-        ->whereUuid('attempt')->middleware('throttle:10,1')->name('operator.whatsapp.complete');
+        ->whereUuid('attempt')->middleware('throttle:10,1,wa-complete')->name('operator.whatsapp.complete');
     Route::post('/whatsapp/connect/{attempt}/phone', [WhatsAppSignupController::class, 'selectPhone'])
-        ->whereUuid('attempt')->middleware('throttle:10,1')->name('operator.whatsapp.select-phone');
+        ->whereUuid('attempt')->middleware('throttle:10,1,wa-phone')->name('operator.whatsapp.select-phone');
     Route::post('/whatsapp/connect/{attempt}/report', [WhatsAppSignupController::class, 'report'])
-        ->whereUuid('attempt')->middleware('throttle:10,1')->name('operator.whatsapp.report');
+        ->whereUuid('attempt')->middleware('throttle:30,1,wa-report')->name('operator.whatsapp.report');
     Route::livewire('/whatsapp', WhatsAppInbox::class)
         ->name('operator.whatsapp');
 });

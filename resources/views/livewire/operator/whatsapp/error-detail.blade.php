@@ -15,7 +15,7 @@
     @if(!empty($label))<p class="font-medium">{{ $label }}</p>@endif
     <p class="break-words">{{ $plain }}</p>
     @if(($raw !== '' && $raw !== $plain) || $codes !== [])
-        <details class="mt-1 text-xs text-gray-500">
+        <details class="mt-1 text-xs text-gray-500" wire:ignore.self>
             <summary class="cursor-pointer select-none">Meta'nın teknik mesajı</summary>
             @if($raw !== '' && $raw !== $plain)<p class="mt-1 break-words">{{ $raw }}</p>@endif
             @if($codes !== [])<p class="mt-1">{{ implode(' · ', $codes) }}</p>@endif

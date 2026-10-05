@@ -30,24 +30,25 @@
         @include('livewire.operator.whatsapp.connection-status')
     </div>
 
-    @if($metaReady)
-        <details class="{{ $card }} p-5">
+    {{-- Opened sections stay open across refreshes: Livewire leaves these <details> attributes to the browser. --}}
+    @if($metaReady || $state === 'connected')
+        <details class="{{ $card }} p-5" @if(! $metaReady) open @endif wire:ignore.self data-wa-meta-app>
             <summary class="cursor-pointer font-semibold text-gray-900 dark:text-white">Meta uygulama bilgileri</summary>
             <div class="mt-4">@include('livewire.operator.whatsapp.signup-settings')</div>
         </details>
     @endif
 
-    <details class="{{ $card }} p-5" @if($manualOpen) open @endif data-wa-manual>
+    <details class="{{ $card }} p-5" @if($manualOpen) open @endif wire:ignore.self x-data x-on:wa-open-manual.window="$el.open = true; $el.scrollIntoView({ block: 'start', behavior: 'smooth' })" data-wa-manual>
         <summary class="cursor-pointer font-semibold text-gray-900 dark:text-white">Elle bağla <span class="font-normal text-gray-500">— kendi WhatsApp hesabınız veya hazır Cloud API bilgileri için</span></summary>
         <div class="mt-4">@include('livewire.operator.whatsapp.manual-settings')</div>
     </details>
 
-    <details class="{{ $card }} p-5">
+    <details class="{{ $card }} p-5" wire:ignore.self>
         <summary class="cursor-pointer font-semibold text-gray-900 dark:text-white">Son mesaj aktarımları</summary>
         <div class="mt-3 text-sm">
             @forelse($receipts as $receipt)
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 py-2 last:border-0 dark:border-gray-800">
-                    <span>{{ $when($receipt->created_at) }} · {{ ['completed' => 'İşlendi', 'pending' => 'Sırada', 'failed' => 'Hata'][$receipt->status] ?? $receipt->status }} · {{ $receipt->accepted_count }} yeni mesaj@if($receipt->ignored_count) · {{ $receipt->ignored_count }} başka kapsamdaki öğe @endif</span>
+                    <span>{{ $when($receipt->created_at) }} · {{ ['completed' => 'İşlendi', 'pending' => 'Sırada', 'failed' => 'Hata'][$receipt->status] ?? $receipt->status }} · {{ $receipt->accepted_count }} yeni mesaj{{ $receipt->ignored_count ? ' · '.$receipt->ignored_count.' başka kapsamdaki öğe' : '' }}</span>
                     @if($receipt->status === 'failed')<button type="button" wire:click="retryReceipt({{ $receipt->id }})" class="text-brand-600 hover:underline">Tekrar işle</button>@endif
                 </div>
             @empty

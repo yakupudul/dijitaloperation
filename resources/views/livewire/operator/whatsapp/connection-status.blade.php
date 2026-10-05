@@ -32,6 +32,7 @@
             ($config['history_state'] ?? '') === 'provider_error' => ['bad', 'Meta geçmişi paylaşamadı'],
             ($config['history_sync'] ?? '') === 'requested' => ['warn', 'İstendi · '.$when($config['history_sync_requested_at'] ?? null)],
             ($config['history_sync'] ?? '') === 'failed' => ['bad', 'İstenemedi'],
+            $historyDeadline !== null => ['warn', 'Alınmadı · son '.$when($historyDeadline)],
             default => ['muted', '—'],
         }],
         ['Son gelen mesaj', ! empty($config['last_message_received_at']) ? ['ok', $when($config['last_message_received_at'])] : ['muted', 'Henüz yok']],
