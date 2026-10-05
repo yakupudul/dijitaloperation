@@ -206,6 +206,54 @@ final class GbpProfilePlanTest extends TestCase
             ->assertSee('Gönderimi Admin onaylar.')->call('sendPlan')->assertForbidden();
     }
 
+    public function test_pasted_list_turns_headings_into_categories_and_rows_into_services_with_the_operators_descriptions(): void
+    {
+        $paste = <<<'MD'
+**Diş Kliniği**
+
+| Hizmet | Açıklama |
+|---|---|
+| Gülüş Tasarımı | Dişlerin şekli, rengi, dizilimi ve diş eti görünümü birlikte değerlendirilir. |
+| Diş Beyazlatma | Dişlerdeki renklenmeler için hekim kontrolünde beyazlatma seçenekleri değerlendirilir. |
+
+**Pedodontist**
+
+| Hizmet | Açıklama |
+|---|---|
+| Flor Uygulaması | Çürük riskine göre diş yüzeylerine koruyucu flor uygulaması değerlendirilir. |
+MD;
+        $parsed = GbpProfilePlanner::parse('', $paste."\nYer Tutucu\tSüt dişinin erken kaybedildiği durumlarda boşluk korunur.");
+        $this->assertSame(['Diş Kliniği', 'Pedodontist'], $parsed['categories']);
+        $this->assertSame(['Gülüş Tasarımı', 'Diş Beyazlatma', 'Flor Uygulaması', 'Yer Tutucu'], array_column($parsed['services'], 'line'));
+        $this->assertSame(['Diş Kliniği', 'Diş Kliniği', 'Pedodontist', 'Pedodontist'], array_column($parsed['services'], 'category'));
+        $this->assertSame('Süt dişinin erken kaybedildiği durumlarda boşluk korunur.', $parsed['services'][3]['description']);
+
+        GbpProfilePlanAgent::fake([[
+            'categories' => [
+                ['line' => 'Diş Kliniği', 'category_id' => 'categories/gcid:dental_clinic', 'reason' => 'Profilin birincil kategorisi.'],
+                ['line' => 'Pedodontist', 'category_id' => 'categories/gcid:pediatric_dentist', 'reason' => 'Çocuk diş hekimliği.'],
+            ],
+            'services' => [
+                ['line' => 'Gülüş Tasarımı', 'category_id' => 'categories/gcid:dental_clinic', 'service_type_id' => '', 'name' => 'Gülüş tasarımı hizmeti', 'description' => '', 'reason' => 'x'],
+                ['line' => 'Diş Beyazlatma', 'category_id' => 'categories/gcid:dental_clinic', 'service_type_id' => 'job_type_id:teeth_whitening', 'name' => 'Diş Beyazlatma', 'description' => '', 'reason' => 'x'],
+                ['line' => 'Flor Uygulaması', 'category_id' => 'categories/gcid:pediatric_dentist', 'service_type_id' => '', 'name' => 'Flor', 'description' => 'AI metni.', 'reason' => 'x'],
+            ],
+        ]]);
+        $this->page()->set('wantServices', $paste)->call('preparePlan');
+
+        GbpProfilePlanAgent::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, '"category":"Pedodontist"'));
+        $content = AiProduction::query()->where('kind', GbpProfilePlanner::KIND)->sole()->content;
+        $this->assertSame([['categories/gcid:dental_clinic', 'exists'], ['categories/gcid:pediatric_dentist', 'new']],
+            array_map(fn (array $c): array => [$c['id'], $c['status']], $content['categories']), 'a heading naming a profile category is that category');
+        $services = collect($content['services'])->keyBy('line');
+        $this->assertSame('Gülüş Tasarımı', $services['Gülüş Tasarımı']['name'], 'a pasted name is kept');
+        $this->assertSame('Dişlerin şekli, rengi, dizilimi ve diş eti görünümü birlikte değerlendirilir.', $services['Gülüş Tasarımı']['description']);
+        $this->assertSame('Diş beyazlatma', $services['Diş Beyazlatma']['name'], 'a predefined type keeps Google’s name');
+        $this->assertSame('Dişlerdeki renklenmeler için hekim kontrolünde beyazlatma seçenekleri değerlendirilir.', $services['Diş Beyazlatma']['description']);
+        $this->assertSame(['Flor Uygulaması', 'Çürük riskine göre diş yüzeylerine koruyucu flor uygulaması değerlendirilir.', 'categories/gcid:pediatric_dentist'],
+            [$services['Flor Uygulaması']['name'], $services['Flor Uygulaması']['description'], $services['Flor Uygulaması']['category_id']]);
+    }
+
     public function test_write_refuses_more_than_nine_additional_categories_and_only_allows_the_two_masks(): void
     {
         $this->location['categories']['additionalCategories'] = array_map(fn (int $i): array => ['name' => 'categories/gcid:c'.$i], range(1, 9));

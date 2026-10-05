@@ -34,7 +34,7 @@ final class GbpProfilePlanner
 
     public const int CATEGORY_LINES_MAX = 10;
 
-    public const int SERVICE_LINES_MAX = 40;
+    public const int SERVICE_LINES_MAX = 80;
 
     public const int ADDITIONAL_MAX = 9;
 
@@ -71,14 +71,70 @@ final class GbpProfilePlanner
     }
 
     /**
+     * The operator's two boxes as plan input. The services box takes plain lines or a pasted list (yakup, 2026-10-05):
+     * a heading (`**Diş Kliniği**`, `## …`, `Diş Kliniği:`) is a category and the services under it belong to it; a
+     * table row (`| Hizmet | Açıklama |`, or tab-separated from a spreadsheet) or `Hizmet: açıklama` gives the service
+     * with the operator's own description. Header and separator rows are skipped.
+     *
+     * @return array{categories: list<string>, services: list<array{line: string, category: string, description: string}>}
+     */
+    public static function parse(string $categoriesText, string $servicesText): array
+    {
+        $categories = [];
+        foreach (self::lines($categoriesText, self::CATEGORY_LINES_MAX) as $line) {
+            $categories[SeoText::fold($line)] = $line;
+        }
+        $services = [];
+        $heading = '';
+        foreach (preg_split('/\r\n|\r|\n/u', $servicesText) ?: [] as $raw) {
+            $line = trim($raw);
+            if ($line === '' || preg_match('/^\|?[\s:|-]*-{2,}[\s:|-]*\|?$/u', $line) === 1) {
+                continue;
+            }
+            $isRow = str_starts_with($line, '|') || str_contains($raw, "\t");
+            if (! $isRow && preg_match('/^(?:\*\*(.+?)\*\*:?|#{1,6}\s+(.+?)|([^:|]{2,80}):)$/u', $line, $m) === 1) {
+                $heading = self::clean($m[1] !== '' ? $m[1] : (($m[2] ?? '') !== '' ? $m[2] : ($m[3] ?? '')));
+                if ($heading !== '') {
+                    $categories[SeoText::fold($heading)] ??= $heading;
+                }
+
+                continue;
+            }
+            if ($isRow) {
+                $cells = array_values(array_filter(array_map(self::clean(...), preg_split(str_starts_with($line, '|') ? '/\|/u' : '/\t/u', trim($line, '|')) ?: []), fn (string $c): bool => $c !== ''));
+                [$name, $description] = [$cells[0] ?? '', $cells[1] ?? ''];
+                if (in_array(SeoText::fold($name), ['hizmet', 'hizmetler', 'hizmet adi', 'service', 'services'], true)) {
+                    continue;
+                }
+            } elseif (preg_match('/^(.{2,120}?)\s*(?::|\s[–—-])\s+(.{20,})$/u', ltrim($line, ' -*•·'), $m) === 1) {
+                [$name, $description] = [self::clean($m[1]), self::clean($m[2])];
+            } else {
+                [$name, $description] = [self::clean($line), ''];
+            }
+            $name = mb_substr($name, 0, self::NAME_MAX);
+            if ($name !== '' && ! isset($services[SeoText::fold($name)])) {
+                $services[SeoText::fold($name)] = ['line' => $name, 'category' => $heading, 'description' => $description];
+            }
+        }
+
+        return ['categories' => array_slice(array_values($categories), 0, self::CATEGORY_LINES_MAX), 'services' => array_slice(array_values($services), 0, self::SERVICE_LINES_MAX)];
+    }
+
+    /**
      * Prepares the plan; null while the call waits for Claude (the job runs again when it answered).
      *
-     * @param  array{categories?: list<string>, services?: list<string>}  $params
+     * @param  array{categories?: list<string>, services?: list<string|array{line: string, category?: string, description?: string}>}  $params
      */
     public function plan(DigitalAsset $asset, array $params): ?string
     {
         $categoryLines = array_slice(array_values(array_filter(array_map('strval', (array) ($params['categories'] ?? [])))), 0, self::CATEGORY_LINES_MAX);
-        $serviceLines = array_slice(array_values(array_filter(array_map('strval', (array) ($params['services'] ?? [])))), 0, self::SERVICE_LINES_MAX);
+        $serviceLines = [];
+        foreach (array_slice((array) ($params['services'] ?? []), 0, self::SERVICE_LINES_MAX) as $service) {
+            $service = is_array($service) ? $service : ['line' => (string) $service];
+            if (trim((string) ($service['line'] ?? '')) !== '') {
+                $serviceLines[] = ['line' => (string) $service['line'], 'category' => (string) ($service['category'] ?? ''), 'description' => (string) ($service['description'] ?? '')];
+            }
+        }
         if ($categoryLines === [] && $serviceLines === []) {
             throw new RuntimeException('Kategori ya da hizmet yazın.');
         }
@@ -91,9 +147,14 @@ final class GbpProfilePlanner
         }
         $additionalIds = array_values(array_filter(array_map(fn ($c): string => (string) data_get($c, 'name', ''), (array) data_get($current['categories'], 'additionalCategories', []))));
         $catalog = $this->catalog->batch($integration, [$primaryId, ...$additionalIds]);
+        $onProfile = [];
+        foreach ([(array) data_get($current['categories'], 'primaryCategory', []), ...(array) data_get($current['categories'], 'additionalCategories', [])] as $category) {
+            $onProfile[SeoText::fold((string) data_get($category, 'displayName', ''))] = ['id' => (string) data_get($category, 'name', ''), 'name' => (string) data_get($category, 'displayName', ''), 'service_types' => []];
+        }
         $requests = [];
         foreach ($categoryLines as $line) {
-            $candidates = $this->catalog->search($integration, $line);
+            // A heading that names a category the profile already has needs no search (it is that category).
+            $candidates = isset($onProfile[SeoText::fold($line)]) ? [$catalog[$onProfile[SeoText::fold($line)]['id']] ?? $onProfile[SeoText::fold($line)]] : $this->catalog->search($integration, $line);
             foreach ($candidates as $candidate) {
                 $catalog[$candidate['id']] ??= $candidate;
             }
@@ -115,7 +176,8 @@ final class GbpProfilePlanner
             'profile_services' => array_values($profileServices),
             'category_requests' => $requests,
             'catalog' => array_map(fn (array $c): array => ['name' => $c['name'], 'service_types' => array_map(fn (array $t): array => ['id' => $t['id'], 'name' => $t['name']], $c['service_types'])], $catalog),
-            'service_requests' => $serviceLines,
+            'service_requests' => array_map(fn (array $s): array => array_filter(['line' => $s['line'], 'category' => $s['category'],
+                'description' => mb_substr($s['description'], 0, 160)], fn (string $v): bool => $v !== ''), $serviceLines),
             'offerings' => array_column(app(GbpAssistant::class)->offerings($brand), 'name'),
             'compliance' => app(SectorPackRegistry::class)->rulesForBrand($brand)->pluck('message')->unique()->values()->take(12)->all(),
         ];
@@ -147,7 +209,7 @@ final class GbpProfilePlanner
      *
      * @param  array<mixed>  $raw
      * @param  list<array{line: string, candidates: list<array{id: string, name: string}>}>  $requests
-     * @param  list<string>  $serviceLines
+     * @param  list<array{line: string, category: string, description: string}>  $serviceLines
      * @param  array<string, array{id: string, name: string, service_types: list<array{id: string, name: string}>}>  $catalog
      * @param  list<string>  $additionalIds
      * @param  array<string, string>  $profileServices  folded name => name
@@ -192,7 +254,9 @@ final class GbpProfilePlanner
             }
         }
         $services = [];
-        foreach ($serviceLines as $line) {
+        foreach ($serviceLines as $request) {
+            $line = $request['line'];
+            $given = $request['description'] !== '' || $request['category'] !== '';
             $row = $answers[SeoText::fold($line)] ?? null;
             $categoryId = trim((string) ($row['category_id'] ?? ''));
             if ($row === null || ! isset($usable[$categoryId])) {
@@ -202,8 +266,9 @@ final class GbpProfilePlanner
             }
             $typeId = trim((string) ($row['service_type_id'] ?? ''));
             $type = collect($catalog[$categoryId]['service_types'] ?? [])->firstWhere('id', $typeId);
-            $name = $type !== null ? (string) $type['name'] : self::line((string) ($row['name'] ?? ''), self::NAME_MAX);
-            $description = self::description((string) ($row['description'] ?? ''));
+            // A pasted list keeps the operator's own name (free-form) and description; the AI only places it.
+            $name = $type !== null ? (string) $type['name'] : ($given ? self::line($line, self::NAME_MAX) : self::line((string) ($row['name'] ?? ''), self::NAME_MAX));
+            $description = self::description($request['description'] !== '' ? $request['description'] : (string) ($row['description'] ?? ''));
             if ($name === '' || preg_match(self::CONTACT_PATTERN, $name) === 1) {
                 $skipped[] = ['line' => $line, 'reason' => 'AI geçerli bir hizmet adı döndürmedi.'];
 
@@ -295,6 +360,12 @@ final class GbpProfilePlanner
             provider: $route->providerModels, timeout: 120)->toArray();
 
         return [$response, $agent->promptVersionId()];
+    }
+
+    /** A pasted cell or heading without Markdown emphasis / list marks. */
+    private static function clean(string $text): string
+    {
+        return trim(preg_replace('/\s+/u', ' ', str_replace(['**', '__', '`'], '', ltrim(trim($text), ' -*•·#'))) ?? '');
     }
 
     private static function line(string $text, int $max = 240): string

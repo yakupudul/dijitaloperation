@@ -309,15 +309,14 @@ class OverviewPage extends Component
 
             return;
         }
-        $this->wantServices = implode("\n", GbpProfilePlanner::lines(trim($this->wantServices."\n".implode("\n", $missing)), GbpProfilePlanner::SERVICE_LINES_MAX));
+        $typed = array_map(fn (array $s): string => SeoText::fold($s['line']), GbpProfilePlanner::parse('', $this->wantServices)['services']);
+        $missing = array_filter($missing, fn (string $name): bool => ! in_array(SeoText::fold($name), $typed, true));
+        $this->wantServices = ltrim(rtrim($this->wantServices)."\n".implode("\n", $missing));
     }
 
     public function preparePlan(GbpAssistant $assistant): void
     {
-        $this->queueAssistant($assistant, GbpAssistant::OP_PROFILE, [
-            'categories' => GbpProfilePlanner::lines($this->wantCategories, GbpProfilePlanner::CATEGORY_LINES_MAX),
-            'services' => GbpProfilePlanner::lines($this->wantServices, GbpProfilePlanner::SERVICE_LINES_MAX),
-        ]);
+        $this->queueAssistant($assistant, GbpAssistant::OP_PROFILE, GbpProfilePlanner::parse($this->wantCategories, $this->wantServices));
     }
 
     /** ADR-077: the Admin sends the chosen plan rows to the profile (additions only; undo from the list). */

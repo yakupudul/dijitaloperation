@@ -378,9 +378,10 @@
                 <label class="block text-sm"><span class="text-xs text-gray-500">Eklenecek kategoriler (her satıra bir, en çok 10)</span>
                     <textarea wire:model="wantCategories" rows="3" placeholder="Ortodontist&#10;Ağız ve diş sağlığı kliniği" class="mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900"></textarea>
                 </label>
-                <label class="block text-sm"><span class="flex items-center justify-between text-xs text-gray-500">Eklenecek hizmetler (her satıra bir, en çok 40)
+                <label class="block text-sm"><span class="flex items-center justify-between text-xs text-gray-500">Eklenecek hizmetler (her satıra bir, en çok 80)
                         <button type="button" wire:click="fillFromOfferings" class="font-medium text-brand-600 hover:underline">Marka hizmetlerinden doldur</button></span>
-                    <textarea wire:model="wantServices" rows="7" placeholder="Diş implantı&#10;Zirkonyum kaplama" class="mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900"></textarea>
+                    <textarea wire:model="wantServices" rows="10" placeholder="Diş implantı&#10;Zirkonyum kaplama&#10;&#10;ya da yapıştır:&#10;**Diş Kliniği**&#10;| Hizmet | Açıklama |&#10;|---|---|&#10;| Gülüş Tasarımı | … |" class="mt-1 w-full rounded-lg border-gray-300 font-mono text-xs dark:border-gray-700 dark:bg-gray-900"></textarea>
+                    <span class="mt-1 block text-xs text-gray-500">Liste yapıştırabilirsiniz: kalın başlık (ya da “Başlık:”) kategori olur, altındaki tablo satırları (Hizmet | Açıklama, Excel’den sekmeli de olur) o kategorinin hizmetleri olur; açıklamanız aynen kullanılır.</span>
                 </label>
                 <div class="flex flex-wrap items-center gap-2">
                     <button type="button" wire:click="preparePlan" wire:loading.attr="disabled" @disabled(! $operational || ! $bound || ($planState['status'] ?? null) === 'running') class="{{ $primary }}">AI ile hazırla</button>
