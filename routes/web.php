@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\OperatorTwoFactorChallengeController;
 use App\Http\Controllers\Integrations\GoogleOAuthController;
 use App\Http\Controllers\Integrations\MetaOAuthController;
 use App\Http\Controllers\Integrations\WhatsAppBackupController;
+use App\Http\Controllers\Integrations\WhatsAppExportController;
 use App\Http\Controllers\Integrations\WhatsAppSignupController;
 use App\Http\Controllers\LegacyRetiredPrefixController;
 use App\Http\Controllers\Operator\PushController;
@@ -106,6 +107,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (
         ->middleware('throttle:10,1,wa-backup')->name('operator.whatsapp.backup');
     Route::post('/whatsapp/backup/{import}/chunk', [WhatsAppBackupController::class, 'chunk'])
         ->whereUuid('import')->middleware('throttle:600,1,wa-backup-chunk')->name('operator.whatsapp.backup.chunk');
+    Route::get('/whatsapp/export', WhatsAppExportController::class)
+        ->middleware('throttle:10,1,wa-export')->name('operator.whatsapp.export');
     Route::livewire('/whatsapp', WhatsAppInbox::class)
         ->name('operator.whatsapp');
 });

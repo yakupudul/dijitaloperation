@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
 use Livewire\Livewire;
+use OpenSpout\Reader\XLSX\Reader as XlsxReader;
 use PDO;
 use Tests\TestCase;
 
@@ -368,6 +369,40 @@ final class WhatsAppBackupImportTest extends TestCase
         $this->assertSame(['905321112233' => 'Ayşe Yılmaz', '905321112244' => null, '4915112345678' => 'Ali Demir'],
             WhatsAppConversation::query()->orderBy('id')->pluck('contact_name', 'contact_id')->all());
         Livewire::test(Inbox::class)->set('q', 'Ayşe')->assertSee('Ayşe Yılmaz')->assertDontSee('Ali Demir');
+    }
+
+    public function test_conversations_export_to_excel(): void
+    {
+        Queue::fake();
+        $this->extract($this->upload($this->backup([
+            ['905321112233', 's.whatsapp.net', [['A1', 0, '2026-09-01 10:00', 0, 'Fiyat nedir?'], ['A2', 1, '2026-09-01 10:05', 0, 'Kurumsal site 14.000 TL.']]],
+            ['905321112244', 's.whatsapp.net', [['B1', 0, '2026-09-02 10:00', 0, 'Merhaba']]],
+        ])));
+        WhatsAppConversation::query()->where('contact_id', '905321112233')->update(['contact_name' => 'Ayşe Yılmaz']);
+
+        $response = $this->actingAs($this->admin)->get(route('operator.whatsapp.export'))->assertOk();
+        $this->assertStringContainsString('whatsapp-konusmalar-', (string) $response->headers->get('content-disposition'));
+
+        $reader = new XlsxReader;
+        $reader->open($response->baseResponse->getFile()->getPathname());
+        $sheets = [];
+        foreach ($reader->getSheetIterator() as $sheet) {
+            foreach ($sheet->getRowIterator() as $row) {
+                $sheets[$sheet->getName()][] = $row->toArray();
+            }
+        }
+        $reader->close();
+
+        $this->assertSame(['Kişi', 'Numara', 'Müşteri', 'Tarih', 'Yön', 'Tür', 'Mesaj'], $sheets['Mesajlar'][0]);
+        $this->assertSame(['Ayşe Yılmaz', '+905321112233', '', '2026-09-01 10:00', 'Gelen', 'Metin', 'Fiyat nedir?'], $sheets['Mesajlar'][2]);
+        $this->assertSame('Giden', $sheets['Mesajlar'][3][4]);
+        $this->assertCount(4, $sheets['Mesajlar']);
+        $this->assertSame([['Kişi', 'Numara'], ['', '+905321112244'], ['Ayşe Yılmaz', '+905321112233']],
+            array_map(fn (array $row): array => array_slice($row, 0, 2), $sheets['Görüşmeler']));
+
+        $one = WhatsAppConversation::query()->where('contact_id', '905321112244')->value('id');
+        $this->get(route('operator.whatsapp.export', ['conversation' => $one]))->assertOk();
+        $this->get(route('operator.whatsapp.export', ['conversation' => 999999]))->assertNotFound();
     }
 
     private function backup(array $chats): string
