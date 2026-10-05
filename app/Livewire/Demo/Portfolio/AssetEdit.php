@@ -71,15 +71,17 @@ class AssetEdit extends Component
         try {
             $asset = DigitalAsset::query()->findOrFail($this->assetId);
             $this->type = (string) $asset->type;
-            $this->validate($this->assetRules());
-            $target = Brand::query()->findOrFail((int) $this->brand_id);
-            if ($this->type === 'website' && ($duplicate = $this->duplicateWebsiteMessage($asset, (int) $target->id)) !== null) {
+            // A website added under Integrations may stay without a brand while its address or details are fixed.
+            $keepUnassigned = $asset->type === 'website' && $asset->brand_id === null && trim($this->brand_id) === '';
+            $this->validate(array_merge($this->assetRules(), $keepUnassigned ? ['brand_id' => ['nullable']] : []));
+            $target = $keepUnassigned ? null : Brand::query()->findOrFail((int) $this->brand_id);
+            if ($this->type === 'website' && ($duplicate = $this->duplicateWebsiteMessage($asset, $target !== null ? (int) $target->id : null)) !== null) {
                 $this->addError('domain', $duplicate);
 
                 return null;
             }
 
-            if ((int) $asset->brand_id !== (int) $target->id) {
+            if ($target !== null && (int) $asset->brand_id !== (int) $target->id) {
                 $conflict = app(OwnershipGuard::class)->forAssetMove($asset, $target);
                 if ($conflict !== null && ! $transferConfirmed) {
                     $this->presentOwnershipConflict($conflict, ['brand_id' => (int) $target->id]);
@@ -119,7 +121,7 @@ class AssetEdit extends Component
     }
 
     /** Another website asset already uses the edited URL / domain (the asset itself excluded). */
-    private function duplicateWebsiteMessage(DigitalAsset $asset, int $targetBrandId): ?string
+    private function duplicateWebsiteMessage(DigitalAsset $asset, ?int $targetBrandId): ?string
     {
         $guard = app(OwnershipGuard::class);
         // The domain alone is only the shared host when the site lives in a folder (kralsoftware.com/newbyangn).

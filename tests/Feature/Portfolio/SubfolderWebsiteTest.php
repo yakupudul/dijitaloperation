@@ -2,16 +2,23 @@
 
 namespace Tests\Feature\Portfolio;
 
+use App\Livewire\Demo\Portfolio\AssetEdit;
+use App\Livewire\Operator\Integrations\WebsiteIntegrationIndex;
 use App\Models\Brand;
+use App\Models\CoreConnection;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Models\User;
 use App\Services\BrandSetup\BrandSetupMatcher;
 use App\Services\Ownership\OwnershipGuard;
 use App\Services\Portfolio\UnassignedWebsites;
 use App\Support\Integrations\WordPress\WordPressConnectorUrlGuard;
+use App\Support\Roles;
+use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 /** WordPress sites installed in folders of one host (https://www.kralsoftware.com/newbyangn) are separate websites. */
@@ -89,5 +96,32 @@ final class SubfolderWebsiteTest extends TestCase
 
         $this->expectException(InvalidArgumentException::class);
         $guard->assertMatchesAsset($site, ['https://www.kralsoftware.com/', 'https://www.kralsoftware.com/wp-json/moxdop/v1/status']);
+    }
+
+    public function test_an_unassigned_website_can_be_edited_without_a_brand_and_removed(): void
+    {
+        $this->seed(RoleAndPermissionSeeder::class);
+        $admin = User::factory()->create(['is_active' => true]);
+        $admin->assignRole(Roles::ADMIN);
+        $this->actingAs($admin);
+        $site = app(UnassignedWebsites::class)->add('https://www.kralsoftware.com/');
+        $connection = CoreConnection::query()->create(['digital_asset_id' => $site->id, 'type' => 'wordpress_connector', 'name' => 'WP', 'config' => [], 'enabled' => true]);
+
+        Livewire::test(AssetEdit::class, ['assetId' => (string) $site->id])
+            ->set('primary_url', 'https://www.kralsoftware.com/newbyangn')
+            ->call('save')
+            ->assertHasNoErrors();
+        $this->assertSame('https://www.kralsoftware.com/newbyangn', $site->fresh()->primary_url);
+        $this->assertNull($site->fresh()->brand_id);
+
+        Livewire::test(WebsiteIntegrationIndex::class)
+            ->assertSee('data-remove-website="'.$site->id.'"', false)
+            ->call('removeWebsite', $site->id)
+            ->assertSet('messageTone', 'success');
+
+        $this->assertSoftDeleted($site);
+        $this->assertFalse($connection->fresh()->enabled);
+        // The address is free again.
+        $this->assertNotNull(app(UnassignedWebsites::class)->add('https://www.kralsoftware.com/newbyangn')->id);
     }
 }

@@ -137,6 +137,12 @@
                                 <td class="whitespace-nowrap px-5 py-4 text-right">
                                     <a href="{{ route('operator.website', ['assetId' => $row['asset']->id]) }}" wire:navigate data-open-site-screen="{{ $row['asset']->id }}" class="mr-2 inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ $tr ? 'Site ekranına git' : 'Open site screen' }}</a>
                                     <a href="{{ route('operator.integrations.website', ['assetId' => $row['asset']->id]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200 hover:bg-brand-50 dark:text-brand-400 dark:ring-brand-500/30 dark:hover:bg-brand-500/10">{{ $tr ? 'Aç' : 'Open' }}</a>
+                                    @if ($canAssign)
+                                        <div class="mt-2 flex justify-end gap-3 text-xs">
+                                            <a href="{{ route('operator.asset.edit', ['assetId' => $row['asset']->id]) }}" wire:navigate data-edit-website="{{ $row['asset']->id }}" class="font-medium text-gray-600 hover:underline dark:text-gray-300">{{ $tr ? 'Düzenle' : 'Edit' }}</a>
+                                            <button type="button" data-remove-website="{{ $row['asset']->id }}" wire:click="removeWebsite({{ $row['asset']->id }})" wire:confirm="{{ $row['asset']->name }} kaldırılsın mı? Site listelerden çıkar, WordPress bağlayıcısı kapanır; toplanan veriler silinmez." class="font-medium text-error-600 hover:underline dark:text-error-400">{{ $tr ? 'Kaldır' : 'Remove' }}</button>
+                                        </div>
+                                    @endif
                                 </td>
                             </tr>
                         @empty

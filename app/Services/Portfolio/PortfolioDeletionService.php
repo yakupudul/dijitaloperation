@@ -5,6 +5,7 @@ namespace App\Services\Portfolio;
 use App\Enums\Security\SecurityAuditEventKind;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
+use App\Models\CoreConnection;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\User;
@@ -70,6 +71,31 @@ final class PortfolioDeletionService
     }
 
     /**
+     * Removes one website (brand-owned or not yet assigned) the same way: archived, its account bindings disabled and its
+     * connectors (WordPress) switched off. Collected data stays; adding the same address again starts a new website.
+     */
+    public function deleteWebsite(DigitalAsset $site, ?User $actor = null): bool
+    {
+        if ($site->type !== 'website') {
+            return false;
+        }
+        try {
+            DB::transaction(function () use ($site, $actor): void {
+                $this->disableBindings([(int) $site->id], $actor);
+                CoreConnection::query()->where('digital_asset_id', $site->id)->update(['enabled' => false]);
+                $site->delete();
+            });
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return false;
+        }
+        $this->log($actor, 'website', [(int) $site->id => (string) $site->name]);
+
+        return true;
+    }
+
+    /**
      * Disable the bindings of the brands' assets, archive the assets, then archive the root via $archiveRoot.
      *
      * @param  list<int>  $brandIds
@@ -122,7 +148,11 @@ final class PortfolioDeletionService
         }
         try {
             $this->audit->record(SecurityAuditEventKind::SecuritySettingChanged, $actor, null, null, null, null,
-                $type === 'customer' ? 'Müşteri(ler) portföyden silindi (veriler korundu, veri çekimi durdu)' : 'Marka(lar) portföyden silindi (veriler korundu, veri çekimi durdu)',
+                match ($type) {
+                    'customer' => 'Müşteri(ler) portföyden silindi (veriler korundu, veri çekimi durdu)',
+                    'website' => 'Web sitesi portföyden kaldırıldı (veriler korundu, bağlayıcı kapatıldı)',
+                    default => 'Marka(lar) portföyden silindi (veriler korundu, veri çekimi durdu)',
+                },
                 ['type' => $type, 'count' => count($names), 'archived' => array_slice($names, 0, 200, true)]);
         } catch (Throwable $exception) {
             report($exception);

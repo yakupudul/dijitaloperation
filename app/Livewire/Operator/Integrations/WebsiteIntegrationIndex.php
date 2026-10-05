@@ -21,6 +21,7 @@ use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Services\Integrations\WordPress\WordPressEventReconciliation;
 use App\Services\Operations\SystemHealthReader;
 use App\Services\PageSpeedConnectionProbeService;
+use App\Services\Portfolio\PortfolioDeletionService;
 use App\Services\Portfolio\UnassignedWebsites;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -85,6 +86,19 @@ final class WebsiteIntegrationIndex extends Component
         $this->newWebsite = '';
         $this->messageTone = 'success';
         $this->message = $site->name.' eklendi. WordPress Connector ile bağlayabilir, marka eklerken bu siteyi seçebilirsiniz.';
+    }
+
+    /** "Kaldır" on a website row (Admin): archives the site and switches its connector off; collected data stays. */
+    public function removeWebsite(int $siteId, PortfolioDeletionService $deletion): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $site = DigitalAsset::query()->where('type', 'website')->find($siteId);
+        if ($site === null) {
+            return;
+        }
+        $removed = $deletion->deleteWebsite($site, auth()->user());
+        $this->messageTone = $removed ? 'success' : 'warning';
+        $this->message = $removed ? $site->name.' kaldırıldı.' : $site->name.' kaldırılamadı; tekrar deneyin.';
     }
 
     /** "Markaya ata" on an unassigned website row: Customer → Brand picker state. */
