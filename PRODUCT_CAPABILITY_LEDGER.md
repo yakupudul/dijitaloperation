@@ -3187,3 +3187,51 @@ reopens if the page fails again. Nothing is written to the site, and the Clarity
 Verification: `Site/ClarityTest` (token encrypted and write-only, hourly pull guard, API answer folded per page ×
 device, rule → work in Teknik sağlık, a pass closes it itself, 401 shown on Ayarlar). Not deployed; no real Clarity
 project tested; Ads / Meta landing-page link not built yet; not DONE.
+
+### Geliştirme havuzu round 2026-10-05 (yakup approved #1–#16)
+
+Coded on `claude/project-thread-e5yimf` on top of live 7e6391da; PHPUnit only, no live UAT. Not deployed; not DONE.
+- **#1 Küme çakışmaları:** already live since 23b7de63 (language filter, one item per cluster · main page · page pair).
+- **#2 Eşleştir once per site:** a setup / Eşleştir waiting for Claude (MCP) counts as running while its AI task is
+  open (or the Eşleştir pass is open), not for 3 hours only; an answered setup holds the flow until its job ran again
+  (at most 3 h). The match call uses a stable slot (language, service, cluster ids), so a changing pack opens no second
+  task; the weekly refresh skips cluster ↔ page while Eşleştir runs or waits. `Site/SiteFlowClaudeWaitTest`.
+- **#3 Projection job not killed:** Horizon supervisor-1 timeout default 1560 s (`HORIZON_DEFAULT_TIMEOUT`, longest job
+  that really lands on default is 1500 s, below retry_after 1800 s); `.env.staging.example` no longer pins 300.
+  `RebuildWebsiteProjectionJob::failed()` reports once. `Performance/QueueTopologyContractTest` (job timeout <
+  supervisor timeout, queue resolved like the Bus incl. `Queue::route`), `RebuildWebsiteProjectionJobTest`.
+  Known: `AppServiceProvider::routeHeavyJobs` passes a plain list to `Queue::route`, which Laravel 13 ignores, so its six
+  jobs run on default (not changed here).
+- **#4 Weekly accounts not stale:** `dataset_stale` and system health judge idle / dormant accounts by their light
+  datasets (`moxdop-collection-activity.light_datasets`) with the weekly interval added; collection-off and parked
+  (manager / not_enabled) accounts are skipped; active accounts unchanged. `Observability/WeeklyCollectedAccountFreshnessTest`.
+- **#5 GBP failure cause:** the stopped-collection alert carries `error_category` + `safe_error` from the failed core
+  datasets (API disabled first, then 401/403/404/429/5xx), uses the profile page's hint (now
+  `GoogleBusinessProfileBoundCollector::errorHint` in Core) and no longer says "3 kez"; software errors are reported.
+  `Gbp/GbpCollectionFailureCauseTest`.
+- **#6 Brand page queries:** no per-asset queries in the asset list; cold KPI cache reads site bindings / last days once
+  per render, Business Profiles in batches, Meta entities once. `Performance/BrandPageQueryCountTest`, `BrandOverviewTest`,
+  `BrandOverviewMetaTest`.
+- **#7 Data status activity:** `DataStatusReader` reads `resource_activity` once per `compute()` batch; `activityFor()`
+  stays the override point. `DataStatusTest`, `PortfolioSignalsTest` (stub removed).
+- **#8 Error center live checks:** `ErrorTriage::groups()` prefetches the last live check of every named account in one
+  query; table check cached; cause once per alert. `Observability/ErrorCenterTest`.
+- **#9 Header constant queries:** `AgencySettingService` bound scoped and keeps its row per request / job; writes
+  outside it drop the row; the AI header reads running work once per render and sweeps stale rows at most once a minute.
+  `Operations/AgencySettingScopeTest`, `AiControl/AiLiveOperationsTest`.
+- **#10 WordPress non-JSON:** output / BOM around the signed `{"data":` envelope is cut (nonce + HMAC still verified);
+  no JSON at all → `WordPressConnectorSiteException` (Turkish, host + first 120 chars) as the connection's last_error,
+  not reported as an app error. Plugin-side `ob_start` waits for the next connector release.
+  `Integrations/WordPressConnectorSiteResponseTest`, `Website/CacheFriendlyCrawlTest`.
+- **#11 Projection in SQL:** GSC / GA4 facts aggregated with one statement per table (no OFFSET; the GSC daily tables are
+  id-less views in PostgreSQL), terms resolved in batches of 500, profiles upserted per 500, identities written in id
+  order; output pinned by a snapshot. Page identity resolution still runs per page. `IntelligenceProjection/WebsiteProjectionRebuildSnapshotTest`,
+  `WebsiteProjectionRebuildQueryCountTest`, `WebsiteProjectionFactAggregationTest`, `SearchTermIdentityBatchResolutionTest`.
+- **#12 / #13 Google Ads:** 403 `CUSTOMER_NOT_ENABLED` keeps its code, the history probe parks the account (kept
+  through daily discovery) and collection writes `not_enabled` without failing; the request governor catches
+  `Illuminate\Contracts\Cache\LockTimeoutException` and waits (customer_concurrency) instead of failing.
+- **#14 Meta geo:** transport errors wait 300 s + jitter and retry up to 4 times; then `failed` without report().
+  `MetaAds/MetaGeoResultsTest`.
+- **#15 / #16 Sorgular:** `ProcessQueriesJob` waits by `retryUntil` (2 h) with one waiting full pass; clustering apply
+  keeps only queries that still exist (row lock), so a delete during the AI call no longer breaks the FK.
+  `Queries/ProcessQueriesJobTest`, `QueriesScreenTest`.

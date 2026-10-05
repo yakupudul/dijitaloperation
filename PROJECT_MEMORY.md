@@ -1973,6 +1973,12 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   fikri kurala dayalı 1–100 puan alır (Talep %35, Hizmet %25, Boşluk %25, Niyet %15; AI yok) ve başlıklar puana göre
   sıralanır. Sağlık yasaklı ifadeleri mevcut sektör paketinden başlar. `{marka}` yasaklı ifadesi her markada o markanın
   adı ve alan adı olur, yalnız AI içeriğine uygulanır. Yazı sonrası SEO kontrolü uyarır, engellemez.
+- **Geliştirme havuzu turu (yakup onayı, 2026-10-05):** Horizon supervisor-1 (default kuyruğu, otomatik ölçekli)
+  zaman aşımı 1560 sn; default'a düşen her işin timeout'u bunun altında, bu da redis retry_after 1800'ün altında
+  kalmalı (QueueTopologyContractTest denetler). Sunucu .env'inde HORIZON_DEFAULT_TIMEOUT=300 kalırsa düzeltme işlemez.
+  `Queue::route` liste ile çağrılınca Laravel 13 yok sayıyor; AppServiceProvider::routeHeavyJobs'taki altı iş bu yüzden
+  default'ta çalışıyor (henüz düzeltilmedi). AgencySettingService scoped bağlı (worker'da eski saat dilimi / dil kalmaz).
+  Claude bekleyen Eşleştir / kurulum, AI görevi açık kaldıkça "çalışıyor" sayılır; 3 saat sınırı yalnız 'running' için.
 - **Microsoft Clarity (yakup, 2026-10-03):** her site için Clarity proje kimliği + Data Export token (Ayarlar). Günde bir
   çekim; kural tabanlı (AI yok) öfkeli / çalışmayan tıklama, hızlı geri dönüş, JS hatası, kaydırma → Genel işler › Teknik
   sağlık işi. Siteye hiçbir şey yazılmaz; Clarity etiketini siteye yakup ekler.
