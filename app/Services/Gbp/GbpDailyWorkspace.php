@@ -201,7 +201,8 @@ final class GbpDailyWorkspace
                 'undoable' => $action->isUndoable(), 'editable' => false,
             ];
         });
-        $known = $actions->map(fn (ExternalWriteAction $a): ?string => data_get($a->result, 'post_name'))->filter()->all();
+        // GbpWriter stores the created post's name as `post`: the same post collected back from Google is not listed twice.
+        $known = $actions->map(fn (ExternalWriteAction $a): ?string => data_get($a->result, 'post') ?? data_get($a->result, 'post_name'))->filter()->all();
         $collected = $resourceId !== null
             ? DB::table('gbp_posts')->where('external_resource_id', $resourceId)->orderByDesc('create_time')->limit(40)->get(['post_name', 'summary', 'state', 'create_time', 'topic_type', 'raw_payload'])
             : collect();

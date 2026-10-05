@@ -148,7 +148,11 @@ final class GbpWorkspaceTabsTest extends TestCase
         [$method, $url, $body] = end($this->calls);
         $this->assertSame(['POST', 'https://mybusiness.googleapis.com/v4/accounts/11/locations/22/localPosts'], [$method, $url]);
         $this->assertSame(['actionType' => 'BOOK', 'url' => 'https://atlas.test/hassasiyet/'], $body['callToAction']);
-        $page->call('setTab', 'posts')->assertSee('Yayınlandı')->assertSee('Geri al');
+        DB::table('gbp_posts')->insert(['external_resource_id' => $this->resource->id, 'run_id' => $this->runId, 'location_name' => 'locations/22', 'post_name' => 'accounts/11/locations/22/localPosts/555',
+            'summary' => 'Kış aylarında diş hassasiyeti artabilir; kontrol için randevu alın.', 'state' => 'LIVE', 'create_time' => now(), 'raw_payload' => json_encode([]),
+            'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        $html = $page->call('setTab', 'posts')->assertSee('Yayınlandı')->assertSee('Geri al')->assertDontSee('Google’da yayında')->html();
+        $this->assertSame(1, substr_count($html, 'Kış aylarında diş hassasiyeti artabilir'), 'the post collected back from Google is the same post, listed once');
 
         $page->call('undoWrite', $action->id);
         $this->assertSame('undone', $action->fresh()->status);
