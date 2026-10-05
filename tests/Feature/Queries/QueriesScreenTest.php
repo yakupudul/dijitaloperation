@@ -364,6 +364,62 @@ final class QueriesScreenTest extends TestCase
         $this->assertSame(2, AiTask::query()->count());
     }
 
+    public function test_queries_deleted_while_the_ai_answers_never_join_a_cluster(): void
+    {
+        $this->enableAi();
+        app(ServiceKeywordService::class)->replace($this->implant, 'implant');
+        $this->sources(['implant fiyatları' => 500, 'implant fiyatı' => 450, 'implant sonrası ağrı' => 400, 'implant markaları' => 300,
+            'implant kemik tozu' => 200, 'implant sigara' => 100]);
+        Query::query()->update(['topic_key' => null]);
+        Query::query()->whereIn('text', ['implant fiyatları', 'implant fiyatı'])->update(['topic_key' => 'implant fiyat']);
+        $ids = array_map(fn (string $text): int => $this->queryId($text), [
+            'price' => 'implant fiyatları', 'variant' => 'implant fiyatı', 'pain' => 'implant sonrası ağrı', 'brands' => 'implant markaları',
+            'bone' => 'implant kemik tozu', 'smoking' => 'implant sigara',
+        ]);
+        $row = fn (?int $existing, string $name, array $queryIds, ?int $main = null, array $representatives = [], array $new = []): array => [
+            'existing_cluster_id' => $existing, 'name' => $name, 'intent' => 'informational', 'user_need' => 'İmplant hakkında bilgi', 'page_type' => 'guide',
+            'query_ids' => $queryIds, 'main_query_id' => $main, 'representative_query_ids' => $representatives, 'new_queries' => $new,
+            'subtopics' => [], 'exclusions' => [], 'reasoning' => '-'];
+        QueryClusterAgent::fake(function () use ($ids, $row): array {
+            // The clean-up deletes a topic's variant, a head, a text the answer adds and a whole topic while the AI answers.
+            QueryPipeline::deleteQueries([$ids['variant'], $ids['pain'], $ids['bone'], $ids['smoking']], remember: false);
+
+            return ['clusters' => [
+                $row(null, 'İmplant fiyatı', [$ids['price'], $ids['pain']], main: $ids['pain'], representatives: [$ids['price'], $ids['pain']], new: ['implant kemik tozu']),
+                $row(null, 'İmplant ve sigara', [$ids['smoking']]),
+                $row(null, 'İmplant markaları', [$ids['brands']]),
+            ], 'skipped' => [], 'prompt_version' => QueryClusterAgent::PROMPT_VERSION];
+        });
+        QueryClusterReviewAgent::fake(fn (): array => ['merges' => [], 'updates' => [], 'prompt_version' => QueryClusterReviewAgent::PROMPT_VERSION]);
+
+        QueryClusterer::start($this->implant->id);
+        ClusterQueriesJob::dispatch($this->implant->id);
+
+        $this->assertSame('ready', QueryClusterer::state($this->implant->id)['status']);
+        $price = Cluster::query()->where('name', 'İmplant fiyatı')->sole();
+        $this->assertSame([$ids['price']], $price->clusterQueries()->pluck('query_id')->all(), 'only the queries still there join');
+        $this->assertSame([$ids['price'], []], [$price->main_query_id, $price->representative_query_ids], 'a deleted head is neither main nor representative');
+        $this->assertFalse(Cluster::query()->where('name', 'İmplant ve sigara')->exists(), 'a cluster whose every query is gone is not made');
+        $this->assertSame([$ids['brands']], Cluster::query()->where('name', 'İmplant markaları')->sole()->clusterQueries()->pluck('query_id')->all());
+
+        // A new query placed into an existing cluster is deleted while the AI answers: only the other one joins.
+        $new = fn (string $text, int $impressions): Query => Query::query()->create(['text' => $text, 'text_hash' => hash('sha256', $text),
+            'sector_id' => $this->dental->id, 'service_id' => $this->implant->id, 'assignment' => 'rule', 'impressions' => $impressions]);
+        $care = $new('implant bakımı', 50);
+        $cleaning = $new('implant temizliği', 40);
+        QueryClusterAgent::fake(function () use ($price, $care, $cleaning, $row): array {
+            QueryPipeline::deleteQueries([$cleaning->id], remember: false);
+
+            return ['clusters' => [$row($price->id, 'İmplant fiyatı', [$care->id, $cleaning->id])], 'skipped' => [], 'prompt_version' => QueryClusterAgent::PROMPT_VERSION];
+        });
+
+        QueryClusterer::start($this->implant->id, 'place');
+        ClusterQueriesJob::dispatch($this->implant->id);
+
+        $this->assertSame('ready', QueryClusterer::state($this->implant->id)['status']);
+        $this->assertSame([$ids['price'], $care->id], $price->clusterQueries()->orderBy('query_id')->pluck('query_id')->all());
+    }
+
     public function test_clustering_refuses_catch_all_clusters_and_the_review_never_merges_other_page_types_or_approved_clusters(): void
     {
         $this->enableAi();

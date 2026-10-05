@@ -662,6 +662,7 @@ final class QueryClusterer
     private function apply(ServiceCategory $sector, ServiceCatalogItem $service, Collection $queries, array $topics, array $rows): array
     {
         $byText = $queries->pluck('id', 'text')->all();
+        $present = $this->lockPresent($topics, $rows, $byText);
         $existing = Cluster::query()->where('service_id', $service->id)->pluck('id')->flip();
         $usedTopics = [];
         $used = [];
@@ -680,7 +681,7 @@ final class QueryClusterer
                 if (is_int($id) && isset($topics[$id]) && ! isset($usedTopics[$id])) {
                     $heads[] = $id;
                     foreach ($topics[$id]['members'] as $member) {
-                        if (! isset($used[$member])) {
+                        if (! isset($used[$member]) && isset($present[$member])) {
                             $ids[] = $member;
                         }
                     }
@@ -701,10 +702,12 @@ final class QueryClusterer
 
                 continue;
             }
-            $main = is_int($row['main_query_id'] ?? null) && in_array($row['main_query_id'], $heads, true)
+            // A head deleted meanwhile is neither the main nor a representative query (its topic's other queries still join).
+            $live = array_values(array_filter($heads, fn (int $head): bool => isset($present[$head])));
+            $main = is_int($row['main_query_id'] ?? null) && in_array($row['main_query_id'], $live, true)
                 ? $row['main_query_id']
-                : $queries->whereIn('id', $heads)->sortByDesc('impressions')->first()->id;
-            $representatives = array_values(array_intersect(array_filter((array) ($row['representative_query_ids'] ?? []), 'is_int'), $heads));
+                : $queries->whereIn('id', $live ?: $ids)->sortByDesc('impressions')->first()->id;
+            $representatives = array_values(array_intersect(array_filter((array) ($row['representative_query_ids'] ?? []), 'is_int'), $live));
             $representatives = array_values(array_slice(array_diff($representatives, [$main]), 0, 3));
             $cluster = Cluster::query()->create([
                 'sector_id' => $sector->id, 'service_id' => $service->id, 'name' => mb_substr($name, 0, 200),
@@ -725,7 +728,7 @@ final class QueryClusterer
             // Queries the model "adds" are never created: only a real, free query of this service it names joins.
             foreach ((array) ($row['new_queries'] ?? []) as $text) {
                 $queryId = $this->existingFreeQuery((string) $text, $byText, $used);
-                if ($queryId !== null) {
+                if ($queryId !== null && isset($present[$queryId])) {
                     $used[$queryId] = true;
                     $members[] = ['cluster_id' => $cluster->id, 'query_id' => $queryId, 'is_suggested' => false, 'created_at' => $now, 'updated_at' => $now];
                 }
@@ -735,6 +738,45 @@ final class QueryClusterer
         }
 
         return ['clusters' => $clusters, 'suggested' => $suggested, 'placed' => $usedTopics];
+    }
+
+    /**
+     * The queries this answer names (its topics' queries, the texts it adds) that still exist, locked until apply()'s
+     * transaction ends. The AI call takes minutes and the clean-up or the pipeline may delete a query meanwhile: a deleted
+     * one never joins (no foreign key error), and a deletion that comes now waits for the transaction (its cascade then
+     * removes the new rows).
+     *
+     * @param  array<int, array{members: list<int>}>  $topics
+     * @param  array<mixed>  $rows
+     * @param  array<string, int>  $byText
+     * @return array<int, bool> query id => true
+     */
+    private function lockPresent(array $topics, array $rows, array $byText): array
+    {
+        $ids = [];
+        foreach (array_filter($rows, 'is_array') as $row) {
+            foreach ((array) ($row['query_ids'] ?? []) as $head) {
+                foreach (is_int($head) ? ($topics[$head]['members'] ?? []) : [] as $member) {
+                    $ids[(int) $member] = true;
+                }
+            }
+            foreach ((array) ($row['new_queries'] ?? []) as $text) {
+                $id = $byText[$this->normalizer->normalize((string) $text)] ?? null;
+                if ($id !== null) {
+                    $ids[(int) $id] = true;
+                }
+            }
+        }
+        $ids = array_keys($ids);
+        sort($ids); // one lock order for every run
+        $present = [];
+        foreach (array_chunk($ids, 1000) as $chunk) {
+            foreach (Query::query()->whereIn('id', $chunk)->orderBy('id')->lockForUpdate()->pluck('id') as $id) {
+                $present[(int) $id] = true;
+            }
+        }
+
+        return $present;
     }
 
     /**
