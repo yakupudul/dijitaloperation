@@ -15,11 +15,15 @@ use App\Support\IntelligenceCore\IntelligenceTimeContext;
 use App\Support\IntelligenceProjection\WebsiteProjectionContext;
 use App\Support\IntelligenceProjection\WebsiteProjectionContribution;
 use App\Support\Time\SafeTimezone;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 final class Ga4ProjectionAdapter implements WebsiteProjectionSourceAdapter
 {
+    /** Columns of a group's latest fact row that its source reference reads. */
+    private const array LATEST_COLUMNS = ['digital_asset_id', 'external_resource_id', 'last_collection_run_id', 'last_dataset_run_id', 'contract_version'];
+
     public function __construct(
         private readonly Ga4SpecialistBindingResolver $bindings,
         private readonly PageIdentityResolver $pages,
@@ -191,76 +195,96 @@ final class Ga4ProjectionAdapter implements WebsiteProjectionSourceAdapter
         );
     }
 
-    /** @return array<string,array<string,mixed>> */
+    /**
+     * Landing page totals for the period, aggregated in SQL (one statement, no OFFSET pages over the fact table).
+     *
+     * @return array<string,array<string,mixed>>
+     */
     private function landingAggregates(int $resourceId, string $propertyId, string $start, string $end): array
     {
+        $facts = $this->facts('ga4_landing_page_daily', $resourceId, $propertyId, $start, $end);
+        $grammar = $facts->getGrammar();
+        $dimensions = ['landing_value' => 'COALESCE('.$grammar->wrap('landingPagePlusQueryString').', '.$grammar->wrap('landingPage').')'];
+        $keyOf = static function (object $row): ?string {
+            $page = trim((string) ($row->landing_value ?? ''));
+
+            return $page === '' || in_array($page, ['(not set)', '(not provided)'], true) ? null : $page;
+        };
+
         $aggregates = [];
-        DB::table('ga4_landing_page_daily')
-            ->where('external_resource_id', $resourceId)
-            ->where('property_id', $propertyId)
-            ->whereBetween('reporting_date', [$start, $end])
-            ->orderBy('reporting_date')
-            ->orderBy('id')
-            ->chunk(1000, function ($rows) use (&$aggregates): void {
-                foreach ($rows as $row) {
-                    $page = trim((string) ($row->landingPagePlusQueryString ?? $row->landingPage ?? ''));
-                    if ($page === '' || in_array($page, ['(not set)', '(not provided)'], true)) {
-                        continue;
-                    }
-                    $aggregate = $aggregates[$page] ?? $this->emptyLandingAggregate($page);
-                    $aggregate['sessions'] += (int) ($row->sessions ?? 0);
-                    $aggregate['engaged_sessions'] += (int) ($row->engagedSessions ?? 0);
-                    $aggregate['key_events'] = $this->nullableSum($aggregate['key_events'], $row->keyEvents ?? null);
-                    $aggregate['last_collected_at'] = $this->support->latestTimestamp($aggregate['last_collected_at'], $row->last_collected_at ?? null);
-                    $aggregate['latest_row'] = $row;
-                    $this->trackRunProvenance($aggregate, $row);
-                    $aggregates[$page] = $aggregate;
-                }
-            });
+        $latest = [];
+        foreach ($this->support->factGroups($facts, $dimensions, [
+            'sessions' => $grammar->wrap('sessions'),
+            'engaged_sessions' => $grammar->wrap('engagedSessions'),
+            'key_events' => 'CAST('.$grammar->wrap('keyEvents').' AS DOUBLE PRECISION)',
+        ], self::LATEST_COLUMNS) as $group) {
+            $page = $keyOf($group);
+            if ($page === null) {
+                continue;
+            }
+            $aggregate = $aggregates[$page] ?? $this->emptyLandingAggregate($page);
+            $aggregate['sessions'] += (int) ($group->sessions ?? 0);
+            $aggregate['engaged_sessions'] += (int) ($group->engaged_sessions ?? 0);
+            $aggregate['key_events'] = $this->nullableSum($aggregate['key_events'], $group->key_events);
+            $latest[$page] ??= null;
+            $this->foldLatest($aggregate, $latest[$page], $group);
+            $aggregates[$page] = $aggregate;
+        }
+        $this->attachRunProvenance($aggregates, $facts, $dimensions, $keyOf);
 
         return $aggregates;
     }
 
-    /** @return array<string,array<string,mixed>> */
+    /**
+     * Page content totals for the period, aggregated in SQL. Titles keep the order in which rows first showed them.
+     *
+     * @return array<string,array<string,mixed>>
+     */
     private function contentAggregates(int $resourceId, string $propertyId, string $start, string $end): array
     {
+        $facts = $this->facts('ga4_page_content_daily', $resourceId, $propertyId, $start, $end);
+        $grammar = $facts->getGrammar();
+        $dimensions = ['host_value' => $grammar->wrap('hostName'), 'path_value' => $grammar->wrap('pagePathPlusQueryString')];
+        $keyOf = static function (object $row): ?string {
+            $path = trim((string) ($row->path_value ?? ''));
+
+            return $path === '' ? null : strtolower(trim((string) ($row->host_value ?? ''))).'|'.$path;
+        };
+        $metrics = [
+            'screen_page_views' => 'screenPageViews',
+            'active_users' => 'activeUsers',
+            'total_users' => 'totalUsers',
+            'event_count' => 'eventCount',
+            'scrolled_users' => 'scrolledUsers',
+            'user_engagement_duration' => 'userEngagementDuration',
+        ];
+        $sums = array_map($grammar->wrap(...), $metrics);
+        $sums['key_events'] = 'CAST('.$grammar->wrap('keyEvents').' AS DOUBLE PRECISION)';
+
         $aggregates = [];
-        DB::table('ga4_page_content_daily')
-            ->where('external_resource_id', $resourceId)
-            ->where('property_id', $propertyId)
-            ->whereBetween('reporting_date', [$start, $end])
-            ->orderBy('reporting_date')
-            ->orderBy('id')
-            ->chunk(1000, function ($rows) use (&$aggregates): void {
-                foreach ($rows as $row) {
-                    $path = trim((string) ($row->pagePathPlusQueryString ?? ''));
-                    if ($path === '') {
-                        continue;
-                    }
-                    $host = strtolower(trim((string) ($row->hostName ?? '')));
-                    $key = $host.'|'.$path;
-                    $aggregate = $aggregates[$key] ?? $this->emptyContentAggregate($host, $key);
-                    $title = trim((string) ($row->pageTitle ?? ''));
-                    if ($title !== '') {
-                        $aggregate['titles'][$title] = true;
-                    }
-                    foreach ([
-                        'screen_page_views' => 'screenPageViews',
-                        'active_users' => 'activeUsers',
-                        'total_users' => 'totalUsers',
-                        'event_count' => 'eventCount',
-                        'scrolled_users' => 'scrolledUsers',
-                        'user_engagement_duration' => 'userEngagementDuration',
-                    ] as $target => $column) {
-                        $aggregate[$target] += (int) ($row->{$column} ?? 0);
-                    }
-                    $aggregate['key_events'] = $this->nullableSum($aggregate['key_events'], $row->keyEvents ?? null);
-                    $aggregate['last_collected_at'] = $this->support->latestTimestamp($aggregate['last_collected_at'], $row->last_collected_at ?? null);
-                    $aggregate['latest_row'] = $row;
-                    $this->trackRunProvenance($aggregate, $row);
-                    $aggregates[$key] = $aggregate;
-                }
-            });
+        $latest = [];
+        foreach ($this->support->factGroups($facts, $dimensions, $sums, self::LATEST_COLUMNS) as $group) {
+            $key = $keyOf($group);
+            if ($key === null) {
+                continue;
+            }
+            $aggregate = $aggregates[$key] ?? $this->emptyContentAggregate(strtolower(trim((string) ($group->host_value ?? ''))), $key);
+            foreach (array_keys($metrics) as $target) {
+                $aggregate[$target] += (int) ($group->{$target} ?? 0);
+            }
+            $aggregate['key_events'] = $this->nullableSum($aggregate['key_events'], $group->key_events);
+            $latest[$key] ??= null;
+            $this->foldLatest($aggregate, $latest[$key], $group);
+            $aggregates[$key] = $aggregate;
+        }
+        foreach ($this->support->factFirstAppearances($facts, $dimensions, ['pageTitle']) as $appearance) {
+            $key = $keyOf($appearance);
+            $title = trim((string) ($appearance->pageTitle ?? ''));
+            if ($key !== null && $title !== '' && isset($aggregates[$key])) {
+                $aggregates[$key]['titles'][$title] = true;
+            }
+        }
+        $this->attachRunProvenance($aggregates, $facts, $dimensions, $keyOf);
 
         $byPath = [];
         foreach ($aggregates as $key => $aggregate) {
@@ -269,6 +293,47 @@ final class Ga4ProjectionAdapter implements WebsiteProjectionSourceAdapter
         }
 
         return $byPath;
+    }
+
+    private function facts(string $table, int $resourceId, string $propertyId, string $start, string $end): Builder
+    {
+        return DB::table($table)
+            ->where('external_resource_id', $resourceId)
+            ->where('property_id', $propertyId)
+            ->whereBetween('reporting_date', [$start, $end]);
+    }
+
+    /**
+     * Adds a SQL group's last-collected time and, when it is the latest so far, its latest row.
+     *
+     * @param  array<string,mixed>  $aggregate
+     * @param  array{0:string,1:int|null}|null  $latest
+     */
+    private function foldLatest(array &$aggregate, ?array &$latest, object $group): void
+    {
+        $aggregate['last_collected_at'] = $this->support->latestTimestamp($aggregate['last_collected_at'], $group->last_collected_at);
+        $order = [(string) $group->latest_date, $group->latest_id !== null ? (int) $group->latest_id : null];
+        if ($this->support->isLaterFact($latest, $order)) {
+            $latest = $order;
+            $aggregate['latest_row'] = (object) array_intersect_key((array) $group, array_flip(self::LATEST_COLUMNS));
+        }
+    }
+
+    /**
+     * Run ids in the order rows first showed them, as the row loop collected them.
+     *
+     * @param  array<string,array<string,mixed>>  $aggregates
+     * @param  array<string,string>  $dimensions
+     * @param  callable(object): ?string  $keyOf
+     */
+    private function attachRunProvenance(array &$aggregates, Builder $facts, array $dimensions, callable $keyOf): void
+    {
+        foreach ($this->support->factFirstAppearances($facts, $dimensions, ['last_collection_run_id', 'last_dataset_run_id']) as $appearance) {
+            $key = $keyOf($appearance);
+            if ($key !== null && isset($aggregates[$key])) {
+                $this->trackRunProvenance($aggregates[$key], $appearance);
+            }
+        }
     }
 
     /** @return list<array{identity_id:int,source_state:array<string,mixed>,observed_at:?string}> */

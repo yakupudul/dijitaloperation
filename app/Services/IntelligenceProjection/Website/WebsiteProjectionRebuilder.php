@@ -35,6 +35,12 @@ final class WebsiteProjectionRebuilder
 
     public const int DEFAULT_WINDOW_DAYS = 90;
 
+    /** Identities / existing profiles read per whereIn. */
+    private const int READ_CHUNK = 1000;
+
+    /** Profile rows written per insert / upsert statement. */
+    private const int WRITE_CHUNK = 500;
+
     public function __construct(
         private readonly WebsiteProjectionSourceAdapterRegistry $adapters,
         private readonly IntelligenceCoreRegistryLoader $registry,
@@ -256,28 +262,16 @@ final class WebsiteProjectionRebuilder
         array $rows,
         bool $partial,
     ): int {
-        $identities = IntelligencePageIdentity::query()->whereIn('id', array_keys($rows))->get()->keyBy('id');
-        foreach ($rows as $identityId => $state) {
-            $identity = $identities->get($identityId);
+        $identities = $this->identities(IntelligencePageIdentity::class, $rows);
+        foreach (array_keys($rows) as $identityId) {
+            $identity = $identities[$identityId] ?? null;
             if (! $identity instanceof IntelligencePageIdentity || (int) $identity->website_asset_id !== (int) $asset->getKey()) {
                 throw new RuntimeException("Page identity [{$identityId}] is outside Website Projection scope.");
             }
-            $profile = WebsitePageProfile::query()->firstOrNew([
-                'website_asset_id' => (int) $asset->getKey(),
-                'page_identity_id' => $identityId,
-            ]);
-            $profile->fill([
-                'projection_run_id' => $run->getKey(),
-                'preferred_url' => $identity->preferred_url,
-                'source_states' => $this->statesForWrite($profile->source_states, $state['source_states'], $partial),
-                'coverage_state' => $this->statesForWrite($profile->coverage_state, $state['coverage_state'], $partial),
-                'profile_version' => self::PROFILE_VERSION,
-                'last_observed_at' => $this->support->latestTimestamp($partial ? $profile->last_observed_at : null, $state['last_observed_at']),
-                'projected_at' => now(),
-            ])->save();
         }
 
-        return count($rows);
+        return $this->writeProfiles(WebsitePageProfile::class, 'page_identity_id', $asset, $run, $rows, $partial,
+            static fn (int $identityId): array => ['preferred_url' => $identities[$identityId]->preferred_url]);
     }
 
     /** @param array<int,array<string,mixed>> $rows */
@@ -287,28 +281,16 @@ final class WebsiteProjectionRebuilder
         array $rows,
         bool $partial,
     ): int {
-        $identities = IntelligenceSearchTermIdentity::query()->whereIn('id', array_keys($rows))->get()->keyBy('id');
-        foreach ($rows as $identityId => $state) {
-            $identity = $identities->get($identityId);
+        $identities = $this->identities(IntelligenceSearchTermIdentity::class, $rows);
+        foreach (array_keys($rows) as $identityId) {
+            $identity = $identities[$identityId] ?? null;
             if (! $identity instanceof IntelligenceSearchTermIdentity || (int) $identity->brand_id !== (int) $asset->brand_id) {
                 throw new RuntimeException("Search-term identity [{$identityId}] is outside Website Projection Brand scope.");
             }
-            $profile = WebsiteSearchTermProfile::query()->firstOrNew([
-                'website_asset_id' => (int) $asset->getKey(),
-                'search_term_identity_id' => $identityId,
-            ]);
-            $profile->fill([
-                'projection_run_id' => $run->getKey(),
-                'canonical_text' => $identity->canonical_text,
-                'source_states' => $this->statesForWrite($profile->source_states, $state['source_states'], $partial),
-                'coverage_state' => $this->statesForWrite($profile->coverage_state, $state['coverage_state'], $partial),
-                'profile_version' => self::PROFILE_VERSION,
-                'last_observed_at' => $this->support->latestTimestamp($partial ? $profile->last_observed_at : null, $state['last_observed_at']),
-                'projected_at' => now(),
-            ])->save();
         }
 
-        return count($rows);
+        return $this->writeProfiles(WebsiteSearchTermProfile::class, 'search_term_identity_id', $asset, $run, $rows, $partial,
+            static fn (int $identityId): array => ['canonical_text' => $identities[$identityId]->canonical_text]);
     }
 
     /** @param array<int,array<string,mixed>> $rows */
@@ -318,29 +300,19 @@ final class WebsiteProjectionRebuilder
         array $rows,
         bool $partial,
     ): int {
-        $identities = IntelligenceEntityIdentity::query()->whereIn('id', array_keys($rows))->get()->keyBy('id');
-        foreach ($rows as $identityId => $state) {
-            $identity = $identities->get($identityId);
+        $identities = $this->identities(IntelligenceEntityIdentity::class, $rows);
+        foreach (array_keys($rows) as $identityId) {
+            $identity = $identities[$identityId] ?? null;
             if (! $identity instanceof IntelligenceEntityIdentity || (int) $identity->brand_id !== (int) $asset->brand_id) {
                 throw new RuntimeException("Entity identity [{$identityId}] is outside Website Projection Brand scope.");
             }
-            $profile = WebsiteEntityProfile::query()->firstOrNew([
-                'website_asset_id' => (int) $asset->getKey(),
-                'entity_identity_id' => $identityId,
-            ]);
-            $profile->fill([
-                'projection_run_id' => $run->getKey(),
-                'entity_type' => $identity->entity_type,
-                'canonical_name' => $identity->canonical_name,
-                'source_states' => $this->statesForWrite($profile->source_states, $state['source_states'], $partial),
-                'coverage_state' => $this->statesForWrite($profile->coverage_state, $state['coverage_state'], $partial),
-                'profile_version' => self::PROFILE_VERSION,
-                'last_observed_at' => $this->support->latestTimestamp($partial ? $profile->last_observed_at : null, $state['last_observed_at']),
-                'projected_at' => now(),
-            ])->save();
         }
 
-        return count($rows);
+        return $this->writeProfiles(WebsiteEntityProfile::class, 'entity_identity_id', $asset, $run, $rows, $partial,
+            static fn (int $identityId): array => [
+                'entity_type' => $identities[$identityId]->entity_type,
+                'canonical_name' => $identities[$identityId]->canonical_name,
+            ]);
     }
 
     /** @param array<int,array<string,mixed>> $rows */
@@ -350,26 +322,101 @@ final class WebsiteProjectionRebuilder
         array $rows,
         bool $partial,
     ): int {
-        $identities = IntelligenceBusinessActionIdentity::query()->whereIn('id', array_keys($rows))->get()->keyBy('id');
-        foreach ($rows as $identityId => $state) {
-            $identity = $identities->get($identityId);
+        $identities = $this->identities(IntelligenceBusinessActionIdentity::class, $rows);
+        foreach (array_keys($rows) as $identityId) {
+            $identity = $identities[$identityId] ?? null;
             if (! $identity instanceof IntelligenceBusinessActionIdentity || (int) $identity->brand_id !== (int) $asset->brand_id) {
                 throw new RuntimeException("Business-action identity [{$identityId}] is outside Website Projection Brand scope.");
             }
-            $profile = WebsiteOutcomeProfile::query()->firstOrNew([
-                'website_asset_id' => (int) $asset->getKey(),
-                'business_action_identity_id' => $identityId,
+        }
+
+        return $this->writeProfiles(WebsiteOutcomeProfile::class, 'business_action_identity_id', $asset, $run, $rows, $partial,
+            static fn (int $identityId): array => [
+                'action_key' => $identities[$identityId]->action_key,
+                'display_name' => $identities[$identityId]->display_name,
             ]);
-            $profile->fill([
-                'projection_run_id' => $run->getKey(),
-                'action_key' => $identity->action_key,
-                'display_name' => $identity->display_name,
-                'source_states' => $this->statesForWrite($profile->source_states, $state['source_states'], $partial),
-                'coverage_state' => $this->statesForWrite($profile->coverage_state, $state['coverage_state'], $partial),
-                'profile_version' => self::PROFILE_VERSION,
-                'last_observed_at' => $this->support->latestTimestamp($partial ? $profile->last_observed_at : null, $state['last_observed_at']),
-                'projected_at' => now(),
-            ])->save();
+    }
+
+    /**
+     * @template TIdentity of Model
+     *
+     * @param  class-string<TIdentity>  $identityClass
+     * @param  array<int,array<string,mixed>>  $rows
+     * @return array<int,TIdentity>
+     */
+    private function identities(string $identityClass, array $rows): array
+    {
+        $identities = [];
+        foreach (array_chunk(array_keys($rows), self::READ_CHUNK) as $ids) {
+            foreach ($identityClass::query()->whereIn('id', $ids)->get() as $identity) {
+                $identities[(int) $identity->getKey()] = $identity;
+            }
+        }
+
+        return $identities;
+    }
+
+    /**
+     * Writes one kind of profile in bulk instead of a select and a save per profile: per 1000 identities the
+     * existing profiles are read with one whereIn, new ones are inserted and changed ones upserted by id, 500 rows
+     * a statement. Values go through the model (fill, casts, timestamps), so each row is what save() wrote; rows
+     * are taken in order, so new profiles get their ids in the same order. Only one slice of profiles is held in
+     * memory at a time.
+     *
+     * @param  class-string<Model>  $profileClass
+     * @param  array<int,array<string,mixed>>  $rows
+     * @param  callable(int): array<string,mixed>  $identityAttributes
+     */
+    private function writeProfiles(
+        string $profileClass,
+        string $identityColumn,
+        DigitalAsset $asset,
+        WebsiteIntelligenceProjectionRun $run,
+        array $rows,
+        bool $partial,
+        callable $identityAttributes,
+    ): int {
+        $assetId = (int) $asset->getKey();
+        $table = (new $profileClass)->getTable();
+        foreach (array_chunk($rows, self::READ_CHUNK, true) as $slice) {
+            $existing = [];
+            foreach ($profileClass::query()->where('website_asset_id', $assetId)->whereIn($identityColumn, array_keys($slice))->get() as $profile) {
+                $existing[(int) $profile->getAttribute($identityColumn)] = $profile;
+            }
+
+            $inserts = [];
+            $updates = [];
+            $updateColumns = [];
+            foreach ($slice as $identityId => $state) {
+                $profile = $existing[$identityId] ?? new $profileClass(['website_asset_id' => $assetId, $identityColumn => $identityId]);
+                $attributes = [
+                    'projection_run_id' => $run->getKey(),
+                    ...$identityAttributes($identityId),
+                    'source_states' => $this->statesForWrite($profile->getAttribute('source_states'), $state['source_states'], $partial),
+                    'coverage_state' => $this->statesForWrite($profile->getAttribute('coverage_state'), $state['coverage_state'], $partial),
+                    'profile_version' => self::PROFILE_VERSION,
+                    'last_observed_at' => $this->support->latestTimestamp($partial ? $profile->getAttribute('last_observed_at') : null, $state['last_observed_at']),
+                    'projected_at' => now(),
+                ];
+                $updateColumns = [...array_keys($attributes), 'updated_at'];
+                $profile->fill($attributes);
+                if ($profile->exists && ! $profile->isDirty()) {
+                    continue;
+                }
+                $profile->updateTimestamps();
+                if ($profile->exists) {
+                    $updates[] = $profile->getAttributes();
+                } else {
+                    $inserts[] = $profile->getAttributes();
+                }
+            }
+
+            foreach (array_chunk($inserts, self::WRITE_CHUNK) as $chunk) {
+                DB::table($table)->insert($chunk);
+            }
+            foreach (array_chunk($updates, self::WRITE_CHUNK) as $chunk) {
+                DB::table($table)->upsert($chunk, ['id'], $updateColumns);
+            }
         }
 
         return count($rows);

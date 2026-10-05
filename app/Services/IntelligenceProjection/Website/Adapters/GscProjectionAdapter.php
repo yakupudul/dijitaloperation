@@ -22,6 +22,9 @@ final class GscProjectionAdapter implements WebsiteProjectionSourceAdapter
 {
     private const string SEARCH_TYPE = 'web';
 
+    /** Columns of a group's latest fact row that its source reference and alias read. */
+    private const array LATEST_COLUMNS = ['digital_asset_id', 'external_resource_id', 'site_url', 'last_collection_run_id', 'last_dataset_run_id', 'contract_version'];
+
     public function __construct(
         private readonly GscSpecialistBindingResolver $bindings,
         private readonly PageIdentityResolver $pages,
@@ -116,30 +119,36 @@ final class GscProjectionAdapter implements WebsiteProjectionSourceAdapter
             ];
         }
 
+        $observations = [];
+        foreach ($terms as $query => $aggregate) {
+            $observations[] = [
+                'observed_text' => (string) $query,
+                'term_kind' => SearchTermKind::GscQuery,
+                'source' => $this->aggregateSource('gsc_query_daily', $aggregate, $binding->externalResourceId),
+                'time' => $this->support->time(
+                    timezone: $timezone,
+                    periodStart: $start,
+                    periodEnd: $end,
+                    observedAt: $aggregate['last_collected_at'],
+                    retrievedAt: $aggregate['last_collected_at'],
+                    marketCode: $asset->seo_market_location_code !== null ? (string) $asset->seo_market_location_code : null,
+                    languageCode: $asset->seo_market_language_code,
+                ),
+                'locale' => null,
+                'metadata' => ['site_url' => $binding->siteUrl, 'search_type' => self::SEARCH_TYPE],
+            ];
+        }
+        // All terms in a few statements per 500 instead of a transaction and several statements per term.
+        $identityIds = $this->terms->resolveMany($asset->brand, $observations);
+
         $termContributions = [];
         $termIndexes = [];
         $termIdentityByText = [];
-        foreach ($terms as $query => $aggregate) {
-            $source = $this->aggregateSource('gsc_query_daily', $aggregate, $binding->externalResourceId);
-            $time = $this->support->time(
-                timezone: $timezone,
-                periodStart: $start,
-                periodEnd: $end,
-                observedAt: $aggregate['last_collected_at'],
-                retrievedAt: $aggregate['last_collected_at'],
-                marketCode: $asset->seo_market_location_code !== null ? (string) $asset->seo_market_location_code : null,
-                languageCode: $asset->seo_market_language_code,
-            );
-            $identity = $this->terms->resolve(
-                brand: $asset->brand,
-                observedText: $query,
-                termKind: SearchTermKind::GscQuery,
-                source: $source,
-                time: $time,
-                locale: null,
-                metadata: ['site_url' => $binding->siteUrl, 'search_type' => self::SEARCH_TYPE],
-            );
-            $identityId = (int) $identity->getKey();
+        foreach (array_keys($terms) as $position => $query) {
+            $aggregate = $terms[$query];
+            $source = $observations[$position]['source'];
+            $time = $observations[$position]['time'];
+            $identityId = $identityIds[$position];
             $termIndexes[$identityId] = count($termContributions);
             $termIdentityByText[$query] = $identityId;
             $termContributions[] = [
@@ -200,7 +209,12 @@ final class GscProjectionAdapter implements WebsiteProjectionSourceAdapter
         );
     }
 
-    /** @return array<string, array<string, mixed>> */
+    /**
+     * Page or query totals for the period, aggregated in SQL (one statement, no OFFSET pages over the fact table).
+     * SQL groups by the stored value; values that only differ by surrounding whitespace fold into one, as before.
+     *
+     * @return array<string, array<string, mixed>>
+     */
     private function aggregateDimension(
         string $table,
         string $dimension,
@@ -209,32 +223,121 @@ final class GscProjectionAdapter implements WebsiteProjectionSourceAdapter
         string $start,
         string $end,
     ): array {
-        $aggregates = [];
-        $this->baseQuery($table, $resourceId, $siteUrl, $start, $end)
-            ->orderBy('reporting_date')
-            ->orderBy('id')
-            ->chunk(1000, function ($rows) use (&$aggregates, $dimension): void {
-                foreach ($rows as $row) {
-                    $value = trim((string) $row->{$dimension});
-                    if ($value === '') {
-                        continue;
-                    }
-                    $aggregate = $aggregates[$value] ?? $this->emptyAggregate($value);
-                    $impressions = (int) ($row->impressions ?? 0);
-                    $position = $this->metadataFloat($row->metadata ?? null, 'provider_average_position');
-                    $aggregate['clicks'] += (int) ($row->clicks ?? 0);
-                    $aggregate['impressions'] += $impressions;
-                    if ($position !== null && $impressions > 0) {
-                        $aggregate['position_numerator'] += $position * $impressions;
-                        $aggregate['position_impressions'] += $impressions;
-                    }
-                    $aggregate['last_collected_at'] = $this->support->latestTimestamp($aggregate['last_collected_at'], $row->last_collected_at ?? null);
-                    $aggregate['latest_row'] = $row;
-                    $this->trackRunProvenance($aggregate, $row);
-                    $aggregates[$value] = $aggregate;
-                }
-            });
+        $facts = $this->baseQuery($table, $resourceId, $siteUrl, $start, $end);
+        $dimensions = ['dimension_value' => $facts->getGrammar()->wrap($dimension)];
+        $aggregates = $this->foldGroups(
+            $this->support->factGroups($facts, $dimensions, $this->metricSums($facts), self::LATEST_COLUMNS),
+            function (object $group): ?array {
+                $value = trim((string) $group->dimension_value);
 
+                return $value === '' ? null : ['key' => $value, 'empty' => $this->emptyAggregate($value)];
+            },
+        );
+        foreach ($this->support->factFirstAppearances($facts, $dimensions, ['last_collection_run_id', 'last_dataset_run_id']) as $appearance) {
+            $value = trim((string) $appearance->dimension_value);
+            if (isset($aggregates[$value])) {
+                $this->trackRunProvenance($aggregates[$value], $appearance);
+            }
+        }
+
+        return $this->withPositions($aggregates);
+    }
+
+    /**
+     * Query x page totals for the period, aggregated in SQL. Relations carry no run provenance (only page and
+     * query metrics do), so the runs of this, the largest fact table, are not read.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function aggregateQueryPages(int $resourceId, string $siteUrl, string $start, string $end): array
+    {
+        $facts = $this->baseQuery('gsc_query_page_daily', $resourceId, $siteUrl, $start, $end);
+        $grammar = $facts->getGrammar();
+        $pairs = $this->foldGroups(
+            $this->support->factGroups(
+                $facts,
+                ['query_value' => $grammar->wrap('query'), 'page_value' => $grammar->wrap('page')],
+                $this->metricSums($facts),
+                self::LATEST_COLUMNS,
+            ),
+            function (object $group): ?array {
+                $query = trim((string) $group->query_value);
+                $page = trim((string) $group->page_value);
+                if ($query === '' || $page === '') {
+                    return null;
+                }
+
+                return [
+                    'key' => hash('sha256', $query."\0".$page),
+                    'empty' => $this->emptyAggregate($query.'|'.$page) + ['query' => $query, 'page' => $page],
+                ];
+            },
+        );
+
+        return array_values($this->withPositions($pairs));
+    }
+
+    /**
+     * Adds SQL groups into aggregates keyed like the row loop keyed them. Groups arrive in first-appearance order,
+     * so keys are created in the order the rows first met them; the latest row is the latest of all folded groups.
+     *
+     * @param  list<object>  $groups
+     * @param  callable(object): (array{key:string,empty:array<string,mixed>}|null)  $describe
+     * @return array<string, array<string, mixed>>
+     */
+    private function foldGroups(array $groups, callable $describe): array
+    {
+        $aggregates = [];
+        $latest = [];
+        foreach ($groups as $group) {
+            $described = $describe($group);
+            if ($described === null) {
+                continue;
+            }
+            $key = $described['key'];
+            $aggregate = $aggregates[$key] ?? $described['empty'];
+            $aggregate['clicks'] += (int) $group->clicks;
+            $aggregate['impressions'] += (int) $group->impressions;
+            $aggregate['position_numerator'] += (float) $group->position_numerator;
+            $aggregate['position_impressions'] += (int) $group->position_impressions;
+            $aggregate['last_collected_at'] = $this->support->latestTimestamp($aggregate['last_collected_at'], $group->last_collected_at);
+            $order = [(string) $group->latest_date, $group->latest_id !== null ? (int) $group->latest_id : null];
+            if ($this->support->isLaterFact($latest[$key] ?? null, $order)) {
+                $latest[$key] = $order;
+                $aggregate['latest_row'] = (object) array_intersect_key((array) $group, array_flip(self::LATEST_COLUMNS));
+            }
+            $aggregates[$key] = $aggregate;
+        }
+
+        return $aggregates;
+    }
+
+    /**
+     * Clicks, impressions and the impression-weighted position (rows with a position and impressions only).
+     *
+     * @return array<string, string>
+     */
+    private function metricSums(Builder $facts): array
+    {
+        $grammar = $facts->getGrammar();
+        $impressions = $grammar->wrap('impressions');
+        $position = 'CAST('.$grammar->wrap('metadata->provider_average_position').' AS DOUBLE PRECISION)';
+        $weighted = 'CASE WHEN '.$position.' IS NOT NULL AND '.$impressions.' > 0 THEN ';
+
+        return [
+            'clicks' => $grammar->wrap('clicks'),
+            'impressions' => $impressions,
+            'position_numerator' => $weighted.$position.' * '.$impressions.' END',
+            'position_impressions' => $weighted.$impressions.' END',
+        ];
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $aggregates
+     * @return array<string, array<string, mixed>>
+     */
+    private function withPositions(array $aggregates): array
+    {
         foreach ($aggregates as &$aggregate) {
             $aggregate['position'] = $aggregate['position_impressions'] > 0
                 ? $aggregate['position_numerator'] / $aggregate['position_impressions']
@@ -243,47 +346,6 @@ final class GscProjectionAdapter implements WebsiteProjectionSourceAdapter
         unset($aggregate);
 
         return $aggregates;
-    }
-
-    /** @return list<array<string, mixed>> */
-    private function aggregateQueryPages(int $resourceId, string $siteUrl, string $start, string $end): array
-    {
-        $pairs = [];
-        $this->baseQuery('gsc_query_page_daily', $resourceId, $siteUrl, $start, $end)
-            ->orderBy('reporting_date')
-            ->orderBy('id')
-            ->chunk(1000, function ($rows) use (&$pairs): void {
-                foreach ($rows as $row) {
-                    $query = trim((string) $row->query);
-                    $page = trim((string) $row->page);
-                    if ($query === '' || $page === '') {
-                        continue;
-                    }
-                    $key = hash('sha256', $query."\0".$page);
-                    $aggregate = $pairs[$key] ?? $this->emptyAggregate($query.'|'.$page) + ['query' => $query, 'page' => $page];
-                    $impressions = (int) ($row->impressions ?? 0);
-                    $position = $this->metadataFloat($row->metadata ?? null, 'provider_average_position');
-                    $aggregate['clicks'] += (int) ($row->clicks ?? 0);
-                    $aggregate['impressions'] += $impressions;
-                    if ($position !== null && $impressions > 0) {
-                        $aggregate['position_numerator'] += $position * $impressions;
-                        $aggregate['position_impressions'] += $impressions;
-                    }
-                    $aggregate['last_collected_at'] = $this->support->latestTimestamp($aggregate['last_collected_at'], $row->last_collected_at ?? null);
-                    $aggregate['latest_row'] = $row;
-                    $this->trackRunProvenance($aggregate, $row);
-                    $pairs[$key] = $aggregate;
-                }
-            });
-
-        foreach ($pairs as &$pair) {
-            $pair['position'] = $pair['position_impressions'] > 0
-                ? $pair['position_numerator'] / $pair['position_impressions']
-                : null;
-        }
-        unset($pair);
-
-        return array_values($pairs);
     }
 
     /** @param array<string, mixed> $aggregate */
@@ -456,13 +518,6 @@ final class GscProjectionAdapter implements WebsiteProjectionSourceAdapter
             'input_collection_run_ids' => array_map('intval', array_keys($aggregate['collection_run_ids'] ?? [])),
             'input_dataset_run_ids' => array_map('intval', array_keys($aggregate['dataset_run_ids'] ?? [])),
         ];
-    }
-
-    private function metadataFloat(mixed $metadata, string $key): ?float
-    {
-        $value = $this->support->json($metadata)[$key] ?? null;
-
-        return is_numeric($value) ? (float) $value : null;
     }
 
     /** @return array<string,mixed> */

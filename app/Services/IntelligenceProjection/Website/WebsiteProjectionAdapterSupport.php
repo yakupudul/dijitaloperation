@@ -9,6 +9,8 @@ use App\Services\IntelligenceCore\IntelligenceMetricFactory;
 use App\Support\IntelligenceCore\IntelligenceSourceReference;
 use App\Support\IntelligenceCore\IntelligenceTimeContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Facades\DB;
 
 final class WebsiteProjectionAdapterSupport
 {
@@ -51,6 +53,113 @@ final class WebsiteProjectionAdapterSupport
         }
 
         return $latest;
+    }
+
+    /**
+     * One row per distinct raw dimension value of a daily fact table, aggregated in SQL instead of reading every
+     * fact row into PHP. Rows of a group are taken in (reporting_date, id) order, the order the row loop used, so
+     * sums accumulate in the same order and the latest row is the same one. Compact fact views have no row id
+     * (NULL): their natural key gives one row per dimension value and day, so the date alone orders them.
+     *
+     * Each returned row carries the dimension aliases, the sum aliases, last_collected_at (latest), the latest
+     * row's $latestColumns, first_date / first_id (where the group first appears) and latest_date / latest_id.
+     * Rows are ordered by first appearance, then by the dimension values.
+     *
+     * @param  array<string, string>  $dimensions  alias => SQL expression of the raw dimension value
+     * @param  array<string, string>  $sums  alias => SQL expression summed over the group (NULLs skipped)
+     * @param  list<string>  $latestColumns
+     * @return list<object>
+     */
+    public function factGroups(QueryBuilder $facts, array $dimensions, array $sums, array $latestColumns): array
+    {
+        $grammar = $facts->getGrammar();
+        $over = $this->factWindow($facts, $dimensions, 'ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING');
+        $select = [];
+        foreach ($dimensions as $alias => $expression) {
+            $select[] = $expression.' AS '.$alias;
+        }
+        foreach ($sums as $alias => $expression) {
+            $select[] = 'SUM('.$expression.') '.$over.' AS '.$alias;
+        }
+        array_push(
+            $select,
+            'ROW_NUMBER() '.$over.' AS fact_rank',
+            'COUNT(*) '.$over.' AS fact_count',
+            'MAX('.$grammar->wrap('last_collected_at').') '.$over.' AS last_collected_at',
+            'FIRST_VALUE('.$grammar->wrap('reporting_date').') '.$over.' AS first_date',
+            'FIRST_VALUE('.$grammar->wrap('id').') '.$over.' AS first_id',
+            $grammar->wrap('reporting_date').' AS latest_date',
+            $grammar->wrap('id').' AS latest_id',
+        );
+        foreach ($latestColumns as $column) {
+            $select[] = $grammar->wrap($column);
+        }
+
+        $query = DB::query()->fromSub((clone $facts)->selectRaw(implode(', ', $select)), 'fact_groups')
+            ->whereColumn('fact_rank', 'fact_count')
+            ->orderBy('first_date')->orderBy('first_id');
+        foreach (array_keys($dimensions) as $alias) {
+            $query->orderBy($alias);
+        }
+
+        return $query->get()->all();
+    }
+
+    /**
+     * The first fact row (in reporting_date, id order) of every distinct combination of the raw dimension values
+     * and $valueColumns, ordered by that first appearance: the order in which the row loop first met each value.
+     * Each row carries the dimension aliases, the value columns, appearance_date and appearance_id.
+     *
+     * @param  array<string, string>  $dimensions  alias => SQL expression of the raw dimension value
+     * @param  list<string>  $valueColumns
+     * @return list<object>
+     */
+    public function factFirstAppearances(QueryBuilder $facts, array $dimensions, array $valueColumns): array
+    {
+        $grammar = $facts->getGrammar();
+        $partition = array_merge($dimensions, array_map($grammar->wrap(...), $valueColumns));
+        $select = [];
+        foreach ($dimensions as $alias => $expression) {
+            $select[] = $expression.' AS '.$alias;
+        }
+        foreach ($valueColumns as $column) {
+            $select[] = $grammar->wrap($column);
+        }
+        array_push(
+            $select,
+            $grammar->wrap('reporting_date').' AS appearance_date',
+            $grammar->wrap('id').' AS appearance_id',
+            'ROW_NUMBER() '.$this->factWindow($facts, $partition).' AS appearance_rank',
+        );
+
+        $query = DB::query()->fromSub((clone $facts)->selectRaw(implode(', ', $select)), 'fact_appearances')
+            ->where('appearance_rank', 1)
+            ->orderBy('appearance_date')->orderBy('appearance_id');
+        foreach ([...array_keys($dimensions), ...$valueColumns] as $column) {
+            $query->orderBy($column);
+        }
+
+        return $query->get()->all();
+    }
+
+    /**
+     * Whether $candidate is a later fact row than $current, in (reporting_date, id) order.
+     *
+     * @param  array{0:string,1:int|null}|null  $current
+     * @param  array{0:string,1:int|null}  $candidate
+     */
+    public function isLaterFact(?array $current, array $candidate): bool
+    {
+        return $current === null || [$candidate[0], $candidate[1] ?? 0] > [$current[0], $current[1] ?? 0];
+    }
+
+    /** @param array<array-key, string> $partition SQL expressions */
+    private function factWindow(QueryBuilder $facts, array $partition, string $frame = ''): string
+    {
+        $grammar = $facts->getGrammar();
+
+        return 'OVER (PARTITION BY '.implode(', ', $partition).' ORDER BY '.$grammar->wrap('reporting_date').', '
+            .$grammar->wrap('id').($frame !== '' ? ' '.$frame : '').')';
     }
 
     public function source(
