@@ -23,6 +23,7 @@ use App\Services\Collection\Ga4\Ga4CentralCollectionService;
 use App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService;
 use App\Services\Collection\GoogleAds\GoogleAdsHistoricalActivityDiscoveryService;
 use App\Services\Collection\Meta\MetaCentralCollectionService;
+use App\Services\Collection\Providers\GoogleAds\GoogleAdsCustomerNotEnabledException;
 use App\Services\Collection\SearchConsole\SearchConsoleCentralCollectionService;
 use App\Services\Integrations\Google\GoogleBusinessProfileBoundCollector;
 use App\Services\Observability\AlertSubjects;
@@ -382,13 +383,22 @@ final class ResourceAutomationService
         if ($actor && (! $actor->is_active || ! $actor->can(Permissions::ACCESS_APP))) {
             $actor = null;
         }
-        $run = match ($r->resource_type) {
-            'google_ads' => app(GoogleAdsCentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor, $queryOnly),
-            'search_console' => app(SearchConsoleCentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor, $queryOnly),
-            'ga4' => app(Ga4CentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor),
-            'meta_ads' => app(MetaCentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor),
-            default => throw new \RuntimeException('Unsupported resource type ['.$r->resource_type.'].'),
-        };
+        try {
+            $run = match ($r->resource_type) {
+                'google_ads' => app(GoogleAdsCentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor, $queryOnly),
+                'search_console' => app(SearchConsoleCentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor, $queryOnly),
+                'ga4' => app(Ga4CentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor),
+                'meta_ads' => app(MetaCentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor),
+                default => throw new \RuntimeException('Unsupported resource type ['.$r->resource_type.'].'),
+            };
+        } catch (GoogleAdsCustomerNotEnabledException) {
+            // Closed / suspended Google Ads account, just marked by the history probe: it waits like readiness()
+            // 'not_enabled' instead of failing the job and raising an application error.
+            $a->update(['collection_status' => 'attention', 'collection_error' => 'not_enabled', 'collection_queued_at' => null,
+                'next_collection_at' => $this->nextAt($a)]);
+
+            return;
+        }
         $a->update([
             'collection_run_id' => $run?->id, 'collection_status' => $run ? 'collecting' : 'current',
             'collection_queued_at' => null, 'collection_error' => null,

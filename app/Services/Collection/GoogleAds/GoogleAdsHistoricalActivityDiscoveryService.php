@@ -5,6 +5,7 @@ namespace App\Services\Collection\GoogleAds;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsClientFactory;
+use App\Services\Collection\Providers\GoogleAds\GoogleAdsCustomerNotEnabledException;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsHistoricalActivityGaqlBuilder;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsProviderErrorMapper;
 use App\Support\Time\SafeTimezone;
@@ -129,7 +130,7 @@ final class GoogleAdsHistoricalActivityDiscoveryService
                 // Closed / suspended account: marked so automatic collection waits instead of failing every tick.
                 self::markNotEnabled($externalResourceId, true);
 
-                throw new RuntimeException('Google Ads hesabı etkin değil (kapalı ya da askıda).');
+                throw new GoogleAdsCustomerNotEnabledException;
             }
             throw new RuntimeException($mapped->errorMessage ?? 'Google Ads historical activity discovery failed.');
         }

@@ -22,6 +22,14 @@ final class GoogleAdsProviderErrorMapper
             );
         }
 
+        if ($e instanceof GoogleAdsCustomerNotEnabledException) {
+            return DatasetExecutionResult::failed(
+                CollectionErrorCategory::Authorization,
+                $e->getMessage(),
+                'CUSTOMER_NOT_ENABLED',
+            );
+        }
+
         if ($e instanceof GoogleAuthorizationException) {
             return DatasetExecutionResult::failed(
                 CollectionErrorCategory::Authorization,
@@ -101,6 +109,14 @@ final class GoogleAdsProviderErrorMapper
         }
 
         if ($status === 403) {
+            // Closed / suspended account (authorizationError:CUSTOMER_NOT_ENABLED): the history probe parks it on this code.
+            if (str_contains($upper, 'CUSTOMER_NOT_ENABLED')) {
+                return DatasetExecutionResult::failed(
+                    CollectionErrorCategory::Authorization,
+                    'Google Ads authorization failed: '.$reason,
+                    'CUSTOMER_NOT_ENABLED',
+                );
+            }
             if (str_contains($lower, 'developer') && str_contains($lower, 'token')) {
                 return DatasetExecutionResult::failed(
                     CollectionErrorCategory::Authorization,

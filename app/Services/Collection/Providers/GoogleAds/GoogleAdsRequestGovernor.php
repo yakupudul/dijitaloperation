@@ -4,7 +4,7 @@ namespace App\Services\Collection\Providers\GoogleAds;
 
 use App\Models\Collection\CollectionDatasetAttempt;
 use App\Models\CoreIntegration;
-use Illuminate\Cache\LockTimeoutException;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Log;
 final class GoogleAdsRequestGovernor
 {
     private const GLOBAL_COOLDOWN_KEY = 'moxdop:gads:quota:global-until';
+
     private const RECOVERY_MARKER_KEY = 'moxdop:gads:quota:recovery-scanned';
 
     /** @template T of Response @param callable():T $request @return T */

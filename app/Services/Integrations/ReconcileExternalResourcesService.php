@@ -14,6 +14,12 @@ use RuntimeException;
 final class ReconcileExternalResourcesService
 {
     /**
+     * MoxDOP's own marks that the provider inventory never reports; the daily discovery keeps them
+     * (a closed Google Ads account stays parked for its week instead of being probed again every morning).
+     */
+    private const array APP_METADATA_KEYS = ['not_enabled_at'];
+
+    /**
      * @param  list<DiscoveredExternalResource>  $resources
      * @return array{
      *     seen_ids: list<int>,
@@ -94,14 +100,16 @@ final class ReconcileExternalResourcesService
 
             $displayChanged = $resource->display_name !== $discovered->displayName;
             $parentChanged = $resource->parent_external_id !== $discovered->parentExternalId;
-            $metaChanged = ($resource->metadata ?? []) != $discovered->metadata;
+            $metadata = $discovered->metadata
+                + array_intersect_key(is_array($resource->metadata) ? $resource->metadata : [], array_flip(self::APP_METADATA_KEYS));
+            $metaChanged = ($resource->metadata ?? []) != $metadata;
             $wasUnavailable = $resource->status === CoreExternalResource::STATUS_UNAVAILABLE;
 
             $resource->fill([
                 'provider' => $provider,
                 'display_name' => $discovered->displayName,
                 'parent_external_id' => $discovered->parentExternalId,
-                'metadata' => $discovered->metadata,
+                'metadata' => $metadata,
                 'status' => CoreExternalResource::STATUS_AVAILABLE,
                 'last_seen_at' => now(),
             ]);
