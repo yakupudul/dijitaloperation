@@ -253,7 +253,8 @@ class GoogleApiClient
             'put' => $pending->asJson()->put($url, $payload),
             'patch' => $pending->asJson()->patch($url, $payload),
             'delete' => $pending->delete($url),
-            default => $pending->get($url, $payload),
+            // A query option replaces the URL's own query string (Guzzle), so a URL that carries it is sent as is.
+            default => $payload === [] ? $pending->get($url) : $pending->get($url, $payload),
         };
     }
 

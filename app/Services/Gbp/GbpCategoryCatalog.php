@@ -84,8 +84,9 @@ final class GbpCategoryCatalog
         if ($ids === []) {
             return [];
         }
-        $query = implode('&', array_map(fn (string $id): string => 'names='.rawurlencode($id), $ids));
-        $response = $this->google->get($integration, self::BASE.'categories:batchGet?'.$query, ['regionCode' => 'TR', 'languageCode' => 'tr', 'view' => 'FULL'], 'google_business_profile');
+        // names is repeated (names=a&names=b), so the whole query is in the URL.
+        $query = implode('&', array_map(fn (string $id): string => 'names='.rawurlencode($id), $ids)).'&regionCode=TR&languageCode=tr&view=FULL';
+        $response = $this->google->get($integration, self::BASE.'categories:batchGet?'.$query, [], 'google_business_profile');
         if (! $response->successful()) {
             throw new RuntimeException('Google kategori listesi okunamadı: '.mb_substr((string) (data_get($response->json(), 'error.message') ?? 'HTTP '.$response->status()), 0, 200));
         }

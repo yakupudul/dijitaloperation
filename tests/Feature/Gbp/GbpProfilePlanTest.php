@@ -91,6 +91,10 @@ final class GbpProfilePlanTest extends TestCase
                 return Http::response($this->location);
             }
             if (str_contains($url, 'categories:batchGet')) {
+                if (! str_contains($url, 'names=categories%2Fgcid%3Adental_clinic') || ! str_contains($url, 'view=FULL')) {
+                    return Http::response(['error' => ['message' => 'Request contains an invalid argument.']], 400);
+                }
+
                 return Http::response(['categories' => [
                     ['name' => 'categories/gcid:dental_clinic', 'displayName' => 'Diş kliniği', 'serviceTypes' => [['serviceTypeId' => 'job_type_id:teeth_whitening', 'displayName' => 'Diş beyazlatma']]],
                     ['name' => 'categories/gcid:orthodontist', 'displayName' => 'Ortodontist', 'serviceTypes' => []],
