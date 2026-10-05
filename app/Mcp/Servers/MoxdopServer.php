@@ -18,6 +18,7 @@ use App\Mcp\Tools\ProposeChange;
 use App\Mcp\Tools\RequestArticle;
 use App\Mcp\Tools\SaveNote;
 use App\Mcp\Tools\ScreenChecks;
+use App\Mcp\Tools\SiteBuilds;
 use App\Mcp\Tools\SubmitResult;
 use App\Mcp\Tools\SystemHealth;
 use App\Mcp\Tools\UpdateChange;
@@ -32,7 +33,7 @@ use Laravel\Mcp\Server\Attributes\Version;
  * job continues. Claude also reads brands (the rule-built brand file), keeps its own notes, starts drafts for approved
  * titles, reads system health and screen checks, and works the Geliştirme havuzu (proposes changes of MoxDOP itself, codes
  * the approved ones, verifies them after deploy). The only writes to a site are the site-building tools (list-sites,
- * inspect-site, build-site), and only on a site where an Admin switched "Claude site kurulumu" on and the site admin
+ * inspect-site, build-site, site-builds), and only on a site where an Admin switched "Claude site kurulumu" on and the site admin
  * enabled "Site building" in the plugin. Nothing here writes to an ad account.
  */
 #[Name('MoxDOP')]
@@ -71,8 +72,10 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
 - Only when the operator asks you to build or change a site (CPT / ACF fields, pages, Elementor header or footer,
   menus, images). `list-sites` shows which sites are ready; a site is ready only after the operator switched "Claude
   site kurulumu" on in MoxDOP and "Site building" on in the plugin. Not ready → tell the operator the `reason`.
-- `inspect-site` first, then `build-site` in small batches (at most 25 operations). It writes to the live site at
-  once. Give everything a stable `ref` (for example `page-hizmetler`, `cpt-hizmet`, `header-main`, `img-logo`) so a
+- `inspect-site` first, then `build-site` in small batches (at most 25 operations). In mode `direct` it writes to the
+  live site at once; in mode `approval` the build waits in the site's log until the operator approves or rejects it
+  (follow it with `site-builds`; a rejection carries the operator's reason). The operator can undo any build there.
+  Give everything a stable `ref` (for example `page-hizmetler`, `cpt-hizmet`, `header-main`, `img-logo`) so a
   repeat updates instead of duplicating, and point at earlier items with "ref:<ref>".
 - ACF: send the ACF export JSON (field groups `group_…`, post types `post_type_…`); posts of a new post type in a
   later call. Elementor: the Templates › Import JSON (`content`, `page_settings`); images uploaded with `media`
@@ -120,5 +123,6 @@ class MoxdopServer extends Server
         ListSites::class,
         InspectSite::class,
         BuildSite::class,
+        SiteBuilds::class,
     ];
 }

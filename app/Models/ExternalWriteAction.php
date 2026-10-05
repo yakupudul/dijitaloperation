@@ -46,7 +46,7 @@ class ExternalWriteAction extends Model
     /** 1.4.1: the MoxDOP Connector updates itself from a hash-checked ZIP. Cannot be undone from MoxDOP. */
     public const string ACTION_CONNECTOR_UPDATE = 'connector_update';
 
-    /** 1.8.0: Claude builds a site through the connector (ACF, pages, Elementor, media, menus) while its switch is on. Not undoable from MoxDOP. */
+    /** 1.8.0: Claude builds a site through the connector (ACF, pages, Elementor, media, menus) while its switch is on; undone from the site's log. */
     public const string ACTION_SITE_BUILD = 'site_build';
 
     protected $guarded = [];
@@ -65,13 +65,20 @@ class ExternalWriteAction extends Model
 
     public function isUndoable(): bool
     {
-        return ! in_array($this->action, [self::ACTION_UPDATE_APPLY, self::ACTION_CONNECTOR_UPDATE, self::ACTION_SITE_BUILD], true) && in_array($this->status, ['succeeded', 'partial', 'undo_failed'], true);
+        if ($this->action === self::ACTION_SITE_BUILD) {
+            return in_array($this->status, ['succeeded', 'partial', 'undo_failed'], true)
+                && collect((array) data_get($this->result, 'results', []))->contains(fn (mixed $r): bool => filled(data_get($r, 'change_id')));
+        }
+
+        return ! in_array($this->action, [self::ACTION_UPDATE_APPLY, self::ACTION_CONNECTOR_UPDATE], true) && in_array($this->status, ['succeeded', 'partial', 'undo_failed'], true);
     }
 
     public function statusLabel(): string
     {
         return match ($this->status) {
             'scheduled' => 'Zamanlandı',
+            'awaiting_approval' => 'Onay bekliyor',
+            'rejected' => 'Reddedildi',
             'cancelled' => 'İptal edildi',
             'queued' => 'Kuyrukta',
             'running' => 'Gönderiliyor',

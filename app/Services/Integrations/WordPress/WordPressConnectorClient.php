@@ -229,6 +229,18 @@ final class WordPressConnectorClient
     }
 
     /**
+     * 1.8.0: undoes earlier build operations by change_id in the given order (newest first). Values changed on the site
+     * since the build come back as changed_since unless forced.
+     *
+     * @param  list<string>  $changeIds
+     * @return array{results: list<array<string, mixed>>}
+     */
+    public function buildUndo(CoreConnection $connection, array $changeIds, bool $force = false): array
+    {
+        return $this->write($connection, 'POST', '/moxdop/v1/build/undo', ['change_ids' => array_values($changeIds), 'force' => $force], (int) config('moxdop-wordpress.build_timeout_seconds', 55));
+    }
+
+    /**
      * 1.4.1: the plugin downloads the ZIP from the signed link, checks its SHA-256 and installs over itself.
      *
      * @return array<string, mixed>

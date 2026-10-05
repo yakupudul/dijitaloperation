@@ -77,14 +77,16 @@ Daily inventory reconciliation complements activity delivery.
   pages / posts / custom posts (created or updated by `ref`, also published, with ACF values, Elementor data,
   featured image, terms and SEO title / description), Elementor library templates with display conditions (Pro),
   media from an https URL or base64, navigation menus with a theme location, and site title, tagline, front page,
-  posts page, permalinks and Elementor post types. Theme and plugin files are never edited.
+  posts page, permalinks and Elementor post types. Theme and plugin files are never edited. Every operation that
+  changed something returns a `change_id`; `POST /build/undo` puts it back (restores the previous fields, meta, terms,
+  menu items, settings or ACF item, and trashes what was made), refusing values changed on the site since unless forced.
 
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
 
 = 1.8.0 =
-* Site building (`/build`, off until the site admin enables it): describe the site, then import ACF JSON, create or update pages / custom posts with ACF and Elementor data, Elementor templates (header, footer, …) with display conditions, media, menus and basic settings. Everything built carries a `ref`, so a repeated request updates instead of duplicating.
+* Site building (`/build`, off until the site admin enables it): describe the site, then import ACF JSON, create or update pages / custom posts with ACF and Elementor data, Elementor templates (header, footer, …) with display conditions, media, menus and basic settings. Everything built carries a `ref`, so a repeated request updates instead of duplicating. Every change can be undone (`/build/undo`).
 
 = 1.7.0 =
 * Content export (`/content-export`, read-only): the rendered content of published pages without the theme (Elementor builder content, otherwise the content filters with blocks and WPBakery / Divi shortcodes), with SEO title, description, canonical and language. MoxDOP reads a whole site in a few requests instead of loading every page.

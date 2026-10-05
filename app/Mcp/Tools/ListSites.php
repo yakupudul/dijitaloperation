@@ -10,7 +10,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
-#[Description('Site kurulumu: lists the paired WordPress sites (site_id, name, brand, url, plugin version) and whether each one can be built now (ready) or why not (reason: the MoxDOP switch "Claude site kurulumu", the plugin version, or "Site building" in the plugin settings).')]
+#[Description('Site kurulumu: lists the paired WordPress sites (site_id, name, brand, url, plugin version) its mode (direct = applied at once, approval = waits for the operator, null = off) and whether each one can be built now (ready) or why not (reason: the MoxDOP switch "Claude site kurulumu", the plugin version, or "Site building" in the plugin settings).')]
 #[IsReadOnly]
 class ListSites extends Tool
 {

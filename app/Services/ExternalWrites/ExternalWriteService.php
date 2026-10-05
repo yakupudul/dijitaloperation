@@ -12,6 +12,7 @@ use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
 use App\Services\Integrations\WordPress\WordPressManagementService;
+use App\Services\Integrations\WordPress\WordPressSiteBuilder;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
@@ -428,6 +429,7 @@ final class ExternalWriteService
                 $action->channel === ExternalWriteAction::CHANNEL_GBP => $this->gbp->apply($action),
                 $action->action === ExternalWriteAction::ACTION_UPDATE_APPLY => app(WordPressManagementService::class)->apply($action),
                 $action->action === ExternalWriteAction::ACTION_CONNECTOR_UPDATE => app(WordPressManagementService::class)->selfUpdate($action),
+                $action->action === ExternalWriteAction::ACTION_SITE_BUILD => app(WordPressSiteBuilder::class)->apply($action),
                 in_array($action->action, self::FIX_ACTIONS, true) => $this->fixes->apply($action),
                 default => $this->drafts->apply($action),
             };
@@ -447,6 +449,7 @@ final class ExternalWriteService
             $undo = match (true) {
                 $action->channel === ExternalWriteAction::CHANNEL_GOOGLE_ADS => $this->negatives->undo($action),
                 $action->channel === ExternalWriteAction::CHANNEL_GBP => $this->gbp->undo($action),
+                $action->action === ExternalWriteAction::ACTION_SITE_BUILD => app(WordPressSiteBuilder::class)->undo($action),
                 in_array($action->action, self::FIX_ACTIONS, true) => $this->fixes->undo($action),
                 default => $this->drafts->undo($action),
             };

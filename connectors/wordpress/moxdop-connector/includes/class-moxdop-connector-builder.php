@@ -31,6 +31,8 @@ final class MoxDOP_Connector_Builder
 
     const FLUSH_OPTION = 'moxdop_connector_build_flush';
 
+    const UNDO_PREFIX = 'moxdop_build_undo_';
+
     const MAX_OPERATIONS = 25;
 
     const MAX_LOG = 500;
@@ -53,6 +55,9 @@ final class MoxDOP_Connector_Builder
 
     /** @var array<string, int> refs resolved in this request */
     private $refs = [];
+
+    /** @var list<array> how to undo the operation that is running (stored under its change_id) */
+    private $undo = [];
 
     public function __construct(?MoxDOP_Connector_Auth $auth = null)
     {
@@ -84,6 +89,7 @@ final class MoxDOP_Connector_Builder
             ['methods' => WP_REST_Server::READABLE, 'permission_callback' => [$this->auth, 'authorize'], 'callback' => [$this, 'inspect']],
             ['methods' => WP_REST_Server::CREATABLE, 'permission_callback' => [$this->auth, 'authorize'], 'callback' => [$this, 'apply']],
         ]);
+        register_rest_route($namespace, '/build/undo', ['methods' => WP_REST_Server::CREATABLE, 'permission_callback' => [$this->auth, 'authorize'], 'callback' => [$this, 'undo']]);
     }
 
     /* ------------------------------------------------------------------ REST */
@@ -109,10 +115,14 @@ final class MoxDOP_Connector_Builder
         }
         $results = [];
         foreach ($operations as $operation) {
+            $this->undo = [];
             try {
                 $result = is_array($operation) ? $this->run($operation) : $this->fail('invalid operation');
             } catch (Throwable $e) {
                 $result = $this->fail($e->getMessage());
+            }
+            if ($this->undo !== []) {
+                $result['change_id'] = $this->remember($this->undo);
             }
             $result = ['op' => is_array($operation) ? sanitize_key((string) ($operation['op'] ?? '')) : ''] + $result;
             $results[] = $result;
@@ -120,6 +130,139 @@ final class MoxDOP_Connector_Builder
         }
 
         return $this->auth->envelope(['schema_version' => 1, 'results' => $results], $request);
+    }
+
+    /**
+     * Undoes earlier operations by change_id, in the given order (MoxDOP sends the newest first). Something changed on
+     * the site after the build is not overwritten (changed_since) unless "force" is set.
+     */
+    public function undo(WP_REST_Request $request)
+    {
+        if (! self::allowed()) {
+            return new WP_Error('moxdop_build_disabled', 'Site building is disabled on this site.', ['status' => 403]);
+        }
+        $body = json_decode((string) $request->get_body(), true);
+        $ids = is_array($body) && is_array($body['change_ids'] ?? null) ? array_slice(array_map('strval', $body['change_ids']), 0, 100) : [];
+        $force = is_array($body) && ! empty($body['force']);
+        $restored = [];
+        $results = [];
+        foreach ($ids as $id) {
+            $entry = preg_match('/^[a-f0-9-]{36}$/', $id) ? get_option(self::UNDO_PREFIX.$id) : null;
+            if (! is_array($entry) || ! empty($entry['undone'])) {
+                $results[] = ['change_id' => $id, 'ok' => false, 'error' => 'unknown or already undone'];
+
+                continue;
+            }
+            if (! $force) {
+                foreach ((array) ($entry['checks'] ?? []) as $post_id => $modified) {
+                    if (! isset($restored[$post_id]) && get_post((int) $post_id) && (string) get_post_field('post_modified_gmt', (int) $post_id) !== (string) $modified) {
+                        $results[] = ['change_id' => $id, 'ok' => false, 'error' => 'changed_since', 'post_id' => (int) $post_id];
+
+                        continue 2;
+                    }
+                }
+            }
+            $errors = [];
+            foreach (array_reverse((array) $entry['steps']) as $step) {
+                try {
+                    $done = $this->undo_step($step);
+                } catch (Throwable $e) {
+                    $done = $e->getMessage();
+                }
+                if ($done !== true) {
+                    $errors[] = is_string($done) ? $done : 'step '.($step[0] ?? '?').' failed';
+                }
+                if (in_array($step[0] ?? '', ['remove', 'restore_post', 'untrash'], true)) {
+                    $restored[$step[1]] = true;
+                }
+            }
+            $entry['undone'] = gmdate('c');
+            update_option(self::UNDO_PREFIX.$id, $entry, false);
+            $results[] = ['change_id' => $id, 'ok' => $errors === [], 'errors' => $errors];
+            $this->log(['op' => 'undo', 'ref' => $id, 'ok' => $errors === [], 'error' => $errors === [] ? null : implode('; ', $errors)]);
+        }
+
+        return $this->auth->envelope(['schema_version' => 1, 'results' => $results], $request);
+    }
+
+    /** @return true|string */
+    private function undo_step(array $step)
+    {
+        switch ($step[0] ?? '') {
+            case 'remove':
+                $type = get_post_type($step[1]);
+                if (! $type) {
+                    return true;
+                }
+                $done = $type === 'attachment' ? wp_delete_attachment($step[1], true) : wp_trash_post($step[1]);
+                $this->after_template_change($type);
+
+                return $done ? true : 'could not remove '.$step[1];
+            case 'restore_post':
+                return $this->restore_post($step[1], $step[2]);
+            case 'untrash':
+                // Back to the status it had before the trash (WordPress would make it a draft).
+                add_filter('wp_untrash_post_status', 'wp_untrash_post_set_previous_status', 10, 3);
+                $done = wp_untrash_post($step[1]);
+                remove_filter('wp_untrash_post_status', 'wp_untrash_post_set_previous_status', 10);
+
+                return $done ? true : 'could not restore '.$step[1].' from the trash';
+            case 'restore_options':
+                foreach ((array) $step[1] as $key => $value) {
+                    if ($key === 'permalink_structure') {
+                        global $wp_rewrite;
+                        $wp_rewrite->set_permalink_structure((string) $value);
+                        update_option(self::FLUSH_OPTION, '1', true);
+                    } else {
+                        update_option($key, $value);
+                    }
+                }
+
+                return true;
+            case 'restore_menu':
+            case 'delete_menu':
+                $current = wp_get_nav_menu_items($step[1], ['post_status' => 'any']);
+                foreach (is_array($current) ? $current : [] as $item) {
+                    wp_delete_post($item->ID, true);
+                }
+                if ($step[0] === 'delete_menu') {
+                    wp_delete_nav_menu($step[1]);
+                } else {
+                    $map = [];
+                    foreach ((array) $step[2] as $old) {
+                        $data = ['menu-item-status' => 'publish', 'menu-item-title' => $old['title'], 'menu-item-type' => $old['type'], 'menu-item-object' => $old['object'],
+                            'menu-item-object-id' => $old['object_id'], 'menu-item-url' => $old['url'], 'menu-item-position' => $old['order'],
+                            'menu-item-parent-id' => isset($map[$old['parent']]) ? $map[$old['parent']] : 0];
+                        $new = wp_update_nav_menu_item($step[1], 0, $data);
+                        if (! is_wp_error($new)) {
+                            $map[$old['id']] = (int) $new;
+                        }
+                    }
+                }
+                set_theme_mod('nav_menu_locations', (array) $step[3]);
+
+                return true;
+            case 'acf_restore':
+                $restored = function_exists('acf_import_internal_post_type') ? acf_import_internal_post_type($step[2], $step[1]) : acf_import_field_group($step[2]);
+                if (in_array($step[1], ['acf-post-type', 'acf-taxonomy'], true)) {
+                    update_option(self::FLUSH_OPTION, '1', true);
+                }
+
+                return is_array($restored) ? true : 'ACF item was not restored';
+            case 'acf_delete':
+                if ($step[1] === 'acf-field-group' && function_exists('acf_delete_field_group')) {
+                    acf_delete_field_group($step[2]);
+                } elseif (function_exists('acf_delete_internal_post_type')) {
+                    acf_delete_internal_post_type($step[2], $step[1]);
+                } else {
+                    wp_delete_post($step[2], true);
+                }
+                update_option(self::FLUSH_OPTION, '1', true);
+
+                return true;
+        }
+
+        return 'unknown undo step';
     }
 
     /* ------------------------------------------------------------ operations */
@@ -181,8 +324,15 @@ final class MoxDOP_Connector_Builder
             }
             if ($existing) {
                 $item['ID'] = $existing->ID;
+                $previous = $this->acf_snapshot($key, $type);
+                if ($previous) {
+                    $this->undo[] = ['acf_restore', $type, $previous];
+                }
             }
             $imported = function_exists('acf_import_internal_post_type') ? acf_import_internal_post_type($item, $type) : acf_import_field_group($item);
+            if (! $existing && is_array($imported) && ! empty($imported['ID'])) {
+                $this->undo[] = ['acf_delete', $type, (int) $imported['ID']];
+            }
             $flush = $flush || in_array($type, ['acf-post-type', 'acf-taxonomy'], true);
             $out[] = ['ok' => is_array($imported) && ! empty($imported['ID']), 'key' => $key, 'type' => $type, 'id' => is_array($imported) ? (int) ($imported['ID'] ?? 0) : 0, 'updated' => (bool) $existing];
         }
@@ -239,6 +389,7 @@ final class MoxDOP_Connector_Builder
             $fields['post_parent'] = (int) $parent;
         }
         if ($existing) {
+            $this->undo[] = ['restore_post', $existing, $this->snapshot_post($existing)];
             $fields['ID'] = $existing;
             $post_id = wp_update_post(wp_slash($fields), true);
         } else {
@@ -253,6 +404,9 @@ final class MoxDOP_Connector_Builder
             return $this->fail(is_wp_error($post_id) ? $post_id->get_error_message() : 'post was not saved');
         }
         $post_id = (int) $post_id;
+        if (! $existing) {
+            $this->undo[] = ['remove', $post_id];
+        }
         update_post_meta($post_id, self::REF_META, $ref);
         $this->refs[$ref] = $post_id;
         $warnings = [];
@@ -343,6 +497,7 @@ final class MoxDOP_Connector_Builder
             $fields['post_title'] = $title;
         }
         if ($existing) {
+            $this->undo[] = ['restore_post', $existing, $this->snapshot_post($existing)];
             $fields['ID'] = $existing;
             $id = wp_update_post(wp_slash($fields), true);
         } else {
@@ -352,6 +507,9 @@ final class MoxDOP_Connector_Builder
             return $this->fail(is_wp_error($id) ? $id->get_error_message() : 'template was not saved');
         }
         $id = (int) $id;
+        if (! $existing) {
+            $this->undo[] = ['remove', $id];
+        }
         update_post_meta($id, self::REF_META, $ref);
         $this->refs[$ref] = $id;
         if (taxonomy_exists('elementor_library_type')) {
@@ -429,9 +587,12 @@ final class MoxDOP_Connector_Builder
                 return $this->fail($id->get_error_message());
             }
             $existing = (int) $id;
+            $this->undo[] = ['remove', $existing];
             update_post_meta($existing, self::REF_META, $ref);
         } elseif (get_post_type($existing) !== 'attachment') {
             return $this->fail('ref "'.$ref.'" already belongs to a '.get_post_type($existing));
+        } else {
+            $this->undo[] = ['restore_post', $existing, $this->snapshot_post($existing)];
         }
         $this->refs[$ref] = $existing;
         if (isset($operation['alt'])) {
@@ -455,7 +616,17 @@ final class MoxDOP_Connector_Builder
             return $this->fail($menu_id->get_error_message());
         }
         $old_items = wp_get_nav_menu_items($menu_id, ['post_status' => 'any']);
-        foreach (is_array($old_items) ? $old_items : [] as $old) {
+        $old_items = is_array($old_items) ? $old_items : [];
+        $locations_before = (array) get_theme_mod('nav_menu_locations', []);
+        if ($menu) {
+            $this->undo[] = ['restore_menu', (int) $menu_id, array_map(function ($old) {
+                return ['id' => (int) $old->ID, 'parent' => (int) $old->menu_item_parent, 'title' => (string) $old->post_title, 'type' => (string) $old->type,
+                    'object' => (string) $old->object, 'object_id' => (int) $old->object_id, 'url' => (string) $old->url, 'order' => (int) $old->menu_order];
+            }, $old_items), $locations_before];
+        } else {
+            $this->undo[] = ['delete_menu', (int) $menu_id, [], $locations_before];
+        }
+        foreach ($old_items as $old) {
             wp_delete_post($old->ID, true);
         }
         $count = 0;
@@ -511,6 +682,7 @@ final class MoxDOP_Connector_Builder
         $values = is_array($operation['values'] ?? null) ? $operation['values'] : [];
         $changed = [];
         $errors = [];
+        $previous = [];
         foreach ($values as $key => $value) {
             if (! in_array($key, self::SETTINGS, true)) {
                 $errors[] = 'not allowed: '.$key;
@@ -540,6 +712,7 @@ final class MoxDOP_Connector_Builder
                 default:
                     $value = sanitize_text_field((string) $value);
             }
+            $previous[$key] = get_option($key);
             if ($key === 'permalink_structure') {
                 global $wp_rewrite;
                 $wp_rewrite->set_permalink_structure($value);
@@ -548,6 +721,9 @@ final class MoxDOP_Connector_Builder
                 update_option($key, $value);
             }
             $changed[$key] = $value;
+        }
+        if ($previous !== []) {
+            $this->undo[] = ['restore_options', $previous];
         }
 
         return ['ok' => $errors === [] && $changed !== [], 'changed' => $changed, 'errors' => $errors];
@@ -561,7 +737,12 @@ final class MoxDOP_Connector_Builder
         if (! $id) {
             return $this->fail('nothing built with this ref');
         }
-        $done = get_post_type($id) === 'attachment' ? wp_delete_attachment($id, true) : wp_trash_post($id);
+        $type = get_post_type($id);
+        $done = $type === 'attachment' ? wp_delete_attachment($id, true) : wp_trash_post($id);
+        if ($done && $type !== 'attachment') {
+            $this->undo[] = ['untrash', $id];
+        }
+        $this->after_template_change($type);
         unset($this->refs[$ref]);
 
         return $done ? ['ok' => true, 'ref' => $ref, 'id' => $id] : $this->fail('could not remove '.$id);
@@ -715,6 +896,95 @@ final class MoxDOP_Connector_Builder
             'numberposts' => 1, 'fields' => 'ids', 'suppress_filters' => true, 'lang' => '']);
 
         return ! empty($ids) ? (int) $ids[0] : 0;
+    }
+
+    /** Everything needed to put a post back: its fields, all its meta and its terms. */
+    private function snapshot_post($id)
+    {
+        $post = get_post($id);
+        $meta = (array) get_post_meta($id);
+        unset($meta['_edit_lock'], $meta['_edit_last']);
+        $terms = [];
+        foreach (get_object_taxonomies($post->post_type) as $taxonomy) {
+            $ids = wp_get_object_terms($id, $taxonomy, ['fields' => 'ids']);
+            $terms[$taxonomy] = is_wp_error($ids) ? [] : array_map('intval', $ids);
+        }
+
+        return ['fields' => ['post_title' => $post->post_title, 'post_content' => $post->post_content, 'post_excerpt' => $post->post_excerpt, 'post_status' => $post->post_status,
+            'post_name' => $post->post_name, 'post_parent' => (int) $post->post_parent, 'menu_order' => (int) $post->menu_order], 'meta' => $meta, 'terms' => $terms];
+    }
+
+    /** @return true|string */
+    private function restore_post($id, array $snapshot)
+    {
+        if (! get_post($id)) {
+            return 'post '.$id.' no longer exists';
+        }
+        $updated = wp_update_post(wp_slash(['ID' => $id] + (array) $snapshot['fields']), true);
+        if (is_wp_error($updated)) {
+            return $updated->get_error_message();
+        }
+        $before = (array) $snapshot['meta'];
+        foreach (array_keys((array) get_post_meta($id)) as $key) {
+            if ($key !== '_edit_lock' && $key !== '_edit_last' && ! isset($before[$key])) {
+                delete_post_meta($id, $key);
+            }
+        }
+        foreach ($before as $key => $values) {
+            delete_post_meta($id, $key);
+            foreach ((array) $values as $value) {
+                add_post_meta($id, $key, wp_slash(maybe_unserialize($value)));
+            }
+        }
+        foreach ((array) $snapshot['terms'] as $taxonomy => $ids) {
+            if (taxonomy_exists($taxonomy)) {
+                wp_set_object_terms($id, array_map('intval', (array) $ids), $taxonomy);
+            }
+        }
+        $this->after_template_change(get_post_type($id));
+        delete_post_meta($id, '_elementor_css');
+
+        return true;
+    }
+
+    private function acf_snapshot($key, $type)
+    {
+        if (function_exists('acf_get_internal_post_type')) {
+            $item = acf_get_internal_post_type($key, $type);
+        } else {
+            $item = function_exists('acf_get_field_group') ? acf_get_field_group($key) : null;
+        }
+        if (! is_array($item)) {
+            return null;
+        }
+        if ($type === 'acf-field-group' && function_exists('acf_get_fields')) {
+            $item['fields'] = (array) acf_get_fields($item);
+        }
+
+        return $item;
+    }
+
+    /** Elementor Pro keeps a cache of which template shows where; it is rebuilt after a template changes. */
+    private function after_template_change($post_type)
+    {
+        if ($post_type === 'elementor_library' && class_exists('\ElementorPro\Modules\ThemeBuilder\Classes\Conditions_Cache')) {
+            (new Conditions_Cache)->regenerate();
+        }
+    }
+
+    /** Stores how to undo one operation; returns its change_id. */
+    private function remember(array $steps)
+    {
+        $id = wp_generate_uuid4();
+        $checks = [];
+        foreach ($steps as $step) {
+            if (in_array($step[0], ['remove', 'restore_post'], true) && get_post($step[1])) {
+                $checks[$step[1]] = (string) get_post_field('post_modified_gmt', $step[1]);
+            }
+        }
+        add_option(self::UNDO_PREFIX.$id, ['at' => gmdate('c'), 'steps' => $steps, 'checks' => $checks], '', 'no');
+
+        return $id;
     }
 
     private function fail($message)

@@ -71,22 +71,20 @@
                 </div>
 
                 @if ($connection?->credential)
+                    @php($pluginBuild = in_array('build', (array) data_get($connection?->config, 'capabilities', []), true))
                     <div class="mt-5 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-                        <div class="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                                <p class="text-sm font-semibold text-gray-900 dark:text-white">Claude site kurulumu</p>
-                                <p class="mt-1 max-w-xl text-xs text-gray-500 dark:text-gray-400">Açıkken Claude bu sitede MCP üzerinden doğrudan kurulum yapar: ACF alan grubu ve CPT, sayfa (yayında da), Elementor şablonu, görsel, menü ve temel ayarlar. Sitede eklentinin “Site building” ayarı da açık olmalı (eklenti {{ config('moxdop-wordpress.build_min_plugin_version') }}+). Tema ve eklenti dosyalarına dokunulmaz.</p>
-                                <p class="mt-1 text-xs {{ in_array('build', (array) data_get($connection?->config, 'capabilities', []), true) ? 'text-emerald-600' : 'text-amber-600' }}">Eklentide: {{ in_array('build', (array) data_get($connection?->config, 'capabilities', []), true) ? 'açık' : 'kapalı ya da eski sürüm (Bağlantıyı doğrula ile yenilenir)' }}</p>
-                            </div>
-                            @if ($canToggleBuild)
-                                <button type="button" wire:click="toggleClaudeBuild" @if (! $claudeBuild) wire:confirm="Claude bu sitede doğrudan değişiklik yapabilsin mi?" @endif @class([
-                                    'rounded-lg px-3 py-2 text-sm font-medium',
-                                    'bg-emerald-600 text-white hover:bg-emerald-700' => $claudeBuild,
-                                    'ring-1 ring-inset ring-gray-300 dark:ring-gray-700' => ! $claudeBuild,
-                                ])>{{ $claudeBuild ? 'Açık · kapat' : 'Kapalı · aç' }}</button>
-                            @else
-                                <x-ta.badge :color="$claudeBuild ? 'success' : 'warning'" size="sm">{{ $claudeBuild ? 'Açık' : 'Kapalı' }}</x-ta.badge>
-                            @endif
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white">Claude site kurulumu</p>
+                        <p class="mt-1 max-w-2xl text-xs text-gray-500 dark:text-gray-400">Claude MCP üzerinden bu sitede ACF alan grubu ve CPT, sayfa, Elementor şablonu, görsel, menü ve temel ayarları kurar. <strong>Doğrudan</strong>: hemen uygulanır. <strong>Onaylı</strong>: aşağıdaki kayıtta senin onayını bekler. Her kurulum kayıttan geri alınabilir. Sitede eklentinin “Site building” ayarı da açık olmalı (eklenti {{ config('moxdop-wordpress.build_min_plugin_version') }}+). Tema ve eklenti dosyalarına dokunulmaz.</p>
+                        <p class="mt-1 text-xs {{ $pluginBuild ? 'text-emerald-600' : 'text-amber-600' }}">Eklentide: {{ $pluginBuild ? 'açık' : 'kapalı ya da eski sürüm (Bağlantıyı doğrula ile yenilenir)' }}</p>
+                        <div class="mt-3 inline-flex rounded-lg ring-1 ring-inset ring-gray-300 dark:ring-gray-700" role="group">
+                            @foreach (['off' => 'Kapalı', 'direct' => 'Doğrudan', 'approval' => 'Onaylı'] as $value => $label)
+                                @php($active = ($buildMode ?? 'off') === $value)
+                                <button type="button" @if ($isAdmin && ! $active) wire:click="setBuildMode('{{ $value }}')" @if ($value === 'direct') wire:confirm="Claude bu sitede onay beklemeden değişiklik yapabilsin mi?" @endif @endif @disabled(! $isAdmin) @class([
+                                    'px-3 py-1.5 text-sm font-medium first:rounded-l-lg last:rounded-r-lg',
+                                    'bg-brand-500 text-white' => $active,
+                                    'text-gray-700 dark:text-gray-300' => ! $active,
+                                ])>{{ $label }}</button>
+                            @endforeach
                         </div>
                     </div>
                 @endif
@@ -103,6 +101,67 @@
             @endif
         </section>
     </div>
+
+    @if ($connection?->credential)
+        <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Site kurulum kaydı · {{ $selected->name }}</h2>
+                <p class="text-xs text-gray-500">Claude'un bu sitede yaptığı ve onay bekleyen kurulumlar (son 20).</p>
+            </div>
+            <div class="mt-3 space-y-3">
+                @forelse ($buildLog as $entry)
+                    <div wire:key="build-{{ $entry['id'] }}" class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div class="flex flex-wrap items-center gap-2 text-sm">
+                                <span class="font-medium text-gray-900 dark:text-white">#{{ $entry['id'] }}</span>
+                                <x-ta.badge :color="match ($entry['status']) { 'succeeded' => 'success', 'failed', 'undo_failed' => 'error', 'awaiting_approval', 'partial' => 'warning', default => 'light' }" size="sm">{{ $entry['status_label'] }}</x-ta.badge>
+                                <span class="text-xs text-gray-500">{{ \Illuminate\Support\Carbon::parse($entry['created_at'])->timezone('Europe/Istanbul')->format('d.m.Y H:i') }} · {{ $entry['mode'] === 'approval' ? 'onaylı' : 'doğrudan' }}</span>
+                            </div>
+                            @if ($isAdmin)
+                                <div class="flex flex-wrap items-center gap-2">
+                                    @if ($entry['status'] === 'awaiting_approval')
+                                        <button type="button" wire:click="approveBuild({{ $entry['id'] }})" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700">Onayla</button>
+                                        <input type="text" wire:model="rejectReasons.{{ $entry['id'] }}" placeholder="Red nedeni (isteğe bağlı)" class="rounded-lg border-gray-300 px-2 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800">
+                                        <button type="button" wire:click="rejectBuild({{ $entry['id'] }})" class="rounded-lg px-3 py-1.5 text-sm font-medium text-red-700 ring-1 ring-inset ring-red-300 dark:text-red-300 dark:ring-red-700">Reddet</button>
+                                    @endif
+                                    @if ($entry['undoable'])
+                                        <button type="button" wire:click="undoBuild({{ $entry['id'] }})" wire:confirm="Bu kurulumla yapılanlar geri alınsın mı? Oluşturulanlar çöpe taşınır, değiştirilenler eski haline döner." class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Geri al</button>
+                                        @if ($entry['status'] === 'undo_failed')
+                                            <button type="button" wire:click="forceUndoBuild({{ $entry['id'] }})" wire:confirm="Kurulumdan sonra sitede yapılan değişikliklerin üzerine yazılacak. Emin misin?" class="rounded-lg px-3 py-1.5 text-sm font-medium text-red-700 ring-1 ring-inset ring-red-300 dark:text-red-300 dark:ring-red-700">Yine de geri al</button>
+                                        @endif
+                                    @endif
+                                </div>
+                            @endif
+                        </div>
+                        @if ($entry['error'])
+                            <p class="mt-2 text-xs text-red-700 dark:text-red-300">{{ $entry['error'] }}</p>
+                        @endif
+                        @if ($entry['reject_reason'])
+                            <p class="mt-2 text-xs text-gray-600 dark:text-gray-300">Red nedeni: {{ $entry['reject_reason'] }}</p>
+                        @endif
+                        <ul class="mt-2 space-y-1 text-sm">
+                            @foreach ($entry['operations'] as $op)
+                                <li class="flex flex-wrap items-baseline gap-x-2">
+                                    <span @class(['text-xs', 'text-emerald-600' => $op['ok'] === true, 'text-red-600' => $op['ok'] === false, 'text-gray-400' => $op['ok'] === null])>{{ $op['ok'] === true ? '✓' : ($op['ok'] === false ? '✕' : '•') }}</span>
+                                    <span class="font-medium text-gray-800 dark:text-gray-100">{{ $op['label'] }}</span>
+                                    <span class="text-gray-600 dark:text-gray-300">{{ $op['target'] }}</span>
+                                    @if ($op['detail'])<span class="text-xs text-gray-500">{{ $op['detail'] }}</span>@endif
+                                    @if ($op['edit_url'])<a href="{{ $op['edit_url'] }}" target="_blank" rel="noopener" class="text-xs text-brand-600 hover:underline">düzenle</a>@endif
+                                    @if ($op['url'])<a href="{{ $op['url'] }}" target="_blank" rel="noopener" class="text-xs text-brand-600 hover:underline">aç</a>@endif
+                                    @if ($op['error'])<span class="w-full text-xs text-amber-700 dark:text-amber-300">{{ $op['error'] }}</span>@endif
+                                </li>
+                            @endforeach
+                        </ul>
+                        @if ($entry['undone_at'])
+                            <p class="mt-2 text-xs text-gray-500">Geri alındı: {{ \Illuminate\Support\Carbon::parse($entry['undone_at'])->timezone('Europe/Istanbul')->format('d.m.Y H:i') }}</p>
+                        @endif
+                    </div>
+                @empty
+                    <p class="text-sm text-gray-500">Bu sitede henüz Claude kurulumu yok.</p>
+                @endforelse
+            </div>
+        </section>
+    @endif
 
     <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
         <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Kurulum</h2>
