@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'connector_version' => '1.7.0',
+    'connector_version' => '1.8.0',
     // 1.6.0: sayfa önbelleği dışa aktarımı (/page-cache) — önbellek eklentisinin diske yazdığı HTML okunur, sayfa işlenmez.
     'page_cache_min_plugin_version' => '1.6.0',
     // 1.7.0: rendered content of published pages (/content-export) replaces most page reads over HTTP.
@@ -14,6 +14,10 @@ return [
     'self_update_min_plugin_version' => '1.4.1',
     // ADR-076 (1.5.0): zengin taslak (kategori, SEO alanları, Polylang dili ve çeviri bağlantısı).
     'rich_drafts_min_plugin_version' => '1.5.0',
+    // 1.8.0: site kurulumu (/build) — ACF, sayfa, Elementor şablonu, medya, menü. Sitede "Site building" ve MoxDOP'ta
+    // sitenin "Claude site kurulumu" anahtarı açık olmalı.
+    'build_min_plugin_version' => '1.8.0',
+    'build_timeout_seconds' => 55,
     // Kendini güncelleme için paket bağlantısı bu kadar dakika geçerli.
     'package_link_minutes' => 15,
     'pairing_ttl_minutes' => 15,

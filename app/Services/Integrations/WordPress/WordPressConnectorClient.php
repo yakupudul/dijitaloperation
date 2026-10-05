@@ -206,6 +206,29 @@ final class WordPressConnectorClient
     }
 
     /**
+     * 1.8.0 ("Site building" enabled by the site admin): what a builder needs to know first: ACF / Elementor, post
+     * types, ACF field groups and types, Elementor templates, menus, settings and what the builder already made.
+     *
+     * @return array<string, mixed>
+     */
+    public function buildInspect(CoreConnection $connection): array
+    {
+        return $this->write($connection, 'GET', '/moxdop/v1/build', null, 60);
+    }
+
+    /**
+     * 1.8.0: applies site-building operations in order (acf_import, post, elementor_template, media, menu, settings,
+     * trash); one result per operation.
+     *
+     * @param  list<array<string, mixed>>  $operations
+     * @return array{results: list<array<string, mixed>>}
+     */
+    public function build(CoreConnection $connection, array $operations): array
+    {
+        return $this->write($connection, 'POST', '/moxdop/v1/build', ['operations' => array_values($operations)], (int) config('moxdop-wordpress.build_timeout_seconds', 55));
+    }
+
+    /**
      * 1.4.1: the plugin downloads the ZIP from the signed link, checks its SHA-256 and installs over itself.
      *
      * @return array<string, mixed>

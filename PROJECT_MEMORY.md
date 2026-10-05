@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-10-05 — Claude WordPress sitesini doğrudan kurar (Connector 1.8.0)
+
+- **Karar (yakup, 2026-10-05):** Claude, MCP üzerinden bağlı WordPress sitelerinde CPT / ACF alan grubu, sayfa, Elementor şablonu (header vb.), görsel, menü ve temel ayarları onay adımı olmadan doğrudan kurar. Sınır: site başına MoxDOP'taki "Claude site kurulumu" anahtarı (Admin açar / kapatır) ve sitede eklentinin "Site building" ayarı; ikisi de varsayılan kapalı. Tema / eklenti dosyası düzenleme yasağı sürer. Diğer siteler için mevcut onaylı izinler (SEO düzeltmeleri, taslak) değişmedi.
+
 ## 2026-12-04 — WhatsApp: Meta bağlantısı askıda, telefon yedeği + beyin
 
 - **Karar (yakup, 2026-10-05):** Meta birlikte kullanım bağlantısı askıya alındı (numara reklamlarda kullanılan portföyde; uygulama sahibi portföy Embedded Signup'ta seçilemiyor). Görüşmeler Android WhatsApp Business yedeğinden (`msgstore.db.crypt15` + 64 haneli anahtar) yüklenir; yeni mesajlar için güncel yedek yüklenir.

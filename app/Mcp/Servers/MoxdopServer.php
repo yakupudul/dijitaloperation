@@ -2,14 +2,17 @@
 
 namespace App\Mcp\Servers;
 
+use App\Mcp\Tools\BuildSite;
 use App\Mcp\Tools\ContentQueue;
 use App\Mcp\Tools\FailTask;
 use App\Mcp\Tools\GetBrand;
 use App\Mcp\Tools\GetPage;
 use App\Mcp\Tools\GetTask;
+use App\Mcp\Tools\InspectSite;
 use App\Mcp\Tools\ListBrands;
 use App\Mcp\Tools\ListChanges;
 use App\Mcp\Tools\ListNotes;
+use App\Mcp\Tools\ListSites;
 use App\Mcp\Tools\ListTasks;
 use App\Mcp\Tools\ProposeChange;
 use App\Mcp\Tools\RequestArticle;
@@ -28,11 +31,12 @@ use Laravel\Mcp\Server\Attributes\Version;
  * DATA_JSON input, output schema), does it, and submits a result MoxDOP checks against the schema before the asking
  * job continues. Claude also reads brands (the rule-built brand file), keeps its own notes, starts drafts for approved
  * titles, reads system health and screen checks, and works the Geliştirme havuzu (proposes changes of MoxDOP itself, codes
- * the approved ones, verifies them after deploy). Nothing here writes to a brand's site or an ad account; approvals stay
- * in MoxDOP.
+ * the approved ones, verifies them after deploy). The only writes to a site are the site-building tools (list-sites,
+ * inspect-site, build-site), and only on a site where an Admin switched "Claude site kurulumu" on and the site admin
+ * enabled "Site building" in the plugin. Nothing here writes to an ad account.
  */
 #[Name('MoxDOP')]
-#[Version('1.3.0')]
+#[Version('1.4.0')]
 #[Instructions(<<<'MARKDOWN'
 MoxDOP is Moximu's internal agency operations app: one operator runs search, maps, Google Ads and Meta work for about
 100 brands. You are connected as a co-worker. This text is your whole working guide; you need nothing else.
@@ -62,6 +66,18 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
 - `content-queue` lists approved titles without a draft; `request-article` starts writing one (the task then comes
   through the queue). Only operator-approved titles are written. Sending a draft to WordPress is always the
   operator's click in MoxDOP; you never publish.
+
+## Site kurulumu (building a WordPress site)
+- Only when the operator asks you to build or change a site (CPT / ACF fields, pages, Elementor header or footer,
+  menus, images). `list-sites` shows which sites are ready; a site is ready only after the operator switched "Claude
+  site kurulumu" on in MoxDOP and "Site building" on in the plugin. Not ready → tell the operator the `reason`.
+- `inspect-site` first, then `build-site` in small batches (at most 25 operations). It writes to the live site at
+  once. Give everything a stable `ref` (for example `page-hizmetler`, `cpt-hizmet`, `header-main`, `img-logo`) so a
+  repeat updates instead of duplicating, and point at earlier items with "ref:<ref>".
+- ACF: send the ACF export JSON (field groups `group_…`, post types `post_type_…`); posts of a new post type in a
+  later call. Elementor: the Templates › Import JSON (`content`, `page_settings`); images uploaded with `media`
+  first and referenced as "ref:<ref>". New pages are drafts unless the operator asked to publish.
+- Read the results: report what was made with its edit URLs, and every error or warning.
 
 ## System
 - `system-health` shows errors, stopped workers, queue waits and alerts. Report a software error with its file:line
@@ -101,5 +117,8 @@ class MoxdopServer extends Server
         ListChanges::class,
         ProposeChange::class,
         UpdateChange::class,
+        ListSites::class,
+        InspectSite::class,
+        BuildSite::class,
     ];
 }

@@ -70,6 +70,27 @@
                     @endif
                 </div>
 
+                @if ($connection?->credential)
+                    <div class="mt-5 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <p class="text-sm font-semibold text-gray-900 dark:text-white">Claude site kurulumu</p>
+                                <p class="mt-1 max-w-xl text-xs text-gray-500 dark:text-gray-400">Açıkken Claude bu sitede MCP üzerinden doğrudan kurulum yapar: ACF alan grubu ve CPT, sayfa (yayında da), Elementor şablonu, görsel, menü ve temel ayarlar. Sitede eklentinin “Site building” ayarı da açık olmalı (eklenti {{ config('moxdop-wordpress.build_min_plugin_version') }}+). Tema ve eklenti dosyalarına dokunulmaz.</p>
+                                <p class="mt-1 text-xs {{ in_array('build', (array) data_get($connection?->config, 'capabilities', []), true) ? 'text-emerald-600' : 'text-amber-600' }}">Eklentide: {{ in_array('build', (array) data_get($connection?->config, 'capabilities', []), true) ? 'açık' : 'kapalı ya da eski sürüm (Bağlantıyı doğrula ile yenilenir)' }}</p>
+                            </div>
+                            @if ($canToggleBuild)
+                                <button type="button" wire:click="toggleClaudeBuild" @if (! $claudeBuild) wire:confirm="Claude bu sitede doğrudan değişiklik yapabilsin mi?" @endif @class([
+                                    'rounded-lg px-3 py-2 text-sm font-medium',
+                                    'bg-emerald-600 text-white hover:bg-emerald-700' => $claudeBuild,
+                                    'ring-1 ring-inset ring-gray-300 dark:ring-gray-700' => ! $claudeBuild,
+                                ])>{{ $claudeBuild ? 'Açık · kapat' : 'Kapalı · aç' }}</button>
+                            @else
+                                <x-ta.badge :color="$claudeBuild ? 'success' : 'warning'" size="sm">{{ $claudeBuild ? 'Açık' : 'Kapalı' }}</x-ta.badge>
+                            @endif
+                        </div>
+                    </div>
+                @endif
+
                 @if ($pairingCode)
                     <div class="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
                         <p class="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">Tek kullanımlık kod</p>

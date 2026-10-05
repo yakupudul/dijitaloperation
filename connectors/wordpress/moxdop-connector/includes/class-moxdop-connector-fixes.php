@@ -467,6 +467,12 @@ final class MoxDOP_Connector_Fixes
         return self::SEO_KEYS[$this->provider()][$field];
     }
 
+    /** 1.8.0: the meta key of the active SEO plugin for "title" / "description" (used by the site builder). */
+    public function seo_meta_key($field)
+    {
+        return $this->seo_key($field);
+    }
+
     private function is_noindex($post_id)
     {
         $value = get_post_meta($post_id, $this->seo_key('noindex'), true);

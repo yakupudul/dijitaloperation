@@ -101,6 +101,8 @@ final class MoxDOP_Connector_REST_Controller
         ]);
         // 1.4.0 (ADR-070): approved SEO fixes and content updates, off until the site admin enables them.
         (new MoxDOP_Connector_Fixes($this->auth))->register_routes(self::NAMESPACE);
+        // 1.8.0: site building (ACF, pages, Elementor templates, media, menus), off until the site admin enables it.
+        (new MoxDOP_Connector_Builder($this->auth))->register_routes(self::NAMESPACE);
         register_rest_route(self::NAMESPACE, '/drafts/(?P<id>[1-9][0-9]*)', [
             'methods' => WP_REST_Server::DELETABLE,
             'permission_callback' => [$this->auth, 'authorize'],
@@ -212,6 +214,7 @@ final class MoxDOP_Connector_REST_Controller
                 MoxDOP_Connector_Management::updates_allowed() ? 'updates' : null,
                 MoxDOP_Connector_Fixes::fixes_allowed() ? 'fixes' : null,
                 MoxDOP_Connector_Fixes::content_allowed() ? 'content' : null,
+                MoxDOP_Connector_Builder::allowed() ? 'build' : null,
                 MoxDOP_Connector_Updater::allowed() ? 'self_update' : null,
                 MoxDOP_Connector_IndexNow::enabled() ? 'indexnow' : null,
                 self::drafts_allowed() ? 'rich_drafts' : null,

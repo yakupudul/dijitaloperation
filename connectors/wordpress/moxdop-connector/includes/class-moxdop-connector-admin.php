@@ -114,6 +114,10 @@ final class MoxDOP_Connector_Admin
                         <td><label><input type="checkbox" name="moxdop_allow_content" value="1" <?php checked(MoxDOP_Connector_Fixes::content_allowed()); ?>> Allow MoxDOP to save a new version of a page as a draft copy, and to replace the live page with it only after a second approval. WordPress keeps the old version as a revision.</label></td>
                     </tr>
                     <tr>
+                        <th scope="row">Site building / Site kurulumu</th>
+                        <td><label><input type="checkbox" name="moxdop_allow_build" value="1" <?php checked(MoxDOP_Connector_Builder::allowed()); ?>> Allow MoxDOP to build this site: import ACF field groups and post types, create and update pages and posts (also published), Elementor templates, media, menus and a few site settings (title, front page, permalinks). Use it on a site you are setting up; nothing edits theme or plugin files.</label></td>
+                    </tr>
+                    <tr>
                         <th scope="row">Scheduled drafts / Zamanlanmış taslak</th>
                         <td><label><input type="checkbox" name="moxdop_allow_schedule" value="1" <?php checked(MoxDOP_Connector_Drafts::scheduling_allowed()); ?>> Allow a MoxDOP draft to be saved as scheduled (WordPress publishes it at the chosen date) when the operator picked a date and an admin approved it in MoxDOP. Off: every MoxDOP post stays a draft.</label></td>
                     </tr>
@@ -217,6 +221,7 @@ final class MoxDOP_Connector_Admin
         update_option('moxdop_connector_allow_updates', ! empty($_POST['moxdop_allow_updates']) ? '1' : '0', false);
         update_option('moxdop_connector_allow_fixes', ! empty($_POST['moxdop_allow_fixes']) ? '1' : '0', false);
         update_option('moxdop_connector_allow_content', ! empty($_POST['moxdop_allow_content']) ? '1' : '0', false);
+        update_option('moxdop_connector_allow_build', ! empty($_POST['moxdop_allow_build']) ? '1' : '0', false);
         update_option('moxdop_connector_allow_schedule', ! empty($_POST['moxdop_allow_schedule']) ? '1' : '0', false);
         update_option('moxdop_connector_allow_self_update', ! empty($_POST['moxdop_allow_self_update']) ? '1' : '0', false);
         update_option('moxdop_connector_indexnow', ! empty($_POST['moxdop_indexnow']) ? '1' : '0', false);
