@@ -33,7 +33,8 @@ final class IncrementalCoveragePlanner
      *   provider_history_limited?: bool,
      *   provider_limitation_accepted?: bool,
      *   reporting_timezone?: ?string,
-     *   max_span_days_override?: ?int
+     *   max_span_days_override?: ?int,
+     *   sla_grace_hours?: ?int
      * }  $context
      */
     public function planDataset(

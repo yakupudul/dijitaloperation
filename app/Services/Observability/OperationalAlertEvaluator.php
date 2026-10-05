@@ -11,8 +11,10 @@ use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\DigitalAsset;
 use App\Models\Observability\WorkerHeartbeat;
+use App\Models\ResourceAutomation;
 use App\Services\Async\AsyncWorkerHealth;
 use App\Services\DataPool\Freshness\DueCollectionQueryService;
+use App\Services\Integrations\ResourceAutomationService;
 use App\Support\Integrations\ProviderRegistry;
 use Carbon\CarbonImmutable;
 use Throwable;
@@ -372,10 +374,13 @@ final class OperationalAlertEvaluator
 
     private function evaluateStaleDatasets(): int
     {
-        // Use Prompt27 due query — never max stored date / full history scan.
+        // Use Prompt27 due query — never max stored date / full history scan. Idle / dormant accounts are collected
+        // weekly with the light set only: the due query judges them by that set with the weekly interval as grace.
+        // Never activity_gate here: a gate pass moves the weekly clock and would postpone their weekly collection.
         try {
             $items = $this->dueCollections->query([
                 'include_action_required' => true,
+                'activity_tiers' => true,
             ]);
         } catch (Throwable) {
             return 0;
@@ -399,6 +404,9 @@ final class OperationalAlertEvaluator
         $boundAssets = DigitalAsset::query()->whereIn('id', array_values(array_unique(array_filter(array_map(fn ($item) => $item->digitalAssetId, $staleOrBlocked)))))
             ->whereNotNull('brand_id')->whereHas('brand', fn ($q) => $q->operational())->pluck('id')->map(fn ($id): int => (int) $id)->flip();
         $staleOrBlocked = array_values(array_filter($staleOrBlocked, fn ($item): bool => $item->digitalAssetId !== null && $boundAssets->has((int) $item->digitalAssetId)));
+        // Accounts not collected on purpose are not late.
+        $parked = $this->parkedResources(array_map(fn ($item): ?int => $item->externalResourceId, $staleOrBlocked));
+        $staleOrBlocked = array_values(array_filter($staleOrBlocked, fn ($item): bool => $item->externalResourceId === null || ! isset($parked[(int) $item->externalResourceId])));
 
         $staleCount = count($staleOrBlocked);
         $scope = 'dataset:stale';
@@ -433,6 +441,34 @@ final class OperationalAlertEvaluator
         $this->lifecycle->resolveIfActive('dataset_stale', 'SYSTEM', $scope);
 
         return 0;
+    }
+
+    /**
+     * Accounts whose automatic collection does not run on purpose: switched off by the operator, or parked by
+     * admission (Google Ads manager account, account reported not enabled — ResourceAutomationService::readiness).
+     * An account that needs reconnecting is not parked: its data really stopped.
+     *
+     * @param  list<int|null>  $resourceIds
+     * @return array<int, true> external resource id => true
+     */
+    private function parkedResources(array $resourceIds): array
+    {
+        $ids = array_values(array_unique(array_filter($resourceIds, fn (?int $id): bool => $id !== null)));
+        if ($ids === []) {
+            return [];
+        }
+        $readiness = app(ResourceAutomationService::class);
+        $parked = [];
+        foreach (array_chunk($ids, 500) as $chunk) {
+            foreach (ResourceAutomation::query()->with('resource.integration')->whereIn('external_resource_id', $chunk)->get() as $automation) {
+                if (! $automation->collection_enabled
+                    || ($automation->resource !== null && in_array($readiness->readiness($automation->resource), ['manager', 'not_enabled'], true))) {
+                    $parked[(int) $automation->external_resource_id] = true;
+                }
+            }
+        }
+
+        return $parked;
     }
 
     /**

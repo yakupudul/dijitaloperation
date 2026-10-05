@@ -140,6 +140,31 @@ final class ActivityTierService
         return ResourceActivity::query()->where('external_resource_id', $externalResourceId)->first();
     }
 
+    /**
+     * The given accounts that activity-aware collection collects only weekly, with the light set (effective tier idle
+     * or dormant). Stored rows only: an account without a row counts as active. Empty while it is switched off.
+     *
+     * @param  list<int>  $externalResourceIds
+     * @return array<int, true> external resource id => true
+     */
+    public function weeklyCollected(array $externalResourceIds): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $externalResourceIds)));
+        if ($ids === [] || ! (bool) config('moxdop-collection-activity.enabled', true) || ! $this->ready()) {
+            return [];
+        }
+        $weekly = [];
+        foreach (array_chunk($ids, 500) as $chunk) {
+            foreach (ResourceActivity::query()->whereIn('external_resource_id', $chunk)->get(['external_resource_id', 'tier', 'operator_paused_at']) as $row) {
+                if ($row->effectiveTier() !== ActivityTier::Active) {
+                    $weekly[(int) $row->external_resource_id] = true;
+                }
+            }
+        }
+
+        return $weekly;
+    }
+
     /** Ensures a row exists (computed from facts) and returns it. */
     public function ensure(CoreExternalResource $resource): ?ResourceActivity
     {

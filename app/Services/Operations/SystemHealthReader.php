@@ -167,16 +167,25 @@ final class SystemHealthReader
             })->values()->all();
     }
 
-    /** @return list<array{id: int, provider: string, type: string, name: string, enabled: bool, state: string, error: ?string, data_through: ?string, last_success: ?string, next: ?string, stale: bool}> */
+    /**
+     * Every brand-bound account's collection state. An account is stale when its last success is older than its
+     * collection interval plus `account_stale_days`; idle / dormant accounts are collected weekly, so for them the
+     * interval is `light_interval_days`.
+     *
+     * @return list<array{id: int, provider: string, type: string, name: string, enabled: bool, state: string, error: ?string, data_through: ?string, last_success: ?string, next: ?string, stale: bool}>
+     */
     private function accounts(): array
     {
         $staleDays = (int) config('moxdop-observability.account_stale_days', 3);
+        $automations = ResourceAutomation::query()->brandBound()->with('resource')->get()
+            ->filter(fn (ResourceAutomation $a): bool => $a->resource !== null);
+        $weekly = app(ActivityTierService::class)->weeklyCollected($automations->pluck('external_resource_id')->map(fn ($id): int => (int) $id)->values()->all());
+        $weeklyInterval = max(1, (int) config('moxdop-collection-activity.light_interval_days', 7));
 
-        return ResourceAutomation::query()->brandBound()->with('resource')->get()
-            ->filter(fn (ResourceAutomation $a): bool => $a->resource !== null)
-            ->map(function (ResourceAutomation $a) use ($staleDays): array {
+        return $automations
+            ->map(function (ResourceAutomation $a) use ($staleDays, $weekly, $weeklyInterval): array {
                 $last = $a->last_collection_success_at;
-                $interval = max(1, (int) ($a->interval_days ?? 1));
+                $interval = isset($weekly[(int) $a->external_resource_id]) ? $weeklyInterval : max(1, (int) ($a->interval_days ?? 1));
 
                 return [
                     'id' => (int) $a->id,

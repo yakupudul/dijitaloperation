@@ -77,6 +77,17 @@ return [
         'SEARCH_CONSOLE' => ['GSC_RF_PROPERTY_DAILY'],
     ],
 
+    /*
+     * Datasets the light set writes. The data freshness alert judges an idle / dormant account by these only, with
+     * `light_interval_days` added to their freshness SLA (the other datasets are not collected in those tiers).
+     */
+    'light_datasets' => [
+        'GOOGLE_ADS' => ['google_ads_account_daily'],
+        'META_ADS' => ['meta_account_daily'],
+        'GA4' => ['ga4_property_daily'],
+        'SEARCH_CONSOLE' => ['gsc_property_daily'],
+    ],
+
     /* Structure snapshots gated on provider change signals. */
     'structure_families' => [
         'GOOGLE_ADS' => [

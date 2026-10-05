@@ -28,7 +28,8 @@ final class DatasetFreshnessEvaluator
      *   integrity_blocked?: bool,
      *   provider_history_limited?: bool,
      *   provider_limitation_accepted?: bool,
-     *   reporting_timezone?: ?string
+     *   reporting_timezone?: ?string,
+     *   sla_grace_hours?: ?int
      * }  $context
      */
     public function evaluate(
@@ -102,7 +103,7 @@ final class DatasetFreshnessEvaluator
             );
         }
 
-        $slaHours = (int) ($policy['freshness_sla_hours'] ?? 168);
+        $slaHours = $this->slaHours($policy, $context, 168);
         $last = CarbonImmutable::parse($materialization->last_collected_at);
         $now = $this->clock->now('UTC');
         $ageHours = $last->diffInHours($now);
@@ -238,7 +239,7 @@ final class DatasetFreshnessEvaluator
             );
         }
 
-        $slaHours = (int) ($policy['freshness_sla_hours'] ?? 48);
+        $slaHours = $this->slaHours($policy, $context, 48);
         $stale = false;
         if ($newDataDue) {
             $lagDays = CarbonImmutable::parse($verified)->diffInDays(CarbonImmutable::parse($collectableEnd));
@@ -269,6 +270,20 @@ final class DatasetFreshnessEvaluator
             reason: $newDataDue ? 'new_collectable_periods_exist' : 'late_data_reprocess_due',
             details: ['watermark' => $watermark->toArray()],
         );
+    }
+
+    /**
+     * Freshness SLA in hours. `sla_grace_hours` widens it for an account collected less often than daily on purpose
+     * (an idle / dormant account's weekly light pass), so its normal collection rhythm never reads as stale.
+     *
+     * @param  array<string, mixed>  $policy
+     * @param  array<string, mixed>  $context
+     */
+    private function slaHours(array $policy, array $context, int $default): int
+    {
+        $grace = is_int($context['sla_grace_hours'] ?? null) ? max(0, $context['sla_grace_hours']) : 0;
+
+        return (int) ($policy['freshness_sla_hours'] ?? $default) + $grace;
     }
 
     /**

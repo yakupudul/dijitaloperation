@@ -6,6 +6,7 @@ use App\Enums\DataPool\FreshnessState;
 use App\Models\CoreAssetBinding;
 use App\Models\DataPool\DatasetMaterialization;
 use App\Services\Collection\Activity\ActivityCollectionPlan;
+use App\Services\Collection\Activity\ActivityTierService;
 use App\Services\Collection\Activity\CollectionActivityGate;
 use App\Services\Collection\DataContractRegistryLoader;
 use App\Services\DataPool\Freshness\Support\DueCollectionItem;
@@ -49,7 +50,8 @@ final class DueCollectionQueryService
      *   include_action_required?: bool,
      *   authorization_ready_by_binding_id?: array<int, bool>,
      *   integrity_blocked_by_dataset_resource?: array<string, bool>,
-     *   activity_gate?: bool
+     *   activity_gate?: bool,
+     *   activity_tiers?: bool
      * }  $filters
      * @return list<DueCollectionItem>
      */
@@ -72,6 +74,14 @@ final class DueCollectionQueryService
 
         // Activity gate (real collection starts only; status reads never make the provider change check).
         $gate = ($filters['activity_gate'] ?? false) === true ? app(CollectionActivityGate::class) : null;
+        // Status read of the stored activity tiers (records no gate pass, so the weekly clock never moves): idle and
+        // dormant accounts are collected weekly with the light set only, so only its datasets are evaluated, with the
+        // weekly interval added to their freshness SLA.
+        $weekly = $gate === null && ($filters['activity_tiers'] ?? false) === true
+            ? app(ActivityTierService::class)->weeklyCollected(collect($bindings)->pluck('external_resource_id')->filter()
+                ->map(static fn (mixed $id): int => (int) $id)->values()->all())
+            : [];
+        $weeklyGraceHours = max(1, (int) config('moxdop-collection-activity.light_interval_days', 7)) * 24;
 
         $items = [];
         foreach ($bindings as $binding) {
@@ -83,6 +93,9 @@ final class DueCollectionQueryService
 
             $authReady = $authByBinding[(int) $binding->id] ?? true;
             $families = $familiesByProvider[$provider] ?? [];
+            $weeklyLight = $binding->external_resource_id !== null && isset($weekly[(int) $binding->external_resource_id])
+                ? (array) config('moxdop-collection-activity.light_datasets.'.$provider, [])
+                : null;
             $activity = $gate !== null && $binding->externalResource !== null ? $gate->plan($binding->externalResource) : null;
             $gatedFamilies = [];
             $plannedCount = 0;
@@ -94,6 +107,9 @@ final class DueCollectionQueryService
                 }
                 $datasetId = $this->primaryDatasetForFamily((string) $family['id']);
                 if ($datasetId === null || ! CollectionDatasetCatalog::keeps($provider, $datasetId)) {
+                    continue;
+                }
+                if ($weeklyLight !== null && ! in_array($datasetId, $weeklyLight, true)) {
                     continue;
                 }
 
@@ -112,6 +128,7 @@ final class DueCollectionQueryService
                     'integrity_blocked' => (bool) ($integrityMap[$integrityKey] ?? false),
                     'reporting_timezone' => $this->resourceTimezone($binding),
                     'max_span_days_override' => self::activitySpanOverride($activity),
+                    'sla_grace_hours' => $weeklyLight !== null ? $weeklyGraceHours : null,
                 ], static fn (mixed $value): bool => $value !== null));
 
                 if ($decision->executable && $activity !== null && $activity->isFull()
