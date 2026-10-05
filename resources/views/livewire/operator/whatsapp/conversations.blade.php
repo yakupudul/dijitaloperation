@@ -85,11 +85,8 @@
                 </div>
             </header>
 
-            <div class="min-h-0 flex-1 space-y-2 overflow-y-auto bg-gray-50 px-4 py-4 dark:bg-white/[0.02]" wire:key="wa-messages-{{ $selected->id }}-{{ $messages->currentPage() }}" x-data x-init="$el.scrollTop = $el.scrollHeight">
-                @if($messages->hasPages())
-                    <div class="text-center text-xs">{{ $messages->links() }}</div>
-                @endif
-                @foreach($messages->getCollection()->reverse() as $message)
+            <div class="min-h-0 flex-1 space-y-2 overflow-y-auto bg-gray-50 px-4 py-4 dark:bg-white/[0.02]" wire:key="wa-messages-{{ $selected->id }}-{{ $messages->currentPage() }}" data-wa-newest-first>
+                @foreach($messages as $message)
                     <div wire:key="message-{{ $message->id }}" class="flex {{ $message->direction === 'outgoing' ? 'justify-end' : 'justify-start' }}">
                         <div class="max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-sm {{ $message->direction === 'outgoing' ? 'rounded-br-sm bg-emerald-100 text-gray-900 dark:bg-emerald-500/20 dark:text-gray-100' : 'rounded-bl-sm bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100' }}">
                             @if($message->reply_to_message_id)<p class="mb-1 text-[11px] text-gray-500">Önceki bir mesaja yanıt</p>@endif
@@ -98,6 +95,9 @@
                         </div>
                     </div>
                 @endforeach
+                @if($messages->hasPages())
+                    <div class="text-center text-xs">{{ $messages->links() }}</div>
+                @endif
             </div>
 
             <div class="border-t border-gray-200 p-4 dark:border-gray-800" data-wa-suggestion>

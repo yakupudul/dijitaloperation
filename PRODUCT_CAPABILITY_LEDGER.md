@@ -8,6 +8,7 @@
 - **Beyin:** İlk çıkarmadan sonra kendiliğinden, sonra "Yeniden öğren" ile OpenAI (ekranda seçilen model) son 80 görüşmeden (kişiler "Kişi N") hizmetleri, verilen fiyatları (tarihli), sık soruları, üslubu, kuralları ve operatöre soruları çıkarır (`config.brain`). "Senden istediklerim" listesi ve "Talimatlarım" (eski `business_context`, beyinden önce gelir) beyin kartındadır.
 - **Mesaj üret:** Yanıt önerisi beyni ve talimatları kullanır; öneri kopyalanır, MoxDOP göndermez. Yedekten gelen görüşmede otomatik öneri yok.
 - **Toplu cevap (2026-10-05):** Görüşme listesinde sayfalama yok, tüm görüşmeler tek listede. "Cevap üret (N)" son mesajı müşteriden gelen, cevabı hazır olmayan ve en yeni mesajdan geriye 30 gün içindeki görüşmelere (tıklama başına en çok 50, en yeniden) cevap hazırlatır; günlük AI tavanı geçerli.
+- **Sohbet sırası:** Açılan sohbette mesajlar en yeniden en eskiye sıralanır (yakup, 2026-10-05); eski mesajlar alttaki sayfalamada.
 - **Rehberden isimler:** Yedekte kişi adları yok (WhatsApp onları yedeğe koymuyor). Yedek kartında "Rehberden isimleri al (.vcf)": telefon rehberinin .vcf dışa aktarımı seçilir, tarayıcı yalnız ad ve numara satırlarını gönderir, numarası eşleşen görüşmelere isim yazılır (0532…, +90…, yabancı numaralar).
 - **Senden istediklerim:** Her sorunun altında cevap alanı var; "Cevapları kaydet" cevabı soru ile birlikte Talimatlarım'a ekler ve soruyu listeden kaldırır.
 - **Meta bağlantısı:** Ekranda "Canlı bağlantı (Meta) — askıda" altında katlı durur; kod silinmedi.

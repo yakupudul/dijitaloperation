@@ -113,6 +113,9 @@ final class WhatsAppBackupImportTest extends TestCase
             ->assertSee('Merhaba, web sitesi fiyatı nedir?')
             ->assertSee('Mesaj üret')
             ->assertDontSee('Cevap penceresi');
+        // Newest message first.
+        $html = Livewire::withQueryParams(['conversation' => $chat->id])->test(Inbox::class)->html();
+        $this->assertLessThan(strpos($html, 'web sitesi fiyatı nedir?'), strpos($html, 'kurumsal site 20.000 TL.'));
     }
 
     public function test_a_wrong_key_keeps_the_file_so_another_key_can_be_tried(): void
