@@ -213,8 +213,9 @@ final class SiteOperations
                 app(BrandDossier::class)->build($brand);
             }
         }
-        // Site akışı: the cluster ↔ page step follows at once when it is due (WordPress paired, operational brand).
-        $result['flow'] = SiteFlow::advance($site, setup: false);
+        // Site akışı: the cluster ↔ page step follows at once when it is due (WordPress paired, operational brand) and no
+        // Eşleştir runs or waits for Claude; this setup's own status does not count.
+        $result['flow'] = SiteFlow::advance($site, setup: false, fromSetup: true);
 
         return $result;
     }
@@ -237,6 +238,12 @@ final class SiteOperations
         // Each step reads the one before (categories → service pages → cluster pages): a step waiting for Claude stops the run.
         foreach (['service_pages' => fn (): string => $this->servicePages->map($site)['status'],
             'cluster_pages' => fn (): string => $this->clusterPages->refresh($site)['status']] as $step => $runStep) {
+            if ($step === 'cluster_pages' && SiteFlow::auditRunning((int) $site->id)) {
+                // Eşleştir runs or waits for Claude: it places the cluster rows itself, Claude is not asked about them twice.
+                $result[$step] = 'audit_running';
+
+                continue;
+            }
             $result[$step] = $runStep();
             if ($result[$step] === 'queued') {
                 return ['status' => 'queued'] + $result;

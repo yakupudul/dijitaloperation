@@ -5,6 +5,7 @@ namespace App\Jobs\Site;
 use App\Models\DigitalAsset;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Site\SiteOperations;
+use DateTimeInterface;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -41,6 +42,20 @@ final class RunSiteOperationJob implements ShouldBeUnique, ShouldQueue
     public function uniqueId(): string
     {
         return $this->siteId.':'.$this->operation.':'.md5((string) json_encode($this->params));
+    }
+
+    /**
+     * Whether a delegated call of the site × operation still waits for Claude (MCP): an open AI iş kuyruğu row of the
+     * run handle() begins for this job with one of these params — or, with $answeredSince, Claude's answer given after
+     * it that the job dispatched again has not taken yet. False when the MCP server is not configured (nothing can
+     * answer).
+     *
+     * @param  list<array<string, mixed>>  $paramSets
+     */
+    public static function waitsForClaude(int $siteId, string $operation, array $paramSets = [[]], ?DateTimeInterface $answeredSince = null): bool
+    {
+        return AiTaskQueue::enabled()
+            && AiTaskQueue::waits(array_map(fn (array $params): self => new self($siteId, $operation, $params), $paramSets), $answeredSince);
     }
 
     public function handle(SiteOperations $operations): void

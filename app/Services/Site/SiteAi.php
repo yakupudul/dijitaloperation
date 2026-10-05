@@ -25,13 +25,14 @@ final class SiteAi
 
     /**
      * @param  array<string, mixed>  $data
+     * @param  string|null  $slot  the call's stable name in a delegated run (AiTaskQueue::answer): found again although the pack moved
      * @return array{status: string, data: array<string, mixed>, prompt_version_id: ?int} status: ready | queued | no_provider | error
      */
-    public function run(SiteAgent $agent, array $data, int $timeout = 180): array
+    public function run(SiteAgent $agent, array $data, int $timeout = 180, ?string $slot = null): array
     {
         AiCancellation::throwIfRequested();
         try {
-            if ($this->tasks->delegated($agent->promptOperation()) && ($answer = $this->tasks->answer($agent, $data)) !== null) {
+            if ($this->tasks->delegated($agent->promptOperation()) && ($answer = $this->tasks->answer($agent, $data, $slot)) !== null) {
                 return $answer;
             }
             if ($this->tasks->blocksInline($agent->promptOperation())) {

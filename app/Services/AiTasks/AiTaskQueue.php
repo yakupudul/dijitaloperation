@@ -6,6 +6,7 @@ use App\Ai\Contracts\RegistryPrompted;
 use App\Models\AiTask;
 use App\Services\Prompts\PromptRegistry;
 use App\Support\Ai\AiRouteKeys;
+use DateTimeInterface;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -105,6 +106,26 @@ final class AiTaskQueue
         $resume = serialize($job);
         $this->run = ['resume' => $resume, 'key' => self::key($resume), 'brand_id' => $brandId,
             'subject' => $subject !== null ? mb_substr($subject, 0, 200) : null, 'sequence' => 0];
+    }
+
+    /**
+     * Whether Claude has not answered a delegated call of one of these jobs' runs yet (a pending or claimed row under
+     * the resume key begin() gives the job): the run is still under way however long Claude takes. With $answeredSince
+     * an answer given after it that no run has taken yet counts too (the job dispatched again waits on the queue).
+     *
+     * @param  list<object>  $jobs
+     */
+    public static function waits(array $jobs, ?DateTimeInterface $answeredSince = null): bool
+    {
+        if ($jobs === []) {
+            return false;
+        }
+
+        return AiTask::query()->whereIn('resume_key', array_map(fn (object $job): string => self::key(serialize($job)), $jobs))
+            ->where(fn ($q) => $q->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])
+                ->when($answeredSince !== null, fn ($q) => $q->orWhere(fn ($answered) => $answered
+                    ->whereIn('status', [AiTask::DONE, AiTask::FAILED])->where('completed_at', '>', $answeredSince))))
+            ->exists();
     }
 
     /**

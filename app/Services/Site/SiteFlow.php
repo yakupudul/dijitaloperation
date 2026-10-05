@@ -2,6 +2,7 @@
 
 namespace App\Services\Site;
 
+use App\Jobs\Site\RunSiteOperationJob;
 use App\Models\Brand;
 use App\Models\BrandClusterPage;
 use App\Models\BrandOffering;
@@ -27,14 +28,17 @@ use Illuminate\Support\Facades\Cache;
  *     page, coverage, gaps and the other pages that answer the same need (ClusterOverlaps → work list); a cluster
  *     without a page gets its content idea on İçerik fikirleri.
  *
- * advance() starts the next step that is due (one at a time, never while one runs, never again for FAILURE_PAUSE_HOURS
- * after Eşleştir failed): nightly (moxdop:brands:dossier),
+ * advance() starts the next step that is due (one at a time, never while one runs or waits for Claude, never again for
+ * FAILURE_PAUSE_HOURS after Eşleştir failed): nightly (moxdop:brands:dossier),
  * after a site setup finishes and after clustering approves new clusters. Step 3 runs again only when its inputs
  * changed (approved clusters of the brand, page contents) or rows were never read — no daily AI loop.
  */
 final class SiteFlow
 {
-    /** A "running" mark older than this is stale (a job that died). */
+    /**
+     * A "running" mark older than this is stale (a job that died); a "queued" one is judged by the AI iş kuyruğu instead
+     * (Claude's answer that its job has not taken counts this long: the job dispatched again was lost).
+     */
     private const int RUNNING_HOURS = 3;
 
     /** Page text changes alone (dynamic dates, counters) re-run Eşleştir at most this often. */
@@ -45,15 +49,13 @@ final class SiteFlow
 
     private const array FAILURES = ['error', 'timeout', 'stalled', 'ai_error', 'ai_no_provider'];
 
-    /** Running, or waiting for Claude (MCP): the flow does not start the same operation again. */
-    private const array ACTIVE = ['running', 'queued'];
-
     /**
      * @param  bool  $manual  the operator clicked ("Akışı ilerlet"); otherwise (nightly, after clustering / setup) the flow
      *                        starts AI work only when the site area may run by itself (AiBudget::automaticAllowed)
+     * @param  bool  $fromSetup  asked by the setup job as it finishes (SiteOperations::SETUP): its own status is not a running step
      * @return string setup | audit | running | ready | paused | waiting:manual | waiting:not_operational | waiting:wordpress | waiting:pages
      */
-    public static function advance(DigitalAsset $site, bool $setup = true, bool $manual = false): string
+    public static function advance(DigitalAsset $site, bool $setup = true, bool $manual = false, bool $fromSetup = false): string
     {
         if (! $manual && ! AiBudget::automaticAllowed('site.cluster_match')) {
             return 'waiting:manual';
@@ -68,7 +70,7 @@ final class SiteFlow
         if (Page::query()->where('website_asset_id', $site->id)->doesntExist()) {
             return 'waiting:pages';
         }
-        if (self::running($site)) {
+        if (self::running((int) $site->id, $fromSetup)) {
             return 'running';
         }
         if ($setup && BrandDossier::siteNeedsSetup($site)) {
@@ -174,26 +176,49 @@ final class SiteFlow
             && CarbonImmutable::parse((string) $status['at'])->gt(now()->subHours(self::FAILURE_PAUSE_HOURS));
     }
 
-    /** Eşleştir of the site is queued or running (any part). */
+    /** Eşleştir of the site runs or waits for Claude (any part): neither the flow nor «Eşleştir» starts another. */
     public static function auditRunning(int $siteId): bool
     {
-        $status = SiteOperations::status($siteId, SiteOperations::CLUSTER_AUDIT);
-
-        return in_array($status['status'] ?? null, self::ACTIVE, true) && isset($status['at'])
-            && CarbonImmutable::parse((string) $status['at'])->gt(now()->subHours(self::RUNNING_HOURS));
+        return self::active($siteId, SiteOperations::CLUSTER_AUDIT);
     }
 
-    private static function running(DigitalAsset $site): bool
+    /** @param  bool  $fromSetup  the setup job itself asks: only Eşleştir counts */
+    private static function running(int $siteId, bool $fromSetup = false): bool
     {
-        foreach ([[SiteOperations::SETUP, []], [SiteOperations::SETUP, ['unattended' => true]], [SiteOperations::CLUSTER_AUDIT, []]] as [$operation, $params]) {
-            $status = SiteOperations::status((int) $site->id, $operation, $params);
-            if (in_array($status['status'] ?? null, self::ACTIVE, true) && isset($status['at'])
-                && CarbonImmutable::parse((string) $status['at'])->gt(now()->subHours(self::RUNNING_HOURS))) {
-                return true;
-            }
+        return (! $fromSetup && self::active($siteId, SiteOperations::SETUP)) || self::active($siteId, SiteOperations::CLUSTER_AUDIT);
+    }
+
+    /**
+     * Whether the site's setup / Eşleştir is under way: "running" (a job works on it) until RUNNING_HOURS; "queued" while
+     * Claude (MCP) has not answered a call of its run (an open AI iş kuyruğu row), while its job dispatched again with
+     * the answers has not taken them (answered within RUNNING_HOURS) or — Eşleştir — while its pass is open. A step
+     * waiting for Claude is never taken for finished by its age.
+     */
+    private static function active(int $siteId, string $operation): bool
+    {
+        $status = SiteOperations::status($siteId, $operation);
+
+        return match ($status['status'] ?? null) {
+            'running' => isset($status['at']) && CarbonImmutable::parse((string) $status['at'])->gt(now()->subHours(self::RUNNING_HOURS)),
+            'queued' => RunSiteOperationJob::waitsForClaude($siteId, $operation, self::runs($operation), now()->subHours(self::RUNNING_HOURS))
+                || ($operation === SiteOperations::CLUSTER_AUDIT && ClusterAudit::passOpen($siteId)),
+            default => false,
+        };
+    }
+
+    /**
+     * The params the operation's jobs run with (one status line, one AI iş kuyruğu run per params): setup by a click or
+     * by the flow, Eşleştir in parts.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function runs(string $operation): array
+    {
+        if ($operation === SiteOperations::SETUP) {
+            return [[], ['unattended' => true]];
         }
 
-        return false;
+        return [[], ...array_map(fn (int $part): array => ['part' => $part], range(2, RunSiteOperationJob::MAX_PARTS))];
     }
 
     /**

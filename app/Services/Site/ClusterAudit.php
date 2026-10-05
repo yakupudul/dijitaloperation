@@ -444,15 +444,15 @@ final class ClusterAudit
         return is_array($pass) && isset($pass['since']) ? $pass + ['matched' => [], 'gapped' => [], 'idea_groups' => [], 'idea_gapped' => []] : null;
     }
 
-    /** Whether a pass of this site stopped half way and waits for its next part. */
-    public static function passOpen(DigitalAsset $site): bool
+    /** Whether a pass of this site stopped half way and waits for its next part or Claude's answers. */
+    public static function passOpen(DigitalAsset|int $site): bool
     {
         return Cache::has(self::passKey($site));
     }
 
-    private static function passKey(DigitalAsset $site): string
+    private static function passKey(DigitalAsset|int $site): string
     {
-        return 'cluster-audit:pass:'.$site->id;
+        return 'cluster-audit:pass:'.($site instanceof DigitalAsset ? $site->id : $site);
     }
 
     /**
@@ -597,6 +597,10 @@ final class ClusterAudit
             return 0;
         }
         $byId = $pages->keyBy('id');
+        // Claude (MCP): the call is named by its language, service and clusters, so a re-run of the pass finds the answer
+        // although candidate pages, queries or page texts moved while it waited (no second task for the same question).
+        $slot = 'match:'.($rows->first()->language ?? '').'|'.$rows->first()->cluster->service_id.'|'
+            .$rows->map(fn (BrandClusterPage $row): int => (int) $row->cluster_id)->sort()->implode(',');
         $result = $this->ai->run(new ClusterMatchAgent, [
             'service' => (string) ($rows->first()->cluster->service?->primaryName?->raw_label ?? ''),
             'clusters' => $rows->map(fn (BrandClusterPage $row): array => [
@@ -605,7 +609,7 @@ final class ClusterAudit
                 'ai_queries' => array_slice((array) $row->cluster->ai_queries, 0, 6), 'fixed_page_id' => $row->locked ? $row->page_id : null,
             ])->values()->all(),
             'pages' => array_map(fn (int $id): array => $this->pagePack($byId[$id]), $pageIds),
-        ], 300);
+        ], 300, $slot);
         if ($result['status'] !== 'ready') {
             return $result['status'];
         }
