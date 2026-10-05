@@ -49,7 +49,7 @@ Two names only (see `docs/architecture/QUEUE_CAPACITY_CONTRACT.md`):
 
 | Supervisor | Queue | Staging processes | Timeout | Tries |
 | --- | --- | --- | --- | --- |
-| `supervisor-1` | `default` | 2 | 300s | 1 |
+| `supervisor-1` | `default` | 2 | 1560s | 1 |
 | `supervisor-collection` | `collection` | 1 | 300s | 3 |
 
 Staging `QUEUE_CONNECTION=redis` so Activity Center jobs and collection jobs are both consumed by Horizon. Do not also run `queue:work database` on the same app — that is a duplicate worker topology.

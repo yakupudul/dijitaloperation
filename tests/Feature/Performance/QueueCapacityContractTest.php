@@ -24,7 +24,7 @@ class QueueCapacityContractTest extends TestCase
         $this->assertContains('collection', $queues);
         $this->assertLessThanOrEqual(8, count($queues), 'Prompt65 forbids queue-name explosion');
 
-        $this->assertSame(300, (int) config('horizon.defaults.supervisor-1.timeout'));
+        $this->assertSame(1560, (int) config('horizon.defaults.supervisor-1.timeout'), 'outlasts the longest default-queue job (QueueTopologyContractTest)');
         $this->assertSame(300, (int) config('horizon.defaults.supervisor-collection.timeout'));
     }
 

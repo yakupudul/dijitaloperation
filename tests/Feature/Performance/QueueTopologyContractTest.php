@@ -2,10 +2,16 @@
 
 namespace Tests\Feature\Performance;
 
+use App\Jobs\IntelligenceProjection\RebuildWebsiteProjectionJob;
+use App\Jobs\RunChannelAnalystJob;
+use App\Providers\AppServiceProvider;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Queue\QueueRoutes;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Group;
 use ReflectionClass;
+use ReflectionMethod;
 use ReflectionNamedType;
 use Tests\TestCase;
 use Throwable;
@@ -35,11 +41,7 @@ final class QueueTopologyContractTest extends TestCase
             $this->assertLessThan($retryAfter, (int) $supervisor['timeout'], $name.' timeout must stay below retry_after');
         }
 
-        config([
-            'queue.heavy_queue' => $production['queue']['heavy_queue'],
-            'moxdop-seo-tasks.queue' => $production['seo']['queue'],
-            'moxdop-advisor.queue' => $production['advisor']['queue'],
-        ]);
+        $this->useProductionQueueConfig($production);
         $this->assertSame('heavy', $production['queue']['heavy_queue'], 'with Redis the long jobs go to the heavy queue');
 
         $jobs = $this->jobClasses();
@@ -68,6 +70,94 @@ final class QueueTopologyContractTest extends TestCase
             $this->assertArrayHasKey('redis:'.$queue, $consumed, 'queue "'.$queue.'" has no Horizon supervisor in production; used by '.implode(', ', array_unique($users)));
         }
         $this->assertArrayHasKey('heavy', $queues);
+    }
+
+    /**
+     * An auto-scaling supervisor (any balance but "simple") scales down when its queue is empty and SIGKILLs a
+     * terminating worker once the supervisor timeout has passed, busy or not (Horizon ProcessPool::scaleDown and
+     * stopTerminatingProcessesThatAreHanging). A job longer than that timeout dies from outside at every scale-down
+     * and ends in MaxAttemptsExceededException (RebuildWebsiteProjectionJob 900 s on supervisor-1 at 300 s).
+     * A job lands where the Bus dispatcher puts it: its own connection / queue, else its Queue::route. Every Horizon
+     * environment counts: the live server runs APP_ENV=staging (deploy/staging/deploy.sh).
+     */
+    public function test_every_job_on_an_auto_scaling_supervisor_finishes_within_the_supervisor_timeout(): void
+    {
+        $production = $this->productionConfig();
+        $retryAfter = (int) $production['queue']['connections']['redis']['retry_after'];
+        $this->useProductionQueueConfig($production);
+        $jobs = [];
+        foreach ($this->jobClasses() as $class) {
+            $job = $this->instantiate($class);
+            if (($job->timeout ?? null) !== null) {
+                $jobs[$class] = ['destination' => $this->productionDestination($job, $production), 'timeout' => (int) $job->timeout];
+            }
+        }
+
+        $this->assertNotEmpty($production['horizon']['environments']);
+        foreach (array_keys($production['horizon']['environments']) as $environment) {
+            $autoScaled = [];
+            foreach ($this->productionSupervisors($production['horizon'], $environment) as $name => $supervisor) {
+                if (($supervisor['balance'] ?? 'off') === 'simple') {
+                    continue;
+                }
+                $this->assertLessThan($retryAfter, (int) $supervisor['timeout'], $environment.' '.$name.' timeout must stay below retry_after');
+                foreach ((array) $supervisor['queue'] as $queue) {
+                    $autoScaled[$supervisor['connection'].':'.$queue] = ['name' => $name, 'timeout' => (int) $supervisor['timeout']];
+                }
+            }
+            $this->assertArrayHasKey('redis:default', $autoScaled, $environment.': supervisor-1 auto-scales the default queue');
+
+            $checked = [];
+            foreach ($jobs as $class => $job) {
+                $supervisor = $autoScaled[$job['destination']] ?? null;
+                if ($supervisor === null) {
+                    continue;
+                }
+                $this->assertLessThan($supervisor['timeout'], $job['timeout'], $class.' ('.$job['timeout'].' s) lands on '.$job['destination'].': '
+                    .$environment.' '.$supervisor['name'].' timeout ('.$supervisor['timeout'].' s) must be longer, or a scale-down kills it mid-run');
+                $checked[] = $class;
+            }
+            $this->assertContains(RebuildWebsiteProjectionJob::class, $checked, $environment);
+        }
+    }
+
+    /**
+     * A server's .env starts as a copy of .env.staging.example (STAGING_RUNBOOK) and a value pinned there wins over the
+     * config default the check above verifies: the example must not pin a shorter supervisor-1 timeout.
+     */
+    public function test_the_staging_env_example_does_not_pin_a_shorter_default_queue_timeout(): void
+    {
+        $production = $this->productionConfig();
+        $example = File::get(base_path('.env.staging.example'));
+        if (preg_match('/^HORIZON_DEFAULT_TIMEOUT=["\']?(\d+)["\']?\s*$/m', $example, $pinned) !== 1) {
+            $this->assertStringNotContainsString('HORIZON_DEFAULT_TIMEOUT=', $example, 'not pinned, so the config default applies');
+
+            return;
+        }
+
+        $this->assertGreaterThanOrEqual((int) $production['horizon']['environments']['staging']['supervisor-1']['timeout'], (int) $pinned[1],
+            '.env.staging.example HORIZON_DEFAULT_TIMEOUT');
+        $this->assertLessThan((int) $production['queue']['connections']['redis']['retry_after'], (int) $pinned[1], '.env.staging.example HORIZON_DEFAULT_TIMEOUT');
+    }
+
+    public function test_the_destination_check_resolves_queues_like_the_bus_dispatcher(): void
+    {
+        $production = $this->productionConfig();
+        $this->app->instance('queue.routes', $routes = new QueueRoutes);
+        Queue::fake();
+
+        RunChannelAnalystJob::dispatch(1);
+        Queue::assertPushed(RunChannelAnalystJob::class, fn (RunChannelAnalystJob $job, ?string $queue): bool => $job->runId === 1 && $queue === null);
+        $this->assertSame('redis:default', $this->productionDestination(new RunChannelAnalystJob(1), $production), 'no queue, no route → the connection default');
+
+        $routes->set([RunChannelAnalystJob::class => 'heavy', RebuildWebsiteProjectionJob::class => 'heavy']);
+        RunChannelAnalystJob::dispatch(2);
+        Queue::assertPushedOn('heavy', RunChannelAnalystJob::class, fn (RunChannelAnalystJob $job): bool => $job->runId === 2);
+        $this->assertSame('redis:heavy', $this->productionDestination(new RunChannelAnalystJob(2), $production));
+
+        RebuildWebsiteProjectionJob::dispatch(7);
+        Queue::assertPushedOn('default', RebuildWebsiteProjectionJob::class);
+        $this->assertSame('redis:default', $this->productionDestination(new RebuildWebsiteProjectionJob(7), $production), 'onQueue() wins over a route');
     }
 
     public function test_deploy_runs_horizon_under_supervisor_with_a_stop_window_longer_than_any_job(): void
@@ -112,18 +202,52 @@ final class QueueTopologyContractTest extends TestCase
     }
 
     /**
+     * Horizon's ProvisioningPlan: every "defaults" supervisor runs in every environment, with that environment's
+     * overrides on top (supervisor-background has no production key and still runs).
+     *
      * @param  array<string, mixed>  $horizon
      * @return array<string, array<string, mixed>>
      */
-    private function productionSupervisors(array $horizon): array
+    private function productionSupervisors(array $horizon, string $environment = 'production'): array
     {
-        $out = [];
-        foreach ((array) ($horizon['environments']['production'] ?? []) as $name => $overrides) {
-            $out[$name] = array_replace((array) ($horizon['defaults'][$name] ?? []), (array) $overrides);
-        }
-        $this->assertNotEmpty($out, 'Horizon has production supervisors');
+        $this->assertArrayHasKey($environment, (array) ($horizon['environments'] ?? []), 'Horizon has '.$environment.' supervisors');
+        $out = array_replace_recursive((array) ($horizon['defaults'] ?? []), (array) $horizon['environments'][$environment]);
+        $this->assertNotEmpty($out, 'Horizon has '.$environment.' supervisors');
 
         return $out;
+    }
+
+    /**
+     * Queue config as production resolves it, plus the production Queue::route table (AppServiceProvider registers it
+     * only with the redis queue).
+     *
+     * @param  array{queue: array<string, mixed>, seo: array<string, mixed>, advisor: array<string, mixed>}  $production
+     */
+    private function useProductionQueueConfig(array $production): void
+    {
+        config([
+            'queue.default' => $production['queue']['default'],
+            'queue.heavy_queue' => $production['queue']['heavy_queue'],
+            'queue.background_queue' => $production['queue']['background_queue'],
+            'moxdop-seo-tasks.queue' => $production['seo']['queue'],
+            'moxdop-advisor.queue' => $production['advisor']['queue'],
+        ]);
+        (new ReflectionMethod(AppServiceProvider::class, 'routeHeavyJobs'))->invoke($this->app->getProvider(AppServiceProvider::class));
+    }
+
+    /**
+     * "connection:queue" a dispatched job lands on, resolved like Illuminate\Bus\Dispatcher: the job's own
+     * connection / queue (onConnection / onQueue), else its Queue::route, else the connection's default queue.
+     *
+     * @param  array{queue: array<string, mixed>}  $production
+     */
+    private function productionDestination(object $job, array $production): string
+    {
+        $routes = $this->app->make('queue.routes');
+        $connection = (string) ($job->connection ?? $routes->getConnection($job) ?? $production['queue']['default']);
+        $queue = (string) ($job->queue ?? $routes->getQueue($job) ?? $production['queue']['connections'][$connection]['queue'] ?? 'default');
+
+        return $connection.':'.$queue;
     }
 
     /** @return list<class-string> */

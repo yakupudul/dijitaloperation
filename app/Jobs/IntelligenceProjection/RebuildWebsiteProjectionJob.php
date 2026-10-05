@@ -8,7 +8,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Throwable;
 
 final class RebuildWebsiteProjectionJob implements ShouldBeUniqueUntilProcessing, ShouldQueue
 {
@@ -57,10 +56,5 @@ final class RebuildWebsiteProjectionJob implements ShouldBeUniqueUntilProcessing
             periodStart: $this->periodStart !== null ? CarbonImmutable::parse($this->periodStart, 'UTC') : null,
             periodEnd: $this->periodEnd !== null ? CarbonImmutable::parse($this->periodEnd, 'UTC') : null,
         );
-    }
-
-    public function failed(Throwable $exception): void
-    {
-        report($exception);
     }
 }

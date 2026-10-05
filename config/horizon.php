@@ -186,6 +186,9 @@ return [
     */
 
     'defaults' => [
+        // Auto-balanced: when "default" runs empty Horizon scales down and SIGKILLs a terminating worker once this
+        // timeout has passed, busy or not. It must outlast the longest job that lands on "default" (1500 s) and stay
+        // below the redis retry_after (1800 s) — QueueTopologyContractTest.
         'supervisor-1' => [
             'connection' => 'redis',
             'queue' => ['default'],
@@ -196,7 +199,7 @@ return [
             'maxJobs' => 0,
             'memory' => 128,
             'tries' => 1,
-            'timeout' => (int) env('HORIZON_DEFAULT_TIMEOUT', 300),
+            'timeout' => (int) env('HORIZON_DEFAULT_TIMEOUT', 1560),
             'nice' => 0,
         ],
         // Collection engine — infrastructure workers only (not product UI).
@@ -248,7 +251,7 @@ return [
                 'maxProcesses' => (int) env('HORIZON_DEFAULT_MAX_PROCESSES', 5),
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
-                'timeout' => (int) env('HORIZON_DEFAULT_TIMEOUT', 300),
+                'timeout' => (int) env('HORIZON_DEFAULT_TIMEOUT', 1560),
             ],
             'supervisor-collection' => [
                 'maxProcesses' => (int) env('HORIZON_COLLECTION_MAX_PROCESSES', 3),
@@ -264,7 +267,7 @@ return [
         'local' => [
             'supervisor-1' => [
                 'maxProcesses' => 2,
-                'timeout' => (int) env('HORIZON_DEFAULT_TIMEOUT', 300),
+                'timeout' => (int) env('HORIZON_DEFAULT_TIMEOUT', 1560),
             ],
             'supervisor-collection' => [
                 'maxProcesses' => 1,
@@ -286,7 +289,7 @@ return [
                 'maxProcesses' => (int) env('HORIZON_DEFAULT_MAX_PROCESSES', 2),
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
-                'timeout' => (int) env('HORIZON_DEFAULT_TIMEOUT', 300),
+                'timeout' => (int) env('HORIZON_DEFAULT_TIMEOUT', 1560),
             ],
             'supervisor-collection' => [
                 // Three concurrent collection workers keeps multi-property GA4 imports responsive
@@ -303,7 +306,7 @@ return [
         'uat' => [
             'supervisor-1' => [
                 'maxProcesses' => (int) env('HORIZON_DEFAULT_MAX_PROCESSES', 2),
-                'timeout' => (int) env('HORIZON_DEFAULT_TIMEOUT', 300),
+                'timeout' => (int) env('HORIZON_DEFAULT_TIMEOUT', 1560),
             ],
             'supervisor-collection' => [
                 'maxProcesses' => (int) env('HORIZON_COLLECTION_MAX_PROCESSES', 1),
