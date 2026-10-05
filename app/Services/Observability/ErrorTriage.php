@@ -38,18 +38,23 @@ final class ErrorTriage
     /** An "auto" alert still open after this long needs a person. */
     public const int ESCALATE_HOURS = 48;
 
+    /**
+     * Latest live check problem per account, read once for one groups() call (null outside it, so cause() from the
+     * notifier always reads the table).
+     *
+     * @var array<int, ?string>|null
+     */
+    private static ?array $liveProblems = null;
+
+    /** live_checks exists (only a positive answer is kept: a table that is missing now may be migrated later). */
+    private static bool $hasLiveChecks = false;
+
     public function __construct(private readonly OperationalAlertExplainer $explainer) {}
 
     /** Bucket of one alert (cause only, escalation applied). */
     public function bucket(OperationalAlert $alert): string
     {
-        $bucket = self::cause($alert);
-        if ($bucket === self::AUTO && ($opened = $alert->opened_at ?? $alert->first_observed_at) !== null
-            && $opened->lt(now()->subHours(self::ESCALATE_HOURS))) {
-            return self::YOU;
-        }
-
-        return $bucket;
+        return self::escalate($alert, self::cause($alert));
     }
 
     /** Bucket by cause alone (no age): used when the alert opens, to decide whether it rings the bell. */
@@ -81,8 +86,13 @@ final class ErrorTriage
         $out = [self::YOU => [], self::CODE => [], self::AUTO => []];
         $alerts = OperationalAlert::query()->whereIn('state', [OperationalAlertState::Open->value, OperationalAlertState::Acknowledged->value])
             ->orderByDesc('last_observed_at')->limit(200)->get();
-        foreach ($this->grouped($alerts) as $bucket => $groups) {
-            $out[$bucket] = $groups;
+        self::$liveProblems = self::liveProblems($alerts);
+        try {
+            foreach ($this->grouped($alerts) as $bucket => $groups) {
+                $out[$bucket] = $groups;
+            }
+        } finally {
+            self::$liveProblems = null;
         }
 
         return $out;
@@ -102,7 +112,8 @@ final class ErrorTriage
     {
         $buckets = [];
         foreach ($alerts as $alert) {
-            $bucket = $this->bucket($alert);
+            $cause = self::cause($alert);
+            $bucket = self::escalate($alert, $cause);
             $message = $this->explainer->explain($alert);
             $key = OperationalAlertExplainer::topicRule((string) $alert->rule_key).'|'.(self::firstCategory(is_array($alert->observed) ? $alert->observed : []) ?? '');
             $title = trim(explode(' · ', $message->title, 2)[0]);
@@ -118,11 +129,22 @@ final class ErrorTriage
                 'link_label' => $message->linkLabel,
                 'button' => $message->button,
                 'since' => (string) ($alert->opened_at ?? $alert->first_observed_at),
-                'escalated' => $bucket === self::YOU && self::cause($alert) === self::AUTO,
+                'escalated' => $bucket === self::YOU && $cause === self::AUTO,
             ];
         }
 
         return collect($buckets)->map(fn (array $groups): array => collect($groups)->sortByDesc('count')->values()->all())->all();
+    }
+
+    /** An "auto" cause still open after ESCALATE_HOURS becomes the operator's work. */
+    private static function escalate(OperationalAlert $alert, string $cause): string
+    {
+        if ($cause === self::AUTO && ($opened = $alert->opened_at ?? $alert->first_observed_at) !== null
+            && $opened->lt(now()->subHours(self::ESCALATE_HOURS))) {
+            return self::YOU;
+        }
+
+        return $cause;
     }
 
     private static function byReason(string $reason, ?string $category): string
@@ -150,12 +172,57 @@ final class ErrorTriage
      */
     public static function liveProblem(int $resourceId): ?string
     {
-        if ($resourceId <= 0 || ! Schema::hasTable('live_checks')) {
+        if ($resourceId <= 0) {
+            return null;
+        }
+        if (self::$liveProblems !== null && array_key_exists($resourceId, self::$liveProblems)) {
+            return self::$liveProblems[$resourceId];
+        }
+        if (! self::hasLiveChecks()) {
             return null;
         }
         $row = DB::table('live_checks')->where('subject_type', 'external_resource')->where('subject_id', $resourceId)->orderByDesc('id')->first(['status', 'message']);
 
         return $row !== null && $row->status === LiveVerifier::FAIL ? (string) $row->message : null;
+    }
+
+    /**
+     * liveProblem() of every account the alerts name (a resource-automation alert's scope, each affected account),
+     * from one query on the latest live check per account instead of one per account and alert.
+     *
+     * @param  Collection<int, OperationalAlert>  $alerts
+     * @return array<int, ?string> resource id => problem (null: answered normally or never checked)
+     */
+    private static function liveProblems(Collection $alerts): array
+    {
+        $ids = [];
+        foreach ($alerts as $alert) {
+            if (str_starts_with((string) $alert->rule_key, 'resource-automation.') && (int) $alert->scope_key > 0) {
+                $ids[(int) $alert->scope_key] = null;
+            }
+            foreach ((array) ((is_array($alert->observed) ? $alert->observed : [])['affected'] ?? []) as $row) {
+                if (is_array($row) && ($resource = (int) ($row['resource_id'] ?? 0)) > 0) {
+                    $ids[$resource] = null;
+                }
+            }
+        }
+        if ($ids === [] || ! self::hasLiveChecks()) {
+            return $ids;
+        }
+        foreach (array_chunk(array_keys($ids), 500) as $chunk) {
+            $latest = DB::table('live_checks')->selectRaw('max(id) as id')->where('subject_type', 'external_resource')
+                ->whereIn('subject_id', $chunk)->groupBy('subject_id');
+            foreach (DB::table('live_checks')->whereIn('id', $latest)->get(['subject_id', 'status', 'message']) as $row) {
+                $ids[(int) $row->subject_id] = $row->status === LiveVerifier::FAIL ? (string) $row->message : null;
+            }
+        }
+
+        return $ids;
+    }
+
+    private static function hasLiveChecks(): bool
+    {
+        return self::$hasLiveChecks = self::$hasLiveChecks || Schema::hasTable('live_checks');
     }
 
     /**

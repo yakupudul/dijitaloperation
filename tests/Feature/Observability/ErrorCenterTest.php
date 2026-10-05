@@ -16,6 +16,7 @@ use App\Services\Observability\OperationalAlertLifecycleService;
 use App\Services\Verification\LiveVerifier;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
+use DateTimeInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
@@ -92,6 +93,62 @@ final class ErrorCenterTest extends TestCase
 
         $mapped = app(GoogleAdsProviderErrorMapper::class)->fromThrowable(new RuntimeException('Google Ads authorization failed: The caller does not have permission | authorizationError:CUSTOMER_NOT_ENABLED'));
         $this->assertSame([CollectionErrorCategory::Authorization, 'CUSTOMER_NOT_ENABLED'], [$mapped->errorCategory, $mapped->errorCode], 'a disabled account is not an "unexpected error"');
+    }
+
+    public function test_the_page_reads_the_live_checks_once_for_every_alert_and_account(): void
+    {
+        // An older failure that the latest check cleared, and an older pass that the latest check turned into a failure.
+        $this->liveCheck(105, LiveVerifier::FAIL, 'Hesap okunuyor ama reklam yayınlayamaz: DISABLED.', now()->subDays(2));
+        $this->liveCheck(105, LiveVerifier::OK, null, now()->subDay());
+        $this->liveCheck(130, LiveVerifier::OK, null, now()->subDays(2));
+        $this->liveCheck(130, LiveVerifier::FAIL, 'PERMISSION_DENIED', now()->subDay());
+        $this->liveCheck(140, LiveVerifier::FAIL, 'Hesap kapalı: CLOSED.', now()->subDay());
+
+        // Twenty transient accounts, not healed after 48 hours; one closed account in a repeated failure; one account
+        // the latest live check cannot read.
+        $affected = array_map(fn (int $id): array => ['resource_id' => $id, 'error_category' => 'provider', 'states' => ['STALE']], range(101, 120));
+        $stale = $this->observe('dataset_stale', 'dataset:stale', ['affected' => $affected]);
+        $stale->forceFill(['opened_at' => now()->subHours(ErrorTriage::ESCALATE_HOURS + 1)])->save();
+        $closed = $this->observe('collection_repeated_failure', 'x', ['affected' => [['resource_id' => 140, 'error_category' => 'provider', 'states' => ['STALE']]]]);
+        $denied = $this->observe('resource-automation.collection', '130', ['reason' => 'collection_failed', 'affected' => [['error_category' => 'provider']]]);
+
+        $queries = $this->liveCheckQueries(fn (): array => app(ErrorTriage::class)->groups());
+        $this->assertLessThanOrEqual(2, $queries['count'], 'one table check and one read of the latest live checks, not one per alert and account');
+        $items = collect($queries['result'][ErrorTriage::YOU])->flatMap(fn (array $group): array => $group['items'])->keyBy('id');
+        $this->assertSame([], $queries['result'][ErrorTriage::AUTO]);
+        $this->assertTrue($items[$stale->id]['escalated'], 'not healed after 48 hours');
+        $this->assertFalse($items[$closed->id]['escalated'], 'the closed account is the operator\'s from the start');
+        $this->assertFalse($items[$denied->id]['escalated']);
+        $this->assertStringContainsString('Canlı doğrulama: PERMISSION_DENIED', $items[$denied->id]['what']);
+
+        $this->assertSame(1, $this->liveCheckQueries(fn (): array => app(ErrorTriage::class)->groups())['count'], 'the table check is kept');
+
+        // Outside the page the notifier reads the table itself: a check written after the page was built counts.
+        $this->liveCheck(105, LiveVerifier::FAIL, 'Hesap okunuyor ama reklam yayınlayamaz: DISABLED.', now());
+        $this->assertSame(ErrorTriage::YOU, ErrorTriage::cause($stale->fresh()));
+        $this->assertSame('Hesap okunuyor ama reklam yayınlayamaz: DISABLED.', ErrorTriage::liveProblem(105));
+        $this->assertNull(ErrorTriage::liveProblem(101));
+    }
+
+    /**
+     * @param  callable(): array<string, mixed>  $run
+     * @return array{count: int, result: array<string, mixed>}
+     */
+    private function liveCheckQueries(callable $run): array
+    {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $result = $run();
+        $count = collect(DB::getQueryLog())->filter(fn (array $query): bool => str_contains($query['query'], 'live_checks'))->count();
+        DB::disableQueryLog();
+
+        return ['count' => $count, 'result' => $result];
+    }
+
+    private function liveCheck(int $resourceId, string $status, ?string $message, DateTimeInterface $at): void
+    {
+        DB::table('live_checks')->insert(['check_key' => 'meta:'.$resourceId, 'provider' => 'meta', 'capability' => 'meta_ads', 'subject_type' => 'external_resource',
+            'subject_id' => $resourceId, 'label' => 'Meta Ads · '.$resourceId, 'status' => $status, 'message' => $message, 'checked_at' => $at]);
     }
 
     /** @param  array<string, mixed>  $observed */
