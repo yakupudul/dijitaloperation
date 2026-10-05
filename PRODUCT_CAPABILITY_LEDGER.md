@@ -8,13 +8,19 @@
 - **Beyin:** İlk çıkarmadan sonra kendiliğinden, sonra "Yeniden öğren" ile OpenAI (ekranda seçilen model) son 80 görüşmeden (kişiler "Kişi N") hizmetleri, verilen fiyatları (tarihli), sık soruları, üslubu, kuralları ve operatöre soruları çıkarır (`config.brain`). "Senden istediklerim" listesi ve "Talimatlarım" (eski `business_context`, beyinden önce gelir) beyin kartındadır.
 - **Mesaj üret:** Yanıt önerisi beyni ve talimatları kullanır; öneri kopyalanır, MoxDOP göndermez. Yedekten gelen görüşmede otomatik öneri yok.
 - **Toplu cevap (2026-10-05):** Görüşme listesinde sayfalama yok, tüm görüşmeler tek listede. "Cevap üret (N)" son mesajı müşteriden gelen, cevabı hazır olmayan ve en yeni mesajdan geriye 30 gün içindeki görüşmelere (tıklama başına en çok 50, en yeniden) cevap hazırlatır; günlük AI tavanı geçerli.
+- **Sayfa yeniden düzeni (2026-10-05, yakup: "profesyonel rakipler nasıl tasarlardı"):** Meta Business Suite gelen kutusu / WhatsApp Business düzeni örnek alındı.
+  - Sekmeler: Gelen kutusu (varsayılan, görüşme varsa) · Beyin (açık soru sayısıyla) · Yedek ve bağlantı (yedek yükleme, rehber, askıdaki Meta kurulumu). Gelen kutusunda beyin soruları için uyarı satırı.
+  - Liste filtreleri sayılarıyla: Açık · Cevap bekleyen (son 30 gün) · Öneri hazır · Tamamlanan · Tümü. Satırda son mesaj önizlemesi ("Siz: …"), "Cevap bekliyor" / "Tamamlandı" etiketi.
+  - "Tamamlandı" / "Yeniden aç" (`whatsapp_conversations.done_at`); müşteri yeniden yazınca (canlı mesaj ya da yeni yedek) açık listeye döner. Öneri altında "Gönderdim, sıradaki": tamamlar ve cevabı hazır sıradaki görüşmeyi (yoksa cevap bekleyeni) açar.
+  - "WhatsApp'ta aç": wa.me bağlantısı kişiyle ve düzenlenmiş cevap yazılı olarak WhatsApp'ı açar; gönderen yine operatördür (MoxDOP göndermez). Mesaj istemeyen kişide gösterilmez.
+  - Sohbette gün ayırıcıları (Bugün / Dün / tarih); görüşme başlığında tek görüşmeyi "Excel" ile indirme; mobilde liste ve sohbet ayrı ekran, geri düğmesi.
 - **Excel'e aktar:** Görüşme listesinin üstünde; tüm görüşmeleri .xlsx olarak indirir ("Mesajlar": kişi, numara, müşteri, tarih, yön, tür, mesaj; "Görüşmeler": özet). `?conversation=` tek görüşme. Dosya sunucuda tutulmaz.
 - **Sohbet sırası:** Açılan sohbette mesajlar en yeniden en eskiye sıralanır (yakup, 2026-10-05); eski mesajlar alttaki sayfalamada.
 - **Rehberden isimler:** Yedekte kişi adları yok (WhatsApp onları yedeğe koymuyor). Yedek kartında "Rehberden isimleri al (.vcf)": telefon rehberinin .vcf dışa aktarımı seçilir, tarayıcı yalnız ad ve numara satırlarını gönderir, numarası eşleşen görüşmelere isim yazılır (0532…, +90…, yabancı numaralar).
 - **Senden istediklerim:** Her sorunun altında cevap alanı var; "Cevapları kaydet" cevabı soru ile birlikte Talimatlarım'a ekler ve soruyu listeden kaldırır.
 - **Meta bağlantısı:** Ekranda "Canlı bağlantı (Meta) — askıda" altında katlı durur; kod silinmedi.
 - **Tablo:** `2026_12_03_090000_create_whatsapp_backup_imports_table`. Sıfırlama yedek aktarımlarını ve beyni de siler.
-- **Test:** WhatsAppBackupImportTest (16 test; gerçek crypt15 düzeninde üretilen dosyayla). Çözücü ayrıca Python `cryptography` ile üretilen dosyayla denendi. UAT: yok — yakup gerçek yedeği yükleyince doğrulanır.
+- **Test:** WhatsAppBackupImportTest (17 test; gerçek crypt15 düzeninde üretilen dosyayla). Çözücü ayrıca Python `cryptography` ile üretilen dosyayla denendi. UAT: yok — yakup gerçek yedeği yükleyince doğrulanır.
 
 ## 2026-12-03 — WhatsApp bağlantı sayfası kaydı ve "Bağlantıyı sıfırla"
 

@@ -166,6 +166,8 @@ final class WhatsAppIngestion
         if (! $outgoing) {
             // Track the last inbound time for the 24-hour reply-window indicator, and flag a KVKK opt-out (STOP/DUR).
             $update['last_incoming_at'] = $conversation->last_incoming_at?->greaterThan($sentAt) ? $conversation->last_incoming_at : $sentAt;
+            // A new customer message takes a conversation marked done back to the open list.
+            $update['done_at'] = null;
             if ($this->isOptOut($body)) {
                 $update['opted_out_at'] = $sentAt;
             }

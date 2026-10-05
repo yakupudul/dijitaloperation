@@ -15,7 +15,7 @@ class WhatsAppConversation extends Model
     {
         return [
             'last_message_at' => 'datetime', 'suggested_at' => 'datetime',
-            'last_incoming_at' => 'datetime', 'opted_out_at' => 'datetime',
+            'last_incoming_at' => 'datetime', 'opted_out_at' => 'datetime', 'done_at' => 'datetime',
             'revision' => 'integer', 'suggested_revision' => 'integer',
             'context_truncated' => 'boolean', 'suggestion' => 'encrypted',
             'rationale' => 'encrypted', 'summary' => 'encrypted',

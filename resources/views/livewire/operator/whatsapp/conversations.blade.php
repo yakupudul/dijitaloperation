@@ -13,7 +13,7 @@
     };
 @endphp
 <div class="grid gap-4 lg:grid-cols-12" data-wa-inbox>
-    <section class="{{ $card }} flex min-w-0 flex-col lg:col-span-4 lg:h-[calc(100vh-14rem)] lg:min-h-[32rem]">
+    <section @class([$card, 'min-w-0 flex-col lg:col-span-4 lg:flex lg:h-[calc(100vh-14rem)] lg:min-h-[32rem]', 'hidden' => $selected, 'flex' => ! $selected]) data-wa-list>
         <div class="border-b border-gray-200 p-3 dark:border-gray-800">
             <div class="mb-2 flex items-center justify-between">
                 <h2 class="font-semibold text-gray-900 dark:text-white">Görüşmeler <span class="text-xs font-normal text-gray-500">{{ $rows->count() }}</span></h2>
@@ -23,6 +23,15 @@
                 </span>
             </div>
             <input aria-label="Görüşme ara" wire:model.live.debounce.400ms="q" maxlength="100" placeholder="İsim veya numara ara" class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm dark:border-gray-700" />
+            <div class="mt-2 flex gap-1 overflow-x-auto text-xs" role="group" aria-label="Görüşme filtresi" data-wa-filters>
+                @foreach(['open' => 'Açık', 'waiting' => 'Cevap bekleyen', 'ready' => 'Öneri hazır', 'done' => 'Tamamlanan', 'all' => 'Tümü'] as $key => $label)
+                    <button type="button" wire:click="$set('filter', '{{ $key }}')" @class([
+                        'shrink-0 rounded-full px-2.5 py-1 ring-1 ring-inset',
+                        'bg-brand-500 text-white ring-brand-500' => $filter === $key,
+                        'text-gray-600 ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.04]' => $filter !== $key,
+                    ]) @if($key === 'waiting') title="Son mesajı müşteriden gelen açık görüşmeler (son 30 gün)" @endif>{{ $label }} <span class="opacity-75">{{ $filterCounts[$key] ?? 0 }}</span></button>
+                @endforeach
+            </div>
         </div>
         <div class="min-h-0 flex-1 overflow-y-auto">
             @forelse($rows as $row)
@@ -34,20 +43,29 @@
                             <span class="truncate font-medium text-gray-900 dark:text-white">{{ $row->contact_name ?: $phoneLabel($row->contact_id) }}</span>
                             <span class="shrink-0 text-xs text-gray-500">{{ $shortTime($row->last_message_at) }}</span>
                         </span>
+                        @if(isset($previews[$row->id]))
+                            <span class="mt-0.5 block truncate text-xs text-gray-500">{{ $previews[$row->id]['outgoing'] ? 'Siz: ' : '' }}{{ $previews[$row->id]['text'] }}</span>
+                        @endif
                         <span class="mt-1 flex flex-wrap items-center gap-1.5">
-                            <span class="rounded-full px-2 py-0.5 text-[11px] ring-1 ring-inset {{ $tone[$rowTone] }}">{{ $rowText }}</span>
+                            @if($row->done_at)
+                                <span class="rounded-full px-2 py-0.5 text-[11px] ring-1 ring-inset {{ $tone['ok'] }}">Tamamlandı</span>
+                            @elseif($row->suggestion_status !== 'idle' || ! $row->last_incoming_at || ! $row->last_message_at || $row->last_incoming_at->lt($row->last_message_at))
+                                <span class="rounded-full px-2 py-0.5 text-[11px] ring-1 ring-inset {{ $tone[$rowTone] }}">{{ $rowText }}</span>
+                            @else
+                                <span class="rounded-full px-2 py-0.5 text-[11px] ring-1 ring-inset {{ $tone['warn'] }}">Cevap bekliyor</span>
+                            @endif
                             @if($row->customer_id)<span class="rounded-full px-2 py-0.5 text-[11px] ring-1 ring-inset {{ $tone['muted'] }}">Müşteri</span>@endif
                             @if($row->opted_out_at)<span class="rounded-full px-2 py-0.5 text-[11px] ring-1 ring-inset {{ $tone['bad'] }}">Mesaj istemiyor</span>@endif
                         </span>
                     </span>
                 </button>
             @empty
-                <p class="p-5 text-sm text-gray-500">{{ trim($q) !== '' ? 'Aramaya uyan görüşme yok.' : ($state === 'connected' ? 'Henüz mesaj gelmedi. Numaranıza gelen ilk mesaj burada görünecek.' : 'Yedek çıkarılınca ya da numara bağlanınca görüşmeler burada listelenir.') }}</p>
+                <p class="p-5 text-sm text-gray-500">{{ trim($q) !== '' ? 'Aramaya uyan görüşme yok.' : ($filter !== 'all' && $filter !== 'open' ? 'Bu filtrede görüşme yok.' : ($state === 'connected' ? 'Henüz mesaj gelmedi. Numaranıza gelen ilk mesaj burada görünecek.' : 'Yedek çıkarılınca ya da numara bağlanınca görüşmeler burada listelenir.')) }}</p>
             @endforelse
         </div>
     </section>
 
-    <section class="{{ $card }} flex min-w-0 flex-col lg:col-span-8 lg:h-[calc(100vh-14rem)] lg:min-h-[32rem]">
+    <section @class([$card, 'min-w-0 flex-col lg:col-span-8 lg:flex lg:h-[calc(100vh-14rem)] lg:min-h-[32rem]', 'flex' => $selected, 'hidden' => ! $selected])>
         @if($selected)
             @php
                 $fromBackup = $selected->phone_number_id === \App\Services\WhatsApp\Backup\WhatsAppBackupImporter::LINE;
@@ -58,7 +76,11 @@
                 $suggestionFresh = $selected->suggestion_status === 'ready' && $selected->suggested_revision === $selected->revision;
             @endphp
             <header class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 dark:border-gray-800">
-                <div class="min-w-0">
+                <div class="flex min-w-0 items-start gap-2">
+                    <button type="button" wire:click="$set('conversation', null)" class="mt-0.5 rounded-lg p-1 text-gray-500 hover:bg-gray-100 lg:hidden dark:hover:bg-white/[0.06]" aria-label="Görüşme listesine dön">
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+                    </button>
+                    <div class="min-w-0">
                     <h2 class="truncate font-semibold text-gray-900 dark:text-white">{{ $selected->contact_name ?: $phoneLabel($selected->contact_id) }}</h2>
                     <p class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                         <span>{{ $phoneLabel($selected->contact_id) }}</span>
@@ -74,8 +96,15 @@
                             <span class="rounded-full px-2 py-0.5 ring-1 ring-inset {{ $tone['bad'] }}" title="{{ $selected->opted_out_at->timezone('Europe/Istanbul')->format('d.m.Y') }} tarihinde mesaj istemediğini bildirdi. KVKK gereği mesaj göndermeyin.">Mesaj istemiyor</span>
                         @endif
                     </p>
+                    </div>
                 </div>
-                <div class="flex items-center gap-2 text-xs">
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                    @if($selected->done_at)
+                        <button type="button" wire:click="reopen({{ $selected->id }})" class="rounded-lg px-2.5 py-1.5 font-medium ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:ring-gray-700 dark:hover:bg-white/[0.04]" title="{{ $when($selected->done_at) }} tarihinde tamamlandı">Yeniden aç</button>
+                    @else
+                        <button type="button" wire:click="markDone({{ $selected->id }})" class="rounded-lg px-2.5 py-1.5 font-medium ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:ring-gray-700 dark:hover:bg-white/[0.04]" title="Cevabı telefondan gönderdiyseniz işaretleyin; müşteri yeniden yazınca açık listeye döner.">Tamamlandı</button>
+                    @endif
+                    <a href="{{ route('operator.whatsapp.export', ['conversation' => $selected->id]) }}" class="rounded-lg px-2.5 py-1.5 font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.04]">Excel</a>
                     @if($linkedCustomer)
                         <a href="{{ route('operator.customer', ['customerId' => $linkedCustomer->id]) }}" wire:navigate title="{{ $selected->link_source === 'operator' ? 'Elle bağlandı' : 'Telefon numarasından eşleşti' }}" class="font-medium text-brand-600 hover:underline">{{ $linkedCustomer->name }}</a>
                     @else
@@ -89,12 +118,18 @@
             </header>
 
             <div class="min-h-0 flex-1 space-y-2 overflow-y-auto bg-gray-50 px-4 py-4 dark:bg-white/[0.02]" wire:key="wa-messages-{{ $selected->id }}-{{ $messages->currentPage() }}" data-wa-newest-first>
+                @php $previousDay = null; @endphp
                 @foreach($messages as $message)
+                    @php $day = $message->sent_at->timezone('Europe/Istanbul'); @endphp
+                    @if($previousDay !== $day->toDateString())
+                        @php $previousDay = $day->toDateString(); @endphp
+                        <div wire:key="day-{{ $previousDay }}" class="flex justify-center py-1"><span class="rounded-full bg-white px-3 py-0.5 text-[11px] text-gray-500 shadow-sm dark:bg-gray-800">{{ $day->isToday() ? 'Bugün' : ($day->isYesterday() ? 'Dün' : $day->translatedFormat('j F Y')) }}</span></div>
+                    @endif
                     <div wire:key="message-{{ $message->id }}" class="flex {{ $message->direction === 'outgoing' ? 'justify-end' : 'justify-start' }}">
                         <div class="max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-sm {{ $message->direction === 'outgoing' ? 'rounded-br-sm bg-emerald-100 text-gray-900 dark:bg-emerald-500/20 dark:text-gray-100' : 'rounded-bl-sm bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100' }}">
                             @if($message->reply_to_message_id)<p class="mb-1 text-[11px] text-gray-500">Önceki bir mesaja yanıt</p>@endif
                             <p class="whitespace-pre-wrap break-words">{{ $message->body }}</p>
-                            <p class="mt-1 text-right text-[11px] text-gray-500">{{ $message->sent_at->timezone('Europe/Istanbul')->format('d.m H:i') }}</p>
+                            <p class="mt-1 text-right text-[11px] text-gray-500">{{ $message->sent_at->timezone('Europe/Istanbul')->format('H:i') }}</p>
                         </div>
                     </div>
                 @endforeach
@@ -118,7 +153,13 @@
                                 <textarea x-ref="reply" aria-label="Önerilen cevap; kopyalamadan önce düzenleyebilirsiniz" rows="4" class="w-full rounded-lg border border-gray-300 bg-transparent p-3 text-sm dark:border-gray-700">{{ $selected->suggestion }}</textarea>
                             </div>
                             <div class="flex flex-wrap items-center gap-3">
-                                <button type="button" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600" @click="navigator.clipboard.writeText($refs.reply.value).then(() => copyStatus = 'Kopyalandı; telefondan gönderebilirsiniz.').catch(() => { $refs.reply.select(); copyStatus = 'Metni seçtim; Ctrl+C ile kopyalayın.' })">Cevabı kopyala</button>
+                                @if(ctype_digit((string) $selected->contact_id) && ! $selected->opted_out_at)
+                                    <a href="https://wa.me/{{ $selected->contact_id }}" target="_blank" rel="noopener" @click.prevent="window.open('https://wa.me/{{ $selected->contact_id }}?text=' + encodeURIComponent($refs.reply.value), '_blank', 'noopener')" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700" title="WhatsApp'ı bu kişiyle ve cevap yazılı olarak açar; göndermek için WhatsApp'ta Gönder'e basarsınız.">WhatsApp'ta aç</a>
+                                @endif
+                                <button type="button" class="rounded-lg px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:ring-gray-700 dark:hover:bg-white/[0.04]" @click="navigator.clipboard.writeText($refs.reply.value).then(() => copyStatus = 'Kopyalandı; telefondan gönderebilirsiniz.').catch(() => { $refs.reply.select(); copyStatus = 'Metni seçtim; Ctrl+C ile kopyalayın.' })">Cevabı kopyala</button>
+                                @unless($selected->done_at)
+                                    <button type="button" wire:click="markDone({{ $selected->id }}, true)" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600" title="Gönderdim: görüşmeyi tamamla ve cevabı hazır olan sıradaki görüşmeyi aç">Gönderdim, sıradaki</button>
+                                @endunless
                                 <span x-text="copyStatus" role="status" class="text-xs text-gray-500"></span>
                             </div>
                         @endif

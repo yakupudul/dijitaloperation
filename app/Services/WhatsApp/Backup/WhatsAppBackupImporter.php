@@ -277,6 +277,8 @@ final class WhatsAppBackupImporter
             if ($rows !== []) {
                 $conversation->update([
                     'last_message_at' => $lastAt, 'last_incoming_at' => $lastIncoming, 'revision' => $conversation->revision + 1,
+                    // Marked done, then the customer wrote again: back to the open list.
+                    'done_at' => $conversation->done_at && $lastIncoming?->greaterThan($conversation->done_at) ? null : $conversation->done_at,
                     'suggestion_status' => in_array($conversation->suggestion_status, ['requested', 'running'], true) ? $conversation->suggestion_status : 'idle',
                 ]);
             }

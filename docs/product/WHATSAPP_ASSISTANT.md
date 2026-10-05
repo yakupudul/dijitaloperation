@@ -333,3 +333,18 @@ number must stay in the advertising portfolio). The inbox is filled from the pho
   `importContacts`; `WhatsAppContactNames` normalises numbers (00…, 0 5xx…, 5xx… → 90…) and writes `contact_name` on
   matching conversations. Nothing else from the address book is stored.
 
+## 2026-10-05 — Inbox-first redesign
+
+Benchmarked against Meta Business Suite's inbox and the WhatsApp Business app: the work (the conversation list) was at
+the bottom of a page of setup cards, with no filters, no last-message preview and no way to mark a chat handled.
+
+- Tabs (`?tab=`): `inbox` (default when there are conversations or a live number), `brain`, `setup` (backup upload,
+  address book, the suspended Meta setup). The inbox shows a hint when the brain has open questions.
+- Filters (`?filter=`): open (not done), waiting (last message from the customer, not opted out, within 30 days of the
+  newest message), ready (fresh draft), done, all; each with its count. Rows show the last message ("Siz: " when ours).
+- `done_at` (migration `2026_12_04_090000_whatsapp_conversation_done`): "Tamamlandı" / "Yeniden aç"; a new incoming
+  message (webhook or newer backup) clears it. "Gönderdim, sıradaki" marks done and opens the next ready chat, else the
+  next waiting one. "Cevap üret" skips done chats.
+- "WhatsApp'ta aç" opens `https://wa.me/<number>?text=<edited reply>`: the operator still presses Send in WhatsApp.
+- Day separators in the chat, per-chat Excel link, and a mobile list/chat switch with a back button.
+

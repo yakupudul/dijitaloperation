@@ -46,7 +46,6 @@
     $showReconnect = $state === 'connected' && $signupAttempt && ! in_array($signupAttempt->status, ['completed', 'expired'], true)
         && ($attemptBusy || $signupAttempt->updated_at->greaterThan(now()->subDay()));
     $suggestionBusy = $selected && in_array($selected->suggestion_status, ['requested', 'running'], true);
-    $showInbox = in_array($state, ['connected', 'attention', 'disabled'], true) || $rows->isNotEmpty() || trim($q) !== '';
     $backgroundBusy = in_array($backupImport?->status, ['queued', 'running'], true) || in_array($config['brain_status'] ?? null, ['queued', 'running'], true);
 @endphp
 <div class="space-y-5">
@@ -108,27 +107,49 @@
         </section>
     @endif
 
-    @if($state !== 'connected')
-        @include('livewire.operator.whatsapp.backup')
-    @endif
-
-    @if($backupConversations > 0 || ! empty($config['brain']) || $rows->isNotEmpty())
-        @include('livewire.operator.whatsapp.brain')
-    @endif
-
-    @if($state !== 'connected')
-        {{-- The live Meta connection waits (yakup, 2026-10-05); kept one click away. --}}
-        <details class="{{ $card }} p-5" wire:ignore.self data-wa-meta-setup @if($signupAttempt && ! in_array($signupAttempt->status, ['completed', 'expired'], true)) open @endif>
-            <summary class="cursor-pointer font-semibold text-gray-900 dark:text-white">Canlı bağlantı (Meta) <span class="font-normal text-gray-500">— askıda; mesajlar anında gelir ama Meta onayı gerekir</span></summary>
-            <div class="mt-4">@include('livewire.operator.whatsapp.setup', ['card' => ''])</div>
-        </details>
-    @endif
+    @php
+        $activeTab = in_array($tab, ['inbox', 'brain', 'setup'], true) ? $tab : (($totalConversations > 0 || $state === 'connected') ? 'inbox' : 'setup');
+        $openQuestions = count(array_filter((array) data_get($config, 'brain.open_questions', []), fn ($question) => is_string($question) && trim($question) !== ''));
+        $tabs = [
+            'inbox' => 'Gelen kutusu'.($totalConversations ? ' ('.$totalConversations.')' : ''),
+            'brain' => 'Beyin'.($openQuestions ? ' · '.$openQuestions.' soru' : ''),
+            'setup' => $state === 'connected' ? 'Bağlantı' : 'Yedek ve bağlantı',
+        ];
+    @endphp
+    <nav class="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="WhatsApp bölümleri" data-wa-tabs>
+        @foreach($tabs as $key => $label)
+            <button type="button" wire:click="$set('tab', '{{ $key }}')" @class([
+                '-mb-px shrink-0 border-b-2 px-4 py-2.5 text-sm font-medium',
+                'border-brand-500 text-brand-600 dark:text-brand-400' => $activeTab === $key,
+                'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300' => $activeTab !== $key,
+            ]) @if($activeTab === $key) aria-current="page" @endif>{{ $label }}</button>
+        @endforeach
+    </nav>
 
     @if($showSettings)
         @include('livewire.operator.whatsapp.settings')
     @endif
 
-    @if($showInbox)
+    @if($activeTab === 'inbox')
+        @if(in_array($backupImport?->status, ['queued', 'running'], true))
+            <p class="rounded-lg px-3 py-2 text-sm ring-1 ring-inset {{ $tone['warn'] }}">Yeni yedek çıkarılıyor; bitince yeni mesajlar listeye eklenir.</p>
+        @endif
+        @if($openQuestions > 0)
+            <p class="rounded-lg px-3 py-2 text-sm ring-1 ring-inset {{ $tone['warn'] }}" data-wa-questions-hint>Beyin senden {{ $openQuestions }} konuda bilgi istiyor; cevaplarsan cevaplar daha isabetli olur. <button type="button" wire:click="$set('tab', 'brain')" class="font-semibold underline">Cevapla</button></p>
+        @endif
         @include('livewire.operator.whatsapp.conversations')
+    @elseif($activeTab === 'brain')
+        @include('livewire.operator.whatsapp.brain')
+    @else
+        @if($state !== 'connected')
+            @include('livewire.operator.whatsapp.backup')
+            {{-- The live Meta connection waits (yakup, 2026-10-05); kept one click away. --}}
+            <details class="{{ $card }} p-5" wire:ignore.self data-wa-meta-setup @if($signupAttempt && ! in_array($signupAttempt->status, ['completed', 'expired'], true)) open @endif>
+                <summary class="cursor-pointer font-semibold text-gray-900 dark:text-white">Canlı bağlantı (Meta) <span class="font-normal text-gray-500">— askıda; mesajlar anında gelir ama Meta onayı gerekir</span></summary>
+                <div class="mt-4">@include('livewire.operator.whatsapp.setup', ['card' => ''])</div>
+            </details>
+        @else
+            <p class="text-sm text-gray-500">Numara Meta ile bağlı; mesajlar anında gelir. Bağlantı ayarları için sağ üstteki Ayarlar'ı açın.</p>
+        @endif
     @endif
 </div>

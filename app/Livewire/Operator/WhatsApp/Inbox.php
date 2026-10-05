@@ -9,6 +9,7 @@ use App\Models\CoreIntegration;
 use App\Models\Customer;
 use App\Models\WhatsAppBackupImport;
 use App\Models\WhatsAppConversation;
+use App\Models\WhatsAppMessage;
 use App\Models\WhatsAppSignupAttempt;
 use App\Models\WhatsAppWebhookReceipt;
 use App\Services\Assistant\WhatsAppContactLinker;
@@ -40,6 +41,14 @@ class Inbox extends Component
 
     #[Url]
     public ?int $conversation = null;
+
+    /** inbox | brain | setup; empty picks the inbox once there are conversations, the setup before. */
+    #[Url]
+    public string $tab = '';
+
+    /** Conversation list filter: open | waiting | ready | done | all. */
+    #[Url]
+    public string $filter = 'open';
 
     public string $app_id = '';
 
@@ -492,16 +501,93 @@ class Inbox extends Component
     /** Chats whose last message is the customer's and that have no current draft, newest first. */
     private function awaitingReply(int $integrationId): Builder
     {
-        $newest = WhatsAppConversation::query()->where('integration_id', $integrationId)->max('last_message_at');
-
-        return WhatsAppConversation::query()->where('integration_id', $integrationId)
-            ->whereNull('opted_out_at')->whereNotNull('last_incoming_at')
-            ->whereColumn('last_incoming_at', '>=', 'last_message_at')
-            ->when($newest, fn (Builder $query) => $query->where('last_message_at', '>=', Carbon::parse($newest)->subDays(self::BULK_DAYS)))
+        return $this->waiting($integrationId)
             ->whereNotIn('suggestion_status', ['requested', 'running'])
             ->where(fn (Builder $query) => $query->where('suggestion_status', '!=', 'ready')->orWhereNull('suggested_revision')
                 ->orWhereColumn('suggested_revision', '<', 'revision'))
             ->orderByDesc('last_message_at')->orderByDesc('id');
+    }
+
+    /** Open chats whose last message is the customer's, from the last BULK_DAYS days of the newest message. */
+    private function waiting(int $integrationId): Builder
+    {
+        $newest = WhatsAppConversation::query()->where('integration_id', $integrationId)->max('last_message_at');
+
+        return WhatsAppConversation::query()->where('integration_id', $integrationId)->whereNull('done_at')
+            ->whereNull('opted_out_at')->whereNotNull('last_incoming_at')
+            ->whereColumn('last_incoming_at', '>=', 'last_message_at')
+            ->when($newest, fn (Builder $query) => $query->where('last_message_at', '>=', Carbon::parse($newest)->subDays(self::BULK_DAYS)));
+    }
+
+    /** The list for the chosen filter. */
+    private function filtered(int $integrationId, string $filter): Builder
+    {
+        $base = WhatsAppConversation::query()->where('integration_id', $integrationId);
+
+        return match ($filter) {
+            'waiting' => $this->waiting($integrationId),
+            'ready' => $base->whereNull('done_at')->where('suggestion_status', 'ready')->whereColumn('suggested_revision', 'revision'),
+            'done' => $base->whereNotNull('done_at'),
+            'all' => $base,
+            default => $base->whereNull('done_at'),
+        };
+    }
+
+    /** "Tamamlandı": answered from the phone; the chat leaves the open list until the customer writes again. */
+    public function markDone(int $id, WhatsAppConnection $connection, bool $next = false): void
+    {
+        $integrationId = $connection->integration()?->id;
+        $row = WhatsAppConversation::query()->where('integration_id', $integrationId)->findOrFail($id);
+        $row->update(['done_at' => now()]);
+        if (! $next) {
+            $this->notice = 'Görüşme tamamlandı; müşteri yeniden yazarsa açık listeye döner.';
+
+            return;
+        }
+        // "Tamamla ve sıradaki": the next chat with a ready draft, else the next one waiting for an answer.
+        $following = $this->filtered($integrationId, 'ready')->orderByDesc('last_message_at')->orderByDesc('id')->first()
+            ?? $this->waiting($integrationId)->orderByDesc('last_message_at')->orderByDesc('id')->first();
+        if ($following === null) {
+            $this->conversation = null;
+            $this->notice = 'Görüşme tamamlandı. Cevap bekleyen başka görüşme yok.';
+
+            return;
+        }
+        $this->selectConversation($following->id, $connection);
+        $this->notice = 'Görüşme tamamlandı; sıradaki açıldı.';
+    }
+
+    public function reopen(int $id, WhatsAppConnection $connection): void
+    {
+        WhatsAppConversation::query()->where('integration_id', $connection->integration()?->id)->findOrFail($id)->update(['done_at' => null]);
+        $this->notice = 'Görüşme yeniden açıldı.';
+    }
+
+    public function updatedFilter(): void
+    {
+        if (! in_array($this->filter, ['open', 'waiting', 'ready', 'done', 'all'], true)) {
+            $this->filter = 'open';
+        }
+    }
+
+    /**
+     * The last message of each listed chat for the list preview ("Siz: …" for outgoing).
+     *
+     * @param  list<int>  $ids
+     * @return array<int, array{text: string, outgoing: bool}>
+     */
+    private function previews(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+        $latest = WhatsAppMessage::query()->whereIn('conversation_id', $ids)->selectRaw('max(id) as id')->groupBy('conversation_id')->pluck('id');
+
+        return WhatsAppMessage::query()->whereKey($latest)->get(['id', 'conversation_id', 'direction', 'body'])
+            ->mapWithKeys(fn (WhatsAppMessage $message): array => [$message->conversation_id => [
+                'text' => mb_substr(trim((string) preg_replace('/\s+/u', ' ', (string) $message->body)), 0, 90),
+                'outgoing' => $message->direction === 'outgoing',
+            ]])->all();
     }
 
     public function retryReceipt(int $id, WhatsAppConnection $connection): void
@@ -547,7 +633,8 @@ class Inbox extends Component
     {
         $integration = $connection->integration();
         $query = WhatsAppConversation::query()->where('integration_id', $integration?->id);
-        $rows = (clone $query)->when(trim($this->q) !== '', function ($builder): void {
+        $this->updatedFilter();
+        $rows = ($integration ? $this->filtered($integration->id, $this->filter) : (clone $query))->when(trim($this->q) !== '', function ($builder): void {
             $builder->where(function ($nested): void {
                 $term = '%'.mb_substr(trim($this->q), 0, 100).'%';
                 $nested->where('contact_name', 'like', $term)->orWhere('contact_id', 'like', $term);
@@ -561,6 +648,10 @@ class Inbox extends Component
 
         return view('livewire.operator.whatsapp.inbox', [
             'integration' => $integration, 'rows' => $rows, 'selected' => $selected, 'messages' => $messages,
+            'previews' => $this->previews($rows->pluck('id')->all()),
+            'filterCounts' => $integration ? collect(['open', 'waiting', 'ready', 'done', 'all'])
+                ->mapWithKeys(fn (string $filter): array => [$filter => $this->filtered($integration->id, $filter)->count()])->all() : [],
+            'totalConversations' => (clone $query)->count(),
             'state' => $connection->state($integration),
             'config' => $integration?->config ?? [],
             'credentialStatus' => $connection->credentialStatus($integration),

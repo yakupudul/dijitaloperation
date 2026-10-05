@@ -105,11 +105,14 @@ final class WhatsAppBackupImportTest extends TestCase
         Queue::assertPushed(LearnWhatsAppBrain::class);
 
         Livewire::test(Inbox::class)
-            ->assertSee('2 görüşme yedekten geldi')
-            ->assertSee('1 grup sohbeti alınmadı')
+            ->assertSee('Gelen kutusu (2)')
             ->assertSee('Gizli numara')
             ->assertSee('Beyin')
+            ->set('tab', 'setup')
+            ->assertSee('2 görüşme yedekten geldi')
+            ->assertSee('1 grup sohbeti alınmadı')
             ->assertSee('Canlı bağlantı (Meta)')
+            ->set('tab', 'inbox')
             ->call('selectConversation', $chat->id)
             ->assertSee('Merhaba, web sitesi fiyatı nedir?')
             ->assertSee('Mesaj üret')
@@ -215,6 +218,8 @@ final class WhatsAppBackupImportTest extends TestCase
         WhatsAppBrainAgent::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, 'Kişi 1') && ! str_contains((string) $prompt->prompt, '905321112233'));
         $this->actingAs($this->admin);
         Livewire::test(Inbox::class)
+            ->assertSee('Beyin senden 1 konuda bilgi istiyor')
+            ->set('tab', 'brain')
             ->assertSee('Senden istediklerim')->assertSee('20.000 TL fiyatı hâlâ geçerli mi?')
             ->set('business_context', 'Kurumsal site artık 25.000 TL.')->call('saveInstructions')->assertHasNoErrors();
 
@@ -286,7 +291,7 @@ final class WhatsAppBackupImportTest extends TestCase
         $this->assertStringNotContainsString($this->key, $stored);
         $this->assertSame($this->key, Crypt::decryptString($stored));
         $this->assertNull($first->fresh()->getRawOriginal('backup_key'));
-        Livewire::test(Inbox::class)->assertSee('Anahtar kayıtlı');
+        Livewire::test(Inbox::class)->set('tab', 'setup')->assertSee('Anahtar kayıtlı');
 
         $content = $this->backup([['905321112233', 's.whatsapp.net', [['A1', 0, '2026-09-01 10:00', 0, 'Selam'], ['A2', 0, '2026-09-02 10:00', 0, 'Orada mısınız?']]]]);
         $id = $this->postJson(route('operator.whatsapp.backup'), ['name' => 'msgstore.db.crypt15', 'size' => strlen($content)])->json('id');
@@ -302,7 +307,7 @@ final class WhatsAppBackupImportTest extends TestCase
         Queue::fake();
         $this->extract($this->upload($this->backup([['905321112233', 's.whatsapp.net', [['A1', 0, '2026-09-01 10:00', 0, 'Selam']]]])));
         $this->actingAs($this->admin);
-        Livewire::test(Inbox::class)->call('forgetBackupKey')->assertDontSee('Anahtar kayıtlı');
+        Livewire::test(Inbox::class)->set('tab', 'setup')->call('forgetBackupKey')->assertDontSee('Anahtar kayıtlı');
         $this->assertArrayNotHasKey('backup_key', app(WhatsAppConnection::class)->integration()->config);
 
         $next = $this->upload($this->backup([['905321112233', 's.whatsapp.net', [['A2', 0, '2026-09-02 10:00', 0, 'Yeni']]]]));
@@ -340,7 +345,7 @@ final class WhatsAppBackupImportTest extends TestCase
         $this->actingAs($this->admin);
 
         Livewire::test(Inbox::class)->call('saveAnswers')->assertHasErrors('answers');
-        Livewire::test(Inbox::class)->set('answers.1', 'KDV hariç.')->call('saveAnswers')->assertHasNoErrors()
+        Livewire::test(Inbox::class)->set('tab', 'brain')->set('answers.1', 'KDV hariç.')->call('saveAnswers')->assertHasNoErrors()
             ->assertSet('business_context', "Kısa yaz.\n\n- KDV dahil mi? → KDV hariç.")
             ->assertSee('Site fiyatı ne?')->assertDontSee('KDV dahil mi?</span>', false);
 
@@ -403,6 +408,42 @@ final class WhatsAppBackupImportTest extends TestCase
         $one = WhatsAppConversation::query()->where('contact_id', '905321112244')->value('id');
         $this->get(route('operator.whatsapp.export', ['conversation' => $one]))->assertOk();
         $this->get(route('operator.whatsapp.export', ['conversation' => 999999]))->assertNotFound();
+    }
+
+    public function test_the_inbox_filters_previews_and_done_then_next_flow(): void
+    {
+        Queue::fake();
+        $this->extract($this->upload($this->backup([
+            ['905321112233', 's.whatsapp.net', [['A1', 1, '2026-09-10 10:00', 0, 'Merhaba'], ['A2', 0, '2026-09-10 11:00', 0, 'Fiyat nedir?']]],
+            ['905321112244', 's.whatsapp.net', [['B1', 0, '2026-09-11 10:00', 0, 'Selam'], ['B2', 1, '2026-09-11 10:05', 0, 'Buyurun efendim']]],
+            ['905321112255', 's.whatsapp.net', [['C1', 0, '2026-09-12 10:00', 0, 'Logo yapıyor musunuz?']]],
+        ])));
+        $first = WhatsAppConversation::query()->where('contact_id', '905321112233')->firstOrFail();
+        $third = WhatsAppConversation::query()->where('contact_id', '905321112255')->firstOrFail();
+        $third->update(['suggestion_status' => 'ready', 'suggested_revision' => $third->revision, 'suggestion' => 'Evet, logo da yapıyoruz.', 'suggestion_action' => 'reply']);
+        $this->actingAs($this->admin);
+
+        Livewire::test(Inbox::class)
+            ->assertSee('Siz: Buyurun efendim')->assertSee('Cevap bekliyor')
+            ->set('filter', 'waiting')->assertSee('+905321112233')->assertDontSee('+905321112244')
+            ->set('filter', 'ready')->assertSee('+905321112255')->assertDontSee('+905321112233')
+            ->call('selectConversation', $third->id)
+            ->assertSee("WhatsApp'ta aç", false)->assertSee('https://wa.me/905321112255')
+            ->call('markDone', $third->id, true)
+            ->assertSet('conversation', $first->id)
+            ->assertSee('sıradaki açıldı');
+
+        $this->assertNotNull($third->fresh()->done_at);
+        Livewire::test(Inbox::class)->set('filter', 'done')->assertSee('+905321112255')->assertDontSee('+905321112233')
+            ->set('filter', 'open')->assertDontSee('+905321112255');
+
+        // The customer writes again: a newer backup brings the chat back to the open list.
+        $this->travel(1)->minutes();
+        $next = $this->upload($this->backup([['905321112255', 's.whatsapp.net', [
+            ['C1', 0, '2026-09-12 10:00', 0, 'Logo yapıyor musunuz?'], ['C2', 0, now('Europe/Istanbul')->addDay()->format('Y-m-d H:i'), 0, 'Fiyat?'],
+        ]]]));
+        app(WhatsAppBackupImporter::class)->run($next->id);
+        $this->assertNull($third->fresh()->done_at);
     }
 
     private function backup(array $chats): string
