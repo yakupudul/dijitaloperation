@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-12-04 — WhatsApp: Meta bağlantısı askıda, telefon yedeği + beyin
+
+- **Karar (yakup, 2026-10-05):** Meta birlikte kullanım bağlantısı askıya alındı (numara reklamlarda kullanılan portföyde; uygulama sahibi portföy Embedded Signup'ta seçilemiyor). Görüşmeler Android WhatsApp Business yedeğinden (`msgstore.db.crypt15` + 64 haneli anahtar) yüklenir; yeni mesajlar için güncel yedek yüklenir.
+  - Beyin ilk çıkarmadan sonra görüşmelerden öğrenir; yakup'un "Talimatlarım"ı her zaman önce gelir. Beyin de OpenAI'da (WhatsApp, Claude MCP kuralının istisnası).
+  - Dosya ve anahtar çıkarma bitince silinir; mesaj metinleri şifreli saklanır. MoxDOP yine mesaj göndermez.
+
 ## 2026-12-01 — WhatsApp gelen kutusu geri döndü
 
 - **Karar (yakup, 2026-10-04):** Meta uygulama incelemesi `whatsapp_business_management` iznini onayladı; v2'de silinen WhatsApp kutusu geri gelir (`/whatsapp`, yalnız Admin).

@@ -45,7 +45,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // The WhatsApp connect page talks to its routes with fetch(): errors (session, expiry, limits) must come back
         // as JSON with a message the page can show, not as an HTML page or a redirect to the login form.
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*') || ($request->is('whatsapp/connect/*') && $request->expectsJson()),
+            fn (Request $request) => $request->is('api/*') || ($request->is('whatsapp/connect/*', 'whatsapp/backup*') && $request->expectsJson()),
         );
         // PostgreSQL: a read by a non-numeric / out-of-range id is a bad link (404), not a server error.
         $exceptions->map(QueryException::class, fn (QueryException $exception): Throwable => LivewireActionErrors::isBadIdentifier($exception)

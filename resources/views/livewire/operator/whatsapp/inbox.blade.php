@@ -6,7 +6,12 @@
         'bad' => 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/20',
         'muted' => 'bg-gray-100 text-gray-600 ring-gray-200 dark:bg-white/[0.06] dark:text-gray-300 dark:ring-gray-700',
     ];
-    $phoneLabel = fn (?string $number): string => filled($number) ? '+'.$number : '—';
+    // Backup chats can come with a hidden number (lid…) instead of a phone number.
+    $phoneLabel = fn (?string $number): string => match (true) {
+        filled($number) && ctype_digit($number) => '+'.$number,
+        filled($number) => 'Gizli numara',
+        default => '—',
+    };
     $when = fn ($value): string => $value ? \Carbon\CarbonImmutable::parse($value)->timezone('Europe/Istanbul')->format('d.m.Y H:i') : '—';
     $statePill = [
         'connected' => ['ok', 'Bağlı · '.$phoneLabel($config['business_phone'] ?? null)],
@@ -42,12 +47,13 @@
         && ($attemptBusy || $signupAttempt->updated_at->greaterThan(now()->subDay()));
     $suggestionBusy = $selected && in_array($selected->suggestion_status, ['requested', 'running'], true);
     $showInbox = in_array($state, ['connected', 'attention', 'disabled'], true) || $rows->total() > 0 || trim($q) !== '';
+    $backgroundBusy = in_array($backupImport?->status, ['queued', 'running'], true) || in_array($config['brain_status'] ?? null, ['queued', 'running'], true);
 @endphp
 <div class="space-y-5">
     {{-- Separate keyed pollers: changing one element's poll interval would leave the old timer running. --}}
     @if($attemptBusy || $suggestionBusy || ($config['connection_check'] ?? '') === 'queued')
         <div wire:key="wa-poll-fast" wire:poll.3s hidden></div>
-    @elseif((! $showSettings && $state === 'connected') || $attemptWaiting)
+    @elseif((! $showSettings && $state === 'connected') || $attemptWaiting || $backgroundBusy)
         <div wire:key="wa-poll-slow" wire:poll.10s hidden></div>
     @endif
     <div class="flex flex-wrap items-start justify-between gap-3">
@@ -103,7 +109,19 @@
     @endif
 
     @if($state !== 'connected')
-        @include('livewire.operator.whatsapp.setup')
+        @include('livewire.operator.whatsapp.backup')
+    @endif
+
+    @if($backupConversations > 0 || ! empty($config['brain']) || $rows->total() > 0)
+        @include('livewire.operator.whatsapp.brain')
+    @endif
+
+    @if($state !== 'connected')
+        {{-- The live Meta connection waits (yakup, 2026-10-05); kept one click away. --}}
+        <details class="{{ $card }} p-5" wire:ignore.self data-wa-meta-setup @if($signupAttempt && ! in_array($signupAttempt->status, ['completed', 'expired'], true)) open @endif>
+            <summary class="cursor-pointer font-semibold text-gray-900 dark:text-white">Canlı bağlantı (Meta) <span class="font-normal text-gray-500">— askıda; mesajlar anında gelir ama Meta onayı gerekir</span></summary>
+            <div class="mt-4">@include('livewire.operator.whatsapp.setup', ['card' => ''])</div>
+        </details>
     @endif
 
     @if($showSettings)

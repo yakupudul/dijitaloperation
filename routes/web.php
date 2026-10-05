@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\OperatorResetPasswordController;
 use App\Http\Controllers\Auth\OperatorTwoFactorChallengeController;
 use App\Http\Controllers\Integrations\GoogleOAuthController;
 use App\Http\Controllers\Integrations\MetaOAuthController;
+use App\Http\Controllers\Integrations\WhatsAppBackupController;
 use App\Http\Controllers\Integrations\WhatsAppSignupController;
 use App\Http\Controllers\LegacyRetiredPrefixController;
 use App\Http\Controllers\Operator\PushController;
@@ -101,6 +102,10 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (
         ->whereUuid('attempt')->middleware('throttle:10,1,wa-phone')->name('operator.whatsapp.select-phone');
     Route::post('/whatsapp/connect/{attempt}/report', [WhatsAppSignupController::class, 'report'])
         ->whereUuid('attempt')->middleware('throttle:30,1,wa-report')->name('operator.whatsapp.report');
+    Route::post('/whatsapp/backup', [WhatsAppBackupController::class, 'begin'])
+        ->middleware('throttle:10,1,wa-backup')->name('operator.whatsapp.backup');
+    Route::post('/whatsapp/backup/{import}/chunk', [WhatsAppBackupController::class, 'chunk'])
+        ->whereUuid('import')->middleware('throttle:600,1,wa-backup-chunk')->name('operator.whatsapp.backup.chunk');
     Route::livewire('/whatsapp', WhatsAppInbox::class)
         ->name('operator.whatsapp');
 });

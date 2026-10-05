@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Ai\Agents\WhatsAppBrainAgent;
 use App\Ai\Agents\WhatsAppReplyAgent;
 use App\Contracts\Ai\AgentContextGateway as AgentContextGatewayContract;
 use App\Contracts\Collection\ActivityTierReader;
@@ -295,6 +296,16 @@ class AppServiceProvider extends ServiceProvider
         $this->trackLiveAiOperations();
         ProductionArchive::boot();
         WhatsAppContactLinker::boot();
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => WhatsAppBrainAgent::ROUTE,
+            'name' => 'WhatsApp Brain',
+            'module' => 'whatsapp',
+            'description' => 'Learns services, quoted prices, frequent questions and tone from the business\'s past WhatsApp chats (OpenAI, model chosen on the WhatsApp screen); read by reply drafts.',
+            'default_steps' => [[
+                'provider' => AiProviderCatalog::OPENAI,
+                'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
+            ]],
+        ]);
         $this->app->make(AiRouteRegistry::class)->register([
             'key' => WhatsAppReplyAgent::ROUTE,
             'name' => 'WhatsApp Reply Assistant',

@@ -7,10 +7,13 @@ use App\Jobs\WhatsApp\GenerateWhatsAppSuggestion;
 use App\Models\AgencySetting;
 use App\Models\CoreIntegration;
 use App\Models\Customer;
+use App\Models\WhatsAppBackupImport;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppSignupAttempt;
 use App\Models\WhatsAppWebhookReceipt;
 use App\Services\Assistant\WhatsAppContactLinker;
+use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
+use App\Services\WhatsApp\WhatsAppBrain;
 use App\Services\WhatsApp\WhatsAppConnection;
 use App\Services\WhatsApp\WhatsAppSignup;
 use App\Services\WhatsApp\WhatsAppSuggestions;
@@ -149,6 +152,64 @@ class Inbox extends Component
         $this->notice = $signup->requestHistory(auth()->user())
             ? 'Meta\'dan geçmiş mesajlar istendi. Birkaç dakika içinde görüşme listesine gelmeye başlar.'
             : 'Meta geçmiş mesaj aktarımını başlatmadı; nedeni aşağıda yazıyor. 24 saat dolmadan tekrar deneyebilirsiniz.';
+    }
+
+    /** "Çıkar": the uploaded backup is opened with the 64-digit key in the background (the key never enters Livewire state). */
+    public function extractBackup(string $key, WhatsAppBackupImporter $importer): bool
+    {
+        $this->resetValidation();
+        try {
+            $importer->extract(auth()->user(), $key);
+        } catch (ValidationException $exception) {
+            foreach ($exception->errors() as $field => $messages) {
+                $this->addError($field, $messages[0]);
+            }
+
+            return false;
+        }
+        $this->notice = 'Yedek çıkarılıyor. Büyük yedekler birkaç dakika sürer; bu sayfa kendiliğinden yenilenir.';
+
+        return true;
+    }
+
+    /** Drops an uploaded backup that will not be extracted. */
+    public function discardBackup(WhatsAppBackupImporter $importer): void
+    {
+        foreach (WhatsAppBackupImport::query()->whereIn('status', ['uploading', 'uploaded', 'failed'])->get() as $import) {
+            $importer->discard($import);
+        }
+        $this->notice = 'Yüklenen yedek silindi.';
+    }
+
+    /** "Yeniden öğren": the brain reads the chats again. */
+    public function learnBrain(WhatsAppBrain $brain): void
+    {
+        $this->resetValidation();
+        try {
+            $brain->request(auth()->user());
+            $this->notice = 'Beyin görüşmeleri okuyor; birkaç dakika içinde burada görünür.';
+        } catch (ValidationException $exception) {
+            $this->addError('brain', collect($exception->errors())->flatten()->first());
+        }
+    }
+
+    /** The operator's own instructions for the replies (prices, rules, what to say); they win over what was learned. */
+    public function saveInstructions(WhatsAppConnection $connection): void
+    {
+        $this->resetValidation();
+        $this->validate(['business_context' => ['required', 'string', 'max:12000']], [], ['business_context' => 'talimatlar']);
+        $integration = $connection->integration() ?? CoreIntegration::query()->firstOrCreate(['provider' => WhatsAppConnection::PROVIDER], [
+            'name' => 'WhatsApp Business', 'status' => CoreIntegration::STATUS_ACTIVE, 'config' => [],
+        ]);
+        DB::transaction(function () use ($integration): void {
+            $current = CoreIntegration::query()->lockForUpdate()->findOrFail($integration->id);
+            $config = $current->config ?? [];
+            if (($config['business_context'] ?? '') !== $this->business_context) {
+                $current->update(['config' => [...$config, 'business_context' => $this->business_context]]);
+                WhatsAppConnection::contextChanged($current);
+            }
+        });
+        $this->notice = 'Talimatlar kaydedildi. Bundan sonraki cevaplar bunlara göre hazırlanır.';
     }
 
     /** Settings › Bağlantıyı sıfırla: back to the first setup step; nothing is changed at Meta. */
@@ -391,6 +452,8 @@ class Inbox extends Component
             'credentialStatus' => $connection->credentialStatus($integration),
             'historyDeadline' => $connection->historyDeadline($integration),
             'signupAttempt' => $attempt,
+            'backupImport' => WhatsAppBackupImport::query()->latest()->first(),
+            'backupConversations' => (clone $query)->where('phone_number_id', WhatsAppBackupImporter::LINE)->count(),
             'conversationCount' => $this->showSettings ? (clone $query)->count() : 0,
             // The connect page only opens in the session that started the attempt.
             'attemptOwned' => $attempt !== null && $attempt->user_id === auth()->id() && hash_equals($attempt->session_hash, hash('sha256', session()->getId())),

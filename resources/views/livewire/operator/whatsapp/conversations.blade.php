@@ -1,7 +1,7 @@
 @php
     $suggestionLabels = [
         'pending' => ['muted', 'Öneri bekliyor'], 'requested' => ['warn', 'Öneri sırada'], 'running' => ['warn', 'Öneri hazırlanıyor'],
-        'ready' => ['ok', 'Öneri hazır'], 'failed' => ['bad', 'Öneri hazırlanamadı'],
+        'ready' => ['ok', 'Öneri hazır'], 'failed' => ['bad', 'Öneri hazırlanamadı'], 'idle' => ['muted', 'Yedekten'],
     ];
     $shortTime = function ($at): string {
         if (! $at) {
@@ -39,7 +39,7 @@
                     </span>
                 </button>
             @empty
-                <p class="p-5 text-sm text-gray-500">{{ trim($q) !== '' ? 'Aramaya uyan görüşme yok.' : ($state === 'connected' ? 'Henüz mesaj gelmedi. Numaranıza gelen ilk mesaj burada görünecek.' : 'Numara bağlanınca gelen mesajlar burada listelenir.') }}</p>
+                <p class="p-5 text-sm text-gray-500">{{ trim($q) !== '' ? 'Aramaya uyan görüşme yok.' : ($state === 'connected' ? 'Henüz mesaj gelmedi. Numaranıza gelen ilk mesaj burada görünecek.' : 'Yedek çıkarılınca ya da numara bağlanınca görüşmeler burada listelenir.') }}</p>
             @endforelse
         </div>
         @if($rows->hasPages())<div class="border-t border-gray-200 p-2 dark:border-gray-800">{{ $rows->links() }}</div>@endif
@@ -48,7 +48,9 @@
     <section class="{{ $card }} flex min-w-0 flex-col lg:col-span-8 lg:h-[calc(100vh-14rem)] lg:min-h-[32rem]">
         @if($selected)
             @php
-                $lastIn = $selected->last_incoming_at;
+                $fromBackup = $selected->phone_number_id === \App\Services\WhatsApp\Backup\WhatsAppBackupImporter::LINE;
+                // The 24-hour window is a Cloud API rule; a backup chat is answered from the phone.
+                $lastIn = $fromBackup ? null : $selected->last_incoming_at;
                 $windowOpen = $lastIn && $lastIn->greaterThan(now()->subHours(24));
                 $hoursLeft = $windowOpen ? max(1, (int) ceil(now()->diffInHours($lastIn->copy()->addHours(24), false))) : 0;
                 $suggestionFresh = $selected->suggestion_status === 'ready' && $selected->suggested_revision === $selected->revision;
@@ -58,6 +60,9 @@
                     <h2 class="truncate font-semibold text-gray-900 dark:text-white">{{ $selected->contact_name ?: $phoneLabel($selected->contact_id) }}</h2>
                     <p class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                         <span>{{ $phoneLabel($selected->contact_id) }}</span>
+                        @if($fromBackup)
+                            <span class="rounded-full px-2 py-0.5 ring-1 ring-inset {{ $tone['muted'] }}" title="Telefondaki yedekten geldi; yedekten sonraki mesajlar burada yok.">Yedekten</span>
+                        @endif
                         @if($windowOpen)
                             <span class="rounded-full px-2 py-0.5 ring-1 ring-inset {{ $tone['ok'] }}" title="Son gelen mesajdan sonraki 24 saat içinde telefondan normal cevap verebilirsiniz.">Cevap penceresi açık · ~{{ $hoursLeft }} sa</span>
                         @elseif($lastIn)
@@ -127,13 +132,13 @@
                             <p class="text-gray-700 dark:text-gray-200">{{ match ($selected->suggestion_status) {
                                 'running', 'requested' => 'AI cevap önerisi hazırlanıyor…',
                                 'failed' => 'Öneri hazırlanamadı.',
-                                default => 'Bu görüşme için güncel öneri yok.',
+                                default => $fromBackup ? 'Cevap gerektiğinde "Mesaj üret"e basın; beyin ve talimatlarınıza göre hazırlanır.' : 'Bu görüşme için güncel öneri yok.',
                             } }}</p>
                             @if($selected->suggestion_status === 'failed' && $selected->error_code)
                                 <p class="text-xs text-gray-500">{{ \App\Services\WhatsApp\WhatsAppSuggestions::ERROR_LABELS[$selected->error_code] ?? $selected->error_code }}</p>
                             @endif
                         </div>
-                        <button type="button" wire:click="generate({{ $selected->id }})" wire:loading.attr="disabled" @disabled(in_array($selected->suggestion_status, ['running', 'requested'], true)) class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50">{{ $selected->suggestion_status === 'failed' ? 'Tekrar dene' : 'Öneri hazırla' }}</button>
+                        <button type="button" wire:click="generate({{ $selected->id }})" wire:loading.attr="disabled" @disabled(in_array($selected->suggestion_status, ['running', 'requested'], true)) class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50">{{ $selected->suggestion_status === 'failed' ? 'Tekrar dene' : 'Mesaj üret' }}</button>
                     </div>
                 @endif
             </div>

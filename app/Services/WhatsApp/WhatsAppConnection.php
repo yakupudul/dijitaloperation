@@ -5,10 +5,12 @@ namespace App\Services\WhatsApp;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\User;
+use App\Models\WhatsAppBackupImport;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use App\Models\WhatsAppSignupAttempt;
 use App\Models\WhatsAppWebhookReceipt;
+use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
 use App\Support\Permissions;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
@@ -141,8 +143,8 @@ final class WhatsAppConnection
 
     /**
      * Start over from the first setup step: the Meta app details, the bound number, every secret (access token, app
-     * secret, verify token), the connection attempts and the received conversations are removed. The reply-suggestion
-     * settings stay. Nothing is changed at Meta.
+     * secret, verify token), the connection attempts, the received and imported conversations, uploaded backups and
+     * the learned brain are removed. The reply-suggestion settings stay. Nothing is changed at Meta.
      */
     public function reset(User $user): void
     {
@@ -163,6 +165,9 @@ final class WhatsAppConnection
             WhatsAppMessage::query()->whereIn('conversation_id', $conversations)->delete();
             WhatsAppConversation::query()->where('integration_id', $integration->id)->delete();
             WhatsAppWebhookReceipt::query()->where('integration_id', $integration->id)->delete();
+            foreach (WhatsAppBackupImport::query()->get() as $import) {
+                app(WhatsAppBackupImporter::class)->discard($import);
+            }
         });
     }
 

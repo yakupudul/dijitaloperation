@@ -7,6 +7,7 @@ use App\Models\CoreIntegration;
 use App\Models\WhatsAppConversation;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiProviderOptions;
 use Illuminate\Support\Facades\Context;
@@ -81,7 +82,7 @@ final class WhatsAppSuggestions
             return;
         }
         $revision = $conversation->revision;
-        $settings = hash('sha256', (string) data_get($integration->config, 'business_context', ''));
+        $settings = self::fingerprint($integration);
         $claimed = WhatsAppConversation::query()->whereKey($conversationId)->where('revision', $revision)
             ->whereIn('suggestion_status', ['pending', 'requested'])
             ->update(['suggestion_status' => 'running', 'error_code' => null, 'updated_at' => now()]);
@@ -132,10 +133,13 @@ final class WhatsAppSuggestions
                 json_encode([
                     'current_time' => now('Europe/Istanbul')->toIso8601String(),
                     'business_context' => data_get($integration->config, 'business_context', ''),
+                    'learned_profile' => WhatsAppBrain::forPrompt($integration),
                     'contact_name' => $conversation->contact_name,
                     'messages' => array_reverse($context),
                     'context_truncated' => $truncated,
-                    'history_coverage' => 'Only received provider events. Complete history not verified.',
+                    'history_coverage' => $conversation->phone_number_id === WhatsAppBackupImporter::LINE
+                        ? 'Imported from the business phone\'s WhatsApp backup taken around '.data_get($integration->config, 'backup_snapshot_at', 'an unknown time').'. Messages after the backup are not included; the operator may already have replied on the phone.'
+                        : 'Only received provider events. Complete history not verified.',
                     'outgoing_echo_observed' => filled(data_get($integration->config, 'echo_seen_at')),
                     'message_delivery_status' => 'Not verified. An outgoing event does not prove delivery or reading.',
                 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
@@ -158,7 +162,7 @@ final class WhatsAppSuggestions
                 if (! $current || $current->revision !== $revision || $current->suggestion_status !== 'running') {
                     return;
                 }
-                if (! $currentIntegration?->isActive() || $settings !== hash('sha256', (string) data_get($currentIntegration->config, 'business_context', ''))) {
+                if (! $currentIntegration?->isActive() || $settings !== self::fingerprint($currentIntegration)) {
                     $current->update(['suggestion_status' => 'pending']);
 
                     return;
@@ -177,6 +181,12 @@ final class WhatsAppSuggestions
             // Provider exceptions can contain prompts/tokens; persist only a bounded error code.
             $this->fail($conversationId, $revision, 'ai_request_failed');
         }
+    }
+
+    /** A draft is stale when the operator's instructions or the learned brain changed after it was written. */
+    public static function fingerprint(?CoreIntegration $integration): string
+    {
+        return hash('sha256', (string) data_get($integration?->config, 'business_context', '').'|'.(string) data_get($integration?->config, 'brain.learned_at', ''));
     }
 
     private function fail(int $id, int $revision, string $code): void

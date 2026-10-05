@@ -292,3 +292,29 @@ Symptom: after the 2026-12-02 deploy the attempt again stayed `prepared` with no
 - Tests: `WhatsAppSignupFlowTest` (diary, relaunch after cancel, `NO_CALLBACK`, 409, other session, JSON 401, reset).
   The page script was exercised in Chromium against a stubbed SDK (closed window without answer, finish + code,
   blocked window, page left, cancel). Not verified against a live Meta popup.
+
+## 2026-12-04 — Phone backup import and the brain
+
+The Meta coexistence connection is suspended (the app-owner portfolio cannot be picked in Embedded Signup and the
+number must stay in the advertising portfolio). The inbox is filled from the phone instead.
+
+- Upload: Android WhatsApp Business end-to-end encrypted backup, `msgstore.db.crypt15` with the 64-digit key.
+  `POST operator.whatsapp.backup` `{name, size}` returns `{id, chunk}`; the browser sends raw 4 MB pieces to
+  `operator.whatsapp.backup.chunk?offset=N` (409 `{expected_offset}` resumes). Max 2 GB. crypt14 / crypt12 are refused
+  with how to take a 64-digit-key backup. One import at a time (`whatsapp_backup_imports`); the file lives in
+  `storage/app/private/whatsapp-backups/`.
+- Extract (`ExtractWhatsAppBackup`, heavy queue): key = HMAC-SHA256(HMAC-SHA256(zeros, root), "backup encryption\x01");
+  AES-256-GCM with the IV from the protobuf prefix; zlib payload is the SQLite msgstore. Modern (`message`/`chat`/`jid`
+  + `jid_map`) and legacy (`messages`) schemas are read. One-to-one chats only; system messages skipped; media become
+  placeholders. Known message ids are skipped, so a newer backup adds only the missing messages. A wrong key returns the
+  import to `uploaded` and keeps the file; completion or failure deletes the file and key.
+- Brain (`WhatsAppBrain`, `LearnWhatsAppBrain`, route `whatsapp.brain`, OpenAI with the screen's model): learned once
+  after the first extraction and on "Yeniden öğren". Reads up to 80 recent two-sided chats × 30 messages (150k chars),
+  contacts pseudonymised. Stores summary, services, quoted prices with dates, FAQ, tone, policies, avoid and
+  open_questions in `config.brain`. Reply drafts get it as `learned_profile`; the operator's `business_context`
+  ("Talimatlarım") wins and learned prices are flagged as earlier quotes.
+- Screen: backup card, brain card ("Senden istediklerim", learned sections, instructions), then the Meta setup folded
+  under "Canlı bağlantı (Meta) — askıda". Backup chats show "Yedekten" and a "Mesaj üret" button; no automatic drafts
+  and no reply-window badge for them.
+- Tests: `WhatsAppBackupImportTest`. Not yet verified against a real phone backup.
+

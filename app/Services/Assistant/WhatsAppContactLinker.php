@@ -37,6 +37,10 @@ final class WhatsAppContactLinker
         if ($conversation->link_source === 'operator') {
             return false;
         }
+        // A hidden-number contact (lid…, from a backup) is not a phone number.
+        if (! ctype_digit((string) $conversation->contact_id)) {
+            return false;
+        }
         $key = self::key((string) $conversation->contact_id);
         if ($key === null) {
             return false;

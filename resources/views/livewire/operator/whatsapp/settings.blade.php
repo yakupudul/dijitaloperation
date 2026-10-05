@@ -15,11 +15,7 @@
             <label class="flex items-start gap-2 text-sm"><input type="checkbox" wire:model="automatic_suggestions" class="mt-0.5" />
                 <span>Yeni mesaj gelince öneriyi kendiliğinden hazırla<span class="block text-xs text-gray-500">Kapalıyken görüşmedeki "Öneri hazırla" düğmesiyle istersiniz.</span></span>
             </label>
-            <label class="block text-sm">Hizmetler, fiyatlar ve konuşma üslubu
-                <textarea wire:model="business_context" rows="6" maxlength="12000" class="{{ $field }}"></textarea>
-                <span class="mt-1 block text-xs text-gray-500">AI fiyat ve hizmet bilgisini yalnız buradan alır; burada yazmayanı uydurmaz.</span>
-                @error('business_context')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
-            </label>
+            <p class="text-xs text-gray-500">Fiyatlar, hizmetler ve üslup için talimatlar ana ekrandaki "Beyin" bölümünde.</p>
             <label class="block text-sm">Mesaj metinlerini sakla (gün, KVKK)
                 <input type="number" min="30" max="3650" wire:model="retention_days" placeholder="Boş: süresiz" class="{{ $field }} max-w-40" />
                 @error('retention_days')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
