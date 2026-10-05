@@ -4,7 +4,7 @@
 
 - **Karar (yakup, 2026-10-05):** Meta birlikte kullanım bağlantısı askıya alındı (numara reklamlarda kullanılan portföyde; uygulama sahibi portföy Embedded Signup'ta seçilemiyor). Görüşmeler Android WhatsApp Business yedeğinden (`msgstore.db.crypt15` + 64 haneli anahtar) yüklenir; yeni mesajlar için güncel yedek yüklenir.
   - Beyin ilk çıkarmadan sonra görüşmelerden öğrenir; yakup'un "Talimatlarım"ı her zaman önce gelir. Beyin de OpenAI'da (WhatsApp, Claude MCP kuralının istisnası).
-  - Dosya ve anahtar çıkarma bitince silinir; mesaj metinleri şifreli saklanır. MoxDOP yine mesaj göndermez.
+  - Dosya çıkarma bitince silinir. Çalışan anahtar şifreli saklanır (yakup: sonraki yedeklerde yalnız dosyayı yükler); "Kayıtlı anahtarı sil" ile silinir. Mesaj metinleri şifreli saklanır. MoxDOP yine mesaj göndermez.
 
 ## 2026-12-01 — WhatsApp gelen kutusu geri döndü
 

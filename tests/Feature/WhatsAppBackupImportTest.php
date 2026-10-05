@@ -24,6 +24,7 @@ use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
 use Livewire\Livewire;
@@ -144,7 +145,11 @@ final class WhatsAppBackupImportTest extends TestCase
         $chat->update(['suggestion_status' => 'ready', 'suggested_revision' => $chat->revision, 'suggestion' => 'Eski taslak']);
 
         $second = [['905321112233', 's.whatsapp.net', [...$first[0][2], ['A3', 0, '2026-09-03 09:00', 0, 'Fiyat var mı?']]]];
-        $import = $this->extract($this->upload($this->backup($second)));
+        // The key saved by the first extraction: uploading the file alone queues the extraction.
+        $import = $this->upload($this->backup($second));
+        $this->assertSame('queued', $import->status);
+        app(WhatsAppBackupImporter::class)->run($import->id);
+        $import = $import->fresh();
 
         $this->assertSame(['chats' => 1, 'new_chats' => 0, 'new_messages' => 1], array_intersect_key($import->stats, array_flip(['chats', 'new_chats', 'new_messages'])));
         $this->assertSame(3, WhatsAppMessage::query()->count());
@@ -263,6 +268,44 @@ final class WhatsAppBackupImportTest extends TestCase
      *
      * @param  list<array{0: string, 1: string, 2: list<array{0: string, 1: int, 2: string, 3: int, 4: string}>}>  $chats  [user, server, [[key_id, from_me, time (Istanbul), type, text]]]
      */
+    public function test_the_working_key_is_saved_encrypted_and_later_uploads_need_only_the_file(): void
+    {
+        Queue::fake();
+        $chats = [['905321112233', 's.whatsapp.net', [['A1', 0, '2026-09-01 10:00', 0, 'Selam']]]];
+        $first = $this->upload($this->backup($chats));
+        $this->assertSame('uploaded', $first->status);
+        $this->actingAs($this->admin);
+        Livewire::test(Inbox::class)->call('extractBackup', '')->assertHasErrors('backup_key');
+
+        $this->extract($first);
+        $stored = app(WhatsAppConnection::class)->integration()->config['backup_key'];
+        $this->assertStringNotContainsString($this->key, $stored);
+        $this->assertSame($this->key, Crypt::decryptString($stored));
+        $this->assertNull($first->fresh()->getRawOriginal('backup_key'));
+        Livewire::test(Inbox::class)->assertSee('Anahtar kayıtlı');
+
+        $content = $this->backup([['905321112233', 's.whatsapp.net', [['A1', 0, '2026-09-01 10:00', 0, 'Selam'], ['A2', 0, '2026-09-02 10:00', 0, 'Orada mısınız?']]]]);
+        $id = $this->postJson(route('operator.whatsapp.backup'), ['name' => 'msgstore.db.crypt15', 'size' => strlen($content)])->json('id');
+        $this->piece($id, 0, $content)->assertOk()->assertJson(['complete' => true, 'extracting' => true]);
+        Queue::assertPushed(ExtractWhatsAppBackup::class, fn (ExtractWhatsAppBackup $job): bool => $job->importId === $id);
+        app(WhatsAppBackupImporter::class)->run($id);
+        $this->assertSame('completed', WhatsAppBackupImport::query()->findOrFail($id)->status);
+        $this->assertSame(2, WhatsAppMessage::query()->count());
+    }
+
+    public function test_a_forgotten_key_is_asked_for_again(): void
+    {
+        Queue::fake();
+        $this->extract($this->upload($this->backup([['905321112233', 's.whatsapp.net', [['A1', 0, '2026-09-01 10:00', 0, 'Selam']]]])));
+        $this->actingAs($this->admin);
+        Livewire::test(Inbox::class)->call('forgetBackupKey')->assertDontSee('Anahtar kayıtlı');
+        $this->assertArrayNotHasKey('backup_key', app(WhatsAppConnection::class)->integration()->config);
+
+        $next = $this->upload($this->backup([['905321112233', 's.whatsapp.net', [['A2', 0, '2026-09-02 10:00', 0, 'Yeni']]]]));
+        $this->assertSame('uploaded', $next->status);
+        Queue::assertPushed(ExtractWhatsAppBackup::class, 1);
+    }
+
     private function backup(array $chats): string
     {
         $path = tempnam(sys_get_temp_dir(), 'wa-msgstore');

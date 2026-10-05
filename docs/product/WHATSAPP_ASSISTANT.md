@@ -307,7 +307,9 @@ number must stay in the advertising portfolio). The inbox is filled from the pho
   AES-256-GCM with the IV from the protobuf prefix; zlib payload is the SQLite msgstore. Modern (`message`/`chat`/`jid`
   + `jid_map`) and legacy (`messages`) schemas are read. One-to-one chats only; system messages skipped; media become
   placeholders. Known message ids are skipped, so a newer backup adds only the missing messages. A wrong key returns the
-  import to `uploaded` and keeps the file; completion or failure deletes the file and key.
+  import to `uploaded` and keeps the file; completion or failure deletes the file. The key that decrypted a backup
+  is kept encrypted in `config.backup_key` (operator's choice): a later upload is queued for extraction as soon as its
+  last piece arrives, and an empty key on "Çıkar" uses it. "Kayıtlı anahtarı sil" and the reset remove it.
 - Brain (`WhatsAppBrain`, `LearnWhatsAppBrain`, route `whatsapp.brain`, OpenAI with the screen's model): learned once
   after the first extraction and on "Yeniden öğren". Reads up to 80 recent two-sided chats × 30 messages (150k chars),
   contacts pseudonymised. Stores summary, services, quoted prices with dates, FAQ, tone, policies, avoid and

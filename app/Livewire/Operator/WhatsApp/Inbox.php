@@ -172,6 +172,13 @@ class Inbox extends Component
         return true;
     }
 
+    /** Removes the saved backup key: the next backup asks for it again. */
+    public function forgetBackupKey(WhatsAppBackupImporter $importer): void
+    {
+        $importer->forgetKey(auth()->user());
+        $this->notice = 'Kayıtlı anahtar silindi; sonraki yedekte anahtar sorulur.';
+    }
+
     /** Drops an uploaded backup that will not be extracted. */
     public function discardBackup(WhatsAppBackupImporter $importer): void
     {
@@ -453,6 +460,7 @@ class Inbox extends Component
             'historyDeadline' => $connection->historyDeadline($integration),
             'signupAttempt' => $attempt,
             'backupImport' => WhatsAppBackupImport::query()->latest()->first(),
+            'backupKeySaved' => filled(data_get($integration?->config, 'backup_key')),
             'backupConversations' => (clone $query)->where('phone_number_id', WhatsAppBackupImporter::LINE)->count(),
             'conversationCount' => $this->showSettings ? (clone $query)->count() : 0,
             // The connect page only opens in the session that started the attempt.

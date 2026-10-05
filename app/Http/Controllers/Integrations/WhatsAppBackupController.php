@@ -34,6 +34,6 @@ final class WhatsAppBackupController
             throw $exception;
         }
 
-        return response()->json(['received' => $row->received_bytes, 'complete' => $row->status === 'uploaded']);
+        return response()->json(['received' => $row->received_bytes, 'complete' => $row->status !== 'uploading', 'extracting' => in_array($row->status, ['queued', 'running'], true)]);
     }
 }

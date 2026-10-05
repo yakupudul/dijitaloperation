@@ -21,7 +21,8 @@ use Throwable;
 /**
  * The phone's WhatsApp Business backup as a second way into the inbox (while the Meta connection waits): the file is
  * uploaded in pieces, "Çıkar" queues the extraction with the 64-digit key, and the chats are stored as conversations
- * of the "backup" line. Uploading a newer backup later adds only the messages that are not there yet.
+ * of the "backup" line. Uploading a newer backup later adds only the messages that are not there yet; the key that
+ * worked is kept (encrypted), so a later upload is extracted without asking for it again.
  */
 final class WhatsAppBackupImporter
 {
@@ -74,7 +75,7 @@ final class WhatsAppBackupImporter
     {
         $this->connection->authorize($user);
 
-        return DB::transaction(function () use ($id, $offset, $bytes): WhatsAppBackupImport {
+        $import = DB::transaction(function () use ($id, $offset, $bytes): WhatsAppBackupImport {
             $import = WhatsAppBackupImport::query()->lockForUpdate()->findOrFail($id);
             if ($import->status !== 'uploading') {
                 throw new HttpException(409, 'Bu yükleme artık açık değil. Dosyayı yeniden seçin.');
@@ -93,15 +94,26 @@ final class WhatsAppBackupImporter
 
             return $import;
         });
+        // With a saved key the operator only uploads: extraction starts as soon as the last piece arrives.
+        if ($import->status === 'uploaded' && $this->savedKey() !== null) {
+            $this->extract($user);
+        }
+
+        return $import->fresh() ?? $import;
     }
 
-    /** "Çıkar": the uploaded file is opened with the key in the background. */
-    public function extract(User $user, string $key): WhatsAppBackupImport
+    /**
+     * "Çıkar": the uploaded file is opened in the background. An empty key uses the key saved by the last successful
+     * extraction, so later backups need only the file.
+     */
+    public function extract(User $user, ?string $key = null): WhatsAppBackupImport
     {
         $this->connection->authorize($user);
-        $hex = WhatsAppBackupReader::normaliseKey($key);
+        $hex = trim((string) $key) === '' ? $this->savedKey() : WhatsAppBackupReader::normaliseKey((string) $key);
         if ($hex === null) {
-            throw ValidationException::withMessages(['backup_key' => 'Anahtar 64 karakter olmalı (0-9 ve a-f). Boşluklar sorun değil.']);
+            throw ValidationException::withMessages(['backup_key' => trim((string) $key) === ''
+                ? 'Bu ilk yedek: 64 haneli anahtarı girin. Doğru anahtar kaydedilir, sonraki yedeklerde sorulmaz.'
+                : 'Anahtar 64 karakter olmalı (0-9 ve a-f). Boşluklar sorun değil.']);
         }
         $import = DB::transaction(function () use ($hex): WhatsAppBackupImport {
             $import = WhatsAppBackupImport::query()->where('status', 'uploaded')->latest()->lockForUpdate()->first();
@@ -122,6 +134,31 @@ final class WhatsAppBackupImporter
         return $import;
     }
 
+    /** The key of the last successful extraction (stored encrypted on the integration), or null. */
+    public function savedKey(): ?string
+    {
+        $stored = data_get($this->connection->integration()?->config, 'backup_key');
+        if (! is_string($stored) || $stored === '') {
+            return null;
+        }
+        try {
+            return WhatsAppBackupReader::normaliseKey(Crypt::decryptString($stored));
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /** "Kayıtlı anahtarı sil". */
+    public function forgetKey(User $user): void
+    {
+        $this->connection->authorize($user);
+        $this->updateConfig(function (array $config): array {
+            unset($config['backup_key']);
+
+            return $config;
+        });
+    }
+
     /** The background extraction. A wrong key keeps the file so another key can be tried without uploading again. */
     public function run(string $id): void
     {
@@ -135,8 +172,10 @@ final class WhatsAppBackupImporter
             if ((int) ini_get('memory_limit') > 0 && $this->bytes((string) ini_get('memory_limit')) < 3 * $import->size + 256 * 1024 * 1024) {
                 ini_set('memory_limit', (string) min(4096, (int) ceil((3 * $import->size) / 1048576) + 512).'M');
             }
-            $this->reader->decrypt($import->path(), (string) $import->backup_key, $database);
+            $key = (string) $import->backup_key;
+            $this->reader->decrypt($import->path(), $key, $database);
             $import->update(['backup_key' => null, 'stats' => ['phase' => 'import']]);
+            $this->updateConfig(fn (array $config): array => [...$config, 'backup_key' => Crypt::encryptString($key)]);
             $stats = $this->import($import, $database);
             $import->update(['status' => 'completed', 'stats' => $stats, 'finished_at' => now(), 'error' => null]);
             $this->discardFiles($import);
@@ -249,6 +288,18 @@ final class WhatsAppBackupImporter
     public function discardFiles(WhatsAppBackupImport $import): void
     {
         File::delete([$import->path(), $import->path().'.db']);
+    }
+
+    /** @param  callable(array<string, mixed>): array<string, mixed>  $change */
+    private function updateConfig(callable $change): void
+    {
+        DB::transaction(function () use ($change): void {
+            $row = CoreIntegration::query()->firstOrCreate(['provider' => WhatsAppConnection::PROVIDER], [
+                'name' => 'WhatsApp Business', 'status' => CoreIntegration::STATUS_ACTIVE, 'config' => [],
+            ]);
+            $row = CoreIntegration::query()->lockForUpdate()->findOrFail($row->id);
+            $row->update(['config' => $change($row->config ?? [])]);
+        });
     }
 
     private function bytes(string $limit): int

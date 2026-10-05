@@ -4,12 +4,12 @@
 
 - **Neden:** Meta birlikte kullanım bağlantısı (uygulama sahibi portföy pencerede seçilemiyor) askıya alındı (yakup, 2026-10-05). Görüşmeler telefonun yedeğinden gelir.
 - **Yükleme:** WhatsApp ekranındaki "Telefondaki yedekten yükle" kartı. Android WhatsApp Business'ın uçtan uca şifreli yedeği (`msgstore.db.crypt15`, 64 haneli anahtar) 4 MB parçalarla yüklenir (`POST /whatsapp/backup`, `/whatsapp/backup/{import}/chunk`; en çok 2 GB; kopan yükleme kaldığı yerden sürer). crypt14/crypt12 nedeniyle reddedilir.
-- **Çıkar:** Anahtar girilip "Çıkar"a basılınca iş `heavy` kuyruğunda çözer (AES-256-GCM, zlib), birebir sohbetleri ve mesajları yazar (`is_history`). Yanlış anahtarda dosya kalır, başka anahtar denenir; bitince dosya ve anahtar silinir. Yeni yedek yalnız eksik mesajları ekler. Grup sohbetleri, medya içeriği ve kişi adları alınmaz; gizli numaralar (lid) "Gizli numara" görünür.
+- **Çıkar:** Anahtar girilip "Çıkar"a basılınca iş `heavy` kuyruğunda çözer (AES-256-GCM, zlib), birebir sohbetleri ve mesajları yazar (`is_history`). Yanlış anahtarda dosya kalır, başka anahtar denenir; bitince dosya silinir. Çalışan anahtar şifreli saklanır (yakup, 2026-10-05): sonraki yedekte yalnız dosya yüklenir, çıkarma son parça gelince kendiliğinden başlar. "Kayıtlı anahtarı sil" ile silinir; sıfırlama da siler. Yeni yedek yalnız eksik mesajları ekler. Grup sohbetleri, medya içeriği ve kişi adları alınmaz; gizli numaralar (lid) "Gizli numara" görünür.
 - **Beyin:** İlk çıkarmadan sonra kendiliğinden, sonra "Yeniden öğren" ile OpenAI (ekranda seçilen model) son 80 görüşmeden (kişiler "Kişi N") hizmetleri, verilen fiyatları (tarihli), sık soruları, üslubu, kuralları ve operatöre soruları çıkarır (`config.brain`). "Senden istediklerim" listesi ve "Talimatlarım" (eski `business_context`, beyinden önce gelir) beyin kartındadır.
 - **Mesaj üret:** Yanıt önerisi beyni ve talimatları kullanır; öneri kopyalanır, MoxDOP göndermez. Yedekten gelen görüşmede otomatik öneri yok.
 - **Meta bağlantısı:** Ekranda "Canlı bağlantı (Meta) — askıda" altında katlı durur; kod silinmedi.
 - **Tablo:** `2026_12_03_090000_create_whatsapp_backup_imports_table`. Sıfırlama yedek aktarımlarını ve beyni de siler.
-- **Test:** WhatsAppBackupImportTest (10 test; gerçek crypt15 düzeninde üretilen dosyayla). Çözücü ayrıca Python `cryptography` ile üretilen dosyayla denendi. UAT: yok — yakup gerçek yedeği yükleyince doğrulanır.
+- **Test:** WhatsAppBackupImportTest (12 test; gerçek crypt15 düzeninde üretilen dosyayla). Çözücü ayrıca Python `cryptography` ile üretilen dosyayla denendi. UAT: yok — yakup gerçek yedeği yükleyince doğrulanır.
 
 ## 2026-12-03 — WhatsApp bağlantı sayfası kaydı ve "Bağlantıyı sıfırla"
 

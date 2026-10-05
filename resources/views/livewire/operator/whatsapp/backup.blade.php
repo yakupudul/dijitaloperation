@@ -41,13 +41,13 @@
             try {
                 const started = await this.send(this.urls.begin, JSON.stringify({ name: file.name, size: file.size }), 'application/json');
                 const url = this.urls.chunk.replace('00000000-0000-0000-0000-000000000000', started.id);
-                let offset = 0;
+                let offset = 0, answer = {};
                 while (offset < file.size) {
-                    const answer = await this.send(url + '?offset=' + offset, file.slice(offset, offset + started.chunk), 'application/octet-stream');
+                    answer = await this.send(url + '?offset=' + offset, file.slice(offset, offset + started.chunk), 'application/octet-stream');
                     offset = answer.expected_offset ?? answer.received;
                     this.progress = Math.floor(offset * 100 / file.size);
                 }
-                this.message = 'Yüklendi. Şimdi 64 haneli anahtarı girip Çıkar\'a basın.';
+                this.message = answer.extracting ? 'Yüklendi; kayıtlı anahtarla çıkarılıyor.' : 'Yüklendi. Şimdi 64 haneli anahtarı girip Çıkar\'a basın.';
                 this.$refs.file.value = '';
                 await $wire.$refresh();
             } catch (error) { this.message = error.message; }
@@ -70,18 +70,21 @@
                     WhatsApp Business'ın Android yedeğini (msgstore.db.crypt15) ve 64 haneli anahtarını yükleyin; tüm birebir sohbetler buraya gelir.
                 @endif
             </p>
+            @if($backupKeySaved)
+                <p class="mt-1 text-xs text-gray-500" data-wa-backup-key-saved>Anahtar kayıtlı: yeni yedekte yalnız dosyayı seçin. <button type="button" wire:click="forgetBackupKey" wire:confirm="Kayıtlı anahtar silinsin mi? Sonraki yedekte yeniden sorulur." class="underline hover:text-rose-600">Kayıtlı anahtarı sil</button></p>
+            @endif
         </div>
     </div>
 
     <details class="text-sm" @if(! $hasBackup) open @endif wire:ignore.self>
         <summary class="cursor-pointer font-medium text-gray-700 dark:text-gray-200">Yedek nasıl alınır?</summary>
         <ol class="mt-2 list-decimal space-y-1 pl-5 text-gray-600 dark:text-gray-300">
-            <li>Telefonda WhatsApp Business › Ayarlar › Sohbetler › Sohbet yedeği › <strong>Uçtan uca şifreli yedek</strong>'i açın ve <strong>64 haneli şifreleme anahtarı</strong> seçeneğini seçin. Anahtarı bir yere yazın (parola seçeneği değil).</li>
+            <li>Telefonda WhatsApp Business › Ayarlar › Sohbetler › Sohbet yedeği › <strong>Uçtan uca şifreli yedek</strong>'i açın ve <strong>64 haneli şifreleme anahtarı</strong> seçeneğini seçin. Anahtarı bir yere yazın (parola seçeneği değil). Bu yalnız ilk sefer gerekir.</li>
             <li><strong>Yedekle</strong>'ye basın ve bitmesini bekleyin.</li>
             <li>Dosyayı bilgisayara alın: Dahili depolama › Android › media › com.whatsapp.w4b › WhatsApp Business › Databases › <code class="text-xs">msgstore.db.crypt15</code>.</li>
-            <li>Dosyayı aşağıdan seçin; yüklenince anahtarı girip <strong>Çıkar</strong>'a basın.</li>
+            <li>Dosyayı aşağıdan seçin; ilk seferde yüklenince anahtarı girip <strong>Çıkar</strong>'a basın. Doğru anahtar kaydedilir; sonraki yedeklerde yalnız dosyayı seçersiniz, çıkarma kendiliğinden başlar.</li>
         </ol>
-        <p class="mt-2 text-xs text-gray-500">Dosya ve anahtar, çıkarma bitince sunucudan silinir. Grup sohbetleri, fotoğraf, ses ve belgelerin içeriği alınmaz. Kişi adları bu dosyada olmadığı için numaralar görünür; müşteri kaydıyla eşleşen numara müşteriye bağlanır.</p>
+        <p class="mt-2 text-xs text-gray-500">Dosya, çıkarma bitince sunucudan silinir; anahtar şifreli saklanır. Grup sohbetleri, fotoğraf, ses ve belgelerin içeriği alınmaz. Kişi adları bu dosyada olmadığı için numaralar görünür; müşteri kaydıyla eşleşen numara müşteriye bağlanır.</p>
     </details>
 
     @if($importBusy)
@@ -108,7 +111,7 @@
                     <p role="alert" class="rounded-lg p-3 text-sm ring-1 ring-inset {{ $tone['bad'] }}">{{ $import->error }}</p>
                 @endif
                 <div class="flex flex-wrap gap-2">
-                    <span wire:ignore class="min-w-0 flex-1"><input x-ref="key" type="password" autocomplete="off" spellcheck="false" aria-label="64 haneli şifreleme anahtarı" placeholder="64 haneli şifreleme anahtarı" class="w-full rounded-lg border border-gray-300 bg-transparent p-2 font-mono text-sm dark:border-gray-700" /></span>
+                    <span wire:ignore class="min-w-0 flex-1"><input x-ref="key" type="password" autocomplete="off" spellcheck="false" aria-label="64 haneli şifreleme anahtarı" placeholder="{{ $backupKeySaved ? 'Boş bırakın: kayıtlı anahtar kullanılır' : '64 haneli şifreleme anahtarı' }}" class="w-full rounded-lg border border-gray-300 bg-transparent p-2 font-mono text-sm dark:border-gray-700" /></span>
                     <button type="submit" :disabled="extracting" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60">Çıkar</button>
                 </div>
                 @error('backup_key')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
