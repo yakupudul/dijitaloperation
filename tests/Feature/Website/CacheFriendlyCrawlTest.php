@@ -22,17 +22,22 @@ use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Support\DatasetExecutionContext;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
+use App\Services\Integrations\WordPress\WordPressConnectorSiteException;
 use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
 use App\Support\Roles;
+use Closure;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use MoxDop\Website\Discovery\PublicHttpFetcher;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -397,11 +402,123 @@ final class CacheFriendlyCrawlTest extends TestCase
         Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), '/moxdop/v1/'));
     }
 
-    /** @param list<array<string, mixed>> $records */
-    private function fakeSite(array $records): void
+    /** @return array<string, array{0: string, 1: int, 2: string}> */
+    public static function connectorExportFailures(): array
+    {
+        return [
+            'a page instead of the connector JSON is the site\'s problem' => ['<!DOCTYPE html><html><head><title>Bakım</title></head><body>Bakımdayız</body></html>', 200, 'WordPressConnectorSiteException'],
+            'an HTTP 500 is still an application error' => ['Internal Server Error', 500, 'RuntimeException'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('connectorExportFailures')]
+    public function a_failed_page_cache_export_leaves_the_pages_to_http_and_reports_only_application_errors(string $body, int $status, string $error): void
+    {
+        Exceptions::fake();
+        config(['moxdop-website-intelligence.crawl.page_cache_min_queue' => 1, 'moxdop-wordpress.page_delay_seconds' => 1]);
+        $connection = $this->pairConnector('1.6.0');
+        $this->fakeSite([], fn (string $json): array => [$body, $status]);
+        [$context, $datasetRun] = $this->makeContext();
+        $executor = app(WebsiteDatasetExecutor::class);
+
+        $first = $executor->execute($this->contextFrom($context, $datasetRun, []));
+
+        $this->assertSame(DatasetExecutionOutcome::Continue, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame('page_cache', $first->stage);
+        $this->assertSame($error, $first->checkpoint['page_cache_error']);
+        $this->assertArrayNotHasKey('page_cache', $first->checkpoint, 'the export phase ends after a failure');
+        if ($error === 'WordPressConnectorSiteException') {
+            Exceptions::assertNotReported(WordPressConnectorSiteException::class);
+            $this->assertStringStartsWith('WordPress sitesi 1.1.1.1 JSON olmayan bir yanıt döndürdü', (string) $connection->fresh()->last_error);
+            $this->assertStringEndsWith('Yanıtın başı: "<!DOCTYPE html><html><head><title>Bakım</title></head><body>Bakımdayız</body></html>"', (string) $connection->fresh()->last_error);
+        } else {
+            Exceptions::assertReported(fn (RuntimeException $reported): bool => $reported->getMessage() === 'WordPress Connector returned HTTP 500.');
+        }
+
+        $second = $executor->execute($this->contextFrom($context, $datasetRun, $first->checkpoint));
+        $this->assertSame(DatasetExecutionOutcome::Completed, $second->outcome, (string) $second->errorMessage);
+        $read = collect(Http::recorded())->map(fn (array $pair): string => (string) parse_url($pair[0]->url(), PHP_URL_PATH))->all();
+        $this->assertContains('/', $read, 'the homepage is read over HTTP');
+    }
+
+    #[Test]
+    #[DataProvider('connectorExportFailures')]
+    public function a_failed_content_export_leaves_the_pages_to_http_and_reports_only_application_errors(string $body, int $status, string $error): void
+    {
+        Exceptions::fake();
+        config(['moxdop-website-intelligence.crawl.content_export_min_queue' => 1, 'moxdop-wordpress.page_delay_seconds' => 1]);
+        $connection = $this->pairConnector('1.7.0');
+        DB::table('website_cms_object_snapshot')->insert([
+            'digital_asset_id' => $this->asset->id, 'cms' => 'wordpress', 'object_type' => 'page', 'object_id' => '10', 'status' => 'publish',
+            'permalink' => 'http://1.1.1.1/p1/', 'modified_at' => '2026-11-01 00:00:00', 'observed_at' => now(), 'contract_version' => 1,
+            'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', 'p1'), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->fakeSite([], fn (string $json): array => [$body, $status]);
+        [$context, $datasetRun] = $this->makeContext();
+        $executor = app(WebsiteDatasetExecutor::class);
+
+        $first = $executor->execute($this->contextFrom($context, $datasetRun, []));
+
+        $this->assertSame(DatasetExecutionOutcome::Continue, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame('wp_content', $first->stage);
+        $this->assertSame($error, $first->checkpoint['wp_content_error']);
+        $this->assertArrayNotHasKey('wp_content', $first->checkpoint, 'the export phase ends after a failure');
+        $this->assertContains('http://1.1.1.1/p1/', $first->checkpoint['queue'], 'the page stays for HTTP');
+        if ($error === 'WordPressConnectorSiteException') {
+            Exceptions::assertNotReported(WordPressConnectorSiteException::class);
+            $this->assertStringStartsWith('WordPress sitesi 1.1.1.1 JSON olmayan bir yanıt döndürdü', (string) $connection->fresh()->last_error);
+        } else {
+            Exceptions::assertReported(fn (RuntimeException $reported): bool => $reported->getMessage() === 'WordPress Connector returned HTTP 500.');
+        }
+
+        $second = $executor->execute($this->contextFrom($context, $datasetRun, $first->checkpoint));
+        $this->assertSame(DatasetExecutionOutcome::Completed, $second->outcome, (string) $second->errorMessage);
+        $read = collect(Http::recorded())->map(fn (array $pair): string => (string) parse_url($pair[0]->url(), PHP_URL_PATH))->all();
+        $this->assertContains('/p1/', $read, 'the page is read over HTTP');
+    }
+
+    #[Test]
+    public function a_shortcode_printing_around_the_content_export_json_no_longer_stops_the_export(): void
+    {
+        Exceptions::fake();
+        config(['moxdop-website-intelligence.crawl.content_export_min_queue' => 1, 'moxdop-wordpress.page_delay_seconds' => 1]);
+        $connection = $this->pairConnector('1.7.0');
+        DB::table('website_cms_object_snapshot')->insert([
+            'digital_asset_id' => $this->asset->id, 'cms' => 'wordpress', 'object_type' => 'page', 'object_id' => '10', 'status' => 'publish',
+            'permalink' => 'http://1.1.1.1/p1/', 'modified_at' => '2026-11-01 00:00:00', 'observed_at' => now(), 'contract_version' => 1,
+            'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', 'p1'), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $html = '<!DOCTYPE html><html lang="tr"><head><title>Sayfa</title></head><body><main><h1>Başlık</h1><p>İçerik metni.</p></main></body></html>';
+        $records = [['id' => 10, 'status' => 'content', 'url' => 'http://1.1.1.1/p1/', 'type' => 'page', 'builder' => 'elementor',
+            'sha256' => hash('sha256', $html), 'bytes' => strlen($html), 'html_gz_b64' => base64_encode((string) gzencode($html))]];
+        // Elementor renders a popup shortcode that echoes its CSS and markup into the REST answer.
+        $this->fakeSite($records, fn (string $json): array => ['<style>.elementor-kit-5{--e-global-color-primary:#000}</style><div class="popup">Kampanya!</div>'.$json."\n<!-- Cached for 0.1s -->", 200]);
+        [$context, $datasetRun] = $this->makeContext();
+
+        $first = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, []));
+
+        $this->assertSame(DatasetExecutionOutcome::Continue, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame('wp_content', $first->stage);
+        $this->assertSame(1, $first->pagesCompleted);
+        $this->assertArrayNotHasKey('wp_content_error', $first->checkpoint);
+        $this->assertNotContains('http://1.1.1.1/p1/', $first->checkpoint['queue']);
+        $this->assertSame('wp_content', json_decode((string) DB::table('website_http_snapshot')->where('url', 'http://1.1.1.1/p1/')->value('metadata'), true)['fetch_source']);
+        $this->assertNull($connection->fresh()->last_error);
+        Exceptions::assertNothingReported();
+    }
+
+    /**
+     * $export, when given, turns the signed JSON of an export request (page cache, content export) into the site's
+     * raw answer: [body, status].
+     *
+     * @param  list<array<string, mixed>>  $records
+     * @param  (Closure(string): array{0: string, 1: int})|null  $export
+     */
+    private function fakeSite(array $records, ?Closure $export = null): void
     {
         $canonical = new WordPressConnectorCanonicalJson;
-        Http::fake(function (Request $request) use ($records, $canonical) {
+        Http::fake(function (Request $request) use ($records, $canonical, $export) {
             $path = (string) parse_url($request->url(), PHP_URL_PATH);
             if (str_contains($path, '/moxdop/v1/')) {
                 $data = str_ends_with($path, '/status')
@@ -410,9 +527,15 @@ final class CacheFriendlyCrawlTest extends TestCase
                         'records' => $records, 'page' => 1, 'per_page' => 25, 'total' => 4, 'has_more' => false];
                 $nonce = $request->header(WordPressConnectorClient::HEADER_NONCE)[0] ?? '';
                 $time = now()->timestamp;
+                $envelope = ['data' => $data, 'meta' => ['server_time' => $time, 'request_nonce' => $nonce,
+                    'signature' => hash_hmac('sha256', implode("\n", [(string) $time, $nonce, hash('sha256', $canonical->encode($data))]), self::SECRET)]];
+                if ($export !== null && ! str_ends_with($path, '/status')) {
+                    [$body, $status] = $export((string) json_encode($envelope, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
-                return Http::response(['data' => $data, 'meta' => ['server_time' => $time, 'request_nonce' => $nonce,
-                    'signature' => hash_hmac('sha256', implode("\n", [(string) $time, $nonce, hash('sha256', $canonical->encode($data))]), self::SECRET)]]);
+                    return Http::response($body, $status);
+                }
+
+                return Http::response($envelope);
             }
             if ($path === '/robots.txt') {
                 return Http::response("User-agent: *\nAllow: /\n", 200, ['Content-Type' => 'text/plain']);

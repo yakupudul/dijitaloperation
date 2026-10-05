@@ -84,7 +84,9 @@ final class WordPressManagementService
         try {
             $data = $this->client->loginLink($this->connection((int) $site->id));
         } catch (Throwable $exception) {
-            throw ValidationException::withMessages(['login' => str_contains($exception->getMessage(), '403') || str_contains($exception->getMessage(), 'not enabled')
+            // A site answer quotes the site's own output: a "403" in it is not the plugin's refusal.
+            throw ValidationException::withMessages(['login' => ! $exception instanceof WordPressConnectorSiteException
+                && (str_contains($exception->getMessage(), '403') || str_contains($exception->getMessage(), 'not enabled'))
                 ? 'Tek tık giriş bu sitede kapalı: site yöneticisi eklenti ayarlarından bir kullanıcı seçmeli.'
                 : 'Giriş bağlantısı alınamadı: '.mb_substr($exception->getMessage(), 0, 200)]);
         }

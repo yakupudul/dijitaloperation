@@ -10,6 +10,7 @@ use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Services\Integrations\WordPress\WordPressConnectorPackage;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
+use App\Services\Integrations\WordPress\WordPressConnectorSiteException;
 use App\Services\Integrations\WordPress\WordPressSiteBuilder;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -85,6 +86,10 @@ final class SiteConnectorShow extends Component
             $status = $client->status($connection);
             $this->messageTone = 'success';
             $this->message = 'Bağlantı doğrulandı: WordPress '.($status['wordpress_version'] ?? 'unknown').'.';
+        } catch (WordPressConnectorSiteException $error) {
+            // The site answered without the connector's JSON: shown as the site's problem, not reported as an app error.
+            $this->messageTone = 'error';
+            $this->message = 'Connector bağlantısı doğrulanamadı: '.$error->getMessage();
         } catch (Throwable $error) {
             report($error);
             $this->messageTone = 'error';

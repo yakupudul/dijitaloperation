@@ -291,7 +291,7 @@ final class WordPressConnectorClient
                 'GET' => $request->get($url),
                 default => $request->delete($url),
             };
-            $data = $this->verifiedData($response, $secret, $nonce);
+            $data = $this->verifiedData($response, $secret, $nonce, (string) parse_url($url, PHP_URL_HOST));
             $this->markHealthy($connection);
 
             return $data;
@@ -343,7 +343,7 @@ final class WordPressConnectorClient
                 ->timeout($timeout ?? max(5, (int) config('moxdop-wordpress.request_timeout_seconds', 30)))
                 ->get($url, $query);
 
-            $data = $this->verifiedData($response, $secret, $nonce);
+            $data = $this->verifiedData($response, $secret, $nonce, (string) parse_url($url, PHP_URL_HOST));
             $this->markHealthy($connection);
 
             return $data;
@@ -354,7 +354,7 @@ final class WordPressConnectorClient
     }
 
     /** @return array<string, mixed> */
-    private function verifiedData(Response $response, string $secret, string $requestNonce): array
+    private function verifiedData(Response $response, string $secret, string $requestNonce, string $host): array
     {
         if ($response->redirect()) {
             throw new RuntimeException('WordPress Connector refused an unexpected redirect.');
@@ -373,12 +373,12 @@ final class WordPressConnectorClient
             throw new RuntimeException('WordPress Connector response exceeded the configured limit.');
         }
 
-        // A PHP notice or a caching plugin's HTML in front of the JSON: a clear connector error instead of a JsonException.
-        $decoded = json_decode($body, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new RuntimeException('WordPress Connector returned a non-JSON response (a plugin or PHP notice may be printing before it).');
+        // Output around the JSON is cut away; without JSON it is the site's problem, named with the start of the answer.
+        $decoded = self::decodeBody($body);
+        if ($decoded === null) {
+            throw WordPressConnectorSiteException::fromBody($host, $body);
         }
-        if (! is_array($decoded) || ! is_array($decoded['data'] ?? null) || ! is_array($decoded['meta'] ?? null)) {
+        if (! is_array($decoded['data'] ?? null) || ! is_array($decoded['meta'] ?? null)) {
             throw new RuntimeException('WordPress Connector returned an invalid response envelope.');
         }
 
@@ -402,6 +402,31 @@ final class WordPressConnectorClient
         }
 
         return $decoded['data'];
+    }
+
+    /**
+     * The decoded answer, also when a byte order mark or other output surrounds the JSON (a plugin, shortcode or PHP
+     * notice printing into the REST response): then the text from the first {"data": to the last } is decoded again.
+     * The nonce and signature checks that follow cover the data, so the cut never weakens them. Null without JSON;
+     * JSON that is not an object or list comes back as [] (an invalid envelope).
+     *
+     * @return array<mixed>|null
+     */
+    private static function decodeBody(string $body): ?array
+    {
+        $text = preg_replace('/^(?:\xEF\xBB\xBF|\s)+/', '', $body) ?? $body;
+        $decoded = json_decode($text, true);
+        if (json_last_error() === JSON_ERROR_NONE) {
+            return is_array($decoded) ? $decoded : [];
+        }
+        $start = strpos($text, '{"data":');
+        $end = strrpos($text, '}');
+        if ($start === false || $end === false || $end < $start) {
+            return null;
+        }
+        $decoded = json_decode(substr($text, $start, $end - $start + 1), true);
+
+        return json_last_error() === JSON_ERROR_NONE && is_array($decoded) ? $decoded : null;
     }
 
     private function markHealthy(CoreConnection $connection): void

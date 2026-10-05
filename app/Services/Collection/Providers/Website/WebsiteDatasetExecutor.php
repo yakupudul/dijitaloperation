@@ -19,6 +19,7 @@ use App\Services\DataPool\WebsitePageStateStore;
 use App\Services\Integrations\WordPress\WordPressConnectorBusyException;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
+use App\Services\Integrations\WordPress\WordPressConnectorSiteException;
 use App\Services\SeoTasks\SeoText;
 use App\Support\SslCertificateProbe;
 use Carbon\CarbonImmutable;
@@ -646,8 +647,11 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
                     backoffSeconds: max(30, $busy->retryAfterSeconds),
                 );
             } catch (Throwable $error) {
-                // The cache export failed: the remaining pages are read over HTTP.
-                report($error);
+                // The cache export failed: the remaining pages are read over HTTP. A site answering without the
+                // connector's JSON is that site's problem (the connection's last error names it), not an app error.
+                if (! $error instanceof WordPressConnectorSiteException) {
+                    report($error);
+                }
                 $extra['page_cache_error'] = class_basename($error);
             }
         }
@@ -837,8 +841,10 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
                     backoffSeconds: max(30, $busy->retryAfterSeconds),
                 );
             } catch (Throwable $error) {
-                // The export failed: the remaining pages are read over HTTP.
-                report($error);
+                // The export failed: the remaining pages are read over HTTP (a site problem is not reported, as above).
+                if (! $error instanceof WordPressConnectorSiteException) {
+                    report($error);
+                }
                 $extra['wp_content_error'] = class_basename($error);
                 $failed = true;
             }
