@@ -319,7 +319,7 @@ number must stay in the advertising portfolio). The inbox is filled from the pho
   under "Canlı bağlantı (Meta) — askıda". Backup chats show "Yedekten" and a "Mesaj üret" button; no automatic drafts
   and no reply-window badge for them.
 - Tests: `WhatsAppBackupImportTest`. Not yet verified against a real phone backup.
-- Server requirement: reading the decrypted msgstore needs `pdo_sqlite` (`php8.3-sqlite3`); production runs on
+- Server requirement: reading the decrypted msgstore needs `pdo_sqlite` (`php<version>-sqlite3`; staging runs PHP 8.5 and got `php8.5-sqlite3` on 2026-10-05); production runs on
   PostgreSQL, so the extension may be missing. Without it the key is still checked and saved, the import returns to
   `uploaded` with the install command, and "Çıkar" with an empty key runs it again. Other database errors show the
   driver message.
