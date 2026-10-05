@@ -14,6 +14,7 @@ use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Integrations\Meta\MetaApiClient;
+use App\Services\Integrations\Meta\MetaException;
 use App\Services\Meta\MetaScreen;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaGeoResults;
@@ -22,9 +23,13 @@ use App\Support\Roles;
 use Carbon\Carbon;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Exceptions;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
+use RuntimeException;
 use Tests\TestCase;
 
 /** Meta country + city results: collection, city rows with results, Analiz › Bölgeye göre. */
@@ -91,6 +96,83 @@ final class MetaGeoResultsTest extends TestCase
         Queue::fake();
         Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'analysis'])->call('collectGeoResults');
         Queue::assertPushed(CollectMetaGeoResultsJob::class, fn ($job): bool => $job->assetId === $this->asset->id && $job->days === 90);
+    }
+
+    public function test_geo_job_retries_when_meta_is_unreachable_and_never_reports_it_as_an_application_error(): void
+    {
+        Exceptions::fake();
+        Http::fake(['*' => Http::failedConnection()]);
+        $state = fn (): array => Cache::get(CollectMetaGeoResultsJob::stateKey($this->asset->id));
+
+        foreach ([1, 2, 3, 4] as $retry) {
+            $job = $this->runGeoJob();
+            $job->assertReleased();
+            $job->assertNotFailed();
+            $this->assertGreaterThanOrEqual(300, $job->job->releaseDelay, 'waits five minutes (plus jitter)');
+            $this->assertLessThanOrEqual(360, $job->job->releaseDelay);
+            $this->assertSame('waiting', $state()['state']);
+            $this->assertSame($retry, $state()['transport_retries']);
+        }
+
+        // Still unreachable after four retries: recorded as failed, the next daily run tries again.
+        $job = $this->runGeoJob();
+        $job->assertNotReleased();
+        $job->assertNotFailed();
+        $this->assertSame('failed', $state()['state']);
+        Exceptions::assertNothingReported();
+    }
+
+    public function test_connection_retries_count_only_the_runs_own_connection_waits(): void
+    {
+        Exceptions::fake();
+        Http::fake(['*' => Http::failedConnection()]);
+        $key = CollectMetaGeoResultsJob::stateKey($this->asset->id);
+
+        // Tenth pick-up after overlap / cooldown / rate-limit waits: the first connection error is still retried.
+        Cache::put($key, ['state' => 'waiting', 'error' => 'Meta istek sınırı; daha sonra tekrar denenecek.', 'at' => now()->toIso8601String()], now()->addDay());
+        $this->runGeoJob(attempts: 10)->assertReleased();
+        $this->assertSame(1, Cache::get($key)['transport_retries']);
+
+        // Connection waits of a run older than the retry window do not use up a new run's retries.
+        Cache::put($key, ['state' => 'waiting', 'transport_retries' => 4, 'at' => now()->subHours(13)->toIso8601String()], now()->addDay());
+        $this->runGeoJob()->assertReleased();
+        $this->assertSame(1, Cache::get($key)['transport_retries']);
+
+        // A finished run, or the operator's "Bölge verisini çek", starts the count again.
+        foreach ([['state' => 'done', 'rows' => 6], ['state' => 'running']] as $previous) {
+            Cache::put($key, $previous + ['at' => now()->toIso8601String()], now()->addDay());
+            $this->runGeoJob()->assertReleased();
+            $this->assertSame(1, Cache::get($key)['transport_retries']);
+        }
+        Exceptions::assertNothingReported();
+    }
+
+    public function test_geo_job_still_fails_and_reports_errors_that_are_not_a_connection_failure(): void
+    {
+        Exceptions::fake();
+        // MetaApiClient labels any unexpected error while sending as "transport"; without a connection error behind it,
+        // it is an application error.
+        $wrapped = new MetaException('Meta connection transport error.', MetaException::KIND_TRANSPORT, previous: new RuntimeException('cache store unavailable'));
+        $provider = new MetaException('Unsupported get request.', MetaException::KIND_PROVIDER, 400, 100);
+        $this->mock(MetaGeoResults::class)->shouldReceive('collect')->andThrowExceptions([$wrapped, $provider]);
+
+        foreach ([$wrapped, $provider] as $exception) {
+            $job = $this->runGeoJob();
+            $job->assertNotReleased();
+            $this->assertSame('failed', Cache::get(CollectMetaGeoResultsJob::stateKey($this->asset->id))['state']);
+            Exceptions::assertReported(fn (MetaException $reported): bool => $reported === $exception);
+        }
+        Exceptions::assertReportedCount(2);
+    }
+
+    private function runGeoJob(int $attempts = 1): CollectMetaGeoResultsJob
+    {
+        $job = new CollectMetaGeoResultsJob($this->asset->id);
+        $job->withFakeQueueInteractions();
+        $job->job->attempts = $attempts;
+        $job->handle(app(MetaGeoResults::class));
+
+        return $job;
     }
 
     private function fakeInsights(): void

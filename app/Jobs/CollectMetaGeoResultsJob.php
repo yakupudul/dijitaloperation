@@ -9,6 +9,7 @@ use App\Services\MetaAds\MetaGeoResults;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
@@ -18,7 +19,14 @@ final class CollectMetaGeoResultsJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
 
-    /** Real errors fail once; rate-limit waits are releases bounded by retryUntil(), not attempts. */
+    /** Meta unreachable (connection error / timeout): retried this many times, then recorded as failed without a report. */
+    private const int TRANSPORT_RETRIES = 4;
+
+    private const int TRANSPORT_RETRY_SECONDS = 300;
+
+    private const int RETRY_HOURS = 12;
+
+    /** Real errors fail once; rate-limit and connection waits are releases bounded by retryUntil(), not attempts. */
     public int $maxExceptions = 1;
 
     public int $timeout = 600;
@@ -29,7 +37,7 @@ final class CollectMetaGeoResultsJob implements ShouldBeUnique, ShouldQueue
 
     public function retryUntil(): \DateTimeInterface
     {
-        return now()->addHours(12);
+        return now()->addHours(self::RETRY_HOURS);
     }
 
     /**
@@ -79,11 +87,40 @@ final class CollectMetaGeoResultsJob implements ShouldBeUnique, ShouldQueue
 
                 return;
             }
+            // A connection error / timeout is a Meta or network outage, not an application error: wait and retry.
+            if ($exception->kind === MetaException::KIND_TRANSPORT && $exception->getPrevious() instanceof ConnectionException) {
+                $retries = $this->transportRetries();
+                if ($retries < self::TRANSPORT_RETRIES) {
+                    Cache::put(self::stateKey($this->assetId), ['state' => 'waiting', 'error' => 'Meta bağlantı hatası; daha sonra tekrar denenecek.', 'transport_retries' => $retries + 1, 'at' => now()->toIso8601String()], now()->addDay());
+                    $this->release(self::TRANSPORT_RETRY_SECONDS + random_int(0, 60));
+
+                    return;
+                }
+                // Still unreachable after every retry: the next daily run tries again; no "application error" alert.
+                Cache::put(self::stateKey($this->assetId), ['state' => 'failed', 'error' => mb_substr($exception->getMessage(), 0, 200), 'at' => now()->toIso8601String()], now()->addDay());
+
+                return;
+            }
             Cache::put(self::stateKey($this->assetId), ['state' => 'failed', 'error' => mb_substr($exception->getMessage(), 0, 200), 'at' => now()->toIso8601String()], now()->addDay());
             report($exception);
         } catch (Throwable $exception) {
             Cache::put(self::stateKey($this->assetId), ['state' => 'failed', 'error' => mb_substr($exception->getMessage(), 0, 200), 'at' => now()->toIso8601String()], now()->addDay());
             report($exception);
         }
+    }
+
+    /**
+     * Connection retries this run already spent. Only its own connection wait counts: unrelated waits (overlap,
+     * cooldown, rate limit) do not use them up, and a rate-limit wait, an operator re-run, a finished run or a state
+     * older than the retry window starts again from zero.
+     */
+    private function transportRetries(): int
+    {
+        $state = Cache::get(self::stateKey($this->assetId));
+        if (! is_array($state) || ($state['state'] ?? null) !== 'waiting' || ! is_string($state['at'] ?? null)) {
+            return 0;
+        }
+
+        return now()->subHours(self::RETRY_HOURS)->lt($state['at']) ? (int) ($state['transport_retries'] ?? 0) : 0;
     }
 }
