@@ -84,7 +84,7 @@ final class WebsiteIntegrationIndex extends Component
         }
         $this->newWebsite = '';
         $this->messageTone = 'success';
-        $this->message = $site->domain.' eklendi. WordPress Connector ile bağlayabilir, marka eklerken bu siteyi seçebilirsiniz.';
+        $this->message = $site->name.' eklendi. WordPress Connector ile bağlayabilir, marka eklerken bu siteyi seçebilirsiniz.';
     }
 
     /** "Markaya ata" on an unassigned website row: Customer → Brand picker state. */

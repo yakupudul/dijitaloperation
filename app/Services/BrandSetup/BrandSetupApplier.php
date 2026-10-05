@@ -246,7 +246,7 @@ final class BrandSetupApplier
 
             return null;
         }
-        $existing = $this->ownership->existingWebsite($host);
+        $existing = $this->ownership->existingWebsite($websiteItem['url']);
         if ($existing !== null && $existing->brand_id === null) {
             // A website added under Integrations before its brand: it simply joins this brand (no owner yet).
             app(UnassignedWebsites::class)->assign($existing, $brand);
@@ -264,9 +264,10 @@ final class BrandSetupApplier
         if ($existing !== null) {
             return $existing;
         }
-        $url = mb_strlen($websiteItem['url']) <= 255 && BrandSetupMatcher::host($websiteItem['url']) === $host ? $websiteItem['url'] : 'https://'.$host.'/';
+        // The folder of a site under a shared host stays (https://www.kralsoftware.com/newbyangn/).
+        $url = mb_strlen($websiteItem['url']) <= 255 ? $websiteItem['url'] : 'https://'.$host.'/';
         $website = DigitalAsset::query()->create([
-            'brand_id' => $brand->id, 'name' => $host, 'type' => 'website', 'status' => 'active',
+            'brand_id' => $brand->id, 'name' => BrandSetupMatcher::siteKey($url), 'type' => 'website', 'status' => 'active',
             'module_id' => 'website', 'domain' => $host, 'primary_url' => $url,
         ]);
         $results[] = ['key' => 'asset:website', 'label' => $websiteItem['label'], 'ok' => true, 'message' => 'Web sitesi varlığı oluşturuldu.'];

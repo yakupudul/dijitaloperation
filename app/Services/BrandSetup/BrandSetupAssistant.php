@@ -71,8 +71,8 @@ final class BrandSetupAssistant
             return [];
         }
         $site = $brand->digitalAssets()->where('type', 'website')->get()
-            ->first(fn (DigitalAsset $asset): bool => BrandSetupMatcher::host((string) ($asset->primary_url ?: $asset->domain)) === $host)
-            ?? app(UnassignedWebsites::class)->findByHost($host);
+            ->first(fn (DigitalAsset $asset): bool => BrandSetupMatcher::assetSiteKey($asset) === BrandSetupMatcher::siteKey($websiteUrl))
+            ?? app(UnassignedWebsites::class)->findByHost($websiteUrl);
         if ($site === null) {
             return ['Bu adres için bağlı bir web sitesi yok. Hizmetler siteden okunamaz; yalnız arama verisinden (varsa) tahmin edilir ve eksik kalır. Önce siteyi Dijital varlıklara ekleyip sayfalarının toplanmasını bekleyin.'];
         }
@@ -128,7 +128,7 @@ final class BrandSetupAssistant
             self::step($proposal, 'accounts');
             $items = $this->matcher->propose($brand, (string) $proposal->website_url);
             self::step($proposal, 'services');
-            $suggestion = $this->services->suggest($brand, BrandSetupMatcher::host((string) $proposal->website_url), $items);
+            $suggestion = $this->services->suggest($brand, (string) $proposal->website_url, $items);
             if ($suggestion['status'] === 'queued') {
                 // Waiting for Claude (MCP queue): the proposal stays "building" (not stuck); the job runs again with the answer.
                 $proposal->forceFill(['items' => $items, 'summary' => ['waiting' => 'claude']])->save();

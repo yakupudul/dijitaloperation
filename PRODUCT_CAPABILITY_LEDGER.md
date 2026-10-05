@@ -1,5 +1,12 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-05 — Alt klasördeki web siteleri ayrı site (kralsoftware.com/newbyangn)
+
+- **Sorun:** Marka ekle / Otomatik kur adresi kökten kesiyordu (`BrandSetupMatcher::canonicalUrl`): `https://www.kralsoftware.com/newbyangn` → `https://www.kralsoftware.com/`. Entegrasyonlar › Web sitesi ekle de yalnız alan adını saklıyordu; aynı host'taki her site "zaten kayıtlı" sayılıyordu.
+- **Şimdi:** Site kimliği alan adı + klasör (`BrandSetupMatcher::siteKey`; www., şema, sondaki `/` ve `index.php` yok sayılır). `primary_url` klasörü korur, `domain` host olarak kalır. Tekrar kontrolü (`OwnershipGuard`, `UnassignedWebsites`, Otomatik kur) bu kimliği kullanır; aynı host'ta farklı klasörlerdeki siteler yan yana durur, aynı klasör iki kez eklenmez. WordPress bağlayıcısı eşleşmesinde klasörlü site yalnız o klasördeki WordPress ile eşleşir.
+- **Not:** Klasörlü bir adres artık ayrı site sayılır; normal siteler kök adresle girilmeli. Klasörlü sitede genel tarama (crawl) kapsamı ayrıca klasöre daraltılmadı; WordPress verisi bağlayıcıdan gelir.
+- **Test:** `tests/Feature/Portfolio/SubfolderWebsiteTest.php` (5). Canlı UAT yok.
+
 ## 2026-10-05 — Claude site kurulumu: WordPress Connector 1.8.0 + MCP (list-sites, inspect-site, build-site)
 
 - **Neden:** yakup boş bir WordPress kurup "şu CPT'yi şu ACF alanlarıyla kur, şu hizmet sayfalarını oluştur, bu görseli Elementor header yap" demek istiyor; Claude bunu MCP üzerinden doğrudan yapar (yakup onayı 2026-10-05: "Siteye doğrudan sen yaz", panelden açılıp kapanan anahtar).

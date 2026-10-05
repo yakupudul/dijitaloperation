@@ -5,6 +5,7 @@ namespace App\Livewire\Demo\Portfolio;
 use App\Livewire\Demo\Portfolio\Concerns\InteractsWithBrandForm;
 use App\Models\Brand;
 use App\Models\Customer;
+use App\Services\BrandSetup\BrandSetupMatcher;
 use App\Services\Catalog\BrandCommercialContextService;
 use App\Services\Portfolio\UnassignedWebsites;
 use App\Support\Demo\DemoState;
@@ -106,7 +107,7 @@ class BrandCreate extends Component
             'pageSubtitle' => __('operator.forms.add_brand_subtitle'),
             'backUrl' => $backUrl,
             'primaryAction' => __('operator.forms.save_brand'),
-            'unassignedWebsites' => app(UnassignedWebsites::class)->list()->mapWithKeys(fn ($site): array => [$site->id => (string) $site->domain])->all(),
+            'unassignedWebsites' => app(UnassignedWebsites::class)->list()->mapWithKeys(fn ($site): array => [$site->id => BrandSetupMatcher::assetSiteKey($site)])->all(),
         ]));
     }
 }

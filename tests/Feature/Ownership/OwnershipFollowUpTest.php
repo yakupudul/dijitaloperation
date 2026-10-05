@@ -108,7 +108,7 @@ final class OwnershipFollowUpTest extends TestCase
     public function test_model_refuses_a_duplicate_website_from_any_path(): void
     {
         try {
-            DigitalAsset::query()->create(['brand_id' => $this->atlas->id, 'type' => 'website', 'name' => 'Kopya', 'primary_url' => 'http://www.ADADENT.com.tr/iletisim']);
+            DigitalAsset::query()->create(['brand_id' => $this->atlas->id, 'type' => 'website', 'name' => 'Kopya', 'primary_url' => 'http://www.ADADENT.com.tr/index.php']);
             $this->fail('A second website with the same domain must not be saved.');
         } catch (ValidationException $e) {
             $this->assertStringContainsString('Adadent müşterisinin Adadent Web Sitesi', (string) collect($e->errors())->flatten()->first());

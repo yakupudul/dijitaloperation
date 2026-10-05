@@ -59,12 +59,13 @@ final class BrandSetupServiceSuggester
      *                                             Delegated to Claude (MCP queue): status "queued" while the answer is awaited (the job runs again with it).
      * @return array{status: string, services: list<array<string, mixed>>, summary: array<string, mixed>}
      */
-    public function suggest(Brand $brand, string $host, array $items): array
+    public function suggest(Brand $brand, string $websiteUrl, array $items): array
     {
+        $host = BrandSetupMatcher::host($websiteUrl);
         $website = $brand->digitalAssets()->where('type', 'website')->get()
-            ->first(fn (DigitalAsset $asset): bool => BrandSetupMatcher::host((string) ($asset->primary_url ?: $asset->domain)) === $host);
+            ->first(fn (DigitalAsset $asset): bool => BrandSetupMatcher::assetSiteKey($asset) === BrandSetupMatcher::siteKey($websiteUrl));
         // A site added under Integrations (no brand yet) may already carry WordPress pages.
-        $website ??= ($unassigned = app(UnassignedWebsites::class)->findByHost($host)) !== null && $unassigned->brand_id === null ? $unassigned : null;
+        $website ??= ($unassigned = app(UnassignedWebsites::class)->findByHost($websiteUrl)) !== null && $unassigned->brand_id === null ? $unassigned : null;
         $pages = $website !== null ? $this->pages($website) : [];
         $wordpressPages = $website !== null ? $this->wordpressPages($website) : [];
         $queries = $this->queries($items);

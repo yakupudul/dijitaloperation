@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-10-05 — Web sitesi kimliği: alan adı + klasör
+
+- **Karar (yakup, 2026-10-05):** yakup WordPress sitelerini `kralsoftware.com/<klasör>` altına kurar; her klasör ayrı web sitesidir. Site kimliği host + klasör; aynı host'ta farklı klasörler ayrı varlık olur, aynı adres iki kez eklenmez.
+
 ## 2026-10-05 — Claude WordPress sitesini doğrudan kurar (Connector 1.8.0)
 
 - **Karar (yakup, 2026-10-05):** Claude, MCP üzerinden bağlı WordPress sitelerinde CPT / ACF alan grubu, sayfa, Elementor şablonu (header vb.), görsel, menü ve temel ayarları onay adımı olmadan doğrudan kurar. Sınır: site başına MoxDOP'taki "Claude site kurulumu" anahtarı (Admin açar / kapatır) ve sitede eklentinin "Site building" ayarı; ikisi de varsayılan kapalı. Tema / eklenti dosyası düzenleme yasağı sürer. Anahtar Kapalı / Doğrudan / Onaylı; her kurulum site bazlı kayıtta görünür, panelden geri alınır; Onaylı modda Admin onaylar ya da reddeder. Diğer siteler için mevcut onaylı izinler (SEO düzeltmeleri, taslak) değişmedi.

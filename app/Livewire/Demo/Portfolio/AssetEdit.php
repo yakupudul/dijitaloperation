@@ -7,6 +7,7 @@ use App\Livewire\Demo\Portfolio\Concerns\InteractsWithAssetForm;
 use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Models\User;
+use App\Services\BrandSetup\BrandSetupMatcher;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Ownership\OwnershipGuard;
 use App\Services\Ownership\OwnershipTransferService;
@@ -121,7 +122,9 @@ class AssetEdit extends Component
     private function duplicateWebsiteMessage(DigitalAsset $asset, int $targetBrandId): ?string
     {
         $guard = app(OwnershipGuard::class);
-        foreach ([$this->primary_url, $this->domain] as $url) {
+        // The domain alone is only the shared host when the site lives in a folder (kralsoftware.com/newbyangn).
+        $urls = BrandSetupMatcher::basePath($this->primary_url) === '' ? [$this->primary_url, $this->domain] : [$this->primary_url];
+        foreach ($urls as $url) {
             if (trim($url) !== '' && ($existing = $guard->existingWebsite($url, (int) $asset->id)) !== null) {
                 return $guard->duplicateWebsiteMessage($existing, $targetBrandId);
             }

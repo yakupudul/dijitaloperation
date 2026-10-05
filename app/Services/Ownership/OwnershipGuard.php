@@ -65,29 +65,29 @@ final class OwnershipGuard
         );
     }
 
-    /** A website asset (any brand, or none) with the same host — www. and scheme ignored. */
+    /** A website asset (any brand, or none) at the same address: host (www. and scheme ignored) and folder. */
     public function existingWebsite(string $url, ?int $exceptAssetId = null): ?DigitalAsset
     {
         $host = BrandSetupMatcher::host($url);
         if ($host === '') {
             return null;
         }
+        // Host plus folder: sites in different folders of one host (kralsoftware.com/newbyangn) are separate sites.
+        $key = BrandSetupMatcher::siteKey($url);
 
         return DigitalAsset::query()->with('brand.customer')->where('type', 'website')
             ->when($exceptAssetId !== null, fn ($q) => $q->whereKeyNot($exceptAssetId))
-            // Cheap pre-filter (ASCII hosts only; SQL LOWER() is ASCII-only on SQLite); the exact host check is below.
+            // Cheap pre-filter (ASCII hosts only; SQL LOWER() is ASCII-only on SQLite); the exact check is below.
             ->when(mb_check_encoding($host, 'ASCII'), fn ($q) => $q->where(fn ($inner) => $inner
                 ->whereRaw('LOWER(COALESCE(domain, \'\')) LIKE ?', ['%'.$host.'%'])
                 ->orWhereRaw('LOWER(COALESCE(primary_url, \'\')) LIKE ?', ['%'.$host.'%'])))
             ->get()
-            ->first(fn (DigitalAsset $asset): bool => BrandSetupMatcher::host((string) ($asset->primary_url ?: $asset->domain)) === $host
-                || ($asset->domain !== null && BrandSetupMatcher::host((string) $asset->domain) === $host)
-                || ($asset->primary_url !== null && BrandSetupMatcher::host((string) $asset->primary_url) === $host));
+            ->first(fn (DigitalAsset $asset): bool => in_array($key, $this->websiteKeys($asset), true));
     }
 
     /**
      * Another website asset already using the URL or domain of this website (itself excluded). Checks both columns
-     * because either can carry the host.
+     * because either can carry the host; the domain alone only for a site without a folder.
      */
     public function duplicateWebsite(DigitalAsset $asset): ?DigitalAsset
     {
@@ -95,13 +95,37 @@ final class OwnershipGuard
             return null;
         }
         $except = $asset->exists ? (int) $asset->getKey() : null;
-        foreach ([(string) $asset->primary_url, (string) $asset->domain] as $url) {
-            if (trim($url) !== '' && ($existing = $this->existingWebsite($url, $except)) !== null) {
+        foreach ($this->websiteUrls($asset) as $url) {
+            if (($existing = $this->existingWebsite($url, $except)) !== null) {
                 return $existing;
             }
         }
 
         return null;
+    }
+
+    /**
+     * Addresses that identify a website asset: its primary URL, and its domain unless the primary URL is in a folder
+     * (then the domain is only the shared host).
+     *
+     * @return list<string>
+     */
+    private function websiteUrls(DigitalAsset $asset): array
+    {
+        $primary = trim((string) $asset->primary_url);
+        $domain = trim((string) $asset->domain);
+        $urls = $primary !== '' ? [$primary] : [];
+        if ($domain !== '' && ($primary === '' || BrandSetupMatcher::basePath($primary) === '')) {
+            $urls[] = $domain;
+        }
+
+        return $urls;
+    }
+
+    /** @return list<string> */
+    private function websiteKeys(DigitalAsset $asset): array
+    {
+        return array_values(array_filter(array_map(BrandSetupMatcher::siteKey(...), $this->websiteUrls($asset))));
     }
 
     /**

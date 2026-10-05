@@ -3,6 +3,7 @@
 namespace App\Support\Integrations\WordPress;
 
 use App\Models\DigitalAsset;
+use App\Services\BrandSetup\BrandSetupMatcher;
 use InvalidArgumentException;
 
 final class WordPressConnectorUrlGuard
@@ -21,10 +22,17 @@ final class WordPressConnectorUrlGuard
             throw new InvalidArgumentException('Website Digital Asset has no valid host.');
         }
 
+        // A site in a folder of a shared host (https://www.kralsoftware.com/newbyangn) pairs only with the WordPress there.
+        $folder = BrandSetupMatcher::basePath((string) $asset->primary_url);
+
         foreach ($candidateUrls as $candidateUrl) {
             $candidateHost = $this->host($candidateUrl);
             if ($candidateHost === null || ! in_array($candidateHost, $assetHosts, true)) {
                 throw new InvalidArgumentException('WordPress connector site host does not match the Website Digital Asset.');
+            }
+            $candidatePath = BrandSetupMatcher::basePath($candidateUrl);
+            if ($folder !== '' && $candidatePath !== $folder && ! str_starts_with($candidatePath, $folder.'/')) {
+                throw new InvalidArgumentException('WordPress connector site folder does not match the Website Digital Asset.');
             }
         }
     }

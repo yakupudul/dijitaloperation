@@ -32,13 +32,13 @@ final class BrandSetupMatcher
     {
         $host = self::host($websiteUrl);
         $items = [];
-        $website = $this->websiteAsset($brand, $host);
+        $website = $this->websiteAsset($brand, self::siteKey($websiteUrl));
 
         $items[] = [
             'key' => 'asset:website',
             'kind' => 'asset',
             'group' => 'website',
-            'label' => 'Web sitesi varlığı: '.$host,
+            'label' => 'Web sitesi varlığı: '.self::siteKey($websiteUrl),
             'asset_id' => $website?->id,
             'url' => $this->canonicalUrl($websiteUrl),
             'status' => $website !== null ? 'already' : 'proposed',
@@ -73,6 +73,43 @@ final class BrandSetupMatcher
         $host = mb_strtolower((string) parse_url($url, PHP_URL_HOST));
 
         return rtrim(preg_replace('/^www\./', '', $host) ?? $host, '.');
+    }
+
+    /**
+     * Folder a WordPress (or any) site lives in on its host: "https://www.kralsoftware.com/newbyangn/" → "/newbyangn".
+     * Root site → "". Lowercased; index files, query and fragment are ignored.
+     */
+    public static function basePath(string $url): string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return '';
+        }
+        if (! str_contains($url, '://')) {
+            $url = 'https://'.$url;
+        }
+        $path = mb_strtolower(rawurldecode((string) parse_url($url, PHP_URL_PATH)));
+        $path = preg_replace('#/(index\.(php|html?))$#', '', $path) ?? $path;
+        $path = trim(preg_replace('#/+#', '/', $path) ?? $path, '/');
+
+        return $path === '' ? '' : '/'.$path;
+    }
+
+    /**
+     * Identity of a website: host without www. plus its folder. Sites in different folders of one host are different
+     * sites (kralsoftware.com/newbyangn and kralsoftware.com/abc each are their own WordPress).
+     */
+    public static function siteKey(string $url): string
+    {
+        $host = self::host($url);
+
+        return $host === '' ? '' : $host.self::basePath($url);
+    }
+
+    /** Identity of a website asset: its primary URL (which carries the folder), else its domain. */
+    public static function assetSiteKey(DigitalAsset $asset): string
+    {
+        return self::siteKey((string) ($asset->primary_url ?: $asset->domain));
     }
 
     /** Distinctive part of the domain: "adadent.com.tr" → "adadent". */
@@ -112,10 +149,10 @@ final class BrandSetupMatcher
         return round(min(1.0, $score), 2);
     }
 
-    private function websiteAsset(Brand $brand, string $host): ?DigitalAsset
+    private function websiteAsset(Brand $brand, string $siteKey): ?DigitalAsset
     {
         return $brand->digitalAssets()->where('type', 'website')->get()
-            ->first(fn (DigitalAsset $asset): bool => self::host((string) ($asset->primary_url ?: $asset->domain)) === $host);
+            ->first(fn (DigitalAsset $asset): bool => self::assetSiteKey($asset) === $siteKey);
     }
 
     private function canonicalUrl(string $url): string
@@ -126,7 +163,7 @@ final class BrandSetupMatcher
         }
         $parts = parse_url($url);
 
-        return ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '').'/';
+        return ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '').self::basePath($url).'/';
     }
 
     /** @return Collection<int, CoreExternalResource> */
