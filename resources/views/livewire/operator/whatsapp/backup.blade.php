@@ -53,6 +53,25 @@
             } catch (error) { this.message = error.message; }
             finally { this.uploading = false; }
         },
+        async contacts(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            this.message = 'Rehber okunuyor…';
+            try {
+                // Only names and numbers leave the browser: photos, e-mails and addresses are dropped here.
+                const lines = (await file.text()).split(/\r\n|\r|\n/);
+                const kept = [];
+                let keep = false;
+                for (const line of lines) {
+                    if (/^[ \t]/.test(line) || (keep && kept.length && kept[kept.length - 1].endsWith('='))) { if (keep) kept.push(line); continue; }
+                    keep = /^(BEGIN|END|FN|N|TEL|item\d+\.TEL)[;:]/i.test(line);
+                    if (keep) kept.push(line);
+                }
+                this.message = '';
+                await $wire.importContacts(kept.join('\n'));
+            } catch (error) { this.message = 'Rehber okunamadı: ' + error.message; }
+            finally { event.target.value = ''; }
+        },
         async extract() {
             if (this.extracting) return;
             this.extracting = true;
@@ -128,6 +147,16 @@
             </div>
             <div x-show="uploading" x-cloak class="h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><div class="h-full bg-brand-500 transition-all" :style="'width: ' + progress + '%'"></div></div>
         @endif
+    @endif
+    @if($hasBackup)
+        <div class="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-3 text-sm dark:border-gray-800" data-wa-contacts>
+            <label class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:ring-gray-700 dark:hover:bg-white/[0.04]">
+                Rehberden isimleri al (.vcf)
+                <input type="file" class="sr-only" accept=".vcf,text/vcard,text/x-vcard" @change="contacts($event)" />
+            </label>
+            <span class="text-xs text-gray-500">Yedekte kişi adları yok. Telefonda Kişiler › Ayarlar › Dışa aktar ile .vcf dosyası alıp seçin; numarası eşleşen görüşmelere isim yazılır. Rehberden yalnız ad ve numara okunur.</span>
+            @error('contacts')<p class="w-full text-xs text-rose-600">{{ $message }}</p>@enderror
+        </div>
     @endif
     <p x-show="message" x-text="message" role="status" class="text-sm text-gray-600 dark:text-gray-300"></p>
     @error('backup')<p role="alert" class="text-sm text-rose-600">{{ $message }}</p>@enderror

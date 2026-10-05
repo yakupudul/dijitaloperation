@@ -345,6 +345,28 @@ final class WhatsAppBackupImportTest extends TestCase
         $this->assertStringEndsWith('- KDV dahil mi? → KDV hariç.', $config['business_context']);
     }
 
+    public function test_names_come_from_the_phones_address_book(): void
+    {
+        Queue::fake();
+        $this->extract($this->upload($this->backup([
+            ['905321112233', 's.whatsapp.net', [['A1', 0, '2026-09-01 10:00', 0, 'Selam']]],
+            ['905321112244', 's.whatsapp.net', [['B1', 0, '2026-09-01 10:00', 0, 'Merhaba']]],
+            ['4915112345678', 's.whatsapp.net', [['C1', 0, '2026-09-01 10:00', 0, 'Hallo']]],
+        ])));
+        $vcard = "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Ayşe Yılmaz\r\nTEL;TYPE=CELL:0532 111 22 33\r\nEND:VCARD\r\n"
+            ."BEGIN:VCARD\r\nVERSION:2.1\r\nN;CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE:Demir;Ali;;;\r\nTEL;CELL:+49 151 1234 5678\r\nEND:VCARD\r\n"
+            ."BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Rehberde olmayan\r\nitem1.TEL:532 999 88 77\r\nEND:VCARD\r\n";
+        $this->actingAs($this->admin);
+
+        Livewire::test(Inbox::class)->call('importContacts', 'merhaba')->assertHasErrors('contacts');
+        Livewire::test(Inbox::class)->call('importContacts', $vcard)->assertHasNoErrors()
+            ->assertSee('3 rehber numarasından 2 görüşmeye isim yazıldı.')->assertSee('Ayşe Yılmaz')->assertSee('Ali Demir');
+
+        $this->assertSame(['905321112233' => 'Ayşe Yılmaz', '905321112244' => null, '4915112345678' => 'Ali Demir'],
+            WhatsAppConversation::query()->orderBy('id')->pluck('contact_name', 'contact_id')->all());
+        Livewire::test(Inbox::class)->set('q', 'Ayşe')->assertSee('Ayşe Yılmaz')->assertDontSee('Ali Demir');
+    }
+
     private function backup(array $chats): string
     {
         $path = tempnam(sys_get_temp_dir(), 'wa-msgstore');

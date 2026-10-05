@@ -328,4 +328,8 @@ number must stay in the advertising portfolio). The inbox is filled from the pho
   within 30 days of the newest message; newest first, at most 50 per click. "Senden istediklerim" has an answer box
   per question; saved answers are appended to `business_context` as "- question → answer" and the question is removed
   from `brain.open_questions`.
+- Names: msgstore has no contact names (they live in wa.db, which is not backed up). "Rehberden isimleri al (.vcf)"
+  reads the phone's exported address book in the browser, keeps only BEGIN/END/FN/N/TEL lines and sends them to
+  `importContacts`; `WhatsAppContactNames` normalises numbers (00…, 0 5xx…, 5xx… → 90…) and writes `contact_name` on
+  matching conversations. Nothing else from the address book is stored.
 

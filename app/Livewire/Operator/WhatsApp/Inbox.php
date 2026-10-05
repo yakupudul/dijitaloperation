@@ -15,6 +15,7 @@ use App\Services\Assistant\WhatsAppContactLinker;
 use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
 use App\Services\WhatsApp\WhatsAppBrain;
 use App\Services\WhatsApp\WhatsAppConnection;
+use App\Services\WhatsApp\WhatsAppContactNames;
 use App\Services\WhatsApp\WhatsAppSignup;
 use App\Services\WhatsApp\WhatsAppSuggestions;
 use Carbon\CarbonImmutable;
@@ -180,6 +181,23 @@ class Inbox extends Component
         $this->notice = 'Yedek çıkarılıyor. Büyük yedekler birkaç dakika sürer; bu sayfa kendiliğinden yenilenir.';
 
         return true;
+    }
+
+    /** "Rehberden isimleri al": names from the phone's address book (.vcf, reduced to names and numbers in the browser). */
+    public function importContacts(string $vcard, WhatsAppConnection $connection, WhatsAppContactNames $names): void
+    {
+        $this->resetValidation();
+        $integration = $connection->integration();
+        $connection->authorize(auth()->user());
+        if ($integration === null || ! str_contains(strtoupper($vcard), 'BEGIN:VCARD')) {
+            $this->addError('contacts', 'Bu dosya rehber dosyası (.vcf) değil. Telefonda Kişiler › Dışa aktar ile .vcf dosyası oluşturun.');
+
+            return;
+        }
+        $result = $names->apply($integration, $vcard);
+        $this->notice = $result['matched'] > 0
+            ? $result['contacts'].' rehber numarasından '.$result['matched'].' görüşmeye isim yazıldı.'
+            : $result['contacts'].' rehber numarası okundu ama görüşmelerdeki numaralarla eşleşen olmadı.';
     }
 
     /** Removes the saved backup key: the next backup asks for it again. */
