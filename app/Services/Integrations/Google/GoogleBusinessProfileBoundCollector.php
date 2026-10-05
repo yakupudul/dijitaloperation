@@ -3,6 +3,8 @@
 namespace App\Services\Integrations\Google;
 
 use App\Contracts\Integrations\CollectsBoundProviderData;
+use App\Enums\Collection\CollectionErrorCategory;
+use App\Exceptions\Integrations\GoogleBusinessProfileRequestException;
 use App\Jobs\Queries\AggregateQuerySourcesJob;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -294,6 +296,46 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
         return $run->fresh();
     }
 
+    /**
+     * Collection error category of a Business Profile error text (dataset reasons, run `safe_error`), so its alert
+     * and the error triage explain it like the other sources do. A disabled API comes first: Google answers it with
+     * HTTP 403 PERMISSION_DENIED, but the fix is enabling the API in the Cloud project, not access to the location.
+     */
+    public static function errorCategory(string $error): ?string
+    {
+        return match (true) {
+            trim($error) === '' => null,
+            str_contains($error, 'SERVICE_DISABLED') || str_contains($error, 'has not been used') => 'service_disabled',
+            str_contains($error, 'HTTP 401') => CollectionErrorCategory::Authentication->value,
+            str_contains($error, 'HTTP 403') => CollectionErrorCategory::Authorization->value,
+            str_contains($error, 'HTTP 404') => 'not_found',
+            str_contains($error, 'HTTP 429') || str_contains($error, 'pacing limit') => CollectionErrorCategory::RateLimit->value,
+            preg_match('/HTTP 5\d\d\b/', $error) === 1 => CollectionErrorCategory::Provider5xx->value,
+            // The shared Google client refused to send at all: token unusable or not refreshed, scope not granted.
+            str_contains($error, 'authorization is not usable') || str_contains($error, 'access token')
+                || str_contains($error, 'Connector scope required') => CollectionErrorCategory::Authentication->value,
+            str_contains($error, 'network failure') => CollectionErrorCategory::Network->value,
+            default => null,
+        };
+    }
+
+    /**
+     * What the owner should do for the usual Google errors, in plain Turkish (the profile page shows the raw reason
+     * next to it; the stopped-collection alert uses it as its "Neden"). Kept in Core so the alert does not depend on
+     * the Business Profile module.
+     */
+    public static function errorHint(string $error): ?string
+    {
+        return match (true) {
+            $error === '' => null,
+            str_contains($error, 'SERVICE_DISABLED') || str_contains($error, 'has not been used') => 'Google Cloud projesinde ilgili Business Profile API kapalı; API Kitaplığı\'ndan etkinleştirin.',
+            str_contains($error, 'HTTP 403') => 'Yetki yok: hesabın bu konumda sahip/yönetici olması veya Google\'ın Business Profile API erişim onayı gerekiyor.',
+            str_contains($error, 'HTTP 429') || str_contains($error, 'pacing') => 'Google istek sınırı; bir sonraki toplamada kendiliğinden tekrar denenir.',
+            str_contains($error, 'HTTP 404') => 'Konum bulunamadı; konum silinmiş veya başka hesaba taşınmış olabilir.',
+            default => null,
+        };
+    }
+
     /** @return array<string, mixed> */
     private function collectPerformance(
         Run $run,
@@ -359,12 +401,14 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
                 }
                 $successfulMetrics[] = $metric;
             } catch (Throwable $e) {
+                $this->reportUnlessProvider($e);
                 $errors[$metric] = $this->safeMessage($e);
             }
         }
 
         if ($successfulMetrics === []) {
-            throw new RuntimeException('No GBP Performance metric could be collected.');
+            // Carries the first metric's cause (HTTP 403, API disabled, …) so the run and its alert can name it.
+            throw new GoogleBusinessProfileRequestException(trim('No GBP Performance metric could be collected. '.(array_values($errors)[0] ?? '')));
         }
 
         return [
@@ -457,12 +501,13 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
                     $errors[$month->format('Y-m')] = 'GBP pagination limit reached.';
                 }
             } catch (Throwable $e) {
+                $this->reportUnlessProvider($e);
                 $errors[$month->format('Y-m')] = $this->safeMessage($e);
             }
         }
 
         if ($rows === 0 && $errors !== []) {
-            throw new RuntimeException('GBP Search Keywords could not be collected for any requested month.');
+            throw new GoogleBusinessProfileRequestException(trim('GBP Search Keywords could not be collected for any requested month. '.(array_values($errors)[0] ?? '')));
         }
         // v2 raw query layer: the collected months are re-aggregated into query_sources (bound or not).
         AggregateQuerySourcesJob::dispatch((int) $resource->id, $latest->subMonths($months - 1)->toDateString(), $latest->toDateString());
@@ -1068,13 +1113,13 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
     private function v4Parent(?string $accountName, string $locationName): string
     {
         if ($accountName === null || ! str_starts_with($accountName, 'accounts/')) {
-            throw new RuntimeException('GBP account context could not be resolved for v4 reviews/media/posts.'
+            throw new GoogleBusinessProfileRequestException('GBP account context could not be resolved for v4 reviews/media/posts.'
                 .($this->accountError !== null ? ' '.$this->accountError : ''));
         }
         $accountId = trim(substr($accountName, strlen('accounts/')));
         $locationId = $this->locationId($locationName);
         if ($accountId === '' || $locationId === '') {
-            throw new RuntimeException('GBP account/location provider identity is incomplete.');
+            throw new GoogleBusinessProfileRequestException('GBP account/location provider identity is incomplete.');
         }
 
         return 'accounts/'.$accountId.'/locations/'.$locationId;
@@ -1101,20 +1146,25 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
         string $dataset,
     ): array {
         if ($this->stepDeadline !== null && microtime(true) >= $this->stepDeadline) {
-            throw new RuntimeException('GBP dataset time budget reached; partial data retained. Retry this location.');
+            throw new GoogleBusinessProfileRequestException('GBP dataset time budget reached; partial data retained. Retry this location.');
         }
         $quotaKey = 'gbp-read:'.$integration->id.':'.parse_url($url, PHP_URL_HOST);
         if (RateLimiter::tooManyAttempts($quotaKey, 120)) {
             $this->transientFailure = true;
-            throw new RuntimeException('GBP request pacing limit reached; retry on the next collection.');
+            throw new GoogleBusinessProfileRequestException('GBP request pacing limit reached; retry on the next collection.');
         }
         RateLimiter::hit($quotaKey, 60);
-        $response = $this->client->get($integration, $url, $query, GoogleScopeRegistry::CAPABILITY_GBP);
+        try {
+            $response = $this->client->get($integration, $url, $query, GoogleScopeRegistry::CAPABILITY_GBP);
+        } catch (Throwable $e) {
+            // Token, scope and network failures of the shared Google client: the data is unavailable, not the code broken.
+            throw new GoogleBusinessProfileRequestException($this->safeMessage($e), 0, $e);
+        }
         if (! $response->successful()) {
             $this->transientFailure = $this->transientFailure || $response->status() === 429 || $response->status() >= 500;
             // Google's own reason (SERVICE_DISABLED, PERMISSION_DENIED, …) tells the owner what to fix.
             $reason = trim((string) $response->json('error.status').' '.mb_substr((string) $response->json('error.message'), 0, 160));
-            throw new RuntimeException(sprintf('%s provider request failed with HTTP %d.', $dataset, $response->status()).($reason !== '' ? ' '.$reason : ''));
+            throw new GoogleBusinessProfileRequestException(sprintf('%s provider request failed with HTTP %d.', $dataset, $response->status()).($reason !== '' ? ' '.$reason : ''));
         }
         $payload = $response->json();
 
@@ -1130,6 +1180,7 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
 
             return array_merge(['status' => $partial ? 'partial' : 'available'], $result);
         } catch (Throwable $e) {
+            $this->reportUnlessProvider($e);
             Log::warning('GBP dataset collection unavailable', [
                 'dataset' => $dataset,
                 'exception' => $e::class,
@@ -1146,7 +1197,20 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
         try {
             return ['payload' => $callback(), 'error' => null];
         } catch (Throwable $e) {
+            $this->reportUnlessProvider($e);
+
             return ['payload' => null, 'error' => $this->safeMessage($e)];
+        }
+    }
+
+    /**
+     * A failed read stays a dataset gap; anything else thrown while collecting (a query, a type or a parse error) is
+     * a software error and goes to the error list (report()) instead of only the log.
+     */
+    private function reportUnlessProvider(Throwable $e): void
+    {
+        if (! $e instanceof GoogleBusinessProfileRequestException) {
+            report($e);
         }
     }
 

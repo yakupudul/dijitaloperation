@@ -7,8 +7,9 @@ namespace App\Support\Operator;
  * integration auth states) into what went wrong and the matching fix, in plain Turkish.
  *
  * `kind` tells the caller which button fits: reconnect (provider consent screen), grant_access (someone must give the
- * connected user access to the account), wait (it resumes by itself), retry ("Şimdi güncelle"), developer (a software
- * fix; retrying does not help), bind (connect the account to an asset), customer (the customer is passive).
+ * connected user access to the account, or enable the API it is read with), wait (it resumes by itself), retry
+ * ("Şimdi güncelle"), developer (a software fix; retrying does not help), bind (connect the account to an asset),
+ * customer (the customer is passive).
  */
 final class CollectionErrorExplainer
 {
@@ -29,6 +30,11 @@ final class CollectionErrorExplainer
             'permission' => [
                 'problem' => 'Hesaba erişim yetkisi yok',
                 'fix' => 'Hesabın sahibinden (müşteri ya da hesap yöneticisi) '.$user.' bu hesapta en az okuma yetkisi vermesini isteyin; yetki verilince "Şimdi güncelle" ile tekrar deneyin.',
+                'kind' => 'grant_access',
+            ],
+            'api_disabled' => [
+                'problem' => 'Google Cloud projesinde bu veriyi okuyan API kapalı',
+                'fix' => 'Google bağlantısının kurulduğu Google Cloud projesinde API Kitaplığı\'ndan ilgili API\'yi etkinleştirin; etkinleşince "Şimdi güncelle" ile tekrar deneyin.',
                 'kind' => 'grant_access',
             ],
             'quota' => [
@@ -93,6 +99,7 @@ final class CollectionErrorExplainer
             in_array($value, ['authentication', 'reconnect', 'refresh_required', 'reauth_required', 'revoked', 'expired', 'invalid', 'wrong_app', 'reconnect_required', 'unauthenticated', 'invalid_grant'], true) => 'auth',
             in_array($value, ['authorization', 'permission', 'permission_required', 'permission_denied', 'forbidden', 'resource_unavailable'], true) => 'permission',
             in_array($value, ['not_found', 'notfound', '404'], true) => 'not_found',
+            in_array($value, ['service_disabled', 'api_disabled'], true) => 'api_disabled',
             $value === 'quota' => 'quota',
             in_array($value, ['rate_limit', 'rate_limited', 'throttled'], true) => 'rate_limit',
             in_array($value, ['timeout', 'network'], true) => 'timeout',

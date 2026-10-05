@@ -7,6 +7,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Run;
+use App\Services\Integrations\Google\GoogleBusinessProfileBoundCollector;
 use App\Support\Reality\UnavailableWorkspaceShells;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -545,13 +546,6 @@ final class OperatorGbpWorkspace implements GbpOperatorWorkspaceContract
     /** What the owner should do for the usual Google errors (the raw reason is shown next to it). */
     public static function errorHint(string $error): ?string
     {
-        return match (true) {
-            $error === '' => null,
-            str_contains($error, 'SERVICE_DISABLED') || str_contains($error, 'has not been used') => 'Google Cloud projesinde ilgili Business Profile API kapalı; API Kitaplığı\'ndan etkinleştirin.',
-            str_contains($error, 'HTTP 403') => 'Yetki yok: hesabın bu konumda sahip/yönetici olması veya Google\'ın Business Profile API erişim onayı gerekiyor.',
-            str_contains($error, 'HTTP 429') || str_contains($error, 'pacing') => 'Google istek sınırı; bir sonraki toplamada kendiliğinden tekrar denenir.',
-            str_contains($error, 'HTTP 404') => 'Konum bulunamadı; konum silinmiş veya başka hesaba taşınmış olabilir.',
-            default => null,
-        };
+        return GoogleBusinessProfileBoundCollector::errorHint($error);
     }
 }

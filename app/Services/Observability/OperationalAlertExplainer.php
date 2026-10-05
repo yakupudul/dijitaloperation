@@ -4,6 +4,7 @@ namespace App\Services\Observability;
 
 use App\Models\CoreIntegration;
 use App\Models\Observability\OperationalAlert;
+use App\Services\Integrations\Google\GoogleBusinessProfileBoundCollector;
 use App\Support\Operator\CollectionErrorExplainer;
 use App\Support\Operator\DatasetLabels;
 use App\Support\Operator\OperatorMessage;
@@ -200,10 +201,23 @@ final class OperationalAlertExplainer
             ];
         }
 
-        // A plain "collection_failed" stop: the account's last dataset error says why.
-        $category = $reason === 'collection_failed' ? ($subject['error_category'] ?? null) : $reason;
+        // A plain "collection_failed" stop: the account's last dataset error (a Business Profile run: its own error) says why.
+        $category = $reason === 'collection_failed' ? ($subject['error_category'] ?? $observed['error_category'] ?? null) : $reason;
         $explained = CollectionErrorExplainer::explain($category ?? 'collection_failed', $subject['provider'] ?? null, $subject['account_email'] ?? null);
-        $failures = $reason === 'collection_failed' ? 'Otomatik güncelleme üst üste 3 kez başarısız olduğu için durduruldu' : 'Otomatik güncelleme durduruldu';
+        // Business Profile stops on the first failed run (its datasets retry inside the run) and says why in its own words,
+        // read from the dataset error that gave the category, so "Neden" and "Ne yapmalısın" name the same cause.
+        $gbp = ($subject['source'] ?? null) === 'google_business_profile';
+        $hint = null;
+        if ($gbp && $reason === 'collection_failed' && $category !== null) {
+            $cause = collect(explode(' · ', (string) ($observed['safe_error'] ?? '')))
+                ->first(fn (string $part): bool => GoogleBusinessProfileBoundCollector::errorCategory($part) === $category);
+            $hint = $cause !== null ? GoogleBusinessProfileBoundCollector::errorHint($cause) : null;
+        }
+        if ($hint !== null) {
+            $explained['problem'] = rtrim($hint, '.');
+        }
+        $failures = $reason !== 'collection_failed' ? 'Otomatik güncelleme durduruldu'
+            : ($gbp ? 'Son otomatik güncelleme başarısız olduğu için durduruldu' : 'Otomatik güncelleme üst üste 3 kez başarısız olduğu için durduruldu');
         $place = $this->placeFor($subject !== null ? [$subject] : [], $explained);
         if ($automationId !== null && in_array($explained['kind'], ['retry', 'grant_access', 'wait', 'developer'], true)) {
             $place['button'] = ['label' => 'Şimdi güncelle', 'run_now' => $automationId];

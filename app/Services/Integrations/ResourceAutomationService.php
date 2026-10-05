@@ -443,11 +443,35 @@ final class ResourceAutomationService
                     : now()->addMinutes((int) data_get($run->metadata, 'retry_minutes', 0)),
             ]);
             if ($finished) {
-                $this->alert($automation->id, 'collection', $success ? null : 'collection_failed');
+                $this->alert($automation->id, 'collection', $success ? null : 'collection_failed', $success ? [] : $this->gbpFailureCause($run, $core));
             }
             if ($finished && $success) {
             }
         });
+    }
+
+    /**
+     * Why a finished Business Profile run failed: the errors of the core datasets that decided it (an optional
+     * dataset's disabled API must not name the cause) and their category, so the alert says what to fix instead of
+     * "beklenmeyen bir hata". GBP writes no CollectionDatasetRun, so AlertSubjects cannot find the category itself.
+     *
+     * @param  list<string>  $core
+     * @return array{error_category: ?string, safe_error: ?string}
+     */
+    private function gbpFailureCause(Run $run, array $core): array
+    {
+        $datasets = (array) data_get($run->metadata, 'datasets', []);
+        $error = collect($core)
+            ->reject(fn (string $key): bool => in_array(data_get($datasets, $key.'.status'), ['available', 'partial'], true))
+            ->map(fn (string $key): string => $key.': '.mb_substr((string) (data_get($datasets, $key.'.reason') ?: 'veri yok'), 0, 220))
+            ->implode(' · ');
+        // The category and the alert's hint read the same (stored) text.
+        $error = mb_substr($error !== '' ? $error : (string) data_get($run->metadata, 'safe_error', ''), 0, 500);
+
+        return [
+            'error_category' => GoogleBusinessProfileBoundCollector::errorCategory($error),
+            'safe_error' => $error !== '' ? $error : null,
+        ];
     }
 
     private function reconcile(ResourceAutomation $a): void
@@ -524,7 +548,13 @@ final class ResourceAutomationService
         ]);
     }
 
-    public function alert(int $automationId, string $phase, ?string $reason): void
+    /**
+     * Opens, updates or resolves the account's "Hesap güncellemesi durdu" alert. `$cause` is what the failure itself
+     * says (a Business Profile run's error and its category); without it the account's last failed dataset names it.
+     *
+     * @param  array{error_category?: ?string, safe_error?: ?string}  $cause
+     */
+    public function alert(int $automationId, string $phase, ?string $reason, array $cause = []): void
     {
         try {
             $a = ResourceAutomation::query()->find($automationId);
@@ -551,8 +581,12 @@ final class ResourceAutomationService
                 __('resource-auto.'.$reason, [], 'tr'), [
                     'automation_id' => $a->id, 'phase' => $phase, 'reason' => $reason,
                     // Brand, asset, account and last error, so the alert names what stopped and why.
-                    'affected' => app(AlertSubjects::class)->describe([['resource_id' => (int) $a->external_resource_id]]),
-                ]
+                    'affected' => app(AlertSubjects::class)->describe([['resource_id' => (int) $a->external_resource_id,
+                        'error_category' => $cause['error_category'] ?? null]]),
+                ] + array_filter([
+                    'error_category' => $cause['error_category'] ?? null,
+                    'safe_error' => $cause['safe_error'] ?? null,
+                ], fn (?string $value): bool => filled($value))
             );
         } catch (Throwable $e) {
             // A notification outage must not undo a durable collection/import result.
