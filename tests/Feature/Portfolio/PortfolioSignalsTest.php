@@ -17,7 +17,6 @@ use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Models\User;
-use App\Services\DataStatus\DataStatusReader;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Operator\PortfolioSignalsReader;
 use App\Support\Demo\DemoMenu;
@@ -255,15 +254,7 @@ final class PortfolioSignalsTest extends TestCase
 
     public function test_lists_run_a_fixed_number_of_queries(): void
     {
-        // The account activity lookup of DataStatusReader is read per bound source (its own interface); it is stubbed
-        // here so the test measures the list code itself.
-        $this->app->instance(DataStatusReader::class, new class extends DataStatusReader
-        {
-            public function activityFor(DigitalAsset $asset, string $capability, ?int $externalResourceId): ?string
-            {
-                return null;
-            }
-        });
+        // The real DataStatusReader, account activity included: it is one batch query, not one per bound source.
         $count = function (string $component): int {
             DB::flushQueryLog();
             DB::enableQueryLog();

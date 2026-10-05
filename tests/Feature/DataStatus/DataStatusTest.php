@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\DataStatus;
 
+use App\Enums\Collection\ActivityTier;
 use App\Enums\CustomerStatus;
 use App\Enums\DigitalAssetStatus;
 use App\Livewire\Operator\Assets\DataStatusStrip;
@@ -15,6 +16,7 @@ use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Models\ResourceActivity;
 use App\Models\ResourceAutomation;
 use App\Models\User;
 use App\Services\DataStatus\DataStatus;
@@ -27,6 +29,7 @@ use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -197,7 +200,50 @@ final class DataStatusTest extends TestCase
         $this->assertSame(DataStatus::PAUSED, $status->state);
         $this->assertSame('Pasif', $status->label());
         $this->get(route('operator.website', ['assetId' => $site->id]))->assertOk()->assertSee('Pasif');
-        $this->assertNull((new DataStatusReader)->activityFor($site, 'search_console', $gsc->id), 'no activity source is wired yet');
+        $this->assertNull((new DataStatusReader)->activityFor($site, 'search_console', $gsc->id), 'no resource_activity row: the account is not inactive');
+    }
+
+    public function test_account_activity_of_a_whole_batch_is_one_query(): void
+    {
+        $tiers = ['active' => ActivityTier::Active, 'idle' => ActivityTier::Idle, 'dormant' => ActivityTier::Dormant, 'operator_paused' => ActivityTier::Active, 'no_row' => null];
+        $assets = [];
+        foreach ($tiers as $case => $tier) {
+            $assets[$case] = $this->asset('gsc', 'Örnek GSC '.$case);
+            $resource = $this->bind($assets[$case], $this->google, 'google', GoogleResourceType::GSC_PROPERTY, 'search_console', 'sc-domain:'.$case.'.test');
+            if ($tier !== null) {
+                ResourceActivity::query()->create(['external_resource_id' => $resource->id, 'provider' => 'google', 'tier' => $tier,
+                    'operator_paused_at' => $case === 'operator_paused' ? now() : null]);
+            }
+        }
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $statuses = app(DataStatusReader::class)->forAssets(collect(array_values($assets)));
+        $activityQueries = collect(DB::getQueryLog())->filter(fn (array $query): bool => str_contains($query['query'], 'from "resource_activity"'))->count();
+        DB::disableQueryLog();
+
+        $this->assertSame(1, $activityQueries, 'one resource_activity query for all bound sources, not one per source');
+        $this->assertSame(
+            ['active' => DataStatus::FIRST_LOAD, 'idle' => DataStatus::PAUSED, 'dormant' => DataStatus::PAUSED, 'operator_paused' => DataStatus::PAUSED, 'no_row' => DataStatus::FIRST_LOAD],
+            array_map(fn (DigitalAsset $asset): string => $statuses[$asset->id][0]->state, $assets),
+        );
+    }
+
+    public function test_batch_activity_rows_do_not_outlive_the_batch(): void
+    {
+        $site = $this->asset('gsc', 'Örnek GSC');
+        $gsc = $this->bind($site, $this->google, 'google', GoogleResourceType::GSC_PROPERTY, 'search_console', 'sc-domain:ornek.test');
+        $activity = ResourceActivity::query()->create(['external_resource_id' => $gsc->id, 'provider' => 'google', 'tier' => ActivityTier::Dormant]);
+        $reader = app(DataStatusReader::class);
+        $this->assertSame(DataStatus::PAUSED, $reader->forAssetSource($site, 'search_console')->state);
+        $this->assertSame(DataStatusReader::ACTIVITY_INACTIVE, $reader->activityFor($site, 'search_console', $gsc->id));
+
+        $activity->update(['tier' => ActivityTier::Active]);
+
+        $this->assertNull($reader->activityFor($site, 'search_console', $gsc->id), 'outside a batch the row is read as it is now');
+        $reader->flush();
+        $this->assertSame(DataStatus::FIRST_LOAD, $reader->forAssetSource($site, 'search_console')->state, 'the next batch reads the rows again');
+        $this->assertNull($reader->activityFor($site, 'search_console', null));
     }
 
     public function test_ga4_search_console_and_business_profile_pages_show_the_same_strip(): void

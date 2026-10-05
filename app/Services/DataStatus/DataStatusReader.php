@@ -25,8 +25,8 @@ use Illuminate\Support\Facades\Schema;
  * collection_resource_runs) and the newest reporting_date actually present in the Data Pool fact table of that source.
  * "Last data date" always comes from the facts, never from Evidence or from a run's requested date range.
  *
- * A batch costs one query per table touched (bindings, automations, runs, one fact table per source), and results
- * are kept for the current request.
+ * A batch costs one query per table touched (bindings, automations, runs, account activity, one fact table per
+ * source), and results are kept for the current request.
  */
 #[Scoped]
 class DataStatusReader
@@ -75,6 +75,14 @@ class DataStatusReader
     private array $memo = [];
 
     private ?int $memoRequest = null;
+
+    /**
+     * resource_activity rows of the resources the running compute() reads, keyed by resource id (null: the resource
+     * has no row). Loaded once per compute() and dropped when it returns, so it never outlives the call.
+     *
+     * @var array<int, ResourceActivity|null>|null
+     */
+    private ?array $activity = null;
 
     /** @var array<string, bool> */
     private static array $tables = [];
@@ -142,15 +150,18 @@ class DataStatusReader
      * Activity tier of a bound account: `self::ACTIVITY_INACTIVE` makes the source `paused` (Pasif) — the account
      * had no activity, so no new data is expected and it must not be reported as late.
      *
-     * The account activity-tier reader (built alongside the collection planner) is wired in here and only here;
-     * until it exists no account is known to be inactive, so this returns null and `paused` is never produced.
+     * The account activity tier (resource_activity, kept by the collection planner) is wired in here and only here.
+     * Inside a batch the row comes from the one query compute() made for all its resources; a call outside a batch
+     * reads that one row.
      */
     public function activityFor(DigitalAsset $asset, string $capability, ?int $externalResourceId): ?string
     {
-        if ($externalResourceId === null || ! Schema::hasTable('resource_activity')) {
+        if ($externalResourceId === null) {
             return null;
         }
-        $row = ResourceActivity::query()->where('external_resource_id', $externalResourceId)->first();
+        $row = $this->activity !== null && array_key_exists($externalResourceId, $this->activity)
+            ? $this->activity[$externalResourceId]
+            : (self::hasTable('resource_activity') ? ResourceActivity::query()->where('external_resource_id', $externalResourceId)->first() : null);
 
         return $row !== null && $row->effectiveTier() !== ActivityTier::Active ? self::ACTIVITY_INACTIVE : null;
     }
@@ -192,21 +203,45 @@ class DataStatusReader
         [$lastSuccess, $active] = $this->runs($resourceIds);
         $factDates = $this->factDates($bindings, array_keys($wanted));
         $today = CarbonImmutable::today();
+        $this->activity = $this->activityRows($resourceIds);
 
-        $out = [];
-        foreach ($wanted as $assetId => [$asset, $capabilities]) {
-            $out[$assetId] = [];
-            foreach ($capabilities as $capability) {
-                $binding = $bindings->get($assetId.'|'.$capability);
-                $out[$assetId][] = $binding === null
-                    ? new DataStatus($assetId, $capability, DataStatus::NOT_BOUND, action: DataStatus::ACTION_BIND,
-                        actionUrl: route('operator.asset.sources', ['assetId' => $assetId]))
-                    : $this->status($asset, $capability, $binding, $automations->get($binding->external_resource_id),
-                        $lastSuccess, $active, $factDates, $today);
+        try {
+            $out = [];
+            foreach ($wanted as $assetId => [$asset, $capabilities]) {
+                $out[$assetId] = [];
+                foreach ($capabilities as $capability) {
+                    $binding = $bindings->get($assetId.'|'.$capability);
+                    $out[$assetId][] = $binding === null
+                        ? new DataStatus($assetId, $capability, DataStatus::NOT_BOUND, action: DataStatus::ACTION_BIND,
+                            actionUrl: route('operator.asset.sources', ['assetId' => $assetId]))
+                        : $this->status($asset, $capability, $binding, $automations->get($binding->external_resource_id),
+                            $lastSuccess, $active, $factDates, $today);
+                }
             }
+
+            return $out;
+        } finally {
+            $this->activity = null;
+        }
+    }
+
+    /**
+     * The resource_activity row of every resource in the batch (null when it has none), in one query.
+     *
+     * @param  list<int>  $resourceIds
+     * @return array<int, ResourceActivity|null>
+     */
+    private function activityRows(array $resourceIds): array
+    {
+        $rows = array_fill_keys($resourceIds, null);
+        if ($resourceIds === [] || ! self::hasTable('resource_activity')) {
+            return $rows;
+        }
+        foreach (ResourceActivity::query()->whereIn('external_resource_id', $resourceIds)->get() as $row) {
+            $rows[(int) $row->external_resource_id] = $row;
         }
 
-        return $out;
+        return $rows;
     }
 
     /**
