@@ -22,6 +22,23 @@ final class WhatsAppErrorText
         'LOGIN' => 'Facebook girişi',
     ];
 
+    /** The connect page's diary entries (WhatsAppSignup::TRACE_EVENTS / END_EVENTS) in the operator's words. */
+    public const TRACE = [
+        'LAUNCHED' => 'Facebook penceresi açıldı',
+        'POPUP_BLOCKED' => 'Tarayıcı Facebook penceresini engelledi',
+        'SDK_CALLBACK' => 'Facebook sayfaya yanıt verdi',
+        'MESSAGE' => 'Meta bildirimi geldi',
+        'CODE_RECEIVED' => 'Meta onayı sunucuya ulaştı',
+        'POST_FAILED' => 'Sonuç sunucuya gönderilemedi',
+        'PAGE_LEFT' => 'Pencere açıkken bağlantı sayfasından çıkıldı',
+        'CANCEL' => 'Meta penceresi yarıda kapatıldı',
+        'ERROR' => 'Meta hata gösterdi',
+        'POPUP_CLOSED' => 'Pencere sonuçsuz kapandı',
+        'LOGIN_REFUSED' => 'Pencere hemen sonuçsuz döndü',
+        'NO_CODE' => 'Meta yetki kodunu vermedi',
+        'NO_CALLBACK' => 'Pencere kapandı, Facebook sonuç iletmedi',
+    ];
+
     /** @param  array<string, mixed>  $error  details stored from WhatsAppGraphException or the signup report */
     public static function explain(array $error): string
     {

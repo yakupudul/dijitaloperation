@@ -18,6 +18,14 @@ final class WhatsAppSignup
     /** Accounts read from the token's scopes when Meta did not say which one was chosen. */
     private const MAX_SHARED_ACCOUNTS = 20;
 
+    /** What the connect page saw along the way (popup opened, Facebook's answer, Meta events, failed requests). */
+    public const TRACE_EVENTS = ['LAUNCHED', 'SDK_CALLBACK', 'MESSAGE', 'POST_FAILED', 'PAGE_LEFT', 'POPUP_BLOCKED'];
+
+    /** The popup ended without a result. */
+    public const END_EVENTS = ['CANCEL', 'ERROR', 'POPUP_CLOSED', 'LOGIN_REFUSED', 'NO_CODE', 'NO_CALLBACK'];
+
+    private const TRACE_LIMIT = 40;
+
     public function __construct(private WhatsAppConnection $connection, private WhatsAppGraph $graph) {}
 
     public function saveSetup(User $user, array $input): void
@@ -121,7 +129,7 @@ final class WhatsAppSignup
     {
         $this->connection->authorize($user);
         $attempt = WhatsAppSignupAttempt::query()->where('user_id', $user->id)->findOrFail($id);
-        abort_unless(hash_equals($attempt->session_hash, hash('sha256', $sessionId)), 403);
+        abort_unless(hash_equals($attempt->session_hash, hash('sha256', $sessionId)), 403, 'Bu bağlantı başka bir oturumda başlatıldı. WhatsApp ekranından yeniden başlatın.');
 
         return $attempt;
     }
@@ -136,17 +144,19 @@ final class WhatsAppSignup
         $proceed = DB::transaction(function () use ($attempt, $data): bool {
             $row = CoreIntegration::query()->lockForUpdate()->findOrFail($attempt->integration_id);
             $attempt = WhatsAppSignupAttempt::query()->lockForUpdate()->findOrFail($attempt->id);
-            abort_unless($attempt->expires_at->isFuture() && $attempt->settings_revision === data_get($row->config, 'settings_revision'), 409);
+            abort_unless($attempt->expires_at->isFuture() && $attempt->settings_revision === data_get($row->config, 'settings_revision'), 409,
+                'Bu bağlantı oturumunun süresi doldu ya da ayarlar değişti. WhatsApp ekranından yeniden başlatın.');
             if (in_array($attempt->status, ['exchanging', 'queued', 'running', 'completed'], true)) {
                 return false;
             }
-            abort_unless(in_array($attempt->status, ['prepared', 'cancelled'], true), 409);
+            abort_unless(in_array($attempt->status, ['prepared', 'cancelled'], true), 409, 'Bu bağlantı oturumu artık geçerli değil. WhatsApp ekranından yeniden başlatın.');
             $wabaId = $data['waba_id'] ?? null;
             if ($wabaId !== null) {
                 $this->connection->assertBindingAvailable($row, ['waba_id' => $wabaId, 'phone_number_id' => $data['phone_number_id'] ?? data_get($row->config, 'phone_number_id', '')]);
             }
             $attempt->update([
                 'status' => 'exchanging', 'step' => 'exchange_code', 'details' => null,
+                'trace' => $this->traced($attempt, 'CODE_RECEIVED', (string) $data['event'].(filled($wabaId) ? ' · waba '.$wabaId : '')),
                 'payload' => ['code' => $data['code'], 'waba_id' => $wabaId, 'phone_number_id' => $data['phone_number_id'] ?? null,
                     // Meta reported how the popup finished but without an account id: keep the kind (e.g. app onboarding).
                     'event' => $data['event'] === 'CODE_ONLY' && filled($data['finish_event'] ?? null) ? $data['finish_event'] : $data['event']],
@@ -186,33 +196,65 @@ final class WhatsAppSignup
     }
 
     /**
-     * The popup ended without a result (closed, cancelled at a step, or Meta showed an error). Kept on the attempt so
-     * the screen says where it stopped; the same attempt can still be finished from the connect page.
+     * What the connect page saw. Along-the-way events (popup opened, Facebook's raw answer, Meta events, a failed
+     * request, the page left) are only recorded; an ending without a result is kept as the reason and the same
+     * attempt can still be finished from the connect page. False when the attempt no longer takes it (expired or
+     * replaced by a newer one).
      */
-    public function report(WhatsAppSignupAttempt $attempt, array $data): void
+    public function report(WhatsAppSignupAttempt $attempt, array $data): bool
     {
-        DB::transaction(function () use ($attempt, $data): void {
+        return DB::transaction(function () use ($attempt, $data): bool {
             $attempt = WhatsAppSignupAttempt::query()->lockForUpdate()->findOrFail($attempt->id);
-            if (! in_array($attempt->status, ['prepared', 'cancelled'], true) || ! $attempt->expires_at->isFuture()) {
-                return;
+            $event = (string) $data['event'];
+            $ending = in_array($event, self::END_EVENTS, true);
+            $open = in_array($attempt->status, ['prepared', 'cancelled'], true) && $attempt->expires_at->isFuture();
+            if ($attempt->status === 'expired' || ($ending && ! $open)) {
+                return false;
             }
             $step = filled($data['current_step'] ?? null) ? (string) $data['current_step'] : null;
             $error = filled($data['error_message'] ?? null) ? (string) $data['error_message'] : null;
-            $domain = (string) (parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'app.moximu.com');
-            $allowed = 'Meta uygulamasında Facebook Login for Business → Ayarlar bölümündeki "Allowed Domains" ve "Valid OAuth redirect URIs" listelerinde https://'.$domain.' olmalı.';
-            $message = match (true) {
-                $error !== null => 'Meta bağlantı penceresinde hata gösterdi: '.$error,
-                $data['event'] === 'LOGIN_REFUSED' => 'Facebook penceresi açılır açılmaz sonuçsuz döndü: ya tarayıcı açılır pencereyi engelledi ya da alan adı Meta\'da izinli değil. '.$allowed,
-                $data['event'] === 'NO_CODE' => 'Meta hesap seçimini bildirdi ama yetki kodunu vermedi. '.$allowed,
-                $step !== null => 'Meta penceresi "'.WhatsAppErrorText::step($step).'" adımında kapatıldı; bağlantı tamamlanmadı.',
-                $data['event'] === 'POPUP_CLOSED' => 'Meta penceresi kapandı ama Meta hiçbir sonuç iletmedi. Penceredeki adımların hepsini (numara doğrulama dahil) bitirip son ekranda "Bitti" deyin.',
-                default => 'Meta bağlantısı tamamlanmadı.',
-            };
-            $attempt->update(['status' => 'cancelled', 'details' => array_filter([
-                'message' => $message, 'event' => $data['event'], 'meta_step' => $step, 'meta_error' => $error,
-                'error_id' => $data['error_id'] ?? null, 'session_id' => $data['session_id'] ?? null,
-            ], fn ($value) => $value !== null && $value !== '')]);
+            $note = trim(implode(' · ', array_filter([(string) ($data['note'] ?? ''), $step, $error, $data['error_id'] ?? null])));
+            $changes = ['trace' => $this->traced($attempt, $event, $note)];
+            if ($event === 'LAUNCHED' && $open) {
+                // A new try from the same page: the earlier ending stays in the diary. Business-app onboarding (number,
+                // approval on the phone, history) can take a while, so the attempt stays usable longer.
+                $changes += ['status' => 'prepared', 'details' => null, 'launched_at' => now(), 'step' => 'popup_open',
+                    'expires_at' => max($attempt->expires_at, now()->addMinutes(30)->toImmutable())];
+            }
+            if ($ending) {
+                $domain = (string) (parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'app.moximu.com');
+                $allowed = 'Meta uygulamasında Facebook Login for Business → Ayarlar bölümündeki "Allowed Domains" ve "Valid OAuth redirect URIs" listelerinde https://'.$domain.' olmalı.';
+                $message = match (true) {
+                    $error !== null => 'Meta bağlantı penceresinde hata gösterdi: '.$error,
+                    $event === 'LOGIN_REFUSED' => 'Facebook penceresi açılır açılmaz sonuçsuz döndü: ya tarayıcı açılır pencereyi engelledi ya da alan adı Meta\'da izinli değil. '.$allowed,
+                    $event === 'NO_CODE' => 'Meta hesap seçimini bildirdi ama yetki kodunu vermedi. '.$allowed,
+                    $step !== null => 'Meta penceresi "'.WhatsAppErrorText::step($step).'" adımında kapatıldı; bağlantı tamamlanmadı.',
+                    $event === 'NO_CALLBACK' => 'Meta penceresi kapandı ama Facebook bu sayfaya hiçbir sonuç iletmedi. Penceredeki adımların hepsini bitirip son ekranda "Bitti" deyin. Yine olursa tarayıcı eklentileri (reklam / izleme engelleyici) Facebook bağlantısını kesiyor olabilir; eklentisiz bir pencerede deneyin.',
+                    $event === 'POPUP_CLOSED' => 'Meta penceresi kapandı ama Meta hiçbir sonuç iletmedi. Penceredeki adımların hepsini (numara doğrulama dahil) bitirip son ekranda "Bitti" deyin.',
+                    default => 'Meta bağlantısı tamamlanmadı.',
+                };
+                $changes += ['status' => 'cancelled', 'details' => array_filter([
+                    'message' => $message, 'event' => $event, 'meta_step' => $step, 'meta_error' => $error,
+                    'error_id' => $data['error_id'] ?? null, 'session_id' => $data['session_id'] ?? null,
+                ], fn ($value) => $value !== null && $value !== '')];
+            }
+            $attempt->update($changes);
+
+            return true;
         });
+    }
+
+    /**
+     * The attempt's diary with one more entry (newest last, bounded).
+     *
+     * @return list<array{at: string, event: string, note: string}>
+     */
+    private function traced(WhatsAppSignupAttempt $attempt, string $event, string $note = ''): array
+    {
+        $trace = array_values(array_filter((array) ($attempt->trace ?? []), 'is_array'));
+        $trace[] = ['at' => now()->toIso8601String(), 'event' => $event, 'note' => mb_substr($note, 0, 300)];
+
+        return array_slice($trace, -self::TRACE_LIMIT);
     }
 
     public function selectPhone(WhatsAppSignupAttempt $attempt, string $phoneId): void

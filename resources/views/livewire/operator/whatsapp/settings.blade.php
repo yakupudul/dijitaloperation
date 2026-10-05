@@ -56,4 +56,14 @@
             @endforelse
         </div>
     </details>
+
+    @if($integration)
+        <div class="{{ $card }} flex flex-wrap items-center justify-between gap-4 p-5" data-wa-reset>
+            <div class="min-w-0 flex-1">
+                <h2 class="font-semibold text-gray-900 dark:text-white">Bağlantıyı sıfırla</h2>
+                <p class="mt-1 text-sm text-gray-500">Meta uygulama bilgileri, numara, erişim anahtarı, App Secret, Verify Token ve bağlantı denemeleri silinir{{ $conversationCount ? '; '.$conversationCount.' görüşme ve mesajları da silinir' : '' }}. Kurulum 1. adımdan başlar. Yanıt önerisi ayarları kalır; Meta tarafında hiçbir şey değişmez.</p>
+            </div>
+            <button type="button" wire:click="resetConnection" wire:confirm="WhatsApp bağlantısı sıfırlansın mı? {{ $conversationCount ? $conversationCount.' görüşme ve mesajları da silinir. ' : '' }}Bu geri alınamaz." wire:loading.attr="disabled" wire:target="resetConnection" class="shrink-0 rounded-lg px-4 py-2 text-sm font-medium text-rose-700 ring-1 ring-inset ring-rose-300 hover:bg-rose-50 disabled:opacity-60 dark:text-rose-300 dark:ring-rose-500/40 dark:hover:bg-rose-500/10">Bağlantıyı sıfırla</button>
+        </div>
+    @endif
 </section>

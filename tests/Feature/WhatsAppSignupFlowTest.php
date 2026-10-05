@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use App\Models\WhatsAppSignupAttempt;
+use App\Models\WhatsAppWebhookReceipt;
 use App\Services\WhatsApp\WhatsAppConnection;
 use App\Services\WhatsApp\WhatsAppSignup;
 use App\Support\Roles;
@@ -285,9 +286,10 @@ final class WhatsAppSignupFlowTest extends TestCase
     public function test_a_reconnect_started_from_a_connected_number_shows_its_progress(): void
     {
         $this->bindManually();
-        $attempt = app(WhatsAppSignup::class)->begin($this->admin, $this->sessionId);
-        $attempt->update(['status' => 'choose_phone', 'details' => ['message' => 'Meta birden fazla numara paylaştı. Bağlamak istediğiniz numarayı seçin.']]);
         $this->actingAs($this->admin);
+        // Started from this screen's session: only that session gets the link to the connect page.
+        $attempt = app(WhatsAppSignup::class)->begin($this->admin, session()->getId());
+        $attempt->update(['status' => 'choose_phone', 'details' => ['message' => 'Meta birden fazla numara paylaştı. Bağlamak istediğiniz numarayı seçin.']]);
 
         Livewire::test(Inbox::class)
             ->assertSee('Bağlı · +905551112233')
@@ -354,6 +356,165 @@ final class WhatsAppSignupFlowTest extends TestCase
             ->assertSee('Merhaba, fiyat öğrenebilir miyim?')
             ->assertSee('Merhaba Mehmet Bey, fiyatı hemen iletiyorum.')
             ->assertSee('Cevabı kopyala');
+    }
+
+    public function test_the_connect_pages_diary_shows_the_open_popup_and_a_page_left_mid_way(): void
+    {
+        $attempt = app(WhatsAppSignup::class)->begin($this->admin, $this->sessionId);
+        $this->browser()->get(route('operator.whatsapp.connect', $attempt->id))
+            ->assertOk()->assertSee('WhatsApp Business\'ta kullandığınız numarayı girin.')->assertDontSee('daha önce açılmıştı');
+
+        $this->browser()->postJson(route('operator.whatsapp.report', $attempt->id), ['event' => 'LAUNCHED'])->assertOk()->assertJson(['saved' => true]);
+        $this->browser()->get(route('operator.whatsapp.connect', $attempt->id))->assertOk()->assertSee('Meta penceresi daha önce açılmıştı');
+        $fresh = $attempt->fresh();
+        $this->assertSame('prepared', $fresh->status);
+        $this->assertNotNull($fresh->launched_at);
+        $this->assertTrue($fresh->expires_at->greaterThan(now()->addMinutes(29)));
+        $this->actingAs($this->admin);
+        Livewire::test(Inbox::class)->assertSee('Meta penceresi açıldı, sonuç bekleniyor')->assertSee('Bağlantı sayfasının kaydı (1)');
+
+        $this->browser()->postJson(route('operator.whatsapp.report', $attempt->id), ['event' => 'MESSAGE', 'note' => 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING · waba 555555'])->assertOk();
+        // The page's beacon on leaving is a plain form post.
+        $this->browser()->post(route('operator.whatsapp.report', $attempt->id), ['event' => 'PAGE_LEFT', 'note' => 'Meta penceresi açıktı'])->assertOk();
+
+        $this->assertSame(['LAUNCHED', 'MESSAGE', 'PAGE_LEFT'], array_column($attempt->fresh()->trace, 'event'));
+        $this->assertSame('prepared', $attempt->fresh()->status);
+        Livewire::test(Inbox::class)
+            ->assertSee('Bağlantı sayfasının kaydı (3)')
+            ->assertSee('Meta bildirimi geldi')
+            ->assertSee('waba 555555')
+            ->assertSee('bağlantı sayfasından çıkıldı');
+    }
+
+    public function test_an_attempt_never_launched_says_the_facebook_window_did_not_open(): void
+    {
+        app(WhatsAppSignup::class)->begin($this->admin, $this->sessionId);
+        $this->actingAs($this->admin);
+
+        Livewire::test(Inbox::class)->assertSee('Facebook penceresi açılmadı')->assertSee('Facebook ile bağla" düğmesine basılmadı', false);
+    }
+
+    public function test_a_new_launch_after_a_cancel_waits_for_the_new_popup_and_keeps_the_earlier_ending(): void
+    {
+        $attempt = app(WhatsAppSignup::class)->begin($this->admin, $this->sessionId);
+        $this->browser()->postJson(route('operator.whatsapp.report', $attempt->id), ['event' => 'CANCEL', 'current_step' => 'PHONE_NUMBER_SETUP'])->assertOk();
+
+        $this->browser()->postJson(route('operator.whatsapp.report', $attempt->id), ['event' => 'LAUNCHED'])->assertOk();
+
+        $fresh = $attempt->fresh();
+        $this->assertSame('prepared', $fresh->status);
+        $this->assertNull($fresh->details);
+        $this->assertSame(['CANCEL', 'LAUNCHED'], array_column($fresh->trace, 'event'));
+        $this->assertStringContainsString('PHONE_NUMBER_SETUP', $fresh->trace[0]['note']);
+    }
+
+    public function test_a_popup_closed_without_any_answer_from_facebook_is_explained(): void
+    {
+        $attempt = app(WhatsAppSignup::class)->begin($this->admin, $this->sessionId);
+
+        $this->browser()->postJson(route('operator.whatsapp.report', $attempt->id), ['event' => 'NO_CALLBACK'])->assertOk();
+
+        $fresh = $attempt->fresh();
+        $this->assertSame('cancelled', $fresh->status);
+        $this->assertStringContainsString('Facebook bu sayfaya hiçbir sonuç iletmedi', $fresh->details['message']);
+    }
+
+    public function test_a_report_the_attempt_no_longer_takes_is_refused_with_the_reason(): void
+    {
+        $attempt = app(WhatsAppSignup::class)->begin($this->admin, $this->sessionId);
+        $attempt->update(['status' => 'queued']);
+
+        // Along-the-way entries are still kept while the connection completes; an ending is not.
+        $this->browser()->postJson(route('operator.whatsapp.report', $attempt->id), ['event' => 'SDK_CALLBACK', 'note' => 'durum connected · kod var'])->assertOk();
+        $this->browser()->postJson(route('operator.whatsapp.report', $attempt->id), ['event' => 'POPUP_CLOSED'])
+            ->assertStatus(409)->assertJson(['saved' => false])->assertJsonPath('message', fn (string $message): bool => str_contains($message, 'yeniden başlatın'));
+        $this->assertSame('queued', $attempt->fresh()->status);
+
+        $attempt->update(['status' => 'expired']);
+        $this->browser()->postJson(route('operator.whatsapp.report', $attempt->id), ['event' => 'LAUNCHED'])->assertStatus(409);
+        $this->assertNull($attempt->fresh()->launched_at);
+        $this->assertSame(['SDK_CALLBACK'], array_column($attempt->fresh()->trace, 'event'));
+    }
+
+    public function test_the_connect_page_from_another_session_goes_back_to_the_whatsapp_screen_with_the_reason(): void
+    {
+        $attempt = app(WhatsAppSignup::class)->begin($this->admin, $this->sessionId);
+        $otherBrowser = $this->actingAs($this->admin)->withCredentials()->withCookie((string) config('session.cookie'), Str::random(40));
+
+        $otherBrowser->get(route('operator.whatsapp.connect', $attempt->id))
+            ->assertRedirect(route('operator.whatsapp'))
+            ->assertSessionHas('whatsapp_notice', fn (string $notice): bool => str_contains($notice, 'başka bir oturumda'));
+        $otherBrowser->postJson(route('operator.whatsapp.complete', $attempt->id), ['code' => 'meta-code', 'event' => 'CODE_ONLY'])
+            ->assertForbidden()->assertJsonPath('message', fn (string $message): bool => str_contains($message, 'başka bir oturumda'));
+        $this->assertSame('prepared', $attempt->fresh()->status);
+        Livewire::test(Inbox::class)->assertSee('Facebook penceresi açılmadı')->assertDontSee(route('operator.whatsapp.connect', $attempt->id));
+    }
+
+    public function test_the_connect_page_gets_json_when_the_operator_is_signed_out(): void
+    {
+        $attempt = app(WhatsAppSignup::class)->begin($this->admin, $this->sessionId);
+        auth()->logout();
+
+        $this->postJson(route('operator.whatsapp.report', $attempt->id), ['event' => 'LAUNCHED'])->assertUnauthorized();
+        $this->postJson(route('operator.whatsapp.complete', $attempt->id), ['code' => 'meta-code', 'event' => 'CODE_ONLY'])->assertUnauthorized();
+    }
+
+    public function test_reset_removes_the_meta_app_number_secrets_attempts_and_messages_but_keeps_the_reply_settings(): void
+    {
+        $this->bindManually();
+        $integration = app(WhatsAppConnection::class)->integration();
+        $integration->update(['config' => [...$integration->config, 'ai_model' => 'gpt-5-mini', 'business_context' => 'Web sitesi paketi 20.000 TL.',
+            'connected_via' => 'embedded_signup', 'coexistence_state' => 'signup_reported', 'webhook_verified_at' => now()->toIso8601String()]]);
+        app(WhatsAppSignup::class)->begin($this->admin, $this->sessionId)->update(['status' => 'cancelled']);
+        $conversation = WhatsAppConversation::query()->create([
+            'integration_id' => $integration->id, 'phone_number_id' => '222222222', 'contact_id' => '905009998877',
+            'contact_name' => 'Mehmet Bey', 'last_message_at' => now(), 'revision' => 1,
+        ]);
+        WhatsAppMessage::query()->create([
+            'conversation_id' => $conversation->id, 'message_id' => 'wamid.1', 'direction' => 'incoming', 'message_type' => 'text',
+            'body' => 'Merhaba', 'sent_at' => now(),
+        ]);
+        WhatsAppWebhookReceipt::query()->create(['integration_id' => $integration->id, 'payload_hash' => str_repeat('c', 64), 'status' => 'completed']);
+        $this->actingAs($this->admin);
+
+        Livewire::test(Inbox::class)
+            ->set('showSettings', true)
+            ->assertSee('Bağlantıyı sıfırla')
+            ->assertSee('1 görüşme ve mesajları da silinir')
+            ->call('resetConnection')
+            ->assertHasNoErrors()
+            ->assertSee('WhatsApp bağlantısı sıfırlandı')
+            ->assertSee('WhatsApp numaranızı bağlayın')
+            ->assertSet('app_id', '')
+            ->assertSet('waba_id', '');
+
+        $integration = app(WhatsAppConnection::class)->integration();
+        $this->assertSame('setup', app(WhatsAppConnection::class)->state($integration));
+        $this->assertSame(['access_token' => false, 'app_secret' => false, 'verify_token' => false], app(WhatsAppConnection::class)->credentialStatus($integration));
+        $this->assertSame('gpt-5-mini', $integration->config['ai_model']);
+        $this->assertSame('Web sitesi paketi 20.000 TL.', $integration->config['business_context']);
+        foreach (['waba_id', 'phone_number_id', 'business_phone', 'connected_via', 'coexistence_state', 'webhook_verified_at', 'subscription_state', 'last_signup_id'] as $key) {
+            $this->assertArrayNotHasKey($key, $integration->config);
+        }
+        $this->assertSame(0, WhatsAppSignupAttempt::query()->count());
+        $this->assertSame(0, WhatsAppConversation::query()->count());
+        $this->assertSame(0, WhatsAppMessage::query()->count());
+        $this->assertSame(0, WhatsAppWebhookReceipt::query()->count());
+
+        // An old configuration id left in the environment is not offered again.
+        config(['whatsapp.signup_config_id' => '1757572378897162']);
+        Livewire::test(Inbox::class)->assertSet('signup_config_id', '')->assertSee('Meta uygulama bilgileri');
+    }
+
+    public function test_reset_waits_while_a_connection_is_being_completed(): void
+    {
+        $this->queuedAttempt(['access_token' => 'business-token'])->update(['status' => 'running']);
+        $this->actingAs($this->admin);
+
+        Livewire::test(Inbox::class)->call('resetConnection')->assertHasErrors('connection')->assertSee('arka planda tamamlanıyor');
+
+        $this->assertSame('123456', app(WhatsAppConnection::class)->integration()->config['app_id']);
+        $this->assertSame(1, WhatsAppSignupAttempt::query()->count());
     }
 
     /** The operator's browser: signed in, on the session the attempt was started from. */

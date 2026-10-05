@@ -43,13 +43,13 @@
             <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-200 text-sm font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-200">2</span>
             <div class="min-w-0 flex-1 space-y-3">
                 <div class="flex flex-wrap items-center gap-2"><h3 class="font-medium text-gray-900 dark:text-white">Numarayı Meta ile bağla</h3></div>
-                <p class="text-sm text-gray-500">Facebook penceresinde işletme portföyünü seçin, "Mevcut WhatsApp Business uygulamanızı bağlayın" deyin ve telefonda gelen QR kodu okutun.</p>
+                <p class="text-sm text-gray-500">Bağlantı sayfasında "Facebook ile bağla"ya basın. Açılan pencerede işletme portföyünü seçin, WhatsApp Business'ta kullandığınız numarayı girin, telefonda onay verin ve son ekranda "Bitti" deyin. Pencere bitene kadar bağlantı sayfasını kapatmayın.</p>
                 <div class="flex flex-wrap items-center gap-3">
                     @if($canContinue)
-                        <a href="{{ route('operator.whatsapp.connect', ['attempt' => $signupAttempt->id]) }}" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600">{{ $signupAttempt->status === 'choose_phone' ? 'Numarayı seç' : 'Facebook ile bağla' }}</a>
-                        <button type="button" wire:click="beginSignup" class="text-sm text-gray-500 hover:text-brand-600">Baştan başlat</button>
+                        <a href="{{ route('operator.whatsapp.connect', ['attempt' => $signupAttempt->id]) }}" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600">{{ $signupAttempt->status === 'choose_phone' ? 'Numarayı seç' : 'Bağlantı sayfasını aç' }}</a>
+                        <button type="button" wire:click="beginSignup" wire:loading.attr="disabled" class="text-sm text-gray-500 hover:text-brand-600 disabled:opacity-50">Baştan başlat</button>
                     @else
-                        <button type="button" wire:click="beginSignup" wire:loading.attr="disabled" @disabled(! $metaReady || $attemptBusy) class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">Facebook ile bağla</button>
+                        <button type="button" wire:click="beginSignup" wire:loading.attr="disabled" @disabled(! $metaReady || $attemptBusy) class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">Bağlamaya başla</button>
                     @endif
                 </div>
                 @if($signupAttempt && $signupAttempt->status !== 'completed')

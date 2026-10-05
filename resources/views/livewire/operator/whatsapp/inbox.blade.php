@@ -31,8 +31,12 @@
         'interrupted' => ['bad', 'Yarıda kesildi; yeniden deneyin'],
     ];
     $runningSteps = ['exchange_code' => 'Meta yetkisi alınıyor', 'verify_token' => 'İzinler kontrol ediliyor', 'verify_phone' => 'Numara kontrol ediliyor', 'subscribe' => 'Mesaj aboneliği kuruluyor'];
-    $canContinue = $signupAttempt && in_array($signupAttempt->status, ['prepared', 'cancelled', 'choose_phone'], true)
-        && $signupAttempt->expires_at->isFuture() && $signupAttempt->user_id === auth()->id();
+    if ($signupAttempt?->status === 'prepared') {
+        $attemptLabels['prepared'] = $signupAttempt->launched_at ? ['warn', 'Meta penceresi açıldı, sonuç bekleniyor'] : ['muted', 'Facebook penceresi açılmadı'];
+    }
+    $canContinue = $attemptOwned && in_array($signupAttempt->status, ['prepared', 'cancelled', 'choose_phone'], true) && $signupAttempt->expires_at->isFuture();
+    // The Meta popup is open somewhere: refresh so its result shows up here without reloading.
+    $attemptWaiting = $signupAttempt?->status === 'prepared' && $signupAttempt->launched_at && $signupAttempt->expires_at->isFuture();
     // A reconnect or subscription run from an already connected number reports here, above the inbox.
     $showReconnect = $state === 'connected' && $signupAttempt && ! in_array($signupAttempt->status, ['completed', 'expired'], true)
         && ($attemptBusy || $signupAttempt->updated_at->greaterThan(now()->subDay()));
@@ -43,7 +47,7 @@
     {{-- Separate keyed pollers: changing one element's poll interval would leave the old timer running. --}}
     @if($attemptBusy || $suggestionBusy || ($config['connection_check'] ?? '') === 'queued')
         <div wire:key="wa-poll-fast" wire:poll.3s hidden></div>
-    @elseif(! $showSettings && $state === 'connected')
+    @elseif((! $showSettings && $state === 'connected') || $attemptWaiting)
         <div wire:key="wa-poll-slow" wire:poll.10s hidden></div>
     @endif
     <div class="flex flex-wrap items-start justify-between gap-3">
@@ -88,7 +92,7 @@
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <h2 class="font-semibold text-gray-900 dark:text-white">{{ $signupAttempt->mode === 'subscription' ? 'Mesaj aboneliği' : 'Numarayı yeniden bağlama' }}</h2>
                 @if($canContinue)
-                    <a href="{{ route('operator.whatsapp.connect', ['attempt' => $signupAttempt->id]) }}" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600">{{ $signupAttempt->status === 'choose_phone' ? 'Numarayı seç' : 'Facebook ile devam et' }}</a>
+                    <a href="{{ route('operator.whatsapp.connect', ['attempt' => $signupAttempt->id]) }}" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600">{{ $signupAttempt->status === 'choose_phone' ? 'Numarayı seç' : 'Bağlantı sayfasını aç' }}</a>
                 @endif
             </div>
             @include('livewire.operator.whatsapp.attempt-status')

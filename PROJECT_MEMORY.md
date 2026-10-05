@@ -10,6 +10,8 @@
 - **Bağlantı (2026-10-04 düzeltmesi):** Meta Embedded Signup penceresi `sessionInfoVersion: '3'` ile açılır (Coexistence için Meta "session logging" ister). Meta'nın yetki kodu ~30 sn yaşar; sunucu kodu tarayıcıdan gelir gelmez tek Graph çağrısıyla değiştirir, gerisi kuyrukta. Pencere sonuçsuz kapanırsa (CANCEL adımı / hata / kapandı) neden denemeye yazılır ve ekranda Türkçe görünür. Coexistence numarasında geçmiş mesajlar otomatik istenmez: ekrandaki "Geçmiş mesajları al" düğmesiyle (`smb_app_data` `history`) bağlantıdan sonraki 24 saat içinde operatör ister. Cloud API'ye kayıtlı olmayan yeni numara bağlanmaz (MoxDOP numara kaydı yapmaz).
   - Meta uygulamasının sahibi olan portföy pencerede seçilemez (Meta kuralı); o numara "Elle bağla" ile sistem kullanıcısı anahtarıyla bağlanır.
   - Meta, Embedded Signup v2/v3'ü 15 Ekim 2026'da kapatıyor; yapılandırma ID'si "WhatsApp Embedded Signup" şablonlu güncel (v4) yapılandırma olmalı.
+  - (2026-12-03) Bağlantı sayfası her adımı denemenin kaydına yazar (pencere açıldı, Facebook cevabı, Meta bildirimleri, sayfadan çıkış); sonuç gelmeyen deneme bu kayıtla teşhis edilir. Ayarlar › "Bağlantıyı sıfırla" Meta uygulama bilgilerini, numarayı, tüm gizli bilgileri, denemeleri ve gelen mesajları siler, yanıt önerisi ayarlarını korur; Meta'da bir şey değiştirmez.
+  - v4'te birlikte kullanım (coexistence) ayrı seçenek değildir: pencerede WhatsApp Business'ta kullanılan numara girilince Meta kendisi başlatır. Uygulamanın Tech Provider olması (işletme doğrulaması + `whatsapp_business_management` ve `whatsapp_business_messaging` için Advanced access) gerekir.
 
 ## 2026-11-24 — Web sitesi ekranı v3
 

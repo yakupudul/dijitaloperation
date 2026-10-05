@@ -6,6 +6,8 @@ use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\User;
 use App\Models\WhatsAppConversation;
+use App\Models\WhatsAppMessage;
+use App\Models\WhatsAppSignupAttempt;
 use App\Models\WhatsAppWebhookReceipt;
 use App\Support\Permissions;
 use App\Support\Roles;
@@ -18,6 +20,9 @@ use Illuminate\Validation\ValidationException;
 final class WhatsAppConnection
 {
     public const PROVIDER = 'whatsapp';
+
+    /** Reply-suggestion settings survive a reset; everything about the Meta app and the number is removed. */
+    private const KEPT_ON_RESET = ['ai_model', 'automatic_suggestions', 'business_context'];
 
     public function integration(): ?CoreIntegration
     {
@@ -131,6 +136,33 @@ final class WhatsAppConnection
             if ($contextChanged) {
                 self::contextChanged($integration);
             }
+        });
+    }
+
+    /**
+     * Start over from the first setup step: the Meta app details, the bound number, every secret (access token, app
+     * secret, verify token), the connection attempts and the received conversations are removed. The reply-suggestion
+     * settings stay. Nothing is changed at Meta.
+     */
+    public function reset(User $user): void
+    {
+        $this->authorize($user);
+        DB::transaction(function (): void {
+            $integration = CoreIntegration::query()->where('provider', self::PROVIDER)->lockForUpdate()->first();
+            if ($integration === null) {
+                return;
+            }
+            app(WhatsAppSignup::class)->assertIdle($integration);
+            $config = array_intersect_key($integration->config ?? [], array_flip(self::KEPT_ON_RESET));
+            // Empty rather than missing so the form does not fall back to an environment default from before.
+            $integration->update(['status' => CoreIntegration::STATUS_ACTIVE, 'config' => [...$config,
+                'app_id' => '', 'signup_config_id' => '', 'settings_revision' => (string) Str::uuid(), 'reset_at' => now()->toIso8601String()]]);
+            $integration->credentials()->where('credential_type', CoreIntegrationCredential::TYPE_PROVIDER)->delete();
+            WhatsAppSignupAttempt::query()->where('integration_id', $integration->id)->delete();
+            $conversations = WhatsAppConversation::query()->where('integration_id', $integration->id)->select('id');
+            WhatsAppMessage::query()->whereIn('conversation_id', $conversations)->delete();
+            WhatsAppConversation::query()->where('integration_id', $integration->id)->delete();
+            WhatsAppWebhookReceipt::query()->where('integration_id', $integration->id)->delete();
         });
     }
 

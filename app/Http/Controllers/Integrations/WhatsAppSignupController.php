@@ -6,20 +6,30 @@ use App\Models\CoreIntegration;
 use App\Services\WhatsApp\WhatsAppSignup;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 final class WhatsAppSignupController
 {
     public function show(Request $request, string $attempt, WhatsAppSignup $signup): Response
     {
-        $row = $signup->owned($attempt, $request->user(), $request->session()->getId());
+        try {
+            $row = $signup->owned($attempt, $request->user(), $request->session()->getId());
+        } catch (HttpException $exception) {
+            // Started in another session (re-login, another browser): back to the WhatsApp screen with the reason.
+            if ($exception->getStatusCode() !== 403) {
+                throw $exception;
+            }
+
+            return redirect()->route('operator.whatsapp')->with('whatsapp_notice', $exception->getMessage());
+        }
         $integration = CoreIntegration::query()->findOrFail($row->integration_id);
         $payload = $row->status === 'choose_phone' ? ($row->payload ?? []) : [];
 
         return response()->view('operator.whatsapp.connect', [
-            'attempt' => $row->only(['id', 'status', 'mode', 'details', 'expires_at']),
+            'attempt' => $row->only(['id', 'status', 'mode', 'details', 'expires_at', 'launched_at']),
             'phones' => $payload['phones'] ?? [],
             'appId' => (string) data_get($integration->config, 'app_id'),
             'configId' => (string) data_get($integration->config, 'signup_config_id'),
@@ -50,18 +60,24 @@ final class WhatsAppSignupController
         return response()->json(['queued' => true, 'redirect' => route('operator.whatsapp')]);
     }
 
-    /** The popup ended without a result: where it stopped (CANCEL current_step) or the error Meta showed. */
+    /**
+     * What the connect page saw: along the way (popup opened, Facebook's answer, Meta events, a failed request, the
+     * page left; also sent as a beacon) or an ending without a result (where it stopped or the error Meta showed).
+     */
     public function report(Request $request, string $attempt, WhatsAppSignup $signup): JsonResponse
     {
         $row = $signup->owned($attempt, $request->user(), $request->session()->getId());
         $data = $request->validate([
-            'event' => ['required', 'in:CANCEL,ERROR,POPUP_CLOSED,LOGIN_REFUSED,NO_CODE'],
+            'event' => ['required', 'in:'.implode(',', [...WhatsAppSignup::TRACE_EVENTS, ...WhatsAppSignup::END_EVENTS])],
+            'note' => ['nullable', 'string', 'max:300'],
             'current_step' => ['nullable', 'string', 'max:100'],
             'error_message' => ['nullable', 'string', 'max:500'],
             'error_id' => ['nullable', 'string', 'max:100'],
             'session_id' => ['nullable', 'string', 'max:200'],
         ]);
-        $signup->report($row, $data);
+        if (! $signup->report($row, $data)) {
+            return response()->json(['saved' => false, 'message' => 'Bu bağlantı oturumu artık geçerli değil (süresi doldu ya da yeni bir deneme başlatıldı). WhatsApp ekranından yeniden başlatın.'], 409);
+        }
 
         return response()->json(['saved' => true]);
     }

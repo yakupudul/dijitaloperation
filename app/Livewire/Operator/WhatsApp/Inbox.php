@@ -91,6 +91,7 @@ class Inbox extends Component
         // Opened from a link (?conversation=): prefill the customer field as a click in the list would.
         $linked = $this->conversation ? WhatsAppConversation::query()->where('integration_id', $integration?->id)->find($this->conversation)?->customer_id : null;
         $this->linkCustomer = $linked ? (string) $linked : '';
+        $this->notice = (string) session('whatsapp_notice', '');
         if (trim($this->business_context) === '') {
             // Faz 12: no built-in prices or names; the operator writes the agency's own terms here.
             $agency = (string) (AgencySetting::query()->value('agency_name') ?? '');
@@ -148,6 +149,26 @@ class Inbox extends Component
         $this->notice = $signup->requestHistory(auth()->user())
             ? 'Meta\'dan geçmiş mesajlar istendi. Birkaç dakika içinde görüşme listesine gelmeye başlar.'
             : 'Meta geçmiş mesaj aktarımını başlatmadı; nedeni aşağıda yazıyor. 24 saat dolmadan tekrar deneyebilirsiniz.';
+    }
+
+    /** Settings › Bağlantıyı sıfırla: back to the first setup step; nothing is changed at Meta. */
+    public function resetConnection(WhatsAppConnection $connection): void
+    {
+        $this->resetValidation();
+        try {
+            $connection->reset(auth()->user());
+        } catch (ValidationException $exception) {
+            $this->addError('connection', collect($exception->errors())->flatten()->first());
+
+            return;
+        }
+        $this->fill([
+            'app_id' => '', 'signup_config_id' => '', 'signup_mode' => 'coexistence', 'waba_id' => '', 'phone_number_id' => '',
+            'business_phone' => '', 'enabled' => true, 'conversation' => null, 'linkCustomer' => '', 'q' => '',
+            'showSettings' => false, 'manualOpen' => false,
+        ]);
+        $this->resetPage('conversationsPage');
+        $this->notice = 'WhatsApp bağlantısı sıfırlandı. 1. adımdaki Meta uygulama bilgilerini yeniden girin.';
     }
 
     public function updatedQ(): void
@@ -359,6 +380,9 @@ class Inbox extends Component
         })->orderByDesc('last_message_at')->orderByDesc('id')->paginate(20, ['*'], 'conversationsPage');
         $selected = $this->conversation ? (clone $query)->find($this->conversation) : null;
         $messages = $selected?->messages()->orderByDesc('sent_at')->orderByDesc('id')->paginate(50, ['*'], 'chatPage');
+        $attempt = WhatsAppSignupAttempt::query()->where('integration_id', $integration?->id)
+            ->select(['id', 'user_id', 'session_hash', 'status', 'step', 'mode', 'details', 'trace', 'launched_at', 'updated_at', 'expires_at'])
+            ->orderByDesc('created_at')->first();
 
         return view('livewire.operator.whatsapp.inbox', [
             'integration' => $integration, 'rows' => $rows, 'selected' => $selected, 'messages' => $messages,
@@ -366,9 +390,10 @@ class Inbox extends Component
             'config' => $integration?->config ?? [],
             'credentialStatus' => $connection->credentialStatus($integration),
             'historyDeadline' => $connection->historyDeadline($integration),
-            'signupAttempt' => WhatsAppSignupAttempt::query()->where('integration_id', $integration?->id)
-                ->select(['id', 'user_id', 'status', 'step', 'mode', 'details', 'updated_at', 'expires_at'])
-                ->orderByDesc('created_at')->first(),
+            'signupAttempt' => $attempt,
+            'conversationCount' => $this->showSettings ? (clone $query)->count() : 0,
+            // The connect page only opens in the session that started the attempt.
+            'attemptOwned' => $attempt !== null && $attempt->user_id === auth()->id() && hash_equals($attempt->session_hash, hash('sha256', session()->getId())),
             'linkedCustomer' => $selected?->customer_id ? Customer::query()->find($selected->customer_id) : null,
             'customerOptions' => $selected ? Customer::query()->orderBy('name')->pluck('name', 'id') : collect(),
             'modelOptions' => WhatsAppSuggestions::modelOptions($this->ai_model),

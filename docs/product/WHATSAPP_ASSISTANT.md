@@ -261,3 +261,34 @@ stayed `prepared` and the screen showed only a raw English token error (code 190
   Turkish by `WhatsAppErrorText`.
 - Tests: `WhatsAppSignupFlowTest`. Not verified against a live Meta popup.
 
+
+## 2026-12-03 — Connect-page diary and reset
+
+Symptom: after the 2026-12-02 deploy the attempt again stayed `prepared` with no reason; the screen could not tell
+"popup never opened" from "popup open, no answer" or "page left mid-way". The operator asked to start over.
+
+- Diary: the connect page posts along-the-way entries to `operator.whatsapp.report` (`LAUNCHED`, `SDK_CALLBACK` with
+  the SDK status and whether a code came — never the code, `MESSAGE` with Meta's event / step / ids, `POST_FAILED`
+  with the HTTP status, `POPUP_BLOCKED`, and `PAGE_LEFT` as a `sendBeacon` form post on `pagehide`). Entries are kept
+  newest-last in `whatsapp_signup_attempts.trace` (at most 40) and listed on the screen under "Bağlantı sayfasının
+  kaydı". `CODE_RECEIVED` is added when `submit()` accepts the code.
+- `LAUNCHED` sets `launched_at`, `step=popup_open`, returns a `cancelled` attempt to `prepared` and extends
+  `expires_at` to at least 30 minutes (business-app onboarding with the phone takes a while). The screen polls every
+  10 seconds while a launched attempt waits.
+- The page keeps the window the SDK opens (`window.open` wrapped only around `FB.login`). When that window closes and
+  Facebook has not answered within 8 seconds, it reports `NO_CALLBACK`; a "Meta penceresine dön" button focuses the
+  open window; leaving the page while the window is open asks for confirmation. A blocked window says so.
+- Responses: `report` returns 409 `{saved:false, message}` when the attempt no longer takes the entry (expired, or an
+  ending on an attempt that is not open). `whatsapp/connect/*` requests that expect JSON get JSON errors (401 / 403 /
+  409 / 419 / 422 / 429) instead of a login redirect or HTML. A connect page opened from another session goes back to
+  the WhatsApp screen with the reason; the screen shows the connect link only to the session that started it.
+- Reset (Ayarlar › "Bağlantıyı sıfırla", `WhatsAppConnection::reset()`): removes the Meta app id and configuration id
+  (stored empty so an old `WHATSAPP_SIGNUP_CONFIG_ID` is not offered again), the bound number, every secret (access
+  token, app secret, verify token), all attempts, conversations, messages and webhook receipts. Keeps `ai_model`,
+  `automatic_suggestions`, `business_context` and the KVKK retention. Refused while a connection is completing.
+  Nothing is changed at Meta.
+- Connect-page steps follow Embedded Signup v4: pick the portfolio, enter the number used in the WhatsApp Business
+  app (Meta starts coexistence itself), approve on the phone and share chats, "Bitti".
+- Tests: `WhatsAppSignupFlowTest` (diary, relaunch after cancel, `NO_CALLBACK`, 409, other session, JSON 401, reset).
+  The page script was exercised in Chromium against a stubbed SDK (closed window without answer, finish + code,
+  blocked window, page left, cancel). Not verified against a live Meta popup.

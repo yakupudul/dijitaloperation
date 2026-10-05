@@ -1,5 +1,17 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-12-03 — WhatsApp bağlantı sayfası kaydı ve "Bağlantıyı sıfırla"
+
+- **Neden:** 2026-12-02 güncellemesinden sonra deneme yine "prepared"da kaldı, neden görünmedi. yakup her şeyi sıfırdan kurmak istedi.
+- **Bağlantı sayfasının kaydı:** Sayfa Facebook penceresinin açılmasını, Facebook'un cevabını (kodun kendisi değil, gelip gelmediği), Meta bildirimlerini, sunucuya gönderilemeyen sonucu, engellenen pencereyi ve pencere açıkken sayfadan çıkışı kaydeder (`whatsapp_signup_attempts.trace`, en çok 40). WhatsApp ekranında "Bağlantı sayfasının kaydı" listesinde görünür.
+  - Durum etiketi ayrışır: "Facebook penceresi açılmadı" / "Meta penceresi açıldı, sonuç bekleniyor" / sayfadan çıkıldı. Pencere açıkken ekran 10 sn'de bir yenilenir.
+  - Pencere kapanıp Facebook 8 sn içinde cevap vermezse `NO_CALLBACK` nedeni yazılır. "Meta penceresine dön" düğmesi; pencere açıkken sayfadan çıkarken onay sorulur.
+  - Geçersiz oturum / süresi dolmuş deneme / kapanmış giriş Türkçe söylenir (JSON 401/403/409/419/429); başka oturumdan açılan bağlantı sayfası WhatsApp ekranına nedeniyle döner.
+- **Bağlantıyı sıfırla (Ayarlar):** Meta uygulama bilgileri, numara, erişim anahtarı, App Secret, Verify Token, denemeler, görüşmeler, mesajlar ve aktarımlar silinir; yanıt önerisi ayarları ve KVKK süresi kalır. Bağlantı tamamlanırken çalışmaz. Meta'da hiçbir şey değişmez.
+- **Bağlantı sayfası adımları** Embedded Signup v4'e göre yazıldı (numara girilince Meta birlikte kullanımı kendisi başlatır).
+- **Kurulum rehberi:** "WhatsApp bağlantısı: sıfırdan kurulum" belgesi (Meta portföyü, uygulama ayarları, v4 yapılandırma, webhook, bağlama adımları).
+- **Test:** WhatsAppSignupFlowTest (28 test). Sayfa betiği Chromium'da sahte Facebook SDK'sıyla denendi. UAT: yok — yakup sıfırlayıp yeniden bağlayınca doğrulanır.
+
 ## 2026-12-02 — WhatsApp bağlantısı sağlamlaştı, ekran yeniden tasarlandı
 
 - **Neden:** yakup Facebook penceresinde portföy seçip devam etti, MoxDOP'a hiçbir sonuç dönmedi; deneme "Meta onayı bekleniyor"da kaldı, sebep görünmüyordu. Eski el ile girilmiş erişim anahtarının süresi 10 Eylül'de dolmuştu ve ekranda İngilizce ham hata vardı.
