@@ -65,6 +65,9 @@ final class AiRouteKeys
     /** Faz 7: proposed Business Profile description (≤ 750 characters) from brand memory, offerings and areas. */
     public const string GBP_DESCRIPTION = 'gbp.description';
 
+    /** Operator's category / service list → Google categories (gcid) and service items to add to the profile (one call). */
+    public const string GBP_PROFILE_PLAN = 'gbp.profile_plan';
+
     /** Marka bakım ajanı: weekly, delta-driven review of one active brand from its Marka dosyası (≤ 5 tasks). */
     public const string BRAND_CARE = 'brand.care';
 

@@ -17,9 +17,12 @@ use App\Services\Async\AsyncOperationService;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\GbpAssistant;
 use App\Services\Gbp\GbpDailyWorkspace;
+use App\Services\Gbp\GbpProfilePlanner;
 use App\Services\Gbp\GbpScreen;
+use App\Services\Gbp\GbpStandardInput;
 use App\Services\Gbp\GbpSuggestions;
 use App\Services\Gbp\ReviewReplyDrafter;
+use App\Services\SeoTasks\SeoText;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Cache;
@@ -31,11 +34,12 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
- * İşletme Profili (Faz 7): Genel Bakış · Yapılacaklar · Yorumlar · Gönderiler · Analiz · Ayarlar for one bound location.
- * Numbers come from the collected gbp_* tables (GbpScreen); suggestions from the ONE suggestions table (GbpSuggestions);
- * AI work is queued (GbpAssistant, ReviewReplyDrafter). The only writes to Google are ADR-073 — a review reply and a
- * post (now or scheduled) — Admin-approved, recorded and undoable through ExternalWriteService. Profile fields
- * (categories, services, description) are changed by the operator on Google.
+ * İşletme Profili (Faz 7): Genel Bakış · Yapılacaklar · Yorumlar · Gönderiler · Kategori ve hizmetler · Analiz · Ayarlar
+ * for one bound location. Numbers come from the collected gbp_* tables (GbpScreen); suggestions from the ONE
+ * suggestions table (GbpSuggestions); AI work is queued (GbpAssistant, ReviewReplyDrafter, GbpProfilePlanner). Writes
+ * to Google are Admin-approved, recorded and undoable through ExternalWriteService: ADR-073 a review reply and a post
+ * (now or scheduled), ADR-077 adding categories / services from a prepared plan. Description, hours, primary
+ * category and removals are changed by the operator on Google.
  */
 #[Layout('operator.layouts.app')]
 #[Title('İşletme Profili')]
@@ -43,7 +47,7 @@ class OverviewPage extends Component
 {
     use ResolvesCanonicalOperatorAsset;
 
-    public const array TABS = ['overview' => 'Genel Bakış', 'todo' => 'Yapılacaklar', 'reviews' => 'Yorumlar', 'posts' => 'Gönderiler', 'analysis' => 'Analiz', 'settings' => 'Ayarlar'];
+    public const array TABS = ['overview' => 'Genel Bakış', 'todo' => 'Yapılacaklar', 'reviews' => 'Yorumlar', 'posts' => 'Gönderiler', 'services' => 'Kategori ve hizmetler', 'analysis' => 'Analiz', 'settings' => 'Ayarlar'];
 
     /** @var array<string, string> Retired tab keys kept working for old links. */
     private const array LEGACY_TAB_MAP = [
@@ -75,6 +79,23 @@ class OverviewPage extends Component
 
     /** Siteden paylaş: selected page id. */
     public string $sharePageId = '';
+
+    /** Kategori ve hizmetler: the operator's lists (one per line). */
+    public string $wantCategories = '';
+
+    public string $wantServices = '';
+
+    /** Plan rows chosen to send. @var list<string> category ids */
+    public array $pickCategories = [];
+
+    /** @var list<int> service indexes */
+    public array $pickServices = [];
+
+    /** Edited service descriptions by index. @var array<int, string> */
+    public array $serviceText = [];
+
+    /** Plan the choices above belong to. */
+    public ?int $planId = null;
 
     public function mount(?string $assetId = null): void
     {
@@ -273,6 +294,63 @@ class OverviewPage extends Component
         }
     }
 
+    /* ---------------- Kategori ve hizmetler ---------------- */
+
+    /** Fills the services list with the brand's approved services that are not on the profile yet. */
+    public function fillFromOfferings(GbpAssistant $assistant, GbpDailyWorkspace $daily, GbpStandardInput $input): void
+    {
+        $asset = $this->asset()->loadMissing('brand');
+        $resource = $daily->resource($asset);
+        $onProfile = $resource !== null ? array_map(fn (string $s): string => SeoText::fold($s), $input->services((int) $resource->id)['labels']) : [];
+        $missing = array_values(array_filter(array_column($assistant->offerings($asset->brand), 'name'),
+            fn (string $name): bool => ! in_array(SeoText::fold($name), $onProfile, true)));
+        if ($missing === []) {
+            DemoState::flash('Markanın onaylı hizmetlerinin hepsi profilde var.', 'info');
+
+            return;
+        }
+        $this->wantServices = implode("\n", GbpProfilePlanner::lines(trim($this->wantServices."\n".implode("\n", $missing)), GbpProfilePlanner::SERVICE_LINES_MAX));
+    }
+
+    public function preparePlan(GbpAssistant $assistant): void
+    {
+        $this->queueAssistant($assistant, GbpAssistant::OP_PROFILE, [
+            'categories' => GbpProfilePlanner::lines($this->wantCategories, GbpProfilePlanner::CATEGORY_LINES_MAX),
+            'services' => GbpProfilePlanner::lines($this->wantServices, GbpProfilePlanner::SERVICE_LINES_MAX),
+        ]);
+    }
+
+    /** ADR-077: the Admin sends the chosen plan rows to the profile (additions only; undo from the list). */
+    public function sendPlan(ExternalWriteService $writes, GbpProfilePlanner $planner): void
+    {
+        abort_unless(ExternalWriteService::allowed(auth()->user(), ExternalWriteAction::CHANNEL_GBP), 403);
+        $plan = $planner->latest($this->asset());
+        if ($plan === null || (int) $plan->id !== $this->planId) {
+            DemoState::flash('Hazırlık değişti; listeyi kontrol edip yeniden gönderin.', 'error');
+            $this->planId = null;
+
+            return;
+        }
+        try {
+            $writes->requestProfileUpdate(auth()->user(), $this->asset(), $plan, array_values(array_map('strval', $this->pickCategories)),
+                array_values(array_map('intval', $this->pickServices)), $this->serviceText);
+            $this->planId = null;
+            DemoState::flash('Seçilenler İşletme Profili’ne gönderiliyor.', 'info');
+        } catch (ValidationException $exception) {
+            DemoState::flash((string) collect($exception->errors())->flatten()->first(), 'error');
+        }
+    }
+
+    public function discardPlan(GbpProfilePlanner $planner, ProductionArchive $archive): void
+    {
+        $plan = $planner->latest($this->asset());
+        if ($plan !== null) {
+            $archive->mark($plan, AiProduction::STATUS_DISCARDED, auth()->user());
+        }
+        $this->planId = null;
+        DemoState::flash('Hazırlık silindi.', 'info');
+    }
+
     public function render(GbpOperatorWorkspace $workspace, GbpDailyWorkspace $daily, GbpScreen $screen, GbpSuggestions $suggestions, GbpAssistant $assistant): View
     {
         $this->normalize();
@@ -282,6 +360,7 @@ class OverviewPage extends Component
         $resourceId = $resource?->id !== null ? (int) $resource->id : null;
         $assetId = (int) $asset->id;
         $reviewList = $this->tab === 'reviews' && $resourceId !== null ? $daily->reviews($resourceId, '', $this->unanswered) : [];
+        $plan = $this->tab === 'services' ? $this->syncPlan(app(GbpProfilePlanner::class)->latest($asset)) : null;
 
         return view('livewire.demo.gbp.overview', [
             'asset' => $this->presentCanonicalAsset(),
@@ -307,6 +386,10 @@ class OverviewPage extends Component
             'pages' => $this->tab === 'posts' ? $assistant->shareablePages($asset) : [],
             'postDraft' => $this->tab === 'posts' ? $assistant->latestPost($asset) : null,
             'postState' => $this->tab === 'posts' ? $assistant->state($assetId, GbpAssistant::OP_POST) : null,
+            'plan' => $plan,
+            'planState' => $this->tab === 'services' ? $assistant->state($assetId, GbpAssistant::OP_PROFILE) : null,
+            'profileWrites' => $this->tab === 'services' ? ExternalWriteAction::query()->where('digital_asset_id', $assetId)
+                ->where('action', ExternalWriteAction::ACTION_PROFILE_UPDATE)->latest('id')->limit(10)->get() : collect(),
             'analysis' => $this->tab === 'analysis' && $resourceId !== null ? $screen->analysis($resourceId, $this->days) : null,
             'dayOptions' => self::DAY_OPTIONS,
         ]);
@@ -321,6 +404,26 @@ class OverviewPage extends Component
         } catch (ValidationException $exception) {
             DemoState::flash((string) collect($exception->errors())->flatten()->first(), 'error');
         }
+    }
+
+    /** A new plan preselects its new rows and loads its descriptions; the operator's choices stay while it is the same plan. */
+    private function syncPlan(?AiProduction $plan): ?AiProduction
+    {
+        if ($plan === null || (int) $plan->id === $this->planId) {
+            return $plan;
+        }
+        $this->planId = (int) $plan->id;
+        $this->pickCategories = array_values(array_column(array_filter((array) data_get($plan->content, 'categories', []), fn (array $c): bool => $c['status'] === 'new'), 'id'));
+        $this->pickServices = [];
+        $this->serviceText = [];
+        foreach ((array) data_get($plan->content, 'services', []) as $index => $service) {
+            $this->serviceText[(int) $index] = (string) $service['description'];
+            if ($service['status'] === 'new') {
+                $this->pickServices[] = (int) $index;
+            }
+        }
+
+        return $plan;
     }
 
     private function normalize(): void

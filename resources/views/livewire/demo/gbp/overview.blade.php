@@ -357,6 +357,140 @@
             </section>
         </div>
 
+    @elseif ($tab === 'services')
+        @php
+            $plState = $stateLine($planState);
+            $additionalNow = $profile['categories']['additional'] ?? [];
+            $chip = fn (string $status): array => match ($status) {
+                'new' => ['Eklenecek', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'],
+                'exists' => ['Profilde var', 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300'],
+                default => ['9 ek kategori sınırı dolu', 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'],
+            };
+        @endphp
+        <div class="grid gap-4 xl:grid-cols-5" data-testid="gbp-services">
+            <section class="{{ $card }} space-y-3 xl:col-span-2">
+                <div class="text-sm">
+                    <p class="font-semibold text-gray-900 dark:text-white">Profilde şu an</p>
+                    <p class="mt-1 text-gray-600 dark:text-gray-300"><span class="text-xs text-gray-500">Birincil:</span> {{ $profile['categories']['primary'] ?? '—' }}</p>
+                    <p class="text-gray-600 dark:text-gray-300"><span class="text-xs text-gray-500">Ek ({{ count($additionalNow) }}/9):</span> {{ $additionalNow === [] ? '—' : implode(', ', $additionalNow) }}</p>
+                    <p class="text-gray-600 dark:text-gray-300"><span class="text-xs text-gray-500">Hizmetler ({{ count($profile['services'] ?? []) }}):</span> {{ ($profile['services'] ?? []) === [] ? '—' : \Illuminate\Support\Str::limit(implode(', ', $profile['services']), 300) }}</p>
+                </div>
+                <label class="block text-sm"><span class="text-xs text-gray-500">Eklenecek kategoriler (her satıra bir, en çok 10)</span>
+                    <textarea wire:model="wantCategories" rows="3" placeholder="Ortodontist&#10;Ağız ve diş sağlığı kliniği" class="mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900"></textarea>
+                </label>
+                <label class="block text-sm"><span class="flex items-center justify-between text-xs text-gray-500">Eklenecek hizmetler (her satıra bir, en çok 40)
+                        <button type="button" wire:click="fillFromOfferings" class="font-medium text-brand-600 hover:underline">Marka hizmetlerinden doldur</button></span>
+                    <textarea wire:model="wantServices" rows="7" placeholder="Diş implantı&#10;Zirkonyum kaplama" class="mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900"></textarea>
+                </label>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" wire:click="preparePlan" wire:loading.attr="disabled" @disabled(! $operational || ! $bound || ($planState['status'] ?? null) === 'running') class="{{ $primary }}">AI ile hazırla</button>
+                    <x-operator.ai-prompt-info operation="gbp.profile_plan" />
+                </div>
+                @if ($plState)<p class="text-xs {{ $plState[0] }}" @if ($plState[2]) wire:poll.10s @endif>{{ $plState[1] }}</p>@endif
+                <p class="text-xs text-gray-500">Kategoriler Google’ın kendi listesinden seçilir; hizmetler Google’ın hazır hizmeti ya da kısa açıklamalı özel hizmet olarak hazırlanır. Gönderince yalnız ekleme yapılır: birincil kategori ve mevcut kategori / hizmetler değişmez, geri alınabilir.</p>
+            </section>
+
+            <section class="{{ $panel }} xl:col-span-3">
+                <div class="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-700">
+                    <h2 class="font-semibold text-gray-900 dark:text-white">Hazırlık</h2>
+                    @if ($plan)<span class="text-xs text-gray-500">{{ $plan->created_at?->diffForHumans() }}</span>@endif
+                </div>
+                @if (! $plan)
+                    <p class="px-4 py-5 text-sm text-gray-500">Listeyi yazıp “AI ile hazırla”ya basın; Google’a uygun hali burada görünür.</p>
+                @else
+                    @php
+                        $planCategories = (array) data_get($plan->content, 'categories', []);
+                        $planServices = (array) data_get($plan->content, 'services', []);
+                        $skipped = (array) data_get($plan->content, 'skipped', []);
+                    @endphp
+                    <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                        @if ($planCategories !== [])
+                            <p class="px-4 pt-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Kategoriler</p>
+                            @foreach ($planCategories as $row)
+                                @php [$label, $class] = $chip($row['status']); @endphp
+                                <label class="flex items-start gap-3 px-4 py-2" wire:key="plan-cat-{{ $row['id'] }}">
+                                    <input type="checkbox" wire:model.live="pickCategories" value="{{ $row['id'] }}" @disabled($row['status'] !== 'new') class="mt-1 rounded border-gray-300">
+                                    <span class="min-w-0 flex-1 text-sm">
+                                        <span class="font-medium text-gray-900 dark:text-white">{{ $row['name'] }}</span>
+                                        <span class="text-xs text-gray-400">← {{ $row['line'] }}</span>
+                                        @if (filled($row['reason']))<span class="block text-xs text-gray-500">{{ $row['reason'] }}</span>@endif
+                                    </span>
+                                    <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $class }}">{{ $label }}</span>
+                                </label>
+                            @endforeach
+                        @endif
+                        @if ($planServices !== [])
+                            <p class="px-4 pt-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Hizmetler</p>
+                            @foreach ($planServices as $index => $row)
+                                @php [$label, $class] = $chip($row['status']); @endphp
+                                <div class="flex items-start gap-3 px-4 py-2" wire:key="plan-svc-{{ $plan->id }}-{{ $index }}">
+                                    <input type="checkbox" wire:model.live="pickServices" value="{{ $index }}" @disabled($row['status'] !== 'new') aria-label="{{ $row['name'] }}" class="mt-1 rounded border-gray-300">
+                                    <div class="min-w-0 flex-1 text-sm">
+                                        <p><span class="font-medium text-gray-900 dark:text-white">{{ $row['name'] }}</span>
+                                            <span class="text-xs text-gray-500">· {{ $row['category'] }} · {{ $row['service_type_id'] ? 'Google’ın hazır hizmeti' : 'Özel hizmet' }}</span></p>
+                                        @if ($row['status'] === 'new')
+                                            <textarea wire:model="serviceText.{{ $index }}" rows="2" maxlength="300" aria-label="Açıklama" class="mt-1 w-full rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-900"></textarea>
+                                        @elseif (filled($row['description']))
+                                            <p class="text-xs text-gray-500">{{ $row['description'] }}</p>
+                                        @endif
+                                    </div>
+                                    <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $class }}">{{ $label }}</span>
+                                </div>
+                            @endforeach
+                        @endif
+                        @if ($skipped !== [])
+                            <div class="px-4 py-3">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Atlananlar</p>
+                                @foreach ($skipped as $row)
+                                    <p class="mt-1 text-xs text-gray-600 dark:text-gray-300"><span class="font-medium">{{ $row['line'] }}</span>: {{ $row['reason'] }}</p>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 border-t border-gray-100 px-4 py-3 dark:border-gray-700">
+                        @php $picked = count($pickCategories) + count($pickServices); @endphp
+                        @if ($canWrite)
+                            <button type="button" @disabled($picked === 0)
+                                x-on:click="if (confirm('Seçilen {{ count($pickCategories) }} kategori ve {{ count($pickServices) }} hizmet İşletme Profili’ne eklenecek. Mevcut kategori ve hizmetler değişmez; geri alınabilir. Gönderilsin mi?')) $wire.sendPlan()"
+                                class="rounded-lg bg-success-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-success-600 disabled:opacity-50">Seçilenleri gönder ({{ $picked }})</button>
+                        @else
+                            <span class="text-xs text-gray-500">Gönderimi Admin onaylar.</span>
+                        @endif
+                        <button type="button" wire:click="discardPlan" class="px-2 text-sm text-gray-500 hover:underline">Hazırlığı sil</button>
+                    </div>
+                @endif
+
+                @if ($profileWrites->isNotEmpty())
+                    <div class="border-t border-gray-100 dark:border-gray-700">
+                        <p class="px-4 pt-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Gönderilenler</p>
+                        @foreach ($profileWrites as $write)
+                            @php
+                                $sentCategories = collect(data_get($write->request_payload, 'categories', []))->pluck('name')->all();
+                                $sentServices = collect(data_get($write->request_payload, 'services', []))->pluck('name')->all();
+                            @endphp
+                            <div class="px-4 py-2 text-sm" wire:key="profile-write-{{ $write->id }}">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="text-xs text-gray-400">{{ $write->created_at?->format('d.m.Y H:i') }}</span>
+                                    <span class="min-w-0 flex-1 text-gray-800 dark:text-gray-200">{{ \Illuminate\Support\Str::limit(implode(', ', [...$sentCategories, ...$sentServices]), 160) }}</span>
+                                    <span @class([
+                                        'rounded-full px-2 py-0.5 text-[11px] font-semibold',
+                                        'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => $write->status === 'succeeded',
+                                        'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300' => in_array($write->status, ['failed', 'undo_failed', 'partial'], true),
+                                        'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300' => ! in_array($write->status, ['succeeded', 'failed', 'undo_failed', 'partial'], true),
+                                    ])>{{ $write->statusLabel() }}</span>
+                                </div>
+                                @if (filled($write->error) || filled(data_get($write->result, 'error')))<p class="mt-1 text-xs text-rose-600">{{ $write->error ?: data_get($write->result, 'error') }}</p>@endif
+                                @if (in_array($write->status, ['queued', 'running', 'undoing'], true))<p class="mt-1 text-xs text-gray-500" wire:poll.5s>Google’a gönderiliyor…</p>@endif
+                                @if ($canWrite && $write->isUndoable())
+                                    <button type="button" x-on:click="if (confirm('Bu gönderimle eklenen kategori ve hizmetler profilden kaldırılsın mı?')) $wire.undoWrite({{ $write->id }})" class="mt-1 text-xs font-medium text-rose-600 hover:underline">Geri al</button>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </section>
+        </div>
+
     @elseif ($tab === 'analysis')
         <div class="flex gap-1">
             @foreach ($dayOptions as $option)

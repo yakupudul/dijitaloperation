@@ -3,6 +3,7 @@
 namespace App\Services\ExternalWrites;
 
 use App\Jobs\ExecuteExternalWriteJob;
+use App\Models\AiProduction;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
@@ -10,6 +11,8 @@ use App\Models\ExternalWriteAction;
 use App\Models\GbpReview;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\Gbp\GbpAssistant;
+use App\Services\Gbp\GbpProfilePlanner;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
 use App\Services\Integrations\WordPress\WordPressManagementService;
 use App\Services\Integrations\WordPress\WordPressSiteBuilder;
@@ -20,7 +23,7 @@ use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * Entry point for every approved external write (ADR-064 / 068 / 070 / 071 / 073 / 076). Checks: kill switch, Admin role, eligible source item. Every
+ * Entry point for every approved external write (ADR-064 / 068 / 070 / 071 / 073 / 076 / 077). Checks: kill switch, Admin role, eligible source item. Every
  * request becomes an ExternalWriteAction row and runs on the queue; undo is the same path in reverse.
  */
 final class ExternalWriteService
@@ -369,6 +372,69 @@ final class ExternalWriteService
         ]);
 
         return $publishAt !== null ? $action : $this->queue($action);
+    }
+
+    /**
+     * ADR-077: the Admin sends the chosen rows of a "Kategori ve hizmetler" plan to the profile (additions only). Only
+     * rows the plan marked new; a service under a new category needs that category chosen too; edited descriptions
+     * are cut to 300 characters and checked against the sector rules again.
+     *
+     * @param  list<string>  $categoryIds
+     * @param  list<int>  $serviceIndexes  indexes into the plan's services
+     * @param  array<int|string, string>  $descriptions  edited descriptions by service index
+     */
+    public function requestProfileUpdate(User $user, DigitalAsset $asset, AiProduction $plan, array $categoryIds, array $serviceIndexes, array $descriptions = []): ExternalWriteAction
+    {
+        $this->guard($user, ExternalWriteAction::CHANNEL_GBP);
+        if ($plan->kind !== GbpProfilePlanner::KIND || $plan->subject_type !== 'DigitalAsset' || (int) $plan->subject_id !== (int) $asset->id || $plan->status !== AiProduction::STATUS_NEW) {
+            throw ValidationException::withMessages(['write' => 'Bu hazırlık artık geçerli değil; yeniden hazırlayın.']);
+        }
+        $content = (array) $plan->content;
+        $categories = array_values(array_filter((array) ($content['categories'] ?? []), fn (array $c): bool => $c['status'] === 'new' && in_array($c['id'], $categoryIds, true)));
+        $chosen = array_column($categories, 'id');
+        $newIds = array_column(array_filter((array) ($content['categories'] ?? []), fn (array $c): bool => $c['status'] === 'new'), 'name', 'id');
+        $services = [];
+        $problems = [];
+        foreach ((array) ($content['services'] ?? []) as $index => $service) {
+            if ($service['status'] !== 'new' || ! in_array((int) $index, array_map('intval', $serviceIndexes), true)) {
+                continue;
+            }
+            if (isset($newIds[$service['category_id']]) && ! in_array($service['category_id'], $chosen, true)) {
+                $problems[] = '«'.$service['name'].'» için «'.$newIds[$service['category_id']].'» kategorisini de seçin.';
+
+                continue;
+            }
+            $description = GbpProfilePlanner::description((string) ($descriptions[$index] ?? $service['description']));
+            $blocking = GbpAssistant::blockingHits($asset->loadMissing('brand')->brand, $service['name'].' '.$description);
+            if ($blocking !== []) {
+                $problems[] = '«'.$service['name'].'» sektör uyum kuralına takılıyor: '.implode(', ', $blocking).'.';
+
+                continue;
+            }
+            $services[] = ['category_id' => $service['category_id'], 'service_type_id' => $service['service_type_id'], 'name' => $service['name'], 'description' => $description];
+        }
+        if ($problems !== []) {
+            throw ValidationException::withMessages(['write' => implode(' ', $problems)]);
+        }
+        if ($categories === [] && $services === []) {
+            throw ValidationException::withMessages(['write' => 'Gönderilecek kategori ya da hizmet seçin.']);
+        }
+        $busy = ExternalWriteAction::query()->where('digital_asset_id', $asset->id)->where('action', ExternalWriteAction::ACTION_PROFILE_UPDATE)
+            ->whereIn('status', ['queued', 'running', 'undoing'])->exists();
+        if ($busy) {
+            throw ValidationException::withMessages(['write' => 'Bu profile bir ekleme zaten gönderiliyor.']);
+        }
+        $this->gbpLocation($asset);
+        $action = ExternalWriteAction::query()->create([
+            'channel' => ExternalWriteAction::CHANNEL_GBP, 'action' => ExternalWriteAction::ACTION_PROFILE_UPDATE,
+            'digital_asset_id' => $asset->id, 'brand_id' => $asset->brand_id, 'status' => 'queued',
+            'request_payload' => ['plan_id' => $plan->id, 'categories' => array_map(fn (array $c): array => ['id' => $c['id'], 'name' => $c['name']], $categories),
+                'services' => $services, 'label' => 'Kategori ve hizmet ekleme'],
+            'requested_by' => $user->id,
+        ]);
+        $plan->forceFill(['status' => AiProduction::STATUS_USED, 'status_changed_by' => $user->id, 'status_changed_at' => now()])->save();
+
+        return $this->queue($action);
     }
 
     /** Sends the scheduled (already Admin-approved) Business Profile posts whose time has come. */

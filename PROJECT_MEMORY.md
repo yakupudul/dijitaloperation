@@ -1965,6 +1965,10 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   WordPress'e taslak yollar. Sitenin dilleri (sayfa dillerinden) görünür; yazı sitenin herhangi bir dilinde yazılabilir,
   diğer diller bağlı çeviri olarak (Polylang, ADR-076) birlikte gönderilir. 301 birleştirme sayfayı silmez: eklentiye
   yönlendirme kuralı yazar, geri alınabilir.
+- **İşletme Profili kategori / hizmet ekleme (yakup, 2026-10-05, ADR-077):** Eski "kategori ve hizmetler Google'da elle"
+  kuralı yalnız silme / düzenleme / birincil kategori için geçerli. Ekleme MoxDOP'tan: operatör listeyi yazar, AI Google'ın
+  kategori listesi ve hazır hizmet türleriyle hazırlar (uydurma kimlik atılır), Admin "Gönder"e basar; yazma canlı profili
+  okuyup yalnız ekler, geri alma yalnız eklenenleri çıkarır. Açıklama, saatler, fotoğraflar yine elle.
 - **301 birleştirme ve küme çakışma kuralları (yakup, 2026-10-05):** "301 ile birleştir" yönlendirmeyi bizim eklentinin
   listesine değil sitedeki SEO eklentisine yazar (Rank Math yönlendirme modülü, Yoast Premium ya da Redirection; hiçbiri
   yoksa eklentinin kendi listesi), yönlendirilen sayfa silinmez, taslağa alınır (Connector 1.9.0, geri alınabilir).

@@ -69,6 +69,7 @@ final class AiTaskQueue
         AiRouteKeys::BRAND_SERVICES,
         AiRouteKeys::BRAND_CANDIDATES,
         AiRouteKeys::BRAND_SETUP,
+        AiRouteKeys::GBP_PROFILE_PLAN,
     ];
 
     /** Whether the operation runs through a resumable path that can wait for Claude (structured registry agents in SUPPORTED). */

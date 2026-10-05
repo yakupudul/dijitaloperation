@@ -48,6 +48,14 @@ final class AdvisorServiceProvider extends ServiceProvider
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::GBP_PROFILE_PLAN,
+            'name' => 'Business Profile Categories And Services',
+            'module' => 'gbp',
+            'description' => 'İşletme Profili "Kategori ve hizmetler": the operator\'s list → Google categories (only from Google\'s own category list) and service items (Google\'s predefined service types or free-form services with a short description), sector compliance checked. Sent to the profile only on the Admin\'s "Gönder" (additions only, undoable).',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
             'key' => AiRouteKeys::GBP_DESCRIPTION,
             'name' => 'Business Profile Description',
             'module' => 'gbp',

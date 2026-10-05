@@ -4,6 +4,7 @@ namespace App\Services\Gbp;
 
 use App\Ai\Agents\GbpDescriptionAgent;
 use App\Ai\Agents\GbpPostFromPageAgent;
+use App\Ai\Agents\GbpProfilePlanAgent;
 use App\Ai\Agents\GbpServicesCompareAgent;
 use App\Jobs\Gbp\RunGbpAssistantJob;
 use App\Models\AiProduction;
@@ -15,6 +16,7 @@ use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Compliance\ComplianceAuditor;
 use App\Services\Compliance\SectorPackRegistry;
@@ -33,7 +35,9 @@ use Throwable;
  *  - `gbp.description`: proposed description (≤ 750 characters, no links / phones, sector compliance) → suggestion
  *    with the current and the proposed text (operator copies it to Google, no API write);
  *  - `gbp.post_from_page`: one post from a page of the brand's site (≤ 1500 characters, CTA = page URL, compliance) →
- *    draft in the production archive; publishing is the ADR-073 Admin write.
+ *    draft in the production archive; publishing is the ADR-073 Admin write;
+ *  - `gbp.profile_plan`: the operator's category / service list prepared for Google (GbpProfilePlanner) → plan in the
+ *    production archive; the Admin's "Gönder" adds the chosen items (ADR-077).
  * AI output is validated against the input before it is stored; a failed check stores nothing.
  */
 final class GbpAssistant
@@ -44,10 +48,13 @@ final class GbpAssistant
 
     public const string OP_POST = 'post_from_page';
 
+    public const string OP_PROFILE = 'profile_plan';
+
     public const array OPERATIONS = [
         self::OP_SERVICES => GbpServicesCompareAgent::class,
         self::OP_DESCRIPTION => GbpDescriptionAgent::class,
         self::OP_POST => GbpPostFromPageAgent::class,
+        self::OP_PROFILE => GbpProfilePlanAgent::class,
     ];
 
     public const int DESCRIPTION_MAX = 750;
@@ -68,7 +75,7 @@ final class GbpAssistant
     ) {}
 
     /**
-     * @param  array{page_id?: int}  $params
+     * @param  array{page_id?: int, categories?: list<string>, services?: list<string>}  $params
      *
      * @throws ValidationException
      */
@@ -81,17 +88,21 @@ final class GbpAssistant
         if ($asset->brand === null || ! $asset->brand->isOperational()) {
             throw ValidationException::withMessages(['gbp' => 'Marka operasyonel değil; AI çalışmaz.']);
         }
-        if ($this->routes->resolve($this->agent($operation)::OPERATION)->isEmpty()) {
+        $route = $this->agent($operation)::OPERATION;
+        if (! app(AiTaskQueue::class)->delegated($route) && $this->routes->resolve($route)->isEmpty()) {
             throw ValidationException::withMessages(['gbp' => 'Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu (Ayarlar → AI).']);
         }
         if ($operation === self::OP_POST && $this->page($asset, (int) ($params['page_id'] ?? 0)) === null) {
             throw ValidationException::withMessages(['gbp' => 'Sayfa seçin.']);
         }
+        if ($operation === self::OP_PROFILE && ($params['categories'] ?? []) === [] && ($params['services'] ?? []) === []) {
+            throw ValidationException::withMessages(['gbp' => 'Eklenecek kategori ya da hizmet yazın.']);
+        }
         Cache::put(self::stateKey((int) $asset->id, $operation), ['status' => 'running'], now()->addMinutes(15));
         RunGbpAssistantJob::dispatch((int) $asset->id, $operation, $params);
     }
 
-    /** Executed by the job; the outcome is kept for the screen (running → ready | failed with a Turkish message). */
+    /** Executed by the job; the outcome is kept for the screen (running → ready | failed with a Turkish message; still running while Claude has not answered). */
     public function run(int $assetId, string $operation, array $params = []): void
     {
         try {
@@ -103,8 +114,14 @@ final class GbpAssistant
                 self::OP_SERVICES => $this->compareServices($asset),
                 self::OP_DESCRIPTION => $this->proposeDescription($asset),
                 self::OP_POST => $this->postFromPage($asset, (int) ($params['page_id'] ?? 0)),
+                self::OP_PROFILE => app(GbpProfilePlanner::class)->plan($asset, $params),
                 default => throw new RuntimeException('Bilinmeyen işlem.'),
             };
+            if ($message === null) {
+                Cache::put(self::stateKey($assetId, $operation), ['status' => 'running', 'message' => 'Claude sırasında; yanıtlayınca burada görünür.'], now()->addDay());
+
+                return;
+            }
             Cache::put(self::stateKey($assetId, $operation), ['status' => 'ready', 'message' => $message], now()->addDay());
         } catch (Throwable $exception) {
             Cache::put(self::stateKey($assetId, $operation), ['status' => 'failed', 'message' => mb_substr($exception->getMessage(), 0, 300)], now()->addDay());
@@ -337,7 +354,7 @@ final class GbpAssistant
         return [$response, $agent->promptVersionId()];
     }
 
-    /** @return class-string<GbpServicesCompareAgent|GbpDescriptionAgent|GbpPostFromPageAgent> */
+    /** @return class-string<GbpServicesCompareAgent|GbpDescriptionAgent|GbpPostFromPageAgent|GbpProfilePlanAgent> */
     private function agent(string $operation): string
     {
         return self::OPERATIONS[$operation];

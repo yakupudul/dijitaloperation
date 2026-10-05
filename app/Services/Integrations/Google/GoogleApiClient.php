@@ -251,21 +251,26 @@ class GoogleApiClient
         return match ($method) {
             'post' => $pending->asJson()->post($url, $payload),
             'put' => $pending->asJson()->put($url, $payload),
+            'patch' => $pending->asJson()->patch($url, $payload),
             'delete' => $pending->delete($url),
             default => $pending->get($url, $payload),
         };
     }
 
     /**
-     * ADR-073: the only Business Profile writes MoxDOP performs — reply to a review (PUT / DELETE …/reviews/{id}/reply)
-     * and a local post (POST / DELETE …/localPosts). Callers are restricted to GbpWriter.
+     * The only Business Profile writes MoxDOP performs — ADR-073: reply to a review (PUT / DELETE …/reviews/{id}/reply)
+     * and a local post (POST / DELETE …/localPosts); ADR-077: the location's categories or service items (PATCH
+     * v1/locations/{id}?updateMask=categories|serviceItems). Callers are restricted to GbpWriter.
      *
      * @param  array<string, mixed>  $body
      */
     public function writeBusinessProfile(CoreIntegration $integration, string $method, string $url, array $body = []): Response
     {
-        $allowed = preg_match('#^https://mybusiness\.googleapis\.com/v4/accounts/[^/]+/locations/[^/]+/(reviews/[^/]+/reply|localPosts(/[^/]+)?)$#', $url) === 1;
-        if (! $allowed || ! in_array($method, ['put', 'post', 'delete'], true)) {
+        $allowed = $method === 'patch'
+            ? preg_match('#^https://mybusinessbusinessinformation\.googleapis\.com/v1/locations/[^/?]+\?updateMask=(categories|serviceItems)$#', $url) === 1
+            : in_array($method, ['put', 'post', 'delete'], true)
+                && preg_match('#^https://mybusiness\.googleapis\.com/v4/accounts/[^/]+/locations/[^/]+/(reviews/[^/]+/reply|localPosts(/[^/]+)?)$#', $url) === 1;
+        if (! $allowed) {
             throw new RuntimeException('Business Profile write target is not allowed.');
         }
 

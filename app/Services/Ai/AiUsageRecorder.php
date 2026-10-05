@@ -42,6 +42,7 @@ final class AiUsageRecorder
         'ReviewReplyAgent' => AiRouteKeys::GBP_REVIEW_REPLY,
         'GbpServicesCompareAgent' => AiRouteKeys::GBP_SERVICES_COMPARE,
         'GbpDescriptionAgent' => AiRouteKeys::GBP_DESCRIPTION,
+        'GbpProfilePlanAgent' => AiRouteKeys::GBP_PROFILE_PLAN,
         'BrandCareAgent' => AiRouteKeys::BRAND_CARE,
         'BrandChiefAgent' => AiRouteKeys::BRAND_CHIEF,
         'GbpPostFromPageAgent' => AiRouteKeys::GBP_POST_FROM_PAGE,
