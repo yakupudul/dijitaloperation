@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Client\Events\ConnectionFailed;
 use Illuminate\Http\Client\Events\ResponseReceived;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -46,6 +47,11 @@ final class AiLiveOperations
 
     /** Longest stored input / output copy (bytes). */
     public const int TEXT_MAX_BYTES = 65536;
+
+    /** running() sweeps stale rows at most this often (the header indicator polls it on every page). */
+    public const int SWEEP_EVERY_SECONDS = 60;
+
+    private const string SWEEP_CACHE_KEY = 'ai-live:sweep-stale';
 
     /** @var array<string, int> invocation id => row id */
     private array $byInvocation = [];
@@ -211,10 +217,12 @@ final class AiLiveOperations
         }
     }
 
-    /** Running AI work (top level: jobs and calls outside a tracked job; oldest first). */
+    /** Running AI work (top level: jobs and calls outside a tracked job; oldest first). Stale rows are swept first, at most once a minute. */
     public function running(): Collection
     {
-        $this->sweepStale();
+        if ($this->sweepDue()) {
+            $this->sweepStale();
+        }
 
         return AiLiveOperation::query()->whereNull('parent_id')->where('status', AiLiveOperation::RUNNING)
             ->orderBy('started_at')->orderBy('id')->limit(50)->get();
@@ -253,6 +261,16 @@ final class AiLiveOperations
             // Display only.
         }
         AiJobTracker::sweepStale();
+    }
+
+    /** Whether the stale sweep is due (once per SWEEP_EVERY_SECONDS across processes; due when the cache fails). */
+    private function sweepDue(): bool
+    {
+        try {
+            return Cache::add(self::SWEEP_CACHE_KEY, true, self::SWEEP_EVERY_SECONDS);
+        } catch (Throwable) {
+            return true;
+        }
     }
 
     /** The first TEXT_MAX_BYTES of a text (valid UTF-8), null when empty. */

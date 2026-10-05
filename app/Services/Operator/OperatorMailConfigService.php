@@ -29,10 +29,6 @@ final class OperatorMailConfigService
      */
     private ?array $deploymentMailBaseline = null;
 
-    public function __construct(
-        private readonly AgencySettingService $settings,
-    ) {}
-
     /**
      * @param  array{
      *     mail_enabled: bool,
@@ -66,7 +62,7 @@ final class OperatorMailConfigService
             throw new InvalidArgumentException('Invalid mail encryption.');
         }
 
-        $settings = $this->settings->current();
+        $settings = $this->settings()->current();
         $storedPassword = $clearPassword ? null : (is_string($settings->mail_password) && $settings->mail_password !== ''
             ? $settings->mail_password
             : null);
@@ -107,7 +103,7 @@ final class OperatorMailConfigService
             throw new InvalidArgumentException('Agency settings are not available.');
         }
 
-        $settings = $this->settings->current();
+        $settings = $this->settings()->current();
         $settings->fill([
             'mail_enabled' => false,
             'mail_from_name' => null,
@@ -131,7 +127,7 @@ final class OperatorMailConfigService
             return false;
         }
 
-        $settings = $this->settings->current();
+        $settings = $this->settings()->current();
         $password = $settings->mail_password;
 
         return (bool) $settings->mail_enabled
@@ -150,7 +146,7 @@ final class OperatorMailConfigService
             return false;
         }
 
-        $password = $this->settings->current()->mail_password;
+        $password = $this->settings()->current()->mail_password;
 
         return is_string($password) && $password !== '';
     }
@@ -161,6 +157,7 @@ final class OperatorMailConfigService
      */
     public function reloadForQueuedSend(): void
     {
+        $this->settings()->forget();
         $this->applyToRuntime();
         app('mail.manager')->forgetMailers();
     }
@@ -175,7 +172,7 @@ final class OperatorMailConfigService
             return;
         }
 
-        $settings = $this->settings->current();
+        $settings = $this->settings()->current();
         $encryption = (string) ($settings->mail_encryption ?? AgencySettingCatalog::MAIL_TLS);
         $scheme = $encryption === AgencySettingCatalog::MAIL_SSL ? 'smtps' : 'smtp';
 
@@ -188,7 +185,7 @@ final class OperatorMailConfigService
             'mail.mailers.smtp.username' => $settings->mail_username,
             'mail.mailers.smtp.password' => $settings->mail_password,
             'mail.from.address' => $settings->mail_from_address,
-            'mail.from.name' => $settings->mail_from_name ?: $this->settings->branding()['portal_name'],
+            'mail.from.name' => $settings->mail_from_name ?: $this->settings()->branding()['portal_name'],
         ]);
     }
 
@@ -263,6 +260,15 @@ final class OperatorMailConfigService
         }
 
         config($this->deploymentMailBaseline);
+    }
+
+    /**
+     * Resolved on each use: this service is a singleton (it keeps the deployment mail baseline for the whole process)
+     * while AgencySettingService is scoped, so a kept reference would serve a Horizon worker the first job's settings.
+     */
+    private function settings(): AgencySettingService
+    {
+        return app(AgencySettingService::class);
     }
 
     private function agencySettingsAreQueryable(): bool

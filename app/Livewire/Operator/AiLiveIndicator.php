@@ -31,7 +31,7 @@ final class AiLiveIndicator extends Component
     public function render(AiLiveOperations $live): View
     {
         $running = auth()->check() ? $live->running() : new EloquentCollection;
-        $this->announceFinished($live);
+        $this->announceFinished($live, $running);
         $visible = $running->isNotEmpty() || (auth()->check() && $live->hasRecent());
         $queued = $visible ? $live->queued(10) : new EloquentCollection;
         $finished = $visible ? $live->finishedRecently(10) : new EloquentCollection;
@@ -46,13 +46,17 @@ final class AiLiveIndicator extends Component
         ]);
     }
 
-    /** The operator's own work that was running at the previous render and has ended now pops up as a notice (bitti / hata); background work (autopilot) stays quiet. */
-    private function announceFinished(AiLiveOperations $live): void
+    /**
+     * The operator's own work that was running at the previous render and has ended now pops up as a notice (bitti / hata); background work (autopilot) stays quiet.
+     *
+     * @param  EloquentCollection<int, AiLiveOperation>  $running  this render's running work (read once per render)
+     */
+    private function announceFinished(AiLiveOperations $live, EloquentCollection $running): void
     {
         if (! auth()->check()) {
             return;
         }
-        $open = $live->running()->concat($live->queued(20))->pluck('id')->map(fn ($id): int => (int) $id)->values()->all();
+        $open = $running->concat($live->queued(20))->pluck('id')->map(fn ($id): int => (int) $id)->values()->all();
         $ended = array_values(array_diff(array_map('intval', array_filter(explode(',', $this->watching))), $open));
         if ($ended !== []) {
             foreach (AiLiveOperation::query()->whereIn('id', $ended)->where('user_id', auth()->id())->whereIn('status', [AiLiveOperation::DONE, AiLiveOperation::FAILED])->limit(3)->get() as $row) {

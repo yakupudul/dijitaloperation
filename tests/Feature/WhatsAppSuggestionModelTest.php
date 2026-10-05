@@ -10,6 +10,7 @@ use App\Models\CoreIntegration;
 use App\Models\User;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
+use App\Services\Operator\AgencySettingService;
 use App\Services\WhatsApp\WhatsAppConnection;
 use App\Services\WhatsApp\WhatsAppSuggestions;
 use App\Support\Roles;
@@ -57,6 +58,16 @@ final class WhatsAppSuggestionModelTest extends TestCase
         $this->assertSame('gpt-4.1-mini', $this->connection->integration()->config['ai_model']);
         $this->assertSame(90, (int) AgencySetting::query()->value('whatsapp_retention_days'));
         Livewire::test(Inbox::class)->assertSet('ai_model', 'gpt-4.1-mini')->assertSet('retention_days', '90');
+    }
+
+    public function test_the_saved_retention_period_is_read_fresh_by_the_settings_service(): void
+    {
+        $this->actingAs($this->admin);
+        $this->assertNull(app(AgencySettingService::class)->current()->whatsapp_retention_days);
+
+        Livewire::test(Inbox::class)->set('ai_model', 'gpt-4.1-mini')->set('retention_days', '120')->call('saveAiSettings')->assertHasNoErrors();
+
+        $this->assertSame(120, (int) app(AgencySettingService::class)->current()->whatsapp_retention_days);
     }
 
     public function test_an_unknown_model_or_a_short_retention_is_rejected(): void

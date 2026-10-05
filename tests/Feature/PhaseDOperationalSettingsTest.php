@@ -543,6 +543,7 @@ class PhaseDOperationalSettingsTest extends TestCase
 
         app(AgencySettingService::class)->current();
         AgencySetting::query()->update(['timezone' => 'Not/AZone']);
+        app(AgencySettingService::class)->forget();
         $this->admin->forceFill(['timezone' => 'Also/Invalid'])->save();
 
         $resolved = OperatorClock::timezone($this->admin->fresh());

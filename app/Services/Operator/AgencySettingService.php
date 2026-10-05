@@ -16,11 +16,20 @@ final class AgencySettingService
 
     public const string BRANDING_DIRECTORY = 'branding';
 
+    /** The row read in this request / job (null until the first current() or after forget()). */
+    private ?AgencySetting $current = null;
+
     /**
      * Agency-workspace singleton. Database is canonical; session is never truth.
+     * Read once per request / job and kept (the service is bound scoped, so a Horizon worker reads it again for every
+     * job); the defaults used while the table is missing are not kept.
      */
     public function current(): AgencySetting
     {
+        if ($this->current !== null) {
+            return $this->current;
+        }
+
         try {
             if (! Schema::hasTable('agency_settings')) {
                 return $this->ephemeralDefaults();
@@ -43,7 +52,13 @@ final class AgencySettingService
             ],
         );
 
-        return $settings;
+        return $this->current = $settings;
+    }
+
+    /** Drops the kept row: the next current() reads the database again (after a write that bypassed this service). */
+    public function forget(): void
+    {
+        $this->current = null;
     }
 
     /**
@@ -84,27 +99,34 @@ final class AgencySettingService
         }
 
         $settings = $this->current();
-        $settings->fill([
-            'agency_name' => trim($attributes['agency_name']),
-            'portal_name' => trim($attributes['portal_name']),
-            'locale' => $attributes['locale'],
-            'timezone' => $attributes['timezone'],
-            'display_currency' => $attributes['display_currency'],
-            'week_starts_on' => $attributes['week_starts_on'],
-            'analytical_date_range' => $attributes['analytical_date_range'],
-        ]);
+        try {
+            $settings->fill([
+                'agency_name' => trim($attributes['agency_name']),
+                'portal_name' => trim($attributes['portal_name']),
+                'locale' => $attributes['locale'],
+                'timezone' => $attributes['timezone'],
+                'display_currency' => $attributes['display_currency'],
+                'week_starts_on' => $attributes['week_starts_on'],
+                'analytical_date_range' => $attributes['analytical_date_range'],
+            ]);
 
-        if ($logo !== null) {
-            $settings->logo_path = $this->storeBrandingFile($logo, $settings->logo_path);
+            if ($logo !== null) {
+                $settings->logo_path = $this->storeBrandingFile($logo, $settings->logo_path);
+            }
+
+            if ($favicon !== null) {
+                $settings->favicon_path = $this->storeBrandingFile($favicon, $settings->favicon_path);
+            }
+
+            $settings->save();
+        } catch (\Throwable $exception) {
+            // The kept row holds the unsaved values: read the stored ones again.
+            $this->forget();
+
+            throw $exception;
         }
 
-        if ($favicon !== null) {
-            $settings->favicon_path = $this->storeBrandingFile($favicon, $settings->favicon_path);
-        }
-
-        $settings->save();
-
-        return $settings->fresh() ?? $settings;
+        return $this->current = $settings->fresh() ?? $settings;
     }
 
     public function defaultLocale(): string

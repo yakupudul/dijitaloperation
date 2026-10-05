@@ -15,6 +15,7 @@ use App\Services\Ai\OpenAiCostAudit;
 use App\Services\Ai\OpenAiFreeQuota;
 use App\Services\AiJobs\AiJobTracker;
 use App\Services\AiTasks\AiTaskQueue;
+use App\Services\Operator\AgencySettingService;
 use App\Services\Prompts\PromptRegistry;
 use App\Services\Prompts\PromptRunStats;
 use App\Services\Prompts\PromptTrial;
@@ -100,6 +101,7 @@ final class AiOperationsPage extends Component
         $setting->forceFill(['ai_monthly_budget_usd' => round((float) $this->budget, 2), 'ai_daily_auto_budget_usd' => round((float) $this->dailyAutoBudget, 2),
             'ai_openai_free_quota' => $this->openAiFreeQuota]
             + (trim($this->openAiAdminKey) !== '' ? ['ai_openai_admin_key' => trim($this->openAiAdminKey)] : []))->save();
+        app(AgencySettingService::class)->forget();
         $this->openAiAdminKey = '';
         session()->flash('status', 'AI bütçeleri kaydedildi.');
     }

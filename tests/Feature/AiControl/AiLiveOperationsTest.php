@@ -15,6 +15,7 @@ use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use RuntimeException;
 use Tests\TestCase;
@@ -119,6 +120,39 @@ final class AiLiveOperationsTest extends TestCase
         $this->assertSame(AiLiveOperation::FAILED, $stale->fresh()->status);
     }
 
+    public function test_the_header_sweeps_stale_rows_at_most_once_a_minute(): void
+    {
+        $this->actingAs($this->admin);
+        $this->liveRow(['label' => 'SEO analizi', 'user_id' => $this->admin->id]);
+        $page = null;
+        $this->assertSame(3, $this->countQueries(function () use (&$page): void {
+            $page = Livewire::test(AiLiveIndicator::class)->assertSee('AI · 1');
+        }, 'update "ai_live_operations"'), 'the first render sweeps calls, jobs and queued rows once');
+
+        $stale = $this->liveRow(['started_at' => now()->subHours(2)]);
+        $this->assertSame(0, $this->countQueries(fn () => $page->call('refreshNow'), 'update "ai_live_operations"'), 'polls within the minute write nothing');
+        $this->assertSame(AiLiveOperation::RUNNING, $stale->fresh()->status);
+
+        $this->travel(AiLiveOperations::SWEEP_EVERY_SECONDS + 1)->seconds();
+        $page->call('refreshNow')->assertSee('AI · 1');
+
+        $this->assertSame(AiLiveOperation::FAILED, $stale->fresh()->status);
+    }
+
+    public function test_the_header_reads_running_work_once_per_render(): void
+    {
+        $this->actingAs($this->admin);
+        $mine = $this->liveRow(['label' => 'SEO analizi', 'user_id' => $this->admin->id]);
+        $page = Livewire::test(AiLiveIndicator::class)->assertSee('AI · 1');
+        $mine->forceFill(['status' => AiLiveOperation::DONE, 'finished_at' => now(), 'duration_ms' => 900])->save();
+
+        $reads = $this->countQueries(function () use ($page): void {
+            $page->call('refreshNow')->assertDispatched('operator-notice', message: 'AI işi bitti: SEO analizi', tone: 'success');
+        }, 'where "parent_id" is null and "status" = ?');
+
+        $this->assertSame(1, $reads);
+    }
+
     public function test_header_indicator_lists_running_and_recent_calls(): void
     {
         $this->actingAs($this->admin);
@@ -209,6 +243,18 @@ final class AiLiveOperationsTest extends TestCase
         $this->assertSame(1, $result['ai_live_operations']);
         $this->assertNull($old->fresh());
         $this->assertNotNull($kept->fresh());
+    }
+
+    /** Queries run by $work whose SQL contains $needle. */
+    private function countQueries(callable $work, string $needle): int
+    {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $work();
+        $queries = DB::getQueryLog();
+        DB::disableQueryLog();
+
+        return count(array_filter($queries, fn (array $query): bool => str_contains((string) $query['query'], $needle)));
     }
 
     /** @param  array<string, mixed>  $attributes */

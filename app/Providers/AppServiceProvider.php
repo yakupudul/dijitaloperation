@@ -142,7 +142,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(AiLiveOperations::class);
         $this->app->scoped(AiTaskQueue::class);
         $this->app->singleton(AiJobTracker::class);
-        $this->app->singleton(AgencySettingService::class);
+        // Scoped: it keeps the settings row for the request / job, and a Horizon worker must read it again per job.
+        $this->app->scoped(AgencySettingService::class);
         $this->app->singleton(OperatorMailConfigService::class);
 
         $this->app->singleton(BoundCollectorRegistry::class);
