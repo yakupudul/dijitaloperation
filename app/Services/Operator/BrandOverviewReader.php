@@ -259,8 +259,9 @@ final class BrandOverviewReader
             $ads['bound'] = true;
             $ads['sources']['meta'] = 'Meta';
             $window = $this->meta->window($account, $days);
-            $current = $this->meta->adPerformance($account, $window['from'], $window['to']);
-            $previous = $this->meta->adPerformance($account, $window['prev_from'], $window['prev_to']);
+            $entities = $this->meta->entities($account);
+            $current = $this->meta->adPerformance($account, $window['from'], $window['to'], $entities);
+            $previous = $this->meta->adPerformance($account, $window['prev_from'], $window['prev_to'], $entities);
             if ($current === [] && $previous === []) {
                 continue;
             }
@@ -275,28 +276,46 @@ final class BrandOverviewReader
         }
         $ads['sources'] = array_values($ads['sources']);
 
+        return ['web' => $web, 'ads' => $ads, 'gbp' => $this->gbpKpis($models, $days)];
+    }
+
+    /**
+     * İşletme Profili interactions of the period, each profile's window ending on its own last day. Read in batches:
+     * one binding query, one last-day query, and current + previous sums once per distinct last day (profiles
+     * collected together share it), not per profile.
+     *
+     * @param  Collection<int, DigitalAsset>  $models
+     * @return array{bound: bool, data: bool, actions: array{0: int, 1: int}}
+     */
+    private function gbpKpis(Collection $models, int $days): array
+    {
         $gbp = ['bound' => false, 'data' => false, 'actions' => [0, 0]];
-        foreach ($models->whereIn('type', ['google_business_profile', 'gbp']) as $asset) {
-            $resource = $this->gbp->resource($asset);
-            if ($resource === null) {
-                continue;
-            }
-            $gbp['bound'] = true;
-            $scope = ['asset_id' => (int) $asset->id, 'resource_id' => (int) $resource->id];
-            $last = $this->maps->lastDay($scope);
-            if ($last === null) {
-                continue;
-            }
-            $end = CarbonImmutable::parse($last);
+        $profiles = $models->whereIn('type', ['google_business_profile', 'gbp'])->map(fn (DigitalAsset $asset): int => (int) $asset->id)->values()->all();
+        $resources = $this->gbp->resourceIds($profiles);
+        if ($resources === []) {
+            return $gbp;
+        }
+        $gbp['bound'] = true;
+        $lastDays = $this->maps->lastDays(array_values(array_unique($resources)));
+        $byLastDay = [];
+        foreach ($lastDays as $resourceId => $last) {
+            $byLastDay[$last][] = $resourceId;
+        }
+        $current = [];
+        $previous = [];
+        foreach ($byLastDay as $last => $resourceIds) {
+            $end = CarbonImmutable::parse((string) $last);
             $start = $end->subDays($days - 1);
-            $current = $this->maps->read($scope, $start->toDateString(), $end->toDateString());
-            $previous = $this->maps->read($scope, $start->subDays($days)->toDateString(), $start->subDay()->toDateString());
-            $gbp['data'] = $gbp['data'] || $current !== null || $previous !== null;
-            $gbp['actions'][0] += (int) ($current['actions'] ?? 0);
-            $gbp['actions'][1] += (int) ($previous['actions'] ?? 0);
+            $current += $this->maps->readMany($resourceIds, $start->toDateString(), $end->toDateString());
+            $previous += $this->maps->readMany($resourceIds, $start->subDays($days)->toDateString(), $start->subDay()->toDateString());
+        }
+        foreach ($resources as $resourceId) {
+            $gbp['data'] = $gbp['data'] || isset($current[$resourceId]) || isset($previous[$resourceId]);
+            $gbp['actions'][0] += (int) ($current[$resourceId]['actions'] ?? 0);
+            $gbp['actions'][1] += (int) ($previous[$resourceId]['actions'] ?? 0);
         }
 
-        return ['web' => $web, 'ads' => $ads, 'gbp' => $gbp];
+        return $gbp;
     }
 
     /**

@@ -27,6 +27,9 @@ final class BrandWorkspaceReadService
     ];
 
     /**
+     * The brand's assets with their bound accounts, read in a fixed number of queries: the type label and the screen
+     * link come from the asset row (no per-asset brand / customer / findings lookup of the full presenter).
+     *
      * @return list<array{id: int, name: string, type: string, type_label: string, url: string, primary_url: ?string, connected: bool, accounts: list<array{capability: string, label: string, resource: string, last_sync: ?CarbonImmutable, has_data: bool}>, open_findings: int}>
      */
     public function assets(Brand $brand): array
@@ -42,7 +45,6 @@ final class BrandWorkspaceReadService
         $dataThrough = $this->dataThrough($resourceIds);
 
         return $assets->map(function (DigitalAsset $asset) use ($lastSync, $dataThrough): array {
-            $presented = OperatorPortfolioPresenter::asset($asset);
             $accounts = $asset->assetBindings->map(fn (CoreAssetBinding $binding): array => [
                 'capability' => (string) $binding->capability,
                 'label' => self::ACCOUNT_LABELS[$binding->capability] ?? (string) $binding->capability,
@@ -55,8 +57,8 @@ final class BrandWorkspaceReadService
                 'id' => (int) $asset->id,
                 'name' => (string) $asset->name,
                 'type' => (string) $asset->type,
-                'type_label' => (string) $presented['type_label'],
-                'url' => (string) $presented['url'],
+                'type_label' => OperatorPortfolioPresenter::typeLabel((string) $asset->type),
+                'url' => OperatorPortfolioPresenter::specialistUrl($asset),
                 'primary_url' => $asset->primary_url,
                 'connected' => $accounts !== [],
                 'accounts' => $accounts,

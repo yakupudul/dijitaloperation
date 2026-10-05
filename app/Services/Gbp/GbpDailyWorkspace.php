@@ -46,6 +46,29 @@ final class GbpDailyWorkspace
     }
 
     /**
+     * resource() for several assets in one query: the Business Profile each asset is bound to (its newest active
+     * binding). An asset without one is left out.
+     *
+     * @param  list<int>  $assetIds
+     * @return array<int, int> asset id => external resource id
+     */
+    public function resourceIds(array $assetIds): array
+    {
+        if ($assetIds === []) {
+            return [];
+        }
+        $out = [];
+        CoreAssetBinding::query()->whereIn('digital_asset_id', $assetIds)
+            ->where('capability', 'google_business_profile')->where('status', CoreAssetBinding::STATUS_ACTIVE)
+            ->orderByDesc('id')->get(['digital_asset_id', 'external_resource_id'])
+            ->each(function (CoreAssetBinding $binding) use (&$out): void {
+                $out[(int) $binding->digital_asset_id] ??= (int) $binding->external_resource_id;
+            });
+
+        return $out;
+    }
+
+    /**
      * Reviews for the Yorumlar tab: unanswered first (oldest waiting on top), then newest.
      *
      * @return list<array<string, mixed>>

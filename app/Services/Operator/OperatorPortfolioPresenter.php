@@ -240,6 +240,17 @@ final class OperatorPortfolioPresenter
         return ($brand !== null ? $brand.' · ' : '').$noun.($digits !== '' ? ' …'.substr($digits, -4) : '');
     }
 
+    /** The asset type as the asset lists name it ("Google Business Profile", "Search Console", …). */
+    public static function typeLabel(string $type): string
+    {
+        return DigitalAssetTypes::options()[$type] ?? match ($type) {
+            'ga4', 'analytics', 'google_analytics' => 'Google Analytics',
+            'gsc', 'search_console' => 'Search Console',
+            'gbp', 'google_business_profile' => 'Google Business Profile',
+            default => $type,
+        };
+    }
+
     /**
      * Connection state comes only from confirmed account bindings: an asset created without one is
      * "defined", never Connected / Configured / Fresh.
@@ -252,7 +263,6 @@ final class OperatorPortfolioPresenter
     {
         $asset->loadMissing(['brand.customer', 'brand.responsibleUsers']);
         $type = (string) $asset->type;
-        $options = DigitalAssetTypes::options();
         $status = $asset->status?->value ?? 'active';
         $operational = array_key_exists($status, self::OPERATIONAL_LABELS) ? $status : 'active';
         $openFindings = $asset->relationLoaded('findings')
@@ -261,12 +271,7 @@ final class OperatorPortfolioPresenter
         $connected = $asset->relationLoaded('assetBindings')
             ? $asset->assetBindings->where('status', 'active')->isNotEmpty()
             : $asset->assetBindings()->where('status', 'active')->exists();
-        $typeLabel = $options[$type] ?? match ($type) {
-            'ga4', 'analytics', 'google_analytics' => 'Google Analytics',
-            'gsc', 'search_console' => 'Search Console',
-            'gbp', 'google_business_profile' => 'Google Business Profile',
-            default => $type,
-        };
+        $typeLabel = self::typeLabel($type);
         $responsible = $asset->brand?->responsibleUsers->map(static fn ($user): array => self::person($user))->values()->all() ?? [];
 
         $presented = [

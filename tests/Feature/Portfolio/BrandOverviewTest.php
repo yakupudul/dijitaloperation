@@ -175,6 +175,49 @@ final class BrandOverviewTest extends TestCase
         $this->assertSame(['75', null], [$kpis90['organic_clicks']['value'], $kpis90['organic_clicks']['delta']]);
     }
 
+    public function test_profile_interactions_use_each_profiles_own_last_day(): void
+    {
+        $first = $this->gbp();
+        $second = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'google_business_profile', 'status' => DigitalAssetStatus::Active, 'name' => 'Panorama Kızılay']);
+        $secondResource = CoreExternalResource::factory()->create(['provider' => 'google', 'resource_type' => 'google_business_profile', 'external_id' => 'locations/23',
+            'status' => CoreExternalResource::STATUS_AVAILABLE]);
+        CoreAssetBinding::factory()->create(['digital_asset_id' => $second->id, 'external_resource_id' => $secondResource->id, 'capability' => 'google_business_profile']);
+        // Bound but nothing collected yet, and one profile without a binding: neither adds to the numbers.
+        $empty = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'google_business_profile', 'status' => DigitalAssetStatus::Active, 'name' => 'Panorama Yeni']);
+        $emptyResource = CoreExternalResource::factory()->create(['provider' => 'google', 'resource_type' => 'google_business_profile', 'external_id' => 'locations/24']);
+        CoreAssetBinding::factory()->create(['digital_asset_id' => $empty->id, 'external_resource_id' => $emptyResource->id, 'capability' => 'google_business_profile']);
+        DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'google_business_profile', 'status' => DigitalAssetStatus::Active, 'name' => 'Panorama Bağsız']);
+        // First profile: last day 10-10, 1 call a day for 56 days. Second: last day 10-01, 3 directions a day for 28 days
+        // and 1 website click a day the 28 before; its window ends on its own last day (ending it on 10-10 would give 85
+        // now). The views metric is not an interaction.
+        for ($day = 0; $day < 56; $day++) {
+            $this->insertFacts('gbp_performance_daily', ['external_resource_id' => $first['resource']->id, 'digital_asset_id' => $first['asset']->id,
+                'reporting_date' => CarbonImmutable::parse('2026-10-10')->subDays($day)->toDateString(), 'metric' => 'CALL_CLICKS', 'run_id' => 1,
+                'location_name' => 'locations/22', 'value' => 1, 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+            $this->insertFacts('gbp_performance_daily', ['external_resource_id' => $secondResource->id, 'digital_asset_id' => $second->id,
+                'reporting_date' => CarbonImmutable::parse('2026-10-01')->subDays($day)->toDateString(), 'metric' => $day < 28 ? 'BUSINESS_DIRECTION_REQUESTS' : 'WEBSITE_CLICKS',
+                'run_id' => 2, 'location_name' => 'locations/23', 'value' => $day < 28 ? 3 : 1, 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+            $this->insertFacts('gbp_performance_daily', ['external_resource_id' => $secondResource->id, 'digital_asset_id' => $second->id,
+                'reporting_date' => CarbonImmutable::parse('2026-10-01')->subDays($day)->toDateString(), 'metric' => 'BUSINESS_IMPRESSIONS_MOBILE_MAPS',
+                'run_id' => 2, 'location_name' => 'locations/23', 'value' => 50, 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        }
+
+        $kpis = collect(Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->viewData('kpis'))->keyBy('key');
+
+        // Current: 28 calls + 84 directions = 112; previous: 28 calls + 28 website clicks = 56.
+        $this->assertSame(['ok', '112', 100], [$kpis['gbp_actions']['state'], $kpis['gbp_actions']['value'], $kpis['gbp_actions']['delta']]);
+        $this->assertSame('önceki 28 gün: 56 · arama, yol tarifi, site tıklaması', $kpis['gbp_actions']['note']);
+    }
+
+    public function test_a_bound_profile_without_rows_says_veri_henuz_gelmedi(): void
+    {
+        $this->gbp();
+
+        $kpis = collect(Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->viewData('kpis'))->keyBy('key');
+
+        $this->assertSame(['no_data', null], [$kpis['gbp_actions']['state'], $kpis['gbp_actions']['value']]);
+    }
+
     public function test_asset_cards_show_type_status_and_link_to_their_screens(): void
     {
         $gsc = CoreExternalResource::factory()->searchConsole()->create(['display_name' => 'sc-domain:panorama.example']);

@@ -22,7 +22,7 @@ use Illuminate\Support\Str;
  * cluster's queries through `query_sources`, split by the brand's target areas the raw query names. Hedef sorgular:
  * the brand's target queries (`brand_queries`, 28 days) or, until those are filled, the clusters' target queries
  * (`brand_cluster_pages.target_query`) with their Search Console numbers. Results are cached per site × period × last
- * data day (1 hour).
+ * data day (1 hour); a site's bound properties and last data day are read once per reader instance.
  */
 final class SiteAnalysisReader
 {
@@ -31,6 +31,12 @@ final class SiteAnalysisReader
     private const int MAX_ROWS = 5000;
 
     private const int CHUNK = 500;
+
+    /** @var array<string, list<int>> "site id|capability" => bound resource ids (per instance: one read per site) */
+    private array $boundResources = [];
+
+    /** @var array<int, CarbonImmutable> site id => last data day (per instance: one read per site) */
+    private array $lastDays = [];
 
     public function __construct(private readonly CompetitorTargets $targets) {}
 
@@ -75,6 +81,11 @@ final class SiteAnalysisReader
 
     /** The last day with Search Console data (else GA4, else yesterday). */
     public function lastDay(DigitalAsset $site): CarbonImmutable
+    {
+        return $this->lastDays[(int) $site->id] ??= $this->readLastDay($site);
+    }
+
+    private function readLastDay(DigitalAsset $site): CarbonImmutable
     {
         $gsc = $this->resources($site, 'search_console');
         $ga4 = $this->resources($site, 'ga4');
@@ -352,7 +363,7 @@ final class SiteAnalysisReader
     /** @return list<int> */
     private function resources(DigitalAsset $site, string $capability): array
     {
-        return DB::table('core_asset_bindings')->where('digital_asset_id', $site->id)->where('capability', $capability)
+        return $this->boundResources[$site->id.'|'.$capability] ??= DB::table('core_asset_bindings')->where('digital_asset_id', $site->id)->where('capability', $capability)
             ->where('status', 'active')->pluck('external_resource_id')->map(fn ($id): int => (int) $id)->unique()->values()->all();
     }
 
