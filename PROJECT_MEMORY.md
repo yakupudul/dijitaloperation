@@ -1965,6 +1965,14 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   WordPress'e taslak yollar. Sitenin dilleri (sayfa dillerinden) görünür; yazı sitenin herhangi bir dilinde yazılabilir,
   diğer diller bağlı çeviri olarak (Polylang, ADR-076) birlikte gönderilir. 301 birleştirme sayfayı silmez: eklentiye
   yönlendirme kuralı yazar, geri alınabilir.
+- **301 birleştirme ve küme çakışma kuralları (yakup, 2026-10-05):** "301 ile birleştir" yönlendirmeyi bizim eklentinin
+  listesine değil sitedeki SEO eklentisine yazar (Rank Math yönlendirme modülü, Yoast Premium ya da Redirection; hiçbiri
+  yoksa eklentinin kendi listesi), yönlendirilen sayfa silinmez, taslağa alınır (Connector 1.9.0, geri alınabilir).
+  Tek tek ya da toplu (seçilenler / karttaki tüm 301'ler) yapılır. İş, site onaylayınca "yapıldı" olur; site hata
+  verirse hata yazısıyla yeniden açılır. Kurallar: hizmet / lokasyon sayfası blog / S&C sayfasına 301'lenmez; kümenin
+  gösterimlerinin çoğunu alan sayfa 301'lenmez ("Ana sayfayı gözden geçir", "Ana sayfa bu olsun" düğmesi); bir sayfa
+  yalnız bir hedefe 301 önerilir; ana sayfa, dil ana sayfası, iletişim / hakkımızda / yasal sayfalar, başka dildeki
+  (alan ya da /en/ yolu) sayfalar ve yalnız başka hizmete bağlı sayfalar çakışma sayılmaz; lokasyon sayfası ayrıştırılır.
 - **Genel işler okunurluk (yakup, 2026-10-04):** liste marka → site · iş türü kartı olarak gruplanır; kartın kuralı bir
   kez yazılır, satırda yalnız ne / neden / düğme kalır; küme çakışmaları kümesinin altında. Marka filtresi seçiliyse her
   zaman görünür ve tek tıkla kalkar (sistem hiçbir markayı kendisi seçmez). Aynı küme · ana sayfa · sayfa çifti tek

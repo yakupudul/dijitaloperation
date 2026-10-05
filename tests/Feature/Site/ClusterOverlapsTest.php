@@ -5,10 +5,21 @@ namespace Tests\Feature\Site;
 use App\Livewire\Operator\Work\WorkPage;
 use App\Models\BrandClusterPage;
 use App\Models\Cluster;
+use App\Models\CoreConnection;
+use App\Models\CoreConnectionCredential;
+use App\Models\ExternalWriteAction;
+use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Models\Suggestion;
+use App\Services\Integrations\WordPress\WordPressConnectorClient;
+use App\Services\SeoTasks\SeoText;
 use App\Services\Site\ClusterOverlaps;
+use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+use MoxDop\Website\Discovery\PublicUrlSafety;
 
 /**
  * Küme çakışmaları (yakup, 2026-10-04: "aynı iş bir marka için tekrar tekrar söylüyor"): cluster rows are per language,
@@ -26,6 +37,9 @@ final class ClusterOverlapsTest extends SiteTestCase
     private Page $enMain;
 
     private Page $enCopy;
+
+    /** @var list<list<array<string, mixed>>> */
+    private array $sent = [];
 
     protected function setUp(): void
     {
@@ -100,6 +114,146 @@ final class ClusterOverlapsTest extends SiteTestCase
         $this->assertSame(1, substr_count($html, 'data-work-rule'), 'the rule is said once');
         $this->assertSame(1, substr_count($html, '«İmplant tedavisi»'), 'the cluster is named once');
         $this->assertStringNotContainsString('Çakışma: «', $html, 'no row repeats the cluster and the main page');
+    }
+
+    public function test_a_service_page_is_never_301d_into_a_blog_page_and_a_page_google_prefers_is_not_301d(): void
+    {
+        $blogMain = $this->page('/sinus-lifting-nedir/', 'Sinüs lifting nedir', ['category' => 'blog']);
+        $service = $this->page('/tedavilerimiz/ankara-sinus-lifting/', 'Ankara sinüs lifting', ['category' => 'hizmet']);
+        $popular = $this->page('/soru-ve-cevap/sinus-lifting-agrili-mi/', 'Sinüs lifting ağrılı mı', ['category' => 'sss']);
+        $quiet = $this->page('/sinus-lifting-sonrasi/', 'Sinüs lifting sonrası', ['category' => 'blog']);
+        $this->row('tr', $blogMain, [$service->id, $popular->id, $quiet->id]);
+
+        app(ClusterOverlaps::class)->sync($this->site, $this->brand, [$this->treatment->id => [$this->share($popular, 0.99), $this->share($blogMain, 0.01)]]);
+
+        $this->assertSame([$service->id => ClusterOverlaps::REVIEW, $popular->id => ClusterOverlaps::REVIEW, $quiet->id => ClusterOverlaps::REDIRECT], $this->recommendations());
+        $this->assertSame('service', data_get(Suggestion::query()->where('page_id', $service->id)->sole()->action, 'basis'));
+        $this->assertStringContainsString('%99', ClusterOverlaps::why((array) Suggestion::query()->where('page_id', $popular->id)->sole()->action));
+    }
+
+    public function test_home_pages_other_languages_and_pages_of_other_services_are_never_overlaps(): void
+    {
+        $home = $this->page('/', 'Panorama', ['category' => 'diger']);
+        $enHome = $this->page('/en/', 'Panorama EN', ['category' => 'diger', 'language' => null]);
+        $enNoLanguage = $this->page('/en/treatments/implant/', 'Implant', ['category' => 'hizmet', 'language' => null]);
+        $zirkonyumPage = $this->page('/zirkonyum-kaplama/', 'Zirkonyum', ['category' => 'blog']);
+        OfferingPage::query()->create(['brand_offering_id' => $this->zirkonyumOffering->id, 'page_id' => $zirkonyumPage->id]);
+        $this->row('tr', $this->main, [$home->id, $enHome->id, $enNoLanguage->id, $zirkonyumPage->id, $this->copy->id]);
+
+        app(ClusterOverlaps::class)->sync($this->site, $this->brand, [$this->treatment->id => [$this->share($home, 0.3), $this->share($this->main, 0.7)]]);
+
+        $this->assertSame([$this->copy->id => ClusterOverlaps::REDIRECT], $this->recommendations());
+    }
+
+    public function test_one_page_is_proposed_for_a_301_to_one_main_page_only(): void
+    {
+        $second = $this->cluster($this->implant, 'İmplant fiyatları', ['implant fiyatları']);
+        $blogMain = $this->page('/implant-fiyatlari-rehberi/', 'İmplant fiyatları rehberi', ['category' => 'blog']);
+        $this->row('tr', $this->main, [$this->copy->id]);
+        BrandClusterPage::query()->create(['brand_id' => $this->brand->id, 'cluster_id' => $second->id, 'website_asset_id' => $this->site->id,
+            'language' => 'tr', 'state' => 'possible_conflict', 'page_id' => $blogMain->id, 'overlap_page_ids' => [$this->copy->id]]);
+
+        app(ClusterOverlaps::class)->sync($this->site, $this->brand);
+
+        $open = Suggestion::query()->where('decision_key', ClusterOverlaps::DECISION)->actionable()->get();
+        $this->assertCount(1, $open);
+        $this->assertSame($this->main->id, (int) data_get($open->sole()->action, 'main_page_id'), 'the service page wins over the blog page');
+    }
+
+    public function test_301_merge_is_applied_only_when_the_site_confirms_and_reopens_with_the_sites_error(): void
+    {
+        $other = $this->page('/tek-seansta-implant/', 'Tek seansta implant', ['category' => 'blog', 'wp_post_id' => 77]);
+        $this->copy->forceFill(['wp_post_id' => 55])->save();
+        $this->row('tr', $this->main, [$this->copy->id, $other->id]);
+        app(ClusterOverlaps::class)->sync($this->site, $this->brand);
+        $this->connector('1.9.0', fn (array $change): array => $change['object_id'] === 55
+            ? ['ok' => true, 'change_id' => 'c-1', 'provider' => 'rank_math', 'drafted' => true]
+            : ['ok' => false, 'error' => 'SEO fixes are disabled on this site.']);
+        $ids = Suggestion::query()->where('decision_key', ClusterOverlaps::DECISION)->orderBy('page_id')->pluck('id', 'page_id');
+
+        $html = Livewire::test(WorkPage::class)->assertSeeHtml('data-merge-pick="'.$ids[$this->copy->id].'"')
+            ->set('selected', [$ids[$this->copy->id], $ids[$other->id]])->call('mergeSelected')
+            ->assertSet('selected', [])->html();
+
+        $this->assertCount(1, $this->sent, 'one write for the site');
+        $this->assertSame(['merge_redirect', 55, '/implant-tedavisi-nedir/', 'https://panorama.com.tr/implant/'],
+            [$this->sent[0][0]['type'], $this->sent[0][0]['object_id'], $this->sent[0][0]['from'], $this->sent[0][0]['value']]);
+        $merged = Suggestion::query()->find($ids[$this->copy->id]);
+        $this->assertSame([Suggestion::APPLIED, 'rank_math'], [$merged->status, data_get($merged->action, 'merge_provider')]);
+        $failed = Suggestion::query()->find($ids[$other->id]);
+        $this->assertSame([Suggestion::OPEN, 'SEO fixes are disabled on this site.'], [$failed->status, data_get($failed->action, 'merge_error')]);
+        $this->assertSame('partial', ExternalWriteAction::query()->sole()->status);
+        $this->assertStringContainsString('301 yazılamadı', $html);
+    }
+
+    public function test_an_old_connector_is_refused_before_anything_changes(): void
+    {
+        $this->row('tr', $this->main, [$this->copy->id]);
+        app(ClusterOverlaps::class)->sync($this->site, $this->brand);
+        $this->connector('1.8.0', fn (): array => ['ok' => true]);
+        $suggestion = Suggestion::query()->where('decision_key', ClusterOverlaps::DECISION)->sole();
+
+        try {
+            app(ClusterOverlaps::class)->redirect($suggestion, $this->admin);
+            $this->fail('1.8.0 cannot write to the SEO plugin');
+        } catch (ValidationException $exception) {
+            $this->assertStringContainsString('en az 1.9.0', (string) collect($exception->errors())->flatten()->first());
+        }
+        $this->assertSame([], $this->sent);
+        $this->assertSame(Suggestion::OPEN, $suggestion->fresh()->status);
+    }
+
+    public function test_ana_sayfa_bu_olsun_makes_the_page_the_clusters_main_page(): void
+    {
+        $row = $this->row('tr', $this->copy, [$this->main->id]);
+        app(ClusterOverlaps::class)->sync($this->site, $this->brand);
+        $suggestion = Suggestion::query()->where('decision_key', ClusterOverlaps::DECISION)->sole();
+        $this->assertSame(ClusterOverlaps::REVIEW, data_get($suggestion->action, 'recommendation'), 'service page ↔ blog main page');
+
+        Livewire::test(WorkPage::class)->call('run', $suggestion->id, 'make_main');
+
+        $this->assertSame([$this->main->id, true], [(int) $row->fresh()->page_id, (bool) $row->fresh()->locked]);
+        $this->assertSame(Suggestion::APPLIED, $suggestion->fresh()->status);
+    }
+
+    /** @return array<int, string> page id → recommendation of the open overlaps */
+    private function recommendations(): array
+    {
+        return Suggestion::query()->where('decision_key', ClusterOverlaps::DECISION)->actionable()->get()
+            ->mapWithKeys(fn (Suggestion $s): array => [(int) $s->page_id => (string) data_get($s->action, 'recommendation')])->sortKeys()->all();
+    }
+
+    /** @return array{url: string, url_key: string, impressions: int, share: float} */
+    private function share(Page $page, float $share): array
+    {
+        return ['url' => (string) $page->url, 'url_key' => SeoText::urlKey((string) $page->url), 'impressions' => (int) round($share * 1000), 'share' => $share];
+    }
+
+    /**
+     * A paired connector whose /fixes answers each change with $answer (signed like the plugin).
+     *
+     * @param  callable(array<string, mixed>): array<string, mixed>  $answer
+     */
+    private function connector(string $version, callable $answer): void
+    {
+        $connection = CoreConnection::factory()->create([
+            'digital_asset_id' => $this->site->id, 'type' => 'wordpress_connector', 'enabled' => true,
+            'config' => ['pairing_state' => 'paired', 'snapshot_url' => 'https://panorama.com.tr/wp-json/moxdop/v1/snapshot', 'plugin_version' => $version],
+        ]);
+        $secret = str_repeat('s', 43);
+        CoreConnectionCredential::factory()->create(['connection_id' => $connection->id, 'encrypted_payload' => ['client_id' => 'client-1', 'shared_secret' => $secret]]);
+        $this->app->instance(WordPressConnectorClient::class, new WordPressConnectorClient(new WordPressConnectorCanonicalJson, new PublicUrlSafety(fn (string $host): array => ['93.184.216.34'])));
+        $this->sent = [];
+        Http::fake(function (Request $request) use ($answer, $secret) {
+            $changes = (array) (json_decode($request->body(), true)['changes'] ?? []);
+            $this->sent[] = $changes;
+            $data = ['schema_version' => 1, 'results' => array_map($answer, $changes)];
+            $nonce = $request->header(WordPressConnectorClient::HEADER_NONCE)[0] ?? '';
+            $time = now()->timestamp;
+            $signature = hash_hmac('sha256', implode("\n", [(string) $time, $nonce, hash('sha256', (new WordPressConnectorCanonicalJson)->encode($data))]), $secret);
+
+            return Http::response(['data' => $data, 'meta' => ['server_time' => $time, 'request_nonce' => $nonce, 'signature' => $signature]]);
+        });
     }
 
     /** @param  list<int>  $overlaps */

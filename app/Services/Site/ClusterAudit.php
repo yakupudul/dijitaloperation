@@ -81,8 +81,8 @@ final class ClusterAudit
     /** Tür uyumu (blueprint §5.2 c): page categories put first for a page type. */
     private const array TYPE_CATEGORIES = ['service' => ['hizmet'], 'guide' => ['blog'], 'faq' => ['sss', 'blog'], 'location' => ['lokasyon'], 'comparison' => ['blog']];
 
-    /** Home, contact, about and legal pages are never candidates. */
-    private const string NEVER_CANDIDATE = '#^/?$|(^|/)(iletisim|contact|hakkimizda|hakkinda|about|kvkk|gizlilik|privacy|cerez|cookie)(/|$|-)#i';
+    /** Home, contact, about and legal pages are never candidates (nor cluster overlaps). */
+    public const string NEVER_CANDIDATE = '#^/?$|(^|/)(iletisim|contact|hakkimizda|hakkinda|about|kvkk|gizlilik|privacy|cerez|cookie)(/|$|-)#i';
 
     public function __construct(
         private readonly SiteAi $ai,

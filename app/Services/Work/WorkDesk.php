@@ -16,7 +16,6 @@ use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\Clarity\ClarityRules;
 use App\Services\Site\ClusterOverlaps;
-use App\Services\Site\ClusterPageShares;
 use App\Services\Site\ContentPlanner;
 use App\Services\Site\ImageAlts;
 use App\Services\Site\SiteSuggestions;
@@ -57,11 +56,15 @@ final class WorkDesk
     public const array SETUP_TYPES = ['brand_gap', 'brand_audit'];
 
     /** Row buttons beyond Onayla / Yaptım: code => label. */
+    /** Where the connector wrote a merge's 301 (connector 1.9.0 result). */
+    public const array REDIRECT_PROVIDERS = ['rank_math' => 'Rank Math', 'yoast' => 'Yoast Premium', 'redirection' => 'Redirection', 'moxdop' => 'MoxDOP eklentisi'];
+
     public const array ACTIONS = [
         'gap_fix' => 'Onayla ve yap',
         'audit_fix' => 'Düzelt',
         'audit_accept' => 'Doğru, bırak',
         'merge' => '301 ile birleştir',
+        'make_main' => 'Ana sayfa bu olsun',
         'keep' => 'Ayrı kalsın',
         'send_draft' => 'WordPress\'e taslak gönder',
     ];
@@ -173,7 +176,8 @@ final class WorkDesk
                 $urls = array_unique(array_map(fn (array $r): string => (string) $r['url'], $items));
                 $overlap = ($items[0]['overlap'] ?? null) !== null;
                 $group['who'] = ! $overlap && count($whos) === 1 ? (string) $whos[0] : null;
-                $group['about'] = $overlap ? 'Aynı arama ihtiyacına birden çok sayfa yanıt veriyor. «301 öneriliyor» olan sayfa ana sayfaya yönlendirilir (sistem siteye yazar, geri alınabilir); «Ayrıştır» olanın metni kendi ihtiyacına odaklanır, çakışma kalkınca iş kendisi kapanır.' : $group['who'];
+                $group['about'] = $overlap ? 'Aynı arama ihtiyacına birden çok sayfa yanıt veriyor. «301 öneriliyor» olan sayfa ana sayfaya yönlendirilir: yönlendirme sitenin SEO eklentisine yazılır, sayfa silinmez, taslağa alınır (geri alınabilir). «Ayrıştır» olanın metni kendi ihtiyacına odaklanır; «Ana sayfayı gözden geçir» olanda yanlış olan ana sayfa seçimidir. Çakışma kalkınca iş kendisi kapanır.' : $group['who'];
+                $group['mergeable'] = $overlap ? array_values(array_map(fn (array $r): int => (int) $r['id'], array_filter($items, fn (array $r): bool => in_array('merge', $r['actions'], true)))) : [];
                 $group['url'] = count($urls) === 1 && $urls[0] !== '' ? $items[0]['url'] : null;
                 $group['url_label'] = $group['url'] !== null ? ($items[0]['external'] ? $items[0]['url_label'] : 'Aç →') : null;
                 $group['external'] = $group['url'] !== null && $items[0]['external'];
@@ -292,7 +296,8 @@ final class WorkDesk
             'gap_fix' => app(BrandGaps::class)->apply($suggestion, $user),
             'audit_fix' => app(BrandAudit::class)->fix($suggestion, $user),
             'audit_accept' => tap('Doğru kabul edildi; bu bulgular bir daha gelmez.', fn () => app(BrandAudit::class)->accept($suggestion, $user)),
-            'merge' => tap('301 yönlendirmesi onaylandı; sitede uygulanır (geri alınabilir).', fn () => app(ClusterOverlaps::class)->redirect($suggestion, $user)),
+            'merge' => tap('301 siteye gönderildi: yönlendirme SEO eklentisine yazılır, sayfa taslağa alınır (geri alınabilir).', fn () => app(ClusterOverlaps::class)->redirect($suggestion, $user)),
+            'make_main' => tap('Kümenin ana sayfası bu sayfa yapıldı; çakışmalar yeniden hesaplandı.', fn () => app(ClusterOverlaps::class)->makeMain($suggestion, $user)),
             'keep' => tap('Ayrı kalsın; çakışma değişmedikçe geri gelmez.', fn () => app(ClusterOverlaps::class)->keep($suggestion, $user)),
             'send_draft' => tap('WordPress taslağı kuyruğa alındı (geri alınabilir).', fn () => app(ContentPlanner::class)->sendDraft($suggestion, $user)),
         };
@@ -307,11 +312,45 @@ final class WorkDesk
         return match ((string) $s->action_type) {
             'brand_gap' => $open && ($action['fix'] ?? null) !== null ? ['gap_fix'] : [],
             'brand_audit' => $open ? ['audit_fix', 'audit_accept'] : [],
-            ClusterOverlaps::TYPE => $open ? [...(($action['recommendation'] ?? null) === ClusterOverlaps::REDIRECT ? ['merge'] : []), 'keep'] : [],
+            ClusterOverlaps::TYPE => match (true) {
+                ClusterOverlaps::mergeable($s) => ['merge', 'keep'],
+                $open && ($action['recommendation'] ?? null) === ClusterOverlaps::REVIEW => ['make_main', 'keep'],
+                $open && ($action['recommendation'] ?? null) !== ClusterOverlaps::REDIRECT => ['keep'],
+                default => [],
+            },
             SiteSuggestionTypes::CONTENT => $s->status === Suggestion::APPROVED && is_array($action['article'] ?? null)
                 && ! isset($action['article_blocked']) && ! isset($action['article_write_id']) ? ['send_draft'] : [],
             default => [],
         };
+    }
+
+    /**
+     * "301 ile birleştir" on many overlaps at once (the ticked rows, or every 301 proposal of one card). Each site gets
+     * one write; returns the operator message.
+     *
+     * @param  list<int>  $ids
+     */
+    public function mergeMany(array $ids, User $user): string
+    {
+        $suggestions = collect(array_unique(array_map('intval', $ids)))->map(fn (int $id): ?Suggestion => Suggestion::query()->whereKey($id)
+            ->where('action_type', ClusterOverlaps::TYPE)->whereHas('brand', fn (Builder $brand): Builder => $brand->operational())->first())
+            ->filter(fn (?Suggestion $s): bool => $s !== null && ClusterOverlaps::mergeable($s))->values();
+        if ($suggestions->isEmpty()) {
+            throw ValidationException::withMessages(['work' => 'Seçili 301 önerisi yok.']);
+        }
+        $sent = app(ClusterOverlaps::class)->redirectMany($suggestions, $user);
+
+        return $sent.' sayfa için 301 siteye gönderildi: yönlendirmeler SEO eklentisine yazılır, sayfalar taslağa alınır (geri alınabilir).';
+    }
+
+    /**
+     * Every 301 proposal of one card ("Tüm 301'leri birleştir").
+     */
+    public function mergeGroup(string $tab, string $key, ?int $brandId, User $user): string
+    {
+        $group = collect(self::groups($this->rows($tab, self::VIEW_OPEN, $brandId)))->flatMap(fn (array $section): array => $section['groups'])->firstWhere('key', $key);
+
+        return $this->mergeMany($group['mergeable'] ?? [], $user);
     }
 
     /** "Yaptım" only where the operator's own work closes it: not content (its own line), setup (system closes), a 301 merge. */
@@ -481,11 +520,7 @@ final class WorkDesk
             'main_path' => $mainUrl !== null ? '/'.ltrim(SeoText::urlPath($mainUrl), '/') : '', 'main_url' => $mainUrl,
             'path' => $url !== null ? '/'.ltrim(SeoText::urlPath($url), '/') : (string) $s->title, 'url' => $url,
             'recommendation' => $recommendation,
-            'why' => match (true) {
-                $recommendation === ClusterOverlaps::REDIRECT => 'Bu kümede az trafik alıyor. Eksik bilgisi ana sayfaya taşınıp 301 ile oraya yönlendirilsin.',
-                $share >= ClusterPageShares::CONFLICT => 'Bu kümenin gösterimlerinde payı %'.(int) round($share * 100).'. Kendi ihtiyacına odaklansın, ana sayfaya bağlantı versin.',
-                default => 'Başka bir kümenin hedef sayfası; birleştirilmez. Kendi ihtiyacına odaklansın, ana sayfaya bağlantı versin.',
-            },
+            'why' => ClusterOverlaps::why($action),
         ];
     }
 
@@ -518,8 +553,11 @@ final class WorkDesk
                     : 'Bağlantıdan elle · eksik kalkınca kendisi kapanır', false],
                 $type === ClarityRules::TYPE => ['Clarity kayıtlarına bak · sitede elle düzelt · Yaptım de, sistem sonraki çekimde kontrol eder', false],
                 $type === 'brand_audit' => ['Düzelt: sistem yanlış kararı geri alır · Doğru, bırak: bir daha sorulmaz', false],
-                $type === ClusterOverlaps::TYPE => [($action['recommendation'] ?? null) === ClusterOverlaps::REDIRECT
-                    ? '301 ile birleştir · sistem siteye yazar (geri alınabilir)' : 'Sayfa metni elle ayrıştırılır · çakışma kalkınca kendisi kapanır', false],
+                $type === ClusterOverlaps::TYPE => [match ($action['recommendation'] ?? null) {
+                    ClusterOverlaps::REDIRECT => '301 ile birleştir · yönlendirme SEO eklentisine yazılır, sayfa taslağa alınır (geri alınabilir)',
+                    ClusterOverlaps::REVIEW => 'Ana sayfa bu olsun ya da ayrı kalsın · 301 yapılmaz',
+                    default => 'Sayfa metni elle ayrıştırılır · çakışma kalkınca kendisi kapanır',
+                }, false],
                 $type === SiteSuggestionTypes::CONTENT => ['Başlık onayı · Claude yazar · taslak siteye', true],
                 $type === ImageAlts::TYPE || SiteSuggestionTypes::applicable($type) => ['Onayla · sistem siteye yazar', true],
                 default => ['Onayla · sitede elle', true],
@@ -553,6 +591,15 @@ final class WorkDesk
     /** Content line stage: title approval → writing → read → WordPress draft. */
     private function stage(Suggestion $s): ?string
     {
+        if ($s->action_type === ClusterOverlaps::TYPE) {
+            return match (true) {
+                ClusterOverlaps::mergePending($s) => 'Siteye yazılıyor',
+                filled(data_get($s->action, 'merge_error')) && $s->status !== Suggestion::APPLIED => '301 yazılamadı: '.mb_substr((string) data_get($s->action, 'merge_error'), 0, 140),
+                $s->status === Suggestion::APPLIED && filled(data_get($s->action, 'merge_provider')) => '301 · '.(self::REDIRECT_PROVIDERS[(string) data_get($s->action, 'merge_provider')] ?? (string) data_get($s->action, 'merge_provider')),
+                $s->status === Suggestion::APPROVED => 'Onaylandı · 301 henüz gönderilmedi',
+                default => null,
+            };
+        }
         if ($s->action_type !== SiteSuggestionTypes::CONTENT) {
             return $s->status === Suggestion::APPROVED ? 'Onaylandı · uygulanacak' : null;
         }

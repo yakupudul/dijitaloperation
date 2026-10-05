@@ -35,6 +35,8 @@ final class WordPressFixWriter
 
         return match ($type) {
             'redirect' => ['type' => 'redirect', 'from' => (string) ($change['from'] ?? ''), 'value' => (string) $value, 'reference' => $base['reference']],
+            // 1.9.0: the redirect goes into the site's SEO plugin and the redirected post becomes a draft (object_id, else found by path).
+            'merge_redirect' => ['type' => 'merge_redirect', 'object_id' => $base['object_id'], 'from' => (string) ($change['from'] ?? ''), 'value' => (string) $value, 'reference' => $base['reference']],
             'schema' => $base + ['value' => is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : (string) $value],
             'noindex' => $base + ['value' => (bool) $value],
             'internal_link' => $base + ['value' => ['anchor' => (string) data_get($value, 'anchor'), 'url' => (string) data_get($value, 'url')]],
@@ -95,7 +97,8 @@ final class WordPressFixWriter
             $result = (array) ($results[$i] ?? ['ok' => false, 'error' => 'no result']);
             $ok = (bool) ($result['ok'] ?? false);
             $out[] = ['reference' => $change['reference'], 'ok' => $ok, 'change_id' => $result['change_id'] ?? null, 'before' => $result['before'] ?? null,
-                'error' => $ok ? null : mb_substr((string) ($result['error'] ?? 'bilinmeyen hata'), 0, 500)];
+                'error' => $ok ? null : mb_substr((string) ($result['error'] ?? 'bilinmeyen hata'), 0, 500)]
+                + (isset($result['provider']) ? ['provider' => (string) $result['provider']] : []);
         }
         $okCount = count(array_filter($out, fn (array $r): bool => $r['ok']));
 

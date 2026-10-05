@@ -131,11 +131,16 @@ final class SiteFlowTest extends SiteTestCase
         $page->call('keepOverlap', $suggestions[$other->id]->id)->assertSee('İki sayfa ayrı kalıyor');
         $this->assertSame(Suggestion::DISMISSED, $suggestions[$other->id]->fresh()->status);
 
-        $page->call('mergeOverlap', $suggestions[$copy->id]->id)->assertSee('Yönlendirme WordPress’e gönderildi');
+        $page->call('mergeOverlap', $suggestions[$copy->id]->id)->assertHasErrors('write');
+        $this->assertSame(0, ExternalWriteAction::query()->count(), 'connector 1.4.1 cannot write to the SEO plugin: nothing is sent');
+        CoreConnection::query()->update(['config->plugin_version' => '1.9.0']);
+
+        $page->call('mergeOverlap', $suggestions[$copy->id]->id)->assertSee('301 siteye gönderildi');
         $write = ExternalWriteAction::query()->sole();
-        $this->assertSame([['type' => 'redirect', 'from' => '/implant-tedavisi-nedir/', 'value' => 'https://panorama.com.tr/implant/', 'reference' => 'suggestion-'.$suggestions[$copy->id]->id.'-redirect']],
+        $this->assertSame([['type' => 'merge_redirect', 'object_id' => 0, 'from' => '/implant-tedavisi-nedir/', 'value' => 'https://panorama.com.tr/implant/', 'reference' => 'suggestion-'.$suggestions[$copy->id]->id.'-merge']],
             $write->request_payload['changes']);
-        $this->assertSame(Suggestion::APPLIED, $suggestions[$copy->id]->fresh()->status);
+        $this->assertSame(Suggestion::APPROVED, $suggestions[$copy->id]->fresh()->status, 'waits for the site (the write is queued)');
+        $this->assertTrue(ClusterOverlaps::mergePending($suggestions[$copy->id]->fresh()));
 
         // The overlap goes away on the next run: an open suggestion closes itself; a decided one stays decided.
         ClusterMatchAgent::fake(fn (): array => ['clusters' => [

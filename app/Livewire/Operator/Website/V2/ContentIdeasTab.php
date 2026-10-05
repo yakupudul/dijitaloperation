@@ -117,7 +117,7 @@ class ContentIdeasTab extends Component
     public function mergeOverlap(int $suggestionId, ClusterOverlaps $overlaps): void
     {
         $overlaps->redirect($this->overlap($suggestionId), auth()->user());
-        $this->message = 'Yönlendirme WordPress’e gönderildi · İş listesi › geçmişten geri alınabilir.';
+        $this->message = '301 siteye gönderildi: yönlendirme SEO eklentisine yazılır, sayfa taslağa alınır · İş listesi › geçmişten geri alınabilir.';
     }
 
     /** "Ayrı kalsın": both pages stay. */

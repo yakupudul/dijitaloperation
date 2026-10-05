@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
 use App\Services\Integrations\WordPress\WordPressManagementService;
 use App\Services\Integrations\WordPress\WordPressSiteBuilder;
+use App\Services\Site\ClusterOverlaps;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
@@ -441,6 +442,10 @@ final class ExternalWriteService
             // Shared-list negatives become "Uygulandı" only once Google accepted them.
             app(GoogleAdsSuggestions::class)->writeFinished($action);
         }
+        if ($action->action === ExternalWriteAction::ACTION_SITE_FIX) {
+            // "301 ile birleştir" becomes applied only once the site confirmed it (else open again with the error).
+            app(ClusterOverlaps::class)->writeFinished($action);
+        }
     }
 
     public function executeUndo(ExternalWriteAction $action): void
@@ -454,6 +459,7 @@ final class ExternalWriteService
                 default => $this->drafts->undo($action),
             };
             $action->forceFill(['status' => 'undone', 'undone_at' => now(), 'result' => array_merge($action->result ?? [], ['undo' => $undo]), 'error' => null])->save();
+            app(ClusterOverlaps::class)->writeUndone($action);
         } catch (Throwable $exception) {
             $action->forceFill(['status' => 'undo_failed', 'error' => mb_substr($exception->getMessage(), 0, 500)])->save();
         }

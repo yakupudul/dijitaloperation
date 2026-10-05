@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.8.0
+Stable tag: 1.9.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,9 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.9.0 =
+* "301 ile birleştir" (`merge_redirect` in `/fixes`, needs "SEO fixes"): the 301 is written into the site's SEO plugin (Rank Math with its Redirections module, Yoast SEO Premium, or the Redirection plugin; the connector's own redirect list only where none of them can), and the redirected post becomes a draft instead of being deleted. The redirected URL is purged from page caches. Undo removes the redirect and restores the post status. The response says which plugin holds the redirect (`provider`).
 
 = 1.8.0 =
 * Site building (`/build`, off until the site admin enables it): describe the site, then import ACF JSON, create or update pages / custom posts with ACF and Elementor data, Elementor templates (header, footer, …) with display conditions, media, menus and basic settings. Everything built carries a `ref`, so a repeated request updates instead of duplicating. Every change can be undone (`/build/undo`).

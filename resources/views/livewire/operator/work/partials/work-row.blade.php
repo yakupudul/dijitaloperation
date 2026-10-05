@@ -13,6 +13,8 @@
             @if($overlap !== null)
                 @if($overlap['recommendation'] === \App\Services\Site\ClusterOverlaps::REDIRECT)
                     <span class="{{ $chip }} bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300" data-recommendation="redirect">301 öneriliyor</span>
+                @elseif($overlap['recommendation'] === \App\Services\Site\ClusterOverlaps::REVIEW)
+                    <span class="{{ $chip }} bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300" data-recommendation="review">Ana sayfayı gözden geçir</span>
                 @else
                     <span class="{{ $chip }} bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300" data-recommendation="differentiate">Ayrıştır</span>
                 @endif
@@ -26,6 +28,9 @@
         </div>
         @if($overlap !== null && $overlap['cluster'] !== null)
             <p class="mt-1 break-all font-medium leading-snug text-gray-900 dark:text-white">
+                @if($view === 'acik' && in_array('merge', $row['actions'], true))
+                    <input type="checkbox" wire:model.live="selected" value="{{ $row['id'] }}" class="mr-1 rounded border-gray-300 align-middle text-brand-600 dark:border-gray-700" aria-label="301 için seç" data-merge-pick="{{ $row['id'] }}">
+                @endif
                 @if($overlap['url'])<a href="{{ $overlap['url'] }}" target="_blank" rel="noopener" class="hover:underline">{{ $overlap['path'] }}</a>@else{{ $overlap['path'] }}@endif
             </p>
             <p class="mt-0.5 text-xs text-gray-600 dark:text-gray-400">{{ $overlap['why'] }}</p>
@@ -41,7 +46,7 @@
             <button type="button" wire:click="approve({{ $row['id'] }})" class="{{ $primary }}">Onayla</button>
         @endif
         @foreach($row['actions'] as $do)
-            <button type="button" wire:click="run({{ $row['id'] }}, '{{ $do }}')" @if(in_array($do, ['merge', 'send_draft', 'audit_fix'], true)) wire:confirm="{{ \App\Services\Work\WorkDesk::ACTIONS[$do] }}: emin misiniz?" @endif class="{{ $loop->first && ! $row['can_approve'] ? $primary : $ghost }}" data-work-action="{{ $do }}">{{ \App\Services\Work\WorkDesk::ACTIONS[$do] }}</button>
+            <button type="button" wire:click="run({{ $row['id'] }}, '{{ $do }}')" @if(in_array($do, ['merge', 'make_main', 'send_draft', 'audit_fix'], true)) wire:confirm="{{ \App\Services\Work\WorkDesk::ACTIONS[$do] }}: emin misiniz?" @endif class="{{ $loop->first && ! $row['can_approve'] ? $primary : $ghost }}" data-work-action="{{ $do }}">{{ \App\Services\Work\WorkDesk::ACTIONS[$do] }}</button>
         @endforeach
         @if($row['can_done'])
             <button type="button" wire:click="done({{ $row['id'] }})" class="h-8 shrink-0 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white hover:bg-emerald-700">Yaptım</button>

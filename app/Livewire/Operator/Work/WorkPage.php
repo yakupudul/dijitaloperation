@@ -49,6 +49,9 @@ final class WorkPage extends Component
     /** @var array<int|string, string> suggestion id => note / reason */
     public array $notes = [];
 
+    /** @var list<int> ticked "301 öneriliyor" rows (Seçilenleri 301 ile birleştir) */
+    public array $selected = [];
+
     public string $message = '';
 
     public function mount(): void
@@ -102,6 +105,20 @@ final class WorkPage extends Component
     public function snoozeGroup(string $key, WorkDesk $desk): void
     {
         $this->act(fn (): string => $desk->snoozeGroup($this->tab, $key, $this->brand, auth()->user()).' iş 7 gün ertelendi.');
+    }
+
+    /** "Tüm 301'leri birleştir" on one card. */
+    public function mergeGroup(string $key, WorkDesk $desk): void
+    {
+        $this->act(fn (): string => $desk->mergeGroup($this->tab, $key, $this->brand, auth()->user()));
+        $this->selected = [];
+    }
+
+    /** "Seçilenleri 301 ile birleştir": the ticked rows. */
+    public function mergeSelected(WorkDesk $desk): void
+    {
+        $this->act(fn (): string => $desk->mergeMany(array_map('intval', $this->selected), auth()->user()));
+        $this->selected = [];
     }
 
     public function approve(int $id, WorkDesk $desk): void

@@ -1,5 +1,7 @@
 <?php
 
+use RankMath\Helper;
+
 defined('ABSPATH') || exit;
 
 /**
@@ -11,6 +13,11 @@ defined('ABSPATH') || exit;
  * - "Content updates": a new version of an existing page is written as a separate draft copy; it replaces the
  *   live page only when MoxDOP sends a second, separately approved "apply" request.
  * Every change stores the previous value in a change log; undo restores it only if nobody changed the value since.
+ *
+ * 1.9.0 "merge_redirect" (MoxDOP "301 ile birleştir"): the 301 is written into the site's SEO plugin — Rank Math
+ * (Redirections module on), Yoast SEO Premium or the Redirection plugin; the connector's own redirect list only where
+ * none of them can — and the redirected post becomes a draft (never deleted). Undo removes the redirect and restores
+ * the post status.
  */
 final class MoxDOP_Connector_Fixes
 {
@@ -30,6 +37,9 @@ final class MoxDOP_Connector_Fixes
     ];
 
     private $auth;
+
+    /** Where the last merge_redirect wrote its 301 (rank_math | yoast | redirection | moxdop). */
+    private $last_provider = null;
 
     public function __construct(?MoxDOP_Connector_Auth $auth = null)
     {
@@ -135,15 +145,16 @@ final class MoxDOP_Connector_Fixes
         $after = $this->read($type, $target);
         $id = $this->remember($type, $target, $before, $after, sanitize_text_field((string) ($change['reference'] ?? '')));
         // 1.4.1: search engines hear about the changed page (IndexNow), sent right after this request.
-        if (isset($target['post_id']) && get_post_status($target['post_id']) === 'publish') {
-            MoxDOP_Connector_IndexNow::queue((string) get_permalink($target['post_id']));
-            (new MoxDOP_Connector_Events)->send_soon();
-        } elseif (isset($target['from'])) {
+        if (isset($target['from'])) {
             MoxDOP_Connector_IndexNow::queue(home_url($target['from']));
             (new MoxDOP_Connector_Events)->send_soon();
+        } elseif (isset($target['post_id']) && get_post_status($target['post_id']) === 'publish') {
+            MoxDOP_Connector_IndexNow::queue((string) get_permalink($target['post_id']));
+            (new MoxDOP_Connector_Events)->send_soon();
         }
+        $result = ['ok' => true, 'type' => $type, 'change_id' => $id, 'before' => $this->summary($before), 'after' => $this->summary($after)];
 
-        return ['ok' => true, 'type' => $type, 'change_id' => $id, 'before' => $this->summary($before), 'after' => $this->summary($after)];
+        return $type === 'merge_redirect' ? $result + ['provider' => $this->last_provider, 'drafted' => $target['post_id'] > 0] : $result;
     }
 
     private function target($type, array $change)
@@ -164,6 +175,20 @@ final class MoxDOP_Connector_Fixes
                 $from = $this->path((string) ($change['from'] ?? ''));
 
                 return $from !== '' && $from !== '/' ? ['from' => $from] : null;
+            case 'merge_redirect':
+                $from = $this->path((string) ($change['from'] ?? ''));
+                if ($from === '' || $from === '/') {
+                    return null;
+                }
+                if ($post_id < 1 || ! get_post($post_id)) {
+                    $post_id = (int) url_to_postid(home_url($from.'/'));
+                }
+                // The site's front page / posts page is never turned into a draft.
+                if ($post_id > 0 && in_array($post_id, [(int) get_option('page_on_front'), (int) get_option('page_for_posts')], true)) {
+                    return null;
+                }
+
+                return ['from' => $from, 'source' => $this->source_path((string) ($change['from'] ?? '')), 'post_id' => $post_id];
         }
 
         return null;
@@ -198,6 +223,16 @@ final class MoxDOP_Connector_Fixes
                 $url = esc_url_raw((string) $value);
 
                 return $url !== '' ? $url : new WP_Error('bad', 'redirect target is not a URL');
+            case 'merge_redirect':
+                $url = esc_url_raw((string) $value);
+                if ($url === '') {
+                    return new WP_Error('bad', 'redirect target is not a URL');
+                }
+                if ($this->path($url) === $target['from']) {
+                    return new WP_Error('bad', 'a page cannot redirect to itself');
+                }
+
+                return ['to' => $url, 'status' => $target['post_id'] > 0 ? 'draft' : ''];
             case 'internal_link':
                 $anchor = sanitize_text_field((string) ($value['anchor'] ?? ''));
                 $url = esc_url_raw((string) ($value['url'] ?? ''));
@@ -237,6 +272,8 @@ final class MoxDOP_Connector_Fixes
                 return (string) ($redirects[$target['from']] ?? '');
             case 'internal_link':
                 return (string) get_post_field('post_content', $target['post_id'], 'raw');
+            case 'merge_redirect':
+                return ['to' => $this->redirect_target($target), 'status' => $target['post_id'] > 0 ? (string) get_post_status($target['post_id']) : ''];
             case 'content':
                 return ['title' => (string) get_post_field('post_title', $target['post_id'], 'raw'), 'content' => (string) get_post_field('post_content', $target['post_id'], 'raw')];
         }
@@ -272,6 +309,8 @@ final class MoxDOP_Connector_Fixes
                 }
 
                 return update_option(self::REDIRECTS_OPTION, $redirects, true);
+            case 'merge_redirect':
+                return $this->write_merge($target, (array) $value);
             case 'internal_link':
                 // wp_update_post keeps a WordPress revision of the previous content.
                 $result = wp_update_post(['ID' => $target['post_id'], 'post_content' => wp_slash((string) $value)], true);
@@ -284,6 +323,241 @@ final class MoxDOP_Connector_Fixes
         }
 
         return new WP_Error('bad', 'unknown change type');
+    }
+
+    /* ------------------------------------------------- 1.9.0: merge redirect */
+
+    /** Redirect (SEO plugin) + post status; the value is {to, status}, '' to remove the redirect / keep the status. */
+    private function write_merge(array $target, array $value)
+    {
+        $to = (string) ($value['to'] ?? '');
+        $current = $this->redirect_target($target);
+        if ($current !== '' && $current !== $to) {
+            $removed = $this->remove_redirect($target);
+            if (is_wp_error($removed)) {
+                return $removed;
+            }
+        }
+        if ($to !== '' && $current !== $to) {
+            $added = $this->add_redirect($target, $to);
+            if (is_wp_error($added)) {
+                return $added;
+            }
+        } else {
+            $this->last_provider = $this->redirect_provider();
+        }
+        $status = (string) ($value['status'] ?? '');
+        if ($target['post_id'] > 0 && $status !== '' && get_post_status($target['post_id']) !== $status) {
+            $result = wp_update_post(['ID' => $target['post_id'], 'post_status' => $status], true);
+            if (is_wp_error($result)) {
+                return $result;
+            }
+        }
+        $this->purge($target);
+
+        return true;
+    }
+
+    /** The SEO plugin that holds redirects on this site; 'moxdop' = the connector's own list. */
+    private function redirect_provider()
+    {
+        global $wpdb;
+        if (class_exists('RankMath\\Helper') && method_exists('RankMath\\Helper', 'is_module_active') && Helper::is_module_active('redirections')
+            && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->prefix.'rank_math_redirections')) === $wpdb->prefix.'rank_math_redirections') {
+            return 'rank_math';
+        }
+        if (class_exists('WPSEO_Redirect_Manager') && class_exists('WPSEO_Redirect')) {
+            return 'yoast';
+        }
+        if (class_exists('Red_Item') && method_exists('Red_Item', 'create')) {
+            return 'redirection';
+        }
+
+        return 'moxdop';
+    }
+
+    /** Current 301 target of the merged path in the active provider ('' = none). */
+    private function redirect_target(array $target)
+    {
+        try {
+            switch ($this->redirect_provider()) {
+                case 'rank_math':
+                    $row = $this->rank_math_row($target);
+
+                    return $row ? (string) $row->url_to : '';
+                case 'yoast':
+                    $redirect = (new WPSEO_Redirect_Manager('plain'))->get_redirect($this->yoast_origin($target));
+
+                    return $redirect ? $this->absolute((string) $redirect->get_target()) : '';
+                case 'redirection':
+                    $item = $this->redirection_item($target);
+
+                    return $item ? $this->absolute((string) $item->get_action_data()) : '';
+            }
+        } catch (Throwable $e) {
+            return '';
+        }
+        $redirects = (array) get_option(self::REDIRECTS_OPTION, []);
+
+        return (string) ($redirects[$target['from']] ?? '');
+    }
+
+    private function add_redirect(array $target, $to)
+    {
+        $provider = $this->redirect_provider();
+        $this->last_provider = $provider;
+        try {
+            switch ($provider) {
+                case 'rank_math':
+                    global $wpdb;
+                    $now = current_time('mysql');
+                    $ok = $wpdb->insert($wpdb->prefix.'rank_math_redirections', [
+                        'sources' => maybe_serialize([['ignore' => '', 'pattern' => trim($target['source'], '/'), 'comparison' => 'exact']]),
+                        'url_to' => $to, 'header_code' => 301, 'hits' => 0, 'status' => 'active', 'created' => $now, 'updated' => $now,
+                    ]);
+
+                    return $ok ? true : new WP_Error('bad', 'Rank Math redirect could not be saved');
+                case 'yoast':
+                    $ok = (new WPSEO_Redirect_Manager('plain'))->create_redirect(new WPSEO_Redirect($this->yoast_origin($target), $this->relative($to), 301, 'plain'));
+
+                    return $ok ? true : new WP_Error('bad', 'Yoast redirect could not be saved');
+                case 'redirection':
+                    $item = Red_Item::create(['url' => $target['source'], 'action_data' => ['url' => $to], 'action_type' => 'url', 'action_code' => 301,
+                        'match_type' => 'url', 'regex' => false, 'group_id' => $this->redirection_group()]);
+
+                    return is_wp_error($item) ? $item : true;
+            }
+        } catch (Throwable $e) {
+            return new WP_Error('bad', $provider.' redirect failed: '.$e->getMessage());
+        }
+        $redirects = (array) get_option(self::REDIRECTS_OPTION, []);
+        $redirects[$target['from']] = (string) $to;
+
+        return update_option(self::REDIRECTS_OPTION, $redirects, true) || ($redirects[$target['from']] ?? '') === $to;
+    }
+
+    private function remove_redirect(array $target)
+    {
+        $provider = $this->redirect_provider();
+        try {
+            switch ($provider) {
+                case 'rank_math':
+                    global $wpdb;
+                    $row = $this->rank_math_row($target);
+                    if ($row) {
+                        $wpdb->delete($wpdb->prefix.'rank_math_redirections', ['id' => (int) $row->id]);
+                        $cache = $wpdb->prefix.'rank_math_redirections_cache';
+                        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $cache)) === $cache) {
+                            $wpdb->delete($cache, ['redirection_id' => (int) $row->id]);
+                        }
+                    }
+
+                    return true;
+                case 'yoast':
+                    $manager = new WPSEO_Redirect_Manager('plain');
+                    $redirect = $manager->get_redirect($this->yoast_origin($target));
+
+                    return $redirect ? (bool) $manager->delete_redirects([$redirect]) : true;
+                case 'redirection':
+                    $item = $this->redirection_item($target);
+                    if ($item) {
+                        $item->delete();
+                    }
+
+                    return true;
+            }
+        } catch (Throwable $e) {
+            return new WP_Error('bad', $provider.' redirect removal failed: '.$e->getMessage());
+        }
+        $redirects = (array) get_option(self::REDIRECTS_OPTION, []);
+        unset($redirects[$target['from']]);
+        update_option(self::REDIRECTS_OPTION, $redirects, true);
+
+        return true;
+    }
+
+    /** The active Rank Math redirection whose exact source is the merged path. */
+    private function rank_math_row(array $target)
+    {
+        global $wpdb;
+        $pattern = trim($target['source'], '/');
+        $rows = $wpdb->get_results($wpdb->prepare('SELECT id, sources, url_to FROM '.$wpdb->prefix.'rank_math_redirections WHERE status = %s AND sources LIKE %s',
+            'active', '%'.$wpdb->esc_like($pattern).'%'));
+        foreach ((array) $rows as $row) {
+            foreach ((array) maybe_unserialize($row->sources) as $source) {
+                if (is_array($source) && ($source['comparison'] ?? '') === 'exact' && trim((string) ($source['pattern'] ?? ''), '/') === $pattern) {
+                    return $row;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function redirection_item(array $target)
+    {
+        foreach ((array) Red_Item::get_for_url($target['source']) as $item) {
+            if (is_object($item) && method_exists($item, 'get_url') && untrailingslashit((string) $item->get_url()) === untrailingslashit($target['source'])) {
+                return $item;
+            }
+        }
+
+        return null;
+    }
+
+    /** The first enabled group of the Redirection plugin's WordPress module. */
+    private function redirection_group()
+    {
+        global $wpdb;
+        $id = (int) $wpdb->get_var("SELECT id FROM {$wpdb->prefix}redirection_groups WHERE module_id = 1 AND status = 'enabled' ORDER BY id LIMIT 1");
+
+        return $id > 0 ? $id : 1;
+    }
+
+    private function yoast_origin(array $target)
+    {
+        return ltrim($target['source'], '/');
+    }
+
+    /** Yoast keeps on-site targets relative; MoxDOP compares absolute URLs. */
+    private function relative($url)
+    {
+        $home = untrailingslashit(home_url());
+
+        return strpos($url, $home) === 0 ? (substr($url, strlen($home)) ?: '/') : $url;
+    }
+
+    private function absolute($url)
+    {
+        return $url !== '' && $url[0] === '/' ? home_url($url) : $url;
+    }
+
+    /** The redirected URL leaves page caches at once (the status change purges the post in most cache plugins too). */
+    private function purge(array $target)
+    {
+        $url = home_url($target['source']);
+        if ($target['post_id'] > 0) {
+            clean_post_cache($target['post_id']);
+        }
+        do_action('litespeed_purge_url', $url);
+        do_action('cache_enabler_clear_page_cache_by_url', $url);
+        if (function_exists('rocket_clean_files')) {
+            rocket_clean_files([$url]);
+        }
+        if (function_exists('w3tc_flush_url')) {
+            w3tc_flush_url($url);
+        }
+        if (function_exists('wpsc_delete_url_cache')) {
+            wpsc_delete_url_cache($url);
+        }
+    }
+
+    /** The path as sent (decoded, leading slash, trailing slash kept): what SEO plugins match. */
+    private function source_path($url)
+    {
+        $path = rawurldecode((string) wp_parse_url($url, PHP_URL_PATH));
+
+        return '/'.ltrim($path, '/');
     }
 
     /** Wraps the first plain-text occurrence of $anchor (outside tags, links and headings) in a link. */
