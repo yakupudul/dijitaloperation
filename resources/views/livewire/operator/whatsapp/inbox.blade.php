@@ -46,7 +46,7 @@
     $showReconnect = $state === 'connected' && $signupAttempt && ! in_array($signupAttempt->status, ['completed', 'expired'], true)
         && ($attemptBusy || $signupAttempt->updated_at->greaterThan(now()->subDay()));
     $suggestionBusy = $selected && in_array($selected->suggestion_status, ['requested', 'running'], true);
-    $showInbox = in_array($state, ['connected', 'attention', 'disabled'], true) || $rows->total() > 0 || trim($q) !== '';
+    $showInbox = in_array($state, ['connected', 'attention', 'disabled'], true) || $rows->isNotEmpty() || trim($q) !== '';
     $backgroundBusy = in_array($backupImport?->status, ['queued', 'running'], true) || in_array($config['brain_status'] ?? null, ['queued', 'running'], true);
 @endphp
 <div class="space-y-5">
@@ -112,7 +112,7 @@
         @include('livewire.operator.whatsapp.backup')
     @endif
 
-    @if($backupConversations > 0 || ! empty($config['brain']) || $rows->total() > 0)
+    @if($backupConversations > 0 || ! empty($config['brain']) || $rows->isNotEmpty())
         @include('livewire.operator.whatsapp.brain')
     @endif
 

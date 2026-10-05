@@ -323,4 +323,9 @@ number must stay in the advertising portfolio). The inbox is filled from the pho
   PostgreSQL, so the extension may be missing. Without it the key is still checked and saved, the import returns to
   `uploaded` with the install command, and "Çıkar" with an empty key runs it again. Other database errors show the
   driver message.
+- 2026-10-05 after the first real import (550 chats): the conversation list is no longer paginated. "Cevap üret (N)"
+  on the list requests drafts for chats whose last message is the customer's, without a current draft, not opted out,
+  within 30 days of the newest message; newest first, at most 50 per click. "Senden istediklerim" has an answer box
+  per question; saved answers are appended to `business_context` as "- question → answer" and the question is removed
+  from `brain.open_questions`.
 

@@ -29,10 +29,19 @@
         @if($list($brain['open_questions'] ?? []) !== [])
             <div class="rounded-lg p-3 text-sm ring-1 ring-inset {{ $tone['warn'] }}" data-wa-brain-questions>
                 <p class="font-medium">Senden istediklerim</p>
-                <ul class="mt-1 list-disc space-y-0.5 pl-5">
-                    @foreach($list($brain['open_questions']) as $question)<li>{{ $question }}</li>@endforeach
-                </ul>
-                <p class="mt-1 text-xs">Cevaplarını aşağıdaki talimatlara yaz; sonraki cevaplar onlara göre hazırlanır.</p>
+                <p class="mt-0.5 text-xs">Her sorunun altına cevabını yaz ve kaydet. Cevaplar talimatlarına eklenir, soru listeden kalkar; boş bıraktığın soru kalır.</p>
+                <form wire:submit="saveAnswers" class="mt-2 space-y-3">
+                    @foreach((array) $brain['open_questions'] as $index => $question)
+                        @if(is_string($question) && trim($question) !== '')
+                            <label class="block" wire:key="wa-question-{{ $index }}-{{ md5($question) }}">
+                                <span class="block">{{ $question }}</span>
+                                <textarea wire:model="answers.{{ $index }}" rows="2" maxlength="2000" placeholder="Cevabın" class="mt-1 w-full rounded-lg border border-amber-300 bg-white p-2 text-sm text-gray-900 dark:border-amber-500/30 dark:bg-gray-900 dark:text-gray-100"></textarea>
+                            </label>
+                        @endif
+                    @endforeach
+                    @error('answers')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+                    <button type="submit" wire:loading.attr="disabled" wire:target="saveAnswers" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60">Cevapları kaydet</button>
+                </form>
             </div>
         @endif
         <details class="text-sm" wire:ignore.self>

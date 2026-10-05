@@ -306,6 +306,45 @@ final class WhatsAppBackupImportTest extends TestCase
         Queue::assertPushed(ExtractWhatsAppBackup::class, 1);
     }
 
+    public function test_cevap_uret_drafts_every_recent_chat_waiting_for_an_answer(): void
+    {
+        Queue::fake();
+        $this->extract($this->upload($this->backup([
+            ['905321112233', 's.whatsapp.net', [['A1', 1, '2026-09-10 10:00', 0, 'Merhaba'], ['A2', 0, '2026-09-10 11:00', 0, 'Fiyat nedir?']]],
+            ['905321112244', 's.whatsapp.net', [['B1', 0, '2026-09-11 10:00', 0, 'Selam'], ['B2', 1, '2026-09-11 10:05', 0, 'Buyurun']]],
+            ['905321112255', 's.whatsapp.net', [['C1', 0, '2026-06-01 10:00', 0, 'Eski soru']]],
+            ['905321112266', 's.whatsapp.net', [['D1', 0, '2026-09-12 10:00', 0, 'Yarın arar mısınız?']]],
+        ])));
+        $waiting = WhatsAppConversation::query()->whereIn('contact_id', ['905321112233', '905321112266'])->pluck('id')->sort()->values();
+        $this->actingAs($this->admin);
+
+        $page = Livewire::test(Inbox::class)->assertSee('Cevap üret (2)')->assertSee('905321112255');
+        $page->call('generateAll')->assertSee('2 görüşmeye cevap hazırlanıyor');
+
+        $this->assertEquals($waiting, WhatsAppConversation::query()->where('suggestion_status', 'requested')->pluck('id')->sort()->values());
+        Queue::assertPushed(GenerateWhatsAppSuggestion::class, 2);
+        Livewire::test(Inbox::class)->assertSee('Cevap üret')->assertDontSee('Cevap üret (')->call('generateAll')->assertSee('Cevap bekleyen görüşme yok');
+    }
+
+    public function test_answers_to_the_brains_questions_go_into_the_instructions(): void
+    {
+        Queue::fake();
+        $this->extract($this->upload($this->backup([['905321112233', 's.whatsapp.net', [['A1', 0, '2026-09-01 10:00', 0, 'Selam']]]])));
+        $integration = app(WhatsAppConnection::class)->integration();
+        $integration->update(['config' => [...$integration->config, 'business_context' => 'Kısa yaz.',
+            'brain' => ['summary' => 'Ajans', 'open_questions' => ['Site fiyatı ne?', 'KDV dahil mi?'], 'learned_at' => now()->toIso8601String()]]]);
+        $this->actingAs($this->admin);
+
+        Livewire::test(Inbox::class)->call('saveAnswers')->assertHasErrors('answers');
+        Livewire::test(Inbox::class)->set('answers.1', 'KDV hariç.')->call('saveAnswers')->assertHasNoErrors()
+            ->assertSet('business_context', "Kısa yaz.\n\n- KDV dahil mi? → KDV hariç.")
+            ->assertSee('Site fiyatı ne?')->assertDontSee('KDV dahil mi?</span>', false);
+
+        $config = $integration->fresh()->config;
+        $this->assertSame(['Site fiyatı ne?'], $config['brain']['open_questions']);
+        $this->assertStringEndsWith('- KDV dahil mi? → KDV hariç.', $config['business_context']);
+    }
+
     private function backup(array $chats): string
     {
         $path = tempnam(sys_get_temp_dir(), 'wa-msgstore');

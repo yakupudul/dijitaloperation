@@ -16,8 +16,8 @@
     <section class="{{ $card }} flex min-w-0 flex-col lg:col-span-4 lg:h-[calc(100vh-14rem)] lg:min-h-[32rem]">
         <div class="border-b border-gray-200 p-3 dark:border-gray-800">
             <div class="mb-2 flex items-center justify-between">
-                <h2 class="font-semibold text-gray-900 dark:text-white">Görüşmeler</h2>
-                <span class="text-xs text-gray-500">{{ $rows->total() }}</span>
+                <h2 class="font-semibold text-gray-900 dark:text-white">Görüşmeler <span class="text-xs font-normal text-gray-500">{{ $rows->count() }}</span></h2>
+                <button type="button" wire:click="generateAll" wire:loading.attr="disabled" wire:target="generateAll" @disabled($awaitingReply === 0) title="Son mesajı müşteriden gelen ve cevabı hazır olmayan görüşmeler (son 30 gün, tıklama başına en çok 50)" class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50" data-wa-generate-all>Cevap üret{{ $awaitingReply ? ' ('.$awaitingReply.')' : '' }}</button>
             </div>
             <input aria-label="Görüşme ara" wire:model.live.debounce.400ms="q" maxlength="100" placeholder="İsim veya numara ara" class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm dark:border-gray-700" />
         </div>
@@ -42,7 +42,6 @@
                 <p class="p-5 text-sm text-gray-500">{{ trim($q) !== '' ? 'Aramaya uyan görüşme yok.' : ($state === 'connected' ? 'Henüz mesaj gelmedi. Numaranıza gelen ilk mesaj burada görünecek.' : 'Yedek çıkarılınca ya da numara bağlanınca görüşmeler burada listelenir.') }}</p>
             @endforelse
         </div>
-        @if($rows->hasPages())<div class="border-t border-gray-200 p-2 dark:border-gray-800">{{ $rows->links() }}</div>@endif
     </section>
 
     <section class="{{ $card }} flex min-w-0 flex-col lg:col-span-8 lg:h-[calc(100vh-14rem)] lg:min-h-[32rem]">

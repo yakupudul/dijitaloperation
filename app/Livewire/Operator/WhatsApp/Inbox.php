@@ -19,6 +19,8 @@ use App\Services\WhatsApp\WhatsAppSignup;
 use App\Services\WhatsApp\WhatsAppSuggestions;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -65,11 +67,19 @@ class Inbox extends Component
 
     public string $business_context = '';
 
+    /** Answers typed under "Senden istediklerim", by question index. */
+    public array $answers = [];
+
     /** OpenAI model that drafts the reply suggestions (stored on the integration config). */
     public string $ai_model = '';
 
     /** KVKK: message texts older than this many days are blanked; empty = kept. */
     public string $retention_days = '';
+
+    /** "Cevap üret" covers chats from this many days before the newest message, at most BULK_LIMIT per click. */
+    private const BULK_DAYS = 30;
+
+    private const BULK_LIMIT = 50;
 
     public function boot(WhatsAppConnection $connection): void
     {
@@ -235,14 +245,12 @@ class Inbox extends Component
             'business_phone' => '', 'enabled' => true, 'conversation' => null, 'linkCustomer' => '', 'q' => '',
             'showSettings' => false, 'manualOpen' => false,
         ]);
-        $this->resetPage('conversationsPage');
         $this->notice = 'WhatsApp bağlantısı sıfırlandı. 1. adımdaki Meta uygulama bilgilerini yeniden girin.';
     }
 
     public function updatedQ(): void
     {
         $this->q = mb_substr($this->q, 0, 100);
-        $this->resetPage('conversationsPage');
     }
 
     public function selectConversation(int $id, WhatsAppConnection $connection): void
@@ -397,6 +405,87 @@ class Inbox extends Component
         }
     }
 
+    /**
+     * "Cevap üret" on the list: drafts for every chat whose last message is the customer's, from the last
+     * BULK_DAYS days of the newest message (older chats are history, not waiting for an answer), newest first.
+     */
+    public function generateAll(WhatsAppConnection $connection): void
+    {
+        $integration = $connection->integration();
+        if (! $integration?->isActive()) {
+            $this->notice = 'Öneri için bağlantı etkin olmalı.';
+
+            return;
+        }
+        $ids = $this->awaitingReply($integration->id)->limit(self::BULK_LIMIT)->pluck('id');
+        if ($ids->isEmpty()) {
+            $this->notice = 'Cevap bekleyen görüşme yok (son '.self::BULK_DAYS.' günde son mesajı müşteriden gelen ve cevabı hazır olmayan).';
+
+            return;
+        }
+        WhatsAppConversation::query()->whereKey($ids)->whereNotIn('suggestion_status', ['requested', 'running'])
+            ->update(['suggestion_status' => 'requested', 'error_code' => null, 'updated_at' => now()]);
+        foreach ($ids as $id) {
+            try {
+                GenerateWhatsAppSuggestion::dispatch($id);
+            } catch (Throwable $exception) {
+                // The minute tick picks requested drafts up when the queue is unreachable.
+                report($exception);
+                break;
+            }
+        }
+        $this->notice = $ids->count().' görüşmeye cevap hazırlanıyor; hazır oldukça listede "Öneri hazır" görünür.';
+    }
+
+    /** "Senden istediklerim": each answer is added to the instructions and its question leaves the list. */
+    public function saveAnswers(WhatsAppConnection $connection): void
+    {
+        $this->resetValidation();
+        $integration = $connection->integration();
+        $questions = array_values((array) data_get($integration?->config, 'brain.open_questions', []));
+        $answered = collect($this->answers)->map(fn ($answer) => trim((string) $answer))->filter()
+            ->filter(fn (string $answer, $index): bool => isset($questions[(int) $index]));
+        if ($integration === null || $answered->isEmpty()) {
+            $this->addError('answers', 'En az bir soruya cevap yazın.');
+
+            return;
+        }
+        if ($answered->contains(fn (string $answer): bool => mb_strlen($answer) > 2000)) {
+            $this->addError('answers', 'Bir cevap en çok 2000 karakter olabilir.');
+
+            return;
+        }
+        DB::transaction(function () use ($integration, $questions, $answered): void {
+            $current = CoreIntegration::query()->lockForUpdate()->findOrFail($integration->id);
+            $config = $current->config ?? [];
+            $lines = $answered->map(fn (string $answer, $index): string => '- '.$questions[(int) $index].' → '.$answer)->implode("\n");
+            $context = trim((string) ($config['business_context'] ?? ''));
+            $config['business_context'] = mb_substr(trim($context."\n\n".$lines), 0, 12000);
+            $remaining = array_values(array_diff_key($questions, $answered->keys()->mapWithKeys(fn ($index) => [(int) $index => true])->all()));
+            data_set($config, 'brain.open_questions', $remaining);
+            $current->update(['config' => $config]);
+            WhatsAppConnection::contextChanged($current);
+            $this->business_context = $config['business_context'];
+        });
+        $this->answers = [];
+        $this->notice = 'Cevapların talimatlara eklendi. Bundan sonraki cevaplar bunlara göre hazırlanır.';
+    }
+
+    /** Chats whose last message is the customer's and that have no current draft, newest first. */
+    private function awaitingReply(int $integrationId): Builder
+    {
+        $newest = WhatsAppConversation::query()->where('integration_id', $integrationId)->max('last_message_at');
+
+        return WhatsAppConversation::query()->where('integration_id', $integrationId)
+            ->whereNull('opted_out_at')->whereNotNull('last_incoming_at')
+            ->whereColumn('last_incoming_at', '>=', 'last_message_at')
+            ->when($newest, fn (Builder $query) => $query->where('last_message_at', '>=', Carbon::parse($newest)->subDays(self::BULK_DAYS)))
+            ->whereNotIn('suggestion_status', ['requested', 'running'])
+            ->where(fn (Builder $query) => $query->where('suggestion_status', '!=', 'ready')->orWhereNull('suggested_revision')
+                ->orWhereColumn('suggested_revision', '<', 'revision'))
+            ->orderByDesc('last_message_at')->orderByDesc('id');
+    }
+
     public function retryReceipt(int $id, WhatsAppConnection $connection): void
     {
         WhatsAppWebhookReceipt::query()->where('integration_id', $connection->integration()?->id)
@@ -445,7 +534,7 @@ class Inbox extends Component
                 $term = '%'.mb_substr(trim($this->q), 0, 100).'%';
                 $nested->where('contact_name', 'like', $term)->orWhere('contact_id', 'like', $term);
             });
-        })->orderByDesc('last_message_at')->orderByDesc('id')->paginate(20, ['*'], 'conversationsPage');
+        })->orderByDesc('last_message_at')->orderByDesc('id')->get();
         $selected = $this->conversation ? (clone $query)->find($this->conversation) : null;
         $messages = $selected?->messages()->orderByDesc('sent_at')->orderByDesc('id')->paginate(50, ['*'], 'chatPage');
         $attempt = WhatsAppSignupAttempt::query()->where('integration_id', $integration?->id)
@@ -460,6 +549,7 @@ class Inbox extends Component
             'historyDeadline' => $connection->historyDeadline($integration),
             'signupAttempt' => $attempt,
             'backupImport' => WhatsAppBackupImport::query()->latest()->first(),
+            'awaitingReply' => $integration ? min($this->awaitingReply($integration->id)->count(), self::BULK_LIMIT) : 0,
             'backupKeySaved' => filled(data_get($integration?->config, 'backup_key')),
             'backupConversations' => (clone $query)->where('phone_number_id', WhatsAppBackupImporter::LINE)->count(),
             'conversationCount' => $this->showSettings ? (clone $query)->count() : 0,

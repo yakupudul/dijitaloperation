@@ -7,9 +7,11 @@
 - **Çıkar:** Anahtar girilip "Çıkar"a basılınca iş `heavy` kuyruğunda çözer (AES-256-GCM, zlib), birebir sohbetleri ve mesajları yazar (`is_history`). Yanlış anahtarda dosya kalır, başka anahtar denenir; bitince dosya silinir. Çalışan anahtar şifreli saklanır (yakup, 2026-10-05): sonraki yedekte yalnız dosya yüklenir, çıkarma son parça gelince kendiliğinden başlar. "Kayıtlı anahtarı sil" ile silinir; sıfırlama da siler. Sunucuda `php<sürüm>-sqlite3` yoksa (staging PHP 8.5; 2026-10-05'te kuruldu) anahtar yine doğrulanıp saklanır, dosya kalır ve ekran kurulum komutunu söyler. Yeni yedek yalnız eksik mesajları ekler. Grup sohbetleri, medya içeriği ve kişi adları alınmaz; gizli numaralar (lid) "Gizli numara" görünür.
 - **Beyin:** İlk çıkarmadan sonra kendiliğinden, sonra "Yeniden öğren" ile OpenAI (ekranda seçilen model) son 80 görüşmeden (kişiler "Kişi N") hizmetleri, verilen fiyatları (tarihli), sık soruları, üslubu, kuralları ve operatöre soruları çıkarır (`config.brain`). "Senden istediklerim" listesi ve "Talimatlarım" (eski `business_context`, beyinden önce gelir) beyin kartındadır.
 - **Mesaj üret:** Yanıt önerisi beyni ve talimatları kullanır; öneri kopyalanır, MoxDOP göndermez. Yedekten gelen görüşmede otomatik öneri yok.
+- **Toplu cevap (2026-10-05):** Görüşme listesinde sayfalama yok, tüm görüşmeler tek listede. "Cevap üret (N)" son mesajı müşteriden gelen, cevabı hazır olmayan ve en yeni mesajdan geriye 30 gün içindeki görüşmelere (tıklama başına en çok 50, en yeniden) cevap hazırlatır; günlük AI tavanı geçerli.
+- **Senden istediklerim:** Her sorunun altında cevap alanı var; "Cevapları kaydet" cevabı soru ile birlikte Talimatlarım'a ekler ve soruyu listeden kaldırır.
 - **Meta bağlantısı:** Ekranda "Canlı bağlantı (Meta) — askıda" altında katlı durur; kod silinmedi.
 - **Tablo:** `2026_12_03_090000_create_whatsapp_backup_imports_table`. Sıfırlama yedek aktarımlarını ve beyni de siler.
-- **Test:** WhatsAppBackupImportTest (12 test; gerçek crypt15 düzeninde üretilen dosyayla). Çözücü ayrıca Python `cryptography` ile üretilen dosyayla denendi. UAT: yok — yakup gerçek yedeği yükleyince doğrulanır.
+- **Test:** WhatsAppBackupImportTest (14 test; gerçek crypt15 düzeninde üretilen dosyayla). Çözücü ayrıca Python `cryptography` ile üretilen dosyayla denendi. UAT: yok — yakup gerçek yedeği yükleyince doğrulanır.
 
 ## 2026-12-03 — WhatsApp bağlantı sayfası kaydı ve "Bağlantıyı sıfırla"
 
