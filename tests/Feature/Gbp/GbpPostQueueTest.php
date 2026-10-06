@@ -64,6 +64,8 @@ final class GbpPostQueueTest extends TestCase
         $dental = ServiceCategory::query()->firstOrCreate(['code' => 'dental'], ['name' => 'Diş sağlığı', 'normalized_key' => 'dis sagligi']);
         $this->brand = Brand::factory()->create(['customer_id' => Customer::factory()->create(['status' => CustomerStatus::Active])->id, 'name' => 'Panorama Ankara', 'sector_id' => $dental->id]);
         $this->location = $this->profile('Panorama Çankaya', 'accounts/11/locations/22');
+        DB::table('gbp_location_snapshots')->insert(['run_id' => 1, 'external_resource_id' => CoreAssetBinding::query()->where('digital_asset_id', $this->location->id)->value('external_resource_id'),
+            'location_name' => 'locations/22', 'storefront_address' => json_encode(['sublocality' => 'Çankaya', 'administrativeArea' => 'Ankara']), 'captured_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
 
         $this->site = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'website', 'name' => 'panorama.test', 'domain' => 'panorama.test', 'primary_url' => 'https://panorama.test/']);
         $text = str_repeat('İmplant tedavisinde önce muayene ve görüntüleme yapılır, kemik yapısı değerlendirilir ve tedavi planı oluşturulur. ', 12);
