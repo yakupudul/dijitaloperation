@@ -12,8 +12,10 @@ use App\Mcp\Tools\UpdateChange;
 use App\Models\ScreenCheck;
 use App\Models\SystemChange;
 use App\Models\User;
+use App\Services\Operations\ReleaseInfo;
 use App\Services\Operations\ScreenChecker;
 use App\Support\Roles;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\Feature\Site\SiteTestCase;
@@ -81,6 +83,44 @@ final class ImprovementPoolTest extends SiteTestCase
         $operator = User::factory()->create(['is_active' => true]);
         $operator->assignRole(Roles::TEAM_MEMBER);
         $this->actingAs($operator)->get(route('operator.settings.improvements'))->assertForbidden();
+    }
+
+    public function test_cards_lead_with_why_it_matters_bulk_decisions_and_live_commits_move_stuck_changes(): void
+    {
+        Queue::fake();
+        $make = fn (string $title, string $status, string $kind = 'bug'): SystemChange => SystemChange::query()->create(['kind' => $kind, 'title' => $title, 'status' => $status,
+            'detail' => "Sorun: BrandDossier.php:274 tarihi yanlış alandan okuyor.\nNeden önemli: Verisi olan 20 hesapta 'veri yok' yazıyor.\nÖnerilen düzeltme: Olgu tablosundan okunsun.\nTest: BrandDossierTest.",
+            'fingerprint' => hash('sha256', $title), 'decided_at' => $status === SystemChange::APPROVED ? now()->subDays(2) : null]);
+        $a = $make('Dosya tarihleri', SystemChange::PROPOSED);
+        $b = $make('Ağır kuyruk', SystemChange::PROPOSED, 'collection');
+        $c = $make('Buton', SystemChange::PROPOSED, 'design');
+        $stuck = $make('Kodlanmış ama durum yazılamamış', SystemChange::APPROVED);
+        $this->assertSame(['problem' => 'BrandDossier.php:274 tarihi yanlış alandan okuyor.', 'why' => "Verisi olan 20 hesapta 'veri yok' yazıyor.",
+            'fix' => 'Olgu tablosundan okunsun.', 'test' => 'BrandDossierTest.'], $a->sections());
+
+        Livewire::test(ImprovementsPage::class)
+            ->assertSeeInOrder(['Neden önemli:', 'Verisi olan 20 hesapta'])
+            ->call('setKind', 'design')->assertSee('Buton')->assertDontSee('Ağır kuyruk')
+            ->call('setKind', '')
+            ->set('selected', [$a->id, $b->id])->call('approveSelected')->assertSee('2 öneri onaylandı')
+            ->set('selected', [$c->id])->call('rejectSelected');
+        $this->assertSame([SystemChange::APPROVED, SystemChange::APPROVED, SystemChange::REJECTED], [$a->fresh()->status, $b->fresh()->status, $c->fresh()->status]);
+        Livewire::test(ImprovementsPage::class, ['tab' => 'claude'])->assertSee('2 gündür sırada');
+
+        $storage = sys_get_temp_dir().'/moxdop-pool-'.uniqid();
+        File::ensureDirectoryExists($storage.'/app');
+        $this->app->useStoragePath($storage);
+        try {
+            File::put($storage.'/app/release.json', json_encode(['sha' => 'ec9a43e5d64ff6605dc8e30a644d09d4e85e1419', 'deployed_at' => '2026-10-06T08:00:00Z', 'pool' => [$stuck->id, $c->id]]));
+            ReleaseInfo::forget();
+            Livewire::test(ImprovementsPage::class, ['tab' => 'kontrol'])->assertSee('Kodlanmış ama durum yazılamamış');
+            $this->assertSame(SystemChange::DEPLOYED, $stuck->fresh()->status, 'a live commit names it, so it waits for Claude’s check');
+            $this->assertSame(SystemChange::REJECTED, $c->fresh()->status, 'only approved / in-progress / ready changes move');
+            Queue::assertPushed(RunScreenChecksJob::class);
+        } finally {
+            File::deleteDirectory($storage);
+            ReleaseInfo::forget();
+        }
     }
 
     public function test_screen_check_renders_operator_screens_and_reports_errors_and_outline(): void

@@ -290,7 +290,9 @@ echo "connection={$connection} queue={$queue} depth=".Illuminate\Support\Facades
 echo "deploy/staging: record release ${RELEASE_SHA}"
 mkdir -p storage/app
 RELEASE_TMP="$(mktemp storage/app/.release.json.XXXXXX)"
-printf '{"sha":"%s","deployed_at":"%s"}\n' "${RELEASE_SHA}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${RELEASE_TMP}"
+# Geliştirme havuzu ids named in the live commits ("(pool #12, #13)"), so the pool knows what is live.
+RELEASE_POOL="$(git log --format=%s -n 3000 HEAD 2>/dev/null | grep -oE 'pool #[0-9]+(, #[0-9]+)*' | grep -oE '[0-9]+' | sort -un | paste -sd, - || true)"
+printf '{"sha":"%s","deployed_at":"%s","pool":[%s]}\n' "${RELEASE_SHA}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${RELEASE_POOL}" > "${RELEASE_TMP}"
 chmod 0644 "${RELEASE_TMP}"
 mv -f "${RELEASE_TMP}" storage/app/release.json
 

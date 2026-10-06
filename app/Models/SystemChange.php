@@ -62,6 +62,47 @@ class SystemChange extends Model
         return $this->belongsTo(User::class, 'decided_by');
     }
 
+    /**
+     * The proposal split for reading: what is wrong, why it matters, the proposed fix, the test and anything else.
+     * Claude writes them as "Sorun:", "Neden önemli:", "Önerilen düzeltme:" / "Öneri:", "Test:"; a text without them is
+     * all "problem".
+     *
+     * @return array{problem: string, why: string, fix: string, test: string}
+     */
+    public function sections(): array
+    {
+        $out = ['problem' => '', 'why' => '', 'fix' => '', 'test' => ''];
+        $parts = preg_split('/(?:^|\s)(Sorun|Neden önemli|Önerilen düzeltme|Öneri|Test):\s*/u', (string) $this->detail, -1, PREG_SPLIT_DELIM_CAPTURE);
+        if ($parts === false || count($parts) < 3) {
+            return ['problem' => trim((string) $this->detail)] + $out;
+        }
+        $out['problem'] = trim((string) $parts[0]);
+        for ($i = 1; $i < count($parts) - 1; $i += 2) {
+            $key = match ($parts[$i]) {
+                'Sorun' => 'problem',
+                'Neden önemli' => 'why',
+                'Önerilen düzeltme', 'Öneri' => 'fix',
+                default => 'test',
+            };
+            $out[$key] = trim($out[$key]."\n".trim((string) $parts[$i + 1]));
+        }
+
+        return $out;
+    }
+
+    /** First sentence(s) of a section, at most $max characters, for the card's lead line. */
+    public static function lead(string $text, int $max = 260): string
+    {
+        $text = trim((string) preg_replace('/\s+/u', ' ', $text));
+        if (mb_strlen($text) <= $max) {
+            return $text;
+        }
+        $cut = mb_substr($text, 0, $max);
+        $stop = max((int) mb_strrpos($cut, '. '), (int) mb_strrpos($cut, '; '));
+
+        return $stop > 80 ? mb_substr($cut, 0, $stop + 1) : rtrim($cut).'…';
+    }
+
     /** @return array<string, mixed> how a change is shown to Claude */
     public function toTool(): array
     {

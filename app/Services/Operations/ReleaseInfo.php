@@ -25,7 +25,7 @@ final class ReleaseInfo
             return self::$current;
         }
 
-        $release = ['sha' => null, 'deployed_at' => null];
+        $release = ['sha' => null, 'deployed_at' => null, 'pool' => []];
         try {
             if (is_file(self::path())) {
                 $data = json_decode((string) file_get_contents(self::path()), true);
@@ -34,6 +34,8 @@ final class ReleaseInfo
                     $release = [
                         'sha' => preg_match('/^[0-9a-f]{7,40}$/', $sha) === 1 ? $sha : null,
                         'deployed_at' => is_string($data['deployed_at'] ?? null) ? $data['deployed_at'] : null,
+                        // Geliştirme havuzu ids named in the release's commit subjects ("(pool #12, #13)").
+                        'pool' => array_values(array_filter(array_map('intval', (array) ($data['pool'] ?? [])), fn (int $id): bool => $id > 0)),
                     ];
                 }
             }

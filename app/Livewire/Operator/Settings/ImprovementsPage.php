@@ -8,6 +8,7 @@ use App\Services\Operations\ReleaseInfo;
 use App\Services\Operations\SystemChangeDesk;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -49,6 +50,13 @@ final class ImprovementsPage extends Component
 
     public string $message = '';
 
+    /** Kind filter (empty = all). */
+    #[Url(as: 'tur')]
+    public string $kind = '';
+
+    /** @var list<int> proposals picked for a bulk decision */
+    public array $selected = [];
+
     public function mount(): void
     {
         $this->authorizeAdmin();
@@ -60,6 +68,49 @@ final class ImprovementsPage extends Component
     public function setTab(string $tab): void
     {
         $this->tab = isset(self::TABS[$tab]) ? $tab : 'onay';
+        $this->selected = [];
+    }
+
+    public function setKind(string $kind): void
+    {
+        $this->kind = in_array($kind, SystemChange::KINDS, true) && $this->kind !== $kind ? $kind : '';
+        $this->selected = [];
+    }
+
+    /** Picks every proposal shown (or none). */
+    public function pickAll(bool $all = true): void
+    {
+        $this->selected = $all ? $this->query()->where('status', SystemChange::PROPOSED)->pluck('id')->map(fn ($id): int => (int) $id)->all() : [];
+    }
+
+    public function approveSelected(SystemChangeDesk $desk): void
+    {
+        $this->bulk(fn (SystemChange $change) => $desk->approve($change, auth()->user(), $this->notes[$change->id] ?? null), 'onaylandı; Claude sıradaki turda yapacak');
+    }
+
+    public function rejectSelected(SystemChangeDesk $desk): void
+    {
+        $this->bulk(fn (SystemChange $change) => $desk->reject($change, auth()->user(), $this->notes[$change->id] ?? null), 'reddedildi');
+    }
+
+    /** @param  callable(SystemChange): void  $step */
+    private function bulk(callable $step, string $done): void
+    {
+        $this->authorizeAdmin();
+        $count = 0;
+        foreach (SystemChange::query()->whereIn('id', array_map('intval', $this->selected))->where('status', SystemChange::PROPOSED)->get() as $change) {
+            $step($change);
+            unset($this->notes[$change->id]);
+            $count++;
+        }
+        $this->selected = [];
+        $this->message = $count > 0 ? $count.' öneri '.$done.'.' : 'Seçili öneri yok.';
+    }
+
+    /** @return Builder<SystemChange> */
+    private function query()
+    {
+        return SystemChange::query()->whereIn('status', self::TABS[$this->tab][1])->when($this->kind !== '', fn ($q) => $q->where('kind', $this->kind));
     }
 
     public function approve(int $id, SystemChangeDesk $desk): void
@@ -112,7 +163,7 @@ final class ImprovementsPage extends Component
     {
         $desk->markLiveReleases();
         $counts = $desk->counts();
-        $changes = SystemChange::query()->whereIn('status', self::TABS[$this->tab][1])
+        $changes = $this->query()
             ->orderBy($this->tab === 'biten' ? 'updated_at' : 'priority', $this->tab === 'biten' ? 'desc' : 'asc')->orderByDesc('id')->limit(200)->get();
         $screens = ScreenCheck::query()->get();
 
@@ -121,6 +172,7 @@ final class ImprovementsPage extends Component
             'groups' => $this->tab === 'deploy' ? $changes->groupBy('commit_sha') : collect(),
             'tabCounts' => collect(self::TABS)->map(fn (array $tab): int => collect($tab[1])->sum(fn (string $status): int => (int) ($counts[$status] ?? 0)))->all(),
             'release' => ReleaseInfo::current(),
+            'kinds' => SystemChange::query()->whereIn('status', self::TABS[$this->tab][1])->selectRaw('kind, count(*) as n')->groupBy('kind')->pluck('n', 'kind')->map(fn ($n): int => (int) $n)->all(),
             'screens' => ['total' => $screens->count(), 'failed' => $screens->filter(fn (ScreenCheck $check): bool => $check->failed())->count(),
                 'checked_at' => $screens->max('checked_at')],
         ]);

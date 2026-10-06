@@ -65,12 +65,16 @@ final class StagingDeployScriptTest extends TestCase
 
         try {
             ReleaseInfo::forget();
-            $this->assertSame(['sha' => null, 'deployed_at' => null], ReleaseInfo::current());
+            $this->assertSame(['sha' => null, 'deployed_at' => null, 'pool' => []], ReleaseInfo::current());
 
             File::put($storage.'/app/release.json', '{"sha":"ec9a43e5d64ff6605dc8e30a644d09d4e85e1419","deployed_at":"2026-09-27T08:00:00Z"}');
             ReleaseInfo::forget();
             $this->assertSame('ec9a43e5d64ff6605dc8e30a644d09d4e85e1419', ReleaseInfo::current()['sha']);
             $this->assertSame('ec9a43e5d64f', ReleaseInfo::shortSha());
+
+            File::put($storage.'/app/release.json', '{"sha":"ec9a43e5d64ff6605dc8e30a644d09d4e85e1419","deployed_at":"2026-09-27T08:00:00Z","pool":[2,3,16]}');
+            ReleaseInfo::forget();
+            $this->assertSame([2, 3, 16], ReleaseInfo::current()['pool'], 'pool ids named in the live commits');
 
             File::put($storage.'/app/release.json', '{"sha":"unknown"}');
             ReleaseInfo::forget();

@@ -109,10 +109,14 @@ final class SystemChangeDesk
         return $marked;
     }
 
-    /** Ready changes whose commit is already the live release (the operator deployed without marking). */
+    /**
+     * Changes already in the live release: ready ones whose commit is live (deployed without marking), and approved /
+     * in-progress / ready ones whose id a live commit names ("pool #N"; the coding round could not move them).
+     */
     public function markLiveReleases(): int
     {
-        $sha = ReleaseInfo::current()['sha'];
+        $release = ReleaseInfo::current();
+        $sha = $release['sha'];
         if ($sha === null) {
             return 0;
         }
@@ -121,6 +125,19 @@ final class SystemChangeDesk
             if (str_starts_with($sha, (string) $commit) || str_starts_with((string) $commit, $sha)) {
                 $marked += $this->deployed((string) $commit);
             }
+        }
+        $pool = $release['pool'] ?? [];
+        if ($pool !== []) {
+            $named = 0;
+            foreach (SystemChange::query()->whereIn('id', $pool)->whereIn('status', [SystemChange::APPROVED, SystemChange::IN_PROGRESS, SystemChange::READY])->get() as $change) {
+                $change->forceFill(['status' => SystemChange::DEPLOYED, 'deployed_at' => now(), 'commit_sha' => $change->commit_sha ?? substr($sha, 0, 40),
+                    'work_note' => $change->work_note ?? 'Canlı sürümde (commit mesajı bu değişikliği anıyor).'])->save();
+                $named++;
+            }
+            if ($named > 0) {
+                RunScreenChecksJob::dispatch();
+            }
+            $marked += $named;
         }
 
         return $marked;
