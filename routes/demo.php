@@ -3,6 +3,7 @@
 use App\Http\Controllers\Demo\OperatorFileDownloadController;
 use App\Http\Controllers\Integrations\WordPressConnectorDownloadController;
 use App\Http\Controllers\Operator\GbpReviewCardController;
+use App\Http\Controllers\Operator\GbpReviewRepliesPdfController;
 use App\Http\Controllers\Operator\MetaLegacyPageRedirectController;
 use App\Http\Controllers\Operator\QueriesExportController;
 use App\Http\Controllers\Operator\RetiredAssetTypeRedirectController;
@@ -157,6 +158,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/gbp/aciklama-ve-saatler', GbpProfileFieldsPage::class)->name('operator.gbp-profile-fields');
         Route::livewire('/gbp/fotograflar', GbpPhotosPage::class)->name('operator.gbp-photos');
         Route::livewire('/gbp/yorumlar', GbpReviewsPage::class)->name('operator.gbp-reviews');
+        Route::get('/gbp/yorumlar/pdf', GbpReviewRepliesPdfController::class)->middleware('throttle:20,1')->name('operator.gbp-review-replies-pdf');
         Route::get('/gbp/yorum-karti/{assetId}', GbpReviewCardController::class)->where('assetId', '[0-9]{1,18}')->name('operator.gbp-review-card');
         Route::livewire('/settings/sector-packs', SectorPacksPage::class)->name('operator.settings.sector-packs');
         Route::livewire('/data-center', DataCenterPage::class)->name('operator.data-center');

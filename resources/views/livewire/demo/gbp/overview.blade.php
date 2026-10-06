@@ -94,6 +94,33 @@
             <p class="text-sm text-gray-600 dark:text-gray-300">{{ $openCount }} açık öneri · <button type="button" wire:click="setTab('todo')" class="font-semibold text-brand-600 hover:underline">Yapılacaklar</button></p>
         @endif
 
+        @if ($desk)
+            <section class="{{ $card }}" data-testid="gbp-desk-state">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">İşletme profilleri · {{ $desk['score'] }}/6 tamam</h3>
+                    <a href="{{ route('operator.gbp-desk', ['marka' => $desk['brand_id'], 'isletme' => $desk['asset_id']]) }}" class="text-xs font-medium text-brand-600 hover:underline">Durum ve ölçümde aç →</a>
+                </div>
+                <div class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    @foreach ($desk['checks'] as $key => $check)
+                        <a href="{{ route($check['route'], ['marka' => $desk['brand_id']]) }}" wire:key="desk-check-{{ $key }}" @class(['flex items-start gap-2 rounded-lg px-3 py-2 text-xs ring-1 ring-inset hover:bg-gray-50 dark:hover:bg-white/[0.03]', 'ring-emerald-200 dark:ring-emerald-500/30' => $check['ok'], 'ring-amber-200 dark:ring-amber-500/30' => ! $check['ok']])>
+                            <span @class(['font-bold', 'text-emerald-600' => $check['ok'], 'text-amber-600' => ! $check['ok']])>{{ $check['ok'] ? '✓' : '!' }}</span>
+                            <span><span class="font-semibold text-gray-900 dark:text-white">{{ $check['label'] }}</span><span class="block text-gray-500">{{ $check['hint'] }}</span></span>
+                        </a>
+                    @endforeach
+                </div>
+                <h4 class="mt-4 text-xs font-semibold uppercase tracking-wide text-gray-500">MoxDOP’un bu profilde yaptıkları</h4>
+                @forelse ($desk['history'] as $item)
+                    <div wire:key="desk-work-{{ $item['id'] }}" class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-b border-gray-100 py-1.5 text-xs last:border-0 dark:border-gray-800">
+                        <span class="w-28 shrink-0 tabular-nums text-gray-500">{{ $item['at'] }}</span>
+                        <span class="min-w-0 flex-1 text-gray-800 dark:text-gray-200">{{ $item['label'] }}@if ($item['error'])<span class="block text-rose-600">{{ $item['error'] }}</span>@endif</span>
+                        <span @class(['font-medium', 'text-emerald-600' => in_array($item['status'], ['succeeded', 'partial'], true), 'text-rose-600' => $item['status'] === 'failed', 'text-gray-500' => ! in_array($item['status'], ['succeeded', 'partial', 'failed'], true)])>{{ $item['status_label'] }}</span>
+                        @if ($item['by'] !== '')<span class="text-gray-400">{{ $item['by'] }}</span>@endif
+                    </div>
+                @empty
+                    <p class="mt-1 text-xs text-gray-500">Henüz bu profile MoxDOP’tan bir şey gönderilmedi.</p>
+                @endforelse
+            </section>
+        @endif
     @elseif ($tab === 'todo')
         <div class="flex flex-wrap items-center gap-2">
             <button type="button" wire:click="recheck" class="{{ $btn }}">Standartları kontrol et</button>

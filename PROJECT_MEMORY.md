@@ -1971,6 +1971,8 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   okuyup yalnız ekler, geri alma yalnız eklenenleri çıkarır. (Açıklama, saatler, fotoğraflar ADR-079 ile MoxDOP'tan.)
   "Aynı sektördeki işletmelerden getir" (2026-10-06): yalnız MoxDOP'un yönettiği aynı sektör profillerinden kategori ve
   hizmet ADLARI alınır, açıklamaları asla; açıklamayı AI bu marka için yazar.
+- **Yorum yanıtı marka onayı (yakup, 2026-10-06):** hazır (AI ya da elle) yorum yanıtları PDF olarak indirilir, markaya
+  gönderilir; marka onaylarsa yayın MoxDOP'tan Admin ile yapılır. Elle yazılan yanıt taslak olarak saklanır.
 - **İşletme gönderileri otomatik plan (yakup, 2026-10-06, ADR-078):** Markaya bağlı her İşletme Profili kaydı için
   günde 1 gönderi, 30 gün önceden sırayla; içerik markanın sitesindeki hizmet / lokasyon / blog sayfalarından (AI yalnız
   sayfadaki bilgiyle yazar, görsel sayfanın öne çıkan görseli). Admin planı ayda bir toplu onaylar; onaylı gönderi günü

@@ -3,10 +3,12 @@
 namespace App\Services\Gbp\Desk;
 
 use App\Models\AiProduction;
+use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\GbpReview;
 use App\Models\User;
+use App\Services\Archive\ProductionArchive;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\GbpDailyWorkspace;
 use App\Services\Gbp\ReviewReplyDrafter;
@@ -181,6 +183,29 @@ final class ReviewDesk
         }
 
         return $queued;
+    }
+
+    /**
+     * Keeps a reply the operator wrote or edited as the review's newest draft (so it survives the page, goes into the
+     * brand approval PDF and is what "Yayımla" sends). Same text as the newest draft = nothing new.
+     */
+    public function saveDraft(User $user, int $reviewId, string $text): void
+    {
+        $text = mb_substr(trim($text), 0, 4000);
+        $review = GbpReview::query()->find($reviewId);
+        if ($review === null || $text === '') {
+            return;
+        }
+        $latest = AiProduction::query()->where('kind', ReviewReplyDrafter::KIND)->where('subject_type', 'GbpReview')->where('subject_id', $reviewId)
+            ->where('status', '!=', AiProduction::STATUS_DISCARDED)->orderByDesc('version')->first();
+        if ($latest !== null && trim((string) data_get($latest->content, 'reply')) === $text) {
+            return;
+        }
+        $assetId = $review->digital_asset_id ?? CoreAssetBinding::query()->where('external_resource_id', $review->external_resource_id)
+            ->where('status', CoreAssetBinding::STATUS_ACTIVE)->where('capability', 'google_business_profile')->value('digital_asset_id');
+        $asset = $assetId !== null ? DigitalAsset::query()->find($assetId) : null;
+        app(ProductionArchive::class)->record(ReviewReplyDrafter::KIND, $review, ['reply' => $text, 'manual' => true, 'edited_by' => $user->id],
+            ['brand_id' => $asset?->brand_id, 'digital_asset_id' => $asset?->id, 'title' => 'Yorum yanıtı (elle) · '.mb_substr((string) $review->comment, 0, 60)]);
     }
 
     /** Admin: one reply to Google (the edited draft). */

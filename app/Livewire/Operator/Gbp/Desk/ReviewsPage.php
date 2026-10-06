@@ -113,8 +113,24 @@ final class ReviewsPage extends Component
         }
         foreach ($this->picked($desk) as $review) {
             $this->replies['r'.$review['id']] = ReviewDesk::personalize($text, $review['reviewer']);
+            $desk->saveDraft(auth()->user(), $review['id'], $this->replies['r'.$review['id']]);
         }
         $this->say(count($this->selected).' yoruma ortak yanıt yazıldı; kartlarda düzenleyebilir, ön izleyip yayımlayabilirsiniz.');
+    }
+
+    /** An edited reply box is kept as the review's draft (for the brand PDF and the next visit). */
+    public function updatedReplies(mixed $value, string $key): void
+    {
+        if (! $this->canWrite() || ! str_starts_with($key, 'r') || ! ctype_digit(substr($key, 1))) {
+            return;
+        }
+        app(ReviewDesk::class)->saveDraft(auth()->user(), (int) substr($key, 1), (string) $value);
+    }
+
+    /** Address of the brand approval PDF: the picked reviews, else every waiting review with a reply text in scope. */
+    public function pdfUrl(): string
+    {
+        return route('operator.gbp-review-replies-pdf', array_filter(['marka' => $this->brand, 'yorumlar' => $this->selected !== [] ? implode(',', array_map('intval', $this->selected)) : null]));
     }
 
     public function openPreview(ReviewDesk $desk): void

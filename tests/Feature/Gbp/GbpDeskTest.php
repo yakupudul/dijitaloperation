@@ -4,6 +4,7 @@ namespace Tests\Feature\Gbp;
 
 use App\Ai\Agents\GbpBranchPageAgent;
 use App\Enums\CustomerStatus;
+use App\Livewire\Demo\Gbp\OverviewPage;
 use App\Livewire\Operator\Gbp\Desk\BranchPagesPage;
 use App\Livewire\Operator\Gbp\Desk\PhotosPage;
 use App\Livewire\Operator\Gbp\Desk\ProfileFieldsPage;
@@ -356,6 +357,34 @@ final class GbpDeskTest extends TestCase
         $put = collect($this->writes())->first(fn (array $c): bool => $c[0] === 'PUT');
         $this->assertStringEndsWith('/reviews/r1/reply', $put[1]);
         $this->assertSame('Teşekkür ederiz Ayşe, yine bekleriz!', $put[2]['comment']);
+    }
+
+    public function test_edited_replies_are_kept_and_download_as_a_pdf_for_the_brand(): void
+    {
+        $id = DB::table('gbp_reviews')->insertGetId(['external_resource_id' => $this->resourceId, 'run_id' => 1, 'location_name' => 'locations/22', 'review_id' => 'r9',
+            'reviewer' => json_encode(['displayName' => 'Zeynep A']), 'star_rating' => 'FOUR', 'comment' => 'Güler yüzlü ekip.', 'create_time' => '2026-10-04 10:00:00',
+            'review_reply' => null, 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        $this->actingAs($this->admin)->get(route('operator.gbp-review-replies-pdf'))->assertNotFound();
+
+        Livewire::actingAs($this->admin)->test(ReviewsPage::class)->set('replies.r'.$id, 'Güzel sözleriniz için teşekkür ederiz Zeynep Hanım.');
+        $this->assertSame('Güzel sözleriniz için teşekkür ederiz Zeynep Hanım.', app(ReviewDesk::class)->unanswered([$this->location->id => $this->resourceId])[0]['draft'], 'the edit is kept');
+
+        $response = $this->actingAs($this->admin)->get(route('operator.gbp-review-replies-pdf', ['marka' => $this->brand->id, 'yorumlar' => (string) $id]));
+        $response->assertOk()->assertHeader('content-type', 'application/pdf');
+        $this->assertStringContainsString('yorum-yanitlari-panorama-', (string) $response->headers->get('content-disposition'));
+        $this->assertStringStartsWith('%PDF', (string) $response->getContent());
+    }
+
+    public function test_the_profiles_asset_page_shows_the_desk_checks_and_what_was_sent(): void
+    {
+        app(ExternalWriteService::class)->requestProfileFields($this->admin, $this->location, ['description' => $this->description()], 'Açıklama');
+
+        Livewire::actingAs($this->admin)->test(OverviewPage::class, ['assetId' => (string) $this->location->id])
+            ->assertSee('İşletme profilleri ·')
+            ->assertSee('Şube sayfası')
+            ->assertSee('MoxDOP’un bu profilde yaptıkları')
+            ->assertSee('Açıklama')
+            ->assertSee('Uygulandı');
     }
 
     public function test_monthly_report_compares_the_last_full_month_with_the_one_before(): void

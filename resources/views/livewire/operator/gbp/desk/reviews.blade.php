@@ -31,6 +31,7 @@
                 <button type="button" wire:click="setRating('{{ $key }}')" @class(['rounded-full px-3 py-1 font-medium ring-1 ring-inset', 'bg-brand-500 text-white ring-brand-500' => $rating === $key, 'bg-white text-gray-600 ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700' => $rating !== $key])>{{ $label }}</button>
             @endforeach
             <span class="text-gray-500">{{ count($reviews) }} / {{ $total }} yorum</span>
+            @if ($status === 'bekleyen' && $total > 0)<a href="{{ route('operator.gbp-review-replies-pdf', array_filter(['marka' => $brand])) }}" class="font-medium text-brand-600 hover:underline" title="Yanıtı hazır (AI ya da elle yazılmış) tüm bekleyen yorumlar, markanın onayı için">Hazır yanıtları PDF indir</a>@endif
             @if ($canWrite && $openCount > 0)
                 <span class="ml-auto flex flex-wrap items-center gap-3 font-medium">
                     <span class="text-gray-500">Seç:</span>
@@ -49,6 +50,7 @@
                     <span class="text-xs text-gray-500">· {{ $readyCount }} yanıtı hazır</span>
                     <span class="ml-auto flex flex-wrap gap-2">
                         <button type="button" wire:click="draftSelected" class="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600">AI ile taslak yaz</button>
+                        <a href="{{ $this->pdfUrl() }}" class="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600" title="Hazır yanıtları markanın onayına göndermek için">Seçilenleri PDF indir</a>
                         <button type="button" wire:click="openPreview" class="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-600">Ön izle ve yayımla ({{ $readyCount }})</button>
                     </span>
                 </div>

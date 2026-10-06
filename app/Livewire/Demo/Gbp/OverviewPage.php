@@ -15,6 +15,8 @@ use App\Services\Analyst\AnalystDecisionStore;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Async\AsyncOperationService;
 use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\Gbp\Desk\DeskChecks;
+use App\Services\Gbp\Desk\GbpDesk;
 use App\Services\Gbp\GbpAssistant;
 use App\Services\Gbp\GbpDailyWorkspace;
 use App\Services\Gbp\GbpPeerProfiles;
@@ -357,6 +359,23 @@ class OverviewPage extends Component
         DemoState::flash(count($boxes['categories']).' kategori ve seçilen hizmetler listeye eklendi. Açıklamalar diğer işletmelerden alınmadı; “AI ile hazırla” bu marka için yazar.', 'info');
     }
 
+    /**
+     * The profile's İşletme profilleri checks and what the desk sent to Google for it (shown on Genel Bakış).
+     *
+     * @return array{checks: array<string, array<string, mixed>>, score: int, history: list<array<string, mixed>>, asset_id: int, brand_id: int}|null
+     */
+    private function desk(int $assetId): ?array
+    {
+        $location = app(GbpDesk::class)->locations()->firstWhere('id', $assetId);
+        if ($location === null) {
+            return null;
+        }
+        $checks = app(DeskChecks::class);
+        $row = $checks->rows(collect([$location]))['rows'][$assetId];
+
+        return ['checks' => $row['checks'], 'score' => $row['score'], 'history' => $checks->history($assetId), 'asset_id' => $assetId, 'brand_id' => (int) $location->brand_id];
+    }
+
     /** @return array{peers: int, brands: list<string>, categories: list<array<string, mixed>>, services: list<array<string, mixed>>} */
     private function peerFound(GbpPeerProfiles $peers): array
     {
@@ -426,6 +445,7 @@ class OverviewPage extends Component
             'operational' => (bool) $asset->brand?->isOperational(),
             'flash' => DemoState::pullFlash(),
             'peerFound' => $peerFound,
+            'desk' => $this->tab === 'overview' ? $this->desk($assetId) : null,
             'canWrite' => ExternalWriteService::allowed(auth()->user(), ExternalWriteAction::CHANNEL_GBP),
             'numbers' => $this->tab === 'overview' ? $screen->overview($asset, $resourceId) : null,
             'openCount' => $asset->brand_id !== null ? $suggestions->open($asset)->count() : 0,
