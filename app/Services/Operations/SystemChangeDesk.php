@@ -131,7 +131,7 @@ final class SystemChangeDesk
             $named = 0;
             foreach (SystemChange::query()->whereIn('id', $pool)->whereIn('status', [SystemChange::APPROVED, SystemChange::IN_PROGRESS, SystemChange::READY])->get() as $change) {
                 $change->forceFill(['status' => SystemChange::DEPLOYED, 'deployed_at' => now(), 'commit_sha' => $change->commit_sha ?? substr($sha, 0, 40),
-                    'work_note' => $change->work_note ?? 'Canlı sürümde (commit mesajı bu değişikliği anıyor).'])->save();
+                    'work_note' => $change->work_note ?? 'Sizin deploy\'unuzla canlıya çıktı (sürüm '.substr($sha, 0, 8).'); kodu Claude dala yazmıştı.'])->save();
                 $named++;
             }
             if ($named > 0) {

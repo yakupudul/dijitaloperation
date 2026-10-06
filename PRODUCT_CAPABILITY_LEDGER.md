@@ -5,6 +5,7 @@
 - **Neden (yakup):** "Bulgular gerçekten değerli mi, arayüzü geliştir, Claude bu tarafta çalışmıyor gibi." Kodlanıp canlıya çıkan #1–#16 havuzda "Onaylandı" kalıyordu: kodlama turunun MCP durum yazımı (update-change) oturum izin kontrolüne takılıyordu.
 - **Canlı sürüm havuzu tanır:** deploy.sh `storage/app/release.json`'a canlı commit mesajlarında geçen havuz numaralarını (`pool #N`) yazar; havuz ekranı açılınca onaylı / çalışılan / deploy bekleyen ve canlı commit'in andığı değişiklik "Kontrol"e geçer, sayfa taraması yeniden çalışır. Böylece durum yazımı engellense de havuz canlıyı doğru gösterir.
 - **Kart:** başlık + tek satır "Neden önemli" (yoksa "Sorun"); teknik metin (sorun, öneri, test, dosya:satır kanıtları) "Teknik ayrıntı ve kanıt" altında kapalı. Tür süzgeci (sayılarıyla), onay bekleyenlerde çoklu seçim ve "Seçilenleri onayla / reddet", sırada bekleyenlerde "n gündür sırada". Üst metin turların saatlerini söyler.
+- **Dil (yakup sordu: "Claude doğrudan sistemde mi değiştiriyor?"):** Claude canlıya dokunmaz; kodu dala yazar, canlıya yakup'un deploy'u çıkarır. Durum etiketi "Canlıda · Claude doğrulayacak", not "Sizin deploy'unuzla canlıya çıktı (sürüm …)", üst metin bunu söyler.
 - **State:** CODED + PHPUnit (`ImprovementPoolTest` 4, `StagingDeployScriptTest`). Canlıda sürüm dosyası ancak bu deploy'dan sonra havuz numaralarını taşır.
 
 ## 2026-10-06 — İşletme profilleri masası: şube sayfası, açıklama ve saatler, fotoğraf, yorum, ölçüm (ADR-079)

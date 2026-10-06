@@ -127,7 +127,7 @@ final class ImprovementsPage extends Component
     {
         $this->authorizeAdmin();
         $marked = $desk->deployed($commit);
-        $this->message = $marked > 0 ? $marked.' değişiklik deploy edildi olarak işaretlendi; sayfalar yeniden taranıyor, Claude kontrol edecek.' : 'Bu commit için bekleyen değişiklik yok.';
+        $this->message = $marked > 0 ? $marked.' değişiklik canlıda olarak işaretlendi; sayfalar yeniden taranıyor, Claude canlıda doğrulayacak.' : 'Bu commit için bekleyen değişiklik yok.';
         $this->tab = 'kontrol';
     }
 

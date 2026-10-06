@@ -4,7 +4,7 @@
             <a href="{{ route('operator.settings') }}" wire:navigate class="text-xs text-gray-500">← Ayarlar</a>
             <h1 class="mt-1 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Geliştirme havuzu</h1>
             <p class="mt-1 text-xs text-gray-500">
-                Claude her sabah sistemi tarar ve doğruladığı sorunları buraya önerir. Onayladıklarını hafta içi 10:37, 14:37 ve 18:37 turlarında kodlar; canlıya çıkan değişiklik kendiliğinden “Kontrol”e geçer, Claude canlıda doğrulayıp kapatır.
+                Claude her sabah sistemi tarar ve doğruladığı sorunları buraya önerir. Onayladıklarını hafta içi 10:37, 14:37 ve 18:37 turlarında koda yazar ve dala gönderir; canlı sisteme kendisi dokunmaz. Değişiklik sizin deploy'unuzla (git pull + deploy.sh) canlıya çıkar, kendiliğinden “Kontrol”e geçer, Claude canlıda doğrulayıp kapatır.
                 · Canlı sürüm {{ $release['sha'] ? substr($release['sha'], 0, 8) : 'bilinmiyor' }}
                 · Sayfa taraması: {{ $screens['total'] }} ekran @if($screens['failed'] > 0), <span class="font-semibold text-rose-600">{{ $screens['failed'] }} hatalı</span>@endif @if($screens['checked_at']) · {{ \Illuminate\Support\Carbon::parse($screens['checked_at'])->timezone('Europe/Istanbul')->format('d.m H:i') }}@endif
             </p>

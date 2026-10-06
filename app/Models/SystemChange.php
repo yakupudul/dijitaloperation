@@ -35,7 +35,7 @@ class SystemChange extends Model
 
     public const array STATUS_LABELS = [
         self::PROPOSED => 'Onay bekliyor', self::APPROVED => 'Onaylandı · Claude yapacak', self::IN_PROGRESS => 'Claude çalışıyor',
-        self::READY => 'Deploy bekliyor', self::DEPLOYED => 'Deploy edildi · Claude kontrol edecek', self::VERIFIED => 'Tamam',
+        self::READY => 'Deploy bekliyor', self::DEPLOYED => 'Canlıda · Claude doğrulayacak', self::VERIFIED => 'Tamam',
         self::FAILED => 'Kontrolde sorun', self::REJECTED => 'Reddedildi',
     ];
 
