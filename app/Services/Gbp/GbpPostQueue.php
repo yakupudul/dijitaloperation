@@ -355,6 +355,47 @@ final class GbpPostQueue
     }
 
     /**
+     * "Bugün paylaş": the location's post of today, or else the next planned one from the pool (moved to today), goes
+     * out now, approved by the one who clicks. One post a day: refused when the location already posted today. The day
+     * the post came from is empty again and is planned on the next refill.
+     *
+     * @return array{result: 'published'|'skipped'|'failed', post: GbpQueuedPost, moved_from: ?string}
+     */
+    public function publishToday(User $user, DigitalAsset $location, ?int $postId = null): array
+    {
+        $this->guard($user);
+        $today = self::today()->toDateString();
+        $posted = GbpQueuedPost::query()->where('digital_asset_id', $location->id)->where('publish_on', $today)->where('status', GbpQueuedPost::PUBLISHED)
+            ->where(fn ($q) => $q->whereNull('external_write_action_id')->orWhereHas('writeAction', fn ($w) => $w->where('status', '!=', 'failed')))->exists();
+        if ($posted || $this->manualPostToday((int) $location->id)) {
+            throw ValidationException::withMessages(['post' => 'Bu işletmede bugün gönderi paylaşıldı; günde bir gönderi kuralı gereği yenisi yarın.']);
+        }
+        $post = $this->pool($location)->when($postId !== null, fn ($q) => $q->whereKey($postId))->first()
+            ?? throw ValidationException::withMessages(['post' => 'Havuzda bu işletme için hazır gönderi yok; önce boş günleri doldurun.']);
+        $from = substr((string) $post->publish_on, 0, 10);
+        // Claimed once (a double click or the 10:00 run never sends it twice).
+        $claimed = GbpQueuedPost::query()->whereKey($post->id)->whereIn('status', [GbpQueuedPost::DRAFT, GbpQueuedPost::APPROVED])
+            ->update(['status' => GbpQueuedPost::PUBLISHED, 'publish_on' => $today, 'approved_by' => $user->id, 'approved_at' => now(), 'updated_at' => now()]);
+        if ($claimed !== 1) {
+            throw ValidationException::withMessages(['post' => 'Gönderi şu an başka bir işlemde; sayfayı yenileyin.']);
+        }
+        $post = $post->refresh()->load(['digitalAsset.brand.customer', 'page']);
+
+        return ['result' => $this->publish($post), 'post' => $post->refresh(), 'moved_from' => $from !== $today ? $from : null];
+    }
+
+    /**
+     * The location's planned posts from today on, in the order "Bugün paylaş" takes them.
+     *
+     * @return Builder<GbpQueuedPost>
+     */
+    public function pool(DigitalAsset $location): Builder
+    {
+        return GbpQueuedPost::query()->where('digital_asset_id', $location->id)->whereIn('status', [GbpQueuedPost::DRAFT, GbpQueuedPost::APPROVED])
+            ->where('publish_on', '>=', self::today()->toDateString())->orderBy('publish_on')->orderBy('id');
+    }
+
+    /**
      * Publishes the approved posts whose time has come and expires the drafts whose day passed.
      *
      * @return array{published: int, skipped: int, failed: int, expired: int}

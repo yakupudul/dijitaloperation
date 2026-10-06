@@ -115,6 +115,13 @@
                                             </span>
                                             @if ($state && ($state['status'] ?? '') !== 'ready')<span @class(['block text-xs', 'text-rose-600' => ($state['status'] ?? '') === 'failed', 'text-gray-500' => ($state['status'] ?? '') !== 'failed']) @if (($state['status'] ?? '') === 'running') wire:poll.10s @endif>{{ $state['message'] ?? '' }}</span>@endif
                                         </button>
+                                        @if ($canWrite)
+                                            @if ($i['posted_today'])
+                                                <span class="text-xs font-medium text-emerald-600 dark:text-emerald-400">Bugün paylaşıldı</span>
+                                            @else
+                                                <button type="button" wire:click="startShare({{ $location->id }})" class="rounded-lg px-2.5 py-1 text-xs font-semibold text-brand-700 ring-1 ring-inset ring-brand-200 hover:bg-brand-50 dark:text-brand-300 dark:ring-brand-500/30">Bugün paylaş</button>
+                                            @endif
+                                        @endif
                                         <div class="flex gap-0.5" aria-label="30 günlük plan">
                                             @foreach ($days as $index => $d)
                                                 @php $s = $i['strip'][$d] ?? null; @endphp
@@ -123,6 +130,27 @@
                                             @endforeach
                                         </div>
                                     </div>
+
+                                    @if ($sharing === (int) $location->id)
+                                        <div class="mx-4 mb-3 rounded-lg bg-white p-3 text-sm ring-1 ring-inset ring-brand-200 dark:bg-gray-900 dark:ring-brand-500/30 sm:ml-9" data-testid="gbp-share-today">
+                                            @if ($shareCandidate === null)
+                                                <p class="text-gray-600 dark:text-gray-300">Havuzda bu işletme için hazır gönderi yok. “Boş günleri şimdi doldur” ile hazırlatın ya da profil ekranından elle gönderi yazın.</p>
+                                                <button type="button" wire:click="startShare({{ $location->id }})" class="mt-2 text-xs text-gray-500 hover:underline">Kapat</button>
+                                            @else
+                                                @php $from = substr((string) $shareCandidate->publish_on, 0, 10); @endphp
+                                                <p class="text-xs text-gray-500">Şimdi paylaşılacak · havuzdaki {{ $shareTotal }} gönderiden {{ ($shareSkip % max(1, $shareTotal)) + 1 }}. ·
+                                                    {{ $from === $days[0] ? 'bugünün gönderisi' : \Illuminate\Support\Carbon::parse($from)->locale('tr')->translatedFormat('d F').' gününden alınır; o gün yeniden planlanır' }}
+                                                    · {{ $shareCandidate->status === \App\Models\GbpQueuedPost::APPROVED ? 'onaylı' : 'taslak (bu tıklama onaydır)' }}</p>
+                                                <p class="mt-1 whitespace-pre-line text-gray-800 dark:text-gray-200">{{ $shareCandidate->summary }}</p>
+                                                @if ($shareCandidate->page)<p class="mt-1 text-xs text-gray-500">Bağlantı: <a href="{{ $shareCandidate->url ?? $shareCandidate->page->url }}" target="_blank" rel="noopener" class="text-brand-600 hover:underline">{{ $shareCandidate->page->title }}</a></p>@endif
+                                                <div class="mt-2 flex flex-wrap items-center gap-3">
+                                                    <button type="button" wire:click="confirmShare({{ $shareCandidate->id }})" wire:loading.attr="disabled" class="rounded-lg bg-success-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-success-600 disabled:opacity-50">Şimdi paylaş</button>
+                                                    @if ($shareTotal > 1)<button type="button" wire:click="nextShare" class="text-sm text-brand-600 hover:underline">Başka gönderi</button>@endif
+                                                    <button type="button" wire:click="startShare({{ $location->id }})" class="text-sm text-gray-500 hover:underline">Vazgeç</button>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @endif
 
                                     @if ($this->location === (int) $location->id)
                                         <div class="space-y-2 px-4 pb-3 sm:pl-9">

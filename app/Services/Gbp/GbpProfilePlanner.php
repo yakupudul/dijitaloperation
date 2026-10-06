@@ -12,8 +12,10 @@ use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Compliance\SectorPackRegistry;
 use App\Services\SeoTasks\SeoText;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
+use Throwable;
 
 /**
  * "Kategori ve hizmetler" (yakup, 2026-10-05): the operator writes the categories and services the profile should
@@ -153,6 +155,7 @@ final class GbpProfilePlanner
             $onProfile[SeoText::fold((string) data_get($category, 'displayName', ''))] = ['id' => (string) data_get($category, 'name', ''), 'name' => (string) data_get($category, 'displayName', ''), 'service_types' => []];
         }
         $requests = [];
+        $refused = [];
         foreach ($categoryLines as $line) {
             // A heading that names a category the profile already has needs no search (it is that category).
             try {
@@ -161,11 +164,12 @@ final class GbpProfilePlanner
                 // One unreadable search leaves that line without candidates (it is skipped) instead of failing the plan.
                 Log::warning('GBP category search failed', ['line' => $line, 'error' => $exception->getMessage()]);
                 $candidates = [];
+                $refused[] = $line;
             }
             foreach ($candidates as $candidate) {
                 $catalog[$candidate['id']] ??= $candidate;
             }
-            $requests[] = ['line' => $line, 'candidates' => array_map(fn (array $c): array => ['id' => $c['id'], 'name' => $c['name']], $candidates)];
+            $requests[] = ['line' => $line, 'candidates' => array_map(fn (array $c): array => ['id' => $c['id'], 'name' => $c['name']], $candidates), 'refused' => in_array($line, $refused, true)];
         }
         $profileServices = self::serviceLabels($current['serviceItems'], $catalog);
         $shown = [$primaryId => (string) data_get($current['categories'], 'primaryCategory.displayName', '')];
@@ -201,6 +205,50 @@ final class GbpProfilePlanner
         $new = fn (array $rows): int => count(array_filter($rows, fn (array $r): bool => $r['status'] === 'new'));
 
         return $new($plan['categories']).' kategori, '.$new($plan['services']).' hizmet eklenmeye hazır'.($plan['skipped'] !== [] ? '; '.count($plan['skipped']).' satır atlandı' : '').'.';
+    }
+
+    /**
+     * What the profile has on Google right now (read live, kept 30 minutes; the collected snapshot can be days old).
+     *
+     * @return array{primary: string, additional: list<string>, services: list<string>, read_at: string, error?: string}
+     */
+    public function live(DigitalAsset $asset, bool $fresh = false): array
+    {
+        $key = self::liveKey((int) $asset->id);
+        if ($fresh) {
+            Cache::forget($key);
+        }
+        $cached = Cache::get($key);
+        if (is_array($cached)) {
+            return $cached;
+        }
+        try {
+            [$integration, $locationName] = $this->catalog->location((int) $asset->id);
+            $current = $this->catalog->current($integration, $locationName);
+        } catch (Throwable $exception) {
+            // Kept 5 minutes so the tab does not ask Google on every click; "Google’dan yenile" asks again at once.
+            $failed = ['primary' => '', 'additional' => [], 'services' => [], 'read_at' => now()->toIso8601String(), 'error' => mb_substr($exception->getMessage(), 0, 200)];
+            Cache::put($key, $failed, now()->addMinutes(5));
+
+            return $failed;
+        }
+        $additional = (array) data_get($current['categories'], 'additionalCategories', []);
+        $catalog = $this->catalog->batch($integration, array_values(array_filter([(string) data_get($current['categories'], 'primaryCategory.name', ''),
+            ...array_map(fn ($c): string => (string) data_get($c, 'name', ''), $additional)])));
+        $live = [
+            'primary' => (string) data_get($current['categories'], 'primaryCategory.displayName', ''),
+            'additional' => array_values(array_filter(array_map(fn ($c): string => (string) data_get($c, 'displayName', ''), $additional))),
+            'services' => array_values(self::serviceLabels($current['serviceItems'], $catalog)),
+            'read_at' => now()->toIso8601String(),
+        ];
+        Cache::put($key, $live, now()->addMinutes(30));
+
+        return $live;
+    }
+
+    public static function liveKey(int $assetId): string
+    {
+        return 'gbp-live-profile:'.$assetId;
     }
 
     /** Latest plan of the last two weeks that was not sent or discarded. */
@@ -239,7 +287,7 @@ final class GbpProfilePlanner
             $id = trim((string) ($row['category_id'] ?? ''));
             $reason = self::line((string) ($row['reason'] ?? ''));
             if ($request['candidates'] === [] || ! in_array($id, array_column($request['candidates'], 'id'), true)) {
-                $skipped[] = ['line' => $request['line'], 'reason' => $request['candidates'] === [] ? 'Google’ın kategori listesinde bu adla kategori yok; başka bir adla deneyin.' : ($reason !== '' ? $reason : 'Uygun Google kategorisi bulunamadı.')];
+                $skipped[] = ['line' => $request['line'], 'reason' => $request['candidates'] === [] ? (($request['refused'] ?? false) ? 'Google bu adla kategori aramasını kabul etmedi; tek kelimeyle ya da Google’daki adıyla yazın.' : 'Google’ın kategori listesinde bu adla kategori yok; başka bir adla deneyin.') : ($reason !== '' ? $reason : 'Uygun Google kategorisi bulunamadı.')];
 
                 continue;
             }

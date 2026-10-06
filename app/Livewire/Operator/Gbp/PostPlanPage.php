@@ -10,6 +10,7 @@ use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\Desk\GbpDesk;
 use App\Services\Gbp\GbpPostQueue;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
@@ -60,6 +61,11 @@ final class PostPlanPage extends Component
     public string $editText = '';
 
     public string $message = '';
+
+    /** "Bugün paylaş": the location whose next pool post is shown before it goes out, and how far down the pool. */
+    public ?int $sharing = null;
+
+    public int $shareSkip = 0;
 
     public function mount(): void
     {
@@ -163,6 +169,38 @@ final class PostPlanPage extends Component
         }
     }
 
+    /** "Bugün paylaş": shows the post the pool gives for today (the day's own, else the next planned one) before it goes. */
+    public function startShare(int $assetId): void
+    {
+        abort_unless(ExternalWriteService::allowed(auth()->user(), ExternalWriteAction::CHANNEL_GBP), 403);
+        $this->sharing = $this->sharing === $assetId ? null : $assetId;
+        $this->shareSkip = 0;
+    }
+
+    /** "Başka gönderi": the next one of the pool. */
+    public function nextShare(): void
+    {
+        $this->shareSkip++;
+    }
+
+    public function confirmShare(int $postId, GbpPostQueue $queue): void
+    {
+        if ($this->sharing === null) {
+            return;
+        }
+        try {
+            $done = $queue->publishToday(auth()->user(), DigitalAsset::query()->findOrFail($this->sharing), $postId);
+            $this->message = match ($done['result']) {
+                'published' => 'Gönderi Google’a gönderiliyor.'.($done['moved_from'] !== null ? ' '.Carbon::parse($done['moved_from'])->locale('tr')->translatedFormat('d F').' günü boşaldı; bir sonraki planlamada dolar.' : ''),
+                'skipped' => 'Paylaşılmadı: '.$done['post']->note,
+                default => 'Yayınlanamadı: '.$done['post']->note,
+            };
+            $this->sharing = null;
+        } catch (ValidationException $exception) {
+            $this->message = (string) collect($exception->errors())->flatten()->first();
+        }
+    }
+
     /** Plans the empty days of every location now. */
     public function fillNow(): void
     {
@@ -222,6 +260,7 @@ final class PostPlanPage extends Component
                 'approved' => $future->filter(fn (string $s): bool => $s === GbpQueuedPost::APPROVED)->count(),
                 'week' => collect($strip)->filter(fn (string $s, string $d): bool => $s === GbpQueuedPost::APPROVED && $d <= $weekEnd)->count(),
                 'failed' => $failed,
+                'posted_today' => ($strip[$days[0]] ?? null) === GbpQueuedPost::PUBLISHED,
                 'reason' => match (true) {
                     $planned >= self::LOW_DAYS => null,
                     $source['sites'] === 0 => 'Markaya web sitesi bağlı değil',
@@ -264,7 +303,14 @@ final class PostPlanPage extends Component
             $reading = $base->with(['page:id,title,url', 'digitalAsset:id,name', 'writeAction:id,status,error'])->orderBy('publish_on')->orderBy('digital_asset_id')->limit($this->readLimit)->get();
         }
 
+        $shareLocation = $this->sharing !== null ? $locations->firstWhere('id', $this->sharing) : null;
+        $sharePool = $shareLocation !== null ? $queue->pool($shareLocation) : null;
+        $shareTotal = $sharePool !== null ? (clone $sharePool)->count() : 0;
+        $shareCandidate = $sharePool?->with('page:id,title,url')->skip($shareTotal > 0 ? $this->shareSkip % $shareTotal : 0)->first();
+
         return view('livewire.operator.gbp.post-plan-page', [
+            'shareCandidate' => $shareCandidate,
+            'shareTotal' => $shareTotal,
             'brands' => $brands,
             'info' => $info,
             'totals' => $totals,

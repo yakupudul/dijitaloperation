@@ -451,37 +451,78 @@
             </section>
         @endif
         <div class="grid gap-4 xl:grid-cols-5" data-testid="gbp-services">
-            <section class="{{ $card }} space-y-3 xl:col-span-2">
-                <div class="text-sm">
-                    <p class="font-semibold text-gray-900 dark:text-white">Profilde şu an</p>
-                    <p class="mt-1 text-gray-600 dark:text-gray-300"><span class="text-xs text-gray-500">Birincil:</span> {{ $profile['categories']['primary'] ?? '—' }}</p>
-                    <p class="text-gray-600 dark:text-gray-300"><span class="text-xs text-gray-500">Ek ({{ count($additionalNow) }}/9):</span> {{ $additionalNow === [] ? '—' : implode(', ', $additionalNow) }}</p>
-                    <p class="text-gray-600 dark:text-gray-300"><span class="text-xs text-gray-500">Hizmetler ({{ count($profile['services'] ?? []) }}):</span> {{ ($profile['services'] ?? []) === [] ? '—' : \Illuminate\Support\Str::limit(implode(', ', $profile['services']), 300) }}</p>
+            <section class="{{ $card }} space-y-4 xl:col-span-2">
+                @php
+                    $nowPrimary = $live !== null && ! isset($live['error']) ? $live['primary'] : ($profile['categories']['primary'] ?? '');
+                    $nowAdditional = $live !== null && ! isset($live['error']) ? $live['additional'] : $additionalNow;
+                    $nowServices = $live !== null && ! isset($live['error']) ? $live['services'] : ($profile['services'] ?? []);
+                    $step = 'flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[11px] font-bold text-brand-600 dark:bg-brand-500/10 dark:text-brand-300';
+                @endphp
+                <div class="text-sm" data-testid="gbp-services-now">
+                    <div class="flex items-center justify-between gap-2">
+                        <p class="flex items-center gap-2 font-semibold text-gray-900 dark:text-white"><span class="{{ $step }}">1</span> Profilde şu an</p>
+                        @if ($live !== null)
+                            <button type="button" wire:click="refreshLive" wire:loading.attr="disabled" class="text-xs font-medium text-brand-600 hover:underline">Google’dan yenile</button>
+                        @endif
+                    </div>
+                    <p class="mt-0.5 text-xs text-gray-500">
+                        @if ($live === null)
+                            Son toplanan veri (profil bağlı değil).
+                        @elseif (isset($live['error']))
+                            <span class="text-amber-700 dark:text-amber-300">Google’dan şu an okunamadı ({{ $live['error'] }}); son toplanan veri gösteriliyor.</span>
+                        @else
+                            Google’dan canlı okundu · {{ \Carbon\CarbonImmutable::parse($live['read_at'])->locale('tr')->diffForHumans() }}
+                        @endif
+                    </p>
+                    <p class="mt-1 text-gray-600 dark:text-gray-300"><span class="text-xs text-gray-500">Birincil:</span> {{ $nowPrimary !== '' ? $nowPrimary : '—' }}</p>
+                    <p class="text-gray-600 dark:text-gray-300"><span class="text-xs text-gray-500">Ek ({{ count($nowAdditional) }}/9):</span> {{ $nowAdditional === [] ? 'yok' : implode(', ', $nowAdditional) }}</p>
+                    <p class="text-gray-600 dark:text-gray-300"><span class="text-xs text-gray-500">Hizmetler ({{ count($nowServices) }}):</span> {{ $nowServices === [] ? 'yok' : \Illuminate\Support\Str::limit(implode(', ', $nowServices), 300) }}</p>
+                    @if ($nowAdditional === [] || $nowServices === [])
+                        <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">{{ $nowAdditional === [] && $nowServices === [] ? 'Ek kategori ve hizmet yok' : ($nowAdditional === [] ? 'Ek kategori yok' : 'Hizmet yok') }}: aramada bu profil yalnız birincil kategoriyle görünür. Aşağıdan ekleyin.</p>
+                    @elseif (count($nowAdditional) >= 9)
+                        <p class="mt-1 text-xs text-gray-500">9 ek kategori sınırı dolu; yalnız hizmet eklenebilir.</p>
+                    @endif
                 </div>
-                <label class="block text-sm"><span class="text-xs text-gray-500">Eklenecek kategoriler (her satıra bir, en çok 10)</span>
-                    <textarea wire:model="wantCategories" rows="3" placeholder="Ortodontist&#10;Ağız ve diş sağlığı kliniği" class="mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900"></textarea>
-                </label>
-                <label class="block text-sm"><span class="flex items-center justify-between text-xs text-gray-500">Eklenecek hizmetler (her satıra bir, en çok 80)
-                        <span class="flex gap-3"><button type="button" wire:click="fillFromOfferings" class="font-medium text-brand-600 hover:underline">Marka hizmetlerinden doldur</button>
-                        <button type="button" wire:click="togglePeers" class="font-medium text-brand-600 hover:underline">Aynı sektördeki işletmelerden getir</button></span></span>
-                    <textarea wire:model="wantServices" rows="10" placeholder="Diş implantı&#10;Zirkonyum kaplama&#10;&#10;ya da yapıştır:&#10;**Diş Kliniği**&#10;| Hizmet | Açıklama |&#10;|---|---|&#10;| Gülüş Tasarımı | … |" class="mt-1 w-full rounded-lg border-gray-300 font-mono text-xs dark:border-gray-700 dark:bg-gray-900"></textarea>
-                    <span class="mt-1 block text-xs text-gray-500">Liste yapıştırabilirsiniz: kalın başlık (ya da “Başlık:”) kategori olur, altındaki tablo satırları (Hizmet | Açıklama, Excel’den sekmeli de olur) o kategorinin hizmetleri olur; açıklamanız aynen kullanılır.</span>
-                </label>
-                <div class="flex flex-wrap items-center gap-2">
-                    <button type="button" wire:click="preparePlan" wire:loading.attr="disabled" @disabled(! $operational || ! $bound || ($planState['status'] ?? null) === 'running') class="{{ $primary }}">AI ile hazırla</button>
-                    <x-operator.ai-prompt-info operation="gbp.profile_plan" />
+
+                <div class="space-y-2 border-t border-gray-100 pt-3 dark:border-gray-700">
+                    <p class="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><span class="{{ $step }}">2</span> Eklemek istediklerinizi toplayın</p>
+                    <div class="flex flex-wrap gap-2 text-xs">
+                        <button type="button" wire:click="fillFromOfferings" class="rounded-lg border border-gray-200 px-2.5 py-1 font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.04]">Marka hizmetlerinden doldur</button>
+                        <button type="button" wire:click="togglePeers" class="rounded-lg border border-gray-200 px-2.5 py-1 font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.04]">Aynı sektördeki işletmelerden getir</button>
+                    </div>
+                    <label class="block text-sm"><span class="text-xs text-gray-500">Kategoriler (her satıra bir, en çok 10; Google’daki adıyla, ör. “Ortodontist”)</span>
+                        <textarea wire:model="wantCategories" rows="3" placeholder="Ortodontist&#10;Pedodontist" class="mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900"></textarea>
+                    </label>
+                    <label class="block text-sm"><span class="text-xs text-gray-500">Hizmetler (her satıra bir, en çok 80)</span>
+                        <textarea wire:model="wantServices" rows="8" placeholder="Diş implantı&#10;Zirkonyum kaplama&#10;&#10;ya da yapıştır:&#10;**Diş Kliniği**&#10;| Hizmet | Açıklama |&#10;|---|---|&#10;| Gülüş Tasarımı | … |" class="mt-1 w-full rounded-lg border-gray-300 font-mono text-xs dark:border-gray-700 dark:bg-gray-900"></textarea>
+                        <span class="mt-1 block text-xs text-gray-500">Liste yapıştırabilirsiniz: kalın başlık (ya da “Başlık:”) kategori olur, altındaki satırlar (Hizmet | Açıklama, Excel’den sekmeli de olur) o kategorinin hizmetleri; açıklamanız aynen kullanılır.</span>
+                    </label>
                 </div>
-                @if ($plState)<p class="text-xs {{ $plState[0] }}" @if ($plState[2]) wire:poll.10s @endif>{{ $plState[1] }}</p>@endif
-                <p class="text-xs text-gray-500">Kategoriler Google’ın kendi listesinden seçilir; hizmetler Google’ın hazır hizmeti ya da kısa açıklamalı özel hizmet olarak hazırlanır. Gönderince yalnız ekleme yapılır: birincil kategori ve mevcut kategori / hizmetler değişmez, geri alınabilir.</p>
+
+                <div class="space-y-2 border-t border-gray-100 pt-3 dark:border-gray-700">
+                    <p class="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><span class="{{ $step }}">3</span> Google’a uygun hale getirin</p>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button type="button" wire:click="preparePlan" wire:loading.attr="disabled" @disabled(! $operational || ! $bound || ($planState['status'] ?? null) === 'running') class="{{ $primary }}">AI ile hazırla</button>
+                        <x-operator.ai-prompt-info operation="gbp.profile_plan" />
+                    </div>
+                    @if ($plState)
+                        <p class="text-xs {{ $plState[0] }}" @if ($plState[2]) wire:poll.10s @endif data-testid="gbp-plan-state">
+                            {{ $plState[1] }}@if (filled($planState['at'] ?? null)) <span class="text-gray-400">· {{ \Carbon\CarbonImmutable::parse($planState['at'])->locale('tr')->diffForHumans() }}</span>@endif
+                            @if (! $plState[2]) <button type="button" wire:click="dismissPlanState" class="ml-1 text-gray-500 hover:underline">Kapat</button>@endif
+                        </p>
+                        @if (($planState['status'] ?? null) === 'failed')<p class="text-xs text-gray-500">Listeyi kontrol edip yeniden “AI ile hazırla”ya basın; Google’ın kabul etmediği satırlar artık atlanıp nedeni sağda yazılır.</p>@endif
+                    @endif
+                    <p class="text-xs text-gray-500">Kategoriler Google’ın kendi listesinden seçilir; hizmetler Google’ın hazır hizmeti ya da kısa açıklamalı özel hizmet olur. Yalnız ekleme yapılır: birincil kategori ve mevcut kategori / hizmetler değişmez, geri alınabilir.</p>
+                </div>
             </section>
 
             <section class="{{ $panel }} xl:col-span-3">
                 <div class="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-700">
-                    <h2 class="font-semibold text-gray-900 dark:text-white">Hazırlık</h2>
+                    <h2 class="flex items-center gap-2 font-semibold text-gray-900 dark:text-white"><span class="flex h-5 w-5 items-center justify-center rounded-full bg-brand-50 text-[11px] font-bold text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">4</span> Kontrol edip gönderin</h2>
                     @if ($plan)<span class="text-xs text-gray-500">{{ $plan->created_at?->diffForHumans() }}</span>@endif
                 </div>
                 @if (! $plan)
-                    <p class="px-4 py-5 text-sm text-gray-500">Listeyi yazıp “AI ile hazırla”ya basın; Google’a uygun hali burada görünür.</p>
+                    <p class="px-4 py-5 text-sm text-gray-500">Soldaki listeyi doldurup “AI ile hazırla”ya basın; Google’a uygun hali burada seçilebilir olarak görünür, seçtiklerinizi tek tıkla profile eklersiniz.</p>
                 @else
                     @php
                         $planCategories = (array) data_get($plan->content, 'categories', []);

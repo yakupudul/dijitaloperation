@@ -19,12 +19,15 @@ use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\Gbp\GbpAssistant;
+use App\Services\Gbp\GbpCategoryCatalog;
 use App\Services\Gbp\GbpProfilePlanner;
 use App\Services\Integrations\Google\GoogleApiClient;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
@@ -104,7 +107,7 @@ final class GbpProfilePlanTest extends TestCase
                 ]]);
             }
             if (str_contains($url, '/v1/categories?')) {
-                if ($this->googleRefuses && str_contains($url, '%26')) {
+                if ($this->googleRefuses && preg_match('/filter=[^&]*(%20|\+)/', $url) === 1) {
                     return Http::response(['error' => ['message' => 'Request contains an invalid argument.']], 400);
                 }
 
@@ -176,6 +179,32 @@ final class GbpProfilePlanTest extends TestCase
         $services = collect($content['services'])->keyBy('line');
         $this->assertNull($services['diş beyazlatma']['service_type_id'], 'without Google’s service types the service is free-form');
         $this->assertContains('Ağız & diş', array_column($content['skipped'], 'line'));
+    }
+
+    public function test_the_tab_reads_the_profile_live_and_an_old_error_can_be_closed(): void
+    {
+        Cache::put(GbpAssistant::stateKey((int) $this->asset->id, GbpAssistant::OP_PROFILE),
+            ['status' => 'failed', 'message' => 'Google kategori listesi okunamadı: Request contains an invalid argument.', 'at' => now()->subHours(3)->toIso8601String()], now()->addDay());
+
+        $page = $this->page()
+            ->assertSee('Google’dan canlı okundu')
+            ->assertSee('Ek (1/9):')
+            ->assertSee('Ortodontist')
+            ->assertSee('Hizmetler (1):')
+            ->assertSee('3 saat önce')
+            ->assertSee('Kontrol edip gönderin');
+
+        $this->location['categories']['additionalCategories'][] = ['name' => 'categories/gcid:pediatric_dentist', 'displayName' => 'Pedodontist'];
+        $page->call('refreshLive')->assertSee('Ek (2/9):')
+            ->call('dismissPlanState')->assertDontSee('Request contains an invalid argument.');
+    }
+
+    public function test_a_line_google_refuses_falls_back_to_its_longest_word(): void
+    {
+        $this->googleRefuses = true;
+        $found = app(GbpCategoryCatalog::class)->search(app(GbpCategoryCatalog::class)->location((int) $this->asset->id)[0], '**Pedodontist (çocuk)**');
+
+        $this->assertSame(['categories/gcid:pediatric_dentist'], array_column($found, 'id'));
     }
 
     public function test_send_adds_only_the_chosen_rows_and_undo_removes_exactly_them(): void

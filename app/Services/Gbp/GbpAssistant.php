@@ -98,7 +98,7 @@ final class GbpAssistant
         if ($operation === self::OP_PROFILE && ($params['categories'] ?? []) === [] && ($params['services'] ?? []) === []) {
             throw ValidationException::withMessages(['gbp' => 'Eklenecek kategori ya da hizmet yazın.']);
         }
-        Cache::put(self::stateKey((int) $asset->id, $operation), ['status' => 'running'], now()->addMinutes(15));
+        Cache::put(self::stateKey((int) $asset->id, $operation), ['status' => 'running', 'at' => now()->toIso8601String()], now()->addMinutes(15));
         RunGbpAssistantJob::dispatch((int) $asset->id, $operation, $params);
     }
 
@@ -118,13 +118,13 @@ final class GbpAssistant
                 default => throw new RuntimeException('Bilinmeyen işlem.'),
             };
             if ($message === null) {
-                Cache::put(self::stateKey($assetId, $operation), ['status' => 'running', 'message' => 'Claude sırasında; yanıtlayınca burada görünür.'], now()->addDay());
+                Cache::put(self::stateKey($assetId, $operation), ['status' => 'running', 'message' => 'Claude sırasında; yanıtlayınca burada görünür.', 'at' => now()->toIso8601String()], now()->addDay());
 
                 return;
             }
-            Cache::put(self::stateKey($assetId, $operation), ['status' => 'ready', 'message' => $message], now()->addDay());
+            Cache::put(self::stateKey($assetId, $operation), ['status' => 'ready', 'message' => $message, 'at' => now()->toIso8601String()], now()->addDay());
         } catch (Throwable $exception) {
-            Cache::put(self::stateKey($assetId, $operation), ['status' => 'failed', 'message' => mb_substr($exception->getMessage(), 0, 300)], now()->addDay());
+            Cache::put(self::stateKey($assetId, $operation), ['status' => 'failed', 'message' => mb_substr($exception->getMessage(), 0, 300), 'at' => now()->toIso8601String()], now()->addDay());
         }
     }
 

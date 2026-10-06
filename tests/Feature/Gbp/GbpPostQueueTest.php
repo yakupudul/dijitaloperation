@@ -26,6 +26,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -210,6 +211,53 @@ final class GbpPostQueueTest extends TestCase
             'angle' => 'ozet', 'publish_on' => '2026-10-05', 'summary' => self::text('blog'), 'url' => $this->pages['blog']->url, 'status' => GbpQueuedPost::FAILED, 'note' => 'API kapalı']);
         Livewire::actingAs($this->admin)->test(PostPlanPage::class, ['location' => $this->location->id])->assertSee('Tekrar dene')->call('retry', $failed->id);
         $this->assertSame([GbpQueuedPost::APPROVED, '2026-10-06'], [$failed->fresh()->status, substr((string) $failed->fresh()->publish_on, 0, 10)]);
+    }
+
+    public function test_share_today_takes_the_next_pool_post_shows_it_first_and_allows_one_post_a_day(): void
+    {
+        $make = fn (string $day, string $page): GbpQueuedPost => GbpQueuedPost::query()->create(['digital_asset_id' => $this->location->id, 'brand_id' => $this->brand->id,
+            'page_id' => $this->pages[$page]->id, 'angle' => 'tanim', 'publish_on' => $day, 'summary' => self::text($page), 'url' => $this->pages[$page]->url,
+            'action_type' => 'BOOK', 'status' => GbpQueuedPost::DRAFT]);
+        $implant = $make('2026-10-09', 'implant');
+        $zirkon = $make('2026-10-12', 'zirkonyum');
+
+        $operator = User::factory()->create(['is_active' => true]);
+        $operator->assignRole(Roles::TEAM_MEMBER);
+        Livewire::actingAs($operator)->test(PostPlanPage::class)->call('startShare', $this->location->id)->assertForbidden();
+
+        $page = Livewire::actingAs($this->admin)->test(PostPlanPage::class)
+            ->call('openBrand', $this->brand->id)
+            ->assertSee('Bugün paylaş')
+            ->call('startShare', $this->location->id)
+            ->assertSee('havuzdaki 2 gönderiden 1.')
+            ->assertSee('09 Ekim gününden alınır')
+            ->assertSee('taslak (bu tıklama onaydır)')
+            ->call('nextShare')
+            ->assertSee('12 Ekim gününden alınır')
+            ->call('nextShare')
+            ->call('confirmShare', $implant->id)
+            ->assertSee('Gönderi Google’a gönderiliyor.')
+            ->assertSee('09 Ekim günü boşaldı')
+            ->assertSet('sharing', null)
+            ->assertSee('Bugün paylaşıldı');
+
+        $implant->refresh();
+        $this->assertSame([GbpQueuedPost::PUBLISHED, '2026-10-06', $this->admin->id], [$implant->status, substr((string) $implant->publish_on, 0, 10), (int) $implant->approved_by]);
+        $action = ExternalWriteAction::query()->where('action', ExternalWriteAction::ACTION_LOCAL_POST)->sole();
+        $this->assertSame([$implant->id, 'succeeded'], [(int) $action->request_payload['queue_id'], $action->status]);
+        $this->assertContains('2026-10-09', app(GbpPostQueue::class)->emptyDays($this->location), 'the day it came from is planned again');
+
+        $this->expectException(ValidationException::class);
+        app(GbpPostQueue::class)->publishToday($this->admin, $this->location, $zirkon->id);
+    }
+
+    public function test_share_today_with_an_empty_pool_says_so(): void
+    {
+        Livewire::actingAs($this->admin)->test(PostPlanPage::class)
+            ->call('openBrand', $this->brand->id)
+            ->call('startShare', $this->location->id)
+            ->assertSee('Havuzda bu işletme için hazır gönderi yok');
+        $this->assertSame(0, ExternalWriteAction::query()->count());
     }
 
     public function test_the_screen_groups_by_brand_filters_shows_why_days_are_empty_and_reads_a_brand_before_approving(): void

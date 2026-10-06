@@ -7,8 +7,10 @@ use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\ExternalWriteAction;
 use App\Models\GbpReview;
+use App\Services\Gbp\GbpProfilePlanner;
 use App\Services\Integrations\Google\GoogleApiClient;
 use App\Services\SeoTasks\SeoText;
+use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 use Throwable;
 
@@ -37,6 +39,8 @@ final class GbpWriter
         $payload = (array) $action->request_payload;
 
         if ($action->action === ExternalWriteAction::ACTION_PROFILE_UPDATE) {
+            Cache::forget(GbpProfilePlanner::liveKey((int) $action->digital_asset_id));
+
             return $this->addToProfile($integration, 'locations/'.substr($parent, (int) strrpos($parent, '/') + 1), $payload);
         }
         if ($action->action === ExternalWriteAction::ACTION_PROFILE_FIELDS) {
@@ -86,6 +90,8 @@ final class GbpWriter
         [$integration, $parent] = $this->location((int) $action->digital_asset_id);
         $result = (array) $action->result;
         if ($action->action === ExternalWriteAction::ACTION_PROFILE_UPDATE) {
+            Cache::forget(GbpProfilePlanner::liveKey((int) $action->digital_asset_id));
+
             return $this->removeFromProfile($integration, $result);
         }
         if ($action->action === ExternalWriteAction::ACTION_PROFILE_FIELDS) {

@@ -56,21 +56,37 @@ final class GbpCategoryCatalog
      */
     public function search(CoreIntegration $integration, string $term): array
     {
-        $term = trim(preg_replace('/\s+/u', ' ', $term) ?? '');
+        // Markdown, punctuation and brackets ("Ortodonti (diş teli)", "**Diş Kliniği**") make Google answer "invalid argument".
+        $term = trim(preg_replace('/\s+/u', ' ', preg_replace('/[^\p{L}\p{N}\s\-]+/u', ' ', $term) ?? '') ?? '');
         if ($term === '') {
             return [];
         }
-
-        return Cache::remember('gbp-category-search:'.md5(SeoText::fold($term)), now()->addWeek(), function () use ($integration, $term): array {
+        $key = 'gbp-category-search:'.md5(SeoText::fold($term));
+        $cached = Cache::get($key);
+        if (is_array($cached)) {
+            return $cached;
+        }
+        // The documented form first, then the quoted phrase, then the longest word alone (Google refuses some multi-word filters).
+        $words = explode(' ', $term);
+        usort($words, fn (string $a, string $b): int => mb_strlen($b) <=> mb_strlen($a));
+        $error = '';
+        foreach (array_unique(['displayName='.$term, 'displayName="'.$term.'"', 'displayName='.$words[0]]) as $filter) {
             $response = $this->google->get($integration, self::BASE.'categories', [
-                'regionCode' => 'TR', 'languageCode' => 'tr', 'view' => 'FULL', 'pageSize' => 8, 'filter' => 'displayname='.$term,
+                'regionCode' => 'TR', 'languageCode' => 'tr', 'view' => 'FULL', 'pageSize' => 8, 'filter' => $filter,
             ], 'google_business_profile');
-            if (! $response->successful()) {
-                throw new RuntimeException('Google kategori listesi okunamadı: '.mb_substr((string) (data_get($response->json(), 'error.message') ?? 'HTTP '.$response->status()), 0, 200));
-            }
+            if ($response->successful()) {
+                $found = array_map(self::category(...), array_slice((array) ($response->json('categories') ?? []), 0, 8));
+                Cache::put($key, $found, now()->addWeek());
 
-            return array_map(self::category(...), array_slice((array) ($response->json('categories') ?? []), 0, 8));
-        });
+                return $found;
+            }
+            $error = (string) (data_get($response->json(), 'error.message') ?? 'HTTP '.$response->status());
+            if ($response->status() !== 400) {
+                break;
+            }
+        }
+
+        throw new RuntimeException('Google kategori listesi okunamadı: '.mb_substr($error, 0, 200));
     }
 
     /**

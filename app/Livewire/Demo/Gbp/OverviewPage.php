@@ -412,6 +412,18 @@ class OverviewPage extends Component
         }
     }
 
+    /** "Google’dan yenile": reads the profile's categories and services again now. */
+    public function refreshLive(GbpProfilePlanner $planner): void
+    {
+        $planner->live($this->asset(), true);
+    }
+
+    /** Closes the last "AI ile hazırla" message (an old error stays otherwise until the next run). */
+    public function dismissPlanState(): void
+    {
+        Cache::forget(GbpAssistant::stateKey((int) $this->asset()->id, GbpAssistant::OP_PROFILE));
+    }
+
     public function discardPlan(GbpProfilePlanner $planner, ProductionArchive $archive): void
     {
         $plan = $planner->latest($this->asset());
@@ -463,6 +475,7 @@ class OverviewPage extends Component
             'postState' => $this->tab === 'posts' ? $assistant->state($assetId, GbpAssistant::OP_POST) : null,
             'plan' => $plan,
             'planState' => $this->tab === 'services' ? $assistant->state($assetId, GbpAssistant::OP_PROFILE) : null,
+            'live' => $this->tab === 'services' && ($data['connection']['bound'] ?? false) ? app(GbpProfilePlanner::class)->live($asset) : null,
             'profileWrites' => $this->tab === 'services' ? ExternalWriteAction::query()->where('digital_asset_id', $assetId)
                 ->where('action', ExternalWriteAction::ACTION_PROFILE_UPDATE)->latest('id')->limit(10)->get() : collect(),
             'analysis' => $this->tab === 'analysis' && $resourceId !== null ? $screen->analysis($resourceId, $this->days) : null,
