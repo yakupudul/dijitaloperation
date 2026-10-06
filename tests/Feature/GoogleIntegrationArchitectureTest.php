@@ -304,11 +304,13 @@ class GoogleIntegrationArchitectureTest extends TestCase
 
     public function test_frozen_integrations_hub_uses_real_google_card(): void
     {
-        Livewire::test(IntegrationsIndex::class)
+        $html = Livewire::test(IntegrationsIndex::class)
             ->assertOk()
             ->assertSee('Google')
             ->assertSee('Not configured')
-            ->assertDontSee('23');
+            ->html();
+        // Visible text only: random Livewire ids and keys in the markup can contain "23".
+        $this->assertDoesNotMatchRegularExpression('/\b23\b/', strip_tags($html), 'no fixture resource count on the card');
 
         $card = collect(app(OperatorIntegrationsHubQuery::class)->groups())
             ->flatMap(fn (array $g) => $g['providers'])
