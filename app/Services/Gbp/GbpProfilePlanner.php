@@ -12,6 +12,7 @@ use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Compliance\SectorPackRegistry;
 use App\Services\SeoTasks\SeoText;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 /**
@@ -154,7 +155,13 @@ final class GbpProfilePlanner
         $requests = [];
         foreach ($categoryLines as $line) {
             // A heading that names a category the profile already has needs no search (it is that category).
-            $candidates = isset($onProfile[SeoText::fold($line)]) ? [$catalog[$onProfile[SeoText::fold($line)]['id']] ?? $onProfile[SeoText::fold($line)]] : $this->catalog->search($integration, $line);
+            try {
+                $candidates = isset($onProfile[SeoText::fold($line)]) ? [$catalog[$onProfile[SeoText::fold($line)]['id']] ?? $onProfile[SeoText::fold($line)]] : $this->catalog->search($integration, $line);
+            } catch (RuntimeException $exception) {
+                // One unreadable search leaves that line without candidates (it is skipped) instead of failing the plan.
+                Log::warning('GBP category search failed', ['line' => $line, 'error' => $exception->getMessage()]);
+                $candidates = [];
+            }
             foreach ($candidates as $candidate) {
                 $catalog[$candidate['id']] ??= $candidate;
             }

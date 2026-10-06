@@ -133,7 +133,7 @@ final class SiteFlowTest extends SiteTestCase
 
         $page->call('mergeOverlap', $suggestions[$copy->id]->id)->assertHasErrors('write');
         $this->assertSame(0, ExternalWriteAction::query()->count(), 'connector 1.4.1 cannot write to the SEO plugin: nothing is sent');
-        CoreConnection::query()->update(['config->plugin_version' => '1.9.0']);
+        CoreConnection::query()->update(['config->plugin_version' => '1.10.0']);
 
         $page->call('mergeOverlap', $suggestions[$copy->id]->id)->assertSee('301 siteye gönderildi');
         $write = ExternalWriteAction::query()->sole();

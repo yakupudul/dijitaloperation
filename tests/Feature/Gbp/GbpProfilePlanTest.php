@@ -50,6 +50,9 @@ final class GbpProfilePlanTest extends TestCase
     /** @var list<array{0: string, 1: string, 2: array<string, mixed>}> */
     private array $patches = [];
 
+    /** Google refuses categories:batchGet and category searches with "&" (seen on a live account). */
+    private bool $googleRefuses = false;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -91,7 +94,7 @@ final class GbpProfilePlanTest extends TestCase
                 return Http::response($this->location);
             }
             if (str_contains($url, 'categories:batchGet')) {
-                if (! str_contains($url, 'names=categories%2Fgcid%3Adental_clinic') || ! str_contains($url, 'view=FULL')) {
+                if ($this->googleRefuses || ! str_contains($url, 'names=categories%2Fgcid%3Adental_clinic') || ! str_contains($url, 'view=FULL')) {
                     return Http::response(['error' => ['message' => 'Request contains an invalid argument.']], 400);
                 }
 
@@ -101,6 +104,10 @@ final class GbpProfilePlanTest extends TestCase
                 ]]);
             }
             if (str_contains($url, '/v1/categories?')) {
+                if ($this->googleRefuses && str_contains($url, '%26')) {
+                    return Http::response(['error' => ['message' => 'Request contains an invalid argument.']], 400);
+                }
+
                 return Http::response(['categories' => str_contains(urldecode($url), 'Pedodontist')
                     ? [['name' => 'categories/gcid:pediatric_dentist', 'displayName' => 'Pedodontist', 'serviceTypes' => []]] : []]);
             }
@@ -155,6 +162,20 @@ final class GbpProfilePlanTest extends TestCase
         $this->assertSame(['Uçan halı', 'Botoks'], array_column($content['skipped'], 'line'));
         $page->call('setTab', 'services')->assertSee('Pedodontist')->assertSee('Profilde var')->assertSee('Seçilenleri gönder (4)')
             ->assertSee('1 kategori, 3 hizmet eklenmeye hazır; 2 satır atlandı.');
+    }
+
+    public function test_a_refused_category_read_does_not_stop_the_plan(): void
+    {
+        $this->googleRefuses = true;
+        $this->fakePlan();
+
+        $this->page()->set('wantCategories', "Pedodontist\nAğız & diş")->set('wantServices', "diş beyazlatma\nZirkonyum Kaplama")->call('preparePlan');
+
+        $content = (array) AiProduction::query()->where('kind', GbpProfilePlanner::KIND)->sole()->content;
+        $this->assertSame(['categories/gcid:pediatric_dentist'], array_column($content['categories'], 'id'));
+        $services = collect($content['services'])->keyBy('line');
+        $this->assertNull($services['diş beyazlatma']['service_type_id'], 'without Google’s service types the service is free-form');
+        $this->assertContains('Ağız & diş', array_column($content['skipped'], 'line'));
     }
 
     public function test_send_adds_only_the_chosen_rows_and_undo_removes_exactly_them(): void

@@ -166,7 +166,7 @@ final class ClusterOverlapsTest extends SiteTestCase
         $this->copy->forceFill(['wp_post_id' => 55])->save();
         $this->row('tr', $this->main, [$this->copy->id, $other->id]);
         app(ClusterOverlaps::class)->sync($this->site, $this->brand);
-        $this->connector('1.9.0', fn (array $change): array => $change['object_id'] === 55
+        $this->connector('1.10.0', fn (array $change): array => $change['object_id'] === 55
             ? ['ok' => true, 'change_id' => 'c-1', 'provider' => 'rank_math', 'drafted' => true]
             : ['ok' => false, 'error' => 'SEO fixes are disabled on this site.']);
         $ids = Suggestion::query()->where('decision_key', ClusterOverlaps::DECISION)->orderBy('page_id')->pluck('id', 'page_id');
@@ -197,7 +197,7 @@ final class ClusterOverlapsTest extends SiteTestCase
             app(ClusterOverlaps::class)->redirect($suggestion, $this->admin);
             $this->fail('1.8.0 cannot write to the SEO plugin');
         } catch (ValidationException $exception) {
-            $this->assertStringContainsString('en az 1.9.0', (string) collect($exception->errors())->flatten()->first());
+            $this->assertStringContainsString('en az 1.10.0', (string) collect($exception->errors())->flatten()->first());
         }
         $this->assertSame([], $this->sent);
         $this->assertSame(Suggestion::OPEN, $suggestion->fresh()->status);
