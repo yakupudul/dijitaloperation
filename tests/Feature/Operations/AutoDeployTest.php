@@ -78,6 +78,10 @@ final class AutoDeployTest extends SiteTestCase
         $this->assertStringContainsString('canlı sürümün', $status['message']);
         $this->assertSame($live, trim($git($app, 'rev-parse', 'HEAD')), 'the live checkout did not move');
         $this->assertFileDoesNotExist($app.'/deployed.txt');
+        // Sürümler lists the branch's commit as not live yet.
+        $pending = (string) file_get_contents($app.'/storage/app/auto-deploy-pending.tsv');
+        $this->assertStringContainsString("\twatched\t", $pending);
+        $this->assertStringContainsString("\tother\n", $pending);
     }
 
     public function test_the_pool_page_shows_the_last_check_and_a_stop_reaches_the_phone(): void

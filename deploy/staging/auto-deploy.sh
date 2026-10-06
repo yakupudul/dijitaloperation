@@ -72,6 +72,20 @@ notify() {
 tried() { grep -qx "$1" "$TRIED_FILE"; }
 mark_tried() { echo "$1" >> "$TRIED_FILE"; tail -n 200 "$TRIED_FILE" > "${TRIED_FILE}.tmp" && mv -f "${TRIED_FILE}.tmp" "$TRIED_FILE"; }
 
+# Commits on the watched branches that are not live yet (Geliştirme havuzu › Sürümler): sha, branch, time, subject.
+declare -A HEADS=()
+write_pending() {
+  local tmp live branch
+  live="$(git rev-parse HEAD)"
+  tmp="$(mktemp "${STATE_DIR}/.auto-deploy-pending.XXXXXX")"
+  for branch in "${!HEADS[@]}"; do
+    git log --no-merges --format="%H%x09${branch}%x09%cI%x09%s" -n 40 "${live}..${HEADS[$branch]}" 2>/dev/null | tr -d '\r' || true
+  done | sort -t "$(printf '\t')" -k1,1 -u > "$tmp"
+  chmod 0644 "$tmp"
+  mv -f "$tmp" "${STATE_DIR}/auto-deploy-pending.tsv"
+  chown "${WEB_USER}:${WEB_USER}" "${STATE_DIR}/auto-deploy-pending.tsv" 2>/dev/null || true
+}
+
 if [[ -f "${STATE_DIR}/auto-deploy.off" ]]; then
   status paused "" "" "Otomatik deploy durduruldu (storage/app/auto-deploy.off)."
   exit 0
@@ -92,6 +106,7 @@ for branch in $BRANCHES; do
     continue
   fi
   head="$(git rev-parse FETCH_HEAD)"
+  HEADS[$branch]="$head"
   if [[ "$head" == "$LIVE" ]] || git merge-base --is-ancestor "$head" "$LIVE"; then
     continue # nothing new on this branch
   fi
@@ -113,6 +128,7 @@ for branch in $BRANCHES; do
     TARGET_BRANCH="$branch"
   fi
 done
+write_pending
 
 if [[ -z "$TARGET" ]]; then
   if [[ ! -f "$STATUS_FILE" ]] || grep -qE '"state":"(deployed|idle|paused|testing|deploying)"' "$STATUS_FILE"; then
@@ -150,6 +166,7 @@ fi
 # 2) Deploy: the app checks the tested commit out and runs the normal deploy script.
 status deploying "$TARGET_BRANCH" "$TARGET" "${SHORT} testleri geçti, deploy ediliyor."
 if git checkout --quiet --detach "$TARGET" && bash deploy/staging/deploy.sh >> "$LOG" 2>&1; then
+  write_pending
   status deployed "$TARGET_BRANCH" "$TARGET" "${SHORT} canlıda ($(git log -1 --format=%s "$TARGET" | head -c 120))."
   notify deployed "$TARGET_BRANCH" "$TARGET" "$(git log -1 --format=%s "$TARGET" | head -c 160)"
 else

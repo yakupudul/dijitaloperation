@@ -5,7 +5,7 @@
             <h1 class="mt-1 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Geliştirme havuzu</h1>
             <p class="mt-1 text-xs text-gray-500">
                 Claude her sabah sistemi tarar ve doğruladığı sorunları buraya önerir. Onayladıklarını hafta içi 10:37, 14:37 ve 18:37 turlarında koda yazar ve dala gönderir; canlı sisteme kendisi dokunmaz. @if($autoDeploy !== null)Sunucu dala 15 dakikada bir bakar; testler geçen yeni kod kendiliğinden canlıya çıkar (otomatik deploy).@else Değişiklik sizin deploy'unuzla (git pull + deploy.sh) canlıya çıkar.@endif Canlıya çıkan değişiklik kendiliğinden “Kontrol”e geçer, Claude canlıda doğrulayıp kapatır.
-                · Canlı sürüm {{ $release['sha'] ? substr($release['sha'], 0, 8) : 'bilinmiyor' }}
+                · <a href="{{ route('operator.settings.releases') }}" wire:navigate class="font-medium text-brand-600 hover:underline">Canlı sürüm {{ $release['sha'] ? substr($release['sha'], 0, 8) : 'bilinmiyor' }} · Sürümler</a>
                 · Sayfa taraması: {{ $screens['total'] }} ekran @if($screens['failed'] > 0), <span class="font-semibold text-rose-600">{{ $screens['failed'] }} hatalı</span>@endif @if($screens['checked_at']) · {{ \Illuminate\Support\Carbon::parse($screens['checked_at'])->timezone('Europe/Istanbul')->format('d.m H:i') }}@endif
             </p>
         </div>

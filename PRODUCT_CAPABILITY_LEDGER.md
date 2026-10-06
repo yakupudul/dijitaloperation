@@ -1,5 +1,12 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-06 — Ayarlar › Sürümler
+
+- **Neden (yakup):** "Çıkıp çıkmadığını görebileceğim bir yer planlayamaz mısın sistemde?"
+- **Ekran (`/settings/releases`, Admin; Ayarlar menüsü ve Geliştirme havuzu'ndaki "Canlı sürüm" bağlantısı):** canlı sürüm ve deploy zamanı, otomatik deploy durumu (kurulu değilse kurulum komutu); "Henüz canlıda değil": izlenen dallarda olup canlıda olmayan commit'ler (konu, zaman, dal); "Canlıya çıkanlar": her deploy, getirdiği commit'lerle (en yenisi açık).
+- **Veri:** `deploy.sh` her deploy'da önceki canlı sürümden bu yana gelen commit'leri `storage/app/deploy-history.jsonl`'a ekler (son 60 deploy); `auto-deploy.sh` her kontrolde bekleyenleri `storage/app/auto-deploy-pending.tsv`'ye yazar. Geçmiş, bu sürümden sonraki ilk deploy'dan itibaren dolar.
+- **State:** CODED + PHPUnit (`ReleasesPageTest` 3, `AutoDeployTest` bekleyen listesi).
+
 ## 2026-10-06 — Yorumlar: tek tıkla 300 AI taslağı
 
 - **Neden (yakup):** "Yüzlerce yorum seçmeme rağmen 30 yorum için AI yanıt hazırlıyor." "AI ile taslak yaz" bir tıklamada en fazla 30 taslak istiyordu; sınır 300 (onay bağlantısı sınırıyla aynı). Aylık AI bütçesi yine durdurur; 300'ü aşan seçimde ekran "kalanlar için bitince yeniden basın" der. Taslak "yazılıyor" durumu 60 dakika tutulur (uzun kuyrukta kart durumunu kaybetmesin).
