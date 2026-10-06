@@ -3,6 +3,7 @@
 ## 2026-10-06 — Yorumlar: tek tıkla 300 AI taslağı
 
 - **Neden (yakup):** "Yüzlerce yorum seçmeme rağmen 30 yorum için AI yanıt hazırlıyor." "AI ile taslak yaz" bir tıklamada en fazla 30 taslak istiyordu; sınır 300 (onay bağlantısı sınırıyla aynı). Aylık AI bütçesi yine durdurur; 300'ü aşan seçimde ekran "kalanlar için bitince yeniden basın" der. Taslak "yazılıyor" durumu 60 dakika tutulur (uzun kuyrukta kart durumunu kaybetmesin).
+- **Hazır ama gönderilmemiş yanıt (yakup sordu):** Google'da hâlâ yanıtsız olduğu için "yanıt bekleyen"de kalır, ama ayrı sayılır: seçim satırında "Yanıtı hazır olanlar (n)" ve yeni "Taslağı olmayanlar (n)"; seçim çubuğu "n yanıtı hazır (gönderilmedi) · m taslaksız"; "AI ile taslak yaz (m)" yalnız taslaksızları ister, hazır yanıtlara dokunmaz.
 - **State:** CODED + PHPUnit (`ReviewReplyDraftTest::test_one_click_drafts_more_than_thirty_selected_reviews`).
 
 ## 2026-10-06 — Otomatik deploy (yakup kararı: "Otomatik deploy")

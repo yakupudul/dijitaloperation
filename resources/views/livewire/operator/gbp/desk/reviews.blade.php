@@ -86,7 +86,8 @@
                 <span class="ml-auto flex flex-wrap items-center gap-3 font-medium">
                     <span class="text-gray-500">Seç:</span>
                     <button type="button" wire:click="pick('all')" class="text-brand-600 hover:underline">Görünen yanıtsızlar ({{ $openCount }})</button>
-                    <button type="button" wire:click="pick('ready')" class="text-brand-600 hover:underline">Yanıtı hazır olanlar</button>
+                    <button type="button" wire:click="pick('ready')" class="text-brand-600 hover:underline">Yanıtı hazır olanlar ({{ $openReady }})</button>
+                    <button type="button" wire:click="pick('nodraft')" class="text-brand-600 hover:underline" data-testid="gbp-pick-nodraft">Taslağı olmayanlar ({{ $openCount - $openReady }})</button>
                     <button type="button" wire:click="pick('silent')" class="text-brand-600 hover:underline">Yorumsuz 4–5 ★</button>
                     <button type="button" wire:click="pick('brand')" class="text-brand-600 hover:underline">Markanın onayladıkları</button>
                     @if ($selected !== [])<button type="button" wire:click="pick('none')" class="text-gray-500 hover:underline">Temizle</button>@endif
@@ -98,9 +99,9 @@
             <section class="sticky top-2 z-20 space-y-2 rounded-xl bg-white p-3 shadow-lg ring-1 ring-inset ring-brand-200 dark:bg-gray-800 dark:ring-brand-500/40" data-testid="gbp-review-bulk">
                 <div class="flex flex-wrap items-center gap-2 text-sm">
                     <span class="font-semibold text-gray-900 dark:text-white">{{ $pickedCount }} yorum seçili</span>
-                    <span class="text-xs text-gray-500">· {{ $readyCount }} yanıtı hazır</span>
+                    <span class="text-xs text-gray-500">· {{ $readyCount }} yanıtı hazır (gönderilmedi) · {{ $toDraftCount }} taslaksız</span>
                     <span class="ml-auto flex flex-wrap gap-2">
-                        <button type="button" wire:click="draftSelected" class="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600">AI ile taslak yaz</button>
+                        @if ($toDraftCount > 0)<button type="button" wire:click="draftSelected" class="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600" title="Yalnız taslağı olmayanlara yazar; hazır yanıtlara dokunmaz">AI ile taslak yaz ({{ min($toDraftCount, \App\Services\Gbp\Desk\ReviewDesk::DRAFT_BATCH) }})</button>@endif
                         <button type="button" wire:click="sendToBrand" class="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50 dark:bg-gray-800 dark:text-brand-300 dark:ring-brand-500/40" title="Marka giriş yapmadan açar; her yanıtı onaylar, düzeltir ya da istemez">Markaya onaya gönder</button>
                         <a href="{{ $this->pdfUrl() }}" class="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600" title="Hazır yanıtları markanın onayına göndermek için">PDF</a>
                         <button type="button" wire:click="openPreview" class="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-600">Ön izle ve yayımla ({{ $readyCount }})</button>

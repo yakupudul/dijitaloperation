@@ -177,6 +177,7 @@ final class ReviewsPage extends Component
         $brandAnswers = $mode === 'brand' ? app(ReviewApprovals::class)->forReviews(array_column($open, 'id')) : [];
         $this->selected = array_values(array_map(fn (array $r): int => $r['id'], array_filter($open, fn (array $r): bool => match ($mode) {
             'ready' => trim($this->text($r)) !== '',
+            'nodraft' => trim($this->text($r)) === '' && $r['draft_state'] !== 'running',
             'brand' => in_array($brandAnswers[$r['id']]['state'] ?? null, ['ok', 'edit'], true),
             'silent' => $r['comment'] === '' && ($r['rating'] ?? 0) >= 4,
             'none' => false,
@@ -454,7 +455,10 @@ final class ReviewsPage extends Component
             ],
             'pickedCount' => count($picked),
             'readyCount' => count(array_filter($picked, fn (array $r): bool => trim($this->text($r)) !== '')),
+            // "AI ile taslak yaz" only asks for these: no reply text yet and no draft being written.
+            'toDraftCount' => count(array_filter($picked, fn (array $r): bool => trim($this->text($r)) === '' && $r['draft_state'] !== 'running')),
             'openCount' => count($open),
+            'openReady' => count(array_filter($open, fn (array $r): bool => trim($this->text($r)) !== '')),
             'preview' => $preview,
             'flags' => $flagged,
             'brandAnswers' => $brandAnswers,

@@ -16,6 +16,7 @@ use App\Models\DigitalAsset;
 use App\Models\Run;
 use App\Models\User;
 use App\Services\Archive\ProductionArchive;
+use App\Services\Gbp\Desk\ReviewDesk;
 use App\Services\Gbp\ReviewReplyDrafter;
 use App\Services\Prompts\PromptRegistry;
 use App\Support\Ai\AiRouteKeys;
@@ -92,11 +93,23 @@ final class ReviewReplyDraftTest extends TestCase
                 'review_reply' => null, 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
         }
 
+        // A reply written but not sent stays "waiting" (Google still shows it unanswered), is not drafted again, and
+        // "Taslağı olmayanlar" leaves it out.
+        $written = (int) DB::table('gbp_reviews')->where('review_id', 'bulk0')->value('id');
+        app(ReviewDesk::class)->saveDraft(auth()->user(), $written, 'Teşekkür ederiz.');
+
         Livewire::test(ReviewsPage::class, ['asset' => $this->asset->id])
-            ->call('pick', 'visible')
+            ->assertSee('Yanıtı hazır olanlar (1)')
+            ->assertSee('Taslağı olmayanlar (40)')
+            ->call('pick', 'nodraft')
+            ->assertCount('selected', 40)
+            ->call('pick', 'all')
+            ->assertCount('selected', 41)
+            ->assertSee('1 yanıtı hazır (gönderilmedi) · 40 taslaksız')
+            ->assertSee('AI ile taslak yaz (40)')
             ->call('draftSelected')
-            ->assertSee('41 yorum için yanıt taslağı yazılıyor');
-        Queue::assertPushed(DraftReviewReplyJob::class, 41);
+            ->assertSee('40 yorum için yanıt taslağı yazılıyor');
+        Queue::assertPushed(DraftReviewReplyJob::class, 40);
     }
 
     public function test_liked_replies_become_examples_for_the_brand(): void
