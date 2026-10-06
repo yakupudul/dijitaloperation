@@ -444,9 +444,9 @@ final class OperationalAlertEvaluator
     }
 
     /**
-     * Accounts whose automatic collection does not run on purpose: switched off by the operator, or parked by
-     * admission (Google Ads manager account, account reported not enabled — ResourceAutomationService::readiness).
-     * An account that needs reconnecting is not parked: its data really stopped.
+     * Accounts whose automatic collection does not run on purpose (ResourceAutomationService::isParked): switched off
+     * by the operator, or parked by admission (Google Ads manager account, account reported not enabled). An account
+     * that needs reconnecting is not parked: its data really stopped.
      *
      * @param  list<int|null>  $resourceIds
      * @return array<int, true> external resource id => true
@@ -461,8 +461,7 @@ final class OperationalAlertEvaluator
         $parked = [];
         foreach (array_chunk($ids, 500) as $chunk) {
             foreach (ResourceAutomation::query()->with('resource.integration')->whereIn('external_resource_id', $chunk)->get() as $automation) {
-                if (! $automation->collection_enabled
-                    || ($automation->resource !== null && in_array($readiness->readiness($automation->resource), ['manager', 'not_enabled'], true))) {
+                if ($readiness->isParked($automation)) {
                     $parked[(int) $automation->external_resource_id] = true;
                 }
             }

@@ -11,11 +11,13 @@ use App\Models\Cluster;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\Page;
-use App\Models\ResourceAutomation;
 use App\Models\Suggestion;
 use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Site\Analysis\SitePagesReader;
 use App\Services\Site\SiteScope;
+use App\Support\Collection\LastDataDay;
+use App\Support\Operator\CollectionErrorExplainer;
+use App\Support\Operator\DormantAccountHint;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -264,21 +266,89 @@ final class BrandDossier
             ->map(fn (string $value, string $label): string => '- '.$label.': '.$value)->implode("\n") ?: 'Girilmedi.';
     }
 
+    /**
+     * Bağlı varlıklar: every asset with its active bound accounts. Per account the last data day is the newest reporting
+     * day stored for it (LastDataDay, never the automation's `data_through`), followed by why its automatic collection
+     * stopped and, for Google Ads, how long it has not spent; "veri yok" only when the account has no rows at all.
+     * A fixed number of queries however many assets: one for the assets, one for bindings + accounts + automations,
+     * one per fact table, and the Google Ads spend tables.
+     */
     private function assets(Brand $brand): string
     {
-        $lines = [];
-        foreach (DigitalAsset::query()->where('brand_id', $brand->id)->orderBy('type')->orderBy('id')->get(['id', 'type', 'name', 'primary_url', 'domain']) as $asset) {
-            $bindings = CoreAssetBinding::query()->with('externalResource:id,display_name,resource_type')->where('digital_asset_id', $asset->id)
-                ->where('status', CoreAssetBinding::STATUS_ACTIVE)->get();
-            $accounts = $bindings->map(function (CoreAssetBinding $b): string {
-                $through = ResourceAutomation::query()->where('external_resource_id', $b->external_resource_id)->value('data_through');
+        $assets = DigitalAsset::query()->where('brand_id', $brand->id)->orderBy('type')->orderBy('id')->get(['id', 'type', 'name', 'primary_url', 'domain']);
+        if ($assets->isEmpty()) {
+            return 'Bağlı varlık yok.';
+        }
+        $accounts = DB::table('core_asset_bindings as b')
+            ->leftJoin('core_external_resources as r', 'r.id', '=', 'b.external_resource_id')
+            ->leftJoin('resource_automations as ra', 'ra.external_resource_id', '=', 'b.external_resource_id')
+            ->whereIn('b.digital_asset_id', $assets->pluck('id')->all())
+            ->where('b.status', CoreAssetBinding::STATUS_ACTIVE)
+            ->orderBy('b.id')
+            ->get(['b.digital_asset_id', 'b.external_resource_id', 'b.capability', 'r.resource_type', 'ra.collection_enabled', 'ra.collection_status', 'ra.collection_error']);
+        $types = [];
+        foreach ($accounts as $account) {
+            if ($account->external_resource_id !== null) {
+                $types[(int) $account->external_resource_id] = (string) ($account->resource_type ?? $account->capability);
+            }
+        }
+        $lastData = LastDataDay::forResources($types);
+        $lastSpend = DormantAccountHint::lastGoogleAdsSpendByResource(array_keys(array_filter($types, fn (string $type): bool => $type === 'google_ads')));
+        $byAsset = $accounts->groupBy(fn (object $account): int => (int) $account->digital_asset_id);
 
-                return (string) ($b->externalResource?->resource_type ?? $b->capability).($through !== null ? ' (veri '.substr((string) $through, 0, 10).')' : ' (veri yok)');
-            })->all();
-            $lines[] = '- '.$asset->type.': '.($asset->primary_url ?: $asset->domain ?: $asset->name).($accounts !== [] ? ' — '.implode(', ', $accounts) : '');
+        return $assets->map(function (DigitalAsset $asset) use ($byAsset, $lastData, $lastSpend): string {
+            $parts = ($byAsset->get((int) $asset->id) ?? collect())
+                ->map(fn (object $account): string => $this->accountLine($account, $lastData, $lastSpend))->all();
+
+            return '- '.$asset->type.': '.($asset->primary_url ?: $asset->domain ?: $asset->name).($parts !== [] ? ' — '.implode(', ', $parts) : '');
+        })->implode("\n");
+    }
+
+    /**
+     * One bound account: "google_ads (son veri 2026-10-03 · çekim durdu: Son toplama başarısız)".
+     *
+     * @param  array<int, string>  $lastData  resource id => last data day
+     * @param  array<int, string>  $lastSpend  resource id => last Google Ads spend day
+     */
+    private function accountLine(object $account, array $lastData, array $lastSpend): string
+    {
+        $type = (string) ($account->resource_type ?? $account->capability);
+        if (LastDataDay::table($type) === null) {
+            return $type;
+        }
+        $resourceId = (int) $account->external_resource_id;
+        $notes = [isset($lastData[$resourceId]) ? 'son veri '.$lastData[$resourceId] : 'veri yok', $this->collectionStop($account)];
+        if ($type === 'google_ads') {
+            $notes[] = DormantAccountHint::text($lastSpend[$resourceId] ?? null);
         }
 
-        return implode("\n", $lines) ?: 'Bağlı varlık yok.';
+        return $type.' ('.implode(' · ', array_filter($notes)).')';
+    }
+
+    /** Why the account's automatic collection is not running (short Turkish, never the raw code), or null while it runs. */
+    private function collectionStop(object $account): ?string
+    {
+        if ($account->collection_enabled === null) {
+            return null;
+        }
+        if (! (bool) $account->collection_enabled) {
+            return 'otomatik çekim kapalı';
+        }
+        $reason = filled($account->collection_error) ? self::reasonLabel((string) $account->collection_error) : null;
+        if ($account->collection_status === 'attention') {
+            return 'çekim durdu'.($reason !== null ? ': '.$reason : '');
+        }
+
+        return $reason !== null ? 'yeniden denenecek: '.$reason : null;
+    }
+
+    /** The short data-status wording of a collection stop reason; an unknown code gets the error explainer's problem line. */
+    private static function reasonLabel(string $code): string
+    {
+        $key = 'data_status.reasons.'.$code;
+        $label = __($key, [], 'tr');
+
+        return is_string($label) && $label !== $key ? $label : CollectionErrorExplainer::explain($code)['problem'];
     }
 
     /** Every service with all its mapped pages, the hub (most general page) first; ★ = main service. */

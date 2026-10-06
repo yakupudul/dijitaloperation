@@ -2,18 +2,24 @@
 
 namespace Tests\Feature\Alerts;
 
+use App\Enums\Collection\ActivityTier;
+use App\Enums\Collection\CollectionRunStatus;
 use App\Enums\DigitalAssetStatus;
 use App\Models\AssetAlert;
 use App\Models\Brand;
+use App\Models\Collection\CollectionResourceRun;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Models\ResourceActivity;
+use App\Models\ResourceAutomation;
 use App\Models\User;
 use App\Services\Alerts\AssetAlertScanner;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
+use App\Services\Operator\AssetRuntimeStatusReader;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\Google\GoogleScopes;
 use App\Support\Roles;
@@ -123,6 +129,100 @@ final class AssetAlertScannerTest extends TestCase
         $this->get(route('operator.gbp', ['assetId' => $gbp->id]))->assertOk()->assertSee('Yanıtsız düşük puanlı yorum')->assertSee('data-asset-alerts', false);
         // Step 3: asset alerts left the home screen (Bugün); they stay on the asset page.
         $this->get(route('operator.website', ['assetId' => $site->id]))->assertOk()->assertSee('Google arama tıklamaları düştü');
+    }
+
+    public function test_an_idle_ga4_property_collected_weekly_is_judged_by_the_weekly_interval(): void
+    {
+        [$idle, $idleProperty] = $this->collectedAccount('ga4', 5, ActivityTier::Idle);
+        [$active] = $this->collectedAccount('ga4', 5);
+
+        app(AssetAlertScanner::class)->scanAll();
+
+        $this->assertNotContains('ga4_stale', $this->openKinds($idle), 'idle: weekly interval + 3 days');
+        $this->assertNotContains('stale_data', $this->openKinds($idle));
+        $this->assertContains('ga4_stale', $this->openKinds($active), 'active: daily interval + 3 days');
+
+        $this->collected($idleProperty, 11);
+        app(AssetAlertScanner::class)->scanAll();
+
+        $this->assertContains('ga4_stale', $this->openKinds($idle), 'idle past the weekly interval + 3 days');
+        $this->assertContains('stale_data', $this->openKinds($idle));
+    }
+
+    public function test_stale_data_gives_a_weekly_collected_google_ads_account_the_weekly_interval(): void
+    {
+        [$idle, $idleAccount] = $this->collectedAccount('google_ads', 4, ActivityTier::Dormant);
+        [$active] = $this->collectedAccount('google_ads', 4);
+        $scan = function (DigitalAsset $asset): array {
+            // The budget watch path: a runtime row, the bound accounts read by the scanner itself.
+            app(AssetAlertScanner::class)->scan($asset, app(AssetRuntimeStatusReader::class)->forAssets(collect([$asset]))[(int) $asset->id]);
+
+            return $this->openKinds($asset);
+        };
+
+        $this->assertNotContains('stale_data', $scan($idle), 'dormant: 72 hours + one week');
+        $this->assertContains('stale_data', $scan($active), 'active: 72 hours');
+        $this->assertStringContainsString('(72 saatten eski)', (string) AssetAlert::query()->open()->where('digital_asset_id', $active->id)->where('kind', 'stale_data')->value('message'));
+
+        $this->collected($idleAccount, 11);
+        $this->assertContains('stale_data', $scan($idle), 'missed its weekly pass');
+        $this->assertStringContainsString('240 saatten eski; hesapta etkinlik olmadığı için haftada bir çekiliyor', (string) AssetAlert::query()->open()->where('digital_asset_id', $idle->id)->where('kind', 'stale_data')->value('message'));
+    }
+
+    public function test_stale_data_skips_accounts_not_collected_on_purpose_but_not_one_to_reconnect(): void
+    {
+        [$off] = $this->collectedAccount('google_ads', 5, automation: ['collection_enabled' => false]);
+        [$manager] = $this->collectedAccount('google_ads', 5, metadata: ['is_manager' => true]);
+        [$reconnect, $reconnectAccount] = $this->collectedAccount('google_ads', 5);
+        $reconnectAccount->update(['status' => CoreExternalResource::STATUS_UNAVAILABLE]);
+
+        $this->artisan('moxdop:alerts:scan')->assertSuccessful();
+
+        $this->assertNotContains('stale_data', $this->openKinds($off), 'automatic collection switched off');
+        $this->assertNotContains('stale_data', $this->openKinds($manager), 'manager account: data comes from its client accounts');
+        $this->assertContains('stale_data', $this->openKinds($reconnect), 'its data really stopped');
+    }
+
+    /** @return list<string> */
+    private function openKinds(DigitalAsset $asset): array
+    {
+        return AssetAlert::query()->open()->where('digital_asset_id', $asset->id)->pluck('kind')->all();
+    }
+
+    /**
+     * A new asset with one bound account, its automation (daily interval) last successful `$daysAgo` days back and,
+     * when given, its activity tier.
+     *
+     * @param  array<string, mixed>  $automation
+     * @param  array<string, mixed>  $metadata
+     * @return array{0: DigitalAsset, 1: CoreExternalResource}
+     */
+    private function collectedAccount(string $type, int $daysAgo, ?ActivityTier $tier = null, array $automation = [], array $metadata = []): array
+    {
+        $asset = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => $type === 'ga4' ? 'website' : $type, 'status' => DigitalAssetStatus::Active,
+            'name' => $type.' '.fake()->unique()->numberBetween(1, 9999)]);
+        $resource = CoreExternalResource::factory()->create([
+            'integration_id' => $this->integration->id, 'provider' => 'google', 'resource_type' => $type,
+            'external_id' => ($type === 'ga4' ? 'properties/' : '').fake()->unique()->numerify('##########'), 'status' => CoreExternalResource::STATUS_AVAILABLE,
+            'metadata' => $metadata + ['currency' => 'TRY'],
+        ]);
+        CoreAssetBinding::factory()->create(['digital_asset_id' => $asset->id, 'external_resource_id' => $resource->id, 'capability' => $type, 'status' => CoreAssetBinding::STATUS_ACTIVE]);
+        ResourceAutomation::query()->create($automation + ['external_resource_id' => $resource->id, 'collection_enabled' => true, 'interval_days' => 1]);
+        $this->collected($resource, $daysAgo);
+        if ($tier !== null) {
+            ResourceActivity::query()->create(['external_resource_id' => $resource->id, 'provider' => $type === 'ga4' ? 'GA4' : 'GOOGLE_ADS', 'tier' => $tier]);
+        }
+
+        return [$asset, $resource];
+    }
+
+    /** The account's last successful collection (automation and resource run) `$daysAgo` days back. */
+    private function collected(CoreExternalResource $resource, int $daysAgo): void
+    {
+        ResourceAutomation::query()->where('external_resource_id', $resource->id)->update(['last_collection_success_at' => now()->subDays($daysAgo)]);
+        CollectionResourceRun::query()->where('external_resource_id', $resource->id)->delete();
+        CollectionResourceRun::factory()->create(['external_resource_id' => $resource->id, 'provider_or_source' => $resource->resource_type === 'ga4' ? 'GA4' : 'GOOGLE_ADS',
+            'status' => CollectionRunStatus::Completed, 'finished_at' => now()->subDays($daysAgo)]);
     }
 
     /** @return array{0: DigitalAsset, 1: CoreExternalResource} */

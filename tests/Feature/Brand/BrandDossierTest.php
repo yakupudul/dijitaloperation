@@ -9,25 +9,34 @@ use App\Models\BrandClusterPage;
 use App\Models\BrandIntelligenceContext;
 use App\Models\BrandMemory;
 use App\Models\Cluster;
+use App\Models\CoreAssetBinding;
+use App\Models\CoreExternalResource;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\OfferingPage;
 use App\Models\Page;
+use App\Models\ResourceAutomation;
 use App\Models\ServiceCategory;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\Brand\BrandDossier;
 use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\Catalog\ServiceCatalogService;
+use App\Services\Operator\BrandWorkspaceReadService;
 use App\Support\Roles;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
+use ReflectionMethod;
+use Tests\Support\InsertsFacts;
 use Tests\TestCase;
 
 /** Marka dosyası: one short file per brand, compiled without AI; section hashes tell an agent what changed. */
 final class BrandDossierTest extends TestCase
 {
+    use InsertsFacts;
     use RefreshDatabase;
 
     private User $admin;
@@ -140,5 +149,111 @@ final class BrandDossierTest extends TestCase
         $this->artisan('moxdop:brands:dossier')->assertSuccessful();
         $built = BrandMemory::query()->where('kind', BrandDossier::KIND)->pluck('brand_id')->all();
         $this->assertSame(Brand::query()->operational()->pluck('id')->all(), $built);
+    }
+
+    public function test_a_business_profile_reads_its_last_data_day_from_the_stored_rows(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-10-06 09:00:00'));
+        $profile = $this->boundAccount($this->brand, 'google_business_profile', ['collection_status' => 'current', 'data_through' => null]);
+        $this->insertFact('gbp_performance_daily', ['external_resource_id' => $profile->id, 'digital_asset_id' => null, 'reporting_date' => '2026-10-03',
+            'metric' => 'CALL_CLICKS', 'run_id' => 1, 'location_name' => 'locations/1', 'value' => 2, 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+
+        $section = app(BrandDossier::class)->build($this->brand)['sections']['assets']['markdown'];
+
+        $this->assertStringContainsString('google_business_profile (son veri 2026-10-03)', $section);
+        $this->assertStringNotContainsString('veri yok', $section);
+        $accounts = app(BrandWorkspaceReadService::class)->assets($this->brand)[0]['accounts'];
+        $this->assertTrue($accounts[0]['has_data'], 'the brand checklist counts stored rows as data too');
+    }
+
+    public function test_an_account_with_rows_but_a_stopped_collection_shows_both_and_one_without_rows_has_no_data(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-10-06 09:00:00'));
+        $ads = $this->boundAccount($this->brand, 'google_ads', ['collection_status' => 'attention', 'collection_error' => 'collection_failed', 'data_through' => null]);
+        $this->adsDay($ads, '2026-10-04', 120);
+        $this->boundAccount($this->brand, 'search_console');
+        $parked = $this->boundAccount($this->brand, 'google_ads', ['collection_status' => 'attention', 'collection_error' => 'not_enabled']);
+        $this->adsDay($parked, '2026-10-01', 15);
+        // Two failures out of three: the account waits for its own retry, so it is not a stop (ResourceAutomationService::fail).
+        $this->boundAccount($this->brand, 'ga4', ['collection_status' => 'waiting', 'collection_error' => 'collection_failed']);
+        $this->boundAccount($this->brand, 'meta_ads', ['collection_enabled' => false]);
+
+        $section = app(BrandDossier::class)->build($this->brand)['sections']['assets']['markdown'];
+
+        $this->assertStringContainsString('google_ads (son veri 2026-10-04 · çekim durdu: Son toplama başarısız)', $section);
+        $this->assertStringContainsString('google_ads (son veri 2026-10-01 · çekim durdu: Google Ads hesabı etkin değil (kapalı ya da askıda))', $section);
+        $this->assertStringContainsString('search_console (veri yok)', $section, 'no rows at all: veri yok');
+        $this->assertStringContainsString('ga4 (veri yok · yeniden denenecek: Son toplama başarısız)', $section, 'a retry pending is not a stop');
+        $this->assertStringContainsString('meta_ads (veri yok · otomatik çekim kapalı)', $section);
+        $this->assertStringNotContainsString('collection_failed', $section, 'never the raw code');
+    }
+
+    public function test_a_google_ads_account_that_stopped_spending_says_so(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-10-06 09:00:00'));
+        $ads = $this->boundAccount($this->brand, 'google_ads');
+        $this->adsDay($ads, '2026-08-01', 40);
+        $this->adsDay($ads, '2026-08-02', 0);
+        $recent = $this->boundAccount($this->brand, 'google_ads');
+        $this->adsDay($recent, '2026-10-04', 40);
+
+        $section = app(BrandDossier::class)->build($this->brand)['sections']['assets']['markdown'];
+
+        $this->assertStringContainsString('google_ads (son veri 2026-08-02 · hesap 2 aydır harcamasız (son harcama 2026-08-01) — doğru hesap bağlı mı?)', $section);
+        $this->assertStringContainsString('google_ads (son veri 2026-10-04)', $section, 'spending account: no note');
+        $this->assertSame(1, substr_count($section, 'harcamasız'));
+    }
+
+    public function test_the_assets_section_costs_the_same_queries_for_one_or_twenty_assets(): void
+    {
+        $small = Brand::factory()->create(['customer_id' => $this->brand->customer_id]);
+        $large = Brand::factory()->create(['customer_id' => $this->brand->customer_id]);
+        foreach ([[$small, 1], [$large, 20]] as [$brand, $count]) {
+            for ($i = 0; $i < $count; $i++) {
+                $this->adsDay($this->boundAccount($brand, 'google_ads', ['collection_status' => 'attention', 'collection_error' => 'collection_failed']), now()->subDays(2)->toDateString(), 10);
+            }
+        }
+        $assets = new ReflectionMethod(BrandDossier::class, 'assets');
+        $dossier = app(BrandDossier::class);
+        $assets->invoke($dossier, $small); // one-time schema checks are not per asset
+        $queries = function (Brand $brand) use ($assets, $dossier): int {
+            DB::flushQueryLog();
+            DB::enableQueryLog();
+            $section = $assets->invoke($dossier, $brand);
+            $count = count(DB::getQueryLog());
+            DB::disableQueryLog();
+            $this->assertStringContainsString('çekim durdu', $section);
+
+            return $count;
+        };
+
+        $this->assertSame($queries($small), $queries($large));
+    }
+
+    /**
+     * An account bound to a new asset of the brand, with its automation.
+     *
+     * @param  array<string, mixed>  $automation
+     */
+    private function boundAccount(Brand $brand, string $type, array $automation = []): CoreExternalResource
+    {
+        $asset = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => in_array($type, ['search_console', 'ga4'], true) ? 'website' : $type,
+            'primary_url' => null, 'domain' => null]);
+        $resource = CoreExternalResource::factory()->create(['resource_type' => $type, 'external_id' => $type.'/'.fake()->unique()->numerify('##########')]);
+        CoreAssetBinding::factory()->create(['digital_asset_id' => $asset->id, 'external_resource_id' => $resource->id, 'capability' => $type,
+            'status' => CoreAssetBinding::STATUS_ACTIVE]);
+        ResourceAutomation::query()->create($automation + ['external_resource_id' => $resource->id, 'collection_enabled' => true, 'collection_status' => 'current']);
+
+        return $resource;
+    }
+
+    private function adsDay(CoreExternalResource $resource, string $date, float $cost): void
+    {
+        $this->insertFact('google_ads_account_daily', [
+            'digital_asset_id' => null, 'external_resource_id' => $resource->id, 'customer_id' => (string) $resource->id, 'reporting_date' => $date,
+            'impressions' => 100, 'clicks' => 5, 'cost_micros' => (int) ($cost * 1_000_000), 'cost_amount' => $cost, 'conversions' => 0,
+            'currency' => 'TRY', 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+            'record_fingerprint' => hash('sha256', $resource->id.$date), 'metadata' => '{}', 'created_at' => now(), 'updated_at' => now(),
+        ]);
     }
 }
