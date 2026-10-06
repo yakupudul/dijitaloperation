@@ -15,6 +15,8 @@ use App\Models\User;
 use App\Services\Operations\ReleaseInfo;
 use App\Services\Operations\ScreenChecker;
 use App\Support\Roles;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -130,11 +132,46 @@ final class ImprovementPoolTest extends SiteTestCase
         $this->assertContains('/brands', $paths);
         $this->assertContains(route('operator.brand', $this->brand, false), $paths);
 
+        // The same queries, counted a second time next to the checker: db_ms and the kept patterns must be the
+        // screen's real queries, not a shape the test would accept empty.
+        $ownMs = 0.0;
+        $ownCount = 0;
+        $ownPatterns = [];
+        DB::listen(function (QueryExecuted $query) use (&$ownMs, &$ownCount, &$ownPatterns): void {
+            $ownMs += (float) $query->time;
+            $ownCount++;
+            $ownPatterns[mb_substr(ScreenChecker::normalize($query->sql), 0, 300)] = true;
+        });
         $result = $checker->check('/brands', $this->admin);
         $this->assertSame(200, $result['status'], (string) $result['error']);
         $this->assertNull($result['error']);
-        $this->assertStringContainsString('Panorama Ankara', (string) $result['outline'].' '.$this->get('/brands')->getContent());
         $this->assertGreaterThan(0, $result['queries']);
+        $this->assertSame($ownCount, $result['queries'], 'every query of the render is counted');
+        $this->assertSame((int) round($ownMs), $result['db_ms'], 'db_ms is the time those queries really took');
+        $this->assertGreaterThan(0, $result['db_ms'], 'the render spends measurable time in the database');
+        $this->assertLessThanOrEqual($result['duration_ms'], $result['db_ms']);
+        $this->assertGreaterThan(ScreenChecker::SLOW_PATTERNS, count($ownPatterns), 'the screen runs more query shapes than are kept');
+        $this->assertCount(ScreenChecker::SLOW_PATTERNS, $result['slow_queries'], 'the slowest patterns are kept, the rest dropped');
+        $this->assertSame($result['slow_queries'], collect($result['slow_queries'])->sortByDesc('ms')->values()->all(), 'slowest first');
+        foreach ($result['slow_queries'] as $slow) {
+            $this->assertArrayHasKey($slow['sql'], $ownPatterns, 'a kept pattern is a query the screen really ran');
+            $this->assertGreaterThanOrEqual(1, $slow['count']);
+            $this->assertIsFloat($slow['ms']);
+            $this->assertLessThanOrEqual(300, mb_strlen($slow['sql']));
+            $this->assertDoesNotMatchRegularExpression('/\(\?, \?/', $slow['sql'], 'IN lists collapse to one pattern');
+            if ($slow['frame'] !== null) {
+                $this->assertStringStartsNotWith('vendor/', $slow['frame']);
+                $this->assertStringNotContainsString('ScreenChecker.php', $slow['frame']);
+            }
+        }
+        $frames = array_filter(array_column($result['slow_queries'], 'frame'));
+        $this->assertNotSame([], array_filter($frames, fn (string $frame): bool => str_starts_with($frame, 'app/')), implode(', ', $frames));
+        $this->assertStringContainsString('Panorama Ankara', (string) $result['outline'].' '.$this->get('/brands')->getContent());
+        $again = $checker->check('/brands', $this->admin);
+        $this->assertLessThanOrEqual($result['queries'], $again['queries'], 'counters restart for every screen');
+        $this->assertLessThanOrEqual($again['queries'], array_sum(array_column($again['slow_queries'], 'count')));
+        $this->assertSame('select * from "brands" where "id" in (?, …) and "name" = ? limit ?', ScreenChecker::normalize("select * from \"brands\"\n where \"id\" in (?, ?, 3) and \"name\" = 'it''s' limit 10"));
+        $this->assertSame('insert into "x" ("a", "b") values (?, …) returning "id"', ScreenChecker::normalize('insert into "x" ("a", "b") values (1, 2), (3, 4), (5, 6) returning "id"'));
 
         $missing = $checker->check('/brands/999999', $this->admin);
         $this->assertSame(404, $missing['status']);
@@ -143,6 +180,12 @@ final class ImprovementPoolTest extends SiteTestCase
         $broken = ScreenCheck::query()->get()->filter(fn (ScreenCheck $check): bool => $check->failed())->map(fn (ScreenCheck $check): string => $check->path.' '.$check->status.' '.$check->error)->implode("\n");
         $this->assertSame(0, $failed, $broken);
         $this->assertGreaterThan(20, ScreenCheck::query()->count());
+        $stored = ScreenCheck::query()->where('path', '/brands')->sole();
+        $this->assertNotNull($stored->db_ms);
+        $this->assertIsArray($stored->slow_queries);
+        $this->assertNotSame([], $stored->slow_queries);
+        MoxdopServer::tool(ScreenChecks::class)->assertOk()->assertSee('db_ms');
+        MoxdopServer::tool(ScreenChecks::class, ['path' => '/brands'])->assertOk()->assertSee('slow_queries')->assertSee($stored->slow_queries[0]['frame'] ?? 'frame');
 
         ScreenCheck::query()->updateOrCreate(['path' => '/brands'], ['label' => 'Markalar', 'status' => 500, 'duration_ms' => 120, 'queries' => 12,
             'error' => 'TypeError: x @ app/Foo.php:10', 'outline' => '# Markalar', 'checked_at' => now()]);

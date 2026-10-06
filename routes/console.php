@@ -14,6 +14,7 @@ use App\Jobs\Meta\SyncMetaSuggestionsJob;
 use App\Jobs\Ops\QueueHeartbeatProbeJob;
 use App\Jobs\Queries\QueryAutopilotJob;
 use App\Jobs\RefreshBrandCandidatesJob;
+use App\Jobs\RefreshDataCenterSummaryJob;
 use App\Jobs\Site\PullClarityJob;
 use App\Models\AiLiveOperation;
 use App\Models\Brand;
@@ -576,6 +577,12 @@ Schedule::command('moxdop:retention --apply')
     ->monthlyOn(2, '04:10')
     ->withoutOverlapping(720)
     ->name('data-retention');
+
+// Veri merkezi: the row counts of every source (full table counts) are counted hourly on the background queue; the
+// screen reads them from the cache. An erase counts again at once.
+Schedule::job(RefreshDataCenterSummaryJob::class)
+    ->hourlyAt(41)
+    ->name('data-center-summary');
 
 Artisan::command('moxdop:ownership:integrity {--fix : Disable extra / orphan bindings}', function (): void {
     $integrity = app(OwnershipIntegrity::class);
