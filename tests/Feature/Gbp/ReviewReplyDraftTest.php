@@ -4,6 +4,7 @@ namespace Tests\Feature\Gbp;
 
 use App\Ai\Agents\ReviewReplyAgent;
 use App\Enums\DigitalAssetStatus;
+use App\Jobs\DraftReviewReplyJob;
 use App\Livewire\Operator\Gbp\Desk\ReviewsPage;
 use App\Models\AiProduction;
 use App\Models\Brand;
@@ -22,6 +23,7 @@ use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -77,6 +79,24 @@ final class ReviewReplyDraftTest extends TestCase
         $this->assertSame(1, AiProduction::query()->where('kind', ReviewReplyDrafter::KIND)->count());
         $this->assertSame((string) app(PromptRegistry::class)->current(AiRouteKeys::GBP_REVIEW_REPLY)->id,
             AiProduction::query()->where('kind', ReviewReplyDrafter::KIND)->value('prompt_version'), 'the registry prompt version is archived');
+    }
+
+    public function test_one_click_drafts_more_than_thirty_selected_reviews(): void
+    {
+        // yakup, 2026-10-06: 200+ selected reviews, only 30 drafts were asked.
+        Queue::fake();
+        $run = (int) DB::table('gbp_reviews')->value('run_id');
+        for ($i = 0; $i < 40; $i++) {
+            DB::table('gbp_reviews')->insert(['digital_asset_id' => null, 'external_resource_id' => $this->location->id, 'location_name' => 'locations/1', 'run_id' => $run,
+                'review_id' => 'bulk'.$i, 'star_rating' => 'FIVE', 'comment' => 'Memnun kaldım '.$i, 'create_time' => now()->subDays(20 + $i), 'reviewer' => json_encode(['displayName' => 'Ali']),
+                'review_reply' => null, 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        }
+
+        Livewire::test(ReviewsPage::class, ['asset' => $this->asset->id])
+            ->call('pick', 'visible')
+            ->call('draftSelected')
+            ->assertSee('41 yorum için yanıt taslağı yazılıyor');
+        Queue::assertPushed(DraftReviewReplyJob::class, 41);
     }
 
     public function test_liked_replies_become_examples_for_the_brand(): void

@@ -189,7 +189,8 @@ final class ReviewsPage extends Component
         abort_unless($this->canWrite(), 403);
         $picked = $this->picked($desk);
         $queued = $desk->draftAll($picked !== [] ? $picked : $this->reviews($desk));
-        $this->say($queued > 0 ? $queued.' yorum için yanıt taslağı yazılıyor; hazır olanlar kartlarda görünür.' : 'Seçilenlerin hepsinin taslağı ya da yanıtı var.');
+        $more = $queued >= ReviewDesk::DRAFT_BATCH ? ' Bir seferde en fazla '.ReviewDesk::DRAFT_BATCH.' taslak istenir; kalanlar için bitince yeniden basın.' : '';
+        $this->say($queued > 0 ? $queued.' yorum için yanıt taslağı yazılıyor; hazır olanlar kartlarda görünür.'.$more : 'Seçilenlerin hepsinin taslağı ya da yanıtı var.');
     }
 
     /**

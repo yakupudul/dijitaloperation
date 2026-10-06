@@ -42,7 +42,7 @@ final class ReviewReplyDrafter
         if ($this->routes->resolve(AiRouteKeys::GBP_REVIEW_REPLY)->isEmpty()) {
             throw ValidationException::withMessages(['reply' => 'Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu (Ayarlar → AI).']);
         }
-        Cache::put($this->stateKey((int) $review->id), 'running', now()->addMinutes(10));
+        Cache::put($this->stateKey((int) $review->id), 'running', now()->addMinutes(60));
         DraftReviewReplyJob::dispatch((int) $review->id);
     }
 
