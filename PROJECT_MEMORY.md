@@ -1969,6 +1969,8 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   kuralı yalnız silme / düzenleme / birincil kategori için geçerli. Ekleme MoxDOP'tan: operatör listeyi yazar, AI Google'ın
   kategori listesi ve hazır hizmet türleriyle hazırlar (uydurma kimlik atılır), Admin "Gönder"e basar; yazma canlı profili
   okuyup yalnız ekler, geri alma yalnız eklenenleri çıkarır. (Açıklama, saatler, fotoğraflar ADR-079 ile MoxDOP'tan.)
+  "Aynı sektördeki işletmelerden getir" (2026-10-06): yalnız MoxDOP'un yönettiği aynı sektör profillerinden kategori ve
+  hizmet ADLARI alınır, açıklamaları asla; açıklamayı AI bu marka için yazar.
 - **İşletme gönderileri otomatik plan (yakup, 2026-10-06, ADR-078):** Markaya bağlı her İşletme Profili kaydı için
   günde 1 gönderi, 30 gün önceden sırayla; içerik markanın sitesindeki hizmet / lokasyon / blog sayfalarından (AI yalnız
   sayfadaki bilgiyle yazar, görsel sayfanın öne çıkan görseli). Admin planı ayda bir toplu onaylar; onaylı gönderi günü

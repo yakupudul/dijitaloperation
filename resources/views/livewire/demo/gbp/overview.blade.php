@@ -373,6 +373,56 @@
                 default => ['9 ek kategori sınırı dolu', 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'],
             };
         @endphp
+        @if ($peerFound !== null)
+            <section class="{{ $card }} mb-4 space-y-3" data-testid="gbp-peers">
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                        <p class="font-semibold text-gray-900 dark:text-white">Aynı sektördeki işletmeler ({{ $sectorName ?? 'sektör' }})</p>
+                        <p class="mt-0.5 text-xs text-gray-500">
+                            @if (isset($peerFound['error']))
+                                {{ $peerFound['error'] }}
+                            @elseif ($peerFound['peers'] === 0)
+                                Bu sektörde verisi toplanmış başka İşletme Profili yok.
+                            @else
+                                MoxDOP’taki {{ $peerFound['peers'] }} profilin ({{ \Illuminate\Support\Str::limit(implode(', ', $peerFound['brands']), 120) }}) kategori ve hizmetleri; bu profilde olanlar çıkarıldı, en çok kullanılan önce. Yalnız adlar alınır: açıklamaları “AI ile hazırla” bu marka için yeniden yazar.
+                            @endif
+                        </p>
+                    </div>
+                    <button type="button" wire:click="togglePeers" class="text-xs text-gray-500 hover:underline">Kapat</button>
+                </div>
+                @if (($peerFound['categories'] ?? []) !== [] || ($peerFound['services'] ?? []) !== [])
+                    <div class="flex flex-wrap gap-3 text-xs font-medium">
+                        <button type="button" wire:click="pickPeers('common')" class="text-brand-600 hover:underline">En az 2 işletmede olanları seç</button>
+                        <button type="button" wire:click="pickPeers('all')" class="text-brand-600 hover:underline">Hepsini seç</button>
+                        <button type="button" wire:click="pickPeers('none')" class="text-gray-500 hover:underline">Seçimi temizle</button>
+                    </div>
+                    <div class="grid gap-4 lg:grid-cols-3">
+                        <div>
+                            <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Kategoriler ({{ count($peerFound['categories']) }})</p>
+                            @forelse ($peerFound['categories'] as $row)
+                                <label class="flex items-center gap-2 py-0.5 text-sm" wire:key="peer-{{ $row['key'] }}"><input type="checkbox" wire:model.live="peerPick" value="{{ $row['key'] }}" class="rounded border-gray-300"> <span class="min-w-0 flex-1">{{ $row['name'] }}</span> <span class="text-xs tabular-nums text-gray-400">{{ $row['count'] }} işletme</span></label>
+                            @empty
+                                <p class="text-xs text-gray-500">Profilde olmayan kategori yok.</p>
+                            @endforelse
+                        </div>
+                        <div class="lg:col-span-2">
+                            <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Hizmetler ({{ count($peerFound['services']) }})</p>
+                            <div class="max-h-96 overflow-y-auto pr-1 sm:columns-2">
+                                @forelse ($peerFound['services'] as $row)
+                                    <label class="flex break-inside-avoid items-center gap-2 py-0.5 text-sm" wire:key="peer-{{ $row['key'] }}"><input type="checkbox" wire:model.live="peerPick" value="{{ $row['key'] }}" class="rounded border-gray-300"> <span class="min-w-0 flex-1">{{ $row['name'] }}@if ($row['category'] !== '') <span class="text-xs text-gray-400">· {{ $row['category'] }}</span>@endif</span> <span class="text-xs tabular-nums text-gray-400">{{ $row['count'] }}</span></label>
+                                @empty
+                                    <p class="text-xs text-gray-500">Profilde olmayan hizmet yok.</p>
+                                @endforelse
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button type="button" wire:click="addPeers" @disabled($peerPick === []) class="{{ $primary }}">Seçilenleri listeye ekle ({{ count($peerPick) }})</button>
+                        <span class="text-xs text-gray-500">Liste kutularına eklenir; sonra “AI ile hazırla” Google’a uygun hale getirir ve açıklamaları yazar.</span>
+                    </div>
+                @endif
+            </section>
+        @endif
         <div class="grid gap-4 xl:grid-cols-5" data-testid="gbp-services">
             <section class="{{ $card }} space-y-3 xl:col-span-2">
                 <div class="text-sm">
@@ -385,7 +435,8 @@
                     <textarea wire:model="wantCategories" rows="3" placeholder="Ortodontist&#10;Ağız ve diş sağlığı kliniği" class="mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900"></textarea>
                 </label>
                 <label class="block text-sm"><span class="flex items-center justify-between text-xs text-gray-500">Eklenecek hizmetler (her satıra bir, en çok 80)
-                        <button type="button" wire:click="fillFromOfferings" class="font-medium text-brand-600 hover:underline">Marka hizmetlerinden doldur</button></span>
+                        <span class="flex gap-3"><button type="button" wire:click="fillFromOfferings" class="font-medium text-brand-600 hover:underline">Marka hizmetlerinden doldur</button>
+                        <button type="button" wire:click="togglePeers" class="font-medium text-brand-600 hover:underline">Aynı sektördeki işletmelerden getir</button></span></span>
                     <textarea wire:model="wantServices" rows="10" placeholder="Diş implantı&#10;Zirkonyum kaplama&#10;&#10;ya da yapıştır:&#10;**Diş Kliniği**&#10;| Hizmet | Açıklama |&#10;|---|---|&#10;| Gülüş Tasarımı | … |" class="mt-1 w-full rounded-lg border-gray-300 font-mono text-xs dark:border-gray-700 dark:bg-gray-900"></textarea>
                     <span class="mt-1 block text-xs text-gray-500">Liste yapıştırabilirsiniz: kalın başlık (ya da “Başlık:”) kategori olur, altındaki tablo satırları (Hizmet | Açıklama, Excel’den sekmeli de olur) o kategorinin hizmetleri olur; açıklamanız aynen kullanılır.</span>
                 </label>

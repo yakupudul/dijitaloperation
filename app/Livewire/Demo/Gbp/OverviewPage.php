@@ -17,6 +17,7 @@ use App\Services\Async\AsyncOperationService;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\GbpAssistant;
 use App\Services\Gbp\GbpDailyWorkspace;
+use App\Services\Gbp\GbpPeerProfiles;
 use App\Services\Gbp\GbpPostQueue;
 use App\Services\Gbp\GbpProfilePlanner;
 use App\Services\Gbp\GbpScreen;
@@ -33,6 +34,7 @@ use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use RuntimeException;
 
 /**
  * İşletme Profili (Faz 7): Genel Bakış · Yapılacaklar · Yorumlar · Gönderiler · Kategori ve hizmetler · Analiz · Ayarlar
@@ -85,6 +87,12 @@ class OverviewPage extends Component
     public string $wantCategories = '';
 
     public string $wantServices = '';
+
+    /** "Aynı sektördeki işletmelerden getir" panel and its picked rows (GbpPeerProfiles keys). */
+    public bool $peerOpen = false;
+
+    /** @var list<string> */
+    public array $peerPick = [];
 
     /** Plan rows chosen to send. @var list<string> category ids */
     public array $pickCategories = [];
@@ -315,6 +323,50 @@ class OverviewPage extends Component
         $this->wantServices = ltrim(rtrim($this->wantServices)."\n".implode("\n", $missing));
     }
 
+    public function togglePeers(): void
+    {
+        $this->peerOpen = ! $this->peerOpen;
+        $this->peerPick = [];
+    }
+
+    /** Picks all rows, those used by at least two profiles, or none. */
+    public function pickPeers(string $mode, GbpPeerProfiles $peers): void
+    {
+        $found = $this->peerFound($peers);
+        $rows = [...$found['categories'], ...$found['services']];
+        $this->peerPick = $mode === 'none' ? [] : array_values(array_column(array_filter($rows, fn (array $r): bool => $mode === 'all' || $r['count'] >= 2), 'key'));
+    }
+
+    /** Adds the picked category and service names to the boxes (names only: AI writes this brand's descriptions). */
+    public function addPeers(GbpPeerProfiles $peers, GbpDailyWorkspace $daily): void
+    {
+        $found = $this->peerFound($peers);
+        $resource = $daily->resource($this->asset());
+        $boxes = GbpPeerProfiles::boxes($found, $this->peerPick, $peers->profile($resource?->id !== null ? (int) $resource->id : null)['categories']);
+        if ($boxes['categories'] === [] && $boxes['services'] === '') {
+            DemoState::flash('Eklenecek satır seçin.', 'error');
+
+            return;
+        }
+        $typedCategories = array_map(fn (string $c): string => SeoText::fold($c), GbpProfilePlanner::lines($this->wantCategories, 100));
+        $newCategories = array_filter($boxes['categories'], fn (string $c): bool => ! in_array(SeoText::fold($c), $typedCategories, true));
+        $this->wantCategories = trim(rtrim($this->wantCategories)."\n".implode("\n", $newCategories));
+        $this->wantServices = trim(rtrim($this->wantServices)."\n\n".$boxes['services']);
+        $this->peerOpen = false;
+        $this->peerPick = [];
+        DemoState::flash(count($boxes['categories']).' kategori ve seçilen hizmetler listeye eklendi. Açıklamalar diğer işletmelerden alınmadı; “AI ile hazırla” bu marka için yazar.', 'info');
+    }
+
+    /** @return array{peers: int, brands: list<string>, categories: list<array<string, mixed>>, services: list<array<string, mixed>>} */
+    private function peerFound(GbpPeerProfiles $peers): array
+    {
+        try {
+            return $peers->collect($this->asset());
+        } catch (RuntimeException $exception) {
+            return ['peers' => 0, 'brands' => [], 'categories' => [], 'services' => [], 'error' => $exception->getMessage()];
+        }
+    }
+
     public function preparePlan(GbpAssistant $assistant): void
     {
         $this->queueAssistant($assistant, GbpAssistant::OP_PROFILE, GbpProfilePlanner::parse($this->wantCategories, $this->wantServices));
@@ -361,6 +413,7 @@ class OverviewPage extends Component
         $assetId = (int) $asset->id;
         $reviewList = $this->tab === 'reviews' && $resourceId !== null ? $daily->reviews($resourceId, '', $this->unanswered) : [];
         $plan = $this->tab === 'services' ? $this->syncPlan(app(GbpProfilePlanner::class)->latest($asset)) : null;
+        $peerFound = $this->tab === 'services' && $this->peerOpen ? $this->peerFound(app(GbpPeerProfiles::class)) : null;
 
         return view('livewire.demo.gbp.overview', [
             'asset' => $this->presentCanonicalAsset(),
@@ -372,6 +425,7 @@ class OverviewPage extends Component
             'sectorName' => $asset->sector()?->name,
             'operational' => (bool) $asset->brand?->isOperational(),
             'flash' => DemoState::pullFlash(),
+            'peerFound' => $peerFound,
             'canWrite' => ExternalWriteService::allowed(auth()->user(), ExternalWriteAction::CHANNEL_GBP),
             'numbers' => $this->tab === 'overview' ? $screen->overview($asset, $resourceId) : null,
             'openCount' => $asset->brand_id !== null ? $suggestions->open($asset)->count() : 0,
