@@ -2,8 +2,13 @@
 
 namespace Tests\Feature\Performance;
 
+use App\Jobs\CollectMetaGeoResultsJob;
+use App\Jobs\EraseSourceDataJob;
 use App\Jobs\IntelligenceProjection\RebuildWebsiteProjectionJob;
 use App\Jobs\RunChannelAnalystJob;
+use App\Jobs\RunScheduledDiscoveryJob;
+use App\Jobs\Verification\RunDataConsistencyCheckJob;
+use App\Jobs\Verification\RunLiveVerificationJob;
 use App\Providers\AppServiceProvider;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\QueueRoutes;
@@ -158,6 +163,49 @@ final class QueueTopologyContractTest extends TestCase
         RebuildWebsiteProjectionJob::dispatch(7);
         Queue::assertPushedOn('default', RebuildWebsiteProjectionJob::class);
         $this->assertSame('redis:default', $this->productionDestination(new RebuildWebsiteProjectionJob(7), $production), 'onQueue() wins over a route');
+    }
+
+    /**
+     * Queue::route() reads a list as a class => queue map and ignores its second argument then: the production route
+     * must name each long job as a key. A class list with 'heavy' as the second argument routed nothing, so all six
+     * stayed on "default" and held its auto-scaling workers for up to 1500 s.
+     */
+    public function test_the_production_route_sends_every_long_job_to_the_heavy_queue(): void
+    {
+        $production = $this->productionConfig();
+        $this->app->instance('queue.routes', $routes = new QueueRoutes);
+        $this->useProductionQueueConfig($production);
+        $long = [
+            RunScheduledDiscoveryJob::class,
+            EraseSourceDataJob::class,
+            CollectMetaGeoResultsJob::class,
+            RunLiveVerificationJob::class,
+            RunDataConsistencyCheckJob::class,
+            RunChannelAnalystJob::class,
+        ];
+
+        $this->assertSame($long, array_keys($routes->all()), 'the route table is keyed by class name');
+        foreach ($long as $class) {
+            $job = $this->instantiate($class);
+            $this->assertSame('heavy', Queue::resolveQueueFromQueueRoute($job), $class);
+            $this->assertSame('redis:heavy', $this->productionDestination($job, $production), $class);
+        }
+
+        Queue::fake();
+        RunLiveVerificationJob::dispatch();
+        Queue::assertPushedOn('heavy', RunLiveVerificationJob::class);
+        RunChannelAnalystJob::dispatch(3);
+        Queue::assertPushedOn('heavy', RunChannelAnalystJob::class, fn (RunChannelAnalystJob $job): bool => $job->runId === 3);
+    }
+
+    public function test_without_redis_no_job_is_routed_away_from_the_default_queue(): void
+    {
+        $this->app->instance('queue.routes', $routes = new QueueRoutes);
+        config(['queue.default' => 'database']);
+
+        (new ReflectionMethod(AppServiceProvider::class, 'routeHeavyJobs'))->invoke($this->app->getProvider(AppServiceProvider::class));
+
+        $this->assertSame([], $routes->all(), 'the database worker only reads "default"');
     }
 
     public function test_deploy_runs_horizon_under_supervisor_with_a_stop_window_longer_than_any_job(): void

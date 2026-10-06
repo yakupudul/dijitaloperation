@@ -7,6 +7,7 @@ use App\Services\Opportunities\OpportunityEvaluationService;
 use App\Support\ServiceScope;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\TimeoutExceededException;
 use Throwable;
 
 /**
@@ -48,8 +49,15 @@ class EvaluateOpportunitiesForAssetJob implements ShouldQueue
         $evaluator->evaluateAsset($asset, ruleIds: $this->ruleIds, definitionIds: $this->definitionIds);
     }
 
+    /**
+     * The worker reports every exception an attempt throws (Worker::runJob), the last one included, so a final error
+     * is not reported again here. A timeout is the exception: the worker fails the job and kills itself without a
+     * report (Worker::registerTimeoutHandler), so only this report brings it to the error groups.
+     */
     public function failed(Throwable $exception): void
     {
-        report($exception);
+        if ($exception instanceof TimeoutExceededException) {
+            report($exception);
+        }
     }
 }
