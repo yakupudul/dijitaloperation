@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-06 — İşletme Profili: yorum yanıtı ve gönderi metinleri, gönderide Google iç hatası
+
+- **Neden (yakup):** "Yorum taslakları profesyonel bir işletme sahibi gözüyle nasıl?" ve Panorama Ankara'da siteden gönderide "İşletme Profili: Internal error encountered."
+- **Yorum yanıtı (`gbp-review-reply-v2`):** 1–3 cümle, yalnız puan verilmiş yoruma tek kısa cümle; yorumcunun yazdığı somut bir şeyi (adını verdiği hekim / çalışan, hizmet) anar, yazmadığını eklemez; ad / unvan / "Bey" / "Hanım" tahmini yok; olumlu yoruma "iletişime geçin" yok; "Değerli yorumunuz için" ile ve markanın son taslaklarının ilk cümleleriyle (`recent_openings`, son 12) başlamaz.
+- **Gönderi (`gbp-post-from-page-v2`, `gbp-post-queue-v2`):** sayfayı anlatmaz ("… başlıklı blog sayfası", "bu yazıda" yok), okura ihtiyacı üzerinden yazar.
+- **Gönderi yazması:** Google 500 / "Internal error" verirse bir kez daha dener; görsel varsa ikinci deneme görselsizdir ve kartta "görselsiz yayımlandı" notu görünür. JPG / PNG olmayan görsel hiç gönderilmez (not düşer). İki iç hata üst üste: Türkçe neden.
+- **Canlıda:** ekrandan yayımlanmış istem varsa yeni varsayılan `moxdop:prompts:adopt-default` ya da AI işlemleri ekranından benimsenmelidir. Var olan taslaklar kendiliğinden değişmez; yeniden yazdırılmalı.
+- **State:** CODED + PHPUnit (`GbpWorkspaceTabsTest::test_post_whose_photo_google_cannot_take_goes_out_without_it`, `ReviewReplyDraftTest` son açılışlar). Gerçek Google'da denenmedi; hatanın kesin nedeni (görsel mi geçici mi) canlı veriden doğrulanmadı.
+
 ## 2026-10-06 — Ayarlar › Sürümler
 
 - **Neden (yakup):** "Çıkıp çıkmadığını görebileceğim bir yer planlayamaz mısın sistemde?"

@@ -16,6 +16,7 @@ use App\Models\Run;
 use App\Models\ServiceCategory;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\GbpScreen;
 use App\Services\Gbp\GbpSuggestions;
 use App\Support\Roles;
@@ -50,6 +51,9 @@ final class GbpWorkspaceTabsTest extends TestCase
     /** @var list<array{0: string, 1: string, 2: array<string, mixed>}> */
     private array $calls = [];
 
+    /** How many localPosts POSTs answer Google's "Internal error encountered." (HTTP 500) before one succeeds. */
+    private int $postFailures = 0;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -80,6 +84,12 @@ final class GbpWorkspaceTabsTest extends TestCase
         }
         Http::fake(function (Request $request) {
             $this->calls[] = [$request->method(), $request->url(), $request->data()];
+
+            if (str_contains($request->url(), 'localPosts') && $request->method() === 'POST' && $this->postFailures > 0) {
+                $this->postFailures--;
+
+                return Http::response(['error' => ['code' => 500, 'message' => 'Internal error encountered.', 'status' => 'INTERNAL']], 500);
+            }
 
             return str_contains($request->url(), 'localPosts') && $request->method() === 'POST'
                 ? Http::response(['name' => 'accounts/11/locations/22/localPosts/555', 'searchUrl' => 'https://g.co/post'])
@@ -161,6 +171,33 @@ final class GbpWorkspaceTabsTest extends TestCase
 
         $page->call('undoWrite', $action->id);
         $this->assertSame('undone', $action->fresh()->status);
+    }
+
+    public function test_post_whose_photo_google_cannot_take_goes_out_without_it(): void
+    {
+        $writes = app(ExternalWriteService::class);
+        // Google answers "Internal error encountered." once: the post goes again without the photo and says so.
+        $this->postFailures = 1;
+        $action = $writes->requestLocalPost($this->admin, $this->asset, ['summary' => 'Ankara’da diş hekimi arıyorsanız muayene için randevu alın.', 'url' => 'https://atlas.test/dis-hekimi/', 'image_url' => 'https://atlas.test/wp-content/uploads/kapak.jpg']);
+        $this->assertSame('succeeded', $action->fresh()->status);
+        $posts = array_values(array_filter($this->calls, fn (array $c): bool => $c[0] === 'POST' && str_contains($c[1], 'localPosts')));
+        $this->assertCount(2, $posts);
+        $this->assertSame('https://atlas.test/wp-content/uploads/kapak.jpg', $posts[0][2]['media'][0]['sourceUrl']);
+        $this->assertArrayNotHasKey('media', $posts[1][2]);
+        $this->assertStringContainsString('görselsiz yayımlandı', (string) data_get($action->fresh()->result, 'note'));
+
+        // A WebP photo is never sent: Google takes only JPG / PNG.
+        $this->calls = [];
+        $webp = $writes->requestLocalPost($this->admin, $this->asset, ['summary' => 'Hafta sonu da açığız.', 'image_url' => 'https://atlas.test/wp-content/uploads/kapak.webp']);
+        $this->assertSame('succeeded', $webp->fresh()->status);
+        $this->assertArrayNotHasKey('media', end($this->calls)[2]);
+        $this->assertStringContainsString('JPG / PNG', (string) data_get($webp->fresh()->result, 'note'));
+
+        // Two internal errors in a row: the post fails with a Turkish reason, nothing half-sent.
+        $this->postFailures = 2;
+        $failed = $writes->requestLocalPost($this->admin, $this->asset, ['summary' => 'Kontrol randevunuzu planlayın.']);
+        $this->assertSame('failed', $failed->fresh()->status);
+        $this->assertStringContainsString('iki deneme', (string) $failed->fresh()->error);
     }
 
     public function test_scheduled_post_waits_is_sent_when_due_and_can_be_cancelled(): void

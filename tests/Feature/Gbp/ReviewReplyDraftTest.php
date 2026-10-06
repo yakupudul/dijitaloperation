@@ -121,4 +121,23 @@ final class ReviewReplyDraftTest extends TestCase
         app(ProductionArchive::class)->rate($production, 1);
         $this->assertSame(['Değerli yorumunuz için teşekkürler.'], app(ProductionArchive::class)->likedExamples(ReviewReplyDrafter::KIND, (int) $this->asset->brand_id, 'reply'));
     }
+
+    public function test_the_brand_s_recent_openings_are_sent_so_a_batch_does_not_start_the_same_way(): void
+    {
+        $reviewId = (int) DB::table('gbp_reviews')->where('review_id', 'r1')->value('id');
+        AiProduction::query()->create(['kind' => ReviewReplyDrafter::KIND, 'subject_type' => 'GbpReview', 'subject_id' => $reviewId + 100, 'brand_id' => $this->asset->brand_id,
+            'version' => 1, 'content' => ['reply' => 'Değerli yorumunuz için çok teşekkür ederiz. Ekibimize ileteceğiz.'], 'content_hash' => str_repeat('c', 64), 'status' => AiProduction::STATUS_NEW]);
+        ReviewReplyAgent::fake([['reply' => 'Bekleme için üzgünüz; bize doğrudan ulaşırsanız çözelim.', 'tone' => 'apology']]);
+
+        app(ReviewReplyDrafter::class)->write($reviewId);
+
+        $prompts = [];
+        ReviewReplyAgent::assertPrompted(function ($prompt) use (&$prompts): bool {
+            $prompts[] = (string) $prompt->prompt;
+
+            return true;
+        });
+        $context = json_decode((string) preg_replace('/^REVIEW_JSON\n/', '', $prompts[0]), true);
+        $this->assertSame(['Değerli yorumunuz için çok teşekkür ederiz.'], $context['recent_openings']);
+    }
 }

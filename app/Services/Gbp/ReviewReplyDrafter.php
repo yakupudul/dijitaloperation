@@ -4,6 +4,7 @@ namespace App\Services\Gbp;
 
 use App\Ai\Agents\ReviewReplyAgent;
 use App\Jobs\DraftReviewReplyJob;
+use App\Models\AiProduction;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
@@ -107,7 +108,23 @@ final class ReviewReplyDrafter
             'review_text' => mb_substr((string) $review->comment, 0, 3000),
             'compliance' => $brand !== null ? app(SectorPackRegistry::class)->rulesForBrand($brand)->pluck('message')->unique()->values()->take(8)->all() : [],
             'liked_examples' => $brand !== null ? $this->archive->likedExamples(self::KIND, (int) $brand->id, 'reply') : [],
+            'recent_openings' => $brand !== null ? $this->recentOpenings((int) $brand->id, (int) $review->id) : [],
         ];
+    }
+
+    /**
+     * The first sentence of the brand's latest reply drafts (other reviews): the model must not open the same way, so
+     * replies drafted in one go do not all start with the same thank-you line.
+     *
+     * @return list<string>
+     */
+    private function recentOpenings(int $brandId, int $reviewId): array
+    {
+        return AiProduction::query()->where('kind', self::KIND)->where('brand_id', $brandId)
+            ->where(fn ($query) => $query->where('subject_id', '!=', $reviewId)->orWhere('subject_type', '!=', class_basename(GbpReview::class)))
+            ->orderByDesc('id')->limit(12)->get(['content'])
+            ->map(fn (AiProduction $row): string => mb_substr((string) preg_split('/(?<=[.!?])\s/u', trim((string) data_get($row->content, 'reply', '')))[0], 0, 120))
+            ->filter()->unique()->values()->all();
     }
 
     private function stateKey(int $reviewId): string
