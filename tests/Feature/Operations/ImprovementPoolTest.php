@@ -57,7 +57,7 @@ final class ImprovementPoolTest extends SiteTestCase
             ->assertSee('bash deploy/staging/deploy.sh')
             ->assertSee('Deploy tamamlandı')
             ->call('deployed', 'abc1234def')
-            ->assertSee('1 değişiklik deploy edildi');
+            ->assertSee('1 değişiklik canlıda olarak işaretlendi');
         $this->assertSame(SystemChange::DEPLOYED, $change->fresh()->status);
         Queue::assertPushed(RunScreenChecksJob::class);
 

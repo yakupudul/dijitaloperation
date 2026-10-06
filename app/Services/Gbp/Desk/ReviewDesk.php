@@ -27,8 +27,11 @@ final class ReviewDesk
 {
     public const int WINDOW_DAYS = 90;
 
-    /** At most this many drafts are asked in one click. */
-    public const int DRAFT_BATCH = 30;
+    /**
+     * At most this many drafts are asked in one click (yakup, 2026-10-06: 30 was too few for a profile with 200+
+     * unanswered reviews). The monthly AI budget still stops the queue; drafts run in the background.
+     */
+    public const int DRAFT_BATCH = 300;
 
     private const array STARS = ['ONE' => 1, 'TWO' => 2, 'THREE' => 3, 'FOUR' => 4, 'FIVE' => 5];
 
@@ -161,7 +164,7 @@ final class ReviewDesk
     }
 
     /**
-     * Asks AI drafts for the listed reviews that have none (at most 30 per click).
+     * Asks AI drafts for the listed reviews that have none (at most DRAFT_BATCH per click).
      *
      * @param  list<array<string, mixed>>  $reviews  unanswered() rows
      */

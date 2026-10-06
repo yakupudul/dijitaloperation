@@ -289,12 +289,34 @@ echo "connection={$connection} queue={$queue} depth=".Illuminate\Support\Facades
 # Record the live release so errors and the system health page can name it (storage/app/release.json).
 echo "deploy/staging: record release ${RELEASE_SHA}"
 mkdir -p storage/app
+PREV_RELEASE_SHA="$(grep -oE '"sha":"[0-9a-f]{40}"' storage/app/release.json 2>/dev/null | grep -oE '[0-9a-f]{40}' || true)"
 RELEASE_TMP="$(mktemp storage/app/.release.json.XXXXXX)"
 # Geliştirme havuzu ids named in the live commits ("(pool #12, #13)"), so the pool knows what is live.
 RELEASE_POOL="$(git log --format=%s -n 3000 HEAD 2>/dev/null | grep -oE 'pool #[0-9]+(, #[0-9]+)*' | grep -oE '[0-9]+' | sort -un | paste -sd, - || true)"
 printf '{"sha":"%s","deployed_at":"%s","pool":[%s]}\n' "${RELEASE_SHA}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${RELEASE_POOL}" > "${RELEASE_TMP}"
 chmod 0644 "${RELEASE_TMP}"
 mv -f "${RELEASE_TMP}" storage/app/release.json
+# Deploy history (Geliştirme havuzu › Sürümler): one JSON line per deploy with the commits it brought live
+# (previous release..HEAD; the last commit alone when the previous release is unknown or not an ancestor).
+DEPLOYED_COMMITS="$(mktemp storage/app/.deploy-commits.XXXXXX)"
+if [[ "${PREV_RELEASE_SHA}" =~ ^[0-9a-f]{40}$ && "${PREV_RELEASE_SHA}" != "${RELEASE_SHA}" ]] && git merge-base --is-ancestor "${PREV_RELEASE_SHA}" HEAD 2>/dev/null; then
+  git log --no-merges --format='%H%x09%cI%x09%s' -n 200 "${PREV_RELEASE_SHA}..HEAD" | tr -d '\r' > "${DEPLOYED_COMMITS}" || true
+else
+  git log --no-merges --format='%H%x09%cI%x09%s' -n 1 HEAD | tr -d '\r' > "${DEPLOYED_COMMITS}" || true
+fi
+php -r '
+[$file, $sha, $prev, $at] = array_slice($argv, 1);
+$commits = [];
+foreach (file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+    [$c, $t, $subject] = array_pad(explode("\t", $line, 3), 3, "");
+    $commits[] = ["sha" => $c, "at" => $t, "subject" => mb_substr($subject, 0, 200)];
+}
+$history = "storage/app/deploy-history.jsonl";
+$lines = is_file($history) ? file($history, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) : [];
+$lines[] = json_encode(["sha" => $sha, "previous" => $prev, "deployed_at" => $at, "commits" => $commits], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+file_put_contents($history, implode("\n", array_slice($lines, -60))."\n");
+' "${DEPLOYED_COMMITS}" "${RELEASE_SHA}" "${PREV_RELEASE_SHA}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" || echo "deploy/staging: WARNING — deploy history not written" >&2
+rm -f "${DEPLOYED_COMMITS}"
 
 restore_web_ownership
 php artisan up --no-interaction

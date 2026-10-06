@@ -19,11 +19,13 @@ final class WeeklyContentAgent extends SiteAgent
     {
         return [
             'items' => $schema->array()->items($schema->object(fn (JsonSchema $row): array => [
+                'language' => $row->string()->required(),
                 'title' => $row->string()->required(),
                 'kind' => $row->string()->enum(['new', 'update'])->required(),
                 'cluster_id' => $row->integer()->nullable()->required(),
                 'page_type' => $row->string()->enum(ContentPlanner::PAGE_TYPES)->required(),
                 'target_url' => $row->string()->nullable()->required(),
+                'angle' => $row->string()->enum(array_keys(ContentPlanner::ANGLES))->required(),
                 'outline' => $row->array()->items($row->string())->required(),
                 'questions' => $row->array()->items($row->string())->required(),
                 'reason' => $row->string()->required(),

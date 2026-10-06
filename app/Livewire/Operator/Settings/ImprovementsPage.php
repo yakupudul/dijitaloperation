@@ -4,6 +4,7 @@ namespace App\Livewire\Operator\Settings;
 
 use App\Models\ScreenCheck;
 use App\Models\SystemChange;
+use App\Services\Operations\AutoDeployStatus;
 use App\Services\Operations\ReleaseInfo;
 use App\Services\Operations\SystemChangeDesk;
 use App\Support\Roles;
@@ -127,7 +128,7 @@ final class ImprovementsPage extends Component
     {
         $this->authorizeAdmin();
         $marked = $desk->deployed($commit);
-        $this->message = $marked > 0 ? $marked.' değişiklik deploy edildi olarak işaretlendi; sayfalar yeniden taranıyor, Claude kontrol edecek.' : 'Bu commit için bekleyen değişiklik yok.';
+        $this->message = $marked > 0 ? $marked.' değişiklik canlıda olarak işaretlendi; sayfalar yeniden taranıyor, Claude canlıda doğrulayacak.' : 'Bu commit için bekleyen değişiklik yok.';
         $this->tab = 'kontrol';
     }
 
@@ -172,6 +173,7 @@ final class ImprovementsPage extends Component
             'groups' => $this->tab === 'deploy' ? $changes->groupBy('commit_sha') : collect(),
             'tabCounts' => collect(self::TABS)->map(fn (array $tab): int => collect($tab[1])->sum(fn (string $status): int => (int) ($counts[$status] ?? 0)))->all(),
             'release' => ReleaseInfo::current(),
+            'autoDeploy' => AutoDeployStatus::current(),
             'kinds' => SystemChange::query()->whereIn('status', self::TABS[$this->tab][1])->selectRaw('kind, count(*) as n')->groupBy('kind')->pluck('n', 'kind')->map(fn ($n): int => (int) $n)->all(),
             'screens' => ['total' => $screens->count(), 'failed' => $screens->filter(fn (ScreenCheck $check): bool => $check->failed())->count(),
                 'checked_at' => $screens->max('checked_at')],

@@ -12,15 +12,19 @@ use App\Models\CoreIntegrationCredential;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
+use App\Models\GbpQueuedPost;
 use App\Models\Run;
 use App\Models\ServiceCategory;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\Gbp\GbpPostQueue;
 use App\Services\Gbp\GbpScreen;
 use App\Services\Gbp\GbpSuggestions;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
@@ -49,6 +53,9 @@ final class GbpWorkspaceTabsTest extends TestCase
 
     /** @var list<array{0: string, 1: string, 2: array<string, mixed>}> */
     private array $calls = [];
+
+    /** How many localPosts POSTs answer Google's "Internal error encountered." (HTTP 500) before one succeeds. */
+    private int $postFailures = 0;
 
     protected function setUp(): void
     {
@@ -80,6 +87,12 @@ final class GbpWorkspaceTabsTest extends TestCase
         }
         Http::fake(function (Request $request) {
             $this->calls[] = [$request->method(), $request->url(), $request->data()];
+
+            if (str_contains($request->url(), 'localPosts') && $request->method() === 'POST' && $this->postFailures > 0) {
+                $this->postFailures--;
+
+                return Http::response(['error' => ['code' => 500, 'message' => 'Internal error encountered.', 'status' => 'INTERNAL']], 500);
+            }
 
             return str_contains($request->url(), 'localPosts') && $request->method() === 'POST'
                 ? Http::response(['name' => 'accounts/11/locations/22/localPosts/555', 'searchUrl' => 'https://g.co/post'])
@@ -161,6 +174,33 @@ final class GbpWorkspaceTabsTest extends TestCase
 
         $page->call('undoWrite', $action->id);
         $this->assertSame('undone', $action->fresh()->status);
+    }
+
+    public function test_post_whose_photo_google_cannot_take_goes_out_without_it(): void
+    {
+        $writes = app(ExternalWriteService::class);
+        // Google answers "Internal error encountered." once: the post goes again without the photo and says so.
+        $this->postFailures = 1;
+        $action = $writes->requestLocalPost($this->admin, $this->asset, ['summary' => 'Ankara’da diş hekimi arıyorsanız muayene için randevu alın.', 'url' => 'https://atlas.test/dis-hekimi/', 'image_url' => 'https://atlas.test/wp-content/uploads/kapak.jpg']);
+        $this->assertSame('succeeded', $action->fresh()->status);
+        $posts = array_values(array_filter($this->calls, fn (array $c): bool => $c[0] === 'POST' && str_contains($c[1], 'localPosts')));
+        $this->assertCount(2, $posts);
+        $this->assertSame('https://atlas.test/wp-content/uploads/kapak.jpg', $posts[0][2]['media'][0]['sourceUrl']);
+        $this->assertArrayNotHasKey('media', $posts[1][2]);
+        $this->assertStringContainsString('görselsiz yayımlandı', (string) data_get($action->fresh()->result, 'note'));
+
+        // A WebP photo is never sent: Google takes only JPG / PNG.
+        $this->calls = [];
+        $webp = $writes->requestLocalPost($this->admin, $this->asset, ['summary' => 'Hafta sonu da açığız.', 'image_url' => 'https://atlas.test/wp-content/uploads/kapak.webp']);
+        $this->assertSame('succeeded', $webp->fresh()->status);
+        $this->assertArrayNotHasKey('media', end($this->calls)[2]);
+        $this->assertStringContainsString('JPG / PNG', (string) data_get($webp->fresh()->result, 'note'));
+
+        // Two internal errors in a row: the post fails with a Turkish reason, nothing half-sent.
+        $this->postFailures = 2;
+        $failed = $writes->requestLocalPost($this->admin, $this->asset, ['summary' => 'Kontrol randevunuzu planlayın.']);
+        $this->assertSame('failed', $failed->fresh()->status);
+        $this->assertStringContainsString('iki deneme', (string) $failed->fresh()->error);
     }
 
     public function test_scheduled_post_waits_is_sent_when_due_and_can_be_cancelled(): void
@@ -295,5 +335,31 @@ final class GbpWorkspaceTabsTest extends TestCase
     {
         $dental = ServiceCategory::query()->firstOrCreate(['code' => 'dental'], ['name' => 'Diş sağlığı', 'normalized_key' => 'dis sagligi']);
         $this->asset->brand->forceFill(['sector_id' => $dental->id])->save();
+    }
+
+    public function test_posts_tab_is_a_30_day_calendar_of_the_automatic_plan(): void
+    {
+        $today = GbpPostQueue::today();
+        $make = fn (int $in, string $status, string $text): GbpQueuedPost => GbpQueuedPost::query()->create(['digital_asset_id' => $this->asset->id, 'brand_id' => $this->asset->brand_id,
+            'angle' => 'surec', 'publish_on' => $today->addDays($in)->toDateString(), 'summary' => $text, 'status' => $status]);
+        $draft = $make(1, GbpQueuedPost::DRAFT, 'İmplant tedavisi adım adım ilerler.');
+        $make(2, GbpQueuedPost::APPROVED, 'Zirkonyum kaplamada ilk muayene.');
+        $other = DigitalAsset::factory()->create(['brand_id' => $this->asset->brand_id, 'type' => 'google_business_profile']);
+        $foreign = GbpQueuedPost::query()->create(['digital_asset_id' => $other->id, 'brand_id' => $this->asset->brand_id, 'angle' => 'surec',
+            'publish_on' => $today->addDay()->toDateString(), 'summary' => 'Başka şubenin gönderisi.', 'status' => GbpQueuedPost::DRAFT]);
+
+        $page = $this->page('posts')->assertSeeHtml('data-post-calendar')->assertSeeHtml('data-calendar-day="'.$today->addDays(30)->toDateString().'"')
+            ->assertSee('İmplant tedavisi adım adım ilerler.')->assertSee('Süreç')->assertSee('1 onaylı')->assertSee('1 onay bekliyor')->assertSee('28 boş gün')
+            ->assertDontSee('Başka şubenin gönderisi.')->assertSee('Otomatik plan açık: her gün 1 gönderi.');
+
+        $page->call('approvePlanned', $draft->id);
+        $this->assertSame(GbpQueuedPost::APPROVED, $draft->fresh()->status);
+        try {
+            $this->page('posts')->call('approvePlanned', $foreign->id);
+        } catch (ModelNotFoundException) {
+        }
+        $this->assertSame(GbpQueuedPost::DRAFT, $foreign->fresh()->status, 'another location\'s post is not touched');
+        $this->page('posts')->call('skipPlanned', $draft->id);
+        $this->assertSame(GbpQueuedPost::SKIPPED, $draft->fresh()->status);
     }
 }

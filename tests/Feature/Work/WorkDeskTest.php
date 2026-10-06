@@ -119,8 +119,10 @@ class WorkDeskTest extends TestCase
         $draft = $this->suggestion('search', 'site', $this->site->id, 'content', 'İmplant bakımı', ['site_id' => $this->site->id, 'article' => ['title' => 'İmplant bakımı']], 3);
         $draft->forceFill(['status' => Suggestion::APPROVED])->save();
 
-        Livewire::test(WorkPage::class)->assertDontSee('2 hizmet bölgesi bulundu')->assertSee('Çakışma: implant')->assertSee('Ayrı kalsın')
-            ->assertDontSee('301 ile birleştir')->call('setStep', 'okunacak')->assertSee('İmplant bakımı')->assertSee('data-read="'.$draft->id.'"', false)
+        // Cluster overlaps have their own tab and no longer bury the content ideas.
+        Livewire::test(WorkPage::class)->assertDontSee('Çakışma: implant')->call('setTab', 'cakisma')->assertSee('Çakışma: implant')->assertSee('Ayrı kalsın')
+            ->assertDontSee('301 ile birleştir');
+        Livewire::test(WorkPage::class)->assertDontSee('2 hizmet bölgesi bulundu')->call('setStep', 'okunacak')->assertSee('İmplant bakımı')->assertSee('data-read="'.$draft->id.'"', false)
             ->call('setTab', 'kurulum')->assertSee('2 hizmet bölgesi bulundu')->assertSee('Onayla ve yap')->assertSee('Elle yap')
             ->assertSee('Doğru, bırak')->assertDontSee('wire:click="done('.$gap->id.')"', false)
             ->call('done', $gap->id)->assertSee('sistem kendisi kapatır')

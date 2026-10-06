@@ -72,16 +72,41 @@ final class GbpWriter
             // CALL dials the profile's phone; Google rejects a URL on it.
             $body['callToAction'] = $type === 'CALL' ? ['actionType' => 'CALL'] : ['actionType' => $type, 'url' => (string) $payload['url']];
         }
-        if (filled($payload['image_url'] ?? null)) {
-            $body['media'] = [['mediaFormat' => 'PHOTO', 'sourceUrl' => (string) $payload['image_url']]];
+        $note = null;
+        $image = (string) ($payload['image_url'] ?? '');
+        if ($image !== '') {
+            // Google fetches post photos itself and takes only JPG / PNG; a WebP or other image ends in "Internal error".
+            if (preg_match('~\.(?:jpe?g|png)(?:\?\S*)?$~i', $image) === 1) {
+                $body['media'] = [['mediaFormat' => 'PHOTO', 'sourceUrl' => $image]];
+            } else {
+                $note = 'Görsel JPG / PNG olmadığı için Google kabul etmez; gönderi görselsiz yayımlandı.';
+            }
         }
-        $created = $this->call($integration, 'post', self::BASE.$parent.'/localPosts', $body);
+        $url = self::BASE.$parent.'/localPosts';
+        try {
+            $created = $this->call($integration, 'post', $url, $body);
+        } catch (RuntimeException $exception) {
+            // "Internal error encountered" (HTTP 500): Google could not fetch the photo, or a passing fault. One more try,
+            // without the photo when there is one, so an approved post still goes out.
+            if (! str_contains($exception->getMessage(), 'Internal error') && ! str_contains($exception->getMessage(), 'HTTP 5')) {
+                throw $exception;
+            }
+            if (isset($body['media'])) {
+                unset($body['media']);
+                $note = 'Google görseli alamadı (iç hata); gönderi görselsiz yayımlandı.';
+            }
+            try {
+                $created = $this->call($integration, 'post', $url, $body);
+            } catch (RuntimeException) {
+                throw new RuntimeException('İşletme Profili: Google gönderiyi kabul ederken iç hata verdi (iki deneme). Genellikle geçicidir; birkaç dakika sonra yeniden deneyin.');
+            }
+        }
         $name = (string) ($created['name'] ?? '');
         if ($name === '') {
             throw new RuntimeException('Gönderi oluşturuldu ama adı dönmedi.');
         }
 
-        return ['status' => 'succeeded', 'post' => $name, 'search_url' => $created['searchUrl'] ?? null];
+        return array_filter(['status' => 'succeeded', 'post' => $name, 'search_url' => $created['searchUrl'] ?? null, 'note' => $note], fn ($v): bool => $v !== null);
     }
 
     /** @return array<string, mixed> */

@@ -23,7 +23,8 @@
             <p class="min-w-0 flex-1 whitespace-pre-line text-sm text-gray-700 dark:text-gray-300">{{ $post->summary }}</p>
         @endif
     </div>
-    @if ($post->note || ($failed && $write?->error))<p class="mt-1 text-xs {{ $failed ? 'text-rose-600' : 'text-gray-500' }}">{{ $failed && $write?->error ? $write->error : $post->note }}</p>@endif
+    @php($writeNote = $failed ? null : data_get($write?->result, 'note'))
+    @if ($post->note || $writeNote || ($failed && $write?->error))<p class="mt-1 text-xs {{ $failed ? 'text-rose-600' : 'text-gray-500' }}">{{ $failed && $write?->error ? $write->error : ($post->note ?: $writeNote) }}</p>@endif
     @if ($canWrite && $editing !== $post->id)
         <div class="mt-2 flex flex-wrap gap-3 text-xs font-medium">
             @if ($post->status === 'draft')<button type="button" wire:click="approve({{ $post->id }})" class="text-success-600 hover:underline">Onayla</button>@endif

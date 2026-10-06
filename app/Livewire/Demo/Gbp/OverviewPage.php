@@ -9,6 +9,7 @@ use App\Models\AiProduction;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
+use App\Models\GbpQueuedPost;
 use App\Models\GbpReview;
 use App\Models\Suggestion;
 use App\Services\Analyst\AnalystDecisionStore;
@@ -248,6 +249,26 @@ class OverviewPage extends Component
         $this->queueAssistant($assistant, GbpAssistant::OP_POST, ['page_id' => (int) $this->sharePageId]);
     }
 
+    /** Gönderiler › takvim: approves one planned post of this location. */
+    public function approvePlanned(int $id, GbpPostQueue $queue): void
+    {
+        $queue->approve(auth()->user(), [$this->planned($id)->id]);
+    }
+
+    /** Gönderiler › takvim: approves every waiting post of this location's next 30 days. */
+    public function approveAllPlanned(GbpPostQueue $queue): void
+    {
+        $count = $queue->approveAll(auth()->user(), (int) $this->asset()->id);
+        DemoState::flash($count > 0 ? $count.' gönderi onaylandı; günü gelince yayınlanır.' : 'Onay bekleyen gönderi yok.');
+    }
+
+    /** Gönderiler › takvim: leaves a day out; the next planning run fills it again. */
+    public function skipPlanned(int $id, GbpPostQueue $queue): void
+    {
+        $queue->skip(auth()->user(), $this->planned($id));
+        DemoState::flash('Atlandı; o gün bir sonraki planlamada yeniden dolar.');
+    }
+
     /** Loads the page-post AI draft into the form (the operator edits it before approving). */
     public function useAiDraft(int $productionId, ProductionArchive $archive): void
     {
@@ -469,6 +490,7 @@ class OverviewPage extends Component
             'pages' => $this->tab === 'posts' ? $assistant->shareablePages($asset) : [],
             'postDraft' => $this->tab === 'posts' ? $assistant->latestPost($asset) : null,
             'queue' => $this->tab === 'posts' && $asset->brand_id !== null ? app(GbpPostQueue::class)->summary($asset) : null,
+            'calendar' => $this->tab === 'posts' && $asset->brand_id !== null ? $this->calendar($asset) : [],
             'postState' => $this->tab === 'posts' ? $assistant->state($assetId, GbpAssistant::OP_POST) : null,
             'plan' => $plan,
             'planState' => $this->tab === 'services' ? $assistant->state($assetId, GbpAssistant::OP_PROFILE) : null,
@@ -533,6 +555,33 @@ class OverviewPage extends Component
     {
         return ExternalWriteAction::query()->whereKey($actionId)->where('channel', ExternalWriteAction::CHANNEL_GBP)
             ->where('digital_asset_id', $this->asset()->id)->firstOrFail();
+    }
+
+    private function planned(int $id): GbpQueuedPost
+    {
+        return GbpQueuedPost::query()->whereKey($id)->where('digital_asset_id', $this->asset()->id)->firstOrFail();
+    }
+
+    /**
+     * The next 30 days of the location's automatic posts, one row per day (empty days included), today first.
+     *
+     * @return list<array{day: string, label: string, week: string, today: bool, post: ?GbpQueuedPost}>
+     */
+    private function calendar(DigitalAsset $asset): array
+    {
+        $today = GbpPostQueue::today();
+        $posts = GbpQueuedPost::query()->with('page:id,title,url,path')->where('digital_asset_id', $asset->id)
+            ->whereIn('status', [GbpQueuedPost::DRAFT, GbpQueuedPost::APPROVED, GbpQueuedPost::PUBLISHED, GbpQueuedPost::FAILED])
+            ->whereBetween('publish_on', [$today->toDateString(), $today->addDays(GbpPostQueue::HORIZON_DAYS)->toDateString()])
+            ->orderBy('publish_on')->orderByDesc('id')->get()->keyBy(fn (GbpQueuedPost $p): string => substr((string) $p->publish_on, 0, 10));
+        $out = [];
+        for ($i = 0; $i <= GbpPostQueue::HORIZON_DAYS; $i++) {
+            $day = $today->addDays($i);
+            $out[] = ['day' => $day->toDateString(), 'label' => $day->locale('tr')->translatedFormat('d M D'), 'week' => $day->startOfWeek()->locale('tr')->translatedFormat('d F').' haftası',
+                'today' => $i === 0, 'post' => $posts->get($day->toDateString())];
+        }
+
+        return $out;
     }
 
     private function asset(): DigitalAsset

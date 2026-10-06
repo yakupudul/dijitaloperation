@@ -39,6 +39,12 @@ final class ContentPlanner
 {
     public const array PAGE_TYPES = ['hizmet', 'blog', 'sss', 'lokasyon'];
 
+    /** What makes a weekly idea more than "one more article" (shown on the title card). */
+    public const array ANGLES = [
+        'decision' => 'Karar desteği', 'comparison' => 'Karşılaştırma', 'process' => 'Süreç', 'local' => 'Yerel',
+        'expert_answer' => 'AI aramalarına net yanıt', 'objection' => 'Endişe / yanlış bilinen', 'update' => 'Mevcut sayfayı güçlendir', 'insight' => 'SEO öngörüsü',
+    ];
+
     private const array URL_TYPES = ['hizmet' => 'service', 'blog' => 'guide', 'sss' => 'faq', 'lokasyon' => 'location'];
 
     private const array CLUSTER_PAGE_TYPES = ['hizmet' => 'service', 'blog' => 'guide', 'sss' => 'faq', 'lokasyon' => 'location'];
@@ -51,31 +57,49 @@ final class ContentPlanner
     ) {}
 
     /**
+     * One run plans every language the pool asks for (`$wants`: language => ideas), so the clusters, queries and site
+     * pages go to the AI once per site instead of once per language.
+     *
      * @param  Collection<int, BrandClusterPage>|null  $only  "Konu üret": just these rows, one item
+     * @param  array<string, int>|null  $wants  ideas per language; null: the brand's weekly number in the main language
      * @return array{status: string, added: int}
      */
-    public function weekly(DigitalAsset $site, ?Collection $only = null): array
+    public function weekly(DigitalAsset $site, ?Collection $only = null, ?array $wants = null): array
     {
         $brand = SiteScope::brandOf($site);
         if (! SiteScope::aiAllowed($brand)) {
             return ['status' => 'not_operational', 'added' => 0];
         }
-        $capacity = $only !== null ? 1 : max(1, min(20, (int) ($brand->weekly_content_capacity ?? 4)));
-        $gaps = $only ?? BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url'])->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
-            ->whereIn('state', ['no_page', 'thin_coverage'])->limit(60)->get();
-        $improvable = $only !== null ? collect() : BrandClusterPage::query()->with('page:id,url,title')->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
-            ->whereIn('state', ['weak_performance', 'thin_coverage'])->whereNotNull('page_id')->limit(20)->get();
+        $siteLanguages = self::siteLanguages($site);
+        $explicit = $wants !== null && $only === null;
+        $wants = collect($explicit ? $wants : [])->filter(fn ($n, $l): bool => in_array($l, $siteLanguages, true) && (int) $n > 0)
+            ->map(fn ($n): int => min(20, (int) $n))->all();
+        if ($wants === []) {
+            $explicit = false;
+            $wants = [$siteLanguages[0] => $only !== null ? 1 : max(1, min(20, (int) ($brand->weekly_content_capacity ?? 4)))];
+        }
+        $capacity = array_sum($wants);
+        $inLanguage = fn ($q) => ! $explicit ? $q : $q->where(fn ($l) => $l->whereNull('language')->orWhereIn('language', array_keys($wants)));
+        $gaps = $only ?? $inLanguage(BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url'])->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
+            ->whereIn('state', ['no_page', 'thin_coverage'])->where('excluded', false))->limit(60)->get();
+        $improvable = $only !== null ? collect() : $inLanguage(BrandClusterPage::query()->with('page:id,url,title')->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
+            ->whereIn('state', ['weak_performance', 'thin_coverage'])->whereNotNull('page_id'))->limit(20)->get();
+        // Earlier plans of 8 weeks and every title still waiting in the pool: never asked again.
         $previous = Suggestion::query()->where('brand_id', $brand->id)->where('action_type', SiteSuggestionTypes::CONTENT)
-            ->where('created_at', '>=', now()->subWeeks(8))->orderByDesc('id')->limit(60)->get(['title', 'status', 'action']);
+            ->where(fn ($q) => $q->where('created_at', '>=', now()->subWeeks(8))->orWhereIn('status', [Suggestion::OPEN, Suggestion::APPROVED, Suggestion::SNOOZED]))
+            ->orderByDesc('id')->limit(150)->get(['title', 'status', 'action']);
         $sitePages = $this->sitePages($site);
+        $topQueries = $this->clusterQueries($gaps->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all());
         $result = $this->ai->run(new WeeklyContentAgent, [
             'brand' => $this->memory->contextFor($brand, [], $gaps->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all())['profile'],
+            'languages' => $wants,
             'capacity' => $capacity,
             'month' => self::MONTHS[(int) now()->month].' '.now()->year,
             'clusters' => $gaps->map(fn (BrandClusterPage $row): array => [
-                'cluster_id' => (int) $row->cluster_id, 'name' => (string) $row->cluster?->name, 'service' => (string) ($row->cluster?->service?->primaryName?->raw_label ?? ''),
+                'cluster_id' => (int) $row->cluster_id, 'language' => $row->language, 'name' => (string) $row->cluster?->name, 'service' => (string) ($row->cluster?->service?->primaryName?->raw_label ?? ''),
                 'intent' => (string) $row->cluster?->intent, 'page_type' => (string) $row->cluster?->page_type, 'main_query' => (string) ($row->cluster?->mainQuery?->text ?? ''),
-                'target_query' => $row->target_query, 'state' => $row->stateLabel(), 'page_url' => $row->page?->url, 'subtopics' => array_values((array) $row->cluster?->subtopics),
+                'target_query' => $row->target_query, 'queries' => $topQueries[(int) $row->cluster_id] ?? [],
+                'state' => $row->stateLabel(), 'page_url' => $row->page?->url, 'subtopics' => array_values((array) $row->cluster?->subtopics),
                 'gaps' => array_column((array) $row->gaps, 'text'),
                 'ai_questions' => $row->cluster !== null ? ClusterAudit::aiQuestions($row->cluster, $brand) : [],
                 'service_areas' => $row->cluster !== null ? ClusterAudit::serviceAreas($row->cluster, $brand) : [],
@@ -90,18 +114,25 @@ final class ContentPlanner
         $clusters = $gaps->keyBy('cluster_id');
         $taken = $previous->map(fn (Suggestion $s): string => SeoText::fold((string) $s->title))->all();
         $added = 0;
-        foreach (array_slice((array) ($result['data']['items'] ?? []), 0, $capacity) as $item) {
+        $left = $wants;
+        foreach ((array) ($result['data']['items'] ?? []) as $item) {
             if (! is_array($item)) {
+                continue;
+            }
+            $language = is_string($item['language'] ?? null) && isset($left[strtolower($item['language'])]) ? strtolower($item['language']) : (count($wants) === 1 ? array_key_first($wants) : null);
+            if ($language === null || $left[$language] < 1) {
                 continue;
             }
             $clusterId = is_int($item['cluster_id'] ?? null) && $clusters->has($item['cluster_id']) ? $item['cluster_id'] : null;
             $row = $clusterId !== null ? $clusters->get($clusterId) : null;
             $stored = $this->storeItem($brand, $site, $sitePages, $item, $taken, [
-                'cluster_id' => $clusterId, 'out_of_cluster' => false,
+                'cluster_id' => $clusterId, 'out_of_cluster' => false, 'language' => $explicit ? $language : null,
+                'angle' => in_array($item['angle'] ?? null, array_keys(self::ANGLES), true) ? $item['angle'] : null,
                 'evidence' => $row !== null ? [['kind' => 'cluster', 'value' => $row->cluster?->name.' · '.$row->stateLabel(), 'source' => 'küme']] : null,
                 'service' => (string) ($row?->cluster?->service?->primaryName?->raw_label ?? ''),
             ], $result['prompt_version_id']);
             $added += $stored ? 1 : 0;
+            $left[$language] -= $stored ? 1 : 0;
         }
 
         return ['status' => 'ready', 'added' => $added];
@@ -527,11 +558,32 @@ final class ContentPlanner
                 'outline' => $lines($item['outline'] ?? [], 12), 'questions' => $lines($item['questions'] ?? [], 10),
                 'out_of_cluster' => (bool) ($extra['out_of_cluster'] ?? false), 'query_ids' => $extra['query_ids'] ?? null, 'new_queries' => $extra['new_queries'] ?? null,
                 'service_id' => $extra['service_id'] ?? null, 'week' => now()->format('o-\WW'),
+                'language' => $extra['language'] ?? null, 'angle' => $extra['angle'] ?? null,
             ], fn (mixed $v): bool => $v !== null),
         ]);
         $taken[] = $folded;
 
         return true;
+    }
+
+    /**
+     * The real searches of each cluster, most impressions first (what the article must answer).
+     *
+     * @param  list<int>  $clusterIds
+     * @return array<int, list<string>>
+     */
+    private function clusterQueries(array $clusterIds, int $per = 8): array
+    {
+        $out = [];
+        DB::table('cluster_queries as cq')->join('queries as q', 'q.id', '=', 'cq.query_id')->whereIn('cq.cluster_id', $clusterIds ?: [0])->where('q.hidden', false)
+            ->orderBy('cq.cluster_id')->orderByDesc('q.impressions')->orderBy('q.id')->get(['cq.cluster_id', 'q.text'])
+            ->each(function (object $row) use (&$out, $per): void {
+                if (count($out[(int) $row->cluster_id] ?? []) < $per) {
+                    $out[(int) $row->cluster_id][] = (string) $row->text;
+                }
+            });
+
+        return $out;
     }
 
     /** @return Collection<int, Page> */

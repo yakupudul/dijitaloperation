@@ -107,7 +107,7 @@ final class ClusterOverlapsTest extends SiteTestCase
         $this->row('tr', $this->main, [$this->copy->id, $second->id]);
         app(ClusterOverlaps::class)->sync($this->site, $this->brand);
 
-        $html = Livewire::test(WorkPage::class)->assertSee('«İmplant tedavisi»')->assertSee('/implant-tedavisi-nedir/')->assertSee('/tek-seansta-implant/')
+        $html = Livewire::withQueryParams(['sekme' => 'cakisma'])->test(WorkPage::class)->assertSee('«İmplant tedavisi»')->assertSee('/implant-tedavisi-nedir/')->assertSee('/tek-seansta-implant/')
             ->assertSee('2 sayfa aynı ihtiyaca yanıt veriyor')->assertSee('301 öneriliyor')->assertSeeHtml('data-work-action="merge"')->html();
 
         $this->assertSame(1, substr_count($html, 'data-work-group='), 'one card for the site');
@@ -171,7 +171,7 @@ final class ClusterOverlapsTest extends SiteTestCase
             : ['ok' => false, 'error' => 'SEO fixes are disabled on this site.']);
         $ids = Suggestion::query()->where('decision_key', ClusterOverlaps::DECISION)->orderBy('page_id')->pluck('id', 'page_id');
 
-        $html = Livewire::test(WorkPage::class)->assertSeeHtml('data-merge-pick="'.$ids[$this->copy->id].'"')
+        $html = Livewire::withQueryParams(['sekme' => 'cakisma'])->test(WorkPage::class)->assertSeeHtml('data-merge-pick="'.$ids[$this->copy->id].'"')
             ->set('selected', [$ids[$this->copy->id], $ids[$other->id]])->call('mergeSelected')
             ->assertSet('selected', [])->html();
 
@@ -210,7 +210,7 @@ final class ClusterOverlapsTest extends SiteTestCase
         $suggestion = Suggestion::query()->where('decision_key', ClusterOverlaps::DECISION)->sole();
         $this->assertSame(ClusterOverlaps::REVIEW, data_get($suggestion->action, 'recommendation'), 'service page ↔ blog main page');
 
-        Livewire::test(WorkPage::class)->call('run', $suggestion->id, 'make_main');
+        Livewire::withQueryParams(['sekme' => 'cakisma'])->test(WorkPage::class)->call('run', $suggestion->id, 'make_main');
 
         $this->assertSame([$this->main->id, true], [(int) $row->fresh()->page_id, (bool) $row->fresh()->locked]);
         $this->assertSame(Suggestion::APPLIED, $suggestion->fresh()->status);

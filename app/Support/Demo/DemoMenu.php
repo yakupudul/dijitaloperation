@@ -51,6 +51,7 @@ final class DemoMenu
                         $child($tr ? 'Kullanıcılar' : 'Users', 'operator.settings.users'),
                         $child($tr ? 'Sistem' : 'System', 'operator.settings.system-health'),
                         $child($tr ? 'Geliştirme havuzu' : 'Improvements', 'operator.settings.improvements'),
+                        $child($tr ? 'Sürümler' : 'Releases', 'operator.settings.releases'),
                     ]),
                 ],
             ],

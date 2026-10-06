@@ -55,6 +55,7 @@ use App\Livewire\Operator\Portfolio\BrandSetupPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Operator\Settings\AiOperationsPage;
 use App\Livewire\Operator\Settings\ImprovementsPage;
+use App\Livewire\Operator\Settings\ReleasesPage;
 use App\Livewire\Operator\Settings\SectorPacksPage;
 use App\Livewire\Operator\Settings\SystemHealthPage;
 use App\Livewire\Operator\Settings\UsersPage;
@@ -151,6 +152,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/ai-operations', AiOperationsPage::class)->name('operator.settings.ai-operations');
         Route::livewire('/settings/users', UsersPage::class)->name('operator.settings.users');
         Route::livewire('/settings/improvements', ImprovementsPage::class)->name('operator.settings.improvements');
+        Route::livewire('/settings/releases', ReleasesPage::class)->name('operator.settings.releases');
         Route::livewire('/work', WorkPage::class)->name('operator.work');
         Route::livewire('/gbp-posts', GbpPostPlanPage::class)->name('operator.gbp-posts');
         Route::livewire('/gbp', GbpDeskPage::class)->name('operator.gbp-desk');

@@ -61,6 +61,7 @@ use App\Services\Site\SiteMetrics;
 use App\Services\Site\SiteOperations;
 use App\Services\Website\SitemapChangeWatcher;
 use App\Services\WhatsApp\WhatsAppDispatch;
+use App\Services\Work\ContentCoverage;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Console\ConsoleScope;
 use App\Support\Console\ConsoleScopeException;
@@ -782,6 +783,43 @@ Schedule::command('moxdop:site:weekly')
     ->withoutOverlapping(60)
     ->when(fn (): bool => AiBudget::automaticAllowed('site.weekly_refresh'))
     ->name('site-weekly');
+
+// İçerik fikir havuzu (yakup, 2026-10-06: "havuzda her koşulda her dilde 20 içerik fikri olsun, üstüne haftalık
+// otomatik üretim"): every morning each operational site with matched clusters gets every active language's pool of
+// waiting titles back to ContentCoverage::POOL; on Monday each language also gets the brand's weekly number of fresh
+// ideas on top, and in the first week of the month the out-of-cluster opportunities. Only titles: an article is
+// written only after the operator approves it.
+Artisan::command('moxdop:content:weekly-titles {--site= : One website asset id} {--weekly : Add the weekly fresh ideas (default: Monday)} {--discover : Also out-of-cluster opportunities}', function (ContentCoverage $coverage): void {
+    $today = now('Europe/Istanbul');
+    $weekly = $this->option('weekly') || $today->isMonday();
+    $discover = $this->option('discover') || ($today->isMonday() && $today->day <= 7);
+    $needs = $coverage->needs($weekly, $this->option('site') !== null ? (int) $this->option('site') : null);
+    foreach ($needs as $need) {
+        SiteOperations::dispatch($need['site_id'], SiteOperations::WEEKLY_CONTENT, ['wants' => $need['wants']]);
+    }
+    $sites = array_column($needs, 'site_id');
+    if ($discover) {
+        foreach ($sites as $siteId) {
+            SiteOperations::dispatch($siteId, SiteOperations::DISCOVERY);
+        }
+    }
+    $this->info('Fikir havuzu: '.count($sites).' site, '.array_sum(array_map(fn (array $n): int => count($n['wants']), $needs)).' dil, '.array_sum(array_map(fn (array $n): int => array_sum($n['wants']), $needs)).' başlık istendi'.($discover ? ' (kümeler dışı fırsatlarla)' : '').'.');
+})->purpose('Fill every active language of operational sites to the content idea pool, plus weekly fresh ideas on Monday.');
+
+Schedule::command('moxdop:content:weekly-titles')
+    ->dailyAt('09:17')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(60)
+    ->when(fn (): bool => ContentCoverage::automaticAllowed())
+    ->name('content-weekly-titles');
+
+// Küme çakışmaları: rebuilt every night from the stored match (no AI, no site call), so a rule change or a page that
+// changed since the last Eşleştir run closes stale overlaps (for example an /en/ page proposed into a Turkish page).
+Schedule::command('moxdop:clusters:sync-overlaps')
+    ->dailyAt('04:37')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(60)
+    ->name('clusters-sync-overlaps');
 
 // Faz 6: Meta sistem kontrolleri (en çok 10 kontrol → öneriler; AI yok), operasyonel markalar.
 Artisan::command('moxdop:meta:suggestions', function (): void {

@@ -4,13 +4,21 @@
             <a href="{{ route('operator.settings') }}" wire:navigate class="text-xs text-gray-500">← Ayarlar</a>
             <h1 class="mt-1 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Geliştirme havuzu</h1>
             <p class="mt-1 text-xs text-gray-500">
-                Claude her sabah sistemi tarar ve doğruladığı sorunları buraya önerir. Onayladıklarını hafta içi 10:37, 14:37 ve 18:37 turlarında kodlar; canlıya çıkan değişiklik kendiliğinden “Kontrol”e geçer, Claude canlıda doğrulayıp kapatır.
-                · Canlı sürüm {{ $release['sha'] ? substr($release['sha'], 0, 8) : 'bilinmiyor' }}
+                Claude her sabah sistemi tarar ve doğruladığı sorunları buraya önerir. Onayladıklarını hafta içi 10:37, 14:37 ve 18:37 turlarında koda yazar ve dala gönderir; canlı sisteme kendisi dokunmaz. @if($autoDeploy !== null)Sunucu dala 15 dakikada bir bakar; testler geçen yeni kod kendiliğinden canlıya çıkar (otomatik deploy).@else Değişiklik sizin deploy'unuzla (git pull + deploy.sh) canlıya çıkar.@endif Canlıya çıkan değişiklik kendiliğinden “Kontrol”e geçer, Claude canlıda doğrulayıp kapatır.
+                · <a href="{{ route('operator.settings.releases') }}" wire:navigate class="font-medium text-brand-600 hover:underline">Canlı sürüm {{ $release['sha'] ? substr($release['sha'], 0, 8) : 'bilinmiyor' }} · Sürümler</a>
                 · Sayfa taraması: {{ $screens['total'] }} ekran @if($screens['failed'] > 0), <span class="font-semibold text-rose-600">{{ $screens['failed'] }} hatalı</span>@endif @if($screens['checked_at']) · {{ \Illuminate\Support\Carbon::parse($screens['checked_at'])->timezone('Europe/Istanbul')->format('d.m H:i') }}@endif
             </p>
         </div>
         <button type="button" wire:click="$toggle('writing')" class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-white">Değişiklik iste</button>
     </header>
+
+    @if($autoDeploy !== null)
+        <p @class(['rounded-lg p-3 text-sm', 'bg-rose-50 text-rose-800 dark:bg-rose-950 dark:text-rose-200' => $autoDeploy['problem'], 'bg-gray-50 text-gray-700 dark:bg-gray-900 dark:text-gray-300' => ! $autoDeploy['problem']]) data-auto-deploy="{{ $autoDeploy['state'] }}">
+            <span class="font-semibold">Otomatik deploy: {{ $autoDeploy['label'] }}</span>
+            @if($autoDeploy['message'] !== '' && $autoDeploy['state'] !== 'idle') · {{ $autoDeploy['message'] }}@endif
+            @if($autoDeploy['checked_at']) <span class="text-xs opacity-70">· son kontrol {{ \Illuminate\Support\Carbon::parse($autoDeploy['checked_at'])->timezone('Europe/Istanbul')->format('d.m H:i') }}</span>@endif
+        </p>
+    @endif
 
     @if($message !== '')<p role="status" class="rounded-lg bg-blue-50 p-3 text-sm text-blue-800 dark:bg-blue-950 dark:text-blue-200">{{ $message }}</p>@endif
 

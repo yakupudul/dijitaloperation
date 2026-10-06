@@ -1,10 +1,56 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-06 — İşletme Profili gönderi takvimi, yorum kartı tasarımı
+
+- **Neden (yakup):** "Bu sayfayı olması gereken gibi yap" (profilin Gönderiler sekmesi: plan 30 gün dolu derken listede "Gönderi yok", 150 sayfalık karışık TR/EN sayfa listesi, "haftada 1" ipucu); "yorum kartı fikri muhteşem ama tasarım çok amatör, çok şık olmalı".
+- **Gönderiler sekmesi:** solda önümüzdeki 30 günün takvimi (haftalara ayrılı; her gün durum, açı, kaynak sayfa, metnin ilk iki satırı, görsel; boş gün açıkça). Gün başına Onayla / Metni düzenle (İşletme gönderileri o güne açılır) / Atla, üstte "Bekleyenleri onayla". Sağda tek seferlik gönderi (sayfa listesi dile ve türe göre gruplu, tekrarsız; "kendin yaz") ve Google'daki gönderiler. Otomatik plan varken "haftada 1" ipucu yerine "her gün 1 gönderi". Başlıkta profil adı " | " öncesi kısa ad.
+- **Yorum kartı (`/gbp/yorum-karti/{id}`):** A6, açık ve koyu (`?tema=koyu`) sürüm; marka logosu varsa üstte, serif başlık, altın yıldız çizgisi, köşe işaretli QR, Google işareti, 3 adım, kesim çizgisi yalnız baskıda; uzun Google bağlantısı karttan kalktı.
+- **State:** CODED + PHPUnit (`GbpWorkspaceTabsTest::test_posts_tab_is_a_30_day_calendar_of_the_automatic_plan`, `GbpDeskTest` tema). Baskı görünümü insan gözüyle onaylanmadı.
+
+## 2026-10-06 — İçerik fikir havuzu (her dilde 20), marka tablosu, Küme çakışmaları ayrı sekme
+
+- **Neden (yakup):** "Tüm markalara içerik fikirlerini görmem, AI'a hazırlatmam, okuyup onaylayıp WordPress'e taslak göndermem lazım; sistem hangi sitede hangi içeriğin eksik olduğunu kümeler bazında muhakeme etmeli." Sonra: "Havuzda her koşulda her dilde 20 içerik fikri olsun, üstüne haftalık otomatik üretim; içerik üretmek için içerik değil, markayı bir üst aşamaya geçirecek o içerikler; Google ve AI sorguları çerçevesinde; kümelerde olmayan ama olması gereken SEO öngörüleri de." Önceden tüm markalarda yalnız 3 başlık vardı: üretim yalnız sitenin İçerik sekmesinde elle çalışıyordu.
+- **Havuz:** `moxdop:content:weekly-titles` her sabah 09:17 (`AiBudget::automaticAllowed('site.weekly_content')`): kümeleri eşleşmiş her operasyonel sitenin her aktif dilinde onay bekleyen başlık `ContentCoverage::POOL` (20) altındaysa eksik kadar başlık istenir; site başına tek AI işi tüm dilleri birlikte planlar (`site.weekly_content`, parametre `wants` dil => adet; küme verisi Claude'a bir kez gider, Claude kullanımını azaltmak için); pazartesi her dile en az markanın haftalık sayısı kadar yeni fikir, ayın ilk pazartesi kümeler dışı fırsat keşfi de. Başlık `action.language` ve `action.angle` taşır. Yazı yalnız onayla.
+- **İstem `site-weekly-content-v4`:** tek koşuda sitenin istenen dilleri (`languages`), her öğe `language` taşır, her dilin adedi korunur; kümenin gerçek sorguları (en çok gösterimden 8), eksikleri, AI asistanı soruları (`clusters.ai_queries`, `queries.ai_queries`), hizmet bölgeleri; amaç "daha çok içerik" değil markayı yukarı taşıyan parça: açı (karar desteği, karşılaştırma, süreç, yerel, AI aramalarına net yanıt, endişe, mevcut sayfayı güçlendir, SEO öngörüsü — en çok dörtte biri kümesiz öngörü). Mevcut sayfanın ince varyantı yerine güncelleme; havuzdaki ve 8 haftalık başlıklar tekrar edilmez.
+- **Marka tablosu (Genel işler › Web site SEO içerikler):** site başına küme, eksik, zayıf, yeterli; her aktif dil için havuz (ör. "TR 12/20 · EN 3/20", "2 dil aktif"); okunacak, gönderilen (30 gün); boşsa neden; "Fikir üret" havuzu şimdi doldurur (`ContentCoverage`). Başlık kartında açı, küme ve gerekçe.
+- **Küme çakışmaları** (`cluster_overlap`) içerik sekmesinden çıktı, kendi sekmesinde. Çakışmalar her gece 04:37 kayıtlı eşleşmeden yeniden kurulur (`moxdop:clusters:sync-overlaps`).
+- **State:** CODED + PHPUnit (`ContentCoverageTest` 4, `WorkDeskTest` çakışma sekmesi, zamanlama sözleşmesi). Gerçek AI üretimi canlıda denenmedi; ilk sabah havuzlar dolarken (site başına bir AI işi) Claude kuyruğu bir kez kalabalıklaşır.
+
+## 2026-10-06 — İşletme Profili: yorum yanıtı ve gönderi metinleri, gönderide Google iç hatası
+
+- **Neden (yakup):** "Yorum taslakları profesyonel bir işletme sahibi gözüyle nasıl?" ve Panorama Ankara'da siteden gönderide "İşletme Profili: Internal error encountered."
+- **Yorum yanıtı (`gbp-review-reply-v2`):** 1–3 cümle, yalnız puan verilmiş yoruma tek kısa cümle; yorumcunun yazdığı somut bir şeyi (adını verdiği hekim / çalışan, hizmet) anar, yazmadığını eklemez; ad / unvan / "Bey" / "Hanım" tahmini yok; olumlu yoruma "iletişime geçin" yok; "Değerli yorumunuz için" ile ve markanın son taslaklarının ilk cümleleriyle (`recent_openings`, son 12) başlamaz.
+- **Gönderi (`gbp-post-from-page-v2`, `gbp-post-queue-v2`):** sayfayı anlatmaz ("… başlıklı blog sayfası", "bu yazıda" yok), okura ihtiyacı üzerinden yazar.
+- **Gönderi yazması:** Google 500 / "Internal error" verirse bir kez daha dener; görsel varsa ikinci deneme görselsizdir ve kartta "görselsiz yayımlandı" notu görünür. JPG / PNG olmayan görsel hiç gönderilmez (not düşer). İki iç hata üst üste: Türkçe neden.
+- **Canlıda:** ekrandan yayımlanmış istem varsa yeni varsayılan `moxdop:prompts:adopt-default` ya da AI işlemleri ekranından benimsenmelidir. Var olan taslaklar kendiliğinden değişmez; yeniden yazdırılmalı.
+- **State:** CODED + PHPUnit (`GbpWorkspaceTabsTest::test_post_whose_photo_google_cannot_take_goes_out_without_it`, `ReviewReplyDraftTest` son açılışlar). Gerçek Google'da denenmedi; hatanın kesin nedeni (görsel mi geçici mi) canlı veriden doğrulanmadı.
+
+## 2026-10-06 — Ayarlar › Sürümler
+
+- **Neden (yakup):** "Çıkıp çıkmadığını görebileceğim bir yer planlayamaz mısın sistemde?"
+- **Ekran (`/settings/releases`, Admin; Ayarlar menüsü ve Geliştirme havuzu'ndaki "Canlı sürüm" bağlantısı):** canlı sürüm ve deploy zamanı, otomatik deploy durumu (kurulu değilse kurulum komutu); "Henüz canlıda değil": izlenen dallarda olup canlıda olmayan commit'ler (konu, zaman, dal); "Canlıya çıkanlar": her deploy, getirdiği commit'lerle (en yenisi açık).
+- **Veri:** `deploy.sh` her deploy'da önceki canlı sürümden bu yana gelen commit'leri `storage/app/deploy-history.jsonl`'a ekler (son 60 deploy); `auto-deploy.sh` her kontrolde bekleyenleri `storage/app/auto-deploy-pending.tsv`'ye yazar. Geçmiş, bu sürümden sonraki ilk deploy'dan itibaren dolar.
+- **State:** CODED + PHPUnit (`ReleasesPageTest` 3, `AutoDeployTest` bekleyen listesi).
+
+## 2026-10-06 — Yorumlar: tek tıkla 300 AI taslağı
+
+- **Neden (yakup):** "Yüzlerce yorum seçmeme rağmen 30 yorum için AI yanıt hazırlıyor." "AI ile taslak yaz" bir tıklamada en fazla 30 taslak istiyordu; sınır 300 (onay bağlantısı sınırıyla aynı). Aylık AI bütçesi yine durdurur; 300'ü aşan seçimde ekran "kalanlar için bitince yeniden basın" der. Taslak "yazılıyor" durumu 60 dakika tutulur (uzun kuyrukta kart durumunu kaybetmesin).
+- **Hazır ama gönderilmemiş yanıt (yakup sordu):** Google'da hâlâ yanıtsız olduğu için "yanıt bekleyen"de kalır, ama ayrı sayılır: seçim satırında "Yanıtı hazır olanlar (n)" ve yeni "Taslağı olmayanlar (n)"; seçim çubuğu "n yanıtı hazır (gönderilmedi) · m taslaksız"; "AI ile taslak yaz (m)" yalnız taslaksızları ister, hazır yanıtlara dokunmaz.
+- **State:** CODED + PHPUnit (`ReviewReplyDraftTest::test_one_click_drafts_more_than_thirty_selected_reviews`).
+
+## 2026-10-06 — Otomatik deploy (yakup kararı: "Otomatik deploy")
+
+- **Neden (yakup):** "Deploy yapmama gerek kalmıyorsa bu benim için uygun." Kodlanan değişiklik deploy beklerken havuzda takılıyordu.
+- **Nasıl:** `deploy/staging/auto-deploy.sh` (root cron, 15 dakikada bir; `--install` ile `/etc/cron.d/moxdop-autodeploy`). İzlenen dallar `claude/kume-cakismasi-301-l1blwu` ve `claude/project-thread-e5yimf` (`MOXDOP_AUTODEPLOY_BRANCHES`). Bir dalın yeni head'i yalnız canlı sürümü içeriyorsa (`git merge-base --is-ancestor`) aday olur; içermiyorsa başka işi geri alacağı için atlanır ve bildirilir. Aday commit ayrı klasörde (`/var/www/moxdop-autodeploy`, SQLite `:memory:`) tam PHPUnit'ten geçer; geçerse uygulama o commit'e (detached) geçer ve `deploy.sh` çalışır. Deploy durursa önceki canlı sürüme geri dönülür. Başarısız commit bir daha denenmez; `storage/app/auto-deploy.off` duraklatır.
+- **Görünürlük:** Geliştirme havuzu üstünde "Otomatik deploy: …" satırı (son kontrol, durum, neden); durma halleri telefona 'high' bildirim (`moxdop:auto-deploy:report`).
+- **State:** CODED + PHPUnit (`AutoDeployTest` 3: sıra koruması, canlıyı içermeyen dalın gerçek git deposunda atlanması, ekran + bildirim). Sunucuda yakup'un bir kez `--install` çalıştırmasıyla devreye girer.
+
 ## 2026-10-06 — Geliştirme havuzu: okunur kartlar, toplu karar, canlıya çıkanı kendisi bilir
 
 - **Neden (yakup):** "Bulgular gerçekten değerli mi, arayüzü geliştir, Claude bu tarafta çalışmıyor gibi." Kodlanıp canlıya çıkan #1–#16 havuzda "Onaylandı" kalıyordu: kodlama turunun MCP durum yazımı (update-change) oturum izin kontrolüne takılıyordu.
 - **Canlı sürüm havuzu tanır:** deploy.sh `storage/app/release.json`'a canlı commit mesajlarında geçen havuz numaralarını (`pool #N`) yazar; havuz ekranı açılınca onaylı / çalışılan / deploy bekleyen ve canlı commit'in andığı değişiklik "Kontrol"e geçer, sayfa taraması yeniden çalışır. Böylece durum yazımı engellense de havuz canlıyı doğru gösterir.
 - **Kart:** başlık + tek satır "Neden önemli" (yoksa "Sorun"); teknik metin (sorun, öneri, test, dosya:satır kanıtları) "Teknik ayrıntı ve kanıt" altında kapalı. Tür süzgeci (sayılarıyla), onay bekleyenlerde çoklu seçim ve "Seçilenleri onayla / reddet", sırada bekleyenlerde "n gündür sırada". Üst metin turların saatlerini söyler.
+- **Dil (yakup sordu: "Claude doğrudan sistemde mi değiştiriyor?"):** Claude canlıya dokunmaz; kodu dala yazar, canlıya yakup'un deploy'u çıkarır. Durum etiketi "Canlıda · Claude doğrulayacak", not "Sizin deploy'unuzla canlıya çıktı (sürüm …)", üst metin bunu söyler.
 - **State:** CODED + PHPUnit (`ImprovementPoolTest` 4, `StagingDeployScriptTest`). Canlıda sürüm dosyası ancak bu deploy'dan sonra havuz numaralarını taşır.
 
 ## 2026-10-06 — İşletme profilleri masası: şube sayfası, açıklama ve saatler, fotoğraf, yorum, ölçüm (ADR-079)

@@ -5,7 +5,9 @@ namespace App\Livewire\Operator\Work;
 use App\Livewire\Operator\Work\Concerns\ActsOnContentIdeas;
 use App\Models\Brand;
 use App\Models\PushSubscription;
+use App\Services\Site\SiteOperations;
 use App\Services\Work\ContentBoard;
+use App\Services\Work\ContentCoverage;
 use App\Services\Work\WorkDesk;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\ValidationException;
@@ -142,6 +144,21 @@ final class WorkPage extends Component
         $this->step = array_key_exists($step, ContentBoard::STEPS) ? $step : 'yazilacak';
     }
 
+    /** Marka tablosu "Fikir üret": the site's pool is filled now in every language below it, instead of next morning. */
+    public function makeTitles(int $siteId, ContentCoverage $coverage): void
+    {
+        $this->act(function () use ($siteId, $coverage): string {
+            $needs = $coverage->needs(false, $siteId);
+            if ($needs === []) {
+                throw ValidationException::withMessages(['work' => 'Bu sitenin fikir havuzu dolu ya da kümeleri eşleşmedi.']);
+            }
+            $wants = $needs[0]['wants'];
+            SiteOperations::dispatch($siteId, SiteOperations::WEEKLY_CONTENT, ['wants' => $wants]);
+
+            return implode(', ', array_map(fn (string $l, int $n): string => strtoupper($l).' '.$n, array_keys($wants), $wants)).' fikir hazırlanıyor; bitince "Onay bekleyen başlıklar"a düşer.';
+        });
+    }
+
     /** "Hepsini onayla ve yazdır" on one site's waiting titles. */
     public function writeAll(int $siteId, ContentBoard $board): void
     {
@@ -213,6 +230,7 @@ final class WorkPage extends Component
             'sections' => array_slice($sections, 0, $this->shown),
             'hiddenSections' => max(0, count($sections) - $this->shown),
             'queue' => $queue,
+            'coverage' => $queue !== null ? app(ContentCoverage::class)->rows($this->brand) : [],
             'article' => $this->reading !== null ? $board->article($this->reading) : null,
             'total' => $rows->count(),
             'truncated' => $rows->count() >= WorkDesk::LIMIT,

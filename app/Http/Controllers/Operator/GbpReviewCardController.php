@@ -7,14 +7,16 @@ use App\Models\User;
 use App\Services\Gbp\Desk\GbpDesk;
 use App\Services\Gbp\Desk\ReviewDesk;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\Request;
 
 /**
  * İşletme profilleri › Yorumlar › "Yazdırılabilir kart" (ADR-079): an A6 counter card with the branch name, Google's
- * "write a review" QR code and link, printed from the browser (two cards per A4 page side by side).
+ * "write a review" QR code, printed from the browser (two cards per A4 page side by side). `?tema=koyu` prints the
+ * dark version; the brand's logo heads the card when it has one.
  */
 final class GbpReviewCardController extends Controller
 {
-    public function __invoke(int $assetId, GbpDesk $desk, ReviewDesk $reviews): View
+    public function __invoke(Request $request, int $assetId, GbpDesk $desk, ReviewDesk $reviews): View
     {
         $actor = auth()->user();
         abort_unless($actor instanceof User && $actor->is_active, 403);
@@ -29,6 +31,8 @@ final class GbpReviewCardController extends Controller
             'area' => (string) ($snapshot['area'] ?? ''),
             'link' => $kit['link'],
             'qr' => $kit['qr'],
+            'logo' => filter_var((string) $location->brand?->logo_url, FILTER_VALIDATE_URL) ? (string) $location->brand?->logo_url : null,
+            'theme' => $request->query('tema') === 'koyu' ? 'koyu' : 'acik',
         ]);
     }
 }

@@ -283,7 +283,7 @@ final class GbpAssistant
      * Pages of the brand's site(s) that can be shared: service and blog pages (uncategorized ones until Faz 4 labels
      * them), indexable, newest change first.
      *
-     * @return list<array{id: int, title: string, url: string, category: ?string}>
+     * @return list<array{id: int, title: string, url: string, category: ?string, language: string}>
      */
     public function shareablePages(DigitalAsset $asset, int $limit = 200): array
     {
@@ -292,8 +292,8 @@ final class GbpAssistant
         }
 
         return $this->pagesQuery($asset)->orderByRaw("CASE WHEN category = 'hizmet' THEN 0 WHEN category = 'blog' THEN 1 ELSE 2 END")
-            ->orderByDesc('changed_at')->orderBy('id')->limit($limit)->get(['id', 'title', 'url', 'path', 'category'])
-            ->map(fn (Page $p): array => ['id' => (int) $p->id, 'title' => (string) ($p->title ?: $p->path), 'url' => (string) $p->url, 'category' => $p->category])->all();
+            ->orderByDesc('changed_at')->orderBy('id')->limit($limit)->get(['id', 'title', 'url', 'path', 'category', 'language'])
+            ->map(fn (Page $p): array => ['id' => (int) $p->id, 'title' => (string) ($p->title ?: $p->path), 'url' => (string) $p->url, 'category' => $p->category, 'language' => strtolower((string) $p->language)])->all();
     }
 
     /**

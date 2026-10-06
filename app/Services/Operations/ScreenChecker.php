@@ -65,7 +65,7 @@ final class ScreenChecker
         'operator.data-center' => 'Veri merkezi', 'operator.ai-jobs' => 'AI işleri', 'operator.settings' => 'Ayarlar',
         'operator.settings.ai-operations' => 'AI işlemleri', 'operator.settings.system-health' => 'Sistem',
         'operator.settings.users' => 'Kullanıcılar', 'operator.settings.sector-packs' => 'Sektör paketleri',
-        'operator.settings.improvements' => 'Geliştirme havuzu', 'operator.files' => 'Dosyalar', 'operator.profile' => 'Profil',
+        'operator.settings.improvements' => 'Geliştirme havuzu', 'operator.settings.releases' => 'Sürümler', 'operator.files' => 'Dosyalar', 'operator.profile' => 'Profil',
     ];
 
     /** Asset type => [route, label]. */
