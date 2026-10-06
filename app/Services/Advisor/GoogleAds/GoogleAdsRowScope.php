@@ -17,6 +17,9 @@ final class GoogleAdsRowScope
     /** @var array<string, bool> */
     private array $central = [];
 
+    /** @var array<string, bool> table => exists (the schema does not change while a process runs) */
+    private static array $tables = [];
+
     public function __construct(
         public readonly int $assetId,
         public readonly int $externalResourceId,
@@ -41,7 +44,7 @@ final class GoogleAdsRowScope
 
     private function scoped(string $table, ?string $from = null, ?string $to = null): Builder
     {
-        if (! Schema::hasTable($table)) {
+        if (! (self::$tables[$table] ??= Schema::hasTable($table))) {
             return DB::table($table)->whereRaw('1 = 0');
         }
         $key = $table.'|'.$from.'|'.$to;

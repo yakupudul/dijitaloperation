@@ -31,12 +31,13 @@ final class MetaAuthStatus
     public static function for(CoreIntegration $integration): string
     {
         $resolver = app(MetaCredentialResolver::class);
+        $authorized = $resolver->hasTenantAuthorization($integration);
 
-        if (! $resolver->hasTenantAuthorization($integration) && ! $resolver->isApplicationConfigured($integration)) {
+        if (! $authorized && ! $resolver->isApplicationConfigured($integration)) {
             return self::NOT_CONFIGURED;
         }
 
-        if (! $resolver->hasTenantAuthorization($integration)) {
+        if (! $authorized) {
             return self::AUTHORIZATION_REQUIRED;
         }
 

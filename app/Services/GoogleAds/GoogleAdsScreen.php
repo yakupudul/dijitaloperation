@@ -10,6 +10,7 @@ use App\Models\Query;
 use App\Models\ServiceCatalogItem;
 use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorInputCollector;
 use App\Services\Advisor\GoogleAds\GoogleAdsRowScope;
+use App\Services\GoogleAds\Support\GoogleAdsBindingContext;
 use App\Services\Queries\QueryNormalizer;
 use App\Services\Queries\QueryServiceMatcher;
 use App\Support\Time\SafeTimezone;
@@ -39,7 +40,12 @@ final class GoogleAdsScreen
     /** @return array{scope: GoogleAdsRowScope, currency: ?string, timezone: string, end: CarbonImmutable, customer_id: string}|null */
     public function context(DigitalAsset $asset): ?array
     {
-        $binding = $this->bindings->resolve((string) $asset->id);
+        return self::contextOf($asset, $this->bindings->resolve((string) $asset->id));
+    }
+
+    /** @return array{scope: GoogleAdsRowScope, currency: ?string, timezone: string, end: CarbonImmutable, customer_id: string}|null */
+    private static function contextOf(DigitalAsset $asset, GoogleAdsBindingContext $binding): ?array
+    {
         if (! $binding->isReal()) {
             return null;
         }
@@ -60,13 +66,38 @@ final class GoogleAdsScreen
         return [$to->subDays($days - 1)->toDateString(), $to->toDateString()];
     }
 
-    /** @return array{current: array<string, ?float>, previous: array<string, ?float>, currency: ?string, last_date: ?string}|null */
+    /** @return array{current: array<string, ?float>, previous: array<string, ?float>, currency: ?string, timezone: string, last_date: ?string}|null */
     public function overview(DigitalAsset $asset, int $days = 28): ?array
     {
         $ctx = $this->context($asset);
-        if ($ctx === null) {
-            return null;
+
+        return $ctx !== null ? $this->overviewOf($ctx, $days) : null;
+    }
+
+    /**
+     * overview() of several accounts, their bindings resolved in one batch (brand page KPIs).
+     *
+     * @param  iterable<DigitalAsset>  $assets
+     * @return array<int, array{current: array<string, ?float>, previous: array<string, ?float>, currency: ?string, timezone: string, last_date: ?string}|null> keyed by asset id
+     */
+    public function overviews(iterable $assets, int $days = 28): array
+    {
+        $assets = collect($assets)->keyBy(fn (DigitalAsset $asset): int => (int) $asset->id);
+        $out = [];
+        foreach ($this->bindings->resolveMany($assets->keys()->all()) as $assetId => $binding) {
+            $ctx = self::contextOf($assets[$assetId], $binding);
+            $out[$assetId] = $ctx !== null ? $this->overviewOf($ctx, $days) : null;
         }
+
+        return $out;
+    }
+
+    /**
+     * @param  array{scope: GoogleAdsRowScope, currency: ?string, timezone: string, end: CarbonImmutable, customer_id: string}  $ctx
+     * @return array{current: array<string, ?float>, previous: array<string, ?float>, currency: ?string, timezone: string, last_date: ?string}
+     */
+    private function overviewOf(array $ctx, int $days): array
+    {
         $totals = function (array $window) use ($ctx): array {
             $row = $ctx['scope']->daily('google_ads_campaign_daily', $window[0], $window[1])
                 ->selectRaw('COUNT(*) as n, SUM(cost_amount) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, SUM(conversions) as conversions')->first();
@@ -81,7 +112,7 @@ final class GoogleAdsScreen
         $last = $ctx['scope']->daily('google_ads_campaign_daily', $ctx['end']->subDays(400)->toDateString(), $ctx['end']->addDay()->toDateString())->max('reporting_date');
 
         return ['current' => $totals(self::window($ctx['end'], $days)), 'previous' => $totals(self::window($ctx['end'], $days, 1)),
-            'currency' => $ctx['currency'], 'last_date' => $last !== null ? substr((string) $last, 0, 10) : null];
+            'currency' => $ctx['currency'], 'timezone' => $ctx['timezone'], 'last_date' => $last !== null ? substr((string) $last, 0, 10) : null];
     }
 
     /**
