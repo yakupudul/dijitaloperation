@@ -60,6 +60,7 @@ use App\Services\Site\SiteMetrics;
 use App\Services\Site\SiteOperations;
 use App\Services\Website\SitemapChangeWatcher;
 use App\Services\WhatsApp\WhatsAppDispatch;
+use App\Services\Work\ContentCoverage;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Console\ConsoleScope;
 use App\Support\Console\ConsoleScopeException;
@@ -775,6 +776,29 @@ Schedule::command('moxdop:site:weekly')
     ->withoutOverlapping(60)
     ->when(fn (): bool => AiBudget::automaticAllowed('site.weekly_refresh'))
     ->name('site-weekly');
+
+// İçerik başlıkları (yakup, 2026-10-06: "her hafta ne yazacağıma ben karar vermeyeyim"): every Monday after the site
+// refresh, each operational brand's site that has clusters without a (good) page and fewer waiting titles than its
+// weekly capacity gets new titles from its clusters; on the first Monday of the month also the out-of-cluster
+// opportunities. Only titles: writing an article stays the operator's approval.
+Artisan::command('moxdop:content:weekly-titles {--site= : One website asset id} {--discover : Also look for out-of-cluster opportunities}', function (ContentCoverage $coverage): void {
+    $sites = $coverage->sitesNeedingTitles($this->option('site') !== null ? (int) $this->option('site') : null);
+    $discover = $this->option('discover') || now('Europe/Istanbul')->day <= 7;
+    foreach ($sites as $siteId) {
+        SiteOperations::dispatch($siteId, SiteOperations::WEEKLY_CONTENT);
+        if ($discover) {
+            SiteOperations::dispatch($siteId, SiteOperations::DISCOVERY);
+        }
+    }
+    $this->info('Başlık üretimi kuyruğa alınan site: '.count($sites).($discover ? ' (kümeler dışı fırsatlarla)' : ''));
+})->purpose('Queue new content titles for operational sites whose clusters lack a page and whose title stock is low.');
+
+Schedule::command('moxdop:content:weekly-titles')
+    ->weeklyOn(1, '09:17')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(60)
+    ->when(fn (): bool => ContentCoverage::automaticAllowed())
+    ->name('content-weekly-titles');
 
 // Küme çakışmaları: rebuilt every night from the stored match (no AI, no site call), so a rule change or a page that
 // changed since the last Eşleştir run closes stale overlaps (for example an /en/ page proposed into a Turkish page).

@@ -71,6 +71,7 @@
 - **Karar:** Site ↔ talep zinciri (sınıflandırma → hizmet↔sayfa → küme↔sayfa) WordPress eklentisi eşleşmiş sitelerde kendiliğinden ilerler; eklentisiz sitede AI adımı çalışmaz.
   - Bir kümenin birden fazla sayfası olabilir; fazlası için öneri "301 ile birleştir" ya da "ayrıştır" olur ve operatör onaylar.
   - Eşleşmeyen kümenin içerik önerisi kümenin kendisinden gelir.
+  - **2026-10-06 (yakup):** içerik başlıkları her pazartesi kendiliğinden üretilir (eksik kümesi olan ve onay bekleyen başlığı kapasitenin altındaki siteler); yazı yine yalnız onayla. Küme çakışmaları Genel işler'de ayrı sekmededir.
   - Hizmet bölgeleri siteden bulunur ve onayla eklenir.
 
 ## 2026-11-18 — Çalışamayan iş önce uyarır

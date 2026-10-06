@@ -38,6 +38,7 @@ final class WorkDesk
     public const array TABS = [
         'kurulum' => 'Marka kurulumu',
         'icerik' => 'Web site SEO içerikler',
+        'cakisma' => 'Küme çakışmaları',
         'teknik' => 'Teknik SEO',
         'saglik' => 'Teknik sağlık',
         'ads' => 'Google Ads',
@@ -80,7 +81,7 @@ final class WorkDesk
     /** Applied items stay under "Yapıldı" this long. */
     public const int DONE_DAYS = 30;
 
-    private const array TAB_CHANNEL = ['kurulum' => 'search', 'icerik' => 'search', 'teknik' => 'search', 'saglik' => 'search', 'ads' => 'google_ads', 'meta' => 'meta', 'isletme' => 'maps'];
+    private const array TAB_CHANNEL = ['kurulum' => 'search', 'icerik' => 'search', 'cakisma' => 'search', 'teknik' => 'search', 'saglik' => 'search', 'ads' => 'google_ads', 'meta' => 'meta', 'isletme' => 'maps'];
 
     private const array TAB_ALERT_TYPES = [
         'saglik' => ['website'],
@@ -410,9 +411,12 @@ final class WorkDesk
             $query->whereIn('action_type', self::SETUP_TYPES);
         } elseif ($tab === 'saglik') {
             $query->where('action_type', ClarityRules::TYPE);
+        } elseif ($tab === 'cakisma') {
+            $query->where('action_type', ClusterOverlaps::TYPE);
         } elseif ($tab === 'icerik') {
+            // Cluster overlaps (301 / ayrıştır) have their own tab so they do not bury the content ideas.
             $query->where(fn (Builder $q): Builder => $q->whereNull('action_type')
-                ->orWhereNotIn('action_type', [...self::TECHNICAL_TYPES, ...self::SETUP_TYPES, ClarityRules::TYPE]));
+                ->orWhereNotIn('action_type', [...self::TECHNICAL_TYPES, ...self::SETUP_TYPES, ClarityRules::TYPE, ClusterOverlaps::TYPE]));
         }
         if ($view === self::VIEW_DONE) {
             return $query->where('status', Suggestion::APPLIED)->where('applied_at', '>=', now()->subDays(self::DONE_DAYS));

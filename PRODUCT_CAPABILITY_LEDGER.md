@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-06 — İçerik başlıkları kendiliğinden, marka tablosu, Küme çakışmaları ayrı sekme
+
+- **Neden (yakup):** "Tüm markalara içerik fikirlerini görmem, AI'a hazırlatmam, okuyup onaylayıp WordPress'e taslak göndermem lazım; sistem hangi sitede hangi içeriğin eksik olduğunu kümeler bazında muhakeme etmeli." Sayfada tüm markalarda yalnız 3 başlık vardı: başlık üretimi ("Haftalık içerik öner" / "Fırsat keşfet") yalnız her sitenin İçerik sekmesinde elle çalışıyordu, zamanlama yoktu.
+- **Otomatik başlık:** `moxdop:content:weekly-titles` her pazartesi 09:17 (site yenilemesinden sonra; `AiBudget::automaticAllowed('site.weekly_content')`): eksik kümesi (sayfa yok / kapsam yetersiz) olan ve onay bekleyen başlığı haftalık kapasitesinin altında kalan operasyonel sitelere başlık üretimi kuyruğa girer; ayın ilk haftası kümeler dışı fırsat keşfi de. Yazı yalnız onayla yazılır.
+- **Marka tablosu (Genel işler › Web site SEO içerikler):** site başına küme, eksik, zayıf, yeterli, onay bekleyen / kapasite, okunacak, gönderilen (30 gün); hiçbir başlık yoksa nedeni (kümeler eşleşmedi / hepsi karşılanıyor / pazartesi üretilecek); "Başlık üret" o siteye şimdi başlatır (`ContentCoverage`).
+- **Küme çakışmaları** (`cluster_overlap`) içerik sekmesinden çıktı, kendi sekmesinde ("Küme çakışmaları"). Çakışmalar her gece 04:37 kayıtlı eşleşmeden yeniden kurulur (`moxdop:clusters:sync-overlaps`), kural değişikliğinden kalan eski öneriler kapanır.
+- **State:** CODED + PHPUnit (`ContentCoverageTest` 3, `WorkDeskTest` çakışma sekmesi, zamanlama sözleşmesi). Gerçek AI üretimi canlıda denenmedi. Sıradaki aşama: başlık kartında küme, hacim, yeni / güncelleme, mevcut sayfa ve neden.
+
 ## 2026-10-06 — İşletme Profili: yorum yanıtı ve gönderi metinleri, gönderide Google iç hatası
 
 - **Neden (yakup):** "Yorum taslakları profesyonel bir işletme sahibi gözüyle nasıl?" ve Panorama Ankara'da siteden gönderide "İşletme Profili: Internal error encountered."

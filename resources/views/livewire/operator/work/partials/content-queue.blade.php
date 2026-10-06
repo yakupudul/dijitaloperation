@@ -12,6 +12,8 @@
         <p class="mt-0.5 text-xs text-gray-500">Onayla: Claude yazar. Oku: yazıyı okursun. Gönder: WordPress'e taslak gider (geri alınabilir). Bir siteye tek bakmak için sitenin İçerik sekmesi.</p>
     </div>
 
+    @include('livewire.operator.work.partials.content-coverage')
+
     <div role="tablist" class="grid grid-cols-3 gap-2 sm:max-w-2xl">
         @foreach ($stepLabels as $code => $label)
             <button type="button" role="tab" wire:click="setStep('{{ $code }}')" aria-selected="{{ $step === $code ? 'true' : 'false' }}"

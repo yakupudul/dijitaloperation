@@ -5,7 +5,9 @@ namespace App\Livewire\Operator\Work;
 use App\Livewire\Operator\Work\Concerns\ActsOnContentIdeas;
 use App\Models\Brand;
 use App\Models\PushSubscription;
+use App\Services\Site\SiteOperations;
 use App\Services\Work\ContentBoard;
+use App\Services\Work\ContentCoverage;
 use App\Services\Work\WorkDesk;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\ValidationException;
@@ -142,6 +144,20 @@ final class WorkPage extends Component
         $this->step = array_key_exists($step, ContentBoard::STEPS) ? $step : 'yazilacak';
     }
 
+    /** Marka tablosu "Başlık üret": the site's title run now instead of waiting for Monday (titles only, no article). */
+    public function makeTitles(int $siteId, ContentCoverage $coverage): void
+    {
+        $this->act(function () use ($siteId, $coverage): string {
+            $row = collect($coverage->rows())->first(fn (array $r): bool => (int) $r['site']->id === $siteId);
+            if ($row === null || $row['missing'] === 0) {
+                throw ValidationException::withMessages(['work' => 'Bu sitede başlık gereken küme yok.']);
+            }
+            SiteOperations::dispatch($siteId, SiteOperations::WEEKLY_CONTENT);
+
+            return $row['brand'].' için başlıklar hazırlanıyor; bitince "Onay bekleyen başlıklar"a düşer.';
+        });
+    }
+
     /** "Hepsini onayla ve yazdır" on one site's waiting titles. */
     public function writeAll(int $siteId, ContentBoard $board): void
     {
@@ -213,6 +229,7 @@ final class WorkPage extends Component
             'sections' => array_slice($sections, 0, $this->shown),
             'hiddenSections' => max(0, count($sections) - $this->shown),
             'queue' => $queue,
+            'coverage' => $queue !== null ? app(ContentCoverage::class)->rows($this->brand) : [],
             'article' => $this->reading !== null ? $board->article($this->reading) : null,
             'total' => $rows->count(),
             'truncated' => $rows->count() >= WorkDesk::LIMIT,
