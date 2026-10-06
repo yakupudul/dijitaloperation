@@ -19,6 +19,7 @@ use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\GbpBranchPage;
 use App\Models\GbpPhoto;
+use App\Models\GbpReviewApproval;
 use App\Models\GbpReviewFlag;
 use App\Models\Page;
 use App\Models\ServiceCategory;
@@ -28,6 +29,7 @@ use App\Services\Gbp\Desk\BranchPages;
 use App\Services\Gbp\Desk\GbpDesk;
 use App\Services\Gbp\Desk\GbpPerformance;
 use App\Services\Gbp\Desk\PhotoPlan;
+use App\Services\Gbp\Desk\ReviewApprovals;
 use App\Services\Gbp\Desk\ReviewDesk;
 use App\Services\Gbp\Desk\ReviewFlags;
 use App\Support\Roles;
@@ -434,6 +436,52 @@ final class GbpDeskTest extends TestCase
             ->set('brand', $this->brand->id)
             ->assertSet('location', null)
             ->assertSee('Çankaya yorumu');
+    }
+
+    public function test_the_brand_approves_edits_or_declines_replies_from_a_link_and_publishing_stays_here(): void
+    {
+        $review = fn (string $id, string $stars, string $comment): int => DB::table('gbp_reviews')->insertGetId(['external_resource_id' => $this->resourceId, 'run_id' => 1,
+            'location_name' => 'locations/22', 'review_id' => $id, 'reviewer' => json_encode(['displayName' => 'Ayşe Yılmaz']), 'star_rating' => $stars, 'comment' => $comment,
+            'create_time' => '2026-10-04 10:00:00', 'review_reply' => null, 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        $good = $review('r1', 'FIVE', 'Çok memnun kaldım.');
+        $bad = $review('r2', 'ONE', 'Çok beklettiler.');
+        $odd = $review('r3', 'THREE', 'Fena değil.');
+
+        $page = Livewire::actingAs($this->admin)->test(ReviewsPage::class)
+            ->set('replies.r'.$good, 'Teşekkür ederiz Ayşe Hanım!')
+            ->set('replies.r'.$bad, 'Yaşadığınız bekleme için özür dileriz.')
+            ->set('replies.r'.$odd, 'Teşekkürler.')
+            ->call('pick', 'ready')
+            ->call('sendToBrand');
+        $approval = GbpReviewApproval::query()->sole();
+        $page->assertSet('approvalUrl', ReviewApprovals::url($approval))->assertSee('Markada bekliyor')->assertSee('Markada onay bekliyor');
+        $this->assertEqualsCanonicalizing([$good, $bad, $odd], array_map('intval', array_column($approval->items, 'review_id')));
+        $this->assertSame('Ayşe', $approval->items[0]['reviewer'], 'only the first name goes to the link');
+
+        auth()->logout();
+        $this->get(route('gbp-review-approval', ['token' => $approval->token]))->assertOk()
+            ->assertSee('Panorama · Google yorum yanıtları', false)->assertSee('Yaşadığınız bekleme için özür dileriz.')->assertSee('noindex', false);
+        $this->get('/onay/yorum-yanitlari/'.str_repeat('x', 48))->assertNotFound();
+        $this->post(route('gbp-review-approval.store', ['token' => $approval->token]), [
+            'decision' => [$good => 'ok', $bad => 'edit', $odd => 'skip'],
+            'text' => [$good => 'Teşekkür ederiz Ayşe Hanım!', $bad => 'Beklettiğimiz için çok özür dileriz, sizi arayacağız.', $odd => 'Teşekkürler.'],
+            'note' => 'Düşük puanlara telefon numarası vermeyin.',
+        ])->assertRedirect(route('gbp-review-approval', ['token' => $approval->token]));
+
+        $approval->refresh();
+        $this->assertSame(['ok', 'edit', 'skip'], array_column($approval->items, 'decision'));
+        $this->assertNotNull($approval->answered_at);
+        $this->assertSame(0, ExternalWriteAction::query()->count(), 'nothing is published from the link');
+        $drafts = collect(app(ReviewDesk::class)->unanswered([$this->location->id => $this->resourceId]))->keyBy('id');
+        $this->assertSame('Beklettiğimiz için çok özür dileriz, sizi arayacağız.', $drafts[$bad]['draft'], 'the brand’s edit becomes the draft');
+
+        Livewire::actingAs($this->admin)->test(ReviewsPage::class, ['brand' => $this->brand->id])
+            ->set('brand', $this->brand->id)
+            ->assertSee('Marka onayladı')->assertSee('Marka düzeltti')->assertSee('Marka istemedi')->assertSee('Düşük puanlara telefon numarası vermeyin.')
+            ->call('pick', 'brand')->assertSet('selected', [$good, $bad])
+            ->call('closeApproval', $approval->id);
+        $this->assertFalse($approval->fresh()->isUsable());
+        $this->post(route('gbp-review-approval.store', ['token' => $approval->token]), ['decision' => [$good => 'skip']])->assertSessionHasErrors('approval');
     }
 
     public function test_the_profiles_asset_page_shows_the_desk_checks_and_what_was_sent(): void

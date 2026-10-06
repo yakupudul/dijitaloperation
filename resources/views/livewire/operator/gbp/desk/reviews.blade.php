@@ -11,6 +11,45 @@
     @endif
     @include('livewire.operator.gbp.partials.desk-message')
 
+    @if ($approvalUrl || $approvalLinks->isNotEmpty())
+        <section class="rounded-xl bg-white p-3 text-sm ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700" data-testid="gbp-approval-links">
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Marka onay bağlantıları</p>
+            @if ($approvalUrl)
+                <div class="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-brand-50 p-2 dark:bg-brand-500/10" x-data="{ copied: false }">
+                    <input type="text" readonly value="{{ $approvalUrl }}" class="min-w-0 flex-1 rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-900" x-on:focus="$el.select()">
+                    <button type="button" x-on:click="navigator.clipboard.writeText(@js($approvalUrl)); copied = true" class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600" x-text="copied ? 'Kopyalandı' : 'Bağlantıyı kopyala'">Bağlantıyı kopyala</button>
+                    <a href="https://wa.me/?text={{ rawurlencode('Google yorumlarınıza vermeyi önerdiğimiz yanıtlar: '.$approvalUrl) }}" target="_blank" rel="noopener" class="text-xs font-medium text-emerald-700 hover:underline dark:text-emerald-300">WhatsApp ile paylaş</a>
+                </div>
+            @endif
+            <div class="mt-2 divide-y divide-gray-100 dark:divide-gray-700">
+                @foreach ($approvalLinks as $link)
+                    @php
+                        $decided = collect($link->items)->whereNotNull('decision');
+                        $state = match (true) {
+                            $link->status === \App\Models\GbpReviewApproval::CLOSED => 'Kapatıldı',
+                            ! $link->isUsable() => 'Süresi doldu',
+                            $link->answered_at !== null => 'Marka yanıtladı · '.$decided->where('decision', 'ok')->count().' uygun, '.$decided->where('decision', 'edit')->count().' düzeltildi, '.$decided->where('decision', 'skip')->count().' istenmedi',
+                            default => 'Markada bekliyor',
+                        };
+                    @endphp
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5 text-xs" wire:key="approval-{{ $link->id }}">
+                        <span class="text-gray-400">{{ $link->created_at?->timezone('Europe/Istanbul')->format('d.m H:i') }}</span>
+                        <span class="font-medium text-gray-800 dark:text-gray-200">{{ $link->brand?->name }} · {{ count($link->items) }} yanıt</span>
+                        <span @class(['font-semibold', 'text-emerald-600' => $link->answered_at !== null && $link->isUsable(), 'text-amber-600' => $link->answered_at === null && $link->isUsable(), 'text-gray-500' => ! $link->isUsable()])>{{ $state }}</span>
+                        @if ($link->note)<span class="w-full text-gray-600 dark:text-gray-300">Markanın notu: {{ $link->note }}</span>@endif
+                        @if ($link->isUsable())
+                            <span class="ml-auto flex gap-3">
+                                <button type="button" x-data x-on:click="navigator.clipboard.writeText(@js(\App\Services\Gbp\Desk\ReviewApprovals::url($link)))" class="text-brand-600 hover:underline">Kopyala</button>
+                                <a href="{{ \App\Services\Gbp\Desk\ReviewApprovals::url($link) }}" target="_blank" rel="noopener" class="text-brand-600 hover:underline">Aç</a>
+                                <button type="button" wire:click="closeApproval({{ $link->id }})" wire:confirm="Bağlantı kapatılsın mı? Marka artık açamaz." class="text-rose-600 hover:underline">Kapat</button>
+                            </span>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
     <section class="grid gap-3 sm:grid-cols-3">
         <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><p class="text-xs text-gray-500">Yanıtsız yorum</p><p class="mt-1 text-2xl font-semibold tabular-nums {{ $totals['unanswered'] > 0 ? 'text-rose-600' : 'text-gray-900 dark:text-white' }}">{{ $totals['unanswered'] }}</p></div>
         <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><p class="text-xs text-gray-500">{{ \App\Services\Gbp\GbpDailyWorkspace::REPLY_SLA_HOURS }} saatten uzun bekleyen</p><p class="mt-1 text-2xl font-semibold tabular-nums {{ $totals['late'] > 0 ? 'text-amber-600' : 'text-gray-900 dark:text-white' }}">{{ $totals['late'] }}</p></div>
@@ -49,6 +88,7 @@
                     <button type="button" wire:click="pick('all')" class="text-brand-600 hover:underline">Görünen yanıtsızlar ({{ $openCount }})</button>
                     <button type="button" wire:click="pick('ready')" class="text-brand-600 hover:underline">Yanıtı hazır olanlar</button>
                     <button type="button" wire:click="pick('silent')" class="text-brand-600 hover:underline">Yorumsuz 4–5 ★</button>
+                    <button type="button" wire:click="pick('brand')" class="text-brand-600 hover:underline">Markanın onayladıkları</button>
                     @if ($selected !== [])<button type="button" wire:click="pick('none')" class="text-gray-500 hover:underline">Temizle</button>@endif
                 </span>
             @endif
@@ -61,7 +101,8 @@
                     <span class="text-xs text-gray-500">· {{ $readyCount }} yanıtı hazır</span>
                     <span class="ml-auto flex flex-wrap gap-2">
                         <button type="button" wire:click="draftSelected" class="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600">AI ile taslak yaz</button>
-                        <a href="{{ $this->pdfUrl() }}" class="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600" title="Hazır yanıtları markanın onayına göndermek için">Seçilenleri PDF indir</a>
+                        <button type="button" wire:click="sendToBrand" class="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50 dark:bg-gray-800 dark:text-brand-300 dark:ring-brand-500/40" title="Marka giriş yapmadan açar; her yanıtı onaylar, düzeltir ya da istemez">Markaya onaya gönder</button>
+                        <a href="{{ $this->pdfUrl() }}" class="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600" title="Hazır yanıtları markanın onayına göndermek için">PDF</a>
                         <button type="button" wire:click="openPreview" class="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-600">Ön izle ve yayımla ({{ $readyCount }})</button>
                     </span>
                 </div>
@@ -96,6 +137,10 @@
                             </div>
                             <p class="truncate text-gray-700 dark:text-gray-300">{{ $review['reviewer'] }} · <span class="text-gray-500">{{ $review['date'] }}</span></p>
                             <p class="truncate text-gray-500" title="{{ $names[$review['asset_id']] ?? '' }}">{{ $names[$review['asset_id']] ?? '—' }}</p>
+                            @if (! $review['answered'] && isset($brandAnswers[$review['id']]))
+                                @php $answer = $brandAnswers[$review['id']]; @endphp
+                                <span @class(['mt-0.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => in_array($answer['state'], ['ok', 'edit'], true), 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300' => $answer['state'] === 'skip', 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' => $answer['state'] === 'waiting']) data-testid="gbp-brand-answer">{{ $answer['label'] }}</span>
+                            @endif
                         </div>
                     </div>
                     @if ($review['comment'] !== '')

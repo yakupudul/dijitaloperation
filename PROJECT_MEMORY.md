@@ -1971,8 +1971,9 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   okuyup yalnız ekler, geri alma yalnız eklenenleri çıkarır. (Açıklama, saatler, fotoğraflar ADR-079 ile MoxDOP'tan.)
   "Aynı sektördeki işletmelerden getir" (2026-10-06): yalnız MoxDOP'un yönettiği aynı sektör profillerinden kategori ve
   hizmet ADLARI alınır, açıklamaları asla; açıklamayı AI bu marka için yazar.
-- **Yorum yanıtı marka onayı (yakup, 2026-10-06):** hazır (AI ya da elle) yorum yanıtları PDF olarak indirilir, markaya
-  gönderilir; marka onaylarsa yayın MoxDOP'tan Admin ile yapılır. Elle yazılan yanıt taslak olarak saklanır.
+- **Yorum yanıtı marka onayı (yakup, 2026-10-06):** hazır (AI ya da elle) yorum yanıtları markaya girişsiz onay
+  bağlantısıyla gider (PDF yedek); marka onaylar / düzeltir / istemez. Yayın her zaman MoxDOP'tan Admin tıklamasıyla
+  (yakup kararı: otomatik yayın yok). Bağlantı müşteri girişi değildir: tek seferlik, süreli, kapatılabilir sayfa.
 - **Kötü yorum kaldırma (yakup, 2026-10-06):** Google yorum bildirmeye API vermez; MoxDOP talebi hazırlar (neden, metin,
   Google aracı bağlantısı), bildirimi operatör Google'da yapar, MoxDOP sonraki tam toplamada kaldırılıp kaldırılmadığını izler.
 - **Bugün paylaş (yakup, 2026-10-06):** Admin havuzdan sıradaki gönderiyi görüp hemen paylaşabilir; günde bir gönderi kuralı

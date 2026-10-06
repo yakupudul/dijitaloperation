@@ -2,10 +2,13 @@
 
 namespace App\Livewire\Operator\Gbp\Desk;
 
+use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
+use App\Models\GbpReviewApproval;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\Desk\GbpDesk;
+use App\Services\Gbp\Desk\ReviewApprovals;
 use App\Services\Gbp\Desk\ReviewDesk;
 use App\Services\Gbp\Desk\ReviewFlags;
 use App\Services\Gbp\GbpDailyWorkspace;
@@ -66,6 +69,9 @@ final class ReviewsPage extends Component
     public string $flagReason = '';
 
     public string $flagNote = '';
+
+    /** Brand approval link just made (shown with a copy button). */
+    public ?string $approvalUrl = null;
 
     /** Set when the screen is embedded in one profile's asset page (Yorumlar tab): only that profile, no filters. */
     #[Locked]
@@ -168,8 +174,10 @@ final class ReviewsPage extends Component
     public function pick(string $mode, ReviewDesk $desk): void
     {
         $open = array_filter($this->reviews($desk), fn (array $r): bool => ! ReviewDesk::busy($r));
+        $brandAnswers = $mode === 'brand' ? app(ReviewApprovals::class)->forReviews(array_column($open, 'id')) : [];
         $this->selected = array_values(array_map(fn (array $r): int => $r['id'], array_filter($open, fn (array $r): bool => match ($mode) {
             'ready' => trim($this->text($r)) !== '',
+            'brand' => in_array($brandAnswers[$r['id']]['state'] ?? null, ['ok', 'edit'], true),
             'silent' => $r['comment'] === '' && ($r['rating'] ?? 0) >= 4,
             'none' => false,
             default => true,
@@ -182,6 +190,49 @@ final class ReviewsPage extends Component
         $picked = $this->picked($desk);
         $queued = $desk->draftAll($picked !== [] ? $picked : $this->reviews($desk));
         $this->say($queued > 0 ? $queued.' yorum için yanıt taslağı yazılıyor; hazır olanlar kartlarda görünür.' : 'Seçilenlerin hepsinin taslağı ya da yanıtı var.');
+    }
+
+    /**
+     * "Markaya onaya gönder": the picked reviews with a reply go to the brand as a link (one brand at a time); the
+     * brand's approved / edited texts come back as drafts, publishing stays here.
+     */
+    public function sendToBrand(ReviewDesk $desk, ReviewApprovals $approvals): void
+    {
+        abort_unless($this->canWrite(), 403);
+        $rows = array_values(array_filter($this->picked($desk), fn (array $r): bool => trim($this->text($r)) !== ''));
+        $brandIds = $this->scopedLocations()->whereIn('id', array_unique(array_column($rows, 'asset_id')))->pluck('brand_id')->unique()->values();
+        if ($rows === []) {
+            $this->say('Seçilenlerin hiçbirinde yanıt yok; önce taslak yazdırın ya da yanıtı yazın.', 'error');
+
+            return;
+        }
+        if ($brandIds->count() !== 1) {
+            $this->say('Onay bağlantısı tek marka için hazırlanır; yalnız bir markanın yorumlarını seçin (üstten marka süzgeci).', 'error');
+
+            return;
+        }
+        $names = $this->scopedLocations()->mapWithKeys(fn ($l): array => [(int) $l->id => GbpDesk::shortName((string) $l->name)])->all();
+        $rows = array_map(function (array $r) use ($desk): array {
+            $desk->saveDraft(auth()->user(), $r['id'], $this->text($r));
+
+            return $r + ['text' => trim($this->text($r))];
+        }, $rows);
+        try {
+            $approval = $approvals->create(auth()->user(), Brand::query()->findOrFail($brandIds->first()), $rows, $names);
+            $this->approvalUrl = ReviewApprovals::url($approval);
+            $this->selected = [];
+            $this->say(count($approval->items).' yanıt için onay bağlantısı hazır; kopyalayıp markaya gönderin.');
+        } catch (ValidationException $exception) {
+            $this->sayError($exception);
+        }
+    }
+
+    public function closeApproval(int $approvalId, ReviewApprovals $approvals): void
+    {
+        abort_unless($this->canWrite(), 403);
+        $approvals->close(GbpReviewApproval::query()->findOrFail($approvalId));
+        $this->approvalUrl = null;
+        $this->say('Onay bağlantısı kapatıldı; marka artık açamaz.');
     }
 
     /** AI draft for one card. */
@@ -362,6 +413,7 @@ final class ReviewsPage extends Component
                 $kits[$item->id] = $desk->kit($item);
             }
         }
+        $brandAnswers = app(ReviewApprovals::class)->forReviews(array_column($reviews, 'id'));
         $ids = array_flip(array_map('intval', $this->selected));
         $picked = array_values(array_filter($reviews, fn (array $r): bool => isset($ids[$r['id']]) && ! ReviewDesk::busy($r)));
         $preview = [];
@@ -373,6 +425,8 @@ final class ReviewsPage extends Component
                     $text === '' ? 'Yanıt boş; gönderilmez.' : null,
                     $text !== '' && ($texts[mb_strtolower($text)] ?? 0) >= 3 ? 'Aynı metin '.$texts[mb_strtolower($text)].' yoruma gidiyor; Google tekrar eden yanıtları sevmez, birkaçını kişiselleştirin.' : null,
                     $text !== '' && ($review['rating'] ?? 5) <= 2 && mb_strlen($text) < 80 ? 'Düşük puanlı yorumda yanıt çok kısa.' : null,
+                    ($brandAnswers[$review['id']]['state'] ?? null) === 'skip' ? 'Marka bu yoruma yanıt verilmesini istemedi.' : null,
+                    ($brandAnswers[$review['id']]['state'] ?? null) === 'waiting' ? 'Markanın onayı henüz gelmedi.' : null,
                 ]))];
             }
         }
@@ -402,6 +456,8 @@ final class ReviewsPage extends Component
             'openCount' => count($open),
             'preview' => $preview,
             'flags' => $flagged,
+            'brandAnswers' => $brandAnswers,
+            'approvalLinks' => $this->canWrite() ? app(ReviewApprovals::class)->recent($this->brand) : collect(),
             'places' => $places,
             'chips' => count($chips) > 1 ? $chips : [],
             'allUnanswered' => array_sum(array_column($allStats, 'unanswered')),

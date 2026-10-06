@@ -13,6 +13,7 @@ use App\Http\Controllers\LegacyRetiredPrefixController;
 use App\Http\Controllers\Operator\PushController;
 use App\Http\Controllers\Operator\WebsiteHtmlSnapshotController;
 use App\Http\Controllers\Ops\OpsHealthController;
+use App\Http\Controllers\Public\GbpReviewApprovalController;
 use App\Http\Middleware\EnsureDemoAppAccess;
 use App\Livewire\Operator\AssetDataSourcesPage;
 use App\Livewire\Operator\Integrations\WebsiteIntegrationIndex;
@@ -36,6 +37,9 @@ Route::post('/logout', [OperatorLoginController::class, 'destroy'])
     ->middleware('auth')
     ->name('app.logout');
 
+// Brand approval of prepared review replies (link without login; ADR-073 publishing stays with the Admin).
+Route::get('/onay/yorum-yanitlari/{token}', [GbpReviewApprovalController::class, 'show'])->middleware('throttle:60,1')->name('gbp-review-approval');
+Route::post('/onay/yorum-yanitlari/{token}', [GbpReviewApprovalController::class, 'store'])->middleware('throttle:20,1')->name('gbp-review-approval.store');
 Route::get('/up/liveness', [OpsHealthController::class, 'liveness'])->name('ops.liveness');
 Route::get('/up/readiness', [OpsHealthController::class, 'readiness'])->name('ops.readiness');
 Route::middleware(['web', 'auth'])->prefix('push')->name('push.')->group(function (): void {
