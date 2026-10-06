@@ -11,8 +11,11 @@ use App\Models\ExternalWriteAction;
 use App\Models\GbpReview;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\Gbp\Desk\BranchPages;
+use App\Services\Gbp\Desk\PhotoPlan;
 use App\Services\Gbp\GbpAssistant;
 use App\Services\Gbp\GbpProfilePlanner;
+use App\Services\Gbp\GbpSuggestions;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
 use App\Services\Integrations\WordPress\WordPressManagementService;
 use App\Services\Integrations\WordPress\WordPressSiteBuilder;
@@ -444,6 +447,103 @@ final class ExternalWriteService
         return $this->queue($action);
     }
 
+    /**
+     * ADR-079: the Admin sends the description, special hours (dates in the next 400 days) and / or website link to the
+     * profile. The description passes the same checks as AI texts (≤ 750 characters, no contact data, sector rules); the
+     * website link must be https on one of the brand's own sites.
+     *
+     * @param  array{description?: string, special_hours?: list<array{date: string, closed?: bool, open?: string, close?: string}>, website_uri?: string}  $fields
+     */
+    public function requestProfileFields(User $user, DigitalAsset $asset, array $fields, string $label, ?Suggestion $suggestion = null): ExternalWriteAction
+    {
+        $this->guard($user, ExternalWriteAction::CHANNEL_GBP);
+        if ($asset->type !== 'google_business_profile') {
+            throw ValidationException::withMessages(['write' => 'Hedef bir İşletme Profili olmalı.']);
+        }
+        $clean = [];
+        if (array_key_exists('description', $fields)) {
+            $text = trim((string) $fields['description']);
+            if (mb_strlen($text) < 100 || mb_strlen($text) > GbpAssistant::DESCRIPTION_MAX) {
+                throw ValidationException::withMessages(['write' => 'Açıklama 100–'.GbpAssistant::DESCRIPTION_MAX.' karakter olmalı.']);
+            }
+            if (preg_match('~https?://|www\.|[\w.+-]+@[\w-]+\.[\w.]+|\+?\d[\d\s().-]{8,}\d~iu', $text) === 1) {
+                throw ValidationException::withMessages(['write' => 'Açıklamada telefon, e-posta ya da bağlantı olamaz (Google kuralı).']);
+            }
+            $blocking = GbpAssistant::blockingHits($asset->loadMissing('brand')->brand, $text);
+            if ($blocking !== []) {
+                throw ValidationException::withMessages(['write' => 'Açıklama sektör uyum kuralına takılıyor: '.implode(', ', $blocking).'.']);
+            }
+            $clean['description'] = $text;
+        }
+        if (array_key_exists('special_hours', $fields)) {
+            $rows = [];
+            foreach ((array) $fields['special_hours'] as $row) {
+                $period = is_array($row) ? GbpWriter::specialPeriod($row) : null;
+                $date = (string) data_get($row, 'date', '');
+                if ($period === null || $date < now('Europe/Istanbul')->toDateString() || $date > now('Europe/Istanbul')->addDays(400)->toDateString()) {
+                    throw ValidationException::withMessages(['write' => 'Özel gün satırı geçersiz: '.$date.' (gelecek bir tarih; kapalı ya da açılış < kapanış saati).']);
+                }
+                $rows[$date] = array_filter(['date' => $date, 'closed' => (bool) ($row['closed'] ?? false) ?: null,
+                    'open' => ($row['closed'] ?? false) ? null : (string) $row['open'], 'close' => ($row['closed'] ?? false) ? null : (string) $row['close']], fn (mixed $v): bool => $v !== null);
+            }
+            if ($rows === []) {
+                throw ValidationException::withMessages(['write' => 'Gönderilecek özel gün yok.']);
+            }
+            ksort($rows);
+            $clean['special_hours'] = array_values($rows);
+        }
+        if (array_key_exists('website_uri', $fields)) {
+            $uri = trim((string) $fields['website_uri']);
+            $host = strtolower((string) parse_url($uri, PHP_URL_HOST));
+            $own = DigitalAsset::query()->where('brand_id', $asset->brand_id)->where('type', 'website')->get(['domain', 'primary_url'])
+                ->map(fn (DigitalAsset $site): string => preg_replace('/^www\./', '', strtolower((string) ($site->domain ?: parse_url((string) $site->primary_url, PHP_URL_HOST)))))->filter()->all();
+            if (preg_match('~^https://\S+$~i', $uri) !== 1 || ! in_array(preg_replace('/^www\./', '', $host), $own, true)) {
+                throw ValidationException::withMessages(['write' => 'Web sitesi bağlantısı markanın kendi sitesinde bir https adresi olmalı.']);
+            }
+            $clean['website_uri'] = $uri;
+        }
+        if ($clean === []) {
+            throw ValidationException::withMessages(['write' => 'Gönderilecek alan yok.']);
+        }
+        $busy = ExternalWriteAction::query()->where('digital_asset_id', $asset->id)->where('action', ExternalWriteAction::ACTION_PROFILE_FIELDS)
+            ->whereIn('status', ['queued', 'running', 'undoing'])->exists();
+        if ($busy) {
+            throw ValidationException::withMessages(['write' => 'Bu profile bir güncelleme zaten gönderiliyor; bitince tekrar deneyin.']);
+        }
+        $this->gbpLocation($asset);
+
+        return $this->queue(ExternalWriteAction::query()->create([
+            'channel' => ExternalWriteAction::CHANNEL_GBP, 'action' => ExternalWriteAction::ACTION_PROFILE_FIELDS,
+            'digital_asset_id' => $asset->id, 'brand_id' => $asset->brand_id, 'suggestion_id' => $suggestion?->id, 'status' => 'queued',
+            'request_payload' => ['fields' => $clean, 'label' => mb_substr($label, 0, 120)],
+            'requested_by' => $user->id,
+        ]));
+    }
+
+    /**
+     * ADR-079: the Admin adds one photo to the profile from an https JPG / PNG address (the brand's site or MoxDOP's
+     * own public storage). Google fetches the file itself.
+     */
+    public function requestPhoto(User $user, DigitalAsset $asset, string $sourceUrl, string $category = 'ADDITIONAL', ?int $photoId = null): ExternalWriteAction
+    {
+        $this->guard($user, ExternalWriteAction::CHANNEL_GBP);
+        $sourceUrl = trim($sourceUrl);
+        if ($asset->type !== 'google_business_profile' || preg_match('~^https://\S+\.(jpe?g|png)(\?\S*)?$~i', $sourceUrl) !== 1) {
+            throw ValidationException::withMessages(['write' => 'Fotoğraf https ile başlayan bir JPG / PNG adresi olmalı; hedef bir İşletme Profili olmalı.']);
+        }
+        if (! in_array($category, ['ADDITIONAL', 'EXTERIOR', 'INTERIOR', 'PRODUCT', 'AT_WORK', 'TEAMS', 'LOGO', 'COVER'], true)) {
+            throw ValidationException::withMessages(['write' => 'Fotoğraf türü geçersiz.']);
+        }
+        $this->gbpLocation($asset);
+
+        return $this->queue(ExternalWriteAction::query()->create([
+            'channel' => ExternalWriteAction::CHANNEL_GBP, 'action' => ExternalWriteAction::ACTION_MEDIA_UPLOAD,
+            'digital_asset_id' => $asset->id, 'brand_id' => $asset->brand_id, 'status' => 'queued',
+            'request_payload' => array_filter(['source_url' => $sourceUrl, 'category' => $category, 'photo_id' => $photoId, 'label' => 'Fotoğraf ekleme'], fn (mixed $v): bool => $v !== null),
+            'requested_by' => $user->id,
+        ]));
+    }
+
     /** Sends the scheduled (already Admin-approved) Business Profile posts whose time has come. */
     public function releaseScheduled(): int
     {
@@ -519,6 +619,20 @@ final class ExternalWriteService
             // "301 ile birleştir" becomes applied only once the site confirmed it (else open again with the error).
             app(ClusterOverlaps::class)->writeFinished($action);
         }
+        if ($action->action === ExternalWriteAction::ACTION_ARTICLE_DRAFTS && str_starts_with((string) data_get($action->request_payload, 'reference'), 'gbp-branch-')) {
+            // ADR-079: the branch page draft gets its local-business markup (same approval).
+            app(BranchPages::class)->draftFinished($action);
+        }
+        if ($action->action === ExternalWriteAction::ACTION_MEDIA_UPLOAD) {
+            app(PhotoPlan::class)->writeFinished($action);
+        }
+        if ($action->action === ExternalWriteAction::ACTION_PROFILE_FIELDS && $action->suggestion_id !== null && in_array($action->status, ['succeeded', 'partial'], true)) {
+            // The description suggestion that was sent is done (outcome baseline from today).
+            $suggestion = Suggestion::query()->find($action->suggestion_id);
+            if ($suggestion !== null && $suggestion->status !== Suggestion::APPLIED) {
+                app(GbpSuggestions::class)->markApplied($suggestion, User::query()->find($action->requested_by));
+            }
+        }
     }
 
     public function executeUndo(ExternalWriteAction $action): void
@@ -533,6 +647,9 @@ final class ExternalWriteService
             };
             $action->forceFill(['status' => 'undone', 'undone_at' => now(), 'result' => array_merge($action->result ?? [], ['undo' => $undo]), 'error' => null])->save();
             app(ClusterOverlaps::class)->writeUndone($action);
+            if ($action->action === ExternalWriteAction::ACTION_MEDIA_UPLOAD) {
+                app(PhotoPlan::class)->writeFinished($action);
+            }
         } catch (Throwable $exception) {
             $action->forceFill(['status' => 'undo_failed', 'error' => mb_substr($exception->getMessage(), 0, 500)])->save();
         }

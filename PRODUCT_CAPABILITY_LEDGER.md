@@ -1,5 +1,20 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-06 — İşletme profilleri masası: şube sayfası, açıklama ve saatler, fotoğraf, yorum, ölçüm (ADR-079)
+
+- **Neden (yakup):** İşletme hesaplarını yerel SEO için profesyonel hale getirmek; "sırayla hepsini yap, eksiksiz".
+- **Ekran:** Menüde "İşletme profilleri" (`/gbp`), altı sekme, üstte marka süzgeci:
+  - **Durum ve ölçüm** (`/gbp`): işletme başına son tam ayın görüntülenme / arama / yol tarifi / web tıklaması ve değişim, altı kontrol (şube sayfası, açıklama, özel gün saatleri, fotoğraf, yorum, gönderi planı; her biri düzeltildiği sekmeye gider). Satır açılınca 6 ay, arama terimleri (yeni / önceki ay), o ay MoxDOP'un yaptıkları.
+  - **Gönderiler** (`/gbp-posts`, ADR-078 ekranı sekmeye taşındı).
+  - **Şube sayfaları** (`/gbp/sube-sayfalari`): bağlı / sayfa var bağlı değil / WordPress'te taslak / metin hazır / yok / site yok. "Sayfayı hazırla" (tek ya da tüm eksikler) → oku / düzenle + önizleme → "WordPress'e taslak gönder" (işaretleme taslaktan sonra kendiliğinden) → WordPress'te yayınla → "Profili bu sayfaya bağla" (UTM'li). Var olan şube sayfası bulunur, bağlanır, "İşaretleme ekle".
+  - **Açıklama ve saatler** (`/gbp/aciklama-ve-saatler`): açıklama uzunluğu ve durumu, AI ile yaz (tek / eksik ve kısa olanların hepsi), Google'daki metinle yan yana düzenle ve gönder, hazır önerileri toplu gönder, geri al. Özel günler: yaklaşan resmî tatiller, gün başına kapalı / saat / değiştirme, eksik olan işletmeleri seç, gönder, geri al.
+  - **Fotoğraflar** (`/gbp/fotograflar`): fotoğraf sayısı, son fotoğrafın yaşı, logo / kapak; siteden aday görseller (seç, tür ver, gönder), şube fotoğrafı yükle, marka için "eski olanlara birer fotoğraf gönder", gönderilenler ve "Kaldır".
+  - **Yorumlar** (`/gbp/yorumlar`): tüm profillerin yanıtsız yorumları tek listede (en uzun bekleyen üstte, puan süzgeci), "Taslakları yaz", düzenle, tek / toplu gönder. "Yorum isteme": 90 günlük yorum sayısı / ortalama / yanıt oranı, Google yorum bağlantısı, QR, mesaj (kopyala / WhatsApp), yazdırılabilir kart (`/gbp/yorum-karti/{id}`, A4'e iki kart).
+- **Yazmalar:** `gbp/profile_fields` (açıklama, özel gün saatleri, web sitesi bağlantısı; canlı profili okuyup yalnız gönderilen alanı / tarihleri değiştirir, geri alma sonradan değişmemişse önceki değeri yazar), `gbp/media_upload` (fotoğraf, geri alma siler). Şube sayfası ADR-064/076 taslağı + ADR-070 şema düzeltmesi.
+- **AI:** `gbp.branch_page` (`GbpBranchPageAgent`, istem `gbp-branch-page-v1`), Claude MCP kuyruğuna devredilebilir; açıklama ve yorum taslağı mevcut işlemler.
+- **Veri:** `gbp_branch_pages`, `gbp_photos` (migration `2026_12_06_090000`).
+- **State:** CODED + PHPUnit (`tests/Feature/Gbp/GbpDeskTest.php`, 8). Gerçek Google / WordPress'e yazılmadı. **Engel:** GCP projesinde "Google My Business API" (v4: fotoğraf, yorum yanıtı, gönderi) açık olmalı; açıklama / saat / bağlantı Business Information API ile gider. Yüklenen fotoğraf için `APP_URL` https ve `storage:link` olmalı. **Operator after deploy:** `/gbp`'de durumlara bak; bir şube sayfası hazırla → taslak gönder → yayınla → bağla; bir açıklama gönder ve Google'da gör; bir tatil için saat gönder; bir fotoğraf gönder.
+
 ## 2026-10-06 — İşletme gönderileri: 30 günlük otomatik plan, aylık toplu onay (ADR-078)
 
 - **Neden (yakup):** Markalara bağlı her İşletme Profili kaydı için günde bir gönderi, 30 gün önceden sırayla hazırlansın; içerik sitenin hizmet / blog sayfalarından; Admin ayda bir toplu onaylasın; elle ek gönderi de olabilsin.

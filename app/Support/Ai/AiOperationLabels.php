@@ -36,6 +36,7 @@ final class AiOperationLabels
         'gbp.description' => 'İşletme Profili açıklama önerisi',
         'gbp.profile_plan' => 'İşletme Profili kategori ve hizmet hazırlığı',
         'gbp.post_queue' => 'İşletme Profili otomatik gönderileri',
+        'gbp.branch_page' => 'Şube sayfası yaz',
         'brand.care' => 'Marka bakım ajanı',
         'brand.chief' => 'Şef: haftalık plan',
         'gbp.post_from_page' => 'Sayfadan gönderi yaz',

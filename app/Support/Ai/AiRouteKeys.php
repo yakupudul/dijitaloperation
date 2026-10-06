@@ -71,6 +71,9 @@ final class AiRouteKeys
     /** ADR-078: the planned posts of a location (one per slot: a page of the brand's site × an angle). */
     public const string GBP_POST_QUEUE = 'gbp.post_queue';
 
+    /** ADR-079: the branch page of a Business Profile (text from the profile's facts and the brand's site; one call). */
+    public const string GBP_BRANCH_PAGE = 'gbp.branch_page';
+
     /** Marka bakım ajanı: weekly, delta-driven review of one active brand from its Marka dosyası (≤ 5 tasks). */
     public const string BRAND_CARE = 'brand.care';
 

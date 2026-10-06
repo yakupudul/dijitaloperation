@@ -56,6 +56,14 @@ final class AdvisorServiceProvider extends ServiceProvider
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::GBP_BRANCH_PAGE,
+            'name' => 'Business Profile Branch Page',
+            'module' => 'gbp',
+            'description' => 'Şube sayfası: the website page of one Business Profile location, written from the profile\'s facts (name, area, services) and the brand\'s own service pages; address, hours, phone and markup are added by rules. Checked for sector compliance; sent to WordPress as a draft page only after the Admin\'s click (ADR-079).',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
             'key' => AiRouteKeys::GBP_PROFILE_PLAN,
             'name' => 'Business Profile Categories And Services',
             'module' => 'gbp',

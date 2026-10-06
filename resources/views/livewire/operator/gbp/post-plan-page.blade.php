@@ -20,7 +20,7 @@
 <div class="space-y-5 dark:text-gray-200" data-gbp-post-plan>
     <header class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">İşletme gönderileri</h1>
+            <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">İşletme profilleri</h1>
             <p class="mt-1 text-xs text-gray-500">Her İşletme Profili için önümüzdeki {{ $horizon }} gün, günde bir gönderi; markanın sitesindeki sayfalardan yazılır. Onaylananlar günü gelince saat 10:00 civarında kendiliğinden yayınlanır.</p>
         </div>
         @if ($canWrite)
@@ -31,6 +31,7 @@
             </div>
         @endif
     </header>
+    @include('livewire.operator.gbp.partials.desk-tabs', ['active' => 'operator.gbp-posts', 'brandFilter' => $brand])
 
     @if ($message !== '')<p role="status" class="rounded-lg bg-blue-50 p-3 text-sm text-blue-800 dark:bg-blue-950 dark:text-blue-200">{{ $message }}</p>@endif
     @unless ($canWrite)<p class="text-xs text-gray-500">Onay, düzenleme ve atlama yalnız Admin’dedir.</p>@endunless

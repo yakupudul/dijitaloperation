@@ -44,6 +44,7 @@ final class AiUsageRecorder
         'GbpDescriptionAgent' => AiRouteKeys::GBP_DESCRIPTION,
         'GbpProfilePlanAgent' => AiRouteKeys::GBP_PROFILE_PLAN,
         'GbpPostQueueAgent' => AiRouteKeys::GBP_POST_QUEUE,
+        'GbpBranchPageAgent' => AiRouteKeys::GBP_BRANCH_PAGE,
         'BrandCareAgent' => AiRouteKeys::BRAND_CARE,
         'BrandChiefAgent' => AiRouteKeys::BRAND_CHIEF,
         'GbpPostFromPageAgent' => AiRouteKeys::GBP_POST_FROM_PAGE,

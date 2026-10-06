@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Demo\OperatorFileDownloadController;
 use App\Http\Controllers\Integrations\WordPressConnectorDownloadController;
+use App\Http\Controllers\Operator\GbpReviewCardController;
 use App\Http\Controllers\Operator\MetaLegacyPageRedirectController;
 use App\Http\Controllers\Operator\QueriesExportController;
 use App\Http\Controllers\Operator\RetiredAssetTypeRedirectController;
@@ -33,6 +34,11 @@ use App\Livewire\Operator\AiJobsPage;
 use App\Livewire\Operator\Assets\AnalyticsPage;
 use App\Livewire\Operator\Assets\SearchConsolePage;
 use App\Livewire\Operator\DataCenterPage;
+use App\Livewire\Operator\Gbp\Desk\BranchPagesPage as GbpBranchPagesPage;
+use App\Livewire\Operator\Gbp\Desk\DeskPage as GbpDeskPage;
+use App\Livewire\Operator\Gbp\Desk\PhotosPage as GbpPhotosPage;
+use App\Livewire\Operator\Gbp\Desk\ProfileFieldsPage as GbpProfileFieldsPage;
+use App\Livewire\Operator\Gbp\Desk\ReviewsPage as GbpReviewsPage;
 use App\Livewire\Operator\Gbp\PostPlanPage as GbpPostPlanPage;
 use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Operator\Integrations\DiscoveredAssetsPage;
@@ -146,6 +152,12 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/improvements', ImprovementsPage::class)->name('operator.settings.improvements');
         Route::livewire('/work', WorkPage::class)->name('operator.work');
         Route::livewire('/gbp-posts', GbpPostPlanPage::class)->name('operator.gbp-posts');
+        Route::livewire('/gbp', GbpDeskPage::class)->name('operator.gbp-desk');
+        Route::livewire('/gbp/sube-sayfalari', GbpBranchPagesPage::class)->name('operator.gbp-branch-pages');
+        Route::livewire('/gbp/aciklama-ve-saatler', GbpProfileFieldsPage::class)->name('operator.gbp-profile-fields');
+        Route::livewire('/gbp/fotograflar', GbpPhotosPage::class)->name('operator.gbp-photos');
+        Route::livewire('/gbp/yorumlar', GbpReviewsPage::class)->name('operator.gbp-reviews');
+        Route::get('/gbp/yorum-karti/{assetId}', GbpReviewCardController::class)->where('assetId', '[0-9]{1,18}')->name('operator.gbp-review-card');
         Route::livewire('/settings/sector-packs', SectorPacksPage::class)->name('operator.settings.sector-packs');
         Route::livewire('/data-center', DataCenterPage::class)->name('operator.data-center');
         Route::livewire('/integrations/wordpress-sites', WordPressSitesPage::class)->name('operator.integrations.wordpress-sites');

@@ -16,7 +16,9 @@ use Throwable;
  * Business Profile writes. ADR-073: a review reply (undo restores the previous reply or deletes it) and a local post
  * (undo deletes it). ADR-077: categories and service items the Admin chose from a "Kategori ve hizmetler" plan are
  * added to what the profile has now (read just before the write; nothing existing is removed or changed, the primary
- * category stays); undo removes exactly what was added. Hours, description, photos and the rest are never changed.
+ * category stays); undo removes exactly what was added. ADR-079: the description, special hours (only the dates sent;
+ * other dates stay) and the website link, each with the previous value kept for undo, and a photo from an https
+ * address (undo deletes it). Regular hours, name, address, phone and the rest are never changed.
  */
 final class GbpWriter
 {
@@ -36,6 +38,19 @@ final class GbpWriter
 
         if ($action->action === ExternalWriteAction::ACTION_PROFILE_UPDATE) {
             return $this->addToProfile($integration, 'locations/'.substr($parent, (int) strrpos($parent, '/') + 1), $payload);
+        }
+        if ($action->action === ExternalWriteAction::ACTION_PROFILE_FIELDS) {
+            return $this->writeFields($integration, 'locations/'.substr($parent, (int) strrpos($parent, '/') + 1), (array) ($payload['fields'] ?? []));
+        }
+        if ($action->action === ExternalWriteAction::ACTION_MEDIA_UPLOAD) {
+            $created = $this->call($integration, 'post', self::BASE.$parent.'/media', ['mediaFormat' => 'PHOTO',
+                'locationAssociation' => ['category' => (string) ($payload['category'] ?? 'ADDITIONAL')], 'sourceUrl' => (string) $payload['source_url']]);
+            $name = (string) ($created['name'] ?? '');
+            if ($name === '') {
+                throw new RuntimeException('Fotoğraf yüklendi ama adı dönmedi.');
+            }
+
+            return ['status' => 'succeeded', 'media' => $name, 'google_url' => $created['googleUrl'] ?? null];
         }
 
         if ($action->action === ExternalWriteAction::ACTION_REVIEW_REPLY) {
@@ -72,6 +87,18 @@ final class GbpWriter
         $result = (array) $action->result;
         if ($action->action === ExternalWriteAction::ACTION_PROFILE_UPDATE) {
             return $this->removeFromProfile($integration, $result);
+        }
+        if ($action->action === ExternalWriteAction::ACTION_PROFILE_FIELDS) {
+            return $this->restoreFields($integration, $result);
+        }
+        if ($action->action === ExternalWriteAction::ACTION_MEDIA_UPLOAD) {
+            $name = (string) ($result['media'] ?? '');
+            if (preg_match('#^accounts/[^/]+/locations/[^/]+/media/[^/]+$#', $name) !== 1) {
+                throw new RuntimeException('Silinecek fotoğraf bilinmiyor.');
+            }
+            $this->call($integration, 'delete', self::BASE.$name);
+
+            return ['deleted' => $name];
         }
         if ($action->action === ExternalWriteAction::ACTION_REVIEW_REPLY) {
             $review = GbpReview::query()->where('review_id', (string) $result['review_id'])->first();
@@ -189,6 +216,149 @@ final class GbpWriter
         }
 
         return ['removed_categories' => $removedCategories, 'removed_services' => $removedServices];
+    }
+
+    /**
+     * ADR-079: writes the given fields (description, special_hours, website_uri) one by one after reading the live
+     * values; special hours replace only the dates sent. A later field failing after an earlier one was written leaves
+     * the action "partial".
+     *
+     * @param  array<string, mixed>  $fields
+     * @return array<string, mixed>
+     */
+    private function writeFields(CoreIntegration $integration, string $location, array $fields): array
+    {
+        $current = $this->fields($integration, $location);
+        $result = ['status' => 'succeeded', 'location' => $location, 'written' => [], 'before' => []];
+        $steps = [];
+        if (array_key_exists('description', $fields)) {
+            $text = trim((string) $fields['description']);
+            $steps[] = ['description', 'profile.description', ['profile' => ['description' => $text]], $text, (string) data_get($current, 'profile.description', '')];
+        }
+        if (array_key_exists('website_uri', $fields)) {
+            $uri = trim((string) $fields['website_uri']);
+            $steps[] = ['website_uri', 'websiteUri', ['websiteUri' => $uri], $uri, (string) ($current['websiteUri'] ?? '')];
+        }
+        if (array_key_exists('special_hours', $fields)) {
+            $periods = array_values(array_filter(array_map(fn (mixed $p): ?array => is_array($p) ? self::specialPeriod($p) : null, (array) $fields['special_hours'])));
+            if ($periods === []) {
+                throw new RuntimeException('Gönderilecek özel gün yok.');
+            }
+            $dates = array_map(fn (array $p): string => self::periodDate($p), $periods);
+            $existing = array_values((array) data_get($current, 'specialHours.specialHourPeriods', []));
+            $kept = array_values(array_filter($existing, fn (mixed $p): bool => ! in_array(self::periodDate((array) $p), $dates, true)));
+            $replaced = array_values(array_filter($existing, fn (mixed $p): bool => in_array(self::periodDate((array) $p), $dates, true)));
+            $steps[] = ['special_hours', 'specialHours', ['specialHours' => ['specialHourPeriods' => [...$kept, ...$periods]]], $periods, $replaced];
+        }
+        if ($steps === []) {
+            throw new RuntimeException('Gönderilecek alan yok.');
+        }
+        foreach ($steps as [$key, $mask, $body, $written, $before]) {
+            try {
+                $this->call($integration, 'patch', self::V1.$location.'?updateMask='.$mask, $body);
+                $result['written'][$key] = $written;
+                $result['before'][$key] = $before;
+            } catch (Throwable $exception) {
+                if ($result['written'] === []) {
+                    throw $exception;
+                }
+                $result['status'] = 'partial';
+                $result['error'] = mb_substr($exception->getMessage(), 0, 300);
+
+                break;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * ADR-079 undo: each written field goes back to its previous value when it still holds what MoxDOP wrote (a later
+     * change on Google stays); special hours: the dates written are replaced by what those dates had before.
+     *
+     * @param  array<string, mixed>  $result
+     * @return array<string, mixed>
+     */
+    private function restoreFields(CoreIntegration $integration, array $result): array
+    {
+        $location = (string) ($result['location'] ?? '');
+        if (preg_match('#^locations/[^/?]+$#', $location) !== 1) {
+            throw new RuntimeException('Geri alınacak konum bilinmiyor.');
+        }
+        $current = $this->fields($integration, $location);
+        $written = (array) ($result['written'] ?? []);
+        $before = (array) ($result['before'] ?? []);
+        $restored = [];
+        $kept = [];
+        if (array_key_exists('description', $written)) {
+            if (trim((string) data_get($current, 'profile.description', '')) === trim((string) $written['description'])) {
+                $this->call($integration, 'patch', self::V1.$location.'?updateMask=profile.description', ['profile' => ['description' => (string) ($before['description'] ?? '')]]);
+                $restored[] = 'description';
+            } else {
+                $kept[] = 'description';
+            }
+        }
+        if (array_key_exists('website_uri', $written)) {
+            if (trim((string) ($current['websiteUri'] ?? '')) === trim((string) $written['website_uri'])) {
+                $this->call($integration, 'patch', self::V1.$location.'?updateMask=websiteUri', ['websiteUri' => (string) ($before['website_uri'] ?? '')]);
+                $restored[] = 'website_uri';
+            } else {
+                $kept[] = 'website_uri';
+            }
+        }
+        if (array_key_exists('special_hours', $written)) {
+            $dates = array_map(fn (mixed $p): string => self::periodDate((array) $p), (array) $written['special_hours']);
+            $existing = array_values((array) data_get($current, 'specialHours.specialHourPeriods', []));
+            $others = array_values(array_filter($existing, fn (mixed $p): bool => ! in_array(self::periodDate((array) $p), $dates, true)));
+            $this->call($integration, 'patch', self::V1.$location.'?updateMask=specialHours', ['specialHours' => ['specialHourPeriods' => [...$others, ...array_values((array) ($before['special_hours'] ?? []))]]]);
+            $restored[] = 'special_hours';
+        }
+
+        return ['restored' => $restored, 'changed_since' => $kept];
+    }
+
+    /**
+     * One special-hours row as Google's period: `{date: Y-m-d, closed: true}` or `{date, open: "HH:MM", close: "HH:MM"}`.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>|null
+     */
+    public static function specialPeriod(array $row): ?array
+    {
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', (string) ($row['date'] ?? ''), $d) !== 1) {
+            return null;
+        }
+        $date = ['year' => (int) $d[1], 'month' => (int) $d[2], 'day' => (int) $d[3]];
+        if ((bool) ($row['closed'] ?? false)) {
+            return ['startDate' => $date, 'endDate' => $date, 'closed' => true];
+        }
+        $time = static fn (string $t): ?array => preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $t, $m) === 1 ? ['hours' => (int) $m[1], 'minutes' => (int) $m[2]] : null;
+        $open = $time((string) ($row['open'] ?? ''));
+        $close = $time((string) ($row['close'] ?? ''));
+        if ($open === null || $close === null || [$close['hours'], $close['minutes']] <= [$open['hours'], $open['minutes']]) {
+            return null;
+        }
+
+        return ['startDate' => $date, 'endDate' => $date, 'openTime' => $open, 'closeTime' => $close];
+    }
+
+    /** @param  array<string, mixed>  $period */
+    public static function periodDate(array $period): string
+    {
+        $date = (array) ($period['startDate'] ?? []);
+
+        return sprintf('%04d-%02d-%02d', (int) ($date['year'] ?? 0), (int) ($date['month'] ?? 0), (int) ($date['day'] ?? 0));
+    }
+
+    /** @return array<string, mixed> the location's live description, special hours and website link */
+    private function fields(CoreIntegration $integration, string $location): array
+    {
+        $response = $this->google->get($integration, self::V1.$location, ['readMask' => 'profile,specialHours,websiteUri'], 'google_business_profile');
+        if (! $response->successful()) {
+            throw new RuntimeException('İşletme Profili okunamadı: '.mb_substr((string) (data_get($response->json(), 'error.message') ?? 'HTTP '.$response->status()), 0, 300));
+        }
+
+        return (array) $response->json();
     }
 
     /**

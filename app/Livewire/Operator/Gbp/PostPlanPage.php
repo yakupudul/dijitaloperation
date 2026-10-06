@@ -7,6 +7,7 @@ use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\GbpQueuedPost;
 use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\Gbp\Desk\GbpDesk;
 use App\Services\Gbp\GbpPostQueue;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Cache;
@@ -177,9 +178,7 @@ final class PostPlanPage extends Component
     /** "İşletme Profili · Avrupadent Çiğli | İmplant | …" → "Avrupadent Çiğli". */
     public static function shortName(string $name): string
     {
-        $name = (string) preg_replace('/^\s*(İşletme Profili|Google Business Profile|GBP)\s*[·:\-]\s*/u', '', $name);
-
-        return trim(explode(' | ', $name)[0]) ?: $name;
+        return GbpDesk::shortName($name);
     }
 
     public function render(GbpPostQueue $queue): View

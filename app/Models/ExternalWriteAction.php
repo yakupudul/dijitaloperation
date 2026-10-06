@@ -15,7 +15,7 @@ class ExternalWriteAction extends Model
 
     public const string CHANNEL_WORDPRESS = 'wordpress';
 
-    /** ADR-073: Google Business Profile (review reply, local post); ADR-077: categories and services. */
+    /** ADR-073: Google Business Profile (review reply, local post); ADR-077: categories and services; ADR-079: description, special hours, website link, photos. */
     public const string CHANNEL_GBP = 'gbp';
 
     /** ADR-073: reply to a Google review (undo restores the previous reply or deletes it). */
@@ -26,6 +26,12 @@ class ExternalWriteAction extends Model
 
     /** ADR-077: add Google categories / service items to the profile (additions only; undo removes exactly those). */
     public const string ACTION_PROFILE_UPDATE = 'profile_update';
+
+    /** ADR-079: description, special hours or website link of the profile (undo restores the previous values where unchanged since). */
+    public const string ACTION_PROFILE_FIELDS = 'profile_fields';
+
+    /** ADR-079: a photo added to the profile from an https address (undo deletes it). */
+    public const string ACTION_MEDIA_UPLOAD = 'media_upload';
 
     public const string ACTION_NEGATIVE_LIST_ADD = 'negative_list_add';
 
