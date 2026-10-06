@@ -198,6 +198,44 @@ final class GbpPostQueue
     }
 
     /**
+     * The pages of the brands' websites that posts can be written from: indexable, ≥ 150 words, Turkish (no other
+     * language field or path prefix), service / location / blog.
+     *
+     * @param  list<int>  $brandIds
+     * @param  list<string>  $columns
+     * @return Collection<int, Page>
+     */
+    public function usablePages(array $brandIds, array $columns = ['id', 'website_asset_id', 'path']): Collection
+    {
+        $sites = DigitalAsset::query()->whereIn('brand_id', $brandIds)->where('type', 'website')->pluck('id');
+
+        return Page::query()->whereIn('website_asset_id', $sites)->where('is_indexable', true)->where('word_count', '>=', 150)
+            ->where(fn ($q) => $q->whereNull('language')->orWhere('language', 'tr'))
+            ->where(fn ($q) => $q->whereIn('category', array_keys(self::ANGLES_BY_CATEGORY))->orWhereNull('category'))
+            ->orderBy('id')->get(array_values(array_unique([...$columns, 'website_asset_id', 'path'])))
+            ->reject(fn (Page $p): bool => preg_match('#^/(?!tr/)[a-z]{2}(?:-[a-z]{2})?/#i', (string) $p->path) === 1)->values();
+    }
+
+    /**
+     * Per brand: whether it has a website and how many pages posts can be written from (for the "why empty" note).
+     *
+     * @param  list<int>  $brandIds
+     * @return array<int, array{sites: int, pages: int}>
+     */
+    public function sources(array $brandIds): array
+    {
+        $sites = DigitalAsset::query()->whereIn('brand_id', $brandIds)->where('type', 'website')->get(['id', 'brand_id']);
+        $pages = $this->usablePages($brandIds)->countBy('website_asset_id');
+        $out = [];
+        foreach ($brandIds as $brandId) {
+            $own = $sites->where('brand_id', $brandId)->pluck('id');
+            $out[$brandId] = ['sites' => $own->count(), 'pages' => (int) $own->sum(fn ($id): int => (int) ($pages[$id] ?? 0))];
+        }
+
+        return $out;
+    }
+
+    /**
      * The slots for the empty days (see the class note), in day order.
      *
      * @param  list<string>  $days
@@ -208,12 +246,7 @@ final class GbpPostQueue
         if ($days === []) {
             return [];
         }
-        $sites = DigitalAsset::query()->where('brand_id', $location->brand_id)->where('type', 'website')->pluck('id');
-        $pages = Page::query()->whereIn('website_asset_id', $sites)->where('is_indexable', true)->where('word_count', '>=', 150)
-            ->where(fn ($q) => $q->whereNull('language')->orWhere('language', 'tr'))
-            ->where(fn ($q) => $q->whereIn('category', array_keys(self::ANGLES_BY_CATEGORY))->orWhereNull('category'))
-            ->orderBy('id')->get(['id', 'website_asset_id', 'url', 'path', 'title', 'h1', 'category', 'changed_at', 'created_at', 'wp_post_id'])
-            ->reject(fn (Page $p): bool => preg_match('#^/(?!tr/)[a-z]{2}(?:-[a-z]{2})?/#i', (string) $p->path) === 1)->values();
+        $pages = $this->usablePages([(int) $location->brand_id], ['id', 'website_asset_id', 'url', 'path', 'title', 'h1', 'category', 'changed_at', 'created_at', 'wp_post_id']);
         if ($pages->isEmpty()) {
             return [];
         }
@@ -271,13 +304,14 @@ final class GbpPostQueue
             ->update(['status' => GbpQueuedPost::APPROVED, 'approved_by' => $user->id, 'approved_at' => now(), 'updated_at' => now()]);
     }
 
-    /** Approves every draft of the next 30 days (of one location when given). */
-    public function approveAll(User $user, ?int $assetId = null): int
+    /** Approves every draft of the next 30 days (of one location or one brand when given). */
+    public function approveAll(User $user, ?int $assetId = null, ?int $brandId = null): int
     {
         $this->guard($user);
 
         return GbpQueuedPost::query()->where('status', GbpQueuedPost::DRAFT)->where('publish_on', '>=', self::today()->toDateString())
             ->when($assetId !== null, fn ($q) => $q->where('digital_asset_id', $assetId))
+            ->when($brandId !== null, fn ($q) => $q->where('brand_id', $brandId))
             ->update(['status' => GbpQueuedPost::APPROVED, 'approved_by' => $user->id, 'approved_at' => now(), 'updated_at' => now()]);
     }
 

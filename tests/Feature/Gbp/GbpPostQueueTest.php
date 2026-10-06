@@ -211,4 +211,32 @@ final class GbpPostQueueTest extends TestCase
         Livewire::actingAs($this->admin)->test(PostPlanPage::class, ['location' => $this->location->id])->assertSee('Tekrar dene')->call('retry', $failed->id);
         $this->assertSame([GbpQueuedPost::APPROVED, '2026-10-06'], [$failed->fresh()->status, substr((string) $failed->fresh()->publish_on, 0, 10)]);
     }
+
+    public function test_the_screen_groups_by_brand_filters_shows_why_days_are_empty_and_reads_a_brand_before_approving(): void
+    {
+        $this->location->forceFill(['name' => 'İşletme Profili · Panorama Çankaya Diş | İmplant | Zirkonyum'])->save();
+        $sibling = $this->profile('Panorama Keçiören', 'accounts/11/locations/33');
+        $other = Brand::factory()->create(['customer_id' => $this->brand->customer_id, 'name' => 'Decco Perde']);
+        $lonely = DigitalAsset::factory()->create(['brand_id' => $other->id, 'type' => 'google_business_profile', 'status' => 'active', 'name' => 'Decco Perde Manisa']);
+        foreach (['2026-10-07' => 'implant', '2026-10-08' => 'zirkonyum'] as $day => $page) {
+            GbpQueuedPost::query()->create(['digital_asset_id' => $this->location->id, 'brand_id' => $this->brand->id, 'page_id' => $this->pages[$page]->id, 'angle' => 'tanim',
+                'publish_on' => $day, 'summary' => self::text($page), 'url' => $this->pages[$page]->url, 'status' => GbpQueuedPost::DRAFT]);
+        }
+        GbpQueuedPost::query()->create(['digital_asset_id' => $sibling->id, 'brand_id' => $this->brand->id, 'page_id' => $this->pages['blog']->id, 'angle' => 'ozet',
+            'publish_on' => '2026-10-09', 'summary' => self::text('blog'), 'url' => $this->pages['blog']->url, 'status' => GbpQueuedPost::DRAFT]);
+
+        $this->assertSame('Panorama Çankaya Diş', PostPlanPage::shortName('İşletme Profili · Panorama Çankaya Diş | İmplant | Zirkonyum'));
+        Livewire::actingAs($this->admin)->test(PostPlanPage::class)
+            ->assertSee('Panorama Ankara')->assertSee('2 işletme')->assertSee('Decco Perde')->assertSee('Markaya web sitesi bağlı değil')
+            ->assertDontSee('Panorama Keçiören')
+            ->call('openBrand', $this->brand->id)->assertSee('Panorama Çankaya Diş')->assertSee('Panorama Keçiören')->assertSee('Henüz hazırlanmadı')
+            ->call('setFilter', 'draft')->assertDontSee('Decco Perde')->assertSee('Panorama Keçiören')
+            ->call('openDay', $this->location->id, '2026-10-08')->assertSee('Zirkonyum Kaplama')->assertDontSee('Diş İmplantı ↗')
+            ->call('startReading', $this->brand->id)->assertSee('onay bekleyen 3 gönderi')->assertSee('Panorama Keçiören')
+            ->call('approveAll', null, $this->brand->id)->assertSee('3 gönderi onaylandı');
+
+        $this->assertSame(0, GbpQueuedPost::query()->where('status', GbpQueuedPost::DRAFT)->count());
+        $this->assertSame(1, GbpQueuedPost::query()->where('digital_asset_id', $sibling->id)->where('status', GbpQueuedPost::APPROVED)->count());
+        $this->assertNotNull($lonely->id);
+    }
 }
