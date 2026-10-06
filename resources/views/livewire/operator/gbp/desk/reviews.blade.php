@@ -1,4 +1,5 @@
 <div class="space-y-5 dark:text-gray-200" data-gbp-reviews>
+    @if ($asset === null)
     <header class="flex flex-wrap items-start justify-between gap-3">
         <div>
             <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">İşletme profilleri</h1>
@@ -7,6 +8,7 @@
         @include('livewire.operator.gbp.partials.brand-filter')
     </header>
     @include('livewire.operator.gbp.partials.desk-tabs', ['active' => 'operator.gbp-reviews', 'brandFilter' => $brand])
+    @endif
     @include('livewire.operator.gbp.partials.desk-message')
 
     <section class="grid gap-3 sm:grid-cols-3">
@@ -106,6 +108,9 @@
                     <div class="mt-auto pt-3">
                         @if ($review['answered'])
                             <p class="rounded-lg bg-gray-50 p-2 text-xs text-gray-700 dark:bg-white/[0.03] dark:text-gray-300"><span class="font-semibold">Yanıt:</span> {{ \Illuminate\Support\Str::limit($review['reply'], 280) }}</p>
+                            @if ($canWrite && $action !== null && $action['undoable'])
+                                <button type="button" wire:click="undoReply({{ $action['id'] }})" wire:confirm="Yanıt Google’dan geri alınsın mı?" class="mt-1 text-xs font-medium text-rose-600 hover:underline">Geri al</button>
+                            @endif
                         @elseif ($action !== null && $busy)
                             <p class="text-xs text-gray-500" @if (in_array($action['status'], ['queued', 'running'], true)) wire:poll.5s @endif>Yanıt: {{ $action['label'] }}</p>
                         @elseif ($canWrite)
@@ -117,7 +122,10 @@
                                 <p class="text-xs text-gray-500">Taslak yazılıyor…</p>
                             @else
                                 @if ($failedDraft)<p class="text-xs text-rose-600">{{ \Illuminate\Support\Str::after((string) $review['draft_state'], 'failed: ') }}</p>@endif
-                                <button type="button" wire:click="$set('replies.r{{ $review['id'] }}', '')" class="text-xs font-medium text-brand-600 hover:underline">Kendim yazayım</button>
+                                <span class="flex flex-wrap gap-3">
+                                    <button type="button" wire:click="draftOne({{ $review['id'] }})" class="text-xs font-semibold text-brand-600 hover:underline">AI taslağı</button>
+                                    <button type="button" wire:click="$set('replies.r{{ $review['id'] }}', '')" class="text-xs font-medium text-gray-600 hover:underline dark:text-gray-300">Kendim yazayım</button>
+                                </span>
                             @endif
                         @endif
                     </div>

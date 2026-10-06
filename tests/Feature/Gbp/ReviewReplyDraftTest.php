@@ -4,7 +4,7 @@ namespace Tests\Feature\Gbp;
 
 use App\Ai\Agents\ReviewReplyAgent;
 use App\Enums\DigitalAssetStatus;
-use App\Livewire\Demo\Gbp\OverviewPage;
+use App\Livewire\Operator\Gbp\Desk\ReviewsPage;
 use App\Models\AiProduction;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
@@ -62,10 +62,10 @@ final class ReviewReplyDraftTest extends TestCase
         ReviewReplyAgent::fake([['reply' => 'Geri bildiriminiz için teşekkür ederiz; sizinle iletişime geçmek isteriz.', 'tone' => 'apology']]);
         $reviewId = (int) DB::table('gbp_reviews')->where('review_id', 'r1')->value('id');
 
-        Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'reviews'])
-            ->assertSee('Yanıt taslağı')
-            ->call('draftReply', $reviewId)
-            ->assertSee('sizinle iletişime geçmek isteriz');
+        Livewire::test(ReviewsPage::class, ['asset' => $this->asset->id])
+            ->assertSee('AI taslağı')
+            ->call('draftOne', $reviewId)
+            ->assertSet('replies.r'.$reviewId, 'Geri bildiriminiz için teşekkür ederiz; sizinle iletişime geçmek isteriz.');
 
         ReviewReplyAgent::assertPrompted(function ($prompt) use (&$prompts): bool {
             $prompts[] = (string) $prompt->prompt;

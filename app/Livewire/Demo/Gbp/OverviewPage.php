@@ -442,7 +442,6 @@ class OverviewPage extends Component
         $resource = $daily->resource($asset);
         $resourceId = $resource?->id !== null ? (int) $resource->id : null;
         $assetId = (int) $asset->id;
-        $reviewList = $this->tab === 'reviews' && $resourceId !== null ? $daily->reviews($resourceId, '', $this->unanswered) : [];
         $plan = $this->tab === 'services' ? $this->syncPlan(app(GbpProfilePlanner::class)->latest($asset)) : null;
         $peerFound = $this->tab === 'services' && $this->peerOpen ? $this->peerFound(app(GbpPeerProfiles::class)) : null;
 
@@ -466,8 +465,6 @@ class OverviewPage extends Component
             'servicesState' => $this->tab === 'todo' ? $assistant->state($assetId, GbpAssistant::OP_SERVICES) : null,
             'descriptionState' => $this->tab === 'todo' ? $assistant->state($assetId, GbpAssistant::OP_DESCRIPTION) : null,
             'reviewAccess' => $this->tab === 'reviews' && $resourceId !== null ? $daily->reviewAccess($asset) : null,
-            'reviewList' => $reviewList,
-            'replyDrafts' => $this->replyDrafts($reviewList),
             'posts' => $this->tab === 'posts' ? $daily->posts($asset, $resourceId) : null,
             'pages' => $this->tab === 'posts' ? $assistant->shareablePages($asset) : [],
             'postDraft' => $this->tab === 'posts' ? $assistant->latestPost($asset) : null,
@@ -536,27 +533,6 @@ class OverviewPage extends Component
     {
         return ExternalWriteAction::query()->whereKey($actionId)->where('channel', ExternalWriteAction::CHANNEL_GBP)
             ->where('digital_asset_id', $this->asset()->id)->firstOrFail();
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $reviews
-     * @return array<int, array{text: ?string, state: ?string}>
-     */
-    private function replyDrafts(array $reviews): array
-    {
-        $ids = collect($reviews)->pluck('id')->filter()->map(fn ($id): int => (int) $id)->all();
-        if ($ids === []) {
-            return [];
-        }
-        $drafts = AiProduction::query()->where('kind', ReviewReplyDrafter::KIND)->where('subject_type', 'GbpReview')->whereIn('subject_id', $ids)
-            ->where('status', '!=', AiProduction::STATUS_DISCARDED)->orderBy('version')->get()->keyBy('subject_id');
-        $drafter = app(ReviewReplyDrafter::class);
-        $out = [];
-        foreach ($ids as $id) {
-            $out[$id] = ['text' => $drafts->has($id) ? (string) data_get($drafts[$id]->content, 'reply') : null, 'state' => $drafter->state($id)];
-        }
-
-        return $out;
     }
 
     private function asset(): DigitalAsset

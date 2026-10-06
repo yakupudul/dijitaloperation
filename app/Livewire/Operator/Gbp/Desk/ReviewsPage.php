@@ -3,6 +3,8 @@
 namespace App\Livewire\Operator\Gbp\Desk;
 
 use App\Models\DigitalAsset;
+use App\Models\ExternalWriteAction;
+use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\Desk\GbpDesk;
 use App\Services\Gbp\Desk\ReviewDesk;
 use App\Services\Gbp\Desk\ReviewFlags;
@@ -11,6 +13,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -64,9 +67,18 @@ final class ReviewsPage extends Component
 
     public string $flagNote = '';
 
-    public function mount(): void
+    /** Set when the screen is embedded in one profile's asset page (Yorumlar tab): only that profile, no filters. */
+    #[Locked]
+    public ?int $asset = null;
+
+    public function mount(?int $asset = null): void
     {
         abort_unless(auth()->user()?->is_active, 403);
+        if ($asset !== null) {
+            $this->asset = $asset;
+            $this->location = $asset;
+            $this->brand = ($brandId = DigitalAsset::query()->whereKey($asset)->value('brand_id')) !== null ? (int) $brandId : null;
+        }
         $this->section = in_array($this->section, ['yanit', 'iste'], true) ? $this->section : 'yanit';
         $this->status = isset(ReviewDesk::STATUSES[$this->status]) ? $this->status : 'bekleyen';
         $this->rating = isset(GbpDailyWorkspace::RATING_FILTERS[$this->rating]) ? $this->rating : '';
@@ -79,12 +91,20 @@ final class ReviewsPage extends Component
 
     public function setLocation(?int $location = null): void
     {
+        if ($this->asset !== null) {
+            return;
+        }
         $this->location = $location;
         $this->resetList();
     }
 
     public function updatedBrand(mixed $value): void
     {
+        if ($this->asset !== null) {
+            $this->brand = ($brandId = DigitalAsset::query()->whereKey($this->asset)->value('brand_id')) !== null ? (int) $brandId : null;
+
+            return;
+        }
         $this->brand = filled($value) ? (int) $value : null;
         $this->location = null;
         $this->resetList();
@@ -162,6 +182,27 @@ final class ReviewsPage extends Component
         $picked = $this->picked($desk);
         $queued = $desk->draftAll($picked !== [] ? $picked : $this->reviews($desk));
         $this->say($queued > 0 ? $queued.' yorum için yanıt taslağı yazılıyor; hazır olanlar kartlarda görünür.' : 'Seçilenlerin hepsinin taslağı ya da yanıtı var.');
+    }
+
+    /** AI draft for one card. */
+    public function draftOne(int $reviewId, ReviewDesk $desk): void
+    {
+        abort_unless($this->canWrite(), 403);
+        $review = collect($this->reviews($desk))->firstWhere('id', $reviewId) ?? abort(404);
+        $desk->draftAll([$review]);
+    }
+
+    /** Takes a reply MoxDOP sent back from Google (ADR-073 undo). */
+    public function undoReply(int $actionId, ExternalWriteService $writes): void
+    {
+        abort_unless($this->canWrite(), 403);
+        $action = ExternalWriteAction::query()->whereKey($actionId)->where('action', ExternalWriteAction::ACTION_REVIEW_REPLY)->firstOrFail();
+        try {
+            $writes->requestUndo(auth()->user(), $action);
+            $this->say('Yanıt Google’dan geri alınıyor.');
+        } catch (ValidationException $exception) {
+            $this->sayError($exception);
+        }
     }
 
     /** Writes the shared reply into every picked review's box (personalized; editable afterwards). */
@@ -277,6 +318,17 @@ final class ReviewsPage extends Component
     }
 
     /** @return Collection<int, DigitalAsset> the brand's profiles, or the one picked */
+    /** @return Collection<int, DigitalAsset> on an asset page that profile alone (also when its brand is not operational) */
+    protected function scopedLocations(): Collection
+    {
+        if ($this->asset !== null) {
+            return DigitalAsset::query()->with('brand:id,name,sector_id')->whereKey($this->asset)
+                ->get(['digital_assets.id', 'digital_assets.name', 'digital_assets.brand_id', 'digital_assets.type']);
+        }
+
+        return app(GbpDesk::class)->locations($this->brand);
+    }
+
     private function reviewLocations(): Collection
     {
         $locations = $this->scopedLocations();
@@ -287,7 +339,10 @@ final class ReviewsPage extends Component
     public function render(ReviewDesk $desk, GbpDailyWorkspace $daily, ReviewFlags $flags): View
     {
         $all = $this->scopedLocations();
-        if ($this->location !== null && ! $all->contains('id', $this->location)) {
+        if ($this->asset !== null) {
+            $this->location = $this->asset;
+            $all = $all->where('id', $this->asset)->values();
+        } elseif ($this->location !== null && ! $all->contains('id', $this->location)) {
             $this->location = null;
         }
         $allStats = $desk->stats($daily->resourceIds($all->pluck('id')->map(fn ($id): int => (int) $id)->all()));

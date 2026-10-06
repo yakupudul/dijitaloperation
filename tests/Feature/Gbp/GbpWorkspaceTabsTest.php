@@ -3,6 +3,7 @@
 namespace Tests\Feature\Gbp;
 
 use App\Livewire\Demo\Gbp\OverviewPage;
+use App\Livewire\Operator\Gbp\Desk\ReviewsPage;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -96,25 +97,28 @@ final class GbpWorkspaceTabsTest extends TestCase
         return (int) DB::table('gbp_reviews')->where('review_id', $googleId)->value('id');
     }
 
-    public function test_reviews_tab_lists_unanswered_first_filters_unanswered_and_flags_late_ones(): void
+    public function test_reviews_tab_is_the_review_desk_for_this_profile_only(): void
     {
-        $page = $this->page('reviews')->assertSeeInOrder(['Müşteri r-new', 'Müşteri r-old-bad', 'Müşteri r-replied'])
-            ->assertSee('48 saati geçti')->assertSee('Teşekkürler')->assertSee('Yanıt taslağı');
+        $this->page('reviews')->assertSeeLivewire(ReviewsPage::class);
 
-        $page->set('unanswered', true)->assertSee('Müşteri r-old-bad')->assertDontSee('Müşteri r-replied');
+        Livewire::actingAs($this->admin)->test(ReviewsPage::class, ['asset' => $this->asset->id])
+            ->assertSeeInOrder(['Müşteri r-old-bad', 'Müşteri r-new'])->assertDontSee('Müşteri r-replied')
+            ->assertSee('AI taslağı')->assertDontSee('Tüm işletmeler')
+            ->call('setLocation', null)->assertSet('location', $this->asset->id)
+            ->call('setStatus', 'tumu')->assertSee('Müşteri r-replied')->assertSee('Teşekkürler');
     }
 
     public function test_admin_sends_a_reply_to_google_and_can_undo_it(): void
     {
-        $page = $this->page('reviews')->call('publishReply', $this->reviewId('r-old-bad'), 'Geri bildiriminiz için teşekkürler, sizi arayacağız.');
+        $this->page('reviews')->call('publishReply', $this->reviewId('r-old-bad'), 'Geri bildiriminiz için teşekkürler, sizi arayacağız.');
 
         $this->assertSame(['PUT', 'https://mybusiness.googleapis.com/v4/accounts/11/locations/22/reviews/r-old-bad/reply'], array_slice(end($this->calls), 0, 2));
         $action = ExternalWriteAction::query()->sole();
         $this->assertSame('succeeded', $action->status);
         $this->assertSame($this->admin->id, (int) $action->requested_by, 'the write is recorded with its approver');
-        $page->call('setTab', 'reviews')->assertSee('İşletme yanıtı')->assertSee('sizi arayacağız')->assertSee('Geri al');
-
-        $page->call('undoWrite', $action->id);
+        Livewire::actingAs($this->admin)->test(ReviewsPage::class, ['asset' => $this->asset->id])
+            ->call('setStatus', 'yanitli')->assertSee('sizi arayacağız')->assertSee('Geri al')
+            ->call('undoReply', $action->id);
         $this->assertSame('undone', $action->fresh()->status);
         $this->assertSame('DELETE', end($this->calls)[0]);
         $this->assertNull(DB::table('gbp_reviews')->where('review_id', 'r-old-bad')->value('review_reply'));
@@ -122,7 +126,8 @@ final class GbpWorkspaceTabsTest extends TestCase
 
     public function test_team_member_cannot_send_replies_or_publish_posts(): void
     {
-        $this->page('reviews', $this->member)->assertDontSee('Kendim yazayım')
+        Livewire::actingAs($this->member)->test(ReviewsPage::class, ['asset' => $this->asset->id])->assertDontSee('Kendim yazayım');
+        $this->page('reviews', $this->member)
             ->call('publishReply', $this->reviewId('r-new'), 'Teşekkürler')->assertForbidden();
         $this->page('posts', $this->member)->call('startPost')->set('post.body', 'Kış bakımı')->call('publishPost')->assertForbidden();
         $this->assertSame(0, ExternalWriteAction::query()->count());
