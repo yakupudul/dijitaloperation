@@ -147,6 +147,28 @@ final class GbpPerformance
     }
 
     /**
+     * The search keywords of the report month, else of the newest earlier month Google gave (keyword data comes a few
+     * days into the next month), with the month they belong to.
+     *
+     * @return array{month: ?string, rows: list<array{keyword: string, current: ?int, threshold: ?int, previous: ?int, new: bool}>}
+     */
+    public function latestKeywords(int $resourceId, ?string $month = null): array
+    {
+        $month ??= self::reportMonth();
+        $rows = $this->keywords($resourceId, $month);
+        if ($rows !== []) {
+            return ['month' => $month, 'rows' => $rows];
+        }
+        $latest = DB::table('gbp_search_keywords_monthly')->where('external_resource_id', $resourceId)->where('month_start', '<', $month.'-01')->max('month_start');
+        if ($latest === null) {
+            return ['month' => null, 'rows' => []];
+        }
+        $previous = substr((string) $latest, 0, 7);
+
+        return ['month' => $previous, 'rows' => $this->keywords($resourceId, $previous)];
+    }
+
+    /**
      * What MoxDOP did on each profile in a month (succeeded writes).
      *
      * @param  list<int>  $assetIds

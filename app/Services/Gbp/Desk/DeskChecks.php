@@ -31,7 +31,7 @@ final class DeskChecks
 
     /**
      * @param  Collection<int, DigitalAsset>  $locations  GbpDesk::locations() rows
-     * @return array{rows: array<int, array{checks: array<string, array{ok: bool, label: string, hint: string, route: string}>, score: int, snapshot: ?array<string, mixed>, resource_id: ?int}>, holiday: ?array<string, mixed>, resources: array<int, int>}
+     * @return array{rows: array<int, array{checks: array<string, array{ok: bool, unknown: bool, label: string, hint: string, route: string}>, score: int, unknown: int, snapshot: ?array<string, mixed>, resource_id: ?int}>, holiday: ?array<string, mixed>, resources: array<int, int>}
      */
     public function rows(Collection $locations): array
     {
@@ -44,6 +44,7 @@ final class DeskChecks
         $hours = $holiday !== null ? $this->fields->holidayState($snapshots, $holiday['dates']) : [];
         $photoStatus = $this->photos->status($resources);
         $reviewStats = $this->reviews->stats($resources);
+        $access = $this->daily->datasetStates($ids, ['gbp_media', 'gbp_reviews', 'gbp_performance_daily']);
         $today = GbpPostQueue::today();
         $planned = $ids === [] ? collect() : GbpQueuedPost::query()->whereIn('digital_asset_id', $ids)->whereIn('status', [GbpQueuedPost::DRAFT, GbpQueuedPost::APPROVED, GbpQueuedPost::PUBLISHED])
             ->whereBetween('publish_on', [$today->addDay()->toDateString(), $today->addDays(GbpPostQueue::HORIZON_DAYS)->toDateString()])
@@ -56,18 +57,41 @@ final class DeskChecks
                 'page' => ['ok' => in_array($pages[$id]['state'] ?? '', BranchPages::DONE, true), 'label' => 'Şube sayfası', 'hint' => $pages[$id]['label'] ?? ''],
                 'description' => ['ok' => ($descriptions[$id]['state'] ?? '') === 'ok', 'label' => 'Açıklama', 'hint' => $descriptions[$id]['label'] ?? ''],
                 'hours' => ['ok' => $holiday === null || ($hours[$id]['missing'] ?? ['x']) === [], 'label' => 'Özel gün saatleri', 'hint' => $holiday !== null ? $holiday['name'].(($hours[$id]['missing'] ?? ['x']) === [] ? ' girildi' : ' saatleri girilmedi') : 'Yaklaşan resmi tatil yok'],
-                'photos' => ['ok' => ! ($photoStatus[$id]['stale'] ?? true), 'label' => 'Fotoğraf', 'hint' => isset($photoStatus[$id]['days']) && $photoStatus[$id]['days'] !== null ? 'Son fotoğraf '.$photoStatus[$id]['days'].' gün önce' : 'Fotoğraf bilgisi yok'],
-                'reviews' => ['ok' => ($reviewStats[$id]['unanswered'] ?? 0) === 0, 'label' => 'Yorumlar', 'hint' => ($reviewStats[$id]['unanswered'] ?? 0) > 0 ? $reviewStats[$id]['unanswered'].' yanıtsız yorum' : 'Yanıtsız yorum yok'],
+                'photos' => self::withAccess(['ok' => ! ($photoStatus[$id]['stale'] ?? true), 'label' => 'Fotoğraf', 'hint' => isset($photoStatus[$id]['days']) && $photoStatus[$id]['days'] !== null ? 'Son fotoğraf '.$photoStatus[$id]['days'].' gün önce' : 'Fotoğraf bilgisi yok'],
+                    $access[$id]['gbp_media'] ?? null, ($photoStatus[$id]['photos'] ?? 0) > 0, 'Fotoğraf'),
+                'reviews' => self::withAccess(['ok' => ($reviewStats[$id]['unanswered'] ?? 0) === 0, 'label' => 'Yorumlar', 'hint' => ($reviewStats[$id]['unanswered'] ?? 0) > 0 ? $reviewStats[$id]['unanswered'].' yanıtsız yorum' : 'Yanıtsız yorum yok'],
+                    $access[$id]['gbp_reviews'] ?? null, ($reviewStats[$id]['recent'] ?? 0) > 0 || ($reviewStats[$id]['reply_rate'] ?? null) !== null, 'Yorum'),
                 'posts' => ['ok' => (int) ($planned[$id] ?? 0) >= 15, 'label' => 'Gönderi planı', 'hint' => (int) ($planned[$id] ?? 0).'/'.GbpPostQueue::HORIZON_DAYS.' gün planlı'],
             ];
             foreach ($checks as $key => $check) {
                 $checks[$key]['route'] = self::ROUTES[$key];
+                $checks[$key]['unknown'] ??= false;
             }
-            $rows[$id] = ['checks' => $checks, 'score' => count(array_filter($checks, fn (array $c): bool => $c['ok'])), 'snapshot' => $snapshots[$id] ?? null,
-                'resource_id' => $resources[$id] ?? null];
+            $rows[$id] = ['checks' => $checks, 'score' => count(array_filter($checks, fn (array $c): bool => $c['ok'])), 'unknown' => count(array_filter($checks, fn (array $c): bool => $c['unknown'])), 'snapshot' => $snapshots[$id] ?? null,
+                'resource_id' => $resources[$id] ?? null, 'performance' => $access[$id]['gbp_performance_daily'] ?? ['state' => 'never', 'reason' => null]];
         }
 
         return ['rows' => $rows, 'holiday' => $holiday, 'resources' => $resources];
+    }
+
+    /**
+     * A check whose data Google does not give is "unknown" (grey "?"), not a problem on the profile: the hint says why.
+     *
+     * @param  array{ok: bool, label: string, hint: string}  $check
+     * @param  array{state: string, reason: ?string}|null  $access
+     * @return array{ok: bool, label: string, hint: string, unknown: bool}
+     */
+    private static function withAccess(array $check, ?array $access, bool $hasData, string $what): array
+    {
+        $state = $access['state'] ?? 'never';
+        if ($state === 'unavailable' && ! $hasData) {
+            return ['ok' => false, 'unknown' => true, 'label' => $check['label'], 'hint' => $what.' verisi gelmiyor: '.$access['reason']];
+        }
+        if ($state === 'never' && ! $hasData) {
+            return ['ok' => false, 'unknown' => true, 'label' => $check['label'], 'hint' => $what.' verisi henüz toplanmadı'];
+        }
+
+        return $check + ['unknown' => false];
     }
 
     /**

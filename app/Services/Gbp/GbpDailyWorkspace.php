@@ -155,6 +155,61 @@ final class GbpDailyWorkspace
         ];
     }
 
+    /**
+     * Whether Google gave each dataset on the profiles' last collections (state "never" = not collected yet), so a
+     * missing number reads as "data does not come" instead of a problem on the profile.
+     *
+     * @param  list<int>  $assetIds
+     * @param  list<string>  $datasets  e.g. gbp_media, gbp_reviews
+     * @return array<int, array<string, array{state: string, reason: ?string}>>
+     */
+    public function datasetStates(array $assetIds, array $datasets): array
+    {
+        $out = [];
+        foreach ($assetIds as $assetId) {
+            foreach ($datasets as $dataset) {
+                $out[$assetId][$dataset] = ['state' => 'never', 'reason' => null];
+            }
+        }
+        if ($assetIds === []) {
+            return $out;
+        }
+        $seen = [];
+        Run::query()->whereIn('digital_asset_id', $assetIds)->where('module_id', 'google-business-profile')->where('created_at', '>=', now()->subDays(14))
+            ->latest('id')->limit(count($assetIds) * 20)->get(['id', 'digital_asset_id', 'metadata'])
+            ->each(function (Run $run) use (&$out, &$seen, $datasets): void {
+                foreach ($datasets as $dataset) {
+                    $key = $run->digital_asset_id.'|'.$dataset;
+                    $data = data_get($run->metadata, 'datasets.'.$dataset);
+                    if (isset($seen[$key]) || ! is_array($data)) {
+                        continue;
+                    }
+                    $seen[$key] = true;
+                    $status = (string) ($data['status'] ?? 'unavailable');
+                    $ok = in_array($status, ['available', 'partial'], true);
+                    $out[(int) $run->digital_asset_id][$dataset] = ['state' => $ok ? 'ok' : ($status === 'retrying' ? 'retrying' : 'unavailable'),
+                        'reason' => $ok ? null : self::accessReason((string) ($data['reason'] ?? ''))];
+                }
+            });
+
+        return $out;
+    }
+
+    /** Short Turkish reason for a dataset Google did not give (desk checks). */
+    public static function accessReason(string $raw): string
+    {
+        $disabled = str_contains($raw, 'SERVICE_DISABLED') || str_contains($raw, 'has not been used');
+
+        return match (true) {
+            str_contains($raw, 'HTTP 401') => 'Google bağlantısının süresi dolmuş',
+            $disabled || str_contains($raw, 'HTTP 403') => 'Google erişim vermiyor (Cloud projesinde “Google My Business API” kapalı ya da onaysız)',
+            str_contains($raw, 'account context') => 'konumun Google hesabı bulunamadı',
+            str_contains($raw, 'HTTP 404') => 'Google konumu bulamadı',
+            str_contains($raw, 'HTTP 429') || str_contains($raw, 'pacing') || str_contains($raw, 'time budget') => 'Google sınırına takıldı, sonraki toplamada denenecek',
+            default => 'Google’dan alınamadı',
+        };
+    }
+
     /** Plain Turkish reason for a failed review collection (the raw Google message is shown next to it). */
     public static function reviewReason(string $raw): string
     {

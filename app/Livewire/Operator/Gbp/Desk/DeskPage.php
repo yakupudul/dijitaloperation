@@ -52,7 +52,7 @@ final class DeskPage extends Component
             $row = $state['rows'][$id];
             $resourceId = $resources[$id] ?? null;
             $rows[$id] = ['location' => $location, 'snapshot' => $row['snapshot'], 'report' => $resourceId !== null ? ($report[$resourceId] ?? null) : null, 'checks' => $row['checks'],
-                'score' => $row['score']];
+                'score' => $row['score'], 'performance' => $row['performance']];
         }
 
         $totals = array_fill_keys(array_keys(GbpPerformance::COLUMNS), 0);
@@ -66,6 +66,7 @@ final class DeskPage extends Component
         $readiness = [];
         foreach (['page', 'description', 'hours', 'photos', 'reviews', 'posts'] as $key) {
             $readiness[$key] = ['label' => $rows !== [] ? reset($rows)['checks'][$key]['label'] : $key, 'ok' => count(array_filter($rows, fn (array $r): bool => $r['checks'][$key]['ok'])),
+                'unknown' => count(array_filter($rows, fn (array $r): bool => $r['checks'][$key]['unknown'])),
                 'route' => DeskChecks::ROUTES[$key]];
         }
 
@@ -73,8 +74,8 @@ final class DeskPage extends Component
         if ($this->open !== null && isset($rows[$this->open]) && isset($resources[$this->open])) {
             $detail = [
                 'history' => $performance->history($resources[$this->open]),
-                'keywords' => $performance->keywords($resources[$this->open], $month),
-                'work' => $performance->work([$this->open], $month)[$this->open] ?? [],
+                'keywords' => $performance->latestKeywords($resources[$this->open], $month),
+                'work' => $checks->history($this->open, 6),
             ];
         }
 

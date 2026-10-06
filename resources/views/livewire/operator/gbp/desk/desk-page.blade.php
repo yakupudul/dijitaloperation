@@ -35,6 +35,7 @@
             <a href="{{ route($item['route'], array_filter(['marka' => $brand])) }}" wire:navigate class="rounded-xl bg-white p-3 ring-1 ring-inset ring-gray-200 hover:ring-brand-400 dark:bg-gray-800 dark:ring-gray-700">
                 <span @class(['block text-lg font-semibold', 'text-emerald-600 dark:text-emerald-400' => $item['ok'] === $count && $count > 0, 'text-amber-600 dark:text-amber-400' => $item['ok'] !== $count || $count === 0])>{{ $item['ok'] }}/{{ $count }}</span>
                 <span class="block text-xs text-gray-500">{{ $item['label'] }} tamam</span>
+                @if ($item['unknown'] > 0)<span class="block text-[11px] text-gray-400" title="Google bu veriyi vermiyor ya da henüz toplanmadı; işletmenin satırında nedeni yazar">{{ $item['unknown'] }} işletmede veri yok</span>@endif
             </a>
         @endforeach
     </section>
@@ -57,6 +58,7 @@
                             <td class="px-4 py-2">
                                 <span class="block font-medium text-gray-900 dark:text-white" title="{{ $location->name }}">{{ \App\Services\Gbp\Desk\GbpDesk::shortName((string) $location->name) }}</span>
                                 <span class="block text-xs text-gray-500">{{ $row['snapshot']['area'] ?? 'Profil verisi yok' }}@if (($row['snapshot']['rating'] ?? null) !== null) · ★ {{ $row['snapshot']['rating'] }} ({{ $row['snapshot']['reviews'] }})@endif</span>
+                                @if ($r === null)<span class="block text-[11px] text-amber-600">{{ $row['performance']['state'] === 'unavailable' ? 'Ölçüm verisi gelmiyor: '.$row['performance']['reason'] : ($row['performance']['state'] === 'never' ? 'Ölçüm verisi henüz toplanmadı' : 'Geçen ayın ölçümü yok') }}</span>@endif
                             </td>
                             @foreach (array_keys($columns) as $key)
                                 <td class="px-2 py-2 text-right tabular-nums">
@@ -68,7 +70,7 @@
                                 <span class="flex flex-wrap gap-1">
                                     @foreach ($row['checks'] as $check)
                                         <a href="{{ route($check['route'], array_filter(['marka' => $location->brand_id])) }}" wire:navigate x-on:click.stop title="{{ $check['label'] }}: {{ $check['hint'] }}"
-                                            @class(['rounded-full px-2 py-0.5 text-[11px] font-medium', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => $check['ok'], 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' => ! $check['ok']])>{{ $check['ok'] ? '✓' : '!' }} {{ $check['label'] }}</a>
+                                            @class(['rounded-full px-2 py-0.5 text-[11px] font-medium', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => $check['ok'], 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400' => $check['unknown'], 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' => ! $check['ok'] && ! $check['unknown']])>{{ $check['ok'] ? '✓' : ($check['unknown'] ? '?' : '!') }} {{ $check['label'] }}</a>
                                     @endforeach
                                 </span>
                             </td>
@@ -94,22 +96,23 @@
                                                 </table>
                                             </div>
                                             <div>
-                                                <h3 class="mb-1 text-xs font-semibold uppercase text-gray-500">Google’da bulunduğu aramalar · {{ $monthLabel }}</h3>
-                                                @forelse ($detail['keywords'] as $k)
+                                                <h3 class="mb-1 text-xs font-semibold uppercase text-gray-500">Google’da bulunduğu aramalar · {{ $detail['keywords']['month'] ? \Illuminate\Support\Carbon::parse($detail['keywords']['month'].'-01')->locale('tr')->translatedFormat('F Y') : $monthLabel }}</h3>
+                                                @if ($detail['keywords']['month'] !== null && $detail['keywords']['month'] !== $month)<p class="mb-1 text-[11px] text-amber-600">{{ $monthLabel }} kelimeleri Google’dan henüz gelmedi; son gelen ay gösteriliyor.</p>@endif
+                                                @forelse ($detail['keywords']['rows'] as $k)
                                                     <div class="flex justify-between gap-2 text-xs">
                                                         <span class="truncate">{{ $k['keyword'] }} @if ($k['new'])<span class="rounded bg-emerald-50 px-1 text-[10px] text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">yeni</span>@endif</span>
                                                         <span class="tabular-nums text-gray-600 dark:text-gray-300">{{ $k['current'] !== null ? $num($k['current']) : '<'.$k['threshold'] }} @if ($k['previous'] !== null && $k['current'] !== null)<span class="{{ $deltaClass($delta($k['current'], $k['previous'])) }}">{{ $deltaText($delta($k['current'], $k['previous'])) }}</span>@endif</span>
                                                     </div>
                                                 @empty
-                                                    <p class="text-xs text-gray-500">Arama kelimesi verisi yok.</p>
+                                                    <p class="text-xs text-gray-500">Google bu işletme için arama kelimesi vermedi (az aranan işletmelerde Google kelimeleri gizler) ya da henüz toplanmadı.</p>
                                                 @endforelse
                                             </div>
                                             <div>
-                                                <h3 class="mb-1 text-xs font-semibold uppercase text-gray-500">MoxDOP’un yaptıkları · {{ $monthLabel }}</h3>
-                                                @forelse ($detail['work'] as $action => $n)
-                                                    <p class="text-xs">{{ $n }} {{ $work[$action] ?? $action }}</p>
+                                                <h3 class="mb-1 text-xs font-semibold uppercase text-gray-500">MoxDOP’un son yaptıkları</h3>
+                                                @forelse ($detail['work'] as $item)
+                                                    <p class="text-xs"><span class="tabular-nums text-gray-500">{{ $item['at'] }}</span> · {{ $item['label'] }} · <span @class(['text-emerald-600' => in_array($item['status'], ['succeeded', 'partial'], true), 'text-rose-600' => $item['status'] === 'failed', 'text-gray-500' => ! in_array($item['status'], ['succeeded', 'partial', 'failed'], true)])>{{ $item['status_label'] }}</span></p>
                                                 @empty
-                                                    <p class="text-xs text-gray-500">Bu ay profile bir şey gönderilmedi.</p>
+                                                    <p class="text-xs text-gray-500">Bu profile MoxDOP’tan henüz bir şey gönderilmedi.</p>
                                                 @endforelse
                                                 <a href="{{ route('operator.gbp', ['assetId' => $location->id, 'tab' => 'analysis']) }}" wire:navigate class="mt-2 inline-block text-xs text-brand-600 hover:underline">Günlük analiz →</a>
                                             </div>
