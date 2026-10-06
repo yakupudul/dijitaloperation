@@ -2018,6 +2018,15 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   `Queue::route` liste ile çağrılınca Laravel 13 yok sayıyor; AppServiceProvider::routeHeavyJobs'taki altı iş bu yüzden
   default'ta çalışıyor (henüz düzeltilmedi). AgencySettingService scoped bağlı (worker'da eski saat dilimi / dil kalmaz).
   Claude bekleyen Eşleştir / kurulum, AI görevi açık kaldıkça "çalışıyor" sayılır; 3 saat sınırı yalnız 'running' için.
+- **Geliştirme havuzu turu (yakup onayı, 2026-10-06, #17–#33):** `data_through` yalnız ileri gider (İşletme Profili başarıda yazar,
+  Google Ads onarımı zincirdeki önceki çalışmaları sayar); boşta/uykuda hesabın haftalık saati çekim başarılı olunca başlar
+  ("Şimdi güncelle" saati sıfırlar); Google Ads ilk aktarımda reklamsız günler sıfır satır kapsam yazılır. "Veri güncel değil"
+  uyarısında "Son hata" yalnız geç kalan veri setinden gelir; kapalı Google Ads hesabı durdu uyarısını kapatır; Meta "çok büyük
+  istek" (kod 1) küçülterek yeniden istenir; her turda tekrar eden durdurma hata merkezinde yazılıma gider. Marka dosyasında veri
+  tarihi veri tablosundan okunur. Marka sayfası Meta KPI'ı hesap başına ~40 sorgu atmaz; Veri merkezi sayıları saatlik önbellekten
+  gelir; ekran taraması veritabanı süresini ve en yavaş sorguları kaydeder. `Queue::route` artık sınıf => kuyruk haritasıyla
+  çağrılır (ağır işler gerçekten heavy'de), default timeout 960; sunucu .env'inde HORIZON_DEFAULT_TIMEOUT sabitse en az 900 olmalı.
+  Commit konularında `(pool #N)` yazılır: deploy.sh bunları release.json'a yazıp havuz ekranı değişiklikleri "Kontrol"e taşır.
 - **Microsoft Clarity (yakup, 2026-10-03):** her site için Clarity proje kimliği + Data Export token (Ayarlar). Günde bir
   çekim; kural tabanlı (AI yok) öfkeli / çalışmayan tıklama, hızlı geri dönüş, JS hatası, kaydırma → Genel işler › Teknik
   sağlık işi. Siteye hiçbir şey yazılmaz; Clarity etiketini siteye yakup ekler.
