@@ -106,6 +106,18 @@ final class AutoDeployTest extends SiteTestCase
         $this->artisan('moxdop:auto-deploy:report', ['state' => 'nonsense'])->assertFailed();
     }
 
+    public function test_a_status_with_a_cut_letter_or_control_characters_still_reads_as_its_state(): void
+    {
+        // A failed test log in the message: colour codes and a Turkish letter cut in half at the byte limit.
+        File::put(AutoDeployStatus::path(), '{"state":"tests_failed","branch":"claude/x","sha":"'.str_repeat('a', 40).'","message":"aaaaaaaa testleri geçmedi '."\x1b[31mFAIL\x1b[0m \xC4".'","checked_at":"2026-10-06T11:30:00Z","live":""}');
+        $status = AutoDeployStatus::current();
+        $this->assertSame('tests_failed', $status['state']);
+        $this->assertStringContainsString('testleri geçmedi', $status['message']);
+
+        File::put(AutoDeployStatus::path(), '{"state":"tests_failed","message":"kırık \\'."\n".'"}');
+        $this->assertSame('tests_failed', AutoDeployStatus::current()['state'], 'never "not installed" over a real check');
+    }
+
     /** @param  list<string>  $command */
     private function shell(array $command): string
     {

@@ -58,7 +58,8 @@ touch "$TRIED_FILE"
 
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
-json_escape() { printf '%s' "$1" | head -c 600 | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n\r\t' '   '; }
+# JSON string body: control characters (colours, newlines) become spaces, a letter cut in half at 600 bytes is dropped.
+json_escape() { printf '%s' "$1" | LC_ALL=C tr '\000-\037\177' ' ' | head -c 600 | { iconv -f UTF-8 -t UTF-8 -c 2>/dev/null || cat; } | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
 
 # status <state> <branch> <sha> <message>; state: installed | idle | testing | deploying | deployed | tests_failed | deploy_failed | blocked | paused
 status() {

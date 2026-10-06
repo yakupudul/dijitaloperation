@@ -33,9 +33,15 @@ final class AutoDeployStatus
                 return is_file(self::CRON_FILE) ? ['state' => 'installed', 'label' => self::LABELS['installed'], 'problem' => false, 'branch' => '', 'sha' => '',
                     'message' => 'İlk kontrol en geç 15 dakika içinde.', 'checked_at' => null] : null;
             }
-            $data = json_decode((string) file_get_contents(self::path()), true);
+            $raw = (string) file_get_contents(self::path());
         } catch (Throwable) {
             return null;
+        }
+        // A test log cut into the message can carry control characters or half a UTF-8 letter: read it anyway rather
+        // than reporting "not installed" over a real (often failed) check.
+        $data = json_decode((string) preg_replace('/[\x00-\x1F\x7F]/', ' ', $raw), true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
+        if (! is_array($data) && preg_match('/"state":"([a-z_]+)"/', $raw, $state) === 1) {
+            $data = ['state' => $state[1], 'message' => 'Son kontrolün ayrıntısı okunamadı; sunucuda storage/logs/auto-deploy.log.'];
         }
         if (! is_array($data) || ! isset(self::LABELS[$data['state'] ?? ''])) {
             return null;
