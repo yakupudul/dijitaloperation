@@ -136,7 +136,7 @@ final class SiteOperations
             self::URL_ANALYSIS => $this->analyzer->analyze($site, array_map('intval', (array) ($params['page_ids'] ?? []))),
             self::APPLY_CHANGE => $suggestion !== null ? $this->changes->prepare($suggestion) : ['status' => 'no_suggestion'],
             self::STANDARD => $suggestion !== null ? $this->standards->propose($suggestion) : ['status' => 'no_suggestion'],
-            self::WEEKLY_CONTENT => $this->content->weekly($site),
+            self::WEEKLY_CONTENT => $this->content->weekly($site, null, isset($params['language']) ? (string) $params['language'] : null, isset($params['want']) ? (int) $params['want'] : null),
             self::DISCOVERY => $this->content->discover($site),
             self::WRITE_ARTICLE => $suggestion !== null ? $this->content->writeArticle($suggestion, isset($params['language']) ? (string) $params['language'] : null) : ['status' => 'no_suggestion'],
             self::WEEKLY_REFRESH => $this->weeklyRefresh($site),
@@ -321,6 +321,7 @@ final class SiteOperations
     private static function key(int $siteId, string $operation, array $params): string
     {
         $subject = isset($params['suggestion_id']) ? ':'.$params['suggestion_id'] : (isset($params['kind'], $params['id']) ? ':'.$params['kind'].'-'.$params['id'] : '');
+        $subject .= isset($params['language']) && ! isset($params['suggestion_id']) ? ':'.$params['language'] : '';
 
         return 'site-op:'.$siteId.':'.$operation.$subject;
     }

@@ -48,7 +48,7 @@ final class ContentBoard
      */
     public function boxes(?int $brandId = null, ?int $siteId = null, int $perStep = self::PER_STEP): Collection
     {
-        $items = $this->query($brandId)->when($siteId !== null, fn (Builder $q): Builder => $q->where('action->site_id', $siteId))->with('brand:id,name')->orderBy('priority')->orderByDesc('id')->limit(self::LIMIT)->get();
+        $items = $this->query($brandId)->when($siteId !== null, fn (Builder $q): Builder => $q->where('action->site_id', $siteId))->with(['brand:id,name', 'cluster:id,name'])->orderBy('priority')->orderByDesc('id')->limit(self::LIMIT)->get();
         $scores = $this->scorer->forSuggestions($items);
         $siteIds = $items->map(fn (Suggestion $s): int => (int) data_get($s->action, 'site_id'))->filter()->unique()->values();
         $sites = DigitalAsset::query()->whereIn('id', $siteIds->all() ?: [0])->get()->keyBy('id');
@@ -213,6 +213,8 @@ final class ContentBoard
             'kind' => ($action['kind'] ?? null) === 'update' ? 'Güncelleme' : 'Yeni yazı', 'page_type' => (string) ($action['page_type'] ?? 'blog'),
             'target_url' => is_string($action['target_url'] ?? null) ? $action['target_url'] : null,
             'language' => $language, 'translations' => $translations, 'sent_languages' => $sentLanguages,
+            'cluster' => $s->cluster?->name, 'reason' => filled($s->reason) ? (string) $s->reason : null,
+            'angle' => ContentPlanner::ANGLES[$action['angle'] ?? ''] ?? (($action['out_of_cluster'] ?? false) ? 'Kümeler dışı fırsat' : null),
             'missing_languages' => array_values(array_diff($siteLanguages, [$language], $translations)),
             'unsent' => $sent ? array_values(array_diff($translations, $sentLanguages)) : [],
             'can_pick_language' => ! $hasArticle && count($siteLanguages) > 1,

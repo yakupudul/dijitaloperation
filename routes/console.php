@@ -777,24 +777,30 @@ Schedule::command('moxdop:site:weekly')
     ->when(fn (): bool => AiBudget::automaticAllowed('site.weekly_refresh'))
     ->name('site-weekly');
 
-// İçerik başlıkları (yakup, 2026-10-06: "her hafta ne yazacağıma ben karar vermeyeyim"): every Monday after the site
-// refresh, each operational brand's site that has clusters without a (good) page and fewer waiting titles than its
-// weekly capacity gets new titles from its clusters; on the first Monday of the month also the out-of-cluster
-// opportunities. Only titles: writing an article stays the operator's approval.
-Artisan::command('moxdop:content:weekly-titles {--site= : One website asset id} {--discover : Also look for out-of-cluster opportunities}', function (ContentCoverage $coverage): void {
-    $sites = $coverage->sitesNeedingTitles($this->option('site') !== null ? (int) $this->option('site') : null);
-    $discover = $this->option('discover') || now('Europe/Istanbul')->day <= 7;
-    foreach ($sites as $siteId) {
-        SiteOperations::dispatch($siteId, SiteOperations::WEEKLY_CONTENT);
-        if ($discover) {
+// İçerik fikir havuzu (yakup, 2026-10-06: "havuzda her koşulda her dilde 20 içerik fikri olsun, üstüne haftalık
+// otomatik üretim"): every morning each operational site with matched clusters gets every active language's pool of
+// waiting titles back to ContentCoverage::POOL; on Monday each language also gets the brand's weekly number of fresh
+// ideas on top, and in the first week of the month the out-of-cluster opportunities. Only titles: an article is
+// written only after the operator approves it.
+Artisan::command('moxdop:content:weekly-titles {--site= : One website asset id} {--weekly : Add the weekly fresh ideas (default: Monday)} {--discover : Also out-of-cluster opportunities}', function (ContentCoverage $coverage): void {
+    $today = now('Europe/Istanbul');
+    $weekly = $this->option('weekly') || $today->isMonday();
+    $discover = $this->option('discover') || ($today->isMonday() && $today->day <= 7);
+    $needs = $coverage->needs($weekly, $this->option('site') !== null ? (int) $this->option('site') : null);
+    foreach ($needs as $need) {
+        SiteOperations::dispatch($need['site_id'], SiteOperations::WEEKLY_CONTENT, ['language' => $need['language'], 'want' => $need['want']]);
+    }
+    $sites = array_values(array_unique(array_column($needs, 'site_id')));
+    if ($discover) {
+        foreach ($sites as $siteId) {
             SiteOperations::dispatch($siteId, SiteOperations::DISCOVERY);
         }
     }
-    $this->info('Başlık üretimi kuyruğa alınan site: '.count($sites).($discover ? ' (kümeler dışı fırsatlarla)' : ''));
-})->purpose('Queue new content titles for operational sites whose clusters lack a page and whose title stock is low.');
+    $this->info('Fikir havuzu: '.count($sites).' site, '.count($needs).' dil, '.array_sum(array_column($needs, 'want')).' başlık istendi'.($discover ? ' (kümeler dışı fırsatlarla)' : '').'.');
+})->purpose('Fill every active language of operational sites to the content idea pool, plus weekly fresh ideas on Monday.');
 
 Schedule::command('moxdop:content:weekly-titles')
-    ->weeklyOn(1, '09:17')
+    ->dailyAt('09:17')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(60)
     ->when(fn (): bool => ContentCoverage::automaticAllowed())

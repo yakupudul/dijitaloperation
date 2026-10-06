@@ -144,17 +144,19 @@ final class WorkPage extends Component
         $this->step = array_key_exists($step, ContentBoard::STEPS) ? $step : 'yazilacak';
     }
 
-    /** Marka tablosu "Başlık üret": the site's title run now instead of waiting for Monday (titles only, no article). */
+    /** Marka tablosu "Fikir üret": the site's pool is filled now in every language below it, instead of next morning. */
     public function makeTitles(int $siteId, ContentCoverage $coverage): void
     {
         $this->act(function () use ($siteId, $coverage): string {
-            $row = collect($coverage->rows())->first(fn (array $r): bool => (int) $r['site']->id === $siteId);
-            if ($row === null || $row['missing'] === 0) {
-                throw ValidationException::withMessages(['work' => 'Bu sitede başlık gereken küme yok.']);
+            $needs = $coverage->needs(false, $siteId);
+            if ($needs === []) {
+                throw ValidationException::withMessages(['work' => 'Bu sitenin fikir havuzu dolu ya da kümeleri eşleşmedi.']);
             }
-            SiteOperations::dispatch($siteId, SiteOperations::WEEKLY_CONTENT);
+            foreach ($needs as $need) {
+                SiteOperations::dispatch($siteId, SiteOperations::WEEKLY_CONTENT, ['language' => $need['language'], 'want' => $need['want']]);
+            }
 
-            return $row['brand'].' için başlıklar hazırlanıyor; bitince "Onay bekleyen başlıklar"a düşer.';
+            return implode(', ', array_map(fn (array $n): string => strtoupper($n['language']).' '.$n['want'], $needs)).' fikir hazırlanıyor; bitince "Onay bekleyen başlıklar"a düşer.';
         });
     }
 

@@ -7,25 +7,30 @@ use App\Models\BrandClusterPage;
 use App\Models\DigitalAsset;
 use App\Models\Suggestion;
 use App\Services\Ai\AiBudget;
+use App\Services\Site\ContentPlanner;
 use App\Services\Site\SiteSuggestionTypes;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 /**
  * Genel işler › Web site SEO içerikler, marka tablosu (yakup, 2026-10-06: "hangi sitede hangi içerik eksik, kümeler
- * bazında"): per operational brand's website how its clusters are answered (sayfa yok / kapsam yetersiz / zayıf /
- * yeterli), how many titles wait, are being read or were sent, and — when nothing waits — why, in plain words. The
- * same reading decides which sites the Monday title run (`moxdop:content:weekly-titles`) starts for. Rules only.
+ * bazında"; "havuzda her koşulda her dilde 20 içerik fikri olsun, üstüne haftalık üretim"): per operational brand's
+ * website how its clusters are answered (sayfa yok / kapsam yetersiz / zayıf / yeterli), the idea pool of every
+ * active language (waiting titles out of POOL), what is being read or was sent and — when nothing waits — why. The
+ * same reading tells the title run (`moxdop:content:weekly-titles`) which site and language to fill. Rules only.
  */
 final class ContentCoverage
 {
-    /** Cluster states a new or reworked article answers (the weekly title run works from these). */
+    /** Waiting titles every active language of a site always has. */
+    public const int POOL = 20;
+
+    /** Cluster states a new or reworked article answers. */
     public const array GAP_STATES = ['no_page', 'thin_coverage'];
 
     public const array WEAK_STATES = ['weak_performance', 'possible_conflict', 'wrong_page'];
 
     /**
-     * @return list<array{brand_id: int, brand: string, site: DigitalAsset, clusters: int, missing: int, weak: int, ok: int, waiting: int, capacity: int, reading: int, sent: int, last_title_at: ?CarbonInterface, reason: ?string}>
+     * @return list<array{brand_id: int, brand: string, site: DigitalAsset, clusters: int, missing: int, weak: int, ok: int, pool: array<string, int>, waiting: int, weekly: int, reading: int, sent: int, last_title_at: ?CarbonInterface, reason: ?string}>
      */
     public function rows(?int $brandId = null): array
     {
@@ -39,36 +44,52 @@ final class ContentCoverage
         foreach ($brands as $brand) {
             foreach ($sites->get($brand->id, collect()) as $site) {
                 $byState = $states->get($site->id, []);
-                $count = $titles[(int) $site->id] ?? ['waiting' => 0, 'reading' => 0, 'sent' => 0, 'last' => null];
+                $count = $titles[(int) $site->id] ?? ['waiting' => [], 'reading' => 0, 'sent' => 0, 'last' => null];
+                $languages = ContentPlanner::siteLanguages($site);
+                $pool = [];
+                foreach ($languages as $language) {
+                    $pool[$language] = (int) ($count['waiting'][$language] ?? 0) + ($language === $languages[0] ? (int) ($count['waiting'][''] ?? 0) : 0);
+                }
                 $row = [
                     'brand_id' => (int) $brand->id, 'brand' => (string) $brand->name, 'site' => $site,
                     'clusters' => array_sum($byState),
                     'missing' => array_sum(array_intersect_key($byState, array_flip(self::GAP_STATES))),
                     'weak' => array_sum(array_intersect_key($byState, array_flip(self::WEAK_STATES))),
                     'ok' => (int) ($byState['sufficient'] ?? 0),
-                    'waiting' => $count['waiting'], 'capacity' => self::capacity($brand), 'reading' => $count['reading'], 'sent' => $count['sent'],
-                    'last_title_at' => $count['last'],
+                    'pool' => $pool, 'waiting' => array_sum($pool), 'weekly' => self::weekly($brand),
+                    'reading' => $count['reading'], 'sent' => $count['sent'], 'last_title_at' => $count['last'],
                 ];
                 $row['reason'] = self::reason($row);
                 $rows[] = $row;
             }
         }
-        usort($rows, fn (array $a, array $b): int => [$b['missing'] > 0 && $b['waiting'] === 0, $b['missing']] <=> [$a['missing'] > 0 && $a['waiting'] === 0, $a['missing']]);
+        usort($rows, fn (array $a, array $b): int => [self::short($b), $b['missing']] <=> [self::short($a), $a['missing']]);
 
         return $rows;
     }
 
     /**
-     * Sites the Monday title run starts for: the brand is operational, the site has clusters without a (good) page
-     * and fewer titles wait than the brand's weekly capacity — the stock is topped up, never piled up.
+     * What the title run asks for: every active language of a site with matched clusters gets its pool back to POOL;
+     * on Monday (`$weekly`) each language also gets at least the brand's weekly number of fresh ideas on top.
      *
-     * @return list<int>
+     * @return list<array{site_id: int, language: string, want: int}>
      */
-    public function sitesNeedingTitles(?int $siteId = null): array
+    public function needs(bool $weekly = false, ?int $siteId = null): array
     {
-        return collect($this->rows())
-            ->filter(fn (array $row): bool => ($siteId === null || (int) $row['site']->id === $siteId) && $row['missing'] > 0 && $row['waiting'] < $row['capacity'])
-            ->map(fn (array $row): int => (int) $row['site']->id)->values()->all();
+        $out = [];
+        foreach ($this->rows() as $row) {
+            if (($siteId !== null && (int) $row['site']->id !== $siteId) || $row['clusters'] === 0) {
+                continue;
+            }
+            foreach ($row['pool'] as $language => $waiting) {
+                $want = max(self::POOL - $waiting, $weekly ? $row['weekly'] : 0);
+                if ($want > 0) {
+                    $out[] = ['site_id' => (int) $row['site']->id, 'language' => (string) $language, 'want' => min(20, $want)];
+                }
+            }
+        }
+
+        return $out;
     }
 
     public static function automaticAllowed(): bool
@@ -76,25 +97,30 @@ final class ContentCoverage
         return AiBudget::automaticAllowed('site.weekly_content');
     }
 
-    private static function capacity(Brand $brand): int
+    private static function weekly(Brand $brand): int
     {
         return max(1, min(20, (int) ($brand->weekly_content_capacity ?? 4)));
+    }
+
+    /** @param  array{clusters: int, pool: array<string, int>}  $row  a language below the pool, on a site that can be filled */
+    private static function short(array $row): bool
+    {
+        return $row['clusters'] > 0 && min($row['pool'] ?: [self::POOL]) < self::POOL;
     }
 
     /** @param  array{clusters: int, missing: int, waiting: int, reading: int}  $row */
     private static function reason(array $row): ?string
     {
         return match (true) {
+            $row['clusters'] === 0 => 'Kümeler bu siteyle eşleştirilmedi (onaylı küme ya da hizmet yok, veya Eşleştir çalışmadı); havuz dolamaz.',
             $row['waiting'] > 0 || $row['reading'] > 0 => null,
-            $row['clusters'] === 0 => 'Kümeler bu siteyle eşleştirilmedi (onaylı küme ya da hizmet yok, veya Eşleştir çalışmadı).',
-            $row['missing'] === 0 => 'Kümelerin hepsinin uygun sayfası var; yeni başlık gerekmiyor.',
-            default => 'Eksik küme var; başlıklar pazartesi kendiliğinden üretilir (ya da sitenin İçerik sekmesinden şimdi).',
+            default => 'Havuz boş; her dilde '.self::POOL.' fikre her sabah kendiliğinden tamamlanır (ya da "Fikir üret").',
         };
     }
 
     /**
      * @param  list<int>  $brandIds
-     * @return array<int, array{waiting: int, reading: int, sent: int, last: ?CarbonInterface}>
+     * @return array<int, array{waiting: array<string, int>, reading: int, sent: int, last: ?CarbonInterface}> waiting per title language ('' = not set: the site's main language)
      */
     private function titleCounts(array $brandIds): array
     {
@@ -105,7 +131,7 @@ final class ContentCoverage
             ->get(['id', 'status', 'action', 'created_at', 'applied_at', 'snoozed_until'])
             ->each(function (Suggestion $s) use (&$out): void {
                 $site = (int) data_get($s->action, 'site_id');
-                $out[$site] ??= ['waiting' => 0, 'reading' => 0, 'sent' => 0, 'last' => null];
+                $out[$site] ??= ['waiting' => [], 'reading' => 0, 'sent' => 0, 'last' => null];
                 $action = (array) $s->action;
                 $sent = isset($action['article_write_id']) || $s->status === Suggestion::APPLIED;
                 $written = is_array($action['article'] ?? null) || isset($action['article_blocked']);
@@ -114,7 +140,8 @@ final class ContentCoverage
                 } elseif ($written) {
                     $out[$site]['reading']++;
                 } elseif ($s->status === Suggestion::OPEN || ($s->status === Suggestion::SNOOZED && $s->snoozed_until?->isPast())) {
-                    $out[$site]['waiting']++;
+                    $language = strtolower((string) ($action['language'] ?? ''));
+                    $out[$site]['waiting'][$language] = ($out[$site]['waiting'][$language] ?? 0) + 1;
                 }
                 if ($out[$site]['last'] === null || $s->created_at?->gt($out[$site]['last'])) {
                     $out[$site]['last'] = $s->created_at;

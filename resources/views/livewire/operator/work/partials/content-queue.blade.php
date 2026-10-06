@@ -56,8 +56,12 @@
                                 <span class="{{ $chip }} bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-300">{{ strtoupper($item['language']) }}@foreach ($item['translations'] as $t) + {{ strtoupper($t) }}@endforeach</span>
                                 @if ($item['blocked'])<span class="{{ $chip }} bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">Kurala takıldı</span>@endif
                                 @if ($item['writing'])<span class="{{ $chip }} bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300" data-writing>{{ $step === 'yazilacak' ? 'yazılıyor…' : 'çeviri yazılıyor…' }}</span>@endif
+                                @if ($item['angle'])<span class="{{ $chip }} bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300" data-angle>{{ $item['angle'] }}</span>@endif
                             </div>
                             <p class="mt-1 font-medium leading-snug text-gray-900 dark:text-white">{{ $item['title'] }}</p>
+                            @if ($step === 'yazilacak' && ($item['cluster'] || $item['reason']))
+                                <p class="mt-0.5 text-xs text-gray-500" data-why>@if ($item['cluster'])<span class="font-medium text-gray-700 dark:text-gray-300">Küme: {{ $item['cluster'] }}</span>@if ($item['reason']) · @endif @endif{{ $item['reason'] }}</p>
+                            @endif
                             @if ($item['line'] && ! $item['writing'])<p class="mt-0.5 text-xs text-rose-600">Son deneme: {{ $item['line'] }}</p>@endif
                         </div>
                         <div class="flex items-center gap-2 text-xs">
