@@ -16,6 +16,7 @@ final class MetaOperatorMessages
             MetaException::KIND_TRANSPORT => 'Meta provider unavailable (transport error).',
             MetaException::KIND_CONFIG => 'Configuration incomplete. Configure a Meta access token first.',
             MetaException::KIND_HTTP => 'Provider unavailable (HTTP '.($exception->httpStatus ?? 'error').').',
+            MetaException::KIND_DATA_TOO_LARGE => 'Meta asked for less data in one request (code 1: reduce the amount of data).',
             default => 'Unknown provider error.',
         };
     }

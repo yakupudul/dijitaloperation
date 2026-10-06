@@ -15,6 +15,7 @@ use App\Services\DataPool\MaterializationService;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RawPayloadEnvelope;
 use App\Services\Integrations\Meta\MetaApiClient;
+use App\Services\Integrations\Meta\MetaException;
 use Carbon\CarbonImmutable;
 use RuntimeException;
 use Throwable;
@@ -71,6 +72,9 @@ final class MetaAdsProfessionalDatasetExecutor implements DatasetExecutor
         'video_p95_watched_actions',
         'video_p100_watched_actions',
     ];
+
+    /** Insights page sizes, largest first; Meta's "reduce the amount of data" answer (code 1) steps down. */
+    private const array INSIGHTS_LIMITS = [500, 100, 25];
 
     /** @var array<string, list<string>> */
     private const BREAKDOWN_GROUPS = [
@@ -541,26 +545,93 @@ final class MetaAdsProfessionalDatasetExecutor implements DatasetExecutor
         }
 
         $timezone = (string) ($scope['time_zone'] ?? 'UTC');
-        $slices = $this->slicer->slices($range['start'], $range['end'], max(1, $sliceDays), $timezone);
-        $sliceIndex = (int) ($context->checkpoint['slice_index'] ?? 0);
-        if ($sliceIndex >= count($slices)) {
-            return $this->completed(count($slices), count($slices), $context->checkpoint);
+        $sliceDays = max(1, $sliceDays);
+        $slices = $this->slicer->slices($range['start'], $range['end'], $sliceDays, $timezone);
+        $checkpoint = $context->checkpoint;
+        // After Meta asked for less data the checkpoint holds the next start day and the reduced request size (the
+        // fixed-size slice index no longer applies); otherwise the index of the next fixed-size slice.
+        $reduced = is_string($checkpoint['next_start'] ?? null);
+        $limit = (int) ($checkpoint['limit'] ?? self::INSIGHTS_LIMITS[0]);
+        $days = max(1, min($sliceDays, (int) ($checkpoint['slice_days'] ?? $sliceDays)));
+        $sliceIndex = (int) ($checkpoint['slice_index'] ?? 0);
+        $start = $reduced ? (string) $checkpoint['next_start'] : ($slices[$sliceIndex]['start'] ?? null);
+        if ($start === null || $start > $range['end']) {
+            return $this->completed(count($slices), count($slices), $checkpoint);
         }
 
-        $slice = $slices[$sliceIndex];
-        $query = $this->insightsQuery($level, $fields, $slice, $extraQuery);
-        [$rows, $requestId] = $this->paginateList($scope['integration'], $scope['act_id'].'/insights', $query, 100);
+        while (true) {
+            $slice = $reduced ? $this->sliceFrom($start, $days, $range['end']) : $slices[$sliceIndex];
+            try {
+                // A smaller page gets proportionally more pages: the same row cap per slice (100 × 500), never a page-cap failure.
+                [$rows, $requestId] = $this->paginateList($scope['integration'], $scope['act_id'].'/insights',
+                    $this->insightsQuery($level, $fields, $slice, ['limit' => $limit] + $extraQuery), intdiv(100 * self::INSIGHTS_LIMITS[0], max(1, $limit)));
+
+                break;
+            } catch (MetaException $e) {
+                if ($e->kind !== MetaException::KIND_DATA_TOO_LARGE) {
+                    throw $e;
+                }
+                $smaller = $this->smallerInsightsRequest($limit, $days);
+                if ($smaller === null) {
+                    // Too large even at the smallest page and one day: a request fix, never a 5xx retry loop.
+                    return DatasetExecutionResult::failed(
+                        CollectionErrorCategory::InvalidRequest,
+                        sprintf('Too large for Meta even with limit %d and a %d-day range (%s … %s): %s', $limit, $days, $slice['start'], $slice['end'], (string) $this->errors->fromThrowable($e)->errorMessage),
+                        'META_DATA_TOO_LARGE',
+                    );
+                }
+                [$limit, $days] = $smaller;
+                $reduced = true;
+            }
+        }
         $records = $normalizer($rows);
         $this->writeRows($context, $datasetId, $records, $rows, $scope, $slice, $requestId, [
             'level' => $level,
         ]);
 
-        $sliceIndex++;
-        $next = ['slice_index' => $sliceIndex, 'last_slice' => $slice];
+        if (! $reduced) {
+            $sliceIndex++;
+            $next = ['slice_index' => $sliceIndex, 'last_slice' => $slice];
 
-        return $sliceIndex >= count($slices)
+            return $sliceIndex >= count($slices)
+                ? $this->completed(count($slices), count($slices), $next, count($rows), count($records))
+                : $this->continuing($sliceIndex, count($slices), $next, count($rows), count($records));
+        }
+        $nextStart = CarbonImmutable::createFromFormat('Y-m-d', $slice['end'])->addDay()->toDateString();
+        $next = ['next_start' => $nextStart, 'limit' => $limit, 'slice_days' => $days, 'last_slice' => $slice];
+        $done = count(array_filter($slices, static fn (array $fixed): bool => $fixed['end'] < $nextStart));
+
+        return $nextStart > $range['end']
             ? $this->completed(count($slices), count($slices), $next, count($rows), count($records))
-            : $this->continuing($sliceIndex, count($slices), $next, count($rows), count($records));
+            : $this->continuing($done, count($slices), $next, count($rows), count($records));
+    }
+
+    /**
+     * @return array{start: string, end: string}
+     */
+    private function sliceFrom(string $start, int $days, string $rangeEnd): array
+    {
+        $end = CarbonImmutable::createFromFormat('Y-m-d', $start)->addDays($days - 1)->toDateString();
+
+        return ['start' => $start, 'end' => min($end, $rangeEnd)];
+    }
+
+    /**
+     * The next smaller insights request after Meta's "reduce the amount of data" answer: first the page size
+     * (500 → 100 → 25; the only lever of the one-day ad-level datasets), then the date range (7 → 3 → 1 days).
+     * Null when the request is already the smallest.
+     *
+     * @return array{0: int, 1: int}|null [limit, days]
+     */
+    private function smallerInsightsRequest(int $limit, int $days): ?array
+    {
+        foreach (self::INSIGHTS_LIMITS as $candidate) {
+            if ($candidate < $limit) {
+                return [$candidate, $days];
+            }
+        }
+
+        return $days > 1 ? [$limit, max(1, intdiv($days, 2))] : null;
     }
 
     /** @return array<string,scalar|null> */
@@ -572,7 +643,7 @@ final class MetaAdsProfessionalDatasetExecutor implements DatasetExecutor
             'time_increment' => 1,
             'time_range' => json_encode(['since' => $slice['start'], 'until' => $slice['end']], JSON_THROW_ON_ERROR),
             'use_unified_attribution_setting' => 'true',
-            'limit' => 500,
+            'limit' => self::INSIGHTS_LIMITS[0],
         ], $extra);
     }
 

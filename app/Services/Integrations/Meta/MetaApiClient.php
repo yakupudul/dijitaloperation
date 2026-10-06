@@ -242,7 +242,7 @@ class MetaApiClient
         if (isset($payload['error']) && is_array($payload['error'])) {
             $error = $payload['error'];
             $code = is_numeric($error['code'] ?? null) ? (int) $error['code'] : null;
-            $kind = $this->graphErrorKind($code, $status);
+            $kind = $this->graphErrorKind($error, $status);
             if ($kind === MetaException::KIND_RATE_LIMIT) {
                 app(MetaUsageGovernor::class)->rateLimited($code);
             }
@@ -252,6 +252,7 @@ class MetaApiClient
                 kind: $kind,
                 httpStatus: $status,
                 providerCode: $code,
+                providerSubcode: is_numeric($error['error_subcode'] ?? null) ? (int) $error['error_subcode'] : null,
             );
         }
 
@@ -300,8 +301,21 @@ class MetaApiClient
         return $payload;
     }
 
-    private function graphErrorKind(?int $code, int $httpStatus): string
+    /**
+     * Error class of a structured Graph error, from its code (and, for code 1, its message) before the HTTP status.
+     *
+     * @param  array<string, mixed>  $error
+     */
+    private function graphErrorKind(array $error, int $httpStatus): string
     {
+        $code = is_numeric($error['code'] ?? null) ? (int) $error['code'] : null;
+
+        // Code 1 is also Meta's generic "unknown error" (subcode 99 included): only its "reduce the amount of data"
+        // message says the request itself is too heavy.
+        if ($code === 1 && str_contains(strtolower((string) ($error['message'] ?? '')), 'reduce the amount of data')) {
+            return MetaException::KIND_DATA_TOO_LARGE;
+        }
+
         if (in_array($code, [190, 102], true)) {
             return MetaException::KIND_AUTH;
         }

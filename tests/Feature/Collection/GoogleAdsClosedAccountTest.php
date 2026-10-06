@@ -2,11 +2,13 @@
 
 namespace Tests\Feature\Collection;
 
+use App\Enums\Observability\OperationalAlertState;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
+use App\Models\Observability\OperationalAlert;
 use App\Models\ResourceAutomation;
 use App\Services\Collection\GoogleAds\GoogleAdsHistoricalActivityDiscoveryService;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsCustomerNotEnabledException;
@@ -15,12 +17,14 @@ use App\Services\Integrations\ResourceAutomationService;
 use App\Support\Integrations\Google\GoogleScopes;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use RuntimeException;
 use Tests\TestCase;
 
 /**
  * A closed / suspended Google Ads account answers 403 authorizationError:CUSTOMER_NOT_ENABLED. The history probe parks
- * it (`not_enabled_at`, retried weekly) and automatic collection shows "Hesap kapalı" instead of failing every tick.
+ * it (`not_enabled_at`, retried weekly) and automatic collection shows "Hesap kapalı" instead of failing every tick;
+ * its earlier "Hesap güncellemesi durdu" alert resolves, since the account is no longer collected on purpose.
  */
 final class GoogleAdsClosedAccountTest extends TestCase
 {
@@ -153,6 +157,124 @@ final class GoogleAdsClosedAccountTest extends TestCase
         $this->assertSame('CANCELED', data_get($resource->metadata, 'status'), 'the discovered inventory is still written');
         $this->assertSame($parkedAt, data_get($resource->metadata, 'not_enabled_at'), 'the 05:10 discovery must not end the week early');
         $this->assertSame('not_enabled', app(ResourceAutomationService::class)->readiness($resource));
+    }
+
+    public function test_a_stopped_account_found_closed_on_its_daily_retry_resolves_its_stop_alert(): void
+    {
+        // The access token outlives the day the test travels.
+        CoreIntegrationCredential::query()->where('integration_id', $this->resource->integration_id)
+            ->where('credential_type', CoreIntegrationCredential::TYPE_AUTHORIZATION)->update(['expires_at' => now()->addDays(3)]);
+        $automation = $this->boundAutomation($this->resource);
+        $service = app(ResourceAutomationService::class);
+        foreach (range(1, 3) as $attempt) {
+            $service->fail($automation->id);
+        }
+        $alert = $this->stopAlert($this->resource);
+        $this->assertSame(OperationalAlertState::Open, $alert->state);
+
+        $this->travel(21)->hours();
+        $this->assertSame(1, $service->retryStopped()['retried']);
+        $this->assertSame(OperationalAlertState::Open, $alert->fresh()->state, 'not known to be closed yet');
+        $automation->refresh()->update(['collection_status' => 'planning', 'collection_queued_at' => now()]);
+        $this->fakeForbidden('CUSTOMER_NOT_ENABLED');
+
+        $service->collect($automation->id);
+
+        $this->assertSame(['attention', 'not_enabled'], [$automation->fresh()->collection_status, $automation->fresh()->collection_error]);
+        $alert->refresh();
+        $this->assertSame(OperationalAlertState::Resolved, $alert->state);
+        $this->assertSame('NOT_ENABLED', $alert->resolution_kind);
+    }
+
+    public function test_a_lost_permission_keeps_the_stop_alert_open(): void
+    {
+        $automation = $this->boundAutomation($this->resource);
+        $service = app(ResourceAutomationService::class);
+        foreach (range(1, 3) as $attempt) {
+            $service->fail($automation->id);
+        }
+        $automation->refresh()->update(['collection_status' => 'planning', 'collection_queued_at' => now()]);
+        $this->fakeForbidden('USER_PERMISSION_DENIED');
+
+        try {
+            $service->collect($automation->id);
+            $this->fail('A lost permission still fails the collection job.');
+        } catch (RuntimeException $failure) {
+            $this->assertNotInstanceOf(GoogleAdsCustomerNotEnabledException::class, $failure);
+        }
+
+        $this->assertSame(OperationalAlertState::Open, $this->stopAlert($this->resource)->state);
+    }
+
+    public function test_the_scheduler_pass_of_a_parked_account_resolves_its_stop_alert_but_a_reconnect_keeps_it(): void
+    {
+        config(['moxdop-resource-automation.queue_connection' => 'database']);
+        Queue::fake();
+        $this->resource->forceFill(['metadata' => $this->resource->metadata + ['not_enabled_at' => now()->subDay()->toIso8601String()]])->save();
+        $closed = $this->boundAutomation($this->resource);
+        $unavailable = CoreExternalResource::factory()->create([
+            'integration_id' => $this->resource->integration_id, 'provider' => 'google', 'resource_type' => 'google_ads',
+            'external_id' => '4445556666', 'display_name' => 'Unavailable Ads', 'status' => CoreExternalResource::STATUS_UNAVAILABLE,
+            'metadata' => ['is_manager' => false],
+        ]);
+        $reconnect = $this->boundAutomation($unavailable);
+        $service = app(ResourceAutomationService::class);
+        $service->alert($closed->id, 'collection', 'collection_failed');
+        $service->alert($reconnect->id, 'collection', 'collection_failed');
+
+        $service->tick();
+
+        $this->assertSame(['attention', 'not_enabled'], [$closed->fresh()->collection_status, $closed->fresh()->collection_error]);
+        $this->assertSame(['attention', 'reconnect'], [$reconnect->fresh()->collection_status, $reconnect->fresh()->collection_error]);
+        $this->assertSame(OperationalAlertState::Resolved, $this->stopAlert($this->resource)->state);
+        $this->assertSame('NOT_ENABLED', $this->stopAlert($this->resource)->resolution_kind);
+        $this->assertSame(OperationalAlertState::Open, $this->stopAlert($unavailable)->state, 'a reconnect stop has its own way back');
+        Queue::assertNothingPushed();
+    }
+
+    public function test_the_daily_retry_resolves_old_stop_alerts_of_parked_accounts(): void
+    {
+        $closed = $this->boundAutomation($this->resource);
+        $manager = CoreExternalResource::factory()->create([
+            'integration_id' => $this->resource->integration_id, 'provider' => 'google', 'resource_type' => 'google_ads',
+            'external_id' => '7778889999', 'display_name' => 'Manager Ads', 'status' => CoreExternalResource::STATUS_AVAILABLE,
+            'metadata' => ['is_manager' => true],
+        ]);
+        $managerAutomation = $this->boundAutomation($manager);
+        $active = CoreExternalResource::factory()->create([
+            'integration_id' => $this->resource->integration_id, 'provider' => 'google', 'resource_type' => 'google_ads',
+            'external_id' => '1231231234', 'display_name' => 'Active Ads', 'status' => CoreExternalResource::STATUS_AVAILABLE,
+            'metadata' => ['is_manager' => false],
+        ]);
+        $activeAutomation = $this->boundAutomation($active);
+        $service = app(ResourceAutomationService::class);
+        foreach ([$closed, $managerAutomation, $activeAutomation] as $automation) {
+            $service->alert($automation->id, 'collection', 'collection_failed');
+        }
+        // Parked after its alert opened (an older release did not resolve it then).
+        $this->resource->forceFill(['metadata' => $this->resource->metadata + ['not_enabled_at' => now()->toIso8601String()]])->save();
+
+        $this->assertSame(2, $service->retryStopped()['alerts_resolved']);
+
+        $this->assertSame('NOT_ENABLED', $this->stopAlert($this->resource)->resolution_kind);
+        $this->assertSame('MANAGER', $this->stopAlert($manager)->resolution_kind);
+        $this->assertSame(OperationalAlertState::Open, $this->stopAlert($active)->state);
+    }
+
+    /** An enabled automation of an account bound to an operational brand's asset (factory defaults: active customer). */
+    private function boundAutomation(CoreExternalResource $resource): ResourceAutomation
+    {
+        CoreAssetBinding::factory()->create(['external_resource_id' => $resource->id, 'capability' => 'google_ads']);
+
+        return ResourceAutomation::query()->create([
+            'external_resource_id' => $resource->id, 'collection_enabled' => true,
+            'collection_status' => 'waiting', 'next_collection_at' => now(),
+        ]);
+    }
+
+    private function stopAlert(CoreExternalResource $resource): OperationalAlert
+    {
+        return OperationalAlert::query()->where('rule_key', 'resource-automation.collection')->where('scope_key', (string) $resource->id)->sole();
     }
 
     private function fakeForbidden(string $authorizationError): void

@@ -22,6 +22,9 @@ use Throwable;
  */
 final class OperationalAlertExplainer
 {
+    /** Normalized error groups (CollectionErrorExplainer) whose message is the provider's own answer. */
+    private const array PROVIDER_SIDE = ['auth', 'permission', 'api_disabled', 'quota', 'rate_limit', 'not_found', 'timeout', 'provider'];
+
     /** @var array<string, OperatorMessage> readers of the same alert in one request share the result */
     private array $memo = [];
 
@@ -216,6 +219,24 @@ final class OperationalAlertExplainer
         if ($hint !== null) {
             $explained['problem'] = rtrim($hint, '.');
         }
+        $company = CollectionErrorExplainer::company($subject['provider'] ?? null);
+        // The same provider error stopped the account again after the daily retry: it is not transient any more.
+        $repeat = '';
+        if (ErrorTriage::repeatsEveryRound($alert)) {
+            $explained = $this->repeatedProviderError($explained, $category, $company, $hint !== null);
+            $first = $alert->opened_at ?? $alert->first_observed_at;
+            $repeat = sprintf(' Hesap %d kez durdu; her günlük yeniden denemede aynı hata tekrar ediyor%s, beklemekle düzelmiyor.',
+                (int) $alert->observation_count, $first !== null ? ' (ilk: '.OperatorMessage::shortDate($first).')' : '');
+        }
+        // A collection run's stop names the data that fell and its error code (failureCause), and quotes the answer.
+        $dataset = ! $gbp && is_string($observed['dataset'] ?? null) && $observed['dataset'] !== '' ? $observed['dataset'] : null;
+        if ($dataset !== null) {
+            $explained['problem'] .= ' ('.implode(' · ', array_filter([DatasetLabels::dataset($dataset), is_string($observed['error_code'] ?? null) ? $observed['error_code'] : null])).')';
+        }
+        $answer = $dataset !== null && is_string($observed['error_message'] ?? null) && trim($observed['error_message']) !== ''
+            ? ' '.(in_array(CollectionErrorExplainer::normalize($category), self::PROVIDER_SIDE, true) ? $company.' yanıtı' : 'Hata ayrıntısı')
+                .': "'.rtrim(trim($observed['error_message']), '.').'".'
+            : '';
         $failures = $reason !== 'collection_failed' ? 'Otomatik güncelleme durduruldu'
             : ($gbp ? 'Son otomatik güncelleme başarısız olduğu için durduruldu' : 'Otomatik güncelleme üst üste 3 kez başarısız olduğu için durduruldu');
         $place = $this->placeFor($subject !== null ? [$subject] : [], $explained);
@@ -225,12 +246,30 @@ final class OperationalAlertExplainer
 
         return [
             'title' => 'Hesap güncellemesi durdu · '.($account !== '' ? $account : $source),
-            'what' => $where.': '.$failures.'. Neden: '.$explained['problem'].'.',
+            'what' => $where.': '.$failures.'. Neden: '.$explained['problem'].'.'.$repeat.$answer,
             'why' => 'Bu hesabın verisi yenilenmiyor; raporlar, uyarılar ve öneriler eski veriye dayanıyor.'.(in_array($explained['kind'], ['retry', 'wait'], true)
                 ? ' Sistem her gün kendiliğinden yeniden dener; beklemek istemezseniz "Şimdi güncelle".'
                 : ($explained['kind'] === 'developer' ? ' Tekrar denemek işe yaramaz; yazılım düzeltmesi gerekir.' : ' Sizin bir adımınız gerekiyor; o yapılınca çekim kendiliğinden sürer.')),
             'action' => $explained['fix'],
         ] + $place;
+    }
+
+    /**
+     * A provider error (5xx, timeout) that came back in every daily retry: said as a lasting error, without "geçici" /
+     * "kendiliğinden düzelir", and reported to the developer (retrying does not help).
+     *
+     * @param  array{problem: string, fix: string, kind: string}  $explained
+     * @return array{problem: string, fix: string, kind: string}
+     */
+    private function repeatedProviderError(array $explained, ?string $category, string $company, bool $ownWords): array
+    {
+        return [
+            'problem' => $ownWords ? $explained['problem'] : (CollectionErrorExplainer::normalize($category) === 'timeout'
+                ? $company.' zamanında yanıt vermiyor (zaman aşımı / ağ hatası)'
+                : $company.' sunucu hatası döndürüyor'),
+            'fix' => 'Tekrar denemek işe yaramıyor; yazılım ekibine bildirin. Düzeltme yayınlanınca "Şimdi güncelle" ile devam edin.',
+            'kind' => 'developer',
+        ];
     }
 
     /** @return array<string, mixed> */
