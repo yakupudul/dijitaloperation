@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-10-06 — Otomatik deploy
+
+- **Karar (yakup, 2026-10-06, karar kartı "Otomatik deploy"):** Sunucu izlenen dallardaki yeni kodu kendisi canlıya alır; yakup'un elle `git pull` + `deploy.sh` yapması gerekmez. Claude yine canlı sisteme doğrudan dokunmaz: kodu dala yazar, sunucu alır.
+- **Koşullar:** Yeni head canlı sürümü içermeli (içermeyen dal deploy edilmez, bildirilir; her thread push etmeden önce canlıyı dalına birleştirir). Tam PHPUnit (SQLite) geçmeli. Deploy durursa önceki sürüme dönülür. Başarısız commit tekrar denenmez. İzlenen dallar: `claude/kume-cakismasi-301-l1blwu`, `claude/project-thread-e5yimf`.
+- **Kurulum:** sunucuda bir kez `bash deploy/staging/auto-deploy.sh --install` (root). Duraklatma: `touch storage/app/auto-deploy.off`.
+
 ## 2026-10-05 — Web sitesi kimliği: alan adı + klasör
 
 - **Karar (yakup, 2026-10-05):** yakup WordPress sitelerini `kralsoftware.com/<klasör>` altına kurar; her klasör ayrı web sitesidir. Site kimliği host + klasör; aynı host'ta farklı klasörler ayrı varlık olur, aynı adres iki kez eklenmez.

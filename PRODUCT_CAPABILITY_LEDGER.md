@@ -1,5 +1,12 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-06 — Otomatik deploy (yakup kararı: "Otomatik deploy")
+
+- **Neden (yakup):** "Deploy yapmama gerek kalmıyorsa bu benim için uygun." Kodlanan değişiklik deploy beklerken havuzda takılıyordu.
+- **Nasıl:** `deploy/staging/auto-deploy.sh` (root cron, 15 dakikada bir; `--install` ile `/etc/cron.d/moxdop-autodeploy`). İzlenen dallar `claude/kume-cakismasi-301-l1blwu` ve `claude/project-thread-e5yimf` (`MOXDOP_AUTODEPLOY_BRANCHES`). Bir dalın yeni head'i yalnız canlı sürümü içeriyorsa (`git merge-base --is-ancestor`) aday olur; içermiyorsa başka işi geri alacağı için atlanır ve bildirilir. Aday commit ayrı klasörde (`/var/www/moxdop-autodeploy`, SQLite `:memory:`) tam PHPUnit'ten geçer; geçerse uygulama o commit'e (detached) geçer ve `deploy.sh` çalışır. Deploy durursa önceki canlı sürüme geri dönülür. Başarısız commit bir daha denenmez; `storage/app/auto-deploy.off` duraklatır.
+- **Görünürlük:** Geliştirme havuzu üstünde "Otomatik deploy: …" satırı (son kontrol, durum, neden); durma halleri telefona 'high' bildirim (`moxdop:auto-deploy:report`).
+- **State:** CODED + PHPUnit (`AutoDeployTest` 3: sıra koruması, canlıyı içermeyen dalın gerçek git deposunda atlanması, ekran + bildirim). Sunucuda yakup'un bir kez `--install` çalıştırmasıyla devreye girer.
+
 ## 2026-10-06 — Geliştirme havuzu: okunur kartlar, toplu karar, canlıya çıkanı kendisi bilir
 
 - **Neden (yakup):** "Bulgular gerçekten değerli mi, arayüzü geliştir, Claude bu tarafta çalışmıyor gibi." Kodlanıp canlıya çıkan #1–#16 havuzda "Onaylandı" kalıyordu: kodlama turunun MCP durum yazımı (update-change) oturum izin kontrolüne takılıyordu.
