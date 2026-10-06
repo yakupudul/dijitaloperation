@@ -49,6 +49,9 @@ final class ReleasesPageTest extends SiteTestCase
     public function test_without_auto_deploy_the_page_says_how_to_install_it_and_only_admins_open_it(): void
     {
         Livewire::test(ReleasesPage::class)->assertSee('Otomatik deploy sunucuda kurulu değil')->assertSee('Deploy geçmişi bir sonraki deploy');
+        // Right after --install, before the first cron check.
+        File::put(AutoDeployStatus::path(), json_encode(['state' => 'installed', 'branch' => '', 'sha' => '', 'message' => 'İlk kontrol en geç 15 dakika içinde.', 'checked_at' => '2026-10-06T11:14:00Z']));
+        Livewire::test(ReleasesPage::class)->assertSee('Otomatik deploy: Kuruldu')->assertSee('İlk kontrol en geç 15 dakika içinde.')->assertDontSee('kurulu değil');
 
         $member = User::factory()->create(['is_active' => true]);
         $member->assignRole(Roles::TEAM_MEMBER);

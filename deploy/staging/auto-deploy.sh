@@ -35,6 +35,13 @@ if [[ "${1:-}" == "--install" ]]; then
     "*/15 * * * * root bash ${ROOT}/deploy/staging/auto-deploy.sh >> ${ROOT}/storage/logs/auto-deploy.log 2>&1" \
     > /etc/cron.d/moxdop-autodeploy
   chmod 0644 /etc/cron.d/moxdop-autodeploy
+  # The pages show "installed, first check pending" at once instead of "not installed" until the first cron tick.
+  if [[ ! -f "$STATUS_FILE" ]]; then
+    mkdir -p "$STATE_DIR"
+    printf '{"state":"installed","branch":"","sha":"","message":"İlk kontrol en geç 15 dakika içinde.","checked_at":"%s","live":""}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATUS_FILE"
+    chmod 0644 "$STATUS_FILE"
+    chown "${WEB_USER}:${WEB_USER}" "$STATUS_FILE" 2>/dev/null || true
+  fi
   echo "auto-deploy: installed /etc/cron.d/moxdop-autodeploy (every 15 minutes; branches: ${BRANCHES})"
   echo "auto-deploy: pause with: touch ${ROOT}/storage/app/auto-deploy.off"
   exit 0
@@ -53,7 +60,7 @@ now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
 json_escape() { printf '%s' "$1" | head -c 600 | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n\r\t' '   '; }
 
-# status <state> <branch> <sha> <message>; state: idle | testing | deploying | deployed | tests_failed | deploy_failed | blocked | paused
+# status <state> <branch> <sha> <message>; state: installed | idle | testing | deploying | deployed | tests_failed | deploy_failed | blocked | paused
 status() {
   local tmp
   tmp="$(mktemp "${STATE_DIR}/.auto-deploy.json.XXXXXX")"
@@ -131,7 +138,7 @@ done
 write_pending
 
 if [[ -z "$TARGET" ]]; then
-  if [[ ! -f "$STATUS_FILE" ]] || grep -qE '"state":"(deployed|idle|paused|testing|deploying)"' "$STATUS_FILE"; then
+  if [[ ! -f "$STATUS_FILE" ]] || grep -qE '"state":"(installed|deployed|idle|paused|testing|deploying)"' "$STATUS_FILE"; then
     status idle "" "$LIVE" "Yeni commit yok."
   fi
   exit 0

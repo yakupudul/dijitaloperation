@@ -11,11 +11,13 @@ use Throwable;
 final class AutoDeployStatus
 {
     public const array LABELS = [
-        'idle' => 'Yeni commit yok', 'testing' => 'Testler çalışıyor', 'deploying' => 'Deploy ediliyor', 'deployed' => 'Canlıya alındı',
+        'installed' => 'Kuruldu', 'idle' => 'Yeni commit yok', 'testing' => 'Testler çalışıyor', 'deploying' => 'Deploy ediliyor', 'deployed' => 'Canlıya alındı',
         'tests_failed' => 'Testler geçmedi, canlıya alınmadı', 'deploy_failed' => 'Deploy durdu', 'blocked' => 'Beklemede', 'paused' => 'Durduruldu',
     ];
 
     public const array PROBLEMS = ['tests_failed', 'deploy_failed', 'blocked'];
+
+    public const string CRON_FILE = '/etc/cron.d/moxdop-autodeploy';
 
     public static function path(): string
     {
@@ -27,7 +29,9 @@ final class AutoDeployStatus
     {
         try {
             if (! is_file(self::path())) {
-                return null;
+                // Installed (cron file present) but the first check has not run yet.
+                return is_file(self::CRON_FILE) ? ['state' => 'installed', 'label' => self::LABELS['installed'], 'problem' => false, 'branch' => '', 'sha' => '',
+                    'message' => 'İlk kontrol en geç 15 dakika içinde.', 'checked_at' => null] : null;
             }
             $data = json_decode((string) file_get_contents(self::path()), true);
         } catch (Throwable) {
