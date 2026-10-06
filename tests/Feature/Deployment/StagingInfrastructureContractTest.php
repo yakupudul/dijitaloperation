@@ -45,6 +45,7 @@ class StagingInfrastructureContractTest extends TestCase
 
         $this->assertStringContainsString('moxdop:dispatch-due-automations', $output);
         $this->assertStringContainsString('horizon:snapshot', $output);
+        $this->assertStringContainsString('moxdop:clusters:sync-overlaps', $output, 'stale cluster overlaps close every night');
         $this->assertStringNotContainsString('sales:intent', $output);
     }
 

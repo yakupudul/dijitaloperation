@@ -776,6 +776,14 @@ Schedule::command('moxdop:site:weekly')
     ->when(fn (): bool => AiBudget::automaticAllowed('site.weekly_refresh'))
     ->name('site-weekly');
 
+// Küme çakışmaları: rebuilt every night from the stored match (no AI, no site call), so a rule change or a page that
+// changed since the last Eşleştir run closes stale overlaps (for example an /en/ page proposed into a Turkish page).
+Schedule::command('moxdop:clusters:sync-overlaps')
+    ->dailyAt('04:37')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(60)
+    ->name('clusters-sync-overlaps');
+
 // Faz 6: Meta sistem kontrolleri (en çok 10 kontrol → öneriler; AI yok), operasyonel markalar.
 Artisan::command('moxdop:meta:suggestions', function (): void {
     $ids = DigitalAsset::query()->operational()->where('type', 'meta_ads')->pluck('digital_assets.id');
