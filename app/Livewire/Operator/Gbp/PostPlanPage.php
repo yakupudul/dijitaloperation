@@ -183,6 +183,9 @@ final class PostPlanPage extends Component
 
     public function render(GbpPostQueue $queue): View
     {
+        if (! array_key_exists($this->filter, self::FILTERS)) {
+            $this->filter = '';
+        }
         $today = GbpPostQueue::today();
         $days = collect(range(0, GbpPostQueue::HORIZON_DAYS))->map(fn (int $i): string => $today->addDays($i)->toDateString())->all();
         $weekEnd = $today->addDays(6)->toDateString();
