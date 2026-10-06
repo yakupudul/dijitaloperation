@@ -68,6 +68,9 @@ final class AiRouteKeys
     /** Operator's category / service list → Google categories (gcid) and service items to add to the profile (one call). */
     public const string GBP_PROFILE_PLAN = 'gbp.profile_plan';
 
+    /** ADR-078: the planned posts of a location (one per slot: a page of the brand's site × an angle). */
+    public const string GBP_POST_QUEUE = 'gbp.post_queue';
+
     /** Marka bakım ajanı: weekly, delta-driven review of one active brand from its Marka dosyası (≤ 5 tasks). */
     public const string BRAND_CARE = 'brand.care';
 

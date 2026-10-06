@@ -32,6 +32,7 @@ final class DemoMenu
                 'items' => [
                     $item($tr ? 'Bugün' : 'Today', 'operator.dashboard', 'dashboard'),
                     $item($tr ? 'Genel işler' : 'Work', 'operator.work', 'work'),
+                    $item($tr ? 'İşletme gönderileri' : 'Business posts', 'operator.gbp-posts', 'calendar'),
                     $item(__('operator.nav.customers'), 'operator.customers', 'customers'),
                     $item(__('operator.nav.brands'), 'operator.brands', 'brands'),
                     $item($tr ? 'Dijital varlıklar' : 'Digital assets', 'operator.assets', 'assets', [], ['operator.asset.create', 'operator.asset.edit']),

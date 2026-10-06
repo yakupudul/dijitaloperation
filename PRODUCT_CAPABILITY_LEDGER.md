@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-06 — İşletme gönderileri: 30 günlük otomatik plan, aylık toplu onay (ADR-078)
+
+- **Neden (yakup):** Markalara bağlı her İşletme Profili kaydı için günde bir gönderi, 30 gün önceden sırayla hazırlansın; içerik sitenin hizmet / blog sayfalarından; Admin ayda bir toplu onaylasın; elle ek gönderi de olabilsin.
+- **Ekran:** Menüde "İşletme gönderileri" (`/gbp-posts`). İşletme başına satır (planlı gün n/31, onay bekleyen, onaylı, "İçerik az" < 15 gün, son hazırlık durumu); açınca gün gün kart: tarih, açı, kaynak sayfa, görsel, metin, durum; Onayla / Düzenle / Atla / Tekrar dene. Üstte "Tümünü onayla (N)" (onay penceresi) ve "Boş günleri şimdi doldur" (Admin). İşletme Profili › Gönderiler sekmesinde planın özeti ve bağlantı.
+- **Kurallar:** ADR-078: sayfa × açı 180 gün, sayfa 21 gün tekrar etmez, kardeş işletme 14 gün ayrı açı; Türkçe dizine açık ≥ 150 kelimelik sayfalar; metin kontrolü (iletişim / hashtag / sektör uyumu / benzerlik); yayın 10:00 civarı, son kontrol (sayfa, dizin, uyum, aynı gün elle gönderi), onaylanmayan taslak günü geçince düşer.
+- **AI:** `gbp.post_queue` (`GbpPostQueueAgent`, istem `gbp-post-queue-v1`), Claude MCP kuyruğuna devredilebilir.
+- **Zamanlama:** `moxdop:gbp:fill-post-queue` her gün 05:37 (`--force` hepsini doldurur), `moxdop:gbp:publish-queue` 5 dakikada bir.
+- **State:** CODED + PHPUnit (`tests/Feature/Gbp/GbpPostQueueTest.php`, 4). Gerçek Google'a yayın yapılmadı. **Engel:** GCP projesinde "Google My Business API" (v4 localPosts) kapalı; açılmadan gönderiler "Yayınlanamadı" olur. **Operator after deploy:** API'yi aç, "Boş günleri şimdi doldur", birkaç metni oku, bir işletmeyi onayla, ertesi gün Google'da kontrol et.
+
 ## 2026-10-05 — İşletme Profili "Kategori ve hizmetler": listeden Google'a ekleme (ADR-077)
 
 - **Neden (yakup):** Kategori ve hizmetleri Google'ın ekranından değil MoxDOP'tan eklemek: operatör listeyi yazar, AI Google'a eklenebilir hale getirir, "Gönder" ile profile yazılır.

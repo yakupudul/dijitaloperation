@@ -17,6 +17,7 @@ use App\Services\Async\AsyncOperationService;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\GbpAssistant;
 use App\Services\Gbp\GbpDailyWorkspace;
+use App\Services\Gbp\GbpPostQueue;
 use App\Services\Gbp\GbpProfilePlanner;
 use App\Services\Gbp\GbpScreen;
 use App\Services\Gbp\GbpStandardInput;
@@ -384,6 +385,7 @@ class OverviewPage extends Component
             'posts' => $this->tab === 'posts' ? $daily->posts($asset, $resourceId) : null,
             'pages' => $this->tab === 'posts' ? $assistant->shareablePages($asset) : [],
             'postDraft' => $this->tab === 'posts' ? $assistant->latestPost($asset) : null,
+            'queue' => $this->tab === 'posts' && $asset->brand_id !== null ? app(GbpPostQueue::class)->summary($asset) : null,
             'postState' => $this->tab === 'posts' ? $assistant->state($assetId, GbpAssistant::OP_POST) : null,
             'plan' => $plan,
             'planState' => $this->tab === 'services' ? $assistant->state($assetId, GbpAssistant::OP_PROFILE) : null,

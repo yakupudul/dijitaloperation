@@ -332,7 +332,9 @@ final class ExternalWriteService
      * ADR-073: Admin-approved Business Profile local post, now or at `publish_at` (Europe/Istanbul; the approved post
      * waits as `scheduled` and `releaseScheduled()` sends it when due — Google has no scheduling of its own).
      *
-     * @param  array{summary: string, url?: ?string, action_type?: ?string, publish_at?: ?string}  $post
+     * ADR-078: a post of the automatic queue also carries its image (https JPG / PNG) and `queue_id`.
+     *
+     * @param  array{summary: string, url?: ?string, action_type?: ?string, publish_at?: ?string, image_url?: ?string, queue_id?: int}  $post
      */
     public function requestLocalPost(User $user, DigitalAsset $asset, array $post): ExternalWriteAction
     {
@@ -362,12 +364,17 @@ final class ExternalWriteService
         if ($url !== '' && filter_var($url, FILTER_VALIDATE_URL) === false) {
             throw ValidationException::withMessages(['write' => 'Bağlantı geçerli bir adres değil.']);
         }
+        $image = trim((string) ($post['image_url'] ?? ''));
+        if ($image !== '' && preg_match('~^https://\S+$~i', $image) !== 1) {
+            throw ValidationException::withMessages(['write' => 'Görsel adresi https olmalı.']);
+        }
         $this->gbpLocation($asset);
         $action = ExternalWriteAction::query()->create([
             'channel' => ExternalWriteAction::CHANNEL_GBP, 'action' => ExternalWriteAction::ACTION_LOCAL_POST,
             'digital_asset_id' => $asset->id, 'brand_id' => $asset->brand_id, 'status' => $publishAt !== null ? 'scheduled' : 'queued',
             'request_payload' => ['summary' => $summary, 'url' => $url !== '' ? $url : null, 'action_type' => in_array($post['action_type'] ?? null, ['LEARN_MORE', 'BOOK', 'CALL', 'ORDER', 'SIGN_UP'], true) ? $post['action_type'] : 'LEARN_MORE',
-                'label' => 'İşletme Profili gönderisi', 'publish_at' => $publishAt?->utc()->toIso8601String()],
+                'label' => isset($post['queue_id']) ? 'Otomatik gönderi' : 'İşletme Profili gönderisi', 'publish_at' => $publishAt?->utc()->toIso8601String()]
+                + array_filter(['image_url' => $image !== '' ? $image : null, 'queue_id' => isset($post['queue_id']) ? (int) $post['queue_id'] : null]),
             'requested_by' => $user->id,
         ]);
 

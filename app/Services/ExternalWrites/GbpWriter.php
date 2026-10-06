@@ -49,7 +49,12 @@ final class GbpWriter
 
         $body = ['languageCode' => 'tr', 'topicType' => 'STANDARD', 'summary' => (string) $payload['summary']];
         if (filled($payload['url'] ?? null)) {
-            $body['callToAction'] = ['actionType' => (string) ($payload['action_type'] ?? 'LEARN_MORE'), 'url' => (string) $payload['url']];
+            $type = (string) ($payload['action_type'] ?? 'LEARN_MORE');
+            // CALL dials the profile's phone; Google rejects a URL on it.
+            $body['callToAction'] = $type === 'CALL' ? ['actionType' => 'CALL'] : ['actionType' => $type, 'url' => (string) $payload['url']];
+        }
+        if (filled($payload['image_url'] ?? null)) {
+            $body['media'] = [['mediaFormat' => 'PHOTO', 'sourceUrl' => (string) $payload['image_url']]];
         }
         $created = $this->call($integration, 'post', self::BASE.$parent.'/localPosts', $body);
         $name = (string) ($created['name'] ?? '');

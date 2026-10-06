@@ -252,6 +252,12 @@
             $postData = $posts ?? ['items' => [], 'hint' => '', 'late' => false];
             $pState = $stateLine($postState);
         @endphp
+        @if ($queue)
+            <div class="flex flex-wrap items-center gap-2 rounded-lg bg-sky-50 px-4 py-2 text-sm text-sky-900 dark:bg-sky-500/10 dark:text-sky-200" data-testid="gbp-post-queue">
+                <span>Otomatik plan (30 gün): {{ $queue['planned'] }} gün dolu · {{ $queue['drafts'] }} onay bekliyor · {{ $queue['approved'] }} onaylı{{ $queue['low'] ? ' · içerik az' : '' }}.</span>
+                <a href="{{ route('operator.gbp-posts', ['isletme' => $assetId]) }}" wire:navigate class="font-semibold underline underline-offset-2">İşletme gönderileri</a>
+            </div>
+        @endif
         <div class="grid gap-4 xl:grid-cols-5">
             <section class="{{ $card }} space-y-3 xl:col-span-2">
                 <div>

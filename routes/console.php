@@ -7,6 +7,7 @@ use App\Jobs\CheckAdBudgetJob;
 use App\Jobs\CheckSitemapChangesJob;
 use App\Jobs\Collection\ExecuteDatasetRunJob;
 use App\Jobs\CollectMetaGeoResultsJob;
+use App\Jobs\Gbp\FillGbpPostQueueJob;
 use App\Jobs\Gbp\SyncGbpSuggestionsJob;
 use App\Jobs\GoogleAds\SyncGoogleAdsSuggestionsJob;
 use App\Jobs\Meta\SyncMetaSuggestionsJob;
@@ -41,6 +42,7 @@ use App\Services\Collection\Monitoring\CollectionAccountPresenter;
 use App\Services\Collection\RecoverInterruptedCollections;
 use App\Services\Collection\StartCollectionService;
 use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\Gbp\GbpPostQueue;
 use App\Services\Gsc\UrlInspectionTargets;
 use App\Services\Integrations\Google\GoogleBusinessProfileRetentionService;
 use App\Services\Integrations\ResourceAutomationService;
@@ -700,6 +702,29 @@ Schedule::command('moxdop:gbp:publish-scheduled')
     ->everyMinute()
     ->withoutOverlapping(5)
     ->name('gbp-publish-scheduled');
+
+// ADR-078: otomatik İşletme Profili gönderileri — her işletme için önümüzdeki 30 gün dolu tutulur (23 günün altına
+// inince doldurulur), onaylananlar günü gelince yayınlanır, onaylanmamışların günü geçince düşer.
+Artisan::command('moxdop:gbp:fill-post-queue {--force}', function (): void {
+    $ids = GbpPostQueue::locations()->pluck('digital_assets.id');
+    $ids->each(fn ($id) => FillGbpPostQueueJob::dispatch((int) $id, (bool) $this->option('force')));
+    $this->info('Kuyruğa alınan işletme: '.$ids->count());
+})->purpose('Plan the next 30 days of automatic Business Profile posts of every location of an operational brand.');
+
+Schedule::command('moxdop:gbp:fill-post-queue')
+    ->dailyAt('05:37')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(60)
+    ->name('gbp-fill-post-queue');
+
+Artisan::command('moxdop:gbp:publish-queue', function (): void {
+    $this->info(json_encode(app(GbpPostQueue::class)->publishDue(), JSON_UNESCAPED_UNICODE));
+})->purpose('Publish the approved automatic Business Profile posts whose time has come; expire drafts whose day passed.');
+
+Schedule::command('moxdop:gbp:publish-queue')
+    ->everyFiveMinutes()
+    ->withoutOverlapping(10)
+    ->name('gbp-publish-queue');
 
 // Faz 7: İşletme Profili sistem kontrolleri (profil standartları → öneriler; AI yok), operasyonel markalar.
 Artisan::command('moxdop:gbp:suggestions', function (): void {

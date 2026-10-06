@@ -48,6 +48,14 @@ final class AdvisorServiceProvider extends ServiceProvider
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::GBP_POST_QUEUE,
+            'name' => 'Business Profile Post Queue',
+            'module' => 'gbp',
+            'description' => 'Otomatik İşletme Profili gönderileri: one post per planned day of a location, written from a page of the brand\'s site from one angle (what it is, who it suits, the process, a question, aftercare…). Checked for length, contact data, sector compliance and similarity; published only after the Admin\'s bulk approval (ADR-078).',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
             'key' => AiRouteKeys::GBP_PROFILE_PLAN,
             'name' => 'Business Profile Categories And Services',
             'module' => 'gbp',

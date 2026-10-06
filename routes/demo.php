@@ -33,6 +33,7 @@ use App\Livewire\Operator\AiJobsPage;
 use App\Livewire\Operator\Assets\AnalyticsPage;
 use App\Livewire\Operator\Assets\SearchConsolePage;
 use App\Livewire\Operator\DataCenterPage;
+use App\Livewire\Operator\Gbp\PostPlanPage as GbpPostPlanPage;
 use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Operator\Integrations\DiscoveredAssetsPage;
 use App\Livewire\Operator\Integrations\SiteConnectorShow;
@@ -144,6 +145,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/users', UsersPage::class)->name('operator.settings.users');
         Route::livewire('/settings/improvements', ImprovementsPage::class)->name('operator.settings.improvements');
         Route::livewire('/work', WorkPage::class)->name('operator.work');
+        Route::livewire('/gbp-posts', GbpPostPlanPage::class)->name('operator.gbp-posts');
         Route::livewire('/settings/sector-packs', SectorPacksPage::class)->name('operator.settings.sector-packs');
         Route::livewire('/data-center', DataCenterPage::class)->name('operator.data-center');
         Route::livewire('/integrations/wordpress-sites', WordPressSitesPage::class)->name('operator.integrations.wordpress-sites');

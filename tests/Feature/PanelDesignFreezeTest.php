@@ -58,6 +58,7 @@ class PanelDesignFreezeTest extends TestCase
         $this->assertSame([
             'operator.dashboard',
             'operator.work',
+            'operator.gbp-posts',
             'operator.customers',
             'operator.brands',
             'operator.assets',
@@ -66,7 +67,7 @@ class PanelDesignFreezeTest extends TestCase
             'operator.whatsapp',
             'operator.integrations',
             'operator.settings',
-        ], $routes, 'WhatsApp shows for admins only (2026-12-01)');
+        ], $routes, 'WhatsApp shows for admins only (2026-12-01); İşletme gönderileri added with ADR-078');
 
         $labels = collect(DemoMenu::groups())
             ->flatMap(fn (array $group): array => $group['items'])

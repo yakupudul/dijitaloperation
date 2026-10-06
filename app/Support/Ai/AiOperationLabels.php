@@ -35,6 +35,7 @@ final class AiOperationLabels
         'gbp.services_compare' => 'İşletme Profili hizmet karşılaştırma',
         'gbp.description' => 'İşletme Profili açıklama önerisi',
         'gbp.profile_plan' => 'İşletme Profili kategori ve hizmet hazırlığı',
+        'gbp.post_queue' => 'İşletme Profili otomatik gönderileri',
         'brand.care' => 'Marka bakım ajanı',
         'brand.chief' => 'Şef: haftalık plan',
         'gbp.post_from_page' => 'Sayfadan gönderi yaz',
