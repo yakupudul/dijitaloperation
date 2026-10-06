@@ -11,7 +11,7 @@ MoxDOP uses a small set of queues — not dozens of names:
 
 Horizon supervisors (`config/horizon.php`):
 
-- `supervisor-1` → `default` — timeout `HORIZON_DEFAULT_TIMEOUT` (1560), maxProcesses env-configurable. It auto-scales, and a scale-down SIGKILLs a busy worker after this timeout, so it must outlast every job that lands on `default` and stay below the redis `retry_after` (1800) — `QueueTopologyContractTest`
+- `supervisor-1` → `default` — timeout `HORIZON_DEFAULT_TIMEOUT` (960), maxProcesses env-configurable. It auto-scales, and a scale-down SIGKILLs a busy worker after this timeout, so it must outlast every job that lands on `default` (longest 900 s) and stay below the redis `retry_after` (1800) — `QueueTopologyContractTest`. The 1500 s / 870 s / 600 s analysis jobs (live verification, data consistency, scheduled discovery, source erase, Meta geo, channel analyst) are routed to `heavy` by `AppServiceProvider::routeHeavyJobs` (a `class => queue` map; `Queue::route()` ignores its second argument for a list)
 - `supervisor-collection` → `collection` — timeout `HORIZON_COLLECTION_TIMEOUT` (300), maxProcesses env-configurable
 
 Do not rename queues without need. Do not create 30 queue types.

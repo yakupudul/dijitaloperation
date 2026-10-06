@@ -9,9 +9,11 @@ use App\Enums\Collection\ActivityTier;
  *
  * - full: every dataset (active tier); structure snapshots still pass the change gate.
  * - light: account/property-level daily totals only, continuing from their coverage (idle tier).
- * - check: account/property-level daily totals for the last `checkDays` days only (dormant / paused).
+ * - check: account/property-level daily totals for the last `checkDays` days only (dormant / paused); Google Ads
+ *   starts earlier when the stored coverage misses days before that window.
  *
- * `due` is false while an idle / dormant account already had its weekly pass.
+ * `due` is false while an idle / dormant account already had its weekly pass (the clock starts when a light / check
+ * collection succeeded, ResourceAutomationService::reconcile).
  */
 final readonly class ActivityCollectionPlan
 {

@@ -9,6 +9,7 @@ use App\Services\Operations\ReleaseInfo;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Collection\CollectionDatasetCatalog;
+use App\Support\Collection\LastDataDay;
 use App\Support\Integrations\ExternalResourceAssetCompatibility;
 use App\Support\Operator\DormantAccountHint;
 use Carbon\CarbonImmutable;
@@ -41,17 +42,17 @@ final class PortfolioDiagnostics
     ];
 
     /**
-     * Fact table with the latest reporting date per resource type, and the expected provider lag in days.
+     * Expected provider lag in days per resource type; the fact table with its latest reporting date is LastDataDay's.
      *
-     * @var array<string, array{0: string, 1: int}>
+     * @var array<string, int>
      */
-    private const array FACT_TABLES = [
-        'ga4' => ['ga4_property_daily', 2],
-        'search_console' => ['gsc_property_daily', 4],
-        'google_ads' => ['google_ads_account_daily', 2],
-        'meta_ads' => ['meta_account_daily', 2],
-        'meta_ad_account' => ['meta_account_daily', 2],
-        'google_business_profile' => ['gbp_performance_daily', 7],
+    private const array FACT_LAG_DAYS = [
+        'ga4' => 2,
+        'search_console' => 4,
+        'google_ads' => 2,
+        'meta_ads' => 2,
+        'meta_ad_account' => 2,
+        'google_business_profile' => 7,
     ];
 
     /** @var array<string, list<string>> detail fact tables checked for a --brand / --asset scope */
@@ -940,12 +941,9 @@ final class PortfolioDiagnostics
         $issues = [];
         $score = 0;
         $interval = max(1, (int) ($row->interval_days ?? 1));
-        [$factTable, $lag] = self::FACT_TABLES[$type] ?? [null, 3];
-        $latest = null;
-        if ($factTable !== null && $this->hasColumn($factTable, 'external_resource_id')) {
-            $latest = DB::table($factTable)->where('external_resource_id', $row->resource_id)->max('reporting_date');
-            $latest = $latest !== null ? substr((string) $latest, 0, 10) : null;
-        }
+        $factTable = LastDataDay::table($type);
+        $lag = self::FACT_LAG_DAYS[$type] ?? 3;
+        $latest = $factTable !== null ? LastDataDay::forResource((int) $row->resource_id, $type) : null;
         $age = $this->daysSince($latest);
         $stale = $factTable !== null && ($age === null || $age > $lag + $interval + 1);
         // An ads account that has not spent for months is not a broken collection: say so (and ask whether the right

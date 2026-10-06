@@ -30,6 +30,13 @@ final class MetaAdsProviderErrorMapper
             }
 
             return match ($e->kind) {
+                // The request is too heavy for Meta: the same request fails again, so it is not a 5xx retry. Sliced
+                // insights shrink the request first (MetaAdsProfessionalDatasetExecutor); reaching here is a request fix.
+                MetaException::KIND_DATA_TOO_LARGE => DatasetExecutionResult::failed(
+                    CollectionErrorCategory::InvalidRequest,
+                    $message,
+                    'META_DATA_TOO_LARGE',
+                ),
                 MetaException::KIND_AUTH => DatasetExecutionResult::failed(
                     CollectionErrorCategory::Authentication,
                     $message,
@@ -112,6 +119,9 @@ final class MetaAdsProviderErrorMapper
         }
         if ($e->providerCode !== null) {
             $diagnostics[] = 'code '.$e->providerCode;
+        }
+        if ($e->providerSubcode !== null) {
+            $diagnostics[] = 'subcode '.$e->providerSubcode;
         }
 
         return mb_substr($message.' · ['.implode(' · ', $diagnostics).']', 0, 900);

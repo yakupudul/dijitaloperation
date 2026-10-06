@@ -23,14 +23,23 @@ use Throwable;
  * the previous period of the same length, one card per digital asset with its data-source status, the open
  * suggestions and the services with their page mapping. Numbers come from the existing screen readers (Search Console
  * + GA4 via SiteAnalysisReader, Google Ads via GoogleAdsScreen, Meta via MetaScreen, İşletme Profili via the outcome
- * reader); freshness from DataStatusReader. The KPI numbers are cached per brand × period × bound accounts.
+ * reader); freshness from DataStatusReader. The KPI numbers are cached per brand × period × the sources' binding, state,
+ * last data day and last successful collection × today (Europe/Istanbul): they are read again when new data arrives, a
+ * source is bound or re-authorized, or the day turns, not on a timer.
  */
 final class BrandOverviewReader
 {
     /** Period (days) => label of the Özet selector. */
     public const array PERIODS = [28 => '28 gün', 90 => '90 gün'];
 
-    public const int CACHE_MINUTES = 10;
+    /** Longest life of the cached KPI numbers; new data, a new binding or source state, or a new day replaces them earlier. */
+    public const int CACHE_MINUTES = 720;
+
+    /** The agency's clock: "today" in the KPI cache key (the Google Ads window ends on yesterday). */
+    public const string KPI_TIMEZONE = 'Europe/Istanbul';
+
+    /** Changes whenever rawKpis() changes shape, so a value cached by an older release is never read. */
+    private const string CACHE_VERSION = 'v2';
 
     /** Asset types shown on the brand page (infrastructure types are left out). */
     public const array TYPE_LABELS = [
@@ -121,9 +130,7 @@ final class BrandOverviewReader
     public function kpis(Brand $brand, Collection $models, array $cards, int $days): array
     {
         $days = self::days($days);
-        $fingerprint = md5((string) json_encode(collect($cards)->map(fn (array $c): array => [$c['id'], array_column($c['sources'], 'binding_id')])->all()));
-        $raw = Cache::remember('brand:overview:kpis:'.$brand->id.':'.$days.':'.$fingerprint, now()->addMinutes(self::CACHE_MINUTES),
-            fn (): array => $this->rawKpis($models, $days));
+        $raw = $this->cachedKpis($brand, $models, $cards, $days);
 
         $hasData = [];
         $bound = [];
@@ -213,8 +220,39 @@ final class BrandOverviewReader
     }
 
     /**
+     * rawKpis() cached by data freshness: the key holds every card's sources (binding, state, last data day, last
+     * successful collection) and today in Europe/Istanbul, so it changes when a collection finishes, a source is bound,
+     * its access breaks or is re-authorized (an account that cannot be read counts as not bound), or the day turns. The
+     * value lives CACHE_MINUTES at most and never past the next midnight of a Google Ads account's own time zone, where
+     * its window moves to a new yesterday.
+     *
      * @param  Collection<int, DigitalAsset>  $models
-     * @return array{web: array<string, mixed>, ads: array<string, mixed>, gbp: array<string, mixed>}
+     * @param  list<array<string, mixed>>  $cards
+     * @return array{web: array<string, mixed>, ads: array<string, mixed>, gbp: array<string, mixed>, until: ?int}
+     */
+    private function cachedKpis(Brand $brand, Collection $models, array $cards, int $days): array
+    {
+        $sources = collect($cards)->map(fn (array $c): array => [$c['id'], array_map(
+            fn (array $s): array => [$s['binding_id'], $s['state'], $s['last_data_date'], $s['last_success_at']], $c['sources'])])->all();
+        $fingerprint = md5((string) json_encode([CarbonImmutable::now(self::KPI_TIMEZONE)->toDateString(), $sources]));
+        $key = 'brand:overview:kpis:'.self::CACHE_VERSION.':'.$brand->id.':'.$days.':'.$fingerprint;
+        $raw = Cache::get($key);
+        if (is_array($raw)) {
+            return $raw;
+        }
+        $raw = $this->rawKpis($models, $days);
+        $seconds = self::CACHE_MINUTES * 60;
+        if ($raw['until'] !== null) {
+            $seconds = min($seconds, $raw['until'] - CarbonImmutable::now()->getTimestamp());
+        }
+        Cache::put($key, $raw, max(0, $seconds));
+
+        return $raw;
+    }
+
+    /**
+     * @param  Collection<int, DigitalAsset>  $models
+     * @return array{web: array<string, mixed>, ads: array<string, mixed>, gbp: array<string, mixed>, until: ?int}
      */
     private function rawKpis(Collection $models, int $days): array
     {
@@ -224,7 +262,7 @@ final class BrandOverviewReader
             if ($window['gsc'] === [] && $window['ga4'] === []) {
                 continue;
             }
-            $totals = $this->site->totals($site, $days);
+            $totals = $this->site->freshTotals($site, $days);
             $web['gsc'] = $web['gsc'] || $window['gsc'] !== [];
             $web['ga4'] = $web['ga4'] || $window['ga4'] !== [];
             foreach (['clicks', 'sessions', 'key_events'] as $metric) {
@@ -234,11 +272,13 @@ final class BrandOverviewReader
         }
 
         $ads = ['bound' => false, 'data' => false, 'sources' => [], 'spend' => [], 'conversions' => [0.0, 0.0]];
-        foreach ($models->where('type', 'google_ads') as $asset) {
-            $overview = $this->safely(fn (): ?array => $this->googleAds->overview($asset, $days));
+        $until = null;
+        foreach ($this->googleAdsOverviews($models->where('type', 'google_ads')->values(), $days) as $overview) {
             if ($overview === null) {
                 continue;
             }
+            $midnight = CarbonImmutable::now($overview['timezone'])->addDay()->startOfDay()->getTimestamp();
+            $until = $until === null ? $midnight : min($until, $midnight);
             $ads['bound'] = true;
             $ads['sources']['google_ads'] = 'Google Ads';
             if ($overview['current']['cost'] === null && $overview['previous']['cost'] === null) {
@@ -251,24 +291,18 @@ final class BrandOverviewReader
             $ads['conversions'][0] += (float) ($overview['current']['conversions'] ?? 0);
             $ads['conversions'][1] += (float) ($overview['previous']['conversions'] ?? 0);
         }
-        foreach ($models->where('type', 'meta_ads') as $asset) {
-            $account = $this->safely(fn (): ?array => $this->meta->account($asset));
-            if ($account === null) {
-                continue;
-            }
+        $accounts = $this->metaAccounts($models->where('type', 'meta_ads')->values());
+        $metaTotals = $accounts === [] ? [] : $this->meta->kpiTotals($accounts, $days);
+        foreach ($accounts as $assetId => $account) {
             $ads['bound'] = true;
             $ads['sources']['meta'] = 'Meta';
-            $window = $this->meta->window($account, $days);
-            $entities = $this->meta->entities($account);
-            $current = $this->meta->adPerformance($account, $window['from'], $window['to'], $entities);
-            $previous = $this->meta->adPerformance($account, $window['prev_from'], $window['prev_to'], $entities);
-            if ($current === [] && $previous === []) {
+            if (! isset($metaTotals[$assetId])) {
                 continue;
             }
             $ads['data'] = true;
             $currency = (string) $account['currency'];
-            $now = MetaScreen::totals($current);
-            $before = MetaScreen::totals($previous);
+            $now = $metaTotals[$assetId]['current'];
+            $before = $metaTotals[$assetId]['previous'];
             $ads['spend'][$currency][0] = ($ads['spend'][$currency][0] ?? 0.0) + (float) $now['spend'];
             $ads['spend'][$currency][1] = ($ads['spend'][$currency][1] ?? 0.0) + (float) $before['spend'];
             $ads['conversions'][0] += (float) $now['results'];
@@ -276,7 +310,50 @@ final class BrandOverviewReader
         }
         $ads['sources'] = array_values($ads['sources']);
 
-        return ['web' => $web, 'ads' => $ads, 'gbp' => $this->gbpKpis($models, $days)];
+        return ['web' => $web, 'ads' => $ads, 'gbp' => $this->gbpKpis($models, $days), 'until' => $until];
+    }
+
+    /**
+     * Google Ads overviews of the accounts, their bindings resolved in one batch. When the batch fails (one broken
+     * binding), each account is read on its own so the others still count and the broken one shows as not bound.
+     *
+     * @param  Collection<int, DigitalAsset>  $assets
+     * @return array<int, array<string, mixed>|null> asset id => overview (null: not bound)
+     */
+    private function googleAdsOverviews(Collection $assets, int $days): array
+    {
+        if ($assets->isEmpty()) {
+            return [];
+        }
+        try {
+            return $this->googleAds->overviews($assets, $days);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return $assets->mapWithKeys(fn (DigitalAsset $asset): array => [(int) $asset->id => $this->safely(fn (): ?array => $this->googleAds->overview($asset, $days))])->all();
+        }
+    }
+
+    /**
+     * The bound Meta ad accounts, resolved in one batch. When the batch fails (one broken binding), each asset is read
+     * on its own so the others still count and the broken one shows as not bound.
+     *
+     * @param  Collection<int, DigitalAsset>  $assets
+     * @return array<int, array<string, mixed>> asset id => account
+     */
+    private function metaAccounts(Collection $assets): array
+    {
+        if ($assets->isEmpty()) {
+            return [];
+        }
+        try {
+            return $this->meta->accounts($assets);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return $assets->mapWithKeys(fn (DigitalAsset $asset): array => [(int) $asset->id => $this->safely(fn (): ?array => $this->meta->account($asset))])
+                ->filter()->all();
+        }
     }
 
     /**
@@ -394,6 +471,7 @@ final class BrandOverviewReader
             'tone' => $status->tone(),
             'collecting' => $status->collecting,
             'last_data_date' => $status->lastDataDate?->toDateString(),
+            'last_success_at' => $status->lastSuccessAt?->toIso8601String(),
             'action' => $status->action,
             'action_label' => $status->actionLabel(),
             'action_url' => $status->actionUrl,

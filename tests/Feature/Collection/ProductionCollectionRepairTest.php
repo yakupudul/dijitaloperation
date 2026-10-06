@@ -219,6 +219,30 @@ final class ProductionCollectionRepairTest extends TestCase
         $this->assertSame(['start' => '2026-09-13', 'end' => '2026-09-26'], $plan['family_ranges'][Ga4RequestFamilyCatalog::FAMILY_PROPERTY_DAILY]);
     }
 
+    public function test_ga4_repair_of_a_failed_property_daily_extends_it_through_yesterday_with_a_fresh_checkpoint(): void
+    {
+        $resource = $this->resource('ga4', 'properties/5550010');
+        Cache::put('ga4:property-context:properties/5550010', ['timeZone' => 'UTC'], 3600);
+        $this->completedDatasets($resource, 'GA4', Ga4RequestFamilyCatalog::FAMILY_PROPERTY_DAILY, ['ga4_property_daily'], '2026-09-12');
+        // The weekly pass of 09-20 failed on property daily itself.
+        $run = CollectionRun::factory()->create(['status' => CollectionRunStatus::Failed]);
+        $resourceRun = CollectionResourceRun::factory()->create(['collection_run_id' => $run->id, 'provider_or_source' => 'GA4',
+            'external_resource_id' => $resource->id, 'digital_asset_id' => null, 'status' => CollectionRunStatus::Failed,
+            'metadata' => ['collection_scope' => 'provider_resource_first', 'activity' => ['mode' => 'light']]]);
+        CollectionDatasetRun::factory()->create(['collection_run_id' => $run->id, 'collection_resource_run_id' => $resourceRun->id,
+            'provider_or_source' => 'GA4', 'dataset_contract_id' => 'ga4_property_daily', 'request_family_id' => Ga4RequestFamilyCatalog::FAMILY_PROPERTY_DAILY,
+            'status' => CollectionRunStatus::Failed, 'checkpoint' => ['slice_index' => 1, 'offset' => 0],
+            'metadata' => ['date_range' => ['start' => '2026-09-13', 'end' => '2026-09-19']]]);
+
+        $plan = $this->plan(Ga4CentralCollectionService::class, 'smartPlan', $resource);
+
+        $this->assertSame('repair', $plan['mode']);
+        $this->assertSame([Ga4RequestFamilyCatalog::FAMILY_PROPERTY_DAILY], $plan['families']);
+        $this->assertSame(['start' => '2026-09-13', 'end' => '2026-09-26'], $plan['family_ranges'][Ga4RequestFamilyCatalog::FAMILY_PROPERTY_DAILY]);
+        $this->assertSame([], $plan['family_checkpoints'][Ga4RequestFamilyCatalog::FAMILY_PROPERTY_DAILY], 'the slices changed: start over');
+        $this->assertSame(['start' => '2026-09-13', 'end' => '2026-09-26'], $plan['default_range']);
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private function resource(string $type, string $externalId): CoreExternalResource

@@ -2,6 +2,7 @@
 
 namespace App\Services\Integrations;
 
+use App\Enums\Collection\CollectionRunStatus;
 use App\Enums\Observability\OperationalAlertRuleType;
 use App\Enums\Observability\OperationalAlertSeverity;
 use App\Enums\Observability\OperationalAlertState;
@@ -17,6 +18,7 @@ use App\Models\Observability\OperationalAlert;
 use App\Models\ResourceAutomation;
 use App\Models\Run;
 use App\Models\User;
+use App\Services\Collection\Activity\ActivityCollectionPlan;
 use App\Services\Collection\Activity\ActivityTierService;
 use App\Services\Collection\Activity\CollectionActivityGate;
 use App\Services\Collection\Ga4\Ga4CentralCollectionService;
@@ -45,6 +47,12 @@ final class ResourceAutomationService
     public const TYPES = ['google_ads', 'search_console', 'ga4', 'meta_ads', 'google_business_profile'];
 
     public const ACTIVE = ['queued', 'running', 'retrying', 'cancellation_requested'];
+
+    /** Dataset error categories that stop an account as "request_requires_fix" (a code fix, not a retry). */
+    private const array CONTRACT_CATEGORIES = ['invalid_request', 'persistence'];
+
+    /** Dataset error codes that only follow another dataset's failure (a dependency, a lost worker): never the cause. */
+    private const array CONSEQUENTIAL_ERROR_CODES = ['INTERRUPTED_WORKER', 'DEPENDENCY_FAILED'];
 
     public function authorize(?User $actor): void
     {
@@ -90,13 +98,19 @@ final class ResourceAutomationService
         });
     }
 
+    /**
+     * "Şimdi güncelle": due on the next tick. An idle / dormant account's weekly clock is cleared too, otherwise
+     * admission would put it back to its next weekly pass.
+     */
     public function runNow(int $id, User $actor): void
     {
         $this->authorize($actor);
-        ResourceAutomation::query()->findOrFail($id)->update([
+        $automation = ResourceAutomation::query()->findOrFail($id);
+        $automation->update([
             'collection_enabled' => true, 'next_collection_at' => now(),
             'collection_error' => null, 'collection_failures' => 0, 'updated_by' => $actor->id,
         ]);
+        app(CollectionActivityGate::class)->resetLightCheck((int) $automation->external_resource_id);
     }
 
     public function tick(): void
@@ -241,6 +255,7 @@ final class ResourceAutomationService
             if ($error !== null) {
                 $automation->update(['collection_status' => 'attention', 'collection_error' => $error,
                     'next_collection_at' => $this->nextAt($automation)]);
+                $this->resolveParkedAlert($automation, $error);
 
                 continue;
             }
@@ -278,6 +293,17 @@ final class ResourceAutomationService
         }
 
         return null;
+    }
+
+    /**
+     * Automatic collection of the account does not run on purpose: switched off by the operator, or parked by admission
+     * (readiness(): Google Ads manager account, account reported not enabled). An account that needs reconnecting is
+     * not parked: its data really stopped. Reads `resource.integration` (eager-load it for a batch).
+     */
+    public function isParked(ResourceAutomation $automation): bool
+    {
+        return ! $automation->collection_enabled
+            || ($automation->resource !== null && in_array($this->readiness($automation->resource), ['manager', 'not_enabled'], true));
     }
 
     /**
@@ -323,6 +349,8 @@ final class ResourceAutomationService
      * Daily second chance for stopped collections: repeated provider failures, and "reconnect" stops whose
      * integration and resource are usable again (e.g. a token refreshed elsewhere). Contract errors,
      * cancellations and portfolio gates are left alone; they need a code fix or an operator decision.
+     * `alerts_resolved` counts the stop alerts of accounts that serve no operational asset or are parked
+     * (Google Ads manager / closed account).
      *
      * @return array{retried: int, reconnected: int, recovered: int, alerts_resolved: int}
      */
@@ -345,7 +373,52 @@ final class ResourceAutomationService
             });
 
         return ['retried' => $retried, 'reconnected' => $reconnected,
-            'recovered' => $this->recoverGa4LandingFailures(), 'alerts_resolved' => $this->resolveUnboundAlerts()];
+            'recovered' => $this->recoverGa4LandingFailures(), 'alerts_resolved' => $this->resolveUnboundAlerts() + $this->resolveParkedAlerts()];
+    }
+
+    /**
+     * A Google Ads account parked by admission — a manager account, or one Google reports closed / suspended
+     * (readiness() 'manager' / 'not_enabled') — is not collected on purpose: an earlier "Hesap güncellemesi durdu"
+     * alert ("üst üste 3 kez başarısız", "Şimdi güncelle") no longer applies, and its button would only park it again.
+     * Reconnect, unbound and passive-customer stops keep theirs; they have their own way back.
+     */
+    private function resolveParkedAlert(ResourceAutomation $automation, string $error): void
+    {
+        if (! in_array($error, ['manager', 'not_enabled'], true)) {
+            return;
+        }
+        try {
+            app(OperationalAlertLifecycleService::class)->resolveIfActive('resource-automation.collection', 'external_resource',
+                (string) $automation->external_resource_id, strtoupper($error));
+        } catch (Throwable) {
+            // A notification outage must not undo the park.
+            Log::warning('resource-automation.alert-unavailable', ['automation_id' => $automation->id]);
+        }
+    }
+
+    /**
+     * Cleanup for alerts raised before parked accounts resolved theirs: open "Hesap güncellemesi durdu" alerts of
+     * accounts that are now parked as manager / not enabled. Returns how many were resolved.
+     */
+    public function resolveParkedAlerts(): int
+    {
+        $resolved = 0;
+        $alerts = app(OperationalAlertLifecycleService::class);
+        OperationalAlert::query()->where('rule_key', 'resource-automation.collection')->where('scope_type', 'external_resource')
+            ->whereIn('state', [OperationalAlertState::Open->value, OperationalAlertState::Acknowledged->value])
+            ->orderBy('id')->chunkById(200, function ($chunk) use (&$resolved, $alerts): void {
+                $resources = CoreExternalResource::query()->with('integration')
+                    ->whereIn('id', $chunk->pluck('scope_key')->map(fn ($id): int => (int) $id)->all())->get()->keyBy('id');
+                foreach ($chunk as $alert) {
+                    $resource = $resources->get((int) $alert->scope_key);
+                    $error = $resource !== null ? $this->readiness($resource) : null;
+                    if (in_array($error, ['manager', 'not_enabled'], true)) {
+                        $resolved += $alerts->resolveIfActive('resource-automation.collection', 'external_resource', (string) $alert->scope_key, strtoupper($error)) !== null ? 1 : 0;
+                    }
+                }
+            });
+
+        return $resolved;
     }
 
     public function collect(int $id): void
@@ -361,6 +434,7 @@ final class ResourceAutomationService
         if ($error = $this->readiness($a->resource) ?? $this->portfolioGate($a)) {
             $a->update(['collection_status' => 'attention', 'collection_error' => $error, 'collection_queued_at' => null,
                 'next_collection_at' => $this->nextAt($a)]);
+            $this->resolveParkedAlert($a, $error);
 
             return;
         }
@@ -396,6 +470,7 @@ final class ResourceAutomationService
             // 'not_enabled' instead of failing the job and raising an application error.
             $a->update(['collection_status' => 'attention', 'collection_error' => 'not_enabled', 'collection_queued_at' => null,
                 'next_collection_at' => $this->nextAt($a)]);
+            $this->resolveParkedAlert($a, 'not_enabled');
 
             return;
         }
@@ -449,15 +524,34 @@ final class ResourceAutomationService
                 'collection_error' => $finished && ! $success ? 'collection_failed' : null,
                 'collection_failures' => 0,
                 'last_collection_success_at' => $success ? now() : $automation->last_collection_success_at,
+                'data_through' => $success ? $this->gbpDataThrough($automation) : $automation->data_through,
                 'next_collection_at' => $finished ? $this->nextAt($automation)
                     : now()->addMinutes((int) data_get($run->metadata, 'retry_minutes', 0)),
             ]);
             if ($finished) {
                 $this->alert($automation->id, 'collection', $success ? null : 'collection_failed', $success ? [] : $this->gbpFailureCause($run, $core));
             }
-            if ($finished && $success) {
-            }
         });
+    }
+
+    /**
+     * A Business Profile location's "veri sonu": its latest stored performance day. GBP writes no CollectionDatasetRun,
+     * so the date comes from the facts; it never moves backwards.
+     */
+    private function gbpDataThrough(ResourceAutomation $automation): ?string
+    {
+        $latest = DB::table('gbp_performance_daily')->where('external_resource_id', $automation->external_resource_id)->max('reporting_date');
+
+        return self::laterDate($automation->data_through, $latest);
+    }
+
+    /** The later of two dates (Y-m-d; PostgreSQL date / SQLite text), so a data-through mark never moves backwards. */
+    private static function laterDate(mixed $current, mixed $candidate): ?string
+    {
+        $current = filled($current) ? substr((string) $current, 0, 10) : null;
+        $candidate = filled($candidate) ? substr((string) $candidate, 0, 10) : null;
+
+        return $current === null || ($candidate !== null && $candidate > $current) ? $candidate : $current;
     }
 
     /**
@@ -499,24 +593,107 @@ final class ResourceAutomationService
         $resources = $run->resourceRuns()->where('external_resource_id', $a->external_resource_id)->get();
         $success = $resources->isNotEmpty() && $resources->every(fn ($r) => $r->status->value === 'completed');
         if ($success) {
-            $through = $run->datasetRuns()->whereIn('collection_resource_run_id', $resources->pluck('id'))->where('status', 'completed')
-                ->get(['dataset_contract_id', 'metadata'])
-                ->filter(fn ($d) => filled(data_get($d->metadata, 'date_range.end')))
-                ->groupBy(fn ($d) => $d->dataset_contract_id.'|'.data_get($d->metadata, 'search_type', ''))
-                ->map(fn ($group) => $group->max(fn ($d) => data_get($d->metadata, 'date_range.end')))->min();
+            $through = $this->completedDataThrough($resources);
             $this->alert($a->id, 'collection', null);
+            // The weekly clock of an idle / dormant account starts when its light / check pass succeeded (not when it
+            // was planned), so a failed pass is retried on the normal backoff instead of a week later.
+            if ($resources->contains(fn (CollectionResourceRun $resource): bool => in_array(data_get($resource->metadata, 'activity.mode'),
+                [ActivityCollectionPlan::MODE_LIGHT, ActivityCollectionPlan::MODE_CHECK], true))) {
+                app(CollectionActivityGate::class)->markLightCheck((int) $a->external_resource_id);
+            }
             $this->refreshActivity($a, $resources);
-            $a->update(['data_through' => $through ?: $a->data_through, 'collection_status' => 'current', 'collection_error' => null, 'collection_failures' => 0,
+            $a->update(['data_through' => self::laterDate($a->data_through, $through), 'collection_status' => 'current', 'collection_error' => null, 'collection_failures' => 0,
                 'last_collection_success_at' => now(), 'next_collection_at' => $this->nextAt($a)]);
 
             return;
         }
         $authError = $run->datasetRuns()->whereIn('collection_resource_run_id', $resources->pluck('id'))
-            ->get(['error_category'])->contains(fn ($d) => preg_match('/auth|permission|credential/i', $d->error_category?->value ?? '') === 1);
+            ->get(['error_category'])->contains(fn ($d) => self::isAuthCategory($d->error_category?->value));
         $contractError = $run->datasetRuns()->whereIn('collection_resource_run_id', $resources->pluck('id'))
-            ->whereIn('error_category', ['invalid_request', 'persistence'])->exists();
-        $this->fail($a->id, $authError ? 'reconnect' : ($run->status->value === 'cancelled' ? 'cancelled'
-            : ($contractError ? 'request_requires_fix' : 'collection_failed')));
+            ->whereIn('error_category', self::CONTRACT_CATEGORIES)->exists();
+        $reason = $authError ? 'reconnect' : ($run->status->value === 'cancelled' ? 'cancelled'
+            : ($contractError ? 'request_requires_fix' : 'collection_failed'));
+        $this->fail($a->id, $reason, $this->failureCause($run, $resources, $reason));
+    }
+
+    private static function isAuthCategory(?string $category): bool
+    {
+        return preg_match('/auth|permission|credential/i', (string) $category) === 1;
+    }
+
+    /**
+     * Why a finished run stopped the account: the latest failed dataset of this account in this run whose category
+     * made the decision (an auth error for "reconnect", a contract error for "request_requires_fix"), skipping
+     * datasets that only failed because of another one. Its dataset, error code and the provider's message go to the
+     * alert, so it says which data fell and what the provider answered (Meta code 1 "reduce the amount of data" and
+     * code 2 "temporary" are both HTTP 500 / provider_5xx; only the code tells them apart).
+     *
+     * @param  Collection<int, CollectionResourceRun>  $resources
+     * @return array{error_category?: string, safe_error?: string, dataset?: string, error_code?: string, error_message?: string}
+     */
+    private function failureCause(CollectionRun $run, Collection $resources, string $reason): array
+    {
+        try {
+            $root = $run->datasetRuns()->whereIn('collection_resource_run_id', $resources->pluck('id'))
+                ->where('status', CollectionRunStatus::Failed->value)->whereNotNull('error_category')
+                ->where(fn ($q) => $q->whereNull('error_code')->orWhereNotIn('error_code', self::CONSEQUENTIAL_ERROR_CODES))
+                ->orderByDesc('id')->get(['id', 'dataset_contract_id', 'error_category', 'error_code', 'error_message'])
+                ->first(fn (CollectionDatasetRun $dataset): bool => match ($reason) {
+                    'reconnect' => self::isAuthCategory($dataset->error_category?->value),
+                    'request_requires_fix' => in_array($dataset->error_category?->value, self::CONTRACT_CATEGORIES, true),
+                    default => true,
+                });
+        } catch (Throwable $error) {
+            report($error);
+
+            return [];
+        }
+        if ($root === null) {
+            return [];
+        }
+        $code = filled($root->error_code) ? (string) $root->error_code : null;
+        $message = filled($root->error_message) ? mb_substr((string) $root->error_message, 0, 300) : null;
+        $detail = implode(' · ', array_filter([$code, $message]));
+
+        return array_filter([
+            'error_category' => $root->error_category?->value,
+            'safe_error' => $root->dataset_contract_id.($detail !== '' ? ': '.$detail : ''),
+            'dataset' => (string) $root->dataset_contract_id,
+            'error_code' => $code,
+            'error_message' => $message,
+        ], fn (?string $value): bool => filled($value));
+    }
+
+    /**
+     * "Veri sonu" of a successful collection: per dataset (and Search Console search type) its latest completed end,
+     * then the earliest of those. A repair / resume run re-runs only what failed, so the completed datasets of the run
+     * it continues (and of that run's own predecessors) count too: repairing an old history period must not pull the
+     * mark back to that period's end while newer days are already stored.
+     *
+     * @param  Collection<int, CollectionResourceRun>  $resources
+     */
+    private function completedDataThrough(Collection $resources): ?string
+    {
+        $resourceRunIds = $resources->map(fn (CollectionResourceRun $resource): int => (int) $resource->id)->all();
+        $previousIds = $resources->map(fn (CollectionResourceRun $resource): int => (int) data_get($resource->metadata, 'resumed_from_resource_run_id', 0))
+            ->filter()->values()->all();
+        for ($depth = 0; $previousIds !== [] && $depth < 20; $depth++) {
+            $previous = CollectionResourceRun::query()->whereIn('id', $previousIds)->whereNotIn('id', $resourceRunIds)
+                ->whereIn('external_resource_id', $resources->pluck('external_resource_id')->unique()->all())
+                ->get(['id', 'metadata']);
+            $resourceRunIds = [...$resourceRunIds, ...$previous->map(fn (CollectionResourceRun $resource): int => (int) $resource->id)->all()];
+            $previousIds = $previous->map(fn (CollectionResourceRun $resource): int => (int) data_get($resource->metadata, 'resumed_from_resource_run_id', 0))
+                ->filter()->values()->all();
+        }
+
+        $through = CollectionDatasetRun::query()->whereIn('collection_resource_run_id', $resourceRunIds)->where('status', 'completed')
+            ->get(['dataset_contract_id', 'metadata'])
+            ->filter(fn (CollectionDatasetRun $dataset): bool => filled(data_get($dataset->metadata, 'date_range.end')))
+            ->groupBy(fn (CollectionDatasetRun $dataset): string => $dataset->dataset_contract_id.'|'.data_get($dataset->metadata, 'search_type', ''))
+            ->map(fn (Collection $group): string => (string) $group->max(fn (CollectionDatasetRun $dataset): string => (string) data_get($dataset->metadata, 'date_range.end')))
+            ->min();
+
+        return filled($through) ? (string) $through : null;
     }
 
     /**
@@ -540,7 +717,14 @@ final class ResourceAutomationService
         }
     }
 
-    public function fail(int $id, string $reason = 'collection_failed'): void
+    /**
+     * A collection attempt of the account failed: it is retried (30 / 180 minutes), and stopped with a "Hesap
+     * güncellemesi durdu" alert on the third failure in a row or at once when retrying cannot help. `$cause` is what
+     * the failed run says (failureCause()); without it the alert reads the account's last failed dataset.
+     *
+     * @param  array{error_category?: ?string, safe_error?: ?string, dataset?: ?string, error_code?: ?string, error_message?: ?string}  $cause
+     */
+    public function fail(int $id, string $reason = 'collection_failed', array $cause = []): void
     {
         $a = ResourceAutomation::query()->find($id);
         if (! $a) {
@@ -549,7 +733,7 @@ final class ResourceAutomationService
         $failures = (int) $a->collection_failures + 1;
         $stop = in_array($reason, ['reconnect', 'cancelled', 'request_requires_fix'], true) || $failures >= 3;
         if ($stop && $reason !== 'cancelled') {
-            $this->alert($a->id, 'collection', $reason);
+            $this->alert($a->id, 'collection', $reason, $cause);
         }
         $a->update([
             'collection_status' => $stop ? 'attention' : 'waiting', 'collection_error' => $reason,
@@ -560,9 +744,10 @@ final class ResourceAutomationService
 
     /**
      * Opens, updates or resolves the account's "Hesap güncellemesi durdu" alert. `$cause` is what the failure itself
-     * says (a Business Profile run's error and its category); without it the account's last failed dataset names it.
+     * says (a Business Profile run's error and its category; a collection run's failed dataset, its error code and the
+     * provider's message); without it the account's last failed dataset names it.
      *
-     * @param  array{error_category?: ?string, safe_error?: ?string}  $cause
+     * @param  array{error_category?: ?string, safe_error?: ?string, dataset?: ?string, error_code?: ?string, error_message?: ?string}  $cause
      */
     public function alert(int $automationId, string $phase, ?string $reason, array $cause = []): void
     {
@@ -592,10 +777,13 @@ final class ResourceAutomationService
                     'automation_id' => $a->id, 'phase' => $phase, 'reason' => $reason,
                     // Brand, asset, account and last error, so the alert names what stopped and why.
                     'affected' => app(AlertSubjects::class)->describe([['resource_id' => (int) $a->external_resource_id,
-                        'error_category' => $cause['error_category'] ?? null]]),
+                        'dataset' => $cause['dataset'] ?? null, 'error_category' => $cause['error_category'] ?? null]]),
                 ] + array_filter([
                     'error_category' => $cause['error_category'] ?? null,
                     'safe_error' => $cause['safe_error'] ?? null,
+                    'dataset' => $cause['dataset'] ?? null,
+                    'error_code' => $cause['error_code'] ?? null,
+                    'error_message' => $cause['error_message'] ?? null,
                 ], fn (?string $value): bool => filled($value))
             );
         } catch (Throwable $e) {

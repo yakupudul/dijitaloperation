@@ -74,7 +74,7 @@ final class DueCollectionQueryService
 
         // Activity gate (real collection starts only; status reads never make the provider change check).
         $gate = ($filters['activity_gate'] ?? false) === true ? app(CollectionActivityGate::class) : null;
-        // Status read of the stored activity tiers (records no gate pass, so the weekly clock never moves): idle and
+        // Status read of the stored activity tiers (records no gate pass and makes no provider change check): idle and
         // dormant accounts are collected weekly with the light set only, so only its datasets are evaluated, with the
         // weekly interval added to their freshness SLA.
         $weekly = $gate === null && ($filters['activity_tiers'] ?? false) === true

@@ -7,6 +7,7 @@ use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
+use App\Support\Collection\LastDataDay;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -43,14 +44,20 @@ final class BrandWorkspaceReadService
         $resourceIds = $assets->flatMap(fn (DigitalAsset $a) => $a->assetBindings->pluck('external_resource_id'))->filter()->unique()->values()->all();
         $lastSync = $this->lastSync($resourceIds);
         $dataThrough = $this->dataThrough($resourceIds);
+        // Rows already stored count as data too: a Business Profile run writes no collection run and no data_through.
+        $lastData = LastDataDay::forResources($assets->flatMap(fn (DigitalAsset $a) => $a->assetBindings)
+            ->filter(fn (CoreAssetBinding $binding): bool => $binding->external_resource_id !== null)
+            ->mapWithKeys(fn (CoreAssetBinding $binding): array => [(int) $binding->external_resource_id => (string) ($binding->externalResource?->resource_type ?? $binding->capability)])
+            ->all());
 
-        return $assets->map(function (DigitalAsset $asset) use ($lastSync, $dataThrough): array {
+        return $assets->map(function (DigitalAsset $asset) use ($lastSync, $dataThrough, $lastData): array {
             $accounts = $asset->assetBindings->map(fn (CoreAssetBinding $binding): array => [
                 'capability' => (string) $binding->capability,
                 'label' => self::ACCOUNT_LABELS[$binding->capability] ?? (string) $binding->capability,
                 'resource' => (string) ($binding->externalResource?->display_name ?? '—'),
                 'last_sync' => $lastSync[$binding->external_resource_id] ?? null,
-                'has_data' => isset($lastSync[$binding->external_resource_id]) || isset($dataThrough[$binding->external_resource_id]),
+                'has_data' => isset($lastSync[$binding->external_resource_id]) || isset($dataThrough[$binding->external_resource_id])
+                    || isset($lastData[(int) $binding->external_resource_id]),
             ])->values()->all();
 
             return [

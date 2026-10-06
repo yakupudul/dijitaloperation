@@ -16,7 +16,8 @@ use Illuminate\Support\Facades\Schema;
  *
  *  - `you`: needs the operator's click (reconnect, grant access, a mapping to fix, a stopped worker);
  *  - `auto`: the system heals it by itself (provider hiccup, quota, rate limit, a stuck run, a queue backlog) — no bell;
- *    when it has not healed after ESCALATE_HOURS it moves to `you`;
+ *    a provider error that stopped an account again after its daily retry moves to `code`; otherwise, when it has not
+ *    healed after ESCALATE_HOURS, it moves to `you`;
  *  - `code`: a MoxDOP software error — retrying does not help, it is reported to the developer.
  *
  * Rule-based; no AI. Grouping joins alerts with the same bucket and cause ("Meta geçici hata · 3 hesap").
@@ -37,6 +38,9 @@ final class ErrorTriage
 
     /** An "auto" alert still open after this long needs a person. */
     public const int ESCALATE_HOURS = 48;
+
+    /** Stops of one open "Hesap güncellemesi durdu" alert after which its provider error counts as repeating. */
+    public const int REPEAT_ROUNDS = 2;
 
     /**
      * Latest live check problem per account, read once for one groups() call (null outside it, so cause() from the
@@ -136,15 +140,41 @@ final class ErrorTriage
         return collect($buckets)->map(fn (array $groups): array => collect($groups)->sortByDesc('count')->values()->all())->all();
     }
 
-    /** An "auto" cause still open after ESCALATE_HOURS becomes the operator's work. */
+    /**
+     * An "auto" cause that came back in every daily retry (repeatsEveryRound) is not a hiccup: it goes to the developer.
+     * Otherwise one still open after ESCALATE_HOURS becomes the operator's work.
+     */
     private static function escalate(OperationalAlert $alert, string $cause): string
     {
+        if ($cause === self::AUTO && self::repeatsEveryRound($alert)) {
+            return self::CODE;
+        }
         if ($cause === self::AUTO && ($opened = $alert->opened_at ?? $alert->first_observed_at) !== null
             && $opened->lt(now()->subHours(self::ESCALATE_HOURS))) {
             return self::YOU;
         }
 
         return $cause;
+    }
+
+    /**
+     * A "Hesap güncellemesi durdu" alert whose provider error (a 5xx, a timeout) stopped the account again after the
+     * daily retry: each stop of an open alert is one more observation, so REPEAT_ROUNDS stops with no successful
+     * collection in between mean the same error comes back on every attempt (Meta code 1 "reduce the amount of data"
+     * arrives as HTTP 500 too). Measured by stops, not by age: a first stop is still a hiccup however old it is. Not
+     * when the live check reports a problem of the account itself (cause() puts that in `you`).
+     */
+    public static function repeatsEveryRound(OperationalAlert $alert): bool
+    {
+        $observed = is_array($alert->observed) ? $alert->observed : [];
+        $category = self::firstCategory($observed);
+
+        return $alert->rule_key === 'resource-automation.collection'
+            && (string) ($observed['reason'] ?? 'collection_failed') === 'collection_failed'
+            && (int) $alert->observation_count >= self::REPEAT_ROUNDS
+            && $category !== null && in_array(CollectionErrorExplainer::normalize($category), ['provider', 'timeout'], true)
+            // The morning live check names the account itself (closed / no access): the operator's work, not the developer's.
+            && self::liveProblem((int) $alert->scope_key) === null;
     }
 
     private static function byReason(string $reason, ?string $category): string

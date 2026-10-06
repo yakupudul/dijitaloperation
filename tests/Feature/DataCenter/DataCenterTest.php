@@ -3,17 +3,25 @@
 namespace Tests\Feature\DataCenter;
 
 use App\Enums\DigitalAssetStatus;
+use App\Jobs\RefreshDataCenterSummaryJob;
 use App\Livewire\Operator\DataCenterPage;
 use App\Models\Brand;
 use App\Models\CoreExternalResource;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\User;
+use App\Services\DataCenter\DataCenterCatalog;
 use App\Services\DataCenter\DataCenterReader;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
+use Illuminate\Console\Scheduling\CallbackEvent;
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Tests\Support\InsertsFacts;
 use Tests\TestCase;
@@ -110,5 +118,90 @@ final class DataCenterTest extends TestCase
         Livewire::actingAs($viewer)->test(DataCenterPage::class)
             ->set('picked.resource:'.$this->gsc->id, ['gsc_page_daily'])->call('erase', 'resource:'.$this->gsc->id)->assertForbidden();
         $this->assertSame(1, DB::table('gsc_page_daily')->count());
+    }
+
+    public function test_the_screen_reads_the_counts_the_refresh_job_wrote_without_scanning_tables(): void
+    {
+        RefreshDataCenterSummaryJob::dispatchSync();
+        $this->assertTrue(Cache::has(DataCenterReader::CACHE_KEY));
+
+        $queries = [];
+        /** @var ?list<string> $window the queries of one single request */
+        $window = null;
+        DB::listen(function (QueryExecuted $query) use (&$queries, &$window): void {
+            $queries[] = $query->sql;
+            if (is_array($window)) {
+                $window[] = $query->sql;
+            }
+        });
+        $key = 'resource:'.$this->gsc->id;
+        $page = Livewire::actingAs($this->admin)->test(DataCenterPage::class)
+            ->assertSee('klinik.test')->assertSee('atlas.test')
+            ->call('toggle', $key)->assertSee('Page (günlük)');
+
+        $window = [];
+        $page->call('pickAll', $key)->assertSet('picked.'.$key, ['gsc_page_daily']);
+        $reads = array_values(array_filter($window, fn (string $sql): bool => str_contains($sql, 'from "core_external_resources"')));
+        $window = null;
+        $this->assertCount(1, $reads, 'pickAll and the render after it share one read of the sources');
+
+        $page->set('provider', 'Search Console')->assertDontSee('atlas.test');
+
+        $this->assertNotSame([], $queries, 'names, brands and bindings are still read live');
+        $scans = array_values(array_filter($queries, fn (string $sql): bool => preg_match('/group by|sqlite_master|pragma|information_schema|pg_catalog|pg_class|pg_namespace/i', $sql) === 1));
+        $this->assertSame([], $scans, 'opening, toggling and picking never count the tables nor read the schema');
+    }
+
+    public function test_counts_are_computed_once_when_the_cache_is_empty_and_kept_until_the_next_refresh(): void
+    {
+        Cache::forget(DataCenterReader::CACHE_KEY);
+        $site = collect(app(DataCenterReader::class)->sources())->firstWhere('key', 'asset:'.$this->site->id);
+        $this->assertSame(1, $site['rows']);
+        $this->assertSame(substr((string) DB::table('website_cms_object_snapshot')->max('observed_at'), 0, 16), $site['collected_at'], 'website rows: observed_at is the last collection');
+        $this->assertTrue(Cache::has(DataCenterReader::CACHE_KEY));
+
+        DB::table('website_cms_object_snapshot')->insert(['digital_asset_id' => $this->site->id, 'cms' => 'wordpress', 'object_type' => 'page', 'object_id' => '8', 'status' => 'publish',
+            'title' => 'Zirkonyum', 'permalink' => 'https://atlas.test/zirkonyum', 'observed_at' => now(), 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+            'record_fingerprint' => hash('sha256', 'p8'), 'created_at' => now(), 'updated_at' => now()]);
+        $this->assertSame(1, collect(app(DataCenterReader::class)->sources())->firstWhere('key', 'asset:'.$this->site->id)['rows'], 'the cached count is approximate');
+
+        RefreshDataCenterSummaryJob::dispatchSync();
+        $this->assertSame(2, collect(app(DataCenterReader::class)->sources())->firstWhere('key', 'asset:'.$this->site->id)['rows']);
+    }
+
+    public function test_an_erase_counts_again_so_the_screen_shows_the_new_numbers(): void
+    {
+        RefreshDataCenterSummaryJob::dispatchSync();
+        $key = 'resource:'.$this->gsc->id;
+        Livewire::actingAs($this->admin)->test(DataCenterPage::class)
+            ->call('toggle', $key)->call('pickAll', $key)->call('erase', $key)->assertOk();
+        Livewire::actingAs($this->admin)->test(DataCenterPage::class)
+            ->set('picked.asset:'.$this->site->id, ['website_cms_object_snapshot'])->call('erase', 'asset:'.$this->site->id);
+
+        $this->assertTrue(Cache::has(DataCenterReader::CACHE_KEY), 'rewritten by the erase, not counted again on open');
+        $sources = collect(app(DataCenterReader::class)->sources())->keyBy('key');
+        $this->assertSame(['gsc_query_daily'], collect($sources[$key]['datasets'])->pluck('dataset')->all());
+        $this->assertFalse($sources->has('asset:'.$this->site->id), 'nothing stored for the site any more');
+        Livewire::actingAs($this->admin)->test(DataCenterPage::class)->assertSee('klinik.test')->assertDontSee('atlas.test');
+    }
+
+    public function test_the_refresh_is_scheduled_hourly_on_the_background_queue(): void
+    {
+        config(['queue.background_queue' => 'background']);
+        Queue::fake();
+        $event = collect(app(Schedule::class)->events())->first(fn ($event): bool => $event->description === 'data-center-summary');
+        $this->assertInstanceOf(CallbackEvent::class, $event);
+        $this->assertSame('41 * * * *', $event->expression);
+
+        $event->run($this->app);
+        Queue::assertPushedOn('background', RefreshDataCenterSummaryJob::class);
+    }
+
+    public function test_every_extra_table_has_its_key_and_time_columns(): void
+    {
+        foreach (DataCenterCatalog::EXTRA_TABLES as $table => [$column, , , $stamp]) {
+            $this->assertTrue(Schema::hasTable($table), $table);
+            $this->assertTrue(Schema::hasColumns($table, [$column, $stamp]), $table.': '.$column.', '.$stamp);
+        }
     }
 }

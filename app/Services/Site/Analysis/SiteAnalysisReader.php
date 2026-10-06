@@ -100,20 +100,39 @@ final class SiteAnalysisReader
     {
         $w = $this->window($site, $days);
 
-        return $this->cached($site, 'totals', $w, function () use ($w): array {
-            $out = [];
-            foreach (['current' => [$w['start'], $w['end']], 'previous' => [$w['prev_start'], $w['prev_end']]] as $key => [$from, $to]) {
-                $gsc = $this->gscBase($w['gsc'], $from, $to)->selectRaw($this->metricSql())->first();
-                $ga4 = $w['ga4'] === [] ? null : DB::table('ga4_landing_source_daily')->whereIn('external_resource_id', $w['ga4'])
-                    ->whereBetween('reporting_date', [$from, $to])->selectRaw('sum(sessions) as sessions, sum("keyEvents") as key_events')->first();
-                $out[$key] = [
-                    'clicks' => (int) ($gsc->clicks ?? 0), 'impressions' => (int) ($gsc->impressions ?? 0), 'position' => self::position($gsc),
-                    'sessions' => (int) ($ga4->sessions ?? 0), 'key_events' => round((float) ($ga4->key_events ?? 0), 1),
-                ];
-            }
+        return $this->cached($site, 'totals', $w, fn (): array => $this->readTotals($w));
+    }
 
-            return $out;
-        });
+    /**
+     * totals() read from the facts, past the 1-hour cache: its key holds the window, not when the data last changed,
+     * so a revised GA4 day inside an unchanged window would come back old. For a caller whose own cache key already
+     * follows the data freshness (the brand page KPIs).
+     *
+     * @return array{current: array{clicks: int, impressions: int, position: ?float, sessions: int, key_events: float}, previous: array{clicks: int, impressions: int, position: ?float, sessions: int, key_events: float}}
+     */
+    public function freshTotals(DigitalAsset $site, int $days): array
+    {
+        return $this->readTotals($this->window($site, $days));
+    }
+
+    /**
+     * @param  array{end: string, start: string, prev_start: string, prev_end: string, gsc: list<int>, ga4: list<int>}  $w
+     * @return array{current: array{clicks: int, impressions: int, position: ?float, sessions: int, key_events: float}, previous: array{clicks: int, impressions: int, position: ?float, sessions: int, key_events: float}}
+     */
+    private function readTotals(array $w): array
+    {
+        $out = [];
+        foreach (['current' => [$w['start'], $w['end']], 'previous' => [$w['prev_start'], $w['prev_end']]] as $key => [$from, $to]) {
+            $gsc = $this->gscBase($w['gsc'], $from, $to)->selectRaw($this->metricSql())->first();
+            $ga4 = $w['ga4'] === [] ? null : DB::table('ga4_landing_source_daily')->whereIn('external_resource_id', $w['ga4'])
+                ->whereBetween('reporting_date', [$from, $to])->selectRaw('sum(sessions) as sessions, sum("keyEvents") as key_events')->first();
+            $out[$key] = [
+                'clicks' => (int) ($gsc->clicks ?? 0), 'impressions' => (int) ($gsc->impressions ?? 0), 'position' => self::position($gsc),
+                'sessions' => (int) ($ga4->sessions ?? 0), 'key_events' => round((float) ($ga4->key_events ?? 0), 1),
+            ];
+        }
+
+        return $out;
     }
 
     /** @return list<array{query: string, clicks: int, impressions: int, position: ?float, prev_clicks: int}> */

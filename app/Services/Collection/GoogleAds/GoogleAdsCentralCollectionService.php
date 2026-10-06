@@ -11,6 +11,7 @@ use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
+use App\Models\DataPool\DatasetMaterialization;
 use App\Models\User;
 use App\Services\Collection\Activity\ActivityCollectionPlan;
 use App\Services\Collection\Activity\CollectionActivityGate;
@@ -18,6 +19,7 @@ use App\Services\Collection\CollectionQueueGate;
 use App\Services\Collection\DataContractRegistryLoader;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsCentralRequestFamilyCatalog;
 use App\Services\Collection\StartCollectionService;
+use App\Services\DataPool\Integrity\Support\CoverageIntervalSet;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\ProviderRegistry;
@@ -194,7 +196,17 @@ final class GoogleAdsCentralCollectionService
                 || (in_array($latest->status->value, self::ACTIVE_STATUSES, true) && $latest->collectionRun?->status->isTerminal()))
             && (! $completed instanceof CollectionResourceRun || $latest->id > $completed->id);
 
-        if ($latestNeedsRepair) {
+        $historyBaseline = $history->first(fn (CollectionResourceRun $run): bool => $run->status === CollectionRunStatus::Completed
+            && (int) data_get($run->metadata, 'history_policy_version', 0) >= self::HISTORY_POLICY_VERSION
+        );
+
+        // A failed weekly light / check pass of an idle / dormant account is not repaired over its old range: the
+        // update plan below continues it from the stored coverage through yesterday (and records the gate pass).
+        // Failed initial / history imports and failed full updates are still repaired.
+        $weeklyPassFailed = $latestNeedsRepair && $historyBaseline instanceof CollectionResourceRun
+            && in_array(data_get($latest->metadata, 'activity.mode'), [ActivityCollectionPlan::MODE_LIGHT, ActivityCollectionPlan::MODE_CHECK], true);
+
+        if ($latestNeedsRepair && ! $weeklyPassFailed) {
             $families = $latest->datasetRuns
                 ->filter(fn (CollectionDatasetRun $dataset): bool => ! in_array($dataset->status, [
                     CollectionRunStatus::Completed,
@@ -229,10 +241,6 @@ final class GoogleAdsCentralCollectionService
                 ];
             }
         }
-
-        $historyBaseline = $history->first(fn (CollectionResourceRun $run): bool => $run->status === CollectionRunStatus::Completed
-            && (int) data_get($run->metadata, 'history_policy_version', 0) >= self::HISTORY_POLICY_VERSION
-        );
 
         if (! $historyBaseline instanceof CollectionResourceRun) {
             $activity = $this->historyDiscovery->discover($resource);
@@ -352,10 +360,13 @@ final class GoogleAdsCentralCollectionService
             }
 
             if ($activity->mode === ActivityCollectionPlan::MODE_CHECK) {
-                // Dormant weekly check: account-level totals for the last few days only, no gap filling.
+                // Dormant weekly check: account-level totals for the last few days, from the first day the stored
+                // coverage misses when that is earlier (a late or failed week, a hole of the initial import).
+                $start = $closedEnd->subDays($activity->checkDays - 1);
+                $gapStart = $this->weeklyGapStart($resource, $family, $timezone, $today, $closedEnd);
                 $out[] = [
                     'family' => $family,
-                    'date_range' => ['start' => $closedEnd->subDays($activity->checkDays - 1)->toDateString(), 'end' => $closedEnd->toDateString()],
+                    'date_range' => ['start' => ($gapStart !== null && $gapStart->lessThan($start) ? $gapStart : $start)->toDateString(), 'end' => $closedEnd->toDateString()],
                     'execution_variant' => 'recent',
                 ];
 
@@ -366,7 +377,13 @@ final class GoogleAdsCentralCollectionService
                 ? self::CHANGE_EVENT_SAFE_DAYS
                 : $restatementDays;
             $start = $closedEnd->subDays($window - 1);
-            if (! GoogleAdsCentralRequestFamilyCatalog::isChangeEvent($family)) {
+            if ($activity->mode === ActivityCollectionPlan::MODE_LIGHT && ! GoogleAdsCentralRequestFamilyCatalog::isChangeEvent($family)) {
+                // Idle weekly light set: continues from the first day its stored coverage misses.
+                $gapStart = $this->weeklyGapStart($resource, $family, $timezone, $today, $closedEnd);
+                if ($gapStart !== null && $gapStart->lessThan($start)) {
+                    $start = $gapStart;
+                }
+            } elseif (! GoogleAdsCentralRequestFamilyCatalog::isChangeEvent($family)) {
                 $covered = app(ResourceAutomationService::class)->coverageEnd($resource->id, 'GOOGLE_ADS', $family);
                 if ($covered && $covered < $start->toDateString()) {
                     $start = CarbonImmutable::parse($covered, $timezone)->addDay()->startOfDay();
@@ -397,6 +414,48 @@ final class GoogleAdsCentralCollectionService
         ]);
 
         return $out;
+    }
+
+    /**
+     * Where an idle / dormant account's weekly pass of a light family must start so it leaves no hole: the first day
+     * of the granular lookback (13 months, like the initial import) that the family's stored coverage misses after its
+     * first covered day. Zero-row days count as covered (the initial import marks the months without ads that way).
+     * Without stored coverage, the day after the family's last completed range. Null when nothing is missing.
+     */
+    private function weeklyGapStart(CoreExternalResource $resource, string $family, string $timezone, CarbonImmutable $today, CarbonImmutable $closedEnd): ?CarbonImmutable
+    {
+        $lookbackMonths = max(1, (int) config('moxdop-google-ads-history.granular_lookback_months', 13));
+        $boundary = $today->subMonthsNoOverflow($lookbackMonths)->addDay();
+        $materialization = DatasetMaterialization::query()
+            ->where('dataset_id', (string) GoogleAdsCentralRequestFamilyCatalog::definition($family)['dataset_id'])
+            ->whereNull('digital_asset_id')
+            ->where('external_resource_id', $resource->id)
+            ->orderByDesc('contract_version')
+            ->first(['freshness_metadata']);
+        $dates = data_get($materialization?->freshness_metadata, 'successful_coverage_dates');
+        $dates = is_array($dates) ? array_values(array_filter($dates, 'is_string')) : [];
+
+        if ($dates !== []) {
+            $coverage = CoverageIntervalSet::fromSuccessfulDates($dates);
+            $from = max($boundary->toDateString(), (string) $coverage->bounds()['start']);
+            if ($from > $closedEnd->toDateString()) {
+                return null;
+            }
+            $missing = $coverage->gapsIn($from, $closedEnd->toDateString())[0] ?? null;
+
+            return $missing !== null ? CarbonImmutable::parse($missing, $timezone)->startOfDay() : null;
+        }
+
+        $covered = app(ResourceAutomationService::class)->coverageEnd($resource->id, 'GOOGLE_ADS', $family);
+        if ($covered === null) {
+            return null;
+        }
+        $next = CarbonImmutable::parse($covered, $timezone)->addDay()->startOfDay();
+        if ($next->greaterThan($closedEnd)) {
+            return null;
+        }
+
+        return $next->lessThan($boundary) ? $boundary : $next;
     }
 
     /** @return array<string,mixed> */

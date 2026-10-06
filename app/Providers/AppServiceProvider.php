@@ -366,6 +366,8 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Long AI / analysis jobs run on the "heavy" Horizon supervisor so quick jobs on "default" never wait behind them.
      * Only with the redis queue (Horizon); other drivers keep everything on "default" so nothing is left unworked.
+     * Queue::route() takes a list as a class => queue map and ignores its second argument then, so the map is built
+     * here: a bare class list would route nothing and leave all six on "default".
      */
     private function routeHeavyJobs(): void
     {
@@ -373,13 +375,13 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        Queue::route([
+        Queue::route(array_fill_keys([
             RunScheduledDiscoveryJob::class,
             EraseSourceDataJob::class,
             CollectMetaGeoResultsJob::class,
             RunLiveVerificationJob::class,
             RunDataConsistencyCheckJob::class,
             RunChannelAnalystJob::class,
-        ], 'heavy');
+        ], (string) config('queue.heavy_queue', 'heavy')));
     }
 }

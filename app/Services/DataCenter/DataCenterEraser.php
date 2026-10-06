@@ -11,11 +11,15 @@ use Throwable;
 
 /**
  * Deletes the operator-selected data sets of a source. Protected data sets (queries, search terms, keywords) are
- * never deleted. Collection is not changed: a still-bound account keeps collecting new days.
+ * never deleted. Collection is not changed: a still-bound account keeps collecting new days. Afterwards the cached
+ * row counts of the Veri merkezi are counted again, so the screen shows the new numbers.
  */
 final class DataCenterEraser
 {
-    public function __construct(private readonly DataCenterCatalog $catalog) {}
+    public function __construct(
+        private readonly DataCenterCatalog $catalog,
+        private readonly DataCenterReader $reader,
+    ) {}
 
     /**
      * @param  list<string>  $datasets
@@ -42,8 +46,20 @@ final class DataCenterEraser
             }
         }
         Log::info('data-center.erased', ['kind' => $kind, 'id' => $id, 'datasets' => $datasets, 'rows' => $deleted, 'actor_id' => $actor?->id]);
+        $this->recount();
 
         return ['deleted_rows' => $deleted, 'skipped_protected' => $skipped];
+    }
+
+    /** The rows are already deleted: a failed recount drops the cached counts (the next open counts live) instead of failing the erase. */
+    private function recount(): void
+    {
+        try {
+            $this->reader->refresh();
+        } catch (Throwable $error) {
+            report($error);
+            $this->reader->forget();
+        }
     }
 
     private function eraseRaw(string $kind, int $id): int

@@ -3,6 +3,7 @@
 namespace App\Support\Integrations\Google;
 
 use App\Models\CoreIntegration;
+use App\Models\CoreIntegrationCredential;
 use App\Services\Integrations\Google\GoogleCredentialResolver;
 use App\Support\Integrations\ProviderRegistry;
 
@@ -44,11 +45,15 @@ final class GoogleAuthStatus
             return $configStatus;
         }
 
-        if (! $integration->authorizationCredential()->exists()) {
+        // An eager-loaded credential (batch binding resolution) is used as loaded; otherwise one existence check.
+        $credential = $integration->relationLoaded('authorizationCredential') || $integration->authorizationCredential()->exists()
+            ? $integration->authorizationCredential
+            : null;
+        if (! $credential instanceof CoreIntegrationCredential) {
             return self::AUTHORIZATION_REQUIRED;
         }
 
-        $payload = $integration->authorizationCredential?->encrypted_payload ?? [];
+        $payload = $credential->encrypted_payload ?? [];
         if (! is_array($payload) || blank($payload['refresh_token'] ?? null)) {
             return self::REFRESH_REQUIRED;
         }

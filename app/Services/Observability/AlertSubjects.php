@@ -2,6 +2,7 @@
 
 namespace App\Services\Observability;
 
+use App\Enums\Collection\CollectionRunStatus;
 use App\Models\Brand;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\CoreAssetBinding;
@@ -85,20 +86,35 @@ final class AlertSubjects
                 'automation_id' => $group['resource_id'] !== null && $automations->has($group['resource_id']) ? (int) $automations->get($group['resource_id']) : null,
                 'datasets' => array_values(array_unique($group['datasets'])),
                 'states' => array_values(array_unique($group['states'])),
-                'error_category' => $group['error_category'] ?? ($group['resource_id'] !== null ? $this->lastErrorCategory($group['resource_id']) : null),
+                // A late dataset is explained by its own error, never by another dataset of the same account.
+                'error_category' => $group['error_category'] ?? ($group['resource_id'] !== null
+                    ? $this->lastErrorCategory($group['resource_id'], array_values(array_unique($group['datasets']))) : null),
             ];
         }
 
         return $out;
     }
 
-    /** Category of the account's most recent failed dataset in the last week (null when none failed). */
-    public function lastErrorCategory(int $resourceId): ?string
+    /**
+     * The account's current collection error in the last week: per dataset (and Search Console search type) only its
+     * latest run counts, and only while that run failed or waits for a retry. A step that was retried and then
+     * completed, or a failure a later run of the same dataset fixed, no longer names the cause. With `$datasets` only
+     * those datasets are read (the late ones of a "veri güncel değil" alert); without, every dataset of the account.
+     * Null when nothing is failing.
+     *
+     * @param  list<string>  $datasets
+     */
+    public function lastErrorCategory(int $resourceId, array $datasets = []): ?string
     {
         try {
-            $category = CollectionDatasetRun::query()->whereNotNull('error_category')
+            $latest = CollectionDatasetRun::query()->selectRaw('max(id)')
                 ->where('created_at', '>=', now()->subDays(7))
                 ->whereHas('resourceRun', fn ($q) => $q->where('external_resource_id', $resourceId))
+                ->when($datasets !== [], fn ($q) => $q->whereIn('dataset_contract_id', $datasets))
+                ->groupBy('dataset_contract_id', 'execution_variant');
+            $category = CollectionDatasetRun::query()->whereIn('id', $latest)
+                ->whereIn('status', [CollectionRunStatus::Failed->value, CollectionRunStatus::Retrying->value])
+                ->whereNotNull('error_category')
                 ->orderByDesc('id')->value('error_category');
         } catch (Throwable) {
             return null;

@@ -451,7 +451,7 @@ class ExecuteDatasetRunJob implements ShouldQueue
         StartCollectionService $starter,
     ): void {
         $category = $result->errorCategory ?? CollectionErrorCategory::Unknown;
-        $attemptNumber = (int) $datasetRun->attempt_count;
+        $attemptNumber = $this->failedAttemptsInARow($datasetRun);
 
         if (! $retryPolicy->shouldRetry($datasetRun, $category, $attemptNumber)) {
             $this->failTerminal($datasetRun, $attempt, $errors, $stateMachine, $aggregator, $category, $result->errorMessage ?? 'Retry exhausted', $result->errorCode);
@@ -484,6 +484,19 @@ class ExecuteDatasetRunJob implements ShouldQueue
             ->onConnection((string) config('moxdop-collection.queue_connection', 'redis'))
             ->onQueue((string) config('moxdop-collection.queue', 'collection'))
             ->afterCommit();
+    }
+
+    /**
+     * Attempts of this step since its last completed slice (a continuation): the retry budget (max_attempts) and the
+     * backoff count failures in a row, so a long sliced step whose earlier slices succeeded does not fall on the first
+     * transient error of its third slice. attempt_count keeps counting every execution (attempt numbers stay unique).
+     */
+    private function failedAttemptsInARow(CollectionDatasetRun $datasetRun): int
+    {
+        $lastSlice = (int) CollectionDatasetAttempt::query()->where('collection_dataset_run_id', $datasetRun->id)
+            ->where('status', CollectionRunStatus::Completed->value)->max('attempt_number');
+
+        return max(1, (int) $datasetRun->attempt_count - $lastSlice);
     }
 
     private function failTerminal(
