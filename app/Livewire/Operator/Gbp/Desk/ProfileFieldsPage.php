@@ -196,7 +196,7 @@ final class ProfileFieldsPage extends Component
         $hourStates = $holiday !== null ? $fields->holidayState($snapshots, $holiday['dates']) : [];
         $descriptions = $this->section === 'aciklama' ? $fields->descriptions($locations, $snapshots) : [];
         $hourWrites = $this->section === 'saatler' ? ExternalWriteAction::query()->whereIn('digital_asset_id', $locations->pluck('id'))->where('action', ExternalWriteAction::ACTION_PROFILE_FIELDS)
-            ->where('request_payload', 'like', '%special_hours%')->latest('id')->limit(500)->get()->unique('digital_asset_id')->keyBy('digital_asset_id') : collect();
+            ->whereRaw('cast(request_payload as text) like ?', ['%special_hours%'])->latest('id')->limit(500)->get()->unique('digital_asset_id')->keyBy('digital_asset_id') : collect();
 
         return view('livewire.operator.gbp.desk.profile-fields', [
             'groups' => $locations->groupBy(fn ($l): string => (string) $l->brand?->name),

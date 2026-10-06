@@ -49,8 +49,8 @@ final class GbpPerformance
         $to = CarbonImmutable::parse(end($months).'-01')->endOfMonth()->toDateString().' 23:59:59';
         $rows = DB::table('gbp_performance_daily')->whereIn('external_resource_id', $resourceIds)->whereIn('metric', array_keys(GbpScreen::DAILY_METRICS))
             ->whereBetween('reporting_date', [$from, $to])
-            ->selectRaw('external_resource_id, substr(reporting_date, 1, 7) as ym, metric, sum(value) as total, count(distinct reporting_date) as days')
-            ->groupBy('external_resource_id', DB::raw('substr(reporting_date, 1, 7)'), 'metric')->get();
+            ->selectRaw('external_resource_id, substr(cast(reporting_date as text), 1, 7) as ym, metric, sum(value) as total, count(distinct reporting_date) as days')
+            ->groupBy('external_resource_id', DB::raw('substr(cast(reporting_date as text), 1, 7)'), 'metric')->get();
         $out = [];
         foreach ($rows as $row) {
             $column = GbpScreen::DAILY_METRICS[(string) $row->metric];

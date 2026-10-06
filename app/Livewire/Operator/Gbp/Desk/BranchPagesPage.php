@@ -198,7 +198,7 @@ final class BranchPagesPage extends Component
         $locations = $this->filter === '' ? $all : $all->filter(fn ($l): bool => in_array($states[$l->id]['state'] ?? '', self::FILTERS[$this->filter]['states'], true));
         $running = $all->mapWithKeys(fn ($l): array => [$l->id => Cache::get(PrepareBranchPageJob::stateKey((int) $l->id))])->filter()->all();
         $markups = ExternalWriteAction::query()->where('action', ExternalWriteAction::ACTION_SITE_FIX)->whereIn('status', ['queued', 'running', 'succeeded', 'partial'])
-            ->where('request_payload', 'like', '%gbp-branch-schema-%')->latest('id')->limit(500)->get(['id', 'status', 'request_payload'])
+            ->whereRaw('cast(request_payload as text) like ?', ['%gbp-branch-schema-%'])->latest('id')->limit(500)->get(['id', 'status', 'request_payload'])
             ->mapWithKeys(fn ($a): array => [(int) str_replace('gbp-branch-schema-', '', (string) data_get($a->request_payload, 'changes.0.reference')) => $a->status]);
         $brands = [];
         foreach ($all->groupBy('brand_id') as $brandId => $brandLocations) {

@@ -74,7 +74,7 @@ final class ReviewDesk
     {
         $assetByResource = array_flip($resources);
         $rows = DB::table('gbp_reviews')->whereIn('external_resource_id', array_values($resources))
-            ->where(fn ($q) => $q->whereNull('review_reply')->orWhereIn('review_reply', ['', 'null', '[]']))
+            ->whereRaw("(review_reply is null or cast(review_reply as text) in ('', 'null', '[]'))")
             ->when(isset(GbpDailyWorkspace::RATING_FILTERS[$rating]), fn ($q) => $q->whereIn('star_rating', GbpDailyWorkspace::RATING_FILTERS[$rating]))
             ->orderBy('create_time')->limit($limit)->get(['id', 'external_resource_id', 'reviewer', 'star_rating', 'comment', 'create_time']);
         $ids = $rows->pluck('id')->map(fn ($id): int => (int) $id)->all();
