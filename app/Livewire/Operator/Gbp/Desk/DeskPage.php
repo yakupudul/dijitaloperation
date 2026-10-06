@@ -68,7 +68,7 @@ final class DeskPage extends Component
             $id = (int) $location->id;
             $resourceId = $resources[$id] ?? null;
             $checks = [
-                'page' => ['ok' => ($pages[$id]['state'] ?? '') === 'linked', 'label' => 'Şube sayfası', 'hint' => $pages[$id]['label'] ?? '', 'route' => 'operator.gbp-branch-pages'],
+                'page' => ['ok' => in_array($pages[$id]['state'] ?? '', BranchPages::DONE, true), 'label' => 'Şube sayfası', 'hint' => $pages[$id]['label'] ?? '', 'route' => 'operator.gbp-branch-pages'],
                 'description' => ['ok' => ($descriptions[$id]['state'] ?? '') === 'ok', 'label' => 'Açıklama', 'hint' => $descriptions[$id]['label'] ?? '', 'route' => 'operator.gbp-profile-fields'],
                 'hours' => ['ok' => $holiday === null || ($hours[$id]['missing'] ?? ['x']) === [], 'label' => 'Özel gün saatleri', 'hint' => $holiday !== null ? $holiday['name'].(($hours[$id]['missing'] ?? ['x']) === [] ? ' girildi' : ' saatleri girilmedi') : 'Yaklaşan resmi tatil yok', 'route' => 'operator.gbp-profile-fields'],
                 'photos' => ['ok' => ! ($photoStatus[$id]['stale'] ?? true), 'label' => 'Fotoğraf', 'hint' => isset($photoStatus[$id]['days']) && $photoStatus[$id]['days'] !== null ? 'Son fotoğraf '.$photoStatus[$id]['days'].' gün önce' : 'Fotoğraf bilgisi yok', 'route' => 'operator.gbp-photos'],

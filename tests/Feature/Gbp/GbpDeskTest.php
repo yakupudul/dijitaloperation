@@ -114,15 +114,26 @@ final class GbpDeskTest extends TestCase
     private function profile(string $name, string $externalId): DigitalAsset
     {
         $asset = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'google_business_profile', 'status' => 'active', 'name' => $name]);
-        $google = CoreIntegration::factory()->google()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
-        CoreIntegrationCredential::factory()->provider()->create(['integration_id' => $google->id, 'encrypted_payload' => ['client_id' => 'cid', 'client_secret' => 'csecret']]);
-        CoreIntegrationCredential::factory()->authorization()->create(['integration_id' => $google->id, 'encrypted_payload' => ['access_token' => 'a', 'refresh_token' => 'r'], 'expires_at' => now()->addYear()]);
+        $google = CoreIntegration::query()->where('provider', 'google')->first() ?? tap(CoreIntegration::factory()->google()->create(['status' => CoreIntegration::STATUS_ACTIVE]), function (CoreIntegration $google): void {
+            CoreIntegrationCredential::factory()->provider()->create(['integration_id' => $google->id, 'encrypted_payload' => ['client_id' => 'cid', 'client_secret' => 'csecret']]);
+            CoreIntegrationCredential::factory()->authorization()->create(['integration_id' => $google->id, 'encrypted_payload' => ['access_token' => 'a', 'refresh_token' => 'r'], 'expires_at' => now()->addYear()]);
+        });
         $resource = CoreExternalResource::factory()->create(['integration_id' => $google->id, 'provider' => 'google', 'resource_type' => 'google_business_profile',
             'external_id' => $externalId, 'status' => CoreExternalResource::STATUS_AVAILABLE]);
         CoreAssetBinding::factory()->create(['digital_asset_id' => $asset->id, 'external_resource_id' => $resource->id, 'capability' => 'google_business_profile', 'status' => CoreAssetBinding::STATUS_ACTIVE]);
         $this->resourceId = (int) $resource->id;
 
         return $asset;
+    }
+
+    /** A second profile of the brand without collected data (the brand becomes multi-branch). */
+    private function secondBranch(): DigitalAsset
+    {
+        $resourceId = $this->resourceId;
+        $second = $this->profile('İşletme Profili · Panorama Kızılay', 'accounts/11/locations/'.(33 + DigitalAsset::query()->count()));
+        $this->resourceId = $resourceId;
+
+        return $second;
     }
 
     /** @return list<array{0: string, 1: string, 2: array<string, mixed>}> */
@@ -231,6 +242,7 @@ final class GbpDeskTest extends TestCase
     {
         Page::query()->create(['website_asset_id' => $this->site->id, 'url' => 'https://panorama.test/implant/', 'url_hash' => hash('sha256', '/implant/'), 'path' => '/implant/',
             'title' => 'Diş İmplantı', 'category' => 'hizmet', 'language' => 'tr', 'is_indexable' => true, 'word_count' => 300]);
+        $this->secondBranch();
         $desk = app(GbpDesk::class);
         $pages = app(BranchPages::class);
         $locations = $desk->locations();
@@ -354,5 +366,79 @@ final class GbpDeskTest extends TestCase
             ->call('sendDescription')
             ->assertSet('message', 'Açıklama Google’a gönderiliyor.');
         $this->assertSame($this->description(), $this->live['profile']['description']);
+    }
+
+    public function test_branch_states_say_what_each_profile_needs_and_existing_pages_can_be_chosen(): void
+    {
+        $desk = app(GbpDesk::class);
+        $pages = app(BranchPages::class);
+        $state = fn (DigitalAsset $l): array => $pages->states($desk->locations(), $desk->snapshots($desk->locations()->pluck('id')->all()))[$l->id];
+        $home = Page::query()->create(['website_asset_id' => $this->site->id, 'url' => 'https://panorama.test/', 'url_hash' => hash('sha256', '/'), 'path' => '/',
+            'title' => 'Panorama', 'category' => 'anasayfa', 'language' => 'tr', 'is_indexable' => true, 'word_count' => 400]);
+
+        $single = $state($this->location);
+        $this->assertSame('single', $single['state']);
+        $this->assertSame($home->id, $single['page']->id);
+        $this->assertTrue($single['link']['on_site']);
+        $this->assertTrue($single['link']['home']);
+
+        $second = $this->secondBranch();
+        $this->assertSame('missing', $state($this->location)['state']);
+        $this->assertSame('no_data', $state($second)['state']);
+
+        $contact = Page::query()->create(['website_asset_id' => $this->site->id, 'url' => 'https://panorama.test/iletisim/cankaya/', 'url_hash' => hash('sha256', '/iletisim/cankaya/'),
+            'path' => '/iletisim/cankaya/', 'title' => 'Çankaya İletişim', 'category' => 'iletisim', 'language' => 'tr', 'is_indexable' => true, 'word_count' => 200]);
+        $this->assertSame([$contact->id], $pages->searchPages($this->location, '')->pluck('id')->all());
+        $this->assertSame([$contact->id], $pages->searchPages($this->location, 'Çankaya')->pluck('id')->all());
+
+        $pages->choose($this->admin, $this->location, $contact);
+        $chosen = $state($this->location);
+        $this->assertSame('unlinked', $chosen['state']);
+        $this->assertTrue($chosen['chosen']);
+        $this->assertSame(3, $chosen['step']);
+
+        $pages->unchoose($this->admin, $this->location);
+        $this->assertSame('missing', $state($this->location)['state']);
+        $this->assertSame(0, GbpBranchPage::query()->count());
+
+        $other = DigitalAsset::factory()->create(['type' => 'website', 'domain' => 'baska.test']);
+        $foreign = Page::query()->create(['website_asset_id' => $other->id, 'url' => 'https://baska.test/x/', 'url_hash' => hash('sha256', 'x'), 'path' => '/x/', 'title' => 'X', 'is_indexable' => true, 'word_count' => 10]);
+        $this->expectException(ValidationException::class);
+        $pages->choose($this->admin, $this->location, $foreign);
+    }
+
+    public function test_hub_page_lists_every_branch_from_the_profiles(): void
+    {
+        $pages = app(BranchPages::class);
+        $this->secondBranch();
+        $this->secondBranch();
+        $hub = $pages->hub((int) $this->brand->id);
+        $this->assertTrue($hub['needed']);
+        $this->assertNull($hub['page']);
+        $this->assertSame(3, $hub['count']);
+        $this->assertSame(1, $hub['ready']);
+
+        $content = $pages->hubContent((int) $this->brand->id);
+        $this->assertSame('Panorama Şubeleri', $content['title']);
+        $this->assertSame(1, $content['branches']);
+        $this->assertStringContainsString('<h2>Panorama Çankaya</h2>', $content['html']);
+        $this->assertStringContainsString('Atatürk Bulvarı 10', $content['html']);
+        $this->assertStringContainsString('Yol tarifi al', $content['html']);
+
+        $this->expectException(ValidationException::class);
+        $pages->sendHub($this->admin, (int) $this->brand->id);
+    }
+
+    public function test_branch_screen_filters_by_work_and_offers_the_next_step(): void
+    {
+        $this->secondBranch();
+        Livewire::actingAs($this->admin)->test(BranchPagesPage::class)
+            ->assertSee('Hazırlanacak')->assertSee('Profil verisi bekleyen')->assertSee('1 sayfayı hazırla')->assertSee('Sayfayı hazırla')
+            ->call('setFilter', 'veri')
+            ->assertSee('Panorama Kızılay')->assertDontSee('Sitedeki sayfayı seç')
+            ->call('setFilter', 'hazirla')
+            ->assertSee('Panorama Çankaya')->assertDontSee('Panorama Kızılay')
+            ->call('startPicking', $this->location->id)
+            ->assertSee('Sayfa başlığı ya da adresinde ara');
     }
 }

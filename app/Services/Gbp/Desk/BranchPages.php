@@ -3,6 +3,7 @@
 namespace App\Services\Gbp\Desk;
 
 use App\Ai\Agents\GbpBranchPageAgent;
+use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\GbpBranchPage;
@@ -39,13 +40,27 @@ final class BranchPages
 
     public const array STATES = [
         'linked' => 'Profil kendi sayfasına bağlı',
+        'single' => 'Tek işletme: ana sayfa yeterli',
         'unlinked' => 'Sayfa var, profil ona bağlı değil',
         'sent' => 'WordPress’te taslak; yayınlanmayı bekliyor',
         'ready' => 'Sayfa metni hazır; okunup gönderilecek',
         'failed' => 'Gönderilemedi',
         'missing' => 'Şube sayfası yok',
+        'no_data' => 'Profil verisi henüz çekilmedi',
         'no_site' => 'Markaya web sitesi bağlı değil',
     ];
+
+    /** States that need nothing more. */
+    public const array DONE = ['linked', 'single'];
+
+    /** Steps of a branch page, in order (stepper on the screen). */
+    public const array STEPS = ['Sayfa metni', 'WordPress taslağı', 'Sitede yayında', 'Profil bağlı'];
+
+    /** Branch hub ("Şubelerimiz") is proposed from this many profiles of one brand. */
+    public const int HUB_MIN = 3;
+
+    /** A site page whose address or title says it lists the branches. */
+    private const string HUB_PATTERN = '/\b(subeler|subelerimiz|subelerimizi|lokasyonlar|lokasyonlarimiz|kliniklerimiz|magazalarimiz|adreslerimiz)\b/';
 
     /** Words that say nothing about which branch a page is for. */
     private const array GENERIC = ['sube', 'subesi', 'subemiz', 'klinik', 'klinigi', 'dis', 'agiz', 'sagligi', 'poliklinigi', 'merkezi', 'isletme', 'profili', 've'];
@@ -67,7 +82,7 @@ final class BranchPages
      *
      * @param  Collection<int, DigitalAsset>  $locations
      * @param  array<int, array<string, mixed>>  $snapshots  GbpDesk::snapshots()
-     * @return array<int, array{state: string, label: string, page: ?Page, row: ?GbpBranchPage, site: ?DigitalAsset}>
+     * @return array<int, array{state: string, label: string, page: ?Page, row: ?GbpBranchPage, site: ?DigitalAsset, link: array{current: string, on_site: bool, home: bool}, chosen: bool, step: int}>
      */
     public function states(Collection $locations, array $snapshots): array
     {
@@ -77,6 +92,7 @@ final class BranchPages
             ->get(['id', 'website_asset_id', 'url', 'path', 'title', 'h1', 'category', 'wp_post_id', 'language']);
         $rows = GbpBranchPage::query()->whereIn('digital_asset_id', $locations->pluck('id'))->with('draftAction:id,status,error,result')->get()->keyBy('digital_asset_id');
         $byKey = $pages->keyBy(fn (Page $p): string => GbpDesk::urlKey((string) $p->url));
+        $perBrand = $this->desk->locations()->countBy('brand_id');
         $taken = [];
         $out = [];
         foreach ($locations as $location) {
@@ -84,14 +100,20 @@ final class BranchPages
             $site = $brandSites->first();
             $snapshot = $snapshots[$location->id] ?? null;
             $row = $rows->get($location->id);
-            $state = static fn (string $key, ?Page $page = null) => ['state' => $key, 'label' => self::STATES[$key], 'page' => $page, 'row' => $row, 'site' => $site];
+            $current = $snapshot !== null ? (string) $snapshot['website'] : '';
+            $domains = $brandSites->map(fn (DigitalAsset $s): string => (string) preg_replace('/^www\./', '', strtolower((string) ($s->domain ?: parse_url((string) $s->primary_url, PHP_URL_HOST)))))->filter()->all();
+            $currentHost = (string) preg_replace('/^www\./', '', strtolower((string) parse_url($current, PHP_URL_HOST)));
+            $link = ['current' => $current, 'on_site' => $currentHost !== '' && in_array($currentHost, $domains, true),
+                'home' => $current !== '' && in_array(trim((string) parse_url($current, PHP_URL_PATH), '/'), ['', 'tr'], true)];
+            $state = static fn (string $key, ?Page $page = null, ?string $label = null) => ['state' => $key, 'label' => $label ?? self::STATES[$key], 'page' => $page, 'row' => $row, 'site' => $site,
+                'link' => $link, 'chosen' => $page !== null && $row?->page_id !== null && (int) $row->page_id === (int) $page->id, 'step' => self::step($key)];
             if ($site === null) {
                 $out[$location->id] = $state('no_site');
 
                 continue;
             }
             $sitePages = $pages->whereIn('website_asset_id', $brandSites->pluck('id'));
-            $linkKey = $snapshot !== null ? GbpDesk::urlKey((string) $snapshot['website']) : '';
+            $linkKey = GbpDesk::urlKey($current);
             $linked = $linkKey !== '' ? $byKey->get($linkKey) : null;
             if ($linked !== null && $sitePages->contains('id', $linked->id) && ! self::isHome($linked)) {
                 $taken[$linked->id] = true;
@@ -99,23 +121,177 @@ final class BranchPages
 
                 continue;
             }
+            $chosen = $row?->page_id !== null ? $sitePages->firstWhere('id', (int) $row->page_id) : null;
+            if ($chosen === null && (int) ($perBrand[$location->brand_id] ?? 0) <= 1 && ! in_array($row?->status, [GbpBranchPage::READY, GbpBranchPage::SENT, GbpBranchPage::FAILED], true)) {
+                $home = $sitePages->first(fn (Page $p): bool => self::isHome($p));
+                $out[$location->id] = $state('single', $home, $snapshot === null ? 'Tek işletme · profil verisi henüz çekilmedi'
+                    : ($link['on_site'] ? self::STATES['single'] : 'Tek işletme · profil sitenize bağlı değil'));
+
+                continue;
+            }
             $sent = $row?->wp_post_id !== null ? $sitePages->first(fn (Page $p): bool => (int) $p->wp_post_id === (int) $row->wp_post_id) : null;
-            $found = $sent ?? $this->candidate($location, $snapshot, $sitePages->reject(fn (Page $p): bool => isset($taken[$p->id])));
+            $found = $chosen ?? $sent ?? $this->candidate($location, $snapshot, $sitePages->reject(fn (Page $p): bool => isset($taken[$p->id])));
             if ($found !== null) {
                 $taken[$found->id] = true;
                 $out[$location->id] = $state('unlinked', $found);
 
                 continue;
             }
-            $out[$location->id] = $state(match ($row?->status) {
+            $key = match ($row?->status) {
                 GbpBranchPage::SENT => 'sent',
                 GbpBranchPage::READY => 'ready',
                 GbpBranchPage::FAILED => 'failed',
-                default => 'missing',
-            });
+                default => $snapshot === null ? 'no_data' : 'missing',
+            };
+            $out[$location->id] = $state($key);
         }
 
         return $out;
+    }
+
+    /** Completed steps of a state (0–4; STEPS). */
+    public static function step(string $state): int
+    {
+        return match ($state) {
+            'ready', 'failed' => 1,
+            'sent' => 2,
+            'unlinked' => 3,
+            'linked', 'single' => 4,
+            default => 0,
+        };
+    }
+
+    /**
+     * The operator points a profile at a page the site already has (when the automatic match missed it).
+     */
+    public function choose(User $user, DigitalAsset $location, Page $page): void
+    {
+        $this->guard($user);
+        $sites = DigitalAsset::query()->where('brand_id', $location->brand_id)->where('type', 'website')->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        if (! in_array((int) $page->website_asset_id, $sites, true)) {
+            throw ValidationException::withMessages(['page' => 'Sayfa bu markanın sitesinde değil.']);
+        }
+        $row = GbpBranchPage::query()->firstOrNew(['digital_asset_id' => $location->id]);
+        if (! $row->exists) {
+            $row->forceFill(['brand_id' => $location->brand_id, 'website_asset_id' => $page->website_asset_id, 'status' => GbpBranchPage::CHOSEN]);
+        }
+        $row->forceFill(['page_id' => $page->id])->save();
+    }
+
+    public function unchoose(User $user, DigitalAsset $location): void
+    {
+        $this->guard($user);
+        $row = GbpBranchPage::query()->where('digital_asset_id', $location->id)->first();
+        if ($row?->status === GbpBranchPage::CHOSEN) {
+            $row->delete();
+        } else {
+            $row?->forceFill(['page_id' => null])->save();
+        }
+    }
+
+    /**
+     * Pages of the brand's site to pick from: matching the search, or likely branch / contact pages when empty.
+     *
+     * @return Collection<int, Page>
+     */
+    public function searchPages(DigitalAsset $location, string $query): Collection
+    {
+        $sites = DigitalAsset::query()->where('brand_id', $location->brand_id)->where('type', 'website')->pluck('id');
+        $query = trim($query);
+
+        return Page::query()->whereIn('website_asset_id', $sites)->where('is_indexable', true)
+            ->where(fn ($q) => $q->whereNull('language')->orWhere('language', 'tr'))
+            ->when($query !== '', fn ($q) => $q->where(fn ($w) => $w->where('title', 'like', '%'.$query.'%')->orWhere('path', 'like', '%'.$query.'%')->orWhere('h1', 'like', '%'.$query.'%')),
+                fn ($q) => $q->where(fn ($w) => $w->where('category', 'lokasyon')->orWhere('path', 'like', '%sube%')->orWhere('path', 'like', '%iletisim%')->orWhere('path', 'like', '%lokasyon%')))
+            ->orderByRaw("case when category = 'lokasyon' then 0 else 1 end")->orderBy('path')->limit(12)->get(['id', 'url', 'path', 'title', 'category']);
+    }
+
+    /**
+     * The brand's branch hub page ("Şubelerimiz"): the site page listing the branches, or the draft MoxDOP sent.
+     *
+     * @return array{needed: bool, page: ?Page, action: ?ExternalWriteAction, count: int, ready: int}
+     */
+    public function hub(int $brandId): array
+    {
+        $locations = $this->desk->locations($brandId);
+        $snapshots = $this->desk->snapshots($locations->pluck('id')->map(fn ($id): int => (int) $id)->all());
+        $sites = DigitalAsset::query()->where('brand_id', $brandId)->where('type', 'website')->pluck('id');
+        $page = Page::query()->whereIn('website_asset_id', $sites)->where('is_indexable', true)->get(['id', 'url', 'path', 'title', 'h1', 'language'])
+            ->first(fn (Page $p): bool => ($p->language === null || $p->language === 'tr')
+                && preg_match(self::HUB_PATTERN, SeoText::fold(implode(' ', [(string) $p->title, (string) $p->h1, str_replace(['-', '/'], ' ', (string) $p->path)]))) === 1);
+        $action = ExternalWriteAction::query()->whereIn('digital_asset_id', $sites)->where('action', ExternalWriteAction::ACTION_ARTICLE_DRAFTS)
+            ->where('request_payload->reference', self::hubReference($brandId))->latest('id')->first();
+
+        return ['needed' => $locations->count() >= self::HUB_MIN && $sites->isNotEmpty(), 'page' => $page, 'action' => $action, 'count' => $locations->count(), 'ready' => count($snapshots)];
+    }
+
+    public static function hubReference(int $brandId): string
+    {
+        return 'gbp-branch-hub-'.$brandId;
+    }
+
+    /**
+     * The hub page built by rules from the profiles (no AI): every branch with its address, phone, hours, map link and
+     * its own page when it has one.
+     *
+     * @return array{title: string, html: string, branches: int}
+     */
+    public function hubContent(int $brandId): array
+    {
+        $brand = Brand::query()->findOrFail($brandId);
+        $locations = $this->desk->locations($brandId);
+        $snapshots = $this->desk->snapshots($locations->pluck('id')->map(fn ($id): int => (int) $id)->all());
+        $states = $this->states($locations, $snapshots);
+        $e = static fn (string $text): string => htmlspecialchars($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $branches = $locations->filter(fn (DigitalAsset $l): bool => isset($snapshots[$l->id]))
+            ->sortBy(fn (DigitalAsset $l): string => mb_strtolower((string) ($snapshots[$l->id]['area'] ?: GbpDesk::shortName((string) $l->name))));
+        $html = '<p>'.$e($brand->name.' şubelerinin adresleri, telefonları ve çalışma saatleri. Size en yakın şubeyi seçip yol tarifi alabilirsiniz.')."</p>\n";
+        foreach ($branches as $location) {
+            $snapshot = $snapshots[$location->id];
+            $name = (string) ($snapshot['title'] ?: GbpDesk::shortName((string) $location->name));
+            $page = in_array($states[$location->id]['state'] ?? '', ['linked', 'unlinked'], true) ? $states[$location->id]['page'] : null;
+            $html .= '<h2>'.($page !== null ? '<a href="'.$e((string) $page->url).'">'.$e($name).'</a>' : $e($name))."</h2>\n";
+            if ($snapshot['address_text'] !== '') {
+                $html .= '<p><strong>Adres:</strong> '.$e((string) $snapshot['address_text'])."</p>\n";
+            }
+            if ($snapshot['phone'] !== '') {
+                $html .= '<p><strong>Telefon:</strong> <a href="tel:'.$e((string) preg_replace('/[^\d+]/', '', (string) $snapshot['phone'])).'">'.$e((string) $snapshot['phone'])."</a></p>\n";
+            }
+            $hours = GbpDesk::weekHours($snapshot['regular_hours']);
+            if ($hours !== []) {
+                $html .= '<p><strong>Çalışma saatleri:</strong> '.$e(implode(' · ', array_map(fn (string $d, string $h): string => $d.' '.$h, array_keys($hours), $hours)))."</p>\n";
+            }
+            $links = array_filter([
+                $page !== null ? '<a href="'.$e((string) $page->url).'">Şube sayfası</a>' : null,
+                $snapshot['maps_uri'] !== '' ? '<a href="'.$e((string) $snapshot['maps_uri']).'" target="_blank" rel="noopener">Yol tarifi al</a>' : null,
+            ]);
+            if ($links !== []) {
+                $html .= '<p>'.implode(' · ', $links)."</p>\n";
+            }
+        }
+
+        return ['title' => $brand->name.' Şubeleri', 'html' => $html, 'branches' => $branches->count()];
+    }
+
+    /** Admin: the hub page goes to WordPress as a draft page (ADR-064/076 draft). */
+    public function sendHub(User $user, int $brandId): ExternalWriteAction
+    {
+        $this->guard($user);
+        $hub = $this->hub($brandId);
+        if (! $hub['needed']) {
+            throw ValidationException::withMessages(['page' => 'Şubelerimiz sayfası en az '.self::HUB_MIN.' şubesi olan markalar için hazırlanır.']);
+        }
+        $content = $this->hubContent($brandId);
+        if ($content['branches'] < 2) {
+            throw ValidationException::withMessages(['page' => 'Şube bilgisi yok: önce İşletme Profili verisini çekin.']);
+        }
+        $site = DigitalAsset::query()->where('brand_id', $brandId)->where('type', 'website')->orderBy('id')->firstOrFail();
+
+        return app(ExternalWriteService::class)->requestArticleDrafts($user, $site, ArticleDraft::fromArray([
+            'title' => $content['title'], 'html' => $content['html'], 'reference' => self::hubReference($brandId), 'slug' => 'subelerimiz',
+            'excerpt' => '', 'meta_title' => mb_substr($content['title'], 0, 70), 'meta_description' => mb_substr(strip_tags((string) strtok($content['html'], "\n")), 0, 160),
+            'focus_keyword' => mb_strtolower($content['title']), 'language' => 'tr', 'post_type' => 'page',
+        ]));
     }
 
     /**

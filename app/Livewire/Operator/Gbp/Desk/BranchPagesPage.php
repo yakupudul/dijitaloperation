@@ -36,9 +36,67 @@ final class BranchPagesPage extends Component
     /** @var array<string, string> */
     public array $form = [];
 
+    /** Work filter (FILTERS key). */
+    #[Url(as: 'durum')]
+    public string $filter = '';
+
+    /** Profile whose "pick an existing page" box is open. */
+    public ?int $picking = null;
+
+    public string $pageQuery = '';
+
+    /** @var array<string, array{label: string, states: list<string>}> */
+    public const array FILTERS = [
+        'hazirla' => ['label' => 'Hazırlanacak', 'states' => ['missing']],
+        'oku' => ['label' => 'Okunup gönderilecek', 'states' => ['ready', 'failed']],
+        'yayinla' => ['label' => 'WordPress’te yayınlanacak', 'states' => ['sent']],
+        'bagla' => ['label' => 'Profile bağlanacak', 'states' => ['unlinked']],
+        'veri' => ['label' => 'Profil verisi bekleyen', 'states' => ['no_data']],
+        'site' => ['label' => 'Web sitesi yok', 'states' => ['no_site']],
+        'tamam' => ['label' => 'Tamam', 'states' => ['linked', 'single']],
+    ];
+
     public function mount(): void
     {
         abort_unless(auth()->user()?->is_active, 403);
+    }
+
+    public function setFilter(string $filter): void
+    {
+        $this->filter = $this->filter === $filter || ! isset(self::FILTERS[$filter]) ? '' : $filter;
+    }
+
+    public function startPicking(int $assetId): void
+    {
+        $this->picking = $this->picking === $assetId ? null : $assetId;
+        $this->pageQuery = '';
+    }
+
+    public function choose(int $assetId, int $pageId, BranchPages $pages): void
+    {
+        try {
+            $pages->choose(auth()->user(), $this->location($assetId), $this->page($assetId, $pageId));
+            $this->picking = null;
+            $this->say('Sayfa bu şubeye ayrıldı; şimdi profili bu sayfaya bağlayabilirsiniz.');
+        } catch (ValidationException $exception) {
+            $this->sayError($exception);
+        }
+    }
+
+    public function unchoose(int $assetId, BranchPages $pages): void
+    {
+        $pages->unchoose(auth()->user(), $this->location($assetId));
+        $this->say('Seçim kaldırıldı.');
+    }
+
+    public function sendHub(int $brandId, BranchPages $pages): void
+    {
+        try {
+            $pages->sendHub(auth()->user(), $brandId);
+            $this->say('Şubelerimiz sayfası WordPress’e taslak olarak gönderiliyor; kontrol edip yayınlayın.');
+        } catch (ValidationException $exception) {
+            $this->sayError($exception);
+        }
     }
 
     public function toggle(int $assetId): void
@@ -61,11 +119,11 @@ final class BranchPagesPage extends Component
         $this->say('Sayfa yazılıyor; hazır olunca bu satırda görünür.');
     }
 
-    /** Writes every missing page of the brands in scope (AI, one job per profile). */
-    public function prepareMissing(BranchPages $pages, GbpDesk $desk): void
+    /** Writes every missing page of the brands in scope, or of one brand (AI, one job per profile). */
+    public function prepareMissing(BranchPages $pages, GbpDesk $desk, ?int $brandId = null): void
     {
         abort_unless($this->canWrite(), 403);
-        $locations = $this->scopedLocations();
+        $locations = $this->scopedLocations()->when($brandId !== null, fn ($c) => $c->where('brand_id', $brandId));
         $states = $pages->states($locations, $desk->snapshots($locations->pluck('id')->map(fn ($id): int => (int) $id)->all()));
         $queued = 0;
         foreach ($states as $assetId => $state) {
@@ -131,13 +189,29 @@ final class BranchPagesPage extends Component
 
     public function render(BranchPages $pages, GbpDesk $desk): View
     {
-        $locations = $this->scopedLocations();
-        $states = $pages->states($locations, $desk->snapshots($locations->pluck('id')->map(fn ($id): int => (int) $id)->all()));
-        $running = $locations->mapWithKeys(fn ($l): array => [$l->id => Cache::get(PrepareBranchPageJob::stateKey((int) $l->id))])->filter()->all();
+        if (! isset(self::FILTERS[$this->filter])) {
+            $this->filter = '';
+        }
+        $all = $this->scopedLocations();
+        $states = $pages->states($all, $desk->snapshots($all->pluck('id')->map(fn ($id): int => (int) $id)->all()));
+        $counts = collect(self::FILTERS)->map(fn (array $f): int => count(array_filter($states, fn (array $s): bool => in_array($s['state'], $f['states'], true))))->all();
+        $locations = $this->filter === '' ? $all : $all->filter(fn ($l): bool => in_array($states[$l->id]['state'] ?? '', self::FILTERS[$this->filter]['states'], true));
+        $running = $all->mapWithKeys(fn ($l): array => [$l->id => Cache::get(PrepareBranchPageJob::stateKey((int) $l->id))])->filter()->all();
         $markups = ExternalWriteAction::query()->where('action', ExternalWriteAction::ACTION_SITE_FIX)->whereIn('status', ['queued', 'running', 'succeeded', 'partial'])
             ->where('request_payload', 'like', '%gbp-branch-schema-%')->latest('id')->limit(500)->get(['id', 'status', 'request_payload'])
             ->mapWithKeys(fn ($a): array => [(int) str_replace('gbp-branch-schema-', '', (string) data_get($a->request_payload, 'changes.0.reference')) => $a->status]);
-        $counts = collect($states)->countBy('state')->all();
+        $brands = [];
+        foreach ($all->groupBy('brand_id') as $brandId => $brandLocations) {
+            $brandStates = $brandLocations->map(fn ($l): string => $states[$l->id]['state'] ?? '');
+            $brands[(int) $brandId] = [
+                'total' => $brandLocations->count(),
+                'done' => $brandStates->filter(fn (string $s): bool => in_array($s, BranchPages::DONE, true))->count(),
+                'missing' => $brandStates->filter(fn (string $s): bool => in_array($s, ['missing', 'failed'], true))->count(),
+                'no_data' => $brandStates->filter(fn (string $s): bool => $s === 'no_data')->count(),
+                'hub' => $brandLocations->count() >= BranchPages::HUB_MIN ? $pages->hub((int) $brandId) : null,
+            ];
+        }
+        $pickLocation = $this->picking !== null ? $all->firstWhere('id', $this->picking) : null;
 
         return view('livewire.operator.gbp.desk.branch-pages', [
             'groups' => $locations->groupBy(fn ($l): string => (string) $l->brand?->name),
@@ -145,7 +219,10 @@ final class BranchPagesPage extends Component
             'running' => $running,
             'markups' => $markups,
             'counts' => $counts,
-            'labels' => BranchPages::STATES,
+            'filters' => self::FILTERS,
+            'brands' => $brands,
+            'steps' => BranchPages::STEPS,
+            'pickResults' => $pickLocation !== null ? $pages->searchPages($pickLocation, $this->pageQuery) : collect(),
             'openRow' => $this->open !== null ? GbpBranchPage::query()->where('digital_asset_id', $this->open)->first() : null,
             'canWrite' => $this->canWrite(),
             'brandOptions' => $this->brandOptions(),
