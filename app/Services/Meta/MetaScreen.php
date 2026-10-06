@@ -10,6 +10,7 @@ use App\Models\DigitalAsset;
 use App\Models\MetaLead;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaGeoResults;
+use App\Services\MetaAds\Support\MetaAdsBindingContext;
 use App\Services\Queries\QueryServiceMatcher;
 use App\Services\SeoTasks\SeoText;
 use Carbon\CarbonImmutable;
@@ -42,21 +43,55 @@ final class MetaScreen
 
     private const array META_SOURCES = ['facebook', 'fb', 'instagram', 'ig', 'meta', 'm.facebook.com', 'l.facebook.com', 'lm.facebook.com', 'l.instagram.com'];
 
-    /** @var array<string, string> table => 'central' | 'asset' (per request) */
+    /** @var array<string, string> "table:asset id" => 'central' | 'asset' (per instance) */
     private array $scopes = [];
+
+    /** @var array<string, bool> table => exists (the schema does not change while a process runs) */
+    private static array $tables = [];
+
+    /** @var array<string, bool> table => has the external_resource_id column (central rows) */
+    private static array $resourceColumns = [];
 
     public function __construct(private readonly MetaAdsSpecialistBindingResolver $bindings) {}
 
     /** @return Account|null the bound ad account, null when the asset has no usable Meta binding */
     public function account(DigitalAsset $asset): ?array
     {
-        $binding = $this->bindings->resolve((string) $asset->id);
+        return self::accountOf((int) $asset->id, $this->bindings->resolve((string) $asset->id));
+    }
+
+    /**
+     * The bound ad accounts of several assets, their bindings resolved in one batch (brand page KPIs).
+     *
+     * @param  iterable<DigitalAsset>  $assets
+     * @return array<int, Account> keyed by asset id, in the given order; assets without a usable Meta binding are left out
+     */
+    public function accounts(iterable $assets): array
+    {
+        $ids = [];
+        foreach ($assets as $asset) {
+            $ids[] = (int) $asset->id;
+        }
+        $out = [];
+        foreach ($this->bindings->resolveMany($ids) as $assetId => $binding) {
+            $account = self::accountOf($assetId, $binding);
+            if ($account !== null) {
+                $out[$assetId] = $account;
+            }
+        }
+
+        return $out;
+    }
+
+    /** @return Account|null */
+    private static function accountOf(int $assetId, MetaAdsBindingContext $binding): ?array
+    {
         if (! $binding->isReal() || $binding->externalResourceId === null || $binding->accountId === null) {
             return null;
         }
 
         return [
-            'asset_id' => (int) $asset->id, 'resource_id' => (int) $binding->externalResourceId, 'account_id' => (string) $binding->accountId,
+            'asset_id' => $assetId, 'resource_id' => (int) $binding->externalResourceId, 'account_id' => (string) $binding->accountId,
             'currency' => (string) ($binding->currency ?: 'TRY'), 'timezone' => (string) ($binding->timezone ?: 'UTC'), 'act_id' => (string) $binding->actId,
         ];
     }
@@ -64,9 +99,7 @@ final class MetaScreen
     /** Last collected day of the account (the windows end there), else yesterday. */
     public function end(array $account): CarbonImmutable
     {
-        $last = $this->q($account, 'meta_ad_daily')?->max('reporting_date');
-
-        return $last !== null ? CarbonImmutable::parse((string) $last)->startOfDay() : CarbonImmutable::now($account['timezone'])->subDay()->startOfDay();
+        return self::endOf($account, $this->q($account, 'meta_ad_daily')?->max('reporting_date'));
     }
 
     /**
@@ -74,7 +107,18 @@ final class MetaScreen
      */
     public function window(array $account, int $days): array
     {
-        $end = $this->end($account);
+        return self::windowOf($this->end($account), $days);
+    }
+
+    /** @param  Account  $account */
+    private static function endOf(array $account, mixed $lastDay): CarbonImmutable
+    {
+        return $lastDay !== null ? CarbonImmutable::parse((string) $lastDay)->startOfDay() : CarbonImmutable::now($account['timezone'])->subDay()->startOfDay();
+    }
+
+    /** @return array{from: string, to: string, prev_from: string, prev_to: string} */
+    private static function windowOf(CarbonImmutable $end, int $days): array
+    {
         $from = $end->subDays($days - 1);
 
         return ['from' => $from->toDateString(), 'to' => $end->toDateString(),
@@ -169,6 +213,55 @@ final class MetaScreen
             $out[$id]['messages'] = self::canonical($actions, self::MESSAGE_TYPES);
             $out[$id]['purchases'] = self::canonical($actions, self::PURCHASE_TYPES);
             $out[$id]['results'] = $out[$id]['leads'] + $out[$id]['messages'] + $out[$id]['purchases'];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Brand page KPIs: totals() of every account's ad rows over the $days ending on its last collected day and over
+     * the $days before — the numbers of totals(adPerformance()) for both windows, without the entity snapshots (totals
+     * do not need campaign / ad set ids). Read for all accounts together: one scope check per table, one last-day
+     * query, and one ad-daily + one typed-action query per distinct last day (accounts collected together share it).
+     * Each account keeps its own central / per-asset scope, so a row is never counted twice for it. Accounts without
+     * ad rows are left out.
+     *
+     * @param  array<int, Account>  $accounts  accounts()
+     * @return array<int, array{current: array<string, float|int|null>, previous: array<string, float|int|null>}> keyed by asset id
+     */
+    public function kpiTotals(array $accounts, int $days): array
+    {
+        $accounts = array_column($accounts, null, 'asset_id');
+        if ($accounts === [] || ! self::hasTable('meta_ad_daily')) {
+            return [];
+        }
+        $this->primeScopes($accounts, ['meta_ad_daily', 'meta_typed_action_daily']);
+        $byEnd = [];
+        foreach ($this->lastDays($accounts) as $assetId => $lastDay) {
+            $byEnd[self::endOf($accounts[$assetId], $lastDay)->toDateString()][$assetId] = $accounts[$assetId];
+        }
+
+        $out = [];
+        foreach ($byEnd as $end => $group) {
+            $w = self::windowOf(CarbonImmutable::parse($end), $days);
+            $ads = $this->periodAds($group, $w);
+            $actions = $this->periodActions($group, $w);
+            foreach (array_keys($group) as $assetId) {
+                if (($ads[$assetId] ?? []) === []) {
+                    continue;
+                }
+                foreach ([1 => 'current', 0 => 'previous'] as $period => $name) {
+                    $rows = [];
+                    foreach ($ads[$assetId][$period] ?? [] as $adId => $metrics) {
+                        $typed = $actions[$assetId][$period][$adId] ?? [];
+                        $leads = self::canonical($typed, self::LEAD_TYPES);
+                        $messages = self::canonical($typed, self::MESSAGE_TYPES);
+                        $purchases = self::canonical($typed, self::PURCHASE_TYPES);
+                        $rows[] = $metrics + ['leads' => $leads, 'messages' => $messages, 'purchases' => $purchases, 'results' => $leads + $messages + $purchases];
+                    }
+                    $out[$assetId][$name] = self::totals($rows);
+                }
+            }
         }
 
         return $out;
@@ -592,19 +685,193 @@ final class MetaScreen
     /** Account rows of a collected Meta table; central rows (no asset) win over per-asset copies. Null when the table is missing. */
     public function q(array $account, string $table): ?Builder
     {
-        if (! Schema::hasTable($table)) {
+        if (! self::hasTable($table)) {
             return null;
         }
-        $key = $table.':'.$account['asset_id'];
-        if (! isset($this->scopes[$key])) {
-            $this->scopes[$key] = Schema::hasColumn($table, 'external_resource_id') && DB::table($table)->where('account_id', $account['account_id'])
-                ->whereNull('digital_asset_id')->where('external_resource_id', $account['resource_id'])->exists() ? 'central' : 'asset';
-        }
-        $query = DB::table($table)->where('account_id', $account['account_id']);
+        $this->scopes[$table.':'.$account['asset_id']] ??= self::hasResourceColumn($table) && self::central(DB::table($table), $account)->exists() ? 'central' : 'asset';
 
-        return $this->scopes[$key] === 'central'
-            ? $query->whereNull('digital_asset_id')->where('external_resource_id', $account['resource_id'])
-            : $query->where('digital_asset_id', $account['asset_id']);
+        return $this->scoped(DB::table($table), $account, $table);
+    }
+
+    /** @param  Account  $account */
+    private static function central(Builder $query, array $account): Builder
+    {
+        return $query->where('account_id', $account['account_id'])->whereNull('digital_asset_id')->where('external_resource_id', $account['resource_id']);
+    }
+
+    /**
+     * The account's rows in the scope decided for the table: central (no asset, the account's resource) or its per-asset copies.
+     *
+     * @param  Account  $account
+     */
+    private function scoped(Builder $query, array $account, string $table): Builder
+    {
+        return $this->scopes[$table.':'.$account['asset_id']] === 'central'
+            ? self::central($query, $account)
+            : $query->where('account_id', $account['account_id'])->where('digital_asset_id', $account['asset_id']);
+    }
+
+    /**
+     * Decides the central / per-asset scope of every account on each table in one query per table (one EXISTS per
+     * account: it stops at the first row and works on the PostgreSQL compact views) instead of one query per q() call.
+     *
+     * @param  array<int, Account>  $accounts
+     * @param  list<string>  $tables
+     */
+    private function primeScopes(array $accounts, array $tables): void
+    {
+        foreach ($tables as $table) {
+            $pending = array_values(array_filter($accounts, fn (array $account): bool => ! isset($this->scopes[$table.':'.$account['asset_id']])));
+            if ($pending === [] || ! self::hasTable($table)) {
+                continue;
+            }
+            $found = [];
+            if (self::hasResourceColumn($table)) {
+                $query = DB::query();
+                foreach ($pending as $i => $account) {
+                    $exists = self::central(DB::table($table), $account);
+                    $query->selectRaw('exists('.$exists->toSql().') as '.$query->getGrammar()->wrap('s'.$i), $exists->getBindings());
+                }
+                $found = (array) $query->first();
+            }
+            foreach ($pending as $i => $account) {
+                $this->scopes[$table.':'.$account['asset_id']] = (bool) ($found['s'.$i] ?? false) ? 'central' : 'asset';
+            }
+        }
+    }
+
+    /**
+     * Rows of several accounts on one table within the dates, each account in its own scope (primeScopes).
+     *
+     * @param  array<int, Account>  $accounts
+     * @param  array{0: string, 1: string}  $between
+     */
+    private function rowsOf(array $accounts, string $table, array $between): Builder
+    {
+        return DB::table($table)->where(function (Builder $any) use ($accounts, $table, $between): void {
+            foreach ($accounts as $account) {
+                $any->orWhere(fn (Builder $one): Builder => $this->scoped($one, $account, $table)->whereBetween('reporting_date', $between));
+            }
+        });
+    }
+
+    /**
+     * Which accounts a row grouped by account × asset × resource belongs to: central rows by account × resource,
+     * per-asset rows by account × asset (two assets bound to one account each read it, as q() does).
+     *
+     * @param  array<int, Account>  $accounts
+     * @return array<string, list<int>> owner key => asset ids
+     */
+    private function owners(array $accounts, string $table): array
+    {
+        $owners = [];
+        foreach ($accounts as $assetId => $account) {
+            $central = $this->scopes[$table.':'.$assetId] === 'central';
+            $owners[self::ownerKey($account['account_id'], $central ? null : $assetId, $account['resource_id'])][] = $assetId;
+        }
+
+        return $owners;
+    }
+
+    private static function ownerKey(string $accountId, ?int $assetId, ?int $resourceId): string
+    {
+        return $assetId === null ? 'c|'.$accountId.'|'.(int) $resourceId : 'a|'.$accountId.'|'.$assetId;
+    }
+
+    private static function rowOwner(object $row): string
+    {
+        return self::ownerKey((string) $row->account_id, $row->digital_asset_id !== null ? (int) $row->digital_asset_id : null,
+            $row->external_resource_id !== null ? (int) $row->external_resource_id : null);
+    }
+
+    /**
+     * Last collected ad day of every account that has ad rows, in one query: one max() subquery per account in its own
+     * scope, each an index lookup as in end(), instead of a grouped scan over the accounts' whole ad history.
+     *
+     * @param  array<int, Account>  $accounts
+     * @return array<int, string> asset id => last reporting date
+     */
+    private function lastDays(array $accounts): array
+    {
+        $query = DB::query();
+        $assetIds = [];
+        foreach (array_values($accounts) as $i => $account) {
+            $query->selectSub($this->scoped(DB::table('meta_ad_daily'), $account, 'meta_ad_daily')->selectRaw('max(reporting_date)'), 'd'.$i);
+            $assetIds[$i] = (int) $account['asset_id'];
+        }
+        $row = (array) $query->first();
+        $out = [];
+        foreach ($assetIds as $i => $assetId) {
+            if (($row['d'.$i] ?? null) !== null) {
+                $out[$assetId] = (string) $row['d'.$i];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Ad spend / impressions / clicks of the current (1) and previous (0) window of the accounts sharing the window.
+     *
+     * @param  array<int, Account>  $accounts
+     * @param  array{from: string, to: string, prev_from: string, prev_to: string}  $w
+     * @return array<int, array<int, array<string, array{spend: float, impressions: int, clicks: int}>>> asset id => period => ad id => metrics
+     */
+    private function periodAds(array $accounts, array $w): array
+    {
+        $owners = $this->owners($accounts, 'meta_ad_daily');
+        $out = [];
+        foreach ($this->rowsOf($accounts, 'meta_ad_daily', [$w['prev_from'], $w['to']])
+            ->selectRaw('account_id, digital_asset_id, external_resource_id, ad_id, case when reporting_date >= ? then 1 else 0 end as is_current, '
+                .'sum(spend) as spend, sum(impressions) as impressions, sum(clicks) as clicks', [$w['from']])
+            ->groupBy('account_id', 'digital_asset_id', 'external_resource_id', 'ad_id', 'is_current')->get() as $row) {
+            foreach ($owners[self::rowOwner($row)] ?? [] as $assetId) {
+                $metrics = $out[$assetId][(int) $row->is_current][(string) $row->ad_id] ?? ['spend' => 0.0, 'impressions' => 0, 'clicks' => 0];
+                $out[$assetId][(int) $row->is_current][(string) $row->ad_id] = ['spend' => $metrics['spend'] + (float) $row->spend,
+                    'impressions' => $metrics['impressions'] + (int) $row->impressions, 'clicks' => $metrics['clicks'] + (int) $row->clicks];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Result action values (lead / message / purchase types) of the current (1) and previous (0) window of the accounts.
+     *
+     * @param  array<int, Account>  $accounts
+     * @param  array{from: string, to: string, prev_from: string, prev_to: string}  $w
+     * @return array<int, array<int, array<string, array<string, float>>>> asset id => period => ad id => action type => value
+     */
+    private function periodActions(array $accounts, array $w): array
+    {
+        if (! self::hasTable('meta_typed_action_daily')) {
+            return [];
+        }
+        $owners = $this->owners($accounts, 'meta_typed_action_daily');
+        $out = [];
+        foreach ($this->rowsOf($accounts, 'meta_typed_action_daily', [$w['prev_from'], $w['to']])
+            ->where('entity_level', 'ad')->whereIn('action_type', array_merge(self::LEAD_TYPES, self::MESSAGE_TYPES, self::PURCHASE_TYPES))
+            ->selectRaw('account_id, digital_asset_id, external_resource_id, entity_id, action_type, case when reporting_date >= ? then 1 else 0 end as is_current, '
+                .'sum(action_value) as value', [$w['from']])
+            ->groupBy('account_id', 'digital_asset_id', 'external_resource_id', 'entity_id', 'action_type', 'is_current')->get() as $row) {
+            foreach ($owners[self::rowOwner($row)] ?? [] as $assetId) {
+                $period = (int) $row->is_current;
+                $out[$assetId][$period][(string) $row->entity_id][(string) $row->action_type]
+                    = ($out[$assetId][$period][(string) $row->entity_id][(string) $row->action_type] ?? 0.0) + (float) $row->value;
+            }
+        }
+
+        return $out;
+    }
+
+    private static function hasTable(string $table): bool
+    {
+        return self::$tables[$table] ??= Schema::hasTable($table);
+    }
+
+    private static function hasResourceColumn(string $table): bool
+    {
+        return self::$resourceColumns[$table] ??= Schema::hasColumn($table, 'external_resource_id');
     }
 
     /** @return array<string, array<string, float>> ad id => action type => value */
