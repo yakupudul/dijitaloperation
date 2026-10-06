@@ -24,7 +24,7 @@
         <div class="flex min-w-0 items-center gap-3">
             <x-demo.digital-asset-mark type="gbp" size="lg" />
             <div class="min-w-0">
-                <h1 class="text-xl font-bold text-gray-900 dark:text-white">{{ $identity['title'] }}</h1>
+                <h1 class="truncate text-xl font-bold text-gray-900 dark:text-white" title="{{ $identity['title'] }}">{{ \App\Services\Gbp\Desk\GbpDesk::shortName((string) $identity['title']) }}</h1>
                 <p class="text-sm text-gray-500 dark:text-gray-400">{{ $identity['location_line'] ?: '—' }} · Son veri: {{ $identity['last_refresh'] ?? '—' }}</p>
             </div>
         </div>
@@ -200,116 +200,204 @@
         @php
             $postData = $posts ?? ['items' => [], 'hint' => '', 'late' => false];
             $pState = $stateLine($postState);
+            $planned = collect($calendar)->pluck('post')->filter();
+            $waiting = $planned->where('status', \App\Models\GbpQueuedPost::DRAFT)->count();
+            $ready = $planned->where('status', \App\Models\GbpQueuedPost::APPROVED)->count();
+            $emptyDays = collect($calendar)->filter(fn (array $d): bool => $d['post'] === null && ! $d['today'])->count();
+            $angles = \App\Services\Gbp\GbpPostQueue::ANGLES;
+            $langNames = \App\Services\Work\ContentBoard::LANGUAGE_LABELS;
+            $categoryNames = ['hizmet' => 'Hizmet sayfaları', 'blog' => 'Blog yazıları', 'lokasyon' => 'Lokasyon sayfaları'];
+            $pageGroups = collect($pages)->groupBy(fn (array $p): string => $p['language'] ?: 'tr')->sortByDesc(fn ($rows) => $rows->count())
+                ->map(fn ($rows) => $rows->unique(fn (array $p): string => mb_strtolower($p['title']))->groupBy(fn (array $p): string => $categoryNames[$p['category'] ?? ''] ?? 'Diğer sayfalar'));
+            $statusTone = [
+                \App\Models\GbpQueuedPost::DRAFT => 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20',
+                \App\Models\GbpQueuedPost::APPROVED => 'bg-sky-50 text-sky-700 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-500/20',
+                \App\Models\GbpQueuedPost::PUBLISHED => 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20',
+                \App\Models\GbpQueuedPost::FAILED => 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/20',
+            ];
+            $postHint = $planned->isNotEmpty() ? 'Otomatik plan açık: her gün 1 gönderi.' : $postData['hint'];
         @endphp
-        @if ($queue)
-            <div class="flex flex-wrap items-center gap-2 rounded-lg bg-sky-50 px-4 py-2 text-sm text-sky-900 dark:bg-sky-500/10 dark:text-sky-200" data-testid="gbp-post-queue">
-                <span>Otomatik plan (30 gün): {{ $queue['planned'] }} gün dolu · {{ $queue['drafts'] }} onay bekliyor · {{ $queue['approved'] }} onaylı{{ $queue['low'] ? ' · içerik az' : '' }}.</span>
-                <a href="{{ route('operator.gbp-posts', ['isletme' => $assetId]) }}" wire:navigate class="font-semibold underline underline-offset-2">İşletme gönderileri</a>
-            </div>
-        @endif
-        <div class="grid gap-4 xl:grid-cols-5">
-            <section class="{{ $card }} space-y-3 xl:col-span-2">
-                <div>
-                    <p class="text-sm font-semibold text-gray-900 dark:text-white">Siteden paylaş</p>
-                    <div class="mt-2 flex gap-2">
-                        <select wire:model="sharePageId" aria-label="Sayfa" class="min-w-0 flex-1 rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900">
-                            <option value="">Sayfa seçin</option>
-                            @foreach ($pages as $page)
-                                <option value="{{ $page['id'] }}">{{ $page['category'] ? '['.$page['category'].'] ' : '' }}{{ \Illuminate\Support\Str::limit($page['title'], 80) }}</option>
-                            @endforeach
-                        </select>
-                        <button type="button" wire:click="sharePage" wire:loading.attr="disabled" @disabled(! $operational || ($postState['status'] ?? null) === 'running') class="{{ $btn }}">Yaz</button>
-                        <x-operator.ai-prompt-info operation="gbp.post_from_page" />
-                    </div>
-                    @if ($pages === [])<p class="mt-1 text-xs text-gray-500">Markanın sitesinde sayfa yok.</p>@endif
-                    @if ($pState)<p class="mt-1 text-xs {{ $pState[0] }}" @if ($pState[2]) wire:poll.5s @endif>{{ $pState[1] }}</p>@endif
-                    @if ($postDraft)
-                        <div class="mt-2 rounded-lg bg-brand-50 p-3 text-sm dark:bg-brand-500/10">
-                            <p class="text-xs font-semibold text-brand-700 dark:text-brand-300">{{ data_get($postDraft->content, 'page_title') }}</p>
-                            <p class="mt-1 whitespace-pre-line text-gray-700 dark:text-gray-300">{{ \Illuminate\Support\Str::limit((string) data_get($postDraft->content, 'body'), 400) }}</p>
-                            <button type="button" wire:click="useAiDraft({{ $postDraft->id }})" class="mt-1 text-xs font-semibold text-brand-600 hover:underline">Düzenle ve yayınla</button>
+        <div class="grid gap-5 xl:grid-cols-3">
+            <section class="{{ $panel }} overflow-hidden xl:col-span-2" data-post-calendar>
+                <header class="flex flex-wrap items-start gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+                    <div class="min-w-0 flex-1">
+                        <h2 class="font-semibold text-gray-900 dark:text-white">Gönderi takvimi</h2>
+                        <p class="mt-0.5 text-xs text-gray-500">Her gün 10:00 civarı bir gönderi. Onaylananlar günü gelince kendiliğinden yayınlanır; onaylanmayan gün boş geçer.</p>
+                        <div class="mt-2 flex flex-wrap gap-1.5 text-xs">
+                            <span class="rounded-full bg-sky-50 px-2 py-0.5 font-medium text-sky-700 dark:bg-sky-500/10 dark:text-sky-300">{{ $ready }} onaylı</span>
+                            <span @class(['rounded-full px-2 py-0.5 font-medium', 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' => $waiting > 0, 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400' => $waiting === 0])>{{ $waiting }} onay bekliyor</span>
+                            <span @class(['rounded-full px-2 py-0.5 font-medium', 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300' => $emptyDays > 7, 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400' => $emptyDays <= 7])>{{ $emptyDays }} boş gün</span>
                         </div>
-                    @endif
-                </div>
-
-                @if (! $postFormOpen)
-                    <button type="button" wire:click="startPost" class="{{ $btn }}">Yeni gönderi</button>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        @if ($waiting > 0 && $canWrite)
+                            <button type="button" wire:click="approveAllPlanned" wire:confirm="{{ $waiting }} gönderi onaylansın mı? Günü gelince yayınlanırlar." class="{{ $primary }}" data-approve-all-planned>Bekleyenleri onayla ({{ $waiting }})</button>
+                        @endif
+                        <a href="{{ route('operator.gbp-posts', ['isletme' => $assetId]) }}" wire:navigate class="{{ $btn }}">Toplu görünüm</a>
+                    </div>
+                </header>
+                @if ($calendar === [])
+                    <p class="px-5 py-8 text-center text-sm text-gray-500">Bu profil bir markaya bağlı değil; otomatik gönderi planı yok.</p>
                 @else
-                    <div class="space-y-2 border-t border-gray-100 pt-3 dark:border-gray-700">
-                        <label class="block text-sm"><span class="text-xs text-gray-500">Metin (en çok 1500)</span>
-                            <textarea wire:model="post.body" rows="7" maxlength="1500" class="mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900"></textarea>
-                            @error('post.body')<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
-                        </label>
-                        <div class="grid gap-2 sm:grid-cols-2">
-                            <label class="block text-sm"><span class="text-xs text-gray-500">Buton</span>
-                                <select wire:model="post.action_type" class="mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900">
-                                    @foreach (['LEARN_MORE' => 'Daha fazla bilgi', 'BOOK' => 'Randevu al', 'CALL' => 'Ara', 'ORDER' => 'Sipariş ver', 'SIGN_UP' => 'Kaydol'] as $value => $label)
-                                        <option value="{{ $value }}">{{ $label }}</option>
-                                    @endforeach
-                                </select>
-                            </label>
-                            <label class="block text-sm"><span class="text-xs text-gray-500">Bağlantı</span>
-                                <input type="url" wire:model="post.url" placeholder="https://" class="mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900">
-                                @error('post.url')<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
-                            </label>
-                        </div>
-                        <div class="flex flex-wrap items-center gap-3 text-sm">
-                            <label class="inline-flex items-center gap-1"><input type="radio" wire:model.live="post.when" value="now"> Şimdi</label>
-                            <label class="inline-flex items-center gap-1"><input type="radio" wire:model.live="post.when" value="later"> Zamanla</label>
-                            @if (($post['when'] ?? 'now') === 'later')
-                                <input type="datetime-local" wire:model="post.publish_at" aria-label="Yayın zamanı" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900">
+                    <ol class="divide-y divide-gray-100 dark:divide-gray-700/70">
+                        @foreach ($calendar as $row)
+                            @php $item = $row['post']; @endphp
+                            @if ($loop->first || $row['week'] !== $calendar[$loop->index - 1]['week'])
+                                <li class="bg-gray-50/80 px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:bg-white/[0.02]">{{ $row['week'] }}</li>
                             @endif
-                            @error('post.publish_at')<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
-                        </div>
-                        <div class="flex flex-wrap gap-2">
-                            @if ($canWrite)
-                                <button type="button" x-on:click="if (confirm('Gönderi onaylansın mı? Yayından sonra geri alınabilir.')) $wire.publishPost()" class="rounded-lg bg-success-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-success-600">Onayla ve yayınla</button>
-                            @else
-                                <span class="text-xs text-gray-500">Yayını Admin onaylar.</span>
-                            @endif
-                            <button type="button" wire:click="cancelPost" class="px-2 text-sm text-gray-500 hover:underline">Vazgeç</button>
-                        </div>
-                    </div>
+                            <li wire:key="day-{{ $row['day'] }}" @class(['flex gap-4 px-5 py-3', 'bg-brand-50/40 dark:bg-brand-500/[0.04]' => $row['today']]) data-calendar-day="{{ $row['day'] }}">
+                                <div class="w-14 shrink-0 text-center">
+                                    <span @class(['block text-xl font-semibold leading-none tabular-nums', 'text-brand-600 dark:text-brand-400' => $row['today'], 'text-gray-900 dark:text-white' => ! $row['today']])>{{ \Illuminate\Support\Str::before($row['label'], ' ') }}</span>
+                                    <span class="mt-1 block text-[11px] text-gray-500">{{ $row['today'] ? 'Bugün' : \Illuminate\Support\Str::after($row['label'], ' ') }}</span>
+                                </div>
+                                @if ($item)
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex flex-wrap items-center gap-1.5">
+                                            <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset {{ $statusTone[$item->status] ?? '' }}">{{ $item->statusLabel() }}</span>
+                                            <span class="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">{{ $angles[$item->angle]['label'] ?? $item->angle }}</span>
+                                            @if ($item->page)
+                                                <a href="{{ $item->page->url }}" target="_blank" rel="noopener" class="truncate text-xs font-medium text-gray-700 hover:text-brand-600 dark:text-gray-300">{{ \Illuminate\Support\Str::limit((string) ($item->page->title ?: $item->page->path), 60) }} ↗</a>
+                                            @endif
+                                        </div>
+                                        <p class="mt-1.5 line-clamp-2 text-sm leading-relaxed text-gray-700 dark:text-gray-300" title="{{ $item->summary }}">{{ $item->summary }}</p>
+                                        @if (filled($item->note))<p @class(['mt-1 text-xs', 'text-rose-600' => $item->status === \App\Models\GbpQueuedPost::FAILED, 'text-gray-500' => $item->status !== \App\Models\GbpQueuedPost::FAILED])>{{ $item->note }}</p>@endif
+                                        @if (in_array($item->status, [\App\Models\GbpQueuedPost::DRAFT, \App\Models\GbpQueuedPost::APPROVED], true))
+                                            <div class="mt-2 flex flex-wrap items-center gap-3 text-xs font-medium">
+                                                @if ($item->status === \App\Models\GbpQueuedPost::DRAFT && $canWrite)
+                                                    <button type="button" wire:click="approvePlanned({{ $item->id }})" class="text-emerald-700 hover:underline dark:text-emerald-400" data-approve-planned="{{ $item->id }}">Onayla</button>
+                                                @endif
+                                                <a href="{{ route('operator.gbp-posts', ['isletme' => $assetId, 'gun' => $row['day']]) }}" wire:navigate class="text-gray-600 hover:underline dark:text-gray-300">Metni düzenle</a>
+                                                <button type="button" wire:click="skipPlanned({{ $item->id }})" wire:confirm="Bu günün gönderisi atlansın mı?" class="text-gray-500 hover:text-rose-600 hover:underline">Atla</button>
+                                            </div>
+                                        @endif
+                                    </div>
+                                    @if (filled($item->image_url))
+                                        <img src="{{ $item->image_url }}" alt="" loading="lazy" class="hidden h-16 w-16 shrink-0 rounded-lg object-cover ring-1 ring-gray-200 sm:block dark:ring-gray-700">
+                                    @endif
+                                @else
+                                    <div class="flex min-w-0 flex-1 items-center rounded-lg border border-dashed border-gray-200 px-3 py-2 text-xs text-gray-400 dark:border-gray-700">
+                                        {{ $row['today'] ? 'Bugün planlı gönderi yok.' : 'Boş gün; plan bir sonraki çalışmada doldurur.' }}
+                                    </div>
+                                @endif
+                            </li>
+                        @endforeach
+                    </ol>
                 @endif
             </section>
 
-            <section class="{{ $panel }} xl:col-span-3">
-                <div class="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-700">
-                    <h2 class="font-semibold text-gray-900 dark:text-white">Gönderiler</h2>
-                    <span @class(['text-xs', 'text-amber-600' => $postData['late'], 'text-gray-500' => ! $postData['late']])>{{ $postData['hint'] }}</span>
-                </div>
-                <div class="divide-y divide-gray-100 dark:divide-gray-700">
-                    @forelse ($postData['items'] as $item)
-                        <div class="px-4 py-3" wire:key="post-{{ $item['kind'] }}-{{ $item['id'] ?? $loop->index }}">
-                            <div class="flex flex-wrap items-center gap-2 text-sm">
-                                <span class="font-medium text-gray-900 dark:text-white">{{ $item['title'] }}</span>
-                                <span class="text-xs text-gray-400">{{ $item['when'] }}</span>
-                                <span @class([
-                                    'ml-auto rounded-full px-2 py-0.5 text-[11px] font-semibold',
-                                    'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => in_array($item['status'], ['succeeded', 'live'], true),
-                                    'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300' => $item['status'] === 'scheduled',
-                                    'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300' => in_array($item['status'], ['failed', 'rejected'], true),
-                                    'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300' => ! in_array($item['status'], ['succeeded', 'live', 'scheduled', 'failed', 'rejected'], true),
-                                ])>{{ $item['status_label'] }}</span>
-                            </div>
-                            @if (filled($item['url']) && $item['kind'] === 'moxdop')<p class="text-xs text-gray-500">{{ $item['url'] }}</p>@endif
-                            @if (filled($item['error']))<p class="mt-1 text-xs text-rose-600">{{ $item['error'] }}</p>@endif
-                            @if (in_array($item['action_status'], ['queued', 'running', 'undoing'], true))<p class="mt-1 text-xs text-gray-500" wire:poll.5s>Google’a gönderiliyor…</p>@endif
-                            @if ($item['kind'] === 'moxdop' && $canWrite)
-                                @if ($item['scheduled'] ?? false)
-                                    <button type="button" x-on:click="if (confirm('Zamanlanmış gönderi iptal edilsin mi?')) $wire.cancelScheduled({{ $item['action_id'] }})" class="mt-1 text-xs font-medium text-rose-600 hover:underline">İptal et</button>
-                                @elseif ($item['undoable'])
-                                    <button type="button" x-on:click="if (confirm('Gönderi Google’dan silinsin mi?')) $wire.undoWrite({{ $item['action_id'] }})" class="mt-1 text-xs font-medium text-rose-600 hover:underline">Geri al</button>
-                                @endif
-                            @elseif ($item['kind'] === 'google' && filled($item['url']))
-                                <a href="{{ $item['url'] }}" target="_blank" rel="noopener" class="mt-1 inline-block text-xs text-brand-600 hover:underline">Google’da gör ↗</a>
-                            @endif
+            <div class="space-y-5">
+                <section class="{{ $card }} space-y-3" data-one-off-post>
+                    <div>
+                        <h2 class="font-semibold text-gray-900 dark:text-white">Tek seferlik gönderi</h2>
+                        <p class="mt-0.5 text-xs text-gray-500">Plan dışında bir duyuru ya da sayfa paylaşımı.</p>
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-600 dark:text-gray-300" for="share-page">Siteden bir sayfayı paylaş</label>
+                        <div class="mt-1 flex gap-2">
+                            <select id="share-page" wire:model="sharePageId" class="min-w-0 flex-1 rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900">
+                                <option value="">Sayfa seçin</option>
+                                @foreach ($pageGroups as $language => $groups)
+                                    @foreach ($groups as $groupName => $rows)
+                                        <optgroup label="{{ $groupName }}{{ $pageGroups->count() > 1 ? ' · '.($langNames[$language] ?? strtoupper($language)) : '' }}">
+                                            @foreach ($rows as $page)
+                                                <option value="{{ $page['id'] }}">{{ \Illuminate\Support\Str::limit($page['title'], 70) }}</option>
+                                            @endforeach
+                                        </optgroup>
+                                    @endforeach
+                                @endforeach
+                            </select>
+                            <button type="button" wire:click="sharePage" wire:loading.attr="disabled" @disabled(! $operational || ($postState['status'] ?? null) === 'running') class="{{ $btn }}">Metni yaz</button>
+                            <x-operator.ai-prompt-info operation="gbp.post_from_page" />
                         </div>
-                    @empty
-                        <p class="px-4 py-5 text-sm text-gray-500">Gönderi yok.</p>
-                    @endforelse
-                </div>
-            </section>
+                        @if ($pages === [])<p class="mt-1 text-xs text-gray-500">Markanın sitesinde sayfa yok.</p>@endif
+                        @if ($pState)<p class="mt-1 text-xs {{ $pState[0] }}" @if ($pState[2]) wire:poll.5s @endif>{{ $pState[1] }}</p>@endif
+                        @if ($postDraft)
+                            <div class="mt-2 rounded-lg bg-brand-50 p-3 text-sm dark:bg-brand-500/10">
+                                <p class="text-xs font-semibold text-brand-700 dark:text-brand-300">{{ data_get($postDraft->content, 'page_title') }}</p>
+                                <p class="mt-1 whitespace-pre-line text-gray-700 dark:text-gray-300">{{ \Illuminate\Support\Str::limit((string) data_get($postDraft->content, 'body'), 400) }}</p>
+                                <button type="button" wire:click="useAiDraft({{ $postDraft->id }})" class="mt-1 text-xs font-semibold text-brand-600 hover:underline">Düzenle ve yayınla</button>
+                            </div>
+                        @endif
+                    </div>
+
+                    @if (! $postFormOpen)
+                        <button type="button" wire:click="startPost" class="text-sm font-medium text-brand-600 hover:underline">Ya da kendin yaz →</button>
+                    @else
+                        <div class="space-y-2 border-t border-gray-100 pt-3 dark:border-gray-700">
+                            <label class="block text-sm"><span class="text-xs text-gray-500">Metin (en çok 1500)</span>
+                                <textarea wire:model="post.body" rows="7" maxlength="1500" class="mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900"></textarea>
+                                @error('post.body')<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
+                            </label>
+                            <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                                <label class="block text-sm"><span class="text-xs text-gray-500">Buton</span>
+                                    <select wire:model="post.action_type" class="mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900">
+                                        @foreach (['LEARN_MORE' => 'Daha fazla bilgi', 'BOOK' => 'Randevu al', 'CALL' => 'Ara', 'ORDER' => 'Sipariş ver', 'SIGN_UP' => 'Kaydol'] as $value => $label)
+                                            <option value="{{ $value }}">{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </label>
+                                <label class="block text-sm"><span class="text-xs text-gray-500">Bağlantı</span>
+                                    <input type="url" wire:model="post.url" placeholder="https://" class="mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900">
+                                    @error('post.url')<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
+                                </label>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-3 text-sm">
+                                <label class="inline-flex items-center gap-1"><input type="radio" wire:model.live="post.when" value="now"> Şimdi</label>
+                                <label class="inline-flex items-center gap-1"><input type="radio" wire:model.live="post.when" value="later"> Zamanla</label>
+                                @if (($post['when'] ?? 'now') === 'later')
+                                    <input type="datetime-local" wire:model="post.publish_at" aria-label="Yayın zamanı" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900">
+                                @endif
+                                @error('post.publish_at')<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                @if ($canWrite)
+                                    <button type="button" x-on:click="if (confirm('Gönderi onaylansın mı? Yayından sonra geri alınabilir.')) $wire.publishPost()" class="rounded-lg bg-success-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-success-600">Onayla ve yayınla</button>
+                                @else
+                                    <span class="text-xs text-gray-500">Yayını Admin onaylar.</span>
+                                @endif
+                                <button type="button" wire:click="cancelPost" class="px-2 text-sm text-gray-500 hover:underline">Vazgeç</button>
+                            </div>
+                        </div>
+                    @endif
+                </section>
+
+                <section class="{{ $panel }}" data-published-posts>
+                    <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-700">
+                        <h2 class="font-semibold text-gray-900 dark:text-white">Google'daki gönderiler</h2>
+                        <p @class(['mt-0.5 text-xs', 'text-amber-600' => $postData['late'] && $planned->isEmpty(), 'text-gray-500' => ! $postData['late'] || $planned->isNotEmpty()])>{{ $postHint }}</p>
+                    </div>
+                    <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                        @forelse ($postData['items'] as $item)
+                            <div class="px-4 py-3" wire:key="post-{{ $item['kind'] }}-{{ $item['id'] ?? $loop->index }}">
+                                <div class="flex items-start gap-2 text-sm">
+                                    <span class="min-w-0 flex-1 font-medium text-gray-900 dark:text-white">{{ $item['title'] }}</span>
+                                    <span @class([
+                                        'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold',
+                                        'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => in_array($item['status'], ['succeeded', 'live'], true),
+                                        'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300' => $item['status'] === 'scheduled',
+                                        'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300' => in_array($item['status'], ['failed', 'rejected'], true),
+                                        'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300' => ! in_array($item['status'], ['succeeded', 'live', 'scheduled', 'failed', 'rejected'], true),
+                                    ])>{{ $item['status_label'] }}</span>
+                                </div>
+                                <p class="text-xs text-gray-400">{{ $item['when'] }}</p>
+                                @if (filled($item['error']))<p class="mt-1 text-xs text-rose-600">{{ $item['error'] }}</p>@endif
+                                @if (in_array($item['action_status'], ['queued', 'running', 'undoing'], true))<p class="mt-1 text-xs text-gray-500" wire:poll.5s>Google’a gönderiliyor…</p>@endif
+                                @if ($item['kind'] === 'moxdop' && $canWrite)
+                                    @if ($item['scheduled'] ?? false)
+                                        <button type="button" x-on:click="if (confirm('Zamanlanmış gönderi iptal edilsin mi?')) $wire.cancelScheduled({{ $item['action_id'] }})" class="mt-1 text-xs font-medium text-rose-600 hover:underline">İptal et</button>
+                                    @elseif ($item['undoable'])
+                                        <button type="button" x-on:click="if (confirm('Gönderi Google’dan silinsin mi?')) $wire.undoWrite({{ $item['action_id'] }})" class="mt-1 text-xs font-medium text-rose-600 hover:underline">Geri al</button>
+                                    @endif
+                                @elseif ($item['kind'] === 'google' && filled($item['url']))
+                                    <a href="{{ $item['url'] }}" target="_blank" rel="noopener" class="mt-1 inline-block text-xs text-brand-600 hover:underline">Google’da gör ↗</a>
+                                @endif
+                            </div>
+                        @empty
+                            <p class="px-4 py-5 text-sm text-gray-500">Henüz yayınlanmış gönderi yok.</p>
+                        @endforelse
+                    </div>
+                </section>
+            </div>
         </div>
 
     @elseif ($tab === 'services')

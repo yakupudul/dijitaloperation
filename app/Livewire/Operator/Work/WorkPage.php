@@ -152,11 +152,10 @@ final class WorkPage extends Component
             if ($needs === []) {
                 throw ValidationException::withMessages(['work' => 'Bu sitenin fikir havuzu dolu ya da kümeleri eşleşmedi.']);
             }
-            foreach ($needs as $need) {
-                SiteOperations::dispatch($siteId, SiteOperations::WEEKLY_CONTENT, ['language' => $need['language'], 'want' => $need['want']]);
-            }
+            $wants = $needs[0]['wants'];
+            SiteOperations::dispatch($siteId, SiteOperations::WEEKLY_CONTENT, ['wants' => $wants]);
 
-            return implode(', ', array_map(fn (array $n): string => strtoupper($n['language']).' '.$n['want'], $needs)).' fikir hazırlanıyor; bitince "Onay bekleyen başlıklar"a düşer.';
+            return implode(', ', array_map(fn (string $l, int $n): string => strtoupper($l).' '.$n, array_keys($wants), $wants)).' fikir hazırlanıyor; bitince "Onay bekleyen başlıklar"a düşer.';
         });
     }
 

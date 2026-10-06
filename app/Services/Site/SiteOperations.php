@@ -136,7 +136,11 @@ final class SiteOperations
             self::URL_ANALYSIS => $this->analyzer->analyze($site, array_map('intval', (array) ($params['page_ids'] ?? []))),
             self::APPLY_CHANGE => $suggestion !== null ? $this->changes->prepare($suggestion) : ['status' => 'no_suggestion'],
             self::STANDARD => $suggestion !== null ? $this->standards->propose($suggestion) : ['status' => 'no_suggestion'],
-            self::WEEKLY_CONTENT => $this->content->weekly($site, null, isset($params['language']) ? (string) $params['language'] : null, isset($params['want']) ? (int) $params['want'] : null),
+            self::WEEKLY_CONTENT => $this->content->weekly($site, null, match (true) {
+                is_array($params['wants'] ?? null) => $params['wants'],
+                isset($params['language']) => [(string) $params['language'] => (int) ($params['want'] ?? 4)], // jobs queued before one-job-per-site
+                default => null,
+            }),
             self::DISCOVERY => $this->content->discover($site),
             self::WRITE_ARTICLE => $suggestion !== null ? $this->content->writeArticle($suggestion, isset($params['language']) ? (string) $params['language'] : null) : ['status' => 'no_suggestion'],
             self::WEEKLY_REFRESH => $this->weeklyRefresh($site),

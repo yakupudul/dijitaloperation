@@ -788,15 +788,15 @@ Artisan::command('moxdop:content:weekly-titles {--site= : One website asset id} 
     $discover = $this->option('discover') || ($today->isMonday() && $today->day <= 7);
     $needs = $coverage->needs($weekly, $this->option('site') !== null ? (int) $this->option('site') : null);
     foreach ($needs as $need) {
-        SiteOperations::dispatch($need['site_id'], SiteOperations::WEEKLY_CONTENT, ['language' => $need['language'], 'want' => $need['want']]);
+        SiteOperations::dispatch($need['site_id'], SiteOperations::WEEKLY_CONTENT, ['wants' => $need['wants']]);
     }
-    $sites = array_values(array_unique(array_column($needs, 'site_id')));
+    $sites = array_column($needs, 'site_id');
     if ($discover) {
         foreach ($sites as $siteId) {
             SiteOperations::dispatch($siteId, SiteOperations::DISCOVERY);
         }
     }
-    $this->info('Fikir havuzu: '.count($sites).' site, '.count($needs).' dil, '.array_sum(array_column($needs, 'want')).' başlık istendi'.($discover ? ' (kümeler dışı fırsatlarla)' : '').'.');
+    $this->info('Fikir havuzu: '.count($sites).' site, '.array_sum(array_map(fn (array $n): int => count($n['wants']), $needs)).' dil, '.array_sum(array_map(fn (array $n): int => array_sum($n['wants']), $needs)).' başlık istendi'.($discover ? ' (kümeler dışı fırsatlarla)' : '').'.');
 })->purpose('Fill every active language of operational sites to the content idea pool, plus weekly fresh ideas on Monday.');
 
 Schedule::command('moxdop:content:weekly-titles')

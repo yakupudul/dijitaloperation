@@ -323,7 +323,9 @@ final class GbpDeskTest extends TestCase
         $this->assertSame('https://search.google.com/local/writereview?placeid=ChIJtest123', $kit['link']);
         $this->assertStringContainsString($kit['link'], ReviewDesk::requestMessage('Panorama', $kit['link']));
         $this->actingAs($this->admin)->get(route('operator.gbp-review-card', ['assetId' => $this->location->id]))
-            ->assertOk()->assertSee('Panorama Çankaya')->assertSee('Google’da', false);
+            ->assertOk()->assertSee('Panorama Çankaya')->assertSee('Google’da', false)->assertSee('<body class="acik">', false);
+        $this->actingAs($this->admin)->get(route('operator.gbp-review-card', ['assetId' => $this->location->id, 'tema' => 'koyu']))
+            ->assertOk()->assertSee('<body class="koyu">', false);
     }
 
     public function test_review_grid_picks_fills_a_shared_reply_previews_and_publishes_in_bulk(): void

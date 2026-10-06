@@ -2,11 +2,13 @@
 
 namespace Tests\Feature\Work;
 
+use App\Ai\Agents\Site\WeeklyContentAgent;
 use App\Jobs\Site\RunSiteOperationJob;
 use App\Livewire\Operator\Work\WorkPage;
 use App\Models\BrandClusterPage;
 use App\Models\Cluster;
 use App\Models\Suggestion;
+use App\Services\Site\ContentPlanner;
 use App\Services\Site\SiteOperations;
 use App\Services\Work\ContentCoverage;
 use Illuminate\Support\Facades\Queue;
@@ -72,7 +74,7 @@ final class ContentCoverageTest extends SiteTestCase
         $this->title('Bir');
         $this->artisan('moxdop:content:weekly-titles')->assertSuccessful();
         Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->siteId === $this->site->id
-            && $job->operation === SiteOperations::WEEKLY_CONTENT && $job->params === ['language' => 'tr', 'want' => 19]);
+            && $job->operation === SiteOperations::WEEKLY_CONTENT && $job->params === ['wants' => ['tr' => 19]]);
 
         // A full pool waits for approvals on weekdays; on Monday it still gets the weekly fresh ideas.
         Queue::fake();
@@ -83,7 +85,7 @@ final class ContentCoverageTest extends SiteTestCase
         Queue::assertNothingPushed();
         Livewire::test(WorkPage::class)->assertDontSeeHtml('data-make-titles');
         $this->artisan('moxdop:content:weekly-titles', ['--weekly' => true])->assertSuccessful();
-        Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->params === ['language' => 'tr', 'want' => 4]);
+        Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->params === ['wants' => ['tr' => 4]]);
     }
 
     public function test_fikir_uret_fills_the_pool_now(): void
@@ -94,6 +96,29 @@ final class ContentCoverageTest extends SiteTestCase
 
         $this->rowOf('no_page', 'İmplant fiyatları');
         Livewire::test(WorkPage::class)->call('makeTitles', $this->site->id)->assertSee('TR 20 fikir hazırlanıyor');
-        Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->operation === SiteOperations::WEEKLY_CONTENT && $job->params['want'] === 20);
+        Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->operation === SiteOperations::WEEKLY_CONTENT && $job->params['wants'] === ['tr' => 20]);
+    }
+
+    public function test_one_run_plans_every_language_of_a_site_and_keeps_each_count(): void
+    {
+        $this->enableAi();
+        Queue::fake();
+        $this->page('/implant/', 'İmplant', ['category' => 'hizmet', 'language' => 'tr']);
+        $this->page('/en/dental-implant/', 'Dental Implant', ['category' => 'hizmet', 'language' => 'en']);
+        $this->rowOf('no_page', 'İmplant fiyatları');
+        $prompts = [];
+        WeeklyContentAgent::fake(function (string $prompt) use (&$prompts): array {
+            $prompts[] = $prompt;
+            $item = fn (string $language, string $title): array => ['language' => $language, 'title' => $title, 'kind' => 'new', 'cluster_id' => null, 'page_type' => 'blog',
+                'target_url' => null, 'angle' => 'decision', 'outline' => ['Giriş'], 'questions' => ['Soru?'], 'reason' => 'Talep var.'];
+
+            return ['items' => [$item('tr', 'İmplant mı köprü mü'), $item('tr', 'İmplant kimlere uygun'), $item('tr', 'Fazla Türkçe fikir'), $item('en', 'Implant or bridge'), $item('de', 'Implantat')]];
+        });
+
+        $this->assertSame(['status' => 'ready', 'added' => 3], app(ContentPlanner::class)->weekly($this->site, null, ['tr' => 2, 'en' => 1]));
+
+        $this->assertCount(1, $prompts, 'one AI run for both languages');
+        $this->assertStringContainsString('"languages":{"tr":2,"en":1}', $prompts[0]);
+        $this->assertSame(['tr' => 2, 'en' => 1], app(ContentCoverage::class)->rows()[0]['pool']);
     }
 }

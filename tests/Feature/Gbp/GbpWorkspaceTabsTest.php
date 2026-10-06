@@ -12,16 +12,19 @@ use App\Models\CoreIntegrationCredential;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
+use App\Models\GbpQueuedPost;
 use App\Models\Run;
 use App\Models\ServiceCategory;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\Gbp\GbpPostQueue;
 use App\Services\Gbp\GbpScreen;
 use App\Services\Gbp\GbpSuggestions;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
@@ -332,5 +335,31 @@ final class GbpWorkspaceTabsTest extends TestCase
     {
         $dental = ServiceCategory::query()->firstOrCreate(['code' => 'dental'], ['name' => 'Diş sağlığı', 'normalized_key' => 'dis sagligi']);
         $this->asset->brand->forceFill(['sector_id' => $dental->id])->save();
+    }
+
+    public function test_posts_tab_is_a_30_day_calendar_of_the_automatic_plan(): void
+    {
+        $today = GbpPostQueue::today();
+        $make = fn (int $in, string $status, string $text): GbpQueuedPost => GbpQueuedPost::query()->create(['digital_asset_id' => $this->asset->id, 'brand_id' => $this->asset->brand_id,
+            'angle' => 'surec', 'publish_on' => $today->addDays($in)->toDateString(), 'summary' => $text, 'status' => $status]);
+        $draft = $make(1, GbpQueuedPost::DRAFT, 'İmplant tedavisi adım adım ilerler.');
+        $make(2, GbpQueuedPost::APPROVED, 'Zirkonyum kaplamada ilk muayene.');
+        $other = DigitalAsset::factory()->create(['brand_id' => $this->asset->brand_id, 'type' => 'google_business_profile']);
+        $foreign = GbpQueuedPost::query()->create(['digital_asset_id' => $other->id, 'brand_id' => $this->asset->brand_id, 'angle' => 'surec',
+            'publish_on' => $today->addDay()->toDateString(), 'summary' => 'Başka şubenin gönderisi.', 'status' => GbpQueuedPost::DRAFT]);
+
+        $page = $this->page('posts')->assertSeeHtml('data-post-calendar')->assertSeeHtml('data-calendar-day="'.$today->addDays(30)->toDateString().'"')
+            ->assertSee('İmplant tedavisi adım adım ilerler.')->assertSee('Süreç')->assertSee('1 onaylı')->assertSee('1 onay bekliyor')->assertSee('28 boş gün')
+            ->assertDontSee('Başka şubenin gönderisi.')->assertSee('Otomatik plan açık: her gün 1 gönderi.');
+
+        $page->call('approvePlanned', $draft->id);
+        $this->assertSame(GbpQueuedPost::APPROVED, $draft->fresh()->status);
+        try {
+            $this->page('posts')->call('approvePlanned', $foreign->id);
+        } catch (ModelNotFoundException) {
+        }
+        $this->assertSame(GbpQueuedPost::DRAFT, $foreign->fresh()->status, 'another location\'s post is not touched');
+        $this->page('posts')->call('skipPlanned', $draft->id);
+        $this->assertSame(GbpQueuedPost::SKIPPED, $draft->fresh()->status);
     }
 }

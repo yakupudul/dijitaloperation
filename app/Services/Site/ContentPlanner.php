@@ -57,18 +57,29 @@ final class ContentPlanner
     ) {}
 
     /**
+     * One run plans every language the pool asks for (`$wants`: language => ideas), so the clusters, queries and site
+     * pages go to the AI once per site instead of once per language.
+     *
      * @param  Collection<int, BrandClusterPage>|null  $only  "Konu üret": just these rows, one item
+     * @param  array<string, int>|null  $wants  ideas per language; null: the brand's weekly number in the main language
      * @return array{status: string, added: int}
      */
-    public function weekly(DigitalAsset $site, ?Collection $only = null, ?string $language = null, ?int $want = null): array
+    public function weekly(DigitalAsset $site, ?Collection $only = null, ?array $wants = null): array
     {
         $brand = SiteScope::brandOf($site);
         if (! SiteScope::aiAllowed($brand)) {
             return ['status' => 'not_operational', 'added' => 0];
         }
-        $capacity = $only !== null ? 1 : max(1, min(20, $want ?? (int) ($brand->weekly_content_capacity ?? 4)));
-        $language = $language !== null && in_array($language, self::siteLanguages($site), true) ? $language : null;
-        $inLanguage = fn ($q) => $language === null ? $q : $q->where(fn ($l) => $l->whereNull('language')->orWhere('language', $language));
+        $siteLanguages = self::siteLanguages($site);
+        $explicit = $wants !== null && $only === null;
+        $wants = collect($explicit ? $wants : [])->filter(fn ($n, $l): bool => in_array($l, $siteLanguages, true) && (int) $n > 0)
+            ->map(fn ($n): int => min(20, (int) $n))->all();
+        if ($wants === []) {
+            $explicit = false;
+            $wants = [$siteLanguages[0] => $only !== null ? 1 : max(1, min(20, (int) ($brand->weekly_content_capacity ?? 4)))];
+        }
+        $capacity = array_sum($wants);
+        $inLanguage = fn ($q) => ! $explicit ? $q : $q->where(fn ($l) => $l->whereNull('language')->orWhereIn('language', array_keys($wants)));
         $gaps = $only ?? $inLanguage(BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url'])->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
             ->whereIn('state', ['no_page', 'thin_coverage'])->where('excluded', false))->limit(60)->get();
         $improvable = $only !== null ? collect() : $inLanguage(BrandClusterPage::query()->with('page:id,url,title')->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
@@ -81,11 +92,11 @@ final class ContentPlanner
         $topQueries = $this->clusterQueries($gaps->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all());
         $result = $this->ai->run(new WeeklyContentAgent, [
             'brand' => $this->memory->contextFor($brand, [], $gaps->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all())['profile'],
-            'language' => $language ?? self::siteLanguages($site)[0],
+            'languages' => $wants,
             'capacity' => $capacity,
             'month' => self::MONTHS[(int) now()->month].' '.now()->year,
             'clusters' => $gaps->map(fn (BrandClusterPage $row): array => [
-                'cluster_id' => (int) $row->cluster_id, 'name' => (string) $row->cluster?->name, 'service' => (string) ($row->cluster?->service?->primaryName?->raw_label ?? ''),
+                'cluster_id' => (int) $row->cluster_id, 'language' => $row->language, 'name' => (string) $row->cluster?->name, 'service' => (string) ($row->cluster?->service?->primaryName?->raw_label ?? ''),
                 'intent' => (string) $row->cluster?->intent, 'page_type' => (string) $row->cluster?->page_type, 'main_query' => (string) ($row->cluster?->mainQuery?->text ?? ''),
                 'target_query' => $row->target_query, 'queries' => $topQueries[(int) $row->cluster_id] ?? [],
                 'state' => $row->stateLabel(), 'page_url' => $row->page?->url, 'subtopics' => array_values((array) $row->cluster?->subtopics),
@@ -103,19 +114,25 @@ final class ContentPlanner
         $clusters = $gaps->keyBy('cluster_id');
         $taken = $previous->map(fn (Suggestion $s): string => SeoText::fold((string) $s->title))->all();
         $added = 0;
-        foreach (array_slice((array) ($result['data']['items'] ?? []), 0, $capacity) as $item) {
+        $left = $wants;
+        foreach ((array) ($result['data']['items'] ?? []) as $item) {
             if (! is_array($item)) {
+                continue;
+            }
+            $language = is_string($item['language'] ?? null) && isset($left[strtolower($item['language'])]) ? strtolower($item['language']) : (count($wants) === 1 ? array_key_first($wants) : null);
+            if ($language === null || $left[$language] < 1) {
                 continue;
             }
             $clusterId = is_int($item['cluster_id'] ?? null) && $clusters->has($item['cluster_id']) ? $item['cluster_id'] : null;
             $row = $clusterId !== null ? $clusters->get($clusterId) : null;
             $stored = $this->storeItem($brand, $site, $sitePages, $item, $taken, [
-                'cluster_id' => $clusterId, 'out_of_cluster' => false, 'language' => $language,
+                'cluster_id' => $clusterId, 'out_of_cluster' => false, 'language' => $explicit ? $language : null,
                 'angle' => in_array($item['angle'] ?? null, array_keys(self::ANGLES), true) ? $item['angle'] : null,
                 'evidence' => $row !== null ? [['kind' => 'cluster', 'value' => $row->cluster?->name.' · '.$row->stateLabel(), 'source' => 'küme']] : null,
                 'service' => (string) ($row?->cluster?->service?->primaryName?->raw_label ?? ''),
             ], $result['prompt_version_id']);
             $added += $stored ? 1 : 0;
+            $left[$language] -= $stored ? 1 : 0;
         }
 
         return ['status' => 'ready', 'added' => $added];

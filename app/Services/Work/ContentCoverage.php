@@ -70,9 +70,10 @@ final class ContentCoverage
 
     /**
      * What the title run asks for: every active language of a site with matched clusters gets its pool back to POOL;
-     * on Monday (`$weekly`) each language also gets at least the brand's weekly number of fresh ideas on top.
+     * on Monday (`$weekly`) each language also gets at least the brand's weekly number of fresh ideas on top. One entry
+     * per site with all its languages, so the AI reads the site's clusters once.
      *
-     * @return list<array{site_id: int, language: string, want: int}>
+     * @return list<array{site_id: int, wants: array<string, int>}>
      */
     public function needs(bool $weekly = false, ?int $siteId = null): array
     {
@@ -81,11 +82,15 @@ final class ContentCoverage
             if (($siteId !== null && (int) $row['site']->id !== $siteId) || $row['clusters'] === 0) {
                 continue;
             }
+            $wants = [];
             foreach ($row['pool'] as $language => $waiting) {
                 $want = max(self::POOL - $waiting, $weekly ? $row['weekly'] : 0);
                 if ($want > 0) {
-                    $out[] = ['site_id' => (int) $row['site']->id, 'language' => (string) $language, 'want' => min(20, $want)];
+                    $wants[(string) $language] = min(20, $want);
                 }
+            }
+            if ($wants !== []) {
+                $out[] = ['site_id' => (int) $row['site']->id, 'wants' => $wants];
             }
         }
 

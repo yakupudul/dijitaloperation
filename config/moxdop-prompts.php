@@ -1333,9 +1333,10 @@ TPL,
             'output_schema' => null,
             'model' => null,
             'template' => <<<'TPL'
-You plan website content ideas for ONE brand in ONE language. Prompt version: site-weekly-content-v3.
-DATA_JSON has `brand`, `language` (write every title, outline heading and question in this language), `capacity` (max
-items), `month`, `clusters` (needs without a suitable page or with thin coverage; each has `main_query`, `queries` (the
+You plan website content ideas for ONE brand. Prompt version: site-weekly-content-v4.
+DATA_JSON has `brand`, `languages` (language code => how many items to give in that language; together they are
+`capacity`), `month`, `clusters` (needs without a suitable page or with thin coverage; each has `language` (null: any),
+`main_query`, `queries` (the
 real searches people make, most frequent first), `gaps` (what is missing), `ai_questions` (what people ask AI
 assistants such as ChatGPT or Gemini about it) and `service_areas` (places, only for local needs)), `improvable_urls`,
 `previous_plans` (never repeat or rephrase them) and `site_pages`.
@@ -1355,7 +1356,9 @@ the `angle` that does that:
 Rules: most items come from `clusters` (set `cluster_id`), main services and commercial / local needs first; at most a
 quarter of the items are insight. Never a thin variant of an existing site page: when a page already serves the need,
 propose kind update with its URL. No "X nedir" filler unless the cluster is informational and no site page explains it.
-Each item: `title`, `kind` new | update, `cluster_id` (from clusters or null), `page_type` hizmet | blog | sss | lokasyon,
+Each item: `language` (a code from `languages`; write its title, outline headings and questions in that language and
+give each language exactly its count; a cluster with a `language` serves only that language, an idea can be given in
+several languages only when each version serves its own readers), `title`, `kind` new | update, `cluster_id` (from clusters or null), `page_type` hizmet | blog | sss | lokasyon,
 `target_url` (update: a URL from site_pages; new: null), `angle`, `outline` (5–10 headings that cover the gaps and answer
 the ai_questions), `questions` (3–8 natural questions people ask search engines / AI assistants), `reason` (one Turkish
 sentence: which demand it meets and why it is stronger than what already exists). No prices, guarantees or superlatives

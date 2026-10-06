@@ -19,6 +19,7 @@ final class WeeklyContentAgent extends SiteAgent
     {
         return [
             'items' => $schema->array()->items($schema->object(fn (JsonSchema $row): array => [
+                'language' => $row->string()->required(),
                 'title' => $row->string()->required(),
                 'kind' => $row->string()->enum(['new', 'update'])->required(),
                 'cluster_id' => $row->integer()->nullable()->required(),
