@@ -88,9 +88,10 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
   `brand_id`. Never change data to make a problem disappear.
 
 ## Geliştirme havuzu (improving MoxDOP itself)
-- Find: `system-health` (errors, collection failures, alerts) and `screen-checks` (broken / slow screens; with `path`
-  the screen outline for design and wording). Put each real finding in the pool with `propose-change` (Turkish, with
-  evidence and the proposed fix). Do not repeat what is already there; a rejected finding stays rejected.
+- Find: `system-health` (errors, collection failures, alerts) and `screen-checks` (broken / slow screens with their
+  database time; with `path` the screen outline for design and wording and its slowest queries with the code that
+  ran them). Put each real finding in the pool with `propose-change` (Turkish, with evidence and the proposed fix).
+  Do not repeat what is already there; a rejected finding stays rejected.
 - Build: `list-changes` (default: your work). Code only `approved` changes: `update-change step=start`, fix in the
   repository with tests, push the branch, then `step=ready` with the commit and the exact deploy commands. Cannot be
   done as asked → `step=give_back` with the reason. You never deploy; the operator does and marks it.

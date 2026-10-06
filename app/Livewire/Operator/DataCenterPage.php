@@ -8,6 +8,7 @@ use App\Services\DataCenter\DataCenterReader;
 use App\Support\Demo\DemoState;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -61,9 +62,21 @@ final class DataCenterPage extends Component
         return is_array($selected) ? array_values(array_filter($selected, fn ($d): bool => is_string($d) && $d !== '')) : [];
     }
 
+    /**
+     * Every source with its stored data sets (row counts from the cache), read once per request: an action and the
+     * render after it share it.
+     *
+     * @return list<array<string, mixed>>
+     */
+    #[Computed]
+    public function allSources(): array
+    {
+        return app(DataCenterReader::class)->sources();
+    }
+
     public function pickAll(string $key): void
     {
-        $source = collect(app(DataCenterReader::class)->sources())->firstWhere('key', $key);
+        $source = collect($this->allSources)->firstWhere('key', $key);
         $this->picked[$key] = $source === null ? [] : collect($source['datasets'])->where('protected', false)->pluck('dataset')->values()->all();
     }
 
@@ -83,9 +96,9 @@ final class DataCenterPage extends Component
         DemoState::flash(count($datasets).' veri seti arka planda siliniyor. Sorgu ve arama terimleri korunur.');
     }
 
-    public function render(DataCenterReader $reader): View
+    public function render(): View
     {
-        $sources = collect($reader->sources());
+        $sources = collect($this->allSources);
         $providers = $sources->pluck('provider')->unique()->sort()->values()->all();
         $needle = mb_strtolower(trim($this->q));
         $visible = $sources

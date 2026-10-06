@@ -18,30 +18,31 @@ final class DataCenterCatalog
     public const RAW = 'raw_payloads';
 
     /**
-     * Tables written outside the data-pool registry: table => [key column, source kind (resource|asset), label].
+     * Tables written outside the data-pool registry: table => [key column, source kind (resource|asset), label, column
+     * holding the last write time]. The columns are fixed by the migrations (DataCenterTest checks them).
      *
-     * @var array<string, array{0: string, 1: string, 2: string}>
+     * @var array<string, array{0: string, 1: string, 2: string, 3: string}>
      */
     public const EXTRA_TABLES = [
-        'website_cms_object_snapshot' => ['digital_asset_id', 'asset', 'WordPress içerikleri (sayfa/yazı/görsel alt metni)'],
-        'website_cms_seo_snapshot' => ['digital_asset_id', 'asset', 'WordPress SEO alanları'],
-        'website_cms_site_snapshot' => ['digital_asset_id', 'asset', 'WordPress site bilgisi'],
-        'website_cms_extension_snapshot' => ['digital_asset_id', 'asset', 'WordPress eklenti/tema listesi'],
-        'website_cms_taxonomy_snapshot' => ['digital_asset_id', 'asset', 'WordPress kategori/etiketleri'],
-        'website_html_snapshot' => ['digital_asset_id', 'asset', 'Sayfa HTML kopyaları'],
-        'website_link_edge' => ['digital_asset_id', 'asset', 'İç/dış bağlantılar'],
-        'website_crawl_issue_snapshot' => ['digital_asset_id', 'asset', 'Tarama sorunları'],
-        'website_sitemap_watch' => ['digital_asset_id', 'asset', 'Sitemap takibi'],
-        'gbp_location_snapshots' => ['external_resource_id', 'resource', 'İşletme bilgisi'],
-        'gbp_performance_daily' => ['external_resource_id', 'resource', 'İşletme performansı (günlük)'],
-        'gbp_search_keywords_monthly' => ['external_resource_id', 'resource', 'İşletme arama terimleri (aylık)'],
-        'gbp_reviews' => ['external_resource_id', 'resource', 'Yorumlar'],
-        'gbp_media' => ['external_resource_id', 'resource', 'İşletme medyası (liste)'],
-        'gbp_posts' => ['external_resource_id', 'resource', 'Gönderiler'],
-        'gbp_attribute_snapshots' => ['external_resource_id', 'resource', 'Özellikler'],
-        'gbp_service_snapshots' => ['external_resource_id', 'resource', 'Hizmet listesi'],
-        'gbp_place_action_links' => ['external_resource_id', 'resource', 'Eylem bağlantıları'],
-        'gbp_verification_snapshots' => ['external_resource_id', 'resource', 'Doğrulama durumu'],
+        'website_cms_object_snapshot' => ['digital_asset_id', 'asset', 'WordPress içerikleri (sayfa/yazı/görsel alt metni)', 'observed_at'],
+        'website_cms_seo_snapshot' => ['digital_asset_id', 'asset', 'WordPress SEO alanları', 'observed_at'],
+        'website_cms_site_snapshot' => ['digital_asset_id', 'asset', 'WordPress site bilgisi', 'observed_at'],
+        'website_cms_extension_snapshot' => ['digital_asset_id', 'asset', 'WordPress eklenti/tema listesi', 'observed_at'],
+        'website_cms_taxonomy_snapshot' => ['digital_asset_id', 'asset', 'WordPress kategori/etiketleri', 'observed_at'],
+        'website_html_snapshot' => ['digital_asset_id', 'asset', 'Sayfa HTML kopyaları', 'observed_at'],
+        'website_link_edge' => ['digital_asset_id', 'asset', 'İç/dış bağlantılar', 'observed_at'],
+        'website_crawl_issue_snapshot' => ['digital_asset_id', 'asset', 'Tarama sorunları', 'observed_at'],
+        'website_sitemap_watch' => ['digital_asset_id', 'asset', 'Sitemap takibi', 'updated_at'],
+        'gbp_location_snapshots' => ['external_resource_id', 'resource', 'İşletme bilgisi', 'updated_at'],
+        'gbp_performance_daily' => ['external_resource_id', 'resource', 'İşletme performansı (günlük)', 'updated_at'],
+        'gbp_search_keywords_monthly' => ['external_resource_id', 'resource', 'İşletme arama terimleri (aylık)', 'updated_at'],
+        'gbp_reviews' => ['external_resource_id', 'resource', 'Yorumlar', 'updated_at'],
+        'gbp_media' => ['external_resource_id', 'resource', 'İşletme medyası (liste)', 'updated_at'],
+        'gbp_posts' => ['external_resource_id', 'resource', 'Gönderiler', 'updated_at'],
+        'gbp_attribute_snapshots' => ['external_resource_id', 'resource', 'Özellikler', 'updated_at'],
+        'gbp_service_snapshots' => ['external_resource_id', 'resource', 'Hizmet listesi', 'updated_at'],
+        'gbp_place_action_links' => ['external_resource_id', 'resource', 'Eylem bağlantıları', 'updated_at'],
+        'gbp_verification_snapshots' => ['external_resource_id', 'resource', 'Doğrulama durumu', 'updated_at'],
     ];
 
     /** @var array<string, string> */

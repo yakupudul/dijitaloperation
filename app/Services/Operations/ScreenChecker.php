@@ -13,6 +13,7 @@ use App\Support\Roles;
 use DOMDocument;
 use DOMXPath;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -22,8 +23,9 @@ use Throwable;
 /**
  * Sayfa taraması: renders every operator screen (the menu pages, plus sample brands, customers and one asset of each
  * channel with their tabs) as an active Admin inside the app, and stores per screen the HTTP status, time, query
- * count, the exception and a short text outline (headings, buttons, table columns, notices). Claude reads it over MCP
- * (screen-checks) to find broken, slow or confusing pages without a browser. Read-only: GET requests only.
+ * count, the database time with the slowest query patterns (and the app code that ran them), the exception and a
+ * short text outline (headings, buttons, table columns, notices). Claude reads it over MCP (screen-checks) to find
+ * broken, slow or confusing pages without a browser. Read-only: GET requests only.
  */
 final class ScreenChecker
 {
@@ -32,9 +34,23 @@ final class ScreenChecker
 
     public const int QUERY_LIMIT = 150;
 
+    /** How many of a screen's query patterns are kept, slowest (total time) first. */
+    public const int SLOW_PATTERNS = 5;
+
     private int $queries = 0;
 
+    private float $dbMs = 0.0;
+
+    /** @var array<string, array{count: int, ms: float, frame: ?string}> normalized SQL => totals of the screen being checked */
+    private array $patterns = [];
+
+    /** @var array<string, string> compiled Blade file => its source path */
+    private array $views = [];
+
     private bool $listening = false;
+
+    /** Only while a screen renders: the listener of an earlier checker in a long-lived worker stays silent. */
+    private bool $recording = false;
 
     private const array STATIC_ROUTES = [
         'operator.dashboard' => 'Bugün', 'operator.work' => 'Genel işler', 'operator.gbp-desk' => 'İşletme profilleri', 'operator.gbp-posts' => 'İşletme profilleri › Gönderiler',
@@ -120,16 +136,24 @@ final class ScreenChecker
         return $failed;
     }
 
-    /** @return array{status: int, duration_ms: int, queries: int, error: ?string, outline: ?string, release: ?string, checked_at: Carbon} */
+    /**
+     * @return array{status: int, duration_ms: int, queries: int, db_ms: int, slow_queries: list<array{sql: string, count: int, ms: float, frame: ?string}>,
+     *     error: ?string, outline: ?string, release: ?string, checked_at: Carbon}
+     */
     public function check(string $path, User $admin): array
     {
         if (! $this->listening) {
-            DB::listen(function (): void {
-                $this->queries++;
+            DB::listen(function (QueryExecuted $query): void {
+                if ($this->recording) {
+                    $this->record($query);
+                }
             });
             $this->listening = true;
         }
         $this->queries = 0;
+        $this->dbMs = 0.0;
+        $this->patterns = [];
+        $this->recording = true;
         $kernel = app(HttpKernel::class);
         $started = hrtime(true);
         $status = 0;
@@ -152,6 +176,7 @@ final class ScreenChecker
             $status = 500;
             $error = $this->describe($exception);
         } finally {
+            $this->recording = false;
             if ($original !== null) {
                 app()->instance('request', $original);
             }
@@ -159,9 +184,104 @@ final class ScreenChecker
         $ms = (int) round((hrtime(true) - $started) / 1_000_000);
 
         return [
-            'status' => $status, 'duration_ms' => $ms, 'queries' => $this->queries, 'error' => $error,
-            'outline' => $status < 300 ? $this->outline($html) : null, 'release' => ReleaseInfo::shortSha(), 'checked_at' => now(),
+            'status' => $status, 'duration_ms' => $ms, 'queries' => $this->queries, 'db_ms' => (int) round($this->dbMs), 'slow_queries' => $this->slowQueries(),
+            'error' => $error, 'outline' => $status < 300 ? $this->outline($html) : null, 'release' => ReleaseInfo::shortSha(), 'checked_at' => now(),
         ];
+    }
+
+    /**
+     * One query shape per pattern: string and number literals become ?, IN lists and multi-row VALUES collapse to
+     * one (?, …), whitespace is single.
+     */
+    public static function normalize(string $sql): string
+    {
+        $replacements = [
+            "/'(?:[^']++|'')*+'/" => '?',
+            '/(?<![\w."$])\d+(?:\.\d+)?\b/' => '?',
+            '/\(\s*\?(?:\s*,\s*\?)*\s*\)/' => '(?, …)',
+            '/\(\?, …\)(?:\s*,\s*\(\?, …\))+/u' => '(?, …)',
+            '/\s+/' => ' ',
+        ];
+        foreach ($replacements as $pattern => $replacement) {
+            $sql = preg_replace($pattern, $replacement, $sql) ?? $sql;
+        }
+
+        return trim($sql);
+    }
+
+    private function record(QueryExecuted $query): void
+    {
+        $this->queries++;
+        $this->dbMs += (float) $query->time;
+        $pattern = self::normalize($query->sql);
+        $this->patterns[$pattern] ??= ['count' => 0, 'ms' => 0.0, 'frame' => $this->appFrame()];
+        $this->patterns[$pattern]['count']++;
+        $this->patterns[$pattern]['ms'] += (float) $query->time;
+    }
+
+    /** @return list<array{sql: string, count: int, ms: float, frame: ?string}> */
+    private function slowQueries(): array
+    {
+        $patterns = $this->patterns;
+        uasort($patterns, fn (array $a, array $b): int => $b['ms'] <=> $a['ms']);
+        $out = [];
+        foreach (array_slice($patterns, 0, self::SLOW_PATTERNS, true) as $sql => $totals) {
+            $out[] = ['sql' => mb_substr((string) $sql, 0, 300), 'count' => $totals['count'], 'ms' => round($totals['ms'], 1), 'frame' => $totals['frame']];
+        }
+
+        return $out;
+    }
+
+    /**
+     * The innermost application code on the stack (file:line relative to the project; a compiled Blade view as its
+     * source file). vendor/ and this class are skipped; the search stops at check(), so what started the scan (job,
+     * command) is never reported for a query only the framework ran.
+     */
+    private function appFrame(): ?string
+    {
+        $base = base_path().DIRECTORY_SEPARATOR;
+        $compiled = rtrim((string) config('view.compiled'), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+        foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS) as $frame) {
+            if (($frame['class'] ?? null) === self::class && ($frame['function'] ?? null) === 'check') {
+                break;
+            }
+            $file = (string) ($frame['file'] ?? '');
+            if ($file === '' || $file === __FILE__) {
+                continue;
+            }
+            if ($compiled !== DIRECTORY_SEPARATOR && str_starts_with($file, $compiled)) {
+                return $this->viewSource($file);
+            }
+            if (! str_starts_with($file, $base) || str_starts_with($file, $base.'vendor'.DIRECTORY_SEPARATOR)) {
+                continue;
+            }
+
+            return substr($file, strlen($base)).':'.(int) ($frame['line'] ?? 0);
+        }
+
+        return null;
+    }
+
+    /**
+     * A compiled view's Blade source (from the PATH footer the compiler appends), relative to the project. The read
+     * never throws: a view recompiled or cleared under the scan would otherwise fail the screen from inside the
+     * query listener and be reported as the screen's error.
+     */
+    private function viewSource(string $compiled): string
+    {
+        if (! isset($this->views[$compiled])) {
+            $source = $compiled;
+            try {
+                $size = (int) filesize($compiled);
+                $tail = (string) file_get_contents($compiled, false, null, max(0, $size - 1024));
+                $source = preg_match('#/\*\*PATH (.+?) ENDPATH\*\*/#', $tail, $match) === 1 ? $match[1] : $compiled;
+            } catch (Throwable) {
+                // The compiled file went away; the compiled path is still a usable pointer.
+            }
+            $this->views[$compiled] = str_replace(base_path().DIRECTORY_SEPARATOR, '', $source);
+        }
+
+        return $this->views[$compiled];
     }
 
     private function describe(Throwable $exception): string
