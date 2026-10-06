@@ -67,7 +67,7 @@ final class ReviewDesk
     }
 
     /** Review list filters: waiting for a reply (oldest first), answered, all (newest first). */
-    public const array STATUSES = ['bekleyen' => 'Yanıt bekleyen', 'yanitli' => 'Yanıtlanan', 'tumu' => 'Tümü'];
+    public const array STATUSES = ['bekleyen' => 'Yanıt bekleyen', 'yanitli' => 'Yanıtlanan', 'tumu' => 'Tümü', 'bildirim' => 'Kaldırma talepleri'];
 
     /** Rows loaded per scroll step on the review grid. */
     public const int PAGE = 48;
@@ -96,6 +96,7 @@ final class ReviewDesk
         $query = DB::table('gbp_reviews')->whereIn('external_resource_id', array_values($resources))
             ->when($status === 'bekleyen', fn ($q) => $q->whereRaw($open))
             ->when($status === 'yanitli', fn ($q) => $q->whereRaw('not '.$open))
+            ->when($status === 'bildirim', fn ($q) => $q->whereIn('id', DB::table('gbp_review_flags')->select('gbp_review_id')))
             ->when(isset(GbpDailyWorkspace::RATING_FILTERS[$rating]), fn ($q) => $q->whereIn('star_rating', GbpDailyWorkspace::RATING_FILTERS[$rating]));
         $total = (clone $query)->count();
         $rows = $query->when($status === 'bekleyen', fn ($q) => $q->orderBy('create_time'), fn ($q) => $q->orderByDesc('create_time'))->orderBy('id')

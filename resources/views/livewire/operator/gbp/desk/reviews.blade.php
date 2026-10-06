@@ -20,6 +20,15 @@
         <button type="button" wire:click="setSection('iste')" @class(['rounded-md px-3 py-1 font-medium', 'bg-white shadow-sm text-gray-900 dark:bg-gray-800 dark:text-white' => $section === 'iste', 'text-gray-500' => $section !== 'iste'])>Yorum isteme</button>
     </div>
 
+    @if ($chips !== [])
+        <nav class="flex gap-1.5 overflow-x-auto pb-1 text-xs" aria-label="İşletme" data-testid="gbp-review-locations">
+            <button type="button" wire:click="setLocation" @class(['shrink-0 rounded-full px-3 py-1 font-medium ring-1 ring-inset', 'bg-gray-900 text-white ring-gray-900 dark:bg-white dark:text-gray-900' => $this->location === null, 'bg-white text-gray-600 ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700' => $this->location !== null])>Tüm işletmeler @if ($allUnanswered > 0)<span class="ml-1 rounded-full bg-rose-500 px-1.5 text-[10px] text-white">{{ $allUnanswered }}</span>@endif</button>
+            @foreach ($chips as $chip)
+                <button type="button" wire:key="chip-{{ $chip['id'] }}" wire:click="setLocation({{ $chip['id'] }})" @class(['shrink-0 rounded-full px-3 py-1 font-medium ring-1 ring-inset', 'bg-gray-900 text-white ring-gray-900 dark:bg-white dark:text-gray-900' => $this->location === $chip['id'], 'bg-white text-gray-600 ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700' => $this->location !== $chip['id']])>{{ $chip['name'] }} @if ($chip['unanswered'] > 0)<span class="ml-1 rounded-full bg-rose-500 px-1.5 text-[10px] text-white">{{ $chip['unanswered'] }}</span>@endif</button>
+            @endforeach
+        </nav>
+    @endif
+
     @if ($section === 'yanit')
         <section class="flex flex-wrap items-center gap-2 text-xs">
             <span class="inline-flex rounded-lg bg-gray-100 p-0.5 dark:bg-white/[0.06]">
@@ -31,7 +40,7 @@
                 <button type="button" wire:click="setRating('{{ $key }}')" @class(['rounded-full px-3 py-1 font-medium ring-1 ring-inset', 'bg-brand-500 text-white ring-brand-500' => $rating === $key, 'bg-white text-gray-600 ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700' => $rating !== $key])>{{ $label }}</button>
             @endforeach
             <span class="text-gray-500">{{ count($reviews) }} / {{ $total }} yorum</span>
-            @if ($status === 'bekleyen' && $total > 0)<a href="{{ route('operator.gbp-review-replies-pdf', array_filter(['marka' => $brand])) }}" class="font-medium text-brand-600 hover:underline" title="Yanıtı hazır (AI ya da elle yazılmış) tüm bekleyen yorumlar, markanın onayı için">Hazır yanıtları PDF indir</a>@endif
+            @if ($status === 'bekleyen' && $total > 0)<a href="{{ route('operator.gbp-review-replies-pdf', array_filter(['marka' => $brand, 'isletme' => $this->location])) }}" class="font-medium text-brand-600 hover:underline" title="Yanıtı hazır (AI ya da elle yazılmış) tüm bekleyen yorumlar, markanın onayı için">Hazır yanıtları PDF indir</a>@endif
             @if ($canWrite && $openCount > 0)
                 <span class="ml-auto flex flex-wrap items-center gap-3 font-medium">
                     <span class="text-gray-500">Seç:</span>
@@ -112,6 +121,37 @@
                             @endif
                         @endif
                     </div>
+                    @php $flag = $flags[$review['id']] ?? null; @endphp
+                    @if ($flag || $flagging === $review['id'])
+                        <div class="mt-2 rounded-lg bg-rose-50/70 p-2 text-xs dark:bg-rose-500/10" data-testid="gbp-review-flag">
+                            @if ($flagging === $review['id'])
+                                <p class="font-semibold text-gray-900 dark:text-white">Neden kaldırılmalı? (Google yalnız kurallarına aykırı yorumu kaldırır; kötü puan tek başına neden değildir.)</p>
+                                <select wire:model="flagReason" class="mt-1 w-full rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-900">
+                                    <option value="">Seçin</option>
+                                    @foreach (\App\Models\GbpReviewFlag::REASONS as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
+                                </select>
+                                <textarea wire:model="flagNote" rows="2" maxlength="1000" class="mt-1 w-full rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-900" placeholder="Kanıt / not (ör. kayıtlarda bu kişi yok, rakip firmanın çalışanı)"></textarea>
+                                <div class="mt-1 flex gap-3 font-medium"><button type="button" wire:click="saveFlag" class="text-rose-700 hover:underline dark:text-rose-300">Talebi hazırla</button><button type="button" wire:click="$set('flagging', null)" class="text-gray-500 hover:underline">Vazgeç</button></div>
+                            @else
+                                <p><span class="font-semibold text-rose-700 dark:text-rose-300">{{ $flag['status_label'] }}</span>@if ($flag['reported_at']) · {{ $flag['reported_at'] }}@endif · {{ $flag['reason_label'] }}</p>
+                                @if (in_array($flag['status'], ['draft', 'kept'], true))
+                                    <p class="mt-1 text-gray-600 dark:text-gray-300">Google’a gönderilecek açıklama:</p>
+                                    <p class="mt-0.5 rounded bg-white p-1.5 text-gray-800 dark:bg-gray-900 dark:text-gray-200" x-data>{{ \App\Services\Gbp\Desk\ReviewFlags::reportText($flag['reason'], $flag['note']) }}</p>
+                                    <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 font-medium">
+                                        <button type="button" x-data x-on:click="navigator.clipboard.writeText(@js(\App\Services\Gbp\Desk\ReviewFlags::reportText($flag['reason'], $flag['note'])))" class="text-brand-600 hover:underline">Metni kopyala</button>
+                                        <a href="{{ \App\Services\Gbp\Desk\ReviewFlags::TOOL_URL }}" target="_blank" rel="noopener" class="text-brand-600 hover:underline">Google’ın yorum yönetim aracı ↗</a>
+                                        @if (($places[$review['asset_id']] ?? '') !== '')<a href="https://www.google.com/maps/place/?q=place_id:{{ $places[$review['asset_id']] }}" target="_blank" rel="noopener" class="text-brand-600 hover:underline">Haritada aç ↗</a>@endif
+                                    </div>
+                                    @if ($canWrite)<div class="mt-1 flex gap-3 font-medium"><button type="button" wire:click="markReported({{ $review['id'] }})" class="text-success-600 hover:underline">Google’a bildirdim</button><button type="button" wire:click="startFlag({{ $review['id'] }})" class="text-gray-500 hover:underline">Düzenle</button><button type="button" wire:click="closeFlag({{ $review['id'] }}, 'cancel')" wire:confirm="Kaldırma talebi silinsin mi?" class="text-gray-500 hover:underline">Sil</button></div>@endif
+                                @elseif ($flag['status'] === 'reported' && $canWrite)
+                                    <p class="mt-1 text-gray-600 dark:text-gray-300">Google genelde birkaç gün içinde karar verir; yorum kalkınca bir sonraki tam yorum toplamasında “Kaldırıldı” olur. Google reddederse aynı araçtan bir kez itiraz edebilirsiniz.</p>
+                                    <div class="mt-1 flex gap-3 font-medium"><button type="button" wire:click="closeFlag({{ $review['id'] }}, 'kept')" class="text-gray-600 hover:underline">Google kaldırmadı</button><a href="{{ \App\Services\Gbp\Desk\ReviewFlags::TOOL_URL }}" target="_blank" rel="noopener" class="text-brand-600 hover:underline">Durumu Google’da gör ↗</a></div>
+                                @endif
+                            @endif
+                        </div>
+                    @elseif ($canWrite && ! $review['answered'])
+                        <button type="button" wire:click="startFlag({{ $review['id'] }})" @class(['mt-2 self-start text-[11px] hover:underline', 'text-rose-600' => ($review['rating'] ?? 5) <= 2, 'text-gray-400' => ($review['rating'] ?? 5) > 2])>Kaldırılmasını iste</button>
+                    @endif
                 </article>
             @empty
                 <p class="col-span-full rounded-xl bg-white px-4 py-5 text-sm text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">{{ $status === 'bekleyen' ? 'Yanıt bekleyen yorum yok.' : 'Bu süzgeçte yorum yok.' }}</p>

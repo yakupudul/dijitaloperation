@@ -19,6 +19,7 @@ use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\GbpBranchPage;
 use App\Models\GbpPhoto;
+use App\Models\GbpReviewFlag;
 use App\Models\Page;
 use App\Models\ServiceCategory;
 use App\Models\User;
@@ -28,6 +29,7 @@ use App\Services\Gbp\Desk\GbpDesk;
 use App\Services\Gbp\Desk\GbpPerformance;
 use App\Services\Gbp\Desk\PhotoPlan;
 use App\Services\Gbp\Desk\ReviewDesk;
+use App\Services\Gbp\Desk\ReviewFlags;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -373,6 +375,65 @@ final class GbpDeskTest extends TestCase
         $response->assertOk()->assertHeader('content-type', 'application/pdf');
         $this->assertStringContainsString('yorum-yanitlari-panorama-', (string) $response->headers->get('content-disposition'));
         $this->assertStringStartsWith('%PDF', (string) $response->getContent());
+    }
+
+    public function test_a_bad_review_is_prepared_for_googles_removal_tool_and_followed_until_removed(): void
+    {
+        $id = DB::table('gbp_reviews')->insertGetId(['external_resource_id' => $this->resourceId, 'run_id' => 1, 'location_name' => 'locations/22', 'review_id' => 'r7',
+            'reviewer' => json_encode(['displayName' => 'Rakip K']), 'star_rating' => 'ONE', 'comment' => 'Berbat bir yer.', 'create_time' => '2026-10-04 10:00:00',
+            'review_reply' => null, 'raw_payload' => '{}', 'collected_at' => now()->subDays(2), 'created_at' => now(), 'updated_at' => now()]);
+
+        $page = Livewire::actingAs($this->admin)->test(ReviewsPage::class)
+            ->assertSee('Kaldırılmasını iste')
+            ->call('startFlag', $id)
+            ->set('flagReason', 'nonsense')
+            ->call('saveFlag')
+            ->assertSet('flagging', $id)
+            ->set('flagReason', 'spam')
+            ->set('flagNote', 'Kayıtlarımızda bu isimde hasta yok.')
+            ->call('saveFlag')
+            ->assertSet('flagging', null)
+            ->assertSee('Bildirilecek')
+            ->assertSee('Kayıtlarımızda bu isimde hasta yok.')
+            ->assertSee('place_id:ChIJtest123', false)
+            ->call('markReported', $id)
+            ->assertSee('Google’a bildirildi');
+        $this->assertSame(GbpReviewFlag::REPORTED, GbpReviewFlag::query()->sole()->status);
+        $page->call('setStatus', 'bildirim')->assertSee('Berbat bir yer.');
+
+        $flags = app(ReviewFlags::class);
+        $this->assertSame(GbpReviewFlag::REPORTED, $flags->forReviews([$id])[$id]['status'], 'no full collection since the report yet');
+
+        $this->travel(3)->days();
+        CoreExternalResource::query()->whereKey($this->resourceId)->update(['metadata' => ['gbp_reviews_full_sync_at' => now()->toIso8601String()]]);
+        $this->assertSame('removed', $flags->forReviews([$id])[$id]['status'], 'the full collection no longer returned it');
+        $this->assertSame('Kaldırıldı', GbpReviewFlag::STATUS_LABELS[GbpReviewFlag::query()->sole()->status]);
+
+        $flags->close($id, 'cancel');
+        $this->assertSame(0, GbpReviewFlag::query()->count());
+    }
+
+    public function test_reviews_can_be_narrowed_to_one_business_location(): void
+    {
+        $second = $this->secondBranch();
+        $secondResource = (int) CoreAssetBinding::query()->where('digital_asset_id', $second->id)->value('external_resource_id');
+        foreach ([[$this->resourceId, 'r1', 'Çankaya yorumu'], [$secondResource, 'r2', 'Kızılay yorumu']] as [$resource, $rid, $comment]) {
+            DB::table('gbp_reviews')->insert(['external_resource_id' => $resource, 'run_id' => 1, 'location_name' => 'locations/x', 'review_id' => $rid,
+                'reviewer' => json_encode(['displayName' => 'Ali']), 'star_rating' => 'FOUR', 'comment' => $comment, 'create_time' => '2026-10-04 10:00:00',
+                'review_reply' => null, 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        }
+
+        Livewire::actingAs($this->admin)->test(ReviewsPage::class)
+            ->assertSeeHtml('data-testid="gbp-review-locations"')
+            ->assertSee('Çankaya yorumu')
+            ->assertSee('Kızılay yorumu')
+            ->call('setLocation', $second->id)
+            ->assertSet('location', $second->id)
+            ->assertSee('Kızılay yorumu')
+            ->assertDontSee('Çankaya yorumu')
+            ->set('brand', $this->brand->id)
+            ->assertSet('location', null)
+            ->assertSee('Çankaya yorumu');
     }
 
     public function test_the_profiles_asset_page_shows_the_desk_checks_and_what_was_sent(): void

@@ -27,6 +27,9 @@ final class GbpReviewRepliesPdfController extends Controller
         abort_unless($actor instanceof User && $actor->is_active, 403);
         $brandId = $request->integer('marka') ?: null;
         $locations = $desk->locations($brandId);
+        if ($request->integer('isletme') > 0 && $locations->contains('id', $request->integer('isletme'))) {
+            $locations = $locations->where('id', $request->integer('isletme'))->values();
+        }
         $resources = $daily->resourceIds($locations->pluck('id')->map(fn ($id): int => (int) $id)->all());
         $picked = array_filter(array_map('intval', explode(',', (string) $request->query('yorumlar', ''))));
         $rows = array_values(array_filter($reviews->reviews($resources, 'bekleyen', '', 2000)['rows'],

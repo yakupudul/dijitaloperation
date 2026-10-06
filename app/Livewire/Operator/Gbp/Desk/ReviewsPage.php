@@ -2,10 +2,13 @@
 
 namespace App\Livewire\Operator\Gbp\Desk;
 
+use App\Models\DigitalAsset;
 use App\Services\Gbp\Desk\GbpDesk;
 use App\Services\Gbp\Desk\ReviewDesk;
+use App\Services\Gbp\Desk\ReviewFlags;
 use App\Services\Gbp\GbpDailyWorkspace;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -50,6 +53,17 @@ final class ReviewsPage extends Component
 
     public bool $previewOpen = false;
 
+    /** One profile of the brand (null = all profiles in the brand filter). */
+    #[Url(as: 'isletme')]
+    public ?int $location = null;
+
+    /** Review whose removal request is being written, its Google reason and the operator's note. */
+    public ?int $flagging = null;
+
+    public string $flagReason = '';
+
+    public string $flagNote = '';
+
     public function mount(): void
     {
         abort_unless(auth()->user()?->is_active, 403);
@@ -61,6 +75,55 @@ final class ReviewsPage extends Component
     public function setSection(string $section): void
     {
         $this->section = in_array($section, ['yanit', 'iste'], true) ? $section : 'yanit';
+    }
+
+    public function setLocation(?int $location = null): void
+    {
+        $this->location = $location;
+        $this->resetList();
+    }
+
+    public function updatedBrand(mixed $value): void
+    {
+        $this->brand = filled($value) ? (int) $value : null;
+        $this->location = null;
+        $this->resetList();
+    }
+
+    public function startFlag(int $reviewId): void
+    {
+        abort_unless($this->canWrite(), 403);
+        $this->flagging = $reviewId;
+        $flag = app(ReviewFlags::class)->forReviews([$reviewId])[$reviewId] ?? null;
+        $this->flagReason = $flag['reason'] ?? '';
+        $this->flagNote = (string) ($flag['note'] ?? '');
+    }
+
+    public function saveFlag(ReviewDesk $desk, ReviewFlags $flags): void
+    {
+        abort_unless($this->canWrite(), 403);
+        $review = collect($this->reviews($desk))->firstWhere('id', $this->flagging) ?? abort(404);
+        try {
+            $flags->save(auth()->user(), (int) $review['id'], (int) $review['asset_id'], $this->flagReason, $this->flagNote);
+            $this->flagging = null;
+            $this->say('Kaldırma talebi hazır: kartta Google’ın aracını açıp bildirin, sonra “Google’a bildirdim” deyin.');
+        } catch (ValidationException $exception) {
+            $this->sayError($exception);
+        }
+    }
+
+    public function markReported(int $reviewId, ReviewFlags $flags): void
+    {
+        abort_unless($this->canWrite(), 403);
+        $flags->markReported($reviewId);
+        $this->say('Bildirim kaydedildi; Google kaldırırsa bir sonraki tam yorum toplamasında “Kaldırıldı” olur.');
+    }
+
+    public function closeFlag(int $reviewId, string $status, ReviewFlags $flags): void
+    {
+        abort_unless($this->canWrite(), 403);
+        $flags->close($reviewId, $status);
+        $this->flagging = null;
     }
 
     public function setStatus(string $status): void
@@ -130,7 +193,7 @@ final class ReviewsPage extends Component
     /** Address of the brand approval PDF: the picked reviews, else every waiting review with a reply text in scope. */
     public function pdfUrl(): string
     {
-        return route('operator.gbp-review-replies-pdf', array_filter(['marka' => $this->brand, 'yorumlar' => $this->selected !== [] ? implode(',', array_map('intval', $this->selected)) : null]));
+        return route('operator.gbp-review-replies-pdf', array_filter(['marka' => $this->brand, 'isletme' => $this->location, 'yorumlar' => $this->selected !== [] ? implode(',', array_map('intval', $this->selected)) : null]));
     }
 
     public function openPreview(ReviewDesk $desk): void
@@ -208,16 +271,29 @@ final class ReviewsPage extends Component
     /** @return array{rows: list<array<string, mixed>>, total: int} */
     private function list(ReviewDesk $desk): array
     {
-        $resources = app(GbpDailyWorkspace::class)->resourceIds($this->scopedLocations()->pluck('id')->map(fn ($id): int => (int) $id)->all());
+        $resources = app(GbpDailyWorkspace::class)->resourceIds($this->reviewLocations()->pluck('id')->map(fn ($id): int => (int) $id)->all());
 
         return $desk->reviews($resources, $this->status, $this->rating, $this->limit);
     }
 
-    public function render(ReviewDesk $desk, GbpDailyWorkspace $daily): View
+    /** @return Collection<int, DigitalAsset> the brand's profiles, or the one picked */
+    private function reviewLocations(): Collection
     {
         $locations = $this->scopedLocations();
+
+        return $this->location !== null && $locations->contains('id', $this->location) ? $locations->where('id', $this->location)->values() : $locations;
+    }
+
+    public function render(ReviewDesk $desk, GbpDailyWorkspace $daily, ReviewFlags $flags): View
+    {
+        $all = $this->scopedLocations();
+        if ($this->location !== null && ! $all->contains('id', $this->location)) {
+            $this->location = null;
+        }
+        $allStats = $desk->stats($daily->resourceIds($all->pluck('id')->map(fn ($id): int => (int) $id)->all()));
+        $locations = $this->reviewLocations();
         $resources = $daily->resourceIds($locations->pluck('id')->map(fn ($id): int => (int) $id)->all());
-        $stats = $desk->stats($resources);
+        $stats = array_intersect_key($allStats, $resources);
         $list = $this->section === 'yanit' ? $desk->reviews($resources, $this->status, $this->rating, $this->limit) : ['rows' => [], 'total' => 0];
         $reviews = $list['rows'];
         foreach ($reviews as $review) {
@@ -227,8 +303,8 @@ final class ReviewsPage extends Component
         }
         $kits = [];
         if ($this->section === 'iste') {
-            foreach ($locations as $location) {
-                $kits[$location->id] = $desk->kit($location);
+            foreach ($locations as $item) {
+                $kits[$item->id] = $desk->kit($item);
             }
         }
         $ids = array_flip(array_map('intval', $this->selected));
@@ -246,10 +322,17 @@ final class ReviewsPage extends Component
             }
         }
         $open = array_filter($reviews, fn (array $r): bool => ! ReviewDesk::busy($r));
+        $flagged = $flags->forReviews(array_column($reviews, 'id'));
+        $places = [];
+        foreach (app(GbpDesk::class)->snapshots(array_values(array_unique(array_map(fn (array $r): int => $r['asset_id'], array_filter($reviews, fn (array $r): bool => isset($flagged[$r['id']]) || $r['id'] === $this->flagging))))) as $assetId => $snapshot) {
+            $places[$assetId] = (string) ($snapshot['place_id'] ?? '');
+        }
+        $chips = $all->map(fn ($l): array => ['id' => (int) $l->id, 'name' => GbpDesk::shortName((string) $l->name), 'unanswered' => (int) ($allStats[$l->id]['unanswered'] ?? 0)])
+            ->sortBy([['unanswered', 'desc'], ['name', 'asc']])->values()->all();
 
         return view('livewire.operator.gbp.desk.reviews', [
             'groups' => $locations->groupBy(fn ($l): string => (string) $l->brand?->name),
-            'names' => $locations->mapWithKeys(fn ($l): array => [$l->id => GbpDesk::shortName((string) $l->name)])->all(),
+            'names' => $all->mapWithKeys(fn ($l): array => [$l->id => GbpDesk::shortName((string) $l->name)])->all(),
             'stats' => $stats,
             'reviews' => $reviews,
             'total' => $list['total'],
@@ -263,6 +346,10 @@ final class ReviewsPage extends Component
             'readyCount' => count(array_filter($picked, fn (array $r): bool => trim($this->text($r)) !== '')),
             'openCount' => count($open),
             'preview' => $preview,
+            'flags' => $flagged,
+            'places' => $places,
+            'chips' => count($chips) > 1 ? $chips : [],
+            'allUnanswered' => array_sum(array_column($allStats, 'unanswered')),
             'drafting' => collect($reviews)->contains(fn (array $r): bool => $r['draft_state'] === 'running'),
             'canWrite' => $this->canWrite(),
             'brandOptions' => $this->brandOptions(),
