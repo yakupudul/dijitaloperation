@@ -219,6 +219,9 @@ final class ClusterOverlaps
                 continue;
             }
             $error = (string) ($result['error'] ?? $write->error ?? 'site yanıt vermedi');
+            if (str_contains($error, 'no SEO plugin can hold redirects')) {
+                $error = 'Sitede yönlendirme alanı olan SEO eklentisi yok (Rank Math, SEOPress Pro, Yoast SEO Premium ya da Redirection gerekli); 301 MoxDOP eklentisine yazılmaz.';
+            }
             $suggestion->forceFill(['status' => Suggestion::OPEN, 'resolved_at' => null, 'action' => array_merge($action, ['merge_error' => mb_substr($error, 0, 300)])])->save();
         }
     }

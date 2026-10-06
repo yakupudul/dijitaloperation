@@ -57,7 +57,7 @@ final class WorkDesk
 
     /** Row buttons beyond Onayla / Yaptım: code => label. */
     /** Where the connector wrote a merge's 301 (connector 1.9.0 result). */
-    public const array REDIRECT_PROVIDERS = ['rank_math' => 'Rank Math', 'yoast' => 'Yoast Premium', 'redirection' => 'Redirection', 'moxdop' => 'MoxDOP eklentisi'];
+    public const array REDIRECT_PROVIDERS = ['rank_math' => 'Rank Math', 'seopress' => 'SEOPress Pro', 'yoast' => 'Yoast Premium', 'redirection' => 'Redirection', 'moxdop' => 'MoxDOP eklentisi'];
 
     public const array ACTIONS = [
         'gap_fix' => 'Onayla ve yap',

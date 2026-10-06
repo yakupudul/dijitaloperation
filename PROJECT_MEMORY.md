@@ -1981,8 +1981,10 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   (site görseli ya da yüklenen şube fotoğrafı) Admin onayıyla MoxDOP'tan gider, hepsi geri alınabilir. Şube sayfası AI
   metni + profilden kuralla gelen adres / saat / işaretleme ile WordPress'e taslak gider; yayınlamak WordPress'te.
 - **301 birleştirme ve küme çakışma kuralları (yakup, 2026-10-05):** "301 ile birleştir" yönlendirmeyi bizim eklentinin
-  listesine değil sitedeki SEO eklentisine yazar (Rank Math yönlendirme modülü, Yoast Premium ya da Redirection; hiçbiri
-  yoksa eklentinin kendi listesi), yönlendirilen sayfa silinmez, taslağa alınır (Connector 1.9.0, geri alınabilir).
+  listesine değil sitedeki SEO eklentisine yazar (Rank Math, SEOPress Pro, Yoast Premium ya da Redirection; Rank Math /
+  SEOPress yönlendirme özelliği kapalıysa açılır). 2026-10-06 (yakup): bizim eklentinin kendi listesine artık hiç yazılmaz;
+  uygun SEO eklentisi yoksa iş hata ile açık kalır, listede eskiden kalanlar SEO eklentisine taşınır. Yönlendirilen sayfa
+  silinmez, taslağa alınır (geri alınabilir).
   Tek tek ya da toplu (seçilenler / karttaki tüm 301'ler) yapılır. İş, site onaylayınca "yapıldı" olur; site hata
   verirse hata yazısıyla yeniden açılır. Kurallar: hizmet / lokasyon sayfası blog / S&C sayfasına 301'lenmez; kümenin
   gösterimlerinin çoğunu alan sayfa 301'lenmez ("Ana sayfayı gözden geçir", "Ana sayfa bu olsun" düğmesi); bir sayfa

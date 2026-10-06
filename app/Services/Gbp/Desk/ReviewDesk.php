@@ -64,28 +64,51 @@ final class ReviewDesk
         return $out;
     }
 
+    /** Review list filters: waiting for a reply (oldest first), answered, all (newest first). */
+    public const array STATUSES = ['bekleyen' => 'Yanıt bekleyen', 'yanitli' => 'Yanıtlanan', 'tumu' => 'Tümü'];
+
+    /** Rows loaded per scroll step on the review grid. */
+    public const int PAGE = 48;
+
     /**
      * Unanswered reviews of the given profiles, oldest waiting first, with their draft and reply state.
      *
      * @param  array<int, int>  $resources  asset id => resource id
-     * @return list<array{id: int, asset_id: int, rating: ?int, reviewer: string, comment: string, date: string, waiting: string, late: bool, draft: ?string, draft_state: ?string, action: ?array<string, mixed>}>
+     * @return list<array{id: int, asset_id: int, rating: ?int, reviewer: string, comment: string, date: string, waiting: string, late: bool, answered: bool, reply: string, draft: ?string, draft_state: ?string, action: ?array<string, mixed>}>
      */
     public function unanswered(array $resources, string $rating = '', int $limit = 100): array
     {
+        return $this->reviews($resources, 'bekleyen', $rating, $limit)['rows'];
+    }
+
+    /**
+     * Reviews of the given profiles for the review grid: waiting ones oldest first, answered / all newest first.
+     *
+     * @param  array<int, int>  $resources  asset id => resource id
+     * @return array{rows: list<array{id: int, asset_id: int, rating: ?int, reviewer: string, comment: string, date: string, waiting: string, late: bool, answered: bool, reply: string, draft: ?string, draft_state: ?string, action: ?array<string, mixed>}>, total: int}
+     */
+    public function reviews(array $resources, string $status = 'bekleyen', string $rating = '', int $limit = self::PAGE): array
+    {
         $assetByResource = array_flip($resources);
-        $rows = DB::table('gbp_reviews')->whereIn('external_resource_id', array_values($resources))
-            ->whereRaw("(review_reply is null or cast(review_reply as text) in ('', 'null', '[]'))")
-            ->when(isset(GbpDailyWorkspace::RATING_FILTERS[$rating]), fn ($q) => $q->whereIn('star_rating', GbpDailyWorkspace::RATING_FILTERS[$rating]))
-            ->orderBy('create_time')->limit($limit)->get(['id', 'external_resource_id', 'reviewer', 'star_rating', 'comment', 'create_time']);
+        $open = "(review_reply is null or cast(review_reply as text) in ('', 'null', '[]'))";
+        $query = DB::table('gbp_reviews')->whereIn('external_resource_id', array_values($resources))
+            ->when($status === 'bekleyen', fn ($q) => $q->whereRaw($open))
+            ->when($status === 'yanitli', fn ($q) => $q->whereRaw('not '.$open))
+            ->when(isset(GbpDailyWorkspace::RATING_FILTERS[$rating]), fn ($q) => $q->whereIn('star_rating', GbpDailyWorkspace::RATING_FILTERS[$rating]));
+        $total = (clone $query)->count();
+        $rows = $query->when($status === 'bekleyen', fn ($q) => $q->orderBy('create_time'), fn ($q) => $q->orderByDesc('create_time'))->orderBy('id')
+            ->limit($limit)->get(['id', 'external_resource_id', 'reviewer', 'star_rating', 'comment', 'create_time', 'review_reply']);
         $ids = $rows->pluck('id')->map(fn ($id): int => (int) $id)->all();
         $drafts = $ids === [] ? collect() : AiProduction::query()->where('kind', ReviewReplyDrafter::KIND)->where('subject_type', 'GbpReview')->whereIn('subject_id', $ids)
             ->where('status', '!=', AiProduction::STATUS_DISCARDED)->orderBy('version')->get()->keyBy('subject_id');
         $actions = $this->daily->replyActions($ids);
 
-        return $rows->map(function (object $row) use ($assetByResource, $drafts, $actions): array {
+        $out = $rows->map(function (object $row) use ($assetByResource, $drafts, $actions): array {
             $created = $row->create_time !== null ? CarbonImmutable::parse((string) $row->create_time) : null;
             $hours = $created !== null ? (int) $created->diffInHours(now(), true) : null;
             $reviewer = json_decode((string) $row->reviewer, true);
+            $answered = ! self::noReply($row->review_reply);
+            $reply = $answered ? json_decode((string) $row->review_reply, true) : null;
 
             return [
                 'id' => (int) $row->id,
@@ -99,12 +122,39 @@ final class ReviewDesk
                     $hours < 48 => $hours.' saat',
                     default => intdiv($hours, 24).' gün',
                 },
-                'late' => $hours !== null && $hours > GbpDailyWorkspace::REPLY_SLA_HOURS,
+                'late' => ! $answered && $hours !== null && $hours > GbpDailyWorkspace::REPLY_SLA_HOURS,
+                'answered' => $answered,
+                'reply' => is_array($reply) ? trim((string) ($reply['comment'] ?? '')) : '',
                 'draft' => $drafts->has((int) $row->id) ? (string) data_get($drafts[(int) $row->id]->content, 'reply') : null,
-                'draft_state' => $this->drafter->state((int) $row->id),
+                'draft_state' => $answered ? null : $this->drafter->state((int) $row->id),
                 'action' => $actions[(int) $row->id] ?? null,
             ];
         })->values()->all();
+
+        return ['rows' => $out, 'total' => $total];
+    }
+
+    /** First name of a reviewer for a shared reply ("{ad}"); empty for anonymous Google users. */
+    public static function firstName(string $reviewer): string
+    {
+        $first = trim((string) strtok(trim($reviewer), ' '));
+
+        return $first === '' || $first === '—' || str_contains(mb_strtolower($reviewer), 'google') ? '' : $first;
+    }
+
+    /** A shared reply for one review: "{ad}" becomes the reviewer's first name (dropped with its comma when unknown). */
+    public static function personalize(string $text, string $reviewer): string
+    {
+        $name = self::firstName($reviewer);
+        $out = $name !== '' ? str_replace('{ad}', $name, $text) : (string) preg_replace('/\s*\{ad\}/u', '', $text);
+
+        return trim((string) preg_replace('/^,\s*|\s+([,.!?])/u', '$1', $out));
+    }
+
+    /** True when a reply is on its way to Google or already there (no new reply can be sent). */
+    public static function busy(array $review): bool
+    {
+        return $review['answered'] || ($review['action'] !== null && in_array($review['action']['status'], ['queued', 'running', 'succeeded'], true));
     }
 
     /**
@@ -119,7 +169,7 @@ final class ReviewDesk
             if ($queued >= self::DRAFT_BATCH) {
                 break;
             }
-            if ($review['draft'] !== null || $review['draft_state'] === 'running' || $review['action'] !== null) {
+            if (($review['answered'] ?? false) || $review['draft'] !== null || $review['draft_state'] === 'running' || $review['action'] !== null) {
                 continue;
             }
             $model = GbpReview::query()->find($review['id']);
@@ -153,7 +203,7 @@ final class ReviewDesk
         $sent = 0;
         $failed = 0;
         foreach ($reviews as $review) {
-            if ($review['draft'] === null || trim((string) $review['draft']) === '' || ($review['action'] !== null && in_array($review['action']['status'], ['queued', 'running', 'succeeded'], true))) {
+            if ($review['draft'] === null || trim((string) $review['draft']) === '' || self::busy($review + ['answered' => false])) {
                 continue;
             }
             try {

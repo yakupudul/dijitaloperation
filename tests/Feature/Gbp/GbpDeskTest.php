@@ -321,6 +321,43 @@ final class GbpDeskTest extends TestCase
             ->assertOk()->assertSee('Panorama Çankaya')->assertSee('Google’da', false);
     }
 
+    public function test_review_grid_picks_fills_a_shared_reply_previews_and_publishes_in_bulk(): void
+    {
+        $review = fn (string $id, string $stars, string $comment, ?array $reply, string $created, string $name): int => DB::table('gbp_reviews')->insertGetId(['external_resource_id' => $this->resourceId,
+            'run_id' => 1, 'location_name' => 'locations/22', 'review_id' => $id, 'reviewer' => json_encode(['displayName' => $name]), 'star_rating' => $stars, 'comment' => $comment,
+            'create_time' => $created, 'review_reply' => $reply !== null ? json_encode($reply) : null, 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        $silent = $review('r1', 'FIVE', '', null, '2026-10-02 10:00:00', 'Ayşe Yılmaz');
+        $review('r2', 'TWO', 'Çok beklettiler.', null, '2026-10-03 10:00:00', 'Mehmet K');
+        $review('r3', 'FIVE', 'Harika', ['comment' => 'Teşekkürler'], '2026-10-04 10:00:00', 'Can');
+
+        $desk = app(ReviewDesk::class);
+        $all = $desk->reviews([$this->location->id => $this->resourceId], 'tumu');
+        $this->assertSame(3, $all['total']);
+        $this->assertSame(['Teşekkürler'], array_values(array_filter(array_column($all['rows'], 'reply'))));
+        $this->assertSame(1, $desk->reviews([$this->location->id => $this->resourceId], 'yanitli')['total']);
+        $this->assertSame('Teşekkür ederiz!', ReviewDesk::personalize('Teşekkür ederiz {ad}!', 'Bir Google kullanıcısı'));
+        $this->assertSame('Teşekkür ederiz Ayşe!', ReviewDesk::personalize('Teşekkür ederiz {ad}!', 'Ayşe Yılmaz'));
+
+        Livewire::actingAs($this->admin)->test(ReviewsPage::class)
+            ->assertSee('Çok beklettiler.')
+            ->call('setStatus', 'tumu')
+            ->assertSee('Yanıtlandı')
+            ->call('pick', 'silent')
+            ->assertSet('selected', [$silent])
+            ->set('bulkText', 'Teşekkür ederiz {ad}, yine bekleriz!')
+            ->call('fillSelected')
+            ->assertSet('replies.r'.$silent, 'Teşekkür ederiz Ayşe, yine bekleriz!')
+            ->call('openPreview')
+            ->assertSee('Yayımlamadan önce oku')
+            ->call('publishSelected')
+            ->assertSet('message', '1 yanıt Google’a gönderiliyor.')
+            ->assertSet('selected', []);
+
+        $put = collect($this->writes())->first(fn (array $c): bool => $c[0] === 'PUT');
+        $this->assertStringEndsWith('/reviews/r1/reply', $put[1]);
+        $this->assertSame('Teşekkür ederiz Ayşe, yine bekleriz!', $put[2]['comment']);
+    }
+
     public function test_monthly_report_compares_the_last_full_month_with_the_one_before(): void
     {
         $row = fn (string $date, string $metric, int $value): bool => DB::table('gbp_performance_daily')->insert(['external_resource_id' => $this->resourceId, 'run_id' => 1, 'location_name' => 'locations/22',
@@ -352,7 +389,7 @@ final class GbpDeskTest extends TestCase
         foreach (['operator.gbp-desk', 'operator.gbp-posts', 'operator.gbp-branch-pages', 'operator.gbp-profile-fields', 'operator.gbp-photos'] as $route) {
             $this->get(route($route))->assertOk()->assertSee('İşletme profilleri')->assertSee('Panorama Çankaya');
         }
-        $this->get(route('operator.gbp-reviews'))->assertOk()->assertSee('Yanıtsız yorum yok.');
+        $this->get(route('operator.gbp-reviews'))->assertOk()->assertSee('Yanıt bekleyen yorum yok.');
         $this->get(route('operator.gbp-profile-fields', ['bolum' => 'saatler']))->assertOk()->assertSee('Cumhuriyet Bayramı');
         $this->get(route('operator.gbp-reviews', ['bolum' => 'iste']))->assertOk()->assertSee('writereview?placeid=ChIJtest123', false);
         $this->get(route('operator.gbp-desk', ['isletme' => $this->location->id]))->assertOk();
