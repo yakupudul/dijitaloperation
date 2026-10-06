@@ -376,7 +376,7 @@ final class OperationalAlertEvaluator
     {
         // Use Prompt27 due query — never max stored date / full history scan. Idle / dormant accounts are collected
         // weekly with the light set only: the due query judges them by that set with the weekly interval as grace.
-        // Never activity_gate here: a gate pass moves the weekly clock and would postpone their weekly collection.
+        // Never activity_gate here: a gate pass is a planning record (savings log, provider change check), not a status read.
         try {
             $items = $this->dueCollections->query([
                 'include_action_required' => true,

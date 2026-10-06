@@ -279,8 +279,11 @@ class ActivityAwareCollectionTest extends TestCase
         $pass = DB::table('collection_activity_passes')->where('external_resource_id', $idle->id)->first();
         $this->assertSame(['light', 1, $total - 1], [$pass->mode, (int) $pass->planned_datasets, (int) $pass->skipped_datasets]);
 
-        // Weekly: not due again until seven days after the light pass.
+        // Planning alone does not start the weekly clock (a failed pass must be retried soon); its success does.
         $gate = app(CollectionActivityGate::class);
+        $this->assertTrue($gate->plan($idle)->due);
+        $gate->markLightCheck((int) $idle->id);
+        // Weekly: not due again until seven days after the light pass.
         $this->assertFalse($gate->plan($idle)->due);
         $automation = ResourceAutomation::query()->where('external_resource_id', $idle->id)->first();
         $this->assertSame('2026-10-04', app(ResourceAutomationService::class)->nextAt($automation)->toDateString());
@@ -297,7 +300,7 @@ class ActivityAwareCollectionTest extends TestCase
         $check = $this->googleAdsPlan($dormant);
         $this->assertSame('check', $check['activity']['mode']);
         $this->assertSame([GoogleAdsCentralRequestFamilyCatalog::ACCOUNT_DAILY], array_column($check['families'], 'family'));
-        $this->assertSame(['start' => '2026-09-27', 'end' => '2026-10-03'], $check['families'][0]['date_range'], 'dormant: last 7 days only');
+        $this->assertSame(['start' => '2026-07-02', 'end' => '2026-10-03'], $check['families'][0]['date_range'], 'dormant: account totals from the day after the stored coverage, no gap');
     }
 
     public function test_resumed_activity_returns_to_full_collection_and_backfills_the_gap(): void

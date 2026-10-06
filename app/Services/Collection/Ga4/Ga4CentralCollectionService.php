@@ -208,8 +208,16 @@ final class Ga4CentralCollectionService
                 }
 
                 // A dataset that keeps failing (e.g. ga4_page_content_daily) must not freeze the property totals:
-                // every repair also brings ga4_property_daily up to date from its own coverage.
+                // every repair also brings ga4_property_daily up to date from its own coverage. When property daily is
+                // itself the failed dataset its old range is extended through yesterday (fresh checkpoint: the slices
+                // change), so a failed weekly pass does not leave the days since then for another week.
                 $property = Ga4RequestFamilyCatalog::FAMILY_PROPERTY_DAILY;
+                $failedRange = $familyRanges[$property] ?? null;
+                if (is_array($failedRange) && isset($failedRange['start'], $failedRange['end'])
+                    && (string) $failedRange['end'] < $closedEnd->toDateString()) {
+                    $familyRanges[$property] = ['start' => (string) $failedRange['start'], 'end' => $closedEnd->toDateString()];
+                    $familyCheckpoints[$property] = [];
+                }
                 if (! array_key_exists($property, $familyRanges)) {
                     $covered = app(ResourceAutomationService::class)->coverageEnd($resource->id, 'GA4', $property);
                     $restatementStart = $closedEnd->subDays(self::RESTATEMENT_DAYS - 1)->toDateString();

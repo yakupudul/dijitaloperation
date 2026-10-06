@@ -119,7 +119,8 @@ class CollectionActivityGate
 
     /**
      * Logs one planning pass for this account: how many datasets were planned and how many the activity gate
-     * avoided, and starts the weekly clock of idle / dormant accounts.
+     * avoided. Planning does not move the weekly clock of idle / dormant accounts: a pass that fails must be retried
+     * soon, so the clock starts only when the light / check collection succeeded (markLightCheck).
      *
      * @param  array<string, mixed>  $detail
      */
@@ -138,14 +139,29 @@ class CollectionActivityGate
             'detail' => json_encode($detail, JSON_THROW_ON_ERROR),
             'created_at' => now(),
         ]);
-        if (! $plan->isFull()) {
-            DB::table('resource_activity')->where('external_resource_id', $plan->externalResourceId)
-                ->update(['last_light_check_at' => now(), 'updated_at' => now()]);
-        }
         Log::info(sprintf(
             'collection.activity.pass resource=%d provider=%s tier=%s mode=%s planned=%d skipped=%d',
             $plan->externalResourceId, $plan->provider, $plan->tier->value, $plan->mode, $planned, $skipped,
         ), $detail);
+    }
+
+    /** A light / check collection of an idle / dormant account succeeded: its next weekly pass is due in a week. */
+    public function markLightCheck(int $externalResourceId): void
+    {
+        if ($this->enabled()) {
+            DB::table('resource_activity')->where('external_resource_id', $externalResourceId)
+                ->update(['last_light_check_at' => now(), 'updated_at' => now()]);
+        }
+    }
+
+    /** "Şimdi güncelle": the next admission collects an idle / dormant account without waiting for its weekly pass. */
+    public function resetLightCheck(int $externalResourceId): void
+    {
+        if ($this->enabled()) {
+            DB::table('resource_activity')->where('external_resource_id', $externalResourceId)
+                ->whereNotNull('last_light_check_at')
+                ->update(['last_light_check_at' => null, 'updated_at' => now()]);
+        }
     }
 
     /** A Google Ads account gets the deep (late conversion) restatement window at most weekly. */

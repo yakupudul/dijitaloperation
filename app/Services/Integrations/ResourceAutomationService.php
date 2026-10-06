@@ -17,6 +17,7 @@ use App\Models\Observability\OperationalAlert;
 use App\Models\ResourceAutomation;
 use App\Models\Run;
 use App\Models\User;
+use App\Services\Collection\Activity\ActivityCollectionPlan;
 use App\Services\Collection\Activity\ActivityTierService;
 use App\Services\Collection\Activity\CollectionActivityGate;
 use App\Services\Collection\Ga4\Ga4CentralCollectionService;
@@ -90,13 +91,19 @@ final class ResourceAutomationService
         });
     }
 
+    /**
+     * "Şimdi güncelle": due on the next tick. An idle / dormant account's weekly clock is cleared too, otherwise
+     * admission would put it back to its next weekly pass.
+     */
     public function runNow(int $id, User $actor): void
     {
         $this->authorize($actor);
-        ResourceAutomation::query()->findOrFail($id)->update([
+        $automation = ResourceAutomation::query()->findOrFail($id);
+        $automation->update([
             'collection_enabled' => true, 'next_collection_at' => now(),
             'collection_error' => null, 'collection_failures' => 0, 'updated_by' => $actor->id,
         ]);
+        app(CollectionActivityGate::class)->resetLightCheck((int) $automation->external_resource_id);
     }
 
     public function tick(): void
@@ -449,15 +456,34 @@ final class ResourceAutomationService
                 'collection_error' => $finished && ! $success ? 'collection_failed' : null,
                 'collection_failures' => 0,
                 'last_collection_success_at' => $success ? now() : $automation->last_collection_success_at,
+                'data_through' => $success ? $this->gbpDataThrough($automation) : $automation->data_through,
                 'next_collection_at' => $finished ? $this->nextAt($automation)
                     : now()->addMinutes((int) data_get($run->metadata, 'retry_minutes', 0)),
             ]);
             if ($finished) {
                 $this->alert($automation->id, 'collection', $success ? null : 'collection_failed', $success ? [] : $this->gbpFailureCause($run, $core));
             }
-            if ($finished && $success) {
-            }
         });
+    }
+
+    /**
+     * A Business Profile location's "veri sonu": its latest stored performance day. GBP writes no CollectionDatasetRun,
+     * so the date comes from the facts; it never moves backwards.
+     */
+    private function gbpDataThrough(ResourceAutomation $automation): ?string
+    {
+        $latest = DB::table('gbp_performance_daily')->where('external_resource_id', $automation->external_resource_id)->max('reporting_date');
+
+        return self::laterDate($automation->data_through, $latest);
+    }
+
+    /** The later of two dates (Y-m-d; PostgreSQL date / SQLite text), so a data-through mark never moves backwards. */
+    private static function laterDate(mixed $current, mixed $candidate): ?string
+    {
+        $current = filled($current) ? substr((string) $current, 0, 10) : null;
+        $candidate = filled($candidate) ? substr((string) $candidate, 0, 10) : null;
+
+        return $current === null || ($candidate !== null && $candidate > $current) ? $candidate : $current;
     }
 
     /**
@@ -499,14 +525,16 @@ final class ResourceAutomationService
         $resources = $run->resourceRuns()->where('external_resource_id', $a->external_resource_id)->get();
         $success = $resources->isNotEmpty() && $resources->every(fn ($r) => $r->status->value === 'completed');
         if ($success) {
-            $through = $run->datasetRuns()->whereIn('collection_resource_run_id', $resources->pluck('id'))->where('status', 'completed')
-                ->get(['dataset_contract_id', 'metadata'])
-                ->filter(fn ($d) => filled(data_get($d->metadata, 'date_range.end')))
-                ->groupBy(fn ($d) => $d->dataset_contract_id.'|'.data_get($d->metadata, 'search_type', ''))
-                ->map(fn ($group) => $group->max(fn ($d) => data_get($d->metadata, 'date_range.end')))->min();
+            $through = $this->completedDataThrough($resources);
             $this->alert($a->id, 'collection', null);
+            // The weekly clock of an idle / dormant account starts when its light / check pass succeeded (not when it
+            // was planned), so a failed pass is retried on the normal backoff instead of a week later.
+            if ($resources->contains(fn (CollectionResourceRun $resource): bool => in_array(data_get($resource->metadata, 'activity.mode'),
+                [ActivityCollectionPlan::MODE_LIGHT, ActivityCollectionPlan::MODE_CHECK], true))) {
+                app(CollectionActivityGate::class)->markLightCheck((int) $a->external_resource_id);
+            }
             $this->refreshActivity($a, $resources);
-            $a->update(['data_through' => $through ?: $a->data_through, 'collection_status' => 'current', 'collection_error' => null, 'collection_failures' => 0,
+            $a->update(['data_through' => self::laterDate($a->data_through, $through), 'collection_status' => 'current', 'collection_error' => null, 'collection_failures' => 0,
                 'last_collection_success_at' => now(), 'next_collection_at' => $this->nextAt($a)]);
 
             return;
@@ -517,6 +545,38 @@ final class ResourceAutomationService
             ->whereIn('error_category', ['invalid_request', 'persistence'])->exists();
         $this->fail($a->id, $authError ? 'reconnect' : ($run->status->value === 'cancelled' ? 'cancelled'
             : ($contractError ? 'request_requires_fix' : 'collection_failed')));
+    }
+
+    /**
+     * "Veri sonu" of a successful collection: per dataset (and Search Console search type) its latest completed end,
+     * then the earliest of those. A repair / resume run re-runs only what failed, so the completed datasets of the run
+     * it continues (and of that run's own predecessors) count too: repairing an old history period must not pull the
+     * mark back to that period's end while newer days are already stored.
+     *
+     * @param  Collection<int, CollectionResourceRun>  $resources
+     */
+    private function completedDataThrough(Collection $resources): ?string
+    {
+        $resourceRunIds = $resources->map(fn (CollectionResourceRun $resource): int => (int) $resource->id)->all();
+        $previousIds = $resources->map(fn (CollectionResourceRun $resource): int => (int) data_get($resource->metadata, 'resumed_from_resource_run_id', 0))
+            ->filter()->values()->all();
+        for ($depth = 0; $previousIds !== [] && $depth < 20; $depth++) {
+            $previous = CollectionResourceRun::query()->whereIn('id', $previousIds)->whereNotIn('id', $resourceRunIds)
+                ->whereIn('external_resource_id', $resources->pluck('external_resource_id')->unique()->all())
+                ->get(['id', 'metadata']);
+            $resourceRunIds = [...$resourceRunIds, ...$previous->map(fn (CollectionResourceRun $resource): int => (int) $resource->id)->all()];
+            $previousIds = $previous->map(fn (CollectionResourceRun $resource): int => (int) data_get($resource->metadata, 'resumed_from_resource_run_id', 0))
+                ->filter()->values()->all();
+        }
+
+        $through = CollectionDatasetRun::query()->whereIn('collection_resource_run_id', $resourceRunIds)->where('status', 'completed')
+            ->get(['dataset_contract_id', 'metadata'])
+            ->filter(fn (CollectionDatasetRun $dataset): bool => filled(data_get($dataset->metadata, 'date_range.end')))
+            ->groupBy(fn (CollectionDatasetRun $dataset): string => $dataset->dataset_contract_id.'|'.data_get($dataset->metadata, 'search_type', ''))
+            ->map(fn (Collection $group): string => (string) $group->max(fn (CollectionDatasetRun $dataset): string => (string) data_get($dataset->metadata, 'date_range.end')))
+            ->min();
+
+        return filled($through) ? (string) $through : null;
     }
 
     /**

@@ -9,7 +9,9 @@ use App\Services\Collection\GoogleAds\GoogleAdsHistoricalActivityDiscoveryServic
 use App\Services\Collection\Support\DatasetExecutionContext;
 use App\Services\Collection\Support\DatasetExecutionResult;
 use App\Services\DataPool\DatasetWritePipeline;
+use App\Services\DataPool\MaterializationService;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
+use Carbon\CarbonImmutable;
 use Throwable;
 
 /**
@@ -24,6 +26,7 @@ final class GoogleAdsHistoricalDatasetExecutor
         private readonly GoogleAdsHistoricalActivityDiscoveryService $historyDiscovery,
         private readonly GoogleAdsProviderErrorMapper $errors,
         private readonly DatasetWritePipeline $pipeline,
+        private readonly MaterializationService $materializations,
     ) {}
 
     public function execute(DatasetExecutionContext $context): DatasetExecutionResult
@@ -76,6 +79,7 @@ final class GoogleAdsHistoricalDatasetExecutor
                 }
                 $written += count($chunk);
             }
+            $this->recordInactiveAccountDays($context, (int) $scope['resource']->id, $activity);
 
             $summary = [
                 'has_activity' => (bool) ($activity['has_activity'] ?? false),
@@ -106,6 +110,63 @@ final class GoogleAdsHistoricalDatasetExecutor
             );
         } catch (Throwable $e) {
             return $this->errors->fromThrowable($e);
+        }
+    }
+
+    /**
+     * Days of the granular lookback outside every active period are known zero days of the account's daily totals:
+     * their month had no impressions, clicks, cost or conversions (or no monthly row at all). They are recorded as
+     * zero-row coverage of the account daily dataset, so its coverage is contiguous through yesterday although only
+     * the active periods are fetched at daily grain: no hole between two periods, no tail after the last active month
+     * (otherwise a long-dormant account reads as late, then as partial for good).
+     *
+     * @param  array<string,mixed>  $activity
+     */
+    private function recordInactiveAccountDays(DatasetExecutionContext $context, int $resourceId, array $activity): void
+    {
+        $family = GoogleAdsCentralRequestFamilyCatalog::ACCOUNT_DAILY;
+        $boundary = $activity['granular_boundary'] ?? null;
+        $end = $activity['discovery_end'] ?? null;
+        if (! in_array($family, GoogleAdsCentralRequestFamilyCatalog::supportedFamilies(), true)
+            || ! is_string($boundary) || ! is_string($end) || $boundary > $end) {
+            return;
+        }
+
+        $periods = array_values(array_filter(
+            is_array($activity['granular_periods'] ?? null) ? $activity['granular_periods'] : [],
+            static fn (mixed $period): bool => is_array($period) && is_string($period['start'] ?? null) && is_string($period['end'] ?? null),
+        ));
+        usort($periods, static fn (array $a, array $b): int => strcmp($a['start'], $b['start']));
+
+        $inactive = [];
+        $cursor = CarbonImmutable::parse($boundary)->startOfDay();
+        $last = CarbonImmutable::parse($end)->startOfDay();
+        foreach ($periods as $period) {
+            $periodStart = CarbonImmutable::parse($period['start'])->startOfDay();
+            if ($periodStart->greaterThan($cursor)) {
+                $inactive[] = [$cursor, $periodStart->subDay()->min($last)];
+            }
+            $cursor = $cursor->max(CarbonImmutable::parse($period['end'])->startOfDay()->addDay());
+        }
+        if ($cursor->lessThanOrEqualTo($last)) {
+            $inactive[] = [$cursor, $last];
+        }
+
+        foreach ($inactive as [$from, $through]) {
+            if ($from->greaterThan($through)) {
+                continue;
+            }
+            $this->materializations->recordSuccessfulCoverageRange(
+                datasetId: (string) GoogleAdsCentralRequestFamilyCatalog::definition($family)['dataset_id'],
+                digitalAssetId: null,
+                externalResourceId: $resourceId,
+                contractVersion: (int) $context->datasetRun->contract_registry_version,
+                start: $from->toDateString(),
+                end: $through->toDateString(),
+                collectionRunId: (int) $context->collectionRun->id,
+                providerOrSource: 'GOOGLE_ADS',
+                zeroRow: true,
+            );
         }
     }
 }
