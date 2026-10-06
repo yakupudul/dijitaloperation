@@ -50,21 +50,40 @@ final class DormantAccountHint
      */
     public static function lastGoogleAdsSpend(array $resourceIds): ?string
     {
+        $dates = self::lastGoogleAdsSpendByResource($resourceIds);
+
+        return $dates === [] ? null : max($dates);
+    }
+
+    /**
+     * Last day with Google Ads spend per resource, in one grouped query per table (account daily and campaign daily).
+     *
+     * @param  list<int>  $resourceIds
+     * @return array<int, string> external resource id => Y-m-d; resources that never spent are left out
+     */
+    public static function lastGoogleAdsSpendByResource(array $resourceIds): array
+    {
+        $resourceIds = array_values(array_unique(array_map('intval', $resourceIds)));
         if ($resourceIds === []) {
-            return null;
+            return [];
         }
-        $latest = null;
+        $latest = [];
         foreach (['google_ads_account_daily', 'google_ads_campaign_daily'] as $table) {
             try {
                 if (! Schema::hasColumn($table, 'cost_amount')) {
                     continue;
                 }
-                $max = DB::table($table)->whereIn('external_resource_id', $resourceIds)->where('cost_amount', '>', 0)->max('reporting_date');
+                $rows = DB::table($table)->whereIn('external_resource_id', $resourceIds)->where('cost_amount', '>', 0)
+                    ->groupBy('external_resource_id')->selectRaw('external_resource_id, max(reporting_date) as last_spend')->get();
             } catch (Throwable) {
                 continue;
             }
-            if ($max !== null && ($latest === null || substr((string) $max, 0, 10) > $latest)) {
-                $latest = substr((string) $max, 0, 10);
+            foreach ($rows as $row) {
+                $date = substr((string) $row->last_spend, 0, 10);
+                $id = (int) $row->external_resource_id;
+                if ($date !== '' && $date > ($latest[$id] ?? '')) {
+                    $latest[$id] = $date;
+                }
             }
         }
 

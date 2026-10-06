@@ -4,12 +4,13 @@ namespace App\Services\Alerts;
 
 use App\Models\AssetAlert;
 use App\Models\CoreAssetBinding;
-use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
 use App\Models\ResourceAutomation;
 use App\Services\Advisor\GoogleAds\GoogleAdsRowScope;
 use App\Services\Assistant\PushNotifier;
+use App\Services\Collection\Activity\ActivityTierService;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
+use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Measurement\TrackingHealthChecker;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\Observability\AlertSubjects;
@@ -19,6 +20,7 @@ use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\SeoTasks\SeoPlanInputCollector;
 use App\Support\Operator\CollectionErrorExplainer;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -52,8 +54,9 @@ final class AssetAlertScanner
             ->orderBy('id')
             ->chunk(100, function (Collection $assets) use (&$totals): void {
                 $runtime = $this->runtime->forAssets($assets);
+                $accounts = $this->boundAccounts($assets);
                 foreach ($assets as $asset) {
-                    $result = $this->scan($asset, $runtime[(int) $asset->id] ?? []);
+                    $result = $this->scan($asset, $runtime[(int) $asset->id] ?? [], $accounts[(int) $asset->id] ?? []);
                     $totals['assets']++;
                     foreach (['open', 'new', 'resolved'] as $key) {
                         $totals[$key] += $result[$key];
@@ -65,11 +68,15 @@ final class AssetAlertScanner
     }
 
     /**
+     * The asset's bound accounts come from boundAccounts(): scanAll reads them per chunk, any other caller (null) here.
+     *
      * @param  array<string, mixed>  $runtime  AssetRuntimeStatusReader row for this asset
+     * @param  list<array{capability: string, resource_id: int, automation: ?ResourceAutomation, weekly: bool, parked: bool}>|null  $accounts
      * @return array{open: int, new: int, resolved: int}
      */
-    public function scan(DigitalAsset $asset, array $runtime = []): array
+    public function scan(DigitalAsset $asset, array $runtime = [], ?array $accounts = null): array
     {
+        $accounts ??= $this->boundAccounts(collect([$asset]))[(int) $asset->id] ?? [];
         $detected = [];
         try {
             $detected = match ((string) $asset->type) {
@@ -97,45 +104,126 @@ final class AssetAlertScanner
                 report($exception);
             }
         }
-        if (($runtime['connected'] ?? false) && ($runtime['data_state'] ?? '') === 'stale') {
-            $hours = (int) config('moxdop-alerts.stale_data_hours', 72);
-            $detected[] = $this->alert('stale_data', 'medium', 'Veri güncel değil',
-                sprintf('Bağlı hesaptan son veri %s geldi (%d saatten eski); bu varlığın raporları ve önerileri eski veriye dayanıyor. Varlığın Veri kaynakları sayfasında "Verileri yenile" ile çekimi başlatın; kaynakta "Erişim sorunu" yazıyorsa önce bağlantıyı yenileyin.', (string) ($runtime['last_update'] ?? '—'), $hours));
+        $stale = $this->staleData($runtime, $accounts);
+        if ($stale !== null) {
+            $detected[] = $stale;
         }
 
         // Faz 13: GA4 and Search Console are checked per account, so a fresh website crawl no longer hides a stale one.
-        foreach ($this->staleMeasurementAccounts($asset) as $alert) {
+        foreach ($this->staleMeasurementAccounts($accounts) as $alert) {
             $detected[] = $alert;
         }
 
         return $this->persist($asset, $detected);
     }
 
-    /** @return list<array{kind: string, severity: string, title: string, message: string, data: array<string, mixed>}> */
-    private function staleMeasurementAccounts(DigitalAsset $asset): array
+    /**
+     * Active bound accounts per asset with their collection rhythm, in a fixed number of queries: idle / dormant
+     * accounts are collected only weekly (ActivityTierService::weeklyCollected), parked ones not at all
+     * (ResourceAutomationService::isParked: switched off, Google Ads manager / not enabled).
+     *
+     * @param  Collection<int, DigitalAsset>  $assets
+     * @return array<int, list<array{capability: string, resource_id: int, automation: ?ResourceAutomation, weekly: bool, parked: bool}>> keyed by asset id
+     */
+    private function boundAccounts(Collection $assets): array
+    {
+        $ids = $assets->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        if ($ids === []) {
+            return [];
+        }
+        $bindings = CoreAssetBinding::query()->whereIn('digital_asset_id', $ids)->where('status', CoreAssetBinding::STATUS_ACTIVE)
+            ->whereNotNull('external_resource_id')->orderBy('id')->get(['digital_asset_id', 'capability', 'external_resource_id']);
+        $resourceIds = $bindings->pluck('external_resource_id')->map(fn ($id): int => (int) $id)->unique()->values()->all();
+        if ($resourceIds === []) {
+            return [];
+        }
+        $automations = ResourceAutomation::query()->with('resource.integration')->whereIn('external_resource_id', $resourceIds)->get()
+            ->keyBy(fn (ResourceAutomation $automation): int => (int) $automation->external_resource_id);
+        $weekly = app(ActivityTierService::class)->weeklyCollected($resourceIds);
+        $readiness = app(ResourceAutomationService::class);
+        $out = [];
+        foreach ($bindings as $binding) {
+            $resourceId = (int) $binding->external_resource_id;
+            $automation = $automations->get($resourceId);
+            $out[(int) $binding->digital_asset_id][] = [
+                'capability' => (string) $binding->capability,
+                'resource_id' => $resourceId,
+                'automation' => $automation,
+                'weekly' => isset($weekly[$resourceId]),
+                'parked' => $automation !== null && $readiness->isParked($automation),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * "Veri güncel değil": the asset's newest pull (AssetRuntimeStatusReader: any bound account, or the website crawl)
+     * is older than `moxdop-alerts.stale_data_hours`. Accounts collected weekly (idle / dormant) get the weekly interval
+     * on top when every collected account of the asset is weekly; an asset whose bound accounts are all parked on
+     * purpose is not judged. The reader's own 72-hour state (shown on screens) is not changed.
+     *
+     * @param  array<string, mixed>  $runtime
+     * @param  list<array{capability: string, resource_id: int, automation: ?ResourceAutomation, weekly: bool, parked: bool}>  $accounts
+     * @return array{kind: string, severity: string, title: string, message: string, data: array<string, mixed>}|null
+     */
+    private function staleData(array $runtime, array $accounts): ?array
+    {
+        $lastSync = $runtime['last_sync'] ?? null;
+        if (! ($runtime['connected'] ?? false) || ! $lastSync instanceof CarbonInterface || ($runtime['data_state'] ?? '') === 'not_applicable') {
+            return null;
+        }
+        $collected = array_values(array_filter($accounts, fn (array $account): bool => ! $account['parked']));
+        if ($accounts !== [] && $collected === []) {
+            return null;
+        }
+        $hours = max(1, (int) config('moxdop-alerts.stale_data_hours', AssetRuntimeStatusReader::STALE_AFTER_HOURS));
+        $weekly = $collected !== [] && collect($collected)->every(fn (array $account): bool => $account['weekly']);
+        if ($weekly) {
+            $hours += 24 * max(1, (int) config('moxdop-collection-activity.light_interval_days', 7));
+        }
+        if (! $lastSync->lt(now()->subHours($hours))) {
+            return null;
+        }
+
+        return $this->alert('stale_data', 'medium', 'Veri güncel değil',
+            sprintf('Bağlı hesaptan son veri %s geldi (%d saatten eski%s); bu varlığın raporları ve önerileri eski veriye dayanıyor. Varlığın Veri kaynakları sayfasında "Verileri yenile" ile çekimi başlatın; kaynakta "Erişim sorunu" yazıyorsa önce bağlantıyı yenileyin.',
+                (string) ($runtime['last_update'] ?? '—'), $hours, $weekly ? '; hesapta etkinlik olmadığı için haftada bir çekiliyor' : ''),
+            ['weekly' => $weekly, 'hours' => $hours]);
+    }
+
+    /**
+     * GA4 / Search Console accounts whose last successful collection is older than their interval plus
+     * `account_stale_days`; idle / dormant accounts are collected weekly, so for them the interval is
+     * `light_interval_days` (as in System health).
+     *
+     * @param  list<array{capability: string, resource_id: int, automation: ?ResourceAutomation, weekly: bool, parked: bool}>  $accounts
+     * @return list<array{kind: string, severity: string, title: string, message: string, data: array<string, mixed>}>
+     */
+    private function staleMeasurementAccounts(array $accounts): array
     {
         $labels = ['ga4' => 'GA4', 'search_console' => 'Search Console'];
         $staleDays = (int) config('moxdop-observability.account_stale_days', 3);
+        $weeklyInterval = max(1, (int) config('moxdop-collection-activity.light_interval_days', 7));
         $alerts = [];
-        $bindings = CoreAssetBinding::query()->where('digital_asset_id', $asset->id)->whereIn('capability', array_keys($labels))
-            ->where('status', CoreAssetBinding::STATUS_ACTIVE)->get(['capability', 'external_resource_id']);
-        foreach ($bindings as $binding) {
-            $automation = ResourceAutomation::query()->where('external_resource_id', $binding->external_resource_id)->first();
-            if ($automation === null || ! $automation->collection_enabled) {
+        foreach ($accounts as $account) {
+            $automation = $account['automation'];
+            if (! isset($labels[$account['capability']]) || $automation === null || $account['parked']) {
                 continue;
             }
-            $limit = now()->subDays(max(1, (int) $automation->interval_days) + $staleDays);
+            $interval = $account['weekly'] ? $weeklyInterval : max(1, (int) $automation->interval_days);
+            $limit = now()->subDays($interval + $staleDays);
             $last = $automation->last_collection_success_at;
             if (($last !== null && $last->lt($limit)) || ($last === null && $automation->created_at !== null && $automation->created_at->lt($limit))) {
-                $label = $labels[$binding->capability];
-                $account = (string) (CoreExternalResource::query()->whereKey($binding->external_resource_id)->value('display_name') ?? '');
-                $category = app(AlertSubjects::class)->lastErrorCategory((int) $binding->external_resource_id);
+                $label = $labels[$account['capability']];
+                $name = (string) ($automation->resource?->display_name ?? '');
+                $category = app(AlertSubjects::class)->lastErrorCategory($account['resource_id']);
                 $reason = $category !== null ? CollectionErrorExplainer::explain($category) : null;
-                $alerts[] = $this->alert($binding->capability === 'ga4' ? 'ga4_stale' : 'gsc_stale', 'medium', $label.' verisi güncel değil',
+                $alerts[] = $this->alert($account['capability'] === 'ga4' ? 'ga4_stale' : 'gsc_stale', 'medium', $label.' verisi güncel değil',
                     sprintf('%s hesabından%s son başarılı veri çekimi %s; site raporları ve SEO önerileri eski veriye dayanıyor. %s',
-                        $label, $account !== '' ? ' ("'.$account.'")' : '', $last?->timezone('Europe/Istanbul')->format('d.m.Y') ?? 'hiç yapılmadı',
+                        $label, $name !== '' ? ' ("'.$name.'")' : '', $last?->timezone('Europe/Istanbul')->format('d.m.Y') ?? 'hiç yapılmadı',
                         $reason !== null ? 'Neden: '.$reason['problem'].'. '.$reason['fix'] : 'Varlığın Veri kaynakları sayfasında "Verileri yenile" ile çekimi başlatın.'),
-                    ['resource_id' => (int) $binding->external_resource_id, 'error_category' => $category]);
+                    ['resource_id' => $account['resource_id'], 'error_category' => $category]);
             }
         }
 

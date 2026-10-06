@@ -281,6 +281,17 @@ final class ResourceAutomationService
     }
 
     /**
+     * Automatic collection of the account does not run on purpose: switched off by the operator, or parked by admission
+     * (readiness(): Google Ads manager account, account reported not enabled). An account that needs reconnecting is
+     * not parked: its data really stopped. Reads `resource.integration` (eager-load it for a batch).
+     */
+    public function isParked(ResourceAutomation $automation): bool
+    {
+        return ! $automation->collection_enabled
+            || ($automation->resource !== null && in_array($this->readiness($automation->resource), ['manager', 'not_enabled'], true));
+    }
+
+    /**
      * Operator decision (2026-11-05): only accounts bound (active binding) to a digital asset that is assigned to a
      * brand are collected automatically — active or passive customer. Unassigned accounts wait as `unbound`; the tick
      * resumes them as soon as they are assigned.
