@@ -24,22 +24,6 @@
                 </optgroup>
             </select>
         </label>
-        <div>
-            <p class="mb-1 text-xs text-gray-500">Dönem</p>
-            <div class="flex gap-1">
-                @foreach ($dayOptions as $option)
-                    <button type="button" wire:click="setDays({{ $option }})" @class(['rounded-lg px-3 py-1.5 text-sm font-medium', 'bg-brand-500 text-white' => $days === $option, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $days !== $option])>{{ $option }} gün</button>
-                @endforeach
-            </div>
-        </div>
-        <div>
-            <p class="mb-1 text-xs text-gray-500">Karşılaştır</p>
-            <div class="flex gap-0.5 rounded-lg bg-gray-100 p-0.5 dark:bg-white/[0.04]">
-                @foreach (['prev' => 'Önceki dönem', 'year' => 'Geçen yıl aynı dönem'] as $key => $label)
-                    <button type="button" wire:click="$set('compare', '{{ $key }}')" @class(['rounded-md px-3 py-1 text-sm font-medium', 'bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white' => $a['compare'] === $key, 'text-gray-600 dark:text-gray-400' => $a['compare'] !== $key])>{{ $label }}</button>
-                @endforeach
-            </div>
-        </div>
         <span class="flex-1"></span>
         <div class="text-right text-xs text-gray-500">
             <p>{{ $a['focus_label'] }} · {{ $date($a['window']['from']) }} – {{ $date($a['window']['to']) }}</p>

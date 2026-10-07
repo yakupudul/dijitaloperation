@@ -40,7 +40,9 @@
     @include('livewire.demo.partials.asset-nav', ['tabs' => $navTabs, 'active' => $tab])
 
     @if ($showPeriodBar)
-        @include('livewire.demo.partials.period-bar')
+        <div class="flex justify-end">
+            <x-operator.date-range-picker :range="$this->pickerRange()" :last-day="$this->periodPickerMaxDate()" note="Analytics verisi 1–2 gün gecikmeli." />
+        </div>
     @endif
 
     <p class="text-xs text-gray-400">{{ $data['demo_boundary'] }}</p>

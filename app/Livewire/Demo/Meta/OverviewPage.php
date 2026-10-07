@@ -5,6 +5,7 @@ namespace App\Livewire\Demo\Meta;
 use App\Jobs\CollectMetaGeoResultsJob;
 use App\Jobs\Meta\SyncMetaSuggestionsJob;
 use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
+use App\Livewire\Operator\Concerns\HasDateRange;
 use App\Models\DigitalAsset;
 use App\Services\Analyst\AnalystDecisionStore;
 use App\Services\Async\AsyncOperationService;
@@ -17,6 +18,7 @@ use App\Services\Meta\MetaLeads;
 use App\Services\Meta\MetaScreen;
 use App\Services\Meta\MetaSuggestions;
 use App\Support\Demo\DemoState;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
@@ -40,6 +42,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 #[Title('Meta Reklamları')]
 class OverviewPage extends Component
 {
+    use HasDateRange;
     use ResolvesCanonicalOperatorAsset;
     use WithFileUploads;
 
@@ -50,9 +53,6 @@ class OverviewPage extends Component
         'overview' => 'campaigns', 'creatives' => 'todo', 'strategy' => 'todo', 'adsets' => 'analysis', 'ads' => 'analysis', 'audience' => 'analysis', 'breakdowns' => 'analysis',
         'delivery' => 'analysis', 'funnel' => 'analysis', 'advisor' => 'todo', 'operations' => 'todo', 'insights' => 'todo', 'destinations' => 'measurement',
     ];
-
-    /** @var list<int> */
-    private const array DAY_OPTIONS = [7, 28, 90];
 
     #[Locked]
     public string $assetId = '';
@@ -73,7 +73,7 @@ class OverviewPage extends Component
     #[Url(as: 'ara')]
     public string $search = '';
 
-    /** Analiz window in days. */
+    /** Date picker (Kampanyalar, Analiz, Ölçüm): preset days, or a custom start / end (HasDateRange); `compare` below. */
     #[Url]
     public int $days = 28;
 
@@ -115,12 +115,6 @@ class OverviewPage extends Component
     {
         $this->tab = $tab;
         $this->editId = null;
-        $this->normalize();
-    }
-
-    public function setDays(int $days): void
-    {
-        $this->days = $days;
         $this->normalize();
     }
 
@@ -273,6 +267,7 @@ class OverviewPage extends Component
         $asset = $this->asset()->loadMissing('brand.customer');
         $assetId = (int) $asset->id;
         $account = $screen->account($asset);
+        $range = $this->dateRange();
         $hasBrand = $asset->brand_id !== null;
         $aiStates = [];
         foreach (array_keys(MetaAssistant::OPERATIONS) as $operation) {
@@ -290,16 +285,18 @@ class OverviewPage extends Component
             'openCount' => $hasBrand ? $suggestions->open($asset)->count() : 0,
             'aiStates' => $aiStates,
             'aiLabels' => MetaAssistant::LABELS,
-            'board' => $this->tab === 'campaigns' ? $this->board($board->board($asset, $this->days)) : null,
+            'board' => $this->tab === 'campaigns' ? $this->board($board->board($asset, $range)) : null,
             'checks' => $this->tab === 'todo' ? MetaChecks::states($assetId) : null,
             'suggestions' => $hasBrand && $this->tab === 'todo' ? $suggestions->open($asset) : collect(),
             'approved' => $hasBrand && $this->tab === 'todo' ? $suggestions->approved($asset) : collect(),
-            'measurement' => $this->tab === 'measurement' ? $screen->measurement($asset, 28) : null,
+            'measurement' => $this->tab === 'measurement' ? $screen->measurement($asset, $range) : null,
             'leadList' => $this->tab === 'measurement' ? $leads->list($asset, $this->unmarkedOnly) : collect(),
             'leadCampaigns' => $this->tab === 'measurement' ? $leads->byCampaign($asset) : [],
-            'analysis' => $this->tab === 'analysis' ? $analysis->analysis($asset, $this->days, $this->focus, $this->compare, $this->analysisType) : null,
+            'analysis' => $this->tab === 'analysis' ? $analysis->analysis($asset, $range, $this->focus, $this->compare, $this->analysisType) : null,
             'geoState' => $this->tab === 'analysis' ? Cache::get(CollectMetaGeoResultsJob::stateKey($assetId)) : null,
-            'dayOptions' => self::DAY_OPTIONS,
+            'range' => $range,
+            'lastDay' => ($account !== null ? $screen->end($account) : CarbonImmutable::yesterday())->toDateString(),
+            'ranged' => in_array($this->tab, ['campaigns', 'analysis', 'measurement'], true),
             'groupLabels' => MetaSuggestions::GROUP_LABELS,
             'suggestionGroup' => fn ($s): string => $suggestions->group($s),
         ]);
@@ -354,12 +351,7 @@ class OverviewPage extends Component
         if (! array_key_exists($this->resultType, MetaCampaignBoard::TYPES)) {
             $this->resultType = '';
         }
-        if (! in_array($this->days, self::DAY_OPTIONS, true)) {
-            $this->days = 28;
-        }
-        if (! in_array($this->compare, ['prev', 'year'], true)) {
-            $this->compare = 'prev';
-        }
+        $this->normalizeDateRange();
         if (! in_array($this->analysisType, ['', 'leads', 'messages', 'purchases'], true)) {
             $this->analysisType = '';
         }

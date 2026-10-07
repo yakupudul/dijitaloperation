@@ -3,11 +3,14 @@
 namespace App\Livewire\Operator\Meta;
 
 use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
+use App\Livewire\Operator\Concerns\HasDateRange;
 use App\Models\DigitalAsset;
 use App\Services\Meta\MetaCampaignBoard;
 use App\Services\Meta\MetaCampaignServices;
 use App\Services\Meta\MetaScreen;
+use App\Services\Site\Analysis\SiteRange;
 use App\Support\Demo\DemoState;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -24,10 +27,8 @@ use Livewire\Component;
 #[Title('Meta kampanyası')]
 class CampaignPage extends Component
 {
+    use HasDateRange;
     use ResolvesCanonicalOperatorAsset;
-
-    /** @var list<int> */
-    public const array DAY_OPTIONS = [7, 28, 90];
 
     #[Locked]
     public string $assetId = '';
@@ -35,8 +36,12 @@ class CampaignPage extends Component
     #[Locked]
     public string $campaignId = '';
 
+    /** Date picker: preset days, or a custom start / end (HasDateRange), and the comparison; the Kampanyalar list passes its own. */
     #[Url(as: 'gun')]
     public int $days = 28;
+
+    #[Url(as: 'kars')]
+    public string $compare = SiteRange::COMPARE_PREVIOUS;
 
     public string $addOffering = '';
 
@@ -44,14 +49,7 @@ class CampaignPage extends Component
     {
         $this->bindCanonicalAsset($assetId, ['meta_ads']);
         $this->campaignId = $campaignId;
-        if (! in_array($this->days, self::DAY_OPTIONS, true)) {
-            $this->days = 28;
-        }
-    }
-
-    public function setDays(int $days): void
-    {
-        $this->days = in_array($days, self::DAY_OPTIONS, true) ? $days : 28;
+        $this->normalizeDateRange();
     }
 
     public function confirmService(int $offeringId, MetaCampaignServices $services): void
@@ -88,19 +86,22 @@ class CampaignPage extends Component
     public function render(MetaCampaignBoard $board, MetaCampaignServices $services, MetaScreen $screen): View
     {
         $asset = $this->asset()->loadMissing('brand');
-        $campaign = $board->campaign($asset, $this->campaignId, $this->days);
+        $range = $this->dateRange();
+        $campaign = $board->campaign($asset, $this->campaignId, $range);
         abort_if($campaign === null, 404);
         $entry = $services->map($asset)[$this->campaignId] ?? ['state' => MetaCampaignServices::STATE_NONE, 'services' => []];
         $offerings = $asset->brand !== null ? $services->offerings($asset->brand) : [];
+        $account = $screen->account($asset);
 
         return view('livewire.operator.meta.campaign', [
             'asset' => $this->presentCanonicalAsset(),
             'brand' => $asset->brand,
-            'account' => $screen->account($asset),
+            'account' => $account,
             'campaign' => $campaign,
             'entry' => $entry,
             'available' => array_values(array_filter($offerings, fn (array $o): bool => ! in_array($o['id'], array_column($entry['services'], 'id'), true))),
-            'dayOptions' => self::DAY_OPTIONS,
+            'range' => $range,
+            'lastDay' => ($account !== null ? $screen->end($account) : CarbonImmutable::yesterday())->toDateString(),
             'flash' => DemoState::pullFlash(),
         ])->title($campaign['name'].' · Meta');
     }

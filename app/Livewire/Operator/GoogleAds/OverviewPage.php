@@ -4,6 +4,7 @@ namespace App\Livewire\Operator\GoogleAds;
 
 use App\Jobs\GoogleAds\SyncGoogleAdsSuggestionsJob;
 use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
+use App\Livewire\Operator\Concerns\HasDateRange;
 use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
@@ -18,7 +19,9 @@ use App\Services\GoogleAds\GoogleAdsLeadQuality;
 use App\Services\GoogleAds\GoogleAdsScreen;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
+use App\Services\Site\Analysis\SiteRange;
 use App\Support\Demo\DemoState;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
@@ -41,6 +44,7 @@ use Throwable;
 #[Title('Google Ads')]
 class OverviewPage extends Component
 {
+    use HasDateRange;
     use ResolvesCanonicalOperatorAsset;
 
     public const array TABS = ['overview' => 'Genel Bakış', 'todo' => 'Yapılacaklar', 'terms' => 'Arama Terimleri', 'strategy' => 'Kampanya Stratejisi',
@@ -57,17 +61,18 @@ class OverviewPage extends Component
         'data_connection' => 'settings', 'insights' => 'overview',
     ];
 
-    /** @var list<int> */
-    private const array DAY_OPTIONS = [28, 90];
-
     #[Locked]
     public string $assetId = '';
 
     #[Url]
     public string $tab = 'overview';
 
+    /** Date picker (Genel Bakış, Arama terimleri, Analiz): preset days, or a custom start / end (HasDateRange), and the comparison. */
     #[Url]
     public int $days = 28;
+
+    #[Url(as: 'kars')]
+    public string $compare = SiteRange::COMPARE_PREVIOUS;
 
     #[Url]
     public string $level = 'campaign';
@@ -142,12 +147,6 @@ class OverviewPage extends Component
     private function leadMonth(): string
     {
         return in_array($this->leadMonth, GoogleAdsLeadQuality::monthOptions(), true) ? $this->leadMonth : now()->format('Y-m');
-    }
-
-    public function setDays(int $days): void
-    {
-        $this->days = $days;
-        $this->normalize();
     }
 
     public function setLevel(string $level): void
@@ -386,14 +385,16 @@ class OverviewPage extends Component
         $this->normalize();
         $asset = $this->asset()->loadMissing('brand.customer');
         $assetId = (int) $asset->id;
-        $bound = $screen->context($asset) !== null;
+        $context = $screen->context($asset);
+        $bound = $context !== null;
+        $range = $this->dateRange();
         $leadQuality = $this->tab === 'measurement' ? $quality->month($asset, $this->leadMonth()) : [];
         foreach ($leadQuality as $row) {
             $this->leadRows[$row['campaign_id']] ??= $row['entry'] ?? array_fill_keys(array_keys(GoogleAdsLeadQuality::FIELDS), '');
         }
         $open = $asset->brand_id !== null ? $suggestions->open($asset) : collect();
         $state = fn (string $op): ?array => $assistant->state($assetId, $op);
-        $terms = $this->tab === 'terms' && $bound ? $screen->searchTerms($asset, 30) : [];
+        $terms = $this->tab === 'terms' && $bound ? $screen->searchTerms($asset, $range) : [];
         if ($this->termFilter !== '') {
             $needle = mb_strtolower(trim($this->termFilter));
             $terms = array_values(array_filter($terms, fn (array $t): bool => str_contains(mb_strtolower($t['term']), $needle)));
@@ -407,7 +408,7 @@ class OverviewPage extends Component
             'operational' => (bool) $asset->brand?->isOperational(),
             'flash' => DemoState::pullFlash(),
             'canWrite' => ExternalWriteService::allowed(auth()->user(), ExternalWriteAction::CHANNEL_GOOGLE_ADS),
-            'numbers' => $this->tab === 'overview' && $bound ? $screen->overview($asset, $this->days) : null,
+            'numbers' => $this->tab === 'overview' && $bound ? $screen->overview($asset, $range) : null,
             'checks' => in_array($this->tab, ['overview', 'measurement'], true) ? $suggestions->checkStates($asset) : null,
             'openCount' => $open->count(),
             'suggestions' => $this->tab === 'todo' ? $open->reject(fn (Suggestion $s): bool => in_array($s->action_type, ['ads_campaign', 'ads_budget_split', 'ads_experiments', 'ads_rsa'], true))->values() : collect(),
@@ -424,10 +425,12 @@ class OverviewPage extends Component
             'leadMonthValue' => $this->leadMonth(),
             'leadMonths' => GoogleAdsLeadQuality::monthOptions(),
             'leadFields' => GoogleAdsLeadQuality::FIELDS,
-            'analysis' => $this->tab === 'analysis' && $bound ? $screen->analysis($asset, $this->level, $this->days) : [],
+            'analysis' => $this->tab === 'analysis' && $bound ? $screen->analysis($asset, $this->level, $range) : [],
             'levels' => GoogleAdsScreen::LEVELS,
             'settings' => $this->tab === 'settings' ? $screen->settings($asset) : null,
-            'dayOptions' => self::DAY_OPTIONS,
+            'range' => $range,
+            'lastDay' => ($context['end'] ?? CarbonImmutable::yesterday())->toDateString(),
+            'ranged' => in_array($this->tab, ['overview', 'terms', 'analysis'], true),
         ]);
     }
 
@@ -448,9 +451,7 @@ class OverviewPage extends Component
         if (! isset(self::TABS[$this->tab])) {
             $this->tab = 'overview';
         }
-        if (! in_array($this->days, self::DAY_OPTIONS, true)) {
-            $this->days = 28;
-        }
+        $this->normalizeDateRange();
         if (! isset(GoogleAdsScreen::LEVELS[$this->level])) {
             $this->level = 'campaign';
         }

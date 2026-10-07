@@ -14,6 +14,7 @@ use App\Services\MetaAds\MetaGeoResults;
 use App\Services\MetaAds\Support\MetaAdsBindingContext;
 use App\Services\Queries\QueryServiceMatcher;
 use App\Services\SeoTasks\SeoText;
+use App\Services\Site\Analysis\SiteRange;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -106,7 +107,7 @@ final class MetaScreen
     /**
      * @return array{from: string, to: string, prev_from: string, prev_to: string}
      */
-    public function window(array $account, int $days): array
+    public function window(array $account, int|SiteRange $days): array
     {
         return self::windowOf($this->end($account), $days);
     }
@@ -118,8 +119,13 @@ final class MetaScreen
     }
 
     /** @return array{from: string, to: string, prev_from: string, prev_to: string} */
-    private static function windowOf(CarbonImmutable $end, int $days): array
+    private static function windowOf(CarbonImmutable $end, int|SiteRange $days): array
     {
+        if ($days instanceof SiteRange) {
+            $window = $days->window($end);
+
+            return ['from' => $window['start'], 'to' => $window['end'], 'prev_from' => $window['prev_start'], 'prev_to' => $window['prev_end']];
+        }
         $from = $end->subDays($days - 1);
 
         return ['from' => $from->toDateString(), 'to' => $end->toDateString(),
@@ -358,7 +364,7 @@ final class MetaScreen
      *
      * @return list<array<string, mixed>>
      */
-    public function creatives(DigitalAsset $asset, int $days = 28): array
+    public function creatives(DigitalAsset $asset, int|SiteRange $days = 28): array
     {
         $account = $this->account($asset);
         if ($account === null) {
@@ -424,7 +430,7 @@ final class MetaScreen
      *
      * @return array{window: array<string, string>, campaigns: list<array<string, mixed>>, adsets: list<array<string, mixed>>, ads: list<array<string, mixed>>, services: list<array<string, mixed>>, regions: list<array<string, mixed>>}|null
      */
-    public function analysis(DigitalAsset $asset, int $days): ?array
+    public function analysis(DigitalAsset $asset, int|SiteRange $days): ?array
     {
         $account = $this->account($asset);
         if ($account === null) {
@@ -593,7 +599,7 @@ final class MetaScreen
      *
      * @return array<string, mixed>
      */
-    public function measurement(DigitalAsset $asset, int $days = 28): array
+    public function measurement(DigitalAsset $asset, int|SiteRange $days = 28): array
     {
         $account = $this->account($asset);
         if ($account === null) {

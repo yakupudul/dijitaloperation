@@ -33,7 +33,12 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400">Google Ads{{ $assetModel->brand ? ' · '.$assetModel->brand->name : '' }}@if ($numbers && $numbers['last_date']) · Son veri: {{ $numbers['last_date'] }}@endif</p>
             </div>
         </div>
-        <button type="button" wire:click="refreshData" wire:loading.attr="disabled" @disabled(! $bound) class="{{ $primary }}">Verileri yenile</button>
+        <div class="flex flex-wrap items-center gap-2">
+            @if ($ranged)
+                <x-operator.date-range-picker :range="$range" :last-day="$lastDay" note="Google Ads verisi her gün dünü kapsar." />
+            @endif
+            <button type="button" wire:click="refreshData" wire:loading.attr="disabled" @disabled(! $bound) class="{{ $primary }}">Verileri yenile</button>
+        </div>
     </div>
 
     <nav class="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Google Ads">
@@ -56,16 +61,11 @@
     @if ($tab === 'overview')
         @if ($numbers)
             @php $c = $numbers['current']; $p = $numbers['previous']; @endphp
-            <div class="flex items-center gap-2 text-sm">
-                @foreach ($dayOptions as $option)
-                    <button type="button" wire:click="setDays({{ $option }})" @class(['rounded-lg px-2.5 py-1', 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $days === $option, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $days !== $option])>{{ $option }} gün</button>
-                @endforeach
-            </div>
             <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" data-testid="ads-numbers">
                 @foreach ([['Maliyet', 'cost', true, false], ['Tıklama', 'clicks', false, false], ['Dönüşüm', 'conversions', false, false], ['Dönüşüm başı maliyet', 'cpa', true, true]] as [$label, $key, $isMoney, $lowerBetter])
                     @php $change = $pct($c[$key], $p[$key]); @endphp
                     <section class="{{ $card }}">
-                        <p class="text-xs text-gray-500">{{ $label }} · {{ $days }} gün</p>
+                        <p class="text-xs text-gray-500">{{ $label }} · {{ $range->label() }}</p>
                         <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $isMoney ? $money($c[$key]) : $num($c[$key], $key === 'conversions' ? 1 : 0) }}@if ($isMoney && $c[$key] !== null) <span class="text-sm font-medium text-gray-500">{{ $cur }}</span>@endif</p>
                         <p @class(['text-xs', 'text-gray-400' => $change === null, 'text-emerald-600' => $change !== null && (($change >= 0) xor $lowerBetter), 'text-rose-600' => $change !== null && ! (($change >= 0) xor $lowerBetter)])>{{ $c[$key] === null ? 'veri yok' : ($change === null ? 'önceki dönem yok' : (($change > 0 ? '+' : '').$change.'% önceki döneme göre')) }}</p>
                     </section>
@@ -279,10 +279,6 @@
         <div class="flex flex-wrap items-center gap-2 text-sm">
             @foreach ($levels as $key => $label)
                 <button type="button" wire:click="setLevel('{{ $key }}')" @class(['rounded-lg px-2.5 py-1', 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $level === $key, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $level !== $key])>{{ $label }}</button>
-            @endforeach
-            <span class="mx-1 text-gray-300">|</span>
-            @foreach ($dayOptions as $option)
-                <button type="button" wire:click="setDays({{ $option }})" @class(['rounded-lg px-2.5 py-1', 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $days === $option, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $days !== $option])>{{ $option }} gün</button>
             @endforeach
         </div>
         <section class="{{ $panel }} overflow-x-auto" data-testid="ads-analysis">

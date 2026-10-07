@@ -3,6 +3,7 @@
 namespace App\Services\Gbp;
 
 use App\Models\DigitalAsset;
+use App\Services\Site\Analysis\SiteRange;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -27,19 +28,27 @@ final class GbpScreen
 
     public function __construct(private readonly GbpStandardInput $standards) {}
 
+    /** Latest collected performance day of the location (the date picker ends there), else yesterday. */
+    public function lastDay(?int $resourceId): CarbonImmutable
+    {
+        $latest = $resourceId !== null ? DB::table('gbp_performance_daily')->where('external_resource_id', $resourceId)->max('reporting_date') : null;
+
+        return $latest !== null ? CarbonImmutable::parse((string) $latest)->startOfDay() : CarbonImmutable::yesterday();
+    }
+
     /**
      * Genel Bakış: five numbers.
      *
      * @return array{views: ?array{current: int, previous: ?int, change_pct: ?int}, actions: ?array{calls: int, directions: int, website_clicks: int},
      *     rating: ?float, review_count: ?int, unanswered: ?int, standards: ?array{passed: int, total: int}}
      */
-    public function overview(DigitalAsset $asset, ?int $resourceId): array
+    public function overview(DigitalAsset $asset, ?int $resourceId, int|SiteRange $days = 28): array
     {
         $out = ['views' => null, 'actions' => null, 'rating' => null, 'review_count' => null, 'unanswered' => null, 'standards' => null];
         if ($resourceId === null) {
             return $out;
         }
-        $window = $this->window($resourceId, 28);
+        $window = $this->window($resourceId, $days);
         if ($window !== null) {
             $views = $window['current']['search_views'] + $window['current']['maps_views'];
             $previous = $window['has_previous'] ? $window['previous']['search_views'] + $window['previous']['maps_views'] : null;
@@ -67,14 +76,13 @@ final class GbpScreen
      *
      * @return array{daily: list<array<string, mixed>>, totals: ?array<string, int>, keywords: array{months: list<string>, rows: list<array{keyword: string, values: array<string, ?int>}>}, reviews: list<array{month: string, count: int, average: ?float}>}
      */
-    public function analysis(int $resourceId, int $days = 28): array
+    public function analysis(int $resourceId, int|SiteRange $days = 28): array
     {
         $daily = [];
         $totals = null;
         $latest = DB::table('gbp_performance_daily')->where('external_resource_id', $resourceId)->max('reporting_date');
         if ($latest !== null) {
-            $end = CarbonImmutable::parse((string) $latest)->startOfDay();
-            $start = $end->subDays($days - 1);
+            [$start, $end] = self::bounds(CarbonImmutable::parse((string) $latest)->startOfDay(), $days);
             $empty = array_fill_keys(array_unique(array_values(self::DAILY_METRICS)), 0);
             $rows = DB::table('gbp_performance_daily')->where('external_resource_id', $resourceId)->whereIn('metric', array_keys(self::DAILY_METRICS))
                 ->whereBetween('reporting_date', [$start->toDateString(), $end->toDateString().' 23:59:59'])->get(['reporting_date', 'metric', 'value']);
@@ -100,33 +108,47 @@ final class GbpScreen
      *
      * @return array{current: array<string, int>, previous: array<string, int>, has_previous: bool}|null
      */
-    private function window(int $resourceId, int $days): ?array
+    private function window(int $resourceId, int|SiteRange $days): ?array
     {
         $latest = DB::table('gbp_performance_daily')->where('external_resource_id', $resourceId)->max('reporting_date');
         if ($latest === null) {
             return null;
         }
-        $end = CarbonImmutable::parse((string) $latest)->startOfDay();
-        $currentStart = $end->subDays($days - 1)->toDateString();
-        $previousStart = $end->subDays(2 * $days - 1)->toDateString();
+        $range = $days instanceof SiteRange ? $days : new SiteRange($days);
+        $window = $range->window(CarbonImmutable::parse((string) $latest)->startOfDay());
         $empty = array_fill_keys(array_unique(array_values(self::DAILY_METRICS)), 0);
         $current = $empty;
         $previous = $empty;
         $previousDays = [];
         $rows = DB::table('gbp_performance_daily')->where('external_resource_id', $resourceId)->whereIn('metric', array_keys(self::DAILY_METRICS))
-            ->whereBetween('reporting_date', [$previousStart, $end->toDateString().' 23:59:59'])->get(['reporting_date', 'metric', 'value']);
+            ->where(fn ($q) => $q->whereBetween('reporting_date', [$window['start'], $window['end'].' 23:59:59'])
+                ->orWhereBetween('reporting_date', [$window['prev_start'], $window['prev_end'].' 23:59:59']))
+            ->get(['reporting_date', 'metric', 'value']);
         foreach ($rows as $row) {
             $date = substr((string) $row->reporting_date, 0, 10);
             $column = self::DAILY_METRICS[(string) $row->metric];
-            if ($date >= $currentStart) {
+            if ($date >= $window['start'] && $date <= $window['end']) {
                 $current[$column] += (int) $row->value;
-            } else {
+            }
+            if ($date >= $window['prev_start'] && $date <= $window['prev_end']) {
                 $previous[$column] += (int) $row->value;
                 $previousDays[$date] = true;
             }
         }
 
-        return ['current' => $current, 'previous' => $previous, 'has_previous' => count($previousDays) >= $days - 3];
+        return ['current' => $current, 'previous' => $previous, 'has_previous' => count($previousDays) >= $range->days - 3];
+    }
+
+    /**
+     * Start and end day of the analysis: the last $days up to the latest collected day, or the picker's range.
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    private static function bounds(CarbonImmutable $latest, int|SiteRange $days): array
+    {
+        $window = ($days instanceof SiteRange ? $days : new SiteRange($days))->window($latest);
+
+        return [CarbonImmutable::parse($window['start']), CarbonImmutable::parse($window['end'])];
     }
 
     /** @return array{months: list<string>, rows: list<array{keyword: string, values: array<string, ?int>}>} */

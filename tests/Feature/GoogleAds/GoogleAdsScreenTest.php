@@ -32,9 +32,11 @@ use App\Services\GoogleAds\GoogleAdsEditorCsv;
 use App\Services\GoogleAds\GoogleAdsScreen;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
+use App\Services\Site\Analysis\SiteRange;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\Google\GoogleScopes;
 use App\Support\Roles;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -100,6 +102,17 @@ final class GoogleAdsScreenTest extends TestCase
     }
 
     /** One bound account with campaigns, a conflicting negative, silent conversion tracking, search terms and landing pages. */
+    public function test_the_date_picker_range_gives_the_window_and_its_comparison(): void
+    {
+        $end = CarbonImmutable::parse('2026-10-06');
+        $this->assertSame(['2026-09-09', '2026-10-06'], GoogleAdsScreen::window($end, 28));
+        $this->assertSame(['2026-09-09', '2026-10-06'], GoogleAdsScreen::window($end, SiteRange::from(28)));
+        $this->assertSame(['2026-08-12', '2026-09-08'], GoogleAdsScreen::window($end, SiteRange::from(28), 1));
+        $this->assertSame(['2025-09-09', '2025-10-06'], GoogleAdsScreen::window($end, SiteRange::from(28, null, null, SiteRange::COMPARE_YEAR), 1));
+        $custom = SiteRange::from(28, '2026-09-01', '2026-09-10');
+        $this->assertSame([['2026-09-01', '2026-09-10'], ['2026-08-22', '2026-08-31']], [GoogleAdsScreen::window($end, $custom), GoogleAdsScreen::window($end, $custom, 1)]);
+    }
+
     public function test_service_totals_follow_keywords_and_feed_the_cross_brand_numbers(): void
     {
         $this->seedAccount();

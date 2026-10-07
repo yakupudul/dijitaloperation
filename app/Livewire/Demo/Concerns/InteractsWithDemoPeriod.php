@@ -5,16 +5,21 @@ namespace App\Livewire\Demo\Concerns;
 use App\Livewire\Demo\Assets\AnalyticsPage;
 use App\Livewire\Demo\Assets\SearchConsolePage;
 use App\Services\Operator\AgencySettingService;
+use App\Services\Site\Analysis\SiteRange;
 use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\DemoState;
 use App\Support\Operator\OperatorPeriod;
 use App\Support\Reality\DemoCatalogAssetGuard;
 use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Livewire\Attributes\Url;
 
 trait InteractsWithDemoPeriod
 {
+    /** Operator presets the date picker's days map to (others become a custom range). */
+    private const array PICKER_PRESETS = ['last_7', 'last_14', 'last_28', 'last_90'];
+
     #[Url(as: 'period', history: true)]
     public string $period = 'last_28';
 
@@ -114,6 +119,46 @@ trait InteractsWithDemoPeriod
         $this->draftPeriodEnd = $this->periodEnd;
         $this->syncPeriodState();
         $this->resetPeriodDependentState();
+    }
+
+    /**
+     * The website screen's date picker on Analytics / Search Console (yakup, 2026-10-07): "Uygula" sends a preset (days)
+     * or a custom start–end and the comparison (prev | year); stored as this page's period and compare mode.
+     */
+    public function setRange(int $days, string $start = '', string $end = '', string $compare = SiteRange::COMPARE_PREVIOUS): void
+    {
+        $range = SiteRange::from($days, $start !== '' ? $start : null, $end !== '' ? $end : null, $compare);
+        $preset = 'last_'.$range->days;
+        if (! $range->custom() && in_array($preset, self::PICKER_PRESETS, true)) {
+            $this->setPeriod($preset);
+        } else {
+            $window = $range->window(CarbonImmutable::parse($this->periodPickerMaxDate()));
+            $this->period = 'custom';
+            $this->periodStart = $window['start'];
+            $this->periodEnd = $window['end'];
+            $this->draftPeriodStart = $this->periodStart;
+            $this->draftPeriodEnd = $this->periodEnd;
+            $this->showCustomPicker = false;
+            $this->customPeriodError = null;
+            $this->syncPeriodState();
+            $this->resetPeriodDependentState();
+        }
+        $this->setCompareMode($range->compare === SiteRange::COMPARE_YEAR ? 'yoy' : 'previous');
+    }
+
+    /** This page's period as the date picker's range (a custom window that is exactly "last N days" shows as that preset). */
+    public function pickerRange(): SiteRange
+    {
+        $bounds = $this->periodBounds($this->period, $this->periodStart, $this->periodEnd);
+        $compare = $this->effectiveCompareMode() === 'yoy' ? SiteRange::COMPARE_YEAR : SiteRange::COMPARE_PREVIOUS;
+        $start = $bounds['start']->toDateString();
+        $end = $bounds['end']->toDateString();
+        $days = (int) CarbonImmutable::parse($start)->diffInDays(CarbonImmutable::parse($end)) + 1;
+        if ($end === $this->periodPickerMaxDate() && array_key_exists($days, SiteRange::PRESETS)) {
+            return SiteRange::from($days, null, null, $compare);
+        }
+
+        return SiteRange::from(28, $start, $end, $compare);
     }
 
     public function openCustomPicker(): void

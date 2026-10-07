@@ -4,6 +4,7 @@ namespace App\Services\Meta;
 
 use App\Models\DigitalAsset;
 use App\Services\Ads\AdServiceStats;
+use App\Services\Site\Analysis\SiteRange;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
 
@@ -39,7 +40,7 @@ final class MetaCampaignBoard
     /**
      * @return array{bound: bool, window: array<string, string>, kpis: array<string, array<string, mixed>>, rows: list<array<string, mixed>>, offerings: list<array{id: int, name: string}>, open: int}
      */
-    public function board(DigitalAsset $asset, int $days): array
+    public function board(DigitalAsset $asset, int|SiteRange $days): array
     {
         $account = $this->screen->account($asset);
         $offerings = $asset->brand !== null ? array_map(fn (array $o): array => ['id' => $o['id'], 'name' => $o['name']], $this->services->offerings($asset->brand)) : [];
@@ -102,7 +103,7 @@ final class MetaCampaignBoard
      *
      * @return array<string, mixed>|null null when the campaign is not in the account
      */
-    public function campaign(DigitalAsset $asset, string $campaignId, int $days): ?array
+    public function campaign(DigitalAsset $asset, string $campaignId, int|SiteRange $days): ?array
     {
         $account = $this->screen->account($asset);
         if ($account === null) {

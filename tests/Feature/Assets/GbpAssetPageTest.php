@@ -97,7 +97,7 @@ final class GbpAssetPageTest extends TestCase
         Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id])
             ->assertSee('Örnek Klinik Merkez')
             ->assertDontSee('Veri yok: profil henüz toplanmadı')
-            ->assertSeeInOrder(['Görüntüleme (harita + arama)', '2.800', '0% önceki 28 güne göre', 'Tıklama', '56', 'Arama 56', 'Puan', '4,6', '120 yorum', 'Yanıtsız yorum', '3'])
+            ->assertSeeInOrder(['Görüntüleme (harita + arama)', '2.800', '0% karşılaştırma dönemine göre', 'Tıklama', '56', 'Arama 56', 'Puan', '4,6', '120 yorum', 'Yanıtsız yorum', '3'])
             ->call('setTab', 'analysis')
             ->assertSee('implant fiyatları')
             ->assertSee('Harita görüntüleme')

@@ -50,6 +50,9 @@
             @if ($bound && $brand)
                 <a href="{{ route('operator.meta.assign', ['assetId' => $assetId]) }}" wire:navigate class="{{ $btn }} inline-flex items-center gap-2">Eşleşmeyenleri ata @if (($board['open'] ?? 0) > 0)<span class="rounded-full bg-rose-50 px-1.5 text-xs font-semibold text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">{{ $board['open'] }}</span>@endif</a>
             @endif
+            @if ($ranged)
+                <x-operator.date-range-picker :range="$range" :last-day="$lastDay" note="Meta verisi her gün toplanır." />
+            @endif
             <button type="button" wire:click="refreshData" wire:loading.attr="disabled" @disabled(! $bound) class="{{ $primary }}">Verileri yenile</button>
         </div>
     </div>
@@ -129,12 +132,12 @@
         @else
             <div class="grid gap-3 md:grid-cols-3" data-testid="meta-results">
                 <section class="{{ $card }}">
-                    <p class="text-xs font-semibold text-gray-500">Meta sonuçları · 28 gün</p>
+                    <p class="text-xs font-semibold text-gray-500">Meta sonuçları · {{ $range->label() }}</p>
                     <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $num($m['meta']['results'], 1) }}</p>
                     <p class="text-xs text-gray-500">Lead {{ $num($m['meta']['leads'], 1) }} · Mesaj {{ $num($m['meta']['messages'], 1) }} · Satış {{ $num($m['meta']['purchases'], 1) }}</p>
                 </section>
                 <section class="{{ $card }}">
-                    <p class="text-xs font-semibold text-gray-500">GA4 · Meta kaynaklı · 28 gün</p>
+                    <p class="text-xs font-semibold text-gray-500">GA4 · Meta kaynaklı · {{ $range->label() }}</p>
                     @if ($m['ga4']['has_data'])
                         <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $num($m['ga4']['key_events'], 1) }}</p>
                         <p class="text-xs text-gray-500">anahtar etkinlik · {{ $num($m['ga4']['sessions']) }} oturum</p>
@@ -143,7 +146,7 @@
                     @endif
                 </section>
                 <section class="{{ $card }}">
-                    <p class="text-xs font-semibold text-gray-500">CRM (lead işaretleri) · 28 gün</p>
+                    <p class="text-xs font-semibold text-gray-500">CRM (lead işaretleri) · {{ $range->label() }}</p>
                     <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $m['crm']['total'] > 0 ? $num($m['crm']['marks']['randevu'] + $m['crm']['marks']['satis']) : '—' }}</p>
                     <p class="text-xs text-gray-500">{{ $m['crm']['total'] > 0 ? 'randevu + satış · '.$m['crm']['total'].' lead, '.$m['crm']['marked'].' işaretli' : 'veri yok' }}</p>
                 </section>
