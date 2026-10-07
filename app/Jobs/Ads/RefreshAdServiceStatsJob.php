@@ -8,7 +8,7 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
-/** Rebuilds the 30-day service and campaign numbers of one Meta / Google Ads account (rules only, no AI). */
+/** Rebuilds the 30-day per-service numbers of one Meta / Google Ads account, website or Business Profile (rules only, no AI). */
 final class RefreshAdServiceStatsJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;

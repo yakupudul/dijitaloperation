@@ -26,6 +26,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\ScreenCheck;
 use App\Models\User;
+use App\Services\Ads\Winners;
 use App\Services\Ai\AiBudget;
 use App\Services\Ai\OpenAiCostAudit;
 use App\Services\AiTasks\AiTaskQueue;
@@ -836,11 +837,11 @@ Schedule::command('moxdop:meta:suggestions')
     ->name('meta-suggestions-daily');
 
 // Hizmet ortalaması: every Meta / Google Ads account's 30-day numbers per brand service and Meta campaign (rules, no AI),
-// after the morning Meta / Google Ads passes; read by Kampanyalar, Meta masası, Hizmet karnesi and Kazananlar.
+// plus every website's and Business Profile's per-service numbers for Kazananlar, after the morning collection passes.
 Artisan::command('moxdop:ads:service-stats', function (): void {
-    $ids = DigitalAsset::query()->whereIn('type', ['meta_ads', 'google_ads'])->whereNotNull('brand_id')->orderBy('id')->pluck('id');
-    $ids->each(fn ($id, $index) => RefreshAdServiceStatsJob::dispatch((int) $id)->delay(now()->addSeconds(10 * $index)));
-    $this->info('Kuyruğa alınan reklam hesabı: '.$ids->count());
+    $ids = DigitalAsset::query()->whereIn('type', ['meta_ads', 'google_ads', 'website', 'google_business_profile'])->whereNotNull('brand_id')->orderBy('id')->pluck('id');
+    $ids->each(fn ($id, $index) => RefreshAdServiceStatsJob::dispatch((int) $id)->delay(now()->addSeconds(5 * $index)));
+    $this->info('Kuyruğa alınan varlık: '.$ids->count());
 })->purpose('Rebuild the cross-brand ad numbers per service (hizmet ortalaması) and the Meta campaign rows.');
 
 Schedule::command('moxdop:ads:service-stats')
@@ -848,6 +849,18 @@ Schedule::command('moxdop:ads:service-stats')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(30)
     ->name('ads-service-stats-daily');
+
+// Kazananlar: every service's channel leaders and overall ranking of the day (rules), for "yükselenler / düşenler" and
+// "liderlik değişimleri"; after the morning per-service numbers.
+Artisan::command('moxdop:ads:winners-snapshot', function (): void {
+    $this->info('Kaydedilen hizmet: '.app(Winners::class)->snapshot());
+})->purpose('Store today\'s winners per service (leaders and ranking).');
+
+Schedule::command('moxdop:ads:winners-snapshot')
+    ->dailyAt('10:13')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(30)
+    ->name('ads-winners-snapshot-daily');
 
 // Faz 5: Google Ads sistem kontrolleri (≤10 kontrol → öneriler; AI yok), operasyonel markalar.
 Artisan::command('moxdop:google-ads:suggestions', function (): void {

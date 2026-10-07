@@ -3483,3 +3483,22 @@ Status: IMPLEMENTED V1 (coded + PHPUnit on SQLite and PostgreSQL; no real UAT ye
   the recipe, never by AI. The plan lands in the brand's Meta Yapılacaklar as group "Strateji planı" (approve / edit / copy).
 - Library saves: a winner's best ad text or targeting goes to `ad_library_items` (Kütüphaneler screen comes in step 5).
 - Tests: `tests/Feature/Meta/MetaStrategyTest.php`.
+
+#### Kazananlar and Kütüphaneler (plan step 5)
+
+Status: IMPLEMENTED V1 (coded + PHPUnit on SQLite and PostgreSQL; no real UAT yet; history needs daily snapshots to build up).
+Nothing written to any provider.
+- Daily per-service numbers (`moxdop:ads:service-stats`, 07:43) now also cover websites (`web_service_stats`: cluster
+  clicks, impressions and weighted position mapped to the catalog service, linked pages, top page) and Business Profiles
+  (`gbp_profile_stats`: rating, reviews, new reviews in 30 days, listed services). Meta and Google Ads rows keep their top
+  campaign and currency; Google Ads service totals leave out brand-name keywords (`GoogleAdsScreen::brandTerms`).
+- `/kazananlar` (`Winners`): sectors → services (each channel's leader, "Lider değişti" against the snapshot a week ago),
+  city filter. `/kazananlar/{service}`: four-channel podium (Meta cost per result in the result type most brands pass,
+  Google Ads cost per conversion, web position, profile rating · reviews), "Maliyet / Hacim" measure, overall ranking (each
+  channel 25 points shared by rank), weekly moves, risers / fallers, leadership feed, winner's recipe, fair-race rules.
+  Thresholds: ads ≥ 2.000 TRY and ≥ 10 results in 30 days (TRY only), web ≥ 100 impressions, profile ≥ 10 reviews; a
+  channel with a single brand is not a race. Snapshot `ad_winner_snapshots` daily 10:13 (`moxdop:ads:winners-snapshot`).
+- `/kutuphaneler` (`AdLibraries`): Metin and Hedefleme libraries (saved from Strateji öner; filter by sector / service;
+  remove), Mevsim takvimi (monthly volume of each service's cluster queries, 0–4 shading, peak note 1–2 months ahead) and
+  Hizmet × marka haritası (on how many of web, Google Ads, Meta, profile each brand is present; offered but absent = gap).
+- Menu: "Kazananlar" after Meta reklamları. Tests: `tests/Feature/Ads/WinnersTest.php`.

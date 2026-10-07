@@ -21,6 +21,7 @@
 @endphp
 
 <div class="space-y-5">
+    @include('livewire.operator.winners.partials.nav', ['current' => 'operator.meta-desk'])
     <div class="space-y-1">
         <div class="flex flex-wrap items-center gap-3">
             <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Meta masası</h1>

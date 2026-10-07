@@ -2041,6 +2041,10 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   Adım 4 (2026-10-07): Strateji öner (`/meta/strateji`): kazanan eşiği 30 günde ≥ 2.000 TL harcama ve ≥ 10 sonuç (yalnız
   TRY hesaplar); kazanan tarifi en iyi 5'ten kuralla; plan taslağını Claude yazar (bütçe ve maliyet tariften), markanın
   Meta › Yapılacaklar listesine düşer. Diğer markaların reklam metinleri iç kullanımda gösterilir; AI'a diğer markaların adı ve kampanya adı verilmez, metin kopyalamak yasak.
+  Adım 5 (2026-10-07): Kazananlar (`/kazananlar`, sektör → hizmet → 4 kanal kürsüsü + genel sıralama) ve Kütüphaneler
+  (`/kutuphaneler`: metin, hedefleme, mevsim takvimi, hizmet × marka haritası). Kurallar: her kanal 25 puan, sıraya göre
+  paylaştırılır; tek markalı kanal yarış sayılmaz; web ≥ 100 gösterim, profil ≥ 10 yorum; marka adıyla gelen Google Ads
+  aramaları sayılmaz. Geçmiş (yükselen / düşen, lider değişimi) günlük anlık görüntüden (10:13) birikir.
 - **Microsoft Clarity (yakup, 2026-10-03):** her site için Clarity proje kimliği + Data Export token (Ayarlar). Günde bir
   çekim; kural tabanlı (AI yok) öfkeli / çalışmayan tıklama, hızlı geri dönüş, JS hatası, kaydırma → Genel işler › Teknik
   sağlık işi. Siteye hiçbir şey yazılmaz; Clarity etiketini siteye yakup ekler.

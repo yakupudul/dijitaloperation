@@ -60,6 +60,7 @@ class PanelDesignFreezeTest extends TestCase
             'operator.work',
             'operator.gbp-desk',
             'operator.meta-desk',
+            'operator.winners',
             'operator.customers',
             'operator.brands',
             'operator.assets',
@@ -68,7 +69,7 @@ class PanelDesignFreezeTest extends TestCase
             'operator.whatsapp',
             'operator.integrations',
             'operator.settings',
-        ], $routes, 'WhatsApp shows for admins only (2026-12-01); İşletme gönderileri added with ADR-078, grown into İşletme profilleri with ADR-079; Meta reklamları (Meta masası) added with the Meta plan');
+        ], $routes, 'WhatsApp shows for admins only (2026-12-01); İşletme gönderileri added with ADR-078, grown into İşletme profilleri with ADR-079; Meta reklamları (Meta masası) and Kazananlar added with the Meta plan');
 
         $labels = collect(DemoMenu::groups())
             ->flatMap(fn (array $group): array => $group['items'])

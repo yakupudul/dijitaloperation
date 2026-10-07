@@ -4,11 +4,17 @@ namespace App\Services\Ads;
 
 use App\Models\Brand;
 use App\Models\BrandServiceArea;
+use App\Models\Cluster;
 use App\Models\DigitalAsset;
+use App\Models\OfferingPage;
+use App\Services\Gbp\GbpDailyWorkspace;
+use App\Services\Gbp\GbpStandardInput;
 use App\Services\GoogleAds\GoogleAdsScreen;
 use App\Services\Meta\MetaCampaignBoard;
 use App\Services\Meta\MetaCampaignServices;
 use App\Services\Meta\MetaScreen;
+use App\Services\SeoTasks\SeoText;
+use App\Services\Site\Analysis\SiteAnalysisReader;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -44,6 +50,9 @@ class AdServiceStats
         private readonly MetaCampaignBoard $board,
         private readonly MetaCampaignServices $services,
         private readonly GoogleAdsScreen $googleAds,
+        private readonly SiteAnalysisReader $site,
+        private readonly GbpDailyWorkspace $gbp,
+        private readonly GbpStandardInput $gbpInput,
     ) {}
 
     /** Rebuilds the numbers of one ad account. @return int service rows stored */
@@ -58,6 +67,8 @@ class AdServiceStats
         return match ($asset->type) {
             'meta_ads' => $this->refreshMeta($asset, $brand),
             'google_ads' => $this->refreshGoogleAds($asset, $brand),
+            'website' => $this->refreshWebsite($asset, $brand),
+            'google_business_profile' => $this->refreshProfile($asset, $brand),
             default => 0,
         };
     }
@@ -106,10 +117,18 @@ class AdServiceStats
             foreach ($shares as $offeringId => $share) {
                 $sum[$offeringId][$type]['spend'] = ($sum[$offeringId][$type]['spend'] ?? 0) + $ad['spend'] * $share;
                 $sum[$offeringId][$type]['results'] = ($sum[$offeringId][$type]['results'] ?? 0) + $ad[$type] * $share;
+                $sum[$offeringId][$type]['by'][$ad['campaign_id']] = ($sum[$offeringId][$type]['by'][$ad['campaign_id']] ?? 0) + $ad[$type] * $share;
+            }
+        }
+        $names = array_column($board['rows'], 'name', 'id');
+        foreach ($sum as $offeringId => $types) {
+            foreach ($types as $type => $n) {
+                arsort($n['by']);
+                $sum[$offeringId][$type]['top'] = (reset($n['by']) ?: 0) > 0 ? ($names[array_key_first($n['by'])] ?? null) : null;
             }
         }
 
-        return $this->replace($asset, 'meta', $this->serviceRows($asset, $brand, $city, $end, $sum, $offerings), $campaigns);
+        return $this->replace($asset, 'meta', $this->serviceRows($asset, $brand, $city, $end, $sum, $offerings, $currency), $campaigns);
     }
 
     private function refreshGoogleAds(DigitalAsset $asset, Brand $brand): int
@@ -127,19 +146,19 @@ class AdServiceStats
         $sum = [];
         foreach ($totals['services'] as $serviceId => $row) {
             if (isset($offerings[$serviceId])) {
-                $sum[$offerings[$serviceId]['id']]['conversions'] = ['spend' => $row['spend'], 'results' => $row['conversions']];
+                $sum[$offerings[$serviceId]['id']]['conversions'] = ['spend' => $row['spend'], 'results' => $row['conversions'], 'top' => $row['campaign'] ?? null];
             }
         }
 
-        return $this->replace($asset, 'google_ads', $this->serviceRows($asset, $brand, self::city($brand), $totals['period_end'], $sum, array_column($offerings, null, 'id')), null);
+        return $this->replace($asset, 'google_ads', $this->serviceRows($asset, $brand, self::city($brand), $totals['period_end'], $sum, array_column($offerings, null, 'id'), (string) ($totals['currency'] ?? '')), null);
     }
 
     /**
-     * @param  array<int, array<string, array{spend: float, results: float}>>  $sum  offering id => type => numbers
+     * @param  array<int, array<string, array{spend: float, results: float, top?: ?string}>>  $sum  offering id => type => numbers
      * @param  array<int, array<string, mixed>>  $offerings  offering id => offering
      * @return list<array<string, mixed>>
      */
-    private function serviceRows(DigitalAsset $asset, Brand $brand, string $city, string $end, array $sum, array $offerings): array
+    private function serviceRows(DigitalAsset $asset, Brand $brand, string $city, string $end, array $sum, array $offerings, string $currency = ''): array
     {
         $rows = [];
         foreach ($sum as $offeringId => $types) {
@@ -149,7 +168,8 @@ class AdServiceStats
                 }
                 $rows[] = ['channel' => $asset->type === 'meta_ads' ? 'meta' : 'google_ads', 'digital_asset_id' => $asset->id, 'brand_id' => $brand->id, 'brand_offering_id' => $offeringId,
                     'service_id' => $offerings[$offeringId]['service_id'] ?? null, 'sector_id' => $brand->sector_id, 'city' => $city, 'result_type' => $type,
-                    'spend' => round($n['spend'], 2), 'results' => round($n['results'], 2), 'period_end' => $end];
+                    'spend' => round($n['spend'], 2), 'results' => round($n['results'], 2), 'period_end' => $end]
+                    + ($this->hasTopCampaign() ? ['top_campaign' => isset($n['top']) ? mb_substr((string) $n['top'], 0, 300) : null, 'currency' => $currency !== '' ? mb_substr($currency, 0, 8) : null] : []);
             }
         }
 
@@ -177,6 +197,135 @@ class AdServiceStats
         });
 
         return count($services);
+    }
+
+    private ?bool $topCampaign = null;
+
+    private function hasTopCampaign(): bool
+    {
+        return $this->topCampaign ??= Schema::hasColumn('ad_service_stats', 'top_campaign');
+    }
+
+    /**
+     * Web sitesi per brand service (Kazananlar): search clicks, impressions and impression-weighted position of the
+     * service's clusters (SiteAnalysisReader::clusters, cluster → catalog service), the pages linked to the service and
+     * its strongest page by search clicks.
+     */
+    private function refreshWebsite(DigitalAsset $site, Brand $brand): int
+    {
+        if (! Schema::hasTable('web_service_stats')) {
+            return 0;
+        }
+        $offerings = [];
+        foreach ($this->services->offerings($brand) as $offering) {
+            if ($offering['service_id'] !== null) {
+                $offerings[$offering['service_id']] ??= $offering;
+            }
+        }
+        $clusters = $offerings === [] ? [] : $this->site->clusters($site, self::DAYS);
+        $serviceOf = Cluster::query()->whereIn('id', array_column($clusters, 'cluster_id') ?: [0])->pluck('service_id', 'id')->all();
+        $sum = [];
+        foreach ($clusters as $cluster) {
+            $offering = $offerings[$serviceOf[$cluster['cluster_id']] ?? 0] ?? null;
+            if ($offering === null) {
+                continue;
+            }
+            $n = &$sum[$offering['id']];
+            $n ??= ['clicks' => 0, 'impressions' => 0, 'weighted' => 0.0, 'pages' => 0, 'top_url' => null, 'top_clicks' => null];
+            $n['clicks'] += (int) $cluster['clicks'];
+            $n['impressions'] += (int) $cluster['impressions'];
+            $n['weighted'] += $cluster['position'] !== null ? (float) $cluster['position'] * (int) $cluster['impressions'] : 0.0;
+            unset($n);
+        }
+        $traffic = [];
+        foreach ($offerings === [] ? [] : $this->site->pages($site, self::DAYS) as $page) {
+            $traffic[$page['path']] = (int) ($page['clicks'] ?? 0);
+        }
+        $links = OfferingPage::query()->join('pages', 'pages.id', '=', 'offering_pages.page_id')->where('pages.website_asset_id', $site->id)
+            ->whereIn('offering_pages.brand_offering_id', array_column($offerings, 'id') ?: [0])->get(['offering_pages.brand_offering_id', 'pages.url']);
+        foreach ($links as $link) {
+            $n = &$sum[(int) $link->brand_offering_id];
+            $n ??= ['clicks' => 0, 'impressions' => 0, 'weighted' => 0.0, 'pages' => 0, 'top_url' => null, 'top_clicks' => null];
+            $n['pages']++;
+            $clicks = $traffic[SiteAnalysisReader::path((string) $link->url)] ?? 0;
+            if ($n['top_clicks'] === null || $clicks > $n['top_clicks']) {
+                [$n['top_url'], $n['top_clicks']] = [(string) $link->url, $clicks];
+            }
+            unset($n);
+        }
+        $byId = array_column($offerings, null, 'id');
+        $city = self::city($brand);
+        $end = CarbonImmutable::today()->subDay()->toDateString();
+        $now = now();
+        $rows = [];
+        foreach ($sum as $offeringId => $n) {
+            $rows[] = ['digital_asset_id' => $site->id, 'brand_id' => $brand->id, 'brand_offering_id' => $offeringId, 'service_id' => $byId[$offeringId]['service_id'] ?? null,
+                'sector_id' => $brand->sector_id, 'city' => $city, 'pages' => $n['pages'], 'clicks' => $n['clicks'], 'impressions' => $n['impressions'],
+                'position' => $n['impressions'] > 0 && $n['weighted'] > 0 ? round($n['weighted'] / $n['impressions'], 1) : null,
+                'top_url' => $n['top_url'] !== null ? mb_substr($n['top_url'], 0, 600) : null, 'top_clicks' => $n['top_clicks'], 'period_end' => $end,
+                'created_at' => $now, 'updated_at' => $now];
+        }
+        DB::transaction(function () use ($site, $rows): void {
+            DB::table('web_service_stats')->where('digital_asset_id', $site->id)->delete();
+            foreach (array_chunk($rows, 200) as $chunk) {
+                DB::table('web_service_stats')->insert($chunk);
+            }
+        });
+
+        return count($rows);
+    }
+
+    /** İşletme Profili (Kazananlar): rating, reviews, new reviews in 30 days and the brand services listed on the profile. */
+    private function refreshProfile(DigitalAsset $asset, Brand $brand): int
+    {
+        if (! Schema::hasTable('gbp_profile_stats')) {
+            return 0;
+        }
+        $resource = $this->gbp->resource($asset);
+        if ($resource === null) {
+            DB::table('gbp_profile_stats')->where('digital_asset_id', $asset->id)->delete();
+
+            return 0;
+        }
+        $rid = (int) $resource->id;
+        $snapshot = DB::table('gbp_location_snapshots')->where('external_resource_id', $rid)->orderByDesc('captured_at')->orderByDesc('id')->first(['average_rating', 'total_review_count']);
+        $reviews = DB::table('gbp_reviews')->where('external_resource_id', $rid);
+        $labels = $this->gbpInput->services($rid)['labels'];
+        $listed = [];
+        foreach ($this->services->offerings($brand) as $offering) {
+            if ($offering['service_id'] !== null && self::listed($offering['names'], $labels)) {
+                $listed[] = (int) $offering['service_id'];
+            }
+        }
+        DB::table('gbp_profile_stats')->updateOrInsert(['digital_asset_id' => $asset->id], [
+            'brand_id' => $brand->id, 'name' => mb_substr((string) $asset->name, 0, 300), 'city' => self::city($brand),
+            'rating' => $snapshot?->average_rating !== null ? round((float) $snapshot->average_rating, 2) : null,
+            'reviews' => $snapshot?->total_review_count !== null ? (int) $snapshot->total_review_count : (clone $reviews)->count(),
+            'new_reviews' => (clone $reviews)->where('create_time', '>=', now()->subDays(self::DAYS))->count(),
+            'labels' => json_encode(array_values(array_unique($labels)), JSON_UNESCAPED_UNICODE), 'service_ids' => json_encode(array_values(array_unique($listed))),
+            'period_end' => CarbonImmutable::today()->subDay()->toDateString(), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        return 1;
+    }
+
+    /**
+     * Whether a service (any of its names) is listed among a profile's labels.
+     *
+     * @param  list<string>  $names
+     * @param  list<string>  $labels
+     */
+    public static function listed(array $names, array $labels): bool
+    {
+        foreach ($labels as $label) {
+            foreach ($names as $name) {
+                if (mb_strlen($name) >= 3 && (SeoText::containsPhrase($label, $name) || SeoText::containsPhrase($name, $label))) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /** The brand's city: its first physical branch, else its first service area. */

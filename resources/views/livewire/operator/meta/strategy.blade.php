@@ -11,6 +11,7 @@
 @endphp
 
 <div class="space-y-5">
+    @include('livewire.operator.winners.partials.nav', ['current' => 'operator.meta-strategy'])
     <div class="flex flex-wrap items-start gap-3">
         <div class="min-w-0 flex-1 space-y-1">
             <p class="text-xs font-medium text-gray-500"><a href="{{ route('operator.meta-desk') }}" wire:navigate class="hover:text-brand-600">Meta masası</a> › Strateji öner</p>

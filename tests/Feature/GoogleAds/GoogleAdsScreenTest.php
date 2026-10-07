@@ -105,13 +105,19 @@ final class GoogleAdsScreenTest extends TestCase
         $this->seedAccount();
         $implant = BrandOffering::query()->where('brand_id', $this->brand->id)->where('priority', 'main')->orderBy('id')->first();
 
+        // A keyword naming the brand races apart: left out of the service.
+        $this->row('google_ads_keyword_snapshot', ['ad_group_id' => '201', 'criterion_id' => '303', 'metadata' => ['keyword_text' => 'panorama implant', 'match_type' => 'PHRASE', 'status' => 'ENABLED', 'campaign_id' => '101']]);
+        $this->row('google_ads_keyword_daily', ['ad_group_id' => '201', 'criterion_id' => '303', 'reporting_date' => $this->day(1), 'impressions' => 50, 'clicks' => 5, 'cost_micros' => 0, 'cost_amount' => 30, 'conversions' => 3, 'currency' => 'TRY', 'metadata' => []]);
+        $this->assertSame(['panorama'], GoogleAdsScreen::brandTerms($this->brand), 'the city is not a brand word');
+
         $totals = app(GoogleAdsScreen::class)->serviceTotals($this->asset, 30);
         $this->assertSame([(int) $implant->service_catalog_item_id], array_keys($totals['services']), 'diş kliniği matches no service');
-        $this->assertSame(240.0, $totals['services'][(int) $implant->service_catalog_item_id]['spend']);
+        $this->assertSame([240.0, 0.0, 'İmplant Ankara'], array_values(array_intersect_key($totals['services'][(int) $implant->service_catalog_item_id], array_flip(['spend', 'conversions', 'campaign']))));
 
         $this->assertSame(1, app(AdServiceStats::class)->refresh($this->asset));
         $row = DB::table('ad_service_stats')->sole();
-        $this->assertSame(['google_ads', (int) $implant->id, 'conversions', 'Ankara', 240.0], [$row->channel, (int) $row->brand_offering_id, $row->result_type, $row->city, (float) $row->spend]);
+        $this->assertSame(['google_ads', (int) $implant->id, 'conversions', 'Ankara', 240.0, 'İmplant Ankara', 'TRY'],
+            [$row->channel, (int) $row->brand_offering_id, $row->result_type, $row->city, (float) $row->spend, $row->top_campaign, $row->currency]);
     }
 
     private function seedAccount(): void

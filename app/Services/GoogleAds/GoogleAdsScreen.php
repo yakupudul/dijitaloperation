@@ -3,11 +3,13 @@
 namespace App\Services\GoogleAds;
 
 use App\Models\AiProduction;
+use App\Models\Brand;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
 use App\Models\DigitalAsset;
 use App\Models\Query;
 use App\Models\ServiceCatalogItem;
+use App\Services\Ads\AdServiceStats;
 use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorInputCollector;
 use App\Services\Advisor\GoogleAds\GoogleAdsRowScope;
 use App\Services\GoogleAds\Support\GoogleAdsBindingContext;
@@ -224,7 +226,7 @@ final class GoogleAdsScreen
      * Spend and conversions per catalog service over the last $days (keyword → hizmet; keywords without a service and
      * campaigns without keywords are left out), for the cross-brand service numbers.
      *
-     * @return array{period_end: ?string, currency: ?string, services: array<int, array{spend: float, conversions: float}>}
+     * @return array{period_end: ?string, currency: ?string, services: array<int, array{spend: float, conversions: float, campaign: ?string}>} keywords naming the brand (brandTerms) are left out
      */
     public function serviceTotals(DigitalAsset $asset, int $days = 30): array
     {
@@ -235,19 +237,42 @@ final class GoogleAdsScreen
         [$from, $to] = self::window($ctx['end'], $days);
         $texts = $this->keywordTexts($ctx['scope']);
         $ids = $this->serviceIds($asset, array_values(array_unique(array_filter(array_column($texts, 'text')))));
+        $brandTerms = $asset->brand !== null ? self::brandTerms($asset->brand) : [];
         $out = [];
+        $byCampaign = [];
         foreach ($ctx['scope']->daily('google_ads_keyword_daily', $from, $to)->groupBy('ad_group_id', 'criterion_id')
             ->selectRaw('ad_group_id, criterion_id, SUM(cost_amount) as cost, SUM(conversions) as conversions')->get() as $r) {
-            $id = $ids[QueryNormalizer::lower($texts[$r->ad_group_id."\0".$r->criterion_id]['text'] ?? '')] ?? null;
-            if ($id === null) {
+            $keyword = $texts[$r->ad_group_id."\0".$r->criterion_id] ?? null;
+            $text = QueryNormalizer::lower($keyword['text'] ?? '');
+            $id = $ids[$text] ?? null;
+            // Brand-name searches race apart from the service: a keyword naming the brand is left out.
+            if ($id === null || ($brandTerms !== [] && preg_match('/(^|\s)('.implode('|', array_map(fn (string $t): string => preg_quote($t, '/'), $brandTerms)).')(\s|$)/u', $text) === 1)) {
                 continue;
             }
-            $out[$id] ??= ['spend' => 0.0, 'conversions' => 0.0];
+            $out[$id] ??= ['spend' => 0.0, 'conversions' => 0.0, 'campaign' => null];
             $out[$id]['spend'] += (float) $r->cost;
             $out[$id]['conversions'] += (float) $r->conversions;
+            $campaignId = (string) ($keyword['campaign_id'] ?? '');
+            $byCampaign[$id][$campaignId] = ($byCampaign[$id][$campaignId] ?? 0) + (float) $r->conversions;
+        }
+        $names = $byCampaign !== [] ? $this->names($ctx['scope'])['campaigns'] : [];
+        foreach ($byCampaign as $id => $campaigns) {
+            arsort($campaigns);
+            $top = (string) array_key_first($campaigns);
+            $out[$id]['campaign'] = $top !== '' ? ($names[$top]['name'] ?? null) : null;
         }
 
         return ['period_end' => $to, 'currency' => $ctx['currency'], 'services' => $out];
+    }
+
+    /** Words that name the brand: name words of 5+ letters that are not its city or a generic business word. @return list<string> */
+    public static function brandTerms(Brand $brand): array
+    {
+        $generic = ['klinik', 'kliniği', 'kliniğı', 'clinic', 'hastane', 'hastanesi', 'merkezi', 'merkez', 'sağlık', 'estetik', 'dental', 'güzellik', 'ağız', 'medikal', 'center'];
+        $city = QueryNormalizer::lower(AdServiceStats::city($brand));
+        $words = preg_split('/[^\p{L}\p{N}]+/u', QueryNormalizer::lower((string) $brand->name)) ?: [];
+
+        return array_values(array_unique(array_filter($words, fn (string $w): bool => mb_strlen($w) >= 5 && $w !== $city && ! in_array($w, $generic, true))));
     }
 
     /**
