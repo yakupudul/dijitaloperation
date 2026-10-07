@@ -70,7 +70,73 @@
         </nav>
     @endif
 
+    @if ($section === 'yanit' && $lowOpen > 0 && ! ($status === 'bekleyen' && $rating === 'low'))
+        <section class="flex flex-wrap items-center gap-3 rounded-xl bg-rose-50 p-3 text-sm ring-1 ring-inset ring-rose-200 dark:bg-rose-500/10 dark:ring-rose-500/30" data-testid="gbp-low-open">
+            <span class="grid h-8 w-8 place-items-center rounded-full bg-rose-500 text-sm font-bold text-white">{{ $lowOpen }}</span>
+            <span class="min-w-0 flex-1"><span class="font-semibold text-rose-800 dark:text-rose-200">{{ $lowOpen }} kötü yorum (1–2 ★) yanıt bekliyor.</span>
+                <span class="text-rose-700/80 dark:text-rose-300/80">Kötü yorumu yanıtsız bırakmak, onu okuyan herkese “ilgilenmiyorlar” der. Önce bunları yanıtlayın.</span></span>
+            <button type="button" wire:click="showLowOpen" class="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700">Kötü yorumları göster</button>
+        </section>
+    @endif
+
+    @if ($section === 'yanit' && $card !== [])
+        <details class="rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700" data-testid="gbp-review-card">
+            <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white">Şube karnesi <span class="font-normal text-gray-500">· yanıt oranı, yanıt süresi, son {{ \App\Services\Gbp\Desk\ReviewDesk::WINDOW_DAYS }} gün puanı</span></summary>
+            <div class="overflow-x-auto px-4 pb-4">
+                <table class="w-full min-w-[40rem] text-sm">
+                    <thead class="text-left text-xs text-gray-500"><tr><th class="py-2 pr-3 font-medium">Şube</th><th class="px-3 font-medium">Yorum</th><th class="px-3 font-medium">Yanıt oranı</th><th class="px-3 font-medium">Ort. yanıt süresi</th><th class="px-3 font-medium">Yanıtsız</th><th class="px-3 font-medium">Son {{ \App\Services\Gbp\Desk\ReviewDesk::WINDOW_DAYS }} gün</th></tr></thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                        @foreach ($card as $row)
+                            @php
+                                $hours = $row['reply_hours'] ?? null;
+                                $trend = ($row['average'] ?? null) !== null && ($row['previous_average'] ?? null) !== null ? round($row['average'] - $row['previous_average'], 1) : null;
+                            @endphp
+                            <tr wire:key="card-{{ $row['id'] }}">
+                                <td class="py-2 pr-3"><button type="button" wire:click="setLocation({{ $row['id'] }})" class="text-left font-medium text-gray-800 hover:text-brand-600 dark:text-gray-200">{{ $row['name'] }}</button></td>
+                                <td class="px-3 tabular-nums">{{ $row['total'] }}</td>
+                                <td @class(['px-3 tabular-nums', 'text-rose-600 font-semibold' => ($row['reply_rate'] ?? 100) < 50, 'text-emerald-600' => ($row['reply_rate'] ?? 0) >= 90])>{{ ($row['reply_rate'] ?? null) === null ? '—' : $row['reply_rate'].'%' }}</td>
+                                <td class="px-3 tabular-nums">{{ $hours === null ? '—' : ($hours < 48 ? $hours.' saat' : intdiv($hours, 24).' gün') }}</td>
+                                <td @class(['px-3 tabular-nums', 'text-rose-600 font-semibold' => ($row['unanswered'] ?? 0) > 0])>{{ $row['unanswered'] ?? 0 }}@if (($row['low_open'] ?? 0) > 0) <span class="text-xs font-normal">({{ $row['low_open'] }} kötü)</span>@endif</td>
+                                <td class="px-3 tabular-nums">{{ $row['recent'] ?? 0 }} yorum @if (($row['average'] ?? null) !== null)· {{ number_format($row['average'], 1, ',', '.') }} ★@endif
+                                    @if ($trend !== null && $trend != 0)<span @class(['text-xs font-semibold', 'text-emerald-600' => $trend > 0, 'text-rose-600' => $trend < 0])>{{ $trend > 0 ? '+' : '' }}{{ number_format($trend, 1, ',', '.') }}</span>@endif</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+                <p class="mt-2 text-xs text-gray-500">Yanıt süresi: yorumdan yanıta geçen ortalama süre (Google’ın tarihine göre). Puan değişimi önceki {{ \App\Services\Gbp\Desk\ReviewDesk::WINDOW_DAYS }} güne göre.</p>
+            </div>
+        </details>
+    @endif
+
+    @if ($section === 'yanit' && ($topics['doctors'] !== [] || $topics['services'] !== []))
+        <section class="space-y-2 rounded-xl bg-white p-3 text-xs ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700" data-testid="gbp-review-topics">
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Yorumlarda neler konuşuluyor</p>
+            @foreach (['doctors' => 'Hekimler', 'services' => 'Hizmetler'] as $kind => $label)
+                @if ($topics[$kind] !== [])
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <span class="w-20 shrink-0 text-gray-500">{{ $label }}</span>
+                        @foreach ($topics[$kind] as $topic)
+                            @php $word = $kind === 'doctors' ? $topic['name'] : $topic['word']; @endphp
+                            <button type="button" wire:click="searchFor(@js($word))" @class(['rounded-full px-2.5 py-1 font-medium ring-1 ring-inset', 'bg-brand-500 text-white ring-brand-500' => \App\Services\Gbp\Desk\ReviewDesk::lower($search) === \App\Services\Gbp\Desk\ReviewDesk::lower($word), 'bg-white text-gray-700 ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-700' => \App\Services\Gbp\Desk\ReviewDesk::lower($search) !== \App\Services\Gbp\Desk\ReviewDesk::lower($word)])>
+                                {{ $topic['name'] }} · {{ $topic['count'] }} yorum @if ($topic['average'] !== null)· {{ number_format($topic['average'], 1, ',', '.') }} ★@endif
+                            </button>
+                        @endforeach
+                    </div>
+                @endif
+            @endforeach
+        </section>
+    @endif
+
     @if ($section === 'yanit')
+        <section class="flex flex-wrap items-center gap-2 text-xs">
+            <input type="search" wire:model.live.debounce.400ms="search" placeholder="Yorumda ya da adda ara (ör. implant, Zeliha)" class="w-full rounded-lg border-gray-300 text-xs sm:w-64 dark:border-gray-700 dark:bg-gray-900" data-testid="gbp-review-search">
+            <span class="inline-flex rounded-lg bg-gray-100 p-0.5 dark:bg-white/[0.06]">
+                @foreach (\App\Services\Gbp\Desk\ReviewDesk::SORTS as $key => $label)
+                    <button type="button" wire:click="setSort('{{ $key }}')" @class(['rounded-md px-2.5 py-1 font-medium', 'bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-white' => $sort === $key, 'text-gray-500' => $sort !== $key])>{{ $label }}</button>
+                @endforeach
+            </span>
+            <button type="button" wire:click="toggleRecent" @class(['rounded-full px-3 py-1 font-medium ring-1 ring-inset', 'bg-brand-500 text-white ring-brand-500' => $recentOnly, 'bg-white text-gray-600 ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700' => ! $recentOnly])>Son {{ \App\Services\Gbp\Desk\ReviewDesk::WINDOW_DAYS }} gün</button>
+        </section>
         <section class="flex flex-wrap items-center gap-2 text-xs">
             <span class="inline-flex rounded-lg bg-gray-100 p-0.5 dark:bg-white/[0.06]">
                 @foreach (\App\Services\Gbp\Desk\ReviewDesk::STATUSES as $key => $label)
@@ -154,9 +220,22 @@
 
                     <div class="mt-auto pt-3">
                         @if ($review['answered'])
-                            <p class="rounded-lg bg-gray-50 p-2 text-xs text-gray-700 dark:bg-white/[0.03] dark:text-gray-300"><span class="font-semibold">Yanıt:</span> {{ \Illuminate\Support\Str::limit($review['reply'], 280) }}</p>
-                            @if ($canWrite && $action !== null && $action['undoable'])
-                                <button type="button" wire:click="undoReply({{ $action['id'] }})" wire:confirm="Yanıt Google’dan geri alınsın mı?" class="mt-1 text-xs font-medium text-rose-600 hover:underline">Geri al</button>
+                            @if ($editing === $review['id'])
+                                <textarea wire:model="editText" rows="4" maxlength="4000" class="w-full rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-900" data-testid="gbp-edit-reply"></textarea>
+                                <span class="mt-1 flex flex-wrap gap-3 text-xs font-medium">
+                                    <button type="button" wire:click="saveEdit" wire:confirm="Google’daki yanıt bu metinle değişsin mi? (Geri alınabilir.)" class="text-success-600 hover:underline">Güncelle</button>
+                                    <button type="button" wire:click="cancelEdit" class="text-gray-500 hover:underline">Vazgeç</button>
+                                </span>
+                            @else
+                                <p class="rounded-lg bg-gray-50 p-2 text-xs text-gray-700 dark:bg-white/[0.03] dark:text-gray-300"><span class="font-semibold">Yanıt:</span> {{ \Illuminate\Support\Str::limit($review['reply'], 280) }}</p>
+                                <span class="mt-1 flex flex-wrap gap-3 text-xs font-medium">
+                                    @if ($canWrite && ($action === null || ! in_array($action['status'], ['queued', 'running', 'undoing'], true)))
+                                        <button type="button" wire:click="startEdit({{ $review['id'] }})" class="text-brand-600 hover:underline">Düzenle</button>
+                                    @endif
+                                    @if ($canWrite && $action !== null && $action['undoable'])
+                                        <button type="button" wire:click="undoReply({{ $action['id'] }})" wire:confirm="Yanıt Google’dan geri alınsın mı?" class="text-rose-600 hover:underline">Geri al</button>
+                                    @endif
+                                </span>
                             @endif
                         @elseif ($action !== null && $busy)
                             <p class="text-xs text-gray-500" @if (in_array($action['status'], ['queued', 'running'], true)) wire:poll.5s @endif>Yanıt: {{ $action['label'] }}</p>

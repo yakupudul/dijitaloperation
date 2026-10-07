@@ -461,19 +461,20 @@ final class AssetAlertScanner
         }
         $cfg = (array) config('moxdop-alerts.bad_review');
         $stars = array_slice(['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE'], 0, max(1, (int) $cfg['max_stars']));
-        $count = DB::table('gbp_reviews')
+        $open = DB::table('gbp_reviews')
             ->where('external_resource_id', $resourceId)
             ->whereIn('star_rating', $stars)
-            ->whereNull('review_reply')
-            ->where('create_time', '>=', now()->subDays((int) $cfg['days']))
-            ->count();
+            ->where(fn ($q) => $q->whereNull('review_reply')->orWhereRaw("cast(review_reply as text) in ('', 'null', '[]')"))
+            ->where('create_time', '>=', now()->subDays((int) $cfg['days']));
+        $count = (clone $open)->count();
         if ($count === 0) {
             return [];
         }
 
+        // `latest`: a newer bad review while the alert is still open goes to the phone too (persist()).
         return [$this->alert('bad_review_unanswered', 'high', 'Yanıtsız düşük puanlı yorum',
-            sprintf('Son %d günde %d adet %d yıldız veya altı yorum yanıt bekliyor. Yorumlar sekmesinden görün, yanıtı İşletme Profili’nden verin.', (int) $cfg['days'], $count, (int) $cfg['max_stars']),
-            ['count' => $count])];
+            sprintf('Son %d günde %d adet %d yıldız veya altı yorum yanıt bekliyor. İşletme profilleri › Yorumlar’da “Kötü yorumları göster” ile yanıtlayın.', (int) $cfg['days'], $count, (int) $cfg['max_stars']),
+            ['count' => $count, 'latest' => (int) $open->max('id')])];
     }
 
     /**
@@ -569,6 +570,8 @@ final class AssetAlertScanner
             $keys[] = $key;
             $row = AssetAlert::query()->firstOrNew(['digital_asset_id' => $asset->id, 'alert_key' => $key]);
             $isNew = ! $row->exists || $row->resolved_at !== null;
+            // A new bad review on an alert that is already open: it rings again (once per review).
+            $newer = ! $isNew && $alert['kind'] === 'bad_review_unanswered' && (int) ($alert['data']['latest'] ?? 0) > (int) data_get($row->data, 'latest', 0);
             if ($isNew) {
                 $row->first_detected_at = now();
                 $row->resolved_at = null;
@@ -586,9 +589,9 @@ final class AssetAlertScanner
                 'last_detected_at' => now(),
             ])->save();
             // Faz 6: a newly opened high / critical alert also goes to the phone (once per alert opening).
-            if ($isNew && in_array($alert['severity'], ['high', 'critical'], true) && $alert['kind'] !== 'site_down') {
+            if (($isNew || $newer) && in_array($alert['severity'], ['high', 'critical'], true) && $alert['kind'] !== 'site_down') {
                 try {
-                    app(PushNotifier::class)->send('alert:'.$asset->id.':'.$alert['kind'].':'.$row->first_detected_at?->format('Ymd'),
+                    app(PushNotifier::class)->send('alert:'.$asset->id.':'.$alert['kind'].':'.($newer ? 'r'.$alert['data']['latest'] : $row->first_detected_at?->format('Ymd')),
                         $alert['title'].' — '.($asset->name ?? $asset->domain), $alert['message'], $alert['severity'], OperatorPortfolioPresenter::specialistUrl($asset), 24);
                 } catch (Throwable $exception) {
                     report($exception);

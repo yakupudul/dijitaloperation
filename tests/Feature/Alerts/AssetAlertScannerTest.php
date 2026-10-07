@@ -18,6 +18,7 @@ use App\Models\ResourceActivity;
 use App\Models\ResourceAutomation;
 use App\Models\User;
 use App\Services\Alerts\AssetAlertScanner;
+use App\Services\Assistant\PushNotifier;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\Operator\AssetRuntimeStatusReader;
 use App\Support\Integrations\Google\GoogleResourceType;
@@ -129,6 +130,42 @@ final class AssetAlertScannerTest extends TestCase
         $this->get(route('operator.gbp', ['assetId' => $gbp->id]))->assertOk()->assertSee('Yanıtsız düşük puanlı yorum')->assertSee('data-asset-alerts', false);
         // Step 3: asset alerts left the home screen (Bugün); they stay on the asset page.
         $this->get(route('operator.website', ['assetId' => $site->id]))->assertOk()->assertSee('Google arama tıklamaları düştü');
+    }
+
+    public function test_every_new_bad_review_rings_the_phone_even_while_the_alert_is_open(): void
+    {
+        $sent = [];
+        $this->app->instance(PushNotifier::class, new class($sent)
+        {
+            public function __construct(private array &$sent) {}
+
+            public function send(string $key, string $title, string $body, string $severity = 'info', ?string $url = null, int $hours = 12, bool $force = false): int
+            {
+                $this->sent[] = $key;
+
+                return 1;
+            }
+        });
+        $gbp = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'google_business_profile', 'status' => DigitalAssetStatus::Active, 'name' => 'Profil']);
+        $location = CoreExternalResource::factory()->create(['integration_id' => $this->integration->id, 'provider' => 'google', 'resource_type' => 'google_business_profile', 'external_id' => 'locations/1', 'status' => CoreExternalResource::STATUS_AVAILABLE]);
+        CoreAssetBinding::factory()->create(['digital_asset_id' => $gbp->id, 'external_resource_id' => $location->id, 'capability' => 'google_business_profile', 'status' => CoreAssetBinding::STATUS_ACTIVE]);
+        $review = fn (string $id, string $stars): int => DB::table('gbp_reviews')->insertGetId(['digital_asset_id' => null, 'external_resource_id' => $location->id, 'run_id' => 1, 'location_name' => 'locations/1',
+            'review_id' => $id, 'star_rating' => $stars, 'comment' => 'Kötü', 'create_time' => now()->subDay(), 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        $review('r1', 'ONE');
+
+        app(AssetAlertScanner::class)->scan($gbp);
+        app(AssetAlertScanner::class)->scan($gbp);
+        $this->assertCount(1, $sent, 'the same bad review rings once');
+
+        $review('r2', 'FIVE');
+        app(AssetAlertScanner::class)->scan($gbp);
+        $this->assertCount(1, $sent, 'a good review does not ring');
+
+        $second = $review('r3', 'TWO');
+        app(AssetAlertScanner::class)->scan($gbp);
+        $this->assertCount(2, $sent);
+        $this->assertStringEndsWith(':r'.$second, $sent[1]);
+        $this->assertSame($second, (int) data_get(AssetAlert::query()->open()->where('digital_asset_id', $gbp->id)->value('data'), 'latest'));
     }
 
     public function test_an_idle_ga4_property_collected_weekly_is_judged_by_the_weekly_interval(): void

@@ -124,7 +124,8 @@ final class GbpWorkspaceTabsTest extends TestCase
         $this->page('reviews')->assertSeeLivewire(ReviewsPage::class);
 
         Livewire::actingAs($this->admin)->test(ReviewsPage::class, ['asset' => $this->asset->id])
-            ->assertSeeInOrder(['Müşteri r-old-bad', 'Müşteri r-new'])->assertDontSee('Müşteri r-replied')
+            ->assertSeeInOrder(['Müşteri r-new', 'Müşteri r-old-bad'])->assertDontSee('Müşteri r-replied')
+            ->call('setSort', 'eski')->assertSeeInOrder(['r-old-bad', 'r-new'])
             ->assertSee('AI taslağı')->assertDontSee('Tüm işletmeler')
             ->call('setLocation', null)->assertSet('location', $this->asset->id)
             ->call('setStatus', 'tumu')->assertSee('Müşteri r-replied')->assertSee('Teşekkürler');

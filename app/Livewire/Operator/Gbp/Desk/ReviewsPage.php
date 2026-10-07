@@ -14,6 +14,7 @@ use App\Services\Gbp\Desk\ReviewFlags;
 use App\Services\Gbp\GbpDailyWorkspace;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -36,6 +37,9 @@ final class ReviewsPage extends Component
 {
     use DeskScope;
 
+    /** Two replies sharing at least this share of their words are near copies (preview warning). */
+    private const float NEAR_COPY = 0.85;
+
     #[Url(as: 'bolum')]
     public string $section = 'yanit';
 
@@ -44,6 +48,23 @@ final class ReviewsPage extends Component
 
     #[Url(as: 'puan')]
     public string $rating = '';
+
+    /** Order of the grid: newest first (default) or oldest first. */
+    #[Url(as: 'sira')]
+    public string $sort = 'yeni';
+
+    /** Only reviews of the last 90 days. */
+    #[Url(as: 'son')]
+    public bool $recentOnly = false;
+
+    /** Words in the review text or the reviewer's name. */
+    #[Url(as: 'ara')]
+    public string $search = '';
+
+    /** Answered review whose reply is being edited, and the new text. */
+    public ?int $editing = null;
+
+    public string $editText = '';
 
     /** Rows shown on the grid (grows by ReviewDesk::PAGE while scrolling). */
     public int $limit = ReviewDesk::PAGE;
@@ -88,6 +109,80 @@ final class ReviewsPage extends Component
         $this->section = in_array($this->section, ['yanit', 'iste'], true) ? $this->section : 'yanit';
         $this->status = isset(ReviewDesk::STATUSES[$this->status]) ? $this->status : 'bekleyen';
         $this->rating = isset(GbpDailyWorkspace::RATING_FILTERS[$this->rating]) ? $this->rating : '';
+        $this->sort = isset(ReviewDesk::SORTS[$this->sort]) ? $this->sort : 'yeni';
+        $this->search = mb_substr(trim($this->search), 0, 80);
+    }
+
+    public function setSort(string $sort): void
+    {
+        $this->sort = isset(ReviewDesk::SORTS[$sort]) ? $sort : 'yeni';
+        $this->resetList();
+    }
+
+    public function toggleRecent(): void
+    {
+        $this->recentOnly = ! $this->recentOnly;
+        $this->resetList();
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->search = mb_substr(trim($this->search), 0, 80);
+        $this->resetList();
+    }
+
+    /** A doctor / service chip of "Neler konuşuluyor": the grid shows every review naming it. */
+    public function searchFor(string $word): void
+    {
+        $this->search = mb_substr(trim($word), 0, 80);
+        $this->status = 'tumu';
+        $this->rating = '';
+        $this->resetList();
+    }
+
+    /** "Kötü yorumlar": unanswered 1–2 ★ reviews. */
+    public function showLowOpen(): void
+    {
+        $this->status = 'bekleyen';
+        $this->rating = 'low';
+        $this->search = '';
+        $this->resetList();
+    }
+
+    /** "Düzenle" on an answered review: its reply in a box (the new text replaces it on Google; undo restores it). */
+    public function startEdit(int $reviewId, ReviewDesk $desk): void
+    {
+        abort_unless($this->canWrite(), 403);
+        $review = collect($this->reviews($desk))->firstWhere('id', $reviewId) ?? abort(404);
+        $this->editing = $reviewId;
+        $this->editText = (string) $review['reply'];
+    }
+
+    public function cancelEdit(): void
+    {
+        $this->editing = null;
+        $this->editText = '';
+    }
+
+    public function saveEdit(ReviewDesk $desk): void
+    {
+        abort_unless($this->canWrite(), 403);
+        $review = collect($this->reviews($desk))->firstWhere('id', $this->editing) ?? abort(404);
+        if (! $review['answered']) {
+            return;
+        }
+        if (trim($this->editText) === trim((string) $review['reply'])) {
+            $this->cancelEdit();
+
+            return;
+        }
+        try {
+            $desk->send(auth()->user(), (int) $review['id'], trim($this->editText));
+            $this->cancelEdit();
+            $this->say('Yanıtın yeni metni Google’a gönderiliyor; “Geri al” eski metni geri koyar.');
+        } catch (ValidationException $exception) {
+            $this->sayError($exception);
+        }
     }
 
     public function setSection(string $section): void
@@ -392,7 +487,7 @@ final class ReviewsPage extends Component
     {
         $resources = app(GbpDailyWorkspace::class)->resourceIds($this->reviewLocations()->pluck('id')->map(fn ($id): int => (int) $id)->all());
 
-        return $desk->reviews($resources, $this->status, $this->rating, $this->limit);
+        return $desk->reviews($resources, $this->status, $this->rating, $this->limit, $this->sort, $this->recentOnly, $this->search);
     }
 
     /** @return Collection<int, DigitalAsset> the brand's profiles, or the one picked */
@@ -427,7 +522,7 @@ final class ReviewsPage extends Component
         $locations = $this->reviewLocations();
         $resources = $daily->resourceIds($locations->pluck('id')->map(fn ($id): int => (int) $id)->all());
         $stats = array_intersect_key($allStats, $resources);
-        $list = $this->section === 'yanit' ? $desk->reviews($resources, $this->status, $this->rating, $this->limit) : ['rows' => [], 'total' => 0];
+        $list = $this->section === 'yanit' ? $desk->reviews($resources, $this->status, $this->rating, $this->limit, $this->sort, $this->recentOnly, $this->search) : ['rows' => [], 'total' => 0];
         $reviews = $list['rows'];
         foreach ($reviews as $review) {
             if ($review['draft'] !== null && ! ReviewDesk::busy($review) && ! array_key_exists('r'.$review['id'], $this->replies)) {
@@ -446,11 +541,28 @@ final class ReviewsPage extends Component
         $preview = [];
         if ($this->previewOpen) {
             $texts = array_count_values(array_map(fn (array $r): string => mb_strtolower(trim($this->text($r))), $picked));
+            $words = [];
+            foreach ($picked as $review) {
+                $words[$review['id']] = ReviewDesk::words($this->text($review), preg_split('/\s+/u', (string) $review['reviewer']) ?: []);
+            }
+            $published = $desk->publishedReplies(array_values($resources));
             foreach ($picked as $review) {
                 $text = trim($this->text($review));
+                // Near copies: another picked reply or one already on Google shares ≥ 85% of the words (names aside).
+                $twin = null;
+                foreach ($picked as $other) {
+                    if ($other['id'] !== $review['id'] && mb_strtolower(trim($this->text($other))) !== mb_strtolower($text)
+                        && ReviewDesk::similarity($words[$review['id']], $words[$other['id']]) >= self::NEAR_COPY) {
+                        $twin = $other['reviewer'];
+                        break;
+                    }
+                }
+                $repeat = $text !== '' && collect($published)->contains(fn (array $p): bool => ReviewDesk::similarity($words[$review['id']], $p['words']) >= self::NEAR_COPY);
                 $preview[] = $review + ['text' => $text, 'warnings' => array_values(array_filter([
                     $text === '' ? 'Yanıt boş; gönderilmez.' : null,
-                    $text !== '' && ($texts[mb_strtolower($text)] ?? 0) >= 3 ? 'Aynı metin '.$texts[mb_strtolower($text)].' yoruma gidiyor; Google tekrar eden yanıtları sevmez, birkaçını kişiselleştirin.' : null,
+                    $text !== '' && ($texts[mb_strtolower($text)] ?? 0) >= 2 ? 'Aynı metin '.$texts[mb_strtolower($text)].' yoruma gidiyor; Google tekrar eden yanıtları spam sayabilir, kişiselleştirin.' : null,
+                    $text !== '' && $twin !== null ? $twin.' yorumunun yanıtıyla neredeyse aynı; birini değiştirin.' : null,
+                    $repeat ? 'Bu şubede Google’da daha önce verilmiş bir yanıtla neredeyse aynı.' : null,
                     $text !== '' && ($review['rating'] ?? 5) <= 2 && mb_strlen($text) < 80 ? 'Düşük puanlı yorumda yanıt çok kısa.' : null,
                     ($brandAnswers[$review['id']]['state'] ?? null) === 'skip' ? 'Marka bu yoruma yanıt verilmesini istemedi.' : null,
                     ($brandAnswers[$review['id']]['state'] ?? null) === 'waiting' ? 'Markanın onayı henüz gelmedi.' : null,
@@ -463,6 +575,9 @@ final class ReviewsPage extends Component
         foreach (app(GbpDesk::class)->snapshots(array_values(array_unique(array_map(fn (array $r): int => $r['asset_id'], array_filter($reviews, fn (array $r): bool => isset($flagged[$r['id']]) || $r['id'] === $this->flagging))))) as $assetId => $snapshot) {
             $places[$assetId] = (string) ($snapshot['place_id'] ?? '');
         }
+        $brandIds = $locations->pluck('brand_id')->filter()->map(fn ($id): int => (int) $id)->unique()->values()->all();
+        $topics = $this->section === 'yanit' ? Cache::remember('gbp-review-topics:'.md5(json_encode([array_values($resources), $brandIds])), now()->addMinutes(30),
+            fn (): array => $desk->topics(array_values($resources), $brandIds)) : ['doctors' => [], 'services' => []];
         $chips = $all->map(fn ($l): array => ['id' => (int) $l->id, 'name' => GbpDesk::shortName((string) $l->name), 'unanswered' => (int) ($allStats[$l->id]['unanswered'] ?? 0)])
             ->sortBy([['unanswered', 'desc'], ['name', 'asc']])->values()->all();
 
@@ -494,6 +609,10 @@ final class ReviewsPage extends Component
             'drafting' => collect($reviews)->contains(fn (array $r): bool => $r['draft_state'] === 'running'),
             'canWrite' => $this->canWrite(),
             'brandOptions' => $this->brandOptions(),
+            'topics' => $topics,
+            'lowOpen' => array_sum(array_column($stats, 'low_open')),
+            'card' => $locations->count() > 1 ? $locations->map(fn ($l): array => ['id' => (int) $l->id, 'name' => GbpDesk::shortName((string) $l->name)] + ($stats[$l->id] ?? []))
+                ->filter(fn (array $row): bool => ($row['total'] ?? 0) > 0)->sortByDesc('unanswered')->values()->all() : [],
         ]);
     }
 }

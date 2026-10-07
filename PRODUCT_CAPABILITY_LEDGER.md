@@ -1,5 +1,18 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-07 — İşletme profilleri › Yorumlar: önceliklendirme, arama, karne, düzenleme
+
+- **Neden (yakup):** "Sence bu sayfada neler eksik?" Önerilen 8 madde; yakup "tamam yap" dedi.
+- **Yeniler önce:** sıralama varsayılanı en yeni (eski seçilebilir), "Son 90 gün" süzgeci. `ReviewDesk::unanswered()` (PDF, onay) eskiden yeniye kalır.
+- **Kötü yorumlar:** yanıtsız 1–2 ★ varsa üstte kırmızı şerit ve "Kötü yorumları göster". Uyarı açıkken gelen her yeni kötü yorum telefona yeniden bildirim gönderir (`AssetAlertScanner`, `latest`).
+- **Google çevirisi:** "(Translated by Google)" / "(Original)" ayrılır, kartta ve AI taslağının girdisinde yalnız yorumcunun kendi metni.
+- **Aynı yanıt uyarısı:** ön izlemede aynı metin artık 2 yorumda uyarır; seçilen başka bir yanıtla ya da şubenin Google'daki son 400 yanıtından biriyle kelimelerinin %85'i ortaksa (ad ve hitap hariç) "neredeyse aynı" uyarısı.
+- **Arama:** yorum metninde ve yazanın adında.
+- **Neler konuşuluyor:** yorumlarda geçen hekimler ("Dr. Ad", "Ad Hoca(m)", "Ad Hanım/Bey"; en az 2 yorum) ve markanın hizmetleri (ayırt edici kelime) yorum sayısı ve ortalama puanla; tıklayınca o yorumlar. Kural tabanlı, 30 dk önbellek.
+- **Şube karnesi:** şube başına yorum, yanıt oranı, ortalama yanıt süresi (Google'ın yanıt tarihine göre), yanıtsız ve kötü, son 90 gün puanı ve önceki 90 güne göre değişimi.
+- **Yayınlanmış yanıtı düzenle:** yanıtlı kartta "Düzenle"; yeni metin ADR-073 yanıt yazmasıyla Google'daki yanıtın yerine geçer, "Geri al" eski metni geri koyar. Yalnız Admin.
+- **State:** CODED + PHPUnit (`GbpDeskTest::test_review_grid_hides_googles_translation_searches_tags_scores_warns_on_copies_and_edits_a_published_reply`, `AssetAlertScannerTest::test_every_new_bad_review_rings_the_phone_even_while_the_alert_is_open`, `GbpWorkspaceTabsTest`).
+
 ## 2026-10-07 — Meta reklam detayı: metinler, form yapısı, WhatsApp
 
 - **Neden (yakup):** "Reklamlarda form varsa form verileri, WhatsApp ise numarayı, reklamların metinlerini de görebilmeliyim." Kişi bilgisi için kartta "Yalnızca form yapısı" seçildi: formu dolduranların bilgisi Moximu'ya hiç gelmez, `leads_retrieval` istenmez.

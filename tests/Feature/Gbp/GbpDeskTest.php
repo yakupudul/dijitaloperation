@@ -11,6 +11,7 @@ use App\Livewire\Operator\Gbp\Desk\ProfileFieldsPage;
 use App\Livewire\Operator\Gbp\Desk\ReviewsPage;
 use App\Models\AiProduction;
 use App\Models\Brand;
+use App\Models\BrandOffering;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
@@ -25,6 +26,7 @@ use App\Models\GbpReviewFlag;
 use App\Models\Page;
 use App\Models\ServiceCategory;
 use App\Models\User;
+use App\Services\Catalog\ServiceCatalogService;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\Desk\BranchPages;
 use App\Services\Gbp\Desk\GbpDesk;
@@ -304,7 +306,7 @@ final class GbpDeskTest extends TestCase
 
         $desk = app(ReviewDesk::class);
         $stats = $desk->stats([$this->location->id => $this->resourceId])[$this->location->id];
-        $this->assertSame(['recent' => 3, 'average' => 4.0, 'unanswered' => 2, 'reply_rate' => 33, 'late' => 1], $stats);
+        $this->assertSame(['total' => 3, 'recent' => 3, 'average' => 4.0, 'previous_average' => null, 'unanswered' => 2, 'reply_rate' => 33, 'reply_hours' => null, 'late' => 1, 'low_open' => 1], $stats);
         $list = $desk->unanswered([$this->location->id => $this->resourceId]);
         $this->assertSame([$old], array_slice(array_column($list, 'id'), 0, 1));
         $this->assertTrue($list[0]['late']);
@@ -408,6 +410,54 @@ final class GbpDeskTest extends TestCase
         $this->assertSame(4, AiProduction::query()->where('status', AiProduction::STATUS_DISCARDED)->count(), 'kept in the archive, set aside');
 
         Livewire::actingAs(User::factory()->create(['is_active' => true]))->test(ReviewsPage::class)->call('deleteDraft', $two)->assertForbidden();
+    }
+
+    public function test_review_grid_hides_googles_translation_searches_tags_scores_warns_on_copies_and_edits_a_published_reply(): void
+    {
+        $review = fn (string $id, string $stars, string $comment, ?array $reply, string $created, string $name = 'Ali V'): int => DB::table('gbp_reviews')->insertGetId([
+            'external_resource_id' => $this->resourceId, 'run_id' => 1, 'location_name' => 'locations/22', 'review_id' => $id, 'reviewer' => json_encode(['displayName' => $name]),
+            'star_rating' => $stars, 'comment' => $comment, 'create_time' => $created, 'review_reply' => $reply !== null ? json_encode($reply) : null, 'raw_payload' => '{}',
+            'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        $translated = $review('t1', 'FIVE', "Zeliha hocam çok ilgili, implant tedavim harika geçti.\n\n(Translated by Google) Dr. Zeliha was very attentive.", null, '2026-10-04 10:00:00', 'Ece Akgül');
+        $review('t2', 'FOUR', '(Translated by Google) Great clinic (Original) Zeliha Hoca ile implant yaptırdık.', null, '2026-10-03 10:00:00', 'Can B');
+        $old = $review('t3', 'ONE', 'Çok beklettiler.', null, '2025-01-10 10:00:00', 'Mehmet K');
+        $answered = $review('t4', 'FIVE', 'Teşekkürler', ['comment' => 'Bizi tercih ettiğiniz için teşekkür ederiz, sağlıklı günler dileriz.', 'updateTime' => '2026-10-02T10:00:00Z'], '2026-10-01 10:00:00', 'Zeynep A');
+        $service = app(ServiceCatalogService::class)->resolveOrCreate('İmplant Tedavisi', 'dental', actor: $this->admin)['service'];
+        BrandOffering::query()->create(['brand_id' => $this->brand->id, 'service_catalog_item_id' => $service->id, 'status' => 'active', 'priority' => 'main', 'locked' => true]);
+
+        $desk = app(ReviewDesk::class);
+        $resources = [$this->location->id => $this->resourceId];
+        $rows = array_column($desk->reviews($resources, 'tumu')['rows'], null, 'id');
+        $this->assertSame('Zeliha hocam çok ilgili, implant tedavim harika geçti.', $rows[$translated]['comment'], 'Google’s translation is hidden');
+        $this->assertSame([$translated], array_column($desk->reviews($resources, 'tumu', search: 'ECE')['rows'], 'id'), 'reviewer name');
+        $this->assertCount(2, $desk->reviews($resources, 'tumu', search: 'implant')['rows']);
+        $this->assertNotContains($old, array_column($desk->reviews($resources, 'tumu', recentOnly: true)['rows'], 'id'));
+        $stats = $desk->stats($resources)[$this->location->id];
+        $this->assertSame([4, 1, 25, 24], [$stats['total'], $stats['low_open'], $stats['reply_rate'], $stats['reply_hours']]);
+        $topics = $desk->topics([$this->resourceId], [$this->brand->id]);
+        $this->assertSame([['name' => 'Zeliha', 'count' => 2, 'average' => 4.5]], $topics['doctors']);
+        $this->assertSame(['implant', 2], [$topics['services'][0]['word'], $topics['services'][0]['count']]);
+
+        $page = Livewire::actingAs($this->admin)->test(ReviewsPage::class)
+            ->assertSee('1 kötü yorum (1–2 ★) yanıt bekliyor.')->assertSee('Zeliha · 2 yorum')->assertDontSee('Dr. Zeliha was very attentive')
+            ->call('showLowOpen')->assertSet('rating', 'low')->assertSee('Çok beklettiler.')->assertDontSee('kötü yorum (1–2 ★) yanıt bekliyor')
+            ->call('searchFor', 'Zeliha')->assertSet('status', 'tumu')->assertSee('Ece Akgül')->assertDontSee('Mehmet K');
+
+        // Near copies are flagged before publishing, also against replies already on Google.
+        $page->set('rating', '')->set('search', '')->set('status', 'bekleyen')
+            ->set('replies.r'.$translated, 'Bizi tercih ettiğiniz için teşekkür ederiz Ece Hanım, sağlıklı günler dileriz.')
+            ->set('replies.r'.$old, 'Yaşadığınız bekleme için özür dileriz Mehmet Bey, sizi arayıp konuyu çözmek isteriz.')
+            ->set('selected', [$translated, $old])->call('openPreview')
+            ->assertSee('Bu şubede Google’da daha önce verilmiş bir yanıtla neredeyse aynı.');
+
+        Livewire::actingAs($this->admin)->test(ReviewsPage::class)->call('setStatus', 'yanitli')
+            ->call('startEdit', $answered)->assertSet('editText', 'Bizi tercih ettiğiniz için teşekkür ederiz, sağlıklı günler dileriz.')
+            ->set('editText', 'Güzel sözleriniz için teşekkür ederiz Zeynep Hanım.')->call('saveEdit')
+            ->assertSet('message', 'Yanıtın yeni metni Google’a gönderiliyor; “Geri al” eski metni geri koyar.')->assertSet('editing', null);
+        $put = collect($this->writes())->first(fn (array $c): bool => $c[0] === 'PUT');
+        $this->assertStringEndsWith('/reviews/t4/reply', $put[1]);
+        $this->assertSame('Güzel sözleriniz için teşekkür ederiz Zeynep Hanım.', $put[2]['comment']);
+        $this->assertSame('Bizi tercih ettiğiniz için teşekkür ederiz, sağlıklı günler dileriz.', ExternalWriteAction::query()->sole()->result['previous_reply'], 'undo puts the old text back');
     }
 
     public function test_a_bad_review_is_prepared_for_googles_removal_tool_and_followed_until_removed(): void
