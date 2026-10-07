@@ -33,6 +33,7 @@ final class DemoMenu
                     $item($tr ? 'Bugün' : 'Today', 'operator.dashboard', 'dashboard'),
                     $item($tr ? 'Genel işler' : 'Work', 'operator.work', 'work'),
                     $item($tr ? 'İşletme profilleri' : 'Business profiles', 'operator.gbp-desk', 'calendar', [], ['operator.gbp-posts', 'operator.gbp-branch-pages', 'operator.gbp-profile-fields', 'operator.gbp-photos', 'operator.gbp-reviews']),
+                    $item($tr ? 'Meta reklamları' : 'Meta ads', 'operator.meta-desk', 'ads-advisor', [], ['operator.meta.overview', 'operator.meta.campaign', 'operator.meta.assign']),
                     $item(__('operator.nav.customers'), 'operator.customers', 'customers'),
                     $item(__('operator.nav.brands'), 'operator.brands', 'brands'),
                     $item($tr ? 'Dijital varlıklar' : 'Digital assets', 'operator.assets', 'assets', [], ['operator.asset.create', 'operator.asset.edit']),

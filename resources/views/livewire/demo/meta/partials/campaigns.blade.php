@@ -75,11 +75,11 @@
 
     <section class="{{ $panel }} overflow-hidden" data-testid="meta-campaigns">
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[64rem] text-sm">
+            <table class="w-full min-w-[72rem] text-sm">
                 <thead class="bg-gray-50 dark:bg-white/[0.02]">
                     <tr class="text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
                         <th class="px-4 py-2.5">Kampanya</th><th class="px-3 py-2.5">Hizmetler</th><th class="px-3 py-2.5 text-right">Günlük bütçe</th><th class="px-3 py-2.5 text-right">Harcama</th>
-                        <th class="px-3 py-2.5 text-right">Sonuç</th><th class="px-3 py-2.5 text-right">Sonuç başı</th><th class="px-3 py-2.5">Uyarı</th>
+                        <th class="px-3 py-2.5 text-right">Sonuç</th><th class="px-3 py-2.5 text-right">Sonuç başı</th><th class="px-3 py-2.5 text-right">Hizmet ort.</th><th class="px-3 py-2.5">Uyarı</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 tabular-nums dark:divide-gray-700">
@@ -119,6 +119,16 @@
                                     <span @class(['block text-xs font-semibold', 'text-emerald-600' => $row['cpr_change'] < 0, 'text-rose-600' => $row['cpr_change'] > 0, 'text-gray-500' => $row['cpr_change'] == 0])>{{ $row['cpr_change'] > 0 ? '↑' : ($row['cpr_change'] < 0 ? '↓' : '→') }} {{ $pct($row['cpr_change']) }}</span>
                                 @endif
                             </td>
+                            <td class="px-3 py-3 text-right">
+                                @if ($row['average'])
+                                    <span class="text-gray-700 dark:text-gray-300" title="{{ $row['average']['brands'] }} markanın ortancası · {{ $row['average']['scope'] }}">{{ $money($row['average']['median']) }}</span>
+                                    @if ($row['average']['diff'] !== null)
+                                        <span @class(['block text-xs font-semibold', 'text-emerald-600' => $row['average']['verdict'] === 'better', 'text-rose-600' => $row['average']['verdict'] === 'worse', 'text-gray-500' => $row['average']['verdict'] === 'around'])>{{ $pct($row['average']['diff']) }}</span>
+                                    @endif
+                                @else
+                                    <span class="text-xs text-gray-400">—</span>
+                                @endif
+                            </td>
                             <td class="px-3 py-3">
                                 <div class="flex flex-wrap gap-1">
                                     @foreach ($row['alerts'] as $alert)<span class="rounded-md px-2 py-0.5 text-xs font-semibold {{ $tones[$alert['tone']] }}">{{ $alert['label'] }}</span>@endforeach
@@ -126,7 +136,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="px-4 py-6 text-center text-sm text-gray-500">Bu süzgeçte kampanya yok.</td></tr>
+                        <tr><td colspan="8" class="px-4 py-6 text-center text-sm text-gray-500">Bu süzgeçte kampanya yok.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -135,7 +145,7 @@
             <span class="flex items-center gap-1.5"><span class="{{ $chip }} bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200">Hizmet</span> onaylı</span>
             <span class="flex items-center gap-1.5"><span class="{{ $chip }} border border-dashed border-gray-400 text-gray-700">Hizmet</span> sistem önerisi, tıklayınca onaylanır</span>
             <span class="flex items-center gap-1.5"><span class="{{ $chip }} bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200">+ Hizmet ata</span> eşleşme yok</span>
-            <span>Sonuç başı maliyet önceki {{ $days }} güne göre; her kampanya kendi sonuç türüyle.</span>
+            <span>Sonuç başı maliyet önceki {{ $days }} güne göre; her kampanya kendi sonuç türüyle. Hizmet ort.: aynı hizmet ve sonuç türünde diğer markaların son 30 gün ortancası.</span>
         </div>
     </section>
 @endif

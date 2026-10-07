@@ -60,6 +60,8 @@
         @include('livewire.operator.portfolio.partials.brand-overview')
     @elseif ($channelComponent !== null)
         @include('livewire.operator.portfolio.partials.brand-workspace')
+    @elseif ($tab === 'karne')
+        <livewire:operator.workspace.brand-scorecard-tab :brand-id="(int) $brandModel->id" :key="'brand-scorecard-'.$brandModel->id" />
     @elseif ($tab === 'dosya')
         <livewire:operator.workspace.brand-dossier-tab :brand-id="(int) $brandModel->id" :key="'brand-dossier-'.$brandModel->id" />
     @elseif ($tab === 'varliklar')

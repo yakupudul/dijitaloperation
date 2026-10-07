@@ -2035,6 +2035,9 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   hizmet ortalaması + Hizmet karnesi + Meta masası, Strateji öner, Kazananlar ve Kütüphaneler.
   Adım 2 (2026-10-07): Analiz hizmete / kampanyaya göre; yaş × cinsiyet, saat, yerleşim, cihaz kırılımları günlük
   bölge çekimiyle birlikte toplanır (`meta_breakdown_results_daily`).
+  Adım 3 (2026-10-07): hizmet ortalaması = aynı katalog hizmeti ve sonuç türünde diğer markaların 30 günlük ortancası
+  (önce markanın şehri), her sabah kuralla hesaplanır (`ad_service_stats`). Google Ads hizmeti anahtar kelimeden gelir
+  (ayrı kampanya eşleme ekranı yok). Menüde "Meta reklamları" (Meta masası); marka sayfasında "Hizmet karnesi" sekmesi.
 - **Microsoft Clarity (yakup, 2026-10-03):** her site için Clarity proje kimliği + Data Export token (Ayarlar). Günde bir
   çekim; kural tabanlı (AI yok) öfkeli / çalışmayan tıklama, hızlı geri dönüş, JS hatası, kaydırma → Genel işler › Teknik
   sağlık işi. Siteye hiçbir şey yazılmaz; Clarity etiketini siteye yakup ekler.

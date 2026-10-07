@@ -5,6 +5,7 @@ namespace App\Livewire\Operator\Portfolio;
 use App\Jobs\DiscoverProviderResourcesJob;
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Livewire\Operator\Workspace\BrandDossierTab;
+use App\Livewire\Operator\Workspace\BrandScorecardTab;
 use App\Models\Brand;
 use App\Models\BrandIntelligenceContext;
 use App\Models\BrandOffering;
@@ -60,13 +61,13 @@ class BrandShow extends Component
     use InteractsWithDemoPeriod;
 
     /** The tab row. */
-    public const array TABS = ['ozet' => 'Özet', 'varliklar' => 'Dijital varlıklar', 'dosya' => 'Bilgi dosyası', 'ayarlar' => 'Ayarlar'];
+    public const array TABS = ['ozet' => 'Özet', 'varliklar' => 'Dijital varlıklar', 'karne' => 'Hizmet karnesi', 'dosya' => 'Bilgi dosyası', 'ayarlar' => 'Ayarlar'];
 
     /** Ayarlar views. */
     public const array SETTINGS = ['marka' => 'Marka bilgileri', 'dosyalar' => 'Dosyalar'];
 
     /** Tab => its own Livewire component. */
-    public const array COMPONENTS = ['dosya' => BrandDossierTab::class];
+    public const array COMPONENTS = ['dosya' => BrandDossierTab::class, 'karne' => BrandScorecardTab::class];
 
     /** Channel tab => [label, component class]: shown as a tab only when the class exists. */
     public const array CHANNEL_TABS = [

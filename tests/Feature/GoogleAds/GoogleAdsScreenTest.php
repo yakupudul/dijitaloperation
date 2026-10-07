@@ -23,6 +23,7 @@ use App\Models\ServiceCategory;
 use App\Models\ServiceMatchingKeyword;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\Ads\AdServiceStats;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsCampaignLanguages;
 use App\Services\GoogleAds\GoogleAdsAssistant;
@@ -99,6 +100,20 @@ final class GoogleAdsScreenTest extends TestCase
     }
 
     /** One bound account with campaigns, a conflicting negative, silent conversion tracking, search terms and landing pages. */
+    public function test_service_totals_follow_keywords_and_feed_the_cross_brand_numbers(): void
+    {
+        $this->seedAccount();
+        $implant = BrandOffering::query()->where('brand_id', $this->brand->id)->where('priority', 'main')->orderBy('id')->first();
+
+        $totals = app(GoogleAdsScreen::class)->serviceTotals($this->asset, 30);
+        $this->assertSame([(int) $implant->service_catalog_item_id], array_keys($totals['services']), 'diş kliniği matches no service');
+        $this->assertSame(240.0, $totals['services'][(int) $implant->service_catalog_item_id]['spend']);
+
+        $this->assertSame(1, app(AdServiceStats::class)->refresh($this->asset));
+        $row = DB::table('ad_service_stats')->sole();
+        $this->assertSame(['google_ads', (int) $implant->id, 'conversions', 'Ankara', 240.0], [$row->channel, (int) $row->brand_offering_id, $row->result_type, $row->city, (float) $row->spend]);
+    }
+
     private function seedAccount(): void
     {
         $this->row('google_ads_campaign_budget_snapshot', ['budget_id' => '501', 'metadata' => ['amount' => 100]]);

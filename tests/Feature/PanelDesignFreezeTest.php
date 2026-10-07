@@ -59,6 +59,7 @@ class PanelDesignFreezeTest extends TestCase
             'operator.dashboard',
             'operator.work',
             'operator.gbp-desk',
+            'operator.meta-desk',
             'operator.customers',
             'operator.brands',
             'operator.assets',
@@ -67,7 +68,7 @@ class PanelDesignFreezeTest extends TestCase
             'operator.whatsapp',
             'operator.integrations',
             'operator.settings',
-        ], $routes, 'WhatsApp shows for admins only (2026-12-01); İşletme gönderileri added with ADR-078, grown into İşletme profilleri with ADR-079');
+        ], $routes, 'WhatsApp shows for admins only (2026-12-01); İşletme gönderileri added with ADR-078, grown into İşletme profilleri with ADR-079; Meta reklamları (Meta masası) added with the Meta plan');
 
         $labels = collect(DemoMenu::groups())
             ->flatMap(fn (array $group): array => $group['items'])
@@ -112,15 +113,15 @@ class PanelDesignFreezeTest extends TestCase
     {
         $html = Livewire::withQueryParams(['tab' => 'overview'])->test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])->html();
 
-        foreach (['Özet', 'Dijital varlıklar', 'Bilgi dosyası', 'Ayarlar'] as $tab) {
+        foreach (['Özet', 'Dijital varlıklar', 'Hizmet karnesi', 'Bilgi dosyası', 'Ayarlar'] as $tab) {
             $this->assertMatchesRegularExpression('/role="tab"[^>]*>'.preg_quote($tab, '/').'(<| )/u', $html);
         }
 
         preg_match_all('/role="tab"[^>]*wire:click="setTab\\(\'([^\']+)\'\\)"/', $html, $matches);
         $this->assertSame(
-            ['ozet', 'varliklar', 'dosya', 'ayarlar'],
+            ['ozet', 'varliklar', 'karne', 'dosya', 'ayarlar'],
             $matches[1] ?? [],
-            'Brand page: four tabs; files live under Ayarlar'
+            'Brand page: five tabs (Hizmet karnesi added with the Meta plan, 2026-10-07); files live under Ayarlar'
         );
         $this->assertStringNotContainsString('Domain (legacy)', $html);
         $this->assertStringNotContainsString('Hosting (legacy)', $html);

@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Collection\CollectionRunStatus;
+use App\Jobs\Ads\RefreshAdServiceStatsJob;
 use App\Jobs\Assistant\UptimeCheckJob;
 use App\Jobs\Brand\RunBrandChiefJob;
 use App\Jobs\CheckAdBudgetJob;
@@ -833,6 +834,20 @@ Schedule::command('moxdop:meta:suggestions')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(30)
     ->name('meta-suggestions-daily');
+
+// Hizmet ortalaması: every Meta / Google Ads account's 30-day numbers per brand service and Meta campaign (rules, no AI),
+// after the morning Meta / Google Ads passes; read by Kampanyalar, Meta masası, Hizmet karnesi and Kazananlar.
+Artisan::command('moxdop:ads:service-stats', function (): void {
+    $ids = DigitalAsset::query()->whereIn('type', ['meta_ads', 'google_ads'])->whereNotNull('brand_id')->orderBy('id')->pluck('id');
+    $ids->each(fn ($id, $index) => RefreshAdServiceStatsJob::dispatch((int) $id)->delay(now()->addSeconds(10 * $index)));
+    $this->info('Kuyruğa alınan reklam hesabı: '.$ids->count());
+})->purpose('Rebuild the cross-brand ad numbers per service (hizmet ortalaması) and the Meta campaign rows.');
+
+Schedule::command('moxdop:ads:service-stats')
+    ->dailyAt('07:43')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(30)
+    ->name('ads-service-stats-daily');
 
 // Faz 5: Google Ads sistem kontrolleri (≤10 kontrol → öneriler; AI yok), operasyonel markalar.
 Artisan::command('moxdop:google-ads:suggestions', function (): void {

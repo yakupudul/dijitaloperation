@@ -3,7 +3,9 @@
 namespace App\Services\Meta;
 
 use App\Models\DigitalAsset;
+use App\Services\Ads\AdServiceStats;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Meta hesap sayfası › Kampanyalar and Kampanya detayı: every campaign of the bound ad account with its services
@@ -88,6 +90,7 @@ final class MetaCampaignBoard
             ];
         }
         usort($rows, fn (array $a, array $b): int => [self::statusOrder($a['status']), -$a['spend']] <=> [self::statusOrder($b['status']), -$b['spend']]);
+        $rows = $this->withAverages($asset, $rows);
 
         return ['bound' => true, 'window' => $w, 'kpis' => $this->kpis($current, $previous, $rows), 'rows' => $rows, 'offerings' => $offerings,
             'open' => count(array_filter($rows, fn (array $r): bool => in_array($r['service_state'], [MetaCampaignServices::STATE_NONE, MetaCampaignServices::STATE_SUGGESTED], true) && $r['status'] !== 'ended'))];
@@ -267,6 +270,34 @@ final class MetaCampaignBoard
             'placements' => $platforms === [] ? 'Advantage+ yerleşim' : implode(', ', array_map('ucfirst', $platforms)).($positions !== [] ? ' · '.count($positions).' yerleşim' : ''),
             'advantage' => (int) ($t['targeting_automation']['advantage_audience'] ?? 0) === 1,
         ];
+    }
+
+    /**
+     * "Hizmet ortalaması": each campaign's cost per result beside the median of the other brands for its (first)
+     * service and its result type (AdServiceStats, rebuilt daily). Campaigns without a service or a typed result get none.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function withAverages(DigitalAsset $asset, array $rows): array
+    {
+        $brand = $asset->brand;
+        $serviceOf = $brand !== null ? array_column($this->services->offerings($brand), 'service_id', 'id') : [];
+        $costs = $serviceOf !== [] && Schema::hasTable('ad_service_stats') ? AdServiceStats::brandCosts('meta', array_values(array_unique(array_filter($serviceOf)))) : [];
+        $city = $brand !== null && $costs !== [] ? AdServiceStats::city($brand) : '';
+        foreach ($rows as $i => $row) {
+            $rows[$i]['average'] = null;
+            $serviceId = $serviceOf[$row['services'][0]['id'] ?? 0] ?? null;
+            if ($serviceId === null || ! in_array($row['type'], ['leads', 'messages', 'purchases'], true)) {
+                continue;
+            }
+            $average = AdServiceStats::average($costs, (int) $serviceId, $row['type'], (int) $asset->brand_id, $city);
+            if ($average !== null) {
+                $rows[$i]['average'] = $average + ['diff' => MetaScreen::change($row['cpr'], $average['median']), 'verdict' => AdServiceStats::verdict($row['cpr'], $average['median'])];
+            }
+        }
+
+        return $rows;
     }
 
     /* ---------------- helpers ---------------- */

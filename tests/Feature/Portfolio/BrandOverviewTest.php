@@ -77,7 +77,7 @@ final class BrandOverviewTest extends TestCase
             ->assertSee('data-tab="varliklar"', false)->assertSee('data-tab="dosya"', false)->assertSee('data-tab="ayarlar"', false)
             ->assertSee('Bilgi dosyası')
             ->assertDontSee('data-tab="arama"', false)->assertDontSee('data-tab="harita"', false)->assertDontSee('Dikkat gerektirenler');
-        $this->assertSame(['ozet', 'varliklar', 'dosya', 'ayarlar'], array_keys($page->viewData('tabs')));
+        $this->assertSame(['ozet', 'varliklar', 'karne', 'dosya', 'ayarlar'], array_keys($page->viewData('tabs')));
 
         $page->call('setTab', 'bogus')->assertSet('tab', 'ozet')
             ->call('setTab', 'arama')->assertSet('tab', 'ozet')->assertSet('kanal', 'arama')->assertSee('data-channel-filter', false)

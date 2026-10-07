@@ -185,6 +185,20 @@ final class GoogleAdsScreen
      */
     public function services(DigitalAsset $asset, array $texts): array
     {
+        $ids = $this->serviceIds($asset, $texts);
+        $names = $this->serviceNames($asset->brand_id !== null ? (int) $asset->brand_id : null, array_values(array_unique(array_filter($ids))));
+
+        return array_filter(array_map(fn (?int $id): ?string => $id !== null ? ($names[$id] ?? null) : null, $ids));
+    }
+
+    /**
+     * Catalog service of each text (the sector's assigned query first, then the keyword matcher).
+     *
+     * @param  list<string>  $texts
+     * @return array<string, ?int> lower-cased text → service catalog item id
+     */
+    public function serviceIds(DigitalAsset $asset, array $texts): array
+    {
         $asset->loadMissing('brand');
         $sectorId = $asset->brand?->sector_id !== null ? (int) $asset->brand->sector_id : null;
         if ($sectorId === null || $texts === []) {
@@ -199,11 +213,41 @@ final class GoogleAdsScreen
             ->pluck('service_id', 'text_hash')->all();
         $ids = [];
         foreach ($normalized as $key => $text) {
-            $ids[$key] = $assigned[QueryNormalizer::hash($text)] ?? ($text !== '' ? $this->matcher->match($text, $sectorId) : null);
+            $id = $assigned[QueryNormalizer::hash($text)] ?? ($text !== '' ? $this->matcher->match($text, $sectorId) : null);
+            $ids[$key] = $id !== null ? (int) $id : null;
         }
-        $names = $this->serviceNames($asset->brand_id !== null ? (int) $asset->brand_id : null, array_values(array_unique(array_filter($ids))));
 
-        return array_filter(array_map(fn (?int $id): ?string => $id !== null ? ($names[$id] ?? null) : null, $ids));
+        return $ids;
+    }
+
+    /**
+     * Spend and conversions per catalog service over the last $days (keyword → hizmet; keywords without a service and
+     * campaigns without keywords are left out), for the cross-brand service numbers.
+     *
+     * @return array{period_end: ?string, currency: ?string, services: array<int, array{spend: float, conversions: float}>}
+     */
+    public function serviceTotals(DigitalAsset $asset, int $days = 30): array
+    {
+        $ctx = $this->context($asset);
+        if ($ctx === null) {
+            return ['period_end' => null, 'currency' => null, 'services' => []];
+        }
+        [$from, $to] = self::window($ctx['end'], $days);
+        $texts = $this->keywordTexts($ctx['scope']);
+        $ids = $this->serviceIds($asset, array_values(array_unique(array_filter(array_column($texts, 'text')))));
+        $out = [];
+        foreach ($ctx['scope']->daily('google_ads_keyword_daily', $from, $to)->groupBy('ad_group_id', 'criterion_id')
+            ->selectRaw('ad_group_id, criterion_id, SUM(cost_amount) as cost, SUM(conversions) as conversions')->get() as $r) {
+            $id = $ids[QueryNormalizer::lower($texts[$r->ad_group_id."\0".$r->criterion_id]['text'] ?? '')] ?? null;
+            if ($id === null) {
+                continue;
+            }
+            $out[$id] ??= ['spend' => 0.0, 'conversions' => 0.0];
+            $out[$id]['spend'] += (float) $r->cost;
+            $out[$id]['conversions'] += (float) $r->conversions;
+        }
+
+        return ['period_end' => $to, 'currency' => $ctx['currency'], 'services' => $out];
     }
 
     /**

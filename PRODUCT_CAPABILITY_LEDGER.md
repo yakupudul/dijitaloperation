@@ -3445,3 +3445,23 @@ Status: IMPLEMENTED V1 (coded + PHPUnit on SQLite and PostgreSQL; no real UAT ye
   campaigns are no longer reported as "hizmete bağlanamadı".
 - Not yet: "Hizmet ortalaması (tüm markalar)" comparison (step 3).
 - Tests: `tests/Feature/Meta/MetaAnalysisTest.php`, `MetaGeoResultsTest` (breakdown rows), `MetaCampaignServicesTest`.
+
+#### Hizmet ortalaması, Meta masası, Hizmet karnesi (plan step 3)
+
+Status: IMPLEMENTED V1 (coded + PHPUnit on SQLite and PostgreSQL; no real UAT yet). Rules only, no AI; nothing written to ad accounts.
+- `AdServiceStats` (daily `moxdop:ads:service-stats` 07:43 Istanbul → `RefreshAdServiceStatsJob` per Meta / Google Ads
+  account with a brand): 30-day spend and results per brand service and result type into `ad_service_stats`, with the
+  brand's city. Meta: campaign → hizmet, each ad split over the services it names (`adShares`), results of the campaign's
+  own type (form / mesaj / satış). Google Ads: keyword → hizmet (`GoogleAdsScreen::serviceTotals`), type "dönüşüm"; there is
+  no separate Google Ads campaign assignment screen (keywords carry the service). Meta campaign rows go to `ad_campaign_stats`.
+  Accounts whose data is older than 45 days are left out.
+- Average = median cost per result of the other brands for the same catalog service and type (brands with ≥ 3 results),
+  in the brand's city when ≥ 3 other brands are there, else all cities; needs ≥ 2 other brands. better / around / worse at ±15 %.
+- Kampanyalar tab: "Hizmet ort." column with the difference.
+- Meta masası `/meta` (menu "Meta reklamları"): KPIs, "Bugün bakılacaklar" (maliyet yüksek ≥ 30 % over the average,
+  maliyet arttı, harcama durdu, reddedilen reklam), service averages across brands with the cheapest brand, every brand's
+  campaigns with filters (sector, service, brand, alert) and sort (worst vs average, spend, results).
+- Brand page tab "Hizmet karnesi": per service Web sitesi (OfferingPage pages, 30-day search clicks / key events), Google
+  Ads, Meta (cost vs average), İşletme Profili (service listed on a profile), rank by cost among the brands, up to three notes.
+- Tests: `tests/Feature/Ads/AdServiceStatsTest.php`, `GoogleAdsScreenTest::test_service_totals_follow_keywords_and_feed_the_cross_brand_numbers`,
+  updated `PanelDesignFreezeTest` (sidebar + five brand tabs) and `BrandOverviewTest`.
