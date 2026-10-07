@@ -40,6 +40,37 @@
         </section>
     @endif
 
+    @if ($journey)
+        {{-- Yolculuk (yakup, 2026-10-07): searches → services → clusters → site → idea pool → sent; the broken link is red. --}}
+        <section class="{{ $card }}" data-brand-journey>
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Yolculuk</h2>
+                <span class="text-xs text-gray-500">aramadan yazılan içeriğe</span>
+            </div>
+            <ol class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+                @foreach ($journey['stages'] as $stage)
+                    @php $isBroken = ($journey['broken']['key'] ?? null) === $stage['key']; @endphp
+                    <li @class(['rounded-lg p-2.5 ring-1 ring-inset', 'bg-red-50 ring-red-200 dark:bg-red-500/10 dark:ring-red-500/30' => $isBroken, 'bg-gray-50 ring-gray-200 dark:bg-white/[0.03] dark:ring-gray-800' => ! $isBroken]) data-journey-stage="{{ $stage['key'] }}" @if ($isBroken) data-journey-broken @endif>
+                        <p class="truncate text-xs text-gray-500">{{ $loop->iteration }}. {{ $stage['label'] }}</p>
+                        <p @class(['text-xl font-semibold tabular-nums', 'text-red-700 dark:text-red-300' => $isBroken, 'text-gray-900 dark:text-white' => ! $isBroken])>{{ number_format($stage['value'], 0, ',', '.') }}</p>
+                        <p class="truncate text-xs text-gray-500" title="{{ $stage['detail'] }}">{{ $stage['detail'] }}</p>
+                    </li>
+                @endforeach
+            </ol>
+            @if ($journey['broken'])
+                <p class="mt-2 flex flex-wrap items-baseline gap-x-2 text-xs text-red-700 dark:text-red-300" data-journey-reason>
+                    <span>{{ $journey['broken']['reason'] }}</span>
+                    @if ($journey['broken']['fix'] !== 'ozet')
+                        <button type="button" wire:click="setTab('{{ $journey['broken']['fix'] }}')" class="font-semibold text-brand-600 hover:underline dark:text-brand-400">Düzelt →</button>
+                    @endif
+                </p>
+            @endif
+            @if ($journey['foreign'] !== [])
+                <p class="mt-2 text-xs text-gray-500" data-journey-foreign>Markada olmayan hizmetlere ait aramalar: @foreach ($journey['foreign'] as $row){{ $row['service'] }} ({{ $row['queries'] }})@if (! $loop->last), @endif @endforeach · Bu hizmetler veriliyorsa markaya ekle.</p>
+            @endif
+        </section>
+    @endif
+
     {{-- Numbers: each against the previous period of the same length --}}
     <section aria-labelledby="kpi-heading" data-brand-kpis>
         <div class="mb-2 flex flex-wrap items-baseline justify-between gap-2 text-xs text-gray-500">

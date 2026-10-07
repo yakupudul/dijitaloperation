@@ -1,5 +1,12 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-07 — Marka › Özet › Yolculuk
+
+- **Neden (yakup):** "entegrasyondan sorguya, hizmete, kümeye, içerik fikirlerine yolculuk" → "Bunu da yap".
+- **Şerit (`BrandJourney`):** Sorgu (markanın görüldüğü aramalar) › Hizmete atanan › Küme (onaylı; bekleyen sayısı) › Sitede eşleşen (sayfası yok/zayıf olanlar) › Havuzda fikir › Yazılan (30 gün). İlk boş halka kırmızı, nedeni ve "Düzelt" yeri yazar. Markada olmayan hizmetlere ait aramalar (en az 5) "markaya ekle" ipucuyla listelenir. Kurallar, AI yok.
+- **Bulgu:** sorgu → hizmet (sorgu pilotu) ve küme (günlük kümeleme + otomatik onay) zaten otomatik; zinciri koparan hizmetsiz markalardı (Marka tamamlama çözer).
+- **State:** CODED + PHPUnit (`BrandJourneyTest`).
+
 ## 2026-10-07 — Marka tamamlama: Claude eksik marka bilgilerini kendi doldurur
 
 - **Neden (yakup):** "Claude bunları kendi doldurabilir mi?" → karar kartında "Hemen kullan".

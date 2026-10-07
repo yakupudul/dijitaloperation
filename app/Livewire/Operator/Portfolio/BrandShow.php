@@ -20,6 +20,7 @@ use App\Models\ResourceAutomation;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\Brand\BrandDossier;
+use App\Services\Brand\BrandJourney;
 use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
 use App\Services\BrandSetup\BrandSetupStatus;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
@@ -514,6 +515,7 @@ class BrandShow extends Component
             'workTotal' => $all['total'],
             'work' => $work,
             'serviceSummary' => $overview->services($services),
+            'journey' => $this->journey($brand),
         ];
     }
 
@@ -582,6 +584,18 @@ class BrandShow extends Component
     private function websites(Brand $brand): Collection
     {
         return DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->orderBy('id')->get(['id', 'name', 'domain', 'primary_url']);
+    }
+
+    /** @return array<string, mixed>|null Yolculuk: searches → services → clusters → site → pool → sent */
+    private function journey(Brand $brand): ?array
+    {
+        try {
+            return app(BrandJourney::class)->for($brand);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return null;
+        }
     }
 
     /** @return array<string, mixed>|null */
