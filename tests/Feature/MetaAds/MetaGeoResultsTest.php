@@ -88,6 +88,25 @@ final class MetaGeoResultsTest extends TestCase
         $this->assertSame(6, DB::table('meta_breakdown_results_daily')->count());
     }
 
+    public function test_an_account_collected_before_the_breakdowns_gets_their_first_30_days(): void
+    {
+        $this->fakeInsights();
+        app(MetaGeoResults::class)->collect($this->asset, 3);
+        DB::table('meta_breakdown_results_daily')->delete();
+        $ranges = [];
+        $this->mock(MetaApiClient::class, function ($mock) use (&$ranges): void {
+            $mock->shouldReceive('get')->andReturnUsing(function ($integration, string $path, array $query) use (&$ranges): array {
+                $ranges[] = json_decode((string) $query['time_range'], true)['since'];
+
+                return ['data' => []];
+            });
+        });
+
+        app(MetaGeoResults::class)->collect($this->asset);
+
+        $this->assertSame('2026-08-24', min($ranges), 'geo rows alone do not shorten the first run');
+    }
+
     public function test_analysis_tab_shows_regions_and_queues_collection(): void
     {
         $this->fakeInsights();

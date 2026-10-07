@@ -60,7 +60,9 @@ class MetaGeoResults
         }
         $accountId = (string) $binding->accountId;
         $act = (string) ($binding->actId ?: 'act_'.$accountId);
-        $hasRows = DB::table(self::TABLE)->where('digital_asset_id', $asset->id)->where('account_id', $accountId)->exists();
+        // Both tables need their first 30 days: an account collected before the breakdowns existed gets them too.
+        $hasRows = DB::table(self::TABLE)->where('digital_asset_id', $asset->id)->where('account_id', $accountId)->exists()
+            && (! Schema::hasTable(self::BREAKDOWN_TABLE) || DB::table(self::BREAKDOWN_TABLE)->where('digital_asset_id', $asset->id)->where('account_id', $accountId)->exists());
         $days ??= $hasRows ? 3 : 30;
         $end = CarbonImmutable::now((string) ($binding->timezone ?: config('app.timezone')))->subDay()->startOfDay();
         $start = $end->subDays(max(1, $days) - 1);

@@ -62,6 +62,26 @@
         @endforeach
     </div>
 
+    @if (($board['by_service'] ?? []) !== [])
+        <section class="space-y-2" data-testid="meta-campaigns-by-service">
+            <div class="flex items-baseline justify-between gap-2">
+                <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Hizmetlere göre</h2>
+                <p class="text-xs text-gray-500">{{ $range->label() }} · iki hizmetli kampanya ikisinde de sayılır · tıklayınca tablo o hizmete süzülür</p>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                @foreach ($board['by_service'] as $svc)
+                    @php [$svcUnit, $svcCost] = $types[$svc['type']] ?? ['sonuç', 'sonuç başı']; @endphp
+                    <button type="button" wire:click="$set('service', '{{ $service === (string) $svc['id'] ? '' : $svc['id'] }}')" wire:key="by-service-{{ $svc['id'] }}"
+                        @class(['rounded-xl p-4 text-left ring-1 ring-inset transition', 'bg-brand-50 ring-brand-300 dark:bg-brand-500/10 dark:ring-brand-500/40' => $service === (string) $svc['id'], 'bg-white ring-gray-200 hover:ring-brand-200 dark:bg-gray-800 dark:ring-gray-700' => $service !== (string) $svc['id']])>
+                        <p class="truncate font-semibold text-gray-900 dark:text-white">{{ $svc['name'] }}</p>
+                        <p class="mt-0.5 text-xs text-gray-500">{{ $svc['campaigns'] }} kampanya · {{ $svc['live'] }} yayında</p>
+                        <p class="mt-2 text-sm tabular-nums text-gray-700 dark:text-gray-300"><span class="font-semibold text-gray-900 dark:text-white">{{ $money($svc['spend']) }}</span> · {{ $count($svc['results']) }} {{ $svcUnit }} · {{ $money($svc['cpr']) }} {{ $svcCost }}</p>
+                    </button>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
     @if ($alertCount > 0)
         <p class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200">
             <span class="font-semibold">{{ $alertCount }} kampanyada uyarı var.</span> Satırdaki etikete göre kampanyayı açıp bakın.
@@ -84,7 +104,7 @@
                                 <div class="flex gap-2.5">
                                     <span @class(['mt-1.5 h-2 w-2 shrink-0 rounded-full', 'bg-emerald-500' => $row['status'] === 'live', 'bg-gray-400' => $row['status'] !== 'live']) title="{{ ['live' => 'Yayında', 'paused' => 'Durmuş', 'ended' => 'Bitti'][$row['status']] }}"></span>
                                     <div class="min-w-0">
-                                        <a href="{{ route('operator.meta.campaign', ['assetId' => $assetId, 'campaignId' => $row['id'], 'gun' => $days, 'bas' => $start ?: null, 'bit' => $end ?: null, 'kars' => $compare !== 'prev' ? $compare : null]) }}" wire:navigate class="font-semibold text-gray-900 hover:text-brand-600 dark:text-white">{{ $row['name'] }}</a>
+                                        <a href="{{ route('operator.meta.campaign', ['assetId' => $assetId, 'campaignId' => $row['id'], 'gun' => $days, 'bas' => $start ?: null, 'bit' => $end ?: null, 'karsilastir' => $compare !== 'prev' ? $compare : null]) }}" wire:navigate class="font-semibold text-gray-900 hover:text-brand-600 dark:text-white">{{ $row['name'] }}</a>
                                         <p class="text-xs text-gray-500">{{ $row['objective'] }}</p>
                                     </div>
                                 </div>

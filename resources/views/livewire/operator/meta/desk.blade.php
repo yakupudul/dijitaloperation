@@ -34,7 +34,7 @@
     </div>
 
     @if (! $desk['ready'] || $desk['kpis']['campaigns'] === 0)
-        <p class="{{ $card }} text-sm text-gray-500" data-testid="meta-desk-empty">Henüz hesaplanmış kampanya yok. Sayılar her sabah Meta verisi çekildikten sonra hesaplanır.</p>
+        <p class="{{ $card }} text-sm text-gray-500" data-testid="meta-desk-empty">Henüz hesaplanmış kampanya yok. Sayılar her sabah, eksik kaldıysa en geç bir saat içinde Meta verisinden hesaplanır.</p>
     @else
         @php $k = $desk['kpis']; @endphp
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5" data-testid="meta-desk-kpis">

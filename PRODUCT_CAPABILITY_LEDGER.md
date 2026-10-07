@@ -5,7 +5,7 @@
 - **Neden (yakup):** "Web site dijital varlığında tarih filtresi var. O tarih filtresini tüm dijital varlık türlerinin ekranlarına da koy."
 - **Ortak parça:** Web sitesi ekranındaki seçici `<x-operator.date-range-picker>` oldu (hazır aralıklar 7 / 14 / 28 gün, 3 / 6 / 12 ay, geçen ay; iki aylık takvim; özel aralık; önceki dönem ya da geçen yıl). Son gün ekranın kendi son veri günüdür; "Uygula" ekranın `setRange()`'ini çağırır.
 - **Google Ads:** Genel bakış, Arama terimleri, Analiz (eski "28 / 90 gün" düğmeleri kalktı; arama terimleri artık sabit 30 gün değil seçili dönem). URL `days`, `bas`, `bit`, `kars`.
-- **Meta:** Kampanyalar, Analiz, Ölçüm ve kampanya detayı (`/assets/meta/{id}/campaigns/{c}`); listeden açılan kampanya aynı dönemle açılır. Analiz'in ayrı "Karşılaştır" düğmeleri seçicinin içine taşındı. URL `days` / `gun`, `bas`, `bit`, `karsilastir` / `kars`.
+- **Meta:** Kampanyalar, Analiz, Ölçüm ve kampanya detayı (`/assets/meta/{id}/campaigns/{c}`); listeden açılan kampanya aynı dönemle açılır. Analiz'in ayrı "Karşılaştır" düğmeleri seçicinin içine taşındı. URL `days` / `gun`, `bas`, `bit`, `karsilastir`. Kampanya detayındaki Analiz de seçili dönemi kullanır.
 - **İşletme Profili:** Genel Bakış sayıları (görüntüleme, tıklama; önceden sabit 28 gün) ve Analiz. Karşılaştırma döneminde veri yoksa "önceki dönem yok".
 - **Analytics / Search Console varlık ekranları:** eski dönem çubuğu yerine aynı seçici; seçim sayfanın kendi dönemine (`period`, `from`, `to`, `compare_mode`) çevrilir, 7 / 14 / 28 / 90 gün hazır, diğerleri özel aralık.
 - Okuyucular (`GoogleAdsScreen`, `MetaScreen`, `MetaCampaignBoard`, `MetaAnalysis`, `GbpScreen`) gün sayısı yerine `SiteRange` da alır; marka sayfası KPI'ları gibi diğer çağıranlar değişmedi.
@@ -3513,3 +3513,12 @@ Nothing written to any provider.
   remove), Mevsim takvimi (monthly volume of each service's cluster queries, 0–4 shading, peak note 1–2 months ahead) and
   Hizmet × marka haritası (on how many of web, Google Ads, Meta, profile each brand is present; offered but absent = gap).
 - Menu: "Kazananlar" after Meta reklamları. Tests: `tests/Feature/Ads/WinnersTest.php`.
+- 2026-10-07 follow-up (yakup saw /meta empty after the deploy): the morning runs (05:41 breakdowns, 07:43 per-service
+  rows) ran before the 10:55 deploy, so the new tables were empty. `moxdop:ads:catch-up` (hourly at :27, `AdsCatchUp`)
+  rebuilds per-service rows older than 23 hours, fetches the first 30 days of Meta regions / breakdowns for accounts with
+  none (once a day each) and takes a missing winners snapshot an hour after a rebuild. `MetaGeoResults` now gives an
+  account whose region rows predate the breakdown table its first 30 days of breakdowns (it took only 3).
+- Campaign page now carries the full Analiz of that campaign (regions with country, age × gender, hours, placements,
+  devices, ad set interests with results; picking another scope opens the account's Analiz tab). Kampanyalar tab: all
+  campaigns by default (live, paused and ended), a "Hizmetlere göre" strip (campaigns, live, spend, main result, cost per
+  result per service; click filters the table). Tests: `AdsCatchUpTest`, `MetaGeoResultsTest`, `MetaCampaignServicesTest`.

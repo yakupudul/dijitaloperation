@@ -60,9 +60,6 @@ final class MetaCampaignBoard
             $cur = $current[$id] ?? null;
             $prev = $previous[$id] ?? null;
             $status = self::status($campaign['status']);
-            if ($status === 'ended' && $cur === null) {
-                continue;
-            }
             $type = self::type($cur ?? $prev ?? [], $campaign['objective']);
             [$count, $cpr] = self::result($cur, $type);
             [, $prevCpr] = self::result($prev, $type);
@@ -94,7 +91,47 @@ final class MetaCampaignBoard
         $rows = $this->withAverages($asset, $rows);
 
         return ['bound' => true, 'window' => $w, 'kpis' => $this->kpis($current, $previous, $rows), 'rows' => $rows, 'offerings' => $offerings,
+            'by_service' => self::byService($rows),
             'open' => count(array_filter($rows, fn (array $r): bool => in_array($r['service_state'], [MetaCampaignServices::STATE_NONE, MetaCampaignServices::STATE_SUGGESTED], true) && $r['status'] !== 'ended'))];
+    }
+
+    /**
+     * Hizmetlere göre: every service with its campaigns (live and not), spend and results of its main result type in the
+     * window. A campaign with two services counts under both.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array{id: int, name: string, campaigns: int, live: int, spend: float, type: string, results: float, cpr: ?float}>
+     */
+    public static function byService(array $rows): array
+    {
+        $out = [];
+        foreach ($rows as $row) {
+            foreach ($row['services'] as $service) {
+                $id = (int) $service['id'];
+                $out[$id] ??= ['id' => $id, 'name' => (string) $service['name'], 'campaigns' => 0, 'live' => 0, 'spend' => 0.0, 'by_type' => []];
+                $out[$id]['campaigns']++;
+                $out[$id]['live'] += $row['status'] === 'live' ? 1 : 0;
+                $out[$id]['spend'] += (float) $row['spend'];
+                $out[$id]['by_type'][$row['type']]['spend'] = ($out[$id]['by_type'][$row['type']]['spend'] ?? 0.0) + (float) $row['spend'];
+                $out[$id]['by_type'][$row['type']]['results'] = ($out[$id]['by_type'][$row['type']]['results'] ?? 0.0) + (float) $row['results'];
+            }
+        }
+        $list = [];
+        foreach ($out as $service) {
+            $type = 'leads';
+            $best = -1.0;
+            foreach ($service['by_type'] as $key => $n) {
+                if ($n['results'] > $best) {
+                    [$type, $best] = [(string) $key, (float) $n['results']];
+                }
+            }
+            $n = $service['by_type'][$type] ?? ['spend' => 0.0, 'results' => 0.0];
+            $list[] = ['id' => $service['id'], 'name' => $service['name'], 'campaigns' => $service['campaigns'], 'live' => $service['live'], 'spend' => round($service['spend'], 2),
+                'type' => $type, 'results' => (float) $n['results'], 'cpr' => $n['results'] > 0 ? round($n['spend'] / $n['results'], 2) : null];
+        }
+        usort($list, fn (array $a, array $b): int => [$b['spend'], $b['campaigns']] <=> [$a['spend'], $a['campaigns']]);
+
+        return $list;
     }
 
     /**
