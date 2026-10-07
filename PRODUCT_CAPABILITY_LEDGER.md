@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-07 — Marka tamamlama: Claude eksik marka bilgilerini kendi doldurur
+
+- **Neden (yakup):** "Claude bunları kendi doldurabilir mi?" → karar kartında "Hemen kullan".
+- **Gece işi:** `moxdop:brands:autofill` her gece 02:40 (İstanbul). Hizmet, ★, bölge, sektör, iş bağlamı ya da Search Console / GA4 eşleşmesi eksik olan aktif markaya "Otomatik kur" başlatır (`auto_apply`). Hazır olunca (Claude cevabı dahil) kendi varsayılan seçimleriyle (yalnız emin satırlar) hemen uygulanır. ★ yoksa en çok aranan hizmet ★ olur. Sayfası hiç okunmamış siteler önce taranır. Bir marka 7 günde bir denenir; operatörün bekleyen önerisine dokunulmaz.
+- **Üzerine yazmaz:** uygulayıcı yalnız hizmet ekler, iş bağlamının boş alanlarını doldurur, başka varlığa bağlı hesabı taşımaz, seçili sektörü değiştirmez.
+- **Kim yaptı:** etkin olmayan (giriş yapamaz) "Claude (otomatik)" Admin kullanıcısı. Marka eksikleri kartı bu maddeleri sarı "Claude doldurdu (GG.AA), kontrol et" gösterir; "Kontrol ettim" işareti kaldırır (iş bağlamı ve otomatik sayılan dönüşümler için de).
+- **State:** CODED + PHPUnit (`BrandAutofillTest`, `BrandWorkspaceTest`). Canlıda ilk gece çalışmasından sonra 7 hizmetsiz markada sonuç görülecek.
+
 ## 2026-10-07 — Marka eksikleri kartı
 
 - **Neden (yakup):** "Marka için hangi bilgilerin girilmesini isterdin?" → 7 maddelik liste; "Olur koyalım".

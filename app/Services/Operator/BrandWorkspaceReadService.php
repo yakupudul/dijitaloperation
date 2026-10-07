@@ -7,6 +7,7 @@ use App\Models\BrandConversionSource;
 use App\Models\BrandIntelligenceContext;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
+use App\Models\BrandSetupProposal;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Support\Collection\LastDataDay;
@@ -132,6 +133,13 @@ final class BrandWorkspaceReadService
             'detail' => $brand->sector_id !== null || filled($brand->sector) ? (string) ($brand->sectorCategory?->name ?? $brand->sector) : 'Seçilmedi; sektörün yasaklı ifadeleri ve hizmet kataloğu buna bağlı.'];
         $items[] = ['key' => 'conversions', 'label' => 'Sayılan dönüşümler', 'required' => true, 'fix' => 'ayarlar', ...$this->conversionRule($brand)];
         $items[] = ['key' => 'context', 'label' => 'İş bağlamı', 'required' => true, 'fix' => 'ayarlar', ...$this->contextRule($brand)];
+        $auto = self::autofilled($brand);
+        foreach ($items as $index => $item) {
+            if ($auto !== null && $item['done'] && in_array($item['key'], self::AUTOFILLED_KEYS, true)) {
+                $items[$index]['review'] = true;
+                $items[$index]['detail'] .= ' · Claude doldurdu ('.$auto.'), kontrol et';
+            }
+        }
         $required = array_filter($items, static fn (array $i): bool => $i['required']);
 
         return [
@@ -140,6 +148,17 @@ final class BrandWorkspaceReadService
             'done' => count(array_filter($required, static fn (array $i): bool => $i['done'])),
             'total' => count($required),
         ];
+    }
+
+    /** Checklist items an automatic "Otomatik kur" run fills (Marka tamamlama). */
+    public const array AUTOFILLED_KEYS = ['services', 'main_service', 'areas', 'sector'];
+
+    /** The date of the brand's last automatic run nobody confirmed yet ("Kontrol ettim"), or null. */
+    public static function autofilled(Brand $brand): ?string
+    {
+        $proposal = BrandSetupProposal::query()->where('brand_id', $brand->id)->where('status', BrandSetupProposal::STATUS_APPLIED)->latest('applied_at')->first();
+
+        return $proposal !== null && $proposal->auto_apply && data_get($proposal->summary, 'checked_at') === null ? (string) $proposal->applied_at?->format('d.m') : null;
     }
 
     /**

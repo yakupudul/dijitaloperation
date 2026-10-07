@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\BrandSetupProposal;
 use App\Services\AiTasks\AiTaskQueue;
+use App\Services\BrandSetup\BrandAutofill;
 use App\Services\BrandSetup\BrandSetupAssistant;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -20,14 +21,18 @@ final class BuildBrandSetupProposalJob implements ShouldQueue
 
     public function __construct(public int $proposalId) {}
 
-    public function handle(BrandSetupAssistant $assistant, AiTaskQueue $tasks): void
+    public function handle(BrandSetupAssistant $assistant, AiTaskQueue $tasks, BrandAutofill $autofill): void
     {
         $proposal = BrandSetupProposal::query()->find($this->proposalId);
         $tasks->begin(new self($this->proposalId), $proposal?->brand_id, 'Otomatik kur · hizmet önerisi');
         try {
-            $assistant->build($this->proposalId);
+            $built = $assistant->build($this->proposalId);
         } finally {
             $tasks->settle();
+        }
+        // Marka tamamlama: a run Claude started itself is used at once (yakup, 2026-10-07 "Hemen kullan").
+        if ($built->auto_apply && $built->status === BrandSetupProposal::STATUS_READY) {
+            $autofill->apply($built);
         }
     }
 

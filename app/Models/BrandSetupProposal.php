@@ -43,6 +43,7 @@ class BrandSetupProposal extends Model
             'summary' => 'array',
             'apply_result' => 'array',
             'applied_at' => 'datetime',
+            'auto_apply' => 'boolean',
         ];
     }
 

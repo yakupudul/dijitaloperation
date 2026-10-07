@@ -7,8 +7,10 @@ use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Livewire\Operator\Workspace\BrandDossierTab;
 use App\Livewire\Operator\Workspace\BrandScorecardTab;
 use App\Models\Brand;
+use App\Models\BrandConversionSource;
 use App\Models\BrandIntelligenceContext;
 use App\Models\BrandOffering;
+use App\Models\BrandSetupProposal;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
@@ -190,6 +192,28 @@ class BrandShow extends Component
         } elseif ($this->tab !== self::OVERVIEW_TAB || ! isset(BrandOverviewReader::CHANNELS[$this->kanal])) {
             $this->kanal = '';
         }
+    }
+
+    /**
+     * Marka eksikleri › "Kontrol ettim": what Claude or the automatic rules filled is confirmed as the operator's own
+     * (the automatic run's services / places / sector, the İş bağlamı taken from the site, the automatically counted
+     * conversions). Nothing changes but the "Kontrol et" mark.
+     */
+    public function confirmChecked(string $key): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $brandId = (int) $this->brand;
+        match (true) {
+            in_array($key, BrandWorkspaceReadService::AUTOFILLED_KEYS, true) => BrandSetupProposal::query()->where('brand_id', $brandId)
+                ->where('status', BrandSetupProposal::STATUS_APPLIED)->where('auto_apply', true)->get()
+                ->each(fn (BrandSetupProposal $p) => $p->forceFill(['summary' => array_merge((array) $p->summary, ['checked_at' => now()->toIso8601String()])])->save()),
+            $key === 'context' => BrandIntelligenceContext::query()->where('brand_id', $brandId)
+                ->where('source', BrandIntelligenceContext::SOURCE_PUBLIC_DISCOVERY)->update(['source' => BrandIntelligenceContext::SOURCE_PUBLIC_DISCOVERY_EDITED, 'updated_by' => auth()->id()]),
+            $key === 'conversions' => BrandConversionSource::query()->where('brand_id', $brandId)->where('counts', true)
+                ->where('origin', BrandConversionSource::ORIGIN_AUTO)->update(['origin' => BrandConversionSource::ORIGIN_OPERATOR]),
+            default => null,
+        };
+        DemoState::flash('Kontrol edildi olarak işaretlendi.');
     }
 
     /** ★ on / off: ★ = main service (`priority = main`); the SEO plan, Harita and Ads look at main services first. */

@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-10-07 — Marka bilgilerini Claude doldurur, hemen kullanılır
+
+- **Karar (yakup, karttan "Hemen kullan"):** eksik marka bilgileri (hizmetler ve ★, bölgeler/şubeler, sektör, iş bağlamı, Search Console / GA4 eşleşmesi) gece "Otomatik kur" ile Claude tarafından doldurulur ve onay beklemeden kullanılır. Operatörün yazdığı hiçbir şeyin üzerine yazılmaz; doldurulan madde "Kontrol ettim" denene kadar kartta sarı görünür. Yalnız MoxDOP verisi; Google, Meta ya da siteye yazmaz.
+
 ## 2026-10-07 — Meta form verisi: yalnız form yapısı
 
 - **Karar (yakup, karttan "Yalnızca form yapısı"):** reklam detayında anında formun adı, soruları ve teşekkür ekranı gösterilir; formu dolduran kişilerin bilgisi (ad, telefon, cevaplar) Meta'dan okunmaz ve Moximu'da tutulmaz. `leads_retrieval` istenmeyen izinler listesinde kalır. Lead kalitesi yalnız elle içe aktarılan, kişi bilgisi olmayan listeden işaretlenir (MetaLeads).

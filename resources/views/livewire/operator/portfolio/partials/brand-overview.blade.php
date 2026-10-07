@@ -31,6 +31,9 @@
                         <span class="w-40 shrink-0 font-semibold text-gray-900 dark:text-white">{{ $item['label'] }}</span>
                         <span @class(['min-w-0 flex-1', 'text-red-700 dark:text-red-300' => $missing, 'text-amber-700 dark:text-amber-300' => ! $missing])>{{ $item['detail'] }}</span>
                         <button type="button" wire:click="setTab('{{ $item['fix'] }}')" class="shrink-0 font-semibold text-brand-600 hover:underline dark:text-brand-400">{{ $missing ? 'Düzelt' : 'Kontrol et' }} →</button>
+                        @if (! $missing && $isAdmin)
+                            <button type="button" wire:click="confirmChecked('{{ $item['key'] }}')" class="shrink-0 rounded-md px-2 py-0.5 font-semibold text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-gray-800" data-confirm-checked="{{ $item['key'] }}">Kontrol ettim</button>
+                        @endif
                     </li>
                 @endforeach
             </ul>

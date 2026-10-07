@@ -39,6 +39,7 @@ use App\Services\Brand\BrandAudit;
 use App\Services\Brand\BrandCare;
 use App\Services\Brand\BrandDossier;
 use App\Services\Brand\BrandGaps;
+use App\Services\BrandSetup\BrandAutofill;
 use App\Services\Collection\Activity\ActivityTierService;
 use App\Services\Collection\CollectionErrorRecorder;
 use App\Services\Collection\Monitoring\CollectionAccountPresenter;
@@ -807,6 +808,19 @@ Artisan::command('moxdop:content:weekly-titles {--site= : One website asset id} 
     }
     $this->info('Fikir havuzu: '.count($sites).' site, '.array_sum(array_map(fn (array $n): int => count($n['wants']), $needs)).' dil, '.array_sum(array_map(fn (array $n): int => array_sum($n['wants']), $needs)).' başlık istendi'.($discover ? ' (kümeler dışı fırsatlarla)' : '').'.');
 })->purpose('Fill every active language of operational sites to the content idea pool, plus weekly fresh ideas on Monday.');
+
+// Marka tamamlama (yakup, 2026-10-07 "Hemen kullan"): brands missing services, places, sector, context or the Search
+// Console / GA4 match get an "Otomatik kur" run by themselves, applied when ready; before the morning content run.
+Artisan::command('moxdop:brands:autofill {--brand= : One brand id}', function (BrandAutofill $autofill): void {
+    $out = $autofill->run($this->option('brand') !== null ? (int) $this->option('brand') : null);
+    $this->info('Marka tamamlama: '.collect($out)->map(fn (int $n, string $k): string => $k.' '.$n)->implode(', '));
+})->purpose('Fill missing brand facts with an automatic Otomatik kur run and apply it.');
+
+Schedule::command('moxdop:brands:autofill')
+    ->dailyAt('02:40')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(60)
+    ->name('brands-autofill');
 
 Schedule::command('moxdop:content:weekly-titles')
     ->dailyAt('09:17')
