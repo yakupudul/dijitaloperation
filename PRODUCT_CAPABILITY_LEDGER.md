@@ -11,6 +11,16 @@
 - Okuyucular (`GoogleAdsScreen`, `MetaScreen`, `MetaCampaignBoard`, `MetaAnalysis`, `GbpScreen`) gün sayısı yerine `SiteRange` da alır; marka sayfası KPI'ları gibi diğer çağıranlar değişmedi.
 - **State:** CODED + PHPUnit (`DemoSharedPeriodFilterTest` 2 yeni, `MetaCampaignServicesTest::test_the_date_picker_range_drives_the_board_the_analysis_and_the_campaign_page`, `GbpWorkspaceTabsTest::test_the_date_picker_range_drives_the_overview_numbers_and_the_analysis`, `GoogleAdsScreenTest::test_the_date_picker_range_gives_the_window_and_its_comparison`). Görünüm insan gözüyle onaylanmadı.
 
+## 2026-10-07 — Meta kampanya sayfası Ads Manager ile örtüşür
+
+- **Neden (yakup):** "Veriler örtüşmüyor." (Avrupadent YD Yeni, "Q MEDIA - GURBETÇİ KİTLE ADS 2": set bütçeleri 1.250 / 2.500 / 1.250 / 5.000 TL iken ekranda 12,50 / 25 / 12,50 / 50 TRY; 13 reklam "Bağlantı yok"; kampanyanın hizmeti bulunamadı; "Obezite ve Estetik" hesabı META_DATA_TOO_LARGE ile duruyordu.)
+- **Bütçe:** toplayıcı bütçeyi zaten liraya çeviriyor (`budgetMajor`); kampanya tablosu ikinci kez 100'e bölüyordu. Kaldırıldı (kampanya, set ve ömür boyu bütçe). Kayıtlı kampanya profilleri bir sonraki günlük yenilemede düzelir.
+- **Sonuç / harcama farkı:** fark yok, aralık farkı: Ads Manager son 30 gün (7 Eyl–6 Eki: 250 form, 232.547 TL), Moximu son 28 gün (9 Eyl–6 Eki: 239 form, 218.445 TL); 7–8 Eyl günleri 11 form ve 14.090 TL. Aynı aralık tarih seçiciyle seçilince aynı sayılar.
+- **Form reklamları:** set hedefi "ON_AD" (anında form) olan reklamlar "Anında form" görünür. Video ve dinamik (asset feed) reklamların başlık, metin, bağlantı ve form kimliği de okunur (`asset_feed_spec`, `video_data`); yeni toplamadan sonra dolar.
+- **Hizmet:** ad seviyesinde kısa adlar ("GURBETÇİ İMPLANT RS") hizmet adının ayırt edici kelimesiyle eşleşir ("İmplant Tedavisi" → "implant"; yalnız tek hizmette geçiyorsa).
+- **Veri çok büyük:** Meta varlık listeleri (reklamlar, setler, kreatifler) "reduce the amount of data" dediğinde aynı sayfa yarı boyutta tekrar istenir (en az 10), hesap durmaz.
+- **State:** CODED + PHPUnit (`MetaCampaignServicesTest`, `MetaStrategyTest`, `MetaInsightsTooMuchDataTest`).
+
 ## 2026-10-07 — İşletme Profili gönderisi hesabı bilinmeyen konumda da gider
 
 - **Neden:** 07 Eki'de onaylı otomatik gönderilerin 5'i yayınlanamadı (Gönderiler sayfası); sistem sağlığında okunan 4'ünün nedeni "Konumun hesap bilgisi yok; önce İşletme Profili verisini bir kez çekin." idi. Konumun Google hesabı (`accounts/…`) kayıtlı değildi; yazma bunu toplama işine bırakıyordu.

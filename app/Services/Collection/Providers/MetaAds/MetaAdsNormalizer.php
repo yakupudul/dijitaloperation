@@ -154,17 +154,20 @@ final class MetaAdsNormalizer
                     'name' => $row['name'] ?? null,
                     'object_type' => $row['object_type'] ?? null,
                     'status' => $row['status'] ?? null,
-                    'title' => $row['title'] ?? null,
-                    'body' => $row['body'] ?? null,
+                    // Video and dynamic (asset feed) creatives keep their text, link and lead form elsewhere.
+                    'title' => $row['title'] ?? data_get($row, 'object_story_spec.link_data.name') ?? data_get($row, 'object_story_spec.video_data.title') ?? data_get($row, 'asset_feed_spec.titles.0.text'),
+                    'body' => $row['body'] ?? data_get($row, 'object_story_spec.link_data.message') ?? data_get($row, 'object_story_spec.video_data.message') ?? data_get($row, 'asset_feed_spec.bodies.0.text'),
                     'call_to_action_type' => $row['call_to_action_type'] ?? null,
-                    'link_url' => $row['link_url'] ?? data_get($row, 'object_story_spec.link_data.link'),
+                    'link_url' => $row['link_url'] ?? data_get($row, 'object_story_spec.link_data.link') ?? data_get($row, 'object_story_spec.video_data.call_to_action.value.link')
+                        ?? data_get($row, 'asset_feed_spec.link_urls.0.website_url'),
                     'thumbnail_url' => $row['thumbnail_url'] ?? null,
                     'image_hash' => $row['image_hash'] ?? null,
                     'video_id' => $row['video_id'] ?? null,
                     'page_id' => data_get($row, 'object_story_spec.page_id') ?? $row['actor_id'] ?? null,
                     // v2: lead form used by the creative (the account's lead forms list = distinct ids).
                     'lead_gen_form_id' => data_get($row, 'object_story_spec.link_data.call_to_action.value.lead_gen_form_id')
-                        ?? data_get($row, 'object_story_spec.video_data.call_to_action.value.lead_gen_form_id'),
+                        ?? data_get($row, 'object_story_spec.video_data.call_to_action.value.lead_gen_form_id')
+                        ?? collect((array) data_get($row, 'asset_feed_spec.call_to_actions', []))->map(fn ($c) => data_get($c, 'value.lead_gen_form_id'))->filter()->first(),
                     'instagram_actor_id' => $row['instagram_actor_id'] ?? data_get($row, 'instagram_user_id'),
                     'binary_media_downloaded' => false,
                     'instagram_digital_asset_created' => false,

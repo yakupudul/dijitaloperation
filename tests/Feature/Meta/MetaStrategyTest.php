@@ -86,7 +86,7 @@ class MetaStrategyTest extends TestCase
         $profile = json_decode((string) DB::table('ad_campaign_stats')->where('campaign_id', 'c1')->value('profile'), true);
 
         $this->assertSame(['LEAD_GENERATION'], $profile['optimization']);
-        $this->assertSame(1.5, (float) $profile['budget']);
+        $this->assertSame(150.0, (float) $profile['budget']);
         $this->assertSame(['Ankara'], $profile['targeting']['locations']);
         $this->assertSame('Diş İmplantı Ankara', $profile['best_ad']['title']);
         $this->assertSame(1, $profile['ads']);

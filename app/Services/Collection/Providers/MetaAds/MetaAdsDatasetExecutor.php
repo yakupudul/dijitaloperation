@@ -16,6 +16,7 @@ use App\Services\DataPool\DatasetWritePipeline;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RawPayloadEnvelope;
 use App\Services\Integrations\Meta\MetaApiClient;
+use App\Services\Integrations\Meta\MetaException;
 use RuntimeException;
 use Throwable;
 
@@ -31,6 +32,9 @@ use Throwable;
 final class MetaAdsDatasetExecutor implements DatasetExecutor
 {
     private const ENTITY_COLLECTOR_VERSION = 'meta-entity-v3';
+
+    /** Smallest page an entity list falls back to when Meta asks for less data. */
+    private const int MIN_ENTITY_LIMIT = 10;
 
     public function __construct(
         private readonly MetaAdsEligibilityGuard $eligibility,
@@ -275,7 +279,7 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
 
         $path = (string) $scope['act_id'].'/adcreatives';
         $query = [
-            'fields' => 'id,name,object_type,status,title,body,call_to_action_type,link_url,thumbnail_url,image_hash,video_id,object_story_spec,instagram_actor_id,actor_id',
+            'fields' => 'id,name,object_type,status,title,body,call_to_action_type,link_url,thumbnail_url,image_hash,video_id,object_story_spec,asset_feed_spec,instagram_actor_id,actor_id',
             'limit' => 250,
         ];
         [$allCreativeRows, $requestId] = $this->paginateList($scope['integration'], $path, $query);
@@ -355,6 +359,16 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
         ];
     }
 
+    /** A paging URL with another page size (the cursor stays). */
+    private static function withLimit(string $url, int $limit): string
+    {
+        $parts = parse_url($url);
+        parse_str((string) ($parts['query'] ?? ''), $params);
+        $params['limit'] = $limit;
+
+        return ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '').($parts['path'] ?? '').'?'.http_build_query($params);
+    }
+
     /**
      * @param  array<string, scalar|null>  $query
      * @return array{0: list<array<string, mixed>>, 1: ?string}
@@ -370,12 +384,27 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
         $pages = 0;
         $nextUrl = null;
         $next = null;
+        $limit = max(1, (int) ($query['limit'] ?? 0));
+        $startLimit = $limit;
 
-        while ($pages < $maxPages) {
+        while ($pages < $maxPages * intdiv($startLimit, $limit)) {
             $pages++;
-            $payload = $nextUrl === null
-                ? $this->client->get($integration, $path, $query)
-                : $this->client->getAbsolute($integration, $nextUrl);
+            try {
+                $payload = $nextUrl === null
+                    ? $this->client->get($integration, $path, $query)
+                    : $this->client->getAbsolute($integration, $nextUrl);
+            } catch (MetaException $e) {
+                // "Please reduce the amount of data" (rich creatives, big accounts): the same page again, half as large.
+                if ($e->kind !== MetaException::KIND_DATA_TOO_LARGE || ! isset($query['limit']) || $limit <= self::MIN_ENTITY_LIMIT) {
+                    throw $e;
+                }
+                $limit = max(self::MIN_ENTITY_LIMIT, intdiv($limit, 2));
+                $query['limit'] = $limit;
+                $nextUrl = $nextUrl !== null ? self::withLimit($nextUrl, $limit) : null;
+                $pages--;
+
+                continue;
+            }
             $requestId = $this->safeRequestId($payload) ?? $requestId;
 
             foreach ($payload['data'] ?? [] as $row) {
@@ -389,7 +418,7 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
                 $next = null;
                 break;
             }
-            $nextUrl = $next;
+            $nextUrl = $limit !== $startLimit ? self::withLimit($next, $limit) : $next;
         }
 
         if ($next !== null) {

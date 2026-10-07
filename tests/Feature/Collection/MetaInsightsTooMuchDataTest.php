@@ -180,6 +180,30 @@ final class MetaInsightsTooMuchDataTest extends TestCase
         $this->assertStringContainsString('reduce the amount of data', (string) $result->errorMessage);
     }
 
+    public function test_an_entity_list_meta_finds_too_large_goes_on_with_half_size_pages(): void
+    {
+        // "Obezite ve Estetik" (2026-10-07): the ad list of a big account stopped the account; now it is read in smaller pages.
+        $limits = [];
+        Http::fake(function (Request $request) use (&$limits) {
+            parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+            $limit = (int) ($query['limit'] ?? 0);
+            $limits[] = [$limit, (string) ($query['after'] ?? '')];
+            if ($limit > 60) {
+                return Http::response(['error' => ['code' => 1, 'error_subcode' => 99, 'message' => self::REDUCE]], 500);
+            }
+
+            return ($query['after'] ?? '') === ''
+                ? Http::response(['data' => [['id' => 'ad1', 'name' => 'A', 'campaign_id' => 'c1', 'adset_id' => 's1']], 'paging' => ['next' => 'https://graph.facebook.com/v26.0/act_11110001/ads?limit='.$limit.'&after=p2']], 200)
+                : Http::response(['data' => [['id' => 'ad2', 'name' => 'B', 'campaign_id' => 'c1', 'adset_id' => 's1']]], 200);
+        });
+        $datasetRun = $this->datasetRun('META_V2_RF_AD_SNAPSHOT', 'meta_ad_snapshot', '2026-09-01', '2026-09-01');
+
+        $result = $this->execute($datasetRun, []);
+
+        $this->assertNotSame(DatasetExecutionOutcome::Failed, $result->outcome, (string) $result->errorMessage);
+        $this->assertSame([[250, ''], [125, ''], [62, ''], [31, ''], [31, 'p2']], $limits, 'halved until Meta answers; the next page keeps the smaller size');
+    }
+
     public function test_a_temporary_5xx_is_still_retried_without_shrinking(): void
     {
         Http::fake(function (Request $request) {

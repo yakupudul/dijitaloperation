@@ -76,6 +76,9 @@ final class MetaAdsProfessionalDatasetExecutor implements DatasetExecutor
     /** Insights page sizes, largest first; Meta's "reduce the amount of data" answer (code 1) steps down. */
     private const array INSIGHTS_LIMITS = [500, 100, 25];
 
+    /** Smallest page an entity list falls back to when Meta asks for less data. */
+    private const int MIN_ENTITY_LIMIT = 10;
+
     /** @var array<string, list<string>> */
     private const BREAKDOWN_GROUPS = [
         'country' => ['country'],
@@ -855,13 +858,42 @@ final class MetaAdsProfessionalDatasetExecutor implements DatasetExecutor
         }
     }
 
+    /** A paging URL with another page size (the cursor stays). */
+    private static function withLimit(string $url, int $limit): string
+    {
+        $parts = parse_url($url);
+        parse_str((string) ($parts['query'] ?? ''), $params);
+        $params['limit'] = $limit;
+
+        return ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '').($parts['path'] ?? '').'?'.http_build_query($params);
+    }
+
     /**
      * @param  array<string,scalar|null>  $query
      * @return array{0:list<array<string,mixed>>,1:?string}
      */
     private function paginateList(CoreIntegration $integration, string $path, array $query, int $maxPages): array
     {
-        $payload = $this->client->get($integration, $path, $query);
+        // Entity lists (ads, ad sets with targeting, …) go on with half-size pages when Meta asks for less data;
+        // insights have their own smaller-request path (smallerInsightsRequest).
+        $adaptive = isset($query['limit']) && ! str_ends_with($path, '/insights');
+        $startLimit = max(1, (int) ($query['limit'] ?? 1));
+        $limit = $startLimit;
+        $fetch = function (?string $next) use ($integration, $path, &$query, &$limit, $adaptive): array {
+            while (true) {
+                try {
+                    return $next === null ? $this->client->get($integration, $path, $query) : $this->client->getAbsolute($integration, $next);
+                } catch (MetaException $e) {
+                    if (! $adaptive || $e->kind !== MetaException::KIND_DATA_TOO_LARGE || $limit <= self::MIN_ENTITY_LIMIT) {
+                        throw $e;
+                    }
+                    $limit = max(self::MIN_ENTITY_LIMIT, intdiv($limit, 2));
+                    $query['limit'] = $limit;
+                    $next = $next !== null ? self::withLimit($next, $limit) : null;
+                }
+            }
+        };
+        $payload = $fetch(null);
         $rows = [];
         $requestId = $this->requestId($payload);
         $pages = 0;
@@ -875,10 +907,11 @@ final class MetaAdsProfessionalDatasetExecutor implements DatasetExecutor
             }
             $pages++;
             $next = data_get($payload, 'paging.next');
+            $maxPages = max($maxPages, $maxPages * intdiv($startLimit, $limit));
             if (! is_string($next) || $next === '' || $pages >= $maxPages) {
                 break;
             }
-            $payload = $this->client->getAbsolute($integration, $next);
+            $payload = $fetch($limit !== $startLimit ? self::withLimit($next, $limit) : $next);
             $requestId ??= $this->requestId($payload);
         }
 

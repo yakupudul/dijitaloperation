@@ -442,12 +442,49 @@ final class MetaCampaignServices
                     }
                 }
             }
+            if ($found === [] && $source === 'name') {
+                // Short ad naming ("GURBETÇİ İMPLANT RS"): the distinctive word of a service name ("İmplant" of
+                // "İmplant Tedavisi") when only one service has it.
+                $cores = [];
+                foreach ($offerings as $offering) {
+                    foreach ($offering['names'] as $name) {
+                        $core = self::core($name);
+                        if ($core !== null) {
+                            $cores[$core][$offering['id']] = $name;
+                        }
+                    }
+                }
+                foreach (array_unique(array_filter($texts['names'])) as $text) {
+                    foreach ($cores as $core => $owners) {
+                        if (count($owners) === 1 && SeoText::containsPhrase($text, $core)) {
+                            $found[(int) array_key_first($owners)] ??= 'Kampanya / reklam adında “'.$core.'” geçiyor ('.reset($owners).').';
+                        }
+                    }
+                }
+            }
             if ($found !== []) {
                 return ['source' => $source, 'offerings' => $found];
             }
         }
 
         return null;
+    }
+
+    /** Generic last words of a service name ("tedavisi", "uygulaması", "treatment"); what is left names the service. */
+    private const array GENERIC_WORDS = ['tedavisi', 'tedavileri', 'tedavi', 'uygulamasi', 'uygulamalari', 'uygulama', 'operasyonu', 'operasyonlari', 'ameliyati', 'hizmeti',
+        'treatment', 'treatments', 'surgery', 'surgeries', 'application', 'applications'];
+
+    /** The distinctive part of a service name, or null when nothing generic is dropped or what is left is too short. */
+    private static function core(string $name): ?string
+    {
+        $words = explode(' ', SeoText::fold($name));
+        $kept = array_values(array_filter($words, fn (string $w): bool => $w !== '' && ! in_array($w, self::GENERIC_WORDS, true)));
+        if ($kept === [] || count($kept) === count($words) || count($kept) > 2) {
+            return null;
+        }
+        $core = implode(' ', $kept);
+
+        return mb_strlen($core) >= 6 ? $core : null;
     }
 
     /**

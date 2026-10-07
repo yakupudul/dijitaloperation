@@ -173,7 +173,7 @@ final class MetaCampaignBoard
             }
             [$setCount, $setCpr] = self::result($bySet[$id] ?? null, $type);
             $adsets[] = ['id' => (string) $id, 'name' => $adset['name'], 'status' => self::status($adset['status']), 'optimization' => $adset['optimization_goal'],
-                'destination' => $adset['destination_type'], 'budget' => $adset['daily_budget'] !== null ? round($adset['daily_budget'] / 100, 2) : null,
+                'destination' => $adset['destination_type'], 'budget' => $adset['daily_budget'] !== null ? round($adset['daily_budget'], 2) : null,
                 'attribution' => MetaScreen::attributionLabel($adset['attribution_spec']), 'targeting' => self::targeting($adset['targeting']),
                 'spend' => round((float) ($bySet[$id]['spend'] ?? 0), 2), 'results' => $setCount, 'cpr' => $setCpr];
         }
@@ -186,7 +186,9 @@ final class MetaCampaignBoard
             [$adCount, $adCpr] = self::result($ads[$id] ?? null, $type);
             $adRows[] = ['id' => (string) $id, 'name' => $ad['name'], 'status' => (string) $ad['status'], 'adset' => (string) ($entities['adsets'][$ad['adset_id']]['name'] ?? ''),
                 'title' => (string) ($creative['title'] ?? ''), 'body' => (string) ($creative['body'] ?? ''), 'link_url' => (string) ($creative['link_url'] ?? ''),
-                'thumbnail_url' => (string) ($creative['thumbnail_url'] ?? ''), 'video' => (bool) ($creative['video'] ?? false), 'form' => ($creative['lead_gen_form_id'] ?? '') !== '',
+                'thumbnail_url' => (string) ($creative['thumbnail_url'] ?? ''), 'video' => (bool) ($creative['video'] ?? false),
+                // A lead ad set ("ON_AD") always opens Meta's instant form, even when the creative does not name it.
+                'form' => ($creative['lead_gen_form_id'] ?? '') !== '' || ($entities['adsets'][$ad['adset_id']]['destination_type'] ?? '') === 'ON_AD',
                 'spend' => round((float) ($ads[$id]['spend'] ?? 0), 2), 'results' => $adCount, 'cpr' => $adCpr,
                 'ctr' => isset($ads[$id]) ? MetaScreen::derive($ads[$id])['ctr'] : null, 'fatigue' => $fatigue[(string) $id] ?? null];
         }
@@ -200,7 +202,7 @@ final class MetaCampaignBoard
             'objective' => MetaScreen::objectiveLabel($campaign['objective']), 'type' => $type, 'window' => $w,
             'settings' => [
                 'buying_type' => (string) ($meta['buying_type'] ?? ''), 'budget' => $this->budget($campaign, $entities),
-                'lifetime_budget' => is_numeric($meta['lifetime_budget'] ?? null) && (float) $meta['lifetime_budget'] > 0 ? round((float) $meta['lifetime_budget'] / 100, 2) : null,
+                'lifetime_budget' => is_numeric($meta['lifetime_budget'] ?? null) && (float) $meta['lifetime_budget'] > 0 ? round((float) $meta['lifetime_budget'], 2) : null,
                 'start' => self::date($meta['start_time'] ?? null), 'stop' => self::date($meta['stop_time'] ?? null),
             ],
             'kpis' => ['spend' => $total['spend'], 'prev_spend' => round((float) array_sum(array_column($prevAds, 'spend')), 2), 'results' => $count, 'prev_results' => $prevCount,
@@ -237,7 +239,7 @@ final class MetaCampaignBoard
             $creative = $entities['creatives'][$ad['creative_id']] ?? [];
             $videos += ($creative['video'] ?? false) ? 1 : 0;
             $set = $entities['adsets'][$ad['adset_id']] ?? [];
-            $destinations[] = ($creative['lead_gen_form_id'] ?? '') !== '' ? 'form'
+            $destinations[] = ($creative['lead_gen_form_id'] ?? '') !== '' || ($set['destination_type'] ?? '') === 'ON_AD' ? 'form'
                 : (preg_match('/MESSENGER|WHATSAPP|INSTAGRAM_DIRECT|MESSAG/i', (string) ($set['destination_type'] ?? '')) ? 'mesaj' : (($creative['link_url'] ?? '') !== '' ? 'site' : ''));
             [$count, $cpr] = self::result($ads[$id] ?? null, $type);
             $spend = (float) ($ads[$id]['spend'] ?? 0);
@@ -402,11 +404,11 @@ final class MetaCampaignBoard
 
     /* ---------------- helpers ---------------- */
 
-    /** @return array{amount: ?float, level: string} daily budget in account currency (Meta keeps minor units), campaign or summed ad sets */
+    /** @return array{amount: ?float, level: string} daily budget in account currency (the collector already stores major units), campaign or summed ad sets */
     private function budget(array $campaign, array $entities): array
     {
         if ($campaign['daily_budget'] !== null && $campaign['daily_budget'] > 0) {
-            return ['amount' => round($campaign['daily_budget'] / 100, 2), 'level' => 'campaign'];
+            return ['amount' => round($campaign['daily_budget'], 2), 'level' => 'campaign'];
         }
         $sum = 0.0;
         foreach ($entities['adsets'] as $adset) {
@@ -415,7 +417,7 @@ final class MetaCampaignBoard
             }
         }
 
-        return ['amount' => $sum > 0 ? round($sum / 100, 2) : null, 'level' => 'adset'];
+        return ['amount' => $sum > 0 ? round($sum, 2) : null, 'level' => 'adset'];
     }
 
     /**

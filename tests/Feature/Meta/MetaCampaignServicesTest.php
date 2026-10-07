@@ -15,6 +15,7 @@ use App\Models\ExternalWriteAction;
 use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Services\AiTasks\AiTaskQueue;
+use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Meta\MetaAnalysis;
 use App\Services\Meta\MetaCampaignBoard;
 use App\Services\Meta\MetaCampaignServices;
@@ -181,7 +182,7 @@ class MetaCampaignServicesTest extends TestCase
         $this->assertSame(56.0, (float) $board['kpis']['leads']['value']);
         $rows = array_column($board['rows'], null, 'id');
         $this->assertSame(['leads', 56.0, 50.0], [$rows['c1']['type'], (float) $rows['c1']['results'], (float) $rows['c1']['cpr']]);
-        $this->assertSame(['amount' => 1.5, 'level' => 'campaign'], ['amount' => (float) $rows['c1']['budget']['amount'], 'level' => $rows['c1']['budget']['level']]);
+        $this->assertSame(['amount' => 150.0, 'level' => 'campaign'], ['amount' => (float) $rows['c1']['budget']['amount'], 'level' => $rows['c1']['budget']['level']], 'the collector stores major units; no second division');
         $alerts = fn (string $id): array => array_column($rows[$id]['alerts'], 'key');
         $this->assertContains('cost_up', $alerts('c1'));
         $this->assertContains('fatigue', $alerts('c1'));
@@ -226,6 +227,28 @@ class MetaCampaignServicesTest extends TestCase
             ->set('service', '')->set('search', 'implant')->assertSee('Diş İmplantı Lead Ankara')->assertDontSee('Genel Trafik')
             ->call('confirmService', 'c1', $implant->id);
         $this->assertSame('confirmed', $this->services()->map($this->asset)['c1']['state']);
+    }
+
+    public function test_short_ad_set_names_find_the_service_and_lead_ad_sets_show_the_form_and_their_budget(): void
+    {
+        $service = app(ServiceCatalogService::class)->resolveOrCreate('Diş Beyazlatma Uygulaması', 'dental', actor: $this->admin)['service'];
+        $whitening = BrandOffering::query()->create(['brand_id' => $this->brand->id, 'service_catalog_item_id' => $service->id, 'status' => 'active', 'priority' => 'secondary', 'locked' => true]);
+        $this->snapshot('meta_campaign_snapshot', ['campaign_id' => 'c3'], ['name' => 'Q MEDIA - GURBETÇİ KİTLE ADS 2', 'objective' => 'OUTCOME_LEADS', 'effective_status' => 'ACTIVE']);
+        $this->snapshot('meta_adset_snapshot', ['adset_id' => 'as3'], ['name' => 'Q MEDIA - GURBETÇİ DİŞ BEYAZLATMA RS', 'campaign_id' => 'c3', 'optimization_goal' => 'LEAD_GENERATION',
+            'destination_type' => 'ON_AD', 'effective_status' => 'ACTIVE', 'daily_budget' => '1250.000000']);
+        $this->snapshot('meta_creative_snapshot', ['creative_id' => 'cr3'], ['name' => 'Beyazlatma', 'title' => '', 'body' => '']);
+        $this->professional('meta_ad_snapshot', ['ad_id' => 'ad3', 'ad_name' => 'GURBETÇİ R1 N', 'campaign_id' => 'c3', 'adset_id' => 'as3', 'creative_id' => 'cr3', 'effective_status' => 'ACTIVE']);
+        $this->daily('ad3', 'c3', 'as3', '2026-10-20', 300, 1000, 10, 800);
+
+        $this->services()->sync($this->asset->load('brand'));
+        $entry = $this->services()->map($this->asset)['c3'];
+        $this->assertSame([$whitening->id], array_column($entry['services'], 'id'));
+        $this->assertStringContainsString('dis beyazlatma', $entry['services'][0]['reason']);
+
+        $rows = array_column(app(MetaCampaignBoard::class)->board($this->asset, 28)['rows'], null, 'id');
+        $this->assertSame(1250.0, (float) $rows['c3']['budget']['amount'], 'ad set budgets summed in lira, as in Ads Manager');
+        $this->actingAs($this->admin)->get(route('operator.meta.campaign', ['assetId' => $this->asset->id, 'campaignId' => 'c3']))->assertOk()
+            ->assertSee('Anında form')->assertDontSee('Bağlantı yok')->assertSee('1.250,00 TRY');
     }
 
     public function test_campaign_page_shows_its_parts_and_takes_service_decisions(): void
