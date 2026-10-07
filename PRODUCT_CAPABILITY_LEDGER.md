@@ -3428,3 +3428,20 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT yet). Read-only toward Meta
   ticked ones, pick another service, hizmet dışı, undo, "AI ile eşleştir".
 - Not yet: "hizmet ortalamasına göre" column and service averages (step 3), landing-page alert, Analiz age/gender (step 2).
 - Tests: `tests/Feature/Meta/MetaCampaignServicesTest.php` (9), updated `MetaScreenTest`, `MetaAssistantTest`, `MetaAssetPageTest`.
+
+#### Meta Analiz: service / campaign focus and audience breakdowns (plan step 2)
+
+Status: IMPLEMENTED V1 (coded + PHPUnit on SQLite and PostgreSQL; no real UAT yet). Read-only toward Meta.
+- Collection: the daily geo job (`CollectMetaGeoResultsJob` → `MetaGeoResults::collect`) also reads four ad-level daily
+  breakdowns into `meta_breakdown_results_daily`: age × gender, hour (advertiser time zone), placement (publisher platform
+  × position) and device, with spend and the canonical lead / message / purchase actions. "Kırılım verisini çek" collects 90 days.
+- Analiz tab (`MetaAnalysis`): "Neye göre" (whole account, a service via Kampanya → hizmet, or a campaign), 7/28/90 days,
+  compare with the previous period or the same days last year. KPI tiles (spend, form, mesaj, satış with cost of each
+  type), weekly spend/result chart, cost per result type (each campaign by its own type), country/city, age × gender cost
+  heatmap per chosen type with cheapest / dearest slice (min 3 results), day × hour results, placement and device shares,
+  ad sets' interests beside their results. The old campaign / ad set / ad comparison tables are gone (Kampanyalar and the
+  campaign page carry them).
+- `MetaScreen::campaignServices` (used by checks and AI packs) now reads the stored Kampanya → hizmet first; "hizmet dışı"
+  campaigns are no longer reported as "hizmete bağlanamadı".
+- Not yet: "Hizmet ortalaması (tüm markalar)" comparison (step 3).
+- Tests: `tests/Feature/Meta/MetaAnalysisTest.php`, `MetaGeoResultsTest` (breakdown rows), `MetaCampaignServicesTest`.

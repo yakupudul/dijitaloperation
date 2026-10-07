@@ -2,6 +2,7 @@
 
 namespace App\Services\Meta;
 
+use App\Models\AdCampaignService;
 use App\Models\Brand;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
@@ -487,8 +488,9 @@ final class MetaScreen
     }
 
     /**
-     * The brand offering each campaign serves: offering name in the campaign / ad set / ad names or creative title,
-     * else the sector's matching keywords. Unmatched campaigns are left out.
+     * The brand offering each campaign serves: the stored Kampanya → hizmet (MetaCampaignServices) when there is one,
+     * else the offering name in the campaign / ad set / ad names or creative title, else the sector's matching keywords.
+     * Unmatched and "hizmet dışı" campaigns are left out.
      *
      * @param  array{campaigns: array<string, array<string, mixed>>, adsets: array<string, array<string, mixed>>, ads: array<string, array<string, mixed>>, creatives: array<string, array<string, mixed>>}  $entities
      * @return array<string, string> campaign id => offering name
@@ -499,19 +501,39 @@ final class MetaScreen
         if ($offerings === []) {
             return [];
         }
+        // Kampanya → hizmet kept in ad_campaign_services wins (confirmed first, then the suggestion); "hizmet dışı"
+        // campaigns get no service. Only campaigns with nothing stored fall back to the name / title match below.
+        $stored = [];
+        $names = array_column(app(MetaCampaignServices::class)->offerings($brand), 'name', 'id');
+        foreach (AdCampaignService::query()->where('channel', MetaCampaignServices::CHANNEL)->where('brand_id', $brand->id)
+            ->whereIn('status', [AdCampaignService::CONFIRMED, AdCampaignService::SUGGESTED, AdCampaignService::EXCLUDED])
+            ->orderByRaw("case status when 'confirmed' then 0 when 'excluded' then 0 else 1 end")->orderBy('id')->get() as $row) {
+            $id = (string) $row->campaign_id;
+            if (array_key_exists($id, $stored)) {
+                continue;
+            }
+            $stored[$id] = $row->status === AdCampaignService::EXCLUDED ? null : ($names[(int) $row->brand_offering_id] ?? null);
+        }
         $texts = [];
         foreach ($entities['campaigns'] as $id => $c) {
+            if (array_key_exists((string) $id, $stored)) {
+                continue;
+            }
             $texts[$id][] = $c['name'];
         }
         foreach ($entities['adsets'] as $a) {
-            $texts[$a['campaign_id']][] = $a['name'];
+            if (isset($texts[$a['campaign_id']])) {
+                $texts[$a['campaign_id']][] = $a['name'];
+            }
         }
         foreach ($entities['ads'] as $ad) {
-            $texts[$ad['campaign_id']][] = $ad['name'];
-            $texts[$ad['campaign_id']][] = (string) ($entities['creatives'][$ad['creative_id']]['title'] ?? '');
+            if (isset($texts[$ad['campaign_id']])) {
+                $texts[$ad['campaign_id']][] = $ad['name'];
+                $texts[$ad['campaign_id']][] = (string) ($entities['creatives'][$ad['creative_id']]['title'] ?? '');
+            }
         }
         $matcher = app(QueryServiceMatcher::class);
-        $out = [];
+        $out = array_filter($stored, fn (?string $name): bool => $name !== null);
         foreach ($texts as $campaignId => $parts) {
             $text = implode(' . ', array_filter($parts));
             foreach ($offerings as $offering) {

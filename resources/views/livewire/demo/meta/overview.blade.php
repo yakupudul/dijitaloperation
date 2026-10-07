@@ -215,51 +215,7 @@
         </section>
 
     @elseif ($tab === 'analysis')
-        <div class="flex flex-wrap items-center gap-1">
-            @foreach ($dayOptions as $option)
-                <button type="button" wire:click="setDays({{ $option }})" @class(['rounded-lg px-3 py-1 text-sm font-medium', 'bg-brand-500 text-white' => $days === $option, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $days !== $option])>{{ $option }} gün</button>
-            @endforeach
-            @if ($analysis)<span class="ml-2 text-xs text-gray-500">{{ $analysis['window']['from'] }} – {{ $analysis['window']['to'] }} · önceki: {{ $analysis['window']['prev_from'] }} – {{ $analysis['window']['prev_to'] }}</span>@endif
-        </div>
-        @if ($analysis === null)
-            <p class="{{ $card }} text-sm text-gray-500">Veri yok.</p>
-        @else
-            @foreach (['campaigns' => 'Kampanyalar', 'adsets' => 'Reklam setleri', 'ads' => 'Reklamlar', 'services' => 'Hizmete göre'] as $key => $title)
-                <section class="{{ $panel }} overflow-x-auto" data-testid="meta-analysis-{{ $key }}">
-                    <h2 class="border-b border-gray-100 px-4 py-3 font-semibold text-gray-900 dark:border-gray-700 dark:text-white">{{ $title }}</h2>
-                    @if ($analysis[$key] === [])
-                        <p class="px-4 py-4 text-sm text-gray-500">Veri yok.</p>
-                    @else
-                        <table class="w-full text-sm">
-                            <thead><tr class="text-left text-xs text-gray-500"><th class="px-4 py-2 font-medium">Ad</th><th class="{{ $th }}">Harcama</th><th class="{{ $th }}">Değişim</th><th class="{{ $th }}">Sonuç</th><th class="{{ $th }}">Değişim</th><th class="{{ $th }}">Sonuç başı</th><th class="{{ $th }}">Değişim</th><th class="{{ $th }}">CTR</th></tr></thead>
-                            <tbody class="divide-y divide-gray-100 tabular-nums dark:divide-gray-700">
-                                @foreach ($analysis[$key] as $row)
-                                    <tr class="text-gray-700 dark:text-gray-300"><td class="px-4 py-1.5">{{ $row['name'] }}</td><td class="{{ $td }}">{{ $money($row['spend']) }}</td><td class="{{ $td }}">{{ $pct($row['spend_change']) }}</td><td class="{{ $td }}">{{ $num($row['results'], 1) }}</td><td class="{{ $td }}">{{ $pct($row['results_change']) }}</td><td class="{{ $td }}">{{ $money($row['cpr']) }}</td><td class="{{ $td }}">{{ $pct($row['cpr_change']) }}</td><td class="{{ $td }}">{{ $row['ctr'] === null ? '—' : $num($row['ctr'], 2).'%' }}</td></tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    @endif
-                </section>
-            @endforeach
-            <section class="{{ $panel }} overflow-x-auto" data-testid="meta-analysis-regions">
-                <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-gray-700">
-                    <h2 class="font-semibold text-gray-900 dark:text-white">Bölgeye göre</h2>
-                    <button type="button" wire:click="collectGeoResults" @disabled(! $bound || ($geoState['state'] ?? null) === 'running') class="{{ $btn }}">Bölge verisini çek</button>
-                </div>
-                @if ($analysis['regions'] === [])
-                    <p class="px-4 py-4 text-sm text-gray-500">Veri yok.</p>
-                @else
-                    <table class="w-full text-sm">
-                        <thead><tr class="text-left text-xs text-gray-500"><th class="px-4 py-2 font-medium">Bölge</th><th class="{{ $th }}">Harcama</th><th class="{{ $th }}">Sonuç</th><th class="{{ $th }}">Sonuç başı</th></tr></thead>
-                        <tbody class="divide-y divide-gray-100 tabular-nums dark:divide-gray-700">
-                            @foreach ($analysis['regions'] as $row)
-                                <tr class="text-gray-700 dark:text-gray-300"><td class="px-4 py-1.5">{{ $row['region'] }}{{ $row['country'] !== '' ? ' · '.$row['country'] : '' }}</td><td class="{{ $td }}">{{ $money($row['spend']) }}</td><td class="{{ $td }}">{{ $num($row['results'], 1) }}</td><td class="{{ $td }}">{{ $money($row['cpr']) }}</td></tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                @endif
-            </section>
-        @endif
+        @include('livewire.demo.meta.partials.analysis')
 
     @elseif ($tab === 'settings')
         @php

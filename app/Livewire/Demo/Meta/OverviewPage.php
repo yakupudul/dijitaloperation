@@ -8,6 +8,7 @@ use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
 use App\Models\DigitalAsset;
 use App\Services\Analyst\AnalystDecisionStore;
 use App\Services\Async\AsyncOperationService;
+use App\Services\Meta\MetaAnalysis;
 use App\Services\Meta\MetaAssistant;
 use App\Services\Meta\MetaCampaignBoard;
 use App\Services\Meta\MetaCampaignServices;
@@ -76,6 +77,16 @@ class OverviewPage extends Component
     #[Url]
     public int $days = 28;
 
+    /** Analiz: '' (whole account) | service:{offering id} | campaign:{campaign id}; compare prev | year; cost type of age × gender. */
+    #[Url(as: 'odak')]
+    public string $focus = '';
+
+    #[Url(as: 'karsilastir')]
+    public string $compare = 'prev';
+
+    #[Url(as: 'tur')]
+    public string $analysisType = '';
+
     /** Suggestion being edited by the operator (its text is then locked). */
     public ?int $editId = null;
 
@@ -129,7 +140,7 @@ class OverviewPage extends Component
         }
         Cache::put(CollectMetaGeoResultsJob::stateKey((int) $this->assetId), ['state' => 'running', 'at' => now()->toIso8601String()], now()->addHour());
         CollectMetaGeoResultsJob::dispatch((int) $this->assetId, 90);
-        DemoState::flash('Bölge verisi Meta’dan çekiliyor; birkaç dakika sürebilir.', 'info');
+        DemoState::flash('Bölge, yaş / cinsiyet, saat, yerleşim ve cihaz verisi Meta’dan çekiliyor; birkaç dakika sürebilir.', 'info');
     }
 
     /* ---------------- Kampanyalar: services ---------------- */
@@ -256,7 +267,7 @@ class OverviewPage extends Component
         }
     }
 
-    public function render(MetaScreen $screen, MetaSuggestions $suggestions, MetaAssistant $assistant, MetaLeads $leads, MetaCampaignBoard $board): View
+    public function render(MetaScreen $screen, MetaSuggestions $suggestions, MetaAssistant $assistant, MetaLeads $leads, MetaCampaignBoard $board, MetaAnalysis $analysis): View
     {
         $this->normalize();
         $asset = $this->asset()->loadMissing('brand.customer');
@@ -286,7 +297,7 @@ class OverviewPage extends Component
             'measurement' => $this->tab === 'measurement' ? $screen->measurement($asset, 28) : null,
             'leadList' => $this->tab === 'measurement' ? $leads->list($asset, $this->unmarkedOnly) : collect(),
             'leadCampaigns' => $this->tab === 'measurement' ? $leads->byCampaign($asset) : [],
-            'analysis' => $this->tab === 'analysis' ? $screen->analysis($asset, $this->days) : null,
+            'analysis' => $this->tab === 'analysis' ? $analysis->analysis($asset, $this->days, $this->focus, $this->compare, $this->analysisType) : null,
             'geoState' => $this->tab === 'analysis' ? Cache::get(CollectMetaGeoResultsJob::stateKey($assetId)) : null,
             'dayOptions' => self::DAY_OPTIONS,
             'groupLabels' => MetaSuggestions::GROUP_LABELS,
@@ -345,6 +356,12 @@ class OverviewPage extends Component
         }
         if (! in_array($this->days, self::DAY_OPTIONS, true)) {
             $this->days = 28;
+        }
+        if (! in_array($this->compare, ['prev', 'year'], true)) {
+            $this->compare = 'prev';
+        }
+        if (! in_array($this->analysisType, ['', 'leads', 'messages', 'purchases'], true)) {
+            $this->analysisType = '';
         }
     }
 

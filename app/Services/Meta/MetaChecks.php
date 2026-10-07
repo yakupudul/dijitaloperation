@@ -352,7 +352,8 @@ final class MetaChecks
             return ['state' => 'no_data', 'detail' => 'Markanın onaylı hizmeti yok.'];
         }
         $map = $this->screen->campaignServices($brand, $ctx['e']);
-        $spend = MetaScreen::rollup($ctx['ads'], 'campaign_id');
+        $excluded = array_filter(app(MetaCampaignServices::class)->map($ctx['asset']), fn (array $e): bool => $e['state'] === MetaCampaignServices::STATE_EXCLUDED);
+        $spend = array_diff_key(MetaScreen::rollup($ctx['ads'], 'campaign_id'), $excluded);
         $served = [];
         $rows = [];
         foreach ($spend as $campaignId => $row) {

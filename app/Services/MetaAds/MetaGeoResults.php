@@ -8,10 +8,12 @@ use App\Models\DigitalAsset;
 use App\Services\Integrations\Meta\MetaApiClient;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 /**
- * Meta country + city (region) performance with results (read-only Insights).
+ * Meta country + city (region) performance with results (read-only Insights), plus the audience / delivery
+ * breakdowns (age × gender, hour, placement, device) in their own table.
  *
  * Collects ad-level daily rows twice — once broken down by country, once by region — with spend, clicks and the
  * canonical result actions (lead, purchase, messaging). Meta cannot combine country and region in one breakdown,
@@ -21,6 +23,16 @@ use RuntimeException;
 class MetaGeoResults
 {
     public const string TABLE = 'meta_geo_results_daily';
+
+    public const string BREAKDOWN_TABLE = 'meta_breakdown_results_daily';
+
+    /** @var array<string, array{0: string, 1: string, 2: string}> dimension => [Meta breakdowns, key1 field, key2 field] */
+    public const array BREAKDOWNS = [
+        'age_gender' => ['age,gender', 'age', 'gender'],
+        'hour' => ['hourly_stats_aggregated_by_advertiser_time_zone', 'hourly_stats_aggregated_by_advertiser_time_zone', ''],
+        'placement' => ['publisher_platform,platform_position', 'publisher_platform', 'platform_position'],
+        'device' => ['device_platform', 'device_platform', ''],
+    ];
 
     private const array LEAD_TYPES = ['lead', 'onsite_conversion.lead_grouped', 'leadgen_grouped', 'offsite_conversion.fb_pixel_lead'];
 
@@ -60,6 +72,13 @@ class MetaGeoResults
             $countries = $this->fetch($integration, $act, $range, 'country');
             $regions = $this->fetch($integration, $act, $range, 'region');
             $stored += $this->store((int) $asset->id, $accountId, $range, $countries, $regions);
+            if (Schema::hasTable(self::BREAKDOWN_TABLE)) {
+                $breakdowns = [];
+                foreach (self::BREAKDOWNS as $dimension => [$breakdown]) {
+                    $breakdowns[$dimension] = $this->fetch($integration, $act, $range, $breakdown);
+                }
+                $stored += $this->storeBreakdowns((int) $asset->id, $accountId, $range, $breakdowns);
+            }
         }
 
         return $stored;
@@ -159,6 +178,60 @@ class MetaGeoResults
                 ->whereBetween('reporting_date', [$range['since'], $range['until']])->delete();
             foreach (array_chunk(array_values($records), 300) as $chunk) {
                 DB::table(self::TABLE)->insert($chunk);
+            }
+        });
+
+        return count($records);
+    }
+
+    /**
+     * @param  array{since: string, until: string}  $range
+     * @param  array<string, list<array<string, mixed>>>  $breakdowns  dimension => Insights rows
+     */
+    private function storeBreakdowns(int $assetId, string $accountId, array $range, array $breakdowns): int
+    {
+        $records = [];
+        $now = now();
+        foreach ($breakdowns as $dimension => $rows) {
+            [, $field1, $field2] = self::BREAKDOWNS[$dimension];
+            foreach ($rows as $row) {
+                $adId = (string) ($row['ad_id'] ?? '');
+                $date = (string) ($row['date_start'] ?? '');
+                if ($adId === '' || $date === '') {
+                    continue;
+                }
+                $key1 = (string) ($row[$field1] ?? '');
+                // "13:00:00 - 13:59:59" → "13"
+                $key1 = mb_substr($dimension === 'hour' ? substr($key1, 0, 2) : $key1, 0, 64);
+                $key2 = $field2 !== '' ? mb_substr((string) ($row[$field2] ?? ''), 0, 64) : '';
+                $records[implode('|', [$dimension, $date, $adId, $key1, $key2])] = [
+                    'digital_asset_id' => $assetId,
+                    'account_id' => $accountId,
+                    'reporting_date' => $date,
+                    'dimension' => $dimension,
+                    'ad_id' => mb_substr($adId, 0, 40),
+                    'adset_id' => $this->id($row['adset_id'] ?? null),
+                    'campaign_id' => $this->id($row['campaign_id'] ?? null),
+                    'key1' => $key1,
+                    'key2' => $key2,
+                    'spend' => round((float) ($row['spend'] ?? 0), 2),
+                    'impressions' => (int) ($row['impressions'] ?? 0),
+                    'clicks' => (int) ($row['clicks'] ?? 0),
+                    'leads' => $this->action((array) ($row['actions'] ?? []), self::LEAD_TYPES),
+                    'purchases' => $this->action((array) ($row['actions'] ?? []), self::PURCHASE_TYPES),
+                    'purchase_value' => $this->action((array) ($row['action_values'] ?? []), self::PURCHASE_TYPES),
+                    'messages' => $this->action((array) ($row['actions'] ?? []), self::MESSAGE_TYPES),
+                    'currency' => mb_substr((string) ($row['account_currency'] ?? ''), 0, 8) ?: null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+        }
+        DB::transaction(function () use ($assetId, $accountId, $range, $records): void {
+            DB::table(self::BREAKDOWN_TABLE)->where('digital_asset_id', $assetId)->where('account_id', $accountId)
+                ->whereBetween('reporting_date', [$range['since'], $range['until']])->delete();
+            foreach (array_chunk(array_values($records), 300) as $chunk) {
+                DB::table(self::BREAKDOWN_TABLE)->insert($chunk);
             }
         });
 

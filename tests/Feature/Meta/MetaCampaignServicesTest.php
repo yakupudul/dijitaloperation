@@ -17,6 +17,7 @@ use App\Models\Page;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Meta\MetaCampaignBoard;
 use App\Services\Meta\MetaCampaignServices;
+use App\Services\Meta\MetaScreen;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -105,6 +106,20 @@ class MetaCampaignServicesTest extends TestCase
         $entry = $this->services()->map($asset)['c1'];
         $this->assertSame(['suggested', [$implant->id]], [$entry['state'], array_column($entry['services'], 'id')]);
         $this->assertSame(0, ExternalWriteAction::query()->count());
+    }
+
+    public function test_older_meta_steps_read_the_stored_services(): void
+    {
+        $asset = $this->asset->load('brand');
+        $screen = app(MetaScreen::class);
+        $entities = fn (): array => $screen->entities($screen->account($asset));
+        $this->assertSame(['c1' => 'Diş İmplantı'], $screen->campaignServices($this->brand, $entities()), 'name match before anything is stored');
+
+        $this->services()->confirm($asset, 'c2', $this->offering('Ortodonti')->id, $this->admin);
+        $this->assertSame('Ortodonti', $screen->campaignServices($this->brand, $entities())['c2']);
+        $this->services()->exclude($asset, 'c2', $this->admin);
+        $this->services()->confirm($asset, 'c1', $this->offering('Zirkonyum Kaplama')->id, $this->admin, replace: true);
+        $this->assertSame(['c1' => 'Zirkonyum Kaplama'], $screen->campaignServices($this->brand, $entities()), 'the operator wins; hizmet dışı has none');
     }
 
     public function test_bulk_approval_confirms_only_undecided_suggestions(): void

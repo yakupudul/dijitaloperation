@@ -68,7 +68,9 @@ final class MetaGeoResultsTest extends TestCase
 
         $stored = app(MetaGeoResults::class)->collect($this->asset, 3);
 
-        $this->assertSame(6, $stored);
+        $this->assertSame(12, $stored, '6 geo rows + 6 breakdown rows');
+        $this->assertSame(['10'], DB::table('meta_breakdown_results_daily')->where('dimension', 'hour')->pluck('key1')->all());
+        $this->assertSame(4.0, (float) DB::table('meta_breakdown_results_daily')->where('dimension', 'age_gender')->where('key1', '25-34')->where('key2', 'female')->value('leads'));
         $istanbul = DB::table('meta_geo_results_daily')->where('level', 'region')->where('region', 'Istanbul')->first();
         $this->assertSame('TR', $istanbul->country, 'the ad delivered only in Türkiye that day');
         $this->assertSame(6.0, (float) $istanbul->leads, 'lead aliases are not double counted');
@@ -83,6 +85,7 @@ final class MetaGeoResultsTest extends TestCase
 
         app(MetaGeoResults::class)->collect($this->asset, 3);
         $this->assertSame(6, DB::table('meta_geo_results_daily')->count(), 'a re-collection replaces the window');
+        $this->assertSame(6, DB::table('meta_breakdown_results_daily')->count());
     }
 
     public function test_analysis_tab_shows_regions_and_queues_collection(): void
@@ -91,7 +94,7 @@ final class MetaGeoResultsTest extends TestCase
         app(MetaGeoResults::class)->collect($this->asset, 3);
 
         $this->get(route('operator.meta.overview', ['assetId' => $this->asset->id, 'tab' => 'analysis']))
-            ->assertOk()->assertSee('Bölgeye göre')->assertSee('Istanbul · TR')->assertSee('Bölge verisini çek');
+            ->assertOk()->assertSee('Ülke ve şehir')->assertSee('Istanbul · TR')->assertSee('Yaş × cinsiyet')->assertSee('Facebook akış');
 
         Queue::fake();
         Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'analysis'])->call('collectGeoResults');
@@ -187,6 +190,19 @@ final class MetaGeoResultsTest extends TestCase
                         $base + ['ad_id' => 'ad2', 'ad_name' => 'Gurbetçi', 'country' => 'DE', 'spend' => '100', 'impressions' => '2000', 'clicks' => '20'],
                         $base + ['ad_id' => 'ad2', 'ad_name' => 'Gurbetçi', 'country' => 'TR', 'spend' => '20', 'impressions' => '300', 'clicks' => '2'],
                     ]];
+                }
+                $lead = fn (int $n): array => [['action_type' => 'lead', 'value' => (string) $n], ['action_type' => 'onsite_conversion.lead_grouped', 'value' => (string) $n]];
+                $ad1 = $base + ['ad_id' => 'ad1', 'ad_name' => 'Implant video'];
+                $other = match ($query['breakdowns']) {
+                    'age,gender' => [$ad1 + ['age' => '25-34', 'gender' => 'female', 'spend' => '200', 'actions' => $lead(4)], $ad1 + ['age' => '35-44', 'gender' => 'male', 'spend' => '200', 'actions' => $lead(2)]],
+                    'hourly_stats_aggregated_by_advertiser_time_zone' => [$ad1 + ['hourly_stats_aggregated_by_advertiser_time_zone' => '10:00:00 - 10:59:59', 'spend' => '400', 'actions' => $lead(6)]],
+                    'publisher_platform,platform_position' => [$ad1 + ['publisher_platform' => 'facebook', 'platform_position' => 'feed', 'spend' => '300', 'actions' => $lead(5)],
+                        $ad1 + ['publisher_platform' => 'instagram', 'platform_position' => 'story', 'spend' => '100', 'actions' => $lead(1)]],
+                    'device_platform' => [$ad1 + ['device_platform' => 'mobile_app', 'spend' => '400', 'actions' => $lead(6)]],
+                    default => null,
+                };
+                if ($other !== null) {
+                    return ['data' => $other];
                 }
 
                 return ['data' => [

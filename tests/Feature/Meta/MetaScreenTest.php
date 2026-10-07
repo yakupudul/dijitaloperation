@@ -233,7 +233,7 @@ final class MetaScreenTest extends TestCase
 
         $this->page('campaigns')->assertSee('Harcama')->assertSee('Diş İmplantı Lead Ankara')->assertSee('Reddedilen reklam');
         $this->page('todo')->assertSee('Kontroller')->assertSee('Kreatif öner')->assertSee('Kampanya yapısı öner')->assertSee('Form / açılış sayfası öner')->assertSee('Sonuç başı maliyet arttı');
-        $this->page('analysis')->assertSee('Kampanyalar')->assertSee('Reklam setleri')->assertSee('Bölgeye göre')->assertSee('+100,0%')
+        $this->page('analysis')->assertSee('Harcama ve sonuç · haftalık')->assertSee('Ülke ve şehir')->assertSee('İlgi alanları')->assertSee('-50,0%')
             ->call('setDays', 7)->assertSet('days', 7)->call('setDays', 5)->assertSet('days', 28);
         $this->page('settings')->assertSee('act_777')->assertSee('Çankaya şubesi (şube)')->assertSee('tr, en')->assertSee('Meta entegrasyonu');
         $this->page('overview')->assertSet('tab', 'campaigns');
