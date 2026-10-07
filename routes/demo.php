@@ -133,7 +133,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/meta', MetaDeskPage::class)->name('operator.meta-desk');
         Route::livewire('/meta/strateji', MetaStrategyPage::class)->name('operator.meta-strategy');
         Route::livewire('/kazananlar', WinnersPage::class)->name('operator.winners');
-        Route::livewire('/kazananlar/{serviceId}', WinnerServicePage::class)->whereNumber('serviceId')->name('operator.winner-service');
+        Route::livewire('/kazananlar/{serviceId}', WinnerServicePage::class)->where('serviceId', '[0-9]{1,18}')->name('operator.winner-service');
         Route::livewire('/kutuphaneler', LibrariesPage::class)->name('operator.libraries');
         Route::get('/assets/meta/{assetId}/adsets', MetaLegacyPageRedirectController::class)->defaults('tab', 'campaigns')->defaults('level', 'adsets')->name('operator.meta.adsets');
         Route::get('/assets/meta/{assetId}/adsets/{adSetId}', MetaLegacyPageRedirectController::class)->defaults('tab', 'campaigns')->defaults('level', 'adsets')->name('operator.meta.adset');
