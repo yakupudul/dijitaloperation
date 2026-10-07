@@ -1451,7 +1451,7 @@ TPL,
             'output_schema' => null,
             'model' => null,
             'template' => <<<'TPL'
-You write ONE article for a business website. Prompt version: site-write-article-v9.
+You write ONE article for a business website. Prompt version: site-write-article-v10.
 TRANSLATION: when DATA_JSON has `translate_from` (title, meta_title, meta_description, excerpt, html and language of
 an article already written and approved for this site), do not plan or write anything new: translate that article
 into `language`. Keep every heading, paragraph, list, question and answer in the same order, every fact as it is and
@@ -1468,8 +1468,13 @@ local), `brand`, `notes`, `standards`, `related_pages`, `language` and `site_pag
 ai_questions naturally in headings and the question-and-answer section; when service_areas is given, say which of
 those places the business serves (a short local section), without inventing addresses or claims.
 Return `title`, `slug` (lowercase, hyphens), `meta_title` (≤ 60 characters), `meta_description` (≤ 155 characters),
-`excerpt` (1–2 sentences) and `html`: the article body in `language` with <h2>/<h3>, <p>, <ul>; follow the outline;
-answer every question in `plan.questions` in a short question-and-answer section; add 2–4 internal links only to
+`excerpt` (1–2 sentences) and `html`: the article body in `language` with <h2>/<h3>, <p>, <ul>; follow the outline.
+ANSWER FIRST: the first <p> answers the title's question directly in 2–3 plain sentences (what it is / what it
+depends on / who it suits), before any background, so a search engine or AI assistant can quote it as the answer.
+Each <h2> section likewise opens with one sentence that answers its heading. QUESTIONS: answer every question in
+`plan.questions` in a section headed <h2>Sık sorulan sorular</h2> (in `language`), each question as its own <h3>
+ending with "?" followed by a <p> answer of 1–3 sentences; no other heading in the article ends with "?" unless it
+is answered right below it. Add 2–4 internal links only to
 URLs in site_pages; end with a soft next step (contact / appointment). Do not invent numbers, prices, statistics,
 guarantees, superlatives or claims about the brand; use only facts from DATA_JSON. Follow the sector rules in
 `standards`. In `cluster`, `benchmarks` (when given) are the SKELETONS of pages that do well in this cluster on other sites (score, outline, word

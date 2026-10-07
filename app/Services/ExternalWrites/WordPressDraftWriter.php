@@ -2,9 +2,11 @@
 
 namespace App\Services\ExternalWrites;
 
+use App\Models\BrandExpert;
 use App\Models\CoreConnection;
 use App\Models\ExternalWriteAction;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
+use App\Services\Site\ArticleFaqSchema;
 use RuntimeException;
 use Throwable;
 
@@ -22,11 +24,12 @@ final class WordPressDraftWriter
 
     /**
      * The connector /drafts payload of one article. Empty optional fields are left out; `content_html` keeps older
-     * plugins working.
+     * plugins working. With the brand (1.11.0, older plugins ignore both): `schema` is the article's FAQPage built from
+     * its question-and-answer headings, `author` the WordPress user of the brand's expert author.
      *
      * @return array<string, mixed>
      */
-    public static function payload(ArticleDraft $article, ?int $translationOf = null): array
+    public static function payload(ArticleDraft $article, ?int $translationOf = null, ?int $brandId = null): array
     {
         $seo = array_filter(['title' => mb_substr($article->metaTitle, 0, 200), 'description' => mb_substr($article->metaDescription, 0, 400), 'focus_keyword' => mb_substr($article->focusKeyword, 0, 100)],
             fn (string $v): bool => trim($v) !== '');
@@ -47,6 +50,8 @@ final class WordPressDraftWriter
             'language' => $article->language,
             'translation_of' => $translationOf,
             'translation_key' => $article->translationKey,
+            'schema' => $brandId !== null ? ArticleFaqSchema::fromHtml($article->html, $article->language) : null,
+            'author' => $brandId !== null ? BrandExpert::authorOf($brandId)?->wp_author : null,
         ], fn (mixed $v): bool => $v !== null && $v !== '' && $v !== []);
     }
 

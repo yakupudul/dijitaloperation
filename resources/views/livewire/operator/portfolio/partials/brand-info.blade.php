@@ -69,4 +69,6 @@
     </div>
 
     <livewire:operator.portfolio.brand-conversions :brand-id="(int) $brandModel->id" :key="'brand-conversions-'.$brandModel->id" />
+
+    <livewire:operator.portfolio.brand-experts :brand-id="(int) $brandModel->id" :key="'brand-experts-'.$brandModel->id" />
 </div>

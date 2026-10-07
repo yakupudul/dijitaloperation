@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.10.0
+Stable tag: 1.11.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,9 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.11.0 =
+* Drafts (`/drafts`) accept `author` (login or e-mail of a user who can write posts: the brand's expert becomes the post author; otherwise the first administrator stays) and `schema` (JSON-LD, for example the article's FAQPage), kept in `_moxdop_schema` and printed in the page head like approved schema fixes.
 
 = 1.10.0 =
 * Redirects (`merge_redirect` and `redirect`) are written only into the site's SEO plugin: Rank Math, SEOPress Pro (new), Yoast SEO Premium or the Redirection plugin. Rank Math's Redirections module or SEOPress's Redirections feature is switched on when it is off. Without such a plugin the change fails instead of landing in the connector's own list. Redirects already kept in that list move into the SEO plugin (from wp-admin after the update, and before the next redirect request); entries that cannot move keep working. Undo removes the redirect from both places.

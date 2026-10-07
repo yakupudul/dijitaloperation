@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-07 — Cevap öncelikli içerik, SSS şeması ve uzman yazar
+
+- **Neden (yakup):** AI görünürlüğü listesinin 3. maddesi; AI asistanları ve arama motoru doğrudan cevabı ve uzmanı alıntılar.
+- **Yazım:** `site.write_article` istemi `site-write-article-v10`: ilk paragraf başlığın sorusunu 2–3 cümlede doğrudan cevaplar, her H2 bir cevap cümlesiyle açılır, sorular "Sık sorulan sorular" altında `<h3>…?</h3>` + kısa cevap. Migration Claude'a devredilmiş işleme yeni istemi yükler (model korunur).
+- **Şema:** `ArticleFaqSchema` yazılmış HTML'den kuralla FAQPage JSON-LD çıkarır ("?" ile biten H2/H3 + altındaki metin; en az 2 soru). WordPress taslağına `schema` olarak gider; eklenti `_moxdop_schema` meta'sına yazar ve sayfa başında basar (SEO eklentisi FAQPage basmaz).
+- **Uzman yazar:** Marka › Ayarlar › Uzmanlar (`brand_experts`: ad, unvan, WordPress kullanıcısı, profil sayfası, varsayılan "Yazar"). Taslak varsayılan uzmanın WordPress kullanıcısıyla (`author`) gider; Person şemasını sitenin SEO eklentisi yazar profilinden basar.
+- **Eklenti 1.11.0:** `/drafts` `author` (yazı yazabilen kullanıcı, login ya da e-posta; yoksa ilk yönetici) ve `schema` alanlarını kabul eder. Eski eklentiler alanları yok sayar.
+- **State:** CODED + PHPUnit (`ArticleAnswerFirstTest`, `ArticleRulesTest`). Canlıda eklenti 1.11.0'a güncellenince ve uzman girilince UAT.
+
 ## 2026-10-07 — Bing Webmaster okuma
 
 - **Neden (yakup):** AI görünürlüğü listesinin 2. maddesi ("1 hariç sırayla yap"); ChatGPT araması Bing dizinini kullanır.

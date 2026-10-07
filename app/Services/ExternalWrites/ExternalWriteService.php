@@ -263,9 +263,9 @@ final class ExternalWriteService
         if ($busy) {
             throw ValidationException::withMessages(['write' => 'Bu makale için bir gönderim zaten sürüyor.']);
         }
-        $drafts = [['language' => $source->language, 'draft' => WordPressDraftWriter::payload($source)]];
+        $drafts = [['language' => $source->language, 'draft' => WordPressDraftWriter::payload($source, brandId: $site->brand_id)]];
         foreach ($translations as $translation) {
-            $drafts[] = ['language' => $translation->language, 'draft' => WordPressDraftWriter::payload($translation)];
+            $drafts[] = ['language' => $translation->language, 'draft' => WordPressDraftWriter::payload($translation, brandId: $site->brand_id)];
         }
 
         return $this->queue(ExternalWriteAction::query()->create([

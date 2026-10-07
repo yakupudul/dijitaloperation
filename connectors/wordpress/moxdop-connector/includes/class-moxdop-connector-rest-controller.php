@@ -158,7 +158,7 @@ final class MoxDOP_Connector_REST_Controller
                 'post_title' => $title,
                 'post_content' => $content,
                 'post_excerpt' => sanitize_textarea_field((string) ($body['excerpt'] ?? '')),
-                'post_author' => ! empty($admins) ? (int) $admins[0] : 0,
+                'post_author' => self::draft_author($body['author'] ?? null) ?: (! empty($admins) ? (int) $admins[0] : 0),
             ], MoxDOP_Connector_Drafts::post_fields($body)), true);
             if (is_wp_error($post_id)) {
                 return new WP_Error('moxdop_draft_failed', $post_id->get_error_message(), ['status' => 500]);
@@ -167,6 +167,11 @@ final class MoxDOP_Connector_REST_Controller
             update_post_meta($post_id, '_moxdop_created', '1');
             if (! empty($body['translation_key'])) {
                 update_post_meta($post_id, '_moxdop_translation_key', sanitize_text_field((string) $body['translation_key']));
+            }
+            // 1.11.0: structured data of the article (FAQPage), printed in wp_head like the approved schema fixes.
+            $schema = self::draft_schema($body['schema'] ?? null);
+            if ($schema !== '') {
+                update_post_meta($post_id, '_moxdop_schema', wp_slash($schema));
             }
             $decorated = MoxDOP_Connector_Drafts::decorate($post_id, $type, $body);
         }
@@ -179,6 +184,38 @@ final class MoxDOP_Connector_REST_Controller
             'edit_url' => admin_url('post.php?post='.(int) $post_id.'&action=edit'),
             'preview_url' => get_preview_post_link($post_id) ?: '',
         ], $decorated), $request);
+    }
+
+    /**
+     * 1.11.0: the brand's expert author, given by login or e-mail; only a user who can write posts. Otherwise 0 (the
+     * first administrator stays the author).
+     */
+    private static function draft_author($author)
+    {
+        $author = is_string($author) ? trim($author) : '';
+        if ($author === '') {
+            return 0;
+        }
+        $user = get_user_by(is_email($author) ? 'email' : 'login', $author);
+
+        return $user && user_can($user, 'edit_posts') ? (int) $user->ID : 0;
+    }
+
+    /** 1.11.0: a JSON-LD object (or list) with @context, re-encoded; anything else is ignored. */
+    private static function draft_schema($schema)
+    {
+        if (is_string($schema)) {
+            $schema = json_decode($schema, true);
+        }
+        if (! is_array($schema) || $schema === []) {
+            return '';
+        }
+        $json = wp_json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG);
+        if (! is_string($json) || strlen($json) > 100000 || strpos($json, '@context') === false) {
+            return '';
+        }
+
+        return $json;
     }
 
     public function trash_draft(WP_REST_Request $request)
