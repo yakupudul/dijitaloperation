@@ -6,6 +6,7 @@ use App\Ai\Agents\Site\WeeklyContentAgent;
 use App\Jobs\Site\RunSiteOperationJob;
 use App\Livewire\Operator\Work\WorkPage;
 use App\Models\BrandClusterPage;
+use App\Models\BrandOffering;
 use App\Models\Cluster;
 use App\Models\Suggestion;
 use App\Services\Site\ContentPlanner;
@@ -159,8 +160,47 @@ final class ContentCoverageTest extends SiteTestCase
         $this->assertStringContainsString('sorgu kütüphanesinde 100 gösterim', Suggestion::query()->where('title', 'İmplant tedavisi kaç seansta biter?')->sole()->evidence[0]['value']);
         $this->assertSame(0, Suggestion::query()->whereIn('title', ['İmplant fiyatları: kapsamlı rehber', 'Diş beyazlatma evde yapılır mı'])->count(), 'two-part title and no evidence');
 
-        $this->assertSame([], app(ContentCoverage::class)->needs(), 'fewer than asked: no filler on the next daily top-up');
+        $this->assertNotSame([], app(ContentCoverage::class)->needs(), 'some ideas came: tomorrow tries the next clusters');
+    }
+
+    /**
+     * yakup, 2026-10-07: pools stuck at 1–4 of 20. Each top-up shows the AI the clusters without an idea first, and only a
+     * run that found nothing at all pauses the daily top-up (3 days or Monday), with the reason on the page.
+     */
+    public function test_each_top_up_puts_clusters_without_an_idea_first_and_only_an_empty_run_pauses_the_pool(): void
+    {
+        $this->enableAi();
+        Queue::fake();
+        $this->travelTo(now('Europe/Istanbul')->next('Tuesday')->setTime(10, 0));
+        $this->page('/implant/', 'İmplant', ['category' => 'hizmet', 'language' => 'tr']);
+        $this->rowOf('no_page', 'İmplant fiyatları');
+        $this->rowOf('no_page', 'Zirkonyum kaplama fiyatı');
+        $clusters = Cluster::query()->pluck('id', 'name');
+        DB::table('queries')->update(['impressions' => 10]);
+        DB::table('queries')->whereIn('id', DB::table('cluster_queries')->where('cluster_id', $clusters['İmplant fiyatları'])->pluck('query_id'))->update(['impressions' => 5000]);
+        $this->title('İmplant fiyatı neden farklı')->forceFill(['cluster_id' => $clusters['İmplant fiyatları']])->save();
+        $prompts = [];
+        WeeklyContentAgent::fake(function (string $prompt) use (&$prompts): array {
+            $prompts[] = $prompt;
+
+            return ['items' => []];
+        });
+
+        $this->assertSame(['status' => 'ready', 'added' => 0], app(ContentPlanner::class)->weekly($this->site, null, ['tr' => 19]));
+
+        $this->assertLessThan(strpos($prompts[0], '"name":"İmplant fiyatları"'), strpos($prompts[0], '"name":"Zirkonyum kaplama fiyatı"'), 'the cluster without an idea comes first despite less demand');
+        $this->assertSame([], app(ContentCoverage::class)->needs(), 'nothing with evidence: no filler on the next daily top-up');
         $this->assertNotSame([], app(ContentCoverage::class)->needs(weekly: true), 'Monday asks again');
+        $this->assertStringContainsString('günlük tamamlama', (string) app(ContentCoverage::class)->rows()[0]['reason']);
+        $this->travel(ContentPlanner::SHORT_RUN_DAYS + 1)->days();
+        $this->assertNotSame([], app(ContentCoverage::class)->needs());
+    }
+
+    public function test_a_brand_without_a_service_is_told_to_add_one(): void
+    {
+        BrandOffering::query()->where('brand_id', $this->brand->id)->delete();
+
+        $this->assertStringContainsString('etkin hizmeti yok', (string) app(ContentCoverage::class)->rows()[0]['reason']);
     }
 
     public function test_open_ideas_with_generated_looking_titles_are_closed(): void

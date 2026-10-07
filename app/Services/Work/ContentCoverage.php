@@ -8,7 +8,9 @@ use App\Models\DigitalAsset;
 use App\Models\Suggestion;
 use App\Services\Ai\AiBudget;
 use App\Services\Site\ContentPlanner;
+use App\Services\Site\SiteScope;
 use App\Services\Site\SiteSuggestionTypes;
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -59,7 +61,10 @@ final class ContentCoverage
                     'pool' => $pool, 'translated' => array_slice($languages, 1), 'waiting' => array_sum($pool), 'weekly' => self::weekly($brand),
                     'reading' => $count['reading'], 'sent' => $count['sent'], 'last_title_at' => $count['last'],
                 ];
+                $row['paused_at'] = $row['clusters'] > 0 ? Cache::get(ContentPlanner::shortRunKey((int) $site->id)) : null;
+                $row['services'] = $row['clusters'] === 0 ? SiteScope::offerings($brand)->count() : null;
                 $row['reason'] = self::reason($row);
+                unset($row['paused_at'], $row['services']);
                 $rows[] = $row;
             }
         }
@@ -115,13 +120,23 @@ final class ContentCoverage
         return $row['clusters'] > 0 && min($row['pool'] ?: [self::POOL]) < self::POOL;
     }
 
-    /** @param  array{clusters: int, missing: int, waiting: int, reading: int}  $row */
+    /**
+     * Why the pool is not full, or null: no service (only the operator can add one), clusters not matched, the daily
+     * top-up paused after a run without any evidence-backed idea, or an empty pool still to be filled.
+     *
+     * @param  array{clusters: int, missing: int, waiting: int, reading: int, paused_at: mixed, services: ?int}  $row
+     */
     private static function reason(array $row): ?string
     {
+        $paused = is_string($row['paused_at']) ? Carbon::parse($row['paused_at']) : null;
+
         return match (true) {
-            $row['clusters'] === 0 => 'Kümeler bu siteyle eşleştirilmedi (onaylı küme ya da hizmet yok, veya Eşleştir çalışmadı); havuz dolamaz.',
+            $row['clusters'] === 0 && $row['services'] === 0 => 'Markanın etkin hizmeti yok; hizmet eklenince kümeler eşleşir ve havuz dolmaya başlar.',
+            $row['clusters'] === 0 => 'Kümeler bu siteyle eşleştirilmedi (onaylı küme yok ya da Eşleştir çalışmadı); havuz dolamaz.',
+            $paused !== null && $row['waiting'] < self::POOL => 'Son üretimde kanıtlı yeni fikir çıkmadı; günlük tamamlama '
+                .$paused->copy()->addDays(ContentPlanner::SHORT_RUN_DAYS)->timezone('Europe/Istanbul')->format('d.m').' tarihine ya da Pazartesi\'ye kadar duruyor ("Fikir üret" hemen dener).',
             $row['waiting'] > 0 || $row['reading'] > 0 => null,
-            default => 'Havuz boş; her dilde '.self::POOL.' fikre her sabah kendiliğinden tamamlanır (ya da "Fikir üret").',
+            default => 'Havuz boş; '.self::POOL.' fikre her sabah kendiliğinden tamamlanır (ya da "Fikir üret").',
         };
     }
 

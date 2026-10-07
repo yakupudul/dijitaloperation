@@ -61,8 +61,8 @@ final class ContentPlanner
     /** Search Console queries the site already shows for but not near the top: the strongest idea material. */
     private const int STRIKING_QUERIES = 40;
 
-    /** A run that gave fewer ideas than asked (not enough evidence) is not asked again for this long. */
-    public const int SHORT_RUN_DAYS = 7;
+    /** A run that found no evidence-backed idea at all (no unused gap cluster carried one) is not asked again for this long. */
+    public const int SHORT_RUN_DAYS = 3;
 
     private const array MONTHS = [1 => 'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 
@@ -74,7 +74,7 @@ final class ContentPlanner
 
     public static function shortRunKey(int $siteId): string
     {
-        return 'content-pool:short-run:'.$siteId;
+        return 'content-pool:short-run:v2:'.$siteId; // v2: keys of the old rule (any short run, 7 days) no longer hold pools back
     }
 
     /**
@@ -171,19 +171,23 @@ final class ContentPlanner
         }
         $capacity = array_sum($wants);
         $inLanguage = fn ($q) => ! $explicit ? $q : $q->where(fn ($l) => $l->whereNull('language')->orWhereIn('language', array_keys($wants)));
+        // Earlier plans of 8 weeks and every title still waiting in the pool: never asked again.
+        $previous = Suggestion::query()->where('brand_id', $brand->id)->where('action_type', SiteSuggestionTypes::CONTENT)
+            ->where(fn ($q) => $q->where('created_at', '>=', now()->subWeeks(8))->orWhereIn('status', [Suggestion::OPEN, Suggestion::APPROVED, Suggestion::SNOOZED]))
+            ->orderByDesc('id')->limit(150)->get(['title', 'status', 'action', 'cluster_id']);
+        // Clusters those plans already answer go to the back, so every daily top-up shows the AI fresh clusters instead of
+        // the same best 40 whose titles it already gave (yakup, 2026-10-07: pools stuck at 1–4 of 20).
+        $used = $previous->pluck('cluster_id')->filter()->map(fn ($id): int => (int) $id)->unique()->flip()->all();
         $gaps = $only ?? $inLanguage(BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url'])->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
             ->whereIn('state', ['no_page', 'thin_coverage'])->where('excluded', false))->orderBy('id')->limit(self::GAP_CANDIDATES)->get();
         $brandSearch = $only !== null ? [] : $this->brandSearch($site);
         $volumes = $this->clusterVolumes($gaps->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all());
         if ($only === null) {
-            $gaps = $this->rankGaps($brand, $gaps, $volumes, $brandSearch)->take(self::GAPS_TO_AI)->values();
+            $gaps = $this->rankGaps($brand, $gaps, $volumes, $brandSearch)
+                ->sortBy(fn (BrandClusterPage $row): int => isset($used[(int) $row->cluster_id]) ? 1 : 0)->take(self::GAPS_TO_AI)->values();
         }
         $improvable = $only !== null ? collect() : $inLanguage(BrandClusterPage::query()->with('page:id,url,title')->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
             ->whereIn('state', ['weak_performance', 'thin_coverage'])->whereNotNull('page_id'))->limit(20)->get();
-        // Earlier plans of 8 weeks and every title still waiting in the pool: never asked again.
-        $previous = Suggestion::query()->where('brand_id', $brand->id)->where('action_type', SiteSuggestionTypes::CONTENT)
-            ->where(fn ($q) => $q->where('created_at', '>=', now()->subWeeks(8))->orWhereIn('status', [Suggestion::OPEN, Suggestion::APPROVED, Suggestion::SNOOZED]))
-            ->orderByDesc('id')->limit(150)->get(['title', 'status', 'action']);
         $sitePages = $this->sitePages($site);
         $topQueries = $this->clusterQueries($gaps->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all());
         $striking = $only !== null ? [] : $this->strikingQueries($site);
@@ -207,7 +211,7 @@ final class ContentPlanner
             'improvable_urls' => $improvable->map(fn (BrandClusterPage $row): array => ['url' => (string) $row->page?->url, 'title' => $row->page?->title, 'state' => $row->stateLabel(), 'reason' => $row->reason])->values()->all(),
             'previous_plans' => $previous->map(fn (Suggestion $s): array => ['title' => $s->title, 'status' => $s->status])->values()->all(),
             'site_pages' => $sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title, 'category' => $p->category])->values()->all(),
-        ], 240);
+        ], 240, $only === null ? 'weekly' : null);
         if ($result['status'] !== 'ready') {
             return ['status' => $result['status'], 'added' => 0];
         }
@@ -242,8 +246,9 @@ final class ContentPlanner
             $added += $stored ? 1 : 0;
             $left[$language] -= $stored ? 1 : 0;
         }
-        if ($only === null && $added < $capacity) {
-            // Fewer than asked: the data does not carry more now; the daily top-up waits instead of asking for filler.
+        if ($only === null && $added === 0) {
+            // Nothing with evidence even from fresh clusters: the daily top-up waits instead of asking for filler. A run
+            // that added some keeps going tomorrow with the next clusters.
             Cache::put(self::shortRunKey((int) $site->id), now()->toIso8601String(), now()->addDays(self::SHORT_RUN_DAYS));
         }
 

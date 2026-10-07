@@ -1,5 +1,16 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-07 — İçerik fikri havuzu takılmasın: küme rotasyonu, kısa duraklama, doğru neden
+
+- **Neden (yakup):** "Şu içerik olayında sen olsan ne yapardın?" Havuzlar 1–4/20'de kalmıştı; Decco ve Moximu kümeleri olduğu hâlde boştu.
+- **Bulgu:** sabahki "yalnız kanıtlı fikir" değişikliğinden sonra istenenden az fikir dönen her çalıştırma siteyi 7 gün duraklatıyordu; ayrıca her çalıştırma AI'ya aynı en iyi 40 boşluk kümesini gönderiyor, AI daha önce verdiği başlıkları tekrar edemediği için az fikir çıkıyordu. Sayfa ise "her sabah tamamlanır" diyordu.
+- **Rotasyon:** `ContentPlanner::weekly` son 8 haftanın ve havuzda bekleyen fikirlerin kümelerini sıranın sonuna alır; her günlük tamamlama önce fikri olmayan kümeleri gösterir.
+- **Duraklama:** yalnız hiç kanıtlı fikir eklenmeyen çalıştırma günlük tamamlamayı 3 gün (ya da Pazartesi) durdurur; eski 7 günlük anahtarlar geçersiz (`short-run:v2`). Birkaç fikir ekleyen çalıştırma ertesi sabah sonraki kümelerle devam eder.
+- **Claude cevabı:** haftalık fikir çağrısı adlı çağrı (slot `weekly`) kullanır; arama verisi ya da fikir durumları değişse de Claude'un cevabı kaybolmaz.
+- **Marka tablosu nedeni:** hizmeti olmayan marka için "Markanın etkin hizmeti yok…", duraklamada "Son üretimde kanıtlı yeni fikir çıkmadı; günlük tamamlama GG.AA tarihine ya da Pazartesi'ye kadar duruyor".
+- **Operatör adımı:** Arısoy Hurda, Bornova Hurda, Buşra Nur Özger, Dentocare, Dr. Suada Gasimova, OPC Klinik, Burcu Kısa'nın etkin hizmeti yok; hizmet eklenmeden küme eşleşmez, havuz dolmaz.
+- **State:** CODED + PHPUnit (`ContentCoverageTest`). Canlıda havuzların dolduğu ertesi sabahki çalıştırmadan sonra görülecek.
+
 ## 2026-10-07 — İşletme profilleri › Yorumlar: önceliklendirme, arama, karne, düzenleme
 
 - **Neden (yakup):** "Sence bu sayfada neler eksik?" Önerilen 8 madde; yakup "tamam yap" dedi.
