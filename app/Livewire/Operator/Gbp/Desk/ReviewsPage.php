@@ -335,6 +335,31 @@ final class ReviewsPage extends Component
         }
     }
 
+    /** "Taslağı sil" on one card: its drafts are discarded and the box is emptied. */
+    public function deleteDraft(int $reviewId, ReviewDesk $desk): void
+    {
+        abort_unless($this->canWrite(), 403);
+        $review = collect($this->reviews($desk))->firstWhere('id', $reviewId) ?? abort(404);
+        if (ReviewDesk::busy($review)) {
+            return;
+        }
+        $desk->discardDrafts(auth()->user(), [$reviewId]);
+        unset($this->replies['r'.$reviewId]);
+        $this->say('Taslak silindi.');
+    }
+
+    /** "Taslakları sil" in the bulk bar: the drafts of every picked review. */
+    public function deleteSelectedDrafts(ReviewDesk $desk): void
+    {
+        abort_unless($this->canWrite(), 403);
+        $ids = array_column($this->picked($desk), 'id');
+        $count = $desk->discardDrafts(auth()->user(), $ids);
+        foreach ($ids as $id) {
+            unset($this->replies['r'.$id]);
+        }
+        $this->say($count > 0 ? $count.' yorumun taslağı silindi.' : 'Seçilenlerin taslağı yok.');
+    }
+
     private function resetList(): void
     {
         $this->limit = ReviewDesk::PAGE;

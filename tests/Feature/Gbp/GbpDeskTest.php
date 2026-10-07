@@ -9,6 +9,7 @@ use App\Livewire\Operator\Gbp\Desk\BranchPagesPage;
 use App\Livewire\Operator\Gbp\Desk\PhotosPage;
 use App\Livewire\Operator\Gbp\Desk\ProfileFieldsPage;
 use App\Livewire\Operator\Gbp\Desk\ReviewsPage;
+use App\Models\AiProduction;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -379,6 +380,34 @@ final class GbpDeskTest extends TestCase
         $response->assertOk()->assertHeader('content-type', 'application/pdf');
         $this->assertStringContainsString('yorum-yanitlari-panorama-', (string) $response->headers->get('content-disposition'));
         $this->assertStringStartsWith('%PDF', (string) $response->getContent());
+    }
+
+    public function test_reply_drafts_can_be_deleted_one_by_one_or_for_the_picked_reviews(): void
+    {
+        $review = fn (string $id, string $name): int => DB::table('gbp_reviews')->insertGetId(['external_resource_id' => $this->resourceId, 'run_id' => 1,
+            'location_name' => 'locations/22', 'review_id' => $id, 'reviewer' => json_encode(['displayName' => $name]), 'star_rating' => 'FIVE', 'comment' => 'İyi.',
+            'create_time' => '2026-10-04 10:00:00', 'review_reply' => null, 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        $one = $review('d1', 'Ali V');
+        $two = $review('d2', 'Can B');
+        $three = $review('d3', 'Ece C');
+        $desk = app(ReviewDesk::class);
+        foreach ([$one, $two, $three] as $id) {
+            $desk->saveDraft($this->admin, $id, 'Teşekkür ederiz.');
+        }
+        $desk->saveDraft($this->admin, $one, 'Teşekkür ederiz, yine bekleriz.'); // a second version is deleted too
+        $drafts = fn (): array => array_column($desk->unanswered([$this->location->id => $this->resourceId]), 'draft', 'id');
+
+        $page = Livewire::actingAs($this->admin)->test(ReviewsPage::class)
+            ->assertSee('Taslağı sil')
+            ->call('deleteDraft', $one)
+            ->assertSet('message', 'Taslak silindi.');
+        $this->assertSame([$one => null, $two => 'Teşekkür ederiz.', $three => 'Teşekkür ederiz.'], $drafts());
+
+        $page->set('selected', [$two, $three])->assertSee('Taslakları sil (2)')->call('deleteSelectedDrafts')->assertSet('message', '2 yorumun taslağı silindi.');
+        $this->assertSame([$one => null, $two => null, $three => null], $drafts());
+        $this->assertSame(4, AiProduction::query()->where('status', AiProduction::STATUS_DISCARDED)->count(), 'kept in the archive, set aside');
+
+        Livewire::actingAs(User::factory()->create(['is_active' => true]))->test(ReviewsPage::class)->call('deleteDraft', $two)->assertForbidden();
     }
 
     public function test_a_bad_review_is_prepared_for_googles_removal_tool_and_followed_until_removed(): void

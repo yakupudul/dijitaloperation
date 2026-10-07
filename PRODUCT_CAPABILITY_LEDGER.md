@@ -1,5 +1,12 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-07 — İşletme profilleri › Yorumlar: yanıt taslağı silinir
+
+- **Neden (yakup):** "Bu sayfada yanıt taslaklarını da silme seçeneği ekle."
+- **Kartta "Taslağı sil":** yorumun bütün taslak sürümleri (AI ya da elle) arşivde "discarded" olur; kart boşalır, PDF'e ve Yayımla'ya girmez. Google'a giden ya da gitmiş yanıta dokunmaz. Başarısız taslak notu da temizlenir.
+- **Toplu çubukta "Taslakları sil (N)":** seçilen yorumların taslakları birlikte silinir (onay sorulur). Yalnız Admin.
+- **State:** CODED + PHPUnit (`GbpDeskTest::test_reply_drafts_can_be_deleted_one_by_one_or_for_the_picked_reviews`).
+
 ## 2026-10-07 — Tüm dijital varlık ekranlarında aynı tarih seçici
 
 - **Neden (yakup):** "Web site dijital varlığında tarih filtresi var. O tarih filtresini tüm dijital varlık türlerinin ekranlarına da koy."

@@ -93,6 +93,14 @@ final class ReviewReplyDrafter
         return is_string($state) ? $state : null;
     }
 
+    /** Clears a failed draft note (the operator deleted the review's drafts). */
+    public function forget(int $reviewId): void
+    {
+        if (str_starts_with((string) $this->state($reviewId), 'failed')) {
+            Cache::forget($this->stateKey($reviewId));
+        }
+    }
+
     /** Rough cost of one draft with the current route (shown before the click). */
     public function estimate(): ?string
     {

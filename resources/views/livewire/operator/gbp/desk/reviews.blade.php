@@ -103,6 +103,7 @@
                     <span class="ml-auto flex flex-wrap gap-2">
                         @if ($toDraftCount > 0)<button type="button" wire:click="draftSelected" class="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600" title="Yalnız taslağı olmayanlara yazar; hazır yanıtlara dokunmaz">AI ile taslak yaz ({{ min($toDraftCount, \App\Services\Gbp\Desk\ReviewDesk::DRAFT_BATCH) }})</button>@endif
                         <button type="button" wire:click="sendToBrand" class="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50 dark:bg-gray-800 dark:text-brand-300 dark:ring-brand-500/40" title="Marka giriş yapmadan açar; her yanıtı onaylar, düzeltir ya da istemez">Markaya onaya gönder</button>
+                        @if ($readyCount > 0)<button type="button" wire:click="deleteSelectedDrafts" wire:confirm="Seçilen {{ $readyCount }} yorumun yanıt taslağı silinsin mi?" class="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-rose-600 ring-1 ring-inset ring-rose-200 hover:bg-rose-50 dark:bg-gray-800 dark:text-rose-300 dark:ring-rose-500/40" data-testid="gbp-delete-drafts">Taslakları sil ({{ $readyCount }})</button>@endif
                         <a href="{{ $this->pdfUrl() }}" class="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600" title="Hazır yanıtları markanın onayına göndermek için">PDF</a>
                         <button type="button" wire:click="openPreview" class="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-600">Ön izle ve yayımla ({{ $readyCount }})</button>
                     </span>
@@ -163,7 +164,10 @@
                             @if ($action !== null && $action['status'] === 'failed')<p class="mb-1 text-xs text-rose-600">Gönderilemedi: {{ \Illuminate\Support\Str::limit((string) $action['error'], 160) }}</p>@endif
                             @if ($review['draft'] !== null || array_key_exists('r'.$review['id'], $replies))
                                 <textarea wire:model.blur="replies.r{{ $review['id'] }}" rows="3" maxlength="4000" class="w-full rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-900" placeholder="Yanıt"></textarea>
-                                <button type="button" wire:click="send({{ $review['id'] }})" wire:confirm="Bu yanıt Google’da yayınlansın mı? (Geri alınabilir.)" class="mt-1 text-xs font-medium text-success-600 hover:underline">Yalnız bunu gönder</button>
+                                <span class="mt-1 flex flex-wrap gap-3">
+                                    <button type="button" wire:click="send({{ $review['id'] }})" wire:confirm="Bu yanıt Google’da yayınlansın mı? (Geri alınabilir.)" class="text-xs font-medium text-success-600 hover:underline">Yalnız bunu gönder</button>
+                                    <button type="button" wire:click="deleteDraft({{ $review['id'] }})" wire:confirm="Bu yorumun yanıt taslağı silinsin mi?" class="text-xs font-medium text-gray-500 hover:text-rose-600 hover:underline" data-testid="gbp-delete-draft">Taslağı sil</button>
+                                </span>
                             @elseif ($review['draft_state'] === 'running')
                                 <p class="text-xs text-gray-500">Taslak yazılıyor…</p>
                             @else

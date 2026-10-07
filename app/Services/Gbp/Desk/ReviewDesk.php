@@ -212,6 +212,31 @@ final class ReviewDesk
             ['brand_id' => $asset?->brand_id, 'digital_asset_id' => $asset?->id, 'title' => 'Yorum yanıtı (elle) · '.mb_substr((string) $review->comment, 0, 60)]);
     }
 
+    /**
+     * "Taslağı sil": every draft of the listed reviews (AI or written by hand) is put aside in the archive as discarded,
+     * so the card is empty again and nothing of it goes to the brand PDF or Yayımla. A reply already on its way to
+     * Google is not touched. Returns how many reviews lost their draft.
+     *
+     * @param  list<int>  $reviewIds
+     */
+    public function discardDrafts(User $user, array $reviewIds): int
+    {
+        if ($reviewIds === []) {
+            return 0;
+        }
+        $drafts = AiProduction::query()->where('kind', ReviewReplyDrafter::KIND)->where('subject_type', 'GbpReview')->whereIn('subject_id', $reviewIds)
+            ->where('status', '!=', AiProduction::STATUS_DISCARDED)->get();
+        $archive = app(ProductionArchive::class);
+        foreach ($drafts as $draft) {
+            $archive->mark($draft, AiProduction::STATUS_DISCARDED, $user);
+        }
+        foreach ($reviewIds as $reviewId) {
+            $this->drafter->forget($reviewId);
+        }
+
+        return $drafts->pluck('subject_id')->unique()->count();
+    }
+
     /** Admin: one reply to Google (the edited draft). */
     public function send(User $user, int $reviewId, string $text): ExternalWriteAction
     {
