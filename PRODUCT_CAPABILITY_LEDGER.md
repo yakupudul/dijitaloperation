@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-07 — Marka › Özet › Kimlik tutarlılığı
+
+- **Neden (yakup):** AI görünürlüğü listesinin 4. maddesi; ad, telefon, adres ve bağlantılar her yerde aynı olunca arama motoru ve yapay zekâ işletmeye güvenir.
+- **Kontrol (kural, AI yok):** `BrandIdentity` markanın İşletme Profili kayıtlarını (`gbp_location_snapshots`) sitenin ana sayfa JSON-LD'si ve tel: bağlantıları (saklanan tarama kopyası) ile ana sayfa / iletişim sayfası metniyle karşılaştırır: işletme adı, telefon (yazım farkı yok sayılır), adres (kısaltmalar yok sayılır), profillerin web sitesi bağlantısı (www / UTM aynı site), site şemasındaki profil bağlantıları (sameAs: Instagram, Haritalar) ve uzman yazar. 6 saat önbellek, "Yeniden kontrol et".
+- **Eylem:** hiçbir yere yazmaz. Eksik sameAs bağlantıları kopyalanacak liste olarak verilir (SEO eklentisinin sosyal profiller alanı; Organization şemasını eklenti basar, MoxDOP yazmaz). Profil bağlantısı İşletme profilleri › Profil'den (ADR-079) düzeltilir.
+- **Açık:** Facebook / LinkedIn / YouTube hesapları MoxDOP'ta kayıtlı değil, sameAs listesine girmez.
+- **State:** CODED + PHPUnit (`BrandIdentityTest`). Canlı UAT: saklanan ana sayfa kopyası olan markalarda.
+
 ## 2026-10-07 — Cevap öncelikli içerik, SSS şeması ve uzman yazar
 
 - **Neden (yakup):** AI görünürlüğü listesinin 3. maddesi; AI asistanları ve arama motoru doğrudan cevabı ve uzmanı alıntılar.

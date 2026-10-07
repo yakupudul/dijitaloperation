@@ -71,6 +71,8 @@
         </section>
     @endif
 
+    <livewire:operator.portfolio.brand-identity-card lazy :brand-id="(int) $brandModel->id" :key="'brand-identity-'.$brandModel->id" />
+
     {{-- Numbers: each against the previous period of the same length --}}
     <section aria-labelledby="kpi-heading" data-brand-kpis>
         <div class="mb-2 flex flex-wrap items-baseline justify-between gap-2 text-xs text-gray-500">
