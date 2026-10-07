@@ -93,10 +93,13 @@ final class BranchPages
         $rows = GbpBranchPage::query()->whereIn('digital_asset_id', $locations->pluck('id'))->with('draftAction:id,status,error,result')->get()->keyBy('digital_asset_id');
         $byKey = $pages->keyBy(fn (Page $p): string => GbpDesk::urlKey((string) $p->url));
         $perBrand = $this->desk->locations()->countBy('brand_id');
+        $sitesByBrand = $sites->groupBy('brand_id');
+        $pagesBySite = $pages->groupBy('website_asset_id');
+        $branchCandidates = $this->branchCandidates($pages);
         $taken = [];
         $out = [];
         foreach ($locations as $location) {
-            $brandSites = $sites->where('brand_id', $location->brand_id);
+            $brandSites = $sitesByBrand->get($location->brand_id, collect());
             $site = $brandSites->first();
             $snapshot = $snapshots[$location->id] ?? null;
             $row = $rows->get($location->id);
@@ -112,7 +115,7 @@ final class BranchPages
 
                 continue;
             }
-            $sitePages = $pages->whereIn('website_asset_id', $brandSites->pluck('id'));
+            $sitePages = $brandSites->flatMap(fn (DigitalAsset $s): Collection => $pagesBySite->get($s->id, collect()));
             $linkKey = GbpDesk::urlKey($current);
             $linked = $linkKey !== '' ? $byKey->get($linkKey) : null;
             if ($linked !== null && $sitePages->contains('id', $linked->id) && ! self::isHome($linked)) {
@@ -130,7 +133,7 @@ final class BranchPages
                 continue;
             }
             $sent = $row?->wp_post_id !== null ? $sitePages->first(fn (Page $p): bool => (int) $p->wp_post_id === (int) $row->wp_post_id) : null;
-            $found = $chosen ?? $sent ?? $this->candidate($location, $snapshot, $sitePages->reject(fn (Page $p): bool => isset($taken[$p->id])));
+            $found = $chosen ?? $sent ?? $this->candidate($location, $snapshot, $brandSites->pluck('id')->all(), $branchCandidates, $taken);
             if ($found !== null) {
                 $taken[$found->id] = true;
                 $out[$location->id] = $state('unlinked', $found);
@@ -299,24 +302,24 @@ final class BranchPages
      * district, preferring the one that also carries the branch's own words (two branches in one district).
      *
      * @param  array<string, mixed>|null  $snapshot
-     * @param  Collection<int, Page>  $pages
+     * @param  list<int>  $siteIds  the brand's website assets
+     * @param  array<int, array{page: Page, text: string}>  $branchCandidates  branchCandidates()
+     * @param  array<int, true>  $taken  pages already given to another profile
      */
-    private function candidate(DigitalAsset $location, ?array $snapshot, Collection $pages): ?Page
+    private function candidate(DigitalAsset $location, ?array $snapshot, array $siteIds, array $branchCandidates, array $taken): ?Page
     {
         $district = SeoText::fold((string) ($snapshot['address']['sublocality'] ?? ''));
         $city = SeoText::fold((string) ($snapshot['address']['locality'] ?? ''));
+        if ($district === '') {
+            return null;
+        }
         $brandWords = SeoText::tokens((string) $location->brand?->name);
-        $own = array_values(array_diff(SeoText::tokens(GbpDesk::shortName((string) $location->name)), $brandWords, self::GENERIC, $district !== '' ? explode(' ', $district) : [], $city !== '' ? explode(' ', $city) : []));
+        $own = array_values(array_diff(SeoText::tokens(GbpDesk::shortName((string) $location->name)), $brandWords, self::GENERIC, explode(' ', $district), $city !== '' ? explode(' ', $city) : []));
+        $districtPattern = '/\b'.preg_quote($district, '/').'\b/';
         $best = null;
         $bestScore = 0;
-        foreach ($pages as $page) {
-            if (self::isHome($page) || ($page->language !== null && $page->language !== 'tr')) {
-                continue;
-            }
-            $text = SeoText::fold(implode(' ', [(string) $page->title, (string) $page->h1, str_replace(['-', '/'], ' ', (string) $page->path)]));
-            $isBranchPage = $page->category === 'lokasyon' || preg_match('/\b(sube|subesi|subemiz|subelerimiz)\b/', $text) === 1;
-            $area = $district !== '' && preg_match('/\b'.preg_quote($district, '/').'\b/', $text) === 1;
-            if (! $isBranchPage || ! $area) {
+        foreach ($branchCandidates as $pageId => ['page' => $page, 'text' => $text]) {
+            if (isset($taken[$pageId]) || ! in_array((int) $page->website_asset_id, $siteIds, true) || preg_match($districtPattern, $text) !== 1) {
                 continue;
             }
             $score = 10 + count(array_filter($own, fn (string $w): bool => preg_match('/\b'.preg_quote($w, '/').'\b/', $text) === 1));
@@ -326,6 +329,29 @@ final class BranchPages
         }
 
         return $best;
+    }
+
+    /**
+     * Turkish pages that look like branch pages (category "lokasyon" or "şube" in the address / title), with their folded
+     * text: worked out once per call and shared by every profile, so a site with many pages is scanned once, not once per profile.
+     *
+     * @param  Collection<int, Page>  $pages
+     * @return array<int, array{page: Page, text: string}> page id => page and folded title / h1 / path
+     */
+    private function branchCandidates(Collection $pages): array
+    {
+        $out = [];
+        foreach ($pages as $page) {
+            if (self::isHome($page) || ($page->language !== null && $page->language !== 'tr')) {
+                continue;
+            }
+            $text = SeoText::fold(implode(' ', [(string) $page->title, (string) $page->h1, str_replace(['-', '/'], ' ', (string) $page->path)]));
+            if ($page->category === 'lokasyon' || preg_match('/\b(sube|subesi|subemiz|subelerimiz)\b/', $text) === 1) {
+                $out[(int) $page->id] = ['page' => $page, 'text' => $text];
+            }
+        }
+
+        return $out;
     }
 
     private static function isHome(Page $page): bool

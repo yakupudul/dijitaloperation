@@ -584,6 +584,30 @@ final class GbpDeskTest extends TestCase
         $pages->choose($this->admin, $this->location, $foreign);
     }
 
+    public function test_branch_page_is_found_by_district_once_and_only_among_the_brands_own_pages(): void
+    {
+        $desk = app(GbpDesk::class);
+        $pages = app(BranchPages::class);
+        $second = $this->secondBranch();
+        $states = fn (): array => $pages->states($desk->locations(), $desk->snapshots($desk->locations()->pluck('id')->all()));
+        $page = fn (int $siteId, string $path, string $title, string $category, ?string $language = 'tr'): Page => Page::query()->create(['website_asset_id' => $siteId,
+            'url' => 'https://panorama.test'.$path, 'url_hash' => hash('sha256', $siteId.$path), 'path' => $path, 'title' => $title, 'category' => $category, 'language' => $language, 'is_indexable' => true, 'word_count' => 200]);
+
+        $page($this->site->id, '/hakkimizda/', 'Çankaya hakkında', 'kurumsal');
+        $this->assertSame('missing', $states()[$this->location->id]['state']);
+
+        $other = DigitalAsset::factory()->create(['type' => 'website', 'domain' => 'baska.test']);
+        $page($other->id, '/cankaya-subesi/', 'Çankaya Şubesi', 'lokasyon');
+        $page($this->site->id, '/en/cankaya-branch/', 'Çankaya Şubesi', 'lokasyon', 'en');
+        $this->assertSame('missing', $states()[$this->location->id]['state']);
+
+        $branch = $page($this->site->id, '/cankaya-subesi/', 'Çankaya Şubesi', 'lokasyon');
+        $found = $states();
+        $this->assertSame('unlinked', $found[$this->location->id]['state']);
+        $this->assertSame($branch->id, $found[$this->location->id]['page']->id);
+        $this->assertNotSame('unlinked', $found[$second->id]['state']);
+    }
+
     public function test_hub_page_lists_every_branch_from_the_profiles(): void
     {
         $pages = app(BranchPages::class);
