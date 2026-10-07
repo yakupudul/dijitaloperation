@@ -11,6 +11,13 @@
 - Okuyucular (`GoogleAdsScreen`, `MetaScreen`, `MetaCampaignBoard`, `MetaAnalysis`, `GbpScreen`) gün sayısı yerine `SiteRange` da alır; marka sayfası KPI'ları gibi diğer çağıranlar değişmedi.
 - **State:** CODED + PHPUnit (`DemoSharedPeriodFilterTest` 2 yeni, `MetaCampaignServicesTest::test_the_date_picker_range_drives_the_board_the_analysis_and_the_campaign_page`, `GbpWorkspaceTabsTest::test_the_date_picker_range_drives_the_overview_numbers_and_the_analysis`, `GoogleAdsScreenTest::test_the_date_picker_range_gives_the_window_and_its_comparison`). Görünüm insan gözüyle onaylanmadı.
 
+## 2026-10-07 — İşletme Profili gönderisi hesabı bilinmeyen konumda da gider
+
+- **Neden:** 07 Eki'de onaylı otomatik gönderilerin 5'i yayınlanamadı (Gönderiler sayfası); sistem sağlığında okunan 4'ünün nedeni "Konumun hesap bilgisi yok; önce İşletme Profili verisini bir kez çekin." idi. Konumun Google hesabı (`accounts/…`) kayıtlı değildi; yazma bunu toplama işine bırakıyordu.
+- **Şimdi:** `GbpWriter::location` hesap kayıtlı değilse yazmadan önce Google'dan bulur (Account Management hesap listesi → her hesabın konumları) ve konuma kaydeder; bulamazsa gerçek nedeni söyler ("bu konum bağlantıyı yapan Google kullanıcısının hesaplarında bulunamadı; yönetici/sahip yetkisi verilmeli" ya da Google'ın hata mesajı). Gönderi, yorum yanıtı, fotoğraf ve profil yazmalarının hepsi bu yoldan geçer.
+- **Sistem sağlığı (MCP `system-health`):** son 3 günün başarısız harici yazmaları ve yayınlanamayan gönderiler nedenleriyle (`failed_writes`).
+- **State:** CODED + PHPUnit (`GbpWorkspaceTabsTest`, `McpWorkspaceTest`). Bugünkü başarısız gönderiler gün kartındaki "Tekrar dene" ile yeniden gönderilir.
+
 ## 2026-10-07 — İçerik fikirleri yalnız ana dilde, diğer diller çeviri
 
 - **Neden (yakup):** "Yabancı dil versiyonları için harici bir içerik fikri düşünülmesin. Doğrudan Türkçe içeriğin ilgili dildeki karşılığı yazılsın. İçeriği yazdırdığımda da diğer diller için çeviri yapılsın sadece."

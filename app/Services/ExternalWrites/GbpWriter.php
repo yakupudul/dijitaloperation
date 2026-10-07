@@ -9,7 +9,9 @@ use App\Models\ExternalWriteAction;
 use App\Models\GbpReview;
 use App\Services\Gbp\GbpProfilePlanner;
 use App\Services\Integrations\Google\GoogleApiClient;
+use App\Services\Integrations\Google\GoogleScopeRegistry;
 use App\Services\SeoTasks\SeoText;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 use Throwable;
@@ -471,11 +473,53 @@ final class GbpWriter
         }
         $account = (string) ($resource->parent_external_id ?? '');
         $location = str_starts_with($external, 'locations/') ? substr($external, strlen('locations/')) : '';
-        if (! str_starts_with($account, 'accounts/') || $location === '') {
-            throw new RuntimeException('Konumun hesap bilgisi yok; önce İşletme Profili verisini bir kez çekin.');
+        if ($location === '') {
+            throw new RuntimeException('İşletme Profili konumunun kimliği eksik; profili yeniden bağlayın.');
+        }
+        if (! str_starts_with($account, 'accounts/')) {
+            // The daily collection remembers the account when it can; a write does not wait for it (2026-10-07: approved
+            // posts of four profiles failed because the account was never stored).
+            $account = $this->findAccount($resource->integration, 'locations/'.$location);
+            $resource->forceFill(['parent_external_id' => $account])->save();
         }
 
         return [$resource->integration, $account.'/locations/'.$location];
+    }
+
+    /** The Google account that holds the location (the v4 post / reply / photo address needs it). */
+    private function findAccount(CoreIntegration $integration, string $locationName): string
+    {
+        $accounts = $this->google->get($integration, 'https://mybusinessaccountmanagement.googleapis.com/v1/accounts', ['pageSize' => 20], GoogleScopeRegistry::CAPABILITY_GBP);
+        if (! $accounts->successful()) {
+            throw new RuntimeException('İşletme Profili: konumun Google hesabı okunamadı ('.self::reason($accounts).').');
+        }
+        foreach ((array) $accounts->json('accounts') as $account) {
+            $name = is_array($account) ? trim((string) ($account['name'] ?? '')) : '';
+            if ($name === '') {
+                continue;
+            }
+            $token = null;
+            $pages = 0;
+            do {
+                $response = $this->google->get($integration, self::V1.$name.'/locations', array_filter(['readMask' => 'name', 'pageSize' => 100, 'pageToken' => $token]), GoogleScopeRegistry::CAPABILITY_GBP);
+                if (! $response->successful()) {
+                    break;
+                }
+                foreach ((array) $response->json('locations') as $candidate) {
+                    if (is_array($candidate) && ($candidate['name'] ?? null) === $locationName) {
+                        return $name;
+                    }
+                }
+                $token = is_string($response->json('nextPageToken')) && $response->json('nextPageToken') !== '' ? (string) $response->json('nextPageToken') : null;
+            } while ($token !== null && ++$pages < 50);
+        }
+
+        throw new RuntimeException('İşletme Profili: bu konum, bağlantıyı yapan Google kullanıcısının hesaplarında bulunamadı. Profilde bu kullanıcıya yönetici ya da sahip yetkisi verilmeli.');
+    }
+
+    private static function reason(Response $response): string
+    {
+        return trim(mb_substr((string) ($response->json('error.message') ?? ''), 0, 200)) ?: 'HTTP '.$response->status();
     }
 
     /** @param array<string, mixed> $body @return array<string, mixed> */

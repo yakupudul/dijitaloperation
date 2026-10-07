@@ -18,6 +18,7 @@ use App\Models\ServiceCategory;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\ExternalWrites\GbpWriter;
 use App\Services\Gbp\GbpPostQueue;
 use App\Services\Gbp\GbpScreen;
 use App\Services\Gbp\GbpSuggestions;
@@ -32,6 +33,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
+use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -88,6 +90,12 @@ final class GbpWorkspaceTabsTest extends TestCase
         }
         Http::fake(function (Request $request) {
             $this->calls[] = [$request->method(), $request->url(), $request->data()];
+            if (str_contains($request->url(), 'mybusinessaccountmanagement.googleapis.com/v1/accounts')) {
+                return Http::response(['accounts' => [['name' => 'accounts/7'], ['name' => 'accounts/11']]]);
+            }
+            if (str_contains($request->url(), 'mybusinessbusinessinformation.googleapis.com/v1/accounts/')) {
+                return Http::response(['locations' => str_contains($request->url(), 'accounts/11/') ? [['name' => 'locations/22']] : [['name' => 'locations/5']]]);
+            }
 
             if (str_contains($request->url(), 'localPosts') && $request->method() === 'POST' && $this->postFailures > 0) {
                 $this->postFailures--;
@@ -175,6 +183,26 @@ final class GbpWorkspaceTabsTest extends TestCase
 
         $page->call('undoWrite', $action->id);
         $this->assertSame('undone', $action->fresh()->status);
+    }
+
+    public function test_a_location_without_its_account_finds_it_before_the_post_goes_out(): void
+    {
+        $this->resource->forceFill(['parent_external_id' => null])->save();
+        $this->page('posts')->call('startPost')->set('post.body', 'Kış aylarında diş hassasiyeti artabilir; kontrol için randevu alın.')->call('publishPost')->assertHasNoErrors();
+
+        $this->assertSame('succeeded', ExternalWriteAction::query()->sole()->status);
+        $this->assertSame('accounts/11', $this->resource->fresh()->parent_external_id, 'remembered for the next writes');
+        [, $url] = end($this->calls);
+        $this->assertSame('https://mybusiness.googleapis.com/v4/accounts/11/locations/22/localPosts', $url);
+
+        $this->resource->fresh()->forceFill(['parent_external_id' => null, 'external_id' => 'locations/99'])->save();
+        try {
+            app(GbpWriter::class)->location($this->asset->id);
+            $this->fail('a location in none of the accounts cannot be written to');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('kullanıcısının hesaplarında bulunamadı', $exception->getMessage());
+        }
+        $this->assertSame(1, ExternalWriteAction::query()->count());
     }
 
     public function test_post_whose_photo_google_cannot_take_goes_out_without_it(): void
