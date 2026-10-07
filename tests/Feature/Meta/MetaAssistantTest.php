@@ -62,7 +62,7 @@ final class MetaAssistantTest extends TestCase
             $this->creative('Zirkonyum Kaplama', 'Doğal görünüm', 'Zirkonyum kaplama ile doğal görünen dişler: muayenede size uygun seçenekleri anlatıyoruz.', str_repeat('Zirkonyum ', 8)),
         ]]]);
 
-        $this->page('creatives')->call('runAi', MetaAssistant::OP_CREATIVES);
+        $this->page('todo')->call('runAi', MetaAssistant::OP_CREATIVES);
 
         MetaCreativesAgent::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, 'İmplant video reklamı') && str_contains((string) $prompt->prompt, 'https://panorama.test/implant/'));
         $rows = Suggestion::query()->where('action_type', 'meta_creative')->orderBy('id')->get();
@@ -70,7 +70,7 @@ final class MetaAssistantTest extends TestCase
         $this->assertTrue($rows->every(fn (Suggestion $s): bool => $s->channel === 'meta' && $s->prompt_version_id !== null));
         $this->assertLessThanOrEqual(MetaAssistant::HEADLINE_MAX, mb_strlen((string) $rows[1]->action['headline']));
         $this->assertSame('ready', app(MetaAssistant::class)->state($this->asset->id, MetaAssistant::OP_CREATIVES)['status']);
-        $this->page('creatives')->assertSee('Kreatif: Diş İmplantı · Süreç')->assertSee('Video kancası')->assertDontSee('Diş Beyazlatma')->assertSee('Kreatif öner: 2 kreatif önerisi.');
+        $this->page('todo')->assertSee('Kreatif: Diş İmplantı · Süreç')->assertSee('Video kancası')->assertDontSee('Diş Beyazlatma')->assertSee('Kreatif öner: 2 kreatif önerisi.');
     }
 
     public function test_structure_needs_existing_names_and_numbers_from_the_pack(): void
@@ -84,12 +84,12 @@ final class MetaAssistantTest extends TestCase
             ['title' => 'Uydurma sayı', 'kind' => 'structure', 'service' => '', 'campaign' => 'Diş İmplantı Lead Ankara', 'adsets' => ['İmplant Ankara 35+'], 'reason' => 'Sonuçlar 873 arttı.', 'steps' => 'Bütçeyi artırın.'],
         ]]]);
 
-        $this->page('strategy')->call('runAi', MetaAssistant::OP_STRUCTURE);
+        $this->page('todo')->call('runAi', MetaAssistant::OP_STRUCTURE);
 
         MetaStructureAgent::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, 'LINK_CLICKS') && str_contains((string) $prompt->prompt, 'Çankaya şubesi'));
         $this->assertSame(['İzmir setini kapatıp Ankara’ya taşı', 'Site ziyaretçilerine yeniden pazarlama'],
             Suggestion::query()->where('action_type', 'meta_structure')->orderBy('id')->pluck('title')->all());
-        $this->page('strategy')->assertSee('Site ziyaretçilerine yeniden pazarlama')->assertDontSee('Uydurma');
+        $this->page('todo')->assertSee('Site ziyaretçilerine yeniden pazarlama')->assertDontSee('Uydurma');
 
         $pack = app(MetaAssistant::class)->structurePack($this->asset->load('brand'));
         $pause = ['title' => 'Kampanyayı kapat', 'kind' => 'structure', 'service' => '', 'campaign' => 'Genel Trafik', 'adsets' => [], 'reason' => 'Sonuç yok.', 'steps' => 'Kampanyayı kapatın.'];
@@ -107,7 +107,7 @@ final class MetaAssistantTest extends TestCase
             ['target' => 'https://panorama.test/implant/', 'problem' => 'Güven eksik.', 'change' => 'Garantili sonuç yazın.', 'reason' => 'Sayfa 56 sonuç aldı.'],
         ]]]);
 
-        $this->page('strategy')->call('runAi', MetaAssistant::OP_LANDING);
+        $this->page('todo')->call('runAi', MetaAssistant::OP_LANDING);
 
         MetaLandingAgent::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, 'İmplant tedavisi süreci'));
         $rows = Suggestion::query()->where('action_type', 'meta_landing')->orderBy('id')->get();
@@ -121,7 +121,7 @@ final class MetaAssistantTest extends TestCase
         $second = $this->creative('Diş İmplantı', 'Süreç', 'İmplant tedavisinde ilk adım muayenedir; Çankaya şubemizde hekimimiz süreci adım adım anlatır.');
         MetaCreativesAgent::fake([['items' => [$first]], ['items' => [$second]]]);
 
-        $page = $this->page('creatives')->call('runAi', MetaAssistant::OP_CREATIVES);
+        $page = $this->page('todo')->call('runAi', MetaAssistant::OP_CREATIVES);
         $suggestion = Suggestion::query()->where('action_type', 'meta_creative')->sole();
         $page->call('startEdit', $suggestion->id)->set('editText', 'Operatör metni: implant muayenesi Çankaya’da.')->call('saveEdit');
         $this->assertTrue((bool) $suggestion->fresh()->action['locked']);

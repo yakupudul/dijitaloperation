@@ -151,12 +151,10 @@ class PanelDesignFreezeTest extends TestCase
                 'Ayarlar',
             ]],
             [route('operator.meta.overview', ['assetId' => $byType['meta_ads']->id]), [
-                'Genel Bakış',
-                'Yapılacaklar',
-                'Kreatifler',
-                'Kampanya Stratejisi',
-                'Ölçümleme',
+                'Kampanyalar',
                 'Analiz',
+                'Yapılacaklar',
+                'Ölçümleme',
                 'Ayarlar',
             ]],
             [route('operator.analytics', ['assetId' => $byType['ga4']->id]), [

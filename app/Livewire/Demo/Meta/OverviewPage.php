@@ -9,6 +9,8 @@ use App\Models\DigitalAsset;
 use App\Services\Analyst\AnalystDecisionStore;
 use App\Services\Async\AsyncOperationService;
 use App\Services\Meta\MetaAssistant;
+use App\Services\Meta\MetaCampaignBoard;
+use App\Services\Meta\MetaCampaignServices;
 use App\Services\Meta\MetaChecks;
 use App\Services\Meta\MetaLeads;
 use App\Services\Meta\MetaScreen;
@@ -27,8 +29,9 @@ use Livewire\WithFileUploads;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Meta (Faz 6): Genel Bakış · Yapılacaklar · Kreatifler · Kampanya Stratejisi · Ölçümleme · Analiz · Ayarlar for one
- * bound ad account. Numbers come from the collected Meta tables (MetaScreen); twelve system checks and three AI
+ * Meta (Faz 6): Kampanyalar · Analiz · Yapılacaklar · Ölçümleme · Ayarlar for one bound ad account. Kampanyalar is the
+ * opening tab: every campaign with its services (Kampanya → hizmet), budget, results of its own type and alerts; a
+ * campaign opens its own page (CampaignPage). Numbers come from the collected Meta tables (MetaScreen); twelve system checks and three AI
  * operations fill the ONE suggestions table (MetaChecks, MetaAssistant). Nothing is written to Meta: an approved item
  * is a copyable instruction / CSV row; "Uygulandı" stores the baseline. Lead quality is marked by hand (MetaLeads).
  */
@@ -39,12 +42,11 @@ class OverviewPage extends Component
     use ResolvesCanonicalOperatorAsset;
     use WithFileUploads;
 
-    public const array TABS = ['overview' => 'Genel Bakış', 'todo' => 'Yapılacaklar', 'creatives' => 'Kreatifler', 'strategy' => 'Kampanya Stratejisi',
-        'measurement' => 'Ölçümleme', 'analysis' => 'Analiz', 'settings' => 'Ayarlar'];
+    public const array TABS = ['campaigns' => 'Kampanyalar', 'analysis' => 'Analiz', 'todo' => 'Yapılacaklar', 'measurement' => 'Ölçümleme', 'settings' => 'Ayarlar'];
 
     /** @var array<string, string> Retired tab keys kept working for old links. */
     private const array LEGACY_TAB_MAP = [
-        'campaigns' => 'analysis', 'adsets' => 'analysis', 'ads' => 'analysis', 'audience' => 'analysis', 'breakdowns' => 'analysis',
+        'overview' => 'campaigns', 'creatives' => 'todo', 'strategy' => 'todo', 'adsets' => 'analysis', 'ads' => 'analysis', 'audience' => 'analysis', 'breakdowns' => 'analysis',
         'delivery' => 'analysis', 'funnel' => 'analysis', 'advisor' => 'todo', 'operations' => 'todo', 'insights' => 'todo', 'destinations' => 'measurement',
     ];
 
@@ -55,7 +57,20 @@ class OverviewPage extends Component
     public string $assetId = '';
 
     #[Url]
-    public string $tab = 'overview';
+    public string $tab = 'campaigns';
+
+    /** Kampanyalar filters: status (live | paused | all), service (offering id or "none"), result type, search. */
+    #[Url(as: 'durum')]
+    public string $status = 'live';
+
+    #[Url(as: 'hizmet')]
+    public string $service = '';
+
+    #[Url(as: 'sonuc')]
+    public string $resultType = '';
+
+    #[Url(as: 'ara')]
+    public string $search = '';
 
     /** Analiz window in days. */
     #[Url]
@@ -115,6 +130,18 @@ class OverviewPage extends Component
         Cache::put(CollectMetaGeoResultsJob::stateKey((int) $this->assetId), ['state' => 'running', 'at' => now()->toIso8601String()], now()->addHour());
         CollectMetaGeoResultsJob::dispatch((int) $this->assetId, 90);
         DemoState::flash('Bölge verisi Meta’dan çekiliyor; birkaç dakika sürebilir.', 'info');
+    }
+
+    /* ---------------- Kampanyalar: services ---------------- */
+
+    public function confirmService(string $campaignId, int $offeringId, MetaCampaignServices $services): void
+    {
+        $services->confirm($this->asset(), $campaignId, $offeringId, auth()->user());
+    }
+
+    public function removeService(string $campaignId, int $offeringId, MetaCampaignServices $services): void
+    {
+        $services->remove($this->asset(), $campaignId, $offeringId, auth()->user());
     }
 
     /* ---------------- Yapılacaklar ---------------- */
@@ -229,7 +256,7 @@ class OverviewPage extends Component
         }
     }
 
-    public function render(MetaScreen $screen, MetaSuggestions $suggestions, MetaAssistant $assistant, MetaLeads $leads): View
+    public function render(MetaScreen $screen, MetaSuggestions $suggestions, MetaAssistant $assistant, MetaLeads $leads, MetaCampaignBoard $board): View
     {
         $this->normalize();
         $asset = $this->asset()->loadMissing('brand.customer');
@@ -252,14 +279,10 @@ class OverviewPage extends Component
             'openCount' => $hasBrand ? $suggestions->open($asset)->count() : 0,
             'aiStates' => $aiStates,
             'aiLabels' => MetaAssistant::LABELS,
-            'overview' => $this->tab === 'overview' ? $screen->overview($asset) : null,
+            'board' => $this->tab === 'campaigns' ? $this->board($board->board($asset, $this->days)) : null,
             'checks' => $this->tab === 'todo' ? MetaChecks::states($assetId) : null,
             'suggestions' => $hasBrand && $this->tab === 'todo' ? $suggestions->open($asset) : collect(),
             'approved' => $hasBrand && $this->tab === 'todo' ? $suggestions->approved($asset) : collect(),
-            'creativeRows' => $this->tab === 'creatives' ? $screen->creatives($asset, 28) : [],
-            'creativeSuggestions' => $hasBrand && $this->tab === 'creatives' ? $suggestions->open($asset, 'creative') : collect(),
-            'strategy' => $this->tab === 'strategy' ? $screen->analysis($asset, 28) : null,
-            'strategySuggestions' => $hasBrand && $this->tab === 'strategy' ? $suggestions->open($asset, 'structure')->concat($suggestions->open($asset, 'landing')) : collect(),
             'measurement' => $this->tab === 'measurement' ? $screen->measurement($asset, 28) : null,
             'leadList' => $this->tab === 'measurement' ? $leads->list($asset, $this->unmarkedOnly) : collect(),
             'leadCampaigns' => $this->tab === 'measurement' ? $leads->byCampaign($asset) : [],
@@ -271,11 +294,54 @@ class OverviewPage extends Component
         ]);
     }
 
+    /**
+     * The board with the filters applied (counts per status stay for the filter buttons).
+     *
+     * @param  array<string, mixed>  $board
+     * @return array<string, mixed>
+     */
+    private function board(array $board): array
+    {
+        $rows = $board['rows'];
+        $board['counts'] = ['live' => 0, 'paused' => 0, 'all' => count($rows)];
+        foreach ($rows as $row) {
+            if (isset($board['counts'][$row['status']])) {
+                $board['counts'][$row['status']]++;
+            }
+        }
+        $fold = fn (string $value): string => str_replace('ı', 'i', mb_strtolower(str_replace(['İ', 'I'], ['i', 'ı'], $value)));
+        $needle = $fold(trim($this->search));
+        $board['rows'] = array_values(array_filter($rows, function (array $row) use ($needle, $fold): bool {
+            if ($this->status !== 'all' && $row['status'] !== $this->status) {
+                return false;
+            }
+            if ($this->service === 'none' && $row['services'] !== []) {
+                return false;
+            }
+            if ($this->service !== '' && $this->service !== 'none' && ! in_array((int) $this->service, array_column($row['services'], 'id'), true)) {
+                return false;
+            }
+            if ($this->resultType !== '' && $row['type'] !== $this->resultType) {
+                return false;
+            }
+
+            return $needle === '' || str_contains($fold($row['name']), $needle);
+        }));
+
+        return $board;
+    }
+
     private function normalize(): void
     {
         $this->tab = self::LEGACY_TAB_MAP[$this->tab] ?? $this->tab;
         if (! isset(self::TABS[$this->tab])) {
-            $this->tab = 'overview';
+            $this->tab = 'campaigns';
+        }
+        if (! in_array($this->status, ['live', 'paused', 'all'], true)) {
+            $this->status = 'live';
+        }
+        if (! array_key_exists($this->resultType, MetaCampaignBoard::TYPES)) {
+            $this->resultType = '';
         }
         if (! in_array($this->days, self::DAY_OPTIONS, true)) {
             $this->days = 28;

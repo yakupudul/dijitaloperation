@@ -47,7 +47,6 @@ final class MetaAssetPageTest extends TestCase
         $id = $this->asset->id;
         $cases = [
             ['operator.meta.campaigns', [], ['tab' => 'campaigns']],
-            ['operator.meta.campaign', ['campaignId' => '123'], ['tab' => 'campaigns']],
             ['operator.meta.adsets', [], ['tab' => 'campaigns', 'level' => 'adsets']],
             ['operator.meta.adset', ['adSetId' => '456'], ['tab' => 'campaigns', 'level' => 'adsets']],
             ['operator.meta.ads', [], ['tab' => 'campaigns', 'level' => 'ads']],
@@ -73,7 +72,7 @@ final class MetaAssetPageTest extends TestCase
 
     public function test_old_tab_keys_open_the_matching_new_tab(): void
     {
-        foreach (['campaigns' => 'analysis', 'audience' => 'analysis', 'funnel' => 'analysis', 'creatives' => 'creatives', 'measurement' => 'measurement', 'operations' => 'todo', 'advisor' => 'todo'] as $old => $new) {
+        foreach (['overview' => 'campaigns', 'campaigns' => 'campaigns', 'audience' => 'analysis', 'funnel' => 'analysis', 'creatives' => 'todo', 'strategy' => 'todo', 'measurement' => 'measurement', 'operations' => 'todo', 'advisor' => 'todo'] as $old => $new) {
             Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => $old])->assertSet('tab', $new);
         }
     }

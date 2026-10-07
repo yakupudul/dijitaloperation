@@ -2027,6 +2027,12 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   gelir; ekran taraması veritabanı süresini ve en yavaş sorguları kaydeder. `Queue::route` artık sınıf => kuyruk haritasıyla
   çağrılır (ağır işler gerçekten heavy'de), default timeout 960; sunucu .env'inde HORIZON_DEFAULT_TIMEOUT sabitse en az 900 olmalı.
   Commit konularında `(pool #N)` yazılır: deploy.sh bunları release.json'a yazıp havuz ekranı değişiklikleri "Kontrol"e taşır.
+- **Meta kampanyaları (yakup, 2026-10-07, plan adım 1):** Meta tarafının merkezi kampanyalar. Her kampanyanın hizmeti
+  `ad_campaign_services`'te: sistem kuralla önerir (gidilen sayfa → reklam metni → ad), kuralın bulamadığını AI (Claude
+  kuyruğu) önerir; operatörün kararı her zaman kazanır, sonraki çekim ezmez. Meta ekranı Kampanyalar sekmesiyle açılır;
+  kampanya kendi sayfasında açılır; "Eşleşmeyenleri ata" toplu karar ekranı. Sonuç türleri (form, mesaj, satış) karışmaz;
+  sayıları AI hesaplamaz; reklam hesabına hiçbir şey yazılmaz. Sıradaki adımlar: Analiz yaş/cinsiyet, Google Ads eşleme +
+  hizmet ortalaması + Hizmet karnesi + Meta masası, Strateji öner, Kazananlar ve Kütüphaneler.
 - **Microsoft Clarity (yakup, 2026-10-03):** her site için Clarity proje kimliği + Data Export token (Ayarlar). Günde bir
   çekim; kural tabanlı (AI yok) öfkeli / çalışmayan tıklama, hızlı geri dönüş, JS hatası, kaydırma → Genel işler › Teknik
   sağlık işi. Siteye hiçbir şey yazılmaz; Clarity etiketini siteye yakup ekler.

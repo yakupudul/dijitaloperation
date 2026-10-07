@@ -61,9 +61,9 @@ class DemoSharedPeriodFilterTest extends TestCase
 
         Livewire::test(MetaOverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'analysis'])
             ->call('setDays', 90)
-            ->call('setTab', 'creatives')
+            ->call('setTab', 'campaigns')
             ->assertSet('days', 90)
-            ->assertSet('tab', 'creatives');
+            ->assertSet('tab', 'campaigns');
     }
 
     public function test_google_ads_accepts_its_day_window(): void

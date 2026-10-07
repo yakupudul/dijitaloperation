@@ -46,6 +46,7 @@ final class AiOperationLabels
         'meta.creatives' => 'Meta kreatif önerisi',
         'meta.structure' => 'Meta kampanya yapısı',
         'meta.landing' => 'Meta form / açılış sayfası',
+        'meta.campaign_services' => 'Meta kampanyalarına hizmet eşleştirme',
         'insights.alert_cause' => 'Uyarı nedeni',
         'insights.technical_tasks' => 'Teknik görevler',
         'competitors.classify' => 'Rakip sınıflandırma',

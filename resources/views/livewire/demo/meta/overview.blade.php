@@ -46,7 +46,12 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400">{{ $brand?->name ?? 'Marka yok' }} · {{ $bound ? $account['act_id'].' · '.$currency : 'Hesap bağlı değil' }}</p>
             </div>
         </div>
-        <button type="button" wire:click="refreshData" wire:loading.attr="disabled" @disabled(! $bound) class="{{ $primary }}">Verileri yenile</button>
+        <div class="flex flex-wrap items-center gap-2">
+            @if ($bound && $brand)
+                <a href="{{ route('operator.meta.assign', ['assetId' => $assetId]) }}" wire:navigate class="{{ $btn }} inline-flex items-center gap-2">Eşleşmeyenleri ata @if (($board['open'] ?? 0) > 0)<span class="rounded-full bg-rose-50 px-1.5 text-xs font-semibold text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">{{ $board['open'] }}</span>@endif</a>
+            @endif
+            <button type="button" wire:click="refreshData" wire:loading.attr="disabled" @disabled(! $bound) class="{{ $primary }}">Verileri yenile</button>
+        </div>
     </div>
 
     <nav class="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Meta">
@@ -66,52 +71,8 @@
         </section>
     @endunless
 
-    @if ($tab === 'overview')
-        @php
-            $o = $overview;
-            $c = $o['current'] ?? [];
-            $p = $o['previous'] ?? [];
-            $cards = [
-                ['Harcama · 28 gün', $money($c['spend'] ?? null), \App\Services\Meta\MetaScreen::change($c['spend'] ?? null, $p['spend'] ?? null)],
-                ['Sonuç (lead + mesaj + satış)', $num($c['results'] ?? null, 1), \App\Services\Meta\MetaScreen::change($c['results'] ?? null, $p['results'] ?? null)],
-                ['Sonuç başı maliyet', $money($c['cpr'] ?? null), \App\Services\Meta\MetaScreen::change($c['cpr'] ?? null, $p['cpr'] ?? null)],
-                ['CTR', ($c['ctr'] ?? null) === null ? '—' : $num($c['ctr'], 2).'%', \App\Services\Meta\MetaScreen::change($c['ctr'] ?? null, $p['ctr'] ?? null)],
-            ];
-        @endphp
-        @if (! ($o['has_data'] ?? false))
-            <p class="{{ $card }} text-sm text-gray-500">Veri yok.</p>
-        @else
-            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-6" data-testid="meta-numbers">
-                @foreach ($cards as [$label, $value, $change])
-                    <section class="{{ $card }}">
-                        <p class="text-xs text-gray-500">{{ $label }}</p>
-                        <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $value }}</p>
-                        <p class="text-xs text-gray-500">{{ $change === null ? 'önceki dönem yok' : $pct($change).' önceki 28 güne göre' }}</p>
-                    </section>
-                @endforeach
-                <section class="{{ $card }}">
-                    <p class="text-xs text-gray-500">Pixel</p>
-                    <p @class(['mt-1 text-2xl font-bold', 'text-emerald-600' => $o['pixel']['state'] === 'ok', 'text-rose-600' => in_array($o['pixel']['state'], ['missing', 'silent'], true), 'text-gray-900 dark:text-white' => $o['pixel']['state'] === 'no_data'])>{{ $o['pixel']['label'] }}</p>
-                    <p class="text-xs text-gray-500">CAPI: veri yok</p>
-                </section>
-                <section class="{{ $card }}">
-                    <p class="text-xs text-gray-500">Açık öneri</p>
-                    <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $openCount }}</p>
-                    <button type="button" wire:click="setTab('todo')" class="text-xs font-medium text-brand-600 hover:underline">Yapılacaklar</button>
-                </section>
-            </div>
-            <section class="{{ $panel }} overflow-x-auto">
-                <h2 class="border-b border-gray-100 px-4 py-3 font-semibold text-gray-900 dark:border-gray-700 dark:text-white">Kampanyalar (ilk 5) · {{ $o['active_campaigns'] }} harcayan</h2>
-                <table class="w-full text-sm">
-                    <thead><tr class="text-left text-xs text-gray-500"><th class="px-4 py-2 font-medium">Kampanya</th><th class="px-3 py-2 font-medium">Hedef</th><th class="{{ $th }}">Harcama</th><th class="{{ $th }}">Sonuç</th><th class="{{ $th }}">Sonuç başı</th><th class="{{ $th }}">CTR</th></tr></thead>
-                    <tbody class="divide-y divide-gray-100 tabular-nums dark:divide-gray-700">
-                        @foreach ($o['top'] as $row)
-                            <tr class="text-gray-700 dark:text-gray-300"><td class="px-4 py-1.5">{{ $row['name'] }}</td><td class="px-3 py-1.5">{{ $row['objective'] }}</td><td class="{{ $td }}">{{ $money($row['spend']) }}</td><td class="{{ $td }}">{{ $num($row['results'], 1) }}</td><td class="{{ $td }}">{{ $money($row['cpr']) }}</td><td class="{{ $td }}">{{ $row['ctr'] === null ? '—' : $num($row['ctr'], 2).'%' }}</td></tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </section>
-        @endif
+    @if ($tab === 'campaigns')
+        @include('livewire.demo.meta.partials.campaigns')
 
     @elseif ($tab === 'todo')
         <div class="flex flex-wrap items-center gap-2">
@@ -159,68 +120,6 @@
             @empty
                 <p class="px-4 py-4 text-sm text-gray-500">Onaylanan öneri yok.</p>
             @endforelse
-        </section>
-
-    @elseif ($tab === 'creatives')
-        <div class="flex flex-wrap items-center gap-2">{!! $aiButton('creatives') !!}</div>
-        {!! $aiLine('creatives') !!}
-        @if ($creativeSuggestions->isNotEmpty())
-            @include('livewire.demo.meta.partials.suggestions', ['items' => $creativeSuggestions])
-        @endif
-        <section class="{{ $panel }} overflow-x-auto" data-testid="meta-creatives">
-            <h2 class="border-b border-gray-100 px-4 py-3 font-semibold text-gray-900 dark:border-gray-700 dark:text-white">Kreatifler · 28 gün</h2>
-            @if ($creativeRows === [])
-                <p class="px-4 py-4 text-sm text-gray-500">Veri yok.</p>
-            @else
-                <table class="w-full text-sm">
-                    <thead><tr class="text-left text-xs text-gray-500"><th class="px-4 py-2 font-medium">Reklam</th><th class="{{ $th }}">Harcama</th><th class="{{ $th }}">Sonuç</th><th class="{{ $th }}">Sonuç başı</th><th class="{{ $th }}">CTR</th><th class="{{ $th }}">Sıklık</th><th class="px-3 py-2 font-medium">Durum</th></tr></thead>
-                    <tbody class="divide-y divide-gray-100 tabular-nums dark:divide-gray-700">
-                        @foreach ($creativeRows as $row)
-                            <tr class="text-gray-700 dark:text-gray-300">
-                                <td class="px-4 py-2">
-                                    <div class="flex items-center gap-2">
-                                        @if ($row['thumbnail_url'] !== '')<img src="{{ $row['thumbnail_url'] }}" alt="" loading="lazy" class="h-10 w-10 shrink-0 rounded object-cover">@endif
-                                        <div class="min-w-0"><p class="truncate font-medium text-gray-900 dark:text-white">{{ $row['name'] }}</p><p class="truncate text-xs text-gray-500">{{ $row['title'] ?: $row['campaign'] }}</p></div>
-                                    </div>
-                                </td>
-                                <td class="{{ $td }}">{{ $money($row['spend']) }}</td><td class="{{ $td }}">{{ $num($row['results'], 1) }}</td><td class="{{ $td }}">{{ $money($row['cpr']) }}</td>
-                                <td class="{{ $td }}">{{ $row['ctr'] === null ? '—' : $num($row['ctr'], 2).'%' }}</td><td class="{{ $td }}">{{ $row['frequency'] === null ? '—' : $num($row['frequency'], 2) }}</td>
-                                <td class="px-3 py-1.5">@if ($row['fatigue'])<span class="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300" title="CTR {{ $row['fatigue']['first_ctr'] }}% → {{ $row['fatigue']['last_ctr'] }}%">Yoruldu</span>@else<span class="text-xs text-gray-400">—</span>@endif</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            @endif
-        </section>
-
-    @elseif ($tab === 'strategy')
-        <div class="flex flex-wrap items-center gap-2">{!! $aiButton('structure') !!}{!! $aiButton('landing') !!}</div>
-        {!! $aiLine('structure') !!}{!! $aiLine('landing') !!}
-        @if ($strategySuggestions->isNotEmpty())
-            @include('livewire.demo.meta.partials.suggestions', ['items' => $strategySuggestions])
-        @endif
-        <section class="{{ $panel }} overflow-x-auto" data-testid="meta-structure">
-            <h2 class="border-b border-gray-100 px-4 py-3 font-semibold text-gray-900 dark:border-gray-700 dark:text-white">Mevcut yapı · 28 gün</h2>
-            @if (($strategy['campaigns'] ?? []) === [])
-                <p class="px-4 py-4 text-sm text-gray-500">Veri yok.</p>
-            @else
-                <table class="w-full text-sm">
-                    <thead><tr class="text-left text-xs text-gray-500"><th class="px-4 py-2 font-medium">Kampanya</th><th class="{{ $th }}">Harcama</th><th class="{{ $th }}">Sonuç</th><th class="{{ $th }}">Sonuç başı</th></tr></thead>
-                    <tbody class="divide-y divide-gray-100 tabular-nums dark:divide-gray-700">
-                        @foreach ($strategy['campaigns'] as $row)
-                            <tr class="text-gray-700 dark:text-gray-300"><td class="px-4 py-1.5">{{ $row['name'] }}</td><td class="{{ $td }}">{{ $money($row['spend']) }}</td><td class="{{ $td }}">{{ $num($row['results'], 1) }}</td><td class="{{ $td }}">{{ $money($row['cpr']) }}</td></tr>
-                        @endforeach
-                    </tbody>
-                </table>
-                <h3 class="border-y border-gray-100 px-4 py-2 text-sm font-semibold text-gray-900 dark:border-gray-700 dark:text-white">Hizmete göre</h3>
-                <table class="w-full text-sm">
-                    <tbody class="divide-y divide-gray-100 tabular-nums dark:divide-gray-700">
-                        @foreach ($strategy['services'] as $row)
-                            <tr class="text-gray-700 dark:text-gray-300"><td class="px-4 py-1.5">{{ $row['name'] }}</td><td class="{{ $td }}">{{ $money($row['spend']) }}</td><td class="{{ $td }}">{{ $num($row['results'], 1) }}</td><td class="{{ $td }}">{{ $money($row['cpr']) }}</td></tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            @endif
         </section>
 
     @elseif ($tab === 'measurement')
@@ -370,6 +269,7 @@
                 'Para birimi · saat dilimi' => $bound ? $currency.' · '.$account['timezone'] : '—',
                 'Hedef bölgeler' => $settings['areas'] === [] ? '—' : implode(', ', $settings['areas']),
                 'Diller' => $settings['languages'] === [] ? '—' : implode(', ', $settings['languages']),
+                'Pixel' => $settings['pixel']['label'],
             ];
         @endphp
         <section class="{{ $panel }}" data-testid="meta-settings">

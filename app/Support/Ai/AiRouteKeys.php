@@ -92,6 +92,9 @@ final class AiRouteKeys
     /** Faz 6: Meta lead form / landing page improvements (one call). */
     public const string META_LANDING = 'meta.landing';
 
+    /** Kampanya → hizmet: the brand services of the Meta campaigns the rules could not match (one call per account). */
+    public const string META_CAMPAIGN_SERVICES = 'meta.campaign_services';
+
     public const string INSIGHT_ADVISOR_EXPLAIN = 'insights.advisor_explain';
 
     public const string INSIGHT_REVIEW_THEMES = 'insights.review_themes';

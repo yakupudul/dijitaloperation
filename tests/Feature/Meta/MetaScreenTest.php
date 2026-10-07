@@ -231,17 +231,17 @@ final class MetaScreenTest extends TestCase
     {
         app(MetaChecks::class)->sync($this->asset);
 
-        $this->page('overview')->assertSee('Harcama · 28 gün')->assertSee('4.200,00 TRY')->assertSee('Olay yok');
+        $this->page('campaigns')->assertSee('Harcama')->assertSee('Diş İmplantı Lead Ankara')->assertSee('Reddedilen reklam');
         $this->page('todo')->assertSee('Kontroller')->assertSee('Kreatif öner')->assertSee('Kampanya yapısı öner')->assertSee('Form / açılış sayfası öner')->assertSee('Sonuç başı maliyet arttı');
-        $this->page('creatives')->assertSee('İmplant video reklamı')->assertSee('Yoruldu')->assertSeeHtml('https://cdn.test/thumb-1.jpg');
-        $this->page('strategy')->assertSee('Mevcut yapı · 28 gün')->assertSee('Hizmete göre')->assertSee('Hizmete bağlanamadı');
         $this->page('analysis')->assertSee('Kampanyalar')->assertSee('Reklam setleri')->assertSee('Bölgeye göre')->assertSee('+100,0%')
             ->call('setDays', 7)->assertSet('days', 7)->call('setDays', 5)->assertSet('days', 28);
         $this->page('settings')->assertSee('act_777')->assertSee('Çankaya şubesi (şube)')->assertSee('tr, en')->assertSee('Meta entegrasyonu');
-        $this->page('campaigns')->assertSet('tab', 'analysis');
+        $this->page('overview')->assertSet('tab', 'campaigns');
+        $this->page('creatives')->assertSet('tab', 'todo');
+        $this->page('strategy')->assertSet('tab', 'todo');
         $this->page('operations')->assertSet('tab', 'todo');
 
         $this->actingAs($this->admin)->get(route('operator.meta.overview', ['assetId' => $this->asset->id, 'tab' => 'creatives']))->assertOk()
-            ->assertSee('Genel Bakış')->assertSee('Yapılacaklar')->assertSee('Kreatifler')->assertSee('Kampanya Stratejisi')->assertSee('Ölçümleme')->assertSee('Analiz')->assertSee('Ayarlar');
+            ->assertSee('Kampanyalar')->assertSee('Yapılacaklar')->assertDontSee('Kampanya Stratejisi')->assertSee('Ölçümleme')->assertSee('Analiz')->assertSee('Ayarlar');
     }
 }

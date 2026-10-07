@@ -96,6 +96,14 @@ final class AdvisorServiceProvider extends ServiceProvider
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::META_CAMPAIGN_SERVICES,
+            'name' => 'Meta Campaign Services',
+            'module' => 'meta',
+            'description' => 'Kampanya → hizmet: the Meta campaigns no rule could match (landing page, ad text, names) get the brand service they serve, from the brand\'s own service list only, with a one-sentence reason. Suggestions only; the operator confirms. Nothing is written to Meta.',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
             'key' => AiRouteKeys::META_STRUCTURE,
             'name' => 'Meta Campaign Structure',
             'module' => 'meta',

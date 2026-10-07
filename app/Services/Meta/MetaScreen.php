@@ -674,6 +674,7 @@ final class MetaScreen
 
         return [
             'account' => $account, 'account_name' => (string) (self::json($snapshot)['name'] ?? ''),
+            'pixel' => $account !== null ? $this->pixel($account) : ['state' => 'no_data', 'label' => 'veri yok', 'pixels' => []],
             'areas' => $brand !== null ? BrandServiceArea::query()->where('brand_id', $brand->id)->orderByDesc('physical_branch')->orderBy('id')->get()
                 ->map(fn (BrandServiceArea $a): string => $a->displayName().($a->physical_branch ? ' (şube)' : ''))->all() : [],
             'languages' => $brand !== null ? array_values(array_filter((array) ($brand->languages ?? []))) : [],
@@ -882,6 +883,51 @@ final class MetaScreen
         foreach ($this->q($account, 'meta_typed_action_daily')?->where('entity_level', 'ad')->whereBetween('reporting_date', [$from, $to])->whereIn('action_type', $types)
             ->groupBy('entity_id', 'action_type')->selectRaw('entity_id, action_type, sum(action_value) as value')->get() ?? [] as $row) {
             $out[(string) $row->entity_id][(string) $row->action_type] = (float) $row->value;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Day by day spend and results of the given ads (Kampanya detayı chart).
+     *
+     * @param  list<string>  $adIds
+     * @return array<string, array{spend: float, impressions: int, clicks: int, leads: float, messages: float, purchases: float, results: float}> date => numbers, every day of the window
+     */
+    public function dailySeries(array $account, array $adIds, string $from, string $to): array
+    {
+        $out = [];
+        for ($day = CarbonImmutable::parse($from); $day->toDateString() <= $to; $day = $day->addDay()) {
+            $out[$day->toDateString()] = ['spend' => 0.0, 'impressions' => 0, 'clicks' => 0, 'leads' => 0.0, 'messages' => 0.0, 'purchases' => 0.0, 'results' => 0.0];
+        }
+        if ($adIds === []) {
+            return $out;
+        }
+        foreach ($this->q($account, 'meta_ad_daily')?->whereIn('ad_id', $adIds)->whereBetween('reporting_date', [$from, $to])->groupBy('reporting_date')
+            ->selectRaw('reporting_date, sum(spend) as spend, sum(impressions) as impressions, sum(clicks) as clicks')->get() ?? [] as $row) {
+            $date = substr((string) $row->reporting_date, 0, 10);
+            if (isset($out[$date])) {
+                $out[$date]['spend'] = round((float) $row->spend, 2);
+                $out[$date]['impressions'] = (int) $row->impressions;
+                $out[$date]['clicks'] = (int) $row->clicks;
+            }
+        }
+        $types = array_merge(self::LEAD_TYPES, self::MESSAGE_TYPES, self::PURCHASE_TYPES);
+        $actions = [];
+        foreach ($this->q($account, 'meta_typed_action_daily')?->where('entity_level', 'ad')->whereIn('entity_id', $adIds)->whereBetween('reporting_date', [$from, $to])
+            ->whereIn('action_type', $types)->get(['entity_id', 'reporting_date', 'action_type', 'action_value']) ?? [] as $row) {
+            $actions[substr((string) $row->reporting_date, 0, 10)][(string) $row->entity_id][(string) $row->action_type] = (float) $row->action_value;
+        }
+        foreach ($actions as $date => $byAd) {
+            if (! isset($out[$date])) {
+                continue;
+            }
+            foreach ($byAd as $typed) {
+                $out[$date]['leads'] += self::canonical($typed, self::LEAD_TYPES);
+                $out[$date]['messages'] += self::canonical($typed, self::MESSAGE_TYPES);
+                $out[$date]['purchases'] += self::canonical($typed, self::PURCHASE_TYPES);
+            }
+            $out[$date]['results'] = $out[$date]['leads'] + $out[$date]['messages'] + $out[$date]['purchases'];
         }
 
         return $out;
