@@ -262,6 +262,8 @@ final class MoxDOP_Connector_REST_Controller
             ])),
             // 1.6.0: detected page-cache plugin and whether its files can be read (/page-cache).
             'cache' => $cache,
+            // 1.11.0: whether a real llms.txt file or the SEO plugin's own llms.txt already answers /llms.txt.
+            'llms_txt' => file_exists(ABSPATH.'llms.txt') ? 'file' : (MoxDOP_Connector_Fixes::plugin_llms_txt() ?: (get_option(MoxDOP_Connector_Fixes::LLMS_OPTION, '') !== '' ? 'moxdop' : '')),
             'languages' => MoxDOP_Connector_Drafts::languages(),
             'sections' => ['site', 'extensions', 'content', 'media', 'taxonomies', 'seo'],
             'server_time' => time(),

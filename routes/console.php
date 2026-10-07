@@ -59,6 +59,7 @@ use App\Services\Operations\ScreenChecker;
 use App\Services\Ownership\OwnershipIntegrity;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Queries\QueryNotifier;
+use App\Services\Site\Backlinks\SerpMentionSources;
 use App\Services\Site\PageCategorizer;
 use App\Services\Site\ServicePageMapper;
 use App\Services\Site\SiteFlow;
@@ -836,6 +837,22 @@ Artisan::command('moxdop:bing:collect', function (BingWebmasterSync $sync): void
     $out = $sync->collect();
     $this->info(sprintf('Bing: %d site, %d eşleşti, %d satır, %d hata.', $match['sites'], $match['matched'], $out['rows'], $out['failed']));
 })->purpose('Match Bing Webmaster sites to websites and read their search queries.');
+
+// Anılma fırsatları (yakup, 2026-10-07): directories / news sites Google shows for the brands' own searches become link
+// sources (Rakipler SERPs, rules only). The competitor refresh does it too; this weekly round covers every brand.
+Artisan::command('moxdop:mentions:sync', function (SerpMentionSources $mentions): void {
+    $added = 0;
+    foreach (Brand::query()->operational()->orderBy('id')->get() as $brand) {
+        $added += $mentions->sync($brand)['added'];
+    }
+    $this->info('Anılma fırsatları: '.$added.' yeni kaynak.');
+})->purpose('Add directories and news sites ranking for the brands\' searches as link sources.');
+
+Schedule::command('moxdop:mentions:sync')
+    ->weeklyOn(1, '07:25')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(60)
+    ->name('mentions-sync');
 
 Schedule::command('moxdop:bing:collect')
     ->dailyAt('07:05')

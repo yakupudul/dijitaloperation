@@ -1,5 +1,19 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-07 — llms.txt (eklenti 1.11.0)
+
+- **Neden (yakup):** AI görünürlüğü listesinin 6. maddesi.
+- **İçerik (kural, AI yok):** `LlmsTxt` İş bağlamı özeti, hizmet verilen yerler, İşletme Profili adres / telefon, hizmetler ve eşleşen sayfaları (`offering_pages`), kurumsal / SSS sayfaları, uzmanlar ve son blog yazılarından Markdown llms.txt hazırlar (indexlenmeyen sayfalar ve ana dil dışı sayfalar girmez).
+- **Gönderim:** Web sitesi › Teknik SEO › llms.txt kartı: önizle, "Siteye gönder" (Admin; ADR-070 site düzeltmesi `llms_txt`), "Geri al". Eklenti 1.11.0 metni `moxdop_connector_llms_txt` seçeneğinde tutar ve `/llms.txt` adresinde sunar; gerçek llms.txt dosyası ya da Rank Math / Yoast'ın kendi llms.txt'si açıksa onlar geçerli kalır (durum yanıtında `llms_txt`).
+- **State:** CODED + PHPUnit (`LlmsTxtTest`). Canlı UAT: eklenti 1.11.0 kurulunca.
+
+## 2026-10-07 — Anılma fırsatları (Google'da görünen dizin / haber siteleri)
+
+- **Neden (yakup):** AI görünürlüğü listesinin 5. maddesi; yapay zekâ yanıtları ve arama, işletmeyi dizin ve haber sitelerinden de tanır.
+- **Kural (AI yok):** `SerpMentionSources` Rakipler ekranının saklanan Google ilk 10 sonuçlarından (son 60 gün) "dizin" ve "haber" sınıfındaki siteleri alır; kendi site, sosyal ağ / video / ansiklopedi, zaten bağlantı veren ve zaten listede olan siteler atlanır. Her biri Backlink › Kaynaklar listesine `origin=serp`, durum "yok", ücret "teyit" ile girer; gerekçe kaç aramada ve en iyi kaçıncı sırada çıktığını söyler. Ekranda "Google'da görünüyor" etiketi.
+- **Ne zaman:** Rakip yenilemesinin sonunda ve her pazartesi 07:25 (`moxdop:mentions:sync`). Başvuru operatörün; MoxDOP hiçbir yere yazmaz.
+- **State:** CODED + PHPUnit (`SerpMentionSourcesTest`).
+
 ## 2026-10-07 — Marka › Özet › Kimlik tutarlılığı
 
 - **Neden (yakup):** AI görünürlüğü listesinin 4. maddesi; ad, telefon, adres ve bağlantılar her yerde aynı olunca arama motoru ve yapay zekâ işletmeye güvenir.

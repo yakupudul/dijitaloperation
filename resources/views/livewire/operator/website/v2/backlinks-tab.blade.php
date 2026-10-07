@@ -72,6 +72,7 @@
                 @forelse ($sources as $source)
                     <tr class="border-t border-gray-100 align-top dark:border-gray-800" wire:key="src-{{ $source->id }}" data-source="{{ $source->domain }}">
                         <td class="py-1"><a href="{{ $source->url }}" target="_blank" rel="noopener noreferrer" class="font-medium hover:underline">{{ $source->name }}</a>
+                            @if ($source->origin === \App\Services\Site\Backlinks\SerpMentionSources::ORIGIN)<span class="ml-1 rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-500/10 dark:text-sky-300" data-source-serp>Google'da görünüyor</span>@endif
                             @if ($source->reason)<p class="text-gray-500">{{ $source->reason }}</p>@endif</td>
                         <td>{{ \App\Models\BacklinkSource::KIND_LABELS[$source->kind] ?? $source->kind }}</td>
                         <td>@if ($source->fee_evidence_url)<a href="{{ $source->fee_evidence_url }}" target="_blank" rel="noopener noreferrer" class="hover:underline">{{ \App\Models\BacklinkSource::FEE_LABELS[$source->fee] ?? $source->fee }}</a>@else {{ \App\Models\BacklinkSource::FEE_LABELS[$source->fee] ?? $source->fee }} @endif</td>

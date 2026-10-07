@@ -41,7 +41,7 @@ final class WebsiteScreen extends Component
         'analiz' => [[AnalyticsTab::class, []]],
         'sayfalar' => [[PagesTab::class, []]],
         'sorgular' => [[AnalysisTab::class, ['fixed' => 'queries']]],
-        'teknik' => [[TechnicalSeoTab::class, []], [HealthTab::class, []]],
+        'teknik' => [[TechnicalSeoTab::class, []], [HealthTab::class, []], [LlmsTxtCard::class, []]],
         'yapilacaklar' => [[SuggestionsTab::class, []]],
         'ayarlar' => [[SettingsTab::class, []], [LinkedAssetsTab::class, []]],
         'fikirler' => [[ContentIdeasTab::class, []]],

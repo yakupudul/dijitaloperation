@@ -5,6 +5,7 @@ namespace App\Services\Site\Competitors;
 use App\Models\BrandClusterSerp;
 use App\Models\DigitalAsset;
 use App\Services\Intel\SerpResults;
+use App\Services\Site\Backlinks\SerpMentionSources;
 use App\Services\Site\SiteDomains;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -103,6 +104,11 @@ final class CompetitorRefresher
                 $this->pages->ensure($result['url'], $result['domain'], $result['class']);
                 $stats['pages']++;
             }
+        }
+        try {
+            app(SerpMentionSources::class)->sync($brand);
+        } catch (Throwable $error) {
+            Log::warning('site.mentions.sync_failed', ['brand' => $brand->id, 'error' => $error->getMessage()]);
         }
 
         return $stats;

@@ -32,6 +32,9 @@ final class MoxDOP_Connector_Fixes
 
     const SITE_SCHEMA_OPTION = 'moxdop_connector_site_schema';
 
+    /** 1.11.0: the site's llms.txt, served at /llms.txt unless a file or the SEO plugin already serves one. */
+    const LLMS_OPTION = 'moxdop_connector_llms_txt';
+
     const MAX_LOG = 3000;
 
     const SEO_KEYS = [
@@ -68,6 +71,7 @@ final class MoxDOP_Connector_Fixes
     public function register()
     {
         add_action('template_redirect', [$this, 'redirect'], 1);
+        add_action('parse_request', [$this, 'llms_txt'], 0);
         add_action('admin_init', [$this, 'maybe_move_own_redirects']);
         add_action('wp_head', [$this, 'head'], 2);
         add_filter('pre_get_document_title', [$this, 'document_title'], 20);
@@ -188,6 +192,8 @@ final class MoxDOP_Connector_Fixes
                 return $post_id > 0 && get_post_type($post_id) === 'attachment' ? ['post_id' => $post_id] : null;
             case 'schema':
                 return $post_id > 0 ? (get_post($post_id) ? ['post_id' => $post_id] : null) : ['site' => true];
+            case 'llms_txt':
+                return ['site' => true];
             case 'redirect':
                 $from = $this->path((string) ($change['from'] ?? ''));
 
@@ -233,6 +239,10 @@ final class MoxDOP_Connector_Fixes
                 }
 
                 return is_array($decoded) ? wp_json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : new WP_Error('bad', 'schema must be JSON-LD');
+            case 'llms_txt':
+                $text = trim(str_replace("\r\n", "\n", wp_strip_all_tags((string) $value, false)));
+
+                return strlen($text) > 100000 ? new WP_Error('bad', 'llms.txt is too long') : $text;
             case 'redirect':
                 if ($value === null || $value === '') {
                     return '';
@@ -283,6 +293,8 @@ final class MoxDOP_Connector_Fixes
                 return (string) get_post_meta($target['post_id'], '_wp_attachment_image_alt', true);
             case 'schema':
                 return isset($target['site']) ? (string) get_option(self::SITE_SCHEMA_OPTION, '') : (string) get_post_meta($target['post_id'], '_moxdop_schema', true);
+            case 'llms_txt':
+                return (string) get_option(self::LLMS_OPTION, '');
             case 'redirect':
                 return $this->redirect_target($target);
             case 'internal_link':
@@ -309,6 +321,8 @@ final class MoxDOP_Connector_Fixes
                 return $this->set_noindex($target['post_id'], (bool) $value);
             case 'alt_text':
                 return update_post_meta($target['post_id'], '_wp_attachment_image_alt', $value);
+            case 'llms_txt':
+                return $value === '' ? delete_option(self::LLMS_OPTION) : update_option(self::LLMS_OPTION, (string) $value, false);
             case 'schema':
                 if (isset($target['site'])) {
                     return update_option(self::SITE_SCHEMA_OPTION, (string) $value, true);
@@ -808,6 +822,42 @@ final class MoxDOP_Connector_Fixes
             wp_redirect($redirects[$path], 301, 'MoxDOP');
             exit;
         }
+    }
+
+    /**
+     * 1.11.0: /llms.txt from the approved text. A real llms.txt file is served by the web server before WordPress; when
+     * Rank Math's or Yoast's own llms.txt is switched on, theirs is left to answer.
+     */
+    public function llms_txt($wp)
+    {
+        $path = trim((string) wp_parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH), '/');
+        $home = trim((string) wp_parse_url(home_url('/'), PHP_URL_PATH), '/');
+        if ($path !== ltrim($home.'/llms.txt', '/')) {
+            return;
+        }
+        $text = (string) get_option(self::LLMS_OPTION, '');
+        if ($text === '' || self::plugin_llms_txt() !== '') {
+            return;
+        }
+        status_header(200);
+        header('Content-Type: text/plain; charset=utf-8');
+        header('X-Robots-Tag: noindex');
+        echo $text; // plain text, tags stripped when it was stored
+        exit;
+    }
+
+    /** The SEO plugin that serves its own llms.txt, or ''. */
+    public static function plugin_llms_txt()
+    {
+        if (class_exists('RankMath\\Helper') && method_exists('RankMath\\Helper', 'is_module_active') && Helper::is_module_active('llms-txt')) {
+            return 'rank_math';
+        }
+        $yoast = get_option('wpseo');
+        if (is_array($yoast) && ! empty($yoast['enable_llms_txt'])) {
+            return 'yoast';
+        }
+
+        return '';
     }
 
     public function head()

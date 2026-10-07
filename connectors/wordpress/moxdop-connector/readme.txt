@@ -87,6 +87,7 @@ Every remote action is written to the site's MoxDOP management log.
 
 = 1.11.0 =
 * Drafts (`/drafts`) accept `author` (login or e-mail of a user who can write posts: the brand's expert becomes the post author; otherwise the first administrator stays) and `schema` (JSON-LD, for example the article's FAQPage), kept in `_moxdop_schema` and printed in the page head like approved schema fixes.
+* `llms_txt` fix (needs "SEO fixes"): the approved llms.txt text is served at `/llms.txt`, unless a real llms.txt file or the llms.txt of Rank Math / Yoast already answers (the status reports which: `llms_txt`). Undo puts the previous text back.
 
 = 1.10.0 =
 * Redirects (`merge_redirect` and `redirect`) are written only into the site's SEO plugin: Rank Math, SEOPress Pro (new), Yoast SEO Premium or the Redirection plugin. Rank Math's Redirections module or SEOPress's Redirections feature is switched on when it is off. Without such a plugin the change fails instead of landing in the connector's own list. Redirects already kept in that list move into the SEO plugin (from wp-admin after the update, and before the next redirect request); entries that cannot move keep working. Undo removes the redirect from both places.
