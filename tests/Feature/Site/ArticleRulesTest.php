@@ -92,7 +92,7 @@ final class ArticleRulesTest extends SiteTestCase
             ->expectsOutputToContain('kod varsayılanı yayında')->expectsOutputToContain('bilinmeyen işlem')->assertSuccessful();
 
         $current = $registry->current('site.write_article');
-        $this->assertStringContainsString('site-write-article-v8', $current->template);
+        $this->assertStringContainsString('site-write-article-v9', $current->template);
         $this->assertSame(AiTaskQueue::MODEL, $current->model, 'Claude (MCP) stays');
         $this->assertSame($this->admin->id, $current->created_by);
         $this->artisan('moxdop:prompts:adopt-default', ['operations' => ['site.write_article']])->expectsOutputToContain('zaten')->assertSuccessful();

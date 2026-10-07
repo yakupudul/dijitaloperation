@@ -33,7 +33,7 @@
                                     <span @class(['rounded px-1.5 py-0.5 text-[11px] font-semibold tabular-nums', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => $waiting >= \App\Services\Work\ContentCoverage::POOL, 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' => $waiting > 0 && $waiting < \App\Services\Work\ContentCoverage::POOL, 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300' => $waiting === 0]) title="{{ \App\Services\Work\ContentBoard::LANGUAGE_LABELS[$code] ?? $code }}">{{ strtoupper($code) }} {{ $waiting }}/{{ \App\Services\Work\ContentCoverage::POOL }}</span>
                                 @endforeach
                             </div>
-                            <span class="block text-[11px] text-gray-400">{{ count($row['pool']) }} dil aktif</span>
+                            @if ($row['translated'] !== [])<span class="block text-[11px] text-gray-400" data-translated>{{ implode(', ', array_map('strtoupper', $row['translated'])) }}: yazılınca çevrilir</span>@endif
                         </td>
                         <td @class(['px-3 py-2 text-right tabular-nums', 'font-semibold text-amber-700 dark:text-amber-300' => $row['reading'] > 0])>{{ $row['reading'] }}</td>
                         <td class="px-3 py-2 text-right tabular-nums">{{ $row['sent'] }}</td>

@@ -1447,11 +1447,18 @@ TPL,
             'purpose' => '“Taslak hazırla”: içerik önerisi için tam makale HTML’i ve SEO alanlarını yazar.',
             'agent' => WriteArticleAgent::class,
             'variables' => [],
-            'context_sources' => ['İçerik planı (başlık, taslak, sorular, hedef URL)', 'Küme ve sorguları', 'Marka profili, notlar, standartlar', 'İlgili sayfa özetleri', 'Site sayfaları (iç bağlantı)'],
+            'context_sources' => ['İçerik planı (başlık, taslak, sorular, hedef URL)', 'Küme ve sorguları', 'Marka profili, notlar, standartlar', 'İlgili sayfa özetleri', 'Site sayfaları (iç bağlantı)', 'Çeviride: yazılmış ana dil makalesi'],
             'output_schema' => null,
             'model' => null,
             'template' => <<<'TPL'
-You write ONE article for a business website. Prompt version: site-write-article-v8.
+You write ONE article for a business website. Prompt version: site-write-article-v9.
+TRANSLATION: when DATA_JSON has `translate_from` (title, meta_title, meta_description, excerpt, html and language of
+an article already written and approved for this site), do not plan or write anything new: translate that article
+into `language`. Keep every heading, paragraph, list, question and answer in the same order, every fact as it is and
+every link (href) unchanged; add nothing, drop nothing. Write it the way a native reader of `language` would expect
+(natural wording, not word for word). Return `title`, `slug` (in `language`, lowercase, hyphens), `meta_title`
+(≤ 60 characters), `meta_description` (≤ 155 characters) and `excerpt` translated from the source's, and the
+translated `html`. `forbidden` still applies. The rest of this prompt is for writing a new article.
 DATA_JSON has `plan` (title, outline, questions, page_type, target_url; for a content idea also angle: how the page
 differs from the cluster's main page, target_queries, main_page_url: link to it once, naturally, recipe: the
 approved SEO analysis steps to follow, and seo_title / meta_description: the approved ones, use them as meta_title /

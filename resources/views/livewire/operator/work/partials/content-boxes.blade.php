@@ -57,14 +57,12 @@
                                             @if ($item['writing'])
                                                 <span class="text-brand-600">yazılıyor…</span>
                                             @else
-                                                @if ($item['can_pick_language'])
-                                                    <select wire:model="languages.{{ $item['id'] }}" aria-label="Dil" class="h-8 rounded-lg border-gray-300 py-0 text-xs dark:border-gray-700 dark:bg-gray-950">
-                                                        @foreach (array_keys($box['languages']) as $codeLang)<option value="{{ $codeLang }}" @selected($codeLang === $item['language'])>{{ $langs[$codeLang] ?? strtoupper($codeLang) }}</option>@endforeach
-                                                    </select>
-                                                @endif
                                                 <button type="button" wire:click="writeContent({{ $item['id'] }})" class="{{ $btn }}" data-write="{{ $item['id'] }}">{{ $item['approved'] ? 'Yeniden yaz' : 'Onayla ve yazdır' }}</button>
                                             @endif
                                         @elseif ($code === 'okunacak')
+                                            @if ($item['translating'] !== [])
+                                                <span class="mr-auto text-brand-600" data-translating="{{ $item['id'] }}">{{ implode(', ', array_map('strtoupper', $item['translating'])) }} çevirisi hazırlanıyor…</span>
+                                            @endif
                                             @if ($item['blocked'])
                                                 <button type="button" wire:click="writeContent({{ $item['id'] }})" class="{{ $ghost }}" data-rewrite="{{ $item['id'] }}">Yeniden yaz</button>
                                             @endif

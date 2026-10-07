@@ -98,6 +98,39 @@ final class ContentPlanner
     }
 
     /**
+     * yakup (2026-10-07): other languages get no ideas of their own. Open ideas planned in a language other than their
+     * site's main one (no article yet) are closed; the main-language idea's article is translated instead.
+     */
+    public static function retireOtherLanguageIdeas(): int
+    {
+        $closed = 0;
+        $mains = [];
+        Suggestion::query()->where('action_type', SiteSuggestionTypes::CONTENT)->where('status', Suggestion::OPEN)->orderBy('id')
+            ->chunkById(500, function (Collection $ideas) use (&$closed, &$mains): void {
+                $ids = $ideas->filter(function (Suggestion $s) use (&$mains): bool {
+                    $action = (array) $s->action;
+                    $language = strtolower((string) ($action['language'] ?? ''));
+                    if ($language === '' || is_array($action['article'] ?? null)) {
+                        return false;
+                    }
+                    $siteId = (int) ($action['site_id'] ?? 0);
+                    if (! array_key_exists($siteId, $mains)) {
+                        $site = DigitalAsset::query()->find($siteId);
+                        $mains[$siteId] = $site !== null ? self::siteLanguages($site)[0] : null;
+                    }
+
+                    return $mains[$siteId] !== null && $language !== $mains[$siteId];
+                })->pluck('id')->all();
+                if ($ids !== []) {
+                    $closed += Suggestion::query()->whereIn('id', $ids)->update(['status' => Suggestion::DISMISSED, 'resolved_at' => now(),
+                        'operator_note' => 'Diğer diller için ayrı fikir üretilmez; ana dildeki yazı yazılınca bu dile çevrilir.', 'updated_at' => now()]);
+                }
+            });
+
+        return $closed;
+    }
+
+    /**
      * A title that reads like generated text, or null: two-part titles (dash, colon, slash), labels in brackets
      * ("(güncelleme)"), "kapsamlı rehber", "hizmet sayfası" and over-long titles never reach the pool.
      */
@@ -129,7 +162,8 @@ final class ContentPlanner
         }
         $siteLanguages = self::siteLanguages($site);
         $explicit = $wants !== null && $only === null;
-        $wants = collect($explicit ? $wants : [])->filter(fn ($n, $l): bool => in_array($l, $siteLanguages, true) && (int) $n > 0)
+        // Ideas only in the main language (yakup, 2026-10-07); other languages are translations of the written article.
+        $wants = collect($explicit ? $wants : [])->filter(fn ($n, $l): bool => $l === $siteLanguages[0] && (int) $n > 0)
             ->map(fn ($n): int => min(20, (int) $n))->all();
         if ($wants === []) {
             $explicit = false;
@@ -535,6 +569,9 @@ final class ContentPlanner
         $sourceLanguage = self::articleLanguage($suggestion, $site);
         $language = $language !== null && in_array($language, self::siteLanguages($site), true) ? $language : $sourceLanguage;
         $translation = $language !== $sourceLanguage && is_array($action['article'] ?? null);
+        if ($translation) {
+            return $this->translate($suggestion, $site, $brand, $cluster, $sitePages, $language);
+        }
         $terms = ForbiddenTerms::forBrand($brand);
         // Every input the writer copies loses its forbidden phrases first ("En iyi … seçerken" → "… seçerken"); repeated lines go once.
         $scrub = fn (array $lines): array => array_values(array_unique(array_filter(array_map(fn ($line): string => $terms->scrub((string) $line), $lines), fn (string $l): bool => $l !== '')));
@@ -566,31 +603,13 @@ final class ContentPlanner
         foreach ($context['pages'] as $page) {
             $evidence->addNumbersFrom(['s' => $page['summary'], 'f' => $page['facts']]);
         }
-        if ($translation) {
-            unset($action['translations'][$language], $action['translations_blocked'][$language]);
-        } else {
-            unset($action['article'], $action['article_blocked'], $action['article_blocked_draft']);
-            $action['language'] = $language;
-        }
-        // At most two writes: when the first one breaks a sector rule, the second gets the offending phrases to rewrite.
-        for ($attempt = 1; $attempt <= 2; $attempt++) {
-            $outcome = $this->writeOnce($input, $evidence, $action, $cluster, $brand, $language, 'suggestion-'.$suggestion->id.($translation ? '-'.$language : ''));
-            if ($outcome['status'] !== 'blocked' || $outcome['violations'] === [] || $attempt === 2) {
-                break;
-            }
-            $input['fix'] = ContentComplianceGate::forPrompt($outcome['violations']);
-        }
+        unset($action['article'], $action['article_blocked'], $action['article_blocked_draft']);
+        $action['language'] = $language;
+        $outcome = $this->writeWithFix($input, $evidence, $action, $cluster, $brand, $language, 'suggestion-'.$suggestion->id, 'article-'.$suggestion->id);
         if ($outcome['status'] === 'invalid' || $outcome['status'] !== 'ready' && ! isset($outcome['article'])) {
             return array_intersect_key($outcome, ['status' => 1, 'message' => 1]);
         }
         $article = $outcome['article'];
-        if ($translation) {
-            $key = $outcome['status'] === 'blocked' ? 'translations_blocked' : 'translations';
-            $action[$key] = array_merge((array) ($action[$key] ?? []), [$language => $outcome['status'] === 'blocked' ? $outcome['message'] : $article]);
-            $suggestion->forceFill(['action' => $action])->save();
-
-            return $outcome['status'] === 'blocked' ? ['status' => 'blocked', 'message' => $outcome['message']] : ['status' => 'ready'];
-        }
         if ($outcome['status'] === 'blocked') {
             // Kept to read and fix by hand; never sent while blocked.
             $suggestion->forceFill(['action' => $action + ['article_blocked' => $outcome['message'], 'article_blocked_draft' => $article]])->save();
@@ -601,10 +620,81 @@ final class ContentPlanner
         $action['article_warnings'] = $warnings !== [] ? 'Uyarı (yasaklı ifade, uyar): «'.implode('», «', $warnings).'»' : null;
         $action['article_seo'] = ArticleSeoCheck::check($article, $input['cluster']['main_query'] ?? null, (array) ($input['cluster']['service_areas'] ?? []), SiteScope::origin($site));
         $others = array_values(array_diff(self::siteLanguages($site), [$language]));
+        $translate = ($action['kind'] ?? null) !== 'update' ? $others : [];
+        unset($action['translations'], $action['translations_blocked']);
         $suggestion->forceFill(['action' => array_merge($action, ['article' => $article,
-            'article_note' => $others !== [] ? 'Sitede başka dil de var ('.implode(', ', $others).'): Genel işler › içerik kutusunda o dilde de yazdırılabilir.' : null])])->save();
+            'article_note' => match (true) {
+                $translate !== [] => 'Sitenin diğer dillerine ('.implode(', ', array_map('strtoupper', $translate)).') bu yazının çevirisi hazırlanıyor.',
+                $others !== [] => 'Sitede başka dil de var ('.implode(', ', $others).'): Genel işler › içerik kutusundan o dile çevrilebilir.',
+                default => null,
+            }])])->save();
+        // yakup, 2026-10-07: other languages get no ideas of their own; the written article is translated into them.
+        foreach ($translate as $other) {
+            SiteOperations::dispatch((int) $site->id, SiteOperations::WRITE_ARTICLE, ['suggestion_id' => (int) $suggestion->id, 'language' => $other]);
+        }
 
         return ['status' => 'ready'];
+    }
+
+    /**
+     * The other-language version of a written article: a faithful translation of it (same headings, facts and links),
+     * never a new article. Stored under `action.translations.{lang}` (or `translations_blocked` when it breaks a sector
+     * rule); only that key is written, under a row lock, so translations of several languages can finish together.
+     *
+     * @param  Collection<int, Page>  $sitePages
+     * @return array{status: string, message?: string}
+     */
+    private function translate(Suggestion $suggestion, DigitalAsset $site, Brand $brand, ?Cluster $cluster, Collection $sitePages, string $language): array
+    {
+        $source = (array) data_get($suggestion->action, 'article');
+        $terms = ForbiddenTerms::forBrand($brand);
+        $input = [
+            'translate_from' => array_intersect_key($source, array_flip(['title', 'meta_title', 'meta_description', 'excerpt', 'html'])) + ['language' => (string) ($source['language'] ?? self::articleLanguage($suggestion, $site))],
+            'language' => $language,
+            'site_pages' => $sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title])->values()->all(),
+            'forbidden' => $terms->phrases(),
+        ];
+        $evidence = new SiteEvidence($sitePages->pluck('url')->map(fn ($u): string => (string) $u)->all());
+        $evidence->addNumbersFrom(['t' => (string) ($source['title'] ?? ''), 'h' => strip_tags((string) ($source['html'] ?? ''))]);
+        $outcome = $this->writeWithFix($input, $evidence, ['kind' => data_get($suggestion->action, 'kind'), 'page_type' => data_get($suggestion->action, 'page_type')],
+            $cluster, $brand, $language, 'suggestion-'.$suggestion->id.'-'.$language, 'translate-'.$suggestion->id.'-'.$language);
+        if ($outcome['status'] === 'invalid' || $outcome['status'] !== 'ready' && ! isset($outcome['article'])) {
+            return array_intersect_key($outcome, ['status' => 1, 'message' => 1]);
+        }
+        $blocked = $outcome['status'] === 'blocked';
+        DB::transaction(function () use ($suggestion, $language, $outcome, $blocked): void {
+            $fresh = Suggestion::query()->lockForUpdate()->findOrFail($suggestion->id);
+            $action = (array) $fresh->action;
+            unset($action['translations'][$language], $action['translations_blocked'][$language]);
+            $key = $blocked ? 'translations_blocked' : 'translations';
+            $action[$key] = array_merge((array) ($action[$key] ?? []), [$language => $blocked ? $outcome['message'] : $outcome['article']]);
+            $fresh->forceFill(['action' => $action])->save();
+            $suggestion->setRawAttributes($fresh->getAttributes(), true);
+        });
+
+        return $blocked ? ['status' => 'blocked', 'message' => (string) $outcome['message']] : ['status' => 'ready'];
+    }
+
+    /**
+     * At most two writes: when the first one breaks a sector rule, the second gets the offending phrases to rewrite.
+     * Each call is named ($slot + attempt) so a run that waits for Claude gets the same answer back even when the
+     * site's pages or notes changed meanwhile.
+     *
+     * @param  array<string, mixed>  $input
+     * @param  array<string, mixed>  $action
+     * @return array{status: string, message?: string, article?: array<string, mixed>, violations: list<array<string, mixed>>}
+     */
+    private function writeWithFix(array $input, SiteEvidence $evidence, array $action, ?Cluster $cluster, Brand $brand, string $language, string $reference, string $slot): array
+    {
+        for ($attempt = 1; $attempt <= 2; $attempt++) {
+            $outcome = $this->writeOnce($input, $evidence, $action, $cluster, $brand, $language, $reference, $slot.'-'.$attempt);
+            if ($outcome['status'] !== 'blocked' || $outcome['violations'] === [] || $attempt === 2) {
+                break;
+            }
+            $input['fix'] = ContentComplianceGate::forPrompt($outcome['violations']);
+        }
+
+        return $outcome;
     }
 
     /** The language the article of this idea is (or will be) written in: the operator's pick, else the site's main language. */
@@ -631,9 +721,9 @@ final class ContentPlanner
      * @param  array<string, mixed>  $action
      * @return array{status: string, message?: string, article?: array<string, mixed>, violations: list<array<string, mixed>>}
      */
-    private function writeOnce(array $input, SiteEvidence $evidence, array $action, ?Cluster $cluster, Brand $brand, string $language, string $reference): array
+    private function writeOnce(array $input, SiteEvidence $evidence, array $action, ?Cluster $cluster, Brand $brand, string $language, string $reference, ?string $slot = null): array
     {
-        $result = $this->ai->run(new WriteArticleAgent, $input, 600);
+        $result = $this->ai->run(new WriteArticleAgent, $input, 600, $slot);
         if ($result['status'] !== 'ready') {
             return ['status' => $result['status'], 'violations' => []];
         }

@@ -38,7 +38,7 @@ final class ContentCoverageTest extends SiteTestCase
         ]);
     }
 
-    public function test_the_brand_table_counts_clusters_and_the_pool_of_every_language_and_says_why_nothing_waits(): void
+    public function test_the_brand_table_counts_clusters_and_the_main_language_pool_and_says_why_nothing_waits(): void
     {
         $coverage = app(ContentCoverage::class);
         $row = $coverage->rows()[0];
@@ -58,9 +58,9 @@ final class ContentCoverageTest extends SiteTestCase
         $this->title('Gönderilmiş', ['article_write_id' => 9], Suggestion::APPROVED);
 
         $row = $coverage->rows()[0];
-        $this->assertSame([4, 2, 1, 1, ['tr' => 1, 'en' => 1], 1, 1, null], [$row['clusters'], $row['missing'], $row['weak'], $row['ok'], $row['pool'], $row['reading'], $row['sent'], $row['reason']]);
+        $this->assertSame([4, 2, 1, 1, ['tr' => 1], ['en'], 1, 1, null], [$row['clusters'], $row['missing'], $row['weak'], $row['ok'], $row['pool'], $row['translated'], $row['reading'], $row['sent'], $row['reason']]);
 
-        Livewire::test(WorkPage::class)->assertSeeHtml('data-coverage-site="'.$this->site->id.'"')->assertSee('TR 1/20')->assertSee('EN 1/20')->assertSee('2 dil aktif')
+        Livewire::test(WorkPage::class)->assertSeeHtml('data-coverage-site="'.$this->site->id.'"')->assertSee('TR 1/20')->assertDontSee('EN 1/20')->assertSee('EN: yazılınca çevrilir')
             ->assertSee('Fikir üret')->assertSee('Karar desteği')->assertSee('Küme: İmplant fiyatları')->assertSee('Fiyat sorgusu çok, sayfa yok.');
     }
 
@@ -100,7 +100,7 @@ final class ContentCoverageTest extends SiteTestCase
         Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->operation === SiteOperations::WEEKLY_CONTENT && $job->params['wants'] === ['tr' => 20]);
     }
 
-    public function test_one_run_plans_every_language_of_a_site_and_keeps_each_count(): void
+    public function test_ideas_are_planned_only_in_the_main_language_of_a_site(): void
     {
         $this->enableAi();
         Queue::fake();
@@ -117,11 +117,12 @@ final class ContentCoverageTest extends SiteTestCase
             return ['items' => [$item('tr', 'İmplant mı köprü mü'), $item('tr', 'İmplant kimlere uygun'), $item('tr', 'Fazla Türkçe fikir'), $item('en', 'Implant or bridge'), $item('de', 'Implantat')]];
         });
 
-        $this->assertSame(['status' => 'ready', 'added' => 3], app(ContentPlanner::class)->weekly($this->site, null, ['tr' => 2, 'en' => 1]));
+        $this->assertSame(['status' => 'ready', 'added' => 2], app(ContentPlanner::class)->weekly($this->site, null, ['tr' => 2, 'en' => 1]));
 
-        $this->assertCount(1, $prompts, 'one AI run for both languages');
-        $this->assertStringContainsString('"languages":{"tr":2,"en":1}', $prompts[0]);
-        $this->assertSame(['tr' => 2, 'en' => 1], app(ContentCoverage::class)->rows()[0]['pool']);
+        $this->assertCount(1, $prompts);
+        $this->assertStringContainsString('"languages":{"tr":2}', $prompts[0], 'English is never planned on its own');
+        $this->assertSame(['tr' => 2], app(ContentCoverage::class)->rows()[0]['pool']);
+        $this->assertSame(0, Suggestion::query()->where('title', 'Implant or bridge')->count());
     }
 
     public function test_ideas_rest_on_the_brands_own_searches_and_generated_looking_titles_are_left_out(): void
@@ -175,5 +176,21 @@ final class ContentCoverageTest extends SiteTestCase
             [$styled->fresh()->status, $labelled->fresh()->status, $approved->fresh()->status, $good->fresh()->status]);
         $this->assertNull(ContentPlanner::styleProblem('Şeffaf plak mı, tel mi? Hekimin teli önerdiği durumlar'));
         $this->assertNull(ContentPlanner::styleProblem('All-on-4 bana uygun mu?'));
+    }
+
+    public function test_open_ideas_planned_in_another_language_are_closed(): void
+    {
+        $this->page('/implant/', 'İmplant', ['category' => 'hizmet', 'language' => 'tr']);
+        $this->page('/en/dental-implant/', 'Dental Implant', ['category' => 'hizmet', 'language' => 'en']);
+        $english = $this->title('Dental implant aftercare', ['language' => 'en']);
+        $written = $this->title('Implant or bridge', ['language' => 'en', 'article' => ['title' => 'Implant or bridge']]);
+        $turkish = $this->title('İmplant kimlere uygun', ['language' => 'tr']);
+        $plain = $this->title('İmplant sonrası ilk gün');
+
+        $this->assertSame(1, ContentPlanner::retireOtherLanguageIdeas());
+
+        $this->assertSame([Suggestion::DISMISSED, Suggestion::OPEN, Suggestion::OPEN, Suggestion::OPEN],
+            [$english->fresh()->status, $written->fresh()->status, $turkish->fresh()->status, $plain->fresh()->status]);
+        $this->assertStringContainsString('çevrilir', (string) $english->fresh()->operator_note);
     }
 }

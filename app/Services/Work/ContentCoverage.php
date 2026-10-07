@@ -16,13 +16,13 @@ use Illuminate\Support\Facades\Cache;
 /**
  * Genel işler › Web site SEO içerikler, marka tablosu (yakup, 2026-10-06: "hangi sitede hangi içerik eksik, kümeler
  * bazında"; "havuzda her koşulda her dilde 20 içerik fikri olsun, üstüne haftalık üretim"): per operational brand's
- * website how its clusters are answered (sayfa yok / kapsam yetersiz / zayıf / yeterli), the idea pool of every
- * active language (waiting titles out of POOL), what is being read or was sent and — when nothing waits — why. The
+ * website how its clusters are answered (sayfa yok / kapsam yetersiz / zayıf / yeterli), the idea pool of the
+ * site's main language (waiting titles out of POOL; other languages are translations of the written article), what is being read or was sent and — when nothing waits — why. The
  * same reading tells the title run (`moxdop:content:weekly-titles`) which site and language to fill. Rules only.
  */
 final class ContentCoverage
 {
-    /** Waiting titles every active language of a site always has. */
+    /** Waiting titles the main language of a site always has. */
     public const int POOL = 20;
 
     /** Cluster states a new or reworked article answers. */
@@ -31,7 +31,7 @@ final class ContentCoverage
     public const array WEAK_STATES = ['weak_performance', 'possible_conflict', 'wrong_page'];
 
     /**
-     * @return list<array{brand_id: int, brand: string, site: DigitalAsset, clusters: int, missing: int, weak: int, ok: int, pool: array<string, int>, waiting: int, weekly: int, reading: int, sent: int, last_title_at: ?CarbonInterface, reason: ?string}>
+     * @return list<array{brand_id: int, brand: string, site: DigitalAsset, clusters: int, missing: int, weak: int, ok: int, pool: array<string, int>, translated: list<string>, waiting: int, weekly: int, reading: int, sent: int, last_title_at: ?CarbonInterface, reason: ?string}>
      */
     public function rows(?int $brandId = null): array
     {
@@ -46,18 +46,17 @@ final class ContentCoverage
             foreach ($sites->get($brand->id, collect()) as $site) {
                 $byState = $states->get($site->id, []);
                 $count = $titles[(int) $site->id] ?? ['waiting' => [], 'reading' => 0, 'sent' => 0, 'last' => null];
+                // yakup, 2026-10-07: ideas are planned in the site's main language only; other languages get the
+                // written article's translation, never ideas of their own.
                 $languages = ContentPlanner::siteLanguages($site);
-                $pool = [];
-                foreach ($languages as $language) {
-                    $pool[$language] = (int) ($count['waiting'][$language] ?? 0) + ($language === $languages[0] ? (int) ($count['waiting'][''] ?? 0) : 0);
-                }
+                $pool = [$languages[0] => (int) ($count['waiting'][$languages[0]] ?? 0) + (int) ($count['waiting'][''] ?? 0)];
                 $row = [
                     'brand_id' => (int) $brand->id, 'brand' => (string) $brand->name, 'site' => $site,
                     'clusters' => array_sum($byState),
                     'missing' => array_sum(array_intersect_key($byState, array_flip(self::GAP_STATES))),
                     'weak' => array_sum(array_intersect_key($byState, array_flip(self::WEAK_STATES))),
                     'ok' => (int) ($byState['sufficient'] ?? 0),
-                    'pool' => $pool, 'waiting' => array_sum($pool), 'weekly' => self::weekly($brand),
+                    'pool' => $pool, 'translated' => array_slice($languages, 1), 'waiting' => array_sum($pool), 'weekly' => self::weekly($brand),
                     'reading' => $count['reading'], 'sent' => $count['sent'], 'last_title_at' => $count['last'],
                 ];
                 $row['reason'] = self::reason($row);
@@ -70,9 +69,8 @@ final class ContentCoverage
     }
 
     /**
-     * What the title run asks for: every active language of a site with matched clusters gets its pool back to POOL;
-     * on Monday (`$weekly`) each language also gets at least the brand's weekly number of fresh ideas on top. One entry
-     * per site with all its languages, so the AI reads the site's clusters once.
+     * What the title run asks for: the main language of a site with matched clusters gets its pool back to POOL; on
+     * Monday (`$weekly`) it also gets at least the brand's weekly number of fresh ideas on top. One entry per site.
      *
      * @return list<array{site_id: int, wants: array<string, int>}>
      */

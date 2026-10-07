@@ -123,7 +123,7 @@ final class ContentBoard
         return $waiting->count().' başlık onaylandı ve yazdırılıyor; bitince Okunacak\'a düşer.';
     }
 
-    /** "Yaz": the title is approved (when open) and the writer starts, in the language picked (one of the site's). */
+    /** "Yaz": the title is approved (when open) and the writer starts; with a language of the site, its translation. */
     public function write(int $id, User $user, ?string $language = null): string
     {
         $suggestion = $this->suggestion($id);
@@ -138,10 +138,10 @@ final class ContentBoard
         if (in_array($suggestion->status, [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED], true)) {
             $this->siteSuggestions->approve($suggestion->forceFill(['status' => Suggestion::OPEN]), $user);
         }
+        // The article is written in the idea's language (the site's main one); another language is only ever its
+        // translation (yakup, 2026-10-07), which starts by itself once the article is written.
         $translation = $language !== null && is_array($action['article'] ?? null) && $language !== ContentPlanner::articleLanguage($suggestion, $site);
-        if (! $translation && $language !== null && ! is_array($action['article'] ?? null)) {
-            $suggestion->forceFill(['action' => array_merge($action, ['language' => $language])])->save();
-        }
+        $language = $translation ? $language : null;
         SiteOperations::dispatch((int) $site->id, SiteOperations::WRITE_ARTICLE, ['suggestion_id' => (int) $suggestion->id] + ($translation ? ['language' => $language] : []));
         $label = self::LANGUAGE_LABELS[$language ?? ''] ?? null;
 
@@ -178,11 +178,24 @@ final class ContentBoard
         return [
             'id' => (int) $suggestion->id, 'idea' => (string) $suggestion->title,
             'missing' => $site !== null && is_array($action['article'] ?? null) ? array_values(array_diff(ContentPlanner::siteLanguages($site), $written)) : [],
-            'writing' => in_array($status['status'] ?? null, ['running', 'queued'], true),
+            'writing' => in_array($status['status'] ?? null, ['running', 'queued'], true)
+                || ($site !== null && self::translating($suggestion, $site, array_diff(ContentPlanner::siteLanguages($site), $written)) !== []),
             'article' => $action['article'] ?? null, 'blocked' => $action['article_blocked'] ?? null, 'blocked_draft' => $action['article_blocked_draft'] ?? null,
             'warnings' => $action['article_warnings'] ?? null, 'seo' => array_key_exists('article_seo', $action) ? array_values(array_filter((array) $action['article_seo'], 'is_string')) : null, 'translations' => array_filter((array) ($action['translations'] ?? []), 'is_array'),
             'translations_blocked' => (array) ($action['translations_blocked'] ?? []), 'sent' => (array) ($action['sent_languages'] ?? []),
         ];
+    }
+
+    /**
+     * The languages whose translation of the written article is being prepared now.
+     *
+     * @param  array<int, string>  $languages
+     * @return list<string>
+     */
+    private static function translating(Suggestion $suggestion, DigitalAsset $site, array $languages): array
+    {
+        return array_values(array_filter($languages, fn (string $language): bool => in_array(SiteOperations::status((int) $site->id, SiteOperations::WRITE_ARTICLE,
+            ['suggestion_id' => (int) $suggestion->id, 'language' => $language])['status'] ?? null, ['running', 'queued'], true)));
     }
 
     private static function sourceLanguage(Suggestion $suggestion, DigitalAsset $site): string
@@ -206,6 +219,7 @@ final class ContentBoard
         $status = SiteOperations::status((int) $site->id, SiteOperations::WRITE_ARTICLE, ['suggestion_id' => (int) $s->id]);
         $line = SiteOperations::line($status);
         $writing = in_array($status['status'] ?? null, ['running', 'queued'], true);
+        $translating = self::translating($s, $site, array_diff($siteLanguages, [$language], $translations));
 
         return [
             'id' => (int) $s->id, 'title' => (string) $s->title, 'rank' => max(0, (int) $s->priority), 'status' => (string) $s->status,
@@ -215,9 +229,8 @@ final class ContentBoard
             'language' => $language, 'translations' => $translations, 'sent_languages' => $sentLanguages,
             'cluster' => $s->cluster?->name, 'reason' => filled($s->reason) ? (string) $s->reason : null,
             'angle' => ContentPlanner::ANGLES[$action['angle'] ?? ''] ?? (($action['out_of_cluster'] ?? false) ? 'Kümeler dışı fırsat' : null),
-            'missing_languages' => array_values(array_diff($siteLanguages, [$language], $translations)),
+            'missing_languages' => array_values(array_diff($siteLanguages, [$language], $translations, $translating)), 'translating' => $translating,
             'unsent' => $sent ? array_values(array_diff($translations, $sentLanguages)) : [],
-            'can_pick_language' => ! $hasArticle && count($siteLanguages) > 1,
             'blocked' => is_string($action['article_blocked'] ?? null) ? $action['article_blocked'] : null,
             'writing' => $writing, 'line' => $writing ? $line : (in_array($status['status'] ?? null, [null, 'ready'], true) ? null : $line),
             'approved' => $s->status === Suggestion::APPROVED, 'sent_at' => $sent ? ($s->resolved_at ?? $s->applied_at) : null,

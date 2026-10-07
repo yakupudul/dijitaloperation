@@ -325,7 +325,8 @@ final class SiteOperations
     private static function key(int $siteId, string $operation, array $params): string
     {
         $subject = isset($params['suggestion_id']) ? ':'.$params['suggestion_id'] : (isset($params['kind'], $params['id']) ? ':'.$params['kind'].'-'.$params['id'] : '');
-        $subject .= isset($params['language']) && ! isset($params['suggestion_id']) ? ':'.$params['language'] : '';
+        // A translation of an article has its own status next to the source's (several languages run together).
+        $subject .= isset($params['language']) ? ':'.$params['language'] : '';
 
         return 'site-op:'.$siteId.':'.$operation.$subject;
     }

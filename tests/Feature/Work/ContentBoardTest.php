@@ -45,6 +45,9 @@ final class ContentBoardTest extends SiteTestCase
             'excerpt' => 'Rehber.', 'html' => '<h2>İlk gün</h2><p>Soğuk uygulama yapılır.</p>'];
         WriteArticleAgent::fake([$article('İmplant sonrası ilk hafta'), $article('The first week after an implant')]);
         $this->assertSame(['status' => 'ready'], app(ContentPlanner::class)->writeArticle($idea->fresh()));
+        Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => ($job->params['language'] ?? null) === 'en'
+            && ($job->params['suggestion_id'] ?? null) === $idea->id); // the translation starts by itself
+        Livewire::test(WorkPage::class)->call('setStep', 'okunacak')->assertSeeHtml('data-translating="'.$idea->id.'"')->assertSee('EN çevirisi hazırlanıyor');
         Cache::flush(); // the queued job would have marked the run finished
         $this->assertSame('tr', $idea->fresh()->action['language']);
 
@@ -54,6 +57,8 @@ final class ContentBoardTest extends SiteTestCase
         Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => ($job->params['language'] ?? null) === 'en');
 
         $this->assertSame(['status' => 'ready'], app(ContentPlanner::class)->writeArticle($idea->fresh(), 'en'));
+        WriteArticleAgent::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, '"translate_from":{"title":"İmplant sonrası ilk hafta"')
+            && str_contains((string) $prompt->prompt, '"language":"en"') && ! str_contains((string) $prompt->prompt, '"plan"'));
         Cache::flush();
         $action = $idea->fresh()->action;
         $this->assertSame('İmplant sonrası ilk hafta', $action['article']['title'], 'the source stays');
@@ -89,7 +94,7 @@ final class ContentBoardTest extends SiteTestCase
             ->assertSee('İmplant rehberi Bir')->call('read', 999999)->assertSet('reading', null);
     }
 
-    public function test_a_foreign_language_can_be_picked_before_writing_and_unknown_languages_are_refused(): void
+    public function test_the_article_is_written_in_the_main_language_and_unknown_languages_are_refused(): void
     {
         Queue::fake();
         $this->page('/implant/', 'Ankara İmplant Tedavisi');
@@ -102,8 +107,8 @@ final class ContentBoardTest extends SiteTestCase
         ]);
 
         Livewire::test(WorkPage::class)->call('writeContent', $idea->id, 'fr')->assertSee('Bu dil sitede yok')
-            ->set('languages.'.$idea->id, 'de')->call('writeContent', $idea->id)->assertSee('(Almanca)');
-        $this->assertSame('de', $idea->fresh()->action['language']);
+            ->set('languages.'.$idea->id, 'de')->call('writeContent', $idea->id)->assertSee('Yazılıyor')->assertDontSee('(Almanca)');
+        $this->assertArrayNotHasKey('language', $idea->fresh()->action, 'no source in another language; German is its translation later');
         Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => ! isset($job->params['language']));
     }
 }

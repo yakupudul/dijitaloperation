@@ -11,6 +11,14 @@
 - Okuyucular (`GoogleAdsScreen`, `MetaScreen`, `MetaCampaignBoard`, `MetaAnalysis`, `GbpScreen`) gün sayısı yerine `SiteRange` da alır; marka sayfası KPI'ları gibi diğer çağıranlar değişmedi.
 - **State:** CODED + PHPUnit (`DemoSharedPeriodFilterTest` 2 yeni, `MetaCampaignServicesTest::test_the_date_picker_range_drives_the_board_the_analysis_and_the_campaign_page`, `GbpWorkspaceTabsTest::test_the_date_picker_range_drives_the_overview_numbers_and_the_analysis`, `GoogleAdsScreenTest::test_the_date_picker_range_gives_the_window_and_its_comparison`). Görünüm insan gözüyle onaylanmadı.
 
+## 2026-10-07 — İçerik fikirleri yalnız ana dilde, diğer diller çeviri
+
+- **Neden (yakup):** "Yabancı dil versiyonları için harici bir içerik fikri düşünülmesin. Doğrudan Türkçe içeriğin ilgili dildeki karşılığı yazılsın. İçeriği yazdırdığımda da diğer diller için çeviri yapılsın sadece."
+- **Havuz:** fikir havuzu yalnız sitenin ana dilinde (20 fikir); `ContentCoverage` ve `ContentPlanner::weekly` diğer dilleri istemez. Marka tablosunda havuz çipi yalnız ana dil, altında "EN: yazılınca çevrilir". Açık bekleyen diğer dil fikirleri deploy'da kapatılır (not: "Diğer diller için ayrı fikir üretilmez…"); yazılmış olanlara dokunulmaz. Yazmadan önce dil seçimi kalktı.
+- **Yazım:** ana dil makalesi hazır olunca sitenin diğer her dili için çeviri işi kendiliğinden başlar (yalnız yeni yazı; güncelleme hariç). Çeviri yeni makale değildir: istem `site-write-article-v9` `translate_from` ile kaynağı aynı başlık, sıra, bilgi ve bağlantılarla o dile çevirir; sektör kuralları yine uygulanır. Her dilin durumu ayrı ("EN çevirisi hazırlanıyor…"); çeviriler aynı anda bitse de birbirini ezmez (satır kilidi). Elle "+ EN" düğmesi tekrar deneme için kalır. Claude'a bekleyen yazımlar adlı çağrı (slot) kullanır; site sayfaları değişse de cevap kaybolmaz.
+- **İstem:** `site.write_article` ve `site.weekly_content` deploy'da kod varsayılanını modelini koruyarak yayınlar (`moxdop:prompts:adopt-default`); Claude'a verilmiş işlem kod değişikliğini kendiliğinden almıyordu.
+- **State:** CODED + PHPUnit (`ContentBoardTest`, `ContentCoverageTest`, `ArticleRulesTest`). Gerçek çeviri kalitesi yakup'un gözüyle onaylanmadı.
+
 ## 2026-10-07 — İçerik fikirleri markanın kendi verisine dayanır
 
 - **Neden (yakup):** "Hiçbir içerik firmaya faydalı olabilecek, markayı tanıyan, markadaki verileri hedef odakları bilen bir tarafta olan içerik fikirleri değil. Başlıklar ai kokuyor."
