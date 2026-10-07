@@ -186,6 +186,8 @@ class MetaCampaignServicesTest extends TestCase
         $this->assertContains('disapproved', $alerts('c2'));
         $this->assertContains('no_service', $alerts('c2'));
         $this->assertNotContains('no_service', $alerts('c1'));
+        $implant = collect($board['by_service'])->firstWhere('name', 'Diş İmplantı');
+        $this->assertSame([1, 'leads', 56.0, 50.0], [$implant['campaigns'], $implant['type'], (float) $implant['results'], (float) $implant['cpr']], 'services carry their campaigns and main result');
     }
 
     public function test_campaigns_tab_filters_and_confirms_a_suggestion(): void
@@ -194,7 +196,7 @@ class MetaCampaignServicesTest extends TestCase
         $implant = $this->offering('Diş İmplantı');
         $page = Livewire::actingAs($this->admin)->test(OverviewPage::class, ['assetId' => (string) $this->asset->id]);
 
-        $page->assertSet('tab', 'campaigns')->assertSee('Diş İmplantı Lead Ankara')->assertSee('Genel Trafik')->assertSee('+ Hizmet ata')
+        $page->assertSet('tab', 'campaigns')->assertSet('status', 'all')->assertSee('Hizmetlere göre')->assertSee('Diş İmplantı Lead Ankara')->assertSee('Genel Trafik')->assertSee('+ Hizmet ata')
             ->set('service', 'none')->assertDontSee('Diş İmplantı Lead Ankara')->assertSee('Genel Trafik')
             ->set('service', '')->set('search', 'implant')->assertSee('Diş İmplantı Lead Ankara')->assertDontSee('Genel Trafik')
             ->call('confirmService', 'c1', $implant->id);
@@ -207,9 +209,13 @@ class MetaCampaignServicesTest extends TestCase
         $ortho = $this->offering('Ortodonti');
 
         $this->actingAs($this->admin)->get(route('operator.meta.campaign', ['assetId' => $this->asset->id, 'campaignId' => 'c1']))->assertOk()
-            ->assertSee('Diş İmplantı Lead Ankara')->assertSee('İmplant Ankara 35+')->assertSee('İmplant video reklamı')->assertSee('Reklam metninde');
+            ->assertSee('Diş İmplantı Lead Ankara')->assertSee('İmplant Ankara 35+')->assertSee('İmplant video reklamı')->assertSee('Reklam metninde')
+            ->assertSee('data-testid="meta-campaign-analysis"', false)->assertSee('Meta ilgi alanına göre sonuç vermez');
         $this->actingAs($this->admin)->get(route('operator.meta.campaign', ['assetId' => $this->asset->id, 'campaignId' => 'yok']))->assertNotFound();
 
+        Livewire::actingAs($this->admin)->test(CampaignPage::class, ['assetId' => (string) $this->asset->id, 'campaignId' => 'c1'])
+            ->assertSet('focus', 'campaign:c1')->set('compare', 'bogus')->assertSet('compare', 'prev')
+            ->set('focus', '')->assertRedirect(route('operator.meta.overview', ['assetId' => $this->asset->id, 'tab' => 'analysis', 'odak' => '', 'days' => 28]));
         Livewire::actingAs($this->admin)->test(CampaignPage::class, ['assetId' => (string) $this->asset->id, 'campaignId' => 'c1'])
             ->set('addOffering', (string) $ortho->id)->call('addService')
             ->call('exclude')->assertSee('Hizmet dışı')

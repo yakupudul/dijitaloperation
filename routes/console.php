@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\Collection\CollectionRunStatus;
-use App\Jobs\Ads\RefreshAdServiceStatsJob;
 use App\Jobs\Assistant\UptimeCheckJob;
 use App\Jobs\Brand\RunBrandChiefJob;
 use App\Jobs\CheckAdBudgetJob;
@@ -26,6 +25,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\ScreenCheck;
 use App\Models\User;
+use App\Services\Ads\AdsCatchUp;
 use App\Services\Ads\Winners;
 use App\Services\Ai\AiBudget;
 use App\Services\Ai\OpenAiCostAudit;
@@ -839,9 +839,7 @@ Schedule::command('moxdop:meta:suggestions')
 // Hizmet ortalaması: every Meta / Google Ads account's 30-day numbers per brand service and Meta campaign (rules, no AI),
 // plus every website's and Business Profile's per-service numbers for Kazananlar, after the morning collection passes.
 Artisan::command('moxdop:ads:service-stats', function (): void {
-    $ids = DigitalAsset::query()->whereIn('type', ['meta_ads', 'google_ads', 'website', 'google_business_profile'])->whereNotNull('brand_id')->orderBy('id')->pluck('id');
-    $ids->each(fn ($id, $index) => RefreshAdServiceStatsJob::dispatch((int) $id)->delay(now()->addSeconds(5 * $index)));
-    $this->info('Kuyruğa alınan varlık: '.$ids->count());
+    $this->info('Kuyruğa alınan varlık: '.AdsCatchUp::queueServiceStats());
 })->purpose('Rebuild the cross-brand ad numbers per service (hizmet ortalaması) and the Meta campaign rows.');
 
 Schedule::command('moxdop:ads:service-stats')
@@ -861,6 +859,17 @@ Schedule::command('moxdop:ads:winners-snapshot')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(30)
     ->name('ads-winners-snapshot-daily');
+
+// Hourly catch-up: a deploy or a missed morning run must not leave Meta / Kazananlar empty until the next day.
+Artisan::command('moxdop:ads:catch-up', function (): void {
+    $done = app(AdsCatchUp::class)->run();
+    $this->info('Hizmet satırları: '.$done['service_stats'].' · kırılım çekimi: '.$done['breakdowns'].' · kazanan kaydı: '.$done['snapshot']);
+})->purpose('Rebuild stale per-service rows, fetch missing Meta breakdowns and take a missing winners snapshot.');
+
+Schedule::command('moxdop:ads:catch-up')
+    ->hourlyAt(27)
+    ->withoutOverlapping(30)
+    ->name('ads-catch-up-hourly');
 
 // Faz 5: Google Ads sistem kontrolleri (≤10 kontrol → öneriler; AI yok), operasyonel markalar.
 Artisan::command('moxdop:google-ads:suggestions', function (): void {

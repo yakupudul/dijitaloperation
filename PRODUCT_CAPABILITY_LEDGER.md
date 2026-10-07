@@ -3502,3 +3502,12 @@ Nothing written to any provider.
   remove), Mevsim takvimi (monthly volume of each service's cluster queries, 0–4 shading, peak note 1–2 months ahead) and
   Hizmet × marka haritası (on how many of web, Google Ads, Meta, profile each brand is present; offered but absent = gap).
 - Menu: "Kazananlar" after Meta reklamları. Tests: `tests/Feature/Ads/WinnersTest.php`.
+- 2026-10-07 follow-up (yakup saw /meta empty after the deploy): the morning runs (05:41 breakdowns, 07:43 per-service
+  rows) ran before the 10:55 deploy, so the new tables were empty. `moxdop:ads:catch-up` (hourly at :27, `AdsCatchUp`)
+  rebuilds per-service rows older than 23 hours, fetches the first 30 days of Meta regions / breakdowns for accounts with
+  none (once a day each) and takes a missing winners snapshot an hour after a rebuild. `MetaGeoResults` now gives an
+  account whose region rows predate the breakdown table its first 30 days of breakdowns (it took only 3).
+- Campaign page now carries the full Analiz of that campaign (regions with country, age × gender, hours, placements,
+  devices, ad set interests with results; picking another scope opens the account's Analiz tab). Kampanyalar tab: all
+  campaigns by default (live, paused and ended), a "Hizmetlere göre" strip (campaigns, live, spend, main result, cost per
+  result per service; click filters the table). Tests: `AdsCatchUpTest`, `MetaGeoResultsTest`, `MetaCampaignServicesTest`.

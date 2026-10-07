@@ -62,7 +62,7 @@ class OverviewPage extends Component
 
     /** Kampanyalar filters: status (live | paused | all), service (offering id or "none"), result type, search. */
     #[Url(as: 'durum')]
-    public string $status = 'live';
+    public string $status = 'all';
 
     #[Url(as: 'hizmet')]
     public string $service = '';
@@ -349,7 +349,7 @@ class OverviewPage extends Component
             $this->tab = 'campaigns';
         }
         if (! in_array($this->status, ['live', 'paused', 'all'], true)) {
-            $this->status = 'live';
+            $this->status = 'all';
         }
         if (! array_key_exists($this->resultType, MetaCampaignBoard::TYPES)) {
             $this->resultType = '';

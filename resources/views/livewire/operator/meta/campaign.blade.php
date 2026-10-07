@@ -239,7 +239,21 @@
             @empty
                 <p class="text-sm text-gray-500">Reklam yok.</p>
             @endforelse
-            <a href="{{ route('operator.meta.overview', ['assetId' => $assetId, 'tab' => 'analysis']) }}" wire:navigate class="inline-block text-sm font-semibold text-brand-600 hover:underline">Kırılımlar Analiz sekmesinde →</a>
         </section>
     </div>
+
+    <section class="space-y-4" data-testid="meta-campaign-analysis">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Analiz</h2>
+            <p class="text-xs text-gray-500">Meta ilgi alanına göre sonuç vermez; ilgi alanları reklam setlerinin hedeflemesinden ve sonuçlarından gelir.</p>
+        </div>
+        @include('livewire.demo.meta.partials.analysis', [
+            'card' => 'rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700',
+            'panel' => 'rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700',
+            'btn' => 'rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset ring-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:text-gray-200 dark:ring-gray-700 dark:hover:bg-white/[0.04]',
+            'th' => 'px-3 py-2 text-right font-medium',
+            'td' => 'px-3 py-1.5 text-right',
+            'bound' => $account !== null,
+        ])
+    </section>
 </div>
