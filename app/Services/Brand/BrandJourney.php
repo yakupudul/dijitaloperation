@@ -8,7 +8,10 @@ use App\Models\BrandOffering;
 use App\Models\BrandQuery;
 use App\Models\Cluster;
 use App\Models\ServiceCatalogItem;
+use App\Models\Suggestion;
+use App\Services\Site\SiteSuggestionTypes;
 use App\Services\Work\ContentCoverage;
+use App\Services\Work\WorkDesk;
 
 /**
  * Yolculuk (yakup, 2026-10-07: "entegrasyondan sorguya, hizmete, kümeye, içerik fikirlerine yolculuk"): one line per
@@ -38,40 +41,60 @@ final class BrandJourney
             ->selectRaw('state, count(distinct cluster_id) as n')->groupBy('state')->pluck('n', 'state')->map(fn ($n): int => (int) $n);
         $matched = (int) $states->sum();
         $gaps = (int) $states->only(ContentCoverage::GAP_STATES)->sum();
-        $rows = app(ContentCoverage::class)->rows((int) $brand->id);
-        $waiting = array_sum(array_column($rows, 'waiting'));
-        $sent = array_sum(array_column($rows, 'sent'));
+        [$waiting, $sent] = $this->ideas($brand);
 
         $stages = [
             ['key' => 'searches', 'label' => 'Sorgu', 'value' => $searches, 'detail' => 'markanın görüldüğü aramalar'],
             ['key' => 'assigned', 'label' => 'Hizmete atanan', 'value' => $assigned, 'detail' => count($serviceIds).' hizmet'],
             ['key' => 'clusters', 'label' => 'Küme', 'value' => $clusters, 'detail' => $pending > 0 ? $pending.' küme onay bekliyor' : 'onaylı'],
             ['key' => 'matched', 'label' => 'Sitede eşleşen', 'value' => $matched, 'detail' => $gaps.' kümenin sayfası yok ya da zayıf'],
-            ['key' => 'pool', 'label' => 'Havuzda fikir', 'value' => $waiting, 'detail' => count($rows).' site'],
+            ['key' => 'pool', 'label' => 'Havuzda fikir', 'value' => $waiting, 'detail' => 'onay bekleyen başlık'],
             ['key' => 'sent', 'label' => 'Yazılan', 'value' => $sent, 'detail' => 'son 30 gün'],
         ];
 
-        return ['stages' => $stages, 'broken' => $this->broken($searches, $serviceIds, $assigned, $clusters, $pending, $matched, $waiting, $rows), 'foreign' => $this->foreign($byService->except($serviceIds)->all())];
+        return ['stages' => $stages, 'broken' => $this->broken($searches, $serviceIds, $assigned, $clusters, $pending, $matched, $waiting), 'foreign' => $this->foreign($byService->except($serviceIds)->all())];
     }
 
     /**
      * @param  list<int>  $serviceIds
-     * @param  list<array<string, mixed>>  $rows
      * @return array{key: string, reason: string, fix: string}|null
      */
-    private function broken(int $searches, array $serviceIds, int $assigned, int $clusters, int $pending, int $matched, int $waiting, array $rows): ?array
+    private function broken(int $searches, array $serviceIds, int $assigned, int $clusters, int $pending, int $matched, int $waiting): ?array
     {
-        $reason = collect($rows)->pluck('reason')->filter()->first();
-
         return match (true) {
             $searches === 0 => ['key' => 'searches', 'reason' => 'Markanın arama verisi yok: Search Console bağlı değil ya da veri henüz gelmedi.', 'fix' => 'varliklar'],
             $serviceIds === [] => ['key' => 'assigned', 'reason' => 'Markada etkin hizmet yok; aramalar hiçbir hizmete bağlanamıyor (gece "Marka tamamlama" doldurur).', 'fix' => 'ayarlar'],
             $assigned === 0 => ['key' => 'assigned', 'reason' => 'Aramaların hiçbiri markanın hizmetlerine atanmadı; hizmetlerin eşleştirme ifadeleri eksik olabilir.', 'fix' => 'ayarlar'],
             $clusters === 0 => ['key' => 'clusters', 'reason' => $pending > 0 ? $pending.' küme onay bekliyor; onaylanınca siteyle eşleşir.' : 'Hizmetlerin henüz kümesi yok; günlük kümeleme yeni sorgularla kurar.', 'fix' => 'ozet'],
             $matched === 0 => ['key' => 'matched', 'reason' => 'Kümeler siteyle eşleştirilmedi; site ekranında "Eşleştir" çalışmalı.', 'fix' => 'ozet'],
-            $waiting === 0 => ['key' => 'pool', 'reason' => is_string($reason) ? $reason : 'Havuz boş; her sabah tamamlanır.', 'fix' => 'ozet'],
+            $waiting === 0 => ['key' => 'pool', 'reason' => 'Havuzda bekleyen fikir yok; her sabah kanıtı olan kümelerden tamamlanır (nedeni Genel işler › Web site SEO içerikler tablosunda).', 'fix' => 'ozet'],
             default => null,
         };
+    }
+
+    /**
+     * Content ideas of the brand: waiting in the pool (open, not written yet) and sent to the site in the last 30 days.
+     * Counted once per brand, whatever the number of sites.
+     *
+     * @return array{0: int, 1: int}
+     */
+    private function ideas(Brand $brand): array
+    {
+        $waiting = 0;
+        $sent = 0;
+        Suggestion::query()->where('brand_id', $brand->id)->where('channel', 'search')->where('action_type', SiteSuggestionTypes::CONTENT)
+            ->where(fn ($q) => $q->where('status', Suggestion::OPEN)->orWhere(fn ($a) => $a->whereIn('status', [Suggestion::APPROVED, Suggestion::APPLIED])->where('updated_at', '>=', now()->subDays(WorkDesk::DONE_DAYS))))
+            ->get(['status', 'action', 'applied_at', 'created_at'])
+            ->each(function (Suggestion $s) use (&$waiting, &$sent): void {
+                $action = (array) $s->action;
+                if (isset($action['article_write_id']) || $s->status === Suggestion::APPLIED) {
+                    $sent += ($s->applied_at ?? $s->created_at)?->gte(now()->subDays(WorkDesk::DONE_DAYS)) ? 1 : 0;
+                } elseif ($s->status === Suggestion::OPEN && ! is_array($action['article'] ?? null) && ! isset($action['article_blocked'])) {
+                    $waiting++;
+                }
+            });
+
+        return [$waiting, $sent];
     }
 
     /**
