@@ -8,6 +8,7 @@ use App\Enums\Collection\ProgressMode;
 use App\Enums\DataPool\MaterializationStatus;
 use App\Models\CoreIntegration;
 use App\Models\DataPool\DatasetMaterialization;
+use App\Models\MetaLeadForm;
 use App\Services\Collection\Contracts\DatasetExecutor;
 use App\Services\Collection\Contracts\RawPayloadWriter;
 use App\Services\Collection\Support\DatasetExecutionContext;
@@ -17,6 +18,7 @@ use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RawPayloadEnvelope;
 use App\Services\Integrations\Meta\MetaApiClient;
 use App\Services\Integrations\Meta\MetaException;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 use Throwable;
 
@@ -35,6 +37,12 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
 
     /** Smallest page an entity list falls back to when Meta asks for less data. */
     private const int MIN_ENTITY_LIMIT = 10;
+
+    /** Instant forms read per creative run (the rest follow on the next snapshot). */
+    private const int MAX_LEAD_FORMS_PER_RUN = 25;
+
+    /** The form's structure only — no field of the leads is ever asked for. */
+    private const string LEAD_FORM_FIELDS = 'id,name,status,locale,questions,context_card{title,content},thank_you_page{title,body,button_text,website_url},privacy_policy_url';
 
     public function __construct(
         private readonly MetaAdsEligibilityGuard $eligibility,
@@ -279,7 +287,7 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
 
         $path = (string) $scope['act_id'].'/adcreatives';
         $query = [
-            'fields' => 'id,name,object_type,status,title,body,call_to_action_type,link_url,thumbnail_url,image_hash,video_id,object_story_spec,asset_feed_spec,instagram_actor_id,actor_id',
+            'fields' => 'id,name,object_type,status,title,body,call_to_action_type,link_url,thumbnail_url,image_url,image_hash,video_id,object_story_spec,asset_feed_spec,effective_object_story_id,instagram_actor_id,actor_id',
             'limit' => 250,
         ];
         [$allCreativeRows, $requestId] = $this->paginateList($scope['integration'], $path, $query);
@@ -314,6 +322,8 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
             'instagram_binding_created' => false,
         ]);
 
+        $this->collectLeadForms($scope, $records);
+
         return $this->completedCounted(2, 2, [
             'entity_collector_version' => self::ENTITY_COLLECTOR_VERSION,
             'entity_dataset_id' => 'meta_creative_snapshot',
@@ -322,6 +332,91 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
             'currency' => $currency,
             'last_step' => 'creatives',
         ], count($rows), count($records));
+    }
+
+    /**
+     * Reklam detayı: the structure of the instant forms the creatives open (name, intro, questions, thank-you screen).
+     * Never the leads themselves. A form Meta does not show (permission, deleted) keeps its error and is retried on the
+     * next snapshot; a form read in the last day is not read again. Best effort: it never fails the creative run.
+     *
+     * @param  array<string, mixed>  $scope
+     * @param  list<array<string, mixed>>  $records
+     */
+    private function collectLeadForms(array $scope, array $records): void
+    {
+        $formIds = [];
+        foreach ($records as $record) {
+            $id = trim((string) data_get($record, 'metadata.lead_gen_form_id', ''));
+            if ($id !== '' && ctype_digit($id)) {
+                $formIds[$id] = $id;
+            }
+        }
+        if ($formIds === [] || ! Schema::hasTable('meta_lead_forms')) {
+            return;
+        }
+        $accountId = (string) $scope['account_id'];
+        $fresh = MetaLeadForm::query()->where('account_id', $accountId)->whereIn('form_id', array_values($formIds))
+            ->whereNull('error')->where('fetched_at', '>=', now()->subDay())->pluck('form_id')->all();
+        foreach (array_slice(array_diff(array_values($formIds), $fresh), 0, self::MAX_LEAD_FORMS_PER_RUN) as $formId) {
+            $values = ['external_resource_id' => (int) $scope['resource']->id, 'fetched_at' => now()];
+            try {
+                try {
+                    $form = $this->client->get($scope['integration'], $formId, ['fields' => self::LEAD_FORM_FIELDS]);
+                } catch (MetaException $e) {
+                    if (! in_array($e->kind, [MetaException::KIND_PROVIDER, MetaException::KIND_HTTP], true)) {
+                        throw $e;
+                    }
+                    // A field this form type does not have: the core fields alone.
+                    $form = $this->client->get($scope['integration'], $formId, ['fields' => 'id,name,status,locale,questions']);
+                }
+                $values += self::leadForm($form);
+                $values['error'] = null;
+            } catch (Throwable $e) {
+                if ($e instanceof MetaException && in_array($e->kind, [MetaException::KIND_RATE_LIMIT, MetaException::KIND_AUTH], true)) {
+                    return; // the account's limit or token: the forms wait for the next snapshot
+                }
+                $values['error'] = mb_substr($e instanceof MetaException && $e->kind === MetaException::KIND_PERMISSION
+                    ? 'Meta bu formun ayrıntısını bu bağlantının izniyle vermedi.'
+                    : 'Meta formu okuyamadı: '.$e->getMessage(), 0, 500);
+            }
+            MetaLeadForm::query()->updateOrCreate(['account_id' => $accountId, 'form_id' => $formId], $values);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $form
+     * @return array<string, mixed>
+     */
+    private static function leadForm(array $form): array
+    {
+        $text = fn (mixed $value, int $max = 2000): ?string => is_scalar($value) && trim((string) $value) !== '' ? mb_substr(trim((string) $value), 0, $max) : null;
+        $questions = [];
+        foreach (array_slice((array) ($form['questions'] ?? []), 0, 40) as $question) {
+            if (! is_array($question)) {
+                continue;
+            }
+            $questions[] = [
+                'type' => $text($question['type'] ?? null, 64) ?? 'CUSTOM',
+                'label' => $text($question['label'] ?? null, 500),
+                'options' => array_values(array_filter(array_map(fn ($o): ?string => is_array($o) ? $text($o['value'] ?? null, 300) : null, array_slice((array) ($question['options'] ?? []), 0, 30)))),
+            ];
+        }
+        $intro = is_array($form['context_card'] ?? null) ? array_filter([
+            'title' => $text($form['context_card']['title'] ?? null, 300),
+            'content' => array_values(array_filter(array_map(fn ($line): ?string => $text($line, 1000), (array) ($form['context_card']['content'] ?? [])))),
+        ]) : [];
+        $thanks = is_array($form['thank_you_page'] ?? null) ? array_filter([
+            'title' => $text($form['thank_you_page']['title'] ?? null, 300),
+            'body' => $text($form['thank_you_page']['body'] ?? null),
+            'button' => $text($form['thank_you_page']['button_text'] ?? null, 100),
+            'url' => $text($form['thank_you_page']['website_url'] ?? null, 1000),
+        ]) : [];
+
+        return [
+            'name' => $text($form['name'] ?? null, 300), 'status' => $text($form['status'] ?? null, 32), 'locale' => $text($form['locale'] ?? null, 16),
+            'intro' => $intro === [] ? null : $intro, 'questions' => $questions, 'thank_you' => $thanks === [] ? null : $thanks,
+            'privacy_policy_url' => $text(data_get($form, 'privacy_policy_url'), 1000),
+        ];
     }
 
     /**

@@ -176,7 +176,10 @@ final class MetaScreen
             $m = self::json($row->metadata);
             $creatives[(string) $row->creative_id] = ['id' => (string) $row->creative_id, 'name' => (string) ($m['name'] ?? ''), 'title' => (string) ($m['title'] ?? ''),
                 'body' => (string) ($m['body'] ?? ''), 'link_url' => (string) ($m['link_url'] ?? ''), 'thumbnail_url' => (string) ($m['thumbnail_url'] ?? ''),
-                'lead_gen_form_id' => (string) ($m['lead_gen_form_id'] ?? ''), 'video' => filled($m['video_id'] ?? null)];
+                'lead_gen_form_id' => (string) ($m['lead_gen_form_id'] ?? ''), 'video' => filled($m['video_id'] ?? null),
+                'description' => (string) ($m['description'] ?? ''), 'cta' => (string) ($m['call_to_action_type'] ?? ''), 'variants' => is_array($m['variants'] ?? null) ? $m['variants'] : [],
+                'whatsapp_number' => (string) ($m['whatsapp_number'] ?? ''), 'welcome_message' => (string) ($m['welcome_message'] ?? ''),
+                'image_url' => (string) ($m['image_url'] ?? ''), 'post_id' => (string) ($m['post_id'] ?? ''), 'page_id' => (string) ($m['page_id'] ?? '')];
         }
 
         return ['campaigns' => $campaigns, 'adsets' => $adsets, 'ads' => $ads, 'creatives' => $creatives];

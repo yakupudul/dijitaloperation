@@ -16,6 +16,7 @@ use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Models\MetaLeadForm;
 use App\Models\User;
 use App\Services\Collection\CancellationService;
 use App\Services\Collection\CheckpointManager;
@@ -489,6 +490,57 @@ class MetaAdsProductionCollectorTest extends TestCase
         $this->assertSame($before, DB::table('meta_campaign_daily')->where('campaign_id', '1001')->count());
         $row = DB::table('meta_campaign_daily')->where('campaign_id', '1001')->first();
         $this->assertSame('99.990000', number_format((float) $row->spend, 6, '.', ''));
+    }
+
+    #[Test]
+    public function creative_snapshot_keeps_every_text_the_whatsapp_number_and_the_instant_forms_structure(): void
+    {
+        // Reklam detayı (yakup, 2026-10-07): texts, button, WhatsApp number and the form's questions; never the leads.
+        Queue::fake();
+        $paths = [];
+        $this->fakeMetaHttp(['handler' => function ($request) use (&$paths) {
+            $path = (string) parse_url($request->url(), PHP_URL_PATH);
+            $paths[] = $path;
+            if (str_contains($path, '/adcreatives')) {
+                return Http::response(['data' => [[
+                    'id' => '4001', 'name' => 'Creative A', 'object_type' => 'SHARE', 'status' => 'ACTIVE', 'effective_object_story_id' => '111_222',
+                    'object_story_spec' => ['page_id' => 'page_1', 'link_data' => ['message' => 'Gurbetçilere özel implant.', 'name' => 'Ücretsiz muayene', 'description' => 'Tatilde tedavi',
+                        'page_welcome_message' => json_encode(['text_format' => ['message' => ['text' => 'Merhaba, size nasıl yardımcı olabiliriz?']]]),
+                        'call_to_action' => ['type' => 'SIGN_UP', 'value' => ['lead_gen_form_id' => '5001', 'whatsapp_number' => '+90 555 000 00 00']]]],
+                    'asset_feed_spec' => ['bodies' => [['text' => 'Gurbetçilere özel implant.'], ['text' => 'Almanya’dan gelene ücretsiz muayene.']], 'titles' => [['text' => 'Ücretsiz muayene']]],
+                ]]], 200);
+            }
+            if (str_ends_with($path, '/5001')) {
+                parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+                $this->assertStringNotContainsString('leads', (string) ($query['fields'] ?? ''));
+
+                return Http::response(['id' => '5001', 'name' => 'Gurbetçi implant formu', 'status' => 'ACTIVE', 'locale' => 'tr_TR',
+                    'questions' => [['key' => 'full_name', 'label' => 'Ad soyad', 'type' => 'FULL_NAME'], ['key' => 'when', 'label' => 'Ne zaman Türkiye’desiniz?', 'type' => 'CUSTOM',
+                        'options' => [['key' => 'a', 'value' => 'Bu ay'], ['key' => 'b', 'value' => 'Yazın']]]],
+                    'context_card' => ['title' => 'Tatilde implant', 'content' => ['3 günde geçici diş']],
+                    'thank_you_page' => ['title' => 'Teşekkürler', 'body' => 'Sizi arayacağız.', 'button_text' => 'Siteye git', 'website_url' => 'https://example.test'],
+                    'privacy_policy_url' => 'https://example.test/kvkk'], 200);
+            }
+
+            return $this->defaultMetaResponse($request);
+        }]);
+        [, $datasetRun] = $this->makeContext(MetaAdsRequestFamilyCatalog::FAMILY_ENTITY_SNAPSHOT, datasetId: 'meta_creative_snapshot');
+
+        $this->handleDatasetJob($datasetRun);
+        $this->handleDatasetJob($datasetRun->fresh());
+
+        $this->assertSame(CollectionRunStatus::Completed, $datasetRun->fresh()->status);
+        $metadata = json_decode((string) DB::table('meta_creative_snapshot')->value('metadata'), true);
+        $this->assertSame(['Gurbetçilere özel implant.', 'Ücretsiz muayene', 'Tatilde tedavi', 'SIGN_UP', '+90 555 000 00 00', 'Merhaba, size nasıl yardımcı olabiliriz?', '111_222', '5001'],
+            [$metadata['body'], $metadata['title'], $metadata['description'], $metadata['call_to_action_type'], $metadata['whatsapp_number'], $metadata['welcome_message'], $metadata['post_id'], $metadata['lead_gen_form_id']]);
+        $this->assertSame(['Gurbetçilere özel implant.', 'Almanya’dan gelene ücretsiz muayene.'], $metadata['variants']['bodies']);
+
+        $form = MetaLeadForm::query()->sole();
+        $this->assertSame(['Gurbetçi implant formu', null], [$form->name, $form->error]);
+        $this->assertSame(['Ad soyad', 'Ne zaman Türkiye’desiniz?'], array_column($form->questions, 'label'));
+        $this->assertSame(['Bu ay', 'Yazın'], $form->questions[1]['options']);
+        $this->assertSame(['Teşekkürler', 'Tatilde implant'], [$form->thank_you['title'], $form->intro['title']]);
+        $this->assertSame([], array_values(array_filter($paths, fn (string $p): bool => str_contains($p, 'leads'))), 'no lead is read');
     }
 
     #[Test]

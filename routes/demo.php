@@ -50,6 +50,7 @@ use App\Livewire\Operator\Library\QueriesPage;
 use App\Livewire\Operator\Library\QueryPlanWizard;
 use App\Livewire\Operator\Library\ServiceCatalogPage;
 use App\Livewire\Operator\Library\WebsiteStandardsPage;
+use App\Livewire\Operator\Meta\AdPage as MetaAdPage;
 use App\Livewire\Operator\Meta\AssignPage as MetaAssignPage;
 use App\Livewire\Operator\Meta\CampaignPage as MetaCampaignPage;
 use App\Livewire\Operator\Meta\DeskPage as MetaDeskPage;
@@ -129,6 +130,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         // Old per-entity Meta pages: kept as named redirects into the matching asset-page tab.
         Route::get('/assets/meta/{assetId}/campaigns', MetaLegacyPageRedirectController::class)->defaults('tab', 'campaigns')->name('operator.meta.campaigns');
         Route::livewire('/assets/meta/{assetId}/campaigns/{campaignId}', MetaCampaignPage::class)->name('operator.meta.campaign');
+        Route::livewire('/assets/meta/{assetId}/campaigns/{campaignId}/ads/{adId}', MetaAdPage::class)->name('operator.meta.campaign-ad');
         Route::livewire('/assets/meta/{assetId}/eslestir', MetaAssignPage::class)->name('operator.meta.assign');
         Route::livewire('/meta', MetaDeskPage::class)->name('operator.meta-desk');
         Route::livewire('/meta/strateji', MetaStrategyPage::class)->name('operator.meta-strategy');

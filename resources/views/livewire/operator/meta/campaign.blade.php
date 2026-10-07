@@ -215,7 +215,8 @@
                 <span class="text-xs text-gray-500">{{ ucfirst($unitCost) }} maliyete göre</span>
             </div>
             @forelse ($campaign['ads'] as $ad)
-                <article class="flex gap-4 rounded-xl border border-gray-200 p-4 dark:border-gray-700" wire:key="ad-{{ $ad['id'] }}">
+                @php $adUrl = route('operator.meta.campaign-ad', array_filter(['assetId' => $assetId, 'campaignId' => $campaign['id'], 'adId' => $ad['id'], 'gun' => $days, 'bas' => $this->start ?: null, 'bit' => $this->end ?: null])); @endphp
+                <article class="relative flex gap-4 rounded-xl border border-gray-200 p-4 hover:border-brand-300 hover:bg-gray-50/60 dark:border-gray-700 dark:hover:bg-white/[0.02]" wire:key="ad-{{ $ad['id'] }}" data-testid="meta-campaign-ad">
                     @if ($ad['thumbnail_url'] !== '')
                         <img src="{{ $ad['thumbnail_url'] }}" alt="" loading="lazy" class="h-28 w-24 shrink-0 rounded-lg object-cover">
                     @else
@@ -223,13 +224,13 @@
                     @endif
                     <div class="min-w-0 space-y-1.5">
                         <div class="flex flex-wrap items-center gap-2">
-                            <p class="font-semibold text-gray-900 dark:text-white">{{ $ad['name'] }}</p>
+                            <a href="{{ $adUrl }}" wire:navigate class="font-semibold text-gray-900 after:absolute after:inset-0 hover:text-brand-600 dark:text-white">{{ $ad['name'] }}</a>
                             @if ($ad['best'] ?? false)<span class="{{ $chip }} bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">En iyi</span>@endif
                             @if ($ad['fatigue'])<span class="{{ $chip }} bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300" title="CTR {{ $ad['fatigue']['first_ctr'] }}% → {{ $ad['fatigue']['last_ctr'] }}%, sıklık {{ $ad['fatigue']['frequency'] }}">Yoruldu</span>@endif
                             @if (in_array(strtoupper($ad['status']), ['DISAPPROVED', 'WITH_ISSUES'], true))<span class="{{ $chip }} bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">Reddedildi</span>@endif
                         </div>
                         @if ($ad['body'] !== '')<p class="line-clamp-3 text-sm leading-relaxed text-gray-700 dark:text-gray-300">“{{ $ad['body'] }}”</p>@endif
-                        <p class="text-xs text-gray-500">@if ($ad['title'] !== '')Başlık: {{ $ad['title'] }} · @endif{{ $ad['form'] ? 'Anında form' : ($ad['link_url'] !== '' ? \App\Services\SeoTasks\SeoText::urlPath($ad['link_url']) : 'Bağlantı yok') }} · {{ $ad['adset'] }}</p>
+                        <p class="text-xs text-gray-500">@if ($ad['title'] !== '')Başlık: {{ $ad['title'] }} · @endif{{ $ad['form'] ? 'Anında form' : ($ad['whatsapp'] ? 'WhatsApp' : ($ad['link_url'] !== '' ? \App\Services\SeoTasks\SeoText::urlPath($ad['link_url']) : 'Bağlantı yok')) }} · {{ $ad['adset'] }}</p>
                         <p class="text-xs tabular-nums text-gray-500"><span class="font-semibold text-gray-900 dark:text-white">{{ $count($ad['results']) }}</span> {{ $unit }} · {{ $money($ad['cpr']) }} {{ $unitCost }} · {{ $money($ad['spend']) }} · CTR {{ $ad['ctr'] === null ? '—' : $num($ad['ctr'], 2).'%' }}</p>
                     </div>
                 </article>

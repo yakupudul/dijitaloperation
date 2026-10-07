@@ -3,6 +3,8 @@
 namespace App\Services\Meta;
 
 use App\Models\DigitalAsset;
+use App\Models\MetaLead;
+use App\Models\MetaLeadForm;
 use App\Services\Ads\AdServiceStats;
 use App\Services\Site\Analysis\SiteRange;
 use Carbon\CarbonImmutable;
@@ -189,6 +191,8 @@ final class MetaCampaignBoard
                 'thumbnail_url' => (string) ($creative['thumbnail_url'] ?? ''), 'video' => (bool) ($creative['video'] ?? false),
                 // A lead ad set ("ON_AD") always opens Meta's instant form, even when the creative does not name it.
                 'form' => ($creative['lead_gen_form_id'] ?? '') !== '' || ($entities['adsets'][$ad['adset_id']]['destination_type'] ?? '') === 'ON_AD',
+                'whatsapp' => ($creative['whatsapp_number'] ?? '') !== '' || strtoupper((string) ($creative['cta'] ?? '')) === 'WHATSAPP_MESSAGE'
+                    || str_contains(strtoupper((string) ($entities['adsets'][$ad['adset_id']]['destination_type'] ?? '')), 'WHATSAPP'),
                 'spend' => round((float) ($ads[$id]['spend'] ?? 0), 2), 'results' => $adCount, 'cpr' => $adCpr,
                 'ctr' => isset($ads[$id]) ? MetaScreen::derive($ads[$id])['ctr'] : null, 'fatigue' => $fatigue[(string) $id] ?? null];
         }
@@ -213,6 +217,177 @@ final class MetaCampaignBoard
             'adsets' => $adsets, 'ads' => $adRows,
             'ads_manager_url' => 'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act='.rawurlencode($account['account_id']).'&selected_campaign_ids='.rawurlencode($campaignId),
         ];
+    }
+
+    /**
+     * Reklam detayı: one ad of a campaign with everything that shows what it says and where it leads. The creative
+     * (every text, its variations, the button), the destination (the instant form's structure; the WhatsApp number and
+     * greeting; the site link with its UTM), the window numbers against the previous window, a 60-day series, the
+     * other ads of its ad set and the operator's lead marks of the ad. The people who filled in a form are never read.
+     *
+     * @return array<string, mixed>|null null when the ad is not in the campaign
+     */
+    public function ad(DigitalAsset $asset, string $campaignId, string $adId, int|SiteRange $days): ?array
+    {
+        $account = $this->screen->account($asset);
+        if ($account === null) {
+            return null;
+        }
+        $entities = $this->screen->entities($account);
+        $ad = $entities['ads'][$adId] ?? null;
+        $campaign = $entities['campaigns'][$campaignId] ?? null;
+        if ($ad === null || $campaign === null || $ad['campaign_id'] !== $campaignId) {
+            return null;
+        }
+        $creative = $entities['creatives'][$ad['creative_id']] ?? [];
+        $adset = $entities['adsets'][$ad['adset_id']] ?? [];
+        $w = $this->screen->window($account, $days);
+        $current = $this->screen->adPerformance($account, $w['from'], $w['to'], $entities);
+        $previous = $this->screen->adPerformance($account, $w['prev_from'], $w['prev_to'], $entities);
+        $type = self::type(MetaScreen::totals(array_filter($current, fn (array $r): bool => $r['campaign_id'] === $campaignId)), $campaign['objective']);
+        $row = MetaScreen::derive(($current[$adId] ?? []) + ['spend' => 0.0, 'impressions' => 0, 'clicks' => 0, 'results' => 0.0, 'leads' => 0.0, 'messages' => 0.0, 'purchases' => 0.0, 'frequency' => null]);
+        $prev = isset($previous[$adId]) ? MetaScreen::derive($previous[$adId]) : null;
+        [$count, $cpr] = self::result($row, $type);
+        [$prevCount, $prevCpr] = self::result($prev, $type);
+
+        $siblings = [];
+        foreach ($entities['ads'] as $id => $other) {
+            if ($other['adset_id'] !== $ad['adset_id']) {
+                continue;
+            }
+            [$c, $p] = self::result($current[$id] ?? null, $type);
+            $siblings[] = ['id' => (string) $id, 'name' => $other['name'], 'status' => self::status($other['status']), 'results' => $c, 'cpr' => $p,
+                'spend' => round((float) ($current[$id]['spend'] ?? 0), 2), 'self' => (string) $id === $adId];
+        }
+        usort($siblings, fn (array $a, array $b): int => [$a['cpr'] === null ? 1 : 0, $a['cpr'] ?? 0, -$a['spend']] <=> [$b['cpr'] === null ? 1 : 0, $b['cpr'] ?? 0, -$b['spend']]);
+
+        $end = CarbonImmutable::parse($w['to']);
+        $link = (string) ($creative['link_url'] ?? '');
+
+        return [
+            'id' => $adId, 'name' => $ad['name'], 'status' => self::status($ad['status']), 'raw_status' => $ad['status'], 'type' => $type, 'window' => $w,
+            'campaign' => ['id' => $campaignId, 'name' => $campaign['name']],
+            'adset' => ['id' => (string) $ad['adset_id'], 'name' => (string) ($adset['name'] ?? ''), 'optimization' => (string) ($adset['optimization_goal'] ?? ''),
+                'destination' => (string) ($adset['destination_type'] ?? ''), 'targeting' => self::targeting((array) ($adset['targeting'] ?? []))],
+            'creative' => [
+                'thumbnail_url' => (string) ($creative['thumbnail_url'] ?? ''), 'image_url' => (string) ($creative['image_url'] ?? ''), 'video' => (bool) ($creative['video'] ?? false),
+                'body' => (string) ($creative['body'] ?? ''), 'title' => (string) ($creative['title'] ?? ''), 'description' => (string) ($creative['description'] ?? ''),
+                'cta' => self::ctaLabel((string) ($creative['cta'] ?? '')), 'variants' => self::variants((array) ($creative['variants'] ?? []), $creative),
+                'post_url' => ($creative['post_id'] ?? '') !== '' ? 'https://www.facebook.com/'.rawurlencode((string) $creative['post_id']) : '',
+            ],
+            'destination' => $this->destination($account, $creative, (string) ($adset['destination_type'] ?? ''), $link),
+            'kpis' => ['spend' => $row['spend'], 'prev_spend' => $prev['spend'] ?? null, 'results' => $count, 'prev_results' => $prev !== null ? $prevCount : null,
+                'cpr' => $cpr, 'prev_cpr' => $prevCpr, 'ctr' => $row['ctr'], 'prev_ctr' => $prev['ctr'] ?? null, 'impressions' => (int) $row['impressions'],
+                'clicks' => (int) $row['clicks'], 'frequency' => $row['frequency'] ?? null,
+                'cpm' => $row['impressions'] > 0 ? round($row['spend'] / $row['impressions'] * 1000, 2) : null],
+            'series' => $this->screen->dailySeries($account, [$adId], $end->subDays(59)->toDateString(), $w['to']),
+            'siblings' => $siblings,
+            'marks' => $this->leadMarks($asset, $ad['name']),
+            'fatigue' => $this->screen->fatigue($account)[$adId] ?? null,
+            'ads_manager_url' => 'https://adsmanager.facebook.com/adsmanager/manage/ads?act='.rawurlencode($account['account_id']).'&selected_ad_ids='.rawurlencode($adId),
+        ];
+    }
+
+    /** Turkish label of a Meta call-to-action button. */
+    public static function ctaLabel(string $cta): string
+    {
+        return match (strtoupper($cta)) {
+            '' => '',
+            'LEARN_MORE' => 'Daha fazla bilgi al',
+            'SIGN_UP' => 'Kaydol',
+            'APPLY_NOW' => 'Hemen başvur',
+            'GET_QUOTE' => 'Fiyat teklifi al',
+            'BOOK_NOW', 'BOOK_TRAVEL' => 'Hemen rezervasyon yap',
+            'CONTACT_US' => 'Bize ulaşın',
+            'CALL_NOW' => 'Hemen ara',
+            'WHATSAPP_MESSAGE' => 'WhatsApp’tan mesaj gönder',
+            'MESSAGE_PAGE', 'SEND_MESSAGE' => 'Mesaj gönder',
+            'INSTAGRAM_MESSAGE' => 'Instagram’dan mesaj gönder',
+            'SHOP_NOW' => 'Alışverişe başla',
+            'GET_OFFER' => 'Teklifi al',
+            'SUBSCRIBE' => 'Abone ol',
+            'DOWNLOAD' => 'İndir',
+            'NO_BUTTON' => 'Buton yok',
+            default => ucfirst(mb_strtolower(str_replace('_', ' ', $cta))),
+        };
+    }
+
+    /**
+     * Text variations other than the ones shown as the main text (dynamic creatives).
+     *
+     * @param  array<string, mixed>  $variants
+     * @param  array<string, mixed>  $creative
+     * @return array{bodies: list<string>, titles: list<string>, descriptions: list<string>}
+     */
+    private static function variants(array $variants, array $creative): array
+    {
+        $out = [];
+        foreach (['bodies' => 'body', 'titles' => 'title', 'descriptions' => 'description'] as $key => $main) {
+            $out[$key] = array_values(array_filter((array) ($variants[$key] ?? []), fn (mixed $t): bool => is_string($t) && $t !== '' && $t !== ($creative[$main] ?? '')));
+        }
+
+        return $out;
+    }
+
+    /**
+     * Where the ad leads: an instant form (its stored structure), WhatsApp (number, greeting), Messenger / Instagram
+     * Direct, a site page (with its UTM parameters), or nothing found.
+     *
+     * @param  array<string, mixed>  $creative
+     * @return array<string, mixed>
+     */
+    private function destination(array $account, array $creative, string $destinationType, string $link): array
+    {
+        $cta = strtoupper((string) ($creative['cta'] ?? ''));
+        $formId = (string) ($creative['lead_gen_form_id'] ?? '');
+        if ($formId !== '' || strtoupper($destinationType) === 'ON_AD') {
+            $form = $formId !== '' && Schema::hasTable('meta_lead_forms')
+                ? MetaLeadForm::query()->where('account_id', $account['account_id'])->where('form_id', $formId)->first() : null;
+
+            return ['kind' => 'form', 'form_id' => $formId, 'form' => $form === null ? null : [
+                'name' => (string) $form->name, 'status' => (string) $form->status, 'locale' => (string) $form->locale, 'intro' => $form->intro ?? [],
+                'questions' => $form->questions ?? [], 'thank_you' => $form->thank_you ?? [], 'privacy_policy_url' => (string) $form->privacy_policy_url,
+                'error' => (string) $form->error, 'fetched_at' => $form->fetched_at?->toDateString(),
+            ]];
+        }
+        if (str_contains(strtoupper($destinationType), 'WHATSAPP') || $cta === 'WHATSAPP_MESSAGE' || ($creative['whatsapp_number'] ?? '') !== '') {
+            return ['kind' => 'whatsapp', 'number' => (string) ($creative['whatsapp_number'] ?? ''), 'welcome' => (string) ($creative['welcome_message'] ?? ''),
+                'page_id' => (string) ($creative['page_id'] ?? '')];
+        }
+        if (preg_match('/MESSENGER|INSTAGRAM_DIRECT|MESSAG/i', $destinationType) === 1 || in_array($cta, ['MESSAGE_PAGE', 'SEND_MESSAGE', 'INSTAGRAM_MESSAGE'], true)) {
+            return ['kind' => 'message', 'channel' => str_contains(strtoupper($destinationType.$cta), 'INSTAGRAM') ? 'Instagram Direct' : 'Messenger',
+                'welcome' => (string) ($creative['welcome_message'] ?? '')];
+        }
+        if ($link !== '') {
+            parse_str((string) parse_url($link, PHP_URL_QUERY), $query);
+            $utm = array_filter($query, fn (mixed $v, string|int $k): bool => is_string($v) && str_starts_with((string) $k, 'utm_'), ARRAY_FILTER_USE_BOTH);
+
+            return ['kind' => 'site', 'url' => $link, 'host' => (string) parse_url($link, PHP_URL_HOST), 'path' => (string) (parse_url($link, PHP_URL_PATH) ?: '/'), 'utm' => $utm];
+        }
+
+        return ['kind' => 'none'];
+    }
+
+    /**
+     * The operator's marks of the ad's leads (Form kalitesi import: lead id, date and the mark only; no contact data).
+     *
+     * @return array{total: int, uygun: int, randevu: int, satis: int, uygunsuz: int, unmarked: int}|null null when no lead of the ad was imported
+     */
+    private function leadMarks(DigitalAsset $asset, string $adName): ?array
+    {
+        if (! Schema::hasTable('meta_leads')) {
+            return null;
+        }
+        $rows = MetaLead::query()->where('digital_asset_id', $asset->id)->where('ad_name', $adName)->selectRaw('mark, count(*) as n')->groupBy('mark')->pluck('n', 'mark');
+        if ($rows->isEmpty()) {
+            return null;
+        }
+        $out = ['total' => (int) $rows->sum(), 'uygun' => 0, 'randevu' => 0, 'satis' => 0, 'uygunsuz' => 0, 'unmarked' => 0];
+        foreach ($rows as $mark => $n) {
+            $out[isset(MetaLead::MARKS[(string) $mark]) ? (string) $mark : 'unmarked'] += (int) $n;
+        }
+
+        return $out;
     }
 
     /**

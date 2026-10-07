@@ -12,6 +12,7 @@ use App\Models\AiTask;
 use App\Models\BrandOffering;
 use App\Models\CoreIntegration;
 use App\Models\ExternalWriteAction;
+use App\Models\MetaLeadForm;
 use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Services\AiTasks\AiTaskQueue;
@@ -249,6 +250,40 @@ class MetaCampaignServicesTest extends TestCase
         $this->assertSame(1250.0, (float) $rows['c3']['budget']['amount'], 'ad set budgets summed in lira, as in Ads Manager');
         $this->actingAs($this->admin)->get(route('operator.meta.campaign', ['assetId' => $this->asset->id, 'campaignId' => 'c3']))->assertOk()
             ->assertSee('Anında form')->assertDontSee('Bağlantı yok')->assertSee('1.250,00 TRY');
+    }
+
+    public function test_ad_page_shows_its_texts_the_form_questions_the_whatsapp_number_and_its_numbers(): void
+    {
+        $this->snapshot('meta_campaign_snapshot', ['campaign_id' => 'c3'], ['name' => 'Q MEDIA - GURBETÇİ KİTLE ADS 2', 'objective' => 'OUTCOME_LEADS', 'effective_status' => 'ACTIVE']);
+        $this->snapshot('meta_adset_snapshot', ['adset_id' => 'as3'], ['name' => 'GURBETÇİ İMPLANT RS', 'campaign_id' => 'c3', 'optimization_goal' => 'LEAD_GENERATION',
+            'destination_type' => 'ON_AD', 'effective_status' => 'ACTIVE', 'daily_budget' => '1250.000000']);
+        $this->snapshot('meta_adset_snapshot', ['adset_id' => 'as4'], ['name' => 'GURBETÇİ WHATSAPP RS', 'campaign_id' => 'c3', 'optimization_goal' => 'CONVERSATIONS',
+            'destination_type' => 'WHATSAPP', 'effective_status' => 'ACTIVE']);
+        $this->snapshot('meta_creative_snapshot', ['creative_id' => 'cr3'], ['name' => 'Form', 'title' => 'Ücretsiz muayene', 'body' => 'Gurbetçilere özel implant.',
+            'description' => 'Tatilde tedavi', 'call_to_action_type' => 'SIGN_UP', 'lead_gen_form_id' => '5001', 'post_id' => '111_222',
+            'variants' => ['bodies' => ['Gurbetçilere özel implant.', 'Almanya’dan gelene ücretsiz muayene.'], 'titles' => [], 'descriptions' => []]]);
+        $this->snapshot('meta_creative_snapshot', ['creative_id' => 'cr4'], ['name' => 'WA', 'body' => 'Yazın, hemen dönelim.', 'call_to_action_type' => 'WHATSAPP_MESSAGE',
+            'whatsapp_number' => '+90 555 000 00 00', 'welcome_message' => 'Merhaba, size nasıl yardımcı olabiliriz?']);
+        $this->professional('meta_ad_snapshot', ['ad_id' => 'ad3', 'ad_name' => 'GURBETÇİ İMPLANT R1', 'campaign_id' => 'c3', 'adset_id' => 'as3', 'creative_id' => 'cr3', 'effective_status' => 'ACTIVE']);
+        $this->professional('meta_ad_snapshot', ['ad_id' => 'ad5', 'ad_name' => 'GURBETÇİ İMPLANT R2', 'campaign_id' => 'c3', 'adset_id' => 'as3', 'creative_id' => 'cr3', 'effective_status' => 'PAUSED']);
+        $this->professional('meta_ad_snapshot', ['ad_id' => 'ad4', 'ad_name' => 'GURBETÇİ WHATSAPP R1', 'campaign_id' => 'c3', 'adset_id' => 'as4', 'creative_id' => 'cr4', 'effective_status' => 'ACTIVE']);
+        $this->daily('ad3', 'c3', 'as3', '2026-10-20', 300, 1000, 20, 800);
+        MetaLeadForm::query()->create(['account_id' => '777', 'form_id' => '5001', 'name' => 'Gurbetçi implant formu', 'locale' => 'tr_TR',
+            'questions' => [['type' => 'FULL_NAME', 'label' => 'Ad soyad', 'options' => []], ['type' => 'CUSTOM', 'label' => 'Ne zaman Türkiye’desiniz?', 'options' => ['Bu ay', 'Yazın']]],
+            'thank_you' => ['title' => 'Teşekkürler', 'body' => 'Sizi arayacağız.'], 'fetched_at' => now()]);
+
+        $this->actingAs($this->admin)->get(route('operator.meta.campaign', ['assetId' => $this->asset->id, 'campaignId' => 'c3']))->assertOk()
+            ->assertSee(route('operator.meta.campaign-ad', ['assetId' => $this->asset->id, 'campaignId' => 'c3', 'adId' => 'ad3', 'gun' => 28]), false)->assertSee('WhatsApp');
+
+        $this->actingAs($this->admin)->get(route('operator.meta.campaign-ad', ['assetId' => $this->asset->id, 'campaignId' => 'c3', 'adId' => 'ad3']))->assertOk()
+            ->assertSee('Gurbetçilere özel implant.')->assertSee('Almanya’dan gelene ücretsiz muayene.')->assertSee('Kaydol')->assertSee('Tatilde tedavi')
+            ->assertSee('Gurbetçi implant formu')->assertSee('Ne zaman Türkiye’desiniz?')->assertSee('Yazın')->assertSee('Teşekkür ekranı')
+            ->assertSee('Formu dolduranların bilgileri Moximu’ya alınmaz')->assertSee('https://www.facebook.com/111_222')
+            ->assertSee('GURBETÇİ İMPLANT R2')->assertSee('300,00 TRY');
+        $this->actingAs($this->admin)->get(route('operator.meta.campaign-ad', ['assetId' => $this->asset->id, 'campaignId' => 'c3', 'adId' => 'ad4']))->assertOk()
+            ->assertSee('+90 555 000 00 00')->assertSee('https://wa.me/905550000000', false)->assertSee('Merhaba, size nasıl yardımcı olabiliriz?')->assertDontSee('Anında form');
+        $this->actingAs($this->admin)->get(route('operator.meta.campaign-ad', ['assetId' => $this->asset->id, 'campaignId' => 'c1', 'adId' => 'ad3']))->assertNotFound();
+        $this->assertSame(0, ExternalWriteAction::query()->count());
     }
 
     public function test_campaign_page_shows_its_parts_and_takes_service_decisions(): void

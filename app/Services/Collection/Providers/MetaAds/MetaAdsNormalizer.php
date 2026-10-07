@@ -157,7 +157,16 @@ final class MetaAdsNormalizer
                     // Video and dynamic (asset feed) creatives keep their text, link and lead form elsewhere.
                     'title' => $row['title'] ?? data_get($row, 'object_story_spec.link_data.name') ?? data_get($row, 'object_story_spec.video_data.title') ?? data_get($row, 'asset_feed_spec.titles.0.text'),
                     'body' => $row['body'] ?? data_get($row, 'object_story_spec.link_data.message') ?? data_get($row, 'object_story_spec.video_data.message') ?? data_get($row, 'asset_feed_spec.bodies.0.text'),
-                    'call_to_action_type' => $row['call_to_action_type'] ?? null,
+                    'call_to_action_type' => $row['call_to_action_type'] ?? data_get($row, 'object_story_spec.link_data.call_to_action.type')
+                        ?? data_get($row, 'object_story_spec.video_data.call_to_action.type') ?? data_get($row, 'asset_feed_spec.call_to_action_types.0'),
+                    // v3 (Reklam detayı): the full texts, the WhatsApp number and greeting, the post behind the ad.
+                    'description' => data_get($row, 'object_story_spec.link_data.description') ?? data_get($row, 'object_story_spec.video_data.link_description')
+                        ?? data_get($row, 'asset_feed_spec.descriptions.0.text'),
+                    'variants' => self::creativeVariants($row),
+                    'whatsapp_number' => self::ctaValue($row, 'whatsapp_number'),
+                    'welcome_message' => self::welcomeMessage(data_get($row, 'object_story_spec.link_data.page_welcome_message') ?? data_get($row, 'object_story_spec.video_data.page_welcome_message')),
+                    'image_url' => $row['image_url'] ?? data_get($row, 'object_story_spec.link_data.picture') ?? data_get($row, 'object_story_spec.video_data.image_url'),
+                    'post_id' => $row['effective_object_story_id'] ?? null,
                     'link_url' => $row['link_url'] ?? data_get($row, 'object_story_spec.link_data.link') ?? data_get($row, 'object_story_spec.video_data.call_to_action.value.link')
                         ?? data_get($row, 'asset_feed_spec.link_urls.0.website_url'),
                     'thumbnail_url' => $row['thumbnail_url'] ?? null,
@@ -179,6 +188,68 @@ final class MetaAdsNormalizer
         }
 
         return $out;
+    }
+
+    /**
+     * Every text variation of a dynamic (asset feed) creative: bodies, titles and descriptions, at most 10 each.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array{bodies: list<string>, titles: list<string>, descriptions: list<string>}|null
+     */
+    private static function creativeVariants(array $row): ?array
+    {
+        $out = [];
+        foreach (['bodies', 'titles', 'descriptions'] as $key) {
+            $texts = [];
+            foreach ((array) data_get($row, 'asset_feed_spec.'.$key, []) as $item) {
+                $text = is_array($item) ? trim((string) ($item['text'] ?? '')) : '';
+                if ($text !== '' && ! in_array($text, $texts, true)) {
+                    $texts[] = mb_substr($text, 0, 2000);
+                }
+            }
+            $out[$key] = array_slice($texts, 0, 10);
+        }
+
+        return array_filter($out) === [] ? null : $out;
+    }
+
+    /**
+     * A call-to-action value of the creative wherever Meta keeps it (link, video or asset feed creative).
+     *
+     * @param  array<string, mixed>  $row
+     */
+    private static function ctaValue(array $row, string $key): ?string
+    {
+        $candidates = [data_get($row, 'object_story_spec.link_data.call_to_action.value.'.$key), data_get($row, 'object_story_spec.video_data.call_to_action.value.'.$key)];
+        foreach ((array) data_get($row, 'asset_feed_spec.call_to_actions', []) as $cta) {
+            $candidates[] = data_get($cta, 'value.'.$key);
+        }
+        foreach ($candidates as $value) {
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                return trim((string) $value);
+            }
+        }
+
+        return null;
+    }
+
+    /** The greeting of a click-to-message ad (Meta keeps it as a JSON string) and its pre-filled message. */
+    private static function welcomeMessage(mixed $value): ?string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return is_array($value) ? self::welcomeMessage(json_encode($value)) : null;
+        }
+        $json = json_decode($value, true);
+        if (! is_array($json)) {
+            return mb_substr(trim($value), 0, 2000);
+        }
+        $parts = array_filter([
+            data_get($json, 'text_format.message.text'),
+            data_get($json, 'text_format.message.autofill_message.content'),
+            ...array_map(fn ($ice): mixed => is_array($ice) ? ($ice['title'] ?? null) : null, (array) data_get($json, 'text_format.message.ice_breakers', [])),
+        ], fn ($text): bool => is_string($text) && trim($text) !== '');
+
+        return $parts === [] ? null : mb_substr(implode("\n", array_map('trim', array_values(array_unique($parts)))), 0, 2000);
     }
 
     /**

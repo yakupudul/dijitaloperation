@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-07 — Meta reklam detayı: metinler, form yapısı, WhatsApp
+
+- **Neden (yakup):** "Reklamlarda form varsa form verileri, WhatsApp ise numarayı, reklamların metinlerini de görebilmeliyim." Kişi bilgisi için kartta "Yalnızca form yapısı" seçildi: formu dolduranların bilgisi Moximu'ya hiç gelmez, `leads_retrieval` istenmez.
+- **Sayfa:** `/assets/meta/{id}/campaigns/{c}/ads/{ad}` (kampanya sayfasındaki reklam kartından açılır, tarih seçici taşınır). Reklamın tam metni, başlık, açıklama, buton (Türkçe), dinamik reklamın diğer metin/başlık varyasyonları, görsel, Facebook gönderisi bağlantısı; seçili dönemde harcama, sonuç, sonuç başı, CTR, gösterim, CPM (önceki dönemle); 60 günlük grafik; aynı setteki reklamların sıralaması; hedefleme; içe aktarılmış lead işaretleri (Form kalitesi) varsa sayıları.
+- **Nereye gidiyor:** anında form → formun adı, dili, giriş ekranı, soruları (seçenekleriyle), teşekkür ekranı ve gizlilik bağlantısı; WhatsApp → numara (wa.me), karşılama mesajı; Messenger / Instagram → kanal ve karşılama; site → sayfa ve UTM (UTM yoksa uyarı).
+- **Toplama:** kreatif snapshot'ı artık açıklama, varyasyonlar, CTA türü, WhatsApp numarası, karşılama mesajı, görsel ve gönderi kimliğini de saklar. Reklamların açtığı formların yapısı aynı çalışmada okunur (`meta_lead_forms`; günde bir, en çok 25 form; Meta izin vermezse nedeni saklanır ve sayfada söylenir). Meta form okumayı ek sayfa izni (pages_manage_ads) olmadan reddederse sorular görünmez; bu canlıda ilk toplamadan sonra görülecek.
+- **State:** CODED + PHPUnit (`MetaAdsProductionCollectorTest::creative_snapshot_keeps_every_text_the_whatsapp_number_and_the_instant_forms_structure`, `MetaCampaignServicesTest::test_ad_page_shows_its_texts_the_form_questions_the_whatsapp_number_and_its_numbers`). Gerçek Meta form okuması doğrulanmadı.
+
 ## 2026-10-07 — İşletme profilleri › Yorumlar: yanıt taslağı silinir
 
 - **Neden (yakup):** "Bu sayfada yanıt taslaklarını da silme seçeneği ekle."
