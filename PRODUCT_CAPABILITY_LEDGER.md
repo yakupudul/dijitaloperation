@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-07 — Marka eksikleri kartı
+
+- **Neden (yakup):** "Marka için hangi bilgilerin girilmesini isterdin?" → 7 maddelik liste; "Olur koyalım".
+- **Kart:** Marka › Özet'teki kurulum şeridi "Marka eksikleri · X/Y" kartı oldu. Kırmızı: eksik ("Düzelt"); sarı: otomatik dolduruldu, kimse kontrol etmedi ("Kontrol et"). Hepsi tamam ve kontrol edilmişse kart görünmez.
+- **Yeni maddeler (`BrandWorkspaceReadService::checklist`):** Ana hizmet (★), Sektör, Sayılan dönüşümler (en az bir `counts`; hepsi `auto` ise kontrol), İş bağlamı (özet + hedef kitle ya da farklılaştırıcı; `public_discovery` kaynaklıysa kontrol). Mevcutlar: site, Search Console, GA4, hizmetler, eşleştirme ifadeleri, hizmet bölgeleri.
+- **Açık:** Claude'un eksikleri kendiliğinden doldurması yakup'un kararını bekliyor (hemen kullan / onayla sonra).
+- **State:** CODED + PHPUnit (`BrandWorkspaceTest`).
+
 ## 2026-10-07 — İçerik fikri havuzu takılmasın: küme rotasyonu, kısa duraklama, doğru neden
 
 - **Neden (yakup):** "Şu içerik olayında sen olsan ne yapardın?" Havuzlar 1–4/20'de kalmıştı; Decco ve Moximu kümeleri olduğu hâlde boştu.

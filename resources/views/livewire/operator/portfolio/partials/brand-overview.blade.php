@@ -3,6 +3,7 @@
     $card = 'rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
     $panel = 'rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
     $missingSetup = collect($checklist['items'])->where('required', true)->where('done', false)->values();
+    $reviewSetup = collect($checklist['items'])->where('required', true)->where('done', true)->where('review', true)->values();
     $chip = fn (bool $active): string => $active
         ? 'inline-flex h-8 items-center gap-1.5 rounded-full bg-gray-900 px-3 text-xs font-semibold text-white dark:bg-white dark:text-gray-900'
         : 'inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-gray-800';
@@ -12,18 +13,24 @@
         <p class="rounded-xl bg-gray-50 p-3 text-gray-600 ring-1 ring-inset ring-gray-200 dark:bg-white/[0.03] dark:text-gray-400 dark:ring-gray-800" data-brand-not-served>{{ \App\Support\ServiceScope::NOT_SERVED }}</p>
     @endunless
 
-    @if ($missingSetup->isNotEmpty())
-        <section class="rounded-xl bg-amber-50 p-3 text-amber-900 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30" data-setup-missing>
+    @if ($missingSetup->isNotEmpty() || $reviewSetup->isNotEmpty())
+        {{-- Marka eksikleri (yakup, 2026-10-07): every fact the system needs, red = missing, amber = filled automatically and not checked yet. --}}
+        <section class="{{ $card }}" data-setup-missing>
             <div class="flex flex-wrap items-center justify-between gap-2">
-                <p><span class="font-semibold">Kurulum {{ $checklist['done'] }}/{{ $checklist['total'] }}</span> · eksikler tamamlanınca SEO planı, sorgu eşleştirme ve raporlar tam veriyle çalışır.</p>
-                <a href="{{ route('operator.brand.setup', ['brand' => $brandModel->id]) }}" wire:navigate class="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700">Otomatik kur</a>
+                <div>
+                    <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Marka eksikleri · {{ $checklist['done'] }}/{{ $checklist['total'] }}</h2>
+                    <p class="text-xs text-gray-500">Tamamlanınca içerik fikirleri, küme eşleşmesi, kampanya kararları ve raporlar tam veriyle çalışır.</p>
+                </div>
+                <a href="{{ route('operator.brand.setup', ['brand' => $brandModel->id]) }}" wire:navigate class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600">Otomatik kur</a>
             </div>
-            <ul class="mt-2 space-y-1 text-xs">
-                @foreach ($missingSetup as $item)
-                    <li class="flex flex-wrap items-baseline gap-x-2" data-setup-item="{{ $item['key'] }}">
-                        <span class="font-semibold">{{ $item['label'] }}</span>
-                        <span class="min-w-0 text-amber-800 dark:text-amber-300">{{ $item['detail'] }}</span>
-                        <button type="button" wire:click="setTab('{{ $item['fix'] }}')" class="font-semibold underline-offset-2 hover:underline">Düzelt →</button>
+            <ul class="mt-3 divide-y divide-gray-100 text-xs dark:divide-gray-800">
+                @foreach ($missingSetup->concat($reviewSetup) as $item)
+                    @php $missing = ! $item['done']; @endphp
+                    <li class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2" data-setup-item="{{ $item['key'] }}" data-setup-state="{{ $missing ? 'missing' : 'review' }}">
+                        <span @class(['h-2 w-2 shrink-0 rounded-full', 'bg-red-500' => $missing, 'bg-amber-400' => ! $missing])></span>
+                        <span class="w-40 shrink-0 font-semibold text-gray-900 dark:text-white">{{ $item['label'] }}</span>
+                        <span @class(['min-w-0 flex-1', 'text-red-700 dark:text-red-300' => $missing, 'text-amber-700 dark:text-amber-300' => ! $missing])>{{ $item['detail'] }}</span>
+                        <button type="button" wire:click="setTab('{{ $item['fix'] }}')" class="shrink-0 font-semibold text-brand-600 hover:underline dark:text-brand-400">{{ $missing ? 'Düzelt' : 'Kontrol et' }} →</button>
                     </li>
                 @endforeach
             </ul>

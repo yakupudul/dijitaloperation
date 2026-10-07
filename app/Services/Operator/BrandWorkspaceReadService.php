@@ -3,6 +3,8 @@
 namespace App\Services\Operator;
 
 use App\Models\Brand;
+use App\Models\BrandConversionSource;
+use App\Models\BrandIntelligenceContext;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
 use App\Models\CoreAssetBinding;
@@ -82,7 +84,7 @@ final class BrandWorkspaceReadService
      *
      * @param  list<array<string, mixed>>  $assets  output of assets()
      * @param  list<array<string, mixed>>  $services  output of services()
-     * @return array{items: list<array{key: string, label: string, done: bool, required: bool, detail: string, fix: string}>, complete: bool, done: int, total: int}
+     * @return array{items: list<array{key: string, label: string, done: bool, required: bool, detail: string, fix: string, review?: bool}>, complete: bool, done: int, total: int}
      */
     public function checklist(Brand $brand, array $assets, array $services): array
     {
@@ -120,6 +122,16 @@ final class BrandWorkspaceReadService
         $items[] = ['key' => 'matching', 'label' => 'Eşleştirme ifadeleri', 'done' => $services !== [] && $withoutMatching === 0, 'required' => true, 'fix' => 'ayarlar',
             'detail' => $services === [] ? 'Önce hizmet ekle.' : ($withoutMatching === 0 ? 'Her hizmette var.' : $withoutMatching.' hizmette yok; sorgular bu hizmetlere otomatik atanmaz.')];
         $items[] = ['key' => 'areas', 'label' => 'Hizmet verdiği yerler', 'required' => true, 'fix' => 'ayarlar', ...$this->areaRule($brand, $assets)];
+        $items[] = ['key' => 'main_service', 'label' => 'Ana hizmet (★)', 'done' => $main > 0, 'required' => true, 'fix' => 'ayarlar',
+            'detail' => match (true) {
+                $services === [] => 'Önce hizmet ekle.',
+                $main > 0 => collect($services)->where('is_priority', true)->pluck('name')->implode(', '),
+                default => 'Hiçbir hizmet ★ değil; içerik, bütçe ve küme sırası ana hizmete göre kurulur.',
+            }];
+        $items[] = ['key' => 'sector', 'label' => 'Sektör', 'done' => $brand->sector_id !== null || filled($brand->sector), 'required' => true, 'fix' => 'ayarlar',
+            'detail' => $brand->sector_id !== null || filled($brand->sector) ? (string) ($brand->sectorCategory?->name ?? $brand->sector) : 'Seçilmedi; sektörün yasaklı ifadeleri ve hizmet kataloğu buna bağlı.'];
+        $items[] = ['key' => 'conversions', 'label' => 'Sayılan dönüşümler', 'required' => true, 'fix' => 'ayarlar', ...$this->conversionRule($brand)];
+        $items[] = ['key' => 'context', 'label' => 'İş bağlamı', 'required' => true, 'fix' => 'ayarlar', ...$this->contextRule($brand)];
         $required = array_filter($items, static fn (array $i): bool => $i['required']);
 
         return [
@@ -128,6 +140,42 @@ final class BrandWorkspaceReadService
             'done' => count(array_filter($required, static fn (array $i): bool => $i['done'])),
             'total' => count($required),
         ];
+    }
+
+    /**
+     * "Sayılan dönüşümler": at least one action counted as a customer (form, call, WhatsApp, appointment…). Counted only
+     * by the automatic rules (nobody checked it) is done but asks for a look.
+     *
+     * @return array{done: bool, detail: string, review: bool}
+     */
+    private function conversionRule(Brand $brand): array
+    {
+        $counted = BrandConversionSource::query()->where('brand_id', $brand->id)->where('counts', true)->get(['label', 'origin']);
+        if ($counted->isEmpty()) {
+            return ['done' => false, 'review' => false, 'detail' => 'Hangi işlemin müşteri sayılacağı seçilmedi; kazanan kampanya ve hizmet kararları tahmine kalır.'];
+        }
+        $auto = $counted->every(fn (BrandConversionSource $s): bool => $s->origin === BrandConversionSource::ORIGIN_AUTO);
+
+        return ['done' => true, 'review' => $auto, 'detail' => $counted->pluck('label')->unique()->take(4)->implode(', ').($auto ? ' · otomatik seçildi, kontrol et' : '')];
+    }
+
+    /**
+     * "İş bağlamı": a summary plus who the brand serves or what sets it apart. Taken from the site and never saved by the
+     * operator: done but asks for a look (content reads it in every brief).
+     *
+     * @return array{done: bool, detail: string, review: bool}
+     */
+    private function contextRule(Brand $brand): array
+    {
+        $context = $brand->intelligenceContext;
+        $filled = $context instanceof BrandIntelligenceContext && filled($context->business_summary)
+            && (filled($context->differentiators) || filled($context->target_audiences));
+        if (! $filled) {
+            return ['done' => false, 'review' => false, 'detail' => 'Özet, hedef kitle ve farklılaştırıcılar yok; içerikler markayı tanımadan yazılır.'];
+        }
+        $review = $context->source === BrandIntelligenceContext::SOURCE_PUBLIC_DISCOVERY;
+
+        return ['done' => true, 'review' => $review, 'detail' => $review ? 'Siteden çıkarıldı, sen kaydetmedin; kontrol edip kaydet.' : 'Kaydedildi.'];
     }
 
     /**

@@ -7,6 +7,8 @@ use App\Livewire\Demo\Portfolio\CustomerDetail;
 use App\Livewire\Operator\Portfolio\BrandSetupPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\Brand;
+use App\Models\BrandConversionSource;
+use App\Models\BrandIntelligenceContext;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
 use App\Models\CoreAssetBinding;
@@ -25,6 +27,7 @@ use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -103,6 +106,41 @@ final class BrandWorkspaceTest extends TestCase
         $items = collect($workspace->checklist($this->brand, $workspace->assets($this->brand), $workspace->services($this->brand))['items'])->keyBy('key');
         $this->assertTrue($items['search_console']['done']);
         $this->assertSame('sc-domain:adadent.com.tr', $items['search_console']['detail']);
+    }
+
+    /**
+     * Marka eksikleri (yakup, 2026-10-07): ★ main service, sector, counted conversions and İş bağlamı join the list;
+     * what was filled automatically and never checked shows as "Kontrol et".
+     */
+    public function test_brand_card_lists_main_service_sector_conversions_and_context_and_asks_to_check_automatic_ones(): void
+    {
+        $workspace = app(BrandWorkspaceReadService::class);
+        $items = fn (): Collection => collect($workspace->checklist($this->brand->fresh(), [], $workspace->services($this->brand))['items'])->keyBy('key');
+        $this->brand->forceFill(['sector' => null, 'sector_id' => null])->save();
+
+        $this->assertSame([false, false, false, false], [$items()['main_service']['done'], $items()['sector']['done'], $items()['conversions']['done'], $items()['context']['done']]);
+        Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])
+            ->assertSeeHtml('data-setup-item="conversions"')->assertSeeHtml('data-setup-state="missing"')->assertSee('Marka eksikleri');
+
+        ServiceCategory::query()->create(['code' => 'saglik', 'name' => 'Sağlık', 'normalized_key' => 'saglik']);
+        $this->brand->forceFill(['sector' => 'saglik'])->save();
+        app(ServiceCatalogService::class)->resolveOrCreate('İmplant Tedavisi', 'saglik', actor: $this->admin);
+        app(BrandOfferingService::class)->resolveOrCreate($this->brand, 'İmplant Tedavisi', actor: $this->admin);
+        BrandOffering::query()->where('brand_id', $this->brand->id)->update(['priority' => 'main', 'is_priority' => true]);
+        BrandConversionSource::query()->create(['brand_id' => $this->brand->id, 'source' => 'ga4_key_event', 'source_key' => 'form', 'label' => 'Form gönderimi',
+            'conversion_type' => 'lead', 'counts' => true, 'origin' => 'auto']);
+        BrandIntelligenceContext::query()->create(['brand_id' => $this->brand->id, 'business_summary' => 'Kadıköy diş kliniği.', 'differentiators' => ['Aynı gün implant'], 'source' => 'public_discovery']);
+
+        $now = $items();
+        $this->assertSame([true, true, true, true], [$now['main_service']['done'], $now['sector']['done'], $now['conversions']['done'], $now['context']['done']]);
+        $this->assertTrue($now['conversions']['review']);
+        $this->assertTrue($now['context']['review']);
+        $this->assertStringContainsString('İmplant', $now['main_service']['detail']);
+        Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])
+            ->assertSeeHtml('data-setup-state="review"')->assertSee('Kontrol et')->assertDontSeeHtml('data-setup-item="sector"');
+
+        BrandIntelligenceContext::query()->where('brand_id', $this->brand->id)->update(['source' => 'operator']);
+        $this->assertFalse($items()['context']['review']);
     }
 
     public function test_service_areas_need_a_city_for_a_local_business(): void
