@@ -22,8 +22,11 @@ use App\Mcp\Tools\SystemHealth;
 use App\Models\AiTask;
 use App\Models\BrandClusterPage;
 use App\Models\ClaudeNote;
+use App\Models\DigitalAsset;
+use App\Models\ExternalWriteAction;
 use App\Models\OfferingPage;
 use App\Models\Suggestion;
+use App\Models\User;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Brand\BrandDossier;
 use App\Services\Prompts\PromptRegistry;
@@ -209,7 +212,10 @@ final class McpWorkspaceTest extends SiteTestCase
 
     public function test_system_health_reads_stored_state(): void
     {
-        MoxdopServer::tool(SystemHealth::class)->assertOk()->assertSee('failed_ai_tasks')->assertSee('alerts');
+        ExternalWriteAction::query()->create(['channel' => ExternalWriteAction::CHANNEL_GBP, 'action' => ExternalWriteAction::ACTION_LOCAL_POST, 'status' => 'failed', 'digital_asset_id' => DigitalAsset::factory()->create(['type' => 'google_business_profile'])->id,
+            'request_payload' => ['summary' => 'Gönderi'], 'error' => 'Google izin vermedi.', 'requested_by' => User::factory()->create()->id]);
+
+        MoxdopServer::tool(SystemHealth::class)->assertOk()->assertSee('failed_ai_tasks')->assertSee('alerts')->assertSee('failed_writes')->assertSee('Google izin vermedi.');
     }
 
     private function delegate(string $operation): void
