@@ -11,6 +11,7 @@ use App\Models\Suggestion;
 use App\Services\Site\ContentPlanner;
 use App\Services\Site\SiteOperations;
 use App\Services\Work\ContentCoverage;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\Feature\Site\SiteTestCase;
@@ -107,9 +108,10 @@ final class ContentCoverageTest extends SiteTestCase
         $this->page('/en/dental-implant/', 'Dental Implant', ['category' => 'hizmet', 'language' => 'en']);
         $this->rowOf('no_page', 'İmplant fiyatları');
         $prompts = [];
-        WeeklyContentAgent::fake(function (string $prompt) use (&$prompts): array {
+        $clusterId = (int) BrandClusterPage::query()->value('cluster_id');
+        WeeklyContentAgent::fake(function (string $prompt) use (&$prompts, $clusterId): array {
             $prompts[] = $prompt;
-            $item = fn (string $language, string $title): array => ['language' => $language, 'title' => $title, 'kind' => 'new', 'cluster_id' => null, 'page_type' => 'blog',
+            $item = fn (string $language, string $title): array => ['language' => $language, 'title' => $title, 'kind' => 'new', 'cluster_id' => $clusterId, 'page_type' => 'blog',
                 'target_url' => null, 'angle' => 'decision', 'outline' => ['Giriş'], 'questions' => ['Soru?'], 'reason' => 'Talep var.'];
 
             return ['items' => [$item('tr', 'İmplant mı köprü mü'), $item('tr', 'İmplant kimlere uygun'), $item('tr', 'Fazla Türkçe fikir'), $item('en', 'Implant or bridge'), $item('de', 'Implantat')]];
@@ -120,5 +122,58 @@ final class ContentCoverageTest extends SiteTestCase
         $this->assertCount(1, $prompts, 'one AI run for both languages');
         $this->assertStringContainsString('"languages":{"tr":2,"en":1}', $prompts[0]);
         $this->assertSame(['tr' => 2, 'en' => 1], app(ContentCoverage::class)->rows()[0]['pool']);
+    }
+
+    public function test_ideas_rest_on_the_brands_own_searches_and_generated_looking_titles_are_left_out(): void
+    {
+        $this->enableAi();
+        Queue::fake();
+        $this->page('/implant/', 'İmplant', ['category' => 'hizmet', 'language' => 'tr']);
+        $this->rowOf('no_page', 'Zirkonyum kaplama fiyatı');
+        $this->rowOf('no_page', 'İmplant fiyatları');
+        $clusters = Cluster::query()->pluck('id', 'name');
+        Cluster::query()->whereKey($clusters['Zirkonyum kaplama fiyatı'])->update(['service_id' => $this->zirkonyum->id]);
+        DB::table('queries')->update(['impressions' => 100]);
+        $this->fact('implant ağrı yapar mı', '/implant/', 400, 6, 9.0);
+        $prompts = [];
+        WeeklyContentAgent::fake(function (string $prompt) use (&$prompts, $clusters): array {
+            $prompts[] = $prompt;
+            $item = fn (string $title, ?int $cluster, ?string $query): array => ['language' => 'tr', 'title' => $title, 'kind' => 'new', 'cluster_id' => $cluster, 'query' => $query,
+                'page_type' => 'blog', 'target_url' => null, 'angle' => 'objection', 'outline' => ['Giriş'], 'questions' => ['Soru?'], 'reason' => 'Talep var.'];
+
+            return ['items' => [
+                $item('İmplant ağrı yapar mı?', null, 'implant ağrı yapar mı'),
+                $item('İmplant fiyatları: kapsamlı rehber', $clusters['İmplant fiyatları'], null),
+                $item('Diş beyazlatma evde yapılır mı', null, null),
+                $item('İmplant tedavisi kaç seansta biter?', $clusters['İmplant fiyatları'], null),
+            ]];
+        });
+
+        $this->assertSame(['status' => 'ready', 'added' => 2], app(ContentPlanner::class)->weekly($this->site, null, ['tr' => 5]));
+
+        $this->assertStringContainsString('"search_console":[{"query":"implant ağrı yapar mı","impressions":400,"clicks":6', $prompts[0]);
+        $this->assertLessThan(strpos($prompts[0], 'Zirkonyum kaplama fiyatı'), strpos($prompts[0], '"name":"İmplant fiyatları"'), 'the main service comes first');
+        $evidence = Suggestion::query()->where('title', 'İmplant ağrı yapar mı?')->sole()->evidence;
+        $this->assertSame('«implant ağrı yapar mı» 28 günde 400 gösterim, 6 tıklama, ortalama 9,0. sıra', $evidence[0]['value']);
+        $this->assertStringContainsString('sorgu kütüphanesinde 100 gösterim', Suggestion::query()->where('title', 'İmplant tedavisi kaç seansta biter?')->sole()->evidence[0]['value']);
+        $this->assertSame(0, Suggestion::query()->whereIn('title', ['İmplant fiyatları: kapsamlı rehber', 'Diş beyazlatma evde yapılır mı'])->count(), 'two-part title and no evidence');
+
+        $this->assertSame([], app(ContentCoverage::class)->needs(), 'fewer than asked: no filler on the next daily top-up');
+        $this->assertNotSame([], app(ContentCoverage::class)->needs(weekly: true), 'Monday asks again');
+    }
+
+    public function test_open_ideas_with_generated_looking_titles_are_closed(): void
+    {
+        $styled = $this->title('All-on-4 / All-on-6: ömür ve bakım — kapsamlı rehber');
+        $labelled = $this->title('Diş röntgeni çeşitleri (güncelleme)');
+        $approved = $this->title('Gömülü diş operasyonları: süreç', [], Suggestion::APPROVED);
+        $good = $this->title('20 yaş dişi çekildikten sonraki ilk 3 gün');
+
+        $this->assertSame(2, ContentPlanner::retireStyledIdeas());
+
+        $this->assertSame([Suggestion::DISMISSED, Suggestion::DISMISSED, Suggestion::APPROVED, Suggestion::OPEN],
+            [$styled->fresh()->status, $labelled->fresh()->status, $approved->fresh()->status, $good->fresh()->status]);
+        $this->assertNull(ContentPlanner::styleProblem('Şeffaf plak mı, tel mi? Hekimin teli önerdiği durumlar'));
+        $this->assertNull(ContentPlanner::styleProblem('All-on-4 bana uygun mu?'));
     }
 }
