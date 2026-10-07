@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-07 — Bing Webmaster okuma
+
+- **Neden (yakup):** AI görünürlüğü listesinin 2. maddesi ("1 hariç sırayla yap"); ChatGPT araması Bing dizinini kullanır.
+- **Bağlantı:** Entegrasyonlar › Bing Webmaster (`/integrations/bing`). Ajans API anahtarı Bing'e sorularak doğrulanır, `agency_settings.bing_webmaster_api_key` içinde şifreli tutulur. Bing'deki siteler MoxDOP web siteleriyle alan adına göre (www hariç) eşleşir (`bing_sites`).
+- **Okuma:** `moxdop:bing:collect` her sabah 07:05 (İstanbul) ya da "Şimdi çek": GetUserSites + GetQueryStats; haftalık sorgu satırları `bing_query_stats`. Yalnız okuma, Bing'e bir şey gönderilmez.
+- **Gösterim:** Web sitesi › Genel bakış "Bing'de en çok görülen sorgular" (son 4 hafta, gösterim, tıklama, sıra).
+- **Açık:** Bing alan adları canlı API'ye karşı denenmedi (anahtar yok); Bing sorguları henüz sorgu kütüphanesine girmiyor.
+- **State:** CODED + PHPUnit (`BingWebmasterTest`, Http fake). yakup anahtarı girince canlı UAT.
+
 ## 2026-10-07 — Marka › Özet › Yolculuk
 
 - **Neden (yakup):** "entegrasyondan sorguya, hizmete, kümeye, içerik fikirlerine yolculuk" → "Bunu da yap".

@@ -7,6 +7,7 @@ use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
 use App\Services\Integrations\Anthropic\AnthropicCredentialResolver;
 use App\Services\Integrations\ApiKeyAi\ApiKeyAiCredentialResolver;
+use App\Services\Integrations\Bing\BingWebmasterClient;
 use App\Services\Integrations\DataForSeo\DataForSeoCredentialResolver;
 use App\Services\Integrations\Gemini\GeminiCredentialResolver;
 use App\Services\Integrations\Google\GoogleIntegrationReadModel;
@@ -66,6 +67,7 @@ final class OperatorIntegrationsHubQuery
                         'operator.integrations.dataforseo',
                     ),
                     'wordpress' => $this->wordpressHubCard($provider),
+                    'bing' => $this->truthfulProviderCard($provider, BingWebmasterClient::configured(), 'operator.integrations.bing'),
                     ProviderRegistry::OPENAI, AiProviderCatalog::OPENAI => $this->truthfulProviderCard(
                         $provider,
                         $this->openAiConfigured(),

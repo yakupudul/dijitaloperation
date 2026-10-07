@@ -48,6 +48,8 @@ use App\Services\Collection\StartCollectionService;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\GbpPostQueue;
 use App\Services\Gsc\UrlInspectionTargets;
+use App\Services\Integrations\Bing\BingWebmasterClient;
+use App\Services\Integrations\Bing\BingWebmasterSync;
 use App\Services\Integrations\Google\GoogleBusinessProfileRetentionService;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Integrations\WordPress\WordPressEventReconciliation;
@@ -821,6 +823,25 @@ Schedule::command('moxdop:brands:autofill')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(60)
     ->name('brands-autofill');
+
+// Bing Webmaster (yakup, 2026-10-07): ChatGPT search reads Bing's index; every morning the sites are matched again and
+// their weekly Bing searches read (read only).
+Artisan::command('moxdop:bing:collect', function (BingWebmasterSync $sync): void {
+    if (! BingWebmasterClient::configured()) {
+        $this->info('Bing anahtarı yok; atlandı.');
+
+        return;
+    }
+    $match = $sync->match();
+    $out = $sync->collect();
+    $this->info(sprintf('Bing: %d site, %d eşleşti, %d satır, %d hata.', $match['sites'], $match['matched'], $out['rows'], $out['failed']));
+})->purpose('Match Bing Webmaster sites to websites and read their search queries.');
+
+Schedule::command('moxdop:bing:collect')
+    ->dailyAt('07:05')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(60)
+    ->name('bing-collect');
 
 Schedule::command('moxdop:content:weekly-titles')
     ->dailyAt('09:17')

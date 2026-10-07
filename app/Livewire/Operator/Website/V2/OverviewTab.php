@@ -5,6 +5,7 @@ namespace App\Livewire\Operator\Website\V2;
 use App\Models\DigitalAsset;
 use App\Models\Suggestion;
 use App\Services\DataStatus\DataStatusReader;
+use App\Services\Integrations\Bing\BingWebmasterSync;
 use App\Services\Site\Analysis\SiteAnalysisReader;
 use App\Services\Site\Analysis\SitePagesReader;
 use App\Services\Site\SiteScope;
@@ -51,6 +52,7 @@ final class OverviewTab extends Component
             'trend' => $pages->trend($site, $period),
             'totals' => $analysis->totals($site, $period),
             'topQueries' => array_slice($analysis->queries($site, $period), 0, self::TOP),
+            'bing' => BingWebmasterSync::summary((int) $site->id),
             'topPages' => $rows->filter(fn (array $row): bool => $row['clicks'] > 0)->sortByDesc('clicks')->take(self::TOP)->values()->all(),
             'winners' => $moved->where('change', '>', 0)->sortByDesc('change')->take(self::MOVERS)->values()->all(),
             'losers' => $moved->where('change', '<', 0)->sortBy('change')->take(self::MOVERS)->values()->all(),

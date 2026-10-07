@@ -66,6 +66,31 @@
         </section>
     @endif
 
+    @if ($bing)
+        {{-- Bing Webmaster (ChatGPT search reads Bing's index): the last 4 weeks, read every morning. --}}
+        <section class="{{ $card }}" data-bing-queries>
+            <div class="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                <h2 class="text-sm font-semibold">Bing'de en çok görülen sorgular</h2>
+                <span class="text-xs text-gray-500">son 4 hafta · {{ $num($bing['impressions']) }} gösterim · {{ $num($bing['clicks']) }} tıklama @if ($bing['error']) · <span class="text-rose-600">{{ $bing['error'] }}</span>@endif</span>
+            </div>
+            <table class="w-full text-xs">
+                <thead class="text-gray-500"><tr><th class="py-1 text-left font-medium">Sorgu</th><th class="text-right font-medium">Tıklama</th><th class="text-right font-medium">Gösterim</th><th class="text-right font-medium">Sıra</th></tr></thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                    @forelse ($bing['queries'] as $q)
+                        <tr wire:key="bq-{{ md5($q['query']) }}">
+                            <td class="max-w-[16rem] truncate py-1.5">{{ $q['query'] }}</td>
+                            <td class="text-right tabular-nums">{{ $num($q['clicks']) }}</td>
+                            <td class="text-right tabular-nums">{{ $num($q['impressions']) }}</td>
+                            <td class="text-right tabular-nums">{{ $q['position'] !== null ? $dec($q['position']) : '—' }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="4" class="py-2 text-gray-500">Bing'den henüz sorgu okunmadı.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </section>
+    @endif
+
     @if ($trend['has_gsc'])
         <div class="grid gap-4 lg:grid-cols-2">
             <section class="{{ $card }}" data-top-queries>

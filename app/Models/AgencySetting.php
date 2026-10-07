@@ -29,12 +29,14 @@ use Illuminate\Database\Eloquent\Model;
     'push_telegram_bot_token',
     'push_telegram_chat_id',
     'push_min_severity',
+    'bing_webmaster_api_key',
 ])]
 #[Hidden([
     'ai_openai_admin_key',
     'mail_password',
     'push_ntfy_token',
     'push_telegram_bot_token',
+    'bing_webmaster_api_key',
 ])]
 class AgencySetting extends Model
 {
@@ -56,6 +58,7 @@ class AgencySetting extends Model
             'mail_password' => 'encrypted',
             'push_ntfy_token' => 'encrypted',
             'push_telegram_bot_token' => 'encrypted',
+            'bing_webmaster_api_key' => 'encrypted',
             'ai_openai_free_quota' => 'boolean',
             'ai_openai_admin_key' => 'encrypted',
             'ai_openai_audit' => 'array',

@@ -61,7 +61,7 @@ final class ScreenChecker
         'operator.library.website-standards' => 'Standartlar', 'operator.integrations' => 'Entegrasyonlar',
         'operator.integrations.discovered' => 'Keşfedilen varlıklar', 'operator.integrations.wordpress-sites' => 'WordPress siteleri',
         'operator.integrations.google' => 'Google bağlantısı', 'operator.integrations.meta' => 'Meta bağlantısı',
-        'operator.integrations.dataforseo' => 'DataForSEO', 'operator.integrations.website-duplicates' => 'Kopya web siteleri',
+        'operator.integrations.dataforseo' => 'DataForSEO', 'operator.integrations.bing' => 'Bing Webmaster', 'operator.integrations.website-duplicates' => 'Kopya web siteleri',
         'operator.data-center' => 'Veri merkezi', 'operator.ai-jobs' => 'AI işleri', 'operator.settings' => 'Ayarlar',
         'operator.settings.ai-operations' => 'AI işlemleri', 'operator.settings.system-health' => 'Sistem',
         'operator.settings.users' => 'Kullanıcılar', 'operator.settings.sector-packs' => 'Sektör paketleri',

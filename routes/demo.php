@@ -42,6 +42,7 @@ use App\Livewire\Operator\Gbp\Desk\ProfileFieldsPage as GbpProfileFieldsPage;
 use App\Livewire\Operator\Gbp\Desk\ReviewsPage as GbpReviewsPage;
 use App\Livewire\Operator\Gbp\PostPlanPage as GbpPostPlanPage;
 use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
+use App\Livewire\Operator\Integrations\BingIntegrationPage;
 use App\Livewire\Operator\Integrations\DiscoveredAssetsPage;
 use App\Livewire\Operator\Integrations\SiteConnectorShow;
 use App\Livewire\Operator\Integrations\WebsiteDuplicatesPage;
@@ -115,6 +116,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/integrations/meta', MetaIntegrationPage::class)->name('operator.integrations.meta');
         Route::livewire('/integrations/discovered', DiscoveredAssetsPage::class)->name('operator.integrations.discovered');
         Route::livewire('/integrations/dataforseo', DataForSeoIntegrationPage::class)->name('operator.integrations.dataforseo');
+        Route::livewire('/integrations/bing', BingIntegrationPage::class)->name('operator.integrations.bing');
         Route::livewire('/integrations/site-connectors/{connector}', SiteConnectorShow::class)->name('operator.integrations.site-connector');
         Route::get('/integrations/site-connectors/{connector}/download', WordPressConnectorDownloadController::class)
             ->name('operator.integrations.site-connector.download');
