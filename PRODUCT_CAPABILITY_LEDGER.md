@@ -11,6 +11,14 @@
 - Okuyucular (`GoogleAdsScreen`, `MetaScreen`, `MetaCampaignBoard`, `MetaAnalysis`, `GbpScreen`) gün sayısı yerine `SiteRange` da alır; marka sayfası KPI'ları gibi diğer çağıranlar değişmedi.
 - **State:** CODED + PHPUnit (`DemoSharedPeriodFilterTest` 2 yeni, `MetaCampaignServicesTest::test_the_date_picker_range_drives_the_board_the_analysis_and_the_campaign_page`, `GbpWorkspaceTabsTest::test_the_date_picker_range_drives_the_overview_numbers_and_the_analysis`, `GoogleAdsScreenTest::test_the_date_picker_range_gives_the_window_and_its_comparison`). Görünüm insan gözüyle onaylanmadı.
 
+## 2026-10-07 — İçerik fikirleri markanın kendi verisine dayanır
+
+- **Neden (yakup):** "Hiçbir içerik firmaya faydalı olabilecek, markayı tanıyan, markadaki verileri hedef odakları bilen bir tarafta olan içerik fikirleri değil. Başlıklar ai kokuyor."
+- **İstem `site-weekly-content-v5`:** yeni girdiler `search_console` (sitenin 28 günde ≥ 30 gösterimle 4–20. sırada kaldığı aramalar, en çok gösterimden 40) ve `paid_results` (Google Ads / Meta'da sonuç getiren hizmetler, `ad_service_stats`). Kümeler artık rastgele ilk 60 değil: 300 aday markanın kendi Search Console gösterimine, sorgu kütüphanesi gösterimine ve hizmet ağırlığına (ana hizmet, reklamda sonuç alan hizmet) göre sıralanır, en iyi 40 gider. Başlık kuralları: uzmanın gerçek kişiye cevabı, tek soru / tek vaat, ≤ 60 karakter.
+- **Kontroller (kod):** her fikrin kanıtı olmalı (Search Console sorgusu, küme ya da güncellenecek gerçek sayfa); kanıt, sayılarıyla fikrin altında görünür (ör. "«implant ağrı yapar mı» 28 günde 400 gösterim, 6 tıklama, ortalama 9,0. sıra"). İki parçalı (tire, iki nokta, eğik çizgi), parantez etiketli, "kapsamlı rehber" / "rehberi" / "hizmet sayfası" / "FAQ" kalıplı ya da 70 karakterden uzun başlık havuza girmez (`ContentPlanner::styleProblem`). Az fikir çıkarsa günlük tamamlama 7 gün o siteyi dolgu için tekrar istemez (pazartesi haftalık üretim sürer).
+- **Mevcut havuz:** açık bekleyen ve kalıp başlıklı fikirler deploy'da kapatılır (`dismissed`, not: "Başlık kalıp gibiydi…"); onaylanmış, yazılmış, gönderilmiş fikirlere dokunulmaz. Havuz yeni kurallarla dolar.
+- **State:** CODED + PHPUnit (`ContentCoverageTest`, `SiteSuggestionsTest`). Gerçek fikir kalitesi yakup'un gözüyle onaylanmadı.
+
 ## 2026-10-06 — İşletme Profili gönderi takvimi, yorum kartı tasarımı
 
 - **Neden (yakup):** "Bu sayfayı olması gereken gibi yap" (profilin Gönderiler sekmesi: plan 30 gün dolu derken listede "Gönderi yok", 150 sayfalık karışık TR/EN sayfa listesi, "haftada 1" ipucu); "yorum kartı fikri muhteşem ama tasarım çok amatör, çok şık olmalı".

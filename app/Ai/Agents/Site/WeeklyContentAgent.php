@@ -23,6 +23,7 @@ final class WeeklyContentAgent extends SiteAgent
                 'title' => $row->string()->required(),
                 'kind' => $row->string()->enum(['new', 'update'])->required(),
                 'cluster_id' => $row->integer()->nullable()->required(),
+                'query' => $row->string()->nullable()->required(),
                 'page_type' => $row->string()->enum(ContentPlanner::PAGE_TYPES)->required(),
                 'target_url' => $row->string()->nullable()->required(),
                 'angle' => $row->string()->enum(array_keys(ContentPlanner::ANGLES))->required(),

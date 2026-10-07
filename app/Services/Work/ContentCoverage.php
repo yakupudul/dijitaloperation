@@ -11,6 +11,7 @@ use App\Services\Site\ContentPlanner;
 use App\Services\Site\SiteSuggestionTypes;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Genel işler › Web site SEO içerikler, marka tablosu (yakup, 2026-10-06: "hangi sitede hangi içerik eksik, kümeler
@@ -81,6 +82,9 @@ final class ContentCoverage
         foreach ($this->rows() as $row) {
             if (($siteId !== null && (int) $row['site']->id !== $siteId) || $row['clusters'] === 0) {
                 continue;
+            }
+            if (! $weekly && $siteId === null && Cache::has(ContentPlanner::shortRunKey((int) $row['site']->id))) {
+                continue; // the last run had no evidence for more; no filler until Monday or new data
             }
             $wants = [];
             foreach ($row['pool'] as $language => $waiting) {

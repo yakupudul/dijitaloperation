@@ -76,6 +76,7 @@
   - Bir kümenin birden fazla sayfası olabilir; fazlası için öneri "301 ile birleştir" ya da "ayrıştır" olur ve operatör onaylar.
   - Eşleşmeyen kümenin içerik önerisi kümenin kendisinden gelir.
   - **2026-10-06 (yakup):** içerik fikir havuzu: her sitenin her aktif dilinde her zaman 20 onay bekleyen fikir (her sabah tamamlanır), pazartesi üstüne haftalık yeni fikirler. Fikirler kümelerin gerçek sorgularına ve AI asistanı sorularına dayanır, markayı ileri taşıyan açıyla; en çok dörtte biri kümesiz SEO öngörüsü. Yazı yine yalnız onayla. Küme çakışmaları Genel işler'de ayrı sekmededir.
+  - **2026-10-07 (yakup: "başlıklar ai kokuyor"):** fikirler önce markanın kendi verisinden gelir (Search Console'da 4–20. sıradaki aramalar, reklamda sonuç alan hizmetler, ana hizmetler); her fikrin altında sayılı kanıtı durur; kanıtsız ya da kalıp başlıklı fikir havuza girmez. Başlık uzmanın gerçek kişiye cevabı gibi, tek soru, ≤ 60 karakter.
   - Hizmet bölgeleri siteden bulunur ve onayla eklenir.
 
 ## 2026-11-18 — Çalışamayan iş önce uyarır

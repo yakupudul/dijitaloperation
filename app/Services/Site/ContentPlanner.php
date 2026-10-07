@@ -20,11 +20,15 @@ use App\Services\Compliance\ForbiddenTerms;
 use App\Services\ExternalWrites\ArticleDraft;
 use App\Services\ExternalWrites\ContentComplianceGate;
 use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\Meta\MetaDesk;
 use App\Services\Queries\QueryNormalizer;
 use App\Services\SeoTasks\SeoText;
 use App\Services\SeoTasks\SiteUrlPattern;
+use App\Services\Site\Analysis\SiteAnalysisReader;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -49,12 +53,65 @@ final class ContentPlanner
 
     private const array CLUSTER_PAGE_TYPES = ['hizmet' => 'service', 'blog' => 'guide', 'sss' => 'faq', 'lokasyon' => 'location'];
 
+    /** Gaps read per run; the best ones (brand's own searches, demand, main services) go to the AI. */
+    private const int GAP_CANDIDATES = 300;
+
+    private const int GAPS_TO_AI = 40;
+
+    /** Search Console queries the site already shows for but not near the top: the strongest idea material. */
+    private const int STRIKING_QUERIES = 40;
+
+    /** A run that gave fewer ideas than asked (not enough evidence) is not asked again for this long. */
+    public const int SHORT_RUN_DAYS = 7;
+
     private const array MONTHS = [1 => 'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 
     public function __construct(
         private readonly SiteAi $ai,
         private readonly BrandMemoryService $memory,
+        private readonly SiteAnalysisReader $reader,
     ) {}
+
+    public static function shortRunKey(int $siteId): string
+    {
+        return 'content-pool:short-run:'.$siteId;
+    }
+
+    /**
+     * Open pool ideas whose titles read like generated text are closed (dismissed, so the next run never repeats them)
+     * and the pool tops up with evidence-based ones. Approved, written or sent ideas are left alone.
+     *
+     * @return int ideas closed
+     */
+    public static function retireStyledIdeas(): int
+    {
+        $closed = 0;
+        Suggestion::query()->where('action_type', SiteSuggestionTypes::CONTENT)->where('status', Suggestion::OPEN)->orderBy('id')
+            ->chunkById(500, function (Collection $ideas) use (&$closed): void {
+                $ids = $ideas->filter(fn (Suggestion $s): bool => self::styleProblem((string) $s->title) !== null)->pluck('id')->all();
+                if ($ids !== []) {
+                    $closed += Suggestion::query()->whereIn('id', $ids)->update(['status' => Suggestion::DISMISSED, 'resolved_at' => now(), 'operator_note' => 'Başlık kalıp gibiydi; kanıta dayalı fikirle değiştirildi.', 'updated_at' => now()]);
+                }
+            });
+
+        return $closed;
+    }
+
+    /**
+     * A title that reads like generated text, or null: two-part titles (dash, colon, slash), labels in brackets
+     * ("(güncelleme)"), "kapsamlı rehber", "hizmet sayfası" and over-long titles never reach the pool.
+     */
+    public static function styleProblem(string $title): ?string
+    {
+        $folded = SeoText::fold($title);
+
+        return match (true) {
+            mb_strlen($title) > 70 => 'çok uzun',
+            (bool) preg_match('/\s[—–-]\s|—|:|\s\/\s|[()\[\]]/u', $title) => 'iki parçalı başlık',
+            (bool) preg_match('/kapsamli rehber|rehberi?$|hizmet sayfasi|lokasyon sayfasi|nedir kimlere|hakkinda her sey|bilmeniz gereken|\bfaq\b|ultimate guide|complete guide|everything you need/u', $folded) => 'kalıp ifade',
+            default => null,
+        };
+    }
 
     /**
      * One run plans every language the pool asks for (`$wants`: language => ideas), so the clusters, queries and site
@@ -81,7 +138,12 @@ final class ContentPlanner
         $capacity = array_sum($wants);
         $inLanguage = fn ($q) => ! $explicit ? $q : $q->where(fn ($l) => $l->whereNull('language')->orWhereIn('language', array_keys($wants)));
         $gaps = $only ?? $inLanguage(BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url'])->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
-            ->whereIn('state', ['no_page', 'thin_coverage'])->where('excluded', false))->limit(60)->get();
+            ->whereIn('state', ['no_page', 'thin_coverage'])->where('excluded', false))->orderBy('id')->limit(self::GAP_CANDIDATES)->get();
+        $brandSearch = $only !== null ? [] : $this->brandSearch($site);
+        $volumes = $this->clusterVolumes($gaps->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all());
+        if ($only === null) {
+            $gaps = $this->rankGaps($brand, $gaps, $volumes, $brandSearch)->take(self::GAPS_TO_AI)->values();
+        }
         $improvable = $only !== null ? collect() : $inLanguage(BrandClusterPage::query()->with('page:id,url,title')->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
             ->whereIn('state', ['weak_performance', 'thin_coverage'])->whereNotNull('page_id'))->limit(20)->get();
         // Earlier plans of 8 weeks and every title still waiting in the pool: never asked again.
@@ -90,8 +152,11 @@ final class ContentPlanner
             ->orderByDesc('id')->limit(150)->get(['title', 'status', 'action']);
         $sitePages = $this->sitePages($site);
         $topQueries = $this->clusterQueries($gaps->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all());
+        $striking = $only !== null ? [] : $this->strikingQueries($site);
         $result = $this->ai->run(new WeeklyContentAgent, [
             'brand' => $this->memory->contextFor($brand, [], $gaps->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all())['profile'],
+            'search_console' => $striking,
+            'paid_results' => $only !== null ? [] : $this->paidResults($brand),
             'languages' => $wants,
             'capacity' => $capacity,
             'month' => self::MONTHS[(int) now()->month].' '.now()->year,
@@ -99,6 +164,7 @@ final class ContentPlanner
                 'cluster_id' => (int) $row->cluster_id, 'language' => $row->language, 'name' => (string) $row->cluster?->name, 'service' => (string) ($row->cluster?->service?->primaryName?->raw_label ?? ''),
                 'intent' => (string) $row->cluster?->intent, 'page_type' => (string) $row->cluster?->page_type, 'main_query' => (string) ($row->cluster?->mainQuery?->text ?? ''),
                 'target_query' => $row->target_query, 'queries' => $topQueries[(int) $row->cluster_id] ?? [],
+                'library_impressions' => $volumes[(int) $row->cluster_id] ?? 0, 'brand_search' => $brandSearch[(int) $row->cluster_id] ?? null,
                 'state' => $row->stateLabel(), 'page_url' => $row->page?->url, 'subtopics' => array_values((array) $row->cluster?->subtopics),
                 'gaps' => array_column((array) $row->gaps, 'text'),
                 'ai_questions' => $row->cluster !== null ? ClusterAudit::aiQuestions($row->cluster, $brand) : [],
@@ -125,17 +191,141 @@ final class ContentPlanner
             }
             $clusterId = is_int($item['cluster_id'] ?? null) && $clusters->has($item['cluster_id']) ? $item['cluster_id'] : null;
             $row = $clusterId !== null ? $clusters->get($clusterId) : null;
+            $evidence = $this->evidence($row, $volumes, $brandSearch, $striking, is_string($item['query'] ?? null) ? $item['query'] : null);
+            if ($evidence === [] && ($item['kind'] ?? 'new') === 'update') {
+                $page = $improvable->first(fn (BrandClusterPage $r): bool => SeoText::urlKey((string) $r->page?->url) === SeoText::urlKey((string) ($item['target_url'] ?? '')));
+                $evidence = [['kind' => 'page', 'value' => $page !== null ? SeoText::urlPath((string) $page->page?->url).' · '.$page->stateLabel() : 'Sitedeki sayfa: '.SeoText::urlPath((string) ($item['target_url'] ?? '')), 'source' => 'site']];
+            }
+            if ($evidence === [] || self::styleProblem(trim((string) ($item['title'] ?? ''))) !== null) {
+                continue; // no evidence (no query, cluster or page of the site) or a generated-looking title: never in the pool
+            }
             $stored = $this->storeItem($brand, $site, $sitePages, $item, $taken, [
                 'cluster_id' => $clusterId, 'out_of_cluster' => false, 'language' => $explicit ? $language : null,
                 'angle' => in_array($item['angle'] ?? null, array_keys(self::ANGLES), true) ? $item['angle'] : null,
-                'evidence' => $row !== null ? [['kind' => 'cluster', 'value' => $row->cluster?->name.' · '.$row->stateLabel(), 'source' => 'küme']] : null,
+                'evidence' => $evidence,
                 'service' => (string) ($row?->cluster?->service?->primaryName?->raw_label ?? ''),
             ], $result['prompt_version_id']);
             $added += $stored ? 1 : 0;
             $left[$language] -= $stored ? 1 : 0;
         }
+        if ($only === null && $added < $capacity) {
+            // Fewer than asked: the data does not carry more now; the daily top-up waits instead of asking for filler.
+            Cache::put(self::shortRunKey((int) $site->id), now()->toIso8601String(), now()->addDays(self::SHORT_RUN_DAYS));
+        }
 
         return ['status' => 'ready', 'added' => $added];
+    }
+
+    /**
+     * Gaps best first: the brand's own Search Console impressions on the cluster, the cluster's search volume and the
+     * weight of its service (main services, services with paid results).
+     *
+     * @param  Collection<int, BrandClusterPage>  $gaps
+     * @param  array<int, int>  $volumes
+     * @param  array<int, array{impressions: int, clicks: int, position: ?float}>  $brandSearch
+     * @return Collection<int, BrandClusterPage>
+     */
+    private function rankGaps(Brand $brand, Collection $gaps, array $volumes, array $brandSearch): Collection
+    {
+        $main = BrandOffering::query()->where('brand_id', $brand->id)->where('priority', 'main')->whereNotNull('service_catalog_item_id')->pluck('service_catalog_item_id')->map(fn ($id): int => (int) $id)->all();
+        $paid = array_flip(array_map(fn (array $r): int => $r['service_id'], $this->paidResults($brand)));
+
+        return $gaps->sortByDesc(function (BrandClusterPage $row) use ($volumes, $brandSearch, $main, $paid): float {
+            $serviceId = (int) ($row->cluster?->service_id ?? 0);
+            $weight = 1.0 + (in_array($serviceId, $main, true) ? 1.0 : 0.0) + (isset($paid[$serviceId]) ? 0.5 : 0.0);
+
+            return $weight * log10(1 + ($volumes[(int) $row->cluster_id] ?? 0)) + 1.5 * log10(1 + ($brandSearch[(int) $row->cluster_id]['impressions'] ?? 0));
+        });
+    }
+
+    /**
+     * Evidence of an idea with real numbers (shown under the title), or [] when it has none.
+     *
+     * @param  array<int, int>  $volumes
+     * @param  array<int, array{impressions: int, clicks: int, position: ?float}>  $brandSearch
+     * @param  list<array{query: string, impressions: int, clicks: int, position: ?float}>  $striking
+     * @return list<array{kind: string, value: string, source: string}>
+     */
+    private function evidence(?BrandClusterPage $row, array $volumes, array $brandSearch, array $striking, ?string $query): array
+    {
+        $out = [];
+        $number = fn (float $n, int $d = 0): string => number_format($n, $d, ',', '.');
+        if ($query !== null) {
+            foreach ($striking as $s) {
+                if (SeoText::fold($s['query']) === SeoText::fold($query)) {
+                    $out[] = ['kind' => 'query', 'value' => '«'.$s['query'].'» 28 günde '.$number($s['impressions']).' gösterim, '.$number($s['clicks']).' tıklama'
+                        .($s['position'] !== null ? ', ortalama '.$number($s['position'], 1).'. sıra' : ''), 'source' => 'Search Console'];
+                    break;
+                }
+            }
+        }
+        if ($row !== null) {
+            $search = $brandSearch[(int) $row->cluster_id] ?? null;
+            $volume = $volumes[(int) $row->cluster_id] ?? 0;
+            $parts = array_filter([
+                $volume > 0 ? 'sorgu kütüphanesinde '.$number($volume).' gösterim' : null,
+                $search !== null && $search['impressions'] > 0 ? 'sitede 28 günde '.$number($search['impressions']).' gösterim'.($search['position'] !== null ? ', '.$number($search['position'], 1).'. sıra' : '') : null,
+            ]);
+            $out[] = ['kind' => 'cluster', 'value' => $row->cluster?->name.' · '.($parts !== [] ? implode(' · ', $parts) : $row->stateLabel()), 'source' => 'küme'];
+        }
+
+        return $out;
+    }
+
+    /**
+     * The site's own Search Console numbers per cluster (28 days).
+     *
+     * @return array<int, array{impressions: int, clicks: int, position: ?float}>
+     */
+    private function brandSearch(DigitalAsset $site): array
+    {
+        $out = [];
+        foreach ($this->reader->clusters($site, 28) as $row) {
+            $out[(int) $row['cluster_id']] = ['impressions' => (int) $row['impressions'], 'clicks' => (int) $row['clicks'], 'position' => $row['position']];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Queries the site is seen for but not near the top (position 4–20, at least 30 impressions in 28 days), most seen
+     * first: the reader already searches this, the brand answers it weakly.
+     *
+     * @return list<array{query: string, impressions: int, clicks: int, position: ?float}>
+     */
+    private function strikingQueries(DigitalAsset $site): array
+    {
+        return collect($this->reader->queries($site, 28))
+            ->filter(fn (array $q): bool => $q['position'] !== null && $q['position'] >= 4 && $q['position'] <= 20 && $q['impressions'] >= 30)
+            ->sortByDesc('impressions')->take(self::STRIKING_QUERIES)
+            ->map(fn (array $q): array => ['query' => (string) $q['query'], 'impressions' => (int) $q['impressions'], 'clicks' => (int) $q['clicks'], 'position' => $q['position']])
+            ->values()->all();
+    }
+
+    /**
+     * Services that bring the brand results on Google Ads / Meta (30 days): where content pays off first.
+     *
+     * @return list<array{service_id: int, service: string, channel: string, result_type: string, results: float}>
+     */
+    private function paidResults(Brand $brand): array
+    {
+        if (! Schema::hasTable('ad_service_stats')) {
+            return [];
+        }
+        $rows = DB::table('ad_service_stats')->where('brand_id', $brand->id)->whereNotNull('service_id')->where('results', '>', 0)->orderByDesc('results')->limit(20)
+            ->get(['service_id', 'channel', 'result_type', 'results']);
+        $names = MetaDesk::serviceNames($rows->pluck('service_id')->map(fn ($id): int => (int) $id)->unique()->values()->all());
+
+        return $rows->map(fn (object $r): array => ['service_id' => (int) $r->service_id, 'service' => $names[(int) $r->service_id] ?? '', 'channel' => (string) $r->channel,
+            'result_type' => (string) $r->result_type, 'results' => (float) $r->results])->all();
+    }
+
+    /** @return array<int, int> cluster id => impressions of its visible queries in the query library */
+    private function clusterVolumes(array $clusterIds): array
+    {
+        return DB::table('cluster_queries as cq')->join('queries as q', 'q.id', '=', 'cq.query_id')->whereIn('cq.cluster_id', $clusterIds ?: [0])->where('q.hidden', false)
+            ->groupBy('cq.cluster_id')->selectRaw('cq.cluster_id, sum(q.impressions) as volume')->pluck('volume', 'cluster_id')
+            ->mapWithKeys(fn ($v, $id): array => [(int) $id => (int) $v])->all();
     }
 
     /** @return array{status: string, added: int} */
