@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-10-07 — Meta form verisi: yalnız form yapısı
+
+- **Karar (yakup, karttan "Yalnızca form yapısı"):** reklam detayında anında formun adı, soruları ve teşekkür ekranı gösterilir; formu dolduran kişilerin bilgisi (ad, telefon, cevaplar) Meta'dan okunmaz ve Moximu'da tutulmaz. `leads_retrieval` istenmeyen izinler listesinde kalır. Lead kalitesi yalnız elle içe aktarılan, kişi bilgisi olmayan listeden işaretlenir (MetaLeads).
+
 ## 2026-10-07 — Tek tarih seçici her varlık ekranında
 
 - **Karar (yakup, 2026-10-07):** Web sitesi ekranındaki tarih seçici tüm dijital varlık ekranlarında da kullanılır (Google Ads, Meta ve kampanya detayı, İşletme Profili, Analytics, Search Console). Yeni bir varlık ekranı ya da dönem okuyan sekme eklenirse ayrı "N gün" düğmeleri değil `<x-operator.date-range-picker>` ve `SiteRange` kullanılır.
