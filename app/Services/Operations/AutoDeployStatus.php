@@ -19,9 +19,31 @@ final class AutoDeployStatus
 
     public const string CRON_FILE = '/etc/cron.d/moxdop-autodeploy';
 
+    /** The cron file looked for; tests point it elsewhere because the server running them has the real one. */
+    public static string $cronFile = self::CRON_FILE;
+
     public static function path(): string
     {
         return storage_path('app/auto-deploy.json');
+    }
+
+    /** The failing tests of the last check with their first lines (written by the script, removed by a deploy). */
+    public static function failurePath(): string
+    {
+        return storage_path('app/auto-deploy-failure.txt');
+    }
+
+    /** @return string|null the last failed check's test failures, at most $bytes */
+    public static function failure(int $bytes = 6000): ?string
+    {
+        try {
+            $text = is_file(self::failurePath()) ? (string) file_get_contents(self::failurePath(), false, null, 0, $bytes) : '';
+        } catch (Throwable) {
+            return null;
+        }
+        $text = trim(mb_convert_encoding($text, 'UTF-8', 'UTF-8'));
+
+        return $text !== '' ? $text : null;
     }
 
     /** @return array{state: string, label: string, problem: bool, branch: string, sha: string, message: string, checked_at: ?string}|null null when auto deploy was never installed */
@@ -30,7 +52,7 @@ final class AutoDeployStatus
         try {
             if (! is_file(self::path())) {
                 // Installed (cron file present) but the first check has not run yet.
-                return is_file(self::CRON_FILE) ? ['state' => 'installed', 'label' => self::LABELS['installed'], 'problem' => false, 'branch' => '', 'sha' => '',
+                return is_file(self::$cronFile) ? ['state' => 'installed', 'label' => self::LABELS['installed'], 'problem' => false, 'branch' => '', 'sha' => '',
                     'message' => 'İlk kontrol en geç 15 dakika içinde.', 'checked_at' => null] : null;
             }
             $raw = (string) file_get_contents(self::path());

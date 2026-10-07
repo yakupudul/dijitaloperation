@@ -24,7 +24,7 @@ final class MetaSuggestions
 
     public const string TARGET = 'meta';
 
-    public const array GROUP_LABELS = ['check' => 'Sistem kontrolü', 'creative' => 'Kreatif', 'structure' => 'Kampanya yapısı', 'landing' => 'Form / açılış sayfası'];
+    public const array GROUP_LABELS = ['check' => 'Sistem kontrolü', 'creative' => 'Kreatif', 'structure' => 'Kampanya yapısı', 'landing' => 'Form / açılış sayfası', 'plan' => 'Strateji planı'];
 
     /**
      * Upserts one group's items and moves the group's open, unlocked rows that were not proposed again to `recheck`.

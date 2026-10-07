@@ -24,6 +24,7 @@ CHECKOUT="${MOXDOP_AUTODEPLOY_CHECKOUT:-${ROOT}-autodeploy}"
 STATE_DIR="storage/app"
 STATUS_FILE="${STATE_DIR}/auto-deploy.json"
 TRIED_FILE="${STATE_DIR}/auto-deploy.tried"
+FAILURE_FILE="${STATE_DIR}/auto-deploy-failure.txt"
 LOG_DIR="storage/logs/auto-deploy"
 
 if [[ "${1:-}" == "--install" ]]; then
@@ -48,7 +49,8 @@ if [[ "${1:-}" == "--install" ]]; then
 fi
 
 # One run at a time; a long test run must not overlap the next cron tick.
-exec 9>"/tmp/moxdop-autodeploy.lock"
+# (MOXDOP_AUTODEPLOY_LOCK: the tests run the script inside a running check and need a lock of their own.)
+exec 9>"${MOXDOP_AUTODEPLOY_LOCK:-/tmp/moxdop-autodeploy.lock}"
 if ! flock -n 9; then
   exit 0
 fi
@@ -165,7 +167,14 @@ if ! (
   DB_CONNECTION=sqlite DB_DATABASE=:memory: php artisan test --compact
 ) > "$LOG" 2>&1; then
   mark_tried "$TARGET"
-  failed="$(grep -E 'FAIL|Failed asserting|Error' "$LOG" | head -n 3 | tr '\n' ' ')"
+  # Without colour codes: the failing tests by name for the status, and each failure with its first lines for the
+  # pages and Claude (Sürümler, system-health) so the cause can be read without the server.
+  plain="$(sed -r 's/\x1B\[[0-9;]*[A-Za-z]//g' "$LOG")"
+  count="$(printf '%s\n' "$plain" | grep -cE '^\s*FAILED ' || true)"
+  failed="$(printf '%s\n' "$plain" | grep -E '^\s*FAILED ' | sed -E 's/^\s*FAILED\s+//; s/\s+$//' | head -n 5 | tr '\n' ';')"
+  [[ -n "$failed" ]] || failed="$(printf '%s\n' "$plain" | grep -E 'FAIL|Failed asserting|Error' | head -n 3 | tr '\n' ' ')"
+  { printf '%s · %s\n\n' "$SHORT" "$(now)"; printf '%s\n' "$plain" | grep -E -A 12 '^\s*FAILED ' | head -c 12000; } > "$FAILURE_FILE" || true
+  failed="${count:-0} test: ${failed}"
   status tests_failed "$TARGET_BRANCH" "$TARGET" "${SHORT} testleri geçmedi, canlıya alınmadı. ${failed}"
   notify tests_failed "$TARGET_BRANCH" "$TARGET" "${SHORT} testleri geçmedi, canlıya alınmadı. ${failed}"
   exit 0
@@ -175,6 +184,7 @@ fi
 status deploying "$TARGET_BRANCH" "$TARGET" "${SHORT} testleri geçti, deploy ediliyor."
 if git checkout --quiet --detach "$TARGET" && bash deploy/staging/deploy.sh >> "$LOG" 2>&1; then
   write_pending
+  rm -f "$FAILURE_FILE"
   status deployed "$TARGET_BRANCH" "$TARGET" "${SHORT} canlıda ($(git log -1 --format=%s "$TARGET" | head -c 120))."
   notify deployed "$TARGET_BRANCH" "$TARGET" "$(git log -1 --format=%s "$TARGET" | head -c 160)"
 else

@@ -22,7 +22,11 @@
 
 <div class="space-y-5">
     <div class="space-y-1">
-        <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Meta masası</h1>
+        <div class="flex flex-wrap items-center gap-3">
+            <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Meta masası</h1>
+            <span class="flex-1"></span>
+            <a href="{{ route('operator.meta-strategy') }}" wire:navigate class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-600">Strateji öner</a>
+        </div>
         @if ($desk['ready'] && $desk['kpis']['campaigns'] > 0)
             <p class="text-sm text-gray-500">Tüm markaların Meta kampanyaları tek yerde · {{ $desk['kpis']['brands'] }} marka · {{ $desk['kpis']['campaigns'] }} kampanya · {{ $desk['kpis']['live'] }} yayında · son 30 gün, {{ \Carbon\CarbonImmutable::parse($desk['period_end'])->format('d.m.Y') }}’e kadar</p>
         @endif

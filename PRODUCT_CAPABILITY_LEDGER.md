@@ -43,6 +43,7 @@
 - **Neden (yakup):** "Deploy yapmama gerek kalmıyorsa bu benim için uygun." Kodlanan değişiklik deploy beklerken havuzda takılıyordu.
 - **Nasıl:** `deploy/staging/auto-deploy.sh` (root cron, 15 dakikada bir; `--install` ile `/etc/cron.d/moxdop-autodeploy`). İzlenen dallar `claude/kume-cakismasi-301-l1blwu` ve `claude/project-thread-e5yimf` (`MOXDOP_AUTODEPLOY_BRANCHES`). Bir dalın yeni head'i yalnız canlı sürümü içeriyorsa (`git merge-base --is-ancestor`) aday olur; içermiyorsa başka işi geri alacağı için atlanır ve bildirilir. Aday commit ayrı klasörde (`/var/www/moxdop-autodeploy`, SQLite `:memory:`) tam PHPUnit'ten geçer; geçerse uygulama o commit'e (detached) geçer ve `deploy.sh` çalışır. Deploy durursa önceki canlı sürüme geri dönülür. Başarısız commit bir daha denenmez; `storage/app/auto-deploy.off` duraklatır.
 - **Görünürlük:** Geliştirme havuzu üstünde "Otomatik deploy: …" satırı (son kontrol, durum, neden); durma halleri telefona 'high' bildirim (`moxdop:auto-deploy:report`).
+- **2026-10-07 düzeltme:** kurulduğundan beri hiçbir commit canlıya çıkmamıştı; sunucuda üç test ortamdan dolayı kırılıyordu: iç içe çalışan betik testi gerçek kontrolün kilidini (`/tmp/moxdop-autodeploy.lock`) alamıyordu (artık `MOXDOP_AUTODEPLOY_LOCK`), Sürümler testi sunucudaki gerçek cron dosyasını görüyordu (`AutoDeployStatus::$cronFile`), içerik puanı PHP 8.4'ün `round()` davranışında 58 yerine 57 veriyordu (önce 6 haneye yuvarlanır). Testler geçmeyince betik geçmeyen testleri ilk satırlarıyla `storage/app/auto-deploy-failure.txt`'ye yazar; Ayarlar › Sürümler'de "Geçmeyen testlerin ayrıntısı" ve MCP `system-health` → `auto_deploy.failure` gösterir.
 - **State:** CODED + PHPUnit (`AutoDeployTest` 3: sıra koruması, canlıyı içermeyen dalın gerçek git deposunda atlanması, ekran + bildirim). Sunucuda yakup'un bir kez `--install` çalıştırmasıyla devreye girer.
 
 ## 2026-10-06 — Geliştirme havuzu: okunur kartlar, toplu karar, canlıya çıkanı kendisi bilir
@@ -3465,3 +3466,20 @@ Status: IMPLEMENTED V1 (coded + PHPUnit on SQLite and PostgreSQL; no real UAT ye
   Ads, Meta (cost vs average), İşletme Profili (service listed on a profile), rank by cost among the brands, up to three notes.
 - Tests: `tests/Feature/Ads/AdServiceStatsTest.php`, `GoogleAdsScreenTest::test_service_totals_follow_keywords_and_feed_the_cross_brand_numbers`,
   updated `PanelDesignFreezeTest` (sidebar + five brand tabs) and `BrandOverviewTest`.
+
+#### Strateji öner (plan step 4)
+
+Status: IMPLEMENTED V1 (coded + PHPUnit on SQLite and PostgreSQL; no real UAT yet). Nothing written to Meta.
+- `/meta/strateji` (`MetaStrategy`, linked from Meta masası and the account's Kampanyalar tab): brand, service, city, result
+  type. Winners = other brands' Meta campaigns of the same catalog service and result type with ≥ 2.000 TRY spend and ≥ 10
+  results in 30 days (TRY accounts only; others counted and left out), cheapest first; the city list is used when it has ≥ 3
+  winners, else all cities. Each winner shows settings, targeting of its biggest ad set and its best ad text, from the daily
+  campaign recipe `ad_campaign_stats.profile` (`MetaCampaignBoard::profile`).
+- "Kazanan tarifi" from the best five, rules only: expected cost (median), objective, optimization, destination, median daily
+  budget, age, gender, Advantage+ or manual, interests shared by ≥ 2, placements, video / image and text length, with counts.
+  The brand's own campaigns for the service sit beside it with their distance to the recipe.
+- "Plan taslağı iste" → `DraftMetaStrategyPlanJob` → Claude queue op `meta.strategy_plan` (names, structure, ad set audiences,
+  three ad texts, first-week checks; no other brand's name or offer; sector rules). Budget and expected cost are added from
+  the recipe, never by AI. The plan lands in the brand's Meta Yapılacaklar as group "Strateji planı" (approve / edit / copy).
+- Library saves: a winner's best ad text or targeting goes to `ad_library_items` (Kütüphaneler screen comes in step 5).
+- Tests: `tests/Feature/Meta/MetaStrategyTest.php`.

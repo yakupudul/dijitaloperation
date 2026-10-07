@@ -29,6 +29,7 @@ final class ReleasesPage extends Component
         return view('livewire.operator.settings.releases', [
             'release' => ReleaseInfo::current(),
             'autoDeploy' => AutoDeployStatus::current(),
+            'failure' => AutoDeployStatus::failure(),
             'deploys' => ReleaseLog::deploys(),
             'pending' => ReleaseLog::pending(),
         ]);

@@ -4,6 +4,7 @@ namespace App\Mcp\Tools;
 
 use App\Models\AiTask;
 use App\Services\Observability\ErrorTriage;
+use App\Services\Operations\AutoDeployStatus;
 use App\Services\Operations\SystemHealthReader;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -12,7 +13,7 @@ use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 use Throwable;
 
-#[Description('Reads how the system is doing, from stored state only: deployed release, scheduler and stopped workers, queue waits, top application errors of the last 7 days (class, file:line, count), open alerts grouped like the Hata merkezi (you = needs the operator, code = software error, auto = heals by itself) and AI tasks you could not do. Use it to find bugs to report or fix and improvements to propose; it changes nothing.')]
+#[Description('Reads how the system is doing, from stored state only: deployed release, the last automatic deploy check (with the failing tests when it stopped), scheduler and stopped workers, queue waits, top application errors of the last 7 days (class, file:line, count), open alerts grouped like the Hata merkezi (you = needs the operator, code = software error, auto = heals by itself) and AI tasks you could not do. Use it to find bugs to report or fix and improvements to propose; it changes nothing.')]
 #[IsReadOnly]
 class SystemHealth extends Tool
 {
@@ -28,6 +29,7 @@ class SystemHealth extends Tool
             $read = $this->health->read();
             $out += [
                 'release' => $read['release'] ?? null,
+                'auto_deploy' => $this->autoDeploy(),
                 'scheduler' => $read['scheduler'] ?? null,
                 'stopped_workers' => array_values(array_filter((array) ($read['workers'] ?? []), fn (array $w): bool => ! ($w['ok'] ?? true))),
                 'queue_waits' => $read['queue_waits'] ?? null,
@@ -53,5 +55,14 @@ class SystemHealth extends Tool
             ->map(fn (AiTask $task): array => ['id' => $task->id, 'operation' => $task->operation, 'subject' => $task->subject, 'reason' => $task->error])->all();
 
         return Response::json($out);
+    }
+
+    /** @return array<string, mixed>|null the last automatic deploy check, with the failing tests when it stopped on them */
+    private function autoDeploy(): ?array
+    {
+        $status = AutoDeployStatus::current();
+        $failure = $status !== null && $status['state'] === 'tests_failed' ? AutoDeployStatus::failure(4000) : null;
+
+        return $status === null ? null : $status + ($failure !== null ? ['failure' => $failure] : []);
     }
 }

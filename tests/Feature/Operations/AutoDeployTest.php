@@ -3,6 +3,8 @@
 namespace Tests\Feature\Operations;
 
 use App\Livewire\Operator\Settings\ImprovementsPage;
+use App\Mcp\Servers\MoxdopServer;
+use App\Mcp\Tools\SystemHealth;
 use App\Models\AgencySetting;
 use App\Services\Operations\AutoDeployStatus;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +24,7 @@ final class AutoDeployTest extends SiteTestCase
 
     protected function tearDown(): void
     {
-        File::delete(AutoDeployStatus::path());
+        File::delete([AutoDeployStatus::path(), AutoDeployStatus::failurePath()]);
         if ($this->repo !== '') {
             File::deleteDirectory($this->repo);
         }
@@ -70,7 +72,8 @@ final class AutoDeployTest extends SiteTestCase
         $git($app, 'push', '--quiet', 'origin', 'other:refs/heads/watched');
         $git($app, 'checkout', '--quiet', '--detach', $live);
 
-        $env = ['MOXDOP_AUTODEPLOY_BRANCHES' => 'watched', 'MOXDOP_WEB_USER' => get_current_user()];
+        // Its own lock: on the server this test runs inside a check that holds the real one.
+        $env = ['MOXDOP_AUTODEPLOY_BRANCHES' => 'watched', 'MOXDOP_WEB_USER' => get_current_user(), 'MOXDOP_AUTODEPLOY_LOCK' => $this->repo.'/auto-deploy.lock'];
         (new Process(['bash', $app.'/deploy/staging/auto-deploy.sh'], $app, $env))->mustRun();
 
         $status = json_decode((string) file_get_contents($app.'/storage/app/auto-deploy.json'), true);
@@ -104,6 +107,20 @@ final class AutoDeployTest extends SiteTestCase
         $this->artisan('moxdop:auto-deploy:report', ['state' => 'deployed', '--sha' => str_repeat('b', 40), '--reason' => 'Yeni sürüm'])->assertSuccessful();
         $this->assertSame(1, DB::table('push_notifications')->count());
         $this->artisan('moxdop:auto-deploy:report', ['state' => 'nonsense'])->assertFailed();
+    }
+
+    public function test_the_failing_tests_of_a_stopped_check_are_readable_on_the_page_and_for_claude(): void
+    {
+        File::put(AutoDeployStatus::path(), json_encode(['state' => 'tests_failed', 'branch' => 'claude/x', 'sha' => str_repeat('a', 40),
+            'message' => 'aaaaaaaa testleri geçmedi, canlıya alınmadı. 1 test: Tests\\Feature\\XTest > it works;', 'checked_at' => '2026-10-06T10:00:00Z']));
+        File::put(AutoDeployStatus::failurePath(), "aaaaaaaa · 2026-10-06T10:00:00Z\n\nFAILED  Tests\\Feature\\XTest > it works\nFailed asserting that 57 is identical to 58.\n");
+
+        $this->actingAs($this->admin)->get(route('operator.settings.releases'))->assertOk()
+            ->assertSee('Geçmeyen testlerin ayrıntısı')->assertSee('Failed asserting that 57 is identical to 58.');
+        MoxdopServer::tool(SystemHealth::class)->assertOk()->assertSee('auto_deploy')->assertSee('Failed asserting that 57 is identical to 58.');
+
+        File::put(AutoDeployStatus::path(), json_encode(['state' => 'deployed', 'branch' => 'claude/x', 'sha' => str_repeat('b', 40), 'message' => 'bbbbbbbb canlıda.', 'checked_at' => '2026-10-06T10:15:00Z']));
+        $this->actingAs($this->admin)->get(route('operator.settings.releases'))->assertDontSee('Geçmeyen testlerin ayrıntısı');
     }
 
     public function test_a_status_with_a_cut_letter_or_control_characters_still_reads_as_its_state(): void

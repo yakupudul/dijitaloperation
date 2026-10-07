@@ -93,7 +93,7 @@ final class ContentScore
             foreach (self::WEIGHTS as $key => $weight) {
                 $total += $weight * $parts[$key];
             }
-            $out[(int) $suggestion->id] = ['score' => max(1, min(100, (int) round(100 * $total))), 'parts' => $parts, 'notes' => $notes];
+            $out[(int) $suggestion->id] = ['score' => max(1, min(100, (int) round(round(100 * $total, 6)))), 'parts' => $parts, 'notes' => $notes];
         }
 
         return $out;

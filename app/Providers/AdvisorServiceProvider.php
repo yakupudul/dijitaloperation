@@ -104,6 +104,14 @@ final class AdvisorServiceProvider extends ServiceProvider
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::META_STRATEGY_PLAN,
+            'name' => 'Meta Strategy Plan',
+            'module' => 'meta',
+            'description' => 'Strateji öner: a Meta campaign plan draft (names, ad set audiences, ad texts, what to watch) for one brand service, written from the rule-built recipe of other brands\' winning campaigns. Budget and expected cost come from the rules, not AI. Lands in Yapılacaklar; nothing is written to Meta.',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
             'key' => AiRouteKeys::META_STRUCTURE,
             'name' => 'Meta Campaign Structure',
             'module' => 'meta',

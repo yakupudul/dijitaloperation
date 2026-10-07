@@ -2038,6 +2038,9 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   Adım 3 (2026-10-07): hizmet ortalaması = aynı katalog hizmeti ve sonuç türünde diğer markaların 30 günlük ortancası
   (önce markanın şehri), her sabah kuralla hesaplanır (`ad_service_stats`). Google Ads hizmeti anahtar kelimeden gelir
   (ayrı kampanya eşleme ekranı yok). Menüde "Meta reklamları" (Meta masası); marka sayfasında "Hizmet karnesi" sekmesi.
+  Adım 4 (2026-10-07): Strateji öner (`/meta/strateji`): kazanan eşiği 30 günde ≥ 2.000 TL harcama ve ≥ 10 sonuç (yalnız
+  TRY hesaplar); kazanan tarifi en iyi 5'ten kuralla; plan taslağını Claude yazar (bütçe ve maliyet tariften), markanın
+  Meta › Yapılacaklar listesine düşer. Diğer markaların reklam metinleri iç kullanımda gösterilir; AI'a diğer markaların adı ve kampanya adı verilmez, metin kopyalamak yasak.
 - **Microsoft Clarity (yakup, 2026-10-03):** her site için Clarity proje kimliği + Data Export token (Ayarlar). Günde bir
   çekim; kural tabanlı (AI yok) öfkeli / çalışmayan tıklama, hızlı geri dönüş, JS hatası, kaydırma → Genel işler › Teknik
   sağlık işi. Siteye hiçbir şey yazılmaz; Clarity etiketini siteye yakup ekler.

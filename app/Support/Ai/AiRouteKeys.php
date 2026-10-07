@@ -95,6 +95,9 @@ final class AiRouteKeys
     /** Kampanya → hizmet: the brand services of the Meta campaigns the rules could not match (one call per account). */
     public const string META_CAMPAIGN_SERVICES = 'meta.campaign_services';
 
+    /** Strateji öner: a Meta campaign plan draft for one brand service from the winners' recipe (texts only; numbers by rules). */
+    public const string META_STRATEGY_PLAN = 'meta.strategy_plan';
+
     public const string INSIGHT_ADVISOR_EXPLAIN = 'insights.advisor_explain';
 
     public const string INSIGHT_REVIEW_THEMES = 'insights.review_themes';

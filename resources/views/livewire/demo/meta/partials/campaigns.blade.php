@@ -46,6 +46,9 @@
         <label class="min-w-[12rem] flex-1 text-xs text-gray-500">Ara
             <input type="search" wire:model.live.debounce.400ms="search" placeholder="Kampanya adı" class="mt-1 block w-full rounded-lg border-gray-300 py-1.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
         </label>
+        @if ($brand)
+            <a href="{{ route('operator.meta-strategy', ['marka' => $brand->id]) }}" wire:navigate class="rounded-lg px-3 py-1.5 text-sm font-semibold text-brand-600 ring-1 ring-inset ring-brand-200 hover:bg-brand-50 dark:ring-brand-500/30 dark:hover:bg-brand-500/10">Strateji öner</a>
+        @endif
     </div>
 
     @php

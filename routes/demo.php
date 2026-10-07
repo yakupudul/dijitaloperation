@@ -54,6 +54,7 @@ use App\Livewire\Operator\Meta\AssignPage as MetaAssignPage;
 use App\Livewire\Operator\Meta\CampaignPage as MetaCampaignPage;
 use App\Livewire\Operator\Meta\DeskPage as MetaDeskPage;
 use App\Livewire\Operator\Meta\OverviewPage as MetaOverviewPage;
+use App\Livewire\Operator\Meta\StrategyPage as MetaStrategyPage;
 use App\Livewire\Operator\Portfolio\BrandSetupPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Operator\Settings\AiOperationsPage;
@@ -127,6 +128,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/assets/meta/{assetId}/campaigns/{campaignId}', MetaCampaignPage::class)->name('operator.meta.campaign');
         Route::livewire('/assets/meta/{assetId}/eslestir', MetaAssignPage::class)->name('operator.meta.assign');
         Route::livewire('/meta', MetaDeskPage::class)->name('operator.meta-desk');
+        Route::livewire('/meta/strateji', MetaStrategyPage::class)->name('operator.meta-strategy');
         Route::get('/assets/meta/{assetId}/adsets', MetaLegacyPageRedirectController::class)->defaults('tab', 'campaigns')->defaults('level', 'adsets')->name('operator.meta.adsets');
         Route::get('/assets/meta/{assetId}/adsets/{adSetId}', MetaLegacyPageRedirectController::class)->defaults('tab', 'campaigns')->defaults('level', 'adsets')->name('operator.meta.adset');
         Route::get('/assets/meta/{assetId}/ads', MetaLegacyPageRedirectController::class)->defaults('tab', 'campaigns')->defaults('level', 'ads')->name('operator.meta.ads');

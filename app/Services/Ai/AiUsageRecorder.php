@@ -52,6 +52,7 @@ final class AiUsageRecorder
         'MetaStructureAgent' => AiRouteKeys::META_STRUCTURE,
         'MetaLandingAgent' => AiRouteKeys::META_LANDING,
         'MetaCampaignServicesAgent' => AiRouteKeys::META_CAMPAIGN_SERVICES,
+        'MetaStrategyPlanAgent' => AiRouteKeys::META_STRATEGY_PLAN,
         'GoogleAdsSearchTermsAgent' => AiRouteKeys::GOOGLE_ADS_SEARCH_TERMS,
         'GoogleAdsStructureAgent' => AiRouteKeys::GOOGLE_ADS_STRUCTURE,
         'GoogleAdsAdTextsAgent' => AiRouteKeys::GOOGLE_ADS_AD_TEXTS,

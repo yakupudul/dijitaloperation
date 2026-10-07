@@ -16,8 +16,16 @@ use Tests\Feature\Site\SiteTestCase;
 /** Ayarlar › Sürümler (yakup, 2026-10-06): what went live with which deploy and what is still waiting. */
 final class ReleasesPageTest extends SiteTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // The server running the tests has the real cron file.
+        AutoDeployStatus::$cronFile = sys_get_temp_dir().'/moxdop-autodeploy-cron-'.uniqid();
+    }
+
     protected function tearDown(): void
     {
+        AutoDeployStatus::$cronFile = AutoDeployStatus::CRON_FILE;
         File::delete([ReleaseLog::historyPath(), ReleaseLog::pendingPath(), AutoDeployStatus::path(), ReleaseInfo::path()]);
         ReleaseInfo::forget();
         parent::tearDown();

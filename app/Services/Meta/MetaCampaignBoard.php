@@ -175,6 +175,68 @@ final class MetaCampaignBoard
         ];
     }
 
+    /**
+     * The campaign's recipe for Strateji öner / Kazananlar: settings, the targeting of its biggest ad set and its best
+     * ad (lowest cost per result of the campaign's type, else the biggest spender). Rule-built from the collected tables.
+     *
+     * @param  array<string, array<string, mixed>>  $ads  adPerformance() of the window
+     * @param  array{amount: ?float, level: string}  $budget
+     * @return array<string, mixed>
+     */
+    public static function profile(string $campaignId, array $entities, array $ads, string $type, array $budget): array
+    {
+        $campaign = $entities['campaigns'][$campaignId] ?? ['objective' => ''];
+        $own = array_filter($ads, fn (array $r): bool => $r['campaign_id'] === $campaignId);
+        $bySet = MetaScreen::rollup($own, 'adset_id');
+        $adsets = array_filter($entities['adsets'], fn (array $a): bool => $a['campaign_id'] === $campaignId);
+        uksort($adsets, fn ($a, $b): int => ($bySet[$b]['spend'] ?? 0) <=> ($bySet[$a]['spend'] ?? 0));
+        $main = $adsets === [] ? null : reset($adsets);
+        $campaignAds = array_filter($entities['ads'], fn (array $ad): bool => $ad['campaign_id'] === $campaignId);
+        $best = null;
+        $destinations = [];
+        $videos = 0;
+        foreach ($campaignAds as $id => $ad) {
+            $creative = $entities['creatives'][$ad['creative_id']] ?? [];
+            $videos += ($creative['video'] ?? false) ? 1 : 0;
+            $set = $entities['adsets'][$ad['adset_id']] ?? [];
+            $destinations[] = ($creative['lead_gen_form_id'] ?? '') !== '' ? 'form'
+                : (preg_match('/MESSENGER|WHATSAPP|INSTAGRAM_DIRECT|MESSAG/i', (string) ($set['destination_type'] ?? '')) ? 'mesaj' : (($creative['link_url'] ?? '') !== '' ? 'site' : ''));
+            [$count, $cpr] = self::result($ads[$id] ?? null, $type);
+            $spend = (float) ($ads[$id]['spend'] ?? 0);
+            $rank = [$cpr === null ? 1 : 0, $cpr ?? 0, -$spend];
+            if (($creative['body'] ?? '') === '' && ($creative['title'] ?? '') === '') {
+                continue;
+            }
+            if ($best === null || $rank < $best['rank']) {
+                $best = ['rank' => $rank, 'title' => mb_substr((string) ($creative['title'] ?? ''), 0, 200), 'body' => mb_substr((string) ($creative['body'] ?? ''), 0, 1200),
+                    'video' => (bool) ($creative['video'] ?? false), 'form' => ($creative['lead_gen_form_id'] ?? '') !== '',
+                    'link_path' => ($creative['link_url'] ?? '') !== '' ? (string) (parse_url((string) $creative['link_url'], PHP_URL_PATH) ?: '/') : '',
+                    'results' => $count, 'cpr' => $cpr];
+            }
+        }
+        if ($best !== null) {
+            unset($best['rank']);
+        }
+        $destinations = array_count_values(array_filter($destinations));
+        arsort($destinations);
+        $targeting = $main !== null ? self::targeting((array) $main['targeting']) : null;
+        if ($targeting !== null) {
+            $targeting['interests'] = array_slice($targeting['interests'], 0, 15);
+            $targeting['audiences'] = count($targeting['audiences']);
+            $targeting['excluded'] = count($targeting['excluded']);
+        }
+
+        return [
+            'objective' => MetaScreen::objectiveLabel((string) $campaign['objective']),
+            'optimization' => array_values(array_unique(array_filter(array_column($adsets, 'optimization_goal')))),
+            'destination' => (string) (array_key_first($destinations) ?? ''),
+            'budget' => $budget['amount'], 'budget_level' => $budget['level'],
+            'adsets' => count(array_filter($adsets, fn (array $a): bool => self::status((string) $a['status']) === 'live')) ?: count($adsets),
+            'ads' => count($campaignAds), 'video_ads' => $videos,
+            'targeting' => $targeting, 'best_ad' => $best,
+        ];
+    }
+
     /** ACTIVE → live, paused at any level → paused, deleted / archived → ended. */
     public static function status(string $status): string
     {

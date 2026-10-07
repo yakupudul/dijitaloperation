@@ -15,6 +15,12 @@
                 Otomatik deploy: {{ $autoDeploy['label'] }}@if($autoDeploy['message'] !== '' && $autoDeploy['state'] !== 'idle') · {{ $autoDeploy['message'] }}@endif
                 @if($autoDeploy['checked_at'])<span class="text-xs opacity-70"> · son kontrol {{ $when($autoDeploy['checked_at']) }}</span>@endif
             </p>
+            @if($autoDeploy['state'] === 'tests_failed' && $failure)
+                <details class="mt-2 text-xs" data-auto-deploy-failure>
+                    <summary class="cursor-pointer font-semibold text-rose-700 dark:text-rose-300">Geçmeyen testlerin ayrıntısı</summary>
+                    <pre class="mt-1 max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-3 text-gray-700 dark:bg-gray-900 dark:text-gray-300">{{ $failure }}</pre>
+                </details>
+            @endif
         @else
             <p class="mt-1 text-amber-700 dark:text-amber-300">Otomatik deploy sunucuda kurulu değil; canlıya almak için sunucuda <code>bash deploy/staging/auto-deploy.sh --install</code> bir kez çalıştırılmalı.</p>
         @endif

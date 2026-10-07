@@ -40,7 +40,7 @@ class MetaDesk
         $brands = Brand::query()->with('sectorCategory')->whereIn('id', DB::table('ad_campaign_stats')->where('channel', 'meta')->distinct()->pluck('brand_id'))->get()->keyBy('id');
         $costs = AdServiceStats::brandCosts('meta');
         $cities = $brands->map(fn (Brand $b): string => AdServiceStats::city($b))->all();
-        $serviceNames = $this->serviceNames(array_map(fn (string $k): int => (int) explode('|', $k)[0], array_keys($costs)));
+        $serviceNames = self::serviceNames(array_map(fn (string $k): int => (int) explode('|', $k)[0], array_keys($costs)));
 
         $rows = [];
         foreach (DB::table('ad_campaign_stats')->where('channel', 'meta')->get() as $r) {
@@ -152,7 +152,7 @@ class MetaDesk
      * @param  list<int>  $ids
      * @return array<int, string>
      */
-    private function serviceNames(array $ids): array
+    public static function serviceNames(array $ids): array
     {
         return ServiceCatalogItem::query()->with('primaryName')->whereIn('id', array_values(array_unique($ids)) ?: [0])->get()
             ->mapWithKeys(fn (ServiceCatalogItem $item): array => [(int) $item->id => (string) ($item->primaryName?->raw_label ?? 'Hizmet #'.$item->id)])->all();

@@ -11,11 +11,12 @@ use App\Services\Meta\MetaCampaignServices;
 use App\Services\Meta\MetaScreen;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Cross-brand ad numbers, rebuilt daily by rules (no AI): every brand service's 30-day spend and results per channel
  * and result type (Meta: campaign → hizmet, an ad's numbers split over the services it names; Google Ads: keyword →
- * hizmet, conversions), and every Meta campaign's 30-day row for Meta masası. Comparisons read the median cost per
+ * hizmet, conversions), and every Meta campaign's 30-day row for Meta masası and Strateji öner (with its recipe: settings, targeting, best ad). Comparisons read the median cost per
  * result of the same catalog service and result type over the other brands, in the brand's city when enough brands
  * are there. Result types are never mixed.
  */
@@ -72,6 +73,9 @@ class AdServiceStats
         $offerings = array_column($this->services->offerings($brand), null, 'id');
         $city = self::city($brand);
         $currency = (string) ($account['currency'] ?? '');
+        $entities = $this->screen->entities($account);
+        $ads = $this->screen->adPerformance($account, $board['window']['from'], $end, $entities);
+        $hasProfile = Schema::hasColumn('ad_campaign_stats', 'profile');
 
         $campaigns = [];
         foreach ($board['rows'] as $row) {
@@ -82,14 +86,13 @@ class AdServiceStats
                 'status' => $row['status'], 'result_type' => $row['type'], 'spend' => $row['spend'], 'results' => $row['results'], 'cpr' => $row['cpr'], 'prev_cpr' => $row['prev_cpr'],
                 'service_state' => $row['service_state'], 'services' => json_encode(array_map(fn (array $s): array => ['id' => $s['id'], 'name' => $s['name'], 'status' => $s['status'],
                     'service_id' => $offerings[$s['id']]['service_id'] ?? null], $row['services']), JSON_UNESCAPED_UNICODE),
-                'alerts' => json_encode($row['alerts'], JSON_UNESCAPED_UNICODE), 'currency' => $currency !== '' ? mb_substr($currency, 0, 8) : null, 'period_end' => $end];
+                'alerts' => json_encode($row['alerts'], JSON_UNESCAPED_UNICODE), 'currency' => $currency !== '' ? mb_substr($currency, 0, 8) : null, 'period_end' => $end]
+                + ($hasProfile ? ['profile' => json_encode(MetaCampaignBoard::profile($row['id'], $entities, $ads, $row['type'], $row['budget']), JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE)] : []);
         }
 
         // Service numbers: each ad's spend and the results of its campaign's type, split over the ad's services.
-        $entities = $this->screen->entities($account);
         $map = $this->services->map($asset);
         $types = array_column($board['rows'], 'type', 'id');
-        $ads = $this->screen->adPerformance($account, $board['window']['from'], $end, $entities);
         $sum = [];
         foreach ($this->services->adShares($asset, $entities, $map) as $adId => $shares) {
             $ad = $ads[$adId] ?? null;

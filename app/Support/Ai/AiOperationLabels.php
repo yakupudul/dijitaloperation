@@ -47,6 +47,7 @@ final class AiOperationLabels
         'meta.structure' => 'Meta kampanya yapısı',
         'meta.landing' => 'Meta form / açılış sayfası',
         'meta.campaign_services' => 'Meta kampanyalarına hizmet eşleştirme',
+        'meta.strategy_plan' => 'Meta strateji planı taslağı',
         'insights.alert_cause' => 'Uyarı nedeni',
         'insights.technical_tasks' => 'Teknik görevler',
         'competitors.classify' => 'Rakip sınıflandırma',
