@@ -74,6 +74,8 @@ class DemoSharedPeriodFilterTest extends TestCase
             ->call('setDays', 90)
             ->assertSet('days', 90)
             ->call('setDays', 7)
+            ->assertSet('days', 7)
+            ->call('setDays', 5)
             ->assertSet('days', 28)
             ->assertSee('Google Ads');
     }
@@ -97,7 +99,7 @@ class DemoSharedPeriodFilterTest extends TestCase
             ->call('setTab', 'acquisition')
             ->assertSet('period', 'custom')
             ->assertSet('compare', true)
-            ->assertSee('vs');
+            ->assertSee('karşılaştırma:');
 
         $custom = Ga4WorkspaceFixtures::workspace('custom', '2026-07-06', '2026-08-12');
         $this->assertNotSame($baselineSessions, (int) $custom['glance']['sessions']['raw']);
@@ -120,7 +122,7 @@ class DemoSharedPeriodFilterTest extends TestCase
             ->call('setTab', 'pages')
             ->assertSet('period', 'custom')
             ->assertSet('compare', true)
-            ->assertSee('vs');
+            ->assertSee('karşılaştırma:');
 
         $custom = GscWorkspaceFixtures::workspace('custom', '2026-07-06', '2026-08-12');
         $this->assertNotSame($baselineClicks, (int) $custom['glance']['clicks']['raw']);
@@ -142,5 +144,36 @@ class DemoSharedPeriodFilterTest extends TestCase
         $this->assertSame(7, $short['days']);
         $this->assertGreaterThan($short['days'], $long['days']);
         $this->assertNotEquals($short['spend_factor'], $long['spend_factor']);
+    }
+
+    public function test_analytics_and_search_console_use_the_website_date_picker(): void
+    {
+        $asset = $this->createPortfolioAsset('ga4', 'Northwind GA4', ['module_id' => 'analytics']);
+        $page = Livewire::test(AnalyticsPage::class, ['assetId' => (string) $asset->id])->assertSeeHtml('data-date-picker');
+
+        $page->call('setRange', 90, '', '', 'year')->assertSet('period', 'last_90')->assertSet('compareMode', 'yoy')->assertSee('Son 3 ay');
+        $this->assertSame([90, 'year', false], [$page->instance()->pickerRange()->days, $page->instance()->pickerRange()->compare, $page->instance()->pickerRange()->custom()]);
+
+        $page->call('setRange', 180)->assertSet('period', 'custom')->assertSet('compareMode', 'previous')->assertSee('Son 6 ay');
+        $this->assertSame(180, $page->instance()->pickerRange()->days, 'a custom window that is the last N days shows as that preset');
+
+        $page->call('setRange', 28, '2026-07-06', '2026-08-01')->assertSet('period', 'custom')->assertSet('periodStart', '2026-07-06')->assertSet('periodEnd', '2026-08-01')
+            ->assertSee('Özel aralık')->assertSee('6 Tem – 1 Ağu 2026');
+
+        $gsc = $this->createPortfolioAsset('gsc', 'Northwind GSC', ['module_id' => 'search-console']);
+        Livewire::test(SearchConsolePage::class, ['assetId' => (string) $gsc->id])->assertSeeHtml('data-date-picker')
+            ->call('setRange', 7)->assertSet('period', 'last_7')->assertSee('Son 7 gün');
+    }
+
+    public function test_google_ads_takes_a_custom_range_and_the_comparison_from_the_picker(): void
+    {
+        $gads = $this->createPortfolioAsset('google_ads', 'Northwind Ads', ['module_id' => 'google-ads']);
+
+        Livewire::test(GoogleAdsOverviewPage::class, ['assetId' => (string) $gads->id])->assertSeeHtml('data-date-picker')
+            ->call('setRange', 28, '2026-09-01', '2026-09-14', 'year')
+            ->assertSet('start', '2026-09-01')->assertSet('end', '2026-09-14')->assertSet('days', 14)->assertSet('compare', 'year')
+            ->assertSee('Özel aralık')->assertSee('1 Eyl – 14 Eyl 2026')
+            ->call('setDays', 90)->assertSet('start', '')->assertSet('days', 90)->assertSet('compare', 'year')
+            ->call('setTab', 'todo')->assertDontSeeHtml('data-date-picker');
     }
 }

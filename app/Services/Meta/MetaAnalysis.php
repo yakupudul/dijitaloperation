@@ -4,6 +4,7 @@ namespace App\Services\Meta;
 
 use App\Models\DigitalAsset;
 use App\Services\MetaAds\MetaGeoResults;
+use App\Services\Site\Analysis\SiteRange;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -47,7 +48,7 @@ class MetaAnalysis
      * @param  string  $resultType  leads | messages | purchases | '' (the scope's main type)
      * @return array<string, mixed>|null
      */
-    public function analysis(DigitalAsset $asset, int $days, string $focus = '', string $compare = 'prev', string $resultType = ''): ?array
+    public function analysis(DigitalAsset $asset, int|SiteRange $days, string $focus = '', string $compare = 'prev', string $resultType = ''): ?array
     {
         $account = $this->screen->account($asset);
         if ($account === null) {

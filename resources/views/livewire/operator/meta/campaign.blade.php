@@ -99,11 +99,8 @@
         </div>
     </section>
 
-    <div class="flex flex-wrap items-center gap-1">
-        @foreach ($dayOptions as $option)
-            <button type="button" wire:click="setDays({{ $option }})" @class(['rounded-lg px-3 py-1 text-sm font-medium', 'bg-brand-500 text-white' => $days === $option, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $days !== $option])>{{ $option }} gün</button>
-        @endforeach
-        <span class="ml-2 text-xs text-gray-500">{{ $campaign['window']['from'] }} – {{ $campaign['window']['to'] }}</span>
+    <div class="flex flex-wrap items-center gap-2">
+        <x-operator.date-range-picker :range="$range" :last-day="$lastDay" note="Meta verisi her gün toplanır." />
     </div>
 
     @php

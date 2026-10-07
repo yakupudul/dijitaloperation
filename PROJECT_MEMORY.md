@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-10-07 — Tek tarih seçici her varlık ekranında
+
+- **Karar (yakup, 2026-10-07):** Web sitesi ekranındaki tarih seçici tüm dijital varlık ekranlarında da kullanılır (Google Ads, Meta ve kampanya detayı, İşletme Profili, Analytics, Search Console). Yeni bir varlık ekranı ya da dönem okuyan sekme eklenirse ayrı "N gün" düğmeleri değil `<x-operator.date-range-picker>` ve `SiteRange` kullanılır.
+
 ## 2026-10-06 — Otomatik deploy
 
 - **Karar (yakup, 2026-10-06, karar kartı "Otomatik deploy"):** Sunucu izlenen dallardaki yeni kodu kendisi canlıya alır; yakup'un elle `git pull` + `deploy.sh` yapması gerekmez. Claude yine canlı sisteme doğrudan dokunmaz: kodu dala yazar, sunucu alır.

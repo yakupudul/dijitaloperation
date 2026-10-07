@@ -1,5 +1,16 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-07 — Tüm dijital varlık ekranlarında aynı tarih seçici
+
+- **Neden (yakup):** "Web site dijital varlığında tarih filtresi var. O tarih filtresini tüm dijital varlık türlerinin ekranlarına da koy."
+- **Ortak parça:** Web sitesi ekranındaki seçici `<x-operator.date-range-picker>` oldu (hazır aralıklar 7 / 14 / 28 gün, 3 / 6 / 12 ay, geçen ay; iki aylık takvim; özel aralık; önceki dönem ya da geçen yıl). Son gün ekranın kendi son veri günüdür; "Uygula" ekranın `setRange()`'ini çağırır.
+- **Google Ads:** Genel bakış, Arama terimleri, Analiz (eski "28 / 90 gün" düğmeleri kalktı; arama terimleri artık sabit 30 gün değil seçili dönem). URL `days`, `bas`, `bit`, `kars`.
+- **Meta:** Kampanyalar, Analiz, Ölçüm ve kampanya detayı (`/assets/meta/{id}/campaigns/{c}`); listeden açılan kampanya aynı dönemle açılır. Analiz'in ayrı "Karşılaştır" düğmeleri seçicinin içine taşındı. URL `days` / `gun`, `bas`, `bit`, `karsilastir`. Kampanya detayındaki Analiz de seçili dönemi kullanır.
+- **İşletme Profili:** Genel Bakış sayıları (görüntüleme, tıklama; önceden sabit 28 gün) ve Analiz. Karşılaştırma döneminde veri yoksa "önceki dönem yok".
+- **Analytics / Search Console varlık ekranları:** eski dönem çubuğu yerine aynı seçici; seçim sayfanın kendi dönemine (`period`, `from`, `to`, `compare_mode`) çevrilir, 7 / 14 / 28 / 90 gün hazır, diğerleri özel aralık.
+- Okuyucular (`GoogleAdsScreen`, `MetaScreen`, `MetaCampaignBoard`, `MetaAnalysis`, `GbpScreen`) gün sayısı yerine `SiteRange` da alır; marka sayfası KPI'ları gibi diğer çağıranlar değişmedi.
+- **State:** CODED + PHPUnit (`DemoSharedPeriodFilterTest` 2 yeni, `MetaCampaignServicesTest::test_the_date_picker_range_drives_the_board_the_analysis_and_the_campaign_page`, `GbpWorkspaceTabsTest::test_the_date_picker_range_drives_the_overview_numbers_and_the_analysis`, `GoogleAdsScreenTest::test_the_date_picker_range_gives_the_window_and_its_comparison`). Görünüm insan gözüyle onaylanmadı.
+
 ## 2026-10-07 — İçerik fikirleri markanın kendi verisine dayanır
 
 - **Neden (yakup):** "Hiçbir içerik firmaya faydalı olabilecek, markayı tanıyan, markadaki verileri hedef odakları bilen bir tarafta olan içerik fikirleri değil. Başlıklar ai kokuyor."

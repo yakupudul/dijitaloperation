@@ -5,6 +5,7 @@ namespace App\Livewire\Demo\Gbp;
 use App\Contracts\GbpOperatorWorkspace;
 use App\Jobs\Gbp\SyncGbpSuggestionsJob;
 use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
+use App\Livewire\Operator\Concerns\HasDateRange;
 use App\Models\AiProduction;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
@@ -28,6 +29,7 @@ use App\Services\Gbp\GbpStandardInput;
 use App\Services\Gbp\GbpSuggestions;
 use App\Services\Gbp\ReviewReplyDrafter;
 use App\Services\SeoTasks\SeoText;
+use App\Services\Site\Analysis\SiteRange;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Cache;
@@ -51,6 +53,7 @@ use RuntimeException;
 #[Title('İşletme Profili')]
 class OverviewPage extends Component
 {
+    use HasDateRange;
     use ResolvesCanonicalOperatorAsset;
 
     public const array TABS = ['overview' => 'Genel Bakış', 'todo' => 'Yapılacaklar', 'reviews' => 'Yorumlar', 'posts' => 'Gönderiler', 'services' => 'Kategori ve hizmetler', 'analysis' => 'Analiz', 'settings' => 'Ayarlar'];
@@ -62,18 +65,18 @@ class OverviewPage extends Component
         'insights' => 'overview', 'competitors' => 'overview', 'operations' => 'overview',
     ];
 
-    /** @var list<int> */
-    private const array DAY_OPTIONS = [28, 90, 180];
-
     #[Locked]
     public string $assetId = '';
 
     #[Url]
     public string $tab = 'overview';
 
-    /** Analiz window in days. */
+    /** Date picker (Genel Bakış, Analiz): preset days, or a custom start / end (HasDateRange), and the comparison. */
     #[Url]
     public int $days = 28;
+
+    #[Url(as: 'kars')]
+    public string $compare = SiteRange::COMPARE_PREVIOUS;
 
     #[Url]
     public bool $unanswered = false;
@@ -124,12 +127,6 @@ class OverviewPage extends Component
     public function setTab(string $tab): void
     {
         $this->tab = $tab;
-        $this->normalize();
-    }
-
-    public function setDays(int $days): void
-    {
-        $this->days = $days;
         $this->normalize();
     }
 
@@ -479,7 +476,7 @@ class OverviewPage extends Component
             'peerFound' => $peerFound,
             'desk' => $this->tab === 'overview' ? $this->desk($assetId) : null,
             'canWrite' => ExternalWriteService::allowed(auth()->user(), ExternalWriteAction::CHANNEL_GBP),
-            'numbers' => $this->tab === 'overview' ? $screen->overview($asset, $resourceId) : null,
+            'numbers' => $this->tab === 'overview' ? $screen->overview($asset, $resourceId, $this->dateRange()) : null,
             'openCount' => $asset->brand_id !== null ? $suggestions->open($asset)->count() : 0,
             'suggestions' => $this->tab === 'todo' ? $suggestions->open($asset) : collect(),
             'approved' => $this->tab === 'todo' && $asset->brand_id !== null ? $suggestions->approved($asset) : collect(),
@@ -497,8 +494,10 @@ class OverviewPage extends Component
             'live' => $this->tab === 'services' && ($data['connection']['bound'] ?? false) ? app(GbpProfilePlanner::class)->live($asset) : null,
             'profileWrites' => $this->tab === 'services' ? ExternalWriteAction::query()->where('digital_asset_id', $assetId)
                 ->where('action', ExternalWriteAction::ACTION_PROFILE_UPDATE)->latest('id')->limit(10)->get() : collect(),
-            'analysis' => $this->tab === 'analysis' && $resourceId !== null ? $screen->analysis($resourceId, $this->days) : null,
-            'dayOptions' => self::DAY_OPTIONS,
+            'analysis' => $this->tab === 'analysis' && $resourceId !== null ? $screen->analysis($resourceId, $this->dateRange()) : null,
+            'range' => $this->dateRange(),
+            'lastDay' => $screen->lastDay($resourceId)->toDateString(),
+            'ranged' => in_array($this->tab, ['overview', 'analysis'], true),
         ]);
     }
 
@@ -539,9 +538,7 @@ class OverviewPage extends Component
         if (! isset(self::TABS[$this->tab])) {
             $this->tab = 'overview';
         }
-        if (! in_array($this->days, self::DAY_OPTIONS, true)) {
-            $this->days = 28;
-        }
+        $this->normalizeDateRange();
     }
 
     private function review(int $reviewId): GbpReview

@@ -15,14 +15,6 @@
 @else
     <div class="flex flex-wrap items-end gap-3" data-testid="meta-campaign-filters">
         <div>
-            <p class="mb-1 text-xs text-gray-500">Dönem</p>
-            <div class="flex gap-1">
-                @foreach ($dayOptions as $option)
-                    <button type="button" wire:click="setDays({{ $option }})" @class(['rounded-lg px-3 py-1.5 text-sm font-medium', 'bg-brand-500 text-white' => $days === $option, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $days !== $option])>{{ $option }} gün</button>
-                @endforeach
-            </div>
-        </div>
-        <div>
             <p class="mb-1 text-xs text-gray-500">Durum</p>
             <div class="flex gap-0.5 rounded-lg bg-gray-100 p-0.5 dark:bg-white/[0.04]">
                 @foreach (['live' => 'Yayında', 'paused' => 'Durmuş', 'all' => 'Tümü'] as $key => $label)
@@ -54,7 +46,7 @@
     @php
         $k = $board['kpis'];
         $tiles = [
-            ['Harcama', $money($k['spend']['value']), $k['spend']['change'] === null ? 'önceki dönem yok' : $pct($k['spend']['change']).' önceki '.$days.' güne göre', null],
+            ['Harcama', $money($k['spend']['value']), $k['spend']['change'] === null ? 'önceki dönem yok' : $pct($k['spend']['change']).' karşılaştırma dönemine göre', null],
             ['Form', $count($k['leads']['value']), 'form başı '.$money($k['leads']['cost']), $k['leads']['change']],
             ['Mesaj', $count($k['messages']['value']), 'mesaj başı '.$money($k['messages']['cost']), $k['messages']['change']],
             ['Satış', $count($k['purchases']['value']), 'satış başı '.$money($k['purchases']['cost']), $k['purchases']['change']],
@@ -74,7 +66,7 @@
         <section class="space-y-2" data-testid="meta-campaigns-by-service">
             <div class="flex items-baseline justify-between gap-2">
                 <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Hizmetlere göre</h2>
-                <p class="text-xs text-gray-500">Son {{ $days }} gün · iki hizmetli kampanya ikisinde de sayılır · tıklayınca tablo o hizmete süzülür</p>
+                <p class="text-xs text-gray-500">{{ $range->label() }} · iki hizmetli kampanya ikisinde de sayılır · tıklayınca tablo o hizmete süzülür</p>
             </div>
             <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 @foreach ($board['by_service'] as $svc)
@@ -112,7 +104,7 @@
                                 <div class="flex gap-2.5">
                                     <span @class(['mt-1.5 h-2 w-2 shrink-0 rounded-full', 'bg-emerald-500' => $row['status'] === 'live', 'bg-gray-400' => $row['status'] !== 'live']) title="{{ ['live' => 'Yayında', 'paused' => 'Durmuş', 'ended' => 'Bitti'][$row['status']] }}"></span>
                                     <div class="min-w-0">
-                                        <a href="{{ route('operator.meta.campaign', ['assetId' => $assetId, 'campaignId' => $row['id'], 'gun' => $days]) }}" wire:navigate class="font-semibold text-gray-900 hover:text-brand-600 dark:text-white">{{ $row['name'] }}</a>
+                                        <a href="{{ route('operator.meta.campaign', ['assetId' => $assetId, 'campaignId' => $row['id'], 'gun' => $days, 'bas' => $start ?: null, 'bit' => $end ?: null, 'karsilastir' => $compare !== 'prev' ? $compare : null]) }}" wire:navigate class="font-semibold text-gray-900 hover:text-brand-600 dark:text-white">{{ $row['name'] }}</a>
                                         <p class="text-xs text-gray-500">{{ $row['objective'] }}</p>
                                     </div>
                                 </div>
@@ -168,7 +160,7 @@
             <span class="flex items-center gap-1.5"><span class="{{ $chip }} bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200">Hizmet</span> onaylı</span>
             <span class="flex items-center gap-1.5"><span class="{{ $chip }} border border-dashed border-gray-400 text-gray-700">Hizmet</span> sistem önerisi, tıklayınca onaylanır</span>
             <span class="flex items-center gap-1.5"><span class="{{ $chip }} bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200">+ Hizmet ata</span> eşleşme yok</span>
-            <span>Sonuç başı maliyet önceki {{ $days }} güne göre; her kampanya kendi sonuç türüyle. Hizmet ort.: aynı hizmet ve sonuç türünde diğer markaların son 30 gün ortancası.</span>
+            <span>Sonuç başı maliyet karşılaştırma dönemine göre; her kampanya kendi sonuç türüyle. Hizmet ort.: aynı hizmet ve sonuç türünde diğer markaların son 30 gün ortancası.</span>
         </div>
     </section>
 @endif

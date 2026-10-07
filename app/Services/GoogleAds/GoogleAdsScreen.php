@@ -15,6 +15,7 @@ use App\Services\Advisor\GoogleAds\GoogleAdsRowScope;
 use App\Services\GoogleAds\Support\GoogleAdsBindingContext;
 use App\Services\Queries\QueryNormalizer;
 use App\Services\Queries\QueryServiceMatcher;
+use App\Services\Site\Analysis\SiteRange;
 use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -60,16 +61,26 @@ final class GoogleAdsScreen
         ];
     }
 
-    /** @return array{0: string, 1: string} window of $days ending $offset windows before yesterday */
-    public static function window(CarbonImmutable $end, int $days, int $offset = 0): array
+    /**
+     * Window of $days ending $offset windows before yesterday; a SiteRange (the screen's date picker) gives its own window
+     * (offset 0) and its comparison window (offset 1: previous period or the same dates a year earlier).
+     *
+     * @return array{0: string, 1: string}
+     */
+    public static function window(CarbonImmutable $end, int|SiteRange $days, int $offset = 0): array
     {
+        if ($days instanceof SiteRange) {
+            $window = $days->window($end);
+
+            return $offset === 0 ? [$window['start'], $window['end']] : [$window['prev_start'], $window['prev_end']];
+        }
         $to = $end->subDays($days * $offset);
 
         return [$to->subDays($days - 1)->toDateString(), $to->toDateString()];
     }
 
     /** @return array{current: array<string, ?float>, previous: array<string, ?float>, currency: ?string, timezone: string, last_date: ?string}|null */
-    public function overview(DigitalAsset $asset, int $days = 28): ?array
+    public function overview(DigitalAsset $asset, int|SiteRange $days = 28): ?array
     {
         $ctx = $this->context($asset);
 
@@ -98,7 +109,7 @@ final class GoogleAdsScreen
      * @param  array{scope: GoogleAdsRowScope, currency: ?string, timezone: string, end: CarbonImmutable, customer_id: string}  $ctx
      * @return array{current: array<string, ?float>, previous: array<string, ?float>, currency: ?string, timezone: string, last_date: ?string}
      */
-    private function overviewOf(array $ctx, int $days): array
+    private function overviewOf(array $ctx, int|SiteRange $days): array
     {
         $totals = function (array $window) use ($ctx): array {
             $row = $ctx['scope']->daily('google_ads_campaign_daily', $window[0], $window[1])
@@ -123,7 +134,7 @@ final class GoogleAdsScreen
      *
      * @return list<array{term: string, campaigns: list<string>, ad_groups: list<string>, cost: float, clicks: int, conversions: float, service: ?string, verdict: ?array<string, string>}>
      */
-    public function searchTerms(DigitalAsset $asset, int $days = 30, int $limit = 300): array
+    public function searchTerms(DigitalAsset $asset, int|SiteRange $days = 30, int $limit = 300): array
     {
         $ctx = $this->context($asset);
         if ($ctx === null) {
@@ -334,7 +345,7 @@ final class GoogleAdsScreen
      *
      * @return list<array{label: string, sub: ?string, cost: float, clicks: int, conversions: float, cpa: ?float, prev_cost: float, prev_conversions: float}>
      */
-    public function analysis(DigitalAsset $asset, string $level, int $days = 28): array
+    public function analysis(DigitalAsset $asset, string $level, int|SiteRange $days = 28): array
     {
         $ctx = $this->context($asset);
         if ($ctx === null || ! isset(self::LEVELS[$level])) {

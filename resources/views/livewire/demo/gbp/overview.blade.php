@@ -28,7 +28,12 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400">{{ $identity['location_line'] ?: '—' }} · Son veri: {{ $identity['last_refresh'] ?? '—' }}</p>
             </div>
         </div>
-        <button type="button" wire:click="refreshData" wire:loading.attr="disabled" @disabled(! $bound) class="{{ $primary }}">Verileri yenile</button>
+        <div class="flex flex-wrap items-center gap-2">
+            @if ($ranged)
+                <x-operator.date-range-picker :range="$range" :last-day="$lastDay" note="İşletme Profili verisi birkaç gün gecikmeli." />
+            @endif
+            <button type="button" wire:click="refreshData" wire:loading.attr="disabled" @disabled(! $bound) class="{{ $primary }}">Verileri yenile</button>
+        </div>
     </div>
 
     <nav class="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="İşletme Profili">
@@ -61,12 +66,12 @@
         @endphp
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5" data-testid="gbp-numbers">
             <section class="{{ $card }}">
-                <p class="text-xs text-gray-500">Görüntüleme (harita + arama) · 28 gün</p>
+                <p class="text-xs text-gray-500">Görüntüleme (harita + arama) · {{ $range->label() }}</p>
                 <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $num($views['current'] ?? null) }}</p>
-                <p @class(['text-xs', 'text-emerald-600' => ($pct ?? 0) >= 0, 'text-rose-600' => ($pct ?? 0) < 0, 'text-gray-400' => $pct === null])>{{ $pct === null ? 'önceki dönem yok' : (($pct > 0 ? '+' : '').$pct.'% önceki 28 güne göre') }}</p>
+                <p @class(['text-xs', 'text-emerald-600' => ($pct ?? 0) >= 0, 'text-rose-600' => ($pct ?? 0) < 0, 'text-gray-400' => $pct === null])>{{ $pct === null ? 'önceki dönem yok' : (($pct > 0 ? '+' : '').$pct.'% karşılaştırma dönemine göre') }}</p>
             </section>
             <section class="{{ $card }}">
-                <p class="text-xs text-gray-500">Tıklama · 28 gün</p>
+                <p class="text-xs text-gray-500">Tıklama · {{ $range->label() }}</p>
                 @if ($n['actions'])
                     <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $num($n['actions']['calls'] + $n['actions']['directions'] + $n['actions']['website_clicks']) }}</p>
                     <p class="text-xs text-gray-500">Arama {{ $num($n['actions']['calls']) }} · Yol {{ $num($n['actions']['directions']) }} · Web {{ $num($n['actions']['website_clicks']) }}</p>
@@ -628,11 +633,6 @@
         </div>
 
     @elseif ($tab === 'analysis')
-        <div class="flex gap-1">
-            @foreach ($dayOptions as $option)
-                <button type="button" wire:click="setDays({{ $option }})" @class(['rounded-lg px-3 py-1 text-sm font-medium', 'bg-brand-500 text-white' => $days === $option, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $days !== $option])>{{ $option }} gün</button>
-            @endforeach
-        </div>
         @if ($analysis === null || ($analysis['daily'] === [] && $analysis['keywords']['rows'] === [] && $analysis['reviews'] === []))
             <p class="{{ $card }} text-sm text-gray-500">Veri yok.</p>
         @else

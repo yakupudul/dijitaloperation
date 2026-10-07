@@ -15,9 +15,11 @@ use App\Models\ExternalWriteAction;
 use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Services\AiTasks\AiTaskQueue;
+use App\Services\Meta\MetaAnalysis;
 use App\Services\Meta\MetaCampaignBoard;
 use App\Services\Meta\MetaCampaignServices;
 use App\Services\Meta\MetaScreen;
+use App\Services\Site\Analysis\SiteRange;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -188,6 +190,29 @@ class MetaCampaignServicesTest extends TestCase
         $this->assertNotContains('no_service', $alerts('c1'));
         $implant = collect($board['by_service'])->firstWhere('name', 'Diş İmplantı');
         $this->assertSame([1, 'leads', 56.0, 50.0], [$implant['campaigns'], $implant['type'], (float) $implant['results'], (float) $implant['cpr']], 'services carry their campaigns and main result');
+    }
+
+    public function test_the_date_picker_range_drives_the_board_the_analysis_and_the_campaign_page(): void
+    {
+        $asset = $this->asset->load('brand');
+        $custom = SiteRange::from(28, '2026-10-20', '2026-10-29');
+        $board = app(MetaCampaignBoard::class)->board($asset, $custom);
+        $this->assertSame(['from' => '2026-10-20', 'to' => '2026-10-29', 'prev_from' => '2026-10-10', 'prev_to' => '2026-10-19'], $board['window']);
+        $this->assertSame(1500.0, (float) $board['kpis']['spend']['value'], '10 days × 150');
+
+        $year = app(MetaCampaignBoard::class)->board($asset, SiteRange::from(7, null, null, SiteRange::COMPARE_YEAR));
+        $this->assertSame(['2026-10-23', '2026-10-29', '2025-10-23', '2025-10-29'], array_values($year['window']), 'last 7 days up to the last collected day, against a year earlier');
+        $this->assertSame('2025-10-23', app(MetaAnalysis::class)->analysis($asset, SiteRange::from(7, null, null, SiteRange::COMPARE_YEAR), '', 'year')['window']['cmp_from']);
+
+        $page = Livewire::actingAs($this->admin)->test(OverviewPage::class, ['assetId' => (string) $this->asset->id])->assertSeeHtml('data-date-picker')
+            ->call('setRange', 28, '2026-10-20', '2026-10-29')->assertSet('days', 10)->assertSet('start', '2026-10-20')->assertSee('20 Eki – 29 Eki 2026')
+            ->assertSeeHtml('bas=2026-10-20');
+        $page->call('setTab', 'analysis')->assertSeeHtml('data-date-picker')->call('setTab', 'todo')->assertDontSeeHtml('data-date-picker');
+
+        Livewire::withQueryParams(['bas' => '2026-10-20', 'bit' => '2026-10-29'])->actingAs($this->admin)
+            ->test(CampaignPage::class, ['assetId' => (string) $this->asset->id, 'campaignId' => 'c1'])
+            ->assertSet('days', 10)->assertSee('20 Eki – 29 Eki 2026')
+            ->call('setRange', 7, '', '', 'year')->assertSet('start', '')->assertSet('compare', 'year')->assertSee('Son 7 gün');
     }
 
     public function test_campaigns_tab_filters_and_confirms_a_suggestion(): void

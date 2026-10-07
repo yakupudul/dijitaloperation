@@ -223,7 +223,7 @@ final class MetaScreenTest extends TestCase
         $this->assertSame(['has_data' => true, 'sessions' => 300, 'key_events' => 12.0], array_intersect_key($m['ga4'], array_flip(['has_data', 'sessions', 'key_events'])), 'only Meta sources');
         $this->assertSame(1, $m['crm']['marks']['randevu']);
         $this->assertSame(['7 gün tıklama · 1 gün görüntüleme'], array_keys($m['attribution']));
-        $this->page('measurement')->assertSee('Meta sonuçları · 28 gün')->assertSee('GA4 · Meta kaynaklı · 28 gün')->assertSee('CRM (lead işaretleri) · 28 gün')
+        $this->page('measurement')->assertSee('Meta sonuçları · Son 28 gün')->assertSee('GA4 · Meta kaynaklı · Son 28 gün')->assertSee('CRM (lead işaretleri) · Son 28 gün')
             ->assertSee('Üç kaynak ayrı sayar; toplanmaz.')->assertSee('7 gün tıklama · 1 gün görüntüleme')->assertSee('CAPI: veri yok');
     }
 

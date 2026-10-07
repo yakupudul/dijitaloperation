@@ -21,6 +21,7 @@ use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\GbpPostQueue;
 use App\Services\Gbp\GbpScreen;
 use App\Services\Gbp\GbpSuggestions;
+use App\Services\Site\Analysis\SiteRange;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -277,6 +278,27 @@ final class GbpWorkspaceTabsTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_the_date_picker_range_drives_the_overview_numbers_and_the_analysis(): void
+    {
+        foreach (range(0, 55) as $day) {
+            DB::table('gbp_performance_daily')->insert(['external_resource_id' => $this->resource->id, 'digital_asset_id' => $this->asset->id, 'run_id' => $this->runId, 'location_name' => 'locations/22',
+                'reporting_date' => CarbonImmutable::parse('2026-09-20')->subDays($day)->toDateString(), 'metric' => 'BUSINESS_IMPRESSIONS_MOBILE_MAPS', 'value' => $day < 7 ? 20 : 10,
+                'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        }
+
+        $views = app(GbpScreen::class)->overview($this->asset, $this->resource->id, SiteRange::from(7))['views'];
+        $this->assertSame(['current' => 140, 'previous' => 70, 'change_pct' => 100], $views);
+        $year = app(GbpScreen::class)->overview($this->asset, $this->resource->id, SiteRange::from(7, null, null, SiteRange::COMPARE_YEAR))['views'];
+        $this->assertSame(['current' => 140, 'previous' => null, 'change_pct' => null], $year, 'no data a year earlier');
+        $this->assertCount(10, app(GbpScreen::class)->analysis($this->resource->id, SiteRange::from(28, '2026-09-01', '2026-09-10'))['daily']);
+        $this->assertSame('2026-09-20', app(GbpScreen::class)->lastDay($this->resource->id)->toDateString());
+
+        $this->page('overview')->assertSeeHtml('data-date-picker')->assertSee('20 Eyl 2026')
+            ->call('setRange', 7)->assertSee('Son 7 gün')->assertSee('+100% karşılaştırma dönemine göre')
+            ->call('setTab', 'analysis')->call('setRange', 28, '2026-09-01', '2026-09-10')->assertSet('days', 10)->assertSee('1 Eyl – 10 Eyl 2026')
+            ->call('setTab', 'reviews')->assertDontSeeHtml('data-date-picker');
+    }
+
     public function test_overview_shows_the_five_numbers_from_collected_data(): void
     {
         foreach (range(0, 55) as $day) {
@@ -296,7 +318,7 @@ final class GbpWorkspaceTabsTest extends TestCase
         $this->assertNotNull($numbers['standards']);
         $this->assertLessThanOrEqual($numbers['standards']['total'], $numbers['standards']['passed']);
 
-        $this->page('overview')->assertSeeInOrder(['1.120', '0% önceki 28 güne göre', '168', 'Arama 56 · Yol 28 · Web 84', '3,3', '3 yorum', 'Yanıtsız yorum', '2', 'Profil standartları',
+        $this->page('overview')->assertSeeInOrder(['1.120', '0% karşılaştırma dönemine göre', '168', 'Arama 56 · Yol 28 · Web 84', '3,3', '3 yorum', 'Yanıtsız yorum', '2', 'Profil standartları',
             $numbers['standards']['passed'].' / '.$numbers['standards']['total']]);
     }
 
