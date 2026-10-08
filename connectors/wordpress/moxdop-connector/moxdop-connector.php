@@ -3,7 +3,7 @@
 /**
  * Plugin Name: MoxDOP Website Connector
  * Description: Signed Website inventory connector for MoxDOP. Reads inventory and health; creates drafts (with categories, SEO fields and Polylang language / translation links); one-click login, approved updates, approved SEO fixes (301 merges go into the site's SEO plugin and the old page becomes a draft) and approved content updates only when a site admin enables them; tells MoxDOP and IndexNow about changes right after a save; exports HTML the page-cache plugin already stored and the rendered content of published pages (read-only); builds a site (ACF, pages, Elementor templates, media, menus) only when a site admin enables site building.
- * Version: 1.11.0
+ * Version: 1.11.1
  * Requires at least: 6.2
  * Requires PHP: 7.4
  * Author: MoxDOP
@@ -11,7 +11,7 @@
  */
 defined('ABSPATH') || exit;
 
-define('MOXDOP_CONNECTOR_VERSION', '1.11.0');
+define('MOXDOP_CONNECTOR_VERSION', '1.11.1');
 define('MOXDOP_CONNECTOR_FILE', __FILE__);
 define('MOXDOP_CONNECTOR_DIR', plugin_dir_path(__FILE__));
 

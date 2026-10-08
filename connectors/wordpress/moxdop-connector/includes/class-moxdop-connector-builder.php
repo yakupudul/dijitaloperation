@@ -812,9 +812,38 @@ final class MoxDOP_Connector_Builder
             'acf_types' => $acf_types,
             'elementor_templates' => $templates,
             'menus' => $menus,
+            'elementor_globals' => $this->elementor_globals(),
             'built' => $built,
             'limits' => ['operations_per_request' => self::MAX_OPERATIONS, 'media_bytes' => self::MAX_MEDIA_BYTES],
         ];
+    }
+
+    /**
+     * 1.11.1: the global colors and fonts of the active Elementor kit (Site Settings), with the ids Elementor data needs
+     * to point at them ("globals/colors?id=<id>", "globals/typography?id=<id>"). Read only; null without Elementor.
+     */
+    private function elementor_globals()
+    {
+        $kit_id = (int) get_option('elementor_active_kit');
+        if (! defined('ELEMENTOR_VERSION') || ! $kit_id) {
+            return null;
+        }
+        $settings = get_post_meta($kit_id, '_elementor_page_settings', true);
+        $settings = is_array($settings) ? $settings : [];
+        $colors = function ($key) use ($settings) {
+            return array_values(array_map(function ($c) {
+                return ['id' => (string) ($c['_id'] ?? ''), 'title' => (string) ($c['title'] ?? ''), 'color' => (string) ($c['color'] ?? '')];
+            }, array_filter((array) ($settings[$key] ?? []), 'is_array')));
+        };
+        $fonts = function ($key) use ($settings) {
+            return array_values(array_map(function ($t) {
+                return ['id' => (string) ($t['_id'] ?? ''), 'title' => (string) ($t['title'] ?? ''), 'family' => (string) ($t['typography_font_family'] ?? ''),
+                    'weight' => (string) ($t['typography_font_weight'] ?? '')];
+            }, array_filter((array) ($settings[$key] ?? []), 'is_array')));
+        };
+
+        return ['kit_id' => $kit_id, 'system_colors' => $colors('system_colors'), 'custom_colors' => $colors('custom_colors'),
+            'system_typography' => $fonts('system_typography'), 'custom_typography' => $fonts('custom_typography')];
     }
 
     /** Writes Elementor data (export object with content / page_settings, or a plain element list). */

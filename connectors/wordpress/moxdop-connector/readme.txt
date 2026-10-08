@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.11.0
+Stable tag: 1.11.1
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,9 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.11.1 =
+* Site building: `GET /build` also lists the global colors and fonts of the Elementor Site Settings (`elementor_globals`) with their ids, so built pages can use them instead of fixed values.
 
 = 1.11.0 =
 * Drafts (`/drafts`) accept `author` (login or e-mail of a user who can write posts: the brand's expert becomes the post author; otherwise the first administrator stays) and `schema` (JSON-LD, for example the article's FAQPage), kept in `_moxdop_schema` and printed in the page head like approved schema fixes.
