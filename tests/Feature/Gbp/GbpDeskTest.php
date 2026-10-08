@@ -412,6 +412,22 @@ final class GbpDeskTest extends TestCase
         Livewire::actingAs(User::factory()->create(['is_active' => true]))->test(ReviewsPage::class)->call('deleteDraft', $two)->assertForbidden();
     }
 
+    public function test_review_topics_read_service_names_without_a_query_per_offering(): void
+    {
+        foreach (['İmplant Tedavisi', 'Diş Beyazlatma', 'Kanal Tedavisi', 'Ortodonti', 'Gülüş Tasarımı'] as $name) {
+            $service = app(ServiceCatalogService::class)->resolveOrCreate($name, 'dental', actor: $this->admin)['service'];
+            BrandOffering::query()->create(['brand_id' => $this->brand->id, 'service_catalog_item_id' => $service->id, 'status' => 'active', 'priority' => 'main', 'locked' => true]);
+        }
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        app(ReviewDesk::class)->topics([$this->resourceId], [$this->brand->id]);
+        $nameQueries = collect(DB::getQueryLog())->filter(fn (array $q): bool => str_contains($q['query'], 'brand_offering_names'))->count();
+        DB::disableQueryLog();
+
+        $this->assertLessThanOrEqual(2, $nameQueries, 'names are eager-loaded, not read per offering');
+    }
+
     public function test_review_grid_hides_googles_translation_searches_tags_scores_warns_on_copies_and_edits_a_published_reply(): void
     {
         $review = fn (string $id, string $stars, string $comment, ?array $reply, string $created, string $name = 'Ali V'): int => DB::table('gbp_reviews')->insertGetId([

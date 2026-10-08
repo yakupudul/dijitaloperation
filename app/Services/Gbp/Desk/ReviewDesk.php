@@ -435,7 +435,7 @@ final class ReviewDesk
         usort($doctorRows, fn (array $a, array $b): int => $b['count'] <=> $a['count']);
 
         $serviceRows = [];
-        $names = $brandIds === [] ? collect() : BrandOffering::query()->with('catalogItem')->whereIn('brand_id', $brandIds)->where('status', 'active')->get()
+        $names = $brandIds === [] ? collect() : BrandOffering::query()->with(['primaryName', 'catalogItem.primaryName'])->whereIn('brand_id', $brandIds)->where('status', 'active')->get()
             ->map(fn (BrandOffering $o): string => $o->displayName())->unique()->values();
         foreach ($names as $name) {
             $word = self::serviceWord($name);
