@@ -80,7 +80,7 @@ final class OpenAiFreeQuotaTest extends TestCase
     public function test_the_audit_turns_the_quota_off_when_openai_billed_more_than_the_estimate_and_its_cost_floors_the_ceiling(): void
     {
         $this->openAiCall('gpt-5-mini', 2_000_000, 0.10, 3.20, '2026-10-01 12:00:00');
-        $this->setting->forceFill(['ai_openai_admin_key' => 'sk-admin-test'])->save();
+        $this->setting->forceFill(['ai_openai_admin_key' => 'sk-admin-test', 'ai_daily_auto_budget_usd' => 1])->save();
         Http::fake([OpenAiCostAudit::ENDPOINT.'*' => Http::response(['data' => [
             ['start_time' => CarbonImmutable::parse('2026-10-01', 'UTC')->getTimestamp(), 'results' => [['amount' => ['value' => 3.0, 'currency' => 'usd']]]],
             ['start_time' => CarbonImmutable::parse('2026-10-02', 'UTC')->getTimestamp(), 'results' => [['amount' => ['value' => 1.4, 'currency' => 'usd']]]],

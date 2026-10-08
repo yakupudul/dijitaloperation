@@ -18,7 +18,10 @@ return [
 
     // Günlük AI tavanı: ALL AI calls of the day (Europe/Istanbul), automatic and clicked alike; no paid call starts once
     // the day spent this much. Ayarlar › AI işlemleri overrides it. 0 = no daily ceiling.
-    'daily_auto_budget_usd' => (float) env('AI_DAILY_AUTO_BUDGET_USD', 1),
+    'daily_auto_budget_usd' => (float) env('AI_DAILY_AUTO_BUDGET_USD', 4),
+
+    // Loaded API credit below this many USD shows the "kredi azaldı" warning (Ayarlar › AI işlemleri).
+    'credit_low_usd' => (float) env('AI_CREDIT_LOW_USD', 10),
 
     // Areas (operation prefix: queries.*, site.*, brand.*…) whose AI may run without an operator click. "*" = all.
     'automatic_areas' => array_values(array_filter(array_map('trim', explode(',', (string) env('AI_AUTOMATIC_AREAS', 'queries'))))),
@@ -37,6 +40,10 @@ return [
 
     'models' => [
         'anthropic' => [
+            // Claude 5.5 family (Anthropic price list, 2026-10): Haiku 5.5 is priced for prompts up to 100K tokens.
+            'claude-haiku-5-5' => ['input' => 0.10, 'output' => 0.50],
+            'claude-sonnet-5-5' => ['input' => 2.00, 'output' => 10.00],
+            'claude-opus-5-5' => ['input' => 4.00, 'output' => 20.00],
             'claude-sonnet-5' => ['input' => 2.00, 'output' => 10.00],
             'claude-haiku-4-5' => ['input' => 1.00, 'output' => 5.00],
             'claude-haiku-4-5-20251001' => ['input' => 1.00, 'output' => 5.00],

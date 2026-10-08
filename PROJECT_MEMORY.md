@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-10-08 — Claude API kredisi, üçlü AI seçimi, onaylı reklam yazımı
+
+- **Karar (yakup):** Her AI işlemi üç yoldan biriyle çalışır: GPT (OpenAI), Claude API (yüklenen krediden düşer), Claude abonelik (MCP kuyruğu). Ayarlar › AI işlemleri'nde işlem işlem ya da toplu plan ("Önerilen": toplu işler Haiku 5.5, yazı işleri Sonnet 5.5) ile seçilir. Sorgu pilotu, WhatsApp ve gömme (embedding) planlarla taşınmaz.
+- **Karar (yakup, "Kredi esaslı"):** Yüklenen kredi elle girilir; kalan = yüklenen − ilk yüklemeden beri kaydedilen maliyet. Kredi bitince o sağlayıcıya ücretli çağrı başlamaz; kuyruğu destekleyen işler aboneliğe (MCP) geçer.
+- **Karar:** Claude API'ye atanmış işler kimse tıklamadan da çalışır (2026-11-22'deki "yalnız Sorgular" kuralının istisnası); kredi, günlük tavan (varsayılan 4 $) ve aylık bütçe yine durdurur.
+- **Karar (yakup, 2026-10-08):** Dijital varlıklar önce onarım moduyla kusursuz hâle getirilir; hazırlık otomatik, yakup yalnız son noktada tekli ya da toplu onaylar (ör. başlık onayı → yazım → metin onayı → aktarım). Onaylanan değişiklikleri sistem Google Ads'e yazabilir; Meta'ya `ads_management` App Review geçince. GBP'de birincil kategori ve yeni alanlar (özellikler, saatler, telefon, randevu bağlantısı, video) yazılabilir. Sunucuya Node + Chromium araçları (Lighthouse, lychee, axe) kurulabilir. DataForSEO onaylanmadı. GBP yorum yanıtı yayımı yine elle kalır; Meta form kişi verisi yine okunmaz.
+
 ## 2026-10-07 — Marka bilgilerini Claude doldurur, hemen kullanılır
 
 - **Karar (yakup, karttan "Hemen kullan"):** eksik marka bilgileri (hizmetler ve ★, bölgeler/şubeler, sektör, iş bağlamı, Search Console / GA4 eşleşmesi) gece "Otomatik kur" ile Claude tarafından doldurulur ve onay beklemeden kullanılır. Operatörün yazdığı hiçbir şeyin üzerine yazılmaz; doldurulan madde "Kontrol ettim" denene kadar kartta sarı görünür. Yalnız MoxDOP verisi; Google, Meta ya da siteye yazmaz.

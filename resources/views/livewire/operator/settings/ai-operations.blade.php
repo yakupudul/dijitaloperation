@@ -200,6 +200,61 @@
             </div>
         </div>
 
+        {{-- GPT / Claude API / Claude abonelik dağılımı ve yüklenen kredi --}}
+        <section class="{{ $card }} space-y-4 p-5" data-ai-credits>
+            <div>
+                <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">AI dağılımı ve kredi</h2>
+                <p class="text-xs text-gray-500">Her AI işlemi üç yoldan biriyle çalışır: GPT (OpenAI), Claude API (yüklediğin krediden düşer) veya Claude abonelik (MCP kuyruğu). Claude API kredisi biter ya da günlük tavan dolarsa, kuyruğu destekleyen işler kendiliğinden aboneliğe geçer.</p>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2">
+                @foreach ($credits as $credit)
+                    <div wire:key="credit-{{ $credit['provider'] }}" @class(['rounded-xl border p-3', 'border-red-300 bg-red-50 dark:bg-red-500/10' => $credit['tracked'] && $credit['exhausted'], 'border-amber-300 bg-amber-50 dark:bg-amber-500/10' => $credit['low'], 'border-gray-200 dark:border-gray-700' => ! $credit['low'] && ! ($credit['tracked'] && $credit['exhausted'])]) data-credit="{{ $credit['provider'] }}">
+                        <p class="text-xs text-gray-500">{{ $credit['label'] }} kredisi</p>
+                        @if ($credit['tracked'])
+                            <p class="text-lg font-semibold tabular-nums text-gray-800 dark:text-white/90">{{ $usd($credit['remaining']) }} <span class="text-xs font-normal text-gray-500">kaldı</span></p>
+                            <p class="text-xs text-gray-500">Yüklenen {{ $usd($credit['loaded']) }} · harcanan {{ $usd($credit['spent']) }}</p>
+                            @if ($credit['exhausted'])
+                                <p class="text-xs font-medium text-red-600">Kredi bitti; bu sağlayıcıya ücretli çağrı başlamaz.</p>
+                            @elseif ($credit['low'])
+                                <p class="text-xs font-medium text-amber-700">Kredi azaldı.</p>
+                            @endif
+                        @else
+                            <p class="text-sm text-gray-500">Kredi girilmedi; yalnız aylık bütçe ve günlük tavan uygulanır.</p>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+            <form wire:submit="topUpCredit" class="flex flex-wrap items-end gap-3 text-sm" data-credit-topup>
+                <label class="flex flex-col gap-1">
+                    <span class="text-xs text-gray-500">Sağlayıcı</span>
+                    <select wire:model="creditProvider" class="rounded-lg border border-gray-300 px-2 py-1 dark:border-gray-700 dark:bg-gray-900">
+                        @foreach (\App\Services\Ai\AiCredits::PROVIDERS as $provider)
+                            <option value="{{ $provider }}">{{ \App\Services\Ai\AiCredits::label($provider) }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <label class="flex flex-col gap-1">
+                    <span class="text-xs text-gray-500">Yüklenen kredi (USD)</span>
+                    <input type="number" step="1" min="1" wire:model="creditAmount" class="w-28 rounded-lg border border-gray-300 px-2 py-1 dark:border-gray-700 dark:bg-gray-900">
+                </label>
+                <label class="flex flex-col gap-1">
+                    <span class="text-xs text-gray-500">Not (isteğe bağlı)</span>
+                    <input type="text" maxlength="190" wire:model="creditNote" class="w-56 rounded-lg border border-gray-300 px-2 py-1 dark:border-gray-700 dark:bg-gray-900">
+                </label>
+                <button type="submit" class="rounded-lg bg-brand-500 px-3 py-1.5 text-white">Kredi ekle</button>
+                @error('creditAmount')<span class="w-full text-xs text-red-600">{{ $message }}</span>@enderror
+                <span class="w-full text-xs text-gray-500">Kalan = yüklenen − ilk yüklemeden beri kaydedilen maliyet. Sağlayıcı panelindeki bakiyeyle arada küçük fark olabilir.</span>
+            </form>
+            <div class="space-y-2 text-sm" data-ai-plans>
+                <p class="text-xs text-gray-500">Şu an: @foreach ($kinds as $kind => $count)<span class="mr-2">{{ \App\Services\Ai\AiAssignments::kindLabel($kind) }} {{ $count }}</span>@endforeach</p>
+                <div class="flex flex-wrap gap-2">
+                    @foreach ($plans as $plan => $planLabel)
+                        <button type="button" wire:key="plan-{{ $plan }}" wire:click="assignPlan('{{ $plan }}')" wire:confirm="{{ $planLabel }} uygulansın mı? Değişen her işlem için yeni prompt sürümü açılır; sorgu pilotu ve WhatsApp yerinde kalır." class="rounded-lg border border-gray-300 px-3 py-1.5 text-gray-700 hover:border-brand-500 dark:border-gray-700 dark:text-gray-300" data-plan="{{ $plan }}">{{ $planLabel }}</button>
+                    @endforeach
+                </div>
+            </div>
+        </section>
+
         <details class="{{ $card }} px-5 py-3 text-sm" data-ai-budget>
             <summary class="cursor-pointer font-semibold text-gray-800 dark:text-white/90">AI bütçesi · aylık {{ $usd($monthlyBudget) }} · günlük tavan (tüm AI) {{ $autoBudget > 0 ? $usd($autoBudget) : 'sınırsız' }} · Kalan bakiye {{ $usd($remaining) }}</summary>
             <form wire:submit="saveBudget" class="mt-2 flex flex-wrap items-end gap-3">
@@ -230,7 +285,7 @@
                         @endforeach
                     @endif
                 </div>
-                <span class="w-full text-xs text-gray-500">Aylık bakiye bitince ay sonuna kadar yalnız ücretsiz modeller çalışır. Günün (İstanbul saati) tüm AI harcaması tavana ulaşınca, tıkladığın işler dahil hiçbir ücretli AI çağrısı başlamaz; yarın yeniden çalışır. Kimse tıklamadan Sorgular alanındaki AI (sorgu pilotu, kümeleme) ve Claude'a devredilen işler (site akışı, haftalık site yenileme) çalışır; Claude işleri tavana ve bütçeye sayılmaz. API'de kalan analistler, bakım ajanı ve Şef yalnız tıklayınca çalışır. 0 = tavan yok.</span>
+                <span class="w-full text-xs text-gray-500">Aylık bakiye bitince ay sonuna kadar yalnız ücretsiz modeller çalışır. Günün (İstanbul saati) tüm AI harcaması tavana ulaşınca, tıkladığın işler dahil hiçbir ücretli AI çağrısı başlamaz; yarın yeniden çalışır. Kimse tıklamadan Sorgular alanındaki AI (sorgu pilotu, kümeleme) Claude aboneliğine devredilen işler ve Claude API'ye atanmış işler çalışır; abonelik işleri tavana ve bütçeye sayılmaz, Claude API işleri krediden, tavandan ve bütçeden düşer. GPT'de kalan analistler, bakım ajanı ve Şef yalnız tıklayınca çalışır. 0 = tavan yok.</span>
                 @error('dailyAutoBudget')<span class="text-xs text-red-600">{{ $message }}</span>@enderror
                 @error('budget')<span class="text-xs text-red-600">{{ $message }}</span>@enderror
             </form>
@@ -257,7 +312,7 @@
                                 <span class="ml-1 font-mono text-xs text-gray-400">{{ $row['operation'] }}</span>
                                 <p class="text-xs text-gray-500">{{ $row['purpose'] }}</p>
                             </td>
-                            <td class="px-3 py-2 text-xs text-gray-500">{{ $row['model'] !== '' ? $row['model'] : 'Rota modeli' }}</td>
+                            <td class="px-3 py-2 text-xs text-gray-500"><span class="mr-1 rounded bg-gray-100 px-1.5 py-0.5 text-gray-700 dark:bg-gray-700 dark:text-gray-200">{{ \App\Services\Ai\AiAssignments::kindLabel($row['kind']) }}</span>{{ $row['model'] !== '' ? $row['model'] : 'Rota modeli' }}</td>
                             <td class="px-3 py-2 text-right tabular-nums">{{ $row['version'] !== null ? 'v'.$row['version'] : '—' }}</td>
                             <td class="px-3 py-2 text-right tabular-nums">{{ $row['runs'] }}</td>
                             <td class="px-3 py-2 text-right tabular-nums">{{ $sec($row['avg_ms']) }}</td>

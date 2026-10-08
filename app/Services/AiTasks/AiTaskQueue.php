@@ -4,7 +4,9 @@ namespace App\Services\AiTasks;
 
 use App\Ai\Contracts\RegistryPrompted;
 use App\Models\AiTask;
+use App\Services\Ai\AiBudget;
 use App\Services\Prompts\PromptRegistry;
+use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiRouteKeys;
 use DateTimeInterface;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
@@ -85,10 +87,29 @@ final class AiTaskQueue
             && is_subclass_of($agent, RegistryPrompted::class) && is_subclass_of($agent, HasStructuredOutput::class);
     }
 
-    /** Whether the operation's current prompt version delegates it to Claude (and the MCP server is configured). */
+    /**
+     * Whether the operation waits for Claude over MCP: its current prompt version delegates it to Claude, or it is given
+     * to the Claude API but money stops the call (credit used up, day's ceiling or month's budget reached), so the
+     * subscription queue takes it over instead of the work stopping (yakup, 2026-10-08).
+     */
     public function delegated(string $operation): bool
     {
-        return self::enabled() && $this->registry->current($operation)->model === self::MODEL && $this->supports($operation);
+        if (! self::enabled() || ! $this->supports($operation)) {
+            return false;
+        }
+        if ($this->registry->current($operation)->model === self::MODEL) {
+            return true;
+        }
+
+        return $this->fallsBackToClaude($operation);
+    }
+
+    /** Given to the Claude API (pinned Anthropic model) while money stops that call: the MCP queue is the fallback. */
+    public function fallsBackToClaude(string $operation): bool
+    {
+        $pinned = $this->registry->modelFor($operation);
+
+        return $pinned !== null && $pinned[0] === AiProviderCatalog::ANTHROPIC && app(AiBudget::class)->spendBlocked($pinned[0], $pinned[1]);
     }
 
     /**

@@ -7,7 +7,9 @@ use App\Models\AgencySetting;
 use App\Models\AiLiveOperation;
 use App\Models\AiTask;
 use App\Models\PromptVersion;
+use App\Services\Ai\AiAssignments;
 use App\Services\Ai\AiBudget;
+use App\Services\Ai\AiCredits;
 use App\Services\Ai\AiLiveOperations;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\Ai\AiSchedule;
@@ -64,6 +66,13 @@ final class AiOperationsPage extends Component
     /** Cost breakdown window: 24 | 168 hours. */
     public int $costHours = 24;
 
+    /** "Kredi yükle": provider, amount (USD) and an optional note (e.g. the invoice). */
+    public string $creditProvider = AiProviderCatalog::ANTHROPIC;
+
+    public string $creditAmount = '';
+
+    public string $creditNote = '';
+
     public function mount(PromptRegistry $registry, AiBudget $aiBudget): void
     {
         $this->authorizeAdmin();
@@ -104,6 +113,29 @@ final class AiOperationsPage extends Component
         app(AgencySettingService::class)->forget();
         $this->openAiAdminKey = '';
         session()->flash('status', 'AI bütçeleri kaydedildi.');
+    }
+
+    /** "Kredi yükle": the credit loaded at the provider; the remaining balance is this minus the recorded cost. */
+    public function topUpCredit(AiCredits $credits): void
+    {
+        $this->authorizeAdmin();
+        $this->validate(['creditProvider' => ['required', 'in:'.implode(',', AiCredits::PROVIDERS)], 'creditAmount' => ['required', 'numeric', 'min:1', 'max:100000'],
+            'creditNote' => ['nullable', 'string', 'max:190']], [], ['creditAmount' => 'Kredi tutarı']);
+        $credits->topUp($this->creditProvider, (float) $this->creditAmount, $this->creditNote, auth()->user());
+        session()->flash('status', AiCredits::label($this->creditProvider).' kredisine $'.number_format((float) $this->creditAmount, 2).' eklendi.');
+        $this->creditAmount = '';
+        $this->creditNote = '';
+    }
+
+    /** "Toplu dağılım": every operation to GPT, the Claude API or the Claude subscription (a new version where it changes). */
+    public function assignPlan(string $plan, AiAssignments $assignments): void
+    {
+        $this->authorizeAdmin();
+        if (! array_key_exists($plan, AiAssignments::PLANS)) {
+            return;
+        }
+        $counts = $assignments->apply($plan, auth()->user());
+        session()->flash('status', sprintf('%s uygulandı: %d işlem değişti, %d zaten öyleydi, %d dokunulmadı.', AiAssignments::PLANS[$plan], $counts['changed'], $counts['unchanged'], $counts['kept']));
     }
 
     /** "Şimdi denetle": OpenAI's real costs against our estimate (also hourly by itself). */
@@ -191,6 +223,7 @@ final class AiOperationsPage extends Component
                 'operation' => $key,
                 'purpose' => $definition['purpose'],
                 'model' => (string) ($version->model ?? $definition['model'] ?? ''),
+                'kind' => AiAssignments::kind((string) ($version->model ?? $definition['model'] ?? '')),
                 'version' => $version?->version,
                 'runs' => $summary[$key]['runs'] ?? 0,
                 'avg_ms' => $summary[$key]['avg_ms'] ?? null,
@@ -221,7 +254,9 @@ final class AiOperationsPage extends Component
             'schedule' => $detail === null ? app(AiSchedule::class)->upcoming() : [],
             'quota' => app(OpenAiFreeQuota::class)->status(), 'audit' => OpenAiCostAudit::last(),
             'adminKeySet' => (string) (AgencySetting::query()->orderBy('id')->first()?->ai_openai_admin_key ?? '') !== '',
-            'mcpTasks' => $detail === null ? $this->mcpTasks() : null]);
+            'mcpTasks' => $detail === null ? $this->mcpTasks() : null,
+            'credits' => app(AiCredits::class)->all(), 'plans' => AiAssignments::PLANS,
+            'kinds' => collect($rows)->countBy('kind')->all()]);
     }
 
     /** @return array{open: int, done: int, failed: int, recent: Collection<int, AiTask>}|null */
@@ -303,6 +338,18 @@ final class AiOperationsPage extends Component
         }
         if (AiTaskQueue::enabled() && $this->operation !== '' && app(AiTaskQueue::class)->supports($this->operation)) {
             $options[AiTaskQueue::MODEL] = 'Claude (MCP, abonelik) · AI iş kuyruğunda bekler';
+        }
+        // Grouped as the three choices: GPT, Claude API (loaded credit), Claude subscription.
+        $order = static fn (string $value): int => match (AiAssignments::kind($value)) {
+            'rota' => 0, 'gpt' => 1, 'claude_api' => 2, 'abonelik' => 3, default => 4,
+        };
+        uksort($options, static fn (string $a, string $b): int => [$order($a), $a] <=> [$order($b), $b]);
+        foreach ($options as $value => $label) {
+            $options[$value] = match (AiAssignments::kind((string) $value)) {
+                'gpt' => 'GPT · '.$label,
+                'claude_api' => 'Claude API (kredi) · '.$label,
+                default => $label,
+            };
         }
         if ($this->model !== '' && ! isset($options[$this->model])) {
             $options[$this->model] = $this->model;

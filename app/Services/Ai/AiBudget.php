@@ -6,8 +6,10 @@ use App\Ai\Agents\WhatsAppReplyAgent;
 use App\Models\AgencySetting;
 use App\Services\AiJobs\AiJobTracker;
 use App\Services\AiTasks\AiTaskQueue;
+use App\Services\Prompts\PromptRegistry;
 use App\Services\WhatsApp\WhatsAppSuggestions;
 use App\Support\Ai\AiOperationLabels;
+use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiRouteKeys;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
@@ -73,6 +75,9 @@ final class AiBudget
         if (app(OpenAiFreeQuota::class)->hasRoom($provider, $model)) {
             return null;
         }
+        if (app(AiCredits::class)->exhausted($provider)) {
+            return sprintf('%s kredisi bitti; yeni kredi yükleyin (Ayarlar › AI işlemleri).', AiCredits::label((string) $provider));
+        }
         if ($this->dailyExhausted()) {
             return sprintf('Günlük AI tavanı doldu ($%.2f / $%.2f); yarın yeniden çalışır.', $this->dailySpend(), $this->dailyBudget());
         }
@@ -112,7 +117,44 @@ final class AiBudget
             return WhatsAppSuggestions::automaticEnabled();
         }
 
-        return self::delegatedToClaude(self::GATES[$operation] ?? [$operation]);
+        $operations = self::GATES[$operation] ?? [$operation];
+
+        return self::delegatedToClaude($operations) || self::assignedToClaudeApi($operations);
+    }
+
+    /**
+     * Whether a paid call on this provider/model is stopped by money alone: its loaded credit is used up, the day's
+     * ceiling or the month's budget is reached. No automatic-work rule here (the MCP fallback asks this).
+     */
+    public function spendBlocked(string $provider, string $model): bool
+    {
+        if ($this->pricing->isFree($provider, $model) || app(OpenAiFreeQuota::class)->hasRoom($provider, $model)) {
+            return false;
+        }
+
+        return app(AiCredits::class)->exhausted($provider) || $this->dailyExhausted() || $this->isExhausted();
+    }
+
+    /**
+     * Operations the operator gave to the Claude API (current prompt version pins an Anthropic model, yakup 2026-10-08):
+     * their scheduled work runs by itself on the loaded credit; credit, daily ceiling and monthly budget still apply.
+     *
+     * @param  list<string>  $operations
+     */
+    private static function assignedToClaudeApi(array $operations): bool
+    {
+        try {
+            $registry = app(PromptRegistry::class);
+            foreach ($operations as $operation) {
+                if (($registry->modelFor($operation)[0] ?? null) === AiProviderCatalog::ANTHROPIC) {
+                    return true;
+                }
+            }
+        } catch (Throwable) {
+            return false;
+        }
+
+        return false;
     }
 
     /** @param  list<string>  $operations */

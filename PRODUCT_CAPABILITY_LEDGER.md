@@ -3659,3 +3659,19 @@ Nothing written to any provider.
   devices, ad set interests with results; picking another scope opens the account's Analiz tab). Kampanyalar tab: all
   campaigns by default (live, paused and ended), a "Hizmetlere göre" strip (campaigns, live, spend, main result, cost per
   result per service; click filters the table). Tests: `AdsCatchUpTest`, `MetaGeoResultsTest`, `MetaCampaignServicesTest`.
+
+## 2026-10-08 — AI dağılımı ve Claude API kredisi
+
+Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT; no real Claude API call yet).
+- Ayarlar › AI işlemleri › "AI dağılımı ve kredi": per-provider credit cards (loaded, spent, remaining; amber when below
+  `AI_CREDIT_LOW_USD`, red when exhausted), "Kredi ekle" form (`ai_credit_topups`, `AiCredits`), plan buttons
+  (`AiAssignments`: onerilen / claude_api / abonelik / rota; a new prompt version only where the model changes) and the
+  kind badge (GPT / Claude API / Claude abonelik / Rota) on every operation. Same plans from the shell:
+  `php artisan moxdop:ai:assign onerilen`.
+- `AiBudget::blockReason` stops a provider whose credit is exhausted; `automaticAllowed` lets operations pinned to an
+  Anthropic model run without a click; `AiTaskQueue::delegated` hands a supported Claude API operation to the MCP queue
+  while credit, the daily ceiling or the monthly budget blocks it. Daily ceiling default 1 → 4 USD.
+- Prices for claude-haiku-5-5, claude-sonnet-5-5, claude-opus-5-5. laravel/ai sends no temperature and uses native
+  structured output (tool_choice auto), which the 5.5 models accept.
+- Tests: `tests/Feature/AiControl/AiCreditsAndAssignmentsTest.php`.
+- Open: credit is not read from Anthropic (no balance API); the operator enters top-ups.
