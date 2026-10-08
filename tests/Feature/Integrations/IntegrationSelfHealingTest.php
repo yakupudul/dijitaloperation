@@ -15,10 +15,12 @@ use App\Models\User;
 use App\Services\Integrations\IntegrationReconnectHandler;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Observability\OperationalAlertEvaluator;
+use App\Services\Operations\ReleaseInfo;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Log\Logger;
+use Illuminate\Support\Facades\File;
 use Monolog\Handler\TestHandler;
 use Monolog\Logger as Monolog;
 use Tests\TestCase;
@@ -81,7 +83,7 @@ final class IntegrationSelfHealingTest extends TestCase
         $healedReconnect = $this->automation($integration, ['collection_status' => 'attention', 'collection_error' => 'reconnect']);
         ResourceAutomation::query()->whereKey([$failed->id, $contract->id, $healedReconnect->id])->update(['updated_at' => now()->subDay()]);
 
-        $stats = app(ResourceAutomationService::class)->retryStopped();
+        $stats = $this->withRelease(null, fn (): array => app(ResourceAutomationService::class)->retryStopped());
 
         $this->assertSame(['retried' => 1, 'reconnected' => 1, 'recovered' => 0, 'alerts_resolved' => 0], $stats);
         $this->assertSame('waiting', $failed->fresh()->collection_status);
@@ -90,6 +92,51 @@ final class IntegrationSelfHealingTest extends TestCase
         $this->assertSame('request_requires_fix', $contract->fresh()->collection_error);
         $this->assertSame('waiting', $healedReconnect->fresh()->collection_status);
         $this->artisan('moxdop:resources:retry-stopped')->assertSuccessful();
+    }
+
+    public function test_a_code_error_stop_gets_one_retry_when_a_newer_release_is_live(): void
+    {
+        $integration = CoreIntegration::factory()->meta()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
+        $beforeRelease = $this->automation($integration, ['collection_status' => 'attention', 'collection_error' => 'request_requires_fix', 'collection_failures' => 1]);
+        $afterRelease = $this->automation($integration, ['collection_status' => 'attention', 'collection_error' => 'request_requires_fix', 'collection_failures' => 1]);
+        $off = $this->automation($integration, ['collection_enabled' => false, 'collection_status' => 'attention', 'collection_error' => 'request_requires_fix']);
+        ResourceAutomation::query()->whereKey([$beforeRelease->id, $off->id])->update(['updated_at' => now()->subDays(2)]);
+
+        $this->assertSame(0, $this->withRelease(null, fn (): array => app(ResourceAutomationService::class)->retryStopped())['retried'], 'release unknown: nothing moves');
+        $stats = $this->withRelease(now()->subDay()->toIso8601String(), fn (): array => app(ResourceAutomationService::class)->retryStopped());
+
+        $this->assertSame(1, $stats['retried']);
+        $this->assertSame(['waiting', null, 0], [$beforeRelease->fresh()->collection_status, $beforeRelease->fresh()->collection_error, (int) $beforeRelease->fresh()->collection_failures]);
+        $this->assertSame('request_requires_fix', $afterRelease->fresh()->collection_error, 'stopped after this release: waits for the next one');
+        $this->assertSame('request_requires_fix', $off->fresh()->collection_error, 'turned off by the operator');
+    }
+
+    /**
+     * Runs $callback with storage/app/release.json saying the given deploy time (null = no release file).
+     *
+     * @template T
+     *
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    private function withRelease(?string $deployedAt, callable $callback): mixed
+    {
+        $storage = sys_get_temp_dir().'/moxdop-release-'.uniqid();
+        File::ensureDirectoryExists($storage.'/app');
+        $original = $this->app->storagePath();
+        $this->app->useStoragePath($storage);
+        try {
+            if ($deployedAt !== null) {
+                File::put($storage.'/app/release.json', json_encode(['sha' => 'ec9a43e5d64ff6605dc8e30a644d09d4e85e1419', 'deployed_at' => $deployedAt]));
+            }
+            ReleaseInfo::forget();
+
+            return $callback();
+        } finally {
+            $this->app->useStoragePath($original);
+            File::deleteDirectory($storage);
+            ReleaseInfo::forget();
+        }
     }
 
     public function test_queue_probe_writes_a_heartbeat_per_queue(): void

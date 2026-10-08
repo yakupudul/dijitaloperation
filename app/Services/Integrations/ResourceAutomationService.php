@@ -30,7 +30,9 @@ use App\Services\Collection\SearchConsole\SearchConsoleCentralCollectionService;
 use App\Services\Integrations\Google\GoogleBusinessProfileBoundCollector;
 use App\Services\Observability\AlertSubjects;
 use App\Services\Observability\OperationalAlertLifecycleService;
+use App\Services\Operations\ReleaseInfo;
 use App\Support\Permissions;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -361,6 +363,7 @@ final class ResourceAutomationService
             ->where('collection_enabled', true)->where('collection_status', 'attention')
             ->where('collection_error', 'collection_failed')->where('updated_at', '<=', $cutoff)
             ->update(['collection_status' => 'waiting', 'collection_error' => null, 'collection_failures' => 0, 'next_collection_at' => now()]);
+        $retried += $this->retryAfterRelease();
         $reconnected = 0;
         ResourceAutomation::query()->with('resource.integration')
             ->where('collection_enabled', true)->where('collection_status', 'attention')->where('collection_error', 'reconnect')
@@ -374,6 +377,29 @@ final class ResourceAutomationService
 
         return ['retried' => $retried, 'reconnected' => $reconnected,
             'recovered' => $this->recoverGa4LandingFailures(), 'alerts_resolved' => $this->resolveUnboundAlerts() + $this->resolveParkedAlerts()];
+    }
+
+    /**
+     * "Yazılım sorunu" stops (request_requires_fix: retrying the same request cannot help) get one more try once a newer
+     * release is live, since that release may carry the fix; the alert used to ask the operator for "Şimdi güncelle".
+     * A stop that fails again is newer than the release, so it waits for the next release instead of looping.
+     */
+    private function retryAfterRelease(): int
+    {
+        $deployedAt = ReleaseInfo::current()['deployed_at'];
+        if ($deployedAt === null) {
+            return 0;
+        }
+        try {
+            $releasedAt = CarbonImmutable::parse($deployedAt);
+        } catch (Throwable) {
+            return 0;
+        }
+
+        return ResourceAutomation::query()
+            ->where('collection_enabled', true)->where('collection_status', 'attention')
+            ->where('collection_error', 'request_requires_fix')->where('updated_at', '<', $releasedAt)
+            ->update(['collection_status' => 'waiting', 'collection_error' => null, 'collection_failures' => 0, 'next_collection_at' => now()]);
     }
 
     /**

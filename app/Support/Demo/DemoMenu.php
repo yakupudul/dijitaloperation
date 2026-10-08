@@ -32,6 +32,7 @@ final class DemoMenu
                 'items' => [
                     $item($tr ? 'Bugün' : 'Today', 'operator.dashboard', 'dashboard'),
                     $item($tr ? 'Genel işler' : 'Work', 'operator.work', 'work'),
+                    ...(auth()->user()?->hasRole(Roles::ADMIN) ? [$item($tr ? 'Onarım masası' : 'Repair desk', 'operator.repair', 'work')] : []),
                     $item($tr ? 'İşletme profilleri' : 'Business profiles', 'operator.gbp-desk', 'calendar', [], ['operator.gbp-posts', 'operator.gbp-branch-pages', 'operator.gbp-profile-fields', 'operator.gbp-photos', 'operator.gbp-reviews']),
                     $item($tr ? 'Meta reklamları' : 'Meta ads', 'operator.meta-desk', 'ads-advisor', [], ['operator.meta.overview', 'operator.meta.campaign', 'operator.meta.assign', 'operator.meta-strategy']),
                     $item($tr ? 'Kazananlar' : 'Winners', 'operator.winners', 'trophy', [], ['operator.winner-service', 'operator.libraries']),
@@ -42,6 +43,7 @@ final class DemoMenu
                     $item($tr ? 'Sorgular' : 'Queries', 'operator.library.queries', 'search'),
                     ...(auth()->user()?->hasRole(Roles::ADMIN) ? [$item('WhatsApp', 'operator.whatsapp', 'chat')] : []),
                     $item(__('operator.nav.integrations'), 'operator.integrations', 'integrations', [
+                        $child($tr ? 'Bağlantı sağlığı' : 'Connection health', 'operator.integrations.connection-health'),
                         $child($tr ? 'Keşfedilen varlıklar' : 'Discovered Assets', 'operator.integrations.discovered'),
                         $child($tr ? 'WordPress siteleri' : 'WordPress Sites', 'operator.integrations.wordpress-sites'),
                         $child($tr ? 'Veri merkezi' : 'Data Center', 'operator.data-center'),

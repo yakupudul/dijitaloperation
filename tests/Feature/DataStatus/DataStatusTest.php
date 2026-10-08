@@ -6,6 +6,7 @@ use App\Enums\Collection\ActivityTier;
 use App\Enums\CustomerStatus;
 use App\Enums\DigitalAssetStatus;
 use App\Livewire\Operator\Assets\DataStatusStrip;
+use App\Livewire\Operator\Integrations\ConnectionHealthPage;
 use App\Models\AssetAlert;
 use App\Models\Brand;
 use App\Models\Collection\CollectionResourceRun;
@@ -19,6 +20,7 @@ use App\Models\DigitalAsset;
 use App\Models\ResourceActivity;
 use App\Models\ResourceAutomation;
 use App\Models\User;
+use App\Services\DataStatus\ConnectionHealth;
 use App\Services\DataStatus\DataStatus;
 use App\Services\DataStatus\DataStatusReader;
 use App\Support\Integrations\Google\GoogleResourceType;
@@ -279,6 +281,42 @@ final class DataStatusTest extends TestCase
         $strip
             ->call('refreshSource', 'search_console')
             ->assertSee('Search Console bağlantısı kontrol edilmeli.');
+    }
+
+    public function test_connection_health_lists_what_the_system_repairs_and_what_needs_the_operator(): void
+    {
+        $site = $this->website();
+        [$gsc, $ga4] = $this->bindWebsite($site);
+        $this->collected($gsc, ['collection_error' => 'collection_failed', 'collection_status' => 'attention']);
+        $this->collected($ga4);
+        $this->gscFacts($gsc, '2026-08-25', '2026-09-07');
+        $this->ga4Facts($ga4, '2026-09-01', '2026-09-26');
+        $other = Brand::factory()->create(['customer_id' => $this->brand->customer_id, 'name' => 'Sitesiz Marka']);
+        Bus::fake();
+        Queue::fake();
+
+        $health = app(ConnectionHealth::class);
+        $issues = collect($health->issues())->keyBy(fn (array $i): string => $i['brand'].'|'.$i['kind']);
+        $this->assertSame(ConnectionHealth::SYSTEM, $issues['Örnek Klinik|stale']['who']);
+        $this->assertStringContainsString('Gecikmiş · 20 gün', $issues['Örnek Klinik|stale']['title']);
+        $this->assertSame('Site hiç taranmamış', $issues['Örnek Klinik|crawl']['title']);
+        $this->assertSame(ConnectionHealth::OPERATOR, $issues['Sitesiz Marka|no_site']['who']);
+        $this->assertFalse($issues->has('Örnek Klinik|access'), 'GA4 is current');
+        $this->assertSame(['system' => 2, 'operator' => 1, 'brands' => 2], $health->summary());
+
+        Livewire::test(ConnectionHealthPage::class)->assertSee('Bağlantı sağlığı')->assertSee('Sitesiz Marka')->assertSee('Site hiç taranmamış')
+            ->call('repairNow')->assertSee('1 hesabın veri çekimi ve 1 site taraması başlatıldı');
+        $automation = ResourceAutomation::query()->where('external_resource_id', $gsc->id)->sole();
+        $this->assertNull($automation->collection_error);
+        $this->assertTrue($automation->next_collection_at->lte(now()));
+        $this->assertTrue(CollectionRun::query()->where('digital_asset_id', $site->id)->exists(), 'the crawl was started');
+        $this->assertFalse(collect($health->issues())->contains('kind', 'crawl'), 'a running crawl is not a gap');
+
+        $this->google->update(['config' => array_merge($this->google->config ?? [], ['auth_status' => 'revoked'])]);
+        app(DataStatusReader::class)->flush();
+        $access = collect($health->issues())->firstWhere('kind', 'access');
+        $this->assertSame(ConnectionHealth::OPERATOR, $access['who']);
+        $this->artisan('moxdop:health:repair')->expectsOutputToContain('Senin işin')->assertSuccessful();
     }
 
     /** @return array<string, array{0: string}> */

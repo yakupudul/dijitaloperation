@@ -17,6 +17,7 @@ use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\ExternalWrites\WordPressDraftWriter;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Services\Outcomes\OutcomeTracker;
+use App\Services\Repair\SiteAudit;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -54,7 +55,11 @@ final class ChangeApplier
             return ['status' => 'not_operational'];
         }
         // A competitor suggestion on an existing page is written like a missing topic (a section of the page).
-        $type = $suggestion->action_type === 'rakip' ? 'missing_topic' : (string) $suggestion->action_type;
+        $type = match ((string) $suggestion->action_type) {
+            'rakip' => 'missing_topic',
+            SiteAudit::TYPE => 'title_description',
+            default => (string) $suggestion->action_type,
+        };
         $html = in_array($type, ['missing_topic', 'conversion', 'wrong_intent'], true) ? $this->currentHtml($site, $page) : null;
         $sitePages = Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)->whereKeyNot($page->id)->orderBy('path')->limit(300)->get(['url', 'title']);
         $context = $this->memory->contextFor($brand, [(int) $page->id], $suggestion->cluster_id !== null ? [(int) $suggestion->cluster_id] : []);

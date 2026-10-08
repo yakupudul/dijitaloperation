@@ -58,7 +58,7 @@ return [
     /**
      * Controlled URL Inspection budget per DatasetRun (not site-wide).
      */
-    'url_inspection_max_targets_per_run' => (int) env('MOXDOP_GSC_URL_INSPECTION_MAX', 25),
+    'url_inspection_max_targets_per_run' => (int) env('MOXDOP_GSC_URL_INSPECTION_MAX', 200),
 
     'http_timeout_seconds' => 45,
 

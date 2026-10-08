@@ -629,6 +629,33 @@ Schedule::command('moxdop:resources:retry-stopped')
     ->withoutOverlapping(30)
     ->name('resource-automation-daily-retry');
 
+// Bağlantı sağlığı (Onarım Faz 1): gecikmiş hesapların çekimi ve taranmamış sitelerin taraması kendiliğinden başlar.
+Schedule::command('moxdop:health:repair')
+    ->dailyAt('05:40')
+    ->withoutOverlapping(30)
+    ->name('connection-health-repair');
+
+// Onarım masası (Faz 2): gece değeri hazır olmayan site önerileri hazırlanır; sabah onay bekleyenler bildirilir.
+Schedule::command('moxdop:repair:audit')
+    ->dailyAt('01:40')
+    ->withoutOverlapping(60)
+    ->name('repair-site-audit');
+
+Schedule::command('moxdop:repair:prepare')
+    ->dailyAt('02:10')
+    ->withoutOverlapping(30)
+    ->name('repair-desk-prepare');
+
+Schedule::command('moxdop:repair:verify')
+    ->hourlyAt(35)
+    ->withoutOverlapping(30)
+    ->name('repair-desk-verify');
+
+Schedule::command('moxdop:repair:digest')
+    ->dailyAt('09:05')
+    ->withoutOverlapping(10)
+    ->name('repair-desk-digest');
+
 // Faz 5: sektör paketi uyum denetimi (AI taslakları, Meta reklam metni/hedefleme, site sayfaları, İşletme Profili).
 Schedule::command('moxdop:compliance:scan')
     ->dailyAt((string) config('moxdop-sector-packs.scan_time', '06:45'))

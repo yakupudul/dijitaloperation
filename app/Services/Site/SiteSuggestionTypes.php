@@ -2,6 +2,8 @@
 
 namespace App\Services\Site;
 
+use App\Services\Repair\SiteAudit;
+
 /**
  * Suggestion types of the website screen (stored in `suggestions.action_type`, channel `search`).
  */
@@ -26,7 +28,7 @@ final class SiteSuggestionTypes
     public const string COMPETITOR = 'rakip';
 
     /** Types "AI ile yap" can write: fields (title / description, links, schema) or page HTML (sections, FAQ). */
-    public const array APPLICABLE = ['title_description', 'missing_topic', 'internal_links', 'technical_seo', 'conversion', 'wrong_intent', self::COMPETITOR];
+    public const array APPLICABLE = ['title_description', 'missing_topic', 'internal_links', 'technical_seo', 'conversion', 'wrong_intent', self::COMPETITOR, SiteAudit::TYPE];
 
     public static function label(string $type): string
     {
@@ -35,6 +37,7 @@ final class SiteSuggestionTypes
             self::COMPETITOR => 'rakip',
             ClusterOverlaps::TYPE => 'küme çakışması',
             ImageAlts::TYPE => 'görsel alt metni',
+            SiteAudit::TYPE => 'SEO başlık / açıklama',
             Clarity\ClarityRules::TYPE => 'ziyaretçi davranışı',
             default => self::ANALYSIS[$type] ?? $type,
         };

@@ -3675,3 +3675,56 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT; no real Claude API call ye
   structured output (tool_choice auto), which the 5.5 models accept.
 - Tests: `tests/Feature/AiControl/AiCreditsAndAssignmentsTest.php`.
 - Open: credit is not read from Anthropic (no balance API); the operator enters top-ups.
+
+## 2026-10-08 — Bağlantı sağlığı (Onarım Faz 1)
+
+Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
+- Entegrasyonlar › Bağlantı sağlığı (`/integrations/connection-health`, `ConnectionHealthPage`, `ConnectionHealth`): per
+  brand, the gaps in what MoxDOP can see. "Sistem onarır": late data of a bound account (DataStatus stale, not
+  collecting), website never crawled / last good crawl older than 30 days. "Senin işin": access problem, Google Ads
+  account without spend for 45+ days ("doğru hesap bağlı mı?"), strong unbound account candidate of the brand, brand
+  without a website, website without an address. "Şimdi onar" starts the system's repairs; `moxdop:health:repair`
+  does the same daily at 05:40 (a crawl that failed in the last 24 hours waits for the next night).
+- `retryStopped()` (daily 05:10) now also gives "yazılım sorunu" stops (`request_requires_fix`) one more try when a newer
+  release is live than the stop (`ReleaseInfo` deployed_at); a stop after that release waits for the next one.
+- MCP `system-health` returns `connections` (summary + up to 60 rows).
+- Only MoxDOP's own collection / crawl is restarted; nothing is written to providers or sites.
+- Tests: `DataStatusTest::test_connection_health_…`, `IntegrationSelfHealingTest::test_a_code_error_stop_…`.
+
+## 2026-10-08 — Onarım masası (Onarım Faz 2)
+
+Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
+- `/onarim` (`RepairDeskPage`, `RepairDesk`; menu "Onarım masası", Admin): every prepared fix of every operational brand
+  with Şimdi → Onaylanınca and risk. Kinds: website fields (title / description / internal links / schema, low; schema
+  medium), page text (high: single approval only; becomes a WordPress draft, "Canlıya al" on the site screen), image alt
+  text (low), 301 merge (medium), Google Ads shared-list negative (low), Business Profile description (low).
+- Approve one row, the ticked rows or "Düşük risklilerin hepsini onayla"; more than one row never includes high risk.
+  Writes go through the existing paths (ChangeApplier, ImageAlts, ClusterOverlaps::redirectMany,
+  GoogleAdsSuggestions::sendNegatives, ProfileFields::sendDescription), so they are logged and undoable. Edit title /
+  description / profile text before approving (`action.edited_by_operator`). Reject with a reason (dismissed). "Son 7
+  günde uygulananlar" lists the writes with "Geri al".
+- Hazırla: `moxdop:repair:prepare` (02:10) queues "AI ile yap" for up to 150 field fixes and 20 page-text fixes without a
+  prepared value. Doğrula: `moxdop:repair:verify` (hourly :35) checks a website title / description fix 24 hours after
+  the write against the page's stored title / description (confirmed / still seen); a fix whose writes all failed or were
+  undone goes back to the desk with the error. Bildirim: `moxdop:repair:digest` (09:05) pushes "Onarım masası: N iş
+  onayını bekliyor".
+- Open: Google Ads changes beyond the shared negative list, Meta writes and the new Business Profile fields come in
+  phases 4-6; verification of non-website kinds uses their existing checks.
+- Tests: `tests/Feature/Repair/RepairDeskTest.php`.
+
+## 2026-10-08 — Web onarımı: toplu başlık / açıklama denetimi (Onarım Faz 3, ilk adım)
+
+Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
+- `moxdop:repair:audit` (01:40, `SiteAudit`, no AI): every indexable WordPress page (error pages and pages canonicalised
+  elsewhere left out) is checked for a missing, short (<25), long (>60) or duplicate SEO title and a missing, short (<70),
+  long (>160) or duplicate meta description. One `seo_fields` suggestion per affected page (priority 1 missing, 2
+  duplicate, 3 length), closed by itself (verification auto) when the page no longer has the problem, reopened when an
+  applied page shows a new problem; dismissed rows stay dismissed.
+- `seo_fields` is an "AI ile yap" type (prepared as a title / description fix) and the first type the nightly preparer
+  takes; the preparer now queues up to 400 field fixes a night. Approved on the Onarım masası.
+- Search Console URL Inspection budget per run raised from 25 to 200 URLs (`MOXDOP_GSC_URL_INSPECTION_MAX`; Google allows
+  2,000 a day per property), so whole sites are inspected within the 14-day cycle.
+- Open (Faz 3 devamı): Search Console index problems as desk rows, Core Web Vitals per template (CrUX), security headers,
+  broken external links, index bloat (tag / archive pages), conversion path and GA4 health checks.
+- Tests: `RepairDeskTest::test_site_audit_…`.
+

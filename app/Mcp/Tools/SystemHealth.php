@@ -5,6 +5,7 @@ namespace App\Mcp\Tools;
 use App\Models\AiTask;
 use App\Models\ExternalWriteAction;
 use App\Models\GbpQueuedPost;
+use App\Services\DataStatus\ConnectionHealth;
 use App\Services\Observability\ErrorTriage;
 use App\Services\Operations\AutoDeployStatus;
 use App\Services\Operations\SystemHealthReader;
@@ -15,7 +16,7 @@ use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 use Throwable;
 
-#[Description('Reads how the system is doing, from stored state only: deployed release, the last automatic deploy check (with the failing tests when it stopped), scheduler and stopped workers, queue waits, top application errors of the last 7 days (class, file:line, count), open alerts grouped like the Hata merkezi (you = needs the operator, code = software error, auto = heals by itself), AI tasks you could not do and approved external writes / automatic Business Profile posts that failed in the last 3 days with their reasons. Use it to find bugs to report or fix and improvements to propose; it changes nothing.')]
+#[Description('Reads how the system is doing, from stored state only: deployed release, the last automatic deploy check (with the failing tests when it stopped), scheduler and stopped workers, queue waits, top application errors of the last 7 days (class, file:line, count), open alerts grouped like the Hata merkezi (you = needs the operator, code = software error, auto = heals by itself), connection health per brand (connections: what the system repairs nightly vs what needs the operator), AI tasks you could not do and approved external writes / automatic Business Profile posts that failed in the last 3 days with their reasons. Use it to find bugs to report or fix and improvements to propose; it changes nothing.')]
 #[IsReadOnly]
 class SystemHealth extends Tool
 {
@@ -51,6 +52,14 @@ class SystemHealth extends Tool
         } catch (Throwable $exception) {
             report($exception);
             $out['alerts_error'] = mb_substr($exception->getMessage(), 0, 300);
+        }
+        try {
+            $issues = app(ConnectionHealth::class)->issues();
+            $out['connections'] = ['summary' => app(ConnectionHealth::class)->summary($issues),
+                'issues' => array_map(fn (array $i): array => array_intersect_key($i, array_flip(['brand', 'asset', 'kind', 'who', 'title', 'detail'])), array_slice($issues, 0, 60))];
+        } catch (Throwable $exception) {
+            report($exception);
+            $out['connections_error'] = mb_substr($exception->getMessage(), 0, 300);
         }
         $out['failed_ai_tasks'] = AiTask::query()->where('status', AiTask::FAILED)->where('updated_at', '>=', now()->subDays(7))
             ->latest('id')->limit(20)->get(['id', 'operation', 'subject', 'error', 'updated_at'])
