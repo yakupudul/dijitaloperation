@@ -182,7 +182,7 @@ final class ClusterOverlapsTest extends SiteTestCase
         $this->assertSame([Suggestion::APPLIED, 'rank_math'], [$merged->status, data_get($merged->action, 'merge_provider')]);
         $failed = Suggestion::query()->find($ids[$other->id]);
         $this->assertSame([Suggestion::OPEN, 'SEO fixes are disabled on this site.'], [$failed->status, data_get($failed->action, 'merge_error')]);
-        $this->assertSame('partial', ExternalWriteAction::query()->sole()->status);
+        $this->assertSame(['partial', 'SEO fixes are disabled on this site.'], [ExternalWriteAction::query()->sole()->status, ExternalWriteAction::query()->sole()->error]);
         $this->assertStringContainsString('301 yazılamadı', $html);
     }
 

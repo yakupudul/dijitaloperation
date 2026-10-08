@@ -8,6 +8,7 @@ use App\Models\Suggestion;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\PageTechnical;
 use Illuminate\Support\Collection;
+use Throwable;
 
 /**
  * Web onarımı (Onarım Faz 3): every indexable WordPress page of every site is checked, without AI, for a missing,
@@ -32,7 +33,13 @@ final class SiteAudit
     {
         $done = ['sites' => 0, 'opened' => 0, 'closed' => 0];
         DigitalAsset::query()->operational()->where('type', 'website')->orderBy('id')->each(function (DigitalAsset $site) use (&$done): void {
-            $result = $this->audit($site);
+            try {
+                $result = $this->audit($site);
+            } catch (Throwable $e) {
+                report($e);
+
+                return;
+            }
             $done['sites']++;
             $done['opened'] += $result['opened'];
             $done['closed'] += $result['closed'];
@@ -111,7 +118,7 @@ final class SiteAudit
         $reason = implode('; ', array_column($problems, 'text')).'.';
         $priority = in_array('missing', array_column($problems, 'code'), true) ? 1 : (in_array('duplicate', array_column($problems, 'code'), true) ? 2 : 3);
         $values = [
-            'channel' => 'search', 'decision_key' => 'repair.'.self::TYPE, 'title' => 'Başlık ve açıklamayı düzelt: '.($page->path ?: $page->url),
+            'channel' => 'search', 'decision_key' => 'repair.'.self::TYPE, 'title' => mb_substr('Başlık ve açıklamayı düzelt: '.($page->path ?: $page->url), 0, 160),
             'reason' => mb_substr($reason, 0, 240), 'priority' => $priority, 'action_type' => self::TYPE, 'target_type' => 'page', 'target_id' => $page->id,
             'page_id' => $page->id, 'material_hash' => $material, 'last_seen_at' => now(),
             'evidence' => [['kind' => 'quote', 'value' => mb_substr((string) $page->title, 0, 200) ?: 'başlık yok', 'source' => (string) $page->url]],

@@ -143,6 +143,18 @@ final class RepairDeskTest extends SiteTestCase
         $this->assertSame(Suggestion::OPEN, $rows[$long->id]->fresh()->status);
     }
 
+    public function test_a_very_long_page_address_still_fits_the_fix_title(): void
+    {
+        $path = '/sorular-ve-cevap/'.str_repeat('yapay-koklerin-cene-kemigiyle-kaynasma-suresi-', 4);
+        $page = $this->page($path, str_repeat('Yapay köklerin kaynaşma süresi ', 4), ['wp_post_id' => 47]);
+
+        $this->artisan('moxdop:repair:audit')->assertSuccessful();
+
+        $title = (string) Suggestion::query()->where('action_type', SiteAudit::TYPE)->where('page_id', $page->id)->value('title');
+        $this->assertStringStartsWith('Başlık ve açıklamayı düzelt: /sorular-ve-cevap/', $title);
+        $this->assertLessThanOrEqual(160, mb_strlen($title));
+    }
+
     /**
      * @param  array<string, mixed>  $action
      * @param  array<string, mixed>  $extra

@@ -736,7 +736,7 @@ final class ExternalWriteService
                 in_array($action->action, self::FIX_ACTIONS, true) => $this->fixes->apply($action),
                 default => $this->drafts->apply($action),
             };
-            $action->forceFill(['status' => $result['status'] ?? 'succeeded', 'result' => $result, 'finished_at' => now(), 'error' => null])->save();
+            $action->forceFill(['status' => $result['status'] ?? 'succeeded', 'result' => $result, 'finished_at' => now(), 'error' => self::changeErrors($result)])->save();
         } catch (Throwable $exception) {
             $action->forceFill(['status' => 'failed', 'finished_at' => now(), 'error' => mb_substr($exception->getMessage(), 0, 500)])->save();
         }
@@ -765,6 +765,23 @@ final class ExternalWriteService
                 app(GbpSuggestions::class)->markApplied($suggestion, User::query()->find($action->requested_by));
             }
         }
+    }
+
+    /**
+     * A site write the site answered but did not (fully) carry out: the reasons the site gave per change, so the desk
+     * and the health check show why instead of an empty "Başarısız".
+     *
+     * @param  array<string, mixed>  $result
+     */
+    public static function changeErrors(array $result): ?string
+    {
+        if (($result['status'] ?? 'succeeded') === 'succeeded') {
+            return null;
+        }
+        $errors = collect((array) ($result['changes'] ?? []))->map(fn (mixed $c): string => is_array($c) ? trim((string) ($c['error'] ?? '')) : '')
+            ->filter()->countBy()->map(fn (int $n, string $e): string => $n > 1 ? $e.' ('.$n.' değişiklik)' : $e)->values();
+
+        return $errors->isEmpty() ? null : mb_substr($errors->implode(' · '), 0, 500);
     }
 
     public function executeUndo(ExternalWriteAction $action): void

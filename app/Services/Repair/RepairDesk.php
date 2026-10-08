@@ -220,9 +220,10 @@ final class RepairDesk
     private function row(Suggestion $s, string $brand): ?array
     {
         $action = (array) $s->action;
+        $lastError = $action['last_write_error'] ?? $action['merge_error'] ?? null;
         $base = ['id' => (int) $s->id, 'brand_id' => (int) $s->brand_id, 'brand' => $brand, 'channel' => (string) $s->channel,
             'title' => (string) $s->title,
-            'reason' => trim((string) $s->reason.(filled($action['last_write_error'] ?? null) ? ' · Önceki gönderim başarısız: '.$action['last_write_error'] : ''), ' ·')];
+            'reason' => trim((string) $s->reason.(filled($lastError) ? ' · Önceki gönderim başarısız: '.$lastError : ''), ' ·')];
         if ($s->status === Suggestion::SNOOZED && $s->snoozed_until !== null && $s->snoozed_until->isFuture()) {
             return null;
         }
