@@ -16,6 +16,7 @@ use App\Models\Page;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\Gbp\Desk\ProfileInfo;
 use App\Services\Integrations\Google\GoogleApiClient;
 use App\Services\Repair\RepairDesk;
 use App\Support\Roles;
@@ -202,6 +203,16 @@ final class GbpProfileInfoTest extends TestCase
         $integration = CoreIntegration::query()->where('provider', 'google')->firstOrFail();
         $this->expectException(RuntimeException::class);
         app(GoogleApiClient::class)->writeBusinessProfile($integration, 'patch', 'https://mybusinessbusinessinformation.googleapis.com/v1/locations/22?updateMask=title', ['title' => 'x']);
+    }
+
+    public function test_only_a_top_level_booking_page_counts_as_the_appointment_link(): void
+    {
+        $this->assertTrue(ProfileInfo::isAppointmentPage('https://avrupadent.com.tr/randevu-olustur/'));
+        $this->assertTrue(ProfileInfo::isAppointmentPage('https://www.panoramaankara.com/randevu-talebi-olustur/'));
+        $this->assertTrue(ProfileInfo::isAppointmentPage('https://site.test/en/appointment/'));
+        $this->assertFalse(ProfileInfo::isAppointmentPage('https://www.burcinoncul.com.tr/soru-cevap/kontrol-randevulari-ne-siklikla-yapilir/'));
+        $this->assertFalse(ProfileInfo::isAppointmentPage('https://site.test/randevu-almadan-once-bilinmesi-gerekenler/'));
+        $this->assertFalse(ProfileInfo::isAppointmentPage('https://site.test/'));
     }
 
     public function test_video_goes_as_video_media(): void

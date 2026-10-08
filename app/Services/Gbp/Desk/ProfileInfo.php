@@ -97,7 +97,8 @@ final class ProfileInfo
             $page = Page::query()->where('website_asset_id', $site->id)->where('url', 'like', 'https://%')
                 ->where(fn ($q) => $q->where('url', 'like', '%randevu%')->orWhere('url', 'like', '%appointment%')->orWhere('title', 'like', '%Randevu%'))
                 ->where(fn ($q) => $q->whereNull('is_indexable')->orWhere('is_indexable', true))
-                ->orderByRaw('length(url)')->first();
+                ->orderByRaw('length(url)')->limit(50)->get()
+                ->first(fn (Page $p): bool => self::isAppointmentPage((string) $p->url));
             if ($page !== null) {
                 $items[] = $item('appointment_url', (string) $page->url, '', (string) $page->url, 'Profilde "Randevu al" bağlantısı yok; sitedeki randevu sayfası önerildi.', 2);
             }
@@ -182,6 +183,21 @@ final class ProfileInfo
         }
 
         return implode(', ', array_map(fn (string $day, string $label): string => $label.' '.(isset($byDay[$day]) ? implode(' / ', $byDay[$day]) : 'kapalı'), array_keys($days), $days));
+    }
+
+    /**
+     * A booking page sits at the top of the site (optionally under a language folder) and its own address names it:
+     * "/randevu-olustur/", "/en/appointment/". A blog or Q&A page that only mentions appointments
+     * ("/soru-cevap/kontrol-randevulari-ne-siklikla-yapilir/") is not one.
+     */
+    public static function isAppointmentPage(string $url): bool
+    {
+        $segments = array_values(array_filter(explode('/', (string) parse_url($url, PHP_URL_PATH))));
+        if ($segments !== [] && preg_match('/^[a-z]{2}$/', $segments[0]) === 1) {
+            array_shift($segments);
+        }
+
+        return count($segments) === 1 && preg_match('/(randevu|appointment|booking)/i', $segments[0]) === 1 && substr_count($segments[0], '-') <= 2;
     }
 
     /** Whether the profile already has an appointment link (live read; when Google does not answer, assume yes). */
