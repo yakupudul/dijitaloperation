@@ -11,6 +11,7 @@ use App\Models\ExternalWriteAction;
 use App\Models\GbpReview;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorInputCollector;
 use App\Services\Gbp\Desk\BranchPages;
 use App\Services\Gbp\Desk\PhotoPlan;
 use App\Services\Gbp\GbpAssistant;
@@ -22,6 +23,7 @@ use App\Services\Integrations\WordPress\WordPressSiteBuilder;
 use App\Services\Site\ClusterOverlaps;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -502,6 +504,7 @@ final class ExternalWriteService
             }
             $clean['website_uri'] = $uri;
         }
+        $clean += $this->profileInfoFields($asset, $fields);
         if ($clean === []) {
             throw ValidationException::withMessages(['write' => 'Gönderilecek alan yok.']);
         }
@@ -516,6 +519,92 @@ final class ExternalWriteService
             'channel' => ExternalWriteAction::CHANNEL_GBP, 'action' => ExternalWriteAction::ACTION_PROFILE_FIELDS,
             'digital_asset_id' => $asset->id, 'brand_id' => $asset->brand_id, 'suggestion_id' => $suggestion?->id, 'status' => 'queued',
             'request_payload' => ['fields' => $clean, 'label' => mb_substr($label, 0, 120)],
+            'requested_by' => $user->id,
+        ]));
+    }
+
+    /**
+     * ADR-080 fields: regular hours (day rows, at least one open day), primary phone, primary category (a Google
+     * category id), yes / no attributes Google offers for the profile, appointment link (https).
+     *
+     * @param  array<string, mixed>  $fields
+     * @return array<string, mixed>
+     */
+    private function profileInfoFields(DigitalAsset $asset, array $fields): array
+    {
+        $clean = [];
+        if (array_key_exists('regular_hours', $fields)) {
+            $rows = [];
+            foreach ((array) $fields['regular_hours'] as $row) {
+                if (! is_array($row) || GbpWriter::regularPeriods([$row]) === []) {
+                    throw ValidationException::withMessages(['write' => 'Çalışma saati satırı geçersiz: '.(is_array($row) ? implode(' ', array_map('strval', $row)) : '').' (gün ve SS:DD açılış / kapanış).']);
+                }
+                $rows[] = ['day' => strtoupper((string) $row['day']), 'open' => (string) $row['open'], 'close' => (string) $row['close']];
+            }
+            if ($rows === []) {
+                throw ValidationException::withMessages(['write' => 'En az bir gün açık olmalı.']);
+            }
+            $clean['regular_hours'] = $rows;
+        }
+        if (array_key_exists('phone', $fields)) {
+            $phone = trim(preg_replace('/\s+/', ' ', (string) $fields['phone']) ?? '');
+            $digits = (string) preg_replace('/\D+/', '', $phone);
+            if (preg_match('/^\+?[\d\s().-]+$/', $phone) !== 1 || strlen($digits) < 10 || strlen($digits) > 15) {
+                throw ValidationException::withMessages(['write' => 'Telefon numarası geçersiz (10–15 rakam).']);
+            }
+            $clean['phone'] = $phone;
+        }
+        if (array_key_exists('primary_category', $fields)) {
+            $id = trim((string) data_get($fields, 'primary_category.id', ''));
+            if (preg_match('#^categories/gcid:[a-z0-9_]+$#', $id) !== 1) {
+                throw ValidationException::withMessages(['write' => 'Birincil kategori Google listesinden seçilmeli.']);
+            }
+            $clean['primary_category'] = ['id' => $id, 'name' => mb_substr(trim((string) data_get($fields, 'primary_category.name', '')), 0, 120)];
+        }
+        if (array_key_exists('attributes', $fields)) {
+            $offered = collect(GoogleAdsAdvisorInputCollector::decode(DB::table('gbp_attribute_snapshots')->where('digital_asset_id', $asset->id)->latest('id')->value('available_attributes')))
+                ->filter(fn (mixed $a): bool => is_array($a) && ($a['valueType'] ?? '') === 'BOOL' && ! (bool) ($a['deprecated'] ?? false))
+                ->pluck('parent')->map(fn (mixed $n): string => (string) $n)->all();
+            $rows = [];
+            foreach ((array) $fields['attributes'] as $attribute) {
+                $name = (string) data_get($attribute, 'name', '');
+                if (preg_match('#^attributes/[a-z0-9_]+$#', $name) !== 1 || ! in_array($name, $offered, true)) {
+                    throw ValidationException::withMessages(['write' => 'Özellik bu profil için Google listesinde yok: '.$name.'.']);
+                }
+                $rows[$name] = ['name' => $name, 'value' => (bool) data_get($attribute, 'value')];
+            }
+            if ($rows === [] || count($rows) > 40) {
+                throw ValidationException::withMessages(['write' => 'Gönderilecek özellik sayısı 1–40 olmalı.']);
+            }
+            $clean['attributes'] = array_values($rows);
+        }
+        if (array_key_exists('appointment_url', $fields)) {
+            $uri = trim((string) $fields['appointment_url']);
+            if (preg_match('~^https://[^\s/]+\.[^\s/]+\S*$~i', $uri) !== 1 || mb_strlen($uri) > 500) {
+                throw ValidationException::withMessages(['write' => 'Randevu bağlantısı https ile başlayan bir adres olmalı.']);
+            }
+            $clean['appointment_url'] = $uri;
+        }
+
+        return $clean;
+    }
+
+    /**
+     * ADR-080: the Admin adds one video to the profile from an https MP4 / MOV address (Google fetches it itself).
+     */
+    public function requestVideo(User $user, DigitalAsset $asset, string $sourceUrl): ExternalWriteAction
+    {
+        $this->guard($user, ExternalWriteAction::CHANNEL_GBP);
+        $sourceUrl = trim($sourceUrl);
+        if ($asset->type !== 'google_business_profile' || preg_match('~^https://\S+\.(mp4|mov)(\?\S*)?$~i', $sourceUrl) !== 1) {
+            throw ValidationException::withMessages(['write' => 'Video https ile başlayan bir MP4 / MOV adresi olmalı; hedef bir İşletme Profili olmalı.']);
+        }
+        $this->gbpLocation($asset);
+
+        return $this->queue(ExternalWriteAction::query()->create([
+            'channel' => ExternalWriteAction::CHANNEL_GBP, 'action' => ExternalWriteAction::ACTION_MEDIA_UPLOAD,
+            'digital_asset_id' => $asset->id, 'brand_id' => $asset->brand_id, 'status' => 'queued',
+            'request_payload' => ['source_url' => $sourceUrl, 'category' => 'ADDITIONAL', 'media_format' => 'VIDEO', 'label' => 'Video ekleme'],
             'requested_by' => $user->id,
         ]));
     }

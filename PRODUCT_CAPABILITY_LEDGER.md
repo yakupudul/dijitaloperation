@@ -3728,3 +3728,22 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
   broken external links, index bloat (tag / archive pages), conversion path and GA4 health checks.
 - Tests: `RepairDeskTest::test_site_audit_…`.
 
+## 2026-10-08 — İşletme Profili bilgileri (Onarım Faz 4, ADR-080)
+
+Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
+- New Admin-approved, undoable Business Profile writes (`profile_fields`): weekly hours (`regularHours`), primary phone
+  (additional phones kept), primary category (Google list only; old primary stays additional), yes / no attributes
+  Google offers for the profile (only those sent; undo restores / clears), appointment link (Place Actions
+  `placeActionLinks`, undo deletes it); video (`media_upload` VIDEO from an https MP4 / MOV). Name and address are never
+  written. `GoogleApiClient::writeBusinessProfile` allowlist lists exactly these targets.
+- İşletme profilleri › Açıklama ve saatler › **Bilgiler**: every profile's category / phone / hours / website, the
+  prepared values with "Google'a gönder" / "Kaldır", and an editor (hours per day, phone, category search, appointment
+  link, video, attribute list) that sends only what changed.
+- Preparation: `moxdop:repair:prepare` (02:10) also runs `ProfileInfo::prepareAll` — no hours → hours most of the
+  brand's other branches use; no website link → the brand's site; no appointment link (live read) → the site's
+  "randevu" / "appointment" page. Rows are `gbp_profile_fields` suggestions and appear on the Onarım masası as
+  "İşletme Profili bilgileri" (medium risk, single or bulk approval); a successful write marks the row applied.
+- Open: primary-category suggestions from competitor data (DataForSEO not approved), attribute values are never guessed,
+  the Place Actions API must be enabled in the Google Cloud project for the appointment link (a refusal shows on the row).
+- Tests: `tests/Feature/Gbp/GbpProfileInfoTest.php`.
+

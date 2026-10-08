@@ -8,6 +8,7 @@ use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\Desk\ProfileFields;
+use App\Services\Gbp\Desk\ProfileInfo;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
 use App\Services\Site\ChangeApplier;
 use App\Services\Site\ClusterOverlaps;
@@ -22,7 +23,7 @@ use Throwable;
  * Onarım masası (Onarım Faz 2, yakup 2026-10-08): every prepared fix of every brand in one list, each with the value it
  * will write (eski → yeni) and a risk. The operator approves one row or many; approval writes through the existing
  * Admin-approved, logged and undoable paths (WordPress fixes and content draft, SEO-plugin 301, Google Ads shared
- * negative list, Business Profile description). High-risk rows (page text) are approved one by one only.
+ * negative list, Business Profile description and profile facts — ADR-080). High-risk rows (page text) are approved one by one only.
  *
  * Preparation is automatic: website suggestions without a prepared value are queued nightly for "AI ile yap"
  * (RepairPreparer); the other kinds arrive prepared from their generators.
@@ -41,6 +42,8 @@ final class RepairDesk
 
     public const string GBP_DESCRIPTION = 'gbp_description';
 
+    public const string GBP_FIELDS = 'gbp_fields';
+
     public const array KINDS = [
         self::SITE_FIELDS => 'Başlık, açıklama, iç link, schema',
         self::SITE_CONTENT => 'Sayfa metni',
@@ -48,6 +51,7 @@ final class RepairDesk
         self::REDIRECT => '301 birleştirme',
         self::ADS_NEGATIVE => 'Google Ads negatif kelime',
         self::GBP_DESCRIPTION => 'İşletme Profili açıklaması',
+        self::GBP_FIELDS => 'İşletme Profili bilgileri',
     ];
 
     public const string LOW = 'low';
@@ -136,6 +140,7 @@ final class RepairDesk
                         self::IMAGE_ALT => app(ImageAlts::class)->approve($suggestion, $user),
                         self::GBP_DESCRIPTION => app(ProfileFields::class)->sendDescription($user, DigitalAsset::query()->findOrFail((int) $suggestion->target_id),
                             (string) data_get($suggestion->action, 'proposed'), $suggestion),
+                        self::GBP_FIELDS => app(ProfileInfo::class)->send($user, $suggestion),
                     };
                     $result['applied']++;
                 } catch (Throwable $error) {
@@ -199,6 +204,7 @@ final class RepairDesk
             $base()->where('action_type', ClusterOverlaps::TYPE),
             $base()->where('channel', GoogleAdsSuggestions::CHANNEL)->where('action_type', 'ads_negative'),
             $base()->where('action_type', 'gbp_description')->where('status', '!=', Suggestion::APPROVED),
+            $base()->where('action_type', ProfileInfo::TYPE)->where('status', '!=', Suggestion::APPROVED),
         ])->flatMap(fn (Builder $query): Collection => $query->orderBy('priority')->orderBy('id')->limit(self::LIMIT)->get())
             ->unique('id')->values();
     }
@@ -224,6 +230,9 @@ final class RepairDesk
                     'after' => [sprintf('"%s" (%s)%s', $action['text'], $action['match_type'] ?? 'phrase', isset($action['cost']) ? ' · boşa giden '.$action['cost'] : '')]] : null,
             'gbp_description' => filled($action['proposed'] ?? null) ? $base + ['kind' => self::GBP_DESCRIPTION, 'risk' => self::LOW, 'target' => 'İşletme açıklaması',
                 'before' => [(string) ($action['current'] ?? '—')], 'after' => [(string) $action['proposed']], 'editable' => ['description']] : null,
+            ProfileInfo::TYPE => filled($action['fields'] ?? null) ? $base + ['kind' => self::GBP_FIELDS, 'risk' => self::MEDIUM,
+                'target' => trim(($action['location'] ?? '').' · '.(ProfileInfo::FIELD_LABELS[$action['field'] ?? ''] ?? 'Profil bilgisi'), ' ·'), 'before' => [(string) ($action['current'] ?? '') ?: '—'],
+                'after' => [(string) ($action['proposed'] ?? '')]] : null,
             default => $this->siteRow($s, $base, $action),
         };
 

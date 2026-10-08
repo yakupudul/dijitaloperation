@@ -262,17 +262,22 @@ class GoogleApiClient
      * The only Business Profile writes MoxDOP performs — ADR-073: reply to a review (PUT / DELETE …/reviews/{id}/reply)
      * and a local post (POST / DELETE …/localPosts); ADR-077: the location's categories or service items (PATCH
      * v1/locations/{id}?updateMask=categories|serviceItems); ADR-079: the description, special hours and website link
-     * (PATCH …?updateMask=profile.description|specialHours|websiteUri) and photos (POST / DELETE …/media). Callers are
-     * restricted to GbpWriter.
+     * (PATCH …?updateMask=profile.description|specialHours|websiteUri) and photos (POST / DELETE …/media); ADR-080:
+     * regular hours, phone and primary category (PATCH …?updateMask=regularHours|phoneNumbers|categories), attributes
+     * (PATCH v1/locations/{id}/attributes?attributeMask=attributes/…), the appointment link (POST / DELETE
+     * mybusinessplaceactions v1/locations/{id}/placeActionLinks) and videos (…/media). Callers are restricted to GbpWriter.
      *
      * @param  array<string, mixed>  $body
      */
     public function writeBusinessProfile(CoreIntegration $integration, string $method, string $url, array $body = []): Response
     {
         $allowed = $method === 'patch'
-            ? preg_match('#^https://mybusinessbusinessinformation\.googleapis\.com/v1/locations/[^/?]+\?updateMask=(categories|serviceItems|profile\.description|specialHours|websiteUri)$#', $url) === 1
-            : in_array($method, ['put', 'post', 'delete'], true)
-                && preg_match('#^https://mybusiness\.googleapis\.com/v4/accounts/[^/]+/locations/[^/]+/(reviews/[^/]+/reply|localPosts(/[^/]+)?|media(/[^/]+)?)$#', $url) === 1;
+            ? preg_match('#^https://mybusinessbusinessinformation\.googleapis\.com/v1/locations/[^/?]+\?updateMask=(categories|serviceItems|profile\.description|specialHours|websiteUri|regularHours|phoneNumbers)$#', $url) === 1
+                || preg_match('#^https://mybusinessbusinessinformation\.googleapis\.com/v1/locations/[^/?]+/attributes\?attributeMask=attributes/[a-z0-9_]+(,attributes/[a-z0-9_]+)*$#', $url) === 1
+            : (in_array($method, ['put', 'post', 'delete'], true)
+                && preg_match('#^https://mybusiness\.googleapis\.com/v4/accounts/[^/]+/locations/[^/]+/(reviews/[^/]+/reply|localPosts(/[^/]+)?|media(/[^/]+)?)$#', $url) === 1)
+                || ($method === 'post' && preg_match('#^https://mybusinessplaceactions\.googleapis\.com/v1/locations/[^/?]+/placeActionLinks$#', $url) === 1)
+                || ($method === 'delete' && preg_match('#^https://mybusinessplaceactions\.googleapis\.com/v1/locations/[^/?]+/placeActionLinks/[^/?]+$#', $url) === 1);
         if (! $allowed) {
             throw new RuntimeException('Business Profile write target is not allowed.');
         }

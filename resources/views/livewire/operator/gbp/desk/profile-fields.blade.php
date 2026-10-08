@@ -28,6 +28,7 @@
     <div class="inline-flex rounded-lg bg-gray-100 p-1 text-sm dark:bg-white/[0.06]">
         <button type="button" wire:click="setSection('aciklama')" @class(['rounded-md px-3 py-1 font-medium', 'bg-white shadow-sm text-gray-900 dark:bg-gray-800 dark:text-white' => $section === 'aciklama', 'text-gray-500' => $section !== 'aciklama'])>Açıklama</button>
         <button type="button" wire:click="setSection('saatler')" @class(['rounded-md px-3 py-1 font-medium', 'bg-white shadow-sm text-gray-900 dark:bg-gray-800 dark:text-white' => $section === 'saatler', 'text-gray-500' => $section !== 'saatler'])>Özel gün saatleri</button>
+        <button type="button" wire:click="setSection('bilgiler')" @class(['rounded-md px-3 py-1 font-medium', 'bg-white shadow-sm text-gray-900 dark:bg-gray-800 dark:text-white' => $section === 'bilgiler', 'text-gray-500' => $section !== 'bilgiler'])>Bilgiler</button>
     </div>
 
     @if ($section === 'aciklama')
@@ -101,7 +102,7 @@
                 <p class="px-4 py-5 text-sm text-gray-500">Operasyonel markaya bağlı İşletme Profili yok.</p>
             @endforelse
         </section>
-    @else
+    @elseif ($section === 'saatler')
         @if ($holidays === [])
             <p class="rounded-xl bg-white p-4 text-sm text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">Önümüzdeki {{ \App\Services\Gbp\Desk\ProfileFields::HOLIDAY_WINDOW_DAYS }} günde resmî tatil yok.</p>
         @else
@@ -184,5 +185,121 @@
                 </section>
             @endif
         @endif
+    @else
+        <p class="max-w-3xl text-xs text-gray-500">Haftalık saatler, telefon, birincil kategori, randevu bağlantısı, evet / hayır özellikleri ve video. Markanın kendi verisinden doldurulabilenler (diğer şubelerin saatleri, kendi sitesi, sitedeki randevu sayfası) her gece hazırlanır ve burada ve Onarım masasında onayını bekler. Telefon, kategori ve özellikler tahmin edilmez; sen seçersin. Her gönderim geri alınabilir.</p>
+        <section class="divide-y divide-gray-100 rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:divide-gray-700 dark:bg-gray-800 dark:ring-gray-700">
+            @forelse ($groups as $brandName => $locations)
+                <div class="bg-gray-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:bg-white/[0.03]">{{ $brandName }} · {{ $locations->count() }}</div>
+                @foreach ($locations as $location)
+                    @php
+                        $snap = $snapshots[$location->id] ?? null;
+                        $write = $infoWrites->get($location->id);
+                        $ready = $prepared->get($location->id, collect());
+                        $hoursRows = $snap ? \App\Services\Gbp\Desk\ProfileInfo::rows((array) $snap['regular_hours']) : [];
+                    @endphp
+                    <div wire:key="info-{{ $location->id }}" class="px-4 py-3">
+                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <span class="min-w-0 flex-1 font-medium text-gray-900 dark:text-white" title="{{ $location->name }}">{{ \App\Services\Gbp\Desk\GbpDesk::shortName((string) $location->name) }}</span>
+                            @if ($ready->isNotEmpty())<span class="rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $tone('proposal') }}">{{ $ready->count() }} hazır bilgi</span>@endif
+                            @if ($canWrite && $snap && $infoEditing !== (int) $location->id)
+                                <button type="button" wire:click="startInfo({{ $location->id }})" class="text-xs font-medium text-brand-600 hover:underline">Düzenle</button>
+                            @endif
+                        </div>
+                        @if ($snap === null)
+                            <p class="mt-1 text-xs text-gray-400">Profil verisi yok.</p>
+                        @else
+                            <dl class="mt-1 grid gap-x-6 gap-y-0.5 text-xs text-gray-600 sm:grid-cols-2 dark:text-gray-400">
+                                <div><dt class="inline text-gray-400">Kategori:</dt> <dd class="inline">{{ $snap['primary_category'] ?: '—' }}</dd></div>
+                                <div><dt class="inline text-gray-400">Telefon:</dt> <dd class="inline">{{ $snap['phone'] ?: '—' }}</dd></div>
+                                <div class="sm:col-span-2"><dt class="inline text-gray-400">Saatler:</dt> <dd class="inline">{{ $hoursRows !== [] ? \App\Services\Gbp\Desk\ProfileInfo::hoursText($hoursRows) : 'Girilmemiş' }}</dd></div>
+                                <div class="sm:col-span-2 truncate"><dt class="inline text-gray-400">Web sitesi:</dt> <dd class="inline">{{ $snap['website'] ?: '—' }}</dd></div>
+                            </dl>
+                        @endif
+                        @foreach ($ready as $s)
+                            <div wire:key="prep-{{ $s->id }}" class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-sky-50 px-3 py-2 text-xs dark:bg-sky-500/10">
+                                <span class="font-medium text-sky-800 dark:text-sky-200">{{ \App\Services\Gbp\Desk\ProfileInfo::FIELD_LABELS[data_get($s->action, 'field')] ?? 'Bilgi' }}:</span>
+                                <span class="min-w-0 flex-1 break-words text-gray-700 dark:text-gray-300">{{ data_get($s->action, 'proposed') }}</span>
+                                <span class="w-full text-gray-500">{{ $s->reason }}</span>
+                                @if ($canWrite)
+                                    <button type="button" wire:click="sendPrepared({{ $s->id }})" wire:confirm="Bu bilgi Google’daki profile yazılsın mı? (Geri alınabilir.)" class="font-semibold text-brand-600 hover:underline">Google’a gönder</button>
+                                    <button type="button" wire:click="dismissPrepared({{ $s->id }})" class="text-gray-500 hover:underline">Kaldır</button>
+                                @endif
+                            </div>
+                        @endforeach
+                        @if ($write)
+                            <p class="mt-1 text-xs {{ $write->status === 'failed' ? 'text-rose-600' : 'text-gray-500' }}" @if (in_array($write->status, ['queued', 'running', 'undoing'], true)) wire:poll.5s @endif>
+                                {{ data_get($write->request_payload, 'label', 'Profil bilgisi') }}: {{ $writeLine($write) }}@if ($write->status === 'failed' && $write->error) · {{ \Illuminate\Support\Str::limit($write->error, 160) }}@endif
+                                @if ($canWrite && $write->isUndoable()) · <button type="button" wire:click="undo({{ $write->id }})" wire:confirm="Önceki değerler geri yüklensin mi?" class="font-medium text-gray-600 hover:underline dark:text-gray-300">Geri al</button>@endif
+                            </p>
+                        @endif
+
+                        @if ($infoEditing === (int) $location->id)
+                            <div class="mt-3 grid gap-5 rounded-lg bg-gray-50 p-4 lg:grid-cols-2 dark:bg-white/[0.03]">
+                                <div class="space-y-2">
+                                    <p class="text-[11px] font-semibold uppercase text-gray-400">Haftalık saatler</p>
+                                    @foreach ($days as $day => $label)
+                                        <div wire:key="wd-{{ $day }}" class="flex flex-wrap items-center gap-2 text-sm">
+                                            <label class="flex w-28 items-center gap-2"><input type="checkbox" wire:model.live="info.hours.{{ $day }}.open" class="rounded border-gray-300 text-brand-500"> {{ $label }}</label>
+                                            @if ($info['hours'][$day]['open'] ?? false)
+                                                <input type="time" wire:model="info.hours.{{ $day }}.from" class="rounded-lg border-gray-300 py-1 text-sm dark:border-gray-700 dark:bg-gray-900">
+                                                <span>–</span>
+                                                <input type="text" wire:model="info.hours.{{ $day }}.to" placeholder="18:00" maxlength="5" class="w-20 rounded-lg border-gray-300 py-1 text-sm dark:border-gray-700 dark:bg-gray-900">
+                                            @else
+                                                <span class="text-xs text-gray-400">Kapalı</span>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                    <p class="text-[11px] text-gray-400">Gece yarısı kapanış için 24:00 yaz. Gün içinde birden çok aralık varsa tek aralıkla değiştirilir.</p>
+                                </div>
+                                <div class="space-y-3 text-sm">
+                                    <label class="block"><span class="text-[11px] font-semibold uppercase text-gray-400">Telefon</span>
+                                        <input type="text" wire:model="info.phone" class="mt-1 w-full rounded-lg border-gray-300 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900"></label>
+                                    <div>
+                                        <span class="text-[11px] font-semibold uppercase text-gray-400">Birincil kategori</span>
+                                        <p class="text-xs text-gray-600 dark:text-gray-300">{{ $info['category']['name'] ?: '—' }}@if ($info['category']['id'] !== '') <span class="font-semibold text-sky-700">· yeni seçildi</span>@endif</p>
+                                        <div class="mt-1 flex gap-2">
+                                            <input type="text" wire:model="categoryTerm" wire:keydown.enter="searchCategory" placeholder="Google kategorisi ara (ör. diş kliniği)" class="min-w-0 flex-1 rounded-lg border-gray-300 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900">
+                                            <button type="button" wire:click="searchCategory" class="rounded-lg bg-white px-3 text-xs font-semibold ring-1 ring-inset ring-gray-300 dark:bg-gray-800 dark:ring-gray-600">Ara</button>
+                                        </div>
+                                        @foreach ($categoryResults as $c)
+                                            <button type="button" wire:key="cat-{{ $c['id'] }}" wire:click="pickCategory('{{ $c['id'] }}', @js($c['name']))" class="mr-2 mt-1 rounded-full bg-white px-2.5 py-0.5 text-xs ring-1 ring-inset ring-gray-300 hover:bg-brand-50 dark:bg-gray-800 dark:ring-gray-600">{{ $c['name'] }}</button>
+                                        @endforeach
+                                        <p class="mt-1 text-[11px] text-gray-400">Eski birincil kategori ek kategori olarak kalır; hizmetler silinmez.</p>
+                                    </div>
+                                    <label class="block"><span class="text-[11px] font-semibold uppercase text-gray-400">Randevu bağlantısı ekle</span>
+                                        <input type="url" wire:model="info.appointment" placeholder="https://" class="mt-1 w-full rounded-lg border-gray-300 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900"></label>
+                                    <label class="block"><span class="text-[11px] font-semibold uppercase text-gray-400">Video ekle (MP4 adresi)</span>
+                                        <input type="url" wire:model="info.video" placeholder="https://…/video.mp4" class="mt-1 w-full rounded-lg border-gray-300 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900"></label>
+                                </div>
+                                @if ($attributeList !== [])
+                                    <div class="lg:col-span-2">
+                                        <p class="text-[11px] font-semibold uppercase text-gray-400">Özellikler (yalnız değiştirdiklerin gider)</p>
+                                        <div class="mt-1 grid gap-x-6 gap-y-1 sm:grid-cols-2 xl:grid-cols-3">
+                                            @foreach ($attributeList as $a)
+                                                @php($key = str_replace('attributes/', '', $a['name']))
+                                                <label wire:key="attr-{{ $key }}" class="flex items-center gap-2 text-xs">
+                                                    <select wire:model="info.attributes.{{ $key }}" class="rounded-lg border-gray-300 py-0.5 text-xs dark:border-gray-700 dark:bg-gray-900">
+                                                        <option value="">Belirtilmemiş</option>
+                                                        <option value="yes">Evet</option>
+                                                        <option value="no">Hayır</option>
+                                                    </select>
+                                                    <span class="text-gray-700 dark:text-gray-300">{{ $a['label'] }}@if ($a['group'] !== '') <span class="text-gray-400">· {{ $a['group'] }}</span>@endif</span>
+                                                </label>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endif
+                                <div class="flex gap-3 lg:col-span-2">
+                                    <button type="button" wire:click="sendInfo" wire:confirm="Değiştirdiğin bilgiler Google’daki profile yazılsın mı? (Geri alınabilir.)" class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600">Değişenleri Google’a gönder</button>
+                                    <button type="button" wire:click="$set('infoEditing', null)" class="text-xs text-gray-500 hover:underline">Vazgeç</button>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
+            @empty
+                <p class="px-4 py-5 text-sm text-gray-500">Operasyonel markaya bağlı İşletme Profili yok.</p>
+            @endforelse
+        </section>
     @endif
 </div>
