@@ -31,6 +31,13 @@ final class MoxDOP_Connector_Builder
 
     const FLUSH_OPTION = 'moxdop_connector_build_flush';
 
+    /** 1.11.3: public paths whose rendered page the next GET /build returns once (settings › render_preview). */
+    const PREVIEW_OPTION = 'moxdop_connector_build_preview';
+
+    const PREVIEW_MAX_PATHS = 4;
+
+    const PREVIEW_MAX_FILES = 60;
+
     const UNDO_PREFIX = 'moxdop_build_undo_';
 
     const MAX_OPERATIONS = 25;
@@ -688,6 +695,16 @@ final class MoxDOP_Connector_Builder
         $changed = [];
         $errors = [];
         $previous = [];
+        if (array_key_exists('render_preview', $values)) {
+            $paths = $this->preview_paths($values['render_preview']);
+            if (is_string($paths)) {
+                $errors[] = $paths;
+            } else {
+                update_option(self::PREVIEW_OPTION, $paths, false);
+                $changed['render_preview'] = $paths;
+            }
+            unset($values['render_preview']);
+        }
         if (array_key_exists('elementor_kit', $values)) {
             $kit = $this->kit_settings($values['elementor_kit']);
             if (is_string($kit)) {
@@ -866,8 +883,78 @@ final class MoxDOP_Connector_Builder
             'menus' => $menus,
             'elementor_globals' => $this->elementor_globals(),
             'built' => $built,
+            'preview' => $this->take_preview(),
             'limits' => ['operations_per_request' => self::MAX_OPERATIONS, 'media_bytes' => self::MAX_MEDIA_BYTES],
         ];
+    }
+
+    /**
+     * 1.11.3: render_preview takes up to 4 public paths of this site ("/", "/products/hr1/"); anything else is refused.
+     *
+     * @return array|string the paths or an error
+     */
+    private function preview_paths($value)
+    {
+        $paths = [];
+        foreach ((array) $value as $path) {
+            $path = (string) $path;
+            if ($path === '' || $path[0] !== '/' || strpos($path, '//') === 0 || strpos($path, '..') !== false || preg_match('/[\s<>"\'\\\\]/', $path)) {
+                return 'render_preview: a path like "/" or "/products/hr1/" is required';
+            }
+            $paths[] = $path;
+        }
+        if ($paths === [] || count($paths) > self::PREVIEW_MAX_PATHS) {
+            return 'render_preview: 1-'.self::PREVIEW_MAX_PATHS.' paths are required';
+        }
+
+        return array_values(array_unique($paths));
+    }
+
+    /**
+     * 1.11.3: what a visitor gets for the paths render_preview asked for, once: the page HTML and the stylesheets of this
+     * site it loads, gzip + base64 in `data` (JSON {path: {status, html, css: {url: text}}}). Read only: public GET
+     * requests to this site's own address; nothing else is fetched.
+     */
+    private function take_preview()
+    {
+        $paths = get_option(self::PREVIEW_OPTION);
+        if (! is_array($paths) || $paths === []) {
+            return null;
+        }
+        delete_option(self::PREVIEW_OPTION);
+        $host = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
+        $args = ['timeout' => 15, 'redirection' => 3, 'sslverify' => (bool) apply_filters('https_local_ssl_verify', false), 'headers' => ['Cache-Control' => 'no-cache']];
+        $pages = [];
+        $files = 0;
+        foreach ($paths as $path) {
+            $response = wp_remote_get(home_url($path), $args);
+            if (is_wp_error($response)) {
+                $pages[$path] = ['status' => 0, 'error' => $response->get_error_message()];
+
+                continue;
+            }
+            $html = (string) wp_remote_retrieve_body($response);
+            $css = [];
+            preg_match_all('/<link[^>]+rel=[\'"]stylesheet[\'"][^>]*>/i', $html, $links);
+            foreach ($links[0] as $tag) {
+                if (! preg_match('/href=[\'"]([^\'"]+)[\'"]/i', $tag, $match)) {
+                    continue;
+                }
+                $url = html_entity_decode($match[1]);
+                $url = strpos($url, '//') === 0 ? 'https:'.$url : $url;
+                if (strtolower((string) wp_parse_url($url, PHP_URL_HOST)) !== $host || isset($css[$url]) || $files >= self::PREVIEW_MAX_FILES) {
+                    continue;
+                }
+                $files++;
+                $file = wp_remote_get($url, $args);
+                $css[$url] = is_wp_error($file) ? '' : (string) wp_remote_retrieve_body($file);
+            }
+            $pages[$path] = ['status' => (int) wp_remote_retrieve_response_code($response), 'html' => $html, 'css' => $css];
+        }
+        $json = (string) wp_json_encode($pages);
+        $gzip = function_exists('gzencode');
+
+        return ['encoding' => $gzip ? 'gzip+base64' : 'base64', 'data' => base64_encode($gzip ? gzencode($json, 6) : $json)];
     }
 
     /**

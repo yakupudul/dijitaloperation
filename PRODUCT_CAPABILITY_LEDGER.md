@@ -274,6 +274,7 @@
 - **1.11.2:** `settings` işlemi `elementor_kit` kabul eder: verilen Site Settings anahtarları (global renk/font, theme style, layout) etkin kit'e birleştirilir; geri alma önceki Site Settings'i komple geri koyar.
 - **Neden:** Özel renkler Elementor'da rastgele kimlikle kaydediliyor; Claude bunları bilmeden tasarımda global renk kullanamıyordu (B1yangın kurulumu).
 - **State:** CODED (`php -l`, sürüm testleri). **Operator after deploy:** siteyi 1.11.2'ye güncelle.
+- **1.11.3 (yakup "Eklenti önizlemesi" kartı, 2026-10-08):** `settings` › `render_preview` (en çok 4 site içi yol) bir sonraki `GET /build` yanıtında o sayfaları bir ziyaretçinin gördüğü gibi döndürür (HTML + sitenin kendi stil dosyaları, gzip+base64, tek seferlik). Yalnız okur; sitenin kendi adresine herkese açık GET dışında bir şey çekmez. Neden: Claude siteye erişemediği için tasarımı kör kuruyordu.
 
 ## 2026-10-05 — Claude site kurulumu: WordPress Connector 1.8.0 + MCP (list-sites, inspect-site, build-site)
 
